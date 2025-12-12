@@ -9,6 +9,22 @@ use finstack_core::market_data::context::MarketContext;
 use finstack_core::money::Money;
 use std::sync::Arc;
 
+// LSMC imports (gated by feature)
+#[cfg(feature = "mc")]
+use crate::instruments::common::mc::process::ou::{calibrate_theta_from_curve, HullWhite1FProcess};
+#[cfg(feature = "mc")]
+use crate::instruments::common::models::monte_carlo::payoff::swaption::{
+    BermudanSwaptionPayoff, SwapSchedule, SwaptionType,
+};
+#[cfg(feature = "mc")]
+use crate::instruments::common::models::monte_carlo::pricer::basis::PolynomialBasis;
+#[cfg(feature = "mc")]
+use crate::instruments::common::models::monte_carlo::pricer::swaption_lsmc::{
+    SwaptionLsmcConfig, SwaptionLsmcPricer as SharedSwaptionLsmcPricer,
+};
+#[cfg(feature = "mc")]
+use crate::instruments::common::parameters::OptionType;
+
 // ========================= NEW SIMPLIFIED PRICER =========================
 
 /// New simplified Swaption pricer supporting multiple models.
@@ -291,10 +307,8 @@ pub struct BermudanSwaptionPricer {
     /// Number of tree steps (for tree method)
     tree_steps: usize,
     /// Number of MC paths (for LSMC method)
-    #[allow(dead_code)]
     mc_paths: usize,
     /// Random seed (for LSMC method)
-    #[allow(dead_code)]
     mc_seed: u64,
     /// Pre-calibrated Hull-White tree for model reuse.
     ///
@@ -440,33 +454,196 @@ impl BermudanSwaptionPricer {
         Ok(result)
     }
 
-    /// Price using LSMC.
     /// Price using LSMC (Longstaff-Schwartz Monte Carlo).
     ///
-    /// # Current Status
+    /// Uses Hull-White 1F simulation with curve-calibrated θ(t) and
+    /// Longstaff-Schwartz backward induction for optimal exercise decisions.
     ///
-    /// LSMC is not yet implemented and currently falls back to tree pricing.
-    /// This fallback ensures API stability while the LSMC implementation is developed.
+    /// # Features
     ///
-    /// # TODO: LSMC Implementation
-    ///
-    /// The full LSMC implementation (in progress) will provide:
-    /// - **Path generation**: Hull-White or LMM rate simulation
-    /// - **Regression**: Polynomial basis functions for continuation value
-    /// - **Variance reduction**: Control variates, antithetic sampling
-    /// - **Convergence diagnostics**: Standard error estimation
-    ///
-    /// For production Bermudan swaption pricing, use `HullWhiteTree` method
-    /// which is fully implemented and industry-standard.
+    /// - Hull-White 1F short rate simulation with exact discretization
+    /// - Curve-derived piecewise θ(t) for initial curve consistency
+    /// - Polynomial basis functions for regression
+    /// - Antithetic variates for variance reduction
+    /// - Standard error estimation in results
+    #[cfg(feature = "mc")]
     fn price_lsmc(
         &self,
         swaption: &BermudanSwaption,
         market: &MarketContext,
         as_of: finstack_core::dates::Date,
     ) -> Result<ValuationResult, PricingError> {
-        // TODO(LSMC): Implement full Longstaff-Schwartz Monte Carlo.
-        // Currently falls back to tree pricing for API stability.
-        // See SwaptionLsmcPricer::price_dyn for detailed implementation roadmap.
+        // Get discount curve
+        let disc = market
+            .get_discount_ref(swaption.discount_curve_id.as_str())
+            .map_err(|e| PricingError::missing_market_data(e.to_string()))?;
+
+        // Calculate time to maturity
+        let ttm = swaption
+            .time_to_maturity(as_of)
+            .map_err(|e| PricingError::model_failure(e.to_string()))?;
+
+        if ttm <= 0.0 {
+            // Expired - return zero
+            return Ok(ValuationResult::stamped(
+                swaption.id.as_str(),
+                as_of,
+                Money::new(0.0, swaption.notional.currency()),
+            ));
+        }
+
+        // Get exercise times in years
+        let exercise_times = swaption
+            .exercise_times(as_of)
+            .map_err(|e| PricingError::model_failure(e.to_string()))?;
+
+        if exercise_times.is_empty() {
+            return Err(PricingError::model_failure(
+                "No valid exercise dates for Bermudan swaption".to_string(),
+            ));
+        }
+
+        // Filter exercise times to be within [0, ttm]
+        let valid_exercise_times: Vec<f64> = exercise_times
+            .into_iter()
+            .filter(|&t| t > 0.0 && t <= ttm)
+            .collect();
+
+        if valid_exercise_times.is_empty() {
+            return Err(PricingError::model_failure(
+                "No exercise dates before maturity".to_string(),
+            ));
+        }
+
+        // Build swap schedule (payment times and accrual fractions)
+        let (payment_dates, accrual_fractions) = swaption
+            .build_swap_schedule(as_of)
+            .map_err(|e| PricingError::model_failure(e.to_string()))?;
+
+        // Convert payment dates to year fractions
+        let ctx = finstack_core::dates::DayCountCtx::default();
+        let payment_times: Vec<f64> = payment_dates
+            .iter()
+            .map(|&d| swaption.day_count.year_fraction(as_of, d, ctx))
+            .collect::<Result<Vec<_>, _>>()
+            .map_err(|e| PricingError::model_failure(e.to_string()))?;
+
+        // Create swap schedule for MC pricer
+        let swap_start_time = swaption
+            .day_count
+            .year_fraction(as_of, swaption.swap_start, ctx)
+            .map_err(|e| PricingError::model_failure(e.to_string()))?;
+
+        let swap_schedule = SwapSchedule::new(
+            swap_start_time,
+            ttm,
+            payment_times,
+            accrual_fractions,
+        );
+
+        // Determine option type for payoff
+        let option_type = match swaption.option_type {
+            OptionType::Call => SwaptionType::Payer,
+            OptionType::Put => SwaptionType::Receiver,
+        };
+
+        // Create Bermudan payoff
+        let payoff = BermudanSwaptionPayoff::new(
+            valid_exercise_times.clone(),
+            swap_schedule,
+            swaption.strike_rate,
+            option_type,
+            swaption.notional.amount(),
+            swaption.notional.currency(),
+        );
+
+        // Build exercise-aligned time grid
+        let (time_grid, exercise_indices) = SwaptionLsmcConfig::build_exercise_aligned_grid(
+            &valid_exercise_times,
+            ttm,
+            2, // Minimum steps between exercise dates
+        )
+        .map_err(|e| PricingError::model_failure(e.to_string()))?;
+
+        // Build θ(t) times for calibration (use grid times)
+        let theta_times: Vec<f64> = (0..=time_grid.num_steps())
+            .map(|i| time_grid.time(i.min(time_grid.num_steps() - 1)))
+            .filter(|&t| t <= ttm)
+            .collect();
+
+        // Create discount curve function
+        let discount_fn = |t: f64| disc.df(t);
+
+        // Calibrate Hull-White parameters from discount curve
+        let hw_params = calibrate_theta_from_curve(
+            self.hw_params.kappa,
+            self.hw_params.sigma,
+            discount_fn,
+            &theta_times,
+        );
+
+        // Get initial short rate from discount curve
+        let dt_small = 0.01; // Small time step for initial rate
+        let initial_rate = if dt_small > 0.0 {
+            -disc.df(dt_small).ln() / dt_small
+        } else {
+            0.03
+        };
+
+        // Create Hull-White process
+        let hw_process = HullWhite1FProcess::new(hw_params);
+
+        // Create LSMC config
+        let lsmc_config = SwaptionLsmcConfig::new(self.mc_paths, self.mc_seed)
+            .with_basis_degree(3)
+            .with_antithetic(true);
+
+        // Create the shared LSMC pricer
+        let lsmc_pricer = SharedSwaptionLsmcPricer::with_config(lsmc_config, hw_process);
+
+        // Create basis functions
+        let basis = PolynomialBasis::new(3);
+
+        // Price using the shared LSMC engine with custom grid
+        let estimate = lsmc_pricer
+            .price_bermudan_with_grid(
+                &payoff,
+                initial_rate,
+                &time_grid,
+                &exercise_indices,
+                &basis,
+                discount_fn,
+                swaption.notional.currency(),
+            )
+            .map_err(|e| PricingError::model_failure(e.to_string()))?;
+
+        // Build result with diagnostics
+        let mut result = ValuationResult::stamped(
+            swaption.id.as_str(),
+            as_of,
+            estimate.mean,
+        );
+
+        // Add LSMC diagnostics to measures
+        result.measures.insert("lsmc_stderr".to_string(), estimate.stderr);
+        result.measures.insert("lsmc_num_paths".to_string(), self.mc_paths as f64);
+        result.measures.insert("lsmc_seed".to_string(), self.mc_seed as f64);
+        let (ci_low, ci_high) = estimate.ci_95;
+        result.measures.insert("lsmc_ci95_low".to_string(), ci_low.amount());
+        result.measures.insert("lsmc_ci95_high".to_string(), ci_high.amount());
+
+        Ok(result)
+    }
+
+    /// Fallback for when MC feature is disabled.
+    #[cfg(not(feature = "mc"))]
+    fn price_lsmc(
+        &self,
+        swaption: &BermudanSwaption,
+        market: &MarketContext,
+        as_of: finstack_core::dates::Date,
+    ) -> Result<ValuationResult, PricingError> {
+        // Fall back to tree pricing when MC is disabled
         self.price_tree(swaption, market, as_of)
     }
 }
@@ -484,7 +661,7 @@ impl Pricer for BermudanSwaptionPricer {
                 PricerKey::new(InstrumentType::BermudanSwaption, ModelKey::HullWhite1F)
             }
             BermudanPricingMethod::LSMC => {
-                PricerKey::new(InstrumentType::BermudanSwaption, ModelKey::MonteCarloGBM)
+                PricerKey::new(InstrumentType::BermudanSwaption, ModelKey::MonteCarloHullWhite1F)
             }
         }
     }

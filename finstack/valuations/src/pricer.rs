@@ -55,6 +55,8 @@ pub enum InstrumentType {
     FxSpot = 17,
     /// FX forward or FX swap.
     FxSwap = 18,
+    /// Cross-currency swap (multi-currency floating legs).
+    XccySwap = 52,
     /// Inflation-linked bond (TIPS, index-linked gilts).
     InflationLinkedBond = 19,
     /// Zero-coupon inflation swap.
@@ -128,6 +130,7 @@ impl InstrumentType {
             InstrumentType::FxOption => "FxOption",
             InstrumentType::FxSpot => "FxSpot",
             InstrumentType::FxSwap => "FxSwap",
+            InstrumentType::XccySwap => "XccySwap",
             InstrumentType::InflationLinkedBond => "InflationLinkedBond",
             InstrumentType::InflationSwap => "InflationSwap",
             InstrumentType::InterestRateFuture => "InterestRateFuture",
@@ -176,6 +179,7 @@ impl std::fmt::Display for InstrumentType {
             InstrumentType::FxOption => "fx_option",
             InstrumentType::FxSpot => "fx_spot",
             InstrumentType::FxSwap => "fx_swap",
+            InstrumentType::XccySwap => "xccy_swap",
             InstrumentType::InflationLinkedBond => "inflation_linked_bond",
             InstrumentType::InflationSwap => "inflation_swap",
             InstrumentType::InterestRateFuture => "interest_rate_future",
@@ -227,6 +231,7 @@ impl std::str::FromStr for InstrumentType {
             "fx_option" | "fxoption" => Ok(InstrumentType::FxOption),
             "fx_spot" | "fxspot" => Ok(InstrumentType::FxSpot),
             "fx_swap" | "fxswap" => Ok(InstrumentType::FxSwap),
+            "xccy_swap" | "xccyswap" | "xccy" | "cross_currency_swap" => Ok(InstrumentType::XccySwap),
             "inflation_linked_bond" | "ilb" => Ok(InstrumentType::InflationLinkedBond),
             "inflation_swap" => Ok(InstrumentType::InflationSwap),
             "interest_rate_future" | "ir_future" | "irfuture" => {
@@ -774,6 +779,14 @@ fn register_all_pricers(registry: &mut PricerRegistry) {
         crate::instruments::fx_swap::pricer::SimpleFxSwapDiscountingPricer::default()
     );
 
+    // XCCY Swap
+    register_pricer!(
+        registry,
+        XccySwap,
+        Discounting,
+        crate::instruments::xccy_swap::pricer::SimpleXccySwapDiscountingPricer::default()
+    );
+
     // FX Option
     register_pricer!(
         registry,
@@ -1054,13 +1067,15 @@ fn register_all_pricers(registry: &mut PricerRegistry) {
         crate::instruments::fx_barrier_option::pricer::FxBarrierOptionAnalyticalPricer
     );
 
-    // Swaption LSMC (Bermudan exercise)
+    // Bermudan Swaption LSMC (Hull-White 1F Monte Carlo)
     #[cfg(feature = "mc")]
     register_pricer!(
         registry,
-        Swaption,
-        MonteCarloGBM,
-        crate::instruments::swaption::pricer::SwaptionLsmcPricer::default()
+        BermudanSwaption,
+        MonteCarloHullWhite1F,
+        crate::instruments::swaption::pricer::BermudanSwaptionPricer::lsmc_pricer(
+            crate::instruments::swaption::pricer::HullWhiteParams::default()
+        )
     );
 
     // DCF (Discounted Cash Flow)

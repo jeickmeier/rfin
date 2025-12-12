@@ -135,6 +135,10 @@ mod fx_spot;
 #[path = "instruments/fx_swap/mod.rs"]
 mod fx_swap;
 
+/// XCCY swap tests - Cross-currency swaps (multi-currency floating legs)
+#[path = "instruments/xccy_swap/mod.rs"]
+mod xccy_swap;
+
 // ============================================================================
 // Structured Products
 // ============================================================================

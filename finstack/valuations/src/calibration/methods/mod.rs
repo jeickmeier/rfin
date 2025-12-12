@@ -94,6 +94,7 @@ pub mod pricing;
 pub mod sabr_surface;
 pub mod swaption_market_conventions;
 pub mod swaption_vol;
+pub mod xccy;
 
 pub use base_correlation::BaseCorrelationCalibrator;
 pub use discount::DiscountCurveCalibrator;
@@ -109,3 +110,4 @@ pub use inflation_curve::InflationCurveCalibrator;
 pub use sabr_surface::SurfaceInterp;
 pub use sabr_surface::VolSurfaceCalibrator;
 pub use swaption_vol::SwaptionVolCalibrator;
+pub use xccy::{SpreadOn as XccySpreadOn, XccyBasisCalibrator, XccyBasisQuote};

@@ -984,26 +984,26 @@ mod tests {
     #[test]
     fn test_normal_to_lognormal_vol_conversion() {
         // 100 bps normal vol at 5% rate → 20% lognormal
-        let lognormal = normal_to_lognormal_vol(0.01, 0.05).unwrap();
+        let lognormal = normal_to_lognormal_vol(0.01, 0.05).expect("valid conversion");
         assert!((lognormal - 0.20).abs() < 1e-10);
 
         // 80 bps normal vol at 4% rate → 20% lognormal
-        let lognormal = normal_to_lognormal_vol(0.008, 0.04).unwrap();
+        let lognormal = normal_to_lognormal_vol(0.008, 0.04).expect("valid conversion");
         assert!((lognormal - 0.20).abs() < 1e-10);
 
         // 50 bps normal vol at 2.5% rate → 20% lognormal
-        let lognormal = normal_to_lognormal_vol(0.005, 0.025).unwrap();
+        let lognormal = normal_to_lognormal_vol(0.005, 0.025).expect("valid conversion");
         assert!((lognormal - 0.20).abs() < 1e-10);
     }
 
     #[test]
     fn test_lognormal_to_normal_vol_conversion() {
         // 20% lognormal at 5% rate → 100 bps normal
-        let normal = lognormal_to_normal_vol(0.20, 0.05).unwrap();
+        let normal = lognormal_to_normal_vol(0.20, 0.05).expect("valid conversion");
         assert!((normal - 0.01).abs() < 1e-10);
 
         // 25% lognormal at 4% rate → 100 bps normal
-        let normal = lognormal_to_normal_vol(0.25, 0.04).unwrap();
+        let normal = lognormal_to_normal_vol(0.25, 0.04).expect("valid conversion");
         assert!((normal - 0.01).abs() < 1e-10);
     }
 
@@ -1012,8 +1012,8 @@ mod tests {
         let original_normal = 0.012; // 120 bps
         let rate_level = 0.045; // 4.5%
 
-        let lognormal = normal_to_lognormal_vol(original_normal, rate_level).unwrap();
-        let back_to_normal = lognormal_to_normal_vol(lognormal, rate_level).unwrap();
+        let lognormal = normal_to_lognormal_vol(original_normal, rate_level).expect("valid conversion");
+        let back_to_normal = lognormal_to_normal_vol(lognormal, rate_level).expect("valid conversion");
 
         assert!(
             (back_to_normal - original_normal).abs() < 1e-15,
@@ -1057,10 +1057,11 @@ mod tests {
 
     #[test]
     fn test_config_from_normal_vol_factory() {
-        let config = ShortRateTreeConfig::from_normal_vol(100, 0.008, 0.005).unwrap();
+        let config =
+            ShortRateTreeConfig::from_normal_vol(100, 0.008, 0.005).expect("valid config");
         assert_eq!(config.model, ShortRateModel::HoLee);
 
-        let config = ShortRateTreeConfig::from_normal_vol(100, 0.01, 0.05).unwrap();
+        let config = ShortRateTreeConfig::from_normal_vol(100, 0.01, 0.05).expect("valid config");
         assert_eq!(config.model, ShortRateModel::BlackDermanToy);
         assert!((config.volatility - 0.20).abs() < 1e-10);
     }
@@ -1084,7 +1085,8 @@ mod tests {
     #[test]
     fn test_config_from_normal_vol_low_rates() {
         // Low rate environment → should use Ho-Lee
-        let config = ShortRateTreeConfig::from_normal_vol(100, 0.008, 0.005).unwrap();
+        let config =
+            ShortRateTreeConfig::from_normal_vol(100, 0.008, 0.005).expect("valid config");
         assert_eq!(config.model, ShortRateModel::HoLee);
         assert_eq!(config.volatility, 0.008); // Unchanged
     }
@@ -1092,7 +1094,7 @@ mod tests {
     #[test]
     fn test_config_from_normal_vol_normal_rates() {
         // Normal rate environment → should use BDT with converted vol
-        let config = ShortRateTreeConfig::from_normal_vol(100, 0.01, 0.05).unwrap();
+        let config = ShortRateTreeConfig::from_normal_vol(100, 0.01, 0.05).expect("valid config");
         assert_eq!(config.model, ShortRateModel::BlackDermanToy);
         // 100 bps / 5% = 20% lognormal
         assert!((config.volatility - 0.20).abs() < 1e-10);

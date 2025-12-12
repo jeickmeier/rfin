@@ -2,6 +2,7 @@
 
 use finstack_core::currency::Currency;
 use finstack_core::dates::{Date, DayCount, Frequency};
+use finstack_core::market_data::context::MarketContext;
 use finstack_core::market_data::term_structures::discount_curve::DiscountCurve;
 use finstack_core::math::interp::InterpStyle;
 use finstack_core::money::Money;
@@ -10,8 +11,10 @@ use finstack_valuations::instruments::common::models::trees::{HullWhiteTree, Hul
 use finstack_valuations::instruments::common::parameters::OptionType;
 use finstack_valuations::instruments::swaption::pricing::BermudanSwaptionTreeValuator;
 use finstack_valuations::instruments::swaption::{
-    BermudanSchedule, BermudanSwaption, BermudanType, SwaptionSettlement,
+    BermudanSchedule, BermudanSwaption, BermudanSwaptionPricer, BermudanType, HullWhiteParams,
+    SwaptionSettlement,
 };
+use finstack_valuations::pricer::Pricer;
 use time::Month;
 
 fn test_discount_curve() -> DiscountCurve {
@@ -303,4 +306,180 @@ fn test_bermudan_to_european_conversion() {
 
     // European expiry should be the first Bermudan exercise date
     assert_eq!(european.expiry, first_exercise);
+}
+
+// ============================================================================
+// LSMC Tests (requires "mc" feature)
+// ============================================================================
+
+fn build_market_context() -> MarketContext {
+    let curve = test_discount_curve();
+    MarketContext::new().insert_discount(curve)
+}
+
+/// Test LSMC vs Tree: prices should be in same ballpark.
+#[cfg(feature = "mc")]
+#[test]
+fn test_lsmc_vs_tree_sanity() {
+    let as_of = Date::from_calendar_date(2025, Month::January, 1).expect("Valid date");
+    let swap_start = as_of;
+    let swap_end = Date::from_calendar_date(2030, Month::January, 1).expect("Valid date");
+    let first_exercise = Date::from_calendar_date(2027, Month::January, 1).expect("Valid date");
+
+    let swaption =
+        test_bermudan_swaption(swap_start, swap_end, first_exercise, 0.03, OptionType::Call);
+
+    let market = build_market_context();
+
+    // Price with tree
+    let tree_pricer = BermudanSwaptionPricer::tree_pricer(HullWhiteParams::default())
+        .with_tree_steps(100);
+    let tree_result = tree_pricer.price_dyn(&swaption, &market, as_of);
+    assert!(tree_result.is_ok(), "Tree pricing should succeed: {:?}", tree_result.err());
+    let tree_pv = tree_result.expect("Tree pricing should succeed").value.amount();
+
+    // Price with LSMC (fewer paths for speed in tests)
+    let lsmc_pricer = BermudanSwaptionPricer::lsmc_pricer(HullWhiteParams::default())
+        .with_mc_paths(10_000)
+        .with_seed(42);
+    let lsmc_result = lsmc_pricer.price_dyn(&swaption, &market, as_of);
+    assert!(lsmc_result.is_ok(), "LSMC pricing should succeed: {:?}", lsmc_result.err());
+    let lsmc_result = lsmc_result.expect("LSMC pricing should succeed");
+    let lsmc_pv = lsmc_result.value.amount();
+
+    // Check that LSMC diagnostics are present
+    assert!(
+        lsmc_result.measures.contains_key("lsmc_stderr"),
+        "LSMC result should contain stderr"
+    );
+    assert!(
+        lsmc_result.measures.contains_key("lsmc_num_paths"),
+        "LSMC result should contain num_paths"
+    );
+    assert!(
+        lsmc_result.measures.contains_key("lsmc_ci95_low"),
+        "LSMC result should contain CI95 low"
+    );
+    assert!(
+        lsmc_result.measures.contains_key("lsmc_ci95_high"),
+        "LSMC result should contain CI95 high"
+    );
+
+    // Both should be positive
+    assert!(tree_pv >= 0.0, "Tree PV should be non-negative: {}", tree_pv);
+    assert!(lsmc_pv >= 0.0, "LSMC PV should be non-negative: {}", lsmc_pv);
+
+    // Note: LSMC and Tree may produce different values due to:
+    // 1. Different theta(t) calibration approaches (LSMC: curve-derived, Tree: forward induction)
+    // 2. MC noise with limited paths
+    // 3. Different grid/discretization
+    //
+    // This test validates the infrastructure works, not exact numerical agreement.
+    // For production use, more paths and careful model calibration are needed.
+    let max_pv = tree_pv.max(lsmc_pv);
+    let min_pv = tree_pv.min(lsmc_pv);
+    if max_pv > 1.0 {
+        // Just verify they're within an order of magnitude (sanity check)
+        let ratio = min_pv / max_pv;
+        assert!(
+            ratio > 0.1,
+            "LSMC ({}) and Tree ({}) prices should be same order of magnitude (ratio: {})",
+            lsmc_pv,
+            tree_pv,
+            ratio
+        );
+    }
+
+    eprintln!(
+        "Tree PV: {:.2}, LSMC PV: {:.2}, stderr: {:.2}",
+        tree_pv,
+        lsmc_pv,
+        lsmc_result.measures.get("lsmc_stderr").copied().unwrap_or(0.0)
+    );
+}
+
+/// Test LSMC determinism: same seed produces identical results.
+#[cfg(feature = "mc")]
+#[test]
+fn test_lsmc_determinism() {
+    let as_of = Date::from_calendar_date(2025, Month::January, 1).expect("Valid date");
+    let swap_start = as_of;
+    let swap_end = Date::from_calendar_date(2030, Month::January, 1).expect("Valid date");
+    let first_exercise = Date::from_calendar_date(2027, Month::January, 1).expect("Valid date");
+
+    let swaption =
+        test_bermudan_swaption(swap_start, swap_end, first_exercise, 0.03, OptionType::Call);
+
+    let market = build_market_context();
+
+    // Price twice with same seed
+    let pricer1 = BermudanSwaptionPricer::lsmc_pricer(HullWhiteParams::default())
+        .with_mc_paths(5_000)
+        .with_seed(12345);
+    let result1 = pricer1.price_dyn(&swaption, &market, as_of).expect("Pricing should succeed");
+
+    let pricer2 = BermudanSwaptionPricer::lsmc_pricer(HullWhiteParams::default())
+        .with_mc_paths(5_000)
+        .with_seed(12345);
+    let result2 = pricer2.price_dyn(&swaption, &market, as_of).expect("Pricing should succeed");
+
+    // Results should be identical
+    assert!(
+        (result1.value.amount() - result2.value.amount()).abs() < 1e-10,
+        "Same seed should produce identical results: {} vs {}",
+        result1.value.amount(),
+        result2.value.amount()
+    );
+}
+
+/// Test LSMC with different seeds produces different results.
+#[cfg(feature = "mc")]
+#[test]
+fn test_lsmc_different_seeds() {
+    let as_of = Date::from_calendar_date(2025, Month::January, 1).expect("Valid date");
+    let swap_start = as_of;
+    let swap_end = Date::from_calendar_date(2030, Month::January, 1).expect("Valid date");
+    let first_exercise = Date::from_calendar_date(2027, Month::January, 1).expect("Valid date");
+
+    let swaption =
+        test_bermudan_swaption(swap_start, swap_end, first_exercise, 0.03, OptionType::Call);
+
+    let market = build_market_context();
+
+    // Price with different seeds
+    let pricer1 = BermudanSwaptionPricer::lsmc_pricer(HullWhiteParams::default())
+        .with_mc_paths(5_000)
+        .with_seed(111);
+    let result1 = pricer1.price_dyn(&swaption, &market, as_of).expect("Pricing should succeed");
+
+    let pricer2 = BermudanSwaptionPricer::lsmc_pricer(HullWhiteParams::default())
+        .with_mc_paths(5_000)
+        .with_seed(222);
+    let result2 = pricer2.price_dyn(&swaption, &market, as_of).expect("Pricing should succeed");
+
+    // Results should be different (due to different random paths)
+    // Note: There's a tiny probability they could be equal by chance, but effectively zero
+    assert!(
+        (result1.value.amount() - result2.value.amount()).abs() > 1e-10,
+        "Different seeds should produce different results: {} vs {}",
+        result1.value.amount(),
+        result2.value.amount()
+    );
+}
+
+/// Test LSMC pricer key is correct.
+#[cfg(feature = "mc")]
+#[test]
+fn test_lsmc_pricer_key() {
+    let pricer = BermudanSwaptionPricer::lsmc_pricer(HullWhiteParams::default());
+    let key = pricer.key();
+
+    assert_eq!(
+        key.instrument,
+        finstack_valuations::pricer::InstrumentType::BermudanSwaption
+    );
+    assert_eq!(
+        key.model,
+        finstack_valuations::pricer::ModelKey::MonteCarloHullWhite1F
+    );
 }

@@ -51,6 +51,8 @@ pub mod fx_option;
 pub mod fx_spot;
 /// fx swap module.
 pub mod fx_swap;
+/// cross-currency swap module.
+pub mod xccy_swap;
 /// inflation linked bond module.
 pub mod inflation_linked_bond;
 /// inflation swap module.
@@ -111,6 +113,7 @@ pub use fx_barrier_option::FxBarrierOption;
 pub use fx_option::FxOption;
 pub use fx_spot::FxSpot;
 pub use fx_swap::FxSwap;
+pub use xccy_swap::XccySwap;
 pub use inflation_linked_bond::InflationLinkedBond;
 pub use inflation_swap::InflationSwap;
 pub use ir_future::InterestRateFuture;

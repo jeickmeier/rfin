@@ -47,6 +47,24 @@ use finstack_core::Result;
 // Configuration
 // ============================================================================
 
+/// Time grid specification for swaption LSMC.
+#[derive(Clone, Debug)]
+pub enum TimeGridSpec {
+    /// Use a uniform grid with specified number of steps.
+    Uniform {
+        /// Number of time steps for simulation.
+        num_steps: usize,
+    },
+    /// Use a custom time grid (exercise dates are included exactly).
+    Custom(TimeGrid),
+}
+
+impl Default for TimeGridSpec {
+    fn default() -> Self {
+        TimeGridSpec::Uniform { num_steps: 100 }
+    }
+}
+
 /// Configuration for Bermudan swaption LSMC pricing.
 ///
 /// # Default Values
@@ -94,6 +112,12 @@ pub struct SwaptionLsmcConfig {
     ///
     /// Typically set automatically from the Bermudan schedule.
     pub exercise_dates: Vec<usize>,
+
+    /// Time grid specification.
+    ///
+    /// By default, uses uniform steps. For exact exercise date alignment,
+    /// use `TimeGridSpec::Custom` with exercise dates included in the grid.
+    pub time_grid_spec: TimeGridSpec,
 }
 
 impl Default for SwaptionLsmcConfig {
@@ -105,6 +129,7 @@ impl Default for SwaptionLsmcConfig {
             antithetic: true,
             control_variate: false,
             exercise_dates: Vec::new(),
+            time_grid_spec: TimeGridSpec::default(),
         }
     }
 }
@@ -143,6 +168,18 @@ impl SwaptionLsmcConfig {
         self
     }
 
+    /// Set time grid specification.
+    pub fn with_time_grid(mut self, spec: TimeGridSpec) -> Self {
+        self.time_grid_spec = spec;
+        self
+    }
+
+    /// Set number of time steps (for uniform grid).
+    pub fn with_num_steps(mut self, num_steps: usize) -> Self {
+        self.time_grid_spec = TimeGridSpec::Uniform { num_steps };
+        self
+    }
+
     /// Convert to internal LsmcConfig.
     pub fn to_lsmc_config(&self) -> LsmcConfig {
         LsmcConfig {
@@ -151,6 +188,59 @@ impl SwaptionLsmcConfig {
             exercise_dates: self.exercise_dates.clone(),
             use_parallel: false, // LSMC is complex, default to serial
         }
+    }
+
+    /// Build a time grid that includes all exercise dates exactly.
+    ///
+    /// Creates a grid with exercise dates as exact grid points, plus
+    /// optional refinement points between them.
+    ///
+    /// # Arguments
+    ///
+    /// * `exercise_times` - Exercise times in years (sorted)
+    /// * `maturity` - Final maturity time
+    /// * `min_steps_between` - Minimum steps between grid points (default: 1)
+    pub fn build_exercise_aligned_grid(
+        exercise_times: &[f64],
+        maturity: f64,
+        min_steps_between: usize,
+    ) -> Result<(TimeGrid, Vec<usize>)> {
+        let mut times = vec![0.0];
+        let mut exercise_indices = Vec::with_capacity(exercise_times.len());
+
+        for &ex_time in exercise_times {
+            if ex_time <= 0.0 || ex_time > maturity {
+                continue;
+            }
+
+            // Add refinement points between last time and this exercise date
+            let last_time = *times.last().expect("times vector should never be empty");
+            if min_steps_between > 0 && ex_time > last_time + 1e-10 {
+                let dt = (ex_time - last_time) / (min_steps_between + 1) as f64;
+                for i in 1..=min_steps_between {
+                    let t = last_time + dt * i as f64;
+                    if (t - ex_time).abs() > 1e-10 {
+                        times.push(t);
+                    }
+                }
+            }
+
+            // Add the exercise date exactly
+            let current_last = *times.last().expect("times vector should never be empty");
+            if (ex_time - current_last).abs() > 1e-10 {
+                times.push(ex_time);
+            }
+            exercise_indices.push(times.len() - 1);
+        }
+
+        // Add maturity if not already present
+        let final_last = *times.last().expect("times vector should never be empty");
+        if (final_last - maturity).abs() > 1e-10 {
+            times.push(maturity);
+        }
+
+        let grid = TimeGrid::from_times(times)?;
+        Ok((grid, exercise_indices))
     }
 }
 
@@ -312,16 +402,75 @@ impl SwaptionLsmcPricer {
             .collect();
 
         // Step 3: Backward induction with swap rate calculation
-        let values = self.backward_induction_swaption(
+        let time_grid = TimeGrid::uniform(time_to_maturity, num_steps)?;
+        let values = self.backward_induction_swaption_grid(
             &paths,
             payoff,
             &exercise_steps,
             basis,
-            dt,
+            &time_grid,
             &discount_curve_fn,
         )?;
 
         // Step 4: Compute statistics
+        let mut stats = OnlineStats::new();
+        for &value in &values {
+            stats.update(value);
+        }
+
+        let estimate = Estimate::new(stats.mean(), stats.stderr(), stats.ci_95(), values.len())
+            .with_std_dev(stats.std_dev());
+
+        Ok(MoneyEstimate::from_estimate(estimate, currency))
+    }
+
+    /// Price a Bermudan swaption using a custom time grid with exact exercise indices.
+    ///
+    /// This variant allows precise alignment of the time grid with exercise dates,
+    /// avoiding the rounding errors that can occur with uniform grids.
+    ///
+    /// # Arguments
+    ///
+    /// * `payoff` - Bermudan swaption payoff specification
+    /// * `initial_short_rate` - Initial short rate r(0)
+    /// * `time_grid` - Custom time grid (should include exercise dates exactly)
+    /// * `exercise_indices` - Exact step indices for exercise dates
+    /// * `basis` - Basis functions for regression
+    /// * `discount_curve_fn` - Function to get discount factors DF(t) for time t
+    /// * `currency` - Currency for result
+    ///
+    /// # Returns
+    ///
+    /// Statistical estimate of Bermudan swaption value
+    #[allow(clippy::too_many_arguments)]
+    pub fn price_bermudan_with_grid<B, F>(
+        &self,
+        payoff: &BermudanSwaptionPayoff,
+        initial_short_rate: f64,
+        time_grid: &TimeGrid,
+        exercise_indices: &[usize],
+        basis: &B,
+        discount_curve_fn: F,
+        currency: Currency,
+    ) -> Result<MoneyEstimate>
+    where
+        B: BasisFunctions,
+        F: Fn(f64) -> f64 + Send + Sync,
+    {
+        // Step 1: Generate short rate paths using the custom time grid
+        let paths = self.generate_rate_paths_with_grid(initial_short_rate, time_grid)?;
+
+        // Step 2: Backward induction with exact exercise indices
+        let values = self.backward_induction_swaption_grid(
+            &paths,
+            payoff,
+            exercise_indices,
+            basis,
+            time_grid,
+            &discount_curve_fn,
+        )?;
+
+        // Step 3: Compute statistics
         let mut stats = OnlineStats::new();
         for &value in &values {
             stats.update(value);
@@ -343,23 +492,35 @@ impl SwaptionLsmcPricer {
         time_to_maturity: f64,
         num_steps: usize,
     ) -> Result<Vec<Vec<f64>>> {
+        let time_grid = TimeGrid::uniform(time_to_maturity, num_steps)?;
+        self.generate_rate_paths_with_grid(initial_rate, &time_grid)
+    }
+
+    /// Generate short rate paths using a custom time grid.
+    ///
+    /// If antithetic variates are enabled, generates paired paths (Z, -Z)
+    /// which reduces variance through negative correlation.
+    fn generate_rate_paths_with_grid(
+        &self,
+        initial_rate: f64,
+        time_grid: &TimeGrid,
+    ) -> Result<Vec<Vec<f64>>> {
         if self.swaption_config.antithetic {
-            self.generate_antithetic_paths(initial_rate, time_to_maturity, num_steps)
+            self.generate_antithetic_paths_with_grid(initial_rate, time_grid)
         } else {
-            self.generate_standard_paths(initial_rate, time_to_maturity, num_steps)
+            self.generate_standard_paths_with_grid(initial_rate, time_grid)
         }
     }
 
-    /// Generate standard (non-antithetic) paths.
-    fn generate_standard_paths(
+    /// Generate standard (non-antithetic) paths using a time grid.
+    fn generate_standard_paths_with_grid(
         &self,
         initial_rate: f64,
-        time_to_maturity: f64,
-        num_steps: usize,
+        time_grid: &TimeGrid,
     ) -> Result<Vec<Vec<f64>>> {
-        let time_grid = TimeGrid::uniform(time_to_maturity, num_steps)?;
         let disc = ExactHullWhite1F::new();
         let rng = PhiloxRng::new(self.config.seed);
+        let num_steps = time_grid.num_steps();
 
         let mut paths = Vec::with_capacity(self.config.num_paths);
 
@@ -388,22 +549,21 @@ impl SwaptionLsmcPricer {
         Ok(paths)
     }
 
-    /// Generate antithetic path pairs (Z, -Z) for variance reduction.
+    /// Generate antithetic path pairs (Z, -Z) for variance reduction using a time grid.
     ///
     /// For each random draw Z, generates two paths:
     /// - Original path using Z
     /// - Antithetic path using -Z
     ///
     /// This exploits the negative correlation to reduce variance.
-    fn generate_antithetic_paths(
+    fn generate_antithetic_paths_with_grid(
         &self,
         initial_rate: f64,
-        time_to_maturity: f64,
-        num_steps: usize,
+        time_grid: &TimeGrid,
     ) -> Result<Vec<Vec<f64>>> {
-        let time_grid = TimeGrid::uniform(time_to_maturity, num_steps)?;
         let disc = ExactHullWhite1F::new();
         let rng = PhiloxRng::new(self.config.seed);
+        let num_steps = time_grid.num_steps();
 
         // With antithetic, we need half the random numbers
         let num_pairs = self.config.num_paths / 2;
@@ -476,7 +636,7 @@ impl SwaptionLsmcPricer {
         Ok(paths)
     }
 
-    /// Perform backward induction for swaptions.
+    /// Perform backward induction for swaptions using a time grid.
     ///
     /// # Discounting Convention
     ///
@@ -495,13 +655,13 @@ impl SwaptionLsmcPricer {
     ///
     /// See `lsmc.rs` for the flat-rate discounting approach.
     #[allow(clippy::too_many_arguments)]
-    fn backward_induction_swaption<B, F>(
+    fn backward_induction_swaption_grid<B, F>(
         &self,
         paths: &[Vec<f64>],
         payoff: &BermudanSwaptionPayoff,
         exercise_steps: &[usize],
         basis: &B,
-        dt: f64,
+        time_grid: &TimeGrid,
         discount_curve_fn: &F,
     ) -> Result<Vec<f64>>
     where
@@ -534,7 +694,8 @@ impl SwaptionLsmcPricer {
                 continue;
             }
 
-            let t = exercise_step as f64 * dt;
+            // Get exact time from grid instead of computing from step * dt
+            let t = time_grid.time(exercise_step);
 
             // Clear buffers for this exercise date (reuse capacity)
             regression_x.clear();
@@ -581,8 +742,11 @@ impl SwaptionLsmcPricer {
                 if immediate_value > 1e-6 {
                     // Discount cashflow to this exercise date
                     let discount_factor = discount_curve_fn(t);
-                    let discounted_cf =
-                        cashflows[i] * discount_curve_fn(exercise_times[i]) / discount_factor;
+                    let discounted_cf = if discount_factor > 0.0 {
+                        cashflows[i] * discount_curve_fn(exercise_times[i]) / discount_factor
+                    } else {
+                        0.0
+                    };
 
                     regression_x.push(swap_rate);
                     regression_y.push(discounted_cf);
@@ -645,11 +809,12 @@ impl SwaptionLsmcPricer {
         let df_0 = discount_curve_fn(0.0);
 
         // Ensure df_0 is positive to prevent division by zero and ensure well-defined PV
-        assert!(
-            df_0 > 0.0,
-            "Discount factor at time 0 must be positive, got df_0 = {}",
-            df_0
-        );
+        if df_0 <= 0.0 {
+            return Err(finstack_core::Error::Validation(format!(
+                "Discount factor at time 0 must be positive, got df_0 = {}",
+                df_0
+            )));
+        }
 
         for i in 0..num_paths {
             let df_t = discount_curve_fn(exercise_times[i]);

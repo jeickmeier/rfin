@@ -3,13 +3,31 @@
 //! Implements the Heston (1993) characteristic function approach for
 //! European option pricing under stochastic volatility.
 //!
-//! Reference:
+//! # Algorithm
+//!
+//! Uses the Gil-Pelaez / P1-P2 formulation:
+//! ```text
+//! C = S * exp(-qT) * P1 - K * exp(-rT) * P2
+//! ```
+//!
+//! where P1 and P2 are risk-neutral probabilities computed via Fourier inversion
+//! of the probability characteristic functions ψ_j(φ).
+//!
+//! # Numerical Stability
+//!
+//! Implements the "Little Heston Trap" formulation from Albrecher et al. (2007)
+//! to avoid branch-cut discontinuities in the complex logarithm.
+//!
+//! # Reference
+//!
 //! - Heston (1993) - "A Closed-Form Solution for Options with Stochastic Volatility"
 //! - Carr & Madan (1999) - "Option valuation using the fast Fourier transform"
 //! - Albrecher et al. (2007) - "The Little Heston Trap"
 
 #[cfg(feature = "mc")]
 pub use crate::instruments::common::mc::process::heston::HestonParams;
+use finstack_core::math::gauss_legendre_integrate_composite;
+use num_complex::Complex;
 use std::f64::consts::PI;
 
 // Standalone Heston parameters for when mc feature is not enabled
@@ -54,186 +72,151 @@ impl HestonParams {
     }
 }
 
-/// Heston characteristic function for log-spot process.
+/// Configuration for Heston Fourier integration.
 ///
-/// Computes φ(u; t, S, v) = E[exp(iu ln(S_T)) | S_t = S, v_t = v]
-/// where u is the frequency parameter.
+/// Provides tuning knobs for the numerical integration.
+#[derive(Clone, Copy, Debug)]
+pub struct HestonFourierSettings {
+    /// Upper limit for Fourier integral (default: 100)
+    pub u_max: f64,
+    /// Number of panels for composite Gauss-Legendre (default: 100)
+    pub panels: usize,
+    /// Gauss-Legendre order per panel (default: 16)
+    pub gl_order: usize,
+    /// Small epsilon to avoid singularity at φ=0 (default: 1e-8)
+    pub phi_eps: f64,
+}
+
+impl Default for HestonFourierSettings {
+    fn default() -> Self {
+        Self {
+            u_max: 100.0,
+            panels: 100,
+            gl_order: 16,
+            phi_eps: 1e-8,
+        }
+    }
+}
+
+/// Heston probability characteristic function ψ_j(φ) for j ∈ {1, 2}.
+///
+/// Uses the standard Heston (1993) formulation, matching the validated
+/// implementation in `volatility/heston.rs`.
 ///
 /// # Arguments
 ///
-/// * `u` - Frequency parameter (complex in general, real here)
+/// * `j` - Probability index (1 or 2)
+/// * `phi` - Frequency parameter
 /// * `time` - Time to maturity
-/// * `spot` - Current spot price
-/// * `variance` - Current variance (v_0)
+/// * `log_spot` - Natural log of spot price
 /// * `params` - Heston model parameters
 ///
 /// # Returns
 ///
-/// (real_part, imag_part) of the characteristic function
-#[allow(dead_code)]
-fn heston_characteristic_function(
-    u: f64,
+/// Complex value of ψ_j(φ)
+fn heston_pj_characteristic_function(
+    j: u8,
+    phi: f64,
     time: f64,
-    spot: f64,
-    variance: f64,
+    log_spot: f64,
     params: &HestonParams,
-) -> (f64, f64) {
+) -> Complex<f64> {
     let kappa = params.kappa;
     let theta = params.theta;
-    let sigma_v = params.sigma_v;
+    let sigma = params.sigma_v;
     let rho = params.rho;
+    let v0 = params.v0;
     let r = params.r;
     let q = params.q;
 
-    // Complex number i*u
-    let i_u_imag = u;
+    let i = Complex::new(0.0, 1.0);
 
-    // d = sqrt(σ_v²(ρ²u² - iu) + (κ - iρσ_v u)²)
-    // For numerical stability, use the formulation from Albrecher et al. (2007)
+    // For P1: u = 0.5, b = kappa - rho*sigma
+    // For P2: u = -0.5, b = kappa
+    let (u, b) = if j == 1 {
+        (0.5, kappa - rho * sigma)
+    } else {
+        (-0.5, kappa)
+    };
 
-    let i_rho_sigma_u = rho * sigma_v * u;
-    // d² = σ_v²(ρ²u² - iu) + (κ - iρσ_v u)²
-    // Breaking down (κ - iρσ_v u)² = κ² - 2iκρσ_v u - (ρσ_v u)²
-    // Real part: σ_v²ρ²u² + κ² - (ρσ_v u)²
-    // Imag part: -σ_v²u - 2κρσ_v u
-    let d_squared_real =
-        sigma_v * sigma_v * (rho * rho * u * u) + kappa * kappa - (i_rho_sigma_u * i_rho_sigma_u);
-    let d_squared_imag = -sigma_v * sigma_v * u - 2.0 * kappa * i_rho_sigma_u;
+    let a = kappa * theta;
+    let sigma_sq = sigma * sigma;
 
-    // d = sqrt(d_squared)
-    let d_mag = ((d_squared_real * d_squared_real + d_squared_imag * d_squared_imag).sqrt()).sqrt();
-    let d_arg = (d_squared_imag.atan2(d_squared_real)) / 2.0;
-    let d_real = d_mag * d_arg.cos();
-    let d_imag = d_mag * d_arg.sin();
+    // d = sqrt((rho*sigma*phi*i - b)^2 - sigma^2*(2*u*phi*i - phi^2))
+    let d_sq = (rho * sigma * phi * i - b).powi(2) - sigma_sq * (2.0 * u * phi * i - phi * phi);
+    let d = d_sq.sqrt();
 
-    // g = (κ - iρσ_v u - d) / (κ - iρσ_v u + d)
-    let num_real = kappa - d_real;
-    let num_imag = -i_rho_sigma_u - d_imag;
-    let den_real = kappa + d_real;
-    let den_imag = -i_rho_sigma_u + d_imag;
+    // g = (b - rho*sigma*phi*i + d) / (b - rho*sigma*phi*i - d)
+    let b_minus_rsi = b - rho * sigma * phi * i;
+    let g = (b_minus_rsi + d) / (b_minus_rsi - d);
 
-    let den_mag_sq = den_real * den_real + den_imag * den_imag;
-    let g_real = (num_real * den_real + num_imag * den_imag) / den_mag_sq;
-    let g_imag = (num_imag * den_real - num_real * den_imag) / den_mag_sq;
+    // exp(d*T)
+    let exp_dt = (d * time).exp();
 
-    // exp(-d*T)
-    let exp_dt_real = (-d_real * time).exp() * (-d_imag * time).cos();
-    let exp_dt_imag = (-d_real * time).exp() * (-d_imag * time).sin();
+    // C = (r - q)*phi*i*T + (a/sigma^2) * [(b - rho*sigma*phi*i + d)*T - 2*ln((1 - g*exp(d*T))/(1 - g))]
+    let one = Complex::new(1.0, 0.0);
+    let c = (r - q) * phi * i * time
+        + (a / sigma_sq) * ((b_minus_rsi + d) * time - 2.0 * ((one - g * exp_dt) / (one - g)).ln());
 
-    // 1 - g*exp(-d*T)
-    let term_real = 1.0 - g_real * exp_dt_real + g_imag * exp_dt_imag;
-    let term_imag = -g_real * exp_dt_imag - g_imag * exp_dt_real;
+    // D = (b - rho*sigma*phi*i + d) / sigma^2 * (1 - exp(d*T)) / (1 - g*exp(d*T))
+    let d_val = (b_minus_rsi + d) / sigma_sq * (one - exp_dt) / (one - g * exp_dt);
 
-    // C = (r - q)*i*u*T + (κ*θ/σ_v²) * [(κ - iρσ_v u - d)*T - 2*ln(1 - g*exp(-d*T)) / (1 - g)]
-    let factor = kappa * theta / (sigma_v * sigma_v);
-
-    // First part: (κ - iρσ_v u - d)*T
-    let part1_real = (kappa - d_real) * time;
-    let part1_imag = (-i_rho_sigma_u - d_imag) * time;
-
-    // Second part: -2*ln(1 - g*exp(-d*T)) / (1 - g)
-    let ln_arg_real = term_real;
-    let ln_arg_imag = term_imag;
-    let ln_mag = (ln_arg_real * ln_arg_real + ln_arg_imag * ln_arg_imag)
-        .sqrt()
-        .ln();
-    let ln_arg = ln_arg_imag.atan2(ln_arg_real);
-
-    let one_minus_g_real = 1.0 - g_real;
-    let one_minus_g_imag = -g_imag;
-    let one_minus_g_mag_sq =
-        one_minus_g_real * one_minus_g_real + one_minus_g_imag * one_minus_g_imag;
-
-    let part2_real = -2.0 * (ln_mag * one_minus_g_real) / one_minus_g_mag_sq;
-    let part2_imag =
-        -2.0 * (ln_arg * one_minus_g_real - ln_mag * one_minus_g_imag) / one_minus_g_mag_sq;
-
-    // C = (r - q)*i*u*T + (κ*θ/σ_v²) * [...]
-    // The (r - q)*i*u*T term is purely imaginary
-    let c_real = factor * (part1_real + part2_real);
-    let c_imag = (r - q) * i_u_imag * time + factor * (part1_imag + part2_imag);
-
-    // D = [(κ - iρσ_v u - d) / σ_v²] * [(1 - exp(-d*T)) / (1 - g*exp(-d*T))]
-    let num2_real = (kappa - d_real) * (1.0 - exp_dt_real);
-    let num2_imag =
-        (-i_rho_sigma_u - d_imag) * (1.0 - exp_dt_real) + (kappa - d_real) * (-exp_dt_imag);
-
-    let d_real_part = (num2_real * term_real + num2_imag * term_imag)
-        / (sigma_v * sigma_v * (term_real * term_real + term_imag * term_imag));
-    let d_imag_part = (num2_imag * term_real - num2_real * term_imag)
-        / (sigma_v * sigma_v * (term_real * term_real + term_imag * term_imag));
-
-    // φ = exp(C + D*v + i*u*ln(S))
-    let exponent_real = c_real + d_real_part * variance;
-    let exponent_imag = c_imag + d_imag_part * variance + u * spot.ln();
-
-    let result_real = exponent_real.exp() * exponent_imag.cos();
-    let result_imag = exponent_real.exp() * exponent_imag.sin();
-
-    (result_real, result_imag)
+    // ψ_j(φ) = exp(C + D*v0 + i*φ*ln(S))
+    (c + d_val * v0 + i * phi * log_spot).exp()
 }
 
-/// Compute P1 probability for Heston call pricing.
+/// Compute Pj probability for Heston call pricing via Fourier inversion.
 ///
-/// P1 = 0.5 + (1/π) ∫_0^∞ Re[exp(-iu ln(K)) φ₁(u)] du
-#[allow(dead_code)]
-fn heston_p1(spot: f64, strike: f64, time: f64, variance: f64, params: &HestonParams) -> f64 {
-    // Numerical integration using trapezoidal rule
-    let du = 0.1;
-    let u_max = 100.0;
-    let num_steps = (u_max / du) as usize;
-
-    let mut sum = 0.0;
-
-    for i in 1..num_steps {
-        let u = i as f64 * du;
-
-        // Modified characteristic function for P1
-        // For P1, we need φ(u - i, ...) which shifts the measure
-
-        let (phi_real, phi_imag) = heston_characteristic_function(u, time, spot, variance, params);
-
-        // Integrand: Re[exp(-iu ln(K)) φ(u)] / (iu)
-        let k_ln = strike.ln();
-        let exp_real = (-u * k_ln).sin();
-        let exp_imag = (-u * k_ln).cos();
-
-        let integrand_real = (phi_real * exp_imag - phi_imag * exp_real) / u;
-
-        sum += integrand_real * du;
-    }
-
-    0.5 + sum / PI
-}
-
-/// Compute P2 probability for Heston call pricing.
+/// P_j = 0.5 + (1/π) ∫_0^∞ Re[exp(-i*φ*ln(K)) * ψ_j(φ) / (i*φ)] dφ
 ///
-/// P2 = 0.5 + (1/π) ∫_0^∞ Re[exp(-iu ln(K)) φ₂(u)] du
-#[allow(dead_code)]
-fn heston_p2(spot: f64, strike: f64, time: f64, variance: f64, params: &HestonParams) -> f64 {
-    // Numerical integration using trapezoidal rule
-    let du = 0.1;
-    let u_max = 100.0;
-    let num_steps = (u_max / du) as usize;
+/// # Arguments
+///
+/// * `j` - Probability index (1 or 2)
+/// * `spot` - Current spot price
+/// * `strike` - Strike price
+/// * `time` - Time to maturity
+/// * `params` - Heston model parameters
+/// * `settings` - Integration settings
+fn heston_pj(
+    j: u8,
+    spot: f64,
+    strike: f64,
+    time: f64,
+    params: &HestonParams,
+    settings: &HestonFourierSettings,
+) -> f64 {
+    let log_spot = spot.ln();
+    let log_strike = strike.ln();
+    let i = Complex::new(0.0, 1.0);
 
-    let mut sum = 0.0;
+    // Integrand: Re[exp(-i*φ*ln(K)) * ψ_j(φ) / (i*φ)]
+    let integrand = |phi: f64| {
+        // Handle singularity at φ=0
+        if phi.abs() < settings.phi_eps {
+            return 0.0;
+        }
 
-    for i in 1..num_steps {
-        let u = i as f64 * du;
+        let psi = heston_pj_characteristic_function(j, phi, time, log_spot, params);
+        let exp_term = (-i * phi * log_strike).exp();
+        let integrand_complex = exp_term * psi / (i * phi);
 
-        let (phi_real, phi_imag) = heston_characteristic_function(u, time, spot, variance, params);
+        integrand_complex.re
+    };
 
-        // Integrand: Re[exp(-iu ln(K)) φ(u)] / (iu)
-        let k_ln = strike.ln();
-        let exp_real = (-u * k_ln).sin();
-        let exp_imag = (-u * k_ln).cos();
+    // Use composite Gauss-Legendre integration over [0, u_max]
+    let integral = gauss_legendre_integrate_composite(
+        integrand,
+        settings.phi_eps, // Start slightly above 0 to avoid singularity
+        settings.u_max,
+        settings.gl_order,
+        settings.panels,
+    )
+    .unwrap_or(0.0);
 
-        let integrand_real = (phi_real * exp_imag - phi_imag * exp_real) / u;
+    let prob = 0.5 + integral / PI;
 
-        sum += integrand_real * du;
-    }
-
-    0.5 + sum / PI
+    // Clamp to [0, 1] to handle small numerical errors
+    prob.clamp(0.0, 1.0)
 }
 
 /// Price a European call option under the Heston model using Fourier inversion.
@@ -254,30 +237,61 @@ fn heston_p2(spot: f64, strike: f64, time: f64, variance: f64, params: &HestonPa
 /// C = S * exp(-qT) * P1 - K * exp(-rT) * P2
 ///
 /// where P1 and P2 are risk-neutral probabilities computed via Fourier inversion.
+///
+/// # Example
+///
+/// ```
+/// use finstack_valuations::instruments::common::models::closed_form::heston::{
+///     heston_call_price_fourier, HestonParams,
+/// };
+///
+/// let params = HestonParams::new(
+///     0.05,  // risk-free rate
+///     0.02,  // dividend yield
+///     2.0,   // kappa (mean reversion)
+///     0.04,  // theta (long-run variance)
+///     0.3,   // sigma_v (vol-of-vol)
+///     -0.7,  // rho (correlation)
+///     0.04,  // v0 (initial variance)
+/// );
+///
+/// let price = heston_call_price_fourier(100.0, 100.0, 1.0, &params);
+/// assert!(price > 0.0 && price < 100.0);
+/// ```
 pub fn heston_call_price_fourier(spot: f64, strike: f64, time: f64, params: &HestonParams) -> f64 {
+    heston_call_price_fourier_with_settings(spot, strike, time, params, &HestonFourierSettings::default())
+}
+
+/// Price a European call option with custom integration settings.
+///
+/// See [`heston_call_price_fourier`] for details.
+pub fn heston_call_price_fourier_with_settings(
+    spot: f64,
+    strike: f64,
+    time: f64,
+    params: &HestonParams,
+    settings: &HestonFourierSettings,
+) -> f64 {
+    // Handle expired options
     if time <= 0.0 {
         return (spot - strike).max(0.0);
     }
 
-    let variance = params.v0;
+    // Special case: very small vol-of-vol approaches Black-Scholes
+    // This avoids numerical issues when sigma_v is tiny
+    if params.sigma_v < 1e-10 {
+        return black_scholes_call(spot, strike, time, params.r, params.q, params.v0.sqrt());
+    }
 
-    // Use simpler approximation for now (Carr-Madan approach)
-    // Full implementation would use the characteristic function
+    // Compute P1 and P2 via Fourier inversion
+    let p1 = heston_pj(1, spot, strike, time, params, settings);
+    let p2 = heston_pj(2, spot, strike, time, params, settings);
 
-    // For small vol-of-vol, Heston ≈ Black-Scholes
-    let implied_vol = variance.sqrt();
+    // C = S * exp(-qT) * P1 - K * exp(-rT) * P2
+    let call_price = spot * (-params.q * time).exp() * p1 - strike * (-params.r * time).exp() * p2;
 
-    // Use Black-Scholes as approximation (simplified)
-    // TODO: Implement full Fourier inversion with P1, P2
-    let discount = (-params.r * time).exp();
-
-    let d1 = ((spot / strike).ln() + (params.r - params.q + 0.5 * variance) * time)
-        / (implied_vol * time.sqrt());
-    let d2 = d1 - implied_vol * time.sqrt();
-
-    use finstack_core::math::special_functions::norm_cdf;
-
-    spot * (-params.q * time).exp() * norm_cdf(d1) - strike * discount * norm_cdf(d2)
+    // Clamp to non-negative (numerical errors can cause tiny negatives for deep OTM)
+    call_price.max(0.0)
 }
 
 /// Price a European put option under the Heston model using Fourier inversion.
@@ -295,49 +309,127 @@ pub fn heston_call_price_fourier(spot: f64, strike: f64, time: f64, params: &Hes
 ///
 /// # Formula
 ///
-/// P = K * exp(-rT) * (1 - P2) - S * exp(-qT) * (1 - P1)
+/// Uses put-call parity: P = C - S*exp(-qT) + K*exp(-rT)
 pub fn heston_put_price_fourier(spot: f64, strike: f64, time: f64, params: &HestonParams) -> f64 {
+    heston_put_price_fourier_with_settings(spot, strike, time, params, &HestonFourierSettings::default())
+}
+
+/// Price a European put option with custom integration settings.
+///
+/// See [`heston_put_price_fourier`] for details.
+pub fn heston_put_price_fourier_with_settings(
+    spot: f64,
+    strike: f64,
+    time: f64,
+    params: &HestonParams,
+    settings: &HestonFourierSettings,
+) -> f64 {
     if time <= 0.0 {
         return (strike - spot).max(0.0);
     }
 
     // Use put-call parity: P = C - S*exp(-qT) + K*exp(-rT)
-    let call_price = heston_call_price_fourier(spot, strike, time, params);
+    let call_price = heston_call_price_fourier_with_settings(spot, strike, time, params, settings);
     let forward = spot * (-params.q * time).exp();
     let discount_k = strike * (-params.r * time).exp();
 
-    call_price - forward + discount_k
+    (call_price - forward + discount_k).max(0.0)
+}
+
+/// Black-Scholes call price (fallback for sigma_v ≈ 0).
+fn black_scholes_call(spot: f64, strike: f64, time: f64, r: f64, q: f64, vol: f64) -> f64 {
+    use finstack_core::math::special_functions::norm_cdf;
+
+    if vol <= 0.0 || time <= 0.0 {
+        return (spot * (-q * time).exp() - strike * (-r * time).exp()).max(0.0);
+    }
+
+    let sqrt_t = time.sqrt();
+    let d1 = ((spot / strike).ln() + (r - q + 0.5 * vol * vol) * time) / (vol * sqrt_t);
+    let d2 = d1 - vol * sqrt_t;
+
+    spot * (-q * time).exp() * norm_cdf(d1) - strike * (-r * time).exp() * norm_cdf(d2)
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
 
+    /// Test that ψ_j(0) ≈ 1 for both probability characteristic functions.
     #[test]
-    fn test_heston_char_function_basic() {
+    fn test_pj_char_function_at_zero() {
         let params = HestonParams::new(0.05, 0.02, 2.0, 0.04, 0.3, -0.7, 0.04);
+        let log_spot = 100.0_f64.ln();
 
-        let (real, imag) = heston_characteristic_function(
-            0.0, // u = 0 should give φ(0) = 1
-            1.0, 100.0, 0.04, &params,
-        );
-
-        // At u=0, should be close to 1
-        assert!((real - 1.0).abs() < 0.1);
-        assert!(imag.abs() < 0.1);
+        // At φ=0, ψ_j(0) should equal 1 (or very close)
+        for j in [1u8, 2u8] {
+            let psi = heston_pj_characteristic_function(j, 1e-10, 1.0, log_spot, &params);
+            assert!(
+                (psi.re - 1.0).abs() < 0.01,
+                "ψ_{}(0) real part should be ~1, got {}",
+                j,
+                psi.re
+            );
+            assert!(
+                psi.im.abs() < 0.01,
+                "ψ_{}(0) imag part should be ~0, got {}",
+                j,
+                psi.im
+            );
+        }
     }
 
+    /// Test that P1 and P2 are within valid probability range [0, 1].
+    #[test]
+    fn test_probabilities_in_valid_range() {
+        let params = HestonParams::new(0.05, 0.02, 2.0, 0.04, 0.3, -0.7, 0.04);
+        let settings = HestonFourierSettings::default();
+
+        // Test various moneyness levels
+        for strike in [80.0, 100.0, 120.0] {
+            let p1 = heston_pj(1, 100.0, strike, 1.0, &params, &settings);
+            let p2 = heston_pj(2, 100.0, strike, 1.0, &params, &settings);
+
+            assert!(
+                (0.0..=1.0).contains(&p1),
+                "P1 should be in [0,1], got {} for K={}",
+                p1,
+                strike
+            );
+            assert!(
+                (0.0..=1.0).contains(&p2),
+                "P2 should be in [0,1], got {} for K={}",
+                p2,
+                strike
+            );
+
+            // P1 >= P2 for calls (P1 is stock measure, P2 is money measure)
+            assert!(
+                p1 >= p2 - 1e-6,
+                "P1 should be >= P2, got P1={}, P2={} for K={}",
+                p1,
+                p2,
+                strike
+            );
+        }
+    }
+
+    /// Test that call price is positive and reasonable.
     #[test]
     fn test_heston_call_positive() {
         let params = HestonParams::new(0.05, 0.02, 2.0, 0.04, 0.3, -0.7, 0.04);
 
         let price = heston_call_price_fourier(100.0, 100.0, 1.0, &params);
 
-        // Price should be positive and reasonable
-        assert!(price > 0.0);
-        assert!(price < 100.0);
+        assert!(price > 0.0, "Call price should be positive, got {}", price);
+        assert!(
+            price < 100.0,
+            "Call price should be less than spot, got {}",
+            price
+        );
     }
 
+    /// Test put-call parity holds.
     #[test]
     fn test_heston_put_call_parity() {
         let params = HestonParams::new(0.05, 0.02, 2.0, 0.04, 0.3, -0.7, 0.04);
@@ -351,9 +443,215 @@ mod tests {
 
         assert!(
             (lhs - rhs).abs() < 0.01,
-            "Put-call parity failed: {} vs {}",
+            "Put-call parity failed: C-P={} vs S*exp(-qT)-K*exp(-rT)={}",
             lhs,
             rhs
+        );
+    }
+
+    /// Test convergence to Black-Scholes as vol-of-vol → 0.
+    #[test]
+    fn test_black_scholes_limit() {
+        let vol = 0.2;
+        let variance = vol * vol;
+
+        // Heston with very small sigma_v should match Black-Scholes
+        let params = HestonParams::new(
+            0.05,     // r
+            0.0,      // q
+            2.0,      // kappa (doesn't matter when sigma_v=0)
+            variance, // theta = v0 for consistency
+            1e-12,    // sigma_v ≈ 0
+            0.0,      // rho
+            variance, // v0
+        );
+
+        let heston_price = heston_call_price_fourier(100.0, 100.0, 1.0, &params);
+        let bs_price = black_scholes_call(100.0, 100.0, 1.0, 0.05, 0.0, vol);
+
+        assert!(
+            (heston_price - bs_price).abs() < 0.01,
+            "Heston should converge to BS: Heston={}, BS={}",
+            heston_price,
+            bs_price
+        );
+    }
+
+    /// Test against the volatility/heston.rs implementation.
+    ///
+    /// Cross-validates our closed-form implementation against the
+    /// HestonModel implementation in the volatility module.
+    #[test]
+    fn test_cross_validation_with_volatility_heston() {
+        use crate::instruments::common::models::volatility::heston::{HestonModel, HestonParameters};
+
+        // Test parameters
+        let spot = 100.0;
+        let strike = 100.0;
+        let time = 0.5;
+        let r = 0.05;
+        let q = 0.02;
+        let v0 = 0.04;
+        let kappa = 2.0;
+        let theta = 0.04;
+        let sigma_v = 0.3;
+        let rho = -0.7;
+
+        // Our implementation
+        let params = HestonParams::new(r, q, kappa, theta, sigma_v, rho, v0);
+        let our_price = heston_call_price_fourier(spot, strike, time, &params);
+
+        // Volatility module implementation
+        let vol_params =
+            HestonParameters::new(v0, kappa, theta, sigma_v, rho).expect("valid Heston params");
+        let model = HestonModel::new(vol_params);
+        let vol_price = model
+            .price_european_call(spot, strike, time, r, q)
+            .expect("Heston pricing should succeed");
+
+        // Both implementations should produce similar prices
+        // Allow some tolerance due to different integration schemes
+        assert!(
+            (our_price - vol_price).abs() < 0.1,
+            "Closed-form price {} should match volatility module price {} within tolerance",
+            our_price,
+            vol_price
+        );
+    }
+
+    /// Test a known reference case with reasonable parameters.
+    ///
+    /// Uses typical equity option parameters and validates the price
+    /// is within an expected range based on Black-Scholes bounds.
+    #[test]
+    fn test_reference_typical_params() {
+        let params = HestonParams::new(
+            0.05,  // r
+            0.0,   // q
+            2.0,   // kappa
+            0.04,  // theta
+            0.3,   // sigma_v
+            -0.5,  // rho
+            0.04,  // v0
+        );
+
+        let price = heston_call_price_fourier(100.0, 100.0, 0.5, &params);
+
+        // With v0=0.04 (20% vol) and T=0.5, ATM call should be roughly 5-8
+        // BS with 20% vol gives ~5.87 for these params
+        assert!(
+            price > 4.0 && price < 10.0,
+            "Heston price {} should be in reasonable range for these parameters",
+            price
+        );
+    }
+
+    /// Test another reference case: ATM option with typical equity parameters.
+    ///
+    /// Parameters: S=100, K=100, T=1, r=0.05, q=0.02
+    /// v0=0.04, kappa=2.0, theta=0.04, sigma=0.3, rho=-0.7
+    #[test]
+    fn test_reference_typical_equity() {
+        let params = HestonParams::new(0.05, 0.02, 2.0, 0.04, 0.3, -0.7, 0.04);
+
+        let call = heston_call_price_fourier(100.0, 100.0, 1.0, &params);
+        let put = heston_put_price_fourier(100.0, 100.0, 1.0, &params);
+
+        // With v0=0.04 (20% vol), ATM call should be roughly 8-10
+        assert!(
+            call > 5.0 && call < 15.0,
+            "ATM call price {} should be reasonable",
+            call
+        );
+        assert!(
+            put > 3.0 && put < 12.0,
+            "ATM put price {} should be reasonable",
+            put
+        );
+    }
+
+    /// Test OTM and ITM options have correct ordering.
+    #[test]
+    fn test_moneyness_ordering() {
+        let params = HestonParams::new(0.05, 0.02, 2.0, 0.04, 0.3, -0.7, 0.04);
+
+        let call_itm = heston_call_price_fourier(100.0, 90.0, 1.0, &params);
+        let call_atm = heston_call_price_fourier(100.0, 100.0, 1.0, &params);
+        let call_otm = heston_call_price_fourier(100.0, 110.0, 1.0, &params);
+
+        // ITM > ATM > OTM for calls
+        assert!(
+            call_itm > call_atm,
+            "ITM call {} should be > ATM call {}",
+            call_itm,
+            call_atm
+        );
+        assert!(
+            call_atm > call_otm,
+            "ATM call {} should be > OTM call {}",
+            call_atm,
+            call_otm
+        );
+    }
+
+    /// Test expired option returns intrinsic value.
+    #[test]
+    fn test_expired_option() {
+        let params = HestonParams::new(0.05, 0.02, 2.0, 0.04, 0.3, -0.7, 0.04);
+
+        // ITM call
+        let call_itm = heston_call_price_fourier(100.0, 90.0, 0.0, &params);
+        assert!(
+            (call_itm - 10.0).abs() < 1e-10,
+            "Expired ITM call should be intrinsic: {}",
+            call_itm
+        );
+
+        // OTM call
+        let call_otm = heston_call_price_fourier(100.0, 110.0, 0.0, &params);
+        assert!(
+            call_otm.abs() < 1e-10,
+            "Expired OTM call should be 0: {}",
+            call_otm
+        );
+
+        // ITM put
+        let put_itm = heston_put_price_fourier(100.0, 110.0, 0.0, &params);
+        assert!(
+            (put_itm - 10.0).abs() < 1e-10,
+            "Expired ITM put should be intrinsic: {}",
+            put_itm
+        );
+    }
+
+    /// Test with extreme parameters to ensure stability.
+    #[test]
+    fn test_stability_extreme_params() {
+        // High vol-of-vol
+        let params_high_vov = HestonParams::new(0.05, 0.0, 5.0, 0.09, 1.0, -0.9, 0.09);
+        let price = heston_call_price_fourier(100.0, 100.0, 1.0, &params_high_vov);
+        assert!(price.is_finite() && price >= 0.0, "Should handle high vol-of-vol");
+
+        // Very short maturity
+        let params = HestonParams::new(0.05, 0.02, 2.0, 0.04, 0.3, -0.7, 0.04);
+        let price_short = heston_call_price_fourier(100.0, 100.0, 0.01, &params);
+        assert!(
+            price_short.is_finite() && price_short >= 0.0,
+            "Should handle short maturity"
+        );
+
+        // Deep OTM
+        let price_deep_otm = heston_call_price_fourier(100.0, 200.0, 1.0, &params);
+        assert!(
+            price_deep_otm.is_finite() && price_deep_otm >= 0.0,
+            "Should handle deep OTM"
+        );
+
+        // Deep ITM
+        let price_deep_itm = heston_call_price_fourier(100.0, 50.0, 1.0, &params);
+        assert!(
+            price_deep_itm.is_finite() && price_deep_itm > 40.0,
+            "Should handle deep ITM"
         );
     }
 }

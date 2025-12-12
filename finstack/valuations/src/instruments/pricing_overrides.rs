@@ -7,20 +7,15 @@ use finstack_core::money::Money;
 ///
 /// Market-standard production systems typically make this choice explicit because
 /// extrapolation can materially affect PV and greeks.
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 #[cfg_attr(feature = "serde", serde(rename_all = "snake_case"))]
 pub enum VolSurfaceExtrapolation {
     /// Fail fast if `(expiry, strike)` is out of bounds.
+    #[default]
     Error,
     /// Flat extrapolation to the nearest edge (clamp to grid).
     Clamp,
-}
-
-impl Default for VolSurfaceExtrapolation {
-    fn default() -> Self {
-        Self::Error
-    }
 }
 
 /// Optional parameters that override model pricing with market quotes.
