@@ -161,7 +161,7 @@ fn pv_coupon_from_custom_schedule(
     disc: &DiscountCurve,
     schedule: &CashFlowSchedule,
     as_of: Date,
-) -> f64 {
+) -> finstack_core::Result<f64> {
     let mut pv = 0.0;
     for cf in &schedule.flows {
         if cf.date <= as_of {
@@ -169,13 +169,13 @@ fn pv_coupon_from_custom_schedule(
         }
         match cf.kind {
             CFKind::Fixed | CFKind::Stub => {
-                let df = disc.df_on_date_curve(cf.date);
+                let df = disc.try_df_on_date_curve(cf.date)?;
                 pv += cf.amount.amount() * df;
             }
             _ => {}
         }
     }
-    pv
+    Ok(pv)
 }
 
 /// Compute Par ASW using a forward-based methodology with explicit parameters.
@@ -241,7 +241,7 @@ pub fn asw_par_with_forward_config(
         let yf = f_dc.year_fraction(prev, d, finstack_core::dates::DayCountCtx::default())?;
         let rate = fwd.rate_period(t1, t2) + spread;
         let coupon_flt = bond.notional.amount() * rate * yf;
-        let df = disc.df_on_date_curve(d);
+        let df = disc.try_df_on_date_curve(d)?;
         pv_float += coupon_flt * df;
         prev = d;
     }
@@ -249,7 +249,7 @@ pub fn asw_par_with_forward_config(
 
     // Equivalent fixed rate from coupon-only PV
     let eq_coupon = if let Some(custom) = &bond.custom_cashflows {
-        let pv_coupon = pv_coupon_from_custom_schedule(disc, custom, as_of);
+        let pv_coupon = pv_coupon_from_custom_schedule(disc, custom, as_of)?;
         pv_coupon / (bond.notional.amount() * ann)
     } else {
         // Extract fixed coupon rate from cashflow_spec
@@ -528,50 +528,8 @@ impl MetricCalculator for AssetSwapMarketCalculator {
                 id: "cashflows".to_string(),
             })
         })?;
-        let _pv_coupon_only = if let Some(custom) =
-            &context.instrument_as::<Bond>()?.custom_cashflows
-        {
-            pv_coupon_from_custom_schedule(disc, custom, context.as_of)
-        } else {
-            // For standard bonds, coupon PV uses bond's actual payment schedule
-            let bond: &Bond = context.instrument_as()?;
-            let (freq, stub, bdc, calendar_id) = match &bond.cashflow_spec {
-                CashflowSpec::Fixed(spec) => {
-                    (spec.freq, spec.stub, spec.bdc, spec.calendar_id.as_deref())
-                }
-                CashflowSpec::Floating(spec) => (
-                    spec.freq,
-                    spec.stub,
-                    spec.rate_spec.bdc,
-                    spec.rate_spec.calendar_id.as_deref(),
-                ),
-                CashflowSpec::Amortizing { base, .. } => match &**base {
-                    CashflowSpec::Fixed(spec) => {
-                        (spec.freq, spec.stub, spec.bdc, spec.calendar_id.as_deref())
-                    }
-                    CashflowSpec::Floating(spec) => (
-                        spec.freq,
-                        spec.stub,
-                        spec.rate_spec.bdc,
-                        spec.rate_spec.calendar_id.as_deref(),
-                    ),
-                    _ => return Err(finstack_core::error::InputError::Invalid.into()),
-                },
-            };
-            let mut builder = finstack_core::dates::ScheduleBuilder::new(context.as_of, maturity)
-                .frequency(freq)
-                .stub_rule(stub);
-
-            if let Some(id) = calendar_id {
-                if let Some(cal) = finstack_core::dates::calendar::calendar_by_id(id) {
-                    builder = builder.adjust_with(bdc, cal);
-                }
-            }
-
-            let sched: Vec<Date> = builder.build()?.into_iter().collect();
-            let ann = fixed_leg_annuity(disc, dc, &sched)?;
-            notional_amt * coupon * ann
-        };
+        // Note: we no longer pre-compute coupon-only PV here; custom-bond coupon PV is
+        // computed below when needed to derive the equivalent coupon.
 
         // Forward-based path when configured for non-custom bonds is available
         // via explicit helper methods (ASW*Fwd calculators). Here we keep fallback-only.
@@ -629,7 +587,7 @@ impl MetricCalculator for AssetSwapMarketCalculator {
         }
         // Equivalent coupon from coupon PV only for custom bonds; otherwise stated coupon
         let eq_coupon = if let Some(custom) = &context.instrument_as::<Bond>()?.custom_cashflows {
-            let pv_coupon = pv_coupon_from_custom_schedule(disc, custom, context.as_of);
+            let pv_coupon = pv_coupon_from_custom_schedule(disc, custom, context.as_of)?;
             pv_coupon / (notional_amt * ann)
         } else {
             coupon

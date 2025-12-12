@@ -6,20 +6,20 @@
 
 use crate::core::dates::date::JsDate;
 use crate::core::error::js_error;
-use crate::core::money::JsMoney;
 use crate::core::market_data::context::JsMarketContext;
+use crate::core::money::JsMoney;
 use finstack_core::currency::Currency;
 use finstack_core::money::Money;
-use finstack_valuations::instruments::structured_credit::{
-    AllocationMode as RustAllocationMode, PaymentCalculation, PaymentType as RustPaymentType,
-    Recipient, RecipientType, TrancheStructure, Waterfall, WaterfallDistribution,
-    WaterfallTier as RustWaterfallTier,
-};
 use finstack_valuations::instruments::structured_credit::pricing::waterfall::{
     execute_waterfall, execute_waterfall_with_explanation, WaterfallContext,
 };
 use finstack_valuations::instruments::structured_credit::types::waterfall::{
     CoverageTestRules, CoverageTrigger as WaterfallCoverageTrigger,
+};
+use finstack_valuations::instruments::structured_credit::{
+    AllocationMode as RustAllocationMode, PaymentCalculation, PaymentType as RustPaymentType,
+    Recipient, RecipientType, TrancheStructure, Waterfall, WaterfallDistribution,
+    WaterfallTier as RustWaterfallTier,
 };
 use wasm_bindgen::prelude::*;
 
@@ -207,8 +207,7 @@ impl JsWaterfallTier {
         let curr: Currency = currency
             .parse()
             .map_err(|e| js_error(format!("Invalid currency '{currency}': {e}")))?;
-        let recipient =
-            Recipient::fixed_fee(recipient_id, provider_name, Money::new(amount, curr));
+        let recipient = Recipient::fixed_fee(recipient_id, provider_name, Money::new(amount, curr));
         self.inner.recipients.push(recipient);
         Ok(self.clone())
     }
@@ -395,8 +394,8 @@ pub fn execute_waterfall_js(
         }
     }
 
-    let tranches: TrancheStructure = serde_json::from_str(tranches_json)
-        .map_err(|e| js_error(format!("tranches JSON: {e}")))?;
+    let tranches: TrancheStructure =
+        serde_json::from_str(tranches_json).map_err(|e| js_error(format!("tranches JSON: {e}")))?;
     let pool: finstack_valuations::instruments::structured_credit::Pool =
         serde_json::from_str(pool_json).map_err(|e| js_error(format!("pool JSON: {e}")))?;
 
@@ -416,5 +415,7 @@ pub fn execute_waterfall_js(
     }
     .map_err(|e| js_error(e.to_string()))?;
 
-    Ok(JsWaterfallDistribution { inner: distribution })
+    Ok(JsWaterfallDistribution {
+        inner: distribution,
+    })
 }

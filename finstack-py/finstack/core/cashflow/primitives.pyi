@@ -1,10 +1,10 @@
 """Cashflow primitive bindings.
 
-Provides basic cashflow types and amortization specifications
+Provides basic cashflow types and classification enums
 for financial instrument modeling.
 """
 
-from typing import List, Tuple, Optional, Union
+from typing import Optional, Union, ClassVar
 import datetime
 from datetime import date
 from ..money import Money
@@ -16,13 +16,14 @@ class CFKind:
     reporting, analytics, and cashflow aggregation. Different kinds may
     be treated differently in calculations (e.g., PIK vs cash payments).
 
-    Available kinds:
-    - Fixed: Fixed-rate coupon or payment
-    - Floating: Floating-rate payment (requires reset date)
-    - PIK: Payment-in-kind (non-cash payment)
-    - Amortization: Principal amortization payment
-    - PrincipalExchange: Principal exchange (initial or final)
-    - Fee: Fee payment (upfront, periodic, or exit fees)
+    Available kinds include (non-exhaustive):
+    - FIXED: Fixed-rate coupon cashflow
+    - FLOAT_RESET: Floating-rate reset (index fixing)
+    - FEE / COMMITMENT_FEE / USAGE_FEE / FACILITY_FEE: Fee cashflows
+    - NOTIONAL / AMORTIZATION / PREPAYMENT: Principal flows
+    - PIK: Payment-in-kind interest capitalization
+    - DEFAULTED_NOTIONAL / RECOVERY: Credit event flows
+    - INITIAL_MARGIN_* / VARIATION_MARGIN_*: Margin/collateral flows
 
     Notes
     -----
@@ -35,6 +36,29 @@ class CFKind:
     --------
     :class:`CashFlow`: Cashflow structure
     """
+
+    FIXED: ClassVar["CFKind"]
+    FLOAT_RESET: ClassVar["CFKind"]
+    FEE: ClassVar["CFKind"]
+    COMMITMENT_FEE: ClassVar["CFKind"]
+    USAGE_FEE: ClassVar["CFKind"]
+    FACILITY_FEE: ClassVar["CFKind"]
+    NOTIONAL: ClassVar["CFKind"]
+    PIK: ClassVar["CFKind"]
+    AMORTIZATION: ClassVar["CFKind"]
+    PREPAYMENT: ClassVar["CFKind"]
+    REVOLVING_DRAW: ClassVar["CFKind"]
+    REVOLVING_REPAYMENT: ClassVar["CFKind"]
+    DEFAULTED_NOTIONAL: ClassVar["CFKind"]
+    RECOVERY: ClassVar["CFKind"]
+    STUB: ClassVar["CFKind"]
+    INITIAL_MARGIN_POST: ClassVar["CFKind"]
+    INITIAL_MARGIN_RETURN: ClassVar["CFKind"]
+    VARIATION_MARGIN_RECEIVE: ClassVar["CFKind"]
+    VARIATION_MARGIN_PAY: ClassVar["CFKind"]
+    MARGIN_INTEREST: ClassVar["CFKind"]
+    COLLATERAL_SUBSTITUTION_IN: ClassVar["CFKind"]
+    COLLATERAL_SUBSTITUTION_OUT: ClassVar["CFKind"]
 
     @classmethod
     def from_name(cls, name: str) -> CFKind: ...
@@ -66,14 +90,6 @@ class CFKind:
     def __hash__(self) -> int: ...
     def __eq__(self, other: object) -> bool: ...
     def __ne__(self, other: object) -> bool: ...
-
-# Cashflow kind constants
-Fixed: CFKind
-Floating: CFKind
-PIK: CFKind
-Amortization: CFKind
-PrincipalExchange: CFKind
-Fee: CFKind
 
 class CashFlow:
     """A single cashflow event with date, amount, and metadata.

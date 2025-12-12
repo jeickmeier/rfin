@@ -10,6 +10,7 @@ use finstack_core::dates::PeriodId;
 use finstack_statements::builder::{ModelBuilder, NeedPeriods, Ready};
 use finstack_statements::templates::{TemplatesExtension, VintageExtension};
 use finstack_statements::types::AmountOrScalar;
+use pyo3::exceptions::PyRuntimeError;
 use pyo3::exceptions::PyValueError;
 use pyo3::prelude::*;
 use pyo3::types::{PyAnyMethods, PyDict, PyList, PyModule, PyType};
@@ -37,8 +38,9 @@ pub struct PyModelBuilder {
 }
 
 enum BuilderState {
-    NeedPeriods(ModelBuilder<NeedPeriods>),
-    Ready(ModelBuilder<Ready>),
+    NeedPeriods(Option<ModelBuilder<NeedPeriods>>),
+    Ready(Option<ModelBuilder<Ready>>),
+    Consumed,
 }
 
 #[pymethods]
@@ -60,7 +62,7 @@ impl PyModelBuilder {
     ///     Model builder instance
     fn new(_cls: &Bound<'_, PyType>, id: String) -> Self {
         Self {
-            state: BuilderState::NeedPeriods(ModelBuilder::new(id)),
+            state: BuilderState::NeedPeriods(Some(ModelBuilder::new(id))),
         }
     }
 
@@ -79,21 +81,23 @@ impl PyModelBuilder {
     /// ModelBuilder
     ///     Builder instance ready for node definitions
     fn periods(&mut self, range: &str, actuals_until: Option<&str>) -> PyResult<()> {
-        match std::mem::replace(
-            &mut self.state,
-            BuilderState::Ready(
-                ModelBuilder::new("dummy")
-                    .periods("2025Q1..Q2", None)
-                    .unwrap(),
-            ),
-        ) {
-            BuilderState::NeedPeriods(builder) => {
-                let ready = builder.periods(range, actuals_until).map_err(stmt_to_py)?;
-                self.state = BuilderState::Ready(ready);
-                Ok(())
+        let builder = match &mut self.state {
+            BuilderState::NeedPeriods(b) => b
+                .take()
+                .ok_or_else(|| PyRuntimeError::new_err("ModelBuilder internal state error"))?,
+            BuilderState::Ready(_) => {
+                return Err(PyValueError::new_err("periods() already called"));
             }
-            BuilderState::Ready(_) => Err(PyValueError::new_err("periods() already called")),
-        }
+            BuilderState::Consumed => {
+                return Err(PyValueError::new_err(
+                    "ModelBuilder has been consumed (build() already called)",
+                ));
+            }
+        };
+
+        let ready = builder.periods(range, actuals_until).map_err(stmt_to_py)?;
+        self.state = BuilderState::Ready(Some(ready));
+        Ok(())
     }
 
     #[pyo3(text_signature = "(self, periods)")]
@@ -109,22 +113,24 @@ impl PyModelBuilder {
     /// ModelBuilder
     ///     Builder instance ready for node definitions
     fn periods_explicit(&mut self, periods: Vec<PyPeriod>) -> PyResult<()> {
-        match std::mem::replace(
-            &mut self.state,
-            BuilderState::Ready(
-                ModelBuilder::new("dummy")
-                    .periods("2025Q1..Q2", None)
-                    .unwrap(),
-            ),
-        ) {
-            BuilderState::NeedPeriods(builder) => {
-                let periods = periods.into_iter().map(|p| p.inner).collect();
-                let ready = builder.periods_explicit(periods).map_err(stmt_to_py)?;
-                self.state = BuilderState::Ready(ready);
-                Ok(())
+        let builder = match &mut self.state {
+            BuilderState::NeedPeriods(b) => b
+                .take()
+                .ok_or_else(|| PyRuntimeError::new_err("ModelBuilder internal state error"))?,
+            BuilderState::Ready(_) => {
+                return Err(PyValueError::new_err("periods() already called"));
             }
-            BuilderState::Ready(_) => Err(PyValueError::new_err("periods() already called")),
-        }
+            BuilderState::Consumed => {
+                return Err(PyValueError::new_err(
+                    "ModelBuilder has been consumed (build() already called)",
+                ));
+            }
+        };
+
+        let periods = periods.into_iter().map(|p| p.inner).collect();
+        let ready = builder.periods_explicit(periods).map_err(stmt_to_py)?;
+        self.state = BuilderState::Ready(Some(ready));
+        Ok(())
     }
 
     #[pyo3(text_signature = "(self, node_id, values)")]
@@ -146,18 +152,10 @@ impl PyModelBuilder {
     fn value(&mut self, node_id: String, values: &Bound<'_, PyAny>) -> PyResult<()> {
         let values_vec = parse_period_values(values)?;
 
-        if let BuilderState::Ready(builder) = &mut self.state {
-            let new_builder = std::mem::replace(
-                builder,
-                ModelBuilder::new("dummy")
-                    .periods("2025Q1..Q2", None)
-                    .unwrap(),
-            );
-            *builder = new_builder.value(node_id, &values_vec);
-            Ok(())
-        } else {
-            Err(PyValueError::new_err("Must call periods() first"))
-        }
+        let builder = self.take_ready_builder()?;
+        let builder = builder.value(node_id, &values_vec);
+        self.state = BuilderState::Ready(Some(builder));
+        Ok(())
     }
 
     #[pyo3(text_signature = "(self, node_id, values)")]
@@ -191,10 +189,13 @@ impl PyModelBuilder {
             }
         } else if let Ok(list) = values.downcast::<PyList>() {
             // List of tuples format
-            for item in list.iter() {
-                if let Ok((period, money)) = item.extract::<(PyPeriodId, PyMoney)>() {
-                    values_vec.push((period.inner, money.inner));
-                }
+            for (idx, item) in list.iter().enumerate() {
+                let (period, money) = item.extract::<(PyPeriodId, PyMoney)>().map_err(|err| {
+                    PyValueError::new_err(format!(
+                        "Invalid values[{idx}] (expected (PeriodId, Money)): {err}"
+                    ))
+                })?;
+                values_vec.push((period.inner, money.inner));
             }
         } else {
             return Err(PyValueError::new_err(
@@ -202,18 +203,10 @@ impl PyModelBuilder {
             ));
         }
 
-        if let BuilderState::Ready(builder) = &mut self.state {
-            let new_builder = std::mem::replace(
-                builder,
-                ModelBuilder::new("dummy")
-                    .periods("2025Q1..Q2", None)
-                    .unwrap(),
-            );
-            *builder = new_builder.value_money(node_id, &values_vec);
-            Ok(())
-        } else {
-            Err(PyValueError::new_err("Must call periods() first"))
-        }
+        let builder = self.take_ready_builder()?;
+        let builder = builder.value_money(node_id, &values_vec);
+        self.state = BuilderState::Ready(Some(builder));
+        Ok(())
     }
 
     #[pyo3(text_signature = "(self, node_id, values)")]
@@ -246,10 +239,13 @@ impl PyModelBuilder {
             }
         } else if let Ok(list) = values.downcast::<PyList>() {
             // List of tuples format
-            for item in list.iter() {
-                if let Ok((period, scalar)) = item.extract::<(PyPeriodId, f64)>() {
-                    values_vec.push((period.inner, scalar));
-                }
+            for (idx, item) in list.iter().enumerate() {
+                let (period, scalar) = item.extract::<(PyPeriodId, f64)>().map_err(|err| {
+                    PyValueError::new_err(format!(
+                        "Invalid values[{idx}] (expected (PeriodId, float)): {err}"
+                    ))
+                })?;
+                values_vec.push((period.inner, scalar));
             }
         } else {
             return Err(PyValueError::new_err(
@@ -257,18 +253,10 @@ impl PyModelBuilder {
             ));
         }
 
-        if let BuilderState::Ready(builder) = &mut self.state {
-            let new_builder = std::mem::replace(
-                builder,
-                ModelBuilder::new("dummy")
-                    .periods("2025Q1..Q2", None)
-                    .unwrap(),
-            );
-            *builder = new_builder.value_scalar(node_id, &values_vec);
-            Ok(())
-        } else {
-            Err(PyValueError::new_err("Must call periods() first"))
-        }
+        let builder = self.take_ready_builder()?;
+        let builder = builder.value_scalar(node_id, &values_vec);
+        self.state = BuilderState::Ready(Some(builder));
+        Ok(())
     }
 
     #[pyo3(text_signature = "(self, node_id, formula)")]
@@ -288,18 +276,10 @@ impl PyModelBuilder {
     /// ModelBuilder
     ///     Builder instance for chaining
     fn compute(&mut self, node_id: String, formula: String) -> PyResult<()> {
-        if let BuilderState::Ready(builder) = &mut self.state {
-            let new_builder = std::mem::replace(
-                builder,
-                ModelBuilder::new("dummy")
-                    .periods("2025Q1..Q2", None)
-                    .unwrap(),
-            );
-            *builder = new_builder.compute(node_id, formula).map_err(stmt_to_py)?;
-            Ok(())
-        } else {
-            Err(PyValueError::new_err("Must call periods() first"))
-        }
+        let builder = self.take_ready_builder()?;
+        let builder = builder.compute(node_id, formula).map_err(stmt_to_py)?;
+        self.state = BuilderState::Ready(Some(builder));
+        Ok(())
     }
 
     #[pyo3(text_signature = "(self, node_id)")]
@@ -317,25 +297,19 @@ impl PyModelBuilder {
     /// MixedNodeBuilder
     ///     Mixed node builder instance
     fn mixed(&mut self, node_id: String) -> PyResult<PyMixedNodeBuilder> {
-        if let BuilderState::Ready(builder) = &mut self.state {
-            let parent = std::mem::replace(
-                builder,
-                ModelBuilder::new("dummy")
-                    .periods("2025Q1..Q2", None)
-                    .unwrap(),
-            );
+        let parent = self.take_ready_builder()?;
+        // Mark this builder as temporarily consumed; the returned MixedNodeBuilder
+        // will yield a new ModelBuilder when `finish()` is called.
+        self.state = BuilderState::Ready(None);
 
-            Ok(PyMixedNodeBuilder {
-                parent_builder: Some(parent),
-                node_id,
-                values: None,
-                forecast: None,
-                formula: None,
-                name: None,
-            })
-        } else {
-            Err(PyValueError::new_err("Must call periods() first"))
-        }
+        Ok(PyMixedNodeBuilder {
+            parent_builder: Some(parent),
+            node_id,
+            values: None,
+            forecast: None,
+            formula: None,
+            name: None,
+        })
     }
 
     #[pyo3(text_signature = "(self, node_id, forecast_spec)")]
@@ -355,18 +329,10 @@ impl PyModelBuilder {
     /// ModelBuilder
     ///     Builder instance for chaining
     fn forecast(&mut self, node_id: String, forecast_spec: &PyForecastSpec) -> PyResult<()> {
-        if let BuilderState::Ready(builder) = &mut self.state {
-            let new_builder = std::mem::replace(
-                builder,
-                ModelBuilder::new("dummy")
-                    .periods("2025Q1..Q2", None)
-                    .unwrap(),
-            );
-            *builder = new_builder.forecast(node_id, forecast_spec.inner.clone());
-            Ok(())
-        } else {
-            Err(PyValueError::new_err("Must call periods() first"))
-        }
+        let builder = self.take_ready_builder()?;
+        let builder = builder.forecast(node_id, forecast_spec.inner.clone());
+        self.state = BuilderState::Ready(Some(builder));
+        Ok(())
     }
 
     // Note: mixed() and with_where() methods are not exposed for now
@@ -389,18 +355,10 @@ impl PyModelBuilder {
     fn with_meta(&mut self, key: String, value: &Bound<'_, PyAny>) -> PyResult<()> {
         let json_value = crate::statements::utils::py_to_json(value)?;
 
-        if let BuilderState::Ready(builder) = &mut self.state {
-            let new_builder = std::mem::replace(
-                builder,
-                ModelBuilder::new("dummy")
-                    .periods("2025Q1..Q2", None)
-                    .unwrap(),
-            );
-            *builder = new_builder.with_meta(key, json_value);
-            Ok(())
-        } else {
-            Err(PyValueError::new_err("Must call periods() first"))
-        }
+        let builder = self.take_ready_builder()?;
+        let builder = builder.with_meta(key, json_value);
+        self.state = BuilderState::Ready(Some(builder));
+        Ok(())
     }
 
     #[pyo3(text_signature = "(self, waterfall_spec)")]
@@ -416,18 +374,10 @@ impl PyModelBuilder {
     /// ModelBuilder
     ///     Builder instance for chaining
     fn waterfall(&mut self, waterfall_spec: PyWaterfallSpec) -> PyResult<()> {
-        if let BuilderState::Ready(builder) = &mut self.state {
-            let new_builder = std::mem::replace(
-                builder,
-                ModelBuilder::new("dummy")
-                    .periods("2025Q1..Q2", None)
-                    .unwrap(),
-            );
-            *builder = new_builder.waterfall(waterfall_spec.inner);
-            Ok(())
-        } else {
-            Err(PyValueError::new_err("Must call periods() first"))
-        }
+        let builder = self.take_ready_builder()?;
+        let builder = builder.waterfall(waterfall_spec.inner);
+        self.state = BuilderState::Ready(Some(builder));
+        Ok(())
     }
 
     #[pyo3(
@@ -467,27 +417,19 @@ impl PyModelBuilder {
         let issue = py_to_date(issue_date)?;
         let maturity = py_to_date(maturity_date)?;
 
-        if let BuilderState::Ready(builder) = &mut self.state {
-            let new_builder = std::mem::replace(
-                builder,
-                ModelBuilder::new("dummy")
-                    .periods("2025Q1..Q2", None)
-                    .unwrap(),
-            );
-            *builder = new_builder
-                .add_bond(
-                    id,
-                    notional.inner,
-                    coupon_rate,
-                    issue,
-                    maturity,
-                    discount_curve_id,
-                )
-                .map_err(stmt_to_py)?;
-            Ok(())
-        } else {
-            Err(PyValueError::new_err("Must call periods() first"))
-        }
+        let builder = self.take_ready_builder()?;
+        let builder = builder
+            .add_bond(
+                id,
+                notional.inner,
+                coupon_rate,
+                issue,
+                maturity,
+                discount_curve_id,
+            )
+            .map_err(stmt_to_py)?;
+        self.state = BuilderState::Ready(Some(builder));
+        Ok(())
     }
 
     #[pyo3(
@@ -530,28 +472,20 @@ impl PyModelBuilder {
         let start = py_to_date(start_date)?;
         let maturity = py_to_date(maturity_date)?;
 
-        if let BuilderState::Ready(builder) = &mut self.state {
-            let new_builder = std::mem::replace(
-                builder,
-                ModelBuilder::new("dummy")
-                    .periods("2025Q1..Q2", None)
-                    .unwrap(),
-            );
-            *builder = new_builder
-                .add_swap(
-                    id,
-                    notional.inner,
-                    fixed_rate,
-                    start,
-                    maturity,
-                    discount_curve_id,
-                    forward_curve_id,
-                )
-                .map_err(stmt_to_py)?;
-            Ok(())
-        } else {
-            Err(PyValueError::new_err("Must call periods() first"))
-        }
+        let builder = self.take_ready_builder()?;
+        let builder = builder
+            .add_swap(
+                id,
+                notional.inner,
+                fixed_rate,
+                start,
+                maturity,
+                discount_curve_id,
+                forward_curve_id,
+            )
+            .map_err(stmt_to_py)?;
+        self.state = BuilderState::Ready(Some(builder));
+        Ok(())
     }
 
     #[pyo3(text_signature = "(self, id, spec)")]
@@ -581,18 +515,10 @@ impl PyModelBuilder {
     fn add_custom_debt(&mut self, id: String, spec: &Bound<'_, PyAny>) -> PyResult<()> {
         let json_value = crate::statements::utils::py_to_json(spec)?;
 
-        if let BuilderState::Ready(builder) = &mut self.state {
-            let new_builder = std::mem::replace(
-                builder,
-                ModelBuilder::new("dummy")
-                    .periods("2025Q1..Q2", None)
-                    .unwrap(),
-            );
-            *builder = new_builder.add_custom_debt(id, json_value);
-            Ok(())
-        } else {
-            Err(PyValueError::new_err("Must call periods() first"))
-        }
+        let builder = self.take_ready_builder()?;
+        let builder = builder.add_custom_debt(id, json_value);
+        self.state = BuilderState::Ready(Some(builder));
+        Ok(())
     }
 
     #[pyo3(text_signature = "(self)")]
@@ -604,18 +530,10 @@ impl PyModelBuilder {
     /// -------
     /// None
     fn with_builtin_metrics(&mut self) -> PyResult<()> {
-        if let BuilderState::Ready(builder) = &mut self.state {
-            let new_builder = std::mem::replace(
-                builder,
-                ModelBuilder::new("dummy")
-                    .periods("2025Q1..Q2", None)
-                    .unwrap(),
-            );
-            *builder = new_builder.with_builtin_metrics().map_err(stmt_to_py)?;
-            Ok(())
-        } else {
-            Err(PyValueError::new_err("Must call periods() first"))
-        }
+        let builder = self.take_ready_builder()?;
+        let builder = builder.with_builtin_metrics().map_err(stmt_to_py)?;
+        self.state = BuilderState::Ready(Some(builder));
+        Ok(())
     }
 
     #[pyo3(text_signature = "(self, path)")]
@@ -630,18 +548,10 @@ impl PyModelBuilder {
     /// -------
     /// None
     fn with_metrics(&mut self, path: &str) -> PyResult<()> {
-        if let BuilderState::Ready(builder) = &mut self.state {
-            let new_builder = std::mem::replace(
-                builder,
-                ModelBuilder::new("dummy")
-                    .periods("2025Q1..Q2", None)
-                    .unwrap(),
-            );
-            *builder = new_builder.with_metrics(path).map_err(stmt_to_py)?;
-            Ok(())
-        } else {
-            Err(PyValueError::new_err("Must call periods() first"))
-        }
+        let builder = self.take_ready_builder()?;
+        let builder = builder.with_metrics(path).map_err(stmt_to_py)?;
+        self.state = BuilderState::Ready(Some(builder));
+        Ok(())
     }
 
     #[pyo3(text_signature = "(self, qualified_id)")]
@@ -663,18 +573,10 @@ impl PyModelBuilder {
     /// --------
     /// >>> builder.add_metric("fin.gross_margin")
     fn add_metric(&mut self, qualified_id: &str) -> PyResult<()> {
-        if let BuilderState::Ready(builder) = &mut self.state {
-            let new_builder = std::mem::replace(
-                builder,
-                ModelBuilder::new("dummy")
-                    .periods("2025Q1..Q2", None)
-                    .unwrap(),
-            );
-            *builder = new_builder.add_metric(qualified_id).map_err(stmt_to_py)?;
-            Ok(())
-        } else {
-            Err(PyValueError::new_err("Must call periods() first"))
-        }
+        let builder = self.take_ready_builder()?;
+        let builder = builder.add_metric(qualified_id).map_err(stmt_to_py)?;
+        self.state = BuilderState::Ready(Some(builder));
+        Ok(())
     }
 
     #[pyo3(text_signature = "(self, qualified_id, registry)")]
@@ -703,20 +605,12 @@ impl PyModelBuilder {
         let registry_ref: PyRef<'_, crate::statements::registry::PyRegistry> =
             registry.extract()?;
 
-        if let BuilderState::Ready(builder) = &mut self.state {
-            let new_builder = std::mem::replace(
-                builder,
-                ModelBuilder::new("dummy")
-                    .periods("2025Q1..Q2", None)
-                    .unwrap(),
-            );
-            *builder = new_builder
-                .add_metric_from_registry(qualified_id, registry_ref.inner())
-                .map_err(stmt_to_py)?;
-            Ok(())
-        } else {
-            Err(PyValueError::new_err("Must call periods() first"))
-        }
+        let builder = self.take_ready_builder()?;
+        let builder = builder
+            .add_metric_from_registry(qualified_id, registry_ref.inner())
+            .map_err(stmt_to_py)?;
+        self.state = BuilderState::Ready(Some(builder));
+        Ok(())
     }
 
     #[pyo3(text_signature = "(self)")]
@@ -727,18 +621,10 @@ impl PyModelBuilder {
     /// FinancialModelSpec
     ///     Complete model specification
     fn build(&mut self) -> PyResult<PyFinancialModelSpec> {
-        if let BuilderState::Ready(builder) = &mut self.state {
-            let new_builder = std::mem::replace(
-                builder,
-                ModelBuilder::new("dummy")
-                    .periods("2025Q1..Q2", None)
-                    .unwrap(),
-            );
-            let spec = new_builder.build().map_err(stmt_to_py)?;
-            Ok(PyFinancialModelSpec::new(spec))
-        } else {
-            Err(PyValueError::new_err("Must call periods() first"))
-        }
+        let builder = self.take_ready_builder()?;
+        let spec = builder.build().map_err(stmt_to_py)?;
+        self.state = BuilderState::Consumed;
+        Ok(PyFinancialModelSpec::new(spec))
     }
 
     #[pyo3(text_signature = "(self, name, increases, decreases)")]
@@ -767,25 +653,17 @@ impl PyModelBuilder {
         increases: Vec<String>,
         decreases: Vec<String>,
     ) -> PyResult<()> {
-        if let BuilderState::Ready(builder) = &mut self.state {
-            let new_builder = std::mem::replace(
-                builder,
-                ModelBuilder::new("dummy")
-                    .periods("2025Q1..Q2", None)
-                    .unwrap(),
-            );
+        let builder = self.take_ready_builder()?;
 
-            // Convert Vec<String> to Vec<&str>
-            let inc_refs: Vec<&str> = increases.iter().map(|s| s.as_str()).collect();
-            let dec_refs: Vec<&str> = decreases.iter().map(|s| s.as_str()).collect();
+        // Convert Vec<String> to Vec<&str>
+        let inc_refs: Vec<&str> = increases.iter().map(|s| s.as_str()).collect();
+        let dec_refs: Vec<&str> = decreases.iter().map(|s| s.as_str()).collect();
 
-            *builder = new_builder
-                .add_roll_forward(&name, &inc_refs, &dec_refs)
-                .map_err(stmt_to_py)?;
-            Ok(())
-        } else {
-            Err(PyValueError::new_err("Must call periods() first"))
-        }
+        let builder = builder
+            .add_roll_forward(&name, &inc_refs, &dec_refs)
+            .map_err(stmt_to_py)?;
+        self.state = BuilderState::Ready(Some(builder));
+        Ok(())
     }
 
     #[pyo3(text_signature = "(self, name, new_volume_node, decay_curve)")]
@@ -816,20 +694,25 @@ impl PyModelBuilder {
         new_volume_node: String,
         decay_curve: Vec<f64>,
     ) -> PyResult<()> {
-        if let BuilderState::Ready(builder) = &mut self.state {
-            let new_builder = std::mem::replace(
-                builder,
-                ModelBuilder::new("dummy")
-                    .periods("2025Q1..Q2", None)
-                    .unwrap(),
-            );
+        let builder = self.take_ready_builder()?;
+        let builder = builder
+            .add_vintage_buildup(&name, &new_volume_node, &decay_curve)
+            .map_err(stmt_to_py)?;
+        self.state = BuilderState::Ready(Some(builder));
+        Ok(())
+    }
+}
 
-            *builder = new_builder
-                .add_vintage_buildup(&name, &new_volume_node, &decay_curve)
-                .map_err(stmt_to_py)?;
-            Ok(())
-        } else {
-            Err(PyValueError::new_err("Must call periods() first"))
+impl PyModelBuilder {
+    fn take_ready_builder(&mut self) -> PyResult<ModelBuilder<Ready>> {
+        match &mut self.state {
+            BuilderState::Ready(b) => b
+                .take()
+                .ok_or_else(|| PyRuntimeError::new_err("ModelBuilder internal state error")),
+            BuilderState::NeedPeriods(_) => Err(PyValueError::new_err("Must call periods() first")),
+            BuilderState::Consumed => Err(PyValueError::new_err(
+                "ModelBuilder has been consumed (build() already called)",
+            )),
         }
     }
 }
@@ -847,12 +730,15 @@ fn parse_period_values(values: &Bound<'_, PyAny>) -> PyResult<Vec<(PeriodId, Amo
         }
     } else if let Ok(list) = values.downcast::<PyList>() {
         // List of tuples format
-        for item in list.iter() {
-            if let Ok((period, amount)) =
-                item.extract::<(crate::core::dates::periods::PyPeriodId, PyAmountOrScalar)>()
-            {
-                vec.push((period.inner, amount.inner.clone()));
-            }
+        for (idx, item) in list.iter().enumerate() {
+            let (period, amount) = item
+                .extract::<(crate::core::dates::periods::PyPeriodId, PyAmountOrScalar)>()
+                .map_err(|err| {
+                    PyValueError::new_err(format!(
+                        "Invalid values[{idx}] (expected (PeriodId, AmountOrScalar)): {err}"
+                    ))
+                })?;
+            vec.push((period.inner, amount.inner.clone()));
         }
     } else {
         return Err(PyValueError::new_err(
@@ -1011,7 +897,7 @@ impl PyMixedNodeBuilder {
         let parent = mixed_builder.finish();
 
         Ok(PyModelBuilder {
-            state: BuilderState::Ready(parent),
+            state: BuilderState::Ready(Some(parent)),
         })
     }
 }

@@ -8,4 +8,4 @@
  * Note that LevenbergMarquardt variant automatically falls back to Brent for 1D solve_1d() calls.
  * Solver Kind enumeration.
  */
-export type SolverKind = "Newton" | "Brent" | "LevenbergMarquardt";
+export type SolverKind = 'Newton' | 'Brent' | 'LevenbergMarquardt';

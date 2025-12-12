@@ -1,7 +1,7 @@
-use crate::core::common::{labels::normalize_label, pycmp::richcmp_eq_ne};
 use super::validation::PyValidationConfig;
-use finstack_core::market_data::term_structures::Seniority;
+use crate::core::common::{labels::normalize_label, pycmp::richcmp_eq_ne};
 use finstack_core::explain::ExplainOpts;
+use finstack_core::market_data::term_structures::Seniority;
 use finstack_valuations::calibration::{
     CalibrationConfig, CalibrationMethod, MultiCurveConfig, RateBounds, SolverKind, ValidationMode,
 };
@@ -108,6 +108,15 @@ impl PyCalibrationMethod {
     pub(crate) const fn new(inner: CalibrationMethod) -> Self {
         Self { inner }
     }
+
+    const fn discriminant(&self) -> (isize, bool) {
+        match self.inner {
+            CalibrationMethod::Bootstrap => (0, false),
+            CalibrationMethod::GlobalSolve {
+                use_analytical_jacobian,
+            } => (1, use_analytical_jacobian),
+        }
+    }
 }
 
 #[pymethods]
@@ -132,7 +141,9 @@ impl PyCalibrationMethod {
             "global_solve" => Ok(Self::new(CalibrationMethod::GlobalSolve {
                 use_analytical_jacobian,
             })),
-            other => Err(PyKeyError::new_err(format!("Unknown calibration method: {other}"))),
+            other => Err(PyKeyError::new_err(format!(
+                "Unknown calibration method: {other}"
+            ))),
         }
     }
 
@@ -174,6 +185,30 @@ impl PyCalibrationMethod {
             ),
         }
     }
+
+    fn __str__(&self) -> &'static str {
+        self.name()
+    }
+
+    fn __hash__(&self) -> isize {
+        let (tag, flag) = self.discriminant();
+        (tag << 1) ^ (flag as isize)
+    }
+
+    fn __richcmp__(
+        &self,
+        other: Bound<'_, PyAny>,
+        op: CompareOp,
+        py: Python<'_>,
+    ) -> PyResult<Py<PyAny>> {
+        let rhs = other.extract::<PyCalibrationMethod>().ok();
+        richcmp_eq_ne(
+            py,
+            &self.discriminant(),
+            rhs.as_ref().map(PyCalibrationMethod::discriminant),
+            op,
+        )
+    }
 }
 
 #[pyclass(
@@ -190,6 +225,13 @@ impl PyValidationMode {
     pub(crate) const fn new(inner: ValidationMode) -> Self {
         Self { inner }
     }
+
+    const fn discriminant(&self) -> isize {
+        match self.inner {
+            ValidationMode::Warn => 0,
+            ValidationMode::Error => 1,
+        }
+    }
 }
 
 #[pymethods]
@@ -205,7 +247,9 @@ impl PyValidationMode {
         match normalize_label(name).as_str() {
             "warn" | "warning" => Ok(Self::new(ValidationMode::Warn)),
             "error" | "strict" => Ok(Self::new(ValidationMode::Error)),
-            other => Err(PyKeyError::new_err(format!("Unknown validation mode: {other}"))),
+            other => Err(PyKeyError::new_err(format!(
+                "Unknown validation mode: {other}"
+            ))),
         }
     }
 
@@ -223,6 +267,25 @@ impl PyValidationMode {
 
     fn __str__(&self) -> &'static str {
         self.name()
+    }
+
+    fn __hash__(&self) -> isize {
+        self.discriminant()
+    }
+
+    fn __richcmp__(
+        &self,
+        other: Bound<'_, PyAny>,
+        op: CompareOp,
+        py: Python<'_>,
+    ) -> PyResult<Py<PyAny>> {
+        let rhs = other.extract::<PyValidationMode>().ok();
+        richcmp_eq_ne(
+            py,
+            &self.discriminant(),
+            rhs.as_ref().map(PyValidationMode::discriminant),
+            op,
+        )
     }
 }
 
@@ -662,7 +725,10 @@ impl PyCalibrationConfig {
                 PyCalibrationMethod::new(self.inner.calibration_method.clone()).name()
             ),
             format!("use_fd_sabr_gradients={}", self.inner.use_fd_sabr_gradients),
-            format!("validation_mode='{}'", PyValidationMode::new(self.inner.validation_mode.clone()).name()),
+            format!(
+                "validation_mode='{}'",
+                PyValidationMode::new(self.inner.validation_mode.clone()).name()
+            ),
             format!(
                 "rate_bounds=RateBounds(min_rate={:.6}, max_rate={:.6})",
                 self.inner.rate_bounds.min_rate, self.inner.rate_bounds.max_rate

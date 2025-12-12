@@ -60,4 +60,10 @@ export interface CalibrationConfigJson {
 }
 
 /** Tab selection for calibration suite */
-export type CalibrationTab = 'discount' | 'forward' | 'hazard' | 'inflation' | 'vol' | 'correlation';
+export type CalibrationTab =
+  | 'discount'
+  | 'forward'
+  | 'hazard'
+  | 'inflation'
+  | 'vol'
+  | 'correlation';

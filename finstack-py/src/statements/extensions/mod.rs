@@ -212,13 +212,12 @@ impl PyExtensionResult {
     }
 
     #[getter]
-    fn data(&self, py: Python<'_>) -> Py<PyAny> {
+    fn data(&self, py: Python<'_>) -> PyResult<Py<PyAny>> {
         let dict = PyDict::new(py);
         for (key, value) in &self.inner.data {
-            dict.set_item(key, crate::statements::utils::json_to_py(py, value))
-                .ok();
+            dict.set_item(key, crate::statements::utils::json_to_py(py, value)?)?;
         }
-        dict.into()
+        Ok(dict.into())
     }
 
     fn __repr__(&self) -> String {

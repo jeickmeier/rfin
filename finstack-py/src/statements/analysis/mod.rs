@@ -254,12 +254,12 @@ pub struct PySensitivityScenario {
 #[pymethods]
 impl PySensitivityScenario {
     #[getter]
-    fn parameter_values(&self, py: Python<'_>) -> Py<PyAny> {
+    fn parameter_values(&self, py: Python<'_>) -> PyResult<Py<PyAny>> {
         let dict = PyDict::new(py);
         for (key, value) in &self.inner.parameter_values {
-            dict.set_item(key, value).ok();
+            dict.set_item(key, value)?;
         }
-        dict.into()
+        Ok(dict.into())
     }
 
     #[getter]

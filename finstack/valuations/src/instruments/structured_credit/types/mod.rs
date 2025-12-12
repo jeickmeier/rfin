@@ -594,7 +594,10 @@ impl StructuredCredit {
                     continue;
                 }
 
-                let df_base = discount_curve.df_on_date_curve(*date);
+                let df_base = match discount_curve.try_df_on_date_curve(*date) {
+                    Ok(df) => df,
+                    Err(_) => return f64::NAN,
+                };
 
                 // Adjustment: df_spread = exp(-spread * t)
                 let df_spread = (-spread * t).exp();

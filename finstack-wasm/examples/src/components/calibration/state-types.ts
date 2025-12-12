@@ -305,7 +305,11 @@ export function applyStateUpdate(
 
 export type CalibrationCommand =
   | { type: 'SET_STATE'; state: DeepPartial<CalibrationSuiteState> }
-  | { type: 'SET_QUOTES'; calibrationType: keyof Omit<CalibrationSuiteState, 'activeTab'>; quotes: unknown[] }
+  | {
+      type: 'SET_QUOTES';
+      calibrationType: keyof Omit<CalibrationSuiteState, 'activeTab'>;
+      quotes: unknown[];
+    }
   | { type: 'SET_TAB'; tab: CalibrationSuiteState['activeTab'] }
   | { type: 'CALIBRATE'; calibrationType: keyof Omit<CalibrationSuiteState, 'activeTab'> }
   | { type: 'RESET'; calibrationType?: keyof Omit<CalibrationSuiteState, 'activeTab'> };

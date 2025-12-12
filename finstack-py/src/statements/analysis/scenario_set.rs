@@ -83,12 +83,12 @@ impl PyScenarioDefinition {
 
     /// Scalar overrides for this scenario.
     #[getter]
-    fn overrides(&self, py: Python<'_>) -> Py<PyAny> {
+    fn overrides(&self, py: Python<'_>) -> PyResult<Py<PyAny>> {
         let dict = PyDict::new(py);
         for (key, value) in &self.inner.overrides {
-            dict.set_item(key, value).ok();
+            dict.set_item(key, value)?;
         }
-        dict.into()
+        Ok(dict.into())
     }
 
     fn __repr__(&self) -> String {
@@ -149,12 +149,11 @@ impl PyScenarioSet {
         })?;
 
         let scenario_map_value = match &value {
-            serde_json::Value::Object(obj)
-                if obj.len() == 1 && obj.get("scenario_set").is_some() =>
-            {
-                obj.get("scenario_set").cloned().unwrap()
-            }
-            _ => value,
+            serde_json::Value::Object(obj) if obj.len() == 1 => obj
+                .get("scenario_set")
+                .cloned()
+                .unwrap_or_else(|| value.clone()),
+            _ => value.clone(),
         };
 
         let scenarios: IndexMap<String, ScenarioDefinition> =
@@ -183,12 +182,11 @@ impl PyScenarioSet {
         })?;
 
         let scenario_map_value = match &value {
-            serde_json::Value::Object(obj)
-                if obj.len() == 1 && obj.get("scenario_set").is_some() =>
-            {
-                obj.get("scenario_set").cloned().unwrap()
-            }
-            _ => value,
+            serde_json::Value::Object(obj) if obj.len() == 1 => obj
+                .get("scenario_set")
+                .cloned()
+                .unwrap_or_else(|| value.clone()),
+            _ => value.clone(),
         };
 
         let scenarios: IndexMap<String, ScenarioDefinition> =

@@ -1,13 +1,15 @@
 """Cashflow performance analytics (NPV, IRR)."""
 
 from datetime import date
-from typing import List, Tuple, Optional
+from typing import List, Tuple, Optional, Union
+
+from ..dates.daycount import DayCount
 
 def npv(
     cash_flows: List[Tuple[date, float]],
     discount_rate: float,
     base_date: Optional[date] = None,
-    day_count: Optional[str] = None,
+    day_count: Optional[Union[str, DayCount]] = None,
 ) -> float: ...
 
 """Calculate net present value of a cashflow stream.

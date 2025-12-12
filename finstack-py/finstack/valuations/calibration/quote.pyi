@@ -4,7 +4,6 @@ from __future__ import annotations
 
 from typing import Any, Optional
 
-
 class FutureSpecs:
     def __init__(
         self,
@@ -15,35 +14,25 @@ class FutureSpecs:
         day_count: Any = "ACT/360",
         convexity_adjustment: Optional[float] = None,
     ) -> None: ...
-
     @property
     def multiplier(self) -> float: ...
-
     @property
     def face_value(self) -> float: ...
-
     @property
     def delivery_months(self) -> int: ...
-
     @property
     def day_count(self) -> Any: ...
-
     @property
     def convexity_adjustment(self) -> Optional[float]: ...
-
     def __repr__(self) -> str: ...
-
 
 class RatesQuote:
     @classmethod
     def deposit(cls, maturity: Any, rate: float, day_count: Any) -> RatesQuote: ...
-
     @classmethod
     def fra(cls, start: Any, end: Any, rate: float, day_count: Any) -> RatesQuote: ...
-
     @classmethod
     def future(cls, expiry: Any, price: float, specs: FutureSpecs) -> RatesQuote: ...
-
     @classmethod
     def swap(
         cls,
@@ -55,7 +44,6 @@ class RatesQuote:
         float_day_count: Any,
         index: str,
     ) -> RatesQuote: ...
-
     @classmethod
     def basis_swap(
         cls,
@@ -69,14 +57,10 @@ class RatesQuote:
         reference_day_count: Any,
         currency: Any,
     ) -> RatesQuote: ...
-
     @property
     def kind(self) -> str: ...
-
     def to_market_quote(self) -> MarketQuote: ...
-
     def __repr__(self) -> str: ...
-
 
 class CreditQuote:
     @classmethod
@@ -88,7 +72,6 @@ class CreditQuote:
         recovery_rate: float,
         currency: Any,
     ) -> CreditQuote: ...
-
     @classmethod
     def cds_upfront(
         cls,
@@ -99,7 +82,6 @@ class CreditQuote:
         recovery_rate: float,
         currency: Any,
     ) -> CreditQuote: ...
-
     @classmethod
     def cds_tranche(
         cls,
@@ -110,14 +92,10 @@ class CreditQuote:
         upfront_pct: float,
         running_spread_bp: float,
     ) -> CreditQuote: ...
-
     @property
     def kind(self) -> str: ...
-
     def to_market_quote(self) -> MarketQuote: ...
-
     def __repr__(self) -> str: ...
-
 
 class VolQuote:
     @classmethod
@@ -129,7 +107,6 @@ class VolQuote:
         vol: float,
         option_type: str,
     ) -> VolQuote: ...
-
     @classmethod
     def swaption_vol(
         cls,
@@ -139,46 +116,30 @@ class VolQuote:
         vol: float,
         quote_type: str,
     ) -> VolQuote: ...
-
     @property
     def kind(self) -> str: ...
-
     def to_market_quote(self) -> MarketQuote: ...
-
     def __repr__(self) -> str: ...
-
 
 class InflationQuote:
     @classmethod
     def inflation_swap(cls, maturity: Any, rate: float, index: str) -> InflationQuote: ...
-
     @classmethod
-    def yoy_inflation_swap(
-        cls, maturity: Any, rate: float, index: str, frequency: Any
-    ) -> InflationQuote: ...
-
+    def yoy_inflation_swap(cls, maturity: Any, rate: float, index: str, frequency: Any) -> InflationQuote: ...
     @property
     def kind(self) -> str: ...
-
     def to_market_quote(self) -> MarketQuote: ...
-
     def __repr__(self) -> str: ...
-
 
 class MarketQuote:
     @classmethod
     def from_rates(cls, quote: RatesQuote) -> MarketQuote: ...
-
     @classmethod
     def from_credit(cls, quote: CreditQuote) -> MarketQuote: ...
-
     @classmethod
     def from_vol(cls, quote: VolQuote) -> MarketQuote: ...
-
     @classmethod
     def from_inflation(cls, quote: InflationQuote) -> MarketQuote: ...
-
     @property
     def kind(self) -> str: ...
-
     def __repr__(self) -> str: ...

@@ -1,14 +1,14 @@
 #!/usr/bin/env node
 /**
  * Generate TypeScript types from Finstack JSON schemas.
- * 
+ *
  * This script generates TypeScript interfaces from the JSON schemas
  * defined in finstack/valuations/schemas/, eliminating the need to
  * manually maintain TypeScript type definitions.
- * 
+ *
  * Usage:
  *   node scripts/generate-types.js
- * 
+ *
  * Or add to package.json:
  *   "scripts": { "generate:types": "node scripts/generate-types.js" }
  */
@@ -45,39 +45,37 @@ try {
 
 for (const category of SCHEMA_CATEGORIES) {
   const schemaDir = path.join(SCHEMAS_DIR, category.path);
-  
+
   if (!fs.existsSync(schemaDir)) {
     console.log(`⚠️  Schema directory not found: ${schemaDir}`);
     continue;
   }
-  
-  const files = fs.readdirSync(schemaDir).filter(f => f.endsWith('.schema.json'));
-  
+
+  const files = fs.readdirSync(schemaDir).filter((f) => f.endsWith('.schema.json'));
+
   if (files.length === 0) {
     console.log(`⚠️  No schema files found in: ${schemaDir}`);
     continue;
   }
-  
+
   console.log(`📁 Processing ${category.name} (${files.length} schemas)...`);
-  
+
   const outputFile = path.join(OUTPUT_DIR, `${category.name}.ts`);
-  
+
   // Generate types for each schema file
   for (const file of files) {
     const schemaPath = path.join(schemaDir, file);
     const baseName = file.replace('.schema.json', '');
-    
+
     try {
       const cmd = `npx json-schema-to-typescript "${schemaPath}" --no-additionalProperties`;
       const output = execSync(cmd, { encoding: 'utf-8' });
-      
+
       // Append to output file
-      fs.appendFileSync(
-        outputFile,
-        `// Generated from ${file}\n${output}\n\n`,
-        { encoding: 'utf-8' }
-      );
-      
+      fs.appendFileSync(outputFile, `// Generated from ${file}\n${output}\n\n`, {
+        encoding: 'utf-8',
+      });
+
       console.log(`  ✅ ${baseName}`);
     } catch (error) {
       console.log(`  ❌ ${baseName}: ${error.message}`);
@@ -103,4 +101,3 @@ fs.writeFileSync(path.join(OUTPUT_DIR, 'index.ts'), indexContent);
 
 console.log('\n✨ Type generation complete!');
 console.log(`   Output: ${OUTPUT_DIR}`);
-

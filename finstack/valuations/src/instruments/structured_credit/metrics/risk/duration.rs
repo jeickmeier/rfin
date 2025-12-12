@@ -63,12 +63,10 @@ impl MetricCalculator for MacaulayDurationCalculator {
             }
 
             // Calculate time in years
-            let years = day_count
-                .year_fraction(context.as_of, *date, DayCountCtx::default())
-                .unwrap_or(0.0);
+            let years = day_count.year_fraction(context.as_of, *date, DayCountCtx::default())?;
 
             // Get discount factor
-            let df = disc.df_on_date_curve(*date);
+            let df = disc.try_df_on_date_curve(*date)?;
 
             // Calculate present value
             let pv = amount.amount() * df;
@@ -155,12 +153,10 @@ impl MetricCalculator for ModifiedDurationCalculator {
             }
 
             // Calculate time from curve base date
-            let t = day_count
-                .year_fraction(base_date, *date, DayCountCtx::default())
-                .unwrap_or(0.0);
+            let t = day_count.year_fraction(base_date, *date, DayCountCtx::default())?;
 
             // Get base discount factor
-            let df = disc.df_on_date_curve(*date);
+            let df = disc.try_df_on_date_curve(*date)?;
 
             // Apply yield shift: df_shifted = df * exp(-shift * t)
             let df_shifted = df * (-yield_shift * t).exp();

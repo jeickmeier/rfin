@@ -144,7 +144,7 @@ pub fn fixed_leg_annuity(
     let mut prev = schedule[0];
     for &d in &schedule[1..] {
         let alpha = dc.year_fraction(prev, d, DayCountCtx::default())?;
-        let p = disc.df_on_date_curve(d);
+        let p = disc.try_df_on_date_curve(d)?;
         ann += alpha * p;
         prev = d;
     }
@@ -204,8 +204,8 @@ pub fn par_rate_and_annuity_from_discount(
         return Ok((0.0, 0.0));
     }
 
-    let p0 = disc.df_on_date_curve(schedule[0]);
-    let pn = disc.df_on_date_curve(*schedule.last().expect("Schedule should not be empty"));
+    let p0 = disc.try_df_on_date_curve(schedule[0])?;
+    let pn = disc.try_df_on_date_curve(*schedule.last().expect("Schedule should not be empty"))?;
     let num = p0 - pn;
     Ok((num / ann, ann))
 }
@@ -563,7 +563,7 @@ pub fn price_from_z_spread(
     let disc = curves.get_discount_ref(&bond.discount_curve_id)?;
     // Pre-compute as_of discount factor for correct theta using the curve's
     // own date mapping.
-    let df_as_of = disc.df_on_date_curve(as_of);
+    let df_as_of = disc.try_df_on_date_curve(as_of)?;
 
     let mut pv = 0.0;
     for (d, a) in &flows {
@@ -578,7 +578,7 @@ pub fn price_from_z_spread(
             .year_fraction(as_of, *d, DayCountCtx::default())?;
 
         // Discount from as_of using the curve's DF(date) mapping.
-        let df_cf_abs = disc.df_on_date_curve(*d);
+        let df_cf_abs = disc.try_df_on_date_curve(*d)?;
         let df = if df_as_of != 0.0 {
             df_cf_abs / df_as_of
         } else {
@@ -878,14 +878,14 @@ fn par_swap_rate_from_discount(bond: &Bond, curves: &MarketContext, as_of: Date)
         return Ok(0.0);
     }
 
-    let p0 = disc.df_on_date_curve(dates[0]);
-    let pn = disc.df_on_date_curve(*dates.last().expect("Dates should not be empty"));
+    let p0 = disc.try_df_on_date_curve(dates[0])?;
+    let pn = disc.try_df_on_date_curve(*dates.last().expect("Dates should not be empty"))?;
     let num = p0 - pn;
     let mut den = 0.0;
     for w in dates.windows(2) {
         let (a, b) = (w[0], w[1]);
         let alpha = DayCount::ActAct.year_fraction(a, b, DayCountCtx::default())?;
-        let p = disc.df_on_date_curve(b);
+        let p = disc.try_df_on_date_curve(b)?;
         den += alpha * p;
     }
     if den == 0.0 {

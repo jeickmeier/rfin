@@ -157,6 +157,7 @@ fn test_discount_curve_swap_repricing() {
                 base_date,
                 Money::new(NOTIONAL, Currency::USD),
                 None,
+                0,
             )
             .expect("Swap construction should succeed");
 

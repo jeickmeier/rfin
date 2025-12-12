@@ -10,14 +10,14 @@ import {
 } from 'finstack-wasm';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { CurveChart, StatusBadge, CalibrationMetrics } from './CurveChart';
-import { ForwardQuoteEditor, generateDefaultForwardQuotes, type ForwardQuoteData } from './QuoteEditor';
+import {
+  ForwardQuoteEditor,
+  generateDefaultForwardQuotes,
+  type ForwardQuoteData,
+} from './QuoteEditor';
 import type { CalibrationResult, CalibrationStatus, CurveDataPoint } from './types';
 import type { FrequencyType } from './CurrencyConventions';
-import type {
-  ForwardCurveCalibrationState,
-  CalibrationConfigJson,
-  DateJson,
-} from './state-types';
+import type { ForwardCurveCalibrationState, CalibrationConfigJson, DateJson } from './state-types';
 
 interface CalibratedForwardCurve {
   rate: (t: number) => number;
@@ -164,7 +164,13 @@ export const ForwardCurveCalibration: React.FC<ForwardCurveCalibrationProps> = (
       const calibrationConfig = buildWasmConfig(config);
       const wasmQuotes = buildWasmQuotes(quotes);
 
-      const calibrator = new ForwardCurveCalibrator(curveId, tenor, baseDate, currency, discountCurveId);
+      const calibrator = new ForwardCurveCalibrator(
+        curveId,
+        tenor,
+        baseDate,
+        currency,
+        discountCurveId
+      );
       const calibratorWithConfig = calibrator.withConfig(calibrationConfig);
 
       const [calibratedCurve, report] = calibratorWithConfig.calibrate(wasmQuotes, market) as [

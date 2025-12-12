@@ -123,8 +123,9 @@ pub fn py_xirr(cash_flows: Vec<(Bound<'_, PyAny>, f64)>, guess: Option<f64>) -> 
     // Convert Python dates to Rust dates
     let mut flows: Vec<(finstack_core::dates::Date, f64)> = Vec::with_capacity(cash_flows.len());
 
-    for (date, amount) in cash_flows {
-        let rust_date = py_to_date(&date).context("cash_flows")?;
+    for (idx, (date, amount)) in cash_flows.into_iter().enumerate() {
+        let field = format!("cash_flows[{idx}].date");
+        let rust_date = py_to_date(&date).context(&field)?;
         flows.push((rust_date, amount));
     }
 

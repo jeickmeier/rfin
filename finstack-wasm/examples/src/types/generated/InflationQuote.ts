@@ -3,32 +3,40 @@
 /**
  * Inflation instrument quotes.
  */
-export type InflationQuote = { "InflationSwap": { 
-/**
- * Swap maturity
- */
-maturity: string, 
-/**
- * Fixed rate (decimal)
- */
-rate: number, 
-/**
- * Inflation index identifier  
- */
-index: string, } } | { "YoYInflationSwap": { 
-/**
- * Swap maturity
- */
-maturity: string, 
-/**
- * Fixed rate (decimal)
- */
-rate: number, 
-/**
- * Inflation index identifier  
- */
-index: string, 
-/**
- * Payment frequency
- */
-frequency: string, } };
+export type InflationQuote =
+  | {
+      InflationSwap: {
+        /**
+         * Swap maturity
+         */
+        maturity: string;
+        /**
+         * Fixed rate (decimal)
+         */
+        rate: number;
+        /**
+         * Inflation index identifier
+         */
+        index: string;
+      };
+    }
+  | {
+      YoYInflationSwap: {
+        /**
+         * Swap maturity
+         */
+        maturity: string;
+        /**
+         * Fixed rate (decimal)
+         */
+        rate: number;
+        /**
+         * Inflation index identifier
+         */
+        index: string;
+        /**
+         * Payment frequency
+         */
+        frequency: string;
+      };
+    };

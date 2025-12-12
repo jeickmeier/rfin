@@ -300,15 +300,15 @@ impl VolSurfaceCalibrator {
 
         // Validate the calibrated volatility surface using configured thresholds/policies.
         use crate::calibration::validation::SurfaceValidator;
-        surface
-            .validate(&self.config.validation)
-            .map_err(|e| finstack_core::Error::Calibration {
+        surface.validate(&self.config.validation).map_err(|e| {
+            finstack_core::Error::Calibration {
                 message: format!(
                     "Calibrated volatility surface {} failed validation: {}",
                     self.surface_id, e
                 ),
                 category: "vol_surface_validation".to_string(),
-            })?;
+            }
+        })?;
 
         let report = CalibrationReport::for_type_with_tolerance(
             "volatility_surface",
@@ -571,18 +571,26 @@ impl Calibrator<VolQuote, VolSurface> for VolSurfaceCalibrator {
         // Preference order: explicit id via self.discount_id → inferred "<CCY>-OIS" → first discount in context
         // For production use, always specify an explicit discount_id to avoid ambiguity in multi-currency contexts.
         let (disc, used_discount_id): (
-            std::sync::Arc<finstack_core::market_data::term_structures::discount_curve::DiscountCurve>,
+            std::sync::Arc<
+                finstack_core::market_data::term_structures::discount_curve::DiscountCurve,
+            >,
             String,
         ) = {
             if let Some(ref id) = self.discount_id {
-                (base_context.get_discount(id.as_str())?, id.as_str().to_string())
+                (
+                    base_context.get_discount(id.as_str())?,
+                    id.as_str().to_string(),
+                )
             } else {
                 // If there is exactly one discount in context, use it; otherwise require explicit id
                 let mut iter = base_context.curves_of_type("Discount");
                 let first = iter.next();
                 if let Some((id, _)) = first {
                     if iter.next().is_none() {
-                        (base_context.get_discount(id.as_str())?, id.as_str().to_string())
+                        (
+                            base_context.get_discount(id.as_str())?,
+                            id.as_str().to_string(),
+                        )
                     } else {
                         return Err(finstack_core::Error::Input(
                             finstack_core::error::InputError::NotFound {

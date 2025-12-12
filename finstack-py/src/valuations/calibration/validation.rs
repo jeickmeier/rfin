@@ -19,52 +19,52 @@ fn resolve_validation_config(config: Option<PyRef<'_, PyValidationConfig>>) -> V
 
 #[pyfunction]
 #[pyo3(signature = (curve, config=None), text_signature = "(curve, config=None)")]
-fn validate_discount_curve(curve: &PyDiscountCurve, config: Option<PyRef<'_, PyValidationConfig>>) -> PyResult<()> {
+fn validate_discount_curve(
+    curve: &PyDiscountCurve,
+    config: Option<PyRef<'_, PyValidationConfig>>,
+) -> PyResult<()> {
     let cfg = resolve_validation_config(config);
-    curve
-        .inner
-        .validate(&cfg)
-        .map_err(core_to_py)
+    curve.inner.validate(&cfg).map_err(core_to_py)
 }
 
 #[pyfunction]
 #[pyo3(signature = (curve, config=None), text_signature = "(curve, config=None)")]
-fn validate_forward_curve(curve: &PyForwardCurve, config: Option<PyRef<'_, PyValidationConfig>>) -> PyResult<()> {
+fn validate_forward_curve(
+    curve: &PyForwardCurve,
+    config: Option<PyRef<'_, PyValidationConfig>>,
+) -> PyResult<()> {
     let cfg = resolve_validation_config(config);
-    curve
-        .inner
-        .validate(&cfg)
-        .map_err(core_to_py)
+    curve.inner.validate(&cfg).map_err(core_to_py)
 }
 
 #[pyfunction]
 #[pyo3(signature = (curve, config=None), text_signature = "(curve, config=None)")]
-fn validate_hazard_curve(curve: &PyHazardCurve, config: Option<PyRef<'_, PyValidationConfig>>) -> PyResult<()> {
+fn validate_hazard_curve(
+    curve: &PyHazardCurve,
+    config: Option<PyRef<'_, PyValidationConfig>>,
+) -> PyResult<()> {
     let cfg = resolve_validation_config(config);
-    curve
-        .inner
-        .validate(&cfg)
-        .map_err(core_to_py)
+    curve.inner.validate(&cfg).map_err(core_to_py)
 }
 
 #[pyfunction]
 #[pyo3(signature = (curve, config=None), text_signature = "(curve, config=None)")]
-fn validate_inflation_curve(curve: &PyInflationCurve, config: Option<PyRef<'_, PyValidationConfig>>) -> PyResult<()> {
+fn validate_inflation_curve(
+    curve: &PyInflationCurve,
+    config: Option<PyRef<'_, PyValidationConfig>>,
+) -> PyResult<()> {
     let cfg = resolve_validation_config(config);
-    curve
-        .inner
-        .validate(&cfg)
-        .map_err(core_to_py)
+    curve.inner.validate(&cfg).map_err(core_to_py)
 }
 
 #[pyfunction]
 #[pyo3(signature = (surface, config=None), text_signature = "(surface, config=None)")]
-fn validate_vol_surface(surface: &PyVolSurface, config: Option<PyRef<'_, PyValidationConfig>>) -> PyResult<()> {
+fn validate_vol_surface(
+    surface: &PyVolSurface,
+    config: Option<PyRef<'_, PyValidationConfig>>,
+) -> PyResult<()> {
     let cfg = resolve_validation_config(config);
-    surface
-        .inner
-        .validate(&cfg)
-        .map_err(core_to_py)
+    surface.inner.validate(&cfg).map_err(core_to_py)
 }
 
 /// Validation error details with constraint information.

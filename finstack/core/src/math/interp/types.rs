@@ -25,7 +25,7 @@ pub enum ExtrapolationPolicy {
 }
 
 /// Enum of supported interpolation styles. The default is `Linear`.
-#[derive(Copy, Clone, Debug, Default)]
+#[derive(Copy, Clone, Debug, Default, PartialEq, Eq)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 #[cfg_attr(feature = "serde", serde(rename_all = "snake_case"))]
 #[non_exhaustive]
@@ -47,7 +47,7 @@ pub enum InterpStyle {
 ///
 /// Storing this enum (instead of `Box<dyn InterpFn>`) allows the compiler to
 /// inline calls to `interp` and `interp_prime` for each concrete variant.
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 #[cfg_attr(feature = "serde", serde(rename_all = "snake_case"))]
 pub(crate) enum Interp {
@@ -112,9 +112,11 @@ impl InterpStyle {
             InterpStyle::CubicHermite => {
                 Ok(Box::new(CubicHermite::new(knots, values, extrapolation)?))
             }
-            InterpStyle::PiecewiseQuadraticForward => Ok(Box::new(
-                PiecewiseQuadraticForward::new(knots, values, extrapolation)?,
-            )),
+            InterpStyle::PiecewiseQuadraticForward => Ok(Box::new(PiecewiseQuadraticForward::new(
+                knots,
+                values,
+                extrapolation,
+            )?)),
         }
     }
 

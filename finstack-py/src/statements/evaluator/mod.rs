@@ -130,14 +130,17 @@ impl PyResults {
     /// -------
     /// dict[PeriodId, float] | None
     ///     Period values if node exists
-    fn get_node(&self, node_id: &str, py: Python<'_>) -> Option<Py<PyAny>> {
-        self.inner.get_node(node_id).map(|period_map| {
-            let dict = PyDict::new(py);
-            for (period_id, value) in period_map {
-                dict.set_item(PyPeriodId::new(*period_id), value).ok();
-            }
-            dict.into()
-        })
+    fn get_node(&self, node_id: &str, py: Python<'_>) -> PyResult<Option<Py<PyAny>>> {
+        self.inner
+            .get_node(node_id)
+            .map(|period_map| -> PyResult<Py<PyAny>> {
+                let dict = PyDict::new(py);
+                for (period_id, value) in period_map {
+                    dict.set_item(PyPeriodId::new(*period_id), value)?;
+                }
+                Ok(dict.into())
+            })
+            .transpose()
     }
 
     #[pyo3(text_signature = "(self, node_id, period_id, default)")]
@@ -172,13 +175,13 @@ impl PyResults {
     /// -------
     /// list[tuple[PeriodId, float]]
     ///     List of period-value pairs
-    fn all_periods(&self, node_id: &str, py: Python<'_>) -> Py<PyAny> {
+    fn all_periods(&self, node_id: &str, py: Python<'_>) -> PyResult<Py<PyAny>> {
         let list = PyList::empty(py);
         for (period_id, value) in self.inner.all_periods(node_id) {
             let tuple = (PyPeriodId::new(*period_id), value);
-            list.append(tuple).ok();
+            list.append(tuple)?;
         }
-        list.into()
+        Ok(list.into())
     }
 
     #[getter]
@@ -188,16 +191,16 @@ impl PyResults {
     /// -------
     /// dict[str, dict[PeriodId, float]]
     ///     Map of node_id to period values
-    fn nodes(&self, py: Python<'_>) -> Py<PyAny> {
+    fn nodes(&self, py: Python<'_>) -> PyResult<Py<PyAny>> {
         let dict = PyDict::new(py);
         for (node_id, period_map) in &self.inner.nodes {
             let inner_dict = PyDict::new(py);
             for (period_id, value) in period_map {
-                inner_dict.set_item(PyPeriodId::new(*period_id), value).ok();
+                inner_dict.set_item(PyPeriodId::new(*period_id), value)?;
             }
-            dict.set_item(node_id, inner_dict).ok();
+            dict.set_item(node_id, inner_dict)?;
         }
-        dict.into()
+        Ok(dict.into())
     }
 
     #[getter]
@@ -374,16 +377,22 @@ impl PyMonteCarloResults {
     /// -------
     /// dict[PeriodId, float] | None
     ///     Map of period → percentile value or ``None`` if unavailable
-    fn get_percentile(&self, metric: &str, percentile: f64, py: Python<'_>) -> Option<Py<PyAny>> {
-        if let Some(series) = self.inner.get_percentile_series(metric, percentile) {
-            let dict = PyDict::new(py);
-            for (period_id, value) in series {
-                dict.set_item(PyPeriodId::new(period_id), value).ok();
-            }
-            Some(dict.into())
-        } else {
-            None
-        }
+    fn get_percentile(
+        &self,
+        metric: &str,
+        percentile: f64,
+        py: Python<'_>,
+    ) -> PyResult<Option<Py<PyAny>>> {
+        self.inner
+            .get_percentile_series(metric, percentile)
+            .map(|series| -> PyResult<Py<PyAny>> {
+                let dict = PyDict::new(py);
+                for (period_id, value) in series {
+                    dict.set_item(PyPeriodId::new(period_id), value)?;
+                }
+                Ok(dict.into())
+            })
+            .transpose()
     }
 
     /// Estimate breach probability for a metric crossing a threshold.

@@ -198,11 +198,11 @@ impl HazardBondEngine {
 
         // Resolve discount curve
         let disc = market.get_discount_ref(&bond.discount_curve_id)?;
-        let df_as_of = disc.df_on_date_curve(as_of);
+        let df_as_of = disc.try_df_on_date_curve(as_of)?;
 
         // Compute settlement date and its discount factor (theta alignment).
         let settle_date = Self::compute_settlement_date(bond, as_of)?;
-        let df_settle = disc.df_on_date_curve(settle_date);
+        let df_settle = disc.try_df_on_date_curve(settle_date)?;
 
         // Resolve hazard curve; if not found, fall back to risk-free pricing.
         let hazard = match Self::resolve_hazard_curve(bond, market) {
@@ -233,7 +233,7 @@ impl HazardBondEngine {
         // Discount factors relative to settlement for correct theta.
         let mut dfs = Vec::with_capacity(dates.len());
         for d in &dates {
-            let df_abs = disc.df_on_date_curve(*d);
+            let df_abs = disc.try_df_on_date_curve(*d)?;
             let df_rel = if df_settle != 0.0 {
                 df_abs / df_settle
             } else if df_as_of != 0.0 {

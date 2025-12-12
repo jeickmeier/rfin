@@ -4,12 +4,13 @@
  * Multi-curve calibration configuration
  * Multi Curve Config structure.
  */
-export type MultiCurveConfig = { 
-/**
- * Whether to calibrate basis spreads
- */
-calibrate_basis: boolean, 
-/**
- * Whether to enforce strict separation (fail if trying to derive forward from discount)
- */
-enforce_separation: boolean, };
+export type MultiCurveConfig = {
+  /**
+   * Whether to calibrate basis spreads
+   */
+  calibrate_basis: boolean;
+  /**
+   * Whether to enforce strict separation (fail if trying to derive forward from discount)
+   */
+  enforce_separation: boolean;
+};

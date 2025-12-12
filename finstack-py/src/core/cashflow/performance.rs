@@ -35,12 +35,30 @@
 //! - `finstack.core.cashflow.xirr` for irregular cashflows
 //! - `finstack.core.cashflow.npv_static` for curve-based discounting
 
+use crate::core::common::args::DayCountArg;
 use crate::core::dates::utils::py_to_date;
+use crate::core::dates::PyDayCount;
 use crate::errors::{core_to_py, PyContext};
 use finstack_core::cashflow::{irr_periodic, npv_performance};
+use pyo3::exceptions::PyTypeError;
 use pyo3::prelude::*;
 use pyo3::types::PyModule;
 use pyo3::Bound;
+
+/// Parse a day-count convention from Python input.
+///
+/// Accepts either a `DayCount` object or a string identifier.
+fn parse_day_count(dc: Bound<'_, PyAny>) -> PyResult<finstack_core::dates::DayCount> {
+    if let Ok(py_dc) = dc.extract::<PyRef<PyDayCount>>() {
+        return Ok(py_dc.inner);
+    }
+    if let Ok(DayCountArg(inner)) = dc.extract::<DayCountArg>() {
+        return Ok(inner);
+    }
+    Err(PyTypeError::new_err(
+        "day_count must be a DayCount or string identifier",
+    ))
+}
 
 /// Calculate NPV (Net Present Value) for a series of cashflows at a given discount rate.
 ///
@@ -58,11 +76,9 @@ use pyo3::Bound;
 /// base_date : date or str, optional
 ///     Valuation date from which time fractions are measured. Defaults to the
 ///     first cashflow date if not provided.
-/// day_count : str, optional
-///     Day-count convention for computing year fractions. Supported values:
-///     - "act365f" / "365f" (default): Actual/365 Fixed
-///     - "act360" / "360": Actual/360
-///     - "thirty360" / "30/360" / "30_360": 30/360
+/// day_count : DayCount or str, optional
+///     Day-count convention for computing year fractions. Accepts a DayCount
+///     object or string identifier (e.g., "act365f", "act360", "30/360").
 ///
 /// Returns
 /// -------
@@ -73,6 +89,8 @@ use pyo3::Bound;
 /// ------
 /// ValueError
 ///     If cashflows are empty or date calculations fail.
+/// TypeError
+///     If `day_count` is not a DayCount or string identifier.
 ///
 /// Examples
 /// --------
@@ -115,13 +133,14 @@ pub fn py_npv(
     cash_flows: Vec<(Bound<'_, PyAny>, f64)>,
     discount_rate: f64,
     base_date: Option<Bound<'_, PyAny>>,
-    day_count: Option<&str>,
+    day_count: Option<Bound<'_, PyAny>>,
 ) -> PyResult<f64> {
     // Convert Python dates to Rust dates
     let mut flows: Vec<(finstack_core::dates::Date, f64)> = Vec::with_capacity(cash_flows.len());
 
-    for (date, amount) in cash_flows {
-        let rust_date = py_to_date(&date).context("cash_flows")?;
+    for (idx, (date, amount)) in cash_flows.into_iter().enumerate() {
+        let field = format!("cash_flows[{idx}].date");
+        let rust_date = py_to_date(&date).context(&field)?;
         flows.push((rust_date, amount));
     }
 
@@ -130,17 +149,10 @@ pub fn py_npv(
         .transpose()?
         .or_else(|| flows.first().map(|(d, _)| *d));
 
-    // Parse day count from string if provided, otherwise use Act365F
-    let dc = if let Some(dc_str) = day_count {
-        // Try to parse common day count names
-        match dc_str.to_lowercase().as_str() {
-            "act365f" | "365f" => finstack_core::dates::DayCount::Act365F,
-            "act360" | "360" => finstack_core::dates::DayCount::Act360,
-            "thirty360" | "30/360" | "30_360" => finstack_core::dates::DayCount::Thirty360,
-            _ => finstack_core::dates::DayCount::Act365F, // Default
-        }
-    } else {
-        finstack_core::dates::DayCount::Act365F
+    // Parse day count from input if provided, otherwise use Act365F
+    let dc = match day_count {
+        Some(dc_any) => parse_day_count(dc_any)?,
+        None => finstack_core::dates::DayCount::Act365F,
     };
 
     npv_performance(&flows, discount_rate, base, Some(dc)).map_err(core_to_py)

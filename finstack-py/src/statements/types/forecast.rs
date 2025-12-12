@@ -1,6 +1,6 @@
 //! Forecast method bindings.
 
-use crate::statements::utils::json_to_py;
+use crate::statements::utils::{json_to_py, py_to_json};
 use finstack_statements::types::{ForecastMethod, ForecastSpec, SeasonalMode};
 use indexmap::IndexMap;
 use pyo3::exceptions::PyValueError;
@@ -137,22 +137,11 @@ impl PyForecastSpec {
             let mut map = IndexMap::new();
             for (key, value) in params_dict.iter() {
                 let key_str: String = key.extract()?;
-                // Convert Python value to JSON - handle basic types
-                let json_value: serde_json::Value = if let Ok(s) = value.extract::<String>() {
-                    serde_json::json!(s)
-                } else if let Ok(i) = value.extract::<i64>() {
-                    serde_json::json!(i)
-                } else if let Ok(f) = value.extract::<f64>() {
-                    serde_json::json!(f)
-                } else if let Ok(b) = value.extract::<bool>() {
-                    serde_json::json!(b)
-                } else if let Ok(v) = value.extract::<Vec<f64>>() {
-                    serde_json::json!(v)
-                } else if let Ok(v) = value.extract::<Vec<String>>() {
-                    serde_json::json!(v)
-                } else {
-                    serde_json::Value::Null
-                };
+                let json_value = py_to_json(&value).map_err(|err| {
+                    PyValueError::new_err(format!(
+                        "Invalid params['{key_str}'] (must be JSON-serializable): {err}"
+                    ))
+                })?;
                 map.insert(key_str, json_value);
             }
             map
@@ -272,13 +261,13 @@ impl PyForecastSpec {
     /// -------
     /// dict
     ///     Parameters dictionary
-    fn params(&self, py: Python<'_>) -> Py<PyAny> {
+    fn params(&self, py: Python<'_>) -> PyResult<Py<PyAny>> {
         let dict = PyDict::new(py);
         for (key, value) in &self.inner.params {
-            let py_value = json_to_py(py, value);
-            dict.set_item(key, py_value).ok();
+            let py_value = json_to_py(py, value)?;
+            dict.set_item(key, py_value)?;
         }
-        dict.into()
+        Ok(dict.into())
     }
 
     /// Convert to JSON string.

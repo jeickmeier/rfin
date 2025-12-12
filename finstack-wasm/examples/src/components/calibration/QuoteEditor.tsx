@@ -150,7 +150,6 @@ export function generateDefaultDiscountQuotes(
   ];
 }
 
-
 /**
  * Generate default forward quotes relative to a base date.
  */
@@ -493,7 +492,9 @@ const SwapQuoteRow: React.FC<{
           <select
             className="h-7 text-xs rounded border border-input bg-background px-1 w-16"
             value={quote.fixedFrequency}
-            onChange={(e) => onChange({ ...quote, fixedFrequency: e.target.value as FrequencyType })}
+            onChange={(e) =>
+              onChange({ ...quote, fixedFrequency: e.target.value as FrequencyType })
+            }
             title="Fixed leg frequency"
           >
             {FREQUENCY_OPTIONS.map((opt) => (
@@ -505,7 +506,9 @@ const SwapQuoteRow: React.FC<{
           <select
             className="h-7 text-xs rounded border border-input bg-background px-1 w-16"
             value={quote.floatFrequency}
-            onChange={(e) => onChange({ ...quote, floatFrequency: e.target.value as FrequencyType })}
+            onChange={(e) =>
+              onChange({ ...quote, floatFrequency: e.target.value as FrequencyType })
+            }
             title="Float leg frequency"
           >
             {FREQUENCY_OPTIONS.map((opt) => (
@@ -892,7 +895,9 @@ export const ForwardQuoteEditor: React.FC<{
           <thead className="bg-muted/50">
             <tr>
               <th className="p-2 text-left text-xs font-medium text-muted-foreground">Type</th>
-              <th className="p-2 text-left text-xs font-medium text-muted-foreground">Start/Maturity</th>
+              <th className="p-2 text-left text-xs font-medium text-muted-foreground">
+                Start/Maturity
+              </th>
               <th className="p-2 text-left text-xs font-medium text-muted-foreground">End</th>
               <th className="p-2 text-left text-xs font-medium text-muted-foreground">Rate</th>
               <th className="p-2 text-left text-xs font-medium text-muted-foreground">Details</th>
@@ -1531,7 +1536,7 @@ export const CdsVolQuoteEditor: React.FC<{
       {
         expiryMonths: 12,
         strikeBps: 100,
-        vol: 0.40,
+        vol: 0.4,
         optionType: 'payer',
       },
     ]);

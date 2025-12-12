@@ -42,6 +42,7 @@ def _walk_and_register(
     This avoids manual updates when new PyO3 submodules are added under core.
     """
     import sys
+
     if _modules is None:
         _modules = sys.modules
     _seen: set[int] = set()

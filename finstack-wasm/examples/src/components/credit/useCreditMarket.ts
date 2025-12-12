@@ -140,10 +140,7 @@ export function buildCreditMarket(config: CreditMarketConfig): CreditMarketResul
  * Hook version that memoizes market construction.
  */
 export function useCreditMarket(config: CreditMarketConfig): CreditMarketResult | null {
-  return useMemo(
-    () => buildCreditMarket(config),
-    [config]
-  );
+  return useMemo(() => buildCreditMarket(config), [config]);
 }
 
 /** Currency formatter for display */

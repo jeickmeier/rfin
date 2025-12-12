@@ -3,24 +3,25 @@
 /**
  * Specifications for interest rate futures contracts.
  */
-export type FutureSpecs = { 
-/**
- * Contract multiplier
- */
-multiplier: number, 
-/**
- * Face value
- */
-face_value: number, 
-/**
- * Number of delivery months
- */
-delivery_months: number, 
-/**
- * Day count convention
- */
-day_count: string, 
-/**
- * Convexity adjustment (for long-dated futures)
- */
-convexity_adjustment: number | null, };
+export type FutureSpecs = {
+  /**
+   * Contract multiplier
+   */
+  multiplier: number;
+  /**
+   * Face value
+   */
+  face_value: number;
+  /**
+   * Number of delivery months
+   */
+  delivery_months: number;
+  /**
+   * Day count convention
+   */
+  day_count: string;
+  /**
+   * Convexity adjustment (for long-dated futures)
+   */
+  convexity_adjustment: number | null;
+};

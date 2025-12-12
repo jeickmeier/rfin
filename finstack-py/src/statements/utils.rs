@@ -1,33 +1,45 @@
 //! Utility functions for statements bindings.
 
+use pyo3::exceptions::PyTypeError;
 use pyo3::prelude::*;
 use pyo3::types::{PyBool, PyDict, PyFloat, PyList, PyString};
+use pyo3::IntoPyObjectExt;
 
-/// Helper to convert serde_json::Value to Py<PyAny>
-pub(crate) fn json_to_py(py: Python<'_>, value: &serde_json::Value) -> Py<PyAny> {
+/// Helper to convert serde_json::Value to a Python object.
+///
+/// This is intentionally **strict** and will surface Python allocation/errors
+/// instead of silently dropping data.
+pub(crate) fn json_to_py(py: Python<'_>, value: &serde_json::Value) -> PyResult<Py<PyAny>> {
     match value {
-        serde_json::Value::Null => py.None(),
-        serde_json::Value::Bool(b) => PyBool::new(py, *b).as_any().clone().unbind(),
+        serde_json::Value::Null => Ok(py.None()),
+        serde_json::Value::Bool(b) => Ok(PyBool::new(py, *b).as_any().clone().unbind()),
         serde_json::Value::Number(n) => {
+            // serde_json::Number can be i64, u64, or f64.
             if let Some(i) = n.as_i64() {
-                i.into_pyobject(py).unwrap().into_any().clone().unbind()
+                Ok(i.into_py_any(py)?)
+            } else if let Some(u) = n.as_u64() {
+                Ok(u.into_py_any(py)?)
             } else if let Some(f) = n.as_f64() {
-                PyFloat::new(py, f).into()
+                Ok(PyFloat::new(py, f).into())
             } else {
-                py.None()
+                // Should be unreachable, but don't panic inside bindings.
+                Ok(py.None())
             }
         }
-        serde_json::Value::String(s) => PyString::new(py, s).into(),
+        serde_json::Value::String(s) => Ok(PyString::new(py, s).into()),
         serde_json::Value::Array(arr) => {
-            let items: Vec<Py<PyAny>> = arr.iter().map(|v| json_to_py(py, v)).collect();
-            PyList::new(py, items).unwrap().into()
+            let mut items = Vec::with_capacity(arr.len());
+            for v in arr {
+                items.push(json_to_py(py, v)?);
+            }
+            Ok(PyList::new(py, items)?.into())
         }
         serde_json::Value::Object(obj) => {
             let dict = PyDict::new(py);
             for (k, v) in obj {
-                dict.set_item(k, json_to_py(py, v)).ok();
+                dict.set_item(k, json_to_py(py, v)?)?;
             }
-            dict.into()
+            Ok(dict.into())
         }
     }
 }
@@ -61,11 +73,10 @@ pub(crate) fn py_to_json(value: &Bound<'_, PyAny>) -> pyo3::PyResult<serde_json:
             arr.push(py_to_json(&item)?);
         }
         Ok(serde_json::Value::Array(arr))
-    } else if let Ok(v) = value.extract::<Vec<f64>>() {
-        Ok(serde_json::json!(v))
-    } else if let Ok(v) = value.extract::<Vec<String>>() {
-        Ok(serde_json::json!(v))
     } else {
-        Ok(serde_json::Value::Null)
+        let type_name = value.get_type().name()?.to_string();
+        Err(PyTypeError::new_err(format!(
+            "Value is not JSON-serializable (got {type_name})"
+        )))
     }
 }

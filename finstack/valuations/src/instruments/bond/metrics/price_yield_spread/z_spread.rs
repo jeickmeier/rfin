@@ -223,25 +223,23 @@ impl MetricCalculator for ZSpreadCalculator {
         let disc = context.curves.get_discount_ref(&bond.discount_curve_id)?;
         let as_of = context.as_of;
         let dc = disc.day_count();
+        let df_as_of = disc.try_df_on_date_curve(as_of)?;
 
         // Cache (time, df_base, amount) for each future cashflow
         let cached_flows: Vec<(f64, f64, f64)> = flows
             .iter()
             .filter(|(d, _)| *d > as_of)
-            .map(|(d, amt)| {
-                let t = dc
-                    .year_fraction(as_of, *d, DayCountCtx::default())
-                    .unwrap_or(0.0);
-                let df_base_abs = disc.df_on_date_curve(*d);
-                let df_as_of = disc.df_on_date_curve(as_of);
+            .map(|(d, amt)| -> finstack_core::Result<(f64, f64, f64)> {
+                let t = dc.year_fraction(as_of, *d, DayCountCtx::default())?;
+                let df_base_abs = disc.try_df_on_date_curve(*d)?;
                 let df_base = if df_as_of != 0.0 {
                     df_base_abs / df_as_of
                 } else {
                     1.0
                 };
-                (t, df_base, amt.amount())
+                Ok((t, df_base, amt.amount()))
             })
-            .collect();
+            .collect::<finstack_core::Result<Vec<_>>>()?;
 
         // Objective: PV_z(z) - target_value_ccy = 0
         let pricing_error: RefCell<Option<finstack_core::Error>> = RefCell::new(None);

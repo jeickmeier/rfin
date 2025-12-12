@@ -13,7 +13,9 @@ fn test_df_start_matches_curve() {
     // Execute
     let df_start_metric = compute_metric(&dep, &ctx, base, MetricId::DfStart);
     let disc = ctx.get_discount_ref("USD-OIS").unwrap();
-    let df_start_curve = disc.df_on_date_curve(dep.start);
+    let df_start_curve = disc
+        .try_df_on_date_curve(dep.start)
+        .expect("try_df_on_date_curve should succeed");
 
     // Validate
     assert!((df_start_metric - df_start_curve).abs() < DF_TOLERANCE);
@@ -29,7 +31,9 @@ fn test_df_end_matches_curve() {
     // Execute
     let df_end_metric = compute_metric(&dep, &ctx, base, MetricId::DfEnd);
     let disc = ctx.get_discount_ref("USD-OIS").unwrap();
-    let df_end_curve = disc.df_on_date_curve(dep.end);
+    let df_end_curve = disc
+        .try_df_on_date_curve(dep.end)
+        .expect("try_df_on_date_curve should succeed");
 
     // Validate
     assert!((df_end_metric - df_end_curve).abs() < DF_TOLERANCE);

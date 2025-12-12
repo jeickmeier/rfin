@@ -27,8 +27,9 @@
 //! The curve supports multiple interpolation schemes via [`crate::math::interp::InterpStyle`]:
 //! - **Linear**: Simple, but may create arbitrage
 //! - **LogLinear**: Constant zero rates between knots
-//! - **LogLinear**: Piecewise constant forward rates (no-arbitrage)
 //! - **MonotoneConvex**: Smooth, no-arbitrage (Hagan-West algorithm)
+//! - **CubicHermite**: Shape-preserving cubic (requires monotone input for no-arb)
+//! - **PiecewiseQuadraticForward**: Smooth forward curve (C²), commonly used for display
 //!
 //! # Use Cases
 //!
@@ -81,7 +82,7 @@ use crate::{
 };
 
 /// Piece-wise discount factor curve supporting several interpolation styles.
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 #[cfg_attr(
     feature = "serde",
@@ -101,33 +102,6 @@ pub struct DiscountCurve {
     style: InterpStyle,
     /// Extrapolation policy (stored for serialization and bumping)
     extrapolation: ExtrapolationPolicy,
-}
-
-impl Clone for DiscountCurve {
-    fn clone(&self) -> Self {
-        // Rebuild the interpolator from raw data since Interp might not be Clone
-        // This is expensive but necessary if we want Clone on the main struct
-        // Alternatively, we could make Interp Clone, but for now we rebuild.
-        // Actually, since we have style and extrapolation, we can rebuild.
-        let interp = crate::market_data::term_structures::common::build_interp_input_error(
-            self.style,
-            self.knots.clone(),
-            self.dfs.clone(),
-            self.extrapolation,
-        )
-        .expect("Clone should not fail for valid curve");
-
-        Self {
-            id: self.id.clone(),
-            base: self.base,
-            day_count: self.day_count,
-            knots: self.knots.clone(),
-            dfs: self.dfs.clone(),
-            interp,
-            style: self.style,
-            extrapolation: self.extrapolation,
-        }
-    }
 }
 
 /// Raw serializable state of DiscountCurve
@@ -375,6 +349,19 @@ impl DiscountCurve {
         (z2 - z1) / (t2 - t1)
     }
 
+    /// Fallible forward rate between `t1` and `t2`.
+    ///
+    /// This avoids producing NaNs when `t2 <= t1`.
+    #[inline]
+    pub fn try_forward(&self, t1: f64, t2: f64) -> crate::Result<f64> {
+        if !t1.is_finite() || !t2.is_finite() || t2 <= t1 {
+            return Err(crate::error::InputError::Invalid.into());
+        }
+        let z1 = self.zero(t1) * t1;
+        let z2 = self.zero(t2) * t2;
+        Ok((z2 - z1) / (t2 - t1))
+    }
+
     /// Batch evaluation helper (parallel over `times` slice when compiled
     /// with the `parallel` feature).
     #[cfg_attr(docsrs, doc(cfg(feature = "parallel")))]
@@ -399,35 +386,36 @@ impl DiscountCurve {
     /// the curve base `base` and `day_count`.
     /// This is equivalent to `disc.df(t)` where `t` is the year fraction from `base` to `date`.
     #[inline]
-    #[allow(clippy::manual_unwrap_or)]
+    #[deprecated(note = "Use try_df_on_date(...) to avoid silently masking errors.")]
     pub fn df_on_date(&self, date: Date, dc: crate::dates::DayCount) -> f64 {
-        let t = if date == self.base {
-            0.0
-        } else {
-            match dc.year_fraction(self.base, date, DayCountCtx::default()) {
-                Ok(yf) => yf,
-                Err(_) => 0.0,
-            }
-        };
-        self.df(t)
+        self.try_df_on_date(date, dc)
+            .expect("df_on_date failed; use try_df_on_date for error handling")
     }
 
     /// Convenience: discount factor on a specific date using the curve's own day-count.
     #[inline]
-    #[allow(clippy::manual_unwrap_or)]
+    #[deprecated(note = "Use try_df_on_date_curve(...) to avoid silently masking errors.")]
     pub fn df_on_date_curve(&self, date: Date) -> f64 {
+        self.try_df_on_date_curve(date)
+            .expect("df_on_date_curve failed; use try_df_on_date_curve for error handling")
+    }
+
+    /// Fallible: discount factor on a specific date `date` using explicit day-count `dc`.
+    #[inline]
+    pub fn try_df_on_date(&self, date: Date, dc: crate::dates::DayCount) -> crate::Result<f64> {
         let t = if date == self.base {
             0.0
         } else {
-            match self
-                .day_count
-                .year_fraction(self.base, date, DayCountCtx::default())
-            {
-                Ok(yf) => yf,
-                Err(_) => 0.0,
-            }
+            dc.year_fraction(self.base, date, DayCountCtx::default())?
         };
-        self.df(t)
+        Ok(self.df(t))
+    }
+
+    /// Fallible: discount factor on a specific date `date` using the curve's day-count.
+    #[inline]
+    pub fn try_df_on_date_curve(&self, date: Date) -> crate::Result<f64> {
+        let t = self.try_year_fraction_to(date)?;
+        Ok(self.df(t))
     }
 
     /// Continuously-compounded zero rate on a specific date using the curve's day-count.
@@ -436,8 +424,8 @@ impl DiscountCurve {
     /// base date to `date` using the curve's day-count convention.
     #[inline]
     pub fn zero_on_date(&self, date: Date) -> f64 {
-        let t = self.year_fraction_to(date);
-        self.zero(t)
+        self.try_zero_on_date(date)
+            .expect("zero_on_date failed; use try_zero_on_date for error handling")
     }
 
     /// Annually-compounded zero rate on a specific date using the curve's day-count.
@@ -448,8 +436,8 @@ impl DiscountCurve {
     /// This convention is commonly used by Bloomberg for displaying zero rates.
     #[inline]
     pub fn zero_annual_on_date(&self, date: Date) -> f64 {
-        let t = self.year_fraction_to(date);
-        self.zero_annual(t)
+        self.try_zero_annual_on_date(date)
+            .expect("zero_annual_on_date failed; use try_zero_annual_on_date for error handling")
     }
 
     /// Periodically-compounded zero rate on a specific date using the curve's day-count.
@@ -458,8 +446,9 @@ impl DiscountCurve {
     /// from base date to `date` using the curve's day-count convention.
     #[inline]
     pub fn zero_periodic_on_date(&self, date: Date, n: u32) -> f64 {
-        let t = self.year_fraction_to(date);
-        self.zero_periodic(t, n)
+        self.try_zero_periodic_on_date(date, n).expect(
+            "zero_periodic_on_date failed; use try_zero_periodic_on_date for error handling",
+        )
     }
 
     /// Simple interest zero rate on a specific date using the curve's day-count.
@@ -471,8 +460,8 @@ impl DiscountCurve {
     /// tenors less than one year.
     #[inline]
     pub fn zero_simple_on_date(&self, date: Date) -> f64 {
-        let t = self.year_fraction_to(date);
-        self.zero_simple(t)
+        self.try_zero_simple_on_date(date)
+            .expect("zero_simple_on_date failed; use try_zero_simple_on_date for error handling")
     }
 
     /// Simple forward rate between two dates using the curve's day-count.
@@ -485,20 +474,55 @@ impl DiscountCurve {
     /// Debug-asserts that `d2 > d1`.
     #[inline]
     pub fn forward_on_dates(&self, d1: Date, d2: Date) -> f64 {
-        let t1 = self.year_fraction_to(d1);
-        let t2 = self.year_fraction_to(d2);
-        self.forward(t1, t2)
+        self.try_forward_on_dates(d1, d2)
+            .expect("forward_on_dates failed; use try_forward_on_dates for error handling")
+    }
+
+    /// Fallible: continuously-compounded zero rate on `date` using curve's day-count.
+    #[inline]
+    pub fn try_zero_on_date(&self, date: Date) -> crate::Result<f64> {
+        let t = self.try_year_fraction_to(date)?;
+        Ok(self.zero(t))
+    }
+
+    /// Fallible: annually-compounded zero rate on `date` using curve's day-count.
+    #[inline]
+    pub fn try_zero_annual_on_date(&self, date: Date) -> crate::Result<f64> {
+        let t = self.try_year_fraction_to(date)?;
+        Ok(self.zero_annual(t))
+    }
+
+    /// Fallible: periodically-compounded zero rate on `date` using curve's day-count.
+    #[inline]
+    pub fn try_zero_periodic_on_date(&self, date: Date, n: u32) -> crate::Result<f64> {
+        let t = self.try_year_fraction_to(date)?;
+        Ok(self.zero_periodic(t, n))
+    }
+
+    /// Fallible: simple-interest zero rate on `date` using curve's day-count.
+    #[inline]
+    pub fn try_zero_simple_on_date(&self, date: Date) -> crate::Result<f64> {
+        let t = self.try_year_fraction_to(date)?;
+        Ok(self.zero_simple(t))
+    }
+
+    /// Fallible: forward rate between two dates using curve's day-count.
+    #[inline]
+    pub fn try_forward_on_dates(&self, d1: Date, d2: Date) -> crate::Result<f64> {
+        let t1 = self.try_year_fraction_to(d1)?;
+        let t2 = self.try_year_fraction_to(d2)?;
+        self.try_forward(t1, t2)
     }
 
     /// Helper: compute year fraction from base date to target date using curve's day-count.
     #[inline]
-    fn year_fraction_to(&self, date: Date) -> f64 {
+    fn try_year_fraction_to(&self, date: Date) -> crate::Result<f64> {
         if date == self.base {
-            0.0
+            Ok(0.0)
         } else {
-            self.day_count
-                .year_fraction(self.base, date, DayCountCtx::default())
-                .unwrap_or(0.0)
+            Ok(self
+                .day_count
+                .year_fraction(self.base, date, DayCountCtx::default())?)
         }
     }
 
@@ -595,6 +619,17 @@ impl DiscountCurve {
             return self.try_with_parallel_bump(bp);
         }
 
+        // Validate bucket grid ordering.
+        // next_bucket may be +∞ for the last bucket.
+        if !prev_bucket.is_finite()
+            || !target_bucket.is_finite()
+            || !(next_bucket.is_finite() || next_bucket.is_infinite())
+            || prev_bucket >= target_bucket
+            || (!next_bucket.is_infinite() && target_bucket >= next_bucket)
+        {
+            return Err(crate::error::InputError::Invalid.into());
+        }
+
         let bump_rate = bp / 10_000.0;
         let mut bumped_points: Vec<(f64, f64)> = Vec::with_capacity(self.knots.len());
 
@@ -659,8 +694,10 @@ impl DiscountCurve {
     /// assert!(rolled.knots().len() < curve.knots().len());
     /// ```
     pub fn roll_forward(&self, days: i64) -> crate::Result<Self> {
-        let dt_years = days as f64 / 365.0;
         let new_base = self.base + time::Duration::days(days);
+        let dt_years = self
+            .day_count
+            .year_fraction(self.base, new_base, DayCountCtx::default())?;
 
         // Shift knots and filter expired points
         let rolled_points: Vec<(f64, f64)> = self
@@ -762,7 +799,7 @@ impl DiscountCurve {
                 let dt = t_next - t;
 
                 if dt > 0.0 && df_next > 0.0 && df > 0.0 {
-                    (df / df_next - 1.0) / dt
+                    (df / df_next).ln() / dt
                 } else if t > 0.0 && df > 0.0 {
                     // Use spot rate
                     (-df.ln()) / t
@@ -782,7 +819,7 @@ impl DiscountCurve {
                 // Use instantaneous forward rate approximation
                 let dt = t_next - t_prev;
                 if dt > 0.0 && df_next > 0.0 && df_prev > 0.0 {
-                    (df_prev.ln() - df_next.ln()) / dt
+                    (df_prev / df_next).ln() / dt
                 } else {
                     return Err(crate::error::InputError::Invalid.into());
                 }
@@ -794,7 +831,7 @@ impl DiscountCurve {
                 let dt = t - t_prev;
 
                 if dt > 0.0 && df > 0.0 && df_prev > 0.0 {
-                    (df_prev / df - 1.0) / dt
+                    (df_prev / df).ln() / dt
                 } else {
                     return Err(crate::error::InputError::Invalid.into());
                 }
@@ -836,7 +873,7 @@ impl DiscountCurve {
                 let dt = t_next - t;
 
                 if dt > 0.0 && df_next > 0.0 && df > 0.0 {
-                    (df / df_next - 1.0) / dt
+                    (df / df_next).ln() / dt
                 } else if t > 0.0 && df > 0.0 {
                     (-df.ln()) / t
                 } else if t == 0.0 && dt > 0.0 && df == 1.0 && df_next > 0.0 {
@@ -853,7 +890,7 @@ impl DiscountCurve {
 
                 let dt = t_next - t_prev;
                 if dt > 0.0 && df_next > 0.0 && df_prev > 0.0 {
-                    (df_prev.ln() - df_next.ln()) / dt
+                    (df_prev / df_next).ln() / dt
                 } else {
                     return Err(crate::error::InputError::Invalid.into());
                 }
@@ -864,7 +901,7 @@ impl DiscountCurve {
                 let dt = t - t_prev;
 
                 if dt > 0.0 && df > 0.0 && df_prev > 0.0 {
-                    (df_prev / df - 1.0) / dt
+                    (df_prev / df).ln() / dt
                 } else {
                     return Err(crate::error::InputError::Invalid.into());
                 }
@@ -948,7 +985,7 @@ impl DiscountCurveBuilder {
     /// Enforce comprehensive no-arbitrage checks on the discount curve.
     ///
     /// This enables:
-    /// - Monotonic (strictly decreasing) discount factors
+    /// - Monotonic (non-increasing) discount factors
     /// - Forward rate floor at -50bp to prevent unrealistic negative rates
     ///
     /// # Example
@@ -1024,6 +1061,12 @@ impl DiscountCurveBuilder {
         // Enforce monotonicity by default (can be disabled via allow_non_monotonic)
         if !self.allow_non_monotonic {
             validate_monotonic_df(&knots_vec, &dfs_vec)?;
+        } else if self.style == InterpStyle::MonotoneConvex {
+            // MonotoneConvex interpolation requires arbitrage-free DF input
+            // (positive and non-increasing). If the caller disables monotonic validation,
+            // we still need to fail loudly here instead of producing a misleading error
+            // from the interpolation layer.
+            validate_monotone_convex_compatible_df(&knots_vec, &dfs_vec)?;
         }
 
         // Validate forward rates if minimum is specified
@@ -1054,16 +1097,40 @@ impl DiscountCurveBuilder {
 // Validation helper functions
 // -----------------------------------------------------------------------------
 
-/// Validate that discount factors are strictly decreasing (monotonic).
+/// Validate that discount factors are monotone (non-increasing) within tolerance.
 ///
 /// Non-monotonic discount factors violate no-arbitrage conditions and will
 /// produce incorrect pricing results.
 fn validate_monotonic_df(knots: &[f64], dfs: &[f64]) -> crate::Result<()> {
     for i in 1..dfs.len() {
-        if dfs[i] >= dfs[i - 1] {
+        let prev = dfs[i - 1];
+        let curr = dfs[i];
+        let tol = 1e-14 * prev.abs().max(1.0);
+        if curr > prev + tol {
             return Err(crate::Error::Validation(format!(
-                "Discount factors must be strictly decreasing: DF(t={:.4}) = {:.6} >= DF(t={:.4}) = {:.6}",
-                knots[i], dfs[i], knots[i - 1], dfs[i - 1]
+                "Discount factors must be non-increasing: DF(t={:.4}) = {:.12} > DF(t={:.4}) = {:.12}",
+                knots[i], curr, knots[i - 1], prev
+            )));
+        }
+    }
+    Ok(())
+}
+
+/// Validate DF input compatibility with MonotoneConvex interpolation.
+///
+/// MonotoneConvex (Hagan–West) requires a positive, non-increasing DF term structure.
+fn validate_monotone_convex_compatible_df(knots: &[f64], dfs: &[f64]) -> crate::Result<()> {
+    for i in 1..dfs.len() {
+        let prev = dfs[i - 1];
+        let curr = dfs[i];
+        let tol = 1e-14 * prev.abs().max(1.0);
+        if curr > prev + tol {
+            return Err(crate::Error::Validation(format!(
+                "InterpStyle::MonotoneConvex requires non-increasing discount factors. \
+                 Found DF(t={:.4}) = {:.12} > DF(t={:.4}) = {:.12}. \
+                 Use LogLinear/Linear (and allow_non_monotonic) for negative-rate / increasing-DF inputs, \
+                 or fix the input curve.",
+                knots[i], curr, knots[i - 1], prev
             )));
         }
     }
@@ -1356,9 +1423,9 @@ mod tests {
             .base_date(base)
             .knots([
                 (0.0, 1.0),
-                (0.25, 0.99),  // 3M: DF = 0.99
-                (0.5, 0.975),  // 6M: DF = 0.975
-                (1.0, 0.95),   // 1Y: DF = 0.95
+                (0.25, 0.99), // 3M: DF = 0.99
+                (0.5, 0.975), // 6M: DF = 0.975
+                (1.0, 0.95),  // 1Y: DF = 0.95
             ])
             .set_interp(InterpStyle::Linear)
             .build()
@@ -1420,7 +1487,7 @@ mod tests {
             .knots([
                 (0.0, 1.0),
                 (1.0, 0.95),
-                (2.0, 0.90),  // DF at 2Y
+                (2.0, 0.90), // DF at 2Y
                 (5.0, 0.75),
             ])
             .set_interp(InterpStyle::Linear)
@@ -1477,5 +1544,59 @@ mod tests {
             simple_1y,
             annual_1y
         );
+    }
+
+    #[test]
+    fn monotone_validation_allows_flat_segments() {
+        let base =
+            Date::from_calendar_date(2025, time::Month::January, 1).expect("Valid test date");
+        let curve = DiscountCurve::builder("FLAT-SEGMENT")
+            .base_date(base)
+            .knots([
+                (0.0, 1.0),
+                (1.0, 1.0),  // flat (zero rate) segment
+                (2.0, 0.99), // then decreasing
+            ])
+            .set_interp(InterpStyle::LogLinear)
+            .build();
+        assert!(curve.is_ok(), "Flat DF segments should be allowed");
+    }
+
+    #[test]
+    fn allow_non_monotonic_with_monotone_convex_fails_loudly_on_increasing_df() {
+        let base =
+            Date::from_calendar_date(2025, time::Month::January, 1).expect("Valid test date");
+        let res = DiscountCurve::builder("BAD-DF")
+            .base_date(base)
+            .knots([(0.0, 1.0), (1.0, 1.01), (2.0, 1.02)])
+            .set_interp(InterpStyle::MonotoneConvex)
+            .allow_non_monotonic()
+            .build();
+        assert!(res.is_err());
+        let msg = res.expect_err("expected err").to_string();
+        assert!(
+            msg.contains("InterpStyle::MonotoneConvex requires non-increasing discount factors"),
+            "Unexpected error message: {msg}"
+        );
+    }
+
+    #[test]
+    fn roll_forward_uses_curve_day_count() {
+        let base =
+            Date::from_calendar_date(2025, time::Month::January, 1).expect("Valid test date");
+        let curve = DiscountCurve::builder("ROLL")
+            .base_date(base)
+            .day_count(DayCount::Act360)
+            .knots([(0.05, 0.999), (0.15, 0.998), (0.30, 0.995)])
+            .set_interp(InterpStyle::Linear)
+            .build()
+            .expect("DiscountCurve builder should succeed with valid test data");
+
+        // Roll 36 days => Act/360 year fraction = 0.1
+        let rolled = curve.roll_forward(36).expect("roll_forward should succeed");
+        let ks = rolled.knots();
+        assert_eq!(ks.len(), 2, "First knot should expire after rolling");
+        assert!((ks[0] - 0.05).abs() < 1e-12, "Expected 0.15-0.10=0.05");
+        assert!((ks[1] - 0.20).abs() < 1e-12, "Expected 0.30-0.10=0.20");
     }
 }

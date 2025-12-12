@@ -16,11 +16,7 @@ import {
 } from './QuoteEditor';
 import type { CalibrationResult, CalibrationStatus, CurveDataPoint } from './types';
 import type { FrequencyType } from './CurrencyConventions';
-import type {
-  DiscountCurveCalibrationState,
-  CalibrationConfigJson,
-  DateJson,
-} from './state-types';
+import type { DiscountCurveCalibrationState, CalibrationConfigJson, DateJson } from './state-types';
 
 interface CalibratedCurve {
   df: (t: number) => number;

@@ -675,8 +675,12 @@ fn test_bloomberg_usd_ois_calibration_accuracy() {
         },
         long_end_tolerance_bp
     );
-    println!("    Note: Long-end differences due to interpolation method variations between pillars.");
-    println!("    The MonotoneConvex interpolation affects annuity calculation for long-dated swaps.");
+    println!(
+        "    Note: Long-end differences due to interpolation method variations between pillars."
+    );
+    println!(
+        "    The MonotoneConvex interpolation affects annuity calculation for long-dated swaps."
+    );
     println!("\nZERO RATES (annual compounding convention):");
     println!(
         "  Avg diff: {:.2}bp | Max diff: {:.2}bp | {} (tol: {}bp)",

@@ -3,4 +3,4 @@
 /**
  * Runtime validation behavior for arbitrage/consistency checks.
  */
-export type ValidationMode = "Warn" | "Error";
+export type ValidationMode = 'Warn' | 'Error';

@@ -29,7 +29,7 @@ pub fn py_npv_passthrough(
     cash_flows: Vec<(Bound<'_, PyAny>, f64)>,
     discount_rate: f64,
     base_date: Option<Bound<'_, PyAny>>,
-    day_count: Option<&str>,
+    day_count: Option<Bound<'_, PyAny>>,
 ) -> PyResult<f64> {
     core_py_npv(cash_flows, discount_rate, base_date, day_count)
 }

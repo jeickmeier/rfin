@@ -4,30 +4,21 @@ from __future__ import annotations
 
 from typing import Any
 
-
 class SABRModelParams:
     def __init__(self, alpha: float, nu: float, rho: float, beta: float) -> None: ...
-
     @classmethod
     def equity_standard(cls, alpha: float, nu: float, rho: float) -> SABRModelParams: ...
-
     @classmethod
     def rates_standard(cls, alpha: float, nu: float, rho: float) -> SABRModelParams: ...
-
     @property
     def alpha(self) -> float: ...
-
     @property
     def nu(self) -> float: ...
-
     @property
     def rho(self) -> float: ...
-
     @property
     def beta(self) -> float: ...
-
     def __repr__(self) -> str: ...
-
 
 class SABRMarketData:
     def __init__(
@@ -38,26 +29,18 @@ class SABRMarketData:
         market_vols: list[float],
         beta: float,
     ) -> None: ...
-
     @property
     def forward(self) -> float: ...
-
     @property
     def time_to_expiry(self) -> float: ...
-
     @property
     def strikes(self) -> Any: ...
-
     @property
     def market_vols(self) -> Any: ...
-
     @property
     def beta(self) -> float: ...
-
     def __repr__(self) -> str: ...
-
 
 class SABRCalibrationDerivatives:
     def __init__(self, market_data: SABRMarketData) -> None: ...
-
     def __repr__(self) -> str: ...

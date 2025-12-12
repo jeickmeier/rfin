@@ -78,22 +78,23 @@ impl MetricCalculator for ZSpreadCalculator {
         let base_date = disc.base_date();
         let day_count = finstack_core::dates::DayCount::Act365F;
 
+        // Pre-compute (t, df, amount) for deterministic, fallible date handling.
+        let cached_flows: Vec<(f64, f64, f64)> = flows
+            .iter()
+            .filter(|(date, _)| *date > context.as_of)
+            .map(|(date, amount)| -> finstack_core::Result<(f64, f64, f64)> {
+                let t = day_count.year_fraction(base_date, *date, DayCountCtx::default())?;
+                let df = disc.try_df_on_date_curve(*date)?;
+                Ok((t, df, amount.amount()))
+            })
+            .collect::<finstack_core::Result<Vec<_>>>()?;
+
         // Objective function: PV(z) - target = 0
         let objective = |z: f64| -> f64 {
             let mut pv = 0.0;
-            for (date, amount) in flows {
-                if *date <= context.as_of {
-                    continue;
-                }
-
-                let t = day_count
-                    .year_fraction(base_date, *date, DayCountCtx::default())
-                    .unwrap_or(0.0);
-
-                let df = disc.df_on_date_curve(*date);
+            for (t, df, amt) in &cached_flows {
                 let df_z = df * (-z * t).exp();
-
-                pv += amount.amount() * df_z;
+                pv += amt * df_z;
             }
             pv - target_value
         };
@@ -216,11 +217,9 @@ impl MetricCalculator for Cs01Calculator {
                 continue;
             }
 
-            let t = day_count
-                .year_fraction(base_date, *date, DayCountCtx::default())
-                .unwrap_or(0.0);
+            let t = day_count.year_fraction(base_date, *date, DayCountCtx::default())?;
 
-            let df = disc.df_on_date_curve(*date);
+            let df = disc.try_df_on_date_curve(*date)?;
             let df_bumped = df * (-bumped_spread * t).exp();
 
             bumped_npv += amount.amount() * df_bumped;

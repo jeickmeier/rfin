@@ -363,13 +363,12 @@ impl PyFinancialModelSpec {
     /// -------
     /// dict[str, NodeSpec]
     ///     Map of node_id to NodeSpec
-    fn nodes(&self, py: Python<'_>) -> Py<PyAny> {
+    fn nodes(&self, py: Python<'_>) -> PyResult<Py<PyAny>> {
         let dict = PyDict::new(py);
         for (node_id, node_spec) in &self.inner.nodes {
-            dict.set_item(node_id, PyNodeSpec::new(node_spec.clone()))
-                .ok();
+            dict.set_item(node_id, PyNodeSpec::new(node_spec.clone()))?;
         }
-        dict.into()
+        Ok(dict.into())
     }
 
     #[getter]
@@ -393,12 +392,12 @@ impl PyFinancialModelSpec {
     /// -------
     /// dict
     ///     Metadata dictionary
-    fn meta(&self, py: Python<'_>) -> Py<PyAny> {
+    fn meta(&self, py: Python<'_>) -> PyResult<Py<PyAny>> {
         let dict = PyDict::new(py);
         for (key, value) in &self.inner.meta {
-            dict.set_item(key, json_to_py(py, value)).ok();
+            dict.set_item(key, json_to_py(py, value)?)?;
         }
-        dict.into()
+        Ok(dict.into())
     }
 
     #[getter]

@@ -110,14 +110,26 @@ impl PyCFKind {
         match self.inner {
             CFKind::Fixed => "fixed",
             CFKind::FloatReset => "float_reset",
+            CFKind::Fee => "fee",
             CFKind::CommitmentFee => "commitment_fee",
             CFKind::UsageFee => "usage_fee",
             CFKind::FacilityFee => "facility_fee",
             CFKind::Notional => "notional",
             CFKind::PIK => "pik",
             CFKind::Amortization => "amortization",
-            CFKind::Fee => "fee",
+            CFKind::PrePayment => "prepayment",
+            CFKind::RevolvingDraw => "revolving_draw",
+            CFKind::RevolvingRepayment => "revolving_repayment",
+            CFKind::DefaultedNotional => "defaulted_notional",
+            CFKind::Recovery => "recovery",
             CFKind::Stub => "stub",
+            CFKind::InitialMarginPost => "initial_margin_post",
+            CFKind::InitialMarginReturn => "initial_margin_return",
+            CFKind::VariationMarginReceive => "variation_margin_receive",
+            CFKind::VariationMarginPay => "variation_margin_pay",
+            CFKind::MarginInterest => "margin_interest",
+            CFKind::CollateralSubstitutionIn => "collateral_substitution_in",
+            CFKind::CollateralSubstitutionOut => "collateral_substitution_out",
             _ => "unknown",
         }
     }
@@ -127,14 +139,26 @@ impl PyCFKind {
         match normalized.as_str() {
             "fixed" => Some(CFKind::Fixed),
             "float_reset" => Some(CFKind::FloatReset),
+            "fee" => Some(CFKind::Fee),
             "commitment_fee" => Some(CFKind::CommitmentFee),
             "usage_fee" => Some(CFKind::UsageFee),
             "facility_fee" => Some(CFKind::FacilityFee),
             "notional" => Some(CFKind::Notional),
             "pik" => Some(CFKind::PIK),
             "amortization" | "amort" => Some(CFKind::Amortization),
-            "fee" => Some(CFKind::Fee),
+            "prepayment" | "pre_payment" => Some(CFKind::PrePayment),
+            "revolving_draw" => Some(CFKind::RevolvingDraw),
+            "revolving_repayment" => Some(CFKind::RevolvingRepayment),
+            "defaulted_notional" => Some(CFKind::DefaultedNotional),
+            "recovery" => Some(CFKind::Recovery),
             "stub" => Some(CFKind::Stub),
+            "initial_margin_post" => Some(CFKind::InitialMarginPost),
+            "initial_margin_return" => Some(CFKind::InitialMarginReturn),
+            "variation_margin_receive" => Some(CFKind::VariationMarginReceive),
+            "variation_margin_pay" => Some(CFKind::VariationMarginPay),
+            "margin_interest" => Some(CFKind::MarginInterest),
+            "collateral_substitution_in" => Some(CFKind::CollateralSubstitutionIn),
+            "collateral_substitution_out" => Some(CFKind::CollateralSubstitutionOut),
             _ => None,
         }
     }
@@ -146,6 +170,8 @@ impl PyCFKind {
     const FIXED: Self = Self::new(CFKind::Fixed);
     #[classattr]
     const FLOAT_RESET: Self = Self::new(CFKind::FloatReset);
+    #[classattr]
+    const FEE: Self = Self::new(CFKind::Fee);
     #[classattr]
     const COMMITMENT_FEE: Self = Self::new(CFKind::CommitmentFee);
     #[classattr]
@@ -159,9 +185,31 @@ impl PyCFKind {
     #[classattr]
     const AMORTIZATION: Self = Self::new(CFKind::Amortization);
     #[classattr]
-    const FEE: Self = Self::new(CFKind::Fee);
+    const PREPAYMENT: Self = Self::new(CFKind::PrePayment);
+    #[classattr]
+    const REVOLVING_DRAW: Self = Self::new(CFKind::RevolvingDraw);
+    #[classattr]
+    const REVOLVING_REPAYMENT: Self = Self::new(CFKind::RevolvingRepayment);
+    #[classattr]
+    const DEFAULTED_NOTIONAL: Self = Self::new(CFKind::DefaultedNotional);
+    #[classattr]
+    const RECOVERY: Self = Self::new(CFKind::Recovery);
     #[classattr]
     const STUB: Self = Self::new(CFKind::Stub);
+    #[classattr]
+    const INITIAL_MARGIN_POST: Self = Self::new(CFKind::InitialMarginPost);
+    #[classattr]
+    const INITIAL_MARGIN_RETURN: Self = Self::new(CFKind::InitialMarginReturn);
+    #[classattr]
+    const VARIATION_MARGIN_RECEIVE: Self = Self::new(CFKind::VariationMarginReceive);
+    #[classattr]
+    const VARIATION_MARGIN_PAY: Self = Self::new(CFKind::VariationMarginPay);
+    #[classattr]
+    const MARGIN_INTEREST: Self = Self::new(CFKind::MarginInterest);
+    #[classattr]
+    const COLLATERAL_SUBSTITUTION_IN: Self = Self::new(CFKind::CollateralSubstitutionIn);
+    #[classattr]
+    const COLLATERAL_SUBSTITUTION_OUT: Self = Self::new(CFKind::CollateralSubstitutionOut);
 
     #[classmethod]
     #[pyo3(text_signature = "(cls, name)")]
@@ -200,7 +248,10 @@ impl PyCFKind {
     }
 
     fn __hash__(&self) -> isize {
-        self.inner as isize
+        use std::hash::{Hash, Hasher};
+        let mut hasher = std::collections::hash_map::DefaultHasher::new();
+        self.label().hash(&mut hasher);
+        (hasher.finish() & isize::MAX as u64) as isize
     }
 
     fn __richcmp__(

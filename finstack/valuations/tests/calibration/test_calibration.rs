@@ -9,9 +9,9 @@ use finstack_core::dates::{Date, DayCount, Frequency};
 use finstack_core::market_data::context::MarketContext;
 use finstack_core::market_data::term_structures::{DiscountCurve, Seniority};
 use finstack_core::math::interp::InterpStyle;
-use finstack_valuations::calibration::methods::hazard_curve::HazardCurveCalibrator;
 use finstack_valuations::calibration::methods::discount::DiscountCurveCalibrator;
-use finstack_valuations::calibration::{Calibrator, CalibrationMethod, CreditQuote, RatesQuote};
+use finstack_valuations::calibration::methods::hazard_curve::HazardCurveCalibrator;
+use finstack_valuations::calibration::{CalibrationMethod, Calibrator, CreditQuote, RatesQuote};
 use time::Month;
 
 fn create_test_quotes() -> Vec<CreditQuote> {

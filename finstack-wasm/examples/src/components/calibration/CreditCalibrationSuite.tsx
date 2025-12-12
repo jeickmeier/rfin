@@ -34,13 +34,7 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Separator } from '@/components/ui/separator';
-import {
-  CheckCircle2,
-  Circle,
-  AlertTriangle,
-  ArrowRight,
-  RotateCcw,
-} from 'lucide-react';
+import { CheckCircle2, Circle, AlertTriangle, ArrowRight, RotateCcw } from 'lucide-react';
 import {
   DiscountQuoteEditor,
   CreditQuoteEditor,
@@ -131,7 +125,7 @@ export interface CreditCalibrationSuiteProps {
 const DEFAULT_CDS_VOL_QUOTES: CdsVolQuoteData[] = [
   { expiryMonths: 6, strikeBps: 50, vol: 0.45, optionType: 'payer' },
   { expiryMonths: 6, strikeBps: 100, vol: 0.42, optionType: 'payer' },
-  { expiryMonths: 6, strikeBps: 150, vol: 0.40, optionType: 'payer' },
+  { expiryMonths: 6, strikeBps: 150, vol: 0.4, optionType: 'payer' },
   { expiryMonths: 12, strikeBps: 50, vol: 0.42, optionType: 'payer' },
   { expiryMonths: 12, strikeBps: 100, vol: 0.38, optionType: 'payer' },
   { expiryMonths: 12, strikeBps: 150, vol: 0.36, optionType: 'payer' },
@@ -149,7 +143,12 @@ export function createDefaultCreditCalibrationState(
 
     // Discount
     discountCurveId: 'USD-OIS',
-    discountQuotes: generateDefaultDiscountQuotes(baseDate.year, baseDate.month, baseDate.day, 'USD'),
+    discountQuotes: generateDefaultDiscountQuotes(
+      baseDate.year,
+      baseDate.month,
+      baseDate.day,
+      'USD'
+    ),
 
     // Hazard
     entity: 'ACME',
@@ -251,7 +250,6 @@ const buildCreditQuotes = (quotes: CdsQuoteData[]): CreditQuote[] => {
   );
 };
 
-
 // ============================================================================
 // Step Components
 // ============================================================================
@@ -264,11 +262,20 @@ interface StepIndicatorProps {
   onClick: () => void;
 }
 
-const StepIndicator: React.FC<StepIndicatorProps> = ({ step, title, status, isActive, onClick }) => {
+const StepIndicator: React.FC<StepIndicatorProps> = ({
+  step,
+  title,
+  status,
+  isActive,
+  onClick,
+}) => {
   const getIcon = () => {
     if (status === 'success') return <CheckCircle2 className="h-5 w-5 text-green-500" />;
     if (status === 'failed') return <AlertTriangle className="h-5 w-5 text-destructive" />;
-    if (status === 'running') return <div className="h-5 w-5 animate-spin rounded-full border-2 border-primary border-t-transparent" />;
+    if (status === 'running')
+      return (
+        <div className="h-5 w-5 animate-spin rounded-full border-2 border-primary border-t-transparent" />
+      );
     return <Circle className={`h-5 w-5 ${isActive ? 'text-primary' : 'text-muted-foreground'}`} />;
   };
 
@@ -276,16 +283,16 @@ const StepIndicator: React.FC<StepIndicatorProps> = ({ step, title, status, isAc
     <button
       onClick={onClick}
       className={`flex items-center gap-2 px-3 py-2 rounded-lg transition-colors ${
-        isActive
-          ? 'bg-primary/10 border border-primary/30'
-          : 'hover:bg-muted/50'
+        isActive ? 'bg-primary/10 border border-primary/30' : 'hover:bg-muted/50'
       }`}
     >
       <span className="flex items-center justify-center w-6 h-6 text-xs font-medium rounded-full bg-muted">
         {step}
       </span>
       {getIcon()}
-      <span className={`text-sm font-medium ${isActive ? 'text-foreground' : 'text-muted-foreground'}`}>
+      <span
+        className={`text-sm font-medium ${isActive ? 'text-foreground' : 'text-muted-foreground'}`}
+      >
         {title}
       </span>
     </button>
@@ -305,7 +312,9 @@ export const CreditCalibrationSuite: React.FC<CreditCalibrationSuiteProps> = ({
   const [state, setState] = useState<CreditCalibrationSuiteState>(() =>
     createDefaultCreditCalibrationState(initialState)
   );
-  const [activeStep, setActiveStep] = useState<'discount' | 'hazard' | 'correlation' | 'vol'>('discount');
+  const [activeStep, setActiveStep] = useState<'discount' | 'hazard' | 'correlation' | 'vol'>(
+    'discount'
+  );
   const [stepStatus, setStepStatus] = useState<CalibrationStepStatus>({
     discount: 'idle',
     hazard: 'idle',
@@ -330,12 +339,15 @@ export const CreditCalibrationSuite: React.FC<CreditCalibrationSuiteProps> = ({
   const baseDate = useMemo(() => toFsDate(state.baseDate), [state.baseDate]);
 
   // Update handlers
-  const updateState = useCallback(<K extends keyof CreditCalibrationSuiteState>(
-    key: K,
-    value: CreditCalibrationSuiteState[K]
-  ) => {
-    setState((prev) => ({ ...prev, [key]: value }));
-  }, []);
+  const updateState = useCallback(
+    <K extends keyof CreditCalibrationSuiteState>(
+      key: K,
+      value: CreditCalibrationSuiteState[K]
+    ) => {
+      setState((prev) => ({ ...prev, [key]: value }));
+    },
+    []
+  );
 
   // ============================================================================
   // Calibration Functions
@@ -354,7 +366,11 @@ export const CreditCalibrationSuite: React.FC<CreditCalibrationSuiteProps> = ({
       const config = buildWasmConfig(state.config);
       const wasmQuotes = buildDiscountQuotes(state.discountQuotes);
 
-      const calibrator = new DiscountCurveCalibrator(state.discountCurveId, baseDate, state.currency);
+      const calibrator = new DiscountCurveCalibrator(
+        state.discountCurveId,
+        baseDate,
+        state.currency
+      );
       const calibratorWithConfig = calibrator.withConfig(config);
 
       const [curve, report] = calibratorWithConfig.calibrate(wasmQuotes, null) as [
@@ -387,7 +403,6 @@ export const CreditCalibrationSuite: React.FC<CreditCalibrationSuiteProps> = ({
       const ctx = new MarketContext();
       ctx.insertDiscount(curve);
       setMarket(ctx);
-
     } catch (err) {
       setError((err as Error).message);
       setStepStatus((prev) => ({ ...prev, discount: 'failed' }));
@@ -450,7 +465,6 @@ export const CreditCalibrationSuite: React.FC<CreditCalibrationSuiteProps> = ({
       // Update market context
       market.insertHazard(curve);
       setMarket(market);
-
     } catch (err) {
       setError((err as Error).message);
       setStepStatus((prev) => ({ ...prev, hazard: 'failed' }));
@@ -523,7 +537,6 @@ export const CreditCalibrationSuite: React.FC<CreditCalibrationSuiteProps> = ({
       );
       market.insertCreditIndex(state.indexId, creditIndexData);
       setMarket(market);
-
     } catch (err) {
       setError((err as Error).message);
       setStepStatus((prev) => ({ ...prev, correlation: 'failed' }));
@@ -545,8 +558,12 @@ export const CreditCalibrationSuite: React.FC<CreditCalibrationSuiteProps> = ({
 
     try {
       // Build vol surface from quotes
-      const expiries = [...new Set(state.cdsVolQuotes.map((q) => q.expiryMonths / 12))].sort((a, b) => a - b);
-      const strikes = [...new Set(state.cdsVolQuotes.map((q) => q.strikeBps / 10000))].sort((a, b) => a - b);
+      const expiries = [...new Set(state.cdsVolQuotes.map((q) => q.expiryMonths / 12))].sort(
+        (a, b) => a - b
+      );
+      const strikes = [...new Set(state.cdsVolQuotes.map((q) => q.strikeBps / 10000))].sort(
+        (a, b) => a - b
+      );
 
       // Build vol matrix (expiries x strikes)
       const vols: number[] = [];
@@ -591,7 +608,6 @@ export const CreditCalibrationSuite: React.FC<CreditCalibrationSuiteProps> = ({
       // Insert into market
       market.insertSurface(surface);
       setMarket(market);
-
     } catch (err) {
       setError((err as Error).message);
       setStepStatus((prev) => ({ ...prev, vol: 'failed' }));
@@ -611,7 +627,15 @@ export const CreditCalibrationSuite: React.FC<CreditCalibrationSuiteProps> = ({
         seniority: state.seniority,
       });
     }
-  }, [market, stepStatus.hazard, onMarketReady, baseDate, state.entity, state.seniority, state.discountCurveId]);
+  }, [
+    market,
+    stepStatus.hazard,
+    onMarketReady,
+    baseDate,
+    state.entity,
+    state.seniority,
+    state.discountCurveId,
+  ]);
 
   // Auto-advance to next step after successful calibration
   useEffect(() => {
@@ -619,10 +643,8 @@ export const CreditCalibrationSuite: React.FC<CreditCalibrationSuiteProps> = ({
       // eslint-disable-next-line react-hooks/set-state-in-effect
       setActiveStep('hazard');
     } else if (stepStatus.hazard === 'success' && stepStatus.correlation === 'idle') {
-       
       setActiveStep('correlation');
     } else if (stepStatus.correlation === 'success' && stepStatus.vol === 'idle') {
-       
       setActiveStep('vol');
     }
   }, [stepStatus]);
@@ -1030,4 +1052,3 @@ export const CreditCalibrationSuite: React.FC<CreditCalibrationSuiteProps> = ({
 };
 
 export default CreditCalibrationSuite;
-

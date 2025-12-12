@@ -129,4 +129,3 @@ pub struct ValuationResultWire {
     #[serde(default)]
     pub metrics: BTreeMap<String, f64>,
 }
-

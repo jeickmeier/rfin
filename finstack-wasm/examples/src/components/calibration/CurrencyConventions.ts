@@ -118,14 +118,14 @@ export const SWAP_CONVENTIONS: Record<string, SwapConventions> = {
  */
 export const RATE_BOUNDS: Record<string, RateBounds> = {
   // Deep negative rate environments
-  EUR: { minRate: -0.05, maxRate: 0.30 },
-  JPY: { minRate: -0.05, maxRate: 0.20 },
-  CHF: { minRate: -0.05, maxRate: 0.20 },
+  EUR: { minRate: -0.05, maxRate: 0.3 },
+  JPY: { minRate: -0.05, maxRate: 0.2 },
+  CHF: { minRate: -0.05, maxRate: 0.2 },
   // Standard developed markets
-  USD: { minRate: -0.02, maxRate: 0.50 },
-  GBP: { minRate: -0.03, maxRate: 0.50 },
-  CAD: { minRate: -0.02, maxRate: 0.50 },
-  AUD: { minRate: -0.02, maxRate: 0.50 },
+  USD: { minRate: -0.02, maxRate: 0.5 },
+  GBP: { minRate: -0.03, maxRate: 0.5 },
+  CAD: { minRate: -0.02, maxRate: 0.5 },
+  AUD: { minRate: -0.02, maxRate: 0.5 },
   // Emerging markets (allow higher rates)
   BRL: { minRate: -0.05, maxRate: 2.0 },
   TRY: { minRate: -0.05, maxRate: 2.0 },
@@ -134,7 +134,7 @@ export const RATE_BOUNDS: Record<string, RateBounds> = {
 };
 
 /** Default rate bounds for unknown currencies */
-export const DEFAULT_RATE_BOUNDS: RateBounds = { minRate: -0.05, maxRate: 0.50 };
+export const DEFAULT_RATE_BOUNDS: RateBounds = { minRate: -0.05, maxRate: 0.5 };
 
 /** CDS spread bounds (in basis points) */
 export const CDS_SPREAD_BOUNDS: SpreadBounds = { minBps: 0, maxBps: 10000 };
@@ -212,6 +212,7 @@ export function isValidVol(vol: number): boolean {
  * Validate recovery rate is between 0 and 1.
  */
 export function isValidRecovery(recovery: number): boolean {
-  return recovery >= RECOVERY_BOUNDS.min && recovery <= RECOVERY_BOUNDS.max && Number.isFinite(recovery);
+  return (
+    recovery >= RECOVERY_BOUNDS.min && recovery <= RECOVERY_BOUNDS.max && Number.isFinite(recovery)
+  );
 }
-

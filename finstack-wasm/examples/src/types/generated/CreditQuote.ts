@@ -3,72 +3,84 @@
 /**
  * Credit instrument quotes for hazard curve and correlation calibration.
  */
-export type CreditQuote = { "CDS": { 
-/**
- * Reference entity
- */
-entity: string, 
-/**
- * CDS maturity
- */
-maturity: string, 
-/**
- * Par spread in basis points
- */
-spread_bp: number, 
-/**
- * Recovery rate assumption
- */
-recovery_rate: number, 
-/**
- * Currency
- */
-currency: string, } } | { "CDSUpfront": { 
-/**
- * Reference entity
- */
-entity: string, 
-/**
- * CDS maturity
- */
-maturity: string, 
-/**
- * Upfront payment (% of notional, positive = protection buyer pays)
- */
-upfront_pct: number, 
-/**
- * Running spread in basis points
- */
-running_spread_bp: number, 
-/**
- * Recovery rate assumption
- */
-recovery_rate: number, 
-/**
- * Currency
- */
-currency: string, } } | { "CDSTranche": { 
-/**
- * Index name (e.g., "CDX.NA.IG.42")
- */
-index: string, 
-/**
- * Attachment point (%)
- */
-attachment: number, 
-/**
- * Detachment point (%)
- */
-detachment: number, 
-/**
- * Maturity date
- */
-maturity: string, 
-/**
- * Upfront payment (% of notional)
- */
-upfront_pct: number, 
-/**
- * Running spread (bps)
- */
-running_spread_bp: number, } };
+export type CreditQuote =
+  | {
+      CDS: {
+        /**
+         * Reference entity
+         */
+        entity: string;
+        /**
+         * CDS maturity
+         */
+        maturity: string;
+        /**
+         * Par spread in basis points
+         */
+        spread_bp: number;
+        /**
+         * Recovery rate assumption
+         */
+        recovery_rate: number;
+        /**
+         * Currency
+         */
+        currency: string;
+      };
+    }
+  | {
+      CDSUpfront: {
+        /**
+         * Reference entity
+         */
+        entity: string;
+        /**
+         * CDS maturity
+         */
+        maturity: string;
+        /**
+         * Upfront payment (% of notional, positive = protection buyer pays)
+         */
+        upfront_pct: number;
+        /**
+         * Running spread in basis points
+         */
+        running_spread_bp: number;
+        /**
+         * Recovery rate assumption
+         */
+        recovery_rate: number;
+        /**
+         * Currency
+         */
+        currency: string;
+      };
+    }
+  | {
+      CDSTranche: {
+        /**
+         * Index name (e.g., "CDX.NA.IG.42")
+         */
+        index: string;
+        /**
+         * Attachment point (%)
+         */
+        attachment: number;
+        /**
+         * Detachment point (%)
+         */
+        detachment: number;
+        /**
+         * Maturity date
+         */
+        maturity: string;
+        /**
+         * Upfront payment (% of notional)
+         */
+        upfront_pct: number;
+        /**
+         * Running spread (bps)
+         */
+        running_spread_bp: number;
+      };
+    };

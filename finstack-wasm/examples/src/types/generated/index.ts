@@ -23,4 +23,3 @@ export type { VolQuote } from './VolQuote';
 export type { InflationQuote } from './InflationQuote';
 export type { MarketQuote } from './MarketQuote';
 export type { FutureSpecs } from './FutureSpecs';
-

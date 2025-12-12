@@ -25,8 +25,8 @@ impl MetricCalculator for DomesticIR01 {
         let include_near = fx_swap.near_date >= as_of;
         let include_far = fx_swap.far_date >= as_of;
 
-        let df_as_of_dom = domestic_disc.df_on_date_curve(as_of);
-        let df_as_of_for = foreign_disc.df_on_date_curve(as_of);
+        let df_as_of_dom = domestic_disc.try_df_on_date_curve(as_of)?;
+        let df_as_of_for = foreign_disc.try_df_on_date_curve(as_of)?;
 
         let normalize = |df: f64, df_base: f64| -> f64 {
             if df_base != 0.0 {
@@ -37,19 +37,19 @@ impl MetricCalculator for DomesticIR01 {
         };
 
         let df_dom_near = normalize(
-            domestic_disc.df_on_date_curve(fx_swap.near_date),
+            domestic_disc.try_df_on_date_curve(fx_swap.near_date)?,
             df_as_of_dom,
         );
         let df_dom_far = normalize(
-            domestic_disc.df_on_date_curve(fx_swap.far_date),
+            domestic_disc.try_df_on_date_curve(fx_swap.far_date)?,
             df_as_of_dom,
         );
         let df_for_near = normalize(
-            foreign_disc.df_on_date_curve(fx_swap.near_date),
+            foreign_disc.try_df_on_date_curve(fx_swap.near_date)?,
             df_as_of_for,
         );
         let df_for_far = normalize(
-            foreign_disc.df_on_date_curve(fx_swap.far_date),
+            foreign_disc.try_df_on_date_curve(fx_swap.far_date)?,
             df_as_of_for,
         );
 

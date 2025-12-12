@@ -3,44 +3,52 @@
 /**
  * Volatility quotes for surface calibration.
  */
-export type VolQuote = { "OptionVol": { 
-/**
- * Underlying identifier
- */
-underlying: string, 
-/**
- * Option expiry
- */
-expiry: string, 
-/**
- * Strike (rate for swaptions, price for equity/FX)
- */
-strike: number, 
-/**
- * Implied volatility
- */
-vol: number, 
-/**
- * Option type ("Call", "Put", "Straddle")
- */
-option_type: string, } } | { "SwaptionVol": { 
-/**
- * Option expiry
- */
-expiry: string, 
-/**
- * Underlying swap tenor
- */
-tenor: string, 
-/**
- * Strike rate
- */
-strike: number, 
-/**
- * Implied volatility
- */
-vol: number, 
-/**
- * Quote type (ATM, OTM, etc.)
- */
-quote_type: string, } };
+export type VolQuote =
+  | {
+      OptionVol: {
+        /**
+         * Underlying identifier
+         */
+        underlying: string;
+        /**
+         * Option expiry
+         */
+        expiry: string;
+        /**
+         * Strike (rate for swaptions, price for equity/FX)
+         */
+        strike: number;
+        /**
+         * Implied volatility
+         */
+        vol: number;
+        /**
+         * Option type ("Call", "Put", "Straddle")
+         */
+        option_type: string;
+      };
+    }
+  | {
+      SwaptionVol: {
+        /**
+         * Option expiry
+         */
+        expiry: string;
+        /**
+         * Underlying swap tenor
+         */
+        tenor: string;
+        /**
+         * Strike rate
+         */
+        strike: number;
+        /**
+         * Implied volatility
+         */
+        vol: number;
+        /**
+         * Quote type (ATM, OTM, etc.)
+         */
+        quote_type: string;
+      };
+    };

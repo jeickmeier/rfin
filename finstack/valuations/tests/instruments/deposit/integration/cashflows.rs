@@ -93,7 +93,9 @@ fn test_cashflow_conservation_of_value() {
     let disc = ctx.get_discount_ref("USD-OIS").unwrap();
     let mut manual_pv: f64 = 0.0;
     for (date, amount) in flows {
-        let df = disc.df_on_date_curve(date);
+        let df = disc
+            .try_df_on_date_curve(date)
+            .expect("try_df_on_date_curve should succeed");
         manual_pv += amount.amount() * df;
     }
 

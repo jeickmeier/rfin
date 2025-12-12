@@ -201,8 +201,11 @@ impl InterestRateSwap {
         // Note: For OIS, the start "payment" is notional exchange at settlement,
         // and the end payment (principal + compounded interest) is delayed by payment_delay_days
         let df_start = relative_df(disc, as_of, self.float.start)?;
-        let end_payment_date =
-            add_payment_delay(self.float.end, payment_delay, self.float.calendar_id.as_deref());
+        let end_payment_date = add_payment_delay(
+            self.float.end,
+            payment_delay,
+            self.float.calendar_id.as_deref(),
+        );
         let df_end = relative_df(disc, as_of, end_payment_date)?;
 
         let mut pv = self.notional.amount() * (df_start - df_end);

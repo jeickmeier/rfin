@@ -157,12 +157,12 @@ impl PyMetricDefinition {
     }
 
     #[getter]
-    fn meta(&self, py: Python<'_>) -> Py<PyAny> {
+    fn meta(&self, py: Python<'_>) -> PyResult<Py<PyAny>> {
         let dict = PyDict::new(py);
         for (key, value) in &self.inner.meta {
-            dict.set_item(key, json_to_py(py, value)).ok();
+            dict.set_item(key, json_to_py(py, value)?)?;
         }
-        dict.into()
+        Ok(dict.into())
     }
 
     /// Convert to JSON string.
@@ -268,12 +268,12 @@ impl PyMetricRegistry {
     }
 
     #[getter]
-    fn meta(&self, py: Python<'_>) -> Py<PyAny> {
+    fn meta(&self, py: Python<'_>) -> PyResult<Py<PyAny>> {
         let dict = PyDict::new(py);
         for (key, value) in &self.inner.meta {
-            dict.set_item(key, json_to_py(py, value)).ok();
+            dict.set_item(key, json_to_py(py, value)?)?;
         }
-        dict.into()
+        Ok(dict.into())
     }
 
     /// Convert to JSON string.

@@ -36,7 +36,7 @@ use crate::error::InputError;
 /// )?;
 /// let value = interp.interp(0.5);
 /// ```
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 #[cfg_attr(feature = "serde", serde(bound(serialize = "S: serde::Serialize")))]
 #[cfg_attr(

@@ -13,11 +13,7 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/com
 import { CurveChart, StatusBadge, CalibrationMetrics } from './CurveChart';
 import { VolQuoteEditor, DEFAULT_VOL_QUOTES, type VolQuoteData } from './QuoteEditor';
 import type { CalibrationResult, CalibrationStatus, CurveDataPoint } from './types';
-import type {
-  VolSurfaceCalibrationState,
-  CalibrationConfigJson,
-  DateJson,
-} from './state-types';
+import type { VolSurfaceCalibrationState, CalibrationConfigJson, DateJson } from './state-types';
 
 interface CalibratedVolSurface {
   value: (t: number, k: number) => number;
@@ -62,7 +58,13 @@ const toFsDate = (date: DateJson): FsDate => new FsDate(date.year, date.month, d
 /** Convert quote data to WASM VolQuote objects */
 const buildWasmQuotes = (quotes: VolQuoteData[]): VolQuote[] => {
   return quotes.map((q) =>
-    VolQuote.optionVol(q.underlying, new FsDate(q.expiryYear, q.expiryMonth, q.expiryDay), q.strike, q.vol, q.optionType)
+    VolQuote.optionVol(
+      q.underlying,
+      new FsDate(q.expiryYear, q.expiryMonth, q.expiryDay),
+      q.strike,
+      q.vol,
+      q.optionType
+    )
   );
 };
 
@@ -73,7 +75,18 @@ export const VolSurfaceCalibration: React.FC<VolSurfaceCalibrationProps> = ({
   onCalibrated,
   className,
 }) => {
-  const { curveId, currency, underlying, spotPrice, expiries, strikes, discountCurveId, showChart, config, tolerance } = state;
+  const {
+    curveId,
+    currency,
+    underlying,
+    spotPrice,
+    expiries,
+    strikes,
+    discountCurveId,
+    showChart,
+    config,
+    tolerance,
+  } = state;
   const baseDate = useMemo(() => toFsDate(state.baseDate), [state.baseDate]);
 
   const [localQuotes, setLocalQuotes] = useState<VolQuoteData[]>(
@@ -127,7 +140,12 @@ export const VolSurfaceCalibration: React.FC<VolSurfaceCalibrationProps> = ({
       const calibrationConfig = buildWasmConfig(config, effectiveTolerance);
       const wasmQuotes = buildWasmQuotes(quotes);
 
-      const calibrator = new VolSurfaceCalibrator(curveId, 1, new Float64Array(expiries), new Float64Array(strikes))
+      const calibrator = new VolSurfaceCalibrator(
+        curveId,
+        1,
+        new Float64Array(expiries),
+        new Float64Array(strikes)
+      )
         .withBaseDate(baseDate)
         .withConfig(calibrationConfig)
         .withDiscountId(discountCurveId);
@@ -137,7 +155,8 @@ export const VolSurfaceCalibration: React.FC<VolSurfaceCalibrationProps> = ({
         { success: boolean; iterations: number; maxResidual: number },
       ];
 
-      const atmStrike = strikes.find((s) => Math.abs(s - 100) < 5) || strikes[Math.floor(strikes.length / 2)];
+      const atmStrike =
+        strikes.find((s) => Math.abs(s - 100) < 5) || strikes[Math.floor(strikes.length / 2)];
       const sampleValues: CurveDataPoint[] = expiries.map((t) => ({
         time: t,
         value: calibratedSurface.value(t, atmStrike),
@@ -173,7 +192,21 @@ export const VolSurfaceCalibration: React.FC<VolSurfaceCalibrationProps> = ({
       setResult(failedResult);
       onCalibrated?.(failedResult);
     }
-  }, [baseDate, curveId, currency, quotes, underlying, spotPrice, expiries, strikes, discountCurveId, config, market, onCalibrated, effectiveTolerance]);
+  }, [
+    baseDate,
+    curveId,
+    currency,
+    quotes,
+    underlying,
+    spotPrice,
+    expiries,
+    strikes,
+    discountCurveId,
+    config,
+    market,
+    onCalibrated,
+    effectiveTolerance,
+  ]);
 
   const quotesSummary = useMemo(() => `${quotes.length} vol quotes`, [quotes]);
 
@@ -189,7 +222,8 @@ export const VolSurfaceCalibration: React.FC<VolSurfaceCalibrationProps> = ({
               <StatusBadge status={status} />
             </CardTitle>
             <CardDescription>
-              {underlying} - Spot: {spotPrice} {currency} - {expiries.length}x{strikes.length} grid - {quotesSummary}
+              {underlying} - Spot: {spotPrice} {currency} - {expiries.length}x{strikes.length} grid
+              - {quotesSummary}
             </CardDescription>
           </div>
         </div>
@@ -238,14 +272,18 @@ export const VolSurfaceCalibration: React.FC<VolSurfaceCalibrationProps> = ({
 
         {surface && result?.success && (
           <>
-            <div className="text-sm font-medium text-muted-foreground mb-2">Vol Surface Grid (Expiry x Strike)</div>
+            <div className="text-sm font-medium text-muted-foreground mb-2">
+              Vol Surface Grid (Expiry x Strike)
+            </div>
             <div className="overflow-x-auto">
               <table className="text-xs w-full">
                 <thead>
                   <tr>
                     <th className="text-left p-1 text-muted-foreground">Expiry</th>
                     {strikes.map((k) => (
-                      <th key={`strike-${k}`} className="text-right p-1 text-muted-foreground">{k}%</th>
+                      <th key={`strike-${k}`} className="text-right p-1 text-muted-foreground">
+                        {k}%
+                      </th>
                     ))}
                   </tr>
                 </thead>

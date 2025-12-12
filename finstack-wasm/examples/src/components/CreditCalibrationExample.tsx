@@ -71,15 +71,22 @@ export const CreditCalibrationExample: React.FC = () => {
 
         try {
           const request = new PricingRequest().withMetrics(['par_spread', 'pv01']);
-          const result = registry.priceCreditDefaultSwap(cds, 'discounting', newMarket, newAsOf, request);
+          const result = registry.priceCreditDefaultSwap(
+            cds,
+            'discounting',
+            newMarket,
+            newAsOf,
+            request
+          );
 
           results.push({
             name: `${tenor}Y CDS`,
             notional: 10_000_000,
             presentValue: result.presentValue.amount,
-            parSpread: Math.abs(result.metric('par_spread') ?? 0) > 10
-              ? result.metric('par_spread') ?? 0
-              : (result.metric('par_spread') ?? 0) * 10000,
+            parSpread:
+              Math.abs(result.metric('par_spread') ?? 0) > 10
+                ? (result.metric('par_spread') ?? 0)
+                : (result.metric('par_spread') ?? 0) * 10000,
             pv01: result.metric('pv01') ?? 0,
           });
         } catch (err) {
@@ -129,7 +136,9 @@ export const CreditCalibrationExample: React.FC = () => {
         <div className="flex items-center gap-2">
           <div
             className={`w-8 h-8 rounded-full flex items-center justify-center ${
-              pricingResults.length > 0 ? 'bg-green-500/20 text-green-500' : 'bg-muted text-muted-foreground'
+              pricingResults.length > 0
+                ? 'bg-green-500/20 text-green-500'
+                : 'bg-muted text-muted-foreground'
             }`}
           >
             <TrendingUp className="h-4 w-4" />
@@ -303,4 +312,3 @@ export const CreditCalibrationExample: React.FC = () => {
 };
 
 export default CreditCalibrationExample;
-

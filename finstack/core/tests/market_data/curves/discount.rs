@@ -109,7 +109,9 @@ fn non_monotonic_df_rejected_by_default() {
     let err = result.unwrap_err();
     let err_str = format!("{:?}", err);
     assert!(
-        err_str.contains("strictly decreasing") || err_str.contains("Invalid"),
+        err_str.contains("strictly decreasing")
+            || err_str.contains("non-increasing")
+            || err_str.contains("Invalid"),
         "Error message should explain monotonicity violation: {}",
         err_str
     );
@@ -652,8 +654,12 @@ fn forward_and_df_on_date() {
 
     let base = curve.base_date();
     let date = Date::from_calendar_date(base.year(), Month::December, 31).unwrap();
-    let df_curve = curve.df_on_date_curve(date);
-    let df_static = curve.df_on_date(date, curve.day_count());
+    let df_curve = curve
+        .try_df_on_date_curve(date)
+        .expect("df_on_date_curve should succeed");
+    let df_static = curve
+        .try_df_on_date(date, curve.day_count())
+        .expect("df_on_date should succeed");
     assert!((df_curve - df_static).abs() < 1e-12);
 }
 
@@ -678,8 +684,12 @@ fn df_on_date_day_count_sensitivity() {
         .build()
         .unwrap();
 
-    let df_360 = curve_360.df_on_date(target, DayCount::Act360);
-    let df_365 = curve_365.df_on_date(target, DayCount::Act365F);
+    let df_360 = curve_360
+        .try_df_on_date(target, DayCount::Act360)
+        .expect("df_on_date should succeed");
+    let df_365 = curve_365
+        .try_df_on_date(target, DayCount::Act365F)
+        .expect("df_on_date should succeed");
 
     // Different day counts = different time fractions = different DFs
     assert!(

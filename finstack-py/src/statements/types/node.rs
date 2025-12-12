@@ -212,16 +212,20 @@ impl PyNodeSpec {
     /// -------
     /// dict[PeriodId, AmountOrScalar] | None
     ///     Period values if set
-    fn values(&self, py: Python<'_>) -> Option<Py<PyAny>> {
-        self.inner.values.as_ref().map(|values| {
-            let dict = PyDict::new(py);
-            for (period_id, amount_or_scalar) in values {
-                let py_period_id = PyPeriodId::new(*period_id);
-                let py_amount = PyAmountOrScalar::new(amount_or_scalar.clone());
-                dict.set_item(py_period_id, py_amount).ok();
-            }
-            dict.into()
-        })
+    fn values(&self, py: Python<'_>) -> PyResult<Option<Py<PyAny>>> {
+        self.inner
+            .values
+            .as_ref()
+            .map(|values| -> PyResult<Py<PyAny>> {
+                let dict = PyDict::new(py);
+                for (period_id, amount_or_scalar) in values {
+                    let py_period_id = PyPeriodId::new(*period_id);
+                    let py_amount = PyAmountOrScalar::new(amount_or_scalar.clone());
+                    dict.set_item(py_period_id, py_amount)?;
+                }
+                Ok(dict.into())
+            })
+            .transpose()
     }
 
     #[getter]
@@ -278,12 +282,12 @@ impl PyNodeSpec {
     /// -------
     /// dict
     ///     Metadata dictionary
-    fn meta(&self, py: Python<'_>) -> Py<PyAny> {
+    fn meta(&self, py: Python<'_>) -> PyResult<Py<PyAny>> {
         let dict = PyDict::new(py);
         for (key, value) in &self.inner.meta {
-            dict.set_item(key, json_to_py(py, value)).ok();
+            dict.set_item(key, json_to_py(py, value)?)?;
         }
-        dict.into()
+        Ok(dict.into())
     }
 
     /// Convert to JSON string.
@@ -339,10 +343,15 @@ fn parse_period_values(
         }
     } else if let Ok(list) = values.downcast::<PyList>() {
         // List of tuples format
-        for item in list.iter() {
-            if let Ok((period, amount)) = item.extract::<(PyPeriodId, PyAmountOrScalar)>() {
-                map.insert(period.inner, amount.inner.clone());
-            }
+        for (idx, item) in list.iter().enumerate() {
+            let (period, amount) =
+                item.extract::<(PyPeriodId, PyAmountOrScalar)>()
+                    .map_err(|err| {
+                        PyValueError::new_err(format!(
+                            "Invalid values[{idx}] (expected (PeriodId, AmountOrScalar)): {err}"
+                        ))
+                    })?;
+            map.insert(period.inner, amount.inner.clone());
         }
     } else {
         return Err(PyValueError::new_err(

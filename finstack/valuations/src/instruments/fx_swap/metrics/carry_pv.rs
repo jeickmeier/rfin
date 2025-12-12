@@ -21,24 +21,24 @@ impl MetricCalculator for CarryPv {
         let domestic_disc = curves.get_discount_ref(fx_swap.domestic_discount_curve_id.as_str())?;
         let foreign_disc = curves.get_discount_ref(fx_swap.foreign_discount_curve_id.as_str())?;
 
-        let df_as_of_dom = domestic_disc.df_on_date_curve(as_of);
-        let df_as_of_for = foreign_disc.df_on_date_curve(as_of);
+        let df_as_of_dom = domestic_disc.try_df_on_date_curve(as_of)?;
+        let df_as_of_for = foreign_disc.try_df_on_date_curve(as_of)?;
 
         let calc_df = |curve: &finstack_core::market_data::term_structures::DiscountCurve,
                        date: finstack_core::dates::Date,
                        df_as_of: f64|
-         -> f64 {
+         -> finstack_core::Result<f64> {
             if df_as_of != 0.0 {
-                curve.df_on_date_curve(date) / df_as_of
+                Ok(curve.try_df_on_date_curve(date)? / df_as_of)
             } else {
-                1.0
+                Ok(1.0)
             }
         };
 
-        let df_dom_near = calc_df(domestic_disc, fx_swap.near_date, df_as_of_dom);
-        let df_dom_far = calc_df(domestic_disc, fx_swap.far_date, df_as_of_dom);
-        let df_for_near = calc_df(foreign_disc, fx_swap.near_date, df_as_of_for);
-        let df_for_far = calc_df(foreign_disc, fx_swap.far_date, df_as_of_for);
+        let df_dom_near = calc_df(domestic_disc, fx_swap.near_date, df_as_of_dom)?;
+        let df_dom_far = calc_df(domestic_disc, fx_swap.far_date, df_as_of_dom)?;
+        let df_for_near = calc_df(foreign_disc, fx_swap.near_date, df_as_of_for)?;
+        let df_for_far = calc_df(foreign_disc, fx_swap.far_date, df_as_of_for)?;
 
         let include_near = fx_swap.near_date >= as_of;
         let include_far = fx_swap.far_date >= as_of;

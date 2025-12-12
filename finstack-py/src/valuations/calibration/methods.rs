@@ -20,6 +20,7 @@ use finstack_valuations::calibration::methods::{
 use finstack_valuations::calibration::{
     Calibrator, CreditQuote, InflationQuote, RatesQuote, VolQuote,
 };
+use pyo3::exceptions::PyRuntimeError;
 use pyo3::prelude::*;
 use pyo3::types::{PyList, PyModule};
 use pyo3::Bound;
@@ -49,48 +50,69 @@ fn parse_surface_interp(name: Option<&str>) -> PyResult<SurfaceInterp> {
     }
 }
 
-fn collect_rates_quotes(quotes: Vec<Py<PyRatesQuote>>) -> PyResult<Vec<RatesQuote>> {
-    Python::attach(|py| {
-        let mut result = Vec::with_capacity(quotes.len());
-        for quote in quotes {
-            let bound = quote.bind(py);
-            result.push(bound.borrow().inner.clone());
-        }
-        Ok(result)
-    })
+fn collect_rates_quotes(
+    py: Python<'_>,
+    quotes: Vec<Py<PyRatesQuote>>,
+) -> PyResult<Vec<RatesQuote>> {
+    let mut result = Vec::with_capacity(quotes.len());
+    for quote in quotes {
+        let bound = quote.bind(py);
+        let quote_ref = bound.try_borrow().map_err(|e| {
+            PyRuntimeError::new_err(format!(
+                "RatesQuote is already mutably borrowed; cannot read inner quote: {e}"
+            ))
+        })?;
+        result.push(quote_ref.inner.clone());
+    }
+    Ok(result)
 }
 
-fn collect_credit_quotes(quotes: Vec<Py<PyCreditQuote>>) -> PyResult<Vec<CreditQuote>> {
-    Python::attach(|py| {
-        let mut result = Vec::with_capacity(quotes.len());
-        for quote in quotes {
-            let bound = quote.bind(py);
-            result.push(bound.borrow().inner.clone());
-        }
-        Ok(result)
-    })
+fn collect_credit_quotes(
+    py: Python<'_>,
+    quotes: Vec<Py<PyCreditQuote>>,
+) -> PyResult<Vec<CreditQuote>> {
+    let mut result = Vec::with_capacity(quotes.len());
+    for quote in quotes {
+        let bound = quote.bind(py);
+        let quote_ref = bound.try_borrow().map_err(|e| {
+            PyRuntimeError::new_err(format!(
+                "CreditQuote is already mutably borrowed; cannot read inner quote: {e}"
+            ))
+        })?;
+        result.push(quote_ref.inner.clone());
+    }
+    Ok(result)
 }
 
-fn collect_inflation_quotes(quotes: Vec<Py<PyInflationQuote>>) -> PyResult<Vec<InflationQuote>> {
-    Python::attach(|py| {
-        let mut result = Vec::with_capacity(quotes.len());
-        for quote in quotes {
-            let bound = quote.bind(py);
-            result.push(bound.borrow().inner.clone());
-        }
-        Ok(result)
-    })
+fn collect_inflation_quotes(
+    py: Python<'_>,
+    quotes: Vec<Py<PyInflationQuote>>,
+) -> PyResult<Vec<InflationQuote>> {
+    let mut result = Vec::with_capacity(quotes.len());
+    for quote in quotes {
+        let bound = quote.bind(py);
+        let quote_ref = bound.try_borrow().map_err(|e| {
+            PyRuntimeError::new_err(format!(
+                "InflationQuote is already mutably borrowed; cannot read inner quote: {e}"
+            ))
+        })?;
+        result.push(quote_ref.inner.clone());
+    }
+    Ok(result)
 }
 
-fn collect_vol_quotes(quotes: Vec<Py<PyVolQuote>>) -> PyResult<Vec<VolQuote>> {
-    Python::attach(|py| {
-        let mut result = Vec::with_capacity(quotes.len());
-        for quote in quotes {
-            let bound = quote.bind(py);
-            result.push(bound.borrow().inner.clone());
-        }
-        Ok(result)
-    })
+fn collect_vol_quotes(py: Python<'_>, quotes: Vec<Py<PyVolQuote>>) -> PyResult<Vec<VolQuote>> {
+    let mut result = Vec::with_capacity(quotes.len());
+    for quote in quotes {
+        let bound = quote.bind(py);
+        let quote_ref = bound.try_borrow().map_err(|e| {
+            PyRuntimeError::new_err(format!(
+                "VolQuote is already mutably borrowed; cannot read inner quote: {e}"
+            ))
+        })?;
+        result.push(quote_ref.inner.clone());
+    }
+    Ok(result)
 }
 
 fn base_context_from_option(market: Option<PyRef<PyMarketContext>>) -> CoreMarketContext {
@@ -265,7 +287,7 @@ impl PyDiscountCurveCalibrator {
         quotes: Vec<Py<PyRatesQuote>>,
         market: Option<PyRef<PyMarketContext>>,
     ) -> PyResult<(PyDiscountCurve, PyCalibrationReport)> {
-        let rust_quotes = collect_rates_quotes(quotes)?;
+        let rust_quotes = collect_rates_quotes(py, quotes)?;
         let base_context = base_context_from_option(market);
 
         // Release GIL for compute-heavy calibration work
@@ -344,7 +366,7 @@ impl PyForwardCurveCalibrator {
         quotes: Vec<Py<PyRatesQuote>>,
         market: PyRef<PyMarketContext>,
     ) -> PyResult<(PyForwardCurve, PyCalibrationReport)> {
-        let rust_quotes = collect_rates_quotes(quotes)?;
+        let rust_quotes = collect_rates_quotes(py, quotes)?;
         let base_context = market.inner.clone();
 
         // Release GIL for compute-heavy calibration work
@@ -436,7 +458,7 @@ impl PyHazardCurveCalibrator {
         quotes: Vec<Py<PyCreditQuote>>,
         market: PyRef<PyMarketContext>,
     ) -> PyResult<(PyHazardCurve, PyCalibrationReport)> {
-        let rust_quotes = collect_credit_quotes(quotes)?;
+        let rust_quotes = collect_credit_quotes(py, quotes)?;
         let context = market.inner.clone();
 
         // Release GIL for compute-heavy calibration work
@@ -566,7 +588,7 @@ impl PyInflationCurveCalibrator {
         quotes: Vec<Py<PyInflationQuote>>,
         market: Option<PyRef<PyMarketContext>>,
     ) -> PyResult<(PyInflationCurve, PyCalibrationReport)> {
-        let rust_quotes = collect_inflation_quotes(quotes)?;
+        let rust_quotes = collect_inflation_quotes(py, quotes)?;
         let context = base_context_from_option(market);
 
         // Release GIL for compute-heavy calibration work
@@ -690,7 +712,7 @@ impl PyVolSurfaceCalibrator {
         quotes: Vec<Py<PyVolQuote>>,
         market: PyRef<PyMarketContext>,
     ) -> PyResult<(PyVolSurface, PyCalibrationReport)> {
-        let rust_quotes = collect_vol_quotes(quotes)?;
+        let rust_quotes = collect_vol_quotes(py, quotes)?;
         let context = market.inner.clone();
 
         // Release GIL for compute-heavy calibration work
@@ -877,7 +899,7 @@ impl PyBaseCorrelationCalibrator {
         quotes: Vec<Py<PyCreditQuote>>,
         market: PyRef<PyMarketContext>,
     ) -> PyResult<(PyBaseCorrelationCurve, PyCalibrationReport)> {
-        let rust_quotes = collect_credit_quotes(quotes)?;
+        let rust_quotes = collect_credit_quotes(py, quotes)?;
         let context = market.inner.clone();
 
         // Release GIL for compute-heavy calibration work

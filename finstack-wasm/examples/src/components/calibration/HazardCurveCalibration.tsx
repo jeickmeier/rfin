@@ -11,11 +11,7 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/com
 import { CurveChart, StatusBadge, CalibrationMetrics } from './CurveChart';
 import { CreditQuoteEditor, DEFAULT_CREDIT_QUOTES, type CdsQuoteData } from './QuoteEditor';
 import type { CalibrationResult, CalibrationStatus, CurveDataPoint } from './types';
-import type {
-  HazardCurveCalibrationState,
-  CalibrationConfigJson,
-  DateJson,
-} from './state-types';
+import type { HazardCurveCalibrationState, CalibrationConfigJson, DateJson } from './state-types';
 
 interface CalibratedHazardCurve {
   sp: (t: number) => number;
@@ -76,7 +72,16 @@ export const HazardCurveCalibration: React.FC<HazardCurveCalibrationProps> = ({
   onCalibrated,
   className,
 }) => {
-  const { curveId: _curveId, currency, entity, seniority, recoveryRate, discountCurveId, showChart, config } = state;
+  const {
+    curveId: _curveId,
+    currency,
+    entity,
+    seniority,
+    recoveryRate,
+    discountCurveId,
+    showChart,
+    config,
+  } = state;
   const baseDate = useMemo(() => toFsDate(state.baseDate), [state.baseDate]);
 
   const [localQuotes, setLocalQuotes] = useState<CdsQuoteData[]>(
@@ -125,7 +130,14 @@ export const HazardCurveCalibration: React.FC<HazardCurveCalibrationProps> = ({
       const calibrationConfig = buildWasmConfig(config);
       const wasmQuotes = buildWasmQuotes(quotes);
 
-      const calibrator = new HazardCurveCalibrator(entity, seniority, recoveryRate, baseDate, currency, discountCurveId);
+      const calibrator = new HazardCurveCalibrator(
+        entity,
+        seniority,
+        recoveryRate,
+        baseDate,
+        currency,
+        discountCurveId
+      );
       const calibratorWithConfig = calibrator.withConfig(calibrationConfig);
 
       const [calibratedCurve, report] = calibratorWithConfig.calibrate(wasmQuotes, market) as [
@@ -169,14 +181,22 @@ export const HazardCurveCalibration: React.FC<HazardCurveCalibrationProps> = ({
       setResult(failedResult);
       onCalibrated?.(failedResult);
     }
-  }, [baseDate, currency, quotes, entity, seniority, recoveryRate, discountCurveId, config, market, onCalibrated]);
+  }, [
+    baseDate,
+    currency,
+    quotes,
+    entity,
+    seniority,
+    recoveryRate,
+    discountCurveId,
+    config,
+    market,
+    onCalibrated,
+  ]);
 
   const quotesSummary = useMemo(() => `${quotes.length} CDS quotes`, [quotes]);
 
-  const exportState = useCallback(
-    (): HazardCurveCalibrationState => state,
-    [state],
-  );
+  const exportState = useCallback((): HazardCurveCalibrationState => state, [state]);
 
   return (
     <Card className={className}>
@@ -188,7 +208,8 @@ export const HazardCurveCalibration: React.FC<HazardCurveCalibrationProps> = ({
               <StatusBadge status={status} />
             </CardTitle>
             <CardDescription>
-              {entity} - {seniority} - Recovery: {(recoveryRate * 100).toFixed(0)}% - {quotesSummary}
+              {entity} - {seniority} - Recovery: {(recoveryRate * 100).toFixed(0)}% -{' '}
+              {quotesSummary}
             </CardDescription>
           </div>
         </div>
@@ -256,7 +277,9 @@ export const HazardCurveCalibration: React.FC<HazardCurveCalibrationProps> = ({
             </div>
             <div className="p-2 bg-muted/50 rounded">
               <span className="text-muted-foreground text-xs block">PD(0-5Y)</span>
-              <span className="font-mono text-destructive">{(curve.defaultProb(0, 5) * 100).toFixed(2)}%</span>
+              <span className="font-mono text-destructive">
+                {(curve.defaultProb(0, 5) * 100).toFixed(2)}%
+              </span>
             </div>
           </div>
         )}

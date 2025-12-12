@@ -336,8 +336,7 @@ impl InterpolationStrategy for PiecewiseQuadraticForwardStrategy {
         // Natural cubic spline second derivatives (m)
         let mut alpha = vec![0.0; n];
         for i in 1..n - 1 {
-            alpha[i] =
-                (3.0 / h[i]) * (y[i + 1] - y[i]) - (3.0 / h[i - 1]) * (y[i] - y[i - 1]);
+            alpha[i] = (3.0 / h[i]) * (y[i + 1] - y[i]) - (3.0 / h[i - 1]) * (y[i] - y[i - 1]);
         }
 
         let mut l = vec![0.0; n];
@@ -461,9 +460,10 @@ impl PiecewiseQuadraticForwardStrategy {
         } else {
             let last_seg = self.a.len() - 1;
             let h = self.knots[boundary_index] - self.knots[boundary_index - 1];
-            let y =
-                self.a[last_seg] + self.b[last_seg] * h + self.c[last_seg] * h * h
-                    + self.d[last_seg] * h * h * h;
+            let y = self.a[last_seg]
+                + self.b[last_seg] * h
+                + self.c[last_seg] * h * h
+                + self.d[last_seg] * h * h * h;
             (-y).exp()
         }
     }
@@ -941,8 +941,8 @@ impl MonotoneConvexStrategy {
             for i in 1..n - 1 {
                 let lambda_l = dt[i - 1]; // width of left segment
                 let lambda_r = dt[i]; // width of right segment
-                // fd[i-1] is discrete fwd for segment to the left
-                // fd[i] is discrete fwd for segment to the right
+                                      // fd[i-1] is discrete fwd for segment to the left
+                                      // fd[i] is discrete fwd for segment to the right
                 f[i] = (lambda_l * fd[i] + lambda_r * fd[i - 1]) / (lambda_l + lambda_r);
             }
 

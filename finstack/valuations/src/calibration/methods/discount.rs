@@ -21,11 +21,11 @@
 //! - **GBP**: T+0
 //! - **AUD/CAD**: T+1
 
+use crate::calibration::config::CalibrationMethod;
 use crate::calibration::quote::{
     default_calendar_for_currency, settlement_days_for_currency, RatesQuote,
 };
 use crate::calibration::{CalibrationConfig, CalibrationReport, Calibrator, MultiCurveConfig};
-use crate::calibration::config::CalibrationMethod;
 use crate::instruments::common::traits::Instrument;
 use crate::instruments::deposit::Deposit;
 use crate::instruments::fra::ForwardRateAgreement;
@@ -42,7 +42,7 @@ use finstack_core::math::interp::{ExtrapolationPolicy, InterpStyle};
 use finstack_core::math::{MultiSolver, Solver};
 use finstack_core::money::Money;
 use finstack_core::prelude::*;
-use finstack_core::types::CurveId;
+use finstack_core::types::{CurveId, IndexId};
 
 use serde::{Deserialize, Serialize};
 use std::collections::BTreeMap;
@@ -95,6 +95,12 @@ pub struct DiscountCurveCalibrator {
     /// Set to 2 for accurate Bloomberg curve matching.
     #[serde(default)]
     pub payment_delay_days: i32,
+    /// Allow calendar-day settlement fallback when the calendar cannot be resolved.
+    ///
+    /// When `false` (default), missing calendars are treated as an input error to
+    /// avoid silently misaligning spot/settlement conventions.
+    #[serde(default)]
+    pub allow_calendar_fallback: bool,
 }
 
 fn default_extrapolation() -> ExtrapolationPolicy {
@@ -120,9 +126,10 @@ impl DiscountCurveCalibrator {
             calibration_method: CalibrationMethod::default(),
             currency,
             calendar_id: None,
-            settlement_days: None,   // Will use currency default
-            curve_day_count: None,   // Will use currency default
-            payment_delay_days: 0,   // Default 0; set to 2 for Bloomberg OIS
+            settlement_days: None, // Will use currency default
+            curve_day_count: None, // Will use currency default
+            payment_delay_days: 0, // Default 0; set to 2 for Bloomberg OIS
+            allow_calendar_fallback: false,
         }
     }
 
@@ -198,6 +205,14 @@ impl DiscountCurveCalibrator {
         self
     }
 
+    /// Allow (or disallow) calendar-day settlement fallback when a calendar cannot be resolved.
+    ///
+    /// For production calibration, keep this `false` to avoid silent date shifts.
+    pub fn with_allow_calendar_fallback(mut self, allow: bool) -> Self {
+        self.allow_calendar_fallback = allow;
+        self
+    }
+
     /// Get effective settlement days (explicit or currency default).
     fn effective_settlement_days(&self) -> i32 {
         self.settlement_days
@@ -247,9 +262,9 @@ impl DiscountCurveCalibrator {
                 // Final adjustment ensures we land on a business day
                 adjust(spot, BusinessDayConvention::ModifiedFollowing, calendar)
             }
-        } else {
-            // Fallback: calendar not found, use calendar-day addition with warning
-            // This maintains backward compatibility but should be avoided in production
+        } else if self.allow_calendar_fallback {
+            // Fallback: calendar not found, use calendar-day addition with warning.
+            // This should only be used for prototyping/backward compatibility.
             tracing::warn!(
                 calendar_id = calendar_id,
                 currency = ?self.currency,
@@ -260,7 +275,70 @@ impl DiscountCurveCalibrator {
             } else {
                 self.base_date + time::Duration::days(days as i64)
             })
+        } else {
+            Err(finstack_core::Error::Input(
+                finstack_core::error::InputError::NotFound {
+                    id: format!("calendar '{}'", calendar_id),
+                },
+            ))
         }
+    }
+
+    /// Market-standard OIS compounding preset inferred from the quote's index id.
+    ///
+    /// This is intentionally heuristic and should be kept consistent with `RatesQuote::is_ois_suitable()`.
+    fn ois_compounding_for_index(index: &IndexId, currency: Currency) -> FloatingLegCompounding {
+        let upper = index.as_str().to_ascii_uppercase();
+
+        // Index-name driven overrides.
+        if upper.contains("SONIA") {
+            return FloatingLegCompounding::sonia();
+        }
+        if upper.contains("ESTR") || upper.contains("€STR") {
+            return FloatingLegCompounding::estr();
+        }
+        if upper.contains("TONA") || upper.contains("TONAR") {
+            return FloatingLegCompounding::tona();
+        }
+        if upper.contains("SOFR") {
+            return FloatingLegCompounding::sofr();
+        }
+
+        // Currency fallback for generic ids like "USD-OIS".
+        match currency {
+            Currency::GBP => FloatingLegCompounding::sonia(),
+            Currency::EUR => FloatingLegCompounding::estr(),
+            Currency::JPY => FloatingLegCompounding::tona(),
+            _ => FloatingLegCompounding::sofr(),
+        }
+    }
+
+    /// Compute maturity-aware discount-factor bounds implied by configured rate bounds.
+    fn df_bounds_for_time(&self, t: f64) -> (f64, f64) {
+        // Guard against degenerate maturities.
+        let t = t.max(1e-12);
+
+        // DF(t) = exp(-z(t) * t). Using configured bounds as a coarse guard.
+        let bounds = &self.config.rate_bounds;
+        let df_a = (-bounds.max_rate * t).exp();
+        let df_b = (-bounds.min_rate * t).exp();
+
+        let mut lo = df_a.min(df_b);
+        let mut hi = df_a.max(df_b);
+
+        // Hard guards: avoid zeros/NaNs and prevent numeric overflow in extreme stress settings.
+        const DF_HARD_MIN: f64 = 1e-12;
+        const DF_HARD_MAX: f64 = 1e6;
+        if !lo.is_finite() || lo <= 0.0 {
+            lo = DF_HARD_MIN;
+        }
+        if !hi.is_finite() || hi <= 0.0 {
+            hi = DF_HARD_MAX;
+        }
+        lo = lo.max(DF_HARD_MIN);
+        hi = hi.min(DF_HARD_MAX).max(lo * 1.000_000_1);
+
+        (lo, hi)
     }
 
     /// Apply the configured solve interpolation style to the discount curve builder.
@@ -396,6 +474,7 @@ impl DiscountCurveCalibrator {
 
         // Get effective curve day count for consistent time mapping
         let curve_dc = self.effective_curve_day_count();
+        let settlement = self.settlement_date()?;
 
         // Build knots sequentially
         let mut knots = Vec::with_capacity(sorted_quotes.len() + 1);
@@ -472,30 +551,11 @@ impl DiscountCurveCalibrator {
 
                 // Multi-curve only: for OIS instruments we DON'T need a forward curve since
                 // the IRS pricer will use discount-only pricing when both legs use the same curve.
-                // For non-OIS instruments (FRAs, non-OIS swaps), derive forward from discount.
-                let temp_context = if quote_clone.requires_forward_curve() {
-                    if quote_clone.is_ois_suitable() {
-                        // OIS swaps: No forward curve needed - IRS pricer will use discount-only
-                        base_context_ref.clone().insert_discount(temp_curve)
-                    } else {
-                        // Non-OIS (FRAs, etc): derive forward curve from discount curve
-                        // This is the single-curve framework approach
-                        let fwd = match temp_curve.to_forward_curve_with_interp(
-                            "CALIB_FWD",
-                            0.25,
-                            solve_interp,
-                        ) {
-                            Ok(curve) => curve,
-                            Err(_) => return crate::calibration::PENALTY,
-                        };
-                        base_context_ref
-                            .clone()
-                            .insert_discount(temp_curve)
-                            .insert_forward(fwd)
-                    }
-                } else {
-                    base_context_ref.clone().insert_discount(temp_curve)
-                };
+                // Non-OIS forward-dependent instruments are not supported by this calibrator.
+                if quote_clone.requires_forward_curve() && !quote_clone.is_ois_suitable() {
+                    return crate::calibration::PENALTY;
+                }
+                let temp_context = base_context_ref.clone().insert_discount(temp_curve);
 
                 // Price the instrument and return error (target is zero)
                 self.price_instrument(&quote_clone, &temp_context)
@@ -508,7 +568,21 @@ impl DiscountCurveCalibrator {
             let initial_df = match quote {
                 RatesQuote::Deposit { .. } => {
                     let r = self.get_rate(quote);
-                    let yf = time_to_maturity;
+                    let yf = match quote {
+                        RatesQuote::Deposit {
+                            maturity,
+                            day_count,
+                            ..
+                        } => day_count
+                            .year_fraction(
+                                settlement,
+                                *maturity,
+                                finstack_core::dates::DayCountCtx::default(),
+                            )
+                            .unwrap_or(time_to_maturity)
+                            .max(1e-6),
+                        _ => time_to_maturity.max(1e-6),
+                    };
                     1.0 / (1.0 + r * yf)
                 }
                 _ => {
@@ -536,30 +610,59 @@ impl DiscountCurveCalibrator {
                 self.config.tolerance,
                 self.config.max_iterations,
             )?;
-            let mut solved_df = if let Some(root) = tentative {
+            let solved_df = if let Some(root) = tentative {
                 root
             } else {
-                match solver.solve(objective, initial_df) {
-                    Ok(root) => root,
-                    Err(_) => initial_df,
+                // Only attempt a direct solve if we have at least one reasonable objective value.
+                let v0 = objective(initial_df);
+                if !v0.is_finite() || v0.abs() >= crate::calibration::PENALTY / 10.0 {
+                    return Err(finstack_core::Error::Calibration {
+                        message: format!(
+                            "Bootstrap objective invalid/penalized for {} at t={:.6} (initial_df={:.6}, value={:?}). \
+                             This usually indicates inconsistent conventions (calendar/settlement) or unsupported instrument set.",
+                            self.curve_id,
+                            time_to_maturity,
+                            initial_df,
+                            v0
+                        ),
+                        category: "yield_curve_bootstrap".to_string(),
+                    });
                 }
+
+                solver.solve(objective, initial_df).map_err(|e| {
+                    finstack_core::Error::Calibration {
+                        message: format!(
+                            "Bootstrap solver failed for {} at t={:.6} (initial_df={:.6}): {}",
+                            self.curve_id, time_to_maturity, initial_df, e
+                        ),
+                        category: "yield_curve_bootstrap".to_string(),
+                    }
+                })?
             };
 
             if !solved_df.is_finite() {
-                solved_df = initial_df;
-            }
-
-            // Validate the solution makes sense
-            // Allow DF > 1.0 for negative rate environments (EUR, JPY, CHF)
-            // Typical bounds: (0, 1.5) for rates in range [-10%, +50%]
-            const DF_LOWER_BOUND: f64 = 0.0;
-            const DF_UPPER_BOUND: f64 = 1.5; // Allows ~-10% rates at short end
-            if solved_df <= DF_LOWER_BOUND || solved_df > DF_UPPER_BOUND {
                 return Err(finstack_core::Error::Calibration {
                     message: format!(
-                        "Solved discount factor out of bounds ({:.2}, {:.2}] for {} at t={:.6}: df={:.6}. \
-                         This may indicate extreme rates outside the supported range [-10%, +50%].",
-                        DF_LOWER_BOUND, DF_UPPER_BOUND, self.curve_id, time_to_maturity, solved_df
+                        "Bootstrap produced non-finite discount factor for {} at t={:.6}: df={:?}",
+                        self.curve_id, time_to_maturity, solved_df
+                    ),
+                    category: "yield_curve_bootstrap".to_string(),
+                });
+            }
+
+            // Validate the solution against maturity-aware DF bounds implied by configured rate bounds.
+            let (df_lower, df_upper) = self.df_bounds_for_time(time_to_maturity);
+            if solved_df < df_lower || solved_df > df_upper {
+                return Err(finstack_core::Error::Calibration {
+                    message: format!(
+                        "Solved discount factor out of bounds [{:.6}, {:.6}] implied by rate bounds [{:.4}, {:.4}] for {} at t={:.6}: df={:.6}.",
+                        df_lower,
+                        df_upper,
+                        self.config.rate_bounds.min_rate,
+                        self.config.rate_bounds.max_rate,
+                        self.curve_id,
+                        time_to_maturity,
+                        solved_df
                     ),
                     category: "yield_curve_bootstrap".to_string(),
                 });
@@ -589,36 +692,10 @@ impl DiscountCurveCalibrator {
                     })?;
 
                 // Build final pricing context
-                let mut final_context = base_context.clone().insert_discount(final_curve);
-                let missing_forward = if quote.requires_forward_curve() {
-                    if quote.is_ois_suitable() {
-                        // OIS swaps: No forward curve needed - IRS pricer will use discount-only
-                        // when both legs use the same discount curve
-                        false
-                    } else {
-                        // Non-OIS (FRAs, etc): derive forward curve from discount curve
-                        if let Ok(disc_ref) = final_context.get_discount_ref("CALIB_CURVE") {
-                            if let Ok(fwd) = disc_ref.to_forward_curve_with_interp(
-                                "CALIB_FWD",
-                                0.25,
-                                solve_interp,
-                            ) {
-                                final_context = final_context.insert_forward(fwd);
-                                false
-                            } else {
-                                true
-                            }
-                        } else {
-                            true
-                        }
-                    }
-                } else {
-                    false
-                };
-
-                if missing_forward {
+                if quote.requires_forward_curve() && !quote.is_ois_suitable() {
                     crate::calibration::PENALTY
                 } else {
+                    let final_context = base_context.clone().insert_discount(final_curve);
                     self.price_instrument(quote, &final_context)
                         .unwrap_or(crate::calibration::PENALTY)
                         .abs()
@@ -828,7 +905,11 @@ impl DiscountCurveCalibrator {
             }
 
             let init_df = match &quote {
-                RatesQuote::Deposit { maturity, day_count, .. } => {
+                RatesQuote::Deposit {
+                    maturity,
+                    day_count,
+                    ..
+                } => {
                     // Deposits are quoted on the accrual from *settlement* → maturity.
                     // Use the quote's day-count to build a better initial guess.
                     let r = self.get_rate(&quote);
@@ -953,7 +1034,10 @@ impl DiscountCurveCalibrator {
             )
             .build()
             .map_err(|e| finstack_core::Error::Calibration {
-                message: format!("global DiscountCurve build failed for {}: {}", self.curve_id, e),
+                message: format!(
+                    "global DiscountCurve build failed for {}: {}",
+                    self.curve_id, e
+                ),
                 category: "yield_curve_global_solve".to_string(),
             })?;
 
@@ -999,18 +1083,7 @@ impl DiscountCurveCalibrator {
 
         let final_context = base_context.clone().insert_discount(pricing_curve);
         for (idx, quote) in active_quotes.iter().enumerate() {
-            let mut ctx = final_context.clone();
-            if quote.requires_forward_curve() && !quote.is_ois_suitable() {
-                if let Ok(disc_ref) = ctx.get_discount_ref("CALIB_CURVE") {
-                    if let Ok(fwd) = disc_ref.to_forward_curve_with_interp(
-                        "CALIB_FWD",
-                        0.25,
-                        self.solve_interp,
-                    ) {
-                        ctx = ctx.insert_forward(fwd);
-                    }
-                }
-            }
+            let ctx = final_context.clone();
             let residual = self
                 .price_instrument(quote, &ctx)
                 .unwrap_or(crate::calibration::PENALTY)
@@ -1194,6 +1267,7 @@ impl DiscountCurveCalibrator {
                 float_freq,
                 fixed_dc,
                 float_dc,
+                index,
                 ..
             } => {
                 // Create swap instrument
@@ -1226,7 +1300,7 @@ impl DiscountCurveCalibrator {
                     (
                         finstack_core::types::CurveId::from("CALIB_CURVE"),
                         finstack_core::types::CurveId::from("CALIB_CURVE"),
-                        FloatingLegCompounding::sofr(),
+                        Self::ois_compounding_for_index(index, self.currency),
                     )
                 } else {
                     (
@@ -1379,7 +1453,7 @@ impl DiscountCurveCalibrator {
         // Check rates are reasonable (basic sanity check)
         for quote in quotes {
             let rate = self.get_rate(quote);
-            if !rate.is_finite() || !(-0.10..=0.50).contains(&rate) {
+            if !rate.is_finite() || !self.config.rate_bounds.contains(rate) {
                 return Err(finstack_core::Error::Input(
                     finstack_core::error::InputError::Invalid,
                 ));
@@ -1511,6 +1585,7 @@ impl RatesQuote {
 ///     base_date,
 ///     Money::new(1_000_000.0, Currency::USD),
 ///     None,
+///     0, // payment_delay_days
 /// )?;
 /// ```
 pub fn create_ois_swap_from_quote(
@@ -1520,11 +1595,12 @@ pub fn create_ois_swap_from_quote(
     base_date: Date,
     notional: Money,
     calendar_id: Option<&str>,
+    payment_delay_days: i32,
 ) -> Result<InterestRateSwap> {
     use crate::instruments::irs::{FixedLegSpec, FloatLegSpec, PayReceive};
     use finstack_core::dates::{BusinessDayConvention, StubKind};
 
-    let (maturity, rate, fixed_freq, float_freq, fixed_dc, float_dc) = match quote {
+    let (maturity, rate, fixed_freq, float_freq, fixed_dc, float_dc, index) = match quote {
         RatesQuote::Swap {
             maturity,
             rate,
@@ -1532,6 +1608,7 @@ pub fn create_ois_swap_from_quote(
             float_freq,
             fixed_dc,
             float_dc,
+            index,
             ..
         } => (
             *maturity,
@@ -1540,6 +1617,7 @@ pub fn create_ois_swap_from_quote(
             *float_freq,
             *fixed_dc,
             *float_dc,
+            index,
         ),
         _ => {
             return Err(finstack_core::Error::Input(
@@ -1547,6 +1625,9 @@ pub fn create_ois_swap_from_quote(
             ))
         }
     };
+
+    let currency = notional.currency();
+    let compounding = DiscountCurveCalibrator::ois_compounding_for_index(index, currency);
 
     let fixed_spec = FixedLegSpec {
         discount_curve_id: CurveId::from(discount_curve_id),
@@ -1560,7 +1641,7 @@ pub fn create_ois_swap_from_quote(
         compounding_simple: true,
         start: base_date,
         end: maturity,
-        payment_delay_days: 0, // Default; caller can modify swap.fixed.payment_delay_days if needed
+        payment_delay_days,
     };
 
     let float_spec = FloatLegSpec {
@@ -1576,8 +1657,8 @@ pub fn create_ois_swap_from_quote(
         reset_lag_days: 2,
         start: base_date,
         end: maturity,
-        compounding: FloatingLegCompounding::sofr(),
-        payment_delay_days: 0, // Default; caller can modify swap.float.payment_delay_days if needed
+        compounding,
+        payment_delay_days,
     };
 
     InterestRateSwap::builder()

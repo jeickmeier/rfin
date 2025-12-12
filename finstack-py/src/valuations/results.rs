@@ -146,7 +146,7 @@ impl PyResultsMeta {
     fn numeric_mode(&self) -> &'static str {
         match self.inner.numeric_mode {
             finstack_core::config::NumericMode::F64 => "f64",
-            _ => "f64",
+            _ => "unknown",
         }
     }
 
@@ -165,9 +165,9 @@ impl PyResultsMeta {
     ///     str | None: Timestamp of computation for audit trails.
     #[getter]
     fn timestamp(&self) -> Option<String> {
-        self.inner.timestamp.map(|t| {
+        self.inner.timestamp.and_then(|t| {
             t.format(&time::format_description::well_known::Iso8601::DEFAULT)
-                .unwrap_or_else(|_| "unknown".to_string())
+                .ok()
         })
     }
 
@@ -207,11 +207,11 @@ impl PyResultsMeta {
         } else {
             dict.set_item("fx_policy_applied", py.None())?;
         }
-        if let Some(timestamp) = &self.inner.timestamp {
-            let ts_str = timestamp
-                .format(&time::format_description::well_known::Iso8601::DEFAULT)
-                .unwrap_or_else(|_| "unknown".to_string());
-            dict.set_item("timestamp", ts_str)?;
+        if self.inner.timestamp.is_some() {
+            match self.timestamp() {
+                Some(ts) => dict.set_item("timestamp", ts)?,
+                None => dict.set_item("timestamp", py.None())?,
+            }
         }
         if let Some(version) = &self.inner.version {
             dict.set_item("version", version.clone())?;

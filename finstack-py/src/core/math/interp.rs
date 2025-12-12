@@ -93,9 +93,7 @@ impl PyInterpStyle {
             "log_linear" => Ok(Self::new(InterpStyle::LogLinear)),
             "monotone_convex" => Ok(Self::new(InterpStyle::MonotoneConvex)),
             "cubic_hermite" => Ok(Self::new(InterpStyle::CubicHermite)),
-            "piecewise_quadratic_forward" => {
-                Ok(Self::new(InterpStyle::PiecewiseQuadraticForward))
-            }
+            "piecewise_quadratic_forward" => Ok(Self::new(InterpStyle::PiecewiseQuadraticForward)),
             "flat_fwd" => Ok(Self::new(InterpStyle::LogLinear)),
             other => Err(PyValueError::new_err(format!(
                 "Unknown interpolation style: {other}"

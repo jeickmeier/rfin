@@ -13,6 +13,7 @@ use finstack_valuations::instruments::common::helpers::{
 };
 use finstack_valuations::metrics::MetricId;
 use finstack_valuations::pricer::{create_standard_registry, PricerRegistry};
+use pyo3::exceptions::PyValueError;
 use pyo3::prelude::*;
 use pyo3::types::{PyList, PyModule};
 use pyo3::Bound;
@@ -24,10 +25,9 @@ use std::sync::Arc;
 /// This is a placeholder value that ensures deterministic pricing when the caller
 /// doesn't specify a valuation date. In production use, callers should provide
 /// an explicit `as_of` date that matches their market data.
-fn default_pricing_date() -> finstack_core::dates::Date {
-    // SAFETY: Hard-coded values are known to be valid; this will never panic
-    finstack_core::dates::Date::from_calendar_date(2024, time::Month::January, 1)
-        .expect("Default pricing date (2024-01-01) is a valid calendar date")
+fn default_pricing_date() -> PyResult<finstack_core::dates::Date> {
+    finstack_core::dates::create_date(2024, time::Month::January, 1)
+        .map_err(|e| PyValueError::new_err(e.to_string()))
 }
 
 /// Registry dispatching (instrument, model) pairs to pricing engines.
@@ -37,14 +37,16 @@ fn default_pricing_date() -> finstack_core::dates::Date {
 ///     >>> result = registry.price(bond, "discounting", market)
 ///     >>> result.present_value
 #[pyclass(module = "finstack.valuations.pricer", name = "PricerRegistry", frozen)]
-#[derive(Default)]
+#[derive(Clone, Default)]
 pub struct PyPricerRegistry {
-    pub(crate) inner: PricerRegistry,
+    pub(crate) inner: Arc<PricerRegistry>,
 }
 
 impl PyPricerRegistry {
     pub(crate) fn new(inner: PricerRegistry) -> Self {
-        Self { inner }
+        Self {
+            inner: Arc::new(inner),
+        }
     }
 }
 
@@ -104,7 +106,7 @@ impl PyPricerRegistry {
 
         let as_of_date = match as_of {
             Some(date) => py_to_date(&date)?,
-            None => default_pricing_date(),
+            None => default_pricing_date()?,
         };
 
         // Release GIL for compute-heavy Rust pricing operation
@@ -139,7 +141,7 @@ impl PyPricerRegistry {
 
         let as_of_date = match as_of {
             Some(date) => py_to_date(&date)?,
-            None => default_pricing_date(),
+            None => default_pricing_date()?,
         };
 
         // Extract all instruments to Rust types (InstrumentHandle)
@@ -216,7 +218,7 @@ impl PyPricerRegistry {
 
         let as_of_date = match as_of {
             Some(date) => py_to_date(&date)?,
-            None => default_pricing_date(),
+            None => default_pricing_date()?,
         };
 
         // Release GIL for compute-heavy pricing and metric calculation
@@ -242,6 +244,7 @@ impl PyPricerRegistry {
     }
 
     #[pyo3(
+        signature = (bond, market, forward_curve, float_margin_bp, dirty_price_ccy=None),
         text_signature = "(self, bond, market, forward_curve, float_margin_bp, dirty_price_ccy=None)"
     )]
     /// Compute par and market asset swap spreads using a forward curve.
@@ -254,20 +257,20 @@ impl PyPricerRegistry {
     ///     dirty_price_ccy: Dirty market price expressed in currency.
     ///         This is **required** for the market ASW leg. To interpret the
     ///         market spread relative to par, explicitly pass the par notional
-    ///         amount (e.g., ``bond.notional.amount``); omitting this argument
-    ///         will cause the underlying engine to raise a configuration error
-    ///         instead of silently assuming a par price.
+    ///         amount (e.g., ``bond.notional.amount``). If omitted, this binding
+    ///         raises a ValueError instead of silently assuming a par price.
     ///
     /// Returns:
     ///     tuple[float, float]: Par and market asset swap spreads in basis points.
     ///
     /// Raises:
     ///     TypeError: If ``bond`` is not a bond instrument.
+    ///     ValueError: If ``dirty_price_ccy`` is omitted.
     ///     RuntimeError: If the underlying calculation fails.
     ///
     /// Examples:
     ///     >>> registry = create_standard_registry()
-    ///     >>> registry.asw_forward(bond, market, "usd_libor_3m", 25.0)
+    ///     >>> registry.asw_forward(bond, market, "usd_libor_3m", 25.0, bond.notional.amount)
     ///     (23.4, 27.1)
     fn asw_forward(
         &self,
@@ -275,8 +278,14 @@ impl PyPricerRegistry {
         market: &PyMarketContext,
         forward_curve: &str,
         float_margin_bp: f64,
-        dirty_price_ccy: f64,
+        dirty_price_ccy: Option<f64>,
     ) -> PyResult<(f64, f64)> {
+        let dirty_price_ccy = dirty_price_ccy.ok_or_else(|| {
+            PyValueError::new_err(
+                "dirty_price_ccy is required to compute the market ASW leg; \
+pass an explicit dirty price (e.g. 1.0125 * bond.notional.amount)",
+            )
+        })?;
         let InstrumentHandle {
             instrument: inst, ..
         } = extract_instrument(&bond)?;
@@ -343,19 +352,28 @@ impl PyPricerRegistry {
     }
 
     #[pyo3(text_signature = "(self)")]
-    /// Clone the registry for isolated pricing threads.
+    /// Clone the registry for use across threads.
     ///
     /// Returns:
-    ///     PricerRegistry: Fresh registry without shared state.
+    ///     PricerRegistry: A shallow clone sharing the same (immutable) registry.
     ///
     /// Examples:
     ///     >>> registry = create_standard_registry()
-    ///     >>> isolated = registry.clone()
-    ///     >>> isinstance(isolated, PricerRegistry)
+    ///     >>> cloned = registry.clone()
+    ///     >>> isinstance(cloned, PricerRegistry)
     ///     True
     fn clone(&self) -> Self {
-        // Underlying registry is not Clone; create a new one for isolation.
-        Self::new(PricerRegistry::new())
+        Self {
+            inner: self.inner.clone(),
+        }
+    }
+
+    fn __copy__(&self) -> Self {
+        self.clone()
+    }
+
+    fn __deepcopy__(&self, _memo: Bound<'_, PyAny>) -> Self {
+        self.clone()
     }
 }
 

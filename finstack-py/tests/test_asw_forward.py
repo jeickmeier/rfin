@@ -51,14 +51,12 @@ def _build_market_and_bond() -> tuple[Bond, MarketContext]:
 class TestAswForward:
     """Python-level tests for the forward-based ASW helper."""
 
-    def test_missing_dirty_price_raises_key_error(self) -> None:
-        """Calling asw_forward without dirty_price_ccy must not assume par."""
+    def test_missing_dirty_price_raises_value_error(self) -> None:
+        """Calling asw_forward without dirty_price_ccy must not silently assume par."""
         bond, market = _build_market_and_bond()
         registry = create_standard_registry()
 
-        with pytest.raises((TypeError, KeyError), match=r"dirty_price_ccy|missing.*required"):
-            # dirty_price_ccy is now required, so omitting it should raise TypeError
-            # or if validation happens in Rust, it might raise KeyError
+        with pytest.raises(ValueError, match=r"dirty_price_ccy"):
             registry.asw_forward(
                 bond,
                 market,

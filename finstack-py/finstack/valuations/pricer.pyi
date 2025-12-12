@@ -1,5 +1,6 @@
 """Pricer registry bridging instruments and pricing models to valuation engines."""
 
+import datetime as dt
 from typing import Any, List, Tuple, Optional
 from .common import ModelKey, PricerKey
 from .results import ValuationResult
@@ -58,7 +59,13 @@ class PricerRegistry:
     """
 
     def __init__(self) -> None: ...
-    def price(self, instrument: Any, model: Any, market: MarketContext) -> ValuationResult: ...
+    def price(
+        self,
+        instrument: Any,
+        model: Any,
+        market: MarketContext,
+        as_of: Optional[dt.date] = None,
+    ) -> ValuationResult: ...
     """Price an instrument using the specified model and market data.
 
     This is the primary method for instrument valuation. It dispatches the
@@ -120,7 +127,7 @@ class PricerRegistry:
         instruments: List[Any],
         model: Any,
         market: MarketContext,
-        as_of: Any = None,
+        as_of: Optional[dt.date] = None,
     ) -> List[ValuationResult]:
         """Price a batch of instruments in parallel.
 
@@ -136,7 +143,12 @@ class PricerRegistry:
         ...
 
     def price_with_metrics(
-        self, instrument: Any, model: Any, market: MarketContext, metrics: List[Any]
+        self,
+        instrument: Any,
+        model: Any,
+        market: MarketContext,
+        metrics: List[Any],
+        as_of: Optional[dt.date] = None,
     ) -> ValuationResult: ...
     """Price an instrument and compute the requested risk and return metrics.
 
@@ -237,23 +249,21 @@ class PricerRegistry:
         each reset period (e.g., 25.0 for 25bp).
     dirty_price_ccy : float, optional
         Dirty market price in currency units (e.g., 1,015,000 for $1M
-        bond at 101.5%). If None, only par ASW spread is computed.
+        bond at 101.5%). This is required to compute the market ASW leg.
         To compute market ASW at par, pass bond.notional.amount.
 
     Returns
     -------
     Tuple[float, float]
         Tuple of (par_asw_spread_bp, market_asw_spread_bp) in basis points.
-        If dirty_price_ccy is None, market_asw_spread_bp may be None or
-        require separate calculation.
 
     Raises
     ------
     TypeError
         If bond is not a bond instrument or doesn't support floating-rate spec.
     ValueError
-        If forward_curve is not found in MarketContext, or if bond doesn't
-        have required floating-rate configuration.
+        If dirty_price_ccy is None, if forward_curve is not found in MarketContext,
+        or if bond doesn't have required floating-rate configuration.
     RuntimeError
         If the underlying ASW calculation fails (e.g., numerical issues).
 
@@ -308,16 +318,16 @@ class PricerRegistry:
         ...
 
     def clone(self) -> PricerRegistry:
-        """Clone the registry for isolated pricing threads.
+        """Clone the registry for use across threads.
 
         Returns:
-            PricerRegistry: Fresh registry without shared state.
+            PricerRegistry: A shallow clone sharing the same (immutable) registry.
 
         Examples:
             >>> from finstack.valuations.pricer import create_standard_registry
             >>> registry = create_standard_registry()
-            >>> isolated = registry.clone()
-            >>> isinstance(isolated, type(registry))
+            >>> cloned = registry.clone()
+            >>> isinstance(cloned, type(registry))
             True
         """
         ...

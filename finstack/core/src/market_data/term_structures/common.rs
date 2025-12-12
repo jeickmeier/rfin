@@ -46,9 +46,8 @@ pub(crate) fn build_interp_input_error(
     values: Box<[f64]>,
     extrapolation: ExtrapolationPolicy,
 ) -> crate::Result<Interp> {
-    style
-        .build_enum(knots, values, extrapolation)
-        .map_err(|_| crate::error::InputError::NonPositiveValue.into())
+    // Preserve the original interpolation error (usually an InputError).
+    style.build_enum(knots, values, extrapolation)
 }
 
 /// Convenience to split points (t, v) into separate vectors.

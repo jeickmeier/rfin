@@ -59,9 +59,11 @@ fn parse_flows(
     flows: Vec<(Bound<'_, PyAny>, Bound<'_, PyAny>)>,
 ) -> PyResult<Vec<(finstack_core::dates::Date, finstack_core::money::Money)>> {
     let mut out = Vec::with_capacity(flows.len());
-    for (date_any, amount_any) in flows {
-        let date = py_to_date(&date_any).context("flows.date")?;
-        let amount = extract_money(&amount_any).context("flows.amount")?;
+    for (idx, (date_any, amount_any)) in flows.into_iter().enumerate() {
+        let date_field = format!("cash_flows[{idx}].date");
+        let amount_field = format!("cash_flows[{idx}].amount");
+        let date = py_to_date(&date_any).context(&date_field)?;
+        let amount = extract_money(&amount_any).context(&amount_field)?;
         out.push((date, amount));
     }
     Ok(out)

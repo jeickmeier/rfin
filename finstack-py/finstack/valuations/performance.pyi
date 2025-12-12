@@ -5,8 +5,10 @@ exist purely for IDE completion and inline help. All calculations are
 performed in Rust; the stubs document the expected shapes and behavior.
 """
 
-from typing import Iterable, List, Optional, Tuple
+from typing import Iterable, List, Optional, Tuple, Union
 from datetime import date
+
+from ..core.dates.daycount import DayCount
 
 def xirr(cash_flows: Iterable[Tuple[date, float]], guess: Optional[float] = ...) -> float:
     """Calculate XIRR (Extended Internal Rate of Return) for irregular cash flows.
@@ -37,7 +39,7 @@ def npv(
     cash_flows: Iterable[Tuple[date, float]],
     discount_rate: float,
     base_date: Optional[date] = ...,
-    day_count: Optional[str] = ...,
+    day_count: Optional[Union[str, DayCount]] = ...,
 ) -> float:
     """Compute Net Present Value for dated cash flows.
 
@@ -50,8 +52,8 @@ def npv(
     base_date:
         Optional base date; defaults to the first cash flow date.
     day_count:
-        Optional day-count string (e.g., ``"act365f"``, ``"act360"``). Defaults
-        to Act/365F if omitted or unrecognized.
+        Optional day-count convention (DayCount object or string identifier like
+        ``"act365f"``, ``"act360"``, ``"30/360"``). Defaults to Act/365F if omitted.
 
     Returns
     -------

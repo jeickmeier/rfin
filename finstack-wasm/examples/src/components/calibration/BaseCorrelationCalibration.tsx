@@ -126,10 +126,14 @@ export const BaseCorrelationCalibration: React.FC<BaseCorrelationCalibrationProp
       const wasmQuotes = buildWasmQuotes(quotes);
 
       const calibrator = new BaseCorrelationCalibrator(indexId, series, maturityYears, baseDate);
-      const calibratorWithConfig = calibrator.withConfig(calibrationConfig).withDiscountCurveId(discountCurveId);
+      const calibratorWithConfig = calibrator
+        .withConfig(calibrationConfig)
+        .withDiscountCurveId(discountCurveId);
 
       const detachmentPoints = quotes.map((q) => q.detachment).sort((a, b) => a - b);
-      const calibratorWithPoints = calibratorWithConfig.withDetachmentPoints(new Float64Array(detachmentPoints));
+      const calibratorWithPoints = calibratorWithConfig.withDetachmentPoints(
+        new Float64Array(detachmentPoints)
+      );
 
       const [calibratedCurve, report] = calibratorWithPoints.calibrate(wasmQuotes, market) as [
         CalibratedBaseCorrelationCurve,
@@ -162,7 +166,8 @@ export const BaseCorrelationCalibration: React.FC<BaseCorrelationCalibrationProp
       setStatus(effectiveSuccess ? 'success' : 'failed');
       onCalibrated?.(calibrationResult);
     } catch (err) {
-      const errorMsg = err instanceof Error ? err.message : String(err) || 'Unknown calibration error';
+      const errorMsg =
+        err instanceof Error ? err.message : String(err) || 'Unknown calibration error';
       setError(errorMsg);
       setStatus('failed');
 
@@ -177,7 +182,18 @@ export const BaseCorrelationCalibration: React.FC<BaseCorrelationCalibrationProp
       setResult(failedResult);
       onCalibrated?.(failedResult);
     }
-  }, [baseDate, curveId, indexId, series, maturityYears, quotes, discountCurveId, config, market, onCalibrated]);
+  }, [
+    baseDate,
+    curveId,
+    indexId,
+    series,
+    maturityYears,
+    quotes,
+    discountCurveId,
+    config,
+    market,
+    onCalibrated,
+  ]);
 
   const exportState = useCallback((): BaseCorrelationCalibrationState => state, [state]);
 

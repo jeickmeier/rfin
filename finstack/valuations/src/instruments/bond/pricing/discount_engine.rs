@@ -194,7 +194,7 @@ impl BondEngine {
         };
         // Pre-compute settle-date discount factor for correct theta using the
         // curve's own date mapping.
-        let df_settle = disc.df_on_date_curve(settle_date);
+        let df_settle = disc.try_df_on_date_curve(settle_date)?;
 
         // Collect PV values for Kahan summation (O(1) error growth vs O(n) for naive sum).
         // This is particularly important for long-dated bonds (50Y+ monthly-pay).
@@ -206,7 +206,7 @@ impl BondEngine {
             }
             // Discount from settle_date (which is derived from as_of) using
             // curve-provided DF(date).
-            let df_d_abs = disc.df_on_date_curve(*d);
+            let df_d_abs = disc.try_df_on_date_curve(*d)?;
             let df = if df_settle != 0.0 {
                 df_d_abs / df_settle
             } else {

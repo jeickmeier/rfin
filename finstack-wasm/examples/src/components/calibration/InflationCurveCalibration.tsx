@@ -77,7 +77,15 @@ export const InflationCurveCalibration: React.FC<InflationCurveCalibrationProps>
   onCalibrated,
   className,
 }) => {
-  const { curveId: _curveId, currency, indexName, baseCpi, discountCurveId, showChart, config } = state;
+  const {
+    curveId: _curveId,
+    currency,
+    indexName,
+    baseCpi,
+    discountCurveId,
+    showChart,
+    config,
+  } = state;
   const baseDate = useMemo(() => toFsDate(state.baseDate), [state.baseDate]);
 
   const [localQuotes, setLocalQuotes] = useState<InflationSwapQuoteData[]>(
@@ -126,7 +134,13 @@ export const InflationCurveCalibration: React.FC<InflationCurveCalibrationProps>
       const calibrationConfig = buildWasmConfig(config);
       const wasmQuotes = buildWasmQuotes(quotes);
 
-      const calibrator = new InflationCurveCalibrator(indexName, baseDate, currency, baseCpi, discountCurveId);
+      const calibrator = new InflationCurveCalibrator(
+        indexName,
+        baseDate,
+        currency,
+        baseCpi,
+        discountCurveId
+      );
       const calibratorWithConfig = calibrator.withConfig(calibrationConfig);
 
       const [calibratedCurve, report] = calibratorWithConfig.calibrate(wasmQuotes, market) as [
@@ -170,7 +184,17 @@ export const InflationCurveCalibration: React.FC<InflationCurveCalibrationProps>
       setResult(failedResult);
       onCalibrated?.(failedResult);
     }
-  }, [baseDate, currency, quotes, indexName, baseCpi, discountCurveId, config, market, onCalibrated]);
+  }, [
+    baseDate,
+    currency,
+    quotes,
+    indexName,
+    baseCpi,
+    discountCurveId,
+    config,
+    market,
+    onCalibrated,
+  ]);
 
   const getImpliedInflation = (t: number) => {
     if (!curve) return 0;
@@ -180,10 +204,7 @@ export const InflationCurveCalibration: React.FC<InflationCurveCalibrationProps>
 
   const quotesSummary = useMemo(() => `${quotes.length} inflation swaps`, [quotes]);
 
-  const exportState = useCallback(
-    (): InflationCurveCalibrationState => state,
-    [state],
-  );
+  const exportState = useCallback((): InflationCurveCalibrationState => state, [state]);
 
   return (
     <Card className={className}>
@@ -239,7 +260,9 @@ export const InflationCurveCalibration: React.FC<InflationCurveCalibrationProps>
               color: 'hsl(var(--chart-3))',
               yFormatter: (v) => v.toFixed(1),
             }}
-            referenceLines={[{ y: baseCpi, label: `Base: ${baseCpi}`, stroke: 'hsl(var(--muted-foreground))' }]}
+            referenceLines={[
+              { y: baseCpi, label: `Base: ${baseCpi}`, stroke: 'hsl(var(--muted-foreground))' },
+            ]}
           />
         )}
 
