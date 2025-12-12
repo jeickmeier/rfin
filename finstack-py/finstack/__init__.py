@@ -6,9 +6,9 @@ compiled extension underneath provides rich docstrings and type hints so these
 re-exports stay discoverable in IDEs.
 """
 
-from collections.abc import MutableMapping as _MutableMapping
 import sys as _sys
 import types as _types
+from collections.abc import MutableMapping as _MutableMapping
 from typing import Any as _Any
 
 from . import finstack as _finstack
