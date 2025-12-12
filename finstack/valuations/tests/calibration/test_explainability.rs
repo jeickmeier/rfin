@@ -35,12 +35,14 @@ fn test_jacobian_not_computed_by_default() {
             end: create_date(2025, Month::July, 15).unwrap(),
             rate: 0.045,
             day_count: DayCount::Act360,
+            conventions: Default::default(),
         },
         RatesQuote::FRA {
             start: create_date(2025, Month::July, 15).unwrap(),
             end: create_date(2025, Month::October, 15).unwrap(),
             rate: 0.046,
             day_count: DayCount::Act360,
+            conventions: Default::default(),
         },
     ];
 
@@ -77,12 +79,14 @@ fn test_jacobian_computed_when_enabled() {
             end: create_date(2025, Month::July, 15).unwrap(),
             rate: 0.045,
             day_count: DayCount::Act360,
+            conventions: Default::default(),
         },
         RatesQuote::FRA {
             start: create_date(2025, Month::July, 15).unwrap(),
             end: create_date(2025, Month::October, 15).unwrap(),
             rate: 0.046,
             day_count: DayCount::Act360,
+            conventions: Default::default(),
         },
     ];
 
@@ -154,6 +158,7 @@ fn test_jacobian_sensitivities_nonzero() {
             fixed_dc: DayCount::Thirty360,
             float_dc: DayCount::Act360,
             index: "USD-SOFR-3M".into(),
+            conventions: Default::default(),
         },
         RatesQuote::Swap {
             maturity: create_date(2027, Month::January, 15).unwrap(),
@@ -163,6 +168,7 @@ fn test_jacobian_sensitivities_nonzero() {
             fixed_dc: DayCount::Thirty360,
             float_dc: DayCount::Act360,
             index: "USD-SOFR-3M".into(),
+            conventions: Default::default(),
         },
     ];
 

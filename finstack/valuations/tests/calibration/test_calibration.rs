@@ -229,11 +229,13 @@ fn test_discount_curve_global_solve_smoke() {
             maturity: Date::from_calendar_date(2025, Month::July, 15).unwrap(),
             rate: 0.03,
             day_count: DayCount::Act360,
+            conventions: Default::default(),
         },
         RatesQuote::Deposit {
             maturity: Date::from_calendar_date(2026, Month::January, 15).unwrap(),
             rate: 0.031,
             day_count: DayCount::Act360,
+            conventions: Default::default(),
         },
         RatesQuote::Swap {
             maturity: Date::from_calendar_date(2027, Month::January, 15).unwrap(),
@@ -243,6 +245,7 @@ fn test_discount_curve_global_solve_smoke() {
             fixed_dc: DayCount::Act360,
             float_dc: DayCount::Act360,
             index: "USD-SOFR".into(),
+            conventions: Default::default(),
         },
     ];
 

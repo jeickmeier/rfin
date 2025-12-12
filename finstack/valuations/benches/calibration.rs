@@ -65,6 +65,7 @@ fn create_deposit_quotes(base_date: Date, num_deposits: usize) -> Vec<RatesQuote
             maturity,
             rate,
             day_count: DayCount::Act360,
+            conventions: Default::default(),
         });
     }
 
@@ -88,6 +89,7 @@ fn create_swap_quotes(base_date: Date, tenors: &[i32]) -> Vec<RatesQuote> {
             fixed_dc: DayCount::Thirty360,
             float_dc: DayCount::Act360,
             index: "USD-SOFR-3M".to_string().into(),
+            conventions: Default::default(),
         });
     }
 
@@ -109,6 +111,7 @@ fn create_fra_quotes(base_date: Date, num_fras: usize) -> Vec<RatesQuote> {
             end,
             rate,
             day_count: DayCount::Act360,
+            conventions: Default::default(),
         });
     }
 

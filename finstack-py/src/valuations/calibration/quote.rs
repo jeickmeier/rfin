@@ -127,6 +127,7 @@ impl PyRatesQuote {
             maturity: maturity_date,
             rate,
             day_count: dc,
+            conventions: Default::default(),
         }))
     }
 
@@ -147,6 +148,7 @@ impl PyRatesQuote {
             end: end_date,
             rate,
             day_count: dc,
+            conventions: Default::default(),
         }))
     }
 
@@ -163,6 +165,7 @@ impl PyRatesQuote {
             expiry: expiry_date,
             price,
             specs: specs.inner.clone(),
+            conventions: Default::default(),
         }))
     }
 
@@ -191,6 +194,7 @@ impl PyRatesQuote {
             fixed_dc,
             float_dc,
             index: index.to_string().into(),
+            conventions: Default::default(),
         }))
     }
 
@@ -225,6 +229,7 @@ impl PyRatesQuote {
             primary_dc,
             reference_dc,
             currency: ccy,
+            conventions: Default::default(),
         }))
     }
 

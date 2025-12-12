@@ -3,7 +3,7 @@
 from finstack.core.dates.periods import PeriodId
 from finstack.statements.builder import ModelBuilder
 from finstack.statements.evaluator import Evaluator
-from finstack.statements.types import ForecastSpec
+from finstack.statements.types import AmountOrScalar, ForecastSpec
 import pytest
 
 
@@ -14,7 +14,7 @@ def test_goal_seek_simple_linear() -> None:
     builder.periods("2025Q1..Q1", None)
 
     period = PeriodId.quarter(2025, 1)
-    builder.value("revenue", [(period, 100_000.0)])
+    builder.value("revenue", [(period, AmountOrScalar.scalar(100_000.0))])
     builder.compute("profit_margin", "0.15")
     builder.compute("net_income", "revenue * profit_margin")
 
@@ -39,7 +39,7 @@ def test_goal_seek_with_update() -> None:
     builder.periods("2025Q1..Q1", None)
 
     period = PeriodId.quarter(2025, 1)
-    builder.value("revenue", [(period, 100_000.0)])
+    builder.value("revenue", [(period, AmountOrScalar.scalar(100_000.0))])
     builder.compute("cogs", "revenue * 0.6")
     builder.compute("gross_profit", "revenue - cogs")
 
@@ -71,7 +71,7 @@ def test_goal_seek_interest_coverage() -> None:
 
     q1 = PeriodId.quarter(2025, 1)
     # Start with Q1 revenue closer to solution to help bracket finding
-    builder.value("revenue", [(q1, 55_000.0)])  # Closer to expected solution
+    builder.value("revenue", [(q1, AmountOrScalar.scalar(55_000.0))])  # Closer to expected solution
     builder.forecast("revenue", ForecastSpec.growth(0.05))
     builder.compute("interest_expense", "10000.0")
     builder.compute("ebitda", "revenue * 0.3")
@@ -114,7 +114,7 @@ def test_goal_seek_default_driver_period() -> None:
     builder.periods("2025Q1..Q1", None)
 
     period = PeriodId.quarter(2025, 1)
-    builder.value("revenue", [(period, 100_000.0)])
+    builder.value("revenue", [(period, AmountOrScalar.scalar(100_000.0))])
     builder.compute("profit_margin", "0.15")
     builder.compute("net_income", "revenue * profit_margin")
 
@@ -141,7 +141,7 @@ def test_goal_seek_invalid_target_node() -> None:
     builder.periods("2025Q1..Q1", None)
 
     period = PeriodId.quarter(2025, 1)
-    builder.value("revenue", [(period, 100_000.0)])
+    builder.value("revenue", [(period, AmountOrScalar.scalar(100_000.0))])
 
     model = builder.build()
 
@@ -161,7 +161,7 @@ def test_goal_seek_invalid_driver_node() -> None:
     builder.periods("2025Q1..Q1", None)
 
     period = PeriodId.quarter(2025, 1)
-    builder.value("revenue", [(period, 100_000.0)])
+    builder.value("revenue", [(period, AmountOrScalar.scalar(100_000.0))])
 
     model = builder.build()
 
@@ -181,7 +181,7 @@ def test_goal_seek_invalid_target_period() -> None:
     builder.periods("2025Q1..Q1", None)
 
     period = PeriodId.quarter(2025, 1)
-    builder.value("revenue", [(period, 100_000.0)])
+    builder.value("revenue", [(period, AmountOrScalar.scalar(100_000.0))])
     builder.compute("profit_margin", "0.15")
     builder.compute("net_income", "revenue * profit_margin")
 

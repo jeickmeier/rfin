@@ -1,17 +1,86 @@
 //! Market quote data structures and types.
 
+use crate::instruments::irs::FloatingLegCompounding;
 use finstack_core::dates::{Date, DayCount, Frequency};
 use finstack_core::prelude::*;
 use finstack_core::types::{IndexId, UnderlyingId};
 #[cfg(feature = "ts_export")]
 use ts_rs::TS;
 
+/// Per-instrument conventions for calibration.
+///
+/// These optional fields allow each quote to specify its own settlement,
+/// payment, and fixing conventions. When not specified, the calibrator
+/// uses currency-specific defaults.
+///
+/// # Example
+///
+/// ```ignore
+/// let conventions = InstrumentConventions {
+///     settlement_days: Some(0),  // T+0 for this instrument
+///     calendar_id: Some("GBP".to_string()),
+///     ..Default::default()
+/// };
+/// ```
+#[cfg_attr(feature = "ts_export", derive(TS))]
+#[cfg_attr(feature = "ts_export", ts(export))]
+#[derive(Clone, Debug, Default, serde::Serialize, serde::Deserialize, PartialEq)]
+#[serde(default)]
+pub struct InstrumentConventions {
+    /// Settlement lag in business days from trade date (e.g., 0 for T+0, 2 for T+2)
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub settlement_days: Option<i32>,
+    /// Payment delay in business days after period end
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub payment_delay_days: Option<i32>,
+    /// Reset lag in business days for floating rate fixings
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub reset_lag: Option<i32>,
+    /// Calendar identifier for schedule generation and business day adjustments
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub calendar_id: Option<String>,
+}
+
+impl InstrumentConventions {
+    /// Create conventions with settlement days.
+    pub fn with_settlement_days(mut self, days: i32) -> Self {
+        self.settlement_days = Some(days);
+        self
+    }
+
+    /// Create conventions with payment delay.
+    pub fn with_payment_delay(mut self, days: i32) -> Self {
+        self.payment_delay_days = Some(days);
+        self
+    }
+
+    /// Create conventions with reset lag.
+    pub fn with_reset_lag(mut self, days: i32) -> Self {
+        self.reset_lag = Some(days);
+        self
+    }
+
+    /// Create conventions with calendar ID.
+    pub fn with_calendar_id(mut self, calendar_id: impl Into<String>) -> Self {
+        self.calendar_id = Some(calendar_id.into());
+        self
+    }
+
+    /// Check if all fields are None (i.e., use defaults).
+    pub fn is_empty(&self) -> bool {
+        self.settlement_days.is_none()
+            && self.payment_delay_days.is_none()
+            && self.reset_lag.is_none()
+            && self.calendar_id.is_none()
+    }
+}
+
 /// Interest rate instrument quotes for yield curve calibration.
 #[cfg_attr(feature = "ts_export", derive(TS))]
 #[cfg_attr(feature = "ts_export", ts(export))]
 #[cfg_attr(feature = "ts_export", ts(rename_all = "snake_case"))]
 #[derive(Clone, Debug, serde::Serialize, serde::Deserialize)]
-#[serde(rename_all = "snake_case", deny_unknown_fields)]
+#[serde(rename_all = "snake_case")]
 pub enum RatesQuote {
     /// Deposit rate quote
     Deposit {
@@ -23,13 +92,16 @@ pub enum RatesQuote {
         /// Day count convention
         #[cfg_attr(feature = "ts_export", ts(type = "string"))]
         day_count: DayCount,
+        /// Per-instrument conventions (settlement, calendar, etc.)
+        #[serde(default, skip_serializing_if = "InstrumentConventions::is_empty")]
+        conventions: InstrumentConventions,
     },
     /// Forward Rate Agreement quote
     FRA {
         /// Start date
         #[cfg_attr(feature = "ts_export", ts(type = "string"))]
         start: Date,
-        /// End date  
+        /// End date
         #[cfg_attr(feature = "ts_export", ts(type = "string"))]
         end: Date,
         /// Quoted rate (decimal)
@@ -37,6 +109,9 @@ pub enum RatesQuote {
         /// Day count convention
         #[cfg_attr(feature = "ts_export", ts(type = "string"))]
         day_count: DayCount,
+        /// Per-instrument conventions (settlement, reset lag, etc.)
+        #[serde(default, skip_serializing_if = "InstrumentConventions::is_empty")]
+        conventions: InstrumentConventions,
     },
     /// Interest Rate Future quote
     Future {
@@ -47,6 +122,9 @@ pub enum RatesQuote {
         price: f64,
         /// Contract specifications
         specs: FutureSpecs,
+        /// Per-instrument conventions (reset lag, etc.)
+        #[serde(default, skip_serializing_if = "InstrumentConventions::is_empty")]
+        conventions: InstrumentConventions,
     },
     /// Interest Rate Swap quote
     Swap {
@@ -58,7 +136,7 @@ pub enum RatesQuote {
         /// Fixed leg frequency
         #[cfg_attr(feature = "ts_export", ts(type = "string"))]
         fixed_freq: Frequency,
-        /// Float leg frequency  
+        /// Float leg frequency
         #[cfg_attr(feature = "ts_export", ts(type = "string"))]
         float_freq: Frequency,
         /// Fixed leg day count
@@ -70,6 +148,9 @@ pub enum RatesQuote {
         /// Float leg index (e.g., "3M-LIBOR")
         #[cfg_attr(feature = "ts_export", ts(type = "string"))]
         index: IndexId,
+        /// Per-instrument conventions (settlement, payment delay, reset lag, calendar)
+        #[serde(default, skip_serializing_if = "InstrumentConventions::is_empty")]
+        conventions: InstrumentConventions,
     },
     /// Basis Swap quote for multi-curve construction
     BasisSwap {
@@ -85,7 +166,7 @@ pub enum RatesQuote {
         /// Primary leg frequency
         #[cfg_attr(feature = "ts_export", ts(type = "string"))]
         primary_freq: Frequency,
-        /// Reference leg frequency  
+        /// Reference leg frequency
         #[cfg_attr(feature = "ts_export", ts(type = "string"))]
         reference_freq: Frequency,
         /// Primary leg day count
@@ -97,6 +178,9 @@ pub enum RatesQuote {
         /// Currency for both legs
         #[cfg_attr(feature = "ts_export", ts(type = "string"))]
         currency: Currency,
+        /// Per-instrument conventions (settlement, reset lag, calendar)
+        #[serde(default, skip_serializing_if = "InstrumentConventions::is_empty")]
+        conventions: InstrumentConventions,
     },
 }
 
@@ -149,41 +233,96 @@ impl RatesQuote {
         }
     }
 
+    /// Get per-instrument conventions for this quote.
+    ///
+    /// Returns the conventions specified on this quote, which may have
+    /// all-None fields if no per-instrument overrides were specified.
+    #[inline]
+    pub fn conventions(&self) -> &InstrumentConventions {
+        match self {
+            RatesQuote::Deposit { conventions, .. } => conventions,
+            RatesQuote::FRA { conventions, .. } => conventions,
+            RatesQuote::Future { conventions, .. } => conventions,
+            RatesQuote::Swap { conventions, .. } => conventions,
+            RatesQuote::BasisSwap { conventions, .. } => conventions,
+        }
+    }
+
+    /// Get the effective settlement days for this quote.
+    ///
+    /// Returns the per-instrument value if specified, otherwise None
+    /// (caller should use currency default).
+    #[inline]
+    pub fn settlement_days(&self) -> Option<i32> {
+        self.conventions().settlement_days
+    }
+
+    /// Get the effective payment delay for this quote.
+    ///
+    /// Returns the per-instrument value if specified, otherwise None.
+    #[inline]
+    pub fn payment_delay_days(&self) -> Option<i32> {
+        self.conventions().payment_delay_days
+    }
+
+    /// Get the effective reset lag for this quote.
+    ///
+    /// Returns the per-instrument value if specified, otherwise None.
+    #[inline]
+    pub fn reset_lag(&self) -> Option<i32> {
+        self.conventions().reset_lag
+    }
+
+    /// Get the calendar ID for this quote.
+    ///
+    /// Returns the per-instrument value if specified, otherwise None.
+    #[inline]
+    pub fn calendar_id(&self) -> Option<&str> {
+        self.conventions().calendar_id.as_deref()
+    }
+
     /// Create a new quote with the rate bumped by the given amount.
     ///
     /// Used for Jacobian calculation (sensitivity analysis).
+    /// Preserves per-instrument conventions.
     pub fn bump(&self, amount: f64) -> Self {
         match self {
             RatesQuote::Deposit {
                 maturity,
                 rate,
                 day_count,
+                conventions,
             } => RatesQuote::Deposit {
                 maturity: *maturity,
                 rate: rate + amount,
                 day_count: *day_count,
+                conventions: conventions.clone(),
             },
             RatesQuote::FRA {
                 start,
                 end,
                 rate,
                 day_count,
+                conventions,
             } => RatesQuote::FRA {
                 start: *start,
                 end: *end,
                 rate: rate + amount,
                 day_count: *day_count,
+                conventions: conventions.clone(),
             },
             RatesQuote::Future {
                 expiry,
                 price,
                 specs,
+                conventions,
             } => RatesQuote::Future {
                 expiry: *expiry,
                 // For futures, price = 100 - rate * 100.
                 // Bump rate by +amount => price decreases by amount * 100
                 price: price - (amount * 100.0),
                 specs: specs.clone(),
+                conventions: conventions.clone(),
             },
             RatesQuote::Swap {
                 maturity,
@@ -193,6 +332,7 @@ impl RatesQuote {
                 fixed_dc,
                 float_dc,
                 index,
+                conventions,
             } => RatesQuote::Swap {
                 maturity: *maturity,
                 rate: rate + amount,
@@ -201,6 +341,7 @@ impl RatesQuote {
                 fixed_dc: *fixed_dc,
                 float_dc: *float_dc,
                 index: index.clone(),
+                conventions: conventions.clone(),
             },
             RatesQuote::BasisSwap {
                 maturity,
@@ -212,6 +353,7 @@ impl RatesQuote {
                 primary_dc,
                 reference_dc,
                 currency,
+                conventions,
             } => RatesQuote::BasisSwap {
                 maturity: *maturity,
                 primary_index: primary_index.clone(),
@@ -222,6 +364,7 @@ impl RatesQuote {
                 primary_dc: *primary_dc,
                 reference_dc: *reference_dc,
                 currency: *currency,
+                conventions: conventions.clone(),
             },
         }
     }
@@ -475,6 +618,20 @@ pub struct FutureSpecs {
     pub day_count: DayCount,
     /// Convexity adjustment (for long-dated futures)
     pub convexity_adjustment: Option<f64>,
+    /// Tick size (minimum price increment, e.g., 0.0025 for STIR)
+    #[serde(default = "default_tick_size")]
+    pub tick_size: f64,
+    /// Tick value (dollar value per tick, e.g., 6.25 for CME 3M SOFR)
+    #[serde(default = "default_tick_value")]
+    pub tick_value: f64,
+}
+
+fn default_tick_size() -> f64 {
+    0.0025
+}
+
+fn default_tick_value() -> f64 {
+    6.25
 }
 
 impl Default for FutureSpecs {
@@ -485,6 +642,8 @@ impl Default for FutureSpecs {
             delivery_months: 3,
             day_count: DayCount::Act360,
             convexity_adjustment: None,
+            tick_size: default_tick_size(),
+            tick_value: default_tick_value(),
         }
     }
 }
@@ -810,5 +969,52 @@ pub fn default_calendar_for_currency(currency: Currency) -> &'static str {
         Currency::HKD => "hkex",
         Currency::SGD => "sgex",
         _ => "usny", // Default to US calendar for unlisted currencies
+    }
+}
+
+/// Get the OIS compounding method for a rate index.
+///
+/// Returns the market-standard OIS compounding method based on the index name
+/// and currency. This determines how overnight rates are compounded for OIS swaps.
+///
+/// # Logic
+///
+/// 1. **Index-name driven**: Checks for specific index tokens (SONIA, ESTR, TONA, SOFR)
+/// 2. **Currency fallback**: For generic indices like "USD-OIS", uses currency conventions
+///
+/// # Examples
+///
+/// ```ignore
+/// use finstack_valuations::calibration::quote::ois_compounding_for_index;
+/// use finstack_core::currency::Currency;
+/// use finstack_core::types::IndexId;
+///
+/// let index: IndexId = "USD-SOFR".into();
+/// let compounding = ois_compounding_for_index(&index, Currency::USD);
+/// // Returns FloatingLegCompounding::sofr()
+/// ```
+pub fn ois_compounding_for_index(index: &IndexId, currency: Currency) -> FloatingLegCompounding {
+    let upper = index.as_str().to_ascii_uppercase();
+
+    // Index-name driven overrides
+    if upper.contains("SONIA") {
+        return FloatingLegCompounding::sonia();
+    }
+    if upper.contains("ESTR") || upper.contains("€STR") {
+        return FloatingLegCompounding::estr();
+    }
+    if upper.contains("TONA") || upper.contains("TONAR") {
+        return FloatingLegCompounding::tona();
+    }
+    if upper.contains("SOFR") {
+        return FloatingLegCompounding::sofr();
+    }
+
+    // Currency fallback for generic ids like "USD-OIS"
+    match currency {
+        Currency::GBP => FloatingLegCompounding::sonia(),
+        Currency::EUR => FloatingLegCompounding::estr(),
+        Currency::JPY => FloatingLegCompounding::tona(),
+        _ => FloatingLegCompounding::sofr(),
     }
 }

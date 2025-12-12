@@ -40,6 +40,7 @@ fn test_calibration_spec_with_quotes() {
             maturity: base_date + time::Duration::days(30),
             rate: 0.045,
             day_count: DayCount::Act360,
+            conventions: Default::default(),
         },
         RatesQuote::Swap {
             maturity: base_date + time::Duration::days(365),
@@ -49,6 +50,7 @@ fn test_calibration_spec_with_quotes() {
             fixed_dc: DayCount::Act365F,
             float_dc: DayCount::Act365F,
             index: "USD-OIS".to_string().into(),
+            conventions: Default::default(),
         },
     ];
 
@@ -80,6 +82,7 @@ fn test_calibration_spec_multiple_hazard_steps() {
             maturity: base_date + time::Duration::days(365),
             rate: 0.045,
             day_count: DayCount::Act360,
+            conventions: Default::default(),
         }],
     };
 
@@ -143,6 +146,7 @@ fn test_calibration_spec_serde_roundtrip() {
                 maturity: base_date + time::Duration::days(90),
                 rate: 0.045,
                 day_count: DayCount::Act360,
+                conventions: Default::default(),
             }],
         }],
         schema_version: 1,

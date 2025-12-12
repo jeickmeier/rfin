@@ -90,14 +90,16 @@ pub mod forward_curve;
 pub mod hazard_curve;
 pub mod hull_white;
 pub mod inflation_curve;
+pub mod pricing;
 pub mod sabr_surface;
 pub mod swaption_market_conventions;
 pub mod swaption_vol;
 pub mod xccy;
 
 pub use base_correlation::BaseCorrelationCalibrator;
-pub use discount::create_ois_swap_from_quote;
 pub use discount::DiscountCurveCalibrator;
+pub use pricing::create_ois_swap_from_quote;
+pub use pricing::CalibrationPricer;
 pub use forward_curve::ForwardCurveCalibrator;
 pub use hazard_curve::HazardCurveCalibrator;
 pub use hull_white::{

@@ -29,6 +29,7 @@ fn test_multi_curve_instrument_validation() {
         maturity: Date::from_calendar_date(2024, Month::February, 1).expect("Valid test date"),
         rate: 0.015,
         day_count: DayCount::Act360,
+        conventions: Default::default(),
     };
     assert!(
         !deposit.requires_forward_curve(),
@@ -44,6 +45,7 @@ fn test_multi_curve_instrument_validation() {
         end: Date::from_calendar_date(2024, Month::July, 1).expect("Valid test date"),
         rate: 0.018,
         day_count: DayCount::Act360,
+        conventions: Default::default(),
     };
     assert!(
         fra.requires_forward_curve(),
@@ -62,6 +64,7 @@ fn test_multi_curve_instrument_validation() {
         fixed_dc: DayCount::Thirty360,
         float_dc: DayCount::Act360,
         index: "SOFR".to_string().into(),
+        conventions: Default::default(),
     };
     assert!(
         ois_swap.requires_forward_curve(),
@@ -80,6 +83,7 @@ fn test_multi_curve_instrument_validation() {
         fixed_dc: DayCount::Thirty360,
         float_dc: DayCount::Act360,
         index: "3M-LIBOR".to_string().into(),
+        conventions: Default::default(),
     };
     assert!(
         libor_swap.requires_forward_curve(),
@@ -107,11 +111,13 @@ fn create_test_quotes() -> Vec<RatesQuote> {
             maturity: base_date + time::Duration::days(30),
             rate: 0.045,
             day_count: DayCount::Act360,
+            conventions: Default::default(),
         },
         RatesQuote::Deposit {
             maturity: base_date + time::Duration::days(90),
             rate: 0.046,
             day_count: DayCount::Act360,
+            conventions: Default::default(),
         },
         RatesQuote::Swap {
             maturity: base_date + time::Duration::days(365),
@@ -121,6 +127,7 @@ fn create_test_quotes() -> Vec<RatesQuote> {
             fixed_dc: DayCount::Thirty360,
             float_dc: DayCount::Act360,
             index: "USD-SOFR-3M".to_string().into(),
+            conventions: Default::default(),
         },
         RatesQuote::Swap {
             maturity: base_date + time::Duration::days(365 * 2),
@@ -130,6 +137,7 @@ fn create_test_quotes() -> Vec<RatesQuote> {
             fixed_dc: DayCount::Thirty360,
             float_dc: DayCount::Act360,
             index: "USD-SOFR-3M".to_string().into(),
+            conventions: Default::default(),
         },
     ]
 }
@@ -176,16 +184,19 @@ fn test_deposit_repricing_under_bootstrap() {
             maturity: base_date + time::Duration::days(30),
             rate: 0.045,
             day_count: DayCount::Act360,
+            conventions: Default::default(),
         },
         RatesQuote::Deposit {
             maturity: base_date + time::Duration::days(90),
             rate: 0.046,
             day_count: DayCount::Act360,
+            conventions: Default::default(),
         },
         RatesQuote::Deposit {
             maturity: base_date + time::Duration::days(180),
             rate: 0.047,
             day_count: DayCount::Act360,
+            conventions: Default::default(),
         },
     ];
 
@@ -204,6 +215,7 @@ fn test_deposit_repricing_under_bootstrap() {
             maturity,
             rate,
             day_count,
+            conventions: _,
         } = quote
         {
             let dep = Deposit {
@@ -246,17 +258,20 @@ fn test_fra_repricing_under_bootstrap() {
             maturity: base_date + time::Duration::days(30),
             rate: 0.0450,
             day_count: DayCount::Act360,
+            conventions: Default::default(),
         },
         RatesQuote::Deposit {
             maturity: base_date + time::Duration::days(90),
             rate: 0.0460,
             day_count: DayCount::Act360,
+            conventions: Default::default(),
         },
         RatesQuote::FRA {
             start: base_date + time::Duration::days(90),
             end: base_date + time::Duration::days(180),
             rate: 0.0470,
             day_count: DayCount::Act360,
+            conventions: Default::default(),
         },
     ];
 
@@ -307,11 +322,13 @@ fn test_swap_repricing_under_bootstrap() {
             maturity: base_date + time::Duration::days(30),
             rate: 0.0450,
             day_count: DayCount::Act360,
+            conventions: Default::default(),
         },
         RatesQuote::Deposit {
             maturity: base_date + time::Duration::days(90),
             rate: 0.0460,
             day_count: DayCount::Act360,
+            conventions: Default::default(),
         },
         RatesQuote::Swap {
             maturity: base_date + time::Duration::days(365),
@@ -321,6 +338,7 @@ fn test_swap_repricing_under_bootstrap() {
             fixed_dc: DayCount::Thirty360,
             float_dc: DayCount::Act360,
             index: "USD-OIS".to_string().into(),
+            conventions: Default::default(),
         },
     ];
 
@@ -430,11 +448,13 @@ fn test_ois_bootstrap_with_deposits_and_ois_swaps() {
             maturity: base_date + time::Duration::days(30),
             rate: 0.0450,
             day_count: DayCount::Act360,
+            conventions: Default::default(),
         },
         RatesQuote::Deposit {
             maturity: base_date + time::Duration::days(90),
             rate: 0.0460,
             day_count: DayCount::Act360,
+            conventions: Default::default(),
         },
         RatesQuote::Swap {
             maturity: base_date + time::Duration::days(365),
@@ -444,6 +464,7 @@ fn test_ois_bootstrap_with_deposits_and_ois_swaps() {
             fixed_dc: DayCount::Thirty360,
             float_dc: DayCount::Act360,
             index: "USD-OIS".to_string().into(),
+            conventions: Default::default(),
         },
         RatesQuote::Swap {
             maturity: base_date + time::Duration::days(365 * 2),
@@ -453,6 +474,7 @@ fn test_ois_bootstrap_with_deposits_and_ois_swaps() {
             fixed_dc: DayCount::Thirty360,
             float_dc: DayCount::Act360,
             index: "USD-OIS".to_string().into(),
+            conventions: Default::default(),
         },
     ];
 
@@ -583,16 +605,19 @@ fn test_negative_rate_deposit_calibration() {
             maturity: base_date + time::Duration::days(90),
             rate: -0.01, // -100bp (more pronounced negative)
             day_count: DayCount::Act360,
+            conventions: Default::default(),
         },
         RatesQuote::Deposit {
             maturity: base_date + time::Duration::days(180),
             rate: -0.008, // -80bp
             day_count: DayCount::Act360,
+            conventions: Default::default(),
         },
         RatesQuote::Deposit {
             maturity: base_date + time::Duration::days(365),
             rate: -0.005, // -50bp
             day_count: DayCount::Act360,
+            conventions: Default::default(),
         },
     ];
 
@@ -637,6 +662,7 @@ fn test_pre_validation_fails_for_missing_forward_curves() {
             maturity: base_date + time::Duration::days(30),
             rate: 0.045,
             day_count: DayCount::Act360,
+            conventions: Default::default(),
         },
         RatesQuote::BasisSwap {
             maturity: base_date + time::Duration::days(365),
@@ -648,6 +674,7 @@ fn test_pre_validation_fails_for_missing_forward_curves() {
             primary_dc: DayCount::Act360,
             reference_dc: DayCount::Act360,
             currency: Currency::USD,
+            conventions: Default::default(),
         },
     ];
 
@@ -676,11 +703,13 @@ fn test_calibration_report_metadata() {
             maturity: base_date + time::Duration::days(30),
             rate: 0.045,
             day_count: DayCount::Act360,
+            conventions: Default::default(),
         },
         RatesQuote::Deposit {
             maturity: base_date + time::Duration::days(90),
             rate: 0.046,
             day_count: DayCount::Act360,
+            conventions: Default::default(),
         },
     ];
 

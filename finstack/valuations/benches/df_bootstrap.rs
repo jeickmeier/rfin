@@ -14,11 +14,13 @@ fn bench_df_bootstrap(c: &mut Criterion) {
             maturity: base_date + time::Duration::days(30),
             rate: 0.045,
             day_count: DayCount::Act360,
+            conventions: Default::default(),
         },
         RatesQuote::Deposit {
             maturity: base_date + time::Duration::days(90),
             rate: 0.046,
             day_count: DayCount::Act360,
+            conventions: Default::default(),
         },
         RatesQuote::Swap {
             maturity: base_date + time::Duration::days(365),
@@ -28,6 +30,7 @@ fn bench_df_bootstrap(c: &mut Criterion) {
             fixed_dc: DayCount::Thirty360,
             float_dc: DayCount::Act360,
             index: "USD-OIS".to_string().into(),
+            conventions: Default::default(),
         },
         RatesQuote::Swap {
             maturity: base_date + time::Duration::days(365 * 2),
@@ -37,6 +40,7 @@ fn bench_df_bootstrap(c: &mut Criterion) {
             fixed_dc: DayCount::Thirty360,
             float_dc: DayCount::Act360,
             index: "USD-OIS".to_string().into(),
+            conventions: Default::default(),
         },
     ];
     let calibrator = DiscountCurveCalibrator::new("USD-OIS", base_date, Currency::USD);

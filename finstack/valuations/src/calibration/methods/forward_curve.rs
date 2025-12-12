@@ -718,6 +718,7 @@ impl ForwardCurveCalibrator {
                 end,
                 rate,
                 day_count,
+                ..
             } => {
                 // Calculate fixing date using proper business day convention when calendar is available.
                 // ISDA standard: T-2 business days before period start (configurable via reset_lag).
@@ -758,6 +759,7 @@ impl ForwardCurveCalibrator {
                 expiry,
                 price,
                 specs,
+                ..
             } => {
                 // Calculate period dates from expiry + delivery months
                 let period_start = *expiry;
@@ -895,6 +897,7 @@ impl ForwardCurveCalibrator {
                 primary_dc,
                 reference_dc,
                 currency,
+                ..
             } => {
                 // Use basis swaps for forward curve calibration
                 // Create basis swap instrument
@@ -1411,6 +1414,7 @@ mod tests {
             end: base_date + time::Duration::days(180),
             rate: 0.04,
             day_count: DayCount::Act360,
+            conventions: Default::default(),
         };
 
         let calibrator = ForwardCurveCalibrator::new(
@@ -1439,18 +1443,21 @@ mod tests {
                 end: base_date + time::Duration::days(180),
                 rate: 0.0465,
                 day_count: DayCount::Act360,
+                conventions: Default::default(),
             },
             RatesQuote::FRA {
                 start: base_date + time::Duration::days(180),
                 end: base_date + time::Duration::days(270),
                 rate: 0.0472,
                 day_count: DayCount::Act360,
+                conventions: Default::default(),
             },
             RatesQuote::FRA {
                 start: base_date + time::Duration::days(270),
                 end: base_date + time::Duration::days(360),
                 rate: 0.0478,
                 day_count: DayCount::Act360,
+                conventions: Default::default(),
             },
         ]
     }
@@ -1593,6 +1600,7 @@ mod tests {
                 primary_dc: DayCount::Act360,
                 reference_dc: DayCount::Act360,
                 currency: Currency::USD,
+                conventions: Default::default(),
             },
             RatesQuote::BasisSwap {
                 maturity: base_date + time::Duration::days(730),
@@ -1604,6 +1612,7 @@ mod tests {
                 primary_dc: DayCount::Act360,
                 reference_dc: DayCount::Act360,
                 currency: Currency::USD,
+                conventions: Default::default(),
             },
         ];
 
@@ -1899,6 +1908,7 @@ mod tests {
             end: base_date + time::Duration::days(180),
             rate: 0.75, // 75% - outside USD bounds
             day_count: DayCount::Act360,
+            conventions: Default::default(),
         }];
 
         let result = calibrator.calibrate(&bad_quote, &context);
@@ -1918,6 +1928,7 @@ mod tests {
             end: base_date + time::Duration::days(180),
             rate: 0.75, // 75% - acceptable for TRY
             day_count: DayCount::Act360,
+            conventions: Default::default(),
         }];
 
         // Should not fail on validation (calibration may still fail for other reasons)

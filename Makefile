@@ -63,6 +63,12 @@ build:
 build-prod:
 	CARGO_INCREMENTAL=1 RUSTFLAGS="-C debuginfo=0" cargo build --workspace --exclude finstack-py --exclude finstack-wasm --release
 
+test:
+	make test-rust
+	make test-python
+	make test-wasm
+	make test-ui
+
 test-rust: install-nextest
 	CARGO_INCREMENTAL=1 cargo nextest run --workspace --exclude finstack-py --features mc --lib --test '*' --max-fail=10
 
@@ -80,7 +86,7 @@ test-wasm:
 	cd finstack-wasm && npm run test
 
 test-ui:
-	cd packages/finstack-ui && npm run test
+	cd packages/finstack-ui && npm run test -- run
 
 test-ui-coverage:
 	cd packages/finstack-ui && npm run test:coverage

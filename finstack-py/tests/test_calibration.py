@@ -61,7 +61,7 @@ def test_calibration_config_builder_and_mutators() -> None:
     assert pytest.approx(base_cfg.tolerance) == 1e-8
     assert base_cfg.max_iterations == 50
     assert base_cfg.use_parallel
-    assert base_cfg.random_seed == 42
+    assert base_cfg.random_seed is None
     assert base_cfg.verbose
     assert base_cfg.solver_kind.name == "brent"
     assert base_cfg.multi_curve_config.calibrate_basis is False

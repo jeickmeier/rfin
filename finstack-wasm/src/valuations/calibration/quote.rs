@@ -45,6 +45,7 @@ impl JsFutureSpecs {
             delivery_months,
             day_count: dc,
             convexity_adjustment: None,
+            ..Default::default()
         };
         Ok(Self { inner: specs })
     }
@@ -100,6 +101,7 @@ impl JsRatesQuote {
                 maturity: maturity.inner(),
                 rate,
                 day_count: dc,
+                conventions: Default::default(),
             },
         })
     }
@@ -120,6 +122,7 @@ impl JsRatesQuote {
                 end: end.inner(),
                 rate,
                 day_count: dc,
+                conventions: Default::default(),
             },
         })
     }
@@ -148,6 +151,7 @@ impl JsRatesQuote {
                 fixed_dc: fixed_day_count,
                 float_dc: float_day_count,
                 index: index.to_string().into(),
+                conventions: Default::default(),
             },
         })
     }

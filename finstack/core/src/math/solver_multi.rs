@@ -507,6 +507,101 @@ impl LevenbergMarquardtSolver {
         Ok(best_params)
     }
 
+    /// Solve system of equations with explicit residual dimension.
+    ///
+    /// Use this method for overdetermined systems where `n_residuals > n_params`.
+    /// This avoids the limitations of the default `solve_system` which probes
+    /// for residual dimension and assumes `n_residuals <= 2 * n_params`.
+    ///
+    /// # Arguments
+    /// * `residuals` - Function that writes residuals into the provided buffer
+    /// * `initial` - Initial parameter guess
+    /// * `n_residuals` - Explicit number of residuals (equations)
+    ///
+    /// # Returns
+    /// Parameter vector that minimizes ||f(x)||²
+    ///
+    /// # Example
+    /// ```
+    /// use finstack_core::math::solver_multi::LevenbergMarquardtSolver;
+    ///
+    /// let solver = LevenbergMarquardtSolver::new().with_tolerance(1e-8);
+    ///
+    /// // Overdetermined system: 5 equations, 2 parameters
+    /// let residuals = |params: &[f64], resid: &mut [f64]| {
+    ///     resid[0] = params[0] + params[1] - 5.0;
+    ///     resid[1] = params[0] - params[1] - 1.0;
+    ///     resid[2] = 2.0 * params[0] - 1.0;
+    ///     resid[3] = 2.0 * params[1] - 4.0;
+    ///     resid[4] = params[0] + 2.0 * params[1] - 7.0;
+    /// };
+    ///
+    /// let initial = vec![0.0, 0.0];
+    /// let result = solver.solve_system_with_dim(residuals, &initial, 5)
+    ///     .expect("solve should succeed");
+    /// ```
+    pub fn solve_system_with_dim<Res>(
+        &self,
+        residuals: Res,
+        initial: &[f64],
+        n_residuals: usize,
+    ) -> Result<Vec<f64>>
+    where
+        Res: Fn(&[f64], &mut [f64]),
+    {
+        if initial.is_empty() || n_residuals == 0 {
+            return Err(InputError::Invalid.into());
+        }
+
+        let mut resid_vec = vec![0.0; n_residuals];
+        let mut params = initial.to_vec();
+        let mut lambda = self.lambda_init;
+
+        for _iter in 0..self.max_iterations {
+            // Compute residuals and Jacobian
+            residuals(&params, &mut resid_vec);
+            let jacobian = self.compute_jacobian_system(&residuals, &params, n_residuals);
+
+            // Check convergence
+            let resid_norm: f64 = resid_vec.iter().map(|r| r * r).sum::<f64>().sqrt();
+            if resid_norm < self.tolerance {
+                return Ok(params);
+            }
+
+            // Solve for step
+            let step = self.solve_normal_equations(&jacobian, &resid_vec, lambda)?;
+
+            // Check step size
+            let step_norm: f64 = step.iter().map(|s| s * s).sum::<f64>().sqrt();
+            if step_norm < self.min_step_size {
+                return Ok(params);
+            }
+
+            // Try the step
+            let mut new_params = params.clone();
+            for (i, &s) in step.iter().enumerate() {
+                new_params[i] += s;
+            }
+
+            // Evaluate new residuals
+            let mut new_resid = vec![0.0; n_residuals];
+            residuals(&new_params, &mut new_resid);
+            let new_norm: f64 = new_resid.iter().map(|r| r * r).sum::<f64>().sqrt();
+
+            // Accept or reject
+            if new_norm < resid_norm {
+                params = new_params;
+                lambda /= self.lambda_factor;
+                lambda = lambda.max(1e-15);
+            } else {
+                lambda *= self.lambda_factor;
+                lambda = lambda.min(1e15);
+            }
+        }
+
+        Ok(params)
+    }
+
     /// Solve system with analytical Jacobian.
     pub fn solve_system_with_jacobian<Res, D>(
         &self,
@@ -920,5 +1015,97 @@ mod tests {
         let expected = 2.0_f64.sqrt();
         assert!((result[0] - expected).abs() < 1e-8);
         assert!((result[1] - expected).abs() < 1e-8);
+    }
+
+    #[test]
+    fn test_solve_system_with_dim_overdetermined() {
+        // Overdetermined system: 5 equations, 2 parameters
+        // The least-squares solution for x + y = 5, x - y = 1 should still be (3, 2)
+        // even with redundant/noisy constraints
+        let solver = LevenbergMarquardtSolver::new()
+            .with_tolerance(1e-8)
+            .with_max_iterations(200);
+
+        let residuals = |params: &[f64], resid: &mut [f64]| {
+            let x = params[0];
+            let y = params[1];
+            resid[0] = x + y - 5.0; // x + y = 5
+            resid[1] = x - y - 1.0; // x - y = 1
+            resid[2] = 2.0 * x - 6.0; // 2x = 6  (consistent: x=3)
+            resid[3] = 2.0 * y - 4.0; // 2y = 4  (consistent: y=2)
+            resid[4] = x + 2.0 * y - 7.0; // x + 2y = 7 (consistent)
+        };
+
+        let initial = vec![0.0, 0.0];
+        let result = solver
+            .solve_system_with_dim(residuals, &initial, 5)
+            .expect("solve_system_with_dim should succeed");
+
+        assert!(
+            (result[0] - 3.0).abs() < 1e-4,
+            "x = {}, expected 3.0",
+            result[0]
+        );
+        assert!(
+            (result[1] - 2.0).abs() < 1e-4,
+            "y = {}, expected 2.0",
+            result[1]
+        );
+    }
+
+    #[test]
+    fn test_solve_system_with_dim_highly_overdetermined() {
+        // Highly overdetermined: 20 residuals, 2 parameters
+        // This tests that we don't panic even with n_residuals >> n_params
+        let solver = LevenbergMarquardtSolver::new()
+            .with_tolerance(1e-6)
+            .with_max_iterations(200);
+
+        let residuals = |params: &[f64], resid: &mut [f64]| {
+            let x = params[0];
+            let y = params[1];
+            // Generate 20 residuals all consistent with x=3, y=2
+            for (i, r) in resid.iter_mut().enumerate().take(20) {
+                let a = (i as f64) * 0.1;
+                let b = 1.0 - a;
+                // a*x + b*y = 3a + 2b = 3a + 2(1-a) = a + 2
+                *r = a * x + b * y - (a + 2.0);
+            }
+        };
+
+        let initial = vec![0.0, 0.0];
+        let result = solver
+            .solve_system_with_dim(residuals, &initial, 20)
+            .expect("solve_system_with_dim should not panic with 20 residuals");
+
+        // Solution should be approximately x=3, y=2
+        assert!(
+            (result[0] - 3.0).abs() < 0.1,
+            "x = {}, expected ~3.0",
+            result[0]
+        );
+        assert!(
+            (result[1] - 2.0).abs() < 0.1,
+            "y = {}, expected ~2.0",
+            result[1]
+        );
+    }
+
+    #[test]
+    fn test_solve_system_with_dim_returns_correct_length() {
+        let solver = LevenbergMarquardtSolver::new().with_tolerance(1e-8);
+
+        let residuals = |params: &[f64], resid: &mut [f64]| {
+            resid[0] = params[0] - 1.0;
+            resid[1] = params[1] - 2.0;
+            resid[2] = params[2] - 3.0;
+        };
+
+        let initial = vec![0.0, 0.0, 0.0];
+        let result = solver
+            .solve_system_with_dim(residuals, &initial, 3)
+            .expect("solve should succeed");
+
+        assert_eq!(result.len(), 3, "Result should have same length as initial");
     }
 }

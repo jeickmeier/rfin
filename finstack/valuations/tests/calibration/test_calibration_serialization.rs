@@ -113,6 +113,7 @@ fn test_rates_quote_serialization() {
         maturity: base_date + time::Duration::days(90),
         rate: 0.045,
         day_count: DayCount::Act360,
+        conventions: Default::default(),
     };
     let _ = roundtrip_json(&deposit);
 
@@ -122,6 +123,7 @@ fn test_rates_quote_serialization() {
         end: base_date + time::Duration::days(180),
         rate: 0.047,
         day_count: DayCount::Act360,
+        conventions: Default::default(),
     };
     let _ = roundtrip_json(&fra);
 
@@ -135,7 +137,9 @@ fn test_rates_quote_serialization() {
             delivery_months: 3,
             day_count: DayCount::Act360,
             convexity_adjustment: Some(0.0001),
+            ..Default::default()
         },
+        conventions: Default::default(),
     };
     let _ = roundtrip_json(&future);
 
@@ -148,6 +152,7 @@ fn test_rates_quote_serialization() {
         fixed_dc: DayCount::Thirty360,
         float_dc: DayCount::Act360,
         index: "USD-SOFR-3M".to_string().into(),
+        conventions: Default::default(),
     };
     let _ = roundtrip_json(&swap);
 
@@ -162,6 +167,7 @@ fn test_rates_quote_serialization() {
         primary_dc: DayCount::Act360,
         reference_dc: DayCount::Act360,
         currency: Currency::USD,
+        conventions: Default::default(),
     };
     let _ = roundtrip_json(&basis);
 }
@@ -259,6 +265,7 @@ fn test_market_quote_serialization() {
             maturity: base_date + time::Duration::days(30),
             rate: 0.045,
             day_count: DayCount::Act360,
+            conventions: Default::default(),
         }),
         MarketQuote::Credit(CreditQuote::CDS {
             entity: "AAPL".to_string(),

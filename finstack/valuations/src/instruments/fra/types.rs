@@ -110,20 +110,29 @@ impl ForwardRateAgreement {
             return Ok(Money::new(0.0, self.notional.currency()));
         }
 
-        // Derive fixing date from reset lag with calendar/BDC adjustment.
-        let mut inferred_fixing_date =
-            self.start_date - time::Duration::days(self.reset_lag as i64);
-        let bdc = self
-            .fixing_bdc
-            .unwrap_or(BusinessDayConvention::ModifiedFollowing);
-        if let Some(cal_id) = self.fixing_calendar_id.as_deref() {
-            if let Some(cal) = CalendarRegistry::global().resolve_str(cal_id) {
-                inferred_fixing_date = adjust(inferred_fixing_date, bdc, cal)?;
+        // Determine fixing date: prefer explicit fixing_date if it looks meaningful,
+        // otherwise fall back to inferred date from reset lag.
+        let inferred_fixing_date = {
+            let mut inferred = self.start_date - time::Duration::days(self.reset_lag as i64);
+            let bdc = self
+                .fixing_bdc
+                .unwrap_or(BusinessDayConvention::ModifiedFollowing);
+            if let Some(cal_id) = self.fixing_calendar_id.as_deref() {
+                if let Some(cal) = CalendarRegistry::global().resolve_str(cal_id) {
+                    inferred = adjust(inferred, bdc, cal)?;
+                }
             }
-        }
-        let fixing_date = if self.fixing_date != inferred_fixing_date {
+            inferred
+        };
+
+        // Prefer explicit fixing_date unless it equals start_date (sentinel for "unset")
+        // or equals the inferred date (no override intended)
+        let fixing_date = if self.fixing_date == self.start_date
+            || self.fixing_date == inferred_fixing_date
+        {
             inferred_fixing_date
         } else {
+            // Respect explicit fixing date provided by caller
             self.fixing_date
         };
 
