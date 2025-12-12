@@ -259,7 +259,13 @@ fn heston_pj(
 /// assert!(price > 0.0 && price < 100.0);
 /// ```
 pub fn heston_call_price_fourier(spot: f64, strike: f64, time: f64, params: &HestonParams) -> f64 {
-    heston_call_price_fourier_with_settings(spot, strike, time, params, &HestonFourierSettings::default())
+    heston_call_price_fourier_with_settings(
+        spot,
+        strike,
+        time,
+        params,
+        &HestonFourierSettings::default(),
+    )
 }
 
 /// Price a European call option with custom integration settings.
@@ -311,7 +317,13 @@ pub fn heston_call_price_fourier_with_settings(
 ///
 /// Uses put-call parity: P = C - S*exp(-qT) + K*exp(-rT)
 pub fn heston_put_price_fourier(spot: f64, strike: f64, time: f64, params: &HestonParams) -> f64 {
-    heston_put_price_fourier_with_settings(spot, strike, time, params, &HestonFourierSettings::default())
+    heston_put_price_fourier_with_settings(
+        spot,
+        strike,
+        time,
+        params,
+        &HestonFourierSettings::default(),
+    )
 }
 
 /// Price a European put option with custom integration settings.
@@ -483,7 +495,9 @@ mod tests {
     /// HestonModel implementation in the volatility module.
     #[test]
     fn test_cross_validation_with_volatility_heston() {
-        use crate::instruments::common::models::volatility::heston::{HestonModel, HestonParameters};
+        use crate::instruments::common::models::volatility::heston::{
+            HestonModel, HestonParameters,
+        };
 
         // Test parameters
         let spot = 100.0;
@@ -526,13 +540,13 @@ mod tests {
     #[test]
     fn test_reference_typical_params() {
         let params = HestonParams::new(
-            0.05,  // r
-            0.0,   // q
-            2.0,   // kappa
-            0.04,  // theta
-            0.3,   // sigma_v
-            -0.5,  // rho
-            0.04,  // v0
+            0.05, // r
+            0.0,  // q
+            2.0,  // kappa
+            0.04, // theta
+            0.3,  // sigma_v
+            -0.5, // rho
+            0.04, // v0
         );
 
         let price = heston_call_price_fourier(100.0, 100.0, 0.5, &params);
@@ -630,7 +644,10 @@ mod tests {
         // High vol-of-vol
         let params_high_vov = HestonParams::new(0.05, 0.0, 5.0, 0.09, 1.0, -0.9, 0.09);
         let price = heston_call_price_fourier(100.0, 100.0, 1.0, &params_high_vov);
-        assert!(price.is_finite() && price >= 0.0, "Should handle high vol-of-vol");
+        assert!(
+            price.is_finite() && price >= 0.0,
+            "Should handle high vol-of-vol"
+        );
 
         // Very short maturity
         let params = HestonParams::new(0.05, 0.02, 2.0, 0.04, 0.3, -0.7, 0.04);

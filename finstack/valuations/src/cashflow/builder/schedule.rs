@@ -353,22 +353,11 @@ impl CashFlowSchedule {
 
         if hazard.is_some() {
             crate::cashflow::aggregation::pv_by_period_credit_adjusted_with_ctx(
-                &flows,
-                periods,
-                disc,
-                hazard,
-                base,
-                dc,
-                dc_ctx,
+                &flows, periods, disc, hazard, base, dc, dc_ctx,
             )
         } else {
             crate::cashflow::aggregation::pv_by_period_with_ctx(
-                &flows,
-                periods,
-                disc,
-                base,
-                dc,
-                dc_ctx,
+                &flows, periods, disc, base, dc, dc_ctx,
             )
         }
     }

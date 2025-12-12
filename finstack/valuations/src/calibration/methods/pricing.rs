@@ -41,9 +41,7 @@ use crate::instruments::common::traits::Instrument;
 use crate::instruments::deposit::Deposit;
 use crate::instruments::fra::ForwardRateAgreement;
 use crate::instruments::ir_future::InterestRateFuture;
-use crate::instruments::irs::{
-    FixedLegSpec, FloatLegSpec, FloatingLegCompounding, PayReceive,
-};
+use crate::instruments::irs::{FixedLegSpec, FloatLegSpec, FloatingLegCompounding, PayReceive};
 use crate::instruments::InterestRateSwap;
 use finstack_core::dates::{
     adjust, BusinessDayConvention, CalendarRegistry, Date, DateExt, DayCount, DayCountCtx,
@@ -310,8 +308,8 @@ impl CalibrationPricer {
                 .filter(|t| !t.is_empty())
                 .collect();
 
-            let matches_tenor = tokens.contains(&token.as_str())
-                || (tenor_months == 12 && tokens.contains(&"1Y"));
+            let matches_tenor =
+                tokens.contains(&token.as_str()) || (tenor_months == 12 && tokens.contains(&"1Y"));
 
             if matches_tenor {
                 return self.forward_curve_id.clone();
@@ -787,8 +785,12 @@ impl CalibrationPricer {
         // For discount curve calibration, both forward curves must exist
         if self.use_settlement_start {
             // Discount curve mode: both forward curves must exist
-            if context.get_forward_ref(primary_forward_id.as_str()).is_err()
-                || context.get_forward_ref(reference_forward_id.as_str()).is_err()
+            if context
+                .get_forward_ref(primary_forward_id.as_str())
+                .is_err()
+                || context
+                    .get_forward_ref(reference_forward_id.as_str())
+                    .is_err()
             {
                 return Err(finstack_core::Error::Input(
                     finstack_core::error::InputError::NotFound {
@@ -1264,15 +1266,15 @@ mod tests {
 
     #[test]
     fn test_pricer_builder() {
-        let base_date = Date::from_calendar_date(2024, time::Month::January, 15)
-            .expect("valid date");
-        
+        let base_date =
+            Date::from_calendar_date(2024, time::Month::January, 15).expect("valid date");
+
         let pricer = CalibrationPricer::new(base_date, Currency::USD, "USD-OIS")
             .with_discount_curve_id("USD-DISC")
             .with_forward_curve_id("USD-3M")
             .with_reset_lag(0)
             .with_use_ois_logic(false);
-        
+
         assert_eq!(pricer.discount_curve_id.as_str(), "USD-DISC");
         assert_eq!(pricer.forward_curve_id.as_str(), "USD-3M");
         assert_eq!(pricer.reset_lag, 0);
@@ -1281,20 +1283,20 @@ mod tests {
 
     #[test]
     fn test_effective_settlement_days() {
-        let base_date = Date::from_calendar_date(2024, time::Month::January, 15)
-            .expect("valid date");
-        
+        let base_date =
+            Date::from_calendar_date(2024, time::Month::January, 15).expect("valid date");
+
         // USD defaults to T+2
         let usd_pricer = CalibrationPricer::new(base_date, Currency::USD, "USD-OIS");
         assert_eq!(usd_pricer.effective_settlement_days(), 2);
-        
+
         // GBP defaults to T+0
         let gbp_pricer = CalibrationPricer::new(base_date, Currency::GBP, "GBP-SONIA");
         assert_eq!(gbp_pricer.effective_settlement_days(), 0);
-        
+
         // Explicit override
-        let custom_pricer = CalibrationPricer::new(base_date, Currency::USD, "USD-OIS")
-            .with_settlement_days(1);
+        let custom_pricer =
+            CalibrationPricer::new(base_date, Currency::USD, "USD-OIS").with_settlement_days(1);
         assert_eq!(custom_pricer.effective_settlement_days(), 1);
     }
 
@@ -1305,9 +1307,9 @@ mod tests {
     #[test]
     fn test_forward_mode_uses_base_date_start() {
         // Finding 1: use_settlement_start=false should result in base_date as start
-        let base_date = Date::from_calendar_date(2024, time::Month::January, 15)
-            .expect("valid date");
-        
+        let base_date =
+            Date::from_calendar_date(2024, time::Month::January, 15).expect("valid date");
+
         let pricer = CalibrationPricer::for_forward_curve(
             base_date,
             Currency::USD,
@@ -1315,20 +1317,24 @@ mod tests {
             "USD-OIS",
             0.25,
         );
-        
+
         // Forward mode should use base_date directly
         assert!(!pricer.use_settlement_start);
-        let start = pricer.effective_start_date(&InstrumentConventions::default())
+        let start = pricer
+            .effective_start_date(&InstrumentConventions::default())
             .expect("should succeed");
-        assert_eq!(start, base_date, "Forward mode should use base_date as start");
+        assert_eq!(
+            start, base_date,
+            "Forward mode should use base_date as start"
+        );
     }
 
     #[test]
     fn test_forward_curve_routing_uses_round() {
         // Finding 4: Tenor routing should use round() and suffix matching
-        let base_date = Date::from_calendar_date(2024, time::Month::January, 15)
-            .expect("valid date");
-        
+        let base_date =
+            Date::from_calendar_date(2024, time::Month::January, 15).expect("valid date");
+
         // 3M tenor (0.25 years)
         let pricer = CalibrationPricer::for_forward_curve(
             base_date,
@@ -1337,7 +1343,7 @@ mod tests {
             "USD-OIS",
             0.25,
         );
-        
+
         // Should match indices ending with "3M" or containing "-3M"
         assert_eq!(
             pricer.resolve_forward_curve_id("USD-SOFR-3M").as_str(),
@@ -1349,7 +1355,7 @@ mod tests {
             "USD-3M-FWD",
             "Should route bare 3M suffix to forward curve"
         );
-        
+
         // Should NOT match different tenors
         assert_ne!(
             pricer.resolve_forward_curve_id("USD-SOFR-6M").as_str(),
@@ -1362,10 +1368,10 @@ mod tests {
     fn test_duplicate_maturity_allows_different_types() {
         // Finding 6: Different quote types with same maturity should be allowed
         use crate::calibration::config::RateBounds;
-        
-        let maturity = Date::from_calendar_date(2025, time::Month::January, 15)
-            .expect("valid date");
-        
+
+        let maturity =
+            Date::from_calendar_date(2025, time::Month::January, 15).expect("valid date");
+
         let quotes = vec![
             RatesQuote::Deposit {
                 maturity,
@@ -1376,28 +1382,31 @@ mod tests {
             RatesQuote::Swap {
                 maturity,
                 rate: 0.045,
-                fixed_freq: Frequency::Months(6),   // Semi-annual
-                float_freq: Frequency::Months(3),   // Quarterly
+                fixed_freq: Frequency::Months(6), // Semi-annual
+                float_freq: Frequency::Months(3), // Quarterly
                 fixed_dc: DayCount::Thirty360,
                 float_dc: DayCount::Act360,
                 index: "SOFR".into(),
                 conventions: InstrumentConventions::default(),
             },
         ];
-        
+
         let bounds = RateBounds::default();
         let result = CalibrationPricer::validate_quotes(&quotes, &bounds);
-        assert!(result.is_ok(), "Different quote types with same maturity should be valid");
+        assert!(
+            result.is_ok(),
+            "Different quote types with same maturity should be valid"
+        );
     }
 
     #[test]
     fn test_duplicate_maturity_rejects_same_type() {
         // Finding 6: Same quote type with same maturity should be rejected
         use crate::calibration::config::RateBounds;
-        
-        let maturity = Date::from_calendar_date(2025, time::Month::January, 15)
-            .expect("valid date");
-        
+
+        let maturity =
+            Date::from_calendar_date(2025, time::Month::January, 15).expect("valid date");
+
         let quotes = vec![
             RatesQuote::Deposit {
                 maturity,
@@ -1412,19 +1421,28 @@ mod tests {
                 conventions: InstrumentConventions::default(),
             },
         ];
-        
+
         let bounds = RateBounds::default();
         let result = CalibrationPricer::validate_quotes(&quotes, &bounds);
-        assert!(result.is_err(), "Same quote type with same maturity should be invalid");
+        assert!(
+            result.is_err(),
+            "Same quote type with same maturity should be invalid"
+        );
     }
 
     #[test]
     fn test_future_specs_tick_conventions() {
         // Finding 7: FutureSpecs should use configurable tick values
         let specs = FutureSpecs::default();
-        assert!((specs.tick_size - 0.0025).abs() < 1e-10, "Default tick size should be 0.0025");
-        assert!((specs.tick_value - 6.25).abs() < 1e-10, "Default tick value should be 6.25");
-        
+        assert!(
+            (specs.tick_size - 0.0025).abs() < 1e-10,
+            "Default tick size should be 0.0025"
+        );
+        assert!(
+            (specs.tick_value - 6.25).abs() < 1e-10,
+            "Default tick value should be 6.25"
+        );
+
         // Custom specs should work
         let custom_specs = FutureSpecs {
             tick_size: 0.005,

@@ -529,8 +529,7 @@ mod tests {
         let base_date =
             Date::from_calendar_date(2025, Month::January, 15).expect("Valid test date");
         let expiry = Date::from_calendar_date(2026, Month::January, 15).expect("Valid test date");
-        let period_end =
-            Date::from_calendar_date(2026, Month::April, 15).expect("Valid test date");
+        let period_end = Date::from_calendar_date(2026, Month::April, 15).expect("Valid test date");
 
         let adj = params.calculate_for_future(base_date, expiry, period_end, DayCount::Act360);
 

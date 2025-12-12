@@ -332,18 +332,29 @@ fn test_lsmc_vs_tree_sanity() {
     let market = build_market_context();
 
     // Price with tree
-    let tree_pricer = BermudanSwaptionPricer::tree_pricer(HullWhiteParams::default())
-        .with_tree_steps(100);
+    let tree_pricer =
+        BermudanSwaptionPricer::tree_pricer(HullWhiteParams::default()).with_tree_steps(100);
     let tree_result = tree_pricer.price_dyn(&swaption, &market, as_of);
-    assert!(tree_result.is_ok(), "Tree pricing should succeed: {:?}", tree_result.err());
-    let tree_pv = tree_result.expect("Tree pricing should succeed").value.amount();
+    assert!(
+        tree_result.is_ok(),
+        "Tree pricing should succeed: {:?}",
+        tree_result.err()
+    );
+    let tree_pv = tree_result
+        .expect("Tree pricing should succeed")
+        .value
+        .amount();
 
     // Price with LSMC (fewer paths for speed in tests)
     let lsmc_pricer = BermudanSwaptionPricer::lsmc_pricer(HullWhiteParams::default())
         .with_mc_paths(10_000)
         .with_seed(42);
     let lsmc_result = lsmc_pricer.price_dyn(&swaption, &market, as_of);
-    assert!(lsmc_result.is_ok(), "LSMC pricing should succeed: {:?}", lsmc_result.err());
+    assert!(
+        lsmc_result.is_ok(),
+        "LSMC pricing should succeed: {:?}",
+        lsmc_result.err()
+    );
     let lsmc_result = lsmc_result.expect("LSMC pricing should succeed");
     let lsmc_pv = lsmc_result.value.amount();
 
@@ -366,8 +377,16 @@ fn test_lsmc_vs_tree_sanity() {
     );
 
     // Both should be positive
-    assert!(tree_pv >= 0.0, "Tree PV should be non-negative: {}", tree_pv);
-    assert!(lsmc_pv >= 0.0, "LSMC PV should be non-negative: {}", lsmc_pv);
+    assert!(
+        tree_pv >= 0.0,
+        "Tree PV should be non-negative: {}",
+        tree_pv
+    );
+    assert!(
+        lsmc_pv >= 0.0,
+        "LSMC PV should be non-negative: {}",
+        lsmc_pv
+    );
 
     // Note: LSMC and Tree may produce different values due to:
     // 1. Different theta(t) calibration approaches (LSMC: curve-derived, Tree: forward induction)
@@ -394,7 +413,11 @@ fn test_lsmc_vs_tree_sanity() {
         "Tree PV: {:.2}, LSMC PV: {:.2}, stderr: {:.2}",
         tree_pv,
         lsmc_pv,
-        lsmc_result.measures.get("lsmc_stderr").copied().unwrap_or(0.0)
+        lsmc_result
+            .measures
+            .get("lsmc_stderr")
+            .copied()
+            .unwrap_or(0.0)
     );
 }
 
@@ -416,12 +439,16 @@ fn test_lsmc_determinism() {
     let pricer1 = BermudanSwaptionPricer::lsmc_pricer(HullWhiteParams::default())
         .with_mc_paths(5_000)
         .with_seed(12345);
-    let result1 = pricer1.price_dyn(&swaption, &market, as_of).expect("Pricing should succeed");
+    let result1 = pricer1
+        .price_dyn(&swaption, &market, as_of)
+        .expect("Pricing should succeed");
 
     let pricer2 = BermudanSwaptionPricer::lsmc_pricer(HullWhiteParams::default())
         .with_mc_paths(5_000)
         .with_seed(12345);
-    let result2 = pricer2.price_dyn(&swaption, &market, as_of).expect("Pricing should succeed");
+    let result2 = pricer2
+        .price_dyn(&swaption, &market, as_of)
+        .expect("Pricing should succeed");
 
     // Results should be identical
     assert!(
@@ -450,12 +477,16 @@ fn test_lsmc_different_seeds() {
     let pricer1 = BermudanSwaptionPricer::lsmc_pricer(HullWhiteParams::default())
         .with_mc_paths(5_000)
         .with_seed(111);
-    let result1 = pricer1.price_dyn(&swaption, &market, as_of).expect("Pricing should succeed");
+    let result1 = pricer1
+        .price_dyn(&swaption, &market, as_of)
+        .expect("Pricing should succeed");
 
     let pricer2 = BermudanSwaptionPricer::lsmc_pricer(HullWhiteParams::default())
         .with_mc_paths(5_000)
         .with_seed(222);
-    let result2 = pricer2.price_dyn(&swaption, &market, as_of).expect("Pricing should succeed");
+    let result2 = pricer2
+        .price_dyn(&swaption, &market, as_of)
+        .expect("Pricing should succeed");
 
     // Results should be different (due to different random paths)
     // Note: There's a tiny probability they could be equal by chance, but effectively zero

@@ -98,8 +98,6 @@ pub mod xccy;
 
 pub use base_correlation::BaseCorrelationCalibrator;
 pub use discount::DiscountCurveCalibrator;
-pub use pricing::create_ois_swap_from_quote;
-pub use pricing::CalibrationPricer;
 pub use forward_curve::ForwardCurveCalibrator;
 pub use hazard_curve::HazardCurveCalibrator;
 pub use hull_white::{
@@ -107,6 +105,8 @@ pub use hull_white::{
     HullWhiteCalibrator,
 };
 pub use inflation_curve::InflationCurveCalibrator;
+pub use pricing::create_ois_swap_from_quote;
+pub use pricing::CalibrationPricer;
 pub use sabr_surface::SurfaceInterp;
 pub use sabr_surface::VolSurfaceCalibrator;
 pub use swaption_vol::SwaptionVolCalibrator;

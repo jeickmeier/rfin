@@ -127,14 +127,13 @@ impl ForwardRateAgreement {
 
         // Prefer explicit fixing_date unless it equals start_date (sentinel for "unset")
         // or equals the inferred date (no override intended)
-        let fixing_date = if self.fixing_date == self.start_date
-            || self.fixing_date == inferred_fixing_date
-        {
-            inferred_fixing_date
-        } else {
-            // Respect explicit fixing date provided by caller
-            self.fixing_date
-        };
+        let fixing_date =
+            if self.fixing_date == self.start_date || self.fixing_date == inferred_fixing_date {
+                inferred_fixing_date
+            } else {
+                // Respect explicit fixing date provided by caller
+                self.fixing_date
+            };
 
         let disc = context.get_discount_ref(&self.discount_curve_id)?;
         let fwd = context.get_forward_ref(&self.forward_id)?;

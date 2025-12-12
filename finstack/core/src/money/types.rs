@@ -945,10 +945,7 @@ mod tests {
     #[test]
     fn try_new_with_config_succeeds_for_finite_values() {
         let mut cfg = FinstackConfig::default();
-        cfg.rounding
-            .ingest_scale
-            .overrides
-            .insert(Currency::USD, 3);
+        cfg.rounding.ingest_scale.overrides.insert(Currency::USD, 3);
         let m =
             Money::try_new_with_config(1.2345, Currency::USD, &cfg).expect("Finite should succeed");
         assert!((m.amount() - 1.234).abs() < 1e-9);

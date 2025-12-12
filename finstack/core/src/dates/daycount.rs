@@ -1272,7 +1272,12 @@ mod tests {
 
         // For a full monthly period = 1/12 year fraction ≈ 0.0833
         let expected = 1.0 / 12.0;
-        assert!((yf - expected).abs() < 1e-6, "Expected {}, got {}", expected, yf);
+        assert!(
+            (yf - expected).abs() < 1e-6,
+            "Expected {}, got {}",
+            expected,
+            yf
+        );
     }
 
     #[test]

@@ -45,6 +45,7 @@ fn test_notional_weighting() -> Result<(), Box<dyn std::error::Error>> {
         .end(create_date(2024, Month::February, 1)?)
         .day_count(DayCount::Act365F)
         .discount_curve_id("USD-OIS".into())
+        .quote_rate_opt(Some(0.045))
         .build()?;
 
     let dep2 = Deposit::builder()
@@ -54,6 +55,7 @@ fn test_notional_weighting() -> Result<(), Box<dyn std::error::Error>> {
         .end(create_date(2024, Month::February, 1)?)
         .day_count(DayCount::Act365F)
         .discount_curve_id("USD-OIS".into())
+        .quote_rate_opt(Some(0.045))
         .build()?;
 
     let p1 = Position::new(
@@ -139,6 +141,7 @@ fn test_candidate_batching() -> Result<(), Box<dyn std::error::Error>> {
             .end(create_date(2024, Month::February, 1)?)
             .day_count(DayCount::Act365F)
             .discount_curve_id("USD-OIS".into())
+            .quote_rate_opt(Some(0.045))
             .build()?;
 
         let cand = CandidatePosition::new(

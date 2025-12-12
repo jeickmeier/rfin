@@ -231,7 +231,9 @@ impl std::str::FromStr for InstrumentType {
             "fx_option" | "fxoption" => Ok(InstrumentType::FxOption),
             "fx_spot" | "fxspot" => Ok(InstrumentType::FxSpot),
             "fx_swap" | "fxswap" => Ok(InstrumentType::FxSwap),
-            "xccy_swap" | "xccyswap" | "xccy" | "cross_currency_swap" => Ok(InstrumentType::XccySwap),
+            "xccy_swap" | "xccyswap" | "xccy" | "cross_currency_swap" => {
+                Ok(InstrumentType::XccySwap)
+            }
             "inflation_linked_bond" | "ilb" => Ok(InstrumentType::InflationLinkedBond),
             "inflation_swap" => Ok(InstrumentType::InflationSwap),
             "interest_rate_future" | "ir_future" | "irfuture" => {

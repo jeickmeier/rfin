@@ -315,7 +315,11 @@ pub fn project_floating_rate(
     };
 
     // Get period forward rate (robust to zero-length periods).
-    let index_rate = if t1 > t0 { fwd.rate_period(t0, t1) } else { fwd.rate(t0) };
+    let index_rate = if t1 > t0 {
+        fwd.rate_period(t0, t1)
+    } else {
+        fwd.rate(t0)
+    };
 
     // Use shared calculation logic
     Ok(calculate_floating_rate(index_rate, params))

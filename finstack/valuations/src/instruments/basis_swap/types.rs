@@ -384,7 +384,8 @@ impl BasisSwap {
                 .year_fraction(prev, d, DayCountCtx::default())?;
 
             // Discount from as_of for correct theta
-            let t_d = disc_dc.year_fraction(disc.base_date(), payment_date, DayCountCtx::default())?;
+            let t_d =
+                disc_dc.year_fraction(disc.base_date(), payment_date, DayCountCtx::default())?;
             let df_d_abs = disc.df(t_d);
             let df = if df_as_of != 0.0 {
                 df_d_abs / df_as_of
@@ -732,8 +733,12 @@ mod tests {
         )
         .with_calendar("usny");
 
-        let pv_no_lag = swap_no_lag.value(&context, base_date).expect("should succeed");
-        let pv_with_lag = swap_with_lag.value(&context, base_date).expect("should succeed");
+        let pv_no_lag = swap_no_lag
+            .value(&context, base_date)
+            .expect("should succeed");
+        let pv_with_lag = swap_with_lag
+            .value(&context, base_date)
+            .expect("should succeed");
 
         assert!(
             (pv_no_lag.amount() - pv_with_lag.amount()).abs() > 1e-6,

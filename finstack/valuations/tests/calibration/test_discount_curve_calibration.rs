@@ -175,8 +175,8 @@ fn test_deposit_repricing_under_bootstrap() {
 
     // Use explicit T+0 settlement to match pre-settlement-aware behavior
     // For production, use currency default (T+2 for USD)
-    let calibrator = DiscountCurveCalibrator::new("USD-OIS", base_date, Currency::USD)
-        .with_settlement_days(0); // T+0 for test consistency
+    let calibrator =
+        DiscountCurveCalibrator::new("USD-OIS", base_date, Currency::USD).with_settlement_days(0); // T+0 for test consistency
 
     // Use just deposits for initial test
     let deposit_quotes = vec![

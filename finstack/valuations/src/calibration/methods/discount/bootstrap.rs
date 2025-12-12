@@ -275,7 +275,8 @@ impl DiscountCurveCalibrator {
         };
 
         // Compute initial guess and maturity-aware DF bounds
-        let initial_df = self.compute_initial_df_guess(quote, existing_knots, time_to_maturity, settlement);
+        let initial_df =
+            self.compute_initial_df_guess(quote, existing_knots, time_to_maturity, settlement);
         let (df_lo, df_hi) = self.df_bounds_for_time(time_to_maturity);
         let clamped_initial = initial_df.clamp(df_lo, df_hi);
 
@@ -380,7 +381,11 @@ impl DiscountCurveCalibrator {
         settlement: finstack_core::dates::Date,
     ) -> f64 {
         match quote {
-            RatesQuote::Deposit { maturity, day_count, .. } => {
+            RatesQuote::Deposit {
+                maturity,
+                day_count,
+                ..
+            } => {
                 let r = CalibrationPricer::get_rate(quote);
                 let yf = day_count
                     .year_fraction(
@@ -439,9 +444,7 @@ impl DiscountCurveCalibrator {
                 category: "yield_curve_bootstrap".to_string(),
             })?;
 
-        if quote.requires_forward_curve()
-            && (!self.use_ois_logic || !quote.is_ois_suitable())
-        {
+        if quote.requires_forward_curve() && (!self.use_ois_logic || !quote.is_ois_suitable()) {
             Ok(crate::calibration::PENALTY)
         } else {
             let final_context = base_context.clone().insert_discount(final_curve);

@@ -21,6 +21,7 @@ fn cross_currency_conversion_uses_fx_matrix() {
         .end(end_date)
         .day_count(finstack_core::dates::DayCount::Act360)
         .discount_curve_id("EUR".into())
+        .quote_rate_opt(Some(0.045))
         .build()
         .unwrap();
 
@@ -80,6 +81,7 @@ fn missing_fx_matrix_errors_for_cross_currency() {
         .end(end_date)
         .day_count(finstack_core::dates::DayCount::Act360)
         .discount_curve_id("EUR".into())
+        .quote_rate_opt(Some(0.045))
         .build()
         .unwrap();
 

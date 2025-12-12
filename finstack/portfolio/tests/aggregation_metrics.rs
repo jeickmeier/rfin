@@ -21,6 +21,7 @@ fn summable_vs_non_summable_metrics() {
         .end(end_date)
         .day_count(finstack_core::dates::DayCount::Act360)
         .discount_curve_id("USD".into())
+        .quote_rate_opt(Some(0.045))
         .build()
         .unwrap();
 

@@ -3,8 +3,8 @@
 //! Computes sensitivity to a parallel rate shift on the discount curve. Uses
 //! the configured model (SABR or Black) consistently with instrument pricing.
 
-use crate::instruments::swaption::Swaption;
 use crate::instruments::pricing_overrides::VolSurfaceExtrapolation;
+use crate::instruments::swaption::Swaption;
 use crate::metrics::{MetricCalculator, MetricContext, MetricId};
 use finstack_core::prelude::Result;
 

@@ -267,7 +267,9 @@ fn test_missing_quote_rate_defaults_to_zero() {
         .unwrap();
 
     // Execute
-    let err = dep.npv(&ctx, base).expect_err("npv() should require quote_rate");
+    let err = dep
+        .npv(&ctx, base)
+        .expect_err("npv() should require quote_rate");
 
     // Validate
     let msg = err.to_string();

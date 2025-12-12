@@ -38,13 +38,13 @@
 //! parameters, use `with_convexity_params()` to override defaults.
 //!
 //! # Examples
-//! 
+//!
 //! ## Basic USD Forward Curve
-//! 
+//!
 //! ```ignore
 //! use finstack_valuations::calibration::methods::ForwardCurveCalibrator;
 //! use finstack_valuations::calibration::CalibrationConfig;
-//! 
+//!
 //! let calibrator = ForwardCurveCalibrator::new(
 //!     "USD-SOFR-3M-FWD",
 //!     0.25,
@@ -365,14 +365,21 @@ impl ForwardCurveCalibrator {
         let registry = CalendarRegistry::global();
         if let Some(calendar) = registry.resolve_str(calendar_id) {
             // Ensure trade date is a business day, then advance by business days.
-            let trade_date =
-                adjust(self.base_date, BusinessDayConvention::ModifiedFollowing, calendar)?;
+            let trade_date = adjust(
+                self.base_date,
+                BusinessDayConvention::ModifiedFollowing,
+                calendar,
+            )?;
             let spot_unadjusted = if days == 0 {
                 trade_date
             } else {
                 trade_date.add_business_days(days, calendar)?
             };
-            adjust(spot_unadjusted, BusinessDayConvention::ModifiedFollowing, calendar)
+            adjust(
+                spot_unadjusted,
+                BusinessDayConvention::ModifiedFollowing,
+                calendar,
+            )
         } else if self.allow_calendar_fallback {
             tracing::warn!(
                 calendar_id = calendar_id,
@@ -1569,7 +1576,8 @@ impl ForwardCurveCalibrator {
                 reset_lag = reset_lag,
                 "Calendar not found in registry; using calendar-day approximation for FRA fixing"
             );
-            let approx_fixing = if start >= self.base_date + time::Duration::days(reset_lag as i64) {
+            let approx_fixing = if start >= self.base_date + time::Duration::days(reset_lag as i64)
+            {
                 start - time::Duration::days(reset_lag as i64)
             } else {
                 self.base_date

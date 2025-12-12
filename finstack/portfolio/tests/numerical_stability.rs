@@ -35,6 +35,7 @@ fn test_compensated_summation_large_portfolio() {
             .end(end_date)
             .day_count(finstack_core::dates::DayCount::Act360)
             .discount_curve_id("USD".into())
+            .quote_rate_opt(Some(0.045))
             .build()
             .unwrap();
 
@@ -91,6 +92,7 @@ fn test_aggregated_metrics_are_finite() {
         .end(end_date)
         .day_count(finstack_core::dates::DayCount::Act360)
         .discount_curve_id("USD".into())
+        .quote_rate_opt(Some(0.045))
         .build()
         .unwrap();
 

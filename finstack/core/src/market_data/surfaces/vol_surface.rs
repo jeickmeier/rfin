@@ -381,9 +381,12 @@ impl Bumpable for VolSurface {
         let mut bumped_vols = self.vols.clone();
         match (spec.mode, spec.units) {
             (BumpMode::Additive, BumpUnits::RateBp | BumpUnits::Percent | BumpUnits::Fraction) => {
-                let delta = spec.additive_fraction().ok_or_else(|| InputError::UnsupportedBump {
-                    reason: "VolSurface additive bump failed to compute fraction".to_string(),
-                })?;
+                let delta =
+                    spec.additive_fraction()
+                        .ok_or_else(|| InputError::UnsupportedBump {
+                            reason: "VolSurface additive bump failed to compute fraction"
+                                .to_string(),
+                        })?;
                 bumped_vols.mapv_inplace(|v| (v + delta).max(0.0));
             }
             (BumpMode::Multiplicative, BumpUnits::Factor) => {
@@ -572,15 +575,20 @@ impl VolSurface {
                 return Err(InputError::NegativeValue.into());
             }
         }
-        let array =
-            Array2::from_shape_vec((expiries.len(), strikes.len()), vols_row_major.to_vec())
-                .map_err(|e| {
-                    // This should never happen given the length check above, but provide context if it does
-                    crate::Error::Validation(format!(
-                        "failed to construct volatility grid: expected shape ({}, {}), got {} elements: {}",
-                        expiries.len(), strikes.len(), vols_row_major.len(), e
-                    ))
-                })?;
+        let array = Array2::from_shape_vec(
+            (expiries.len(), strikes.len()),
+            vols_row_major.to_vec(),
+        )
+        .map_err(|e| {
+            // This should never happen given the length check above, but provide context if it does
+            crate::Error::Validation(format!(
+                "failed to construct volatility grid: expected shape ({}, {}), got {} elements: {}",
+                expiries.len(),
+                strikes.len(),
+                vols_row_major.len(),
+                e
+            ))
+        })?;
         Ok(Self {
             id: CurveId::new(id.as_ref()),
             expiries: expiries.to_vec().into_boxed_slice(),

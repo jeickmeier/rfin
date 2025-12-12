@@ -509,7 +509,10 @@ pub struct Schedule {
     ///
     /// Non-empty when graceful fallback mode suppressed an error or when
     /// other non-fatal issues occurred during generation.
-    #[cfg_attr(feature = "serde", serde(default, skip_serializing_if = "Vec::is_empty"))]
+    #[cfg_attr(
+        feature = "serde",
+        serde(default, skip_serializing_if = "Vec::is_empty")
+    )]
     pub warnings: Vec<ScheduleWarning>,
 }
 
@@ -1270,7 +1273,10 @@ mod tests {
             .build()
             .expect("Valid schedule should succeed");
 
-        assert!(!schedule.has_warnings(), "Valid schedule should have no warnings");
+        assert!(
+            !schedule.has_warnings(),
+            "Valid schedule should have no warnings"
+        );
         assert!(
             !schedule.used_graceful_fallback(),
             "Valid schedule should not indicate fallback"

@@ -451,10 +451,7 @@ impl Error {
 /// Returns up to 3 suggestions based on:
 /// 1. Substring containment (case-insensitive)
 /// 2. Edit distance ≤ 2
-fn fuzzy_suggestions<'a>(
-    requested: &str,
-    available: impl Iterator<Item = &'a str>,
-) -> Vec<String> {
+fn fuzzy_suggestions<'a>(requested: &str, available: impl Iterator<Item = &'a str>) -> Vec<String> {
     let requested_lower = requested.to_lowercase();
     let requested_chars: Vec<char> = requested_lower.chars().collect();
 

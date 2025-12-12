@@ -14,4 +14,3 @@ mod types;
 
 pub use pricer::SimpleXccySwapDiscountingPricer;
 pub use types::{LegSide, NotionalExchange, XccySwap, XccySwapLeg};
-

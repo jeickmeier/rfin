@@ -215,12 +215,7 @@ where
         theta_curve.push(theta_t);
     }
 
-    HullWhite1FParams::with_time_dependent_theta(
-        kappa,
-        sigma,
-        theta_curve,
-        theta_times.to_vec(),
-    )
+    HullWhite1FParams::with_time_dependent_theta(kappa, sigma, theta_curve, theta_times.to_vec())
 }
 
 /// Compute θ(t) at a specific time using the Hull-White drift formula.
@@ -386,7 +381,11 @@ mod tests {
         // Theta values should be positive and reasonable
         for &theta in &params.theta_curve {
             assert!(theta.is_finite(), "Theta must be finite");
-            assert!(theta > -0.1 && theta < 0.2, "Theta should be reasonable: {}", theta);
+            assert!(
+                theta > -0.1 && theta < 0.2,
+                "Theta should be reasonable: {}",
+                theta
+            );
         }
     }
 

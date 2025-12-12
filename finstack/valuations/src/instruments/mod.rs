@@ -51,8 +51,6 @@ pub mod fx_option;
 pub mod fx_spot;
 /// fx swap module.
 pub mod fx_swap;
-/// cross-currency swap module.
-pub mod xccy_swap;
 /// inflation linked bond module.
 pub mod inflation_linked_bond;
 /// inflation swap module.
@@ -85,6 +83,8 @@ pub mod term_loan;
 pub mod trs;
 /// variance swap module.
 pub mod variance_swap;
+/// cross-currency swap module.
+pub mod xccy_swap;
 
 // Preserve public path for equity metrics after move
 pub use equity::metrics as equity_metrics;
@@ -113,7 +113,6 @@ pub use fx_barrier_option::FxBarrierOption;
 pub use fx_option::FxOption;
 pub use fx_spot::FxSpot;
 pub use fx_swap::FxSwap;
-pub use xccy_swap::XccySwap;
 pub use inflation_linked_bond::InflationLinkedBond;
 pub use inflation_swap::InflationSwap;
 pub use ir_future::InterestRateFuture;
@@ -130,6 +129,7 @@ pub use swaption::Swaption;
 pub use term_loan::TermLoan;
 pub use trs::{EquityTotalReturnSwap, FIIndexTotalReturnSwap};
 pub use variance_swap::VarianceSwap;
+pub use xccy_swap::XccySwap;
 
 // === Common Functionality ===
 pub use common::build_with_metrics_dyn;

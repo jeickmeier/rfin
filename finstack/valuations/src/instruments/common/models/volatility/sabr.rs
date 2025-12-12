@@ -1024,7 +1024,8 @@ fn normal_inverse_cdf(p: f64) -> f64 {
     }
 
     // Use statrs high-precision implementation
-    let normal = Normal::new(0.0, 1.0).expect("Standard normal distribution should always be valid");
+    let normal =
+        Normal::new(0.0, 1.0).expect("Standard normal distribution should always be valid");
     normal.inverse_cdf(p)
 }
 
@@ -1461,7 +1462,10 @@ mod tests {
         // These golden values are from high-precision statistical tables.
 
         // Standard values
-        assert!((normal_inverse_cdf(0.5) - 0.0).abs() < 1e-12, "CDF^-1(0.5) should be 0");
+        assert!(
+            (normal_inverse_cdf(0.5) - 0.0).abs() < 1e-12,
+            "CDF^-1(0.5) should be 0"
+        );
         assert!(
             (normal_inverse_cdf(0.84134474606854) - 1.0).abs() < 1e-8,
             "CDF^-1(0.84134...) should be ~1.0"

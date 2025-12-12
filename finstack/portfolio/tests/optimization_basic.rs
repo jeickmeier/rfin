@@ -33,6 +33,7 @@ fn build_deposit_portfolio() -> finstack_portfolio::Portfolio {
         .end(dep1_end)
         .day_count(finstack_core::dates::DayCount::Act360)
         .discount_curve_id("USD".into())
+        .quote_rate_opt(Some(0.045))
         .build()
         .expect("deposit 1 should build");
 
@@ -43,6 +44,7 @@ fn build_deposit_portfolio() -> finstack_portfolio::Portfolio {
         .end(dep2_end)
         .day_count(finstack_core::dates::DayCount::Act360)
         .discount_curve_id("USD".into())
+        .quote_rate_opt(Some(0.045))
         .build()
         .expect("deposit 2 should build");
 

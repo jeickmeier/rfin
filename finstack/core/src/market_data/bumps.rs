@@ -443,9 +443,12 @@ impl Bumpable for HazardCurve {
         // Interpret RateBp/Percent as **par spread** shocks; convert to hazard using 1/(1 - recovery).
         let shift = match (spec.mode, spec.units) {
             (BumpMode::Additive, BumpUnits::RateBp | BumpUnits::Fraction | BumpUnits::Percent) => {
-                let spread = spec.additive_fraction().ok_or_else(|| InputError::UnsupportedBump {
-                    reason: "HazardCurve additive bump failed to compute fraction".to_string(),
-                })?;
+                let spread =
+                    spec.additive_fraction()
+                        .ok_or_else(|| InputError::UnsupportedBump {
+                            reason: "HazardCurve additive bump failed to compute fraction"
+                                .to_string(),
+                        })?;
                 spread / (1.0 - recovery)
             }
             _ => {
@@ -499,9 +502,12 @@ impl Bumpable for InflationCurve {
 
         let factor = match (spec.mode, spec.units) {
             (BumpMode::Additive, BumpUnits::Percent | BumpUnits::Fraction) => {
-                let frac = spec.additive_fraction().ok_or_else(|| InputError::UnsupportedBump {
-                    reason: "InflationCurve additive bump failed to compute fraction".to_string(),
-                })?;
+                let frac = spec
+                    .additive_fraction()
+                    .ok_or_else(|| InputError::UnsupportedBump {
+                        reason: "InflationCurve additive bump failed to compute fraction"
+                            .to_string(),
+                    })?;
                 1.0 + frac
             }
             (BumpMode::Multiplicative, BumpUnits::Factor) => spec.value,
@@ -552,10 +558,12 @@ impl Bumpable for BaseCorrelationCurve {
 
         let (add, mul) = match (spec.mode, spec.units) {
             (BumpMode::Additive, BumpUnits::Percent | BumpUnits::Fraction) => {
-                let frac = spec.additive_fraction().ok_or_else(|| InputError::UnsupportedBump {
-                    reason: "BaseCorrelationCurve additive bump failed to compute fraction"
-                        .to_string(),
-                })?;
+                let frac = spec
+                    .additive_fraction()
+                    .ok_or_else(|| InputError::UnsupportedBump {
+                        reason: "BaseCorrelationCurve additive bump failed to compute fraction"
+                            .to_string(),
+                    })?;
                 (frac, 1.0)
             }
             (BumpMode::Multiplicative, BumpUnits::Factor) => (0.0, spec.value),
@@ -656,9 +664,12 @@ impl Bumpable for ScalarTimeSeries {
 
         let bumped_obs: Vec<(crate::dates::Date, f64)> = match (spec.mode, spec.units) {
             (BumpMode::Additive, BumpUnits::RateBp | BumpUnits::Percent | BumpUnits::Fraction) => {
-                let delta = spec.additive_fraction().ok_or_else(|| InputError::UnsupportedBump {
-                    reason: "ScalarTimeSeries additive bump failed to compute fraction".to_string(),
-                })?;
+                let delta =
+                    spec.additive_fraction()
+                        .ok_or_else(|| InputError::UnsupportedBump {
+                            reason: "ScalarTimeSeries additive bump failed to compute fraction"
+                                .to_string(),
+                        })?;
                 self.observations()
                     .into_iter()
                     .map(|(d, v)| (d, v + delta))

@@ -70,7 +70,7 @@ test:
 	make test-ui
 
 test-rust: install-nextest
-	CARGO_INCREMENTAL=1 cargo nextest run --workspace --exclude finstack-py --features mc --lib --test '*' --max-fail=10
+	CARGO_INCREMENTAL=1 cargo nextest run --workspace --exclude finstack-py --features mc --lib --test '*' --no-fail-fast
 
 test-rust-slow: install-nextest
 	CARGO_INCREMENTAL=1 cargo nextest run --workspace --exclude finstack-py --features mc,slow --lib --test '*'

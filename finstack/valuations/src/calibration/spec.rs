@@ -153,12 +153,16 @@ impl CalibrationSpec {
             merged_report.success = false;
             if !merged_report.convergence_reason.contains("step") {
                 merged_report.convergence_reason =
-                    "Pipeline calibration failed: one or more steps failed (see step_reports)".to_string();
+                    "Pipeline calibration failed: one or more steps failed (see step_reports)"
+                        .to_string();
             }
         }
         if !merged_report.success && self.config.validation_mode == ValidationMode::Error {
             return Err(finstack_core::Error::Calibration {
-                message: format!("Calibration pipeline failed: {}", merged_report.convergence_reason),
+                message: format!(
+                    "Calibration pipeline failed: {}",
+                    merged_report.convergence_reason
+                ),
                 category: "pipeline".to_string(),
             });
         }

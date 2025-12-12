@@ -522,8 +522,8 @@ fn test_bloomberg_usd_ois_calibration_accuracy() {
     let config = CalibrationConfig::default()
         .with_tolerance(1e-10)
         .with_max_iterations(200);
-    let calibrator = DiscountCurveCalibrator::new("USD-OIS", base_date, Currency::USD)
-        .with_config(config);
+    let calibrator =
+        DiscountCurveCalibrator::new("USD-OIS", base_date, Currency::USD).with_config(config);
     let base_context = MarketContext::new();
 
     let (curve, report) = calibrator

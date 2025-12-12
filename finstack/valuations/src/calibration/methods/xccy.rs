@@ -476,10 +476,7 @@ impl XccyBasisCalibrator {
             let residual = objective(solved_rate);
             let key = format!(
                 "xccy:{}{}:{}bp@{}",
-                q.domestic_currency,
-                q.foreign_currency,
-                q.spread_bp,
-                q.maturity
+                q.domestic_currency, q.foreign_currency, q.spread_bp, q.maturity
             );
             residuals.insert(key, residual);
 
@@ -507,7 +504,10 @@ impl XccyBasisCalibrator {
             .set_interp(self.solve_interp)
             .build()
             .map_err(|e| finstack_core::Error::Calibration {
-                message: format!("final XCCY DiscountCurve build failed for {}: {}", self.curve_id, e),
+                message: format!(
+                    "final XCCY DiscountCurve build failed for {}: {}",
+                    self.curve_id, e
+                ),
                 category: "xccy_bootstrap".to_string(),
             })?;
 

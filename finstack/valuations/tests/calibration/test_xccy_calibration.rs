@@ -7,8 +7,12 @@ use finstack_core::money::fx::providers::SimpleFxProvider;
 use finstack_core::money::fx::FxMatrix;
 use finstack_core::types::CurveId;
 use finstack_valuations::calibration::create_simple_solver;
-use finstack_valuations::calibration::methods::{XccyBasisCalibrator, XccyBasisQuote, XccySpreadOn};
-use finstack_valuations::instruments::xccy_swap::{LegSide, NotionalExchange, XccySwap, XccySwapLeg};
+use finstack_valuations::calibration::methods::{
+    XccyBasisCalibrator, XccyBasisQuote, XccySpreadOn,
+};
+use finstack_valuations::instruments::xccy_swap::{
+    LegSide, NotionalExchange, XccySwap, XccySwapLeg,
+};
 use std::sync::Arc;
 use time::Month;
 

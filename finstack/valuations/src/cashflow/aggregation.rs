@@ -370,21 +370,28 @@ pub fn pv_by_period_credit_adjusted_detailed(
         return Ok(IndexMap::new());
     }
     sorted.sort_unstable_by_key(|cf| cf.date);
-    pv_by_period_generic(&sorted, periods, disc, Some(hazard), &date_ctx, |cf, df, sp| {
-        let recovery_term = if let Some(r) = recovery_rate {
-            match cf.kind {
-                CFKind::Amortization | CFKind::Notional => r * (1.0 - sp),
-                _ => 0.0,
-            }
-        } else {
-            0.0
-        };
+    pv_by_period_generic(
+        &sorted,
+        periods,
+        disc,
+        Some(hazard),
+        &date_ctx,
+        |cf, df, sp| {
+            let recovery_term = if let Some(r) = recovery_rate {
+                match cf.kind {
+                    CFKind::Amortization | CFKind::Notional => r * (1.0 - sp),
+                    _ => 0.0,
+                }
+            } else {
+                0.0
+            };
 
-        let pv_factor = df * (sp + recovery_term);
-        let m = cf.amount;
-        let pv_amount = m.amount() * pv_factor;
-        Money::new(pv_amount, m.currency())
-    })
+            let pv_factor = df * (sp + recovery_term);
+            let m = cf.amount;
+            let pv_amount = m.amount() * pv_factor;
+            Money::new(pv_amount, m.currency())
+        },
+    )
 }
 
 fn pv_by_period_with_optional_hazard(

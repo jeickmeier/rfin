@@ -174,10 +174,10 @@ impl DiscountCurveCalibrator {
             curve_day_count: None, // Will use currency default
             payment_delay_days: 0, // Default 0; set to 2 for Bloomberg OIS
             allow_calendar_fallback: false,
-            discount_curve_id: None, // Will default to curve_id
-            forward_curve_id: None,  // Will default to curve_id
-            reset_lag: 2,            // Standard T-2 reset lag
-            use_ois_logic: true,     // Default to OIS conventions
+            discount_curve_id: None,  // Will default to curve_id
+            forward_curve_id: None,   // Will default to curve_id
+            reset_lag: 2,             // Standard T-2 reset lag
+            use_ois_logic: true,      // Default to OIS conventions
             include_spot_knot: false, // Default off for backward compatibility
         }
     }
@@ -616,14 +616,10 @@ mod tests {
         use crate::calibration::config::RateBounds;
 
         let empty_quotes: Vec<RatesQuote> = vec![];
-        assert!(
-            CalibrationPricer::validate_quotes(&empty_quotes, &RateBounds::default()).is_err()
-        );
+        assert!(CalibrationPricer::validate_quotes(&empty_quotes, &RateBounds::default()).is_err());
 
         let valid_quotes = create_test_quotes();
-        assert!(
-            CalibrationPricer::validate_quotes(&valid_quotes, &RateBounds::default()).is_ok()
-        );
+        assert!(CalibrationPricer::validate_quotes(&valid_quotes, &RateBounds::default()).is_ok());
     }
 
     #[test]
@@ -731,25 +727,39 @@ mod tests {
 
         // Test 2: Negative rate environment (DF > 1)
         let grid_neg = DiscountCurveCalibrator::maturity_aware_scan_grid(0.95, 1.3, 1.05, 32);
-        assert!(grid_neg.iter().any(|&x| x > 1.0), "Grid should include DF > 1");
-        assert!(grid_neg.iter().any(|&x| x > 1.2), "Grid should reach upper bound area");
+        assert!(
+            grid_neg.iter().any(|&x| x > 1.0),
+            "Grid should include DF > 1"
+        );
+        assert!(
+            grid_neg.iter().any(|&x| x > 1.2),
+            "Grid should reach upper bound area"
+        );
 
         // Test 3: Wide range (long maturity) - verify no crashes and reasonable coverage
         let grid_wide = DiscountCurveCalibrator::maturity_aware_scan_grid(0.001, 2.0, 0.5, 32);
-        assert!(grid_wide.len() >= 20, "Wide grid should have sufficient points");
+        assert!(
+            grid_wide.len() >= 20,
+            "Wide grid should have sufficient points"
+        );
         // Grid should span multiple orders of magnitude
         let min_wide = grid_wide.iter().copied().fold(f64::INFINITY, f64::min);
         let max_wide = grid_wide.iter().copied().fold(f64::NEG_INFINITY, f64::max);
-        assert!(min_wide < 0.1, "Wide grid should reach low values: {}", min_wide);
-        assert!(max_wide > 1.5, "Wide grid should reach high values: {}", max_wide);
+        assert!(
+            min_wide < 0.1,
+            "Wide grid should reach low values: {}",
+            min_wide
+        );
+        assert!(
+            max_wide > 1.5,
+            "Wide grid should reach high values: {}",
+            max_wide
+        );
 
         // Test 4: Grid is sorted descending (for sign-change detection)
         for grid in [&grid_5y, &grid_neg, &grid_wide] {
             for i in 1..grid.len() {
-                assert!(
-                    grid[i - 1] >= grid[i],
-                    "Grid should be sorted descending"
-                );
+                assert!(grid[i - 1] >= grid[i], "Grid should be sorted descending");
             }
         }
     }
@@ -759,13 +769,13 @@ mod tests {
         let base_date = Date::from_calendar_date(2025, Month::January, 1).expect("Valid test date");
 
         // USD has T+2 settlement
-        let usd_cal = DiscountCurveCalibrator::usd("USD-OIS", base_date)
-            .with_allow_calendar_fallback(true);
+        let usd_cal =
+            DiscountCurveCalibrator::usd("USD-OIS", base_date).with_allow_calendar_fallback(true);
         assert_eq!(usd_cal.effective_settlement_days(), 2);
 
         // GBP has T+0 settlement
-        let gbp_cal = DiscountCurveCalibrator::gbp("GBP-SONIA", base_date)
-            .with_allow_calendar_fallback(true);
+        let gbp_cal =
+            DiscountCurveCalibrator::gbp("GBP-SONIA", base_date).with_allow_calendar_fallback(true);
         assert_eq!(gbp_cal.effective_settlement_days(), 0);
 
         // Can override settlement days
@@ -840,7 +850,9 @@ mod tests {
         ];
 
         let calibrator = DiscountCurveCalibrator::usd("USD-OIS-GLOBAL", base_date)
-            .with_calibration_method(CalibrationMethod::GlobalSolve { use_analytical_jacobian: false })
+            .with_calibration_method(CalibrationMethod::GlobalSolve {
+                use_analytical_jacobian: false,
+            })
             .with_allow_calendar_fallback(true);
 
         let context = MarketContext::default();
@@ -879,21 +891,26 @@ mod tests {
         ];
 
         // Use tight bounds to verify they are enforced
-        let config = CalibrationConfig::default()
-            .with_rate_bounds(RateBounds {
-                min_rate: 0.01,
-                max_rate: 0.10,
-            });
+        let config = CalibrationConfig::default().with_rate_bounds(RateBounds {
+            min_rate: 0.01,
+            max_rate: 0.10,
+        });
 
         let calibrator = DiscountCurveCalibrator::usd("USD-OIS-BOUNDED", base_date)
-            .with_calibration_method(CalibrationMethod::GlobalSolve { use_analytical_jacobian: false })
+            .with_calibration_method(CalibrationMethod::GlobalSolve {
+                use_analytical_jacobian: false,
+            })
             .with_config(config)
             .with_allow_calendar_fallback(true);
 
         let context = MarketContext::default();
 
         let result = calibrator.calibrate(&quotes, &context);
-        assert!(result.is_ok(), "Calibration should succeed: {:?}", result.err());
+        assert!(
+            result.is_ok(),
+            "Calibration should succeed: {:?}",
+            result.err()
+        );
 
         let (curve, _report) = result.expect("calibration should succeed");
 
@@ -937,13 +954,19 @@ mod tests {
         ];
 
         let calibrator = DiscountCurveCalibrator::usd("USD-OIS-DIAG", base_date)
-            .with_calibration_method(CalibrationMethod::GlobalSolve { use_analytical_jacobian: false })
+            .with_calibration_method(CalibrationMethod::GlobalSolve {
+                use_analytical_jacobian: false,
+            })
             .with_allow_calendar_fallback(true);
 
         let context = MarketContext::default();
 
         let result = calibrator.calibrate(&quotes, &context);
-        assert!(result.is_ok(), "Calibration should succeed: {:?}", result.err());
+        assert!(
+            result.is_ok(),
+            "Calibration should succeed: {:?}",
+            result.err()
+        );
 
         let (_curve, report) = result.expect("calibration should succeed");
 

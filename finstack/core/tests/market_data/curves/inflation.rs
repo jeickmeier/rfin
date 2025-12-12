@@ -95,7 +95,7 @@ fn clone_works_for_all_interp_styles() {
 }
 
 /// Verifies clone works correctly with extrapolated values.
-/// 
+///
 /// Note: InflationCurveBuilder uses default extrapolation policy.
 /// This test verifies cloning preserves extrapolation behavior.
 #[test]

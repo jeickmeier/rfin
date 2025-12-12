@@ -344,10 +344,7 @@ fn compute_initial_guess(
         (VolatilityConvention::ShiftedLognormal { shift }, VolatilityConvention::Normal) => {
             vol * (forward + shift)
         }
-        (
-            VolatilityConvention::Lognormal,
-            VolatilityConvention::ShiftedLognormal { shift },
-        ) => {
+        (VolatilityConvention::Lognormal, VolatilityConvention::ShiftedLognormal { shift }) => {
             let shifted_f = forward + shift;
             if shifted_f.abs() > 1e-10 {
                 vol * forward / shifted_f
@@ -355,10 +352,7 @@ fn compute_initial_guess(
                 vol
             }
         }
-        (
-            VolatilityConvention::ShiftedLognormal { shift },
-            VolatilityConvention::Lognormal,
-        ) => {
+        (VolatilityConvention::ShiftedLognormal { shift }, VolatilityConvention::Lognormal) => {
             if forward.abs() > 1e-10 {
                 vol * (forward + shift) / forward
             } else {
@@ -498,7 +492,8 @@ mod tests {
 
         let err = result.expect_err("expected error for negative forward");
         assert!(
-            err.to_string().contains("Lognormal volatility requires positive forward"),
+            err.to_string()
+                .contains("Lognormal volatility requires positive forward"),
             "Expected NonPositiveForwardForLognormal error, got: {err}"
         );
     }

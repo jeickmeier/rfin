@@ -171,10 +171,7 @@ mod tests {
         let result = try_amount_from_repr(decimal);
         // Even MAX should be representable (though with precision loss)
         // The key is it doesn't return 0 or fail silently
-        assert!(
-            result.is_ok(),
-            "Decimal::MAX should be convertible to f64"
-        );
+        assert!(result.is_ok(), "Decimal::MAX should be convertible to f64");
         let val = result.expect("Conversion should succeed");
         assert!(val > 0.0, "Converted value must not be zero");
     }

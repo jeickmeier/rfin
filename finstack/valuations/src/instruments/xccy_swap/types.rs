@@ -10,12 +10,12 @@
 //! - This is a deterministic-curve pricer (no fixings). Reset lag is therefore not modeled
 //!   separately; the forward rate is taken directly from the forward curve for the accrual period.
 
+use finstack_core::currency::Currency;
 use finstack_core::dates::calendar::registry::CalendarRegistry;
 use finstack_core::dates::{
     BusinessDayConvention, Date, DateExt, DayCount, DayCountCtx, Frequency, HolidayCalendar,
     Schedule, ScheduleBuilder, StubKind,
 };
-use finstack_core::currency::Currency;
 use finstack_core::market_data::context::MarketContext;
 use finstack_core::money::fx::FxQuery;
 use finstack_core::money::Money;
@@ -100,7 +100,10 @@ pub struct XccySwapLeg {
     #[cfg_attr(feature = "serde", serde(default))]
     pub payment_lag_days: i32,
     /// Calendar identifier for schedule generation and lags.
-    #[cfg_attr(feature = "serde", serde(default, skip_serializing_if = "Option::is_none"))]
+    #[cfg_attr(
+        feature = "serde",
+        serde(default, skip_serializing_if = "Option::is_none")
+    )]
     pub calendar_id: Option<String>,
     /// Allow calendar-day fallback when the calendar cannot be resolved.
     ///
@@ -110,7 +113,10 @@ pub struct XccySwapLeg {
 }
 
 impl XccySwapLeg {
-    fn resolve_calendar(&self, instrument_id: &InstrumentId) -> Result<Option<&'static dyn HolidayCalendar>> {
+    fn resolve_calendar(
+        &self,
+        instrument_id: &InstrumentId,
+    ) -> Result<Option<&'static dyn HolidayCalendar>> {
         match self.calendar_id.as_deref() {
             Some(id) => {
                 if let Some(cal) = CalendarRegistry::global().resolve_str(id) {
@@ -328,7 +334,9 @@ impl XccySwap {
             }
 
             let total_rate = forward_rate + leg.spread;
-            let year_frac = leg.day_count.year_fraction(period_start, period_end, dc_ctx)?;
+            let year_frac = leg
+                .day_count
+                .year_fraction(period_start, period_end, dc_ctx)?;
             let coupon = leg.side.coupon_sign() * leg.notional.amount() * total_rate * year_frac;
 
             let t_pmt = disc_dc.year_fraction(disc.base_date(), payment_date, dc_ctx)?;

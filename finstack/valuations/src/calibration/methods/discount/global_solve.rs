@@ -374,12 +374,8 @@ impl DiscountCurveCalibrator {
         curve_dc: finstack_core::dates::DayCount,
     ) -> Result<(DiscountCurve, Vec<(f64, f64)>)> {
         let bounds = self.config.effective_rate_bounds(self.currency);
-        let final_knots = Self::build_knots_from_zero_rates(
-            times,
-            solved_zero_rates,
-            self.solve_interp,
-            &bounds,
-        );
+        let final_knots =
+            Self::build_knots_from_zero_rates(times, solved_zero_rates, self.solve_interp, &bounds);
 
         let curve = self
             .apply_solve_interpolation(
@@ -444,10 +440,7 @@ impl DiscountCurveCalibrator {
 
         // Compute final residual metrics
         let l2_norm: f64 = residual_values.iter().map(|r| r * r).sum::<f64>().sqrt();
-        let max_abs_residual = residual_values
-            .iter()
-            .copied()
-            .fold(0.0_f64, f64::max);
+        let max_abs_residual = residual_values.iter().copied().fold(0.0_f64, f64::max);
 
         let report = CalibrationReport::for_type_with_tolerance(
             "yield_curve_global",

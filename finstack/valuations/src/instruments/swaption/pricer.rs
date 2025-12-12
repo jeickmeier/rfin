@@ -1,8 +1,8 @@
 use crate::instruments::common::models::trees::{HullWhiteTree, HullWhiteTreeConfig};
 use crate::instruments::common::traits::Instrument;
+use crate::instruments::pricing_overrides::VolSurfaceExtrapolation;
 use crate::instruments::swaption::pricing::BermudanSwaptionTreeValuator;
 use crate::instruments::swaption::{BermudanSwaption, Swaption};
-use crate::instruments::pricing_overrides::VolSurfaceExtrapolation;
 use crate::pricer::{InstrumentType, ModelKey, Pricer, PricerKey, PricingError};
 use crate::results::ValuationResult;
 use finstack_core::market_data::context::MarketContext;
@@ -102,11 +102,9 @@ impl Pricer for SimpleSwaptionBlackPricer {
                             VolSurfaceExtrapolation::Clamp => {
                                 vol_surface.value_clamped(time_to_expiry, swaption.strike_rate)
                             }
-                            VolSurfaceExtrapolation::Error => {
-                                vol_surface
-                                    .value_checked(time_to_expiry, swaption.strike_rate)
-                                    .map_err(|e| PricingError::missing_market_data(e.to_string()))?
-                            }
+                            VolSurfaceExtrapolation::Error => vol_surface
+                                .value_checked(time_to_expiry, swaption.strike_rate)
+                                .map_err(|e| PricingError::missing_market_data(e.to_string()))?,
                         }
                     };
 
@@ -447,9 +445,10 @@ impl BermudanSwaptionPricer {
         );
 
         // Record whether cached model was used (1.0 = true, 0.0 = false)
-        result
-            .measures
-            .insert("used_cached_model".to_string(), if used_cached_model { 1.0 } else { 0.0 });
+        result.measures.insert(
+            "used_cached_model".to_string(),
+            if used_cached_model { 1.0 } else { 0.0 },
+        );
 
         Ok(result)
     }
@@ -534,12 +533,8 @@ impl BermudanSwaptionPricer {
             .year_fraction(as_of, swaption.swap_start, ctx)
             .map_err(|e| PricingError::model_failure(e.to_string()))?;
 
-        let swap_schedule = SwapSchedule::new(
-            swap_start_time,
-            ttm,
-            payment_times,
-            accrual_fractions,
-        );
+        let swap_schedule =
+            SwapSchedule::new(swap_start_time, ttm, payment_times, accrual_fractions);
 
         // Determine option type for payoff
         let option_type = match swaption.option_type {
@@ -618,19 +613,25 @@ impl BermudanSwaptionPricer {
             .map_err(|e| PricingError::model_failure(e.to_string()))?;
 
         // Build result with diagnostics
-        let mut result = ValuationResult::stamped(
-            swaption.id.as_str(),
-            as_of,
-            estimate.mean,
-        );
+        let mut result = ValuationResult::stamped(swaption.id.as_str(), as_of, estimate.mean);
 
         // Add LSMC diagnostics to measures
-        result.measures.insert("lsmc_stderr".to_string(), estimate.stderr);
-        result.measures.insert("lsmc_num_paths".to_string(), self.mc_paths as f64);
-        result.measures.insert("lsmc_seed".to_string(), self.mc_seed as f64);
+        result
+            .measures
+            .insert("lsmc_stderr".to_string(), estimate.stderr);
+        result
+            .measures
+            .insert("lsmc_num_paths".to_string(), self.mc_paths as f64);
+        result
+            .measures
+            .insert("lsmc_seed".to_string(), self.mc_seed as f64);
         let (ci_low, ci_high) = estimate.ci_95;
-        result.measures.insert("lsmc_ci95_low".to_string(), ci_low.amount());
-        result.measures.insert("lsmc_ci95_high".to_string(), ci_high.amount());
+        result
+            .measures
+            .insert("lsmc_ci95_low".to_string(), ci_low.amount());
+        result
+            .measures
+            .insert("lsmc_ci95_high".to_string(), ci_high.amount());
 
         Ok(result)
     }
@@ -660,9 +661,10 @@ impl Pricer for BermudanSwaptionPricer {
             BermudanPricingMethod::HullWhiteTree => {
                 PricerKey::new(InstrumentType::BermudanSwaption, ModelKey::HullWhite1F)
             }
-            BermudanPricingMethod::LSMC => {
-                PricerKey::new(InstrumentType::BermudanSwaption, ModelKey::MonteCarloHullWhite1F)
-            }
+            BermudanPricingMethod::LSMC => PricerKey::new(
+                InstrumentType::BermudanSwaption,
+                ModelKey::MonteCarloHullWhite1F,
+            ),
         }
     }
 

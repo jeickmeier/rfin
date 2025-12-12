@@ -88,10 +88,7 @@ pub fn convert_volatility_js(
     time_to_expiry: f64,
     _zero_threshold: f64,
 ) -> Result<f64, JsValue> {
-    if !vol.is_finite()
-        || !forward_rate.is_finite()
-        || !time_to_expiry.is_finite()
-    {
+    if !vol.is_finite() || !forward_rate.is_finite() || !time_to_expiry.is_finite() {
         return Err(js_error("convertVolatility: inputs must be finite numbers"));
     }
 

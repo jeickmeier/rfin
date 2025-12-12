@@ -148,11 +148,7 @@ impl CalibrationReport {
     }
 
     /// Attach validation outcome. If validation fails, the report is marked unsuccessful.
-    pub fn with_validation_result(
-        mut self,
-        passed: bool,
-        error: Option<String>,
-    ) -> Self {
+    pub fn with_validation_result(mut self, passed: bool, error: Option<String>) -> Self {
         self.validation_passed = passed;
         self.validation_error = error;
 
@@ -170,8 +166,7 @@ impl CalibrationReport {
                 self.convergence_reason =
                     "Converged to tolerance but failed validation".to_string();
             } else if !self.convergence_reason.contains("validation failed") {
-                self.convergence_reason =
-                    format!("{}; validation failed", self.convergence_reason);
+                self.convergence_reason = format!("{}; validation failed", self.convergence_reason);
             }
         }
 

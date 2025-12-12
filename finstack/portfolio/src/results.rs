@@ -79,6 +79,7 @@ mod tests {
             .end(date!(2024 - 02 - 01))
             .day_count(finstack_core::dates::DayCount::Act360)
             .discount_curve_id("USD".into())
+            .quote_rate_opt(Some(0.045))
             .build()
             .expect("test should succeed");
 

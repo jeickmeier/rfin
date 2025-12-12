@@ -149,7 +149,10 @@ pub struct BracketDiagnostics {
 impl BracketDiagnostics {
     fn new(scan_points: &[f64]) -> Self {
         let lo = scan_points.iter().copied().fold(f64::INFINITY, f64::min);
-        let hi = scan_points.iter().copied().fold(f64::NEG_INFINITY, f64::max);
+        let hi = scan_points
+            .iter()
+            .copied()
+            .fold(f64::NEG_INFINITY, f64::max);
         Self {
             bracket_found: false,
             best_point: None,
@@ -186,7 +189,8 @@ pub(crate) fn bracket_solve_1d(
     tol: f64,
     max_iters: usize,
 ) -> Result<Option<f64>> {
-    let (result, _) = bracket_solve_1d_with_diagnostics(objective, initial, scan_points, tol, max_iters)?;
+    let (result, _) =
+        bracket_solve_1d_with_diagnostics(objective, initial, scan_points, tol, max_iters)?;
     Ok(result)
 }
 
@@ -296,7 +300,11 @@ mod tests {
         assert!(diag.bracket_found);
         // At least 1 eval (initial) + some scan points before finding bracket
         assert!(diag.eval_count >= 1, "eval_count={}", diag.eval_count);
-        assert!(diag.valid_eval_count >= 1, "valid_eval_count={}", diag.valid_eval_count);
+        assert!(
+            diag.valid_eval_count >= 1,
+            "valid_eval_count={}",
+            diag.valid_eval_count
+        );
         assert_eq!(diag.scan_bounds, (0.0, 1.0));
     }
 

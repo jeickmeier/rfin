@@ -895,8 +895,7 @@ impl CashFlowBuilder {
         schedule: ScheduleParams,
         default_split: CouponType,
     ) -> &mut Self {
-        let Some((issue, maturity)) =
-            self.issue_maturity_or_record_error("float_margin_stepup")
+        let Some((issue, maturity)) = self.issue_maturity_or_record_error("float_margin_stepup")
         else {
             return self;
         };
@@ -1095,8 +1094,7 @@ impl CashFlowBuilder {
     /// - Steps must be ordered by end date
     /// - Works with both fixed and floating coupons
     pub fn payment_split_program(&mut self, steps: &[(Date, CouponType)]) -> &mut Self {
-        let Some((issue, maturity)) =
-            self.issue_maturity_or_record_error("payment_split_program")
+        let Some((issue, maturity)) = self.issue_maturity_or_record_error("payment_split_program")
         else {
             return self;
         };

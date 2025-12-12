@@ -234,8 +234,12 @@ fn test_trs_schedule_spec_different_day_counts() {
     assert_eq!(spec_30_360.params.dc, DayCount::Thirty360);
 
     // Both should produce same number of dates (different year fractions though)
-    let sched1 = spec_act360.period_schedule().expect("Schedule should build");
-    let sched2 = spec_30_360.period_schedule().expect("Schedule should build");
+    let sched1 = spec_act360
+        .period_schedule()
+        .expect("Schedule should build");
+    let sched2 = spec_30_360
+        .period_schedule()
+        .expect("Schedule should build");
     assert_eq!(sched1.dates.len(), sched2.dates.len());
 }
 

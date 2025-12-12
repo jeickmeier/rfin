@@ -9,4 +9,3 @@ impl Default for SimpleXccySwapDiscountingPricer {
         Self::new(crate::pricer::InstrumentType::XccySwap)
     }
 }
-

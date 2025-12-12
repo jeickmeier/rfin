@@ -92,7 +92,9 @@ use super::tree_framework::{
 #[inline]
 pub fn normal_to_lognormal_vol(normal_vol: f64, rate_level: f64) -> Result<f64> {
     if !rate_level.is_finite() || rate_level <= 0.0 {
-        return Err(Error::Input(finstack_core::error::InputError::NonPositiveValue));
+        return Err(Error::Input(
+            finstack_core::error::InputError::NonPositiveValue,
+        ));
     }
     Ok(normal_vol / rate_level)
 }
@@ -129,7 +131,9 @@ pub fn normal_to_lognormal_vol(normal_vol: f64, rate_level: f64) -> Result<f64> 
 #[inline]
 pub fn lognormal_to_normal_vol(lognormal_vol: f64, rate_level: f64) -> Result<f64> {
     if !rate_level.is_finite() || rate_level <= 0.0 {
-        return Err(Error::Input(finstack_core::error::InputError::NonPositiveValue));
+        return Err(Error::Input(
+            finstack_core::error::InputError::NonPositiveValue,
+        ));
     }
     Ok(lognormal_vol * rate_level)
 }
@@ -1012,8 +1016,10 @@ mod tests {
         let original_normal = 0.012; // 120 bps
         let rate_level = 0.045; // 4.5%
 
-        let lognormal = normal_to_lognormal_vol(original_normal, rate_level).expect("valid conversion");
-        let back_to_normal = lognormal_to_normal_vol(lognormal, rate_level).expect("valid conversion");
+        let lognormal =
+            normal_to_lognormal_vol(original_normal, rate_level).expect("valid conversion");
+        let back_to_normal =
+            lognormal_to_normal_vol(lognormal, rate_level).expect("valid conversion");
 
         assert!(
             (back_to_normal - original_normal).abs() < 1e-15,
@@ -1057,8 +1063,7 @@ mod tests {
 
     #[test]
     fn test_config_from_normal_vol_factory() {
-        let config =
-            ShortRateTreeConfig::from_normal_vol(100, 0.008, 0.005).expect("valid config");
+        let config = ShortRateTreeConfig::from_normal_vol(100, 0.008, 0.005).expect("valid config");
         assert_eq!(config.model, ShortRateModel::HoLee);
 
         let config = ShortRateTreeConfig::from_normal_vol(100, 0.01, 0.05).expect("valid config");
@@ -1085,8 +1090,7 @@ mod tests {
     #[test]
     fn test_config_from_normal_vol_low_rates() {
         // Low rate environment → should use Ho-Lee
-        let config =
-            ShortRateTreeConfig::from_normal_vol(100, 0.008, 0.005).expect("valid config");
+        let config = ShortRateTreeConfig::from_normal_vol(100, 0.008, 0.005).expect("valid config");
         assert_eq!(config.model, ShortRateModel::HoLee);
         assert_eq!(config.volatility, 0.008); // Unchanged
     }

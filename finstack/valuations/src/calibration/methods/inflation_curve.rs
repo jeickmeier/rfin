@@ -3,8 +3,8 @@
 //! Implements market-standard inflation curve calibration using zero-coupon
 //! inflation swaps to build forward CPI level curves.
 
-use crate::calibration::quote::InflationQuote;
 use crate::calibration::config::ValidationMode;
+use crate::calibration::quote::InflationQuote;
 use crate::calibration::{CalibrationConfig, CalibrationReport, Calibrator};
 use crate::instruments::common::traits::Instrument;
 use crate::instruments::inflation_swap::{InflationSwap, PayReceiveInflation};
@@ -323,9 +323,8 @@ impl Calibrator<InflationQuote, InflationCurve> for InflationCurveCalibrator {
                 ) {
                     Ok(root) => root,
                     Err(e) => {
-                        let msg = format!(
-                            "Inflation solve_1d failed for maturity={maturity}: {e:?}"
-                        );
+                        let msg =
+                            format!("Inflation solve_1d failed for maturity={maturity}: {e:?}");
                         warnings.push(msg.clone());
                         residuals.insert(format!("ZCIS-{}", maturity), crate::calibration::PENALTY);
                         if self.config.validation_mode == ValidationMode::Error {
@@ -338,9 +337,8 @@ impl Calibrator<InflationQuote, InflationCurve> for InflationCurveCalibrator {
                     }
                 };
                 if !solved_cpi.is_finite() || solved_cpi <= 0.0 {
-                    let msg = format!(
-                        "Solved CPI is invalid for maturity={maturity}: {solved_cpi}"
-                    );
+                    let msg =
+                        format!("Solved CPI is invalid for maturity={maturity}: {solved_cpi}");
                     warnings.push(msg.clone());
                     residuals.insert(format!("ZCIS-{}", maturity), crate::calibration::PENALTY);
                     if self.config.validation_mode == ValidationMode::Error {
@@ -466,7 +464,12 @@ impl Calibrator<InflationQuote, InflationCurve> for InflationCurveCalibrator {
             .with_metadata("warnings_count", warnings.len().to_string())
             .with_metadata(
                 "warnings",
-                warnings.iter().take(50).cloned().collect::<Vec<_>>().join("\n"),
+                warnings
+                    .iter()
+                    .take(50)
+                    .cloned()
+                    .collect::<Vec<_>>()
+                    .join("\n"),
             );
 
             Ok((curve, report))
