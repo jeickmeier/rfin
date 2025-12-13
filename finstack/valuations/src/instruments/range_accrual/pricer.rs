@@ -65,18 +65,9 @@ impl RangeAccrualMcPricer {
 
         let disc_curve = curves.get_discount_ref(inst.discount_curve_id.as_str())?;
         let r = disc_curve.zero(t);
-        let t_as_of = disc_curve.day_count().year_fraction(
-            disc_curve.base_date(),
-            as_of,
-            DayCountCtx::default(),
-        )?;
-        let df_as_of = disc_curve.df(t_as_of);
-        let df_maturity = disc_curve.df(t_as_of + t);
-        let discount_factor = if df_as_of > 0.0 {
-            df_maturity / df_as_of
-        } else {
-            1.0
-        };
+        let discount_factor = disc_curve
+            .try_df_between_dates(as_of, final_date)
+            .unwrap_or(1.0);
 
         let mut q = if let Some(div_id) = &inst.div_yield_id {
             match curves.price(div_id.as_str()) {
@@ -244,23 +235,11 @@ pub fn npv_analytic(inst: &RangeAccrual, curves: &MarketContext, as_of: Date) ->
     let final_date = inst
         .payment_date
         .unwrap_or(inst.observation_dates.last().copied().unwrap_or(as_of));
-    let t_maturity = inst
-        .day_count
-        .year_fraction(as_of, final_date, DayCountCtx::default())?;
 
     let disc_curve = curves.get_discount_ref(inst.discount_curve_id.as_str())?;
-    let t_as_of = disc_curve.day_count().year_fraction(
-        disc_curve.base_date(),
-        as_of,
-        DayCountCtx::default(),
-    )?;
-    let df_as_of = disc_curve.df(t_as_of);
-    let df_maturity = disc_curve.df(t_as_of + t_maturity);
-    let discount_factor = if df_as_of > 0.0 {
-        df_maturity / df_as_of
-    } else {
-        1.0
-    };
+    let discount_factor = disc_curve
+        .try_df_between_dates(as_of, final_date)
+        .unwrap_or(1.0);
 
     let q_yield = if let Some(div_id) = &inst.div_yield_id {
         match curves.price(div_id.as_str()) {

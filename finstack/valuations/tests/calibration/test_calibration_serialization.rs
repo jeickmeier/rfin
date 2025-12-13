@@ -1,4 +1,3 @@
-#![allow(deprecated)]
 //! Comprehensive serialization tests for the calibration framework.
 //!
 //! This test suite verifies that all calibration types can be:
@@ -6,6 +5,7 @@
 //! - Deserialized from JSON
 //! - Round-tripped without data loss
 
+use finstack_core::config::FinstackConfig;
 use finstack_core::currency::Currency;
 use finstack_core::dates::{Date, DayCount, Tenor};
 use finstack_core::market_data::term_structures::Seniority;
@@ -381,9 +381,11 @@ fn test_validation_config_serialization() {
 fn test_discount_curve_calibrator_serialization() {
     let base_date = Date::from_calendar_date(2025, Month::January, 1).unwrap();
 
+    let cfg = FinstackConfig::default();
     let calibrator = DiscountCurveCalibrator::new("USD-OIS", base_date, Currency::USD)
         .with_solve_interp(InterpStyle::MonotoneConvex)
-        .with_config(CalibrationConfig::default());
+        .with_finstack_config(&cfg)
+        .expect("valid config");
 
     let restored = roundtrip_json(&calibrator);
     assert_eq!(calibrator.curve_id, restored.curve_id);
@@ -608,38 +610,31 @@ fn test_complex_calibration_workflow_serialization() {
     // Create a complex calibration configuration
     let base_date = Date::from_calendar_date(2025, Month::January, 1).unwrap();
 
-    let config = CalibrationConfig {
-        tolerance: 1e-12,
-        max_iterations: 200,
-        use_parallel: true,
-        random_seed: Some(12345),
-        verbose: true,
-        solver_kind: SolverKind::LevenbergMarquardt,
-        entity_seniority: {
-            let mut map = hashbrown::HashMap::new();
-            map.insert("AAPL".to_string(), Seniority::Senior);
-            map.insert("TSLA".to_string(), Seniority::Subordinated);
-            map.insert("GOOG".to_string(), Seniority::SeniorSecured);
-            map
-        },
-        multi_curve: MultiCurveConfig {
-            calibrate_basis: true,
-            enforce_separation: true,
-        },
-        use_fd_sabr_gradients: true,
-        explain: finstack_core::explain::ExplainOpts::default(),
-        ..CalibrationConfig::default()
-    };
+    // Create FinstackConfig with calibration extensions
+    let mut cfg = FinstackConfig::default();
+    cfg.extensions.insert(
+        finstack_valuations::calibration::CALIBRATION_CONFIG_KEY_V1,
+        serde_json::json!({
+            "tolerance": 1e-12,
+            "max_iterations": 200,
+            "use_parallel": true,
+            "random_seed": 12345,
+            "verbose": true,
+            "solver_kind": "LevenbergMarquardt"
+        }),
+    );
 
     // Create multiple calibrators with this config
     let discount_calibrator = DiscountCurveCalibrator::new("USD-OIS", base_date, Currency::USD)
         .with_solve_interp(InterpStyle::MonotoneConvex)
-        .with_config(config.clone());
+        .with_finstack_config(&cfg)
+        .expect("valid config");
 
     let forward_calibrator =
         ForwardCurveCalibrator::new("USD-SOFR-3M", 0.25, base_date, Currency::USD, "USD-OIS")
             .with_solve_interp(InterpStyle::Linear)
-            .with_config(config.clone());
+            .with_finstack_config(&cfg)
+            .expect("valid config");
 
     let hazard_calibrator = HazardCurveCalibrator::new(
         "AAPL",
@@ -649,7 +644,8 @@ fn test_complex_calibration_workflow_serialization() {
         Currency::USD,
         "USD-OIS",
     )
-    .with_config(config.clone());
+    .with_finstack_config(&cfg)
+    .expect("valid config");
 
     // Serialize each and verify
     let _ = roundtrip_json(&discount_calibrator);

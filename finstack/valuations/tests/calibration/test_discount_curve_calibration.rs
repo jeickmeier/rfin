@@ -1,4 +1,3 @@
-#![allow(deprecated)]
 //! Integration tests for DiscountCurveCalibrator.
 //!
 //! Tests for discount curve bootstrapping including:
@@ -8,6 +7,7 @@
 //! - Negative rate environments
 //! - Extrapolation and day count configuration
 
+use finstack_core::config::FinstackConfig;
 use finstack_core::currency::Currency;
 use finstack_core::dates::{Date, DayCount, StubKind, Tenor};
 use finstack_core::market_data::context::MarketContext;
@@ -16,7 +16,7 @@ use finstack_core::math::interp::{ExtrapolationPolicy, InterpStyle};
 use finstack_core::money::Money;
 use finstack_valuations::calibration::methods::DiscountCurveCalibrator;
 use finstack_valuations::calibration::{
-    CalibrationConfig, Calibrator, MultiCurveConfig, RatesQuote,
+    Calibrator, MultiCurveConfig, RatesQuote, CALIBRATION_CONFIG_KEY_V1,
 };
 use finstack_valuations::instruments::common::traits::Instrument;
 use finstack_valuations::instruments::deposit::Deposit;
@@ -249,9 +249,20 @@ fn test_deposit_repricing_under_bootstrap() {
 fn test_fra_repricing_under_bootstrap() {
     // Use a business day as base_date (Thursday, January 2, 2025)
     let base_date = Date::from_calendar_date(2025, Month::January, 2).expect("Valid test date");
-    let config = CalibrationConfig::conservative();
-    let calibrator =
-        DiscountCurveCalibrator::new("USD-OIS", base_date, Currency::USD).with_config(config);
+    let mut cfg = FinstackConfig::default();
+    cfg.extensions.insert(
+        CALIBRATION_CONFIG_KEY_V1,
+        serde_json::json!({
+            "tolerance": 1e-12,
+            "max_iterations": 100,
+            "use_fd_sabr_gradients": true,
+            "rate_bounds_policy": "explicit",
+            "rate_bounds": { "min_rate": -0.05, "max_rate": 1.00 }
+        }),
+    );
+    let calibrator = DiscountCurveCalibrator::new("USD-OIS", base_date, Currency::USD)
+        .with_finstack_config(&cfg)
+        .expect("valid config");
 
     // Build quotes: deposits + one FRA
     let quotes = vec![
@@ -308,13 +319,22 @@ fn test_swap_repricing_under_bootstrap() {
     let base_date = Date::from_calendar_date(2025, Month::January, 1).expect("Valid test date");
 
     // Use conservative config for tighter convergence (1e-12 tolerance, 200 iterations)
-    let mut config = CalibrationConfig::conservative();
-    config.tolerance = 1e-12;
-    config.max_iterations = 200;
+    let mut cfg = FinstackConfig::default();
+    cfg.extensions.insert(
+        CALIBRATION_CONFIG_KEY_V1,
+        serde_json::json!({
+            "tolerance": 1e-12,
+            "max_iterations": 200,
+            "use_fd_sabr_gradients": true,
+            "rate_bounds_policy": "explicit",
+            "rate_bounds": { "min_rate": -0.05, "max_rate": 1.00 }
+        }),
+    );
 
     // Use T+0 settlement for test consistency
     let calibrator = DiscountCurveCalibrator::new("USD-OIS", base_date, Currency::USD)
-        .with_config(config)
+        .with_finstack_config(&cfg)
+        .expect("valid config")
         .with_settlement_days(0);
 
     // Quotes: deposits + one 1Y swap par rate

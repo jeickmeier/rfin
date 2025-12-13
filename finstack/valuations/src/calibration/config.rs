@@ -309,6 +309,9 @@ pub struct CalibrationConfigV1 {
     /// Solver type selection.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub solver_kind: Option<SolverKind>,
+    /// Use finite-difference gradients for SABR calibration instead of analytical approximations.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub use_fd_sabr_gradients: Option<bool>,
     /// Policy for selecting rate bounds.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub rate_bounds_policy: Option<RateBoundsPolicy>,
@@ -396,6 +399,9 @@ impl CalibrationConfig {
             if let Some(v) = overrides.solver_kind {
                 base.solver_kind = v;
             }
+            if let Some(v) = overrides.use_fd_sabr_gradients {
+                base.use_fd_sabr_gradients = v;
+            }
             if let Some(v) = overrides.rate_bounds_policy {
                 base.rate_bounds_policy = v;
             }
@@ -408,18 +414,6 @@ impl CalibrationConfig {
         }
 
         Ok(base)
-    }
-
-    /// Build a calibration config from a `FinstackConfig` extension section.
-    ///
-    /// **Deprecated**: Use [`from_finstack_config_or_default`] instead.
-    #[cfg(feature = "serde")]
-    #[deprecated(since = "0.1.0", note = "Use from_finstack_config_or_default instead")]
-    pub fn from_finstack_config(cfg: &FinstackConfig) -> serde_json::Result<Self> {
-        use serde::de::Error as _;
-        Self::from_finstack_config_or_default(cfg).map_err(|e| {
-            serde_json::Error::custom(e.to_string())
-        })
     }
 
     /// Build a calibration config from a `FinstackConfig` (non-serde fallback).

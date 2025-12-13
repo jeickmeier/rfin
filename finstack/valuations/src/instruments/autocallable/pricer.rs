@@ -81,18 +81,7 @@ impl AutocallableMcPricer {
         }
 
         let r = disc_curve.zero(t);
-        let t_as_of = disc_curve.day_count().year_fraction(
-            disc_curve.base_date(),
-            as_of,
-            DayCountCtx::default(),
-        )?;
-        let df_as_of = disc_curve.df(t_as_of);
-        let df_maturity = disc_curve.df(t_as_of + t);
-        let discount_factor = if df_as_of > 0.0 {
-            df_maturity / df_as_of
-        } else {
-            1.0
-        };
+        let discount_factor = disc_curve.try_df_between_dates(as_of, final_date)?;
 
         let q = if let Some(div_id) = &inst.div_yield_id {
             match curves.price(div_id.as_str()) {
@@ -143,9 +132,9 @@ impl AutocallableMcPricer {
         let df_ratios: Vec<f64> = observation_times
             .iter()
             .map(|&t_obs| {
-                let df_obs = disc_curve.df(t_as_of + t_obs.max(0.0));
-                if df_maturity > 0.0 {
-                    df_obs / df_maturity
+                let df_obs = disc_curve.df(t_obs.max(0.0));
+                if discount_factor > 0.0 {
+                    df_obs / discount_factor
                 } else {
                     1.0
                 }

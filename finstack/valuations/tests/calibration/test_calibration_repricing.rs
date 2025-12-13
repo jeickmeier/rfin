@@ -1,4 +1,3 @@
-#![allow(deprecated)]
 //! Calibration repricing tests with market-standard tolerance requirements.
 //!
 //! Verifies that calibrated curves can reprice input instruments to within specified tolerances.
@@ -22,13 +21,14 @@
 //! The OIS swap tolerance uses DV01-scaling because schedule differences affect the
 //! fixed leg annuity calculation, which scales with swap duration.
 
+use finstack_core::config::FinstackConfig;
 use finstack_core::currency::Currency;
 use finstack_core::dates::{Date, DayCount, Tenor};
 use finstack_core::market_data::context::MarketContext;
 use finstack_core::money::Money;
 use finstack_valuations::calibration::methods::discount::DiscountCurveCalibrator;
 use finstack_valuations::calibration::methods::forward_curve::ForwardCurveCalibrator;
-use finstack_valuations::calibration::{CalibrationConfig, Calibrator, RatesQuote};
+use finstack_valuations::calibration::{Calibrator, RatesQuote, CALIBRATION_CONFIG_KEY_V1};
 use finstack_valuations::instruments::common::traits::Instrument;
 use finstack_valuations::instruments::deposit::Deposit;
 use finstack_valuations::instruments::fra::ForwardRateAgreement;
@@ -77,15 +77,19 @@ fn test_discount_curve_swap_repricing() {
     let base_date = Date::from_calendar_date(2025, Month::January, 1).unwrap();
 
     // Use tight solver tolerance for calibration
-    let config = CalibrationConfig {
-        tolerance: 1e-12,
-        max_iterations: 200,
-        ..Default::default()
-    };
+    let mut cfg = FinstackConfig::default();
+    cfg.extensions.insert(
+        CALIBRATION_CONFIG_KEY_V1,
+        serde_json::json!({
+            "tolerance": 1e-12,
+            "max_iterations": 200
+        }),
+    );
 
     // Use T+0 settlement for consistency
     let calibrator = DiscountCurveCalibrator::new("USD-OIS", base_date, Currency::USD)
-        .with_config(config)
+        .with_finstack_config(&cfg)
+        .expect("valid config")
         .with_settlement_days(0);
 
     // Quotes: deposits + swaps of various tenors
@@ -190,15 +194,19 @@ fn test_discount_curve_deposit_repricing() {
     // to avoid holiday adjustment complications
     let base_date = Date::from_calendar_date(2025, Month::January, 2).unwrap();
 
-    let config = CalibrationConfig {
-        tolerance: 1e-12,
-        max_iterations: 200,
-        ..Default::default()
-    };
+    let mut cfg = FinstackConfig::default();
+    cfg.extensions.insert(
+        CALIBRATION_CONFIG_KEY_V1,
+        serde_json::json!({
+            "tolerance": 1e-12,
+            "max_iterations": 200
+        }),
+    );
 
     // Use T+0 settlement for tight repricing
     let calibrator = DiscountCurveCalibrator::new("USD-OIS", base_date, Currency::USD)
-        .with_config(config)
+        .with_finstack_config(&cfg)
+        .expect("valid config")
         .with_settlement_days(0);
 
     let deposit_quotes = vec![
@@ -286,14 +294,18 @@ fn test_forward_curve_fra_repricing() {
     let base_date = Date::from_calendar_date(2025, Month::January, 1).unwrap();
 
     // First calibrate discount curve
-    let disc_config = CalibrationConfig {
-        tolerance: 1e-12,
-        max_iterations: 200,
-        ..Default::default()
-    };
+    let mut disc_cfg = FinstackConfig::default();
+    disc_cfg.extensions.insert(
+        CALIBRATION_CONFIG_KEY_V1,
+        serde_json::json!({
+            "tolerance": 1e-12,
+            "max_iterations": 200
+        }),
+    );
 
-    let disc_calibrator =
-        DiscountCurveCalibrator::new("USD-OIS", base_date, Currency::USD).with_config(disc_config);
+    let disc_calibrator = DiscountCurveCalibrator::new("USD-OIS", base_date, Currency::USD)
+        .with_finstack_config(&disc_cfg)
+        .expect("valid config");
 
     let disc_quotes = vec![
         RatesQuote::Deposit {
@@ -318,15 +330,19 @@ fn test_forward_curve_fra_repricing() {
     let ctx_with_disc = base_context.insert_discount(disc_curve);
 
     // Now calibrate forward curve with FRAs
-    let fwd_config = CalibrationConfig {
-        tolerance: 1e-12,
-        max_iterations: 200,
-        ..Default::default()
-    };
+    let mut fwd_cfg = FinstackConfig::default();
+    fwd_cfg.extensions.insert(
+        CALIBRATION_CONFIG_KEY_V1,
+        serde_json::json!({
+            "tolerance": 1e-12,
+            "max_iterations": 200
+        }),
+    );
 
     let fwd_calibrator =
         ForwardCurveCalibrator::new("USD-SOFR-3M", 0.25, base_date, Currency::USD, "USD-OIS")
-            .with_config(fwd_config);
+            .with_finstack_config(&fwd_cfg)
+            .expect("valid config");
 
     let fra_quotes = vec![
         RatesQuote::FRA {

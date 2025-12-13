@@ -34,15 +34,9 @@ impl DiscountFactors {
     pub fn from_curve(
         curve: &dyn Discounting,
         dates: &[Date],
-        day_count: DayCount,
+        _day_count: DayCount,
         as_of: Date,
     ) -> Result<Self> {
-        let base_date = curve.base_date();
-
-        // Get discount factor at as_of for relative discounting
-        let t_as_of = day_count.year_fraction(base_date, as_of, DayCountCtx::default())?;
-        let df_as_of = curve.df(t_as_of);
-
         // Compute discount factors relative to as_of
         let mut factors = Vec::with_capacity(dates.len());
         for &date in dates {
@@ -51,14 +45,7 @@ impl DiscountFactors {
                 factors.push(1.0);
             } else {
                 // Future date - discount relative to as_of
-                let t = day_count.year_fraction(base_date, date, DayCountCtx::default())?;
-                let df_abs = curve.df(t);
-                let df_rel = if df_as_of > 0.0 {
-                    df_abs / df_as_of
-                } else {
-                    1.0
-                };
-                factors.push(df_rel);
+                factors.push(curve.try_df_between_dates(as_of, date).unwrap_or(1.0));
             }
         }
 
@@ -83,21 +70,13 @@ impl DiscountFactors {
     ) -> Result<Self> {
         let base_date = curve.base_date();
 
-        // Get discount factor at as_of for relative discounting
         let t_as_of = day_count.year_fraction(base_date, as_of, DayCountCtx::default())?;
-        let df_as_of = curve.df(t_as_of);
 
         // Compute discount factors for each time point
         let mut factors = Vec::with_capacity(time_points.len());
         for &t_rel in time_points {
             let t_abs = start_time + t_rel;
-            let df_abs = curve.df(t_abs);
-            let df_rel = if df_as_of > 0.0 {
-                df_abs / df_as_of
-            } else {
-                1.0
-            };
-            factors.push(df_rel);
+            factors.push(curve.try_df_between_times(t_as_of, t_abs).unwrap_or(1.0));
         }
 
         Ok(Self { factors })
@@ -376,7 +355,7 @@ pub fn compute_upfront_fee_pv(
     commitment_date: Date,
     as_of: Date,
     disc_curve: &dyn Discounting,
-    day_count: DayCount,
+    _day_count: DayCount,
 ) -> Result<f64> {
     let upfront_fee = match upfront_fee_opt {
         Some(fee) => fee,
@@ -385,19 +364,9 @@ pub fn compute_upfront_fee_pv(
 
     if commitment_date > as_of {
         // Discount from commitment date to as_of
-        let base_date = disc_curve.base_date();
-
-        let t_commitment =
-            day_count.year_fraction(base_date, commitment_date, DayCountCtx::default())?;
-        let t_as_of = day_count.year_fraction(base_date, as_of, DayCountCtx::default())?;
-
-        let df_commitment = disc_curve.df(t_commitment);
-        let df_as_of = disc_curve.df(t_as_of);
-        let df = if df_as_of > 0.0 {
-            df_commitment / df_as_of
-        } else {
-            1.0
-        };
+        let df = disc_curve
+            .try_df_between_dates(as_of, commitment_date)
+            .unwrap_or(1.0);
 
         Ok(upfront_fee.amount() * df)
     } else {

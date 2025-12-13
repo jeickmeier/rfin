@@ -414,13 +414,18 @@ impl DiscountCurve {
         }
 
         let df_from = self.try_df_on_date_curve(from)?;
-        if !df_from.is_finite() || df_from == 0.0 {
+        if !df_from.is_finite() || df_from <= 0.0 {
             return Err(crate::Error::Validation(format!(
                 "Invalid discount factor on 'from' date ({from}): {df_from}"
             )));
         }
 
         let df_to = self.try_df_on_date_curve(to)?;
+        if !df_to.is_finite() || df_to <= 0.0 {
+            return Err(crate::Error::Validation(format!(
+                "Invalid discount factor on 'to' date ({to}): {df_to}"
+            )));
+        }
         Ok(df_to / df_from)
     }
 
@@ -1298,6 +1303,56 @@ mod tests {
         let yc = sample_curve_log();
         let mid = yc.df(0.5);
         assert!(mid < 1.0 && mid > 0.98);
+    }
+
+    #[test]
+    fn df_between_dates_returns_one_when_equal() {
+        let yc = sample_curve_linear();
+        let d = yc.base_date();
+        let df = yc
+            .try_df_between_dates(d, d)
+            .expect("df_between_dates should be defined for equal dates");
+        assert_eq!(df, 1.0);
+    }
+
+    #[test]
+    fn df_between_dates_matches_on_date_ratio() {
+        let yc = sample_curve_linear();
+        let base = yc.base_date();
+        let from = base + time::Duration::days(180);
+        let to = base + time::Duration::days(540);
+
+        let df_from = yc
+            .try_df_on_date_curve(from)
+            .expect("df(from) should be defined");
+        let df_to = yc.try_df_on_date_curve(to).expect("df(to) should be defined");
+        let expected = df_to / df_from;
+
+        let actual = yc
+            .try_df_between_dates(from, to)
+            .expect("df_between_dates should be defined");
+        assert!(
+            (actual - expected).abs() < 1e-12,
+            "Expected df_between_dates({from}->{to})={expected}, got {actual}"
+        );
+    }
+
+    #[test]
+    fn df_between_dates_validates_non_finite_and_non_positive() {
+        let base =
+            Date::from_calendar_date(2025, time::Month::June, 30).expect("Valid test date");
+        let yc = DiscountCurve::builder("USD-OIS")
+            .base_date(base)
+            .knots([(0.0, 1.0), (1.0, f64::NAN), (2.0, 0.95)])
+            .set_interp(InterpStyle::Linear)
+            .build()
+            .expect("Builder allows NaN values; validation is deferred to helpers");
+
+        let from = base + time::Duration::days(365);
+        let to = base + time::Duration::days(730);
+
+        assert!(yc.try_df_between_dates(base, from).is_err());
+        assert!(yc.try_df_between_dates(from, to).is_err());
     }
 
     #[test]

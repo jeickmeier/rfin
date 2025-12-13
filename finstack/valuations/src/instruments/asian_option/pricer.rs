@@ -96,18 +96,12 @@ impl AsianOptionMcPricer {
         // Get discount curve
         let disc_curve = curves.get_discount_ref(inst.discount_curve_id.as_str())?;
         let r = disc_curve.zero(t);
-        let t_as_of = disc_curve.day_count().year_fraction(
-            disc_curve.base_date(),
-            as_of,
-            DayCountCtx::default(),
-        )?;
-        let df_as_of = disc_curve.df(t_as_of);
-        let df_maturity = disc_curve.df(t_as_of + t);
-        let discount_factor = if df_as_of > 0.0 {
-            df_maturity / df_as_of
-        } else {
-            1.0
-        };
+        let maturity_date = inst
+            .fixing_dates
+            .last()
+            .copied()
+            .unwrap_or(inst.fixing_dates[0]);
+        let discount_factor = disc_curve.try_df_between_dates(as_of, maturity_date)?;
 
         // Get spot
         let spot_scalar = curves.price(&inst.spot_id)?;
@@ -550,18 +544,12 @@ impl AsianOptionMcPricer {
 
         let disc_curve = curves.get_discount_ref(inst.discount_curve_id.as_str())?;
         let r = disc_curve.zero(t);
-        let t_as_of = disc_curve.day_count().year_fraction(
-            disc_curve.base_date(),
-            as_of,
-            DayCountCtx::default(),
-        )?;
-        let df_as_of = disc_curve.df(t_as_of);
-        let df_maturity = disc_curve.df(t_as_of + t);
-        let discount_factor = if df_as_of > 0.0 {
-            df_maturity / df_as_of
-        } else {
-            1.0
-        };
+        let maturity_date = inst
+            .fixing_dates
+            .last()
+            .copied()
+            .unwrap_or(inst.fixing_dates[0]);
+        let discount_factor = disc_curve.try_df_between_dates(as_of, maturity_date)?;
 
         let spot_scalar = curves.price(&inst.spot_id)?;
         let spot = match spot_scalar {

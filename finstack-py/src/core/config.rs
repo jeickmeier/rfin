@@ -17,7 +17,7 @@ use pyo3::basic::CompareOp;
 use pyo3::exceptions::PyTypeError;
 use pyo3::prelude::*;
 // use pyo3::FromPyObject; // only needed at call sites using .extract()
-use pyo3::types::{PyAnyMethods, PyList, PyModule, PyModuleMethods, PyType};
+use pyo3::types::{PyAnyMethods, PyDict, PyList, PyModule, PyModuleMethods, PyType};
 use pyo3::Bound;
 use std::collections::HashMap;
 use std::fmt;
@@ -320,6 +320,62 @@ impl PyFinstackConfig {
     #[getter]
     fn numeric_mode(&self) -> PyNumericMode {
         PyNumericMode::new(NUMERIC_MODE)
+    }
+
+    /// Set an extension section in the configuration.
+    ///
+    /// Parameters
+    /// ----------
+    /// key : str
+    ///     Extension key (e.g., "valuations.calibration.v1")
+    /// value : dict or any JSON-serializable value
+    ///     Extension configuration value
+    ///
+    /// Returns
+    /// -------
+    /// None
+    #[pyo3(text_signature = "(self, key, value)")]
+    fn set_extension(&mut self, key: &str, value: Bound<'_, PyAny>) -> PyResult<()> {
+        let json_value = py_to_json_value(&value)?;
+        self.inner.extensions.insert(key.to_string(), json_value);
+        Ok(())
+    }
+}
+
+/// Helper to convert PyAny to serde_json::Value
+fn py_to_json_value(value: &Bound<'_, PyAny>) -> PyResult<serde_json::Value> {
+    if value.is_none() {
+        Ok(serde_json::Value::Null)
+    } else if let Ok(b) = value.extract::<bool>() {
+        // Check bool before numbers (bool is a subtype of int in Python)
+        Ok(serde_json::json!(b))
+    } else if let Ok(i) = value.extract::<i64>() {
+        Ok(serde_json::json!(i))
+    } else if let Ok(f) = value.extract::<f64>() {
+        Ok(serde_json::json!(f))
+    } else if let Ok(s) = value.extract::<String>() {
+        Ok(serde_json::json!(s))
+    } else if let Ok(dict) = value.downcast::<PyDict>() {
+        // Handle dictionaries recursively
+        let mut map = serde_json::Map::new();
+        for (key, val) in dict.iter() {
+            let key_str = key.extract::<String>()?;
+            let val_json = py_to_json_value(&val)?;
+            map.insert(key_str, val_json);
+        }
+        Ok(serde_json::Value::Object(map))
+    } else if let Ok(list) = value.downcast::<PyList>() {
+        // Handle lists recursively
+        let mut arr = Vec::new();
+        for item in list.iter() {
+            arr.push(py_to_json_value(&item)?);
+        }
+        Ok(serde_json::Value::Array(arr))
+    } else {
+        let type_name = value.get_type().name()?.to_string();
+        Err(PyTypeError::new_err(format!(
+            "Value is not JSON-serializable (got {type_name})"
+        )))
     }
 }
 

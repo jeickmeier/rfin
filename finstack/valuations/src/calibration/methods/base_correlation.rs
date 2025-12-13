@@ -167,15 +167,6 @@ impl BaseCorrelationCalibrator {
         Ok(self)
     }
 
-    /// Set calibration configuration directly.
-    ///
-    /// **Deprecated**: Use [`with_finstack_config`] instead.
-    #[deprecated(since = "0.4.0", note = "Use with_finstack_config instead")]
-    pub fn with_config(mut self, config: CalibrationConfig) -> Self {
-        self.config = config;
-        self
-    }
-
     /// Internal: set calibration config directly (used for sub-calibrator construction).
     pub(crate) fn with_config_internal(mut self, config: CalibrationConfig) -> Self {
         self.config = config;
@@ -723,15 +714,6 @@ impl BaseCorrelationSurfaceCalibrator {
     pub fn with_finstack_config(mut self, cfg: &FinstackConfig) -> Result<Self> {
         self.config = CalibrationConfig::from_finstack_config_or_default(cfg)?;
         Ok(self)
-    }
-
-    /// Set calibration configuration directly.
-    ///
-    /// **Deprecated**: Use [`with_finstack_config`] instead.
-    #[deprecated(since = "0.4.0", note = "Use with_finstack_config instead")]
-    pub fn with_config(mut self, config: CalibrationConfig) -> Self {
-        self.config = config;
-        self
     }
 
     /// Set the discount curve identifier used when pricing synthetic tranches.

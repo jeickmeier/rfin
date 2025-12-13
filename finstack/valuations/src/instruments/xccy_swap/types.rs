@@ -272,14 +272,6 @@ impl XccySwap {
         let cal = leg.resolve_calendar(&self.id)?;
 
         let dc_ctx = DayCountCtx::default();
-        let disc_dc = disc.day_count();
-        let t_as_of = disc_dc.year_fraction(disc.base_date(), as_of, dc_ctx)?;
-        let df_as_of = disc.df(t_as_of);
-        if !df_as_of.is_finite() || df_as_of <= 0.0 {
-            return Err(finstack_core::Error::Validation(
-                "Non-finite/invalid discount factor at as_of date".to_string(),
-            ));
-        }
 
         let mut pv = 0.0;
 
@@ -287,9 +279,7 @@ impl XccySwap {
         if matches!(self.notional_exchange, NotionalExchange::InitialAndFinal)
             && self.start_date > as_of
         {
-            let t_start = disc_dc.year_fraction(disc.base_date(), self.start_date, dc_ctx)?;
-            let df_start_abs = disc.df(t_start);
-            let df = df_start_abs / df_as_of;
+            let df = disc.try_df_between_dates(as_of, self.start_date)?;
             pv += leg.side.initial_principal_sign() * leg.notional.amount() * df;
         }
 
@@ -298,9 +288,7 @@ impl XccySwap {
             NotionalExchange::Final | NotionalExchange::InitialAndFinal
         ) && self.maturity_date > as_of
         {
-            let t_end = disc_dc.year_fraction(disc.base_date(), self.maturity_date, dc_ctx)?;
-            let df_end_abs = disc.df(t_end);
-            let df = df_end_abs / df_as_of;
+            let df = disc.try_df_between_dates(as_of, self.maturity_date)?;
             pv += leg.side.final_principal_sign() * leg.notional.amount() * df;
         }
 
@@ -339,9 +327,7 @@ impl XccySwap {
                 .year_fraction(period_start, period_end, dc_ctx)?;
             let coupon = leg.side.coupon_sign() * leg.notional.amount() * total_rate * year_frac;
 
-            let t_pmt = disc_dc.year_fraction(disc.base_date(), payment_date, dc_ctx)?;
-            let df_pmt_abs = disc.df(t_pmt);
-            let df = df_pmt_abs / df_as_of;
+            let df = disc.try_df_between_dates(as_of, payment_date)?;
             pv += coupon * df;
         }
 

@@ -110,15 +110,7 @@ pub(in crate::instruments::irs) fn relative_df(
     as_of: Date,
     target: Date,
 ) -> Result<f64> {
-    let disc_dc = disc.day_count();
-    let base = disc.base_date();
-
-    let t_as_of =
-        disc_dc.year_fraction(base, as_of, finstack_core::dates::DayCountCtx::default())?;
-    let t_target =
-        disc_dc.year_fraction(base, target, finstack_core::dates::DayCountCtx::default())?;
-
-    let df_as_of = disc.df(t_as_of);
+    let df_as_of = disc.try_df_on_date_curve(as_of)?;
 
     // Guard against near-zero discount factors for numerical stability
     if df_as_of.abs() < DF_EPSILON {
@@ -129,8 +121,7 @@ pub(in crate::instruments::irs) fn relative_df(
         )));
     }
 
-    let df_target = disc.df(t_target);
-    Ok(df_target / df_as_of)
+    disc.try_df_between_dates(as_of, target)
 }
 
 impl InterestRateSwap {

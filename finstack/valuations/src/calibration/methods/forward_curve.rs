@@ -29,7 +29,7 @@
 //! - Negative rate environments (EUR, JPY, CHF): [-5%, 30%]
 //! - Emerging markets (TRY, ARS): [-5%, 200%]
 //!
-//! Use `with_config()` with a custom `CalibrationConfig` to set appropriate bounds.
+//! Use `with_finstack_config()` with a `FinstackConfig` containing calibration extensions to set appropriate bounds.
 //!
 //! # Convexity Adjustment
 //!
@@ -59,12 +59,19 @@
 //! ## Emerging Market with Custom Bounds
 //!
 //! ```ignore
+//! use finstack_core::config::FinstackConfig;
 //! use finstack_valuations::calibration::methods::ForwardCurveCalibrator;
-//! use finstack_valuations::calibration::{CalibrationConfig, RateBounds};
+//! use finstack_valuations::calibration::CALIBRATION_CONFIG_KEY_V1;
 //!
 //! // Create calibrator for emerging market with appropriate rate bounds
-//! let config = CalibrationConfig::default()
-//!     .with_rate_bounds_for_currency(Currency::TRY);
+//! let mut cfg = FinstackConfig::default();
+//! cfg.extensions.insert(
+//!     CALIBRATION_CONFIG_KEY_V1,
+//!     serde_json::json!({
+//!         "rate_bounds_policy": "explicit",
+//!         "rate_bounds": { "min_rate": -0.05, "max_rate": 2.00 }
+//!     })
+//! );
 //!
 //! let calibrator = ForwardCurveCalibrator::new(
 //!     "TRY-TRLIBOR-3M-FWD",
@@ -73,7 +80,7 @@
 //!     Currency::TRY,
 //!     "TRY-OIS-DISC",
 //! )
-//! .with_config(config);
+//! .with_finstack_config(&cfg)?;
 //!
 //! let (curve, report) = calibrator.calibrate(&quotes, &context)?;
 //! ```
@@ -260,15 +267,6 @@ impl ForwardCurveCalibrator {
     pub fn with_finstack_config(mut self, cfg: &FinstackConfig) -> Result<Self> {
         self.config = CalibrationConfig::from_finstack_config_or_default(cfg)?;
         Ok(self)
-    }
-
-    /// Set calibration configuration directly.
-    ///
-    /// **Deprecated**: Use [`with_finstack_config`] instead.
-    #[deprecated(since = "0.4.0", note = "Use with_finstack_config instead")]
-    pub fn with_config(mut self, config: CalibrationConfig) -> Self {
-        self.config = config;
-        self
     }
 
     /// Set an optional calendar identifier for schedule generation and business day adjustments.

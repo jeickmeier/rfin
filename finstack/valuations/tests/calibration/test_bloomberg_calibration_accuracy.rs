@@ -1,4 +1,3 @@
-#![allow(deprecated)]
 //! Bloomberg calibration accuracy tests.
 //!
 //! Validates calibrated curves against Bloomberg reference data to ensure
@@ -55,11 +54,12 @@
 //!    for risk management).
 //! 3. Future enhancement: Add `payment_delay_days` to leg specs for exact matching.
 
+use finstack_core::config::FinstackConfig;
 use finstack_core::currency::Currency;
 use finstack_core::dates::{Date, DayCount, DayCountCtx, Tenor};
 use finstack_core::market_data::context::MarketContext;
 use finstack_valuations::calibration::methods::discount::DiscountCurveCalibrator;
-use finstack_valuations::calibration::{CalibrationConfig, Calibrator, RatesQuote};
+use finstack_valuations::calibration::{Calibrator, RatesQuote, CALIBRATION_CONFIG_KEY_V1};
 use time::Month;
 
 /// Test calibration accuracy against Bloomberg USD OIS curve data.
@@ -520,11 +520,17 @@ fn test_bloomberg_usd_ois_calibration_accuracy() {
     // Enforce market-standard calibration accuracy (internal consistency).
     // This is separate from Bloomberg matching tolerances, which also include convention
     // and interpolation/extrapolation differences.
-    let config = CalibrationConfig::default()
-        .with_tolerance(1e-10)
-        .with_max_iterations(200);
-    let calibrator =
-        DiscountCurveCalibrator::new("USD-OIS", base_date, Currency::USD).with_config(config);
+    let mut cfg = FinstackConfig::default();
+    cfg.extensions.insert(
+        CALIBRATION_CONFIG_KEY_V1,
+        serde_json::json!({
+            "tolerance": 1e-10,
+            "max_iterations": 200
+        }),
+    );
+    let calibrator = DiscountCurveCalibrator::new("USD-OIS", base_date, Currency::USD)
+        .with_finstack_config(&cfg)
+        .expect("valid config");
     let base_context = MarketContext::new();
 
     let (curve, report) = calibrator

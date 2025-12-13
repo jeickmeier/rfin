@@ -192,15 +192,6 @@ impl HazardCurveCalibrator {
         Ok(self)
     }
 
-    /// Set calibration configuration directly.
-    ///
-    /// **Deprecated**: Use [`with_finstack_config`] instead.
-    #[deprecated(since = "0.4.0", note = "Use with_finstack_config instead")]
-    pub fn with_config(mut self, config: CalibrationConfig) -> Self {
-        self.config = config;
-        self
-    }
-
     /// Set the interpolation used for reporting par spreads from the hazard curve.
     #[must_use]
     pub fn with_par_interp(mut self, method: ParInterp) -> Self {

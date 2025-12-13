@@ -111,6 +111,19 @@ impl JsFinstackConfig {
             .overrides
             .insert(currency.inner(), decimals);
     }
+
+    /// Set an extension section in the configuration.
+    ///
+    /// @param {string} key - Extension key (e.g., "valuations.calibration.v1")
+    /// @param {any} value - Extension configuration value (must be JSON-serializable)
+    #[wasm_bindgen(js_name = setExtension)]
+    pub fn set_extension(&mut self, key: &str, value: JsValue) -> Result<(), JsValue> {
+        use serde_json::Value as JsonValue;
+        let json_value: JsonValue = serde_wasm_bindgen::from_value(value)
+            .map_err(|e| JsValue::from_str(&format!("Failed to convert value to JSON: {}", e)))?;
+        self.inner.extensions.insert(key.to_string(), json_value);
+        Ok(())
+    }
 }
 
 impl JsFinstackConfig {

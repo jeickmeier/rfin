@@ -387,15 +387,6 @@ impl HullWhiteCalibrator {
         Ok(self)
     }
 
-    /// Set calibration configuration directly.
-    ///
-    /// **Deprecated**: Use [`with_finstack_config`] instead.
-    #[deprecated(since = "0.4.0", note = "Use with_finstack_config instead")]
-    pub fn with_config(mut self, config: HullWhiteCalibrationConfig) -> Self {
-        self.config = config;
-        self
-    }
-
     /// Set leg frequencies.
     pub fn with_frequencies(mut self, fixed_freq: Tenor, float_freq: Tenor) -> Self {
         self.fixed_freq = fixed_freq;
@@ -858,9 +849,14 @@ mod tests {
     #[test]
     fn test_calibrate_with_fixed_kappa() {
         let base_date = Date::from_calendar_date(2025, Month::January, 1).expect("Valid date");
-        let config = HullWhiteCalibrationConfig::with_fixed_kappa(0.03);
-        let calibrator =
-            HullWhiteCalibrator::new(base_date, "USD-OIS", DayCount::Act365F).with_config(config);
+        let mut cfg = FinstackConfig::default();
+        cfg.extensions.insert(
+            HULL_WHITE_CALIBRATION_CONFIG_KEY_V1,
+            serde_json::json!({ "fix_kappa": 0.03 }),
+        );
+        let calibrator = HullWhiteCalibrator::new(base_date, "USD-OIS", DayCount::Act365F)
+            .with_finstack_config(&cfg)
+            .expect("valid config");
 
         // Just verify the calibrator setup works
         assert_eq!(calibrator.config.fix_kappa, Some(0.03));

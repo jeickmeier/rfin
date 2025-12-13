@@ -192,30 +192,8 @@ impl ForwardRateAgreement {
             fwd.rate_period(t_start, t_end)
         };
 
-        // Discount from as_of date for correct theta calculation
-        let disc_dc = disc.day_count();
-        let t_settle_from_as_of = disc_dc
-            .year_fraction(
-                as_of,
-                self.start_date,
-                finstack_core::dates::DayCountCtx::default(),
-            )
-            .unwrap_or(0.0);
-        let t_as_of_from_base = disc_dc
-            .year_fraction(
-                disc.base_date(),
-                as_of,
-                finstack_core::dates::DayCountCtx::default(),
-            )
-            .unwrap_or(0.0);
-
-        let df_as_of = disc.df(t_as_of_from_base);
-        let df_settle_abs = disc.df(t_as_of_from_base + t_settle_from_as_of);
-        let df_settlement = if df_as_of != 0.0 {
-            df_settle_abs / df_as_of
-        } else {
-            1.0
-        };
+        // Discount from as_of date for correct theta calculation.
+        let df_settlement = disc.try_df_between_dates(as_of, self.start_date)?;
 
         // Market-standard FRA settlement at period start includes the
         // settlement discounting adjustment 1 / (1 + F * tau).

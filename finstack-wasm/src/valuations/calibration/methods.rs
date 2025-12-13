@@ -1,9 +1,8 @@
-#![allow(deprecated)]
 //! Calibration method bindings for WASM.
 
-use super::config::JsCalibrationConfig;
 use super::quote::{JsCreditQuote, JsInflationQuote, JsRatesQuote, JsVolQuote};
 use super::report::JsCalibrationReport;
+use crate::core::config::JsFinstackConfig;
 use crate::core::dates::FsDate;
 use crate::core::market_data::context::JsMarketContext;
 use crate::core::market_data::term_structures::{
@@ -72,11 +71,12 @@ impl JsDiscountCurveCalibrator {
     /// const calibrator = new DiscountCurveCalibrator("USD-OIS", baseDate, "USD")
     ///   .withConfig(config);
     /// ```
-    #[wasm_bindgen(js_name = withConfig)]
-    pub fn with_config(&self, config: &JsCalibrationConfig) -> JsDiscountCurveCalibrator {
-        Self {
-            inner: self.inner.clone().with_config(config.inner()),
-        }
+    #[wasm_bindgen(js_name = withFinstackConfig)]
+    pub fn with_finstack_config(&self, config: &JsFinstackConfig) -> Result<JsDiscountCurveCalibrator, JsValue> {
+        let inner = self.inner.clone()
+            .with_finstack_config(config.inner())
+            .map_err(|e| JsValue::from_str(&e.to_string()))?;
+        Ok(Self { inner })
     }
 
     /// Calibrate the discount curve to market quotes.
@@ -157,12 +157,13 @@ impl JsForwardCurveCalibrator {
         })
     }
 
-    /// Set calibration configuration.
-    #[wasm_bindgen(js_name = withConfig)]
-    pub fn with_config(&self, config: &JsCalibrationConfig) -> JsForwardCurveCalibrator {
-        Self {
-            inner: self.inner.clone().with_config(config.inner()),
-        }
+    /// Set calibration configuration from a FinstackConfig.
+    #[wasm_bindgen(js_name = withFinstackConfig)]
+    pub fn with_finstack_config(&self, config: &JsFinstackConfig) -> Result<JsForwardCurveCalibrator, JsValue> {
+        let inner = self.inner.clone()
+            .with_finstack_config(config.inner())
+            .map_err(|e| JsValue::from_str(&e.to_string()))?;
+        Ok(Self { inner })
     }
 
     /// Calibrate to market quotes.
@@ -235,12 +236,13 @@ impl JsHazardCurveCalibrator {
         Ok(Self { inner })
     }
 
-    /// Set calibration configuration.
-    #[wasm_bindgen(js_name = withConfig)]
-    pub fn with_config(&self, config: &JsCalibrationConfig) -> JsHazardCurveCalibrator {
-        Self {
-            inner: self.inner.clone().with_config(config.inner()),
-        }
+    /// Set calibration configuration from a FinstackConfig.
+    #[wasm_bindgen(js_name = withFinstackConfig)]
+    pub fn with_finstack_config(&self, config: &JsFinstackConfig) -> Result<JsHazardCurveCalibrator, JsValue> {
+        let inner = self.inner.clone()
+            .with_finstack_config(config.inner())
+            .map_err(|e| JsValue::from_str(&e.to_string()))?;
+        Ok(Self { inner })
     }
 
     /// Calibrate to credit quotes.
@@ -298,12 +300,13 @@ impl JsInflationCurveCalibrator {
         })
     }
 
-    /// Set calibration configuration.
-    #[wasm_bindgen(js_name = withConfig)]
-    pub fn with_config(&self, config: &JsCalibrationConfig) -> JsInflationCurveCalibrator {
-        Self {
-            inner: self.inner.clone().with_config(config.inner()),
-        }
+    /// Set calibration configuration from a FinstackConfig.
+    #[wasm_bindgen(js_name = withFinstackConfig)]
+    pub fn with_finstack_config(&self, config: &JsFinstackConfig) -> Result<JsInflationCurveCalibrator, JsValue> {
+        let inner = self.inner.clone()
+            .with_finstack_config(config.inner())
+            .map_err(|e| JsValue::from_str(&e.to_string()))?;
+        Ok(Self { inner })
     }
 
     /// Calibrate to inflation quotes.
@@ -367,12 +370,13 @@ impl JsVolSurfaceCalibrator {
         }
     }
 
-    /// Set calibration configuration.
-    #[wasm_bindgen(js_name = withConfig)]
-    pub fn with_config(&self, config: &JsCalibrationConfig) -> JsVolSurfaceCalibrator {
-        Self {
-            inner: self.inner.clone().with_config(config.inner()),
-        }
+    /// Set calibration configuration from a FinstackConfig.
+    #[wasm_bindgen(js_name = withFinstackConfig)]
+    pub fn with_finstack_config(&self, config: &JsFinstackConfig) -> Result<JsVolSurfaceCalibrator, JsValue> {
+        let inner = self.inner.clone()
+            .with_finstack_config(config.inner())
+            .map_err(|e| JsValue::from_str(&e.to_string()))?;
+        Ok(Self { inner })
     }
 
     /// Set discount curve identifier.
@@ -464,11 +468,12 @@ impl JsBaseCorrelationCalibrator {
     /// const calibrator = new BaseCorrelationCalibrator("CDX.NA.IG.42", 42, 5.0, baseDate)
     ///   .withConfig(config);
     /// ```
-    #[wasm_bindgen(js_name = withConfig)]
-    pub fn with_config(&self, config: &JsCalibrationConfig) -> JsBaseCorrelationCalibrator {
-        Self {
-            inner: self.inner.clone().with_config(config.inner()),
-        }
+    #[wasm_bindgen(js_name = withFinstackConfig)]
+    pub fn with_finstack_config(&self, config: &JsFinstackConfig) -> Result<JsBaseCorrelationCalibrator, JsValue> {
+        let inner = self.inner.clone()
+            .with_finstack_config(config.inner())
+            .map_err(|e| JsValue::from_str(&e.to_string()))?;
+        Ok(Self { inner })
     }
 
     /// Set the discount curve identifier for calibration.

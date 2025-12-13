@@ -1,8 +1,8 @@
-#![allow(deprecated)]
-use super::config::{PyCalibrationConfig, PyCalibrationMethod, PyMultiCurveConfig};
+use super::config::{PyCalibrationMethod, PyMultiCurveConfig};
 use super::quote::{PyCreditQuote, PyInflationQuote, PyRatesQuote, PyVolQuote};
 use super::report::PyCalibrationReport;
 use crate::core::common::args::{CurrencyArg, DayCountArg, ExtrapolationPolicyArg, InterpStyleArg};
+use crate::core::config::PyFinstackConfig;
 use crate::core::dates::utils::py_to_date;
 use crate::core::market_data::context::PyMarketContext;
 use crate::core::market_data::surfaces::PyVolSurface;
@@ -153,9 +153,13 @@ impl PyDiscountCurveCalibrator {
     }
 
     #[pyo3(text_signature = "(self, config)")]
-    fn with_config(&self, config: PyRef<PyCalibrationConfig>) -> Self {
-        let inner = self.inner.clone().with_config(config.inner.clone());
-        Self::new(inner)
+    fn with_finstack_config(&self, config: PyRef<PyFinstackConfig>) -> PyResult<Self> {
+        let inner = self
+            .inner
+            .clone()
+            .with_finstack_config(&config.inner)
+            .map_err(core_to_py)?;
+        Ok(Self::new(inner))
     }
 
     #[pyo3(text_signature = "(self, multi_curve)")]
@@ -344,8 +348,13 @@ impl PyForwardCurveCalibrator {
     }
 
     #[pyo3(text_signature = "(self, config)")]
-    fn with_config(&self, config: PyRef<PyCalibrationConfig>) -> Self {
-        Self::new(self.inner.clone().with_config(config.inner.clone()))
+    fn with_finstack_config(&self, config: PyRef<PyFinstackConfig>) -> PyResult<Self> {
+        let inner = self
+            .inner
+            .clone()
+            .with_finstack_config(&config.inner)
+            .map_err(core_to_py)?;
+        Ok(Self::new(inner))
     }
 
     #[pyo3(text_signature = "(self, interp)")]
@@ -430,8 +439,13 @@ impl PyHazardCurveCalibrator {
     }
 
     #[pyo3(text_signature = "(self, config)")]
-    fn with_config(&self, config: PyRef<PyCalibrationConfig>) -> Self {
-        Self::new(self.inner.clone().with_config(config.inner.clone()))
+    fn with_finstack_config(&self, config: PyRef<PyFinstackConfig>) -> PyResult<Self> {
+        let inner = self
+            .inner
+            .clone()
+            .with_finstack_config(&config.inner)
+            .map_err(core_to_py)?;
+        Ok(Self::new(inner))
     }
 
     #[pyo3(text_signature = "(self, interpolation)")]
@@ -515,8 +529,13 @@ impl PyInflationCurveCalibrator {
     }
 
     #[pyo3(text_signature = "(self, config)")]
-    fn with_config(&self, config: PyRef<PyCalibrationConfig>) -> Self {
-        Self::new(self.inner.clone().with_config(config.inner.clone()))
+    fn with_finstack_config(&self, config: PyRef<PyFinstackConfig>) -> PyResult<Self> {
+        let inner = self
+            .inner
+            .clone()
+            .with_finstack_config(&config.inner)
+            .map_err(core_to_py)?;
+        Ok(Self::new(inner))
     }
 
     #[pyo3(text_signature = "(self, interp)")]
@@ -657,8 +676,13 @@ impl PyVolSurfaceCalibrator {
     }
 
     #[pyo3(text_signature = "(self, config)")]
-    fn with_config(&self, config: PyRef<PyCalibrationConfig>) -> Self {
-        Self::new(self.inner.clone().with_config(config.inner.clone()))
+    fn with_finstack_config(&self, config: PyRef<PyFinstackConfig>) -> PyResult<Self> {
+        let inner = self
+            .inner
+            .clone()
+            .with_finstack_config(&config.inner)
+            .map_err(core_to_py)?;
+        Ok(Self::new(inner))
     }
 
     #[pyo3(text_signature = "(self, currency)")]
@@ -823,15 +847,20 @@ impl PyBaseCorrelationCalibrator {
     }
 
     #[pyo3(text_signature = "(self, config)")]
-    /// Set calibration configuration.
+    /// Set calibration configuration from a FinstackConfig.
     ///
     /// Args:
-    ///     config: Calibration configuration for solver tolerances and settings
+    ///     config: FinstackConfig with calibration extensions
     ///
     /// Returns:
     ///     BaseCorrelationCalibrator: Updated calibrator
-    fn with_config(&self, config: PyRef<PyCalibrationConfig>) -> Self {
-        Self::new(self.inner.clone().with_config(config.inner.clone()))
+    fn with_finstack_config(&self, config: PyRef<PyFinstackConfig>) -> PyResult<Self> {
+        let inner = self
+            .inner
+            .clone()
+            .with_finstack_config(&config.inner)
+            .map_err(core_to_py)?;
+        Ok(Self::new(inner))
     }
 
     #[pyo3(text_signature = "(self, points)")]

@@ -10,7 +10,7 @@
 //! - **Concrete types preferred**: Most methods live on concrete curve types
 //! - **Zero-cost abstraction**: Trait objects use dynamic dispatch only when needed
 
-use crate::dates::{Date, DayCount};
+use crate::dates::{Date, DayCount, DayCountCtx};
 
 // -----------------------------------------------------------------------------
 // Minimal traits for polymorphism only
@@ -68,6 +68,90 @@ pub trait Discounting: TermStructure {
     /// accrual day count.
     fn day_count(&self) -> DayCount {
         DayCount::Act365F
+    }
+
+    /// Fallible: discount factor from `from` to `to` using the curve's day-count.
+    ///
+    /// Canonical helper for the common "relative DF" pattern:
+    /// `DF(from→to) = DF(0→to) / DF(0→from)`.
+    ///
+    /// Returns `1.0` when `from == to`.
+    #[inline]
+    fn try_df_between_dates(&self, from: Date, to: Date) -> crate::Result<f64> {
+        if from == to {
+            return Ok(1.0);
+        }
+
+        let dc = self.day_count();
+        let base = self.base_date();
+
+        let t_from = dc.year_fraction(base, from, DayCountCtx::default())?;
+        let df_from = self.df(t_from);
+        if !df_from.is_finite() || df_from <= 0.0 {
+            return Err(crate::Error::Validation(format!(
+                "Invalid discount factor on 'from' date ({from}): {df_from}"
+            )));
+        }
+
+        let t_to = dc.year_fraction(base, to, DayCountCtx::default())?;
+        let df_to = self.df(t_to);
+        if !df_to.is_finite() || df_to <= 0.0 {
+            return Err(crate::Error::Validation(format!(
+                "Invalid discount factor on 'to' date ({to}): {df_to}"
+            )));
+        }
+
+        Ok(df_to / df_from)
+    }
+
+    /// Discount factor from `from` to `to` using the curve's day-count.
+    ///
+    /// Panics if day-count conversion fails or if either discount factor is invalid.
+    /// Prefer [`try_df_between_dates`](Self::try_df_between_dates) for error handling.
+    #[inline]
+    fn df_between_dates(&self, from: Date, to: Date) -> f64 {
+        self.try_df_between_dates(from, to)
+            .expect("df_between_dates failed; use try_df_between_dates for error handling")
+    }
+
+    /// Fallible: discount factor from `from_t` to `to_t` where `t` is year-fraction
+    /// from the curve base date.
+    ///
+    /// Canonical helper for `DF(from_t→to_t) = DF(0→to_t) / DF(0→from_t)`.
+    ///
+    /// Returns `1.0` when `from_t == to_t`.
+    #[inline]
+    fn try_df_between_times(&self, from_t: f64, to_t: f64) -> crate::Result<f64> {
+        if from_t == to_t {
+            return Ok(1.0);
+        }
+
+        let df_from = self.df(from_t);
+        if !df_from.is_finite() || df_from <= 0.0 {
+            return Err(crate::Error::Validation(format!(
+                "Invalid discount factor at 'from_t' ({from_t}): {df_from}"
+            )));
+        }
+
+        let df_to = self.df(to_t);
+        if !df_to.is_finite() || df_to <= 0.0 {
+            return Err(crate::Error::Validation(format!(
+                "Invalid discount factor at 'to_t' ({to_t}): {df_to}"
+            )));
+        }
+
+        Ok(df_to / df_from)
+    }
+
+    /// Discount factor from `from_t` to `to_t` where `t` is year-fraction
+    /// from the curve base date.
+    ///
+    /// Panics if either discount factor is invalid. Prefer
+    /// [`try_df_between_times`](Self::try_df_between_times) for error handling.
+    #[inline]
+    fn df_between_times(&self, from_t: f64, to_t: f64) -> f64 {
+        self.try_df_between_times(from_t, to_t)
+            .expect("df_between_times failed; use try_df_between_times for error handling")
     }
 }
 
@@ -155,5 +239,22 @@ mod tests {
         let c = FlatCurve::new("TEST", 0.9);
         let df = c.df(1.0);
         assert_eq!(df, 0.9);
+    }
+
+    #[test]
+    fn discounting_try_df_between_dates_constant_curve_is_one() {
+        let c = FlatCurve::new("TEST", 0.9);
+        let as_of = c.base_date();
+        let to = as_of + time::Duration::days(365);
+        let df = c
+            .try_df_between_dates(as_of, to)
+            .expect("constant curve should produce valid DFs");
+        assert_eq!(df, 1.0);
+    }
+
+    #[test]
+    fn discounting_try_df_between_times_validates_denominator() {
+        let c = FlatCurve::new("TEST", 0.0);
+        assert!(c.try_df_between_times(0.0, 1.0).is_err());
     }
 }

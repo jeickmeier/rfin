@@ -262,16 +262,6 @@ impl BasisSwap {
         let currency = self.notional.currency();
         let dc_ctx = DayCountCtx::default();
 
-        // Pre-compute valuation_date discount factor for correct theta
-        let disc_dc = disc.day_count();
-        let t_val = disc_dc.year_fraction(disc.base_date(), valuation_date, dc_ctx)?;
-        let df_val = disc.df(t_val);
-        if !df_val.is_finite() || df_val <= 0.0 {
-            return Err(finstack_core::Error::Validation(
-                "Non-finite/invalid discount factor at valuation date".to_string(),
-            ));
-        }
-
         // Iterate periods
         for i in 1..schedule.dates.len() {
             let period_start = schedule.dates[i - 1];
@@ -309,13 +299,7 @@ impl BasisSwap {
             let payment = self.notional.amount() * total_rate * year_frac;
 
             // Discount from valuation_date for correct theta
-            let t_pmt = disc_dc.year_fraction(disc.base_date(), payment_date, dc_ctx)?;
-            let df_pmt_abs = disc.df(t_pmt);
-            let df = if df_val != 0.0 {
-                df_pmt_abs / df_val
-            } else {
-                1.0
-            };
+            let df = disc.try_df_between_dates(valuation_date, payment_date)?;
             pv += payment * df;
         }
 
@@ -359,16 +343,6 @@ impl BasisSwap {
         let mut prev = schedule.dates[0];
         let cal = self.resolve_calendar()?;
 
-        // Pre-compute as_of discount factor for correct theta
-        let disc_dc = disc.day_count();
-        let t_as_of = disc_dc.year_fraction(disc.base_date(), as_of, DayCountCtx::default())?;
-        let df_as_of = disc.df(t_as_of);
-        if !df_as_of.is_finite() || df_as_of <= 0.0 {
-            return Err(finstack_core::Error::Validation(
-                "Non-finite/invalid discount factor at as_of date".to_string(),
-            ));
-        }
-
         for &d in &schedule.dates[1..] {
             let payment_date = if leg.payment_lag_days == 0 {
                 d
@@ -383,18 +357,9 @@ impl BasisSwap {
                 .day_count
                 .year_fraction(prev, d, DayCountCtx::default())?;
 
-            // Discount from as_of for correct theta
-            let t_d =
-                disc_dc.year_fraction(disc.base_date(), payment_date, DayCountCtx::default())?;
-            let df_d_abs = disc.df(t_d);
-            let df = if df_as_of != 0.0 {
-                df_d_abs / df_as_of
-            } else {
-                1.0
-            };
-
             // Only include future payments
             if payment_date > as_of {
+                let df = disc.try_df_between_dates(as_of, payment_date)?;
                 annuity += yf * df;
             }
 

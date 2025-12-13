@@ -1,6 +1,6 @@
-#![allow(deprecated)]
 //! Integration test for swaption volatility calibration.
 
+use finstack_core::config::FinstackConfig;
 use finstack_core::dates::Date;
 use finstack_core::market_data::context::MarketContext;
 use finstack_core::market_data::term_structures::discount_curve::DiscountCurve;
@@ -9,7 +9,7 @@ use finstack_core::prelude::Currency;
 use finstack_valuations::calibration::methods::swaption_vol::{
     AtmStrikeConvention, SwaptionVolCalibrator, SwaptionVolConvention,
 };
-use finstack_valuations::calibration::{CalibrationConfig, Calibrator, VolQuote};
+use finstack_valuations::calibration::{Calibrator, VolQuote, CALIBRATION_CONFIG_KEY_V1};
 use finstack_valuations::instruments::swaption::parameters::SwaptionParams;
 use finstack_valuations::instruments::swaption::Swaption;
 use finstack_valuations::instruments::Instrument;
@@ -157,6 +157,11 @@ fn test_swaption_vol_calibration_direct() {
     context = context.insert_discount(create_test_discount_curve());
 
     // Create calibrator with verbose output - use Normal convention as it's more stable for rates
+    let mut cfg = FinstackConfig::default();
+    cfg.extensions.insert(
+        CALIBRATION_CONFIG_KEY_V1,
+        serde_json::json!({ "verbose": true }),
+    );
     let calibrator = SwaptionVolCalibrator::new(
         "TEST-SWAPTION-VOL",
         SwaptionVolConvention::Normal,
@@ -165,10 +170,8 @@ fn test_swaption_vol_calibration_direct() {
         "USD-OIS",
         Currency::USD,
     )
-    .with_config(CalibrationConfig {
-        verbose: true,
-        ..CalibrationConfig::default()
-    });
+    .with_finstack_config(&cfg)
+    .expect("valid config");
 
     // Get test quotes
     let quotes = create_test_swaption_quotes();
@@ -256,6 +259,15 @@ fn test_swaption_vol_calibration_extended_grid_and_interpolation() {
     let mut context = MarketContext::new();
     context = context.insert_discount(create_test_discount_curve());
 
+    let mut cfg = FinstackConfig::default();
+    cfg.extensions.insert(
+        CALIBRATION_CONFIG_KEY_V1,
+        serde_json::json!({
+            "verbose": false,
+            "max_iterations": 200,
+            "tolerance": 1e-8
+        }),
+    );
     let calibrator = SwaptionVolCalibrator::new(
         "TEST-SWAPTION-VOL-EXT",
         SwaptionVolConvention::Normal,
@@ -264,12 +276,8 @@ fn test_swaption_vol_calibration_extended_grid_and_interpolation() {
         "USD-OIS",
         Currency::USD,
     )
-    .with_config(CalibrationConfig {
-        verbose: false,
-        max_iterations: 200,
-        tolerance: 1e-8,
-        ..CalibrationConfig::default()
-    });
+    .with_finstack_config(&cfg)
+    .expect("valid config");
 
     let quotes = create_extended_swaption_quotes();
     let (surface, report) = calibrator

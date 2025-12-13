@@ -24,7 +24,7 @@ fn calibration_config_applies_extension_overrides() {
         }),
     );
 
-    let cfg_out = CalibrationConfig::from_finstack_config(&cfg).expect("apply overrides");
+    let cfg_out = CalibrationConfig::from_finstack_config_or_default(&cfg).expect("apply overrides");
     assert_eq!(cfg_out.tolerance, 1e-8);
     assert_eq!(cfg_out.max_iterations, 250);
     assert!(cfg_out.use_parallel);
@@ -49,7 +49,7 @@ fn calibration_config_applies_extension_overrides() {
 #[test]
 fn calibration_config_defaults_without_extension() {
     let cfg = FinstackConfig::default();
-    let cfg_out = CalibrationConfig::from_finstack_config(&cfg).expect("defaults");
+    let cfg_out = CalibrationConfig::from_finstack_config_or_default(&cfg).expect("defaults");
     let defaults = CalibrationConfig::default();
 
     assert_eq!(cfg_out.tolerance, defaults.tolerance);

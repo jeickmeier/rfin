@@ -223,7 +223,6 @@ impl MetricCalculator for ZSpreadCalculator {
         let disc = context.curves.get_discount_ref(&bond.discount_curve_id)?;
         let as_of = context.as_of;
         let dc = disc.day_count();
-        let df_as_of = disc.try_df_on_date_curve(as_of)?;
 
         // Cache (time, df_base, amount) for each future cashflow
         let cached_flows: Vec<(f64, f64, f64)> = flows
@@ -231,12 +230,7 @@ impl MetricCalculator for ZSpreadCalculator {
             .filter(|(d, _)| *d > as_of)
             .map(|(d, amt)| -> finstack_core::Result<(f64, f64, f64)> {
                 let t = dc.year_fraction(as_of, *d, DayCountCtx::default())?;
-                let df_base_abs = disc.try_df_on_date_curve(*d)?;
-                let df_base = if df_as_of != 0.0 {
-                    df_base_abs / df_as_of
-                } else {
-                    1.0
-                };
+                let df_base = disc.try_df_between_dates(as_of, *d)?;
                 Ok((t, df_base, amt.amount()))
             })
             .collect::<finstack_core::Result<Vec<_>>>()?;

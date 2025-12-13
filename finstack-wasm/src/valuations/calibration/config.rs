@@ -161,6 +161,7 @@ impl JsCalibrationConfig {
         Self { inner }
     }
 
+    #[allow(dead_code)]
     pub(crate) fn inner(&self) -> CalibrationConfig {
         self.inner.clone()
     }

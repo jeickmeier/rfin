@@ -808,32 +808,10 @@ impl TrancheValuationExt for StructuredCredit {
         let cashflows = self.get_tranche_cashflows(tranche_id, context, as_of)?;
         let disc = context.get_discount(&self.discount_curve_id)?;
 
-        let disc_dc = disc.day_count();
-        let t_as_of = disc_dc
-            .year_fraction(
-                disc.base_date(),
-                as_of,
-                finstack_core::dates::DayCountCtx::default(),
-            )
-            .unwrap_or(0.0);
-        let df_as_of = disc.df(t_as_of);
-
         let mut pv = Money::new(0.0, self.pool.base_currency());
         for (date, amount) in &cashflows.cashflows {
             if *date > as_of {
-                let t_cf = disc_dc
-                    .year_fraction(
-                        disc.base_date(),
-                        *date,
-                        finstack_core::dates::DayCountCtx::default(),
-                    )
-                    .unwrap_or(0.0);
-                let df_cf_abs = disc.df(t_cf);
-                let df = if df_as_of != 0.0 {
-                    df_cf_abs / df_as_of
-                } else {
-                    1.0
-                };
+                let df = disc.try_df_between_dates(as_of, *date)?;
                 let flow_pv = Money::new(amount.amount() * df, amount.currency());
                 pv = pv.checked_add(flow_pv)?;
             }

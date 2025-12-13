@@ -273,15 +273,6 @@ impl DiscountCurveCalibrator {
         Ok(self)
     }
 
-    /// Set calibration configuration directly.
-    ///
-    /// **Deprecated**: Use [`with_finstack_config`] instead.
-    #[deprecated(since = "0.4.0", note = "Use with_finstack_config instead")]
-    pub fn with_config(mut self, config: CalibrationConfig) -> Self {
-        self.config = config;
-        self
-    }
-
     /// Set multi-curve framework configuration.
     pub fn with_multi_curve_config(mut self, multi_curve_config: MultiCurveConfig) -> Self {
         self.config.multi_curve = multi_curve_config;

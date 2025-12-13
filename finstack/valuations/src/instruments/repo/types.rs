@@ -393,51 +393,14 @@ impl Repo {
         // Total repayment at maturity (principal + interest) - uses adjusted dates
         let total_repayment = self.total_repayment()?;
 
-        // Discount from as_of for correct theta
-        let disc_dc = disc_curve.day_count();
-        let t_as_of = disc_dc
-            .year_fraction(
-                disc_curve.base_date(),
-                as_of,
-                finstack_core::dates::DayCountCtx::default(),
-            )
-            .unwrap_or(0.0);
-        let df_as_of = disc_curve.df(t_as_of);
-
-        let t_maturity = disc_dc
-            .year_fraction(
-                disc_curve.base_date(),
-                adj_maturity,
-                finstack_core::dates::DayCountCtx::default(),
-            )
-            .unwrap_or(0.0);
-
-        let df_maturity_abs = disc_curve.df(t_maturity);
-
-        let df_maturity = if df_as_of != 0.0 {
-            df_maturity_abs / df_as_of
-        } else {
-            1.0
-        };
+        let df_maturity = disc_curve.try_df_between_dates(as_of, adj_maturity)?;
 
         // PV of inflow at maturity
         let pv_in = total_repayment * df_maturity;
 
         // If start date is in the future (or today), subtract initial outflow
         if as_of <= adj_start {
-            let t_start = disc_dc
-                .year_fraction(
-                    disc_curve.base_date(),
-                    adj_start,
-                    finstack_core::dates::DayCountCtx::default(),
-                )
-                .unwrap_or(0.0);
-            let df_start_abs = disc_curve.df(t_start);
-            let df_start = if df_as_of != 0.0 {
-                df_start_abs / df_as_of
-            } else {
-                1.0
-            };
+            let df_start = disc_curve.try_df_between_dates(as_of, adj_start)?;
             let pv_out = self.cash_amount * df_start;
             return pv_in.checked_sub(pv_out);
         }

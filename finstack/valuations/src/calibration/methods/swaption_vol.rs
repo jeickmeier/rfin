@@ -174,15 +174,6 @@ impl SwaptionVolCalibrator {
         Ok(self)
     }
 
-    /// Set calibration configuration directly.
-    ///
-    /// **Deprecated**: Use [`with_finstack_config`] instead.
-    #[deprecated(since = "0.4.0", note = "Use with_finstack_config instead")]
-    pub fn with_config(mut self, config: CalibrationConfig) -> Self {
-        self.config = config;
-        self
-    }
-
     /// Set the SABR interpolation method for expiry–tenor points without direct calibration.
     pub fn with_sabr_interpolation_method(mut self, method: SabrInterpolationMethod) -> Self {
         self.sabr_interpolation = method;

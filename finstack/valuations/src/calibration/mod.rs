@@ -15,18 +15,23 @@
 //! discount and forward curves are calibrated separately to capture basis spreads.
 //!
 //! ```ignore
-//! use finstack_valuations::calibration::{CalibrationConfig, MultiCurveConfig};
+//! use finstack_core::config::FinstackConfig;
 //! use finstack_valuations::calibration::methods::{
 //!     DiscountCurveCalibrator, ForwardCurveCalibrator
 //! };
 //!
-//! let config = CalibrationConfig::default()
-//!     .with_multi_curve_config(MultiCurveConfig::new());
+//! let mut cfg = FinstackConfig::default();
+//! cfg.extensions.insert(
+//!     "valuations.calibration.v1",
+//!     serde_json::json!({
+//!         "multi_curve": { "calibrate_basis": true, "enforce_separation": true }
+//!     })
+//! );
 //!
 //! // Step 1: Calibrate OIS discount curve using deposits and OIS swaps
 //! let ois_quotes = vec![/* deposits and OIS swaps */];
 //! let disc_calibrator = DiscountCurveCalibrator::new("USD-OIS", base_date, Currency::USD)
-//!     .with_config(config.clone());
+//!     .with_finstack_config(&cfg)?;
 //! let (discount_curve, _) = disc_calibrator.calibrate(&ois_quotes, &context)?;
 //!
 //! // Step 2: Add discount curve to context
