@@ -47,6 +47,8 @@
 //! ```rust
 //! use finstack_core::cashflow::performance::{irr_periodic, npv};
 //! use finstack_core::dates::{Date, DayCount};
+//! use finstack_core::money::Money;
+//! use finstack_core::currency::Currency;
 //! use time::Month;
 //!
 //! // IRR for periodic cashflows
@@ -55,9 +57,12 @@
 //!
 //! // NPV at 5% discount rate
 //! let base = Date::from_calendar_date(2025, Month::January, 1).expect("Valid date");
-//! let cf1 = (Date::from_calendar_date(2026, Month::January, 1).expect("Valid date"), 1050.0);
-//! let pv = npv(&[cf1], 0.05, Some(base), Some(DayCount::Act365F))?;
-//! assert!((pv - 1000.0).abs() < 1.0); // ~= 1050 / 1.05
+//! let cf1 = (
+//!     Date::from_calendar_date(2026, Month::January, 1).expect("Valid date"),
+//!     Money::new(1050.0, Currency::USD)
+//! );
+//! let pv = npv(&[cf1], 0.05, base, DayCount::Act365F)?;
+//! assert!((pv.amount() - 1000.0).abs() < 1.0); // ~= 1050 / 1.05
 //! # Ok::<(), finstack_core::Error>(())
 //! ```
 //!
@@ -78,103 +83,36 @@
 //! - **XIRR**:
 //!   - Microsoft Excel XIRR function documentation (industry standard implementation)
 
+use crate::cashflow::discounting::npv as npv_discounting;
 use crate::cashflow::utils::has_sign_change;
-use crate::dates::{Date, DayCount, DayCountCtx};
+use crate::dates::{Date, DayCount};
 use crate::error::InputError;
+use crate::market_data::term_structures::FlatCurve;
 use crate::math::solver::NewtonSolver;
+use crate::money::Money;
 
-/// Calculate Net Present Value (NPV) for irregular cashflows.
+/// Calculate Net Present Value (NPV) using type-safe Money.
 ///
-/// Computes the present value of a series of dated cashflows using a constant
-/// discount rate and specified day count convention. This is the fundamental
-/// valuation metric in capital budgeting and project evaluation.
-///
-/// # Mathematical Definition
-///
-/// ```text
-/// NPV = Σ CF_i / (1 + r)^t_i
-///
-/// where:
-///   CF_i = cashflow i
-///   r = discount rate (annual)
-///   t_i = time to cashflow i in years (using day count convention)
-/// ```
+/// This function internally creates a `FlatCurve` and delegates to the
+/// shared discounting logic.
 ///
 /// # Arguments
-///
-/// * `cash_flows` - Vector of (date, amount) tuples; negative = outflow, positive = inflow
+/// * `cash_flows` - Vector of (date, money) tuples
 /// * `discount_rate` - Annual discount rate as decimal (0.05 = 5%)
-/// * `base_date` - Optional base date for discounting (defaults to first cashflow date)
-/// * `day_count` - Optional day count convention (defaults to Act/365F)
-///
-/// # Returns
-///
-/// The net present value as of the base date
-///
-/// # Decision Rule
-///
-/// - NPV > 0: Project adds value, accept
-/// - NPV = 0: Project breaks even, indifferent
-/// - NPV < 0: Project destroys value, reject
-///
-/// # Examples
-///
-/// ```rust
-/// use finstack_core::cashflow::performance::npv;
-/// use finstack_core::dates::{Date, DayCount};
-/// use time::Month;
-///
-/// let base = Date::from_calendar_date(2025, Month::January, 1).expect("Valid date");
-///
-/// // Project: -$100k upfront, +$110k in 1 year
-/// let cashflows = vec![
-///     (base, -100_000.0),
-///     (Date::from_calendar_date(2026, Month::January, 1).expect("Valid date"), 110_000.0),
-/// ];
-///
-/// // NPV at 5% discount rate
-/// let pv = npv(&cashflows, 0.05, Some(base), Some(DayCount::Act365F))?;
-/// assert!(pv > 4_000.0); // NPV ≈ -100k + 110k/1.05 ≈ 4.76k
-/// # Ok::<(), finstack_core::Error>(())
-/// ```
-///
-/// # Errors
-///
-/// Returns error if:
-/// - Cash flows vector is empty
-/// - Day count calculation fails (invalid dates)
-///
-/// # Notes
-/// - Dates prior to `base_date` are allowed; corresponding year-fractions are treated as negative.
-///
-/// # References
-///
-/// - Brealey, R. A., Myers, S. C., & Allen, F. (2020). *Principles of Corporate Finance*
-///   (13th ed.). Chapter 5.
-/// - Ross, S. A., Westerfield, R. W., & Jaffe, J. (2019). *Corporate Finance*
-///   (12th ed.). Chapter 5.
+/// * `base_date` - Base date for discounting
+/// * `day_count` - Day count convention
 pub fn npv(
-    cash_flows: &[(Date, f64)],
+    cash_flows: &[(Date, Money)],
     discount_rate: f64,
-    base_date: Option<Date>,
-    day_count: Option<DayCount>,
-) -> crate::Result<f64> {
-    if cash_flows.is_empty() {
-        return Err(InputError::TooFewPoints.into());
-    }
+    base_date: Date,
+    day_count: DayCount,
+) -> crate::Result<Money> {
+    // Convert annual compounded rate to continuous for FlatCurve
+    let continuous_rate = (1.0 + discount_rate).ln();
+    let curve = FlatCurve::new(continuous_rate, base_date, day_count, "INTERNAL-NPV");
 
-    let base = base_date.unwrap_or(cash_flows[0].0);
-    let dc = day_count.unwrap_or(DayCount::Act365F);
-    let mut sum = 0.0;
-    let ctx = DayCountCtx::default();
-
-    for (date, amount) in cash_flows {
-        let years = dc.signed_year_fraction(base, *date, ctx)?;
-        let discount_factor = (1.0 + discount_rate).powf(years);
-        sum += amount / discount_factor;
-    }
-
-    Ok(sum)
+    // Delegate to the shared discounting logic
+    npv_discounting(&curve, base_date, day_count, cash_flows)
 }
 
 /// Calculate Internal Rate of Return (IRR) for evenly-spaced periodic cashflows.
@@ -337,6 +275,7 @@ pub fn irr_periodic(amounts: &[f64], guess: Option<f64>) -> crate::Result<f64> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::currency::Currency;
     use crate::dates::create_date;
     use time::Month;
 
@@ -345,18 +284,19 @@ mod tests {
         let flows = vec![
             (
                 create_date(2024, Month::January, 1).expect("Valid test date"),
-                -100000.0,
+                Money::new(-100000.0, Currency::USD),
             ),
             (
                 create_date(2025, Month::January, 1).expect("Valid test date"),
-                110000.0,
+                Money::new(110000.0, Currency::USD),
             ),
         ];
-        let npv_5pct =
-            npv(&flows, 0.05, None, None).expect("NPV calculation should succeed in test");
+        let base = flows[0].0;
+        let npv_5pct = npv(&flows, 0.05, base, DayCount::Act365F)
+            .expect("NPV calculation should succeed in test");
         // NPV should be positive (profitable at 5% discount rate)
         // Approximately: -100000 + 110000/(1.05) ≈ 4761.90
-        assert!(npv_5pct > 4700.0 && npv_5pct < 4800.0);
+        assert!(npv_5pct.amount() > 4700.0 && npv_5pct.amount() < 4800.0);
     }
 
     #[test]
@@ -364,16 +304,17 @@ mod tests {
         let flows = vec![
             (
                 create_date(2024, Month::January, 1).expect("Valid test date"),
-                -100.0,
+                Money::new(-100.0, Currency::USD),
             ),
             (
                 create_date(2025, Month::January, 1).expect("Valid test date"),
-                100.0,
+                Money::new(100.0, Currency::USD),
             ),
         ];
-        let npv_zero =
-            npv(&flows, 0.0, None, None).expect("NPV calculation should succeed in test");
-        assert_eq!(npv_zero, 0.0);
+        let base = flows[0].0;
+        let npv_zero = npv(&flows, 0.0, base, DayCount::Act365F)
+            .expect("NPV calculation should succeed in test");
+        assert_eq!(npv_zero.amount(), 0.0);
     }
 
     #[test]
@@ -382,24 +323,26 @@ mod tests {
         let flows = vec![
             (
                 create_date(2024, Month::July, 1).expect("Valid test date"),
-                -50.0,
+                Money::new(-50.0, Currency::USD),
             ), // past relative to base
             (
                 create_date(2025, Month::July, 1).expect("Valid test date"),
-                55.0,
+                Money::new(55.0, Currency::USD),
             ), // future relative to base
         ];
         // Should not error; just compute signed year fractions
-        let pv = npv(&flows, 0.05, Some(base), Some(DayCount::Act365F))
+        let pv = npv(&flows, 0.05, base, DayCount::Act365F)
             .expect("NPV calculation should succeed in test");
         // With positive rate and inflow slightly bigger than outflow, PV should be > 0
-        assert!(pv > 0.0);
+        assert!(pv.amount() > 0.0);
     }
 
     #[test]
     fn test_npv_errors_on_empty_flows_now() {
-        let flows: Vec<(Date, f64)> = vec![];
-        let err = npv(&flows, 0.05, None, None).expect_err("Should fail with empty flows");
+        let flows: Vec<(Date, Money)> = vec![];
+        let base = create_date(2025, Month::January, 1).expect("Valid date");
+        let err =
+            npv(&flows, 0.05, base, DayCount::Act365F).expect_err("Should fail with empty flows");
         let _ = format!("{}", err);
     }
 

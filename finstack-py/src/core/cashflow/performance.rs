@@ -39,7 +39,7 @@ use crate::core::common::args::DayCountArg;
 use crate::core::dates::utils::py_to_date;
 use crate::core::dates::PyDayCount;
 use crate::errors::{core_to_py, PyContext};
-use finstack_core::cashflow::{irr_periodic, npv_performance};
+use finstack_core::cashflow::irr_periodic;
 use pyo3::exceptions::PyTypeError;
 use pyo3::prelude::*;
 use pyo3::types::PyModule;
@@ -135,19 +135,26 @@ pub fn py_npv(
     base_date: Option<Bound<'_, PyAny>>,
     day_count: Option<Bound<'_, PyAny>>,
 ) -> PyResult<f64> {
-    // Convert Python dates to Rust dates
-    let mut flows: Vec<(finstack_core::dates::Date, f64)> = Vec::with_capacity(cash_flows.len());
+    // Convert Python dates to Rust dates and amounts to Money
+    let mut money_flows: Vec<(finstack_core::dates::Date, finstack_core::money::Money)> =
+        Vec::with_capacity(cash_flows.len());
 
     for (idx, (date, amount)) in cash_flows.into_iter().enumerate() {
         let field = format!("cash_flows[{idx}].date");
         let rust_date = py_to_date(&date).context(&field)?;
-        flows.push((rust_date, amount));
+        let money =
+            finstack_core::money::Money::new(amount, finstack_core::currency::Currency::USD);
+        money_flows.push((rust_date, money));
     }
 
+    // Default base date logic matches old behavior (first flow date)
     let base = base_date
         .map(|d| py_to_date(&d).context("base_date"))
         .transpose()?
-        .or_else(|| flows.first().map(|(d, _)| *d));
+        .or_else(|| money_flows.first().map(|(d, _)| *d))
+        .ok_or_else(|| {
+            pyo3::exceptions::PyValueError::new_err("No cashflows provided to determine base date")
+        })?;
 
     // Parse day count from input if provided, otherwise use Act365F
     let dc = match day_count {
@@ -155,7 +162,9 @@ pub fn py_npv(
         None => finstack_core::dates::DayCount::Act365F,
     };
 
-    npv_performance(&flows, discount_rate, base, Some(dc)).map_err(core_to_py)
+    finstack_core::cashflow::performance::npv(&money_flows, discount_rate, base, dc)
+        .map(|m| m.amount())
+        .map_err(core_to_py)
 }
 
 /// Calculate IRR (Internal Rate of Return) for evenly-spaced periodic cashflows.

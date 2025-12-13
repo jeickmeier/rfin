@@ -81,7 +81,7 @@ pub trait Discountable {
 ///
 /// **Note**: For consistent pricing with metrics (e.g., par rate), prefer using
 /// [`npv_using_curve_dc`] which uses the curve's own day count convention.
-pub fn npv_static<D: Discounting + ?Sized>(
+pub fn npv<D: Discounting + ?Sized>(
     disc: &D,
     base: Date,
     dc: DayCount,
@@ -104,7 +104,7 @@ pub fn npv_static<D: Discounting + ?Sized>(
 
 /// Compute NPV of dated `Money` flows using the curve's own day count convention.
 ///
-/// Unlike [`npv_static`], this function uses the curve's internal day count
+/// Unlike [`npv`], this function uses the curve's internal day count
 /// for computing year fractions. This ensures consistency between:
 /// - Metric calculations (e.g., par rate which uses `df_on_date_curve`)
 /// - NPV calculations
@@ -149,7 +149,7 @@ pub fn npv_using_curve_dc<D: Discounting + ?Sized>(
     base: Date,
     flows: &[(Date, Money)],
 ) -> crate::Result<Money> {
-    npv_static(disc, base, disc.day_count(), flows)
+    npv(disc, base, disc.day_count(), flows)
 }
 
 /// Compute NPV of dated `Money` flows using a `Discount` curve and `DayCount`.
@@ -163,7 +163,7 @@ where
     type PVOutput = crate::Result<Money>;
 
     fn npv(&self, disc: &dyn Discounting, base: Date, dc: DayCount) -> crate::Result<Money> {
-        npv_static(disc, base, dc, self.as_ref())
+        npv(disc, base, dc, self.as_ref())
     }
 }
 
@@ -216,8 +216,8 @@ mod tests {
         };
         let base = curve.base_date();
         let flows: Vec<(Date, Money)> = vec![];
-        let err = npv_static(&curve, base, DayCount::Act365F, &flows)
-            .expect_err("Should fail with empty flows");
+        let err =
+            npv(&curve, base, DayCount::Act365F, &flows).expect_err("Should fail with empty flows");
         let _ = format!("{}", err);
     }
 }

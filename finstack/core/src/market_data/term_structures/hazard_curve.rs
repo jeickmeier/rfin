@@ -728,7 +728,7 @@ mod tests {
     #[test]
     fn roll_forward_works() {
         let base = Date::from_calendar_date(2025, Month::January, 1).expect("Valid test date");
-        let hc = HazardCurve::builder("TEST-ROLL")
+        let _hc = HazardCurve::builder("TEST-ROLL")
             .base_date(base)
             .day_count(DayCount::Act365F) // Use Act365F for simple math
             .knots([(0.5, 0.01), (1.5, 0.02)])

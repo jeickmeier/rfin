@@ -12,7 +12,7 @@
 //!
 //! Test curves use **continuous compounding**: `DF(t) = exp(-rate * t)`
 
-use finstack_core::cashflow::discounting::npv_static;
+use finstack_core::cashflow::discounting::npv;
 use finstack_core::currency::Currency;
 use finstack_core::dates::{Date, DayCount, DayCountCtx};
 use finstack_core::market_data::traits::{Discounting, TermStructure};
@@ -94,7 +94,7 @@ fn npv_100_cashflows_maintains_precision() {
         })
         .collect();
 
-    let pv = npv_static(&curve, base, dc, &flows).expect("NPV should succeed");
+    let pv = npv(&curve, base, dc, &flows).expect("NPV should succeed");
 
     // Compute expected using stable summation
     let expected_terms: Vec<f64> = flows
@@ -130,7 +130,7 @@ fn npv_500_cashflows_maintains_precision() {
         })
         .collect();
 
-    let pv = npv_static(&curve, base, dc, &flows).expect("NPV should succeed");
+    let pv = npv(&curve, base, dc, &flows).expect("NPV should succeed");
 
     // Compute expected using stable summation
     let expected_terms: Vec<f64> = flows
@@ -170,7 +170,7 @@ fn npv_50_year_cashflow_is_positive_and_small() {
     let ctx = DayCountCtx::default();
 
     let flows = vec![(maturity, Money::new(1_000_000.0, Currency::USD))];
-    let pv = npv_static(&curve, base, dc, &flows).expect("NPV should succeed");
+    let pv = npv(&curve, base, dc, &flows).expect("NPV should succeed");
 
     // Calculate actual year fraction (includes leap years)
     let t = dc.year_fraction(base, maturity, ctx).unwrap();
@@ -197,7 +197,7 @@ fn npv_100_year_cashflow_is_tiny_but_positive() {
     let curve = FlatRateCurve::new("TEST", base, 0.05);
 
     let flows = vec![(maturity, Money::new(1_000_000.0, Currency::USD))];
-    let pv = npv_static(&curve, base, DayCount::Act365F, &flows).expect("NPV should succeed");
+    let pv = npv(&curve, base, DayCount::Act365F, &flows).expect("NPV should succeed");
 
     // DF(100y) at 5% continuous = exp(-0.05 * 100) = exp(-5) ≈ 0.00674
     // PV ≈ $6,738
@@ -223,7 +223,7 @@ fn npv_cashflow_at_base_date_equals_notional() {
 
     // Cashflow at t=0 should have PV = notional (DF=1.0)
     let flows = vec![(base, Money::new(100_000.0, Currency::USD))];
-    let pv = npv_static(&curve, base, DayCount::Act365F, &flows).expect("NPV should succeed");
+    let pv = npv(&curve, base, DayCount::Act365F, &flows).expect("NPV should succeed");
 
     assert!(
         (pv.amount() - 100_000.0).abs() < 0.01,
@@ -242,7 +242,7 @@ fn npv_negative_rate_inflates_value() {
     let curve = FlatRateCurve::new("TEST", base, -0.02); // Negative rate
 
     let flows = vec![(d(2026, 1, 1), Money::new(100.0, Currency::USD))];
-    let pv = npv_static(&curve, base, DayCount::Act365F, &flows).expect("NPV should succeed");
+    let pv = npv(&curve, base, DayCount::Act365F, &flows).expect("NPV should succeed");
 
     // Negative rate: DF > 1, so PV > FV
     // DF(1y) at -2% = exp(0.02) ≈ 1.0202
@@ -272,7 +272,7 @@ fn npv_zero_rate_preserves_value() {
         (d(2027, 1, 1), Money::new(1000.0, Currency::USD)),
         (d(2028, 1, 1), Money::new(1000.0, Currency::USD)),
     ];
-    let pv = npv_static(&curve, base, DayCount::Act365F, &flows).expect("NPV should succeed");
+    let pv = npv(&curve, base, DayCount::Act365F, &flows).expect("NPV should succeed");
 
     // Zero rate: DF = 1.0, so PV = sum of cashflows
     assert!(
@@ -293,7 +293,7 @@ fn npv_very_large_amounts() {
 
     // $1 trillion cashflow
     let flows = vec![(d(2026, 1, 1), Money::new(1e12, Currency::USD))];
-    let pv = npv_static(&curve, base, DayCount::Act365F, &flows).expect("NPV should succeed");
+    let pv = npv(&curve, base, DayCount::Act365F, &flows).expect("NPV should succeed");
 
     // DF(1y) at 5% = exp(-0.05) ≈ 0.9512
     let expected_df = (-0.05_f64).exp();
@@ -314,7 +314,7 @@ fn npv_very_small_amounts() {
 
     // $0.01 cashflow (1 cent, minimum for USD)
     let flows = vec![(d(2026, 1, 1), Money::new(0.01, Currency::USD))];
-    let pv = npv_static(&curve, base, DayCount::Act365F, &flows).expect("NPV should succeed");
+    let pv = npv(&curve, base, DayCount::Act365F, &flows).expect("NPV should succeed");
 
     // PV should be positive but tiny
     assert!(pv.amount() > 0.0, "Small amount PV should be positive");
@@ -394,7 +394,7 @@ fn npv_rejects_mixed_currencies() {
         (d(2027, 1, 1), Money::new(1000.0, Currency::EUR)), // Different currency!
     ];
 
-    let result = npv_static(&curve, base, DayCount::Act365F, &flows);
+    let result = npv(&curve, base, DayCount::Act365F, &flows);
 
     // Should error due to currency mismatch
     assert!(result.is_err(), "NPV should reject mixed currencies");

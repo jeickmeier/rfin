@@ -34,7 +34,7 @@ use crate::core::dates::PyDayCount;
 use crate::core::market_data::term_structures::PyDiscountCurve;
 use crate::core::money::{extract_money, PyMoney};
 use crate::errors::{core_to_py, PyContext};
-use finstack_core::cashflow::discounting::{npv_static, npv_using_curve_dc};
+use finstack_core::cashflow::discounting::{npv, npv_using_curve_dc};
 use pyo3::prelude::*;
 use pyo3::types::{PyList, PyModule};
 use pyo3::Bound;
@@ -142,7 +142,7 @@ pub fn py_npv_static(
     let base = py_to_date(&base_date).context("base_date")?;
     let dc = parse_day_count(day_count)?;
     let flows = parse_flows(cash_flows)?;
-    npv_static(curve.inner.as_ref(), base, dc, &flows)
+    npv(curve.inner.as_ref(), base, dc, &flows)
         .map(PyMoney::new)
         .map_err(core_to_py)
 }

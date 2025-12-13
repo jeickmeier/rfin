@@ -289,7 +289,7 @@ fn test_npv_consistency_with_schedule() {
     let disc = ctx
         .get_discount_ref(ilb.discount_curve_id.as_str())
         .unwrap();
-    let manual_pv = finstack_core::cashflow::discounting::npv_static(
+    let expected_pv = finstack_core::cashflow::discounting::npv(
         disc as &dyn finstack_core::market_data::traits::Discounting,
         disc.base_date(),
         disc.day_count(),
@@ -298,7 +298,12 @@ fn test_npv_consistency_with_schedule() {
     .unwrap();
 
     // Assert
-    assert_approx_eq(pv.amount(), manual_pv.amount(), REL_TOL, "NPV consistency");
+    assert_approx_eq(
+        pv.amount(),
+        expected_pv.amount(),
+        REL_TOL,
+        "NPV consistency",
+    );
 }
 
 #[test]

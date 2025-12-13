@@ -9,7 +9,7 @@ use crate::core::math::interp::{
 };
 use crate::core::money::{extract_money, PyMoney};
 use crate::errors::{core_to_py, PyContext};
-use finstack_core::cashflow::discounting::npv_static;
+use finstack_core::cashflow::discounting::npv;
 use finstack_core::market_data::term_structures::base_correlation::BaseCorrelationCurve;
 use finstack_core::market_data::term_structures::credit_index::CreditIndexData;
 use finstack_core::market_data::term_structures::discount_curve::DiscountCurve;
@@ -500,8 +500,7 @@ impl PyDiscountCurve {
 
         let dc = parse_day_count(day_count)?.unwrap_or(self.inner.day_count());
 
-        let result =
-            npv_static(&*self.inner, self.inner.base_date(), dc, &flows).map_err(core_to_py)?;
+        let result = npv(&*self.inner, self.inner.base_date(), dc, &flows).map_err(core_to_py)?;
         Ok(PyMoney::new(result))
     }
 }

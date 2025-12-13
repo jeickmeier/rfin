@@ -1,6 +1,6 @@
 //! Compatibility layer for discounting instrument cashflow schedules.
 
-pub use finstack_core::cashflow::discounting::{npv_static, Discountable};
+pub use finstack_core::cashflow::discounting::{npv, Discountable};
 
 use crate::cashflow::builder::CashFlowSchedule;
 use finstack_core::dates::{Date, DayCount};
@@ -18,7 +18,7 @@ impl Discountable for CashFlowSchedule {
         dc: DayCount,
     ) -> finstack_core::Result<Money> {
         let flows: Vec<(Date, Money)> = self.flows.iter().map(|cf| (cf.date, cf.amount)).collect();
-        finstack_core::cashflow::discounting::npv_static(disc, base, dc, &flows)
+        finstack_core::cashflow::discounting::npv(disc, base, dc, &flows)
     }
 }
 

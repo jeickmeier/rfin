@@ -101,6 +101,8 @@ pub(crate) mod common;
 pub mod credit_index;
 /// Discount factor curves.
 pub mod discount_curve;
+/// Flat forward/discount curves.
+pub mod flat;
 /// Forward‐rate curves.
 pub mod forward_curve;
 /// Credit hazard curves.
@@ -112,6 +114,7 @@ pub mod inflation;
 pub use base_correlation::*;
 pub use credit_index::*;
 pub use discount_curve::*;
+pub use flat::*;
 pub use forward_curve::*;
 pub use hazard_curve::*;
 pub use inflation::*;
