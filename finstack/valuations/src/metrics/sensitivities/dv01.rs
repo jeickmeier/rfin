@@ -47,14 +47,16 @@
 //! // Sum of bucketed DV01 will equal parallel DV01 within numerical precision
 //! ```
 
+use crate::calibration::bumps::rates::{bump_discount_curve, find_closest_quote};
+use crate::calibration::bumps::BumpRequest;
 use crate::calibration::methods::DiscountCurveCalibrator;
-use crate::calibration::Calibrator;
+
 use crate::calibration::RatesQuote;
 use crate::instruments::common::pricing::HasDiscountCurve;
 use crate::instruments::common::traits::{CurveDependencies, Instrument, RatesCurveKind};
 use crate::metrics::MetricCalculator;
 use crate::metrics::{MetricContext, MetricId};
-use finstack_core::dates::{Date, DayCount, DayCountCtx};
+
 use finstack_core::market_data::bumps::BumpSpec;
 use finstack_core::market_data::context::MarketContext;
 use finstack_core::types::CurveId;
@@ -638,17 +640,18 @@ where
             // Find the quote closest to this bucket maturity
             let quote_index = find_closest_quote(&par_context.quotes, target_time, as_of);
 
-            let dv01 = if let Some(idx) = quote_index {
-                // Create bumped quotes
-                let mut bumped_quotes = par_context.quotes.clone();
-                bump_quote_rate(&mut bumped_quotes[idx], bump_bp / 10_000.0);
+            let dv01 = if quote_index.is_some() {
+                // Use shared bumping logic
+                let bump_request = BumpRequest::Tenors(vec![(target_time, bump_bp)]);
 
-                // Re-calibrate curve with bumped quote
-                match par_context
-                    .calibrator
-                    .calibrate(&bumped_quotes, &par_context.base_context)
-                {
-                    Ok((bumped_curve, _)) => {
+                match bump_discount_curve(
+                    &par_context.quotes,
+                    &par_context.calibrator,
+                    &par_context.base_context,
+                    &bump_request,
+                    as_of,
+                ) {
+                    Ok(bumped_curve) => {
                         // Replace curve in context and reprice
                         let bumped_ctx = base_ctx.clone().insert_discount(bumped_curve);
                         let bumped_pv = context.instrument.value_raw(&bumped_ctx, as_of)?;
@@ -710,35 +713,4 @@ fn calculate_dv01_raw(base_pv: f64, bumped_pv: f64, bump_bp: f64) -> f64 {
     (bumped_pv - base_pv) / bump_bp
 }
 
-/// Find the quote closest to the target maturity.
-fn find_closest_quote(quotes: &[RatesQuote], target_years: f64, as_of: Date) -> Option<usize> {
-    let dc = DayCount::Act365F;
-    quotes
-        .iter()
-        .enumerate()
-        .min_by(|(_, a), (_, b)| {
-            let a_yf = dc
-                .year_fraction(as_of, a.maturity_date(), DayCountCtx::default())
-                .unwrap_or(0.0);
-            let b_yf = dc
-                .year_fraction(as_of, b.maturity_date(), DayCountCtx::default())
-                .unwrap_or(0.0);
-            let a_dist = (a_yf - target_years).abs();
-            let b_dist = (b_yf - target_years).abs();
-            a_dist
-                .partial_cmp(&b_dist)
-                .unwrap_or(std::cmp::Ordering::Equal)
-        })
-        .map(|(i, _)| i)
-}
-
-/// Bump the rate of a quote by the given amount.
-fn bump_quote_rate(quote: &mut RatesQuote, bump: f64) {
-    match quote {
-        RatesQuote::Deposit { rate, .. } => *rate += bump,
-        RatesQuote::FRA { rate, .. } => *rate += bump,
-        RatesQuote::Future { price, .. } => *price -= bump * 100.0, // Price = 100 - rate%
-        RatesQuote::Swap { rate, .. } => *rate += bump,
-        RatesQuote::BasisSwap { spread_bp, .. } => *spread_bp += bump * 10_000.0,
-    }
-}
+// Helpers moved to crate::calibration::bumps::rates

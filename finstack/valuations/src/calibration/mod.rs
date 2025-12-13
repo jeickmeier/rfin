@@ -51,6 +51,7 @@
 //!    - Then calibrate forward curves with discount curve in context
 
 // Submodules
+pub mod bumps;
 mod config;
 pub mod derivatives;
 pub mod methods;

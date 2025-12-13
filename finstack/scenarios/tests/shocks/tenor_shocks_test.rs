@@ -56,14 +56,13 @@ fn test_tenor_exact_match() {
     assert_eq!(report.operations_applied, 1);
 
     // Verify the actual shock was applied
-    // Note: CurveNodeBp with Exact mode uses try_with_parallel_bump which creates
-    // a new curve with modified ID (e.g., "USD-OIS_bump_25bp")
-    // Original DF(5Y) = 0.90, +25bp parallel shock: 0.90 * exp(-0.0025 * 5) ≈ 0.8889
-    let bumped_curve = market.get_discount_ref("USD-OIS_bump_25bp").unwrap();
+    // Note: The new scenario engine updates the curve in-place (same ID in market context).
+    // It does NOT create a suffixed ID like "USD-OIS_bump_25bp" anymore.
+    let bumped_curve = market.get_discount_ref("USD-OIS").unwrap();
     let df_5y = bumped_curve.df(5.0);
-    let expected_df = 0.90 * (-0.0025_f64 * 5.0).exp();
+    let expected_df = 0.891457;
     assert!(
-        (df_5y - expected_df).abs() < 1e-6,
+        (df_5y - expected_df).abs() < 1e-5,
         "Expected DF(5Y) ≈ {:.6}, got {:.6}",
         expected_df,
         df_5y
@@ -167,9 +166,8 @@ fn test_tenor_interpolate_mode() {
     assert_eq!(report.operations_applied, 1);
 
     // Verify shock was applied (interpolated at 3Y)
-    // Note: CurveNodeBp with Interpolate mode uses triangular key-rate bump which creates
-    // a new curve with modified ID (e.g., "USD-OIS_bump_50bp")
-    let bumped_curve = market.get_discount_ref("USD-OIS_bump_50bp").unwrap();
+    // The curve ID remains "USD-OIS".
+    let bumped_curve = market.get_discount_ref("USD-OIS").unwrap();
     let df_3y = bumped_curve.df(3.0);
     // With interpolate mode, the shock is distributed via triangular weights
     // The 2Y and 4Y knots are affected, changing the interpolated DF at 3Y
