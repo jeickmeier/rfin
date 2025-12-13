@@ -2,14 +2,14 @@
 
 import datetime as dt
 
+import pytest
+
+import finstack
 from finstack.core.dates import DayCount
 from finstack.core.dates.schedule import Frequency
 from finstack.core.market_data import MarketContext
 from finstack.core.market_data.scalars import MarketScalar
 from finstack.core.market_data.term_structures import DiscountCurve
-import pytest
-
-import finstack
 
 cal = finstack.valuations.calibration
 
