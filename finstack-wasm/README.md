@@ -25,8 +25,8 @@ achieving feature parity with the Python bindings.
   holidays, and perform business-day adjustments.
 - `ScheduleBuilder`/`Schedule` – generate business-day aware cashflow schedules
   with stub handling, end-of-month alignment, or CDS IMM rolls.
-- `DayCount`/`DayCountContext`/`Frequency` – compute year fractions using
-  finstack's day-count conventions with optional calendar/frequency hints.
+- `DayCount`/`DayCountContext`/`Tenor` – compute year fractions using
+  finstack's day-count conventions with optional calendar/tenor hints.
 - `PeriodId`/`PeriodPlan`/`FiscalConfig` – build calendar or fiscal period plans
   with actual/forecast segmentation via `buildPeriods` and `buildFiscalPeriods`.
 - IMM and utility helpers – IMM rolls, option expiries, month arithmetic, and
@@ -168,7 +168,7 @@ import init, {
   BusinessDayConvention,
   DayCount,
   DayCountContext,
-  Frequency,
+  Tenor,
   ScheduleBuilder,
   StubKind,
   buildPeriods,
@@ -267,12 +267,12 @@ async function run() {
 
   const dayCount = DayCount.act365f();
   const ctx = new DayCountContext();
-  ctx.setFrequency(Frequency.semiAnnual());
+  ctx.setTenor(Tenor.semiAnnual());
   const yf = dayCount.yearFraction(tradeDate, adjusted, ctx);
   console.log(yf); // year fraction respecting DayCountContext
 
   const schedule = new ScheduleBuilder(tradeDate, new FinstackDate(2025, 9, 30))
-    .frequency(Frequency.quarterly())
+    .frequency(Tenor.quarterly())
     .stubRule(StubKind.none())
     .adjustWith(BusinessDayConvention.ModifiedFollowing, nyc)
     .endOfMonth(true)
@@ -374,8 +374,8 @@ async function run() {
     RatesQuote.swap(
       new FinstackDate(2025, 9, 30),
       0.047,
-      Frequency.annual(),
-      Frequency.quarterly(),
+      Tenor.annual(),
+      Tenor.quarterly(),
       '30_360',
       'act_360',
       'USD-SOFR'
@@ -407,7 +407,7 @@ const {
   BusinessDayConvention,
   DayCount,
   DayCountContext,
-  Frequency,
+  Tenor,
   ScheduleBuilder,
   StubKind,
   DiscountCurve,
@@ -432,7 +432,7 @@ const date = new FinstackDate(2024, 3, 29);
 const calendar = new Calendar('gblo');
 const adjusted = adjust(date, BusinessDayConvention.ModifiedFollowing, calendar);
 const ctx = new DayCountContext();
-ctx.setFrequency(Frequency.quarterly());
+ctx.setTenor(Tenor.quarterly());
 console.log(DayCount.act365f().yearFraction(date, adjusted, ctx));
 
 const schedule = new ScheduleBuilder(date, new FinstackDate(2024, 12, 20))

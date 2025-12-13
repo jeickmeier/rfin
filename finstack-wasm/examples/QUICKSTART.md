@@ -63,7 +63,7 @@ The example application demonstrates comprehensive date and market data function
 5. **Schedule Builder** - Monthly/quarterly/semi-annual schedules with stub rules and CDS IMM
 6. **Period Plans** - Calendar and fiscal periods with actual/forecast segmentation
 7. **IMM Dates & Option Expiries** - IMM dates, CDS rolls, equity option expiries
-8. **Frequency Conventions** - Standard and custom frequencies
+8. **Tenor Conventions** - Standard and custom tenors
 
 ### Market Data
 

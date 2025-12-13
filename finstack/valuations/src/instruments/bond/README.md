@@ -93,7 +93,7 @@ let zero = Bond::builder()
     .notional(Money::new(1_000_000.0, Currency::USD))
     .issue(date!(2025 - 01 - 01))
     .maturity(date!(2030 - 01 - 01))
-    .cashflow_spec(CashflowSpec::fixed(0.0, Frequency::annual(), DayCount::Act365F))
+    .cashflow_spec(CashflowSpec::fixed(0.0, Tenor::annual(), DayCount::Act365F))
     .discount_curve_id("USD-OIS".into())
     .build()?;
 ```
@@ -108,7 +108,7 @@ use finstack_core::cashflow::builder::AmortizationSpec;
 let amort_spec = AmortizationSpec::linear(
     date!(2025 - 01 - 01),
     date!(2030 - 01 - 01),
-    Frequency::semi_annual(),
+    Tenor::semi_annual(),
 );
 
 let amortizing = Bond::builder()
@@ -117,7 +117,7 @@ let amortizing = Bond::builder()
     .issue(date!(2025 - 01 - 01))
     .maturity(date!(2030 - 01 - 01))
     .cashflow_spec(CashflowSpec::amortizing(
-        CashflowSpec::fixed(0.05, Frequency::semi_annual(), DayCount::Thirty360),
+        CashflowSpec::fixed(0.05, Tenor::semi_annual(), DayCount::Thirty360),
         amort_spec,
     ))
     .discount_curve_id("USD-OIS".into())
@@ -143,7 +143,7 @@ let callable = Bond::builder()
     .notional(Money::new(1_000_000.0, Currency::USD))
     .issue(date!(2025 - 01 - 01))
     .maturity(date!(2030 - 01 - 01))
-    .cashflow_spec(CashflowSpec::fixed(0.06, Frequency::semi_annual(), DayCount::Thirty360))
+    .cashflow_spec(CashflowSpec::fixed(0.06, Tenor::semi_annual(), DayCount::Thirty360))
     .discount_curve_id("USD-OIS".into())
     .call_put(Some(call_schedule))
     .build()?;
@@ -316,7 +316,7 @@ let bond = Bond::builder()
     .notional(Money::new(1_000_000.0, Currency::USD))
     .issue(date!(2025 - 01 - 01))
     .maturity(date!(2030 - 01 - 01))
-    .cashflow_spec(CashflowSpec::fixed(0.05, Frequency::semi_annual(), DayCount::Thirty360))
+    .cashflow_spec(CashflowSpec::fixed(0.05, Tenor::semi_annual(), DayCount::Thirty360))
     .discount_curve_id("USD-OIS".into())
     .pricing_overrides(PricingOverrides::default().with_clean_price(99.5))
     .build()?;
@@ -362,7 +362,7 @@ let callable_bond = Bond::builder()
     .notional(Money::new(1_000_000.0, Currency::USD))
     .issue(date!(2025 - 01 - 01))
     .maturity(date!(2030 - 01 - 01))
-    .cashflow_spec(CashflowSpec::fixed(0.06, Frequency::semi_annual(), DayCount::Thirty360))
+    .cashflow_spec(CashflowSpec::fixed(0.06, Tenor::semi_annual(), DayCount::Thirty360))
     .discount_curve_id("USD-OIS".into())
     .call_put(Some(call_schedule))
     .build()?;

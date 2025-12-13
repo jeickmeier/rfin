@@ -363,7 +363,7 @@ println!("  Curves built: {:?}", report.curve_ids);
 use finstack_valuations::cashflow::builder::{
     CashFlowSchedule, FixedCouponSpec, CouponType
 };
-use finstack_core::dates::{Frequency, DayCount, BusinessDayConvention, StubKind};
+use finstack_core::dates::{Tenor, DayCount, BusinessDayConvention, StubKind};
 use finstack_core::dates::DayCountCtx;
 
 let schedule = CashFlowSchedule::builder()
@@ -371,7 +371,7 @@ let schedule = CashFlowSchedule::builder()
     .fixed_cf(FixedCouponSpec {
         coupon_type: CouponType::Cash,
         rate: 0.05,
-        freq: Frequency::semi_annual(),
+        freq: Tenor::semi_annual(),
         dc: DayCount::Act360,
         bdc: BusinessDayConvention::Following,
         calendar_id: None,

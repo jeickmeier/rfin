@@ -22,7 +22,7 @@ let cap = InterestRateOption::new_cap(
     0.035,
     Date::from_calendar_date(2024, Month::January, 3)?,
     Date::from_calendar_date(2025, Month::January, 3)?,
-    Frequency::quarterly(),
+    Tenor::quarterly(),
     DayCount::Act360,
     CurveId::new("USD-OIS"),
     CurveId::new("USD-SOFR-3M"),

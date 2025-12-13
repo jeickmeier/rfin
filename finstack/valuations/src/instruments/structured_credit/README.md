@@ -247,12 +247,12 @@ Interest accrual uses proper day-count conventions throughout:
 
 The module respects tranche-specific payment frequencies rather than assuming quarterly:
 
-- **ABS**: Typically monthly (`Frequency::monthly()`)
-- **CLO**: Typically quarterly (`Frequency::quarterly()`)
-- **CMBS**: Typically monthly (`Frequency::monthly()`)
-- **RMBS**: Typically monthly (`Frequency::monthly()`)
+- **ABS**: Typically monthly (`Tenor::monthly()`)
+- **CLO**: Typically quarterly (`Tenor::quarterly()`)
+- **CMBS**: Typically monthly (`Tenor::monthly()`)
+- **RMBS**: Typically monthly (`Tenor::monthly()`)
 
-Use `utils::frequency_periods_per_year(freq)` to convert frequencies to periods per year.
+Use `utils::frequency_periods_per_year(tenor)` to convert tenors to periods per year.
 
 ## Coverage Triggers
 

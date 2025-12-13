@@ -18,7 +18,7 @@ use time::Month;
 
 let primary = BasisSwapLeg {
     forward_curve_id: CurveId::new("USD-SOFR-3M"),
-    frequency: Frequency::quarterly(),
+    frequency: Tenor::quarterly(),
     day_count: DayCount::Act360,
     bdc: BusinessDayConvention::ModifiedFollowing,
     spread: 0.0005,

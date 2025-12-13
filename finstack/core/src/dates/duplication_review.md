@@ -18,16 +18,18 @@ Code that appears redundant, deprecated, or essentially dead and should be remov
 ## 2. The "Merge" List
 Groups of functions or types that should be combined into a more robust abstraction.
 
-*   **`Frequency` (schedule_iter.rs) + `Tenor` (tenor.rs)**
-    *   **Analysis**: This is the most significant duplication.
+*   **`Frequency` (schedule_iter.rs) + `Tenor` (tenor.rs)** ✅ **COMPLETED**
+    *   **Status**: This migration has been completed. `Frequency` has been removed and replaced with `Tenor` throughout the codebase.
+    *   **Original Analysis**: This was the most significant duplication.
         *   `Tenor` (`count: u32`, `unit: TenorUnit`) represents a time duration (e.g., "3M", "1Y").
-        *   `Frequency` (`Months(u8)`, `Days(u16)`) also represents a time duration/interval for schedules.
-        *   `Frequency` contains logic like `from_payments_per_year` and convenience constructors (`quarterly()`, `monthly()`) that are essentially `Tenor` factories.
-    *   **Proposal**: Deprecate `Frequency` in favor of `Tenor`.
-        *   Move `from_payments_per_year` to `Tenor`.
-        *   Add `Tenor::quarterly()`, `Tenor::semi_annual()` etc.
-        *   Update `ScheduleBuilder` to accept `Tenor` instead of `Frequency`.
-        *   This unifies "Time Interval" representation across the library.
+        *   `Frequency` (`Months(u8)`, `Days(u16)`) also represented a time duration/interval for schedules.
+        *   `Frequency` contained logic like `from_payments_per_year` and convenience constructors (`quarterly()`, `monthly()`) that were essentially `Tenor` factories.
+    *   **Completed Actions**:
+        *   ✅ Moved `from_payments_per_year` to `Tenor`.
+        *   ✅ Added `Tenor::quarterly()`, `Tenor::semi_annual()`, `Tenor::monthly()`, `Tenor::annual()`, etc.
+        *   ✅ Updated `ScheduleBuilder` to accept `Tenor` instead of `Frequency`.
+        *   ✅ Updated all documentation and examples to use `Tenor`.
+        *   ✅ This unifies "Time Interval" representation across the library.
 
 *   **`PeriodKind` (periods.rs) + `TenorUnit` (tenor.rs)**
     *   **Analysis**:
@@ -37,11 +39,11 @@ Groups of functions or types that should be combined into a more robust abstract
     *   **Recommendation**: Implement `From<PeriodKind> for Tenor`. This allows converting a reporting period type immediately into a useful calculation unit.
 
 ## 3. Refactoring Plan
-**Target**: Consolidate `Frequency` into `Tenor`.
+**Target**: Consolidate `Frequency` into `Tenor`. ✅ **COMPLETED**
 
-`Tenor` is the stronger, more general abstraction. `Frequency` is a restrictive subset used only for schedules. Merging them simplifies the API (one way to describe "time interval") and reduces conversion friction.
+`Tenor` is the stronger, more general abstraction. `Frequency` was a restrictive subset used only for schedules. Merging them simplifies the API (one way to describe "time interval") and reduces conversion friction.
 
-### Before: Split definitions
+### Before: Split definitions (Historical - Migration Complete)
 
 **`src/dates/tenor.rs`**
 ```rust
@@ -64,7 +66,7 @@ impl Frequency {
 }
 ```
 
-### After: Unified `Tenor`
+### After: Unified `Tenor` (Current State)
 
 **`src/dates/tenor.rs`**
 ```rust
@@ -85,7 +87,7 @@ impl Tenor {
 
 **`src/dates/schedule_iter.rs`**
 ```rust
-// Frequency is removed. ScheduleBuilder uses Tenor.
+// Frequency has been removed. ScheduleBuilder uses Tenor.
 
 pub struct ScheduleBuilder<'a> {
     freq: Tenor, // Was Frequency
@@ -100,7 +102,7 @@ impl<'a> ScheduleBuilder<'a> {
 }
 ```
 
-### Benefits
-1.  **Single Source of Truth**: "3 Months" is always `Tenor { 3, Months }`, never `Frequency::Months(3)`.
-2.  **Rich Parsing**: `ScheduleBuilder` now implicitly supports string parsing via `Tenor::parse("3M")`.
-3.  **Flexibility**: Schedules can now be "30 Years" or "1 Week" without arbitrary u8 limits found in `Frequency`.
+### Benefits (Achieved)
+1.  **Single Source of Truth**: "3 Months" is always `Tenor { 3, Months }`, never `Frequency::Months(3)`. ✅
+2.  **Rich Parsing**: `ScheduleBuilder` now implicitly supports string parsing via `Tenor::parse("3M")`. ✅
+3.  **Flexibility**: Schedules can now be "30 Years" or "1 Week" without arbitrary u8 limits found in `Frequency`. ✅

@@ -36,14 +36,16 @@
 //! ```rust
 //! use finstack_core::cashflow::discounting::npv_constant;
 //! use finstack_core::dates::{Date, DayCount};
+//! use finstack_core::money::Money;
+//! use finstack_core::currency::Currency;
 //! use time::Month;
 //!
 //! let base = Date::from_calendar_date(2025, Month::January, 1).unwrap();
-//! let cf1 = (Date::from_calendar_date(2025, Month::July, 1).unwrap(), 1000.0);
-//! let cf2 = (Date::from_calendar_date(2026, Month::January, 1).unwrap(), 1000.0);
+//! let cf1 = (Date::from_calendar_date(2025, Month::July, 1).unwrap(), Money::new(1000.0, Currency::USD));
+//! let cf2 = (Date::from_calendar_date(2026, Month::January, 1).unwrap(), Money::new(1000.0, Currency::USD));
 //!
 //! let present_value = npv_constant(&[cf1, cf2], 0.05, base, DayCount::Act365F)?;
-//! assert!(present_value > 0.0);
+//! assert!(present_value.amount() > 0.0);
 //! # Ok::<(), finstack_core::Error>(())
 //! ```
 //!

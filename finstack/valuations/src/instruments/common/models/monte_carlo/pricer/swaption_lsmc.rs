@@ -14,8 +14,9 @@
 //!
 //! ```rust,no_run
 //! use finstack_valuations::instruments::common::models::monte_carlo::pricer::swaption_lsmc::{
-//!     SwaptionLsmcPricer, SwaptionLsmcConfig, PolynomialBasis,
+//!     SwaptionLsmcPricer, SwaptionLsmcConfig,
 //! };
+//! use finstack_valuations::instruments::common::models::monte_carlo::pricer::basis::PolynomialBasis;
 //! use finstack_valuations::instruments::common::mc::process::ou::{HullWhite1FProcess, HullWhite1FParams};
 //!
 //! let hw_params = HullWhite1FParams::new(0.03, 0.01, 0.03);

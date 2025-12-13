@@ -79,7 +79,7 @@ RateSpec::Floating(FloatingRateSpec {
     gearing: 1.0,
     floor_bp: Some(0.0),     // 0% floor
     cap_bp: Some(500.0),     // 5% cap
-    reset_freq: Frequency::quarterly(),
+    reset_freq: Tenor::quarterly(),
     reset_lag_days: 2,
     dc: DayCount::Act360,
     bdc: BusinessDayConvention::ModifiedFollowing,
@@ -261,7 +261,7 @@ let loan = TermLoanBuilder::new()
     .issue(create_date(2025, Month::January, 15)?)
     .maturity(create_date(2030, Month::January, 15)?)
     .rate(RateSpec::Fixed { rate_bp: 550 })  // 5.50%
-    .pay_freq(Frequency::quarterly())
+    .pay_freq(Tenor::quarterly())
     .day_count(DayCount::Act360)
     .bdc(BusinessDayConvention::ModifiedFollowing)
     .stub(StubKind::None)
@@ -286,7 +286,7 @@ let floating_spec = FloatingRateSpec {
     gearing: 1.0,
     floor_bp: Some(0.0),
     cap_bp: None,
-    reset_freq: Frequency::quarterly(),
+    reset_freq: Tenor::quarterly(),
     reset_lag_days: 2,
     dc: DayCount::Act360,
     bdc: BusinessDayConvention::ModifiedFollowing,
@@ -300,7 +300,7 @@ let loan = TermLoanBuilder::new()
     .issue(create_date(2025, Month::June, 1)?)
     .maturity(create_date(2032, Month::June, 1)?)
     .rate(RateSpec::Floating(floating_spec))
-    .pay_freq(Frequency::quarterly())
+    .pay_freq(Tenor::quarterly())
     .day_count(DayCount::Act360)
     .bdc(BusinessDayConvention::ModifiedFollowing)
     .stub(StubKind::None)
@@ -344,7 +344,7 @@ let loan = TermLoanBuilder::new()
     .issue(create_date(2025, Month::January, 1)?)
     .maturity(create_date(2032, Month::January, 1)?)
     .rate(RateSpec::Floating(floating_spec))
-    .pay_freq(Frequency::quarterly())
+    .pay_freq(Tenor::quarterly())
     .day_count(DayCount::Act360)
     .bdc(BusinessDayConvention::ModifiedFollowing)
     .stub(StubKind::None)
@@ -381,7 +381,7 @@ let loan = TermLoanBuilder::new()
     .issue(create_date(2025, Month::January, 1)?)
     .maturity(create_date(2030, Month::January, 1)?)
     .rate(RateSpec::Fixed { rate_bp: 900 })  // 9% (high-yield)
-    .pay_freq(Frequency::semiannual())
+    .pay_freq(Tenor::semi_annual())
     .day_count(DayCount::Thirty360)
     .bdc(BusinessDayConvention::ModifiedFollowing)
     .stub(StubKind::None)

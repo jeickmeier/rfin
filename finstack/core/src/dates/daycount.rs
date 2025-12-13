@@ -476,12 +476,12 @@ pub enum DayCount {
     /// # Examples
     ///
     /// ```rust
-    /// use finstack_core::dates::{Date, DayCount, DayCountCtx, Frequency};
+    /// use finstack_core::dates::{Date, DayCount, DayCountCtx, Tenor};
     /// use time::Month;
     ///
     /// let start = Date::from_calendar_date(2025, Month::January, 15).expect("Valid date");
     /// let end = Date::from_calendar_date(2025, Month::July, 15).expect("Valid date");
-    /// let freq = Frequency::Months(6); // Semi-annual
+    /// let freq = Tenor::semi_annual(); // Semi-annual
     ///
     /// let yf = DayCount::ActActIsma.year_fraction(
     ///     start,

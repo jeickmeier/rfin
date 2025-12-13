@@ -20,7 +20,7 @@ The instrument is defined by `RevolvingCredit` with a builder for ergonomic cons
 use finstack_valuations::instruments::revolving_credit::{
     RevolvingCredit, RevolvingCreditFees, BaseRateSpec, DrawRepaySpec, DrawRepayEvent,
 };
-use finstack_core::dates::{Date, DayCount, Frequency};
+use finstack_core::dates::{Date, DayCount, Tenor};
 use finstack_core::money::Money;
 use finstack_core::currency::Currency;
 
@@ -33,11 +33,11 @@ let facility = RevolvingCredit::builder()
     .base_rate_spec(BaseRateSpec::Floating {
         index_id: "USD-SOFR-3M".into(),
         margin_bp: 200.0,
-        reset_freq: Frequency::quarterly(),
+        reset_freq: Tenor::quarterly(),
         floor_bp: Some(0.0),
     })
     .day_count(DayCount::Act360)
-    .payment_frequency(Frequency::quarterly())
+    .payment_frequency(Tenor::quarterly())
     .fees(RevolvingCreditFees::flat(25.0, 10.0, 5.0))
     .draw_repay_spec(DrawRepaySpec::Deterministic(vec![
         DrawRepayEvent { date: Date::from_ymd(2025, 3, 1).unwrap(), amount: Money::new(1_000_000.0, Currency::USD), is_draw: true },
@@ -176,7 +176,7 @@ Deterministic and stochastic modes both produce `CashFlowSchedule`. In determini
 
 ### Calendars and schedules
 
-Payment schedules (and floating reset schedules) are built from `commitment_date → maturity_date` using the configured `Frequency`, and optionally adjusted using a calendar from `attributes` (e.g., `calendar_id="NYC"`). A sentinel date can be appended for exclusive‑end period aggregation where needed.
+Payment schedules (and floating reset schedules) are built from `commitment_date → maturity_date` using the configured `Tenor`, and optionally adjusted using a calendar from `attributes` (e.g., `calendar_id="NYC"`). A sentinel date can be appended for exclusive‑end period aggregation where needed.
 
 ---
 

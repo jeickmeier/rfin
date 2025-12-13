@@ -65,6 +65,7 @@ build-prod:
 
 test:
 	make test-rust
+	make test-rust-doc
 	make test-python
 	make test-wasm
 	make test-ui

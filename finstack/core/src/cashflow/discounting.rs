@@ -24,7 +24,7 @@
 //! # Examples
 //!
 //! ```rust
-//! use finstack_core::cashflow::discounting::npv_static;
+//! use finstack_core::cashflow::discounting::npv;
 //! use finstack_core::market_data::term_structures::DiscountCurve;
 //! use finstack_core::dates::{Date, DayCount};
 //! use finstack_core::money::Money;
@@ -45,7 +45,7 @@
 //! );
 //! let flows = vec![cf1];
 //!
-//! let pv = npv_static(&curve, base_date, DayCount::Act360, &flows)?;
+//! let pv = npv(&curve, base_date, DayCount::Act360, &flows)?;
 //! assert!(pv.amount() < 100.0); // Discounted value < face value
 //! # Ok::<(), finstack_core::Error>(())
 //! ```

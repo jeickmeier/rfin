@@ -30,7 +30,7 @@ Everything is accessible via `finstack_core::dates`, and is designed to be:
     - Calendars and business days:
       - `HolidayCalendar`, `BusinessDayConvention`, `adjust`, `available_calendars`
       - `CompositeCalendar`, `CalendarRegistry`
-    - Schedule types: `Frequency`, `Schedule`, `ScheduleBuilder`, `ScheduleSpec`, `StubKind`
+    - Schedule types: `Tenor`, `Schedule`, `ScheduleBuilder`, `ScheduleSpec`, `StubKind`
     - Tenor and IMM helpers: `Tenor`, `TenorUnit`, `next_imm`, `next_cds_date`, `third_wednesday`, etc.
     - Period system: `Period`, `PeriodId`, `PeriodKind`, `PeriodPlan`, `FiscalConfig`,
       `build_periods`, `build_fiscal_periods`
@@ -63,11 +63,11 @@ Everything is accessible via `finstack_core::dates`, and is designed to be:
     - Helpers for 30/360, Act/Act (ISDA + ISMA), Act/365L, and business‑day counting.
 - **`schedule_iter.rs`**
   - Schedule generation engine:
-    - `Frequency` (months or days, with helpers like `monthly`, `quarterly`, `weekly`, etc.)
+    - `Tenor` (time periods with units: Days, Weeks, Months, Years, with helpers like `monthly()`, `quarterly()`, `weekly()`, etc.)
     - `StubKind` (None, ShortFront/Back, LongFront/Back)
     - `Schedule` (vector of monotonically increasing `Date`s)
     - `ScheduleBuilder`:
-      - Frequency configuration
+      - Tenor configuration
       - Stub rules
       - End‑of‑month convention
       - Business‑day adjustment via calendar or calendar ID
@@ -195,22 +195,23 @@ let yf = DayCount::ActAct.year_fraction(start, end, DayCountCtx::default())?;
 Context carries:
 
 - `calendar: Option<&dyn HolidayCalendar>` for `Bus252`
-- `frequency: Option<Frequency>` for `ActActIsma`
+- `frequency: Option<Tenor>` for `ActActIsma`
 - `bus_basis: Option<u16>` for custom `Bus/N` denominators
 
 `DayCountCtxState` is a serde DTO that can be serialized (e.g. to JSON) and re‑hydrated using a `CalendarRegistry`.
 
-### `Frequency`, `ScheduleBuilder`, and `Schedule`
+### `Tenor`, `ScheduleBuilder`, and `Schedule`
 
-`Frequency` is a **payment frequency**:
+`Tenor` is a **time period** used for payment frequencies and schedule intervals:
 
-- Month‑based: `Frequency::annual()`, `semi_annual()`, `quarterly()`, `monthly()`, etc.
-- Day‑based: `Frequency::weekly()`, `biweekly()`, `daily()`
+- Month‑based: `Tenor::annual()`, `semi_annual()`, `quarterly()`, `monthly()`, etc.
+- Day‑based: `Tenor::weekly()`, `biweekly()`, `daily()`
+- Year‑based: `Tenor::one_year()`, or use `Tenor::parse("1Y")`
 
 Schedules are built via `ScheduleBuilder`:
 
 ```rust
-use finstack_core::dates::{ScheduleBuilder, Frequency, BusinessDayConvention};
+use finstack_core::dates::{ScheduleBuilder, Tenor, BusinessDayConvention};
 use finstack_core::dates::calendar::registry::CalendarRegistry;
 use time::{Date, Month};
 
@@ -221,7 +222,7 @@ let nyse = CalendarRegistry::global()
     .ok_or("nyse not found")?;
 
 let schedule = ScheduleBuilder::new(start, end)
-    .frequency(Frequency::quarterly())
+    .frequency(Tenor::quarterly())
     .stub_rule(finstack_core::dates::StubKind::ShortBack)
     .end_of_month(false)
     .adjust_with(BusinessDayConvention::ModifiedFollowing, nyse)
@@ -427,7 +428,7 @@ The `dates` module is **core infrastructure** shared by curves, cashflows, state
   - Implement logic in `DayCount::year_fraction` (and `DayCount::days` for tests if applicable).
   - Use `DayCountCtx` (and `DayCountCtxState` under `serde`) for any needed context:
     - Calendars (`Bus/N`‑style)
-    - Coupon frequency (coupon‑aware conventions)
+    - Coupon tenor (coupon‑aware conventions)
   - Add unit tests that cover:
     - Equal dates and inverted ranges (error)
     - Leap years and edge cases
@@ -437,7 +438,7 @@ The `dates` module is **core infrastructure** shared by curves, cashflows, state
 ### New Schedule Features
 
 - Extend `schedule_iter.rs`:
-  - For new frequency styles, add variants to `Frequency` and map them through the internal `Step`.
+  - For new tenor styles, add convenience constructors to `Tenor` (e.g., `Tenor::bimonthly()`) or use `Tenor::new(count, unit)` directly.
   - For new stub logic, consider whether it can be expressed via existing `StubKind`; if not, add a new variant and implement it in `BuilderInternal`.
   - Keep `Schedule` invariant: strictly increasing, deduplicated dates.
 - Add tests that:

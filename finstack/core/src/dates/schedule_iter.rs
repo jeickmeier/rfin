@@ -18,14 +18,14 @@
 //!
 //! Basic monthly schedule:
 //! ```rust
-//! use finstack_core::dates::{ScheduleBuilder, Frequency};
+//! use finstack_core::dates::{ScheduleBuilder, Tenor};
 //! use time::{Date, Month};
 //!
 //! let start = Date::from_calendar_date(2025, Month::January, 15)?;
 //! let end = Date::from_calendar_date(2025, Month::April, 15)?;
 //!
 //! let sched = ScheduleBuilder::new(start, end)
-//!     .frequency(Frequency::monthly())
+//!     .frequency(Tenor::monthly())
 //!     .build()?;
 //!
 //! let dates: Vec<_> = sched.into_iter().collect();
@@ -53,7 +53,7 @@
 //!
 //! With business day adjustment:
 //! ```rust
-//! use finstack_core::dates::{ScheduleBuilder, Frequency, BusinessDayConvention};
+//! use finstack_core::dates::{ScheduleBuilder, Tenor, BusinessDayConvention};
 //! use finstack_core::dates::calendar::registry::CalendarRegistry;
 //! use time::{Date, Month};
 //! # fn main() -> Result<(), Box<dyn std::error::Error>> {
@@ -65,7 +65,7 @@
 //!     .ok_or("NYSE calendar not found")?;
 //!
 //! let sched = ScheduleBuilder::new(start, end)
-//!     .frequency(Frequency::monthly())
+//!     .frequency(Tenor::monthly())
 //!     .adjust_with(BusinessDayConvention::ModifiedFollowing, nyse)
 //!     .build()?;
 //!
@@ -117,29 +117,29 @@ type Buffer = SmallVec<[Date; 32]>;
 ///
 /// # Examples
 ///
-/// Using predefined frequency constructors:
+/// Using predefined tenor constructors:
 /// ```rust
-/// use finstack_core::dates::Frequency;
+/// use finstack_core::dates::Tenor;
 ///
-/// let quarterly = Frequency::quarterly();
+/// let quarterly = Tenor::quarterly();
 /// assert_eq!(quarterly.months(), Some(3));
 ///
-/// let weekly = Frequency::weekly();
+/// let weekly = Tenor::weekly();
 /// assert_eq!(weekly.days(), Some(7));
 /// ```
 ///
 /// Creating from payments per year:
 /// ```rust
-/// use finstack_core::dates::Frequency;
+/// use finstack_core::dates::Tenor;
 ///
 /// // 4 payments per year = quarterly
-/// let freq = Frequency::from_payments_per_year(4)?;
-/// assert_eq!(freq, Frequency::quarterly());
+/// let freq = Tenor::from_payments_per_year(4)?;
+/// assert_eq!(freq, Tenor::quarterly());
 ///
 /// // 2 payments per year = semi-annual
-/// let freq = Frequency::from_payments_per_year(2)?;
-/// assert_eq!(freq, Frequency::semi_annual());
-/// # Ok::<(), String>(())
+/// let freq = Tenor::from_payments_per_year(2)?;
+/// assert_eq!(freq, Tenor::semi_annual());
+/// # Ok::<(), finstack_core::Error>(())
 /// ```
 ///
 /// # See Also

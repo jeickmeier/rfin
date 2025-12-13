@@ -200,7 +200,7 @@ This ensures deterministic ordering when multiple flows occur on the same date.
 use finstack_valuations::cashflow::builder::{CashFlowSchedule, FixedCouponSpec, CouponType};
 use finstack_core::currency::Currency;
 use finstack_core::money::Money;
-use finstack_core::dates::{Date, Frequency, DayCount, BusinessDayConvention, StubKind};
+use finstack_core::dates::{Date, Tenor, DayCount, BusinessDayConvention, StubKind};
 use time::Month;
 
 let issue = Date::from_calendar_date(2025, Month::January, 15)?;
@@ -209,7 +209,7 @@ let maturity = Date::from_calendar_date(2030, Month::January, 15)?;
 let fixed_spec = FixedCouponSpec {
     coupon_type: CouponType::Cash,
     rate: 0.05,  // 5% annual
-    freq: Frequency::semi_annual(),
+    freq: Tenor::semi_annual(),
     dc: DayCount::Act360,
     bdc: BusinessDayConvention::Following,
     calendar_id: None,
@@ -264,14 +264,14 @@ let float_spec = FloatingCouponSpec {
         all_in_floor_bp: None,      // No minimum coupon
         cap_bp: None,               // No all-in cap
         index_cap_bp: None,         // No index cap
-        reset_freq: Frequency::quarterly(),
+        reset_freq: Tenor::quarterly(),
         reset_lag_days: 2,          // T-2 fixing convention
         dc: DayCount::Act360,
         bdc: BusinessDayConvention::ModifiedFollowing,
         calendar_id: None,
         fixing_calendar_id: None,   // Uses calendar_id if None
     },
-    freq: Frequency::quarterly(),
+    freq: Tenor::quarterly(),
     stub: StubKind::None,
 };
 
@@ -389,7 +389,7 @@ let fixed_fee = FeeSpec::Fixed {
 let drawn_fee = FeeSpec::PeriodicBps {
     base: FeeBase::Drawn,
     bps: 25.0,  // 25 bps annually
-    freq: Frequency::quarterly(),
+    freq: Tenor::quarterly(),
     dc: DayCount::Act360,
     bdc: BusinessDayConvention::ModifiedFollowing,
     calendar_id: None,
@@ -402,7 +402,7 @@ let undrawn_fee = FeeSpec::PeriodicBps {
         facility_limit: Money::new(10_000_000.0, Currency::USD),
     },
     bps: 50.0,
-    freq: Frequency::quarterly(),
+    freq: Tenor::quarterly(),
     dc: DayCount::Act360,
     bdc: BusinessDayConvention::ModifiedFollowing,
     calendar_id: None,
@@ -704,7 +704,7 @@ let amort = AmortizationSpec::StepRemaining {
 let fee = FeeSpec::periodic(
     FeeBase::NotionalBps,
     25.0,  // 25 bps per year
-    Frequency::annual(),
+    Tenor::annual(),
     issue,
     maturity,
 );
@@ -712,7 +712,7 @@ let fee = FeeSpec::periodic(
 let coupon = FixedCouponSpec {
     coupon_type: CouponType::Cash,
     rate: 0.06,
-    freq: Frequency::quarterly(),
+    freq: Tenor::quarterly(),
     dc: DayCount::Act360,
     bdc: BusinessDayConvention::ModifiedFollowing,
     calendar_id: None,
@@ -749,7 +749,7 @@ use finstack_valuations::cashflow::builder::CouponType;
 let pik_spec = FixedCouponSpec {
     coupon_type: CouponType::PIK,
     rate: 0.08,
-    freq: Frequency::semi_annual(),
+    freq: Tenor::semi_annual(),
     dc: DayCount::Thirty360,
     bdc: BusinessDayConvention::Following,
     calendar_id: None,
@@ -760,7 +760,7 @@ let pik_spec = FixedCouponSpec {
 let cash_spec = FixedCouponSpec {
     coupon_type: CouponType::Cash,
     rate: 0.08,
-    freq: Frequency::semi_annual(),
+    freq: Tenor::semi_annual(),
     dc: DayCount::Thirty360,
     bdc: BusinessDayConvention::Following,
     calendar_id: None,
@@ -881,7 +881,7 @@ let schedule = CashFlowSchedule::builder()
     .fixed_cf(FixedCouponSpec {
         coupon_type: CouponType::Cash,
         rate: 0.05,
-        freq: Frequency::semi_annual(),
+        freq: Tenor::semi_annual(),
         dc: DayCount::Thirty360,
         bdc: BusinessDayConvention::Following,
         calendar_id: None,

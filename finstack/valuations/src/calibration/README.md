@@ -315,7 +315,7 @@ use finstack_valuations::calibration::{
     DiscountCurveCalibrator, CalibrationConfig, RatesQuote, Calibrator
 };
 use finstack_core::prelude::*;
-use finstack_core::dates::{create_date, DayCount, Frequency};
+use finstack_core::dates::{create_date, DayCount, Tenor};
 use finstack_core::market_data::context::MarketContext;
 use finstack_core::types::IndexId;
 use time::Month;
@@ -338,8 +338,8 @@ let quotes = vec![
     RatesQuote::Swap {
         maturity: create_date(2025, Month::April, 15)?,
         rate: 0.0515,
-        fixed_freq: Frequency::Annual,
-        float_freq: Frequency::Annual,
+        fixed_freq: Tenor::annual(),
+        float_freq: Tenor::annual(),
         fixed_dc: DayCount::Act360,
         float_dc: DayCount::Act360,
         index: IndexId::from("SOFR"),
@@ -348,8 +348,8 @@ let quotes = vec![
     RatesQuote::Swap {
         maturity: create_date(2026, Month::January, 15)?,
         rate: 0.0500,
-        fixed_freq: Frequency::Annual,
-        float_freq: Frequency::Annual,
+        fixed_freq: Tenor::annual(),
+        float_freq: Tenor::annual(),
         fixed_dc: DayCount::Act360,
         float_dc: DayCount::Act360,
         index: IndexId::from("SOFR"),
@@ -380,7 +380,7 @@ use finstack_valuations::calibration::{
     CalibrationConfig, RatesQuote, Calibrator
 };
 use finstack_core::prelude::*;
-use finstack_core::dates::{create_date, DayCount, Frequency};
+use finstack_core::dates::{create_date, DayCount, Tenor};
 use finstack_core::market_data::context::MarketContext;
 use finstack_core::types::IndexId;
 use time::Month;
@@ -401,8 +401,8 @@ let ois_quotes = vec![
     RatesQuote::Swap {
         maturity: create_date(2026, Month::January, 15)?,
         rate: 0.0500,
-        fixed_freq: Frequency::Annual,
-        float_freq: Frequency::Annual,
+        fixed_freq: Tenor::annual(),
+        float_freq: Tenor::annual(),
         fixed_dc: DayCount::Act360,
         float_dc: DayCount::Act360,
         index: IndexId::from("SOFR"),
@@ -434,8 +434,8 @@ let libor_quotes = vec![
     RatesQuote::Swap {
         maturity: create_date(2026, Month::January, 15)?,
         rate: 0.0510,
-        fixed_freq: Frequency::Quarterly,
-        float_freq: Frequency::Quarterly,
+        fixed_freq: Tenor::quarterly(),
+        float_freq: Tenor::quarterly(),
         fixed_dc: DayCount::Thirty360,
         float_dc: DayCount::Act360,
         index: IndexId::from("USD-LIBOR-3M"),

@@ -353,7 +353,7 @@ for cf in full_schedule.flows {
 ### Example 7: Using the Builder Pattern
 
 ```rust
-use finstack_core::dates::{BusinessDayConvention, DayCount, Frequency, StubKind};
+use finstack_core::dates::{BusinessDayConvention, DayCount, Tenor, StubKind};
 use finstack_valuations::instruments::common::parameters::legs::{FixedLegSpec, FloatLegSpec};
 
 let swap = InterestRateSwap::builder()
@@ -363,7 +363,7 @@ let swap = InterestRateSwap::builder()
     .fixed(FixedLegSpec {
         discount_curve_id: CurveId::new("EUR-OIS"),
         rate: 0.02,
-        freq: Frequency::annual(),
+        freq: Tenor::annual(),
         dc: DayCount::Thirty360,
         bdc: BusinessDayConvention::ModifiedFollowing,
         calendar_id: Some("target2".to_string()),
@@ -377,7 +377,7 @@ let swap = InterestRateSwap::builder()
         discount_curve_id: CurveId::new("EUR-OIS"),
         forward_curve_id: CurveId::new("EUR-EURIBOR-6M"),
         spread_bp: 25.0,  // 25bp spread
-        freq: Frequency::semi_annual(),
+        freq: Tenor::semi_annual(),
         dc: DayCount::Act360,
         bdc: BusinessDayConvention::ModifiedFollowing,
         calendar_id: Some("target2".to_string()),
@@ -610,9 +610,9 @@ Add the standard schedule configuration:
 impl IRSScheduleConfig {
     fn eur_isda_standard() -> Self {
         Self {
-            fixed_freq: Frequency::annual(),
+            fixed_freq: Tenor::annual(),
             fixed_dc: DayCount::Thirty360,
-            float_freq: Frequency::semi_annual(),
+            float_freq: Tenor::semi_annual(),
             float_dc: DayCount::Act360,
             bdc: BusinessDayConvention::ModifiedFollowing,
             calendar_id: Some("target2".to_string()),

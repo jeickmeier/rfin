@@ -82,9 +82,9 @@ This example suite demonstrates all date and calendar functionality with feature
    - Equity option expiries
    - Third Friday/Wednesday calculations
 
-8. **Frequency Conventions**
-   - Standard frequencies (annual, semi-annual, quarterly, monthly, etc.)
-   - Custom frequencies by months or days
+8. **Tenor Conventions**
+   - Standard tenors (annual, semi-annual, quarterly, monthly, etc.)
+   - Custom tenors by months, days, weeks, or years
 
 ### Market Data (`DatesAndMarketData.tsx`)
 

@@ -14,7 +14,7 @@
 //! # Examples
 //! ```rust
 //! use finstack_core::dates::{
-//!     adjust, build_periods, BusinessDayConvention, Date, Frequency, ScheduleBuilder, create_date,
+//!     adjust, build_periods, BusinessDayConvention, Date, Tenor, ScheduleBuilder, create_date,
 //! };
 //! use finstack_core::dates::calendar::TARGET2;
 //! use time::{Duration, Month};
@@ -26,7 +26,7 @@
 //!
 //! let end = trade_date + Duration::days(365);
 //! let schedule = ScheduleBuilder::new(trade_date, end)
-//!     .frequency(Frequency::quarterly())
+//!     .frequency(Tenor::quarterly())
 //!     .build()?;
 //! assert!(schedule.dates.len() >= 4);
 //!

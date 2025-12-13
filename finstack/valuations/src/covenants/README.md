@@ -138,13 +138,13 @@ Time-based covenant activation:
 use finstack_valuations::covenants::{
     Covenant, CovenantEngine, CovenantSpec, CovenantType,
 };
-use finstack_core::dates::{Date, Frequency};
+use finstack_core::dates::{Date, Tenor};
 use finstack_valuations::metrics::{MetricContext, MetricId};
 
 // Create covenant
 let leverage_covenant = Covenant::new(
     CovenantType::MaxTotalLeverage { threshold: 5.0 },
-    Frequency::quarterly(),
+    Tenor::quarterly(),
 )
 .with_cure_period(Some(30));
 
@@ -181,7 +181,7 @@ use finstack_valuations::covenants::{
 
 let covenant = Covenant::new(
     CovenantType::MinInterestCoverage { threshold: 1.5 },
-    Frequency::quarterly(),
+    Tenor::quarterly(),
 )
 .with_cure_period(Some(30))
 .with_consequence(CovenantConsequence::RateIncrease { bp_increase: 150.0 })
@@ -230,7 +230,7 @@ let reporting_covenant = Covenant::new(
     CovenantType::Affirmative {
         requirement: "Provide quarterly reporting".to_string(),
     },
-    Frequency::quarterly(),
+    Tenor::quarterly(),
 );
 
 // Custom evaluator checks if reporting is compliant
@@ -263,7 +263,7 @@ let liquidity_covenant = Covenant::new(
         metric: "liquidity_ratio".to_string(),
         test: ThresholdTest::Minimum(1.1),
     },
-    Frequency::quarterly(),
+    Tenor::quarterly(),
 );
 
 engine.add_spec(CovenantSpec::with_metric(
@@ -285,7 +285,7 @@ let window = CovenantWindow {
         CovenantSpec::with_metric(
             Covenant::new(
                 CovenantType::MaxDebtToEBITDA { threshold: 3.5 },
-                Frequency::quarterly(),
+                Tenor::quarterly(),
             ),
             MetricId::custom("debt_to_ebitda"),
         ),
@@ -326,7 +326,7 @@ impl ModelTimeSeries for MyModelAdapter<'_> {
 let spec = CovenantSpec::with_metric(
     Covenant::new(
         CovenantType::MaxDebtToEBITDA { threshold: 5.0 },
-        Frequency::quarterly(),
+        Tenor::quarterly(),
     ),
     MetricId::custom("debt_to_ebitda"),
 );
@@ -476,7 +476,7 @@ CovenantType::MinTangibleNetWorth { .. } => model.get_scalar("tangible_net_worth
 fn evaluate_tangible_net_worth_covenant() {
     let covenant = Covenant::new(
         CovenantType::MinTangibleNetWorth { threshold: 50_000_000.0 },
-        Frequency::quarterly(),
+        Tenor::quarterly(),
     );
     
     let mut engine = CovenantEngine::new();
@@ -506,7 +506,7 @@ pub enum CovenantConsequence {
     // ... existing variants ...
     
     /// Require quarterly appraisals
-    RequireAppraisals { frequency: Frequency },
+    RequireAppraisals { frequency: Tenor },
 }
 ```
 
@@ -516,7 +516,7 @@ pub enum CovenantConsequence {
 pub trait InstrumentMutator {
     // ... existing methods ...
     
-    fn set_appraisal_requirement(&mut self, frequency: Frequency) -> Result<()>;
+    fn set_appraisal_requirement(&mut self, frequency: Tenor) -> Result<()>;
 }
 ```
 
@@ -566,7 +566,7 @@ let margin_covenant = Covenant::new(
         metric: "ebitda_margin".to_string(),
         test: ThresholdTest::Minimum(0.15), // 15%
     },
-    Frequency::quarterly(),
+    Tenor::quarterly(),
 );
 ```
 
