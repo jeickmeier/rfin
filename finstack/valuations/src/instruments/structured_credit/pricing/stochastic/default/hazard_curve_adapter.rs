@@ -143,24 +143,6 @@ impl HazardCurveDefault {
         let monthly_hazard = hazard / 12.0;
         (1.0 - (-monthly_hazard).exp()).clamp(0.0, 1.0)
     }
-
-    /// Get the base hazard rate at a given time point.
-    ///
-    /// Extracts the instantaneous hazard from the survival probability curve.
-    fn base_hazard_at(&self, t_years: f64) -> f64 {
-        // For a piecewise-constant hazard curve, we can approximate
-        // λ(t) ≈ -d/dt[ln S(t)] ≈ -[ln S(t+dt) - ln S(t)] / dt
-        // For practical purposes, use a small delta
-        let dt = 1.0 / 365.0; // 1 day
-        let sp_t = self.hazard_curve.sp(t_years);
-        let sp_t_dt = self.hazard_curve.sp(t_years + dt);
-
-        if sp_t > 0.0 && sp_t_dt > 0.0 {
-            -(sp_t_dt.ln() - sp_t.ln()) / dt
-        } else {
-            0.0
-        }
-    }
 }
 
 impl StochasticDefault for HazardCurveDefault {
@@ -174,7 +156,7 @@ impl StochasticDefault for HazardCurveDefault {
         let t_years = seasoning as f64 / 12.0;
 
         // Get base hazard rate from curve
-        let base_hazard = self.base_hazard_at(t_years);
+        let base_hazard = self.hazard_curve.hazard_rate(t_years);
 
         // Apply factor shock
         let z = factors.first().copied().unwrap_or(0.0);
@@ -220,7 +202,7 @@ impl StochasticDefault for HazardCurveDefault {
     fn expected_mdr(&self, seasoning: u32) -> f64 {
         // Unconditional MDR (no factor shock, Z=0)
         let t_years = seasoning as f64 / 12.0;
-        let base_hazard = self.base_hazard_at(t_years);
+        let base_hazard = self.hazard_curve.hazard_rate(t_years);
         Self::hazard_to_mdr(base_hazard)
     }
 }

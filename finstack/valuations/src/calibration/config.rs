@@ -6,12 +6,14 @@
 //! - Entity seniority mappings for credit calibration
 //! - Rate bounds for market-regime-aware calibration
 
+use finstack_core::config::FinstackConfig;
 use finstack_core::currency::Currency;
 use finstack_core::explain::ExplainOpts;
 use finstack_core::market_data::term_structures::Seniority;
 
 use hashbrown::HashMap;
 use serde::{Deserialize, Serialize};
+use serde_json;
 #[cfg(feature = "ts_export")]
 use ts_rs::TS;
 
@@ -280,6 +282,36 @@ pub struct CalibrationConfig {
     pub calibration_method: CalibrationMethod,
 }
 
+/// Extension section key for calibration overrides.
+pub const CALIBRATION_CONFIG_KEY_V1: &str = "valuations.calibration.v1";
+
+/// Optional calibration overrides sourced from `FinstackConfig.extensions`.
+///
+/// All fields are optional; when absent, the `CalibrationConfig::default()` value is used.
+#[derive(Clone, Debug, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct CalibrationConfigV1 {
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub tolerance: Option<f64>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub max_iterations: Option<usize>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub use_parallel: Option<bool>,
+    /// Use `null` to clear the seed; omit to inherit the default.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub random_seed: Option<Option<u64>>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub verbose: Option<bool>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub solver_kind: Option<SolverKind>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub rate_bounds_policy: Option<RateBoundsPolicy>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub rate_bounds: Option<RateBounds>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub calibration_method: Option<CalibrationMethod>,
+}
+
 impl Default for CalibrationConfig {
     fn default() -> Self {
         Self {
@@ -303,6 +335,49 @@ impl Default for CalibrationConfig {
 }
 
 impl CalibrationConfig {
+    /// Build a calibration config from a `FinstackConfig` extension section.
+    ///
+    /// If the extension section `valuations.calibration.v1` is present, its
+    /// fields override the defaults; otherwise defaults are used.
+    #[cfg(feature = "serde")]
+    pub fn from_finstack_config(cfg: &FinstackConfig) -> serde_json::Result<Self> {
+        let mut base = Self::default();
+
+        if let Some(raw) = cfg.extensions.get(CALIBRATION_CONFIG_KEY_V1) {
+            let overrides: CalibrationConfigV1 = serde_json::from_value(raw.clone())?;
+
+            if let Some(v) = overrides.tolerance {
+                base.tolerance = v;
+            }
+            if let Some(v) = overrides.max_iterations {
+                base.max_iterations = v;
+            }
+            if let Some(v) = overrides.use_parallel {
+                base.use_parallel = v;
+            }
+            if let Some(v) = overrides.random_seed {
+                base.random_seed = v;
+            }
+            if let Some(v) = overrides.verbose {
+                base.verbose = v;
+            }
+            if let Some(v) = overrides.solver_kind {
+                base.solver_kind = v;
+            }
+            if let Some(v) = overrides.rate_bounds_policy {
+                base.rate_bounds_policy = v;
+            }
+            if let Some(v) = overrides.rate_bounds {
+                base.rate_bounds = v;
+            }
+            if let Some(v) = overrides.calibration_method {
+                base.calibration_method = v;
+            }
+        }
+
+        Ok(base)
+    }
+
     /// Resolve effective rate bounds for a given currency based on `rate_bounds_policy`.
     pub fn effective_rate_bounds(&self, currency: Currency) -> RateBounds {
         match self.rate_bounds_policy {

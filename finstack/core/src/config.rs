@@ -37,6 +37,11 @@
 
 #[cfg(feature = "serde")]
 use serde::{Deserialize, Serialize};
+#[cfg(feature = "serde")]
+use serde_json::Value as JsonValue;
+
+#[cfg(feature = "serde")]
+use std::collections::BTreeMap;
 
 use hashbrown::HashMap;
 
@@ -92,8 +97,47 @@ pub enum RoundingMode {
 pub struct FinstackConfig {
     /// Detailed rounding policy (ingest/output scales by currency).
     pub rounding: RoundingPolicy,
+    /// Optional module-specific configuration sections (versioned, namespaced keys).
+    ///
+    /// Keys follow `{crate}.{domain}.v{N}`, e.g., `valuations.calibration.v1`.
+    /// Values are validated by the owning crate's strict serde schema.
+    #[cfg(feature = "serde")]
+    #[cfg_attr(
+        feature = "serde",
+        serde(default, skip_serializing_if = "ConfigExtensions::is_empty")
+    )]
+    pub extensions: ConfigExtensions,
 }
 // Default derived above
+
+/// Versioned, namespaced extension map carried alongside the core config.
+#[cfg(feature = "serde")]
+#[derive(Clone, Debug, Default, Serialize, Deserialize)]
+pub struct ConfigExtensions {
+    #[serde(flatten)]
+    pub(crate) inner: BTreeMap<String, JsonValue>,
+}
+
+#[cfg(feature = "serde")]
+impl ConfigExtensions {
+    /// Returns true if no extension sections are present.
+    #[inline]
+    pub fn is_empty(&self) -> bool {
+        self.inner.is_empty()
+    }
+
+    /// Get a section by key.
+    #[inline]
+    pub fn get(&self, key: &str) -> Option<&JsonValue> {
+        self.inner.get(key)
+    }
+
+    /// Insert or replace a section by key.
+    #[inline]
+    pub fn insert(&mut self, key: impl Into<String>, value: JsonValue) -> Option<JsonValue> {
+        self.inner.insert(key.into(), value)
+    }
+}
 
 /// Policy mapping that determines decimal places for each currency at ingest/output.
 ///
