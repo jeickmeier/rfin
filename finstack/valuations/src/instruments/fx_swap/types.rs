@@ -182,65 +182,11 @@ impl FxSwap {
         let domestic_disc = curves.get_discount_ref(self.domestic_discount_curve_id.as_str())?;
         let foreign_disc = curves.get_discount_ref(self.foreign_discount_curve_id.as_str())?;
 
-        // Discount factors from as_of for correct theta
-        let dom_dc = domestic_disc.day_count();
-        let for_dc = foreign_disc.day_count();
-
-        let t_as_of_dom = dom_dc
-            .year_fraction(
-                domestic_disc.base_date(),
-                as_of,
-                finstack_core::dates::DayCountCtx::default(),
-            )
-            .unwrap_or(0.0);
-        let t_as_of_for = for_dc
-            .year_fraction(
-                foreign_disc.base_date(),
-                as_of,
-                finstack_core::dates::DayCountCtx::default(),
-            )
-            .unwrap_or(0.0);
-
-        let df_as_of_dom = domestic_disc.df(t_as_of_dom);
-        let df_as_of_for = foreign_disc.df(t_as_of_for);
-
-        let t_near_dom = dom_dc
-            .year_fraction(
-                domestic_disc.base_date(),
-                self.near_date,
-                finstack_core::dates::DayCountCtx::default(),
-            )
-            .unwrap_or(0.0);
-        let t_far_dom = dom_dc
-            .year_fraction(
-                domestic_disc.base_date(),
-                self.far_date,
-                finstack_core::dates::DayCountCtx::default(),
-            )
-            .unwrap_or(0.0);
-        let t_far_for = for_dc
-            .year_fraction(
-                foreign_disc.base_date(),
-                self.far_date,
-                finstack_core::dates::DayCountCtx::default(),
-            )
-            .unwrap_or(0.0);
-
-        let df_dom_near = if df_as_of_dom != 0.0 {
-            domestic_disc.df(t_near_dom) / df_as_of_dom
-        } else {
-            1.0
-        };
-        let df_dom_far = if df_as_of_dom != 0.0 {
-            domestic_disc.df(t_far_dom) / df_as_of_dom
-        } else {
-            1.0
-        };
-        let df_for_far = if df_as_of_for != 0.0 {
-            foreign_disc.df(t_far_for) / df_as_of_for
-        } else {
-            1.0
-        };
+        // Discount factors from as_of for correct theta (curve-consistent date mapping).
+        let df_dom_near = domestic_disc.try_df_between_dates(as_of, self.near_date)?;
+        let df_dom_far = domestic_disc.try_df_between_dates(as_of, self.far_date)?;
+        let df_for_near = foreign_disc.try_df_between_dates(as_of, self.near_date)?;
+        let df_for_far = foreign_disc.try_df_between_dates(as_of, self.far_date)?;
 
         // Settlement checks
         let include_near = self.near_date >= as_of;
@@ -263,20 +209,6 @@ impl FxSwap {
 
         // Contract rates default to model when not provided explicitly
         let contract_spot = self.near_rate.unwrap_or(model_spot);
-
-        // Calculate foreign leg discount factors (needed for forward calculation)
-        let t_near_for = for_dc
-            .year_fraction(
-                foreign_disc.base_date(),
-                self.near_date,
-                finstack_core::dates::DayCountCtx::default(),
-            )
-            .unwrap_or(0.0);
-        let df_for_near = if df_as_of_for != 0.0 {
-            foreign_disc.df(t_near_for) / df_as_of_for
-        } else {
-            1.0
-        };
 
         // Calculate model forward only if far leg is active or needed.
         // Covered interest parity: F = S × (DF_for_far/DF_for_near) / (DF_dom_far/DF_dom_near)
