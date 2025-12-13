@@ -87,6 +87,7 @@
 
 use crate::calibration::{
     config::{CalibrationConfig, ValidationMode},
+    methods::pricing::{CalibrationPricer, RatesQuoteUseCase},
     quote::{
         default_calendar_for_currency, settlement_days_for_currency, InstrumentConventions,
         RatesQuote,
@@ -1392,69 +1393,28 @@ impl ForwardCurveCalibrator {
 
     /// Validate quotes for calibration.
     ///
-    /// Performs:
+    /// Delegates to the unified `CalibrationPricer::validate_rates_quotes` for:
     /// - Non-empty check
+    /// - Duplicate (type, maturity) detection
     /// - Rate bounds validation against configured limits
-    /// - Day-count consistency warnings (non-fatal)
-    /// - Quote date validation
+    /// - Maturity > base_date validation
+    /// - Forward curve specific: no Deposit quotes allowed
+    ///
+    /// Additionally performs calibrator-specific day-count consistency warnings (non-fatal).
     fn validate_quotes(&self, quotes: &[RatesQuote]) -> Result<()> {
-        if quotes.is_empty() {
-            return Err(finstack_core::Error::Input(
-                finstack_core::error::InputError::TooFewPoints,
-            ));
-        }
-
         let bounds = self.config.effective_rate_bounds(self.currency);
 
-        // Check for reasonable rates and consistency
+        // Use unified validation (handles non-empty, bounds, maturity, Deposit rejection)
+        CalibrationPricer::validate_rates_quotes(
+            quotes,
+            &bounds,
+            self.base_date,
+            RatesQuoteUseCase::ForwardCurve,
+        )?;
+
+        // Calibrator-specific: day-count consistency warnings (non-fatal, not in unified validator)
         for quote in quotes {
-            // Extract rate and validate bounds
-            let rate = match quote {
-                RatesQuote::Deposit { .. } => {
-                    return Err(finstack_core::Error::Validation(
-                        "ForwardCurveCalibrator does not support Deposit quotes (use DiscountCurveCalibrator)".into(),
-                    ));
-                }
-                RatesQuote::FRA { rate, .. } => *rate,
-                RatesQuote::Future { price, .. } => (100.0 - price) / 100.0,
-                RatesQuote::Swap { rate, .. } => *rate,
-                RatesQuote::BasisSwap { spread_bp, .. } => *spread_bp / 10_000.0,
-            };
-
-            if !rate.is_finite() {
-                return Err(finstack_core::Error::Input(
-                    finstack_core::error::InputError::Invalid,
-                ));
-            }
-
-            // Check against configurable rate bounds
-            if !bounds.contains(rate) {
-                return Err(finstack_core::Error::Calibration {
-                    message: format!(
-                        "Quote rate {:.4}% outside allowed bounds [{:.2}%, {:.2}%]. \
-                        Use `with_rate_bounds()` to adjust bounds for this market regime.",
-                        rate * 100.0,
-                        bounds.min_rate * 100.0,
-                        bounds.max_rate * 100.0
-                    ),
-                    category: "quote_validation".to_string(),
-                });
-            }
-
-            // Day-count consistency checks (warnings only, not errors)
             self.check_daycount_consistency(quote);
-
-            // Date validation
-            let maturity = quote.maturity_date();
-            if maturity <= self.base_date {
-                return Err(finstack_core::Error::Calibration {
-                    message: format!(
-                        "Quote maturity {} is on or before base date {}",
-                        maturity, self.base_date
-                    ),
-                    category: "quote_validation".to_string(),
-                });
-            }
         }
 
         Ok(())

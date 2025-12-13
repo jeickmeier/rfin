@@ -377,26 +377,32 @@ impl SwaptionVolCalibrator {
     }
 
     /// Build volatility grid from calibrated SABR parameters.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if SABR implied volatility cannot be computed for any
+    /// expiry/tenor combination. Silent fallbacks are not allowed as they can
+    /// mask calibration failures and produce invalid risk surfaces.
     fn build_vol_grid(
         &self,
         sabr_params: &SABRParamsByExpiryTenor,
         context: &MarketContext,
-        warnings: &mut Vec<String>,
     ) -> Result<Vec<f64>> {
         let target_expiries = &self.market_conventions.standard_expiries;
         let target_tenors = &self.market_conventions.standard_tenors;
         let mut vol_grid = Vec::with_capacity(target_expiries.len() * target_tenors.len());
+        let mut failed_points: Vec<(f64, f64, String)> = Vec::new();
 
         for &expiry_years in target_expiries {
             for &tenor_years in target_tenors {
                 let key = (to_basis_points(expiry_years), to_basis_points(tenor_years));
 
-                if let Some(params) = sabr_params.get(&key) {
+                let vol_result = if let Some(params) = sabr_params.get(&key) {
                     // Have exact calibrated parameters
                     let model = SABRModel::new(params.clone());
                     let expiry = self.base_date.add_months((expiry_years * 12.0) as i32);
 
-                    let vol = (|| -> Result<f64> {
+                    (|| -> Result<f64> {
                         let forward =
                             self.calculate_forward_swap_rate(expiry, tenor_years, context)?;
                         let strike =
@@ -407,31 +413,46 @@ impl SwaptionVolCalibrator {
                                 message: format!("SABR implied volatility failed: {e:?}"),
                                 category: "swaption_vol_surface".to_string(),
                             })
-                    })();
-
-                    match vol {
-                        Ok(v) => vol_grid.push(v),
-                        Err(e) => {
-                            warnings.push(format!(
-                                "vol_grid fallback at expiry={expiry_years:.2}y tenor={tenor_years:.2}y: {e:?}"
-                            ));
-                            vol_grid.push(self.market_conventions.default_vol);
-                        }
-                    }
+                    })()
                 } else {
                     // Interpolate from nearby points
-                    match self.interpolate_sabr_vol(expiry_years, tenor_years, sabr_params, context)
-                    {
-                        Ok(vol) => vol_grid.push(vol),
-                        Err(e) => {
-                            warnings.push(format!(
-                                "vol_grid fallback at expiry={expiry_years:.2}y tenor={tenor_years:.2}y: {e:?}"
-                            ));
-                            vol_grid.push(self.market_conventions.default_vol);
-                        }
+                    self.interpolate_sabr_vol(expiry_years, tenor_years, sabr_params, context)
+                };
+
+                match vol_result {
+                    Ok(vol) => vol_grid.push(vol),
+                    Err(e) => {
+                        // Track the failed point for error reporting
+                        failed_points.push((expiry_years, tenor_years, format!("{e:?}")));
+                        // Push placeholder to maintain grid structure; will error below
+                        vol_grid.push(f64::NAN);
                     }
                 }
             }
+        }
+
+        // Fail calibration if any vol computations failed
+        if !failed_points.is_empty() {
+            let failed_desc: Vec<String> = failed_points
+                .iter()
+                .take(10) // Limit error message size
+                .map(|(exp, ten, err)| format!("expiry={exp:.2}y tenor={ten:.2}y: {err}"))
+                .collect();
+            let suffix = if failed_points.len() > 10 {
+                format!(" (and {} more)", failed_points.len() - 10)
+            } else {
+                String::new()
+            };
+            return Err(finstack_core::Error::Calibration {
+                message: format!(
+                    "Swaption vol grid failed at {} point(s): [{}]{}. \
+                    Check that all expiry/tenor combinations have valid SABR parameters or can be interpolated.",
+                    failed_points.len(),
+                    failed_desc.join("; "),
+                    suffix
+                ),
+                category: "swaption_vol_grid_build".to_string(),
+            });
         }
 
         Ok(vol_grid)
@@ -627,6 +648,11 @@ impl SwaptionVolCalibrator {
         Self::interpolate_sabr_linear(&p0, &p1, wy_clamped)
     }
     /// Interpolate SABR volatility for points without direct calibration.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if interpolation is not possible (no nearby calibrated points)
+    /// or if SABR implied volatility computation fails.
     fn interpolate_sabr_vol(
         &self,
         target_expiry: f64,
@@ -634,19 +660,22 @@ impl SwaptionVolCalibrator {
         sabr_params: &SABRParamsByExpiryTenor,
         context: &MarketContext,
     ) -> Result<f64> {
-        if let Some(params) =
-            self.interpolate_sabr_params_bilinear(target_expiry, target_tenor, sabr_params)
-        {
-            let model = SABRModel::new(params);
-            let expiry = self.base_date.add_months((target_expiry * 12.0) as i32);
-            let forward = self.calculate_forward_swap_rate(expiry, target_tenor, context)?;
-            let strike = self.determine_atm_strike(forward, expiry, target_tenor, context)?;
+        let params = self
+            .interpolate_sabr_params_bilinear(target_expiry, target_tenor, sabr_params)
+            .ok_or_else(|| finstack_core::Error::Calibration {
+                message: format!(
+                    "Cannot interpolate SABR params for expiry={target_expiry:.2}y tenor={target_tenor:.2}y: \
+                    insufficient calibrated points for bilinear interpolation"
+                ),
+                category: "swaption_vol_interpolation".to_string(),
+            })?;
 
-            model.implied_volatility(forward, strike, target_expiry)
-        } else {
-            // Fallback: use default volatility when interpolation is not possible.
-            Ok(self.market_conventions.default_vol)
-        }
+        let model = SABRModel::new(params);
+        let expiry = self.base_date.add_months((target_expiry * 12.0) as i32);
+        let forward = self.calculate_forward_swap_rate(expiry, target_tenor, context)?;
+        let strike = self.determine_atm_strike(forward, expiry, target_tenor, context)?;
+
+        model.implied_volatility(forward, strike, target_expiry)
     }
 }
 
@@ -890,8 +919,8 @@ impl Calibrator<VolQuote, VolSurface> for SwaptionVolCalibrator {
             });
         }
 
-        // 4. Build volatility surface on target grid
-        let vol_grid = self.build_vol_grid(&sabr_params, base_context, &mut warnings)?;
+        // 4. Build volatility surface on target grid (strict: errors on any failed point)
+        let vol_grid = self.build_vol_grid(&sabr_params, base_context)?;
 
         // 5. Create 2D surface (expiry x tenor)
         let target_expiries = &self.market_conventions.standard_expiries;

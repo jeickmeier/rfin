@@ -87,8 +87,8 @@ pub use spec::{
 pub use traits::Calibrator;
 pub use validation::{CurveValidator, SurfaceValidator, ValidationConfig, ValidationError};
 
-// Re-export test helpers for swap repricing
-pub use methods::create_ois_swap_from_quote;
+// Re-export calibration validation types
+pub use methods::RatesQuoteUseCase;
 
 /// Finite penalty value used in objective functions instead of infinity.
 ///

@@ -106,8 +106,8 @@ pub use hull_white::{
     HULL_WHITE_CALIBRATION_CONFIG_KEY_V1,
 };
 pub use inflation_curve::InflationCurveCalibrator;
-pub use pricing::create_ois_swap_from_quote;
 pub use pricing::CalibrationPricer;
+pub use pricing::RatesQuoteUseCase;
 pub use sabr_surface::SurfaceInterp;
 pub use sabr_surface::VolSurfaceCalibrator;
 pub use swaption_vol::SwaptionVolCalibrator;

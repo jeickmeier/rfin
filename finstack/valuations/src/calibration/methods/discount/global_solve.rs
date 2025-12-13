@@ -14,7 +14,7 @@
 
 use super::DiscountCurveCalibrator;
 use crate::calibration::config::RateBounds;
-use crate::calibration::methods::pricing::CalibrationPricer;
+use crate::calibration::methods::pricing::{CalibrationPricer, RatesQuoteUseCase};
 use crate::calibration::quote::RatesQuote;
 use crate::calibration::CalibrationReport;
 use finstack_core::market_data::context::MarketContext;
@@ -58,14 +58,17 @@ impl DiscountCurveCalibrator {
     ) -> Result<(DiscountCurve, CalibrationReport)> {
         use finstack_core::error::InputError;
 
-        // Sort quotes by maturity and validate dependencies
+        // Sort quotes by maturity and validate using unified validation
         let mut sorted_quotes = quotes.to_vec();
         sorted_quotes.sort_by_key(RatesQuote::maturity_date);
         let bounds = self.config.effective_rate_bounds(self.currency);
-        CalibrationPricer::validate_quotes(&sorted_quotes, &bounds)?;
-        CalibrationPricer::validate_discount_curve_quotes(
+        CalibrationPricer::validate_rates_quotes(
             &sorted_quotes,
-            self.config.multi_curve.enforce_separation,
+            &bounds,
+            self.base_date,
+            RatesQuoteUseCase::DiscountCurve {
+                enforce_separation: self.config.multi_curve.enforce_separation,
+            },
         )?;
 
         let curve_dc = self.effective_curve_day_count();

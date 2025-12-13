@@ -110,36 +110,41 @@ fn create_test_swaption_quotes() -> Vec<VolQuote> {
     ]
 }
 
-/// Create a richer quote set covering multiple expiries and tenors for convergence tests
+/// Create a richer quote set covering multiple expiries and tenors for convergence tests.
+/// 
+/// With strict vol grid building, quotes must fully cover the calibration grid.
+/// This creates quotes for a 2×2 grid: expiries {1Y, 2Y} × tenors {1Y, 5Y}.
 fn create_extended_swaption_quotes() -> Vec<VolQuote> {
-    let mut q = create_test_swaption_quotes();
-    // 2Y x 2Y grid around ATM
+    let mut q = create_test_swaption_quotes(); // Provides (1Y, 1Y) and (1Y, 5Y)
+    
+    // Add 2Y x 1Y (to complete the 2×2 rectangular grid)
     for (k, v) in [
-        (0.030, 0.0115),
-        (0.035, 0.0105),
-        (0.040, 0.0095),
-        (0.045, 0.0105),
-        (0.050, 0.0115),
+        (0.030, 0.0120),
+        (0.035, 0.0108),
+        (0.040, 0.0098),
+        (0.045, 0.0108),
+        (0.050, 0.0120),
     ] {
         q.push(VolQuote::SwaptionVol {
-            expiry: Date::from_calendar_date(2027, Month::January, 1).unwrap(),
-            tenor: Date::from_calendar_date(2029, Month::January, 1).unwrap(),
+            expiry: Date::from_calendar_date(2027, Month::January, 1).unwrap(),  // 2Y expiry
+            tenor: Date::from_calendar_date(2028, Month::January, 1).unwrap(),   // 1Y tenor
             strike: k,
             vol: v,
             quote_type: "STRIKE".to_string(),
         });
     }
-    // 0.5Y x 3Y
+    
+    // Add 2Y x 5Y (to complete the 2×2 rectangular grid)
     for (k, v) in [
-        (0.020, 0.013),
-        (0.025, 0.011),
-        (0.030, 0.010),
-        (0.035, 0.011),
-        (0.040, 0.013),
+        (0.035, 0.0080),
+        (0.040, 0.0072),
+        (0.045, 0.0068),
+        (0.050, 0.0072),
+        (0.055, 0.0080),
     ] {
         q.push(VolQuote::SwaptionVol {
-            expiry: Date::from_calendar_date(2025, Month::July, 1).unwrap(),
-            tenor: Date::from_calendar_date(2028, Month::January, 1).unwrap(),
+            expiry: Date::from_calendar_date(2027, Month::January, 1).unwrap(),  // 2Y expiry
+            tenor: Date::from_calendar_date(2032, Month::January, 1).unwrap(),   // 5Y tenor
             strike: k,
             vol: v,
             quote_type: "STRIKE".to_string(),
@@ -255,6 +260,8 @@ fn test_swaption_vol_calibration_direct() {
 
 #[test]
 fn test_swaption_vol_calibration_extended_grid_and_interpolation() {
+    use finstack_valuations::calibration::methods::swaption_market_conventions::SwaptionMarketConvention;
+
     let base_date = Date::from_calendar_date(2025, Month::January, 1).unwrap();
     let mut context = MarketContext::new();
     context = context.insert_discount(create_test_discount_curve());
@@ -268,6 +275,14 @@ fn test_swaption_vol_calibration_extended_grid_and_interpolation() {
             "tolerance": 1e-8
         }),
     );
+
+    // Use restricted market conventions matching the 2×2 calibration grid:
+    // expiries {1Y, 2Y} × tenors {1Y, 5Y}
+    // Extended quotes now provide full rectangular coverage for these 4 points.
+    let restricted_conventions = SwaptionMarketConvention::usd()
+        .with_expiries(vec![1.0, 2.0])
+        .with_tenors(vec![1.0, 5.0]);
+
     let calibrator = SwaptionVolCalibrator::new(
         "TEST-SWAPTION-VOL-EXT",
         SwaptionVolConvention::Normal,
@@ -277,7 +292,8 @@ fn test_swaption_vol_calibration_extended_grid_and_interpolation() {
         Currency::USD,
     )
     .with_finstack_config(&cfg)
-    .expect("valid config");
+    .expect("valid config")
+    .with_market_conventions(restricted_conventions);
 
     let quotes = create_extended_swaption_quotes();
     let (surface, report) = calibrator
@@ -288,7 +304,6 @@ fn test_swaption_vol_calibration_extended_grid_and_interpolation() {
 
     // CALIBRATION QUALITY CHECKS
     // Extended grid should achieve tight calibration with ATM-pinning
-    // Note: Extended grid has more expiry/tenor points, so slightly looser tolerances
     assert!(
         report.rmse < 0.0007,
         "Extended grid calibration RMSE should be < 7bp: {:.6} ({:.2} bp)",
@@ -303,9 +318,9 @@ fn test_swaption_vol_calibration_extended_grid_and_interpolation() {
     );
 
     // Interpolation checks at non-grid points - use value_clamped for robustness
-    let v = surface.value_clamped(1.5, 2.5);
+    let v = surface.value_clamped(1.5, 3.0);
     assert!(v.is_finite() && v > 0.0 && v < 1.0);
-    let v2 = surface.value_clamped(0.75, 3.5);
+    let v2 = surface.value_clamped(1.5, 2.5);
     assert!(v2.is_finite() && v2 > 0.0 && v2 < 1.0);
 }
 
@@ -421,11 +436,18 @@ fn test_swaption_pricing_with_calibrated_surface() {
 /// consider using SVI parameterization or monotone convex fitting methods.
 #[test]
 fn test_swaption_vol_surface_arbitrage_free() {
+    use finstack_valuations::calibration::methods::swaption_market_conventions::SwaptionMarketConvention;
     use finstack_valuations::calibration::{SurfaceValidator, ValidationConfig};
 
     let base_date = Date::from_calendar_date(2025, Month::January, 1).unwrap();
     let mut context = MarketContext::new();
     context = context.insert_discount(create_test_discount_curve());
+
+    // Use restricted market conventions matching the 2×2 calibration grid.
+    // See test_swaption_vol_calibration_extended_grid_and_interpolation for details.
+    let restricted_conventions = SwaptionMarketConvention::usd()
+        .with_expiries(vec![1.0, 2.0])
+        .with_tenors(vec![1.0, 5.0]);
 
     let calibrator = SwaptionVolCalibrator::new(
         "TEST-ARB-FREE",
@@ -434,7 +456,8 @@ fn test_swaption_vol_surface_arbitrage_free() {
         base_date,
         "USD-OIS",
         Currency::USD,
-    );
+    )
+    .with_market_conventions(restricted_conventions);
 
     let quotes = create_extended_swaption_quotes();
     let (surface, _) = calibrator

@@ -54,6 +54,33 @@ use finstack_core::types::{CurveId, IndexId};
 
 use serde::{Deserialize, Serialize};
 
+// =============================================================================
+// Quote Validation Types
+// =============================================================================
+
+/// Specifies the intended use case for rate quote validation.
+///
+/// Different calibration targets have different constraints on which instruments
+/// are valid. This enum allows the centralized validator to enforce use-case-specific
+/// rules while sharing common validation logic.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub enum RatesQuoteUseCase {
+    /// Validation for discount curve calibration.
+    ///
+    /// Discount curves should use OIS-suitable instruments (deposits, OIS swaps).
+    /// Forward-dependent instruments (FRAs, futures, non-OIS swaps) may be flagged
+    /// depending on `enforce_separation`.
+    DiscountCurve {
+        /// If true, error on forward-dependent instruments; if false, warn only.
+        enforce_separation: bool,
+    },
+    /// Validation for forward curve calibration.
+    ///
+    /// Forward curves accept FRAs, futures, swaps, and basis swaps.
+    /// Deposits are **not** allowed (they should go to discount curve).
+    ForwardCurve,
+}
+
 /// Instrument pricer for curve calibration.
 ///
 /// Encapsulates the configuration and logic needed to price rate instruments
@@ -1193,71 +1220,140 @@ impl CalibrationPricer {
 
         Ok(())
     }
-}
 
-// =============================================================================
-// Standalone Helper (backward compatibility)
-// =============================================================================
+    /// Unified validation for rate quotes with use-case-specific rules.
+    ///
+    /// This is the **single entrypoint** for validating rate quotes across all
+    /// calibrators. It performs:
+    /// - Non-empty check
+    /// - Duplicate (type, maturity) detection
+    /// - Rate bounds validation
+    /// - Maturity > base_date check
+    /// - Use-case-specific instrument constraints
+    ///
+    /// # Arguments
+    ///
+    /// * `quotes` - The quote sequence to validate
+    /// * `rate_bounds` - Min/max rate bounds for sanity checking
+    /// * `base_date` - Base date for maturity validation
+    /// * `use_case` - The intended calibration target (discount vs forward curve)
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if any validation check fails.
+    ///
+    /// # Example
+    ///
+    /// ```ignore
+    /// use finstack_valuations::calibration::methods::pricing::{CalibrationPricer, RatesQuoteUseCase};
+    ///
+    /// // For discount curve calibration
+    /// CalibrationPricer::validate_rates_quotes(
+    ///     &quotes,
+    ///     &bounds,
+    ///     base_date,
+    ///     RatesQuoteUseCase::DiscountCurve { enforce_separation: true },
+    /// )?;
+    ///
+    /// // For forward curve calibration
+    /// CalibrationPricer::validate_rates_quotes(
+    ///     &quotes,
+    ///     &bounds,
+    ///     base_date,
+    ///     RatesQuoteUseCase::ForwardCurve,
+    /// )?;
+    /// ```
+    pub fn validate_rates_quotes(
+        quotes: &[RatesQuote],
+        rate_bounds: &crate::calibration::config::RateBounds,
+        base_date: Date,
+        use_case: RatesQuoteUseCase,
+    ) -> Result<()> {
+        // 1. Non-empty check
+        if quotes.is_empty() {
+            return Err(finstack_core::Error::Input(
+                finstack_core::error::InputError::TooFewPoints,
+            ));
+        }
 
-/// Creates an OIS swap from a rates quote with specified curve IDs.
-///
-/// This is a convenience wrapper around [`CalibrationPricer::create_ois_swap`]
-/// for backward compatibility. For new code, prefer using the pricer directly.
-///
-/// # Arguments
-///
-/// * `quote` - The swap quote containing rate and frequency parameters
-/// * `discount_curve_id` - Curve ID for discounting (e.g., "USD-OIS")
-/// * `forward_curve_id` - Curve ID for forward projection (same as discount for OIS)
-/// * `base_date` - Start date of the swap
-/// * `notional` - Notional amount
-/// * `calendar_id` - Optional calendar for schedule generation
-/// * `payment_delay_days` - Payment delay in business days after period end
-///
-/// # Returns
-///
-/// An `InterestRateSwap` configured identically to calibration instruments.
-///
-/// # Example
-///
-/// ```ignore
-/// use finstack_valuations::calibration::methods::pricing::create_ois_swap_from_quote;
-///
-/// let swap = create_ois_swap_from_quote(
-///     &quote,
-///     "USD-OIS",
-///     "USD-OIS",
-///     base_date,
-///     Money::new(1_000_000.0, Currency::USD),
-///     None,
-///     0, // payment_delay_days
-/// )?;
-/// ```
-///
-/// # See Also
-///
-/// - [`CalibrationPricer::create_ois_swap`] for the preferred API with full configuration
-pub fn create_ois_swap_from_quote(
-    quote: &RatesQuote,
-    discount_curve_id: &str,
-    forward_curve_id: &str,
-    base_date: Date,
-    notional: Money,
-    calendar_id: Option<&str>,
-    payment_delay_days: i32,
-) -> Result<InterestRateSwap> {
-    let currency = notional.currency();
-    let mut pricer = CalibrationPricer::new(base_date, currency, discount_curve_id)
-        .with_forward_curve_id(forward_curve_id)
-        .with_payment_delay(payment_delay_days)
-        .with_use_settlement_start(false) // Use base_date as start (legacy behavior)
-        .with_use_ois_logic(true); // Enable OIS compounding
+        // 2. Duplicate (type, maturity) detection
+        let mut seen = std::collections::HashSet::new();
+        for quote in quotes {
+            let key = (quote.get_type(), quote.maturity_date());
+            if !seen.insert(key) {
+                return Err(finstack_core::Error::Input(
+                    finstack_core::error::InputError::Invalid,
+                ));
+            }
+        }
 
-    if let Some(cal) = calendar_id {
-        pricer = pricer.with_calendar_id(cal);
+        // 3. Per-quote validation (rate bounds, finite check, maturity, use-case constraints)
+        for quote in quotes {
+            // Use-case specific: Forward curve does not support Deposit
+            if let RatesQuoteUseCase::ForwardCurve = use_case {
+                if matches!(quote, RatesQuote::Deposit { .. }) {
+                    return Err(finstack_core::Error::Validation(
+                        "ForwardCurveCalibrator does not support Deposit quotes (use DiscountCurveCalibrator)".into(),
+                    ));
+                }
+            }
+
+            // Use-case specific: Discount curve rejects non-OIS forward-dependent instruments
+            // This enforces multi-curve framework: FRAs/Futures/non-OIS swaps require forward curves
+            if let RatesQuoteUseCase::DiscountCurve { .. } = use_case {
+                if !quote.is_ois_suitable() && quote.requires_forward_curve() {
+                    return Err(finstack_core::Error::Validation(
+                        format!(
+                            "DiscountCurveCalibrator received non-OIS instrument: {}. \
+                             Non-OIS instruments ({:?}) violate multi-curve principles by implying zero basis spread. \
+                             Please calibrate forward curves separately using ForwardCurveCalibrator with appropriate basis spreads.",
+                            quote.get_type(),
+                            quote
+                        ),
+                    ));
+                }
+            }
+
+            // Rate extraction and validation
+            let rate = Self::get_rate(quote);
+            if !rate.is_finite() {
+                return Err(finstack_core::Error::Input(
+                    finstack_core::error::InputError::Invalid,
+                ));
+            }
+            if !rate_bounds.contains(rate) {
+                return Err(finstack_core::Error::Calibration {
+                    message: format!(
+                        "Quote rate {:.4}% outside allowed bounds [{:.2}%, {:.2}%]. \
+                        Use `with_rate_bounds()` to adjust bounds for this market regime.",
+                        rate * 100.0,
+                        rate_bounds.min_rate * 100.0,
+                        rate_bounds.max_rate * 100.0
+                    ),
+                    category: "quote_validation".to_string(),
+                });
+            }
+
+            // Maturity must be after base date
+            let maturity = quote.maturity_date();
+            if maturity <= base_date {
+                return Err(finstack_core::Error::Calibration {
+                    message: format!(
+                        "Quote maturity {} is on or before base date {}",
+                        maturity, base_date
+                    ),
+                    category: "quote_validation".to_string(),
+                });
+            }
+        }
+
+        // 4. Use-case specific: Discount curve OIS-suitability batch check (warn mode)
+        if let RatesQuoteUseCase::DiscountCurve { enforce_separation } = use_case {
+            Self::validate_discount_curve_quotes(quotes, enforce_separation)?;
+        }
+
+        Ok(())
     }
-
-    pricer.create_ois_swap(quote, notional)
 }
 
 #[cfg(test)]

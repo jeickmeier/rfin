@@ -11,7 +11,7 @@
 //! for faster iteration.
 
 use super::DiscountCurveCalibrator;
-use crate::calibration::methods::pricing::CalibrationPricer;
+use crate::calibration::methods::pricing::{CalibrationPricer, RatesQuoteUseCase};
 use crate::calibration::quote::RatesQuote;
 use crate::calibration::CalibrationReport;
 use finstack_core::explain::{ExplanationTrace, TraceEntry};
@@ -57,12 +57,15 @@ impl DiscountCurveCalibrator {
         let mut sorted_quotes = quotes.to_vec();
         sorted_quotes.sort_by_key(RatesQuote::maturity_date);
 
-        // Validate quotes using shared validation
+        // Validate quotes using unified validation
         let bounds = self.config.effective_rate_bounds(self.currency);
-        CalibrationPricer::validate_quotes(&sorted_quotes, &bounds)?;
-        CalibrationPricer::validate_discount_curve_quotes(
+        CalibrationPricer::validate_rates_quotes(
             &sorted_quotes,
-            self.config.multi_curve.enforce_separation,
+            &bounds,
+            self.base_date,
+            RatesQuoteUseCase::DiscountCurve {
+                enforce_separation: self.config.multi_curve.enforce_separation,
+            },
         )?;
 
         // Get effective curve day count for consistent time mapping

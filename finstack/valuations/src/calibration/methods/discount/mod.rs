@@ -556,21 +556,10 @@ impl Calibrator<RatesQuote, DiscountCurve> for DiscountCurveCalibrator {
         instruments: &[RatesQuote],
         base_context: &MarketContext,
     ) -> Result<(DiscountCurve, CalibrationReport)> {
-        // Validate multi-curve integrity: Discount curves should only be calibrated with OIS-suitable instruments
-        // Non-OIS instruments (FRAs, Futures, LIBOR swaps) require forward curves with proper basis spreads
-        for quote in instruments {
-            if !quote.is_ois_suitable() && quote.requires_forward_curve() {
-                return Err(finstack_core::Error::Validation(
-                    format!(
-                        "DiscountCurveCalibrator received non-OIS instrument: {}. \
-                         Non-OIS instruments ({:?}) violate multi-curve principles by implying zero basis spread. \
-                         Please calibrate forward curves separately using ForwardCurveCalibrator with appropriate basis spreads.",
-                        quote.get_type(),
-                        quote
-                    ),
-                ));
-            }
-        }
+        // Note: All quote validation (including multi-curve integrity checks) is now
+        // centralized in `CalibrationPricer::validate_rates_quotes` and called within
+        // bootstrap_curve_with_solver / calibrate_global. This eliminates duplicate
+        // validation and ensures consistent behavior across all calibration paths.
 
         match self.calibration_method {
             CalibrationMethod::Bootstrap => {
