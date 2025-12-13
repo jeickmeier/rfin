@@ -603,6 +603,25 @@ impl DayCount {
             }
         }
     }
+
+    /// Calculate signed year fraction between two dates.
+    ///
+    /// Returns positive if `end > start`, negative if `end < start`, and zero if equal.
+    /// This is useful for cashflow discounting where time can be negative relative to a base date.
+    pub fn signed_year_fraction(
+        self,
+        start: Date,
+        end: Date,
+        ctx: DayCountCtx<'_>,
+    ) -> crate::Result<f64> {
+        if start == end {
+            Ok(0.0)
+        } else if end > start {
+            self.year_fraction(start, end, ctx)
+        } else {
+            Ok(-self.year_fraction(end, start, ctx)?)
+        }
+    }
 }
 
 // -------------------------------------------------------------------------------------------------

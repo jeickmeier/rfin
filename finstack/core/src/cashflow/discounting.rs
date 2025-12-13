@@ -57,7 +57,6 @@
 //! - Andersen, L., & Piterbarg, V. (2010). *Interest Rate Modeling* (3 vols).
 //!   Atlantic Financial Press. Volume 1, Chapter 3.
 
-use crate::cashflow::utils::signed_year_fraction;
 use crate::dates::{Date, DayCount, DayCountCtx};
 use crate::market_data::traits::Discounting;
 use crate::money::Money;
@@ -95,7 +94,7 @@ pub fn npv_static<D: Discounting + ?Sized>(
     let mut total = Money::new(0.0, ccy);
     let ctx = DayCountCtx::default();
     for (d, amt) in flows {
-        let t = signed_year_fraction(dc, base, *d, ctx)?;
+        let t = dc.signed_year_fraction(base, *d, ctx)?;
         let df = disc.df(t);
         let disc_amt = *amt * df;
         total = (total + disc_amt)?;

@@ -71,7 +71,7 @@
 //!   - CFA Institute (2019). "Calculating and Using Time-Weighted and Money-Weighted
 //!     Rates of Return." CFA Program Curriculum, Level I.
 
-use crate::cashflow::utils::{has_sign_change, signed_year_fraction};
+use crate::cashflow::utils::has_sign_change;
 use crate::dates::{Date, DayCount, DayCountCtx};
 use crate::error::InputError;
 use crate::math::solver::NewtonSolver;
@@ -201,7 +201,7 @@ pub fn xirr_with_daycount(
     // propagate any day-count errors rather than masking/panicking.
     let mut years_and_amounts: Vec<(f64, f64)> = Vec::with_capacity(flows.len());
     for (date, amount) in flows.iter().copied() {
-        let years = signed_year_fraction(day_count, first_date, date, ctx)?;
+        let years = day_count.signed_year_fraction(first_date, date, ctx)?;
         years_and_amounts.push((years, amount));
     }
 

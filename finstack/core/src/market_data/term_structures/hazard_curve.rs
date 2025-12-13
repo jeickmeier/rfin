@@ -75,6 +75,10 @@ use crate::{
     dates::{Date, DayCount, DayCountCtx},
     error::InputError,
     market_data::traits::{Survival, TermStructure},
+    math::interp::{
+        strategies::{LinearStrategy, LogLinearStrategy},
+        ExtrapolationPolicy, InterpolationStrategy,
+    },
     types::CurveId,
 };
 
@@ -485,34 +489,42 @@ impl HazardCurve {
     /// Return an interpolated par spread in basis points for reporting.
     /// Linear interpolation in spread, with log-linear fallback when values are positive and requested.
     pub fn quoted_spread_bp(&self, t: f64, method: ParInterp) -> f64 {
-        let n = self.par_tenors.len();
-        if n == 0 {
-            return 0.0;
-        }
-        if t <= self.par_tenors[0] {
-            return self.par_spreads_bp[0];
-        }
-        if t >= self.par_tenors[n - 1] {
-            return self.par_spreads_bp[n - 1];
-        }
-        // Find bracket
-        let mut i = 1;
-        while i < n && t > self.par_tenors[i] {
-            i += 1;
-        }
-        let i1 = i - 1;
-        let (x1, x2) = (self.par_tenors[i1], self.par_tenors[i]);
-        let (y1, y2) = (self.par_spreads_bp[i1], self.par_spreads_bp[i]);
-        let w = (t - x1) / (x2 - x1);
+        // Use shared interpolation strategies from math::interp
+        // Note: For LogLinear, we rebuild the strategy on the fly since we don't store log-values for par spreads.
+        // This involves allocation but is acceptable for a reporting method.
         match method {
-            ParInterp::Linear => y1 + w * (y2 - y1),
+            ParInterp::Linear => {
+                let strat = LinearStrategy;
+                strat.interp(
+                    t,
+                    &self.par_tenors,
+                    &self.par_spreads_bp,
+                    ExtrapolationPolicy::FlatForward,
+                )
+            }
             ParInterp::LogLinear => {
-                if y1 > 0.0 && y2 > 0.0 {
-                    let a = y1.ln();
-                    let b = y2.ln();
-                    (a + w * (b - a)).exp()
+                // If construction fails (e.g. non-positive values), fallback to linear to match previous behavior
+                // which just did linear if y1 <= 0 || y2 <= 0.
+                if let Ok(strat) = LogLinearStrategy::from_raw(
+                    &self.par_tenors,
+                    &self.par_spreads_bp,
+                    ExtrapolationPolicy::FlatForward,
+                ) {
+                    strat.interp(
+                        t,
+                        &self.par_tenors,
+                        &self.par_spreads_bp,
+                        ExtrapolationPolicy::FlatForward,
+                    )
                 } else {
-                    y1 + w * (y2 - y1)
+                    // Fallback to linear if log-linear fails construction (e.g. 0 or negative spreads)
+                    let strat = LinearStrategy;
+                    strat.interp(
+                        t,
+                        &self.par_tenors,
+                        &self.par_spreads_bp,
+                        ExtrapolationPolicy::FlatForward,
+                    )
                 }
             }
         }

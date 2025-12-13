@@ -78,7 +78,7 @@
 //! - **XIRR**:
 //!   - Microsoft Excel XIRR function documentation (industry standard implementation)
 
-use crate::cashflow::utils::{has_sign_change, signed_year_fraction};
+use crate::cashflow::utils::has_sign_change;
 use crate::dates::{Date, DayCount, DayCountCtx};
 use crate::error::InputError;
 use crate::math::solver::NewtonSolver;
@@ -169,7 +169,7 @@ pub fn npv(
     let ctx = DayCountCtx::default();
 
     for (date, amount) in cash_flows {
-        let years = signed_year_fraction(dc, base, *date, ctx)?;
+        let years = dc.signed_year_fraction(base, *date, ctx)?;
         let discount_factor = (1.0 + discount_rate).powf(years);
         sum += amount / discount_factor;
     }
