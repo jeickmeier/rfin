@@ -536,6 +536,7 @@ impl BaseCorrelationCalibrator {
                     max_iterations: self.config.max_iterations,
                     fd_step: 1e-8,
                     min_derivative: 1e-14,
+                    min_derivative_rel: 1e-6,
                 },
             },
             SolverKind::Brent | SolverKind::LevenbergMarquardt => SolverConfig::Brent {
@@ -849,6 +850,7 @@ impl BaseCorrelationSurfaceCalibrator {
                     max_iterations: self.config.max_iterations,
                     fd_step: 1e-8,
                     min_derivative: 1e-14,
+                    min_derivative_rel: 1e-6,
                 },
             },
             _ => SolverConfig::Brent {

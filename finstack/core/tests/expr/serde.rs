@@ -7,7 +7,9 @@
 //! - Evaluation types (CompiledExpr, EvalOpts, EvaluationResult)
 //! - Context types (SimpleContext)
 
-use finstack_core::config::{NumericMode, ResultsMeta, RoundingContext, RoundingMode};
+use finstack_core::config::{
+    NumericMode, ResultsMeta, RoundingContext, RoundingMode, ToleranceConfig,
+};
 use finstack_core::expr::dag::{BoundaryType, CacheStrategy, DagNode, ExecutionPlan};
 use finstack_core::expr::{
     CompiledExpr, EvalOpts, EvaluationResult, Expr, ExprNode, Function, SimpleContext,
@@ -124,6 +126,7 @@ fn test_evaluation_result_serde() {
                 mode: RoundingMode::Bankers,
                 ingest_scale_by_ccy: HashMap::new(),
                 output_scale_by_ccy: HashMap::new(),
+                tolerances: ToleranceConfig::default(),
                 version: 1,
             },
             fx_policy_applied: None,
@@ -197,6 +200,7 @@ fn test_execution_plan_serde() {
                 mode: RoundingMode::Bankers,
                 ingest_scale_by_ccy: HashMap::new(),
                 output_scale_by_ccy: HashMap::new(),
+                tolerances: ToleranceConfig::default(),
                 version: 1,
             },
             fx_policy_applied: None,
@@ -250,6 +254,7 @@ fn test_compiled_expr_serde() {
             mode: RoundingMode::Bankers,
             ingest_scale_by_ccy: HashMap::new(),
             output_scale_by_ccy: HashMap::new(),
+            tolerances: ToleranceConfig::default(),
             version: 1,
         },
         fx_policy_applied: None,

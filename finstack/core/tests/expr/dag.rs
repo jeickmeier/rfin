@@ -7,7 +7,9 @@
 //! - Cost estimation and cache strategy
 //! - Pushdown boundary analysis
 
-use finstack_core::config::{NumericMode, ResultsMeta, RoundingContext, RoundingMode};
+use finstack_core::config::{
+    NumericMode, ResultsMeta, RoundingContext, RoundingMode, ToleranceConfig,
+};
 use finstack_core::expr::dag::{DagBuilder, PushdownAnalyzer};
 use finstack_core::expr::{Expr, ExprNode, Function};
 
@@ -70,6 +72,7 @@ fn test_dag_dedup_ignores_expr_id() {
             mode: RoundingMode::Bankers,
             ingest_scale_by_ccy: Default::default(),
             output_scale_by_ccy: Default::default(),
+            tolerances: ToleranceConfig::default(),
             version: 1,
         },
         fx_policy_applied: None,
@@ -109,6 +112,7 @@ fn test_dag_builder_simple_expressions() {
             mode: RoundingMode::Bankers,
             ingest_scale_by_ccy: Default::default(),
             output_scale_by_ccy: Default::default(),
+            tolerances: ToleranceConfig::default(),
             version: 1,
         },
         fx_policy_applied: None,
@@ -142,6 +146,7 @@ fn test_dag_builder_shared_subexpressions() {
             mode: RoundingMode::Bankers,
             ingest_scale_by_ccy: Default::default(),
             output_scale_by_ccy: Default::default(),
+            tolerances: ToleranceConfig::default(),
             version: 1,
         },
         fx_policy_applied: None,
@@ -188,6 +193,7 @@ fn test_dag_multiple_function_types() {
             mode: RoundingMode::Bankers,
             ingest_scale_by_ccy: Default::default(),
             output_scale_by_ccy: Default::default(),
+            tolerances: ToleranceConfig::default(),
             version: 1,
         },
         fx_policy_applied: None,
@@ -225,6 +231,7 @@ fn test_dag_cost_estimation() {
             mode: RoundingMode::Bankers,
             ingest_scale_by_ccy: Default::default(),
             output_scale_by_ccy: Default::default(),
+            tolerances: ToleranceConfig::default(),
             version: 1,
         },
         fx_policy_applied: None,
@@ -264,6 +271,7 @@ fn test_pushdown_boundary_analysis() {
             mode: RoundingMode::Bankers,
             ingest_scale_by_ccy: Default::default(),
             output_scale_by_ccy: Default::default(),
+            tolerances: ToleranceConfig::default(),
             version: 1,
         },
         fx_policy_applied: None,
@@ -310,6 +318,7 @@ fn test_dag_cache_strategy() {
             mode: RoundingMode::Bankers,
             ingest_scale_by_ccy: Default::default(),
             output_scale_by_ccy: Default::default(),
+            tolerances: ToleranceConfig::default(),
             version: 1,
         },
         fx_policy_applied: None,
@@ -349,6 +358,7 @@ fn test_dag_topological_ordering() {
             mode: RoundingMode::Bankers,
             ingest_scale_by_ccy: Default::default(),
             output_scale_by_ccy: Default::default(),
+            tolerances: ToleranceConfig::default(),
             version: 1,
         },
         fx_policy_applied: None,
@@ -388,6 +398,7 @@ fn test_dag_empty_plan() {
             mode: RoundingMode::Bankers,
             ingest_scale_by_ccy: Default::default(),
             output_scale_by_ccy: Default::default(),
+            tolerances: ToleranceConfig::default(),
             version: 1,
         },
         fx_policy_applied: None,

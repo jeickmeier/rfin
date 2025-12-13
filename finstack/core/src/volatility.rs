@@ -251,9 +251,8 @@ pub fn convert_atm_volatility(
         p - price_from
     };
 
-    // Solve with Brent's method
-    const TOLERANCE: f64 = 1e-10;
-    let solver = BrentSolver::new().with_tolerance(TOLERANCE);
+    // Solve with Brent's method using default tolerance from BrentSolver
+    let solver = BrentSolver::new();
 
     match solver.solve(objective, guess) {
         Ok(solved) => {
@@ -262,7 +261,7 @@ pub fn convert_atm_volatility(
                 Ok(result)
             } else {
                 Err(InputError::VolatilityConversionFailed {
-                    tolerance: TOLERANCE,
+                    tolerance: solver.tolerance,
                     residual: objective(solved).abs(),
                 }
                 .into())
@@ -272,7 +271,7 @@ pub fn convert_atm_volatility(
             // Solver failed - return explicit error with diagnostic info
             let residual = objective(guess).abs();
             Err(InputError::VolatilityConversionFailed {
-                tolerance: TOLERANCE,
+                tolerance: solver.tolerance,
                 residual,
             }
             .into())

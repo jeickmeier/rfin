@@ -141,6 +141,7 @@ mod tests {
                     max_iterations: 200,
                     fd_step: 1e-7,
                     min_derivative: 1e-16,
+                    min_derivative_rel: 1e-6,
                 },
             },
         ];
@@ -163,6 +164,7 @@ mod tests {
                 max_iterations: 50,
                 fd_step: 1e-8,
                 min_derivative: 1e-14,
+                min_derivative_rel: 1e-6,
             },
         };
 

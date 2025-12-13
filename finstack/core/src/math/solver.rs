@@ -143,8 +143,10 @@ pub struct NewtonSolver {
     pub max_iterations: usize,
     /// Base finite difference step for derivative estimation (scaled adaptively)
     pub fd_step: f64,
-    /// Minimum derivative threshold (absolute and relative guard)
+    /// Minimum derivative threshold (absolute guard)
     pub min_derivative: f64,
+    /// Relative minimum derivative threshold (derivative / function value)
+    pub min_derivative_rel: f64,
 }
 
 impl Default for NewtonSolver {
@@ -153,7 +155,8 @@ impl Default for NewtonSolver {
             tolerance: 1e-12,
             max_iterations: 50,
             fd_step: 1e-8,
-            min_derivative: 1e-14, // More permissive than legacy 1e-10
+            min_derivative: 1e-14,
+            min_derivative_rel: 1e-6,
         }
     }
 }
@@ -162,6 +165,32 @@ impl NewtonSolver {
     /// Create a new Newton solver with default settings.
     pub fn new() -> Self {
         Self::default()
+    }
+
+    /// Create a Newton solver from configuration.
+    ///
+    /// # Example
+    ///
+    /// ```rust
+    /// use finstack_core::math::solver::NewtonSolver;
+    /// use finstack_core::solver_config::NewtonSolverConfig;
+    ///
+    /// let cfg = NewtonSolverConfig {
+    ///     tolerance: 1e-10,
+    ///     max_iterations: 100,
+    ///     ..Default::default()
+    /// };
+    /// let solver = NewtonSolver::from_config(&cfg);
+    /// assert_eq!(solver.tolerance, 1e-10);
+    /// ```
+    pub fn from_config(cfg: &crate::solver_config::NewtonSolverConfig) -> Self {
+        Self {
+            tolerance: cfg.tolerance,
+            max_iterations: cfg.max_iterations,
+            fd_step: cfg.fd_step,
+            min_derivative: cfg.min_derivative,
+            min_derivative_rel: cfg.min_derivative_rel,
+        }
     }
 
     /// Set tolerance.
@@ -176,9 +205,15 @@ impl NewtonSolver {
         self
     }
 
-    /// Set minimum derivative threshold.
+    /// Set minimum derivative threshold (absolute).
     pub fn with_min_derivative(mut self, min_derivative: f64) -> Self {
         self.min_derivative = min_derivative;
+        self
+    }
+
+    /// Set relative minimum derivative threshold.
+    pub fn with_min_derivative_rel(mut self, min_derivative_rel: f64) -> Self {
+        self.min_derivative_rel = min_derivative_rel;
         self
     }
 
@@ -298,9 +333,9 @@ impl NewtonSolver {
             }
 
             // Avoid division by zero with both absolute and relative guards
-            // Uses more permissive threshold (1e-14) and checks relative to function value
-            const MIN_DERIVATIVE_REL: f64 = 1e-6;
-            if fpx.abs() < self.min_derivative && fpx.abs() < MIN_DERIVATIVE_REL * fx.abs() {
+            if fpx.abs() < self.min_derivative
+                && fpx.abs() < self.min_derivative_rel * fx.abs()
+            {
                 return Err(InputError::Invalid.into());
             }
 
@@ -405,6 +440,31 @@ impl BrentSolver {
     /// Create a new Brent solver with default settings.
     pub fn new() -> Self {
         Self::default()
+    }
+
+    /// Create a Brent solver from configuration.
+    ///
+    /// # Example
+    ///
+    /// ```rust
+    /// use finstack_core::math::solver::BrentSolver;
+    /// use finstack_core::solver_config::BrentSolverConfig;
+    ///
+    /// let cfg = BrentSolverConfig {
+    ///     tolerance: 1e-10,
+    ///     max_iterations: 200,
+    ///     ..Default::default()
+    /// };
+    /// let solver = BrentSolver::from_config(&cfg);
+    /// assert_eq!(solver.tolerance, 1e-10);
+    /// ```
+    pub fn from_config(cfg: &crate::solver_config::BrentSolverConfig) -> Self {
+        Self {
+            tolerance: cfg.tolerance,
+            max_iterations: cfg.max_iterations,
+            bracket_expansion: cfg.bracket_expansion,
+            initial_bracket_size: None, // Not part of config, use adaptive
+        }
     }
 
     /// Set tolerance.

@@ -97,6 +97,9 @@ pub enum RoundingMode {
 pub struct FinstackConfig {
     /// Detailed rounding policy (ingest/output scales by currency).
     pub rounding: RoundingPolicy,
+    /// Numerical tolerance settings for floating-point comparisons.
+    #[cfg_attr(feature = "serde", serde(default))]
+    pub tolerances: ToleranceConfig,
     /// Optional module-specific configuration sections (versioned, namespaced keys).
     ///
     /// Keys follow `{crate}.{domain}.v{N}`, e.g., `valuations.calibration.v1`.
@@ -175,6 +178,54 @@ pub struct RoundingPolicy {
     pub output_scale: CurrencyScalePolicy,
 }
 
+/// Numerical tolerance configuration for floating-point comparisons.
+///
+/// Provides configurable epsilon values for zero-checks in rate calculations
+/// and generic floating-point comparisons. These defaults are chosen to balance
+/// numerical stability with practical precision requirements.
+///
+/// # Examples
+/// ```rust
+/// use finstack_core::config::ToleranceConfig;
+///
+/// let mut tol = ToleranceConfig::default();
+/// assert_eq!(tol.rate_epsilon, 1e-12);
+///
+/// // Customize for stricter rate comparisons
+/// tol.rate_epsilon = 1e-14;
+/// ```
+#[derive(Clone, Copy, Debug, PartialEq)]
+#[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
+pub struct ToleranceConfig {
+    /// Epsilon for rate comparisons (default: 1e-12).
+    ///
+    /// Used when comparing interest rates, yields, and other small ratios.
+    #[cfg_attr(feature = "serde", serde(default = "default_rate_epsilon"))]
+    pub rate_epsilon: f64,
+    /// Epsilon for generic floating-point comparisons (default: 1e-10).
+    ///
+    /// Used for general numerical comparisons where higher tolerance is acceptable.
+    #[cfg_attr(feature = "serde", serde(default = "default_generic_epsilon"))]
+    pub generic_epsilon: f64,
+}
+
+fn default_rate_epsilon() -> f64 {
+    1e-12
+}
+
+fn default_generic_epsilon() -> f64 {
+    1e-10
+}
+
+impl Default for ToleranceConfig {
+    fn default() -> Self {
+        Self {
+            rate_epsilon: default_rate_epsilon(),
+            generic_epsilon: default_generic_epsilon(),
+        }
+    }
+}
+
 /// Snapshot of active rounding settings used for result stamping.
 ///
 /// Instances are typically produced via [`rounding_context_from`] and persisted
@@ -188,6 +239,9 @@ pub struct RoundingContext {
     pub ingest_scale_by_ccy: HashMap<crate::currency::Currency, u32>,
     /// Output scale map snapshot by currency code.
     pub output_scale_by_ccy: HashMap<crate::currency::Currency, u32>,
+    /// Tolerance settings snapshot for floating-point comparisons.
+    #[cfg_attr(feature = "serde", serde(default))]
+    pub tolerances: ToleranceConfig,
     /// Schema version for forward compatibility.
     pub version: u32,
 }
@@ -237,16 +291,16 @@ impl RoundingContext {
 
     /// Returns true if a floating value is effectively zero for the specified kind.
     ///
-    /// Heuristics:
-    /// - Rate: 1e-12
-    /// - Generic: 1e-10
-    /// - Money: uses [`money_epsilon`]
+    /// Uses tolerance values from the context's [`ToleranceConfig`]:
+    /// - Rate: uses [`ToleranceConfig::rate_epsilon`] (default: 1e-12)
+    /// - Generic: uses [`ToleranceConfig::generic_epsilon`] (default: 1e-10)
+    /// - Money: uses [`money_epsilon`] (derived from currency scale)
     #[inline]
     pub fn is_effectively_zero(&self, x: f64, kind: ZeroKind) -> bool {
         match kind {
             ZeroKind::Money(ccy) => self.is_effectively_zero_money(x, ccy),
-            ZeroKind::Rate => x.abs() <= 1e-12,
-            ZeroKind::Generic => x.abs() <= 1e-10,
+            ZeroKind::Rate => x.abs() <= self.tolerances.rate_epsilon,
+            ZeroKind::Generic => x.abs() <= self.tolerances.generic_epsilon,
         }
     }
 }
@@ -344,6 +398,7 @@ pub fn rounding_context_from(cfg: &FinstackConfig) -> RoundingContext {
         mode: cfg.rounding.mode,
         ingest_scale_by_ccy: cfg.rounding.ingest_scale.overrides.clone(),
         output_scale_by_ccy: cfg.rounding.output_scale.overrides.clone(),
+        tolerances: cfg.tolerances,
         version: 1,
     }
 }
