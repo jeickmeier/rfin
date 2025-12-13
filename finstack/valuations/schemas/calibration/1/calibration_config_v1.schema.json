@@ -42,6 +42,11 @@
       "description": "Solver type selection.",
       "default": "Brent"
     },
+    "use_fd_sabr_gradients": {
+      "type": "boolean",
+      "description": "Use finite-difference gradients for SABR calibration instead of analytical approximations.",
+      "default": false
+    },
     "rate_bounds_policy": {
       "type": "string",
       "enum": ["auto_currency", "explicit"],
@@ -90,4 +95,3 @@
     }
   }
 }
-
