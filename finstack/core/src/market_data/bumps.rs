@@ -208,6 +208,31 @@ impl BumpSpec {
         };
         Some(frac)
     }
+
+    /// Ensure the bump specification is Additive/RateBp.
+    pub fn validate_additive_bp(&self, context: &str) -> crate::Result<()> {
+        if self.mode != BumpMode::Additive || self.units != BumpUnits::RateBp {
+            return Err(crate::error::InputError::UnsupportedBump {
+                reason: format!(
+                    "{} only supports Additive/RateBp bumps, got {:?}/{:?}",
+                    context, self.mode, self.units
+                ),
+            }
+            .into());
+        }
+        Ok(())
+    }
+
+    /// Ensure the bump type is Parallel.
+    pub fn validate_parallel(&self, context: &str) -> crate::Result<()> {
+        if !matches!(self.bump_type, BumpType::Parallel) {
+            return Err(crate::error::InputError::UnsupportedBump {
+                reason: format!("{} only supports Parallel bumps", context),
+            }
+            .into());
+        }
+        Ok(())
+    }
 }
 
 /// Unified bump description spanning curves, surfaces, FX, and scalar prices.
@@ -304,17 +329,7 @@ pub trait Bumpable: Sized {
 
 impl Bumpable for DiscountCurve {
     fn apply_bump(&self, spec: BumpSpec) -> crate::Result<Self> {
-        use crate::error::InputError;
-
-        if spec.mode != BumpMode::Additive || spec.units != BumpUnits::RateBp {
-            return Err(InputError::UnsupportedBump {
-                reason: format!(
-                    "DiscountCurve only supports Additive/RateBp bumps, got {:?}/{:?}",
-                    spec.mode, spec.units
-                ),
-            }
-            .into());
-        }
+        spec.validate_additive_bp("DiscountCurve")?;
 
         match spec.bump_type {
             BumpType::Parallel => self.try_with_parallel_bump(spec.value),

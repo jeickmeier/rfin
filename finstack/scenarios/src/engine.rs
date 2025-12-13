@@ -342,28 +342,28 @@ impl ScenarioEngine {
                             id: _id,
                             curve,
                         } => {
-                            ctx.market.insert_discount_mut(curve);
+                            ctx.market.insert_mut(curve);
                             applied += 1;
                         }
                         crate::adapters::traits::ScenarioEffect::UpdateForwardCurve {
                             id: _id,
                             curve,
                         } => {
-                            ctx.market.insert_forward_mut(curve);
+                            ctx.market.insert_mut(curve);
                             applied += 1;
                         }
                         crate::adapters::traits::ScenarioEffect::UpdateHazardCurve {
                             id: _id,
                             curve,
                         } => {
-                            ctx.market.insert_hazard_mut(curve);
+                            ctx.market.insert_mut(curve);
                             applied += 1;
                         }
                         crate::adapters::traits::ScenarioEffect::UpdateInflationCurve {
                             id: _id,
                             curve,
                         } => {
-                            ctx.market.insert_inflation_mut(curve);
+                            ctx.market.insert_mut(curve);
                             applied += 1;
                         }
                         crate::adapters::traits::ScenarioEffect::InstrumentPriceShock {

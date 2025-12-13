@@ -100,8 +100,8 @@ fn market_context_arc_mut_variants_share_storage() {
     let forward = Arc::new(sample_forward_curve("USD-LIBOR"));
 
     let mut ctx = MarketContext::new();
-    ctx.insert_discount_mut(discount.clone())
-        .insert_forward_mut(forward.clone());
+    ctx.insert_mut(discount.clone())
+        .insert_mut(forward.clone());
 
     // Ensure references point to same data
     assert!(Arc::ptr_eq(
@@ -308,7 +308,7 @@ fn market_context_handles_additional_introspection() {
     let mut ctx = MarketContext::new();
     assert!(ctx.is_empty());
 
-    ctx.insert_discount_mut(Arc::new(sample_discount_curve("USD-OIS")));
+    ctx.insert_mut(Arc::new(sample_discount_curve("USD-OIS")));
     assert!(!ctx.is_empty());
     assert!(ctx.curve("USD-OIS").is_some());
 

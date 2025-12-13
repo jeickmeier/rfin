@@ -171,6 +171,65 @@ impl CurveStorage {
 }
 
 // -----------------------------------------------------------------------------
+// Curve Conversions
+// -----------------------------------------------------------------------------
+
+impl From<DiscountCurve> for CurveStorage {
+    fn from(c: DiscountCurve) -> Self {
+        Self::Discount(Arc::new(c))
+    }
+}
+impl From<Arc<DiscountCurve>> for CurveStorage {
+    fn from(c: Arc<DiscountCurve>) -> Self {
+        Self::Discount(c)
+    }
+}
+
+impl From<ForwardCurve> for CurveStorage {
+    fn from(c: ForwardCurve) -> Self {
+        Self::Forward(Arc::new(c))
+    }
+}
+impl From<Arc<ForwardCurve>> for CurveStorage {
+    fn from(c: Arc<ForwardCurve>) -> Self {
+        Self::Forward(c)
+    }
+}
+
+impl From<HazardCurve> for CurveStorage {
+    fn from(c: HazardCurve) -> Self {
+        Self::Hazard(Arc::new(c))
+    }
+}
+impl From<Arc<HazardCurve>> for CurveStorage {
+    fn from(c: Arc<HazardCurve>) -> Self {
+        Self::Hazard(c)
+    }
+}
+
+impl From<InflationCurve> for CurveStorage {
+    fn from(c: InflationCurve) -> Self {
+        Self::Inflation(Arc::new(c))
+    }
+}
+impl From<Arc<InflationCurve>> for CurveStorage {
+    fn from(c: Arc<InflationCurve>) -> Self {
+        Self::Inflation(c)
+    }
+}
+
+impl From<BaseCorrelationCurve> for CurveStorage {
+    fn from(c: BaseCorrelationCurve) -> Self {
+        Self::BaseCorrelation(Arc::new(c))
+    }
+}
+impl From<Arc<BaseCorrelationCurve>> for CurveStorage {
+    fn from(c: Arc<BaseCorrelationCurve>) -> Self {
+        Self::BaseCorrelation(c)
+    }
+}
+
+// -----------------------------------------------------------------------------
 // Serde: move CurveState and (De)Serialize impls here
 // -----------------------------------------------------------------------------
 
@@ -513,151 +572,49 @@ impl MarketContext {
     // Insert methods - builder pattern
     // -----------------------------------------------------------------------------
 
+    /// Generic insert for any supported curve type.
+    pub fn insert<T>(mut self, item: T) -> Self
+    where
+        T: Into<CurveStorage>,
+    {
+        let storage: CurveStorage = item.into();
+        self.curves.insert(storage.id().to_owned(), storage);
+        self
+    }
+
+    /// Generic in-place insert for any supported curve type.
+    pub fn insert_mut<T>(&mut self, item: T) -> &mut Self
+    where
+        T: Into<CurveStorage>,
+    {
+        let storage: CurveStorage = item.into();
+        self.curves.insert(storage.id().to_owned(), storage);
+        self
+    }
+
     /// Insert a discount curve.
-    ///
-    /// # Parameters
-    /// - `curve`: fully built [`DiscountCurve`]
-    ///
-    /// # Examples
-    /// ```rust
-    /// use finstack_core::market_data::context::MarketContext;
-    /// use finstack_core::market_data::term_structures::discount_curve::DiscountCurve;
-    /// use finstack_core::math::interp::InterpStyle;
-    /// use finstack_core::dates::Date;
-    /// use time::Month;
-    ///
-    /// let curve = DiscountCurve::builder("USD-OIS")
-    ///     .base_date(Date::from_calendar_date(2024, Month::January, 1).expect("Valid date"))
-    ///     .knots([(0.0, 1.0), (1.0, 0.99)])
-    ///     .build()
-    ///     .expect("... builder should succeed");
-    /// let ctx = MarketContext::new().insert_discount(curve);
-    /// assert!(ctx.stats().total_curves > 0);
-    /// ```
-    pub fn insert_discount(mut self, curve: DiscountCurve) -> Self {
-        let id = curve.id().to_owned();
-        self.curves
-            .insert(id, CurveStorage::Discount(Arc::new(curve)));
-        self
-    }
-
-    /// Insert a discount curve provided as an [`Arc`].
-    #[allow(clippy::needless_pass_by_value)]
-    pub fn insert_discount_arc(mut self, curve: Arc<DiscountCurve>) -> Self {
-        let id = curve.id().to_owned();
-        self.curves.insert(id, CurveStorage::Discount(curve));
-        self
-    }
-
-    /// In-place insert of a discount curve provided as an `Arc`.
-    pub fn insert_discount_mut(&mut self, curve: Arc<DiscountCurve>) -> &mut Self {
-        let id = curve.id().to_owned();
-        self.curves.insert(id, CurveStorage::Discount(curve));
-        self
+    pub fn insert_discount(self, curve: impl Into<CurveStorage>) -> Self {
+        self.insert(curve)
     }
 
     /// Insert a forward curve.
-    ///
-    /// # Parameters
-    /// - `curve`: fully built [`ForwardCurve`]
-    pub fn insert_forward(mut self, curve: ForwardCurve) -> Self {
-        let id = curve.id().to_owned();
-        self.curves
-            .insert(id, CurveStorage::Forward(Arc::new(curve)));
-        self
-    }
-
-    /// Insert a forward curve provided as an [`Arc`].
-    #[allow(clippy::needless_pass_by_value)]
-    pub fn insert_forward_arc(mut self, curve: Arc<ForwardCurve>) -> Self {
-        let id = curve.id().to_owned();
-        self.curves.insert(id, CurveStorage::Forward(curve));
-        self
-    }
-
-    /// In-place insert of a forward curve.
-    pub fn insert_forward_mut(&mut self, curve: Arc<ForwardCurve>) -> &mut Self {
-        let id = curve.id().to_owned();
-        self.curves.insert(id, CurveStorage::Forward(curve));
-        self
+    pub fn insert_forward(self, curve: impl Into<CurveStorage>) -> Self {
+        self.insert(curve)
     }
 
     /// Insert a hazard curve.
-    ///
-    /// # Parameters
-    /// - `curve`: fully built [`HazardCurve`]
-    pub fn insert_hazard(mut self, curve: HazardCurve) -> Self {
-        let id = curve.id().to_owned();
-        self.curves
-            .insert(id, CurveStorage::Hazard(Arc::new(curve)));
-        self
-    }
-
-    /// Insert a hazard curve provided as an [`Arc`].
-    #[allow(clippy::needless_pass_by_value)]
-    pub fn insert_hazard_arc(mut self, curve: Arc<HazardCurve>) -> Self {
-        let id = curve.id().to_owned();
-        self.curves.insert(id, CurveStorage::Hazard(curve));
-        self
-    }
-
-    /// In-place insert of a hazard curve.
-    pub fn insert_hazard_mut(&mut self, curve: Arc<HazardCurve>) -> &mut Self {
-        let id = curve.id().to_owned();
-        self.curves.insert(id, CurveStorage::Hazard(curve));
-        self
+    pub fn insert_hazard(self, curve: impl Into<CurveStorage>) -> Self {
+        self.insert(curve)
     }
 
     /// Insert an inflation curve.
-    ///
-    /// # Parameters
-    /// - `curve`: fully built [`InflationCurve`]
-    pub fn insert_inflation(mut self, curve: InflationCurve) -> Self {
-        let id = curve.id().to_owned();
-        self.curves
-            .insert(id, CurveStorage::Inflation(Arc::new(curve)));
-        self
-    }
-
-    /// Insert an inflation curve provided as an [`Arc`].
-    #[allow(clippy::needless_pass_by_value)]
-    pub fn insert_inflation_arc(mut self, curve: Arc<InflationCurve>) -> Self {
-        let id = curve.id().to_owned();
-        self.curves.insert(id, CurveStorage::Inflation(curve));
-        self
-    }
-
-    /// In-place insert of an inflation curve.
-    pub fn insert_inflation_mut(&mut self, curve: Arc<InflationCurve>) -> &mut Self {
-        let id = curve.id().to_owned();
-        self.curves.insert(id, CurveStorage::Inflation(curve));
-        self
+    pub fn insert_inflation(self, curve: impl Into<CurveStorage>) -> Self {
+        self.insert(curve)
     }
 
     /// Insert a base correlation curve.
-    ///
-    /// # Parameters
-    /// - `curve`: base correlation curve for structured credit pricing
-    pub fn insert_base_correlation(mut self, curve: BaseCorrelationCurve) -> Self {
-        let id = curve.id().to_owned();
-        self.curves
-            .insert(id, CurveStorage::BaseCorrelation(Arc::new(curve)));
-        self
-    }
-
-    /// Insert a base correlation curve provided as an [`Arc`].
-    #[allow(clippy::needless_pass_by_value)]
-    pub fn insert_base_correlation_arc(mut self, curve: Arc<BaseCorrelationCurve>) -> Self {
-        let id = curve.id().to_owned();
-        self.curves.insert(id, CurveStorage::BaseCorrelation(curve));
-        self
-    }
-
-    /// In-place insert of a base correlation curve.
-    pub fn insert_base_correlation_mut(&mut self, curve: Arc<BaseCorrelationCurve>) -> &mut Self {
-        let id = curve.id().to_owned();
-        self.curves.insert(id, CurveStorage::BaseCorrelation(curve));
-        self
+    pub fn insert_base_correlation(self, curve: impl Into<CurveStorage>) -> Self {
+        self.insert(curve)
     }
 
     /// Insert a volatility surface.
@@ -2139,7 +2096,10 @@ impl MarketContext {
                         .apply_bucket_bump(detachments.as_deref(), *points)
                         .ok_or(InputError::DimensionMismatch)?;
 
-                    ctx.insert_base_correlation_mut(Arc::new(bumped));
+                    ctx.curves.insert(
+                        surface_id.clone(),
+                        CurveStorage::BaseCorrelation(Arc::new(bumped)),
+                    );
                 }
             }
         }

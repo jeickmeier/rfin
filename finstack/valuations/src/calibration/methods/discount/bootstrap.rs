@@ -265,9 +265,7 @@ impl DiscountCurveCalibrator {
             }
 
             // Update context in-place instead of cloning
-            ctx_rc
-                .borrow_mut()
-                .insert_discount_mut(Arc::new(temp_curve));
+            ctx_rc.borrow_mut().insert_mut(Arc::new(temp_curve));
 
             pricer_clone
                 .price_instrument(&quote_clone, &ctx_rc.borrow())

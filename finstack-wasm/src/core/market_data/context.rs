@@ -140,27 +140,27 @@ impl JsMarketContext {
 
     #[wasm_bindgen(js_name = insertDiscount)]
     pub fn insert_discount(&mut self, curve: &JsDiscountCurve) {
-        self.inner.insert_discount_mut(curve.inner());
+        self.inner.insert_mut(curve.inner());
     }
 
     #[wasm_bindgen(js_name = insertForward)]
     pub fn insert_forward(&mut self, curve: &JsForwardCurve) {
-        self.inner.insert_forward_mut(curve.inner());
+        self.inner.insert_mut(curve.inner());
     }
 
     #[wasm_bindgen(js_name = insertHazard)]
     pub fn insert_hazard(&mut self, curve: &JsHazardCurve) {
-        self.inner.insert_hazard_mut(curve.inner());
+        self.inner.insert_mut(curve.inner());
     }
 
     #[wasm_bindgen(js_name = insertInflation)]
     pub fn insert_inflation(&mut self, curve: &JsInflationCurve) {
-        self.inner.insert_inflation_mut(curve.inner());
+        self.inner.insert_mut(curve.inner());
     }
 
     #[wasm_bindgen(js_name = insertBaseCorrelation)]
     pub fn insert_base_correlation(&mut self, curve: &JsBaseCorrelationCurve) {
-        self.inner.insert_base_correlation_mut(curve.inner());
+        self.inner.insert_mut(curve.inner());
     }
 
     #[wasm_bindgen(js_name = insertSurface)]

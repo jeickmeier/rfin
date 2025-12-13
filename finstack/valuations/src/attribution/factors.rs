@@ -258,24 +258,24 @@ pub fn restore_rates_curves(
     for curve_id in market.curve_ids() {
         // Copy hazard curves
         if let Ok(hazard) = market.get_hazard(curve_id) {
-            temp_market.insert_hazard_mut(hazard);
+            temp_market = temp_market.insert_hazard(hazard);
         }
         // Copy inflation curves
         else if let Ok(inflation) = market.get_inflation(curve_id) {
-            temp_market.insert_inflation_mut(inflation);
+            temp_market = temp_market.insert_inflation(inflation);
         }
         // Copy base correlation curves
         else if let Ok(base_corr) = market.get_base_correlation(curve_id) {
-            temp_market.insert_base_correlation_mut(base_corr);
+            temp_market = temp_market.insert_base_correlation(base_corr);
         }
     }
 
     // Insert snapshot rates curves
     for (_id, curve) in &snapshot.discount_curves {
-        temp_market.insert_discount_mut(Arc::clone(curve));
+        temp_market = temp_market.insert_discount(Arc::clone(curve));
     }
     for (_id, curve) in &snapshot.forward_curves {
-        temp_market.insert_forward_mut(Arc::clone(curve));
+        temp_market = temp_market.insert_forward(Arc::clone(curve));
     }
 
     // Copy other market data (FX, surfaces, scalars) from original market
@@ -310,25 +310,25 @@ pub fn restore_credit_curves(
     for curve_id in market.curve_ids() {
         // Copy discount curves
         if let Ok(discount) = market.get_discount(curve_id) {
-            temp_market.insert_discount_mut(discount);
+            temp_market = temp_market.insert_discount(discount);
         }
         // Copy forward curves
         else if let Ok(forward) = market.get_forward(curve_id) {
-            temp_market.insert_forward_mut(forward);
+            temp_market = temp_market.insert_forward(forward);
         }
         // Copy inflation curves
         else if let Ok(inflation) = market.get_inflation(curve_id) {
-            temp_market.insert_inflation_mut(inflation);
+            temp_market = temp_market.insert_inflation(inflation);
         }
         // Copy base correlation curves
         else if let Ok(base_corr) = market.get_base_correlation(curve_id) {
-            temp_market.insert_base_correlation_mut(base_corr);
+            temp_market = temp_market.insert_base_correlation(base_corr);
         }
     }
 
     // Insert snapshot hazard curves
     for (_id, curve) in &snapshot.hazard_curves {
-        temp_market.insert_hazard_mut(Arc::clone(curve));
+        temp_market = temp_market.insert_hazard(Arc::clone(curve));
     }
 
     // Copy other market data (FX, surfaces, scalars)
@@ -362,19 +362,19 @@ pub fn restore_inflation_curves(
     // Copy non-inflation curves
     for curve_id in market.curve_ids() {
         if let Ok(discount) = market.get_discount(curve_id) {
-            temp_market.insert_discount_mut(discount);
+            temp_market = temp_market.insert_discount(discount);
         } else if let Ok(forward) = market.get_forward(curve_id) {
-            temp_market.insert_forward_mut(forward);
+            temp_market = temp_market.insert_forward(forward);
         } else if let Ok(hazard) = market.get_hazard(curve_id) {
-            temp_market.insert_hazard_mut(hazard);
+            temp_market = temp_market.insert_hazard(hazard);
         } else if let Ok(base_corr) = market.get_base_correlation(curve_id) {
-            temp_market.insert_base_correlation_mut(base_corr);
+            temp_market = temp_market.insert_base_correlation(base_corr);
         }
     }
 
     // Insert snapshot inflation curves
     for (_id, curve) in &snapshot.inflation_curves {
-        temp_market.insert_inflation_mut(Arc::clone(curve));
+        temp_market = temp_market.insert_inflation(Arc::clone(curve));
     }
 
     // Copy other market data (FX, surfaces, scalars)
@@ -408,19 +408,19 @@ pub fn restore_correlations(
     // Copy non-correlation curves
     for curve_id in market.curve_ids() {
         if let Ok(discount) = market.get_discount(curve_id) {
-            temp_market.insert_discount_mut(discount);
+            temp_market = temp_market.insert_discount(discount);
         } else if let Ok(forward) = market.get_forward(curve_id) {
-            temp_market.insert_forward_mut(forward);
+            temp_market = temp_market.insert_forward(forward);
         } else if let Ok(hazard) = market.get_hazard(curve_id) {
-            temp_market.insert_hazard_mut(hazard);
+            temp_market = temp_market.insert_hazard(hazard);
         } else if let Ok(inflation) = market.get_inflation(curve_id) {
-            temp_market.insert_inflation_mut(inflation);
+            temp_market = temp_market.insert_inflation(inflation);
         }
     }
 
     // Insert snapshot base correlation curves
     for (_id, curve) in &snapshot.base_correlation_curves {
-        temp_market.insert_base_correlation_mut(Arc::clone(curve));
+        temp_market = temp_market.insert_base_correlation(Arc::clone(curve));
     }
 
     // Copy other market data (FX, surfaces, scalars)
@@ -483,15 +483,15 @@ pub fn restore_scalars(market: &MarketContext, snapshot: &ScalarsSnapshot) -> Ma
     // Copy all curves
     for curve_id in market.curve_ids() {
         if let Ok(discount) = market.get_discount(curve_id) {
-            new_market.insert_discount_mut(discount);
+            new_market = new_market.insert_discount(discount);
         } else if let Ok(forward) = market.get_forward(curve_id) {
-            new_market.insert_forward_mut(forward);
+            new_market = new_market.insert_forward(forward);
         } else if let Ok(hazard) = market.get_hazard(curve_id) {
-            new_market.insert_hazard_mut(hazard);
+            new_market = new_market.insert_hazard(hazard);
         } else if let Ok(inflation) = market.get_inflation(curve_id) {
-            new_market.insert_inflation_mut(inflation);
+            new_market = new_market.insert_inflation(inflation);
         } else if let Ok(base_corr) = market.get_base_correlation(curve_id) {
-            new_market.insert_base_correlation_mut(base_corr);
+            new_market = new_market.insert_base_correlation(base_corr);
         }
     }
 

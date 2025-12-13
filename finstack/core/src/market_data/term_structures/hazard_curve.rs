@@ -282,6 +282,30 @@ impl HazardCurve {
         sp1 - sp2
     }
 
+    /// Instantaneous hazard rate λ(t) at time `t`.
+    ///
+    /// For piecewise-constant hazard curves, this returns the lambda value
+    /// corresponding to the interval containing `t`.
+    ///
+    /// # Arguments
+    /// * `t` - Time in years
+    #[must_use]
+    pub fn hazard_rate(&self, t: f64) -> f64 {
+        if t <= 0.0 {
+            // Return first hazard rate for t<=0
+            return self.lambdas.first().copied().unwrap_or(0.0);
+        }
+
+        for (i, &k) in self.knots.iter().enumerate() {
+            if t <= k {
+                return self.lambdas[i];
+            }
+        }
+
+        // Extrapolate with last lambda
+        self.lambdas.last().copied().unwrap_or(0.0)
+    }
+
     /// Evaluate survival probabilities at the provided dates using this curve's time axis.
     pub fn survival_at_dates(&self, dates: &[Date]) -> crate::Result<Vec<f64>> {
         let base = self.base_date();

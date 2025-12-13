@@ -390,8 +390,7 @@ impl XccyBasisCalibrator {
                         Err(_) => return crate::calibration::PENALTY,
                     };
 
-                    let mut ctx = ctx_rc_clone.borrow_mut();
-                    ctx.insert_discount_mut(Arc::new(temp_curve));
+                    ctx_rc_clone.borrow_mut().insert_mut(Arc::new(temp_curve));
                 }
 
                 let ctx = ctx_rc_clone.borrow();

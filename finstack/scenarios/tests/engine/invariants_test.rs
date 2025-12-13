@@ -38,7 +38,7 @@ fn test_discount_curve_df_monotonic_after_parallel_shock() {
         .build()
         .unwrap();
 
-    market.insert_discount_mut(Arc::new(curve));
+    market.insert_mut(Arc::new(curve));
 
     // Apply parallel shock
     let scenario = ScenarioSpec {
@@ -103,7 +103,7 @@ fn test_discount_curve_df_monotonic_after_node_shock() {
         .build()
         .unwrap();
 
-    market.insert_discount_mut(Arc::new(curve));
+    market.insert_mut(Arc::new(curve));
 
     // Apply node shock (2Y key-rate bump)
     let scenario = ScenarioSpec {
@@ -167,7 +167,7 @@ fn test_forward_curve_rates_finite_after_parallel_shock() {
         .build()
         .unwrap();
 
-    market.insert_forward_mut(Arc::new(curve));
+    market.insert_mut(Arc::new(curve));
 
     // Apply parallel shock
     let scenario = ScenarioSpec {
@@ -233,7 +233,7 @@ fn test_forward_curve_rates_finite_after_node_shock() {
         .build()
         .unwrap();
 
-    market.insert_forward_mut(Arc::new(curve));
+    market.insert_mut(Arc::new(curve));
 
     // Apply node shock
     let scenario = ScenarioSpec {
@@ -298,7 +298,7 @@ fn test_base_correlation_bounds_after_parallel_shock() {
         .build()
         .unwrap();
 
-    market.insert_base_correlation_mut(Arc::new(curve));
+    market.insert_mut(Arc::new(curve));
 
     // Apply parallel shock (additive)
     let scenario = ScenarioSpec {
@@ -356,7 +356,7 @@ fn test_base_correlation_bounds_after_bucket_shock() {
         .build()
         .unwrap();
 
-    market.insert_base_correlation_mut(Arc::new(curve));
+    market.insert_mut(Arc::new(curve));
 
     // Apply bucket shock to 7% and 15% detachment points
     let scenario = ScenarioSpec {

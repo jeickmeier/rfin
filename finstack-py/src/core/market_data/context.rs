@@ -127,7 +127,7 @@ impl PyMarketContext {
     /// -------
     /// None
     fn insert_discount(&mut self, curve: &PyDiscountCurve) -> PyResult<()> {
-        self.inner.insert_discount_mut(curve.inner.clone());
+        self.inner.insert_mut(curve.inner.clone());
         Ok(())
     }
 
@@ -143,7 +143,7 @@ impl PyMarketContext {
     /// -------
     /// None
     fn insert_forward(&mut self, curve: &PyForwardCurve) -> PyResult<()> {
-        self.inner.insert_forward_mut(curve.inner.clone());
+        self.inner.insert_mut(curve.inner.clone());
         Ok(())
     }
 
@@ -159,7 +159,7 @@ impl PyMarketContext {
     /// -------
     /// None
     fn insert_hazard(&mut self, curve: &PyHazardCurve) -> PyResult<()> {
-        self.inner.insert_hazard_mut(curve.inner.clone());
+        self.inner.insert_mut(curve.inner.clone());
         Ok(())
     }
 
@@ -175,7 +175,7 @@ impl PyMarketContext {
     /// -------
     /// None
     fn insert_inflation(&mut self, curve: &PyInflationCurve) -> PyResult<()> {
-        self.inner.insert_inflation_mut(curve.inner.clone());
+        self.inner.insert_mut(curve.inner.clone());
         Ok(())
     }
 
@@ -191,7 +191,7 @@ impl PyMarketContext {
     /// -------
     /// None
     fn insert_base_correlation(&mut self, curve: &PyBaseCorrelationCurve) -> PyResult<()> {
-        self.inner.insert_base_correlation_mut(curve.inner.clone());
+        self.inner.insert_mut(curve.inner.clone());
         Ok(())
     }
 
