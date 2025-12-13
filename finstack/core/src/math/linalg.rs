@@ -205,6 +205,48 @@ pub fn apply_correlation(chol: &[f64], independent: &[f64], correlated: &mut [f6
     }
 }
 
+/// Solve linear system Ax = b using Cholesky decomposition L of A (A = L L^T).
+///
+/// Solves L y = b (forward substitution) then L^T x = y (backward substitution).
+///
+/// # Arguments
+///
+/// * `chol` - Lower triangular Cholesky factor L (n x n, row-major)
+/// * `b` - Right-hand side vector (length n)
+/// * `x` - Output solution vector (length n)
+pub fn cholesky_solve(chol: &[f64], b: &[f64], x: &mut [f64]) -> Result<()> {
+    let n = b.len();
+    if chol.len() != n * n || x.len() != n {
+        return Err(crate::error::InputError::DimensionMismatch.into());
+    }
+
+    // Forward substitution: Solve L y = b
+    for i in 0..n {
+        let mut sum = 0.0;
+        for j in 0..i {
+            sum += chol[i * n + j] * x[j];
+        }
+        let diag = chol[i * n + i];
+        if diag.abs() < 1e-15 {
+            return Err(crate::error::InputError::Invalid.into());
+        }
+        x[i] = (b[i] - sum) / diag;
+    }
+
+    // Backward substitution: Solve L^T x = y
+    // x currently holds y
+    for i in (0..n).rev() {
+        let mut sum = 0.0;
+        for j in (i + 1)..n {
+            sum += chol[j * n + i] * x[j]; // L[j][i] is L^T[i][j]
+        }
+        // diag is the same L[i][i]
+        x[i] = (x[i] - sum) / chol[i * n + i];
+    }
+
+    Ok(())
+}
+
 /// Helper to create correlation matrix from correlation pairs.
 ///
 /// # Arguments

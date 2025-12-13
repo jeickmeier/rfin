@@ -317,106 +317,50 @@ impl LevenbergMarquardtSolver {
         residuals: &[f64],
         lambda: f64,
     ) -> Result<Vec<f64>> {
+        use super::linalg::{cholesky_decomposition, cholesky_solve};
+
         let n = jacobian[0].len(); // Number of parameters
         let m = jacobian.len(); // Number of residuals
 
-        // Compute J^T J
-        let mut jtj = vec![vec![0.0; n]; n];
-        for (i, row) in jtj.iter_mut().enumerate().take(n) {
-            for (j, entry) in row.iter_mut().enumerate().take(n) {
-                for jacobian_row in jacobian.iter().take(m) {
-                    *entry += jacobian_row[i] * jacobian_row[j];
+        // Compute J^T J + λI as flat matrix
+        let mut matrix = vec![0.0; n * n];
+
+        for k in 0..m {
+            let row = &jacobian[k];
+            for i in 0..n {
+                let ri = row[i];
+                for j in 0..=i {
+                    matrix[i * n + j] += ri * row[j];
                 }
             }
         }
 
-        // Add damping term λI
-        #[allow(clippy::needless_range_loop)]
+        // Add damping and symmetrize
         for i in 0..n {
-            jtj[i][i] += lambda;
+            matrix[i * n + i] += lambda;
+            for j in 0..i {
+                matrix[j * n + i] = matrix[i * n + j];
+            }
         }
 
         // Compute -J^T r
-        let mut jtr = vec![0.0; n];
-        for (i, jtr_entry) in jtr.iter_mut().enumerate().take(n) {
-            for jacobian_row in jacobian.iter().take(m).enumerate() {
-                let (k, row) = jacobian_row;
-                *jtr_entry -= row[i] * residuals[k];
+        let mut rhs = vec![0.0; n];
+        for k in 0..m {
+            let row = &jacobian[k];
+            let r = residuals[k];
+            for i in 0..n {
+                rhs[i] -= row[i] * r;
             }
         }
 
-        // Solve using Gaussian elimination with partial pivoting
-        self.solve_linear_system(&jtj, &jtr)
-    }
+        // Solve using Cholesky
+        let chol =
+            cholesky_decomposition(&matrix, n).map_err(|_| crate::error::InputError::Invalid)?;
 
-    /// Solve linear system using ndarray with improved numerical stability.
-    fn solve_linear_system(&self, a: &[Vec<f64>], b: &[f64]) -> Result<Vec<f64>> {
-        let n = a.len();
-        if n == 0 || b.len() != n {
-            return Err(InputError::Invalid.into());
-        }
+        let mut result = vec![0.0; n];
+        cholesky_solve(&chol, &rhs, &mut result).map_err(|_| crate::error::InputError::Invalid)?;
 
-        // Convert to ndarray format for better memory layout and operations
-        let mut matrix = Array2::<f64>::zeros((n, n));
-        for (i, row) in a.iter().enumerate() {
-            if row.len() != n {
-                return Err(InputError::Invalid.into());
-            }
-            for (j, &val) in row.iter().enumerate() {
-                matrix[[i, j]] = val;
-            }
-        }
-        let mut x = Array1::from_vec(b.to_vec());
-
-        // Simple but numerically stable Gaussian elimination with partial pivoting
-        // Using ndarray for better memory access patterns
-        for k in 0..n {
-            // Find pivot
-            let mut max_idx = k;
-            let mut max_val = matrix[[k, k]].abs();
-            for i in (k + 1)..n {
-                let val = matrix[[i, k]].abs();
-                if val > max_val {
-                    max_val = val;
-                    max_idx = i;
-                }
-            }
-
-            if max_val < 1e-15 {
-                return Err(InputError::Invalid.into());
-            }
-
-            // Swap rows if needed
-            if max_idx != k {
-                for j in 0..n {
-                    let tmp = matrix[[k, j]];
-                    matrix[[k, j]] = matrix[[max_idx, j]];
-                    matrix[[max_idx, j]] = tmp;
-                }
-                let tmp = x[k];
-                x[k] = x[max_idx];
-                x[max_idx] = tmp;
-            }
-
-            // Eliminate
-            for i in (k + 1)..n {
-                let factor = matrix[[i, k]] / matrix[[k, k]];
-                for j in (k + 1)..n {
-                    matrix[[i, j]] -= factor * matrix[[k, j]];
-                }
-                x[i] -= factor * x[k];
-            }
-        }
-
-        // Back substitution
-        for i in (0..n).rev() {
-            for j in (i + 1)..n {
-                x[i] -= matrix[[i, j]] * x[j];
-            }
-            x[i] /= matrix[[i, i]];
-        }
-
-        Ok(x.to_vec())
+        Ok(result)
     }
 
     /// Apply box constraints to parameters.

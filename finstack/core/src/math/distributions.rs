@@ -239,16 +239,7 @@ pub fn binomial_probability(n: usize, k: usize, p: f64) -> f64 {
 /// - Abramowitz, M., & Stegun, I. A. (1964). *Handbook of Mathematical Functions*.
 ///   Formula 6.1.37 (Stirling's approximation).
 pub fn log_binomial_coefficient(n: usize, k: usize) -> f64 {
-    if k > n {
-        return f64::NEG_INFINITY;
-    }
-    if k == 0 || k == n {
-        return 0.0;
-    }
-
-    // Use the more efficient calculation: ln(n!) - ln(k!) - ln((n-k)!)
-    // Using Stirling's approximation for large values
-    log_factorial(n) - log_factorial(k) - log_factorial(n - k)
+    statrs::function::factorial::ln_binomial(n as u64, k as u64)
 }
 
 /// Calculate log factorial ln(n!) with automatic method selection.
@@ -278,17 +269,7 @@ pub fn log_binomial_coefficient(n: usize, k: usize) -> f64 {
 /// assert!((log_factorial(5) - (2.0_f64.ln() + 3.0_f64.ln() + 4.0_f64.ln() + 5.0_f64.ln())).abs() < 1e-10);
 /// ```
 pub fn log_factorial(n: usize) -> f64 {
-    if n == 0 || n == 1 {
-        return 0.0;
-    }
-    if n < 20 {
-        // Exact calculation for small n: ln(n!) = ln(1) + ln(2) + ... + ln(n)
-        (2..=n).map(|i| (i as f64).ln()).sum()
-    } else {
-        // Stirling's approximation: ln(n!) ≈ n*ln(n) - n + 0.5*ln(2πn)
-        let n_f = n as f64;
-        n_f * n_f.ln() - n_f + 0.5 * (2.0 * std::f64::consts::PI * n_f).ln()
-    }
+    statrs::function::factorial::ln_factorial(n as u64)
 }
 
 /// Sample from Beta(α, β) distribution using the gamma ratio method.
