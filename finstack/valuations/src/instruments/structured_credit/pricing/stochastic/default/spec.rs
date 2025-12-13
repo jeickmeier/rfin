@@ -70,7 +70,7 @@ pub enum StochasticDefaultSpec {
     #[cfg_attr(feature = "serde", serde(skip))]
     HazardCurveBased {
         /// The calibrated hazard curve
-        hazard_curve: HazardCurve,
+        hazard_curve: Box<HazardCurve>,
         /// Factor sensitivity (β) for systematic risk shocks
         factor_sensitivity: f64,
         /// Volatility of intensity shocks (σ)
@@ -220,7 +220,7 @@ impl StochasticDefaultSpec {
     /// * `factor_sensitivity` - Sensitivity to systematic factor (typical: 0.3-0.8)
     pub fn from_hazard_curve(hazard_curve: HazardCurve, factor_sensitivity: f64) -> Self {
         StochasticDefaultSpec::HazardCurveBased {
-            hazard_curve,
+            hazard_curve: Box::new(hazard_curve),
             factor_sensitivity: factor_sensitivity.clamp(-2.0, 2.0),
             volatility: 0.30,
             correlation: 0.20,
@@ -235,7 +235,7 @@ impl StochasticDefaultSpec {
         correlation: f64,
     ) -> Self {
         StochasticDefaultSpec::HazardCurveBased {
-            hazard_curve,
+            hazard_curve: Box::new(hazard_curve),
             factor_sensitivity: factor_sensitivity.clamp(-2.0, 2.0),
             volatility: volatility.clamp(0.0, 2.0),
             correlation: correlation.clamp(0.0, 0.99),
@@ -305,7 +305,7 @@ impl StochasticDefaultSpec {
                 volatility,
                 correlation,
             } => Some(Box::new(
-                HazardCurveDefault::new(hazard_curve.clone(), *factor_sensitivity)
+                HazardCurveDefault::new((**hazard_curve).clone(), *factor_sensitivity)
                     .with_volatility(*volatility)
                     .with_correlation(*correlation),
             )),

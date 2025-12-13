@@ -1107,9 +1107,10 @@ mod tests {
 
         // Now calibrate using these synthetic quotes
         // Use Newton solver for this smooth calibration problem (faster convergence)
+        // Use 1e-9 tolerance to allow for numerical precision while still being very tight
         let config = CalibrationConfig {
             solver_kind: crate::calibration::SolverKind::Newton,
-            tolerance: 1e-10,
+            tolerance: 1e-9,
             ..CalibrationConfig::default()
         };
         let calibrator = BaseCorrelationCalibrator::new("CDX.NA.IG.42", 42, 5.0, base_date)

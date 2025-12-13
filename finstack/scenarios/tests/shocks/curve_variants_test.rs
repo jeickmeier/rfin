@@ -201,9 +201,15 @@ fn test_forecast_curve_node_shock() {
 }
 
 #[test]
-#[ignore] // TODO: Fix synthetic data setup for re-calibration (Invalid input data)
 fn test_par_cds_node_shock() {
     let base_date = Date::from_calendar_date(2025, Month::January, 1).unwrap();
+
+    // Create discount curve (needed for recalibration)
+    let discount = DiscountCurve::builder("USD-OIS")
+        .base_date(base_date)
+        .knots(vec![(0.0, 1.0), (1.0, 0.95), (5.0, 0.80), (10.0, 0.60)])
+        .build()
+        .unwrap();
 
     let curve = HazardCurve::builder("CORP_BBB")
         .base_date(base_date)
@@ -213,7 +219,9 @@ fn test_par_cds_node_shock() {
         .build()
         .unwrap();
 
-    let mut market = MarketContext::new().insert_hazard(curve);
+    let mut market = MarketContext::new()
+        .insert_discount(discount)
+        .insert_hazard(curve);
     let mut model = FinancialModelSpec::new("test", vec![]);
 
     let scenario = ScenarioSpec {
@@ -249,15 +257,12 @@ fn test_par_cds_node_shock() {
     // Original 5Y lambda = 0.025. New approx 0.025 + 0.004167 = 0.029167
 
     // We can just verify it changed in the right direction
-    let knots: Vec<_> = bumped.knot_points().collect();
-    let val_5y = knots
-        .iter()
-        .find(|(t, _)| (*t - 5.0).abs() < 1e-6)
-        .unwrap()
-        .1;
+    // After recalibration, knots may have changed, so interpolate at 5.0
+    let val_5y = bumped.hazard_rate(5.0);
     assert!(
         val_5y > 0.025,
-        "Hazard rate should increase from Par CDS spread bump"
+        "Hazard rate should increase from Par CDS spread bump: got {}",
+        val_5y
     );
 }
 

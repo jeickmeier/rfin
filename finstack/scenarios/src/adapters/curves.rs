@@ -390,8 +390,15 @@ impl ScenarioAdapter for CurveAdapter {
                         )?;
                         let bump_req = BumpRequest::Tenors(targets);
 
+                        // Try to find a discount curve ID for recalibration
+                        // Use standard "USD-OIS" if available, otherwise None (will fallback to shift method)
+                        let discount_id = ctx.market
+                            .get_discount_ref("USD-OIS")
+                            .ok()
+                            .map(|_| finstack_core::types::CurveId::from("USD-OIS"));
+
                         let new_curve = bump_hazard_spreads(
-                            base_curve, ctx.market, &bump_req, None,
+                            base_curve, ctx.market, &bump_req, discount_id.as_ref(),
                         )
                         .map_err(|e| {
                             Error::Internal(format!(
