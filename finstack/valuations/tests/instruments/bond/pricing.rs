@@ -279,7 +279,7 @@ fn test_bond_settlement_date_impact() {
         .maturity(maturity)
         .cashflow_spec(CashflowSpec::fixed(
             0.05,
-            finstack_core::dates::Frequency::semi_annual(),
+            finstack_core::dates::Tenor::semi_annual(),
             DayCount::Act365F,
         ))
         .discount_curve_id("USD-OIS".into())
@@ -296,7 +296,7 @@ fn test_bond_settlement_date_impact() {
         .maturity(maturity)
         .cashflow_spec(CashflowSpec::fixed(
             0.05,
-            finstack_core::dates::Frequency::semi_annual(),
+            finstack_core::dates::Tenor::semi_annual(),
             DayCount::Act365F,
         ))
         .discount_curve_id("USD-OIS".into())
@@ -494,7 +494,7 @@ fn test_bond_different_day_counts() {
             .maturity(maturity)
             .cashflow_spec(CashflowSpec::fixed(
                 0.05,
-                finstack_core::dates::Frequency::semi_annual(),
+                finstack_core::dates::Tenor::semi_annual(),
                 dc,
             ))
             .discount_curve_id("USD-OIS".into())

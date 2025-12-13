@@ -7,7 +7,7 @@
 use super::calendar::{PyBusinessDayConvention, PyCalendar};
 use crate::core::dates::utils::{date_to_py, py_to_date};
 use crate::errors::{core_to_py, PyContext};
-use finstack_core::dates::{Frequency, ScheduleBuilder, ScheduleSpec, StubKind};
+use finstack_core::dates::{ScheduleBuilder, ScheduleSpec, StubKind, Tenor, TenorUnit};
 use pyo3::exceptions::PyValueError;
 use pyo3::prelude::*;
 use pyo3::types::{PyList, PyModule, PyType};
@@ -31,11 +31,11 @@ use time::Date;
 #[pyclass(name = "Frequency", module = "finstack.core.dates.schedule", frozen)]
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
 pub struct PyFrequency {
-    pub(crate) inner: Frequency,
+    pub(crate) inner: Tenor,
 }
 
 impl PyFrequency {
-    pub(crate) const fn new(inner: Frequency) -> Self {
+    pub(crate) const fn new(inner: Tenor) -> Self {
         Self { inner }
     }
 }
@@ -51,7 +51,7 @@ impl PyFrequency {
                 "Months must be in the range 1..=12",
             ));
         }
-        Ok(Self::new(Frequency::Months(months)))
+        Ok(Self::new(Tenor::new(months as u32, TenorUnit::Months)))
     }
 
     #[classmethod]
@@ -63,59 +63,59 @@ impl PyFrequency {
                 "Days must be greater than zero",
             ));
         }
-        Ok(Self::new(Frequency::Days(days)))
+        Ok(Self::new(Tenor::new(days as u32, TenorUnit::Days)))
     }
 
     #[classmethod]
     #[pyo3(text_signature = "(cls, payments_per_year)")]
     /// Construct a frequency from a number of payments per year.
     ///
-    /// This mirrors :rust:`finstack_core::dates::Frequency::from_payments_per_year`,
+    /// This mirrors :rust:`finstack_core::dates::Tenor::from_payments_per_year`,
     /// accepting common values such as 1, 2, 3, 4, 6, or 12.
     fn from_payments_per_year(_cls: &Bound<'_, PyType>, payments_per_year: u32) -> PyResult<Self> {
-        Frequency::from_payments_per_year(payments_per_year)
+        Tenor::from_payments_per_year(payments_per_year)
             .map(Self::new)
-            .map_err(|msg| pyo3::exceptions::PyValueError::new_err(msg))
+            .map_err(|msg| pyo3::exceptions::PyValueError::new_err(msg.to_string()))
     }
 
     #[classattr]
     const ANNUAL: Self = Self {
-        inner: Frequency::Months(12),
+        inner: Tenor::annual(),
     };
     #[classattr]
     const SEMI_ANNUAL: Self = Self {
-        inner: Frequency::Months(6),
+        inner: Tenor::semi_annual(),
     };
     #[classattr]
     const QUARTERLY: Self = Self {
-        inner: Frequency::Months(3),
+        inner: Tenor::quarterly(),
     };
     #[classattr]
     const MONTHLY: Self = Self {
-        inner: Frequency::Months(1),
+        inner: Tenor::monthly(),
     };
     #[classattr]
     const BIWEEKLY: Self = Self {
-        inner: Frequency::Days(14),
+        inner: Tenor::biweekly(),
     };
     #[classattr]
     const WEEKLY: Self = Self {
-        inner: Frequency::Days(7),
+        inner: Tenor::weekly(),
     };
     #[classattr]
     const DAILY: Self = Self {
-        inner: Frequency::Days(1),
+        inner: Tenor::daily(),
     };
 
     #[getter]
     /// Month-based interval represented by this frequency, if applicable.
-    fn months(&self) -> Option<u8> {
+    fn months(&self) -> Option<u32> {
         self.inner.months()
     }
 
     #[getter]
     /// Day-based interval represented by this frequency, if applicable.
-    fn days(&self) -> Option<u16> {
+    fn days(&self) -> Option<u32> {
         self.inner.days()
     }
 
@@ -289,7 +289,7 @@ impl PyScheduleBuilder {
     ///
     /// Parameters
     /// ----------
-    /// frequency : Frequency
+    /// frequency : Tenor
     ///     Interval between successive dates (e.g. monthly, quarterly).
     ///
     /// Returns

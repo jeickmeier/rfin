@@ -152,14 +152,14 @@ fn test_real_duration_with_different_frequencies() {
 
     // Annual payments
     let mut ilb_annual = sample_tips();
-    ilb_annual.freq = finstack_core::dates::Frequency::annual();
+    ilb_annual.freq = finstack_core::dates::Tenor::annual();
     ilb_annual.issue = d(2025, 1, 2);
     ilb_annual.maturity = d(2030, 1, 2);
     ilb_annual.real_coupon = 0.02;
 
     // Semi-annual payments
     let mut ilb_semi = sample_tips();
-    ilb_semi.freq = finstack_core::dates::Frequency::semi_annual();
+    ilb_semi.freq = finstack_core::dates::Tenor::semi_annual();
     ilb_semi.issue = d(2025, 1, 2);
     ilb_semi.maturity = d(2030, 1, 2);
     ilb_semi.real_coupon = 0.02;

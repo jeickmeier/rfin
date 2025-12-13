@@ -32,7 +32,7 @@
 //! ```rust,ignore
 //! use finstack_valuations::margin::{
 //!     CsaSpec, VmParameters, ImParameters, ImMethodology,
-//!     EligibleCollateralSchedule, MarginFrequency,
+//!     EligibleCollateralSchedule, MarginTenor,
 //! };
 //! use finstack_core::currency::Currency;
 //! use finstack_core::money::Money;
@@ -45,7 +45,7 @@
 //!         mta: Money::new(500_000.0, Currency::USD),
 //!         rounding: Money::new(10_000.0, Currency::USD),
 //!         independent_amount: Money::zero(Currency::USD),
-//!         frequency: MarginFrequency::Daily,
+//!         frequency: MarginTenor::Daily,
 //!         settlement_lag: 1,
 //!     },
 //!     im_params: Some(ImParameters {
@@ -87,5 +87,5 @@ pub use traits::{
 pub use types::{
     ClearingStatus, CollateralAssetClass, CollateralEligibility, CsaSpec,
     EligibleCollateralSchedule, ImMethodology, ImParameters, MarginCall, MarginCallTiming,
-    MarginCallType, MarginFrequency, MaturityConstraints, OtcMarginSpec, VmParameters,
+    MarginCallType, MarginTenor, MaturityConstraints, OtcMarginSpec, VmParameters,
 };

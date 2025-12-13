@@ -192,25 +192,25 @@ impl Bond {
     ///
     /// ## United States (Default)
     /// - **Day Count:** 30/360 (US Bond Basis)
-    /// - **Frequency:** Semi-annual
+    /// - **Tenor:** Semi-annual
     /// - **Settlement:** T+1 (corporate), T+1 (treasuries)
     /// - **Calendar:** US (NYSE holidays)
     ///
     /// ## United Kingdom
     /// - **Day Count:** ACT/ACT (ISMA/ICMA)
-    /// - **Frequency:** Semi-annual
+    /// - **Tenor:** Semi-annual
     /// - **Settlement:** T+1 (gilts)
     /// - **Calendar:** UK (London holidays)
     ///
     /// ## Europe (Eurozone)
     /// - **Day Count:** 30E/360 (ICMA, Eurobond basis) or ACT/ACT
-    /// - **Frequency:** Annual
+    /// - **Tenor:** Annual
     /// - **Settlement:** T+2 (standard), T+3 (some markets)
     /// - **Calendar:** TARGET (European Central Bank)
     ///
     /// ## Japan
     /// - **Day Count:** ACT/365 (Fixed)
-    /// - **Frequency:** Semi-annual
+    /// - **Tenor:** Semi-annual
     /// - **Settlement:** T+3 (JGBs)
     /// - **Calendar:** Japan holidays
     ///
@@ -239,7 +239,7 @@ impl Bond {
             .maturity(maturity)
             .cashflow_spec(CashflowSpec::fixed(
                 coupon_rate,
-                finstack_core::dates::Frequency::semi_annual(),
+                finstack_core::dates::Tenor::semi_annual(),
                 DayCount::Thirty360,
             ))
             .discount_curve_id(discount_curve_id.into())
@@ -330,7 +330,7 @@ impl Bond {
     /// * `margin_bp` - Spread over index in basis points (e.g., 200.0 for 200bps)
     /// * `issue` - Issue date of the bond
     /// * `maturity` - Maturity date of the bond
-    /// * `freq` - Payment frequency (e.g., `Frequency::quarterly()`)
+    /// * `freq` - Payment frequency (e.g., `Tenor::quarterly()`)
     /// * `dc` - Day count convention (e.g., `DayCount::Act360`)
     /// * `discount_curve_id` - Discount curve identifier for pricing
     ///
@@ -345,7 +345,7 @@ impl Bond {
     /// # Example
     /// ```ignore
     /// use finstack_valuations::instruments::bond::Bond;
-    /// use finstack_core::dates::{Frequency, DayCount};
+    /// use finstack_core::dates::{Tenor, DayCount};
     ///
     /// // 3M SOFR + 200bps, quarterly payments
     /// let frn = Bond::floating(
@@ -355,7 +355,7 @@ impl Bond {
     ///     200.0,  // margin in bps
     ///     issue,
     ///     maturity,
-    ///     Frequency::quarterly(),
+    ///     Tenor::quarterly(),
     ///     DayCount::Act360,
     ///     "USD-OIS"
     /// );
@@ -368,7 +368,7 @@ impl Bond {
         margin_bp: f64,
         issue: Date,
         maturity: Date,
-        freq: finstack_core::dates::Frequency,
+        freq: finstack_core::dates::Tenor,
         dc: DayCount,
         discount_curve_id: impl Into<CurveId>,
     ) -> Self {
@@ -446,7 +446,7 @@ impl Bond {
         // This is used only for yield/duration conventions; the actual cashflows
         // always come from `custom_cashflows`.
         use crate::cashflow::primitives::CFKind;
-        use finstack_core::dates::Frequency;
+        use finstack_core::dates::Tenor;
 
         let mut coupon_dates: Vec<Date> = schedule
             .flows
@@ -459,7 +459,7 @@ impl Bond {
 
         let inferred_freq = if coupon_dates.len() < 2 {
             // Fallback to annual if we cannot infer a pattern
-            Frequency::annual()
+            Tenor::annual()
         } else {
             // Use the first interval as a proxy for the schedule frequency.
             let d0 = coupon_dates[0];
@@ -468,12 +468,15 @@ impl Bond {
             // Map common patterns to standard frequencies; otherwise fall back
             // to an approximate day-based frequency.
             match days {
-                360..=370 => Frequency::annual(),
-                178..=187 => Frequency::semi_annual(),
-                88..=95 => Frequency::quarterly(),
-                27..=35 => Frequency::monthly(),
-                6..=8 => Frequency::weekly(),
-                _ => Frequency::Days(u16::try_from(days).unwrap_or(1)),
+                360..=370 => Tenor::annual(),
+                178..=187 => Tenor::semi_annual(),
+                88..=95 => Tenor::quarterly(),
+                27..=35 => Tenor::monthly(),
+                6..=8 => Tenor::weekly(),
+                _ => finstack_core::dates::Tenor::new(
+                    days as u32,
+                    finstack_core::dates::TenorUnit::Days,
+                ),
             }
         };
 
@@ -859,7 +862,7 @@ mod tests {
     use crate::cashflow::traits::CashflowProvider;
     use crate::instruments::common::traits::Instrument;
     use finstack_core::currency::Currency;
-    use finstack_core::dates::{BusinessDayConvention, DayCount, Frequency, StubKind};
+    use finstack_core::dates::{BusinessDayConvention, DayCount, StubKind, Tenor};
     use finstack_core::market_data::context::MarketContext;
     use finstack_core::market_data::term_structures::discount_curve::DiscountCurve;
     use finstack_core::market_data::term_structures::forward_curve::ForwardCurve;
@@ -874,7 +877,7 @@ mod tests {
 
         // Build a custom cashflow schedule with step-up coupons
         let schedule_params = ScheduleParams {
-            freq: Frequency::semi_annual(),
+            freq: Tenor::semi_annual(),
             dc: DayCount::Act365F,
             bdc: BusinessDayConvention::Following,
             calendar_id: None,
@@ -956,7 +959,7 @@ mod tests {
                     pik_pct: 0.5,
                 },
                 rate: 0.06,
-                freq: Frequency::quarterly(),
+                freq: Tenor::quarterly(),
                 dc: DayCount::Thirty360,
                 bdc: BusinessDayConvention::Following,
                 calendar_id: None,
@@ -999,7 +1002,7 @@ mod tests {
             .maturity(maturity)
             .cashflow_spec(CashflowSpec::fixed(
                 0.04,
-                Frequency::semi_annual(),
+                Tenor::semi_annual(),
                 DayCount::Act365F,
             ))
             .discount_curve_id(CurveId::new("USD-OIS"))
@@ -1020,7 +1023,7 @@ mod tests {
             .fixed_cf(FixedCouponSpec {
                 coupon_type: CouponType::Cash,
                 rate: 0.055, // Different from default spec
-                freq: Frequency::quarterly(),
+                freq: Tenor::quarterly(),
                 dc: DayCount::Act365F,
                 bdc: BusinessDayConvention::Following,
                 calendar_id: None,
@@ -1049,7 +1052,7 @@ mod tests {
             .maturity(maturity)
             .cashflow_spec(CashflowSpec::fixed(
                 0.03,
-                Frequency::annual(),
+                Tenor::annual(),
                 DayCount::Act365F,
             ))
             .discount_curve_id(CurveId::new("USD-OIS"))
@@ -1069,8 +1072,8 @@ mod tests {
             .principal(Money::new(1_000_000.0, Currency::USD), issue, maturity)
             .fixed_cf(FixedCouponSpec {
                 coupon_type: CouponType::Cash,
-                rate: 0.05,                     // Different rate
-                freq: Frequency::semi_annual(), // Different frequency
+                rate: 0.05,                 // Different rate
+                freq: Tenor::semi_annual(), // Different frequency
                 dc: DayCount::Act365F,
                 bdc: BusinessDayConvention::Following,
                 calendar_id: None,
@@ -1135,7 +1138,7 @@ mod tests {
             150.0,
             issue,
             maturity,
-            Frequency::quarterly(),
+            Tenor::quarterly(),
             DayCount::Act360,
             "USD-OIS",
         );
@@ -1181,7 +1184,7 @@ mod tests {
             150.0,
             issue,
             maturity,
-            Frequency::quarterly(),
+            Tenor::quarterly(),
             DayCount::Act360,
             "USD-OIS",
         );
@@ -1256,7 +1259,7 @@ mod tests {
                 (maturity, Money::new(0.0, Currency::USD)),
             ],
         };
-        let base_spec = CashflowSpec::fixed(0.05, Frequency::annual(), DayCount::Act365F);
+        let base_spec = CashflowSpec::fixed(0.05, Tenor::annual(), DayCount::Act365F);
         let cashflow_spec = CashflowSpec::amortizing(base_spec, amort_spec);
 
         let mut bond = Bond::builder()
@@ -1347,7 +1350,7 @@ mod tests {
             100.0,
             issue,
             maturity,
-            Frequency::quarterly(),
+            Tenor::quarterly(),
             DayCount::Act360,
             "USD-OIS",
         );
@@ -1415,7 +1418,7 @@ mod tests {
                 (maturity, Money::new(0.0, Currency::USD)),
             ],
         };
-        let base_spec = CashflowSpec::fixed(0.05, Frequency::semi_annual(), DayCount::Thirty360);
+        let base_spec = CashflowSpec::fixed(0.05, Tenor::semi_annual(), DayCount::Thirty360);
         let cashflow_spec = CashflowSpec::amortizing(base_spec, amort_spec);
 
         let bond = Bond::builder()
@@ -1523,8 +1526,7 @@ mod tests {
         let market = MarketContext::new().insert_discount(disc_curve);
 
         // Bullet bond: 3-year annual, 1% coupon, full principal at maturity
-        let bullet_cashflow_spec =
-            CashflowSpec::fixed(0.01, Frequency::annual(), DayCount::Act365F);
+        let bullet_cashflow_spec = CashflowSpec::fixed(0.01, Tenor::annual(), DayCount::Act365F);
         let bullet_bond = Bond::builder()
             .id("BULLET-TEST".into())
             .notional(notional)
@@ -1552,7 +1554,7 @@ mod tests {
                 (maturity, Money::new(0.0, Currency::USD)),
             ],
         };
-        let amort_base_spec = CashflowSpec::fixed(0.01, Frequency::annual(), DayCount::Act365F);
+        let amort_base_spec = CashflowSpec::fixed(0.01, Tenor::annual(), DayCount::Act365F);
         let amort_spec = CashflowSpec::amortizing(amort_base_spec, amort_schedule);
         let amort_bond = Bond::builder()
             .id("AMORT-TEST-PV".into())
@@ -1601,7 +1603,7 @@ mod tests {
             200.0,
             issue,
             maturity,
-            Frequency::quarterly(),
+            Tenor::quarterly(),
             DayCount::Act365F,
             "USD-OIS",
         );

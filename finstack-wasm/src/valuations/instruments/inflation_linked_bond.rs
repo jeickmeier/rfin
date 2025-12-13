@@ -4,7 +4,7 @@ use crate::core::error::js_error;
 use crate::core::money::JsMoney;
 use crate::valuations::common::parse::parse_optional_with_default;
 use crate::valuations::common::{curve_id_from_str, instrument_id_from_str};
-use finstack_core::dates::{BusinessDayConvention, DayCount, Frequency, StubKind};
+use finstack_core::dates::{BusinessDayConvention, DayCount, StubKind, Tenor};
 use finstack_valuations::instruments::inflation_linked_bond::parameters::InflationLinkedBondParams;
 use finstack_valuations::instruments::inflation_linked_bond::{
     DeflationProtection, IndexationMethod, InflationLinkedBond,
@@ -47,7 +47,7 @@ impl JsInflationLinkedBond {
         deflation_protection: Option<String>,
     ) -> Result<JsInflationLinkedBond, JsValue> {
         let indexation_method = parse_optional_with_default(indexation, IndexationMethod::TIPS)?;
-        let freq = parse_optional_with_default(frequency, Frequency::semi_annual())?;
+        let freq = parse_optional_with_default(frequency, Tenor::semi_annual())?;
         let dc = day_count.map(|d| d.inner()).unwrap_or(DayCount::ActAct);
         let deflation =
             parse_optional_with_default(deflation_protection, DeflationProtection::MaturityOnly)?;

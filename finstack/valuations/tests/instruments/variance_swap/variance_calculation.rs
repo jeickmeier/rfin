@@ -1,7 +1,7 @@
 //! Tests for variance calculations (realized, forward, expected).
 
 use super::common::*;
-use finstack_core::dates::Frequency;
+use finstack_core::dates::Tenor;
 use finstack_core::market_data::context::MarketContext;
 use finstack_core::math::stats::{realized_variance, RealizedVarMethod};
 use finstack_valuations::instruments::variance_swap::PayReceive;
@@ -290,7 +290,7 @@ fn test_expected_variance_at_maturity_equals_realized() {
 fn test_expected_variance_mid_period_is_weighted_blend() {
     // Arrange
     let mut swap = sample_swap(PayReceive::Receive);
-    swap.observation_freq = Frequency::weekly();
+    swap.observation_freq = Tenor::weekly();
     let prices = price_series(&swap, 4_950.0, 10.0);
     let ctx = add_series(base_context(), &prices);
     let dates = swap.observation_dates();
@@ -312,7 +312,7 @@ fn test_expected_variance_mid_period_is_weighted_blend() {
 fn test_expected_variance_transitions_smoothly() {
     // Arrange
     let mut swap = sample_swap(PayReceive::Receive);
-    swap.observation_freq = Frequency::weekly();
+    swap.observation_freq = Tenor::weekly();
     let prices = price_series(&swap, 5_000.0, 5.0);
     let _ctx = add_series(base_context(), &prices);
     let dates = swap.observation_dates();

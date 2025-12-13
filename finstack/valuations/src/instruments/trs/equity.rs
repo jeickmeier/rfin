@@ -82,7 +82,7 @@ impl EquityTotalReturnSwap {
                 Date::from_calendar_date(2025, time::Month::January, 1)
                     .expect("Valid example date"),
                 ScheduleParams {
-                    freq: finstack_core::dates::Frequency::quarterly(),
+                    freq: finstack_core::dates::Tenor::quarterly(),
                     dc: finstack_core::dates::DayCount::Act360,
                     bdc: finstack_core::dates::BusinessDayConvention::Following,
                     calendar_id: None,

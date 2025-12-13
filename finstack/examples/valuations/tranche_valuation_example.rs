@@ -7,7 +7,7 @@
 //! 4. Compare metrics across different tranches
 
 use finstack_core::currency::Currency;
-use finstack_core::dates::{BusinessDayConvention, Date, DayCount, Frequency};
+use finstack_core::dates::{BusinessDayConvention, Date, DayCount, Tenor};
 use finstack_core::market_data::context::MarketContext;
 use finstack_core::market_data::term_structures::DiscountCurve;
 use finstack_core::money::Money;
@@ -178,7 +178,7 @@ fn create_sample_clo() -> Result<StructuredCredit, Box<dyn Error>> {
             all_in_floor_bp: None,
             cap_bp: None,
             index_cap_bp: None,
-            reset_freq: Frequency::quarterly(),
+            reset_freq: Tenor::quarterly(),
             reset_lag_days: 2,
             dc: DayCount::Act360,
             bdc: BusinessDayConvention::ModifiedFollowing,
@@ -203,7 +203,7 @@ fn create_sample_clo() -> Result<StructuredCredit, Box<dyn Error>> {
             all_in_floor_bp: None,
             cap_bp: None,
             index_cap_bp: None,
-            reset_freq: Frequency::quarterly(),
+            reset_freq: Tenor::quarterly(),
             reset_lag_days: 2,
             dc: DayCount::Act360,
             bdc: BusinessDayConvention::ModifiedFollowing,

@@ -5,7 +5,7 @@
 //! calibration quality against market standards.
 
 use finstack_core::currency::Currency;
-use finstack_core::dates::{Date, DayCount, Frequency};
+use finstack_core::dates::{Date, DayCount, Tenor};
 use finstack_core::market_data::context::MarketContext;
 use finstack_core::market_data::term_structures::{DiscountCurve, Seniority};
 use finstack_core::math::interp::InterpStyle;
@@ -240,8 +240,8 @@ fn test_discount_curve_global_solve_smoke() {
         RatesQuote::Swap {
             maturity: Date::from_calendar_date(2027, Month::January, 15).unwrap(),
             rate: 0.0325,
-            fixed_freq: Frequency::annual(),
-            float_freq: Frequency::annual(),
+            fixed_freq: Tenor::annual(),
+            float_freq: Tenor::annual(),
             fixed_dc: DayCount::Act360,
             float_dc: DayCount::Act360,
             index: "USD-SOFR".into(),

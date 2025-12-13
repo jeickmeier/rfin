@@ -1,7 +1,7 @@
 //! Edge case and boundary condition tests.
 
 use finstack_core::currency::Currency;
-use finstack_core::dates::{BusinessDayConvention, DayCount, Frequency, StubKind};
+use finstack_core::dates::{BusinessDayConvention, DayCount, StubKind, Tenor};
 use finstack_core::market_data::context::MarketContext;
 use finstack_core::money::Money;
 use finstack_core::types::CurveId;
@@ -23,7 +23,7 @@ fn test_zero_coupon_loan() {
         .issue(as_of)
         .maturity(date!(2030 - 01 - 01))
         .rate(RateSpec::Fixed { rate_bp: 0 }) // Zero coupon
-        .pay_freq(Frequency::semi_annual())
+        .pay_freq(Tenor::semi_annual())
         .day_count(DayCount::Act360)
         .bdc(BusinessDayConvention::ModifiedFollowing)
         .calendar_id_opt(None)
@@ -63,7 +63,7 @@ fn test_very_short_maturity() {
         .issue(as_of)
         .maturity(date!(2025 - 07 - 01)) // 6 months
         .rate(RateSpec::Fixed { rate_bp: 500 })
-        .pay_freq(Frequency::quarterly())
+        .pay_freq(Tenor::quarterly())
         .day_count(DayCount::Act360)
         .bdc(BusinessDayConvention::ModifiedFollowing)
         .calendar_id_opt(None)
@@ -100,7 +100,7 @@ fn test_very_long_maturity() {
         .issue(as_of)
         .maturity(date!(2055 - 01 - 01)) // 30 years
         .rate(RateSpec::Fixed { rate_bp: 600 })
-        .pay_freq(Frequency::semi_annual())
+        .pay_freq(Tenor::semi_annual())
         .day_count(DayCount::Act360)
         .bdc(BusinessDayConvention::ModifiedFollowing)
         .calendar_id_opt(None)
@@ -137,7 +137,7 @@ fn test_negative_rate_environment() {
         .issue(as_of)
         .maturity(date!(2030 - 01 - 01))
         .rate(RateSpec::Fixed { rate_bp: 500 })
-        .pay_freq(Frequency::semi_annual())
+        .pay_freq(Tenor::semi_annual())
         .day_count(DayCount::Act360)
         .bdc(BusinessDayConvention::ModifiedFollowing)
         .calendar_id_opt(None)

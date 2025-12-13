@@ -3,7 +3,7 @@
 //! Tests for TrsSide, TrsScheduleSpec, and related type functionality.
 
 use super::test_utils::*;
-use finstack_core::dates::{BusinessDayConvention, DayCount, Frequency, StubKind};
+use finstack_core::dates::{BusinessDayConvention, DayCount, StubKind, Tenor};
 use finstack_valuations::cashflow::builder::ScheduleParams;
 use finstack_valuations::instruments::trs::{TrsScheduleSpec, TrsSide};
 
@@ -129,7 +129,7 @@ fn test_trs_schedule_spec_creation() {
     assert_eq!(spec.start, start);
     assert_eq!(spec.end, end);
     assert_eq!(spec.params.dc, DayCount::Act360);
-    assert_eq!(spec.params.freq, Frequency::quarterly());
+    assert_eq!(spec.params.freq, Tenor::quarterly());
 }
 
 #[test]
@@ -160,7 +160,7 @@ fn test_trs_schedule_spec_period_schedule_semiannual() {
     let start = d(2025, 1, 2);
     let end = d(2026, 1, 2);
     let params = ScheduleParams {
-        freq: Frequency::semi_annual(),
+        freq: Tenor::semi_annual(),
         dc: DayCount::Act360,
         bdc: BusinessDayConvention::ModifiedFollowing,
         stub: StubKind::None,
@@ -188,7 +188,7 @@ fn test_trs_schedule_spec_period_schedule_monthly() {
     let start = d(2025, 1, 2);
     let end = d(2025, 7, 2); // 6 months
     let params = ScheduleParams {
-        freq: Frequency::monthly(),
+        freq: Tenor::monthly(),
         dc: DayCount::Act360,
         bdc: BusinessDayConvention::Following,
         stub: StubKind::None,
@@ -218,7 +218,7 @@ fn test_trs_schedule_spec_different_day_counts() {
 
     let params_act360 = ScheduleParams::quarterly_act360();
     let params_30_360 = ScheduleParams {
-        freq: Frequency::quarterly(),
+        freq: Tenor::quarterly(),
         dc: DayCount::Thirty360,
         bdc: BusinessDayConvention::ModifiedFollowing,
         stub: StubKind::None,

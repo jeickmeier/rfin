@@ -4,7 +4,7 @@
 //! stochastic cashflow modeling. Supports standard fee structures (upfront,
 //! commitment, usage, and facility fees) and both fixed and floating rate bases.
 
-use finstack_core::dates::{Date, DayCount, Frequency, StubKind};
+use finstack_core::dates::{Date, DayCount, StubKind, Tenor};
 use finstack_core::money::Money;
 use finstack_core::types::{CurveId, InstrumentId};
 
@@ -44,7 +44,7 @@ pub struct RevolvingCredit {
     pub day_count: DayCount,
 
     /// Payment frequency for interest and fees.
-    pub payment_frequency: Frequency,
+    pub payment_frequency: Tenor,
 
     /// Fee structure for the facility.
     pub fees: RevolvingCreditFees,
@@ -98,7 +98,7 @@ impl RevolvingCredit {
     /// Create a canonical example revolving credit facility (USD, deterministic draws).
     pub fn example() -> Self {
         use finstack_core::currency::Currency;
-        use finstack_core::dates::{DayCount, Frequency};
+        use finstack_core::dates::{DayCount, Tenor};
         use time::Month;
         let commitment = Money::new(50_000_000.0, Currency::USD);
         let initial_draw = Money::new(10_000_000.0, Currency::USD);
@@ -113,7 +113,7 @@ impl RevolvingCredit {
             cap_bp: None,
             all_in_floor_bp: None,
             index_cap_bp: None,
-            reset_freq: Frequency::quarterly(),
+            reset_freq: Tenor::quarterly(),
             reset_lag_days: 2,
             dc: DayCount::Act360,
             bdc: finstack_core::dates::BusinessDayConvention::ModifiedFollowing,
@@ -141,7 +141,7 @@ impl RevolvingCredit {
             .maturity_date(end)
             .base_rate_spec(base_rate)
             .day_count(DayCount::Act360)
-            .payment_frequency(Frequency::quarterly())
+            .payment_frequency(Tenor::quarterly())
             .fees(fees)
             .draw_repay_spec(draw_repay)
             .discount_curve_id(CurveId::new("USD-OIS"))

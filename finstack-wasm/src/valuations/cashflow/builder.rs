@@ -11,7 +11,7 @@ use super::JsAmortizationSpec;
 use crate::core::cashflow::primitives::JsCashFlow;
 use crate::core::dates::calendar::JsBusinessDayConvention;
 use crate::core::dates::date::JsDate;
-use crate::core::dates::daycount::{JsDayCount, JsFrequency};
+use crate::core::dates::daycount::{JsDayCount, JsTenor};
 use crate::core::dates::schedule::JsStubKind;
 use crate::core::error::js_error;
 use crate::core::money::JsMoney;
@@ -91,7 +91,7 @@ impl JsScheduleParams {
     /// Create schedule parameters with explicit settings.
     #[wasm_bindgen(constructor)]
     pub fn new(
-        frequency: &JsFrequency,
+        frequency: &JsTenor,
         day_count: &JsDayCount,
         business_day_convention: JsBusinessDayConvention,
         calendar_id: Option<String>,

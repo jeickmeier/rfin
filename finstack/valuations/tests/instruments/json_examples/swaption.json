@@ -13,12 +13,8 @@
       "expiry": "2025-01-15",
       "swap_start": "2025-01-17",
       "swap_end": "2030-01-17",
-      "fixed_freq": {
-        "Months": 6
-      },
-      "float_freq": {
-        "Months": 3
-      },
+      "fixed_freq": {"count": 6, "unit": "months"},
+      "float_freq": {"count": 3, "unit": "months"},
       "day_count": "Thirty360",
       "exercise": "European",
       "settlement": "Cash",

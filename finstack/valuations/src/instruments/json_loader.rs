@@ -555,7 +555,7 @@ mod tests {
                         "Fixed": {
                             "coupon_type": "Cash",
                             "rate": 0.05,
-                            "freq": { "Months": 6 },
+                            "freq": { "count": 6, "unit": "months" },
                             "dc": "Thirty360",
                             "bdc": "following",
                             "calendar_id": null,
@@ -578,6 +578,7 @@ mod tests {
                         "rate_bump_bp": null
                     },
                     "call_put": null,
+                    "accrual_method": "Linear",
                     "attributes": { "tags": [], "meta": {} },
                     "settlement_days": null,
                     "ex_coupon_days": null
@@ -606,7 +607,7 @@ mod tests {
                         "Fixed": {
                             "coupon_type": "Cash",
                             "rate": 0.05,
-                            "freq": { "Months": 6 },
+                            "freq": { "count": 6, "unit": "months" },
                             "dc": "Thirty360",
                             "bdc": "following",
                             "calendar_id": null,
@@ -656,7 +657,7 @@ mod tests {
                         "Fixed": {
                             "coupon_type": "Cash",
                             "rate": 0.05,
-                            "freq": { "Months": 6 },
+                            "freq": { "count": 6, "unit": "months" },
                             "dc": "Thirty360",
                             "bdc": "following",
                             "calendar_id": null,
@@ -769,11 +770,11 @@ mod tests {
 
     #[test]
     fn test_basis_swap_roundtrip() {
-        use finstack_core::dates::{BusinessDayConvention, DayCount, Frequency};
+        use finstack_core::dates::{BusinessDayConvention, DayCount, Tenor};
 
         let primary_leg = BasisSwapLeg {
             forward_curve_id: CurveId::new("USD-SOFR-3M"),
-            frequency: Frequency::quarterly(),
+            frequency: Tenor::quarterly(),
             day_count: DayCount::Act360,
             bdc: BusinessDayConvention::ModifiedFollowing,
             spread: 0.0005,
@@ -783,7 +784,7 @@ mod tests {
 
         let reference_leg = BasisSwapLeg {
             forward_curve_id: CurveId::new("USD-SOFR-1M"),
-            frequency: Frequency::quarterly(),
+            frequency: Tenor::quarterly(),
             day_count: DayCount::Act360,
             bdc: BusinessDayConvention::ModifiedFollowing,
             spread: 0.0,

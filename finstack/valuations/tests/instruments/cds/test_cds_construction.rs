@@ -4,7 +4,7 @@
 //! and structural validation.
 
 use finstack_core::currency::Currency;
-use finstack_core::dates::{Date, DayCount, Frequency};
+use finstack_core::dates::{Date, DayCount, Tenor};
 use finstack_core::money::Money;
 use finstack_valuations::instruments::cds::{CDSConvention, CreditDefaultSwap, PayReceive};
 use time::Month;
@@ -63,7 +63,7 @@ fn test_sell_protection_constructor() {
 fn test_convention_na_mappings() {
     let conv = CDSConvention::IsdaNa;
     assert_eq!(conv.day_count(), DayCount::Act360);
-    assert_eq!(conv.frequency(), Frequency::quarterly());
+    assert_eq!(conv.frequency(), Tenor::quarterly());
     assert_eq!(conv.settlement_delay(), 3);
 }
 
@@ -71,7 +71,7 @@ fn test_convention_na_mappings() {
 fn test_convention_eu_mappings() {
     let conv = CDSConvention::IsdaEu;
     assert_eq!(conv.day_count(), DayCount::Act360);
-    assert_eq!(conv.frequency(), Frequency::quarterly());
+    assert_eq!(conv.frequency(), Tenor::quarterly());
     assert_eq!(conv.settlement_delay(), 3);
 }
 
@@ -79,7 +79,7 @@ fn test_convention_eu_mappings() {
 fn test_convention_as_mappings() {
     let conv = CDSConvention::IsdaAs;
     assert_eq!(conv.day_count(), DayCount::Act365F);
-    assert_eq!(conv.frequency(), Frequency::quarterly());
+    assert_eq!(conv.frequency(), Tenor::quarterly());
     assert_eq!(conv.settlement_delay(), 3);
 }
 
@@ -87,7 +87,7 @@ fn test_convention_as_mappings() {
 fn test_convention_custom_defaults() {
     let conv = CDSConvention::Custom;
     assert_eq!(conv.day_count(), DayCount::Act360);
-    assert_eq!(conv.frequency(), Frequency::quarterly());
+    assert_eq!(conv.frequency(), Tenor::quarterly());
     assert_eq!(conv.settlement_delay(), 3);
 }
 
@@ -288,7 +288,7 @@ fn test_premium_leg_spec_fields() {
 
     assert_eq!(cds.premium.start, start);
     assert_eq!(cds.premium.end, end);
-    assert_eq!(cds.premium.freq, Frequency::quarterly());
+    assert_eq!(cds.premium.freq, Tenor::quarterly());
     assert_eq!(cds.premium.dc, DayCount::Act360);
     assert_eq!(cds.premium.discount_curve_id.as_str(), "USD-OIS");
 }

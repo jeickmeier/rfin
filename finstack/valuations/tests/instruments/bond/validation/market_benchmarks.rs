@@ -11,7 +11,7 @@
 //! - Market practice conventions
 
 use finstack_core::currency::Currency;
-use finstack_core::dates::{Date, DayCount, Frequency};
+use finstack_core::dates::{Date, DayCount, Tenor};
 use finstack_core::market_data::context::MarketContext;
 use finstack_core::market_data::term_structures::DiscountCurve;
 use finstack_core::money::Money;
@@ -57,7 +57,7 @@ fn test_bond_ytm_benchmark_1() {
         .notional(Money::new(100.0, Currency::USD))
         .cashflow_spec(CashflowSpec::fixed(
             0.05,
-            Frequency::semi_annual(),
+            Tenor::semi_annual(),
             DayCount::Thirty360,
         ))
         .issue(as_of)
@@ -135,7 +135,7 @@ fn test_bond_ytm_benchmark_2_par_bond() {
         .notional(Money::new(100.0, Currency::USD))
         .cashflow_spec(CashflowSpec::fixed(
             0.06,
-            Frequency::annual(),
+            Tenor::annual(),
             DayCount::Act365F,
         ))
         .issue(as_of)
@@ -184,7 +184,7 @@ fn test_bond_macaulay_duration_benchmark() {
         .notional(Money::new(100.0, Currency::USD))
         .cashflow_spec(CashflowSpec::fixed(
             0.08,
-            Frequency::annual(),
+            Tenor::annual(),
             DayCount::Act365F,
         ))
         .issue(as_of)
@@ -233,7 +233,7 @@ fn test_bond_modified_duration_benchmark() {
         .notional(Money::new(100.0, Currency::USD))
         .cashflow_spec(CashflowSpec::fixed(
             0.08,
-            Frequency::annual(),
+            Tenor::annual(),
             DayCount::Act365F,
         ))
         .issue(as_of)
@@ -286,7 +286,7 @@ fn test_bond_dv01_market_standard() {
         .notional(Money::new(100.0, Currency::USD))
         .cashflow_spec(CashflowSpec::fixed(
             0.08,
-            Frequency::annual(),
+            Tenor::annual(),
             DayCount::Act365F,
         ))
         .issue(as_of)
@@ -346,7 +346,7 @@ fn test_bond_price_yield_relationship() {
             .notional(Money::new(100.0, Currency::USD))
             .cashflow_spec(CashflowSpec::fixed(
                 0.06,
-                Frequency::semi_annual(),
+                Tenor::semi_annual(),
                 DayCount::Act365F,
             ))
             .issue(as_of)
@@ -398,11 +398,7 @@ fn test_bond_zero_coupon_duration() {
     let bond = Bond::builder()
         .id("ZERO_COUPON_TEST".into())
         .notional(Money::new(100.0, Currency::USD))
-        .cashflow_spec(CashflowSpec::fixed(
-            0.0,
-            Frequency::annual(),
-            DayCount::Act365F,
-        ))
+        .cashflow_spec(CashflowSpec::fixed(0.0, Tenor::annual(), DayCount::Act365F))
         .issue(as_of)
         .maturity(maturity)
         .discount_curve_id("USD_DISC".into())
@@ -444,7 +440,7 @@ fn test_bond_convexity_positive() {
         .notional(Money::new(100.0, Currency::USD))
         .cashflow_spec(CashflowSpec::fixed(
             0.08,
-            Frequency::annual(),
+            Tenor::annual(),
             DayCount::Act365F,
         ))
         .issue(as_of)

@@ -3,7 +3,7 @@
 //! Implements ISDA CSA variation margin calculation logic including
 //! threshold, MTA, and rounding rules.
 
-use crate::margin::types::{CsaSpec, MarginCall, MarginFrequency};
+use crate::margin::types::{CsaSpec, MarginCall, MarginTenor};
 use finstack_core::dates::Date;
 use finstack_core::money::Money;
 use finstack_core::Result;
@@ -214,16 +214,16 @@ impl VmCalculator {
         while current <= end {
             dates.push(current);
             current = match self.csa.vm_params.frequency {
-                MarginFrequency::Daily => {
+                MarginTenor::Daily => {
                     // Add 1 day (simplified - should use calendar)
                     current + time::Duration::days(1)
                 }
-                MarginFrequency::Weekly => current + time::Duration::weeks(1),
-                MarginFrequency::Monthly => {
+                MarginTenor::Weekly => current + time::Duration::weeks(1),
+                MarginTenor::Monthly => {
                     // Add approximately 1 month
                     current + time::Duration::days(30)
                 }
-                MarginFrequency::OnDemand => {
+                MarginTenor::OnDemand => {
                     // For on-demand, just return start and end
                     if current == start {
                         end

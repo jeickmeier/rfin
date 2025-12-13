@@ -3,7 +3,7 @@
 //! Validates solving for Black volatility from market prices.
 
 use finstack_core::currency::Currency;
-use finstack_core::dates::{BusinessDayConvention, Date, DayCount, Frequency, StubKind};
+use finstack_core::dates::{BusinessDayConvention, Date, DayCount, StubKind, Tenor};
 use finstack_core::market_data::context::MarketContext;
 use finstack_core::market_data::surfaces::VolSurface;
 use finstack_core::market_data::term_structures::{DiscountCurve, ForwardCurve};
@@ -63,7 +63,7 @@ fn test_implied_vol_requires_market_price() {
         strike_rate: 0.05,
         start_date: start,
         end_date: end,
-        frequency: Frequency::quarterly(),
+        frequency: Tenor::quarterly(),
         day_count: DayCount::Act360,
         stub_kind: StubKind::None,
         bdc: BusinessDayConvention::ModifiedFollowing,
@@ -121,7 +121,7 @@ fn test_implied_vol_with_market_price() {
         strike_rate: 0.05,
         start_date: start,
         end_date: end,
-        frequency: Frequency::quarterly(),
+        frequency: Tenor::quarterly(),
         day_count: DayCount::Act360,
         stub_kind: StubKind::None,
         bdc: BusinessDayConvention::ModifiedFollowing,
@@ -178,7 +178,7 @@ fn test_implied_vol_reasonable_range() {
         strike_rate: 0.05,
         start_date: start,
         end_date: end,
-        frequency: Frequency::quarterly(),
+        frequency: Tenor::quarterly(),
         day_count: DayCount::Act360,
         stub_kind: StubKind::None,
         bdc: BusinessDayConvention::ModifiedFollowing,

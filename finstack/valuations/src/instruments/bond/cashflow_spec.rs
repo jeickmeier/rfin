@@ -15,16 +15,16 @@
 //!
 //! ```rust
 //! use finstack_valuations::instruments::bond::CashflowSpec;
-//! use finstack_core::dates::{Frequency, DayCount};
+//! use finstack_core::dates::{Tenor, DayCount};
 //!
 //! // Fixed-rate bond: 5% annual coupon, semi-annual payments
-//! let fixed = CashflowSpec::fixed(0.05, Frequency::semi_annual(), DayCount::Thirty360);
+//! let fixed = CashflowSpec::fixed(0.05, Tenor::semi_annual(), DayCount::Thirty360);
 //!
 //! // Floating-rate note: SOFR + 200bps, quarterly payments
 //! let floating = CashflowSpec::floating(
 //!     "USD-SOFR-3M".into(),
 //!     200.0,  // margin in basis points
-//!     Frequency::quarterly(),
+//!     Tenor::quarterly(),
 //!     DayCount::Act360,
 //! );
 //! ```
@@ -38,7 +38,7 @@ use crate::cashflow::builder::specs::{
     CouponType, FixedCouponSpec, FloatingCouponSpec, FloatingRateSpec,
 };
 use crate::cashflow::builder::AmortizationSpec;
-use finstack_core::dates::{BusinessDayConvention, DayCount, Frequency, StubKind};
+use finstack_core::dates::{BusinessDayConvention, DayCount, StubKind, Tenor};
 use finstack_core::types::CurveId;
 
 /// Thin facade over canonical builder coupon specs for bond cashflows.
@@ -71,7 +71,7 @@ impl CashflowSpec {
     /// # Arguments
     ///
     /// * `coupon` - Annual coupon rate as decimal (e.g., 0.05 for 5%)
-    /// * `freq` - Payment frequency (e.g., `Frequency::semi_annual()`)
+    /// * `freq` - Payment frequency (e.g., `Tenor::semi_annual()`)
     /// * `dc` - Day count convention (e.g., `DayCount::Thirty360`)
     ///
     /// # Defaults
@@ -89,17 +89,17 @@ impl CashflowSpec {
     ///
     /// ```rust
     /// use finstack_valuations::instruments::bond::CashflowSpec;
-    /// use finstack_core::dates::{Frequency, DayCount};
+    /// use finstack_core::dates::{Tenor, DayCount};
     ///
     /// // US Treasury-style: 4% coupon, semi-annual, 30/360
-    /// let spec = CashflowSpec::fixed(0.04, Frequency::semi_annual(), DayCount::Thirty360);
+    /// let spec = CashflowSpec::fixed(0.04, Tenor::semi_annual(), DayCount::Thirty360);
     /// ```
     ///
     /// # See Also
     ///
     /// For full control (PIK, custom calendars, stubs), construct `FixedCouponSpec` directly
     /// and wrap in `CashflowSpec::Fixed(...)`.
-    pub fn fixed(coupon: f64, freq: Frequency, dc: DayCount) -> Self {
+    pub fn fixed(coupon: f64, freq: Tenor, dc: DayCount) -> Self {
         Self::Fixed(FixedCouponSpec {
             coupon_type: CouponType::Cash,
             rate: coupon,
@@ -117,7 +117,7 @@ impl CashflowSpec {
     ///
     /// * `index_id` - Forward curve identifier (e.g., "USD-SOFR-3M")
     /// * `margin_bp` - Spread over index in basis points (e.g., 200.0 for 200bps)
-    /// * `freq` - Payment frequency (e.g., `Frequency::quarterly()`)
+    /// * `freq` - Payment frequency (e.g., `Tenor::quarterly()`)
     /// * `dc` - Day count convention (e.g., `DayCount::Act360`)
     ///
     /// # Defaults
@@ -150,14 +150,14 @@ impl CashflowSpec {
     ///
     /// ```rust
     /// use finstack_valuations::instruments::bond::CashflowSpec;
-    /// use finstack_core::dates::{Frequency, DayCount};
+    /// use finstack_core::dates::{Tenor, DayCount};
     /// use finstack_core::types::CurveId;
     ///
     /// // FRN: 3M SOFR + 200bps, quarterly payments (default T-2 reset)
     /// let spec = CashflowSpec::floating(
     ///     CurveId::new("USD-SOFR-3M"),
     ///     200.0,  // 200 basis points
-    ///     Frequency::quarterly(),
+    ///     Tenor::quarterly(),
     ///     DayCount::Act360,
     /// );
     /// ```
@@ -167,7 +167,7 @@ impl CashflowSpec {
     /// - `floating_with_reset_lag()` for custom reset lag
     /// - For full control (floors/caps/gearing), construct `FloatingCouponSpec` directly
     ///   and wrap in `CashflowSpec::Floating(...)`.
-    pub fn floating(index_id: CurveId, margin_bp: f64, freq: Frequency, dc: DayCount) -> Self {
+    pub fn floating(index_id: CurveId, margin_bp: f64, freq: Tenor, dc: DayCount) -> Self {
         Self::floating_with_reset_lag(index_id, margin_bp, freq, dc, 2)
     }
 
@@ -177,7 +177,7 @@ impl CashflowSpec {
     ///
     /// * `index_id` - Forward curve identifier (e.g., "USD-SOFR-3M")
     /// * `margin_bp` - Spread over index in basis points (e.g., 200.0 for 200bps)
-    /// * `freq` - Payment frequency (e.g., `Frequency::quarterly()`)
+    /// * `freq` - Payment frequency (e.g., `Tenor::quarterly()`)
     /// * `dc` - Day count convention (e.g., `DayCount::Act360`)
     /// * `reset_lag_days` - Number of business days before period start for rate fixing
     ///
@@ -199,14 +199,14 @@ impl CashflowSpec {
     ///
     /// ```rust
     /// use finstack_valuations::instruments::bond::CashflowSpec;
-    /// use finstack_core::dates::{Frequency, DayCount};
+    /// use finstack_core::dates::{Tenor, DayCount};
     /// use finstack_core::types::CurveId;
     ///
     /// // SONIA-linked FRN with T-0 reset (same day fixing)
     /// let sonia_frn = CashflowSpec::floating_with_reset_lag(
     ///     CurveId::new("GBP-SONIA"),
     ///     150.0,  // 150 basis points
-    ///     Frequency::quarterly(),
+    ///     Tenor::quarterly(),
     ///     DayCount::Act365F,
     ///     0,  // T-0 reset for SONIA
     /// );
@@ -215,7 +215,7 @@ impl CashflowSpec {
     /// let sofr_frn = CashflowSpec::floating_with_reset_lag(
     ///     CurveId::new("USD-SOFR-3M"),
     ///     200.0,
-    ///     Frequency::quarterly(),
+    ///     Tenor::quarterly(),
     ///     DayCount::Act360,
     ///     2,  // T-2 reset for SOFR
     /// );
@@ -223,7 +223,7 @@ impl CashflowSpec {
     pub fn floating_with_reset_lag(
         index_id: CurveId,
         margin_bp: f64,
-        freq: Frequency,
+        freq: Tenor,
         dc: DayCount,
         reset_lag_days: i32,
     ) -> Self {
@@ -269,13 +269,13 @@ impl CashflowSpec {
     /// ```rust
     /// use finstack_valuations::instruments::bond::CashflowSpec;
     /// use finstack_valuations::cashflow::builder::AmortizationSpec;
-    /// use finstack_core::dates::{Frequency, DayCount, Date};
+    /// use finstack_core::dates::{Tenor, DayCount, Date};
     /// use finstack_core::money::Money;
     /// use finstack_core::currency::Currency;
     /// use time::Month;
     ///
     /// // Base fixed-rate spec
-    /// let base = CashflowSpec::fixed(0.05, Frequency::annual(), DayCount::Act365F);
+    /// let base = CashflowSpec::fixed(0.05, Tenor::annual(), DayCount::Act365F);
     ///
     /// // Amortization: 1/3 principal each year
     /// let step1 = Date::from_calendar_date(2026, Month::January, 1).unwrap();
@@ -302,10 +302,10 @@ impl CashflowSpec {
     ///
     /// # Returns
     ///
-    /// The payment frequency (e.g., `Frequency::semi_annual()`).
+    /// The payment frequency (e.g., `Tenor::semi_annual()`).
     ///
     /// For amortizing bonds, returns the frequency from the base specification.
-    pub fn frequency(&self) -> Frequency {
+    pub fn frequency(&self) -> Tenor {
         match self {
             Self::Fixed(spec) => spec.freq,
             Self::Floating(spec) => spec.freq,
@@ -332,6 +332,6 @@ impl CashflowSpec {
 impl Default for CashflowSpec {
     /// Default to semi-annual fixed bond with 30/360 day count (US convention).
     fn default() -> Self {
-        Self::fixed(0.0, Frequency::semi_annual(), DayCount::Thirty360)
+        Self::fixed(0.0, Tenor::semi_annual(), DayCount::Thirty360)
     }
 }

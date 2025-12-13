@@ -1,7 +1,7 @@
 //! Integration tests for Bermudan swaption pricing.
 
 use finstack_core::currency::Currency;
-use finstack_core::dates::{Date, DayCount, Frequency};
+use finstack_core::dates::{Date, DayCount, Tenor};
 use finstack_core::market_data::context::MarketContext;
 use finstack_core::market_data::term_structures::discount_curve::DiscountCurve;
 use finstack_core::math::interp::InterpStyle;
@@ -47,8 +47,8 @@ fn test_bermudan_swaption(
         strike_rate: strike,
         swap_start,
         swap_end,
-        fixed_freq: Frequency::semi_annual(),
-        float_freq: Frequency::quarterly(),
+        fixed_freq: Tenor::semi_annual(),
+        float_freq: Tenor::quarterly(),
         day_count: DayCount::Thirty360,
         settlement: SwaptionSettlement::Physical,
         discount_curve_id: CurveId::new("USD-OIS"),
@@ -57,7 +57,7 @@ fn test_bermudan_swaption(
         bermudan_schedule: BermudanSchedule::co_terminal(
             first_exercise,
             swap_end,
-            Frequency::semi_annual(),
+            Tenor::semi_annual(),
         ),
         bermudan_type: BermudanType::CoTerminal,
         pricing_overrides: Default::default(),
@@ -240,8 +240,7 @@ fn test_bermudan_schedule_generation() {
     let first_exercise = Date::from_calendar_date(2026, Month::January, 1).expect("Valid date");
     let swap_end = Date::from_calendar_date(2030, Month::January, 1).expect("Valid date");
 
-    let schedule =
-        BermudanSchedule::co_terminal(first_exercise, swap_end, Frequency::semi_annual());
+    let schedule = BermudanSchedule::co_terminal(first_exercise, swap_end, Tenor::semi_annual());
 
     // Should have approximately 8 exercise dates (4 years * 2 per year)
     let effective_dates = schedule.effective_dates();
@@ -271,9 +270,8 @@ fn test_bermudan_schedule_with_lockout() {
     let swap_end = Date::from_calendar_date(2030, Month::January, 1).expect("Valid date");
     let lockout_end = Date::from_calendar_date(2027, Month::January, 1).expect("Valid date");
 
-    let schedule =
-        BermudanSchedule::co_terminal(first_exercise, swap_end, Frequency::semi_annual())
-            .with_lockout(lockout_end);
+    let schedule = BermudanSchedule::co_terminal(first_exercise, swap_end, Tenor::semi_annual())
+        .with_lockout(lockout_end);
 
     let effective_dates = schedule.effective_dates();
 

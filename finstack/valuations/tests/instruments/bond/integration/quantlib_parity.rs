@@ -123,7 +123,7 @@ fn quantlib_parity_par_bond() {
         .maturity(maturity)
         .cashflow_spec(CashflowSpec::fixed(
             coupon_rate,
-            finstack_core::dates::Frequency::annual(), // Annual payments for exact QuantLib parity
+            finstack_core::dates::Tenor::annual(), // Annual payments for exact QuantLib parity
             DayCount::Act365F,
         ))
         .discount_curve_id("PAR".into())
@@ -696,7 +696,7 @@ fn quantlib_parity_day_count_conventions() {
         .maturity(maturity)
         .cashflow_spec(CashflowSpec::fixed(
             coupon_rate,
-            finstack_core::dates::Frequency::annual(), // Use consistent frequency
+            finstack_core::dates::Tenor::annual(), // Use consistent frequency
             DayCount::Act365F,
         ))
         .discount_curve_id("USD-OIS".into())
@@ -714,7 +714,7 @@ fn quantlib_parity_day_count_conventions() {
         .maturity(maturity)
         .cashflow_spec(CashflowSpec::fixed(
             coupon_rate,
-            finstack_core::dates::Frequency::annual(), // Same frequency
+            finstack_core::dates::Tenor::annual(), // Same frequency
             DayCount::Thirty360,
         ))
         .discount_curve_id("USD-OIS".into())

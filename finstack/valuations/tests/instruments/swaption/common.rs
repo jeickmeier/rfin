@@ -1,7 +1,7 @@
 //! Common test utilities and fixtures for swaption tests.
 
 use finstack_core::currency::Currency;
-use finstack_core::dates::{Date, DayCount, Frequency};
+use finstack_core::dates::{Date, DayCount, Tenor};
 use finstack_core::market_data::context::MarketContext;
 use finstack_core::market_data::surfaces::VolSurface;
 use finstack_core::market_data::term_structures::{DiscountCurve, ForwardCurve};
@@ -79,8 +79,8 @@ pub fn create_standard_payer_swaption(
         expiry,
         swap_start,
         swap_end,
-        fixed_freq: Frequency::quarterly(),
-        float_freq: Frequency::quarterly(),
+        fixed_freq: Tenor::quarterly(),
+        float_freq: Tenor::quarterly(),
         day_count: DayCount::Act360,
         exercise: SwaptionExercise::European,
         settlement: SwaptionSettlement::Physical,

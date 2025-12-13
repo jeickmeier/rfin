@@ -5,7 +5,8 @@
       "base": "Drawn",
       "bps": 50.0,
       "freq": {
-        "Months": 3
+        "count": 3,
+        "unit": "months"
       },
       "dc": "Act360",
       "bdc": "modified_following",
@@ -14,4 +15,3 @@
     }
   }
 }
-

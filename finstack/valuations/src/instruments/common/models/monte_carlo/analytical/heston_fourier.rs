@@ -18,7 +18,7 @@ use std::f64::consts::PI;
 ///
 /// # Arguments
 ///
-/// * `u` - Frequency parameter (complex in general, real here)
+/// * `u` - Tenor parameter (complex in general, real here)
 /// * `time` - Time to maturity
 /// * `spot` - Current spot price
 /// * `variance` - Current variance (v_0)

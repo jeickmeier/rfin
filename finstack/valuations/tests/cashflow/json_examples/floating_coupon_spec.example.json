@@ -11,7 +11,8 @@
       "cap_bp": null,
       "index_cap_bp": null,
       "reset_freq": {
-        "Months": 6
+        "count": 6,
+        "unit": "months"
       },
       "reset_lag_days": 2,
       "dc": "Act360",
@@ -21,9 +22,9 @@
     },
     "coupon_type": "Cash",
     "freq": {
-      "Months": 6
+      "count": 6,
+      "unit": "months"
     },
     "stub": "None"
   }
 }
-

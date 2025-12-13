@@ -228,7 +228,7 @@ fn test_recovery_spec_json_format() {
 #[cfg(feature = "serde")]
 fn build_full_feature_structured_credit() -> StructuredCredit {
     use finstack_core::currency::Currency;
-    use finstack_core::dates::{BusinessDayConvention, Date, DayCount, Frequency};
+    use finstack_core::dates::{BusinessDayConvention, Date, DayCount, Tenor};
     use finstack_core::types::ratings::CreditRating;
     use finstack_core::types::{CurveId, InstrumentId};
 
@@ -332,7 +332,7 @@ fn build_full_feature_structured_credit() -> StructuredCredit {
         all_in_floor_bp: Some(25.0),
         cap_bp: Some(1200.0),
         index_cap_bp: None,
-        reset_freq: Frequency::quarterly(),
+        reset_freq: Tenor::quarterly(),
         reset_lag_days: 2,
         dc: DayCount::Act360,
         bdc: BusinessDayConvention::ModifiedFollowing,
@@ -368,7 +368,7 @@ fn build_full_feature_structured_credit() -> StructuredCredit {
 
     deal.first_payment_date = first_payment;
     deal.reinvestment_end_date = Some(reinvestment_end);
-    deal.payment_frequency = Frequency::monthly();
+    deal.payment_frequency = Tenor::monthly();
     deal.attributes = Attributes::new()
         .with_tag("full")
         .with_meta("book", "structured_credit");

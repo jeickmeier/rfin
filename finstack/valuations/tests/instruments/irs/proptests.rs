@@ -5,7 +5,7 @@
 //! and fundamental swap relationships.
 
 use finstack_core::currency::Currency;
-use finstack_core::dates::{BusinessDayConvention, Date, DayCount, Frequency, StubKind};
+use finstack_core::dates::{BusinessDayConvention, Date, DayCount, StubKind, Tenor};
 use finstack_core::market_data::context::MarketContext;
 use finstack_core::market_data::term_structures::{DiscountCurve, ForwardCurve};
 use finstack_core::math::interp::InterpStyle;
@@ -95,7 +95,7 @@ proptest! {
             .fixed(FixedLegSpec {
                 discount_curve_id: CurveId::new("USD-OIS"),
                 rate: rate_low,
-                freq: Frequency::semi_annual(),
+                freq: Tenor::semi_annual(),
                 dc: DayCount::Thirty360,
                 bdc: BusinessDayConvention::ModifiedFollowing,
                 calendar_id: None,
@@ -110,7 +110,7 @@ proptest! {
                 discount_curve_id: CurveId::new("USD-OIS"),
                 forward_curve_id: CurveId::new("USD-SOFR-3M"),
                 spread_bp: 0.0,
-                freq: Frequency::quarterly(),
+                freq: Tenor::quarterly(),
                 dc: DayCount::Act360,
                 bdc: BusinessDayConvention::ModifiedFollowing,
                 calendar_id: None,
@@ -131,7 +131,7 @@ proptest! {
             .fixed(FixedLegSpec {
                 discount_curve_id: CurveId::new("USD-OIS"),
                 rate: rate_high,
-                freq: Frequency::semi_annual(),
+                freq: Tenor::semi_annual(),
                 dc: DayCount::Thirty360,
                 bdc: BusinessDayConvention::ModifiedFollowing,
                 calendar_id: None,
@@ -146,7 +146,7 @@ proptest! {
                 discount_curve_id: CurveId::new("USD-OIS"),
                 forward_curve_id: CurveId::new("USD-SOFR-3M"),
                 spread_bp: 0.0,
-                freq: Frequency::quarterly(),
+                freq: Tenor::quarterly(),
                 dc: DayCount::Act360,
                 bdc: BusinessDayConvention::ModifiedFollowing,
                 calendar_id: None,
@@ -199,7 +199,7 @@ proptest! {
             .fixed(FixedLegSpec {
                 discount_curve_id: CurveId::new("USD-OIS"),
                 rate: fixed_rate,
-                freq: Frequency::semi_annual(),
+                freq: Tenor::semi_annual(),
                 dc: DayCount::Thirty360,
                 bdc: BusinessDayConvention::ModifiedFollowing,
                 calendar_id: None,
@@ -214,7 +214,7 @@ proptest! {
                 discount_curve_id: CurveId::new("USD-OIS"),
                 forward_curve_id: CurveId::new("USD-SOFR-3M"),
                 spread_bp: 0.0,
-                freq: Frequency::quarterly(),
+                freq: Tenor::quarterly(),
                 dc: DayCount::Act360,
                 bdc: BusinessDayConvention::ModifiedFollowing,
                 calendar_id: None,
@@ -235,7 +235,7 @@ proptest! {
             .fixed(FixedLegSpec {
                 discount_curve_id: CurveId::new("USD-OIS"),
                 rate: fixed_rate,
-                freq: Frequency::semi_annual(),
+                freq: Tenor::semi_annual(),
                 dc: DayCount::Thirty360,
                 bdc: BusinessDayConvention::ModifiedFollowing,
                 calendar_id: None,
@@ -250,7 +250,7 @@ proptest! {
                 discount_curve_id: CurveId::new("USD-OIS"),
                 forward_curve_id: CurveId::new("USD-SOFR-3M"),
                 spread_bp: 0.0,
-                freq: Frequency::quarterly(),
+                freq: Tenor::quarterly(),
                 dc: DayCount::Act360,
                 bdc: BusinessDayConvention::ModifiedFollowing,
                 calendar_id: None,
@@ -330,7 +330,7 @@ proptest! {
             .fixed(FixedLegSpec {
                 discount_curve_id: CurveId::new("USD-OIS"),
                 rate: fixed_rate,
-                freq: Frequency::semi_annual(),
+                freq: Tenor::semi_annual(),
                 dc: DayCount::Thirty360,
                 bdc: BusinessDayConvention::ModifiedFollowing,
                 calendar_id: None,
@@ -345,7 +345,7 @@ proptest! {
                 discount_curve_id: CurveId::new("USD-OIS"),
                 forward_curve_id: CurveId::new("USD-SOFR-3M"),
                 spread_bp: 0.0,
-                freq: Frequency::quarterly(),
+                freq: Tenor::quarterly(),
                 dc: DayCount::Act360,
                 bdc: BusinessDayConvention::ModifiedFollowing,
                 calendar_id: None,

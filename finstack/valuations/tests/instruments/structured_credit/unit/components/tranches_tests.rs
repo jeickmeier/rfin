@@ -9,7 +9,7 @@
 //! - Coverage triggers
 
 use finstack_core::currency::Currency;
-use finstack_core::dates::{Date, Frequency};
+use finstack_core::dates::{Date, Tenor};
 use finstack_core::money::Money;
 use finstack_core::types::ratings::CreditRating;
 use finstack_core::types::CurveId;
@@ -140,7 +140,7 @@ fn test_tranche_floating_coupon() {
             cap_bp: None,
             all_in_floor_bp: None,
             index_cap_bp: None,
-            reset_freq: finstack_core::dates::Frequency::quarterly(),
+            reset_freq: finstack_core::dates::Tenor::quarterly(),
             reset_lag_days: 2,
             dc: finstack_core::dates::DayCount::Act360,
             bdc: finstack_core::dates::BusinessDayConvention::ModifiedFollowing,
@@ -177,7 +177,7 @@ fn test_tranche_builder_complete() {
         .coupon(TrancheCoupon::Fixed { rate: 0.08 })
         .legal_maturity(maturity_date())
         .rating(CreditRating::BBB)
-        .payment_frequency(Frequency::quarterly())
+        .payment_frequency(Tenor::quarterly())
         .build()
         .unwrap();
 

@@ -3,7 +3,7 @@
 //! Tests with realistic market conditions.
 
 use finstack_core::currency::Currency;
-use finstack_core::dates::{BusinessDayConvention, Date, DayCount, Frequency, StubKind};
+use finstack_core::dates::{BusinessDayConvention, Date, DayCount, StubKind, Tenor};
 use finstack_core::market_data::context::MarketContext;
 use finstack_core::market_data::surfaces::VolSurface;
 use finstack_core::market_data::term_structures::{DiscountCurve, ForwardCurve};
@@ -73,7 +73,7 @@ fn test_realistic_usd_cap_pricing() {
         strike_rate: 0.05, // 5% ATM
         start_date: as_of,
         end_date: end,
-        frequency: Frequency::quarterly(),
+        frequency: Tenor::quarterly(),
         day_count: DayCount::Act360,
         stub_kind: StubKind::None,
         bdc: BusinessDayConvention::ModifiedFollowing,
@@ -118,7 +118,7 @@ fn test_realistic_otm_floor_pricing() {
         strike_rate: 0.03, // 3% OTM floor (forwards ~5%)
         start_date: as_of,
         end_date: end,
-        frequency: Frequency::quarterly(),
+        frequency: Tenor::quarterly(),
         day_count: DayCount::Act360,
         stub_kind: StubKind::None,
         bdc: BusinessDayConvention::ModifiedFollowing,
@@ -160,7 +160,7 @@ fn test_all_greeks_with_realistic_market() {
         strike_rate: 0.05,
         start_date: as_of,
         end_date: end,
-        frequency: Frequency::quarterly(),
+        frequency: Tenor::quarterly(),
         day_count: DayCount::Act360,
         stub_kind: StubKind::None,
         bdc: BusinessDayConvention::ModifiedFollowing,
@@ -218,7 +218,7 @@ fn test_semi_annual_vs_quarterly_frequency() {
         strike_rate: 0.05,
         start_date: as_of,
         end_date: end,
-        frequency: Frequency::quarterly(),
+        frequency: Tenor::quarterly(),
         day_count: DayCount::Act360,
         stub_kind: StubKind::None,
         bdc: BusinessDayConvention::ModifiedFollowing,
@@ -239,7 +239,7 @@ fn test_semi_annual_vs_quarterly_frequency() {
         strike_rate: 0.05,
         start_date: as_of,
         end_date: end,
-        frequency: Frequency::semi_annual(),
+        frequency: Tenor::semi_annual(),
         day_count: DayCount::Act360,
         stub_kind: StubKind::None,
         bdc: BusinessDayConvention::ModifiedFollowing,

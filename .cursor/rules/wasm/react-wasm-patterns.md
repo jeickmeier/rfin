@@ -282,10 +282,10 @@ const day = date.day;        // NOT date.day()
 const dateStr = date.toString();
 ```
 
-### Frequency Handling
+### Tenor Handling
 ```typescript
 // Property, not method
-const months = frequency.months;  // NOT frequency.months()
+const months = tenor.months;  // NOT tenor.months()
 ```
 
 ### Curve Handling  

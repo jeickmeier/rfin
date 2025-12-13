@@ -3,7 +3,7 @@
 //! Provides enums and associated methods for common market conventions,
 //! eliminating the need for multiple instrument-specific constructors.
 
-use finstack_core::dates::{BusinessDayConvention, DayCount, Frequency, StubKind};
+use finstack_core::dates::{BusinessDayConvention, DayCount, StubKind, Tenor};
 
 #[cfg(feature = "serde")]
 use serde::{Deserialize, Serialize};
@@ -38,12 +38,12 @@ impl BondConvention {
     }
 
     /// Payment frequency for this market
-    pub fn frequency(&self) -> Frequency {
+    pub fn frequency(&self) -> Tenor {
         match self {
             BondConvention::USTreasury | BondConvention::UKGilt | BondConvention::Corporate => {
-                Frequency::semi_annual()
+                Tenor::semi_annual()
             }
-            BondConvention::GermanBund | BondConvention::FrenchOAT => Frequency::annual(),
+            BondConvention::GermanBund | BondConvention::FrenchOAT => Tenor::annual(),
         }
     }
 
@@ -130,18 +130,18 @@ impl IRSConvention {
     }
 
     /// Fixed leg frequency for this convention
-    pub fn fixed_frequency(&self) -> Frequency {
+    pub fn fixed_frequency(&self) -> Tenor {
         match self {
             IRSConvention::USDStandard
             | IRSConvention::GBPStandard
-            | IRSConvention::JPYStandard => Frequency::semi_annual(),
-            IRSConvention::EURStandard => Frequency::annual(),
+            | IRSConvention::JPYStandard => Tenor::semi_annual(),
+            IRSConvention::EURStandard => Tenor::annual(),
         }
     }
 
     /// Float leg frequency for this convention
-    pub fn float_frequency(&self) -> Frequency {
-        Frequency::semi_annual()
+    pub fn float_frequency(&self) -> Tenor {
+        Tenor::semi_annual()
     }
 
     /// Business day convention for this convention

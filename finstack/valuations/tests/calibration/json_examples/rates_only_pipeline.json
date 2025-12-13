@@ -69,8 +69,8 @@
             "swap": {
               "maturity": "2026-01-01",
               "rate": 0.047,
-              "fixed_freq": { "Months": 12 },
-              "float_freq": { "Days": 1 },
+              "fixed_freq": {"count": 12, "unit": "months"},
+              "float_freq": {"count": 1, "unit": "days"},
               "fixed_dc": "Act365F",
               "float_dc": "Act365F",
               "index": "USD-OIS"
@@ -80,8 +80,8 @@
             "swap": {
               "maturity": "2027-01-01",
               "rate": 0.048,
-              "fixed_freq": { "Months": 12 },
-              "float_freq": { "Days": 1 },
+              "fixed_freq": {"count": 12, "unit": "months"},
+              "float_freq": {"count": 1, "unit": "days"},
               "fixed_dc": "Act365F",
               "float_dc": "Act365F",
               "index": "USD-OIS"
@@ -122,8 +122,8 @@
             "swap": {
               "maturity": "2026-01-01",
               "rate": 0.0475,
-              "fixed_freq": { "Months": 6 },
-              "float_freq": { "Months": 3 },
+              "fixed_freq": {"count": 6, "unit": "months"},
+              "float_freq": {"count": 3, "unit": "months"},
               "fixed_dc": "Thirty360",
               "float_dc": "Act360",
               "index": "USD-SOFR-3M"
@@ -133,8 +133,8 @@
             "swap": {
               "maturity": "2028-01-01",
               "rate": 0.049,
-              "fixed_freq": { "Months": 6 },
-              "float_freq": { "Months": 3 },
+              "fixed_freq": {"count": 6, "unit": "months"},
+              "float_freq": {"count": 3, "unit": "months"},
               "fixed_dc": "Thirty360",
               "float_dc": "Act360",
               "index": "USD-SOFR-3M"

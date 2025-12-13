@@ -14,9 +14,7 @@
       },
       "maturity": "2029-12-20",
       "running_coupon_bp": 100.0,
-      "payment_frequency": {
-        "Months": 3
-      },
+      "payment_frequency": {"count": 3, "unit": "months"},
       "day_count": "Act360",
       "business_day_convention": "following",
       "calendar_id": null,

@@ -30,7 +30,7 @@ fn test_instrument_type_price_shock_matching() {
                 .maturity(base_date + time::Duration::days(365))
                 .cashflow_spec(CashflowSpec::fixed(
                     0.05,
-                    finstack_core::dates::Frequency::annual(),
+                    finstack_core::dates::Tenor::annual(),
                     finstack_core::dates::DayCount::Thirty360,
                 ))
                 .discount_curve_id(finstack_core::types::CurveId::new("USD-OIS"))
@@ -48,7 +48,7 @@ fn test_instrument_type_price_shock_matching() {
                 .maturity(base_date + time::Duration::days(730))
                 .cashflow_spec(CashflowSpec::fixed(
                     0.04,
-                    finstack_core::dates::Frequency::annual(),
+                    finstack_core::dates::Tenor::annual(),
                     finstack_core::dates::DayCount::Thirty360,
                 ))
                 .discount_curve_id(finstack_core::types::CurveId::new("USD-OIS"))
@@ -122,7 +122,7 @@ fn test_instrument_type_spread_shock_matching() {
             .maturity(base_date + time::Duration::days(365))
             .cashflow_spec(CashflowSpec::fixed(
                 0.05,
-                finstack_core::dates::Frequency::annual(),
+                finstack_core::dates::Tenor::annual(),
                 finstack_core::dates::DayCount::Thirty360,
             ))
             .discount_curve_id(finstack_core::types::CurveId::new("USD-OIS"))
@@ -194,7 +194,7 @@ fn test_instrument_attr_price_shock_matching() {
                 .maturity(base_date + time::Duration::days(365))
                 .cashflow_spec(CashflowSpec::fixed(
                     0.05,
-                    finstack_core::dates::Frequency::annual(),
+                    finstack_core::dates::Tenor::annual(),
                     finstack_core::dates::DayCount::Thirty360,
                 ))
                 .discount_curve_id(finstack_core::types::CurveId::new("USD-OIS"))
@@ -216,7 +216,7 @@ fn test_instrument_attr_price_shock_matching() {
                 .maturity(base_date + time::Duration::days(365))
                 .cashflow_spec(CashflowSpec::fixed(
                     0.05,
-                    finstack_core::dates::Frequency::annual(),
+                    finstack_core::dates::Tenor::annual(),
                     finstack_core::dates::DayCount::Thirty360,
                 ))
                 .discount_curve_id(finstack_core::types::CurveId::new("USD-OIS"))
@@ -283,7 +283,7 @@ fn test_instrument_attr_price_shock_no_matches() {
             .maturity(base_date + time::Duration::days(365))
             .cashflow_spec(CashflowSpec::fixed(
                 0.05,
-                finstack_core::dates::Frequency::annual(),
+                finstack_core::dates::Tenor::annual(),
                 finstack_core::dates::DayCount::Thirty360,
             ))
             .discount_curve_id(finstack_core::types::CurveId::new("USD-OIS"))
@@ -369,7 +369,7 @@ fn test_instrument_shock_no_matching_types() {
             .maturity(base_date + time::Duration::days(365))
             .cashflow_spec(CashflowSpec::fixed(
                 0.05,
-                finstack_core::dates::Frequency::annual(),
+                finstack_core::dates::Tenor::annual(),
                 finstack_core::dates::DayCount::Thirty360,
             ))
             .discount_curve_id(finstack_core::types::CurveId::new("USD-OIS"))
@@ -454,7 +454,7 @@ fn test_instrument_shock_multiple_types() {
                 .maturity(base_date + time::Duration::days(365))
                 .cashflow_spec(CashflowSpec::fixed(
                     0.05,
-                    finstack_core::dates::Frequency::annual(),
+                    finstack_core::dates::Tenor::annual(),
                     finstack_core::dates::DayCount::Thirty360,
                 ))
                 .discount_curve_id(finstack_core::types::CurveId::new("USD-OIS"))
@@ -472,7 +472,7 @@ fn test_instrument_shock_multiple_types() {
                 .maturity(base_date + time::Duration::days(730))
                 .cashflow_spec(CashflowSpec::fixed(
                     0.04,
-                    finstack_core::dates::Frequency::annual(),
+                    finstack_core::dates::Tenor::annual(),
                     finstack_core::dates::DayCount::Thirty360,
                 ))
                 .discount_curve_id(finstack_core::types::CurveId::new("USD-OIS"))

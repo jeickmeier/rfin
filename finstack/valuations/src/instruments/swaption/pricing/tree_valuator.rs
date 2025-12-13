@@ -292,7 +292,7 @@ mod tests {
         BermudanSchedule, BermudanSwaption, BermudanType, SwaptionSettlement,
     };
     use finstack_core::currency::Currency;
-    use finstack_core::dates::{DayCount, Frequency};
+    use finstack_core::dates::{DayCount, Tenor};
     use finstack_core::market_data::term_structures::discount_curve::DiscountCurve;
     use finstack_core::math::interp::InterpStyle;
     use finstack_core::money::Money;
@@ -327,8 +327,8 @@ mod tests {
             strike_rate: 0.03, // 3%
             swap_start,
             swap_end,
-            fixed_freq: Frequency::semi_annual(),
-            float_freq: Frequency::quarterly(),
+            fixed_freq: Tenor::semi_annual(),
+            float_freq: Tenor::quarterly(),
             day_count: DayCount::Thirty360,
             settlement: SwaptionSettlement::Physical,
             discount_curve_id: CurveId::new("USD-OIS"),
@@ -337,7 +337,7 @@ mod tests {
             bermudan_schedule: BermudanSchedule::co_terminal(
                 first_exercise,
                 swap_end,
-                Frequency::semi_annual(),
+                Tenor::semi_annual(),
             ),
             bermudan_type: BermudanType::CoTerminal,
             pricing_overrides: Default::default(),

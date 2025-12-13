@@ -191,7 +191,7 @@ pub fn to_polars(forecast: &CovenantForecast) -> polars::prelude::DataFrame {
 mod tests {
     use super::*;
     use crate::evaluator::{Results, ResultsMeta};
-    use finstack_core::dates::{Date, Frequency};
+    use finstack_core::dates::{Date, Tenor};
     use finstack_valuations::covenants::engine::CovenantType;
     use finstack_valuations::covenants::engine::{Covenant, CovenantEngine, CovenantSpec};
     use finstack_valuations::metrics::MetricId;
@@ -204,7 +204,7 @@ mod tests {
         let mut engine = CovenantEngine::new();
         let covenant = Covenant::new(
             CovenantType::MaxDebtToEBITDA { threshold: 4.0 },
-            Frequency::quarterly(),
+            Tenor::quarterly(),
         );
         let spec = CovenantSpec {
             covenant,

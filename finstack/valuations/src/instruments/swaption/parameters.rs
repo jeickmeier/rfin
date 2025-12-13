@@ -2,7 +2,7 @@
 
 use crate::instruments::irs::PayReceive;
 use finstack_core::dates::Date;
-use finstack_core::dates::{DayCount, Frequency};
+use finstack_core::dates::{DayCount, Tenor};
 use finstack_core::money::Money;
 
 /// Swaption-specific parameters.
@@ -23,9 +23,9 @@ pub struct SwaptionParams {
     /// Payer/receiver side
     pub side: PayReceive,
     /// Optional override: fixed leg payment frequency
-    pub fixed_freq: Option<Frequency>,
+    pub fixed_freq: Option<Tenor>,
     /// Optional override: float leg payment frequency
-    pub float_freq: Option<Frequency>,
+    pub float_freq: Option<Tenor>,
     /// Optional override: day count convention for year fractions
     pub day_count: Option<DayCount>,
     /// Optional override: volatility model
@@ -78,13 +78,13 @@ impl SwaptionParams {
     }
 
     /// Override fixed leg payment frequency
-    pub fn with_fixed_frequency(mut self, freq: Frequency) -> Self {
+    pub fn with_fixed_frequency(mut self, freq: Tenor) -> Self {
         self.fixed_freq = Some(freq);
         self
     }
 
     /// Override float leg payment frequency
-    pub fn with_float_frequency(mut self, freq: Frequency) -> Self {
+    pub fn with_float_frequency(mut self, freq: Tenor) -> Self {
         self.float_freq = Some(freq);
         self
     }

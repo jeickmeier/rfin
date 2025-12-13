@@ -1,7 +1,7 @@
 //! PV Float metric tests - Present value of floating leg.
 
 use finstack_core::currency::Currency;
-use finstack_core::dates::{BusinessDayConvention, Date, DayCount, Frequency, StubKind};
+use finstack_core::dates::{BusinessDayConvention, Date, DayCount, StubKind, Tenor};
 use finstack_core::market_data::context::MarketContext;
 use finstack_core::market_data::term_structures::{DiscountCurve, ForwardCurve};
 use finstack_core::money::Money;
@@ -57,7 +57,7 @@ fn create_swap(as_of: Date, end: Date, fixed_rate: f64) -> InterestRateSwap {
         fixed: finstack_valuations::instruments::common::parameters::legs::FixedLegSpec {
             discount_curve_id: "USD_OIS".into(),
             rate: fixed_rate,
-            freq: Frequency::quarterly(),
+            freq: Tenor::quarterly(),
             dc: DayCount::Act360,
             bdc: BusinessDayConvention::ModifiedFollowing,
             calendar_id: None,
@@ -72,7 +72,7 @@ fn create_swap(as_of: Date, end: Date, fixed_rate: f64) -> InterestRateSwap {
             discount_curve_id: "USD_LIBOR_DISC".into(), // Use different discount curve for non-OIS swap
             forward_curve_id: "USD_LIBOR_3M".into(),
             spread_bp: 0.0,
-            freq: Frequency::quarterly(),
+            freq: Tenor::quarterly(),
             dc: DayCount::Act360,
             bdc: BusinessDayConvention::ModifiedFollowing,
             calendar_id: None,

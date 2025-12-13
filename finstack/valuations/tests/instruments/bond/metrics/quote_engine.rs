@@ -6,7 +6,7 @@
 //! recovers the original metric within tight tolerances.
 
 use finstack_core::currency::Currency;
-use finstack_core::dates::{DayCount, Frequency};
+use finstack_core::dates::{DayCount, Tenor};
 use finstack_core::market_data::context::MarketContext;
 use finstack_core::market_data::term_structures::discount_curve::DiscountCurve;
 use finstack_core::market_data::term_structures::forward_curve::ForwardCurve;
@@ -105,7 +105,7 @@ fn test_quote_engine_roundtrip_dm_for_frn() {
         150.0,
         as_of,
         maturity,
-        Frequency::quarterly(),
+        Tenor::quarterly(),
         DayCount::Act360,
         "USD-OIS",
     );

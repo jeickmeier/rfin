@@ -5,7 +5,7 @@ use crate::core::money::JsMoney;
 use crate::valuations::common::parse::parse_optional_with_default;
 use crate::valuations::common::{curve_id_from_str, instrument_id_from_str};
 use crate::valuations::instruments::InstrumentWrapper;
-use finstack_core::dates::{BusinessDayConvention, DayCount, Frequency};
+use finstack_core::dates::{BusinessDayConvention, DayCount, Tenor};
 use finstack_valuations::instruments::cds_tranche::{CdsTranche, TrancheSide};
 use finstack_valuations::pricer::InstrumentType;
 use wasm_bindgen::prelude::*;
@@ -53,9 +53,9 @@ impl JsCdsTranche {
 
         let side_value = parse_optional_with_default(side, TrancheSide::BuyProtection)?;
         let freq = match payments_per_year {
-            Some(ppy) => Frequency::from_payments_per_year(ppy)
+            Some(ppy) => Tenor::from_payments_per_year(ppy)
                 .map_err(|e| js_error(format!("Invalid payments per year: {}", e)))?,
-            None => Frequency::quarterly(),
+            None => Tenor::quarterly(),
         };
         let dc = day_count.map(|d| d.inner()).unwrap_or(DayCount::Act360);
 

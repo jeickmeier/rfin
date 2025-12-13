@@ -32,8 +32,8 @@ pub use core::dates::next_imm as nextImm;
 pub use core::dates::next_imm_option_expiry as nextImmOptionExpiry;
 pub use core::dates::{
     adjust, BusinessDayConvention, Calendar, DayCount, DayCountContext, DayCountContextState,
-    FiscalConfig, Frequency, FsDate, Period, PeriodId, PeriodPlan, Schedule, ScheduleBuilder,
-    ScheduleSpec, StubKind,
+    FiscalConfig, FsDate, Period, PeriodId, PeriodPlan, Schedule, ScheduleBuilder, ScheduleSpec,
+    StubKind, Tenor,
 };
 pub use core::dates::{
     imm_option_expiry as immOptionExpiry, third_friday as thirdFriday,

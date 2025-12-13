@@ -4,7 +4,7 @@ use crate::instruments::common::traits::Attributes;
 use crate::instruments::PricingOverrides;
 use crate::margin::types::OtcMarginSpec;
 use finstack_core::currency::Currency;
-use finstack_core::dates::{BusinessDayConvention, Date, DayCount, Frequency, StubKind};
+use finstack_core::dates::{BusinessDayConvention, Date, DayCount, StubKind, Tenor};
 use finstack_core::market_data::context::MarketContext;
 use finstack_core::market_data::traits::Discounting;
 use finstack_core::market_data::traits::Survival;
@@ -47,8 +47,8 @@ impl CDSConvention {
 
     /// Get the standard payment frequency (quarterly for all conventions).
     #[must_use]
-    pub fn frequency(&self) -> Frequency {
-        Frequency::quarterly()
+    pub fn frequency(&self) -> Tenor {
+        Tenor::quarterly()
     }
 
     /// Get the standard business day convention.

@@ -117,7 +117,7 @@ impl PyCovenant {
         Self {
             inner: Covenant::new(
                 ctype.inner.clone(),
-                finstack_core::dates::Frequency::quarterly(),
+                finstack_core::dates::Tenor::quarterly(),
             ),
         }
     }

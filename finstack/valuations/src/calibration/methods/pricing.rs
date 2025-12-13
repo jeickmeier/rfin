@@ -45,7 +45,7 @@ use crate::instruments::irs::{FixedLegSpec, FloatLegSpec, FloatingLegCompounding
 use crate::instruments::InterestRateSwap;
 use finstack_core::dates::{
     adjust, BusinessDayConvention, CalendarRegistry, Date, DateExt, DayCount, DayCountCtx,
-    Frequency, StubKind,
+    StubKind, Tenor,
 };
 use finstack_core::market_data::context::MarketContext;
 use finstack_core::money::Money;
@@ -638,8 +638,8 @@ impl CalibrationPricer {
         &self,
         maturity: Date,
         rate: f64,
-        fixed_freq: Frequency,
-        float_freq: Frequency,
+        fixed_freq: Tenor,
+        float_freq: Tenor,
         fixed_dc: DayCount,
         float_dc: DayCount,
         index: &IndexId,
@@ -731,8 +731,8 @@ impl CalibrationPricer {
         primary_index: &str,
         reference_index: &str,
         spread_bp: f64,
-        primary_freq: Frequency,
-        reference_freq: Frequency,
+        primary_freq: Tenor,
+        reference_freq: Tenor,
         primary_dc: DayCount,
         reference_dc: DayCount,
         currency: Currency,
@@ -1382,8 +1382,14 @@ mod tests {
             RatesQuote::Swap {
                 maturity,
                 rate: 0.045,
-                fixed_freq: Frequency::Months(6), // Semi-annual
-                float_freq: Frequency::Months(3), // Quarterly
+                fixed_freq: finstack_core::dates::Tenor::new(
+                    6,
+                    finstack_core::dates::TenorUnit::Months,
+                ), // Semi-annual
+                float_freq: finstack_core::dates::Tenor::new(
+                    3,
+                    finstack_core::dates::TenorUnit::Months,
+                ), // Quarterly
                 fixed_dc: DayCount::Thirty360,
                 float_dc: DayCount::Act360,
                 index: "SOFR".into(),

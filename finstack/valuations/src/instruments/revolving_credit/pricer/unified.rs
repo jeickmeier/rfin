@@ -635,7 +635,7 @@ impl Pricer for RevolvingCreditPricer {
 mod tests {
     use super::*;
     use finstack_core::currency::Currency;
-    use finstack_core::dates::{DayCount, Frequency};
+    use finstack_core::dates::{DayCount, Tenor};
     use finstack_core::types::CurveId;
     use time::Month;
 
@@ -654,7 +654,7 @@ mod tests {
             .maturity_date(end)
             .base_rate_spec(BaseRateSpec::Fixed { rate: 0.05 })
             .day_count(DayCount::Act360)
-            .payment_frequency(Frequency::quarterly())
+            .payment_frequency(Tenor::quarterly())
             .fees(Default::default())
             .draw_repay_spec(DrawRepaySpec::Deterministic(vec![]))
             .discount_curve_id("USD-OIS".into())

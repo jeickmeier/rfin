@@ -2,7 +2,7 @@
 //!
 //! Ensures all covenant types serialize to JSON and deserialize back correctly.
 
-use finstack_core::dates::{Date, Frequency};
+use finstack_core::dates::{Date, Tenor};
 use finstack_valuations::covenants::{
     engine::{
         ConsequenceApplication, Covenant, CovenantBreach, CovenantConsequence, CovenantEngine,
@@ -152,7 +152,7 @@ fn springing_condition_roundtrip() {
 fn covenant_roundtrip() {
     let covenant = Covenant::new(
         CovenantType::MaxDebtToEBITDA { threshold: 5.0 },
-        Frequency::quarterly(),
+        Tenor::quarterly(),
     )
     .with_cure_period(Some(30))
     .with_consequence(CovenantConsequence::RateIncrease { bp_increase: 100.0 })
@@ -172,7 +172,7 @@ fn covenant_spec_roundtrip() {
     let spec = CovenantSpec::with_metric(
         Covenant::new(
             CovenantType::MinInterestCoverage { threshold: 1.5 },
-            Frequency::quarterly(),
+            Tenor::quarterly(),
         ),
         MetricId::custom("interest_coverage"),
     );
@@ -191,14 +191,14 @@ fn covenant_test_spec_roundtrip() {
             CovenantSpec::with_metric(
                 Covenant::new(
                     CovenantType::MaxTotalLeverage { threshold: 5.0 },
-                    Frequency::quarterly(),
+                    Tenor::quarterly(),
                 ),
                 MetricId::custom("total_leverage"),
             ),
             CovenantSpec::with_metric(
                 Covenant::new(
                     CovenantType::MinInterestCoverage { threshold: 1.5 },
-                    Frequency::quarterly(),
+                    Tenor::quarterly(),
                 ),
                 MetricId::custom("interest_coverage"),
             ),
@@ -224,7 +224,7 @@ fn covenant_window_roundtrip() {
                     metric: "liquidity".to_string(),
                     test: ThresholdTest::Minimum(1.0),
                 },
-                Frequency::quarterly(),
+                Tenor::quarterly(),
             ),
             MetricId::custom("liquidity"),
         )],
@@ -264,7 +264,7 @@ fn covenant_engine_roundtrip() {
     engine.add_spec(CovenantSpec::with_metric(
         Covenant::new(
             CovenantType::MaxDebtToEBITDA { threshold: 5.0 },
-            Frequency::quarterly(),
+            Tenor::quarterly(),
         )
         .with_consequence(CovenantConsequence::Default),
         MetricId::custom("debt_to_ebitda"),
@@ -276,7 +276,7 @@ fn covenant_engine_roundtrip() {
         covenants: vec![CovenantSpec::with_metric(
             Covenant::new(
                 CovenantType::MinInterestCoverage { threshold: 1.25 },
-                Frequency::quarterly(),
+                Tenor::quarterly(),
             ),
             MetricId::custom("interest_coverage"),
         )],
@@ -459,7 +459,7 @@ fn complex_covenant_package_roundtrip() {
     engine.add_spec(CovenantSpec::with_metric(
         Covenant::new(
             CovenantType::MaxDebtToEBITDA { threshold: 5.0 },
-            Frequency::quarterly(),
+            Tenor::quarterly(),
         )
         .with_cure_period(Some(30))
         .with_consequence(CovenantConsequence::Default)
@@ -471,7 +471,7 @@ fn complex_covenant_package_roundtrip() {
     engine.add_spec(CovenantSpec::with_metric(
         Covenant::new(
             CovenantType::MinInterestCoverage { threshold: 1.5 },
-            Frequency::quarterly(),
+            Tenor::quarterly(),
         )
         .with_consequence(CovenantConsequence::RateIncrease { bp_increase: 100.0 })
         .with_consequence(CovenantConsequence::BlockDistributions),
@@ -482,7 +482,7 @@ fn complex_covenant_package_roundtrip() {
     engine.add_spec(CovenantSpec::with_metric(
         Covenant::new(
             CovenantType::MaxSeniorLeverage { threshold: 3.0 },
-            Frequency::quarterly(),
+            Tenor::quarterly(),
         )
         .with_springing_condition(SpringingCondition {
             metric_id: MetricId::custom("revolver_utilization"),
@@ -497,7 +497,7 @@ fn complex_covenant_package_roundtrip() {
             CovenantType::Negative {
                 restriction: "No additional secured debt without consent".to_string(),
             },
-            Frequency::annual(),
+            Tenor::annual(),
         )
         .with_scope(CovenantScope::Incurrence),
         MetricId::custom("negative_debt_incurrence"),
@@ -510,7 +510,7 @@ fn complex_covenant_package_roundtrip() {
                 name: "permitted_investments".to_string(),
                 limit: 50_000_000.0,
             },
-            Frequency::quarterly(),
+            Tenor::quarterly(),
         ),
         MetricId::custom("permitted_investments"),
     ));

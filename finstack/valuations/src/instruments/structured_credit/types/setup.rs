@@ -6,7 +6,7 @@
 use super::constants::*;
 use super::enums::DealType;
 use crate::instruments::irs::InterestRateSwap;
-use finstack_core::dates::{Date, Frequency};
+use finstack_core::dates::{Date, Tenor};
 use finstack_core::money::Money;
 use finstack_core::types::ratings::CreditRating;
 use std::collections::HashMap;
@@ -48,7 +48,7 @@ pub struct DealDates {
     /// Legal final maturity date
     pub legal_maturity: Date,
     /// Payment frequency
-    pub payment_frequency: Frequency,
+    pub payment_frequency: Tenor,
 }
 
 impl DealDates {
@@ -57,7 +57,7 @@ impl DealDates {
         closing_date: Date,
         first_payment_date: Date,
         legal_maturity: Date,
-        payment_frequency: Frequency,
+        payment_frequency: Tenor,
     ) -> Self {
         Self {
             closing_date,
@@ -452,12 +452,7 @@ mod tests {
 
     #[test]
     fn test_deal_dates_creation() {
-        let dates = DealDates::new(
-            test_date(),
-            test_date(),
-            test_date(),
-            Frequency::quarterly(),
-        );
+        let dates = DealDates::new(test_date(), test_date(), test_date(), Tenor::quarterly());
 
         assert_eq!(dates.closing_date, test_date());
         assert!(dates.reinvestment_end_date.is_none());

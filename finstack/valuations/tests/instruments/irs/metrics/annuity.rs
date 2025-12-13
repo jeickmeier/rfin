@@ -4,7 +4,7 @@
 //! discounted accrual factors: Annuity = Σ α_i × DF(T_i)
 
 use finstack_core::currency::Currency;
-use finstack_core::dates::{BusinessDayConvention, Date, DayCount, Frequency, StubKind};
+use finstack_core::dates::{BusinessDayConvention, Date, DayCount, StubKind, Tenor};
 use finstack_core::market_data::context::MarketContext;
 use finstack_core::market_data::term_structures::{DiscountCurve, ForwardCurve};
 use finstack_core::money::Money;
@@ -55,7 +55,7 @@ fn create_standard_swap(as_of: Date, end: Date) -> InterestRateSwap {
         fixed: finstack_valuations::instruments::common::parameters::legs::FixedLegSpec {
             discount_curve_id: "USD_OIS".into(),
             rate: 0.05,
-            freq: Frequency::quarterly(),
+            freq: Tenor::quarterly(),
             dc: DayCount::Act360,
             bdc: BusinessDayConvention::ModifiedFollowing,
             calendar_id: None,
@@ -70,7 +70,7 @@ fn create_standard_swap(as_of: Date, end: Date) -> InterestRateSwap {
             discount_curve_id: "USD_OIS".into(),
             forward_curve_id: "USD_LIBOR_3M".into(),
             spread_bp: 0.0,
-            freq: Frequency::quarterly(),
+            freq: Tenor::quarterly(),
             dc: DayCount::Act360,
             bdc: BusinessDayConvention::ModifiedFollowing,
             calendar_id: None,
@@ -260,7 +260,7 @@ fn test_annuity_semiannual_vs_quarterly() {
     let swap_quarterly = create_standard_swap(as_of, end);
 
     let mut swap_semiannual = create_standard_swap(as_of, end);
-    swap_semiannual.fixed.freq = Frequency::semi_annual();
+    swap_semiannual.fixed.freq = Tenor::semi_annual();
 
     let annuity_quarterly = *swap_quarterly
         .price_with_metrics(&market, as_of, &[MetricId::Annuity])

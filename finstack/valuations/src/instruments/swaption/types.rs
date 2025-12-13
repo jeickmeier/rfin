@@ -13,7 +13,7 @@ use crate::instruments::common::traits::Attributes;
 use crate::instruments::pricing_overrides::VolSurfaceExtrapolation;
 use crate::instruments::PricingOverrides;
 use finstack_core::currency::Currency;
-use finstack_core::dates::{BusinessDayConvention, Date, DayCount, Frequency, StubKind};
+use finstack_core::dates::{BusinessDayConvention, Date, DayCount, StubKind, Tenor};
 use finstack_core::market_data::context::MarketContext;
 use finstack_core::market_data::traits::Discounting;
 use finstack_core::money::Money;
@@ -163,7 +163,7 @@ impl BermudanSchedule {
     /// * `first_exercise` - First allowed exercise date
     /// * `swap_end` - Swap maturity date
     /// * `fixed_freq` - Fixed leg payment frequency
-    pub fn co_terminal(first_exercise: Date, swap_end: Date, fixed_freq: Frequency) -> Self {
+    pub fn co_terminal(first_exercise: Date, swap_end: Date, fixed_freq: Tenor) -> Self {
         let sched = crate::cashflow::builder::build_dates(
             first_exercise,
             swap_end,
@@ -253,9 +253,9 @@ pub struct Swaption {
     /// Underlying swap end date
     pub swap_end: Date,
     /// Fixed leg payment frequency
-    pub fixed_freq: Frequency,
+    pub fixed_freq: Tenor,
     /// Floating leg payment frequency
-    pub float_freq: Frequency,
+    pub float_freq: Tenor,
     /// Day count convention
     pub day_count: DayCount,
     /// Exercise style (European, Bermudan, American)
@@ -295,8 +295,8 @@ impl Swaption {
                 .expect("Valid example date"),
             swap_end: Date::from_calendar_date(2030, time::Month::January, 17)
                 .expect("Valid example date"),
-            fixed_freq: Frequency::semi_annual(),
-            float_freq: Frequency::quarterly(),
+            fixed_freq: Tenor::semi_annual(),
+            float_freq: Tenor::quarterly(),
             day_count: DayCount::Thirty360,
             exercise: SwaptionExercise::European,
             settlement: SwaptionSettlement::Cash,
@@ -326,8 +326,8 @@ impl Swaption {
             expiry: params.expiry,
             swap_start: params.swap_start,
             swap_end: params.swap_end,
-            fixed_freq: Frequency::semi_annual(),
-            float_freq: Frequency::quarterly(),
+            fixed_freq: Tenor::semi_annual(),
+            float_freq: Tenor::quarterly(),
             day_count: DayCount::Thirty360,
             exercise: SwaptionExercise::European,
             settlement: SwaptionSettlement::Physical,
@@ -367,8 +367,8 @@ impl Swaption {
             expiry: params.expiry,
             swap_start: params.swap_start,
             swap_end: params.swap_end,
-            fixed_freq: Frequency::semi_annual(),
-            float_freq: Frequency::quarterly(),
+            fixed_freq: Tenor::semi_annual(),
+            float_freq: Tenor::quarterly(),
             day_count: DayCount::Thirty360,
             exercise: SwaptionExercise::European,
             settlement: SwaptionSettlement::Physical,
@@ -579,9 +579,19 @@ impl Swaption {
     /// A = (1 - (1 + S/m)^(-N)) / S
     /// where S = forward rate, m = frequency, N = number of payments
     pub fn cash_annuity(&self, forward_rate: f64) -> Result<f64> {
-        let freq_per_year = match self.fixed_freq {
-            Frequency::Months(m) if m > 0 => 12.0 / (m as f64),
-            Frequency::Days(d) if d > 0 => 365.0 / (d as f64),
+        let freq_per_year = match self.fixed_freq.unit {
+            finstack_core::dates::TenorUnit::Months if self.fixed_freq.count > 0 => {
+                12.0 / self.fixed_freq.count as f64
+            }
+            finstack_core::dates::TenorUnit::Days if self.fixed_freq.count > 0 => {
+                365.0 / self.fixed_freq.count as f64
+            }
+            finstack_core::dates::TenorUnit::Years if self.fixed_freq.count > 0 => {
+                1.0 / self.fixed_freq.count as f64
+            }
+            finstack_core::dates::TenorUnit::Weeks if self.fixed_freq.count > 0 => {
+                52.0 / self.fixed_freq.count as f64
+            }
             _ => {
                 return Err(Error::Validation(
                     "Invalid frequency in cash annuity".into(),
@@ -823,9 +833,9 @@ pub struct BermudanSwaption {
     /// Underlying swap end date (final payment)
     pub swap_end: Date,
     /// Fixed leg payment frequency
-    pub fixed_freq: Frequency,
+    pub fixed_freq: Tenor,
     /// Floating leg payment frequency
-    pub float_freq: Frequency,
+    pub float_freq: Tenor,
     /// Day count convention for fixed leg
     pub day_count: DayCount,
     /// Settlement method (physical or cash)
@@ -867,8 +877,8 @@ impl BermudanSwaption {
             strike_rate: 0.03,
             swap_start,
             swap_end,
-            fixed_freq: Frequency::semi_annual(),
-            float_freq: Frequency::quarterly(),
+            fixed_freq: Tenor::semi_annual(),
+            float_freq: Tenor::quarterly(),
             day_count: DayCount::Thirty360,
             settlement: SwaptionSettlement::Physical,
             discount_curve_id: CurveId::new("USD-OIS"),
@@ -877,7 +887,7 @@ impl BermudanSwaption {
             bermudan_schedule: BermudanSchedule::co_terminal(
                 first_exercise,
                 swap_end,
-                Frequency::semi_annual(),
+                Tenor::semi_annual(),
             ),
             bermudan_type: BermudanType::CoTerminal,
             pricing_overrides: PricingOverrides::default(),
@@ -905,8 +915,8 @@ impl BermudanSwaption {
             strike_rate,
             swap_start,
             swap_end,
-            fixed_freq: Frequency::semi_annual(),
-            float_freq: Frequency::quarterly(),
+            fixed_freq: Tenor::semi_annual(),
+            float_freq: Tenor::quarterly(),
             day_count: DayCount::Thirty360,
             settlement: SwaptionSettlement::Physical,
             discount_curve_id: discount_curve_id.into(),
@@ -939,8 +949,8 @@ impl BermudanSwaption {
             strike_rate,
             swap_start,
             swap_end,
-            fixed_freq: Frequency::semi_annual(),
-            float_freq: Frequency::quarterly(),
+            fixed_freq: Tenor::semi_annual(),
+            float_freq: Tenor::quarterly(),
             day_count: DayCount::Thirty360,
             settlement: SwaptionSettlement::Physical,
             discount_curve_id: discount_curve_id.into(),
@@ -954,13 +964,13 @@ impl BermudanSwaption {
     }
 
     /// Set fixed leg frequency.
-    pub fn with_fixed_freq(mut self, freq: Frequency) -> Self {
+    pub fn with_fixed_freq(mut self, freq: Tenor) -> Self {
         self.fixed_freq = freq;
         self
     }
 
     /// Set floating leg frequency.
-    pub fn with_float_freq(mut self, freq: Frequency) -> Self {
+    pub fn with_float_freq(mut self, freq: Tenor) -> Self {
         self.float_freq = freq;
         self
     }

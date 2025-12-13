@@ -13,7 +13,7 @@
 //! - Richardson extrapolation test for O(1/N) convergence rate
 
 use finstack_core::currency::Currency;
-use finstack_core::dates::{BusinessDayConvention, Date, DayCount, Frequency, StubKind};
+use finstack_core::dates::{BusinessDayConvention, Date, DayCount, StubKind, Tenor};
 use finstack_core::market_data::context::MarketContext;
 use finstack_core::market_data::scalars::MarketScalar;
 use finstack_core::market_data::term_structures::discount_curve::DiscountCurve;
@@ -50,7 +50,7 @@ fn create_test_convertible() -> ConvertibleBond {
     let fixed_coupon = FixedCouponSpec {
         coupon_type: CouponType::Cash,
         rate: 0.05, // 5% coupon
-        freq: Frequency::semi_annual(),
+        freq: Tenor::semi_annual(),
         dc: DayCount::Act365F,
         bdc: BusinessDayConvention::Following,
         calendar_id: None,

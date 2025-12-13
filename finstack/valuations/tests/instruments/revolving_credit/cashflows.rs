@@ -1,7 +1,7 @@
 //! Revolving credit cashflow generation tests.
 
 use finstack_core::currency::Currency;
-use finstack_core::dates::{Date, DayCount, Frequency};
+use finstack_core::dates::{Date, DayCount, Tenor};
 use finstack_core::money::Money;
 use finstack_valuations::cashflow::traits::CashflowProvider;
 use finstack_valuations::instruments::revolving_credit::{
@@ -20,7 +20,7 @@ fn test_interest_on_drawn_amounts() {
         .maturity_date(date!(2026 - 01 - 01))
         .base_rate_spec(BaseRateSpec::Fixed { rate: 0.05 })
         .day_count(DayCount::Act360)
-        .payment_frequency(Frequency::quarterly())
+        .payment_frequency(Tenor::quarterly())
         .fees(RevolvingCreditFees::flat(25.0, 10.0, 0.0))
         .draw_repay_spec(DrawRepaySpec::Scheduled(vec![]))
         .discount_curve_id("USD-OIS".into())
@@ -46,7 +46,7 @@ fn test_commitment_fee_on_undrawn() {
         .maturity_date(date!(2026 - 01 - 01))
         .base_rate_spec(BaseRateSpec::Fixed { rate: 0.05 })
         .day_count(DayCount::Act360)
-        .payment_frequency(Frequency::quarterly())
+        .payment_frequency(Tenor::quarterly())
         .fees(RevolvingCreditFees::flat(50.0, 10.0, 0.0)) // High commitment fee
         .draw_repay_spec(DrawRepaySpec::Scheduled(vec![]))
         .discount_curve_id("USD-OIS".into())
@@ -72,7 +72,7 @@ fn test_utilization_fee_at_threshold() {
         .maturity_date(date!(2026 - 01 - 01))
         .base_rate_spec(BaseRateSpec::Fixed { rate: 0.05 })
         .day_count(DayCount::Act360)
-        .payment_frequency(Frequency::quarterly())
+        .payment_frequency(Tenor::quarterly())
         .fees(RevolvingCreditFees::flat(25.0, 10.0, 15.0)) // Utilization fee above threshold
         .draw_repay_spec(DrawRepaySpec::Scheduled(vec![]))
         .discount_curve_id("USD-OIS".into())

@@ -1,5 +1,5 @@
 use finstack_core::currency::Currency;
-use finstack_core::dates::{BusinessDayConvention, Date, DayCount, Frequency};
+use finstack_core::dates::{BusinessDayConvention, Date, DayCount, Tenor};
 use finstack_core::market_data::context::MarketContext;
 use finstack_core::market_data::term_structures::{DiscountCurve, ForwardCurve};
 use finstack_core::math::interp::InterpStyle;
@@ -99,7 +99,7 @@ pub fn leg_usd_receive() -> finstack_valuations::instruments::xccy_swap::XccySwa
         side: finstack_valuations::instruments::xccy_swap::LegSide::Receive,
         forward_curve_id: finstack_core::types::CurveId::new("USD-SOFR-3M"),
         discount_curve_id: finstack_core::types::CurveId::new("USD-OIS"),
-        frequency: Frequency::quarterly(),
+        frequency: Tenor::quarterly(),
         day_count: DayCount::Act360,
         bdc: BusinessDayConvention::ModifiedFollowing,
         spread: 0.0,
@@ -116,7 +116,7 @@ pub fn leg_eur_pay() -> finstack_valuations::instruments::xccy_swap::XccySwapLeg
         side: finstack_valuations::instruments::xccy_swap::LegSide::Pay,
         forward_curve_id: finstack_core::types::CurveId::new("EUR-EURIBOR-3M"),
         discount_curve_id: finstack_core::types::CurveId::new("EUR-OIS"),
-        frequency: Frequency::quarterly(),
+        frequency: Tenor::quarterly(),
         day_count: DayCount::Act360,
         bdc: BusinessDayConvention::ModifiedFollowing,
         spread: 0.0,

@@ -348,7 +348,7 @@ mod tests {
 
     #[test]
     fn test_periodized_pv_bond_floating_uses_builder_rates() {
-        use finstack_core::dates::Frequency;
+        use finstack_core::dates::Tenor;
         use finstack_core::market_data::term_structures::forward_curve::ForwardCurve;
 
         let issue = Date::from_calendar_date(2025, Month::January, 1).expect("Valid test date");
@@ -362,7 +362,7 @@ mod tests {
             100.0, // 100 bps margin
             issue,
             maturity,
-            Frequency::quarterly(),
+            Tenor::quarterly(),
             DayCount::Act365F,
             "USD-OIS",
         );

@@ -5,8 +5,8 @@
 
 use finstack_core::currency::Currency;
 use finstack_core::dates::{
-    BusinessDayConvention, CalendarRegistry, DayCount, DayCountCtxState, Frequency,
-    ScheduleBuilder, ScheduleSpec, StubKind,
+    BusinessDayConvention, CalendarRegistry, DayCount, DayCountCtxState, ScheduleBuilder,
+    ScheduleSpec, StubKind, Tenor, TenorUnit,
 };
 use finstack_core::error::{Error, InputError};
 use finstack_core::explain::ExplainOpts;
@@ -56,7 +56,7 @@ fn explain_opts_roundtrip() {
 fn daycount_ctx_state_roundtrip() {
     let state = DayCountCtxState {
         calendar_id: Some("target2".to_string()),
-        frequency: Some(Frequency::quarterly()),
+        frequency: Some(Tenor::quarterly()),
         bus_basis: Some(260),
     };
     let registry = CalendarRegistry::global();
@@ -68,7 +68,7 @@ fn daycount_ctx_state_roundtrip() {
 
     let roundtrip_state: DayCountCtxState = ctx.into();
     assert_eq!(roundtrip_state.calendar_id.as_deref(), Some("target2"));
-    assert_eq!(roundtrip_state.frequency, Some(Frequency::quarterly()));
+    assert_eq!(roundtrip_state.frequency, Some(Tenor::quarterly()));
     assert_eq!(roundtrip_state.bus_basis, Some(260));
 }
 
@@ -79,7 +79,7 @@ fn schedule_spec_builds_expected_dates() {
     let spec = ScheduleSpec {
         start,
         end,
-        frequency: Frequency::Months(1),
+        frequency: Tenor::new(1, TenorUnit::Months),
         stub: StubKind::None,
         business_day_convention: Some(BusinessDayConvention::Following),
         calendar_id: Some("target2".to_string()),
@@ -96,7 +96,7 @@ fn schedule_spec_builds_expected_dates() {
 
     // Cross-check with builder directly
     let builder_schedule = ScheduleBuilder::new(start, end)
-        .frequency(Frequency::Months(1))
+        .frequency(Tenor::new(1, TenorUnit::Months))
         .adjust_with_id(BusinessDayConvention::Following, "target2")
         .build()
         .unwrap();

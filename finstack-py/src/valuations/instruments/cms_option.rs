@@ -3,7 +3,7 @@ use crate::core::common::labels::normalize_label;
 use crate::core::dates::schedule::PyFrequency;
 use crate::core::dates::utils::{date_to_py, py_to_date};
 use crate::core::money::{extract_money, PyMoney};
-use finstack_core::dates::{DayCount, Frequency};
+use finstack_core::dates::{DayCount, Tenor};
 use finstack_core::types::{CurveId, InstrumentId};
 use finstack_valuations::instruments::cms_option::CmsOption;
 use finstack_valuations::instruments::OptionType;
@@ -110,13 +110,13 @@ impl PyCmsOption {
         let fixed_freq = if let Some(f) = swap_fixed_freq {
             f.extract::<PyRef<PyFrequency>>()?.inner
         } else {
-            Frequency::semi_annual()
+            Tenor::semi_annual()
         };
 
         let float_freq = if let Some(f) = swap_float_freq {
             f.extract::<PyRef<PyFrequency>>()?.inner
         } else {
-            Frequency::quarterly()
+            Tenor::quarterly()
         };
 
         let swap_dc = if let Some(dc) = swap_day_count {

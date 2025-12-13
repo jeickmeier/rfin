@@ -178,7 +178,7 @@ fn test_very_few_tree_steps() {
 
 #[test]
 fn test_time_mapping_with_quarterly_coupons() {
-    use finstack_core::dates::{BusinessDayConvention, DayCount, Frequency, StubKind};
+    use finstack_core::dates::{BusinessDayConvention, DayCount, StubKind, Tenor};
     use finstack_valuations::cashflow::builder::specs::{CouponType, FixedCouponSpec};
 
     let issue = dates::issue();
@@ -196,7 +196,7 @@ fn test_time_mapping_with_quarterly_coupons() {
     let fixed_coupon = FixedCouponSpec {
         coupon_type: CouponType::Cash,
         rate: 0.06,
-        freq: Frequency::quarterly(),
+        freq: Tenor::quarterly(),
         dc: DayCount::Act365F,
         bdc: BusinessDayConvention::Following,
         calendar_id: None,

@@ -1,6 +1,6 @@
 //! Unit tests for Hull-White tree construction and calibration.
 
-use finstack_core::dates::{Date, DayCount, Frequency};
+use finstack_core::dates::{Date, DayCount, Tenor};
 use finstack_core::market_data::term_structures::discount_curve::DiscountCurve;
 use finstack_core::math::interp::InterpStyle;
 use finstack_valuations::instruments::common::models::trees::{HullWhiteTree, HullWhiteTreeConfig};

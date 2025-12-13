@@ -89,7 +89,7 @@ fn test_accrued_frn_uses_forward_rate() {
         .insert_forward(fwd);
 
     // Floating-rate bond with SOFR 3M (using new CashflowSpec)
-    use finstack_core::dates::Frequency;
+    use finstack_core::dates::Tenor;
     use finstack_core::types::CurveId;
     use finstack_valuations::instruments::bond::CashflowSpec;
     use finstack_valuations::instruments::common::traits::Attributes;
@@ -102,7 +102,7 @@ fn test_accrued_frn_uses_forward_rate() {
         .cashflow_spec(CashflowSpec::floating(
             CurveId::new("USD-SOFR-3M"),
             0.0,
-            Frequency::quarterly(),
+            Tenor::quarterly(),
             DayCount::Act360,
         ))
         .discount_curve_id(CurveId::new("USD-OIS"))

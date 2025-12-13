@@ -1,7 +1,7 @@
 //! Tests for Discountable trait and NPV calculations.
 
 use finstack_core::currency::Currency;
-use finstack_core::dates::{BusinessDayConvention, Date, DayCount, Frequency, StubKind};
+use finstack_core::dates::{BusinessDayConvention, Date, DayCount, StubKind, Tenor};
 use finstack_core::market_data::traits::{Discounting, TermStructure};
 use finstack_core::money::Money;
 use finstack_core::types::CurveId;
@@ -45,7 +45,7 @@ fn test_schedule_discountable_simple() {
     let issue = test_date();
     let maturity = Date::from_calendar_date(2025, Month::July, 1).unwrap();
     let params = ScheduleParams {
-        freq: Frequency::quarterly(),
+        freq: Tenor::quarterly(),
         dc: DayCount::Act365F,
         bdc: BusinessDayConvention::Following,
         calendar_id: None,
@@ -96,7 +96,7 @@ fn test_npv_zero_rate() {
     let issue = test_date();
     let maturity = Date::from_calendar_date(2026, Month::January, 1).unwrap();
     let params = ScheduleParams {
-        freq: Frequency::annual(),
+        freq: Tenor::annual(),
         dc: DayCount::Act365F,
         bdc: BusinessDayConvention::Following,
         calendar_id: None,

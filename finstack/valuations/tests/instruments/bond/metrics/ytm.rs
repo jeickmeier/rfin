@@ -52,7 +52,7 @@ fn test_ytm_par_bond() {
 #[test]
 fn test_ytm_floating_bond_is_finite_from_price() {
     use finstack_core::currency::Currency;
-    use finstack_core::dates::{DayCount, Frequency};
+    use finstack_core::dates::{DayCount, Tenor};
     use finstack_core::market_data::context::MarketContext;
     use finstack_core::market_data::term_structures::discount_curve::DiscountCurve;
     use finstack_core::market_data::term_structures::forward_curve::ForwardCurve;
@@ -90,7 +90,7 @@ fn test_ytm_floating_bond_is_finite_from_price() {
         150.0,
         as_of,
         maturity,
-        Frequency::quarterly(),
+        Tenor::quarterly(),
         DayCount::Act360,
         "USD-OIS",
     );
@@ -117,7 +117,7 @@ fn test_ytm_floating_bond_is_finite_from_price() {
 #[test]
 fn test_ytm_amortizing_bond_is_finite_from_price() {
     use finstack_core::currency::Currency;
-    use finstack_core::dates::{DayCount, Frequency};
+    use finstack_core::dates::{DayCount, Tenor};
     use finstack_core::market_data::context::MarketContext;
     use finstack_core::market_data::term_structures::discount_curve::DiscountCurve;
     use finstack_core::math::interp::InterpStyle;
@@ -150,7 +150,7 @@ fn test_ytm_amortizing_bond_is_finite_from_price() {
             (maturity, Money::new(0.0, Currency::USD)),
         ],
     };
-    let base_spec = CashflowSpec::fixed(0.05, Frequency::semi_annual(), DayCount::Thirty360);
+    let base_spec = CashflowSpec::fixed(0.05, Tenor::semi_annual(), DayCount::Thirty360);
     let cashflow_spec = CashflowSpec::amortizing(base_spec, amort_spec);
 
     let mut bond = Bond::builder()

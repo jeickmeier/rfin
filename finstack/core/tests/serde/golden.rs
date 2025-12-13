@@ -5,9 +5,9 @@
 
 use finstack_core::cashflow::primitives::CFKind;
 use finstack_core::currency::Currency;
-use finstack_core::dates::{BusinessDayConvention, DayCount, Frequency, StubKind};
+use finstack_core::dates::{BusinessDayConvention, Date, DayCount, StubKind, Tenor};
 use finstack_core::types::{CurveId, InstrumentId};
-use time::{Date, Month};
+use time::Month;
 
 fn test_date() -> Date {
     Date::from_calendar_date(2025, Month::January, 15).unwrap()
@@ -34,13 +34,13 @@ fn test_date_json_stable() {
 }
 
 #[test]
-fn test_frequency_json_stable() {
-    let freq = Frequency::quarterly();
-    let json = serde_json::to_string(&freq).unwrap();
-    assert_eq!(json, r#"{"Months":3}"#);
+fn test_tenor_json_stable() {
+    let tenor = Tenor::quarterly();
+    let json = serde_json::to_string(&tenor).unwrap();
+    assert_eq!(json, r#"{"count":3,"unit":"months"}"#);
 
-    let deserialized: Frequency = serde_json::from_str(&json).unwrap();
-    assert_eq!(deserialized, freq);
+    let deserialized: Tenor = serde_json::from_str(&json).unwrap();
+    assert_eq!(deserialized, tenor);
 }
 
 #[test]
@@ -201,18 +201,18 @@ fn test_wire_format_documentation() {
         r#""2025-01-15""#
     );
 
-    // Frequency uses structured format with Months (capitalized)
+    // Tenor uses struct format
     assert_eq!(
-        serde_json::to_string(&Frequency::quarterly()).unwrap(),
-        r#"{"Months":3}"#
+        serde_json::to_string(&Tenor::quarterly()).unwrap(),
+        r#"{"count":3,"unit":"months"}"#
     );
     assert_eq!(
-        serde_json::to_string(&Frequency::monthly()).unwrap(),
-        r#"{"Months":1}"#
+        serde_json::to_string(&Tenor::monthly()).unwrap(),
+        r#"{"count":1,"unit":"months"}"#
     );
     assert_eq!(
-        serde_json::to_string(&Frequency::annual()).unwrap(),
-        r#"{"Months":12}"#
+        serde_json::to_string(&Tenor::annual()).unwrap(),
+        r#"{"count":1,"unit":"years"}"#
     );
 
     // IDs use simple string representation

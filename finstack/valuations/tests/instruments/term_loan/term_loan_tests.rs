@@ -1,5 +1,5 @@
 use finstack_core::currency::Currency;
-use finstack_core::dates::{Date, DayCount, Frequency};
+use finstack_core::dates::{Date, DayCount, Tenor};
 use finstack_core::market_data::context::MarketContext;
 use finstack_core::market_data::term_structures::discount_curve::DiscountCurve;
 use finstack_core::money::Money;
@@ -31,7 +31,7 @@ fn term_loan_fixed_with_draws_and_fees() {
         .issue(issue)
         .maturity(maturity)
         .rate(term_loan::types::RateSpec::Fixed { rate_bp: 800 })
-        .pay_freq(Frequency::quarterly())
+        .pay_freq(Tenor::quarterly())
         .day_count(DayCount::Act360)
         .bdc(finstack_core::dates::BusinessDayConvention::ModifiedFollowing)
         .calendar_id_opt(None)
@@ -110,7 +110,7 @@ fn term_loan_pik_toggle_and_cash_sweep() {
         .issue(issue)
         .maturity(maturity)
         .rate(term_loan::types::RateSpec::Fixed { rate_bp: 600 })
-        .pay_freq(Frequency::quarterly())
+        .pay_freq(Tenor::quarterly())
         .day_count(DayCount::Act360)
         .bdc(finstack_core::dates::BusinessDayConvention::ModifiedFollowing)
         .calendar_id_opt(None)
@@ -152,7 +152,7 @@ fn term_loan_golden_pv_and_metrics() {
         .issue(issue)
         .maturity(maturity)
         .rate(term_loan::types::RateSpec::Fixed { rate_bp: 500 }) // 5%
-        .pay_freq(Frequency::quarterly())
+        .pay_freq(Tenor::quarterly())
         .day_count(DayCount::Act360)
         .bdc(BusinessDayConvention::ModifiedFollowing)
         .calendar_id_opt(None)
@@ -227,7 +227,7 @@ fn term_loan_amortizing_outstanding_path() {
         .issue(issue)
         .maturity(maturity)
         .rate(term_loan::types::RateSpec::Fixed { rate_bp: 500 })
-        .pay_freq(Frequency::quarterly())
+        .pay_freq(Tenor::quarterly())
         .day_count(DayCount::Act360)
         .bdc(BusinessDayConvention::ModifiedFollowing)
         .calendar_id_opt(None)

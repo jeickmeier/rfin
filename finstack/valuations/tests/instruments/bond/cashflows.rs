@@ -8,7 +8,7 @@
 //! - PIK and step-up structures
 
 use finstack_core::currency::Currency;
-use finstack_core::dates::{BusinessDayConvention, Date, DayCount, Frequency, StubKind};
+use finstack_core::dates::{BusinessDayConvention, Date, DayCount, StubKind, Tenor};
 use finstack_core::market_data::context::MarketContext;
 use finstack_core::market_data::term_structures::{DiscountCurve, ForwardCurve};
 use finstack_core::money::Money;
@@ -116,7 +116,7 @@ fn test_quarterly_coupon_frequency() {
         .maturity(maturity)
         .cashflow_spec(CashflowSpec::fixed(
             0.04,
-            Frequency::quarterly(),
+            Tenor::quarterly(),
             DayCount::Act365F,
         ))
         .discount_curve_id("USD-OIS".into())
@@ -144,7 +144,7 @@ fn test_floating_rate_cashflows() {
         .cashflow_spec(CashflowSpec::floating(
             CurveId::new("USD-SOFR-3M"),
             150.0,
-            Frequency::quarterly(),
+            Tenor::quarterly(),
             DayCount::Act360,
         ))
         .discount_curve_id(CurveId::new("USD-OIS"))
@@ -175,7 +175,7 @@ fn test_amortizing_bond_linear() {
         .issue(as_of)
         .maturity(maturity)
         .cashflow_spec(CashflowSpec::amortizing(
-            CashflowSpec::fixed(0.05, Frequency::semi_annual(), DayCount::Act365F),
+            CashflowSpec::fixed(0.05, Tenor::semi_annual(), DayCount::Act365F),
             AmortizationSpec::LinearTo {
                 final_notional: Money::new(400.0, Currency::USD),
             },
@@ -216,7 +216,7 @@ fn test_custom_cashflows_from_schedule() {
     // Build custom step-up schedule
     let step1 = date!(2026 - 01 - 01);
     let params = ScheduleParams {
-        freq: Frequency::semi_annual(),
+        freq: Tenor::semi_annual(),
         dc: DayCount::Act365F,
         bdc: BusinessDayConvention::Following,
         calendar_id: None,
@@ -249,7 +249,7 @@ fn test_pik_cashflows() {
         .fixed_cf(FixedCouponSpec {
             coupon_type: CouponType::PIK,
             rate: 0.08,
-            freq: Frequency::semi_annual(),
+            freq: Tenor::semi_annual(),
             dc: DayCount::Act365F,
             bdc: BusinessDayConvention::Following,
             calendar_id: None,
@@ -310,7 +310,7 @@ fn test_cashflows_with_short_front_stub() {
         .cashflow_spec(CashflowSpec::Fixed(FixedCouponSpec {
             coupon_type: CouponType::Cash,
             rate: 0.05,
-            freq: Frequency::semi_annual(),
+            freq: Tenor::semi_annual(),
             dc: DayCount::Act365F,
             bdc: BusinessDayConvention::Following,
             calendar_id: None,
@@ -427,7 +427,7 @@ fn test_get_full_schedule_floating() {
         .cashflow_spec(CashflowSpec::floating(
             CurveId::new("USD-SOFR-3M"),
             100.0,
-            Frequency::quarterly(),
+            Tenor::quarterly(),
             DayCount::Act360,
         ))
         .discount_curve_id(CurveId::new("USD-OIS"))
@@ -459,7 +459,7 @@ fn test_cashflows_day_count_conventions() {
             .notional(Money::new(1000.0, Currency::USD))
             .issue(as_of)
             .maturity(maturity)
-            .cashflow_spec(CashflowSpec::fixed(0.05, Frequency::semi_annual(), dc))
+            .cashflow_spec(CashflowSpec::fixed(0.05, Tenor::semi_annual(), dc))
             .discount_curve_id("USD-OIS".into())
             .pricing_overrides(PricingOverrides::default())
             .build()
@@ -484,7 +484,7 @@ fn test_amortizing_full_redemption() {
         .issue(as_of)
         .maturity(maturity)
         .cashflow_spec(CashflowSpec::amortizing(
-            CashflowSpec::fixed(0.05, Frequency::semi_annual(), DayCount::Act365F),
+            CashflowSpec::fixed(0.05, Tenor::semi_annual(), DayCount::Act365F),
             AmortizationSpec::LinearTo {
                 final_notional: Money::new(0.0, Currency::USD),
             },
@@ -518,7 +518,7 @@ fn test_actact_isma_daycount_context() {
         .cashflow_spec(CashflowSpec::Fixed(FixedCouponSpec {
             coupon_type: CouponType::Cash,
             rate: 0.06, // 6% coupon
-            freq: Frequency::semi_annual(),
+            freq: Tenor::semi_annual(),
             dc: DayCount::ActActIsma, // ISMA convention requires frequency context
             bdc: BusinessDayConvention::Following,
             calendar_id: None,
@@ -598,7 +598,7 @@ fn test_bus252_daycount_with_calendar() {
         .cashflow_spec(CashflowSpec::Fixed(FixedCouponSpec {
             coupon_type: CouponType::Cash,
             rate: 0.05, // 5% coupon
-            freq: Frequency::quarterly(),
+            freq: Tenor::quarterly(),
             dc: DayCount::Bus252, // Requires calendar context
             bdc: BusinessDayConvention::Following,
             calendar_id: Some("USNY".to_string()), // New York calendar

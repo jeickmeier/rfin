@@ -171,9 +171,7 @@
               "excess_spread": 0.0,
               "cash_trap_active": false
             },
-            "payment_frequency": {
-              "Months": 3
-            },
+            "payment_frequency": {"count": 3, "unit": "months"},
             "day_count": "Act360",
             "deferred_interest": {
               "amount": "0",
@@ -222,9 +220,7 @@
                 "all_in_floor_bp": 25.0,
                 "cap_bp": 1200.0,
                 "index_cap_bp": null,
-                "reset_freq": {
-                  "Months": 3
-                },
+                "reset_freq": {"count": 3, "unit": "months"},
                 "reset_lag_days": 2,
                 "dc": "Act360",
                 "bdc": "modified_following",
@@ -250,9 +246,7 @@
               "excess_spread": 0.0,
               "cash_trap_active": false
             },
-            "payment_frequency": {
-              "Months": 3
-            },
+            "payment_frequency": {"count": 3, "unit": "months"},
             "day_count": "Act360",
             "deferred_interest": {
               "amount": "0",
@@ -280,9 +274,7 @@
       "first_payment_date": "2024-04-01",
       "reinvestment_end_date": "2026-01-01",
       "legal_maturity": "2034-01-01",
-      "payment_frequency": {
-        "Months": 1
-      },
+      "payment_frequency": {"count": 1, "unit": "months"},
       "discount_curve_id": "USD-SOFR-DISC",
       "attributes": {
         "tags": [
@@ -401,9 +393,7 @@
           "fixed": {
             "discount_curve_id": "USD-OIS",
             "rate": 0.015,
-            "freq": {
-              "Months": 6
-            },
+            "freq": {"count": 6, "unit": "months"},
             "dc": "Thirty360",
             "bdc": "modified_following",
             "calendar_id": "USD",
@@ -417,9 +407,7 @@
             "discount_curve_id": "USD-OIS",
             "forward_curve_id": "USD-SOFR-3M",
             "spread_bp": 0.0,
-            "freq": {
-              "Months": 3
-            },
+            "freq": {"count": 3, "unit": "months"},
             "dc": "Act360",
             "bdc": "modified_following",
             "calendar_id": "USD",

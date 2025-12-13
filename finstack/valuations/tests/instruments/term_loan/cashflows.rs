@@ -1,7 +1,7 @@
 //! Term loan cashflow generation tests.
 
 use finstack_core::currency::Currency;
-use finstack_core::dates::{BusinessDayConvention, DayCount, Frequency, StubKind};
+use finstack_core::dates::{BusinessDayConvention, DayCount, StubKind, Tenor};
 use finstack_core::market_data::context::MarketContext;
 use finstack_core::market_data::term_structures::DiscountCurve;
 use finstack_core::math::interp::InterpStyle;
@@ -32,7 +32,7 @@ fn test_fixed_coupon_cashflows() {
         .issue(date!(2025 - 01 - 01))
         .maturity(date!(2026 - 01 - 01)) // 1 year
         .rate(RateSpec::Fixed { rate_bp: 500 }) // 5%
-        .pay_freq(Frequency::quarterly())
+        .pay_freq(Tenor::quarterly())
         .day_count(DayCount::Act360)
         .bdc(BusinessDayConvention::ModifiedFollowing)
         .calendar_id_opt(None)
@@ -69,7 +69,7 @@ fn test_amortizing_principal_cashflows() {
         .issue(date!(2025 - 01 - 01))
         .maturity(date!(2026 - 01 - 01))
         .rate(RateSpec::Fixed { rate_bp: 600 })
-        .pay_freq(Frequency::quarterly())
+        .pay_freq(Tenor::quarterly())
         .day_count(DayCount::Act360)
         .bdc(BusinessDayConvention::ModifiedFollowing)
         .calendar_id_opt(None)
@@ -108,7 +108,7 @@ fn test_pik_interest_capitalization() {
         .issue(date!(2025 - 01 - 01))
         .maturity(date!(2030 - 01 - 01))
         .rate(RateSpec::Fixed { rate_bp: 800 })
-        .pay_freq(Frequency::semi_annual())
+        .pay_freq(Tenor::semi_annual())
         .day_count(DayCount::Act360)
         .bdc(BusinessDayConvention::ModifiedFollowing)
         .calendar_id_opt(None)

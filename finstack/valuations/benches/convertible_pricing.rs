@@ -13,7 +13,7 @@
 
 use criterion::{criterion_group, criterion_main, BenchmarkId, Criterion};
 use finstack_core::currency::Currency;
-use finstack_core::dates::{BusinessDayConvention, Date, DayCount, Frequency, StubKind};
+use finstack_core::dates::{BusinessDayConvention, Date, DayCount, StubKind, Tenor};
 use finstack_core::market_data::context::MarketContext;
 use finstack_core::market_data::scalars::MarketScalar;
 use finstack_core::market_data::term_structures::DiscountCurve;
@@ -89,7 +89,7 @@ fn create_standard_convertible() -> ConvertibleBond {
     let fixed_coupon = FixedCouponSpec {
         coupon_type: CouponType::Cash,
         rate: COUPON_RATE,
-        freq: Frequency::semi_annual(),
+        freq: Tenor::semi_annual(),
         dc: DayCount::Act365F,
         bdc: BusinessDayConvention::Following,
         calendar_id: None,

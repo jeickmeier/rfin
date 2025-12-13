@@ -3,7 +3,7 @@
 //! Validates instrument creation, parameter handling, and builder patterns.
 
 use finstack_core::currency::Currency;
-use finstack_core::dates::{BusinessDayConvention, Date, DayCount, Frequency, StubKind};
+use finstack_core::dates::{BusinessDayConvention, Date, DayCount, StubKind, Tenor};
 use finstack_core::money::Money;
 use finstack_valuations::instruments::cap_floor::parameters::InterestRateOptionParams;
 use finstack_valuations::instruments::cap_floor::{InterestRateOption, RateOptionType};
@@ -17,7 +17,7 @@ fn test_cap_creation_basic() {
     let end = Date::from_calendar_date(2030, Month::January, 1).unwrap();
 
     let params =
-        InterestRateOptionParams::cap(notional, 0.03, Frequency::quarterly(), DayCount::Act360);
+        InterestRateOptionParams::cap(notional, 0.03, Tenor::quarterly(), DayCount::Act360);
     let cap = InterestRateOption::new(
         "USD_CAP_3%",
         &params,
@@ -33,7 +33,7 @@ fn test_cap_creation_basic() {
     assert_eq!(cap.notional.amount(), 10_000_000.0);
     assert_eq!(cap.notional.currency(), Currency::USD);
     assert_eq!(cap.strike_rate, 0.03);
-    assert_eq!(cap.frequency, Frequency::quarterly());
+    assert_eq!(cap.frequency, Tenor::quarterly());
     assert_eq!(cap.day_count, DayCount::Act360);
     assert_eq!(cap.start_date, start);
     assert_eq!(cap.end_date, end);
@@ -45,12 +45,8 @@ fn test_floor_creation_basic() {
     let start = Date::from_calendar_date(2025, Month::March, 15).unwrap();
     let end = Date::from_calendar_date(2028, Month::March, 15).unwrap();
 
-    let params = InterestRateOptionParams::floor(
-        notional,
-        0.01,
-        Frequency::semi_annual(),
-        DayCount::Thirty360,
-    );
+    let params =
+        InterestRateOptionParams::floor(notional, 0.01, Tenor::semi_annual(), DayCount::Thirty360);
     let floor = InterestRateOption::new(
         "EUR_FLOOR_1%",
         &params,
@@ -66,7 +62,7 @@ fn test_floor_creation_basic() {
     assert_eq!(floor.notional.amount(), 5_000_000.0);
     assert_eq!(floor.notional.currency(), Currency::EUR);
     assert_eq!(floor.strike_rate, 0.01);
-    assert_eq!(floor.frequency, Frequency::semi_annual());
+    assert_eq!(floor.frequency, Tenor::semi_annual());
 }
 
 #[test]
@@ -81,7 +77,7 @@ fn test_cap_new_cap_helper() {
         0.04,
         start,
         end,
-        Frequency::quarterly(),
+        Tenor::quarterly(),
         DayCount::Act365F,
         "GBP-OIS",
         "GBP-LIBOR-3M",
@@ -105,7 +101,7 @@ fn test_floor_new_floor_helper() {
         0.005,
         start,
         end,
-        Frequency::quarterly(),
+        Tenor::quarterly(),
         DayCount::Act360,
         "JPY-OIS",
         "JPY-LIBOR-3M",
@@ -129,7 +125,7 @@ fn test_caplet_creation() {
         strike_rate: 0.05,
         start_date: start,
         end_date: end,
-        frequency: Frequency::quarterly(),
+        frequency: Tenor::quarterly(),
         day_count: DayCount::Act360,
         stub_kind: StubKind::None,
         bdc: BusinessDayConvention::ModifiedFollowing,
@@ -160,7 +156,7 @@ fn test_floorlet_creation() {
         strike_rate: 0.02,
         start_date: start,
         end_date: end,
-        frequency: Frequency::semi_annual(),
+        frequency: Tenor::semi_annual(),
         day_count: DayCount::Act360,
         stub_kind: StubKind::None,
         bdc: BusinessDayConvention::Following,
@@ -189,7 +185,7 @@ fn test_pricing_overrides() {
     };
 
     let params =
-        InterestRateOptionParams::cap(notional, 0.03, Frequency::quarterly(), DayCount::Act360);
+        InterestRateOptionParams::cap(notional, 0.03, Tenor::quarterly(), DayCount::Act360);
     let mut cap = InterestRateOption::new(
         "CAP_WITH_OVERRIDES",
         &params,
@@ -211,7 +207,7 @@ fn test_custom_calendar() {
     let end = Date::from_calendar_date(2030, Month::January, 1).unwrap();
 
     let params =
-        InterestRateOptionParams::cap(notional, 0.03, Frequency::quarterly(), DayCount::Act360);
+        InterestRateOptionParams::cap(notional, 0.03, Tenor::quarterly(), DayCount::Act360);
     let mut cap = InterestRateOption::new(
         "CAP_WITH_CALENDAR",
         &params,
@@ -240,7 +236,7 @@ fn test_different_day_counts() {
     ];
 
     for dc in day_counts {
-        let params = InterestRateOptionParams::cap(notional, 0.03, Frequency::quarterly(), dc);
+        let params = InterestRateOptionParams::cap(notional, 0.03, Tenor::quarterly(), dc);
         let cap = InterestRateOption::new(
             "CAP_DC_TEST",
             &params,
@@ -262,10 +258,10 @@ fn test_different_frequencies() {
     let end = Date::from_calendar_date(2030, Month::January, 1).unwrap();
 
     let frequencies = vec![
-        Frequency::monthly(),
-        Frequency::quarterly(),
-        Frequency::semi_annual(),
-        Frequency::annual(),
+        Tenor::monthly(),
+        Tenor::quarterly(),
+        Tenor::semi_annual(),
+        Tenor::annual(),
     ];
 
     for freq in frequencies {

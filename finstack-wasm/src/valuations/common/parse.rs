@@ -1,12 +1,12 @@
 //! Parsing utilities for valuations-specific types.
 //!
-//! Delegates to core parsing module for common types (DayCount, Frequency, etc.)
+//! Delegates to core parsing module for common types (DayCount, Tenor, etc.)
 //! and provides parsing for instrument-specific types.
 
 use crate::core::common::labels::normalize_label;
 use crate::core::common::parse::ParseFromString;
 use crate::core::error::js_error;
-use finstack_core::dates::{BusinessDayConvention, DayCount, Frequency, StubKind};
+use finstack_core::dates::{BusinessDayConvention, DayCount, StubKind, Tenor};
 use finstack_core::math::stats::RealizedVarMethod;
 use finstack_valuations::instruments::cds::PayReceive as CdsPayReceive;
 use finstack_valuations::instruments::cds_tranche::TrancheSide;
@@ -23,7 +23,7 @@ use wasm_bindgen::JsValue;
 
 /// Trait for parsing JavaScript string labels into strongly-typed Rust enums.
 ///
-/// For common types like DayCount, Frequency, etc., use ParseFromString from
+/// For common types like DayCount, Tenor, etc., use ParseFromString from
 /// crate::core::common::parse instead. This trait is for valuations-specific types.
 pub(crate) trait FromJsLabel: Sized {
     /// Parse a string label into the target type.
@@ -34,9 +34,9 @@ pub(crate) trait FromJsLabel: Sized {
 // Date/Schedule Types - Delegate to Core
 // ============================================================================
 
-impl FromJsLabel for Frequency {
+impl FromJsLabel for Tenor {
     fn from_label(label: &str) -> Result<Self, JsValue> {
-        Frequency::parse_from_string(label)
+        Tenor::parse_from_string(label)
     }
 }
 

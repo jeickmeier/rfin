@@ -5,7 +5,7 @@
 //! guarantees correct construction.
 
 use finstack_core::currency::Currency;
-use finstack_core::dates::{Date, DayCount, Frequency};
+use finstack_core::dates::{Date, DayCount, Tenor};
 use finstack_core::market_data::term_structures::Seniority;
 use finstack_valuations::calibration::methods::discount::DiscountCurveCalibrator;
 use finstack_valuations::calibration::methods::hazard_curve::HazardCurveCalibrator;
@@ -47,8 +47,8 @@ fn test_calibration_spec_with_quotes() {
         RatesQuote::Swap {
             maturity: base_date + time::Duration::days(365),
             rate: 0.046,
-            fixed_freq: Frequency::annual(),
-            float_freq: Frequency::daily(),
+            fixed_freq: Tenor::annual(),
+            float_freq: Tenor::daily(),
             fixed_dc: DayCount::Act365F,
             float_dc: DayCount::Act365F,
             index: "USD-OIS".to_string().into(),

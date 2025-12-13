@@ -9,7 +9,7 @@
 use crate::cashflow_tests::test_helpers::{financial_tolerance, FACTOR_TOLERANCE, RATE_TOLERANCE};
 use finstack_core::cashflow::primitives::{CFKind, CashFlow};
 use finstack_core::currency::Currency;
-use finstack_core::dates::{BusinessDayConvention, DayCount, Frequency, StubKind};
+use finstack_core::dates::{BusinessDayConvention, DayCount, StubKind, Tenor};
 use finstack_core::dates::{Date, ScheduleBuilder};
 use finstack_core::market_data::term_structures::discount_curve::DiscountCurve as CoreDiscCurve;
 use finstack_core::math::interp::InterpStyle;
@@ -38,7 +38,7 @@ fn linear_vs_step_parity() {
     let fixed = FixedCouponSpec {
         coupon_type: CouponType::Cash,
         rate: 0.05,
-        freq: Frequency::quarterly(),
+        freq: Tenor::quarterly(),
         dc: DayCount::Act365F,
         bdc: BusinessDayConvention::Following,
         calendar_id: None,
@@ -58,7 +58,7 @@ fn linear_vs_step_parity() {
 
     // Step schedule equivalent
     let sched: Vec<Date> = ScheduleBuilder::new(issue, maturity)
-        .frequency(Frequency::quarterly())
+        .frequency(Tenor::quarterly())
         .build()
         .unwrap()
         .into_iter()
@@ -99,7 +99,7 @@ fn pik_capitalization_increases_outstanding() {
     let fixed = FixedCouponSpec {
         coupon_type: CouponType::PIK,
         rate: 0.10,
-        freq: Frequency::semi_annual(),
+        freq: Tenor::semi_annual(),
         dc: DayCount::Act365F,
         bdc: BusinessDayConvention::Following,
         calendar_id: None,
@@ -132,7 +132,7 @@ fn ordering_invariants_within_date() {
             pik_pct: 0.5,
         },
         rate: 0.10,
-        freq: Frequency::quarterly(),
+        freq: Tenor::quarterly(),
         dc: DayCount::Act365F,
         bdc: BusinessDayConvention::Following,
         calendar_id: None,
@@ -167,7 +167,7 @@ fn fixed_schedule_npv_equals_sum_cashflows() {
     let fixed = FixedCouponSpec {
         coupon_type: CouponType::Cash,
         rate: 0.05,
-        freq: Frequency::semi_annual(),
+        freq: Tenor::semi_annual(),
         dc: DayCount::Act365F,
         bdc: BusinessDayConvention::Following,
         calendar_id: None,
@@ -215,7 +215,7 @@ fn detects_stub_periods() {
     let fixed = FixedCouponSpec {
         coupon_type: CouponType::Cash,
         rate: 0.04,
-        freq: Frequency::semi_annual(),
+        freq: Tenor::semi_annual(),
         dc: DayCount::Act365F,
         bdc: BusinessDayConvention::Following,
         calendar_id: None,
@@ -256,7 +256,7 @@ fn outstanding_by_date_dedup_and_values() {
             pik_pct: 0.5,
         },
         rate: 0.12,
-        freq: Frequency::quarterly(),
+        freq: Tenor::quarterly(),
         dc: DayCount::Act365F,
         bdc: BusinessDayConvention::Following,
         calendar_id: None,
@@ -331,7 +331,7 @@ fn strict_schedule_mode_errors_on_unknown_calendar() {
     let fixed = FixedCouponSpec {
         coupon_type: CouponType::Cash,
         rate: 0.05,
-        freq: Frequency::semi_annual(),
+        freq: Tenor::semi_annual(),
         dc: DayCount::Act365F,
         bdc: BusinessDayConvention::Following,
         calendar_id: Some("UNKNOWN_CALENDAR_XYZ".to_string()),
@@ -377,7 +377,7 @@ fn try_builder_methods_error_before_principal() {
     let fixed = FixedCouponSpec {
         coupon_type: CouponType::Cash,
         rate: 0.05,
-        freq: Frequency::semi_annual(),
+        freq: Tenor::semi_annual(),
         dc: DayCount::Act365F,
         bdc: BusinessDayConvention::Following,
         calendar_id: None,
@@ -417,7 +417,7 @@ fn stub_period_thirty360_produces_proportional_accrual() {
     let fixed = FixedCouponSpec {
         coupon_type: CouponType::Cash,
         rate: 0.06, // 6% annual rate
-        freq: Frequency::semi_annual(),
+        freq: Tenor::semi_annual(),
         dc: DayCount::Thirty360, // Market standard for corporate bonds
         bdc: BusinessDayConvention::Following,
         calendar_id: None,

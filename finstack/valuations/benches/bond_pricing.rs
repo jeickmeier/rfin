@@ -10,7 +10,7 @@
 
 use criterion::{criterion_group, criterion_main, BenchmarkId, Criterion};
 use finstack_core::currency::Currency;
-use finstack_core::dates::{Date, DayCount, Frequency};
+use finstack_core::dates::{Date, DayCount, Tenor};
 use finstack_core::market_data::context::MarketContext;
 use finstack_core::market_data::term_structures::{DiscountCurve, ForwardCurve};
 use finstack_core::math::interp::InterpStyle;
@@ -205,7 +205,7 @@ fn create_floating_note(maturity_years: i32) -> Bond {
         150.0,
         issue,
         maturity,
-        Frequency::quarterly(),
+        Tenor::quarterly(),
         DayCount::Act360,
         "USD-OIS",
     );

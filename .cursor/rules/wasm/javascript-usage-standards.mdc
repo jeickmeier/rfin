@@ -67,7 +67,7 @@ import init, {
     Date,
     
     // Enums
-    Frequency,
+    Tenor,
     DayCount,
     BusDayConvention,
     
@@ -189,20 +189,20 @@ function addMoney(amount1, amount2) {
 
 ## Enum Usage
 
-### Frequency Enum
+### Tenor Enum
 ```javascript
-import { Frequency } from './pkg/rfin_wasm.js';
+import { Tenor } from './pkg/rfin_wasm.js';
 
 // Use enum values
 const schedule = generateSchedule(
     startDate,
     endDate,
-    Frequency.SemiAnnual  // Enum value
+    Tenor.SemiAnnual  // Enum value
 );
 
 // In configurations
 const bondConfig = {
-    frequency: Frequency.Quarterly,
+    tenor: Tenor.Quarterly,
     dayCount: DayCount.Act360(),
     convention: BusDayConvention.ModifiedFollowing
 };
@@ -232,13 +232,13 @@ async function generatePaymentSchedule(config) {
     const {
         startDate,
         endDate,
-        frequency,
+        tenor,
         calendar,
         convention
     } = config;
     
     // Generate raw schedule
-    const dates = generateSchedule(startDate, endDate, frequency);
+    const dates = generateSchedule(startDate, endDate, tenor);
     
     // Adjust for business days if needed
     if (calendar && convention) {
@@ -262,7 +262,7 @@ async function createBond(params) {
         couponRate,
         issueDate,
         maturityDate,
-        frequency = Frequency.SemiAnnual,
+        tenor = Tenor.SemiAnnual,
         dayCount = DayCount.Thirty360()
     } = params;
     
@@ -273,7 +273,7 @@ async function createBond(params) {
         couponRate,
         issueDate,
         maturityDate,
-        frequency,
+        tenor,
         dayCount
     );
     
@@ -347,7 +347,7 @@ interface BondParameters {
     couponRate: number;
     issueDate: Date;
     maturityDate: Date;
-    frequency?: Frequency;
+    tenor?: Tenor;
     dayCount?: DayCount;
 }
 
@@ -659,7 +659,7 @@ export default {
  * @param {Date} params.issueDate - Issue date of the bond
  * @param {Date} params.maturityDate - Maturity date of the bond
  * @param {Currency} params.currency - Currency of the bond
- * @param {Frequency} [params.frequency=Frequency.SemiAnnual] - Payment frequency
+ * @param {Tenor} [params.tenor=Tenor.SemiAnnual] - Payment tenor
  * @param {DayCount} [params.dayCount=DayCount.Thirty360()] - Day count convention
  * @returns {Promise<{npv: number, flows: Array}>} Present value and cash flows
  * @throws {Error} If initialization fails or parameters are invalid
@@ -686,7 +686,7 @@ async function calculateBondPV(params) {
 class BondBuilder {
     constructor() {
         this.params = {
-            frequency: Frequency.SemiAnnual,
+            tenor: Tenor.SemiAnnual,
             dayCount: DayCount.Thirty360()
         };
     }
@@ -712,8 +712,8 @@ class BondBuilder {
         return this;
     }
     
-    withFrequency(frequency) {
-        this.params.frequency = frequency;
+    withTenor(tenor) {
+        this.params.tenor = tenor;
         return this;
     }
     
@@ -723,7 +723,7 @@ class BondBuilder {
     }
     
     build() {
-        const { notional, currency, couponRate, issueDate, maturityDate, frequency, dayCount } = this.params;
+        const { notional, currency, couponRate, issueDate, maturityDate, tenor, dayCount } = this.params;
         
         if (!notional || !currency || !couponRate || !issueDate || !maturityDate) {
             throw new Error('Missing required parameters');
@@ -735,7 +735,7 @@ class BondBuilder {
             couponRate,
             issueDate,
             maturityDate,
-            frequency,
+            tenor,
             dayCount
         );
     }
@@ -837,7 +837,7 @@ import init, {
     Date,
     
     // Enums
-    Frequency,
+    Tenor,
     DayCount,
     BusDayConvention,
     
@@ -959,20 +959,20 @@ function addMoney(amount1, amount2) {
 
 ## Enum Usage
 
-### Frequency Enum
+### Tenor Enum
 ```javascript
-import { Frequency } from './pkg/rfin_wasm.js';
+import { Tenor } from './pkg/rfin_wasm.js';
 
 // Use enum values
 const schedule = generateSchedule(
     startDate,
     endDate,
-    Frequency.SemiAnnual  // Enum value
+    Tenor.SemiAnnual  // Enum value
 );
 
 // In configurations
 const bondConfig = {
-    frequency: Frequency.Quarterly,
+    tenor: Tenor.Quarterly,
     dayCount: DayCount.Act360(),
     convention: BusDayConvention.ModifiedFollowing
 };
@@ -1002,13 +1002,13 @@ async function generatePaymentSchedule(config) {
     const {
         startDate,
         endDate,
-        frequency,
+        tenor,
         calendar,
         convention
     } = config;
     
     // Generate raw schedule
-    const dates = generateSchedule(startDate, endDate, frequency);
+    const dates = generateSchedule(startDate, endDate, tenor);
     
     // Adjust for business days if needed
     if (calendar && convention) {
@@ -1032,7 +1032,7 @@ async function createBond(params) {
         couponRate,
         issueDate,
         maturityDate,
-        frequency = Frequency.SemiAnnual,
+        tenor = Tenor.SemiAnnual,
         dayCount = DayCount.Thirty360()
     } = params;
     
@@ -1043,7 +1043,7 @@ async function createBond(params) {
         couponRate,
         issueDate,
         maturityDate,
-        frequency,
+        tenor,
         dayCount
     );
     
@@ -1117,7 +1117,7 @@ interface BondParameters {
     couponRate: number;
     issueDate: Date;
     maturityDate: Date;
-    frequency?: Frequency;
+    tenor?: Tenor;
     dayCount?: DayCount;
 }
 
@@ -1429,7 +1429,7 @@ export default {
  * @param {Date} params.issueDate - Issue date of the bond
  * @param {Date} params.maturityDate - Maturity date of the bond
  * @param {Currency} params.currency - Currency of the bond
- * @param {Frequency} [params.frequency=Frequency.SemiAnnual] - Payment frequency
+ * @param {Tenor} [params.tenor=Tenor.SemiAnnual] - Payment tenor
  * @param {DayCount} [params.dayCount=DayCount.Thirty360()] - Day count convention
  * @returns {Promise<{npv: number, flows: Array}>} Present value and cash flows
  * @throws {Error} If initialization fails or parameters are invalid
@@ -1456,7 +1456,7 @@ async function calculateBondPV(params) {
 class BondBuilder {
     constructor() {
         this.params = {
-            frequency: Frequency.SemiAnnual,
+            tenor: Tenor.SemiAnnual,
             dayCount: DayCount.Thirty360()
         };
     }
@@ -1482,8 +1482,8 @@ class BondBuilder {
         return this;
     }
     
-    withFrequency(frequency) {
-        this.params.frequency = frequency;
+    withTenor(tenor) {
+        this.params.tenor = tenor;
         return this;
     }
     
@@ -1493,7 +1493,7 @@ class BondBuilder {
     }
     
     build() {
-        const { notional, currency, couponRate, issueDate, maturityDate, frequency, dayCount } = this.params;
+        const { notional, currency, couponRate, issueDate, maturityDate, tenor, dayCount } = this.params;
         
         if (!notional || !currency || !couponRate || !issueDate || !maturityDate) {
             throw new Error('Missing required parameters');
@@ -1505,7 +1505,7 @@ class BondBuilder {
             couponRate,
             issueDate,
             maturityDate,
-            frequency,
+            tenor,
             dayCount
         );
     }

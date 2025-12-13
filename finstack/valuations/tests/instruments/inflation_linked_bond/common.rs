@@ -1,7 +1,7 @@
 //! Common test utilities and fixtures for ILB tests
 
 use finstack_core::currency::Currency;
-use finstack_core::dates::{BusinessDayConvention, Date, DayCount, Frequency, StubKind};
+use finstack_core::dates::{BusinessDayConvention, Date, DayCount, StubKind, Tenor};
 use finstack_core::market_data::context::MarketContext;
 use finstack_core::market_data::scalars::inflation_index::{
     InflationIndex, InflationInterpolation, InflationLag,
@@ -27,7 +27,7 @@ pub fn sample_tips() -> InflationLinkedBond {
         .id(InstrumentId::new("TIPS-TEST"))
         .notional(Money::new(1_000_000.0, Currency::USD))
         .real_coupon(0.0125) // 1.25% real coupon
-        .freq(Frequency::semi_annual())
+        .freq(Tenor::semi_annual())
         .dc(DayCount::ActAct)
         .issue(d(2020, 1, 15))
         .maturity(d(2030, 1, 15))
@@ -51,7 +51,7 @@ pub fn sample_uk_linker() -> InflationLinkedBond {
         .id(InstrumentId::new("UK-GILT-TEST"))
         .notional(Money::new(1_000_000.0, Currency::GBP))
         .real_coupon(0.00625) // 0.625% real coupon
-        .freq(Frequency::semi_annual())
+        .freq(Tenor::semi_annual())
         .dc(DayCount::ActAct)
         .issue(d(2020, 3, 22))
         .maturity(d(2040, 3, 22))

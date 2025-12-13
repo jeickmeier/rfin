@@ -15,7 +15,7 @@ use crate::calibration::{CalibrationConfig, CalibrationReport};
 use crate::instruments::xccy_swap::{LegSide, NotionalExchange, XccySwap, XccySwapLeg};
 use finstack_core::dates::calendar::registry::CalendarRegistry;
 use finstack_core::dates::{
-    adjust, BusinessDayConvention, Date, DayCount, DayCountCtx, Frequency, HolidayCalendar,
+    adjust, BusinessDayConvention, Date, DayCount, DayCountCtx, HolidayCalendar, Tenor,
 };
 use finstack_core::market_data::context::MarketContext;
 use finstack_core::market_data::term_structures::DiscountCurve;
@@ -66,9 +66,9 @@ pub struct XccyBasisQuote {
     /// Foreign projection forward curve identifier.
     pub foreign_forward_curve_id: CurveId,
     /// Domestic leg frequency.
-    pub domestic_freq: Frequency,
+    pub domestic_freq: Tenor,
     /// Foreign leg frequency.
-    pub foreign_freq: Frequency,
+    pub foreign_freq: Tenor,
     /// Domestic accrual day count.
     pub domestic_dc: DayCount,
     /// Foreign accrual day count.

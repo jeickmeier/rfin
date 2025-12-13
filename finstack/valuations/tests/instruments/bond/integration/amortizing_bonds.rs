@@ -22,7 +22,7 @@ fn create_curve(base_date: Date) -> MarketContext {
 
 #[test]
 fn test_linear_amortization() {
-    use finstack_core::dates::{DayCount, Frequency};
+    use finstack_core::dates::{DayCount, Tenor};
     use finstack_valuations::instruments::bond::CashflowSpec;
     let as_of = date!(2025 - 01 - 01);
     let bond = Bond::builder()
@@ -31,7 +31,7 @@ fn test_linear_amortization() {
         .issue(as_of)
         .maturity(date!(2030 - 01 - 01))
         .cashflow_spec(CashflowSpec::amortizing(
-            CashflowSpec::fixed(0.05, Frequency::semi_annual(), DayCount::Act365F),
+            CashflowSpec::fixed(0.05, Tenor::semi_annual(), DayCount::Act365F),
             AmortizationSpec::LinearTo {
                 final_notional: Money::new(400.0, Currency::USD),
             },
@@ -54,7 +54,7 @@ fn test_linear_amortization() {
 
 #[test]
 fn test_full_amortization() {
-    use finstack_core::dates::{DayCount, Frequency};
+    use finstack_core::dates::{DayCount, Tenor};
     use finstack_valuations::instruments::bond::CashflowSpec;
     let as_of = date!(2025 - 01 - 01);
     let bond = Bond::builder()
@@ -63,7 +63,7 @@ fn test_full_amortization() {
         .issue(as_of)
         .maturity(date!(2030 - 01 - 01))
         .cashflow_spec(CashflowSpec::amortizing(
-            CashflowSpec::fixed(0.06, Frequency::semi_annual(), DayCount::Act365F),
+            CashflowSpec::fixed(0.06, Tenor::semi_annual(), DayCount::Act365F),
             AmortizationSpec::LinearTo {
                 final_notional: Money::new(0.0, Currency::USD),
             },

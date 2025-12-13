@@ -3,7 +3,7 @@
 //! Defines the threshold, MTA (Minimum Transfer Amount), and other parameters
 //! that govern margin call mechanics.
 
-use super::enums::{ImMethodology, MarginFrequency};
+use super::enums::{ImMethodology, MarginTenor};
 use finstack_core::currency::Currency;
 use finstack_core::money::Money;
 
@@ -27,7 +27,7 @@ use finstack_core::money::Money;
 ///     mta: Money::new(500_000.0, Currency::USD),
 ///     rounding: Money::new(10_000.0, Currency::USD),
 ///     independent_amount: Money::new(0.0, Currency::USD),
-///     frequency: MarginFrequency::Daily,
+///     frequency: MarginTenor::Daily,
 ///     settlement_lag: 1,
 /// };
 /// ```
@@ -60,7 +60,7 @@ pub struct VmParameters {
     /// Margin call frequency.
     ///
     /// Under BCBS-IOSCO, daily margin exchange is required.
-    pub frequency: MarginFrequency,
+    pub frequency: MarginTenor,
 
     /// Settlement lag in business days (T+n).
     ///
@@ -77,7 +77,7 @@ impl VmParameters {
             mta: Money::new(500_000.0, currency),
             rounding: Money::new(10_000.0, currency),
             independent_amount: Money::new(0.0, currency),
-            frequency: MarginFrequency::Daily,
+            frequency: MarginTenor::Daily,
             settlement_lag: 1,
         }
     }
@@ -91,7 +91,7 @@ impl VmParameters {
             mta,
             rounding: Money::new(10_000.0, currency),
             independent_amount: Money::new(0.0, currency),
-            frequency: MarginFrequency::Daily,
+            frequency: MarginTenor::Daily,
             settlement_lag: 1,
         }
     }
@@ -277,7 +277,7 @@ mod tests {
     fn vm_params_regulatory_standard() {
         let params = VmParameters::regulatory_standard(Currency::USD);
         assert_eq!(params.threshold, Money::new(0.0, Currency::USD));
-        assert_eq!(params.frequency, MarginFrequency::Daily);
+        assert_eq!(params.frequency, MarginTenor::Daily);
         assert_eq!(params.settlement_lag, 1);
     }
 
@@ -288,7 +288,7 @@ mod tests {
             mta: Money::new(100_000.0, Currency::USD),
             rounding: Money::new(10_000.0, Currency::USD),
             independent_amount: Money::new(0.0, Currency::USD),
-            frequency: MarginFrequency::Daily,
+            frequency: MarginTenor::Daily,
             settlement_lag: 1,
         };
 

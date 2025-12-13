@@ -97,7 +97,7 @@ use finstack_core::{
     currency::Currency,
     dates::{
         adjust, BusinessDayConvention, CalendarRegistry, Date, DateExt, DayCount, DayCountCtx,
-        Frequency, StubKind,
+        StubKind, Tenor,
     },
     explain::{ExplanationTrace, TraceEntry},
     market_data::{context::MarketContext, term_structures::forward_curve::ForwardCurve},
@@ -1280,7 +1280,7 @@ impl ForwardCurveCalibrator {
     }
 
     /// Check if an index/frequency matches our tenor.
-    fn matches_tenor(&self, index: &str, freq: &Frequency) -> bool {
+    fn matches_tenor(&self, index: &str, freq: &Tenor) -> bool {
         let tol = self.config.tolerance;
         // Map tenor_years to standard tenor strings with epsilon comparison
         let tenor_str = match self.tenor_years {
@@ -1301,10 +1301,10 @@ impl ForwardCurveCalibrator {
     }
 
     /// Check if frequency matches tenor.
-    fn frequency_matches_tenor(&self, freq: &Frequency) -> bool {
+    fn frequency_matches_tenor(&self, freq: &Tenor) -> bool {
         match freq {
-            Frequency::Months(m) => {
-                let freq_years = *m as f64 / 12.0;
+            freq if freq.unit == finstack_core::dates::TenorUnit::Months => {
+                let freq_years = freq.count as f64 / 12.0;
                 (freq_years - self.tenor_years).abs() < self.config.tolerance
             }
             _ => false,
@@ -1730,9 +1730,9 @@ mod tests {
             "USD-OIS-DISC",
         );
 
-        assert!(calibrator.matches_tenor("USD-SOFR-3M", &Frequency::quarterly()));
-        assert!(calibrator.matches_tenor("SOFR-3M", &Frequency::quarterly()));
-        assert!(!calibrator.matches_tenor("USD-SOFR-6M", &Frequency::semi_annual()));
+        assert!(calibrator.matches_tenor("USD-SOFR-3M", &Tenor::quarterly()));
+        assert!(calibrator.matches_tenor("SOFR-3M", &Tenor::quarterly()));
+        assert!(!calibrator.matches_tenor("USD-SOFR-6M", &Tenor::semi_annual()));
     }
 
     #[test]
@@ -1821,8 +1821,14 @@ mod tests {
                 primary_index: "3M-SOFR".to_string(),
                 reference_index: "6M-SOFR".to_string(),
                 spread_bp: 5.0, // 3M pays 6M + 5bp
-                primary_freq: Frequency::Months(3),
-                reference_freq: Frequency::Months(6),
+                primary_freq: finstack_core::dates::Tenor::new(
+                    3,
+                    finstack_core::dates::TenorUnit::Months,
+                ),
+                reference_freq: finstack_core::dates::Tenor::new(
+                    6,
+                    finstack_core::dates::TenorUnit::Months,
+                ),
                 primary_dc: DayCount::Act360,
                 reference_dc: DayCount::Act360,
                 currency: Currency::USD,
@@ -1833,8 +1839,14 @@ mod tests {
                 primary_index: "3M-SOFR".to_string(),
                 reference_index: "6M-SOFR".to_string(),
                 spread_bp: 7.0, // 3M pays 6M + 7bp
-                primary_freq: Frequency::Months(3),
-                reference_freq: Frequency::Months(6),
+                primary_freq: finstack_core::dates::Tenor::new(
+                    3,
+                    finstack_core::dates::TenorUnit::Months,
+                ),
+                reference_freq: finstack_core::dates::Tenor::new(
+                    6,
+                    finstack_core::dates::TenorUnit::Months,
+                ),
                 primary_dc: DayCount::Act360,
                 reference_dc: DayCount::Act360,
                 currency: Currency::USD,

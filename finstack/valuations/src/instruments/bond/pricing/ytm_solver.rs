@@ -3,7 +3,7 @@
 //! Provides a robust yield-to-maturity solver using Newton-Raphson with
 //! intelligent initial guesses and automatic fallback to Brent's method.
 
-use finstack_core::dates::Frequency;
+use finstack_core::dates::Tenor;
 use finstack_core::dates::{Date, DayCount};
 use finstack_core::math::solver::{BrentSolver, Solver};
 use finstack_core::money::Money;
@@ -23,7 +23,7 @@ pub struct YtmPricingSpec {
     /// Yield compounding convention
     pub compounding: YieldCompounding,
     /// Coupon payment frequency
-    pub frequency: Frequency,
+    pub frequency: Tenor,
 }
 
 /// Configuration for the YTM solver.
@@ -128,7 +128,7 @@ impl Default for YtmSolverConfig {
 ///
 /// ```rust,no_run
 /// use finstack_valuations::instruments::bond::pricing::ytm_solver::{YtmSolver, YtmPricingSpec};
-/// use finstack_core::dates::{Date, DayCount, Frequency};
+/// use finstack_core::dates::{Date, DayCount, Tenor};
 /// use finstack_core::money::Money;
 /// use finstack_core::currency::Currency;
 ///
@@ -141,7 +141,7 @@ impl Default for YtmSolverConfig {
 ///     notional: Money::new(1000.0, Currency::USD),
 ///     coupon_rate: 0.05,
 ///     compounding: finstack_valuations::instruments::bond::pricing::quote_engine::YieldCompounding::Street,
-///     frequency: Frequency::semi_annual(),
+///     frequency: Tenor::semi_annual(),
 /// };
 /// let ytm = solver.solve(&cashflows, as_of, target_price, spec)?;
 /// # Ok::<(), Box<dyn std::error::Error>>(())
@@ -230,7 +230,7 @@ impl YtmSolver {
     ///
     /// ```rust,no_run
     /// use finstack_valuations::instruments::bond::pricing::ytm_solver::{YtmSolver, YtmPricingSpec};
-    /// use finstack_core::dates::{Date, DayCount, Frequency};
+    /// use finstack_core::dates::{Date, DayCount, Tenor};
     /// use finstack_core::money::Money;
     /// use finstack_core::currency::Currency;
     ///
@@ -243,7 +243,7 @@ impl YtmSolver {
     ///     notional: Money::new(1000.0, Currency::USD),
     ///     coupon_rate: 0.05,
     ///     compounding: finstack_valuations::instruments::bond::pricing::quote_engine::YieldCompounding::Street,
-    ///     frequency: Frequency::semi_annual(),
+    ///     frequency: Tenor::semi_annual(),
     /// };
     /// let ytm = solver.solve(&cashflows, as_of, target_price, spec)?;
     /// # Ok::<(), Box<dyn std::error::Error>>(())
@@ -303,7 +303,7 @@ impl YtmSolver {
         yield_rate: f64,
         day_count: DayCount,
         comp: YieldCompounding,
-        freq: Frequency,
+        freq: Tenor,
     ) -> f64 {
         price_from_ytm_compounded_params(day_count, freq, cashflows, as_of, yield_rate, comp)
             .unwrap_or(0.0)
@@ -359,7 +359,7 @@ impl YtmSolver {
 ///
 /// ```rust,no_run
 /// use finstack_valuations::instruments::bond::pricing::ytm_solver::{solve_ytm, YtmPricingSpec};
-/// use finstack_core::dates::{Date, DayCount, Frequency};
+/// use finstack_core::dates::{Date, DayCount, Tenor};
 /// use finstack_core::money::Money;
 /// use finstack_core::currency::Currency;
 ///
@@ -371,7 +371,7 @@ impl YtmSolver {
 ///     notional: Money::new(1000.0, Currency::USD),
 ///     coupon_rate: 0.05,
 ///     compounding: finstack_valuations::instruments::bond::pricing::quote_engine::YieldCompounding::Street,
-///     frequency: Frequency::semi_annual(),
+///     frequency: Tenor::semi_annual(),
 /// };
 /// let ytm = solve_ytm(&cashflows, as_of, target_price, spec)?;
 /// # Ok::<(), Box<dyn std::error::Error>>(())
@@ -418,7 +418,7 @@ mod tests {
                     notional,
                     coupon_rate,
                     compounding: YieldCompounding::Street,
-                    frequency: Frequency::annual(),
+                    frequency: Tenor::annual(),
                 },
             )
             .expect("should succeed");

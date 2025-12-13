@@ -62,8 +62,8 @@
             "swap": {
               "maturity": "2026-01-01",
               "rate": 0.047,
-              "fixed_freq": { "Months": 12 },
-              "float_freq": { "Days": 1 },
+              "fixed_freq": {"count": 12, "unit": "months"},
+              "float_freq": {"count": 1, "unit": "days"},
               "fixed_dc": "Act365F",
               "float_dc": "Act365F",
               "index": "USD-OIS"
@@ -73,8 +73,8 @@
             "swap": {
               "maturity": "2030-01-01",
               "rate": 0.049,
-              "fixed_freq": { "Months": 12 },
-              "float_freq": { "Days": 1 },
+              "fixed_freq": {"count": 12, "unit": "months"},
+              "float_freq": {"count": 1, "unit": "days"},
               "fixed_dc": "Act365F",
               "float_dc": "Act365F",
               "index": "USD-OIS"

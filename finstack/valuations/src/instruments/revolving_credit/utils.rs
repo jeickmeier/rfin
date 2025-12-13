@@ -121,7 +121,7 @@ pub(super) fn build_reset_dates(facility: &RevolvingCredit) -> Result<Option<Vec
 /// Optimized version that takes a resolved curve to avoid repeated lookups.
 pub(super) fn project_floating_rate_with_curve(
     reset_date: finstack_core::dates::Date,
-    reset_freq: &finstack_core::dates::Frequency,
+    reset_freq: &finstack_core::dates::Tenor,
     spread_bp: f64,
     floor_bp: Option<f64>,
     fwd: &finstack_core::market_data::term_structures::ForwardCurve,
@@ -193,7 +193,7 @@ pub(super) fn apply_draw_repay_event(
 /// # Arguments
 ///
 /// * `reset_date` - Start date of the reset period
-/// * `reset_freq` - Frequency determining the period length
+/// * `reset_freq` - Tenor determining the period length
 /// * `attrs` - Facility attributes (for calendar resolution)
 ///
 /// # Returns
@@ -205,19 +205,18 @@ pub(super) fn apply_draw_repay_event(
 /// Returns an error if calendar adjustment fails.
 pub(super) fn compute_reset_period_end(
     reset_date: Date,
-    reset_freq: &finstack_core::dates::Frequency,
+    reset_freq: &finstack_core::dates::Tenor,
     attrs: &Attributes,
 ) -> Result<Date> {
-    use finstack_core::dates::Frequency;
-
     // Compute unadjusted end date based on frequency
     let mut reset_end = reset_date;
-    match reset_freq {
-        Frequency::Months(m) => {
-            reset_end = reset_date.add_months(*m as i32);
+    use finstack_core::dates::TenorUnit;
+    match reset_freq.unit {
+        TenorUnit::Months => {
+            reset_end = reset_date.add_months(reset_freq.count as i32);
         }
-        Frequency::Days(d) => {
-            reset_end = reset_date + time::Duration::days(*d as i64);
+        TenorUnit::Days => {
+            reset_end = reset_date + time::Duration::days(reset_freq.count as i64);
         }
         _ => {}
     }
@@ -236,14 +235,14 @@ mod tests {
     use super::*;
     use crate::instruments::common::traits::Attributes;
     use finstack_core::currency::Currency;
-    use finstack_core::dates::{DayCount, Frequency};
+    use finstack_core::dates::{DayCount, Tenor};
     use finstack_core::money::Money;
     use time::Month;
 
     fn create_test_facility(
         start: Date,
         end: Date,
-        payment_freq: Frequency,
+        payment_freq: Tenor,
         base_rate_spec: BaseRateSpec,
         calendar_id: Option<&str>,
     ) -> RevolvingCredit {
@@ -296,7 +295,7 @@ mod tests {
         let facility = create_test_facility(
             start,
             end,
-            Frequency::quarterly(),
+            Tenor::quarterly(),
             BaseRateSpec::Fixed { rate: 0.05 },
             None,
         );
@@ -315,7 +314,7 @@ mod tests {
         let facility = create_test_facility(
             start,
             end,
-            Frequency::quarterly(),
+            Tenor::quarterly(),
             BaseRateSpec::Fixed { rate: 0.05 },
             None,
         );
@@ -343,7 +342,7 @@ mod tests {
         let facility = create_test_facility(
             start,
             end,
-            Frequency::quarterly(),
+            Tenor::quarterly(),
             BaseRateSpec::Fixed { rate: 0.05 },
             None,
         );
@@ -360,7 +359,7 @@ mod tests {
         let facility = create_test_facility(
             start,
             end,
-            Frequency::quarterly(),
+            Tenor::quarterly(),
             BaseRateSpec::Floating(crate::cashflow::builder::FloatingRateSpec {
                 index_id: "USD-SOFR-3M".into(),
                 spread_bp: 200.0,
@@ -370,7 +369,7 @@ mod tests {
                 cap_bp: None,
                 all_in_floor_bp: None,
                 index_cap_bp: None,
-                reset_freq: Frequency::quarterly(),
+                reset_freq: Tenor::quarterly(),
                 reset_lag_days: 2,
                 dc: DayCount::Act360,
                 bdc: finstack_core::dates::BusinessDayConvention::ModifiedFollowing,
@@ -396,7 +395,7 @@ mod tests {
         let facility_no_cal = create_test_facility(
             start,
             end,
-            Frequency::quarterly(),
+            Tenor::quarterly(),
             BaseRateSpec::Fixed { rate: 0.05 },
             None,
         );
@@ -407,7 +406,7 @@ mod tests {
         let facility_with_cal = create_test_facility(
             start,
             end,
-            Frequency::quarterly(),
+            Tenor::quarterly(),
             BaseRateSpec::Fixed { rate: 0.05 },
             Some("NYC"),
         );
@@ -424,8 +423,12 @@ mod tests {
             Date::from_calendar_date(2025, Month::January, 15).expect("Valid test date");
         let attrs = Attributes::new();
 
-        let reset_end = compute_reset_period_end(reset_date, &Frequency::Months(3), &attrs)
-            .expect("Reset period end calculation should succeed");
+        let reset_end = compute_reset_period_end(
+            reset_date,
+            &finstack_core::dates::Tenor::new(3, finstack_core::dates::TenorUnit::Months),
+            &attrs,
+        )
+        .expect("Reset period end calculation should succeed");
 
         // 3 months from Jan 15 should be Apr 15
         let expected = Date::from_calendar_date(2025, Month::April, 15).expect("Valid test date");
@@ -438,8 +441,12 @@ mod tests {
             Date::from_calendar_date(2025, Month::January, 15).expect("Valid test date");
         let attrs = Attributes::new();
 
-        let reset_end = compute_reset_period_end(reset_date, &Frequency::Days(90), &attrs)
-            .expect("Reset period end calculation should succeed");
+        let reset_end = compute_reset_period_end(
+            reset_date,
+            &finstack_core::dates::Tenor::new(90, finstack_core::dates::TenorUnit::Days),
+            &attrs,
+        )
+        .expect("Reset period end calculation should succeed");
 
         // 90 days from Jan 15
         let expected = reset_date + time::Duration::days(90);
@@ -454,12 +461,19 @@ mod tests {
         let attrs_no_cal = Attributes::new();
         let attrs_with_cal = Attributes::new().with_meta("calendar_id", "WMR");
 
-        let end_no_cal = compute_reset_period_end(reset_date, &Frequency::Months(1), &attrs_no_cal)
-            .expect("Reset period end calculation should succeed");
+        let end_no_cal = compute_reset_period_end(
+            reset_date,
+            &finstack_core::dates::Tenor::new(1, finstack_core::dates::TenorUnit::Months),
+            &attrs_no_cal,
+        )
+        .expect("Reset period end calculation should succeed");
 
-        let end_with_cal =
-            compute_reset_period_end(reset_date, &Frequency::Months(1), &attrs_with_cal)
-                .expect("Reset period end calculation should succeed");
+        let end_with_cal = compute_reset_period_end(
+            reset_date,
+            &finstack_core::dates::Tenor::new(1, finstack_core::dates::TenorUnit::Months),
+            &attrs_with_cal,
+        )
+        .expect("Reset period end calculation should succeed");
 
         // Both should succeed (calendar adjustment may or may not change date)
         assert!(end_no_cal.year() == 2025);

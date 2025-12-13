@@ -363,14 +363,14 @@ impl fmt::Display for PyPricerKey {
 fn parse_instrument_type(name: &str) -> PyResult<PyInstrumentType> {
     name.parse::<InstrumentType>()
         .map(PyInstrumentType::new)
-        .map_err(|e| PyValueError::new_err(e))
+        .map_err(|e| PyValueError::new_err(e.to_string()))
 }
 
 /// Parse a snake-case model label into a `ModelKey`.
 fn parse_model_key(name: &str) -> PyResult<PyModelKey> {
     name.parse::<ModelKey>()
         .map(PyModelKey::new)
-        .map_err(|e| PyValueError::new_err(e))
+        .map_err(|e| PyValueError::new_err(e.to_string()))
 }
 
 pub(crate) fn instrument_type_label(ty: InstrumentType) -> String {
@@ -455,27 +455,25 @@ pub(crate) fn to_optional_string(value: Option<&str>) -> Option<String> {
 /// Defaults to 4 (quarterly) if None is provided.
 pub(crate) fn frequency_from_payments_per_year(
     payments_per_year: Option<u32>,
-) -> PyResult<finstack_core::dates::Frequency> {
-    use finstack_core::dates::Frequency;
+) -> PyResult<finstack_core::dates::Tenor> {
+    use finstack_core::dates::Tenor;
     let payments = payments_per_year.unwrap_or(4);
-    Frequency::from_payments_per_year(payments).map_err(|e| PyValueError::new_err(e))
+    Tenor::from_payments_per_year(payments).map_err(|e| PyValueError::new_err(e.to_string()))
 }
 
 /// Parse a frequency label with broad market-friendly synonyms.
 /// Examples: "quarterly", "q", "3m"; "semi_annual", "semiannual", "6m"; "annual", "yearly", "12m"; "monthly", "1m"; "bimonthly", "2m".
-pub(crate) fn parse_frequency_label(
-    label: Option<&str>,
-) -> PyResult<finstack_core::dates::Frequency> {
-    use finstack_core::dates::Frequency;
+pub(crate) fn parse_frequency_label(label: Option<&str>) -> PyResult<finstack_core::dates::Tenor> {
+    use finstack_core::dates::Tenor;
     match label.map(normalize_label).as_deref() {
-        None => Ok(Frequency::quarterly()),
-        Some("quarterly") | Some("q") | Some("3m") => Ok(Frequency::quarterly()),
+        None => Ok(Tenor::quarterly()),
+        Some("quarterly") | Some("q") | Some("3m") => Ok(Tenor::quarterly()),
         Some("semi_annual") | Some("semiannual") | Some("6m") | Some("sa") => {
-            Ok(Frequency::semi_annual())
+            Ok(Tenor::semi_annual())
         }
-        Some("annual") | Some("yearly") | Some("12m") | Some("1y") => Ok(Frequency::annual()),
-        Some("monthly") | Some("1m") | Some("m") => Ok(Frequency::monthly()),
-        Some("bimonthly") | Some("2m") => Ok(Frequency::bimonthly()),
+        Some("annual") | Some("yearly") | Some("12m") | Some("1y") => Ok(Tenor::annual()),
+        Some("monthly") | Some("1m") | Some("m") => Ok(Tenor::monthly()),
+        Some("bimonthly") | Some("2m") => Ok(Tenor::bimonthly()),
         Some(other) => Err(PyValueError::new_err(format!(
             "Unsupported frequency label: {}",
             other

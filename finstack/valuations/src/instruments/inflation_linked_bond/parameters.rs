@@ -1,7 +1,7 @@
 //! Inflation-linked bond specific parameters.
 
 use finstack_core::{
-    dates::{Date, DayCount, Frequency},
+    dates::{Date, DayCount, Tenor},
     money::Money,
 };
 
@@ -21,7 +21,7 @@ pub struct InflationLinkedBondParams {
     /// Base index value at issue
     pub base_index: f64,
     /// Payment frequency
-    pub frequency: Frequency,
+    pub frequency: Tenor,
     /// Day count convention
     pub day_count: DayCount,
 }
@@ -34,7 +34,7 @@ impl InflationLinkedBondParams {
         issue: Date,
         maturity: Date,
         base_index: f64,
-        frequency: Frequency,
+        frequency: Tenor,
         day_count: DayCount,
     ) -> Self {
         Self {
@@ -62,7 +62,7 @@ impl InflationLinkedBondParams {
             issue,
             maturity,
             base_index,
-            Frequency::semi_annual(),
+            Tenor::semi_annual(),
             DayCount::ActAct,
         )
     }
@@ -81,7 +81,7 @@ impl InflationLinkedBondParams {
             issue,
             maturity,
             base_index,
-            Frequency::semi_annual(),
+            Tenor::semi_annual(),
             DayCount::ActAct,
         )
     }

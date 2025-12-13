@@ -138,6 +138,30 @@ impl Tenor {
         Self { count, unit }
     }
 
+    /// Get the number of months if the tenor is month-based or year-based.
+    ///
+    /// Returns `Some(months)` for Month and Year units (converting years to months).
+    /// Returns `None` for Day and Week units.
+    pub const fn months(&self) -> Option<u32> {
+        match self.unit {
+            TenorUnit::Months => Some(self.count),
+            TenorUnit::Years => Some(self.count * 12),
+            _ => None,
+        }
+    }
+
+    /// Get the number of days if the tenor is day-based or week-based.
+    ///
+    /// Returns `Some(days)` for Day and Week units (converting weeks to days).
+    /// Returns `None` for Month and Year units.
+    pub const fn days(&self) -> Option<u32> {
+        match self.unit {
+            TenorUnit::Days => Some(self.count),
+            TenorUnit::Weeks => Some(self.count * 7),
+            _ => None,
+        }
+    }
+
     /// Create a Tenor from a year fraction using a day count convention.
     ///
     /// If the year fraction corresponds to an integer number of months (within a small epsilon),

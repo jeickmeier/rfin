@@ -9,7 +9,7 @@ use crate::errors::{core_to_py, PyContext};
 use crate::valuations::common::intern_calendar_id_opt;
 use crate::valuations::common::PyInstrumentType;
 use finstack_core::currency::Currency;
-use finstack_core::dates::{BusinessDayConvention, DayCount, Frequency, StubKind};
+use finstack_core::dates::{BusinessDayConvention, DayCount, StubKind, Tenor};
 use finstack_core::money::Money;
 use finstack_core::types::{CurveId, InstrumentId};
 use finstack_valuations::instruments::irs::{
@@ -135,8 +135,8 @@ pub struct PyInterestRateSwapBuilder {
     end: Option<time::Date>,
     discount_curve: Option<CurveId>,
     forward_curve: Option<CurveId>,
-    fixed_frequency: Frequency,
-    float_frequency: Frequency,
+    fixed_frequency: Tenor,
+    float_frequency: Tenor,
     fixed_day_count: DayCount,
     float_day_count: DayCount,
     bdc: BusinessDayConvention,
@@ -158,8 +158,8 @@ impl PyInterestRateSwapBuilder {
             end: None,
             discount_curve: None,
             forward_curve: None,
-            fixed_frequency: Frequency::semi_annual(),
-            float_frequency: Frequency::quarterly(),
+            fixed_frequency: Tenor::semi_annual(),
+            float_frequency: Tenor::quarterly(),
             fixed_day_count: DayCount::Thirty360,
             float_day_count: DayCount::Act360,
             bdc: BusinessDayConvention::ModifiedFollowing,
@@ -221,32 +221,32 @@ impl PyInterestRateSwapBuilder {
         }
     }
 
-    fn parse_frequency(value: &Bound<'_, PyAny>) -> PyResult<Frequency> {
+    fn parse_frequency(value: &Bound<'_, PyAny>) -> PyResult<Tenor> {
         if let Ok(py_freq) = value.extract::<PyRef<PyFrequency>>() {
-            return Ok(py_freq.inner);
+            return Ok((*py_freq).inner);
         }
         if let Ok(name) = value.extract::<&str>() {
             let normalized = name.to_lowercase();
             return match normalized.as_str() {
-                "annual" | "1y" | "yearly" => Ok(Frequency::annual()),
-                "semiannual" | "semi_annual" | "semi" | "6m" => Ok(Frequency::semi_annual()),
-                "quarterly" | "qtr" | "3m" => Ok(Frequency::quarterly()),
-                "monthly" | "1m" => Ok(Frequency::monthly()),
-                "biweekly" | "2w" => Ok(Frequency::biweekly()),
-                "weekly" | "1w" => Ok(Frequency::weekly()),
-                "daily" | "1d" => Ok(Frequency::daily()),
-                other => Frequency::from_payments_per_year(other.parse::<u32>().map_err(|_| {
-                    PyValueError::new_err("frequency expects Frequency, name, or payments per year")
+                "annual" | "1y" | "yearly" => Ok(Tenor::annual()),
+                "semiannual" | "semi_annual" | "semi" | "6m" => Ok(Tenor::semi_annual()),
+                "quarterly" | "qtr" | "3m" => Ok(Tenor::quarterly()),
+                "monthly" | "1m" => Ok(Tenor::monthly()),
+                "biweekly" | "2w" => Ok(Tenor::biweekly()),
+                "weekly" | "1w" => Ok(Tenor::weekly()),
+                "daily" | "1d" => Ok(Tenor::daily()),
+                other => Tenor::from_payments_per_year(other.parse::<u32>().map_err(|_| {
+                    PyValueError::new_err("frequency expects Tenor, name, or payments per year")
                 })?)
-                .map_err(|msg| PyValueError::new_err(msg)),
+                .map_err(|msg| PyValueError::new_err(msg.to_string())),
             };
         }
         if let Ok(payments) = value.extract::<u32>() {
-            return Frequency::from_payments_per_year(payments)
-                .map_err(|msg| PyValueError::new_err(msg));
+            return Tenor::from_payments_per_year(payments)
+                .map_err(|msg| PyValueError::new_err(msg.to_string()));
         }
         Err(PyTypeError::new_err(
-            "frequency expects Frequency, str, or int payments_per_year",
+            "frequency expects Tenor, str, or int payments_per_year",
         ))
     }
 
@@ -775,10 +775,10 @@ impl PyInterestRateSwap {
 
         let fixed_freq = fixed_frequency
             .map(|f| f.inner)
-            .unwrap_or_else(Frequency::semi_annual);
+            .unwrap_or_else(Tenor::semi_annual);
         let float_freq = float_frequency
             .map(|f| f.inner)
-            .unwrap_or_else(Frequency::quarterly);
+            .unwrap_or_else(Tenor::quarterly);
 
         let fixed_dc = if let Some(obj) = fixed_day_count {
             let DayCountArg(value) = obj.extract()?;

@@ -1,7 +1,7 @@
 //! Theta (time decay) tests.
 
 use finstack_core::currency::Currency;
-use finstack_core::dates::{BusinessDayConvention, DayCount, Frequency, StubKind};
+use finstack_core::dates::{BusinessDayConvention, DayCount, StubKind, Tenor};
 use finstack_core::market_data::context::MarketContext;
 use finstack_core::money::Money;
 use finstack_core::types::CurveId;
@@ -24,7 +24,7 @@ fn test_theta_reflects_time_decay() {
         .issue(as_of)
         .maturity(date!(2030 - 01 - 01))
         .rate(RateSpec::Fixed { rate_bp: 500 })
-        .pay_freq(Frequency::semi_annual())
+        .pay_freq(Tenor::semi_annual())
         .day_count(DayCount::Act360)
         .bdc(BusinessDayConvention::ModifiedFollowing)
         .calendar_id_opt(None)

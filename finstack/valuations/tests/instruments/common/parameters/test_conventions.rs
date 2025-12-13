@@ -1,6 +1,6 @@
 //! Tests for market conventions.
 
-use finstack_core::dates::{BusinessDayConvention, DayCount, Frequency};
+use finstack_core::dates::{BusinessDayConvention, DayCount, Tenor};
 use finstack_valuations::instruments::common::parameters::{BondConvention, IRSConvention};
 use std::str::FromStr;
 
@@ -11,7 +11,7 @@ fn test_bond_convention_us_treasury() {
 
     // Assert
     assert_eq!(conv.day_count(), DayCount::ActActIsma);
-    assert_eq!(conv.frequency(), Frequency::semi_annual());
+    assert_eq!(conv.frequency(), Tenor::semi_annual());
     assert_eq!(
         conv.business_day_convention(),
         BusinessDayConvention::Following
@@ -26,7 +26,7 @@ fn test_bond_convention_german_bund() {
 
     // Assert
     assert_eq!(conv.day_count(), DayCount::ActActIsma);
-    assert_eq!(conv.frequency(), Frequency::annual());
+    assert_eq!(conv.frequency(), Tenor::annual());
 }
 
 #[test]
@@ -58,7 +58,7 @@ fn test_irs_convention_usd() {
     // Assert
     assert_eq!(conv.fixed_day_count(), DayCount::Thirty360);
     assert_eq!(conv.float_day_count(), DayCount::Act360);
-    assert_eq!(conv.fixed_frequency(), Frequency::semi_annual());
+    assert_eq!(conv.fixed_frequency(), Tenor::semi_annual());
     assert_eq!(conv.disc_curve_id(), "USD-OIS");
 }
 
@@ -68,6 +68,6 @@ fn test_irs_convention_eur() {
     let conv = IRSConvention::EURStandard;
 
     // Assert
-    assert_eq!(conv.fixed_frequency(), Frequency::annual());
-    assert_eq!(conv.float_frequency(), Frequency::semi_annual());
+    assert_eq!(conv.fixed_frequency(), Tenor::annual());
+    assert_eq!(conv.float_frequency(), Tenor::semi_annual());
 }

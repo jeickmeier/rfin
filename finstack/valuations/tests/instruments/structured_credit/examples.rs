@@ -10,7 +10,7 @@
 mod tests {
     use finstack_core::{
         currency::Currency,
-        dates::{Date, Frequency},
+        dates::{Date, Tenor},
         money::Money,
         types::ratings::{moodys_warf_factor, CreditRating},
     };
@@ -30,7 +30,7 @@ mod tests {
             Date::from_calendar_date(2024, Month::March, 15).unwrap(), // Actual closing
             Date::from_calendar_date(2024, Month::June, 15).unwrap(),  // First payment
             Date::from_calendar_date(2031, Month::March, 15).unwrap(), // Maturity (7yr)
-            Frequency::quarterly(),
+            Tenor::quarterly(),
         )
         .with_reinvestment_end(Date::from_calendar_date(2026, Month::March, 15).unwrap()); // 2yr reinvestment
 
@@ -343,7 +343,7 @@ mod tests {
             Date::from_calendar_date(2024, Month::March, 15).unwrap(),
             Date::from_calendar_date(2024, Month::June, 15).unwrap(),
             maturity,
-            Frequency::quarterly(),
+            Tenor::quarterly(),
         );
 
         let mut config = DealConfig::clo_standard(dates, Currency::USD);
@@ -454,7 +454,7 @@ mod tests {
             Date::from_calendar_date(2024, Month::June, 1).unwrap(),
             Date::from_calendar_date(2024, Month::July, 1).unwrap(),
             Date::from_calendar_date(2054, Month::June, 1).unwrap(), // 30-year
-            Frequency::monthly(),
+            Tenor::monthly(),
         );
 
         let config = DealConfig::rmbs_standard(dates, Currency::USD);
@@ -480,7 +480,7 @@ mod tests {
             Date::from_calendar_date(2024, Month::September, 1).unwrap(),
             Date::from_calendar_date(2024, Month::October, 1).unwrap(),
             Date::from_calendar_date(2029, Month::September, 1).unwrap(), // 5-year
-            Frequency::monthly(),
+            Tenor::monthly(),
         );
 
         let config = DealConfig::abs_standard(dates, Currency::USD);
@@ -504,7 +504,7 @@ mod tests {
             Date::from_calendar_date(2024, Month::November, 1).unwrap(),
             Date::from_calendar_date(2024, Month::December, 1).unwrap(),
             Date::from_calendar_date(2034, Month::November, 1).unwrap(), // 10-year
-            Frequency::monthly(),
+            Tenor::monthly(),
         );
 
         let config = DealConfig::cmbs_standard(dates, Currency::USD);

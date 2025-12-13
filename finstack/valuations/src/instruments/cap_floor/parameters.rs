@@ -5,7 +5,7 @@
 
 use super::types::RateOptionType;
 use finstack_core::{
-    dates::{BusinessDayConvention, DayCount, Frequency, StubKind},
+    dates::{BusinessDayConvention, DayCount, StubKind, Tenor},
     money::Money,
 };
 
@@ -21,7 +21,7 @@ pub struct InterestRateOptionParams {
     /// Strike rate
     pub strike_rate: f64,
     /// Payment frequency
-    pub frequency: Frequency,
+    pub frequency: Tenor,
     /// Day count convention
     pub day_count: DayCount,
     /// Stub convention for schedule generation
@@ -34,12 +34,7 @@ pub struct InterestRateOptionParams {
 
 impl InterestRateOptionParams {
     /// Create cap parameters
-    pub fn cap(
-        notional: Money,
-        strike_rate: f64,
-        frequency: Frequency,
-        day_count: DayCount,
-    ) -> Self {
+    pub fn cap(notional: Money, strike_rate: f64, frequency: Tenor, day_count: DayCount) -> Self {
         Self {
             rate_option_type: RateOptionType::Cap,
             notional,
@@ -53,12 +48,7 @@ impl InterestRateOptionParams {
     }
 
     /// Create floor parameters
-    pub fn floor(
-        notional: Money,
-        strike_rate: f64,
-        frequency: Frequency,
-        day_count: DayCount,
-    ) -> Self {
+    pub fn floor(notional: Money, strike_rate: f64, frequency: Tenor, day_count: DayCount) -> Self {
         Self {
             rate_option_type: RateOptionType::Floor,
             notional,

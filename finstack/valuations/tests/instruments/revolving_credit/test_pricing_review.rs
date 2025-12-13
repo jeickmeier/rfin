@@ -1,5 +1,5 @@
 use finstack_core::currency::Currency;
-use finstack_core::dates::{Date, DayCount, Frequency};
+use finstack_core::dates::{Date, DayCount, Tenor};
 use finstack_core::market_data::context::MarketContext;
 use finstack_core::market_data::term_structures::discount_curve::DiscountCurve;
 use finstack_core::market_data::term_structures::hazard_curve::HazardCurve;
@@ -45,7 +45,7 @@ fn test_pricing_recovery_consistency() {
         .maturity_date(maturity)
         .base_rate_spec(BaseRateSpec::Fixed { rate: 0.07 }) // 7% Coupon
         .day_count(DayCount::Act365F)
-        .payment_frequency(Frequency::annual()) // Single payment at end
+        .payment_frequency(Tenor::annual()) // Single payment at end
         .fees(RevolvingCreditFees::default()) // No extra fees
         .draw_repay_spec(DrawRepaySpec::Deterministic(vec![])) // No changes
         .discount_curve_id("USD-OIS".into())

@@ -53,7 +53,7 @@ impl FIIndexTotalReturnSwap {
         use crate::cashflow::builder::ScheduleParams;
         use crate::instruments::trs::types::{TrsScheduleSpec, TrsSide};
         use finstack_core::currency::Currency;
-        use finstack_core::dates::{BusinessDayConvention, DayCount, Frequency, StubKind};
+        use finstack_core::dates::{BusinessDayConvention, DayCount, StubKind, Tenor};
         let underlying = IndexUnderlyingParams::new("US-CORP-INDEX", Currency::USD)
             .with_yield("US-CORP-YIELD")
             .with_duration("US-CORP-DURATION")
@@ -69,7 +69,7 @@ impl FIIndexTotalReturnSwap {
             Date::from_calendar_date(2024, time::Month::January, 1).expect("Valid example date"),
             Date::from_calendar_date(2025, time::Month::January, 1).expect("Valid example date"),
             ScheduleParams {
-                freq: Frequency::quarterly(),
+                freq: Tenor::quarterly(),
                 dc: DayCount::Act360,
                 bdc: BusinessDayConvention::Following,
                 calendar_id: None,

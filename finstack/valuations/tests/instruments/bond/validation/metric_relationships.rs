@@ -23,7 +23,7 @@
 //! - Numerical precision in bump-and-reprice vs analytical formula
 
 use finstack_core::currency::Currency;
-use finstack_core::dates::{Date, DayCount, Frequency};
+use finstack_core::dates::{Date, DayCount, Tenor};
 use finstack_core::market_data::context::MarketContext;
 use finstack_core::market_data::term_structures::DiscountCurve;
 use finstack_core::money::Money;
@@ -101,7 +101,7 @@ fn test_dv01_duration_price_relationship() {
         .notional(Money::new(100.0, Currency::USD))
         .cashflow_spec(CashflowSpec::fixed(
             0.08,
-            Frequency::annual(),
+            Tenor::annual(),
             DayCount::Act365F,
         ))
         .issue(as_of)

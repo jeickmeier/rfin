@@ -2,7 +2,7 @@
 //!
 //! Validates period generation for multi-period caps and floors.
 
-use finstack_core::dates::{BusinessDayConvention, DayCount, Frequency, StubKind};
+use finstack_core::dates::{BusinessDayConvention, DayCount, StubKind, Tenor};
 use finstack_valuations::cashflow::builder::date_generation::build_dates;
 use time::macros::date;
 
@@ -14,7 +14,7 @@ fn test_quarterly_schedule_generation() {
     let schedule = build_dates(
         start,
         end,
-        Frequency::quarterly(),
+        Tenor::quarterly(),
         StubKind::None,
         BusinessDayConvention::ModifiedFollowing,
         None,
@@ -34,7 +34,7 @@ fn test_semi_annual_schedule() {
     let schedule = build_dates(
         start,
         end,
-        Frequency::semi_annual(),
+        Tenor::semi_annual(),
         StubKind::None,
         BusinessDayConvention::Following,
         None,
@@ -52,7 +52,7 @@ fn test_annual_schedule() {
     let schedule = build_dates(
         start,
         end,
-        Frequency::annual(),
+        Tenor::annual(),
         StubKind::None,
         BusinessDayConvention::Following,
         None,
@@ -70,7 +70,7 @@ fn test_monthly_schedule() {
     let schedule = build_dates(
         start,
         end,
-        Frequency::monthly(),
+        Tenor::monthly(),
         StubKind::None,
         BusinessDayConvention::Following,
         None,
@@ -88,7 +88,7 @@ fn test_schedule_ordering() {
     let schedule = build_dates(
         start,
         end,
-        Frequency::quarterly(),
+        Tenor::quarterly(),
         StubKind::None,
         BusinessDayConvention::Following,
         None,
@@ -111,7 +111,7 @@ fn test_period_coverage() {
     let schedule = build_dates(
         start,
         end,
-        Frequency::quarterly(),
+        Tenor::quarterly(),
         StubKind::None,
         BusinessDayConvention::Following,
         None,

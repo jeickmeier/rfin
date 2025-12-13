@@ -7,7 +7,7 @@
 //! - Edge cases and error handling
 
 use finstack_core::currency::Currency;
-use finstack_core::dates::{BusinessDayConvention, DayCount, Frequency, StubKind};
+use finstack_core::dates::{BusinessDayConvention, DayCount, StubKind, Tenor};
 use finstack_core::money::Money;
 use finstack_valuations::instruments::irs::{InterestRateSwap, PayReceive};
 use time::macros::date;
@@ -44,7 +44,7 @@ fn test_irs_builder_pattern() {
             finstack_valuations::instruments::common::parameters::legs::FixedLegSpec {
                 discount_curve_id: "USD_OIS".into(),
                 rate: 0.0325,
-                freq: Frequency::semi_annual(),
+                freq: Tenor::semi_annual(),
                 dc: DayCount::Thirty360,
                 bdc: BusinessDayConvention::ModifiedFollowing,
                 calendar_id: Some("usny".to_string()),
@@ -61,7 +61,7 @@ fn test_irs_builder_pattern() {
                 discount_curve_id: "USD_OIS".into(),
                 forward_curve_id: "USD_LIBOR_3M".into(),
                 spread_bp: 25.0,
-                freq: Frequency::quarterly(),
+                freq: Tenor::quarterly(),
                 dc: DayCount::Act360,
                 bdc: BusinessDayConvention::ModifiedFollowing,
                 calendar_id: Some("usny".to_string()),
@@ -82,8 +82,8 @@ fn test_irs_builder_pattern() {
     assert_eq!(swap.notional.amount(), 5_000_000.0);
     assert_eq!(swap.fixed.rate, 0.0325);
     assert_eq!(swap.float.spread_bp, 25.0);
-    assert_eq!(swap.fixed.freq, Frequency::semi_annual());
-    assert_eq!(swap.float.freq, Frequency::quarterly());
+    assert_eq!(swap.fixed.freq, Tenor::semi_annual());
+    assert_eq!(swap.float.freq, Tenor::quarterly());
 }
 
 #[test]
@@ -230,7 +230,7 @@ fn test_irs_different_leg_frequencies() {
             finstack_valuations::instruments::common::parameters::legs::FixedLegSpec {
                 discount_curve_id: "USD_OIS".into(),
                 rate: 0.05,
-                freq: Frequency::semi_annual(),
+                freq: Tenor::semi_annual(),
                 dc: DayCount::Thirty360,
                 bdc: BusinessDayConvention::ModifiedFollowing,
                 calendar_id: None,
@@ -247,7 +247,7 @@ fn test_irs_different_leg_frequencies() {
                 discount_curve_id: "USD_OIS".into(),
                 forward_curve_id: "USD_LIBOR_3M".into(),
                 spread_bp: 0.0,
-                freq: Frequency::quarterly(),
+                freq: Tenor::quarterly(),
                 dc: DayCount::Act360,
                 bdc: BusinessDayConvention::ModifiedFollowing,
                 calendar_id: None,
@@ -263,8 +263,8 @@ fn test_irs_different_leg_frequencies() {
         .build()
         .unwrap();
 
-    assert_eq!(swap.fixed.freq, Frequency::semi_annual());
-    assert_eq!(swap.float.freq, Frequency::quarterly());
+    assert_eq!(swap.fixed.freq, Tenor::semi_annual());
+    assert_eq!(swap.float.freq, Tenor::quarterly());
 }
 
 #[test]
@@ -304,7 +304,7 @@ fn test_irs_calendar_specification() {
             finstack_valuations::instruments::common::parameters::legs::FixedLegSpec {
                 discount_curve_id: "USD_OIS".into(),
                 rate: 0.05,
-                freq: Frequency::semi_annual(),
+                freq: Tenor::semi_annual(),
                 dc: DayCount::Thirty360,
                 bdc: BusinessDayConvention::ModifiedFollowing,
                 calendar_id: Some("usny".to_string()),
@@ -321,7 +321,7 @@ fn test_irs_calendar_specification() {
                 discount_curve_id: "USD_OIS".into(),
                 forward_curve_id: "USD_LIBOR_3M".into(),
                 spread_bp: 0.0,
-                freq: Frequency::quarterly(),
+                freq: Tenor::quarterly(),
                 dc: DayCount::Act360,
                 bdc: BusinessDayConvention::ModifiedFollowing,
                 calendar_id: Some("usny".to_string()),
@@ -351,7 +351,7 @@ fn test_irs_stub_specification() {
             finstack_valuations::instruments::common::parameters::legs::FixedLegSpec {
                 discount_curve_id: "USD_OIS".into(),
                 rate: 0.05,
-                freq: Frequency::semi_annual(),
+                freq: Tenor::semi_annual(),
                 dc: DayCount::Thirty360,
                 bdc: BusinessDayConvention::ModifiedFollowing,
                 calendar_id: None,
@@ -368,7 +368,7 @@ fn test_irs_stub_specification() {
                 discount_curve_id: "USD_OIS".into(),
                 forward_curve_id: "USD_LIBOR_3M".into(),
                 spread_bp: 0.0,
-                freq: Frequency::quarterly(),
+                freq: Tenor::quarterly(),
                 dc: DayCount::Act360,
                 bdc: BusinessDayConvention::ModifiedFollowing,
                 calendar_id: None,

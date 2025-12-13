@@ -7,7 +7,7 @@ use super::labels::normalize_label;
 use crate::core::error::js_error;
 use finstack_core::cashflow::primitives::CFKind;
 use finstack_core::config::RoundingMode;
-use finstack_core::dates::{BusinessDayConvention, DayCount, Frequency, StubKind};
+use finstack_core::dates::{BusinessDayConvention, DayCount, StubKind, Tenor};
 use finstack_core::math::interp::{ExtrapolationPolicy, InterpStyle};
 use wasm_bindgen::JsValue;
 
@@ -142,20 +142,20 @@ impl ParseFromString for CFKind {
     }
 }
 
-// Frequency parsing
-impl ParseFromString for Frequency {
+// Tenor parsing
+impl ParseFromString for Tenor {
     /// Parse a frequency from a string label.
     fn parse_from_string(label: &str) -> Result<Self, JsValue> {
         let normalized = normalize_label(label);
         match normalized.as_str() {
-            "annual" | "yearly" => Ok(Frequency::annual()),
-            "semiannual" | "semi_annual" => Ok(Frequency::semi_annual()),
-            "quarterly" => Ok(Frequency::quarterly()),
-            "monthly" => Ok(Frequency::monthly()),
-            "bimonthly" | "bi_monthly" => Ok(Frequency::bimonthly()),
-            "biweekly" | "bi_weekly" => Ok(Frequency::biweekly()),
-            "weekly" => Ok(Frequency::weekly()),
-            "daily" => Ok(Frequency::daily()),
+            "annual" | "yearly" => Ok(Tenor::annual()),
+            "semiannual" | "semi_annual" => Ok(Tenor::semi_annual()),
+            "quarterly" => Ok(Tenor::quarterly()),
+            "monthly" => Ok(Tenor::monthly()),
+            "bimonthly" | "bi_monthly" => Ok(Tenor::bimonthly()),
+            "biweekly" | "bi_weekly" => Ok(Tenor::biweekly()),
+            "weekly" => Ok(Tenor::weekly()),
+            "daily" => Ok(Tenor::daily()),
             _ => Err(js_error(format!("Unknown frequency: {}", label))),
         }
     }

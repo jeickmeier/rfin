@@ -12,7 +12,7 @@
 //! - Build period definitions from payment dates for PV aggregation
 //! - Apply business day adjustments using calendars
 
-use finstack_core::dates::{BusinessDayConvention, Date, Frequency, ScheduleBuilder, StubKind};
+use finstack_core::dates::{BusinessDayConvention, Date, ScheduleBuilder, StubKind, Tenor};
 
 /// Period schedule with helper maps/flags for coupon generation.
 /// Period schedule output with business day adjustment tracking.
@@ -76,7 +76,7 @@ impl From<ScheduleError> for finstack_core::Error {
 fn build_dates_impl(
     start: Date,
     end: Date,
-    freq: Frequency,
+    freq: Tenor,
     stub: StubKind,
     bdc: BusinessDayConvention,
     calendar_id: Option<&str>,
@@ -126,20 +126,20 @@ fn build_dates_impl(
 /// # Example
 ///
 /// ```rust
-/// use finstack_core::dates::{Date, Frequency, BusinessDayConvention, StubKind, create_date};
+/// use finstack_core::dates::{Date, Tenor, BusinessDayConvention, StubKind, create_date};
 /// use finstack_valuations::cashflow::builder::date_generation::build_dates;
 /// use time::Month;
 ///
 /// let start = create_date(2025, Month::January, 15)?;
 /// let end = create_date(2025, Month::July, 15)?;
-/// let sched = build_dates(start, end, Frequency::quarterly(), StubKind::None, BusinessDayConvention::Following, None);
+/// let sched = build_dates(start, end, Tenor::quarterly(), StubKind::None, BusinessDayConvention::Following, None);
 /// assert!(sched.dates.len() >= 2);
 /// # Ok::<(), finstack_core::Error>(())
 /// ```
 pub fn build_dates(
     start: Date,
     end: Date,
-    freq: Frequency,
+    freq: Tenor,
     stub: StubKind,
     bdc: BusinessDayConvention,
     calendar_id: Option<&str>,
@@ -170,7 +170,7 @@ pub fn build_dates(
 /// # Example
 ///
 /// ```rust
-/// use finstack_core::dates::{Date, Frequency, BusinessDayConvention, StubKind, create_date};
+/// use finstack_core::dates::{Date, Tenor, BusinessDayConvention, StubKind, create_date};
 /// use finstack_valuations::cashflow::builder::date_generation::build_dates_checked;
 /// use time::Month;
 ///
@@ -178,7 +178,7 @@ pub fn build_dates(
 /// let end = create_date(2025, Month::July, 15)?;
 /// let sched = build_dates_checked(
 ///     start, end,
-///     Frequency::quarterly(),
+///     Tenor::quarterly(),
 ///     StubKind::None,
 ///     BusinessDayConvention::Following,
 ///     None
@@ -189,7 +189,7 @@ pub fn build_dates(
 pub fn build_dates_checked(
     start: Date,
     end: Date,
-    freq: Frequency,
+    freq: Tenor,
     stub: StubKind,
     bdc: BusinessDayConvention,
     calendar_id: Option<&str>,
@@ -210,7 +210,7 @@ pub fn build_dates_checked(
 /// Vector of Period objects suitable for cashflow aggregation
 pub fn build_periods_from_payment_dates(
     payment_dates: &[Date],
-    frequency: Frequency,
+    frequency: Tenor,
 ) -> Vec<finstack_core::dates::Period> {
     use finstack_core::dates::{Period, PeriodId, PeriodKind};
 
@@ -221,12 +221,14 @@ pub fn build_periods_from_payment_dates(
     let mut periods = Vec::with_capacity(payment_dates.len() - 1);
 
     // Determine period kind from frequency
-    let period_kind = match frequency {
-        Frequency::Months(12) => PeriodKind::Annual,
-        Frequency::Months(6) => PeriodKind::SemiAnnual,
-        Frequency::Months(3) => PeriodKind::Quarterly,
-        Frequency::Months(1) => PeriodKind::Monthly,
-        Frequency::Days(7) => PeriodKind::Weekly,
+    let period_kind = match (frequency.count, frequency.unit) {
+        (12, finstack_core::dates::TenorUnit::Months) => PeriodKind::Annual,
+        (1, finstack_core::dates::TenorUnit::Years) => PeriodKind::Annual,
+        (6, finstack_core::dates::TenorUnit::Months) => PeriodKind::SemiAnnual,
+        (3, finstack_core::dates::TenorUnit::Months) => PeriodKind::Quarterly,
+        (1, finstack_core::dates::TenorUnit::Months) => PeriodKind::Monthly,
+        (7, finstack_core::dates::TenorUnit::Days) => PeriodKind::Weekly,
+        (1, finstack_core::dates::TenorUnit::Weeks) => PeriodKind::Weekly,
         _ => PeriodKind::Quarterly, // Default fallback
     };
 
@@ -299,7 +301,7 @@ mod tests {
         let res = build_dates_checked(
             d(2025, 1, 1),
             d(2025, 4, 1),
-            Frequency::quarterly(),
+            Tenor::quarterly(),
             StubKind::None,
             BusinessDayConvention::Following,
             Some("NOT_A_CAL"),

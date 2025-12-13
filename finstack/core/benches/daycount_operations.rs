@@ -11,7 +11,7 @@ mod bench_utils;
 use bench_utils::bench_iter;
 use criterion::{criterion_group, criterion_main, BenchmarkId, Criterion};
 use finstack_core::dates::calendar::TARGET2;
-use finstack_core::dates::{Date, DayCount, DayCountCtx, Frequency};
+use finstack_core::dates::{Date, DayCount, DayCountCtx, Tenor};
 use std::hint::black_box;
 use time::Month;
 
@@ -50,10 +50,10 @@ fn bench_daycount_actact_isma(c: &mut Criterion) {
     let end = Date::from_calendar_date(2024, Month::July, 1).unwrap();
 
     let frequencies = [
-        ("Annual", Frequency::Months(12)),
-        ("SemiAnnual", Frequency::Months(6)),
-        ("Quarterly", Frequency::Months(3)),
-        ("Monthly", Frequency::Months(1)),
+        ("Annual", Tenor::annual()),
+        ("SemiAnnual", Tenor::semi_annual()),
+        ("Quarterly", Tenor::quarterly()),
+        ("Monthly", Tenor::monthly()),
     ];
 
     for (name, freq) in frequencies {

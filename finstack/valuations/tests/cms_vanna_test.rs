@@ -1,7 +1,7 @@
 #![cfg(any())]
 
 mod cms_vanna_test {
-    use finstack_core::dates::{DayCount, Frequency};
+    use finstack_core::dates::{DayCount, Tenor};
     use finstack_core::market_data::context::MarketContext;
     use finstack_core::market_data::{
         surfaces::vol_surface::VolSurface,
@@ -34,8 +34,8 @@ mod cms_vanna_test {
             fixing_dates,
             accrual_fractions,
             cms_tenor: 10.0,
-            swap_fixed_freq: Frequency::semi_annual(),
-            swap_float_freq: Frequency::quarterly(),
+            swap_fixed_freq: Tenor::semi_annual(),
+            swap_float_freq: Tenor::quarterly(),
             swap_day_count: DayCount::Thirty360,
             day_count: DayCount::Thirty360,
             discount_curve_id: CurveId::new("USD-OIS"),
@@ -89,7 +89,7 @@ mod cms_vanna_test {
         Ok(())
     }
 }
-use finstack_core::dates::{BusinessDayConvention, Date, DayCount, Frequency, StubKind};
+use finstack_core::dates::{BusinessDayConvention, Date, DayCount, StubKind, Tenor};
 use finstack_core::market_data::context::MarketContext;
 use finstack_core::market_data::term_structures::discount_curve::DiscountCurve;
 use finstack_core::money::Money;
@@ -120,8 +120,8 @@ fn test_cms_option_vanna() -> finstack_core::Result<()> {
         fixing_dates,
         accrual_fractions,
         cms_tenor: 10.0,
-        swap_fixed_freq: Frequency::semi_annual(),
-        swap_float_freq: Frequency::quarterly(),
+        swap_fixed_freq: Tenor::semi_annual(),
+        swap_float_freq: Tenor::quarterly(),
         swap_day_count: DayCount::Thirty360,
         day_count: DayCount::Thirty360,
         discount_curve_id: CurveId::new("USD-OIS"),

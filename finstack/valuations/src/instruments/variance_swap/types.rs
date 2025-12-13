@@ -1,7 +1,7 @@
 //! Variance swap type definitions.
 
 use finstack_core::{
-    dates::{Date, DayCount, Frequency},
+    dates::{Date, DayCount, Tenor},
     market_data::context::MarketContext,
     math::stats::{realized_variance, RealizedVarMethod},
     money::Money,
@@ -76,7 +76,7 @@ pub struct VarianceSwap {
     /// Maturity/settlement date
     pub maturity: Date,
     /// Observation frequency
-    pub observation_freq: Frequency,
+    pub observation_freq: Tenor,
     /// Method for calculating realized variance
     pub realized_var_method: RealizedVarMethod,
     /// Pay/receive variance
@@ -107,7 +107,7 @@ impl VarianceSwap {
             .maturity(
                 Date::from_calendar_date(2025, Month::January, 1).expect("Valid example date"),
             )
-            .observation_freq(finstack_core::dates::Frequency::daily())
+            .observation_freq(finstack_core::dates::Tenor::daily())
             .realized_var_method(RealizedVarMethod::Parkinson)
             .side(PayReceive::Receive)
             .discount_curve_id(CurveId::new("USD-OIS"))

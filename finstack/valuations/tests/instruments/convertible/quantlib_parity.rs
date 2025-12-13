@@ -20,7 +20,7 @@
 #[allow(unused_imports)]
 use crate::quantlib_parity_helpers::*;
 use finstack_core::currency::Currency;
-use finstack_core::dates::{BusinessDayConvention, Date, DayCount, Frequency, StubKind};
+use finstack_core::dates::{BusinessDayConvention, Date, DayCount, StubKind, Tenor};
 use finstack_core::market_data::context::MarketContext;
 use finstack_core::market_data::scalars::MarketScalar;
 use finstack_core::market_data::term_structures::DiscountCurve;
@@ -88,7 +88,7 @@ fn create_quantlib_convertible(
     let fixed_coupon = FixedCouponSpec {
         coupon_type: CouponType::Cash,
         rate: coupon_rate,
-        freq: Frequency::semi_annual(),
+        freq: Tenor::semi_annual(),
         dc: DayCount::Act365F,
         bdc: BusinessDayConvention::Following,
         calendar_id: None,
@@ -883,7 +883,7 @@ fn quantlib_parity_mandatory_conversion() {
     let fixed_coupon = FixedCouponSpec {
         coupon_type: CouponType::Cash,
         rate: 0.05,
-        freq: Frequency::semi_annual(),
+        freq: Tenor::semi_annual(),
         dc: DayCount::Act365F,
         bdc: BusinessDayConvention::Following,
         calendar_id: None,
@@ -955,7 +955,7 @@ fn quantlib_parity_window_conversion() {
     let fixed_coupon = FixedCouponSpec {
         coupon_type: CouponType::Cash,
         rate: 0.05,
-        freq: Frequency::semi_annual(),
+        freq: Tenor::semi_annual(),
         dc: DayCount::Act365F,
         bdc: BusinessDayConvention::Following,
         calendar_id: None,

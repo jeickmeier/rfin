@@ -13,9 +13,7 @@
       "premium": {
         "start": "2024-03-20",
         "end": "2029-03-20",
-        "freq": {
-          "Months": 3
-        },
+        "freq": {"count": 3, "unit": "months"},
         "stub": "ShortFront",
         "bdc": "following",
         "calendar_id": null,

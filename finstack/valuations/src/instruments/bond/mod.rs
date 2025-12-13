@@ -98,7 +98,7 @@ mod tests {
     use crate::instruments::PricingOverrides;
     use crate::pricer::InstrumentType;
     use finstack_core::currency::Currency;
-    use finstack_core::dates::{BusinessDayConvention, DayCount, Frequency, StubKind};
+    use finstack_core::dates::{BusinessDayConvention, DayCount, StubKind, Tenor};
     use finstack_core::money::Money;
     use finstack_core::types::CurveId;
     use time::macros::date;
@@ -112,7 +112,7 @@ mod tests {
             .maturity(date!(2030 - 01 - 01))
             .cashflow_spec(CashflowSpec::fixed(
                 0.05,
-                Frequency::semi_annual(),
+                Tenor::semi_annual(),
                 DayCount::Act365F,
             ))
             .discount_curve_id("USD-OIS".into())
@@ -139,7 +139,7 @@ mod tests {
         );
 
         assert_eq!(bond.id.as_str(), "BOND_FIXED");
-        assert_eq!(bond.cashflow_spec.frequency(), Frequency::semi_annual());
+        assert_eq!(bond.cashflow_spec.frequency(), Tenor::semi_annual());
         assert_eq!(bond.cashflow_spec.day_count(), DayCount::Thirty360);
         assert_eq!(bond.discount_curve_id.as_str(), "USD-TREASURY");
     }
@@ -202,7 +202,7 @@ mod tests {
             .maturity(date!(2030 - 01 - 01))
             .cashflow_spec(CashflowSpec::fixed(
                 0.06,
-                Frequency::annual(),
+                Tenor::annual(),
                 DayCount::Act365F,
             ))
             .discount_curve_id("USD-OIS".into())
@@ -224,7 +224,7 @@ mod tests {
             .maturity(date!(2030 - 01 - 01))
             .cashflow_spec(CashflowSpec::fixed(
                 0.05,
-                Frequency::semi_annual(),
+                Tenor::semi_annual(),
                 DayCount::Act365F,
             ))
             .discount_curve_id("USD-OIS".into())
@@ -254,7 +254,7 @@ mod tests {
             .maturity(date!(2030 - 01 - 01))
             .cashflow_spec(CashflowSpec::fixed(
                 0.05,
-                Frequency::semi_annual(),
+                Tenor::semi_annual(),
                 DayCount::Act365F,
             ))
             .discount_curve_id("USD-OIS".into())
@@ -277,11 +277,7 @@ mod tests {
             .notional(Money::new(1000.0, Currency::USD))
             .issue(date!(2025 - 01 - 01))
             .maturity(date!(2030 - 01 - 01))
-            .cashflow_spec(CashflowSpec::fixed(
-                0.0,
-                Frequency::annual(),
-                DayCount::Act365F,
-            ))
+            .cashflow_spec(CashflowSpec::fixed(0.0, Tenor::annual(), DayCount::Act365F))
             .discount_curve_id("USD-OIS".into())
             .pricing_overrides(PricingOverrides::default())
             .attributes(Attributes::new())
@@ -305,7 +301,7 @@ mod tests {
             .maturity(date!(2027 - 01 - 01))
             .cashflow_spec(CashflowSpec::fixed(
                 0.06,
-                Frequency::monthly(),
+                Tenor::monthly(),
                 DayCount::Act360,
             ))
             .discount_curve_id("USD-OIS".into())
@@ -314,7 +310,7 @@ mod tests {
             .build()
             .expect("should succeed");
 
-        assert_eq!(bond.cashflow_spec.frequency(), Frequency::monthly());
+        assert_eq!(bond.cashflow_spec.frequency(), Tenor::monthly());
     }
 
     #[test]
@@ -324,7 +320,7 @@ mod tests {
         let spec = FixedCouponSpec {
             coupon_type: CouponType::Cash,
             rate: 0.05,
-            freq: Frequency::semi_annual(),
+            freq: Tenor::semi_annual(),
             dc: DayCount::Act365F,
             bdc: BusinessDayConvention::ModifiedFollowing,
             calendar_id: Some("USGS".to_string()),
@@ -359,7 +355,7 @@ mod tests {
         let spec_short = FixedCouponSpec {
             coupon_type: CouponType::Cash,
             rate: 0.05,
-            freq: Frequency::semi_annual(),
+            freq: Tenor::semi_annual(),
             dc: DayCount::Act365F,
             bdc: BusinessDayConvention::Following,
             calendar_id: None,
@@ -386,7 +382,7 @@ mod tests {
         let spec_long = FixedCouponSpec {
             coupon_type: CouponType::Cash,
             rate: 0.05,
-            freq: Frequency::semi_annual(),
+            freq: Tenor::semi_annual(),
             dc: DayCount::Act365F,
             bdc: BusinessDayConvention::Following,
             calendar_id: None,
@@ -428,7 +424,7 @@ mod tests {
                 .maturity(date!(2030 - 01 - 01))
                 .cashflow_spec(CashflowSpec::fixed(
                     0.04,
-                    Frequency::annual(),
+                    Tenor::annual(),
                     DayCount::Act365F,
                 ))
                 .discount_curve_id(CurveId::new(format!("{}-OIS", code)))
@@ -523,7 +519,7 @@ mod tests {
             .maturity(date!(2030 - 01 - 01))
             .cashflow_spec(CashflowSpec::fixed(
                 0.08,
-                Frequency::semi_annual(),
+                Tenor::semi_annual(),
                 DayCount::Act365F,
             ))
             .discount_curve_id("USD-OIS".into())
@@ -542,7 +538,7 @@ mod tests {
             .maturity(date!(2030 - 01 - 01))
             .cashflow_spec(CashflowSpec::fixed(
                 0.03,
-                Frequency::semi_annual(),
+                Tenor::semi_annual(),
                 DayCount::Act365F,
             ))
             .discount_curve_id("USD-OIS".into())
@@ -561,7 +557,7 @@ mod tests {
             .maturity(date!(2030 - 01 - 01))
             .cashflow_spec(CashflowSpec::fixed(
                 0.05,
-                Frequency::semi_annual(),
+                Tenor::semi_annual(),
                 DayCount::Act365F,
             ))
             .discount_curve_id("USD-OIS".into())

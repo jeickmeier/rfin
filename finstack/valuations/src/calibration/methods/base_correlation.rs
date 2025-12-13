@@ -30,9 +30,7 @@ use crate::instruments::cds_tranche::{CdsTranche, TrancheSide};
 use finstack_core::math::Solver;
 use ordered_float::OrderedFloat;
 
-use finstack_core::dates::{
-    next_cds_date, BusinessDayConvention, Date, DateExt, DayCount, Frequency,
-};
+use finstack_core::dates::{next_cds_date, BusinessDayConvention, Date, DateExt, DayCount, Tenor};
 use finstack_core::market_data::context::MarketContext;
 use finstack_core::market_data::term_structures::BaseCorrelationCurve;
 use finstack_core::money::Money;
@@ -568,7 +566,7 @@ impl BaseCorrelationCalibrator {
             .notional(Money::new(10_000_000.0, Currency::USD))
             .maturity(maturity)
             .running_coupon_bp(running_spread_bp)
-            .payment_frequency(Frequency::quarterly())
+            .payment_frequency(Tenor::quarterly())
             .day_count(DayCount::Act360)
             .business_day_convention(BusinessDayConvention::Following)
             .calendar_id_opt(None)

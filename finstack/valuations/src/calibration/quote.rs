@@ -1,7 +1,7 @@
 //! Market quote data structures and types.
 
 use crate::instruments::irs::FloatingLegCompounding;
-use finstack_core::dates::{Date, DayCount, Frequency};
+use finstack_core::dates::{Date, DayCount, Tenor};
 use finstack_core::prelude::*;
 use finstack_core::types::{IndexId, UnderlyingId};
 #[cfg(feature = "ts_export")]
@@ -135,10 +135,10 @@ pub enum RatesQuote {
         rate: f64,
         /// Fixed leg frequency
         #[cfg_attr(feature = "ts_export", ts(type = "string"))]
-        fixed_freq: Frequency,
+        fixed_freq: Tenor,
         /// Float leg frequency
         #[cfg_attr(feature = "ts_export", ts(type = "string"))]
-        float_freq: Frequency,
+        float_freq: Tenor,
         /// Fixed leg day count
         #[cfg_attr(feature = "ts_export", ts(type = "string"))]
         fixed_dc: DayCount,
@@ -165,10 +165,10 @@ pub enum RatesQuote {
         spread_bp: f64,
         /// Primary leg frequency
         #[cfg_attr(feature = "ts_export", ts(type = "string"))]
-        primary_freq: Frequency,
+        primary_freq: Tenor,
         /// Reference leg frequency
         #[cfg_attr(feature = "ts_export", ts(type = "string"))]
-        reference_freq: Frequency,
+        reference_freq: Tenor,
         /// Primary leg day count
         #[cfg_attr(feature = "ts_export", ts(type = "string"))]
         primary_dc: DayCount,
@@ -579,7 +579,7 @@ pub enum InflationQuote {
         index: String,
         /// Payment frequency
         #[cfg_attr(feature = "ts_export", ts(type = "string"))]
-        frequency: Frequency,
+        frequency: Tenor,
     },
 }
 

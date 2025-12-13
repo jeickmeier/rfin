@@ -1,5 +1,5 @@
 use finstack_core::currency::Currency;
-use finstack_core::dates::{Date, DayCount, Frequency};
+use finstack_core::dates::{Date, DayCount, Tenor};
 use finstack_core::market_data::context::MarketContext;
 use finstack_core::money::Money;
 use finstack_core::types::CurveId;
@@ -26,7 +26,7 @@ fn build_simple_term_loan(as_of: Date, maturity: Date) -> TermLoan {
         .issue(as_of)
         .maturity(maturity)
         .rate(term_loan::types::RateSpec::Fixed { rate_bp: 600 }) // 6%
-        .pay_freq(Frequency::semi_annual())
+        .pay_freq(Tenor::semi_annual())
         .day_count(DayCount::Act360)
         .bdc(finstack_core::dates::BusinessDayConvention::ModifiedFollowing)
         .calendar_id_opt(None)

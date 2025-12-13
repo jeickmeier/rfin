@@ -8,7 +8,7 @@
 use finstack_core::{currency::Currency, dates::Date, money::Money, types::CurveId};
 use finstack_valuations::{
     instruments::repo::{CollateralSpec, Repo, RepoMarginSpec, RepoMarginType},
-    margin::{CsaSpec, MarginFrequency, VmCalculator, VmParameters},
+    margin::{CsaSpec, MarginTenor, VmCalculator, VmParameters},
 };
 use time::Month;
 
@@ -35,7 +35,7 @@ fn create_margined_repo() -> Repo {
         margin_type: RepoMarginType::MarkToMarket,
         margin_ratio: 1.02,          // 2% over-collateralization
         margin_call_threshold: 0.01, // 1% threshold
-        call_frequency: MarginFrequency::Daily,
+        call_frequency: MarginTenor::Daily,
         settlement_lag: 1,
         pays_margin_interest: true,
         margin_interest_rate: Some(0.03),
@@ -53,7 +53,7 @@ fn test_repo_margin_spec_defaults() {
     assert_eq!(spec.margin_type, RepoMarginType::None);
     assert_eq!(spec.margin_ratio, 1.02); // 2% over-collateralization
     assert_eq!(spec.margin_call_threshold, 0.01);
-    assert!(matches!(spec.call_frequency, MarginFrequency::Daily));
+    assert!(matches!(spec.call_frequency, MarginTenor::Daily));
     assert_eq!(spec.settlement_lag, 1);
     assert!(!spec.pays_margin_interest); // Default is false
     assert!(spec.margin_interest_rate.is_none());
@@ -103,10 +103,10 @@ fn test_repo_margin_type_variations() {
 fn test_margin_frequency_options() {
     // Test different margin call frequencies
     for frequency in [
-        MarginFrequency::Daily,
-        MarginFrequency::Weekly,
-        MarginFrequency::Monthly,
-        MarginFrequency::OnDemand,
+        MarginTenor::Daily,
+        MarginTenor::Weekly,
+        MarginTenor::Monthly,
+        MarginTenor::OnDemand,
     ] {
         let mut repo = create_test_repo();
         repo.margin_spec = Some(RepoMarginSpec {
@@ -149,7 +149,7 @@ fn test_margin_call_with_threshold() {
         mta: Money::new(10_000.0, Currency::USD),
         rounding: Money::new(1_000.0, Currency::USD),
         independent_amount: Money::new(0.0, Currency::USD),
-        frequency: MarginFrequency::Daily,
+        frequency: MarginTenor::Daily,
         settlement_lag: 1,
     };
 
@@ -190,7 +190,7 @@ fn test_margin_call_exceeds_threshold() {
         mta: Money::new(10_000.0, Currency::USD),
         rounding: Money::new(1_000.0, Currency::USD),
         independent_amount: Money::new(0.0, Currency::USD),
-        frequency: MarginFrequency::Daily,
+        frequency: MarginTenor::Daily,
         settlement_lag: 1,
     };
 
@@ -244,7 +244,7 @@ fn test_margin_spec_serialization_roundtrip() {
         margin_type: RepoMarginType::MarkToMarket,
         margin_ratio: 1.025,
         margin_call_threshold: 0.015,
-        call_frequency: MarginFrequency::Weekly,
+        call_frequency: MarginTenor::Weekly,
         settlement_lag: 2,
         pays_margin_interest: true,
         margin_interest_rate: Some(0.035),

@@ -4,9 +4,7 @@ use crate::core::common::labels::normalize_label;
 use crate::core::dates::utils::py_to_date;
 use crate::errors::{calendar_not_found, core_to_py, PyContext};
 use finstack_core::dates::calendar::registry::CalendarRegistry;
-use finstack_core::dates::{
-    DayCount, DayCountCtx, DayCountCtxState, Frequency, Thirty360Convention,
-};
+use finstack_core::dates::{DayCount, DayCountCtx, DayCountCtxState, Tenor, Thirty360Convention};
 use pyo3::prelude::*;
 use pyo3::types::{PyList, PyModule, PyType};
 use pyo3::{Bound, PyRef};
@@ -159,7 +157,7 @@ impl fmt::Display for PyDayCount {
 /// ----------
 /// calendar : Calendar, optional
 ///     Calendar applied when conventions rely on business days.
-/// frequency : Frequency, optional
+/// frequency : Tenor, optional
 ///     Coupon frequency used by conventions such as Act/Act ISMA.
 ///
 /// Returns
@@ -174,7 +172,7 @@ impl fmt::Display for PyDayCount {
 #[derive(Clone, Default)]
 pub struct PyDayCountContext {
     calendar: Option<PyCalendar>,
-    frequency: Option<Frequency>,
+    frequency: Option<Tenor>,
 }
 
 #[pymethods]

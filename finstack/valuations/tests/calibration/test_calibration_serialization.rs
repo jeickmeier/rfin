@@ -6,7 +6,7 @@
 //! - Round-tripped without data loss
 
 use finstack_core::currency::Currency;
-use finstack_core::dates::{Date, DayCount, Frequency};
+use finstack_core::dates::{Date, DayCount, Tenor};
 use finstack_core::market_data::term_structures::Seniority;
 use finstack_core::math::interp::InterpStyle;
 use finstack_core::types::CurveId;
@@ -147,8 +147,8 @@ fn test_rates_quote_serialization() {
     let swap = RatesQuote::Swap {
         maturity: base_date + time::Duration::days(365 * 2),
         rate: 0.048,
-        fixed_freq: Frequency::semi_annual(),
-        float_freq: Frequency::quarterly(),
+        fixed_freq: Tenor::semi_annual(),
+        float_freq: Tenor::quarterly(),
         fixed_dc: DayCount::Thirty360,
         float_dc: DayCount::Act360,
         index: "USD-SOFR-3M".to_string().into(),
@@ -162,8 +162,8 @@ fn test_rates_quote_serialization() {
         primary_index: "3M-SOFR".to_string(),
         reference_index: "6M-SOFR".to_string(),
         spread_bp: 5.0,
-        primary_freq: Frequency::quarterly(),
-        reference_freq: Frequency::semi_annual(),
+        primary_freq: Tenor::quarterly(),
+        reference_freq: Tenor::semi_annual(),
         primary_dc: DayCount::Act360,
         reference_dc: DayCount::Act360,
         currency: Currency::USD,
@@ -251,7 +251,7 @@ fn test_inflation_quote_serialization() {
         maturity: base_date + time::Duration::days(365 * 5),
         rate: 0.023,
         index: "USCPI".to_string(),
-        frequency: Frequency::annual(),
+        frequency: Tenor::annual(),
     };
     let _ = roundtrip_json(&yoy_swap);
 }

@@ -22,7 +22,7 @@
 //! fixed leg annuity calculation, which scales with swap duration.
 
 use finstack_core::currency::Currency;
-use finstack_core::dates::{Date, DayCount, Frequency};
+use finstack_core::dates::{Date, DayCount, Tenor};
 use finstack_core::market_data::context::MarketContext;
 use finstack_core::money::Money;
 use finstack_valuations::calibration::methods::discount::DiscountCurveCalibrator;
@@ -104,8 +104,8 @@ fn test_discount_curve_swap_repricing() {
         RatesQuote::Swap {
             maturity: base_date + time::Duration::days(365),
             rate: 0.0470,
-            fixed_freq: Frequency::semi_annual(),
-            float_freq: Frequency::daily(),
+            fixed_freq: Tenor::semi_annual(),
+            float_freq: Tenor::daily(),
             fixed_dc: DayCount::Thirty360,
             float_dc: DayCount::Act360,
             index: "USD-OIS".to_string().into(),
@@ -114,8 +114,8 @@ fn test_discount_curve_swap_repricing() {
         RatesQuote::Swap {
             maturity: base_date + time::Duration::days(365 * 2),
             rate: 0.0480,
-            fixed_freq: Frequency::semi_annual(),
-            float_freq: Frequency::daily(),
+            fixed_freq: Tenor::semi_annual(),
+            float_freq: Tenor::daily(),
             fixed_dc: DayCount::Thirty360,
             float_dc: DayCount::Act360,
             index: "USD-OIS".to_string().into(),
@@ -124,8 +124,8 @@ fn test_discount_curve_swap_repricing() {
         RatesQuote::Swap {
             maturity: base_date + time::Duration::days(365 * 5),
             rate: 0.0490,
-            fixed_freq: Frequency::semi_annual(),
-            float_freq: Frequency::daily(),
+            fixed_freq: Tenor::semi_annual(),
+            float_freq: Tenor::daily(),
             fixed_dc: DayCount::Thirty360,
             float_dc: DayCount::Act360,
             index: "USD-OIS".to_string().into(),

@@ -1,6 +1,6 @@
 use crate::core::dates::calendar::JsBusinessDayConvention;
 use crate::core::dates::date::JsDate;
-use crate::core::dates::daycount::{JsDayCount, JsFrequency};
+use crate::core::dates::daycount::{JsDayCount, JsTenor};
 use crate::core::dates::schedule::JsStubKind;
 use crate::core::error::js_error;
 use crate::core::money::JsMoney;
@@ -144,7 +144,7 @@ impl JsBond {
         maturity: &JsDate,
         discount_curve: &str,
         coupon_rate: Option<f64>,
-        frequency: Option<JsFrequency>,
+        frequency: Option<JsTenor>,
         day_count: Option<JsDayCount>,
         business_day_convention: Option<JsBusinessDayConvention>,
         calendar_id: Option<String>,
@@ -174,7 +174,7 @@ impl JsBond {
                     index_cap_bp: None,
                     reset_freq: frequency
                         .map(|f| f.inner())
-                        .unwrap_or_else(finstack_core::dates::Frequency::semi_annual),
+                        .unwrap_or_else(finstack_core::dates::Tenor::semi_annual),
                     reset_lag_days: float_reset_lag_days.unwrap_or(2),
                     dc: day_count
                         .map(|dc| dc.inner())
@@ -188,7 +188,7 @@ impl JsBond {
                 coupon_type: CouponType::Cash,
                 freq: frequency
                     .map(|f| f.inner())
-                    .unwrap_or_else(finstack_core::dates::Frequency::semi_annual),
+                    .unwrap_or_else(finstack_core::dates::Tenor::semi_annual),
                 stub: stub_kind
                     .map(|s| s.inner())
                     .unwrap_or(finstack_core::dates::StubKind::None),
@@ -200,7 +200,7 @@ impl JsBond {
                 rate: coupon_rate.unwrap_or(0.0),
                 freq: frequency
                     .map(|f| f.inner())
-                    .unwrap_or_else(finstack_core::dates::Frequency::semi_annual),
+                    .unwrap_or_else(finstack_core::dates::Tenor::semi_annual),
                 dc: day_count
                     .map(|dc| dc.inner())
                     .unwrap_or(finstack_core::dates::DayCount::Thirty360),
@@ -342,7 +342,7 @@ impl JsBond {
         margin_bp: f64,
         quoted_clean_price: Option<f64>,
     ) -> Result<JsBond, JsValue> {
-        use finstack_core::dates::{DayCount, Frequency};
+        use finstack_core::dates::{DayCount, Tenor};
 
         let pricing_overrides = if let Some(price) = quoted_clean_price {
             PricingOverrides::default().with_clean_price(price)
@@ -357,7 +357,7 @@ impl JsBond {
             margin_bp,
             issue.inner(),
             maturity.inner(),
-            Frequency::quarterly(),
+            Tenor::quarterly(),
             DayCount::Act360,
             curve_id_from_str(discount_curve),
         );
@@ -379,7 +379,7 @@ impl JsBond {
         quoted_clean_price: Option<f64>,
         market: &crate::core::market_data::context::JsMarketContext,
     ) -> Result<JsBond, JsValue> {
-        use finstack_core::dates::{BusinessDayConvention, DayCount, Frequency, StubKind};
+        use finstack_core::dates::{BusinessDayConvention, DayCount, StubKind, Tenor};
         use finstack_valuations::cashflow::builder::{
             CashFlowSchedule, CouponType, FixedCouponSpec,
         };
@@ -390,7 +390,7 @@ impl JsBond {
             .fixed_cf(FixedCouponSpec {
                 coupon_type: CouponType::Split { cash_pct, pik_pct },
                 rate: coupon_rate,
-                freq: Frequency::semi_annual(),
+                freq: Tenor::semi_annual(),
                 dc: DayCount::Thirty360,
                 bdc: BusinessDayConvention::Following,
                 calendar_id: None,
@@ -420,7 +420,7 @@ impl JsBond {
         margin_bp: f64,
         issue: &JsDate,
         maturity: &JsDate,
-        frequency: &JsFrequency,
+        frequency: &JsTenor,
         day_count: &JsDayCount,
         discount_curve: &str,
         quoted_clean_price: Option<f64>,
@@ -508,13 +508,13 @@ impl JsBond {
     }
 
     #[wasm_bindgen(getter)]
-    pub fn frequency(&self) -> JsFrequency {
+    pub fn frequency(&self) -> JsTenor {
         let freq = match &self.inner.cashflow_spec {
             CashflowSpec::Fixed(spec) => spec.freq,
             CashflowSpec::Floating(spec) => spec.freq,
             CashflowSpec::Amortizing { base, .. } => base.frequency(),
         };
-        JsFrequency::from_inner(freq)
+        JsTenor::from_inner(freq)
     }
 
     #[wasm_bindgen(getter, js_name = dayCount)]

@@ -12,9 +12,7 @@
       "strike_variance": 0.04,
       "start_date": "2024-01-01",
       "maturity": "2025-01-01",
-      "observation_freq": {
-        "Days": 1
-      },
+      "observation_freq": {"count": 1, "unit": "days"},
       "realized_var_method": "Parkinson",
       "side": "Receive",
       "discount_curve_id": "USD-OIS",

@@ -5,7 +5,7 @@ use crate::instruments::common::discountable::Discountable;
 use crate::instruments::common::traits::Attributes;
 use finstack_core::currency::Currency;
 use finstack_core::dates::{
-    BusinessDayConvention, Date, DateExt, DayCount, DayCountCtx, Frequency, StubKind,
+    BusinessDayConvention, Date, DateExt, DayCount, DayCountCtx, StubKind, Tenor,
 };
 use finstack_core::market_data::context::MarketContext;
 use finstack_core::market_data::scalars::inflation_index::{
@@ -153,7 +153,7 @@ pub struct InflationLinkedBond {
     /// Real coupon rate (as decimal)
     pub real_coupon: f64,
     /// Coupon frequency
-    pub freq: Frequency,
+    pub freq: Tenor,
     /// Day count convention
     pub dc: DayCount,
     /// Issue date
@@ -195,7 +195,7 @@ impl InflationLinkedBond {
             id: InstrumentId::new("TIPS-10Y"),
             notional: Money::new(1_000_000.0, Currency::USD),
             real_coupon: 0.025,
-            freq: Frequency::semi_annual(),
+            freq: Tenor::semi_annual(),
             dc: DayCount::Act365F,
             issue: Date::from_calendar_date(2024, time::Month::January, 15)
                 .expect("Valid example date"),

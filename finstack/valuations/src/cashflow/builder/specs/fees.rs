@@ -1,6 +1,6 @@
 //! Fee specification types for fixed and periodic fees.
 
-use finstack_core::dates::{BusinessDayConvention, Date, DayCount, Frequency, StubKind};
+use finstack_core::dates::{BusinessDayConvention, Date, DayCount, StubKind, Tenor};
 use finstack_core::money::Money;
 
 /// Fee specification.
@@ -21,7 +21,7 @@ pub enum FeeSpec {
         /// Bps.
         bps: f64,
         /// Freq.
-        freq: Frequency,
+        freq: Tenor,
         /// Dc.
         dc: DayCount,
         /// Bdc.

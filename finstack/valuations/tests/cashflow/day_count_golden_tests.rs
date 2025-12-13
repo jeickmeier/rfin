@@ -12,7 +12,7 @@
 //! - Act/Act ISDA: actual days / days in year
 
 use crate::cashflow_tests::test_helpers::FACTOR_TOLERANCE;
-use finstack_core::dates::{Date, DayCount, DayCountCtx, Frequency};
+use finstack_core::dates::{Date, DayCount, DayCountCtx, Tenor};
 use time::Month;
 
 fn d(year: i32, month: u8, day: u8) -> Date {
@@ -288,7 +288,7 @@ fn actact_isma_with_semi_annual_frequency() {
 
     // With semi-annual frequency - should succeed
     let ctx_with_freq = DayCountCtx {
-        frequency: Some(Frequency::semi_annual()),
+        frequency: Some(Tenor::semi_annual()),
         calendar: None,
         bus_basis: None,
     };
@@ -311,7 +311,7 @@ fn actact_isma_with_quarterly_frequency() {
     let dc = DayCount::ActActIsma;
 
     let ctx = DayCountCtx {
-        frequency: Some(Frequency::quarterly()),
+        frequency: Some(Tenor::quarterly()),
         calendar: None,
         bus_basis: None,
     };
@@ -391,7 +391,7 @@ fn actact_isda_leap_year() {
 fn zero_length_period_all_conventions() {
     let ctx = DayCountCtx::default();
     let ctx_with_freq = DayCountCtx {
-        frequency: Some(Frequency::semi_annual()),
+        frequency: Some(Tenor::semi_annual()),
         calendar: None,
         bus_basis: None,
     };

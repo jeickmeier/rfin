@@ -9,7 +9,7 @@
 
 use super::common::*;
 use finstack_core::currency::Currency;
-use finstack_core::dates::{DayCount, Frequency};
+use finstack_core::dates::{DayCount, Tenor};
 use finstack_core::money::Money;
 use finstack_valuations::instruments::inflation_linked_bond::parameters::InflationLinkedBondParams;
 use finstack_valuations::instruments::inflation_linked_bond::{
@@ -38,7 +38,7 @@ fn test_tips_creation_via_helper() {
     assert_eq!(tips.base_index, 250.0);
     assert_eq!(tips.notional.amount(), 1_000_000.0);
     assert_eq!(tips.notional.currency(), Currency::USD);
-    assert_eq!(tips.freq, Frequency::semi_annual());
+    assert_eq!(tips.freq, Tenor::semi_annual());
     assert_eq!(tips.dc, DayCount::ActAct);
     assert_eq!(tips.deflation_protection, DeflationProtection::MaturityOnly);
 }
@@ -233,7 +233,7 @@ fn test_parameter_struct_tips() {
     assert_eq!(params.issue, issue);
     assert_eq!(params.maturity, maturity);
     assert_eq!(params.base_index, 200.0);
-    assert_eq!(params.frequency, Frequency::semi_annual());
+    assert_eq!(params.frequency, Tenor::semi_annual());
     assert_eq!(params.day_count, DayCount::ActAct);
 }
 
@@ -253,7 +253,7 @@ fn test_parameter_struct_uk_linker() {
     assert_eq!(params.issue, issue);
     assert_eq!(params.maturity, maturity);
     assert_eq!(params.base_index, 300.0);
-    assert_eq!(params.frequency, Frequency::semi_annual());
+    assert_eq!(params.frequency, Tenor::semi_annual());
     assert_eq!(params.day_count, DayCount::ActAct);
 }
 
@@ -278,7 +278,7 @@ fn test_various_currencies() {
             issue,
             maturity,
             base_cpi,
-            Frequency::semi_annual(),
+            Tenor::semi_annual(),
             DayCount::ActAct,
         );
 
@@ -301,11 +301,7 @@ fn test_various_frequencies() {
     let maturity = d(2030, 1, 1);
 
     // Act & Assert - Test various payment frequencies
-    for freq in [
-        Frequency::annual(),
-        Frequency::semi_annual(),
-        Frequency::quarterly(),
-    ] {
+    for freq in [Tenor::annual(), Tenor::semi_annual(), Tenor::quarterly()] {
         let params = InflationLinkedBondParams::new(
             notional,
             0.01,
@@ -337,7 +333,7 @@ fn test_various_day_count_conventions() {
             issue,
             maturity,
             250.0,
-            Frequency::semi_annual(),
+            Tenor::semi_annual(),
             dc,
         );
 

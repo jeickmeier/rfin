@@ -5,7 +5,7 @@
 //! bond features.
 
 use finstack_core::currency::Currency;
-use finstack_core::dates::{BusinessDayConvention, Date, DayCount, Frequency, StubKind};
+use finstack_core::dates::{BusinessDayConvention, Date, DayCount, StubKind, Tenor};
 use finstack_core::market_data::context::MarketContext;
 use finstack_core::market_data::scalars::MarketScalar;
 use finstack_core::market_data::term_structures::discount_curve::DiscountCurve;
@@ -162,7 +162,7 @@ pub fn create_convertible_with_policy(policy: ConversionPolicy) -> ConvertibleBo
     let fixed_coupon = FixedCouponSpec {
         coupon_type: CouponType::Cash,
         rate: bond_params::COUPON_RATE,
-        freq: Frequency::semi_annual(),
+        freq: Tenor::semi_annual(),
         dc: DayCount::Act365F,
         bdc: BusinessDayConvention::Following,
         calendar_id: None,
@@ -201,7 +201,7 @@ pub fn create_convertible_with_conversion_price() -> ConvertibleBond {
     let fixed_coupon = FixedCouponSpec {
         coupon_type: CouponType::Cash,
         rate: bond_params::COUPON_RATE,
-        freq: Frequency::semi_annual(),
+        freq: Tenor::semi_annual(),
         dc: DayCount::Act365F,
         bdc: BusinessDayConvention::Following,
         calendar_id: None,
@@ -247,7 +247,7 @@ pub fn create_floating_convertible() -> ConvertibleBond {
             cap_bp: None,
             all_in_floor_bp: None,
             index_cap_bp: None,
-            reset_freq: Frequency::quarterly(),
+            reset_freq: Tenor::quarterly(),
             reset_lag_days: 2,
             dc: DayCount::Act360,
             bdc: BusinessDayConvention::Following,
@@ -255,7 +255,7 @@ pub fn create_floating_convertible() -> ConvertibleBond {
             fixing_calendar_id: None,
         },
         coupon_type: CouponType::Cash,
-        freq: Frequency::quarterly(),
+        freq: Tenor::quarterly(),
         stub: StubKind::None,
     };
 

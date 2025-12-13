@@ -8,7 +8,7 @@ mod accrual_context_tests {
     };
     use super::super::coupons::{emit_fixed_coupons_on, emit_float_coupons_on};
     use finstack_core::currency::Currency;
-    use finstack_core::dates::{BusinessDayConvention, Date, DayCount, Frequency, StubKind};
+    use finstack_core::dates::{BusinessDayConvention, Date, DayCount, StubKind};
     use finstack_core::market_data::term_structures::ForwardCurve;
     use finstack_core::types::CurveId;
     use time::Month;
@@ -22,7 +22,7 @@ mod accrual_context_tests {
         let spec = FixedCouponSpec {
             coupon_type: CouponType::Cash,
             rate: 0.05,
-            freq: Frequency::Months(6), // Semi-annual
+            freq: finstack_core::dates::Tenor::new(6, finstack_core::dates::TenorUnit::Months), // Semi-annual
             dc: DayCount::ActActIsma,
             bdc: BusinessDayConvention::Following,
             calendar_id: None,
@@ -79,7 +79,10 @@ mod accrual_context_tests {
                 cap_bp: None,
                 all_in_floor_bp: None,
                 index_cap_bp: None,
-                reset_freq: Frequency::Months(3),
+                reset_freq: finstack_core::dates::Tenor::new(
+                    3,
+                    finstack_core::dates::TenorUnit::Months,
+                ),
                 reset_lag_days: 2,
                 dc: DayCount::ActActIsma,
                 bdc: BusinessDayConvention::Following,
@@ -87,7 +90,7 @@ mod accrual_context_tests {
                 fixing_calendar_id: None,
             },
             coupon_type: CouponType::Cash,
-            freq: Frequency::Months(3),
+            freq: finstack_core::dates::Tenor::new(3, finstack_core::dates::TenorUnit::Months),
             stub: StubKind::None,
         };
 
@@ -137,7 +140,7 @@ mod accrual_context_tests {
         let spec = FixedCouponSpec {
             coupon_type: CouponType::Cash,
             rate: 0.05,
-            freq: Frequency::Days(7),
+            freq: finstack_core::dates::Tenor::new(7, finstack_core::dates::TenorUnit::Days),
             dc: DayCount::Bus252,
             bdc: BusinessDayConvention::Following,
             calendar_id: Some("NYSE".to_string()),
@@ -228,7 +231,7 @@ mod credit_emission_tests {
         // CRITICAL TEST: Verify coupon uses reduced outstanding after default
         use super::super::super::specs::{CouponType, FixedCouponSpec};
         use super::super::coupons::emit_fixed_coupons_on;
-        use finstack_core::dates::{BusinessDayConvention, DayCount, Frequency, StubKind};
+        use finstack_core::dates::{BusinessDayConvention, DayCount, StubKind, Tenor};
 
         let issue = Date::from_calendar_date(2025, Month::January, 1).expect("valid date");
         let mat = Date::from_calendar_date(2026, Month::January, 1).expect("valid date");
@@ -239,7 +242,7 @@ mod credit_emission_tests {
         let spec = FixedCouponSpec {
             coupon_type: CouponType::Cash,
             rate: 0.05,
-            freq: Frequency::quarterly(),
+            freq: Tenor::quarterly(),
             dc: DayCount::Act360,
             bdc: BusinessDayConvention::Following,
             calendar_id: None,

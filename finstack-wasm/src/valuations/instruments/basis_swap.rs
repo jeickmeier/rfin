@@ -4,7 +4,7 @@ use crate::core::money::JsMoney;
 use crate::valuations::common::parse::parse_optional_with_default;
 use crate::valuations::common::{curve_id_from_str, instrument_id_from_str};
 use crate::valuations::instruments::InstrumentWrapper;
-use finstack_core::dates::{BusinessDayConvention, DayCount, Frequency, StubKind};
+use finstack_core::dates::{BusinessDayConvention, DayCount, StubKind, Tenor};
 use finstack_valuations::instruments::basis_swap::{BasisSwap, BasisSwapLeg};
 use finstack_valuations::pricer::InstrumentType;
 use wasm_bindgen::prelude::*;
@@ -25,7 +25,7 @@ impl JsBasisSwapLeg {
         spread: Option<f64>,
         business_day_convention: Option<String>,
     ) -> Result<JsBasisSwapLeg, JsValue> {
-        let freq = parse_optional_with_default(frequency, Frequency::quarterly())?;
+        let freq = parse_optional_with_default(frequency, Tenor::quarterly())?;
         let dc = parse_optional_with_default(day_count, DayCount::Act360)?;
         let bdc = parse_optional_with_default(
             business_day_convention,

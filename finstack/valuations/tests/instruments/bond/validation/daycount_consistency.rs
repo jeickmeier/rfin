@@ -9,7 +9,7 @@
 //! **Market Standards Review (Week 3 Edge Cases)**
 
 use finstack_core::currency::Currency;
-use finstack_core::dates::{Date, DayCount, Frequency};
+use finstack_core::dates::{Date, DayCount, Tenor};
 use finstack_core::market_data::context::MarketContext;
 use finstack_core::market_data::term_structures::DiscountCurve;
 use finstack_core::money::Money;
@@ -49,7 +49,7 @@ fn create_bond_with_daycount(
         .cashflow_spec(CashflowSpec::Fixed(FixedCouponSpec {
             coupon_type: CouponType::Cash,
             rate: coupon,
-            freq: Frequency::semi_annual(),
+            freq: Tenor::semi_annual(),
             dc: day_count,
             bdc: finstack_core::dates::BusinessDayConvention::ModifiedFollowing,
             calendar_id: None,

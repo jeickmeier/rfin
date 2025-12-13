@@ -1,7 +1,7 @@
 //! Edge case and boundary condition tests for revolving credit.
 
 use finstack_core::currency::Currency;
-use finstack_core::dates::{Date, DayCount, Frequency};
+use finstack_core::dates::{Date, DayCount, Tenor};
 use finstack_core::market_data::context::MarketContext;
 use finstack_core::money::Money;
 use finstack_valuations::instruments::common::traits::Instrument;
@@ -24,7 +24,7 @@ fn test_zero_utilization() {
         .maturity_date(date!(2030 - 01 - 01))
         .base_rate_spec(BaseRateSpec::Fixed { rate: 0.05 })
         .day_count(DayCount::Act360)
-        .payment_frequency(Frequency::quarterly())
+        .payment_frequency(Tenor::quarterly())
         .fees(RevolvingCreditFees::flat(25.0, 10.0, 5.0))
         .draw_repay_spec(DrawRepaySpec::Scheduled(vec![]))
         .discount_curve_id("USD-OIS".into())
@@ -53,7 +53,7 @@ fn test_full_utilization() {
         .maturity_date(date!(2030 - 01 - 01))
         .base_rate_spec(BaseRateSpec::Fixed { rate: 0.06 })
         .day_count(DayCount::Act360)
-        .payment_frequency(Frequency::quarterly())
+        .payment_frequency(Tenor::quarterly())
         .fees(RevolvingCreditFees::flat(30.0, 15.0, 10.0))
         .draw_repay_spec(DrawRepaySpec::Scheduled(vec![]))
         .discount_curve_id("USD-OIS".into())
@@ -82,7 +82,7 @@ fn test_very_short_commitment_period() {
         .maturity_date(date!(2025 - 07 - 01)) // 6 months
         .base_rate_spec(BaseRateSpec::Fixed { rate: 0.05 })
         .day_count(DayCount::Act360)
-        .payment_frequency(Frequency::quarterly())
+        .payment_frequency(Tenor::quarterly())
         .fees(RevolvingCreditFees::flat(25.0, 10.0, 5.0))
         .draw_repay_spec(DrawRepaySpec::Scheduled(vec![]))
         .discount_curve_id("USD-OIS".into())
@@ -111,7 +111,7 @@ fn test_very_long_commitment_period() {
         .maturity_date(date!(2040 - 01 - 01)) // 15 years
         .base_rate_spec(BaseRateSpec::Fixed { rate: 0.06 })
         .day_count(DayCount::Act360)
-        .payment_frequency(Frequency::quarterly())
+        .payment_frequency(Tenor::quarterly())
         .fees(RevolvingCreditFees::flat(30.0, 12.0, 8.0))
         .draw_repay_spec(DrawRepaySpec::Scheduled(vec![]))
         .discount_curve_id("USD-OIS".into())

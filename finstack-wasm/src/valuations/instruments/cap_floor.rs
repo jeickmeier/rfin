@@ -4,14 +4,14 @@ use crate::core::error::js_error;
 use crate::core::money::JsMoney;
 use crate::valuations::common::{curve_id_from_str, instrument_id_from_str};
 use crate::valuations::instruments::InstrumentWrapper;
-use finstack_core::dates::{DayCount, Frequency};
+use finstack_core::dates::{DayCount, Tenor};
 use finstack_valuations::instruments::cap_floor::InterestRateOption;
 use finstack_valuations::pricer::InstrumentType;
 use wasm_bindgen::prelude::*;
 
-fn frequency_from_payments(payments_per_year: Option<u32>) -> Result<Frequency, JsValue> {
+fn frequency_from_payments(payments_per_year: Option<u32>) -> Result<Tenor, JsValue> {
     let payments = payments_per_year.unwrap_or(4);
-    Frequency::from_payments_per_year(payments)
+    Tenor::from_payments_per_year(payments)
         .map_err(|e| js_error(format!("Invalid payments per year: {e}")))
 }
 

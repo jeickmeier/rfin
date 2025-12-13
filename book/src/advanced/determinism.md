@@ -1,3 +1,0 @@
-# Determinism
-
-Documentation coming soon.

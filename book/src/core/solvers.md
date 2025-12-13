@@ -1,3 +1,0 @@
-# Solvers
-
-Documentation coming soon.

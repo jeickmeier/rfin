@@ -4,7 +4,7 @@
 //! using the cashflow builder and pass them to bond instruments for pricing.
 
 use finstack_core::currency::Currency;
-use finstack_core::dates::{BusinessDayConvention, Date, DayCount, Frequency, StubKind};
+use finstack_core::dates::{BusinessDayConvention, Date, DayCount, StubKind, Tenor};
 use finstack_core::market_data::context::MarketContext;
 use finstack_core::market_data::term_structures::discount_curve::DiscountCurve;
 use finstack_core::math::interp::InterpStyle;
@@ -31,7 +31,7 @@ fn example_stepup_bond() -> finstack_core::Result<()> {
 
     // Build custom cashflow schedule with step-up rates
     let schedule_params = ScheduleParams {
-        freq: Frequency::semi_annual(),
+        freq: Tenor::semi_annual(),
         dc: DayCount::Act365F,
         bdc: BusinessDayConvention::Following,
         calendar_id: None,
@@ -102,7 +102,7 @@ fn example_pik_toggle_bond() -> finstack_core::Result<()> {
 
     // Build schedule with PIK toggle
     let schedule_params = ScheduleParams {
-        freq: Frequency::quarterly(),
+        freq: Tenor::quarterly(),
         dc: DayCount::Thirty360,
         bdc: BusinessDayConvention::Following,
         calendar_id: Some("usd".to_string()),
@@ -175,7 +175,7 @@ fn example_amortizing_bond_with_fees() -> finstack_core::Result<()> {
         .fixed_cf(FixedCouponSpec {
             coupon_type: CouponType::Cash,
             rate: 0.045,
-            freq: Frequency::semi_annual(),
+            freq: Tenor::semi_annual(),
             dc: DayCount::Act360,
             bdc: BusinessDayConvention::ModifiedFollowing,
             calendar_id: Some("eur".to_string()),
@@ -248,7 +248,7 @@ fn example_comparison_regular_vs_custom() -> finstack_core::Result<()> {
         .fixed_cf(FixedCouponSpec {
             coupon_type: CouponType::Cash,
             rate: 0.05,
-            freq: Frequency::semi_annual(), // Higher frequency than regular bond
+            freq: Tenor::semi_annual(), // Higher frequency than regular bond
             dc: DayCount::Act365F,
             bdc: BusinessDayConvention::Following,
             calendar_id: None,

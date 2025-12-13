@@ -305,7 +305,7 @@ fn test_standard_day_count_act360() {
     );
 }
 
-// ==================== Payment Frequency Tests ====================
+// ==================== Payment Tenor Tests ====================
 
 #[test]
 fn test_standard_quarterly_frequency() {
@@ -315,7 +315,7 @@ fn test_standard_quarterly_frequency() {
     let tranche = mezzanine_tranche();
     assert_eq!(
         format!("{:?}", tranche.payment_frequency),
-        "Months(3)",
+        "Tenor { count: 3, unit: Months }",
         "Standard CDS payment frequency should be quarterly (3 months)"
     );
 }

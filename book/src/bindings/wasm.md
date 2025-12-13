@@ -1,3 +1,0 @@
-# Wasm
-
-Documentation coming soon.

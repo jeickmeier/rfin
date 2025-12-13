@@ -339,7 +339,7 @@ mod tests {
         standard_credit_cs01_buckets, standard_registry, MetricContext, MetricId,
     };
     use finstack_core::currency::Currency;
-    use finstack_core::dates::{DayCount, Frequency};
+    use finstack_core::dates::{DayCount, Tenor};
     use finstack_core::market_data::term_structures::discount_curve::DiscountCurve;
     use finstack_core::math::interp::InterpStyle;
     use finstack_core::types::CurveId;
@@ -355,7 +355,7 @@ mod tests {
             .maturity(maturity)
             .cashflow_spec(CashflowSpec::fixed(
                 0.05,
-                Frequency::semi_annual(),
+                Tenor::semi_annual(),
                 DayCount::Act365F,
             ))
             .discount_curve_id(CurveId::new("USD-OIS"))

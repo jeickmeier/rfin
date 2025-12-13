@@ -10,7 +10,7 @@
 
 use criterion::{criterion_group, criterion_main, BenchmarkId, Criterion};
 use finstack_core::currency::Currency;
-use finstack_core::dates::{Date, DateExt, DayCount, Frequency};
+use finstack_core::dates::{Date, DateExt, DayCount, Tenor};
 use finstack_core::market_data::context::MarketContext;
 use finstack_core::market_data::term_structures::{DiscountCurve, HazardCurve, Seniority};
 use finstack_core::math::interp::InterpStyle;
@@ -84,8 +84,8 @@ fn create_swap_quotes(base_date: Date, tenors: &[i32]) -> Vec<RatesQuote> {
         quotes.push(RatesQuote::Swap {
             maturity,
             rate,
-            fixed_freq: Frequency::semi_annual(),
-            float_freq: Frequency::quarterly(),
+            fixed_freq: Tenor::semi_annual(),
+            float_freq: Tenor::quarterly(),
             fixed_dc: DayCount::Thirty360,
             float_dc: DayCount::Act360,
             index: "USD-SOFR-3M".to_string().into(),

@@ -102,9 +102,7 @@ use crate::instruments::structured_credit::pricing::stochastic::tree::{
 use crate::instruments::structured_credit::utils::rates::{cdr_to_mdr, cpr_to_smm};
 use crate::metrics::MetricId;
 use crate::results::ValuationResult;
-use finstack_core::dates::{
-    BusinessDayConvention, Date, DateExt, DayCount, DayCountCtx, Frequency,
-};
+use finstack_core::dates::{BusinessDayConvention, Date, DateExt, DayCount, DayCountCtx, Tenor};
 use finstack_core::error::Error as CoreError;
 use finstack_core::market_data::context::MarketContext;
 use finstack_core::money::Money;
@@ -251,7 +249,7 @@ pub struct StructuredCredit {
     pub legal_maturity: Date,
 
     /// Payment frequency for the structure.
-    pub payment_frequency: Frequency,
+    pub payment_frequency: Tenor,
 
     /// Optional payment calendar identifier for schedule adjustments.
     #[builder(default)]

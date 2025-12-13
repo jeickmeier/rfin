@@ -108,9 +108,9 @@ struct SwapConfig<'a> {
 
 /// Schedule configuration with separate fixed and float leg parameters
 struct IRSScheduleConfig {
-    fixed_freq: finstack_core::dates::Frequency,
+    fixed_freq: finstack_core::dates::Tenor,
     fixed_dc: finstack_core::dates::DayCount,
-    float_freq: finstack_core::dates::Frequency,
+    float_freq: finstack_core::dates::Tenor,
     float_dc: finstack_core::dates::DayCount,
     bdc: finstack_core::dates::BusinessDayConvention,
     calendar_id: Option<String>,
@@ -120,11 +120,11 @@ struct IRSScheduleConfig {
 impl IRSScheduleConfig {
     /// USD market standard: Fixed semiannual 30/360; Float quarterly Act/360
     fn usd_isda_standard() -> Self {
-        use finstack_core::dates::{BusinessDayConvention, DayCount, Frequency, StubKind};
+        use finstack_core::dates::{BusinessDayConvention, DayCount, StubKind, Tenor};
         Self {
-            fixed_freq: Frequency::semi_annual(),
+            fixed_freq: Tenor::semi_annual(),
             fixed_dc: DayCount::Thirty360,
-            float_freq: Frequency::quarterly(),
+            float_freq: Tenor::quarterly(),
             float_dc: DayCount::Act360,
             bdc: BusinessDayConvention::ModifiedFollowing,
             // Market-standard USD calendar for rates scheduling (ISDA-style business-day adjustments).
@@ -271,7 +271,7 @@ impl InterestRateSwap {
     ///
     /// Returns an error if example construction fails (e.g., invalid dates).
     pub fn example() -> finstack_core::Result<Self> {
-        use finstack_core::dates::{BusinessDayConvention, DayCount, Frequency, StubKind};
+        use finstack_core::dates::{BusinessDayConvention, DayCount, StubKind, Tenor};
 
         let swap = Self::builder()
             .id(InstrumentId::new("IRS-5Y-USD"))
@@ -280,7 +280,7 @@ impl InterestRateSwap {
             .fixed(crate::instruments::common::parameters::FixedLegSpec {
                 discount_curve_id: CurveId::new("USD-OIS"),
                 rate: 0.03,
-                freq: Frequency::semi_annual(),
+                freq: Tenor::semi_annual(),
                 dc: DayCount::Thirty360,
                 bdc: BusinessDayConvention::ModifiedFollowing,
                 calendar_id: None,
@@ -305,7 +305,7 @@ impl InterestRateSwap {
                 discount_curve_id: CurveId::new("USD-OIS"),
                 forward_curve_id: CurveId::new("USD-SOFR-3M"),
                 spread_bp: 0.0,
-                freq: Frequency::quarterly(),
+                freq: Tenor::quarterly(),
                 dc: DayCount::Act360,
                 bdc: BusinessDayConvention::ModifiedFollowing,
                 calendar_id: None,

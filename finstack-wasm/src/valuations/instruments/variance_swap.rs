@@ -1,5 +1,5 @@
 use crate::core::dates::date::JsDate;
-use crate::core::dates::daycount::JsFrequency;
+use crate::core::dates::daycount::JsTenor;
 use crate::core::error::js_error;
 use crate::core::money::JsMoney;
 use crate::valuations::common::parse::parse_optional_with_default;
@@ -82,7 +82,7 @@ impl JsVarianceSwap {
         start_date: &JsDate,
         maturity: &JsDate,
         discount_curve: &str,
-        observation_frequency: &JsFrequency,
+        observation_frequency: &JsTenor,
         realized_method: Option<String>,
         side: Option<String>,
     ) -> Result<JsVarianceSwap, JsValue> {

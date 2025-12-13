@@ -458,7 +458,7 @@ mod tests {
         let spec = CovenantSpec::with_metric(
             crate::covenants::engine::Covenant::new(
                 CovenantType::MaxDebtToEBITDA { threshold: 5.0 },
-                finstack_core::dates::Frequency::quarterly(),
+                finstack_core::dates::Tenor::quarterly(),
             ),
             crate::metrics::MetricId::custom("debt_to_ebitda"),
         );
@@ -489,7 +489,7 @@ mod tests {
         let spec = CovenantSpec::with_metric(
             crate::covenants::engine::Covenant::new(
                 CovenantType::MaxDebtToEBITDA { threshold: 1.0 },
-                finstack_core::dates::Frequency::quarterly(),
+                finstack_core::dates::Tenor::quarterly(),
             ),
             crate::metrics::MetricId::custom("debt_to_ebitda"),
         );
@@ -519,7 +519,7 @@ mod tests {
         let mut engine = CovenantEngine::new();
         let covenant = crate::covenants::engine::Covenant::new(
             crate::covenants::engine::CovenantType::MaxDebtToEBITDA { threshold: 3.0 },
-            finstack_core::dates::Frequency::quarterly(),
+            finstack_core::dates::Tenor::quarterly(),
         );
         let spec = CovenantSpec {
             covenant,

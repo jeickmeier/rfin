@@ -13,8 +13,8 @@
 use finstack_core::currency::Currency;
 use finstack_core::dates::calendar::registry::CalendarRegistry;
 use finstack_core::dates::{
-    BusinessDayConvention, Date, DateExt, DayCount, DayCountCtx, Frequency, HolidayCalendar,
-    Schedule, ScheduleBuilder, StubKind,
+    BusinessDayConvention, Date, DateExt, DayCount, DayCountCtx, HolidayCalendar, Schedule,
+    ScheduleBuilder, StubKind, Tenor,
 };
 use finstack_core::market_data::context::MarketContext;
 use finstack_core::money::fx::FxQuery;
@@ -88,7 +88,7 @@ pub struct XccySwapLeg {
     /// Discount curve for PV in leg currency.
     pub discount_curve_id: CurveId,
     /// Coupon frequency.
-    pub frequency: Frequency,
+    pub frequency: Tenor,
     /// Accrual day count.
     pub day_count: DayCount,
     /// Business day convention for schedule dates.

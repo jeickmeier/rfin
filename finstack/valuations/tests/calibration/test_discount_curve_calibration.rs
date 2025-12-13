@@ -8,7 +8,7 @@
 //! - Extrapolation and day count configuration
 
 use finstack_core::currency::Currency;
-use finstack_core::dates::{Date, DayCount, Frequency, StubKind};
+use finstack_core::dates::{Date, DayCount, StubKind, Tenor};
 use finstack_core::market_data::context::MarketContext;
 use finstack_core::market_data::term_structures::DiscountCurve;
 use finstack_core::math::interp::{ExtrapolationPolicy, InterpStyle};
@@ -59,8 +59,8 @@ fn test_multi_curve_instrument_validation() {
     let ois_swap = RatesQuote::Swap {
         maturity: Date::from_calendar_date(2025, Month::January, 1).expect("Valid test date"),
         rate: 0.02,
-        fixed_freq: Frequency::annual(),
-        float_freq: Frequency::daily(),
+        fixed_freq: Tenor::annual(),
+        float_freq: Tenor::daily(),
         fixed_dc: DayCount::Thirty360,
         float_dc: DayCount::Act360,
         index: "SOFR".to_string().into(),
@@ -78,8 +78,8 @@ fn test_multi_curve_instrument_validation() {
     let libor_swap = RatesQuote::Swap {
         maturity: Date::from_calendar_date(2025, Month::January, 1).expect("Valid test date"),
         rate: 0.02,
-        fixed_freq: Frequency::semi_annual(),
-        float_freq: Frequency::quarterly(),
+        fixed_freq: Tenor::semi_annual(),
+        float_freq: Tenor::quarterly(),
         fixed_dc: DayCount::Thirty360,
         float_dc: DayCount::Act360,
         index: "3M-LIBOR".to_string().into(),
@@ -122,8 +122,8 @@ fn create_test_quotes() -> Vec<RatesQuote> {
         RatesQuote::Swap {
             maturity: base_date + time::Duration::days(365),
             rate: 0.047,
-            fixed_freq: Frequency::semi_annual(),
-            float_freq: Frequency::quarterly(),
+            fixed_freq: Tenor::semi_annual(),
+            float_freq: Tenor::quarterly(),
             fixed_dc: DayCount::Thirty360,
             float_dc: DayCount::Act360,
             index: "USD-SOFR-3M".to_string().into(),
@@ -132,8 +132,8 @@ fn create_test_quotes() -> Vec<RatesQuote> {
         RatesQuote::Swap {
             maturity: base_date + time::Duration::days(365 * 2),
             rate: 0.048,
-            fixed_freq: Frequency::semi_annual(),
-            float_freq: Frequency::quarterly(),
+            fixed_freq: Tenor::semi_annual(),
+            float_freq: Tenor::quarterly(),
             fixed_dc: DayCount::Thirty360,
             float_dc: DayCount::Act360,
             index: "USD-SOFR-3M".to_string().into(),
@@ -333,8 +333,8 @@ fn test_swap_repricing_under_bootstrap() {
         RatesQuote::Swap {
             maturity: base_date + time::Duration::days(365),
             rate: 0.0470,
-            fixed_freq: Frequency::semi_annual(),
-            float_freq: Frequency::daily(),
+            fixed_freq: Tenor::semi_annual(),
+            float_freq: Tenor::daily(),
             fixed_dc: DayCount::Thirty360,
             float_dc: DayCount::Act360,
             index: "USD-OIS".to_string().into(),
@@ -371,7 +371,7 @@ fn test_swap_repricing_under_bootstrap() {
         .fixed(finstack_valuations::instruments::irs::FixedLegSpec {
             discount_curve_id: "USD-OIS".into(),
             rate: 0.0470,
-            freq: Frequency::semi_annual(),
+            freq: Tenor::semi_annual(),
             dc: DayCount::Thirty360,
             bdc: finstack_core::dates::BusinessDayConvention::ModifiedFollowing,
             calendar_id: None,
@@ -386,7 +386,7 @@ fn test_swap_repricing_under_bootstrap() {
             discount_curve_id: "USD-OIS".into(),
             forward_curve_id: "USD-OIS".into(),
             spread_bp: 0.0,
-            freq: Frequency::daily(),
+            freq: Tenor::daily(),
             dc: DayCount::Act360,
             bdc: finstack_core::dates::BusinessDayConvention::ModifiedFollowing,
             calendar_id: None,
@@ -459,8 +459,8 @@ fn test_ois_bootstrap_with_deposits_and_ois_swaps() {
         RatesQuote::Swap {
             maturity: base_date + time::Duration::days(365),
             rate: 0.0470,
-            fixed_freq: Frequency::semi_annual(),
-            float_freq: Frequency::daily(),
+            fixed_freq: Tenor::semi_annual(),
+            float_freq: Tenor::daily(),
             fixed_dc: DayCount::Thirty360,
             float_dc: DayCount::Act360,
             index: "USD-OIS".to_string().into(),
@@ -469,8 +469,8 @@ fn test_ois_bootstrap_with_deposits_and_ois_swaps() {
         RatesQuote::Swap {
             maturity: base_date + time::Duration::days(365 * 2),
             rate: 0.0480,
-            fixed_freq: Frequency::semi_annual(),
-            float_freq: Frequency::daily(),
+            fixed_freq: Tenor::semi_annual(),
+            float_freq: Tenor::daily(),
             fixed_dc: DayCount::Thirty360,
             float_dc: DayCount::Act360,
             index: "USD-OIS".to_string().into(),
@@ -669,8 +669,8 @@ fn test_pre_validation_fails_for_missing_forward_curves() {
             primary_index: "3M-SOFR".to_string(),
             reference_index: "1M-SOFR".to_string(),
             spread_bp: 5.0,
-            primary_freq: Frequency::quarterly(),
-            reference_freq: Frequency::monthly(),
+            primary_freq: Tenor::quarterly(),
+            reference_freq: Tenor::monthly(),
             primary_dc: DayCount::Act360,
             reference_dc: DayCount::Act360,
             currency: Currency::USD,

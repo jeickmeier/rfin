@@ -9,7 +9,7 @@
 //! - As-of filtering
 
 use finstack_core::currency::Currency;
-use finstack_core::dates::{Date, DayCount, Frequency};
+use finstack_core::dates::{Date, DayCount, Tenor};
 use finstack_core::market_data::context::MarketContext;
 use finstack_core::market_data::term_structures::discount_curve::DiscountCurve;
 use finstack_core::market_data::term_structures::forward_curve::ForwardCurve;
@@ -46,7 +46,7 @@ fn test_upfront_fee_sign() {
         .maturity_date(end)
         .base_rate_spec(BaseRateSpec::Fixed { rate: 0.0 }) // Zero interest
         .day_count(DayCount::Act360)
-        .payment_frequency(Frequency::quarterly())
+        .payment_frequency(Tenor::quarterly())
         .fees({
             let mut fees = RevolvingCreditFees::flat(0.0, 0.0, 0.0);
             fees.upfront_fee = Some(Money::new(50_000.0, Currency::USD));
@@ -93,7 +93,7 @@ fn test_mid_period_draw_accrual() {
         .maturity_date(end)
         .base_rate_spec(BaseRateSpec::Fixed { rate: 0.05 }) // 5% annual
         .day_count(DayCount::Act360)
-        .payment_frequency(Frequency::quarterly())
+        .payment_frequency(Tenor::quarterly())
         .fees(RevolvingCreditFees::default())
         .draw_repay_spec(DrawRepaySpec::Deterministic(vec![DrawRepayEvent {
             date: draw_date,
@@ -174,7 +174,7 @@ fn test_floating_vs_margin_only() {
                 all_in_floor_bp: None,
                 cap_bp: None,
                 index_cap_bp: None,
-                reset_freq: Frequency::quarterly(),
+                reset_freq: Tenor::quarterly(),
                 reset_lag_days: 2,
                 dc: DayCount::Act360,
                 bdc: finstack_core::dates::BusinessDayConvention::ModifiedFollowing,
@@ -183,7 +183,7 @@ fn test_floating_vs_margin_only() {
             },
         ))
         .day_count(DayCount::Act360)
-        .payment_frequency(Frequency::quarterly())
+        .payment_frequency(Tenor::quarterly())
         .fees(RevolvingCreditFees::default())
         .draw_repay_spec(DrawRepaySpec::Deterministic(vec![]))
         .discount_curve_id("USD-OIS".into())
@@ -252,7 +252,7 @@ fn test_reset_frequency_mismatch() {
                 all_in_floor_bp: None,
                 cap_bp: None,
                 index_cap_bp: None,
-                reset_freq: Frequency::monthly(), // Monthly resets
+                reset_freq: Tenor::monthly(), // Monthly resets
                 reset_lag_days: 2,
                 dc: DayCount::Act360,
                 bdc: finstack_core::dates::BusinessDayConvention::ModifiedFollowing,
@@ -261,7 +261,7 @@ fn test_reset_frequency_mismatch() {
             },
         ))
         .day_count(DayCount::Act360)
-        .payment_frequency(Frequency::quarterly()) // Quarterly payments
+        .payment_frequency(Tenor::quarterly()) // Quarterly payments
         .fees(RevolvingCreditFees::default())
         .draw_repay_spec(DrawRepaySpec::Deterministic(vec![]))
         .discount_curve_id("USD-OIS".into())
@@ -336,7 +336,7 @@ fn test_utilization_tier() {
         .maturity_date(end)
         .base_rate_spec(BaseRateSpec::Fixed { rate: 0.0 })
         .day_count(DayCount::Act360)
-        .payment_frequency(Frequency::quarterly())
+        .payment_frequency(Tenor::quarterly())
         .fees({
             let mut fees = RevolvingCreditFees::flat(0.0, 0.0, 0.0);
             fees.usage_fee_tiers = usage_tiers.clone();
@@ -355,7 +355,7 @@ fn test_utilization_tier() {
         .maturity_date(end)
         .base_rate_spec(BaseRateSpec::Fixed { rate: 0.0 })
         .day_count(DayCount::Act360)
-        .payment_frequency(Frequency::quarterly())
+        .payment_frequency(Tenor::quarterly())
         .fees({
             let mut fees = RevolvingCreditFees::flat(0.0, 0.0, 0.0);
             fees.usage_fee_tiers = usage_tiers;
@@ -432,7 +432,7 @@ fn test_as_of_filtering() {
         .maturity_date(end)
         .base_rate_spec(BaseRateSpec::Fixed { rate: 0.05 })
         .day_count(DayCount::Act360)
-        .payment_frequency(Frequency::quarterly())
+        .payment_frequency(Tenor::quarterly())
         .fees(RevolvingCreditFees::default())
         .draw_repay_spec(DrawRepaySpec::Deterministic(vec![]))
         .discount_curve_id("USD-OIS".into())

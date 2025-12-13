@@ -9,7 +9,7 @@ use finstack_core::{currency::Currency, dates::Date, money::Money, types::Instru
 use finstack_valuations::{
     instruments::{irs::InterestRateSwap, PayReceive},
     margin::{
-        ClearingStatus, CsaSpec, ImMethodology, ImParameters, MarginFrequency, OtcMarginSpec,
+        ClearingStatus, CsaSpec, ImMethodology, ImParameters, MarginTenor, OtcMarginSpec,
         ScheduleImCalculator, SimmCalculator, VmCalculator, VmParameters,
     },
 };
@@ -41,7 +41,7 @@ fn create_bilateral_margin_spec() -> OtcMarginSpec {
         mta: Money::new(100_000.0, Currency::USD),
         rounding: Money::new(10_000.0, Currency::USD),
         independent_amount: Money::new(0.0, Currency::USD),
-        frequency: MarginFrequency::Daily,
+        frequency: MarginTenor::Daily,
         settlement_lag: 1,
     };
 
@@ -67,7 +67,7 @@ fn create_bilateral_margin_spec() -> OtcMarginSpec {
         csa,
         clearing_status: ClearingStatus::Bilateral,
         im_methodology: ImMethodology::Simm,
-        vm_frequency: MarginFrequency::Daily,
+        vm_frequency: MarginTenor::Daily,
         settlement_lag: 1,
     }
 }
@@ -78,7 +78,7 @@ fn create_cleared_margin_spec() -> OtcMarginSpec {
         mta: Money::new(0.0, Currency::USD),
         rounding: Money::new(1.0, Currency::USD),
         independent_amount: Money::new(0.0, Currency::USD),
-        frequency: MarginFrequency::Daily,
+        frequency: MarginTenor::Daily,
         settlement_lag: 0, // Same-day settlement at CCPs
     };
 
@@ -106,7 +106,7 @@ fn create_cleared_margin_spec() -> OtcMarginSpec {
             ccp: "LCH".to_string(),
         },
         im_methodology: ImMethodology::ClearingHouse,
-        vm_frequency: MarginFrequency::Daily,
+        vm_frequency: MarginTenor::Daily,
         settlement_lag: 0,
     }
 }

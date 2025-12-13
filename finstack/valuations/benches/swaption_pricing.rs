@@ -10,7 +10,7 @@
 
 use criterion::{criterion_group, criterion_main, BenchmarkId, Criterion};
 use finstack_core::currency::Currency;
-use finstack_core::dates::{Date, DayCount, Frequency};
+use finstack_core::dates::{Date, DayCount, Tenor};
 use finstack_core::market_data::context::MarketContext;
 use finstack_core::market_data::surfaces::VolSurface;
 use finstack_core::market_data::term_structures::{DiscountCurve, ForwardCurve};
@@ -38,8 +38,8 @@ fn create_swaption(expiry_months: i64, swap_tenor_years: i32) -> Swaption {
         swap_start,
         swap_end,
         side: PayReceive::PayFixed,
-        fixed_freq: Some(Frequency::semi_annual()),
-        float_freq: Some(Frequency::quarterly()),
+        fixed_freq: Some(Tenor::semi_annual()),
+        float_freq: Some(Tenor::quarterly()),
         day_count: Some(DayCount::Thirty360),
         vol_model: None,
     };

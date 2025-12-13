@@ -4,7 +4,7 @@ use crate::core::market_data::PyMarketContext;
 use crate::core::money::{extract_money, PyMoney};
 use crate::errors::core_to_py;
 use crate::valuations::common::PyInstrumentType;
-use finstack_core::dates::Frequency;
+use finstack_core::dates::Tenor;
 use finstack_core::math::stats::RealizedVarMethod;
 use finstack_core::types::{CurveId, InstrumentId};
 use finstack_valuations::instruments::common::traits::Attributes;
@@ -234,10 +234,10 @@ impl PyVarianceSwap {
     #[getter]
     fn observation_frequency(&self) -> &'static str {
         match self.inner.observation_freq {
-            freq if freq == Frequency::daily() => "daily",
-            freq if freq == Frequency::weekly() => "weekly",
-            freq if freq == Frequency::monthly() => "monthly",
-            freq if freq == Frequency::quarterly() => "quarterly",
+            freq if freq == Tenor::daily() => "daily",
+            freq if freq == Tenor::weekly() => "weekly",
+            freq if freq == Tenor::monthly() => "monthly",
+            freq if freq == Tenor::quarterly() => "quarterly",
             _ => "quarterly",
         }
     }

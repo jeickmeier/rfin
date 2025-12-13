@@ -106,7 +106,7 @@ impl Default for HestonFourierSettings {
 /// # Arguments
 ///
 /// * `j` - Probability index (1 or 2)
-/// * `phi` - Frequency parameter
+/// * `phi` - Tenor parameter
 /// * `time` - Time to maturity
 /// * `log_spot` - Natural log of spot price
 /// * `params` - Heston model parameters

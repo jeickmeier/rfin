@@ -2,7 +2,7 @@
 
 // InterestSpec removed with loan; retain coupon for metadata only
 use crate::instruments::common::traits::Attributes;
-use finstack_core::dates::{Date, DayCount, Frequency};
+use finstack_core::dates::{Date, DayCount, Tenor};
 use finstack_core::money::Money;
 #[cfg(test)]
 use finstack_core::types::CurveId;
@@ -212,7 +212,7 @@ pub struct Tranche {
     pub credit_enhancement: CreditEnhancement,
 
     /// Payment characteristics
-    pub payment_frequency: Frequency,
+    pub payment_frequency: Tenor,
     /// Day count convention for interest accrual
     pub day_count: DayCount,
     /// Accumulated deferred interest (if payment has been deferred)
@@ -267,7 +267,7 @@ impl Tranche {
             oc_trigger: None,
             ic_trigger: None,
             credit_enhancement: CreditEnhancement::default(),
-            payment_frequency: Frequency::quarterly(),
+            payment_frequency: Tenor::quarterly(),
             day_count: DayCount::Act360,
             deferred_interest: Money::new(0.0, original_balance.currency()),
             is_revolving: false,
@@ -375,7 +375,7 @@ pub struct TrancheBuilder {
     coupon: Option<TrancheCoupon>,
     legal_maturity: Option<Date>,
     rating: Option<CreditRating>,
-    payment_frequency: Frequency,
+    payment_frequency: Tenor,
     day_count: DayCount,
 }
 
@@ -391,7 +391,7 @@ impl TrancheBuilder {
             coupon: None,
             legal_maturity: None,
             rating: None,
-            payment_frequency: Frequency::quarterly(),
+            payment_frequency: Tenor::quarterly(),
             day_count: DayCount::Act360,
         }
     }
@@ -448,7 +448,7 @@ impl TrancheBuilder {
 
     /// Set payment frequency
     #[must_use]
-    pub fn payment_frequency(mut self, freq: Frequency) -> Self {
+    pub fn payment_frequency(mut self, freq: Tenor) -> Self {
         self.payment_frequency = freq;
         self
     }
@@ -728,7 +728,7 @@ mod tests {
                     cap_bp: None,
                     all_in_floor_bp: None,
                     index_cap_bp: None,
-                    reset_freq: finstack_core::dates::Frequency::quarterly(),
+                    reset_freq: finstack_core::dates::Tenor::quarterly(),
                     reset_lag_days: 2,
                     dc: finstack_core::dates::DayCount::Act360,
                     bdc: finstack_core::dates::BusinessDayConvention::ModifiedFollowing,

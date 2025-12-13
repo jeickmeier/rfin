@@ -7,7 +7,7 @@
 //! - Forward-starting swaps
 
 use finstack_core::currency::Currency;
-use finstack_core::dates::{BusinessDayConvention, Date, DayCount, Frequency, StubKind};
+use finstack_core::dates::{BusinessDayConvention, Date, DayCount, StubKind, Tenor};
 use finstack_core::market_data::context::MarketContext;
 use finstack_core::market_data::term_structures::{DiscountCurve, ForwardCurve};
 use finstack_core::money::Money;
@@ -57,7 +57,7 @@ fn create_swap(as_of: Date, end: Date, fixed_rate: f64, side: PayReceive) -> Int
         fixed: finstack_valuations::instruments::common::parameters::legs::FixedLegSpec {
             discount_curve_id: "USD-OIS".into(),
             rate: fixed_rate,
-            freq: Frequency::quarterly(),
+            freq: Tenor::quarterly(),
             dc: DayCount::Act360,
             bdc: BusinessDayConvention::ModifiedFollowing,
             calendar_id: None,
@@ -72,7 +72,7 @@ fn create_swap(as_of: Date, end: Date, fixed_rate: f64, side: PayReceive) -> Int
             discount_curve_id: "USD-OIS".into(),
             forward_curve_id: "USD-SOFR-3M".into(),
             spread_bp: 0.0,
-            freq: Frequency::quarterly(),
+            freq: Tenor::quarterly(),
             dc: DayCount::Act360,
             bdc: BusinessDayConvention::ModifiedFollowing,
             calendar_id: None,
@@ -195,7 +195,7 @@ fn test_forward_starting_swap() {
         fixed: finstack_valuations::instruments::common::parameters::legs::FixedLegSpec {
             discount_curve_id: "USD-OIS".into(),
             rate: 0.05,
-            freq: Frequency::quarterly(),
+            freq: Tenor::quarterly(),
             dc: DayCount::Act360,
             bdc: BusinessDayConvention::ModifiedFollowing,
             calendar_id: None,
@@ -210,7 +210,7 @@ fn test_forward_starting_swap() {
             discount_curve_id: "USD-OIS".into(),
             forward_curve_id: "USD-SOFR-3M".into(),
             spread_bp: 0.0,
-            freq: Frequency::quarterly(),
+            freq: Tenor::quarterly(),
             dc: DayCount::Act360,
             bdc: BusinessDayConvention::ModifiedFollowing,
             calendar_id: None,
@@ -318,7 +318,7 @@ fn test_swap_seasoned() {
         fixed: finstack_valuations::instruments::common::parameters::legs::FixedLegSpec {
             discount_curve_id: "USD-OIS".into(),
             rate: 0.04, // Old rate from 2023
-            freq: Frequency::quarterly(),
+            freq: Tenor::quarterly(),
             dc: DayCount::Act360,
             bdc: BusinessDayConvention::ModifiedFollowing,
             calendar_id: None,
@@ -333,7 +333,7 @@ fn test_swap_seasoned() {
             discount_curve_id: "USD-OIS".into(),
             forward_curve_id: "USD-SOFR-3M".into(),
             spread_bp: 0.0,
-            freq: Frequency::quarterly(),
+            freq: Tenor::quarterly(),
             dc: DayCount::Act360,
             bdc: BusinessDayConvention::ModifiedFollowing,
             calendar_id: None,

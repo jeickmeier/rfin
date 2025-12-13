@@ -1,3 +1,0 @@
-# Periods
-
-Documentation coming soon.

@@ -3,7 +3,7 @@
 use crate::instruments::common::traits::Attributes;
 use crate::instruments::PricingOverrides;
 use crate::instruments::{ExerciseStyle, SettlementType};
-use finstack_core::dates::{BusinessDayConvention, Date, DayCount, Frequency, StubKind};
+use finstack_core::dates::{BusinessDayConvention, Date, DayCount, StubKind, Tenor};
 use finstack_core::money::Money;
 use finstack_core::types::{CurveId, InstrumentId};
 
@@ -41,7 +41,7 @@ pub struct InterestRateOption {
     /// End date of underlying period
     pub end_date: Date,
     /// Payment frequency for caps/floors
-    pub frequency: Frequency,
+    pub frequency: Tenor,
     /// Day count convention
     pub day_count: DayCount,
     /// Schedule stub convention
@@ -107,7 +107,7 @@ impl InterestRateOption {
         strike_rate: f64,
         start_date: Date,
         end_date: Date,
-        frequency: Frequency,
+        frequency: Tenor,
         day_count: DayCount,
         discount_curve_id: impl Into<CurveId>,
         forward_id: impl Into<CurveId>,
@@ -134,7 +134,7 @@ impl InterestRateOption {
         strike_rate: f64,
         start_date: Date,
         end_date: Date,
-        frequency: Frequency,
+        frequency: Tenor,
         day_count: DayCount,
         discount_curve_id: impl Into<CurveId>,
         forward_id: impl Into<CurveId>,

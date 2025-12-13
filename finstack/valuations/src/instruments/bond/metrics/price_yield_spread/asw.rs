@@ -6,7 +6,7 @@ use crate::instruments::bond::pricing::quote_engine::{
 use crate::instruments::bond::CashflowSpec;
 use crate::instruments::Bond;
 use crate::metrics::{MetricCalculator, MetricContext, MetricId};
-use finstack_core::dates::{BusinessDayConvention, Date, DayCount, Frequency, StubKind};
+use finstack_core::dates::{BusinessDayConvention, Date, DayCount, StubKind, Tenor};
 use finstack_core::market_data::term_structures::discount_curve::DiscountCurve;
 
 /// Configuration for fixed-leg conventions used in ASW par/market metrics.
@@ -19,11 +19,11 @@ use finstack_core::market_data::term_structures::discount_curve::DiscountCurve;
 ///
 /// ```rust
 /// use finstack_valuations::instruments::bond::metrics::price_yield_spread::asw::AssetSwapConfig;
-/// use finstack_core::dates::{DayCount, Frequency, BusinessDayConvention, StubKind};
+/// use finstack_core::dates::{DayCount, Tenor, BusinessDayConvention, StubKind};
 ///
 /// let config = AssetSwapConfig {
 ///     fixed_leg_day_count: Some(DayCount::Act365F),
-///     fixed_leg_frequency: Some(Frequency::semi_annual()),
+///     fixed_leg_frequency: Some(Tenor::semi_annual()),
 ///     fixed_leg_bdc: Some(BusinessDayConvention::ModifiedFollowing),
 ///     fixed_leg_calendar_id: Some("USGS".to_string()),
 ///     fixed_leg_stub: Some(StubKind::ShortFront),
@@ -34,7 +34,7 @@ pub struct AssetSwapConfig {
     /// Day-count convention for the ASW fixed leg (annuity).
     pub fixed_leg_day_count: Option<DayCount>,
     /// Payment frequency for the ASW fixed leg.
-    pub fixed_leg_frequency: Option<Frequency>,
+    pub fixed_leg_frequency: Option<Tenor>,
     /// Business day convention for the ASW fixed-leg schedule.
     pub fixed_leg_bdc: Option<BusinessDayConvention>,
     /// Optional calendar identifier for business-day adjustment.

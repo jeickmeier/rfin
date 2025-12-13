@@ -1,7 +1,7 @@
 //! Common test fixtures and helpers for variance swap tests.
 
 use finstack_core::currency::Currency;
-use finstack_core::dates::{Date, DayCount, Frequency};
+use finstack_core::dates::{Date, DayCount, Tenor};
 use finstack_core::market_data::context::MarketContext;
 use finstack_core::market_data::scalars::{MarketScalar, ScalarTimeSeries, SeriesInterpolation};
 use finstack_core::market_data::surfaces::vol_surface::VolSurface;
@@ -39,7 +39,7 @@ pub fn sample_swap(side: PayReceive) -> VarianceSwap {
         .strike_variance(DEFAULT_STRIKE_VAR)
         .start_date(start)
         .maturity(end)
-        .observation_freq(Frequency::daily())
+        .observation_freq(Tenor::daily())
         .realized_var_method(RealizedVarMethod::CloseToClose)
         .side(side)
         .discount_curve_id(CurveId::new(DISC_ID))

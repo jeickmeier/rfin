@@ -1,5 +1,5 @@
 use finstack_core::currency::Currency;
-use finstack_core::dates::{BusinessDayConvention, Date, DayCount, Frequency};
+use finstack_core::dates::{BusinessDayConvention, Date, DayCount, Tenor};
 use finstack_core::market_data::context::MarketContext;
 use finstack_core::market_data::term_structures::{DiscountCurve, ForwardCurve};
 use finstack_core::math::interp::InterpStyle;
@@ -74,8 +74,8 @@ fn xccy_bootstrap_reprices_quote() {
         domestic_discount_curve_id: CurveId::new("USD-OIS"),
         domestic_forward_curve_id: CurveId::new("USD-SOFR-3M"),
         foreign_forward_curve_id: CurveId::new("EUR-EURIBOR-3M"),
-        domestic_freq: Frequency::quarterly(),
-        foreign_freq: Frequency::quarterly(),
+        domestic_freq: Tenor::quarterly(),
+        foreign_freq: Tenor::quarterly(),
         domestic_dc: DayCount::Act360,
         foreign_dc: DayCount::Act360,
         domestic_bdc: BusinessDayConvention::ModifiedFollowing,
@@ -105,7 +105,7 @@ fn xccy_bootstrap_reprices_quote() {
             side: LegSide::Receive,
             forward_curve_id: CurveId::new("USD-SOFR-3M"),
             discount_curve_id: CurveId::new("USD-OIS"),
-            frequency: Frequency::quarterly(),
+            frequency: Tenor::quarterly(),
             day_count: DayCount::Act360,
             bdc: BusinessDayConvention::ModifiedFollowing,
             spread: 0.0,
@@ -119,7 +119,7 @@ fn xccy_bootstrap_reprices_quote() {
             side: LegSide::Pay,
             forward_curve_id: CurveId::new("EUR-EURIBOR-3M"),
             discount_curve_id: CurveId::new("EUR-XCCY-DISC"),
-            frequency: Frequency::quarterly(),
+            frequency: Tenor::quarterly(),
             day_count: DayCount::Act360,
             bdc: BusinessDayConvention::ModifiedFollowing,
             spread: 0.0,

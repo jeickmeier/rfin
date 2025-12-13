@@ -437,7 +437,7 @@ mod tests {
 
     #[test]
     fn test_netting_set_from_cleared_spec() {
-        use crate::margin::types::{CsaSpec, ImMethodology, MarginFrequency};
+        use crate::margin::types::{CsaSpec, ImMethodology, MarginTenor};
 
         let start = test_date();
         let end = Date::from_calendar_date(2029, Month::June, 15).expect("valid date");
@@ -459,7 +459,7 @@ mod tests {
                 ccp: "LCH".to_string(),
             },
             im_methodology: ImMethodology::ClearingHouse,
-            vm_frequency: MarginFrequency::Daily,
+            vm_frequency: MarginTenor::Daily,
             settlement_lag: 0,
         });
 

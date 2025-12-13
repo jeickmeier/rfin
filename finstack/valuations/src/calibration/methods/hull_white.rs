@@ -13,7 +13,7 @@
 //! - Brigo, D. & Mercurio, F. (2006). *Interest Rate Models*, Chapter 4
 
 use crate::instruments::common::models::trees::HullWhiteTreeConfig;
-use finstack_core::dates::{Date, DayCount, DayCountCtx, Frequency};
+use finstack_core::dates::{Date, DayCount, DayCountCtx, Tenor};
 use finstack_core::market_data::context::MarketContext;
 use finstack_core::market_data::traits::Discounting;
 use finstack_core::math::{BrentSolver, Solver};
@@ -175,9 +175,9 @@ pub struct HullWhiteCalibrator {
     /// Day count convention
     day_count: DayCount,
     /// Fixed leg frequency
-    fixed_freq: Frequency,
+    fixed_freq: Tenor,
     /// Float leg frequency
-    float_freq: Frequency,
+    float_freq: Tenor,
     /// Configuration
     config: HullWhiteCalibrationConfig,
 }
@@ -193,8 +193,8 @@ impl HullWhiteCalibrator {
             base_date,
             discount_curve_id: discount_curve_id.into(),
             day_count,
-            fixed_freq: Frequency::semi_annual(),
-            float_freq: Frequency::quarterly(),
+            fixed_freq: Tenor::semi_annual(),
+            float_freq: Tenor::quarterly(),
             config: HullWhiteCalibrationConfig::default(),
         }
     }
@@ -206,7 +206,7 @@ impl HullWhiteCalibrator {
     }
 
     /// Set leg frequencies.
-    pub fn with_frequencies(mut self, fixed_freq: Frequency, float_freq: Frequency) -> Self {
+    pub fn with_frequencies(mut self, fixed_freq: Tenor, float_freq: Tenor) -> Self {
         self.fixed_freq = fixed_freq;
         self.float_freq = float_freq;
         self
@@ -396,7 +396,9 @@ impl HullWhiteCalibrator {
     ) -> Result<f64> {
         // Approximate using frequency
         let periods_per_year = match self.fixed_freq {
-            Frequency::Months(m) if m > 0 => 12.0 / m as f64,
+            freq if freq.unit == finstack_core::dates::TenorUnit::Months && freq.count > 0 => {
+                12.0 / freq.count as f64
+            }
             _ => 2.0, // Default semi-annual
         };
 

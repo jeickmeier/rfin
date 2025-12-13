@@ -1,7 +1,7 @@
 //! Revolving credit construction and validation tests.
 
 use finstack_core::currency::Currency;
-use finstack_core::dates::{Date, DayCount, Frequency};
+use finstack_core::dates::{Date, DayCount, Tenor};
 use finstack_core::money::Money;
 use finstack_valuations::instruments::revolving_credit::{
     BaseRateSpec, DrawRepaySpec, RevolvingCredit, RevolvingCreditFees,
@@ -19,7 +19,7 @@ fn test_builder_fixed_rate_facility() {
         .maturity_date(date!(2028 - 01 - 01))
         .base_rate_spec(BaseRateSpec::Fixed { rate: 0.05 }) // 5%
         .day_count(DayCount::Act360)
-        .payment_frequency(Frequency::quarterly())
+        .payment_frequency(Tenor::quarterly())
         .fees(RevolvingCreditFees::flat(25.0, 10.0, 5.0))
         .draw_repay_spec(DrawRepaySpec::Scheduled(vec![]))
         .discount_curve_id("USD-OIS".into())
@@ -46,7 +46,7 @@ fn test_builder_floating_rate_facility() {
             spread: 0.0250, // 250 bps
         })
         .day_count(DayCount::Act360)
-        .payment_frequency(Frequency::quarterly())
+        .payment_frequency(Tenor::quarterly())
         .fees(RevolvingCreditFees::flat(30.0, 15.0, 8.0))
         .draw_repay_spec(DrawRepaySpec::Scheduled(vec![]))
         .discount_curve_id("USD-OIS".into())
@@ -72,7 +72,7 @@ fn test_builder_with_tiered_fees() {
         .maturity_date(date!(2030 - 01 - 01))
         .base_rate_spec(BaseRateSpec::Fixed { rate: 0.055 })
         .day_count(DayCount::Act360)
-        .payment_frequency(Frequency::quarterly())
+        .payment_frequency(Tenor::quarterly())
         .fees(RevolvingCreditFees::tiered(
             25.0,
             vec![(0.0, 10.0), (0.5, 15.0), (0.75, 20.0)],
@@ -97,7 +97,7 @@ fn test_validation_maturity_after_commitment() {
         .maturity_date(date!(2025 - 01 - 01)) // Before commitment!
         .base_rate_spec(BaseRateSpec::Fixed { rate: 0.05 })
         .day_count(DayCount::Act360)
-        .payment_frequency(Frequency::quarterly())
+        .payment_frequency(Tenor::quarterly())
         .fees(RevolvingCreditFees::flat(25.0, 10.0, 5.0))
         .draw_repay_spec(DrawRepaySpec::Scheduled(vec![]))
         .discount_curve_id("USD-OIS".into())
@@ -118,7 +118,7 @@ fn test_validation_drawn_within_commitment() {
         .maturity_date(date!(2030 - 01 - 01))
         .base_rate_spec(BaseRateSpec::Fixed { rate: 0.05 })
         .day_count(DayCount::Act360)
-        .payment_frequency(Frequency::quarterly())
+        .payment_frequency(Tenor::quarterly())
         .fees(RevolvingCreditFees::flat(25.0, 10.0, 5.0))
         .draw_repay_spec(DrawRepaySpec::Scheduled(vec![]))
         .discount_curve_id("USD-OIS".into())

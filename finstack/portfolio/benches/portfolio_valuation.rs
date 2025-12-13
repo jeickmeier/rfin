@@ -18,7 +18,7 @@
 
 use criterion::{criterion_group, criterion_main, BenchmarkId, Criterion};
 use finstack_core::currency::Currency;
-use finstack_core::dates::{BusinessDayConvention, Date, DayCount, Frequency, StubKind};
+use finstack_core::dates::{BusinessDayConvention, Date, DayCount, StubKind, Tenor};
 use finstack_core::market_data::context::MarketContext;
 use finstack_core::market_data::scalars::MarketScalar;
 use finstack_core::market_data::surfaces::VolSurface;
@@ -712,7 +712,7 @@ fn create_institutional_portfolio(num_positions: usize) -> finstack_portfolio::P
             .strike_variance(0.0625) // 25% vol squared
             .start_date(base)
             .maturity(maturity_2y())
-            .observation_freq(Frequency::daily())
+            .observation_freq(Tenor::daily())
             .realized_var_method(RealizedVarMethod::CloseToClose)
             .side(finstack_valuations::instruments::variance_swap::PayReceive::Receive)
             .discount_curve_id("USD-OIS".into())
@@ -751,7 +751,7 @@ fn create_institutional_portfolio(num_positions: usize) -> finstack_portfolio::P
         );
 
         let schedule_params = ScheduleParams {
-            freq: Frequency::quarterly(),
+            freq: Tenor::quarterly(),
             dc: DayCount::Act360,
             bdc: BusinessDayConvention::Following,
             calendar_id: None,
@@ -922,7 +922,7 @@ fn create_institutional_portfolio(num_positions: usize) -> finstack_portfolio::P
         let fixed_coupon = FixedCouponSpec {
             coupon_type: CouponType::Cash,
             rate: 0.03,
-            freq: Frequency::semi_annual(),
+            freq: Tenor::semi_annual(),
             dc: DayCount::Act365F,
             bdc: BusinessDayConvention::Following,
             calendar_id: None,

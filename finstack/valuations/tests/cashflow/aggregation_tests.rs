@@ -16,7 +16,7 @@ use crate::cashflow_tests::test_helpers::{
 };
 use finstack_core::cashflow::primitives::{CFKind, CashFlow};
 use finstack_core::currency::Currency;
-use finstack_core::dates::{Date, DayCount, DayCountCtx, Frequency, Period, PeriodId};
+use finstack_core::dates::{Date, DayCount, DayCountCtx, Period, PeriodId, Tenor};
 use finstack_core::market_data::traits::{Discounting, Survival};
 use finstack_core::money::Money;
 use finstack_valuations::cashflow::aggregation::{
@@ -197,7 +197,7 @@ fn pv_with_ctx_sum_matches_direct_calculation() {
     let curve = FlatRateCurve::new("USD-OIS", base, 0.05);
 
     let dc_ctx = DayCountCtx {
-        frequency: Some(Frequency::quarterly()),
+        frequency: Some(Tenor::quarterly()),
         calendar: None,
         bus_basis: None,
     };
@@ -264,7 +264,7 @@ fn pv_by_period_deterministic_multi_currency() {
     let curve = FlatRateCurve::new("USD-OIS", base, 0.0); // No discounting
 
     let dc_ctx = DayCountCtx {
-        frequency: Some(Frequency::quarterly()),
+        frequency: Some(Tenor::quarterly()),
         calendar: None,
         bus_basis: None,
     };
@@ -678,7 +678,7 @@ fn pv_with_ctx_actact_isma_requires_frequency() {
 
     // With frequency - should succeed
     let dc_ctx_with_freq = DayCountCtx {
-        frequency: Some(Frequency::semi_annual()),
+        frequency: Some(Tenor::semi_annual()),
         calendar: None,
         bus_basis: None,
     };

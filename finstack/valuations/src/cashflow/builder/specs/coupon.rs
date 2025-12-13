@@ -1,6 +1,6 @@
 //! Coupon specification types for fixed and floating rate coupons.
 
-use finstack_core::dates::{BusinessDayConvention, DayCount, Frequency, StubKind};
+use finstack_core::dates::{BusinessDayConvention, DayCount, StubKind, Tenor};
 use finstack_core::error::InputError;
 use finstack_core::types::CurveId;
 
@@ -62,7 +62,7 @@ pub struct FixedCouponSpec {
     /// rate.
     pub rate: f64,
     /// freq.
-    pub freq: Frequency,
+    pub freq: Tenor,
     /// dc.
     pub dc: DayCount,
     /// bdc.
@@ -103,7 +103,7 @@ fn default_reset_lag() -> i32 {
 /// # Example
 ///
 /// ```rust
-/// use finstack_core::dates::{DayCount, Frequency, BusinessDayConvention};
+/// use finstack_core::dates::{DayCount, Tenor, BusinessDayConvention};
 /// use finstack_valuations::cashflow::builder::FloatingRateSpec;
 ///
 /// // 3M SOFR + 200bps with 0% floor
@@ -116,7 +116,7 @@ fn default_reset_lag() -> i32 {
 ///     all_in_floor_bp: None,
 ///     cap_bp: None,
 ///     index_cap_bp: None,
-///     reset_freq: Frequency::quarterly(),
+///     reset_freq: Tenor::quarterly(),
 ///     reset_lag_days: 2,
 ///     dc: DayCount::Act360,
 ///     bdc: BusinessDayConvention::ModifiedFollowing,
@@ -169,7 +169,7 @@ pub struct FloatingRateSpec {
     pub index_cap_bp: Option<f64>,
 
     /// Reset frequency for rate fixings.
-    pub reset_freq: Frequency,
+    pub reset_freq: Tenor,
 
     /// Reset lag in business days (e.g., 2 for T-2 SOFR convention).
     #[cfg_attr(feature = "serde", serde(default = "default_reset_lag"))]
@@ -211,7 +211,7 @@ pub struct FloatingCouponSpec {
     pub coupon_type: CouponType,
 
     /// Payment frequency (may differ from reset frequency in rate_spec).
-    pub freq: Frequency,
+    pub freq: Tenor,
 
     /// Stub rule for payment schedule generation.
     pub stub: StubKind,

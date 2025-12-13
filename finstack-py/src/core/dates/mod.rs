@@ -15,6 +15,8 @@ pub use daycount::{PyDayCount, PyDayCountContext, PyThirty360Convention};
 pub use periods::{PyFiscalConfig, PyPeriod, PyPeriodId, PyPeriodPlan};
 #[allow(unused_imports)]
 pub use schedule::{PyFrequency, PySchedule, PyScheduleBuilder, PyStubKind};
+#[allow(unused_imports)]
+pub use tenor::{PyTenor, PyTenorUnit};
 
 use pyo3::prelude::*;
 use pyo3::types::{PyList, PyModule};

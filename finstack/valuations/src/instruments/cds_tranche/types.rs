@@ -5,7 +5,7 @@ use crate::instruments::build_with_metrics_dyn;
 use crate::instruments::common::traits::{Attributes, Instrument};
 use crate::metrics::MetricId;
 use crate::results::ValuationResult;
-use finstack_core::dates::{BusinessDayConvention, Date, DayCount, Frequency, StubKind};
+use finstack_core::dates::{BusinessDayConvention, Date, DayCount, StubKind, Tenor};
 use finstack_core::market_data::context::MarketContext;
 use finstack_core::money::Money;
 use finstack_core::types::{CurveId, InstrumentId};
@@ -67,7 +67,7 @@ pub struct CdsTranche {
     /// Running coupon in basis points (e.g., 100 = 1.00%)
     pub running_coupon_bp: f64,
     /// Payment frequency (typically quarterly)
-    pub payment_frequency: Frequency,
+    pub payment_frequency: Tenor,
     /// Day count (typically Act/360)
     pub day_count: DayCount,
     /// Business day convention
@@ -111,7 +111,7 @@ impl CdsTranche {
             100.0,
         );
         let sched = ScheduleParams {
-            freq: Frequency::quarterly(),
+            freq: Tenor::quarterly(),
             dc: DayCount::Act360,
             bdc: BusinessDayConvention::Following,
             calendar_id: None,
@@ -186,7 +186,7 @@ impl CdsTranche {
     ) -> Self {
         use crate::cashflow::builder::ScheduleParams;
         let sched = ScheduleParams {
-            freq: Frequency::quarterly(),
+            freq: Tenor::quarterly(),
             dc: DayCount::Act360,
             bdc: BusinessDayConvention::Following,
             calendar_id: None,

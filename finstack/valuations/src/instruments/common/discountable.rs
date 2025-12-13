@@ -61,7 +61,7 @@ mod tests {
     use super::*;
     use crate::cashflow::builder::{CashFlowSchedule, CouponType, FixedCouponSpec, ScheduleParams};
     use finstack_core::currency::Currency;
-    use finstack_core::dates::{BusinessDayConvention, Date, DayCount, Frequency, StubKind};
+    use finstack_core::dates::{BusinessDayConvention, Date, DayCount, StubKind, Tenor};
     use finstack_core::market_data::traits::{Discounting, TermStructure};
     use finstack_core::money::Money;
     use finstack_core::types::CurveId;
@@ -91,7 +91,7 @@ mod tests {
         let issue = Date::from_calendar_date(2025, Month::January, 1).expect("valid date");
         let maturity = Date::from_calendar_date(2025, Month::July, 1).expect("valid date");
         let params = ScheduleParams {
-            freq: Frequency::quarterly(),
+            freq: Tenor::quarterly(),
             dc: DayCount::Act365F,
             bdc: BusinessDayConvention::Following,
             calendar_id: None,

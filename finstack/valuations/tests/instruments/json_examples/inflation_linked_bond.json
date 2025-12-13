@@ -9,9 +9,7 @@
         "currency": "USD"
       },
       "real_coupon": 0.025,
-      "freq": {
-        "Months": 6
-      },
+      "freq": {"count": 6, "unit": "months"},
       "dc": "Act365F",
       "issue": "2024-01-15",
       "maturity": "2034-01-15",

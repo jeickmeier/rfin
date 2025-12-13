@@ -8,7 +8,7 @@
 //! `metrics/accrued.rs` which validates the integration with the metrics framework.
 
 use finstack_core::currency::Currency;
-use finstack_core::dates::{Date, Frequency};
+use finstack_core::dates::{Date, Tenor};
 use finstack_core::market_data::context::MarketContext;
 use finstack_core::money::Money;
 use finstack_valuations::cashflow::accrual;
@@ -230,7 +230,7 @@ fn test_accrued_interest_amortizing_schedule_driven() {
             (maturity, Money::new(0.0, Currency::USD)),
         ],
     };
-    let base_spec = CashflowSpec::fixed(0.05, Frequency::annual(), DayCount::Act365F);
+    let base_spec = CashflowSpec::fixed(0.05, Tenor::annual(), DayCount::Act365F);
     let cashflow_spec = CashflowSpec::amortizing(base_spec, amort_spec);
 
     let bond = Bond::builder()

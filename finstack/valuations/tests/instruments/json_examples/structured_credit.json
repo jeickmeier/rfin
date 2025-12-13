@@ -76,9 +76,7 @@
               "excess_spread": 0.0,
               "cash_trap_active": false
             },
-            "payment_frequency": {
-              "Months": 3
-            },
+            "payment_frequency": {"count": 3, "unit": "months"},
             "day_count": "Act360",
             "deferred_interest": {
               "amount": "0",
@@ -153,9 +151,7 @@
       "first_payment_date": "2025-04-01",
       "reinvestment_end_date": null,
       "legal_maturity": "2034-01-01",
-      "payment_frequency": {
-        "Months": 3
-      },
+      "payment_frequency": {"count": 3, "unit": "months"},
       "discount_curve_id": "USD-OIS",
       "attributes": {
         "tags": [],

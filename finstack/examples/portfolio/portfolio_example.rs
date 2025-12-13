@@ -614,7 +614,7 @@ fn build_sample_portfolio(as_of: Date) -> finstack_portfolio::Result<Portfolio> 
         .fixed(FixedLegSpec {
             discount_curve_id: "USD".into(),
             rate: 0.04,
-            freq: finstack_core::dates::Frequency::semi_annual(),
+            freq: finstack_core::dates::Tenor::semi_annual(),
             dc: DayCount::Thirty360,
             bdc: BusinessDayConvention::ModifiedFollowing,
             calendar_id: None,
@@ -629,7 +629,7 @@ fn build_sample_portfolio(as_of: Date) -> finstack_portfolio::Result<Portfolio> 
             discount_curve_id: "USD".into(),
             forward_curve_id: "USD_SOFR_3M".into(),
             spread_bp: 25.0,
-            freq: finstack_core::dates::Frequency::quarterly(),
+            freq: finstack_core::dates::Tenor::quarterly(),
             dc: DayCount::Act360,
             bdc: BusinessDayConvention::ModifiedFollowing,
             calendar_id: None,
@@ -784,7 +784,7 @@ fn build_sample_portfolio(as_of: Date) -> finstack_portfolio::Result<Portfolio> 
     );
 
     let schedule_params = finstack_valuations::cashflow::builder::ScheduleParams {
-        freq: finstack_core::dates::Frequency::quarterly(),
+        freq: finstack_core::dates::Tenor::quarterly(),
         dc: DayCount::Act360,
         bdc: BusinessDayConvention::ModifiedFollowing,
         calendar_id: None,
@@ -817,7 +817,7 @@ fn build_sample_portfolio(as_of: Date) -> finstack_portfolio::Result<Portfolio> 
     let cap_params = InterestRateOptionParams::cap(
         Money::new(10_000_000.0, Currency::USD), // $10M
         0.05,                                    // 5% strike rate
-        finstack_core::dates::Frequency::quarterly(),
+        finstack_core::dates::Tenor::quarterly(),
         DayCount::Act360,
     );
 

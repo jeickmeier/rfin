@@ -2,7 +2,8 @@
   "schema": "finstack.cashflow/1",
   "schedule_params": {
     "freq": {
-      "Months": 3
+      "count": 3,
+      "unit": "months"
     },
     "dc": "Act360",
     "bdc": "modified_following",
@@ -10,4 +11,3 @@
     "stub": "None"
   }
 }
-

@@ -50,7 +50,7 @@ fn test_dm_missing_forward_curve_returns_error() {
         200.0,
         as_of,
         date!(2030 - 01 - 01),
-        finstack_core::dates::Frequency::quarterly(),
+        finstack_core::dates::Tenor::quarterly(),
         finstack_core::dates::DayCount::Act360,
         "USD-OIS",
     );
@@ -91,7 +91,7 @@ fn test_dm_missing_forward_curve_returns_error() {
 /// realistic spread levels and maintain tight price residuals.
 #[test]
 fn test_dm_solver_convergence_across_spread_regimes() {
-    use finstack_core::dates::{DayCount, Frequency};
+    use finstack_core::dates::{DayCount, Tenor};
     use finstack_core::market_data::context::MarketContext;
     use finstack_core::market_data::term_structures::discount_curve::DiscountCurve;
     use finstack_core::market_data::term_structures::forward_curve::ForwardCurve;
@@ -129,7 +129,7 @@ fn test_dm_solver_convergence_across_spread_regimes() {
         150.0,
         as_of,
         maturity_ig,
-        Frequency::quarterly(),
+        Tenor::quarterly(),
         DayCount::Act360,
         "USD-OIS",
     );
@@ -140,7 +140,7 @@ fn test_dm_solver_convergence_across_spread_regimes() {
         300.0,
         as_of,
         maturity_hy,
-        Frequency::quarterly(),
+        Tenor::quarterly(),
         DayCount::Act360,
         "USD-OIS",
     );
@@ -151,7 +151,7 @@ fn test_dm_solver_convergence_across_spread_regimes() {
         500.0,
         as_of,
         maturity_distressed,
-        Frequency::quarterly(),
+        Tenor::quarterly(),
         DayCount::Act360,
         "USD-OIS",
     );

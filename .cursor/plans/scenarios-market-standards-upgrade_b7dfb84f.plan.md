@@ -67,7 +67,7 @@ todos:
 - **2.2 Calibrated hazard bump mode**
 - Implement a `Calibrated` hazard bump that:
 - Uses existing credit pricing primitives in `finstack_core`/`finstack_valuations` (or a math/calibration helper if available) to re-solve for hazard knots so that par-spread PVs match shocked spreads.
-- Respects existing day-count, payment frequency, and curve conventions for discounting and fee legs.
+- Respects existing day-count, payment tenor, and curve conventions for discounting and fee legs.
 - Provide a configuration path (feature flag or runtime setting) to select `Approximate` vs `Calibrated` default behavior, with `Calibrated` as the recommended production mode.
 
 - **2.3 Diagnostics and safety checks**

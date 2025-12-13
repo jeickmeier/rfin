@@ -4,7 +4,8 @@
     "coupon_type": "Cash",
     "rate": 0.0425,
     "freq": {
-      "Months": 6
+      "count": 6,
+      "unit": "months"
     },
     "dc": "Thirty360",
     "bdc": "modified_following",
@@ -12,4 +13,3 @@
     "stub": "None"
   }
 }
-

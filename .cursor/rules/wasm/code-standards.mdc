@@ -210,7 +210,7 @@ use wasm_bindgen::prelude::*;
 
 #[wasm_bindgen]
 #[derive(Clone, Copy, Debug)]
-pub enum Frequency {
+pub enum Tenor {
     Annual = "Annual",
     SemiAnnual = "SemiAnnual",
     Quarterly = "Quarterly",
@@ -218,13 +218,13 @@ pub enum Frequency {
 }
 
 // Conversion to core enum
-impl Into<CoreFrequency> for Frequency {
-    fn into(self) -> CoreFrequency {
+impl Into<CoreTenor> for Tenor {
+    fn into(self) -> CoreTenor {
         match self {
-            Frequency::Annual => CoreFrequency::annual(),
-            Frequency::SemiAnnual => CoreFrequency::semi_annual(),
-            Frequency::Quarterly => CoreFrequency::quarterly(),
-            Frequency::Monthly => CoreFrequency::monthly(),
+            Tenor::Annual => CoreTenor::annual(),
+            Tenor::SemiAnnual => CoreTenor::semi_annual(),
+            Tenor::Quarterly => CoreTenor::quarterly(),
+            Tenor::Monthly => CoreTenor::monthly(),
         }
     }
 }
@@ -340,7 +340,7 @@ impl Currency {
 use js_sys::Array;
 
 #[wasm_bindgen]
-pub fn generate_dates(start: &Date, end: &Date, freq: Frequency) -> Array {
+pub fn generate_dates(start: &Date, end: &Date, tenor: Tenor) -> Array {
     let dates = generate_schedule_internal(start, end, freq);
     
     let array = Array::new();
@@ -747,7 +747,7 @@ use wasm_bindgen::prelude::*;
 
 #[wasm_bindgen]
 #[derive(Clone, Copy, Debug)]
-pub enum Frequency {
+pub enum Tenor {
     Annual = "Annual",
     SemiAnnual = "SemiAnnual",
     Quarterly = "Quarterly",
@@ -755,13 +755,13 @@ pub enum Frequency {
 }
 
 // Conversion to core enum
-impl Into<CoreFrequency> for Frequency {
-    fn into(self) -> CoreFrequency {
+impl Into<CoreTenor> for Tenor {
+    fn into(self) -> CoreTenor {
         match self {
-            Frequency::Annual => CoreFrequency::annual(),
-            Frequency::SemiAnnual => CoreFrequency::semi_annual(),
-            Frequency::Quarterly => CoreFrequency::quarterly(),
-            Frequency::Monthly => CoreFrequency::monthly(),
+            Tenor::Annual => CoreTenor::annual(),
+            Tenor::SemiAnnual => CoreTenor::semi_annual(),
+            Tenor::Quarterly => CoreTenor::quarterly(),
+            Tenor::Monthly => CoreTenor::monthly(),
         }
     }
 }
@@ -877,7 +877,7 @@ impl Currency {
 use js_sys::Array;
 
 #[wasm_bindgen]
-pub fn generate_dates(start: &Date, end: &Date, freq: Frequency) -> Array {
+pub fn generate_dates(start: &Date, end: &Date, tenor: Tenor) -> Array {
     let dates = generate_schedule_internal(start, end, freq);
     
     let array = Array::new();

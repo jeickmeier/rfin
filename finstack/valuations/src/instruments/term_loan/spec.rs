@@ -41,7 +41,7 @@
 //!     issue: create_date(2025, Month::January, 1)?,
 //!     maturity: create_date(2030, Month::January, 1)?,
 //!     rate: RateSpec::Fixed { rate_bp: 600 },
-//!     pay_freq: Frequency::quarterly(),
+//!     pay_freq: Tenor::quarterly(),
 //!     day_count: DayCount::Act360,
 //!     bdc: BusinessDayConvention::ModifiedFollowing,
 //!     calendar_id: None,
@@ -67,7 +67,7 @@
 
 use crate::instruments::pricing_overrides::PricingOverrides;
 use finstack_core::currency::Currency;
-use finstack_core::dates::{BusinessDayConvention, Date, DayCount, Frequency, StubKind};
+use finstack_core::dates::{BusinessDayConvention, Date, DayCount, StubKind, Tenor};
 use finstack_core::money::Money;
 use finstack_core::types::{CurveId, InstrumentId};
 
@@ -367,7 +367,7 @@ pub enum AmortizationSpec {
 ///     all_in_floor_bp: None,
 ///     cap_bp: None,
 ///     index_cap_bp: None,
-///     reset_freq: Frequency::quarterly(),
+///     reset_freq: Tenor::quarterly(),
 ///     reset_lag_days: 2,
 ///     dc: DayCount::Act360,
 ///     bdc: BusinessDayConvention::ModifiedFollowing,
@@ -382,7 +382,7 @@ pub enum AmortizationSpec {
 ///     issue: create_date(2025, Month::January, 15)?,
 ///     maturity: create_date(2030, Month::January, 15)?,
 ///     rate: RateSpec::Floating(floating_spec),
-///     pay_freq: Frequency::quarterly(),
+///     pay_freq: Tenor::quarterly(),
 ///     day_count: DayCount::Act360,
 ///     bdc: BusinessDayConvention::ModifiedFollowing,
 ///     calendar_id: None,
@@ -420,7 +420,7 @@ pub struct TermLoanSpec {
     /// Interest rate specification (fixed or floating)
     pub rate: RateSpec,
     /// Payment frequency for interest and principal
-    pub pay_freq: Frequency,
+    pub pay_freq: Tenor,
     /// Day count convention for interest accrual
     pub day_count: DayCount,
     /// Business day convention for schedule adjustment

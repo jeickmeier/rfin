@@ -138,7 +138,7 @@ impl ConvertibleBond {
     pub fn example() -> Self {
         use crate::cashflow::builder::specs::FixedCouponSpec;
         use crate::cashflow::builder::CouponType;
-        use finstack_core::dates::{BusinessDayConvention, DayCount, Frequency, StubKind};
+        use finstack_core::dates::{BusinessDayConvention, DayCount, StubKind, Tenor};
 
         ConvertibleBondBuilder::new()
             .id(InstrumentId::new("CB-TECH-5Y"))
@@ -165,7 +165,7 @@ impl ConvertibleBond {
             .fixed_coupon_opt(Some(FixedCouponSpec {
                 coupon_type: CouponType::Cash,
                 rate: 0.02,
-                freq: Frequency::semi_annual(),
+                freq: Tenor::semi_annual(),
                 dc: DayCount::Thirty360,
                 bdc: BusinessDayConvention::Following,
                 calendar_id: None,

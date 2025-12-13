@@ -2,120 +2,126 @@ use crate::core::common::parse::ParseFromString;
 use crate::core::dates::calendar::{resolve_calendar_ref, JsCalendar};
 use crate::core::dates::date::JsDate;
 use crate::core::error::js_error;
-use finstack_core::dates::{DayCount, DayCountCtx, DayCountCtxState, Frequency};
+use finstack_core::dates::{DayCount, DayCountCtx, DayCountCtxState, Tenor, TenorUnit};
 use wasm_bindgen::prelude::*;
 use wasm_bindgen::JsValue;
 
-#[wasm_bindgen(js_name = Frequency)]
+#[wasm_bindgen(js_name = Tenor)]
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub struct JsFrequency {
-    inner: Frequency,
+pub struct JsTenor {
+    inner: Tenor,
 }
 
-impl JsFrequency {
-    pub(crate) fn inner(&self) -> Frequency {
+impl JsTenor {
+    pub(crate) fn inner(&self) -> Tenor {
         self.inner
     }
 
-    pub(crate) fn from_inner(inner: Frequency) -> Self {
+    pub(crate) fn from_inner(inner: Tenor) -> Self {
         Self { inner }
     }
 }
 
-impl From<Frequency> for JsFrequency {
-    fn from(value: Frequency) -> Self {
+impl From<Tenor> for JsTenor {
+    fn from(value: Tenor) -> Self {
         Self::from_inner(value)
     }
 }
 
-#[wasm_bindgen(js_class = Frequency)]
-impl JsFrequency {
+#[wasm_bindgen(js_class = Tenor)]
+impl JsTenor {
     #[wasm_bindgen(constructor)]
-    pub fn new(months: u8) -> Result<JsFrequency, JsValue> {
-        JsFrequency::from_months(months)
+    pub fn new(months: u8) -> Result<JsTenor, JsValue> {
+        JsTenor::from_months(months)
     }
 
     #[wasm_bindgen(js_name = fromMonths)]
-    pub fn from_months(months: u8) -> Result<JsFrequency, JsValue> {
-        if months == 0 || months > 12 {
-            return Err(js_error("Months must be in the range 1..=12"));
+    pub fn from_months(months: u8) -> Result<JsTenor, JsValue> {
+        if months == 0 {
+            return Err(js_error("Months must be positive"));
         }
-        Ok(Self::from_inner(Frequency::Months(months)))
+        Ok(Self::from_inner(Tenor::new(
+            months as u32,
+            crate::core::dates::daycount::TenorUnit::Months,
+        )))
     }
 
     #[wasm_bindgen(js_name = fromDays)]
-    pub fn from_days(days: u16) -> Result<JsFrequency, JsValue> {
+    pub fn from_days(days: u16) -> Result<JsTenor, JsValue> {
         if days == 0 {
             return Err(js_error("Days must be greater than zero"));
         }
-        Ok(Self::from_inner(Frequency::Days(days)))
+        Ok(Self::from_inner(Tenor::new(
+            days as u32,
+            crate::core::dates::daycount::TenorUnit::Days,
+        )))
     }
 
     #[wasm_bindgen(js_name = fromPaymentsPerYear)]
-    pub fn from_payments_per_year(payments: u32) -> Result<JsFrequency, JsValue> {
-        Frequency::from_payments_per_year(payments)
+    pub fn from_payments_per_year(payments: u32) -> Result<JsTenor, JsValue> {
+        Tenor::from_payments_per_year(payments)
             .map(Self::from_inner)
             .map_err(js_error)
     }
 
     #[wasm_bindgen(js_name = annual)]
-    pub fn annual() -> JsFrequency {
-        Self::from_inner(Frequency::annual())
+    pub fn annual() -> JsTenor {
+        Self::from_inner(Tenor::annual())
     }
 
     #[wasm_bindgen(js_name = semiAnnual)]
-    pub fn semi_annual() -> JsFrequency {
-        Self::from_inner(Frequency::semi_annual())
+    pub fn semi_annual() -> JsTenor {
+        Self::from_inner(Tenor::semi_annual())
     }
 
     #[wasm_bindgen(js_name = quarterly)]
-    pub fn quarterly() -> JsFrequency {
-        Self::from_inner(Frequency::quarterly())
+    pub fn quarterly() -> JsTenor {
+        Self::from_inner(Tenor::quarterly())
     }
 
     #[wasm_bindgen(js_name = monthly)]
-    pub fn monthly() -> JsFrequency {
-        Self::from_inner(Frequency::monthly())
+    pub fn monthly() -> JsTenor {
+        Self::from_inner(Tenor::monthly())
     }
 
     #[wasm_bindgen(js_name = biMonthly)]
-    pub fn bi_monthly() -> JsFrequency {
-        Self::from_inner(Frequency::bimonthly())
+    pub fn bi_monthly() -> JsTenor {
+        Self::from_inner(Tenor::bimonthly())
     }
 
     #[wasm_bindgen(js_name = biWeekly)]
-    pub fn bi_weekly() -> JsFrequency {
-        Self::from_inner(Frequency::biweekly())
+    pub fn bi_weekly() -> JsTenor {
+        Self::from_inner(Tenor::biweekly())
     }
 
     #[wasm_bindgen(js_name = weekly)]
-    pub fn weekly() -> JsFrequency {
-        Self::from_inner(Frequency::weekly())
+    pub fn weekly() -> JsTenor {
+        Self::from_inner(Tenor::weekly())
     }
 
     #[wasm_bindgen(js_name = daily)]
-    pub fn daily() -> JsFrequency {
-        Self::from_inner(Frequency::daily())
+    pub fn daily() -> JsTenor {
+        Self::from_inner(Tenor::daily())
     }
 
     #[wasm_bindgen(getter)]
-    pub fn months(&self) -> Option<u8> {
+    pub fn months(&self) -> Option<u32> {
         self.inner.months()
     }
 
     #[wasm_bindgen(getter)]
-    pub fn days(&self) -> Option<u16> {
+    pub fn days(&self) -> Option<u32> {
         self.inner.days()
     }
 
     #[wasm_bindgen(js_name = toString)]
     pub fn to_string_js(&self) -> String {
         if let Some(m) = self.inner.months() {
-            format!("Frequency.months({m})")
+            format!("Tenor.months({m})")
         } else if let Some(d) = self.inner.days() {
-            format!("Frequency.days({d})")
+            format!("Tenor.days({d})")
         } else {
-            "Frequency(?)".to_string()
+            "Tenor(?)".to_string()
         }
     }
 }
@@ -124,7 +130,7 @@ impl JsFrequency {
 #[derive(Clone, Debug, Default)]
 pub struct JsDayCountContext {
     calendar: Option<String>,
-    frequency: Option<Frequency>,
+    frequency: Option<Tenor>,
     // Optional business-day basis for Bus/N conventions; when None defaults to 252
     bus_basis: Option<u16>,
 }
@@ -151,12 +157,12 @@ impl JsDayCountContext {
         self.calendar = None;
     }
 
-    #[wasm_bindgen(js_name = setFrequency)]
-    pub fn set_frequency(&mut self, frequency: &JsFrequency) {
+    #[wasm_bindgen(js_name = setTenor)]
+    pub fn set_frequency(&mut self, frequency: &JsTenor) {
         self.frequency = Some(frequency.inner());
     }
 
-    #[wasm_bindgen(js_name = clearFrequency)]
+    #[wasm_bindgen(js_name = clearTenor)]
     pub fn clear_frequency(&mut self) {
         self.frequency = None;
     }
@@ -177,8 +183,8 @@ impl JsDayCountContext {
     }
 
     #[wasm_bindgen(getter)]
-    pub fn frequency(&self) -> Option<JsFrequency> {
-        self.frequency.map(JsFrequency::from)
+    pub fn frequency(&self) -> Option<JsTenor> {
+        self.frequency.map(JsTenor::from)
     }
 
     #[wasm_bindgen(js_name = toState)]
@@ -217,7 +223,7 @@ impl JsDayCountContextState {
     #[wasm_bindgen(constructor)]
     pub fn new(
         calendar_id: Option<String>,
-        frequency: Option<JsFrequency>,
+        frequency: Option<JsTenor>,
         bus_basis: Option<u16>,
     ) -> JsDayCountContextState {
         JsDayCountContextState {
@@ -249,8 +255,8 @@ impl JsDayCountContextState {
     }
 
     #[wasm_bindgen(getter)]
-    pub fn frequency(&self) -> Option<JsFrequency> {
-        self.inner.frequency.map(JsFrequency::from_inner)
+    pub fn frequency(&self) -> Option<JsTenor> {
+        self.inner.frequency.map(JsTenor::from_inner)
     }
 
     #[wasm_bindgen(getter, js_name = busBasis)]

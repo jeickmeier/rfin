@@ -1,6 +1,6 @@
 use criterion::{criterion_group, criterion_main, Criterion};
 use finstack_core::currency::Currency;
-use finstack_core::dates::{Date, DayCount, Frequency};
+use finstack_core::dates::{Date, DayCount, Tenor};
 use finstack_core::market_data::context::MarketContext;
 use finstack_valuations::calibration::methods::discount::DiscountCurveCalibrator;
 use finstack_valuations::calibration::{Calibrator, RatesQuote};
@@ -25,8 +25,8 @@ fn bench_df_bootstrap(c: &mut Criterion) {
         RatesQuote::Swap {
             maturity: base_date + time::Duration::days(365),
             rate: 0.047,
-            fixed_freq: Frequency::semi_annual(),
-            float_freq: Frequency::daily(),
+            fixed_freq: Tenor::semi_annual(),
+            float_freq: Tenor::daily(),
             fixed_dc: DayCount::Thirty360,
             float_dc: DayCount::Act360,
             index: "USD-OIS".to_string().into(),
@@ -35,8 +35,8 @@ fn bench_df_bootstrap(c: &mut Criterion) {
         RatesQuote::Swap {
             maturity: base_date + time::Duration::days(365 * 2),
             rate: 0.048,
-            fixed_freq: Frequency::semi_annual(),
-            float_freq: Frequency::daily(),
+            fixed_freq: Tenor::semi_annual(),
+            float_freq: Tenor::daily(),
             fixed_dc: DayCount::Thirty360,
             float_dc: DayCount::Act360,
             index: "USD-OIS".to_string().into(),

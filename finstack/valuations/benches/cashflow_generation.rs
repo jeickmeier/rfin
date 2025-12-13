@@ -10,7 +10,7 @@
 
 use criterion::{criterion_group, criterion_main, BenchmarkId, Criterion};
 use finstack_core::currency::Currency;
-use finstack_core::dates::{BusinessDayConvention, Date, DayCount, Frequency, StubKind};
+use finstack_core::dates::{BusinessDayConvention, Date, DayCount, StubKind, Tenor};
 use finstack_core::market_data::context::MarketContext;
 use finstack_core::market_data::term_structures::{DiscountCurve, ForwardCurve};
 use finstack_core::math::interp::InterpStyle;
@@ -126,7 +126,7 @@ fn bench_schedule_builder_fixed(c: &mut Criterion) {
         let fixed_spec = FixedCouponSpec {
             coupon_type: CouponType::Cash,
             rate: 0.05,
-            freq: Frequency::semi_annual(),
+            freq: Tenor::semi_annual(),
             dc: DayCount::Thirty360,
             bdc: BusinessDayConvention::Following,
             calendar_id: None,

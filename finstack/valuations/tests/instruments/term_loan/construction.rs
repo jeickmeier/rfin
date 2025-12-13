@@ -1,7 +1,7 @@
 //! Term loan construction and validation tests.
 
 use finstack_core::currency::Currency;
-use finstack_core::dates::{BusinessDayConvention, DayCount, Frequency, StubKind};
+use finstack_core::dates::{BusinessDayConvention, DayCount, StubKind, Tenor};
 use finstack_core::money::Money;
 use finstack_core::types::CurveId;
 use finstack_valuations::cashflow::builder::specs::{CouponType, FloatingRateSpec};
@@ -20,7 +20,7 @@ fn test_builder_fixed_rate_loan() {
         .issue(date!(2025 - 01 - 01))
         .maturity(date!(2030 - 01 - 01))
         .rate(RateSpec::Fixed { rate_bp: 500 }) // 5%
-        .pay_freq(Frequency::quarterly())
+        .pay_freq(Tenor::quarterly())
         .day_count(DayCount::Act360)
         .bdc(BusinessDayConvention::ModifiedFollowing)
         .calendar_id_opt(None)
@@ -61,14 +61,14 @@ fn test_builder_floating_rate_loan() {
             all_in_floor_bp: None,
             cap_bp: None,
             index_cap_bp: None,
-            reset_freq: Frequency::quarterly(),
+            reset_freq: Tenor::quarterly(),
             reset_lag_days: 2,
             dc: DayCount::Act360,
             bdc: BusinessDayConvention::ModifiedFollowing,
             calendar_id: None,
             fixing_calendar_id: None,
         }))
-        .pay_freq(Frequency::quarterly())
+        .pay_freq(Tenor::quarterly())
         .day_count(DayCount::Act360)
         .bdc(BusinessDayConvention::ModifiedFollowing)
         .calendar_id_opt(None)
@@ -99,7 +99,7 @@ fn test_builder_with_amortization() {
         .issue(date!(2025 - 01 - 01))
         .maturity(date!(2030 - 01 - 01))
         .rate(RateSpec::Fixed { rate_bp: 600 })
-        .pay_freq(Frequency::quarterly())
+        .pay_freq(Tenor::quarterly())
         .day_count(DayCount::Act360)
         .bdc(BusinessDayConvention::ModifiedFollowing)
         .calendar_id_opt(None)
@@ -146,7 +146,7 @@ fn test_builder_with_callability() {
         .issue(date!(2025 - 01 - 01))
         .maturity(date!(2030 - 01 - 01))
         .rate(RateSpec::Fixed { rate_bp: 550 })
-        .pay_freq(Frequency::semi_annual())
+        .pay_freq(Tenor::semi_annual())
         .day_count(DayCount::Act360)
         .bdc(BusinessDayConvention::ModifiedFollowing)
         .calendar_id_opt(None)
@@ -181,7 +181,7 @@ fn test_builder_validation_maturity_after_issue() {
         .issue(date!(2030 - 01 - 01))
         .maturity(date!(2025 - 01 - 01)) // Before issue!
         .rate(RateSpec::Fixed { rate_bp: 500 })
-        .pay_freq(Frequency::quarterly())
+        .pay_freq(Tenor::quarterly())
         .day_count(DayCount::Act360)
         .bdc(BusinessDayConvention::ModifiedFollowing)
         .calendar_id_opt(None)
@@ -210,7 +210,7 @@ fn test_pik_coupon_type() {
         .issue(date!(2025 - 01 - 01))
         .maturity(date!(2030 - 01 - 01))
         .rate(RateSpec::Fixed { rate_bp: 800 }) // Higher rate for PIK
-        .pay_freq(Frequency::semi_annual())
+        .pay_freq(Tenor::semi_annual())
         .day_count(DayCount::Act360)
         .bdc(BusinessDayConvention::ModifiedFollowing)
         .calendar_id_opt(None)

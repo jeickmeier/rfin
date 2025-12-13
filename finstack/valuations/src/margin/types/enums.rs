@@ -8,7 +8,7 @@ use std::fmt;
 /// Industry standard for OTC derivatives is daily under BCBS-IOSCO rules.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Default)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
-pub enum MarginFrequency {
+pub enum MarginTenor {
     /// Daily margin calls (standard for OTC derivatives post-2016)
     #[default]
     Daily,
@@ -20,26 +20,26 @@ pub enum MarginFrequency {
     OnDemand,
 }
 
-impl fmt::Display for MarginFrequency {
+impl fmt::Display for MarginTenor {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
-            MarginFrequency::Daily => write!(f, "daily"),
-            MarginFrequency::Weekly => write!(f, "weekly"),
-            MarginFrequency::Monthly => write!(f, "monthly"),
-            MarginFrequency::OnDemand => write!(f, "on_demand"),
+            MarginTenor::Daily => write!(f, "daily"),
+            MarginTenor::Weekly => write!(f, "weekly"),
+            MarginTenor::Monthly => write!(f, "monthly"),
+            MarginTenor::OnDemand => write!(f, "on_demand"),
         }
     }
 }
 
-impl std::str::FromStr for MarginFrequency {
+impl std::str::FromStr for MarginTenor {
     type Err = String;
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
         match s.to_ascii_lowercase().as_str() {
-            "daily" => Ok(MarginFrequency::Daily),
-            "weekly" => Ok(MarginFrequency::Weekly),
-            "monthly" => Ok(MarginFrequency::Monthly),
-            "on_demand" | "ondemand" => Ok(MarginFrequency::OnDemand),
+            "daily" => Ok(MarginTenor::Daily),
+            "weekly" => Ok(MarginTenor::Weekly),
+            "monthly" => Ok(MarginTenor::Monthly),
+            "on_demand" | "ondemand" => Ok(MarginTenor::OnDemand),
             other => Err(format!("Unknown margin frequency: {}", other)),
         }
     }
@@ -165,15 +165,15 @@ mod tests {
 
     #[test]
     fn margin_frequency_display_and_parse() {
-        assert_eq!(MarginFrequency::Daily.to_string(), "daily");
-        assert_eq!(MarginFrequency::Weekly.to_string(), "weekly");
+        assert_eq!(MarginTenor::Daily.to_string(), "daily");
+        assert_eq!(MarginTenor::Weekly.to_string(), "weekly");
         assert_eq!(
-            "daily".parse::<MarginFrequency>().expect("valid"),
-            MarginFrequency::Daily
+            "daily".parse::<MarginTenor>().expect("valid"),
+            MarginTenor::Daily
         );
         assert_eq!(
-            "on_demand".parse::<MarginFrequency>().expect("valid"),
-            MarginFrequency::OnDemand
+            "on_demand".parse::<MarginTenor>().expect("valid"),
+            MarginTenor::OnDemand
         );
     }
 
@@ -205,7 +205,7 @@ mod tests {
 
     #[test]
     fn defaults_are_correct() {
-        assert_eq!(MarginFrequency::default(), MarginFrequency::Daily);
+        assert_eq!(MarginTenor::default(), MarginTenor::Daily);
         assert_eq!(ImMethodology::default(), ImMethodology::Simm);
         assert_eq!(ClearingStatus::default(), ClearingStatus::Bilateral);
     }

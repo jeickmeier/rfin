@@ -201,24 +201,51 @@ pub fn psa_to_cpr(psa_speed: f64, month: u32) -> f64 {
 /// # Examples
 ///
 /// ```
-/// use finstack_core::dates::Frequency;
+/// use finstack_core::dates::Tenor;
 /// use finstack_valuations::instruments::structured_credit::utils::rates::frequency_periods_per_year;
 ///
 /// // Monthly = 12 periods/year
-/// assert_eq!(frequency_periods_per_year(Frequency::monthly()), 12.0);
+/// assert_eq!(frequency_periods_per_year(Tenor::monthly()), 12.0);
 ///
 /// // Quarterly = 4 periods/year
-/// assert_eq!(frequency_periods_per_year(Frequency::quarterly()), 4.0);
+/// assert_eq!(frequency_periods_per_year(Tenor::quarterly()), 4.0);
 ///
 /// // Semi-annual = 2 periods/year
-/// assert_eq!(frequency_periods_per_year(Frequency::semi_annual()), 2.0);
+/// assert_eq!(frequency_periods_per_year(Tenor::semi_annual()), 2.0);
 /// ```
 #[inline]
-pub fn frequency_periods_per_year(freq: finstack_core::dates::Frequency) -> f64 {
-    match freq {
-        finstack_core::dates::Frequency::Months(m) if m > 0 => 12.0 / m as f64,
-        finstack_core::dates::Frequency::Days(d) if d > 0 => 365.0 / d as f64,
-        _ => 4.0, // Default to quarterly
+pub fn frequency_periods_per_year(freq: finstack_core::dates::Tenor) -> f64 {
+    use finstack_core::dates::TenorUnit;
+    match freq.unit {
+        TenorUnit::Months => {
+            if freq.count > 0 {
+                12.0 / freq.count as f64
+            } else {
+                4.0
+            }
+        }
+        TenorUnit::Days => {
+            if freq.count > 0 {
+                365.0 / freq.count as f64
+            } else {
+                4.0
+            }
+        }
+
+        TenorUnit::Weeks => {
+            if freq.count > 0 {
+                52.0 / freq.count as f64
+            } else {
+                4.0
+            }
+        }
+        TenorUnit::Years => {
+            if freq.count > 0 {
+                1.0 / freq.count as f64
+            } else {
+                4.0
+            }
+        }
     }
 }
 
@@ -277,27 +304,46 @@ mod tests {
 
     #[test]
     fn test_frequency_periods_per_year() {
-        use finstack_core::dates::Frequency;
+        use finstack_core::dates::Tenor;
 
         // Monthly = 12 periods/year
-        assert_eq!(frequency_periods_per_year(Frequency::monthly()), 12.0);
+        assert_eq!(frequency_periods_per_year(Tenor::monthly()), 12.0);
 
         // Quarterly = 4 periods/year
-        assert_eq!(frequency_periods_per_year(Frequency::quarterly()), 4.0);
+        assert_eq!(frequency_periods_per_year(Tenor::quarterly()), 4.0);
 
         // Semi-annual = 2 periods/year
-        assert_eq!(frequency_periods_per_year(Frequency::semi_annual()), 2.0);
+        assert_eq!(frequency_periods_per_year(Tenor::semi_annual()), 2.0);
 
         // Annual = 1 period/year
-        assert_eq!(frequency_periods_per_year(Frequency::annual()), 1.0);
+        assert_eq!(frequency_periods_per_year(Tenor::annual()), 1.0);
 
         // Bi-monthly (every 2 months) = 6 periods/year
-        assert_eq!(frequency_periods_per_year(Frequency::Months(2)), 6.0);
+        assert_eq!(
+            frequency_periods_per_year(finstack_core::dates::Tenor::new(
+                2,
+                finstack_core::dates::TenorUnit::Months
+            )),
+            6.0
+        );
 
         // Daily (252 business days common) -> 365/1 = 365
-        assert_eq!(frequency_periods_per_year(Frequency::Days(1)), 365.0);
+        assert_eq!(
+            frequency_periods_per_year(finstack_core::dates::Tenor::new(
+                1,
+                finstack_core::dates::TenorUnit::Days
+            )),
+            365.0
+        );
 
         // Weekly (every 7 days) -> 365/7 ≈ 52.14
-        assert!((frequency_periods_per_year(Frequency::Days(7)) - 52.142857).abs() < 0.001);
+        assert!(
+            (frequency_periods_per_year(finstack_core::dates::Tenor::new(
+                7,
+                finstack_core::dates::TenorUnit::Days
+            )) - 52.142857)
+                .abs()
+                < 0.001
+        );
     }
 }

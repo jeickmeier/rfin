@@ -4,7 +4,7 @@
 //! including IRS, CDS, CDS Index, and TRS.
 
 use super::csa::CsaSpec;
-use super::enums::{ClearingStatus, ImMethodology, MarginFrequency};
+use super::enums::{ClearingStatus, ImMethodology, MarginTenor};
 use finstack_core::currency::Currency;
 
 /// OTC derivative margin specification (ISDA CSA compliant).
@@ -23,7 +23,7 @@ use finstack_core::currency::Currency;
 /// # Example
 ///
 /// ```rust,ignore
-/// use finstack_valuations::margin::{OtcMarginSpec, CsaSpec, ClearingStatus, ImMethodology, MarginFrequency};
+/// use finstack_valuations::margin::{OtcMarginSpec, CsaSpec, ClearingStatus, ImMethodology, MarginTenor};
 ///
 /// // Bilateral (uncleared) derivative
 /// let bilateral_spec = OtcMarginSpec::bilateral_simm(CsaSpec::usd_regulatory());
@@ -49,7 +49,7 @@ pub struct OtcMarginSpec {
     pub im_methodology: ImMethodology,
 
     /// Variation margin exchange frequency
-    pub vm_frequency: MarginFrequency,
+    pub vm_frequency: MarginTenor,
 
     /// Settlement lag for margin transfers (business days)
     pub settlement_lag: u32,
@@ -66,7 +66,7 @@ impl OtcMarginSpec {
             csa,
             clearing_status: ClearingStatus::Bilateral,
             im_methodology: ImMethodology::Simm,
-            vm_frequency: MarginFrequency::Daily,
+            vm_frequency: MarginTenor::Daily,
             settlement_lag: 1,
         }
     }
@@ -80,7 +80,7 @@ impl OtcMarginSpec {
             csa,
             clearing_status: ClearingStatus::Bilateral,
             im_methodology: ImMethodology::Schedule,
-            vm_frequency: MarginFrequency::Daily,
+            vm_frequency: MarginTenor::Daily,
             settlement_lag: 1,
         }
     }
@@ -110,7 +110,7 @@ impl OtcMarginSpec {
                 mta: Money::new(0.0, currency),
                 rounding: Money::new(1.0, currency), // CCPs often use 1 unit rounding
                 independent_amount: Money::new(0.0, currency),
-                frequency: MarginFrequency::Daily,
+                frequency: MarginTenor::Daily,
                 settlement_lag: 0, // Same-day settlement for CCPs
             },
             im_params: Some(ImParameters::cleared(currency)),
@@ -128,7 +128,7 @@ impl OtcMarginSpec {
             csa,
             clearing_status: ClearingStatus::Cleared { ccp: ccp_name },
             im_methodology: ImMethodology::ClearingHouse,
-            vm_frequency: MarginFrequency::Daily,
+            vm_frequency: MarginTenor::Daily,
             settlement_lag: 0,
         }
     }
@@ -208,7 +208,7 @@ mod tests {
         assert!(spec.is_bilateral());
         assert!(!spec.is_cleared());
         assert_eq!(spec.im_methodology, ImMethodology::Simm);
-        assert_eq!(spec.vm_frequency, MarginFrequency::Daily);
+        assert_eq!(spec.vm_frequency, MarginTenor::Daily);
         assert!(spec.ccp().is_none());
     }
 

@@ -92,8 +92,8 @@ impl JsDiscountCurveCalibrator {
     /// ```javascript
     /// const quotes = [
     ///   RatesQuote.deposit(new Date(2024, 2, 1), 0.0450, 'act_360'),
-    ///   RatesQuote.swap(new Date(2025, 1, 2), 0.0475, Frequency.annual(),
-    ///                   Frequency.quarterly(), '30_360', 'act_360', 'USD-SOFR')
+    ///   RatesQuote.swap(new Date(2025, 1, 2), 0.0475, Tenor.annual(),
+    ///                   Tenor.quarterly(), '30_360', 'act_360', 'USD-SOFR')
     /// ];
     ///
     /// const [curve, report] = calibrator.calibrate(quotes, null);

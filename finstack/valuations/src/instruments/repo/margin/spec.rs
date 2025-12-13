@@ -1,6 +1,6 @@
 //! Repo margin specification types.
 
-use crate::margin::types::{EligibleCollateralSchedule, MarginFrequency};
+use crate::margin::types::{EligibleCollateralSchedule, MarginTenor};
 
 /// Repo margin type.
 ///
@@ -69,13 +69,13 @@ impl std::str::FromStr for RepoMarginType {
 ///
 /// ```rust,ignore
 /// use finstack_valuations::instruments::repo::margin::RepoMarginSpec;
-/// use finstack_valuations::margin::{MarginFrequency, EligibleCollateralSchedule};
+/// use finstack_valuations::margin::{MarginTenor, EligibleCollateralSchedule};
 ///
 /// let margin_spec = RepoMarginSpec {
 ///     margin_type: RepoMarginType::MarkToMarket,
 ///     margin_ratio: 1.02,           // 2% over-collateralization
 ///     margin_call_threshold: 0.01,  // 1% deviation triggers call
-///     call_frequency: MarginFrequency::Daily,
+///     call_frequency: MarginTenor::Daily,
 ///     settlement_lag: 1,
 ///     pays_margin_interest: true,
 ///     margin_interest_rate: Some(0.05),
@@ -109,8 +109,8 @@ pub struct RepoMarginSpec {
     /// a margin call is generated.
     pub margin_call_threshold: f64,
 
-    /// Frequency of margin valuation and calls.
-    pub call_frequency: MarginFrequency,
+    /// Tenor of margin valuation and calls.
+    pub call_frequency: MarginTenor,
 
     /// Settlement lag for margin transfers (business days).
     ///
@@ -151,7 +151,7 @@ impl Default for RepoMarginSpec {
             margin_type: RepoMarginType::None,
             margin_ratio: 1.02,
             margin_call_threshold: 0.01,
-            call_frequency: MarginFrequency::Daily,
+            call_frequency: MarginTenor::Daily,
             settlement_lag: 1,
             pays_margin_interest: false,
             margin_interest_rate: None,
@@ -175,7 +175,7 @@ impl RepoMarginSpec {
             margin_type: RepoMarginType::MarkToMarket,
             margin_ratio,
             margin_call_threshold: threshold,
-            call_frequency: MarginFrequency::Daily,
+            call_frequency: MarginTenor::Daily,
             settlement_lag: 1,
             pays_margin_interest: true,
             margin_interest_rate: None, // Set from market data
@@ -191,7 +191,7 @@ impl RepoMarginSpec {
             margin_type: RepoMarginType::Triparty,
             margin_ratio,
             margin_call_threshold: 0.005, // Tighter threshold for tri-party
-            call_frequency: MarginFrequency::Daily,
+            call_frequency: MarginTenor::Daily,
             settlement_lag: 0, // Same-day for tri-party
             pays_margin_interest: true,
             margin_interest_rate: None,

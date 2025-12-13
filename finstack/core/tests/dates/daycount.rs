@@ -18,7 +18,7 @@
 
 use super::common::DAYCOUNT_TOLERANCE;
 use finstack_core::dates::calendar::TARGET2;
-use finstack_core::dates::{Date, DayCount, DayCountCtx, Frequency};
+use finstack_core::dates::{Date, DayCount, DayCountCtx, Tenor, TenorUnit};
 use time::Month;
 
 fn make_date(y: i32, m: u8, d: u8) -> Date {
@@ -423,7 +423,7 @@ fn actact_isma_requires_frequency() {
     // With frequency, should work
     let ctx = DayCountCtx {
         calendar: None,
-        frequency: Some(Frequency::Months(6)),
+        frequency: Some(Tenor::new(6, TenorUnit::Months)),
         bus_basis: None,
     };
     let yf = DayCount::ActActIsma.year_fraction(start, end, ctx).unwrap();
@@ -437,7 +437,7 @@ fn actact_isma_full_coupon_period() {
 
     let ctx = DayCountCtx {
         calendar: None,
-        frequency: Some(Frequency::Months(6)),
+        frequency: Some(Tenor::new(6, TenorUnit::Months)),
         bus_basis: None,
     };
 
@@ -455,7 +455,7 @@ fn actact_isma_multiple_frequencies() {
     // Quarterly
     let ctx_q = DayCountCtx {
         calendar: None,
-        frequency: Some(Frequency::Months(3)),
+        frequency: Some(Tenor::new(3, TenorUnit::Months)),
         bus_basis: None,
     };
     let yf_q = DayCount::ActActIsma
@@ -465,7 +465,7 @@ fn actact_isma_multiple_frequencies() {
     // Monthly
     let ctx_m = DayCountCtx {
         calendar: None,
-        frequency: Some(Frequency::Months(1)),
+        frequency: Some(Tenor::new(1, TenorUnit::Months)),
         bus_basis: None,
     };
     let yf_m = DayCount::ActActIsma
@@ -494,7 +494,7 @@ fn actact_isma_partial_period() {
 
     let ctx = DayCountCtx {
         calendar: None,
-        frequency: Some(Frequency::Months(6)),
+        frequency: Some(Tenor::new(6, TenorUnit::Months)),
         bus_basis: None,
     };
 
@@ -527,7 +527,7 @@ fn actact_vs_actact_isma_comparison() {
 
     let ctx_isma = DayCountCtx {
         calendar: None,
-        frequency: Some(Frequency::Months(12)),
+        frequency: Some(Tenor::new(12, TenorUnit::Months)),
         bus_basis: None,
     };
     let yf_isma = DayCount::ActActIsma

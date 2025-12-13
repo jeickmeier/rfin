@@ -1,3 +1,0 @@
-# Math
-
-Documentation coming soon.

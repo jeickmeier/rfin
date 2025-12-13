@@ -3,7 +3,7 @@
 //! Validates sensitivity to forward curve shifts.
 
 use finstack_core::currency::Currency;
-use finstack_core::dates::{BusinessDayConvention, Date, DayCount, Frequency, StubKind};
+use finstack_core::dates::{BusinessDayConvention, Date, DayCount, StubKind, Tenor};
 use finstack_core::market_data::context::MarketContext;
 use finstack_core::market_data::surfaces::VolSurface;
 use finstack_core::market_data::term_structures::{DiscountCurve, ForwardCurve};
@@ -57,7 +57,7 @@ fn create_standard_cap(_as_of: Date, start: Date, end: Date, strike: f64) -> Int
         strike_rate: strike,
         start_date: start,
         end_date: end,
-        frequency: Frequency::quarterly(),
+        frequency: Tenor::quarterly(),
         day_count: DayCount::Act360,
         stub_kind: StubKind::None,
         bdc: BusinessDayConvention::ModifiedFollowing,
@@ -121,7 +121,7 @@ fn test_floor_forward_pv01() {
         strike_rate: 0.05,
         start_date: start,
         end_date: end,
-        frequency: Frequency::quarterly(),
+        frequency: Tenor::quarterly(),
         day_count: DayCount::Act360,
         stub_kind: StubKind::None,
         bdc: BusinessDayConvention::ModifiedFollowing,

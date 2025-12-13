@@ -22,6 +22,6 @@ pub use collateral::{
     CollateralAssetClass, CollateralEligibility, EligibleCollateralSchedule, MaturityConstraints,
 };
 pub use csa::{CsaSpec, MarginCallTiming};
-pub use enums::{ClearingStatus, ImMethodology, MarginFrequency};
+pub use enums::{ClearingStatus, ImMethodology, MarginTenor};
 pub use otc::OtcMarginSpec;
 pub use thresholds::{ImParameters, VmParameters};

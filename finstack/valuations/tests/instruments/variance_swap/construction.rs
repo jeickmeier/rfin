@@ -2,7 +2,7 @@
 
 use super::common::*;
 use finstack_core::currency::Currency;
-use finstack_core::dates::{DayCount, Frequency};
+use finstack_core::dates::{DayCount, Tenor};
 use finstack_core::money::Money;
 use finstack_core::types::{CurveId, InstrumentId};
 use finstack_valuations::instruments::common::traits::{Attributes, Instrument};
@@ -23,7 +23,7 @@ fn test_builder_creates_valid_swap_with_all_required_fields() {
         .strike_variance(DEFAULT_STRIKE_VAR)
         .start_date(start)
         .maturity(end)
-        .observation_freq(Frequency::daily())
+        .observation_freq(Tenor::daily())
         .realized_var_method(RealizedVarMethod::CloseToClose)
         .side(PayReceive::Receive)
         .discount_curve_id(CurveId::new(DISC_ID))
@@ -73,11 +73,11 @@ fn test_strike_variance_stores_variance_not_volatility() {
 fn test_different_observation_frequencies_are_supported() {
     // Arrange & Act
     let frequencies = vec![
-        Frequency::daily(),
-        Frequency::weekly(),
-        Frequency::monthly(),
-        Frequency::quarterly(),
-        Frequency::semi_annual(),
+        Tenor::daily(),
+        Tenor::weekly(),
+        Tenor::monthly(),
+        Tenor::quarterly(),
+        Tenor::semi_annual(),
     ];
 
     // Assert

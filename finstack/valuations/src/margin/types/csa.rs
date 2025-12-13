@@ -69,7 +69,7 @@ impl MarginCallTiming {
 /// ```rust,ignore
 /// use finstack_valuations::margin::{
 ///     CsaSpec, VmParameters, ImParameters, EligibleCollateralSchedule,
-///     MarginCallTiming, ImMethodology, MarginFrequency,
+///     MarginCallTiming, ImMethodology, MarginTenor,
 /// };
 /// use finstack_core::currency::Currency;
 /// use finstack_core::money::Money;

@@ -1,6 +1,6 @@
 use crate::instruments::Bond;
 use crate::metrics::{MetricCalculator, MetricContext, MetricId};
-use finstack_core::dates::{Date, DayCount, DayCountCtx, Frequency, StubKind};
+use finstack_core::dates::{Date, DayCount, DayCountCtx, StubKind, Tenor};
 
 /// Configuration for I-Spread fixed-leg conventions.
 ///
@@ -11,7 +11,7 @@ pub struct ISpreadConfig {
     /// Day-count convention for the proxy fixed leg used in the par rate.
     pub fixed_leg_day_count: DayCount,
     /// Payment frequency for the proxy fixed leg.
-    pub fixed_leg_frequency: Frequency,
+    pub fixed_leg_frequency: Tenor,
 }
 
 impl Default for ISpreadConfig {
@@ -19,7 +19,7 @@ impl Default for ISpreadConfig {
         Self {
             // Preserve previous behaviour: annual Act/Act proxy fixed leg.
             fixed_leg_day_count: DayCount::ActAct,
-            fixed_leg_frequency: Frequency::annual(),
+            fixed_leg_frequency: Tenor::annual(),
         }
     }
 }

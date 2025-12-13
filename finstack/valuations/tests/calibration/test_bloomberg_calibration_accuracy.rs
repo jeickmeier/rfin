@@ -55,7 +55,7 @@
 //! 3. Future enhancement: Add `payment_delay_days` to leg specs for exact matching.
 
 use finstack_core::currency::Currency;
-use finstack_core::dates::{Date, DayCount, DayCountCtx, Frequency};
+use finstack_core::dates::{Date, DayCount, DayCountCtx, Tenor};
 use finstack_core::market_data::context::MarketContext;
 use finstack_valuations::calibration::methods::discount::DiscountCurveCalibrator;
 use finstack_valuations::calibration::{CalibrationConfig, Calibrator, RatesQuote};
@@ -165,8 +165,8 @@ fn test_bloomberg_usd_ois_calibration_accuracy() {
         RatesQuote::Swap {
             maturity: Date::from_calendar_date(2026, Month::December, 14).expect("Valid date"), // 1Y
             rate: 0.0343446,
-            fixed_freq: Frequency::annual(),
-            float_freq: Frequency::annual(),
+            fixed_freq: Tenor::annual(),
+            float_freq: Tenor::annual(),
             fixed_dc: DayCount::Act360,
             float_dc: DayCount::Act360,
             index: "USD-SOFR".to_string().into(),
@@ -175,8 +175,8 @@ fn test_bloomberg_usd_ois_calibration_accuracy() {
         RatesQuote::Swap {
             maturity: Date::from_calendar_date(2027, Month::June, 14).expect("Valid date"), // 18M
             rate: 0.0332849,
-            fixed_freq: Frequency::annual(),
-            float_freq: Frequency::annual(),
+            fixed_freq: Tenor::annual(),
+            float_freq: Tenor::annual(),
             fixed_dc: DayCount::Act360,
             float_dc: DayCount::Act360,
             index: "USD-SOFR".to_string().into(),
@@ -185,8 +185,8 @@ fn test_bloomberg_usd_ois_calibration_accuracy() {
         RatesQuote::Swap {
             maturity: Date::from_calendar_date(2027, Month::December, 13).expect("Valid date"), // 2Y
             rate: 0.0329864,
-            fixed_freq: Frequency::annual(),
-            float_freq: Frequency::annual(),
+            fixed_freq: Tenor::annual(),
+            float_freq: Tenor::annual(),
             fixed_dc: DayCount::Act360,
             float_dc: DayCount::Act360,
             index: "USD-SOFR".to_string().into(),
@@ -195,8 +195,8 @@ fn test_bloomberg_usd_ois_calibration_accuracy() {
         RatesQuote::Swap {
             maturity: Date::from_calendar_date(2028, Month::December, 12).expect("Valid date"), // 3Y
             rate: 0.0330190,
-            fixed_freq: Frequency::annual(),
-            float_freq: Frequency::annual(),
+            fixed_freq: Tenor::annual(),
+            float_freq: Tenor::annual(),
             fixed_dc: DayCount::Act360,
             float_dc: DayCount::Act360,
             index: "USD-SOFR".to_string().into(),
@@ -205,8 +205,8 @@ fn test_bloomberg_usd_ois_calibration_accuracy() {
         RatesQuote::Swap {
             maturity: Date::from_calendar_date(2029, Month::December, 12).expect("Valid date"), // 4Y
             rate: 0.0333823,
-            fixed_freq: Frequency::annual(),
-            float_freq: Frequency::annual(),
+            fixed_freq: Tenor::annual(),
+            float_freq: Tenor::annual(),
             fixed_dc: DayCount::Act360,
             float_dc: DayCount::Act360,
             index: "USD-SOFR".to_string().into(),
@@ -215,8 +215,8 @@ fn test_bloomberg_usd_ois_calibration_accuracy() {
         RatesQuote::Swap {
             maturity: Date::from_calendar_date(2030, Month::December, 12).expect("Valid date"), // 5Y
             rate: 0.0338799,
-            fixed_freq: Frequency::annual(),
-            float_freq: Frequency::annual(),
+            fixed_freq: Tenor::annual(),
+            float_freq: Tenor::annual(),
             fixed_dc: DayCount::Act360,
             float_dc: DayCount::Act360,
             index: "USD-SOFR".to_string().into(),
@@ -225,8 +225,8 @@ fn test_bloomberg_usd_ois_calibration_accuracy() {
         RatesQuote::Swap {
             maturity: Date::from_calendar_date(2031, Month::December, 12).expect("Valid date"), // 6Y
             rate: 0.0344608,
-            fixed_freq: Frequency::annual(),
-            float_freq: Frequency::annual(),
+            fixed_freq: Tenor::annual(),
+            float_freq: Tenor::annual(),
             fixed_dc: DayCount::Act360,
             float_dc: DayCount::Act360,
             index: "USD-SOFR".to_string().into(),
@@ -235,8 +235,8 @@ fn test_bloomberg_usd_ois_calibration_accuracy() {
         RatesQuote::Swap {
             maturity: Date::from_calendar_date(2032, Month::December, 13).expect("Valid date"), // 7Y
             rate: 0.0350619,
-            fixed_freq: Frequency::annual(),
-            float_freq: Frequency::annual(),
+            fixed_freq: Tenor::annual(),
+            float_freq: Tenor::annual(),
             fixed_dc: DayCount::Act360,
             float_dc: DayCount::Act360,
             index: "USD-SOFR".to_string().into(),
@@ -245,8 +245,8 @@ fn test_bloomberg_usd_ois_calibration_accuracy() {
         RatesQuote::Swap {
             maturity: Date::from_calendar_date(2033, Month::December, 12).expect("Valid date"), // 8Y
             rate: 0.0356592,
-            fixed_freq: Frequency::annual(),
-            float_freq: Frequency::annual(),
+            fixed_freq: Tenor::annual(),
+            float_freq: Tenor::annual(),
             fixed_dc: DayCount::Act360,
             float_dc: DayCount::Act360,
             index: "USD-SOFR".to_string().into(),
@@ -255,8 +255,8 @@ fn test_bloomberg_usd_ois_calibration_accuracy() {
         RatesQuote::Swap {
             maturity: Date::from_calendar_date(2034, Month::December, 12).expect("Valid date"), // 9Y
             rate: 0.0362453,
-            fixed_freq: Frequency::annual(),
-            float_freq: Frequency::annual(),
+            fixed_freq: Tenor::annual(),
+            float_freq: Tenor::annual(),
             fixed_dc: DayCount::Act360,
             float_dc: DayCount::Act360,
             index: "USD-SOFR".to_string().into(),
@@ -265,8 +265,8 @@ fn test_bloomberg_usd_ois_calibration_accuracy() {
         RatesQuote::Swap {
             maturity: Date::from_calendar_date(2035, Month::December, 12).expect("Valid date"), // 10Y
             rate: 0.0368206,
-            fixed_freq: Frequency::annual(),
-            float_freq: Frequency::annual(),
+            fixed_freq: Tenor::annual(),
+            float_freq: Tenor::annual(),
             fixed_dc: DayCount::Act360,
             float_dc: DayCount::Act360,
             index: "USD-SOFR".to_string().into(),
@@ -275,8 +275,8 @@ fn test_bloomberg_usd_ois_calibration_accuracy() {
         RatesQuote::Swap {
             maturity: Date::from_calendar_date(2037, Month::December, 14).expect("Valid date"), // 12Y
             rate: 0.0378975,
-            fixed_freq: Frequency::annual(),
-            float_freq: Frequency::annual(),
+            fixed_freq: Tenor::annual(),
+            float_freq: Tenor::annual(),
             fixed_dc: DayCount::Act360,
             float_dc: DayCount::Act360,
             index: "USD-SOFR".to_string().into(),
@@ -285,8 +285,8 @@ fn test_bloomberg_usd_ois_calibration_accuracy() {
         RatesQuote::Swap {
             maturity: Date::from_calendar_date(2040, Month::December, 12).expect("Valid date"), // 15Y
             rate: 0.0391717,
-            fixed_freq: Frequency::annual(),
-            float_freq: Frequency::annual(),
+            fixed_freq: Tenor::annual(),
+            float_freq: Tenor::annual(),
             fixed_dc: DayCount::Act360,
             float_dc: DayCount::Act360,
             index: "USD-SOFR".to_string().into(),
@@ -295,8 +295,8 @@ fn test_bloomberg_usd_ois_calibration_accuracy() {
         RatesQuote::Swap {
             maturity: Date::from_calendar_date(2045, Month::December, 12).expect("Valid date"), // 20Y
             rate: 0.0402348,
-            fixed_freq: Frequency::annual(),
-            float_freq: Frequency::annual(),
+            fixed_freq: Tenor::annual(),
+            float_freq: Tenor::annual(),
             fixed_dc: DayCount::Act360,
             float_dc: DayCount::Act360,
             index: "USD-SOFR".to_string().into(),
@@ -305,8 +305,8 @@ fn test_bloomberg_usd_ois_calibration_accuracy() {
         RatesQuote::Swap {
             maturity: Date::from_calendar_date(2050, Month::December, 12).expect("Valid date"), // 25Y
             rate: 0.0403809,
-            fixed_freq: Frequency::annual(),
-            float_freq: Frequency::annual(),
+            fixed_freq: Tenor::annual(),
+            float_freq: Tenor::annual(),
             fixed_dc: DayCount::Act360,
             float_dc: DayCount::Act360,
             index: "USD-SOFR".to_string().into(),
@@ -315,8 +315,8 @@ fn test_bloomberg_usd_ois_calibration_accuracy() {
         RatesQuote::Swap {
             maturity: Date::from_calendar_date(2055, Month::December, 13).expect("Valid date"), // 30Y
             rate: 0.0401000,
-            fixed_freq: Frequency::annual(),
-            float_freq: Frequency::annual(),
+            fixed_freq: Tenor::annual(),
+            float_freq: Tenor::annual(),
             fixed_dc: DayCount::Act360,
             float_dc: DayCount::Act360,
             index: "USD-SOFR".to_string().into(),
@@ -325,8 +325,8 @@ fn test_bloomberg_usd_ois_calibration_accuracy() {
         RatesQuote::Swap {
             maturity: Date::from_calendar_date(2065, Month::December, 14).expect("Valid date"), // 40Y
             rate: 0.0390413,
-            fixed_freq: Frequency::annual(),
-            float_freq: Frequency::annual(),
+            fixed_freq: Tenor::annual(),
+            float_freq: Tenor::annual(),
             fixed_dc: DayCount::Act360,
             float_dc: DayCount::Act360,
             index: "USD-SOFR".to_string().into(),
@@ -335,8 +335,8 @@ fn test_bloomberg_usd_ois_calibration_accuracy() {
         RatesQuote::Swap {
             maturity: Date::from_calendar_date(2075, Month::December, 12).expect("Valid date"), // 50Y
             rate: 0.0378761,
-            fixed_freq: Frequency::annual(),
-            float_freq: Frequency::annual(),
+            fixed_freq: Tenor::annual(),
+            float_freq: Tenor::annual(),
             fixed_dc: DayCount::Act360,
             float_dc: DayCount::Act360,
             index: "USD-SOFR".to_string().into(),
@@ -786,8 +786,8 @@ fn test_interpolation_method_comparison() {
         RatesQuote::Swap {
             maturity: Date::from_calendar_date(2026, Month::December, 14).expect("Valid date"),
             rate: 0.0343446,
-            fixed_freq: Frequency::annual(),
-            float_freq: Frequency::annual(),
+            fixed_freq: Tenor::annual(),
+            float_freq: Tenor::annual(),
             fixed_dc: DayCount::Act360,
             float_dc: DayCount::Act360,
             index: "USD-SOFR".to_string().into(),
@@ -796,8 +796,8 @@ fn test_interpolation_method_comparison() {
         RatesQuote::Swap {
             maturity: Date::from_calendar_date(2027, Month::December, 13).expect("Valid date"),
             rate: 0.0329864,
-            fixed_freq: Frequency::annual(),
-            float_freq: Frequency::annual(),
+            fixed_freq: Tenor::annual(),
+            float_freq: Tenor::annual(),
             fixed_dc: DayCount::Act360,
             float_dc: DayCount::Act360,
             index: "USD-SOFR".to_string().into(),
@@ -806,8 +806,8 @@ fn test_interpolation_method_comparison() {
         RatesQuote::Swap {
             maturity: Date::from_calendar_date(2030, Month::December, 12).expect("Valid date"),
             rate: 0.0338799,
-            fixed_freq: Frequency::annual(),
-            float_freq: Frequency::annual(),
+            fixed_freq: Tenor::annual(),
+            float_freq: Tenor::annual(),
             fixed_dc: DayCount::Act360,
             float_dc: DayCount::Act360,
             index: "USD-SOFR".to_string().into(),
@@ -816,8 +816,8 @@ fn test_interpolation_method_comparison() {
         RatesQuote::Swap {
             maturity: Date::from_calendar_date(2035, Month::December, 12).expect("Valid date"),
             rate: 0.0370206,
-            fixed_freq: Frequency::annual(),
-            float_freq: Frequency::annual(),
+            fixed_freq: Tenor::annual(),
+            float_freq: Tenor::annual(),
             fixed_dc: DayCount::Act360,
             float_dc: DayCount::Act360,
             index: "USD-SOFR".to_string().into(),

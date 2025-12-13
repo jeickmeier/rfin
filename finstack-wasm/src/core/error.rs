@@ -71,8 +71,8 @@ pub(crate) fn calendar_not_found(id: &str) -> JsValue {
 /// This is the single source of truth for creating JavaScript errors.
 /// Use this instead of duplicating error creation logic.
 #[inline]
-pub(crate) fn js_error(message: impl Into<String>) -> JsValue {
-    JsValue::from(js_sys::Error::new(&message.into()))
+pub(crate) fn js_error(message: impl ToString) -> JsValue {
+    JsValue::from(js_sys::Error::new(&message.to_string()))
 }
 
 /// Macro for creating JavaScript errors with formatted messages.

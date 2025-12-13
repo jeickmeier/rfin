@@ -1,3 +1,0 @@
-# Composition
-
-Documentation coming soon.

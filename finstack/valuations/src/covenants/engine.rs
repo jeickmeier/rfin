@@ -34,7 +34,7 @@ pub struct Covenant {
     /// Type of covenant (leverage, coverage, etc.)
     pub covenant_type: CovenantType,
     /// How frequently the covenant is tested
-    pub test_frequency: finstack_core::dates::Frequency,
+    pub test_frequency: finstack_core::dates::Tenor,
     /// Optional cure period in days before default
     pub cure_period_days: Option<i32>,
     /// Actions taken if covenant is breached
@@ -49,10 +49,7 @@ pub struct Covenant {
 
 impl Covenant {
     /// Create a new covenant with default cure period
-    pub fn new(
-        covenant_type: CovenantType,
-        test_frequency: finstack_core::dates::Frequency,
-    ) -> Self {
+    pub fn new(covenant_type: CovenantType, test_frequency: finstack_core::dates::Tenor) -> Self {
         Self {
             covenant_type,
             test_frequency,
@@ -836,7 +833,7 @@ mod tests {
     use crate::pricer::InstrumentType;
     use finstack_core::{
         currency::Currency,
-        dates::{Date, Frequency},
+        dates::{Date, Tenor},
         market_data::context::MarketContext,
         money::Money,
     };
@@ -1019,11 +1016,11 @@ mod tests {
 
         let leverage_cov = Covenant::new(
             CovenantType::MaxTotalLeverage { threshold: 5.0 },
-            Frequency::quarterly(),
+            Tenor::quarterly(),
         );
         let coverage_cov = Covenant::new(
             CovenantType::MinInterestCoverage { threshold: 1.50 },
-            Frequency::quarterly(),
+            Tenor::quarterly(),
         );
 
         engine.add_spec(CovenantSpec::with_metric(
@@ -1076,7 +1073,7 @@ mod tests {
             CovenantType::Negative {
                 restriction: "No additional debt".to_string(),
             },
-            Frequency::annual(),
+            Tenor::annual(),
         );
         let neg_description = engine.get_covenant_description(&negative_cov.covenant_type);
         assert_eq!(neg_description, "Negative: No additional debt");
@@ -1090,7 +1087,7 @@ mod tests {
         engine.add_spec(CovenantSpec::with_metric(
             Covenant::new(
                 CovenantType::MaxDebtToEBITDA { threshold: 4.0 },
-                Frequency::quarterly(),
+                Tenor::quarterly(),
             ),
             MetricId::custom("debt_to_ebitda"),
         ));
@@ -1103,7 +1100,7 @@ mod tests {
                     metric: "liquidity_ratio".to_string(),
                     test: ThresholdTest::Minimum(1.1),
                 },
-                Frequency::quarterly(),
+                Tenor::quarterly(),
             ),
             MetricId::custom("liquidity_ratio"),
         );
@@ -1113,7 +1110,7 @@ mod tests {
                 CovenantType::Affirmative {
                     requirement: "Provide quarterly reporting".to_string(),
                 },
-                Frequency::quarterly(),
+                Tenor::quarterly(),
             ),
             |_ctx| Ok(false),
         );
@@ -1169,7 +1166,7 @@ mod tests {
 
         let covenant = Covenant::new(
             CovenantType::MaxSeniorLeverage { threshold: 3.0 },
-            Frequency::quarterly(),
+            Tenor::quarterly(),
         )
         .with_consequence(CovenantConsequence::Default)
         .with_consequence(CovenantConsequence::RateIncrease { bp_increase: 150.0 })
@@ -1272,7 +1269,7 @@ mod tests {
         };
         let covenant = Covenant::new(
             CovenantType::MaxTotalLeverage { threshold: 5.0 },
-            Frequency::quarterly(),
+            Tenor::quarterly(),
         )
         .with_springing_condition(springing);
 
@@ -1318,7 +1315,7 @@ mod tests {
                 name: "general_debt".to_string(),
                 limit: 100.0,
             },
-            Frequency::quarterly(),
+            Tenor::quarterly(),
         );
         engine.add_spec(CovenantSpec::with_metric(
             covenant,

@@ -9,7 +9,7 @@ use crate::valuations::cashflow::builder::PyCashFlowSchedule;
 use crate::valuations::cashflow::specs::PyAmortizationSpec;
 use crate::valuations::common::PyInstrumentType;
 use finstack_core::currency::Currency;
-use finstack_core::dates::{BusinessDayConvention, DayCount, Frequency, StubKind};
+use finstack_core::dates::{BusinessDayConvention, DayCount, StubKind, Tenor};
 use finstack_core::money::Money;
 use finstack_core::types::{CurveId, InstrumentId};
 use finstack_valuations::cashflow::builder::AmortizationSpec as ValAmortizationSpec;
@@ -53,7 +53,7 @@ pub struct PyBondBuilder {
     maturity: Option<time::Date>,
     discount_curve: Option<CurveId>,
     credit_curve: Option<CurveId>,
-    frequency: Frequency,
+    frequency: Tenor,
     day_count: DayCount,
     bdc: BusinessDayConvention,
     calendar_id: Option<String>,
@@ -78,7 +78,7 @@ impl PyBondBuilder {
             maturity: None,
             discount_curve: None,
             credit_curve: None,
-            frequency: Frequency::semi_annual(),
+            frequency: Tenor::semi_annual(),
             day_count: DayCount::Thirty360,
             bdc: BusinessDayConvention::Following,
             calendar_id: None,
@@ -177,34 +177,32 @@ impl PyBondBuilder {
         }
     }
 
-    fn parse_frequency(value: &Bound<'_, PyAny>) -> PyResult<Frequency> {
+    fn parse_frequency(value: &Bound<'_, PyAny>) -> PyResult<Tenor> {
         if let Ok(py_freq) = value.extract::<PyRef<PyFrequency>>() {
-            return Ok(py_freq.inner);
+            return Ok((*py_freq).inner);
         }
         if let Ok(name) = value.extract::<&str>() {
             let normalized = name.to_lowercase();
             return match normalized.as_str() {
-                "annual" | "1y" | "yearly" => Ok(Frequency::annual()),
-                "semiannual" | "semi_annual" | "2y" | "6m" | "semi" => Ok(Frequency::semi_annual()),
-                "quarterly" | "qtr" | "3m" => Ok(Frequency::quarterly()),
-                "monthly" | "1m" => Ok(Frequency::monthly()),
-                "biweekly" | "2w" => Ok(Frequency::biweekly()),
-                "weekly" | "1w" => Ok(Frequency::weekly()),
-                "daily" | "1d" => Ok(Frequency::daily()),
-                other => Frequency::from_payments_per_year(other.parse::<u32>().map_err(|_| {
-                    PyValueError::new_err(
-                        "frequency() expects Frequency, name, or payments per year",
-                    )
+                "annual" | "1y" | "yearly" => Ok(Tenor::annual()),
+                "semiannual" | "semi_annual" | "2y" | "6m" | "semi" => Ok(Tenor::semi_annual()),
+                "quarterly" | "qtr" | "3m" => Ok(Tenor::quarterly()),
+                "monthly" | "1m" => Ok(Tenor::monthly()),
+                "biweekly" | "2w" => Ok(Tenor::biweekly()),
+                "weekly" | "1w" => Ok(Tenor::weekly()),
+                "daily" | "1d" => Ok(Tenor::daily()),
+                other => Tenor::from_payments_per_year(other.parse::<u32>().map_err(|_| {
+                    PyValueError::new_err("frequency() expects Tenor, name, or payments per year")
                 })?)
-                .map_err(|msg| PyValueError::new_err(msg)),
+                .map_err(|msg| PyValueError::new_err(msg.to_string())),
             };
         }
         if let Ok(payments) = value.extract::<u32>() {
-            return Frequency::from_payments_per_year(payments)
-                .map_err(|msg| PyValueError::new_err(msg));
+            return Tenor::from_payments_per_year(payments)
+                .map_err(|msg| PyValueError::new_err(msg.to_string()));
         }
         Err(PyTypeError::new_err(
-            "frequency() expects Frequency, str, or int payments_per_year",
+            "frequency() expects Tenor, str, or int payments_per_year",
         ))
     }
 
@@ -782,9 +780,7 @@ impl PyBond {
         let maturity_date = py_to_date(&maturity).context("maturity")?;
         let disc = CurveId::new(discount_curve.extract::<&str>().context("discount_curve")?);
 
-        let freq = frequency
-            .map(|f| f.inner)
-            .unwrap_or(Frequency::semi_annual());
+        let freq = frequency.map(|f| f.inner).unwrap_or(Tenor::semi_annual());
         let dc = day_count.map(|d| d.inner).unwrap_or(DayCount::Thirty360);
         let bdc_val = bdc
             .map(|b| b.inner)
@@ -979,7 +975,7 @@ impl PyBond {
         let disc = CurveId::new(discount_curve.extract::<&str>().context("discount_curve")?);
         let fwd = CurveId::new(forward_curve.extract::<&str>().context("forward_curve")?);
 
-        use finstack_core::dates::{DayCount, Frequency};
+        use finstack_core::dates::{DayCount, Tenor};
 
         let bond = finstack_valuations::instruments::bond::Bond::floating(
             id,
@@ -988,7 +984,7 @@ impl PyBond {
             margin_bp,
             issue_date,
             maturity_date,
-            Frequency::quarterly(),
+            Tenor::quarterly(),
             DayCount::Act360,
             disc,
         );

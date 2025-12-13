@@ -1,7 +1,7 @@
 //! Comprehensive tests for variance swap metrics.
 
 use super::common::*;
-use finstack_core::dates::Frequency;
+use finstack_core::dates::Tenor;
 use finstack_core::math::stats::{realized_variance, RealizedVarMethod};
 use finstack_valuations::instruments::common::traits::Instrument;
 use finstack_valuations::instruments::variance_swap::PayReceive;
@@ -214,7 +214,7 @@ fn test_expected_variance_before_start_uses_implied_vol() {
 fn test_expected_variance_blends_realized_and_forward_mid_period() {
     // Arrange
     let mut swap = sample_swap(PayReceive::Receive);
-    swap.observation_freq = Frequency::weekly();
+    swap.observation_freq = Tenor::weekly();
     let prices: Vec<(finstack_core::dates::Date, f64)> = swap
         .observation_dates()
         .into_iter()
@@ -259,7 +259,7 @@ fn test_expected_variance_blends_realized_and_forward_mid_period() {
 fn test_vega_matches_formula() {
     // Arrange
     let mut swap = sample_swap(PayReceive::Receive);
-    swap.observation_freq = Frequency::weekly();
+    swap.observation_freq = Tenor::weekly();
     let as_of = swap.start_date + time::Duration::days(21);
     let ctx = add_unitless(base_context(), format!("{}_IMPL_VOL", UNDERLYING_ID), 0.25);
 
@@ -309,7 +309,7 @@ fn test_vega_sign_matches_swap_side() {
 fn test_variance_vega_matches_formula() {
     // Arrange
     let mut swap = sample_swap(PayReceive::Receive);
-    swap.observation_freq = Frequency::weekly();
+    swap.observation_freq = Tenor::weekly();
     let as_of = swap.start_date + time::Duration::days(21);
     let ctx = base_context();
 
@@ -338,7 +338,7 @@ fn test_variance_vega_matches_formula() {
 fn test_vega_decreases_as_maturity_approaches() {
     // Arrange
     let mut swap = sample_swap(PayReceive::Receive);
-    swap.observation_freq = Frequency::weekly();
+    swap.observation_freq = Tenor::weekly();
     let ctx = add_unitless(base_context(), format!("{}_IMPL_VOL", UNDERLYING_ID), 0.25);
     let dates = swap.observation_dates();
 
@@ -502,7 +502,7 @@ fn test_all_metrics_pre_start() {
 fn test_all_metrics_mid_period() {
     // Arrange
     let mut swap = sample_swap(PayReceive::Receive);
-    swap.observation_freq = Frequency::weekly();
+    swap.observation_freq = Tenor::weekly();
     let prices = price_series(&swap, 5_000.0, 5.0);
     let ctx = add_series(
         add_unitless(base_context(), format!("{}_IMPL_VOL", UNDERLYING_ID), 0.23),

@@ -1,7 +1,7 @@
 //! Tests for variance swap valuation (NPV) across different lifecycle stages.
 
 use super::common::*;
-use finstack_core::dates::Frequency;
+use finstack_core::dates::Tenor;
 use finstack_core::market_data::context::MarketContext;
 use finstack_core::math::stats::{realized_variance, RealizedVarMethod};
 use finstack_valuations::instruments::common::traits::Instrument;
@@ -93,7 +93,7 @@ fn test_npv_before_start_pay_side_opposite_sign() {
 fn test_npv_mid_period_blends_realized_and_forward_components() {
     // Arrange
     let mut swap = sample_swap(PayReceive::Receive);
-    swap.observation_freq = Frequency::weekly();
+    swap.observation_freq = Tenor::weekly();
     let prices = price_series(&swap, 4_950.0, 10.0);
     let ctx = add_series(base_context(), &prices);
     let dates = swap.observation_dates();
@@ -121,7 +121,7 @@ fn test_npv_mid_period_blends_realized_and_forward_components() {
 fn test_npv_mid_period_with_high_realized_vol_increases_value_for_receive() {
     // Arrange
     let mut swap = sample_swap(PayReceive::Receive);
-    swap.observation_freq = Frequency::weekly();
+    swap.observation_freq = Tenor::weekly();
     let prices = price_series(&swap, 5_000.0, 50.0); // High volatility moves
     let ctx = add_series(base_context(), &prices);
     let dates = swap.observation_dates();
@@ -142,7 +142,7 @@ fn test_npv_mid_period_with_high_realized_vol_increases_value_for_receive() {
 fn test_npv_mid_period_discounting_reduces_value() {
     // Arrange
     let mut swap = sample_swap(PayReceive::Receive);
-    swap.observation_freq = Frequency::weekly();
+    swap.observation_freq = Tenor::weekly();
     let prices = price_series(&swap, 5_000.0, 10.0);
     let ctx = add_series(base_context(), &prices);
     let dates = swap.observation_dates();
@@ -167,11 +167,7 @@ fn test_npv_mid_period_discounting_reduces_value() {
 fn test_npv_mid_period_with_different_frequencies() {
     // Arrange
     let base_swap = sample_swap(PayReceive::Receive);
-    let frequencies = vec![
-        Frequency::daily(),
-        Frequency::weekly(),
-        Frequency::monthly(),
-    ];
+    let frequencies = vec![Tenor::daily(), Tenor::weekly(), Tenor::monthly()];
 
     for freq in frequencies {
         let mut swap = base_swap.clone();
@@ -324,7 +320,7 @@ fn test_value_method_delegates_to_npv() {
 fn test_npv_time_progression_from_pre_start_to_maturity() {
     // Arrange
     let mut swap = sample_swap(PayReceive::Receive);
-    swap.observation_freq = Frequency::weekly();
+    swap.observation_freq = Tenor::weekly();
     let prices = price_series(&swap, 5_000.0, 8.0);
     let ctx = add_series(
         add_unitless(base_context(), format!("{}_IMPL_VOL", UNDERLYING_ID), 0.22),
@@ -355,7 +351,7 @@ fn test_npv_time_progression_from_pre_start_to_maturity() {
 fn test_npv_converges_as_maturity_approaches() {
     // Arrange
     let mut swap = sample_swap(PayReceive::Receive);
-    swap.observation_freq = Frequency::weekly();
+    swap.observation_freq = Tenor::weekly();
     let prices = price_series(&swap, 5_000.0, 5.0);
     let ctx = add_series(base_context(), &prices);
     let dates = swap.observation_dates();

@@ -1,4 +1,4 @@
-use finstack_core::dates::{BusinessDayConvention, Date, DayCount, Frequency};
+use finstack_core::dates::{BusinessDayConvention, Date, DayCount, Tenor};
 use finstack_core::market_data::context::MarketContext;
 use finstack_core::market_data::term_structures::{DiscountCurve, ForwardCurve};
 use finstack_core::money::Money;
@@ -52,7 +52,7 @@ fn swap() -> BasisSwap {
             payment_lag_days: 0,
             reset_lag_days: 0,
             forward_curve_id: CurveId::new("USD-SOFR-3M"),
-            frequency: Frequency::quarterly(),
+            frequency: Tenor::quarterly(),
             day_count: DayCount::Act360,
             bdc: BusinessDayConvention::ModifiedFollowing,
             spread: 0.0,
@@ -61,7 +61,7 @@ fn swap() -> BasisSwap {
             payment_lag_days: 0,
             reset_lag_days: 0,
             forward_curve_id: CurveId::new("USD-SOFR-1M"),
-            frequency: Frequency::quarterly(),
+            frequency: Tenor::quarterly(),
             day_count: DayCount::Act360,
             bdc: BusinessDayConvention::ModifiedFollowing,
             spread: 0.0,

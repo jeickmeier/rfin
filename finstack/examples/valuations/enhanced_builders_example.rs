@@ -98,7 +98,7 @@ fn main() -> finstack_core::Result<()> {
         .fixed(finstack_valuations::instruments::irs::FixedLegSpec {
             discount_curve_id: "USD-OIS".into(),
             rate: 0.0425,
-            freq: finstack_core::dates::Frequency::semi_annual(),
+            freq: finstack_core::dates::Tenor::semi_annual(),
             dc: finstack_core::dates::DayCount::Thirty360,
             bdc: finstack_core::dates::BusinessDayConvention::ModifiedFollowing,
             calendar_id: None,
@@ -113,7 +113,7 @@ fn main() -> finstack_core::Result<()> {
             discount_curve_id: "USD-OIS".into(),
             forward_curve_id: "USD-SOFR-3M".into(),
             spread_bp: 25.0,
-            freq: finstack_core::dates::Frequency::quarterly(),
+            freq: finstack_core::dates::Tenor::quarterly(),
             dc: finstack_core::dates::DayCount::Act360,
             bdc: finstack_core::dates::BusinessDayConvention::ModifiedFollowing,
             calendar_id: None,

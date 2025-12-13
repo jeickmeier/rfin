@@ -1,6 +1,6 @@
 //! Schedule parameter types for cashflow generation.
 
-use finstack_core::dates::{BusinessDayConvention, DayCount, Frequency, StubKind};
+use finstack_core::dates::{BusinessDayConvention, DayCount, StubKind, Tenor};
 use finstack_core::types::CurveId;
 
 /// Schedule Params structure.
@@ -8,7 +8,7 @@ use finstack_core::types::CurveId;
 #[derive(Debug, Clone)]
 pub struct ScheduleParams {
     /// freq.
-    pub freq: Frequency,
+    pub freq: Tenor,
     /// dc.
     pub dc: DayCount,
     /// bdc.
@@ -23,7 +23,7 @@ impl ScheduleParams {
     /// Quarterly payments with Act/360 day count and Following BDC
     pub fn quarterly_act360() -> Self {
         Self {
-            freq: Frequency::quarterly(),
+            freq: Tenor::quarterly(),
             dc: DayCount::Act360,
             bdc: BusinessDayConvention::Following,
             calendar_id: None,
@@ -34,7 +34,7 @@ impl ScheduleParams {
     /// Semi-annual payments with 30/360 day count and Modified Following BDC
     pub fn semiannual_30360() -> Self {
         Self {
-            freq: Frequency::semi_annual(),
+            freq: Tenor::semi_annual(),
             dc: DayCount::Thirty360,
             bdc: BusinessDayConvention::ModifiedFollowing,
             calendar_id: None,
@@ -45,7 +45,7 @@ impl ScheduleParams {
     /// Annual payments with Act/Act day count and Following BDC
     pub fn annual_actact() -> Self {
         Self {
-            freq: Frequency::annual(),
+            freq: Tenor::annual(),
             dc: DayCount::ActAct,
             bdc: BusinessDayConvention::Following,
             calendar_id: None,
@@ -56,7 +56,7 @@ impl ScheduleParams {
     /// USD market standard (quarterly, Act/360, Modified Following, USD calendar)
     pub fn usd_standard() -> Self {
         Self {
-            freq: Frequency::quarterly(),
+            freq: Tenor::quarterly(),
             dc: DayCount::Act360,
             bdc: BusinessDayConvention::ModifiedFollowing,
             // Use a real calendar identifier (currency codes are not calendar IDs).
@@ -68,7 +68,7 @@ impl ScheduleParams {
     /// EUR market standard (semi-annual, 30/360, Modified Following, EUR calendar)
     pub fn eur_standard() -> Self {
         Self {
-            freq: Frequency::semi_annual(),
+            freq: Tenor::semi_annual(),
             dc: DayCount::Thirty360,
             bdc: BusinessDayConvention::ModifiedFollowing,
             calendar_id: Some("target2".to_string()),
@@ -79,7 +79,7 @@ impl ScheduleParams {
     /// GBP market standard (semi-annual, Act/365, Modified Following, GBP calendar)
     pub fn gbp_standard() -> Self {
         Self {
-            freq: Frequency::semi_annual(),
+            freq: Tenor::semi_annual(),
             dc: DayCount::Act365F,
             bdc: BusinessDayConvention::ModifiedFollowing,
             calendar_id: Some("gblo".to_string()),
@@ -90,7 +90,7 @@ impl ScheduleParams {
     /// JPY market standard (semi-annual, Act/365, Modified Following, JPY calendar)
     pub fn jpy_standard() -> Self {
         Self {
-            freq: Frequency::semi_annual(),
+            freq: Tenor::semi_annual(),
             dc: DayCount::Act365F,
             bdc: BusinessDayConvention::ModifiedFollowing,
             calendar_id: Some("jpto".to_string()),

@@ -1,6 +1,6 @@
 use crate::core::dates::calendar::JsBusinessDayConvention;
 use crate::core::dates::date::JsDate;
-use crate::core::dates::daycount::{JsDayCount, JsFrequency};
+use crate::core::dates::daycount::{JsDayCount, JsTenor};
 use crate::core::error::js_error;
 use crate::core::money::JsMoney;
 use crate::valuations::common::{curve_id_from_str, instrument_id_from_str};
@@ -38,9 +38,9 @@ impl JsInterestRateSwap {
         discount_curve: &str,
         forward_curve: &str,
         side: &str,
-        fixed_frequency: Option<JsFrequency>,
+        fixed_frequency: Option<JsTenor>,
         fixed_day_count: Option<JsDayCount>,
-        float_frequency: Option<JsFrequency>,
+        float_frequency: Option<JsTenor>,
         float_day_count: Option<JsDayCount>,
         business_day_convention: Option<JsBusinessDayConvention>,
         calendar_id: Option<String>,
@@ -59,10 +59,10 @@ impl JsInterestRateSwap {
             .unwrap_or(BusinessDayConvention::ModifiedFollowing);
         let fixed_freq = fixed_frequency
             .map(|f| f.inner())
-            .unwrap_or(finstack_core::dates::Frequency::semi_annual());
+            .unwrap_or(finstack_core::dates::Tenor::semi_annual());
         let float_freq = float_frequency
             .map(|f| f.inner())
-            .unwrap_or(finstack_core::dates::Frequency::quarterly());
+            .unwrap_or(finstack_core::dates::Tenor::quarterly());
         let fixed_dc = fixed_day_count
             .map(|d| d.inner())
             .unwrap_or(finstack_core::dates::DayCount::Thirty360);

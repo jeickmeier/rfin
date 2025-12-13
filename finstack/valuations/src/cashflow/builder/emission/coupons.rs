@@ -2,7 +2,7 @@
 
 use crate::cashflow::primitives::{CFKind, CashFlow};
 use finstack_core::currency::Currency;
-use finstack_core::dates::{Date, DateExt, Frequency};
+use finstack_core::dates::{Date, DateExt, Tenor};
 use finstack_core::market_data::term_structures::ForwardCurve;
 use finstack_core::money::Money;
 
@@ -15,12 +15,13 @@ use super::helpers::{add_pik_flow_if_nonzero, compute_reset_date, resolve_calend
 /// from the reset (fixing) date to the index maturity date, not the payment date.
 /// This ensures correct rate projection for instruments where the payment date
 /// differs from the index tenor end.
-fn compute_index_maturity(reset_date: Date, index_tenor: Frequency) -> Date {
-    match index_tenor {
-        Frequency::Months(m) => reset_date.add_months(m as i32),
-        Frequency::Days(d) => reset_date + time::Duration::days(d as i64),
-        // Frequency is non-exhaustive; fallback to quarterly (3M) for unknown variants
-        _ => reset_date.add_months(3),
+fn compute_index_maturity(reset_date: Date, index_tenor: Tenor) -> Date {
+    use finstack_core::dates::TenorUnit;
+    match index_tenor.unit {
+        TenorUnit::Months => reset_date.add_months(index_tenor.count as i32),
+        TenorUnit::Days => reset_date + time::Duration::days(index_tenor.count as i64),
+        TenorUnit::Years => reset_date.add_months((index_tenor.count * 12) as i32),
+        TenorUnit::Weeks => reset_date + time::Duration::days((index_tenor.count * 7) as i64),
     }
 }
 

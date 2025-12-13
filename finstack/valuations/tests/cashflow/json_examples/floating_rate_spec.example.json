@@ -10,7 +10,8 @@
     "cap_bp": null,
     "index_cap_bp": null,
     "reset_freq": {
-      "Months": 3
+      "count": 3,
+      "unit": "months"
     },
     "reset_lag_days": 2,
     "dc": "Act360",
@@ -19,4 +20,3 @@
     "fixing_calendar_id": null
   }
 }
-

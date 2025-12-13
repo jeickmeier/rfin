@@ -2,7 +2,7 @@
 //! Custom bond structure integration tests (PIK, step-up, etc.).
 
 use finstack_core::currency::Currency;
-use finstack_core::dates::{BusinessDayConvention, DayCount, Frequency, StubKind};
+use finstack_core::dates::{BusinessDayConvention, DayCount, StubKind, Tenor};
 use finstack_core::market_data::context::MarketContext;
 use finstack_core::market_data::term_structures::DiscountCurve;
 use finstack_core::money::Money;
@@ -32,7 +32,7 @@ fn test_pik_bond() {
         .fixed_cf(FixedCouponSpec {
             coupon_type: CouponType::PIK,
             rate: 0.08,
-            freq: Frequency::semi_annual(),
+            freq: Tenor::semi_annual(),
             dc: DayCount::Act365F,
             bdc: BusinessDayConvention::Following,
             calendar_id: None,
@@ -56,7 +56,7 @@ fn test_step_up_bond() {
     let step2 = date!(2027 - 01 - 01);
 
     let params = ScheduleParams {
-        freq: Frequency::semi_annual(),
+        freq: Tenor::semi_annual(),
         dc: DayCount::Act365F,
         bdc: BusinessDayConvention::Following,
         calendar_id: None,

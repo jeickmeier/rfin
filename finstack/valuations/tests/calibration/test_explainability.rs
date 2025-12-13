@@ -1,7 +1,7 @@
 //! Tests for explainability features in calibration.
 
 use finstack_core::currency::Currency;
-use finstack_core::dates::{create_date, DayCount, Frequency};
+use finstack_core::dates::{create_date, DayCount, Tenor};
 use finstack_core::market_data::context::MarketContext;
 use finstack_core::market_data::term_structures::discount_curve::DiscountCurve;
 use finstack_core::math::interp::InterpStyle;
@@ -153,8 +153,8 @@ fn test_jacobian_sensitivities_nonzero() {
         RatesQuote::Swap {
             maturity: create_date(2026, Month::January, 15).unwrap(),
             rate: 0.045,
-            fixed_freq: Frequency::semi_annual(),
-            float_freq: Frequency::quarterly(),
+            fixed_freq: Tenor::semi_annual(),
+            float_freq: Tenor::quarterly(),
             fixed_dc: DayCount::Thirty360,
             float_dc: DayCount::Act360,
             index: "USD-SOFR-3M".into(),
@@ -163,8 +163,8 @@ fn test_jacobian_sensitivities_nonzero() {
         RatesQuote::Swap {
             maturity: create_date(2027, Month::January, 15).unwrap(),
             rate: 0.046,
-            fixed_freq: Frequency::semi_annual(),
-            float_freq: Frequency::quarterly(),
+            fixed_freq: Tenor::semi_annual(),
+            float_freq: Tenor::quarterly(),
             fixed_dc: DayCount::Thirty360,
             float_dc: DayCount::Act360,
             index: "USD-SOFR-3M".into(),

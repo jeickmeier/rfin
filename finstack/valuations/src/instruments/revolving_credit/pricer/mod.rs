@@ -40,7 +40,7 @@ mod tests {
     use super::*;
     use crate::pricer::{InstrumentType, ModelKey, Pricer, PricerKey};
     use finstack_core::currency::Currency;
-    use finstack_core::dates::{Date, DayCount, Frequency};
+    use finstack_core::dates::{Date, DayCount, Tenor};
     use finstack_core::market_data::context::MarketContext;
     use finstack_core::market_data::term_structures::discount_curve::DiscountCurve;
     use finstack_core::money::Money;
@@ -70,7 +70,7 @@ mod tests {
             .maturity_date(end)
             .base_rate_spec(BaseRateSpec::Fixed { rate: 0.05 })
             .day_count(DayCount::Act360)
-            .payment_frequency(Frequency::quarterly())
+            .payment_frequency(Tenor::quarterly())
             .fees(RevolvingCreditFees::default())
             .draw_repay_spec(DrawRepaySpec::Deterministic(vec![]))
             .discount_curve_id("USD-OIS".into())
@@ -126,7 +126,7 @@ mod tests {
             .maturity_date(end)
             .base_rate_spec(BaseRateSpec::Fixed { rate: 0.05 })
             .day_count(DayCount::Act360)
-            .payment_frequency(Frequency::quarterly())
+            .payment_frequency(Tenor::quarterly())
             .fees(RevolvingCreditFees::default())
             .draw_repay_spec(DrawRepaySpec::Stochastic(Box::new(
                 super::super::types::StochasticUtilizationSpec {

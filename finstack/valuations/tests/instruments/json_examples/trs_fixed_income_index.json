@@ -26,9 +26,7 @@
         "start": "2024-01-01",
         "end": "2025-01-01",
         "params": {
-          "freq": {
-            "Months": 3
-          },
+          "freq": {"count": 3, "unit": "months"},
           "dc": "Act360",
           "bdc": "following",
           "calendar_id": null,

@@ -33,9 +33,9 @@ pub struct CmsOption {
 
     // --- Underlying Swap Conventions ---
     /// Fixed leg frequency of the underlying swap
-    pub swap_fixed_freq: finstack_core::dates::Frequency,
+    pub swap_fixed_freq: finstack_core::dates::Tenor,
     /// Floating leg frequency of the underlying swap
-    pub swap_float_freq: finstack_core::dates::Frequency,
+    pub swap_float_freq: finstack_core::dates::Tenor,
     /// Day count convention of the underlying swap fixed leg
     pub swap_day_count: finstack_core::dates::DayCount,
 
@@ -55,7 +55,7 @@ impl CmsOption {
     /// Create a canonical example CMS option (10Y CMS caplet style).
     pub fn example() -> Self {
         use finstack_core::currency::Currency;
-        use finstack_core::dates::{DayCount, Frequency};
+        use finstack_core::dates::{DayCount, Tenor};
         use time::Month;
 
         let fixing_dates = vec![
@@ -82,8 +82,8 @@ impl CmsOption {
             .option_type(crate::instruments::OptionType::Call)
             .notional(Money::new(10_000_000.0, Currency::USD))
             .day_count(DayCount::Act365F)
-            .swap_fixed_freq(Frequency::semi_annual())
-            .swap_float_freq(Frequency::quarterly())
+            .swap_fixed_freq(Tenor::semi_annual())
+            .swap_float_freq(Tenor::quarterly())
             .swap_day_count(DayCount::Thirty360)
             .discount_curve_id(CurveId::new("USD-OIS"))
             .forward_curve_id(CurveId::new("USD-LIBOR-3M"))

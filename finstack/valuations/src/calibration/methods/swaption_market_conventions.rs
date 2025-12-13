@@ -3,7 +3,7 @@
 //! Provides currency-specific market conventions and configurable parameters
 //! for swaption calibration to align with market standards.
 
-use finstack_core::dates::{BusinessDayConvention, DayCount, Frequency};
+use finstack_core::dates::{BusinessDayConvention, DayCount, Tenor};
 use finstack_core::prelude::Currency;
 use serde::{Deserialize, Serialize};
 
@@ -19,9 +19,9 @@ pub struct SwaptionMarketConvention {
     /// Floating leg business day convention.
     pub float_bdc: BusinessDayConvention,
     /// Fixed leg frequency
-    pub fixed_freq: Frequency,
+    pub fixed_freq: Tenor,
     /// Float leg frequency  
-    pub float_freq: Frequency,
+    pub float_freq: Tenor,
     /// Standard expiry points (in years)
     pub standard_expiries: Vec<f64>,
     /// Standard tenor points (in years)
@@ -56,8 +56,8 @@ impl SwaptionMarketConvention {
             float_day_count: DayCount::Act360,
             fixed_bdc: BusinessDayConvention::ModifiedFollowing,
             float_bdc: BusinessDayConvention::ModifiedFollowing,
-            fixed_freq: Frequency::semi_annual(),
-            float_freq: Frequency::quarterly(),
+            fixed_freq: Tenor::semi_annual(),
+            float_freq: Tenor::quarterly(),
             standard_expiries: vec![
                 0.25, 0.5, 0.75, 1.0, 2.0, 3.0, 4.0, 5.0, 7.0, 10.0, 15.0, 20.0, 30.0,
             ],
@@ -77,8 +77,8 @@ impl SwaptionMarketConvention {
             float_day_count: DayCount::Act360,
             fixed_bdc: BusinessDayConvention::ModifiedFollowing,
             float_bdc: BusinessDayConvention::ModifiedFollowing,
-            fixed_freq: Frequency::annual(),
-            float_freq: Frequency::semi_annual(),
+            fixed_freq: Tenor::annual(),
+            float_freq: Tenor::semi_annual(),
             standard_expiries: vec![
                 0.25, 0.5, 0.75, 1.0, 2.0, 3.0, 4.0, 5.0, 7.0, 10.0, 15.0, 20.0, 30.0,
             ],
@@ -98,8 +98,8 @@ impl SwaptionMarketConvention {
             float_day_count: DayCount::Act365F,
             fixed_bdc: BusinessDayConvention::ModifiedFollowing,
             float_bdc: BusinessDayConvention::ModifiedFollowing,
-            fixed_freq: Frequency::semi_annual(),
-            float_freq: Frequency::quarterly(),
+            fixed_freq: Tenor::semi_annual(),
+            float_freq: Tenor::quarterly(),
             standard_expiries: vec![
                 0.25, 0.5, 0.75, 1.0, 2.0, 3.0, 4.0, 5.0, 7.0, 10.0, 15.0, 20.0, 30.0,
             ],
@@ -119,8 +119,8 @@ impl SwaptionMarketConvention {
             float_day_count: DayCount::Act365F,
             fixed_bdc: BusinessDayConvention::ModifiedFollowing,
             float_bdc: BusinessDayConvention::ModifiedFollowing,
-            fixed_freq: Frequency::semi_annual(),
-            float_freq: Frequency::quarterly(),
+            fixed_freq: Tenor::semi_annual(),
+            float_freq: Tenor::quarterly(),
             standard_expiries: vec![
                 0.25, 0.5, 0.75, 1.0, 2.0, 3.0, 4.0, 5.0, 7.0, 10.0, 15.0, 20.0, 30.0,
             ],
@@ -140,8 +140,8 @@ impl SwaptionMarketConvention {
             float_day_count: DayCount::Act360,
             fixed_bdc: BusinessDayConvention::ModifiedFollowing,
             float_bdc: BusinessDayConvention::ModifiedFollowing,
-            fixed_freq: Frequency::annual(),
-            float_freq: Frequency::semi_annual(),
+            fixed_freq: Tenor::annual(),
+            float_freq: Tenor::semi_annual(),
             standard_expiries: vec![
                 0.25, 0.5, 0.75, 1.0, 2.0, 3.0, 4.0, 5.0, 7.0, 10.0, 15.0, 20.0, 30.0,
             ],
@@ -198,13 +198,13 @@ impl SwaptionMarketConvention {
     }
 
     /// Set fixed leg frequency
-    pub fn with_fixed_freq(mut self, freq: Frequency) -> Self {
+    pub fn with_fixed_freq(mut self, freq: Tenor) -> Self {
         self.fixed_freq = freq;
         self
     }
 
     /// Set floating leg frequency
-    pub fn with_float_freq(mut self, freq: Frequency) -> Self {
+    pub fn with_float_freq(mut self, freq: Tenor) -> Self {
         self.float_freq = freq;
         self
     }
@@ -261,8 +261,8 @@ mod tests {
         let conv = SwaptionMarketConvention::usd();
         assert_eq!(conv.fixed_day_count, DayCount::Thirty360);
         assert_eq!(conv.float_day_count, DayCount::Act360);
-        assert_eq!(conv.fixed_freq, Frequency::semi_annual());
-        assert_eq!(conv.float_freq, Frequency::quarterly());
+        assert_eq!(conv.fixed_freq, Tenor::semi_annual());
+        assert_eq!(conv.float_freq, Tenor::quarterly());
     }
 
     #[test]
@@ -270,8 +270,8 @@ mod tests {
         let conv = SwaptionMarketConvention::eur();
         assert_eq!(conv.fixed_day_count, DayCount::ThirtyE360);
         assert_eq!(conv.float_day_count, DayCount::Act360);
-        assert_eq!(conv.fixed_freq, Frequency::annual());
-        assert_eq!(conv.float_freq, Frequency::semi_annual());
+        assert_eq!(conv.fixed_freq, Tenor::annual());
+        assert_eq!(conv.float_freq, Tenor::semi_annual());
     }
 
     #[test]

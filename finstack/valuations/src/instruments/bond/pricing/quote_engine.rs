@@ -41,7 +41,7 @@ use std::sync::Arc;
 ///
 /// # Arguments
 ///
-/// * `freq` - Payment frequency (e.g., `Frequency::semi_annual()`)
+/// * `freq` - Payment frequency (e.g., `Tenor::semi_annual()`)
 ///
 /// # Returns
 ///
@@ -50,44 +50,55 @@ use std::sync::Arc;
 /// # Errors
 ///
 /// Returns `Err` when:
-/// - Frequency is zero (invalid)
+/// - Tenor is zero (invalid)
 ///
 /// # Examples
 ///
 /// ```rust
 /// use finstack_valuations::instruments::bond::pricing::quote_engine::periods_per_year;
-/// use finstack_core::dates::Frequency;
+/// use finstack_core::dates::Tenor;
 ///
-/// assert_eq!(periods_per_year(Frequency::semi_annual())?, 2.0);
-/// assert_eq!(periods_per_year(Frequency::quarterly())?, 4.0);
-/// assert_eq!(periods_per_year(Frequency::annual())?, 1.0);
+/// assert_eq!(periods_per_year(Tenor::semi_annual())?, 2.0);
+/// assert_eq!(periods_per_year(Tenor::quarterly())?, 4.0);
+/// assert_eq!(periods_per_year(Tenor::annual())?, 1.0);
 /// # Ok::<(), Box<dyn std::error::Error>>(())
 /// ```
 ///
-/// # Note on Daily Frequency
+/// # Note on Daily Tenor
 ///
 /// For daily frequencies, this uses 365 as an approximation of annual periods.
 /// This is appropriate for frequency calculations but should NOT be confused with
 /// the Actual/365 day count convention used in accrual and discount factor calculations.
 #[inline]
-pub fn periods_per_year(freq: finstack_core::dates::Frequency) -> finstack_core::Result<f64> {
-    match freq {
-        finstack_core::dates::Frequency::Months(m) => {
-            if m == 0 {
+pub fn periods_per_year(freq: finstack_core::dates::Tenor) -> finstack_core::Result<f64> {
+    match freq.unit {
+        finstack_core::dates::TenorUnit::Months => {
+            if freq.count == 0 {
                 return Err(finstack_core::error::InputError::Invalid.into());
             }
-            Ok(12.0 / (m as f64))
+            Ok(12.0 / (freq.count as f64))
         }
-        finstack_core::dates::Frequency::Days(d) => {
-            if d == 0 {
+        finstack_core::dates::TenorUnit::Days => {
+            if freq.count == 0 {
                 return Err(finstack_core::error::InputError::Invalid.into());
             }
             // Use 365 as approximate annual basis for frequency calculations
             // Note: This is NOT a day count convention - actual day count is handled
             // via the DayCount enum (Actual/360, Actual/365, Actual/Actual, etc.)
-            Ok(365.0 / (d as f64))
+            Ok(365.0 / (freq.count as f64))
         }
-        _ => Err(finstack_core::error::InputError::Invalid.into()),
+        finstack_core::dates::TenorUnit::Years => {
+            if freq.count == 0 {
+                return Err(finstack_core::error::InputError::Invalid.into());
+            }
+            Ok(1.0 / (freq.count as f64))
+        }
+        finstack_core::dates::TenorUnit::Weeks => {
+            if freq.count == 0 {
+                return Err(finstack_core::error::InputError::Invalid.into());
+            }
+            Ok(52.0 / (freq.count as f64))
+        }
     }
 }
 
@@ -352,7 +363,7 @@ pub fn df_from_yield(
     ytm: f64,
     t: f64,
     comp: YieldCompounding,
-    bond_freq: finstack_core::dates::Frequency,
+    bond_freq: finstack_core::dates::Tenor,
 ) -> finstack_core::Result<f64> {
     if t <= 0.0 {
         return Ok(1.0);
@@ -414,7 +425,7 @@ pub fn df_from_yield(
 #[inline]
 pub fn price_from_ytm_compounded_params(
     day_count: finstack_core::dates::DayCount,
-    freq: finstack_core::dates::Frequency,
+    freq: finstack_core::dates::Tenor,
     flows: &[(finstack_core::dates::Date, finstack_core::money::Money)],
     as_of: finstack_core::dates::Date,
     ytm: f64,
@@ -862,13 +873,13 @@ pub fn compute_quotes(
 /// (`ISpread = YTM - par_swap_rate`) using the same convention as the
 /// `ISpreadCalculator` (annual Act/Act proxy fixed leg by default).
 fn par_swap_rate_from_discount(bond: &Bond, curves: &MarketContext, as_of: Date) -> Result<f64> {
-    use finstack_core::dates::{DayCount, DayCountCtx, Frequency, ScheduleBuilder, StubKind};
+    use finstack_core::dates::{DayCount, DayCountCtx, ScheduleBuilder, StubKind, Tenor};
 
     let disc = curves.get_discount_ref(&bond.discount_curve_id)?;
 
     // Mirror the schedule used in ISpreadCalculator (annual Act/Act, ShortFront stub).
     let dates: Vec<Date> = ScheduleBuilder::new(as_of, bond.maturity)
-        .frequency(Frequency::annual())
+        .frequency(Tenor::annual())
         .stub_rule(StubKind::ShortFront)
         .build()?
         .into_iter()

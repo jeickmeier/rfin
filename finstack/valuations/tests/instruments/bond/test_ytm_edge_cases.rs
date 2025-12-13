@@ -10,7 +10,7 @@
 //! Market Standards Review (Priority 4, Week 4)
 
 use finstack_core::currency::Currency;
-use finstack_core::dates::{BusinessDayConvention, Date, DayCount, Frequency, StubKind};
+use finstack_core::dates::{BusinessDayConvention, Date, DayCount, StubKind, Tenor};
 use finstack_core::market_data::context::MarketContext;
 use finstack_core::market_data::term_structures::DiscountCurve;
 use finstack_core::money::Money;
@@ -90,7 +90,7 @@ fn test_zero_coupon_bond_ytm() {
         .notional(Money::new(1_000.0, Currency::USD))
         .cashflow_spec(CashflowSpec::fixed(
             0.0,
-            Frequency::annual(),
+            Tenor::annual(),
             DayCount::Thirty360,
         ))
         .issue(issue)
@@ -147,7 +147,7 @@ fn test_odd_first_coupon_ytm() {
         .cashflow_spec(CashflowSpec::Fixed(FixedCouponSpec {
             coupon_type: CouponType::Cash,
             rate: 0.05,
-            freq: Frequency::semi_annual(),
+            freq: Tenor::semi_annual(),
             dc: DayCount::Thirty360,
             bdc: BusinessDayConvention::Following,
             calendar_id: None,
@@ -200,7 +200,7 @@ fn test_eom_february_maturity_ytm() {
         .notional(Money::new(1_000.0, Currency::USD))
         .cashflow_spec(CashflowSpec::fixed(
             0.04,
-            Frequency::annual(),
+            Tenor::annual(),
             DayCount::Thirty360,
         ))
         .issue(issue)
@@ -255,7 +255,7 @@ fn test_long_first_coupon_ytm() {
         .cashflow_spec(CashflowSpec::Fixed(FixedCouponSpec {
             coupon_type: CouponType::Cash,
             rate: 0.06,
-            freq: Frequency::semi_annual(),
+            freq: Tenor::semi_annual(),
             dc: DayCount::Act365F,
             bdc: BusinessDayConvention::ModifiedFollowing,
             calendar_id: None,

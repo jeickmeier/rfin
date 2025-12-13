@@ -11,7 +11,7 @@
 //! - Market practice for USD swaps
 
 use finstack_core::currency::Currency;
-use finstack_core::dates::{BusinessDayConvention, Date, DayCount, Frequency, StubKind};
+use finstack_core::dates::{BusinessDayConvention, Date, DayCount, StubKind, Tenor};
 use finstack_core::market_data::context::MarketContext;
 use finstack_core::market_data::term_structures::{DiscountCurve, ForwardCurve};
 use finstack_core::money::Money;
@@ -318,7 +318,7 @@ fn test_irs_receive_vs_pay_fixed() {
     let fixed_leg = FixedLegSpec {
         discount_curve_id: "USD-OIS".into(),
         rate: 0.05,
-        freq: Frequency::quarterly(),
+        freq: Tenor::quarterly(),
         dc: DayCount::Act360,
         bdc: BusinessDayConvention::ModifiedFollowing,
         calendar_id: None,
@@ -334,7 +334,7 @@ fn test_irs_receive_vs_pay_fixed() {
         discount_curve_id: "USD-OIS".into(),
         forward_curve_id: "USD-SOFR-3M".into(),
         spread_bp: 0.0,
-        freq: Frequency::quarterly(),
+        freq: Tenor::quarterly(),
         dc: DayCount::Act360,
         bdc: BusinessDayConvention::ModifiedFollowing,
         calendar_id: None,
@@ -403,7 +403,7 @@ fn test_irs_rate_sensitivity() {
     let fixed_leg = FixedLegSpec {
         discount_curve_id: "USD-OIS".into(),
         rate: 0.05,
-        freq: Frequency::quarterly(),
+        freq: Tenor::quarterly(),
         dc: DayCount::Act360,
         bdc: BusinessDayConvention::ModifiedFollowing,
         calendar_id: None,
@@ -419,7 +419,7 @@ fn test_irs_rate_sensitivity() {
         discount_curve_id: "USD-OIS".into(),
         forward_curve_id: "USD-SOFR-3M".into(),
         spread_bp: 0.0,
-        freq: Frequency::quarterly(),
+        freq: Tenor::quarterly(),
         dc: DayCount::Act360,
         bdc: BusinessDayConvention::ModifiedFollowing,
         calendar_id: None,
@@ -502,7 +502,7 @@ fn test_irs_leg_pvs_consistency() {
         fixed: FixedLegSpec {
             discount_curve_id: "USD-OIS".into(),
             rate: 0.05,
-            freq: Frequency::quarterly(),
+            freq: Tenor::quarterly(),
             dc: DayCount::Act360,
             bdc: BusinessDayConvention::ModifiedFollowing,
             calendar_id: None,
@@ -517,7 +517,7 @@ fn test_irs_leg_pvs_consistency() {
             discount_curve_id: "USD-OIS".into(),
             forward_curve_id: "USD-SOFR-3M".into(),
             spread_bp: 0.0,
-            freq: Frequency::quarterly(),
+            freq: Tenor::quarterly(),
             dc: DayCount::Act360,
             bdc: BusinessDayConvention::ModifiedFollowing,
             calendar_id: None,
@@ -572,7 +572,7 @@ fn test_daycount_convention_impact_on_annuity() {
         .fixed(FixedLegSpec {
             discount_curve_id: "USD-OIS".into(),
             rate: 0.05,
-            freq: Frequency::quarterly(),
+            freq: Tenor::quarterly(),
             dc: DayCount::Act360,
             bdc: BusinessDayConvention::ModifiedFollowing,
             calendar_id: None,
@@ -587,7 +587,7 @@ fn test_daycount_convention_impact_on_annuity() {
             discount_curve_id: "USD-OIS".into(),
             forward_curve_id: "USD-SOFR-3M".into(),
             spread_bp: 0.0,
-            freq: Frequency::quarterly(),
+            freq: Tenor::quarterly(),
             dc: DayCount::Act360,
             bdc: BusinessDayConvention::ModifiedFollowing,
             calendar_id: None,
@@ -610,7 +610,7 @@ fn test_daycount_convention_impact_on_annuity() {
         .fixed(FixedLegSpec {
             discount_curve_id: "USD-OIS".into(),
             rate: 0.05,
-            freq: Frequency::quarterly(),
+            freq: Tenor::quarterly(),
             dc: DayCount::Thirty360,
             bdc: BusinessDayConvention::ModifiedFollowing,
             calendar_id: None,
@@ -625,7 +625,7 @@ fn test_daycount_convention_impact_on_annuity() {
             discount_curve_id: "USD-OIS".into(),
             forward_curve_id: "USD-SOFR-3M".into(),
             spread_bp: 0.0,
-            freq: Frequency::quarterly(),
+            freq: Tenor::quarterly(),
             dc: DayCount::Act360,
             bdc: BusinessDayConvention::ModifiedFollowing,
             calendar_id: None,
@@ -726,7 +726,7 @@ fn test_irs_t_minus_2_fixing_calendar_isda_standard() {
         .fixed(FixedLegSpec {
             discount_curve_id: "USD-OIS".into(),
             rate: 0.05, // 5% fixed rate
-            freq: Frequency::semi_annual(),
+            freq: Tenor::semi_annual(),
             dc: DayCount::Thirty360, // USD fixed leg: 30/360
             bdc: BusinessDayConvention::ModifiedFollowing,
             calendar_id: Some("usny".to_string()),
@@ -741,7 +741,7 @@ fn test_irs_t_minus_2_fixing_calendar_isda_standard() {
             discount_curve_id: "USD-OIS".into(),
             forward_curve_id: "USD-SOFR-3M".into(),
             spread_bp: 0.0,
-            freq: Frequency::quarterly(),
+            freq: Tenor::quarterly(),
             dc: DayCount::Act360, // USD float leg: ACT/360
             bdc: BusinessDayConvention::ModifiedFollowing,
             calendar_id: Some("usny".to_string()), // Payment calendar
@@ -902,7 +902,7 @@ fn test_irs_forward_curve_daycount_used_for_projection() {
         .fixed(FixedLegSpec {
             discount_curve_id: "USD-OIS".into(),
             rate: 0.04, // Below average forward to create positive NPV
-            freq: Frequency::quarterly(),
+            freq: Tenor::quarterly(),
             dc: DayCount::Act360,
             bdc: BusinessDayConvention::ModifiedFollowing,
             calendar_id: None,
@@ -917,7 +917,7 @@ fn test_irs_forward_curve_daycount_used_for_projection() {
             discount_curve_id: "USD-OIS".into(),
             forward_curve_id: "USD-SOFR-365".into(),
             spread_bp: 0.0,
-            freq: Frequency::quarterly(),
+            freq: Tenor::quarterly(),
             dc: DayCount::Act360, // Float leg uses ACT/360 for accrual
             bdc: BusinessDayConvention::ModifiedFollowing,
             calendar_id: None,
@@ -939,7 +939,7 @@ fn test_irs_forward_curve_daycount_used_for_projection() {
         .fixed(FixedLegSpec {
             discount_curve_id: "USD-OIS".into(),
             rate: 0.04, // Below average forward to create positive NPV
-            freq: Frequency::quarterly(),
+            freq: Tenor::quarterly(),
             dc: DayCount::Act360,
             bdc: BusinessDayConvention::ModifiedFollowing,
             calendar_id: None,
@@ -954,7 +954,7 @@ fn test_irs_forward_curve_daycount_used_for_projection() {
             discount_curve_id: "USD-OIS".into(),
             forward_curve_id: "USD-SOFR-360".into(),
             spread_bp: 0.0,
-            freq: Frequency::quarterly(),
+            freq: Tenor::quarterly(),
             dc: DayCount::Act360, // Float leg uses ACT/360 for accrual
             bdc: BusinessDayConvention::ModifiedFollowing,
             calendar_id: None,

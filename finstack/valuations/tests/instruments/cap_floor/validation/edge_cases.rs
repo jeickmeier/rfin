@@ -3,7 +3,7 @@
 //! Tests boundary conditions and special scenarios.
 
 use finstack_core::currency::Currency;
-use finstack_core::dates::{BusinessDayConvention, Date, DayCount, Frequency, StubKind};
+use finstack_core::dates::{BusinessDayConvention, Date, DayCount, StubKind, Tenor};
 use finstack_core::market_data::context::MarketContext;
 use finstack_core::market_data::surfaces::VolSurface;
 use finstack_core::market_data::term_structures::{DiscountCurve, ForwardCurve};
@@ -61,7 +61,7 @@ fn test_zero_vol_itm_cap() {
         strike_rate: 0.03, // ITM (forward = 5%)
         start_date: as_of,
         end_date: end,
-        frequency: Frequency::quarterly(),
+        frequency: Tenor::quarterly(),
         day_count: DayCount::Act360,
         stub_kind: StubKind::None,
         bdc: BusinessDayConvention::ModifiedFollowing,
@@ -102,7 +102,7 @@ fn test_zero_vol_otm_cap() {
         strike_rate: 0.07, // OTM (forward = 5%)
         start_date: as_of,
         end_date: end,
-        frequency: Frequency::quarterly(),
+        frequency: Tenor::quarterly(),
         day_count: DayCount::Act360,
         stub_kind: StubKind::None,
         bdc: BusinessDayConvention::ModifiedFollowing,
@@ -147,7 +147,7 @@ fn test_very_high_strike() {
         strike_rate: 0.50, // Extremely OTM
         start_date: as_of,
         end_date: end,
-        frequency: Frequency::quarterly(),
+        frequency: Tenor::quarterly(),
         day_count: DayCount::Act360,
         stub_kind: StubKind::None,
         bdc: BusinessDayConvention::ModifiedFollowing,
@@ -189,7 +189,7 @@ fn test_very_low_strike_floor() {
         strike_rate: 0.001, // Extremely OTM for floor
         start_date: as_of,
         end_date: end,
-        frequency: Frequency::quarterly(),
+        frequency: Tenor::quarterly(),
         day_count: DayCount::Act360,
         stub_kind: StubKind::None,
         bdc: BusinessDayConvention::ModifiedFollowing,
@@ -231,7 +231,7 @@ fn test_very_short_maturity() {
         strike_rate: 0.05,
         start_date: start,
         end_date: end,
-        frequency: Frequency::quarterly(),
+        frequency: Tenor::quarterly(),
         day_count: DayCount::Act360,
         stub_kind: StubKind::None,
         bdc: BusinessDayConvention::ModifiedFollowing,
@@ -273,7 +273,7 @@ fn test_expired_cap() {
         strike_rate: 0.05,
         start_date: start,
         end_date: end,
-        frequency: Frequency::quarterly(),
+        frequency: Tenor::quarterly(),
         day_count: DayCount::Act360,
         stub_kind: StubKind::None,
         bdc: BusinessDayConvention::ModifiedFollowing,
@@ -320,7 +320,7 @@ fn test_zero_notional() {
         strike_rate: 0.05,
         start_date: as_of,
         end_date: end,
-        frequency: Frequency::quarterly(),
+        frequency: Tenor::quarterly(),
         day_count: DayCount::Act360,
         stub_kind: StubKind::None,
         bdc: BusinessDayConvention::ModifiedFollowing,
@@ -366,7 +366,7 @@ fn test_very_high_vol() {
         strike_rate: 0.05,
         start_date: as_of,
         end_date: end,
-        frequency: Frequency::quarterly(),
+        frequency: Tenor::quarterly(),
         day_count: DayCount::Act360,
         stub_kind: StubKind::None,
         bdc: BusinessDayConvention::ModifiedFollowing,

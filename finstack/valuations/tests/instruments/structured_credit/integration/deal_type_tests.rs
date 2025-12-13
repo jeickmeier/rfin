@@ -3,7 +3,7 @@
 //! Tests that CLO, ABS, RMBS, and CMBS have correct defaults and behavior.
 
 use finstack_core::currency::Currency;
-use finstack_core::dates::{Date, Frequency};
+use finstack_core::dates::{Date, Tenor};
 use finstack_core::money::Money;
 use finstack_valuations::instruments::structured_credit::{
     DealType, Pool, PoolAsset, PrepaymentCurve, Seniority, StructuredCredit, Tranche,
@@ -63,7 +63,7 @@ fn test_clo_default_payment_frequency() {
     );
 
     // Assert: CLO should default to quarterly payments
-    assert_eq!(clo.payment_frequency, Frequency::quarterly());
+    assert_eq!(clo.payment_frequency, Tenor::quarterly());
 }
 
 #[test]
@@ -124,7 +124,7 @@ fn test_abs_default_payment_frequency() {
     );
 
     // Assert: ABS should default to monthly payments
-    assert_eq!(abs.payment_frequency, Frequency::monthly());
+    assert_eq!(abs.payment_frequency, Tenor::monthly());
 }
 
 #[test]
@@ -164,7 +164,7 @@ fn test_rmbs_default_payment_frequency() {
     );
 
     // Assert: RMBS should default to monthly payments
-    assert_eq!(rmbs.payment_frequency, Frequency::monthly());
+    assert_eq!(rmbs.payment_frequency, Tenor::monthly());
 }
 
 #[test]
@@ -245,7 +245,7 @@ fn test_cmbs_default_payment_frequency() {
     );
 
     // Assert: CMBS should default to monthly payments
-    assert_eq!(cmbs.payment_frequency, Frequency::monthly());
+    assert_eq!(cmbs.payment_frequency, Tenor::monthly());
 }
 
 #[test]

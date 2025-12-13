@@ -1,7 +1,7 @@
 //! Tests for asset swap (ASW) metrics.
 
 use finstack_core::currency::Currency;
-use finstack_core::dates::{DayCount, Frequency};
+use finstack_core::dates::{DayCount, Tenor};
 use finstack_core::market_data::context::MarketContext;
 use finstack_core::market_data::term_structures::discount_curve::DiscountCurve;
 use finstack_core::math::interp::InterpStyle;
@@ -96,7 +96,7 @@ fn test_asw_par_with_config_uses_fixed_leg_conventions() {
     // a finite result and that the value changes relative to the default.
     let config = AssetSwapConfig {
         fixed_leg_day_count: Some(DayCount::ThirtyE360),
-        fixed_leg_frequency: Some(Frequency::annual()),
+        fixed_leg_frequency: Some(Tenor::annual()),
         fixed_leg_bdc: None,
         fixed_leg_calendar_id: None,
         fixed_leg_stub: None,

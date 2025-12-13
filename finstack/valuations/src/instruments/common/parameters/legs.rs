@@ -1,6 +1,6 @@
 //! Common leg specification types for interest rate and credit instruments.
 
-use finstack_core::dates::{BusinessDayConvention, Date, DayCount, Frequency, StubKind};
+use finstack_core::dates::{BusinessDayConvention, Date, DayCount, StubKind, Tenor};
 use finstack_core::types::CurveId;
 
 #[cfg(feature = "serde")]
@@ -87,7 +87,7 @@ pub struct FixedLegSpec {
     /// Fixed rate (e.g., 0.05 for 5%)
     pub rate: f64,
     /// Payment frequency
-    pub freq: Frequency,
+    pub freq: Tenor,
     /// Day count convention for accrual
     pub dc: DayCount,
     /// Business day convention for payment dates
@@ -124,7 +124,7 @@ pub struct FloatLegSpec {
     /// Spread in basis points added to the forward rate
     pub spread_bp: f64,
     /// Payment frequency
-    pub freq: Frequency,
+    pub freq: Tenor,
     /// Day count convention for accrual
     pub dc: DayCount,
     /// Business day convention for payment dates
@@ -171,7 +171,7 @@ pub struct BasisSwapLeg {
     /// Forward curve identifier for this leg
     pub forward_curve_id: CurveId,
     /// Payment frequency for the leg
-    pub frequency: Frequency,
+    pub frequency: Tenor,
     /// Day count convention for accrual calculations
     pub day_count: DayCount,
     /// Business day convention for date adjustments
@@ -195,7 +195,7 @@ pub struct PremiumLegSpec {
     /// End date of protection
     pub end: Date,
     /// Payment frequency
-    pub freq: Frequency,
+    pub freq: Tenor,
     /// Stub convention
     pub stub: StubKind,
     /// Business day convention

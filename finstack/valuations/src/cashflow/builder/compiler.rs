@@ -21,7 +21,7 @@
 //! least two dates.
 
 use crate::cashflow::builder::{AmortizationSpec, Notional};
-use finstack_core::dates::{BusinessDayConvention, Date, DayCount, Frequency, StubKind};
+use finstack_core::dates::{BusinessDayConvention, Date, DayCount, StubKind, Tenor};
 use finstack_core::error::InputError;
 use finstack_core::money::Money;
 
@@ -45,7 +45,7 @@ type ScheduleWithMeta = (
 fn build_dates_with_meta(
     start: Date,
     end: Date,
-    freq: Frequency,
+    freq: Tenor,
     stub: StubKind,
     bdc: BusinessDayConvention,
     calendar_id: Option<&str>,
@@ -119,7 +119,7 @@ pub(super) fn build_fee_schedules(
     //!
     //! Example:
     //! ```rust
-    //! use finstack_core::dates::{Date, DayCount, Frequency, BusinessDayConvention};
+    //! use finstack_core::dates::{Date, DayCount, Tenor, BusinessDayConvention};
     //! use finstack_valuations::cashflow::builder::{FeeSpec, FeeBase};
     //! use finstack_core::dates::StubKind;
     //! use time::Month;
@@ -130,7 +130,7 @@ pub(super) fn build_fee_schedules(
     //!     FeeSpec::PeriodicBps {
     //!         base: FeeBase::Drawn,
     //!         bps: 50.0,
-    //!         freq: Frequency::quarterly(),
+    //!         freq: Tenor::quarterly(),
     //!         dc: DayCount::Act360,
     //!         bdc: BusinessDayConvention::Following,
     //!         calendar_id: Some("usd".to_string()),
@@ -312,7 +312,7 @@ pub(super) fn compute_coupon_schedules(
     //!
     //! Example:
     //! ```rust
-    //! use finstack_core::dates::{Date, Frequency, DayCount, BusinessDayConvention};
+    //! use finstack_core::dates::{Date, Tenor, DayCount, BusinessDayConvention};
     //! use finstack_valuations::cashflow::builder::{FixedCouponSpec, CouponType};
     //! use finstack_core::dates::StubKind;
     //! use time::Month;
@@ -323,7 +323,7 @@ pub(super) fn compute_coupon_schedules(
     //! let fixed_spec = FixedCouponSpec {
     //!     coupon_type: CouponType::Cash,
     //!     rate: 0.05,
-    //!     freq: Frequency::semi_annual(),
+    //!     freq: Tenor::semi_annual(),
     //!     dc: DayCount::Thirty360,
     //!     bdc: BusinessDayConvention::Following,
     //!     calendar_id: Some("usny".to_string()),

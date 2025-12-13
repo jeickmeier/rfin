@@ -12,9 +12,7 @@
       "fixed": {
         "discount_curve_id": "USD-OIS",
         "rate": 0.03,
-        "freq": {
-          "Months": 6
-        },
+        "freq": {"count": 6, "unit": "months"},
         "dc": "Thirty360",
         "bdc": "modified_following",
         "calendar_id": null,
@@ -28,9 +26,7 @@
         "discount_curve_id": "USD-OIS",
         "forward_curve_id": "USD-SOFR-3M",
         "spread_bp": 0.0,
-        "freq": {
-          "Months": 3
-        },
+        "freq": {"count": 3, "unit": "months"},
         "dc": "Act360",
         "bdc": "modified_following",
         "calendar_id": null,

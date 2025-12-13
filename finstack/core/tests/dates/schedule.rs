@@ -1,28 +1,7 @@
 //! Tests for schedule iterator functionality.
 
 use super::common::{make_date, TestCal};
-use finstack_core::dates::{BusinessDayConvention, Frequency, ScheduleBuilder, StubKind};
-
-#[test]
-fn test_frequency_constructors() {
-    // Test all frequency constructors
-    assert_eq!(Frequency::annual().months(), Some(12));
-    assert_eq!(Frequency::semi_annual().months(), Some(6));
-    assert_eq!(Frequency::quarterly().months(), Some(3));
-    assert_eq!(Frequency::monthly().months(), Some(1));
-
-    assert_eq!(Frequency::daily().days(), Some(1));
-    assert_eq!(Frequency::weekly().days(), Some(7));
-    assert_eq!(Frequency::biweekly().days(), Some(14));
-
-    // Test that months() returns None for day-based frequencies
-    assert_eq!(Frequency::daily().months(), None);
-    assert_eq!(Frequency::weekly().months(), None);
-
-    // Test that days() returns None for month-based frequencies
-    assert_eq!(Frequency::monthly().days(), None);
-    assert_eq!(Frequency::quarterly().days(), None);
-}
+use finstack_core::dates::{BusinessDayConvention, ScheduleBuilder, StubKind, Tenor};
 
 #[test]
 fn test_basic_schedule() {
@@ -30,7 +9,7 @@ fn test_basic_schedule() {
     let end = make_date(2025, 4, 15);
 
     let dates: Vec<_> = ScheduleBuilder::new(start, end)
-        .frequency(Frequency::monthly())
+        .frequency(Tenor::monthly())
         .build()
         .unwrap()
         .into_iter()
@@ -50,7 +29,7 @@ fn test_quarterly_schedule_with_short_back_stub() {
     let end = make_date(2025, 11, 1); // 10 months
 
     let dates: Vec<_> = ScheduleBuilder::new(start, end)
-        .frequency(Frequency::quarterly())
+        .frequency(Tenor::quarterly())
         .stub_rule(StubKind::None) // Default behavior creates short back stub
         .build()
         .unwrap()
@@ -72,7 +51,7 @@ fn test_short_front_stub() {
     let end = make_date(2025, 11, 1);
 
     let dates: Vec<_> = ScheduleBuilder::new(start, end)
-        .frequency(Frequency::quarterly())
+        .frequency(Tenor::quarterly())
         .stub_rule(StubKind::ShortFront)
         .build()
         .unwrap()
@@ -94,7 +73,7 @@ fn test_day_based_frequency() {
     let end = make_date(2025, 1, 15);
 
     let dates: Vec<_> = ScheduleBuilder::new(start, end)
-        .frequency(Frequency::weekly()) // 7 days
+        .frequency(Tenor::weekly()) // 7 days
         .build()
         .unwrap()
         .into_iter()
@@ -111,7 +90,7 @@ fn test_single_date_schedule() {
     let date = make_date(2025, 1, 15);
 
     let dates: Vec<_> = ScheduleBuilder::new(date, date)
-        .frequency(Frequency::monthly())
+        .frequency(Tenor::monthly())
         .build()
         .unwrap()
         .into_iter()
@@ -130,7 +109,7 @@ fn test_schedule_with_business_day_adjustment() {
 
     // Test that the builder can handle adjustment (even if AdjustIter is not public)
     let dates: Vec<_> = ScheduleBuilder::new(start, end)
-        .frequency(Frequency::weekly())
+        .frequency(Tenor::weekly())
         .adjust_with(BusinessDayConvention::Following, &cal)
         .build()
         .unwrap()
@@ -151,7 +130,7 @@ fn test_schedule_builder_with_adjustment() {
     let end = make_date(2025, 3, 1);
 
     let dates: Vec<_> = ScheduleBuilder::new(start, end)
-        .frequency(Frequency::monthly())
+        .frequency(Tenor::monthly())
         .adjust_with(BusinessDayConvention::Following, &cal)
         .build()
         .unwrap()
@@ -171,7 +150,7 @@ fn test_uneven_period_clamping() {
     let end = make_date(2025, 1, 20); // Not a multiple of monthly frequency
 
     let dates: Vec<_> = ScheduleBuilder::new(start, end)
-        .frequency(Frequency::monthly())
+        .frequency(Tenor::monthly())
         .build()
         .unwrap()
         .into_iter()
@@ -189,7 +168,7 @@ fn test_long_front_stub() {
     let end = make_date(2025, 11, 1);
 
     let dates: Vec<_> = ScheduleBuilder::new(start, end)
-        .frequency(Frequency::quarterly())
+        .frequency(Tenor::quarterly())
         .stub_rule(StubKind::LongFront)
         .build()
         .unwrap()
@@ -213,7 +192,7 @@ fn test_long_back_stub() {
     let end = make_date(2025, 11, 1);
 
     let dates: Vec<_> = ScheduleBuilder::new(start, end)
-        .frequency(Frequency::quarterly())
+        .frequency(Tenor::quarterly())
         .stub_rule(StubKind::LongBack)
         .build()
         .unwrap()
@@ -236,7 +215,7 @@ fn test_end_of_month_convention() {
     let end = make_date(2025, 4, 15);
 
     let dates: Vec<_> = ScheduleBuilder::new(start, end)
-        .frequency(Frequency::monthly())
+        .frequency(Tenor::monthly())
         .end_of_month(true)
         .build()
         .unwrap()
@@ -257,7 +236,7 @@ fn test_end_of_month_with_leap_year() {
     let end = make_date(2024, 3, 15);
 
     let dates: Vec<_> = ScheduleBuilder::new(start, end)
-        .frequency(Frequency::monthly())
+        .frequency(Tenor::monthly())
         .end_of_month(true)
         .build()
         .unwrap()
@@ -277,7 +256,7 @@ fn test_eom_with_stub_conventions() {
     let end = make_date(2025, 5, 15);
 
     let dates: Vec<_> = ScheduleBuilder::new(start, end)
-        .frequency(Frequency::quarterly())
+        .frequency(Tenor::quarterly())
         .stub_rule(StubKind::ShortBack)
         .end_of_month(true)
         .build()
@@ -298,7 +277,7 @@ fn test_eom_jan30_roll_to_feb_leap_year() {
     let end = make_date(2024, 3, 30);
 
     let dates: Vec<_> = ScheduleBuilder::new(start, end)
-        .frequency(Frequency::monthly())
+        .frequency(Tenor::monthly())
         .end_of_month(true)
         .build()
         .unwrap()
@@ -318,7 +297,7 @@ fn test_eom_jan30_roll_to_feb_non_leap() {
     let end = make_date(2025, 3, 30);
 
     let dates: Vec<_> = ScheduleBuilder::new(start, end)
-        .frequency(Frequency::monthly())
+        .frequency(Tenor::monthly())
         .end_of_month(true)
         .build()
         .unwrap()
@@ -338,7 +317,7 @@ fn test_eom_quarterly_through_feb() {
     let end = make_date(2024, 7, 31);
 
     let dates: Vec<_> = ScheduleBuilder::new(start, end)
-        .frequency(Frequency::quarterly())
+        .frequency(Tenor::quarterly())
         .end_of_month(true)
         .build()
         .unwrap()

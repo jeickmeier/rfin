@@ -7,7 +7,7 @@
 //!
 //! ```rust
 //! use finstack_core::currency::Currency;
-//! use finstack_core::dates::{Date, Frequency, DayCount, BusinessDayConvention, StubKind};
+//! use finstack_core::dates::{Date, Tenor, DayCount, BusinessDayConvention, StubKind};
 //! use finstack_core::money::Money;
 //! use finstack_valuations::cashflow::builder::{CashFlowSchedule, ScheduleParams, FixedCouponSpec, CouponType};
 //! use time::Month;
@@ -18,7 +18,7 @@
 //! let fixed_spec = FixedCouponSpec {
 //!     coupon_type: CouponType::Cash,
 //!     rate: 0.05,
-//!     freq: Frequency::semi_annual(),
+//!     freq: Tenor::semi_annual(),
 //!     dc: DayCount::Act365F,
 //!     bdc: BusinessDayConvention::Following,
 //!     calendar_id: None,

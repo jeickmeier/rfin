@@ -12,7 +12,7 @@
 //! - ISDA 2006 Definitions, Appendix (Examples)
 
 use super::test_helpers::{assert_close, FACTOR_TOLERANCE};
-use finstack_core::dates::{Date, DayCount, DayCountCtx, Frequency};
+use finstack_core::dates::{Date, DayCount, DayCountCtx, Tenor};
 use time::Month;
 
 /// Helper to create dates
@@ -139,7 +139,7 @@ fn actact_isda_spanning_multiple_years() {
 fn actact_isma_with_annual_frequency() {
     let dc = DayCount::ActActIsma;
     let ctx = DayCountCtx {
-        frequency: Some(Frequency::annual()),
+        frequency: Some(Tenor::annual()),
         calendar: None,
         bus_basis: None,
     };
@@ -176,7 +176,7 @@ fn actact_isma_requires_frequency() {
 fn actact_isma_with_semi_annual_frequency() {
     let dc = DayCount::ActActIsma;
     let ctx = DayCountCtx {
-        frequency: Some(Frequency::semi_annual()),
+        frequency: Some(Tenor::semi_annual()),
         calendar: None,
         bus_basis: None,
     };
@@ -198,7 +198,7 @@ fn actact_isma_with_semi_annual_frequency() {
 fn actact_isma_with_quarterly_frequency() {
     let dc = DayCount::ActActIsma;
     let ctx = DayCountCtx {
-        frequency: Some(Frequency::quarterly()),
+        frequency: Some(Tenor::quarterly()),
         calendar: None,
         bus_basis: None,
     };
@@ -364,7 +364,7 @@ fn thirty360_feb_always_30_days() {
 fn zero_length_period_all_conventions() {
     let ctx = DayCountCtx::default();
     let ctx_with_freq = DayCountCtx {
-        frequency: Some(Frequency::semi_annual()),
+        frequency: Some(Tenor::semi_annual()),
         calendar: None,
         bus_basis: None,
     };

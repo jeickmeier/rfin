@@ -11,7 +11,7 @@
 //! - ISDA stress testing guidelines
 
 use finstack_core::currency::Currency;
-use finstack_core::dates::{BusinessDayConvention, Date, DayCount, Frequency, StubKind};
+use finstack_core::dates::{BusinessDayConvention, Date, DayCount, StubKind, Tenor};
 use finstack_core::market_data::context::MarketContext;
 use finstack_core::market_data::term_structures::{DiscountCurve, ForwardCurve};
 use finstack_core::money::Money;
@@ -293,7 +293,7 @@ fn test_expired_swap_handling() {
         fixed: FixedLegSpec {
             discount_curve_id: "USD-OIS".into(),
             rate: 0.05,
-            freq: Frequency::quarterly(),
+            freq: Tenor::quarterly(),
             dc: DayCount::Act360,
             bdc: BusinessDayConvention::ModifiedFollowing,
             calendar_id: None,
@@ -308,7 +308,7 @@ fn test_expired_swap_handling() {
             discount_curve_id: "USD-OIS".into(),
             forward_curve_id: "USD-SOFR-3M".into(),
             spread_bp: 0.0,
-            freq: Frequency::quarterly(),
+            freq: Tenor::quarterly(),
             dc: DayCount::Act360,
             bdc: BusinessDayConvention::ModifiedFollowing,
             calendar_id: None,
@@ -366,7 +366,7 @@ fn test_very_short_swap_1_month() {
         fixed: FixedLegSpec {
             discount_curve_id: "USD-OIS".into(),
             rate: 0.05,
-            freq: Frequency::monthly(),
+            freq: Tenor::monthly(),
             dc: DayCount::Act360,
             bdc: BusinessDayConvention::ModifiedFollowing,
             calendar_id: None,
@@ -381,7 +381,7 @@ fn test_very_short_swap_1_month() {
             discount_curve_id: "USD-OIS".into(),
             forward_curve_id: "USD-SOFR-3M".into(),
             spread_bp: 0.0,
-            freq: Frequency::monthly(),
+            freq: Tenor::monthly(),
             dc: DayCount::Act360,
             bdc: BusinessDayConvention::ModifiedFollowing,
             calendar_id: None,

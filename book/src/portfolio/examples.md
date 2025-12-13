@@ -1,3 +1,0 @@
-# Examples
-
-Documentation coming soon.

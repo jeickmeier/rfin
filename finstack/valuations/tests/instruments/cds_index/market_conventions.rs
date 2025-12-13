@@ -10,7 +10,7 @@
 //! - Business day conventions
 
 use super::test_utils::*;
-use finstack_core::dates::{DayCount, Frequency};
+use finstack_core::dates::{DayCount, Tenor};
 use finstack_valuations::instruments::cds::CDSConvention;
 use finstack_valuations::instruments::cds_index::parameters::{
     CDSIndexConstructionParams, CDSIndexParams,
@@ -41,7 +41,7 @@ fn test_cdx_na_ig_standard_conventions() {
     );
 
     assert_eq!(idx.convention, CDSConvention::IsdaNa);
-    assert_eq!(idx.premium.freq, Frequency::quarterly());
+    assert_eq!(idx.premium.freq, Tenor::quarterly());
     assert_eq!(idx.premium.dc, DayCount::Act360);
 }
 
@@ -66,7 +66,7 @@ fn test_cdx_na_hy_standard_conventions() {
     );
 
     assert_eq!(idx.convention, CDSConvention::IsdaNa);
-    assert_eq!(idx.premium.freq, Frequency::quarterly());
+    assert_eq!(idx.premium.freq, Tenor::quarterly());
 }
 
 #[test]
@@ -125,7 +125,7 @@ fn test_quarterly_payment_frequency() {
 
     let idx = standard_single_curve_index("CDX-FREQ", start, end, 10_000_000.0);
 
-    assert_eq!(idx.premium.freq, Frequency::quarterly());
+    assert_eq!(idx.premium.freq, Tenor::quarterly());
 }
 
 #[test]

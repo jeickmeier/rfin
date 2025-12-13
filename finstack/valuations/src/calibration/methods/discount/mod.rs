@@ -569,7 +569,7 @@ impl Calibrator<RatesQuote, DiscountCurve> for DiscountCurveCalibrator {
 mod tests {
     use super::*;
     use finstack_core::currency::Currency;
-    use finstack_core::dates::{Date, DayCount, Frequency};
+    use finstack_core::dates::{Date, DayCount, Tenor};
     use time::Month;
 
     fn create_test_quotes() -> Vec<RatesQuote> {
@@ -591,8 +591,8 @@ mod tests {
             RatesQuote::Swap {
                 maturity: base_date + time::Duration::days(365),
                 rate: 0.047,
-                fixed_freq: Frequency::semi_annual(),
-                float_freq: Frequency::quarterly(),
+                fixed_freq: Tenor::semi_annual(),
+                float_freq: Tenor::quarterly(),
                 fixed_dc: DayCount::Thirty360,
                 float_dc: DayCount::Act360,
                 index: "USD-SOFR-3M".to_string().into(),
@@ -601,8 +601,8 @@ mod tests {
             RatesQuote::Swap {
                 maturity: base_date + time::Duration::days(365 * 2),
                 rate: 0.048,
-                fixed_freq: Frequency::semi_annual(),
-                float_freq: Frequency::quarterly(),
+                fixed_freq: Tenor::semi_annual(),
+                float_freq: Tenor::quarterly(),
                 fixed_dc: DayCount::Thirty360,
                 float_dc: DayCount::Act360,
                 index: "USD-SOFR-3M".to_string().into(),
@@ -820,8 +820,8 @@ mod tests {
             RatesQuote::Swap {
                 maturity: base_date + time::Duration::days(180),
                 rate: 0.047,
-                fixed_freq: Frequency::semi_annual(),
-                float_freq: Frequency::quarterly(),
+                fixed_freq: Tenor::semi_annual(),
+                float_freq: Tenor::quarterly(),
                 fixed_dc: DayCount::Thirty360,
                 float_dc: DayCount::Act360,
                 index: "USD-SOFR-3M".to_string().into(),
@@ -830,8 +830,8 @@ mod tests {
             RatesQuote::Swap {
                 maturity: base_date + time::Duration::days(365),
                 rate: 0.048,
-                fixed_freq: Frequency::semi_annual(),
-                float_freq: Frequency::quarterly(),
+                fixed_freq: Tenor::semi_annual(),
+                float_freq: Tenor::quarterly(),
                 fixed_dc: DayCount::Thirty360,
                 float_dc: DayCount::Act360,
                 index: "USD-SOFR-3M".to_string().into(),
@@ -840,8 +840,8 @@ mod tests {
             RatesQuote::Swap {
                 maturity: base_date + time::Duration::days(730),
                 rate: 0.049,
-                fixed_freq: Frequency::semi_annual(),
-                float_freq: Frequency::quarterly(),
+                fixed_freq: Tenor::semi_annual(),
+                float_freq: Tenor::quarterly(),
                 fixed_dc: DayCount::Thirty360,
                 float_dc: DayCount::Act360,
                 index: "USD-SOFR-3M".to_string().into(),

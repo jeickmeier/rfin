@@ -6,7 +6,7 @@
 #[cfg(all(test, feature = "mc"))]
 mod tests {
     use finstack_core::currency::Currency;
-    use finstack_core::dates::{Date, DayCount, Frequency};
+    use finstack_core::dates::{Date, DayCount, Tenor};
     use finstack_core::market_data::context::MarketContext;
     use finstack_core::market_data::term_structures::{DiscountCurve, ForwardCurve, HazardCurve};
     use finstack_core::money::Money;
@@ -105,7 +105,7 @@ mod tests {
             .maturity_date(end)
             .base_rate_spec(BaseRateSpec::Fixed { rate: 0.05 })
             .day_count(DayCount::Act360)
-            .payment_frequency(Frequency::quarterly())
+            .payment_frequency(Tenor::quarterly())
             .fees(RevolvingCreditFees::flat(25.0, 10.0, 5.0))
             .draw_repay_spec(DrawRepaySpec::Deterministic(vec![]))
             .discount_curve_id("USD-OIS".into())
@@ -121,7 +121,7 @@ mod tests {
             .maturity_date(end)
             .base_rate_spec(BaseRateSpec::Fixed { rate: 0.05 })
             .day_count(DayCount::Act360)
-            .payment_frequency(Frequency::quarterly())
+            .payment_frequency(Tenor::quarterly())
             .fees(RevolvingCreditFees::flat(25.0, 10.0, 5.0))
             .draw_repay_spec(DrawRepaySpec::Stochastic(
                 create_zero_vol_stochastic(0.5), // 50% utilization
@@ -175,7 +175,7 @@ mod tests {
                     all_in_floor_bp: None,
                     cap_bp: None,
                     index_cap_bp: None,
-                    reset_freq: Frequency::quarterly(),
+                    reset_freq: Tenor::quarterly(),
                     reset_lag_days: 2,
                     dc: DayCount::Act360,
                     bdc: finstack_core::dates::BusinessDayConvention::ModifiedFollowing,
@@ -184,7 +184,7 @@ mod tests {
                 },
             ))
             .day_count(DayCount::Act360)
-            .payment_frequency(Frequency::quarterly())
+            .payment_frequency(Tenor::quarterly())
             .fees(RevolvingCreditFees::flat(25.0, 10.0, 5.0))
             .draw_repay_spec(DrawRepaySpec::Deterministic(vec![]))
             .discount_curve_id("USD-OIS".into())
@@ -208,7 +208,7 @@ mod tests {
                     all_in_floor_bp: None,
                     cap_bp: None,
                     index_cap_bp: None,
-                    reset_freq: Frequency::quarterly(),
+                    reset_freq: Tenor::quarterly(),
                     reset_lag_days: 2,
                     dc: DayCount::Act360,
                     bdc: finstack_core::dates::BusinessDayConvention::ModifiedFollowing,
@@ -217,7 +217,7 @@ mod tests {
                 },
             ))
             .day_count(DayCount::Act360)
-            .payment_frequency(Frequency::quarterly())
+            .payment_frequency(Tenor::quarterly())
             .fees(RevolvingCreditFees::flat(25.0, 10.0, 5.0))
             .draw_repay_spec(DrawRepaySpec::Stochastic(create_zero_vol_stochastic(0.5)))
             .discount_curve_id("USD-OIS".into())
@@ -263,7 +263,7 @@ mod tests {
             .maturity_date(end)
             .base_rate_spec(BaseRateSpec::Fixed { rate: 0.05 })
             .day_count(DayCount::Act360)
-            .payment_frequency(Frequency::quarterly())
+            .payment_frequency(Tenor::quarterly())
             .fees(RevolvingCreditFees::flat(25.0, 10.0, 5.0))
             .draw_repay_spec(DrawRepaySpec::Deterministic(vec![]))
             .discount_curve_id("USD-OIS".into())
@@ -280,7 +280,7 @@ mod tests {
             .maturity_date(end)
             .base_rate_spec(BaseRateSpec::Fixed { rate: 0.05 })
             .day_count(DayCount::Act360)
-            .payment_frequency(Frequency::quarterly())
+            .payment_frequency(Tenor::quarterly())
             .fees(RevolvingCreditFees::flat(25.0, 10.0, 5.0))
             .draw_repay_spec(DrawRepaySpec::Stochastic(create_zero_vol_stochastic(0.5)))
             .discount_curve_id("USD-OIS".into())
@@ -371,7 +371,7 @@ mod tests {
                 .maturity_date(end)
                 .base_rate_spec(BaseRateSpec::Fixed { rate: 0.05 })
                 .day_count(DayCount::Act360)
-                .payment_frequency(Frequency::quarterly())
+                .payment_frequency(Tenor::quarterly())
                 .fees(fees.clone())
                 .draw_repay_spec(DrawRepaySpec::Deterministic(vec![]))
                 .discount_curve_id("USD-OIS".into())
@@ -386,7 +386,7 @@ mod tests {
                 .maturity_date(end)
                 .base_rate_spec(BaseRateSpec::Fixed { rate: 0.05 })
                 .day_count(DayCount::Act360)
-                .payment_frequency(Frequency::quarterly())
+                .payment_frequency(Tenor::quarterly())
                 .fees(fees.clone())
                 .draw_repay_spec(DrawRepaySpec::Stochastic(create_zero_vol_stochastic(
                     utilization,
@@ -452,7 +452,7 @@ mod tests {
             .maturity_date(end)
             .base_rate_spec(BaseRateSpec::Fixed { rate: 0.05 })
             .day_count(DayCount::Act360)
-            .payment_frequency(Frequency::quarterly())
+            .payment_frequency(Tenor::quarterly())
             .fees(RevolvingCreditFees::flat(25.0, 10.0, 5.0))
             .draw_repay_spec(DrawRepaySpec::Deterministic(events))
             .discount_curve_id("USD-OIS".into())
@@ -470,7 +470,7 @@ mod tests {
             .maturity_date(end)
             .base_rate_spec(BaseRateSpec::Fixed { rate: 0.05 })
             .day_count(DayCount::Act360)
-            .payment_frequency(Frequency::quarterly())
+            .payment_frequency(Tenor::quarterly())
             .fees(RevolvingCreditFees::flat(25.0, 10.0, 5.0))
             .draw_repay_spec(DrawRepaySpec::Stochastic(create_zero_vol_stochastic(0.45)))
             .discount_curve_id("USD-OIS".into())
@@ -499,10 +499,10 @@ mod tests {
         let market = create_test_market(start);
 
         let frequencies = vec![
-            Frequency::Months(1),  // Monthly
-            Frequency::Months(3),  // Quarterly
-            Frequency::Months(6),  // Semi-annual
-            Frequency::Months(12), // Annual
+            finstack_core::dates::Tenor::new(1, finstack_core::dates::TenorUnit::Months), // Monthly
+            finstack_core::dates::Tenor::new(3, finstack_core::dates::TenorUnit::Months), // Quarterly
+            finstack_core::dates::Tenor::new(6, finstack_core::dates::TenorUnit::Months), // Semi-annual
+            finstack_core::dates::Tenor::new(12, finstack_core::dates::TenorUnit::Months), // Annual
         ];
 
         for freq in frequencies {

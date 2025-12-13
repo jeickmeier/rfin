@@ -1,7 +1,7 @@
 //! Bond pricing helper function tests
 
 use finstack_core::currency::Currency;
-use finstack_core::dates::{Date, DayCount, Frequency};
+use finstack_core::dates::{Date, DayCount, Tenor, TenorUnit};
 use finstack_core::money::Money;
 use finstack_valuations::instruments::bond::pricing::quote_engine::{
     df_from_yield, periods_per_year, price_from_ytm_compounded_params, YieldCompounding,
@@ -10,42 +10,45 @@ use finstack_valuations::instruments::bond::pricing::quote_engine::{
 #[test]
 fn test_periods_per_year_monthly() {
     // 1 month = 12 periods per year
-    assert_eq!(periods_per_year(Frequency::monthly()).unwrap(), 12.0);
+    assert_eq!(periods_per_year(Tenor::monthly()).unwrap(), 12.0);
 
     // 3 months = 4 periods per year (quarterly)
-    assert_eq!(periods_per_year(Frequency::quarterly()).unwrap(), 4.0);
+    assert_eq!(periods_per_year(Tenor::quarterly()).unwrap(), 4.0);
 
     // 6 months = 2 periods per year (semi-annual)
-    assert_eq!(periods_per_year(Frequency::semi_annual()).unwrap(), 2.0);
+    assert_eq!(periods_per_year(Tenor::semi_annual()).unwrap(), 2.0);
 
     // 12 months = 1 period per year (annual)
-    assert_eq!(periods_per_year(Frequency::annual()).unwrap(), 1.0);
+    assert_eq!(periods_per_year(Tenor::annual()).unwrap(), 1.0);
 }
 
 #[test]
 fn test_periods_per_year_days() {
     // 30 days = 365/30 ≈ 12.17 periods per year
-    let result = periods_per_year(Frequency::Days(30)).unwrap();
+    let result = periods_per_year(Tenor::new(30, TenorUnit::Days)).unwrap();
     assert!((result - 12.166666).abs() < 0.01);
 
     // 90 days ≈ 4.06 periods per year
-    let result = periods_per_year(Frequency::Days(90)).unwrap();
+    let result = periods_per_year(Tenor::new(90, TenorUnit::Days)).unwrap();
     assert!((result - 4.0555).abs() < 0.01);
 
     // 365 days = 1 period per year
-    assert_eq!(periods_per_year(Frequency::Days(365)).unwrap(), 1.0);
+    assert_eq!(
+        periods_per_year(Tenor::new(365, TenorUnit::Days)).unwrap(),
+        1.0
+    );
 }
 
 #[test]
 fn test_periods_per_year_zero_months_error() {
     // 0 months should be an error
-    assert!(periods_per_year(Frequency::Months(0)).is_err());
+    assert!(periods_per_year(Tenor::new(0, TenorUnit::Months)).is_err());
 }
 
 #[test]
 fn test_periods_per_year_zero_days_error() {
     // 0 days should be an error
-    assert!(periods_per_year(Frequency::Days(0)).is_err());
+    assert!(periods_per_year(Tenor::new(0, TenorUnit::Days)).is_err());
 }
 
 #[test]
@@ -63,7 +66,7 @@ fn test_df_from_yield_simple() {
     // Simple compounding: DF = 1 / (1 + y*t)
     let ytm = 0.05; // 5%
     let t = 1.0; // 1 year
-    let df = df_from_yield(ytm, t, YieldCompounding::Simple, Frequency::semi_annual()).unwrap();
+    let df = df_from_yield(ytm, t, YieldCompounding::Simple, Tenor::semi_annual()).unwrap();
 
     let expected = 1.0 / (1.0 + 0.05 * 1.0); // 1 / 1.05 = 0.9524
     assert!((df - expected).abs() < 0.0001);
@@ -74,7 +77,7 @@ fn test_df_from_yield_annual() {
     // Annual compounding: DF = (1 + y)^(-t)
     let ytm = 0.05;
     let t = 2.0;
-    let df = df_from_yield(ytm, t, YieldCompounding::Annual, Frequency::annual()).unwrap();
+    let df = df_from_yield(ytm, t, YieldCompounding::Annual, Tenor::annual()).unwrap();
 
     let expected = (1.05_f64).powf(-2.0); // 0.9070
     assert!((df - expected).abs() < 0.0001);
@@ -85,13 +88,7 @@ fn test_df_from_yield_periodic_semi_annual() {
     // Semi-annual compounding: DF = (1 + y/2)^(-2*t)
     let ytm = 0.06;
     let t = 1.0;
-    let df = df_from_yield(
-        ytm,
-        t,
-        YieldCompounding::Periodic(2),
-        Frequency::semi_annual(),
-    )
-    .unwrap();
+    let df = df_from_yield(ytm, t, YieldCompounding::Periodic(2), Tenor::semi_annual()).unwrap();
 
     let expected = (1.0_f64 + 0.06 / 2.0).powf(-2.0 * 1.0); // (1.03)^(-2) = 0.9426
     assert!((df - expected).abs() < 0.0001);
@@ -102,13 +99,7 @@ fn test_df_from_yield_periodic_quarterly() {
     // Quarterly compounding: DF = (1 + y/4)^(-4*t)
     let ytm = 0.08;
     let t = 1.0;
-    let df = df_from_yield(
-        ytm,
-        t,
-        YieldCompounding::Periodic(4),
-        Frequency::quarterly(),
-    )
-    .unwrap();
+    let df = df_from_yield(ytm, t, YieldCompounding::Periodic(4), Tenor::quarterly()).unwrap();
 
     let expected = (1.0_f64 + 0.08 / 4.0).powf(-4.0 * 1.0); // (1.02)^(-4) = 0.9238
     assert!((df - expected).abs() < 0.0001);
@@ -119,7 +110,7 @@ fn test_df_from_yield_continuous() {
     // Continuous compounding: DF = exp(-y*t)
     let ytm = 0.05;
     let t = 1.0;
-    let df = df_from_yield(ytm, t, YieldCompounding::Continuous, Frequency::annual()).unwrap();
+    let df = df_from_yield(ytm, t, YieldCompounding::Continuous, Tenor::annual()).unwrap();
 
     let expected = (-0.05_f64 * 1.0).exp(); // exp(-0.05) = 0.9512
     assert!((df - expected).abs() < 0.0001);
@@ -130,7 +121,7 @@ fn test_df_from_yield_street() {
     // Street convention uses bond's frequency
     let ytm = 0.06;
     let t = 1.0;
-    let freq = Frequency::semi_annual(); // 2 periods per year
+    let freq = Tenor::semi_annual(); // 2 periods per year
     let df = df_from_yield(ytm, t, YieldCompounding::Street, freq).unwrap();
 
     // Should be same as Periodic(2)
@@ -142,7 +133,7 @@ fn test_df_from_yield_street() {
 fn test_df_from_yield_zero_time() {
     // t = 0 should return DF = 1.0
     let ytm = 0.05;
-    let df = df_from_yield(ytm, 0.0, YieldCompounding::Simple, Frequency::annual()).unwrap();
+    let df = df_from_yield(ytm, 0.0, YieldCompounding::Simple, Tenor::annual()).unwrap();
     assert_eq!(df, 1.0);
 }
 
@@ -150,7 +141,7 @@ fn test_df_from_yield_zero_time() {
 fn test_df_from_yield_negative_time() {
     // Negative time should return DF = 1.0
     let ytm = 0.05;
-    let df = df_from_yield(ytm, -1.0, YieldCompounding::Simple, Frequency::annual()).unwrap();
+    let df = df_from_yield(ytm, -1.0, YieldCompounding::Simple, Tenor::annual()).unwrap();
     assert_eq!(df, 1.0);
 }
 
@@ -159,14 +150,14 @@ fn test_df_from_yield_zero_ytm() {
     // Zero yield should give DF = 1.0 for all compounding
     let t = 1.0;
 
-    let df_simple = df_from_yield(0.0, t, YieldCompounding::Simple, Frequency::annual()).unwrap();
+    let df_simple = df_from_yield(0.0, t, YieldCompounding::Simple, Tenor::annual()).unwrap();
     assert_eq!(df_simple, 1.0);
 
-    let df_annual = df_from_yield(0.0, t, YieldCompounding::Annual, Frequency::annual()).unwrap();
+    let df_annual = df_from_yield(0.0, t, YieldCompounding::Annual, Tenor::annual()).unwrap();
     assert_eq!(df_annual, 1.0);
 
     let df_continuous =
-        df_from_yield(0.0, t, YieldCompounding::Continuous, Frequency::annual()).unwrap();
+        df_from_yield(0.0, t, YieldCompounding::Continuous, Tenor::annual()).unwrap();
     assert_eq!(df_continuous, 1.0);
 }
 
@@ -175,7 +166,7 @@ fn test_df_from_yield_high_ytm() {
     // High yield should give small DF
     let ytm = 0.20; // 20%
     let t = 5.0;
-    let df = df_from_yield(ytm, t, YieldCompounding::Annual, Frequency::annual()).unwrap();
+    let df = df_from_yield(ytm, t, YieldCompounding::Annual, Tenor::annual()).unwrap();
 
     let expected = (1.20_f64).powf(-5.0); // 0.4019
     assert!((df - expected).abs() < 0.0001);
@@ -192,7 +183,7 @@ fn test_price_from_ytm_compounded_params_single_flow() {
     let ytm = 0.05;
     let price = price_from_ytm_compounded_params(
         DayCount::Act365F,
-        Frequency::annual(),
+        Tenor::annual(),
         &flows,
         as_of,
         ytm,
@@ -220,7 +211,7 @@ fn test_price_from_ytm_compounded_params_multiple_flows() {
     let ytm = 0.06;
     let price = price_from_ytm_compounded_params(
         DayCount::Act365F,
-        Frequency::semi_annual(),
+        Tenor::semi_annual(),
         &flows,
         as_of,
         ytm,
@@ -247,7 +238,7 @@ fn test_price_from_ytm_compounded_params_past_flows_ignored() {
     let ytm = 0.05;
     let price = price_from_ytm_compounded_params(
         DayCount::Act365F,
-        Frequency::annual(),
+        Tenor::annual(),
         &flows,
         as_of,
         ytm,
@@ -274,7 +265,7 @@ fn test_price_from_ytm_compounded_params_zero_ytm() {
 
     let price = price_from_ytm_compounded_params(
         DayCount::Act365F,
-        Frequency::annual(),
+        Tenor::annual(),
         &flows,
         as_of,
         0.0,
@@ -294,7 +285,7 @@ fn test_price_from_ytm_compounded_params_empty_flows() {
 
     let price = price_from_ytm_compounded_params(
         DayCount::Act365F,
-        Frequency::annual(),
+        Tenor::annual(),
         &flows,
         as_of,
         0.05,
@@ -315,7 +306,7 @@ fn test_price_from_ytm_compounded_params_different_day_counts() {
     // Test different day count conventions
     let price_365f = price_from_ytm_compounded_params(
         DayCount::Act365F,
-        Frequency::annual(),
+        Tenor::annual(),
         &flows,
         as_of,
         ytm,
@@ -325,7 +316,7 @@ fn test_price_from_ytm_compounded_params_different_day_counts() {
 
     let price_360 = price_from_ytm_compounded_params(
         DayCount::Act360,
-        Frequency::annual(),
+        Tenor::annual(),
         &flows,
         as_of,
         ytm,
@@ -351,7 +342,7 @@ fn test_price_from_ytm_compounded_params_long_maturity() {
     let ytm = 0.04; // 4% yield
     let price = price_from_ytm_compounded_params(
         DayCount::Act365F,
-        Frequency::annual(),
+        Tenor::annual(),
         &flows,
         as_of,
         ytm,
@@ -374,7 +365,7 @@ fn test_price_from_ytm_compounded_params_continuous_vs_annual() {
 
     let price_annual = price_from_ytm_compounded_params(
         DayCount::Act365F,
-        Frequency::annual(),
+        Tenor::annual(),
         &flows,
         as_of,
         ytm,
@@ -384,7 +375,7 @@ fn test_price_from_ytm_compounded_params_continuous_vs_annual() {
 
     let price_continuous = price_from_ytm_compounded_params(
         DayCount::Act365F,
-        Frequency::annual(),
+        Tenor::annual(),
         &flows,
         as_of,
         ytm,
@@ -429,7 +420,7 @@ fn test_df_from_yield_street_with_monthly() {
     // Street convention with monthly frequency
     let ytm = 0.12; // 12% annual
     let t = 0.5; // 6 months
-    let freq = Frequency::monthly(); // 12 periods per year
+    let freq = Tenor::monthly(); // 12 periods per year
     let df = df_from_yield(ytm, t, YieldCompounding::Street, freq).unwrap();
 
     // Should use monthly compounding
@@ -441,7 +432,7 @@ fn test_df_from_yield_street_with_monthly() {
 fn test_df_from_yield_street_with_quarterly() {
     let ytm = 0.08;
     let t = 1.0;
-    let freq = Frequency::quarterly();
+    let freq = Tenor::quarterly();
     let df = df_from_yield(ytm, t, YieldCompounding::Street, freq).unwrap();
 
     // Should use quarterly compounding (4 periods per year)

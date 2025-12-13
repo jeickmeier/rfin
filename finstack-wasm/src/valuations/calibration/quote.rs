@@ -1,7 +1,7 @@
 //! Quote types for calibration in WASM.
 
 use crate::core::common::parse::ParseFromString;
-use crate::core::dates::{Frequency, FsDate};
+use crate::core::dates::{FsDate, Tenor};
 use crate::utils::json::{from_js_value, to_js_value};
 use finstack_valuations::calibration::{
     CreditQuote, FutureSpecs, InflationQuote, MarketQuote, RatesQuote, VolQuote,
@@ -132,8 +132,8 @@ impl JsRatesQuote {
     pub fn swap(
         maturity: &FsDate,
         rate: f64,
-        fixed_freq: &Frequency,
-        float_freq: &Frequency,
+        fixed_freq: &Tenor,
+        float_freq: &Tenor,
         fixed_dc: &str,
         float_dc: &str,
         index: &str,

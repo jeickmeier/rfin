@@ -15,7 +15,7 @@
           "Fixed": {
             "coupon_type": "Cash",
             "rate": 0.045,
-            "freq": {"Months": 6},
+            "freq": {"count": 6, "unit": "months"},
             "dc": "Thirty360",
             "bdc": "following",
             "calendar_id": null,

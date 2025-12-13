@@ -49,7 +49,7 @@ pub struct ScheduleSpec {
     /// End date for the schedule  
     pub end: Date,
     /// Payment frequency
-    pub frequency: Frequency,
+    pub frequency: Tenor,
     /// Stub period handling
     pub stub: StubKind,
     /// Business day convention
@@ -60,7 +60,7 @@ pub struct ScheduleSpec {
 
 impl ScheduleSpec {
     /// Create a new schedule specification
-    pub fn new(start: Date, end: Date, frequency: Frequency) -> Self {
+    pub fn new(start: Date, end: Date, frequency: Tenor) -> Self {
         Self {
             start,
             end,
@@ -91,4 +91,4 @@ impl ScheduleSpec {
 }
 
 // Need to import these for the ScheduleSpec
-use finstack_core::dates::{BusinessDayConvention, Date, Frequency, StubKind};
+use finstack_core::dates::{BusinessDayConvention, Date, StubKind, Tenor};

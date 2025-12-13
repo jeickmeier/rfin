@@ -926,7 +926,7 @@ mod tests {
         AntiDilutionPolicy, ConversionPolicy, ConversionSpec, DividendAdjustment,
     };
     use finstack_core::currency::Currency;
-    use finstack_core::dates::{BusinessDayConvention, Date, DayCount, Frequency, StubKind};
+    use finstack_core::dates::{BusinessDayConvention, Date, DayCount, StubKind, Tenor};
     use finstack_core::market_data::scalars::MarketScalar;
     use finstack_core::market_data::term_structures::discount_curve::DiscountCurve;
     use time::Month;
@@ -946,7 +946,7 @@ mod tests {
         let fixed_coupon = FixedCouponSpec {
             coupon_type: CouponType::Cash,
             rate: 0.05, // 5% coupon
-            freq: Frequency::semi_annual(),
+            freq: Tenor::semi_annual(),
             dc: DayCount::Act365F,
             bdc: BusinessDayConvention::Following,
             calendar_id: None,

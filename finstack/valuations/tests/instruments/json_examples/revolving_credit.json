@@ -21,9 +21,7 @@
           "gearing": 1.0,
           "floor_bp": 0.0,
           "cap_bp": null,
-          "reset_freq": {
-            "Months": 3
-          },
+          "reset_freq": {"count": 3, "unit": "months"},
           "reset_lag_days": 2,
           "dc": "Act360",
           "bdc": "modified_following",
@@ -31,9 +29,7 @@
         }
       },
       "day_count": "Act360",
-      "payment_frequency": {
-        "Months": 3
-      },
+      "payment_frequency": {"count": 3, "unit": "months"},
       "fees": {
         "upfront_fee": null,
         "commitment_fee_tiers": [

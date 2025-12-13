@@ -4,7 +4,7 @@
 //! capturing the basis spread between them (e.g., 3M vs 6M).
 
 #[allow(unused_imports)] // Used in doc examples and tests
-use finstack_core::dates::{BusinessDayConvention, DayCount, Frequency};
+use finstack_core::dates::{BusinessDayConvention, DayCount, Tenor};
 use finstack_core::{
     dates::{
         calendar::registry::CalendarRegistry, Date, DateExt, DayCountCtx, HolidayCalendar,
@@ -33,7 +33,7 @@ pub use crate::instruments::common::parameters::legs::BasisSwapLeg;
 ///
 /// let primary_leg = BasisSwapLeg {
 ///     forward_curve_id: CurveId::new("3M-SOFR"),
-///     frequency: Frequency::quarterly(),
+///     frequency: Tenor::quarterly(),
 ///     day_count: DayCount::Act360,
 ///     bdc: BusinessDayConvention::ModifiedFollowing,
 ///     spread: 0.0005,
@@ -43,7 +43,7 @@ pub use crate::instruments::common::parameters::legs::BasisSwapLeg;
 ///
 /// let reference_leg = BasisSwapLeg {
 ///     forward_curve_id: CurveId::new("6M-SOFR"),
-///     frequency: Frequency::semi_annual(),
+///     frequency: Tenor::semi_annual(),
 ///     day_count: DayCount::Act360,
 ///     bdc: BusinessDayConvention::ModifiedFollowing,
 ///     spread: 0.0,
@@ -555,7 +555,7 @@ mod tests {
         // Create basis swap: 3M receives 6M + 5bp
         let primary_leg = BasisSwapLeg {
             forward_curve_id: CurveId::new("3M-SOFR"),
-            frequency: Frequency::quarterly(),
+            frequency: Tenor::quarterly(),
             day_count: DayCount::Act360,
             bdc: BusinessDayConvention::ModifiedFollowing,
             spread: 0.0005, // 5bp
@@ -565,7 +565,7 @@ mod tests {
 
         let reference_leg = BasisSwapLeg {
             forward_curve_id: CurveId::new("6M-SOFR"),
-            frequency: Frequency::semi_annual(),
+            frequency: Tenor::semi_annual(),
             day_count: DayCount::Act360,
             bdc: BusinessDayConvention::ModifiedFollowing,
             spread: 0.0,
@@ -624,7 +624,7 @@ mod tests {
 
         let primary_leg = BasisSwapLeg {
             forward_curve_id: CurveId::new("3M-SOFR"),
-            frequency: Frequency::quarterly(),
+            frequency: Tenor::quarterly(),
             day_count: DayCount::Act360,
             bdc: BusinessDayConvention::ModifiedFollowing,
             spread: 0.0,
@@ -633,7 +633,7 @@ mod tests {
         };
         let reference_leg = BasisSwapLeg {
             forward_curve_id: CurveId::new("6M-SOFR"),
-            frequency: Frequency::semi_annual(),
+            frequency: Tenor::semi_annual(),
             day_count: DayCount::Act360,
             bdc: BusinessDayConvention::ModifiedFollowing,
             spread: 0.0,
@@ -689,7 +689,7 @@ mod tests {
 
         let primary_leg_no_lag = BasisSwapLeg {
             forward_curve_id: CurveId::new("3M-SOFR"),
-            frequency: Frequency::quarterly(),
+            frequency: Tenor::quarterly(),
             day_count: DayCount::Act360,
             bdc: BusinessDayConvention::ModifiedFollowing,
             spread: 0.0010,
@@ -703,7 +703,7 @@ mod tests {
 
         let reference_leg = BasisSwapLeg {
             forward_curve_id: CurveId::new("6M-SOFR"),
-            frequency: Frequency::semi_annual(),
+            frequency: Tenor::semi_annual(),
             day_count: DayCount::Act360,
             bdc: BusinessDayConvention::ModifiedFollowing,
             spread: 0.0,

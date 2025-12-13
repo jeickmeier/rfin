@@ -1,7 +1,7 @@
 use crate::core::common::parse::ParseFromString;
 use crate::core::dates::calendar::{resolve_calendar_ref, JsBusinessDayConvention, JsCalendar};
 use crate::core::dates::date::JsDate;
-use crate::core::dates::daycount::JsFrequency;
+use crate::core::dates::daycount::JsTenor;
 use crate::core::error::js_error;
 use finstack_core::dates::Date as CoreDate;
 use finstack_core::dates::{ScheduleBuilder as CoreScheduleBuilder, ScheduleSpec, StubKind};
@@ -104,7 +104,7 @@ impl JsScheduleBuilder {
     }
 
     #[wasm_bindgen(js_name = frequency)]
-    pub fn frequency(self, frequency: &JsFrequency) -> JsScheduleBuilder {
+    pub fn frequency(self, frequency: &JsTenor) -> JsScheduleBuilder {
         JsScheduleBuilder::new_with(
             self.inner.frequency(frequency.inner()),
             self.start,
@@ -193,7 +193,7 @@ impl JsScheduleSpec {
     pub fn new(
         start: &JsDate,
         end: &JsDate,
-        frequency: &JsFrequency,
+        frequency: &JsTenor,
         stub: Option<JsStubKind>,
         business_day_convention: Option<JsBusinessDayConvention>,
         calendar_id: Option<String>,

@@ -16,7 +16,7 @@
 //! -----------
 //! ```rust
 //! use finstack_core::currency::Currency;
-//! use finstack_core::dates::{Date, Frequency, DayCount, BusinessDayConvention};
+//! use finstack_core::dates::{Date, Tenor, DayCount, BusinessDayConvention};
 //! use finstack_core::dates::StubKind;
 //! use finstack_core::money::Money;
 //! use finstack_valuations::cashflow::builder::{CashFlowSchedule, FixedCouponSpec, CouponType};
@@ -30,7 +30,7 @@
 //!  .fixed_cf(FixedCouponSpec{
 //!      coupon_type: CouponType::Cash,
 //!      rate: 0.05,
-//!      freq: Frequency::semi_annual(),
+//!      freq: Tenor::semi_annual(),
 //!      dc: DayCount::Act365F,
 //!      bdc: BusinessDayConvention::Following,
 //!      calendar_id: None,
@@ -759,7 +759,7 @@ impl CashFlowBuilder {
     ///
     /// ```rust
     /// use finstack_core::currency::Currency;
-    /// use finstack_core::dates::{Date, Frequency, DayCount, BusinessDayConvention, StubKind};
+    /// use finstack_core::dates::{Date, Tenor, DayCount, BusinessDayConvention, StubKind};
     /// use finstack_core::money::Money;
     /// use finstack_valuations::cashflow::builder::{CashFlowSchedule, ScheduleParams, CouponType};
     /// use time::Month;
@@ -848,7 +848,7 @@ impl CashFlowBuilder {
     ///
     /// ```rust
     /// use finstack_core::currency::Currency;
-    /// use finstack_core::dates::{Date, Frequency, DayCount, BusinessDayConvention, StubKind};
+    /// use finstack_core::dates::{Date, Tenor, DayCount, BusinessDayConvention, StubKind};
     /// use finstack_core::money::Money;
     /// use finstack_core::types::CurveId;
     /// use finstack_valuations::cashflow::builder::{
@@ -953,7 +953,7 @@ impl CashFlowBuilder {
     ///
     /// ```rust
     /// use finstack_core::currency::Currency;
-    /// use finstack_core::dates::{Date, Frequency, DayCount, BusinessDayConvention, StubKind};
+    /// use finstack_core::dates::{Date, Tenor, DayCount, BusinessDayConvention, StubKind};
     /// use finstack_core::money::Money;
     /// use finstack_core::types::CurveId;
     /// use finstack_valuations::cashflow::builder::{
@@ -1044,7 +1044,7 @@ impl CashFlowBuilder {
     ///
     /// ```rust
     /// use finstack_core::currency::Currency;
-    /// use finstack_core::dates::{Date, Frequency, DayCount, BusinessDayConvention, StubKind};
+    /// use finstack_core::dates::{Date, Tenor, DayCount, BusinessDayConvention, StubKind};
     /// use finstack_core::money::Money;
     /// use finstack_valuations::cashflow::builder::{
     ///     CashFlowSchedule, FixedCouponSpec, CouponType
@@ -1068,7 +1068,7 @@ impl CashFlowBuilder {
     /// let fixed_spec = FixedCouponSpec {
     ///     coupon_type: CouponType::Cash,  // Will be overridden by payment program
     ///     rate: 0.10,  // 10% PIK toggle
-    ///     freq: Frequency::semi_annual(),
+    ///     freq: Tenor::semi_annual(),
     ///     dc: DayCount::Thirty360,
     ///     bdc: BusinessDayConvention::Following,
     ///     calendar_id: None,

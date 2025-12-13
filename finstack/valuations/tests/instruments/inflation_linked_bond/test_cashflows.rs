@@ -8,7 +8,7 @@
 //! - Empty schedules for edge cases
 
 use super::common::*;
-use finstack_core::dates::Frequency;
+use finstack_core::dates::Tenor;
 use finstack_valuations::cashflow::traits::CashflowProvider;
 
 #[test]
@@ -43,7 +43,7 @@ fn test_build_schedule_semi_annual() {
 fn test_build_schedule_annual() {
     // Arrange
     let mut ilb = sample_tips();
-    ilb.freq = Frequency::annual();
+    ilb.freq = Tenor::annual();
     ilb.issue = d(2020, 1, 15);
     ilb.maturity = d(2025, 1, 15);
 
@@ -67,7 +67,7 @@ fn test_build_schedule_annual() {
 fn test_build_schedule_quarterly() {
     // Arrange
     let mut ilb = sample_tips();
-    ilb.freq = Frequency::quarterly();
+    ilb.freq = Tenor::quarterly();
     ilb.issue = d(2024, 1, 15);
     ilb.maturity = d(2025, 1, 15);
 
@@ -96,7 +96,7 @@ fn test_coupon_amounts_reflect_inflation_adjustment() {
     ilb.notional =
         finstack_core::money::Money::new(1_000_000.0, finstack_core::currency::Currency::USD);
     ilb.real_coupon = 0.01; // 1% real coupon
-    ilb.freq = Frequency::annual();
+    ilb.freq = Tenor::annual();
     ilb.issue = d(2024, 1, 1);
     ilb.maturity = d(2026, 1, 1);
 
@@ -166,7 +166,7 @@ fn test_schedule_respects_day_count_convention() {
     ilb.dc = finstack_core::dates::DayCount::ActAct;
     ilb.issue = d(2024, 1, 1);
     ilb.maturity = d(2024, 7, 2); // Slightly past 6 months
-    ilb.freq = Frequency::semi_annual();
+    ilb.freq = Tenor::semi_annual();
 
     let (ctx, _) = market_context_with_index();
     let as_of = d(2024, 1, 1);
@@ -326,7 +326,7 @@ fn test_schedule_generation_performance() {
     let mut ilb = sample_tips();
     ilb.issue = d(2020, 1, 1);
     ilb.maturity = d(2050, 1, 1); // 30-year bond
-    ilb.freq = Frequency::semi_annual();
+    ilb.freq = Tenor::semi_annual();
 
     let (ctx, _) = market_context_with_index();
     let as_of = d(2020, 1, 1);

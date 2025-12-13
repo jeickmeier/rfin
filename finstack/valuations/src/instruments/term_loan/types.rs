@@ -39,7 +39,7 @@
 //! - [`super::spec`] module for all specification types
 
 use finstack_core::currency::Currency;
-use finstack_core::dates::{BusinessDayConvention, Date, DayCount, Frequency, StubKind};
+use finstack_core::dates::{BusinessDayConvention, Date, DayCount, StubKind, Tenor};
 use finstack_core::money::Money;
 use finstack_core::types::{CurveId, InstrumentId};
 
@@ -72,7 +72,7 @@ use crate::instruments::pricing_overrides::PricingOverrides;
 /// ```rust
 /// use finstack_valuations::instruments::term_loan::RateSpec;
 /// use finstack_valuations::cashflow::builder::FloatingRateSpec;
-/// use finstack_core::dates::{DayCount, BusinessDayConvention, Frequency};
+/// use finstack_core::dates::{DayCount, BusinessDayConvention, Tenor};
 /// use finstack_core::types::CurveId;
 ///
 /// let floating = RateSpec::Floating(FloatingRateSpec {
@@ -84,7 +84,7 @@ use crate::instruments::pricing_overrides::PricingOverrides;
 ///     all_in_floor_bp: None,
 ///     cap_bp: None,
 ///     index_cap_bp: None,
-///     reset_freq: Frequency::quarterly(),
+///     reset_freq: Tenor::quarterly(),
 ///     reset_lag_days: 2,
 ///     dc: DayCount::Act360,
 ///     bdc: BusinessDayConvention::ModifiedFollowing,
@@ -144,7 +144,7 @@ pub enum RateSpec {
 ///     issue: create_date(2025, Month::January, 1)?,
 ///     maturity: create_date(2030, Month::January, 1)?,
 ///     rate: RateSpec::Fixed { rate_bp: 550 },
-///     pay_freq: Frequency::quarterly(),
+///     pay_freq: Tenor::quarterly(),
 ///     day_count: DayCount::Act360,
 ///     bdc: BusinessDayConvention::ModifiedFollowing,
 ///     calendar_id: None,
@@ -207,7 +207,7 @@ pub struct TermLoan {
     pub rate: RateSpec,
 
     /// Payment frequency for coupons/fees
-    pub pay_freq: Frequency,
+    pub pay_freq: Tenor,
 
     /// Day count convention
     pub day_count: DayCount,
@@ -285,7 +285,7 @@ impl TermLoan {
                 Date::from_calendar_date(2029, Month::January, 1).expect("Valid example date"),
             )
             .rate(RateSpec::Fixed { rate_bp: 600 }) // 6%
-            .pay_freq(Frequency::quarterly())
+            .pay_freq(Tenor::quarterly())
             .day_count(DayCount::Act360)
             .bdc(BusinessDayConvention::ModifiedFollowing)
             .calendar_id_opt(None)
