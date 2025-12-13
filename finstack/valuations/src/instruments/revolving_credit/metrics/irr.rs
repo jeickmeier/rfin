@@ -4,9 +4,7 @@
 //! revolving credit cashflows. For general IRR calculations, use the functions
 //! from `finstack_core::cashflow`:
 //!
-//! - [`finstack_core::cashflow::xirr::xirr`] - XIRR for irregular dated cashflows
-//! - [`finstack_core::cashflow::xirr::xirr_with_daycount`] - XIRR with custom day count
-//! - [`finstack_core::cashflow::performance::irr_periodic`] - IRR for periodic cashflows
+//! - [`finstack_core::cashflow::xirr::InternalRateOfReturn`] - IRR/XIRR trait
 //!
 //! # Facility-Specific Function
 //!
@@ -20,31 +18,31 @@
 //! use finstack_core::cashflow::xirr::xirr;
 //! use finstack_valuations::instruments::revolving_credit::metrics::irr::calculate_path_irr;
 //!
-//! // For dated cashflows, use core's xirr directly:
+//! // For dated cashflows, use core's trait directly:
 //! let dated_cashflows = vec![
 //!     (Date::from_ymd(2025, 1, 1), -1_000_000.0),
 //!     (Date::from_ymd(2026, 1, 1), 1_050_000.0),
 //! ];
-//! let irr = xirr(&dated_cashflows, None).ok();
+//! let irr = dated_cashflows.irr(None).ok();
 //!
 //! // For MC path data with time fractions:
 //! let path_cashflows = vec![(0.0, -1_000_000.0), (1.0, 1_050_000.0)];
 //! let irr = calculate_path_irr(&path_cashflows, base_date, DayCount::Act365F);
 //! ```
 
-use finstack_core::cashflow::xirr::xirr;
+use finstack_core::cashflow::xirr::InternalRateOfReturn;
 use finstack_core::dates::{Date, DayCount};
 
 /// Calculate IRR from Monte Carlo path cashflows (time fractions).
 ///
 /// Convenience function that converts time-fraction cashflows to dates and
-/// computes XIRR using `finstack_core::cashflow::xirr::xirr`.
+/// computes XIRR using `finstack_core::cashflow::xirr::InternalRateOfReturn`.
 ///
 /// This is primarily useful for revolving credit Monte Carlo simulations where
 /// cashflows are generated as `(time_in_years, amount)` tuples relative to
 /// a base date.
 ///
-/// For dated cashflows, use `finstack_core::cashflow::xirr::xirr` directly.
+/// For dated cashflows, use `finstack_core::cashflow::xirr::InternalRateOfReturn` directly.
 ///
 /// # Arguments
 ///
@@ -101,15 +99,9 @@ pub fn calculate_path_irr(
         return None;
     }
 
-    // Delegate to core's xirr
-    xirr(&dated_cashflows, None).ok()
+    // Delegate to core's trait
+    dated_cashflows.irr(None).ok()
 }
-
-/// Re-export core's periodic IRR for convenience.
-///
-/// For evenly-spaced cashflows, use this instead of XIRR.
-/// See [`finstack_core::cashflow::performance::irr_periodic`] for full documentation.
-pub use finstack_core::cashflow::performance::irr_periodic as calculate_periodic_irr;
 
 #[cfg(test)]
 mod tests {

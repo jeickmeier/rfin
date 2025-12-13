@@ -1,703 +1,459 @@
-//! Extended Internal Rate of Return (XIRR) for irregular cashflows.
+//! Internal Rate of Return (IRR) and Extended IRR (XIRR).
 //!
-//! XIRR generalizes the Internal Rate of Return (IRR) to handle cashflows that
-//! occur at irregular dates. This is the industry standard for measuring investment
-//! performance when contributions and withdrawals happen at arbitrary times.
+//! This module provides the `InternalRateOfReturn` trait and implementations for:
+//! - Periodic cashflows (`[f64]`): Standard IRR
+//! - Irregular cashflows (`[(Date, f64)]`): XIRR (Extended internal rate of return)
 //!
-//! # Financial Context
+//! # Mathematical Foundation
 //!
-//! While traditional IRR assumes evenly-spaced periodic cashflows, XIRR uses
-//! actual dates and day count conventions to compute returns for:
-//! - Private equity investments with capital calls and distributions
-//! - Mutual fund portfolios with irregular contributions/withdrawals
-//! - Real estate projects with variable payment schedules
-//! - Venture capital fund performance measurement
-//!
-//! # Mathematical Definition
-//!
-//! XIRR is the annual rate r that solves:
+//! IRR is the rate r such that NPV(r) = 0:
 //! ```text
-//! Σ CF_i / (1 + r)^t_i = 0
-//!
-//! where:
-//!   CF_i = cashflow i
-//!   t_i = years from first cashflow to cashflow i (Act/365F convention)
+//! Σ CF_i / (1 + r)^i = 0  (periodic)
+//! Σ CF_i / (1 + r)^t_i = 0  (irregular, XIRR)
 //! ```
 //!
-//! # Industry Standard
-//!
-//! XIRR is the standard metric defined by:
-//! - **CFA Institute**: Global Investment Performance Standards (GIPS®)
-//! - **Microsoft Excel**: XIRR function (de facto industry standard)
-//! - **Bloomberg**: IRR calculation for irregular cashflows
-//!
-//! # Implementation
-//!
-//! Uses Act/365F day count convention by default (matching Excel XIRR).
-//! Employs Newton-Raphson solver with analytic derivatives for optimal
-//! performance and numerical stability. Inputs are internally sorted by
-//! date ascending and the earliest date is used as the base, making
-//! results invariant to input order.
-//!
-//! # Examples
-//!
-//! ```rust
-//! use finstack_core::cashflow::xirr;
-//! use finstack_core::dates::Date;
-//! use time::Month;
-//!
-//! // Private equity investment example
-//! let cashflows = vec![
-//!     (Date::from_calendar_date(2023, Month::January, 15).expect("Valid date"), -100_000.0), // Initial
-//!     (Date::from_calendar_date(2023, Month::June, 30).expect("Valid date"), -50_000.0),     // Follow-on
-//!     (Date::from_calendar_date(2024, Month::March, 15).expect("Valid date"), 75_000.0),     // Partial exit
-//!     (Date::from_calendar_date(2024, Month::December, 31).expect("Valid date"), 95_000.0),  // Final exit
-//! ];
-//!
-//! let return_rate = xirr(&cashflows, None)?;
-//! assert!(return_rate > 0.0); // Positive return
-//! # Ok::<(), finstack_core::Error>(())
-//! ```
-//!
-//! # References
-//!
-//! - **XIRR Standard**:
-//!   - Microsoft Excel XIRR function specification (industry de facto standard)
-//!   - CFA Institute (2020). *Global Investment Performance Standards (GIPS®)*.
-//!
-//! - **Time-Weighted vs Money-Weighted Returns**:
-//!   - Dietz, P. O. (1966). "Pension Funds: Measuring Investment Performance."
-//!     *Free Press*.
-//!   - CFA Institute (2019). "Calculating and Using Time-Weighted and Money-Weighted
-//!     Rates of Return." CFA Program Curriculum, Level I.
+//! XIRR uses a day count convention (defaulting to Act/365F) to calculate year fractions.
 
-use crate::cashflow::utils::has_sign_change;
 use crate::dates::{Date, DayCount, DayCountCtx};
 use crate::error::InputError;
 use crate::math::solver::NewtonSolver;
 
-/// Calculates XIRR (Extended Internal Rate of Return) for irregular cashflows
-/// with configurable day count convention.
+/// Trait for calculating the Internal Rate of Return (IRR).
 ///
-/// XIRR finds the annualized discount rate that makes the net present value of
-/// all cashflows equal to zero, accounting for the actual dates of each cashflow.
-/// This is the standard metric for investment performance with irregular timing.
+/// This trait provides a unified interface for calculating IRR for both periodic
+/// cashflows (represented as `[f64]`) and irregular cashflows (represented as `[(Date, f64)]`).
+pub trait InternalRateOfReturn {
+    /// Calculate the Internal Rate of Return.
+    ///
+    /// # Arguments
+    /// * `guess` - Optional initial guess for the rate.
+    fn irr(&self, guess: Option<f64>) -> crate::Result<f64>;
+
+    /// Calculate the Internal Rate of Return with a specific day count convention.
+    ///
+    /// # Arguments
+    /// * `day_count` - Day count convention to use for time calculations.
+    /// * `guess` - Optional initial guess for the rate.
+    fn irr_with_daycount(&self, day_count: DayCount, guess: Option<f64>) -> crate::Result<f64>;
+}
+
+/// Implementation for periodic cashflows.
+impl InternalRateOfReturn for [f64] {
+    fn irr(&self, guess: Option<f64>) -> crate::Result<f64> {
+        solve_rate_of_return(
+            self.iter().enumerate().map(|(i, &amt)| (i as f64, amt)),
+            guess,
+        )
+    }
+
+    fn irr_with_daycount(&self, _day_count: DayCount, guess: Option<f64>) -> crate::Result<f64> {
+        // Day count is irrelevant for periodic cashflows as they are unitless periods
+        self.irr(guess)
+    }
+}
+
+/// Implementation for irregular cashflows (XIRR).
 ///
-/// # Mathematical Definition
-///
-/// XIRR is the annual rate r that solves:
-/// ```text
-/// Σ CF_i / (1 + r)^t_i = 0
-///
-/// where:
-///   CF_i = cashflow i (negative for investments, positive for returns)
-///   t_i = year fraction from first cashflow to cashflow i (per day count convention)
-/// ```
-///
-/// # Arguments
-///
-/// * `cash_flows` - Vector of (date, amount) tuples in any order (internally sorted; earliest date used as base)
-/// * `day_count` - Day count convention for computing year fractions (Act/365F matches Excel XIRR)
-/// * `guess` - Optional initial guess for IRR (defaults to intelligent grid search)
-///
-/// # Returns
-///
-/// Annual return as decimal (e.g., 0.15 for 15% per year)
-///
-/// # Day Count Convention
-///
-/// The choice of day count convention affects the result:
-/// - **Act/365F**: Matches Excel XIRR and most performance standards (recommended default)
-/// - **Act/360**: Common in money markets and some corporate bonds
-/// - **Act/Act ISDA**: Exact fractional years (used in some sovereign bonds)
-/// - **30/360**: Used in some corporate and municipal bonds
-///
-/// For Excel XIRR compatibility, use `Act/365F` or the convenience wrapper [`xirr_act365f`].
-///
-/// # Examples
-///
-/// ## Mutual fund with Act/365F (Excel-compatible)
-///
-/// ```rust
-/// use finstack_core::cashflow::xirr_with_daycount;
-/// use finstack_core::dates::{Date, DayCount};
-/// use time::Month;
-///
-/// let cashflows = vec![
-///     (Date::from_calendar_date(2024, Month::January, 1).expect("Valid date"), -10_000.0),
-///     (Date::from_calendar_date(2024, Month::April, 15).expect("Valid date"), -5_000.0),
-///     (Date::from_calendar_date(2024, Month::October, 1).expect("Valid date"), -3_000.0),
-///     (Date::from_calendar_date(2025, Month::January, 1).expect("Valid date"), 19_500.0),
-/// ];
-///
-/// let annual_return = xirr_with_daycount(&cashflows, DayCount::Act365F, None)?;
-/// assert!(annual_return > 0.0);
-/// # Ok::<(), finstack_core::Error>(())
-/// ```
-///
-/// ## Money market with Act/360
-///
-/// ```rust
-/// use finstack_core::cashflow::xirr_with_daycount;
-/// use finstack_core::dates::{Date, DayCount};
-/// use time::Month;
-///
-/// let mm_cashflows = vec![
-///     (Date::from_calendar_date(2024, Month::January, 1).expect("Valid date"), -1_000_000.0),
-///     (Date::from_calendar_date(2024, Month::July, 1).expect("Valid date"), 1_025_000.0),
-/// ];
-///
-/// let mm_return = xirr_with_daycount(&mm_cashflows, DayCount::Act360, None)?;
-/// # Ok::<(), finstack_core::Error>(())
-/// ```
-///
-/// # Errors
-///
-/// Returns error if:
-/// - Less than 2 cashflows provided
-/// - All cashflows have the same sign (no investment/return pattern)
-/// - Solver fails to converge (rare; try adjusting initial guess)
-/// - Day count calculation fails for the given dates
-///
-/// # Limitations
-///
-/// - **Reinvestment assumption**: Assumes intermediate cashflows reinvested at XIRR
-/// - **Multiple solutions**: Non-conventional cashflows may have multiple IRRs
-/// - **No solution**: Some cashflow patterns have no real IRR
-///
-/// # References
-///
-/// - **XIRR Standard**:
-///   - Microsoft Excel XIRR function (industry de facto standard, uses Act/365F)
-///   - CFA Institute (2020). *Global Investment Performance Standards (GIPS®)*.
-///
-/// - **Performance Measurement**:
-///   - Dietz, P. O. (1966). *Pension Funds: Measuring Investment Performance*. Free Press.
-///   - Bacon, C. R. (2008). *Practical Portfolio Performance Measurement and Attribution*
-///     (2nd ed.). Wiley. Chapter 2.
-pub fn xirr_with_daycount(
-    cash_flows: &[(Date, f64)],
-    day_count: DayCount,
-    guess: Option<f64>,
-) -> crate::Result<f64> {
+/// Uses `DayCount::Act365F` by default (Excel compatible).
+impl InternalRateOfReturn for [(Date, f64)] {
+    fn irr(&self, guess: Option<f64>) -> crate::Result<f64> {
+        self.irr_with_daycount(DayCount::Act365F, guess)
+    }
+
+    /// Calculates XIRR (Extended Internal Rate of Return) for irregular cashflows
+    /// with configurable day count convention.
+    fn irr_with_daycount(&self, day_count: DayCount, guess: Option<f64>) -> crate::Result<f64> {
+        if self.len() < 2 {
+            return Err(crate::Error::Validation(
+                "Cashflows must contain at least two cashflows".to_string(),
+            ));
+        }
+
+        // Sort cashflows by date to ensure correct time calculation
+        let mut flows = self.to_vec();
+        flows.sort_by_key(|k| k.0);
+
+        // Check for sign change
+        if !has_sign_change(flows.iter().map(|(_, amt)| *amt)) {
+            return Err(crate::Error::Validation(
+                "Cashflows must contain at least one positive and one negative value".to_string(),
+            ));
+        }
+
+        let first_date = flows[0].0;
+        let ctx = DayCountCtx::default();
+
+        // Precompute (year_fraction, amount) once for performance and
+        // propagate any day-count errors rather than masking/panicking.
+        let mut years_and_amounts: Vec<(f64, f64)> = Vec::with_capacity(flows.len());
+        for (date, amount) in flows.iter().copied() {
+            let years = day_count.signed_year_fraction(first_date, date, ctx)?;
+            years_and_amounts.push((years, amount));
+        }
+
+        solve_rate_of_return(years_and_amounts, guess)
+    }
+}
+
+// -----------------------------------------------------------------------------
+// Solver Logic (formerly solver_common.rs)
+// -----------------------------------------------------------------------------
+
+/// Solves for the rate of return (r) that sets the Net Present Value (NPV) to zero.
+fn solve_rate_of_return<I>(flows: I, guess: Option<f64>) -> crate::Result<f64>
+where
+    I: IntoIterator<Item = (f64, f64)> + Clone,
+{
+    // We need to iterate multiple times:
+    // 1. Validation (sign change)
+    // 2. Solving (NPV / dNPV evaluation)
+    // So we collect into a vector.
+    let data: Vec<(f64, f64)> = flows.into_iter().collect();
+
     // Validate inputs
-    if cash_flows.len() < 2 {
+    if data.len() < 2 {
         return Err(InputError::TooFewPoints.into());
     }
 
     // Check for sign change
-    if !has_sign_change(cash_flows.iter().map(|&(_, amt)| amt)) {
+    if !has_sign_change(data.iter().map(|&(_, amt)| amt)) {
         return Err(InputError::Invalid.into());
     }
 
-    // Sort flows by date and use earliest as the base date (Excel/GIPS semantics).
-    let mut flows = cash_flows.to_vec();
-    flows.sort_by_key(|(d, _)| *d);
-
-    let first_date = flows[0].0;
-    let ctx = DayCountCtx::default();
-
-    // Precompute (year_fraction, amount) once for performance and
-    // propagate any day-count errors rather than masking/panicking.
-    let mut years_and_amounts: Vec<(f64, f64)> = Vec::with_capacity(flows.len());
-    for (date, amount) in flows.iter().copied() {
-        let years = day_count.signed_year_fraction(first_date, date, ctx)?;
-        years_and_amounts.push((years, amount));
-    }
-
-    // NPV function for root finding
+    // Define NPV function: Σ C_t / (1+r)^t
     let npv = |rate: f64| -> f64 {
         let mut sum = 0.0;
-        for &(years, amount) in &years_and_amounts {
-            let discount = (1.0 + rate).powf(years);
-            sum += amount / discount;
+        let df_base = 1.0 + rate;
+        for &(t, amount) in &data {
+            sum += amount / df_base.powf(t);
         }
         sum
     };
 
-    // Analytic derivative of NPV with respect to rate
-    // d/dr [ Σ CF_i / (1 + r)^t_i ] = Σ -t_i * CF_i / (1 + r)^(t_i + 1)
+    // Define derivative d(NPV)/dr: Σ -t * C_t / (1+r)^(t+1)
     let npv_derivative = |rate: f64| -> f64 {
         let mut sum = 0.0;
-        for &(years, amount) in &years_and_amounts {
-            let discount = (1.0 + rate).powf(years + 1.0);
-            sum += -years * amount / discount;
+        let df_base = 1.0 + rate;
+        for &(t, amount) in &data {
+            sum += -t * amount / df_base.powf(t + 1.0);
         }
         sum
     };
 
-    // Choose an initial guess by evaluating a small grid if none provided
-    let initial_guess = match guess {
-        Some(g) => g,
-        None => {
-            // Extended candidate set covering:
-            // - Negative returns: -90% to -5% (distressed investments)
-            // - Low returns: 0-10% (traditional fixed income)
-            // - Normal returns: 10-30% (typical PE/RE)
-            // - High returns: 50-200% (VC, turnaround)
-            // - Extreme returns: 300-500% (early-stage VC, unicorns)
-            let candidates: &[f64] = &[
-                -0.9, -0.5, -0.2, -0.05, // Negative returns
-                0.0, 0.01, 0.05, 0.1, // Low returns
-                0.15, 0.2, 0.25, 0.3, // Normal PE/RE returns
-                0.5, 0.75, 1.0, 1.5, // High returns
-                2.0, 3.0, 5.0, // Extreme VC returns
-            ];
-            let mut best = 0.1;
-            let mut best_abs = f64::INFINITY;
-            for &g in candidates {
-                let val = npv(g);
-                if val.is_finite() {
-                    let a = val.abs();
-                    if a < best_abs {
-                        best_abs = a;
-                        best = g;
-                    }
-                }
-            }
-            best
-        }
-    };
-
-    // Use Newton-Raphson with analytic derivative for optimal performance
+    // Solver configuration
     let solver = NewtonSolver::new()
         .with_tolerance(1e-6)
         .with_max_iterations(100);
 
-    solver.solve_with_derivative(npv, npv_derivative, initial_guess)
+    // Initial guess strategy
+    let initial_guess = guess.unwrap_or(0.1);
+
+    // Candidates: User guess + Combined list from legacy irr_periodic and xirr
+    let seeds: &[f64] = &[
+        initial_guess,
+        0.1,   // 10% (common default)
+        0.05,  // 5%
+        0.2,   // 20%
+        0.01,  // 1%
+        0.5,   // 50%
+        -0.05, // -5%
+        -0.2,  // -20%
+        -0.5,  // -50%
+        -0.9,  // -90% (Distressed)
+        -0.99, // -99% (Near total loss)
+        -0.75, // -75%
+        -0.25, // -25%
+        0.0,   // 0%
+        1.0,   // 100%
+        2.0,   // 200% (VC/Startup)
+        5.0,   // 500%
+    ];
+
+    for &g in seeds {
+        if let Ok(root) = solver.solve_with_derivative(npv, npv_derivative, g) {
+            // Valid rate check?
+            if root > -0.999 {
+                return Ok(root);
+            }
+        }
+    }
+
+    Err(crate::Error::Validation(
+        "IRR calculation failed: no convergence".into(),
+    ))
 }
 
-/// Calculates XIRR using Act/365F day count (Excel-compatible default).
-///
-/// This is a convenience wrapper around [`xirr_with_daycount`] that uses
-/// `DayCount::Act365F` to match Microsoft Excel's XIRR function and most
-/// industry performance standards (GIPS®).
-///
-/// # Arguments
-///
-/// * `cash_flows` - Vector of (date, amount) tuples in any order (internally sorted; earliest date used as base)
-/// * `guess` - Optional initial guess for IRR (defaults to intelligent grid search)
-///
-/// # Returns
-///
-/// Annual return as decimal (e.g., 0.15 for 15% per year)
-///
-/// # Examples
-///
-/// ## Mutual fund with irregular contributions
-///
-/// ```rust
-/// use finstack_core::cashflow::xirr;
-/// use finstack_core::dates::Date;
-/// use time::Month;
-///
-/// let cashflows = vec![
-///     (Date::from_calendar_date(2024, Month::January, 1).expect("Valid date"), -10_000.0),
-///     (Date::from_calendar_date(2024, Month::April, 15).expect("Valid date"), -5_000.0),
-///     (Date::from_calendar_date(2024, Month::October, 1).expect("Valid date"), -3_000.0),
-///     (Date::from_calendar_date(2025, Month::January, 1).expect("Valid date"), 19_500.0),
-/// ];
-///
-/// let annual_return = xirr(&cashflows, None)?;
-/// assert!(annual_return > 0.0);
-/// # Ok::<(), finstack_core::Error>(())
-/// ```
-///
-/// ## Private equity fund
-///
-/// ```rust
-/// use finstack_core::cashflow::xirr;
-/// use finstack_core::dates::Date;
-/// use time::Month;
-///
-/// // Capital calls and distributions
-/// let pe_cashflows = vec![
-///     (Date::from_calendar_date(2020, Month::March, 1).expect("Valid date"), -1_000_000.0),  // Call 1
-///     (Date::from_calendar_date(2020, Month::September, 1).expect("Valid date"), -500_000.0), // Call 2
-///     (Date::from_calendar_date(2022, Month::June, 15).expect("Valid date"), 750_000.0),      // Dist 1
-///     (Date::from_calendar_date(2024, Month::December, 31).expect("Valid date"), 1_200_000.0), // Exit
-/// ];
-///
-/// let fund_irr = xirr(&pe_cashflows, None)?;
-/// # Ok::<(), finstack_core::Error>(())
-/// ```
-///
-/// # Errors
-///
-/// Returns error if:
-/// - Less than 2 cashflows provided
-/// - All cashflows have the same sign (no investment/return pattern)
-/// - Solver fails to converge (rare; try adjusting initial guess)
-///
-/// # Note
-///
-/// For non-standard day count conventions (e.g., Act/360 for money markets),
-/// use [`xirr_with_daycount`] instead.
-///
-/// # References
-///
-/// - Microsoft Excel XIRR function (industry de facto standard)
-/// - CFA Institute (2020). *Global Investment Performance Standards (GIPS®)*.
-pub fn xirr(cash_flows: &[(Date, f64)], guess: Option<f64>) -> crate::Result<f64> {
-    xirr_with_daycount(cash_flows, DayCount::Act365F, guess)
+/// Return `true` if the iterator contains at least one positive and one negative value.
+pub(crate) fn has_sign_change<I>(iter: I) -> bool
+where
+    I: IntoIterator<Item = f64>,
+{
+    let mut has_positive = false;
+    let mut has_negative = false;
+
+    for v in iter {
+        if v > 0.0 {
+            has_positive = true;
+        } else if v < 0.0 {
+            has_negative = true;
+        }
+        if has_positive && has_negative {
+            return true;
+        }
+    }
+    false
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::dates::create_date;
     use time::Month;
 
+    /// Helper to compute NPV for periodic cashflows at a given rate
+    fn compute_periodic_npv(amounts: &[f64], rate: f64) -> f64 {
+        amounts
+            .iter()
+            .enumerate()
+            .map(|(i, &a)| a / (1.0 + rate).powi(i as i32))
+            .sum()
+    }
+
     #[test]
-    fn test_xirr_basic() {
-        let flows = vec![
+    fn test_irr_periodic() {
+        let amounts = [-100.0, 110.0];
+        let irr = amounts
+            .irr(None)
+            .expect("IRR calculation should succeed in test");
+        assert!((irr - 0.1).abs() < 1e-6); // 10% return
+
+        let npv_at_irr = compute_periodic_npv(&amounts, irr);
+        assert!(npv_at_irr.abs() < 1e-6);
+    }
+
+    #[test]
+    fn test_irr_periodic_multiple_periods() {
+        let amounts = [-1000.0, 300.0, 300.0, 300.0, 300.0];
+        let irr = amounts
+            .irr(None)
+            .expect("IRR calculation should succeed in test");
+        assert!(irr > 0.07 && irr < 0.08);
+
+        let npv_at_irr = compute_periodic_npv(&amounts, irr);
+        assert!(npv_at_irr.abs() < 1e-6);
+    }
+
+    #[test]
+    fn test_irr_periodic_near_minus_100() {
+        let amounts = [-100.0, 1.0];
+        let irr = amounts
+            .as_slice()
+            .irr(Some(-0.5))
+            .expect("IRR calculation should succeed in test");
+        assert!(irr < -0.9);
+    }
+
+    #[test]
+    fn test_irr_periodic_high_positive() {
+        let amounts = [-100.0, 300.0];
+        let irr = amounts
+            .as_slice()
+            .irr(Some(0.5))
+            .expect("IRR calculation should succeed in test");
+        assert!(irr > 1.0);
+    }
+
+    #[test]
+    fn test_irr_periodic_no_sign_change() {
+        let amounts = [100.0, 200.0, 300.0];
+        assert!(amounts.irr(None).is_err());
+    }
+
+    #[test]
+    fn test_unified_irr_api() {
+        let periodic_flows = [-100.0, 110.0];
+        let periodic_irr = periodic_flows.irr(None).expect("Periodic IRR failed");
+        assert!((periodic_irr - 0.1).abs() < 1e-6);
+
+        let dated_flows = [
             (
-                Date::from_calendar_date(2024, Month::January, 1).expect("Valid test date"),
+                create_date(2024, Month::January, 1).expect("Date"),
                 -100_000.0,
             ),
             (
-                Date::from_calendar_date(2025, Month::January, 1).expect("Valid test date"),
+                create_date(2025, Month::January, 1).expect("Date"),
+                110_000.0,
+            ),
+        ];
+        let xirr_res = dated_flows.as_slice().irr(None).expect("XIRR failed");
+        let expected = (1.1_f64).powf(365.0 / 366.0) - 1.0;
+        assert!((xirr_res - expected).abs() < 1e-6);
+    }
+
+    #[test]
+    fn test_xirr_basic() {
+        let flows = [
+            (
+                create_date(2024, Month::January, 1).expect("Valid test date"),
+                -100_000.0,
+            ),
+            (
+                create_date(2025, Month::January, 1).expect("Valid test date"),
                 110_000.0,
             ),
         ];
 
-        let result = xirr(&flows, None).expect("XIRR calculation should succeed in test");
-        // Reference: Microsoft Excel XIRR achieves ~1e-6 precision
-        // Expected: solve -100000 + 110000/(1+r)^(366/365) = 0, since 2024 is a leap year
-        // r = (1.1)^(365/366) - 1 ≈ 0.09971358593
+        let result = flows
+            .irr(None)
+            .expect("XIRR calculation should succeed in test");
         let expected = (1.1_f64).powf(365.0 / 366.0) - 1.0;
-        assert!(
-            (result - expected).abs() < 1e-6,
-            "XIRR should be ~{:.6}, got {}",
-            expected,
-            result
-        );
+        assert!((result - expected).abs() < 1e-6);
     }
 
     #[test]
     fn test_xirr_multiple_flows() {
-        let flows = vec![
+        let flows = [
             (
-                Date::from_calendar_date(2024, Month::January, 1).expect("Valid test date"),
+                create_date(2024, Month::January, 1).expect("Valid test date"),
                 -100_000.0,
             ),
             (
-                Date::from_calendar_date(2024, Month::July, 1).expect("Valid test date"),
+                create_date(2024, Month::July, 1).expect("Valid test date"),
                 5_000.0,
             ),
             (
-                Date::from_calendar_date(2025, Month::January, 1).expect("Valid test date"),
+                create_date(2025, Month::January, 1).expect("Valid test date"),
                 110_000.0,
             ),
         ];
 
-        let result = xirr(&flows, None).expect("XIRR calculation should succeed in test");
-        assert!(result > 0.1 && result < 0.2); // Should be between 10% and 20%
+        let result = flows
+            .irr(None)
+            .expect("XIRR calculation should succeed in test");
+        assert!(result > 0.1 && result < 0.2);
     }
 
     #[test]
     fn test_xirr_unsorted_inputs_equivalence() {
-        // Same cashflows, different order; result should be equivalent
-        let sorted = vec![
+        let sorted = [
             (
-                Date::from_calendar_date(2024, Month::January, 1).expect("Valid test date"),
+                create_date(2024, Month::January, 1).expect("Valid test date"),
                 -100_000.0,
             ),
             (
-                Date::from_calendar_date(2025, Month::January, 1).expect("Valid test date"),
+                create_date(2025, Month::January, 1).expect("Valid test date"),
                 110_000.0,
             ),
         ];
-        let mut unsorted = sorted.clone();
+        let mut unsorted = sorted.to_vec();
         unsorted.reverse();
 
-        let r1 = xirr(&sorted, None).expect("XIRR calculation should succeed in test");
-        let r2 = xirr(&unsorted, None).expect("XIRR calculation should succeed in test");
+        let r1 = sorted
+            .irr(None)
+            .expect("XIRR calculation should succeed in test");
+        let r2 = unsorted
+            .as_slice()
+            .irr(None)
+            .expect("XIRR calculation should succeed in test");
         assert!((r1 - r2).abs() < 1e-8);
     }
 
     #[test]
     fn test_xirr_negative_return() {
-        let flows = vec![
+        let flows = [
             (
-                Date::from_calendar_date(2024, Month::January, 1).expect("Valid test date"),
+                create_date(2024, Month::January, 1).expect("Valid test date"),
                 -100_000.0,
             ),
             (
-                Date::from_calendar_date(2025, Month::January, 1).expect("Valid test date"),
+                create_date(2025, Month::January, 1).expect("Valid test date"),
                 90_000.0,
             ),
         ];
 
-        let result = xirr(&flows, None).expect("XIRR calculation should succeed in test");
-        // Reference: Microsoft Excel XIRR achieves ~1e-6 precision
-        // Expected: solve -100000 + 90000/(1+r)^(366/365) = 0, since 2024 is a leap year
-        // r = (0.9)^(365/366) - 1 ≈ -0.09974087947
+        let result = flows
+            .irr(None)
+            .expect("XIRR calculation should succeed in test");
         let expected = (0.9_f64).powf(365.0 / 366.0) - 1.0;
-        assert!(
-            (result - expected).abs() < 1e-6,
-            "XIRR should be ~{:.6}, got {}",
-            expected,
-            result
-        );
+        assert!((result - expected).abs() < 1e-6);
     }
 
     #[test]
     fn test_xirr_no_sign_change() {
-        let flows = vec![
+        let flows = [
             (
-                Date::from_calendar_date(2024, Month::January, 1).expect("Valid test date"),
+                create_date(2024, Month::January, 1).expect("Valid test date"),
                 100_000.0,
             ),
             (
-                Date::from_calendar_date(2025, Month::January, 1).expect("Valid test date"),
+                create_date(2025, Month::January, 1).expect("Valid test date"),
                 110_000.0,
             ),
         ];
 
-        let result = xirr(&flows, None);
+        let result = flows.irr(None);
         assert!(result.is_err());
     }
 
     #[test]
     fn test_xirr_too_few_flows() {
-        let flows = vec![(
-            Date::from_calendar_date(2024, Month::January, 1).expect("Valid test date"),
+        let flows = [(
+            create_date(2024, Month::January, 1).expect("Valid test date"),
             -100_000.0,
         )];
 
-        let result = xirr(&flows, None);
+        let result = flows.irr(None);
         assert!(result.is_err());
     }
 
     #[test]
-    fn test_xirr_complex_schedule() {
-        // More realistic example with irregular payments
-        let flows = vec![
-            (
-                Date::from_calendar_date(2023, Month::January, 15).expect("Valid test date"),
-                -50_000.0,
-            ),
-            (
-                Date::from_calendar_date(2023, Month::March, 31).expect("Valid test date"),
-                -30_000.0,
-            ),
-            (
-                Date::from_calendar_date(2023, Month::June, 15).expect("Valid test date"),
-                10_000.0,
-            ),
-            (
-                Date::from_calendar_date(2023, Month::September, 30).expect("Valid test date"),
-                15_000.0,
-            ),
-            (
-                Date::from_calendar_date(2023, Month::December, 31).expect("Valid test date"),
-                20_000.0,
-            ),
-            (
-                Date::from_calendar_date(2024, Month::June, 15).expect("Valid test date"),
-                45_000.0,
-            ),
-        ];
-
-        let result = xirr(&flows, None);
-        assert!(result.is_ok());
-        let irr = result.expect("XIRR calculation should succeed in test");
-
-        // Verify NPV is approximately zero at the calculated rate
-        let npv = compute_npv(&flows, irr);
-        assert!(npv.abs() < 1.0); // NPV should be very close to zero
-    }
-
-    fn compute_npv(flows: &[(Date, f64)], rate: f64) -> f64 {
-        let first_date = flows[0].0;
-        let dc = DayCount::Act365F;
-        let mut sum = 0.0;
-
-        for &(date, amount) in flows {
-            let years = dc
-                .year_fraction(first_date, date, DayCountCtx::default())
-                .unwrap_or(0.0);
-            let discount = (1.0 + rate).powf(years);
-            sum += amount / discount;
-        }
-        sum
-    }
-
-    #[test]
     fn test_xirr_with_daycount_act365f() {
-        // Test that xirr_with_daycount with Act/365F matches xirr
-        let flows = vec![
+        let flows = [
             (
-                Date::from_calendar_date(2024, Month::January, 1).expect("Valid test date"),
+                create_date(2024, Month::January, 1).expect("Valid test date"),
                 -100_000.0,
             ),
             (
-                Date::from_calendar_date(2025, Month::January, 1).expect("Valid test date"),
+                create_date(2025, Month::January, 1).expect("Valid test date"),
                 110_000.0,
             ),
         ];
 
-        let result1 = xirr(&flows, None).expect("XIRR calculation should succeed in test");
-        let result2 = xirr_with_daycount(&flows, DayCount::Act365F, None)
+        let result1 = flows
+            .irr(None)
+            .expect("XIRR calculation should succeed in test");
+        let result2 = flows
+            .as_slice()
+            .irr_with_daycount(DayCount::Act365F, None)
             .expect("XIRR with Act/365F should succeed in test");
 
-        // Should give identical results
         assert!((result1 - result2).abs() < 1e-12);
     }
 
     #[test]
     fn test_xirr_with_daycount_act360() {
-        // Test XIRR with Act/360 (money market convention)
-        let flows = vec![
+        let flows = [
             (
-                Date::from_calendar_date(2024, Month::January, 1).expect("Valid test date"),
+                create_date(2024, Month::January, 1).expect("Valid test date"),
                 -100_000.0,
             ),
             (
-                Date::from_calendar_date(2024, Month::July, 1).expect("Valid test date"),
+                create_date(2024, Month::July, 1).expect("Valid test date"),
                 102_500.0,
             ),
         ];
 
-        let result_365 = xirr_with_daycount(&flows, DayCount::Act365F, None)
+        let result_365 = flows
+            .as_slice()
+            .irr_with_daycount(DayCount::Act365F, None)
             .expect("XIRR with Act/365F should succeed");
-        let result_360 = xirr_with_daycount(&flows, DayCount::Act360, None)
+        let result_360 = flows
+            .as_slice()
+            .irr_with_daycount(DayCount::Act360, None)
             .expect("XIRR with Act/360 should succeed");
 
-        // Results should differ slightly due to different day count bases
-        // Both should be positive returns
         assert!(result_365 > 0.0);
         assert!(result_360 > 0.0);
-        // Difference should be relatively small (within ~1.4% since 365/360 ≈ 1.014)
         assert!((result_360 - result_365).abs() < 0.015);
-    }
-
-    #[test]
-    fn test_xirr_negative_rate_candidate() {
-        // Test that the expanded candidate set handles negative rates
-        let flows = vec![
-            (
-                Date::from_calendar_date(2024, Month::January, 1).expect("Valid test date"),
-                -100_000.0,
-            ),
-            (
-                Date::from_calendar_date(2025, Month::January, 1).expect("Valid test date"),
-                97_000.0,
-            ),
-        ];
-
-        let result =
-            xirr(&flows, None).expect("XIRR calculation should succeed for negative return");
-
-        // Should be approximately -3%
-        // Reference: Microsoft Excel XIRR achieves ~1e-6 precision
-        // Expected: solve -100000 + 97000/(1+r)^(366/365) = 0, since 2024 is a leap year
-        // r = (0.97)^(365/366) - 1 ≈ -0.02991927142
-        let expected = (0.97_f64).powf(365.0 / 366.0) - 1.0;
-        assert!(result < 0.0);
-        assert!(
-            (result - expected).abs() < 1e-6,
-            "XIRR should be ~{:.6}, got {}",
-            expected,
-            result
-        );
-    }
-
-    #[test]
-    fn test_xirr_near_zero_rate() {
-        // Test near-zero rate scenario
-        let flows = vec![
-            (
-                Date::from_calendar_date(2024, Month::January, 1).expect("Valid test date"),
-                -100_000.0,
-            ),
-            (
-                Date::from_calendar_date(2025, Month::January, 1).expect("Valid test date"),
-                100_100.0,
-            ),
-        ];
-
-        let result =
-            xirr(&flows, None).expect("XIRR calculation should succeed for near-zero return");
-
-        // Should be approximately 0.1%
-        // Reference: Microsoft Excel XIRR achieves ~1e-6 precision
-        // Expected: solve -100000 + 100100/(1+r)^(366/365) = 0, since 2024 is a leap year
-        // r = (1.001)^(365/366) - 1 ≈ 0.0009972664
-        let expected = (1.001_f64).powf(365.0 / 366.0) - 1.0;
-        assert!(result > 0.0 && result < 0.01);
-        assert!(
-            (result - expected).abs() < 1e-6,
-            "XIRR should be ~{:.6}, got {}",
-            expected,
-            result
-        );
-    }
-
-    #[test]
-    fn test_xirr_high_return_vc_scenario() {
-        // Test high-return VC scenario (common in early-stage investing)
-        // Investment: $100K at t=0, exit: $500K at t=1.5 years
-        // Expected IRR ≈ 200% (5x MOIC over 1.5 years)
-        let flows = vec![
-            (
-                Date::from_calendar_date(2022, Month::January, 1).expect("Valid test date"),
-                -100_000.0,
-            ),
-            (
-                Date::from_calendar_date(2023, Month::July, 1).expect("Valid test date"),
-                500_000.0,
-            ),
-        ];
-
-        let result = xirr(&flows, None).expect("XIRR should succeed for high-return VC scenario");
-
-        // 5x return over 1.5 years → IRR should be roughly 200-250%
-        assert!(
-            result > 1.5 && result < 3.0,
-            "VC scenario IRR should be ~200%+, got {:.1}%",
-            result * 100.0
-        );
-    }
-
-    #[test]
-    fn test_xirr_j_curve_pe_scenario() {
-        // Test J-curve pattern typical in PE: early drawdowns, late distributions
-        let flows = vec![
-            (
-                Date::from_calendar_date(2020, Month::January, 1).expect("Valid test date"),
-                -400_000.0,
-            ), // Initial commitment
-            (
-                Date::from_calendar_date(2020, Month::July, 1).expect("Valid test date"),
-                -300_000.0,
-            ), // Second drawdown
-            (
-                Date::from_calendar_date(2021, Month::January, 1).expect("Valid test date"),
-                -300_000.0,
-            ), // Third drawdown
-            (
-                Date::from_calendar_date(2022, Month::January, 1).expect("Valid test date"),
-                200_000.0,
-            ), // First distribution
-            (
-                Date::from_calendar_date(2023, Month::January, 1).expect("Valid test date"),
-                400_000.0,
-            ), // Second distribution
-            (
-                Date::from_calendar_date(2024, Month::January, 1).expect("Valid test date"),
-                800_000.0,
-            ), // Exit distribution
-        ];
-
-        let result = xirr(&flows, None).expect("XIRR should succeed for J-curve PE scenario");
-
-        // Total invested: 1M, total returned: 1.4M over ~4 years
-        // Expected IRR: ~10-15%
-        assert!(
-            result > 0.05 && result < 0.25,
-            "J-curve PE IRR should be ~10-15%, got {:.1}%",
-            result * 100.0
-        );
     }
 }

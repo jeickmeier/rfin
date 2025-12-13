@@ -6,7 +6,7 @@
 //!
 //! # Approach
 //!
-//! Unlike constant-rate discounting (see [`performance`](super::performance)),
+//! Unlike constant-rate discounting (see [`xirr`](super::xirr)),
 //! this module uses term structures of discount factors from market data:
 //! ```text
 //! PV = Σ CF_i * DF(t_i)
@@ -58,6 +58,7 @@
 //!   Atlantic Financial Press. Volume 1, Chapter 3.
 
 use crate::dates::{Date, DayCount, DayCountCtx};
+use crate::market_data::term_structures::FlatCurve;
 use crate::market_data::traits::Discounting;
 use crate::money::Money;
 
@@ -152,6 +153,55 @@ pub fn npv_using_curve_dc<D: Discounting + ?Sized>(
     npv(disc, base, disc.day_count(), flows)
 }
 
+/// Calculate Net Present Value (NPV) using a constant discount rate.
+///
+/// This convenience function creates a flat discount curve internally and
+/// delegates to the standard discounting logic.
+///
+/// # Arguments
+/// * `cash_flows` - Vector of (date, money) tuples
+/// * `discount_rate` - Annual discount rate as decimal (0.05 = 5%)
+/// * `base_date` - Base date for discounting
+/// * `day_count` - Day count convention
+///
+/// # Example
+///
+/// ```rust
+/// use finstack_core::cashflow::discounting::npv_constant;
+/// use finstack_core::dates::{Date, DayCount};
+/// use finstack_core::money::Money;
+/// use finstack_core::currency::Currency;
+/// use time::Month;
+///
+/// let base = Date::from_calendar_date(2025, Month::January, 1).expect("Valid date");
+/// let cf = (
+///     Date::from_calendar_date(2026, Month::January, 1).expect("Valid date"),
+///     Money::new(105.0, Currency::USD)
+/// );
+///
+/// // Discount at 5%
+/// let pv = npv_constant(&[cf], 0.05, base, DayCount::Act365F)?;
+/// assert!((pv.amount() - 100.0).abs() < 0.1);
+/// # Ok::<(), finstack_core::Error>(())
+/// ```
+pub fn npv_constant(
+    cash_flows: &[(Date, Money)],
+    discount_rate: f64,
+    base_date: Date,
+    day_count: DayCount,
+) -> crate::Result<Money> {
+    // Convert annual compounded rate to continuous for FlatCurve
+    // Note: FlatCurve expects a continuously compounded rate.
+    // Ideally we should clarify if input is annually compounded or continuous.
+    // Legacy behavior in performance.rs assumed input was annually compounded
+    // and converted it: r_cont = ln(1 + r_annual).
+    let continuous_rate = (1.0 + discount_rate).ln();
+    let curve = FlatCurve::new(continuous_rate, base_date, day_count, "INTERNAL-NPV");
+
+    // Delegate to the shared discounting logic
+    npv(&curve, base_date, day_count, cash_flows)
+}
+
 /// Compute NPV of dated `Money` flows using a `Discount` curve and `DayCount`.
 ///
 /// Discounts each cashflow to the base date using the provided curve.
@@ -170,6 +220,8 @@ where
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::currency::Currency;
+    use crate::dates::create_date;
     use crate::market_data::traits::TermStructure;
     use crate::types::CurveId;
     use time::Month;
@@ -218,6 +270,73 @@ mod tests {
         let flows: Vec<(Date, Money)> = vec![];
         let err =
             npv(&curve, base, DayCount::Act365F, &flows).expect_err("Should fail with empty flows");
+        let _ = format!("{}", err);
+    }
+
+    #[test]
+    fn test_npv_simple() {
+        let flows = vec![
+            (
+                create_date(2024, Month::January, 1).expect("Valid test date"),
+                Money::new(-100000.0, Currency::USD),
+            ),
+            (
+                create_date(2025, Month::January, 1).expect("Valid test date"),
+                Money::new(110000.0, Currency::USD),
+            ),
+        ];
+        let base = flows[0].0;
+        let npv_5pct = npv_constant(&flows, 0.05, base, DayCount::Act365F)
+            .expect("NPV calculation should succeed in test");
+        // NPV should be positive (profitable at 5% discount rate)
+        // Approximately: -100000 + 110000/(1.05) ≈ 4761.90
+        assert!(npv_5pct.amount() > 4700.0 && npv_5pct.amount() < 4800.0);
+    }
+
+    #[test]
+    fn test_npv_zero_discount() {
+        let flows = vec![
+            (
+                create_date(2024, Month::January, 1).expect("Valid test date"),
+                Money::new(-100.0, Currency::USD),
+            ),
+            (
+                create_date(2025, Month::January, 1).expect("Valid test date"),
+                Money::new(100.0, Currency::USD),
+            ),
+        ];
+        let base = flows[0].0;
+        let npv_zero = npv_constant(&flows, 0.0, base, DayCount::Act365F)
+            .expect("NPV calculation should succeed in test");
+        assert_eq!(npv_zero.amount(), 0.0);
+    }
+
+    #[test]
+    fn test_npv_allows_past_and_future_dates() {
+        let base = create_date(2025, Month::January, 1).expect("Valid test date");
+        let flows = vec![
+            (
+                create_date(2024, Month::July, 1).expect("Valid test date"),
+                Money::new(-50.0, Currency::USD),
+            ), // past relative to base
+            (
+                create_date(2025, Month::July, 1).expect("Valid test date"),
+                Money::new(55.0, Currency::USD),
+            ), // future relative to base
+        ];
+        // Should not error; just compute signed year fractions
+        let pv = npv_constant(&flows, 0.05, base, DayCount::Act365F)
+            .expect("NPV calculation should succeed in test");
+        // With positive rate and inflow slightly bigger than outflow, PV should be > 0
+        assert!(pv.amount() > 0.0);
+    }
+
+    #[test]
+    fn test_npv_errors_on_empty_flows_now() {
+        let flows: Vec<(Date, Money)> = vec![];
+        let base = create_date(2025, Month::January, 1).expect("Valid date");
+        let err = npv_constant(&flows, 0.05, base, DayCount::Act365F)
+            .expect_err("Should fail with empty flows");
         let _ = format!("{}", err);
     }
 }

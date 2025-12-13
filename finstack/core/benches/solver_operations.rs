@@ -4,7 +4,7 @@
 //! and compares different solver strategies (Newton, Brent, Hybrid).
 
 use criterion::{criterion_group, criterion_main, BenchmarkId, Criterion};
-use finstack_core::cashflow::{xirr, xirr_with_daycount};
+use finstack_core::cashflow::xirr::InternalRateOfReturn;
 use finstack_core::dates::{Date, DayCount};
 use finstack_core::math::solver::{BrentSolver, NewtonSolver, Solver};
 use std::hint::black_box;
@@ -84,7 +84,7 @@ fn benchmark_xirr_performance(c: &mut Criterion) {
         BenchmarkId::new("simple", "2_flows"),
         &simple_flows,
         |b, flows| {
-            b.iter(|| xirr(black_box(flows), None).expect("Should converge"));
+            b.iter(|| black_box(flows).irr(None).expect("Should converge"));
         },
     );
 
@@ -92,7 +92,7 @@ fn benchmark_xirr_performance(c: &mut Criterion) {
         BenchmarkId::new("complex", "6_flows"),
         &complex_flows,
         |b, flows| {
-            b.iter(|| xirr(black_box(flows), None).expect("Should converge"));
+            b.iter(|| black_box(flows).irr(None).expect("Should converge"));
         },
     );
 
@@ -115,14 +115,18 @@ fn benchmark_xirr_daycount_variants(c: &mut Criterion) {
 
     group.bench_function("act365f", |b| {
         b.iter(|| {
-            xirr_with_daycount(black_box(&flows), black_box(DayCount::Act365F), None)
+            black_box(&flows)
+                .as_slice()
+                .irr_with_daycount(black_box(DayCount::Act365F), None)
                 .expect("Should converge")
         })
     });
 
     group.bench_function("act360", |b| {
         b.iter(|| {
-            xirr_with_daycount(black_box(&flows), black_box(DayCount::Act360), None)
+            black_box(&flows)
+                .as_slice()
+                .irr_with_daycount(black_box(DayCount::Act360), None)
                 .expect("Should converge")
         })
     });
@@ -168,7 +172,7 @@ fn benchmark_solver_comparison(c: &mut Criterion) {
 }
 
 fn benchmark_irr_periodic(c: &mut Criterion) {
-    use finstack_core::cashflow::performance::irr_periodic;
+    use finstack_core::cashflow::xirr::InternalRateOfReturn;
 
     let mut group = c.benchmark_group("irr_periodic");
 
@@ -179,7 +183,7 @@ fn benchmark_irr_periodic(c: &mut Criterion) {
         BenchmarkId::new("simple", "2_periods"),
         &simple_amounts,
         |b, amounts| {
-            b.iter(|| irr_periodic(black_box(amounts), None).expect("Should converge"));
+            b.iter(|| black_box(amounts).irr(None).expect("Should converge"));
         },
     );
 
@@ -187,7 +191,7 @@ fn benchmark_irr_periodic(c: &mut Criterion) {
         BenchmarkId::new("complex", "5_periods"),
         &complex_amounts,
         |b, amounts| {
-            b.iter(|| irr_periodic(black_box(amounts), None).expect("Should converge"));
+            b.iter(|| black_box(amounts).irr(None).expect("Should converge"));
         },
     );
 

@@ -8,8 +8,8 @@
 //!
 //! - **Primitives** ([`primitives`]): Core types ([`CashFlow`], [`Notional`], [`CFKind`])
 //! - **Discounting** ([`discounting`]): Present value calculation with discount curves
-//! - **Performance** ([`performance`]): IRR/NPV metrics for investment analysis
-//! - **XIRR** ([`xirr`]): Extended IRR for irregular cashflow schedules
+//! - **XIRR** ([`xirr`]): IRR/XIRR metrics for investment analysis
+
 //!
 //! # Financial Concepts
 //!
@@ -34,7 +34,7 @@
 //! ## NPV Calculation
 //!
 //! ```rust
-//! use finstack_core::cashflow::performance::npv;
+//! use finstack_core::cashflow::discounting::npv_constant;
 //! use finstack_core::dates::{Date, DayCount};
 //! use time::Month;
 //!
@@ -42,7 +42,7 @@
 //! let cf1 = (Date::from_calendar_date(2025, Month::July, 1).unwrap(), 1000.0);
 //! let cf2 = (Date::from_calendar_date(2026, Month::January, 1).unwrap(), 1000.0);
 //!
-//! let present_value = npv(&[cf1, cf2], 0.05, Some(base), Some(DayCount::Act365F))?;
+//! let present_value = npv_constant(&[cf1, cf2], 0.05, base, DayCount::Act365F)?;
 //! assert!(present_value > 0.0);
 //! # Ok::<(), finstack_core::Error>(())
 //! ```
@@ -50,11 +50,11 @@
 //! ## IRR Calculation
 //!
 //! ```rust
-//! use finstack_core::cashflow::performance::irr_periodic;
+//! use finstack_core::cashflow::xirr::InternalRateOfReturn;
 //!
 //! // Initial investment followed by 4 quarterly returns (20% total return)
 //! let cash_flows = vec![-10000.0, 3000.0, 3000.0, 3000.0, 3000.0];
-//! let irr = irr_periodic(&cash_flows, None)?;
+//! let irr = cash_flows.irr(None)?;
 //! assert!(irr > 0.0); // Positive return
 //! # Ok::<(), finstack_core::Error>(())
 //! ```
@@ -72,12 +72,9 @@
 //!     *The Engineering Economist*, 21(4), 237-247.
 
 pub mod discounting;
-pub mod performance;
 pub mod primitives;
-pub(crate) mod utils;
 pub mod xirr;
 
-pub use discounting::{npv, Discountable};
-pub use performance::{irr_periodic, npv as npv_performance};
+pub use discounting::{npv, npv_constant, Discountable};
 pub use primitives::{CFKind, CashFlow};
-pub use xirr::{xirr, xirr_with_daycount};
+pub use xirr::InternalRateOfReturn;

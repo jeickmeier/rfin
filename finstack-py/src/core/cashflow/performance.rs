@@ -39,7 +39,7 @@ use crate::core::common::args::DayCountArg;
 use crate::core::dates::utils::py_to_date;
 use crate::core::dates::PyDayCount;
 use crate::errors::{core_to_py, PyContext};
-use finstack_core::cashflow::irr_periodic;
+use finstack_core::cashflow::xirr::InternalRateOfReturn;
 use pyo3::exceptions::PyTypeError;
 use pyo3::prelude::*;
 use pyo3::types::PyModule;
@@ -162,7 +162,7 @@ pub fn py_npv(
         None => finstack_core::dates::DayCount::Act365F,
     };
 
-    finstack_core::cashflow::performance::npv(&money_flows, discount_rate, base, dc)
+    finstack_core::cashflow::discounting::npv_constant(&money_flows, discount_rate, base, dc)
         .map(|m| m.amount())
         .map_err(core_to_py)
 }
@@ -234,7 +234,7 @@ pub fn py_npv(
     text_signature = "(amounts, guess=None)"
 )]
 pub fn py_irr_periodic(amounts: Vec<f64>, guess: Option<f64>) -> PyResult<f64> {
-    irr_periodic(&amounts, guess).map_err(core_to_py)
+    amounts.irr(guess).map_err(core_to_py)
 }
 
 /// Register performance functions with the Python module.

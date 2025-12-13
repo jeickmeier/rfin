@@ -4,8 +4,7 @@ The `cashflow` module in `finstack-core` provides **foundational building blocks
 
 - **Primitives**: `CashFlow`, `CFKind` and related validation
 - **Discounting**: NPV against market discount curves via the `Discounting` trait
-- **Performance metrics**: NPV and IRR for investment analysis with constant rates
-- **XIRR**: Money‑weighted returns for irregular dated cashflows
+- **XIRR**: IRR and XIRR for investment analysis
 
 This module focuses on **small, composable types** and **deterministic numerics**; instrument‑specific logic belongs in `valuations`, not here.
 
@@ -18,8 +17,7 @@ This module focuses on **small, composable types** and **deterministic numerics*
   - Re‑exports:
     - `primitives::{CashFlow, CFKind}`
     - `discounting::{npv_static, Discountable}`
-    - `performance::{irr_periodic, npv as npv_performance}`
-    - `xirr::{xirr, xirr_with_daycount}`
+    - `xirr::{InternalRateOfReturn}`
 - **`primitives.rs`**
   - Defines:
     - `CFKind`: classification enum for cashflows (fixed coupon, fees, margin flows, principal, recovery, etc.).
@@ -31,19 +29,10 @@ This module focuses on **small, composable types** and **deterministic numerics*
     - `npv_static`: NPV using an explicit `DayCount`.
     - `npv_using_curve_dc`: NPV using the curve’s own `day_count`, for consistency with par‑rate calculations.
   - Integrates with `market_data::traits::Discounting` and `dates::DayCount`.
-- **`performance.rs`**
-  - Constant‑rate performance utilities:
-    - `npv`: NPV of `(Date, f64)` pairs at a constant discount rate.
-    - `irr_periodic`: IRR for evenly spaced scalar cashflows (period 0,1,2,…).
-  - Uses numerically robust solvers from `math::solver`.
 - **`xirr.rs`**
-  - XIRR (money‑weighted return) for irregular schedules:
-    - `xirr_with_daycount`: configurable day count convention.
-    - `xirr`: convenience wrapper using `DayCount::Act365F` (Excel‑compatible).
-  - Handles unsorted inputs, sign checks, and robust root‑finding.
-- **`utils.rs`** (internal)
-  - `signed_year_fraction`: signed `DayCount` year fractions (negative for dates before base).
-  - `has_sign_change`: helper for validating cashflow sign patterns.
+  - **Internal Rate of Return**:
+    - `InternalRateOfReturn` trait: unified interface for periodic and irregular flows.
+    - `solve_rate_of_return`: shared numerical solver logic.
 
 ---
 
@@ -138,10 +127,10 @@ To ensure **par‑rate consistency** between metrics and NPV, use `npv_using_cur
 
 ### NPV with a Constant Discount Rate
 
-For **project or investment analysis** where a single discount rate is sufficient, use `performance::npv`:
+For **project or investment analysis** where a single discount rate is sufficient, use `discounting::npv_constant`:
 
 ```rust
-use finstack_core::cashflow::performance::npv;
+use finstack_core::cashflow::discounting::npv_constant;
 use finstack_core::dates::{Date, DayCount};
 use time::Month;
 
@@ -151,7 +140,7 @@ let cashflows = vec![
     (Date::from_calendar_date(2026, Month::January, 1).unwrap(), 110_000.0),
 ];
 
-let pv = npv(&cashflows, 0.05, Some(base), Some(DayCount::Act365F))?;
+let pv = npv_constant(&cashflows, 0.05, base, DayCount::Act365F)?;
 assert!(pv > 0.0); // positive NPV at 5% hurdle rate
 # Ok::<(), finstack_core::Error>(())
 ```
@@ -160,27 +149,27 @@ This is independent of market curves and uses a scalar solver; it is not meant f
 
 ### IRR for Periodic Cashflows
 
-When cashflows occur at **evenly spaced periods** (0, 1, 2, …), use `irr_periodic`:
+When cashflows occur at **evenly spaced periods** (0, 1, 2, …), use the `InternalRateOfReturn` trait:
 
 ```rust
-use finstack_core::cashflow::performance::irr_periodic;
+use finstack_core::cashflow::xirr::InternalRateOfReturn;
 
 // Annual project: -100k now, 30k/year for 5 years
 let amounts = vec![-100_000.0, 30_000.0, 30_000.0, 30_000.0, 30_000.0, 30_000.0];
 
-let irr = irr_periodic(&amounts, None)?;
+let irr = amounts.irr(None)?;
 assert!(irr > 0.10 && irr < 0.20); // ~15% annual IRR
 # Ok::<(), finstack_core::Error>(())
 ```
 
-`irr_periodic` uses a Newton solver with derivative and a small grid of seeds to improve robustness around challenging regions (e.g., near −100% or very high returns).
+`irr` uses a Newton solver with derivative and a small grid of seeds to improve robustness around challenging regions (e.g., near −100% or very high returns).
 
 ### XIRR for Irregular Cashflows
 
-For **irregularly dated cashflows** (typical in private equity, real estate, or mutual funds), use `xirr` or `xirr_with_daycount`:
+For **irregularly dated cashflows** (typical in private equity, real estate, or mutual funds), use the `InternalRateOfReturn` trait:
 
 ```rust
-use finstack_core::cashflow::{xirr, xirr_with_daycount};
+use finstack_core::cashflow::xirr::InternalRateOfReturn;
 use finstack_core::dates::{Date, DayCount};
 use time::Month;
 
@@ -193,10 +182,10 @@ let flows = vec![
 ];
 
 // Excel‑compatible (Act/365F)
-let irr_act365f = xirr(&flows, None)?;
+let irr_act365f = flows.irr(None)?;
 
 // Alternate day count (e.g., Act/360 for money‑market style)
-let irr_act360 = xirr_with_daycount(&flows, DayCount::Act360, None)?;
+let irr_act360 = flows.as_slice().irr_with_daycount(DayCount::Act360, None)?;
 
 assert!(irr_act365f != irr_act360);
 # Ok::<(), finstack_core::Error>(())
@@ -256,7 +245,7 @@ If you need to extend `CashFlow` itself:
 
 New functionality that depends on discount curves should:
 
-- Live in `discounting.rs` (not in `primitives` or `performance`).
+- Live in `discounting.rs` (not in `primitives`).
 - Accept a `Discounting` implementation and explicit `Date` / `DayCount` arguments.
 - Enforce **currency safety**:
   - All `Money` inputs must share the same currency.
@@ -272,20 +261,14 @@ New functionality that depends on discount curves should:
 
 If you need additional performance metrics or alternative IRR/XIRR flavors:
 
-- Put **constant‑rate investment metrics** in `performance.rs`.
-- Put **date‑aware IRR/XIRR logic** in `xirr.rs`.
+- Put **IRR/XIRR logic** in `xirr.rs`.
 - Reuse solvers from `math::solver` / `math::solver_multi`; do not introduce ad‑hoc solvers.
 - Follow the documentation standards:
   - Explain the financial model and assumptions.
   - Include formulas and references to textbooks or standards (GIPS, Excel, etc.).
   - Provide doctested examples.
 
-### Internal Utilities
 
-Helpers purely for internal use across cashflow modules belong in `utils.rs`:
-
-- Keep them `pub(crate)` unless there is a strong reason to expose them.
-- Maintain clear contracts and tests; avoid leaking implementation details to higher‑level crates.
 
 ---
 

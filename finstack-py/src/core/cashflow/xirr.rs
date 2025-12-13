@@ -37,7 +37,7 @@
 
 use crate::core::dates::utils::py_to_date;
 use crate::errors::{core_to_py, PyContext};
-use finstack_core::cashflow::xirr as core_xirr;
+use finstack_core::cashflow::xirr::InternalRateOfReturn;
 use pyo3::prelude::*;
 use pyo3::types::PyModule;
 use pyo3::Bound;
@@ -130,7 +130,7 @@ pub fn py_xirr(cash_flows: Vec<(Bound<'_, PyAny>, f64)>, guess: Option<f64>) -> 
     }
 
     // Call the core XIRR function
-    core_xirr(&flows, guess).map_err(core_to_py)
+    flows.irr(guess).map_err(core_to_py)
 }
 
 /// Register XIRR function with the Python module.

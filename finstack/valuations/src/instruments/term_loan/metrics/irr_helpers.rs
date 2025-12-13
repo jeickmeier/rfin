@@ -6,7 +6,7 @@
 #![allow(dead_code)]
 
 use crate::instruments::TermLoan;
-use finstack_core::cashflow::xirr::xirr_with_daycount;
+use finstack_core::cashflow::xirr::InternalRateOfReturn;
 use finstack_core::dates::Date;
 use finstack_core::money::Money;
 
@@ -63,7 +63,7 @@ pub(super) fn solve_irr_to_exercise(
     // Convert flows to (Date, f64) for XIRR
     let flows_f64: Vec<(Date, f64)> = flows.iter().map(|(d, m)| (*d, m.amount())).collect();
 
-    xirr_with_daycount(&flows_f64, loan.day_count, None)
+    flows_f64.irr_with_daycount(loan.day_count, None)
 }
 
 /// Solve IRR to a fixed horizon using holder-view cashflows and outstanding at horizon.
@@ -148,5 +148,5 @@ pub(super) fn solve_irr_to_date(
     // Convert flows to (Date, f64) for XIRR
     let flows_f64: Vec<(Date, f64)> = flows.iter().map(|(d, m)| (*d, m.amount())).collect();
 
-    xirr_with_daycount(&flows_f64, loan.day_count, None)
+    flows_f64.irr_with_daycount(loan.day_count, None)
 }

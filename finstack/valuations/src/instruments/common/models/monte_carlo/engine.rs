@@ -1308,9 +1308,8 @@ impl McEngine {
             let cashflow_amounts: Vec<f64> = all_cashflows.iter().map(|(_, amt)| *amt).collect();
 
             // Use finstack_core IRR calculation
-            if let Ok(irr) =
-                finstack_core::cashflow::performance::irr_periodic(&cashflow_amounts, None)
-            {
+            use finstack_core::cashflow::xirr::InternalRateOfReturn;
+            if let Ok(irr) = cashflow_amounts.irr(None) {
                 simulated_path.set_irr(irr);
             }
         }

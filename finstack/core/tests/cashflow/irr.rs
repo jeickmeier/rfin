@@ -13,8 +13,7 @@
 //! - Hull - *Options, Futures, and Other Derivatives* (10th ed), Chapter 4
 //! - Microsoft Excel XIRR function specification
 
-use finstack_core::cashflow::performance::irr_periodic;
-use finstack_core::cashflow::xirr::{xirr, xirr_with_daycount};
+use finstack_core::cashflow::InternalRateOfReturn;
 use finstack_core::dates::{Date, DayCount, DayCountCtx};
 use time::Month;
 
@@ -76,7 +75,7 @@ fn xirr_brealey_myers_three_year_annuity() {
         (d(2027, 1, 1), 400.0),
     ];
 
-    let result = xirr(&flows, None).expect("XIRR calculation should succeed");
+    let result = flows.irr(None).expect("XIRR calculation should succeed");
 
     // Verify NPV at computed rate is approximately zero
     let npv_at_irr = compute_dated_npv(&flows, result);
@@ -105,7 +104,7 @@ fn xirr_brealey_myers_three_year_annuity() {
 fn xirr_hull_simple_annual_return() {
     let flows = vec![(d(2025, 1, 1), -1000.0), (d(2026, 1, 1), 1100.0)];
 
-    let result = xirr(&flows, None).expect("XIRR calculation should succeed");
+    let result = flows.irr(None).expect("XIRR calculation should succeed");
 
     // 2025 is not a leap year, so year fraction = 365/365 = 1.0
     // Expected: (1100/1000)^(1/1) - 1 = 0.10
@@ -146,7 +145,7 @@ fn xirr_gips_pe_j_curve() {
         (d(2024, 1, 1), 800_000.0),  // Exit distribution
     ];
 
-    let result = xirr(&flows, None).expect("XIRR calculation should succeed");
+    let result = flows.irr(None).expect("XIRR calculation should succeed");
 
     // Verify NPV at computed rate is approximately zero
     let npv_at_irr = compute_dated_npv(&flows, result);
@@ -176,7 +175,7 @@ fn xirr_gips_vc_high_return() {
         (d(2023, 7, 1), 500_000.0), // 1.5 years later
     ];
 
-    let result = xirr(&flows, None).expect("XIRR calculation should succeed");
+    let result = flows.irr(None).expect("XIRR calculation should succeed");
 
     // Verify NPV at computed rate is approximately zero
     let npv_at_irr = compute_dated_npv(&flows, result);
@@ -214,7 +213,7 @@ fn xirr_excel_quarterly_returns() {
         (d(2025, 1, 15), 2_750.0),
     ];
 
-    let result = xirr(&flows, None).expect("XIRR calculation should succeed");
+    let result = flows.irr(None).expect("XIRR calculation should succeed");
 
     // Verify NPV at computed rate is approximately zero
     let npv_at_irr = compute_dated_npv(&flows, result);
@@ -247,7 +246,7 @@ fn xirr_excel_irregular_dates() {
         (d(2025, 6, 15), 25_000.0),
     ];
 
-    let result = xirr(&flows, None).expect("XIRR calculation should succeed");
+    let result = flows.irr(None).expect("XIRR calculation should succeed");
 
     // Verify NPV at computed rate is approximately zero
     let npv_at_irr = compute_dated_npv(&flows, result);
@@ -273,14 +272,16 @@ fn xirr_excel_irregular_dates() {
 /// Test that Act/365F and Act/360 produce different but related results
 #[test]
 fn xirr_daycount_act365f_vs_act360() {
-    let flows = vec![
+    let flows = [
         (d(2024, 1, 1), -100_000.0),
         (d(2024, 7, 1), 102_500.0), // 6-month return
     ];
 
-    let result_365 = xirr_with_daycount(&flows, DayCount::Act365F, None)
+    let result_365 = flows
+        .irr_with_daycount(DayCount::Act365F, None)
         .expect("XIRR with Act/365F should succeed");
-    let result_360 = xirr_with_daycount(&flows, DayCount::Act360, None)
+    let result_360 = flows
+        .irr_with_daycount(DayCount::Act360, None)
         .expect("XIRR with Act/360 should succeed");
 
     // Both should be positive returns
@@ -307,9 +308,9 @@ fn xirr_daycount_act365f_vs_act360() {
 /// Test XIRR with exactly break-even return (IRR = 0)
 #[test]
 fn xirr_breakeven_zero_return() {
-    let flows = vec![(d(2024, 1, 1), -100_000.0), (d(2025, 1, 1), 100_000.0)];
+    let flows = [(d(2024, 1, 1), -100_000.0), (d(2025, 1, 1), 100_000.0)];
 
-    let result = xirr(&flows, None).expect("XIRR calculation should succeed");
+    let result = flows.irr(None).expect("XIRR calculation should succeed");
 
     // Should be exactly 0% return
     // 2024 is leap year: 366 days, so year fraction = 366/365
@@ -331,7 +332,7 @@ fn xirr_same_day_instant_return() {
 
     // This may succeed or fail depending on implementation
     // The important thing is no panic
-    let result = xirr(&flows, None);
+    let result = flows.irr(None);
     if let Ok(irr) = result {
         // If it succeeds, verify NPV at IRR is reasonable
         let npv_at_irr = compute_dated_npv(&flows, irr);
@@ -351,7 +352,7 @@ fn xirr_long_duration_30_years() {
         (d(2054, 1, 1), 500_000.0), // 30 years later
     ];
 
-    let result = xirr(&flows, None).expect("XIRR calculation should succeed");
+    let result = flows.irr(None).expect("XIRR calculation should succeed");
 
     // Verify NPV at computed rate is approximately zero
     let npv_at_irr = compute_dated_npv(&flows, result);
@@ -380,7 +381,7 @@ fn irr_handles_near_minus_one_singularity() {
     // Cashflows that solve to r approaching -1 (near-total loss)
     // Investment: -100, Return: 0.5 (99.5% loss)
     let amounts = vec![-100.0, 0.5];
-    let result = irr_periodic(&amounts, None);
+    let result = amounts.irr(None);
 
     match result {
         Ok(irr) => {
@@ -415,8 +416,8 @@ fn irr_handles_near_minus_one_singularity() {
 fn irr_handles_total_loss() {
     // Total loss scenario: invest 100, get 0 back
     // This has no mathematical solution (would require r = -infinity)
-    let amounts = vec![-100.0, 0.0];
-    let result = irr_periodic(&amounts, None);
+    let amounts = [-100.0, 0.0];
+    let result = amounts.irr(None);
 
     // Should error (no sign change) or handle gracefully
     // Zero return means no sign change since -100 and 0 don't have opposite signs
@@ -430,7 +431,7 @@ fn irr_handles_total_loss() {
 fn irr_handles_99_percent_loss() {
     // Severe loss: invest 100, get 1 back
     let amounts = vec![-100.0, 1.0];
-    let result = irr_periodic(&amounts, Some(-0.5)); // Provide hint near -99%
+    let result = amounts.irr(Some(-0.5)); // Provide hint near -99%
 
     match result {
         Ok(irr) => {
@@ -462,7 +463,7 @@ fn irr_multiple_sign_changes_finds_a_root() {
     // These can have multiple mathematical IRR solutions
     // Pattern: -100, +320, -320, +100 (mining project style)
     let amounts = vec![-100.0, 320.0, -320.0, 100.0];
-    let result = irr_periodic(&amounts, None);
+    let result = amounts.irr(None);
 
     match result {
         Ok(irr) => {
@@ -485,7 +486,7 @@ fn irr_two_sign_changes_pattern() {
     // Simpler two-sign-change pattern: invest, profit, reinvest
     // -100, +200, -50
     let amounts = vec![-100.0, 200.0, -50.0];
-    let result = irr_periodic(&amounts, None);
+    let result = amounts.irr(None);
 
     if let Ok(irr) = result {
         let npv_at_irr = compute_periodic_npv(&amounts, irr);
@@ -505,7 +506,7 @@ fn irr_two_sign_changes_pattern() {
 fn irr_handles_very_high_return() {
     // VC-style return: 10x in one period (900% IRR)
     let amounts = vec![-100.0, 1000.0];
-    let result = irr_periodic(&amounts, None);
+    let result = amounts.irr(None);
 
     let irr = result.expect("High return IRR should converge");
     assert!(
@@ -526,7 +527,7 @@ fn irr_handles_very_high_return() {
 fn irr_handles_100x_return() {
     // Unicorn VC return: 100x (9900% IRR)
     let amounts = vec![-100.0, 10000.0];
-    let result = irr_periodic(&amounts, Some(50.0)); // Provide high initial guess
+    let result = amounts.irr(Some(50.0)); // Provide high initial guess
 
     let irr = result.expect("100x return IRR should converge");
     assert!(
@@ -547,7 +548,7 @@ fn irr_handles_100x_return() {
 fn irr_handles_small_positive_return() {
     // Near-zero positive return: 0.1%
     let amounts = vec![-100.0, 100.1];
-    let result = irr_periodic(&amounts, None);
+    let result = amounts.irr(None);
 
     let irr = result.expect("Small positive return IRR should converge");
     assert!(
@@ -568,7 +569,7 @@ fn irr_handles_small_positive_return() {
 fn irr_handles_small_negative_return() {
     // Near-zero negative return: -0.1%
     let amounts = vec![-100.0, 99.9];
-    let result = irr_periodic(&amounts, None);
+    let result = amounts.irr(None);
 
     let irr = result.expect("Small negative return IRR should converge");
     assert!(
@@ -597,7 +598,7 @@ fn xirr_handles_very_short_duration() {
         (d(2025, 1, 8), 101_000.0), // 1% return in 1 week
     ];
 
-    let result = xirr(&flows, None);
+    let result = flows.irr(None);
     let irr = result.expect("Short duration XIRR should converge");
 
     // 1% return in 1 week ≈ 67% annualized (approximately (1.01)^52 - 1)
@@ -625,7 +626,7 @@ fn xirr_handles_same_day_multiple_flows() {
         (d(2026, 1, 1), 110_000.0),
     ];
 
-    let result = xirr(&flows, None);
+    let result = flows.irr(None);
     let irr = result.expect("Same-day flows XIRR should converge");
 
     // Total: -100K, +110K over 1 year = 10% return
@@ -652,7 +653,7 @@ fn xirr_handles_distant_horizon() {
         (d(2075, 1, 1), 1_000_000.0), // 10x over 50 years
     ];
 
-    let result = xirr(&flows, None);
+    let result = flows.irr(None);
     let irr = result.expect("Long horizon XIRR should converge");
 
     // 10x over 50 years: IRR = 10^(1/50) - 1 ≈ 4.7%
@@ -678,44 +679,44 @@ fn xirr_handles_distant_horizon() {
 
 #[test]
 fn irr_rejects_single_cashflow() {
-    let amounts = vec![-100.0];
-    let result = irr_periodic(&amounts, None);
+    let amounts = [-100.0];
+    let result = amounts.irr(None);
     assert!(result.is_err(), "Single cashflow should error");
 }
 
 #[test]
 fn irr_rejects_empty_cashflows() {
     let amounts: Vec<f64> = vec![];
-    let result = irr_periodic(&amounts, None);
+    let result = amounts.irr(None);
     assert!(result.is_err(), "Empty cashflows should error");
 }
 
 #[test]
 fn irr_rejects_all_positive_cashflows() {
     // All positive = no investment pattern
-    let amounts = vec![100.0, 200.0, 300.0];
-    let result = irr_periodic(&amounts, None);
+    let amounts = [100.0, 200.0, 300.0];
+    let result = amounts.irr(None);
     assert!(result.is_err(), "All positive cashflows should error");
 }
 
 #[test]
 fn irr_rejects_all_negative_cashflows() {
     // All negative = no return pattern
-    let amounts = vec![-100.0, -200.0, -300.0];
-    let result = irr_periodic(&amounts, None);
+    let amounts = [-100.0, -200.0, -300.0];
+    let result = amounts.irr(None);
     assert!(result.is_err(), "All negative cashflows should error");
 }
 
 #[test]
 fn xirr_rejects_single_flow() {
-    let flows = vec![(d(2025, 1, 1), -100_000.0)];
-    let result = xirr(&flows, None);
+    let flows = [(d(2025, 1, 1), -100_000.0)];
+    let result = flows.irr(None);
     assert!(result.is_err(), "Single dated flow should error");
 }
 
 #[test]
 fn xirr_rejects_all_same_sign() {
-    let flows = vec![(d(2025, 1, 1), 100_000.0), (d(2026, 1, 1), 200_000.0)];
-    let result = xirr(&flows, None);
+    let flows = [(d(2025, 1, 1), 100_000.0), (d(2026, 1, 1), 200_000.0)];
+    let result = flows.irr(None);
     assert!(result.is_err(), "All same sign flows should error");
 }
