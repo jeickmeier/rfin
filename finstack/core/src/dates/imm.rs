@@ -116,6 +116,18 @@ pub fn next_imm(date: Date) -> Date {
     next_date_from_months(date, &QUARTERLY_MONTHS, third_wednesday)
 }
 
+/// Check if a date is a CDS roll date (20th of Mar/Jun/Sep/Dec).
+#[must_use]
+pub fn is_cds_date(date: Date) -> bool {
+    if date.day() != 20 {
+        return false;
+    }
+    matches!(
+        date.month(),
+        Month::March | Month::June | Month::September | Month::December
+    )
+}
+
 /// Return the **next CDS roll date** (20-Mar/20-Jun/20-Sep/20-Dec) **strictly
 /// after** `date`.
 #[must_use]

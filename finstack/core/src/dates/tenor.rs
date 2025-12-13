@@ -429,6 +429,84 @@ impl Tenor {
     pub const fn one_year() -> Self {
         Self::new(1, TenorUnit::Years)
     }
+
+    /// Convenience constructor for Annual frequency (1 Year).
+    #[inline]
+    pub const fn annual() -> Self {
+        Self::new(1, TenorUnit::Years)
+    }
+
+    /// Convenience constructor for Semi-Annual frequency (6 Months).
+    #[inline]
+    pub const fn semi_annual() -> Self {
+        Self::new(6, TenorUnit::Months)
+    }
+
+    /// Convenience constructor for Quarterly frequency (3 Months).
+    #[inline]
+    pub const fn quarterly() -> Self {
+        Self::new(3, TenorUnit::Months)
+    }
+
+    /// Convenience constructor for Bi-Monthly frequency (2 Months).
+    #[inline]
+    pub const fn bimonthly() -> Self {
+        Self::new(2, TenorUnit::Months)
+    }
+
+    /// Convenience constructor for Monthly frequency (1 Month).
+    #[inline]
+    pub const fn monthly() -> Self {
+        Self::new(1, TenorUnit::Months)
+    }
+
+    /// Convenience constructor for Bi-Weekly frequency (14 Days).
+    #[inline]
+    pub const fn biweekly() -> Self {
+        Self::new(14, TenorUnit::Days)
+    }
+
+    /// Convenience constructor for Weekly frequency (7 Days).
+    #[inline]
+    pub const fn weekly() -> Self {
+        Self::new(7, TenorUnit::Days)
+    }
+
+    /// Convenience constructor for Daily frequency (1 Day).
+    #[inline]
+    pub const fn daily() -> Self {
+        Self::new(1, TenorUnit::Days)
+    }
+
+    /// Create a Tenor from payments per year.
+    ///
+    /// Returns an error if payments_per_year is 0 or does not divide 12 evenly.
+    pub fn from_payments_per_year(payments: u32) -> crate::Result<Self> {
+        if payments == 0 {
+            return Err(InputError::InvalidTenor {
+                tenor: format!("payments={}", payments),
+                reason: "payments_per_year must be positive".to_string(),
+            }
+            .into());
+        }
+
+        // Try to fit into months first
+        if 12 % payments == 0 {
+            let months = 12 / payments;
+            Ok(Self::new(months, TenorUnit::Months))
+        } else {
+            // If it doesn't fit into months, try roughly into weeks (52)
+            // But standard market convention usually implies months.
+            // Frequency::from_payments_per_year used to fail if not dividing 12.
+            // We'll stick to that behavior for now to match strictness.
+            Err(InputError::InvalidTenor {
+                tenor: format!("payments={}", payments),
+                reason: "payments_per_year for Tenor currently requires even division of 12 months"
+                    .to_string(),
+            }
+            .into())
+        }
+    }
 }
 
 impl std::fmt::Display for Tenor {

@@ -63,9 +63,7 @@ pub use calendar::business_days::available_calendars;
 
 mod schedule_iter;
 
-pub use schedule_iter::{
-    Frequency, Schedule, ScheduleBuilder, ScheduleSpec, ScheduleWarning, StubKind,
-};
+pub use schedule_iter::{Schedule, ScheduleBuilder, ScheduleSpec, ScheduleWarning, StubKind};
 
 pub use calendar::composite::CompositeCalendar;
 

@@ -76,7 +76,7 @@
 //! - **ACT/ACT (ISMA)**: Uses the actual number of days in the coupon period containing the date
 //!
 //! ```
-//! use finstack_core::dates::{Date, DayCount, Frequency, DayCountCtx};
+//! use finstack_core::dates::{Date, DayCount, Tenor, DayCountCtx};
 //! use time::Month;
 //!
 //! // Example: 6-month period in a leap year
@@ -88,7 +88,7 @@
 //!
 //! // ACT/ACT (ISMA): requires frequency for coupon period context
 //! // Returns year fractions: a full 6-month period = 0.5 years
-//! let freq = Frequency::Months(6); // Semi-annual
+//! let freq = Tenor::semi_annual(); // Semi-annual
 //! let yf_isma = DayCount::ActActIsma
 //!     .year_fraction(start, end, DayCountCtx { calendar: None, frequency: Some(freq), bus_basis: None })
 //!     .expect("Year fraction calculation should succeed");
@@ -103,9 +103,8 @@ use smallvec::SmallVec;
 use time::{Date, Duration, Month};
 
 use crate::dates::date_extensions::BusinessDayIter;
-use crate::dates::schedule_iter::Frequency;
-use crate::dates::CalendarRegistry;
-use crate::dates::HolidayCalendar;
+use crate::dates::tenor::TenorUnit;
+use crate::dates::{BusinessDayConvention, CalendarRegistry, HolidayCalendar, Tenor};
 use crate::error::InputError;
 
 /// Optional context for day-count year-fraction calculations.
@@ -115,12 +114,22 @@ use crate::error::InputError;
 /// - `Act/Act (ISMA)` requires the coupon `frequency`.
 #[derive(Clone, Copy, Default)]
 pub struct DayCountCtx<'a> {
-    /// Optional holiday calendar for business-day based conventions (e.g., Bus/252).
+    /// Holiday calendar for business day conventions
     pub calendar: Option<&'a dyn HolidayCalendar>,
-    /// Optional coupon frequency for coupon-aware conventions (e.g., Act/Act ISMA).
-    pub frequency: Option<Frequency>,
-    /// Optional business days per year basis for Bus/N conventions (default 252 when None).
+    /// Payment frequency (required for ACT/ACT ISMA)
+    pub frequency: Option<Tenor>,
+    /// Business day convention (required for Bus/252)
     pub bus_basis: Option<u16>,
+}
+
+impl<'a> std::fmt::Debug for DayCountCtx<'a> {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("DayCountCtx")
+            .field("calendar", &self.calendar.map(|_| "HolidayCalendar"))
+            .field("frequency", &self.frequency)
+            .field("bus_basis", &self.bus_basis)
+            .finish()
+    }
 }
 
 #[cfg(feature = "serde")]
@@ -133,7 +142,7 @@ pub struct DayCountCtxState {
     /// Optional calendar code (e.g. "target2").
     pub calendar_id: Option<String>,
     /// Optional coupon frequency for Act/Act ISMA.
-    pub frequency: Option<Frequency>,
+    pub frequency: Option<Tenor>,
     /// Optional custom business-day divisor (defaults to 252 when `None`).
     pub bus_basis: Option<u16>,
 }
@@ -729,27 +738,17 @@ fn year_fraction_act_act_isda(start: Date, end: Date) -> f64 {
 // ACT/ACT (ISMA/ICMA) helper
 // -------------------------------------------------------------------------------------------------
 /// Calculate year fraction for ACT/ACT (ISMA/ICMA) convention with coupon-period awareness.
-///
-/// Unlike ISDA which splits by calendar years, ISMA divides the period into quasi-coupon
-/// periods that match the instrument's payment frequency. The year fraction represents
-/// actual time in years, so a full 6-month semi-annual period = 0.5 years.
-///
-/// The algorithm:
-/// 1. Generate quasi-coupon periods based on the payment frequency
-/// 2. For each period, calculate: (actual days in slice) / (actual days in coupon period) × (coupon period in years)
-/// 3. Sum the fractions from all periods
-///
-/// This approach ensures that all coupon payments are valued consistently,
-/// which is essential for bond pricing and accrual calculations.
-fn year_fraction_act_act_isma(start: Date, end: Date, freq: Frequency) -> crate::Result<f64> {
+fn year_fraction_act_act_isma(start: Date, end: Date, freq: Tenor) -> crate::Result<f64> {
     if start == end {
         return Ok(0.0);
     }
 
     // Coupon length in years based on frequency (e.g., 0.5 for semi-annual, 0.25 for quarterly)
-    let coupon_length_years = match freq {
-        Frequency::Months(m) => m as f64 / 12.0,
-        Frequency::Days(d) => d as f64 / 365.0,
+    let coupon_length_years = match freq.unit {
+        TenorUnit::Months => freq.count as f64 / 12.0,
+        TenorUnit::Years => freq.count as f64,
+        TenorUnit::Weeks => freq.count as f64 / 52.0, // Approximation standard for ISMA? Usually ISMA implies periodic.
+        TenorUnit::Days => freq.count as f64 / 365.0, // Or 366? Usually ActAct ISMA is used with regular frequencies (Months/Years)
     };
 
     // For ISMA, we need to work with quasi-coupon periods
@@ -770,10 +769,7 @@ fn year_fraction_act_act_isma(start: Date, end: Date, freq: Frequency) -> crate:
     periods.push(current);
 
     while current < extended_end {
-        let next = match freq {
-            Frequency::Months(m) => current.add_months(m as i32),
-            Frequency::Days(d) => current + Duration::days(d as i64),
-        };
+        let next = freq.add_to_date(current, None, BusinessDayConvention::Unadjusted)?;
 
         current = if next > extended_end {
             extended_end
@@ -811,19 +807,23 @@ fn year_fraction_act_act_isma(start: Date, end: Date, freq: Frequency) -> crate:
 }
 
 /// Extend start date backward to find the beginning of its coupon period.
-fn extend_backward_for_coupon_period(date: Date, freq: Frequency) -> Date {
-    match freq {
-        Frequency::Months(m) => date.add_months(-(m as i32)),
-        Frequency::Days(d) => date - Duration::days(d as i64),
+fn extend_backward_for_coupon_period(date: Date, freq: Tenor) -> Date {
+    match freq.unit {
+        TenorUnit::Months => date.add_months(-(freq.count as i32)),
+        TenorUnit::Years => date.add_months(-(freq.count as i32) * 12),
+        TenorUnit::Weeks => date - Duration::weeks(freq.count as i64),
+        TenorUnit::Days => date - Duration::days(freq.count as i64),
     }
 }
 
 /// Extend end date forward to find the end of its coupon period.
-fn extend_forward_for_coupon_period(date: Date, freq: Frequency) -> Date {
-    match freq {
-        Frequency::Months(m) => date.add_months(m as i32),
-        Frequency::Days(d) => date + Duration::days(d as i64),
-    }
+fn extend_forward_for_coupon_period(date: Date, freq: Tenor) -> Date {
+    // Just use generic add
+    // Note: We ignore bad business day conventions here because ISMA calculation
+    // usually works on unadjusted dates or the schedule is pre-adjusted?
+    // Standard abstract ISMA uses unadjusted periods.
+    freq.add_to_date(date, None, BusinessDayConvention::Unadjusted)
+        .unwrap_or(date)
 }
 
 // -------------------------------------------------------------------------------------------------
@@ -1159,7 +1159,7 @@ mod tests {
         // Test ACT/ACT (ISMA) with semi-annual frequency
         let start = make_date(2025, 1, 15);
         let end = make_date(2025, 7, 15);
-        let freq = Frequency::Months(6); // Semi-annual
+        let freq = Tenor::semi_annual(); // Semi-annual
 
         let yf = DayCount::ActActIsma
             .year_fraction(
@@ -1182,7 +1182,7 @@ mod tests {
         // Test ACT/ACT (ISMA) with quarterly frequency
         let start = make_date(2025, 1, 1);
         let end = make_date(2025, 4, 1);
-        let freq = Frequency::Months(3); // Quarterly
+        let freq = Tenor::quarterly(); // Quarterly
 
         let yf = DayCount::ActActIsma
             .year_fraction(
@@ -1205,7 +1205,7 @@ mod tests {
         // Test ACT/ACT (ISMA) with annual frequency
         let start = make_date(2025, 1, 1);
         let end = make_date(2026, 1, 1);
-        let freq = Frequency::Months(12); // Annual
+        let freq = Tenor::annual(); // Annual
 
         let yf = DayCount::ActActIsma
             .year_fraction(
@@ -1228,7 +1228,7 @@ mod tests {
         // Test ACT/ACT (ISMA) spanning a leap year boundary
         let start = make_date(2023, 7, 1); // Mid-2023 (non-leap)
         let end = make_date(2024, 7, 1); // Mid-2024 (leap year)
-        let freq = Frequency::Months(6); // Semi-annual
+        let freq = Tenor::semi_annual(); // Semi-annual
 
         let yf = DayCount::ActActIsma
             .year_fraction(
@@ -1251,7 +1251,7 @@ mod tests {
         // Test ACT/ACT (ISMA) for a partial coupon period
         let start = make_date(2025, 1, 15); // Mid-month start
         let end = make_date(2025, 3, 15); // Two months later
-        let freq = Frequency::Months(6); // Semi-annual coupons
+        let freq = Tenor::semi_annual(); // Semi-annual coupons
 
         let yf = DayCount::ActActIsma
             .year_fraction(
@@ -1275,7 +1275,7 @@ mod tests {
         // Test ACT/ACT (ISMA) with monthly frequency
         let start = make_date(2025, 1, 1);
         let end = make_date(2025, 2, 1);
-        let freq = Frequency::Months(1); // Monthly
+        let freq = Tenor::monthly(); // Monthly
 
         let yf = DayCount::ActActIsma
             .year_fraction(
@@ -1304,7 +1304,7 @@ mod tests {
         // ACT/ACT (ISMA) should error on inverted dates
         let start = make_date(2025, 1, 1);
         let end = make_date(2024, 1, 1);
-        let freq = Frequency::Months(6);
+        let freq = Tenor::semi_annual();
 
         assert!(DayCount::ActActIsma
             .year_fraction(
@@ -1323,7 +1323,7 @@ mod tests {
     fn actact_isma_equal_dates() {
         // ACT/ACT (ISMA) should return 0.0 for equal dates
         let date = make_date(2025, 1, 1);
-        let freq = Frequency::Months(6);
+        let freq = Tenor::semi_annual();
 
         let yf = DayCount::ActActIsma
             .year_fraction(
@@ -1344,7 +1344,7 @@ mod tests {
         // Compare ACT/ACT (ISMA) vs ACT/ACT (ISDA) for the same period
         let start = make_date(2024, 6, 15);
         let end = make_date(2025, 6, 15);
-        let freq = Frequency::Months(6); // Semi-annual
+        let freq = Tenor::semi_annual(); // Semi-annual
 
         let yf_isda = DayCount::ActAct
             .year_fraction(start, end, DayCountCtx::default())
