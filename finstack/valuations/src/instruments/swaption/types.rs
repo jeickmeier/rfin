@@ -719,7 +719,7 @@ impl crate::instruments::common::traits::Instrument for Swaption {
         crate::pricer::InstrumentType::Swaption
     }
 
-    fn as_any(&self) -> &dyn ::std::any::Any {
+    fn as_any(&self) -> &dyn::std::any::Any {
         self
     }
 
@@ -1147,7 +1147,7 @@ impl crate::instruments::common::traits::Instrument for BermudanSwaption {
         crate::pricer::InstrumentType::BermudanSwaption
     }
 
-    fn as_any(&self) -> &dyn ::std::any::Any {
+    fn as_any(&self) -> &dyn::std::any::Any {
         self
     }
 

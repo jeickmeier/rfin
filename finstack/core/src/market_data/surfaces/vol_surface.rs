@@ -575,20 +575,18 @@ impl VolSurface {
                 return Err(InputError::NegativeValue.into());
             }
         }
-        let array = Array2::from_shape_vec(
-            (expiries.len(), strikes.len()),
-            vols_row_major.to_vec(),
-        )
-        .map_err(|e| {
-            // This should never happen given the length check above, but provide context if it does
-            crate::Error::Validation(format!(
+        let array =
+            Array2::from_shape_vec((expiries.len(), strikes.len()), vols_row_major.to_vec())
+                .map_err(|e| {
+                    // This should never happen given the length check above, but provide context if it does
+                    crate::Error::Validation(format!(
                 "failed to construct volatility grid: expected shape ({}, {}), got {} elements: {}",
                 expiries.len(),
                 strikes.len(),
                 vols_row_major.len(),
                 e
             ))
-        })?;
+                })?;
         Ok(Self {
             id: CurveId::new(id.as_ref()),
             expiries: expiries.to_vec().into_boxed_slice(),
