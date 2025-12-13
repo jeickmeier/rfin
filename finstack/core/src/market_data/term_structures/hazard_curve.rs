@@ -77,7 +77,8 @@ use crate::{
     market_data::traits::{Survival, TermStructure},
     math::interp::{
         strategies::{LinearStrategy, LogLinearStrategy},
-        ExtrapolationPolicy, InterpolationStrategy,
+        types::Interp,
+        ExtrapolationPolicy, InterpStyle, InterpolationStrategy,
     },
     types::CurveId,
 };
@@ -105,7 +106,7 @@ use crate::{
 /// # Thread Safety
 ///
 /// Immutable after construction; safe to share via `Arc<HazardCurve>`.
-#[derive(Clone, Debug)]
+#[derive(Debug)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 #[cfg_attr(
     feature = "serde",
@@ -134,6 +135,28 @@ pub struct HazardCurve {
     par_spreads_bp: Box<[f64]>,
     /// Default interpolation for par spreads
     par_interp: ParInterp,
+    /// Interpolator for survival probabilities
+    interp: Interp,
+}
+
+impl Clone for HazardCurve {
+    fn clone(&self) -> Self {
+        Self {
+            id: self.id.clone(),
+            base: self.base,
+            knots: self.knots.clone(),
+            lambdas: self.lambdas.clone(),
+            recovery_rate: self.recovery_rate,
+            issuer: self.issuer.clone(),
+            seniority: self.seniority,
+            currency: self.currency,
+            day_count: self.day_count,
+            par_tenors: self.par_tenors.clone(),
+            par_spreads_bp: self.par_spreads_bp.clone(),
+            par_interp: self.par_interp,
+            interp: self.interp.clone(),
+        }
+    }
 }
 
 /// Raw serializable state of a HazardCurve
@@ -252,25 +275,7 @@ impl HazardCurve {
         if t <= 0.0 {
             return 1.0;
         }
-        let mut accum: f64 = 0.0;
-        let mut prev: f64 = 0.0;
-        for (i, &k) in self.knots.iter().enumerate() {
-            let dt = if t <= k { t - prev } else { k - prev };
-            accum += self.lambdas[i] * dt;
-            prev = k;
-            if t <= k {
-                break;
-            }
-        }
-        // If t beyond last knot, extend with last lambda
-        if let Some(&last_knot) = self.knots.last() {
-            if t > last_knot {
-                if let Some(&last_lambda) = self.lambdas.last() {
-                    accum += last_lambda * (t - last_knot);
-                }
-            }
-        }
-        (-accum).exp()
+        self.interp.interp(t)
     }
 
     /// Default probability between `t1` and `t2`.
@@ -689,6 +694,40 @@ impl HazardCurveBuilder {
                 .expect("f64 comparison should always be comparable")
         });
         let (p_ten, p_spd): (Vec<f64>, Vec<f64>) = par_pts.into_iter().unzip();
+
+        // Convert hazard rates to survival probabilities for interpolation
+        // S(t_i) = exp(- sum(lambda_j * dt_j))
+        // We anchor at (0.0, 1.0) ensuring we always have at least 2 points (if N >= 1)
+        // and that S(0) = 1.
+        let mut interp_kvec = Vec::with_capacity(kvec.len() + 1);
+        let mut interp_svec = Vec::with_capacity(kvec.len() + 1);
+
+        interp_kvec.push(0.0);
+        interp_svec.push(1.0);
+
+        let mut accum = 0.0;
+        let mut prev_t = 0.0;
+
+        for (&t, &lambda) in kvec.iter().zip(lvec.iter()) {
+            if t <= 1e-9 {
+                prev_t = t;
+                continue;
+            }
+            accum += lambda * (t - prev_t);
+            interp_kvec.push(t);
+            interp_svec.push((-accum).exp());
+            prev_t = t;
+        }
+
+        // Build interpolator: LogLinear style implies constant hazard rate
+        // Extrapolate with FlatForward (constant hazard rate at tail)
+        let interp = super::common::build_interp(
+            InterpStyle::LogLinear,
+            interp_kvec.into_boxed_slice(),
+            interp_svec.into_boxed_slice(),
+            ExtrapolationPolicy::FlatForward,
+        )?;
+
         Ok(HazardCurve {
             id: self.id,
             base: self.base,
@@ -702,6 +741,7 @@ impl HazardCurveBuilder {
             par_tenors: p_ten.into_boxed_slice(),
             par_spreads_bp: p_spd.into_boxed_slice(),
             par_interp: self.par_interp,
+            interp,
         })
     }
 }

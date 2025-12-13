@@ -69,6 +69,7 @@
 //!     Wiley Finance. Chapters 6-8 (Tranche pricing and base correlation).
 
 use crate::error::InputError;
+use crate::math::interp::{types::Interp, ExtrapolationPolicy, InterpStyle};
 use crate::types::CurveId;
 use crate::Result;
 
@@ -290,9 +291,12 @@ pub enum SmoothingMethod {
 /// - Detachment points are strictly increasing
 /// - Correlations ∈ [0, 1]
 /// - Base correlation typically increases with detachment (equity < mezzanine < senior)
-#[derive(Clone, Debug)]
+#[derive(Debug)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
-#[cfg_attr(feature = "serde", serde(deny_unknown_fields))]
+#[cfg_attr(
+    feature = "serde",
+    serde(try_from = "RawBaseCorrelationCurve", into = "RawBaseCorrelationCurve")
+)]
 pub struct BaseCorrelationCurve {
     /// Curve identifier (typically index name + maturity)
     pub id: CurveId,
@@ -300,6 +304,55 @@ pub struct BaseCorrelationCurve {
     pub detachment_points: Vec<f64>,
     /// Base correlation values corresponding to each detachment point
     pub correlations: Vec<f64>,
+    /// Interpolator for base correlations
+    interp: Interp,
+}
+
+#[cfg(feature = "serde")]
+#[derive(serde::Serialize, serde::Deserialize)]
+#[serde(deny_unknown_fields)]
+struct RawBaseCorrelationCurve {
+    id: CurveId,
+    detachment_points: Vec<f64>,
+    correlations: Vec<f64>,
+}
+
+#[cfg(feature = "serde")]
+impl From<BaseCorrelationCurve> for RawBaseCorrelationCurve {
+    fn from(curve: BaseCorrelationCurve) -> Self {
+        RawBaseCorrelationCurve {
+            id: curve.id,
+            detachment_points: curve.detachment_points,
+            correlations: curve.correlations,
+        }
+    }
+}
+
+#[cfg(feature = "serde")]
+impl TryFrom<RawBaseCorrelationCurve> for BaseCorrelationCurve {
+    type Error = crate::Error;
+
+    fn try_from(raw: RawBaseCorrelationCurve) -> crate::Result<Self> {
+        let points: Vec<(f64, f64)> = raw
+            .detachment_points
+            .iter()
+            .copied()
+            .zip(raw.correlations.iter().copied())
+            .collect();
+
+        BaseCorrelationCurve::builder(raw.id).points(points).build()
+    }
+}
+
+impl Clone for BaseCorrelationCurve {
+    fn clone(&self) -> Self {
+        Self {
+            id: self.id.clone(),
+            detachment_points: self.detachment_points.clone(),
+            correlations: self.correlations.clone(),
+            interp: self.interp.clone(),
+        }
+    }
 }
 
 impl BaseCorrelationCurve {
@@ -313,49 +366,7 @@ impl BaseCorrelationCurve {
     /// Uses linear interpolation between points and flat extrapolation
     /// beyond the curve boundaries.
     pub fn correlation(&self, detachment_pct: f64) -> f64 {
-        if self.detachment_points.is_empty() {
-            return 0.0;
-        }
-
-        if detachment_pct <= self.detachment_points[0] {
-            return self.correlations[0];
-        }
-        if let (Some(&last_detachment), Some(&last_correlation)) =
-            (self.detachment_points.last(), self.correlations.last())
-        {
-            if detachment_pct >= last_detachment {
-                return last_correlation;
-            }
-        }
-
-        // Find bracketing points
-        match self.find_bracket(detachment_pct) {
-            Some((i, j)) => {
-                // Linear interpolation
-                let x1 = self.detachment_points[i];
-                let x2 = self.detachment_points[j];
-                let y1 = self.correlations[i];
-                let y2 = self.correlations[j];
-
-                if (x2 - x1).abs() < 1e-12 {
-                    return y1;
-                }
-
-                let t = (detachment_pct - x1) / (x2 - x1);
-                y1 + t * (y2 - y1)
-            }
-            None => {
-                // Fallback (should not reach here due to boundary checks)
-                if detachment_pct < self.detachment_points[0] {
-                    self.correlations[0]
-                } else {
-                    *self
-                        .correlations
-                        .last()
-                        .expect("correlations should not be empty")
-                }
-            }
-        }
+        self.interp.interp(detachment_pct)
     }
 
     /// Raw detachment points used to build the curve.
@@ -366,38 +377,6 @@ impl BaseCorrelationCurve {
     /// Raw correlation values at each detachment point.
     pub fn correlations(&self) -> &[f64] {
         &self.correlations
-    }
-
-    fn find_bracket(&self, detachment_pct: f64) -> Option<(usize, usize)> {
-        if self.detachment_points.is_empty() {
-            return None;
-        }
-
-        // Binary search for bracketing interval
-        let pos = self.detachment_points.binary_search_by(|x| {
-            x.partial_cmp(&detachment_pct)
-                .unwrap_or(std::cmp::Ordering::Equal)
-        });
-
-        match pos {
-            Ok(i) => {
-                // Exact match - return bracket for interpolation
-                if i > 0 {
-                    Some((i - 1, i))
-                } else if self.detachment_points.len() > 1 {
-                    Some((0, 1))
-                } else {
-                    None // Only one point, cannot form a bracket
-                }
-            }
-            Err(i) => {
-                if i == 0 || i >= self.detachment_points.len() {
-                    None // Before first point or after last point
-                } else {
-                    Some((i - 1, i))
-                }
-            }
-        }
     }
 }
 
@@ -431,7 +410,6 @@ impl BaseCorrelationCurve {
                 new_points.push((det, corr));
             }
         }
-
         BaseCorrelationCurve::builder(self.id.clone())
             .points(new_points)
             .build()
@@ -792,20 +770,25 @@ impl BaseCorrelationCurveBuilder {
             if *detachment < 0.0 {
                 return Err(InputError::NegativeValue.into());
             }
-            if *corr < 0.0 {
-                return Err(InputError::NegativeValue.into());
-            }
             if *corr > 1.0 {
                 return Err(InputError::Invalid.into());
             }
         }
 
-        let (detachment_points, correlations): (Vec<_>, Vec<_>) = sorted_points.into_iter().unzip();
+        let (kvec, cvec): (Vec<f64>, Vec<f64>) = sorted_points.into_iter().unzip();
+
+        let interp = super::common::build_interp(
+            InterpStyle::Linear,
+            kvec.clone().into_boxed_slice(),
+            cvec.clone().into_boxed_slice(),
+            ExtrapolationPolicy::FlatZero,
+        )?;
 
         Ok(BaseCorrelationCurve {
             id: self.id,
-            detachment_points,
-            correlations,
+            detachment_points: kvec,
+            correlations: cvec,
+            interp,
         })
     }
 }
