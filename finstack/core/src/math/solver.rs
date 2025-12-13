@@ -134,7 +134,7 @@ pub trait Solver: Send + Sync {
 ///   Recommends h ≈ sqrt(epsilon) × max(|x|, 1) for scale-adaptive derivatives.
 /// - Ralston, A., & Rabinowitz, P. (2001). *A First Course in Numerical Analysis*
 ///   (2nd ed.). Dover. Chapter 8.
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, PartialEq)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub struct NewtonSolver {
     /// Convergence tolerance
@@ -377,7 +377,7 @@ impl NewtonSolver {
 ///   (3rd ed.). Cambridge University Press. Section 9.3.
 /// - Forsythe, G. E., Malcolm, M. A., & Moler, C. B. (1977). *Computer Methods
 ///   for Mathematical Computations*. Prentice-Hall.
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, PartialEq)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub struct BrentSolver {
     /// Convergence tolerance

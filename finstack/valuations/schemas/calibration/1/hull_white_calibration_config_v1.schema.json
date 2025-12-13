@@ -1,0 +1,88 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "valuations.hull_white_calibration.v1",
+  "title": "HullWhiteCalibrationConfigV1",
+  "description": "Optional Hull-White calibration overrides sourced from FinstackConfig.extensions['valuations.hull_white_calibration.v1'].",
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "fix_kappa": {
+      "oneOf": [
+        { "type": "number", "minimum": 0 },
+        { "type": "null" }
+      ],
+      "description": "Fix mean reversion κ (if present, only calibrate σ). Use null to clear."
+    },
+    "initial_kappa": {
+      "type": "number",
+      "description": "Initial guess for mean reversion κ.",
+      "default": 0.03,
+      "minimum": 0
+    },
+    "initial_sigma": {
+      "type": "number",
+      "description": "Initial guess for volatility σ.",
+      "default": 0.01,
+      "minimum": 0
+    },
+    "kappa_bounds": {
+      "type": "object",
+      "description": "Bounds for κ.",
+      "properties": {
+        "min": {
+          "type": "number",
+          "description": "Minimum value for κ."
+        },
+        "max": {
+          "type": "number",
+          "description": "Maximum value for κ."
+        }
+      },
+      "required": ["min", "max"],
+      "additionalProperties": false,
+      "default": { "min": 0.001, "max": 0.20 }
+    },
+    "sigma_bounds": {
+      "type": "object",
+      "description": "Bounds for σ.",
+      "properties": {
+        "min": {
+          "type": "number",
+          "description": "Minimum value for σ."
+        },
+        "max": {
+          "type": "number",
+          "description": "Maximum value for σ."
+        }
+      },
+      "required": ["min", "max"],
+      "additionalProperties": false,
+      "default": { "min": 0.001, "max": 0.05 }
+    },
+    "tree_steps": {
+      "type": "integer",
+      "description": "Number of tree steps for pricing.",
+      "default": 50,
+      "minimum": 1
+    },
+    "tolerance": {
+      "type": "number",
+      "description": "Convergence tolerance.",
+      "default": 1e-6,
+      "minimum": 0
+    },
+    "max_iterations": {
+      "type": "integer",
+      "description": "Maximum iterations.",
+      "default": 100,
+      "minimum": 1
+    },
+    "weight_fn": {
+      "type": "string",
+      "enum": ["uniform", "vega_weighted", "inverse_expiry"],
+      "description": "Weight function for calibration targets.",
+      "default": "uniform"
+    }
+  }
+}
+

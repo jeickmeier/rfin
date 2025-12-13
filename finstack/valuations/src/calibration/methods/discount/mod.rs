@@ -31,6 +31,7 @@ use crate::calibration::config::CalibrationMethod;
 use crate::calibration::methods::pricing::CalibrationPricer;
 use crate::calibration::quote::{settlement_days_for_currency, RatesQuote};
 use crate::calibration::{CalibrationConfig, CalibrationReport, Calibrator, MultiCurveConfig};
+use finstack_core::config::FinstackConfig;
 use finstack_core::dates::{Date, DayCount};
 use finstack_core::market_data::context::MarketContext;
 use finstack_core::market_data::term_structures::DiscountCurve;
@@ -248,7 +249,34 @@ impl DiscountCurveCalibrator {
         self
     }
 
-    /// Set calibration configuration.
+    /// Set calibration configuration from a `FinstackConfig`.
+    ///
+    /// Resolves `CalibrationConfig` from `FinstackConfig.extensions["valuations.calibration.v1"]`.
+    /// If not present, uses `CalibrationConfig::default()`.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if the extension is malformed.
+    ///
+    /// # Example
+    ///
+    /// ```ignore
+    /// use finstack_core::config::FinstackConfig;
+    /// use finstack_valuations::calibration::methods::DiscountCurveCalibrator;
+    ///
+    /// let cfg = FinstackConfig::default();
+    /// let calibrator = DiscountCurveCalibrator::new("USD-OIS", base_date, Currency::USD)
+    ///     .with_finstack_config(&cfg)?;
+    /// ```
+    pub fn with_finstack_config(mut self, cfg: &FinstackConfig) -> Result<Self> {
+        self.config = CalibrationConfig::from_finstack_config_or_default(cfg)?;
+        Ok(self)
+    }
+
+    /// Set calibration configuration directly.
+    ///
+    /// **Deprecated**: Use [`with_finstack_config`] instead.
+    #[deprecated(since = "0.4.0", note = "Use with_finstack_config instead")]
     pub fn with_config(mut self, config: CalibrationConfig) -> Self {
         self.config = config;
         self
@@ -868,8 +896,9 @@ mod tests {
 
     #[test]
     fn test_global_solve_respects_rate_bounds() {
-        use crate::calibration::config::{CalibrationConfig, CalibrationMethod, RateBounds};
+        use crate::calibration::config::CalibrationMethod;
         use crate::calibration::Calibrator;
+        use finstack_core::config::FinstackConfig;
         use finstack_core::market_data::context::MarketContext;
 
         let base_date = Date::from_calendar_date(2025, Month::January, 1).expect("Valid test date");
@@ -890,17 +919,22 @@ mod tests {
             },
         ];
 
-        // Use tight bounds to verify they are enforced
-        let config = CalibrationConfig::default().with_rate_bounds(RateBounds {
-            min_rate: 0.01,
-            max_rate: 0.10,
-        });
+        // Use tight bounds to verify they are enforced via FinstackConfig extensions
+        let mut cfg = FinstackConfig::default();
+        cfg.extensions.insert(
+            crate::calibration::CALIBRATION_CONFIG_KEY_V1,
+            serde_json::json!({
+                "rate_bounds_policy": "explicit",
+                "rate_bounds": { "min_rate": 0.01, "max_rate": 0.10 }
+            }),
+        );
 
         let calibrator = DiscountCurveCalibrator::usd("USD-OIS-BOUNDED", base_date)
             .with_calibration_method(CalibrationMethod::GlobalSolve {
                 use_analytical_jacobian: false,
             })
-            .with_config(config)
+            .with_finstack_config(&cfg)
+            .expect("valid config")
             .with_allow_calendar_fallback(true);
 
         let context = MarketContext::default();

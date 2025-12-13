@@ -94,6 +94,7 @@ use crate::instruments::{
     Instrument,
 };
 use finstack_core::{
+    config::FinstackConfig,
     currency::Currency,
     dates::{
         adjust, BusinessDayConvention, CalendarRegistry, Date, DateExt, DayCount, DayCountCtx,
@@ -248,7 +249,23 @@ impl ForwardCurveCalibrator {
         self
     }
 
-    /// Set the calibration configuration.
+    /// Set calibration configuration from a `FinstackConfig`.
+    ///
+    /// Resolves `CalibrationConfig` from `FinstackConfig.extensions["valuations.calibration.v1"]`.
+    /// If not present, uses `CalibrationConfig::default()`.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if the extension is malformed.
+    pub fn with_finstack_config(mut self, cfg: &FinstackConfig) -> Result<Self> {
+        self.config = CalibrationConfig::from_finstack_config_or_default(cfg)?;
+        Ok(self)
+    }
+
+    /// Set calibration configuration directly.
+    ///
+    /// **Deprecated**: Use [`with_finstack_config`] instead.
+    #[deprecated(since = "0.4.0", note = "Use with_finstack_config instead")]
     pub fn with_config(mut self, config: CalibrationConfig) -> Self {
         self.config = config;
         self
@@ -1889,8 +1906,6 @@ mod tests {
 
     #[test]
     fn test_currency_specific_rate_bounds() {
-        use crate::calibration::RateBounds;
-
         let base_date = Date::from_calendar_date(2025, Month::January, 1).expect("Valid test date");
 
         // USD calibrator should have standard bounds
@@ -1930,11 +1945,15 @@ mod tests {
             "TRY should support rates above 100%"
         );
 
-        // Test custom rate bounds override
-        let custom_bounds = RateBounds {
-            min_rate: -0.15,
-            max_rate: 3.00,
-        };
+        // Test custom rate bounds override via FinstackConfig extensions
+        let mut cfg = FinstackConfig::default();
+        cfg.extensions.insert(
+            crate::calibration::CALIBRATION_CONFIG_KEY_V1,
+            serde_json::json!({
+                "rate_bounds_policy": "explicit",
+                "rate_bounds": { "min_rate": -0.15, "max_rate": 3.00 }
+            }),
+        );
         let custom_calibrator = ForwardCurveCalibrator::new(
             "CUSTOM-FWD",
             0.25,
@@ -1942,7 +1961,8 @@ mod tests {
             Currency::USD,
             "USD-OIS-DISC",
         )
-        .with_config(CalibrationConfig::default().with_rate_bounds(custom_bounds.clone()));
+        .with_finstack_config(&cfg)
+        .expect("valid config");
 
         assert_eq!(custom_calibrator.config.rate_bounds.min_rate, -0.15);
         assert_eq!(custom_calibrator.config.rate_bounds.max_rate, 3.00);
@@ -2180,9 +2200,19 @@ mod tests {
     #[test]
     fn test_builder_methods_chainable() {
         use super::super::convexity::ConvexityParameters;
-        use crate::calibration::RateBounds;
 
         let base_date = Date::from_calendar_date(2025, Month::January, 1).expect("Valid test date");
+
+        // Build FinstackConfig with conservative settings + EM rate bounds
+        let mut cfg = FinstackConfig::default();
+        cfg.extensions.insert(
+            crate::calibration::CALIBRATION_CONFIG_KEY_V1,
+            serde_json::json!({
+                "tolerance": 1e-12,
+                "rate_bounds_policy": "explicit",
+                "rate_bounds": { "min_rate": -0.05, "max_rate": 2.0 }
+            }),
+        );
 
         // Test full builder chain
         let calibrator = ForwardCurveCalibrator::new(
@@ -2197,9 +2227,8 @@ mod tests {
         .with_calendar_id("usny")
         .with_reset_lag(2)
         .with_convexity_params(ConvexityParameters::usd_sofr())
-        .with_config(
-            CalibrationConfig::conservative().with_rate_bounds(RateBounds::emerging_markets()),
-        );
+        .with_finstack_config(&cfg)
+        .expect("valid config");
 
         // Verify all settings were applied
         assert_eq!(calibrator.time_dc, DayCount::Act365F);

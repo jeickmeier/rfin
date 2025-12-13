@@ -6,6 +6,7 @@
 use crate::calibration::quote::VolQuote;
 use crate::calibration::{CalibrationConfig, CalibrationReport, Calibrator};
 use crate::instruments::common::models::{SABRCalibrator, SABRModel, SABRParameters};
+use finstack_core::config::FinstackConfig;
 use finstack_core::dates::Date;
 use finstack_core::dates::DayCount;
 use finstack_core::market_data::context::MarketContext;
@@ -111,7 +112,18 @@ impl VolSurfaceCalibrator {
         self
     }
 
-    /// Set calibration configuration.
+    /// Set calibration configuration from a `FinstackConfig`.
+    ///
+    /// Resolves `CalibrationConfig` from `FinstackConfig.extensions["valuations.calibration.v1"]`.
+    pub fn with_finstack_config(mut self, cfg: &FinstackConfig) -> Result<Self> {
+        self.config = CalibrationConfig::from_finstack_config_or_default(cfg)?;
+        Ok(self)
+    }
+
+    /// Set calibration configuration directly.
+    ///
+    /// **Deprecated**: Use [`with_finstack_config`] instead.
+    #[deprecated(since = "0.4.0", note = "Use with_finstack_config instead")]
     pub fn with_config(mut self, config: CalibrationConfig) -> Self {
         self.config = config;
         self
@@ -681,6 +693,7 @@ fn validate_sabr_params(params: &SABRParameters) -> Result<()> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use finstack_core::config::FinstackConfig;
     use finstack_core::dates::Date;
     use finstack_core::market_data::term_structures::discount_curve::DiscountCurve;
     use finstack_core::math::interp::InterpStyle;
@@ -744,7 +757,11 @@ mod tests {
         let base_date = Date::from_calendar_date(2025, Month::January, 1).expect("Valid test date");
         // Use relaxed tolerance for SABR volatility surface calibration
         // SABR calibration with limited data points can have larger fit errors
-        let config = crate::calibration::CalibrationConfig::default().with_tolerance(1.0);
+        let mut cfg = FinstackConfig::default();
+        cfg.extensions.insert(
+            crate::calibration::CALIBRATION_CONFIG_KEY_V1,
+            serde_json::json!({ "tolerance": 1.0 }),
+        );
         let calibrator = VolSurfaceCalibrator::new(
             "TEST-VOL",
             1.0,                          // Lognormal beta for equity
@@ -752,7 +769,8 @@ mod tests {
             vec![90.0, 100.0, 110.0],
         )
         .with_base_date(base_date)
-        .with_config(config);
+        .with_finstack_config(&cfg)
+        .expect("valid config");
 
         let quotes = create_test_vol_quotes();
 
@@ -1046,7 +1064,11 @@ mod tests {
             },
         ];
 
-        let config = crate::calibration::CalibrationConfig::default().with_tolerance(1.0);
+        let mut cfg = FinstackConfig::default();
+        cfg.extensions.insert(
+            crate::calibration::CALIBRATION_CONFIG_KEY_V1,
+            serde_json::json!({ "tolerance": 1.0 }),
+        );
         let calibrator = VolSurfaceCalibrator::new(
             "TEST-INSUFFICIENT",
             1.0,
@@ -1054,7 +1076,8 @@ mod tests {
             vec![90.0, 100.0, 110.0],
         )
         .with_base_date(base_date)
-        .with_config(config);
+        .with_finstack_config(&cfg)
+        .expect("valid config");
 
         // Create market context
         let context = MarketContext::new()

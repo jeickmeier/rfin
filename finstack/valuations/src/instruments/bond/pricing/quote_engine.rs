@@ -572,9 +572,6 @@ pub fn price_from_z_spread(
 ) -> finstack_core::Result<f64> {
     let flows = bond.build_schedule(curves, as_of)?;
     let disc = curves.get_discount_ref(&bond.discount_curve_id)?;
-    // Pre-compute as_of discount factor for correct theta using the curve's
-    // own date mapping.
-    let df_as_of = disc.try_df_on_date_curve(as_of)?;
 
     let mut pv = 0.0;
     for (d, a) in &flows {
@@ -588,13 +585,7 @@ pub fn price_from_z_spread(
             .day_count()
             .year_fraction(as_of, *d, DayCountCtx::default())?;
 
-        // Discount from as_of using the curve's DF(date) mapping.
-        let df_cf_abs = disc.try_df_on_date_curve(*d)?;
-        let df = if df_as_of != 0.0 {
-            df_cf_abs / df_as_of
-        } else {
-            1.0
-        };
+        let df = disc.try_df_between_dates(as_of, *d)?;
         let df_z = df * (-z * t_from_as_of).exp();
         pv += a.amount() * df_z;
     }

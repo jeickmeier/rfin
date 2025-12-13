@@ -400,6 +400,41 @@ impl DiscountCurve {
         Ok(self.df(t))
     }
 
+    /// Fallible: discount factor from `from` to `to` using the curve's day-count.
+    ///
+    /// This is the canonical helper for the common "relative DF" pattern:
+    /// `DF(from→to) = DF(0→to) / DF(0→from)`.
+    ///
+    /// Works for both forward and backward date order. Returns `1.0` when
+    /// `from == to`.
+    #[inline]
+    pub fn try_df_between_dates(&self, from: Date, to: Date) -> crate::Result<f64> {
+        if from == to {
+            return Ok(1.0);
+        }
+
+        let df_from = self.try_df_on_date_curve(from)?;
+        if !df_from.is_finite() || df_from == 0.0 {
+            return Err(crate::Error::Validation(format!(
+                "Invalid discount factor on 'from' date ({from}): {df_from}"
+            )));
+        }
+
+        let df_to = self.try_df_on_date_curve(to)?;
+        Ok(df_to / df_from)
+    }
+
+    /// Discount factor from `from` to `to` using the curve's day-count.
+    ///
+    /// Panics if day-count conversion fails or if the discount factor at `from`
+    /// is invalid. Prefer [`try_df_between_dates`](Self::try_df_between_dates) for
+    /// error handling.
+    #[inline]
+    pub fn df_between_dates(&self, from: Date, to: Date) -> f64 {
+        self.try_df_between_dates(from, to)
+            .expect("df_between_dates failed; use try_df_between_dates for error handling")
+    }
+
     /// Continuously-compounded zero rate on a specific date using the curve's day-count.
     ///
     /// This is equivalent to `curve.zero(t)` where `t` is the year fraction from

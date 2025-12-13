@@ -9,6 +9,7 @@
 //! Market Standards Review (Week 5)
 
 use criterion::{criterion_group, criterion_main, BenchmarkId, Criterion};
+use finstack_core::config::FinstackConfig;
 use finstack_core::currency::Currency;
 use finstack_core::dates::{Date, DateExt, DayCount, Tenor};
 use finstack_core::market_data::context::MarketContext;
@@ -23,7 +24,7 @@ use finstack_valuations::calibration::methods::{
 };
 use finstack_valuations::calibration::{
     CalibrationConfig, CalibrationSpec, CalibrationStep, Calibrator, CreditQuote, InflationQuote,
-    RatesQuote, SolverKind, VolQuote,
+    RatesQuote, SolverKind, VolQuote, CALIBRATION_CONFIG_KEY_V1,
 };
 use std::hint::black_box;
 use time::Month;
@@ -621,14 +622,23 @@ fn bench_calibration_solver_comparison(c: &mut Criterion) {
     let base_context = MarketContext::new();
 
     for solver in [SolverKind::Newton, SolverKind::Brent] {
-        let config = CalibrationConfig {
-            solver_kind: solver.clone(),
-            tolerance: 1e-8,
-            ..CalibrationConfig::default()
+        let solver_name = match solver {
+            SolverKind::Newton => "Newton",
+            SolverKind::Brent => "Brent",
+            SolverKind::LevenbergMarquardt => "LevenbergMarquardt",
         };
+        let mut cfg = FinstackConfig::default();
+        cfg.extensions.insert(
+            CALIBRATION_CONFIG_KEY_V1,
+            serde_json::json!({
+                "solver_kind": solver_name,
+                "tolerance": 1e-8
+            }),
+        );
 
-        let calibrator =
-            DiscountCurveCalibrator::new("USD-OIS", base_date, Currency::USD).with_config(config);
+        let calibrator = DiscountCurveCalibrator::new("USD-OIS", base_date, Currency::USD)
+            .with_finstack_config(&cfg)
+            .expect("valid config");
 
         group.bench_with_input(
             BenchmarkId::from_parameter(format!("{:?}", solver)),

@@ -15,11 +15,10 @@
 
 use finstack_core::currency::Currency;
 use finstack_core::dates::calendar::registry::CalendarRegistry;
-use finstack_core::dates::{adjust, BusinessDayConvention, Date, DayCount, HolidayCalendar};
+use finstack_core::dates::{adjust, BusinessDayConvention, Date, DateExt, DayCount, HolidayCalendar};
 use finstack_core::market_data::context::MarketContext;
 use finstack_core::money::Money;
 use finstack_core::types::{CurveId, InstrumentId};
-use time::Duration;
 
 use crate::cashflow::traits::{CashflowProvider, DatedFlows};
 use crate::instruments::common::traits::Attributes;
@@ -256,7 +255,11 @@ impl Deposit {
 
         let base_start = if let Some(lag_days) = self.spot_lag_days {
             // Compute spot date: as_of + spot_lag business days
-            add_business_days_impl(as_of, lag_days, calendar)?
+            if let Some(cal) = calendar {
+                as_of.add_business_days(lag_days, cal)?
+            } else {
+                as_of.add_weekdays(lag_days)
+            }
         } else {
             // Use raw start date
             self.start
@@ -291,44 +294,6 @@ impl Deposit {
             Ok(self.end)
         }
     }
-}
-
-/// Add business days using calendar-aware logic.
-///
-/// If a calendar is provided, walks business days using the calendar.
-/// Otherwise, uses simple weekday-only logic (skips Saturday/Sunday).
-fn add_business_days_impl(
-    start: Date,
-    n: i32,
-    calendar: Option<&dyn HolidayCalendar>,
-) -> finstack_core::Result<Date> {
-    if n == 0 {
-        return Ok(start);
-    }
-
-    let step = if n >= 0 { 1i64 } else { -1i64 };
-    let mut remaining = n.abs();
-    let mut current = start;
-
-    while remaining > 0 {
-        current = current.saturating_add(Duration::days(step));
-
-        let is_business_day = if let Some(cal) = calendar {
-            cal.is_business_day(current)
-        } else {
-            // Weekends-only check
-            !matches!(
-                current.weekday(),
-                time::Weekday::Saturday | time::Weekday::Sunday
-            )
-        };
-
-        if is_business_day {
-            remaining -= 1;
-        }
-    }
-
-    Ok(current)
 }
 
 impl CashflowProvider for Deposit {

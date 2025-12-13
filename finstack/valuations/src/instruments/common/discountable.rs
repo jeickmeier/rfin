@@ -36,19 +36,11 @@ pub fn npv_by_date(
     let ccy = flows[0].1.currency();
     let mut total = Money::new(0.0, ccy);
 
-    let df_as_of = disc.try_df_on_date_curve(as_of)?;
-
     for (d, amt) in flows {
         if *d <= as_of {
             continue;
         }
-
-        let df_cf_abs = disc.try_df_on_date_curve(*d)?;
-        let df = if df_as_of != 0.0 {
-            df_cf_abs / df_as_of
-        } else {
-            1.0
-        };
+        let df = disc.try_df_between_dates(as_of, *d)?;
 
         total = (total + (*amt * df))?;
     }

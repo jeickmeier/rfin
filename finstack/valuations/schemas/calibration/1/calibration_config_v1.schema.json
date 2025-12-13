@@ -1,0 +1,93 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "valuations.calibration.v1",
+  "title": "CalibrationConfigV1",
+  "description": "Optional calibration overrides sourced from FinstackConfig.extensions['valuations.calibration.v1'].",
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "tolerance": {
+      "type": "number",
+      "description": "Solver tolerance for convergence checks.",
+      "default": 1e-10,
+      "minimum": 0
+    },
+    "max_iterations": {
+      "type": "integer",
+      "description": "Maximum iterations for solver.",
+      "default": 100,
+      "minimum": 1
+    },
+    "use_parallel": {
+      "type": "boolean",
+      "description": "Use parallel processing when available.",
+      "default": false
+    },
+    "random_seed": {
+      "oneOf": [
+        { "type": "integer", "minimum": 0 },
+        { "type": "null" }
+      ],
+      "description": "Random seed for reproducible results. Use null to clear the seed.",
+      "default": 42
+    },
+    "verbose": {
+      "type": "boolean",
+      "description": "Enable verbose logging.",
+      "default": false
+    },
+    "solver_kind": {
+      "type": "string",
+      "enum": ["Newton", "Brent", "LevenbergMarquardt"],
+      "description": "Solver type selection.",
+      "default": "Brent"
+    },
+    "rate_bounds_policy": {
+      "type": "string",
+      "enum": ["auto_currency", "explicit"],
+      "description": "Policy for selecting rate bounds. 'auto_currency' derives bounds from currency; 'explicit' uses rate_bounds as provided.",
+      "default": "auto_currency"
+    },
+    "rate_bounds": {
+      "type": "object",
+      "description": "Rate bounds for forward/zero rate calibration.",
+      "properties": {
+        "min_rate": {
+          "type": "number",
+          "description": "Minimum allowed rate (decimal, e.g., -0.02 for -2%)."
+        },
+        "max_rate": {
+          "type": "number",
+          "description": "Maximum allowed rate (decimal, e.g., 0.50 for 50%)."
+        }
+      },
+      "required": ["min_rate", "max_rate"],
+      "additionalProperties": false
+    },
+    "calibration_method": {
+      "oneOf": [
+        { "const": "Bootstrap" },
+        {
+          "type": "object",
+          "properties": {
+            "GlobalSolve": {
+              "type": "object",
+              "properties": {
+                "use_analytical_jacobian": {
+                  "type": "boolean",
+                  "default": false
+                }
+              },
+              "additionalProperties": false
+            }
+          },
+          "required": ["GlobalSolve"],
+          "additionalProperties": false
+        }
+      ],
+      "description": "Calibration method (bootstrap vs global solve).",
+      "default": "Bootstrap"
+    }
+  }
+}
+

@@ -10,6 +10,7 @@ use crate::calibration::methods::swaption_market_conventions::SwaptionMarketConv
 use crate::calibration::quote::{default_calendar_for_currency, VolQuote};
 use crate::calibration::{CalibrationConfig, CalibrationReport, Calibrator};
 use crate::instruments::common::models::{SABRCalibrator, SABRModel, SABRParameters};
+use finstack_core::config::FinstackConfig;
 use finstack_core::dates::DateExt;
 use finstack_core::dates::{Date, DayCountCtx, StubKind};
 use finstack_core::market_data::context::MarketContext;
@@ -165,7 +166,18 @@ impl SwaptionVolCalibrator {
         self
     }
 
-    /// Set the calibration configuration.
+    /// Set calibration configuration from a `FinstackConfig`.
+    ///
+    /// Resolves `CalibrationConfig` from `FinstackConfig.extensions["valuations.calibration.v1"]`.
+    pub fn with_finstack_config(mut self, cfg: &FinstackConfig) -> Result<Self> {
+        self.config = CalibrationConfig::from_finstack_config_or_default(cfg)?;
+        Ok(self)
+    }
+
+    /// Set calibration configuration directly.
+    ///
+    /// **Deprecated**: Use [`with_finstack_config`] instead.
+    #[deprecated(since = "0.4.0", note = "Use with_finstack_config instead")]
     pub fn with_config(mut self, config: CalibrationConfig) -> Self {
         self.config = config;
         self

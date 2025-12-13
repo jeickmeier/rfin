@@ -25,33 +25,10 @@ impl MetricCalculator for DomesticIR01 {
         let include_near = fx_swap.near_date >= as_of;
         let include_far = fx_swap.far_date >= as_of;
 
-        let df_as_of_dom = domestic_disc.try_df_on_date_curve(as_of)?;
-        let df_as_of_for = foreign_disc.try_df_on_date_curve(as_of)?;
-
-        let normalize = |df: f64, df_base: f64| -> f64 {
-            if df_base != 0.0 {
-                df / df_base
-            } else {
-                1.0
-            }
-        };
-
-        let df_dom_near = normalize(
-            domestic_disc.try_df_on_date_curve(fx_swap.near_date)?,
-            df_as_of_dom,
-        );
-        let df_dom_far = normalize(
-            domestic_disc.try_df_on_date_curve(fx_swap.far_date)?,
-            df_as_of_dom,
-        );
-        let df_for_near = normalize(
-            foreign_disc.try_df_on_date_curve(fx_swap.near_date)?,
-            df_as_of_for,
-        );
-        let df_for_far = normalize(
-            foreign_disc.try_df_on_date_curve(fx_swap.far_date)?,
-            df_as_of_for,
-        );
+        let df_dom_near = domestic_disc.try_df_between_dates(as_of, fx_swap.near_date)?;
+        let df_dom_far = domestic_disc.try_df_between_dates(as_of, fx_swap.far_date)?;
+        let df_for_near = foreign_disc.try_df_between_dates(as_of, fx_swap.near_date)?;
+        let df_for_far = foreign_disc.try_df_between_dates(as_of, fx_swap.far_date)?;
 
         // Bump domestic curve by 1bp relative to as_of
         // df_bumped(as_of, t) = df(as_of, t) * exp(-bump * t_from_as_of)

@@ -1,5 +1,4 @@
 use finstack_core::dates::Date;
-use finstack_core::dates::DateExt;
 use finstack_core::explain::{ExplainOpts, ExplanationTrace, TraceEntry};
 use finstack_core::market_data::context::MarketContext;
 use finstack_core::math::summation::kahan_sum;
@@ -10,7 +9,6 @@ use crate::cashflow::traits::CashflowProvider;
 // Discountable trait not required after switching to curve day-count path
 
 use super::super::types::Bond;
-use super::super::CashflowSpec;
 
 /// Bond pricing engine providing core valuation methods.
 ///
@@ -155,47 +153,7 @@ impl BondEngine {
         };
 
         // Settlement PV: start discounting from settlement date if provided
-        let settle_date = if let Some(sd_u32) = bond.settlement_days {
-            let sd: i32 = sd_u32 as i32;
-            let (calendar_id, bdc) = match &bond.cashflow_spec {
-                CashflowSpec::Fixed(spec) => (spec.calendar_id.as_deref(), spec.bdc),
-                CashflowSpec::Floating(spec) => {
-                    (spec.rate_spec.calendar_id.as_deref(), spec.rate_spec.bdc)
-                }
-                CashflowSpec::Amortizing { base, .. } => match &**base {
-                    CashflowSpec::Fixed(spec) => (spec.calendar_id.as_deref(), spec.bdc),
-                    CashflowSpec::Floating(spec) => {
-                        (spec.rate_spec.calendar_id.as_deref(), spec.rate_spec.bdc)
-                    }
-                    _ => (None, finstack_core::dates::BusinessDayConvention::Following),
-                },
-            };
-            if let Some(id) = calendar_id {
-                if let Some(cal) = finstack_core::dates::calendar::calendar_by_id(id) {
-                    // Walk business days using the provided calendar
-                    let mut d = as_of;
-                    let mut remaining = sd;
-                    let step = if remaining >= 0 { 1 } else { -1 };
-                    while remaining != 0 {
-                        d = d.saturating_add(time::Duration::days(step as i64));
-                        if cal.is_business_day(d) {
-                            remaining -= step;
-                        }
-                    }
-                    finstack_core::dates::adjust(d, bdc, cal)?
-                } else {
-                    as_of.add_weekdays(sd)
-                }
-            } else {
-                as_of.add_weekdays(sd)
-            }
-        } else {
-            as_of
-        };
-        // Pre-compute settle-date discount factor for correct theta using the
-        // curve's own date mapping.
-        let df_settle = disc.try_df_on_date_curve(settle_date)?;
-
+        let settle_date = super::settlement::settlement_date(bond, as_of)?;
         // Collect PV values for Kahan summation (O(1) error growth vs O(n) for naive sum).
         // This is particularly important for long-dated bonds (50Y+ monthly-pay).
         let mut pv_values: Vec<f64> = Vec::with_capacity(flows.len());
@@ -204,14 +162,7 @@ impl BondEngine {
             if *d <= settle_date {
                 continue;
             }
-            // Discount from settle_date (which is derived from as_of) using
-            // curve-provided DF(date).
-            let df_d_abs = disc.try_df_on_date_curve(*d)?;
-            let df = if df_settle != 0.0 {
-                df_d_abs / df_settle
-            } else {
-                1.0
-            };
+            let df = disc.try_df_between_dates(settle_date, *d)?;
             let pv_cf = *amt * df;
             pv_values.push(pv_cf.amount());
 

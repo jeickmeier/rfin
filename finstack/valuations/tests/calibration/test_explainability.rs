@@ -1,3 +1,4 @@
+#![allow(deprecated)]
 //! Tests for explainability features in calibration.
 
 use finstack_core::currency::Currency;

@@ -24,7 +24,7 @@
 //! each interval, which matches the fractional recovery of par convention used
 //! in the two-factor rates+credit tree (`BondValuator`).
 
-use finstack_core::dates::{Date, DateExt};
+use finstack_core::dates::Date;
 use finstack_core::error::InputError;
 use finstack_core::market_data::context::MarketContext;
 use finstack_core::market_data::term_structures::hazard_curve::HazardCurve;
@@ -37,7 +37,6 @@ use crate::cashflow::primitives::CFKind;
 use crate::cashflow::traits::CashflowProvider;
 
 use super::super::types::Bond;
-use super::super::CashflowSpec;
 use super::discount_engine::BondEngine;
 
 /// Hazard-rate bond pricing engine using FRP and `HazardCurve`.
@@ -63,50 +62,8 @@ use super::discount_engine::BondEngine;
 pub struct HazardBondEngine;
 
 impl HazardBondEngine {
-    /// Resolve the settlement date using the same logic as the discount engine.
-    ///
-    /// This mirrors the logic in `BondEngine::price_with_explanation` so that
-    /// both engines respect `settlement_days`, calendars, and business-day
-    /// conventions in the same way. If you change that logic, update this
-    /// helper accordingly.
     fn compute_settlement_date(bond: &Bond, as_of: Date) -> Result<Date> {
-        if let Some(sd_u32) = bond.settlement_days {
-            let sd: i32 = sd_u32 as i32;
-            let (calendar_id, bdc) = match &bond.cashflow_spec {
-                CashflowSpec::Fixed(spec) => (spec.calendar_id.as_deref(), spec.bdc),
-                CashflowSpec::Floating(spec) => {
-                    (spec.rate_spec.calendar_id.as_deref(), spec.rate_spec.bdc)
-                }
-                CashflowSpec::Amortizing { base, .. } => match &**base {
-                    CashflowSpec::Fixed(spec) => (spec.calendar_id.as_deref(), spec.bdc),
-                    CashflowSpec::Floating(spec) => {
-                        (spec.rate_spec.calendar_id.as_deref(), spec.rate_spec.bdc)
-                    }
-                    _ => (None, finstack_core::dates::BusinessDayConvention::Following),
-                },
-            };
-            if let Some(id) = calendar_id {
-                if let Some(cal) = finstack_core::dates::calendar::calendar_by_id(id) {
-                    // Walk business days using the provided calendar
-                    let mut d = as_of;
-                    let mut remaining = sd;
-                    let step = if remaining >= 0 { 1 } else { -1 };
-                    while remaining != 0 {
-                        d = d.saturating_add(time::Duration::days(step as i64));
-                        if cal.is_business_day(d) {
-                            remaining -= step;
-                        }
-                    }
-                    finstack_core::dates::adjust(d, bdc, cal)
-                } else {
-                    Ok(as_of.add_weekdays(sd))
-                }
-            } else {
-                Ok(as_of.add_weekdays(sd))
-            }
-        } else {
-            Ok(as_of)
-        }
+        super::settlement::settlement_date(bond, as_of)
     }
 
     /// Resolve a hazard curve for the bond using the same precedence as the
@@ -198,11 +155,8 @@ impl HazardBondEngine {
 
         // Resolve discount curve
         let disc = market.get_discount_ref(&bond.discount_curve_id)?;
-        let df_as_of = disc.try_df_on_date_curve(as_of)?;
-
-        // Compute settlement date and its discount factor (theta alignment).
+        // Compute settlement date (theta alignment).
         let settle_date = Self::compute_settlement_date(bond, as_of)?;
-        let df_settle = disc.try_df_on_date_curve(settle_date)?;
 
         // Resolve hazard curve; if not found, fall back to risk-free pricing.
         let hazard = match Self::resolve_hazard_curve(bond, market) {
@@ -233,15 +187,9 @@ impl HazardBondEngine {
         // Discount factors relative to settlement for correct theta.
         let mut dfs = Vec::with_capacity(dates.len());
         for d in &dates {
-            let df_abs = disc.try_df_on_date_curve(*d)?;
-            let df_rel = if df_settle != 0.0 {
-                df_abs / df_settle
-            } else if df_as_of != 0.0 {
-                // Fallback: use as_of as reference if settle DF is degenerate.
-                df_abs / df_as_of
-            } else {
-                1.0
-            };
+            let df_rel = disc
+                .try_df_between_dates(settle_date, *d)
+                .or_else(|_| disc.try_df_between_dates(as_of, *d))?;
             dfs.push(df_rel);
         }
 

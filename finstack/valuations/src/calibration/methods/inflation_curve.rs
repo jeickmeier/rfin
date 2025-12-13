@@ -8,6 +8,7 @@ use crate::calibration::quote::InflationQuote;
 use crate::calibration::{CalibrationConfig, CalibrationReport, Calibrator};
 use crate::instruments::common::traits::Instrument;
 use crate::instruments::inflation_swap::{InflationSwap, PayReceiveInflation};
+use finstack_core::config::FinstackConfig;
 use finstack_core::dates::DayCount;
 use finstack_core::market_data::context::MarketContext;
 use finstack_core::market_data::scalars::inflation_index::{InflationInterpolation, InflationLag};
@@ -73,7 +74,18 @@ impl InflationCurveCalibrator {
         }
     }
 
-    /// Set calibration configuration.
+    /// Set calibration configuration from a `FinstackConfig`.
+    ///
+    /// Resolves `CalibrationConfig` from `FinstackConfig.extensions["valuations.calibration.v1"]`.
+    pub fn with_finstack_config(mut self, cfg: &FinstackConfig) -> Result<Self> {
+        self.config = CalibrationConfig::from_finstack_config_or_default(cfg)?;
+        Ok(self)
+    }
+
+    /// Set calibration configuration directly.
+    ///
+    /// **Deprecated**: Use [`with_finstack_config`] instead.
+    #[deprecated(since = "0.4.0", note = "Use with_finstack_config instead")]
     pub fn with_config(mut self, config: CalibrationConfig) -> Self {
         self.config = config;
         self
@@ -481,6 +493,7 @@ impl Calibrator<InflationQuote, InflationCurve> for InflationCurveCalibrator {
 mod tests {
     use super::*;
     use crate::instruments::inflation_swap::PayReceiveInflation;
+    use finstack_core::config::FinstackConfig;
     use finstack_core::currency::Currency;
     use finstack_core::dates::Date;
     use finstack_core::market_data::scalars::inflation_index::InflationIndex;
@@ -573,13 +586,18 @@ mod tests {
 
         // Use relaxed tolerance for complex seasonality-adjusted calibration
         // This test validates functionality, not precision; seasonality can introduce larger residuals
-        let config = crate::calibration::CalibrationConfig::default().with_tolerance(0.1);
+        let mut cfg = FinstackConfig::default();
+        cfg.extensions.insert(
+            crate::calibration::CALIBRATION_CONFIG_KEY_V1,
+            serde_json::json!({ "tolerance": 0.1 }),
+        );
         let calibrator =
             InflationCurveCalibrator::new("US-CPI-U", base_date, Currency::USD, 290.0, "USD-OIS")
                 .with_inflation_lag(InflationLag::Months(2))
                 .with_seasonality_adjustments(seasonality_factors)
                 .with_inflation_interpolation(InflationInterpolation::Step)
-                .with_config(config);
+                .with_finstack_config(&cfg)
+                .expect("valid config");
 
         let quotes = create_test_inflation_quotes();
         let discount_curve = create_test_discount_curve();

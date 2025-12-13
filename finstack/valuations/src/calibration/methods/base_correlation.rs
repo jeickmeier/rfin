@@ -27,6 +27,7 @@ use crate::calibration::{
     CalibrationConfig, CalibrationReport, Calibrator, SolverConfig, SolverKind,
 };
 use crate::instruments::cds_tranche::{CdsTranche, TrancheSide};
+use finstack_core::config::FinstackConfig;
 use finstack_core::math::Solver;
 use ordered_float::OrderedFloat;
 
@@ -86,11 +87,13 @@ const CALIBRATION_PENALTY: f64 = crate::calibration::PENALTY;
 /// # Example
 ///
 /// ```ignore
+/// use finstack_core::config::FinstackConfig;
 /// use finstack_valuations::calibration::methods::BaseCorrelationCalibrator;
 /// use finstack_valuations::calibration::Calibrator;
 ///
+/// let cfg = FinstackConfig::default();
 /// let calibrator = BaseCorrelationCalibrator::new("CDX.NA.IG.42", 42, 5.0, base_date)
-///     .with_config(config)
+///     .with_finstack_config(&cfg)?
 ///     .with_discount_curve_id("USD-OIS");
 ///
 /// let (curve, report) = calibrator.calibrate(&quotes, &market_context)?;
@@ -156,8 +159,25 @@ impl BaseCorrelationCalibrator {
         self
     }
 
-    /// Set calibration configuration.
+    /// Set calibration configuration from a `FinstackConfig`.
+    ///
+    /// Resolves `CalibrationConfig` from `FinstackConfig.extensions["valuations.calibration.v1"]`.
+    pub fn with_finstack_config(mut self, cfg: &FinstackConfig) -> Result<Self> {
+        self.config = CalibrationConfig::from_finstack_config_or_default(cfg)?;
+        Ok(self)
+    }
+
+    /// Set calibration configuration directly.
+    ///
+    /// **Deprecated**: Use [`with_finstack_config`] instead.
+    #[deprecated(since = "0.4.0", note = "Use with_finstack_config instead")]
     pub fn with_config(mut self, config: CalibrationConfig) -> Self {
+        self.config = config;
+        self
+    }
+
+    /// Internal: set calibration config directly (used for sub-calibrator construction).
+    pub(crate) fn with_config_internal(mut self, config: CalibrationConfig) -> Self {
         self.config = config;
         self
     }
@@ -520,16 +540,20 @@ impl BaseCorrelationCalibrator {
     fn build_solver_config(&self) -> SolverConfig {
         match self.config.solver_kind {
             SolverKind::Newton => SolverConfig::Newton {
-                tolerance: self.config.tolerance,
-                max_iterations: self.config.max_iterations,
-                fd_step: 1e-8,
-                min_derivative: 1e-14,
+                solver: finstack_core::math::NewtonSolver {
+                    tolerance: self.config.tolerance,
+                    max_iterations: self.config.max_iterations,
+                    fd_step: 1e-8,
+                    min_derivative: 1e-14,
+                },
             },
             SolverKind::Brent | SolverKind::LevenbergMarquardt => SolverConfig::Brent {
-                tolerance: self.config.tolerance,
-                max_iterations: self.config.max_iterations,
-                bracket_expansion: 1.6,
-                initial_bracket_size: None,
+                solver: finstack_core::math::BrentSolver {
+                    tolerance: self.config.tolerance,
+                    max_iterations: self.config.max_iterations,
+                    bracket_expansion: 1.6,
+                    initial_bracket_size: None,
+                },
             },
         }
     }
@@ -693,7 +717,18 @@ impl BaseCorrelationSurfaceCalibrator {
         }
     }
 
-    /// Set calibration configuration.
+    /// Set calibration configuration from a `FinstackConfig`.
+    ///
+    /// Resolves `CalibrationConfig` from `FinstackConfig.extensions["valuations.calibration.v1"]`.
+    pub fn with_finstack_config(mut self, cfg: &FinstackConfig) -> Result<Self> {
+        self.config = CalibrationConfig::from_finstack_config_or_default(cfg)?;
+        Ok(self)
+    }
+
+    /// Set calibration configuration directly.
+    ///
+    /// **Deprecated**: Use [`with_finstack_config`] instead.
+    #[deprecated(since = "0.4.0", note = "Use with_finstack_config instead")]
     pub fn with_config(mut self, config: CalibrationConfig) -> Self {
         self.config = config;
         self
@@ -781,7 +816,7 @@ impl BaseCorrelationSurfaceCalibrator {
                     maturity_years,
                     self.base_date,
                 )
-                .with_config(self.config.clone())
+                .with_config_internal(self.config.clone())
                 .with_discount_curve_id(self.discount_curve_id.clone())
                 .with_corr_interp(self.corr_interp)
                 .with_detachment_points(self.detachment_points.clone())
@@ -827,16 +862,20 @@ impl BaseCorrelationSurfaceCalibrator {
         // Build comprehensive report
         let solver_config = match self.config.solver_kind {
             SolverKind::Newton => SolverConfig::Newton {
-                tolerance: self.config.tolerance,
-                max_iterations: self.config.max_iterations,
-                fd_step: 1e-8,
-                min_derivative: 1e-14,
+                solver: finstack_core::math::NewtonSolver {
+                    tolerance: self.config.tolerance,
+                    max_iterations: self.config.max_iterations,
+                    fd_step: 1e-8,
+                    min_derivative: 1e-14,
+                },
             },
             _ => SolverConfig::Brent {
-                tolerance: self.config.tolerance,
-                max_iterations: self.config.max_iterations,
-                bracket_expansion: 1.6,
-                initial_bracket_size: None,
+                solver: finstack_core::math::BrentSolver {
+                    tolerance: self.config.tolerance,
+                    max_iterations: self.config.max_iterations,
+                    bracket_expansion: 1.6,
+                    initial_bracket_size: None,
+                },
             },
         };
 
@@ -872,6 +911,7 @@ impl BaseCorrelationSurfaceCalibrator {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use finstack_core::config::FinstackConfig;
     use finstack_core::currency::Currency;
     use finstack_core::market_data::term_structures::CreditIndexData;
     use finstack_core::market_data::term_structures::{
@@ -1108,13 +1148,17 @@ mod tests {
         // Now calibrate using these synthetic quotes
         // Use Newton solver for this smooth calibration problem (faster convergence)
         // Use 1e-9 tolerance to allow for numerical precision while still being very tight
-        let config = CalibrationConfig {
-            solver_kind: crate::calibration::SolverKind::Newton,
-            tolerance: 1e-9,
-            ..CalibrationConfig::default()
-        };
+        let mut cfg = FinstackConfig::default();
+        cfg.extensions.insert(
+            crate::calibration::CALIBRATION_CONFIG_KEY_V1,
+            serde_json::json!({
+                "solver_kind": "Newton",
+                "tolerance": 1e-9
+            }),
+        );
         let calibrator = BaseCorrelationCalibrator::new("CDX.NA.IG.42", 42, 5.0, base_date)
-            .with_config(config)
+            .with_finstack_config(&cfg)
+            .expect("valid config")
             .with_imm_dates(false); // Disable IMM for this test
 
         // Create clean market context for calibration (with dummy base correlation curve)

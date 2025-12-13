@@ -29,6 +29,7 @@ use crate::calibration::{CalibrationConfig, CalibrationReport, Calibrator};
 use crate::constants::time as time_constants;
 use crate::instruments::cds::pricer::CDSPricer;
 use crate::instruments::cds::{CDSConvention, CreditDefaultSwap, PayReceive};
+use finstack_core::config::FinstackConfig;
 use finstack_core::market_data::context::MarketContext;
 use finstack_core::market_data::term_structures::{HazardCurve, ParInterp, Seniority};
 use finstack_core::market_data::traits::Discounting;
@@ -183,8 +184,18 @@ impl HazardCurveCalibrator {
         self
     }
 
-    /// Set calibration configuration.
-    #[must_use]
+    /// Set calibration configuration from a `FinstackConfig`.
+    ///
+    /// Resolves `CalibrationConfig` from `FinstackConfig.extensions["valuations.calibration.v1"]`.
+    pub fn with_finstack_config(mut self, cfg: &FinstackConfig) -> finstack_core::Result<Self> {
+        self.config = CalibrationConfig::from_finstack_config_or_default(cfg)?;
+        Ok(self)
+    }
+
+    /// Set calibration configuration directly.
+    ///
+    /// **Deprecated**: Use [`with_finstack_config`] instead.
+    #[deprecated(since = "0.4.0", note = "Use with_finstack_config instead")]
     pub fn with_config(mut self, config: CalibrationConfig) -> Self {
         self.config = config;
         self
@@ -589,6 +600,7 @@ impl Calibrator<CreditQuote, HazardCurve> for HazardCurveCalibrator {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use finstack_core::config::FinstackConfig;
     use finstack_core::dates::Date;
     use finstack_core::market_data::term_structures::discount_curve::DiscountCurve;
     use finstack_core::market_data::term_structures::hazard_curve::ParInterp;
@@ -799,7 +811,11 @@ mod tests {
         }];
 
         // Use relaxed tolerance for upfront CDS calibration (complex pricing model)
-        let config = crate::calibration::CalibrationConfig::default().with_tolerance(1e-4);
+        let mut cfg = FinstackConfig::default();
+        cfg.extensions.insert(
+            crate::calibration::CALIBRATION_CONFIG_KEY_V1,
+            serde_json::json!({ "tolerance": 1e-4 }),
+        );
         let calibrator = HazardCurveCalibrator::new(
             "DISTRESSED",
             Seniority::Senior,
@@ -808,7 +824,8 @@ mod tests {
             Currency::USD,
             "USD-OIS",
         )
-        .with_config(config);
+        .with_finstack_config(&cfg)
+        .expect("valid config");
         let market_context = MarketContext::new().insert_discount(disc);
         let result = calibrator.calibrate(&upfront_quote, &market_context);
 

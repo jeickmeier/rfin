@@ -136,6 +136,51 @@ CalibrationSpec {
 
 Each step produces an updated `MarketContext` that feeds into the next step.
 
+### 6. Configuration via `FinstackConfig.extensions`
+
+Calibration settings can be sourced from the central `FinstackConfig` object via its `extensions` map.
+This enables passing a single config object through all calibration entrypoints.
+
+**Extension keys:**
+- `valuations.calibration.v1`: General calibration settings (solver, tolerances, rate bounds)
+- `valuations.hull_white_calibration.v1`: Hull-White model calibration settings
+
+**Example:**
+
+```json
+{
+  "extensions": {
+    "valuations.calibration.v1": {
+      "tolerance": 1e-10,
+      "solver_kind": "Brent",
+      "rate_bounds_policy": "auto_currency"
+    },
+    "valuations.hull_white_calibration.v1": {
+      "fix_kappa": 0.03,
+      "tree_steps": 100
+    }
+  }
+}
+```
+
+**Usage in Rust:**
+
+```rust
+use finstack_core::config::FinstackConfig;
+use finstack_valuations::calibration::methods::DiscountCurveCalibrator;
+
+let mut cfg = FinstackConfig::default();
+cfg.extensions.insert(
+    "valuations.calibration.v1",
+    serde_json::json!({ "tolerance": 1e-8, "solver_kind": "Newton" }),
+);
+
+let calibrator = DiscountCurveCalibrator::new("USD-OIS", base_date, Currency::USD)
+    .with_finstack_config(&cfg)?;
+```
+
+All fields in the extension schemas are optional; unspecified fields use deterministic defaults.
+
 ---
 
 ## Feature Set
@@ -152,7 +197,7 @@ Each step produces an updated `MarketContext` that feeds into the next step.
 **Key methods:**
 - `DiscountCurveCalibrator::new(curve_id, base_date, currency)`
 - `.with_solve_interp(InterpStyle)` - Set interpolation
-- `.with_config(CalibrationConfig)` - Configure solver
+- `.with_finstack_config(&FinstackConfig)` - Configure solver via extensions
 - `.calibrate(&quotes, &context)` - Execute calibration
 
 #### Forward Curves (`methods/forward_curve.rs`)

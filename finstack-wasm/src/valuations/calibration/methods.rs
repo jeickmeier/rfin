@@ -1,3 +1,4 @@
+#![allow(deprecated)]
 //! Calibration method bindings for WASM.
 
 use super::config::JsCalibrationConfig;

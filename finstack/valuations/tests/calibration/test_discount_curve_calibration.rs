@@ -1,3 +1,4 @@
+#![allow(deprecated)]
 //! Integration tests for DiscountCurveCalibrator.
 //!
 //! Tests for discount curve bootstrapping including:

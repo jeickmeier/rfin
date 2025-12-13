@@ -1,3 +1,4 @@
+#![allow(deprecated)]
 //! Calibration repricing tests with market-standard tolerance requirements.
 //!
 //! Verifies that calibrated curves can reprice input instruments to within specified tolerances.

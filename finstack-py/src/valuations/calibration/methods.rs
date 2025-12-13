@@ -1,3 +1,4 @@
+#![allow(deprecated)]
 use super::config::{PyCalibrationConfig, PyCalibrationMethod, PyMultiCurveConfig};
 use super::quote::{PyCreditQuote, PyInflationQuote, PyRatesQuote, PyVolQuote};
 use super::report::PyCalibrationReport;

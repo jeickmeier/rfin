@@ -101,8 +101,9 @@ pub use discount::DiscountCurveCalibrator;
 pub use forward_curve::ForwardCurveCalibrator;
 pub use hazard_curve::HazardCurveCalibrator;
 pub use hull_white::{
-    HullWhiteCalibrationConfig, HullWhiteCalibrationResult, HullWhiteCalibrationTargets,
-    HullWhiteCalibrator,
+    Bounds as HullWhiteBounds, HullWhiteCalibrationConfig, HullWhiteCalibrationConfigV1,
+    HullWhiteCalibrationResult, HullWhiteCalibrationTargets, HullWhiteCalibrator, WeightFunction,
+    HULL_WHITE_CALIBRATION_CONFIG_KEY_V1,
 };
 pub use inflation_curve::InflationCurveCalibrator;
 pub use pricing::create_ois_swap_from_quote;

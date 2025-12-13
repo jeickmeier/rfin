@@ -64,7 +64,8 @@ mod validation;
 
 // Re-exports
 pub use config::{
-    CalibrationConfig, CalibrationMethod, MultiCurveConfig, RateBounds, SolverKind, ValidationMode,
+    CalibrationConfig, CalibrationConfigV1, CalibrationMethod, MultiCurveConfig, RateBounds,
+    RateBoundsPolicy, SolverKind, ValidationMode, CALIBRATION_CONFIG_KEY_V1,
 };
 pub use derivatives::sabr_derivatives::{SABRCalibrationDerivatives, SABRMarketData};
 pub use derivatives::sabr_model_params::SABRModelParams;

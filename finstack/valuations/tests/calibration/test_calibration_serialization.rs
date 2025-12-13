@@ -1,3 +1,4 @@
+#![allow(deprecated)]
 //! Comprehensive serialization tests for the calibration framework.
 //!
 //! This test suite verifies that all calibration types can be:

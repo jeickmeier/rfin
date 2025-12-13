@@ -141,40 +141,6 @@ const DEFAULT_PAR_SPREAD_TOLERANCE: f64 = 1e-6;
 // Helper Functions
 // ============================================================================
 
-/// Add business days to a date using a calendar if provided.
-///
-/// If a calendar is provided, uses `is_business_day()` to skip holidays and weekends.
-/// If no calendar is provided, falls back to weekend-only logic (skips Saturday/Sunday).
-///
-/// # Arguments
-/// * `start` - Starting date
-/// * `days` - Number of business days to add (must be non-negative)
-/// * `calendar` - Optional holiday calendar for business day determination
-///
-/// # Returns
-/// The date after adding the specified number of business days.
-fn add_business_days(
-    start: Date,
-    days: i32,
-    calendar: Option<&dyn HolidayCalendar>,
-) -> Result<Date> {
-    let mut date = start;
-    let mut remaining = days;
-    while remaining > 0 {
-        date = date.next_day().ok_or(finstack_core::Error::from(
-            finstack_core::error::InputError::Invalid,
-        ))?;
-        let is_business = match calendar {
-            Some(cal) => cal.is_business_day(date),
-            None => !date.is_weekend(),
-        };
-        if is_business {
-            remaining -= 1;
-        }
-    }
-    Ok(date)
-}
-
 /// Parameters for the CDS Tranche pricing model.
 ///
 /// This configuration controls all aspects of tranche pricing including:
@@ -580,7 +546,11 @@ impl CDSTranchePricer {
             .as_deref()
             .and_then(|id| CalendarRegistry::global().resolve_str(id));
 
-        add_business_days(as_of, settlement_lag, calendar)
+        if let Some(cal) = calendar {
+            as_of.add_business_days(settlement_lag, cal)
+        } else {
+            Ok(as_of.add_weekdays(settlement_lag))
+        }
     }
 
     /// Calculate effective attachment/detachment points given accumulated losses.

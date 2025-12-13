@@ -7,18 +7,43 @@
 //! - Diagonal calibration (constant tenor across expiries)
 //! - Global surface calibration (full expiry-tenor grid)
 //!
+//! # Configuration via `FinstackConfig` extensions
+//!
+//! Hull-White calibration settings can be sourced from
+//! `FinstackConfig.extensions["valuations.hull_white_calibration.v1"]`:
+//!
+//! ```json
+//! {
+//!   "extensions": {
+//!     "valuations.hull_white_calibration.v1": {
+//!       "fix_kappa": 0.03,
+//!       "initial_kappa": 0.03,
+//!       "initial_sigma": 0.01,
+//!       "kappa_bounds": { "min": 0.001, "max": 0.20 },
+//!       "sigma_bounds": { "min": 0.001, "max": 0.05 },
+//!       "tree_steps": 50,
+//!       "tolerance": 1e-6,
+//!       "max_iterations": 100,
+//!       "weight_fn": "uniform"
+//!     }
+//!   }
+//! }
+//! ```
+//!
 //! # References
 //!
 //! - Hull, J. & White, A. (1990). "Pricing Interest-Rate-Derivative Securities"
 //! - Brigo, D. & Mercurio, F. (2006). *Interest Rate Models*, Chapter 4
 
 use crate::instruments::common::models::trees::HullWhiteTreeConfig;
+use finstack_core::config::FinstackConfig;
 use finstack_core::dates::{Date, DayCount, DayCountCtx, Tenor};
 use finstack_core::market_data::context::MarketContext;
 use finstack_core::market_data::traits::Discounting;
 use finstack_core::math::{BrentSolver, Solver};
 use finstack_core::types::CurveId;
 use finstack_core::{Error, Result};
+use serde::{Deserialize, Serialize};
 
 // ============================================================================
 // Calibration Configuration
@@ -56,18 +81,47 @@ pub enum HullWhiteCalibrationTargets {
     },
 }
 
+/// Extension section key for Hull-White calibration overrides.
+pub const HULL_WHITE_CALIBRATION_CONFIG_KEY_V1: &str = "valuations.hull_white_calibration.v1";
+
+/// Bounds represented as a struct for stable JSON serialization.
+#[derive(Clone, Copy, Debug, PartialEq, Serialize, Deserialize)]
+pub struct Bounds {
+    /// Minimum value.
+    pub min: f64,
+    /// Maximum value.
+    pub max: f64,
+}
+
+impl Bounds {
+    /// Convert to tuple form `(min, max)`.
+    #[inline]
+    pub fn to_tuple(self) -> (f64, f64) {
+        (self.min, self.max)
+    }
+}
+
+impl From<(f64, f64)> for Bounds {
+    fn from((min, max): (f64, f64)) -> Self {
+        Self { min, max }
+    }
+}
+
 /// Configuration for Hull-White calibration.
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct HullWhiteCalibrationConfig {
     /// Fix mean reversion κ (if Some, only calibrate σ)
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub fix_kappa: Option<f64>,
     /// Initial guess for mean reversion κ
     pub initial_kappa: f64,
     /// Initial guess for volatility σ
     pub initial_sigma: f64,
     /// Bounds for κ: (min, max)
+    #[serde(with = "bounds_as_tuple")]
     pub kappa_bounds: (f64, f64),
     /// Bounds for σ: (min, max)
+    #[serde(with = "bounds_as_tuple")]
     pub sigma_bounds: (f64, f64),
     /// Number of tree steps for pricing
     pub tree_steps: usize,
@@ -79,8 +133,23 @@ pub struct HullWhiteCalibrationConfig {
     pub weight_fn: WeightFunction,
 }
 
+/// Serde helper to serialize bounds tuples as `{min, max}` objects.
+mod bounds_as_tuple {
+    use super::Bounds;
+    use serde::{Deserialize, Deserializer, Serialize, Serializer};
+
+    pub fn serialize<S: Serializer>(bounds: &(f64, f64), ser: S) -> Result<S::Ok, S::Error> {
+        Bounds::from(*bounds).serialize(ser)
+    }
+
+    pub fn deserialize<'de, D: Deserializer<'de>>(de: D) -> Result<(f64, f64), D::Error> {
+        Bounds::deserialize(de).map(Bounds::to_tuple)
+    }
+}
+
 /// Weight function for calibration targets.
-#[derive(Clone, Copy, Debug, Default)]
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
 pub enum WeightFunction {
     /// Equal weights for all targets
     #[default]
@@ -89,6 +158,41 @@ pub enum WeightFunction {
     VegaWeighted,
     /// Weight inversely by expiry (shorter expiries weighted more)
     InverseExpiry,
+}
+
+/// Optional Hull-White calibration overrides from `FinstackConfig.extensions`.
+///
+/// All fields are optional; when absent, the `HullWhiteCalibrationConfig::default()` value is used.
+#[derive(Clone, Debug, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct HullWhiteCalibrationConfigV1 {
+    /// Fix mean reversion κ (if present, only calibrate σ). Use `null` to clear.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub fix_kappa: Option<Option<f64>>,
+    /// Initial guess for mean reversion κ.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub initial_kappa: Option<f64>,
+    /// Initial guess for volatility σ.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub initial_sigma: Option<f64>,
+    /// Bounds for κ: `{min, max}`.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub kappa_bounds: Option<Bounds>,
+    /// Bounds for σ: `{min, max}`.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub sigma_bounds: Option<Bounds>,
+    /// Number of tree steps for pricing.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub tree_steps: Option<usize>,
+    /// Convergence tolerance.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub tolerance: Option<f64>,
+    /// Maximum iterations.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub max_iterations: Option<usize>,
+    /// Weight function for calibration targets.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub weight_fn: Option<WeightFunction>,
 }
 
 impl Default for HullWhiteCalibrationConfig {
@@ -108,6 +212,81 @@ impl Default for HullWhiteCalibrationConfig {
 }
 
 impl HullWhiteCalibrationConfig {
+    /// Build a Hull-White calibration config from a `FinstackConfig` extension section.
+    ///
+    /// If the extension section `valuations.hull_white_calibration.v1` is present,
+    /// its fields override the defaults; otherwise defaults are used.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if the extension section is present but malformed.
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// use finstack_core::config::FinstackConfig;
+    /// use finstack_valuations::calibration::methods::hull_white::HullWhiteCalibrationConfig;
+    ///
+    /// let cfg = FinstackConfig::default();
+    /// let hw_cfg = HullWhiteCalibrationConfig::from_finstack_config_or_default(&cfg)
+    ///     .expect("valid config");
+    /// assert_eq!(hw_cfg.initial_kappa, 0.03); // default
+    /// ```
+    #[cfg(feature = "serde")]
+    pub fn from_finstack_config_or_default(cfg: &FinstackConfig) -> Result<Self> {
+        let mut base = Self::default();
+
+        if let Some(raw) = cfg.extensions.get(HULL_WHITE_CALIBRATION_CONFIG_KEY_V1) {
+            let overrides: HullWhiteCalibrationConfigV1 = serde_json::from_value(raw.clone())
+                .map_err(|e| Error::Calibration {
+                    message: format!(
+                        "Failed to parse extension '{}': {}",
+                        HULL_WHITE_CALIBRATION_CONFIG_KEY_V1, e
+                    ),
+                    category: "config".to_string(),
+                })?;
+
+            if let Some(v) = overrides.fix_kappa {
+                base.fix_kappa = v;
+            }
+            if let Some(v) = overrides.initial_kappa {
+                base.initial_kappa = v;
+            }
+            if let Some(v) = overrides.initial_sigma {
+                base.initial_sigma = v;
+            }
+            if let Some(v) = overrides.kappa_bounds {
+                base.kappa_bounds = v.to_tuple();
+            }
+            if let Some(v) = overrides.sigma_bounds {
+                base.sigma_bounds = v.to_tuple();
+            }
+            if let Some(v) = overrides.tree_steps {
+                base.tree_steps = v;
+            }
+            if let Some(v) = overrides.tolerance {
+                base.tolerance = v;
+            }
+            if let Some(v) = overrides.max_iterations {
+                base.max_iterations = v;
+            }
+            if let Some(v) = overrides.weight_fn {
+                base.weight_fn = v;
+            }
+        }
+
+        Ok(base)
+    }
+
+    /// Build a Hull-White calibration config from a `FinstackConfig` (non-serde fallback).
+    ///
+    /// When the `serde` feature is disabled, extensions are not available and
+    /// this method always returns `HullWhiteCalibrationConfig::default()`.
+    #[cfg(not(feature = "serde"))]
+    pub fn from_finstack_config_or_default(_cfg: &FinstackConfig) -> Result<Self> {
+        Ok(Self::default())
+    }
+
     /// Create a new configuration with fixed κ.
     pub fn with_fixed_kappa(kappa: f64) -> Self {
         Self {
@@ -199,7 +378,19 @@ impl HullWhiteCalibrator {
         }
     }
 
-    /// Set calibration configuration.
+    /// Set calibration configuration from a `FinstackConfig`.
+    ///
+    /// Resolves `HullWhiteCalibrationConfig` from
+    /// `FinstackConfig.extensions["valuations.hull_white_calibration.v1"]`.
+    pub fn with_finstack_config(mut self, cfg: &FinstackConfig) -> Result<Self> {
+        self.config = HullWhiteCalibrationConfig::from_finstack_config_or_default(cfg)?;
+        Ok(self)
+    }
+
+    /// Set calibration configuration directly.
+    ///
+    /// **Deprecated**: Use [`with_finstack_config`] instead.
+    #[deprecated(since = "0.4.0", note = "Use with_finstack_config instead")]
     pub fn with_config(mut self, config: HullWhiteCalibrationConfig) -> Self {
         self.config = config;
         self
@@ -598,6 +789,7 @@ struct SwaptionTargetSpec {
 }
 
 #[cfg(test)]
+#[allow(deprecated)]
 mod tests {
     use super::*;
     use finstack_core::market_data::surfaces::vol_surface::VolSurface;

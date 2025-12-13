@@ -1,3 +1,4 @@
+#![allow(deprecated)]
 //! Integration test for swaption volatility calibration.
 
 use finstack_core::dates::Date;

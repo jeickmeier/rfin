@@ -291,23 +291,31 @@ pub const CALIBRATION_CONFIG_KEY_V1: &str = "valuations.calibration.v1";
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct CalibrationConfigV1 {
+    /// Solver tolerance for convergence checks.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub tolerance: Option<f64>,
+    /// Maximum iterations for solver.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub max_iterations: Option<usize>,
+    /// Use parallel processing when available.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub use_parallel: Option<bool>,
-    /// Use `null` to clear the seed; omit to inherit the default.
+    /// Random seed for reproducible results. Use `null` to clear the seed; omit to inherit the default.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub random_seed: Option<Option<u64>>,
+    /// Enable verbose logging.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub verbose: Option<bool>,
+    /// Solver type selection.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub solver_kind: Option<SolverKind>,
+    /// Policy for selecting rate bounds.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub rate_bounds_policy: Option<RateBoundsPolicy>,
+    /// Rate bounds for forward/zero rate calibration.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub rate_bounds: Option<RateBounds>,
+    /// Calibration method (bootstrap vs global solve).
     #[serde(skip_serializing_if = "Option::is_none")]
     pub calibration_method: Option<CalibrationMethod>,
 }
@@ -339,12 +347,36 @@ impl CalibrationConfig {
     ///
     /// If the extension section `valuations.calibration.v1` is present, its
     /// fields override the defaults; otherwise defaults are used.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if the extension section is present but malformed
+    /// (e.g., unknown fields when `deny_unknown_fields` is enforced).
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// use finstack_core::config::FinstackConfig;
+    /// use finstack_valuations::calibration::CalibrationConfig;
+    ///
+    /// let cfg = FinstackConfig::default();
+    /// let calib_cfg = CalibrationConfig::from_finstack_config_or_default(&cfg)
+    ///     .expect("valid config");
+    /// assert_eq!(calib_cfg.tolerance, 1e-10); // default
+    /// ```
     #[cfg(feature = "serde")]
-    pub fn from_finstack_config(cfg: &FinstackConfig) -> serde_json::Result<Self> {
+    pub fn from_finstack_config_or_default(cfg: &FinstackConfig) -> finstack_core::Result<Self> {
         let mut base = Self::default();
 
         if let Some(raw) = cfg.extensions.get(CALIBRATION_CONFIG_KEY_V1) {
-            let overrides: CalibrationConfigV1 = serde_json::from_value(raw.clone())?;
+            let overrides: CalibrationConfigV1 =
+                serde_json::from_value(raw.clone()).map_err(|e| finstack_core::Error::Calibration {
+                    message: format!(
+                        "Failed to parse extension '{}': {}",
+                        CALIBRATION_CONFIG_KEY_V1, e
+                    ),
+                    category: "config".to_string(),
+                })?;
 
             if let Some(v) = overrides.tolerance {
                 base.tolerance = v;
@@ -376,6 +408,27 @@ impl CalibrationConfig {
         }
 
         Ok(base)
+    }
+
+    /// Build a calibration config from a `FinstackConfig` extension section.
+    ///
+    /// **Deprecated**: Use [`from_finstack_config_or_default`] instead.
+    #[cfg(feature = "serde")]
+    #[deprecated(since = "0.1.0", note = "Use from_finstack_config_or_default instead")]
+    pub fn from_finstack_config(cfg: &FinstackConfig) -> serde_json::Result<Self> {
+        use serde::de::Error as _;
+        Self::from_finstack_config_or_default(cfg).map_err(|e| {
+            serde_json::Error::custom(e.to_string())
+        })
+    }
+
+    /// Build a calibration config from a `FinstackConfig` (non-serde fallback).
+    ///
+    /// When the `serde` feature is disabled, extensions are not available and
+    /// this method always returns `CalibrationConfig::default()`.
+    #[cfg(not(feature = "serde"))]
+    pub fn from_finstack_config_or_default(_cfg: &FinstackConfig) -> finstack_core::Result<Self> {
+        Ok(Self::default())
     }
 
     /// Resolve effective rate bounds for a given currency based on `rate_bounds_policy`.

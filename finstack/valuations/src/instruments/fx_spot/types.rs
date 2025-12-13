@@ -325,18 +325,7 @@ impl CashflowProvider for FxSpot {
             let lag_days = self.settlement_lag_days.unwrap_or(2);
             if let Some(id) = self.calendar_id.as_deref() {
                 if let Some(cal) = calendar_by_id(id) {
-                    // Walk business days using calendar since trait-object calendars
-                    // are not accepted by DateExt::add_business_days (requires Sized)
-                    let mut d = as_of;
-                    let mut remaining = lag_days;
-                    let step = if remaining >= 0 { 1 } else { -1 };
-                    while remaining != 0 {
-                        d = d.saturating_add(time::Duration::days(step as i64));
-                        if cal.is_business_day(d) {
-                            remaining -= step;
-                        }
-                    }
-                    d
+                    as_of.add_business_days(lag_days, cal)?
                 } else {
                     as_of.add_weekdays(lag_days)
                 }
