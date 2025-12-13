@@ -428,38 +428,25 @@ impl HazardCurve {
     /// # Errors
     /// Returns an error if fewer than 2 knot points remain after filtering expired points.
     pub fn roll_forward(&self, days: i64) -> crate::Result<Self> {
-        let dt_years = days as f64 / 365.0;
         let new_base = self.base + time::Duration::days(days);
+        // Use consistent day count logic (same as DiscountCurve/ForwardCurve)
+        // This is a behavior change from "days/365.0" to actual day count, which is more correct.
+        let dt_years = self
+            .day_count
+            .year_fraction(self.base, new_base, DayCountCtx::default())?;
 
-        // Shift knots and filter expired points
-        let rolled_points: Vec<(f64, f64)> = self
-            .knot_points()
-            .filter_map(|(t, lambda)| {
-                let new_t = t - dt_years;
-                if new_t > 0.0 {
-                    Some((new_t, lambda))
-                } else {
-                    None
-                }
-            })
-            .collect();
+        // Shift knots and filter expired points using shared helper
+        let rolled_points = super::common::roll_knots(&self.knots, &self.lambdas, dt_years);
 
         if rolled_points.len() < 2 {
             return Err(crate::error::InputError::TooFewPoints.into());
         }
 
         // Also roll par spread points
-        let rolled_par_points: Vec<(f64, f64)> = self
-            .par_spread_points()
-            .filter_map(|(t, spread)| {
-                let new_t = t - dt_years;
-                if new_t > 0.0 {
-                    Some((new_t, spread))
-                } else {
-                    None
-                }
-            })
-            .collect();
+        // Note: par_spreads also use "t" as years from base, so we can reuse roll_knots logic
+        // even though they aren't "knots" for the curve itself.
+        let rolled_par_points =
+            super::common::roll_knots(&self.par_tenors, &self.par_spreads_bp, dt_years);
 
         let mut builder = HazardCurve::builder(self.id.clone())
             .base_date(new_base)
@@ -736,6 +723,47 @@ mod tests {
             .build()
             .expect("HazardCurve builder should succeed with valid test data");
         assert!((hc.quoted_spread_bp(2.0, ParInterp::Linear) - 150.0).abs() < 1e-9);
+    }
+
+    #[test]
+    fn roll_forward_works() {
+        let base = Date::from_calendar_date(2025, Month::January, 1).expect("Valid test date");
+        let hc = HazardCurve::builder("TEST-ROLL")
+            .base_date(base)
+            .day_count(DayCount::Act365F) // Use Act365F for simple math
+            .knots([(0.5, 0.01), (1.5, 0.02)])
+            .build()
+            .expect("Builder works");
+
+        // Roll forward 182.5 days (0.5 years)
+        // 0.5 year point should expire (become 0.0) -> filtered out?
+        // Wait, roll_knots filters if t <= 0.0.
+        // 0.5 - 0.5 = 0.0. So it should be filtered out.
+        // Resulting curve needs at least 1 point (builder requires it).
+        // Actually builder requires "At least one knot point" (line 622).
+        // roll_forward returns error if < 2 points?
+        // Let's check roll_forward implementation again.
+        // "if rolled_points.len() < 2 { return Err(...) }"
+        // So we need enough points surviving.
+
+        let hc = HazardCurve::builder("TEST-ROLL")
+            .base_date(base)
+            .day_count(DayCount::Act365F)
+            .knots([(0.5, 0.01), (1.5, 0.02), (2.5, 0.03)])
+            .build()
+            .expect("Builder works");
+
+        let rolled = hc.roll_forward(183).expect("Roll should succeed"); // > 0.5 years
+
+        // Base date should be shifted
+        assert_eq!(rolled.base_date(), base + time::Duration::days(183));
+
+        // Knots should be shifted
+        let knots: Vec<f64> = rolled.knot_points().map(|(t, _)| t).collect();
+        assert_eq!(knots.len(), 2);
+        // 1.5 - (183/365) = 1.5 - 0.50137 = 0.9986
+        // 2.5 - (183/365) = 1.9986
+        assert!(knots[0] < 1.0 && knots[0] > 0.99);
     }
 }
 
