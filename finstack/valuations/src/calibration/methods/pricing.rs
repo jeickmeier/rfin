@@ -1160,56 +1160,6 @@ impl CalibrationPricer {
         }
     }
 
-    /// Validate quote sequence for no-arbitrage and completeness.
-    ///
-    /// Performs basic validation:
-    /// - Non-empty quote list
-    /// - No duplicate maturities
-    /// - Rates within configured bounds
-    ///
-    /// # Arguments
-    ///
-    /// * `quotes` - The quote sequence to validate
-    /// * `rate_bounds` - Min/max rate bounds for sanity checking
-    ///
-    /// # Errors
-    ///
-    /// Returns an error if validation fails.
-    pub fn validate_quotes(
-        quotes: &[RatesQuote],
-        rate_bounds: &crate::calibration::config::RateBounds,
-    ) -> Result<()> {
-        if quotes.is_empty() {
-            return Err(finstack_core::Error::Input(
-                finstack_core::error::InputError::TooFewPoints,
-            ));
-        }
-
-        // Check for duplicate (quote_type, maturity) combinations
-        // This allows different instrument types with the same maturity
-        let mut seen = std::collections::HashSet::new();
-        for quote in quotes {
-            let key = (quote.get_type(), quote.maturity_date());
-            if !seen.insert(key) {
-                return Err(finstack_core::Error::Input(
-                    finstack_core::error::InputError::Invalid,
-                ));
-            }
-        }
-
-        // Check rates are reasonable (basic sanity check)
-        for quote in quotes {
-            let rate = Self::get_rate(quote);
-            if !rate.is_finite() || !rate_bounds.contains(rate) {
-                return Err(finstack_core::Error::Input(
-                    finstack_core::error::InputError::Invalid,
-                ));
-            }
-        }
-
-        Ok(())
-    }
-
     /// Pre-validate that all required curves exist for the quote set.
     ///
     /// Fails fast with a clear error if dependencies are missing, rather than
@@ -1266,66 +1216,6 @@ impl CalibrationPricer {
         Ok(())
     }
 
-    /// Validate quote suitability for discount curve calibration.
-    ///
-    /// Checks that the quote set is appropriate for discount curve calibration
-    /// under multi-curve framework principles. Warns (or errors in strict mode)
-    /// when forward-dependent instruments are used without OIS-suitable quotes.
-    ///
-    /// ## Multi-Curve Framework Guidance
-    ///
-    /// **Appropriate for discount curve calibration:**
-    /// - OIS swaps (e.g., SOFR, ESTR, SONIA): overnight compounded, collateral-aligned
-    /// - Deposits: short-end risk-free rates
-    ///
-    /// **Not recommended for discount curves (use dedicated forward curve calibration):**
-    /// - FRAs: reference LIBOR/term rates, require forward curve for pricing
-    /// - Futures: reference term rates, convexity-adjusted
-    /// - Tenor swaps (3M, 6M LIBOR-based): require forward curves per tenor
-    /// - Basis swaps: used for cross-tenor calibration, not discount
-    ///
-    /// # Arguments
-    ///
-    /// * `quotes` - The quote sequence to validate
-    /// * `enforce_separation` - If true, error on invalid mix; if false, warn only
-    ///
-    /// # Errors
-    ///
-    /// Returns an error if `enforce_separation` is true and quotes are unsuitable.
-    pub fn validate_discount_curve_quotes(
-        quotes: &[RatesQuote],
-        enforce_separation: bool,
-    ) -> Result<()> {
-        let mut has_forward_dependent = false;
-        let mut has_ois_suitable = false;
-
-        for quote in quotes {
-            if quote.requires_forward_curve() {
-                has_forward_dependent = true;
-            }
-            if quote.is_ois_suitable() {
-                has_ois_suitable = true;
-            }
-        }
-
-        // Enforce separation if configured: do not allow forward-dependent instruments for discount curve
-        if has_forward_dependent && !has_ois_suitable {
-            if enforce_separation {
-                return Err(finstack_core::Error::Input(
-                    finstack_core::error::InputError::Invalid,
-                ));
-            } else {
-                tracing::warn!(
-                    "Discount curve calibration using forward-dependent instruments (FRA, Future, non-OIS Swap). \
-                     Best practice: use OIS swaps (SOFR/ESTR/SONIA) or deposits for discount curves, \
-                     and calibrate forward curves separately."
-                );
-            }
-        }
-
-        Ok(())
-    }
-
     /// Unified validation for rate quotes with use-case-specific rules.
     ///
     /// This is the **single entrypoint** for validating rate quotes across all
@@ -1335,6 +1225,10 @@ impl CalibrationPricer {
     /// - Rate bounds validation
     /// - Maturity > base_date check
     /// - Use-case-specific instrument constraints
+    ///
+    /// For discount curve calibration, non-OIS forward-dependent instruments
+    /// are checked and the `enforce_separation` flag determines whether to
+    /// error (true) or warn (false).
     ///
     /// # Arguments
     ///
@@ -1393,6 +1287,9 @@ impl CalibrationPricer {
         }
 
         // 3. Per-quote validation (rate bounds, finite check, maturity, use-case constraints)
+        // Also accumulate discount-curve "separation" violations for a single warn/error.
+        let mut separation_violations: Vec<&'static str> = Vec::new();
+
         for quote in quotes {
             // Use-case specific: Forward curve does not support Deposit
             if let RatesQuoteUseCase::ForwardCurve = use_case {
@@ -1403,19 +1300,14 @@ impl CalibrationPricer {
                 }
             }
 
-            // Use-case specific: Discount curve rejects non-OIS forward-dependent instruments
-            // This enforces multi-curve framework: FRAs/Futures/non-OIS swaps require forward curves
+            // Use-case specific: Discount curve checks non-OIS forward-dependent instruments
+            // Collect violations here; decide warn vs error below based on enforce_separation
             if let RatesQuoteUseCase::DiscountCurve { .. } = use_case {
-                if !quote.is_ois_suitable() && quote.requires_forward_curve() {
-                    return Err(finstack_core::Error::Validation(
-                        format!(
-                            "DiscountCurveCalibrator received non-OIS instrument: {}. \
-                             Non-OIS instruments ({:?}) violate multi-curve principles by implying zero basis spread. \
-                             Please calibrate forward curves separately using ForwardCurveCalibrator with appropriate basis spreads.",
-                            quote.get_type(),
-                            quote
-                        ),
-                    ));
+                if !quote.is_ois_suitable()
+                    && quote.requires_forward_curve()
+                    && separation_violations.len() < 5
+                {
+                    separation_violations.push(quote.get_type());
                 }
             }
 
@@ -1452,9 +1344,23 @@ impl CalibrationPricer {
             }
         }
 
-        // 4. Use-case specific: Discount curve OIS-suitability batch check (warn mode)
+        // 4. Use-case specific: Discount curve separation enforcement (warn vs error)
         if let RatesQuoteUseCase::DiscountCurve { enforce_separation } = use_case {
-            Self::validate_discount_curve_quotes(quotes, enforce_separation)?;
+            if !separation_violations.is_empty() {
+                let examples = separation_violations.join(", ");
+                let msg = format!(
+                    "Discount curve calibration received {} non-OIS forward-dependent quote(s) \
+(e.g. {}). Best practice: use Deposits/OIS swaps for discount curves and calibrate forward curves separately.",
+                    separation_violations.len(),
+                    examples
+                );
+
+                if enforce_separation {
+                    return Err(finstack_core::Error::Validation(msg));
+                } else {
+                    tracing::warn!("{msg}");
+                }
+            }
         }
 
         Ok(())
@@ -1570,6 +1476,8 @@ mod tests {
         // Finding 6: Different quote types with same maturity should be allowed
         use crate::calibration::config::RateBounds;
 
+        let base_date =
+            Date::from_calendar_date(2024, time::Month::January, 15).expect("valid date");
         let maturity =
             Date::from_calendar_date(2025, time::Month::January, 15).expect("valid date");
 
@@ -1599,7 +1507,15 @@ mod tests {
         ];
 
         let bounds = RateBounds::default();
-        let result = CalibrationPricer::validate_quotes(&quotes, &bounds);
+        // Use enforce_separation=false to avoid erroring on the non-OIS swap
+        let result = CalibrationPricer::validate_rates_quotes(
+            &quotes,
+            &bounds,
+            base_date,
+            RatesQuoteUseCase::DiscountCurve {
+                enforce_separation: false,
+            },
+        );
         assert!(
             result.is_ok(),
             "Different quote types with same maturity should be valid"
@@ -1611,6 +1527,8 @@ mod tests {
         // Finding 6: Same quote type with same maturity should be rejected
         use crate::calibration::config::RateBounds;
 
+        let base_date =
+            Date::from_calendar_date(2024, time::Month::January, 15).expect("valid date");
         let maturity =
             Date::from_calendar_date(2025, time::Month::January, 15).expect("valid date");
 
@@ -1630,7 +1548,14 @@ mod tests {
         ];
 
         let bounds = RateBounds::default();
-        let result = CalibrationPricer::validate_quotes(&quotes, &bounds);
+        let result = CalibrationPricer::validate_rates_quotes(
+            &quotes,
+            &bounds,
+            base_date,
+            RatesQuoteUseCase::DiscountCurve {
+                enforce_separation: true,
+            },
+        );
         assert!(
             result.is_err(),
             "Same quote type with same maturity should be invalid"

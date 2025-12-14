@@ -9,6 +9,54 @@ fn default_true() -> bool {
     true
 }
 
+/// Diagnostics computed from residual values.
+struct ResidualDiagnostics {
+    max_residual: f64,
+    rmse: f64,
+    has_penalty: bool,
+}
+
+/// Filter out penalty sentinel values and compute common diagnostics.
+///
+/// Penalties (INFINITY or values >= PENALTY * 0.5) are excluded from max/RMSE
+/// unless ALL values are penalties, in which case the raw stats are used.
+fn compute_residual_diagnostics(residuals: &BTreeMap<String, f64>) -> ResidualDiagnostics {
+    let penalty = crate::calibration::PENALTY;
+
+    // Filter to finite non-penalty values
+    let finite_vals: Vec<f64> = residuals
+        .values()
+        .copied()
+        .filter(|r| r.is_finite() && r.abs() < penalty * 0.5)
+        .collect();
+
+    let has_penalty = residuals
+        .values()
+        .any(|r| !r.is_finite() || r.abs() >= penalty * 0.5);
+
+    let max_residual = if finite_vals.is_empty() {
+        residuals.values().map(|r| r.abs()).fold(0.0, f64::max)
+    } else {
+        finite_vals.iter().map(|r| r.abs()).fold(0.0, f64::max)
+    };
+
+    let rmse = if residuals.is_empty() {
+        0.0
+    } else if finite_vals.is_empty() {
+        let sum_sq: f64 = residuals.values().map(|r| r * r).sum();
+        (sum_sq / residuals.len() as f64).sqrt()
+    } else {
+        let sum_sq: f64 = finite_vals.iter().map(|r| r * r).sum();
+        (sum_sq / finite_vals.len() as f64).sqrt()
+    };
+
+    ResidualDiagnostics {
+        max_residual,
+        rmse,
+        has_penalty,
+    }
+}
+
 /// Calibration diagnostic report.
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct CalibrationReport {
@@ -64,29 +112,7 @@ impl CalibrationReport {
         success: bool,
         convergence_reason: impl Into<String>,
     ) -> Self {
-        // Ignore sentinel penalty values when computing diagnostics, so a single
-        // hard failure doesn't drown out useful residual magnitudes. If all
-        // residuals are penalties, we fall back to the raw max.
-        let penalty = crate::calibration::PENALTY;
-        let finite_vals: Vec<f64> = residuals
-            .values()
-            .copied()
-            .filter(|r| r.is_finite() && r.abs() < penalty * 0.5)
-            .collect();
-        let max_residual = if finite_vals.is_empty() {
-            residuals.values().map(|r| r.abs()).fold(0.0, f64::max)
-        } else {
-            finite_vals.iter().map(|r| r.abs()).fold(0.0, f64::max)
-        };
-        let rmse = if residuals.is_empty() {
-            0.0
-        } else if finite_vals.is_empty() {
-            let sum_sq: f64 = residuals.values().map(|r| r * r).sum();
-            (sum_sq / residuals.len() as f64).sqrt()
-        } else {
-            let sum_sq: f64 = finite_vals.iter().map(|r| r * r).sum();
-            (sum_sq / finite_vals.len() as f64).sqrt()
-        };
+        let diag = compute_residual_diagnostics(&residuals);
 
         // Create default results metadata with stamping
         let results_meta =
@@ -100,9 +126,9 @@ impl CalibrationReport {
             // This is a generic, comparable scalar objective across calibrators. Individual
             // calibrators may overwrite this with a domain-specific objective via
             // `with_metadata(...)` or a future explicit objective setter.
-            objective_value: rmse,
-            max_residual,
-            rmse,
+            objective_value: diag.rmse,
+            max_residual: diag.max_residual,
+            rmse: diag.rmse,
             validation_passed: true,
             validation_error: None,
             convergence_reason: convergence_reason.into(),
@@ -209,7 +235,6 @@ impl CalibrationReport {
         tolerance: f64,
     ) -> Self {
         let type_str = calibration_type.into();
-        let penalty = crate::calibration::PENALTY;
 
         if residuals.is_empty() {
             return Self::new(
@@ -225,26 +250,11 @@ impl CalibrationReport {
             .with_metadata("tolerance", format!("{:.2e}", tolerance));
         }
 
-        // Check for PENALTY values indicating hard failures
-        let has_penalty = residuals
-            .values()
-            .any(|r| !r.is_finite() || r.abs() >= penalty * 0.5);
-
-        // Filter out penalty values for max_residual calculation (same logic as Self::new)
-        let finite_vals: Vec<f64> = residuals
-            .values()
-            .copied()
-            .filter(|r| r.is_finite() && r.abs() < penalty * 0.5)
-            .collect();
-
-        let max_residual = if finite_vals.is_empty() {
-            residuals.values().map(|r| r.abs()).fold(0.0, f64::max)
-        } else {
-            finite_vals.iter().map(|r| r.abs()).fold(0.0, f64::max)
-        };
+        let diag = compute_residual_diagnostics(&residuals);
 
         // Determine success and convergence reason
-        let (success, convergence_reason) = if has_penalty {
+        let (success, convergence_reason) = if diag.has_penalty {
+            let penalty = crate::calibration::PENALTY;
             let penalty_instruments: Vec<&String> = residuals
                 .iter()
                 .filter(|(_, r)| !r.is_finite() || r.abs() >= penalty * 0.5)
@@ -258,13 +268,13 @@ impl CalibrationReport {
                     penalty_instruments
                 ),
             )
-        } else if max_residual > tolerance {
+        } else if diag.max_residual > tolerance {
             (
                 false,
                 format!(
                     "{} calibration failed: max_residual ({:.2e}) exceeds tolerance ({:.2e})",
                     type_str.replace('_', " "),
-                    max_residual,
+                    diag.max_residual,
                     tolerance
                 ),
             )
@@ -274,7 +284,7 @@ impl CalibrationReport {
                 format!(
                     "{} calibration converged: max_residual ({:.2e}) within tolerance ({:.2e})",
                     type_str.replace('_', " "),
-                    max_residual,
+                    diag.max_residual,
                     tolerance
                 ),
             )

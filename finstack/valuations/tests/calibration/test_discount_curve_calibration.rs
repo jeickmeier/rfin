@@ -301,10 +301,8 @@ fn test_fra_repricing_under_bootstrap() {
         Err(err) => {
             let msg = format!("{err}");
             assert!(
-                msg.contains("DiscountCurveCalibrator received non-OIS instrument")
-                    && msg.contains(
-                        "Please calibrate forward curves separately using ForwardCurveCalibrator"
-                    ),
+                msg.contains("non-OIS forward-dependent quote")
+                    && msg.contains("calibrate forward curves separately"),
                 "Unexpected error message for FRA quote in discount calibration: {msg}"
             );
         }

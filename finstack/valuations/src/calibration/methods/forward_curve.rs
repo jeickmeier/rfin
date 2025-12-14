@@ -663,7 +663,7 @@ impl ForwardCurveCalibrator {
             knots = candidate_knots;
 
             // Store residual with descriptive key
-            let key = self.format_quote_key(quote, residual_key_counter);
+            let key = quote.format_residual_key(residual_key_counter);
             residual_key_counter += 1;
             residuals.insert(key, final_residual);
 
@@ -799,7 +799,7 @@ impl ForwardCurveCalibrator {
         let row_labels: Vec<String> = quotes
             .iter()
             .enumerate()
-            .map(|(i, q)| self.format_quote_key(q, i))
+            .map(|(i, q)| q.format_residual_key(i))
             .collect();
         let col_labels: Vec<String> = base_curve
             .knots()
@@ -961,37 +961,6 @@ impl ForwardCurveCalibrator {
                 (freq_years - self.tenor_years).abs() < self.config.tolerance
             }
             _ => false,
-        }
-    }
-
-    /// Create a descriptive residual key for a quote for diagnostics.
-    fn format_quote_key(&self, quote: &RatesQuote, counter: usize) -> String {
-        match quote {
-            RatesQuote::FRA { start, end, .. } => {
-                format!("FRA-{}-{}-{:06}", start, end, counter)
-            }
-            RatesQuote::Future { expiry, specs, .. } => {
-                format!("FUT-{}-{}m-{:06}", expiry, specs.delivery_months, counter)
-            }
-            RatesQuote::Swap {
-                maturity, index, ..
-            } => {
-                format!("SWAP-{}-{}-{:06}", index.as_ref(), maturity, counter)
-            }
-            RatesQuote::BasisSwap {
-                maturity,
-                primary_index,
-                reference_index,
-                ..
-            } => {
-                format!(
-                    "BASIS-{}-{}vs{}-{:06}",
-                    maturity, primary_index, reference_index, counter
-                )
-            }
-            RatesQuote::Deposit { maturity, .. } => {
-                format!("DEP-{}-{:06}", maturity, counter)
-            }
         }
     }
 

@@ -15,4 +15,4 @@ pub use methods::{
 pub use quote::{JsCreditQuote, JsInflationQuote, JsMarketQuote, JsRatesQuote, JsVolQuote};
 pub use report::JsCalibrationReport;
 pub use sabr::{JsSABRCalibrationDerivatives, JsSABRMarketData, JsSABRModelParams};
-pub use validation::{JsValidationConfig, JsValidationError};
+pub use validation::JsValidationConfig;

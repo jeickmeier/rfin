@@ -31,7 +31,7 @@ use finstack_valuations::calibration::methods::swaption_vol::{
 use finstack_valuations::calibration::{
     CalibrationConfig, CalibrationReport, CreditQuote, FutureSpecs, InflationQuote, MarketQuote,
     MultiCurveConfig, RatesQuote, SABRMarketData, SABRModelParams, SolverKind, ValidationConfig,
-    ValidationError, VolQuote,
+    VolQuote,
 };
 use std::collections::BTreeMap;
 use std::path::PathBuf;
@@ -367,25 +367,6 @@ fn test_calibration_report_serialization() {
     assert_eq!(report.iterations, restored.iterations);
     assert_eq!(report.convergence_reason, restored.convergence_reason);
     assert_eq!(report.residuals.len(), restored.residuals.len());
-}
-
-#[test]
-fn test_validation_error_serialization() {
-    let mut values = BTreeMap::new();
-    values.insert("df_t1".to_string(), 0.95);
-    values.insert("df_t2".to_string(), 0.94);
-
-    let error = ValidationError {
-        constraint: "monotonicity".to_string(),
-        location: "t=1.5".to_string(),
-        details: "Discount factor increased".to_string(),
-        values,
-    };
-
-    let restored = roundtrip_json(&error);
-    assert_eq!(error.constraint, restored.constraint);
-    assert_eq!(error.location, restored.location);
-    assert_eq!(error.details, restored.details);
 }
 
 #[test]

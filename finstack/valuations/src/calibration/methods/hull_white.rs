@@ -109,6 +109,7 @@ impl From<(f64, f64)> for Bounds {
 
 /// Configuration for Hull-White calibration.
 #[derive(Clone, Debug, Serialize, Deserialize)]
+#[serde(default, deny_unknown_fields)]
 pub struct HullWhiteCalibrationConfig {
     /// Fix mean reversion κ (if Some, only calibrate σ)
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -160,41 +161,6 @@ pub enum WeightFunction {
     InverseExpiry,
 }
 
-/// Optional Hull-White calibration overrides from `FinstackConfig.extensions`.
-///
-/// All fields are optional; when absent, the `HullWhiteCalibrationConfig::default()` value is used.
-#[derive(Clone, Debug, Serialize, Deserialize)]
-#[serde(deny_unknown_fields)]
-pub struct HullWhiteCalibrationConfigV1 {
-    /// Fix mean reversion κ (if present, only calibrate σ). Use `null` to clear.
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub fix_kappa: Option<Option<f64>>,
-    /// Initial guess for mean reversion κ.
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub initial_kappa: Option<f64>,
-    /// Initial guess for volatility σ.
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub initial_sigma: Option<f64>,
-    /// Bounds for κ: `{min, max}`.
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub kappa_bounds: Option<Bounds>,
-    /// Bounds for σ: `{min, max}`.
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub sigma_bounds: Option<Bounds>,
-    /// Number of tree steps for pricing.
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub tree_steps: Option<usize>,
-    /// Convergence tolerance.
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub tolerance: Option<f64>,
-    /// Maximum iterations.
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub max_iterations: Option<usize>,
-    /// Weight function for calibration targets.
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub weight_fn: Option<WeightFunction>,
-}
-
 impl Default for HullWhiteCalibrationConfig {
     fn default() -> Self {
         Self {
@@ -234,48 +200,18 @@ impl HullWhiteCalibrationConfig {
     /// ```
     #[cfg(feature = "serde")]
     pub fn from_finstack_config_or_default(cfg: &FinstackConfig) -> Result<Self> {
-        let mut base = Self::default();
-
         if let Some(raw) = cfg.extensions.get(HULL_WHITE_CALIBRATION_CONFIG_KEY_V1) {
-            let overrides: HullWhiteCalibrationConfigV1 = serde_json::from_value(raw.clone())
-                .map_err(|e| Error::Calibration {
-                    message: format!(
-                        "Failed to parse extension '{}': {}",
-                        HULL_WHITE_CALIBRATION_CONFIG_KEY_V1, e
-                    ),
-                    category: "config".to_string(),
-                })?;
-
-            if let Some(v) = overrides.fix_kappa {
-                base.fix_kappa = v;
-            }
-            if let Some(v) = overrides.initial_kappa {
-                base.initial_kappa = v;
-            }
-            if let Some(v) = overrides.initial_sigma {
-                base.initial_sigma = v;
-            }
-            if let Some(v) = overrides.kappa_bounds {
-                base.kappa_bounds = v.to_tuple();
-            }
-            if let Some(v) = overrides.sigma_bounds {
-                base.sigma_bounds = v.to_tuple();
-            }
-            if let Some(v) = overrides.tree_steps {
-                base.tree_steps = v;
-            }
-            if let Some(v) = overrides.tolerance {
-                base.tolerance = v;
-            }
-            if let Some(v) = overrides.max_iterations {
-                base.max_iterations = v;
-            }
-            if let Some(v) = overrides.weight_fn {
-                base.weight_fn = v;
-            }
+            // Deserialize directly into HullWhiteCalibrationConfig; missing fields use defaults via #[serde(default)]
+            serde_json::from_value(raw.clone()).map_err(|e| Error::Calibration {
+                message: format!(
+                    "Failed to parse extension '{}': {}",
+                    HULL_WHITE_CALIBRATION_CONFIG_KEY_V1, e
+                ),
+                category: "config".to_string(),
+            })
+        } else {
+            Ok(Self::default())
         }
-
-        Ok(base)
     }
 
     /// Build a Hull-White calibration config from a `FinstackConfig` (non-serde fallback).

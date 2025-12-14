@@ -235,6 +235,7 @@ impl MultiCurveConfig {
 #[cfg_attr(feature = "ts_export", derive(TS))]
 #[cfg_attr(feature = "ts_export", ts(export))]
 #[derive(Clone, Debug, Serialize, Deserialize)]
+#[serde(default, deny_unknown_fields)]
 pub struct CalibrationConfig {
     /// Solver tolerance for convergence checks
     pub tolerance: f64,
@@ -285,44 +286,6 @@ pub struct CalibrationConfig {
 /// Extension section key for calibration overrides.
 pub const CALIBRATION_CONFIG_KEY_V1: &str = "valuations.calibration.v1";
 
-/// Optional calibration overrides sourced from `FinstackConfig.extensions`.
-///
-/// All fields are optional; when absent, the `CalibrationConfig::default()` value is used.
-#[derive(Clone, Debug, Serialize, Deserialize)]
-#[serde(deny_unknown_fields)]
-pub struct CalibrationConfigV1 {
-    /// Solver tolerance for convergence checks.
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub tolerance: Option<f64>,
-    /// Maximum iterations for solver.
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub max_iterations: Option<usize>,
-    /// Use parallel processing when available.
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub use_parallel: Option<bool>,
-    /// Random seed for reproducible results. Use `null` to clear the seed; omit to inherit the default.
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub random_seed: Option<Option<u64>>,
-    /// Enable verbose logging.
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub verbose: Option<bool>,
-    /// Solver type selection.
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub solver_kind: Option<SolverKind>,
-    /// Use finite-difference gradients for SABR calibration instead of analytical approximations.
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub use_fd_sabr_gradients: Option<bool>,
-    /// Policy for selecting rate bounds.
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub rate_bounds_policy: Option<RateBoundsPolicy>,
-    /// Rate bounds for forward/zero rate calibration.
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub rate_bounds: Option<RateBounds>,
-    /// Calibration method (bootstrap vs global solve).
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub calibration_method: Option<CalibrationMethod>,
-}
-
 impl Default for CalibrationConfig {
     fn default() -> Self {
         Self {
@@ -369,51 +332,18 @@ impl CalibrationConfig {
     /// ```
     #[cfg(feature = "serde")]
     pub fn from_finstack_config_or_default(cfg: &FinstackConfig) -> finstack_core::Result<Self> {
-        let mut base = Self::default();
-
         if let Some(raw) = cfg.extensions.get(CALIBRATION_CONFIG_KEY_V1) {
-            let overrides: CalibrationConfigV1 =
-                serde_json::from_value(raw.clone()).map_err(|e| finstack_core::Error::Calibration {
-                    message: format!(
-                        "Failed to parse extension '{}': {}",
-                        CALIBRATION_CONFIG_KEY_V1, e
-                    ),
-                    category: "config".to_string(),
-                })?;
-
-            if let Some(v) = overrides.tolerance {
-                base.tolerance = v;
-            }
-            if let Some(v) = overrides.max_iterations {
-                base.max_iterations = v;
-            }
-            if let Some(v) = overrides.use_parallel {
-                base.use_parallel = v;
-            }
-            if let Some(v) = overrides.random_seed {
-                base.random_seed = v;
-            }
-            if let Some(v) = overrides.verbose {
-                base.verbose = v;
-            }
-            if let Some(v) = overrides.solver_kind {
-                base.solver_kind = v;
-            }
-            if let Some(v) = overrides.use_fd_sabr_gradients {
-                base.use_fd_sabr_gradients = v;
-            }
-            if let Some(v) = overrides.rate_bounds_policy {
-                base.rate_bounds_policy = v;
-            }
-            if let Some(v) = overrides.rate_bounds {
-                base.rate_bounds = v;
-            }
-            if let Some(v) = overrides.calibration_method {
-                base.calibration_method = v;
-            }
+            // Deserialize directly into CalibrationConfig; missing fields use defaults via #[serde(default)]
+            serde_json::from_value(raw.clone()).map_err(|e| finstack_core::Error::Calibration {
+                message: format!(
+                    "Failed to parse extension '{}': {}",
+                    CALIBRATION_CONFIG_KEY_V1, e
+                ),
+                category: "config".to_string(),
+            })
+        } else {
+            Ok(Self::default())
         }
-
-        Ok(base)
     }
 
     /// Build a calibration config from a `FinstackConfig` (non-serde fallback).

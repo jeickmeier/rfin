@@ -3,12 +3,10 @@ use crate::core::market_data::term_structures::{
     PyDiscountCurve, PyForwardCurve, PyHazardCurve, PyInflationCurve,
 };
 use crate::errors::core_to_py;
-use finstack_valuations::calibration::{
-    CurveValidator, SurfaceValidator, ValidationConfig, ValidationError,
-};
+use finstack_valuations::calibration::{CurveValidator, SurfaceValidator, ValidationConfig};
 use pyo3::exceptions::PyValueError;
 use pyo3::prelude::*;
-use pyo3::types::{PyDict, PyList, PyModule, PyType};
+use pyo3::types::{PyList, PyModule, PyType};
 use pyo3::Bound;
 
 fn resolve_validation_config(config: Option<PyRef<'_, PyValidationConfig>>) -> ValidationConfig {
@@ -65,122 +63,6 @@ fn validate_vol_surface(
 ) -> PyResult<()> {
     let cfg = resolve_validation_config(config);
     surface.inner.validate(&cfg).map_err(core_to_py)
-}
-
-/// Validation error details with constraint information.
-///
-/// Provides structured information about validation failures including
-/// the constraint violated, location, and relevant numerical values.
-///
-/// Attributes:
-///     constraint: Name of the violated constraint (e.g., "monotonicity", "no_arbitrage")
-///     location: Location identifier (e.g., curve ID, time point)
-///     details: Human-readable description of the violation
-///     values: Dictionary of relevant numerical values
-///
-/// Examples:
-///     >>> # Typically constructed by validation logic
-///     >>> error = ValidationError(
-///     ...     constraint="monotonicity",
-///     ...     location="USD-OIS",
-///     ...     details="Discount factors not decreasing",
-///     ...     values={"t": 2.0, "df": 0.96, "prev_df": 0.95}
-///     ... )
-#[pyclass(
-    module = "finstack.valuations.calibration",
-    name = "ValidationError",
-    frozen
-)]
-#[derive(Clone, Debug)]
-pub struct PyValidationError {
-    pub(crate) inner: ValidationError,
-}
-
-impl PyValidationError {
-    pub(crate) fn new(inner: ValidationError) -> Self {
-        Self { inner }
-    }
-}
-
-#[pymethods]
-impl PyValidationError {
-    #[new]
-    #[pyo3(text_signature = "(constraint, location, details, values=None)")]
-    /// Create a validation error.
-    ///
-    /// Args:
-    ///     constraint: Name of the violated constraint
-    ///     location: Location identifier (curve ID, time point, etc.)
-    ///     details: Human-readable description
-    ///     values: Optional dictionary of relevant numerical values
-    ///
-    /// Returns:
-    ///     ValidationError: Structured validation error
-    fn ctor(
-        constraint: &str,
-        location: &str,
-        details: &str,
-        values: Option<Bound<'_, PyDict>>,
-    ) -> PyResult<Self> {
-        let mut error = ValidationError::new(constraint, location, details);
-
-        if let Some(dict) = values {
-            for (key, value) in dict.iter() {
-                let key_str = key.extract::<String>()?;
-                let val_f64 = value.extract::<f64>()?;
-                error = error.with_value(key_str, val_f64);
-            }
-        }
-
-        Ok(Self::new(error))
-    }
-
-    /// Name of the violated constraint.
-    ///
-    /// Returns:
-    ///     str: Constraint name
-    #[getter]
-    fn constraint(&self) -> &str {
-        &self.inner.constraint
-    }
-
-    /// Location identifier for the violation.
-    ///
-    /// Returns:
-    ///     str: Location (curve ID, time point, etc.)
-    #[getter]
-    fn location(&self) -> &str {
-        &self.inner.location
-    }
-
-    /// Human-readable description of the violation.
-    ///
-    /// Returns:
-    ///     str: Detailed description
-    #[getter]
-    fn details(&self) -> &str {
-        &self.inner.details
-    }
-
-    /// Dictionary of relevant numerical values.
-    ///
-    /// Returns:
-    ///     dict[str, float]: Numerical values related to the error
-    #[getter]
-    fn values(&self, py: Python<'_>) -> PyResult<Py<PyAny>> {
-        let dict = PyDict::new(py);
-        for (key, value) in self.inner.values.iter() {
-            dict.set_item(key, value)?;
-        }
-        Ok(dict.into())
-    }
-
-    fn __repr__(&self) -> String {
-        format!(
-            "ValidationError(constraint='{}', location='{}', details='{}')",
-            self.inner.constraint, self.inner.location, self.inner.details
-        )
-    }
 }
 
 /// Configuration for curve and surface validation.
@@ -485,7 +367,6 @@ pub(crate) fn register<'py>(
     module.add_function(pyo3::wrap_pyfunction!(validate_inflation_curve, module)?)?;
     module.add_function(pyo3::wrap_pyfunction!(validate_vol_surface, module)?)?;
 
-    module.add_class::<PyValidationError>()?;
     module.add_class::<PyValidationConfig>()?;
 
     let exports = [

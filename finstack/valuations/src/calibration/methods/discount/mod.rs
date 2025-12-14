@@ -68,11 +68,8 @@ pub struct DiscountCurveCalibrator {
     /// Extrapolation policy for the final curve
     #[serde(default = "default_extrapolation")]
     pub extrapolation: ExtrapolationPolicy,
-    /// Calibration configuration (includes multi-curve settings)
+    /// Calibration configuration (includes multi-curve settings and calibration_method)
     pub config: CalibrationConfig,
-    /// Calibration method (bootstrap vs global solve)
-    #[serde(default)]
-    pub calibration_method: CalibrationMethod,
     /// Currency for the curve
     pub currency: Currency,
     /// Optional calendar identifier for schedule generation
@@ -171,8 +168,7 @@ impl DiscountCurveCalibrator {
             base_date,
             solve_interp: InterpStyle::MonotoneConvex, // Default; arbitrage-free
             extrapolation: ExtrapolationPolicy::FlatForward,
-            config, // Defaults to multi-curve mode
-            calibration_method: CalibrationMethod::default(),
+            config, // Defaults include calibration_method
             currency,
             calendar_id: None,
             settlement_days: None, // Will use currency default
@@ -239,8 +235,10 @@ impl DiscountCurveCalibrator {
     }
 
     /// Select calibration method (bootstrap vs global solve).
+    ///
+    /// This is a convenience method that forwards to `config.calibration_method`.
     pub fn with_calibration_method(mut self, method: CalibrationMethod) -> Self {
-        self.calibration_method = method;
+        self.config.calibration_method = method;
         self
     }
 
@@ -621,7 +619,7 @@ impl Calibrator<RatesQuote, DiscountCurve> for DiscountCurveCalibrator {
         // bootstrap_curve_with_solver / calibrate_global. This eliminates duplicate
         // validation and ensures consistent behavior across all calibration paths.
 
-        match self.calibration_method {
+        match self.config.calibration_method {
             CalibrationMethod::Bootstrap => {
                 let solver = crate::calibration::create_simple_solver(&self.config);
                 self.bootstrap_curve_with_solver(instruments, &solver, base_context)
@@ -682,12 +680,32 @@ mod tests {
     #[test]
     fn test_quote_validation() {
         use crate::calibration::config::RateBounds;
+        use crate::calibration::methods::pricing::RatesQuoteUseCase;
+
+        let base_date = Date::from_calendar_date(2025, Month::January, 1).expect("Valid test date");
 
         let empty_quotes: Vec<RatesQuote> = vec![];
-        assert!(CalibrationPricer::validate_quotes(&empty_quotes, &RateBounds::default()).is_err());
+        assert!(CalibrationPricer::validate_rates_quotes(
+            &empty_quotes,
+            &RateBounds::default(),
+            base_date,
+            RatesQuoteUseCase::DiscountCurve {
+                enforce_separation: false,
+            },
+        )
+        .is_err());
 
         let valid_quotes = create_test_quotes();
-        assert!(CalibrationPricer::validate_quotes(&valid_quotes, &RateBounds::default()).is_ok());
+        // Use enforce_separation=false since test quotes include non-OIS swaps
+        assert!(CalibrationPricer::validate_rates_quotes(
+            &valid_quotes,
+            &RateBounds::default(),
+            base_date,
+            RatesQuoteUseCase::DiscountCurve {
+                enforce_separation: false,
+            },
+        )
+        .is_ok());
     }
 
     #[test]
