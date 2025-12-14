@@ -94,8 +94,8 @@ fn test_tree_forward_swap_rate() {
     let swap_rate_at_root = tree.forward_swap_rate(
         0,
         0,
-        0.0,  // swap start
-        5.0,  // swap end
+        0.0, // swap start
+        5.0, // swap end
         &payment_times,
         &accrual_fractions,
         &curve,
@@ -217,13 +217,12 @@ fn test_tree_higher_volatility() {
 
     // High volatility
     let config_high_vol = HullWhiteTreeConfig::new(0.03, 0.02, 50);
-    let tree_high =
-        HullWhiteTree::calibrate(config_high_vol, &curve, 5.0).expect("Should succeed");
+    let tree_high = HullWhiteTree::calibrate(config_high_vol, &curve, 5.0).expect("Should succeed");
 
     // Higher volatility should lead to more spread in rates
     let step = 25;
-    let low_rate_spread = tree_low.rate_at_node(step, tree_low.num_nodes(step) - 1)
-        - tree_low.rate_at_node(step, 0);
+    let low_rate_spread =
+        tree_low.rate_at_node(step, tree_low.num_nodes(step) - 1) - tree_low.rate_at_node(step, 0);
     let high_rate_spread = tree_high.rate_at_node(step, tree_high.num_nodes(step) - 1)
         - tree_high.rate_at_node(step, 0);
 
@@ -232,4 +231,3 @@ fn test_tree_higher_volatility() {
         "Higher vol should give wider rate spread"
     );
 }
-

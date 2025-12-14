@@ -111,12 +111,12 @@ fn create_test_swaption_quotes() -> Vec<VolQuote> {
 }
 
 /// Create a richer quote set covering multiple expiries and tenors for convergence tests.
-/// 
+///
 /// With strict vol grid building, quotes must fully cover the calibration grid.
 /// This creates quotes for a 2×2 grid: expiries {1Y, 2Y} × tenors {1Y, 5Y}.
 fn create_extended_swaption_quotes() -> Vec<VolQuote> {
     let mut q = create_test_swaption_quotes(); // Provides (1Y, 1Y) and (1Y, 5Y)
-    
+
     // Add 2Y x 1Y (to complete the 2×2 rectangular grid)
     for (k, v) in [
         (0.030, 0.0120),
@@ -126,14 +126,14 @@ fn create_extended_swaption_quotes() -> Vec<VolQuote> {
         (0.050, 0.0120),
     ] {
         q.push(VolQuote::SwaptionVol {
-            expiry: Date::from_calendar_date(2027, Month::January, 1).unwrap(),  // 2Y expiry
-            tenor: Date::from_calendar_date(2028, Month::January, 1).unwrap(),   // 1Y tenor
+            expiry: Date::from_calendar_date(2027, Month::January, 1).unwrap(), // 2Y expiry
+            tenor: Date::from_calendar_date(2028, Month::January, 1).unwrap(),  // 1Y tenor
             strike: k,
             vol: v,
             quote_type: "STRIKE".to_string(),
         });
     }
-    
+
     // Add 2Y x 5Y (to complete the 2×2 rectangular grid)
     for (k, v) in [
         (0.035, 0.0080),
@@ -143,8 +143,8 @@ fn create_extended_swaption_quotes() -> Vec<VolQuote> {
         (0.055, 0.0080),
     ] {
         q.push(VolQuote::SwaptionVol {
-            expiry: Date::from_calendar_date(2027, Month::January, 1).unwrap(),  // 2Y expiry
-            tenor: Date::from_calendar_date(2032, Month::January, 1).unwrap(),   // 5Y tenor
+            expiry: Date::from_calendar_date(2027, Month::January, 1).unwrap(), // 2Y expiry
+            tenor: Date::from_calendar_date(2032, Month::January, 1).unwrap(),  // 5Y tenor
             strike: k,
             vol: v,
             quote_type: "STRIKE".to_string(),

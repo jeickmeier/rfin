@@ -24,7 +24,8 @@ fn calibration_config_applies_extension_overrides() {
         }),
     );
 
-    let cfg_out = CalibrationConfig::from_finstack_config_or_default(&cfg).expect("apply overrides");
+    let cfg_out =
+        CalibrationConfig::from_finstack_config_or_default(&cfg).expect("apply overrides");
     assert_eq!(cfg_out.tolerance, 1e-8);
     assert_eq!(cfg_out.max_iterations, 250);
     assert!(cfg_out.use_parallel);
@@ -60,4 +61,3 @@ fn calibration_config_defaults_without_extension() {
     assert_eq!(cfg_out.rate_bounds_policy, defaults.rate_bounds_policy);
     assert_eq!(cfg_out.rate_bounds, defaults.rate_bounds);
 }
-

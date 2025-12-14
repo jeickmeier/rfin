@@ -373,12 +373,14 @@ impl CalibrationConfig {
 
         if let Some(raw) = cfg.extensions.get(CALIBRATION_CONFIG_KEY_V1) {
             let overrides: CalibrationConfigV1 =
-                serde_json::from_value(raw.clone()).map_err(|e| finstack_core::Error::Calibration {
-                    message: format!(
-                        "Failed to parse extension '{}': {}",
-                        CALIBRATION_CONFIG_KEY_V1, e
-                    ),
-                    category: "config".to_string(),
+                serde_json::from_value(raw.clone()).map_err(|e| {
+                    finstack_core::Error::Calibration {
+                        message: format!(
+                            "Failed to parse extension '{}': {}",
+                            CALIBRATION_CONFIG_KEY_V1, e
+                        ),
+                        category: "config".to_string(),
+                    }
                 })?;
 
             if let Some(v) = overrides.tolerance {

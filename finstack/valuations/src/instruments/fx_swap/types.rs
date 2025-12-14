@@ -278,7 +278,7 @@ impl crate::instruments::common::traits::Instrument for FxSwap {
         crate::pricer::InstrumentType::FxSwap
     }
 
-    fn as_any(&self) -> &dyn ::std::any::Any {
+    fn as_any(&self) -> &dyn::std::any::Any {
         self
     }
 

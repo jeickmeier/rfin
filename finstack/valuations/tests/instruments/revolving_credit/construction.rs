@@ -29,7 +29,10 @@ fn test_builder_fixed_rate_facility() {
     assert!(facility.is_ok());
     let facility = facility.unwrap();
     assert_eq!(facility.id.as_str(), "RC-FIXED-001");
-    assert!(matches!(facility.base_rate_spec, BaseRateSpec::Fixed { .. }));
+    assert!(matches!(
+        facility.base_rate_spec,
+        BaseRateSpec::Fixed { .. }
+    ));
 }
 
 #[test]
@@ -127,4 +130,3 @@ fn test_validation_drawn_within_commitment() {
     // Assert
     assert!(facility.is_err());
 }
-

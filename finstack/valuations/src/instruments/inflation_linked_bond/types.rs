@@ -656,7 +656,7 @@ impl crate::instruments::common::traits::Instrument for InflationLinkedBond {
         crate::pricer::InstrumentType::InflationLinkedBond
     }
 
-    fn as_any(&self) -> &dyn ::std::any::Any {
+    fn as_any(&self) -> &dyn::std::any::Any {
         self
     }
 

@@ -403,7 +403,7 @@ impl crate::instruments::common::traits::Instrument for BasisSwap {
         crate::pricer::InstrumentType::BasisSwap
     }
 
-    fn as_any(&self) -> &dyn ::std::any::Any {
+    fn as_any(&self) -> &dyn::std::any::Any {
         self
     }
 

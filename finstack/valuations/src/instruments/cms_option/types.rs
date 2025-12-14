@@ -113,7 +113,7 @@ impl crate::instruments::common::traits::Instrument for CmsOption {
         crate::pricer::InstrumentType::CmsOption
     }
 
-    fn as_any(&self) -> &dyn ::std::any::Any {
+    fn as_any(&self) -> &dyn::std::any::Any {
         self
     }
 

@@ -1332,7 +1332,9 @@ mod tests {
         let df_from = yc
             .try_df_on_date_curve(from)
             .expect("df(from) should be defined");
-        let df_to = yc.try_df_on_date_curve(to).expect("df(to) should be defined");
+        let df_to = yc
+            .try_df_on_date_curve(to)
+            .expect("df(to) should be defined");
         let expected = df_to / df_from;
 
         let actual = yc
@@ -1346,8 +1348,7 @@ mod tests {
 
     #[test]
     fn df_between_dates_validates_non_finite_and_non_positive() {
-        let base =
-            Date::from_calendar_date(2025, time::Month::June, 30).expect("Valid test date");
+        let base = Date::from_calendar_date(2025, time::Month::June, 30).expect("Valid test date");
         let yc = DiscountCurve::builder("USD-OIS")
             .base_date(base)
             .knots([(0.0, 1.0), (1.0, f64::NAN), (2.0, 0.95)])

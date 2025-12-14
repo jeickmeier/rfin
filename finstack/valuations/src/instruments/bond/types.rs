@@ -729,7 +729,7 @@ impl crate::instruments::common::traits::Instrument for Bond {
         crate::pricer::InstrumentType::Bond
     }
 
-    fn as_any(&self) -> &dyn ::std::any::Any {
+    fn as_any(&self) -> &dyn::std::any::Any {
         self
     }
 

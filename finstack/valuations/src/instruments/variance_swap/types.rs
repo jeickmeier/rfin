@@ -532,7 +532,7 @@ impl crate::instruments::common::traits::Instrument for VarianceSwap {
         crate::pricer::InstrumentType::VarianceSwap
     }
 
-    fn as_any(&self) -> &dyn ::std::any::Any {
+    fn as_any(&self) -> &dyn::std::any::Any {
         self
     }
 

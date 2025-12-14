@@ -15,7 +15,9 @@
 
 use finstack_core::currency::Currency;
 use finstack_core::dates::calendar::registry::CalendarRegistry;
-use finstack_core::dates::{adjust, BusinessDayConvention, Date, DateExt, DayCount, HolidayCalendar};
+use finstack_core::dates::{
+    adjust, BusinessDayConvention, Date, DateExt, DayCount, HolidayCalendar,
+};
 use finstack_core::market_data::context::MarketContext;
 use finstack_core::money::Money;
 use finstack_core::types::{CurveId, InstrumentId};
@@ -145,7 +147,7 @@ impl crate::instruments::common::traits::Instrument for Deposit {
         crate::pricer::InstrumentType::Deposit
     }
 
-    fn as_any(&self) -> &dyn ::std::any::Any {
+    fn as_any(&self) -> &dyn::std::any::Any {
         self
     }
 

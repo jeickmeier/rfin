@@ -42,8 +42,7 @@ fn test_dv01_sensitivity() {
     assert!(result.is_ok());
     let result = result.unwrap();
     let dv01 = *result.measures.get("dv01").unwrap();
-    
+
     // DV01 should be positive and finite
     assert!(dv01 > 0.0 && dv01.is_finite());
 }
-

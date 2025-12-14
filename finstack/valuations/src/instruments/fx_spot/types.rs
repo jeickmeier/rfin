@@ -234,7 +234,7 @@ impl crate::instruments::common::traits::Instrument for FxSpot {
         crate::pricer::InstrumentType::FxSpot
     }
 
-    fn as_any(&self) -> &dyn ::std::any::Any {
+    fn as_any(&self) -> &dyn::std::any::Any {
         self
     }
 
