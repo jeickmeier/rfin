@@ -11,13 +11,8 @@
 //! - Act/Act ISMA: requires coupon frequency
 //! - Act/Act ISDA: actual days / days in year
 
-use crate::cashflow_tests::test_helpers::FACTOR_TOLERANCE;
-use finstack_core::dates::{Date, DayCount, DayCountCtx, Tenor};
-use time::Month;
-
-fn d(year: i32, month: u8, day: u8) -> Date {
-    Date::from_calendar_date(year, Month::try_from(month).unwrap(), day).unwrap()
-}
+use crate::cashflow_tests::test_helpers::{d, FACTOR_TOLERANCE};
+use finstack_core::dates::{DayCount, DayCountCtx, Tenor};
 
 // =============================================================================
 // Act/365 Fixed Golden Values

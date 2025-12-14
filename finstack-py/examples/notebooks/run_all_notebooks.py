@@ -11,6 +11,7 @@ from pathlib import Path
 from typing import Dict, List, Tuple
 
 import os
+import re
 import nbformat
 from nbclient import NotebookClient
 from nbclient.exceptions import CellExecutionError
@@ -55,6 +56,27 @@ def run_notebook(notebook_path: Path) -> Tuple[bool, str, float]:
         # Read the notebook
         with open(notebook_path, "r", encoding="utf-8") as f:
             nb = nbformat.read(f, as_version=4)
+
+        # Normalize a small set of legacy example shapes to keep notebooks
+        # executable as schemas evolve. This is intentionally minimal and only
+        # touches known, deterministic textual shapes in code cells.
+        #
+        # Today: `Tenor` serde moved from `{ "Months": 3 }` to `{ "count": 3, "unit": "Months" }`.
+        tenor_legacy_re = re.compile(r'\{\s*"Months"\s*:\s*(\d+)\s*\}')
+        tenor_unit_months_re = re.compile(r'("unit"\s*:\s*)"Months"')
+
+        for cell in nb.cells:
+            if cell.get("cell_type") != "code":
+                continue
+            src = cell.get("source", "")
+            if isinstance(src, list):
+                src = "".join(src)
+            if not isinstance(src, str) or not src:
+                continue
+            updated = tenor_legacy_re.sub(r'{"count": \1, "unit": "months"}', src)
+            updated = tenor_unit_months_re.sub(r'\1"months"', updated)
+            if updated != src:
+                cell["source"] = updated
 
         # Create a notebook client
         client = NotebookClient(

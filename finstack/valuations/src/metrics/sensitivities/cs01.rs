@@ -61,9 +61,21 @@ pub fn compute_parallel_cs01_with_context<RevalFn>(
 where
     RevalFn: FnMut(&MarketContext) -> finstack_core::Result<Money>,
 {
-    let base_pv = context.base_value;
     let base_ctx = context.curves.as_ref();
     let hazard = base_ctx.get_hazard_ref(hazard_id.as_str())?;
+
+    // If we have par spread points + a discount curve, CS01 is defined as the sensitivity
+    // to *market par spreads* under a re-bootstrapped hazard curve. In that regime, we
+    // must also compute the base PV under the unbumped (re-calibrated) curve; otherwise
+    // we introduce a large "base effect" when the in-context hazard curve was not itself
+    // calibrated from the stored par points.
+    let base_pv = if discount_id.is_some() && hazard.par_spread_points().next().is_some() {
+        let base_recal = bump_hazard_spreads(hazard, base_ctx, &BumpRequest::Parallel(0.0), discount_id)?;
+        let base_ctx_recal = base_ctx.clone().insert_hazard(base_recal);
+        revalue_with_context(&base_ctx_recal)?
+    } else {
+        context.base_value
+    };
 
     // Bump spreads and re-calibrate
     let bump_request = BumpRequest::Parallel(bump_bp);
@@ -99,9 +111,18 @@ where
     I: IntoIterator<Item = f64>,
     RevalFn: FnMut(&MarketContext) -> finstack_core::Result<Money>,
 {
-    let base_pv = context.base_value;
     let base_ctx = context.curves.as_ref();
     let hazard = base_ctx.get_hazard_ref(hazard_id.as_str())?;
+
+    // Same "base effect" guard as parallel CS01: if we're bumping par spreads and
+    // re-bootstrapping, the base PV should be computed under the unbumped re-calibrated curve.
+    let base_pv = if discount_id.is_some() && hazard.par_spread_points().next().is_some() {
+        let base_recal = bump_hazard_spreads(hazard, base_ctx, &BumpRequest::Parallel(0.0), discount_id)?;
+        let base_ctx_recal = base_ctx.clone().insert_hazard(base_recal);
+        revalue_with_context(&base_ctx_recal)?
+    } else {
+        context.base_value
+    };
 
     let mut series: Vec<(String, f64)> = Vec::new();
     let mut total = 0.0;

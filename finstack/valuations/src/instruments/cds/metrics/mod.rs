@@ -51,6 +51,9 @@ pub fn register_cds_metrics(registry: &mut MetricRegistry) {
             (Cs01, crate::metrics::GenericParallelCs01::<
                 crate::instruments::CreditDefaultSwap,
             >::default()),
+            (BucketedCs01, crate::metrics::GenericBucketedCs01::<
+                crate::instruments::CreditDefaultSwap,
+            >::default()),
             (CsGamma, cs_gamma::CsGammaCalculator),
             (ProtectionLegPv, pv_protection::ProtectionLegPvCalculator),
             (PremiumLegPv, pv_premium::PremiumLegPvCalculator),

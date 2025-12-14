@@ -12,7 +12,7 @@
 //! - `FlatHazardRateCurve`: Time-dependent SP = exp(-λ*t), SP(0) = 1.0
 
 use crate::cashflow_tests::test_helpers::{
-    financial_tolerance, FlatHazardRateCurve, FlatRateCurve, FACTOR_TOLERANCE,
+    d, financial_tolerance, FlatHazardRateCurve, FlatRateCurve, FACTOR_TOLERANCE,
 };
 use finstack_core::cashflow::primitives::{CFKind, CashFlow};
 use finstack_core::currency::Currency;
@@ -25,15 +25,6 @@ use finstack_valuations::cashflow::aggregation::{
     pv_by_period_with_ctx, DateContext,
 };
 use time::Month;
-
-fn d(year: i32, month: u8, day: u8) -> Date {
-    Date::from_calendar_date(
-        year,
-        Month::try_from(month).expect("Valid month (1-12)"),
-        day,
-    )
-    .expect("Valid test date")
-}
 
 fn quarters_2025() -> Vec<Period> {
     vec![
@@ -478,7 +469,7 @@ fn pv_plain_and_credit_variants_match_without_hazard() {
     );
 
     // With an explicit zero-hazard curve, the credit-adjusted result matches plain PV.
-    let hazard_curve = FlatHazardRateCurve::new("ZERO-HAZARD", base, 0.0);
+    let hazard_curve = FlatHazardRateCurve::new("ZERO-HAZARD", 0.0);
     let credit = pv_by_period_credit_adjusted_with_ctx(
         &flows,
         &periods,
@@ -504,7 +495,7 @@ fn test_pv_by_period_credit_adjusted() {
     let disc_curve = FlatRateCurve::new("USD-OIS", base, 0.05);
 
     // 2% annual hazard rate (approx 2% default probability per year)
-    let hazard_curve = FlatHazardRateCurve::new("AAPL-HAZARD", base, 0.02);
+    let hazard_curve = FlatHazardRateCurve::new("AAPL-HAZARD", 0.02);
 
     let pv_map = pv_by_period_credit_adjusted_with_ctx(
         &flows,
@@ -564,7 +555,7 @@ fn credit_detailed_matches_plain_when_no_recovery() {
 
     let dated: Vec<_> = cashflows.iter().map(|cf| (cf.date, cf.amount)).collect();
     let curve = FlatRateCurve::new("USD-OIS", base, 0.0);
-    let hazard_curve = FlatHazardRateCurve::new("ZERO-HAZARD", base, 0.0);
+    let hazard_curve = FlatHazardRateCurve::new("ZERO-HAZARD", 0.0);
 
     let plain_credit = pv_by_period_credit_adjusted_with_ctx(
         &dated,
@@ -737,8 +728,7 @@ fn discount_factor_at_base_date_is_one() {
 
 #[test]
 fn survival_probability_at_base_date_is_one() {
-    let base = d(2025, 1, 1);
-    let curve = FlatHazardRateCurve::new("ISSUER-HAZARD", base, 0.02);
+    let curve = FlatHazardRateCurve::new("ISSUER-HAZARD", 0.02);
 
     assert!(
         (curve.sp(0.0) - 1.0).abs() < FACTOR_TOLERANCE,
@@ -855,8 +845,7 @@ fn discount_factor_monotonically_decreases() {
 
 #[test]
 fn survival_probability_monotonically_decreases() {
-    let base = d(2025, 1, 1);
-    let curve = FlatHazardRateCurve::new("ISSUER-HAZARD", base, 0.02);
+    let curve = FlatHazardRateCurve::new("ISSUER-HAZARD", 0.02);
 
     let times = [0.0, 0.25, 0.5, 1.0, 2.0, 5.0, 10.0, 30.0];
     let mut prev_sp = f64::MAX;

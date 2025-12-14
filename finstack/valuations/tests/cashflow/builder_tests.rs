@@ -19,17 +19,6 @@ use finstack_valuations::cashflow::builder::{AmortizationSpec, CashFlowSchedule}
 use finstack_valuations::instruments::common::discountable::Discountable;
 use time::Month;
 
-fn kind_rank(kind: CFKind) -> u8 {
-    match kind {
-        CFKind::Fixed | CFKind::Stub | CFKind::FloatReset => 0,
-        CFKind::Fee => 1,
-        CFKind::Amortization => 2,
-        CFKind::PIK => 3,
-        CFKind::Notional => 4,
-        _ => 5,
-    }
-}
-
 #[test]
 fn linear_vs_step_parity() {
     let issue = Date::from_calendar_date(2025, Month::January, 15).unwrap();
@@ -154,7 +143,14 @@ fn ordering_invariants_within_date() {
 
     for (_d, kinds) in by_date {
         let mut sorted = kinds.clone();
-        sorted.sort_by_key(|k| kind_rank(*k));
+        sorted.sort_by_key(|k| match k {
+            CFKind::Fixed | CFKind::Stub | CFKind::FloatReset => 0,
+            CFKind::Fee => 1,
+            CFKind::Amortization => 2,
+            CFKind::PIK => 3,
+            CFKind::Notional => 4,
+            _ => 5,
+        });
         assert_eq!(kinds, sorted);
     }
 }
