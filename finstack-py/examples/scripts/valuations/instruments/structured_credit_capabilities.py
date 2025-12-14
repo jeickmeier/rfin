@@ -148,7 +148,7 @@ def tranche_entry(
             "excess_spread": 0.0,
             "cash_trap_active": False,
         },
-        "payment_frequency": {"Months": 3},
+        "payment_frequency": {"count": 3, "unit": "months"},
         "day_count": "Act360",
         "deferred_interest": money(0.0),
         "is_revolving": False,
@@ -250,7 +250,7 @@ def base_deal_payload(instrument_id: str, deal_type: str, asset_kind: str) -> di
         "first_payment_date": "2024-04-01",
         "reinvestment_end_date": None,
         "legal_maturity": "2035-01-01",
-        "payment_frequency": {"Months": 3},
+        "payment_frequency": {"count": 3, "unit": "months"},
         "payment_calendar_id": "nyse",
         "discount_curve_id": "USD-OIS",
         "attributes": base_attributes(),
@@ -340,7 +340,7 @@ def main() -> None:
     }
 
     for name, instrument in deals.items():
-        result = registry.price(instrument, "discounting", market)
+        result = registry.price(instrument, "discounting", market, as_of=as_of)
         value = result.value
         print(f"{name} PV: {value.amount:,.2f} {value.currency}")
 

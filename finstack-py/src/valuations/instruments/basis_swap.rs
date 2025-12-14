@@ -220,6 +220,9 @@ impl PyBasisSwap {
         builder = builder.discount_curve_id(discount_curve_id);
         builder = builder.stub_kind(stub_kind);
         builder = builder.calendar_id_opt(calendar.map(|s| s.to_string()));
+        // BasisSwap requires an explicit allow_calendar_fallback flag in the generated builder.
+        // Keep the default behavior strict (no silent calendar-day fallback).
+        builder = builder.allow_calendar_fallback(false);
         builder = builder.attributes(Default::default());
 
         let swap = builder.build().map_err(core_to_py)?;

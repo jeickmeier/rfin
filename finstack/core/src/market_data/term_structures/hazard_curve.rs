@@ -505,6 +505,16 @@ impl HazardCurve {
     /// Return an interpolated par spread in basis points for reporting.
     /// Linear interpolation in spread, with log-linear fallback when values are positive and requested.
     pub fn quoted_spread_bp(&self, t: f64, method: ParInterp) -> f64 {
+        // If the curve was constructed without explicit par-spread quotes, fall back to a
+        // simple hazard-based approximation instead of panicking inside interpolators.
+        //
+        // This function is used in some pricing paths (e.g., options) to obtain a
+        // representative spread at a horizon, so "no quotes" must be handled gracefully.
+        if self.par_tenors.len() < 2 || self.par_tenors.len() != self.par_spreads_bp.len() {
+            let lambda = self.hazard_rate(t.max(0.0));
+            return (lambda * (1.0 - self.recovery_rate) * 10_000.0).max(0.0);
+        }
+
         // Use shared interpolation strategies from math::interp
         // Note: For LogLinear, we rebuild the strategy on the fly since we don't store log-values for par spreads.
         // This involves allocation but is acceptable for a reporting method.

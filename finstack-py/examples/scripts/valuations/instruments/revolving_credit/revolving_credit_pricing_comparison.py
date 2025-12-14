@@ -120,14 +120,14 @@ def create_deterministic_facility(
                 "index_id": "USD-SOFR-3M",
                 "spread_bp": 250.0,  # 250 bps over SOFR
                 "gearing": 1.0,
-                "reset_freq": {"Months": 3},
+                "reset_freq": {"count": 3, "unit": "months"},
                 "floor_bp": 0.0,
                 "dc": "Act360",
                 "bdc": "modified_following",
             }
         },
         "day_count": "Act360",
-        "payment_frequency": {"Months": 3},
+        "payment_frequency": {"count": 3, "unit": "months"},
         "fees": {
             "commitment_fee_tiers": [
                 {"threshold": 0.0, "bps": 50},
@@ -186,14 +186,14 @@ def create_stochastic_facility(
                 "index_id": "USD-SOFR-3M",
                 "spread_bp": 250.0,
                 "gearing": 1.0,
-                "reset_freq": {"Months": 3},
+                "reset_freq": {"count": 3, "unit": "months"},
                 "floor_bp": 0.0,
                 "dc": "Act360",
                 "bdc": "modified_following",
             }
         },
         "day_count": "Act360",
-        "payment_frequency": {"Months": 3},
+        "payment_frequency": {"count": 3, "unit": "months"},
         "fees": {
             "commitment_fee_tiers": [
                 {"threshold": 0.0, "bps": 50},

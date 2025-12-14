@@ -61,7 +61,9 @@ def build_custom_schedule(issue: date, maturity: date, notional: Money):
 
 
 def main():
-    as_of = date(2025, 1, 1)
+    # Always pass an explicit as_of to pricing calls; PricerRegistry otherwise defaults
+    # to "today", which can accidentally price the instrument after some cashflows.
+    as_of = date(2025, 1, 16)
     market = build_market(as_of)
 
     issue = date(2025, 1, 15)
@@ -101,9 +103,9 @@ def main():
 
     # Price examples
     reg = create_standard_registry()
-    res_custom = reg.price(bond_custom, "discounting", market)
-    res_sched = reg.price(bond_from_sched, "discounting", market)
-    res_frn = reg.price(bond_frn, "discounting", market)
+    res_custom = reg.price(bond_custom, "discounting", market, as_of=as_of)
+    res_sched = reg.price(bond_from_sched, "discounting", market, as_of=as_of)
+    res_frn = reg.price(bond_frn, "discounting", market, as_of=as_of)
 
     print("PV (custom builder):", res_custom.value.amount, res_custom.value.currency)
     print("PV (custom from schedule):", res_sched.value.amount, res_sched.value.currency)
@@ -122,7 +124,7 @@ def main():
         maturity=maturity,
         discount_curve="USD-OIS",
     )
-    res_zcb = reg.price(zcb, "discounting", market)
+    res_zcb = reg.price(zcb, "discounting", market, as_of=as_of)
     print("PV (ZCB):", res_zcb.value.amount, res_zcb.value.currency)
 
     # D) Fixed bond helper priced off USD-OIS
@@ -134,7 +136,7 @@ def main():
         maturity,
         "USD-OIS",
     )
-    res_fixed = reg.price(fixed, "discounting", market)
+    res_fixed = reg.price(fixed, "discounting", market, as_of=as_of)
     print("PV (Fixed helper):", res_fixed.value.amount, res_fixed.value.currency)
 
     # E) Payment split program: switch 100% PIK for the first year, then 100% cash
@@ -156,7 +158,7 @@ def main():
         discount_curve="USD-OIS",
         quoted_clean=100.25,
     )
-    res_split = reg.price(bond_split, "discounting", market)
+    res_split = reg.price(bond_split, "discounting", market, as_of=as_of)
     print("PV (Payment split program):", res_split.value.amount, res_split.value.currency)
 
     # F) Bond metrics examples — request standard metrics from engine (standard fixed-rate bond)
@@ -200,6 +202,7 @@ def main():
         "discounting",
         market,
         [m.name for m in metrics_core],
+        as_of=as_of,
     )
     measures = res_custom_metrics.measures
     for m in metrics_core:

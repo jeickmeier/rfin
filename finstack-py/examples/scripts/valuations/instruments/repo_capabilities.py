@@ -41,8 +41,9 @@ def build_repo(as_of: date) -> Repo:
         quantity=10_500_000.0,
         market_value_id="UST-COLLATERAL",
     )
-    start = as_of
-    maturity = as_of + timedelta(days=14)
+    # Use a start date strictly after as_of to avoid zero-length accrual date ranges.
+    start = as_of + timedelta(days=1)
+    maturity = as_of + timedelta(days=15)
     return Repo.create(
         "UST-TERM-REPO",
         Money(10_000_000.0, USD),
@@ -63,7 +64,7 @@ def main() -> None:
     repo = build_repo(as_of)
     registry = create_standard_registry()
 
-    result = registry.price_with_metrics(repo, "discounting", market, ["accrued_interest"])
+    result = registry.price_with_metrics(repo, "discounting", market, ["accrued_interest"], as_of=as_of)
     print("Repo PV:", round(result.value.amount, 2), result.value.currency)
     print("Repo accrued interest:", result.measures.get("accrued_interest"))
 

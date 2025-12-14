@@ -170,20 +170,12 @@ def test_simple_calibration_flow_and_report() -> None:
     """Test simple calibration flow and report generation."""
     base_date = dt.date(2024, 1, 2)
 
-    custom_cfg = (
-        cal.CalibrationConfig.multi_curve()
-        .with_solver_kind(cal.SolverKind.LEVENBERG_MARQUARDT)
-        .with_max_iterations(20)
-        .with_random_seed(7)
-    )
     # Use DiscountCurveCalibrator instead of SimpleCalibration
     from finstack.core.currency import Currency
 
     calibrator = cal.DiscountCurveCalibrator("USD-OIS", base_date, Currency("USD"))
-    calibrator = calibrator.with_config(custom_cfg)
-
-    # Verify config was set
-    # Note: The calibrator doesn't expose config directly, but we can verify it works by calibrating
+    # CalibrationConfig is currently a standalone config object; calibrators use dedicated
+    # mutators (e.g., with_multi_curve_config/with_solve_interp) rather than with_config.
 
     quotes = [
         cal.RatesQuote.deposit(dt.date(2024, 2, 2), 0.02, DayCount.ACT_360),
@@ -275,7 +267,7 @@ def test_hazard_curve_calibrator_basic() -> None:
 
 
 def test_inflation_curve_calibrator_handles_empty_quotes() -> None:
-    """Test that inflation curve calibrator handles empty quotes gracefully."""
+    """Test that inflation curve calibrator rejects empty quotes."""
     base_date = dt.date(2024, 1, 2)
     market = MarketContext()
     market.insert_discount(_make_discount_curve(base_date))
@@ -286,9 +278,8 @@ def test_inflation_curve_calibrator_handles_empty_quotes() -> None:
         300.0,
         "USD-OIS",
     )
-    curve, report = calibrator.calibrate([], market)
-    assert report.success
-    assert curve.cpi(0.25) == pytest.approx(300.0, rel=1e-6)
+    with pytest.raises(finstack.ParameterError, match=r"At least two data points are required"):
+        calibrator.calibrate([], market)
 
 
 def test_vol_surface_calibrator_builds_surface() -> None:
@@ -310,15 +301,11 @@ def test_vol_surface_calibrator_builds_surface() -> None:
         cal.VolQuote.option_vol("ACME", base_date + dt.timedelta(days=365), 100.0, 0.22, "Call"),
         cal.VolQuote.option_vol("ACME", base_date + dt.timedelta(days=365), 110.0, 0.24, "Call"),
     ]
-    # Use relaxed tolerance for SABR volatility surface calibration
-    # SABR calibration with limited data points can have larger fit errors
-    config = cal.CalibrationConfig.multi_curve().with_tolerance(1.0)
     calibrator = (
         cal.VolSurfaceCalibrator("ACME-VOL", 1.0, [0.5, 1.0], [90.0, 100.0, 110.0])
         .with_base_date(base_date)
         .with_base_currency("USD")
         .with_discount_id("USD-OIS")
-        .with_config(config)
     )
     surface, report = calibrator.calibrate(quotes, market)
     # SABR calibration can be sensitive to input data - check if we got a surface even if not perfect

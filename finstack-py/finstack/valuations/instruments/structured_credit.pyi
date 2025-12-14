@@ -28,7 +28,7 @@ class StructuredCredit:
         ...     "closing_date": "2024-01-01",
         ...     "first_payment_date": "2025-04-01",
         ...     "legal_maturity": "2034-01-01",
-        ...     "payment_frequency": {"Months": 3},
+        ...     "payment_frequency": {"count": 3, "unit": "months"},
         ...     "discount_curve_id": "USD-OIS",
         ...     "tranches": {
         ...         "total_size": {"amount": 100000000, "currency": "USD"},
@@ -42,7 +42,7 @@ class StructuredCredit:
         ...                 "current_balance": {"amount": 10000000, "currency": "USD"},
         ...                 "coupon": {"Fixed": {"rate": 0.05}},
         ...                 "legal_maturity": "2030-01-01",
-        ...                 "payment_frequency": {"Months": 3},
+        ...                 "payment_frequency": {"count": 3, "unit": "months"},
         ...                 "day_count": "Act360",
         ...                 "payment_priority": 1,
         ...                 "credit_enhancement": {

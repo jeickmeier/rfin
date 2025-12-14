@@ -56,11 +56,13 @@ pub fn validate_knots(knots: &[f64]) -> crate::Result<()> {
 /// Locate segment index i such that xs[i] <= x <= xs[i+1].
 #[inline(always)]
 pub fn locate_segment(xs: &[f64], x: f64) -> Result<usize, Error> {
-    debug_assert!(!xs.is_empty(), "knots slice cannot be empty");
+    if xs.is_empty() {
+        return Err(InputError::TooFewPoints.into());
+    }
     if x < xs[0]
         || x > *xs
             .last()
-            .expect("xs should not be empty (checked by debug_assert)")
+            .expect("xs should not be empty (checked above)")
     {
         return Err(Error::InterpOutOfBounds);
     }

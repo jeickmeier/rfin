@@ -25,13 +25,18 @@ class TermLoan:
         >>> json_str = '''
         ... {
         ...     "id": "TERM-LOAN-001",
-        ...     "notional_limit": {"amount": 10000000, "currency": "USD"},
+        ...     "currency": "USD",
+        ...     "notional_limit": {"amount": 10000000.0, "currency": "USD"},
         ...     "issue": "2024-01-01",
         ...     "maturity": "2029-01-01",
-        ...     "base_rate_spec": {"Fixed": {"rate": 0.05}},
+        ...     "rate": {"Fixed": {"rate_bp": 500}},
+        ...     "bdc": "modified_following",
         ...     "day_count": "Act360",
-        ...     "pay_freq": {"Months": 3},
-        ...     "discount_curve_id": "USD"
+        ...     "pay_freq": {"count": 3, "unit": "months"},
+        ...     "stub": "None",
+        ...     "discount_curve_id": "USD-OIS",
+        ...     "pricing_overrides": {"adaptive_bumps": false},
+        ...     "attributes": {"meta": {}, "tags": []}
         ... }
         ... '''
         >>> term_loan = TermLoan.from_json(json_str)

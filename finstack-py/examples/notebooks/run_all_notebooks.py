@@ -10,6 +10,7 @@ from datetime import datetime
 from pathlib import Path
 from typing import Dict, List, Tuple
 
+import os
 import nbformat
 from nbclient import NotebookClient
 from nbclient.exceptions import CellExecutionError
@@ -36,6 +37,21 @@ def run_notebook(notebook_path: Path) -> Tuple[bool, str, float]:
     start_time = time.time()
 
     try:
+        # Ensure the finstack package is importable inside the spawned Jupyter kernel.
+        #
+        # When this runner is executed from an external virtualenv (e.g., Poetry),
+        # finstack may not be installed in that environment. The notebooks are meant
+        # to run against the in-repo `finstack-py/finstack` package + compiled extension.
+        repo_root = Path(__file__).resolve().parents[3]
+        finstack_py_root = repo_root / "finstack-py"
+        extra_paths = [str(finstack_py_root), str(repo_root)]
+        existing = os.environ.get("PYTHONPATH", "")
+        pieces = [p for p in existing.split(os.pathsep) if p]
+        for p in extra_paths:
+            if p not in pieces:
+                pieces.insert(0, p)
+        os.environ["PYTHONPATH"] = os.pathsep.join(pieces)
+
         # Read the notebook
         with open(notebook_path, "r", encoding="utf-8") as f:
             nb = nbformat.read(f, as_version=4)

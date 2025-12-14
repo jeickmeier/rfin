@@ -32,7 +32,7 @@ class RevolvingCredit:
         ...     "maturity_date": "2029-01-01",
         ...     "base_rate_spec": {"Fixed": {"rate": 0.05}},
         ...     "day_count": "Act360",
-        ...     "payment_frequency": {"Months": 3},
+        ...     "payment_frequency": {"count": 3, "unit": "months"},
         ...     "fees": {"facility_fee_bp": 0},
         ...     "draw_repay_spec": {"Deterministic": []},
         ...     "discount_curve_id": "USD",

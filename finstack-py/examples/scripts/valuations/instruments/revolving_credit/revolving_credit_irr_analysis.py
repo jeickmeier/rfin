@@ -118,14 +118,14 @@ def create_deterministic_facility(
                 "index_id": "USD-SOFR-3M",
                 "spread_bp": 250.0,  # 250 bps over SOFR
                 "gearing": 1.0,
-                "reset_freq": {"Months": 3},
+                "reset_freq": {"count": 3, "unit": "months"},
                 "floor_bp": 0.0,
                 "dc": "Act360",
                 "bdc": "modified_following",
             }
         },
         "day_count": "Act360",
-        "payment_frequency": {"Months": 3},
+        "payment_frequency": {"count": 3, "unit": "months"},
         "fees": {
             "upfront_fee": {"amount": 500_000, "currency": "USD"},  # 50 bps upfront
             "commitment_fee_tiers": [
@@ -169,14 +169,14 @@ def create_stochastic_facility(
                 "index_id": "USD-SOFR-3M",
                 "spread_bp": 250.0,
                 "gearing": 1.0,
-                "reset_freq": {"Months": 3},
+                "reset_freq": {"count": 3, "unit": "months"},
                 "floor_bp": 0.0,
                 "dc": "Act360",
                 "bdc": "modified_following",
             }
         },
         "day_count": "Act360",
-        "payment_frequency": {"Months": 3},
+        "payment_frequency": {"count": 3, "unit": "months"},
         "fees": {
             "upfront_fee": {"amount": 500_000, "currency": "USD"},
             "commitment_fee_tiers": [
@@ -410,10 +410,13 @@ def plot_single_scenario_analysis(results: Dict[str, Any], output_file: Optional
         irr_dist, bins=50, alpha=0.7, color="steelblue", edgecolor="black", density=True, label="MC Distribution"
     )
 
-    # Add kernel density estimate
-    from scipy.stats import gaussian_kde
+    # Add kernel density estimate (optional; SciPy is not a hard dependency)
+    try:
+        from scipy.stats import gaussian_kde  # type: ignore
+    except ModuleNotFoundError:
+        gaussian_kde = None
 
-    if len(irr_dist) > 1:
+    if gaussian_kde is not None and len(irr_dist) > 1:
         kde = gaussian_kde(irr_dist)
         x_range = np.linspace(irr_dist.min(), irr_dist.max(), 200)
         ax1.plot(x_range, kde(x_range), "b-", linewidth=2, label="KDE")
@@ -1325,12 +1328,16 @@ def plot_volatility_grid_comparison(
             scenario_colors[scenario] = color
             color_idx += 1
 
-            # Plot kernel density
-            from scipy.stats import gaussian_kde
+            # Plot kernel density (optional; SciPy is not a hard dependency)
+            try:
+                from scipy.stats import gaussian_kde  # type: ignore
+            except ModuleNotFoundError:
+                gaussian_kde = None
 
-            kde = gaussian_kde(irr_pct)
-            x_range = np.linspace(min(irr_pct) - 1, max(irr_pct) + 1, 200)
-            ax1.plot(x_range, kde(x_range), linewidth=2, label=label, color=color, alpha=0.8)
+            if gaussian_kde is not None:
+                kde = gaussian_kde(irr_pct)
+                x_range = np.linspace(min(irr_pct) - 1, max(irr_pct) + 1, 200)
+                ax1.plot(x_range, kde(x_range), linewidth=2, label=label, color=color, alpha=0.8)
 
     ax1.set_xlabel("IRR (%)", fontsize=12)
     ax1.set_ylabel("Density", fontsize=12)

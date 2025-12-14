@@ -92,7 +92,7 @@ def main() -> None:
         spot_rate=1.0860,
         notional=Money(1_000_000, EUR),
     )
-    spot_value = registry.price(spot, "discounting", market)
+    spot_value = registry.price(spot, "discounting", market, as_of=as_of)
     print("FX spot PV:", round(spot_value.value.amount, 2), spot_value.value.currency)
 
     # FX swap exchanging notionals
@@ -115,6 +115,7 @@ def main() -> None:
         "discounting",
         market,
         ["carry_pv"],
+        as_of=as_of,
     )
     print("FX swap PV:", round(swap_result.value.amount, 2), swap_result.value.currency)
 
@@ -133,6 +134,7 @@ def main() -> None:
         "discounting",
         market,
         ["delta", "gamma"],
+        as_of=as_of,
     )
     print("FX option PV:", round(option_result.value.amount, 2), option_result.value.currency)
     print("FX option delta:", option_result.measures.get("delta"))
@@ -147,7 +149,7 @@ def main() -> None:
         notional=Money(1_500_000, EUR),
         vol_surface="FX-VOL",
     )
-    put_value = registry.price(fx_put, "discounting", market)
+    put_value = registry.price(fx_put, "discounting", market, as_of=as_of)
     print("FX put PV:", round(put_value.value.amount, 2), put_value.value.currency)
 
 

@@ -64,11 +64,11 @@ def run_example():
     term_loan_spec = {
         "id": "TL-A",
         "currency": "USD",
-        "notional_limit": {"amount": "10000000", "currency": "USD"},
+        "notional_limit": {"amount": 10_000_000.0, "currency": "USD"},
         "issue": "2024-12-31",
         "maturity": "2030-01-01",
         "rate": {"Fixed": {"rate_bp": 800}},  # 8%
-        "pay_freq": {"Months": 3},
+        "pay_freq": {"count": 3, "unit": "months"},
         "day_count": "Act360",
         "bdc": "modified_following",
         "calendar_id": None,
@@ -79,13 +79,13 @@ def run_example():
         "coupon_type": "Cash",  # Default to cash, PIK toggle overrides
         "upfront_fee": None,
         "ddtl": {
-            "commitment_limit": {"amount": "10000000", "currency": "USD"},
+            "commitment_limit": {"amount": 10_000_000.0, "currency": "USD"},
             "availability_start": "2024-12-31",
             "availability_end": "2026-01-01",
             "draws": [
                 {
                     "date": "2024-12-31",
-                    "amount": {"amount": "10000000", "currency": "USD"},
+                    "amount": {"amount": 10_000_000.0, "currency": "USD"},
                 }
             ],
             "commitment_step_downs": [],
@@ -100,6 +100,7 @@ def run_example():
             "rho_bump_decimal": None,
             "vega_bump_decimal": None,
             "implied_volatility": None,
+            "vol_surface_extrapolation": "error",
             "quoted_spread_bp": None,
             "upfront_payment": None,
             "ytm_bump_decimal": None,

@@ -52,7 +52,7 @@ class Swaption:
         ...     "SWAPTION-5Y10Y",
         ...     Money(10_000_000, Currency("USD")),
         ...     0.035,
-        ...     date(2024, 12, 20),
+        ...     date(2025, 1, 1),
         ...     date(2025, 1, 1),
         ...     date(2035, 1, 1),
         ...     discount_curve="USD-OIS",
@@ -67,14 +67,14 @@ class Swaption:
         ...     ForwardCurve("USD-SOFR-3M", 0.25, [(0.0, 0.03), (10.0, 0.033)], base_date=date(2024, 1, 1))
         ... )
         >>> expiries = [1.0, 5.0]
-        >>> tenors = [5.0, 10.0]
+        >>> strikes = [0.02, 0.03, 0.04]
         >>> grid = [
-        ...     [0.24, 0.25],
-        ...     [0.22, 0.23],
+        ...     [0.24, 0.25, 0.26],
+        ...     [0.22, 0.23, 0.24],
         ... ]
-        >>> ctx.insert_surface(VolSurface("USD-SWAPTION-VOL", expiries, tenors, grid))
+        >>> ctx.insert_surface(VolSurface("USD-SWAPTION-VOL", expiries, strikes, grid))
         >>> registry = create_standard_registry()
-        >>> pv = registry.price(swaption, "black76", ctx).value
+        >>> pv = registry.price(swaption, "discounting", ctx, as_of=date(2024, 1, 1)).value
         >>> pv.currency.code
         'USD'
 

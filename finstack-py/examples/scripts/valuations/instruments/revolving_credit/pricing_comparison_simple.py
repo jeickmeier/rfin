@@ -70,14 +70,14 @@ def create_facility(util=0.5, is_stochastic=False, util_vol=0.0, num_paths=5000)
                 "index_id": "USD-SOFR-3M",
                 "spread_bp": 250.0,
                 "gearing": 1.0,
-                "reset_freq": {"Months": 3},
+                "reset_freq": {"count": 3, "unit": "months"},
                 "floor_bp": 0.0,
                 "dc": "Act360",
                 "bdc": "modified_following",
             }
         },
         "day_count": "Act360",
-        "payment_frequency": {"Months": 3},
+        "payment_frequency": {"count": 3, "unit": "months"},
         "fees": {
             "commitment_fee_tiers": [{"threshold": 0.0, "bps": 50}, {"threshold": 0.5, "bps": 35}],
             "usage_fee_tiers": [],

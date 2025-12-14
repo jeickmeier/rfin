@@ -111,6 +111,7 @@ def main() -> None:
         "discounting",
         market,
         ["par_spread", "pv01"],
+        as_of=as_of,
     )
     print("CDS PV:", round(cds_result.value.amount, 2), cds_result.value.currency)
     print("CDS par spread:", cds_result.measures.get("par_spread"))
@@ -132,6 +133,7 @@ def main() -> None:
         "discounting",
         market,
         ["par_spread"],
+        as_of=as_of,
     )
     print("CDS index PV:", round(index_result.value.amount, 2), index_result.value.currency)
 
@@ -151,6 +153,7 @@ def main() -> None:
         "discounting",
         market,
         ["vega"],
+        as_of=as_of,
     )
     print("CDS option PV:", round(option_result.value.amount, 2), option_result.value.currency)
 
@@ -173,6 +176,7 @@ def main() -> None:
         "discounting",
         market,
         ["par_spread", "expected_loss"],
+        as_of=as_of,
     )
     print("CDS tranche PV:", round(tranche_result.value.amount, 2), tranche_result.value.currency)
 
