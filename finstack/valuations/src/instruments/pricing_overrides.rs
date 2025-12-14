@@ -69,6 +69,10 @@ pub struct PricingOverrides {
     ///
     /// When set, overrides both standard and adaptive rate bump calculations.
     pub rate_bump_bp: Option<f64>,
+    /// Custom credit spread bump size override (in basis points, e.g., 1.0 for 1bp).
+    ///
+    /// Used by CS01 calculations that bump par spreads / hazard calibration quotes.
+    pub credit_spread_bump_bp: Option<f64>,
     /// Term loan specific overrides
     #[cfg_attr(feature = "serde", serde(skip_serializing_if = "Option::is_none"))]
     pub term_loan: Option<TermLoanOverrides>,
@@ -183,6 +187,12 @@ impl PricingOverrides {
     /// Overrides both standard and adaptive calculations when set.
     pub fn with_rate_bump(mut self, bump_bp: f64) -> Self {
         self.rate_bump_bp = Some(bump_bp);
+        self
+    }
+
+    /// Set custom credit spread bump size (in basis points, e.g., 1.0 for 1bp).
+    pub fn with_credit_spread_bump(mut self, bump_bp: f64) -> Self {
+        self.credit_spread_bump_bp = Some(bump_bp);
         self
     }
 

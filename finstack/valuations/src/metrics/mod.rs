@@ -147,13 +147,7 @@
 //! let registry = standard_registry();
 //! let metrics = vec![MetricId::Theta];
 //!
-//! // Customize theta period (default is "1D" = 1 day)
-//! let mut overrides = PricingOverrides::default();
-//! overrides.theta_period = Some("1W".to_string()); // 1-week time decay
-//!
-//! let result = option.price_with_metrics_and_overrides(
-//!     &market, as_of, &metrics, &overrides
-//! )?;
+//! let result = option.price_with_metrics(&market, as_of, &metrics)?;
 //!
 //! if let Some(theta) = result.measures.get(&MetricId::Theta) {
 //!     println!("Option 1-week theta: ${:.2}", theta);
@@ -225,7 +219,7 @@ mod sensitivities;
 // Re-export all public items at the root level for backward compatibility
 pub use crate::instruments::common::pricing::HasDiscountCurve;
 pub use core::finite_difference::{
-    bump_discount_curve_parallel, bump_scalar_price, bump_sizes, scale_surface, BumpOverrides,
+    bump_discount_curve_parallel, bump_scalar_price, bump_sizes, scale_surface,
 };
 pub use core::ids::MetricId;
 pub use core::registry::MetricRegistry;
@@ -249,7 +243,7 @@ pub use sensitivities::theta::{
 };
 pub use sensitivities::vega::{
     standard_equity_expiry_buckets, standard_strike_ratios, BucketSelector, KeyRateVega,
-    ParallelVega, VOL_BUMP_PCT,
+    ParallelVega,
 };
 
 // Risk metrics

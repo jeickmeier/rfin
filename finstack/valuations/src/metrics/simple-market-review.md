@@ -53,7 +53,6 @@ Unit tests for the core metrics framework passed successfully (`metrics::core::f
 *   **Gamma:** Central Difference `(Delta(up) - Delta(down)) / 2h`. Standard.
 *   **Vega:** One-sided bump `(PV(vol+1%) - PV) / 1%`. Standard definition (sensitivity to 1 vol point).
 *   **Cross Greeks:** Vanna and Volga implemented using correct mixed-difference formulas.
-*   **Adaptive Bumps:** The inclusion of `adaptive_spot_bump` (scaling bump size by $\sigma\sqrt{T}$) is a **best-practice** feature often missing in simpler libraries. It prevents numerical noise for short-dated or low-vol instruments.
 *   **MC Determinism:** The explicit handling of `mc_seed_scenario` (`delta_up`, `delta_down`) ensures that Monte Carlo variance doesn't contaminate Greek calculations. This is a critical feature for production-grade MC Greeks.
 
 ### 4. Time Decay (Theta)
@@ -86,7 +85,7 @@ Unit tests for the core metrics framework passed successfully (`metrics::core::f
     *   *Recommendation:* Ensure `KeyRateVega` or a specialized `SwaptionVega` supports `Expiry x Tenor` bucketing for Swaptions.
 
 3.  **Bump Size Config:**
-    *   The centralized `bump_sizes` module is good. Ensure that `BumpOverrides` are exposed to the end-user configuration layer so they can tune bumps for specific asset classes if needed (already partially supported via `PricingOverrides`).
+    *   The centralized `bump_sizes` module is good. Tune bump sizes at the user configuration layer via `FinstackConfig.extensions["valuations.sensitivities.v1"]`.
 
 ## Conclusion
 

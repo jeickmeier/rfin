@@ -389,12 +389,12 @@ use crate::metrics::{bump_sizes, bump_scalar_price, bump_discount_curve_parallel
 // Standard bump sizes
 let spot_bump = bump_sizes::SPOT;              // 1% (0.01)
 let vol_bump = bump_sizes::VOLATILITY;         // 1% (0.01)
-let rate_bump = bump_sizes::INTEREST_RATE_BP;  // 1bp (0.0001)
-let spread_bump = bump_sizes::CREDIT_SPREAD_BP; // 1bp (0.0001)
+let rate_bump = bump_sizes::INTEREST_RATE_BP;   // 1bp (in bp units: 1.0)
+let spread_bump = bump_sizes::CREDIT_SPREAD_BP; // 1bp (in bp units: 1.0)
 
 // Helper functions
 let bumped_market = bump_scalar_price(&context.curves, "AAPL", 0.01)?;
-let bumped_market = bump_discount_curve_parallel(&context.curves, &curve_id, 0.0001)?;
+let bumped_market = bump_discount_curve_parallel(&context.curves, &curve_id, 1.0)?;
 ```
 
 ## Best Practices

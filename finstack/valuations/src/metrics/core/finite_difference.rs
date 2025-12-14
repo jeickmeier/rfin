@@ -9,8 +9,8 @@
 //! Following market conventions:
 //! - Spot/Underlying: 1% (0.01)
 //! - Volatility: 1% (0.01)
-//! - Interest rates: 1bp (0.0001)
-//! - Credit spreads: 1bp (0.0001)
+//! - Interest rates: 1bp (**expressed as 1.0**) when using `BumpSpec::parallel_bp`
+//! - Credit spreads: 1bp (**expressed as 1.0**) when using `BumpSpec::parallel_bp`
 //! - Correlations: 1% (0.01)
 
 /// Standard bump sizes for finite difference calculations.
@@ -19,10 +19,16 @@ pub mod bump_sizes {
     pub const SPOT: f64 = 0.01;
     /// Volatility bump: 1% (0.01)
     pub const VOLATILITY: f64 = 0.01;
-    /// Interest rate bump: 1bp (0.0001)
-    pub const INTEREST_RATE_BP: f64 = 0.0001;
-    /// Credit spread bump: 1bp (0.0001)
-    pub const CREDIT_SPREAD_BP: f64 = 0.0001;
+    /// Interest rate bump: 1bp, expressed in *basis points* (1.0 = 1bp).
+    ///
+    /// This matches `finstack_core::market_data::bumps::BumpSpec::parallel_bp(1.0)`.
+    pub const INTEREST_RATE_BP: f64 = 1.0;
+    /// Interest rate bump: 1bp, expressed in decimal (0.0001 = 1bp).
+    pub const INTEREST_RATE_DECIMAL: f64 = 0.0001;
+    /// Credit spread bump: 1bp, expressed in *basis points* (1.0 = 1bp).
+    pub const CREDIT_SPREAD_BP: f64 = 1.0;
+    /// Credit spread bump: 1bp, expressed in decimal (0.0001 = 1bp).
+    pub const CREDIT_SPREAD_DECIMAL: f64 = 0.0001;
     /// Correlation bump: 1% (0.01)
     pub const CORRELATION: f64 = 0.01;
 }
@@ -106,7 +112,7 @@ pub fn bump_scalar_price(
 ///
 /// * `context` - Original market context containing the discount curve
 /// * `curve_id` - ID of the discount curve to bump (e.g., "USD-OIS")
-/// * `bump_decimal` - Bump size in decimal (e.g., 0.0001 for 1bp)
+/// * `bump_bp` - Bump size in basis points (e.g., 1.0 for 1bp)
 ///
 /// # Returns
 ///
@@ -143,21 +149,21 @@ pub fn bump_scalar_price(
 ///
 /// let context = MarketContext::new().insert_discount(curve);
 ///
-/// // Bump the curve by 1bp (0.0001)
-/// let bumped = bump_discount_curve_parallel(&context, &curve_id, 0.0001)?;
+/// // Bump the curve by 1bp (1.0 in bp units)
+/// let bumped = bump_discount_curve_parallel(&context, &curve_id, 1.0)?;
 /// # Ok(())
 /// # }
 /// ```
 pub fn bump_discount_curve_parallel(
     context: &finstack_core::market_data::context::MarketContext,
     curve_id: &finstack_core::types::CurveId,
-    bump_decimal: f64,
+    bump_bp: f64,
 ) -> finstack_core::Result<finstack_core::market_data::context::MarketContext> {
     use finstack_core::market_data::bumps::BumpSpec;
     use hashbrown::HashMap;
 
     let mut bumps = HashMap::new();
-    bumps.insert(curve_id.clone(), BumpSpec::parallel_bp(bump_decimal));
+    bumps.insert(curve_id.clone(), BumpSpec::parallel_bp(bump_bp));
     context.bump(bumps)
 }
 
@@ -211,68 +217,6 @@ pub fn scale_surface(
     Ok(context.clone().insert_surface(bumped_surface))
 }
 
-// -----------------------------------------------------------------------------
-// Adaptive Bump Size Calculations
-// -----------------------------------------------------------------------------
-
-/// Calculate adaptive spot bump size based on volatility and time to expiry.
-///
-/// Adaptive bumps scale based on:
-/// - Base bump size (1%)
-/// - Volatility-adjusted component: 0.1% * σ * √T
-/// - Minimum: base bump (1%)
-/// - Maximum: 5%
-///
-/// This improves numerical stability for high-vol or long-dated options
-/// where standard 1% bumps may be too small relative to price uncertainty.
-///
-/// # Arguments
-/// * `atm_vol` - At-the-money volatility (annualized)
-/// * `time_to_expiry` - Time to expiry in years
-/// * `override_pct` - Optional override from PricingOverrides (takes precedence)
-///
-/// # Returns
-/// Adaptive bump size as percentage (e.g., 0.01 for 1%)
-pub fn adaptive_spot_bump(atm_vol: f64, time_to_expiry: f64, override_pct: Option<f64>) -> f64 {
-    if let Some(pct) = override_pct {
-        return pct;
-    }
-
-    let base_bump = bump_sizes::SPOT; // 1%
-    let vol_scaled = 0.001 * atm_vol * time_to_expiry.sqrt(); // 0.1% * σ * √T
-
-    // Use the larger of base bump and vol-scaled bump, but cap at 5%
-    base_bump.max(vol_scaled).min(0.05)
-}
-
-// -----------------------------------------------------------------------------
-// Central finite-difference helpers
-// -----------------------------------------------------------------------------
-
-/// Compute a first derivative using central differences given evaluators for
-/// up/down scenarios and an absolute bump size `h`.
-///
-/// Returns `(f(x+h) - f(x-h)) / (2h)`.
-#[allow(dead_code)]
-pub fn central_diff_1d<EFutUp, EFutDown, E>(
-    eval_up: EFutUp,
-    eval_down: EFutDown,
-    h_abs: f64,
-) -> finstack_core::Result<f64>
-where
-    EFutUp: FnOnce() -> finstack_core::Result<E>,
-    EFutDown: FnOnce() -> finstack_core::Result<E>,
-    E: Into<f64>,
-{
-    // Guard against invalid bump size
-    if !h_abs.is_finite() || h_abs <= 0.0 {
-        return Err(finstack_core::error::InputError::NonPositiveValue.into());
-    }
-    let up = eval_up()?.into();
-    let down = eval_down()?.into();
-    Ok((up - down) / (2.0 * h_abs))
-}
-
 /// Compute a mixed partial derivative using central differences for two
 /// variables with absolute bump sizes `h` (first variable) and `k` (second).
 ///
@@ -309,112 +253,9 @@ where
     Ok((v_pp - v_pm - v_mp + v_mm) / (4.0 * h_abs * k_abs))
 }
 
-/// Calculate adaptive volatility bump size based on current volatility level.
-///
-/// Adaptive bumps scale with volatility to maintain relative accuracy:
-/// - Low vol (< 5%): use 1% absolute bump
-/// - Medium vol (5-20%): use 5% relative bump
-/// - High vol (> 20%): use 10% relative bump, capped at 5% absolute
-///
-/// # Arguments
-/// * `current_vol` - Current volatility level (annualized)
-/// * `override_pct` - Optional override from PricingOverrides (takes precedence)
-///
-/// # Returns
-/// Adaptive bump size as absolute volatility (e.g., 0.01 for 1% vol)
-#[allow(dead_code)]
-pub fn adaptive_vol_bump(current_vol: f64, override_pct: Option<f64>) -> f64 {
-    if let Some(pct) = override_pct {
-        return pct;
-    }
-
-    if current_vol < 0.05 {
-        // Low volatility: use fixed 1% absolute bump
-        bump_sizes::VOLATILITY.max(0.001)
-    } else if current_vol < 0.20 {
-        // Medium volatility: use 5% relative bump
-        (current_vol * 0.05).clamp(0.001, 0.05)
-    } else {
-        // High volatility: use 10% relative bump, capped at 5% absolute
-        (current_vol * 0.10).clamp(0.001, 0.05)
-    }
-}
-
-/// Calculate adaptive rate bump size.
-///
-/// For rates, we generally use fixed basis point bumps as they're more
-/// stable. However, this function allows for potential future extensions.
-///
-/// # Arguments
-/// * `override_bp` - Optional override from PricingOverrides (takes precedence)
-///
-/// # Returns
-/// Bump size in decimal (e.g., 0.0001 for 1bp)
-#[allow(dead_code)]
-pub fn adaptive_rate_bump(override_decimal: Option<f64>) -> f64 {
-    override_decimal.unwrap_or(bump_sizes::INTEREST_RATE_BP)
-}
-
-// tests moved to end of file to satisfy clippy::items_after_test_module
-
-/// Bump size overrides extracted from PricingOverrides.
-///
-/// Used to override default bump sizes for finite difference calculations.
-/// Each field represents an optional override for a specific bump type.
-#[derive(Debug, Clone, Copy, Default)]
-pub struct BumpOverrides {
-    /// Spot/underlying price bump override as percentage (e.g., 0.01 for 1%)
-    pub spot_pct: Option<f64>,
-    /// Volatility bump override as percentage (e.g., 0.01 for 1%)
-    pub vol_pct: Option<f64>,
-    /// Rate bump override as decimal (e.g., 0.0001 for 1bp)
-    pub rate_decimal: Option<f64>,
-}
-
-/// Get bump sizes from PricingOverrides if adaptive bumps are enabled.
-///
-/// Returns a `BumpOverrides` struct with optional overrides for spot, volatility,
-/// and rate bumps. If adaptive bumps are disabled, returns all None values.
-///
-/// # Arguments
-/// * `overrides` - Pricing overrides configuration
-///
-/// # Returns
-/// `BumpOverrides` struct with optional bump size overrides
-pub fn get_bump_overrides(overrides: &crate::instruments::PricingOverrides) -> BumpOverrides {
-    if !overrides.adaptive_bumps {
-        return BumpOverrides::default();
-    }
-
-    BumpOverrides {
-        spot_pct: overrides.spot_bump_pct,
-        vol_pct: overrides.vol_bump_pct,
-        // Convert from basis points to decimal (1bp = 0.0001)
-        rate_decimal: overrides.rate_bump_bp.map(|bp| bp * 0.0001),
-    }
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
-
-    #[test]
-    fn adaptive_rate_bump_default_is_one_bp_decimal() {
-        let v = adaptive_rate_bump(None);
-        assert!((v - 0.0001).abs() < 1e-12);
-    }
-
-    #[test]
-    fn central_diff_1d_rejects_nonpositive_or_invalid_h() {
-        let err = central_diff_1d(|| Ok(1.0f64), || Ok(1.0f64), 0.0)
-            .expect_err("should fail with non-positive h");
-        match err {
-            finstack_core::error::Error::Input(
-                finstack_core::error::InputError::NonPositiveValue,
-            ) => {}
-            e => panic!("unexpected error: {e:?}"),
-        }
-    }
 
     #[test]
     fn central_mixed_rejects_nonpositive_or_invalid_hk() {

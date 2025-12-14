@@ -186,21 +186,6 @@ impl BracketDiagnostics {
     }
 }
 
-/// Scan a set of points to bracket a root, then refine with the configured 1D solver.
-/// Returns Ok(Some(root)) when a bracket is found and solved; Ok(None) if no bracket was found.
-#[allow(dead_code)]
-pub(crate) fn bracket_solve_1d(
-    objective: &dyn Fn(f64) -> f64,
-    initial: f64,
-    scan_points: &[f64],
-    tol: f64,
-    max_iters: usize,
-) -> Result<Option<f64>> {
-    let (result, _) =
-        bracket_solve_1d_with_diagnostics(objective, initial, scan_points, tol, max_iters)?;
-    Ok(result)
-}
-
 /// Like `bracket_solve_1d` but also returns diagnostics for error reporting.
 pub(crate) fn bracket_solve_1d_with_diagnostics(
     objective: &dyn Fn(f64) -> f64,
@@ -289,8 +274,8 @@ mod tests {
         // f(x) = x - 0.5 has root at 0.5
         let f = |x: f64| x - 0.5;
         let scan = [-1.0, 0.0, 0.25, 0.75, 1.0];
-        let root = bracket_solve_1d(&f, 0.0, &scan, 1e-12, 100).expect("solver error");
-        assert!(root.is_some());
+        let (root, _) =
+            bracket_solve_1d_with_diagnostics(&f, 0.0, &scan, 1e-12, 100).expect("solver error");
         let r = root.expect("root should be Some");
         assert!((r - 0.5).abs() < 1e-9, "root inaccurate: {}", r);
     }

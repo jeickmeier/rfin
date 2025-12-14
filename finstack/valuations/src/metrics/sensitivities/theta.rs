@@ -71,12 +71,7 @@
 //! // "1W", "2W", ... (weeks)
 //! // "1M", "3M", "6M", ... (months)
 //! // "1Y", "2Y", ... (years)
-//! let mut overrides = PricingOverrides::default();
-//! overrides.theta_period = Some("1W".to_string());
-//!
-//! let result = option.price_with_metrics_and_overrides(
-//!     &market, as_of, &metrics, &overrides
-//! )?;
+//! let result = option.price_with_metrics(&market, as_of, &metrics)?;
 //!
 //! if let Some(theta) = result.measures.get(&MetricId::Theta) {
 //!     println!("1-week theta: ${:.2}", theta);
@@ -112,12 +107,7 @@
 //! let metrics = vec![MetricId::Theta];
 //!
 //! // Measure 1-month carry
-//! let mut overrides = PricingOverrides::default();
-//! overrides.theta_period = Some("1M".to_string());
-//!
-//! let result = bond.price_with_metrics_and_overrides(
-//!     &market, as_of, &metrics, &overrides
-//! )?;
+//! let result = bond.price_with_metrics(&market, as_of, &metrics)?;
 //!
 //! if let Some(theta) = result.measures.get(&MetricId::Theta) {
 //!     println!("Bond value: ${:.2}", result.value.amount());
@@ -160,12 +150,7 @@
 //! let metrics = vec![MetricId::Theta];
 //!
 //! // Request 1-week theta, but only 6 days remain
-//! let mut overrides = PricingOverrides::default();
-//! overrides.theta_period = Some("1W".to_string()); // 7 days
-//!
-//! let result = option.price_with_metrics_and_overrides(
-//!     &market, as_of, &metrics, &overrides
-//! )?;
+//! let result = option.price_with_metrics(&market, as_of, &metrics)?;
 //!
 //! if let Some(theta) = result.measures.get(&MetricId::Theta) {
 //!     println!("Theta to expiry (6 days): ${:.2}", theta);

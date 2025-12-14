@@ -56,6 +56,7 @@ use crate::instruments::common::pricing::HasDiscountCurve;
 use crate::instruments::common::traits::{CurveDependencies, Instrument, RatesCurveKind};
 use crate::metrics::MetricCalculator;
 use crate::metrics::{MetricContext, MetricId};
+use crate::metrics::sensitivities::config as sens_config;
 
 use finstack_core::market_data::bumps::BumpSpec;
 use finstack_core::market_data::context::MarketContext;
@@ -89,7 +90,7 @@ use std::sync::Arc;
 /// assert_eq!(buckets[10], 30.0); // 30 years
 /// ```
 pub fn standard_ir_dv01_buckets() -> Vec<f64> {
-    vec![0.25, 0.5, 1.0, 2.0, 3.0, 5.0, 7.0, 10.0, 15.0, 20.0, 30.0]
+    sens_config::STANDARD_BUCKETS_YEARS.to_vec()
 }
 
 // =============================================================================
@@ -309,12 +310,8 @@ where
     fn calculate(&self, context: &mut MetricContext) -> finstack_core::Result<f64> {
         let instrument: &I = context.instrument_as()?;
 
-        // Get bump size from overrides or default
-        let bump_bp = context
-            .pricing_overrides
-            .as_ref()
-            .and_then(|po| po.rate_bump_bp)
-            .unwrap_or(1.0);
+        // Resolve bump size from `FinstackConfig` (user-facing, reproducible).
+        let bump_bp = sens_config::from_finstack_config_or_default(context.config())?.rate_bump_bp;
 
         // Collect curves based on configuration
         let curves = self.collect_curves(instrument, context.curves.as_ref())?;

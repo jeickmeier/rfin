@@ -73,12 +73,8 @@ pub struct PeriodFlows {
 }
 
 impl PeriodFlows {
-    /// Total cash available for distribution.
-    #[allow(dead_code)]
-    pub fn total_cash(&self) -> finstack_core::Result<Money> {
-        let principal = self.prepayments.checked_add(self.recoveries)?;
-        self.interest_collections.checked_add(principal)
-    }
+    // NOTE: total cash helper removed (unused). Callers can compute:
+    // interest_collections + prepayments + recoveries explicitly with currency-safe ops.
 }
 
 /// Update tranche balance after payment.

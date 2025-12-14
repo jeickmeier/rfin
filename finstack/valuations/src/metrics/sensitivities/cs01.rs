@@ -6,9 +6,9 @@
 
 use crate::calibration::bumps::hazard::bump_hazard_spreads;
 use crate::calibration::bumps::BumpRequest;
+use crate::metrics::sensitivities::config as sens_config;
 use crate::metrics::{MetricContext, MetricId};
 use finstack_core::market_data::context::MarketContext;
-use finstack_core::market_data::term_structures::hazard_curve::HazardCurve;
 use finstack_core::money::Money;
 use finstack_core::types::CurveId;
 use std::sync::Arc;
@@ -34,87 +34,10 @@ use std::sync::Arc;
 /// assert_eq!(buckets[10], 30.0); // 30 years
 /// ```
 pub fn standard_credit_cs01_buckets() -> Vec<f64> {
-    vec![0.25, 0.5, 1.0, 2.0, 3.0, 5.0, 7.0, 10.0, 15.0, 20.0, 30.0]
+    sens_config::STANDARD_BUCKETS_YEARS.to_vec()
 }
 
 // Internal helper removed. Using crate::calibration::bumps::hazard::bump_hazard_spreads directly.
-
-/// Compute parallel CS01 by bumping the entire hazard curve uniformly (Hazard Rate Sensitivity).
-///
-/// Note: This computes Model Sensitivity (to hazard rates), not Quote Sensitivity (to par spreads).
-/// For Par Spread sensitivity, use `compute_parallel_par_spread_cs01` with a discount curve.
-#[allow(dead_code)] // Alternative API for hazard rate sensitivity (not currently used)
-pub fn compute_parallel_hazard_cs01<RevalFn>(
-    context: &mut MetricContext,
-    hazard_id: &CurveId,
-    bump_bp: f64,
-    mut revalue_with_hazard: RevalFn,
-) -> finstack_core::Result<f64>
-where
-    RevalFn: FnMut(&HazardCurve) -> finstack_core::Result<Money>,
-{
-    let base_pv = context.base_value;
-    let hazard = context.curves.get_hazard_ref(hazard_id.as_str())?;
-
-    // Parallel bump the entire hazard curve (convert bp to decimal)
-    let bump_decimal = bump_bp * 1e-4;
-    let temp_bumped = hazard.with_hazard_shift(bump_decimal)?;
-
-    // Restore original ID so it overwrites correctly in MarketContext
-    let bumped_hazard = temp_bumped
-        .to_builder_with_id(hazard_id.clone())
-        .build()
-        .map_err(|_| finstack_core::Error::Internal)?;
-
-    let pv_bumped = revalue_with_hazard(&bumped_hazard)?;
-
-    let cs01 = if bump_bp.abs() > 1e-10 {
-        (pv_bumped.amount() - base_pv.amount()) / bump_bp
-    } else {
-        0.0
-    };
-
-    Ok(cs01)
-}
-
-/// Compute key-rate CS01 series by bumping hazard rates at specific tenors (Hazard Rate Sensitivity).
-///
-/// Note: This computes Model Sensitivity (to hazard rates), not Quote Sensitivity (to par spreads).
-#[allow(dead_code)] // Alternative API for hazard rate sensitivity (not currently used)
-pub fn compute_key_rate_hazard_cs01_series<I, RevalFn>(
-    context: &mut MetricContext,
-    hazard_id: &CurveId,
-    bucket_times_years: I,
-    bump_bp: f64,
-    mut revalue_with_hazard: RevalFn,
-) -> finstack_core::Result<f64>
-where
-    I: IntoIterator<Item = f64>,
-    RevalFn: FnMut(&HazardCurve) -> finstack_core::Result<Money>,
-{
-    let base_pv = context.base_value;
-    let hazard = context.curves.get_hazard_ref(hazard_id.as_str())?;
-
-    let mut series: Vec<(String, f64)> = Vec::new();
-    for t in bucket_times_years.into_iter() {
-        let label = format_credit_bucket_label(t);
-
-        // Bump hazard rate at the specific tenor
-        let bumped_hazard = with_key_rate_hazard_bump(hazard, t, bump_bp)?;
-
-        let pv_bumped = revalue_with_hazard(&bumped_hazard)?;
-        let cs01 = if bump_bp.abs() > 1e-10 {
-            (pv_bumped.amount() - base_pv.amount()) / bump_bp
-        } else {
-            0.0
-        };
-        series.push((label, cs01));
-    }
-
-    context.store_bucketed_series(MetricId::BucketedCs01, series.clone());
-    let total: f64 = series.iter().map(|(_, v)| *v).sum();
-    Ok(total)
-}
 
 /// Compute parallel CS01 by bumping par spreads and re-calibrating.
 ///
@@ -239,67 +162,6 @@ fn format_credit_bucket_label(years: f64) -> String {
     }
 }
 
-/// Helper to apply a key-rate bump to a hazard curve at a specific tenor.
-///
-/// This bumps only the hazard rate segment containing the target time `t_years`.
-/// If `t_years` is before the first knot, bumps the first segment.
-/// If `t_years` is after the last knot, bumps the last segment.
-fn with_key_rate_hazard_bump(
-    hazard: &HazardCurve,
-    t_years: f64,
-    bump_bp: f64,
-) -> finstack_core::Result<HazardCurve> {
-    // Convert bump from bp to hazard rate units (1bp = 0.0001 in decimal)
-    let bump_decimal = bump_bp * 1e-4;
-
-    // Get knot points
-    let knots: Vec<f64> = hazard.knot_points().map(|(t, _)| t).collect();
-    let hazard_rates: Vec<f64> = hazard.knot_points().map(|(_, lambda)| lambda).collect();
-
-    if knots.len() < 2 {
-        // Parallel bump if curve has < 2 knots
-        return hazard.with_hazard_shift(bump_decimal);
-    }
-
-    // Find segment containing t_years
-    let mut target_segment = 0usize;
-    if t_years <= knots[0] {
-        target_segment = 0;
-    } else if t_years >= knots[knots.len() - 1] {
-        target_segment = knots.len() - 2;
-    } else {
-        for i in 0..knots.len() - 1 {
-            if t_years > knots[i] && t_years <= knots[i + 1] {
-                target_segment = i;
-                break;
-            }
-        }
-    }
-
-    // Bump the hazard rate in the target segment
-    // For piecewise constant curves, we bump the constant rate in that segment
-    let mut bumped_rates = hazard_rates;
-    bumped_rates[target_segment] = (bumped_rates[target_segment] + bump_decimal).max(0.0);
-
-    // Rebuild hazard curve with bumped rates
-    let bumped_points: Vec<(f64, f64)> = knots
-        .iter()
-        .zip(bumped_rates.iter())
-        .map(|(&t, &lambda)| (t, lambda))
-        .collect();
-
-    // Use builder to recreate curve
-    let mut builder = hazard
-        .to_builder_with_id(hazard.id().clone())
-        .knots(bumped_points);
-
-    // Add par spread points if available
-    builder = builder.par_spreads(hazard.par_spread_points());
-
-    builder
-        .build()
-        .map_err(|_e| finstack_core::Error::from(finstack_core::error::InputError::Invalid))
-}
 
 // ===== Generic Calculators =====
 
@@ -347,6 +209,9 @@ where
         let hazard_id = instrument.credit_curve_id().clone();
         let discount_id = instrument.discount_curve_id().clone();
 
+        let bump_bp =
+            sens_config::from_finstack_config_or_default(context.config())?.credit_spread_bump_bp;
+
         let inst_arc = Arc::clone(&context.instrument);
         let as_of = context.as_of;
 
@@ -354,7 +219,13 @@ where
             inst_arc.value(temp_ctx, as_of)
         };
 
-        compute_parallel_cs01_with_context(context, &hazard_id, Some(&discount_id), 1.0, reval)
+        compute_parallel_cs01_with_context(
+            context,
+            &hazard_id,
+            Some(&discount_id),
+            bump_bp,
+            reval,
+        )
     }
 }
 
@@ -375,8 +246,9 @@ where
         let hazard_id = instrument.credit_curve_id().clone();
         let discount_id = instrument.discount_curve_id().clone();
 
-        // Standard credit bucket times
-        let buckets = standard_credit_cs01_buckets();
+        let defaults = sens_config::from_finstack_config_or_default(context.config())?;
+        let buckets = defaults.cs01_buckets_years;
+        let bump_bp = defaults.credit_spread_bump_bp;
 
         // Generic revaluation using full MarketContext (for complex pricers)
         let inst_arc = Arc::clone(&context.instrument);
@@ -391,7 +263,7 @@ where
             &hazard_id,
             Some(&discount_id),
             buckets,
-            1.0,
+            bump_bp,
             reval,
         )?;
 

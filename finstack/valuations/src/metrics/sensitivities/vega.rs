@@ -5,11 +5,9 @@
 use crate::instruments::common::traits::Instrument;
 use crate::metrics::MetricCalculator;
 use crate::metrics::{MetricContext, MetricId};
+use crate::metrics::sensitivities::config as sens_config;
 use std::marker::PhantomData;
 use std::sync::Arc;
-
-/// Standard volatility bump: 1% relative (0.01)
-pub const VOL_BUMP_PCT: f64 = 0.01;
 
 /// Bucket selector for key-rate shocks.
 ///
@@ -110,6 +108,7 @@ where
 {
     fn calculate(&self, context: &mut MetricContext) -> finstack_core::Result<f64> {
         let instrument: &I = context.instrument_as()?;
+        let defaults = sens_config::from_finstack_config_or_default(context.config())?;
 
         let vol_surface_id = instrument
             .vol_surface_id()
@@ -119,8 +118,10 @@ where
         let base_ctx = context.curves.as_ref();
         let vol_surface = base_ctx.surface(vol_surface_id.as_str())?;
 
+        let bump_pct = defaults.vol_bump_pct;
+
         // Parallel bump: scale entire surface by (1 + bump_pct)
-        let scale_factor = 1.0 + VOL_BUMP_PCT;
+        let scale_factor = 1.0 + bump_pct;
         let bumped_surface = vol_surface.scaled(scale_factor);
         let temp_ctx = base_ctx.clone().insert_surface(bumped_surface);
 
@@ -129,7 +130,7 @@ where
         let pv_bumped = inst_arc.value(&temp_ctx, as_of)?;
 
         // Vega = (PV_bumped - PV_base) / bump_pct
-        let vega = (pv_bumped.amount() - base_pv.amount()) / VOL_BUMP_PCT;
+        let vega = (pv_bumped.amount() - base_pv.amount()) / bump_pct;
 
         Ok(vega)
     }
@@ -226,6 +227,7 @@ where
 {
     fn calculate(&self, context: &mut MetricContext) -> finstack_core::Result<f64> {
         let instrument: &I = context.instrument_as()?;
+        let defaults = sens_config::from_finstack_config_or_default(context.config())?;
 
         let vol_surface_id = instrument
             .vol_surface_id()
@@ -241,16 +243,18 @@ where
         let mut matrix = Vec::new();
         let mut total_vega = 0.0;
 
+        let bump_pct = defaults.vol_bump_pct;
+
         for &expiry in &self.expiries {
             let mut row = Vec::new();
             for &strike in &self.strikes {
                 // Bump vol at this specific (expiry, strike) point
-                let bumped_surface = vol_surface.bump_point(expiry, strike, VOL_BUMP_PCT)?;
+                let bumped_surface = vol_surface.bump_point(expiry, strike, bump_pct)?;
                 let temp_ctx = base_ctx.clone().insert_surface(bumped_surface);
                 let pv_bumped = inst_arc.value(&temp_ctx, as_of)?;
 
                 // Vega = (PV_bumped - PV_base) / bump_pct
-                let vega = (pv_bumped.amount() - base_pv.amount()) / VOL_BUMP_PCT;
+                let vega = (pv_bumped.amount() - base_pv.amount()) / bump_pct;
                 row.push(vega);
                 total_vega += vega;
             }

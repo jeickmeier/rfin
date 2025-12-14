@@ -634,35 +634,8 @@ impl Pricer for RevolvingCreditPricer {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use finstack_core::currency::Currency;
-    use finstack_core::dates::{DayCount, Tenor};
-    use finstack_core::types::CurveId;
+    use finstack_core::dates::DayCount;
     use time::Month;
-
-    use crate::instruments::revolving_credit::types::BaseRateSpec;
-
-    #[allow(dead_code)]
-    fn create_test_facility() -> RevolvingCredit {
-        let start = Date::from_calendar_date(2025, Month::January, 1).expect("valid date");
-        let end = Date::from_calendar_date(2026, Month::January, 1).expect("valid date");
-
-        RevolvingCredit::builder()
-            .id("RC-TEST".into())
-            .commitment_amount(Money::new(10_000_000.0, Currency::USD))
-            .drawn_amount(Money::new(5_000_000.0, Currency::USD))
-            .commitment_date(start)
-            .maturity_date(end)
-            .base_rate_spec(BaseRateSpec::Fixed { rate: 0.05 })
-            .day_count(DayCount::Act360)
-            .payment_frequency(Tenor::quarterly())
-            .fees(Default::default())
-            .draw_repay_spec(DrawRepaySpec::Deterministic(vec![]))
-            .discount_curve_id("USD-OIS".into())
-            .hazard_curve_id(CurveId::from("TEST-HZD"))
-            .recovery_rate(0.4)
-            .build()
-            .expect("should succeed")
-    }
 
     #[test]
     fn test_compute_dynamic_survival() {

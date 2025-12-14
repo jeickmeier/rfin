@@ -648,13 +648,6 @@ impl Default for FutureSpecs {
     }
 }
 
-/// Standard OIS index tokens used for identifying OIS instruments.
-#[allow(dead_code)]
-pub const STANDARD_OIS_INDICES: &[&str] = &[
-    "OIS", "SOFR", "SONIA", "EONIA", "ESTR", "€STR", "TONAR", "TONA", "CORRA", "AONIA", "SARON",
-    "SORA",
-];
-
 // ============================================================================
 // OIS Index Registry - Market-Standard Overnight Rate Classification
 // ============================================================================
@@ -675,40 +668,9 @@ pub enum RateIndexFamily {
 
 /// Detailed information about a rate index.
 #[derive(Clone, Debug)]
-#[allow(dead_code)]
 pub struct RateIndexInfo {
     /// Rate index family (overnight vs term)
     pub family: RateIndexFamily,
-    /// Currency associated with this index
-    pub currency: Currency,
-    /// Standard day count convention
-    pub day_count: DayCount,
-    /// Settlement lag in business days (T+0, T+1, T+2)
-    pub settlement_days: i32,
-}
-
-impl RateIndexInfo {
-    /// Create an overnight rate index info
-    #[allow(dead_code)]
-    pub const fn overnight(currency: Currency, day_count: DayCount, settlement_days: i32) -> Self {
-        Self {
-            family: RateIndexFamily::Overnight,
-            currency,
-            day_count,
-            settlement_days,
-        }
-    }
-
-    /// Create a term rate index info
-    #[allow(dead_code)]
-    pub const fn term(currency: Currency, day_count: DayCount, settlement_days: i32) -> Self {
-        Self {
-            family: RateIndexFamily::Term,
-            currency,
-            day_count,
-            settlement_days,
-        }
-    }
 }
 
 /// Registry entry for a known rate index.
@@ -731,18 +693,12 @@ static INDEX_REGISTRY: &[IndexEntry] = &[
         tokens: &["SOFR"],
         info: RateIndexInfo {
             family: RateIndexFamily::Overnight,
-            currency: Currency::USD,
-            day_count: DayCount::Act360,
-            settlement_days: 2,
         },
     },
     IndexEntry {
         tokens: &["EFFR", "FEDFUNDS", "FF"],
         info: RateIndexInfo {
             family: RateIndexFamily::Overnight,
-            currency: Currency::USD,
-            day_count: DayCount::Act360,
-            settlement_days: 1,
         },
     },
     // EUR Overnight Rates
@@ -750,18 +706,12 @@ static INDEX_REGISTRY: &[IndexEntry] = &[
         tokens: &["ESTR", "ESTER", "STR"],
         info: RateIndexInfo {
             family: RateIndexFamily::Overnight,
-            currency: Currency::EUR,
-            day_count: DayCount::Act360,
-            settlement_days: 2,
         },
     },
     IndexEntry {
         tokens: &["EONIA"],
         info: RateIndexInfo {
             family: RateIndexFamily::Overnight,
-            currency: Currency::EUR,
-            day_count: DayCount::Act360,
-            settlement_days: 2,
         },
     },
     // GBP Overnight Rates (T+0 settlement!)
@@ -769,9 +719,6 @@ static INDEX_REGISTRY: &[IndexEntry] = &[
         tokens: &["SONIA"],
         info: RateIndexInfo {
             family: RateIndexFamily::Overnight,
-            currency: Currency::GBP,
-            day_count: DayCount::Act365F,
-            settlement_days: 0, // GBP settles T+0
         },
     },
     // JPY Overnight Rates
@@ -779,9 +726,6 @@ static INDEX_REGISTRY: &[IndexEntry] = &[
         tokens: &["TONA", "TONAR"],
         info: RateIndexInfo {
             family: RateIndexFamily::Overnight,
-            currency: Currency::JPY,
-            day_count: DayCount::Act365F,
-            settlement_days: 2,
         },
     },
     // CHF Overnight Rates
@@ -789,9 +733,6 @@ static INDEX_REGISTRY: &[IndexEntry] = &[
         tokens: &["SARON"],
         info: RateIndexInfo {
             family: RateIndexFamily::Overnight,
-            currency: Currency::CHF,
-            day_count: DayCount::Act360,
-            settlement_days: 2,
         },
     },
     // AUD Overnight Rates
@@ -799,9 +740,6 @@ static INDEX_REGISTRY: &[IndexEntry] = &[
         tokens: &["AONIA"],
         info: RateIndexInfo {
             family: RateIndexFamily::Overnight,
-            currency: Currency::AUD,
-            day_count: DayCount::Act365F,
-            settlement_days: 1,
         },
     },
     // CAD Overnight Rates
@@ -809,9 +747,6 @@ static INDEX_REGISTRY: &[IndexEntry] = &[
         tokens: &["CORRA"],
         info: RateIndexInfo {
             family: RateIndexFamily::Overnight,
-            currency: Currency::CAD,
-            day_count: DayCount::Act365F,
-            settlement_days: 1,
         },
     },
     // SGD Overnight Rates
@@ -819,9 +754,6 @@ static INDEX_REGISTRY: &[IndexEntry] = &[
         tokens: &["SORA"],
         info: RateIndexInfo {
             family: RateIndexFamily::Overnight,
-            currency: Currency::SGD,
-            day_count: DayCount::Act365F,
-            settlement_days: 2,
         },
     },
     // Generic OIS marker (matches "USD-OIS", "EUR-OIS", etc.)
@@ -829,9 +761,6 @@ static INDEX_REGISTRY: &[IndexEntry] = &[
         tokens: &["OIS"],
         info: RateIndexInfo {
             family: RateIndexFamily::Overnight,
-            currency: Currency::USD, // Default, currency should be inferred from context
-            day_count: DayCount::Act360,
-            settlement_days: 2,
         },
     },
     // Term Rates (explicitly NOT overnight)
@@ -839,27 +768,18 @@ static INDEX_REGISTRY: &[IndexEntry] = &[
         tokens: &["LIBOR"],
         info: RateIndexInfo {
             family: RateIndexFamily::Term,
-            currency: Currency::USD,
-            day_count: DayCount::Act360,
-            settlement_days: 2,
         },
     },
     IndexEntry {
         tokens: &["EURIBOR"],
         info: RateIndexInfo {
             family: RateIndexFamily::Term,
-            currency: Currency::EUR,
-            day_count: DayCount::Act360,
-            settlement_days: 2,
         },
     },
     IndexEntry {
         tokens: &["TIBOR"],
         info: RateIndexInfo {
             family: RateIndexFamily::Term,
-            currency: Currency::JPY,
-            day_count: DayCount::Act365F,
-            settlement_days: 2,
         },
     },
 ];

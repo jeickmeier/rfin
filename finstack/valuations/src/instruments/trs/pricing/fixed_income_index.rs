@@ -10,7 +10,7 @@ use finstack_core::Result;
 fn extract_underlying_data(
     trs: &FIIndexTotalReturnSwap,
     context: &MarketContext,
-) -> Result<(f64, f64, f64)> {
+) -> Result<(f64, f64)> {
     // Try to get index spot price, default to 100.0 if not found (cancels out for % returns)
     let spot = match context.price(trs.underlying.index_id.as_str()) {
         Ok(s) => match s {
@@ -32,27 +32,13 @@ fn extract_underlying_data(
         })
         .unwrap_or(0.0);
 
-    let duration = trs
-        .underlying
-        .duration_id
-        .as_ref()
-        .and_then(|id| {
-            context.price(id.as_str()).ok().map(|s| match s {
-                finstack_core::market_data::scalars::MarketScalar::Unitless(v) => *v,
-                finstack_core::market_data::scalars::MarketScalar::Price(p) => p.amount(),
-            })
-        })
-        .unwrap_or(0.0);
-
-    Ok((spot, index_yield, duration))
+    Ok((spot, index_yield))
 }
 
 struct FiIndexReturnModel<'a> {
     trs: &'a FIIndexTotalReturnSwap,
     spot: f64,
     index_yield: f64,
-    #[allow(dead_code)] // Kept for future risk expansions or hybrid models
-    duration: f64,
 }
 
 impl TrsReturnModel for FiIndexReturnModel<'_> {
@@ -113,7 +99,7 @@ pub fn pv_total_return_leg(
     context: &MarketContext,
     as_of: Date,
 ) -> Result<Money> {
-    let (spot, index_yield, duration) = extract_underlying_data(trs, context)?;
+    let (spot, index_yield) = extract_underlying_data(trs, context)?;
 
     let params = TotalReturnLegParams {
         schedule: &trs.schedule,
@@ -127,7 +113,6 @@ pub fn pv_total_return_leg(
         trs,
         spot,
         index_yield,
-        duration,
     };
     TrsEngine::pv_total_return_leg_with_model(params, context, as_of, &model)
 }

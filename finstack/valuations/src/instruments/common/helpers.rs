@@ -4,6 +4,7 @@
 //! function to assemble a `ValuationResult` with computed metrics.
 
 use crate::metrics::{standard_registry, MetricContext};
+use finstack_core::config::FinstackConfig;
 use finstack_core::dates::{Date, DayCount, DayCountCtx};
 use finstack_core::market_data::{context::MarketContext, scalars::MarketScalar};
 use finstack_core::money::Money;
@@ -61,6 +62,8 @@ pub fn build_with_metrics_dyn(
     metrics: &[crate::metrics::MetricId],
 ) -> finstack_core::Result<crate::results::ValuationResult> {
     let mut context = MetricContext::new(instrument.clone(), curves, as_of, base_value);
+    // Preserve per-instrument pricing overrides (e.g., bump sizes, scenario shocks) for metrics.
+    context.pricing_overrides = instrument.scenario_overrides().cloned();
 
     let registry = standard_registry();
     let metric_measures = registry.compute(metrics, &mut context)?;
@@ -87,6 +90,48 @@ pub fn build_with_metrics_dyn(
         crate::results::ValuationResult::stamped(context.instrument.id(), as_of, base_value);
     result.measures = measures;
 
+    Ok(result)
+}
+
+/// Shared helper to build a ValuationResult with a set of metrics using an explicit config.
+///
+/// This is the config-aware sibling of [`build_with_metrics_dyn`]. It allows callers to
+/// supply a `FinstackConfig` (including extensions like `valuations.sensitivities.v1`) so
+/// metric defaults are user-tunable and reproducible.
+pub fn build_with_metrics_dyn_with_config(
+    instrument: Arc<dyn crate::instruments::common::traits::Instrument>,
+    curves: Arc<MarketContext>,
+    as_of: Date,
+    base_value: Money,
+    metrics: &[crate::metrics::MetricId],
+    cfg: Arc<FinstackConfig>,
+) -> finstack_core::Result<crate::results::ValuationResult> {
+    let mut context =
+        MetricContext::new_with_finstack_config(instrument.clone(), curves, as_of, base_value, cfg);
+    context.pricing_overrides = instrument.scenario_overrides().cloned();
+
+    let registry = standard_registry();
+    let metric_measures = registry.compute(metrics, &mut context)?;
+
+    // Deterministic insertion order: follow the requested metrics slice order
+    let mut measures: IndexMap<String, f64> = IndexMap::new();
+    for metric_id in metrics {
+        if let Some(value) = metric_measures.get(metric_id) {
+            measures.insert(metric_id.as_str().to_string(), *value);
+        }
+    }
+
+    // Also include any composite keys (bucketed series, matrices, etc.) from context.computed
+    for (metric_id, value) in &context.computed {
+        let key = metric_id.as_str().to_string();
+        if !measures.contains_key(&key) {
+            measures.insert(key, *value);
+        }
+    }
+
+    let mut result =
+        crate::results::ValuationResult::stamped(context.instrument.id(), as_of, base_value);
+    result.measures = measures;
     Ok(result)
 }
 

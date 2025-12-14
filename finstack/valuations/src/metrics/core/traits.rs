@@ -11,6 +11,7 @@ use finstack_core::prelude::*;
 use finstack_core::types::CurveId;
 
 use std::sync::Arc;
+use finstack_core::config::FinstackConfig;
 
 /// Core trait for metric calculators.
 ///
@@ -192,6 +193,12 @@ pub struct MetricContext {
     pub bucket_key_resolver: Option<Arc<BucketKeyResolverFn>>,
     /// Optional pricing overrides to control metric calculations (e.g., bumps)
     pub pricing_overrides: Option<crate::instruments::PricingOverrides>,
+
+    /// Finstack configuration (tolerances + versioned extensions).
+    ///
+    /// This is used by metric calculators to resolve user-facing defaults
+    /// (e.g., risk bump sizes) and to keep results reproducible.
+    pub(crate) finstack_config: Arc<FinstackConfig>,
 }
 
 impl MetricContext {
@@ -226,7 +233,28 @@ impl MetricContext {
             notional: None,
             bucket_key_resolver: None,
             pricing_overrides: None,
+            finstack_config: Arc::new(FinstackConfig::default()),
         }
+    }
+
+    /// Creates a new metric context with an explicit `FinstackConfig`.
+    pub fn new_with_finstack_config(
+        instrument: Arc<dyn Instrument>,
+        curves: Arc<finstack_core::market_data::context::MarketContext>,
+        as_of: Date,
+        base_value: Money,
+        finstack_config: Arc<FinstackConfig>,
+    ) -> Self {
+        Self {
+            finstack_config,
+            ..Self::new(instrument, curves, as_of, base_value)
+        }
+    }
+
+    /// Access the finstack configuration associated with this context.
+    #[inline]
+    pub fn config(&self) -> &FinstackConfig {
+        &self.finstack_config
     }
 
     /// Set a custom bucket key resolver.

@@ -55,7 +55,6 @@ pub fn run_simulation(
         pool,
         tranches,
         instrument.closing_date,
-        months_per_period,
         instrument.recovery_spec.recovery_lag,
     );
 
@@ -192,8 +191,6 @@ struct SimulationState<'a> {
     results: HashMap<String, TrancheCashflows>,
     prev_date: Option<Date>,
     base_ccy: Currency,
-    #[allow(dead_code)]
-    months_per_period: f64,
     recovery_lag_months: u32,
     pool: &'a Pool,
     tranches: &'a TrancheStructure,
@@ -206,7 +203,6 @@ impl<'a> SimulationState<'a> {
         pool: &'a Pool,
         tranches: &'a TrancheStructure,
         closing_date: Date,
-        months_per_period: f64,
         recovery_lag_months: u32,
     ) -> Self {
         let base_ccy = pool.base_currency();
@@ -259,7 +255,6 @@ impl<'a> SimulationState<'a> {
             results,
             prev_date: Some(closing_date),
             base_ccy,
-            months_per_period,
             recovery_lag_months,
             pool,
             tranches,

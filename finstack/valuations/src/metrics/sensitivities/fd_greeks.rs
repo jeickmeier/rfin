@@ -10,9 +10,10 @@ use std::marker::PhantomData;
 
 use crate::instruments::common::traits::{EquityDependencies, Instrument};
 use crate::metrics::core::finite_difference::{
-    adaptive_spot_bump, central_mixed, get_bump_overrides,
+    central_mixed,
 };
-use crate::metrics::{bump_scalar_price, bump_sizes, scale_surface};
+use crate::metrics::sensitivities::config as sens_config;
+use crate::metrics::{bump_scalar_price, scale_surface};
 use crate::metrics::{MetricCalculator, MetricContext};
 use finstack_core::dates::{Date, DayCount};
 use finstack_core::Result;
@@ -209,6 +210,7 @@ where
     fn calculate(&self, context: &mut MetricContext) -> Result<f64> {
         let instrument: &I = context.instrument_as()?;
         let as_of = context.as_of;
+        let defaults = sens_config::from_finstack_config_or_default(context.config())?;
 
         // Get equity dependencies
         let eq_deps = instrument.equity_dependencies();
@@ -225,39 +227,8 @@ where
             finstack_core::market_data::scalars::MarketScalar::Price(m) => m.amount(),
         };
 
-        // Calculate adaptive or fixed bump size
-        let bump_pct = if let Some(ref overrides) = context.pricing_overrides {
-            let bump_overrides = get_bump_overrides(overrides);
-            if overrides.adaptive_bumps {
-                // Use traits to get instrument properties for adaptive calculation
-                let time_to_expiry = instrument
-                    .day_count()
-                    .year_fraction(
-                        as_of,
-                        instrument.expiry(),
-                        finstack_core::dates::DayCountCtx::default(),
-                    )
-                    .ok()
-                    .unwrap_or(0.0);
-
-                let atm_vol = if time_to_expiry > 0.0 {
-                    eq_deps
-                        .vol_surface_id
-                        .as_ref()
-                        .and_then(|vol_id| context.curves.surface_ref(vol_id.as_str()).ok())
-                        .map(|vol_surface| vol_surface.value_clamped(time_to_expiry, current_spot))
-                        .unwrap_or(bump_sizes::VOLATILITY)
-                } else {
-                    bump_sizes::VOLATILITY
-                };
-
-                adaptive_spot_bump(atm_vol, time_to_expiry, bump_overrides.spot_pct)
-            } else {
-                bump_overrides.spot_pct.unwrap_or(bump_sizes::SPOT)
-            }
-        } else {
-            bump_sizes::SPOT
-        };
+        // Fixed bump size from `FinstackConfig` (user-facing, reproducible).
+        let bump_pct = defaults.spot_bump_pct;
 
         let bump_size = current_spot * bump_pct;
 
@@ -314,6 +285,7 @@ where
     fn calculate(&self, context: &mut MetricContext) -> Result<f64> {
         let instrument: &I = context.instrument_as()?;
         let as_of = context.as_of;
+        let defaults = sens_config::from_finstack_config_or_default(context.config())?;
 
         // Get equity dependencies
         let eq_deps = instrument.equity_dependencies();
@@ -330,39 +302,8 @@ where
             finstack_core::market_data::scalars::MarketScalar::Price(m) => m.amount(),
         };
 
-        // Calculate adaptive or fixed bump size (same logic as Delta)
-        let bump_pct = if let Some(ref overrides) = context.pricing_overrides {
-            let bump_overrides = get_bump_overrides(overrides);
-            if overrides.adaptive_bumps {
-                // Use traits to get instrument properties for adaptive calculation
-                let time_to_expiry = instrument
-                    .day_count()
-                    .year_fraction(
-                        as_of,
-                        instrument.expiry(),
-                        finstack_core::dates::DayCountCtx::default(),
-                    )
-                    .ok()
-                    .unwrap_or(0.0);
-
-                let atm_vol = if time_to_expiry > 0.0 {
-                    eq_deps
-                        .vol_surface_id
-                        .as_ref()
-                        .and_then(|vol_id| context.curves.surface_ref(vol_id.as_str()).ok())
-                        .map(|vol_surface| vol_surface.value_clamped(time_to_expiry, current_spot))
-                        .unwrap_or(bump_sizes::VOLATILITY)
-                } else {
-                    bump_sizes::VOLATILITY
-                };
-
-                adaptive_spot_bump(atm_vol, time_to_expiry, bump_overrides.spot_pct)
-            } else {
-                bump_overrides.spot_pct.unwrap_or(bump_sizes::SPOT)
-            }
-        } else {
-            bump_sizes::SPOT
-        };
+        // Fixed bump size from `FinstackConfig` (user-facing, reproducible).
+        let bump_pct = defaults.spot_bump_pct;
 
         let bump_size = current_spot * bump_pct;
 
@@ -437,6 +378,7 @@ where
     fn calculate(&self, context: &mut MetricContext) -> Result<f64> {
         let instrument: &I = context.instrument_as()?;
         let as_of = context.as_of;
+        let defaults = sens_config::from_finstack_config_or_default(context.config())?;
         let base_pv = context.base_value.amount();
 
         // Get equity dependencies
@@ -451,16 +393,8 @@ where
             return Ok(0.0);
         };
 
-        // Determine bump size (relative scale of vols)
-        let bump_pct = if let Some(ref overrides) = context.pricing_overrides {
-            // Prefer explicit override; otherwise use default 1% vol scale
-            overrides
-                .vega_bump_decimal
-                .or(overrides.vol_bump_pct)
-                .unwrap_or(bump_sizes::VOLATILITY)
-        } else {
-            bump_sizes::VOLATILITY
-        };
+        // Fixed bump size from `FinstackConfig` (user-facing, reproducible).
+        let bump_pct = defaults.vol_bump_pct;
 
         let mut inst_up = instrument.clone();
         inst_up.pricing_overrides_mut().mc_seed_scenario = Some("vega_up".to_string());
@@ -493,6 +427,7 @@ where
     fn calculate(&self, context: &mut MetricContext) -> Result<f64> {
         let instrument: &I = context.instrument_as()?;
         let as_of = context.as_of;
+        let defaults = sens_config::from_finstack_config_or_default(context.config())?;
         let base_pv = context.base_value.amount();
 
         // Get equity dependencies
@@ -507,11 +442,7 @@ where
             return Ok(0.0);
         };
 
-        let bump_pct = if let Some(ref overrides) = context.pricing_overrides {
-            overrides.vol_bump_pct.unwrap_or(bump_sizes::VOLATILITY)
-        } else {
-            bump_sizes::VOLATILITY
-        };
+        let bump_pct = defaults.vol_bump_pct;
 
         let mut inst_up = instrument.clone();
         inst_up.pricing_overrides_mut().mc_seed_scenario = Some("volga_up".to_string());
@@ -554,6 +485,7 @@ where
     fn calculate(&self, context: &mut MetricContext) -> Result<f64> {
         let instrument: &I = context.instrument_as()?;
         let as_of = context.as_of;
+        let defaults = sens_config::from_finstack_config_or_default(context.config())?;
 
         // Get equity dependencies
         let eq_deps = instrument.equity_dependencies();
@@ -598,15 +530,7 @@ where
         };
 
         // Bump sizes
-        let (spot_bump_pct, vol_bump_pct) = if let Some(ref overrides) = context.pricing_overrides {
-            let bump_overrides = get_bump_overrides(overrides);
-            (
-                bump_overrides.spot_pct.unwrap_or(bump_sizes::SPOT),
-                bump_overrides.vol_pct.unwrap_or(bump_sizes::VOLATILITY),
-            )
-        } else {
-            (bump_sizes::SPOT, bump_sizes::VOLATILITY)
-        };
+        let (spot_bump_pct, vol_bump_pct) = (defaults.spot_bump_pct, defaults.vol_bump_pct);
 
         let h_abs = current_spot * spot_bump_pct; // absolute spot change
         let k_abs = (atm_vol * vol_bump_pct).abs().max(1e-12); // absolute vol change

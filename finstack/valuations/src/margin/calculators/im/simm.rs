@@ -388,42 +388,6 @@ impl ImCalculator for SimmCalculator {
     }
 }
 
-/// Calculate SIMM for an IRS instrument with actual sensitivities.
-///
-/// This is a more detailed implementation that would be called
-/// when full sensitivity data is available.
-#[allow(dead_code)]
-#[deprecated(
-    since = "0.3.0",
-    note = "Use SimmCalculator::new(...).calculate_ir_delta instead"
-)]
-pub fn calculate_irs_simm(
-    dv01_by_tenor: &HashMap<String, f64>,
-    currency: finstack_core::currency::Currency,
-    version: SimmVersion,
-) -> Result<Money> {
-    let calc = SimmCalculator::new(version);
-    let ir_margin = calc.calculate_ir_delta(dv01_by_tenor);
-    Ok(Money::new(ir_margin, currency))
-}
-
-/// Calculate SIMM for a CDS instrument with actual sensitivities.
-#[allow(dead_code)]
-#[deprecated(
-    since = "0.3.0",
-    note = "Use SimmCalculator::new(...).calculate_credit_delta instead"
-)]
-pub fn calculate_cds_simm(
-    cs01: f64,
-    qualifying: bool,
-    currency: finstack_core::currency::Currency,
-    version: SimmVersion,
-) -> Result<Money> {
-    let calc = SimmCalculator::new(version);
-    let credit_margin = calc.calculate_credit_delta(cs01, qualifying);
-    Ok(Money::new(credit_margin, currency))
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;

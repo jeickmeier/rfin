@@ -780,7 +780,6 @@ struct SwaptionTargetSpec {
 }
 
 #[cfg(test)]
-#[allow(deprecated)]
 mod tests {
     use super::*;
     use finstack_core::market_data::surfaces::vol_surface::VolSurface;

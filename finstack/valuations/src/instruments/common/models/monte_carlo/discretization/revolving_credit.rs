@@ -9,7 +9,6 @@
 //! correlated Brownian motions.
 
 use crate::instruments::common::mc::discretization::exact_hw1f::ExactHullWhite1F;
-use crate::instruments::common::mc::discretization::qe_cir::QeCir;
 use crate::instruments::common::mc::process::correlation::{
     apply_correlation, cholesky_decomposition,
 };
@@ -33,9 +32,6 @@ pub struct RevolvingCreditDiscretization {
     cholesky_factor: Option<Vec<f64>>,
     /// Hull-White exact discretization (for floating rates)
     hw_disc: Option<ExactHullWhite1F>,
-    /// CIR QE discretization
-    #[allow(dead_code)]
-    cir_disc: QeCir,
 }
 
 impl RevolvingCreditDiscretization {
@@ -64,7 +60,6 @@ impl RevolvingCreditDiscretization {
         Ok(Self {
             cholesky_factor,
             hw_disc: Some(ExactHullWhite1F::new()),
-            cir_disc: QeCir::new(),
         })
     }
 

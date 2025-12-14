@@ -888,6 +888,37 @@ pub trait Instrument: Send + Sync {
         metrics: &[MetricId],
     ) -> finstack_core::Result<crate::results::ValuationResult>;
 
+    /// Compute present value with specified risk metrics, using an explicit `FinstackConfig`.
+    ///
+    /// This method is identical to [`Instrument::price_with_metrics`] but allows callers to
+    /// supply a `FinstackConfig` so user-facing defaults (e.g., risk bump sizes via
+    /// `FinstackConfig.extensions["valuations.sensitivities.v1"]`) can be set once and
+    /// persisted as part of a reproducible pipeline.
+    ///
+    /// # Notes
+    ///
+    /// - Sensitivities (DV01/CS01/vega/FD greeks) resolve their bump sizes from the supplied
+    ///   `FinstackConfig` (via `valuations.sensitivities.v1`) for reproducibility.
+    /// - If you don't need config-aware defaults, use [`Instrument::price_with_metrics`].
+    fn price_with_metrics_with_config(
+        &self,
+        market: &MarketContext,
+        as_of: Date,
+        metrics: &[MetricId],
+        cfg: &finstack_core::config::FinstackConfig,
+    ) -> finstack_core::Result<crate::results::ValuationResult> {
+        let base_value = self.value(market, as_of)?;
+
+        crate::instruments::common::helpers::build_with_metrics_dyn_with_config(
+            std::sync::Arc::from(self.clone_box()),
+            std::sync::Arc::new(market.clone()),
+            as_of,
+            base_value,
+            metrics,
+            std::sync::Arc::new(cfg.clone()),
+        )
+    }
+
     // === Market Data Introspection (for Attribution) ===
 
     /// Discount curves required for pricing this instrument.
