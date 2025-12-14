@@ -59,25 +59,36 @@
 pub mod bumps;
 mod config;
 pub mod derivatives;
+pub mod market_standards;
 pub mod methods;
-mod quote;
+pub mod pricing;
+pub mod quotes;
 mod report;
 mod solver;
 pub mod spec;
 mod traits;
 mod validation;
 
-// Re-exports
+// Re-exports: Configuration
 pub use config::{
     CalibrationConfig, CalibrationMethod, MultiCurveConfig, RateBounds, RateBoundsPolicy,
     SolverKind, ValidationMode, CALIBRATION_CONFIG_KEY_V1,
 };
+
+// Re-exports: Derivatives
 pub use derivatives::sabr_derivatives::{SABRCalibrationDerivatives, SABRMarketData};
 pub use derivatives::sabr_model_params::SABRModelParams;
-pub use quote::{
+
+// Re-exports: Quote schemas (from quotes module)
+pub use quotes::{
     CreditQuote, FutureSpecs, InflationQuote, InstrumentConventions, MarketQuote, RatesQuote,
     VolQuote,
 };
+
+// Re-exports: Pricing infrastructure
+pub use pricing::{CalibrationPricer, ConvexityParameters, RatesQuoteUseCase};
+
+// Re-exports: Reports and specs
 pub use report::CalibrationReport;
 pub(crate) use solver::bracket_solve_1d_with_diagnostics;
 pub use solver::{create_simple_solver, solve_1d, BracketDiagnostics, PENALTY, SolverConfig};
@@ -85,8 +96,7 @@ pub use spec::{
     CalibrationEnvelope, CalibrationResult, CalibrationResultEnvelope, CalibrationSpec,
     CalibrationStep, CALIBRATION_SCHEMA_V1,
 };
+
+// Re-exports: Traits and validation
 pub use traits::Calibrator;
 pub use validation::{CurveValidator, SurfaceValidator, ValidationConfig};
-
-// Re-export calibration validation types
-pub use methods::RatesQuoteUseCase;

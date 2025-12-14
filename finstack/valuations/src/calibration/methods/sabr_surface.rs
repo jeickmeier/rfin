@@ -3,7 +3,7 @@
 //! Implements market-standard volatility surface construction by calibrating
 //! SABR parameters per expiry slice and building interpolated surfaces.
 
-use crate::calibration::quote::VolQuote;
+use crate::calibration::quotes::VolQuote;
 use crate::calibration::{CalibrationConfig, CalibrationReport, Calibrator};
 use crate::instruments::common::models::{SABRCalibrator, SABRModel, SABRParameters};
 use finstack_core::config::FinstackConfig;

@@ -24,7 +24,7 @@
 //! - O'Kane, D. (2008). *Modelling Single-name and Multi-name Credit Derivatives*. Wiley.
 //! - Markit (2009). "CDS Curve Bootstrapping Guide."
 
-use crate::calibration::quote::CreditQuote;
+use crate::calibration::quotes::CreditQuote;
 use crate::calibration::{CalibrationConfig, CalibrationReport, Calibrator};
 use crate::constants::time as time_constants;
 use crate::instruments::cds::pricer::CDSPricer;

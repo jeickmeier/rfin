@@ -4,7 +4,7 @@
 //! inflation swaps to build forward CPI level curves.
 
 use crate::calibration::config::ValidationMode;
-use crate::calibration::quote::InflationQuote;
+use crate::calibration::quotes::InflationQuote;
 use crate::calibration::{CalibrationConfig, CalibrationReport, Calibrator};
 use crate::instruments::common::traits::Instrument;
 use crate::instruments::inflation_swap::{InflationSwap, PayReceiveInflation};

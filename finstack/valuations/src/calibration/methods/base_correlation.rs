@@ -22,7 +22,7 @@
 //!   Wiley Finance. Chapters 6-8.
 //! - ISDA (2009). Big Bang Protocol for CDS standardization.
 
-use crate::calibration::quote::CreditQuote;
+use crate::calibration::quotes::CreditQuote;
 use crate::calibration::{
     CalibrationConfig, CalibrationReport, Calibrator, SolverConfig, SolverKind,
 };

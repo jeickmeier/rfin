@@ -28,8 +28,9 @@ mod bootstrap;
 mod global_solve;
 
 use crate::calibration::config::CalibrationMethod;
-use crate::calibration::methods::pricing::CalibrationPricer;
-use crate::calibration::quote::{settlement_days_for_currency, RatesQuote};
+use crate::calibration::market_standards::settlement_days_for_currency;
+use crate::calibration::pricing::CalibrationPricer;
+use crate::calibration::quotes::RatesQuote;
 use crate::calibration::{CalibrationConfig, CalibrationReport, Calibrator, MultiCurveConfig};
 use finstack_core::config::FinstackConfig;
 use finstack_core::dates::{Date, DayCount};
@@ -402,7 +403,7 @@ impl DiscountCurveCalibrator {
     /// Get effective day count for curve time (explicit or currency default).
     pub(crate) fn effective_curve_day_count(&self) -> DayCount {
         self.curve_day_count.unwrap_or_else(|| {
-            crate::calibration::quote::standard_day_count_for_currency(self.currency)
+            crate::calibration::market_standards::standard_day_count_for_currency(self.currency)
         })
     }
 
@@ -680,7 +681,7 @@ mod tests {
     #[test]
     fn test_quote_validation() {
         use crate::calibration::config::RateBounds;
-        use crate::calibration::methods::pricing::RatesQuoteUseCase;
+        use crate::calibration::pricing::RatesQuoteUseCase;
 
         let base_date = Date::from_calendar_date(2025, Month::January, 1).expect("Valid test date");
 

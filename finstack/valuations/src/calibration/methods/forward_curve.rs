@@ -87,8 +87,8 @@
 
 use crate::calibration::{
     config::{CalibrationConfig, ValidationMode},
-    methods::pricing::{CalibrationPricer, RatesQuoteUseCase},
-    quote::RatesQuote,
+    pricing::{CalibrationPricer, RatesQuoteUseCase},
+    quotes::RatesQuote,
     report::CalibrationReport,
     traits::Calibrator,
 };
@@ -163,7 +163,7 @@ pub struct ForwardCurveCalibrator {
     /// Optional custom convexity parameters for futures pricing.
     /// If None, uses currency-specific defaults from `ConvexityParameters`.
     #[serde(default)]
-    pub convexity_params: Option<super::convexity::ConvexityParameters>,
+    pub convexity_params: Option<crate::calibration::pricing::ConvexityParameters>,
 }
 
 /// Default reset lag (2 business days per ISDA convention)
@@ -329,7 +329,7 @@ impl ForwardCurveCalibrator {
     ///     );
     /// ```
     #[must_use]
-    pub fn with_convexity_params(mut self, params: super::convexity::ConvexityParameters) -> Self {
+    pub fn with_convexity_params(mut self, params: crate::calibration::pricing::ConvexityParameters) -> Self {
         self.convexity_params = Some(params);
         self
     }
@@ -1496,7 +1496,7 @@ mod tests {
 
     #[test]
     fn test_convexity_params_override() {
-        use super::super::convexity::ConvexityParameters;
+        use crate::calibration::pricing::ConvexityParameters;
 
         let base_date = Date::from_calendar_date(2025, Month::January, 1).expect("Valid test date");
 
@@ -1589,7 +1589,7 @@ mod tests {
 
     #[test]
     fn test_builder_methods_chainable() {
-        use super::super::convexity::ConvexityParameters;
+        use crate::calibration::pricing::ConvexityParameters;
 
         let base_date = Date::from_calendar_date(2025, Month::January, 1).expect("Valid test date");
 

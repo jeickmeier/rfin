@@ -215,7 +215,7 @@ impl ConvexityParameters {
     /// # Example
     ///
     /// ```
-    /// use finstack_valuations::calibration::methods::convexity::ConvexityParameters;
+    /// use finstack_valuations::calibration::pricing::ConvexityParameters;
     /// use finstack_core::currency::Currency;
     ///
     /// let params = ConvexityParameters::for_currency(Currency::EUR);
@@ -251,7 +251,7 @@ impl ConvexityParameters {
     /// # Example
     ///
     /// ```ignore
-    /// use finstack_valuations::calibration::methods::convexity::ConvexityParameters;
+    /// use finstack_valuations::calibration::pricing::ConvexityParameters;
     /// use finstack_core::dates::{Date, DayCount};
     ///
     /// let params = ConvexityParameters::usd_sofr();
@@ -393,9 +393,7 @@ impl ConvexityParameters {
 ///
 /// Note: Prefer using [`ConvexityParameters::for_currency`] directly.
 #[inline]
-pub fn default_convexity_params(
-    currency: finstack_core::currency::Currency,
-) -> ConvexityParameters {
+pub fn default_convexity_params(currency: finstack_core::currency::Currency) -> ConvexityParameters {
     ConvexityParameters::for_currency(currency)
 }
 
@@ -544,3 +542,4 @@ mod tests {
         assert!((params.mean_reversion - 0.10).abs() < 1e-10);
     }
 }
+

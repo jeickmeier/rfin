@@ -158,7 +158,7 @@ fn test_discount_curve_swap_repricing() {
 
     // EXTERNAL REPRICING CHECK: Verify externally-constructed swaps reprice within tolerance
     // Use CalibrationPricer with use_settlement_start=true to match calibration conventions
-    use finstack_valuations::calibration::methods::pricing::CalibrationPricer;
+    use finstack_valuations::calibration::pricing::CalibrationPricer;
 
     let pricer = CalibrationPricer::new(base_date, Currency::USD, "USD-OIS")
         .with_use_settlement_start(true) // Match calibration conventions

@@ -260,7 +260,7 @@ fn test_swaption_vol_calibration_direct() {
 
 #[test]
 fn test_swaption_vol_calibration_extended_grid_and_interpolation() {
-    use finstack_valuations::calibration::methods::swaption_market_conventions::SwaptionMarketConvention;
+    use finstack_valuations::calibration::market_standards::SwaptionMarketConvention;
 
     let base_date = Date::from_calendar_date(2025, Month::January, 1).unwrap();
     let mut context = MarketContext::new();
@@ -436,7 +436,7 @@ fn test_swaption_pricing_with_calibrated_surface() {
 /// consider using SVI parameterization or monotone convex fitting methods.
 #[test]
 fn test_swaption_vol_surface_arbitrage_free() {
-    use finstack_valuations::calibration::methods::swaption_market_conventions::SwaptionMarketConvention;
+    use finstack_valuations::calibration::market_standards::SwaptionMarketConvention;
     use finstack_valuations::calibration::{SurfaceValidator, ValidationConfig};
 
     let base_date = Date::from_calendar_date(2025, Month::January, 1).unwrap();

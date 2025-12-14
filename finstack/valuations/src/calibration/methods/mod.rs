@@ -26,7 +26,7 @@
 //!
 //! ## Convexity Adjustments
 //!
-//! - [`convexity`]: Convexity corrections for futures and CMS
+//! - [`super::pricing::ConvexityParameters`]: Convexity corrections for futures and CMS
 //!
 //! # Bootstrap Algorithm
 //!
@@ -84,17 +84,14 @@
 //! - [`sabr_surface`] for volatility surface calibration
 
 pub mod base_correlation;
-pub mod convexity;
 pub mod discount;
 pub mod forward_curve;
 pub mod hazard_curve;
 pub mod hull_white;
 pub mod inflation_curve;
-pub mod pricing;
 pub mod sabr_surface;
-pub mod swaption_market_conventions;
 pub mod swaption_vol;
-pub mod xccy;
+pub mod xccy_curve;
 
 pub use base_correlation::BaseCorrelationCalibrator;
 pub use discount::DiscountCurveCalibrator;
@@ -106,9 +103,7 @@ pub use hull_white::{
     HULL_WHITE_CALIBRATION_CONFIG_KEY_V1,
 };
 pub use inflation_curve::InflationCurveCalibrator;
-pub use pricing::CalibrationPricer;
-pub use pricing::RatesQuoteUseCase;
 pub use sabr_surface::SurfaceInterp;
 pub use sabr_surface::VolSurfaceCalibrator;
 pub use swaption_vol::SwaptionVolCalibrator;
-pub use xccy::{SpreadOn as XccySpreadOn, XccyBasisCalibrator, XccyBasisQuote};
+pub use xccy_curve::{SpreadOn as XccySpreadOn, XccyBasisCalibrator, XccyBasisQuote};

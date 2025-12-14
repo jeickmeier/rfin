@@ -15,7 +15,7 @@
 //! # Example
 //!
 //! ```ignore
-//! use finstack_valuations::calibration::methods::pricing::CalibrationPricer;
+//! use finstack_valuations::calibration::pricing::CalibrationPricer;
 //! use finstack_core::currency::Currency;
 //!
 //! // For discount curve calibration (uses settlement date)
@@ -32,10 +32,10 @@
 //! ```
 
 use super::convexity::ConvexityParameters;
-use crate::calibration::quote::{
+use crate::calibration::market_standards::{
     default_calendar_for_currency, ois_compounding_for_index, settlement_days_for_currency,
-    FutureSpecs, InstrumentConventions, RatesQuote,
 };
+use crate::calibration::quotes::{FutureSpecs, InstrumentConventions, RatesQuote};
 use crate::instruments::basis_swap::{BasisSwap, BasisSwapLeg};
 use crate::instruments::common::traits::Instrument;
 use crate::instruments::deposit::Deposit;
@@ -1244,7 +1244,7 @@ impl CalibrationPricer {
     /// # Example
     ///
     /// ```ignore
-    /// use finstack_valuations::calibration::methods::pricing::{CalibrationPricer, RatesQuoteUseCase};
+    /// use finstack_valuations::calibration::pricing::{CalibrationPricer, RatesQuoteUseCase};
     ///
     /// // For discount curve calibration
     /// CalibrationPricer::validate_rates_quotes(

@@ -11,7 +11,7 @@ use super::{
         inflation_curve::InflationCurveCalibrator, sabr_surface::VolSurfaceCalibrator,
         swaption_vol::SwaptionVolCalibrator,
     },
-    quote::{CreditQuote, InflationQuote, RatesQuote, VolQuote},
+    quotes::{CreditQuote, InflationQuote, RatesQuote, VolQuote},
     CalibrationConfig, CalibrationReport, Calibrator, ValidationMode,
 };
 use finstack_core::{

@@ -14,7 +14,7 @@ use finstack_core::types::CurveId;
 use finstack_valuations::calibration::methods::base_correlation::{
     BaseCorrelationCalibrator, BaseCorrelationSurfaceCalibrator, CorrelationInterp,
 };
-use finstack_valuations::calibration::methods::convexity::ConvexityParameters;
+use finstack_valuations::calibration::pricing::ConvexityParameters;
 use finstack_valuations::calibration::methods::discount::DiscountCurveCalibrator;
 use finstack_valuations::calibration::methods::forward_curve::ForwardCurveCalibrator;
 use finstack_valuations::calibration::methods::hazard_curve::HazardCurveCalibrator;
@@ -22,7 +22,7 @@ use finstack_valuations::calibration::methods::inflation_curve::InflationCurveCa
 use finstack_valuations::calibration::methods::sabr_surface::{
     SurfaceInterp, VolSurfaceCalibrator,
 };
-use finstack_valuations::calibration::methods::swaption_market_conventions::{
+use finstack_valuations::calibration::market_standards::{
     PaymentEstimation, SwaptionMarketConvention,
 };
 use finstack_valuations::calibration::methods::swaption_vol::{

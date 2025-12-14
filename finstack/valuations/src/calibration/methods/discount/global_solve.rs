@@ -14,8 +14,8 @@
 
 use super::DiscountCurveCalibrator;
 use crate::calibration::config::RateBounds;
-use crate::calibration::methods::pricing::{CalibrationPricer, RatesQuoteUseCase};
-use crate::calibration::quote::RatesQuote;
+use crate::calibration::pricing::{CalibrationPricer, RatesQuoteUseCase};
+use crate::calibration::quotes::RatesQuote;
 use crate::calibration::CalibrationReport;
 use finstack_core::market_data::context::MarketContext;
 use finstack_core::market_data::term_structures::DiscountCurve;

@@ -9,7 +9,7 @@
 //! on the target discount curve.
 
 use crate::calibration::config::ValidationMode;
-use crate::calibration::quote::standard_day_count_for_currency;
+use crate::calibration::market_standards::standard_day_count_for_currency;
 use crate::calibration::validation::CurveValidator;
 use crate::calibration::{CalibrationConfig, CalibrationReport};
 use crate::instruments::xccy_swap::{LegSide, NotionalExchange, XccySwap, XccySwapLeg};
