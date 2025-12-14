@@ -9,6 +9,10 @@ use super::wrappers::{
 };
 
 /// Epsilon for finite difference derivative calculations.
+///
+/// This is the default value used in [`InterpFn::interp_prime`] for numerical
+/// derivatives. For more control, use [`InterpConfig`](crate::interp_config::InterpConfig)
+/// and implement custom derivative logic.
 pub const DERIVATIVE_EPSILON: f64 = 1e-6;
 
 /// Extrapolation policy for evaluation outside the knot range.

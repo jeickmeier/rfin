@@ -95,9 +95,3 @@ pub use crate::config::{
     results_meta, rounding_context_from, FinstackConfig, NumericMode, ResultsMeta, RoundingContext,
     RoundingMode, RoundingPolicy, ToleranceConfig,
 };
-
-// Solver and XIRR configuration
-pub use crate::solver_config::{
-    BrentSolverConfig, NewtonSolverConfig, SolverConfig, SOLVER_CONFIG_KEY_V1,
-};
-pub use crate::xirr_config::{XirrConfig, XIRR_CONFIG_KEY_V1};

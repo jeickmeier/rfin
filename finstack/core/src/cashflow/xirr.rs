@@ -13,17 +13,19 @@
 //! ```
 //!
 //! XIRR uses a day count convention (defaulting to Act/365F) to calculate year fractions.
-//!
-//! # Configuration
-//!
-//! Solver parameters can be customized via [`XirrConfig`](crate::xirr_config::XirrConfig)
-//! loaded from `FinstackConfig` extensions under the key `core.xirr.v1`.
 
-use crate::config::FinstackConfig;
 use crate::dates::{Date, DayCount, DayCountCtx};
 use crate::error::InputError;
 use crate::math::solver::NewtonSolver;
-use crate::xirr_config::XirrConfig;
+
+/// Default tolerance for IRR/XIRR solver.
+pub const DEFAULT_TOLERANCE: f64 = 1e-6;
+
+/// Default maximum iterations for IRR/XIRR solver.
+pub const DEFAULT_MAX_ITERATIONS: usize = 100;
+
+/// Default initial guess for IRR/XIRR.
+pub const DEFAULT_GUESS: f64 = 0.1;
 
 /// Trait for calculating the Internal Rate of Return (IRR).
 ///
@@ -42,15 +44,6 @@ pub trait InternalRateOfReturn {
     /// * `day_count` - Day count convention to use for time calculations.
     /// * `guess` - Optional initial guess for the rate.
     fn irr_with_daycount(&self, day_count: DayCount, guess: Option<f64>) -> crate::Result<f64>;
-
-    /// Calculate IRR with custom configuration from `FinstackConfig`.
-    ///
-    /// Reads solver parameters from the `core.xirr.v1` extension if present.
-    ///
-    /// # Arguments
-    /// * `cfg` - Configuration containing XIRR solver parameters.
-    /// * `guess` - Optional initial guess for the rate (overrides config default if provided).
-    fn irr_with_config(&self, cfg: &FinstackConfig, guess: Option<f64>) -> crate::Result<f64>;
 }
 
 /// Implementation for periodic cashflows.
@@ -59,22 +52,12 @@ impl InternalRateOfReturn for [f64] {
         solve_rate_of_return(
             self.iter().enumerate().map(|(i, &amt)| (i as f64, amt)),
             guess,
-            &XirrConfig::default(),
         )
     }
 
     fn irr_with_daycount(&self, _day_count: DayCount, guess: Option<f64>) -> crate::Result<f64> {
         // Day count is irrelevant for periodic cashflows as they are unitless periods
         self.irr(guess)
-    }
-
-    fn irr_with_config(&self, cfg: &FinstackConfig, guess: Option<f64>) -> crate::Result<f64> {
-        let xirr_cfg = XirrConfig::from_finstack_config(cfg)?;
-        solve_rate_of_return(
-            self.iter().enumerate().map(|(i, &amt)| (i as f64, amt)),
-            guess,
-            &xirr_cfg,
-        )
     }
 }
 
@@ -89,21 +72,15 @@ impl InternalRateOfReturn for [(Date, f64)] {
     /// Calculates XIRR (Extended Internal Rate of Return) for irregular cashflows
     /// with configurable day count convention.
     fn irr_with_daycount(&self, day_count: DayCount, guess: Option<f64>) -> crate::Result<f64> {
-        solve_xirr_internal(self, day_count, guess, &XirrConfig::default())
-    }
-
-    fn irr_with_config(&self, cfg: &FinstackConfig, guess: Option<f64>) -> crate::Result<f64> {
-        let xirr_cfg = XirrConfig::from_finstack_config(cfg)?;
-        solve_xirr_internal(self, DayCount::Act365F, guess, &xirr_cfg)
+        solve_xirr_internal(self, day_count, guess)
     }
 }
 
-/// Internal helper for XIRR calculation with full control over parameters.
+/// Internal helper for XIRR calculation.
 fn solve_xirr_internal(
     flows: &[(Date, f64)],
     day_count: DayCount,
     guess: Option<f64>,
-    xirr_cfg: &XirrConfig,
 ) -> crate::Result<f64> {
     if flows.len() < 2 {
         return Err(crate::Error::Validation(
@@ -133,7 +110,7 @@ fn solve_xirr_internal(
         years_and_amounts.push((years, amount));
     }
 
-    solve_rate_of_return(years_and_amounts, guess, xirr_cfg)
+    solve_rate_of_return(years_and_amounts, guess)
 }
 
 // -----------------------------------------------------------------------------
@@ -144,13 +121,8 @@ fn solve_xirr_internal(
 ///
 /// # Arguments
 /// * `flows` - Iterator of (time, amount) pairs
-/// * `guess` - Optional initial guess (overrides config default if provided)
-/// * `xirr_cfg` - XIRR configuration for solver parameters
-fn solve_rate_of_return<I>(
-    flows: I,
-    guess: Option<f64>,
-    xirr_cfg: &XirrConfig,
-) -> crate::Result<f64>
+/// * `guess` - Optional initial guess
+fn solve_rate_of_return<I>(flows: I, guess: Option<f64>) -> crate::Result<f64>
 where
     I: IntoIterator<Item = (f64, f64)> + Clone,
 {
@@ -190,13 +162,13 @@ where
         sum
     };
 
-    // Solver configuration from XirrConfig
+    // Solver with default configuration
     let solver = NewtonSolver::new()
-        .with_tolerance(xirr_cfg.tolerance)
-        .with_max_iterations(xirr_cfg.max_iterations);
+        .with_tolerance(DEFAULT_TOLERANCE)
+        .with_max_iterations(DEFAULT_MAX_ITERATIONS);
 
-    // Initial guess strategy: user-provided guess overrides config default
-    let initial_guess = guess.unwrap_or(xirr_cfg.default_guess);
+    // Initial guess strategy: user-provided guess or default
+    let initial_guess = guess.unwrap_or(DEFAULT_GUESS);
 
     // Candidates: User guess + Combined list from legacy irr_periodic and xirr
     let seeds: &[f64] = &[

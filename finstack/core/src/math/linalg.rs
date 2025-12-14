@@ -52,6 +52,15 @@
 use crate::{error, Result};
 use thiserror::Error;
 
+/// Default singular threshold for Cholesky decomposition.
+pub const SINGULAR_THRESHOLD: f64 = 1e-10;
+
+/// Default tolerance for diagonal elements in correlation matrices.
+pub const DIAGONAL_TOLERANCE: f64 = 1e-6;
+
+/// Default tolerance for symmetry checks in correlation matrices.
+pub const SYMMETRY_TOLERANCE: f64 = 1e-6;
+
 /// Error type for Cholesky decomposition failures.
 #[derive(Debug, Clone, PartialEq, Error)]
 #[non_exhaustive]
@@ -129,7 +138,6 @@ pub fn cholesky_decomposition(
     }
 
     let mut l = vec![0.0; n * n];
-    const SINGULAR_THRESHOLD: f64 = 1e-10;
 
     for i in 0..n {
         for j in 0..=i {
@@ -227,7 +235,7 @@ pub fn cholesky_solve(chol: &[f64], b: &[f64], x: &mut [f64]) -> Result<()> {
             sum += chol[i * n + j] * x[j];
         }
         let diag = chol[i * n + i];
-        if diag.abs() < 1e-15 {
+        if diag.abs() < SINGULAR_THRESHOLD {
             return Err(crate::error::InputError::Invalid.into());
         }
         x[i] = (b[i] - sum) / diag;
@@ -311,7 +319,7 @@ pub fn validate_correlation_matrix(matrix: &[f64], n: usize) -> Result<()> {
     // Check diagonal
     for i in 0..n {
         let diag = matrix[i * n + i];
-        if (diag - 1.0).abs() > 1e-6 {
+        if (diag - 1.0).abs() > DIAGONAL_TOLERANCE {
             return Err(crate::error::InputError::Invalid.into());
         }
     }
@@ -330,7 +338,7 @@ pub fn validate_correlation_matrix(matrix: &[f64], n: usize) -> Result<()> {
 
             // Check symmetry
             let val_sym = matrix[j * n + i];
-            if (val - val_sym).abs() > 1e-6 {
+            if (val - val_sym).abs() > SYMMETRY_TOLERANCE {
                 return Err(crate::error::InputError::Invalid.into());
             }
         }

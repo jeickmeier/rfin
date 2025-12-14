@@ -167,32 +167,6 @@ impl NewtonSolver {
         Self::default()
     }
 
-    /// Create a Newton solver from configuration.
-    ///
-    /// # Example
-    ///
-    /// ```rust
-    /// use finstack_core::math::solver::NewtonSolver;
-    /// use finstack_core::solver_config::NewtonSolverConfig;
-    ///
-    /// let cfg = NewtonSolverConfig {
-    ///     tolerance: 1e-10,
-    ///     max_iterations: 100,
-    ///     ..Default::default()
-    /// };
-    /// let solver = NewtonSolver::from_config(&cfg);
-    /// assert_eq!(solver.tolerance, 1e-10);
-    /// ```
-    pub fn from_config(cfg: &crate::solver_config::NewtonSolverConfig) -> Self {
-        Self {
-            tolerance: cfg.tolerance,
-            max_iterations: cfg.max_iterations,
-            fd_step: cfg.fd_step,
-            min_derivative: cfg.min_derivative,
-            min_derivative_rel: cfg.min_derivative_rel,
-        }
-    }
-
     /// Set tolerance.
     pub fn with_tolerance(mut self, tolerance: f64) -> Self {
         self.tolerance = tolerance;
@@ -440,31 +414,6 @@ impl BrentSolver {
     /// Create a new Brent solver with default settings.
     pub fn new() -> Self {
         Self::default()
-    }
-
-    /// Create a Brent solver from configuration.
-    ///
-    /// # Example
-    ///
-    /// ```rust
-    /// use finstack_core::math::solver::BrentSolver;
-    /// use finstack_core::solver_config::BrentSolverConfig;
-    ///
-    /// let cfg = BrentSolverConfig {
-    ///     tolerance: 1e-10,
-    ///     max_iterations: 200,
-    ///     ..Default::default()
-    /// };
-    /// let solver = BrentSolver::from_config(&cfg);
-    /// assert_eq!(solver.tolerance, 1e-10);
-    /// ```
-    pub fn from_config(cfg: &crate::solver_config::BrentSolverConfig) -> Self {
-        Self {
-            tolerance: cfg.tolerance,
-            max_iterations: cfg.max_iterations,
-            bracket_expansion: cfg.bracket_expansion,
-            initial_bracket_size: None, // Not part of config, use adaptive
-        }
     }
 
     /// Set tolerance.

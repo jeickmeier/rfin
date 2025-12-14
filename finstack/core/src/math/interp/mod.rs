@@ -42,6 +42,7 @@ pub mod wrappers;
 
 // Re-exports for ergonomic access
 pub use generic::Interpolator;
+pub use strategies::DEFAULT_MONOTONE_CONVEX_EPSILON;
 pub use traits::{InterpFn, InterpolationStrategy};
 pub use types::{ExtrapolationPolicy, InterpStyle, DERIVATIVE_EPSILON};
 pub use wrappers::{

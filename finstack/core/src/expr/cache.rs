@@ -10,6 +10,9 @@ use parking_lot::Mutex;
 use std::num::NonZeroUsize;
 use std::sync::Arc;
 
+/// Default capacity for expression cache (number of entries).
+pub const DEFAULT_CACHE_CAPACITY: usize = 1024;
+
 /// Cached result for an expression evaluation.
 #[derive(Debug, Clone)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
@@ -92,12 +95,15 @@ pub struct CacheStats {
 impl ExpressionCache {
     /// Create a new expression cache with the given memory budget.
     pub fn with_budget(max_memory_mb: usize) -> Self {
-        // Default to a reasonable number of entries - can be tuned based on usage
-        let default_capacity = 1024;
+        Self::with_budget_and_capacity(max_memory_mb, DEFAULT_CACHE_CAPACITY)
+    }
+
+    /// Create a new expression cache with custom memory budget and capacity.
+    pub fn with_budget_and_capacity(max_memory_mb: usize, capacity: usize) -> Self {
+        let capacity = capacity.max(1); // Ensure at least 1
         Self {
             cache: LruCache::new(
-                NonZeroUsize::new(default_capacity)
-                    .expect("default_capacity (1024) should always be non-zero"),
+                NonZeroUsize::new(capacity).expect("capacity should be at least 1"),
             ),
             max_memory: max_memory_mb * 1024 * 1024, // Convert MB to bytes
             current_memory: 0,

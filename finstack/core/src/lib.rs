@@ -73,12 +73,6 @@ pub mod cashflow;
 /// Volatility conventions and conversion utilities.
 pub mod volatility;
 
-/// Solver configuration for numerical root-finding algorithms.
-pub mod solver_config;
-
-/// XIRR (Extended Internal Rate of Return) configuration.
-pub mod xirr_config;
-
 // Re-export main error type for convenience
 pub use error::Error;
 /// Convenient alias carrying the crate's unified [`Error`].
