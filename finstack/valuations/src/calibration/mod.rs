@@ -62,8 +62,7 @@ pub mod derivatives;
 pub mod methods;
 mod quote;
 mod report;
-mod solver_helpers;
-mod solver_config;
+mod solver;
 pub mod spec;
 mod traits;
 mod validation;
@@ -80,9 +79,8 @@ pub use quote::{
     VolQuote,
 };
 pub use report::CalibrationReport;
-pub(crate) use solver_helpers::bracket_solve_1d_with_diagnostics;
-pub use solver_helpers::{create_simple_solver, solve_1d, BracketDiagnostics, PENALTY};
-pub use solver_config::SolverConfig;
+pub(crate) use solver::bracket_solve_1d_with_diagnostics;
+pub use solver::{create_simple_solver, solve_1d, BracketDiagnostics, PENALTY, SolverConfig};
 pub use spec::{
     CalibrationEnvelope, CalibrationResult, CalibrationResultEnvelope, CalibrationSpec,
     CalibrationStep, CALIBRATION_SCHEMA_V1,

@@ -5,7 +5,7 @@
 
 use finstack_core::Result;
 
-use super::{CalibrationConfig, SolverKind};
+use super::super::{CalibrationConfig, SolverKind};
 
 /// Finite penalty value used in objective functions instead of infinity.
 ///
