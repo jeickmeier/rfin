@@ -3,9 +3,17 @@
 //! Provides exact gradients for SABR implied volatility with respect to
 //! model parameters (alpha, nu, rho), significantly accelerating calibration.
 
-use super::sabr_model_params::SABRModelParams;
+use super::sabr::{SABRModel, SABRParameters};
 use finstack_core::math::solver_multi::AnalyticalDerivatives;
 use serde::{Deserialize, Serialize};
+
+/// Internal parameter bundle for derivative calculations.
+#[derive(Clone, Debug)]
+struct SABRDerivParams {
+    alpha: f64,
+    nu: f64,
+    rho: f64,
+}
 
 /// Market data for SABR calibration.
 #[derive(Clone, Debug, Serialize, Deserialize)]
@@ -153,7 +161,7 @@ impl SABRCalibrationDerivatives {
         let vol = term1 * x * term2_base;
 
         // Analytical approximations (faster)
-        let sabr_params = SABRModelParams::new(alpha, nu, rho, self.market_data.beta);
+        let sabr_params = SABRDerivParams { alpha, nu, rho };
         let d_vol_d_alpha = self.d_vol_d_alpha_impl(strike, &sabr_params, vol, x, term2_base);
         let d_vol_d_nu = self.d_vol_d_nu_impl(strike, &sabr_params, vol, x, term2_base);
         let d_vol_d_rho = self.d_vol_d_rho_impl(strike, &sabr_params, vol, x, term2_base);
@@ -162,8 +170,6 @@ impl SABRCalibrationDerivatives {
 
     /// Compute SABR volatility only (for finite differences).
     fn sabr_vol_fd(&self, strike: f64, alpha: f64, nu: f64, rho: f64) -> f64 {
-        use crate::instruments::common::models::{SABRModel, SABRParameters};
-
         // Create SABR parameters
         let params = match SABRParameters::new(alpha, self.market_data.beta, nu, rho) {
             Ok(p) => p,
@@ -274,7 +280,7 @@ impl SABRCalibrationDerivatives {
     fn d_vol_d_alpha_impl(
         &self,
         strike: f64,
-        sabr_params: &SABRModelParams,
+        sabr_params: &SABRDerivParams,
         _vol: f64,
         x: f64,
         term2: f64,
@@ -321,7 +327,7 @@ impl SABRCalibrationDerivatives {
     fn d_vol_d_nu_impl(
         &self,
         strike: f64,
-        sabr_params: &SABRModelParams,
+        sabr_params: &SABRDerivParams,
         _vol: f64,
         x: f64,
         term2: f64,
@@ -367,7 +373,7 @@ impl SABRCalibrationDerivatives {
     fn d_vol_d_rho_impl(
         &self,
         strike: f64,
-        sabr_params: &SABRModelParams,
+        sabr_params: &SABRDerivParams,
         _vol: f64,
         x: f64,
         term2: f64,

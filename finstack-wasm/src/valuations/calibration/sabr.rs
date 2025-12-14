@@ -3,10 +3,36 @@
 //! Provides SABR (Stochastic Alpha Beta Rho) model parameters and calibration
 //! support for implied volatility surface modeling.
 
-use finstack_valuations::calibration::{
-    SABRCalibrationDerivatives, SABRMarketData, SABRModelParams,
-};
+use finstack_valuations::calibration::{SABRCalibrationDerivatives, SABRMarketData};
 use wasm_bindgen::prelude::*;
+
+/// Internal SABR parameters for bindings.
+#[derive(Clone, Debug)]
+pub(crate) struct SABRModelParamsData {
+    alpha: f64,
+    nu: f64,
+    rho: f64,
+    beta: f64,
+}
+
+impl SABRModelParamsData {
+    fn new(alpha: f64, nu: f64, rho: f64, beta: f64) -> Self {
+        Self {
+            alpha,
+            nu,
+            rho,
+            beta,
+        }
+    }
+
+    fn equity_standard(alpha: f64, nu: f64, rho: f64) -> Self {
+        Self::new(alpha, nu, rho, 1.0)
+    }
+
+    fn rates_standard(alpha: f64, nu: f64, rho: f64) -> Self {
+        Self::new(alpha, nu, rho, 0.5)
+    }
+}
 
 /// SABR model parameters for volatility surface calibration.
 ///
@@ -32,16 +58,16 @@ use wasm_bindgen::prelude::*;
 #[wasm_bindgen(js_name = SABRModelParams)]
 #[derive(Clone, Debug)]
 pub struct JsSABRModelParams {
-    inner: SABRModelParams,
+    inner: SABRModelParamsData,
 }
 
 impl JsSABRModelParams {
-    pub(crate) fn from_inner(inner: SABRModelParams) -> Self {
+    pub(crate) fn from_inner(inner: SABRModelParamsData) -> Self {
         Self { inner }
     }
 
     #[allow(dead_code)]
-    pub(crate) fn inner(&self) -> SABRModelParams {
+    pub(crate) fn inner(&self) -> SABRModelParamsData {
         self.inner.clone()
     }
 }
@@ -75,7 +101,7 @@ impl JsSABRModelParams {
         if !(0.0..=1.0).contains(&beta) {
             return Err(JsValue::from_str("beta must be in [0, 1]"));
         }
-        Ok(Self::from_inner(SABRModelParams::new(alpha, nu, rho, beta)))
+        Ok(Self::from_inner(SABRModelParamsData::new(alpha, nu, rho, beta)))
     }
 
     /// Create SABR parameters with equity market standard (beta=1.0).
@@ -93,7 +119,7 @@ impl JsSABRModelParams {
     /// ```
     #[wasm_bindgen(js_name = equityStandard)]
     pub fn equity_standard(alpha: f64, nu: f64, rho: f64) -> JsSABRModelParams {
-        Self::from_inner(SABRModelParams::equity_standard(alpha, nu, rho))
+        Self::from_inner(SABRModelParamsData::equity_standard(alpha, nu, rho))
     }
 
     /// Create SABR parameters with interest rate market standard (beta=0.5).
@@ -112,7 +138,7 @@ impl JsSABRModelParams {
     /// ```
     #[wasm_bindgen(js_name = ratesStandard)]
     pub fn rates_standard(alpha: f64, nu: f64, rho: f64) -> JsSABRModelParams {
-        Self::from_inner(SABRModelParams::rates_standard(alpha, nu, rho))
+        Self::from_inner(SABRModelParamsData::rates_standard(alpha, nu, rho))
     }
 
     /// Create SABR parameters with custom beta (e.g., 0.7 for FX markets).
@@ -138,7 +164,7 @@ impl JsSABRModelParams {
         if !(0.0..=1.0).contains(&beta) {
             return Err(JsValue::from_str("beta must be in [0, 1]"));
         }
-        Ok(Self::from_inner(SABRModelParams::new(alpha, nu, rho, beta)))
+        Ok(Self::from_inner(SABRModelParamsData::new(alpha, nu, rho, beta)))
     }
 
     // Getters

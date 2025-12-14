@@ -644,10 +644,8 @@ impl SABRCalibrator {
             return Err(Error::Internal);
         }
 
-        // Use analytical derivatives from the calibration module
-        use crate::calibration::derivatives::sabr_derivatives::{
-            SABRCalibrationDerivatives, SABRMarketData,
-        };
+        // Use analytical derivatives from the local module
+        use super::sabr_derivatives::{SABRCalibrationDerivatives, SABRMarketData};
         use finstack_core::math::solver_multi::LevenbergMarquardtSolver;
 
         // Create market data structure

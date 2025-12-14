@@ -58,7 +58,6 @@
 // Submodules
 pub mod bumps;
 mod config;
-pub mod derivatives;
 pub mod market_standards;
 pub mod methods;
 pub mod pricing;
@@ -75,9 +74,10 @@ pub use config::{
     SolverKind, ValidationMode, CALIBRATION_CONFIG_KEY_V1,
 };
 
-// Re-exports: Derivatives
-pub use derivatives::sabr_derivatives::{SABRCalibrationDerivatives, SABRMarketData};
-pub use derivatives::sabr_model_params::SABRModelParams;
+// Re-exports: SABR derivatives (from instruments module)
+pub use crate::instruments::common::models::volatility::sabr_derivatives::{
+    SABRCalibrationDerivatives, SABRMarketData,
+};
 
 // Re-exports: Quote schemas (from quotes module)
 pub use quotes::{

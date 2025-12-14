@@ -1,10 +1,36 @@
-use finstack_valuations::calibration::{
-    SABRCalibrationDerivatives, SABRMarketData, SABRModelParams,
-};
+use finstack_valuations::calibration::{SABRCalibrationDerivatives, SABRMarketData};
 use pyo3::exceptions::PyValueError;
 use pyo3::prelude::*;
 use pyo3::types::{PyList, PyModule, PyType};
 use pyo3::Bound;
+
+/// Internal SABR parameters for bindings.
+#[derive(Clone, Debug)]
+pub(crate) struct SABRModelParamsData {
+    alpha: f64,
+    nu: f64,
+    rho: f64,
+    beta: f64,
+}
+
+impl SABRModelParamsData {
+    fn new(alpha: f64, nu: f64, rho: f64, beta: f64) -> Self {
+        Self {
+            alpha,
+            nu,
+            rho,
+            beta,
+        }
+    }
+
+    fn equity_standard(alpha: f64, nu: f64, rho: f64) -> Self {
+        Self::new(alpha, nu, rho, 1.0)
+    }
+
+    fn rates_standard(alpha: f64, nu: f64, rho: f64) -> Self {
+        Self::new(alpha, nu, rho, 0.5)
+    }
+}
 
 /// SABR model parameters for volatility surface calibration.
 ///
@@ -34,11 +60,11 @@ use pyo3::Bound;
 )]
 #[derive(Clone, Debug)]
 pub struct PySABRModelParams {
-    pub(crate) inner: SABRModelParams,
+    pub(crate) inner: SABRModelParamsData,
 }
 
 impl PySABRModelParams {
-    pub(crate) fn new(inner: SABRModelParams) -> Self {
+    pub(crate) fn new(inner: SABRModelParamsData) -> Self {
         Self { inner }
     }
 }
@@ -73,7 +99,7 @@ impl PySABRModelParams {
         if !(0.0..=1.0).contains(&beta) {
             return Err(PyValueError::new_err("beta must be in [0, 1]"));
         }
-        Ok(Self::new(SABRModelParams::new(alpha, nu, rho, beta)))
+        Ok(Self::new(SABRModelParamsData::new(alpha, nu, rho, beta)))
     }
 
     #[classmethod]
@@ -90,7 +116,7 @@ impl PySABRModelParams {
     /// Returns:
     ///     SABRModelParams: Parameters with beta=1.0
     fn equity_standard(_cls: &Bound<'_, PyType>, alpha: f64, nu: f64, rho: f64) -> Self {
-        Self::new(SABRModelParams::equity_standard(alpha, nu, rho))
+        Self::new(SABRModelParamsData::equity_standard(alpha, nu, rho))
     }
 
     #[classmethod]
@@ -108,7 +134,7 @@ impl PySABRModelParams {
     /// Returns:
     ///     SABRModelParams: Parameters with beta=0.5
     fn rates_standard(_cls: &Bound<'_, PyType>, alpha: f64, nu: f64, rho: f64) -> Self {
-        Self::new(SABRModelParams::rates_standard(alpha, nu, rho))
+        Self::new(SABRModelParamsData::rates_standard(alpha, nu, rho))
     }
 
     /// Initial volatility level.

@@ -30,9 +30,9 @@ use finstack_valuations::calibration::methods::swaption_vol::{
 };
 use finstack_valuations::calibration::{
     CalibrationConfig, CalibrationReport, CreditQuote, FutureSpecs, InflationQuote, MarketQuote,
-    MultiCurveConfig, RatesQuote, SABRMarketData, SABRModelParams, SolverKind, ValidationConfig,
-    VolQuote,
+    MultiCurveConfig, RatesQuote, SABRMarketData, SolverKind, ValidationConfig, VolQuote,
 };
+use finstack_valuations::instruments::common::models::SABRParameters;
 use std::collections::BTreeMap;
 use std::path::PathBuf;
 use time::Month;
@@ -594,8 +594,8 @@ fn test_sabr_market_data_serialization() {
 }
 
 #[test]
-fn test_sabr_model_params_serialization() {
-    let params = SABRModelParams::new(0.15, 0.30, -0.1, 0.5);
+fn test_sabr_parameters_serialization() {
+    let params = SABRParameters::new(0.15, 0.5, 0.30, -0.1).expect("valid params");
 
     let restored = roundtrip_json(&params);
     assert_eq!(params.alpha, restored.alpha);
