@@ -105,11 +105,23 @@ pub enum RatesQuoteUseCase {
 ///
 /// # Forward Curve Mode
 ///
+/// Forward curve calibration can use either settlement-date or base-date starts
+/// depending on configuration. `ForwardCurveCalibrator` uses settlement-date starts
+/// to match market swap settlement conventions.
+///
 /// ```ignore
-/// let pricer = CalibrationPricer::new(base_date, Currency::USD, "USD-3M-FWD")
-///     .with_discount_curve_id("USD-OIS")
-///     .with_use_settlement_start(false)  // Uses base date for starts
-///     .with_tenor_years(0.25);  // 3M tenor for basis swap resolution
+/// // For direct CalibrationPricer usage (base-date starts)
+/// let pricer = CalibrationPricer::for_forward_curve(
+///     base_date,
+///     Currency::USD,
+///     "USD-3M-FWD",
+///     "USD-OIS",
+///     0.25,  // 3M tenor
+/// );
+///
+/// // ForwardCurveCalibrator uses settlement-date starts (via make_pricer)
+/// let pricer = CalibrationPricer::for_forward_curve(...)
+///     .with_use_settlement_start(true);  // Market convention for swaps
 /// ```
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct CalibrationPricer {
@@ -201,6 +213,10 @@ impl CalibrationPricer {
     /// - `use_settlement_start = false` (uses base_date for instrument starts)
     /// - `use_ois_logic = false` (no OIS compounding for forward curves)
     /// - Tenor for basis swap resolution
+    ///
+    /// Note: `ForwardCurveCalibrator` overrides `use_settlement_start = true` to match
+    /// market swap settlement conventions. Use `.with_use_settlement_start(true)` if
+    /// you need settlement-date starts for direct pricer usage.
     pub fn for_forward_curve(
         base_date: Date,
         currency: Currency,
@@ -519,6 +535,9 @@ impl CalibrationPricer {
         let calendar_id = self.resolve_calendar_id(conventions);
         let registry = CalendarRegistry::global();
 
+        // Track whether we actually found the calendar (for FRA builder)
+        let calendar_found = registry.resolve_str(calendar_id).is_some();
+
         // Use business-day subtraction for fixing date calculation
         let fixing_date = if let Some(calendar) = registry.resolve_str(calendar_id) {
             // Business day subtraction using negative offset
@@ -548,9 +567,17 @@ impl CalibrationPricer {
                 fixing_date = %fixing_date,
                 reset_lag = reset_lag,
                 calendar = ?calendar_id,
+                calendar_found = calendar_found,
                 "FRA fixing date calculation"
             );
         }
+
+        // Only pass calendar ID to FRA if the calendar was actually found
+        let fixing_calendar_id_opt = if calendar_found {
+            Some(calendar_id.to_string())
+        } else {
+            None
+        };
 
         let fra = ForwardRateAgreement::builder()
             .id(format!("CALIB_FRA_{}_{}", start, end).into())
@@ -561,9 +588,10 @@ impl CalibrationPricer {
             .fixed_rate(rate)
             .day_count(day_count)
             .reset_lag(reset_lag)
-            .fixing_calendar_id_opt(Some(calendar_id.to_string()))
+            .fixing_calendar_id_opt(fixing_calendar_id_opt)
             .discount_curve_id(self.discount_curve_id.clone())
             .forward_id(self.forward_curve_id.clone())
+            .pay_fixed(false) // Receive fixed, pay floating (consistent with forward curve calibration)
             .build()
             .map_err(|_| finstack_core::Error::Internal)?;
 
@@ -749,8 +777,18 @@ impl CalibrationPricer {
     /// Price a basis swap quote for calibration.
     ///
     /// Uses per-quote conventions if provided, otherwise falls back to pricer defaults.
-    /// For forward curve calibration, uses `resolve_forward_curve_id` to determine
-    /// which leg should use the curve being calibrated.
+    ///
+    /// # Forward Curve Calibration Mode
+    ///
+    /// When `tenor_years` is set (forward curve calibration), determines which leg
+    /// uses the calibrator's forward curve by matching **index name OR frequency**:
+    /// - Exactly one leg must match the calibrator's tenor (via index token or frequency).
+    /// - If both legs match → `Validation` error (ambiguous).
+    /// - If neither leg matches → `Validation` error.
+    ///
+    /// # Discount Curve Calibration Mode
+    ///
+    /// When `tenor_years` is `None`, both forward curves must already exist in the context.
     #[allow(clippy::too_many_arguments)]
     pub fn price_basis_swap(
         &self,
@@ -771,9 +809,43 @@ impl CalibrationPricer {
         let payment_delay = self.resolve_payment_delay(conventions);
         let calendar_id = self.resolve_calendar_id(conventions);
 
-        // Use resolve_forward_curve_id which handles tenor matching for forward curve calibration
-        let primary_forward_id = self.resolve_forward_curve_id(primary_index);
-        let reference_forward_id = self.resolve_forward_curve_id(reference_index);
+        // Determine forward curve IDs based on calibration mode
+        let (primary_forward_id, reference_forward_id) = if let Some(tenor) = self.tenor_years {
+            // Forward curve calibration: match by index OR frequency
+            let primary_matches = self.leg_matches_tenor(primary_index, &primary_freq, tenor);
+            let reference_matches = self.leg_matches_tenor(reference_index, &reference_freq, tenor);
+
+            match (primary_matches, reference_matches) {
+                (true, false) => (
+                    self.forward_curve_id.clone(),
+                    self.derive_forward_curve_id(reference_index),
+                ),
+                (false, true) => (
+                    self.derive_forward_curve_id(primary_index),
+                    self.forward_curve_id.clone(),
+                ),
+                (true, true) => {
+                    return Err(finstack_core::Error::Validation(format!(
+                        "BasisSwap quote references calibrator tenor on both legs (ambiguous): \
+                         primary_index='{}', reference_index='{}'",
+                        primary_index, reference_index
+                    )));
+                }
+                (false, false) => {
+                    return Err(finstack_core::Error::Validation(format!(
+                        "BasisSwap quote does not reference calibrator tenor: \
+                         primary_index='{}', reference_index='{}'",
+                        primary_index, reference_index
+                    )));
+                }
+            }
+        } else {
+            // Discount curve calibration: derive both curve IDs from index names
+            (
+                self.derive_forward_curve_id(primary_index),
+                self.derive_forward_curve_id(reference_index),
+            )
+        };
 
         let primary_leg = BasisSwapLeg {
             forward_curve_id: primary_forward_id.clone(),
@@ -807,28 +879,61 @@ impl CalibrationPricer {
         .with_allow_calendar_fallback(self.allow_calendar_fallback)
         .with_calendar(calendar_id.to_string());
 
-        // For forward curve calibration, one of the curves is being calibrated
-        // and may not be in the context yet - that's expected
-        // For discount curve calibration, both forward curves must exist
-        if self.use_settlement_start {
-            // Discount curve mode: both forward curves must exist
-            if context
+        // For discount curve calibration (tenor_years=None), both forward curves must exist
+        // For forward curve calibration, one curve is being calibrated and may not exist yet
+        if self.tenor_years.is_none()
+            && (context
                 .get_forward_ref(primary_forward_id.as_str())
                 .is_err()
                 || context
                     .get_forward_ref(reference_forward_id.as_str())
-                    .is_err()
-            {
-                return Err(finstack_core::Error::Input(
-                    finstack_core::error::InputError::NotFound {
-                        id: "forward curves".to_string(),
-                    },
-                ));
-            }
+                    .is_err())
+        {
+            return Err(finstack_core::Error::Input(
+                finstack_core::error::InputError::NotFound {
+                    id: "forward curves".to_string(),
+                },
+            ));
         }
 
         let pv = basis_swap.value(context, self.base_date)?;
         Ok(pv.amount() / basis_swap.notional.amount())
+    }
+
+    /// Check if a basis swap leg matches the calibrator's tenor.
+    ///
+    /// A leg matches if either:
+    /// - The index name contains the tenor token (e.g., "3M" in "USD-SOFR-3M")
+    /// - The leg frequency matches the tenor in months
+    fn leg_matches_tenor(&self, index: &str, freq: &Tenor, tenor_years: f64) -> bool {
+        // Check index name for tenor token
+        let tenor_months = (tenor_years * 12.0).round() as i32;
+        let token = format!("{}M", tenor_months).to_ascii_uppercase();
+
+        let normalized = index.to_ascii_uppercase();
+        let tokens: Vec<&str> = normalized
+            .split(|c: char| !c.is_ascii_alphanumeric())
+            .filter(|t| !t.is_empty())
+            .collect();
+
+        let index_matches =
+            tokens.contains(&token.as_str()) || (tenor_months == 12 && tokens.contains(&"1Y"));
+
+        // Check frequency match
+        let freq_matches = if freq.unit == finstack_core::dates::TenorUnit::Months {
+            let freq_years = freq.count as f64 / 12.0;
+            // Use a small tolerance for floating-point comparison
+            (freq_years - tenor_years).abs() < 1e-6
+        } else {
+            false
+        };
+
+        index_matches || freq_matches
+    }
+
+    /// Derive a forward curve ID from an index name (fallback for non-matching legs).
+    fn derive_forward_curve_id(&self, index_name: &str) -> CurveId {
+        format!("FWD_{}", index_name).into()
     }
 
     // =========================================================================
@@ -1553,5 +1658,191 @@ mod tests {
         };
         assert!((custom_specs.tick_size - 0.005).abs() < 1e-10);
         assert!((custom_specs.tick_value - 12.5).abs() < 1e-10);
+    }
+
+    // =========================================================================
+    // Basis Swap Leg Matching Tests
+    // =========================================================================
+
+    #[test]
+    fn test_basis_swap_leg_matches_tenor_by_frequency() {
+        // When the index string does NOT contain the tenor but frequency matches,
+        // the leg should still be recognized as matching the calibrator's tenor.
+        let base_date =
+            Date::from_calendar_date(2024, time::Month::January, 15).expect("valid date");
+
+        // Create a 3M forward curve pricer
+        let pricer = CalibrationPricer::for_forward_curve(
+            base_date,
+            Currency::USD,
+            "USD-3M-FWD",
+            "USD-OIS",
+            0.25, // 3M tenor
+        );
+
+        // Index "SOFR" does NOT contain "3M", but freq is quarterly (3M)
+        let freq_3m =
+            finstack_core::dates::Tenor::new(3, finstack_core::dates::TenorUnit::Months);
+        let freq_6m =
+            finstack_core::dates::Tenor::new(6, finstack_core::dates::TenorUnit::Months);
+
+        // Should match via frequency even though index name doesn't have "3M"
+        assert!(
+            pricer.leg_matches_tenor("SOFR", &freq_3m, 0.25),
+            "Leg with freq=3M should match 3M tenor even if index lacks '3M'"
+        );
+
+        // Should NOT match if frequency doesn't match
+        assert!(
+            !pricer.leg_matches_tenor("SOFR", &freq_6m, 0.25),
+            "Leg with freq=6M should NOT match 3M tenor"
+        );
+
+        // Should match via index name even if frequency doesn't match
+        assert!(
+            pricer.leg_matches_tenor("USD-SOFR-3M", &freq_6m, 0.25),
+            "Leg with '3M' in index should match 3M tenor regardless of freq"
+        );
+    }
+
+    #[test]
+    fn test_basis_swap_ambiguous_both_legs_match() {
+        // When BOTH legs match the calibrator's tenor (via index or freq),
+        // we should get a Validation error for ambiguity.
+        let base_date =
+            Date::from_calendar_date(2024, time::Month::January, 15).expect("valid date");
+        let maturity = base_date + time::Duration::days(365);
+
+        // Create a 3M forward curve pricer
+        let pricer = CalibrationPricer::for_forward_curve(
+            base_date,
+            Currency::USD,
+            "USD-3M-FWD",
+            "USD-OIS",
+            0.25, // 3M tenor
+        )
+        .with_allow_calendar_fallback(true);
+
+        // Minimal context (will fail for pricing but we test validation)
+        let context = MarketContext::new();
+
+        // Both legs have 3M in index
+        let result = pricer.price_basis_swap(
+            maturity,
+            "USD-SOFR-3M", // primary matches
+            "EUR-3M",      // reference also matches!
+            5.0,
+            finstack_core::dates::Tenor::new(3, finstack_core::dates::TenorUnit::Months),
+            finstack_core::dates::Tenor::new(3, finstack_core::dates::TenorUnit::Months),
+            DayCount::Act360,
+            DayCount::Act360,
+            Currency::USD,
+            &InstrumentConventions::default(),
+            &context,
+        );
+
+        assert!(result.is_err(), "Should fail when both legs match tenor");
+        let err = result.expect_err("Expected error for ambiguous legs");
+        assert!(
+            err.to_string().contains("ambiguous"),
+            "Error should mention ambiguity: {}",
+            err
+        );
+    }
+
+    #[test]
+    fn test_basis_swap_neither_leg_matches() {
+        // When NEITHER leg matches the calibrator's tenor, we should get an error.
+        let base_date =
+            Date::from_calendar_date(2024, time::Month::January, 15).expect("valid date");
+        let maturity = base_date + time::Duration::days(365);
+
+        // Create a 3M forward curve pricer
+        let pricer = CalibrationPricer::for_forward_curve(
+            base_date,
+            Currency::USD,
+            "USD-3M-FWD",
+            "USD-OIS",
+            0.25, // 3M tenor
+        )
+        .with_allow_calendar_fallback(true);
+
+        let context = MarketContext::new();
+
+        // Both legs are 6M (neither matches 3M calibrator)
+        let result = pricer.price_basis_swap(
+            maturity,
+            "USD-SOFR-6M", // 6M, not 3M
+            "EUR-6M",      // also 6M
+            5.0,
+            finstack_core::dates::Tenor::new(6, finstack_core::dates::TenorUnit::Months),
+            finstack_core::dates::Tenor::new(6, finstack_core::dates::TenorUnit::Months),
+            DayCount::Act360,
+            DayCount::Act360,
+            Currency::USD,
+            &InstrumentConventions::default(),
+            &context,
+        );
+
+        assert!(
+            result.is_err(),
+            "Should fail when neither leg matches tenor"
+        );
+        let err = result.expect_err("Expected error for no matching leg");
+        assert!(
+            err.to_string().contains("does not reference"),
+            "Error should indicate no leg matches: {}",
+            err
+        );
+    }
+
+    #[test]
+    fn test_forward_curve_basis_swap_allows_missing_calibrated_curve() {
+        // In forward-curve mode (tenor_years is set), basis swap pricing should
+        // NOT fail the "both curves exist" check because one curve is being calibrated.
+        let base_date =
+            Date::from_calendar_date(2024, time::Month::January, 15).expect("valid date");
+        let maturity = base_date + time::Duration::days(365);
+
+        // Create a 3M forward curve pricer
+        let pricer = CalibrationPricer::for_forward_curve(
+            base_date,
+            Currency::USD,
+            "USD-3M-FWD",
+            "USD-OIS",
+            0.25, // 3M tenor - indicates forward curve mode
+        )
+        .with_allow_calendar_fallback(true);
+
+        // Context WITHOUT the forward curves - this should NOT trigger the
+        // "both forward curves must exist" check in forward curve mode
+        let context = MarketContext::new();
+
+        // 3M vs 6M basis swap - exactly one leg matches
+        let result = pricer.price_basis_swap(
+            maturity,
+            "USD-SOFR-3M", // matches 3M
+            "USD-SOFR-6M", // 6M, doesn't match
+            5.0,
+            finstack_core::dates::Tenor::new(3, finstack_core::dates::TenorUnit::Months),
+            finstack_core::dates::Tenor::new(6, finstack_core::dates::TenorUnit::Months),
+            DayCount::Act360,
+            DayCount::Act360,
+            Currency::USD,
+            &InstrumentConventions::default(),
+            &context,
+        );
+
+        // The error (if any) should NOT be "forward curves" not found
+        // It may fail for other reasons (missing discount curve, etc.) but
+        // not because we're checking for both forward curves in forward-curve mode
+        if let Err(ref e) = result {
+            let err_str = e.to_string();
+            assert!(
+                !err_str.contains("forward curves"),
+                "Forward-curve mode should not require both forward curves to exist, got: {}",
+                err_str
+            );
+        }
     }
 }
