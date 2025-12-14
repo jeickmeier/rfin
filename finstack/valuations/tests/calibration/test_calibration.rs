@@ -253,15 +253,17 @@ fn test_discount_curve_global_solve_smoke() {
         .with_calibration_method(CalibrationMethod::GlobalSolve {
             use_analytical_jacobian: false,
         })
-        .with_solve_interp(InterpStyle::PiecewiseQuadraticForward);
+        .with_solve_interp(InterpStyle::PiecewiseQuadraticForward)
+        .with_allow_calendar_fallback(true); // Enable calendar fallback for test
 
     let market = MarketContext::new();
     let (curve, report) = calibrator
         .calibrate(&quotes, &market)
         .expect("Global solve should succeed");
 
-    // Expect knots for each quote plus t=0
-    assert_eq!(curve.knots().len(), quotes.len() + 1);
+    // Expect knots for each quote plus t=0, plus spot knot (OIS default)
+    // Note: OIS calibrators now default to include_spot_knot=true for market-standard behavior
+    assert_eq!(curve.knots().len(), quotes.len() + 2);
     assert!(
         report.residuals.len() >= quotes.len(),
         "Residuals should track each instrument"

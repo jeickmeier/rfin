@@ -76,6 +76,9 @@ impl DiscountCurveCalibrator {
         pricer.validate_curve_dependencies(&sorted_quotes, base_context)?;
         let settlement = pricer.settlement_date()?;
 
+        // Compute spot knot info using the unified helper (same as bootstrap)
+        let (t_spot, spot_knot) = self.compute_spot_knot(curve_dc, settlement);
+
         // Build time grid and initial guesses
         let (times, mut initials, active_quotes) =
             self.build_time_grid_and_guesses(&sorted_quotes, settlement, curve_dc)?;
@@ -95,10 +98,11 @@ impl DiscountCurveCalibrator {
             curve_dc,
             &pricer,
             base_context,
+            spot_knot,
         )?;
 
         // Build final curve
-        let (curve, final_knots) = self.build_global_curve(&times, &solved, curve_dc)?;
+        let (curve, final_knots) = self.build_global_curve(&times, &solved, curve_dc, spot_knot)?;
 
         // Validate calibrated curve (honor config.validation + validation_mode)
         let mut validation_status = "passed";
@@ -120,7 +124,7 @@ impl DiscountCurveCalibrator {
             }
         }
 
-        // Build report with residuals
+        // Build report with residuals (include spot knot metadata)
         let mut report = self.build_global_report(
             &active_quotes,
             &final_knots,
@@ -128,6 +132,7 @@ impl DiscountCurveCalibrator {
             &pricer,
             base_context,
             residual_evals,
+            t_spot,
         )?;
 
         report = report
@@ -249,6 +254,7 @@ impl DiscountCurveCalibrator {
     /// Run the Levenberg-Marquardt optimization in zero-rate space.
     ///
     /// Returns the solved zero-rate parameters and the number of residual evaluations.
+    #[allow(clippy::too_many_arguments)]
     fn run_global_optimization(
         &self,
         times: &[f64],
@@ -257,6 +263,7 @@ impl DiscountCurveCalibrator {
         curve_dc: finstack_core::dates::DayCount,
         pricer: &CalibrationPricer,
         base_context: &MarketContext,
+        spot_knot: Option<(f64, f64)>,
     ) -> Result<(Vec<f64>, usize)> {
         let solver = self.config.create_lm_solver();
         let base_context_clone = base_context.clone();
@@ -276,6 +283,13 @@ impl DiscountCurveCalibrator {
         let residuals = move |params: &[f64], resid: &mut [f64]| {
             eval_counter_clone.fetch_add(1, Ordering::Relaxed);
 
+            // DETERMINISM: Always overwrite the entire residual buffer first.
+            // This ensures no stale values leak from previous evaluations, even if
+            // the solver provides a buffer larger than n_residuals.
+            for r in resid.iter_mut() {
+                *r = 0.0;
+            }
+
             // Safety guard: only write within bounds
             debug_assert!(
                 resid.len() >= n_residuals,
@@ -283,23 +297,24 @@ impl DiscountCurveCalibrator {
                 resid.len(),
                 n_residuals
             );
-            let write_count = resid.len().min(n_residuals);
 
             // Build curve once per parameter vector (params are zero rates)
             let knots =
-                Self::build_knots_from_zero_rates(&times_clone, params, solve_interp, &rate_bounds);
+                Self::build_knots_from_zero_rates(&times_clone, params, &rate_bounds, spot_knot);
 
+            // Use build_for_solver() for fast path (skips non-essential validation)
             let temp_curve = match DiscountCurve::builder(discount_curve_id.clone())
                 .base_date(base_date)
                 .day_count(curve_dc)
                 .knots(knots)
                 .set_interp(solve_interp)
                 .allow_non_monotonic()
-                .build()
+                .build_for_solver()
             {
                 Ok(curve) => curve,
                 Err(_) => {
-                    for r in resid.iter_mut().take(write_count) {
+                    // Fill residuals with penalty (buffer already zeroed above)
+                    for r in resid.iter_mut().take(n_residuals) {
                         *r = crate::calibration::PENALTY;
                     }
                     return;
@@ -308,7 +323,7 @@ impl DiscountCurveCalibrator {
 
             let temp_context = base_context_clone.clone().insert_discount(temp_curve);
 
-            for (i, quote) in active_quotes_clone.iter().enumerate().take(write_count) {
+            for (i, quote) in active_quotes_clone.iter().enumerate().take(n_residuals) {
                 resid[i] = pricer_clone
                     .price_instrument(quote, &temp_context)
                     .unwrap_or(crate::calibration::PENALTY);
@@ -321,23 +336,31 @@ impl DiscountCurveCalibrator {
         Ok((result, evals))
     }
 
-    /// Build knots from zero-rate parameters, converting to DFs and enforcing monotonicity where needed.
+    /// Build knots from zero-rate parameters, converting to DFs.
+    ///
+    /// Applies rate bounds clamping and hard numeric guards but does NOT enforce
+    /// DF-direction monotonicity. This supports negative-rate regimes where
+    /// DFs may increase with maturity (DF > 1 for negative rates).
     ///
     /// # Arguments
     /// * `times` - Time points for each knot
     /// * `zero_rates` - Zero rate parameters (z_i)
-    /// * `solve_interp` - Interpolation style (affects monotonicity enforcement)
     /// * `rate_bounds` - Rate bounds for clamping
-    fn build_knots_from_zero_rates(
+    /// * `spot_knot` - Optional spot knot to include after the base knot
+    pub(crate) fn build_knots_from_zero_rates(
         times: &[f64],
         zero_rates: &[f64],
-        solve_interp: finstack_core::math::interp::InterpStyle,
         rate_bounds: &RateBounds,
+        spot_knot: Option<(f64, f64)>,
     ) -> Vec<(f64, f64)> {
-        let mut knots = Vec::with_capacity(zero_rates.len() + 1);
+        let mut knots = Vec::with_capacity(zero_rates.len() + 2);
         knots.push((0.0, 1.0));
 
-        let mut prev_df = 1.0;
+        // Add spot knot if provided (for OIS spot anchoring)
+        if let Some(knot) = spot_knot {
+            knots.push(knot);
+        }
+
         for (&t, &raw_z) in times.iter().zip(zero_rates.iter()) {
             // Clamp zero rate to configured bounds
             let z = raw_z.clamp(rate_bounds.min_rate, rate_bounds.max_rate);
@@ -345,24 +368,14 @@ impl DiscountCurveCalibrator {
             // Convert zero rate to discount factor: df = exp(-z * t)
             let mut df = Self::zero_rate_to_df(z, t);
 
-            // Hard numerical guard to avoid degenerate DFs
+            // Hard numerical guard to avoid degenerate DFs (NaN, 0, or extreme values)
             const DF_HARD_MIN: f64 = 1e-12;
             const DF_HARD_MAX: f64 = 1e6;
             df = df.clamp(DF_HARD_MIN, DF_HARD_MAX);
 
-            // For some interpolators, enforce weakly non-increasing DFs to avoid builder failures
-            match solve_interp {
-                finstack_core::math::interp::InterpStyle::MonotoneConvex
-                | finstack_core::math::interp::InterpStyle::CubicHermite => {
-                    if df > prev_df {
-                        df = prev_df;
-                    }
-                    prev_df = df;
-                }
-                _ => {
-                    prev_df = df;
-                }
-            }
+            // Note: No DF-direction enforcement here. Negative-rate regimes may have
+            // DF(t) > 1.0 or increasing DFs. The curve builder and validator handle
+            // any interpolator-specific constraints.
             knots.push((t, df));
         }
 
@@ -375,33 +388,24 @@ impl DiscountCurveCalibrator {
         times: &[f64],
         solved_zero_rates: &[f64],
         curve_dc: finstack_core::dates::DayCount,
+        spot_knot: Option<(f64, f64)>,
     ) -> Result<(DiscountCurve, Vec<(f64, f64)>)> {
         let bounds = self.config.effective_rate_bounds(self.currency);
         let final_knots =
-            Self::build_knots_from_zero_rates(times, solved_zero_rates, self.solve_interp, &bounds);
+            Self::build_knots_from_zero_rates(times, solved_zero_rates, &bounds, spot_knot);
 
-        let curve = self
-            .apply_solve_interpolation(
-                DiscountCurve::builder(self.curve_id.to_owned())
-                    .base_date(self.base_date)
-                    .day_count(curve_dc)
-                    .extrapolation(self.extrapolation)
-                    .allow_non_monotonic()
-                    .knots(final_knots.clone()),
-            )
-            .build()
-            .map_err(|e| finstack_core::Error::Calibration {
-                message: format!(
-                    "global DiscountCurve build failed for {}: {}",
-                    self.curve_id, e
-                ),
-                category: "yield_curve_global_solve".to_string(),
-            })?;
+        // Build final curve using the unified pathway (no solver-only flags)
+        let curve = self.build_curve(
+            self.curve_id.to_owned(),
+            curve_dc,
+            final_knots.clone(),
+        )?;
 
         Ok((curve, final_knots))
     }
 
     /// Build the calibration report with residuals.
+    #[allow(clippy::too_many_arguments)]
     fn build_global_report(
         &self,
         active_quotes: &[RatesQuote],
@@ -410,25 +414,17 @@ impl DiscountCurveCalibrator {
         pricer: &CalibrationPricer,
         base_context: &MarketContext,
         residual_evals: usize,
+        t_spot: f64,
     ) -> Result<CalibrationReport> {
         let mut residuals_map = BTreeMap::new();
         let mut residual_values = Vec::with_capacity(active_quotes.len());
 
         // Build an equivalent curve under the effective discount curve ID for residual reporting
-        let pricing_curve = self
-            .apply_solve_interpolation(
-                DiscountCurve::builder(self.effective_discount_curve_id())
-                    .base_date(self.base_date)
-                    .day_count(curve_dc)
-                    .extrapolation(self.extrapolation)
-                    .allow_non_monotonic()
-                    .knots(final_knots.to_vec()),
-            )
-            .build()
-            .map_err(|e| finstack_core::Error::Calibration {
-                message: format!("global pricing DiscountCurve build failed: {}", e),
-                category: "yield_curve_global_solve_pricing_curve".to_string(),
-            })?;
+        let pricing_curve = self.build_curve(
+            self.effective_discount_curve_id(),
+            curve_dc,
+            final_knots.to_vec(),
+        )?;
 
         let final_context = base_context.clone().insert_discount(pricing_curve);
         for (idx, quote) in active_quotes.iter().enumerate() {
@@ -458,6 +454,12 @@ impl DiscountCurveCalibrator {
             "curve_day_count",
             format!("{:?}", self.effective_curve_day_count()),
         )
+        .with_metadata(
+            "settlement_days",
+            self.effective_settlement_days().to_string(),
+        )
+        .with_metadata("t_spot", format!("{:.6}", t_spot))
+        .with_metadata("spot_knot_included", self.include_spot_knot.to_string())
         .with_metadata("method", "global_solve")
         .with_metadata("residual_evals", residual_evals.to_string())
         .with_metadata("l2_norm", format!("{:.2e}", l2_norm))

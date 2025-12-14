@@ -76,28 +76,16 @@ impl DiscountCurveCalibrator {
         pricer.validate_curve_dependencies(&sorted_quotes, base_context)?;
         let settlement = pricer.settlement_date()?;
 
-        // Compute spot time for explicit spot knot (if enabled)
-        let t_spot = if self.include_spot_knot {
-            curve_dc
-                .year_fraction(
-                    self.base_date,
-                    settlement,
-                    finstack_core::dates::DayCountCtx::default(),
-                )
-                .unwrap_or(0.0)
-        } else {
-            0.0
-        };
+        // Compute spot knot info using the unified helper
+        let (t_spot, spot_knot) = self.compute_spot_knot(curve_dc, settlement);
 
         // Build knots sequentially
         let mut knots = Vec::with_capacity(sorted_quotes.len() + 2);
         knots.push((0.0, 1.0)); // DF(0) = 1.0 at base_date
 
         // Add spot knot if enabled and settlement differs from base_date
-        // (DF(spot) = 1.0 approximation over 0-2 business days)
-        const MIN_T_SPOT: f64 = 1e-6; // ~30 seconds; avoids duplicate knots
-        if self.include_spot_knot && t_spot > MIN_T_SPOT {
-            knots.push((t_spot, 1.0));
+        if let Some(knot) = spot_knot {
+            knots.push(knot);
         }
         let mut residuals = BTreeMap::new();
         let mut residual_key_counter: usize = 0;
@@ -465,24 +453,12 @@ impl DiscountCurveCalibrator {
         trace: Option<ExplanationTrace>,
         t_spot: f64,
     ) -> Result<(DiscountCurve, CalibrationReport)> {
-        // Build final discount curve with configured interpolation and extrapolation
-        let curve = self
-            .apply_solve_interpolation(
-                DiscountCurve::builder(self.curve_id.to_owned())
-                    .base_date(self.base_date)
-                    .day_count(self.effective_curve_day_count())
-                    .extrapolation(self.extrapolation)
-                    .allow_non_monotonic()
-                    .knots(knots),
-            )
-            .build()
-            .map_err(|e| finstack_core::Error::Calibration {
-                message: format!(
-                    "final DiscountCurve build failed for {}: {}",
-                    self.curve_id, e
-                ),
-                category: "yield_curve_bootstrap".to_string(),
-            })?;
+        // Build final discount curve using the unified pathway (no solver-only flags)
+        let curve = self.build_curve(
+            self.curve_id.to_owned(),
+            self.effective_curve_day_count(),
+            knots,
+        )?;
 
         // Validate the calibrated curve (honor config.validation + validation_mode)
         let mut validation_status = "passed";
@@ -523,8 +499,7 @@ impl DiscountCurveCalibrator {
             self.effective_settlement_days().to_string(),
         )
         .with_metadata("t_spot", format!("{:.6}", t_spot))
-        .with_metadata("spot_knot_included", (t_spot > 1e-6).to_string())
-        .with_metadata("allow_non_monotonic", "true")
+        .with_metadata("spot_knot_included", self.include_spot_knot.to_string())
         .with_metadata("validation", validation_status)
         .with_validation_result(validation_status == "passed", validation_error.clone());
 

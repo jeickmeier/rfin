@@ -530,7 +530,9 @@ fn test_bloomberg_usd_ois_calibration_accuracy() {
     );
     let calibrator = DiscountCurveCalibrator::new("USD-OIS", base_date, Currency::USD)
         .with_finstack_config(&cfg)
-        .expect("valid config");
+        .expect("valid config")
+        .with_include_spot_knot(false) // Match Bloomberg's curve structure (no spot knot)
+        .with_allow_calendar_fallback(true);
     let base_context = MarketContext::new();
 
     let (curve, report) = calibrator

@@ -161,8 +161,11 @@ pub fn bump_discount_curve_synthetic(
         });
     }
 
-    // Calibrate
-    let calibrator = DiscountCurveCalibrator::new(curve_id.clone(), base_date, currency); // defaults to loglinear usually?
+    // Calibrate - disable spot knot to preserve original curve structure
+    // (the input curve doesn't have a spot knot, so neither should the output)
+    let calibrator = DiscountCurveCalibrator::new(curve_id.clone(), base_date, currency)
+        .with_include_spot_knot(false)
+        .with_allow_calendar_fallback(true);
 
     let (new_curve, _report) = calibrator.calibrate(&quotes, context)?;
     Ok(new_curve)

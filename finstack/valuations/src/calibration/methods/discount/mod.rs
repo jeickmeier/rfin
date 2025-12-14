@@ -123,12 +123,13 @@ pub struct DiscountCurveCalibrator {
     pub use_ois_logic: bool,
     /// Include an explicit spot knot at `t_spot` with DF=1.0.
     ///
-    /// When `true`, the curve includes a knot at the settlement date with DF=1.0,
-    /// making the spot-starting convention explicit on the curve timeline.
-    /// This is a small approximation over the 0-2 business day spot period.
+    /// When `true` (default for OIS), the curve includes a knot at the settlement
+    /// date with DF=1.0, making the spot-starting convention explicit on the curve
+    /// timeline. This is market-standard for OIS curves where instruments settle
+    /// on spot (T+2 for USD, T+0 for GBP, etc.).
     ///
-    /// When `false` (default), the curve starts at base_date with DF(0)=1.0 only.
-    /// This matches traditional curve construction where base_date is the anchor.
+    /// When `false`, the curve starts at base_date with only DF(0)=1.0.
+    /// Use this for non-OIS curves or when base_date equals settlement_date.
     #[serde(default)]
     pub include_spot_knot: bool,
 }
@@ -162,6 +163,9 @@ impl DiscountCurveCalibrator {
             config.validation.allow_negative_rates = true;
         }
 
+        // Default use_ois_logic to true, which also determines default include_spot_knot
+        let use_ois_logic = true;
+
         Self {
             curve_id: curve_id.into(),
             base_date,
@@ -175,11 +179,11 @@ impl DiscountCurveCalibrator {
             curve_day_count: None, // Will use currency default
             payment_delay_days: 0, // Default 0; set to 2 for Bloomberg OIS
             allow_calendar_fallback: false,
-            discount_curve_id: None,  // Will default to curve_id
-            forward_curve_id: None,   // Will default to curve_id
-            reset_lag: 2,             // Standard T-2 reset lag
-            use_ois_logic: true,      // Default to OIS conventions
-            include_spot_knot: false, // Default off for backward compatibility
+            discount_curve_id: None, // Will default to curve_id
+            forward_curve_id: None,  // Will default to curve_id
+            reset_lag: 2,            // Standard T-2 reset lag
+            use_ois_logic,           // Default to OIS conventions
+            include_spot_knot: use_ois_logic, // Default on for OIS (market-standard spot anchoring)
         }
     }
 
@@ -364,14 +368,14 @@ impl DiscountCurveCalibrator {
 
     /// Enable or disable explicit spot knot inclusion.
     ///
-    /// When `true`:
+    /// When `true` (default for OIS):
     /// - Includes a knot at `t_spot` (settlement date) with DF=1.0
     /// - Makes spot-starting convention explicit on the curve timeline
-    /// - Small approximation: assumes zero rate over 0-2 business day spot period
+    /// - Market-standard for OIS curves (small approximation over 0-2 day spot period)
     ///
-    /// When `false` (default):
+    /// When `false`:
     /// - Curve starts at base_date with only DF(0)=1.0
-    /// - Traditional curve construction matching vendor conventions
+    /// - Use for non-OIS curves or when base_date equals settlement
     pub fn with_include_spot_knot(mut self, include: bool) -> Self {
         self.include_spot_knot = include;
         self
@@ -488,12 +492,68 @@ impl DiscountCurveCalibrator {
         (lo, hi)
     }
 
-    /// Apply the configured solve interpolation style to the discount curve builder.
-    pub(crate) fn apply_solve_interpolation(
+    /// Build a discount curve with the appropriate settings.
+    ///
+    /// This is the single pathway for constructing final calibrated curves.
+    /// Solver-temp curves are built inline in closures using `build_for_solver()`
+    /// directly for performance (avoids borrowing `self` in closures).
+    ///
+    /// Final curves use full validation. When negative rates are allowed (via
+    /// `config.validation.allow_negative_rates`), the builder permits non-monotonic
+    /// DFs since negative rates naturally produce DF > 1 which can violate the
+    /// standard DF non-increasing constraint.
+    pub(crate) fn build_curve(
         &self,
-        builder: finstack_core::market_data::term_structures::discount_curve::DiscountCurveBuilder,
-    ) -> finstack_core::market_data::term_structures::discount_curve::DiscountCurveBuilder {
-        builder.set_interp(self.solve_interp)
+        curve_id: CurveId,
+        curve_dc: DayCount,
+        knots: impl IntoIterator<Item = (f64, f64)>,
+    ) -> Result<DiscountCurve> {
+        let mut builder = DiscountCurve::builder(curve_id)
+            .base_date(self.base_date)
+            .day_count(curve_dc)
+            .extrapolation(self.extrapolation)
+            .knots(knots)
+            .set_interp(self.solve_interp);
+
+        // When negative rates are allowed, we must permit non-monotonic DFs
+        // because negative rates produce DF > 1 which can appear to increase
+        if self.config.validation.allow_negative_rates {
+            builder = builder.allow_non_monotonic();
+        }
+
+        builder.build().map_err(|e| finstack_core::Error::Calibration {
+            message: format!("final curve build failed for {}: {}", self.curve_id, e),
+            category: "yield_curve_calibration".to_string(),
+        })
+    }
+
+    /// Compute the spot knot information for curve anchoring.
+    ///
+    /// Returns `(t_spot, optional_knot)` where `optional_knot` is `Some((t_spot, 1.0))`
+    /// if spot knot inclusion is enabled and `t_spot` is meaningful.
+    pub(crate) fn compute_spot_knot(
+        &self,
+        curve_dc: DayCount,
+        settlement: Date,
+    ) -> (f64, Option<(f64, f64)>) {
+        if !self.include_spot_knot {
+            return (0.0, None);
+        }
+
+        let t_spot = curve_dc
+            .year_fraction(
+                self.base_date,
+                settlement,
+                finstack_core::dates::DayCountCtx::default(),
+            )
+            .unwrap_or(0.0);
+
+        const MIN_T_SPOT: f64 = 1e-6; // ~30 seconds; avoids duplicate knots
+        if t_spot > MIN_T_SPOT {
+            (t_spot, Some((t_spot, 1.0)))
+        } else {
+            (t_spot, None)
+        }
     }
 
     /// Generate a maturity-aware scan grid for discount factor solving.
@@ -1011,5 +1071,204 @@ mod tests {
             .parse()
             .expect("should be a number");
         assert!(evals >= 1, "Should have at least 1 residual evaluation");
+    }
+
+    // =========================================================================
+    // Market-Standard Refactor Tests
+    // =========================================================================
+
+    #[test]
+    fn test_spot_knot_defaults_on_for_ois() {
+        let base_date = Date::from_calendar_date(2025, Month::January, 1).expect("Valid test date");
+
+        // OIS calibrators default use_ois_logic=true, which should also default spot knot on
+        let usd_ois = DiscountCurveCalibrator::usd("USD-OIS", base_date);
+        assert!(usd_ois.use_ois_logic, "OIS logic should default true");
+        assert!(
+            usd_ois.include_spot_knot,
+            "include_spot_knot should default true for OIS"
+        );
+
+        let eur_ois = DiscountCurveCalibrator::eur("EUR-ESTR", base_date);
+        assert!(
+            eur_ois.include_spot_knot,
+            "EUR OIS should also have spot knot on"
+        );
+
+        // Explicit override should work
+        let no_spot = DiscountCurveCalibrator::usd("USD-NO-SPOT", base_date)
+            .with_include_spot_knot(false);
+        assert!(
+            !no_spot.include_spot_knot,
+            "Explicit override to false should work"
+        );
+
+        // Non-OIS calibrator (use_ois_logic=false) can still have spot knot controlled independently
+        let libor_style = DiscountCurveCalibrator::usd("USD-LIBOR", base_date)
+            .with_use_ois_logic(false)
+            .with_include_spot_knot(false);
+        assert!(!libor_style.use_ois_logic);
+        assert!(!libor_style.include_spot_knot);
+    }
+
+    #[test]
+    fn test_spot_knot_metadata_in_reports() {
+        use crate::calibration::config::CalibrationMethod;
+        use crate::calibration::Calibrator;
+        use finstack_core::market_data::context::MarketContext;
+
+        let base_date = Date::from_calendar_date(2025, Month::January, 1).expect("Valid test date");
+
+        // Simple deposit-only quotes for fast calibration
+        let quotes = vec![
+            RatesQuote::Deposit {
+                maturity: base_date + time::Duration::days(30),
+                rate: 0.045,
+                day_count: DayCount::Act360,
+                conventions: Default::default(),
+            },
+            RatesQuote::Deposit {
+                maturity: base_date + time::Duration::days(90),
+                rate: 0.046,
+                day_count: DayCount::Act360,
+                conventions: Default::default(),
+            },
+        ];
+
+        let context = MarketContext::default();
+
+        // Test bootstrap report metadata
+        let bootstrap_cal = DiscountCurveCalibrator::usd("USD-BOOT", base_date)
+            .with_calibration_method(CalibrationMethod::Bootstrap)
+            .with_allow_calendar_fallback(true);
+
+        let (_, boot_report) = bootstrap_cal
+            .calibrate(&quotes, &context)
+            .expect("bootstrap should succeed");
+
+        assert!(
+            boot_report.metadata.contains_key("t_spot"),
+            "Bootstrap report should have t_spot metadata"
+        );
+        assert!(
+            boot_report.metadata.contains_key("spot_knot_included"),
+            "Bootstrap report should have spot_knot_included metadata"
+        );
+        assert_eq!(
+            boot_report.metadata.get("spot_knot_included"),
+            Some(&"true".to_string()),
+            "OIS calibrator should have spot knot included"
+        );
+
+        // Test global solve report metadata
+        let global_cal = DiscountCurveCalibrator::usd("USD-GLOBAL", base_date)
+            .with_calibration_method(CalibrationMethod::GlobalSolve {
+                use_analytical_jacobian: false,
+            })
+            .with_allow_calendar_fallback(true);
+
+        let (_, global_report) = global_cal
+            .calibrate(&quotes, &context)
+            .expect("global solve should succeed");
+
+        assert!(
+            global_report.metadata.contains_key("t_spot"),
+            "Global solve report should have t_spot metadata"
+        );
+        assert!(
+            global_report.metadata.contains_key("spot_knot_included"),
+            "Global solve report should have spot_knot_included metadata"
+        );
+        assert_eq!(
+            global_report.metadata.get("spot_knot_included"),
+            Some(&"true".to_string()),
+            "OIS calibrator global solve should have spot knot included"
+        );
+    }
+
+    #[test]
+    fn test_negative_rate_bounds_do_not_reject_quotes() {
+        use crate::calibration::config::{RateBounds, RateBoundsPolicy};
+
+        let base_date = Date::from_calendar_date(2025, Month::January, 1).expect("Valid test date");
+
+        // Test that EUR calibrator accepts negative rate bounds
+        let mut calibrator = DiscountCurveCalibrator::eur("EUR-ESTR-NEG", base_date);
+
+        // Set rate bounds to include negative rates
+        calibrator.config.rate_bounds_policy = RateBoundsPolicy::Explicit;
+        calibrator.config.rate_bounds = RateBounds {
+            min_rate: -0.02,
+            max_rate: 0.10,
+        };
+
+        // Verify EUR has allow_negative_rates=true by default
+        assert!(
+            calibrator.config.validation.allow_negative_rates,
+            "EUR calibrator should allow negative rates by default"
+        );
+
+        // Verify the rate bounds are set correctly
+        let bounds = calibrator.config.effective_rate_bounds(calibrator.currency);
+        assert!(
+            bounds.min_rate < 0.0,
+            "Rate bounds should allow negative rates: min={}",
+            bounds.min_rate
+        );
+    }
+
+    #[test]
+    fn test_build_knots_from_zero_rates_no_df_direction_clamp() {
+        use crate::calibration::config::RateBounds;
+
+        // Test that build_knots_from_zero_rates does NOT clamp DF direction
+        // (i.e., allows DF to increase for negative rates)
+
+        let times = vec![0.25, 0.5, 1.0];
+        // Negative zero rates should produce DF > 1
+        let zero_rates = vec![-0.01, -0.005, -0.002];
+        let rate_bounds = RateBounds {
+            min_rate: -0.02,
+            max_rate: 0.10,
+        };
+
+        let knots = DiscountCurveCalibrator::build_knots_from_zero_rates(
+            &times,
+            &zero_rates,
+            &rate_bounds,
+            None, // no spot knot
+        );
+
+        // Should have 4 knots: base (0,1) + 3 time points
+        assert_eq!(knots.len(), 4);
+        assert_eq!(knots[0], (0.0, 1.0)); // Base knot
+
+        // With negative zero rates, DFs should be > 1
+        // DF = exp(-z * t) = exp(-(-rate) * t) = exp(rate * t)
+        for i in 1..knots.len() {
+            let (t, df) = knots[i];
+            let expected_df = (-zero_rates[i - 1] * t).exp();
+            assert!(
+                (df - expected_df).abs() < 1e-10,
+                "Knot {} DF should match expected: {} vs {}",
+                i,
+                df,
+                expected_df
+            );
+            assert!(
+                df > 1.0,
+                "Knot {} with negative rate should have DF > 1, got {}",
+                i,
+                df
+            );
+        }
+
+        // Key assertion: all DFs are > 1.0, meaning NO direction clamping occurred.
+        // (The old code would have clamped df > prev_df to df = prev_df, giving df = 1.0)
+        // With negative rates, we correctly get DFs > 1.0 at all knots.
+        assert!(
+            knots.iter().skip(1).all(|(_, df)| *df > 1.0),
+            "All knots should have DF > 1 with negative rates (no direction clamp)"
+        );
     }
 }
