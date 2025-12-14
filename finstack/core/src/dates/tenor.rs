@@ -10,15 +10,18 @@
 //! use finstack_core::dates::{Tenor, TenorUnit, Date, DayCount, DayCountCtx};
 //! use finstack_core::dates::{BusinessDayConvention, HolidayCalendar};
 //! use time::Month;
+//! # fn main() -> finstack_core::Result<()> {
 //!
 //! // Parse a tenor string
-//! let tenor = Tenor::parse("3M").expect("Valid tenor");
+//! let tenor = Tenor::parse("3M")?;
 //! assert_eq!(tenor.count, 3);
 //! assert_eq!(tenor.unit, TenorUnit::Months);
 //!
 //! // Convert to years with default settings (simple approximation)
 //! let years = tenor.to_years_simple();
 //! assert!((years - 0.25).abs() < 1e-6);
+//! # Ok(())
+//! # }
 //! ```
 //!
 //! # Calendar-Aware Computation
@@ -26,26 +29,30 @@
 //! For accurate day counting that respects holidays and business day conventions:
 //!
 //! ```rust,no_run
-//! use finstack_core::dates::{Tenor, Date, DayCount, DayCountCtx, BusinessDayConvention};
+//! use finstack_core::dates::{Tenor, DayCount, DayCountCtx, BusinessDayConvention};
 //! use finstack_core::dates::calendar::TARGET2;
-//! use time::Month;
+//! use time::macros::date;
+//! # fn main() -> finstack_core::Result<()> {
 //!
-//! let as_of = Date::from_calendar_date(2025, Month::January, 31).unwrap();
-//! let tenor = Tenor::parse("1M").unwrap();
+//! let as_of = date!(2025 - 01 - 31);
+//! let tenor = Tenor::parse("1M")?;
 //!
 //! // Calendar-aware: 1M from Jan 31 -> Feb 28 (end of month)
 //! let end_date = tenor.add_to_date(
 //!     as_of,
 //!     Some(&TARGET2),
 //!     BusinessDayConvention::ModifiedFollowing,
-//! ).unwrap();
+//! )?;
 //!
 //! let years = tenor.to_years_with_context(
 //!     as_of,
 //!     Some(&TARGET2),
 //!     BusinessDayConvention::ModifiedFollowing,
 //!     DayCount::ActAct,
-//! ).unwrap();
+//! )?;
+//! # let _ = (end_date, years);
+//! # Ok(())
+//! # }
 //! ```
 
 use crate::dates::{adjust, BusinessDayConvention, Date, DayCount, DayCountCtx, HolidayCalendar};
@@ -99,15 +106,18 @@ impl TenorUnit {
 ///
 /// ```rust
 /// use finstack_core::dates::{Tenor, TenorUnit};
+/// # fn main() -> finstack_core::Result<()> {
 ///
 /// let tenor = Tenor::new(3, TenorUnit::Months);
 /// assert_eq!(tenor.count, 3);
 /// assert_eq!(tenor.unit, TenorUnit::Months);
 ///
 /// // Parse from string
-/// let parsed = Tenor::parse("6M").unwrap();
+/// let parsed = Tenor::parse("6M")?;
 /// assert_eq!(parsed.count, 6);
 /// assert_eq!(parsed.unit, TenorUnit::Months);
+/// # Ok(())
+/// # }
 /// ```
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
@@ -303,12 +313,15 @@ impl Tenor {
     ///
     /// ```rust
     /// use finstack_core::dates::Tenor;
+    /// # fn main() -> finstack_core::Result<()> {
     ///
-    /// let tenor = Tenor::parse("6M").unwrap();
+    /// let tenor = Tenor::parse("6M")?;
     /// assert!((tenor.to_years_simple() - 0.5).abs() < 1e-6);
     ///
-    /// let tenor = Tenor::parse("1Y").unwrap();
+    /// let tenor = Tenor::parse("1Y")?;
     /// assert!((tenor.to_years_simple() - 1.0).abs() < 1e-6);
+    /// # Ok(())
+    /// # }
     /// ```
     #[inline]
     pub fn to_years_simple(&self) -> f64 {
@@ -335,13 +348,16 @@ impl Tenor {
     ///
     /// ```rust
     /// use finstack_core::dates::{Tenor, Date, BusinessDayConvention};
-    /// use time::Month;
+    /// use time::macros::date;
+    /// # fn main() -> finstack_core::Result<()> {
     ///
-    /// let start = Date::from_calendar_date(2025, Month::January, 15).unwrap();
-    /// let tenor = Tenor::parse("1M").unwrap();
+    /// let start = date!(2025 - 01 - 15);
+    /// let tenor = Tenor::parse("1M")?;
     ///
-    /// let end = tenor.add_to_date(start, None, BusinessDayConvention::ModifiedFollowing).unwrap();
-    /// assert_eq!(end, Date::from_calendar_date(2025, Month::February, 15).unwrap());
+    /// let end = tenor.add_to_date(start, None, BusinessDayConvention::ModifiedFollowing)?;
+    /// assert_eq!(end, date!(2025 - 02 - 15));
+    /// # Ok(())
+    /// # }
     /// ```
     pub fn add_to_date(
         &self,
@@ -386,19 +402,22 @@ impl Tenor {
     ///
     /// ```rust
     /// use finstack_core::dates::{Tenor, Date, DayCount, DayCountCtx, BusinessDayConvention};
-    /// use time::Month;
+    /// use time::macros::date;
+    /// # fn main() -> finstack_core::Result<()> {
     ///
-    /// let as_of = Date::from_calendar_date(2025, Month::January, 15).unwrap();
-    /// let tenor = Tenor::parse("1Y").unwrap();
+    /// let as_of = date!(2025 - 01 - 15);
+    /// let tenor = Tenor::parse("1Y")?;
     ///
     /// let years = tenor.to_years_with_context(
     ///     as_of,
     ///     None,
     ///     BusinessDayConvention::ModifiedFollowing,
     ///     DayCount::ActAct,
-    /// ).unwrap();
+    /// )?;
     ///
     /// assert!((years - 1.0).abs() < 0.01);
+    /// # Ok(())
+    /// # }
     /// ```
     pub fn to_years_with_context(
         &self,

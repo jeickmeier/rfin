@@ -20,23 +20,29 @@
 //! ```rust
 //! use finstack_core::math::{Solver, mean, variance};
 //! use finstack_core::math::solver::NewtonSolver;
+//! # fn main() -> finstack_core::Result<()> {
 //!
 //! let solver = NewtonSolver::new();
-//! let root = solver.solve(|x| x * x - 2.0, 1.0).unwrap();
+//! let root = solver.solve(|x| x * x - 2.0, 1.0)?;
 //! assert!((root - 2f64.sqrt()).abs() < 1e-9);
+//! # Ok(())
+//! # }
 //! ```
 //!
 //! ## Root finding with analytic derivatives (recommended when available)
 //!
 //! ```rust
 //! use finstack_core::math::solver::NewtonSolver;
+//! # fn main() -> finstack_core::Result<()> {
 //!
 //! let solver = NewtonSolver::new();
 //! let f = |x: f64| x * x - 2.0;
 //! let f_prime = |x: f64| 2.0 * x;  // Analytic derivative
 //!
-//! let root = solver.solve_with_derivative(f, f_prime, 1.0).unwrap();
+//! let root = solver.solve_with_derivative(f, f_prime, 1.0)?;
 //! assert!((root - 2f64.sqrt()).abs() < 1e-10);
+//! # Ok(())
+//! # }
 //! ```
 //!
 //! ## Basic statistics

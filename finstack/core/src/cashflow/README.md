@@ -94,13 +94,13 @@ Use `npv_static` when you explicitly choose the day count, or `Discountable::npv
 ```rust
 use finstack_core::cashflow::discounting::{npv_static, Discountable};
 use finstack_core::currency::Currency;
-use finstack_core::dates::{Date, DayCount};
+use finstack_core::dates::DayCount;
 use finstack_core::market_data::term_structures::DiscountCurve;
 use finstack_core::money::Money;
-use time::Month;
+use time::macros::date;
 
 // Build a simple discount curve
-let base = Date::from_calendar_date(2025, Month::January, 1).unwrap();
+let base = date!(2025 - 01 - 01);
 let curve = DiscountCurve::builder("USD-OIS")
     .base_date(base)
     .day_count(DayCount::Act365F)
@@ -109,7 +109,7 @@ let curve = DiscountCurve::builder("USD-OIS")
 
 // Dated Money flows to discount
 let flows = vec![(
-    Date::from_calendar_date(2026, Month::January, 1).unwrap(),
+    date!(2026 - 01 - 01),
     Money::new(1_000.0, Currency::USD),
 )];
 
@@ -131,13 +131,13 @@ For **project or investment analysis** where a single discount rate is sufficien
 
 ```rust
 use finstack_core::cashflow::discounting::npv_constant;
-use finstack_core::dates::{Date, DayCount};
-use time::Month;
+use finstack_core::dates::DayCount;
+use time::macros::date;
 
-let base = Date::from_calendar_date(2025, Month::January, 1).unwrap();
+let base = date!(2025 - 01 - 01);
 let cashflows = vec![
     (base, -100_000.0),
-    (Date::from_calendar_date(2026, Month::January, 1).unwrap(), 110_000.0),
+    (date!(2026 - 01 - 01), 110_000.0),
 ];
 
 let pv = npv_constant(&cashflows, 0.05, base, DayCount::Act365F)?;
@@ -170,15 +170,15 @@ For **irregularly dated cashflows** (typical in private equity, real estate, or 
 
 ```rust
 use finstack_core::cashflow::xirr::InternalRateOfReturn;
-use finstack_core::dates::{Date, DayCount};
-use time::Month;
+use finstack_core::dates::DayCount;
+use time::macros::date;
 
 // Irregular private investment schedule
 let flows = vec![
-    (Date::from_calendar_date(2023, Month::January, 15).unwrap(), -100_000.0),
-    (Date::from_calendar_date(2023, Month::June, 30).unwrap(), -50_000.0),
-    (Date::from_calendar_date(2024, Month::March, 15).unwrap(), 75_000.0),
-    (Date::from_calendar_date(2024, Month::December, 31).unwrap(), 95_000.0),
+    (date!(2023 - 01 - 15), -100_000.0),
+    (date!(2023 - 06 - 30), -50_000.0),
+    (date!(2024 - 03 - 15), 75_000.0),
+    (date!(2024 - 12 - 31), 95_000.0),
 ];
 
 // Excel‑compatible (Act/365F)

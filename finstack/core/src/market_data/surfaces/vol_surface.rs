@@ -130,6 +130,7 @@ impl VolSurface {
     /// # Examples
     /// ```rust
     /// use finstack_core::market_data::surfaces::vol_surface::VolSurface;
+    /// # fn main() -> finstack_core::Result<()> {
     ///
     /// let surface = VolSurface::builder("IR-SWAPTION")
     ///     .expiries(&[1.0, 2.0])
@@ -137,9 +138,11 @@ impl VolSurface {
     ///     .row(&[0.25, 0.24])
     ///     .row(&[0.23, 0.22])
     ///     .build()
-    ///     .expect("VolSurface builder should succeed");
+    ///     ?;
     /// // Use value_checked for safe evaluation with explicit error handling
-    /// assert!(surface.value_checked(1.5, 0.015).unwrap() > 0.22);
+    /// assert!(surface.value_checked(1.5, 0.015)? > 0.22);
+    /// # Ok(())
+    /// # }
     /// ```
     pub fn builder(id: impl Into<CurveId>) -> VolSurfaceBuilder {
         VolSurfaceBuilder {

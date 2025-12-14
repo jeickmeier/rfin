@@ -216,14 +216,16 @@ assert_eq!(x * 2, Bps::new(40));
 
 ```rust
 use finstack_core::types::ratings::{CreditRating, RatingNotch, NotchedRating, RatingLabel, moodys_warf_factor};
+#
+# fn main() -> Result<(), Box<dyn std::error::Error>> {
 
 // Investment vs speculative grade
 assert!(CreditRating::BBB.is_investment_grade());
 assert!(!CreditRating::BB.is_investment_grade());
 
 // Parse from generic and Moody's-style strings
-let bb_plus: NotchedRating = "BB+".parse().unwrap();
-let baa3: NotchedRating = "Baa3".parse().unwrap();
+let bb_plus: NotchedRating = "BB+".parse()?;
+let baa3: NotchedRating = "Baa3".parse()?;
 
 assert_eq!(bb_plus.base(), CreditRating::BB);
 assert_eq!(bb_plus.notch(), RatingNotch::Plus);
@@ -240,6 +242,9 @@ assert_eq!(moodys.as_str(), "Baa3");
 // Moody's WARF factor (for CLO analysis)
 let factor_b = moodys_warf_factor(CreditRating::B);
 assert_eq!(factor_b, 2720.0);
+#
+# Ok(())
+# }
 ```
 
 ### Re‑exported Primitives
@@ -248,9 +253,9 @@ The `types` module re‑exports several core primitives so that many modules can
 
 ```rust
 use finstack_core::types::{Currency, Date, Timestamp, CurveId, Rate};
-use time::Month;
+use time::macros::date;
 
-let as_of: Date = Date::from_calendar_date(2025, Month::January, 1).unwrap();
+let as_of: Date = date!(2025 - 01 - 01);
 let now: Timestamp = as_of.midnight().assume_utc();
 
 let curve_id = CurveId::from("USD-OIS");

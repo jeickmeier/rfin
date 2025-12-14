@@ -618,17 +618,21 @@ impl DiscountCurve {
     /// # Examples
     /// ```rust,no_run
     /// use finstack_core::market_data::term_structures::discount_curve::DiscountCurve;
-    /// use time::{Date, Month};
+    /// use time::macros::date;
+    /// # fn main() -> finstack_core::Result<()> {
     ///
-    /// let base_date = Date::from_calendar_date(2025, Month::January, 1).unwrap();
+    /// let base_date = date!(2025 - 01 - 01);
     /// let curve = DiscountCurve::builder("USD_OIS")
     ///     .base_date(base_date)
     ///     .knots(vec![(1.0, 0.98), (2.0, 0.96), (5.0, 0.90), (10.0, 0.80)])
     ///     .build()
-    ///     .unwrap();
+    ///     ?;
     ///
     /// // Apply 10bp bump at 5Y bucket with neighbors at 3Y and 7Y
-    /// let bumped = curve.try_with_triangular_key_rate_bump_neighbors(3.0, 5.0, 7.0, 10.0).unwrap();
+    /// let bumped = curve.try_with_triangular_key_rate_bump_neighbors(3.0, 5.0, 7.0, 10.0)?;
+    /// # let _ = bumped;
+    /// # Ok(())
+    /// # }
     /// ```
     pub fn try_with_triangular_key_rate_bump_neighbors(
         &self,
@@ -702,18 +706,21 @@ impl DiscountCurve {
     /// # Examples
     /// ```rust,no_run
     /// use finstack_core::market_data::term_structures::discount_curve::DiscountCurve;
-    /// use time::{Date, Month};
+    /// use time::macros::date;
+    /// # fn main() -> finstack_core::Result<()> {
     ///
-    /// let base_date = Date::from_calendar_date(2025, Month::January, 1).unwrap();
+    /// let base_date = date!(2025 - 01 - 01);
     /// let curve = DiscountCurve::builder("USD_OIS")
     ///     .base_date(base_date)
     ///     .knots(vec![(0.5, 0.99), (1.0, 0.98), (2.0, 0.96), (5.0, 0.90)])
     ///     .build()
-    ///     .unwrap();
+    ///     ?;
     ///
     /// // Roll 6 months forward - the 0.5Y point expires
-    /// let rolled = curve.roll_forward(182).unwrap();
+    /// let rolled = curve.roll_forward(182)?;
     /// assert!(rolled.knots().len() < curve.knots().len());
+    /// # Ok(())
+    /// # }
     /// ```
     pub fn roll_forward(&self, days: i64) -> crate::Result<Self> {
         let new_base = self.base + time::Duration::days(days);

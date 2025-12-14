@@ -210,14 +210,17 @@ impl Money {
     /// ```rust
     /// use finstack_core::money::Money;
     /// use finstack_core::currency::Currency;
+    /// # fn main() -> finstack_core::Result<()> {
     ///
     /// // Valid input succeeds
-    /// let amt = Money::try_new(10.005, Currency::USD).unwrap();
+    /// let amt = Money::try_new(10.005, Currency::USD)?;
     /// assert_eq!(format!("{}", amt), "USD 10.01");
     ///
     /// // Invalid input returns error
     /// let err = Money::try_new(f64::NAN, Currency::USD);
     /// assert!(err.is_err());
+    /// # Ok(())
+    /// # }
     /// ```
     #[inline]
     pub fn try_new(amount: f64, currency: Currency) -> Result<Self, Error> {
@@ -304,6 +307,7 @@ impl Money {
     /// use finstack_core::money::Money;
     /// use finstack_core::currency::Currency;
     /// use finstack_core::config::FinstackConfig;
+    /// # fn main() -> finstack_core::Result<()> {
     ///
     /// let mut cfg = FinstackConfig::default();
     /// cfg.rounding
@@ -312,12 +316,14 @@ impl Money {
     ///     .insert(Currency::USD, 3);
     ///
     /// // Valid input succeeds
-    /// let amt = Money::try_new_with_config(1.2345, Currency::USD, &cfg).unwrap();
+    /// let amt = Money::try_new_with_config(1.2345, Currency::USD, &cfg)?;
     /// assert!((amt.amount() - 1.234).abs() < 1e-9);
     ///
     /// // Invalid input returns error
     /// let err = Money::try_new_with_config(f64::INFINITY, Currency::USD, &cfg);
     /// assert!(err.is_err());
+    /// # Ok(())
+    /// # }
     /// ```
     #[inline]
     pub fn try_new_with_config(
@@ -383,9 +389,12 @@ impl Money {
     /// ```rust
     /// use finstack_core::money::Money;
     /// use finstack_core::currency::Currency;
+    /// # fn main() -> finstack_core::Result<()> {
     ///
     /// let amt = Money::new(1_000_000.0, Currency::USD);
-    /// assert_eq!(amt.try_amount().unwrap(), 1_000_000.0);
+    /// assert_eq!(amt.try_amount()?, 1_000_000.0);
+    /// # Ok(())
+    /// # }
     /// ```
     #[inline]
     pub fn try_amount(&self) -> Result<f64, Error> {
@@ -401,9 +410,12 @@ impl Money {
     /// ```rust
     /// use finstack_core::money::Money;
     /// use finstack_core::currency::Currency;
+    /// # fn main() -> finstack_core::Result<()> {
     ///
     /// let amt = Money::new(1_000_000.0, Currency::USD);
-    /// assert_eq!(amt.try_into_amount().unwrap(), 1_000_000.0);
+    /// assert_eq!(amt.try_into_amount()?, 1_000_000.0);
+    /// # Ok(())
+    /// # }
     /// ```
     #[inline]
     pub fn try_into_amount(self) -> Result<f64, Error> {
@@ -419,11 +431,14 @@ impl Money {
     /// ```rust
     /// use finstack_core::money::Money;
     /// use finstack_core::currency::Currency;
+    /// # fn main() -> finstack_core::Result<()> {
     ///
     /// let amt = Money::new(1_000_000.0, Currency::USD);
-    /// let (value, ccy) = amt.try_into_parts().unwrap();
+    /// let (value, ccy) = amt.try_into_parts()?;
     /// assert_eq!(value, 1_000_000.0);
     /// assert_eq!(ccy, Currency::USD);
+    /// # Ok(())
+    /// # }
     /// ```
     #[inline]
     pub fn try_into_parts(self) -> Result<(f64, Currency), Error> {

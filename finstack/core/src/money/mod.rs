@@ -12,11 +12,14 @@
 //! ```rust
 //! use finstack_core::money::Money;
 //! use finstack_core::currency::Currency;
+//! # fn main() -> finstack_core::Result<()> {
 //!
 //! let gross = Money::new(125.25, Currency::USD);
 //! let tax   = Money::new(10.00, Currency::USD);
-//! let total = (gross + tax).unwrap();
+//! let total = (gross + tax)?;
 //! assert_eq!(format!("{}", total), "USD 135.25");
+//! # Ok(())
+//! # }
 //! ```
 /// Submodule for FX interfaces.
 pub mod fx;

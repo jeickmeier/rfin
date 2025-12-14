@@ -1625,19 +1625,23 @@ impl MarketContext {
     /// ```rust,no_run
     /// use finstack_core::market_data::context::MarketContext;
     /// use finstack_core::market_data::term_structures::discount_curve::DiscountCurve;
-    /// use time::{Date, Month};
+    /// use time::macros::date;
+    /// # fn main() -> finstack_core::Result<()> {
     ///
-    /// let base_date = Date::from_calendar_date(2025, Month::January, 1).unwrap();
+    /// let base_date = date!(2025 - 01 - 01);
     /// let curve = DiscountCurve::builder("USD_OIS")
     ///     .base_date(base_date)
     ///     .knots(vec![(1.0, 0.98), (2.0, 0.96), (5.0, 0.90)])
     ///     .build()
-    ///     .unwrap();
+    ///     ?;
     ///
     /// let ctx = MarketContext::new().insert_discount(curve);
     ///
     /// // Roll 6 months forward
-    /// let rolled_ctx = ctx.roll_forward(182).unwrap();
+    /// let rolled_ctx = ctx.roll_forward(182)?;
+    /// # let _ = rolled_ctx;
+    /// # Ok(())
+    /// # }
     /// ```
     pub fn roll_forward(&self, days: i64) -> crate::Result<Self> {
         let mut new_ctx = Self {

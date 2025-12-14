@@ -12,6 +12,7 @@
 //! ```rust
 //! use finstack_core::market_data::surfaces::VolSurface;
 //! use finstack_core::types::CurveId;
+//! # fn main() -> finstack_core::Result<()> {
 //!
 //! let surface = VolSurface::builder("EQ-FLAT")
 //!     .expiries(&[1.0, 2.0])
@@ -19,8 +20,10 @@
 //!     .row(&[0.2, 0.2])
 //!     .row(&[0.2, 0.2])
 //!     .build()
-//!     .unwrap();
+//!     ?;
 //! assert_eq!(surface.id(), &CurveId::from("EQ-FLAT"));
+//! # Ok(())
+//! # }
 //! ```
 
 pub mod vol_surface;

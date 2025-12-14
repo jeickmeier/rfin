@@ -45,13 +45,16 @@
 //! ```rust
 //! use finstack_core::prelude::*;
 //! use time::Month;
+//! # fn main() -> finstack_core::Result<()> {
 //!
 //! let cal = finstack_core::dates::calendar::TARGET2;
-//! let d = Date::from_calendar_date(2025, Month::January, 4).unwrap();
-//! let adj = adjust(d, BusinessDayConvention::Following, &cal).unwrap();
+//! let d = finstack_core::dates::create_date(2025, Month::January, 4)?;
+//! let adj = adjust(d, BusinessDayConvention::Following, &cal)?;
 //! let amt = Money::new(100.0, Currency::EUR);
 //! assert!(adj >= d);
 //! assert_eq!(amt.currency(), Currency::EUR);
+//! # Ok(())
+//! # }
 //! ```
 
 // Core re-exports (keep list focused on ergonomic entry points)

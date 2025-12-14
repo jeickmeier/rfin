@@ -24,7 +24,7 @@ use crate::dates::{Date, DayCount, DayCountCtx};
 /// use finstack_core::market_data::traits::{Discounting, TermStructure};
 /// use finstack_core::types::CurveId;
 /// use finstack_core::dates::Date;
-/// use time::Month;
+/// use time::macros::date;
 ///
 /// struct FlatCurve {
 ///     id: CurveId,
@@ -43,7 +43,7 @@ use crate::dates::{Date, DayCount, DayCountCtx};
 ///
 /// impl Discounting for FlatCurve {
 ///     fn base_date(&self) -> Date {
-///         Date::from_calendar_date(2025, Month::January, 1).unwrap()
+///         date!(2025 - 01 - 01)
 ///     }
 ///     fn df(&self, _t: f64) -> f64 { self.df_const }
 /// }

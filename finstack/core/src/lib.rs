@@ -17,15 +17,18 @@
 //! # Quick start
 //! ```
 //! use finstack_core::prelude::*;
+//! # fn main() -> finstack_core::Result<()> {
 //!
 //! // Parse ISO-4217 codes (case-insensitive)
-//! let eur = "eur".parse::<Currency>().unwrap();
+//! let eur = "eur".parse::<Currency>()?;
 //!
 //! // Perform arithmetic that refuses to mix currencies
 //! let subtotal = Money::new(49.50, Currency::EUR);
 //! let tax      = Money::new( 9.90, Currency::EUR);
-//! let total    = (subtotal + tax).unwrap();
+//! let total    = (subtotal + tax)?;
 //! assert_eq!(format!("{}", total), "EUR 59.40");
+//! # Ok(())
+//! # }
 //! ```
 //!
 //! See also: the [`prelude`] module for a curated set of commonly used types.

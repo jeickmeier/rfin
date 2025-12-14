@@ -38,7 +38,9 @@
 //!     fn uniform(&mut self) -> f64 { self.0.gen() }
 //!     fn normal(&mut self, mean: f64, std_dev: f64) -> f64 {
 //!         use rand_distr::{Distribution, Normal};
-//!         Normal::new(mean, std_dev).unwrap().sample(&mut self.0)
+//!         Normal::new(mean, std_dev)
+//!             .expect("Normal::new requires finite mean and std_dev > 0")
+//!             .sample(&mut self.0)
 //!     }
 //!     fn bernoulli(&mut self, p: f64) -> bool { self.0.gen::<f64>() < p }
 //! }

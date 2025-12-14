@@ -209,20 +209,22 @@ impl ScalarTimeSeries {
     /// # Examples
     /// ```rust
     /// use finstack_core::market_data::scalars::{ScalarTimeSeries, SeriesInterpolation};
-    /// use finstack_core::dates::Date;
-    /// use time::Month;
+    /// use time::macros::date;
+    /// # fn main() -> finstack_core::Result<()> {
     ///
     /// let series = ScalarTimeSeries::new(
     ///     "TS",
     ///     vec![
-    ///         (Date::from_calendar_date(2024, Month::January, 1).expect("Valid date"), 10.0),
-    ///         (Date::from_calendar_date(2024, Month::February, 1).expect("Valid date"), 20.0),
+    ///         (date!(2024 - 01 - 01), 10.0),
+    ///         (date!(2024 - 02 - 01), 20.0),
     ///     ],
     ///     None,
     /// )
-    /// .unwrap()
+    /// ?
     /// .with_interpolation(SeriesInterpolation::Linear);
     /// assert!(matches!(series.interpolation(), SeriesInterpolation::Linear));
+    /// # Ok(())
+    /// # }
     /// ```
     pub fn with_interpolation(mut self, interpolation: SeriesInterpolation) -> Self {
         self.interpolation = interpolation;

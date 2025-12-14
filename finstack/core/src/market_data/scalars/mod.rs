@@ -7,9 +7,9 @@
 //! # Examples
 //! ```rust
 //! use finstack_core::market_data::scalars::{MarketScalar, ScalarTimeSeries, SeriesInterpolation};
-//! use finstack_core::dates::Date;
 //! use finstack_core::currency::Currency;
-//! use time::Month;
+//! use time::macros::date;
+//! # fn main() -> finstack_core::Result<()> {
 //!
 //! // 1. Store a spot quote as a scalar
 //! let spot = MarketScalar::Price(finstack_core::money::Money::new(101.5, Currency::USD));
@@ -21,16 +21,18 @@
 //! let ts = ScalarTimeSeries::new(
 //!     "US CPI",
 //!     vec![
-//!         (Date::from_calendar_date(2024, Month::January, 31).unwrap(), 100.0),
-//!         (Date::from_calendar_date(2024, Month::February, 29).unwrap(), 101.0),
+//!         (date!(2024 - 01 - 31), 100.0),
+//!         (date!(2024 - 02 - 29), 101.0),
 //!     ],
 //!     None,
 //! )
-//! .unwrap()
+//! ?
 //! .with_interpolation(SeriesInterpolation::Linear);
-//! let mid = Date::from_calendar_date(2024, Month::February, 14).unwrap();
-//! let value = ts.value_on(mid).unwrap();
+//! let mid = date!(2024 - 02 - 14);
+//! let value = ts.value_on(mid)?;
 //! assert!(value > 100.0 && value < 101.0);
+//! # Ok(())
+//! # }
 //! ```
 
 /// Lightweight storage for time series data.

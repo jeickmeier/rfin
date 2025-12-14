@@ -42,10 +42,9 @@
 //!
 //! ```rust
 //! use finstack_core::market_data::{context::MarketContext, term_structures::DiscountCurve};
-//! use finstack_core::dates::Date;
-//! use time::Month;
+//! use time::macros::date;
 //!
-//! let base = Date::from_calendar_date(2025, Month::January, 1).unwrap();
+//! let base = date!(2025 - 01 - 01);
 //!
 //! // Build a discount curve
 //! let curve = DiscountCurve::builder("USD-OIS")

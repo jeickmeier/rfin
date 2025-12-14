@@ -21,6 +21,7 @@
 //!
 //! ```rust
 //! use finstack_core::volatility::{convert_atm_volatility, VolatilityConvention};
+//! # fn main() -> finstack_core::Result<()> {
 //!
 //! let forward = 0.05; // 5% forward rate
 //! let normal_vol = 0.01; // 100bp normal vol
@@ -32,9 +33,11 @@
 //!     VolatilityConvention::Lognormal,
 //!     forward,
 //!     1.0, // 1 year to expiry
-//! ).expect("conversion should succeed for positive forward");
+//! )?;
 //!
 //! assert!((lognormal_vol - 0.2).abs() < 1e-6); // ~20% lognormal vol
+//! # Ok(())
+//! # }
 //! ```
 
 use crate::error::InputError;
@@ -146,6 +149,7 @@ pub fn black_shifted_price(forward: f64, strike: f64, sigma: f64, t: f64, shift:
 ///
 /// ```rust
 /// use finstack_core::volatility::{convert_atm_volatility, VolatilityConvention};
+/// # fn main() -> finstack_core::Result<()> {
 ///
 /// let forward = 0.05; // 5% forward rate
 /// let normal_vol = 0.01; // 100bp normal vol
@@ -156,7 +160,7 @@ pub fn black_shifted_price(forward: f64, strike: f64, sigma: f64, t: f64, shift:
 ///     VolatilityConvention::Lognormal,
 ///     forward,
 ///     1.0,
-/// ).unwrap();
+/// )?;
 ///
 /// // Round-trip conversion
 /// let recovered = convert_atm_volatility(
@@ -165,9 +169,11 @@ pub fn black_shifted_price(forward: f64, strike: f64, sigma: f64, t: f64, shift:
 ///     VolatilityConvention::Normal,
 ///     forward,
 ///     1.0,
-/// ).unwrap();
+/// )?;
 ///
 /// assert!((recovered - normal_vol).abs() < 1e-10);
+/// # Ok(())
+/// # }
 /// ```
 pub fn convert_atm_volatility(
     vol: f64,

@@ -185,30 +185,29 @@ use finstack_core::market_data::term_structures::{
     HazardCurve,
 };
 use finstack_core::math::interp::InterpStyle;
-use finstack_core::dates::Date;
-use time::Month;
+use time::macros::date;
 
-let base = Date::from_calendar_date(2025, Month::January, 1).unwrap();
+let base = date!(2025 - 01 - 01);
 
 let disc = DiscountCurve::builder("USD-OIS")
     .base_date(base)
     .knots([(0.0, 1.0), (5.0, 0.88)])
     .set_interp(InterpStyle::MonotoneConvex)
     .build()
-    .unwrap();
+    ?;
 
 let fwd3m = ForwardCurve::builder("USD-SOFR3M", 0.25)
     .base_date(base)
     .knots([(0.0, 0.03), (5.0, 0.04)])
     .set_interp(InterpStyle::Linear)
     .build()
-    .unwrap();
+    ?;
 
 let hazard = HazardCurve::builder("USD-CRED")
     .base_date(base)
     .knots([(0.0, 0.01), (10.0, 0.015)])
     .build()
-    .unwrap();
+    ?;
 
 let ctx = MarketContext::new()
     .insert_discount(disc)
@@ -218,6 +217,7 @@ let ctx = MarketContext::new()
 assert!(ctx.get_discount("USD-OIS").is_ok());
 assert!(ctx.get_forward("USD-SOFR3M").is_ok());
 assert!(ctx.get_hazard("USD-CRED").is_ok());
+# Ok::<(), finstack_core::Error>(())
 ```
 
 ### Add Scalars, Time Series, and Inflation Indices
@@ -232,16 +232,15 @@ use finstack_core::market_data::scalars::{
 };
 use finstack_core::currency::Currency;
 use finstack_core::money::Money;
-use finstack_core::dates::Date;
-use time::Month;
+use time::macros::date;
 
 let spot = MarketScalar::Price(Money::new(101.5, Currency::USD));
 
 let ts = ScalarTimeSeries::new(
     "US-CPI-TS",
     vec![
-        (Date::from_calendar_date(2024, Month::January, 31).unwrap(), 100.0),
-        (Date::from_calendar_date(2024, Month::February, 29).unwrap(), 101.0),
+        (date!(2024 - 01 - 31), 100.0),
+        (date!(2024 - 02 - 29), 101.0),
     ],
     None,
 )?
@@ -250,8 +249,8 @@ let ts = ScalarTimeSeries::new(
 let index = InflationIndex::new(
     "US-CPI",
     vec![
-        (Date::from_calendar_date(2024, Month::January, 31).unwrap(), 100.0),
-        (Date::from_calendar_date(2024, Month::February, 29).unwrap(), 101.0),
+        (date!(2024 - 01 - 31), 100.0),
+        (date!(2024 - 02 - 29), 101.0),
     ],
     Currency::USD,
 )?
@@ -271,6 +270,7 @@ let cpi = ctx.inflation_index("US-CPI").expect("Inflation index present");
 assert!(matches!(price, MarketScalar::Price(_)));
 assert_eq!(series.id().as_str(), "US-CPI-TS");
 assert_eq!(cpi.id, "US-CPI");
+# Ok::<(), finstack_core::Error>(())
 ```
 
 ### Apply Parallel and Key-Rate Bumps
@@ -279,16 +279,15 @@ assert_eq!(cpi.id, "US-CPI");
 use hashbrown::HashMap;
 use finstack_core::market_data::context::{MarketContext, BumpSpec};
 use finstack_core::market_data::term_structures::DiscountCurve;
-use finstack_core::dates::Date;
 use finstack_core::types::CurveId;
-use time::Month;
+use time::macros::date;
 
-let base = Date::from_calendar_date(2025, Month::January, 1).unwrap();
+let base = date!(2025 - 01 - 01);
 let curve = DiscountCurve::builder("USD-OIS")
     .base_date(base)
     .knots([(0.0, 1.0), (5.0, 0.9)])
     .build()
-    .unwrap();
+    ?;
 
 let ctx = MarketContext::new().insert_discount(curve);
 
@@ -300,6 +299,7 @@ let bumped = ctx.bump(bumps)?;
 let bumped_curve = bumped.get_discount("USD-OIS")?;
 
 assert_eq!(bumped_curve.id(), &CurveId::from("USD-OIS"));
+# Ok::<(), finstack_core::Error>(())
 ```
 
 For heterogeneous scenarios (curves, FX, vol buckets, base correlation), build a list of `MarketBump` and call `MarketContext::apply_bumps`.
