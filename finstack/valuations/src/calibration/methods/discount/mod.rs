@@ -421,29 +421,23 @@ impl DiscountCurveCalibrator {
     ///
     /// Delegates to the internal `CalibrationPricer` for the actual computation.
     pub fn settlement_date(&self) -> finstack_core::Result<Date> {
-        self.create_pricer().settlement_date()
+        self.create_pricer().settlement_date(self.currency)
     }
 
     /// Create a CalibrationPricer configured from this calibrator's settings.
     ///
     /// The pricer encapsulates all the instrument pricing logic needed for
-    /// calibration, using the calibrator's curve IDs, settlement conventions,
-    /// and OIS settings.
+    /// calibration, using the calibrator's curve IDs and settlement conventions.
+    /// Per-instrument conventions (payment delay, reset lag, calendar) come from
+    /// the quote's `InstrumentConventions`.
     pub(crate) fn create_pricer(&self) -> CalibrationPricer {
         let mut pricer = CalibrationPricer::new(
             self.base_date,
-            self.currency,
             self.effective_discount_curve_id(),
         )
         .with_forward_curve_id(self.effective_forward_curve_id())
-        .with_payment_delay(self.payment_delay_days)
-        .with_reset_lag(self.reset_lag)
-        .with_use_ois_logic(self.use_ois_logic)
         .with_allow_calendar_fallback(self.allow_calendar_fallback);
 
-        if let Some(ref cal) = self.calendar_id {
-            pricer = pricer.with_calendar_id(cal.clone());
-        }
         if let Some(days) = self.settlement_days {
             pricer = pricer.with_settlement_days(days);
         }

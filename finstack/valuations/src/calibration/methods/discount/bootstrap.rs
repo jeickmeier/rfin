@@ -74,7 +74,7 @@ impl DiscountCurveCalibrator {
 
         // Pre-validate curve dependencies (fail fast for basis swaps)
         pricer.validate_curve_dependencies(&sorted_quotes, base_context)?;
-        let settlement = pricer.settlement_date()?;
+        let settlement = pricer.settlement_date(self.currency)?;
 
         // Compute spot knot info using the unified helper
         let (t_spot, spot_knot) = self.compute_spot_knot(curve_dc, settlement);
@@ -223,7 +223,7 @@ impl DiscountCurveCalibrator {
         let base_date = self.base_date;
         let solve_interp = self.solve_interp;
         let discount_curve_id = self.effective_discount_curve_id();
-        let use_ois_logic = self.use_ois_logic;
+        let currency = self.currency;
 
         // Capture pre-allocated buffer and RefCell context for the closure
         let temp_knots = Rc::new(RefCell::new(temp_knots_buffer));
@@ -248,10 +248,9 @@ impl DiscountCurveCalibrator {
                 Err(_) => return crate::calibration::PENALTY,
             };
 
-            // Check if this instrument can be priced
-            if quote_clone.requires_forward_curve()
-                && (!use_ois_logic || !quote_clone.is_ois_suitable())
-            {
+            // Check if this instrument can be priced based on quote type
+            // OIS quotes can be priced with discount curve only
+            if quote_clone.requires_forward_curve() && !quote_clone.is_ois_suitable() {
                 return crate::calibration::PENALTY;
             }
 
@@ -259,7 +258,7 @@ impl DiscountCurveCalibrator {
             ctx_rc.borrow_mut().insert_mut(Arc::new(temp_curve));
 
             pricer_clone
-                .price_instrument(&quote_clone, &ctx_rc.borrow())
+                .price_instrument(&quote_clone, currency, &ctx_rc.borrow())
                 .unwrap_or(crate::calibration::PENALTY)
         };
 
@@ -430,12 +429,12 @@ impl DiscountCurveCalibrator {
                 category: "yield_curve_bootstrap".to_string(),
             })?;
 
-        if quote.requires_forward_curve() && (!self.use_ois_logic || !quote.is_ois_suitable()) {
+        if quote.requires_forward_curve() && !quote.is_ois_suitable() {
             Ok(crate::calibration::PENALTY)
         } else {
             let final_context = base_context.clone().insert_discount(final_curve);
             Ok(pricer
-                .price_instrument(quote, &final_context)
+                .price_instrument(quote, self.currency, &final_context)
                 .unwrap_or(crate::calibration::PENALTY)
                 .abs())
         }

@@ -157,17 +157,16 @@ pub enum RatesQuoteUseCase {
 ///
 /// The pricer needs to know:
 /// - **Curve IDs**: Which curves to use for discounting and forward projection
-/// - **Settlement**: How to compute settlement dates (currency conventions)
 /// - **Start date mode**: Whether to use settlement date or base date for instruments
-/// - **OIS logic**: Whether to use overnight-indexed compounding
-/// - **Reset lag**: Business days between fixing and period start
 /// - **Tenor**: For forward curve calibration, used in basis swap curve resolution
+///
+/// All per-instrument conventions (settlement, payment delay, reset lag, calendar)
+/// should come from the quote's `InstrumentConventions`.
 ///
 /// # Discount Curve Mode
 ///
 /// ```ignore
-/// let pricer = CalibrationPricer::new(base_date, Currency::USD, "USD-OIS")
-///     .with_use_ois_logic(true);  // Uses settlement date for starts
+/// let pricer = CalibrationPricer::new(base_date, "USD-OIS");
 /// ```
 ///
 /// # Forward Curve Mode
@@ -180,7 +179,6 @@ pub enum RatesQuoteUseCase {
 /// // For direct CalibrationPricer usage (base-date starts)
 /// let pricer = CalibrationPricer::for_forward_curve(
 ///     base_date,
-///     Currency::USD,
 ///     "USD-3M-FWD",
 ///     "USD-OIS",
 ///     0.25,  // 3M tenor
@@ -194,26 +192,13 @@ pub enum RatesQuoteUseCase {
 pub struct CalibrationPricer {
     /// Base date for pricing
     pub base_date: Date,
-    /// Currency for instruments
-    pub currency: Currency,
     /// Discount curve ID for pricing
     pub discount_curve_id: CurveId,
     /// Forward curve ID for floating leg projections
     pub forward_curve_id: CurveId,
-    /// Optional calendar identifier for settlement calculation
-    pub calendar_id: Option<String>,
-    /// Settlement lag in business days (None = use currency default)
+    /// Settlement lag in business days (None = use quote convention or currency default)
     #[serde(default)]
     pub settlement_days: Option<i32>,
-    /// Payment delay in business days after period end
-    #[serde(default)]
-    pub payment_delay_days: i32,
-    /// Reset lag in business days for floating rate fixings
-    #[serde(default = "default_reset_lag")]
-    pub reset_lag: i32,
-    /// Use OIS-specific logic for swap pricing
-    #[serde(default = "default_use_ois_logic")]
-    pub use_ois_logic: bool,
     /// Allow calendar-day settlement fallback
     #[serde(default)]
     pub allow_calendar_fallback: bool,
@@ -233,14 +218,6 @@ pub struct CalibrationPricer {
     pub verbose: bool,
 }
 
-fn default_reset_lag() -> i32 {
-    2
-}
-
-fn default_use_ois_logic() -> bool {
-    true
-}
-
 fn default_use_settlement_start() -> bool {
     true
 }
@@ -250,22 +227,17 @@ impl CalibrationPricer {
     ///
     /// Default settings:
     /// - Discount and forward curves default to the provided curve_id
-    /// - Settlement: Currency-specific (T+2 for USD/EUR, T+0 for GBP)
-    /// - Reset lag: 2 business days
-    /// - OIS logic: enabled
     /// - Use settlement start: true (for discount curve calibration)
-    pub fn new(base_date: Date, currency: Currency, curve_id: impl Into<CurveId>) -> Self {
+    ///
+    /// All per-instrument conventions (settlement days, payment delay, reset lag, calendar)
+    /// should be specified on each quote's `InstrumentConventions`.
+    pub fn new(base_date: Date, curve_id: impl Into<CurveId>) -> Self {
         let curve_id = curve_id.into();
         Self {
             base_date,
-            currency,
             discount_curve_id: curve_id.clone(),
             forward_curve_id: curve_id,
-            calendar_id: None,
             settlement_days: None,
-            payment_delay_days: 0,
-            reset_lag: 2,
-            use_ois_logic: true,
             allow_calendar_fallback: false,
             use_settlement_start: true,
             convexity_params: None,
@@ -278,7 +250,6 @@ impl CalibrationPricer {
     ///
     /// This sets:
     /// - `use_settlement_start = false` (uses base_date for instrument starts)
-    /// - `use_ois_logic = false` (no OIS compounding for forward curves)
     /// - Tenor for basis swap resolution
     ///
     /// Note: `ForwardCurveCalibrator` overrides `use_settlement_start = true` to match
@@ -286,21 +257,15 @@ impl CalibrationPricer {
     /// you need settlement-date starts for direct pricer usage.
     pub fn for_forward_curve(
         base_date: Date,
-        currency: Currency,
         forward_curve_id: impl Into<CurveId>,
         discount_curve_id: impl Into<CurveId>,
         tenor_years: f64,
     ) -> Self {
         Self {
             base_date,
-            currency,
             discount_curve_id: discount_curve_id.into(),
             forward_curve_id: forward_curve_id.into(),
-            calendar_id: None,
             settlement_days: None,
-            payment_delay_days: 0,
-            reset_lag: 2,
-            use_ois_logic: false,
             allow_calendar_fallback: false,
             use_settlement_start: false,
             convexity_params: None,
@@ -321,33 +286,9 @@ impl CalibrationPricer {
         self
     }
 
-    /// Set the calendar ID for settlement calculation.
-    pub fn with_calendar_id(mut self, calendar_id: impl Into<String>) -> Self {
-        self.calendar_id = Some(calendar_id.into());
-        self
-    }
-
-    /// Set explicit settlement days (overrides currency default).
+    /// Set explicit settlement days (overrides quote convention and currency default).
     pub fn with_settlement_days(mut self, days: i32) -> Self {
         self.settlement_days = Some(days);
-        self
-    }
-
-    /// Set payment delay in business days.
-    pub fn with_payment_delay(mut self, days: i32) -> Self {
-        self.payment_delay_days = days;
-        self
-    }
-
-    /// Set the reset lag in business days.
-    pub fn with_reset_lag(mut self, days: i32) -> Self {
-        self.reset_lag = days;
-        self
-    }
-
-    /// Enable or disable OIS-specific swap pricing logic.
-    pub fn with_use_ois_logic(mut self, use_ois: bool) -> Self {
-        self.use_ois_logic = use_ois;
         self
     }
 
@@ -393,9 +334,10 @@ impl CalibrationPricer {
     pub fn effective_start_date(
         &self,
         conventions: &InstrumentConventions,
+        currency: Currency,
     ) -> finstack_core::Result<Date> {
         if self.use_settlement_start {
-            self.settlement_date_for_quote(conventions)
+            self.settlement_date_for_quote(conventions, currency)
         } else {
             Ok(self.base_date)
         }
@@ -430,9 +372,9 @@ impl CalibrationPricer {
     }
 
     /// Get effective settlement days (explicit or currency default).
-    pub fn effective_settlement_days(&self) -> i32 {
+    pub fn effective_settlement_days(&self, currency: Currency) -> i32 {
         self.settlement_days
-            .unwrap_or_else(|| default_settlement_days(self.currency))
+            .unwrap_or_else(|| default_settlement_days(currency))
     }
 
     // =========================================================================
@@ -443,41 +385,45 @@ impl CalibrationPricer {
     ///
     /// Priority: quote convention > pricer setting > currency default
     #[inline]
-    fn resolve_settlement_days(&self, quote_conventions: &InstrumentConventions) -> i32 {
+    fn resolve_settlement_days(
+        &self,
+        quote_conventions: &InstrumentConventions,
+        currency: Currency,
+    ) -> i32 {
         quote_conventions
             .settlement_days
             .or(self.settlement_days)
-            .unwrap_or_else(|| default_settlement_days(self.currency))
+            .unwrap_or_else(|| default_settlement_days(currency))
     }
 
     /// Resolve effective payment delay for a specific quote.
     ///
-    /// Priority: quote convention > pricer setting
+    /// Priority: quote convention > 0 (default)
     #[inline]
-    fn resolve_payment_delay(&self, quote_conventions: &InstrumentConventions) -> i32 {
-        quote_conventions
-            .payment_delay_days
-            .unwrap_or(self.payment_delay_days)
+    fn resolve_payment_delay(quote_conventions: &InstrumentConventions) -> i32 {
+        quote_conventions.payment_delay_days.unwrap_or(0)
     }
 
     /// Resolve effective reset lag for a specific quote.
     ///
-    /// Priority: quote convention > pricer setting
+    /// Priority: quote convention > 2 (default)
     #[inline]
-    fn resolve_reset_lag(&self, quote_conventions: &InstrumentConventions) -> i32 {
-        quote_conventions.reset_lag.unwrap_or(self.reset_lag)
+    fn resolve_reset_lag(quote_conventions: &InstrumentConventions) -> i32 {
+        quote_conventions.reset_lag.unwrap_or(2)
     }
 
     /// Resolve effective calendar ID for a specific quote.
     ///
-    /// Priority: quote convention > pricer setting > currency default
+    /// Priority: quote convention > currency default
     #[inline]
-    fn resolve_calendar_id<'a>(&'a self, quote_conventions: &'a InstrumentConventions) -> &'a str {
+    fn resolve_calendar_id(
+        quote_conventions: &InstrumentConventions,
+        currency: Currency,
+    ) -> &str {
         quote_conventions
             .calendar_id
             .as_deref()
-            .or(self.calendar_id.as_deref())
-            .unwrap_or_else(|| default_calendar_for_currency(self.currency))
+            .unwrap_or_else(|| default_calendar_for_currency(currency))
     }
 
     /// Calculate settlement date from base date using business-day calendar.
@@ -491,19 +437,20 @@ impl CalibrationPricer {
     /// - USD/EUR/JPY/CHF: T+2 business days
     /// - GBP: T+0 (same-day settlement)
     /// - AUD/CAD: T+1 business day
-    pub fn settlement_date(&self) -> finstack_core::Result<Date> {
-        self.settlement_date_for_quote(&InstrumentConventions::default())
+    pub fn settlement_date(&self, currency: Currency) -> finstack_core::Result<Date> {
+        self.settlement_date_for_quote(&InstrumentConventions::default(), currency)
     }
 
     /// Calculate settlement date for a specific quote's conventions.
     ///
-    /// Uses per-quote conventions if specified, falling back to pricer defaults.
+    /// Uses per-quote conventions if specified, falling back to currency defaults.
     pub fn settlement_date_for_quote(
         &self,
         quote_conventions: &InstrumentConventions,
+        currency: Currency,
     ) -> finstack_core::Result<Date> {
-        let days = self.resolve_settlement_days(quote_conventions);
-        let calendar_id = self.resolve_calendar_id(quote_conventions);
+        let days = self.resolve_settlement_days(quote_conventions, currency);
+        let calendar_id = Self::resolve_calendar_id(quote_conventions, currency);
 
         let registry = CalendarRegistry::global();
 
@@ -526,7 +473,7 @@ impl CalibrationPricer {
             // Fallback: calendar not found, use calendar-day addition with warning.
             tracing::warn!(
                 calendar_id = calendar_id,
-                currency = ?self.currency,
+                currency = ?currency,
                 "Calendar not found, falling back to calendar-day settlement"
             );
             Ok(if days == 0 {
@@ -549,7 +496,7 @@ impl CalibrationPricer {
 
     /// Price a deposit quote for calibration.
     ///
-    /// Uses per-quote conventions if provided, otherwise falls back to pricer defaults.
+    /// Uses per-quote conventions if provided, otherwise falls back to currency defaults.
     /// Start date is determined by `use_settlement_start` setting.
     pub fn price_deposit(
         &self,
@@ -557,14 +504,15 @@ impl CalibrationPricer {
         rate: f64,
         day_count: DayCount,
         conventions: &InstrumentConventions,
+        currency: Currency,
         context: &MarketContext,
     ) -> Result<f64> {
-        let start = self.effective_start_date(conventions)?;
-        let calendar_id = self.resolve_calendar_id(conventions);
+        let start = self.effective_start_date(conventions, currency)?;
+        let calendar_id = Self::resolve_calendar_id(conventions, currency);
 
         let dep = Deposit {
             id: format!("CALIB_DEP_{}", maturity).into(),
-            notional: Money::new(1_000_000.0, self.currency),
+            notional: Money::new(1_000_000.0, currency),
             start,
             end: maturity,
             day_count,
@@ -574,7 +522,7 @@ impl CalibrationPricer {
             // Only set spot_lag_days when use_settlement_start=true; otherwise
             // rely on the explicit start date to avoid double-application
             spot_lag_days: if self.use_settlement_start {
-                Some(self.resolve_settlement_days(conventions))
+                Some(self.resolve_settlement_days(conventions, currency))
             } else {
                 None
             },
@@ -588,7 +536,8 @@ impl CalibrationPricer {
 
     /// Price a FRA quote for calibration.
     ///
-    /// Uses per-quote conventions if provided, otherwise falls back to pricer defaults.
+    /// Uses per-quote conventions if provided, otherwise falls back to currency defaults.
+    #[allow(clippy::too_many_arguments)]
     pub fn price_fra(
         &self,
         start: Date,
@@ -596,10 +545,11 @@ impl CalibrationPricer {
         rate: f64,
         day_count: DayCount,
         conventions: &InstrumentConventions,
+        currency: Currency,
         context: &MarketContext,
     ) -> Result<f64> {
-        let reset_lag = self.resolve_reset_lag(conventions);
-        let calendar_id = self.resolve_calendar_id(conventions);
+        let reset_lag = Self::resolve_reset_lag(conventions);
+        let calendar_id = Self::resolve_calendar_id(conventions, currency);
         let registry = CalendarRegistry::global();
 
         // Track whether we actually found the calendar (for FRA builder)
@@ -648,7 +598,7 @@ impl CalibrationPricer {
 
         let fra = ForwardRateAgreement::builder()
             .id(format!("CALIB_FRA_{}_{}", start, end).into())
-            .notional(Money::new(1_000_000.0, self.currency))
+            .notional(Money::new(1_000_000.0, currency))
             .fixing_date(fixing_date)
             .start_date(start)
             .end_date(end)
@@ -668,7 +618,7 @@ impl CalibrationPricer {
 
     /// Price a futures quote for calibration.
     ///
-    /// Uses per-quote conventions if provided, otherwise falls back to pricer defaults.
+    /// Uses per-quote conventions if provided, otherwise falls back to currency defaults.
     /// Convexity adjustment priority:
     /// 1. Quote-level override (specs.convexity_adjustment)
     /// 2. Pricer-level custom params (self.convexity_params)
@@ -679,6 +629,7 @@ impl CalibrationPricer {
         price: f64,
         specs: &FutureSpecs,
         _conventions: &InstrumentConventions,
+        currency: Currency,
         context: &MarketContext,
     ) -> Result<f64> {
         let period_start = expiry;
@@ -695,7 +646,7 @@ impl CalibrationPricer {
             let params = self
                 .convexity_params
                 .clone()
-                .unwrap_or_else(|| ConvexityParameters::for_currency(self.currency));
+                .unwrap_or_else(|| ConvexityParameters::for_currency(currency));
 
             let adj =
                 params.calculate_for_future(self.base_date, expiry, period_end, specs.day_count);
@@ -724,7 +675,7 @@ impl CalibrationPricer {
 
         let future = InterestRateFuture::builder()
             .id(format!("CALIB_FUT_{}", expiry).into())
-            .notional(Money::new(specs.face_value, self.currency))
+            .notional(Money::new(specs.face_value, currency))
             .expiry_date(expiry)
             .fixing_date(fixing_date)
             .period_start(period_start)
@@ -753,8 +704,13 @@ impl CalibrationPricer {
 
     /// Price a swap quote for calibration.
     ///
-    /// Uses per-quote conventions if provided, otherwise falls back to pricer defaults.
+    /// Uses per-quote conventions if provided, otherwise falls back to currency defaults.
     /// Start date is determined by `use_settlement_start` setting.
+    ///
+    /// OIS pricing is determined by:
+    /// - For discount curve calibration (tenor_years=None): use OIS pricing if `is_ois_quote` is true
+    /// - For forward curve calibration (tenor_years=Some): always use standard pricing to use the
+    ///   forward curve being calibrated, regardless of `is_ois_quote`
     #[allow(clippy::too_many_arguments)]
     pub fn price_swap(
         &self,
@@ -767,12 +723,13 @@ impl CalibrationPricer {
         index: &IndexId,
         is_ois_quote: bool,
         conventions: &InstrumentConventions,
+        currency: Currency,
         context: &MarketContext,
     ) -> Result<f64> {
-        let start = self.effective_start_date(conventions)?;
-        let payment_delay = self.resolve_payment_delay(conventions);
-        let reset_lag = self.resolve_reset_lag(conventions);
-        let calendar_id = self.resolve_calendar_id(conventions).to_string();
+        let start = self.effective_start_date(conventions, currency)?;
+        let payment_delay = Self::resolve_payment_delay(conventions);
+        let reset_lag = Self::resolve_reset_lag(conventions);
+        let calendar_id = Self::resolve_calendar_id(conventions, currency).to_string();
 
         let fixed_spec = FixedLegSpec {
             discount_curve_id: self.discount_curve_id.clone(),
@@ -789,17 +746,18 @@ impl CalibrationPricer {
             payment_delay_days: payment_delay,
         };
 
-        // Determine floating leg curve IDs and compounding based on:
-        // 1. Whether OIS logic is enabled for this pricer
-        // 2. Whether the quote itself is OIS-suitable (overnight index)
-        let use_ois_pricing = self.use_ois_logic && is_ois_quote;
+        // Determine whether to use OIS pricing:
+        // - For discount curve calibration (tenor_years=None): use OIS pricing if quote is OIS-suitable
+        // - For forward curve calibration (tenor_years=Some): always use standard pricing to project
+        //   using the forward curve being calibrated
+        let use_ois_pricing = is_ois_quote && self.tenor_years.is_none();
 
         let (float_discount_id, float_forward_id, compounding) = if use_ois_pricing {
             // OIS pricing: use same curve for discount and forward, with OIS compounding
             (
                 self.discount_curve_id.clone(),
                 self.discount_curve_id.clone(),
-                ois_compounding_for_index(index, self.currency),
+                ois_compounding_for_index(index, currency),
             )
         } else {
             // Standard pricing: separate discount and forward curves, simple compounding
@@ -829,7 +787,7 @@ impl CalibrationPricer {
 
         let swap = InterestRateSwap {
             id: format!("CALIB_SWAP_{}", maturity).into(),
-            notional: Money::new(1_000_000.0, self.currency),
+            notional: Money::new(1_000_000.0, currency),
             side: PayReceive::ReceiveFixed,
             fixed: fixed_spec,
             float: float_spec,
@@ -843,7 +801,7 @@ impl CalibrationPricer {
 
     /// Price a basis swap quote for calibration.
     ///
-    /// Uses per-quote conventions if provided, otherwise falls back to pricer defaults.
+    /// Uses per-quote conventions if provided, otherwise falls back to currency defaults.
     ///
     /// # Forward Curve Calibration Mode
     ///
@@ -871,10 +829,10 @@ impl CalibrationPricer {
         conventions: &InstrumentConventions,
         context: &MarketContext,
     ) -> Result<f64> {
-        let start = self.effective_start_date(conventions)?;
-        let reset_lag = self.resolve_reset_lag(conventions);
-        let payment_delay = self.resolve_payment_delay(conventions);
-        let calendar_id = self.resolve_calendar_id(conventions);
+        let start = self.effective_start_date(conventions, currency)?;
+        let reset_lag = Self::resolve_reset_lag(conventions);
+        let payment_delay = Self::resolve_payment_delay(conventions);
+        let calendar_id = Self::resolve_calendar_id(conventions, currency);
 
         // Determine forward curve IDs based on calibration mode
         let (primary_forward_id, reference_forward_id) = if let Some(tenor) = self.tenor_years {
@@ -1012,12 +970,14 @@ impl CalibrationPricer {
     /// This method creates a swap instrument exactly as constructed during calibration,
     /// ensuring consistent pricing for test repricing and verification.
     ///
-    /// Uses the pricer's configuration for curve IDs, calendar, reset lag, and payment delay.
+    /// Uses the pricer's configuration for curve IDs and the quote's conventions
+    /// for calendar, reset lag, and payment delay.
     ///
     /// # Arguments
     ///
     /// * `quote` - A `RatesQuote::Swap` variant
     /// * `notional` - Notional amount for the swap
+    /// * `currency` - Currency for the swap (used for convention defaults)
     ///
     /// # Returns
     ///
@@ -1026,20 +986,25 @@ impl CalibrationPricer {
     /// # Example
     ///
     /// ```ignore
-    /// let pricer = CalibrationPricer::new(base_date, Currency::USD, "USD-OIS")
-    ///     .with_payment_delay(0);
+    /// let pricer = CalibrationPricer::new(base_date, "USD-OIS");
     ///
-    /// let swap = pricer.create_ois_swap(&quote, Money::new(1_000_000.0, Currency::USD))?;
+    /// let swap = pricer.create_ois_swap(&quote, Money::new(1_000_000.0, Currency::USD), Currency::USD)?;
     /// ```
-    pub fn create_ois_swap(&self, quote: &RatesQuote, notional: Money) -> Result<InterestRateSwap> {
-        let (maturity, rate, conventions, float_leg_conventions) = match quote {
+    pub fn create_ois_swap(
+        &self,
+        quote: &RatesQuote,
+        notional: Money,
+        currency: Currency,
+    ) -> Result<InterestRateSwap> {
+        let (maturity, rate, is_ois, conventions, float_leg_conventions) = match quote {
             RatesQuote::Swap {
                 maturity,
                 rate,
+                is_ois,
                 conventions,
                 float_leg_conventions,
                 ..
-            } => (*maturity, *rate, conventions, float_leg_conventions),
+            } => (*maturity, *rate, *is_ois, conventions, float_leg_conventions),
             _ => {
                 return Err(finstack_core::Error::Input(
                     finstack_core::error::InputError::Invalid,
@@ -1048,23 +1013,25 @@ impl CalibrationPricer {
         };
 
         // Extract leg conventions with currency defaults
-        let fixed_freq = quote.effective_fixed_frequency(self.currency);
-        let float_freq = quote.effective_float_frequency(self.currency);
-        let fixed_dc = quote.effective_fixed_day_count(self.currency);
-        let float_dc = quote.effective_float_day_count(self.currency);
+        let fixed_freq = quote.effective_fixed_frequency(currency);
+        let float_freq = quote.effective_float_frequency(currency);
+        let fixed_dc = quote.effective_fixed_day_count(currency);
+        let float_dc = quote.effective_float_day_count(currency);
         let index = float_leg_conventions.index.as_ref()
             .ok_or_else(|| finstack_core::Error::Validation(
                 "Swap quote requires float_leg_conventions.index for OIS swap creation".to_string()
             ))?;
 
-        let start = self.effective_start_date(conventions)?;
-        let payment_delay = self.resolve_payment_delay(conventions);
-        let reset_lag = self.resolve_reset_lag(conventions);
-        let calendar_id = self.resolve_calendar_id(conventions).to_string();
+        let start = self.effective_start_date(conventions, currency)?;
+        let payment_delay = Self::resolve_payment_delay(conventions);
+        let reset_lag = Self::resolve_reset_lag(conventions);
+        let calendar_id = Self::resolve_calendar_id(conventions, currency).to_string();
 
-        // Determine compounding based on OIS logic setting
-        let compounding = if self.use_ois_logic {
-            ois_compounding_for_index(index, self.currency)
+        // Determine whether to use OIS pricing (same logic as price_swap)
+        let use_ois_pricing = is_ois && self.tenor_years.is_none();
+
+        let compounding = if use_ois_pricing {
+            ois_compounding_for_index(index, currency)
         } else {
             FloatingLegCompounding::Simple
         };
@@ -1120,7 +1087,13 @@ impl CalibrationPricer {
     /// when the curve is correctly calibrated.
     ///
     /// Uses per-instrument conventions if specified on the quote, otherwise
-    /// falls back to pricer defaults and currency conventions.
+    /// falls back to currency conventions.
+    ///
+    /// # Arguments
+    ///
+    /// * `quote` - The rate quote to price
+    /// * `currency` - Currency for the instrument (used for convention defaults)
+    /// * `context` - Market context with curves for pricing
     ///
     /// # Settlement Handling
     ///
@@ -1128,15 +1101,20 @@ impl CalibrationPricer {
     /// - USD/EUR/JPY/CHF: T+2
     /// - GBP: T+0 (same-day settlement)
     /// - AUD/CAD: T+1
-    pub fn price_instrument(&self, quote: &RatesQuote, context: &MarketContext) -> Result<f64> {
+    pub fn price_instrument(
+        &self,
+        quote: &RatesQuote,
+        currency: Currency,
+        context: &MarketContext,
+    ) -> Result<f64> {
         match quote {
             RatesQuote::Deposit {
                 maturity,
                 rate,
                 conventions,
             } => {
-                let day_count = quote.effective_day_count(self.currency);
-                self.price_deposit(*maturity, *rate, day_count, conventions, context)
+                let day_count = quote.effective_day_count(currency);
+                self.price_deposit(*maturity, *rate, day_count, conventions, currency, context)
             }
 
             RatesQuote::FRA {
@@ -1145,8 +1123,8 @@ impl CalibrationPricer {
                 rate,
                 conventions,
             } => {
-                let day_count = quote.effective_day_count(self.currency);
-                self.price_fra(*start, *end, *rate, day_count, conventions, context)
+                let day_count = quote.effective_day_count(currency);
+                self.price_fra(*start, *end, *rate, day_count, conventions, currency, context)
             }
 
             RatesQuote::Future {
@@ -1154,7 +1132,7 @@ impl CalibrationPricer {
                 price,
                 specs,
                 conventions,
-            } => self.price_future(*expiry, *price, specs, conventions, context),
+            } => self.price_future(*expiry, *price, specs, conventions, currency, context),
 
             RatesQuote::Swap {
                 maturity,
@@ -1164,10 +1142,10 @@ impl CalibrationPricer {
                 ..
             } => {
                 let is_ois = quote.is_ois_suitable();
-                let fixed_freq = quote.effective_fixed_frequency(self.currency);
-                let float_freq = quote.effective_float_frequency(self.currency);
-                let fixed_dc = quote.effective_fixed_day_count(self.currency);
-                let float_dc = quote.effective_float_day_count(self.currency);
+                let fixed_freq = quote.effective_fixed_frequency(currency);
+                let float_freq = quote.effective_float_frequency(currency);
+                let fixed_dc = quote.effective_fixed_day_count(currency);
+                let float_dc = quote.effective_float_day_count(currency);
                 let index = float_leg_conventions.index.as_ref()
                     .ok_or_else(|| finstack_core::Error::Validation(
                         "Swap quote requires float_leg_conventions.index to be set".to_string()
@@ -1182,6 +1160,7 @@ impl CalibrationPricer {
                     index,
                     is_ois,
                     conventions,
+                    currency,
                     context,
                 )
             }
@@ -1193,10 +1172,8 @@ impl CalibrationPricer {
                 primary_leg_conventions,
                 reference_leg_conventions,
             } => {
-                let currency = conventions.currency
-                    .ok_or_else(|| finstack_core::Error::Validation(
-                        "BasisSwap quote requires conventions.currency to be set".to_string()
-                    ))?;
+                // For basis swaps, use currency from conventions if set, otherwise use the provided currency
+                let basis_currency = conventions.currency.unwrap_or(currency);
                 let primary_index = primary_leg_conventions.index.as_ref()
                     .ok_or_else(|| finstack_core::Error::Validation(
                         "BasisSwap quote requires primary_leg_conventions.index to be set".to_string()
@@ -1205,10 +1182,10 @@ impl CalibrationPricer {
                     .ok_or_else(|| finstack_core::Error::Validation(
                         "BasisSwap quote requires reference_leg_conventions.index to be set".to_string()
                     ))?;
-                let primary_freq = quote.effective_primary_frequency(currency);
-                let reference_freq = quote.effective_reference_frequency(currency);
-                let primary_dc = quote.effective_primary_day_count(currency);
-                let reference_dc = quote.effective_reference_day_count(currency);
+                let primary_freq = quote.effective_primary_frequency(basis_currency);
+                let reference_freq = quote.effective_reference_frequency(basis_currency);
+                let primary_dc = quote.effective_primary_day_count(basis_currency);
+                let reference_dc = quote.effective_reference_day_count(basis_currency);
                 self.price_basis_swap(
                     *maturity,
                     primary_index.as_str(),
@@ -1218,7 +1195,7 @@ impl CalibrationPricer {
                     reference_freq,
                     primary_dc,
                     reference_dc,
-                    currency,
+                    basis_currency,
                     conventions,
                     context,
                 )
@@ -1472,16 +1449,12 @@ mod tests {
         let base_date =
             Date::from_calendar_date(2024, time::Month::January, 15).expect("valid date");
 
-        let pricer = CalibrationPricer::new(base_date, Currency::USD, "USD-OIS")
+        let pricer = CalibrationPricer::new(base_date, "USD-OIS")
             .with_discount_curve_id("USD-DISC")
-            .with_forward_curve_id("USD-3M")
-            .with_reset_lag(0)
-            .with_use_ois_logic(false);
+            .with_forward_curve_id("USD-3M");
 
         assert_eq!(pricer.discount_curve_id.as_str(), "USD-DISC");
         assert_eq!(pricer.forward_curve_id.as_str(), "USD-3M");
-        assert_eq!(pricer.reset_lag, 0);
-        assert!(!pricer.use_ois_logic);
     }
 
     #[test]
@@ -1490,17 +1463,17 @@ mod tests {
             Date::from_calendar_date(2024, time::Month::January, 15).expect("valid date");
 
         // USD defaults to T+2
-        let usd_pricer = CalibrationPricer::new(base_date, Currency::USD, "USD-OIS");
-        assert_eq!(usd_pricer.effective_settlement_days(), 2);
+        let usd_pricer = CalibrationPricer::new(base_date, "USD-OIS");
+        assert_eq!(usd_pricer.effective_settlement_days(Currency::USD), 2);
 
         // GBP defaults to T+0
-        let gbp_pricer = CalibrationPricer::new(base_date, Currency::GBP, "GBP-SONIA");
-        assert_eq!(gbp_pricer.effective_settlement_days(), 0);
+        let gbp_pricer = CalibrationPricer::new(base_date, "GBP-SONIA");
+        assert_eq!(gbp_pricer.effective_settlement_days(Currency::GBP), 0);
 
         // Explicit override
         let custom_pricer =
-            CalibrationPricer::new(base_date, Currency::USD, "USD-OIS").with_settlement_days(1);
-        assert_eq!(custom_pricer.effective_settlement_days(), 1);
+            CalibrationPricer::new(base_date, "USD-OIS").with_settlement_days(1);
+        assert_eq!(custom_pricer.effective_settlement_days(Currency::USD), 1);
     }
 
     // =========================================================================
@@ -1515,7 +1488,6 @@ mod tests {
 
         let pricer = CalibrationPricer::for_forward_curve(
             base_date,
-            Currency::USD,
             "USD-3M-FWD",
             "USD-OIS",
             0.25,
@@ -1524,7 +1496,7 @@ mod tests {
         // Forward mode should use base_date directly
         assert!(!pricer.use_settlement_start);
         let start = pricer
-            .effective_start_date(&InstrumentConventions::default())
+            .effective_start_date(&InstrumentConventions::default(), Currency::USD)
             .expect("should succeed");
         assert_eq!(
             start, base_date,
@@ -1541,7 +1513,6 @@ mod tests {
         // 3M tenor (0.25 years)
         let pricer = CalibrationPricer::for_forward_curve(
             base_date,
-            Currency::USD,
             "USD-3M-FWD",
             "USD-OIS",
             0.25,
@@ -1692,7 +1663,6 @@ mod tests {
         // Create a 3M forward curve pricer
         let pricer = CalibrationPricer::for_forward_curve(
             base_date,
-            Currency::USD,
             "USD-3M-FWD",
             "USD-OIS",
             0.25, // 3M tenor
@@ -1734,7 +1704,6 @@ mod tests {
         // Create a 3M forward curve pricer
         let pricer = CalibrationPricer::for_forward_curve(
             base_date,
-            Currency::USD,
             "USD-3M-FWD",
             "USD-OIS",
             0.25, // 3M tenor
@@ -1778,7 +1747,6 @@ mod tests {
         // Create a 3M forward curve pricer
         let pricer = CalibrationPricer::for_forward_curve(
             base_date,
-            Currency::USD,
             "USD-3M-FWD",
             "USD-OIS",
             0.25, // 3M tenor
@@ -1825,7 +1793,6 @@ mod tests {
         // Create a 3M forward curve pricer
         let pricer = CalibrationPricer::for_forward_curve(
             base_date,
-            Currency::USD,
             "USD-3M-FWD",
             "USD-OIS",
             0.25, // 3M tenor - indicates forward curve mode

@@ -338,23 +338,19 @@ impl ForwardCurveCalibrator {
     ///
     /// The pricer centralizes all instrument pricing and convention resolution logic.
     /// This enables code reuse between discount and forward curve calibrators.
+    /// Per-instrument conventions come from the quote's `InstrumentConventions`.
     fn make_pricer(&self) -> CalibrationPricer {
         let mut pricer = CalibrationPricer::for_forward_curve(
             self.base_date,
-            self.currency,
             self.fwd_curve_id.clone(),
             self.discount_curve_id.clone(),
             self.tenor_years,
         )
-        .with_reset_lag(self.reset_lag)
         .with_allow_calendar_fallback(self.allow_calendar_fallback)
         // Forward curve calibration uses spot-starting swaps (settlement date)
         .with_use_settlement_start(true)
         .with_verbose(self.config.verbose);
 
-        if let Some(ref cal) = self.calendar_id {
-            pricer = pricer.with_calendar_id(cal.clone());
-        }
         if let Some(days) = self.settlement_days {
             pricer = pricer.with_settlement_days(days);
         }
@@ -882,7 +878,7 @@ impl ForwardCurveCalibrator {
             ));
         }
         // Delegate all other quote types to the centralized pricer
-        self.make_pricer().price_instrument(quote, context)
+        self.make_pricer().price_instrument(quote, self.currency, context)
     }
 
     /// Get the knot date for an instrument (end date or period end).

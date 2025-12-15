@@ -74,7 +74,7 @@ impl DiscountCurveCalibrator {
         let curve_dc = self.effective_curve_day_count();
         let pricer = self.create_pricer();
         pricer.validate_curve_dependencies(&sorted_quotes, base_context)?;
-        let settlement = pricer.settlement_date()?;
+        let settlement = pricer.settlement_date(self.currency)?;
 
         // Compute spot knot info using the unified helper (same as bootstrap)
         let (t_spot, spot_knot) = self.compute_spot_knot(curve_dc, settlement);
@@ -272,6 +272,7 @@ impl DiscountCurveCalibrator {
         let active_quotes_clone = active_quotes.to_vec();
         let n_residuals = active_quotes.len();
         let rate_bounds = self.config.effective_rate_bounds(self.currency);
+        let currency = self.currency;
 
         // Track residual evaluation count
         let eval_counter = Arc::new(AtomicUsize::new(0));
@@ -322,7 +323,7 @@ impl DiscountCurveCalibrator {
 
             for (i, quote) in active_quotes_clone.iter().enumerate().take(n_residuals) {
                 resid[i] = pricer_clone
-                    .price_instrument(quote, &temp_context)
+                    .price_instrument(quote, currency, &temp_context)
                     .unwrap_or(crate::calibration::PENALTY);
             }
         };
@@ -427,7 +428,7 @@ impl DiscountCurveCalibrator {
         for (idx, quote) in active_quotes.iter().enumerate() {
             let ctx = final_context.clone();
             let residual = pricer
-                .price_instrument(quote, &ctx)
+                .price_instrument(quote, self.currency, &ctx)
                 .unwrap_or(crate::calibration::PENALTY)
                 .abs();
             residuals_map.insert(format!("GLOBAL-{:06}", idx), residual);

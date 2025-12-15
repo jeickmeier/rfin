@@ -170,14 +170,13 @@ fn test_discount_curve_swap_repricing() {
     // Use CalibrationPricer with use_settlement_start=true to match calibration conventions
     use finstack_valuations::calibration::pricing::CalibrationPricer;
 
-    let pricer = CalibrationPricer::new(base_date, Currency::USD, "USD-OIS")
-        .with_use_settlement_start(true) // Match calibration conventions
-        .with_use_ois_logic(true);
+    let pricer = CalibrationPricer::new(base_date, "USD-OIS")
+        .with_use_settlement_start(true); // Match calibration conventions
 
     for quote in &quotes {
         if let RatesQuote::Swap { .. } = quote {
             let swap = pricer
-                .create_ois_swap(quote, Money::new(NOTIONAL, Currency::USD))
+                .create_ois_swap(quote, Money::new(NOTIONAL, Currency::USD), Currency::USD)
                 .expect("Swap construction should succeed");
 
             let pv = swap.value(&ctx, base_date).unwrap();
