@@ -90,22 +90,19 @@ fn test_discount_curve_swap_repricing() {
     // Use T+0 settlement for consistency
     let calibrator = DiscountCurveCalibrator::new("USD-OIS", base_date, Currency::USD)
         .with_finstack_config(&cfg)
-        .expect("valid config")
-        .with_settlement_days(0);
+        .expect("valid config");
 
     // Quotes: deposits + swaps of various tenors
     let quotes = vec![
         RatesQuote::Deposit {
             maturity: base_date + time::Duration::days(30),
             rate: 0.0450,
-            conventions: InstrumentConventions::default()
-                .with_day_count(DayCount::Act360),
+            conventions: InstrumentConventions::default().with_day_count(DayCount::Act360),
         },
         RatesQuote::Deposit {
             maturity: base_date + time::Duration::days(90),
             rate: 0.0460,
-            conventions: InstrumentConventions::default()
-                .with_day_count(DayCount::Act360),
+            conventions: InstrumentConventions::default().with_day_count(DayCount::Act360),
         },
         RatesQuote::Swap {
             maturity: base_date + time::Duration::days(365),
@@ -170,8 +167,7 @@ fn test_discount_curve_swap_repricing() {
     // Use CalibrationPricer with use_settlement_start=true to match calibration conventions
     use finstack_valuations::calibration::pricing::CalibrationPricer;
 
-    let pricer = CalibrationPricer::new(base_date, "USD-OIS")
-        .with_use_settlement_start(true); // Match calibration conventions
+    let pricer = CalibrationPricer::new(base_date, "USD-OIS").with_use_settlement_start(true); // Match calibration conventions
 
     for quote in &quotes {
         if let RatesQuote::Swap { .. } = quote {
@@ -215,27 +211,23 @@ fn test_discount_curve_deposit_repricing() {
     // Use T+0 settlement for tight repricing
     let calibrator = DiscountCurveCalibrator::new("USD-OIS", base_date, Currency::USD)
         .with_finstack_config(&cfg)
-        .expect("valid config")
-        .with_settlement_days(0);
+        .expect("valid config");
 
     let deposit_quotes = vec![
         RatesQuote::Deposit {
             maturity: base_date + time::Duration::days(30),
             rate: 0.045,
-            conventions: InstrumentConventions::default()
-                .with_day_count(DayCount::Act360),
+            conventions: InstrumentConventions::default().with_day_count(DayCount::Act360),
         },
         RatesQuote::Deposit {
             maturity: base_date + time::Duration::days(90),
             rate: 0.046,
-            conventions: InstrumentConventions::default()
-                .with_day_count(DayCount::Act360),
+            conventions: InstrumentConventions::default().with_day_count(DayCount::Act360),
         },
         RatesQuote::Deposit {
             maturity: base_date + time::Duration::days(180),
             rate: 0.047,
-            conventions: InstrumentConventions::default()
-                .with_day_count(DayCount::Act360),
+            conventions: InstrumentConventions::default().with_day_count(DayCount::Act360),
         },
     ];
 
@@ -320,14 +312,12 @@ fn test_forward_curve_fra_repricing() {
         RatesQuote::Deposit {
             maturity: base_date + time::Duration::days(30),
             rate: 0.0450,
-            conventions: InstrumentConventions::default()
-                .with_day_count(DayCount::Act360),
+            conventions: InstrumentConventions::default().with_day_count(DayCount::Act360),
         },
         RatesQuote::Deposit {
             maturity: base_date + time::Duration::days(90),
             rate: 0.0460,
-            conventions: InstrumentConventions::default()
-                .with_day_count(DayCount::Act360),
+            conventions: InstrumentConventions::default().with_day_count(DayCount::Act360),
         },
     ];
 
@@ -358,15 +348,13 @@ fn test_forward_curve_fra_repricing() {
             start: base_date + time::Duration::days(90),
             end: base_date + time::Duration::days(180),
             rate: 0.0470,
-            conventions: InstrumentConventions::default()
-                .with_day_count(DayCount::Act360),
+            conventions: InstrumentConventions::default().with_day_count(DayCount::Act360),
         },
         RatesQuote::FRA {
             start: base_date + time::Duration::days(180),
             end: base_date + time::Duration::days(270),
             rate: 0.0480,
-            conventions: InstrumentConventions::default()
-                .with_day_count(DayCount::Act360),
+            conventions: InstrumentConventions::default().with_day_count(DayCount::Act360),
         },
     ];
 

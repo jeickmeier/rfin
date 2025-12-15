@@ -73,7 +73,7 @@ impl DiscountCurveCalibrator {
         )?;
 
         // Get effective curve day count for consistent time mapping
-        let curve_dc = self.effective_curve_day_count();
+        let curve_dc = super::default_curve_day_count(self.currency);
         let pricer = self.create_pricer();
 
         // Pre-validate curve dependencies (fail fast for basis swaps)
@@ -218,9 +218,6 @@ impl DiscountCurveCalibrator {
         // Pre-allocate knots buffer with capacity for existing + candidate
         let mut temp_knots_buffer = Vec::with_capacity(existing_knots.len() + 1);
         temp_knots_buffer.extend_from_slice(existing_knots);
-
-        // Use RefCell to allow in-place context updates without cloning
-        let solver_context = Rc::new(RefCell::new(base_context.clone()));
 
         let quote_clone = quote.clone();
         let pricer_clone = pricer.clone();
@@ -452,7 +449,7 @@ impl DiscountCurveCalibrator {
         // Build final discount curve using the unified pathway (no solver-only flags)
         let curve = self.build_curve(
             self.curve_id.to_owned(),
-            self.effective_curve_day_count(),
+            super::default_curve_day_count(self.currency),
             knots,
         )?;
 
@@ -485,19 +482,17 @@ impl DiscountCurveCalibrator {
         )
         .with_metadata("solve_interp", format!("{:?}", self.solve_interp))
         .with_metadata("extrapolation", format!("{:?}", self.extrapolation))
-        .with_metadata("currency", self.currency.to_string())
-        .with_metadata(
-            "curve_day_count",
-            format!("{:?}", self.effective_curve_day_count()),
-        )
-        .with_metadata(
-            "settlement_days",
-            self.effective_settlement_days().to_string(),
-        )
-        .with_metadata("t_spot", format!("{:.6}", t_spot))
-        .with_metadata("spot_knot_included", self.include_spot_knot.to_string())
-        .with_metadata("validation", validation_status)
-        .with_validation_result(validation_status == "passed", validation_error.clone());
+        .with_metadata("currency", self.currency.to_string());
+        report = report
+            .with_metadata(
+                "curve_day_count",
+                format!("{:?}", super::default_curve_day_count(self.currency)),
+            )
+            /* settlement_days metadata removed */
+            .with_metadata("t_spot", format!("{:.6}", t_spot))
+            .with_metadata("spot_knot_included", self.include_spot_knot.to_string())
+            .with_metadata("validation", validation_status)
+            .with_validation_result(validation_status == "passed", validation_error.clone());
 
         if let Some(err) = validation_error {
             report = report.with_metadata("validation_error", err);

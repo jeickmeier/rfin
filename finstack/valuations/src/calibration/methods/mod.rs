@@ -93,6 +93,7 @@ pub mod sabr_surface;
 pub mod swaption_vol;
 pub mod xccy_curve;
 
+pub use crate::calibration::quotes::xccy::{SpreadOn as XccySpreadOn, XccyBasisQuote};
 pub use base_correlation::BaseCorrelationCalibrator;
 pub use discount::DiscountCurveCalibrator;
 pub use forward_curve::ForwardCurveCalibrator;
@@ -106,4 +107,4 @@ pub use inflation_curve::InflationCurveCalibrator;
 pub use sabr_surface::SurfaceInterp;
 pub use sabr_surface::VolSurfaceCalibrator;
 pub use swaption_vol::SwaptionVolCalibrator;
-pub use xccy_curve::{SpreadOn as XccySpreadOn, XccyBasisCalibrator, XccyBasisQuote};
+pub use xccy_curve::XccyBasisCalibrator;

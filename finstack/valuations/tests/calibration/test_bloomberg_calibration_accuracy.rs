@@ -68,8 +68,7 @@ fn deposit(maturity: Date, rate: f64) -> RatesQuote {
     RatesQuote::Deposit {
         maturity,
         rate,
-        conventions: InstrumentConventions::default()
-            .with_day_count(DayCount::Act360),
+        conventions: InstrumentConventions::default().with_day_count(DayCount::Act360),
     }
 }
 
@@ -106,39 +105,135 @@ fn test_bloomberg_usd_ois_calibration_accuracy() {
     // Short-end deposits (< 1Y) and OIS swaps (>= 1Y)
     let discount_quotes = vec![
         // Short-term deposits - using actual maturity dates from Bloomberg
-        deposit(Date::from_calendar_date(2025, Month::December, 19).expect("Valid date"), 0.0364447), // 1W
-        deposit(Date::from_calendar_date(2025, Month::December, 26).expect("Valid date"), 0.0364455), // 2W
-        deposit(Date::from_calendar_date(2026, Month::January, 2).expect("Valid date"), 0.0365300), // 3W
-        deposit(Date::from_calendar_date(2026, Month::January, 12).expect("Valid date"), 0.0364950), // 1M
-        deposit(Date::from_calendar_date(2026, Month::February, 12).expect("Valid date"), 0.0364050), // 2M
-        deposit(Date::from_calendar_date(2026, Month::March, 12).expect("Valid date"), 0.0363477), // 3M
-        deposit(Date::from_calendar_date(2026, Month::April, 13).expect("Valid date"), 0.0361400), // 4M
-        deposit(Date::from_calendar_date(2026, Month::May, 12).expect("Valid date"), 0.0359544), // 5M
-        deposit(Date::from_calendar_date(2026, Month::June, 12).expect("Valid date"), 0.0358000), // 6M
-        deposit(Date::from_calendar_date(2026, Month::July, 13).expect("Valid date"), 0.0355310), // 7M
-        deposit(Date::from_calendar_date(2026, Month::August, 12).expect("Valid date"), 0.0352500), // 8M
-        deposit(Date::from_calendar_date(2026, Month::September, 14).expect("Valid date"), 0.0350225), // 9M
-        deposit(Date::from_calendar_date(2026, Month::October, 13).expect("Valid date"), 0.0347742), // 10M
-        deposit(Date::from_calendar_date(2026, Month::November, 12).expect("Valid date"), 0.0345356), // 11M
+        deposit(
+            Date::from_calendar_date(2025, Month::December, 19).expect("Valid date"),
+            0.0364447,
+        ), // 1W
+        deposit(
+            Date::from_calendar_date(2025, Month::December, 26).expect("Valid date"),
+            0.0364455,
+        ), // 2W
+        deposit(
+            Date::from_calendar_date(2026, Month::January, 2).expect("Valid date"),
+            0.0365300,
+        ), // 3W
+        deposit(
+            Date::from_calendar_date(2026, Month::January, 12).expect("Valid date"),
+            0.0364950,
+        ), // 1M
+        deposit(
+            Date::from_calendar_date(2026, Month::February, 12).expect("Valid date"),
+            0.0364050,
+        ), // 2M
+        deposit(
+            Date::from_calendar_date(2026, Month::March, 12).expect("Valid date"),
+            0.0363477,
+        ), // 3M
+        deposit(
+            Date::from_calendar_date(2026, Month::April, 13).expect("Valid date"),
+            0.0361400,
+        ), // 4M
+        deposit(
+            Date::from_calendar_date(2026, Month::May, 12).expect("Valid date"),
+            0.0359544,
+        ), // 5M
+        deposit(
+            Date::from_calendar_date(2026, Month::June, 12).expect("Valid date"),
+            0.0358000,
+        ), // 6M
+        deposit(
+            Date::from_calendar_date(2026, Month::July, 13).expect("Valid date"),
+            0.0355310,
+        ), // 7M
+        deposit(
+            Date::from_calendar_date(2026, Month::August, 12).expect("Valid date"),
+            0.0352500,
+        ), // 8M
+        deposit(
+            Date::from_calendar_date(2026, Month::September, 14).expect("Valid date"),
+            0.0350225,
+        ), // 9M
+        deposit(
+            Date::from_calendar_date(2026, Month::October, 13).expect("Valid date"),
+            0.0347742,
+        ), // 10M
+        deposit(
+            Date::from_calendar_date(2026, Month::November, 12).expect("Valid date"),
+            0.0345356,
+        ), // 11M
         // OIS Swaps (>= 1Y)
-        ois_swap(Date::from_calendar_date(2026, Month::December, 14).expect("Valid date"), 0.0343446), // 1Y
-        ois_swap(Date::from_calendar_date(2027, Month::June, 14).expect("Valid date"), 0.0332849), // 18M
-        ois_swap(Date::from_calendar_date(2027, Month::December, 13).expect("Valid date"), 0.0329864), // 2Y
-        ois_swap(Date::from_calendar_date(2028, Month::December, 12).expect("Valid date"), 0.0330190), // 3Y
-        ois_swap(Date::from_calendar_date(2029, Month::December, 12).expect("Valid date"), 0.0333823), // 4Y
-        ois_swap(Date::from_calendar_date(2030, Month::December, 12).expect("Valid date"), 0.0338799), // 5Y
-        ois_swap(Date::from_calendar_date(2031, Month::December, 12).expect("Valid date"), 0.0344608), // 6Y
-        ois_swap(Date::from_calendar_date(2032, Month::December, 13).expect("Valid date"), 0.0350619), // 7Y
-        ois_swap(Date::from_calendar_date(2033, Month::December, 12).expect("Valid date"), 0.0356592), // 8Y
-        ois_swap(Date::from_calendar_date(2034, Month::December, 12).expect("Valid date"), 0.0362453), // 9Y
-        ois_swap(Date::from_calendar_date(2035, Month::December, 12).expect("Valid date"), 0.0368206), // 10Y
-        ois_swap(Date::from_calendar_date(2037, Month::December, 14).expect("Valid date"), 0.0378975), // 12Y
-        ois_swap(Date::from_calendar_date(2040, Month::December, 12).expect("Valid date"), 0.0391717), // 15Y
-        ois_swap(Date::from_calendar_date(2045, Month::December, 12).expect("Valid date"), 0.0402348), // 20Y
-        ois_swap(Date::from_calendar_date(2050, Month::December, 12).expect("Valid date"), 0.0403809), // 25Y
-        ois_swap(Date::from_calendar_date(2055, Month::December, 13).expect("Valid date"), 0.0401000), // 30Y
-        ois_swap(Date::from_calendar_date(2065, Month::December, 14).expect("Valid date"), 0.0390413), // 40Y
-        ois_swap(Date::from_calendar_date(2075, Month::December, 12).expect("Valid date"), 0.0378761), // 50Y
+        ois_swap(
+            Date::from_calendar_date(2026, Month::December, 14).expect("Valid date"),
+            0.0343446,
+        ), // 1Y
+        ois_swap(
+            Date::from_calendar_date(2027, Month::June, 14).expect("Valid date"),
+            0.0332849,
+        ), // 18M
+        ois_swap(
+            Date::from_calendar_date(2027, Month::December, 13).expect("Valid date"),
+            0.0329864,
+        ), // 2Y
+        ois_swap(
+            Date::from_calendar_date(2028, Month::December, 12).expect("Valid date"),
+            0.0330190,
+        ), // 3Y
+        ois_swap(
+            Date::from_calendar_date(2029, Month::December, 12).expect("Valid date"),
+            0.0333823,
+        ), // 4Y
+        ois_swap(
+            Date::from_calendar_date(2030, Month::December, 12).expect("Valid date"),
+            0.0338799,
+        ), // 5Y
+        ois_swap(
+            Date::from_calendar_date(2031, Month::December, 12).expect("Valid date"),
+            0.0344608,
+        ), // 6Y
+        ois_swap(
+            Date::from_calendar_date(2032, Month::December, 13).expect("Valid date"),
+            0.0350619,
+        ), // 7Y
+        ois_swap(
+            Date::from_calendar_date(2033, Month::December, 12).expect("Valid date"),
+            0.0356592,
+        ), // 8Y
+        ois_swap(
+            Date::from_calendar_date(2034, Month::December, 12).expect("Valid date"),
+            0.0362453,
+        ), // 9Y
+        ois_swap(
+            Date::from_calendar_date(2035, Month::December, 12).expect("Valid date"),
+            0.0368206,
+        ), // 10Y
+        ois_swap(
+            Date::from_calendar_date(2037, Month::December, 14).expect("Valid date"),
+            0.0378975,
+        ), // 12Y
+        ois_swap(
+            Date::from_calendar_date(2040, Month::December, 12).expect("Valid date"),
+            0.0391717,
+        ), // 15Y
+        ois_swap(
+            Date::from_calendar_date(2045, Month::December, 12).expect("Valid date"),
+            0.0402348,
+        ), // 20Y
+        ois_swap(
+            Date::from_calendar_date(2050, Month::December, 12).expect("Valid date"),
+            0.0403809,
+        ), // 25Y
+        ois_swap(
+            Date::from_calendar_date(2055, Month::December, 13).expect("Valid date"),
+            0.0401000,
+        ), // 30Y
+        ois_swap(
+            Date::from_calendar_date(2065, Month::December, 14).expect("Valid date"),
+            0.0390413,
+        ), // 40Y
+        ois_swap(
+            Date::from_calendar_date(2075, Month::December, 12).expect("Valid date"),
+            0.0378761,
+        ), // 50Y
     ];
 
     // Bloomberg zero rates (in decimal) and discount factors at each maturity
@@ -327,8 +422,7 @@ fn test_bloomberg_usd_ois_calibration_accuracy() {
     let calibrator = DiscountCurveCalibrator::new("USD-OIS", base_date, Currency::USD)
         .with_finstack_config(&cfg)
         .expect("valid config")
-        .with_include_spot_knot(false) // Match Bloomberg's curve structure (no spot knot)
-        .with_allow_calendar_fallback(true);
+        .with_include_spot_knot(false); // Match Bloomberg's curve structure (no spot knot)
     let base_context = MarketContext::new();
 
     let (curve, report) = calibrator
@@ -570,15 +664,39 @@ fn test_interpolation_method_comparison() {
     // Use a subset of quotes for comparison (short-end to 10Y)
     let test_quotes = vec![
         // Short-term deposits
-        deposit(Date::from_calendar_date(2025, Month::December, 19).expect("Valid date"), 0.0364447),
-        deposit(Date::from_calendar_date(2026, Month::January, 12).expect("Valid date"), 0.0364950),
-        deposit(Date::from_calendar_date(2026, Month::March, 12).expect("Valid date"), 0.0363477),
-        deposit(Date::from_calendar_date(2026, Month::June, 12).expect("Valid date"), 0.0358000),
+        deposit(
+            Date::from_calendar_date(2025, Month::December, 19).expect("Valid date"),
+            0.0364447,
+        ),
+        deposit(
+            Date::from_calendar_date(2026, Month::January, 12).expect("Valid date"),
+            0.0364950,
+        ),
+        deposit(
+            Date::from_calendar_date(2026, Month::March, 12).expect("Valid date"),
+            0.0363477,
+        ),
+        deposit(
+            Date::from_calendar_date(2026, Month::June, 12).expect("Valid date"),
+            0.0358000,
+        ),
         // OIS Swaps
-        ois_swap(Date::from_calendar_date(2026, Month::December, 14).expect("Valid date"), 0.0343446),
-        ois_swap(Date::from_calendar_date(2027, Month::December, 13).expect("Valid date"), 0.0329864),
-        ois_swap(Date::from_calendar_date(2030, Month::December, 12).expect("Valid date"), 0.0338799),
-        ois_swap(Date::from_calendar_date(2035, Month::December, 12).expect("Valid date"), 0.0370206),
+        ois_swap(
+            Date::from_calendar_date(2026, Month::December, 14).expect("Valid date"),
+            0.0343446,
+        ),
+        ois_swap(
+            Date::from_calendar_date(2027, Month::December, 13).expect("Valid date"),
+            0.0329864,
+        ),
+        ois_swap(
+            Date::from_calendar_date(2030, Month::December, 12).expect("Valid date"),
+            0.0338799,
+        ),
+        ois_swap(
+            Date::from_calendar_date(2035, Month::December, 12).expect("Valid date"),
+            0.0370206,
+        ),
     ];
 
     let base_context = MarketContext::new();

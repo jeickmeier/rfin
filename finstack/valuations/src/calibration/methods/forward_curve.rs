@@ -95,7 +95,7 @@ use crate::calibration::{
 use finstack_core::{
     config::FinstackConfig,
     currency::Currency,
-    dates::{Date, DateExt, DayCount, DayCountCtx, Tenor},
+    dates::{Date, DateExt, DayCountCtx, Tenor},
     explain::{ExplanationTrace, TraceEntry},
     market_data::{context::MarketContext, term_structures::forward_curve::ForwardCurve},
     math::{interp::InterpStyle, Solver},
@@ -135,40 +135,20 @@ pub struct ForwardCurveCalibrator {
     pub currency: Currency,
     /// Discount curve identifier for PV calculations
     pub discount_curve_id: CurveId,
-    /// Day count for time axis (used for curve knot times, not accrual).
-    /// This is distinct from instrument accrual day counts.
-    pub time_dc: DayCount,
     /// Interpolation style for forward rates
     pub solve_interp: InterpStyle,
     /// Calibration configuration (includes rate bounds, solver settings)
     pub config: CalibrationConfig,
-    /// Optional calendar identifier for schedule generation and business day adjustments.
-    /// When set, enables proper T-2 business day fixing date calculation for FRAs.
-    pub calendar_id: Option<String>,
-    /// Settlement lag in business days from base date (None = currency default).
-    ///
-    /// Used for spot-starting swap and basis swap construction.
-    #[serde(default)]
-    pub settlement_days: Option<i32>,
     /// Allow calendar-day fallback when the calendar cannot be resolved.
     ///
     /// When `false` (default), missing calendars are treated as an input error to
     /// avoid silently misaligning spot/settlement conventions.
     #[serde(default)]
     pub allow_calendar_fallback: bool,
-    /// Reset lag in business days for FRA fixing (default: 2 per ISDA convention).
-    /// This determines how many business days before the period start the fixing occurs.
-    #[serde(default = "default_reset_lag")]
-    pub reset_lag: i32,
     /// Optional custom convexity parameters for futures pricing.
     /// If None, uses currency-specific defaults from `ConvexityParameters`.
     #[serde(default)]
     pub convexity_params: Option<crate::calibration::pricing::ConvexityParameters>,
-}
-
-/// Default reset lag (2 business days per ISDA convention)
-fn default_reset_lag() -> i32 {
-    2
 }
 
 impl ForwardCurveCalibrator {
@@ -207,12 +187,6 @@ impl ForwardCurveCalibrator {
         currency: Currency,
         discount_curve_id: impl Into<CurveId>,
     ) -> Self {
-        // Choose sensible time-axis day count defaults by currency
-        let default_time_dc = match currency {
-            Currency::USD | Currency::EUR | Currency::CHF => DayCount::Act360,
-            Currency::GBP | Currency::JPY => DayCount::Act365F,
-            _ => DayCount::Act365F,
-        };
         // Use currency-appropriate rate bounds
         let config = CalibrationConfig::default().with_rate_bounds_for_currency(currency);
         Self {
@@ -221,21 +195,11 @@ impl ForwardCurveCalibrator {
             base_date,
             currency,
             discount_curve_id: discount_curve_id.into(),
-            time_dc: default_time_dc,
             solve_interp: InterpStyle::Linear,
             config,
-            calendar_id: None,
-            settlement_days: None,
             allow_calendar_fallback: false,
-            reset_lag: 2, // ISDA standard T-2
             convexity_params: None,
         }
-    }
-
-    /// Set the day count convention for time axis.
-    pub fn with_time_dc(mut self, dc: DayCount) -> Self {
-        self.time_dc = dc;
-        self
     }
 
     /// Set the interpolation style for forward rates.
@@ -257,32 +221,6 @@ impl ForwardCurveCalibrator {
         Ok(self)
     }
 
-    /// Set an optional calendar identifier for schedule generation and business day adjustments.
-    ///
-    /// When set, FRA fixing dates will be adjusted using proper business day conventions
-    /// (T-2 business days before spot date per ISDA convention).
-    ///
-    /// # Example
-    ///
-    /// ```ignore
-    /// let calibrator = ForwardCurveCalibrator::new(...)
-    ///     .with_calendar_id("USD");  // Use USD business calendar
-    /// ```
-    #[must_use]
-    pub fn with_calendar_id(mut self, calendar_id: impl Into<String>) -> Self {
-        self.calendar_id = Some(calendar_id.into());
-        self
-    }
-
-    /// Set explicit settlement days (overrides currency default).
-    ///
-    /// Used to compute the spot/settlement start date for swap and basis swap quotes.
-    #[must_use]
-    pub fn with_settlement_days(mut self, days: i32) -> Self {
-        self.settlement_days = Some(days);
-        self
-    }
-
     /// Allow (or disallow) calendar-day fallback when a calendar cannot be resolved.
     ///
     /// For production calibration, keep this `false` to avoid silent date shifts.
@@ -292,22 +230,12 @@ impl ForwardCurveCalibrator {
         self
     }
 
-    /// Set the reset lag in business days for FRA fixing date calculation.
+    /// Set time day count (deprecated: use InstrumentConventions on quotes instead).
     ///
-    /// Default is 2 business days (ISDA standard). Some markets use different conventions:
-    /// - USD/EUR: T-2 (2 business days)
-    /// - GBP: T-0 (same day)
-    /// - JPY: T-2
-    ///
-    /// # Example
-    ///
-    /// ```ignore
-    /// let calibrator = ForwardCurveCalibrator::new(...)
-    ///     .with_reset_lag(0);  // GBP convention
-    /// ```
-    #[must_use]
-    pub fn with_reset_lag(mut self, reset_lag: i32) -> Self {
-        self.reset_lag = reset_lag;
+    /// This method is kept for backward compatibility with Python bindings.
+    /// Settings are now configured per-quote via `InstrumentConventions`.
+    #[deprecated(note = "Use InstrumentConventions on quotes instead")]
+    pub fn with_time_dc(self, _dc: finstack_core::dates::DayCount) -> Self {
         self
     }
 
@@ -329,16 +257,14 @@ impl ForwardCurveCalibrator {
     ///     );
     /// ```
     #[must_use]
-    pub fn with_convexity_params(mut self, params: crate::calibration::pricing::ConvexityParameters) -> Self {
+    pub fn with_convexity_params(
+        mut self,
+        params: crate::calibration::pricing::ConvexityParameters,
+    ) -> Self {
         self.convexity_params = Some(params);
         self
     }
 
-    /// Create a `CalibrationPricer` configured for this forward curve calibrator.
-    ///
-    /// The pricer centralizes all instrument pricing and convention resolution logic.
-    /// This enables code reuse between discount and forward curve calibrators.
-    /// Per-instrument conventions come from the quote's `InstrumentConventions`.
     fn make_pricer(&self) -> CalibrationPricer {
         let mut pricer = CalibrationPricer::for_forward_curve(
             self.base_date,
@@ -351,9 +277,6 @@ impl ForwardCurveCalibrator {
         .with_use_settlement_start(true)
         .with_verbose(self.config.verbose);
 
-        if let Some(days) = self.settlement_days {
-            pricer = pricer.with_settlement_days(days);
-        }
         if let Some(ref params) = self.convexity_params {
             pricer = pricer.with_convexity_params(params.clone());
         }
@@ -418,7 +341,9 @@ impl ForwardCurveCalibrator {
                     ..
                 } => {
                     // Get index and frequency from conventions
-                    let index = float_leg_conventions.index.as_ref()
+                    let index = float_leg_conventions
+                        .index
+                        .as_ref()
                         .map(|i| i.as_str())
                         .unwrap_or("");
                     let float_freq = q.effective_float_frequency(self.currency);
@@ -432,10 +357,14 @@ impl ForwardCurveCalibrator {
                 } => {
                     // Get indices and frequencies from leg conventions
                     let currency = conventions.currency.unwrap_or(self.currency);
-                    let primary_index = primary_leg_conventions.index.as_ref()
+                    let primary_index = primary_leg_conventions
+                        .index
+                        .as_ref()
                         .map(|i| i.as_str())
                         .unwrap_or("");
-                    let reference_index = reference_leg_conventions.index.as_ref()
+                    let reference_index = reference_leg_conventions
+                        .index
+                        .as_ref()
                         .map(|i| i.as_str())
                         .unwrap_or("");
                     let primary_freq = q.effective_primary_frequency(currency);
@@ -478,9 +407,9 @@ impl ForwardCurveCalibrator {
 
             // Determine knot time for this instrument
             let knot_date = self.get_knot_date(quote);
+            let time_dc = super::discount::default_curve_day_count(self.currency);
             let knot_time =
-                self.time_dc
-                    .year_fraction(self.base_date, knot_date, DayCountCtx::default())?;
+                time_dc.year_fraction(self.base_date, knot_date, DayCountCtx::default())?;
 
             // Skip if we already have a knot at this time (scale-aware collision detection)
             // Use relative tolerance for long tenors to avoid floating-point precision issues
@@ -508,7 +437,7 @@ impl ForwardCurveCalibrator {
             let fwd_curve_id = self.fwd_curve_id.clone();
             let tenor_years = self.tenor_years;
             let solve_interp = self.solve_interp;
-            let time_dc = self.time_dc;
+            let time_dc = super::discount::default_curve_day_count(self.currency);
 
             let this = self;
             // Define objective function
@@ -732,7 +661,7 @@ impl ForwardCurveCalibrator {
             .base_date(self.base_date)
             .knots(final_knots)
             .set_interp(self.solve_interp)
-            .day_count(self.time_dc)
+            .day_count(super::discount::default_curve_day_count(self.currency))
             .build()?;
 
         // Validate the calibrated forward curve (honor config.validation + validation_mode).
@@ -781,7 +710,13 @@ impl ForwardCurveCalibrator {
         .with_metadata("tenor_years", self.tenor_years.to_string())
         .with_metadata("interp", format!("{:?}", self.solve_interp))
         .with_metadata("discount_curve", self.discount_curve_id.to_string())
-        .with_metadata("time_dc", format!("{:?}", self.time_dc))
+        .with_metadata(
+            "time_dc",
+            format!(
+                "{:?}",
+                super::discount::default_curve_day_count(self.currency)
+            ),
+        )
         .with_metadata("validation", validation_status)
         .with_validation_result(validation_status == "passed", validation_error);
 
@@ -878,7 +813,8 @@ impl ForwardCurveCalibrator {
             ));
         }
         // Delegate all other quote types to the centralized pricer
-        self.make_pricer().price_instrument(quote, self.currency, context)
+        self.make_pricer()
+            .price_instrument(quote, self.currency, context)
     }
 
     /// Get the knot date for an instrument (end date or period end).
@@ -1014,10 +950,11 @@ impl ForwardCurveCalibrator {
             RatesQuote::FRA { conventions, .. } => {
                 // FRA day-count should typically match tenor conventions
                 let day_count = quote.effective_day_count(self.currency);
-                if day_count != self.time_dc && self.config.verbose {
+                let time_dc = super::discount::default_curve_day_count(self.currency);
+                if day_count != time_dc && self.config.verbose {
                     tracing::warn!(
                         fra_dc = ?day_count,
-                        calibrator_dc = ?self.time_dc,
+                        calibrator_dc = ?time_dc,
                         explicit_dc = ?conventions.day_count,
                         "FRA day-count differs from calibrator time day-count. \
                         This is usually fine as they serve different purposes \
@@ -1030,7 +967,8 @@ impl ForwardCurveCalibrator {
                 let float_freq = quote.effective_float_frequency(self.currency);
                 let fixed_dc = quote.effective_fixed_day_count(self.currency);
                 let float_dc = quote.effective_float_day_count(self.currency);
-                
+                let time_dc = super::discount::default_curve_day_count(self.currency);
+
                 // Check float leg frequency matches calibrator tenor
                 if !self.frequency_matches_tenor(&float_freq) && self.config.verbose {
                     tracing::warn!(
@@ -1046,7 +984,7 @@ impl ForwardCurveCalibrator {
                     tracing::debug!(
                         fixed_dc = ?fixed_dc,
                         float_dc = ?float_dc,
-                        time_dc = ?self.time_dc,
+                        time_dc = ?time_dc,
                         "Swap day-count conventions"
                     );
                 }
@@ -1146,8 +1084,7 @@ mod tests {
             start: base_date + time::Duration::days(90),
             end: base_date + time::Duration::days(180),
             rate: 0.04,
-            conventions: InstrumentConventions::default()
-                .with_day_count(DayCount::Act360),
+            conventions: InstrumentConventions::default().with_day_count(DayCount::Act360),
         };
 
         let calibrator = ForwardCurveCalibrator::new(
@@ -1157,14 +1094,14 @@ mod tests {
             Currency::USD,
             "USD-OIS-DISC",
         )
-        .with_time_dc(DayCount::Act360)
+        // .with_time_dc(DayCount::Act360) // Removed
         .with_allow_calendar_fallback(true);
 
         let (curve, _report) = calibrator
             .calibrate(&[fra_quote], &context)
             .expect("calibration should succeed");
 
-        // Ensure the resulting forward curve reports the configured time day count
+        // Ensure the resulting forward curve reports the configured time day count (USD default)
         assert_eq!(curve.day_count(), DayCount::Act360);
     }
 
@@ -1176,22 +1113,19 @@ mod tests {
                 start: base_date + time::Duration::days(90),
                 end: base_date + time::Duration::days(180),
                 rate: 0.0465,
-                conventions: InstrumentConventions::default()
-                    .with_day_count(DayCount::Act360),
+                conventions: InstrumentConventions::default().with_day_count(DayCount::Act360),
             },
             RatesQuote::FRA {
                 start: base_date + time::Duration::days(180),
                 end: base_date + time::Duration::days(270),
                 rate: 0.0472,
-                conventions: InstrumentConventions::default()
-                    .with_day_count(DayCount::Act360),
+                conventions: InstrumentConventions::default().with_day_count(DayCount::Act360),
             },
             RatesQuote::FRA {
                 start: base_date + time::Duration::days(270),
                 end: base_date + time::Duration::days(360),
                 rate: 0.0478,
-                conventions: InstrumentConventions::default()
-                    .with_day_count(DayCount::Act360),
+                conventions: InstrumentConventions::default().with_day_count(DayCount::Act360),
             },
         ]
     }
@@ -1267,8 +1201,7 @@ mod tests {
             RatesQuote::BasisSwap {
                 maturity: base_date + time::Duration::days(365),
                 spread_bp: 5.0, // 3M pays 6M + 5bp
-                conventions: InstrumentConventions::default()
-                    .with_currency(Currency::USD),
+                conventions: InstrumentConventions::default().with_currency(Currency::USD),
                 primary_leg_conventions: InstrumentConventions::default()
                     .with_index("3M-SOFR")
                     .with_payment_frequency(finstack_core::dates::Tenor::new(
@@ -1287,8 +1220,7 @@ mod tests {
             RatesQuote::BasisSwap {
                 maturity: base_date + time::Duration::days(730),
                 spread_bp: 7.0, // 3M pays 6M + 7bp
-                conventions: InstrumentConventions::default()
-                    .with_currency(Currency::USD),
+                conventions: InstrumentConventions::default().with_currency(Currency::USD),
                 primary_leg_conventions: InstrumentConventions::default()
                     .with_index("3M-SOFR")
                     .with_payment_frequency(finstack_core::dates::Tenor::new(
@@ -1478,43 +1410,6 @@ mod tests {
     }
 
     #[test]
-    fn test_reset_lag_configuration() {
-        let base_date = Date::from_calendar_date(2025, Month::January, 1).expect("Valid test date");
-
-        // Default should be 2 (ISDA standard)
-        let default_calibrator = ForwardCurveCalibrator::new(
-            "USD-SOFR-3M-FWD",
-            0.25,
-            base_date,
-            Currency::USD,
-            "USD-OIS-DISC",
-        );
-        assert_eq!(default_calibrator.reset_lag, 2);
-
-        // GBP convention (T-0)
-        let gbp_calibrator = ForwardCurveCalibrator::new(
-            "GBP-SONIA-3M-FWD",
-            0.25,
-            base_date,
-            Currency::GBP,
-            "GBP-OIS-DISC",
-        )
-        .with_reset_lag(0);
-        assert_eq!(gbp_calibrator.reset_lag, 0);
-
-        // Custom reset lag
-        let custom_calibrator = ForwardCurveCalibrator::new(
-            "CUSTOM-FWD",
-            0.25,
-            base_date,
-            Currency::USD,
-            "USD-OIS-DISC",
-        )
-        .with_reset_lag(3);
-        assert_eq!(custom_calibrator.reset_lag, 3);
-    }
-
-    #[test]
     fn test_convexity_params_override() {
         use crate::calibration::pricing::ConvexityParameters;
 
@@ -1575,8 +1470,7 @@ mod tests {
             start: base_date + time::Duration::days(90),
             end: base_date + time::Duration::days(180),
             rate: 0.75, // 75% - outside USD bounds
-            conventions: InstrumentConventions::default()
-                .with_day_count(DayCount::Act360),
+            conventions: InstrumentConventions::default().with_day_count(DayCount::Act360),
         }];
 
         let result = calibrator.calibrate(&bad_quote, &context);
@@ -1595,8 +1489,7 @@ mod tests {
             start: base_date + time::Duration::days(90),
             end: base_date + time::Duration::days(180),
             rate: 0.75, // 75% - acceptable for TRY
-            conventions: InstrumentConventions::default()
-                .with_day_count(DayCount::Act360),
+            conventions: InstrumentConventions::default().with_day_count(DayCount::Act360),
         }];
 
         // Should not fail on validation (calibration may still fail for other reasons)
@@ -1632,25 +1525,24 @@ mod tests {
             Currency::USD,
             "USD-OIS-DISC",
         )
-        .with_time_dc(DayCount::Act365F)
+        // .with_time_dc(DayCount::Act365F) // Removed
         .with_solve_interp(InterpStyle::MonotoneConvex)
-        .with_calendar_id("usny")
-        .with_reset_lag(2)
+        // .with_calendar_id("usny") // Removed
+        // .with_reset_lag(2) // Removed
         .with_convexity_params(ConvexityParameters::usd_sofr())
         .with_finstack_config(&cfg)
         .expect("valid config");
 
-        // Verify all settings were applied
-        assert_eq!(calibrator.time_dc, DayCount::Act365F);
+        // Verify all settings were applied. NOTE: time_dc is now implicit from currency
+        // assert_eq!(calibrator.time_dc, DayCount::Act365F);
         // InterpStyle doesn't implement PartialEq, so use debug format
         assert!(
             format!("{:?}", calibrator.solve_interp).contains("MonotoneConvex"),
             "Expected MonotoneConvex interpolation"
         );
-        assert_eq!(calibrator.calendar_id.as_deref(), Some("usny"));
-        assert_eq!(calibrator.reset_lag, 2);
+        // assert_eq!(calibrator.calendar_id.as_deref(), Some("usny"));
+        // assert_eq!(calibrator.reset_lag, 2);
         assert!(calibrator.convexity_params.is_some());
         assert!(calibrator.config.rate_bounds.max_rate >= 1.0);
     }
-
 }

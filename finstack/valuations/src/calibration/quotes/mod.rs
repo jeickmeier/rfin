@@ -17,12 +17,13 @@
 //! Per-instrument conventions can be specified via [`InstrumentConventions`] to override
 //! currency defaults for settlement, payment delay, reset lag, and calendar.
 
-mod conventions;
-mod credit;
-mod inflation;
-mod market_quote;
-mod rates;
-mod vol;
+pub mod conventions;
+pub mod credit;
+pub mod inflation;
+pub mod market_quote;
+pub mod rates;
+pub mod vol;
+pub mod xccy;
 
 pub use conventions::InstrumentConventions;
 pub use credit::CreditQuote;
@@ -30,4 +31,3 @@ pub use inflation::InflationQuote;
 pub use market_quote::MarketQuote;
 pub use rates::{FutureSpecs, RatesQuote};
 pub use vol::VolQuote;
-

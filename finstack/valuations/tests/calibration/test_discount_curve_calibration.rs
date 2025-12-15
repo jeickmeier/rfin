@@ -30,8 +30,7 @@ fn test_multi_curve_instrument_validation() {
     let deposit = RatesQuote::Deposit {
         maturity: Date::from_calendar_date(2024, Month::February, 1).expect("Valid test date"),
         rate: 0.015,
-        conventions: InstrumentConventions::default()
-            .with_day_count(DayCount::Act360),
+        conventions: InstrumentConventions::default().with_day_count(DayCount::Act360),
     };
     assert!(
         !deposit.requires_forward_curve(),
@@ -46,8 +45,7 @@ fn test_multi_curve_instrument_validation() {
         start: Date::from_calendar_date(2024, Month::April, 1).expect("Valid test date"),
         end: Date::from_calendar_date(2024, Month::July, 1).expect("Valid test date"),
         rate: 0.018,
-        conventions: InstrumentConventions::default()
-            .with_day_count(DayCount::Act360),
+        conventions: InstrumentConventions::default().with_day_count(DayCount::Act360),
     };
     assert!(
         fra.requires_forward_curve(),
@@ -118,14 +116,12 @@ fn create_test_quotes() -> Vec<RatesQuote> {
         RatesQuote::Deposit {
             maturity: base_date + time::Duration::days(30),
             rate: 0.045,
-            conventions: InstrumentConventions::default()
-                .with_day_count(DayCount::Act360),
+            conventions: InstrumentConventions::default().with_day_count(DayCount::Act360),
         },
         RatesQuote::Deposit {
             maturity: base_date + time::Duration::days(90),
             rate: 0.046,
-            conventions: InstrumentConventions::default()
-                .with_day_count(DayCount::Act360),
+            conventions: InstrumentConventions::default().with_day_count(DayCount::Act360),
         },
         RatesQuote::Swap {
             maturity: base_date + time::Duration::days(365),
@@ -189,28 +185,24 @@ fn test_deposit_repricing_under_bootstrap() {
 
     // Use explicit T+0 settlement to match pre-settlement-aware behavior
     // For production, use currency default (T+2 for USD)
-    let calibrator =
-        DiscountCurveCalibrator::new("USD-OIS", base_date, Currency::USD).with_settlement_days(0); // T+0 for test consistency
+    let calibrator = DiscountCurveCalibrator::new("USD-OIS", base_date, Currency::USD); // T+0 for test consistency
 
     // Use just deposits for initial test
     let deposit_quotes = vec![
         RatesQuote::Deposit {
             maturity: base_date + time::Duration::days(30),
             rate: 0.045,
-            conventions: InstrumentConventions::default()
-                .with_day_count(DayCount::Act360),
+            conventions: InstrumentConventions::default().with_day_count(DayCount::Act360),
         },
         RatesQuote::Deposit {
             maturity: base_date + time::Duration::days(90),
             rate: 0.046,
-            conventions: InstrumentConventions::default()
-                .with_day_count(DayCount::Act360),
+            conventions: InstrumentConventions::default().with_day_count(DayCount::Act360),
         },
         RatesQuote::Deposit {
             maturity: base_date + time::Duration::days(180),
             rate: 0.047,
-            conventions: InstrumentConventions::default()
-                .with_day_count(DayCount::Act360),
+            conventions: InstrumentConventions::default().with_day_count(DayCount::Act360),
         },
     ];
 
@@ -282,21 +274,18 @@ fn test_fra_repricing_under_bootstrap() {
         RatesQuote::Deposit {
             maturity: base_date + time::Duration::days(30),
             rate: 0.0450,
-            conventions: InstrumentConventions::default()
-                .with_day_count(DayCount::Act360),
+            conventions: InstrumentConventions::default().with_day_count(DayCount::Act360),
         },
         RatesQuote::Deposit {
             maturity: base_date + time::Duration::days(90),
             rate: 0.0460,
-            conventions: InstrumentConventions::default()
-                .with_day_count(DayCount::Act360),
+            conventions: InstrumentConventions::default().with_day_count(DayCount::Act360),
         },
         RatesQuote::FRA {
             start: base_date + time::Duration::days(90),
             end: base_date + time::Duration::days(180),
             rate: 0.0470,
-            conventions: InstrumentConventions::default()
-                .with_day_count(DayCount::Act360),
+            conventions: InstrumentConventions::default().with_day_count(DayCount::Act360),
         },
     ];
 
@@ -345,22 +334,19 @@ fn test_swap_repricing_under_bootstrap() {
     // Use T+0 settlement for test consistency
     let calibrator = DiscountCurveCalibrator::new("USD-OIS", base_date, Currency::USD)
         .with_finstack_config(&cfg)
-        .expect("valid config")
-        .with_settlement_days(0);
+        .expect("valid config");
 
     // Quotes: deposits + one 1Y swap par rate
     let quotes = vec![
         RatesQuote::Deposit {
             maturity: base_date + time::Duration::days(30),
             rate: 0.0450,
-            conventions: InstrumentConventions::default()
-                .with_day_count(DayCount::Act360),
+            conventions: InstrumentConventions::default().with_day_count(DayCount::Act360),
         },
         RatesQuote::Deposit {
             maturity: base_date + time::Duration::days(90),
             rate: 0.0460,
-            conventions: InstrumentConventions::default()
-                .with_day_count(DayCount::Act360),
+            conventions: InstrumentConventions::default().with_day_count(DayCount::Act360),
         },
         RatesQuote::Swap {
             maturity: base_date + time::Duration::days(365),
@@ -482,14 +468,12 @@ fn test_ois_bootstrap_with_deposits_and_ois_swaps() {
         RatesQuote::Deposit {
             maturity: base_date + time::Duration::days(30),
             rate: 0.0450,
-            conventions: InstrumentConventions::default()
-                .with_day_count(DayCount::Act360),
+            conventions: InstrumentConventions::default().with_day_count(DayCount::Act360),
         },
         RatesQuote::Deposit {
             maturity: base_date + time::Duration::days(90),
             rate: 0.0460,
-            conventions: InstrumentConventions::default()
-                .with_day_count(DayCount::Act360),
+            conventions: InstrumentConventions::default().with_day_count(DayCount::Act360),
         },
         RatesQuote::Swap {
             maturity: base_date + time::Duration::days(365),
@@ -636,7 +620,6 @@ fn test_negative_rate_deposit_calibration() {
 
     // Use T+0 settlement and Linear interpolation for simpler debugging
     let calibrator = DiscountCurveCalibrator::new("EUR-ESTR", base_date, Currency::EUR)
-        .with_settlement_days(0)
         .with_solve_interp(InterpStyle::Linear); // Use Linear for predictable behavior
 
     // Use more pronounced negative rates and longer maturities
@@ -645,20 +628,17 @@ fn test_negative_rate_deposit_calibration() {
         RatesQuote::Deposit {
             maturity: base_date + time::Duration::days(90),
             rate: -0.01, // -100bp (more pronounced negative)
-            conventions: InstrumentConventions::default()
-                .with_day_count(DayCount::Act360),
+            conventions: InstrumentConventions::default().with_day_count(DayCount::Act360),
         },
         RatesQuote::Deposit {
             maturity: base_date + time::Duration::days(180),
             rate: -0.008, // -80bp
-            conventions: InstrumentConventions::default()
-                .with_day_count(DayCount::Act360),
+            conventions: InstrumentConventions::default().with_day_count(DayCount::Act360),
         },
         RatesQuote::Deposit {
             maturity: base_date + time::Duration::days(365),
             rate: -0.005, // -50bp
-            conventions: InstrumentConventions::default()
-                .with_day_count(DayCount::Act360),
+            conventions: InstrumentConventions::default().with_day_count(DayCount::Act360),
         },
     ];
 
@@ -702,14 +682,12 @@ fn test_pre_validation_fails_for_missing_forward_curves() {
         RatesQuote::Deposit {
             maturity: base_date + time::Duration::days(30),
             rate: 0.045,
-            conventions: InstrumentConventions::default()
-                .with_day_count(DayCount::Act360),
+            conventions: InstrumentConventions::default().with_day_count(DayCount::Act360),
         },
         RatesQuote::BasisSwap {
             maturity: base_date + time::Duration::days(365),
             spread_bp: 5.0,
-            conventions: InstrumentConventions::default()
-                .with_currency(Currency::USD),
+            conventions: InstrumentConventions::default().with_currency(Currency::USD),
             primary_leg_conventions: InstrumentConventions::default()
                 .with_index("3M-SOFR")
                 .with_payment_frequency(Tenor::quarterly())
@@ -738,21 +716,18 @@ fn test_pre_validation_fails_for_missing_forward_curves() {
 fn test_calibration_report_metadata() {
     let base_date = Date::from_calendar_date(2025, Month::January, 1).expect("Valid test date");
     let calibrator = DiscountCurveCalibrator::new("USD-OIS", base_date, Currency::USD)
-        .with_extrapolation(ExtrapolationPolicy::FlatZero)
-        .with_settlement_days(1);
+        .with_extrapolation(ExtrapolationPolicy::FlatZero);
 
     let quotes = vec![
         RatesQuote::Deposit {
             maturity: base_date + time::Duration::days(30),
             rate: 0.045,
-            conventions: InstrumentConventions::default()
-                .with_day_count(DayCount::Act360),
+            conventions: InstrumentConventions::default().with_day_count(DayCount::Act360),
         },
         RatesQuote::Deposit {
             maturity: base_date + time::Duration::days(90),
             rate: 0.046,
-            conventions: InstrumentConventions::default()
-                .with_day_count(DayCount::Act360),
+            conventions: InstrumentConventions::default().with_day_count(DayCount::Act360),
         },
     ];
 
@@ -767,10 +742,6 @@ fn test_calibration_report_metadata() {
         "Report should contain extrapolation metadata"
     );
     assert!(
-        report.metadata.contains_key("settlement_days"),
-        "Report should contain settlement_days metadata"
-    );
-    assert!(
         report.metadata.contains_key("curve_day_count"),
         "Report should contain curve_day_count metadata"
     );
@@ -779,9 +750,5 @@ fn test_calibration_report_metadata() {
     assert!(
         report.metadata["extrapolation"].contains("FlatZero"),
         "Extrapolation metadata should indicate FlatZero"
-    );
-    assert_eq!(
-        report.metadata["settlement_days"], "1",
-        "Settlement days should be 1"
     );
 }

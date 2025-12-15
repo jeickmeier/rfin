@@ -71,7 +71,7 @@ impl DiscountCurveCalibrator {
             },
         )?;
 
-        let curve_dc = self.effective_curve_day_count();
+        let curve_dc = super::default_curve_day_count(self.currency);
         let pricer = self.create_pricer();
         pricer.validate_curve_dependencies(&sorted_quotes, base_context)?;
         let settlement = pricer.settlement_date(self.currency)?;
@@ -393,11 +393,7 @@ impl DiscountCurveCalibrator {
             Self::build_knots_from_zero_rates(times, solved_zero_rates, &bounds, spot_knot);
 
         // Build final curve using the unified pathway (no solver-only flags)
-        let curve = self.build_curve(
-            self.curve_id.to_owned(),
-            curve_dc,
-            final_knots.clone(),
-        )?;
+        let curve = self.build_curve(self.curve_id.to_owned(), curve_dc, final_knots.clone())?;
 
         Ok((curve, final_knots))
     }
@@ -450,12 +446,9 @@ impl DiscountCurveCalibrator {
         .with_metadata("currency", self.currency.to_string())
         .with_metadata(
             "curve_day_count",
-            format!("{:?}", self.effective_curve_day_count()),
+            format!("{:?}", super::default_curve_day_count(self.currency)),
         )
-        .with_metadata(
-            "settlement_days",
-            self.effective_settlement_days().to_string(),
-        )
+        /* settlement_days metadata removed */
         .with_metadata("t_spot", format!("{:.6}", t_spot))
         .with_metadata("spot_knot_included", self.include_spot_knot.to_string())
         .with_metadata("method", "global_solve")

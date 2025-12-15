@@ -28,7 +28,7 @@ use crate::calibration::quotes::CreditQuote;
 use crate::calibration::{CalibrationConfig, CalibrationReport, Calibrator};
 use crate::constants::time as time_constants;
 use crate::instruments::cds::pricer::CDSPricer;
-use crate::instruments::cds::{CDSConvention, CreditDefaultSwap, PayReceive};
+use crate::instruments::cds::{CDSConvention, PayReceive};
 use finstack_core::config::FinstackConfig;
 use finstack_core::market_data::context::MarketContext;
 use finstack_core::market_data::term_structures::{HazardCurve, ParInterp, Seniority};
@@ -266,28 +266,38 @@ impl HazardCurveCalibrator {
         // Validate recovery rate consistency upfront
         self.validate_recovery_consistency(quotes)?;
 
-        // Get day count from convention
-        let day_count = self.convention.day_count();
+        // Get day count from convention for the curve
+        let curve_day_count = self.convention.day_count();
 
         // Extract CDS quotes for this entity and sort by maturity
-        let mut cds_quotes: Vec<(finstack_core::dates::Date, f64, Option<f64>)> = quotes
+        let mut cds_quotes: Vec<(
+            finstack_core::dates::Date,
+            f64,
+            Option<f64>,
+            &crate::calibration::quotes::InstrumentConventions,
+        )> = quotes
             .iter()
             .filter_map(|q| match q {
                 CreditQuote::CDS {
                     entity,
                     maturity,
                     spread_bp,
+                    conventions,
                     ..
-                } if entity == &self.entity => Some((*maturity, *spread_bp, None)),
+                } if entity == &self.entity => Some((*maturity, *spread_bp, None, conventions)),
                 CreditQuote::CDSUpfront {
                     entity,
                     maturity,
                     upfront_pct,
                     running_spread_bp,
+                    conventions,
                     ..
-                } if entity == &self.entity => {
-                    Some((*maturity, *running_spread_bp, Some(*upfront_pct)))
-                }
+                } if entity == &self.entity => Some((
+                    *maturity,
+                    *running_spread_bp,
+                    Some(*upfront_pct),
+                    conventions,
+                )),
                 _ => None,
             })
             .collect();
@@ -299,7 +309,7 @@ impl HazardCurveCalibrator {
         }
 
         // Validate all spreads are positive (zero or negative spreads are invalid)
-        for (maturity, spread_bp, _) in &cds_quotes {
+        for (maturity, spread_bp, _, _) in &cds_quotes {
             if *spread_bp <= 0.0 {
                 return Err(finstack_core::Error::Validation(format!(
                     "CDS spread must be positive, got {} bp for maturity {}. \
@@ -329,9 +339,27 @@ impl HazardCurveCalibrator {
         };
         let settlement_delay_years = settlement_delay_days / business_days_per_year;
 
-        for (maturity, market_spread_bp, upfront_pct_opt) in &cds_quotes {
-            // Time axis using convention day count
-            let tenor_years = day_count
+        for (maturity, market_spread_bp, upfront_pct_opt, convention_overrides) in &cds_quotes {
+            // Resolve conventions (override > calibrator default)
+            let instrument_day_count = convention_overrides
+                .day_count
+                .unwrap_or_else(|| self.convention.day_count());
+            let freq = convention_overrides
+                .payment_frequency
+                .unwrap_or_else(|| self.convention.frequency());
+            let bdc = convention_overrides
+                .business_day_convention
+                .unwrap_or_else(|| self.convention.business_day_convention());
+            let calendar_id = convention_overrides
+                .effective_payment_calendar_id()
+                .unwrap_or_else(|| self.convention.default_calendar());
+            let settlement_days = convention_overrides
+                .settlement_days
+                .unwrap_or(self.convention.settlement_delay() as i32)
+                as u16;
+
+            // Time axis using CURVE day count (must be consistent for all knots)
+            let tenor_years = curve_day_count
                 .year_fraction(
                     self.base_date,
                     *maturity,
@@ -349,18 +377,35 @@ impl HazardCurveCalibrator {
             const CALIB_HAZARD_ID: &str = "CALIB_HAZARD";
             const CALIB_DISC_ID: &str = "CALIB_DISC";
 
-            let cds = CreditDefaultSwap::new_isda(
-                format!("CALIB_CDS_{}", maturity),
-                Money::new(10_000_000.0, self.currency),
-                PayReceive::PayFixed,
-                self.convention,
-                *market_spread_bp,
-                self.base_date,
-                *maturity,
-                self.recovery_rate,
-                finstack_core::types::CurveId::new(CALIB_DISC_ID),
-                finstack_core::types::CurveId::new(CALIB_HAZARD_ID),
-            );
+            let premium_spec = crate::instruments::cds::PremiumLegSpec {
+                start: self.base_date,
+                end: *maturity,
+                freq,
+                stub: self.convention.stub_convention(),
+                bdc,
+                calendar_id: Some(calendar_id.to_string()),
+                dc: instrument_day_count,
+                spread_bp: *market_spread_bp,
+                discount_curve_id: finstack_core::types::CurveId::new(CALIB_DISC_ID),
+            };
+
+            let protection_spec = crate::instruments::cds::ProtectionLegSpec {
+                credit_curve_id: finstack_core::types::CurveId::new(CALIB_HAZARD_ID),
+                recovery_rate: self.recovery_rate,
+                settlement_delay: settlement_days,
+            };
+
+            let cds = crate::instruments::cds::CreditDefaultSwapBuilder::new()
+                .id(format!("CALIB_CDS_{}", maturity).into())
+                .notional(Money::new(10_000_000.0, self.currency))
+                .side(PayReceive::PayFixed)
+                .convention(self.convention)
+                .premium(premium_spec)
+                .protection(protection_spec)
+                .pricing_overrides(crate::instruments::PricingOverrides::default())
+                .attributes(crate::instruments::common::traits::Attributes::new())
+                .build()
+                .map_err(|e| finstack_core::Error::Validation(e.to_string()))?;
 
             let pricer = CDSPricer::new();
 
@@ -525,7 +570,7 @@ impl HazardCurveCalibrator {
             .seniority(self.seniority)
             .currency(self.currency)
             .recovery_rate(self.recovery_rate)
-            .day_count(day_count)
+            .day_count(curve_day_count)
             .base_date(self.base_date)
             .knots(hazard_knots.into_vec())
             .par_spreads(par_knots.into_vec())
@@ -591,6 +636,9 @@ impl Calibrator<CreditQuote, HazardCurve> for HazardCurveCalibrator {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::instruments::cds::pricer::CDSPricer;
+    use crate::instruments::cds::CDSConvention;
+    use crate::instruments::{CreditDefaultSwap, PayReceive};
     use finstack_core::config::FinstackConfig;
     use finstack_core::dates::Date;
     use finstack_core::market_data::term_structures::discount_curve::DiscountCurve;
@@ -1345,6 +1393,117 @@ mod tests {
             calibrator.convention,
             CDSConvention::IsdaEu,
             "Convention should be overridden to EU"
+        );
+    }
+    #[test]
+    fn hazard_calibration_respects_convention_overrides() {
+        let base_date = Date::from_calendar_date(2025, Month::January, 1).expect("Valid test date");
+        let disc = test_discount_curve();
+
+        // Create a quote with NON-STANDARD day count (Act365F for USD instead of Act360)
+        let maturity = base_date + time::Duration::days(365);
+        let spread_bp = 100.0;
+
+        // Define non-standard conventions
+        let conventions = crate::calibration::quotes::InstrumentConventions {
+            day_count: Some(finstack_core::dates::DayCount::Act365F),
+            ..Default::default()
+        };
+
+        let quotes = vec![CreditQuote::CDS {
+            entity: "SPECIAL-CORP".to_string(),
+            maturity,
+            spread_bp,
+            recovery_rate: 0.40,
+            currency: Currency::USD,
+            conventions,
+        }];
+
+        // Calibrate
+        let calibrator = HazardCurveCalibrator::new(
+            "SPECIAL-CORP",
+            Seniority::Senior,
+            0.40,
+            base_date,
+            Currency::USD,
+            "USD-OIS",
+        );
+        let market_context = MarketContext::new().insert_discount(disc.clone());
+        let (hazard, report) = calibrator
+            .calibrate(&quotes, &market_context)
+            .expect("calibration should succeed");
+        assert!(report.success);
+
+        // Verify: Reprice using the SAME non-standard conventions
+        // If calibration respected the override, repricing with Act365F should result in PV ~ 0.
+        // If calibration ignored it (used Act360), repricing with Act360 would match, but Act365F would fail.
+
+        let pricer = CDSPricer::new();
+        let premium_spec = crate::instruments::cds::PremiumLegSpec {
+            start: base_date,
+            end: maturity,
+            freq: finstack_core::dates::Tenor::quarterly(),
+            stub: finstack_core::dates::StubKind::ShortFront,
+            bdc: finstack_core::dates::BusinessDayConvention::ModifiedFollowing,
+            calendar_id: Some("nyse".to_string()),
+            dc: finstack_core::dates::DayCount::Act365F, // MUST match the override
+            spread_bp,
+            discount_curve_id: finstack_core::types::CurveId::new("USD-OIS"),
+        };
+        let protection_spec = crate::instruments::cds::ProtectionLegSpec {
+            credit_curve_id: finstack_core::types::CurveId::new("SPECIAL-CORP-Senior"),
+            recovery_rate: 0.40,
+            settlement_delay: 3,
+        };
+
+        let cds = crate::instruments::cds::CreditDefaultSwapBuilder::new()
+            .id("TEST-CDS".into())
+            .notional(Money::new(10_000_000.0, Currency::USD))
+            .side(PayReceive::PayFixed)
+            .convention(CDSConvention::IsdaNa) // convention field is less important than specific leg specs
+            .premium(premium_spec)
+            .protection(protection_spec)
+            .pricing_overrides(crate::instruments::PricingOverrides::default())
+            .attributes(crate::instruments::common::traits::Attributes::new())
+            .build()
+            .expect("build cds");
+
+        let pv = pricer
+            .npv(&cds, &disc, &hazard, base_date)
+            .expect("repricing");
+
+        // Assert PV is close to zero
+        assert!(pv.amount().abs() < 1.0, "Repricing error: {}", pv.amount());
+
+        // Anti-verify: Check that Act360 (default) gives a DIFFERENT result
+        // This ensures the custom day count actually made a difference
+        let premium_spec_default = crate::instruments::cds::PremiumLegSpec {
+            dc: finstack_core::dates::DayCount::Act360,
+            ..cds.premium.clone()
+        };
+        let cds_default = crate::instruments::cds::CreditDefaultSwapBuilder::new()
+            .premium(premium_spec_default)
+            .id("TEST-CDS-DEFAULT".into())
+            .notional(cds.notional)
+            .side(cds.side)
+            .convention(cds.convention)
+            .protection(cds.protection.clone())
+            .pricing_overrides(crate::instruments::PricingOverrides::default())
+            .attributes(crate::instruments::common::traits::Attributes::new())
+            .build()
+            .expect("build cds default");
+
+        let pv_default = pricer
+            .npv(&cds_default, &disc, &hazard, base_date)
+            .expect("repricing default");
+
+        // Difference is small (~7.0) because for a par instrument (PV~0), changing day count
+        // scales both premium and protection legs similarly, canceling out the bulk of the effect.
+        // We test for > 5.0 to detect the residual non-linearity/mismatch.
+        assert!(
+            pv_default.amount().abs() > 5.0,
+            "Expected difference for wrong day count, got {}",
+            pv_default.amount()
         );
     }
 }

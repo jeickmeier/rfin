@@ -72,9 +72,6 @@ pub struct DiscountCurveCalibrator {
     pub config: CalibrationConfig,
     /// Currency for the curve
     pub currency: Currency,
-    /// Settlement and calendar configuration
-    #[serde(default)]
-    pub settlement: CalibrationSettlementConfig,
     /// Discount curve ID used during calibration instrument pricing.
     ///
     /// Defaults to the calibrator's `curve_id`. For multi-curve setups where
@@ -89,11 +86,6 @@ pub struct DiscountCurveCalibrator {
     /// specific forward curve being built.
     #[serde(default)]
     pub forward_curve_id: Option<CurveId>,
-    /// Reset lag in business days for floating rate fixings (default: 2).
-    ///
-    /// Standard is T-2 business days before period start for most markets.
-    #[serde(default = "default_reset_lag")]
-    pub reset_lag: i32,
     /// Use OIS-specific logic for swap pricing.
     ///
     /// When `true` (default), swaps use overnight-indexed compounding conventions
@@ -114,35 +106,19 @@ pub struct DiscountCurveCalibrator {
     pub include_spot_knot: bool,
 }
 
-/// Consolidated configuration for settlement and scheduling
-#[derive(Clone, Debug, Default, Serialize, Deserialize)]
-pub struct CalibrationSettlementConfig {
-    /// Optional calendar identifier for schedule generation
-    pub calendar_id: Option<String>,
-    /// Settlement lag in business days (None = use currency default)
-    #[serde(default)]
-    pub settlement_days: Option<i32>,
-    /// Day count for curve time (None = use currency default)
-    #[serde(default)]
-    pub curve_day_count: Option<DayCount>,
-    /// Payment delay in business days after period end (default: 0).
-    #[serde(default)]
-    pub payment_delay_days: i32,
-    /// Allow calendar-day settlement fallback when the calendar cannot be resolved.
-    #[serde(default)]
-    pub allow_calendar_fallback: bool,
-}
-
-fn default_reset_lag() -> i32 {
-    2
-}
-
 fn default_use_ois_logic() -> bool {
     true
 }
 
 fn default_extrapolation() -> ExtrapolationPolicy {
     ExtrapolationPolicy::FlatForward
+}
+
+pub(crate) fn default_curve_day_count(currency: Currency) -> DayCount {
+    match currency {
+        Currency::USD | Currency::EUR | Currency::CHF => DayCount::Act360,
+        _ => DayCount::Act365F,
+    }
 }
 
 impl DiscountCurveCalibrator {
@@ -172,58 +148,11 @@ impl DiscountCurveCalibrator {
             extrapolation: ExtrapolationPolicy::FlatForward,
             config, // Defaults include calibration_method
             currency,
-            settlement: CalibrationSettlementConfig::default(),
             discount_curve_id: None,          // Will default to curve_id
             forward_curve_id: None,           // Will default to curve_id
-            reset_lag: 2,                     // Standard T-2 reset lag
             use_ois_logic,                    // Default to OIS conventions
             include_spot_knot: use_ois_logic, // Default on for OIS (market-standard spot anchoring)
         }
-    }
-
-    /// Create a USD SOFR/OIS discount curve calibrator with standard conventions.
-    ///
-    /// Equivalent to `new(curve_id, base_date, Currency::USD)` with:
-    /// - Settlement: T+2
-    /// - Day count: ACT/360
-    pub fn usd(curve_id: impl Into<CurveId>, base_date: Date) -> Self {
-        Self::new(curve_id, base_date, Currency::USD)
-    }
-
-    /// Create a EUR €STR discount curve calibrator with standard conventions.
-    ///
-    /// Equivalent to `new(curve_id, base_date, Currency::EUR)` with:
-    /// - Settlement: T+2
-    /// - Day count: ACT/360
-    pub fn eur(curve_id: impl Into<CurveId>, base_date: Date) -> Self {
-        Self::new(curve_id, base_date, Currency::EUR)
-    }
-
-    /// Create a GBP SONIA discount curve calibrator with standard conventions.
-    ///
-    /// Equivalent to `new(curve_id, base_date, Currency::GBP)` with:
-    /// - Settlement: T+0 (same-day)
-    /// - Day count: ACT/365F
-    pub fn gbp(curve_id: impl Into<CurveId>, base_date: Date) -> Self {
-        Self::new(curve_id, base_date, Currency::GBP)
-    }
-
-    /// Create a JPY TONA discount curve calibrator with standard conventions.
-    ///
-    /// Equivalent to `new(curve_id, base_date, Currency::JPY)` with:
-    /// - Settlement: T+2
-    /// - Day count: ACT/365F
-    pub fn jpy(curve_id: impl Into<CurveId>, base_date: Date) -> Self {
-        Self::new(curve_id, base_date, Currency::JPY)
-    }
-
-    /// Create a CHF SARON discount curve calibrator with standard conventions.
-    ///
-    /// Equivalent to `new(curve_id, base_date, Currency::CHF)` with:
-    /// - Settlement: T+2
-    /// - Day count: ACT/360
-    pub fn chf(curve_id: impl Into<CurveId>, base_date: Date) -> Self {
-        Self::new(curve_id, base_date, Currency::CHF)
     }
 
     /// Set the interpolation used both during solving and for the final curve.
@@ -279,46 +208,6 @@ impl DiscountCurveCalibrator {
         self
     }
 
-    /// Set an optional calendar identifier for schedule generation.
-    pub fn with_calendar_id(mut self, calendar_id: impl Into<String>) -> Self {
-        self.settlement.calendar_id = Some(calendar_id.into());
-        self
-    }
-
-    /// Set explicit settlement days (overrides currency default).
-    ///
-    /// Market conventions:
-    /// - USD/EUR/JPY/CHF: 2 days
-    /// - GBP: 0 days (same-day settlement)
-    /// - AUD/CAD: 1 day
-    pub fn with_settlement_days(mut self, days: i32) -> Self {
-        self.settlement.settlement_days = Some(days);
-        self
-    }
-
-    /// Set explicit day count for curve time (overrides currency default).
-    pub fn with_curve_day_count(mut self, day_count: DayCount) -> Self {
-        self.settlement.curve_day_count = Some(day_count);
-        self
-    }
-
-    /// Set payment delay in business days after period end.
-    ///
-    /// Bloomberg OIS swaps typically use 2 business days payment delay.
-    /// Set to 2 for accurate Bloomberg curve matching.
-    pub fn with_payment_delay(mut self, days: i32) -> Self {
-        self.settlement.payment_delay_days = days;
-        self
-    }
-
-    /// Allow (or disallow) calendar-day settlement fallback when a calendar cannot be resolved.
-    ///
-    /// For production calibration, keep this `false` to avoid silent date shifts.
-    pub fn with_allow_calendar_fallback(mut self, allow: bool) -> Self {
-        self.settlement.allow_calendar_fallback = allow;
-        self
-    }
-
     /// Set the discount curve ID used during instrument pricing.
     ///
     /// For single-curve OIS calibration, this defaults to `curve_id`.
@@ -334,15 +223,6 @@ impl DiscountCurveCalibrator {
     /// For multi-curve setups, set this to the forward curve being calibrated.
     pub fn with_forward_curve_id(mut self, curve_id: impl Into<CurveId>) -> Self {
         self.forward_curve_id = Some(curve_id.into());
-        self
-    }
-
-    /// Set the reset lag in business days for floating rate fixings.
-    ///
-    /// Standard is T-2 business days before period start for most markets.
-    /// Some markets (e.g., GBP) may use different conventions.
-    pub fn with_reset_lag(mut self, days: i32) -> Self {
-        self.reset_lag = days;
         self
     }
 
@@ -377,6 +257,42 @@ impl DiscountCurveCalibrator {
         self
     }
 
+    /// Set calendar ID (deprecated: use InstrumentConventions on quotes instead).
+    ///
+    /// This method is kept for backward compatibility with Python bindings.
+    /// Settings are now configured per-quote via `InstrumentConventions`.
+    #[deprecated(note = "Use InstrumentConventions on quotes instead")]
+    pub fn with_calendar_id(self, _calendar_id: impl Into<String>) -> Self {
+        self
+    }
+
+    /// Set settlement days (deprecated: use InstrumentConventions on quotes instead).
+    ///
+    /// This method is kept for backward compatibility with Python bindings.
+    /// Settings are now configured per-quote via `InstrumentConventions`.
+    #[deprecated(note = "Use InstrumentConventions on quotes instead")]
+    pub fn with_settlement_days(self, _days: i32) -> Self {
+        self
+    }
+
+    /// Set payment delay (deprecated: use InstrumentConventions on quotes instead).
+    ///
+    /// This method is kept for backward compatibility with Python bindings.
+    /// Settings are now configured per-quote via `InstrumentConventions`.
+    #[deprecated(note = "Use InstrumentConventions on quotes instead")]
+    pub fn with_payment_delay(self, _days: i32) -> Self {
+        self
+    }
+
+    /// Set curve day count (deprecated: use InstrumentConventions on quotes instead).
+    ///
+    /// This method is kept for backward compatibility with Python bindings.
+    /// Settings are now configured per-quote via `InstrumentConventions`.
+    #[deprecated(note = "Use InstrumentConventions on quotes instead")]
+    pub fn with_curve_day_count(self, _dc: DayCount) -> Self {
+        self
+    }
+
     /// Get the effective discount curve ID (explicit or defaults to curve_id).
     pub(crate) fn effective_discount_curve_id(&self) -> CurveId {
         self.discount_curve_id
@@ -398,25 +314,7 @@ impl DiscountCurveCalibrator {
     /// - AUD, CAD: T+1
     /// - USD, EUR, JPY, CHF, and others: T+2
     ///
-    /// Override via `with_settlement_days()` or supply via quote conventions.
-    pub(crate) fn effective_settlement_days(&self) -> i32 {
-        self.settlement
-            .settlement_days
-            .unwrap_or(match self.currency {
-                Currency::GBP => 0,
-                Currency::AUD | Currency::CAD => 1,
-                _ => 2,
-            })
-    }
-
-    /// Get effective day count for curve time (explicit or default Act/365F).
-    ///
-    /// Act/365F is a common default for discount curves. Override via `with_curve_day_count()`
-    /// or supply via quote conventions for currency-specific handling.
-    pub(crate) fn effective_curve_day_count(&self) -> DayCount {
-        self.settlement.curve_day_count.unwrap_or(DayCount::Act365F)
-    }
-
+    /// Override via quote conventions.
     /// Calculate settlement date from base date using business-day calendar.
     ///
     /// Delegates to the internal `CalibrationPricer` for the actual computation.
@@ -431,15 +329,8 @@ impl DiscountCurveCalibrator {
     /// Per-instrument conventions (payment delay, reset lag, calendar) come from
     /// the quote's `InstrumentConventions`.
     pub(crate) fn create_pricer(&self) -> CalibrationPricer {
-        let mut pricer = CalibrationPricer::new(self.base_date, self.effective_discount_curve_id())
+        CalibrationPricer::new(self.base_date, self.effective_discount_curve_id())
             .with_forward_curve_id(self.effective_forward_curve_id())
-            .with_allow_calendar_fallback(self.settlement.allow_calendar_fallback);
-
-        if let Some(days) = self.settlement.settlement_days {
-            pricer = pricer.with_settlement_days(days);
-        }
-
-        pricer
     }
 
     /// Validate a calibrated discount curve using the configured validation policy.
@@ -465,71 +356,6 @@ impl DiscountCurveCalibrator {
     }
 
     /// Compute maturity-aware discount-factor bounds implied by configured rate bounds.
-    pub(crate) fn df_bounds_for_time(&self, t: f64) -> (f64, f64) {
-        // Guard against degenerate maturities.
-        let t = t.max(1e-12);
-
-        // DF(t) = exp(-z(t) * t). Use currency-specific bounds unless explicitly overridden.
-        let bounds = self.config.effective_rate_bounds(self.currency);
-        let df_a = (-bounds.max_rate * t).exp();
-        let df_b = (-bounds.min_rate * t).exp();
-
-        let mut lo = df_a.min(df_b);
-        let mut hi = df_a.max(df_b);
-
-        // Hard guards: avoid zeros/NaNs and prevent numeric overflow in extreme stress settings.
-        const DF_HARD_MIN: f64 = 1e-12;
-        const DF_HARD_MAX: f64 = 1e6;
-        if !lo.is_finite() || lo <= 0.0 {
-            lo = DF_HARD_MIN;
-        }
-        if !hi.is_finite() || hi <= 0.0 {
-            hi = DF_HARD_MAX;
-        }
-        lo = lo.max(DF_HARD_MIN);
-        hi = hi.min(DF_HARD_MAX).max(lo * 1.000_000_1);
-
-        (lo, hi)
-    }
-
-    /// Build a discount curve with the appropriate settings.
-    ///
-    /// This is the single pathway for constructing final calibrated curves.
-    /// Solver-temp curves are built inline in closures using `build_for_solver()`
-    /// directly for performance (avoids borrowing `self` in closures).
-    ///
-    /// Final curves use full validation. When negative rates are allowed (via
-    /// `config.validation.allow_negative_rates`), the builder permits non-monotonic
-    /// DFs since negative rates naturally produce DF > 1 which can violate the
-    /// standard DF non-increasing constraint.
-    pub(crate) fn build_curve(
-        &self,
-        curve_id: CurveId,
-        curve_dc: DayCount,
-        knots: impl IntoIterator<Item = (f64, f64)>,
-    ) -> Result<DiscountCurve> {
-        let mut builder = DiscountCurve::builder(curve_id)
-            .base_date(self.base_date)
-            .day_count(curve_dc)
-            .extrapolation(self.extrapolation)
-            .knots(knots)
-            .set_interp(self.solve_interp);
-
-        // When negative rates are allowed, we must permit non-monotonic DFs
-        // because negative rates produce DF > 1 which can appear to increase
-        if self.config.validation.allow_negative_rates {
-            builder = builder.allow_non_monotonic();
-        }
-
-        builder
-            .build()
-            .map_err(|e| finstack_core::Error::Calibration {
-                message: format!("final curve build failed for {}: {}", self.curve_id, e),
-                category: "yield_curve_calibration".to_string(),
-            })
-    }
-
-    /// Compute the spot knot information for curve anchoring.
     ///
     /// Returns `(t_spot, optional_knot)` where `optional_knot` is `Some((t_spot, 1.0))`
     /// if spot knot inclusion is enabled and `t_spot` is meaningful.
@@ -609,6 +435,38 @@ impl DiscountCurveCalibrator {
         // Deduplicate close points
         grid.dedup_by(|a, b| (*a - *b).abs() < (df_hi - df_lo) * 0.001);
         grid
+    }
+
+    /// Compute maturity-aware discount factor bounds based on rate bounds.
+    ///
+    /// Returns (df_lo, df_hi) corresponding to (max_rate, min_rate).
+    /// Uses continuous compounding approximation: df = exp(-r * t).
+    pub(crate) fn df_bounds_for_time(&self, time: f64) -> (f64, f64) {
+        let bounds = self.config.effective_rate_bounds(self.currency);
+        let df_lo = (-bounds.max_rate * time).exp();
+        let df_hi = (-bounds.min_rate * time).exp();
+        (df_lo, df_hi)
+    }
+
+    /// Build a discount curve from knots using calibrator configuration.
+    pub(crate) fn build_curve(
+        &self,
+        curve_id: CurveId,
+        day_count: DayCount,
+        knots: Vec<(f64, f64)>,
+    ) -> Result<DiscountCurve> {
+        DiscountCurve::builder(curve_id)
+            .base_date(self.base_date)
+            .day_count(day_count)
+            .knots(knots)
+            .set_interp(self.solve_interp)
+            .extrapolation(self.extrapolation)
+            .allow_non_monotonic()
+            .build()
+            .map_err(|e| finstack_core::Error::Calibration {
+                message: e.to_string(),
+                category: "curve_build".to_string(),
+            })
     }
 }
 
@@ -723,35 +581,25 @@ mod tests {
 
         let calibrator = DiscountCurveCalibrator::new("USD-OIS", base_date, Currency::USD)
             .with_extrapolation(ExtrapolationPolicy::FlatZero)
-            .with_solve_interp(InterpStyle::Linear)
-            .with_settlement_days(0)
-            .with_curve_day_count(DayCount::Act365F);
+            .with_solve_interp(InterpStyle::Linear);
 
         // Note: ExtrapolationPolicy doesn't implement PartialEq, so we can't use assert_eq!
         // assert_eq!(calibrator.extrapolation, ExtrapolationPolicy::FlatZero);
         assert_eq!(calibrator.solve_interp, InterpStyle::Linear);
-        assert_eq!(calibrator.settlement.settlement_days, Some(0));
-        assert_eq!(
-            calibrator.settlement.curve_day_count,
-            Some(DayCount::Act365F)
-        );
     }
 
     #[test]
     fn test_currency_factories() {
         let base_date = Date::from_calendar_date(2025, Month::January, 1).expect("Valid test date");
 
-        let usd = DiscountCurveCalibrator::usd("USD-OIS", base_date);
+        let usd = DiscountCurveCalibrator::new("USD-OIS", base_date, Currency::USD);
         assert_eq!(usd.currency, Currency::USD);
-        assert_eq!(usd.effective_settlement_days(), 2);
 
-        let gbp = DiscountCurveCalibrator::gbp("GBP-SONIA", base_date);
+        let gbp = DiscountCurveCalibrator::new("GBP-SONIA", base_date, Currency::GBP);
         assert_eq!(gbp.currency, Currency::GBP);
-        assert_eq!(gbp.effective_settlement_days(), 0);
 
-        let eur = DiscountCurveCalibrator::eur("EUR-ESTR", base_date);
+        let eur = DiscountCurveCalibrator::new("EUR-ESTR", base_date, Currency::EUR);
         assert_eq!(eur.currency, Currency::EUR);
-        assert_eq!(eur.effective_settlement_days(), 2);
     }
 
     #[test]
@@ -786,7 +634,7 @@ mod tests {
         let base_date = Date::from_calendar_date(2025, Month::January, 1).expect("Valid test date");
 
         // Default rate bounds: [-0.02, 0.50]
-        let calibrator = DiscountCurveCalibrator::usd("USD-OIS", base_date);
+        let calibrator = DiscountCurveCalibrator::new("USD-OIS", base_date, Currency::USD);
 
         // Short maturity (1Y)
         let (lo_1y, hi_1y) = calibrator.df_bounds_for_time(1.0);
@@ -862,27 +710,6 @@ mod tests {
         }
     }
 
-    #[test]
-    fn test_settlement_days_affect_spot_time() {
-        let base_date = Date::from_calendar_date(2025, Month::January, 1).expect("Valid test date");
-
-        // USD has T+2 settlement
-        let usd_cal =
-            DiscountCurveCalibrator::usd("USD-OIS", base_date).with_allow_calendar_fallback(true);
-        assert_eq!(usd_cal.effective_settlement_days(), 2);
-
-        // GBP has T+0 settlement
-        let gbp_cal =
-            DiscountCurveCalibrator::gbp("GBP-SONIA", base_date).with_allow_calendar_fallback(true);
-        assert_eq!(gbp_cal.effective_settlement_days(), 0);
-
-        // Can override settlement days
-        let custom_cal = DiscountCurveCalibrator::usd("USD-CUSTOM", base_date)
-            .with_settlement_days(1)
-            .with_allow_calendar_fallback(true);
-        assert_eq!(custom_cal.effective_settlement_days(), 1);
-    }
-
     // =========================================================================
     // Global Solve Regression Tests
     // =========================================================================
@@ -953,11 +780,10 @@ mod tests {
             },
         ];
 
-        let calibrator = DiscountCurveCalibrator::usd("USD-OIS-GLOBAL", base_date)
+        let calibrator = DiscountCurveCalibrator::new("USD-OIS-GLOBAL", base_date, Currency::USD)
             .with_calibration_method(CalibrationMethod::GlobalSolve {
                 use_analytical_jacobian: false,
-            })
-            .with_allow_calendar_fallback(true);
+            });
 
         let context = MarketContext::default();
 
@@ -1003,13 +829,12 @@ mod tests {
             }),
         );
 
-        let calibrator = DiscountCurveCalibrator::usd("USD-OIS-BOUNDED", base_date)
+        let calibrator = DiscountCurveCalibrator::new("USD-OIS-BOUNDED", base_date, Currency::USD)
             .with_calibration_method(CalibrationMethod::GlobalSolve {
                 use_analytical_jacobian: false,
             })
             .with_finstack_config(&cfg)
-            .expect("valid config")
-            .with_allow_calendar_fallback(true);
+            .expect("valid config");
 
         let context = MarketContext::default();
 
@@ -1059,11 +884,10 @@ mod tests {
             },
         ];
 
-        let calibrator = DiscountCurveCalibrator::usd("USD-OIS-DIAG", base_date)
+        let calibrator = DiscountCurveCalibrator::new("USD-OIS-DIAG", base_date, Currency::USD)
             .with_calibration_method(CalibrationMethod::GlobalSolve {
                 use_analytical_jacobian: false,
-            })
-            .with_allow_calendar_fallback(true);
+            });
 
         let context = MarketContext::default();
 
@@ -1114,29 +938,29 @@ mod tests {
         let base_date = Date::from_calendar_date(2025, Month::January, 1).expect("Valid test date");
 
         // OIS calibrators default use_ois_logic=true, which should also default spot knot on
-        let usd_ois = DiscountCurveCalibrator::usd("USD-OIS", base_date);
+        let usd_ois = DiscountCurveCalibrator::new("USD-OIS", base_date, Currency::USD);
         assert!(usd_ois.use_ois_logic, "OIS logic should default true");
         assert!(
             usd_ois.include_spot_knot,
             "include_spot_knot should default true for OIS"
         );
 
-        let eur_ois = DiscountCurveCalibrator::eur("EUR-ESTR", base_date);
+        let eur_ois = DiscountCurveCalibrator::new("EUR-ESTR", base_date, Currency::EUR);
         assert!(
             eur_ois.include_spot_knot,
             "EUR OIS should also have spot knot on"
         );
 
         // Explicit override should work
-        let no_spot =
-            DiscountCurveCalibrator::usd("USD-NO-SPOT", base_date).with_include_spot_knot(false);
+        let no_spot = DiscountCurveCalibrator::new("USD-NO-SPOT", base_date, Currency::USD)
+            .with_include_spot_knot(false);
         assert!(
             !no_spot.include_spot_knot,
             "Explicit override to false should work"
         );
 
         // Non-OIS calibrator (use_ois_logic=false) can still have spot knot controlled independently
-        let libor_style = DiscountCurveCalibrator::usd("USD-LIBOR", base_date)
+        let libor_style = DiscountCurveCalibrator::new("USD-LIBOR", base_date, Currency::USD)
             .with_use_ois_logic(false)
             .with_include_spot_knot(false);
         assert!(!libor_style.use_ois_logic);
@@ -1168,9 +992,8 @@ mod tests {
         let context = MarketContext::default();
 
         // Test bootstrap report metadata
-        let bootstrap_cal = DiscountCurveCalibrator::usd("USD-BOOT", base_date)
-            .with_calibration_method(CalibrationMethod::Bootstrap)
-            .with_allow_calendar_fallback(true);
+        let bootstrap_cal = DiscountCurveCalibrator::new("USD-BOOT", base_date, Currency::USD)
+            .with_calibration_method(CalibrationMethod::Bootstrap);
 
         let (_, boot_report) = bootstrap_cal
             .calibrate(&quotes, &context)
@@ -1191,11 +1014,10 @@ mod tests {
         );
 
         // Test global solve report metadata
-        let global_cal = DiscountCurveCalibrator::usd("USD-GLOBAL", base_date)
+        let global_cal = DiscountCurveCalibrator::new("USD-GLOBAL", base_date, Currency::USD)
             .with_calibration_method(CalibrationMethod::GlobalSolve {
                 use_analytical_jacobian: false,
-            })
-            .with_allow_calendar_fallback(true);
+            });
 
         let (_, global_report) = global_cal
             .calibrate(&quotes, &context)
@@ -1223,7 +1045,7 @@ mod tests {
         let base_date = Date::from_calendar_date(2025, Month::January, 1).expect("Valid test date");
 
         // Test that EUR calibrator accepts negative rate bounds
-        let mut calibrator = DiscountCurveCalibrator::eur("EUR-ESTR-NEG", base_date);
+        let mut calibrator = DiscountCurveCalibrator::new("EUR-ESTR-NEG", base_date, Currency::EUR);
 
         // Set rate bounds to include negative rates
         calibrator.config.rate_bounds_policy = RateBoundsPolicy::Explicit;

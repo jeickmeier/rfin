@@ -157,8 +157,7 @@ pub fn bump_discount_curve_synthetic(
         quotes.push(RatesQuote::Deposit {
             maturity,
             rate: bumped_rate,
-            conventions: InstrumentConventions::default()
-                .with_day_count(dc),
+            conventions: InstrumentConventions::default().with_day_count(dc),
         });
     }
 
@@ -167,9 +166,9 @@ pub fn bump_discount_curve_synthetic(
     // Use settlement_days=0 because we're re-calibrating from an existing curve's
     // intrinsic discount factors, not from market quotes with settlement conventions.
     let calibrator = DiscountCurveCalibrator::new(curve_id.clone(), base_date, currency)
-        .with_settlement_days(0)
         .with_include_spot_knot(false)
-        .with_allow_calendar_fallback(true);
+        /* .with_settlement_days(0) */
+        /* .with_allow_calendar_fallback(true) */;
 
     let (new_curve, _report) = calibrator.calibrate(&quotes, context)?;
     Ok(new_curve)

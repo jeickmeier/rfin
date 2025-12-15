@@ -232,14 +232,12 @@ fn test_discount_curve_global_solve_smoke() {
         RatesQuote::Deposit {
             maturity: Date::from_calendar_date(2025, Month::July, 15).unwrap(),
             rate: 0.03,
-            conventions: InstrumentConventions::default()
-                .with_day_count(DayCount::Act360),
+            conventions: InstrumentConventions::default().with_day_count(DayCount::Act360),
         },
         RatesQuote::Deposit {
             maturity: Date::from_calendar_date(2026, Month::January, 15).unwrap(),
             rate: 0.031,
-            conventions: InstrumentConventions::default()
-                .with_day_count(DayCount::Act360),
+            conventions: InstrumentConventions::default().with_day_count(DayCount::Act360),
         },
         RatesQuote::Swap {
             maturity: Date::from_calendar_date(2027, Month::January, 15).unwrap(),
@@ -260,8 +258,7 @@ fn test_discount_curve_global_solve_smoke() {
         .with_calibration_method(CalibrationMethod::GlobalSolve {
             use_analytical_jacobian: false,
         })
-        .with_solve_interp(InterpStyle::PiecewiseQuadraticForward)
-        .with_allow_calendar_fallback(true); // Enable calendar fallback for test
+        .with_solve_interp(InterpStyle::PiecewiseQuadraticForward);
 
     let market = MarketContext::new();
     let (curve, report) = calibrator

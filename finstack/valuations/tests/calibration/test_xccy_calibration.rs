@@ -7,9 +7,9 @@ use finstack_core::money::fx::providers::SimpleFxProvider;
 use finstack_core::money::fx::FxMatrix;
 use finstack_core::types::CurveId;
 use finstack_valuations::calibration::create_simple_solver;
-use finstack_valuations::calibration::methods::{
-    XccyBasisCalibrator, XccyBasisQuote, XccySpreadOn,
-};
+use finstack_valuations::calibration::methods::XccyBasisCalibrator;
+use finstack_valuations::calibration::quotes::conventions::InstrumentConventions;
+use finstack_valuations::calibration::quotes::xccy::{SpreadOn, XccyBasisQuote};
 use finstack_valuations::instruments::xccy_swap::{
     LegSide, NotionalExchange, XccySwap, XccySwapLeg,
 };
@@ -74,20 +74,23 @@ fn xccy_bootstrap_reprices_quote() {
         domestic_discount_curve_id: CurveId::new("USD-OIS"),
         domestic_forward_curve_id: CurveId::new("USD-SOFR-3M"),
         foreign_forward_curve_id: CurveId::new("EUR-EURIBOR-3M"),
-        domestic_freq: Tenor::quarterly(),
-        foreign_freq: Tenor::quarterly(),
-        domestic_dc: DayCount::Act360,
-        foreign_dc: DayCount::Act360,
-        domestic_bdc: BusinessDayConvention::ModifiedFollowing,
-        foreign_bdc: BusinessDayConvention::ModifiedFollowing,
-        domestic_payment_lag_days: 0,
-        foreign_payment_lag_days: 0,
-        spot_lag_days: 2,
-        spot_bdc: BusinessDayConvention::Following,
-        domestic_calendar_id: "usny".to_string(),
-        foreign_calendar_id: "target2".to_string(),
-        spread_on: XccySpreadOn::Foreign,
+        spread_on: SpreadOn::Foreign,
         notional_exchange: NotionalExchange::InitialAndFinal,
+        conventions: InstrumentConventions::default()
+            .with_settlement_days(2)
+            .with_business_day_convention(BusinessDayConvention::Following),
+        domestic_leg_conventions: InstrumentConventions::default()
+            .with_payment_frequency(Tenor::quarterly())
+            .with_day_count(DayCount::Act360)
+            .with_business_day_convention(BusinessDayConvention::ModifiedFollowing)
+            .with_payment_delay(0)
+            .with_calendar_id("usny"),
+        foreign_leg_conventions: InstrumentConventions::default()
+            .with_payment_frequency(Tenor::quarterly())
+            .with_day_count(DayCount::Act360)
+            .with_business_day_convention(BusinessDayConvention::ModifiedFollowing)
+            .with_payment_delay(0)
+            .with_calendar_id("target2"),
     };
 
     let (eur_disc, report) = calibrator.bootstrap(&[quote], &solver, &ctx).unwrap();

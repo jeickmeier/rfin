@@ -62,6 +62,8 @@ impl LegSide {
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 #[cfg_attr(feature = "serde", serde(rename_all = "snake_case"))]
+#[cfg_attr(feature = "ts_export", derive(ts_rs::TS))]
+#[cfg_attr(feature = "ts_export", ts(export, rename_all = "snake_case"))]
 pub enum NotionalExchange {
     /// No principal exchange.
     None,

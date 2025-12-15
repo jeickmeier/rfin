@@ -216,6 +216,7 @@ impl PyDiscountCurveCalibrator {
     /// DiscountCurveCalibrator
     ///     New calibrator with updated calendar.
     #[pyo3(text_signature = "(self, calendar_id)")]
+    #[allow(deprecated)]
     fn with_calendar_id(&self, calendar_id: &str) -> Self {
         let inner = self.inner.clone().with_calendar_id(calendar_id);
         Self::new(inner)
@@ -238,6 +239,7 @@ impl PyDiscountCurveCalibrator {
     /// DiscountCurveCalibrator
     ///     New calibrator with updated settlement days.
     #[pyo3(text_signature = "(self, days)")]
+    #[allow(deprecated)]
     fn with_settlement_days(&self, days: i32) -> Self {
         let inner = self.inner.clone().with_settlement_days(days);
         Self::new(inner)
@@ -258,6 +260,7 @@ impl PyDiscountCurveCalibrator {
     /// DiscountCurveCalibrator
     ///     New calibrator with updated payment delay.
     #[pyo3(text_signature = "(self, days)")]
+    #[allow(deprecated)]
     fn with_payment_delay(&self, days: i32) -> Self {
         let inner = self.inner.clone().with_payment_delay(days);
         Self::new(inner)
@@ -279,6 +282,7 @@ impl PyDiscountCurveCalibrator {
     /// DiscountCurveCalibrator
     ///     New calibrator with updated day count.
     #[pyo3(text_signature = "(self, day_count)")]
+    #[allow(deprecated)]
     fn with_curve_day_count(&self, day_count: Bound<'_, PyAny>) -> PyResult<Self> {
         let DayCountArg(dc) = DayCountArg::extract_bound(&day_count)?;
         let inner = self.inner.clone().with_curve_day_count(dc);

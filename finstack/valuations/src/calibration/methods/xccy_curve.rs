@@ -9,12 +9,13 @@
 //! on the target discount curve.
 
 use crate::calibration::config::ValidationMode;
+pub use crate::calibration::quotes::xccy::{SpreadOn, XccyBasisQuote};
 use crate::calibration::validation::CurveValidator;
 use crate::calibration::{CalibrationConfig, CalibrationReport};
-use crate::instruments::xccy_swap::{LegSide, NotionalExchange, XccySwap, XccySwapLeg};
+use crate::instruments::xccy_swap::{LegSide, XccySwap, XccySwapLeg};
 use finstack_core::dates::calendar::registry::CalendarRegistry;
 use finstack_core::dates::{
-    adjust, BusinessDayConvention, Date, DayCount, DayCountCtx, HolidayCalendar, Tenor,
+    adjust, BusinessDayConvention, Date, DayCount, DayCountCtx, HolidayCalendar,
 };
 use finstack_core::market_data::context::MarketContext;
 use finstack_core::market_data::term_structures::DiscountCurve;
@@ -27,72 +28,6 @@ use std::cell::RefCell;
 use std::collections::BTreeMap;
 use std::rc::Rc;
 use std::sync::Arc;
-
-/// Which leg receives the quoted basis spread.
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
-#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
-#[cfg_attr(feature = "serde", serde(rename_all = "snake_case"))]
-pub enum SpreadOn {
-    /// Spread is applied to the domestic leg.
-    Domestic,
-    /// Spread is applied to the foreign leg (common quoting).
-    Foreign,
-}
-
-/// Market quote for an XCCY basis swap used in curve calibration.
-///
-/// All conventions are explicit (no silent defaults) to avoid hidden assumptions.
-#[derive(Clone, Debug)]
-#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
-#[cfg_attr(feature = "serde", serde(deny_unknown_fields))]
-pub struct XccyBasisQuote {
-    /// Swap maturity date.
-    pub maturity: Date,
-    /// Basis spread quote in basis points.
-    pub spread_bp: f64,
-    /// Domestic currency (reporting currency for PV=0).
-    pub domestic_currency: Currency,
-    /// Foreign currency (curve being calibrated).
-    pub foreign_currency: Currency,
-    /// Domestic notional.
-    pub domestic_notional: f64,
-    /// Foreign notional.
-    pub foreign_notional: f64,
-    /// Domestic discount curve identifier (must exist in market).
-    pub domestic_discount_curve_id: CurveId,
-    /// Domestic projection forward curve identifier.
-    pub domestic_forward_curve_id: CurveId,
-    /// Foreign projection forward curve identifier.
-    pub foreign_forward_curve_id: CurveId,
-    /// Domestic leg frequency.
-    pub domestic_freq: Tenor,
-    /// Foreign leg frequency.
-    pub foreign_freq: Tenor,
-    /// Domestic accrual day count.
-    pub domestic_dc: DayCount,
-    /// Foreign accrual day count.
-    pub foreign_dc: DayCount,
-    /// Domestic business day convention.
-    pub domestic_bdc: BusinessDayConvention,
-    /// Foreign business day convention.
-    pub foreign_bdc: BusinessDayConvention,
-    /// Domestic payment lag in business days.
-    pub domestic_payment_lag_days: i32,
-    /// Foreign payment lag in business days.
-    pub foreign_payment_lag_days: i32,
-    /// Settlement/spot lag in joint business days from `base_date`.
-    pub spot_lag_days: u32,
-    /// Spot/settlement business day convention (joint calendar).
-    pub spot_bdc: BusinessDayConvention,
-    /// Settlement calendar for the domestic currency.
-    pub domestic_calendar_id: String,
-    /// Settlement calendar for the foreign currency.
-    pub foreign_calendar_id: String,
-    /// Where the basis spread is applied.
-    pub spread_on: SpreadOn,
-    /// Principal exchange convention.
-    pub notional_exchange: NotionalExchange,
-}
 
 /// XCCY Basis Calibrator.
 #[derive(Clone, Debug)]
@@ -196,10 +131,11 @@ impl XccyBasisCalibrator {
     }
 
     fn spot_date(&self, q: &XccyBasisQuote) -> Result<Date> {
-        let dom = Self::resolve_calendar_strict(&q.domestic_calendar_id)?;
-        let for_cal = Self::resolve_calendar_strict(&q.foreign_calendar_id)?;
-        let prelim = Self::add_joint_business_days(self.base_date, q.spot_lag_days, dom, for_cal)?;
-        Self::adjust_joint_calendar_strict(prelim, q.spot_bdc, dom, for_cal)
+        let dom = Self::resolve_calendar_strict(q.domestic_calendar_id().unwrap_or(""))?;
+        let for_cal = Self::resolve_calendar_strict(q.foreign_calendar_id().unwrap_or(""))?;
+        let prelim =
+            Self::add_joint_business_days(self.base_date, q.spot_lag_days(), dom, for_cal)?;
+        Self::adjust_joint_calendar_strict(prelim, q.spot_bdc(), dom, for_cal)
     }
 
     fn quote_to_instrument(&self, q: &XccyBasisQuote) -> Result<XccySwap> {
@@ -228,12 +164,12 @@ impl XccyBasisCalibrator {
             side: LegSide::Receive,
             forward_curve_id: q.domestic_forward_curve_id.clone(),
             discount_curve_id: q.domestic_discount_curve_id.clone(),
-            frequency: q.domestic_freq,
-            day_count: q.domestic_dc,
-            bdc: q.domestic_bdc,
+            frequency: q.domestic_frequency(),
+            day_count: q.domestic_day_count(),
+            bdc: q.domestic_bdc(),
             spread: dom_spread,
-            payment_lag_days: q.domestic_payment_lag_days,
-            calendar_id: Some(q.domestic_calendar_id.clone()),
+            payment_lag_days: q.domestic_payment_lag(),
+            calendar_id: q.domestic_calendar_id().map(|s| s.to_string()),
             allow_calendar_fallback: false,
         };
 
@@ -243,12 +179,12 @@ impl XccyBasisCalibrator {
             side: LegSide::Pay,
             forward_curve_id: q.foreign_forward_curve_id.clone(),
             discount_curve_id: self.curve_id.clone(),
-            frequency: q.foreign_freq,
-            day_count: q.foreign_dc,
-            bdc: q.foreign_bdc,
+            frequency: q.foreign_frequency(),
+            day_count: q.foreign_day_count(),
+            bdc: q.foreign_bdc(),
             spread: for_spread,
-            payment_lag_days: q.foreign_payment_lag_days,
-            calendar_id: Some(q.foreign_calendar_id.clone()),
+            payment_lag_days: q.foreign_payment_lag(),
+            calendar_id: q.foreign_calendar_id().map(|s| s.to_string()),
             allow_calendar_fallback: false,
         };
 
@@ -308,8 +244,12 @@ impl XccyBasisCalibrator {
             let _ = base_context.get_discount_ref(&q.domestic_discount_curve_id)?;
             let _ = base_context.get_forward_ref(&q.domestic_forward_curve_id)?;
             let _ = base_context.get_forward_ref(&q.foreign_forward_curve_id)?;
-            let _ = Self::resolve_calendar_strict(&q.domestic_calendar_id)?;
-            let _ = Self::resolve_calendar_strict(&q.foreign_calendar_id)?;
+            if let Some(cal_id) = q.domestic_calendar_id() {
+                let _ = Self::resolve_calendar_strict(cal_id)?;
+            }
+            if let Some(cal_id) = q.foreign_calendar_id() {
+                let _ = Self::resolve_calendar_strict(cal_id)?;
+            }
         }
 
         // Pre-build instruments for pricing
