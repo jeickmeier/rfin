@@ -17,19 +17,14 @@ use crate::calibration::quotes::RatesQuote;
 use crate::calibration::CalibrationReport;
 use finstack_core::market_data::context::MarketContext;
 use finstack_core::market_data::term_structures::DiscountCurve;
-use finstack_core::math::Solver;
 use finstack_core::prelude::*;
-use std::cell::RefCell;
-use std::rc::Rc;
-use std::sync::Arc;
 
 const FALLBACK_INITIAL_DF: f64 = 0.95;
 
 impl DiscountCurveCalibrator {
-    pub(super) fn bootstrap_curve_with_solver<S: Solver>(
+    pub(super) fn bootstrap_curve(
         &self,
         quotes: &[RatesQuote],
-        _solver: &S,
         base_context: &MarketContext,
     ) -> Result<(DiscountCurve, CalibrationReport)> {
         // Sort quotes by maturity
@@ -64,7 +59,7 @@ impl DiscountCurveCalibrator {
         // Create target
         let target = DiscountBootstrapper {
             calibrator: self,
-            base_context: Rc::new(RefCell::new(base_context.clone())),
+            base_context: base_context.clone(),
             pricer: &pricer,
             curve_dc,
             settlement,
@@ -80,15 +75,6 @@ impl DiscountCurveCalibrator {
                 None, // No explanation trace passed for now
             )?;
 
-        // Add spot metadata which isn't in generic report
-        let report = report
-            .with_metadata("t_spot", format!("{:.6}", t_spot))
-            .with_metadata("spot_knot_included", self.include_spot_knot.to_string())
-            .with_metadata("curve_day_count", format!("{:?}", curve_dc))
-            .with_metadata("solve_interp", format!("{:?}", self.solve_interp))
-            .with_metadata("extrapolation", format!("{:?}", self.extrapolation))
-            .with_metadata("currency", self.currency.to_string());
-
         // Validate final curve here (or generic could do it?)
         // Generic blindly calls build_curve. We want full validation.
         // `target.build_curve` does `build_for_solver`.
@@ -98,16 +84,8 @@ impl DiscountCurveCalibrator {
         // `DiscountBootstrapper::build_curve` will use `build_for_solver`.
         // So we should rebuild.
 
-        // Re-extract knots from curve? Or just rebuild using curve knots.
-        // DiscountCurve has knots() accessor.
-        let correct_knots: Vec<(f64, f64)> = curve
-            .knots()
-            .iter()
-            .zip(curve.dfs().iter())
-            .map(|(t, v)| (*t, *v))
-            .collect();
         self.build_final_curve_and_report(
-            correct_knots,
+            curve,
             report.residuals,
             report.iterations,
             None,
@@ -118,18 +96,12 @@ impl DiscountCurveCalibrator {
     // Helper reused for final build
     fn build_final_curve_and_report(
         &self,
-        knots: Vec<(f64, f64)>,
+        curve: DiscountCurve,
         residuals: std::collections::BTreeMap<String, f64>,
         total_iterations: usize,
         trace: Option<finstack_core::explain::ExplanationTrace>,
         t_spot: f64,
     ) -> Result<(DiscountCurve, CalibrationReport)> {
-        let curve = self.build_curve(
-            self.curve_id.to_owned(),
-            super::default_curve_day_count(self.currency),
-            knots,
-        )?;
-
         let mut validation_status = "passed";
         let mut validation_error: Option<String> = None;
         if let Err(e) = self.validate_calibrated_curve(&curve) {
@@ -174,7 +146,7 @@ impl DiscountCurveCalibrator {
 
 struct DiscountBootstrapper<'a> {
     calibrator: &'a DiscountCurveCalibrator,
-    base_context: Rc<RefCell<MarketContext>>,
+    base_context: MarketContext,
     pricer: &'a CalibrationPricer,
     curve_dc: finstack_core::dates::DayCount,
     settlement: finstack_core::dates::Date,
@@ -211,21 +183,28 @@ impl<'a> BootstrapTarget for DiscountBootstrapper<'a> {
             })
     }
 
+    fn build_curve_for_solver(&self, knots: &[(f64, f64)]) -> Result<Self::Curve> {
+        self.build_curve(knots)
+    }
+
+    fn build_curve_final(&self, knots: &[(f64, f64)]) -> Result<Self::Curve> {
+        self.calibrator.build_curve(
+            self.calibrator.curve_id.to_owned(),
+            self.curve_dc,
+            knots.to_vec(),
+        )
+    }
+
     fn calculate_residual(&self, curve: &Self::Curve, quote: &Self::Quote) -> Result<f64> {
         // Optimization: check suitability
         if quote.requires_forward_curve() && !quote.is_ois_suitable() {
             return Ok(crate::calibration::PENALTY);
         }
 
-        {
-            let mut ctx = self.base_context.borrow_mut();
-            ctx.insert_mut(Arc::new(curve.clone()));
-        }
-
-        let ctx = self.base_context.borrow();
+        let temp_context = self.base_context.clone().insert_discount(curve.clone());
         let pv = self
             .pricer
-            .price_instrument(quote, self.calibrator.currency, &ctx)
+            .price_instrument(quote, self.calibrator.currency, &temp_context)
             .unwrap_or(crate::calibration::PENALTY);
 
         // Keep the signed residual so the root finder can detect sign changes.
@@ -236,6 +215,7 @@ impl<'a> BootstrapTarget for DiscountBootstrapper<'a> {
         // Reuse logic from original helper
         // We need time_to_maturity
         let t = self.quote_time(quote).unwrap_or(1.0); // Should have been checked
+        let (df_lo, df_hi) = self.calibrator.df_bounds_for_time(t);
 
         match quote {
             RatesQuote::Deposit { maturity, .. } => {
@@ -249,25 +229,46 @@ impl<'a> BootstrapTarget for DiscountBootstrapper<'a> {
                     )
                     .unwrap_or(t)
                     .max(1e-6);
-                1.0 / (1.0 + r * yf)
+                let df = 1.0 / (1.0 + r * yf);
+                df.clamp(df_lo, df_hi)
             }
             _ => {
-                // Use last solved DF if available, otherwise derive from time
-                if let Some((last_time, last_df)) = previous_knots.last() {
-                    // Extrapolate using exponential decay
-                    let time = self.quote_time(quote).unwrap_or(*last_time + 1.0);
-                    let dt = time - *last_time;
-                    if dt > 0.0 {
-                        // Assume constant forward rate from last knot
-                        let implied_rate = -(*last_df).ln() / (*last_time).max(1e-6);
-                        (-implied_rate * time).exp()
-                    } else {
-                        *last_df
+                let mut guess = None;
+
+                // Prefer log-linear extrapolation using the last two positive-time knots.
+                let last_two: Vec<(f64, f64)> = previous_knots
+                    .iter()
+                    .copied()
+                    .rev()
+                    .filter(|(ti, dfi)| *ti > 1e-8 && dfi.is_finite() && *dfi > 0.0)
+                    .take(2)
+                    .collect();
+
+                if last_two.len() == 2 {
+                    let (t1, df1) = last_two[0];
+                    let (t0, df0) = last_two[1];
+                    let dt = t1 - t0;
+                    if dt > 1e-8 {
+                        let f = (df0.ln() - df1.ln()) / dt;
+                        let ln_df = df1.ln() - f * (t - t1);
+                        let df = ln_df.exp();
+                        if df.is_finite() && df > 0.0 {
+                            guess = Some(df);
+                        }
                     }
-                } else {
-                    // No previous knots - use fallback
-                    FALLBACK_INITIAL_DF
+                } else if last_two.len() == 1 {
+                    let (t1, df1) = last_two[0];
+                    if t1 > 1e-8 {
+                        let df = df1.powf(t / t1);
+                        if df.is_finite() && df > 0.0 {
+                            guess = Some(df);
+                        }
+                    }
                 }
+
+                guess
+                    .unwrap_or(FALLBACK_INITIAL_DF)
+                    .clamp(df_lo, df_hi)
             }
         }
     }

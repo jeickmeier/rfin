@@ -101,3 +101,11 @@ harness = false
 [[bench]]
 name = "structured_credit_pool"
 harness = false
+
+[[bench]]
+name = "df_bootstrap"
+harness = false
+
+[[bench]]
+name = "fwd_curve"
+harness = false

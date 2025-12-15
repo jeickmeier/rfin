@@ -235,9 +235,8 @@ impl DiscountCurveCalibrator {
         base_context: &MarketContext,
     ) -> Result<()> {
         let bounds = self.config.effective_rate_bounds(self.currency);
-        let bootstrap_solver = crate::calibration::create_simple_solver(&self.config);
         if let Ok((boot_curve, _)) =
-            self.bootstrap_curve_with_solver(active_quotes, &bootstrap_solver, base_context)
+            self.bootstrap_curve(active_quotes, base_context)
         {
             for (i, t) in times.iter().enumerate() {
                 let df = boot_curve.df(*t);

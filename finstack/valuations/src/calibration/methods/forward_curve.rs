@@ -520,7 +520,7 @@ impl<'a> crate::calibration::methods::common::bootstrapper::BootstrapTarget
         let pricer = self.calibrator.make_pricer();
         let pv = pricer
             .price_instrument(quote, self.calibrator.currency, &ctx)
-            .unwrap_or_else(|_| crate::calibration::PENALTY);
+            .unwrap_or(crate::calibration::PENALTY);
 
         // Keep signed residual so root finder can detect sign changes
         Ok(pv)

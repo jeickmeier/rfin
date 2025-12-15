@@ -23,6 +23,16 @@ pub trait BootstrapTarget {
     /// This is called repeatedly during the solver loop.
     fn build_curve(&self, knots: &[(f64, f64)]) -> Result<Self::Curve>;
 
+    #[allow(missing_docs)]
+    fn build_curve_for_solver(&self, knots: &[(f64, f64)]) -> Result<Self::Curve> {
+        self.build_curve(knots)
+    }
+
+    #[allow(missing_docs)]
+    fn build_curve_final(&self, knots: &[(f64, f64)]) -> Result<Self::Curve> {
+        self.build_curve(knots)
+    }
+
     /// Calculate the pricing residual for a quote given the curve.
     ///
     /// Residual = Model Price - Market Price (or Rate).
@@ -72,14 +82,11 @@ impl SequentialBootstrapper {
         let mut knots = initial_knots;
         let mut residuals = BTreeMap::new();
         let mut total_iterations = 0;
-        let mut residual_key_counter = 0;
 
         let solver = crate::calibration::create_simple_solver(config);
 
         // Iterate through sorted quotes
         for (idx, quote) in sorted_quotes.iter().enumerate() {
-            residual_key_counter += 1;
-
             // Calculate knot time
             let time = target.quote_time(quote)?;
 
@@ -95,7 +102,7 @@ impl SequentialBootstrapper {
                 temp_knots.push((time, value));
 
                 // 1. Build temporary curve
-                let curve = match target.build_curve(&temp_knots) {
+                let curve = match target.build_curve_for_solver(&temp_knots) {
                     Ok(c) => c,
                     Err(_) => return crate::calibration::PENALTY,
                 };
@@ -108,7 +115,30 @@ impl SequentialBootstrapper {
             };
 
             // Determine scan points: prefer target-specific points
-            let scan_points = target.scan_points(quote, initial_guess);
+            let scan_points = {
+                let points = target.scan_points(quote, initial_guess);
+                if !points.is_empty() {
+                    points
+                } else {
+                    let center = if initial_guess.is_finite() {
+                        initial_guess
+                    } else {
+                        0.0
+                    };
+
+                    let mag = center.abs().max(1.0);
+                    let step = (0.25 * mag).max(1e-6);
+                    vec![
+                        center - 4.0 * step,
+                        center - 2.0 * step,
+                        center - 1.0 * step,
+                        center,
+                        center + 1.0 * step,
+                        center + 2.0 * step,
+                        center + 4.0 * step,
+                    ]
+                }
+            };
             let scan_points_ref = scan_points.as_slice();
 
             // Solve using bracket + polish
@@ -152,7 +182,7 @@ impl SequentialBootstrapper {
             // We re-evaluate to get precise residual and confirmation
             let mut final_knots = knots.clone();
             final_knots.push((time, solved_value));
-            let final_curve = target.build_curve(&final_knots)?;
+            let final_curve = target.build_curve_for_solver(&final_knots)?;
             let residual = target.calculate_residual(&final_curve, quote)?.abs();
 
             if !residual.is_finite() || residual > crate::calibration::PENALTY * 0.5 {
@@ -168,8 +198,7 @@ impl SequentialBootstrapper {
             knots.push((time, solved_value));
 
             // Store residual
-            let key = format!("quote_{}", residual_key_counter); // Generic key, can be improved if Quote has id
-            residual_key_counter += 1;
+            let key = format!("quote_{:06}", idx);
             residuals.insert(key, residual);
 
             // Trace
@@ -188,7 +217,7 @@ impl SequentialBootstrapper {
         }
 
         // Build final curve to return
-        let final_curve = target.build_curve(&knots)?;
+        let final_curve = target.build_curve_final(&knots)?;
 
         let report = CalibrationReport::for_type_with_tolerance(
             "generic_bootstrap",

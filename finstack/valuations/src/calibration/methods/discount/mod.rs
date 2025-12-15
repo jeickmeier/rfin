@@ -516,8 +516,7 @@ impl Calibrator<RatesQuote, DiscountCurve> for DiscountCurveCalibrator {
 
         match self.config.calibration_method {
             CalibrationMethod::Bootstrap => {
-                let solver = crate::calibration::create_simple_solver(&self.config);
-                self.bootstrap_curve_with_solver(instruments, &solver, base_context)
+                self.bootstrap_curve(instruments, base_context)
             }
             CalibrationMethod::GlobalSolve { .. } => {
                 self.calibrate_global(instruments, base_context)
