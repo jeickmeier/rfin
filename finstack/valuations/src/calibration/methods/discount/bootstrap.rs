@@ -24,6 +24,10 @@ use std::collections::BTreeMap;
 use std::rc::Rc;
 use std::sync::Arc;
 
+const DEFAULT_DF_DECAY: f64 = 0.99;
+const FALLBACK_INITIAL_DF: f64 = 0.95;
+const CAT_BOOTSTRAP: &str = "yield_curve_bootstrap";
+
 impl DiscountCurveCalibrator {
     /// Bootstrap discount curve from instrument quotes using solver.
     ///
@@ -113,7 +117,7 @@ impl DiscountCurveCalibrator {
                         "Year fraction calculation failed for {} maturity {}: {}",
                         self.curve_id, maturity_date, e
                     ),
-                    category: "yield_curve_bootstrap".to_string(),
+                    category: CAT_BOOTSTRAP.to_string(),
                 })?;
 
             if time_to_maturity <= 0.0 {
@@ -162,7 +166,7 @@ impl DiscountCurveCalibrator {
                         "Bootstrap pricing failed for {} at t={:.6}: residual={:?}",
                         self.curve_id, time_to_maturity, final_residual
                     ),
-                    category: "yield_curve_bootstrap".to_string(),
+                    category: CAT_BOOTSTRAP.to_string(),
                 });
             }
 
@@ -225,9 +229,10 @@ impl DiscountCurveCalibrator {
         let discount_curve_id = self.effective_discount_curve_id();
         let currency = self.currency;
 
-        // Capture pre-allocated buffer and RefCell context for the closure
+        // Capture pre-allocated buffer and solver context for the closure
         let temp_knots = Rc::new(RefCell::new(temp_knots_buffer));
-        let ctx_rc = solver_context.clone();
+        let solver_ctx = SolverContext::new(base_context);
+        let ctx_rc = solver_ctx.clone(); // Clone for closure (cheap Rc clone)
 
         let objective = move |df: f64| -> f64 {
             // Reuse pre-allocated buffer: clear to base knots and add candidate
@@ -254,12 +259,7 @@ impl DiscountCurveCalibrator {
                 return crate::calibration::PENALTY;
             }
 
-            // Update context in-place instead of cloning
-            ctx_rc.borrow_mut().insert_mut(Arc::new(temp_curve));
-
-            pricer_clone
-                .price_instrument(&quote_clone, currency, &ctx_rc.borrow())
-                .unwrap_or(crate::calibration::PENALTY)
+            ctx_rc.price_with_curve(temp_curve, &pricer_clone, &quote_clone, currency)
         };
 
         // Compute initial guess and maturity-aware DF bounds
@@ -299,7 +299,7 @@ impl DiscountCurveCalibrator {
                         diag.scan_bounds.1,
                         clamped_initial
                     ),
-                    category: "yield_curve_bootstrap".to_string(),
+                    category: CAT_BOOTSTRAP.to_string(),
                 });
             }
 
@@ -322,7 +322,7 @@ impl DiscountCurveCalibrator {
                         diag.eval_count,
                         diag.valid_eval_count
                     ),
-                    category: "yield_curve_bootstrap".to_string(),
+                    category: CAT_BOOTSTRAP.to_string(),
                 }
             })?
         };
@@ -334,7 +334,7 @@ impl DiscountCurveCalibrator {
                     "Bootstrap produced non-finite discount factor for {} at t={:.6}: df={:?}",
                     self.curve_id, time_to_maturity, solved_df
                 ),
-                category: "yield_curve_bootstrap".to_string(),
+                category: CAT_BOOTSTRAP.to_string(),
             });
         }
 
@@ -352,7 +352,7 @@ impl DiscountCurveCalibrator {
                     time_to_maturity,
                     solved_df
                 ),
-                category: "yield_curve_bootstrap".to_string(),
+                category: CAT_BOOTSTRAP.to_string(),
             });
         }
 
@@ -389,10 +389,10 @@ impl DiscountCurveCalibrator {
                         let implied_rate = -prev_df.ln() / prev_t;
                         (-implied_rate * time_to_maturity).exp()
                     } else {
-                        *prev_df * 0.99 // Small decay
+                        *prev_df * DEFAULT_DF_DECAY // Small decay
                     }
                 } else {
-                    0.95 // Reasonable fallback
+                    FALLBACK_INITIAL_DF // Reasonable fallback
                 }
             }
         }
@@ -426,7 +426,7 @@ impl DiscountCurveCalibrator {
                     "temp DiscountCurve build failed for {}: {}",
                     self.curve_id, e
                 ),
-                category: "yield_curve_bootstrap".to_string(),
+                category: CAT_BOOTSTRAP.to_string(),
             })?;
 
         if quote.requires_forward_curve() && !quote.is_ois_suitable() {
@@ -509,5 +509,42 @@ impl DiscountCurveCalibrator {
         }
 
         Ok((curve, report))
+    }
+}
+
+/// Helper to manage mutable market context efficiently during solver iterations.
+///
+/// Encapsulates `RefCell<MarketContext>` usage to provide a cleaner API for
+/// updating the context with a temporary curve and pricing an instrument.
+#[derive(Clone)]
+struct SolverContext {
+    context: Rc<RefCell<MarketContext>>,
+}
+
+impl SolverContext {
+    fn new(base_context: &MarketContext) -> Self {
+        Self {
+            context: Rc::new(RefCell::new(base_context.clone())),
+        }
+    }
+
+    /// Update context with a curve and price an instrument.
+    fn price_with_curve(
+        &self,
+        curve: DiscountCurve,
+        pricer: &CalibrationPricer,
+        quote: &RatesQuote,
+        currency: finstack_core::currency::Currency,
+    ) -> f64 {
+        // Scope for mutable borrow to avoid holding the lock during pricing if possible,
+        // though insert_mut is quick.
+        {
+            let mut ctx = self.context.borrow_mut();
+            ctx.insert_mut(Arc::new(curve));
+        }
+
+        pricer
+            .price_instrument(quote, currency, &self.context.borrow())
+            .unwrap_or(crate::calibration::PENALTY)
     }
 }

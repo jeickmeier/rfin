@@ -72,26 +72,9 @@ pub struct DiscountCurveCalibrator {
     pub config: CalibrationConfig,
     /// Currency for the curve
     pub currency: Currency,
-    /// Optional calendar identifier for schedule generation
-    pub calendar_id: Option<String>,
-    /// Settlement lag in business days (None = use currency default)
+    /// Settlement and calendar configuration
     #[serde(default)]
-    pub settlement_days: Option<i32>,
-    /// Day count for curve time (None = use currency default)
-    #[serde(default)]
-    pub curve_day_count: Option<DayCount>,
-    /// Payment delay in business days after period end (default: 0).
-    ///
-    /// Bloomberg OIS swaps typically use 2 business days payment delay.
-    /// Set to 2 for accurate Bloomberg curve matching.
-    #[serde(default)]
-    pub payment_delay_days: i32,
-    /// Allow calendar-day settlement fallback when the calendar cannot be resolved.
-    ///
-    /// When `false` (default), missing calendars are treated as an input error to
-    /// avoid silently misaligning spot/settlement conventions.
-    #[serde(default)]
-    pub allow_calendar_fallback: bool,
+    pub settlement: CalibrationSettlementConfig,
     /// Discount curve ID used during calibration instrument pricing.
     ///
     /// Defaults to the calibrator's `curve_id`. For multi-curve setups where
@@ -129,6 +112,25 @@ pub struct DiscountCurveCalibrator {
     /// Use this for non-OIS curves or when base_date equals settlement_date.
     #[serde(default)]
     pub include_spot_knot: bool,
+}
+
+/// Consolidated configuration for settlement and scheduling
+#[derive(Clone, Debug, Default, Serialize, Deserialize)]
+pub struct CalibrationSettlementConfig {
+    /// Optional calendar identifier for schedule generation
+    pub calendar_id: Option<String>,
+    /// Settlement lag in business days (None = use currency default)
+    #[serde(default)]
+    pub settlement_days: Option<i32>,
+    /// Day count for curve time (None = use currency default)
+    #[serde(default)]
+    pub curve_day_count: Option<DayCount>,
+    /// Payment delay in business days after period end (default: 0).
+    #[serde(default)]
+    pub payment_delay_days: i32,
+    /// Allow calendar-day settlement fallback when the calendar cannot be resolved.
+    #[serde(default)]
+    pub allow_calendar_fallback: bool,
 }
 
 fn default_reset_lag() -> i32 {
@@ -170,15 +172,11 @@ impl DiscountCurveCalibrator {
             extrapolation: ExtrapolationPolicy::FlatForward,
             config, // Defaults include calibration_method
             currency,
-            calendar_id: None,
-            settlement_days: None, // Will use currency default
-            curve_day_count: None, // Will use currency default
-            payment_delay_days: 0, // Default 0; set to 2 for Bloomberg OIS
-            allow_calendar_fallback: false,
-            discount_curve_id: None, // Will default to curve_id
-            forward_curve_id: None,  // Will default to curve_id
-            reset_lag: 2,            // Standard T-2 reset lag
-            use_ois_logic,           // Default to OIS conventions
+            settlement: CalibrationSettlementConfig::default(),
+            discount_curve_id: None,          // Will default to curve_id
+            forward_curve_id: None,           // Will default to curve_id
+            reset_lag: 2,                     // Standard T-2 reset lag
+            use_ois_logic,                    // Default to OIS conventions
             include_spot_knot: use_ois_logic, // Default on for OIS (market-standard spot anchoring)
         }
     }
@@ -283,7 +281,7 @@ impl DiscountCurveCalibrator {
 
     /// Set an optional calendar identifier for schedule generation.
     pub fn with_calendar_id(mut self, calendar_id: impl Into<String>) -> Self {
-        self.calendar_id = Some(calendar_id.into());
+        self.settlement.calendar_id = Some(calendar_id.into());
         self
     }
 
@@ -294,13 +292,13 @@ impl DiscountCurveCalibrator {
     /// - GBP: 0 days (same-day settlement)
     /// - AUD/CAD: 1 day
     pub fn with_settlement_days(mut self, days: i32) -> Self {
-        self.settlement_days = Some(days);
+        self.settlement.settlement_days = Some(days);
         self
     }
 
     /// Set explicit day count for curve time (overrides currency default).
     pub fn with_curve_day_count(mut self, day_count: DayCount) -> Self {
-        self.curve_day_count = Some(day_count);
+        self.settlement.curve_day_count = Some(day_count);
         self
     }
 
@@ -309,7 +307,7 @@ impl DiscountCurveCalibrator {
     /// Bloomberg OIS swaps typically use 2 business days payment delay.
     /// Set to 2 for accurate Bloomberg curve matching.
     pub fn with_payment_delay(mut self, days: i32) -> Self {
-        self.payment_delay_days = days;
+        self.settlement.payment_delay_days = days;
         self
     }
 
@@ -317,7 +315,7 @@ impl DiscountCurveCalibrator {
     ///
     /// For production calibration, keep this `false` to avoid silent date shifts.
     pub fn with_allow_calendar_fallback(mut self, allow: bool) -> Self {
-        self.allow_calendar_fallback = allow;
+        self.settlement.allow_calendar_fallback = allow;
         self
     }
 
@@ -402,11 +400,13 @@ impl DiscountCurveCalibrator {
     ///
     /// Override via `with_settlement_days()` or supply via quote conventions.
     pub(crate) fn effective_settlement_days(&self) -> i32 {
-        self.settlement_days.unwrap_or(match self.currency {
-            Currency::GBP => 0,
-            Currency::AUD | Currency::CAD => 1,
-            _ => 2,
-        })
+        self.settlement
+            .settlement_days
+            .unwrap_or(match self.currency {
+                Currency::GBP => 0,
+                Currency::AUD | Currency::CAD => 1,
+                _ => 2,
+            })
     }
 
     /// Get effective day count for curve time (explicit or default Act/365F).
@@ -414,7 +414,7 @@ impl DiscountCurveCalibrator {
     /// Act/365F is a common default for discount curves. Override via `with_curve_day_count()`
     /// or supply via quote conventions for currency-specific handling.
     pub(crate) fn effective_curve_day_count(&self) -> DayCount {
-        self.curve_day_count.unwrap_or(DayCount::Act365F)
+        self.settlement.curve_day_count.unwrap_or(DayCount::Act365F)
     }
 
     /// Calculate settlement date from base date using business-day calendar.
@@ -431,14 +431,11 @@ impl DiscountCurveCalibrator {
     /// Per-instrument conventions (payment delay, reset lag, calendar) come from
     /// the quote's `InstrumentConventions`.
     pub(crate) fn create_pricer(&self) -> CalibrationPricer {
-        let mut pricer = CalibrationPricer::new(
-            self.base_date,
-            self.effective_discount_curve_id(),
-        )
-        .with_forward_curve_id(self.effective_forward_curve_id())
-        .with_allow_calendar_fallback(self.allow_calendar_fallback);
+        let mut pricer = CalibrationPricer::new(self.base_date, self.effective_discount_curve_id())
+            .with_forward_curve_id(self.effective_forward_curve_id())
+            .with_allow_calendar_fallback(self.settlement.allow_calendar_fallback);
 
-        if let Some(days) = self.settlement_days {
+        if let Some(days) = self.settlement.settlement_days {
             pricer = pricer.with_settlement_days(days);
         }
 
@@ -524,10 +521,12 @@ impl DiscountCurveCalibrator {
             builder = builder.allow_non_monotonic();
         }
 
-        builder.build().map_err(|e| finstack_core::Error::Calibration {
-            message: format!("final curve build failed for {}: {}", self.curve_id, e),
-            category: "yield_curve_calibration".to_string(),
-        })
+        builder
+            .build()
+            .map_err(|e| finstack_core::Error::Calibration {
+                message: format!("final curve build failed for {}: {}", self.curve_id, e),
+                category: "yield_curve_calibration".to_string(),
+            })
     }
 
     /// Compute the spot knot information for curve anchoring.
@@ -651,14 +650,12 @@ mod tests {
             RatesQuote::Deposit {
                 maturity: base_date + time::Duration::days(30),
                 rate: 0.045,
-                conventions: InstrumentConventions::default()
-                    .with_day_count(DayCount::Act360),
+                conventions: InstrumentConventions::default().with_day_count(DayCount::Act360),
             },
             RatesQuote::Deposit {
                 maturity: base_date + time::Duration::days(90),
                 rate: 0.046,
-                conventions: InstrumentConventions::default()
-                    .with_day_count(DayCount::Act360),
+                conventions: InstrumentConventions::default().with_day_count(DayCount::Act360),
             },
             RatesQuote::Swap {
                 maturity: base_date + time::Duration::days(365),
@@ -733,8 +730,11 @@ mod tests {
         // Note: ExtrapolationPolicy doesn't implement PartialEq, so we can't use assert_eq!
         // assert_eq!(calibrator.extrapolation, ExtrapolationPolicy::FlatZero);
         assert_eq!(calibrator.solve_interp, InterpStyle::Linear);
-        assert_eq!(calibrator.settlement_days, Some(0));
-        assert_eq!(calibrator.curve_day_count, Some(DayCount::Act365F));
+        assert_eq!(calibrator.settlement.settlement_days, Some(0));
+        assert_eq!(
+            calibrator.settlement.curve_day_count,
+            Some(DayCount::Act365F)
+        );
     }
 
     #[test]
@@ -900,20 +900,17 @@ mod tests {
             RatesQuote::Deposit {
                 maturity: base_date + time::Duration::days(30),
                 rate: 0.045,
-                conventions: InstrumentConventions::default()
-                    .with_day_count(DayCount::Act360),
+                conventions: InstrumentConventions::default().with_day_count(DayCount::Act360),
             },
             RatesQuote::Deposit {
                 maturity: base_date + time::Duration::days(60),
                 rate: 0.046,
-                conventions: InstrumentConventions::default()
-                    .with_day_count(DayCount::Act360),
+                conventions: InstrumentConventions::default().with_day_count(DayCount::Act360),
             },
             RatesQuote::Deposit {
                 maturity: base_date + time::Duration::days(90),
                 rate: 0.0465,
-                conventions: InstrumentConventions::default()
-                    .with_day_count(DayCount::Act360),
+                conventions: InstrumentConventions::default().with_day_count(DayCount::Act360),
             },
             RatesQuote::Swap {
                 maturity: base_date + time::Duration::days(180),
@@ -987,14 +984,12 @@ mod tests {
             RatesQuote::Deposit {
                 maturity: base_date + time::Duration::days(30),
                 rate: 0.03,
-                conventions: InstrumentConventions::default()
-                    .with_day_count(DayCount::Act360),
+                conventions: InstrumentConventions::default().with_day_count(DayCount::Act360),
             },
             RatesQuote::Deposit {
                 maturity: base_date + time::Duration::days(90),
                 rate: 0.035,
-                conventions: InstrumentConventions::default()
-                    .with_day_count(DayCount::Act360),
+                conventions: InstrumentConventions::default().with_day_count(DayCount::Act360),
             },
         ];
 
@@ -1055,14 +1050,12 @@ mod tests {
             RatesQuote::Deposit {
                 maturity: base_date + time::Duration::days(30),
                 rate: 0.045,
-                conventions: InstrumentConventions::default()
-                    .with_day_count(DayCount::Act360),
+                conventions: InstrumentConventions::default().with_day_count(DayCount::Act360),
             },
             RatesQuote::Deposit {
                 maturity: base_date + time::Duration::days(90),
                 rate: 0.046,
-                conventions: InstrumentConventions::default()
-                    .with_day_count(DayCount::Act360),
+                conventions: InstrumentConventions::default().with_day_count(DayCount::Act360),
             },
         ];
 
@@ -1135,8 +1128,8 @@ mod tests {
         );
 
         // Explicit override should work
-        let no_spot = DiscountCurveCalibrator::usd("USD-NO-SPOT", base_date)
-            .with_include_spot_knot(false);
+        let no_spot =
+            DiscountCurveCalibrator::usd("USD-NO-SPOT", base_date).with_include_spot_knot(false);
         assert!(
             !no_spot.include_spot_knot,
             "Explicit override to false should work"
@@ -1163,14 +1156,12 @@ mod tests {
             RatesQuote::Deposit {
                 maturity: base_date + time::Duration::days(30),
                 rate: 0.045,
-                conventions: InstrumentConventions::default()
-                    .with_day_count(DayCount::Act360),
+                conventions: InstrumentConventions::default().with_day_count(DayCount::Act360),
             },
             RatesQuote::Deposit {
                 maturity: base_date + time::Duration::days(90),
                 rate: 0.046,
-                conventions: InstrumentConventions::default()
-                    .with_day_count(DayCount::Act360),
+                conventions: InstrumentConventions::default().with_day_count(DayCount::Act360),
             },
         ];
 
