@@ -402,7 +402,7 @@ impl DiscountCurveCalibrator {
     ///
     /// Override via `with_settlement_days()` or supply via quote conventions.
     pub(crate) fn effective_settlement_days(&self) -> i32 {
-        self.settlement_days.unwrap_or_else(|| match self.currency {
+        self.settlement_days.unwrap_or(match self.currency {
             Currency::GBP => 0,
             Currency::AUD | Currency::CAD => 1,
             _ => 2,

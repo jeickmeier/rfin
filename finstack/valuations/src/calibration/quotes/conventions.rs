@@ -1,6 +1,7 @@
 //! Per-instrument conventions for calibration quotes.
 
 use finstack_core::dates::{BusinessDayConvention, DayCount, Tenor};
+use finstack_core::types::{Currency, IndexId};
 #[cfg(feature = "ts_export")]
 use ts_rs::TS;
 
@@ -57,6 +58,11 @@ pub struct InstrumentConventions {
     #[cfg_attr(feature = "ts_export", ts(type = "string | null"))]
     pub reset_frequency: Option<Tenor>,
 
+    /// Payment frequency for coupon schedules (overrides instrument defaults).
+    #[serde(skip_serializing_if = "Option::is_none")]
+    #[cfg_attr(feature = "ts_export", ts(type = "string | null"))]
+    pub payment_frequency: Option<Tenor>,
+
     /// Business day convention for date adjustments (e.g., ModifiedFollowing).
     #[serde(skip_serializing_if = "Option::is_none")]
     #[cfg_attr(feature = "ts_export", ts(type = "string | null"))]
@@ -66,6 +72,20 @@ pub struct InstrumentConventions {
     #[serde(skip_serializing_if = "Option::is_none")]
     #[cfg_attr(feature = "ts_export", ts(type = "string | null"))]
     pub day_count: Option<DayCount>,
+
+    /// Explicit currency for this instrument (overrides market defaults).
+    #[serde(skip_serializing_if = "Option::is_none")]
+    #[cfg_attr(feature = "ts_export", ts(type = "string | null"))]
+    pub currency: Option<Currency>,
+
+    /// Underlying index identifier (e.g., "USD-SOFR-3M") for float legs.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    #[cfg_attr(feature = "ts_export", ts(type = "string | null"))]
+    pub index: Option<IndexId>,
+
+    /// Recovery rate assumption for credit instruments (0.0 - 1.0).
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub recovery_rate: Option<f64>,
 }
 
 impl InstrumentConventions {
@@ -111,6 +131,12 @@ impl InstrumentConventions {
         self
     }
 
+    /// Create conventions with payment frequency.
+    pub fn with_payment_frequency(mut self, freq: Tenor) -> Self {
+        self.payment_frequency = Some(freq);
+        self
+    }
+
     /// Create conventions with business day convention.
     pub fn with_business_day_convention(mut self, bdc: BusinessDayConvention) -> Self {
         self.business_day_convention = Some(bdc);
@@ -123,6 +149,24 @@ impl InstrumentConventions {
         self
     }
 
+    /// Create conventions with currency.
+    pub fn with_currency(mut self, currency: Currency) -> Self {
+        self.currency = Some(currency);
+        self
+    }
+
+    /// Create conventions with index identifier.
+    pub fn with_index(mut self, index: impl Into<IndexId>) -> Self {
+        self.index = Some(index.into());
+        self
+    }
+
+    /// Create conventions with recovery rate.
+    pub fn with_recovery_rate(mut self, recovery_rate: f64) -> Self {
+        self.recovery_rate = Some(recovery_rate);
+        self
+    }
+
     /// Check if all fields are None (i.e., use defaults).
     pub fn is_empty(&self) -> bool {
         self.settlement_days.is_none()
@@ -132,8 +176,12 @@ impl InstrumentConventions {
             && self.fixing_calendar_id.is_none()
             && self.payment_calendar_id.is_none()
             && self.reset_frequency.is_none()
+            && self.payment_frequency.is_none()
             && self.business_day_convention.is_none()
             && self.day_count.is_none()
+            && self.currency.is_none()
+            && self.index.is_none()
+            && self.recovery_rate.is_none()
     }
 
     /// Get the effective fixing calendar ID (falls back to general calendar_id).
