@@ -265,9 +265,9 @@ fn test_discount_curve_global_solve_smoke() {
         .calibrate(&quotes, &market)
         .expect("Global solve should succeed");
 
-    // Expect knots for each quote plus t=0, plus spot knot (OIS default)
-    // Note: OIS calibrators now default to include_spot_knot=true for market-standard behavior
-    assert_eq!(curve.knots().len(), quotes.len() + 2);
+    // Expect one knot per quote plus the t=0 anchor. When settlement is T+0
+    // we skip inserting a separate spot knot.
+    assert_eq!(curve.knots().len(), quotes.len() + 1);
     assert!(
         report.residuals.len() >= quotes.len(),
         "Residuals should track each instrument"

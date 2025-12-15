@@ -74,10 +74,11 @@ impl SequentialBootstrapper {
         let mut total_iterations = 0;
         let mut residual_key_counter = 0;
 
+        let solver = crate::calibration::create_simple_solver(config);
+
         // Iterate through sorted quotes
         for (idx, quote) in sorted_quotes.iter().enumerate() {
             residual_key_counter += 1;
-            let q_idx = residual_key_counter - 1;
 
             // Calculate knot time
             let time = target.quote_time(quote)?;
@@ -108,11 +109,7 @@ impl SequentialBootstrapper {
 
             // Determine scan points: prefer target-specific points
             let scan_points = target.scan_points(quote, initial_guess);
-            let scan_points_ref = if !scan_points.is_empty() {
-                &scan_points
-            } else {
-                config.scan_points.as_slice()
-            };
+            let scan_points_ref = scan_points.as_slice();
 
             // Solve using bracket + polish
             let (tentative, diag) = bracket_solve_1d_with_diagnostics(
@@ -120,8 +117,7 @@ impl SequentialBootstrapper {
                 initial_guess,
                 scan_points_ref,
                 config.tolerance,
-                config.solver.max_iterations,
-                &config.solver,
+                config.max_iterations,
             )?;
 
             total_iterations += diag.eval_count;
@@ -140,8 +136,8 @@ impl SequentialBootstrapper {
                     });
                 }
 
-                let best_guess = diag.best_point.unwrap_or(guess);
-                solver.solve(&objective, best_guess).map_err(|e| {
+                let best_guess = diag.best_point.unwrap_or(initial_guess);
+                solver.solve(objective, best_guess).map_err(|e| {
                     finstack_core::Error::Calibration {
                         message: format!("Bootstrap solver failed at t={:.4}: {}", time, e),
                         category: "bootstrapping".to_string(),

@@ -70,14 +70,12 @@ impl DiscountCurveCalibrator {
             settlement,
         };
 
-        // Run        // Bootstrap
+        // Run bootstrap with the initial knots (including optional spot knot)
         let (curve, report) =
             crate::calibration::methods::common::bootstrapper::SequentialBootstrapper::bootstrap(
                 &target,
                 &sorted_quotes,
-                vec![(0.0, 1.0)], // Initial (0,1) knot for discount curve?
-                // DiscountCurveCalibrator logic handles (0,1), but SequentialBootstrapper passes initial knots to build_curve.
-                // If build_curve expects valid knots, (0,1) is good.
+                initial_knots,
                 &self.config,
                 None, // No explanation trace passed for now
             )?;
@@ -187,16 +185,16 @@ impl<'a> BootstrapTarget for DiscountBootstrapper<'a> {
     type Curve = DiscountCurve;
 
     fn quote_time(&self, quote: &Self::Quote) -> Result<f64> {
-        self.curve_dc
-            .year_fraction(
-                self.calibrator.base_date,
-                quote.maturity_date(),
-                finstack_core::dates::DayCountCtx::default(),
-            )
-            .map_err(|e| finstack_core::Error::Calibration {
-                message: format!("YF calc failed: {}", e),
-                category: "bootstrapping".to_string(),
-            })
+        let dc = quote.effective_day_count(self.calibrator.currency);
+        dc.year_fraction(
+            self.calibrator.base_date,
+            quote.maturity_date(),
+            finstack_core::dates::DayCountCtx::default(),
+        )
+        .map_err(|e| finstack_core::Error::Calibration {
+            message: format!("YF calc failed: {}", e),
+            category: "bootstrapping".to_string(),
+        })
     }
 
     fn build_curve(&self, knots: &[(f64, f64)]) -> Result<Self::Curve> {
@@ -225,11 +223,13 @@ impl<'a> BootstrapTarget for DiscountBootstrapper<'a> {
         }
 
         let ctx = self.base_context.borrow();
-        Ok(self
+        let pv = self
             .pricer
             .price_instrument(quote, self.calibrator.currency, &ctx)
-            .unwrap_or(crate::calibration::PENALTY)
-            .abs())
+            .unwrap_or(crate::calibration::PENALTY);
+
+        // Keep the signed residual so the root finder can detect sign changes.
+        Ok(pv)
     }
 
     fn initial_guess(&self, quote: &Self::Quote, previous_knots: &[(f64, f64)]) -> f64 {
@@ -272,47 +272,36 @@ impl<'a> BootstrapTarget for DiscountBootstrapper<'a> {
         }
     }
 
-    fn scan_points(&self, _quote: &Self::Quote, initial_guess: f64) -> Vec<f64> {
-        // Replicate maturity_aware_scan_grid logic
-        // DF bounds are [0, 1] usually, or slightly > 1 for negative rates.
-        // config.df_bounds provides context.
-        // But compute_initial_df_guess logic is complex.
-
-        // In original code:
-        /*
-        let df_lo = match self.config.df_bounds.min { ... }
-        let df_hi = match self.config.df_bounds.max { ... }
-        let scan_grid = Self::maturity_aware_scan_grid(df_lo, df_hi, clamped_initial, 32);
-        */
-
-        // We can call helper if we expose it or copy logic.
-        // `maturity_aware_scan_grid` is private in `DiscountCurveCalibrator`.
-        // I should expose it or make it accessible to Bootstrapper (which has reference to calibrator).
-        // It is an associated function `Self::maturity_aware_scan_grid`.
-
-        // Let's check if it's accessible. It's likely private `fn`.
-        // I'll assume I can change visibility or duplicate simple logic.
-        // For now, I'll use a simple logic: if dynamic bounds needed, use [0.1, ... 1.1] scaled by guess?
-        // Actually `maturity_aware_scan_grid` was quite specific.
-
-        // Let's rely on config.scan_points which usually works for DFs if they are around 1.0.
-        // BUT DFs can be near 0 for long maturities.
-        // So adaptive is better.
-
-        // For now, return empty to use config.scan_points as fallback,
-        // OR implement simple grid around guess.
-        let center = initial_guess;
-        vec![
-            center * 0.9,
-            center * 0.95,
-            center * 0.99,
-            center,
-            center * 1.01,
-            center * 1.05,
-            center * 1.1,
-        ]
-        // This is a placeholder. To do it right I should expose `maturity_aware_scan_grid` as pub(crate)
-        // or copy it.
+    fn scan_points(&self, quote: &Self::Quote, initial_guess: f64) -> Vec<f64> {
+        // Get time to maturity for proper bounds calculation
+        let time = self.quote_time(quote).unwrap_or(1.0);
+        
+        // Get discount factor bounds for this maturity
+        let (df_lo, df_hi) = self.calibrator.df_bounds_for_time(time);
+        
+        // Clamp initial guess to bounds
+        let clamped_initial = initial_guess.clamp(df_lo, df_hi);
+        
+        // Use maturity-aware scan grid for robust root finding
+        // Use more points (48 instead of 32) to ensure better coverage
+        let mut grid = DiscountCurveCalibrator::maturity_aware_scan_grid(df_lo, df_hi, clamped_initial, 48);
+        
+        // Ensure we have enough points - if grid is too sparse, add more
+        if grid.len() < 20 {
+            // Add additional linear-spaced points across the range
+            let num_additional = 20 - grid.len().min(20);
+            for i in 0..=num_additional {
+                let t = i as f64 / num_additional as f64;
+                let df = df_lo + t * (df_hi - df_lo);
+                if df.is_finite() && df > 0.0 {
+                    grid.push(df);
+                }
+            }
+            grid.sort_by(|a, b| b.total_cmp(a));
+            grid.dedup_by(|a, b| (*a - *b).abs() < (df_hi - df_lo) * 0.001);
+        }
+        
+        grid
     }
 
     fn validate_knot(&self, time: f64, value: f64) -> Result<()> {

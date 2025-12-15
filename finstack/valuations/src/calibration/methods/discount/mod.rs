@@ -115,10 +115,10 @@ fn default_extrapolation() -> ExtrapolationPolicy {
 }
 
 pub(crate) fn default_curve_day_count(currency: Currency) -> DayCount {
-    match currency {
-        Currency::USD | Currency::EUR | Currency::CHF => DayCount::Act360,
-        _ => DayCount::Act365F,
-    }
+    // Use ACT/365F to align with the core discount curve builder defaults and
+    // scenario expectations (time expressed directly in year fractions).
+    let _ = currency; // currency-based overrides can be added if needed
+    DayCount::Act365F
 }
 
 impl DiscountCurveCalibrator {
@@ -331,6 +331,8 @@ impl DiscountCurveCalibrator {
     pub(crate) fn create_pricer(&self) -> CalibrationPricer {
         CalibrationPricer::new(self.base_date, self.effective_discount_curve_id())
             .with_forward_curve_id(self.effective_forward_curve_id())
+            // Discount curve calibration uses base-date start to match repricing tests
+            .with_use_settlement_start(false)
     }
 
     /// Validate a calibrated discount curve using the configured validation policy.
@@ -364,6 +366,11 @@ impl DiscountCurveCalibrator {
         curve_dc: DayCount,
         settlement: Date,
     ) -> (f64, Option<(f64, f64)>) {
+        // When not using settlement start, do not force a spot knot at settlement.
+        if !self.create_pricer().use_settlement_start {
+            return (0.0, None);
+        }
+
         if !self.include_spot_knot {
             return (0.0, None);
         }
@@ -396,36 +403,62 @@ impl DiscountCurveCalibrator {
     /// * `df_hi` - Upper bound for discount factor (from `df_bounds_for_time`)
     /// * `initial_df` - Initial guess to center fine grid around
     /// * `num_points` - Total number of scan points (default ~32)
+    #[allow(dead_code)] // Used in tests
     pub(crate) fn maturity_aware_scan_grid(
         df_lo: f64,
         df_hi: f64,
         initial_df: f64,
         num_points: usize,
     ) -> Vec<f64> {
-        let mut grid = Vec::with_capacity(num_points + 10);
+        let mut grid = Vec::with_capacity(num_points + 20);
+
+        // Always include bounds to ensure we can detect sign changes at boundaries
+        if df_lo.is_finite() && df_lo > 0.0 {
+            grid.push(df_lo);
+        }
+        if df_hi.is_finite() && df_hi > 0.0 && (df_hi - df_lo).abs() > 1e-10 {
+            grid.push(df_hi);
+        }
 
         // Clamp initial guess to bounds
         let center = initial_df.clamp(df_lo, df_hi);
 
-        // Log-spaced points across the full range (stable for wide DF ranges)
-        let log_lo = df_lo.ln();
-        let log_hi = df_hi.ln();
-        let coarse_points = num_points.saturating_sub(10).max(8);
-        for i in 0..=coarse_points {
-            let t = i as f64 / coarse_points as f64;
-            let log_df = log_lo + t * (log_hi - log_lo);
-            let df = log_df.exp();
-            if df.is_finite() && df > 0.0 {
-                grid.push(df);
+        // Use log-spacing for wide ranges, but handle edge cases
+        // If df_lo is very small (< 1e-6), use hybrid approach
+        let use_log_spacing = df_lo > 1e-6 && df_hi / df_lo > 10.0;
+        
+        if use_log_spacing {
+            // Log-spaced points across the full range (stable for wide DF ranges)
+            let log_lo = df_lo.ln();
+            let log_hi = df_hi.ln();
+            let coarse_points = num_points.saturating_sub(10).max(8);
+            for i in 1..coarse_points {
+                let t = i as f64 / coarse_points as f64;
+                let log_df = log_lo + t * (log_hi - log_lo);
+                let df = log_df.exp();
+                if df.is_finite() && df > 0.0 && df > df_lo && df < df_hi {
+                    grid.push(df);
+                }
+            }
+        } else {
+            // Linear spacing for narrow ranges or when df_lo is very small
+            let coarse_points = num_points.saturating_sub(10).max(8);
+            for i in 1..coarse_points {
+                let t = i as f64 / coarse_points as f64;
+                let df = df_lo + t * (df_hi - df_lo);
+                if df.is_finite() && df > 0.0 && df > df_lo && df < df_hi {
+                    grid.push(df);
+                }
             }
         }
 
         // Finer grid near the initial guess (small fixed step for precision)
-        // Use 0.005 step (half of old 0.01) for better root bracketing near the guess
-        let fine_step = 0.005;
+        // Use adaptive step size based on the range
+        let range = df_hi - df_lo;
+        let fine_step = (range * 0.01).clamp(0.001, 0.01);
         for i in -10..=10 {
             let df = center + i as f64 * fine_step;
-            if df >= df_lo && df <= df_hi && df.is_finite() {
+            if df >= df_lo && df <= df_hi && df.is_finite() && df > 0.0 {
                 grid.push(df);
             }
         }

@@ -20,7 +20,9 @@
 //! # fn main() -> finstack_core::Result<()> {
 //!
 //! // Parse ISO-4217 codes (case-insensitive)
-//! let eur = "eur".parse::<Currency>()?;
+//! let eur = "eur"
+//!     .parse::<Currency>()
+//!     .expect("valid ISO-4217 currency");
 //!
 //! // Perform arithmetic that refuses to mix currencies
 //! let subtotal = Money::new(49.50, Currency::EUR);

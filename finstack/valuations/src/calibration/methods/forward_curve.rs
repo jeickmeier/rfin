@@ -95,7 +95,7 @@ use crate::calibration::{
 use finstack_core::{
     config::FinstackConfig,
     currency::Currency,
-    dates::{Date, DateExt, DayCountCtx, Tenor},
+    dates::{Date, DayCountCtx, Tenor},
     explain::TraceEntry,
     market_data::{context::MarketContext, term_structures::forward_curve::ForwardCurve},
     math::{interp::InterpStyle, Solver},
@@ -282,33 +282,6 @@ impl ForwardCurveCalibrator {
         pricer
     }
 
-    fn ensure_anchor(&self, knots: &mut Vec<(f64, f64)>, fallback_rate: f64) {
-        if knots.is_empty() {
-            if self.config.verbose {
-                tracing::debug!(
-                    curve_id = %self.fwd_curve_id.as_str(),
-                    anchor_rate = fallback_rate,
-                    "Inserting anchor at t=0.0 with fallback rate"
-                );
-            }
-            knots.push((0.0, fallback_rate));
-            return;
-        }
-
-        if knots[0].0 > self.config.tolerance {
-            let rate = knots[0].1;
-            if self.config.verbose {
-                tracing::debug!(
-                    curve_id = %self.fwd_curve_id.as_str(),
-                    anchor_rate = rate,
-                    first_knot_time = knots[0].0,
-                    "Inserting anchor at t=0.0 derived from first knot"
-                );
-            }
-            knots.insert(0, (0.0, rate));
-        }
-    }
-
     /// Bootstrap the forward curve with the given solver.
     ///
     /// Uses sequential bootstrapping where each quote adds a knot to the curve.
@@ -425,7 +398,7 @@ impl ForwardCurveCalibrator {
         } else {
             None
         };
-        let (mut curve, report) =
+        let (curve, report) =
             crate::calibration::methods::common::bootstrapper::SequentialBootstrapper::bootstrap(
                 &target,
                 &unique_quotes,
@@ -502,13 +475,11 @@ impl<'a> crate::calibration::methods::common::bootstrapper::BootstrapTarget
 
     fn quote_time(&self, quote: &Self::Quote) -> Result<f64> {
         let knot_date = quote.maturity_date();
-        self.time_dc
-            .year_fraction(
-                self.calibrator.base_date,
-                knot_date,
-                finstack_core::dates::DayCountCtx::default(),
-            )
-            .map_err(|e| e)
+        self.time_dc.year_fraction(
+            self.calibrator.base_date,
+            knot_date,
+            finstack_core::dates::DayCountCtx::default(),
+        )
     }
 
     fn build_curve(&self, knots: &[(f64, f64)]) -> Result<Self::Curve> {
@@ -547,10 +518,12 @@ impl<'a> crate::calibration::methods::common::bootstrapper::BootstrapTarget
         let ctx = self.base_context.borrow();
 
         let pricer = self.calibrator.make_pricer();
-        Ok(pricer
+        let pv = pricer
             .price_instrument(quote, self.calibrator.currency, &ctx)
-            .map(|pv| pv.abs())
-            .unwrap_or_else(|_| crate::calibration::PENALTY))
+            .unwrap_or_else(|_| crate::calibration::PENALTY);
+
+        // Keep signed residual so root finder can detect sign changes
+        Ok(pv)
     }
 
     fn initial_guess(&self, quote: &Self::Quote, previous_knots: &[(f64, f64)]) -> f64 {
@@ -833,91 +806,6 @@ impl ForwardCurveCalibrator {
             sensitivity_matrix,
         })
     }
-
-    /// Price an instrument for calibration.
-    ///
-    /// Returns the normalized PV (PV / notional) which should be zero for par instruments.
-    ///
-    /// Delegates to [`CalibrationPricer`] for all quote types except Deposits (which are
-    /// explicitly rejected for forward curve calibration).
-    fn price_instrument(&self, quote: &RatesQuote, context: &MarketContext) -> Result<f64> {
-        // Deposits should never be used for forward curve calibration
-        if matches!(quote, RatesQuote::Deposit { .. }) {
-            return Err(finstack_core::Error::Validation(
-                "ForwardCurveCalibrator does not support Deposit quotes (use DiscountCurveCalibrator)"
-                    .into(),
-            ));
-        }
-        // Delegate all other quote types to the centralized pricer
-        self.make_pricer()
-            .price_instrument(quote, self.currency, context)
-    }
-
-    /// Get the knot date for an instrument (end date or period end).
-    fn get_knot_date(&self, quote: &RatesQuote) -> Date {
-        match quote {
-            RatesQuote::FRA { end, .. } => *end,
-            RatesQuote::Future { expiry, specs, .. } => {
-                expiry.add_months(specs.delivery_months as i32)
-            }
-            RatesQuote::Swap { maturity, .. } => *maturity,
-            _ => quote.maturity_date(),
-        }
-    }
-
-    /// Get initial guess for forward rate.
-    ///
-    /// Uses a sophisticated fallback strategy that derives from market context:
-    /// 1. For FRA/Future/Swap quotes: use the quoted rate/price
-    /// 2. For other quotes: use last solved knot if available
-    /// 3. If no knots exist: derive from discount curve over tenor (market-regime-aware)
-    /// 4. Final fallback: use benign global default (0.02) only if nothing else available
-    fn get_initial_guess(
-        &self,
-        quote: &RatesQuote,
-        existing_knots: &[(f64, f64)],
-        context: &MarketContext,
-    ) -> f64 {
-        match quote {
-            RatesQuote::FRA { rate, .. } => *rate,
-            RatesQuote::Future { price, specs, .. } => {
-                // Convert price to implied rate
-                let implied_rate = (100.0 - price) / 100.0;
-                // Apply convexity adjustment if available
-                if let Some(adj) = specs.convexity_adjustment {
-                    implied_rate + adj
-                } else {
-                    implied_rate
-                }
-            }
-            RatesQuote::Swap { rate, .. } => *rate,
-            _ => {
-                // Use last solved knot if available
-                if let Some((_, last_rate)) = existing_knots.last() {
-                    *last_rate
-                } else {
-                    // Derive from discount curve
-                    let discount_curve =
-                        match context.get_discount_ref(self.discount_curve_id.as_ref()) {
-                            Ok(c) => c,
-                            Err(_) => return 0.02, // Fallback
-                        };
-
-                    // Get forward rate over tenor using discount curve
-                    let t_start = 0.0;
-                    let t_end = self.tenor_years;
-                    let df_start = discount_curve.df(t_start);
-                    let df_end = discount_curve.df(t_end);
-
-                    if df_end > 0.0 && df_start > 0.0 {
-                        ((df_start / df_end) - 1.0) / self.tenor_years
-                    } else {
-                        0.02 // Fallback
-                    }
-                }
-            }
-        }
-    }
 }
 
 impl Calibrator<RatesQuote, ForwardCurve> for ForwardCurveCalibrator {
@@ -985,7 +873,8 @@ mod tests {
             .expect("calibration should succeed");
 
         // Ensure the resulting forward curve reports the configured time day count (USD default)
-        assert_eq!(curve.day_count(), DayCount::Act360);
+        // Default curve day count aligns with discount curves (ACT/365F).
+        assert_eq!(curve.day_count(), DayCount::Act365F);
     }
 
     fn create_test_fra_quotes() -> Vec<RatesQuote> {
