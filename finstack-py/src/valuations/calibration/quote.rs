@@ -2,6 +2,7 @@ use crate::core::common::args::{CurrencyArg, DayCountArg};
 use crate::core::dates::daycount::PyDayCount;
 use crate::core::dates::schedule::PyFrequency;
 use crate::core::dates::utils::{date_to_py, py_to_date};
+use finstack_valuations::calibration::quotes::InstrumentConventions;
 use finstack_valuations::calibration::{
     CreditQuote, FutureSpecs, InflationQuote, MarketQuote, RatesQuote, VolQuote,
 };
@@ -126,8 +127,8 @@ impl PyRatesQuote {
         Ok(Self::new(RatesQuote::Deposit {
             maturity: maturity_date,
             rate,
-            day_count: dc,
-            conventions: Default::default(),
+            conventions: InstrumentConventions::default()
+                .with_day_count(dc),
         }))
     }
 
@@ -147,8 +148,8 @@ impl PyRatesQuote {
             start: start_date,
             end: end_date,
             rate,
-            day_count: dc,
-            conventions: Default::default(),
+            conventions: InstrumentConventions::default()
+                .with_day_count(dc),
         }))
     }
 
@@ -189,15 +190,15 @@ impl PyRatesQuote {
         Ok(Self::new(RatesQuote::Swap {
             maturity: maturity_date,
             rate,
-            fixed_freq: fixed_freq.inner,
-            float_freq: float_freq.inner,
-            fixed_dc,
-            float_dc,
-            index: index.to_string().into(),
             is_ois: false,
             conventions: Default::default(),
-            fixed_leg_conventions: Default::default(),
-            float_leg_conventions: Default::default(),
+            fixed_leg_conventions: InstrumentConventions::default()
+                .with_payment_frequency(fixed_freq.inner)
+                .with_day_count(fixed_dc),
+            float_leg_conventions: InstrumentConventions::default()
+                .with_payment_frequency(float_freq.inner)
+                .with_day_count(float_dc)
+                .with_index(index),
         }))
     }
 
@@ -224,17 +225,17 @@ impl PyRatesQuote {
         let CurrencyArg(ccy) = CurrencyArg::extract_bound(&currency)?;
         Ok(Self::new(RatesQuote::BasisSwap {
             maturity: maturity_date,
-            primary_index: primary_index.to_string(),
-            reference_index: reference_index.to_string(),
             spread_bp,
-            primary_freq: primary_frequency.inner,
-            reference_freq: reference_frequency.inner,
-            primary_dc,
-            reference_dc,
-            currency: ccy,
-            conventions: Default::default(),
-            primary_leg_conventions: Default::default(),
-            reference_leg_conventions: Default::default(),
+            conventions: InstrumentConventions::default()
+                .with_currency(ccy),
+            primary_leg_conventions: InstrumentConventions::default()
+                .with_index(primary_index)
+                .with_payment_frequency(primary_frequency.inner)
+                .with_day_count(primary_dc),
+            reference_leg_conventions: InstrumentConventions::default()
+                .with_index(reference_index)
+                .with_payment_frequency(reference_frequency.inner)
+                .with_day_count(reference_dc),
         }))
     }
 
@@ -282,10 +283,11 @@ impl PyRatesQuote {
             RatesQuote::Swap {
                 maturity,
                 rate,
-                index,
+                float_leg_conventions,
                 ..
             } => {
                 let maturity_py = date_to_py(py, *maturity)?;
+                let index = float_leg_conventions.index.as_ref().map(|i| i.as_str()).unwrap_or("");
                 Ok(format!(
                     "RatesQuote.swap(maturity={}, rate={:.6}, index='{}')",
                     maturity_py, rate, index
@@ -293,12 +295,14 @@ impl PyRatesQuote {
             }
             RatesQuote::BasisSwap {
                 maturity,
-                primary_index,
-                reference_index,
+                primary_leg_conventions,
+                reference_leg_conventions,
                 spread_bp,
                 ..
             } => {
                 let maturity_py = date_to_py(py, *maturity)?;
+                let primary_index = primary_leg_conventions.index.as_ref().map(|i| i.as_str()).unwrap_or("");
+                let reference_index = reference_leg_conventions.index.as_ref().map(|i| i.as_str()).unwrap_or("");
                 Ok(format!(
                     "RatesQuote.basis_swap(maturity={}, primary_index='{}', reference_index='{}', spread_bp={:.6})",
                     maturity_py, primary_index, reference_index, spread_bp

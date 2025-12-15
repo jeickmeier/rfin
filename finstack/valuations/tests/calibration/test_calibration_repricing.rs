@@ -392,7 +392,7 @@ fn test_forward_curve_fra_repricing() {
             start,
             end,
             rate,
-            conventions,
+            conventions: _,
         } = quote
         {
             let day_count = quote.effective_day_count(Currency::USD);

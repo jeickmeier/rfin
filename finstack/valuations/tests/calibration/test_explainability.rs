@@ -7,6 +7,7 @@ use finstack_core::market_data::context::MarketContext;
 use finstack_core::market_data::term_structures::discount_curve::DiscountCurve;
 use finstack_core::math::interp::InterpStyle;
 use finstack_valuations::calibration::methods::ForwardCurveCalibrator;
+use finstack_valuations::calibration::quotes::InstrumentConventions;
 use finstack_valuations::calibration::{Calibrator, RatesQuote};
 use time::Month;
 
@@ -35,15 +36,15 @@ fn test_jacobian_not_computed_by_default() {
             start: create_date(2025, Month::April, 15).unwrap(),
             end: create_date(2025, Month::July, 15).unwrap(),
             rate: 0.045,
-            day_count: DayCount::Act360,
-            conventions: Default::default(),
+            conventions: InstrumentConventions::default()
+                .with_day_count(DayCount::Act360),
         },
         RatesQuote::FRA {
             start: create_date(2025, Month::July, 15).unwrap(),
             end: create_date(2025, Month::October, 15).unwrap(),
             rate: 0.046,
-            day_count: DayCount::Act360,
-            conventions: Default::default(),
+            conventions: InstrumentConventions::default()
+                .with_day_count(DayCount::Act360),
         },
     ];
 
@@ -79,15 +80,15 @@ fn test_jacobian_computed_when_enabled() {
             start: create_date(2025, Month::April, 15).unwrap(),
             end: create_date(2025, Month::July, 15).unwrap(),
             rate: 0.045,
-            day_count: DayCount::Act360,
-            conventions: Default::default(),
+            conventions: InstrumentConventions::default()
+                .with_day_count(DayCount::Act360),
         },
         RatesQuote::FRA {
             start: create_date(2025, Month::July, 15).unwrap(),
             end: create_date(2025, Month::October, 15).unwrap(),
             rate: 0.046,
-            day_count: DayCount::Act360,
-            conventions: Default::default(),
+            conventions: InstrumentConventions::default()
+                .with_day_count(DayCount::Act360),
         },
     ];
 
@@ -155,28 +156,28 @@ fn test_jacobian_sensitivities_nonzero() {
         RatesQuote::Swap {
             maturity: create_date(2026, Month::January, 15).unwrap(),
             rate: 0.045,
-            fixed_freq: Tenor::semi_annual(),
-            float_freq: Tenor::quarterly(),
-            fixed_dc: DayCount::Thirty360,
-            float_dc: DayCount::Act360,
-            index: "USD-SOFR-3M".into(),
             is_ois: true,
-                conventions: Default::default(),
-                fixed_leg_conventions: Default::default(),
-                float_leg_conventions: Default::default(),
+            conventions: Default::default(),
+            fixed_leg_conventions: InstrumentConventions::default()
+                .with_payment_frequency(Tenor::semi_annual())
+                .with_day_count(DayCount::Thirty360),
+            float_leg_conventions: InstrumentConventions::default()
+                .with_payment_frequency(Tenor::quarterly())
+                .with_day_count(DayCount::Act360)
+                .with_index("USD-SOFR-3M"),
         },
         RatesQuote::Swap {
             maturity: create_date(2027, Month::January, 15).unwrap(),
             rate: 0.046,
-            fixed_freq: Tenor::semi_annual(),
-            float_freq: Tenor::quarterly(),
-            fixed_dc: DayCount::Thirty360,
-            float_dc: DayCount::Act360,
-            index: "USD-SOFR-3M".into(),
             is_ois: true,
-                conventions: Default::default(),
-                fixed_leg_conventions: Default::default(),
-                float_leg_conventions: Default::default(),
+            conventions: Default::default(),
+            fixed_leg_conventions: InstrumentConventions::default()
+                .with_payment_frequency(Tenor::semi_annual())
+                .with_day_count(DayCount::Thirty360),
+            float_leg_conventions: InstrumentConventions::default()
+                .with_payment_frequency(Tenor::quarterly())
+                .with_day_count(DayCount::Act360)
+                .with_index("USD-SOFR-3M"),
         },
     ];
 

@@ -9,6 +9,7 @@ use finstack_core::dates::{Date, DayCount, Tenor};
 use finstack_core::market_data::term_structures::Seniority;
 use finstack_valuations::calibration::methods::discount::DiscountCurveCalibrator;
 use finstack_valuations::calibration::methods::hazard_curve::HazardCurveCalibrator;
+use finstack_valuations::calibration::quotes::InstrumentConventions;
 use finstack_valuations::calibration::{
     CalibrationConfig, CalibrationSpec, CalibrationStep, RatesQuote,
 };
@@ -41,21 +42,21 @@ fn test_calibration_spec_with_quotes() {
         RatesQuote::Deposit {
             maturity: base_date + time::Duration::days(30),
             rate: 0.045,
-            day_count: DayCount::Act360,
-            conventions: Default::default(),
+            conventions: InstrumentConventions::default()
+                .with_day_count(DayCount::Act360),
         },
         RatesQuote::Swap {
             maturity: base_date + time::Duration::days(365),
             rate: 0.046,
-            fixed_freq: Tenor::annual(),
-            float_freq: Tenor::daily(),
-            fixed_dc: DayCount::Act365F,
-            float_dc: DayCount::Act365F,
-            index: "USD-OIS".to_string().into(),
             is_ois: true,
             conventions: Default::default(),
-            fixed_leg_conventions: Default::default(),
-            float_leg_conventions: Default::default(),
+            fixed_leg_conventions: InstrumentConventions::default()
+                .with_payment_frequency(Tenor::annual())
+                .with_day_count(DayCount::Act365F),
+            float_leg_conventions: InstrumentConventions::default()
+                .with_payment_frequency(Tenor::daily())
+                .with_day_count(DayCount::Act365F)
+                .with_index("USD-OIS"),
         },
     ];
 
@@ -86,8 +87,8 @@ fn test_calibration_spec_multiple_hazard_steps() {
         quotes: vec![RatesQuote::Deposit {
             maturity: base_date + time::Duration::days(365),
             rate: 0.045,
-            day_count: DayCount::Act360,
-            conventions: Default::default(),
+            conventions: InstrumentConventions::default()
+                .with_day_count(DayCount::Act360),
         }],
     };
 
@@ -150,8 +151,8 @@ fn test_calibration_spec_serde_roundtrip() {
             quotes: vec![RatesQuote::Deposit {
                 maturity: base_date + time::Duration::days(90),
                 rate: 0.045,
-                day_count: DayCount::Act360,
-                conventions: Default::default(),
+                conventions: InstrumentConventions::default()
+                    .with_day_count(DayCount::Act360),
             }],
         }],
         schema_version: 1,

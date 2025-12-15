@@ -3,6 +3,7 @@
 use crate::core::common::parse::ParseFromString;
 use crate::core::dates::{FsDate, Tenor};
 use crate::utils::json::{from_js_value, to_js_value};
+use finstack_valuations::calibration::quotes::InstrumentConventions;
 use finstack_valuations::calibration::{
     CreditQuote, FutureSpecs, InflationQuote, MarketQuote, RatesQuote, VolQuote,
 };
@@ -100,8 +101,8 @@ impl JsRatesQuote {
             inner: RatesQuote::Deposit {
                 maturity: maturity.inner(),
                 rate,
-                day_count: dc,
-                conventions: Default::default(),
+                conventions: InstrumentConventions::default()
+                    .with_day_count(dc),
             },
         })
     }
@@ -121,8 +122,8 @@ impl JsRatesQuote {
                 start: start.inner(),
                 end: end.inner(),
                 rate,
-                day_count: dc,
-                conventions: Default::default(),
+                conventions: InstrumentConventions::default()
+                    .with_day_count(dc),
             },
         })
     }
@@ -146,15 +147,15 @@ impl JsRatesQuote {
             inner: RatesQuote::Swap {
                 maturity: maturity.inner(),
                 rate,
-                fixed_freq: fixed_freq.inner(),
-                float_freq: float_freq.inner(),
-                fixed_dc: fixed_day_count,
-                float_dc: float_day_count,
-                index: index.to_string().into(),
                 is_ois: false,
                 conventions: Default::default(),
-                fixed_leg_conventions: Default::default(),
-                float_leg_conventions: Default::default(),
+                fixed_leg_conventions: InstrumentConventions::default()
+                    .with_payment_frequency(fixed_freq.inner())
+                    .with_day_count(fixed_day_count),
+                float_leg_conventions: InstrumentConventions::default()
+                    .with_payment_frequency(float_freq.inner())
+                    .with_day_count(float_day_count)
+                    .with_index(index),
             },
         })
     }
