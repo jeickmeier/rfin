@@ -22,6 +22,7 @@ use finstack_valuations::calibration::methods::inflation_curve::InflationCurveCa
 use finstack_valuations::calibration::methods::sabr_surface::{
     SurfaceInterp, VolSurfaceCalibrator,
 };
+use finstack_valuations::calibration::quotes::InstrumentConventions;
 use finstack_valuations::calibration::methods::swaption_vol::{
     AtmStrikeConvention, PaymentEstimation, SwaptionMarketConvention, SwaptionVolCalibrator,
     SwaptionVolConvention,
@@ -150,8 +151,8 @@ fn test_rates_quote_serialization() {
     let deposit = RatesQuote::Deposit {
         maturity: base_date + time::Duration::days(90),
         rate: 0.045,
-        day_count: DayCount::Act360,
-        conventions: Default::default(),
+        conventions: InstrumentConventions::default()
+            .with_day_count(DayCount::Act360),
     };
     let _ = roundtrip_json(&deposit);
 
@@ -160,8 +161,8 @@ fn test_rates_quote_serialization() {
         start: base_date + time::Duration::days(90),
         end: base_date + time::Duration::days(180),
         rate: 0.047,
-        day_count: DayCount::Act360,
-        conventions: Default::default(),
+        conventions: InstrumentConventions::default()
+            .with_day_count(DayCount::Act360),
     };
     let _ = roundtrip_json(&fra);
 
@@ -185,32 +186,32 @@ fn test_rates_quote_serialization() {
     let swap = RatesQuote::Swap {
         maturity: base_date + time::Duration::days(365 * 2),
         rate: 0.048,
-        fixed_freq: Tenor::semi_annual(),
-        float_freq: Tenor::quarterly(),
-        fixed_dc: DayCount::Thirty360,
-        float_dc: DayCount::Act360,
-        index: "USD-SOFR-3M".to_string().into(),
         is_ois: true,
-                conventions: Default::default(),
-                fixed_leg_conventions: Default::default(),
-                float_leg_conventions: Default::default(),
+        conventions: Default::default(),
+        fixed_leg_conventions: InstrumentConventions::default()
+            .with_payment_frequency(Tenor::semi_annual())
+            .with_day_count(DayCount::Thirty360),
+        float_leg_conventions: InstrumentConventions::default()
+            .with_payment_frequency(Tenor::quarterly())
+            .with_day_count(DayCount::Act360)
+            .with_index("USD-SOFR-3M"),
     };
     let _ = roundtrip_json(&swap);
 
     // Basis swap quote
     let basis = RatesQuote::BasisSwap {
         maturity: base_date + time::Duration::days(365 * 5),
-        primary_index: "3M-SOFR".to_string(),
-        reference_index: "6M-SOFR".to_string(),
         spread_bp: 5.0,
-        primary_freq: Tenor::quarterly(),
-        reference_freq: Tenor::semi_annual(),
-        primary_dc: DayCount::Act360,
-        reference_dc: DayCount::Act360,
-        currency: Currency::USD,
-        conventions: Default::default(),
-        primary_leg_conventions: Default::default(),
-        reference_leg_conventions: Default::default(),
+        conventions: InstrumentConventions::default()
+            .with_currency(Currency::USD),
+        primary_leg_conventions: InstrumentConventions::default()
+            .with_index("3M-SOFR")
+            .with_payment_frequency(Tenor::quarterly())
+            .with_day_count(DayCount::Act360),
+        reference_leg_conventions: InstrumentConventions::default()
+            .with_index("6M-SOFR")
+            .with_payment_frequency(Tenor::semi_annual())
+            .with_day_count(DayCount::Act360),
     };
     let _ = roundtrip_json(&basis);
 }
@@ -318,8 +319,8 @@ fn test_market_quote_serialization() {
         MarketQuote::Rates(RatesQuote::Deposit {
             maturity: base_date + time::Duration::days(30),
             rate: 0.045,
-            day_count: DayCount::Act360,
-            conventions: Default::default(),
+            conventions: InstrumentConventions::default()
+                .with_day_count(DayCount::Act360),
         }),
         MarketQuote::Credit(CreditQuote::CDS {
             entity: "AAPL".to_string(),

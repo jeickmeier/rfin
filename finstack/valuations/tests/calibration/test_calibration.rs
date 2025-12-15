@@ -11,6 +11,7 @@ use finstack_core::market_data::term_structures::{DiscountCurve, Seniority};
 use finstack_core::math::interp::InterpStyle;
 use finstack_valuations::calibration::methods::discount::DiscountCurveCalibrator;
 use finstack_valuations::calibration::methods::hazard_curve::HazardCurveCalibrator;
+use finstack_valuations::calibration::quotes::InstrumentConventions;
 use finstack_valuations::calibration::{CalibrationMethod, Calibrator, CreditQuote, RatesQuote};
 use time::Month;
 
@@ -231,27 +232,27 @@ fn test_discount_curve_global_solve_smoke() {
         RatesQuote::Deposit {
             maturity: Date::from_calendar_date(2025, Month::July, 15).unwrap(),
             rate: 0.03,
-            day_count: DayCount::Act360,
-            conventions: Default::default(),
+            conventions: InstrumentConventions::default()
+                .with_day_count(DayCount::Act360),
         },
         RatesQuote::Deposit {
             maturity: Date::from_calendar_date(2026, Month::January, 15).unwrap(),
             rate: 0.031,
-            day_count: DayCount::Act360,
-            conventions: Default::default(),
+            conventions: InstrumentConventions::default()
+                .with_day_count(DayCount::Act360),
         },
         RatesQuote::Swap {
             maturity: Date::from_calendar_date(2027, Month::January, 15).unwrap(),
             rate: 0.0325,
-            fixed_freq: Tenor::annual(),
-            float_freq: Tenor::annual(),
-            fixed_dc: DayCount::Act360,
-            float_dc: DayCount::Act360,
-            index: "USD-SOFR".into(),
             is_ois: true,
-                conventions: Default::default(),
-                fixed_leg_conventions: Default::default(),
-                float_leg_conventions: Default::default(),
+            conventions: Default::default(),
+            fixed_leg_conventions: InstrumentConventions::default()
+                .with_payment_frequency(Tenor::annual())
+                .with_day_count(DayCount::Act360),
+            float_leg_conventions: InstrumentConventions::default()
+                .with_payment_frequency(Tenor::annual())
+                .with_day_count(DayCount::Act360)
+                .with_index("USD-SOFR"),
         },
     ];
 

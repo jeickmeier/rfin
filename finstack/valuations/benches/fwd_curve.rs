@@ -4,6 +4,7 @@ use finstack_core::dates::{Date, DayCount};
 use finstack_core::market_data::context::MarketContext;
 use finstack_core::market_data::term_structures::discount_curve::DiscountCurve;
 use finstack_valuations::calibration::methods::forward_curve::ForwardCurveCalibrator;
+use finstack_valuations::calibration::quotes::InstrumentConventions;
 use finstack_valuations::calibration::{Calibrator, RatesQuote};
 use std::hint::black_box;
 use time::Month;
@@ -21,15 +22,15 @@ fn bench_forward_curve(c: &mut Criterion) {
             start: base_date + time::Duration::days(90),
             end: base_date + time::Duration::days(180),
             rate: 0.047,
-            day_count: DayCount::Act360,
-            conventions: Default::default(),
+            conventions: InstrumentConventions::default()
+                .with_day_count(DayCount::Act360),
         },
         RatesQuote::FRA {
             start: base_date + time::Duration::days(180),
             end: base_date + time::Duration::days(270),
             rate: 0.048,
-            day_count: DayCount::Act360,
-            conventions: Default::default(),
+            conventions: InstrumentConventions::default()
+                .with_day_count(DayCount::Act360),
         },
     ];
     let calibrator =

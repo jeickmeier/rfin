@@ -418,17 +418,34 @@ impl ForwardCurveCalibrator {
             .filter(|q| match q {
                 RatesQuote::Deposit { .. } => false, // Not supported for forward curves
                 RatesQuote::Swap {
-                    float_freq, index, ..
-                } => self.matches_tenor(index.as_ref(), float_freq),
-                RatesQuote::BasisSwap {
-                    primary_index,
-                    reference_index,
-                    primary_freq,
-                    reference_freq,
+                    float_leg_conventions,
                     ..
                 } => {
-                    self.matches_tenor(primary_index, primary_freq)
-                        || self.matches_tenor(reference_index, reference_freq)
+                    // Get index and frequency from conventions
+                    let index = float_leg_conventions.index.as_ref()
+                        .map(|i| i.as_str())
+                        .unwrap_or("");
+                    let float_freq = q.effective_float_frequency(self.currency);
+                    self.matches_tenor(index, &float_freq)
+                }
+                RatesQuote::BasisSwap {
+                    primary_leg_conventions,
+                    reference_leg_conventions,
+                    conventions,
+                    ..
+                } => {
+                    // Get indices and frequencies from leg conventions
+                    let currency = conventions.currency.unwrap_or(self.currency);
+                    let primary_index = primary_leg_conventions.index.as_ref()
+                        .map(|i| i.as_str())
+                        .unwrap_or("");
+                    let reference_index = reference_leg_conventions.index.as_ref()
+                        .map(|i| i.as_str())
+                        .unwrap_or("");
+                    let primary_freq = q.effective_primary_frequency(currency);
+                    let reference_freq = q.effective_reference_frequency(currency);
+                    self.matches_tenor(primary_index, &primary_freq)
+                        || self.matches_tenor(reference_index, &reference_freq)
                 }
                 _ => true,
             })
@@ -663,7 +680,7 @@ impl ForwardCurveCalibrator {
             knots = candidate_knots;
 
             // Store residual with descriptive key
-            let key = quote.format_residual_key(residual_key_counter);
+            let key = quote.format_residual_key(residual_key_counter, self.currency);
             residual_key_counter += 1;
             residuals.insert(key, final_residual);
 
@@ -799,7 +816,7 @@ impl ForwardCurveCalibrator {
         let row_labels: Vec<String> = quotes
             .iter()
             .enumerate()
-            .map(|(i, q)| q.format_residual_key(i))
+            .map(|(i, q)| q.format_residual_key(i, self.currency))
             .collect();
         let col_labels: Vec<String> = base_curve
             .knots()
@@ -998,26 +1015,28 @@ impl ForwardCurveCalibrator {
     /// Emits warnings (not errors) when potential mismatches are detected.
     fn check_daycount_consistency(&self, quote: &RatesQuote) {
         match quote {
-            RatesQuote::FRA { day_count, .. } => {
+            RatesQuote::FRA { conventions, .. } => {
                 // FRA day-count should typically match tenor conventions
-                if *day_count != self.time_dc && self.config.verbose {
+                let day_count = quote.effective_day_count(self.currency);
+                if day_count != self.time_dc && self.config.verbose {
                     tracing::warn!(
                         fra_dc = ?day_count,
                         calibrator_dc = ?self.time_dc,
+                        explicit_dc = ?conventions.day_count,
                         "FRA day-count differs from calibrator time day-count. \
                         This is usually fine as they serve different purposes \
                         (accrual vs curve time-axis)."
                     );
                 }
             }
-            RatesQuote::Swap {
-                float_dc,
-                fixed_dc,
-                float_freq,
-                ..
-            } => {
+            RatesQuote::Swap { .. } => {
+                // Get conventions with currency defaults
+                let float_freq = quote.effective_float_frequency(self.currency);
+                let fixed_dc = quote.effective_fixed_day_count(self.currency);
+                let float_dc = quote.effective_float_day_count(self.currency);
+                
                 // Check float leg frequency matches calibrator tenor
-                if !self.frequency_matches_tenor(float_freq) && self.config.verbose {
+                if !self.frequency_matches_tenor(&float_freq) && self.config.verbose {
                     tracing::warn!(
                         swap_float_freq = ?float_freq,
                         calibrator_tenor = self.tenor_years,
@@ -1098,6 +1117,7 @@ impl Calibrator<RatesQuote, ForwardCurve> for ForwardCurveCalibrator {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::calibration::quotes::InstrumentConventions;
     use finstack_core::dates::DayCount;
     use finstack_core::market_data::term_structures::discount_curve::DiscountCurve;
     use time::Month;
@@ -1130,8 +1150,8 @@ mod tests {
             start: base_date + time::Duration::days(90),
             end: base_date + time::Duration::days(180),
             rate: 0.04,
-            day_count: DayCount::Act360,
-            conventions: Default::default(),
+            conventions: InstrumentConventions::default()
+                .with_day_count(DayCount::Act360),
         };
 
         let calibrator = ForwardCurveCalibrator::new(
@@ -1160,22 +1180,22 @@ mod tests {
                 start: base_date + time::Duration::days(90),
                 end: base_date + time::Duration::days(180),
                 rate: 0.0465,
-                day_count: DayCount::Act360,
-                conventions: Default::default(),
+                conventions: InstrumentConventions::default()
+                    .with_day_count(DayCount::Act360),
             },
             RatesQuote::FRA {
                 start: base_date + time::Duration::days(180),
                 end: base_date + time::Duration::days(270),
                 rate: 0.0472,
-                day_count: DayCount::Act360,
-                conventions: Default::default(),
+                conventions: InstrumentConventions::default()
+                    .with_day_count(DayCount::Act360),
             },
             RatesQuote::FRA {
                 start: base_date + time::Duration::days(270),
                 end: base_date + time::Duration::days(360),
                 rate: 0.0478,
-                day_count: DayCount::Act360,
-                conventions: Default::default(),
+                conventions: InstrumentConventions::default()
+                    .with_day_count(DayCount::Act360),
             },
         ]
     }
@@ -1250,43 +1270,43 @@ mod tests {
         let basis_quotes = vec![
             RatesQuote::BasisSwap {
                 maturity: base_date + time::Duration::days(365),
-                primary_index: "3M-SOFR".to_string(),
-                reference_index: "6M-SOFR".to_string(),
                 spread_bp: 5.0, // 3M pays 6M + 5bp
-                primary_freq: finstack_core::dates::Tenor::new(
-                    3,
-                    finstack_core::dates::TenorUnit::Months,
-                ),
-                reference_freq: finstack_core::dates::Tenor::new(
-                    6,
-                    finstack_core::dates::TenorUnit::Months,
-                ),
-                primary_dc: DayCount::Act360,
-                reference_dc: DayCount::Act360,
-                currency: Currency::USD,
-                conventions: Default::default(),
-                primary_leg_conventions: Default::default(),
-                reference_leg_conventions: Default::default(),
+                conventions: InstrumentConventions::default()
+                    .with_currency(Currency::USD),
+                primary_leg_conventions: InstrumentConventions::default()
+                    .with_index("3M-SOFR")
+                    .with_payment_frequency(finstack_core::dates::Tenor::new(
+                        3,
+                        finstack_core::dates::TenorUnit::Months,
+                    ))
+                    .with_day_count(DayCount::Act360),
+                reference_leg_conventions: InstrumentConventions::default()
+                    .with_index("6M-SOFR")
+                    .with_payment_frequency(finstack_core::dates::Tenor::new(
+                        6,
+                        finstack_core::dates::TenorUnit::Months,
+                    ))
+                    .with_day_count(DayCount::Act360),
             },
             RatesQuote::BasisSwap {
                 maturity: base_date + time::Duration::days(730),
-                primary_index: "3M-SOFR".to_string(),
-                reference_index: "6M-SOFR".to_string(),
                 spread_bp: 7.0, // 3M pays 6M + 7bp
-                primary_freq: finstack_core::dates::Tenor::new(
-                    3,
-                    finstack_core::dates::TenorUnit::Months,
-                ),
-                reference_freq: finstack_core::dates::Tenor::new(
-                    6,
-                    finstack_core::dates::TenorUnit::Months,
-                ),
-                primary_dc: DayCount::Act360,
-                reference_dc: DayCount::Act360,
-                currency: Currency::USD,
-                conventions: Default::default(),
-                primary_leg_conventions: Default::default(),
-                reference_leg_conventions: Default::default(),
+                conventions: InstrumentConventions::default()
+                    .with_currency(Currency::USD),
+                primary_leg_conventions: InstrumentConventions::default()
+                    .with_index("3M-SOFR")
+                    .with_payment_frequency(finstack_core::dates::Tenor::new(
+                        3,
+                        finstack_core::dates::TenorUnit::Months,
+                    ))
+                    .with_day_count(DayCount::Act360),
+                reference_leg_conventions: InstrumentConventions::default()
+                    .with_index("6M-SOFR")
+                    .with_payment_frequency(finstack_core::dates::Tenor::new(
+                        6,
+                        finstack_core::dates::TenorUnit::Months,
+                    ))
+                    .with_day_count(DayCount::Act360),
             },
         ];
 
@@ -1559,8 +1579,8 @@ mod tests {
             start: base_date + time::Duration::days(90),
             end: base_date + time::Duration::days(180),
             rate: 0.75, // 75% - outside USD bounds
-            day_count: DayCount::Act360,
-            conventions: Default::default(),
+            conventions: InstrumentConventions::default()
+                .with_day_count(DayCount::Act360),
         }];
 
         let result = calibrator.calibrate(&bad_quote, &context);
@@ -1579,8 +1599,8 @@ mod tests {
             start: base_date + time::Duration::days(90),
             end: base_date + time::Duration::days(180),
             rate: 0.75, // 75% - acceptable for TRY
-            day_count: DayCount::Act360,
-            conventions: Default::default(),
+            conventions: InstrumentConventions::default()
+                .with_day_count(DayCount::Act360),
         }];
 
         // Should not fail on validation (calibration may still fail for other reasons)

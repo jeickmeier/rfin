@@ -1,4 +1,7 @@
 //! Interest rate quote types for yield curve calibration.
+//!
+//! Quote conventions are now consolidated into `InstrumentConventions` structs.
+//! Use the accessor methods to get effective values with currency-specific defaults.
 
 use super::conventions::InstrumentConventions;
 use finstack_core::dates::{Date, DayCount, Tenor};
@@ -8,27 +11,34 @@ use finstack_core::types::IndexId;
 use ts_rs::TS;
 
 /// Interest rate instrument quotes for yield curve calibration.
+///
+/// All convention-related fields (day count, payment frequency, index) are now
+/// consolidated into `InstrumentConventions` structs. Use accessor methods like
+/// `effective_day_count()` to get values with currency-appropriate defaults.
 #[cfg_attr(feature = "ts_export", derive(TS))]
 #[cfg_attr(feature = "ts_export", ts(export))]
 #[cfg_attr(feature = "ts_export", ts(rename_all = "snake_case"))]
 #[derive(Clone, Debug, serde::Serialize, serde::Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum RatesQuote {
-    /// Deposit rate quote
+    /// Deposit rate quote.
+    ///
+    /// Day count convention is specified via `conventions.day_count`.
+    /// If not provided, defaults to ACT/360 for USD/EUR/CHF or ACT/365F for GBP/JPY/AUD.
     Deposit {
         /// Maturity date
         #[cfg_attr(feature = "ts_export", ts(type = "string"))]
         maturity: Date,
         /// Quoted rate (decimal)
         rate: f64,
-        /// Day count convention
-        #[cfg_attr(feature = "ts_export", ts(type = "string"))]
-        day_count: DayCount,
-        /// Per-instrument conventions (settlement, calendar, etc.)
+        /// Per-instrument conventions (day_count, settlement, calendar, etc.)
         #[serde(default, skip_serializing_if = "InstrumentConventions::is_empty")]
         conventions: InstrumentConventions,
     },
-    /// Forward Rate Agreement quote
+    /// Forward Rate Agreement quote.
+    ///
+    /// Day count convention is specified via `conventions.day_count`.
+    /// If not provided, defaults to ACT/360 for USD/EUR/CHF or ACT/365F for GBP/JPY/AUD.
     FRA {
         /// Start date
         #[cfg_attr(feature = "ts_export", ts(type = "string"))]
@@ -38,10 +48,7 @@ pub enum RatesQuote {
         end: Date,
         /// Quoted rate (decimal)
         rate: f64,
-        /// Day count convention
-        #[cfg_attr(feature = "ts_export", ts(type = "string"))]
-        day_count: DayCount,
-        /// Per-instrument conventions (settlement, reset lag, etc.)
+        /// Per-instrument conventions (day_count, settlement, reset lag, etc.)
         #[serde(default, skip_serializing_if = "InstrumentConventions::is_empty")]
         conventions: InstrumentConventions,
     },
@@ -52,81 +59,59 @@ pub enum RatesQuote {
         expiry: Date,
         /// Contract price (e.g., 99.25 for 0.75% implied rate)
         price: f64,
-        /// Contract specifications
+        /// Contract specifications (includes day_count for the contract)
         specs: FutureSpecs,
         /// Per-instrument conventions (reset lag, etc.)
         #[serde(default, skip_serializing_if = "InstrumentConventions::is_empty")]
         conventions: InstrumentConventions,
     },
-    /// Interest Rate Swap quote
+    /// Interest Rate Swap quote.
+    ///
+    /// Leg conventions are specified via `fixed_leg_conventions` and `float_leg_conventions`:
+    /// - `payment_frequency`: Payment/coupon frequency (defaults to semi-annual fixed, quarterly float)
+    /// - `day_count`: Day count convention (defaults to 30/360 fixed, ACT/360 float for USD)
+    /// - `index`: Float leg index (e.g., "USD-SOFR-3M") - required for float leg
     Swap {
         /// Swap maturity
         #[cfg_attr(feature = "ts_export", ts(type = "string"))]
         maturity: Date,
         /// Par rate (decimal)
         rate: f64,
-        /// Fixed leg frequency
-        #[cfg_attr(feature = "ts_export", ts(type = "string"))]
-        fixed_freq: Tenor,
-        /// Float leg frequency
-        #[cfg_attr(feature = "ts_export", ts(type = "string"))]
-        float_freq: Tenor,
-        /// Fixed leg day count
-        #[cfg_attr(feature = "ts_export", ts(type = "string"))]
-        fixed_dc: DayCount,
-        /// Float leg day count
-        #[cfg_attr(feature = "ts_export", ts(type = "string"))]
-        float_dc: DayCount,
-        /// Float leg index (e.g., "USD-SOFR", "3M-LIBOR")
-        #[cfg_attr(feature = "ts_export", ts(type = "string"))]
-        index: IndexId,
         /// Whether this is an OIS (Overnight Index Swap) suitable for discount curve calibration.
         /// Set to true for overnight indices (SOFR, SONIA, €STR, TONA, etc.).
         #[serde(default)]
         is_ois: bool,
-        /// Instrument-wide conventions (settlement days, etc.)
+        /// Instrument-wide conventions (settlement days, calendar, currency, etc.)
         #[serde(default, skip_serializing_if = "InstrumentConventions::is_empty")]
         conventions: InstrumentConventions,
-        /// Fixed leg specific conventions (day count, payment calendar, business day convention)
+        /// Fixed leg conventions (payment_frequency, day_count, business_day_convention)
         #[serde(default, skip_serializing_if = "InstrumentConventions::is_empty")]
         fixed_leg_conventions: InstrumentConventions,
-        /// Float leg specific conventions (reset lag, fixing calendar, reset frequency)
+        /// Float leg conventions (payment_frequency, day_count, index, reset_lag)
         #[serde(default, skip_serializing_if = "InstrumentConventions::is_empty")]
         float_leg_conventions: InstrumentConventions,
     },
-    /// Basis Swap quote for multi-curve construction
+    /// Basis Swap quote for multi-curve construction.
+    ///
+    /// Leg conventions are specified via `primary_leg_conventions` and `reference_leg_conventions`:
+    /// - `payment_frequency`: Payment frequency for each leg
+    /// - `day_count`: Day count convention for each leg
+    /// - `index`: Index identifier for each leg (e.g., "USD-SOFR-3M", "USD-SOFR-6M")
+    ///
+    /// Currency is specified via `conventions.currency`.
     BasisSwap {
         /// Swap maturity
         #[cfg_attr(feature = "ts_export", ts(type = "string"))]
         maturity: Date,
-        /// Primary leg index (e.g., "3M-LIBOR", "3M-SOFR")
-        primary_index: String,
-        /// Reference leg index (e.g., "6M-LIBOR", "1M-SOFR")
-        reference_index: String,
         /// Basis spread in basis points (primary pays reference + spread)
         spread_bp: f64,
-        /// Primary leg frequency
-        #[cfg_attr(feature = "ts_export", ts(type = "string"))]
-        primary_freq: Tenor,
-        /// Reference leg frequency
-        #[cfg_attr(feature = "ts_export", ts(type = "string"))]
-        reference_freq: Tenor,
-        /// Primary leg day count
-        #[cfg_attr(feature = "ts_export", ts(type = "string"))]
-        primary_dc: DayCount,
-        /// Reference leg day count
-        #[cfg_attr(feature = "ts_export", ts(type = "string"))]
-        reference_dc: DayCount,
-        /// Currency for both legs
-        #[cfg_attr(feature = "ts_export", ts(type = "string"))]
-        currency: Currency,
-        /// Instrument-wide conventions (settlement days, etc.)
+        /// Instrument-wide conventions (settlement days, calendar, currency)
         #[serde(default, skip_serializing_if = "InstrumentConventions::is_empty")]
         conventions: InstrumentConventions,
-        /// Primary leg specific conventions (reset lag, fixing calendar, reset frequency)
+        /// Primary leg conventions (payment_frequency, day_count, index)
         #[serde(default, skip_serializing_if = "InstrumentConventions::is_empty")]
         primary_leg_conventions: InstrumentConventions,
-        /// Reference leg specific conventions (reset lag, fixing calendar, reset frequency)
+        /// Reference leg conventions (payment_frequency, day_count, index)
         #[serde(default, skip_serializing_if = "InstrumentConventions::is_empty")]
         reference_leg_conventions: InstrumentConventions,
     },
@@ -282,6 +267,132 @@ impl RatesQuote {
         }
     }
 
+    // =========================================================================
+    // Effective Convention Accessors with Currency Defaults
+    // =========================================================================
+
+    /// Get effective day count for Deposit/FRA quotes with currency default.
+    ///
+    /// Uses `conventions.day_count` if specified, otherwise returns the
+    /// currency-appropriate default (ACT/360 for USD/EUR/CHF, ACT/365F for GBP/JPY/AUD).
+    #[inline]
+    pub fn effective_day_count(&self, currency: Currency) -> DayCount {
+        self.conventions()
+            .effective_day_count_or_default(currency)
+    }
+
+    /// Get effective fixed leg day count for Swap quotes with currency default.
+    ///
+    /// Uses `fixed_leg_conventions.day_count` if specified, otherwise returns
+    /// currency-appropriate default (30/360 for most, ACT/365F for GBP).
+    #[inline]
+    pub fn effective_fixed_day_count(&self, currency: Currency) -> DayCount {
+        self.fixed_leg_conventions()
+            .map(|c| c.effective_swap_day_count_or_default(currency, true))
+            .unwrap_or_else(|| InstrumentConventions::default_fixed_leg_day_count(currency))
+    }
+
+    /// Get effective float leg day count for Swap quotes with currency default.
+    ///
+    /// Uses `float_leg_conventions.day_count` if specified, otherwise returns
+    /// currency-appropriate default (ACT/360 for most, ACT/365F for GBP/JPY/AUD).
+    #[inline]
+    pub fn effective_float_day_count(&self, currency: Currency) -> DayCount {
+        self.float_leg_conventions()
+            .map(|c| c.effective_swap_day_count_or_default(currency, false))
+            .unwrap_or_else(|| InstrumentConventions::default_float_leg_day_count(currency))
+    }
+
+    /// Get effective fixed leg frequency for Swap quotes with currency default.
+    ///
+    /// Uses `fixed_leg_conventions.payment_frequency` if specified, otherwise
+    /// returns currency-appropriate default (annual for GBP, semi-annual for others).
+    #[inline]
+    pub fn effective_fixed_frequency(&self, currency: Currency) -> Tenor {
+        self.fixed_leg_conventions()
+            .and_then(|c| c.payment_frequency)
+            .unwrap_or_else(|| InstrumentConventions::default_fixed_leg_frequency(currency))
+    }
+
+    /// Get effective float leg frequency for Swap quotes with currency default.
+    ///
+    /// Uses `float_leg_conventions.payment_frequency` if specified, otherwise
+    /// returns quarterly as default.
+    #[inline]
+    pub fn effective_float_frequency(&self, currency: Currency) -> Tenor {
+        self.float_leg_conventions()
+            .and_then(|c| c.payment_frequency)
+            .unwrap_or_else(|| InstrumentConventions::default_float_leg_frequency(currency))
+    }
+
+    /// Get the float leg index for Swap quotes.
+    ///
+    /// Returns the index from `float_leg_conventions.index`.
+    /// Panics if called on non-Swap quotes or if index is not specified.
+    #[inline]
+    pub fn float_index(&self) -> Option<&IndexId> {
+        self.float_leg_conventions()
+            .and_then(|c| c.index.as_ref())
+    }
+
+    /// Get effective primary leg day count for BasisSwap quotes with currency default.
+    #[inline]
+    pub fn effective_primary_day_count(&self, currency: Currency) -> DayCount {
+        self.primary_leg_conventions()
+            .map(|c| c.effective_swap_day_count_or_default(currency, false))
+            .unwrap_or_else(|| InstrumentConventions::default_float_leg_day_count(currency))
+    }
+
+    /// Get effective reference leg day count for BasisSwap quotes with currency default.
+    #[inline]
+    pub fn effective_reference_day_count(&self, currency: Currency) -> DayCount {
+        self.reference_leg_conventions()
+            .map(|c| c.effective_swap_day_count_or_default(currency, false))
+            .unwrap_or_else(|| InstrumentConventions::default_float_leg_day_count(currency))
+    }
+
+    /// Get effective primary leg frequency for BasisSwap quotes with currency default.
+    #[inline]
+    pub fn effective_primary_frequency(&self, currency: Currency) -> Tenor {
+        self.primary_leg_conventions()
+            .and_then(|c| c.payment_frequency)
+            .unwrap_or_else(|| InstrumentConventions::default_float_leg_frequency(currency))
+    }
+
+    /// Get effective reference leg frequency for BasisSwap quotes with currency default.
+    #[inline]
+    pub fn effective_reference_frequency(&self, currency: Currency) -> Tenor {
+        self.reference_leg_conventions()
+            .and_then(|c| c.payment_frequency)
+            .unwrap_or_else(|| InstrumentConventions::default_float_leg_frequency(currency))
+    }
+
+    /// Get the primary leg index for BasisSwap quotes.
+    #[inline]
+    pub fn primary_index(&self) -> Option<&IndexId> {
+        self.primary_leg_conventions()
+            .and_then(|c| c.index.as_ref())
+    }
+
+    /// Get the reference leg index for BasisSwap quotes.
+    #[inline]
+    pub fn reference_index(&self) -> Option<&IndexId> {
+        self.reference_leg_conventions()
+            .and_then(|c| c.index.as_ref())
+    }
+
+    /// Get the currency for BasisSwap quotes.
+    ///
+    /// Returns the currency from `conventions.currency`.
+    #[inline]
+    pub fn basis_swap_currency(&self) -> Option<Currency> {
+        self.conventions().currency
+    }
+
+    // =========================================================================
+    // Mutation and Formatting
+    // =========================================================================
+
     /// Create a new quote with the rate bumped by the given amount.
     ///
     /// Used for Jacobian calculation (sensitivity analysis).
@@ -291,25 +402,21 @@ impl RatesQuote {
             RatesQuote::Deposit {
                 maturity,
                 rate,
-                day_count,
                 conventions,
             } => RatesQuote::Deposit {
                 maturity: *maturity,
                 rate: rate + amount,
-                day_count: *day_count,
                 conventions: conventions.clone(),
             },
             RatesQuote::FRA {
                 start,
                 end,
                 rate,
-                day_count,
                 conventions,
             } => RatesQuote::FRA {
                 start: *start,
                 end: *end,
                 rate: rate + amount,
-                day_count: *day_count,
                 conventions: conventions.clone(),
             },
             RatesQuote::Future {
@@ -328,11 +435,6 @@ impl RatesQuote {
             RatesQuote::Swap {
                 maturity,
                 rate,
-                fixed_freq,
-                float_freq,
-                fixed_dc,
-                float_dc,
-                index,
                 is_ois,
                 conventions,
                 fixed_leg_conventions,
@@ -340,11 +442,6 @@ impl RatesQuote {
             } => RatesQuote::Swap {
                 maturity: *maturity,
                 rate: rate + amount,
-                fixed_freq: *fixed_freq,
-                float_freq: *float_freq,
-                fixed_dc: *fixed_dc,
-                float_dc: *float_dc,
-                index: index.clone(),
                 is_ois: *is_ois,
                 conventions: conventions.clone(),
                 fixed_leg_conventions: fixed_leg_conventions.clone(),
@@ -352,27 +449,13 @@ impl RatesQuote {
             },
             RatesQuote::BasisSwap {
                 maturity,
-                primary_index,
-                reference_index,
                 spread_bp,
-                primary_freq,
-                reference_freq,
-                primary_dc,
-                reference_dc,
-                currency,
                 conventions,
                 primary_leg_conventions,
                 reference_leg_conventions,
             } => RatesQuote::BasisSwap {
                 maturity: *maturity,
-                primary_index: primary_index.clone(),
-                reference_index: reference_index.clone(),
                 spread_bp: spread_bp + (amount * 10_000.0), // Convert decimal bump to bp
-                primary_freq: *primary_freq,
-                reference_freq: *reference_freq,
-                primary_dc: *primary_dc,
-                reference_dc: *reference_dc,
-                currency: *currency,
                 conventions: conventions.clone(),
                 primary_leg_conventions: primary_leg_conventions.clone(),
                 reference_leg_conventions: reference_leg_conventions.clone(),
@@ -389,34 +472,21 @@ impl RatesQuote {
     ///
     /// * `counter` - A unique counter value to ensure key uniqueness when
     ///   multiple quotes of the same type exist
+    /// * `currency` - Currency for resolving default conventions
     ///
     /// # Returns
     ///
     /// A formatted string key like "DEP-2025-03-15-Act360-000001" or
-    /// "SWAP-USD-SOFR-3M-2027-01-15-fix6M-flt3M-000002"
-    ///
-    /// # Example
-    ///
-    /// ```ignore
-    /// let key = quote.format_residual_key(0);
-    /// residuals.insert(key, residual_value);
-    /// ```
-    pub fn format_residual_key(&self, counter: usize) -> String {
+    /// "SWAP-USD-SOFR-2027-01-15-fix6M-flt3M-000002"
+    pub fn format_residual_key(&self, counter: usize, currency: Currency) -> String {
         match self {
-            RatesQuote::Deposit {
-                maturity,
-                day_count,
-                ..
-            } => {
-                format!("DEP-{}-{:?}-{:06}", maturity, day_count, counter)
+            RatesQuote::Deposit { maturity, conventions, .. } => {
+                let dc = conventions.effective_day_count_or_default(currency);
+                format!("DEP-{}-{:?}-{:06}", maturity, dc, counter)
             }
-            RatesQuote::FRA {
-                start,
-                end,
-                day_count,
-                ..
-            } => {
-                format!("FRA-{}-{}-{:?}-{:06}", start, end, day_count, counter)
+            RatesQuote::FRA { start, end, conventions, .. } => {
+                let dc = conventions.effective_day_count_or_default(currency);
+                format!("FRA-{}-{}-{:?}-{:06}", start, end, dc, counter)
             }
             RatesQuote::Future { expiry, specs, .. } => {
                 format!(
@@ -426,14 +496,20 @@ impl RatesQuote {
             }
             RatesQuote::Swap {
                 maturity,
-                index,
-                fixed_freq,
-                float_freq,
+                float_leg_conventions,
+                fixed_leg_conventions,
                 ..
             } => {
+                let index = float_leg_conventions.index.as_ref()
+                    .map(|i| i.as_str())
+                    .unwrap_or("UNKNOWN");
+                let fixed_freq = fixed_leg_conventions.payment_frequency
+                    .unwrap_or_else(|| InstrumentConventions::default_fixed_leg_frequency(currency));
+                let float_freq = float_leg_conventions.payment_frequency
+                    .unwrap_or_else(|| InstrumentConventions::default_float_leg_frequency(currency));
                 format!(
                     "SWAP-{}-{}-fix{:?}-flt{:?}-{:06}",
-                    index.as_str(),
+                    index,
                     maturity,
                     fixed_freq,
                     float_freq,
@@ -442,13 +518,19 @@ impl RatesQuote {
             }
             RatesQuote::BasisSwap {
                 maturity,
-                primary_index,
-                reference_index,
+                primary_leg_conventions,
+                reference_leg_conventions,
                 ..
             } => {
+                let primary_idx = primary_leg_conventions.index.as_ref()
+                    .map(|i| i.as_str())
+                    .unwrap_or("PRIMARY");
+                let ref_idx = reference_leg_conventions.index.as_ref()
+                    .map(|i| i.as_str())
+                    .unwrap_or("REFERENCE");
                 format!(
                     "BASIS-{}-{}vs{}-{:06}",
-                    maturity, primary_index, reference_index, counter
+                    maturity, primary_idx, ref_idx, counter
                 )
             }
         }

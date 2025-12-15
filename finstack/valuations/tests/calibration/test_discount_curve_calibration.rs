@@ -15,6 +15,7 @@ use finstack_core::market_data::term_structures::DiscountCurve;
 use finstack_core::math::interp::{ExtrapolationPolicy, InterpStyle};
 use finstack_core::money::Money;
 use finstack_valuations::calibration::methods::DiscountCurveCalibrator;
+use finstack_valuations::calibration::quotes::InstrumentConventions;
 use finstack_valuations::calibration::{
     Calibrator, MultiCurveConfig, RatesQuote, CALIBRATION_CONFIG_KEY_V1,
 };
@@ -29,8 +30,8 @@ fn test_multi_curve_instrument_validation() {
     let deposit = RatesQuote::Deposit {
         maturity: Date::from_calendar_date(2024, Month::February, 1).expect("Valid test date"),
         rate: 0.015,
-        day_count: DayCount::Act360,
-        conventions: Default::default(),
+        conventions: InstrumentConventions::default()
+            .with_day_count(DayCount::Act360),
     };
     assert!(
         !deposit.requires_forward_curve(),
@@ -45,8 +46,8 @@ fn test_multi_curve_instrument_validation() {
         start: Date::from_calendar_date(2024, Month::April, 1).expect("Valid test date"),
         end: Date::from_calendar_date(2024, Month::July, 1).expect("Valid test date"),
         rate: 0.018,
-        day_count: DayCount::Act360,
-        conventions: Default::default(),
+        conventions: InstrumentConventions::default()
+            .with_day_count(DayCount::Act360),
     };
     assert!(
         fra.requires_forward_curve(),
@@ -60,15 +61,15 @@ fn test_multi_curve_instrument_validation() {
     let ois_swap = RatesQuote::Swap {
         maturity: Date::from_calendar_date(2025, Month::January, 1).expect("Valid test date"),
         rate: 0.02,
-        fixed_freq: Tenor::annual(),
-        float_freq: Tenor::daily(),
-        fixed_dc: DayCount::Thirty360,
-        float_dc: DayCount::Act360,
-        index: "SOFR".to_string().into(),
         is_ois: true,
-                conventions: Default::default(),
-                fixed_leg_conventions: Default::default(),
-                float_leg_conventions: Default::default(),
+        conventions: Default::default(),
+        fixed_leg_conventions: InstrumentConventions::default()
+            .with_payment_frequency(Tenor::annual())
+            .with_day_count(DayCount::Thirty360),
+        float_leg_conventions: InstrumentConventions::default()
+            .with_payment_frequency(Tenor::daily())
+            .with_day_count(DayCount::Act360)
+            .with_index("SOFR"),
     };
     assert!(
         ois_swap.requires_forward_curve(),
@@ -82,15 +83,15 @@ fn test_multi_curve_instrument_validation() {
     let libor_swap = RatesQuote::Swap {
         maturity: Date::from_calendar_date(2025, Month::January, 1).expect("Valid test date"),
         rate: 0.02,
-        fixed_freq: Tenor::semi_annual(),
-        float_freq: Tenor::quarterly(),
-        fixed_dc: DayCount::Thirty360,
-        float_dc: DayCount::Act360,
-        index: "3M-LIBOR".to_string().into(),
         is_ois: false, // LIBOR swaps are not OIS suitable
         conventions: Default::default(),
-        fixed_leg_conventions: Default::default(),
-        float_leg_conventions: Default::default(),
+        fixed_leg_conventions: InstrumentConventions::default()
+            .with_payment_frequency(Tenor::semi_annual())
+            .with_day_count(DayCount::Thirty360),
+        float_leg_conventions: InstrumentConventions::default()
+            .with_payment_frequency(Tenor::quarterly())
+            .with_day_count(DayCount::Act360)
+            .with_index("3M-LIBOR"),
     };
     assert!(
         libor_swap.requires_forward_curve(),
@@ -117,40 +118,40 @@ fn create_test_quotes() -> Vec<RatesQuote> {
         RatesQuote::Deposit {
             maturity: base_date + time::Duration::days(30),
             rate: 0.045,
-            day_count: DayCount::Act360,
-            conventions: Default::default(),
+            conventions: InstrumentConventions::default()
+                .with_day_count(DayCount::Act360),
         },
         RatesQuote::Deposit {
             maturity: base_date + time::Duration::days(90),
             rate: 0.046,
-            day_count: DayCount::Act360,
-            conventions: Default::default(),
+            conventions: InstrumentConventions::default()
+                .with_day_count(DayCount::Act360),
         },
         RatesQuote::Swap {
             maturity: base_date + time::Duration::days(365),
             rate: 0.047,
-            fixed_freq: Tenor::semi_annual(),
-            float_freq: Tenor::quarterly(),
-            fixed_dc: DayCount::Thirty360,
-            float_dc: DayCount::Act360,
-            index: "USD-SOFR-3M".to_string().into(),
             is_ois: true,
-                conventions: Default::default(),
-                fixed_leg_conventions: Default::default(),
-                float_leg_conventions: Default::default(),
+            conventions: Default::default(),
+            fixed_leg_conventions: InstrumentConventions::default()
+                .with_payment_frequency(Tenor::semi_annual())
+                .with_day_count(DayCount::Thirty360),
+            float_leg_conventions: InstrumentConventions::default()
+                .with_payment_frequency(Tenor::quarterly())
+                .with_day_count(DayCount::Act360)
+                .with_index("USD-SOFR-3M"),
         },
         RatesQuote::Swap {
             maturity: base_date + time::Duration::days(365 * 2),
             rate: 0.048,
-            fixed_freq: Tenor::semi_annual(),
-            float_freq: Tenor::quarterly(),
-            fixed_dc: DayCount::Thirty360,
-            float_dc: DayCount::Act360,
-            index: "USD-SOFR-3M".to_string().into(),
             is_ois: true,
-                conventions: Default::default(),
-                fixed_leg_conventions: Default::default(),
-                float_leg_conventions: Default::default(),
+            conventions: Default::default(),
+            fixed_leg_conventions: InstrumentConventions::default()
+                .with_payment_frequency(Tenor::semi_annual())
+                .with_day_count(DayCount::Thirty360),
+            float_leg_conventions: InstrumentConventions::default()
+                .with_payment_frequency(Tenor::quarterly())
+                .with_day_count(DayCount::Act360)
+                .with_index("USD-SOFR-3M"),
         },
     ]
 }

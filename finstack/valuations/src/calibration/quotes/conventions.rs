@@ -197,5 +197,105 @@ impl InstrumentConventions {
             .as_deref()
             .or(self.calendar_id.as_deref())
     }
+
+    // =========================================================================
+    // Currency-Specific Default Conventions
+    // =========================================================================
+
+    /// Default day count for money market instruments (deposits, FRAs) by currency.
+    ///
+    /// Market conventions:
+    /// - GBP, JPY, AUD, NZD, HKD, SGD: ACT/365F
+    /// - USD, EUR, CHF, CAD, and others: ACT/360
+    #[inline]
+    pub fn default_money_market_day_count(currency: Currency) -> DayCount {
+        match currency {
+            Currency::GBP | Currency::JPY | Currency::AUD | Currency::NZD | Currency::HKD | Currency::SGD => {
+                DayCount::Act365F
+            }
+            _ => DayCount::Act360,
+        }
+    }
+
+    /// Default fixed leg day count for swaps by currency.
+    ///
+    /// Market conventions:
+    /// - GBP: ACT/365F
+    /// - EUR, CHF: 30/360 (ISDA)
+    /// - USD, others: 30/360
+    #[inline]
+    pub fn default_fixed_leg_day_count(currency: Currency) -> DayCount {
+        match currency {
+            Currency::GBP => DayCount::Act365F,
+            _ => DayCount::Thirty360,
+        }
+    }
+
+    /// Default float leg day count for swaps by currency.
+    ///
+    /// Market conventions:
+    /// - GBP: ACT/365F
+    /// - USD, EUR, CHF, others: ACT/360
+    #[inline]
+    pub fn default_float_leg_day_count(currency: Currency) -> DayCount {
+        match currency {
+            Currency::GBP | Currency::JPY | Currency::AUD => DayCount::Act365F,
+            _ => DayCount::Act360,
+        }
+    }
+
+    /// Default fixed leg payment frequency for swaps by currency.
+    ///
+    /// Market conventions:
+    /// - GBP (SONIA): Annual
+    /// - USD, EUR, others: Semi-annual
+    #[inline]
+    pub fn default_fixed_leg_frequency(currency: Currency) -> Tenor {
+        match currency {
+            Currency::GBP => Tenor::annual(),
+            _ => Tenor::semi_annual(),
+        }
+    }
+
+    /// Default float leg payment frequency for swaps by currency.
+    ///
+    /// For OIS swaps, this is typically annual (paid at maturity for short tenors).
+    /// For IBOR-style swaps, this matches the index tenor (e.g., 3M for 3M LIBOR).
+    #[inline]
+    pub fn default_float_leg_frequency(_currency: Currency) -> Tenor {
+        // Default to quarterly for most swaps; OIS typically annual
+        Tenor::quarterly()
+    }
+
+    /// Get effective day count, using provided value or currency default for money market.
+    #[inline]
+    pub fn effective_day_count_or_default(&self, currency: Currency) -> DayCount {
+        self.day_count
+            .unwrap_or_else(|| Self::default_money_market_day_count(currency))
+    }
+
+    /// Get effective payment frequency, using provided value or currency default.
+    #[inline]
+    pub fn effective_payment_frequency_or_default(&self, currency: Currency, is_fixed: bool) -> Tenor {
+        self.payment_frequency.unwrap_or_else(|| {
+            if is_fixed {
+                Self::default_fixed_leg_frequency(currency)
+            } else {
+                Self::default_float_leg_frequency(currency)
+            }
+        })
+    }
+
+    /// Get effective day count for a swap leg, using provided value or currency default.
+    #[inline]
+    pub fn effective_swap_day_count_or_default(&self, currency: Currency, is_fixed: bool) -> DayCount {
+        self.day_count.unwrap_or_else(|| {
+            if is_fixed {
+                Self::default_fixed_leg_day_count(currency)
+            } else {
+                Self::default_float_leg_day_count(currency)
+            }
+        })
+    }
 }
 

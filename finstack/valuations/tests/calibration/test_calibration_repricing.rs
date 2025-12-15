@@ -28,6 +28,7 @@ use finstack_core::market_data::context::MarketContext;
 use finstack_core::money::Money;
 use finstack_valuations::calibration::methods::discount::DiscountCurveCalibrator;
 use finstack_valuations::calibration::methods::forward_curve::ForwardCurveCalibrator;
+use finstack_valuations::calibration::quotes::InstrumentConventions;
 use finstack_valuations::calibration::{Calibrator, RatesQuote, CALIBRATION_CONFIG_KEY_V1};
 use finstack_valuations::instruments::common::traits::Instrument;
 use finstack_valuations::instruments::deposit::Deposit;
@@ -97,53 +98,53 @@ fn test_discount_curve_swap_repricing() {
         RatesQuote::Deposit {
             maturity: base_date + time::Duration::days(30),
             rate: 0.0450,
-            day_count: DayCount::Act360,
-            conventions: Default::default(),
+            conventions: InstrumentConventions::default()
+                .with_day_count(DayCount::Act360),
         },
         RatesQuote::Deposit {
             maturity: base_date + time::Duration::days(90),
             rate: 0.0460,
-            day_count: DayCount::Act360,
-            conventions: Default::default(),
+            conventions: InstrumentConventions::default()
+                .with_day_count(DayCount::Act360),
         },
         RatesQuote::Swap {
             maturity: base_date + time::Duration::days(365),
             rate: 0.0470,
-            fixed_freq: Tenor::semi_annual(),
-            float_freq: Tenor::daily(),
-            fixed_dc: DayCount::Thirty360,
-            float_dc: DayCount::Act360,
-            index: "USD-OIS".to_string().into(),
             is_ois: true,
-                conventions: Default::default(),
-                fixed_leg_conventions: Default::default(),
-                float_leg_conventions: Default::default(),
+            conventions: Default::default(),
+            fixed_leg_conventions: InstrumentConventions::default()
+                .with_payment_frequency(Tenor::semi_annual())
+                .with_day_count(DayCount::Thirty360),
+            float_leg_conventions: InstrumentConventions::default()
+                .with_payment_frequency(Tenor::daily())
+                .with_day_count(DayCount::Act360)
+                .with_index("USD-OIS"),
         },
         RatesQuote::Swap {
             maturity: base_date + time::Duration::days(365 * 2),
             rate: 0.0480,
-            fixed_freq: Tenor::semi_annual(),
-            float_freq: Tenor::daily(),
-            fixed_dc: DayCount::Thirty360,
-            float_dc: DayCount::Act360,
-            index: "USD-OIS".to_string().into(),
             is_ois: true,
-                conventions: Default::default(),
-                fixed_leg_conventions: Default::default(),
-                float_leg_conventions: Default::default(),
+            conventions: Default::default(),
+            fixed_leg_conventions: InstrumentConventions::default()
+                .with_payment_frequency(Tenor::semi_annual())
+                .with_day_count(DayCount::Thirty360),
+            float_leg_conventions: InstrumentConventions::default()
+                .with_payment_frequency(Tenor::daily())
+                .with_day_count(DayCount::Act360)
+                .with_index("USD-OIS"),
         },
         RatesQuote::Swap {
             maturity: base_date + time::Duration::days(365 * 5),
             rate: 0.0490,
-            fixed_freq: Tenor::semi_annual(),
-            float_freq: Tenor::daily(),
-            fixed_dc: DayCount::Thirty360,
-            float_dc: DayCount::Act360,
-            index: "USD-OIS".to_string().into(),
             is_ois: true,
-                conventions: Default::default(),
-                fixed_leg_conventions: Default::default(),
-                float_leg_conventions: Default::default(),
+            conventions: Default::default(),
+            fixed_leg_conventions: InstrumentConventions::default()
+                .with_payment_frequency(Tenor::semi_annual())
+                .with_day_count(DayCount::Thirty360),
+            float_leg_conventions: InstrumentConventions::default()
+                .with_payment_frequency(Tenor::daily())
+                .with_day_count(DayCount::Act360)
+                .with_index("USD-OIS"),
         },
     ];
 
@@ -222,20 +223,20 @@ fn test_discount_curve_deposit_repricing() {
         RatesQuote::Deposit {
             maturity: base_date + time::Duration::days(30),
             rate: 0.045,
-            day_count: DayCount::Act360,
-            conventions: Default::default(),
+            conventions: InstrumentConventions::default()
+                .with_day_count(DayCount::Act360),
         },
         RatesQuote::Deposit {
             maturity: base_date + time::Duration::days(90),
             rate: 0.046,
-            day_count: DayCount::Act360,
-            conventions: Default::default(),
+            conventions: InstrumentConventions::default()
+                .with_day_count(DayCount::Act360),
         },
         RatesQuote::Deposit {
             maturity: base_date + time::Duration::days(180),
             rate: 0.047,
-            day_count: DayCount::Act360,
-            conventions: Default::default(),
+            conventions: InstrumentConventions::default()
+                .with_day_count(DayCount::Act360),
         },
     ];
 
@@ -260,20 +261,20 @@ fn test_discount_curve_deposit_repricing() {
         if let RatesQuote::Deposit {
             maturity,
             rate,
-            day_count,
-            conventions: _,
+            conventions,
         } = quote
         {
+            let day_count = quote.effective_day_count(Currency::USD);
             let dep = Deposit {
                 id: format!("DEP-{}", maturity).into(),
                 notional: Money::new(NOTIONAL, Currency::USD),
                 start: base_date,
                 end: *maturity,
-                day_count: *day_count,
+                day_count,
                 quote_rate: Some(*rate),
                 discount_curve_id: "USD-OIS".into(),
                 attributes: Default::default(),
-                spot_lag_days: None,
+                spot_lag_days: conventions.settlement_days,
                 bdc: None,
                 calendar_id: None,
             };
@@ -320,14 +321,14 @@ fn test_forward_curve_fra_repricing() {
         RatesQuote::Deposit {
             maturity: base_date + time::Duration::days(30),
             rate: 0.0450,
-            day_count: DayCount::Act360,
-            conventions: Default::default(),
+            conventions: InstrumentConventions::default()
+                .with_day_count(DayCount::Act360),
         },
         RatesQuote::Deposit {
             maturity: base_date + time::Duration::days(90),
             rate: 0.0460,
-            day_count: DayCount::Act360,
-            conventions: Default::default(),
+            conventions: InstrumentConventions::default()
+                .with_day_count(DayCount::Act360),
         },
     ];
 
@@ -358,15 +359,15 @@ fn test_forward_curve_fra_repricing() {
             start: base_date + time::Duration::days(90),
             end: base_date + time::Duration::days(180),
             rate: 0.0470,
-            day_count: DayCount::Act360,
-            conventions: Default::default(),
+            conventions: InstrumentConventions::default()
+                .with_day_count(DayCount::Act360),
         },
         RatesQuote::FRA {
             start: base_date + time::Duration::days(180),
             end: base_date + time::Duration::days(270),
             rate: 0.0480,
-            day_count: DayCount::Act360,
-            conventions: Default::default(),
+            conventions: InstrumentConventions::default()
+                .with_day_count(DayCount::Act360),
         },
     ];
 
@@ -391,10 +392,10 @@ fn test_forward_curve_fra_repricing() {
             start,
             end,
             rate,
-            day_count,
-            conventions: _,
+            conventions,
         } = quote
         {
+            let day_count = quote.effective_day_count(Currency::USD);
             let fixing_date = if *start >= base_date + time::Duration::days(2) {
                 *start - time::Duration::days(2)
             } else {
@@ -408,7 +409,7 @@ fn test_forward_curve_fra_repricing() {
                 .start_date(*start)
                 .end_date(*end)
                 .fixed_rate(*rate)
-                .day_count(*day_count)
+                .day_count(day_count)
                 .reset_lag(2)
                 .discount_curve_id("USD-OIS".into())
                 .forward_id("USD-SOFR-3M".into())

@@ -18,6 +18,7 @@ use finstack_core::math::interp::InterpStyle;
 use finstack_valuations::calibration::methods::swaption_vol::{
     AtmStrikeConvention, SwaptionVolCalibrator, SwaptionVolConvention,
 };
+use finstack_valuations::calibration::quotes::InstrumentConventions;
 use finstack_valuations::calibration::methods::{
     BaseCorrelationCalibrator, DiscountCurveCalibrator, ForwardCurveCalibrator,
     HazardCurveCalibrator, InflationCurveCalibrator, VolSurfaceCalibrator,
@@ -65,8 +66,8 @@ fn create_deposit_quotes(base_date: Date, num_deposits: usize) -> Vec<RatesQuote
         quotes.push(RatesQuote::Deposit {
             maturity,
             rate,
-            day_count: DayCount::Act360,
-            conventions: Default::default(),
+            conventions: InstrumentConventions::default()
+                .with_day_count(DayCount::Act360),
         });
     }
 
@@ -85,15 +86,15 @@ fn create_swap_quotes(base_date: Date, tenors: &[i32]) -> Vec<RatesQuote> {
         quotes.push(RatesQuote::Swap {
             maturity,
             rate,
-            fixed_freq: Tenor::semi_annual(),
-            float_freq: Tenor::quarterly(),
-            fixed_dc: DayCount::Thirty360,
-            float_dc: DayCount::Act360,
-            index: "USD-SOFR-3M".to_string().into(),
             is_ois: true,
             conventions: Default::default(),
-            fixed_leg_conventions: Default::default(),
-            float_leg_conventions: Default::default(),
+            fixed_leg_conventions: InstrumentConventions::default()
+                .with_payment_frequency(Tenor::semi_annual())
+                .with_day_count(DayCount::Thirty360),
+            float_leg_conventions: InstrumentConventions::default()
+                .with_payment_frequency(Tenor::quarterly())
+                .with_day_count(DayCount::Act360)
+                .with_index("USD-SOFR-3M"),
         });
     }
 
@@ -114,8 +115,8 @@ fn create_fra_quotes(base_date: Date, num_fras: usize) -> Vec<RatesQuote> {
             start,
             end,
             rate,
-            day_count: DayCount::Act360,
-            conventions: Default::default(),
+            conventions: InstrumentConventions::default()
+                .with_day_count(DayCount::Act360),
         });
     }
 

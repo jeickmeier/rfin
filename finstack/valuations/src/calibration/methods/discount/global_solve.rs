@@ -181,13 +181,10 @@ impl DiscountCurveCalibrator {
 
             // Compute initial zero rate guess from the quote
             let init_zero_rate = match quote {
-                RatesQuote::Deposit {
-                    maturity,
-                    day_count,
-                    ..
-                } => {
+                RatesQuote::Deposit { maturity, .. } => {
                     // Deposits are quoted on the accrual from *settlement* → maturity
                     let r = CalibrationPricer::get_rate(quote);
+                    let day_count = quote.effective_day_count(self.currency);
                     let yf = day_count
                         .year_fraction(
                             settlement,

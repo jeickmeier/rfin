@@ -169,7 +169,7 @@ impl DiscountCurveCalibrator {
             knots.push((time_to_maturity, solved_df));
 
             // Store residual with descriptive key
-            let key = quote.format_residual_key(residual_key_counter);
+            let key = quote.format_residual_key(residual_key_counter, self.currency);
             residual_key_counter += 1;
             residuals.insert(key, final_residual);
 
@@ -370,12 +370,9 @@ impl DiscountCurveCalibrator {
         settlement: finstack_core::dates::Date,
     ) -> f64 {
         match quote {
-            RatesQuote::Deposit {
-                maturity,
-                day_count,
-                ..
-            } => {
+            RatesQuote::Deposit { maturity, .. } => {
                 let r = CalibrationPricer::get_rate(quote);
+                let day_count = quote.effective_day_count(self.currency);
                 let yf = day_count
                     .year_fraction(
                         settlement,

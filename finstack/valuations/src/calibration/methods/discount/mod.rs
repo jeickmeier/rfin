@@ -645,6 +645,7 @@ impl Calibrator<RatesQuote, DiscountCurve> for DiscountCurveCalibrator {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::calibration::quotes::InstrumentConventions;
     use finstack_core::currency::Currency;
     use finstack_core::dates::{Date, DayCount, Tenor};
     use time::Month;
@@ -656,40 +657,40 @@ mod tests {
             RatesQuote::Deposit {
                 maturity: base_date + time::Duration::days(30),
                 rate: 0.045,
-                day_count: DayCount::Act360,
-                conventions: Default::default(),
+                conventions: InstrumentConventions::default()
+                    .with_day_count(DayCount::Act360),
             },
             RatesQuote::Deposit {
                 maturity: base_date + time::Duration::days(90),
                 rate: 0.046,
-                day_count: DayCount::Act360,
-                conventions: Default::default(),
+                conventions: InstrumentConventions::default()
+                    .with_day_count(DayCount::Act360),
             },
             RatesQuote::Swap {
                 maturity: base_date + time::Duration::days(365),
                 rate: 0.047,
-                fixed_freq: Tenor::semi_annual(),
-                float_freq: Tenor::quarterly(),
-                fixed_dc: DayCount::Thirty360,
-                float_dc: DayCount::Act360,
-                index: "USD-SOFR-3M".to_string().into(),
                 is_ois: true,
                 conventions: Default::default(),
-                fixed_leg_conventions: Default::default(),
-                float_leg_conventions: Default::default(),
+                fixed_leg_conventions: InstrumentConventions::default()
+                    .with_payment_frequency(Tenor::semi_annual())
+                    .with_day_count(DayCount::Thirty360),
+                float_leg_conventions: InstrumentConventions::default()
+                    .with_payment_frequency(Tenor::quarterly())
+                    .with_day_count(DayCount::Act360)
+                    .with_index("USD-SOFR-3M"),
             },
             RatesQuote::Swap {
                 maturity: base_date + time::Duration::days(365 * 2),
                 rate: 0.048,
-                fixed_freq: Tenor::semi_annual(),
-                float_freq: Tenor::quarterly(),
-                fixed_dc: DayCount::Thirty360,
-                float_dc: DayCount::Act360,
-                index: "USD-SOFR-3M".to_string().into(),
                 is_ois: true,
                 conventions: Default::default(),
-                fixed_leg_conventions: Default::default(),
-                float_leg_conventions: Default::default(),
+                fixed_leg_conventions: InstrumentConventions::default()
+                    .with_payment_frequency(Tenor::semi_annual())
+                    .with_day_count(DayCount::Thirty360),
+                float_leg_conventions: InstrumentConventions::default()
+                    .with_payment_frequency(Tenor::quarterly())
+                    .with_day_count(DayCount::Act360)
+                    .with_index("USD-SOFR-3M"),
             },
         ]
     }
@@ -905,59 +906,59 @@ mod tests {
             RatesQuote::Deposit {
                 maturity: base_date + time::Duration::days(30),
                 rate: 0.045,
-                day_count: DayCount::Act360,
-                conventions: Default::default(),
+                conventions: InstrumentConventions::default()
+                    .with_day_count(DayCount::Act360),
             },
             RatesQuote::Deposit {
                 maturity: base_date + time::Duration::days(60),
                 rate: 0.046,
-                day_count: DayCount::Act360,
-                conventions: Default::default(),
+                conventions: InstrumentConventions::default()
+                    .with_day_count(DayCount::Act360),
             },
             RatesQuote::Deposit {
                 maturity: base_date + time::Duration::days(90),
                 rate: 0.0465,
-                day_count: DayCount::Act360,
-                conventions: Default::default(),
+                conventions: InstrumentConventions::default()
+                    .with_day_count(DayCount::Act360),
             },
             RatesQuote::Swap {
                 maturity: base_date + time::Duration::days(180),
                 rate: 0.047,
-                fixed_freq: Tenor::semi_annual(),
-                float_freq: Tenor::quarterly(),
-                fixed_dc: DayCount::Thirty360,
-                float_dc: DayCount::Act360,
-                index: "USD-SOFR-3M".to_string().into(),
                 is_ois: true,
                 conventions: Default::default(),
-                fixed_leg_conventions: Default::default(),
-                float_leg_conventions: Default::default(),
+                fixed_leg_conventions: InstrumentConventions::default()
+                    .with_payment_frequency(Tenor::semi_annual())
+                    .with_day_count(DayCount::Thirty360),
+                float_leg_conventions: InstrumentConventions::default()
+                    .with_payment_frequency(Tenor::quarterly())
+                    .with_day_count(DayCount::Act360)
+                    .with_index("USD-SOFR-3M"),
             },
             RatesQuote::Swap {
                 maturity: base_date + time::Duration::days(365),
                 rate: 0.048,
-                fixed_freq: Tenor::semi_annual(),
-                float_freq: Tenor::quarterly(),
-                fixed_dc: DayCount::Thirty360,
-                float_dc: DayCount::Act360,
-                index: "USD-SOFR-3M".to_string().into(),
                 is_ois: true,
                 conventions: Default::default(),
-                fixed_leg_conventions: Default::default(),
-                float_leg_conventions: Default::default(),
+                fixed_leg_conventions: InstrumentConventions::default()
+                    .with_payment_frequency(Tenor::semi_annual())
+                    .with_day_count(DayCount::Thirty360),
+                float_leg_conventions: InstrumentConventions::default()
+                    .with_payment_frequency(Tenor::quarterly())
+                    .with_day_count(DayCount::Act360)
+                    .with_index("USD-SOFR-3M"),
             },
             RatesQuote::Swap {
                 maturity: base_date + time::Duration::days(730),
                 rate: 0.049,
-                fixed_freq: Tenor::semi_annual(),
-                float_freq: Tenor::quarterly(),
-                fixed_dc: DayCount::Thirty360,
-                float_dc: DayCount::Act360,
-                index: "USD-SOFR-3M".to_string().into(),
                 is_ois: true,
                 conventions: Default::default(),
-                fixed_leg_conventions: Default::default(),
-                float_leg_conventions: Default::default(),
+                fixed_leg_conventions: InstrumentConventions::default()
+                    .with_payment_frequency(Tenor::semi_annual())
+                    .with_day_count(DayCount::Thirty360),
+                float_leg_conventions: InstrumentConventions::default()
+                    .with_payment_frequency(Tenor::quarterly())
+                    .with_day_count(DayCount::Act360)
+                    .with_index("USD-SOFR-3M"),
             },
         ];
 
@@ -992,14 +993,14 @@ mod tests {
             RatesQuote::Deposit {
                 maturity: base_date + time::Duration::days(30),
                 rate: 0.03,
-                day_count: DayCount::Act360,
-                conventions: Default::default(),
+                conventions: InstrumentConventions::default()
+                    .with_day_count(DayCount::Act360),
             },
             RatesQuote::Deposit {
                 maturity: base_date + time::Duration::days(90),
                 rate: 0.035,
-                day_count: DayCount::Act360,
-                conventions: Default::default(),
+                conventions: InstrumentConventions::default()
+                    .with_day_count(DayCount::Act360),
             },
         ];
 
@@ -1060,14 +1061,14 @@ mod tests {
             RatesQuote::Deposit {
                 maturity: base_date + time::Duration::days(30),
                 rate: 0.045,
-                day_count: DayCount::Act360,
-                conventions: Default::default(),
+                conventions: InstrumentConventions::default()
+                    .with_day_count(DayCount::Act360),
             },
             RatesQuote::Deposit {
                 maturity: base_date + time::Duration::days(90),
                 rate: 0.046,
-                day_count: DayCount::Act360,
-                conventions: Default::default(),
+                conventions: InstrumentConventions::default()
+                    .with_day_count(DayCount::Act360),
             },
         ];
 
@@ -1168,14 +1169,14 @@ mod tests {
             RatesQuote::Deposit {
                 maturity: base_date + time::Duration::days(30),
                 rate: 0.045,
-                day_count: DayCount::Act360,
-                conventions: Default::default(),
+                conventions: InstrumentConventions::default()
+                    .with_day_count(DayCount::Act360),
             },
             RatesQuote::Deposit {
                 maturity: base_date + time::Duration::days(90),
                 rate: 0.046,
-                day_count: DayCount::Act360,
-                conventions: Default::default(),
+                conventions: InstrumentConventions::default()
+                    .with_day_count(DayCount::Act360),
             },
         ];
 

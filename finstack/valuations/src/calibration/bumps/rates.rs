@@ -2,6 +2,7 @@
 
 use super::BumpRequest;
 use crate::calibration::methods::DiscountCurveCalibrator;
+use crate::calibration::quotes::InstrumentConventions;
 use crate::calibration::{Calibrator, RatesQuote};
 use finstack_core::dates::{Date, DayCount, DayCountCtx};
 use finstack_core::market_data::context::MarketContext;
@@ -156,8 +157,8 @@ pub fn bump_discount_curve_synthetic(
         quotes.push(RatesQuote::Deposit {
             maturity,
             rate: bumped_rate,
-            day_count: dc,
-            conventions: Default::default(),
+            conventions: InstrumentConventions::default()
+                .with_day_count(dc),
         });
     }
 

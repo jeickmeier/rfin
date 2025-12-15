@@ -59,8 +59,36 @@ use finstack_core::currency::Currency;
 use finstack_core::dates::{Date, DayCount, DayCountCtx, Tenor};
 use finstack_core::market_data::context::MarketContext;
 use finstack_valuations::calibration::methods::discount::DiscountCurveCalibrator;
+use finstack_valuations::calibration::quotes::InstrumentConventions;
 use finstack_valuations::calibration::{Calibrator, RatesQuote, CALIBRATION_CONFIG_KEY_V1};
 use time::Month;
+
+/// Helper to create deposit quotes with ACT/360 day count
+fn deposit(maturity: Date, rate: f64) -> RatesQuote {
+    RatesQuote::Deposit {
+        maturity,
+        rate,
+        conventions: InstrumentConventions::default()
+            .with_day_count(DayCount::Act360),
+    }
+}
+
+/// Helper to create OIS swap quotes with annual frequency and ACT/360
+fn ois_swap(maturity: Date, rate: f64) -> RatesQuote {
+    RatesQuote::Swap {
+        maturity,
+        rate,
+        is_ois: true,
+        conventions: Default::default(),
+        fixed_leg_conventions: InstrumentConventions::default()
+            .with_payment_frequency(Tenor::annual())
+            .with_day_count(DayCount::Act360),
+        float_leg_conventions: InstrumentConventions::default()
+            .with_payment_frequency(Tenor::annual())
+            .with_day_count(DayCount::Act360)
+            .with_index("USD-SOFR"),
+    }
+}
 
 /// Test calibration accuracy against Bloomberg USD OIS curve data.
 ///
@@ -78,325 +106,39 @@ fn test_bloomberg_usd_ois_calibration_accuracy() {
     // Short-end deposits (< 1Y) and OIS swaps (>= 1Y)
     let discount_quotes = vec![
         // Short-term deposits - using actual maturity dates from Bloomberg
-        RatesQuote::Deposit {
-            maturity: Date::from_calendar_date(2025, Month::December, 19).expect("Valid date"), // 1W
-            rate: 0.0364447,
-            day_count: DayCount::Act360,
-            conventions: Default::default(),
-        },
-        RatesQuote::Deposit {
-            maturity: Date::from_calendar_date(2025, Month::December, 26).expect("Valid date"), // 2W
-            rate: 0.0364455,
-            day_count: DayCount::Act360,
-            conventions: Default::default(),
-        },
-        RatesQuote::Deposit {
-            maturity: Date::from_calendar_date(2026, Month::January, 2).expect("Valid date"), // 3W
-            rate: 0.0365300,
-            day_count: DayCount::Act360,
-            conventions: Default::default(),
-        },
-        RatesQuote::Deposit {
-            maturity: Date::from_calendar_date(2026, Month::January, 12).expect("Valid date"), // 1M
-            rate: 0.0364950,
-            day_count: DayCount::Act360,
-            conventions: Default::default(),
-        },
-        RatesQuote::Deposit {
-            maturity: Date::from_calendar_date(2026, Month::February, 12).expect("Valid date"), // 2M
-            rate: 0.0364050,
-            day_count: DayCount::Act360,
-            conventions: Default::default(),
-        },
-        RatesQuote::Deposit {
-            maturity: Date::from_calendar_date(2026, Month::March, 12).expect("Valid date"), // 3M
-            rate: 0.0363477,
-            day_count: DayCount::Act360,
-            conventions: Default::default(),
-        },
-        RatesQuote::Deposit {
-            maturity: Date::from_calendar_date(2026, Month::April, 13).expect("Valid date"), // 4M
-            rate: 0.0361400,
-            day_count: DayCount::Act360,
-            conventions: Default::default(),
-        },
-        RatesQuote::Deposit {
-            maturity: Date::from_calendar_date(2026, Month::May, 12).expect("Valid date"), // 5M
-            rate: 0.0359544,
-            day_count: DayCount::Act360,
-            conventions: Default::default(),
-        },
-        RatesQuote::Deposit {
-            maturity: Date::from_calendar_date(2026, Month::June, 12).expect("Valid date"), // 6M
-            rate: 0.0358000,
-            day_count: DayCount::Act360,
-            conventions: Default::default(),
-        },
-        RatesQuote::Deposit {
-            maturity: Date::from_calendar_date(2026, Month::July, 13).expect("Valid date"), // 7M
-            rate: 0.0355310,
-            day_count: DayCount::Act360,
-            conventions: Default::default(),
-        },
-        RatesQuote::Deposit {
-            maturity: Date::from_calendar_date(2026, Month::August, 12).expect("Valid date"), // 8M
-            rate: 0.0352500,
-            day_count: DayCount::Act360,
-            conventions: Default::default(),
-        },
-        RatesQuote::Deposit {
-            maturity: Date::from_calendar_date(2026, Month::September, 14).expect("Valid date"), // 9M
-            rate: 0.0350225,
-            day_count: DayCount::Act360,
-            conventions: Default::default(),
-        },
-        RatesQuote::Deposit {
-            maturity: Date::from_calendar_date(2026, Month::October, 13).expect("Valid date"), // 10M
-            rate: 0.0347742,
-            day_count: DayCount::Act360,
-            conventions: Default::default(),
-        },
-        RatesQuote::Deposit {
-            maturity: Date::from_calendar_date(2026, Month::November, 12).expect("Valid date"), // 11M
-            rate: 0.0345356,
-            day_count: DayCount::Act360,
-            conventions: Default::default(),
-        },
+        deposit(Date::from_calendar_date(2025, Month::December, 19).expect("Valid date"), 0.0364447), // 1W
+        deposit(Date::from_calendar_date(2025, Month::December, 26).expect("Valid date"), 0.0364455), // 2W
+        deposit(Date::from_calendar_date(2026, Month::January, 2).expect("Valid date"), 0.0365300), // 3W
+        deposit(Date::from_calendar_date(2026, Month::January, 12).expect("Valid date"), 0.0364950), // 1M
+        deposit(Date::from_calendar_date(2026, Month::February, 12).expect("Valid date"), 0.0364050), // 2M
+        deposit(Date::from_calendar_date(2026, Month::March, 12).expect("Valid date"), 0.0363477), // 3M
+        deposit(Date::from_calendar_date(2026, Month::April, 13).expect("Valid date"), 0.0361400), // 4M
+        deposit(Date::from_calendar_date(2026, Month::May, 12).expect("Valid date"), 0.0359544), // 5M
+        deposit(Date::from_calendar_date(2026, Month::June, 12).expect("Valid date"), 0.0358000), // 6M
+        deposit(Date::from_calendar_date(2026, Month::July, 13).expect("Valid date"), 0.0355310), // 7M
+        deposit(Date::from_calendar_date(2026, Month::August, 12).expect("Valid date"), 0.0352500), // 8M
+        deposit(Date::from_calendar_date(2026, Month::September, 14).expect("Valid date"), 0.0350225), // 9M
+        deposit(Date::from_calendar_date(2026, Month::October, 13).expect("Valid date"), 0.0347742), // 10M
+        deposit(Date::from_calendar_date(2026, Month::November, 12).expect("Valid date"), 0.0345356), // 11M
         // OIS Swaps (>= 1Y)
-        RatesQuote::Swap {
-            maturity: Date::from_calendar_date(2026, Month::December, 14).expect("Valid date"), // 1Y
-            rate: 0.0343446,
-            fixed_freq: Tenor::annual(),
-            float_freq: Tenor::annual(),
-            fixed_dc: DayCount::Act360,
-            float_dc: DayCount::Act360,
-            index: "USD-SOFR".to_string().into(),
-            is_ois: true,
-                conventions: Default::default(),
-                fixed_leg_conventions: Default::default(),
-                float_leg_conventions: Default::default(),
-        },
-        RatesQuote::Swap {
-            maturity: Date::from_calendar_date(2027, Month::June, 14).expect("Valid date"), // 18M
-            rate: 0.0332849,
-            fixed_freq: Tenor::annual(),
-            float_freq: Tenor::annual(),
-            fixed_dc: DayCount::Act360,
-            float_dc: DayCount::Act360,
-            index: "USD-SOFR".to_string().into(),
-            is_ois: true,
-                conventions: Default::default(),
-                fixed_leg_conventions: Default::default(),
-                float_leg_conventions: Default::default(),
-        },
-        RatesQuote::Swap {
-            maturity: Date::from_calendar_date(2027, Month::December, 13).expect("Valid date"), // 2Y
-            rate: 0.0329864,
-            fixed_freq: Tenor::annual(),
-            float_freq: Tenor::annual(),
-            fixed_dc: DayCount::Act360,
-            float_dc: DayCount::Act360,
-            index: "USD-SOFR".to_string().into(),
-            is_ois: true,
-                conventions: Default::default(),
-                fixed_leg_conventions: Default::default(),
-                float_leg_conventions: Default::default(),
-        },
-        RatesQuote::Swap {
-            maturity: Date::from_calendar_date(2028, Month::December, 12).expect("Valid date"), // 3Y
-            rate: 0.0330190,
-            fixed_freq: Tenor::annual(),
-            float_freq: Tenor::annual(),
-            fixed_dc: DayCount::Act360,
-            float_dc: DayCount::Act360,
-            index: "USD-SOFR".to_string().into(),
-            is_ois: true,
-                conventions: Default::default(),
-                fixed_leg_conventions: Default::default(),
-                float_leg_conventions: Default::default(),
-        },
-        RatesQuote::Swap {
-            maturity: Date::from_calendar_date(2029, Month::December, 12).expect("Valid date"), // 4Y
-            rate: 0.0333823,
-            fixed_freq: Tenor::annual(),
-            float_freq: Tenor::annual(),
-            fixed_dc: DayCount::Act360,
-            float_dc: DayCount::Act360,
-            index: "USD-SOFR".to_string().into(),
-            is_ois: true,
-                conventions: Default::default(),
-                fixed_leg_conventions: Default::default(),
-                float_leg_conventions: Default::default(),
-        },
-        RatesQuote::Swap {
-            maturity: Date::from_calendar_date(2030, Month::December, 12).expect("Valid date"), // 5Y
-            rate: 0.0338799,
-            fixed_freq: Tenor::annual(),
-            float_freq: Tenor::annual(),
-            fixed_dc: DayCount::Act360,
-            float_dc: DayCount::Act360,
-            index: "USD-SOFR".to_string().into(),
-            is_ois: true,
-                conventions: Default::default(),
-                fixed_leg_conventions: Default::default(),
-                float_leg_conventions: Default::default(),
-        },
-        RatesQuote::Swap {
-            maturity: Date::from_calendar_date(2031, Month::December, 12).expect("Valid date"), // 6Y
-            rate: 0.0344608,
-            fixed_freq: Tenor::annual(),
-            float_freq: Tenor::annual(),
-            fixed_dc: DayCount::Act360,
-            float_dc: DayCount::Act360,
-            index: "USD-SOFR".to_string().into(),
-            is_ois: true,
-                conventions: Default::default(),
-                fixed_leg_conventions: Default::default(),
-                float_leg_conventions: Default::default(),
-        },
-        RatesQuote::Swap {
-            maturity: Date::from_calendar_date(2032, Month::December, 13).expect("Valid date"), // 7Y
-            rate: 0.0350619,
-            fixed_freq: Tenor::annual(),
-            float_freq: Tenor::annual(),
-            fixed_dc: DayCount::Act360,
-            float_dc: DayCount::Act360,
-            index: "USD-SOFR".to_string().into(),
-            is_ois: true,
-                conventions: Default::default(),
-                fixed_leg_conventions: Default::default(),
-                float_leg_conventions: Default::default(),
-        },
-        RatesQuote::Swap {
-            maturity: Date::from_calendar_date(2033, Month::December, 12).expect("Valid date"), // 8Y
-            rate: 0.0356592,
-            fixed_freq: Tenor::annual(),
-            float_freq: Tenor::annual(),
-            fixed_dc: DayCount::Act360,
-            float_dc: DayCount::Act360,
-            index: "USD-SOFR".to_string().into(),
-            is_ois: true,
-                conventions: Default::default(),
-                fixed_leg_conventions: Default::default(),
-                float_leg_conventions: Default::default(),
-        },
-        RatesQuote::Swap {
-            maturity: Date::from_calendar_date(2034, Month::December, 12).expect("Valid date"), // 9Y
-            rate: 0.0362453,
-            fixed_freq: Tenor::annual(),
-            float_freq: Tenor::annual(),
-            fixed_dc: DayCount::Act360,
-            float_dc: DayCount::Act360,
-            index: "USD-SOFR".to_string().into(),
-            is_ois: true,
-                conventions: Default::default(),
-                fixed_leg_conventions: Default::default(),
-                float_leg_conventions: Default::default(),
-        },
-        RatesQuote::Swap {
-            maturity: Date::from_calendar_date(2035, Month::December, 12).expect("Valid date"), // 10Y
-            rate: 0.0368206,
-            fixed_freq: Tenor::annual(),
-            float_freq: Tenor::annual(),
-            fixed_dc: DayCount::Act360,
-            float_dc: DayCount::Act360,
-            index: "USD-SOFR".to_string().into(),
-            is_ois: true,
-                conventions: Default::default(),
-                fixed_leg_conventions: Default::default(),
-                float_leg_conventions: Default::default(),
-        },
-        RatesQuote::Swap {
-            maturity: Date::from_calendar_date(2037, Month::December, 14).expect("Valid date"), // 12Y
-            rate: 0.0378975,
-            fixed_freq: Tenor::annual(),
-            float_freq: Tenor::annual(),
-            fixed_dc: DayCount::Act360,
-            float_dc: DayCount::Act360,
-            index: "USD-SOFR".to_string().into(),
-            is_ois: true,
-                conventions: Default::default(),
-                fixed_leg_conventions: Default::default(),
-                float_leg_conventions: Default::default(),
-        },
-        RatesQuote::Swap {
-            maturity: Date::from_calendar_date(2040, Month::December, 12).expect("Valid date"), // 15Y
-            rate: 0.0391717,
-            fixed_freq: Tenor::annual(),
-            float_freq: Tenor::annual(),
-            fixed_dc: DayCount::Act360,
-            float_dc: DayCount::Act360,
-            index: "USD-SOFR".to_string().into(),
-            is_ois: true,
-                conventions: Default::default(),
-                fixed_leg_conventions: Default::default(),
-                float_leg_conventions: Default::default(),
-        },
-        RatesQuote::Swap {
-            maturity: Date::from_calendar_date(2045, Month::December, 12).expect("Valid date"), // 20Y
-            rate: 0.0402348,
-            fixed_freq: Tenor::annual(),
-            float_freq: Tenor::annual(),
-            fixed_dc: DayCount::Act360,
-            float_dc: DayCount::Act360,
-            index: "USD-SOFR".to_string().into(),
-            is_ois: true,
-                conventions: Default::default(),
-                fixed_leg_conventions: Default::default(),
-                float_leg_conventions: Default::default(),
-        },
-        RatesQuote::Swap {
-            maturity: Date::from_calendar_date(2050, Month::December, 12).expect("Valid date"), // 25Y
-            rate: 0.0403809,
-            fixed_freq: Tenor::annual(),
-            float_freq: Tenor::annual(),
-            fixed_dc: DayCount::Act360,
-            float_dc: DayCount::Act360,
-            index: "USD-SOFR".to_string().into(),
-            is_ois: true,
-                conventions: Default::default(),
-                fixed_leg_conventions: Default::default(),
-                float_leg_conventions: Default::default(),
-        },
-        RatesQuote::Swap {
-            maturity: Date::from_calendar_date(2055, Month::December, 13).expect("Valid date"), // 30Y
-            rate: 0.0401000,
-            fixed_freq: Tenor::annual(),
-            float_freq: Tenor::annual(),
-            fixed_dc: DayCount::Act360,
-            float_dc: DayCount::Act360,
-            index: "USD-SOFR".to_string().into(),
-            is_ois: true,
-                conventions: Default::default(),
-                fixed_leg_conventions: Default::default(),
-                float_leg_conventions: Default::default(),
-        },
-        RatesQuote::Swap {
-            maturity: Date::from_calendar_date(2065, Month::December, 14).expect("Valid date"), // 40Y
-            rate: 0.0390413,
-            fixed_freq: Tenor::annual(),
-            float_freq: Tenor::annual(),
-            fixed_dc: DayCount::Act360,
-            float_dc: DayCount::Act360,
-            index: "USD-SOFR".to_string().into(),
-            is_ois: true,
-                conventions: Default::default(),
-                fixed_leg_conventions: Default::default(),
-                float_leg_conventions: Default::default(),
-        },
-        RatesQuote::Swap {
-            maturity: Date::from_calendar_date(2075, Month::December, 12).expect("Valid date"), // 50Y
-            rate: 0.0378761,
-            fixed_freq: Tenor::annual(),
-            float_freq: Tenor::annual(),
-            fixed_dc: DayCount::Act360,
-            float_dc: DayCount::Act360,
-            index: "USD-SOFR".to_string().into(),
-            is_ois: true,
-                conventions: Default::default(),
-                fixed_leg_conventions: Default::default(),
-                float_leg_conventions: Default::default(),
-        },
+        ois_swap(Date::from_calendar_date(2026, Month::December, 14).expect("Valid date"), 0.0343446), // 1Y
+        ois_swap(Date::from_calendar_date(2027, Month::June, 14).expect("Valid date"), 0.0332849), // 18M
+        ois_swap(Date::from_calendar_date(2027, Month::December, 13).expect("Valid date"), 0.0329864), // 2Y
+        ois_swap(Date::from_calendar_date(2028, Month::December, 12).expect("Valid date"), 0.0330190), // 3Y
+        ois_swap(Date::from_calendar_date(2029, Month::December, 12).expect("Valid date"), 0.0333823), // 4Y
+        ois_swap(Date::from_calendar_date(2030, Month::December, 12).expect("Valid date"), 0.0338799), // 5Y
+        ois_swap(Date::from_calendar_date(2031, Month::December, 12).expect("Valid date"), 0.0344608), // 6Y
+        ois_swap(Date::from_calendar_date(2032, Month::December, 13).expect("Valid date"), 0.0350619), // 7Y
+        ois_swap(Date::from_calendar_date(2033, Month::December, 12).expect("Valid date"), 0.0356592), // 8Y
+        ois_swap(Date::from_calendar_date(2034, Month::December, 12).expect("Valid date"), 0.0362453), // 9Y
+        ois_swap(Date::from_calendar_date(2035, Month::December, 12).expect("Valid date"), 0.0368206), // 10Y
+        ois_swap(Date::from_calendar_date(2037, Month::December, 14).expect("Valid date"), 0.0378975), // 12Y
+        ois_swap(Date::from_calendar_date(2040, Month::December, 12).expect("Valid date"), 0.0391717), // 15Y
+        ois_swap(Date::from_calendar_date(2045, Month::December, 12).expect("Valid date"), 0.0402348), // 20Y
+        ois_swap(Date::from_calendar_date(2050, Month::December, 12).expect("Valid date"), 0.0403809), // 25Y
+        ois_swap(Date::from_calendar_date(2055, Month::December, 13).expect("Valid date"), 0.0401000), // 30Y
+        ois_swap(Date::from_calendar_date(2065, Month::December, 14).expect("Valid date"), 0.0390413), // 40Y
+        ois_swap(Date::from_calendar_date(2075, Month::December, 12).expect("Valid date"), 0.0378761), // 50Y
     ];
 
     // Bloomberg zero rates (in decimal) and discount factors at each maturity
@@ -828,83 +570,15 @@ fn test_interpolation_method_comparison() {
     // Use a subset of quotes for comparison (short-end to 10Y)
     let test_quotes = vec![
         // Short-term deposits
-        RatesQuote::Deposit {
-            maturity: Date::from_calendar_date(2025, Month::December, 19).expect("Valid date"),
-            rate: 0.0364447,
-            day_count: DayCount::Act360,
-            conventions: Default::default(),
-        },
-        RatesQuote::Deposit {
-            maturity: Date::from_calendar_date(2026, Month::January, 12).expect("Valid date"),
-            rate: 0.0364950,
-            day_count: DayCount::Act360,
-            conventions: Default::default(),
-        },
-        RatesQuote::Deposit {
-            maturity: Date::from_calendar_date(2026, Month::March, 12).expect("Valid date"),
-            rate: 0.0363477,
-            day_count: DayCount::Act360,
-            conventions: Default::default(),
-        },
-        RatesQuote::Deposit {
-            maturity: Date::from_calendar_date(2026, Month::June, 12).expect("Valid date"),
-            rate: 0.0358000,
-            day_count: DayCount::Act360,
-            conventions: Default::default(),
-        },
+        deposit(Date::from_calendar_date(2025, Month::December, 19).expect("Valid date"), 0.0364447),
+        deposit(Date::from_calendar_date(2026, Month::January, 12).expect("Valid date"), 0.0364950),
+        deposit(Date::from_calendar_date(2026, Month::March, 12).expect("Valid date"), 0.0363477),
+        deposit(Date::from_calendar_date(2026, Month::June, 12).expect("Valid date"), 0.0358000),
         // OIS Swaps
-        RatesQuote::Swap {
-            maturity: Date::from_calendar_date(2026, Month::December, 14).expect("Valid date"),
-            rate: 0.0343446,
-            fixed_freq: Tenor::annual(),
-            float_freq: Tenor::annual(),
-            fixed_dc: DayCount::Act360,
-            float_dc: DayCount::Act360,
-            index: "USD-SOFR".to_string().into(),
-            is_ois: true,
-                conventions: Default::default(),
-                fixed_leg_conventions: Default::default(),
-                float_leg_conventions: Default::default(),
-        },
-        RatesQuote::Swap {
-            maturity: Date::from_calendar_date(2027, Month::December, 13).expect("Valid date"),
-            rate: 0.0329864,
-            fixed_freq: Tenor::annual(),
-            float_freq: Tenor::annual(),
-            fixed_dc: DayCount::Act360,
-            float_dc: DayCount::Act360,
-            index: "USD-SOFR".to_string().into(),
-            is_ois: true,
-                conventions: Default::default(),
-                fixed_leg_conventions: Default::default(),
-                float_leg_conventions: Default::default(),
-        },
-        RatesQuote::Swap {
-            maturity: Date::from_calendar_date(2030, Month::December, 12).expect("Valid date"),
-            rate: 0.0338799,
-            fixed_freq: Tenor::annual(),
-            float_freq: Tenor::annual(),
-            fixed_dc: DayCount::Act360,
-            float_dc: DayCount::Act360,
-            index: "USD-SOFR".to_string().into(),
-            is_ois: true,
-                conventions: Default::default(),
-                fixed_leg_conventions: Default::default(),
-                float_leg_conventions: Default::default(),
-        },
-        RatesQuote::Swap {
-            maturity: Date::from_calendar_date(2035, Month::December, 12).expect("Valid date"),
-            rate: 0.0370206,
-            fixed_freq: Tenor::annual(),
-            float_freq: Tenor::annual(),
-            fixed_dc: DayCount::Act360,
-            float_dc: DayCount::Act360,
-            index: "USD-SOFR".to_string().into(),
-            is_ois: true,
-                conventions: Default::default(),
-                fixed_leg_conventions: Default::default(),
-                float_leg_conventions: Default::default(),
-        },
+        ois_swap(Date::from_calendar_date(2026, Month::December, 14).expect("Valid date"), 0.0343446),
+        ois_swap(Date::from_calendar_date(2027, Month::December, 13).expect("Valid date"), 0.0329864),
+        ois_swap(Date::from_calendar_date(2030, Month::December, 12).expect("Valid date"), 0.0338799),
+        ois_swap(Date::from_calendar_date(2035, Month::December, 12).expect("Valid date"), 0.0370206),
     ];
 
     let base_context = MarketContext::new();

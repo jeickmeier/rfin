@@ -1032,34 +1032,30 @@ impl CalibrationPricer {
     /// let swap = pricer.create_ois_swap(&quote, Money::new(1_000_000.0, Currency::USD))?;
     /// ```
     pub fn create_ois_swap(&self, quote: &RatesQuote, notional: Money) -> Result<InterestRateSwap> {
-        let (maturity, rate, fixed_freq, float_freq, fixed_dc, float_dc, index, conventions) =
-            match quote {
-                RatesQuote::Swap {
-                    maturity,
-                    rate,
-                    fixed_freq,
-                    float_freq,
-                    fixed_dc,
-                    float_dc,
-                    index,
-                    conventions,
-                    ..
-                } => (
-                    *maturity,
-                    *rate,
-                    *fixed_freq,
-                    *float_freq,
-                    *fixed_dc,
-                    *float_dc,
-                    index,
-                    conventions,
-                ),
-                _ => {
-                    return Err(finstack_core::Error::Input(
-                        finstack_core::error::InputError::Invalid,
-                    ))
-                }
-            };
+        let (maturity, rate, conventions, float_leg_conventions) = match quote {
+            RatesQuote::Swap {
+                maturity,
+                rate,
+                conventions,
+                float_leg_conventions,
+                ..
+            } => (*maturity, *rate, conventions, float_leg_conventions),
+            _ => {
+                return Err(finstack_core::Error::Input(
+                    finstack_core::error::InputError::Invalid,
+                ))
+            }
+        };
+
+        // Extract leg conventions with currency defaults
+        let fixed_freq = quote.effective_fixed_frequency(self.currency);
+        let float_freq = quote.effective_float_frequency(self.currency);
+        let fixed_dc = quote.effective_fixed_day_count(self.currency);
+        let float_dc = quote.effective_float_day_count(self.currency);
+        let index = float_leg_conventions.index.as_ref()
+            .ok_or_else(|| finstack_core::Error::Validation(
+                "Swap quote requires float_leg_conventions.index for OIS swap creation".to_string()
+            ))?;
 
         let start = self.effective_start_date(conventions)?;
         let payment_delay = self.resolve_payment_delay(conventions);
@@ -1137,17 +1133,21 @@ impl CalibrationPricer {
             RatesQuote::Deposit {
                 maturity,
                 rate,
-                day_count,
                 conventions,
-            } => self.price_deposit(*maturity, *rate, *day_count, conventions, context),
+            } => {
+                let day_count = quote.effective_day_count(self.currency);
+                self.price_deposit(*maturity, *rate, day_count, conventions, context)
+            }
 
             RatesQuote::FRA {
                 start,
                 end,
                 rate,
-                day_count,
                 conventions,
-            } => self.price_fra(*start, *end, *rate, *day_count, conventions, context),
+            } => {
+                let day_count = quote.effective_day_count(self.currency);
+                self.price_fra(*start, *end, *rate, day_count, conventions, context)
+            }
 
             RatesQuote::Future {
                 expiry,
@@ -1159,22 +1159,26 @@ impl CalibrationPricer {
             RatesQuote::Swap {
                 maturity,
                 rate,
-                fixed_freq,
-                float_freq,
-                fixed_dc,
-                float_dc,
-                index,
                 conventions,
+                float_leg_conventions,
                 ..
             } => {
                 let is_ois = quote.is_ois_suitable();
+                let fixed_freq = quote.effective_fixed_frequency(self.currency);
+                let float_freq = quote.effective_float_frequency(self.currency);
+                let fixed_dc = quote.effective_fixed_day_count(self.currency);
+                let float_dc = quote.effective_float_day_count(self.currency);
+                let index = float_leg_conventions.index.as_ref()
+                    .ok_or_else(|| finstack_core::Error::Validation(
+                        "Swap quote requires float_leg_conventions.index to be set".to_string()
+                    ))?;
                 self.price_swap(
                     *maturity,
                     *rate,
-                    *fixed_freq,
-                    *float_freq,
-                    *fixed_dc,
-                    *float_dc,
+                    fixed_freq,
+                    float_freq,
+                    fixed_dc,
+                    float_dc,
                     index,
                     is_ois,
                     conventions,
@@ -1184,29 +1188,41 @@ impl CalibrationPricer {
 
             RatesQuote::BasisSwap {
                 maturity,
-                primary_index,
-                reference_index,
                 spread_bp,
-                primary_freq,
-                reference_freq,
-                primary_dc,
-                reference_dc,
-                currency,
                 conventions,
-                ..
-            } => self.price_basis_swap(
-                *maturity,
-                primary_index,
-                reference_index,
-                *spread_bp,
-                *primary_freq,
-                *reference_freq,
-                *primary_dc,
-                *reference_dc,
-                *currency,
-                conventions,
-                context,
-            ),
+                primary_leg_conventions,
+                reference_leg_conventions,
+            } => {
+                let currency = conventions.currency
+                    .ok_or_else(|| finstack_core::Error::Validation(
+                        "BasisSwap quote requires conventions.currency to be set".to_string()
+                    ))?;
+                let primary_index = primary_leg_conventions.index.as_ref()
+                    .ok_or_else(|| finstack_core::Error::Validation(
+                        "BasisSwap quote requires primary_leg_conventions.index to be set".to_string()
+                    ))?;
+                let reference_index = reference_leg_conventions.index.as_ref()
+                    .ok_or_else(|| finstack_core::Error::Validation(
+                        "BasisSwap quote requires reference_leg_conventions.index to be set".to_string()
+                    ))?;
+                let primary_freq = quote.effective_primary_frequency(currency);
+                let reference_freq = quote.effective_reference_frequency(currency);
+                let primary_dc = quote.effective_primary_day_count(currency);
+                let reference_dc = quote.effective_reference_day_count(currency);
+                self.price_basis_swap(
+                    *maturity,
+                    primary_index.as_str(),
+                    reference_index.as_str(),
+                    *spread_bp,
+                    primary_freq,
+                    reference_freq,
+                    primary_dc,
+                    reference_dc,
+                    currency,
+                    conventions,
+                    context,
+                )
+            }
         }
     }
 
@@ -1250,14 +1266,24 @@ impl CalibrationPricer {
     ) -> Result<()> {
         for quote in quotes {
             if let RatesQuote::BasisSwap {
-                primary_index,
-                reference_index,
+                primary_leg_conventions,
+                reference_leg_conventions,
                 ..
             } = quote
             {
+                // Get index names from conventions
+                let primary_index = primary_leg_conventions.index.as_ref()
+                    .ok_or_else(|| finstack_core::Error::Validation(
+                        "BasisSwap requires primary_leg_conventions.index".to_string()
+                    ))?;
+                let reference_index = reference_leg_conventions.index.as_ref()
+                    .ok_or_else(|| finstack_core::Error::Validation(
+                        "BasisSwap requires reference_leg_conventions.index".to_string()
+                    ))?;
+                
                 // Use resolver for consistent curve ID derivation
-                let primary_fwd = self.resolve_forward_curve_id(primary_index);
-                let ref_fwd = self.resolve_forward_curve_id(reference_index);
+                let primary_fwd = self.resolve_forward_curve_id(primary_index.as_str());
+                let ref_fwd = self.resolve_forward_curve_id(reference_index.as_str());
 
                 if context.get_forward_ref(primary_fwd.as_str()).is_err() {
                     return Err(finstack_core::Error::Input(
@@ -1555,27 +1581,21 @@ mod tests {
             RatesQuote::Deposit {
                 maturity,
                 rate: 0.04,
-                day_count: DayCount::Act360,
-                conventions: InstrumentConventions::default(),
+                conventions: InstrumentConventions::default()
+                    .with_day_count(DayCount::Act360),
             },
             RatesQuote::Swap {
                 maturity,
                 rate: 0.045,
-                fixed_freq: finstack_core::dates::Tenor::new(
-                    6,
-                    finstack_core::dates::TenorUnit::Months,
-                ), // Semi-annual
-                float_freq: finstack_core::dates::Tenor::new(
-                    3,
-                    finstack_core::dates::TenorUnit::Months,
-                ), // Quarterly
-                fixed_dc: DayCount::Thirty360,
-                float_dc: DayCount::Act360,
-                index: "SOFR".into(),
                 is_ois: true,
                 conventions: InstrumentConventions::default(),
-                fixed_leg_conventions: InstrumentConventions::default(),
-                float_leg_conventions: InstrumentConventions::default(),
+                fixed_leg_conventions: InstrumentConventions::default()
+                    .with_payment_frequency(Tenor::semi_annual())
+                    .with_day_count(DayCount::Thirty360),
+                float_leg_conventions: InstrumentConventions::default()
+                    .with_payment_frequency(Tenor::quarterly())
+                    .with_day_count(DayCount::Act360)
+                    .with_index("SOFR"),
             },
         ];
 
@@ -1609,14 +1629,14 @@ mod tests {
             RatesQuote::Deposit {
                 maturity,
                 rate: 0.04,
-                day_count: DayCount::Act360,
-                conventions: InstrumentConventions::default(),
+                conventions: InstrumentConventions::default()
+                    .with_day_count(DayCount::Act360),
             },
             RatesQuote::Deposit {
                 maturity,
                 rate: 0.041,
-                day_count: DayCount::Act360,
-                conventions: InstrumentConventions::default(),
+                conventions: InstrumentConventions::default()
+                    .with_day_count(DayCount::Act360),
             },
         ];
 
