@@ -160,7 +160,10 @@ fn test_jacobian_sensitivities_nonzero() {
             fixed_dc: DayCount::Thirty360,
             float_dc: DayCount::Act360,
             index: "USD-SOFR-3M".into(),
-            conventions: Default::default(),
+            is_ois: true,
+                conventions: Default::default(),
+                fixed_leg_conventions: Default::default(),
+                float_leg_conventions: Default::default(),
         },
         RatesQuote::Swap {
             maturity: create_date(2027, Month::January, 15).unwrap(),
@@ -170,7 +173,10 @@ fn test_jacobian_sensitivities_nonzero() {
             fixed_dc: DayCount::Thirty360,
             float_dc: DayCount::Act360,
             index: "USD-SOFR-3M".into(),
-            conventions: Default::default(),
+            is_ois: true,
+                conventions: Default::default(),
+                fixed_leg_conventions: Default::default(),
+                float_leg_conventions: Default::default(),
         },
     ];
 

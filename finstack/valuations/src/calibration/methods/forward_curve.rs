@@ -1265,6 +1265,8 @@ mod tests {
                 reference_dc: DayCount::Act360,
                 currency: Currency::USD,
                 conventions: Default::default(),
+                primary_leg_conventions: Default::default(),
+                reference_leg_conventions: Default::default(),
             },
             RatesQuote::BasisSwap {
                 maturity: base_date + time::Duration::days(730),
@@ -1283,6 +1285,8 @@ mod tests {
                 reference_dc: DayCount::Act360,
                 currency: Currency::USD,
                 conventions: Default::default(),
+                primary_leg_conventions: Default::default(),
+                reference_leg_conventions: Default::default(),
             },
         ];
 

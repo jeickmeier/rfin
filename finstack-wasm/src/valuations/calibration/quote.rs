@@ -151,7 +151,10 @@ impl JsRatesQuote {
                 fixed_dc: fixed_day_count,
                 float_dc: float_day_count,
                 index: index.to_string().into(),
+                is_ois: false,
                 conventions: Default::default(),
+                fixed_leg_conventions: Default::default(),
+                float_leg_conventions: Default::default(),
             },
         })
     }
@@ -214,6 +217,7 @@ impl JsCreditQuote {
                 spread_bp,
                 recovery_rate,
                 currency: ccy,
+                conventions: Default::default(),
             },
         })
     }
@@ -256,6 +260,7 @@ impl JsCreditQuote {
                 maturity: maturity.inner(),
                 upfront_pct,
                 running_spread_bp,
+                conventions: Default::default(),
             },
         }
     }
@@ -315,6 +320,7 @@ impl JsVolQuote {
                 strike,
                 vol,
                 option_type: option_type.to_string(),
+                conventions: Default::default(),
             },
         }
     }
@@ -335,6 +341,9 @@ impl JsVolQuote {
                 strike,
                 vol,
                 quote_type: quote_type.to_string(),
+                conventions: Default::default(),
+                fixed_leg_conventions: Default::default(),
+                float_leg_conventions: Default::default(),
             },
         }
     }
@@ -386,6 +395,7 @@ impl JsInflationQuote {
                 maturity: maturity.inner(),
                 rate,
                 index: index.to_string(),
+                conventions: Default::default(),
             },
         }
     }

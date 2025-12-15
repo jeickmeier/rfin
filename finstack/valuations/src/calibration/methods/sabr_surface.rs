@@ -703,6 +703,7 @@ mod tests {
                 strike: 90.0,
                 vol: 0.22,
                 option_type: "Call".to_string(),
+                conventions: Default::default(),
             },
             VolQuote::OptionVol {
                 underlying: "SPY".to_string().into(),
@@ -710,6 +711,7 @@ mod tests {
                 strike: 100.0,
                 vol: 0.20,
                 option_type: "Call".to_string(),
+                conventions: Default::default(),
             },
             VolQuote::OptionVol {
                 underlying: "SPY".to_string().into(),
@@ -717,6 +719,7 @@ mod tests {
                 strike: 110.0,
                 vol: 0.21,
                 option_type: "Call".to_string(),
+                conventions: Default::default(),
             },
             // 3M expiry options
             VolQuote::OptionVol {
@@ -725,6 +728,7 @@ mod tests {
                 strike: 90.0,
                 vol: 0.24,
                 option_type: "Call".to_string(),
+                conventions: Default::default(),
             },
             VolQuote::OptionVol {
                 underlying: "SPY".to_string().into(),
@@ -732,6 +736,7 @@ mod tests {
                 strike: 100.0,
                 vol: 0.22,
                 option_type: "Call".to_string(),
+                conventions: Default::default(),
             },
             VolQuote::OptionVol {
                 underlying: "SPY".to_string().into(),
@@ -739,6 +744,7 @@ mod tests {
                 strike: 110.0,
                 vol: 0.23,
                 option_type: "Call".to_string(),
+                conventions: Default::default(),
             },
         ]
     }
@@ -907,6 +913,7 @@ mod tests {
                 strike: 100.0,
                 vol: 0.20,
                 option_type: "Call".to_string(),
+                conventions: Default::default(),
             },
             VolQuote::OptionVol {
                 underlying: "SPY".to_string().into(),
@@ -914,6 +921,7 @@ mod tests {
                 strike: 95.0,
                 vol: 0.21,
                 option_type: "Call".to_string(),
+                conventions: Default::default(),
             },
             VolQuote::OptionVol {
                 underlying: "SPY".to_string().into(),
@@ -921,6 +929,7 @@ mod tests {
                 strike: 105.0,
                 vol: 0.22,
                 option_type: "Call".to_string(),
+                conventions: Default::default(),
             },
         ];
 
@@ -1023,6 +1032,7 @@ mod tests {
                 strike: 95.0,
                 vol: 0.22,
                 option_type: "Call".to_string(),
+                conventions: Default::default(),
             },
             VolQuote::OptionVol {
                 underlying: "SPY".to_string().into(),
@@ -1030,6 +1040,7 @@ mod tests {
                 strike: 100.0,
                 vol: 0.20,
                 option_type: "Call".to_string(),
+                conventions: Default::default(),
             },
             // 3M - 3 points (sufficient)
             VolQuote::OptionVol {
@@ -1038,6 +1049,7 @@ mod tests {
                 strike: 90.0,
                 vol: 0.24,
                 option_type: "Call".to_string(),
+                conventions: Default::default(),
             },
             VolQuote::OptionVol {
                 underlying: "SPY".to_string().into(),
@@ -1045,6 +1057,7 @@ mod tests {
                 strike: 100.0,
                 vol: 0.22,
                 option_type: "Call".to_string(),
+                conventions: Default::default(),
             },
             VolQuote::OptionVol {
                 underlying: "SPY".to_string().into(),
@@ -1052,6 +1065,7 @@ mod tests {
                 strike: 110.0,
                 vol: 0.23,
                 option_type: "Call".to_string(),
+                conventions: Default::default(),
             },
         ];
 

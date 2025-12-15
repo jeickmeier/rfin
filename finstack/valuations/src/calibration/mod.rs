@@ -58,7 +58,6 @@
 // Submodules
 pub mod bumps;
 mod config;
-pub mod market_standards;
 pub mod methods;
 pub mod pricing;
 pub mod quotes;

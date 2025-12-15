@@ -74,6 +74,7 @@ pub fn bump_hazard_spreads(
             maturity,
             spread_bp: bumped_spread,
             recovery_rate: recovery,
+            conventions: Default::default(),
         });
     }
 

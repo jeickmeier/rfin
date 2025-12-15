@@ -18,6 +18,7 @@ fn bench_sabr_slice(c: &mut Criterion) {
             strike: 95.0,
             vol: 0.22,
             option_type: "Call".to_string(),
+            conventions: Default::default(),
         },
         VolQuote::OptionVol {
             underlying: "SPY".to_string().into(),
@@ -25,6 +26,7 @@ fn bench_sabr_slice(c: &mut Criterion) {
             strike: 100.0,
             vol: 0.20,
             option_type: "Call".to_string(),
+            conventions: Default::default(),
         },
         VolQuote::OptionVol {
             underlying: "SPY".to_string().into(),
@@ -32,6 +34,7 @@ fn bench_sabr_slice(c: &mut Criterion) {
             strike: 105.0,
             vol: 0.21,
             option_type: "Call".to_string(),
+            conventions: Default::default(),
         },
     ];
     let calibrator =

@@ -80,6 +80,7 @@ pub fn bump_inflation_rates(
             maturity,
             rate: bumped_rate,
             index: curve_id.as_str().to_string(), // Use curve ID as index name? Or generic?
+            conventions: Default::default(),
         });
     }
 

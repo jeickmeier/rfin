@@ -217,6 +217,7 @@ impl BaseCorrelationCalibrator {
                     maturity,
                     upfront_pct,
                     running_spread_bp,
+                    ..
                 } = q
                 {
                     if index == &self.index_id {
@@ -1126,6 +1127,7 @@ mod tests {
                 maturity,
                 upfront_pct: market_upfront_pct,
                 running_spread_bp: 500.0,
+                conventions: Default::default(),
             });
         }
 

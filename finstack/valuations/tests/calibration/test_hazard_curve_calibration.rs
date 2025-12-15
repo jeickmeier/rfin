@@ -56,21 +56,21 @@ fn test_hazard_calibration_positive_rates() {
             maturity: Date::from_calendar_date(2026, Month::January, 1).unwrap(),
             spread_bp: 100.0, // 100bp spread
             recovery_rate: 0.40,
-            currency: Currency::USD,
+            currency: Currency::USD, conventions: Default::default(),
         },
         CreditQuote::CDS {
             entity: "ACME-Corp".to_string(),
             maturity: Date::from_calendar_date(2028, Month::January, 1).unwrap(),
             spread_bp: 150.0, // 150bp spread
             recovery_rate: 0.40,
-            currency: Currency::USD,
+            currency: Currency::USD, conventions: Default::default(),
         },
         CreditQuote::CDS {
             entity: "ACME-Corp".to_string(),
             maturity: Date::from_calendar_date(2030, Month::January, 1).unwrap(),
             spread_bp: 200.0, // 200bp spread
             recovery_rate: 0.40,
-            currency: Currency::USD,
+            currency: Currency::USD, conventions: Default::default(),
         },
     ];
 
@@ -121,7 +121,7 @@ fn test_hazard_calibration_rejects_zero_spread() {
         maturity: Date::from_calendar_date(2026, Month::January, 1).unwrap(),
         spread_bp: 0.0, // Zero spread implies no default risk
         recovery_rate: 0.40,
-        currency: Currency::USD,
+        currency: Currency::USD, conventions: Default::default(),
     }];
 
     let disc = create_test_discount_curve(base);
@@ -167,7 +167,7 @@ fn test_hazard_calibration_near_zero_spread() {
         maturity: Date::from_calendar_date(2026, Month::January, 1).unwrap(),
         spread_bp: 1.0, // 1bp - very low but positive spread (near-AAA credit)
         recovery_rate: 0.40,
-        currency: Currency::USD,
+        currency: Currency::USD, conventions: Default::default(),
     }];
 
     let disc = create_test_discount_curve(base);
@@ -227,14 +227,14 @@ fn test_hazard_calibration_positive_rates_validation() {
             maturity: Date::from_calendar_date(2027, Month::January, 1).unwrap(),
             spread_bp: 50.0, // 50bp
             recovery_rate: 0.40,
-            currency: Currency::USD,
+            currency: Currency::USD, conventions: Default::default(),
         },
         CreditQuote::CDS {
             entity: "TEST-ENTITY".to_string(),
             maturity: Date::from_calendar_date(2030, Month::January, 1).unwrap(),
             spread_bp: 100.0, // 100bp
             recovery_rate: 0.40,
-            currency: Currency::USD,
+            currency: Currency::USD, conventions: Default::default(),
         },
     ];
 
@@ -268,14 +268,14 @@ fn test_hazard_curve_reprices_cds_to_par() {
             maturity: Date::from_calendar_date(2027, Month::January, 1).unwrap(),
             spread_bp: 100.0, // 100bp
             recovery_rate: 0.40,
-            currency: Currency::USD,
+            currency: Currency::USD, conventions: Default::default(),
         },
         CreditQuote::CDS {
             entity: "REPRICE-TEST".to_string(),
             maturity: Date::from_calendar_date(2030, Month::January, 1).unwrap(),
             spread_bp: 150.0, // 150bp - upward sloping term structure
             recovery_rate: 0.40,
-            currency: Currency::USD,
+            currency: Currency::USD, conventions: Default::default(),
         },
     ];
 

@@ -28,7 +28,6 @@ mod bootstrap;
 mod global_solve;
 
 use crate::calibration::config::CalibrationMethod;
-use crate::calibration::market_standards::settlement_days_for_currency;
 use crate::calibration::pricing::CalibrationPricer;
 use crate::calibration::quotes::RatesQuote;
 use crate::calibration::{CalibrationConfig, CalibrationReport, Calibrator, MultiCurveConfig};
@@ -395,16 +394,27 @@ impl DiscountCurveCalibrator {
     }
 
     /// Get effective settlement days (explicit or currency default).
+    ///
+    /// Currency-specific defaults:
+    /// - GBP: T+0 (same-day)
+    /// - AUD, CAD: T+1
+    /// - USD, EUR, JPY, CHF, and others: T+2
+    ///
+    /// Override via `with_settlement_days()` or supply via quote conventions.
     pub(crate) fn effective_settlement_days(&self) -> i32 {
-        self.settlement_days
-            .unwrap_or_else(|| settlement_days_for_currency(self.currency))
+        self.settlement_days.unwrap_or_else(|| match self.currency {
+            Currency::GBP => 0,
+            Currency::AUD | Currency::CAD => 1,
+            _ => 2,
+        })
     }
 
-    /// Get effective day count for curve time (explicit or currency default).
+    /// Get effective day count for curve time (explicit or default Act/365F).
+    ///
+    /// Act/365F is a common default for discount curves. Override via `with_curve_day_count()`
+    /// or supply via quote conventions for currency-specific handling.
     pub(crate) fn effective_curve_day_count(&self) -> DayCount {
-        self.curve_day_count.unwrap_or_else(|| {
-            crate::calibration::market_standards::standard_day_count_for_currency(self.currency)
-        })
+        self.curve_day_count.unwrap_or(DayCount::Act365F)
     }
 
     /// Calculate settlement date from base date using business-day calendar.
@@ -663,7 +673,10 @@ mod tests {
                 fixed_dc: DayCount::Thirty360,
                 float_dc: DayCount::Act360,
                 index: "USD-SOFR-3M".to_string().into(),
+                is_ois: true,
                 conventions: Default::default(),
+                fixed_leg_conventions: Default::default(),
+                float_leg_conventions: Default::default(),
             },
             RatesQuote::Swap {
                 maturity: base_date + time::Duration::days(365 * 2),
@@ -673,7 +686,10 @@ mod tests {
                 fixed_dc: DayCount::Thirty360,
                 float_dc: DayCount::Act360,
                 index: "USD-SOFR-3M".to_string().into(),
+                is_ois: true,
                 conventions: Default::default(),
+                fixed_leg_conventions: Default::default(),
+                float_leg_conventions: Default::default(),
             },
         ]
     }
@@ -912,7 +928,10 @@ mod tests {
                 fixed_dc: DayCount::Thirty360,
                 float_dc: DayCount::Act360,
                 index: "USD-SOFR-3M".to_string().into(),
+                is_ois: true,
                 conventions: Default::default(),
+                fixed_leg_conventions: Default::default(),
+                float_leg_conventions: Default::default(),
             },
             RatesQuote::Swap {
                 maturity: base_date + time::Duration::days(365),
@@ -922,7 +941,10 @@ mod tests {
                 fixed_dc: DayCount::Thirty360,
                 float_dc: DayCount::Act360,
                 index: "USD-SOFR-3M".to_string().into(),
+                is_ois: true,
                 conventions: Default::default(),
+                fixed_leg_conventions: Default::default(),
+                float_leg_conventions: Default::default(),
             },
             RatesQuote::Swap {
                 maturity: base_date + time::Duration::days(730),
@@ -932,7 +954,10 @@ mod tests {
                 fixed_dc: DayCount::Thirty360,
                 float_dc: DayCount::Act360,
                 index: "USD-SOFR-3M".to_string().into(),
+                is_ois: true,
                 conventions: Default::default(),
+                fixed_leg_conventions: Default::default(),
+                float_leg_conventions: Default::default(),
             },
         ];
 

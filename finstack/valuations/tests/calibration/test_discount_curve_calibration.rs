@@ -65,7 +65,10 @@ fn test_multi_curve_instrument_validation() {
         fixed_dc: DayCount::Thirty360,
         float_dc: DayCount::Act360,
         index: "SOFR".to_string().into(),
-        conventions: Default::default(),
+        is_ois: true,
+                conventions: Default::default(),
+                fixed_leg_conventions: Default::default(),
+                float_leg_conventions: Default::default(),
     };
     assert!(
         ois_swap.requires_forward_curve(),
@@ -84,7 +87,10 @@ fn test_multi_curve_instrument_validation() {
         fixed_dc: DayCount::Thirty360,
         float_dc: DayCount::Act360,
         index: "3M-LIBOR".to_string().into(),
+        is_ois: false, // LIBOR swaps are not OIS suitable
         conventions: Default::default(),
+        fixed_leg_conventions: Default::default(),
+        float_leg_conventions: Default::default(),
     };
     assert!(
         libor_swap.requires_forward_curve(),
@@ -128,7 +134,10 @@ fn create_test_quotes() -> Vec<RatesQuote> {
             fixed_dc: DayCount::Thirty360,
             float_dc: DayCount::Act360,
             index: "USD-SOFR-3M".to_string().into(),
-            conventions: Default::default(),
+            is_ois: true,
+                conventions: Default::default(),
+                fixed_leg_conventions: Default::default(),
+                float_leg_conventions: Default::default(),
         },
         RatesQuote::Swap {
             maturity: base_date + time::Duration::days(365 * 2),
@@ -138,7 +147,10 @@ fn create_test_quotes() -> Vec<RatesQuote> {
             fixed_dc: DayCount::Thirty360,
             float_dc: DayCount::Act360,
             index: "USD-SOFR-3M".to_string().into(),
-            conventions: Default::default(),
+            is_ois: true,
+                conventions: Default::default(),
+                fixed_leg_conventions: Default::default(),
+                float_leg_conventions: Default::default(),
         },
     ]
 }
@@ -357,7 +369,10 @@ fn test_swap_repricing_under_bootstrap() {
             fixed_dc: DayCount::Thirty360,
             float_dc: DayCount::Act360,
             index: "USD-OIS".to_string().into(),
-            conventions: Default::default(),
+            is_ois: true,
+                conventions: Default::default(),
+                fixed_leg_conventions: Default::default(),
+                float_leg_conventions: Default::default(),
         },
     ];
 
@@ -483,7 +498,10 @@ fn test_ois_bootstrap_with_deposits_and_ois_swaps() {
             fixed_dc: DayCount::Thirty360,
             float_dc: DayCount::Act360,
             index: "USD-OIS".to_string().into(),
-            conventions: Default::default(),
+            is_ois: true,
+                conventions: Default::default(),
+                fixed_leg_conventions: Default::default(),
+                float_leg_conventions: Default::default(),
         },
         RatesQuote::Swap {
             maturity: base_date + time::Duration::days(365 * 2),
@@ -493,7 +511,10 @@ fn test_ois_bootstrap_with_deposits_and_ois_swaps() {
             fixed_dc: DayCount::Thirty360,
             float_dc: DayCount::Act360,
             index: "USD-OIS".to_string().into(),
-            conventions: Default::default(),
+            is_ois: true,
+                conventions: Default::default(),
+                fixed_leg_conventions: Default::default(),
+                float_leg_conventions: Default::default(),
         },
     ];
 
@@ -694,6 +715,8 @@ fn test_pre_validation_fails_for_missing_forward_curves() {
             reference_dc: DayCount::Act360,
             currency: Currency::USD,
             conventions: Default::default(),
+            primary_leg_conventions: Default::default(),
+            reference_leg_conventions: Default::default(),
         },
     ];
 

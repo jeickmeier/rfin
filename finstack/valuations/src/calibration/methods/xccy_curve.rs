@@ -9,7 +9,6 @@
 //! on the target discount curve.
 
 use crate::calibration::config::ValidationMode;
-use crate::calibration::market_standards::standard_day_count_for_currency;
 use crate::calibration::validation::CurveValidator;
 use crate::calibration::{CalibrationConfig, CalibrationReport};
 use crate::instruments::xccy_swap::{LegSide, NotionalExchange, XccySwap, XccySwapLeg};
@@ -147,8 +146,8 @@ impl XccyBasisCalibrator {
     }
 
     fn effective_curve_day_count(&self) -> DayCount {
-        self.curve_day_count
-            .unwrap_or_else(|| standard_day_count_for_currency(self.currency))
+        // Default to Act/365F for curve time. Override via with_curve_day_count().
+        self.curve_day_count.unwrap_or(DayCount::Act365F)
     }
 
     fn resolve_calendar_strict(id: &str) -> Result<&'static dyn HolidayCalendar> {

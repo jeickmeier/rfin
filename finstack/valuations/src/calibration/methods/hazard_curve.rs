@@ -620,6 +620,7 @@ mod tests {
                 spread_bp: 50.0,
                 recovery_rate: 0.40,
                 currency: Currency::USD,
+                conventions: Default::default(),
             },
             CreditQuote::CDS {
                 entity: "AAPL".to_string(),
@@ -627,6 +628,7 @@ mod tests {
                 spread_bp: 75.0,
                 recovery_rate: 0.40,
                 currency: Currency::USD,
+                conventions: Default::default(),
             },
             CreditQuote::CDS {
                 entity: "AAPL".to_string(),
@@ -634,6 +636,7 @@ mod tests {
                 spread_bp: 100.0,
                 recovery_rate: 0.40,
                 currency: Currency::USD,
+                conventions: Default::default(),
             },
         ]
     }
@@ -799,6 +802,7 @@ mod tests {
             running_spread_bp: 300.0, // 300bp running
             recovery_rate: 0.25,      // Lower recovery for distressed
             currency: Currency::USD,
+            conventions: Default::default(),
         }];
 
         // Use relaxed tolerance for upfront CDS calibration (complex pricing model)
@@ -886,6 +890,7 @@ mod tests {
             spread_bp: 100.0,
             recovery_rate: 0.25, // Differs by 15pp from calibrator
             currency: Currency::USD,
+            conventions: Default::default(),
         }];
 
         let market_context = MarketContext::new().insert_discount(disc);
@@ -926,6 +931,7 @@ mod tests {
             spread_bp: 100.0,
             recovery_rate: 0.405, // 0.5pp difference - within tolerance
             currency: Currency::USD,
+            conventions: Default::default(),
         }];
 
         let market_context = MarketContext::new().insert_discount(disc);
@@ -965,6 +971,7 @@ mod tests {
                 spread_bp: 500.0,
                 recovery_rate: 0.25,
                 currency: Currency::USD,
+                conventions: Default::default(),
             },
             CreditQuote::CDS {
                 entity: "DISTRESSED".to_string(),
@@ -972,6 +979,7 @@ mod tests {
                 spread_bp: 750.0,
                 recovery_rate: 0.25,
                 currency: Currency::USD,
+                conventions: Default::default(),
             },
             CreditQuote::CDS {
                 entity: "DISTRESSED".to_string(),
@@ -979,6 +987,7 @@ mod tests {
                 spread_bp: 1000.0,
                 recovery_rate: 0.25,
                 currency: Currency::USD,
+                conventions: Default::default(),
             },
         ];
 
@@ -1053,6 +1062,7 @@ mod tests {
                 spread_bp: 5.0,
                 recovery_rate: 0.40,
                 currency: Currency::USD,
+                conventions: Default::default(),
             },
             CreditQuote::CDS {
                 entity: "AAA_CORP".to_string(),
@@ -1060,6 +1070,7 @@ mod tests {
                 spread_bp: 10.0,
                 recovery_rate: 0.40,
                 currency: Currency::USD,
+                conventions: Default::default(),
             },
             CreditQuote::CDS {
                 entity: "AAA_CORP".to_string(),
@@ -1067,6 +1078,7 @@ mod tests {
                 spread_bp: 15.0,
                 recovery_rate: 0.40,
                 currency: Currency::USD,
+                conventions: Default::default(),
             },
         ];
 
@@ -1128,6 +1140,7 @@ mod tests {
             spread_bp: 100.0,
             recovery_rate: 0.40,
             currency: Currency::JPY,
+            conventions: Default::default(),
         }];
 
         let market_context = MarketContext::new().insert_discount(disc);
@@ -1271,6 +1284,7 @@ mod tests {
             spread_bp: -50.0, // Invalid negative spread
             recovery_rate: 0.40,
             currency: Currency::USD,
+            conventions: Default::default(),
         }];
 
         let market_context = MarketContext::new().insert_discount(disc);
@@ -1303,6 +1317,7 @@ mod tests {
             spread_bp: 0.0, // Invalid zero spread
             recovery_rate: 0.40,
             currency: Currency::USD,
+            conventions: Default::default(),
         }];
 
         let market_context = MarketContext::new().insert_discount(disc);

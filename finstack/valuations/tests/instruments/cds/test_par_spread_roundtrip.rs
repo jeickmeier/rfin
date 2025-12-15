@@ -50,7 +50,7 @@ fn test_cds_par_spread_roundtrip_1y() {
         maturity,
         spread_bp: par_spread_bp,
         recovery_rate: 0.40,
-        currency: Currency::USD,
+        currency: Currency::USD, conventions: Default::default(),
     }];
 
     // Bootstrap hazard curve
@@ -128,7 +128,7 @@ fn test_cds_par_spread_roundtrip_multi_tenor() {
             maturity: *maturity,
             spread_bp: *spread,
             recovery_rate: 0.40,
-            currency: Currency::USD,
+            currency: Currency::USD, conventions: Default::default(),
         })
         .collect();
 
@@ -193,7 +193,7 @@ fn test_cds_par_spread_calculation_consistency() {
         maturity,
         spread_bp: 200.0, // 200bp
         recovery_rate: 0.40,
-        currency: Currency::USD,
+        currency: Currency::USD, conventions: Default::default(),
     }];
 
     let calibrator = HazardCurveCalibrator::new(

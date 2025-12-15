@@ -22,11 +22,9 @@ use finstack_valuations::calibration::methods::inflation_curve::InflationCurveCa
 use finstack_valuations::calibration::methods::sabr_surface::{
     SurfaceInterp, VolSurfaceCalibrator,
 };
-use finstack_valuations::calibration::market_standards::{
-    PaymentEstimation, SwaptionMarketConvention,
-};
 use finstack_valuations::calibration::methods::swaption_vol::{
-    AtmStrikeConvention, SwaptionVolCalibrator, SwaptionVolConvention,
+    AtmStrikeConvention, PaymentEstimation, SwaptionMarketConvention, SwaptionVolCalibrator,
+    SwaptionVolConvention,
 };
 use finstack_valuations::calibration::{
     CalibrationConfig, CalibrationReport, CreditQuote, FutureSpecs, InflationQuote, MarketQuote,
@@ -192,7 +190,10 @@ fn test_rates_quote_serialization() {
         fixed_dc: DayCount::Thirty360,
         float_dc: DayCount::Act360,
         index: "USD-SOFR-3M".to_string().into(),
-        conventions: Default::default(),
+        is_ois: true,
+                conventions: Default::default(),
+                fixed_leg_conventions: Default::default(),
+                float_leg_conventions: Default::default(),
     };
     let _ = roundtrip_json(&swap);
 
@@ -208,6 +209,8 @@ fn test_rates_quote_serialization() {
         reference_dc: DayCount::Act360,
         currency: Currency::USD,
         conventions: Default::default(),
+        primary_leg_conventions: Default::default(),
+        reference_leg_conventions: Default::default(),
     };
     let _ = roundtrip_json(&basis);
 }
@@ -223,6 +226,7 @@ fn test_credit_quote_serialization() {
         spread_bp: 50.0,
         recovery_rate: 0.40,
         currency: Currency::USD,
+        conventions: Default::default(),
     };
     let _ = roundtrip_json(&cds);
 
@@ -234,6 +238,7 @@ fn test_credit_quote_serialization() {
         running_spread_bp: 300.0,
         recovery_rate: 0.25,
         currency: Currency::USD,
+        conventions: Default::default(),
     };
     let _ = roundtrip_json(&cds_upfront);
 
@@ -245,6 +250,7 @@ fn test_credit_quote_serialization() {
         maturity: base_date + time::Duration::days(365 * 5),
         upfront_pct: 2.5,
         running_spread_bp: 500.0,
+        conventions: Default::default(),
     };
     let _ = roundtrip_json(&tranche);
 }
@@ -260,6 +266,7 @@ fn test_vol_quote_serialization() {
         strike: 450.0,
         vol: 0.20,
         option_type: "Call".to_string(),
+        conventions: Default::default(),
     };
     let _ = roundtrip_json(&option_vol);
 
@@ -270,6 +277,9 @@ fn test_vol_quote_serialization() {
         strike: 0.045,
         vol: 0.50,
         quote_type: "ATM".to_string(),
+        conventions: Default::default(),
+        fixed_leg_conventions: Default::default(),
+        float_leg_conventions: Default::default(),
     };
     let _ = roundtrip_json(&swaption_vol);
 }
@@ -283,6 +293,7 @@ fn test_inflation_quote_serialization() {
         maturity: base_date + time::Duration::days(365 * 10),
         rate: 0.025,
         index: "USCPI".to_string(),
+        conventions: Default::default(),
     };
     let _ = roundtrip_json(&zc_swap);
 
@@ -292,6 +303,9 @@ fn test_inflation_quote_serialization() {
         rate: 0.023,
         index: "USCPI".to_string(),
         frequency: Tenor::annual(),
+        conventions: Default::default(),
+        fixed_leg_conventions: Default::default(),
+        inflation_leg_conventions: Default::default(),
     };
     let _ = roundtrip_json(&yoy_swap);
 }
@@ -313,6 +327,7 @@ fn test_market_quote_serialization() {
             spread_bp: 50.0,
             recovery_rate: 0.40,
             currency: Currency::USD,
+            conventions: Default::default(),
         }),
         MarketQuote::Vol(VolQuote::OptionVol {
             underlying: "SPY".to_string().into(),
@@ -320,11 +335,13 @@ fn test_market_quote_serialization() {
             strike: 450.0,
             vol: 0.20,
             option_type: "Call".to_string(),
+            conventions: Default::default(),
         }),
         MarketQuote::Inflation(InflationQuote::InflationSwap {
             maturity: base_date + time::Duration::days(365 * 10),
             rate: 0.025,
             index: "USCPI".to_string(),
+            conventions: Default::default(),
         }),
     ];
 

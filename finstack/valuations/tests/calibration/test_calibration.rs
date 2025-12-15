@@ -22,6 +22,7 @@ fn create_test_quotes() -> Vec<CreditQuote> {
             spread_bp: 100.0,
             recovery_rate: 0.40,
             currency: Currency::USD,
+            conventions: Default::default(),
         },
         CreditQuote::CDS {
             entity: "TEST-ENTITY".to_string(),
@@ -29,6 +30,7 @@ fn create_test_quotes() -> Vec<CreditQuote> {
             spread_bp: 150.0,
             recovery_rate: 0.40,
             currency: Currency::USD,
+            conventions: Default::default(),
         },
         CreditQuote::CDS {
             entity: "TEST-ENTITY".to_string(),
@@ -36,6 +38,7 @@ fn create_test_quotes() -> Vec<CreditQuote> {
             spread_bp: 200.0,
             recovery_rate: 0.40,
             currency: Currency::USD,
+            conventions: Default::default(),
         },
     ]
 }
@@ -245,7 +248,10 @@ fn test_discount_curve_global_solve_smoke() {
             fixed_dc: DayCount::Act360,
             float_dc: DayCount::Act360,
             index: "USD-SOFR".into(),
-            conventions: Default::default(),
+            is_ois: true,
+                conventions: Default::default(),
+                fixed_leg_conventions: Default::default(),
+                float_leg_conventions: Default::default(),
         },
     ];
 

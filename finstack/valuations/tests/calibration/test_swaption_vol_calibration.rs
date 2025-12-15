@@ -41,35 +41,35 @@ fn create_test_swaption_quotes() -> Vec<VolQuote> {
             tenor: Date::from_calendar_date(2027, Month::January, 1).unwrap(),
             strike: 0.035,
             vol: 0.012, // 120bp normal vol
-            quote_type: "OTM-100".to_string(),
+            quote_type: "OTM-100".to_string(), conventions: Default::default(), fixed_leg_conventions: Default::default(), float_leg_conventions: Default::default(),
         },
         VolQuote::SwaptionVol {
             expiry: Date::from_calendar_date(2026, Month::January, 1).unwrap(),
             tenor: Date::from_calendar_date(2027, Month::January, 1).unwrap(),
             strike: 0.040,
             vol: 0.010, // 100bp normal vol
-            quote_type: "ATM-50".to_string(),
+            quote_type: "ATM-50".to_string(), conventions: Default::default(), fixed_leg_conventions: Default::default(), float_leg_conventions: Default::default(),
         },
         VolQuote::SwaptionVol {
             expiry: Date::from_calendar_date(2026, Month::January, 1).unwrap(),
             tenor: Date::from_calendar_date(2027, Month::January, 1).unwrap(),
             strike: 0.043,
             vol: 0.009, // 90bp normal vol (ATM)
-            quote_type: "ATM".to_string(),
+            quote_type: "ATM".to_string(), conventions: Default::default(), fixed_leg_conventions: Default::default(), float_leg_conventions: Default::default(),
         },
         VolQuote::SwaptionVol {
             expiry: Date::from_calendar_date(2026, Month::January, 1).unwrap(),
             tenor: Date::from_calendar_date(2027, Month::January, 1).unwrap(),
             strike: 0.046,
             vol: 0.010, // 100bp normal vol
-            quote_type: "ATM+50".to_string(),
+            quote_type: "ATM+50".to_string(), conventions: Default::default(), fixed_leg_conventions: Default::default(), float_leg_conventions: Default::default(),
         },
         VolQuote::SwaptionVol {
             expiry: Date::from_calendar_date(2026, Month::January, 1).unwrap(),
             tenor: Date::from_calendar_date(2027, Month::January, 1).unwrap(),
             strike: 0.050,
             vol: 0.012, // 120bp normal vol
-            quote_type: "OTM+100".to_string(),
+            quote_type: "OTM+100".to_string(), conventions: Default::default(), fixed_leg_conventions: Default::default(), float_leg_conventions: Default::default(),
         },
         // 1Y x 5Y swaptions (1Y expiry, 5Y tenor) - normal vols
         VolQuote::SwaptionVol {
@@ -77,35 +77,35 @@ fn create_test_swaption_quotes() -> Vec<VolQuote> {
             tenor: Date::from_calendar_date(2031, Month::January, 1).unwrap(),
             strike: 0.038,
             vol: 0.0085, // 85bp normal vol
-            quote_type: "OTM-100".to_string(),
+            quote_type: "OTM-100".to_string(), conventions: Default::default(), fixed_leg_conventions: Default::default(), float_leg_conventions: Default::default(),
         },
         VolQuote::SwaptionVol {
             expiry: Date::from_calendar_date(2026, Month::January, 1).unwrap(),
             tenor: Date::from_calendar_date(2031, Month::January, 1).unwrap(),
             strike: 0.042,
             vol: 0.0075, // 75bp normal vol
-            quote_type: "ATM-50".to_string(),
+            quote_type: "ATM-50".to_string(), conventions: Default::default(), fixed_leg_conventions: Default::default(), float_leg_conventions: Default::default(),
         },
         VolQuote::SwaptionVol {
             expiry: Date::from_calendar_date(2026, Month::January, 1).unwrap(),
             tenor: Date::from_calendar_date(2031, Month::January, 1).unwrap(),
             strike: 0.045,
             vol: 0.007, // 70bp normal vol (ATM)
-            quote_type: "ATM".to_string(),
+            quote_type: "ATM".to_string(), conventions: Default::default(), fixed_leg_conventions: Default::default(), float_leg_conventions: Default::default(),
         },
         VolQuote::SwaptionVol {
             expiry: Date::from_calendar_date(2026, Month::January, 1).unwrap(),
             tenor: Date::from_calendar_date(2031, Month::January, 1).unwrap(),
             strike: 0.048,
             vol: 0.0075, // 75bp normal vol
-            quote_type: "ATM+50".to_string(),
+            quote_type: "ATM+50".to_string(), conventions: Default::default(), fixed_leg_conventions: Default::default(), float_leg_conventions: Default::default(),
         },
         VolQuote::SwaptionVol {
             expiry: Date::from_calendar_date(2026, Month::January, 1).unwrap(),
             tenor: Date::from_calendar_date(2031, Month::January, 1).unwrap(),
             strike: 0.052,
             vol: 0.0085, // 85bp normal vol
-            quote_type: "OTM+100".to_string(),
+            quote_type: "OTM+100".to_string(), conventions: Default::default(), fixed_leg_conventions: Default::default(), float_leg_conventions: Default::default(),
         },
     ]
 }
@@ -130,7 +130,7 @@ fn create_extended_swaption_quotes() -> Vec<VolQuote> {
             tenor: Date::from_calendar_date(2028, Month::January, 1).unwrap(),   // 1Y tenor
             strike: k,
             vol: v,
-            quote_type: "STRIKE".to_string(),
+            quote_type: "STRIKE".to_string(), conventions: Default::default(), fixed_leg_conventions: Default::default(), float_leg_conventions: Default::default(),
         });
     }
     
@@ -147,7 +147,7 @@ fn create_extended_swaption_quotes() -> Vec<VolQuote> {
             tenor: Date::from_calendar_date(2032, Month::January, 1).unwrap(),   // 5Y tenor
             strike: k,
             vol: v,
-            quote_type: "STRIKE".to_string(),
+            quote_type: "STRIKE".to_string(), conventions: Default::default(), fixed_leg_conventions: Default::default(), float_leg_conventions: Default::default(),
         });
     }
     q
@@ -260,7 +260,7 @@ fn test_swaption_vol_calibration_direct() {
 
 #[test]
 fn test_swaption_vol_calibration_extended_grid_and_interpolation() {
-    use finstack_valuations::calibration::market_standards::SwaptionMarketConvention;
+    use finstack_valuations::calibration::methods::swaption_vol::SwaptionMarketConvention;
 
     let base_date = Date::from_calendar_date(2025, Month::January, 1).unwrap();
     let mut context = MarketContext::new();
@@ -436,7 +436,7 @@ fn test_swaption_pricing_with_calibrated_surface() {
 /// consider using SVI parameterization or monotone convex fitting methods.
 #[test]
 fn test_swaption_vol_surface_arbitrage_free() {
-    use finstack_valuations::calibration::market_standards::SwaptionMarketConvention;
+    use finstack_valuations::calibration::methods::swaption_vol::SwaptionMarketConvention;
     use finstack_valuations::calibration::{SurfaceValidator, ValidationConfig};
 
     let base_date = Date::from_calendar_date(2025, Month::January, 1).unwrap();
@@ -528,7 +528,7 @@ fn test_insufficient_quotes_error() {
         tenor: Date::from_calendar_date(2027, Month::January, 1).unwrap(),
         strike: 0.04,
         vol: 0.20,
-        quote_type: "ATM".to_string(),
+        quote_type: "ATM".to_string(), conventions: Default::default(), fixed_leg_conventions: Default::default(), float_leg_conventions: Default::default(),
     }];
 
     let result = calibrator.calibrate(&sparse_quotes, &context);

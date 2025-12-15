@@ -1,5 +1,6 @@
 //! Credit instrument quote types for hazard curve and correlation calibration.
 
+use super::conventions::InstrumentConventions;
 use finstack_core::dates::Date;
 use finstack_core::prelude::*;
 #[cfg(feature = "ts_export")]
@@ -26,6 +27,9 @@ pub enum CreditQuote {
         /// Currency
         #[cfg_attr(feature = "ts_export", ts(type = "string"))]
         currency: Currency,
+        /// Per-instrument conventions (settlement, payment frequency, day count, calendar)
+        #[serde(default, skip_serializing_if = "InstrumentConventions::is_empty")]
+        conventions: InstrumentConventions,
     },
     /// CDS upfront quote (for distressed credits or non-standard contracts)
     CDSUpfront {
@@ -43,6 +47,9 @@ pub enum CreditQuote {
         /// Currency
         #[cfg_attr(feature = "ts_export", ts(type = "string"))]
         currency: Currency,
+        /// Per-instrument conventions (settlement, payment frequency, day count, calendar)
+        #[serde(default, skip_serializing_if = "InstrumentConventions::is_empty")]
+        conventions: InstrumentConventions,
     },
     /// CDS Tranche quote
     CDSTranche {
@@ -59,6 +66,20 @@ pub enum CreditQuote {
         upfront_pct: f64,
         /// Running spread (bps)
         running_spread_bp: f64,
+        /// Per-instrument conventions (settlement, payment frequency, day count, calendar)
+        #[serde(default, skip_serializing_if = "InstrumentConventions::is_empty")]
+        conventions: InstrumentConventions,
     },
+}
+
+impl CreditQuote {
+    /// Get per-instrument conventions for this quote.
+    pub fn conventions(&self) -> &InstrumentConventions {
+        match self {
+            CreditQuote::CDS { conventions, .. } => conventions,
+            CreditQuote::CDSUpfront { conventions, .. } => conventions,
+            CreditQuote::CDSTranche { conventions, .. } => conventions,
+        }
+    }
 }
 

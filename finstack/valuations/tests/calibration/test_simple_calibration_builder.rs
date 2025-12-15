@@ -52,7 +52,10 @@ fn test_calibration_spec_with_quotes() {
             fixed_dc: DayCount::Act365F,
             float_dc: DayCount::Act365F,
             index: "USD-OIS".to_string().into(),
+            is_ois: true,
             conventions: Default::default(),
+            fixed_leg_conventions: Default::default(),
+            float_leg_conventions: Default::default(),
         },
     ];
 

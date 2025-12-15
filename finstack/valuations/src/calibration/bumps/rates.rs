@@ -163,7 +163,10 @@ pub fn bump_discount_curve_synthetic(
 
     // Calibrate - disable spot knot to preserve original curve structure
     // (the input curve doesn't have a spot knot, so neither should the output)
+    // Use settlement_days=0 because we're re-calibrating from an existing curve's
+    // intrinsic discount factors, not from market quotes with settlement conventions.
     let calibrator = DiscountCurveCalibrator::new(curve_id.clone(), base_date, currency)
+        .with_settlement_days(0)
         .with_include_spot_knot(false)
         .with_allow_calendar_fallback(true);
 

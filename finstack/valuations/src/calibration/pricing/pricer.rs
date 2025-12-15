@@ -32,9 +32,6 @@
 //! ```
 
 use super::convexity::ConvexityParameters;
-use crate::calibration::market_standards::{
-    default_calendar_for_currency, ois_compounding_for_index, settlement_days_for_currency,
-};
 use crate::calibration::quotes::{FutureSpecs, InstrumentConventions, RatesQuote};
 use crate::instruments::basis_swap::{BasisSwap, BasisSwapLeg};
 use crate::instruments::common::traits::Instrument;
@@ -53,6 +50,76 @@ use finstack_core::prelude::*;
 use finstack_core::types::{CurveId, IndexId};
 
 use serde::{Deserialize, Serialize};
+
+// =============================================================================
+// Default Convention Helpers
+// =============================================================================
+
+/// Get the OIS compounding method for a rate index.
+///
+/// Returns the market-standard OIS compounding method based on the index name
+/// and currency. This determines how overnight rates are compounded for OIS swaps.
+///
+/// # Logic
+///
+/// 1. **Index-name driven**: Checks for specific index tokens (SONIA, ESTR, TONA, SOFR)
+/// 2. **Currency fallback**: For generic indices like "USD-OIS", uses currency conventions
+fn ois_compounding_for_index(index: &IndexId, currency: Currency) -> FloatingLegCompounding {
+    let upper = index.as_str().to_ascii_uppercase();
+
+    // Index-name driven overrides
+    if upper.contains("SONIA") {
+        return FloatingLegCompounding::sonia();
+    }
+    if upper.contains("ESTR") || upper.contains("€STR") {
+        return FloatingLegCompounding::estr();
+    }
+    if upper.contains("TONA") || upper.contains("TONAR") {
+        return FloatingLegCompounding::tona();
+    }
+    if upper.contains("SOFR") {
+        return FloatingLegCompounding::sofr();
+    }
+
+    // Currency fallback for generic ids like "USD-OIS"
+    match currency {
+        Currency::GBP => FloatingLegCompounding::sonia(),
+        Currency::EUR => FloatingLegCompounding::estr(),
+        Currency::JPY => FloatingLegCompounding::tona(),
+        _ => FloatingLegCompounding::sofr(),
+    }
+}
+
+/// Get the default settlement calendar ID for a currency.
+///
+/// Market-standard settlement calendars used for spot/settlement date calculation.
+/// Override via quote conventions for custom calendars.
+fn default_calendar_for_currency(currency: Currency) -> &'static str {
+    match currency {
+        Currency::USD => "usny",
+        Currency::EUR => "target2",
+        Currency::GBP => "gblo",
+        Currency::JPY => "jpto",
+        Currency::CHF => "chzu",
+        Currency::AUD => "ausy",
+        Currency::CAD => "cato",
+        Currency::NZD => "nzau",
+        Currency::HKD => "hkex",
+        Currency::SGD => "sgex",
+        _ => "usny", // Default to US calendar for unlisted currencies
+    }
+}
+
+/// Default settlement days by currency.
+///
+/// Most currencies use T+2, with exceptions for GBP (T+0) and AUD/CAD (T+1).
+fn default_settlement_days(currency: Currency) -> i32 {
+    match currency {
+        Currency::GBP => 0,
+        Currency::AUD | Currency::CAD => 1,
+        _ => 2,
+    }
+}
 
 // =============================================================================
 // Quote Validation Types
@@ -365,7 +432,7 @@ impl CalibrationPricer {
     /// Get effective settlement days (explicit or currency default).
     pub fn effective_settlement_days(&self) -> i32 {
         self.settlement_days
-            .unwrap_or_else(|| settlement_days_for_currency(self.currency))
+            .unwrap_or_else(|| default_settlement_days(self.currency))
     }
 
     // =========================================================================
@@ -380,7 +447,7 @@ impl CalibrationPricer {
         quote_conventions
             .settlement_days
             .or(self.settlement_days)
-            .unwrap_or_else(|| settlement_days_for_currency(self.currency))
+            .unwrap_or_else(|| default_settlement_days(self.currency))
     }
 
     /// Resolve effective payment delay for a specific quote.
@@ -976,6 +1043,7 @@ impl CalibrationPricer {
                     float_dc,
                     index,
                     conventions,
+                    ..
                 } => (
                     *maturity,
                     *rate,
@@ -1097,6 +1165,7 @@ impl CalibrationPricer {
                 float_dc,
                 index,
                 conventions,
+                ..
             } => {
                 let is_ois = quote.is_ois_suitable();
                 self.price_swap(
@@ -1124,6 +1193,7 @@ impl CalibrationPricer {
                 reference_dc,
                 currency,
                 conventions,
+                ..
             } => self.price_basis_swap(
                 *maturity,
                 primary_index,
@@ -1502,7 +1572,10 @@ mod tests {
                 fixed_dc: DayCount::Thirty360,
                 float_dc: DayCount::Act360,
                 index: "SOFR".into(),
+                is_ois: true,
                 conventions: InstrumentConventions::default(),
+                fixed_leg_conventions: InstrumentConventions::default(),
+                float_leg_conventions: InstrumentConventions::default(),
             },
         ];
 

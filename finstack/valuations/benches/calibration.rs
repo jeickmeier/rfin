@@ -90,7 +90,10 @@ fn create_swap_quotes(base_date: Date, tenors: &[i32]) -> Vec<RatesQuote> {
             fixed_dc: DayCount::Thirty360,
             float_dc: DayCount::Act360,
             index: "USD-SOFR-3M".to_string().into(),
+            is_ois: true,
             conventions: Default::default(),
+            fixed_leg_conventions: Default::default(),
+            float_leg_conventions: Default::default(),
         });
     }
 
@@ -134,6 +137,7 @@ fn create_cds_quotes(base_date: Date, tenors: &[i32]) -> Vec<CreditQuote> {
             spread_bp,
             recovery_rate: 0.40,
             currency: Currency::USD,
+            conventions: Default::default(),
         });
     }
 
@@ -157,6 +161,7 @@ fn create_vol_quotes(base_date: Date, num_expiries: usize) -> Vec<VolQuote> {
                 strike,
                 vol,
                 option_type: "Call".to_string(),
+                conventions: Default::default(),
             });
         }
     }
@@ -185,6 +190,7 @@ fn create_tranche_quotes(base_date: Date, detachment_points: &[f64]) -> Vec<Cred
             maturity,
             upfront_pct,
             running_spread_bp: 500.0,
+            conventions: Default::default(),
         });
     }
 
@@ -204,6 +210,7 @@ fn create_inflation_quotes(base_date: Date, num_tenors: usize) -> Vec<InflationQ
             maturity,
             rate,
             index: "US-CPI-U".to_string(),
+            conventions: Default::default(),
         });
     }
 
@@ -234,6 +241,7 @@ fn create_sabr_vol_quotes(
                 strike,
                 vol,
                 option_type: "Call".to_string(),
+                conventions: Default::default(),
             });
         }
     }
@@ -263,6 +271,9 @@ fn create_swaption_vol_quotes(base_date: Date, expiries: &[f64], tenors: &[f64])
                     strike,
                     vol,
                     quote_type: "ATM".to_string(),
+                    conventions: Default::default(),
+                    fixed_leg_conventions: Default::default(),
+                    float_leg_conventions: Default::default(),
                 });
             }
         }

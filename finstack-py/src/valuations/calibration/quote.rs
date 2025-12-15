@@ -194,7 +194,10 @@ impl PyRatesQuote {
             fixed_dc,
             float_dc,
             index: index.to_string().into(),
+            is_ois: false,
             conventions: Default::default(),
+            fixed_leg_conventions: Default::default(),
+            float_leg_conventions: Default::default(),
         }))
     }
 
@@ -230,6 +233,8 @@ impl PyRatesQuote {
             reference_dc,
             currency: ccy,
             conventions: Default::default(),
+            primary_leg_conventions: Default::default(),
+            reference_leg_conventions: Default::default(),
         }))
     }
 
@@ -339,6 +344,7 @@ impl PyCreditQuote {
             spread_bp,
             recovery_rate,
             currency: ccy,
+            conventions: Default::default(),
         }))
     }
 
@@ -365,6 +371,7 @@ impl PyCreditQuote {
             running_spread_bp,
             recovery_rate,
             currency: ccy,
+            conventions: Default::default(),
         }))
     }
 
@@ -390,6 +397,7 @@ impl PyCreditQuote {
             maturity: maturity_date,
             upfront_pct,
             running_spread_bp,
+            conventions: Default::default(),
         }))
     }
 
@@ -470,6 +478,7 @@ impl PyVolQuote {
             strike,
             vol,
             option_type: option_type.to_string(),
+            conventions: Default::default(),
         }))
     }
 
@@ -492,6 +501,9 @@ impl PyVolQuote {
             strike,
             vol,
             quote_type: quote_type.to_string(),
+            conventions: Default::default(),
+            fixed_leg_conventions: Default::default(),
+            float_leg_conventions: Default::default(),
         }))
     }
 
@@ -556,6 +568,7 @@ impl PyInflationQuote {
             maturity: maturity_date,
             rate,
             index: index.to_string(),
+            conventions: Default::default(),
         }))
     }
 
@@ -575,6 +588,9 @@ impl PyInflationQuote {
             rate,
             index: index.to_string(),
             frequency: frequency.inner,
+            conventions: Default::default(),
+            fixed_leg_conventions: Default::default(),
+            inflation_leg_conventions: Default::default(),
         }))
     }
 

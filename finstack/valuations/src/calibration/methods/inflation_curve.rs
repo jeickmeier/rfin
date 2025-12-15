@@ -148,6 +148,7 @@ impl Calibrator<InflationQuote, InflationCurve> for InflationCurveCalibrator {
                     maturity,
                     rate,
                     index,
+                    ..
                 } => Some((*maturity, *rate, index.clone())),
                 _ => None,
             })
@@ -498,16 +499,19 @@ mod tests {
                 maturity: base_date + time::Duration::days(365),
                 rate: 0.025, // 2.5% expected inflation
                 index: "US-CPI-U".to_string(),
+                conventions: Default::default(),
             },
             InflationQuote::InflationSwap {
                 maturity: base_date + time::Duration::days(365 * 2),
                 rate: 0.023,
                 index: "US-CPI-U".to_string(),
+                conventions: Default::default(),
             },
             InflationQuote::InflationSwap {
                 maturity: base_date + time::Duration::days(365 * 5),
                 rate: 0.024,
                 index: "US-CPI-U".to_string(),
+                conventions: Default::default(),
             },
         ]
     }

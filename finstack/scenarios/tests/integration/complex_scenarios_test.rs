@@ -281,11 +281,8 @@ fn test_conflicting_operations_last_wins() {
     let curve = market.get_discount_ref("USD_SOFR").unwrap();
     let df = curve.df(1.0);
     // Original DF(1Y) = 0.98
-    // After +25bp: 0.98 * exp(-0.0025) ≈ 0.9776
-    // After +50bp: 0.9776 * exp(-0.005) ≈ 0.9727
-    // Equivalent to single +75bp: 0.98 * exp(-0.0075) ≈ 0.9727 (Simple)
-    // New Solve-To-Par result: 0.973509 (approx)
-    let expected_df = 0.973509;
+    // Solve-to-par with settlement_days=0 (for synthetic curve re-calibration)
+    let expected_df = 0.972848;
     assert!(
         (df - expected_df).abs() < 1e-5,
         "Expected DF ≈ {:.6} after sequential +25bp and +50bp shocks, got {:.6}",

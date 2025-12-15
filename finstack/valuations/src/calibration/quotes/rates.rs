@@ -1,7 +1,6 @@
 //! Interest rate quote types for yield curve calibration.
 
 use super::conventions::InstrumentConventions;
-use crate::calibration::market_standards::is_overnight_index;
 use finstack_core::dates::{Date, DayCount, Tenor};
 use finstack_core::prelude::*;
 use finstack_core::types::IndexId;
@@ -78,12 +77,22 @@ pub enum RatesQuote {
         /// Float leg day count
         #[cfg_attr(feature = "ts_export", ts(type = "string"))]
         float_dc: DayCount,
-        /// Float leg index (e.g., "3M-LIBOR")
+        /// Float leg index (e.g., "USD-SOFR", "3M-LIBOR")
         #[cfg_attr(feature = "ts_export", ts(type = "string"))]
         index: IndexId,
-        /// Per-instrument conventions (settlement, payment delay, reset lag, calendar)
+        /// Whether this is an OIS (Overnight Index Swap) suitable for discount curve calibration.
+        /// Set to true for overnight indices (SOFR, SONIA, €STR, TONA, etc.).
+        #[serde(default)]
+        is_ois: bool,
+        /// Instrument-wide conventions (settlement days, etc.)
         #[serde(default, skip_serializing_if = "InstrumentConventions::is_empty")]
         conventions: InstrumentConventions,
+        /// Fixed leg specific conventions (day count, payment calendar, business day convention)
+        #[serde(default, skip_serializing_if = "InstrumentConventions::is_empty")]
+        fixed_leg_conventions: InstrumentConventions,
+        /// Float leg specific conventions (reset lag, fixing calendar, reset frequency)
+        #[serde(default, skip_serializing_if = "InstrumentConventions::is_empty")]
+        float_leg_conventions: InstrumentConventions,
     },
     /// Basis Swap quote for multi-curve construction
     BasisSwap {
@@ -111,9 +120,15 @@ pub enum RatesQuote {
         /// Currency for both legs
         #[cfg_attr(feature = "ts_export", ts(type = "string"))]
         currency: Currency,
-        /// Per-instrument conventions (settlement, reset lag, calendar)
+        /// Instrument-wide conventions (settlement days, etc.)
         #[serde(default, skip_serializing_if = "InstrumentConventions::is_empty")]
         conventions: InstrumentConventions,
+        /// Primary leg specific conventions (reset lag, fixing calendar, reset frequency)
+        #[serde(default, skip_serializing_if = "InstrumentConventions::is_empty")]
+        primary_leg_conventions: InstrumentConventions,
+        /// Reference leg specific conventions (reset lag, fixing calendar, reset frequency)
+        #[serde(default, skip_serializing_if = "InstrumentConventions::is_empty")]
+        reference_leg_conventions: InstrumentConventions,
     },
 }
 
@@ -131,23 +146,20 @@ impl RatesQuote {
 
     /// Check if this quote is suitable for OIS discount curve calibration.
     ///
-    /// Uses the OIS index registry for accurate classification. This method
-    /// returns `true` for:
+    /// Uses the explicit `is_ois` flag on swap quotes for classification.
+    /// This method returns `true` for:
     /// - Deposits (always suitable for short-end discount curve)
-    /// - Swaps referencing overnight rate indices (SOFR, SONIA, €STR, etc.)
+    /// - Swaps with `is_ois: true` (overnight rate indices: SOFR, SONIA, €STR, etc.)
     ///
     /// Returns `false` for:
     /// - FRAs (require forward curves)
     /// - Futures (require forward curves)
-    /// - Swaps referencing term rates (LIBOR, EURIBOR, Term SOFR)
+    /// - Swaps with `is_ois: false` (term rates: LIBOR, EURIBOR, Term SOFR)
     /// - Basis swaps (require separate forward curves)
     pub fn is_ois_suitable(&self) -> bool {
         match self {
             RatesQuote::Deposit { .. } => true,
-            RatesQuote::Swap { index, .. } => {
-                // Use the registry for accurate overnight rate classification
-                is_overnight_index(index.as_ref())
-            }
+            RatesQuote::Swap { is_ois, .. } => *is_ois,
             _ => false,
         }
     }
@@ -214,6 +226,62 @@ impl RatesQuote {
         self.conventions().calendar_id.as_deref()
     }
 
+    /// Get fixed leg conventions for Swap quotes.
+    ///
+    /// Returns Some for Swap variants, None for other quote types.
+    #[inline]
+    pub fn fixed_leg_conventions(&self) -> Option<&InstrumentConventions> {
+        match self {
+            RatesQuote::Swap {
+                fixed_leg_conventions,
+                ..
+            } => Some(fixed_leg_conventions),
+            _ => None,
+        }
+    }
+
+    /// Get float leg conventions for Swap quotes.
+    ///
+    /// Returns Some for Swap variants, None for other quote types.
+    #[inline]
+    pub fn float_leg_conventions(&self) -> Option<&InstrumentConventions> {
+        match self {
+            RatesQuote::Swap {
+                float_leg_conventions,
+                ..
+            } => Some(float_leg_conventions),
+            _ => None,
+        }
+    }
+
+    /// Get primary leg conventions for BasisSwap quotes.
+    ///
+    /// Returns Some for BasisSwap variants, None for other quote types.
+    #[inline]
+    pub fn primary_leg_conventions(&self) -> Option<&InstrumentConventions> {
+        match self {
+            RatesQuote::BasisSwap {
+                primary_leg_conventions,
+                ..
+            } => Some(primary_leg_conventions),
+            _ => None,
+        }
+    }
+
+    /// Get reference leg conventions for BasisSwap quotes.
+    ///
+    /// Returns Some for BasisSwap variants, None for other quote types.
+    #[inline]
+    pub fn reference_leg_conventions(&self) -> Option<&InstrumentConventions> {
+        match self {
+            RatesQuote::BasisSwap {
+                reference_leg_conventions,
+                ..
+            } => Some(reference_leg_conventions),
+            _ => None,
+        }
+    }
+
     /// Create a new quote with the rate bumped by the given amount.
     ///
     /// Used for Jacobian calculation (sensitivity analysis).
@@ -265,7 +333,10 @@ impl RatesQuote {
                 fixed_dc,
                 float_dc,
                 index,
+                is_ois,
                 conventions,
+                fixed_leg_conventions,
+                float_leg_conventions,
             } => RatesQuote::Swap {
                 maturity: *maturity,
                 rate: rate + amount,
@@ -274,7 +345,10 @@ impl RatesQuote {
                 fixed_dc: *fixed_dc,
                 float_dc: *float_dc,
                 index: index.clone(),
+                is_ois: *is_ois,
                 conventions: conventions.clone(),
+                fixed_leg_conventions: fixed_leg_conventions.clone(),
+                float_leg_conventions: float_leg_conventions.clone(),
             },
             RatesQuote::BasisSwap {
                 maturity,
@@ -287,6 +361,8 @@ impl RatesQuote {
                 reference_dc,
                 currency,
                 conventions,
+                primary_leg_conventions,
+                reference_leg_conventions,
             } => RatesQuote::BasisSwap {
                 maturity: *maturity,
                 primary_index: primary_index.clone(),
@@ -298,6 +374,8 @@ impl RatesQuote {
                 reference_dc: *reference_dc,
                 currency: *currency,
                 conventions: conventions.clone(),
+                primary_leg_conventions: primary_leg_conventions.clone(),
+                reference_leg_conventions: reference_leg_conventions.clone(),
             },
         }
     }
