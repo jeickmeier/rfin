@@ -96,14 +96,13 @@ use finstack_core::{
     config::FinstackConfig,
     currency::Currency,
     dates::{Date, DateExt, DayCountCtx, Tenor},
-    explain::{ExplanationTrace, TraceEntry},
+    explain::TraceEntry,
     market_data::{context::MarketContext, term_structures::forward_curve::ForwardCurve},
     math::{interp::InterpStyle, Solver},
     types::CurveId,
     Result,
 };
 use serde::{Deserialize, Serialize};
-use std::collections::BTreeMap;
 
 /// Forward curve calibrator for multi-curve bootstrapping.
 ///
@@ -314,33 +313,36 @@ impl ForwardCurveCalibrator {
     ///
     /// Uses sequential bootstrapping where each quote adds a knot to the curve.
     /// The solver finds the forward rate that prices the instrument to par.
+    /// Bootstrap the forward curve with the given solver.
+    ///
+    /// Uses sequential bootstrapping where each quote adds a knot to the curve.
+    /// The solver finds the forward rate that prices the instrument to par.
     fn bootstrap_curve_with_solver<S: Solver>(
         &self,
         quotes: &[RatesQuote],
         solver: &S,
         base_context: &MarketContext,
     ) -> Result<(ForwardCurve, CalibrationReport)> {
-        // Extended scan grid for root bracketing, covering extreme rate scenarios.
-        // Includes denser points near zero and extends to high rates for EM currencies.
-        // Grid is dynamically extended based on configured rate bounds.
-        let scan_points = self.build_scan_grid();
+        // Extended scan grid for root bracketing
+        let _scan = self.build_scan_grid();
+        let config = self.config.clone();
 
-        // Validate quotes with day-count consistency checks
+        // Validate quotes
         self.validate_quotes(quotes)?;
 
-        // Get discount curve (presence check)
-        let _discount_curve = base_context.get_discount_ref(self.discount_curve_id.as_ref())?;
+        // Ensure discount curve exists
+        let _ = base_context.get_discount_ref(self.discount_curve_id.as_ref())?;
 
-        // Filter and sort quotes by maturity
+        // Filter and sort quotes
+        // ... (reuse filtering logic) ...
         let mut sorted_quotes: Vec<RatesQuote> = quotes
             .iter()
             .filter(|q| match q {
-                RatesQuote::Deposit { .. } => false, // Not supported for forward curves
+                RatesQuote::Deposit { .. } => false,
                 RatesQuote::Swap {
                     float_leg_conventions,
                     ..
                 } => {
-                    // Get index and frequency from conventions
                     let index = float_leg_conventions
                         .index
                         .as_ref()
@@ -350,321 +352,93 @@ impl ForwardCurveCalibrator {
                     self.matches_tenor(index, &float_freq)
                 }
                 RatesQuote::BasisSwap {
+                    conventions,
                     primary_leg_conventions,
                     reference_leg_conventions,
-                    conventions,
                     ..
                 } => {
-                    // Get indices and frequencies from leg conventions
                     let currency = conventions.currency.unwrap_or(self.currency);
-                    let primary_index = primary_leg_conventions
-                        .index
-                        .as_ref()
-                        .map(|i| i.as_str())
-                        .unwrap_or("");
-                    let reference_index = reference_leg_conventions
-                        .index
-                        .as_ref()
-                        .map(|i| i.as_str())
-                        .unwrap_or("");
                     let primary_freq = q.effective_primary_frequency(currency);
                     let reference_freq = q.effective_reference_frequency(currency);
-                    self.matches_tenor(primary_index, &primary_freq)
-                        || self.matches_tenor(reference_index, &reference_freq)
+                    let p_idx = primary_leg_conventions
+                        .index
+                        .as_ref()
+                        .map(|i| i.as_str())
+                        .unwrap_or("");
+                    let r_idx = reference_leg_conventions
+                        .index
+                        .as_ref()
+                        .map(|i| i.as_str())
+                        .unwrap_or("");
+                    self.matches_tenor(p_idx, &primary_freq)
+                        || self.matches_tenor(r_idx, &reference_freq)
                 }
                 _ => true,
             })
             .cloned()
             .collect();
         sorted_quotes.sort_by_key(|q| q.maturity_date());
+
         if sorted_quotes.is_empty() {
             return Err(finstack_core::Error::Input(
                 finstack_core::error::InputError::TooFewPoints,
             ));
         }
 
-        // Initialize knots vector: (time, forward_rate)
-        let mut knots: Vec<(f64, f64)> = Vec::new();
-        let mut residuals = BTreeMap::new();
-        let mut total_iterations = 0;
-        let mut residual_key_counter = 0;
+        // Filter duplicates and prepare for bootstrapper
+        let time_dc = super::discount::default_curve_day_count(self.currency);
+        let mut unique_quotes = Vec::with_capacity(sorted_quotes.len());
+        let mut seen_times = Vec::new();
 
-        // Initialize explanation trace if enabled
-        let mut trace = if self.config.explain.enabled {
-            Some(ExplanationTrace::new("forward_curve_calibration"))
-        } else {
-            None
-        };
-
-        // Bootstrap each instrument sequentially
-        for (idx, quote) in sorted_quotes.iter().enumerate() {
-            // Skip FRA quotes with zero or negative accrual (start <= base_date)
-            if let RatesQuote::FRA { start, end, .. } = quote {
-                if *end <= self.base_date || *start <= self.base_date {
-                    continue;
-                }
-            }
-
-            // Determine knot time for this instrument
-            let knot_date = self.get_knot_date(quote);
-            let time_dc = super::discount::default_curve_day_count(self.currency);
-            let knot_time =
-                time_dc.year_fraction(self.base_date, knot_date, DayCountCtx::default())?;
-
-            // Skip if we already have a knot at this time (scale-aware collision detection)
-            // Use relative tolerance for long tenors to avoid floating-point precision issues
-            let collision_tol = self.scale_aware_tolerance(knot_time);
-            if knots
+        for quote in sorted_quotes {
+            let knot_date = quote.maturity_date();
+            let t = time_dc.year_fraction(self.base_date, knot_date, DayCountCtx::default())?;
+            let collision_tol = self.scale_aware_tolerance(t);
+            if !seen_times
                 .iter()
-                .any(|(t, _)| (*t - knot_time).abs() < collision_tol)
+                .any(|&seen_t: &f64| (seen_t - t).abs() < collision_tol)
             {
-                if self.config.verbose {
-                    tracing::debug!(
-                        curve_id = %self.fwd_curve_id.as_str(),
-                        knot_time = knot_time,
-                        collision_tol = collision_tol,
-                        "Skipping duplicate knot time"
-                    );
-                }
-                continue;
-            }
-
-            // Capture minimal data for closure
-            let quote_clone = quote.clone();
-            let knots_clone = knots.clone();
-            let base_context_clone = base_context.clone();
-            let base_date = self.base_date;
-            let fwd_curve_id = self.fwd_curve_id.clone();
-            let tenor_years = self.tenor_years;
-            let solve_interp = self.solve_interp;
-            let time_dc = super::discount::default_curve_day_count(self.currency);
-
-            let this = self;
-            // Define objective function
-            let fwd_id_for_closure = fwd_curve_id.clone();
-            let objective = move |fwd_rate: f64| -> f64 {
-                // Build temporary forward curve with new knot
-                let mut temp_knots = Vec::with_capacity(knots_clone.len() + 1);
-                temp_knots.extend_from_slice(&knots_clone);
-                // Quotes are processed in increasing maturity; maintain sorted invariant
-                debug_assert!(knots_clone
-                    .last()
-                    .map(|(t, _)| *t <= knot_time + this.config.tolerance)
-                    .unwrap_or(true));
-                temp_knots.push((knot_time, fwd_rate));
-                this.ensure_anchor(&mut temp_knots, fwd_rate);
-
-                let temp_fwd_curve =
-                    match ForwardCurve::builder(fwd_id_for_closure.clone(), tenor_years)
-                        .base_date(base_date)
-                        .knots(temp_knots)
-                        .set_interp(solve_interp)
-                        .day_count(time_dc)
-                        .build()
-                    {
-                        Ok(curve) => curve,
-                        Err(_) => return crate::calibration::PENALTY,
-                    };
-
-                // Update context with temporary forward curve
-                let temp_context = base_context_clone.clone().insert_forward(temp_fwd_curve);
-
-                // Price the instrument and return error (target is zero)
-                this.price_instrument(&quote_clone, &temp_context)
-                    .unwrap_or(crate::calibration::PENALTY)
-            };
-
-            // Initial guess based on quote type
-            let initial_fwd = self.get_initial_guess(quote, &knots, base_context);
-
-            // Solve for forward rate (no silent fallbacks).
-            let (tentative, diag) = crate::calibration::bracket_solve_1d_with_diagnostics(
-                &objective,
-                initial_fwd,
-                &scan_points,
-                self.config.tolerance,
-                self.config.max_iterations,
-            )?;
-            total_iterations += diag.eval_count;
-
-            let solved_fwd = if let Some(root) = tentative {
-                root
-            } else {
-                // No bracket found - try direct solve if we have valid evaluations.
-                if diag.valid_eval_count == 0 {
-                    return Err(finstack_core::Error::Calibration {
-                        message: format!(
-                            "Forward curve bootstrap failed for {} at t={:.6}: all {} objective evaluations returned \
-                             invalid/penalized values. Scan bounds: [{:.4}%, {:.4}%], initial_fwd={:.4}%. \
-                             This usually indicates missing curves, calendar/settlement issues, or unsupported instrument type.",
-                            self.fwd_curve_id.as_str(),
-                            knot_time,
-                            diag.eval_count,
-                            diag.scan_bounds.0 * 100.0,
-                            diag.scan_bounds.1 * 100.0,
-                            initial_fwd * 100.0
-                        ),
-                        category: "forward_curve_bootstrap".to_string(),
-                    });
-                }
-
-                let guess = diag.best_point.unwrap_or(initial_fwd);
-                solver.solve(objective, guess).map_err(|e| finstack_core::Error::Calibration {
-                    message: format!(
-                        "Forward curve bootstrap solver failed for {} at t={:.6}: {}. \
-                         No sign-change bracket found in [{:.4}%, {:.4}%]. Best candidate: fwd={:.4}% with residual={:.2e}. \
-                         Evaluated {} points ({} valid).",
-                        self.fwd_curve_id.as_str(),
-                        knot_time,
-                        e,
-                        diag.scan_bounds.0 * 100.0,
-                        diag.scan_bounds.1 * 100.0,
-                        diag.best_point.unwrap_or(f64::NAN) * 100.0,
-                        diag.best_value.unwrap_or(f64::NAN),
-                        diag.eval_count,
-                        diag.valid_eval_count
-                    ),
-                    category: "forward_curve_bootstrap".to_string(),
-                })?
-            };
-
-            if !solved_fwd.is_finite() {
-                return Err(finstack_core::Error::Calibration {
-                    message: format!(
-                        "Forward curve bootstrap produced non-finite forward rate for {} at t={:.6}: fwd={:?}",
-                        self.fwd_curve_id.as_str(),
-                        knot_time,
-                        solved_fwd
-                    ),
-                    category: "forward_curve_bootstrap".to_string(),
-                });
-            }
-
-            // Validate solution against configurable rate bounds.
-            // Market-standard bounds depend on currency; honor config policy.
-            let bounds = self.config.effective_rate_bounds(self.currency);
-            if !solved_fwd.is_finite() || !bounds.contains(solved_fwd) {
-                return Err(finstack_core::Error::Calibration {
-                    message: format!(
-                        "Solved forward rate out of bounds for {} at t={:.6}: fwd={:.4}% \
-                        (allowed range: [{:.2}%, {:.2}%]). \
-                        Consider using `with_rate_bounds()` for extreme rate scenarios.",
-                        self.fwd_curve_id.as_str(),
-                        knot_time,
-                        solved_fwd * 100.0,
-                        bounds.min_rate * 100.0,
-                        bounds.max_rate * 100.0
-                    ),
-                    category: "forward_curve_bootstrap".to_string(),
-                });
-            }
-
-            // Compute final residual on the solved curve; only commit the knot if pricing succeeds.
-            let mut candidate_knots = knots.clone();
-            debug_assert!(candidate_knots
-                .last()
-                .map(|(t, _)| *t <= knot_time + self.config.tolerance)
-                .unwrap_or(true));
-            candidate_knots.push((knot_time, solved_fwd));
-
-            let mut final_knots = candidate_knots.clone();
-            // Derive anchor rate consistently: prefer first knot, fallback to solved rate
-            let anchor_rate = final_knots
-                .first()
-                .map(|(_, rate)| *rate)
-                .unwrap_or(solved_fwd);
-            self.ensure_anchor(&mut final_knots, anchor_rate);
-
-            let final_curve = ForwardCurve::builder(self.fwd_curve_id.to_owned(), tenor_years)
-                .base_date(base_date)
-                .knots(final_knots.clone())
-                .set_interp(solve_interp)
-                .day_count(time_dc)
-                .build()?;
-
-            let final_context = base_context.clone().insert_forward(final_curve);
-            let final_pv = self.price_instrument(quote, &final_context)?;
-            let final_residual = final_pv.abs();
-
-            if !final_residual.is_finite()
-                || final_residual.abs() >= crate::calibration::PENALTY * 0.5
-            {
-                return Err(finstack_core::Error::Calibration {
-                    message: format!(
-                        "Forward curve bootstrap produced invalid residual for {} at t={:.6}: pv_norm={} (fwd={:.4}%)",
-                        self.fwd_curve_id.as_str(),
-                        knot_time,
-                        final_pv,
-                        solved_fwd * 100.0
-                    ),
-                    category: "forward_curve_bootstrap".to_string(),
-                });
-            }
-
-            // Commit the knot after successful pricing.
-            knots = candidate_knots;
-
-            // Store residual with descriptive key
-            let key = quote.format_residual_key(residual_key_counter, self.currency);
-            residual_key_counter += 1;
-            residuals.insert(key, final_residual);
-
-            // Record trace entry if enabled
-            if let Some(t) = &mut trace {
-                t.push(
-                    TraceEntry::CalibrationIteration {
-                        iteration: idx,
-                        residual: final_residual,
-                        knots_updated: vec![format!("{:.6}", knot_time)],
-                        converged: true,
-                    },
-                    self.config.explain.max_entries,
-                );
+                unique_quotes.push(quote);
+                seen_times.push(t);
             }
         }
 
-        // If all quotes were filtered/skipped (e.g., all maturities <= base_date),
-        // fail explicitly instead of synthesizing an arbitrary anchor.
-        if knots.is_empty() {
+        if unique_quotes.is_empty() {
+            // Edge case where all were duplicates? Unlikely if sorted_quotes was not empty.
             return Err(finstack_core::Error::Input(
                 finstack_core::error::InputError::TooFewPoints,
             ));
         }
 
-        // Build final forward curve with consistent anchor derivation
-        let mut final_knots = knots;
-        // Derive anchor rate: prefer first knot, fallback to context-based guess, then 0.02
-        let anchor_rate = final_knots
-            .first()
-            .map(|(_, rate)| *rate)
-            .or_else(|| {
-                // If no knots exist, derive from discount curve as neutral market anchor
-                let t = self.tenor_years.max(1.0 / 12.0);
-                base_context
-                    .get_discount_ref(self.discount_curve_id.as_ref())
-                    .ok()
-                    .map(|disc_curve| disc_curve.zero(t))
-            })
-            .unwrap_or(0.02); // Final fallback
+        // Setup Bootstrapper
+        let target = ForwardBootstrapper {
+            calibrator: self,
+            base_context: std::rc::Rc::new(std::cell::RefCell::new(base_context.clone())),
+            time_dc,
+        };
 
-        if self.config.verbose && final_knots.is_empty() {
-            tracing::debug!(
-                curve_id = %self.fwd_curve_id.as_str(),
-                anchor_rate = anchor_rate,
-                "No knots calibrated; using context-derived anchor rate"
-            );
-        }
+        // Bootstrap
+        let trace = if self.config.explain.enabled {
+            Some(finstack_core::explain::ExplanationTrace::new(
+                "forward_curve_calibration",
+            ))
+        } else {
+            None
+        };
+        let (mut curve, report) =
+            crate::calibration::methods::common::bootstrapper::SequentialBootstrapper::bootstrap(
+                &target,
+                &unique_quotes,
+                Vec::new(),
+                &config,
+                trace,
+            )?;
 
-        self.ensure_anchor(&mut final_knots, anchor_rate);
+        // Validation and Reporting details
+        // `SequentialBootstrapper` returns report but we might want to enrich it.
+        // Also ensure final curve has anchor (it should).
 
-        let curve = ForwardCurve::builder(self.fwd_curve_id.to_owned(), self.tenor_years)
-            .base_date(self.base_date)
-            .knots(final_knots)
-            .set_interp(self.solve_interp)
-            .day_count(super::discount::default_curve_day_count(self.currency))
-            .build()?;
-
-        // Validate the calibrated forward curve (honor config.validation + validation_mode).
+        // Re-validate against strict mode if needed
         use crate::calibration::validation::CurveValidator;
         let mut validation_status = "passed";
         let mut validation_error: Option<String> = None;
@@ -673,11 +447,7 @@ impl ForwardCurveCalibrator {
             validation_error = Some(e.to_string());
             match self.config.validation_mode {
                 ValidationMode::Warn => {
-                    tracing::warn!(
-                        curve_id = %self.fwd_curve_id.as_str(),
-                        error = %e,
-                        "Calibrated forward curve failed validation (continuing due to Warn mode)"
-                    );
+                    tracing::warn!("Calibrated forward curve failed validation: {}", e);
                 }
                 ValidationMode::Error => {
                     return Err(finstack_core::Error::Calibration {
@@ -692,195 +462,153 @@ impl ForwardCurveCalibrator {
             }
         }
 
-        // Calculate Jacobian if explanation is enabled
-        if let Some(t) = &mut trace {
-            let jacobian_entry =
-                self.calculate_jacobian(&sorted_quotes, &curve, base_context, solver)?;
-            t.push(jacobian_entry, self.config.explain.max_entries);
-        }
+        let report = report
+            .with_metadata("curve_id", self.fwd_curve_id.to_string())
+            .with_metadata("tenor_years", self.tenor_years.to_string())
+            .with_metadata("interp", format!("{:?}", self.solve_interp))
+            .with_metadata("discount_curve", self.discount_curve_id.to_string())
+            .with_metadata("time_dc", format!("{:?}", time_dc))
+            .with_metadata("validation", validation_status)
+            .with_validation_result(validation_status == "passed", validation_error);
 
-        // Build calibration report
-        let report = CalibrationReport::for_type_with_tolerance(
-            "forward_curve",
-            residuals,
-            total_iterations,
-            self.config.tolerance,
-        )
-        .with_metadata("curve_id", self.fwd_curve_id.to_string())
-        .with_metadata("tenor_years", self.tenor_years.to_string())
-        .with_metadata("interp", format!("{:?}", self.solve_interp))
-        .with_metadata("discount_curve", self.discount_curve_id.to_string())
-        .with_metadata(
-            "time_dc",
-            format!(
-                "{:?}",
-                super::discount::default_curve_day_count(self.currency)
-            ),
-        )
-        .with_metadata("validation", validation_status)
-        .with_validation_result(validation_status == "passed", validation_error);
-
-        let report = if let Some(t) = trace {
-            report.with_explanation(t)
+        // Jacobian calculation if needed
+        let report = if self.config.explain.enabled && report.explanation.is_some() {
+            let mut r = report;
+            let jacobian = self.calculate_jacobian(&unique_quotes, &curve, base_context, solver)?;
+            if let Some(t) = &mut r.explanation {
+                t.push(jacobian, self.config.explain.max_entries);
+            }
+            r
         } else {
             report
         };
 
         Ok((curve, report))
     }
+}
 
-    /// Calculate the Jacobian matrix (sensitivity of curve points to input quotes).
-    ///
-    /// Uses a bump-and-rebuild approach:
-    /// 1. Perturb each input quote by 1bp
-    /// 2. Re-calibrate the curve
-    /// 3. Measure change in curve knots
-    fn calculate_jacobian<S: Solver>(
-        &self,
-        quotes: &[RatesQuote],
-        base_curve: &ForwardCurve,
-        base_context: &MarketContext,
-        solver: &S,
-    ) -> Result<TraceEntry> {
-        let bump_size = 0.0001; // 1bp
-        let mut sensitivity_matrix = Vec::with_capacity(quotes.len());
-        let row_labels: Vec<String> = quotes
-            .iter()
-            .enumerate()
-            .map(|(i, q)| q.format_residual_key(i, self.currency))
-            .collect();
-        let col_labels: Vec<String> = base_curve
-            .knots()
-            .iter()
-            .map(|t| format!("t={:.4}", t))
-            .collect();
+// ForwardBootstrapper implementation
+struct ForwardBootstrapper<'a> {
+    calibrator: &'a ForwardCurveCalibrator,
+    base_context: std::rc::Rc<std::cell::RefCell<MarketContext>>,
+    time_dc: finstack_core::dates::DayCount,
+}
 
-        // Base knots (excluding anchor if it wasn't part of the solve, but here we just take all knots)
-        // Note: The anchor at t=0 is usually derived or fixed. We include all knots in the sensitivity matrix.
-        let base_knots: Vec<f64> = base_curve.forwards().to_vec();
+impl<'a> crate::calibration::methods::common::bootstrapper::BootstrapTarget
+    for ForwardBootstrapper<'a>
+{
+    type Quote = RatesQuote;
+    type Curve = ForwardCurve;
 
-        for (i, quote) in quotes.iter().enumerate() {
-            // 1. Bump quote
-            let bumped_quote = quote.bump(bump_size);
-            let mut bumped_quotes = quotes.to_vec();
-            bumped_quotes[i] = bumped_quote;
+    fn quote_time(&self, quote: &Self::Quote) -> Result<f64> {
+        let knot_date = quote.maturity_date();
+        self.time_dc
+            .year_fraction(
+                self.calibrator.base_date,
+                knot_date,
+                finstack_core::dates::DayCountCtx::default(),
+            )
+            .map_err(|e| e)
+    }
 
-            // 2. Re-calibrate (disable explanation to avoid recursion)
-            // We need a clone of self with explanation disabled
-            let mut sub_calibrator = self.clone();
-            sub_calibrator.config.explain.enabled = false;
+    fn build_curve(&self, knots: &[(f64, f64)]) -> Result<Self::Curve> {
+        let mut full_knots = knots.to_vec();
 
-            // We use the internal bootstrap method directly
-            let (bumped_curve, _) =
-                sub_calibrator.bootstrap_curve_with_solver(&bumped_quotes, solver, base_context)?;
-
-            // 3. Calculate sensitivities
-            let mut row_sensitivities = Vec::with_capacity(base_knots.len());
-
-            // Match knots by time (assuming same grid structure, which should hold for small bumps)
-            // If the grid changes (e.g. adaptive knots), this simple mapping might fail,
-            // but for standard bootstrapping the knot times are determined by quote maturities.
-            for (j, base_rate) in base_knots.iter().enumerate() {
-                if j < bumped_curve.knots().len() {
-                    let bumped_rate = bumped_curve.forwards()[j];
-                    let sensitivity = (bumped_rate - base_rate) / bump_size;
-                    row_sensitivities.push(sensitivity);
-                } else {
-                    row_sensitivities.push(0.0);
-                }
+        // Ensure anchor logic
+        if full_knots.is_empty() {
+            full_knots.push((0.0, 0.02)); // Fallback if strictly empty
+        } else {
+            // Logic from ensure_anchor: derive from first knot if > tolerance
+            if full_knots[0].0 > self.calibrator.config.tolerance {
+                full_knots.insert(0, (0.0, full_knots[0].1));
             }
-            sensitivity_matrix.push(row_sensitivities);
         }
 
-        Ok(TraceEntry::Jacobian {
-            row_labels,
-            col_labels,
-            sensitivity_matrix,
+        ForwardCurve::builder(
+            self.calibrator.fwd_curve_id.to_owned(),
+            self.calibrator.tenor_years,
+        )
+        .base_date(self.calibrator.base_date)
+        .knots(full_knots)
+        .set_interp(self.calibrator.solve_interp)
+        .day_count(self.time_dc)
+        .build()
+        .map_err(|e| finstack_core::Error::Calibration {
+            message: format!("Failed to build temp forward curve: {}", e),
+            category: "bootstrapping".to_string(),
         })
     }
 
-    /// Price an instrument for calibration.
-    ///
-    /// Returns the normalized PV (PV / notional) which should be zero for par instruments.
-    ///
-    /// Delegates to [`CalibrationPricer`] for all quote types except Deposits (which are
-    /// explicitly rejected for forward curve calibration).
-    fn price_instrument(&self, quote: &RatesQuote, context: &MarketContext) -> Result<f64> {
-        // Deposits should never be used for forward curve calibration
-        if matches!(quote, RatesQuote::Deposit { .. }) {
-            return Err(finstack_core::Error::Validation(
-                "ForwardCurveCalibrator does not support Deposit quotes (use DiscountCurveCalibrator)".into(),
-            ));
+    fn calculate_residual(&self, curve: &Self::Curve, quote: &Self::Quote) -> Result<f64> {
+        {
+            let mut ctx = self.base_context.borrow_mut();
+            ctx.insert_mut(std::sync::Arc::new(curve.clone()));
         }
-        // Delegate all other quote types to the centralized pricer
-        self.make_pricer()
-            .price_instrument(quote, self.currency, context)
+        let ctx = self.base_context.borrow();
+
+        let pricer = self.calibrator.make_pricer();
+        Ok(pricer
+            .price_instrument(quote, self.calibrator.currency, &ctx)
+            .map(|pv| pv.abs())
+            .unwrap_or_else(|_| crate::calibration::PENALTY))
     }
 
-    /// Get the knot date for an instrument (end date or period end).
-    fn get_knot_date(&self, quote: &RatesQuote) -> Date {
-        match quote {
-            RatesQuote::FRA { end, .. } => *end,
-            RatesQuote::Future { expiry, specs, .. } => {
-                expiry.add_months(specs.delivery_months as i32)
-            }
-            RatesQuote::Swap { maturity, .. } => *maturity,
-            _ => quote.maturity_date(),
-        }
-    }
+    fn initial_guess(&self, quote: &Self::Quote, previous_knots: &[(f64, f64)]) -> f64 {
+        // We need context for discount curve fallback
+        let ctx = self.base_context.borrow();
 
-    /// Get initial guess for forward rate.
-    ///
-    /// Uses a sophisticated fallback strategy that derives from market context:
-    /// 1. For FRA/Future/Swap quotes: use the quoted rate/price
-    /// 2. For other quotes: use last solved knot if available
-    /// 3. If no knots exist: derive from discount curve over tenor (market-regime-aware)
-    /// 4. Final fallback: use benign global default (0.02) only if nothing else available
-    fn get_initial_guess(
-        &self,
-        quote: &RatesQuote,
-        existing_knots: &[(f64, f64)],
-        context: &MarketContext,
-    ) -> f64 {
+        // Reuse logic from get_initial_guess
         match quote {
             RatesQuote::FRA { rate, .. } => *rate,
             RatesQuote::Future { price, specs, .. } => {
-                // Convert price to implied rate
                 let implied_rate = (100.0 - price) / 100.0;
-                // Apply convexity adjustment if available
                 if let Some(adj) = specs.convexity_adjustment {
                     implied_rate + adj
                 } else {
                     implied_rate
                 }
             }
-            RatesQuote::Swap { rate, .. } => {
-                // For swaps, use the fixed rate as initial guess
-                // Could be refined with more sophisticated guess
-                *rate
-            }
-            _ => {
-                // Sophisticated fallback: prefer last knot, then derive from discount curve
-                existing_knots
-                    .last()
-                    .map(|(_, fwd)| *fwd)
-                    .or_else(|| {
-                        // Derive from OIS discount curve over the tenor as a neutral anchor
-                        // This keeps guesses consistent with the market regime
-                        let t = self.tenor_years.max(1.0 / 12.0); // At least 1 month
-                        context
-                            .get_discount_ref(self.discount_curve_id.as_ref())
-                            .ok()
-                            .map(|disc_curve| {
-                                // Extract zero rate from discount curve
-                                disc_curve.zero(t)
-                            })
-                    })
-                    .unwrap_or(0.02) // Benign global fallback only if nothing else available
-            }
+            RatesQuote::Swap { rate, .. } => *rate,
+            _ => previous_knots
+                .last()
+                .map(|(_, fwd)| *fwd)
+                .or_else(|| {
+                    let t = self.calibrator.tenor_years.max(1.0 / 12.0);
+                    ctx.get_discount_ref(self.calibrator.discount_curve_id.as_ref())
+                        .ok()
+                        .map(|disc_curve| disc_curve.zero(t))
+                })
+                .unwrap_or(0.02),
         }
     }
 
+    fn validate_knot(&self, time: f64, value: f64) -> Result<()> {
+        if !value.is_finite() {
+            return Err(finstack_core::Error::Calibration {
+                message: format!("Non-finite forward rate at t={:.6}", time),
+                category: "bootstrapping".to_string(),
+            });
+        }
+        let bounds = self
+            .calibrator
+            .config
+            .effective_rate_bounds(self.calibrator.currency);
+        if !bounds.contains(value) {
+            return Err(finstack_core::Error::Calibration {
+                message: format!(
+                    "Solved forward rate out of bounds for {} at t={:.6}: {:.4}%",
+                    self.calibrator.fwd_curve_id,
+                    time,
+                    value * 100.0
+                ),
+                category: "bootstrapping".to_string(),
+            });
+        }
+        Ok(())
+    }
+}
+
+impl ForwardCurveCalibrator {
     /// Check if an index/frequency matches our tenor.
     fn matches_tenor(&self, index: &str, freq: &Tenor) -> bool {
         let tol = self.config.tolerance;
@@ -1034,6 +762,161 @@ impl ForwardCurveCalibrator {
         // Base tolerance scaled by (1 + t) for scale awareness
         // Minimum of base tolerance ensures precision for short tenors
         (self.config.tolerance * (1.0 + knot_time)).max(self.config.tolerance)
+    }
+
+    /// Calculate the Jacobian matrix (sensitivity of curve points to input quotes).
+    ///
+    /// Uses a bump-and-rebuild approach:
+    /// 1. Perturb each input quote by 1bp
+    /// 2. Re-calibrate the curve
+    /// 3. Measure change in curve knots
+    fn calculate_jacobian<S: Solver>(
+        &self,
+        quotes: &[RatesQuote],
+        base_curve: &ForwardCurve,
+        base_context: &MarketContext,
+        solver: &S,
+    ) -> Result<TraceEntry> {
+        let bump_size = 0.0001; // 1bp
+        let mut sensitivity_matrix = Vec::with_capacity(quotes.len());
+        let row_labels: Vec<String> = quotes
+            .iter()
+            .enumerate()
+            .map(|(i, q)| q.format_residual_key(i, self.currency))
+            .collect();
+        let col_labels: Vec<String> = base_curve
+            .knots()
+            .iter()
+            .map(|t| format!("t={:.4}", t))
+            .collect();
+
+        // Base knots (excluding anchor if it wasn't part of the solve, but here we just take all knots)
+        // Note: The anchor at t=0 is usually derived or fixed. We include all knots in the sensitivity matrix.
+        let base_knots: Vec<f64> = base_curve.forwards().to_vec();
+
+        for (i, quote) in quotes.iter().enumerate() {
+            // 1. Bump quote
+            let bumped_quote = quote.bump(bump_size);
+            let mut bumped_quotes = quotes.to_vec();
+            bumped_quotes[i] = bumped_quote;
+
+            // 2. Re-calibrate (disable explanation to avoid recursion)
+            // We need a clone of self with explanation disabled
+            let mut sub_calibrator = self.clone();
+            sub_calibrator.config.explain.enabled = false;
+
+            // We use the internal bootstrap method directly
+            let (bumped_curve, _) =
+                sub_calibrator.bootstrap_curve_with_solver(&bumped_quotes, solver, base_context)?;
+
+            // 3. Calculate sensitivities
+            let mut row_sensitivities = Vec::with_capacity(base_knots.len());
+
+            // Match knots by time (assuming same grid structure, which should hold for small bumps)
+            // If the grid changes (e.g. adaptive knots), this simple mapping might fail,
+            // but for standard bootstrapping the knot times are determined by quote maturities.
+            for (j, base_rate) in base_knots.iter().enumerate() {
+                if j < bumped_curve.knots().len() {
+                    let bumped_rate = bumped_curve.forwards()[j];
+                    let sensitivity = (bumped_rate - base_rate) / bump_size;
+                    row_sensitivities.push(sensitivity);
+                } else {
+                    row_sensitivities.push(0.0);
+                }
+            }
+            sensitivity_matrix.push(row_sensitivities);
+        }
+
+        Ok(TraceEntry::Jacobian {
+            row_labels,
+            col_labels,
+            sensitivity_matrix,
+        })
+    }
+
+    /// Price an instrument for calibration.
+    ///
+    /// Returns the normalized PV (PV / notional) which should be zero for par instruments.
+    ///
+    /// Delegates to [`CalibrationPricer`] for all quote types except Deposits (which are
+    /// explicitly rejected for forward curve calibration).
+    fn price_instrument(&self, quote: &RatesQuote, context: &MarketContext) -> Result<f64> {
+        // Deposits should never be used for forward curve calibration
+        if matches!(quote, RatesQuote::Deposit { .. }) {
+            return Err(finstack_core::Error::Validation(
+                "ForwardCurveCalibrator does not support Deposit quotes (use DiscountCurveCalibrator)"
+                    .into(),
+            ));
+        }
+        // Delegate all other quote types to the centralized pricer
+        self.make_pricer()
+            .price_instrument(quote, self.currency, context)
+    }
+
+    /// Get the knot date for an instrument (end date or period end).
+    fn get_knot_date(&self, quote: &RatesQuote) -> Date {
+        match quote {
+            RatesQuote::FRA { end, .. } => *end,
+            RatesQuote::Future { expiry, specs, .. } => {
+                expiry.add_months(specs.delivery_months as i32)
+            }
+            RatesQuote::Swap { maturity, .. } => *maturity,
+            _ => quote.maturity_date(),
+        }
+    }
+
+    /// Get initial guess for forward rate.
+    ///
+    /// Uses a sophisticated fallback strategy that derives from market context:
+    /// 1. For FRA/Future/Swap quotes: use the quoted rate/price
+    /// 2. For other quotes: use last solved knot if available
+    /// 3. If no knots exist: derive from discount curve over tenor (market-regime-aware)
+    /// 4. Final fallback: use benign global default (0.02) only if nothing else available
+    fn get_initial_guess(
+        &self,
+        quote: &RatesQuote,
+        existing_knots: &[(f64, f64)],
+        context: &MarketContext,
+    ) -> f64 {
+        match quote {
+            RatesQuote::FRA { rate, .. } => *rate,
+            RatesQuote::Future { price, specs, .. } => {
+                // Convert price to implied rate
+                let implied_rate = (100.0 - price) / 100.0;
+                // Apply convexity adjustment if available
+                if let Some(adj) = specs.convexity_adjustment {
+                    implied_rate + adj
+                } else {
+                    implied_rate
+                }
+            }
+            RatesQuote::Swap { rate, .. } => *rate,
+            _ => {
+                // Use last solved knot if available
+                if let Some((_, last_rate)) = existing_knots.last() {
+                    *last_rate
+                } else {
+                    // Derive from discount curve
+                    let discount_curve =
+                        match context.get_discount_ref(self.discount_curve_id.as_ref()) {
+                            Ok(c) => c,
+                            Err(_) => return 0.02, // Fallback
+                        };
+
+                    // Get forward rate over tenor using discount curve
+                    let t_start = 0.0;
+                    let t_end = self.tenor_years;
+                    let df_start = discount_curve.df(t_start);
+                    let df_end = discount_curve.df(t_end);
+
+                    if df_end > 0.0 && df_start > 0.0 {
+                        ((df_start / df_end) - 1.0) / self.tenor_years
+                    } else {
+                        0.02 // Fallback
+                    }
+                }
+            }
+        }
     }
 }
 

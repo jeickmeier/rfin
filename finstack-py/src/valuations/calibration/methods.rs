@@ -203,92 +203,6 @@ impl PyDiscountCurveCalibrator {
         Ok(Self::new(inner))
     }
 
-    /// Set the calendar identifier for schedule generation and business day adjustments.
-    ///
-    /// Parameters
-    /// ----------
-    /// calendar_id : str
-    ///     Calendar identifier (e.g., "usny" for US Federal Reserve holidays,
-    ///     "gblo" for London, "target2" for ECB).
-    ///
-    /// Returns
-    /// -------
-    /// DiscountCurveCalibrator
-    ///     New calibrator with updated calendar.
-    #[pyo3(text_signature = "(self, calendar_id)")]
-    #[allow(deprecated)]
-    fn with_calendar_id(&self, calendar_id: &str) -> Self {
-        let inner = self.inner.clone().with_calendar_id(calendar_id);
-        Self::new(inner)
-    }
-
-    /// Set settlement lag in business days.
-    ///
-    /// Market conventions:
-    /// - USD/EUR/JPY/CHF: 2 days (T+2)
-    /// - GBP: 0 days (T+0, same-day settlement)
-    /// - AUD/CAD: 1 day (T+1)
-    ///
-    /// Parameters
-    /// ----------
-    /// days : int
-    ///     Number of business days for settlement.
-    ///
-    /// Returns
-    /// -------
-    /// DiscountCurveCalibrator
-    ///     New calibrator with updated settlement days.
-    #[pyo3(text_signature = "(self, days)")]
-    #[allow(deprecated)]
-    fn with_settlement_days(&self, days: i32) -> Self {
-        let inner = self.inner.clone().with_settlement_days(days);
-        Self::new(inner)
-    }
-
-    /// Set payment delay in business days after period end.
-    ///
-    /// Bloomberg OIS swaps typically use 2 business days payment delay.
-    /// Set to 2 for accurate Bloomberg curve matching.
-    ///
-    /// Parameters
-    /// ----------
-    /// days : int
-    ///     Number of business days delay for payments.
-    ///
-    /// Returns
-    /// -------
-    /// DiscountCurveCalibrator
-    ///     New calibrator with updated payment delay.
-    #[pyo3(text_signature = "(self, days)")]
-    #[allow(deprecated)]
-    fn with_payment_delay(&self, days: i32) -> Self {
-        let inner = self.inner.clone().with_payment_delay(days);
-        Self::new(inner)
-    }
-
-    /// Set day count convention for curve time calculation.
-    ///
-    /// Market conventions:
-    /// - USD/EUR/CHF: ACT/360
-    /// - GBP/JPY/AUD/CAD: ACT/365F
-    ///
-    /// Parameters
-    /// ----------
-    /// day_count : str or DayCount
-    ///     Day count convention (e.g., "ACT/360", "ACT/365F").
-    ///
-    /// Returns
-    /// -------
-    /// DiscountCurveCalibrator
-    ///     New calibrator with updated day count.
-    #[pyo3(text_signature = "(self, day_count)")]
-    #[allow(deprecated)]
-    fn with_curve_day_count(&self, day_count: Bound<'_, PyAny>) -> PyResult<Self> {
-        let DayCountArg(dc) = DayCountArg::extract_bound(&day_count)?;
-        let inner = self.inner.clone().with_curve_day_count(dc);
-        Ok(Self::new(inner))
-    }
-
     #[pyo3(signature = (quotes, market=None))]
     fn calibrate(
         &self,
@@ -365,12 +279,6 @@ impl PyForwardCurveCalibrator {
     fn with_solve_interp(&self, interp: Bound<'_, PyAny>) -> PyResult<Self> {
         let InterpStyleArg(style) = InterpStyleArg::extract_bound(&interp)?;
         Ok(Self::new(self.inner.clone().with_solve_interp(style)))
-    }
-
-    #[pyo3(text_signature = "(self, day_count)")]
-    fn with_time_dc(&self, day_count: Bound<'_, PyAny>) -> PyResult<Self> {
-        let DayCountArg(dc) = DayCountArg::extract_bound(&day_count)?;
-        Ok(Self::new(self.inner.clone().with_time_dc(dc)))
     }
 
     #[pyo3(signature = (quotes, market))]
@@ -549,6 +457,7 @@ impl PyInflationCurveCalibrator {
     }
 
     #[pyo3(text_signature = "(self, day_count)")]
+    #[allow(deprecated)]
     fn with_time_dc(&self, day_count: Bound<'_, PyAny>) -> PyResult<Self> {
         let DayCountArg(dc) = DayCountArg::extract_bound(&day_count)?;
         Ok(Self::new(self.inner.clone().with_time_dc(dc)))
@@ -696,6 +605,7 @@ impl PyVolSurfaceCalibrator {
     }
 
     #[pyo3(text_signature = "(self, day_count)")]
+    #[allow(deprecated)]
     fn with_time_dc(&self, day_count: Bound<'_, PyAny>) -> PyResult<Self> {
         let DayCountArg(dc) = DayCountArg::extract_bound(&day_count)?;
         Ok(Self::new(self.inner.clone().with_time_dc(dc)))

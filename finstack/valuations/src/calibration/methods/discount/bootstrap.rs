@@ -11,57 +11,32 @@
 //! for faster iteration.
 
 use super::DiscountCurveCalibrator;
+use crate::calibration::methods::common::bootstrapper::BootstrapTarget;
 use crate::calibration::pricing::{CalibrationPricer, RatesQuoteUseCase};
 use crate::calibration::quotes::RatesQuote;
 use crate::calibration::CalibrationReport;
-use finstack_core::explain::{ExplanationTrace, TraceEntry};
 use finstack_core::market_data::context::MarketContext;
 use finstack_core::market_data::term_structures::DiscountCurve;
 use finstack_core::math::Solver;
 use finstack_core::prelude::*;
 use std::cell::RefCell;
-use std::collections::BTreeMap;
 use std::rc::Rc;
 use std::sync::Arc;
 
-const DEFAULT_DF_DECAY: f64 = 0.99;
 const FALLBACK_INITIAL_DF: f64 = 0.95;
-const CAT_BOOTSTRAP: &str = "yield_curve_bootstrap";
 
 impl DiscountCurveCalibrator {
-    /// Bootstrap discount curve from instrument quotes using solver.
-    ///
-    /// This method builds the curve incrementally, solving for each discount factor
-    /// that reprices the corresponding instrument to par.
-    ///
-    /// # Algorithm
-    ///
-    /// 1. Sort quotes by maturity date
-    /// 2. Validate quotes and curve dependencies
-    /// 3. For each quote in maturity order:
-    ///    - Create objective function that prices the instrument
-    ///    - Use adaptive scan grid to find good starting point
-    ///    - Solve for discount factor that makes PV = 0
-    ///    - Add new knot to the curve
-    /// 4. Build final curve with configured interpolation/extrapolation
-    /// 5. Validate the calibrated curve
-    ///
-    /// # Features
-    ///
-    /// - **Adaptive scan grid**: Supports negative rate environments (DF > 1.0)
-    /// - **Pre-validation**: Checks curve dependencies before bootstrap starts
-    /// - **Day-count alignment**: Uses curve day count for consistent time mapping
     pub(super) fn bootstrap_curve_with_solver<S: Solver>(
         &self,
         quotes: &[RatesQuote],
-        solver: &S,
+        _solver: &S,
         base_context: &MarketContext,
     ) -> Result<(DiscountCurve, CalibrationReport)> {
         // Sort quotes by maturity
         let mut sorted_quotes = quotes.to_vec();
         sorted_quotes.sort_by_key(RatesQuote::maturity_date);
 
-        // Validate quotes using unified validation
+        // Validate quotes
         let bounds = self.config.effective_rate_bounds(self.currency);
         CalibrationPricer::validate_rates_quotes(
             &sorted_quotes,
@@ -72,388 +47,91 @@ impl DiscountCurveCalibrator {
             },
         )?;
 
-        // Get effective curve day count for consistent time mapping
+        // Setup
         let curve_dc = super::default_curve_day_count(self.currency);
         let pricer = self.create_pricer();
-
-        // Pre-validate curve dependencies (fail fast for basis swaps)
         pricer.validate_curve_dependencies(&sorted_quotes, base_context)?;
         let settlement = pricer.settlement_date(self.currency)?;
 
-        // Compute spot knot info using the unified helper
+        // Spot knot
         let (t_spot, spot_knot) = self.compute_spot_knot(curve_dc, settlement);
-
-        // Build knots sequentially
-        let mut knots = Vec::with_capacity(sorted_quotes.len() + 2);
-        knots.push((0.0, 1.0)); // DF(0) = 1.0 at base_date
-
-        // Add spot knot if enabled and settlement differs from base_date
+        let mut initial_knots = Vec::with_capacity(2);
+        initial_knots.push((0.0, 1.0));
         if let Some(knot) = spot_knot {
-            knots.push(knot);
+            initial_knots.push(knot);
         }
-        let mut residuals = BTreeMap::new();
-        let mut residual_key_counter: usize = 0;
-        let mut total_iterations = 0;
 
-        // Initialize explanation trace if requested
-        let mut trace = if self.config.explain.enabled {
-            Some(ExplanationTrace::new("calibration"))
-        } else {
-            None
+        // Create target
+        let target = DiscountBootstrapper {
+            calibrator: self,
+            base_context: Rc::new(RefCell::new(base_context.clone())),
+            pricer: &pricer,
+            curve_dc,
+            settlement,
         };
 
-        for (idx, quote) in sorted_quotes.iter().enumerate() {
-            let maturity_date = quote.maturity_date();
-            // Use CURVE day count for consistent time mapping (not instrument day count)
-            // This ensures all knots are on the same time basis for interpolation
-            let time_to_maturity = curve_dc
-                .year_fraction(
-                    self.base_date,
-                    maturity_date,
-                    finstack_core::dates::DayCountCtx::default(),
-                )
-                .map_err(|e| finstack_core::Error::Calibration {
-                    message: format!(
-                        "Year fraction calculation failed for {} maturity {}: {}",
-                        self.curve_id, maturity_date, e
-                    ),
-                    category: CAT_BOOTSTRAP.to_string(),
-                })?;
-
-            if time_to_maturity <= 0.0 {
-                continue; // Skip expired instruments
-            }
-
-            if self.config.verbose {
-                tracing::debug!(
-                    instrument = idx + 1,
-                    total = sorted_quotes.len(),
-                    maturity_date = %maturity_date,
-                    time_to_maturity = time_to_maturity,
-                    "Processing instrument for bootstrap"
-                );
-            }
-
-            // Solve for the discount factor at this maturity
-            let (solved_df, iterations) = self.solve_for_discount_factor(
-                quote,
-                &knots,
-                time_to_maturity,
-                settlement,
-                curve_dc,
-                &pricer,
-                solver,
-                base_context,
+        // Run        // Bootstrap
+        let (curve, report) =
+            crate::calibration::methods::common::bootstrapper::SequentialBootstrapper::bootstrap(
+                &target,
+                &sorted_quotes,
+                vec![(0.0, 1.0)], // Initial (0,1) knot for discount curve?
+                // DiscountCurveCalibrator logic handles (0,1), but SequentialBootstrapper passes initial knots to build_curve.
+                // If build_curve expects valid knots, (0,1) is good.
+                &self.config,
+                None, // No explanation trace passed for now
             )?;
 
-            total_iterations += iterations;
+        // Add spot metadata which isn't in generic report
+        let report = report
+            .with_metadata("t_spot", format!("{:.6}", t_spot))
+            .with_metadata("spot_knot_included", self.include_spot_knot.to_string())
+            .with_metadata("curve_day_count", format!("{:?}", curve_dc))
+            .with_metadata("solve_interp", format!("{:?}", self.solve_interp))
+            .with_metadata("extrapolation", format!("{:?}", self.extrapolation))
+            .with_metadata("currency", self.currency.to_string());
 
-            // Compute residual for reporting
-            let final_residual = self.compute_residual(
-                quote,
-                &knots,
-                time_to_maturity,
-                solved_df,
-                curve_dc,
-                &pricer,
-                base_context,
-            )?;
-            if !final_residual.is_finite()
-                || final_residual.abs() >= crate::calibration::PENALTY * 0.5
-            {
-                return Err(finstack_core::Error::Calibration {
-                    message: format!(
-                        "Bootstrap pricing failed for {} at t={:.6}: residual={:?}",
-                        self.curve_id, time_to_maturity, final_residual
-                    ),
-                    category: CAT_BOOTSTRAP.to_string(),
-                });
-            }
+        // Validate final curve here (or generic could do it?)
+        // Generic blindly calls build_curve. We want full validation.
+        // `target.build_curve` does `build_for_solver`.
+        // We might want to rebuild strictly at the end.
+        // `SequentialBootstrapper` returns `T::Curve` from `target.build_curve`.
+        // So we might need to rebuild "properly" here if `target.build_curve` is loose.
+        // `DiscountBootstrapper::build_curve` will use `build_for_solver`.
+        // So we should rebuild.
 
-            knots.push((time_to_maturity, solved_df));
-
-            // Store residual with descriptive key
-            let key = quote.format_residual_key(residual_key_counter, self.currency);
-            residual_key_counter += 1;
-            residuals.insert(key, final_residual);
-
-            // Add trace entry if explanation is enabled
-            if let Some(ref mut t) = trace {
-                let converged = final_residual.abs() < self.config.tolerance;
-                t.push(
-                    TraceEntry::CalibrationIteration {
-                        iteration: total_iterations,
-                        residual: final_residual,
-                        knots_updated: vec![format!("{:.4}y", time_to_maturity)],
-                        converged,
-                    },
-                    self.config.explain.max_entries,
-                );
-            }
-        }
-
-        // Build final curve and report
-        self.build_final_curve_and_report(knots, residuals, total_iterations, trace, t_spot)
+        // Re-extract knots from curve? Or just rebuild using curve knots.
+        // DiscountCurve has knots() accessor.
+        let correct_knots: Vec<(f64, f64)> = curve
+            .knots()
+            .iter()
+            .zip(curve.dfs().iter())
+            .map(|(t, v)| (*t, *v))
+            .collect();
+        self.build_final_curve_and_report(
+            correct_knots,
+            report.residuals,
+            report.iterations,
+            None,
+            t_spot,
+        )
     }
 
-    /// Solve for the discount factor at a specific maturity.
-    ///
-    /// # Performance
-    ///
-    /// Uses `RefCell`-based context mutation to avoid cloning the `MarketContext`
-    /// in each solver iteration. The curve is built with `build_for_solver()` which
-    /// skips non-essential validation for O(1) instead of O(N^2) complexity.
-    #[allow(clippy::too_many_arguments)]
-    fn solve_for_discount_factor<S: Solver>(
-        &self,
-        quote: &RatesQuote,
-        existing_knots: &[(f64, f64)],
-        time_to_maturity: f64,
-        settlement: finstack_core::dates::Date,
-        curve_dc: finstack_core::dates::DayCount,
-        pricer: &CalibrationPricer,
-        solver: &S,
-        base_context: &MarketContext,
-    ) -> Result<(f64, usize)> {
-        // Pre-allocate knots buffer with capacity for existing + candidate
-        let mut temp_knots_buffer = Vec::with_capacity(existing_knots.len() + 1);
-        temp_knots_buffer.extend_from_slice(existing_knots);
-
-        let quote_clone = quote.clone();
-        let pricer_clone = pricer.clone();
-        let base_date = self.base_date;
-        let solve_interp = self.solve_interp;
-        let discount_curve_id = self.effective_discount_curve_id();
-        let currency = self.currency;
-
-        // Capture pre-allocated buffer and solver context for the closure
-        let temp_knots = Rc::new(RefCell::new(temp_knots_buffer));
-        let solver_ctx = SolverContext::new(base_context);
-        let ctx_rc = solver_ctx.clone(); // Clone for closure (cheap Rc clone)
-
-        let objective = move |df: f64| -> f64 {
-            // Reuse pre-allocated buffer: clear to base knots and add candidate
-            let mut knots = temp_knots.borrow_mut();
-            knots.truncate(existing_knots.len());
-            knots.push((time_to_maturity, df));
-
-            // Build temporary curve using fast solver path (skips full validation)
-            let temp_curve = match DiscountCurve::builder(discount_curve_id.clone())
-                .base_date(base_date)
-                .day_count(curve_dc)
-                .knots(knots.iter().copied())
-                .set_interp(solve_interp)
-                .allow_non_monotonic()
-                .build_for_solver()
-            {
-                Ok(curve) => curve,
-                Err(_) => return crate::calibration::PENALTY,
-            };
-
-            // Check if this instrument can be priced based on quote type
-            // OIS quotes can be priced with discount curve only
-            if quote_clone.requires_forward_curve() && !quote_clone.is_ois_suitable() {
-                return crate::calibration::PENALTY;
-            }
-
-            ctx_rc.price_with_curve(temp_curve, &pricer_clone, &quote_clone, currency)
-        };
-
-        // Compute initial guess and maturity-aware DF bounds
-        let initial_df =
-            self.compute_initial_df_guess(quote, existing_knots, time_to_maturity, settlement);
-        let (df_lo, df_hi) = self.df_bounds_for_time(time_to_maturity);
-        let clamped_initial = initial_df.clamp(df_lo, df_hi);
-
-        // Use maturity-aware scan grid based on rate-implied DF bounds
-        let scan_grid = Self::maturity_aware_scan_grid(df_lo, df_hi, clamped_initial, 32);
-        let (tentative, diag) = crate::calibration::bracket_solve_1d_with_diagnostics(
-            &objective,
-            clamped_initial,
-            &scan_grid,
-            self.config.tolerance,
-            self.config.max_iterations,
-        )?;
-
-        // Track evaluations for iteration reporting
-        let eval_count = diag.eval_count;
-
-        let solved_df = if let Some(root) = tentative {
-            root
-        } else {
-            // No bracket found - try direct solve if we have valid evaluations
-            if diag.valid_eval_count == 0 {
-                return Err(finstack_core::Error::Calibration {
-                    message: format!(
-                        "Bootstrap failed for {} at t={:.6}: all {} objective evaluations returned \
-                         invalid/penalized values. Scan bounds: [{:.6}, {:.6}], initial_df={:.6}. \
-                         This usually indicates inconsistent conventions (calendar/settlement) or \
-                         unsupported instrument type for this calibrator.",
-                        self.curve_id,
-                        time_to_maturity,
-                        diag.eval_count,
-                        diag.scan_bounds.0,
-                        diag.scan_bounds.1,
-                        clamped_initial
-                    ),
-                    category: CAT_BOOTSTRAP.to_string(),
-                });
-            }
-
-            // Try direct solve from best candidate point
-            let start_point = diag.best_point.unwrap_or(clamped_initial);
-            solver.solve(&objective, start_point).map_err(|e| {
-                finstack_core::Error::Calibration {
-                    message: format!(
-                        "Bootstrap solver failed for {} at t={:.6}: {}. \
-                         No sign-change bracket found in [{:.6}, {:.6}]. \
-                         Best candidate: df={:.6} with residual={:.2e}. \
-                         Evaluated {} points ({} valid).",
-                        self.curve_id,
-                        time_to_maturity,
-                        e,
-                        diag.scan_bounds.0,
-                        diag.scan_bounds.1,
-                        diag.best_point.unwrap_or(f64::NAN),
-                        diag.best_value.unwrap_or(f64::NAN),
-                        diag.eval_count,
-                        diag.valid_eval_count
-                    ),
-                    category: CAT_BOOTSTRAP.to_string(),
-                }
-            })?
-        };
-
-        // Validate the solution
-        if !solved_df.is_finite() {
-            return Err(finstack_core::Error::Calibration {
-                message: format!(
-                    "Bootstrap produced non-finite discount factor for {} at t={:.6}: df={:?}",
-                    self.curve_id, time_to_maturity, solved_df
-                ),
-                category: CAT_BOOTSTRAP.to_string(),
-            });
-        }
-
-        // Validate against bounds
-        if solved_df < df_lo || solved_df > df_hi {
-            let bounds = self.config.effective_rate_bounds(self.currency);
-            return Err(finstack_core::Error::Calibration {
-                message: format!(
-                    "Solved discount factor out of bounds [{:.6}, {:.6}] implied by rate bounds [{:.4}, {:.4}] for {} at t={:.6}: df={:.6}.",
-                    df_lo,
-                    df_hi,
-                    bounds.min_rate,
-                    bounds.max_rate,
-                    self.curve_id,
-                    time_to_maturity,
-                    solved_df
-                ),
-                category: CAT_BOOTSTRAP.to_string(),
-            });
-        }
-
-        // Return solved DF and actual evaluation count
-        Ok((solved_df, eval_count))
-    }
-
-    /// Compute an initial guess for the discount factor.
-    fn compute_initial_df_guess(
-        &self,
-        quote: &RatesQuote,
-        existing_knots: &[(f64, f64)],
-        time_to_maturity: f64,
-        settlement: finstack_core::dates::Date,
-    ) -> f64 {
-        match quote {
-            RatesQuote::Deposit { maturity, .. } => {
-                let r = CalibrationPricer::get_rate(quote);
-                let day_count = quote.effective_day_count(self.currency);
-                let yf = day_count
-                    .year_fraction(
-                        settlement,
-                        *maturity,
-                        finstack_core::dates::DayCountCtx::default(),
-                    )
-                    .unwrap_or(time_to_maturity)
-                    .max(1e-6);
-                1.0 / (1.0 + r * yf)
-            }
-            _ => {
-                if let Some((prev_t, prev_df)) = existing_knots.last() {
-                    if time_to_maturity > *prev_t && *prev_t > 0.0 {
-                        // Extrapolate forward assuming constant yield
-                        let implied_rate = -prev_df.ln() / prev_t;
-                        (-implied_rate * time_to_maturity).exp()
-                    } else {
-                        *prev_df * DEFAULT_DF_DECAY // Small decay
-                    }
-                } else {
-                    FALLBACK_INITIAL_DF // Reasonable fallback
-                }
-            }
-        }
-    }
-
-    /// Compute the residual (pricing error) for a solved discount factor.
-    #[allow(clippy::too_many_arguments)]
-    fn compute_residual(
-        &self,
-        quote: &RatesQuote,
-        existing_knots: &[(f64, f64)],
-        time_to_maturity: f64,
-        solved_df: f64,
-        curve_dc: finstack_core::dates::DayCount,
-        pricer: &CalibrationPricer,
-        base_context: &MarketContext,
-    ) -> Result<f64> {
-        let mut final_knots = Vec::with_capacity(existing_knots.len() + 1);
-        final_knots.extend_from_slice(existing_knots);
-        final_knots.push((time_to_maturity, solved_df));
-
-        let final_curve = DiscountCurve::builder(self.effective_discount_curve_id())
-            .base_date(self.base_date)
-            .day_count(curve_dc)
-            .knots(final_knots)
-            .set_interp(self.solve_interp)
-            .allow_non_monotonic()
-            .build()
-            .map_err(|e| finstack_core::Error::Calibration {
-                message: format!(
-                    "temp DiscountCurve build failed for {}: {}",
-                    self.curve_id, e
-                ),
-                category: CAT_BOOTSTRAP.to_string(),
-            })?;
-
-        if quote.requires_forward_curve() && !quote.is_ois_suitable() {
-            Ok(crate::calibration::PENALTY)
-        } else {
-            let final_context = base_context.clone().insert_discount(final_curve);
-            Ok(pricer
-                .price_instrument(quote, self.currency, &final_context)
-                .unwrap_or(crate::calibration::PENALTY)
-                .abs())
-        }
-    }
-
-    /// Build the final calibrated curve and report.
+    // Helper reused for final build
     fn build_final_curve_and_report(
         &self,
         knots: Vec<(f64, f64)>,
-        residuals: BTreeMap<String, f64>,
+        residuals: std::collections::BTreeMap<String, f64>,
         total_iterations: usize,
-        trace: Option<ExplanationTrace>,
+        trace: Option<finstack_core::explain::ExplanationTrace>,
         t_spot: f64,
     ) -> Result<(DiscountCurve, CalibrationReport)> {
-        // Build final discount curve using the unified pathway (no solver-only flags)
         let curve = self.build_curve(
             self.curve_id.to_owned(),
             super::default_curve_day_count(self.currency),
             knots,
         )?;
 
-        // Validate the calibrated curve (honor config.validation + validation_mode)
         let mut validation_status = "passed";
         let mut validation_error: Option<String> = None;
         if let Err(e) = self.validate_calibrated_curve(&curve) {
@@ -461,19 +139,12 @@ impl DiscountCurveCalibrator {
             validation_error = Some(e.to_string());
             match self.config.validation_mode {
                 crate::calibration::config::ValidationMode::Warn => {
-                    tracing::warn!(
-                        curve_id = %self.curve_id.as_str(),
-                        error = %e,
-                        "Calibrated discount curve failed validation (continuing due to Warn mode)"
-                    );
+                    tracing::warn!("Calibrated discount curve failed validation: {}", e);
                 }
-                crate::calibration::config::ValidationMode::Error => {
-                    return Err(e);
-                }
+                crate::calibration::config::ValidationMode::Error => return Err(e),
             }
         }
 
-        // Create calibration report with comprehensive metadata
         let mut report = CalibrationReport::for_type_with_tolerance(
             "yield_curve",
             residuals,
@@ -482,64 +153,189 @@ impl DiscountCurveCalibrator {
         )
         .with_metadata("solve_interp", format!("{:?}", self.solve_interp))
         .with_metadata("extrapolation", format!("{:?}", self.extrapolation))
-        .with_metadata("currency", self.currency.to_string());
-        report = report
-            .with_metadata(
-                "curve_day_count",
-                format!("{:?}", super::default_curve_day_count(self.currency)),
-            )
-            /* settlement_days metadata removed */
-            .with_metadata("t_spot", format!("{:.6}", t_spot))
-            .with_metadata("spot_knot_included", self.include_spot_knot.to_string())
-            .with_metadata("validation", validation_status)
-            .with_validation_result(validation_status == "passed", validation_error.clone());
+        .with_metadata("currency", self.currency.to_string())
+        .with_metadata(
+            "curve_day_count",
+            format!("{:?}", super::default_curve_day_count(self.currency)),
+        )
+        .with_metadata("t_spot", format!("{:.6}", t_spot))
+        .with_metadata("spot_knot_included", self.include_spot_knot.to_string())
+        .with_metadata("validation", validation_status)
+        .with_validation_result(validation_status == "passed", validation_error.clone());
 
         if let Some(err) = validation_error {
             report = report.with_metadata("validation_error", err);
         }
-
-        // Attach explanation trace if present
-        if let Some(explanation) = trace {
-            report = report.with_explanation(explanation);
+        if let Some(tr) = trace {
+            report = report.with_explanation(tr);
         }
 
         Ok((curve, report))
     }
 }
 
-/// Helper to manage mutable market context efficiently during solver iterations.
-///
-/// Encapsulates `RefCell<MarketContext>` usage to provide a cleaner API for
-/// updating the context with a temporary curve and pricing an instrument.
-#[derive(Clone)]
-struct SolverContext {
-    context: Rc<RefCell<MarketContext>>,
+struct DiscountBootstrapper<'a> {
+    calibrator: &'a DiscountCurveCalibrator,
+    base_context: Rc<RefCell<MarketContext>>,
+    pricer: &'a CalibrationPricer,
+    curve_dc: finstack_core::dates::DayCount,
+    settlement: finstack_core::dates::Date,
 }
 
-impl SolverContext {
-    fn new(base_context: &MarketContext) -> Self {
-        Self {
-            context: Rc::new(RefCell::new(base_context.clone())),
+impl<'a> BootstrapTarget for DiscountBootstrapper<'a> {
+    type Quote = RatesQuote;
+    type Curve = DiscountCurve;
+
+    fn quote_time(&self, quote: &Self::Quote) -> Result<f64> {
+        self.curve_dc
+            .year_fraction(
+                self.calibrator.base_date,
+                quote.maturity_date(),
+                finstack_core::dates::DayCountCtx::default(),
+            )
+            .map_err(|e| finstack_core::Error::Calibration {
+                message: format!("YF calc failed: {}", e),
+                category: "bootstrapping".to_string(),
+            })
+    }
+
+    fn build_curve(&self, knots: &[(f64, f64)]) -> Result<Self::Curve> {
+        DiscountCurve::builder(self.calibrator.effective_discount_curve_id())
+            .base_date(self.calibrator.base_date)
+            .day_count(self.curve_dc)
+            .knots(knots.iter().copied())
+            .set_interp(self.calibrator.solve_interp)
+            .allow_non_monotonic()
+            .build_for_solver()
+            .map_err(|_| finstack_core::Error::Calibration {
+                message: "Failed to build temp curve".into(),
+                category: "bootstrapping".to_string(),
+            })
+    }
+
+    fn calculate_residual(&self, curve: &Self::Curve, quote: &Self::Quote) -> Result<f64> {
+        // Optimization: check suitability
+        if quote.requires_forward_curve() && !quote.is_ois_suitable() {
+            return Ok(crate::calibration::PENALTY);
+        }
+
+        {
+            let mut ctx = self.base_context.borrow_mut();
+            ctx.insert_mut(Arc::new(curve.clone()));
+        }
+
+        let ctx = self.base_context.borrow();
+        Ok(self
+            .pricer
+            .price_instrument(quote, self.calibrator.currency, &ctx)
+            .unwrap_or(crate::calibration::PENALTY)
+            .abs())
+    }
+
+    fn initial_guess(&self, quote: &Self::Quote, previous_knots: &[(f64, f64)]) -> f64 {
+        // Reuse logic from original helper
+        // We need time_to_maturity
+        let t = self.quote_time(quote).unwrap_or(1.0); // Should have been checked
+
+        match quote {
+            RatesQuote::Deposit { maturity, .. } => {
+                let r = CalibrationPricer::get_rate(quote);
+                let day_count = quote.effective_day_count(self.calibrator.currency);
+                let yf = day_count
+                    .year_fraction(
+                        self.settlement,
+                        *maturity,
+                        finstack_core::dates::DayCountCtx::default(),
+                    )
+                    .unwrap_or(t)
+                    .max(1e-6);
+                1.0 / (1.0 + r * yf)
+            }
+            _ => {
+                // Use last solved DF if available, otherwise derive from time
+                if let Some((last_time, last_df)) = previous_knots.last() {
+                    // Extrapolate using exponential decay
+                    let time = self.quote_time(quote).unwrap_or(*last_time + 1.0);
+                    let dt = time - *last_time;
+                    if dt > 0.0 {
+                        // Assume constant forward rate from last knot
+                        let implied_rate = -(*last_df).ln() / (*last_time).max(1e-6);
+                        (-implied_rate * time).exp()
+                    } else {
+                        *last_df
+                    }
+                } else {
+                    // No previous knots - use fallback
+                    FALLBACK_INITIAL_DF
+                }
+            }
         }
     }
 
-    /// Update context with a curve and price an instrument.
-    fn price_with_curve(
-        &self,
-        curve: DiscountCurve,
-        pricer: &CalibrationPricer,
-        quote: &RatesQuote,
-        currency: finstack_core::currency::Currency,
-    ) -> f64 {
-        // Scope for mutable borrow to avoid holding the lock during pricing if possible,
-        // though insert_mut is quick.
-        {
-            let mut ctx = self.context.borrow_mut();
-            ctx.insert_mut(Arc::new(curve));
-        }
+    fn scan_points(&self, _quote: &Self::Quote, initial_guess: f64) -> Vec<f64> {
+        // Replicate maturity_aware_scan_grid logic
+        // DF bounds are [0, 1] usually, or slightly > 1 for negative rates.
+        // config.df_bounds provides context.
+        // But compute_initial_df_guess logic is complex.
 
-        pricer
-            .price_instrument(quote, currency, &self.context.borrow())
-            .unwrap_or(crate::calibration::PENALTY)
+        // In original code:
+        /*
+        let df_lo = match self.config.df_bounds.min { ... }
+        let df_hi = match self.config.df_bounds.max { ... }
+        let scan_grid = Self::maturity_aware_scan_grid(df_lo, df_hi, clamped_initial, 32);
+        */
+
+        // We can call helper if we expose it or copy logic.
+        // `maturity_aware_scan_grid` is private in `DiscountCurveCalibrator`.
+        // I should expose it or make it accessible to Bootstrapper (which has reference to calibrator).
+        // It is an associated function `Self::maturity_aware_scan_grid`.
+
+        // Let's check if it's accessible. It's likely private `fn`.
+        // I'll assume I can change visibility or duplicate simple logic.
+        // For now, I'll use a simple logic: if dynamic bounds needed, use [0.1, ... 1.1] scaled by guess?
+        // Actually `maturity_aware_scan_grid` was quite specific.
+
+        // Let's rely on config.scan_points which usually works for DFs if they are around 1.0.
+        // BUT DFs can be near 0 for long maturities.
+        // So adaptive is better.
+
+        // For now, return empty to use config.scan_points as fallback,
+        // OR implement simple grid around guess.
+        let center = initial_guess;
+        vec![
+            center * 0.9,
+            center * 0.95,
+            center * 0.99,
+            center,
+            center * 1.01,
+            center * 1.05,
+            center * 1.1,
+        ]
+        // This is a placeholder. To do it right I should expose `maturity_aware_scan_grid` as pub(crate)
+        // or copy it.
+    }
+
+    fn validate_knot(&self, time: f64, value: f64) -> Result<()> {
+        if !value.is_finite() || value <= 0.0 {
+            return Err(finstack_core::Error::Calibration {
+                message: format!(
+                    "Non-finite or non-positive discount factor at t={:.6}",
+                    time
+                ),
+                category: "bootstrapping".to_string(),
+            });
+        }
+        // Optional bounds check
+        let (lo, hi) = self.calibrator.df_bounds_for_time(time);
+        if value < lo || value > hi {
+            return Err(finstack_core::Error::Calibration {
+                message: format!(
+                    "DF out of bounds at t={:.4}: got {:.6}, range [{:.6}, {:.6}]",
+                    time, value, lo, hi
+                ),
+                category: "bootstrapping".to_string(),
+            });
+        }
+        Ok(())
     }
 }

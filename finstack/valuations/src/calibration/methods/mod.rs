@@ -84,7 +84,10 @@
 //! - [`sabr_surface`] for volatility surface calibration
 
 pub mod base_correlation;
+/// Common bootstrapping logic.
+pub mod common;
 pub mod discount;
+
 pub mod forward_curve;
 pub mod hazard_curve;
 pub mod hull_white;
