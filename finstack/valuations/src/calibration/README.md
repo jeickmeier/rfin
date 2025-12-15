@@ -20,10 +20,11 @@ The calibration module provides market-standard methodologies for bootstrapping 
 ### Design Philosophy
 
 1. **Market standards**: ISDA CDS, SABR volatility, multi-curve interest rates
-2. **Instrument-based pricing**: Uses actual instrument pricers, not reimplemented formulas
-3. **Deterministic**: Reproducible results with stable serialization
-4. **Composable**: Pipeline architecture for complex multi-step calibrations
-5. **Observable**: Progress reporting and explanation tracing for transparency
+2. **Instrument-conventions**: Standardized conventions via `InstrumentConventions` (day count, calendars, settlement)
+3. **Instrument-based pricing**: Uses actual instrument pricers, not reimplemented formulas
+4. **Deterministic**: Reproducible results with stable serialization
+5. **Composable**: Pipeline architecture for complex multi-step calibrations
+6. **Observable**: Progress reporting and explanation tracing for transparency
 
 ---
 
@@ -34,24 +35,22 @@ calibration/
 ├── mod.rs                      # Public API and solver helpers
 ├── traits.rs                   # Calibrator<Input, Output> trait
 ├── spec.rs                     # JSON serialization framework
-├── quote.rs                    # Market quote types
-├── config.rs                   # Solver configuration
+├── quotes/                     # Market quote types (submodular)
+├── config.rs                   # Solver config
 ├── validation.rs               # No-arbitrage validators
 ├── report.rs                   # Diagnostic reporting
+├── solver/                     # Solver wrappers and configuration
 │
-├── methods/                    # Calibration implementations
-│   ├── discount.rs             # OIS discount curves
-│   ├── forward_curve.rs        # Forward rate curves
-│   ├── hazard_curve.rs         # Credit hazard curves
-│   ├── inflation_curve.rs      # Inflation (CPI) curves
-│   ├── sabr_surface.rs         # SABR volatility surfaces
-│   ├── swaption_vol.rs         # Swaption volatility surfaces
-│   ├── base_correlation.rs     # CDO base correlation
-│   └── convexity.rs            # Futures/CMS convexity adjustments
-│
-└── derivatives/                # Analytical gradients
-    ├── sabr_derivatives.rs     # SABR Jacobian for LM solver
-    └── sabr_model_params.rs    # SABR parameter wrapper
+└── methods/                    # Calibration implementations
+    ├── discount/               # OIS discount curves (bootstrapping)
+    ├── forward_curve.rs        # Forward rate curves
+    ├── hazard_curve.rs         # Credit hazard curves
+    ├── inflation_curve.rs      # Inflation (CPI) curves
+    ├── sabr_surface.rs         # SABR volatility surfaces
+    ├── swaption_vol.rs         # Swaption volatility surfaces
+    ├── base_correlation.rs     # CDO base correlation
+    ├── hull_white.rs           # Hull-White model calibration
+    └── xccy_curve.rs           # Cross-currency basis curves
 ```
 
 ---
@@ -359,6 +358,7 @@ let result = envelope.execute(None)?;  // Returns CalibrationResultEnvelope
 use finstack_valuations::calibration::{
     DiscountCurveCalibrator, CalibrationConfig, RatesQuote, Calibrator
 };
+use finstack_valuations::calibration::quotes::InstrumentConventions;
 use finstack_core::prelude::*;
 use finstack_core::dates::{create_date, DayCount, Tenor};
 use finstack_core::market_data::context::MarketContext;
@@ -377,27 +377,36 @@ let quotes = vec![
     RatesQuote::Deposit {
         maturity: create_date(2025, Month::January, 16)?,
         rate: 0.0520,  // 5.20%
-        day_count: DayCount::Act360,
+        conventions: InstrumentConventions::default()
+            .with_day_count(DayCount::Act360),
     },
     // 3-month OIS swap
     RatesQuote::Swap {
         maturity: create_date(2025, Month::April, 15)?,
         rate: 0.0515,
-        fixed_freq: Tenor::annual(),
-        float_freq: Tenor::annual(),
-        fixed_dc: DayCount::Act360,
-        float_dc: DayCount::Act360,
-        index: IndexId::from("SOFR"),
+        is_ois: true,
+        conventions: InstrumentConventions::default(),
+        fixed_leg_conventions: InstrumentConventions::default()
+             .with_payment_frequency(Tenor::annual())
+             .with_day_count(DayCount::Act360),
+        float_leg_conventions: InstrumentConventions::default()
+             .with_payment_frequency(Tenor::annual())
+             .with_day_count(DayCount::Act360)
+             .with_index("SOFR"),
     },
     // 1-year OIS swap
     RatesQuote::Swap {
         maturity: create_date(2026, Month::January, 15)?,
         rate: 0.0500,
-        fixed_freq: Tenor::annual(),
-        float_freq: Tenor::annual(),
-        fixed_dc: DayCount::Act360,
-        float_dc: DayCount::Act360,
-        index: IndexId::from("SOFR"),
+        is_ois: true,
+        conventions: InstrumentConventions::default(),
+        fixed_leg_conventions: InstrumentConventions::default()
+             .with_payment_frequency(Tenor::annual())
+             .with_day_count(DayCount::Act360),
+        float_leg_conventions: InstrumentConventions::default()
+             .with_payment_frequency(Tenor::annual())
+             .with_day_count(DayCount::Act360)
+             .with_index("SOFR"),
     },
 ];
 
@@ -441,16 +450,21 @@ let ois_quotes = vec![
     RatesQuote::Deposit {
         maturity: create_date(2025, Month::January, 16)?,
         rate: 0.0520,
-        day_count: DayCount::Act360,
+        conventions: InstrumentConventions::default()
+             .with_day_count(DayCount::Act360),
     },
     RatesQuote::Swap {
         maturity: create_date(2026, Month::January, 15)?,
         rate: 0.0500,
-        fixed_freq: Tenor::annual(),
-        float_freq: Tenor::annual(),
-        fixed_dc: DayCount::Act360,
-        float_dc: DayCount::Act360,
-        index: IndexId::from("SOFR"),
+        is_ois: true,
+        conventions: InstrumentConventions::default(),
+        fixed_leg_conventions: InstrumentConventions::default()
+             .with_payment_frequency(Tenor::annual())
+             .with_day_count(DayCount::Act360),
+        float_leg_conventions: InstrumentConventions::default()
+             .with_payment_frequency(Tenor::annual())
+             .with_day_count(DayCount::Act360)
+             .with_index("SOFR"),
     },
 ];
 
@@ -469,21 +483,28 @@ let fwd_calibrator = ForwardCurveCalibrator::new(
     "USD-OIS",  // Discount curve ID
 ).with_config(config);
 
+// ... Inside calibrate function ...
+
 let libor_quotes = vec![
     RatesQuote::FRA {
         start: create_date(2025, Month::April, 15)?,
         end: create_date(2025, Month::July, 15)?,
         rate: 0.0525,
-        day_count: DayCount::Act360,
+        conventions: InstrumentConventions::default()
+            .with_day_count(DayCount::Act360),
     },
     RatesQuote::Swap {
         maturity: create_date(2026, Month::January, 15)?,
         rate: 0.0510,
-        fixed_freq: Tenor::quarterly(),
-        float_freq: Tenor::quarterly(),
-        fixed_dc: DayCount::Thirty360,
-        float_dc: DayCount::Act360,
-        index: IndexId::from("USD-LIBOR-3M"),
+        is_ois: false,
+        conventions: InstrumentConventions::default(),
+        fixed_leg_conventions: InstrumentConventions::default()
+             .with_payment_frequency(Tenor::quarterly())
+             .with_day_count(DayCount::Thirty360),
+        float_leg_conventions: InstrumentConventions::default()
+             .with_payment_frequency(Tenor::quarterly())
+             .with_day_count(DayCount::Act360)
+             .with_index("USD-LIBOR-3M"),
     },
 ];
 
@@ -532,13 +553,16 @@ let quotes = vec![
         strike: 100.0,  // ATM
         vol: 0.18,      // 18% implied vol
         option_type: "Call".to_string(),
+        conventions: InstrumentConventions::default(),
     },
     VolQuote::OptionVol {
         underlying: UnderlyingId::from("SPX"),
         expiry: create_date(2025, Month::April, 15)?,
         strike: 95.0,   // 95 put
         vol: 0.22,      // 22% (higher due to skew)
+        vol: 0.22,      // 22% (higher due to skew)
         option_type: "Put".to_string(),
+        conventions: InstrumentConventions::default(),
     },
     VolQuote::OptionVol {
         underlying: UnderlyingId::from("SPX"),
@@ -546,6 +570,7 @@ let quotes = vec![
         strike: 105.0,  // 105 call
         vol: 0.16,      // 16% (lower due to skew)
         option_type: "Call".to_string(),
+        conventions: InstrumentConventions::default(),
     },
     // Additional expiries...
 ];
@@ -590,18 +615,27 @@ println!("Implied vol for 95 put 3M: {:.2}%", vol_95_put_3m * 100.0);
             "deposit": {
               "maturity": "2025-01-16",
               "rate": 0.0520,
-              "day_count": "Act360"
+              "conventions": {
+                "day_count": "Act360",
+                "calendar_id": "usny"
+              }
             }
           },
           {
             "swap": {
               "maturity": "2026-01-15",
               "rate": 0.0500,
-              "fixed_freq": "Annual",
-              "float_freq": "Annual",
-              "fixed_dc": "Act360",
-              "float_dc": "Act360",
-              "index": "SOFR"
+              "is_ois": true,
+              "conventions": { "currency": "USD" },
+              "fixed_leg_conventions": {
+                "payment_frequency": "Annual",
+                "day_count": "Act360"
+              },
+              "float_leg_conventions": {
+                "payment_frequency": "Annual",
+                "day_count": "Act360",
+                "index": "SOFR"
+              }
             }
           }
         ]
@@ -621,7 +655,9 @@ println!("Implied vol for 95 put 3M: {:.2}%", vol_95_put_3m * 100.0);
               "start": "2025-04-15",
               "end": "2025-07-15",
               "rate": 0.0525,
-              "day_count": "Act360"
+              "conventions": {
+                "day_count": "Act360"
+              }
             }
           }
         ]
@@ -683,17 +719,19 @@ let calibrator = HazardCurveCalibrator::new(
 let quotes = vec![
     CreditQuote::CDS {
         entity: "ACME-CORP".to_string(),
-        maturity: create_date(2026, Month::January, 15)?,  // 1Y
-        spread_bp: 120.0,  // 120 bps
+        maturity: create_date(2026, Month::January, 15)?,
+        spread_bp: 120.0,
         recovery_rate: 0.40,
         currency: Currency::USD,
+        conventions: InstrumentConventions::default(),
     },
     CreditQuote::CDS {
         entity: "ACME-CORP".to_string(),
-        maturity: create_date(2030, Month::January, 15)?,  // 5Y
-        spread_bp: 150.0,  // 150 bps
+        maturity: create_date(2030, Month::January, 15)?,
+        spread_bp: 150.0,
         recovery_rate: 0.40,
         currency: Currency::USD,
+        conventions: InstrumentConventions::default(),
     },
 ];
 
