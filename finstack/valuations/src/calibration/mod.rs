@@ -57,6 +57,8 @@
 
 // Submodules
 pub mod bumps;
+/// Version 2 of the calibration API with plan-driven execution.
+pub mod v2;
 mod config;
 pub mod methods;
 pub mod pricing;

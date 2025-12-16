@@ -25,3 +25,4 @@ mod test_hazard_curve_calibration;
 mod test_simple_calibration_builder;
 mod test_swaption_vol_calibration;
 mod test_xccy_calibration;
+mod v2_parity_test;
