@@ -202,6 +202,34 @@ pub enum CalibrationMethod {
     },
 }
 
+#[cfg_attr(feature = "ts_export", derive(TS))]
+#[cfg_attr(feature = "ts_export", ts(export))]
+#[derive(Clone, Debug, Serialize, Deserialize)]
+#[serde(default, deny_unknown_fields)]
+pub struct DiscountCurveSolveConfig {
+    pub scan_grid_points: usize,
+    pub min_scan_grid_points: usize,
+    pub df_hard_min: f64,
+    pub df_hard_max: f64,
+    pub min_t_spot: f64,
+    pub bootstrap_seed_global_solve: bool,
+    pub allow_seed_fallback: bool,
+}
+
+impl Default for DiscountCurveSolveConfig {
+    fn default() -> Self {
+        Self {
+            scan_grid_points: 48,
+            min_scan_grid_points: 20,
+            df_hard_min: 1e-12,
+            df_hard_max: 1e6,
+            min_t_spot: 1e-6,
+            bootstrap_seed_global_solve: true,
+            allow_seed_fallback: false,
+        }
+    }
+}
+
 /// Multi-curve calibration configuration
 #[cfg_attr(feature = "ts_export", derive(TS))]
 #[cfg_attr(feature = "ts_export", ts(export))]
@@ -281,6 +309,10 @@ pub struct CalibrationConfig {
     /// Calibration method (bootstrap vs global solve).
     #[serde(default)]
     pub calibration_method: CalibrationMethod,
+
+    /// Discount-curve specific solver configuration.
+    #[serde(default)]
+    pub discount_curve: DiscountCurveSolveConfig,
 }
 
 /// Extension section key for calibration overrides.
@@ -304,6 +336,7 @@ impl Default for CalibrationConfig {
             rate_bounds_policy: RateBoundsPolicy::AutoCurrency,
             rate_bounds: RateBounds::default(),
             calibration_method: CalibrationMethod::default(),
+            discount_curve: DiscountCurveSolveConfig::default(),
         }
     }
 }
@@ -499,6 +532,7 @@ impl CalibrationConfig {
                 max_rate: 1.00, // Allow up to 100% for conservative edge cases
             },
             calibration_method: CalibrationMethod::default(),
+            discount_curve: DiscountCurveSolveConfig::default(),
         }
     }
 
@@ -540,6 +574,7 @@ impl CalibrationConfig {
             rate_bounds_policy: RateBoundsPolicy::Explicit,
             rate_bounds: RateBounds::default(),
             calibration_method: CalibrationMethod::default(),
+            discount_curve: DiscountCurveSolveConfig::default(),
         }
     }
 
@@ -581,6 +616,7 @@ impl CalibrationConfig {
             rate_bounds_policy: RateBoundsPolicy::Explicit,
             rate_bounds: RateBounds::default(),
             calibration_method: CalibrationMethod::default(),
+            discount_curve: DiscountCurveSolveConfig::default(),
         }
     }
 

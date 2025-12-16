@@ -20,8 +20,6 @@ use finstack_core::market_data::context::MarketContext;
 use finstack_core::market_data::term_structures::DiscountCurve;
 use finstack_core::prelude::*;
 
-const FALLBACK_INITIAL_DF: f64 = 0.95;
-
 impl DiscountCurveCalibrator {
     pub(super) fn bootstrap_curve(
         &self,
@@ -47,10 +45,28 @@ impl DiscountCurveCalibrator {
         let curve_dc = super::default_curve_day_count(self.currency);
         let pricer = self.create_pricer();
         pricer.validate_curve_dependencies(&sorted_quotes, base_context)?;
-        let settlement = pricer.settlement_date(self.currency)?;
+        let first_conv = sorted_quotes
+            .first()
+            .ok_or(finstack_core::Error::Input(
+                finstack_core::error::InputError::TooFewPoints,
+            ))?
+            .conventions();
+        let first_settle = conv::resolve_common(&pricer, first_conv, self.currency);
+        for q in sorted_quotes.iter().skip(1) {
+            let s = conv::resolve_common(&pricer, q.conventions(), self.currency);
+            if s.settlement_days != first_settle.settlement_days
+                || s.calendar_id != first_settle.calendar_id
+                || s.bdc != first_settle.bdc
+            {
+                return Err(finstack_core::Error::Validation(
+                    "Inconsistent settlement conventions across discount curve quotes".to_string(),
+                ));
+            }
+        }
+        let settlement = pricer.settlement_date_for_quote(first_conv, self.currency)?;
 
         // Spot knot
-        let (t_spot, spot_knot) = self.compute_spot_knot(curve_dc, settlement);
+        let (t_spot, spot_knot) = self.compute_spot_knot(curve_dc, settlement)?;
         let mut initial_knots = Vec::with_capacity(2);
         initial_knots.push((0.0, 1.0));
         if let Some(knot) = spot_knot {
@@ -75,15 +91,6 @@ impl DiscountCurveCalibrator {
                 &self.config,
                 None, // No explanation trace passed for now
             )?;
-
-        // Validate final curve here (or generic could do it?)
-        // Generic blindly calls build_curve. We want full validation.
-        // `target.build_curve` does `build_for_solver`.
-        // We might want to rebuild strictly at the end.
-        // `SequentialBootstrapper` returns `T::Curve` from `target.build_curve`.
-        // So we might need to rebuild "properly" here if `target.build_curve` is loose.
-        // `DiscountBootstrapper::build_curve` will use `build_for_solver`.
-        // So we should rebuild.
 
         self.build_final_curve_and_report(
             curve,
@@ -197,46 +204,37 @@ impl<'a> BootstrapTarget for DiscountBootstrapper<'a> {
     }
 
     fn calculate_residual(&self, curve: &Self::Curve, quote: &Self::Quote) -> Result<f64> {
-        // Optimization: check suitability
-        if quote.requires_forward_curve() && !quote.is_ois_suitable() {
-            return Ok(crate::calibration::PENALTY);
-        }
-
         let temp_context = self.base_context.clone().insert_discount(curve.clone());
         let pv = self
             .pricer
-            .price_instrument(quote, self.calibrator.currency, &temp_context)
-            .unwrap_or(crate::calibration::PENALTY);
+            .price_instrument(quote, self.calibrator.currency, &temp_context)?;
 
         // Keep the signed residual so the root finder can detect sign changes.
         Ok(pv)
     }
 
-    fn initial_guess(&self, quote: &Self::Quote, previous_knots: &[(f64, f64)]) -> f64 {
-        // Reuse logic from original helper
-        // We need time_to_maturity
-        let t = self.quote_time(quote).unwrap_or(1.0); // Should have been checked
+    fn initial_guess(&self, quote: &Self::Quote, previous_knots: &[(f64, f64)]) -> Result<f64> {
+        let t = self.quote_time(quote)?;
         let (df_lo, df_hi) = self.calibrator.df_bounds_for_time(t);
 
         match quote {
             RatesQuote::Deposit { maturity, .. } => {
                 let r = CalibrationPricer::get_rate(quote);
-                let day_count = conv::resolve_money_market(
-                    self.pricer,
-                    quote.conventions(),
-                    self.calibrator.currency,
-                )
-                .day_count;
+                let day_count = quote
+                    .conventions()
+                    .day_count
+                    .ok_or_else(|| finstack_core::Error::Validation(
+                        "Deposit quote requires conventions.day_count to be set".to_string(),
+                    ))?;
                 let yf = day_count
                     .year_fraction(
                         self.settlement,
                         *maturity,
                         finstack_core::dates::DayCountCtx::default(),
-                    )
-                    .unwrap_or(t)
+                    )?
                     .max(1e-6);
                 let df = 1.0 / (1.0 + r * yf);
-                df.clamp(df_lo, df_hi)
+                Ok(df.clamp(df_lo, df_hi))
             }
             _ => {
                 let mut guess = None;
@@ -272,16 +270,17 @@ impl<'a> BootstrapTarget for DiscountBootstrapper<'a> {
                     }
                 }
 
-                guess
-                    .unwrap_or(FALLBACK_INITIAL_DF)
-                    .clamp(df_lo, df_hi)
+                let df = guess.ok_or_else(|| finstack_core::Error::Calibration {
+                    message: "Unable to derive initial DF guess (need at least one prior knot or deposit quote)".into(),
+                    category: "bootstrapping".to_string(),
+                })?;
+                Ok(df.clamp(df_lo, df_hi))
             }
         }
     }
 
-    fn scan_points(&self, quote: &Self::Quote, initial_guess: f64) -> Vec<f64> {
-        // Get time to maturity for proper bounds calculation
-        let time = self.quote_time(quote).unwrap_or(1.0);
+    fn scan_points(&self, quote: &Self::Quote, initial_guess: f64) -> Result<Vec<f64>> {
+        let time = self.quote_time(quote)?;
         
         // Get discount factor bounds for this maturity
         let (df_lo, df_hi) = self.calibrator.df_bounds_for_time(time);
@@ -289,14 +288,19 @@ impl<'a> BootstrapTarget for DiscountBootstrapper<'a> {
         // Clamp initial guess to bounds
         let clamped_initial = initial_guess.clamp(df_lo, df_hi);
         
-        // Use maturity-aware scan grid for robust root finding
-        // Use more points (48 instead of 32) to ensure better coverage
-        let mut grid = DiscountCurveCalibrator::maturity_aware_scan_grid(df_lo, df_hi, clamped_initial, 48);
+        let num_points = self.calibrator.config.discount_curve.scan_grid_points;
+        let min_points = self.calibrator.config.discount_curve.min_scan_grid_points;
+        let mut grid = DiscountCurveCalibrator::maturity_aware_scan_grid(
+            df_lo,
+            df_hi,
+            clamped_initial,
+            num_points,
+        );
         
         // Ensure we have enough points - if grid is too sparse, add more
-        if grid.len() < 20 {
+        if grid.len() < min_points {
             // Add additional linear-spaced points across the range
-            let num_additional = 20 - grid.len().min(20);
+            let num_additional = min_points - grid.len().min(min_points);
             for i in 0..=num_additional {
                 let t = i as f64 / num_additional as f64;
                 let df = df_lo + t * (df_hi - df_lo);
@@ -308,7 +312,7 @@ impl<'a> BootstrapTarget for DiscountBootstrapper<'a> {
             grid.dedup_by(|a, b| (*a - *b).abs() < (df_hi - df_lo) * 0.001);
         }
         
-        grid
+        Ok(grid)
     }
 
     fn validate_knot(&self, time: f64, value: f64) -> Result<()> {

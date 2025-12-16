@@ -295,8 +295,7 @@ impl DiscountCurveCalibrator {
     pub(crate) fn create_pricer(&self) -> CalibrationPricer {
         CalibrationPricer::new(self.base_date, self.effective_discount_curve_id())
             .with_forward_curve_id(self.effective_forward_curve_id())
-            // Discount curve calibration uses base-date start to match repricing tests
-            .with_use_settlement_start(false)
+            .with_use_settlement_start(true)
     }
 
     /// Validate a calibrated discount curve using the configured validation policy.
@@ -329,14 +328,14 @@ impl DiscountCurveCalibrator {
         &self,
         curve_dc: DayCount,
         settlement: Date,
-    ) -> (f64, Option<(f64, f64)>) {
+    ) -> Result<(f64, Option<(f64, f64)>)> {
         // When not using settlement start, do not force a spot knot at settlement.
         if !self.create_pricer().use_settlement_start {
-            return (0.0, None);
+            return Ok((0.0, None));
         }
 
         if !self.include_spot_knot {
-            return (0.0, None);
+            return Ok((0.0, None));
         }
 
         let t_spot = curve_dc
@@ -345,13 +344,19 @@ impl DiscountCurveCalibrator {
                 settlement,
                 finstack_core::dates::DayCountCtx::default(),
             )
-            .unwrap_or(0.0);
+            .map_err(|e| finstack_core::Error::Calibration {
+                message: format!(
+                    "Year fraction calculation failed for settlement spot knot: {}",
+                    e
+                ),
+                category: "yield_curve".to_string(),
+            })?;
 
-        const MIN_T_SPOT: f64 = 1e-6; // ~30 seconds; avoids duplicate knots
-        if t_spot > MIN_T_SPOT {
-            (t_spot, Some((t_spot, 1.0)))
+        let min_t_spot = self.config.discount_curve.min_t_spot;
+        if t_spot > min_t_spot {
+            Ok((t_spot, Some((t_spot, 1.0))))
         } else {
-            (t_spot, None)
+            Ok((t_spot, None))
         }
     }
 
@@ -494,8 +499,15 @@ mod tests {
     use super::*;
     use crate::calibration::quotes::InstrumentConventions;
     use finstack_core::currency::Currency;
-    use finstack_core::dates::{Date, DayCount, Tenor};
+    use finstack_core::dates::{BusinessDayConvention, Date, DayCount, Tenor};
     use time::Month;
+
+    fn usd_settle_conventions() -> InstrumentConventions {
+        InstrumentConventions::default()
+            .with_settlement_days(2)
+            .with_calendar_id("usny")
+            .with_business_day_convention(BusinessDayConvention::ModifiedFollowing)
+    }
 
     fn create_test_quotes() -> Vec<RatesQuote> {
         let base_date = Date::from_calendar_date(2025, Month::January, 1).expect("Valid test date");
@@ -504,18 +516,18 @@ mod tests {
             RatesQuote::Deposit {
                 maturity: base_date + time::Duration::days(30),
                 rate: 0.045,
-                conventions: InstrumentConventions::default().with_day_count(DayCount::Act360),
+                conventions: usd_settle_conventions().with_day_count(DayCount::Act360),
             },
             RatesQuote::Deposit {
                 maturity: base_date + time::Duration::days(90),
                 rate: 0.046,
-                conventions: InstrumentConventions::default().with_day_count(DayCount::Act360),
+                conventions: usd_settle_conventions().with_day_count(DayCount::Act360),
             },
             RatesQuote::Swap {
                 maturity: base_date + time::Duration::days(365),
                 rate: 0.047,
                 is_ois: true,
-                conventions: Default::default(),
+                conventions: usd_settle_conventions(),
                 fixed_leg_conventions: InstrumentConventions::default()
                     .with_payment_frequency(Tenor::semi_annual())
                     .with_day_count(DayCount::Thirty360),
@@ -528,7 +540,7 @@ mod tests {
                 maturity: base_date + time::Duration::days(365 * 2),
                 rate: 0.048,
                 is_ois: true,
-                conventions: Default::default(),
+                conventions: usd_settle_conventions(),
                 fixed_leg_conventions: InstrumentConventions::default()
                     .with_payment_frequency(Tenor::semi_annual())
                     .with_day_count(DayCount::Thirty360),
@@ -723,23 +735,23 @@ mod tests {
             RatesQuote::Deposit {
                 maturity: base_date + time::Duration::days(30),
                 rate: 0.045,
-                conventions: InstrumentConventions::default().with_day_count(DayCount::Act360),
+                conventions: usd_settle_conventions().with_day_count(DayCount::Act360),
             },
             RatesQuote::Deposit {
                 maturity: base_date + time::Duration::days(60),
                 rate: 0.046,
-                conventions: InstrumentConventions::default().with_day_count(DayCount::Act360),
+                conventions: usd_settle_conventions().with_day_count(DayCount::Act360),
             },
             RatesQuote::Deposit {
                 maturity: base_date + time::Duration::days(90),
                 rate: 0.0465,
-                conventions: InstrumentConventions::default().with_day_count(DayCount::Act360),
+                conventions: usd_settle_conventions().with_day_count(DayCount::Act360),
             },
             RatesQuote::Swap {
                 maturity: base_date + time::Duration::days(180),
                 rate: 0.047,
                 is_ois: true,
-                conventions: Default::default(),
+                conventions: usd_settle_conventions(),
                 fixed_leg_conventions: InstrumentConventions::default()
                     .with_payment_frequency(Tenor::semi_annual())
                     .with_day_count(DayCount::Thirty360),
@@ -752,7 +764,7 @@ mod tests {
                 maturity: base_date + time::Duration::days(365),
                 rate: 0.048,
                 is_ois: true,
-                conventions: Default::default(),
+                conventions: usd_settle_conventions(),
                 fixed_leg_conventions: InstrumentConventions::default()
                     .with_payment_frequency(Tenor::semi_annual())
                     .with_day_count(DayCount::Thirty360),
@@ -765,7 +777,7 @@ mod tests {
                 maturity: base_date + time::Duration::days(730),
                 rate: 0.049,
                 is_ois: true,
-                conventions: Default::default(),
+                conventions: usd_settle_conventions(),
                 fixed_leg_conventions: InstrumentConventions::default()
                     .with_payment_frequency(Tenor::semi_annual())
                     .with_day_count(DayCount::Thirty360),
@@ -806,12 +818,12 @@ mod tests {
             RatesQuote::Deposit {
                 maturity: base_date + time::Duration::days(30),
                 rate: 0.03,
-                conventions: InstrumentConventions::default().with_day_count(DayCount::Act360),
+                conventions: usd_settle_conventions().with_day_count(DayCount::Act360),
             },
             RatesQuote::Deposit {
                 maturity: base_date + time::Duration::days(90),
                 rate: 0.035,
-                conventions: InstrumentConventions::default().with_day_count(DayCount::Act360),
+                conventions: usd_settle_conventions().with_day_count(DayCount::Act360),
             },
         ];
 
@@ -871,12 +883,12 @@ mod tests {
             RatesQuote::Deposit {
                 maturity: base_date + time::Duration::days(30),
                 rate: 0.045,
-                conventions: InstrumentConventions::default().with_day_count(DayCount::Act360),
+                conventions: usd_settle_conventions().with_day_count(DayCount::Act360),
             },
             RatesQuote::Deposit {
                 maturity: base_date + time::Duration::days(90),
                 rate: 0.046,
-                conventions: InstrumentConventions::default().with_day_count(DayCount::Act360),
+                conventions: usd_settle_conventions().with_day_count(DayCount::Act360),
             },
         ];
 
@@ -976,12 +988,12 @@ mod tests {
             RatesQuote::Deposit {
                 maturity: base_date + time::Duration::days(30),
                 rate: 0.045,
-                conventions: InstrumentConventions::default().with_day_count(DayCount::Act360),
+                conventions: usd_settle_conventions().with_day_count(DayCount::Act360),
             },
             RatesQuote::Deposit {
                 maturity: base_date + time::Duration::days(90),
                 rate: 0.046,
-                conventions: InstrumentConventions::default().with_day_count(DayCount::Act360),
+                conventions: usd_settle_conventions().with_day_count(DayCount::Act360),
             },
         ];
 
@@ -1085,6 +1097,8 @@ mod tests {
             &zero_rates,
             &rate_bounds,
             None, // no spot knot
+            1e-12,
+            1e6,
         );
 
         // Should have 4 knots: base (0,1) + 3 time points

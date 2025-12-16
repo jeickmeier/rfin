@@ -216,6 +216,34 @@ impl CalibrationPricer {
         }
     }
 
+    /// Resolve settlement date using strictly provided quote conventions (no defaults).
+    pub fn settlement_date_for_quote_strict(
+        &self,
+        quote_conventions: &InstrumentConventions,
+        currency: Currency,
+    ) -> finstack_core::Result<Date> {
+        let settled = conv::resolve_settlement_strict(quote_conventions, currency)?;
+        let days = settled.settlement_days;
+        let calendar_id = settled.calendar_id;
+
+        let registry = CalendarRegistry::global();
+        if let Some(calendar) = registry.resolve_str(calendar_id) {
+            if days == 0 {
+                adjust(self.base_date, settled.bdc, calendar)
+            } else {
+                let spot = self.base_date.add_business_days(days, calendar)?;
+                adjust(spot, settled.bdc, calendar)
+            }
+        } else {
+            Err(finstack_core::Error::Input(
+                finstack_core::error::InputError::NotFound {
+                    id: format!("calendar '{}'", calendar_id),
+                },
+            ))
+        }
+    }
+
+
     /// Create a pricer configured for forward curve calibration.
     ///
     /// This sets:
@@ -1088,6 +1116,217 @@ impl CalibrationPricer {
                     conventions,
                     context,
                 )
+            }
+        }
+    }
+
+    /// Price a rate instrument requiring all conventions to be explicitly provided.
+    pub fn price_instrument_strict(
+        &self,
+        quote: &RatesQuote,
+        currency: Currency,
+        context: &MarketContext,
+    ) -> Result<f64> {
+        match quote {
+            RatesQuote::Deposit {
+                maturity,
+                rate,
+                conventions,
+            } => {
+                // For strict pricing we still honor quote-provided day count, but
+                // allow settlement conventions to fall back to currency defaults.
+                let resolved = conv::resolve_money_market(self, conventions, currency);
+                let start = if self.use_settlement_start {
+                    self.settlement_date_for_quote(conventions, currency)?
+                } else {
+                    self.base_date
+                };
+                let dep = Deposit {
+                    id: format!("CALIB_DEP_{}", maturity).into(),
+                    notional: Money::new(1_000_000.0, currency),
+                    start,
+                    end: *maturity,
+                    day_count: resolved.day_count,
+                    quote_rate: Some(*rate),
+                    discount_curve_id: self.discount_curve_id.clone(),
+                    attributes: Default::default(),
+                    spot_lag_days: if self.use_settlement_start {
+                        Some(resolved.common.settlement_days)
+                    } else {
+                        None
+                    },
+                    bdc: Some(resolved.common.bdc),
+                    calendar_id: Some(resolved.common.calendar_id.to_string()),
+                };
+                let pv = dep.value(context, self.base_date)?;
+                Ok(pv.amount() / dep.notional.amount())
+            }
+            RatesQuote::FRA {
+                start,
+                end,
+                rate,
+                conventions,
+            } => {
+                // Require day count but allow settlement/reset conventions to default.
+                let common = conv::resolve_common(self, conventions, currency);
+                let day_count = conventions.day_count.ok_or_else(|| {
+                    finstack_core::Error::Validation(
+                        "FRA quote requires conventions.day_count to be set".to_string(),
+                    )
+                })?;
+                let reset_lag = common.reset_lag_days;
+                let calendar_id = common.calendar_id;
+                let registry = CalendarRegistry::global();
+                let calendar = registry.resolve_str(calendar_id).ok_or_else(|| {
+                    finstack_core::Error::calendar_not_found_with_suggestions(
+                        calendar_id.to_string(),
+                        registry.available_ids(),
+                    )
+                })?;
+                let fixing_date = if *start >= self.base_date {
+                    start.add_business_days(-reset_lag, calendar)?
+                } else {
+                    self.base_date
+                };
+                let fra = ForwardRateAgreement::builder()
+                    .id(format!("CALIB_FRA_{}_{}", start, end).into())
+                    .notional(Money::new(1_000_000.0, currency))
+                    .fixing_date(fixing_date)
+                    .start_date(*start)
+                    .end_date(*end)
+                    .fixed_rate(*rate)
+                    .day_count(day_count)
+                    .reset_lag(reset_lag)
+                    .fixing_calendar_id_opt(Some(calendar_id.to_string()))
+                    .discount_curve_id(self.discount_curve_id.clone())
+                    .forward_id(self.forward_curve_id.clone())
+                    .pay_fixed(false)
+                    .build()
+                    .map_err(|_| finstack_core::Error::Internal)?;
+                let pv = fra.value(context, self.base_date)?;
+                Ok(pv.amount() / fra.notional.amount())
+            }
+            RatesQuote::Future {
+                expiry,
+                price,
+                specs,
+                conventions,
+            } => self.price_future(*expiry, *price, specs, conventions, currency, context),
+            RatesQuote::Swap {
+                maturity,
+                rate,
+                is_ois,
+                conventions,
+                ..
+            } => {
+                // Enforce leg day counts/tenors while allowing settlement defaults.
+                let resolved = conv::resolve_swap_conventions(self, quote, currency)?;
+                let start = self.effective_start_date(conventions, currency)?;
+                let payment_delay = resolved.common.payment_delay_days;
+                let reset_lag = resolved.common.reset_lag_days;
+                let calendar_id = resolved.common.calendar_id.to_string();
+
+                let fixed_spec = FixedLegSpec {
+                    discount_curve_id: self.discount_curve_id.clone(),
+                    rate: *rate,
+                    freq: resolved.fixed_freq,
+                    dc: resolved.fixed_dc,
+                    bdc: resolved.common.bdc,
+                    calendar_id: Some(calendar_id.clone()),
+                    stub: StubKind::None,
+                    par_method: None,
+                    compounding_simple: true,
+                    start,
+                    end: *maturity,
+                    payment_delay_days: payment_delay,
+                };
+
+                let use_ois_pricing = *is_ois && self.tenor_years.is_none();
+                let (float_discount_id, float_forward_id, compounding) = if use_ois_pricing {
+                    (
+                        self.discount_curve_id.clone(),
+                        self.discount_curve_id.clone(),
+                        ois_compounding_for_index(resolved.index, currency),
+                    )
+                } else {
+                    (
+                        self.discount_curve_id.clone(),
+                        self.forward_curve_id.clone(),
+                        FloatingLegCompounding::Simple,
+                    )
+                };
+
+                let float_spec = FloatLegSpec {
+                    discount_curve_id: float_discount_id,
+                    forward_curve_id: float_forward_id,
+                    spread_bp: 0.0,
+                    freq: resolved.float_freq,
+                    dc: resolved.float_dc,
+                    bdc: resolved.common.bdc,
+                    calendar_id: Some(calendar_id.clone()),
+                    fixing_calendar_id: Some(calendar_id),
+                    stub: StubKind::None,
+                    reset_lag_days: reset_lag,
+                    start,
+                    end: *maturity,
+                    compounding,
+                    payment_delay_days: payment_delay,
+                };
+
+                let swap = InterestRateSwap {
+                    id: format!("CALIB_SWAP_{}", maturity).into(),
+                    notional: Money::new(1_000_000.0, currency),
+                    side: PayReceive::ReceiveFixed,
+                    fixed: fixed_spec,
+                    float: float_spec,
+                    margin_spec: None,
+                    attributes: Default::default(),
+                };
+                let pv = swap.value(context, self.base_date)?;
+                Ok(pv.amount() / swap.notional.amount())
+            }
+            RatesQuote::BasisSwap {
+                maturity,
+                spread_bp,
+                conventions,
+                ..
+            } => {
+                let resolved = conv::resolve_basis_swap_conventions_strict(quote, currency)?;
+                let common = conv::resolve_common_strict(conventions, resolved.currency)?;
+                let start = if self.use_settlement_start {
+                    self.settlement_date_for_quote_strict(conventions, resolved.currency)?
+                } else {
+                    self.base_date
+                };
+                let basis_swap = BasisSwap::new(
+                    format!("CALIB_BASIS_{}", maturity),
+                    Money::new(1_000_000.0, resolved.currency),
+                    start,
+                    *maturity,
+                    BasisSwapLeg {
+                        forward_curve_id: self.resolve_forward_curve_id(resolved.primary_index.as_str()),
+                        frequency: resolved.primary_freq,
+                        day_count: resolved.primary_dc,
+                        bdc: common.bdc,
+                        payment_lag_days: common.payment_delay_days,
+                        reset_lag_days: common.reset_lag_days,
+                        spread: *spread_bp / 10_000.0,
+                    },
+                    BasisSwapLeg {
+                        forward_curve_id: self.resolve_forward_curve_id(resolved.reference_index.as_str()),
+                        frequency: resolved.reference_freq,
+                        day_count: resolved.reference_dc,
+                        bdc: common.bdc,
+                        payment_lag_days: common.payment_delay_days,
+                        reset_lag_days: common.reset_lag_days,
+                        spread: 0.0,
+                    },
+                    self.discount_curve_id.as_str(),
+                )
+                .with_allow_calendar_fallback(self.allow_calendar_fallback)
+                .with_calendar(common.calendar_id.to_string());
+                let pv = basis_swap.value(context, self.base_date)?;
+                Ok(pv.amount() / basis_swap.notional.amount())
             }
         }
     }

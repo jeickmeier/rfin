@@ -40,14 +40,14 @@ pub trait BootstrapTarget {
     fn calculate_residual(&self, curve: &Self::Curve, quote: &Self::Quote) -> Result<f64>;
 
     /// Provide an initial guess for the solver for the next knot.
-    fn initial_guess(&self, quote: &Self::Quote, previous_knots: &[(f64, f64)]) -> f64;
+    fn initial_guess(&self, quote: &Self::Quote, previous_knots: &[(f64, f64)]) -> Result<f64>;
 
     /// Get scan points for root bracketing for the given quote.
     ///
     /// This allows the target to provide adaptive or context-aware scan grids
     /// based on the quote and initial guess.
-    fn scan_points(&self, _quote: &Self::Quote, _initial_guess: f64) -> Vec<f64> {
-        Vec::new()
+    fn scan_points(&self, _quote: &Self::Quote, _initial_guess: f64) -> Result<Vec<f64>> {
+        Ok(Vec::new())
     }
 
     /// Optional: Validate the solved value before accepting it.
@@ -91,7 +91,10 @@ impl SequentialBootstrapper {
             let time = target.quote_time(quote)?;
 
             // Initial guess
-            let initial_guess = target.initial_guess(quote, &knots);
+            let initial_guess = target.initial_guess(quote, &knots)?;
+
+            let residual_error: std::cell::RefCell<Option<finstack_core::Error>> =
+                std::cell::RefCell::new(None);
 
             // Define objective function
             let objective = |value: f64| -> f64 {
@@ -104,19 +107,29 @@ impl SequentialBootstrapper {
                 // 1. Build temporary curve
                 let curve = match target.build_curve_for_solver(&temp_knots) {
                     Ok(c) => c,
-                    Err(_) => return crate::calibration::PENALTY,
+                    Err(e) => {
+                        if residual_error.borrow().is_none() {
+                            *residual_error.borrow_mut() = Some(e);
+                        }
+                        return crate::calibration::PENALTY;
+                    }
                 };
 
                 // 2. Calculate residual failure
                 match target.calculate_residual(&curve, quote) {
                     Ok(r) => r,
-                    Err(_) => crate::calibration::PENALTY,
+                    Err(e) => {
+                        if residual_error.borrow().is_none() {
+                            *residual_error.borrow_mut() = Some(e);
+                        }
+                        crate::calibration::PENALTY
+                    }
                 }
             };
 
             // Determine scan points: prefer target-specific points
             let scan_points = {
-                let points = target.scan_points(quote, initial_guess);
+                let points = target.scan_points(quote, initial_guess)?;
                 if !points.is_empty() {
                     points
                 } else {
@@ -149,6 +162,16 @@ impl SequentialBootstrapper {
                 config.tolerance,
                 config.max_iterations,
             )?;
+
+            if let Some(e) = residual_error.borrow_mut().take() {
+                return Err(finstack_core::Error::Calibration {
+                    message: format!(
+                        "Bootstrap residual evaluation failed at t={:.4}: {}",
+                        time, e
+                    ),
+                    category: "bootstrapping".to_string(),
+                });
+            }
 
             total_iterations += diag.eval_count;
 

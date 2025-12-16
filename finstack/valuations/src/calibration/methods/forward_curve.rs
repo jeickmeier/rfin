@@ -525,40 +525,40 @@ impl<'a> crate::calibration::methods::common::bootstrapper::BootstrapTarget
         let ctx = self.base_context.borrow();
 
         let pricer = self.calibrator.make_pricer();
-        let pv = pricer
-            .price_instrument(quote, self.calibrator.currency, &ctx)
-            .unwrap_or(crate::calibration::PENALTY);
+        let pv = pricer.price_instrument(quote, self.calibrator.currency, &ctx)?;
 
         // Keep signed residual so root finder can detect sign changes
         Ok(pv)
     }
 
-    fn initial_guess(&self, quote: &Self::Quote, previous_knots: &[(f64, f64)]) -> f64 {
+    fn initial_guess(&self, quote: &Self::Quote, previous_knots: &[(f64, f64)]) -> Result<f64> {
         // We need context for discount curve fallback
         let ctx = self.base_context.borrow();
 
         // Reuse logic from get_initial_guess
         match quote {
-            RatesQuote::FRA { rate, .. } => *rate,
+            RatesQuote::FRA { rate, .. } => Ok(*rate),
             RatesQuote::Future { price, specs, .. } => {
                 let implied_rate = (100.0 - price) / 100.0;
                 if let Some(adj) = specs.convexity_adjustment {
-                    implied_rate + adj
+                    Ok(implied_rate + adj)
                 } else {
-                    implied_rate
+                    Ok(implied_rate)
                 }
             }
-            RatesQuote::Swap { rate, .. } => *rate,
-            _ => previous_knots
-                .last()
-                .map(|(_, fwd)| *fwd)
-                .or_else(|| {
+            RatesQuote::Swap { rate, .. } => Ok(*rate),
+            _ => {
+                let g = previous_knots.last().map(|(_, fwd)| *fwd).or_else(|| {
                     let t = self.calibrator.tenor_years.max(1.0 / 12.0);
                     ctx.get_discount_ref(self.calibrator.discount_curve_id.as_ref())
                         .ok()
                         .map(|disc_curve| disc_curve.zero(t))
+                });
+                g.ok_or_else(|| finstack_core::Error::Calibration {
+                    message: "Unable to derive initial forward rate guess".into(),
+                    category: "bootstrapping".to_string(),
                 })
-                .unwrap_or(0.02),
+            }
         }
     }
 
