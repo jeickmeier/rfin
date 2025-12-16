@@ -14,7 +14,6 @@ pub(crate) struct ResolvedCommon<'a> {
 }
 
 pub(crate) struct ResolvedMoneyMarket<'a> {
-    #[allow(dead_code)]
     pub common: ResolvedCommon<'a>,
     pub day_count: DayCount,
 }
@@ -29,8 +28,6 @@ pub(crate) struct ResolvedSwapConventions<'a> {
 }
 
 pub(crate) struct ResolvedBasisSwapConventions<'a> {
-    #[allow(dead_code)]
-    pub common: ResolvedCommon<'a>,
     pub currency: Currency,
     pub primary_freq: Tenor,
     pub reference_freq: Tenor,
@@ -59,58 +56,6 @@ pub(crate) fn default_calendar_for_currency(currency: Currency) -> &'static str 
         Currency::HKD => "hkex",
         Currency::SGD => "sgex",
         _ => "usny",
-    }
-}
-
-pub(crate) fn resolve_swap_conventions_strict<'a>(
-    quote: &'a RatesQuote,
-    currency: Currency,
-) -> Result<ResolvedSwapConventions<'a>> {
-    match quote {
-        RatesQuote::Swap {
-            conventions,
-            fixed_leg_conventions,
-            float_leg_conventions,
-            ..
-        } => {
-            let common = resolve_common_strict(conventions, currency)?;
-
-            let fixed_freq = require_tenor(
-                fixed_leg_conventions.payment_frequency,
-                "fixed_leg_conventions.payment_frequency",
-            )?;
-            let float_freq = require_tenor(
-                float_leg_conventions.payment_frequency,
-                "float_leg_conventions.payment_frequency",
-            )?;
-
-            let fixed_dc = require_day_count(
-                fixed_leg_conventions.day_count,
-                "fixed_leg_conventions.day_count",
-            )?;
-            let float_dc = require_day_count(
-                float_leg_conventions.day_count,
-                "float_leg_conventions.day_count",
-            )?;
-
-            let index = float_leg_conventions.index.as_ref().ok_or_else(|| {
-                finstack_core::Error::Validation(
-                    "Swap quote requires float_leg_conventions.index to be set".to_string(),
-                )
-            })?;
-
-            Ok(ResolvedSwapConventions {
-                common,
-                fixed_freq,
-                float_freq,
-                fixed_dc,
-                float_dc,
-                index,
-            })
-        }
-        _ => Err(finstack_core::Error::Input(
-            finstack_core::error::InputError::Invalid,
-        )),
     }
 }
 
@@ -233,15 +178,6 @@ pub(crate) fn resolve_money_market<'a>(
     ResolvedMoneyMarket { common, day_count }
 }
 
-pub(crate) fn resolve_money_market_strict<'a>(
-    quote_conventions: &'a InstrumentConventions,
-    currency: Currency,
-) -> Result<ResolvedMoneyMarket<'a>> {
-    let common = resolve_common_strict(quote_conventions, currency)?;
-    let day_count = require_day_count(quote_conventions.day_count, "day_count")?;
-    Ok(ResolvedMoneyMarket { common, day_count })
-}
-
 pub(crate) fn resolve_swap_conventions<'a>(
     pricer: &CalibrationPricer,
     quote: &'a RatesQuote,
@@ -292,7 +228,7 @@ pub(crate) fn resolve_swap_conventions<'a>(
 }
 
 pub(crate) fn resolve_basis_swap_conventions<'a>(
-    pricer: &CalibrationPricer,
+    _pricer: &CalibrationPricer,
     quote: &'a RatesQuote,
     currency: Currency,
 ) -> Result<ResolvedBasisSwapConventions<'a>> {
@@ -304,7 +240,6 @@ pub(crate) fn resolve_basis_swap_conventions<'a>(
             ..
         } => {
             let basis_currency = conventions.currency.unwrap_or(currency);
-            let common = resolve_common(pricer, conventions, basis_currency);
 
             let primary_index = primary_leg_conventions.index.as_ref().ok_or_else(|| {
                 finstack_core::Error::Validation(
@@ -332,7 +267,6 @@ pub(crate) fn resolve_basis_swap_conventions<'a>(
                 .unwrap_or_else(|| InstrumentConventions::default_float_leg_day_count(basis_currency));
 
             Ok(ResolvedBasisSwapConventions {
-                common,
                 currency: basis_currency,
                 primary_freq,
                 reference_freq,
@@ -360,7 +294,6 @@ pub(crate) fn resolve_basis_swap_conventions_strict<'a>(
             ..
         } => {
             let basis_currency = conventions.currency.unwrap_or(currency);
-            let common = resolve_common_strict(conventions, basis_currency)?;
 
             let primary_index = primary_leg_conventions.index.as_ref().ok_or_else(|| {
                 finstack_core::Error::Validation(
@@ -392,7 +325,6 @@ pub(crate) fn resolve_basis_swap_conventions_strict<'a>(
             )?;
 
             Ok(ResolvedBasisSwapConventions {
-                common,
                 currency: basis_currency,
                 primary_freq,
                 reference_freq,

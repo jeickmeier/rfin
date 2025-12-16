@@ -373,7 +373,6 @@ impl DiscountCurveCalibrator {
     /// * `df_hi` - Upper bound for discount factor (from `df_bounds_for_time`)
     /// * `initial_df` - Initial guess to center fine grid around
     /// * `num_points` - Total number of scan points (default ~32)
-    #[allow(dead_code)] // Used in tests
     pub(crate) fn maturity_aware_scan_grid(
         df_lo: f64,
         df_hi: f64,

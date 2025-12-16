@@ -323,7 +323,6 @@ impl DiscountCurveCalibrator {
     ) -> Result<(Vec<f64>, usize)> {
         let solver = self.config.create_lm_solver();
         let base_context_clone = base_context.clone();
-        let solve_interp = self.solve_interp;
         let base_date = self.base_date;
         let discount_curve_id = self.effective_discount_curve_id();
         let pricer_clone = pricer.clone();
