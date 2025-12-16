@@ -55,7 +55,7 @@ use serde::{Deserialize, Serialize};
 ///
 /// let calibrator = DiscountCurveCalibrator::new("USD-OIS", base_date, Currency::USD)
 ///     .with_extrapolation(ExtrapolationPolicy::FlatForward)
-///     .with_settlement_days(2);
+///     .with_include_spot_knot(true);
 /// ```
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct DiscountCurveCalibrator {
@@ -254,42 +254,6 @@ impl DiscountCurveCalibrator {
     /// - Use for non-OIS curves or when base_date equals settlement
     pub fn with_include_spot_knot(mut self, include: bool) -> Self {
         self.include_spot_knot = include;
-        self
-    }
-
-    /// Set calendar ID (deprecated: use InstrumentConventions on quotes instead).
-    ///
-    /// This method is kept for backward compatibility with Python bindings.
-    /// Settings are now configured per-quote via `InstrumentConventions`.
-    #[deprecated(note = "Use InstrumentConventions on quotes instead")]
-    pub fn with_calendar_id(self, _calendar_id: impl Into<String>) -> Self {
-        self
-    }
-
-    /// Set settlement days (deprecated: use InstrumentConventions on quotes instead).
-    ///
-    /// This method is kept for backward compatibility with Python bindings.
-    /// Settings are now configured per-quote via `InstrumentConventions`.
-    #[deprecated(note = "Use InstrumentConventions on quotes instead")]
-    pub fn with_settlement_days(self, _days: i32) -> Self {
-        self
-    }
-
-    /// Set payment delay (deprecated: use InstrumentConventions on quotes instead).
-    ///
-    /// This method is kept for backward compatibility with Python bindings.
-    /// Settings are now configured per-quote via `InstrumentConventions`.
-    #[deprecated(note = "Use InstrumentConventions on quotes instead")]
-    pub fn with_payment_delay(self, _days: i32) -> Self {
-        self
-    }
-
-    /// Set curve day count (deprecated: use InstrumentConventions on quotes instead).
-    ///
-    /// This method is kept for backward compatibility with Python bindings.
-    /// Settings are now configured per-quote via `InstrumentConventions`.
-    #[deprecated(note = "Use InstrumentConventions on quotes instead")]
-    pub fn with_curve_day_count(self, _dc: DayCount) -> Self {
         self
     }
 

@@ -170,18 +170,6 @@ pub fn update_rate_from_binding(
     })
 }
 
-/// Legacy adapter kept for backward compatibility with older call sites.
-#[deprecated(note = "use update_rate_from_binding instead")]
-pub fn update_1y_rate_from_curve(
-    model: &mut FinancialModelSpec,
-    node_id: &str,
-    market: &MarketContext,
-    curve_id: &str,
-) -> Result<()> {
-    let binding = RateBindingSpec::from_legacy(node_id.to_string(), curve_id.to_string());
-    update_rate_from_binding(&binding, model, market)
-}
-
 fn set_scalar_rate(model: &mut FinancialModelSpec, node_id: &str, rate: f64) -> Result<()> {
     let node = model
         .get_node_mut(node_id)

@@ -91,25 +91,6 @@ fn ois_compounding_for_index(index: &IndexId, currency: Currency) -> FloatingLeg
     }
 }
 
-/// Get the default settlement calendar ID for a currency.
-///
-/// Market-standard settlement calendars used for spot/settlement date calculation.
-/// Override via quote conventions for custom calendars.
-#[deprecated(note = "Use calibration::pricing::conventions::default_calendar_for_currency instead")]
-#[allow(dead_code)]
-fn default_calendar_for_currency(currency: Currency) -> &'static str {
-    conv::default_calendar_for_currency(currency)
-}
-
-/// Default settlement days by currency.
-///
-/// Most currencies use T+2, with exceptions for GBP (T+0) and AUD/CAD (T+1).
-#[deprecated(note = "Use calibration::pricing::conventions::default_settlement_days instead")]
-#[allow(dead_code)]
-fn default_settlement_days(currency: Currency) -> i32 {
-    conv::default_settlement_days(currency)
-}
-
 // =============================================================================
 // Quote Validation Types
 // =============================================================================
@@ -358,67 +339,6 @@ impl CalibrationPricer {
         }
         // Default: derive from index name
         format!("FWD_{}", index_name).into()
-    }
-
-    /// Get effective settlement days (explicit or currency default).
-    #[deprecated(note = "Use calibration::pricing::conventions::resolve_common instead")]
-    pub fn effective_settlement_days(&self, currency: Currency) -> i32 {
-        self.settlement_days
-            .unwrap_or_else(|| conv::default_settlement_days(currency))
-    }
-
-    // =========================================================================
-    // Per-Quote Convention Resolution
-    // =========================================================================
-
-    /// Resolve effective settlement days for a specific quote.
-    ///
-    /// Priority: quote convention > pricer setting > currency default
-    #[inline]
-    #[deprecated(note = "Use calibration::pricing::conventions::resolve_common instead")]
-    #[allow(dead_code)]
-    fn resolve_settlement_days(
-        &self,
-        quote_conventions: &InstrumentConventions,
-        currency: Currency,
-    ) -> i32 {
-        conv::resolve_common(self, quote_conventions, currency).settlement_days
-    }
-
-    /// Resolve effective payment delay for a specific quote.
-    ///
-    /// Priority: quote convention > 0 (default)
-    #[inline]
-    #[deprecated(note = "Use calibration::pricing::conventions::resolve_common instead")]
-    #[allow(dead_code)]
-    fn resolve_payment_delay(quote_conventions: &InstrumentConventions) -> i32 {
-        quote_conventions.payment_delay_days.unwrap_or(0)
-    }
-
-    /// Resolve effective reset lag for a specific quote.
-    ///
-    /// Priority: quote convention > 2 (default)
-    #[inline]
-    #[deprecated(note = "Use calibration::pricing::conventions::resolve_common instead")]
-    #[allow(dead_code)]
-    fn resolve_reset_lag(quote_conventions: &InstrumentConventions) -> i32 {
-        quote_conventions.reset_lag.unwrap_or(2)
-    }
-
-    /// Resolve effective calendar ID for a specific quote.
-    ///
-    /// Priority: quote convention > currency default
-    #[inline]
-    #[deprecated(note = "Use calibration::pricing::conventions::resolve_common instead")]
-    #[allow(dead_code)]
-    fn resolve_calendar_id(
-        quote_conventions: &InstrumentConventions,
-        currency: Currency,
-    ) -> &str {
-        quote_conventions
-            .calendar_id
-            .as_deref()
-            .unwrap_or_else(|| conv::default_calendar_for_currency(currency))
     }
 
     /// Calculate settlement date from base date using business-day calendar.

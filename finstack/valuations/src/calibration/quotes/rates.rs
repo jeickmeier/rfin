@@ -1,10 +1,10 @@
 //! Interest rate quote types for yield curve calibration.
 //!
 //! Quote conventions are now consolidated into `InstrumentConventions` structs.
-//! Use the accessor methods to get effective values with currency-specific defaults.
+//! Use `InstrumentConventions` defaults and the centralized conventions resolver.
 
 use super::conventions::InstrumentConventions;
-use finstack_core::dates::{Date, DayCount, Tenor};
+use finstack_core::dates::{Date, DayCount};
 use finstack_core::prelude::*;
 use finstack_core::types::IndexId;
 #[cfg(feature = "ts_export")]
@@ -13,8 +13,7 @@ use ts_rs::TS;
 /// Interest rate instrument quotes for yield curve calibration.
 ///
 /// All convention-related fields (day count, payment frequency, index) are now
-/// consolidated into `InstrumentConventions` structs. Use accessor methods like
-/// `effective_day_count()` to get values with currency-appropriate defaults.
+/// consolidated into `InstrumentConventions` structs.
 #[cfg_attr(feature = "ts_export", derive(TS))]
 #[cfg_attr(feature = "ts_export", ts(export))]
 #[cfg_attr(feature = "ts_export", ts(rename_all = "snake_case"))]
@@ -267,69 +266,6 @@ impl RatesQuote {
         }
     }
 
-    // =========================================================================
-    // Effective Convention Accessors with Currency Defaults
-    // =========================================================================
-
-    /// Get effective day count for Deposit/FRA quotes with currency default.
-    ///
-    /// Uses `conventions.day_count` if specified, otherwise returns the
-    /// currency-appropriate default (ACT/360 for USD/EUR/CHF, ACT/365F for GBP/JPY/AUD).
-    #[inline]
-    #[deprecated(note = "Use calibration::pricing::conventions::resolve_money_market instead")]
-    pub fn effective_day_count(&self, currency: Currency) -> DayCount {
-        self.conventions()
-            .effective_day_count_or_default(currency)
-    }
-
-    /// Get effective fixed leg day count for Swap quotes with currency default.
-    ///
-    /// Uses `fixed_leg_conventions.day_count` if specified, otherwise returns
-    /// currency-appropriate default (30/360 for most, ACT/365F for GBP).
-    #[inline]
-    #[deprecated(note = "Use calibration::pricing::conventions::resolve_swap_conventions instead")]
-    pub fn effective_fixed_day_count(&self, currency: Currency) -> DayCount {
-        self.fixed_leg_conventions()
-            .map(|c| c.effective_swap_day_count_or_default(currency, true))
-            .unwrap_or_else(|| InstrumentConventions::default_fixed_leg_day_count(currency))
-    }
-
-    /// Get effective float leg day count for Swap quotes with currency default.
-    ///
-    /// Uses `float_leg_conventions.day_count` if specified, otherwise returns
-    /// currency-appropriate default (ACT/360 for most, ACT/365F for GBP/JPY/AUD).
-    #[inline]
-    #[deprecated(note = "Use calibration::pricing::conventions::resolve_swap_conventions instead")]
-    pub fn effective_float_day_count(&self, currency: Currency) -> DayCount {
-        self.float_leg_conventions()
-            .map(|c| c.effective_swap_day_count_or_default(currency, false))
-            .unwrap_or_else(|| InstrumentConventions::default_float_leg_day_count(currency))
-    }
-
-    /// Get effective fixed leg frequency for Swap quotes with currency default.
-    ///
-    /// Uses `fixed_leg_conventions.payment_frequency` if specified, otherwise
-    /// returns currency-appropriate default (annual for GBP, semi-annual for others).
-    #[inline]
-    #[deprecated(note = "Use calibration::pricing::conventions::resolve_swap_conventions instead")]
-    pub fn effective_fixed_frequency(&self, currency: Currency) -> Tenor {
-        self.fixed_leg_conventions()
-            .and_then(|c| c.payment_frequency)
-            .unwrap_or_else(|| InstrumentConventions::default_fixed_leg_frequency(currency))
-    }
-
-    /// Get effective float leg frequency for Swap quotes with currency default.
-    ///
-    /// Uses `float_leg_conventions.payment_frequency` if specified, otherwise
-    /// returns quarterly as default.
-    #[inline]
-    #[deprecated(note = "Use calibration::pricing::conventions::resolve_swap_conventions instead")]
-    pub fn effective_float_frequency(&self, currency: Currency) -> Tenor {
-        self.float_leg_conventions()
-            .and_then(|c| c.payment_frequency)
-            .unwrap_or_else(|| InstrumentConventions::default_float_leg_frequency(currency))
-    }
-
     /// Get the float leg index for Swap quotes.
     ///
     /// Returns the index from `float_leg_conventions.index`.
@@ -338,42 +274,6 @@ impl RatesQuote {
     pub fn float_index(&self) -> Option<&IndexId> {
         self.float_leg_conventions()
             .and_then(|c| c.index.as_ref())
-    }
-
-    /// Get effective primary leg day count for BasisSwap quotes with currency default.
-    #[inline]
-    #[deprecated(note = "Use calibration::pricing::conventions::resolve_basis_swap_conventions instead")]
-    pub fn effective_primary_day_count(&self, currency: Currency) -> DayCount {
-        self.primary_leg_conventions()
-            .map(|c| c.effective_swap_day_count_or_default(currency, false))
-            .unwrap_or_else(|| InstrumentConventions::default_float_leg_day_count(currency))
-    }
-
-    /// Get effective reference leg day count for BasisSwap quotes with currency default.
-    #[inline]
-    #[deprecated(note = "Use calibration::pricing::conventions::resolve_basis_swap_conventions instead")]
-    pub fn effective_reference_day_count(&self, currency: Currency) -> DayCount {
-        self.reference_leg_conventions()
-            .map(|c| c.effective_swap_day_count_or_default(currency, false))
-            .unwrap_or_else(|| InstrumentConventions::default_float_leg_day_count(currency))
-    }
-
-    /// Get effective primary leg frequency for BasisSwap quotes with currency default.
-    #[inline]
-    #[deprecated(note = "Use calibration::pricing::conventions::resolve_basis_swap_conventions instead")]
-    pub fn effective_primary_frequency(&self, currency: Currency) -> Tenor {
-        self.primary_leg_conventions()
-            .and_then(|c| c.payment_frequency)
-            .unwrap_or_else(|| InstrumentConventions::default_float_leg_frequency(currency))
-    }
-
-    /// Get effective reference leg frequency for BasisSwap quotes with currency default.
-    #[inline]
-    #[deprecated(note = "Use calibration::pricing::conventions::resolve_basis_swap_conventions instead")]
-    pub fn effective_reference_frequency(&self, currency: Currency) -> Tenor {
-        self.reference_leg_conventions()
-            .and_then(|c| c.payment_frequency)
-            .unwrap_or_else(|| InstrumentConventions::default_float_leg_frequency(currency))
     }
 
     /// Get the primary leg index for BasisSwap quotes.

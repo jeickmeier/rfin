@@ -230,15 +230,6 @@ impl ForwardCurveCalibrator {
         self
     }
 
-    /// Set time day count (deprecated: use InstrumentConventions on quotes instead).
-    ///
-    /// This method is kept for backward compatibility with Python bindings.
-    /// Settings are now configured per-quote via `InstrumentConventions`.
-    #[deprecated(note = "Use InstrumentConventions on quotes instead")]
-    pub fn with_time_dc(self, _dc: finstack_core::dates::DayCount) -> Self {
-        self
-    }
-
     /// Set custom convexity parameters for futures pricing.
     ///
     /// Override the default currency-specific convexity adjustment calculation.
