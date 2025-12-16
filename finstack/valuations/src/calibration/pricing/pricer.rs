@@ -32,6 +32,7 @@
 //! ```
 
 use super::convexity::ConvexityParameters;
+use super::conventions as conv;
 use crate::calibration::quotes::{FutureSpecs, InstrumentConventions, RatesQuote};
 use crate::instruments::basis_swap::{BasisSwap, BasisSwapLeg};
 use crate::instruments::common::traits::Instrument;
@@ -94,31 +95,19 @@ fn ois_compounding_for_index(index: &IndexId, currency: Currency) -> FloatingLeg
 ///
 /// Market-standard settlement calendars used for spot/settlement date calculation.
 /// Override via quote conventions for custom calendars.
+#[deprecated(note = "Use calibration::pricing::conventions::default_calendar_for_currency instead")]
+#[allow(dead_code)]
 fn default_calendar_for_currency(currency: Currency) -> &'static str {
-    match currency {
-        Currency::USD => "usny",
-        Currency::EUR => "target2",
-        Currency::GBP => "gblo",
-        Currency::JPY => "jpto",
-        Currency::CHF => "chzu",
-        Currency::AUD => "ausy",
-        Currency::CAD => "cato",
-        Currency::NZD => "nzau",
-        Currency::HKD => "hkex",
-        Currency::SGD => "sgex",
-        _ => "usny", // Default to US calendar for unlisted currencies
-    }
+    conv::default_calendar_for_currency(currency)
 }
 
 /// Default settlement days by currency.
 ///
 /// Most currencies use T+2, with exceptions for GBP (T+0) and AUD/CAD (T+1).
+#[deprecated(note = "Use calibration::pricing::conventions::default_settlement_days instead")]
+#[allow(dead_code)]
 fn default_settlement_days(currency: Currency) -> i32 {
-    match currency {
-        Currency::GBP => 0,
-        Currency::AUD | Currency::CAD => 1,
-        _ => 2,
-    }
+    conv::default_settlement_days(currency)
 }
 
 // =============================================================================
@@ -372,9 +361,10 @@ impl CalibrationPricer {
     }
 
     /// Get effective settlement days (explicit or currency default).
+    #[deprecated(note = "Use calibration::pricing::conventions::resolve_common instead")]
     pub fn effective_settlement_days(&self, currency: Currency) -> i32 {
         self.settlement_days
-            .unwrap_or_else(|| default_settlement_days(currency))
+            .unwrap_or_else(|| conv::default_settlement_days(currency))
     }
 
     // =========================================================================
@@ -385,21 +375,22 @@ impl CalibrationPricer {
     ///
     /// Priority: quote convention > pricer setting > currency default
     #[inline]
+    #[deprecated(note = "Use calibration::pricing::conventions::resolve_common instead")]
+    #[allow(dead_code)]
     fn resolve_settlement_days(
         &self,
         quote_conventions: &InstrumentConventions,
         currency: Currency,
     ) -> i32 {
-        quote_conventions
-            .settlement_days
-            .or(self.settlement_days)
-            .unwrap_or_else(|| default_settlement_days(currency))
+        conv::resolve_common(self, quote_conventions, currency).settlement_days
     }
 
     /// Resolve effective payment delay for a specific quote.
     ///
     /// Priority: quote convention > 0 (default)
     #[inline]
+    #[deprecated(note = "Use calibration::pricing::conventions::resolve_common instead")]
+    #[allow(dead_code)]
     fn resolve_payment_delay(quote_conventions: &InstrumentConventions) -> i32 {
         quote_conventions.payment_delay_days.unwrap_or(0)
     }
@@ -408,6 +399,8 @@ impl CalibrationPricer {
     ///
     /// Priority: quote convention > 2 (default)
     #[inline]
+    #[deprecated(note = "Use calibration::pricing::conventions::resolve_common instead")]
+    #[allow(dead_code)]
     fn resolve_reset_lag(quote_conventions: &InstrumentConventions) -> i32 {
         quote_conventions.reset_lag.unwrap_or(2)
     }
@@ -416,6 +409,8 @@ impl CalibrationPricer {
     ///
     /// Priority: quote convention > currency default
     #[inline]
+    #[deprecated(note = "Use calibration::pricing::conventions::resolve_common instead")]
+    #[allow(dead_code)]
     fn resolve_calendar_id(
         quote_conventions: &InstrumentConventions,
         currency: Currency,
@@ -423,7 +418,7 @@ impl CalibrationPricer {
         quote_conventions
             .calendar_id
             .as_deref()
-            .unwrap_or_else(|| default_calendar_for_currency(currency))
+            .unwrap_or_else(|| conv::default_calendar_for_currency(currency))
     }
 
     /// Calculate settlement date from base date using business-day calendar.
@@ -449,8 +444,9 @@ impl CalibrationPricer {
         quote_conventions: &InstrumentConventions,
         currency: Currency,
     ) -> finstack_core::Result<Date> {
-        let days = self.resolve_settlement_days(quote_conventions, currency);
-        let calendar_id = Self::resolve_calendar_id(quote_conventions, currency);
+        let common = conv::resolve_common(self, quote_conventions, currency);
+        let days = common.settlement_days;
+        let calendar_id = common.calendar_id;
 
         let registry = CalendarRegistry::global();
 
@@ -507,8 +503,8 @@ impl CalibrationPricer {
         currency: Currency,
         context: &MarketContext,
     ) -> Result<f64> {
+        let common = conv::resolve_common(self, conventions, currency);
         let start = self.effective_start_date(conventions, currency)?;
-        let calendar_id = Self::resolve_calendar_id(conventions, currency);
 
         let dep = Deposit {
             id: format!("CALIB_DEP_{}", maturity).into(),
@@ -522,12 +518,12 @@ impl CalibrationPricer {
             // Only set spot_lag_days when use_settlement_start=true; otherwise
             // rely on the explicit start date to avoid double-application
             spot_lag_days: if self.use_settlement_start {
-                Some(self.resolve_settlement_days(conventions, currency))
+                Some(common.settlement_days)
             } else {
                 None
             },
-            bdc: Some(BusinessDayConvention::ModifiedFollowing),
-            calendar_id: Some(calendar_id.to_string()),
+            bdc: Some(common.bdc),
+            calendar_id: Some(common.calendar_id.to_string()),
         };
 
         let pv = dep.value(context, self.base_date)?;
@@ -548,8 +544,9 @@ impl CalibrationPricer {
         currency: Currency,
         context: &MarketContext,
     ) -> Result<f64> {
-        let reset_lag = Self::resolve_reset_lag(conventions);
-        let calendar_id = Self::resolve_calendar_id(conventions, currency);
+        let common = conv::resolve_common(self, conventions, currency);
+        let reset_lag = common.reset_lag_days;
+        let calendar_id = common.calendar_id;
         let registry = CalendarRegistry::global();
 
         // Track whether we actually found the calendar (for FRA builder)
@@ -726,17 +723,18 @@ impl CalibrationPricer {
         currency: Currency,
         context: &MarketContext,
     ) -> Result<f64> {
+        let common = conv::resolve_common(self, conventions, currency);
         let start = self.effective_start_date(conventions, currency)?;
-        let payment_delay = Self::resolve_payment_delay(conventions);
-        let reset_lag = Self::resolve_reset_lag(conventions);
-        let calendar_id = Self::resolve_calendar_id(conventions, currency).to_string();
+        let payment_delay = common.payment_delay_days;
+        let reset_lag = common.reset_lag_days;
+        let calendar_id = common.calendar_id.to_string();
 
         let fixed_spec = FixedLegSpec {
             discount_curve_id: self.discount_curve_id.clone(),
             rate,
             freq: fixed_freq,
             dc: fixed_dc,
-            bdc: BusinessDayConvention::ModifiedFollowing,
+            bdc: common.bdc,
             calendar_id: Some(calendar_id.clone()),
             stub: StubKind::None,
             par_method: None,
@@ -774,7 +772,7 @@ impl CalibrationPricer {
             spread_bp: 0.0,
             freq: float_freq,
             dc: float_dc,
-            bdc: BusinessDayConvention::ModifiedFollowing,
+            bdc: common.bdc,
             calendar_id: Some(calendar_id.clone()),
             fixing_calendar_id: Some(calendar_id),
             stub: StubKind::None,
@@ -829,10 +827,11 @@ impl CalibrationPricer {
         conventions: &InstrumentConventions,
         context: &MarketContext,
     ) -> Result<f64> {
+        let common = conv::resolve_common(self, conventions, currency);
         let start = self.effective_start_date(conventions, currency)?;
-        let reset_lag = Self::resolve_reset_lag(conventions);
-        let payment_delay = Self::resolve_payment_delay(conventions);
-        let calendar_id = Self::resolve_calendar_id(conventions, currency);
+        let reset_lag = common.reset_lag_days;
+        let payment_delay = common.payment_delay_days;
+        let calendar_id = common.calendar_id;
 
         // Determine forward curve IDs based on calibration mode
         let (primary_forward_id, reference_forward_id) = if let Some(tenor) = self.tenor_years {
@@ -876,7 +875,7 @@ impl CalibrationPricer {
             forward_curve_id: primary_forward_id.clone(),
             frequency: primary_freq,
             day_count: primary_dc,
-            bdc: BusinessDayConvention::ModifiedFollowing,
+            bdc: common.bdc,
             payment_lag_days: payment_delay,
             reset_lag_days: reset_lag,
             spread: spread_bp / 10_000.0,
@@ -886,7 +885,7 @@ impl CalibrationPricer {
             forward_curve_id: reference_forward_id.clone(),
             frequency: reference_freq,
             day_count: reference_dc,
-            bdc: BusinessDayConvention::ModifiedFollowing,
+            bdc: common.bdc,
             payment_lag_days: payment_delay,
             reset_lag_days: reset_lag,
             spread: 0.0,
@@ -996,15 +995,14 @@ impl CalibrationPricer {
         notional: Money,
         currency: Currency,
     ) -> Result<InterestRateSwap> {
-        let (maturity, rate, is_ois, conventions, float_leg_conventions) = match quote {
+        let (maturity, rate, is_ois, conventions) = match quote {
             RatesQuote::Swap {
                 maturity,
                 rate,
                 is_ois,
                 conventions,
-                float_leg_conventions,
                 ..
-            } => (*maturity, *rate, *is_ois, conventions, float_leg_conventions),
+            } => (*maturity, *rate, *is_ois, conventions),
             _ => {
                 return Err(finstack_core::Error::Input(
                     finstack_core::error::InputError::Invalid,
@@ -1012,26 +1010,17 @@ impl CalibrationPricer {
             }
         };
 
-        // Extract leg conventions with currency defaults
-        let fixed_freq = quote.effective_fixed_frequency(currency);
-        let float_freq = quote.effective_float_frequency(currency);
-        let fixed_dc = quote.effective_fixed_day_count(currency);
-        let float_dc = quote.effective_float_day_count(currency);
-        let index = float_leg_conventions.index.as_ref()
-            .ok_or_else(|| finstack_core::Error::Validation(
-                "Swap quote requires float_leg_conventions.index for OIS swap creation".to_string()
-            ))?;
-
+        let resolved = conv::resolve_swap_conventions(self, quote, currency)?;
         let start = self.effective_start_date(conventions, currency)?;
-        let payment_delay = Self::resolve_payment_delay(conventions);
-        let reset_lag = Self::resolve_reset_lag(conventions);
-        let calendar_id = Self::resolve_calendar_id(conventions, currency).to_string();
+        let payment_delay = resolved.common.payment_delay_days;
+        let reset_lag = resolved.common.reset_lag_days;
+        let calendar_id = resolved.common.calendar_id.to_string();
 
         // Determine whether to use OIS pricing (same logic as price_swap)
         let use_ois_pricing = is_ois && self.tenor_years.is_none();
 
         let compounding = if use_ois_pricing {
-            ois_compounding_for_index(index, currency)
+            ois_compounding_for_index(resolved.index, currency)
         } else {
             FloatingLegCompounding::Simple
         };
@@ -1039,9 +1028,9 @@ impl CalibrationPricer {
         let fixed_spec = FixedLegSpec {
             discount_curve_id: self.discount_curve_id.clone(),
             rate,
-            freq: fixed_freq,
-            dc: fixed_dc,
-            bdc: BusinessDayConvention::ModifiedFollowing,
+            freq: resolved.fixed_freq,
+            dc: resolved.fixed_dc,
+            bdc: resolved.common.bdc,
             calendar_id: Some(calendar_id.clone()),
             stub: StubKind::None,
             par_method: None,
@@ -1055,9 +1044,9 @@ impl CalibrationPricer {
             discount_curve_id: self.discount_curve_id.clone(),
             forward_curve_id: self.forward_curve_id.clone(),
             spread_bp: 0.0,
-            freq: float_freq,
-            dc: float_dc,
-            bdc: BusinessDayConvention::ModifiedFollowing,
+            freq: resolved.float_freq,
+            dc: resolved.float_dc,
+            bdc: resolved.common.bdc,
             calendar_id: Some(calendar_id.clone()),
             fixing_calendar_id: Some(calendar_id),
             stub: StubKind::None,
@@ -1113,7 +1102,7 @@ impl CalibrationPricer {
                 rate,
                 conventions,
             } => {
-                let day_count = quote.effective_day_count(currency);
+                let day_count = conv::resolve_money_market(self, conventions, currency).day_count;
                 self.price_deposit(*maturity, *rate, day_count, conventions, currency, context)
             }
 
@@ -1123,7 +1112,7 @@ impl CalibrationPricer {
                 rate,
                 conventions,
             } => {
-                let day_count = quote.effective_day_count(currency);
+                let day_count = conv::resolve_money_market(self, conventions, currency).day_count;
                 self.price_fra(*start, *end, *rate, day_count, conventions, currency, context)
             }
 
@@ -1137,29 +1126,23 @@ impl CalibrationPricer {
             RatesQuote::Swap {
                 maturity,
                 rate,
-                conventions,
-                float_leg_conventions,
                 ..
             } => {
+                let resolved = conv::resolve_swap_conventions(self, quote, currency)?;
                 let is_ois = quote.is_ois_suitable();
-                let fixed_freq = quote.effective_fixed_frequency(currency);
-                let float_freq = quote.effective_float_frequency(currency);
-                let fixed_dc = quote.effective_fixed_day_count(currency);
-                let float_dc = quote.effective_float_day_count(currency);
-                let index = float_leg_conventions.index.as_ref()
-                    .ok_or_else(|| finstack_core::Error::Validation(
-                        "Swap quote requires float_leg_conventions.index to be set".to_string()
-                    ))?;
                 self.price_swap(
                     *maturity,
                     *rate,
-                    fixed_freq,
-                    float_freq,
-                    fixed_dc,
-                    float_dc,
-                    index,
+                    resolved.fixed_freq,
+                    resolved.float_freq,
+                    resolved.fixed_dc,
+                    resolved.float_dc,
+                    resolved.index,
                     is_ois,
-                    conventions,
+                    match quote {
+                        RatesQuote::Swap { conventions, .. } => conventions,
+                        _ => return Err(finstack_core::Error::Input(finstack_core::error::InputError::Invalid)),
+                    },
                     currency,
                     context,
                 )
@@ -1169,33 +1152,19 @@ impl CalibrationPricer {
                 maturity,
                 spread_bp,
                 conventions,
-                primary_leg_conventions,
-                reference_leg_conventions,
+                ..
             } => {
-                // For basis swaps, use currency from conventions if set, otherwise use the provided currency
-                let basis_currency = conventions.currency.unwrap_or(currency);
-                let primary_index = primary_leg_conventions.index.as_ref()
-                    .ok_or_else(|| finstack_core::Error::Validation(
-                        "BasisSwap quote requires primary_leg_conventions.index to be set".to_string()
-                    ))?;
-                let reference_index = reference_leg_conventions.index.as_ref()
-                    .ok_or_else(|| finstack_core::Error::Validation(
-                        "BasisSwap quote requires reference_leg_conventions.index to be set".to_string()
-                    ))?;
-                let primary_freq = quote.effective_primary_frequency(basis_currency);
-                let reference_freq = quote.effective_reference_frequency(basis_currency);
-                let primary_dc = quote.effective_primary_day_count(basis_currency);
-                let reference_dc = quote.effective_reference_day_count(basis_currency);
+                let resolved = conv::resolve_basis_swap_conventions(self, quote, currency)?;
                 self.price_basis_swap(
                     *maturity,
-                    primary_index.as_str(),
-                    reference_index.as_str(),
+                    resolved.primary_index.as_str(),
+                    resolved.reference_index.as_str(),
                     *spread_bp,
-                    primary_freq,
-                    reference_freq,
-                    primary_dc,
-                    reference_dc,
-                    basis_currency,
+                    resolved.primary_freq,
+                    resolved.reference_freq,
+                    resolved.primary_dc,
+                    resolved.reference_dc,
+                    resolved.currency,
                     conventions,
                     context,
                 )
@@ -1464,16 +1433,32 @@ mod tests {
 
         // USD defaults to T+2
         let usd_pricer = CalibrationPricer::new(base_date, "USD-OIS");
-        assert_eq!(usd_pricer.effective_settlement_days(Currency::USD), 2);
+        assert_eq!(
+            conv::resolve_common(&usd_pricer, &InstrumentConventions::default(), Currency::USD)
+                .settlement_days,
+            2
+        );
 
         // GBP defaults to T+0
         let gbp_pricer = CalibrationPricer::new(base_date, "GBP-SONIA");
-        assert_eq!(gbp_pricer.effective_settlement_days(Currency::GBP), 0);
+        assert_eq!(
+            conv::resolve_common(&gbp_pricer, &InstrumentConventions::default(), Currency::GBP)
+                .settlement_days,
+            0
+        );
 
         // Explicit override
         let custom_pricer =
             CalibrationPricer::new(base_date, "USD-OIS").with_settlement_days(1);
-        assert_eq!(custom_pricer.effective_settlement_days(Currency::USD), 1);
+        assert_eq!(
+            conv::resolve_common(
+                &custom_pricer,
+                &InstrumentConventions::default(),
+                Currency::USD
+            )
+            .settlement_days,
+            1
+        );
     }
 
     // =========================================================================

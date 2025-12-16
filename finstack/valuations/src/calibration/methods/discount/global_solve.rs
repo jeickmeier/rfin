@@ -15,7 +15,7 @@
 use super::DiscountCurveCalibrator;
 use crate::calibration::config::RateBounds;
 use crate::calibration::pricing::{CalibrationPricer, RatesQuoteUseCase};
-use crate::calibration::quotes::RatesQuote;
+use crate::calibration::quotes::{InstrumentConventions, RatesQuote};
 use crate::calibration::CalibrationReport;
 use finstack_core::market_data::context::MarketContext;
 use finstack_core::market_data::term_structures::DiscountCurve;
@@ -184,7 +184,10 @@ impl DiscountCurveCalibrator {
                 RatesQuote::Deposit { maturity, .. } => {
                     // Deposits are quoted on the accrual from *settlement* → maturity
                     let r = CalibrationPricer::get_rate(quote);
-                    let day_count = quote.effective_day_count(self.currency);
+                    let day_count = quote
+                        .conventions()
+                        .day_count
+                        .unwrap_or_else(|| InstrumentConventions::default_money_market_day_count(self.currency));
                     let yf = day_count
                         .year_fraction(
                             settlement,

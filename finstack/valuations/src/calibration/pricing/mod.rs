@@ -20,6 +20,7 @@
 //! - [`ConvexityParameters`]: Futures convexity adjustment configuration
 
 mod convexity;
+pub(crate) mod conventions;
 mod pricer;
 
 pub use convexity::{
@@ -27,4 +28,3 @@ pub use convexity::{
     ho_lee_convexity, ConvexityParameters, VolatilitySource,
 };
 pub use pricer::{CalibrationPricer, RatesQuoteUseCase};
-

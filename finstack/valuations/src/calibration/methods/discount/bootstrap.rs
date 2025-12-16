@@ -13,6 +13,7 @@
 use super::DiscountCurveCalibrator;
 use crate::calibration::methods::common::bootstrapper::BootstrapTarget;
 use crate::calibration::pricing::{CalibrationPricer, RatesQuoteUseCase};
+use crate::calibration::pricing::conventions as conv;
 use crate::calibration::quotes::RatesQuote;
 use crate::calibration::CalibrationReport;
 use finstack_core::market_data::context::MarketContext;
@@ -157,7 +158,7 @@ impl<'a> BootstrapTarget for DiscountBootstrapper<'a> {
     type Curve = DiscountCurve;
 
     fn quote_time(&self, quote: &Self::Quote) -> Result<f64> {
-        let dc = quote.effective_day_count(self.calibrator.currency);
+        let dc = conv::resolve_money_market(self.pricer, quote.conventions(), self.calibrator.currency).day_count;
         dc.year_fraction(
             self.calibrator.base_date,
             quote.maturity_date(),
@@ -220,7 +221,12 @@ impl<'a> BootstrapTarget for DiscountBootstrapper<'a> {
         match quote {
             RatesQuote::Deposit { maturity, .. } => {
                 let r = CalibrationPricer::get_rate(quote);
-                let day_count = quote.effective_day_count(self.calibrator.currency);
+                let day_count = conv::resolve_money_market(
+                    self.pricer,
+                    quote.conventions(),
+                    self.calibrator.currency,
+                )
+                .day_count;
                 let yf = day_count
                     .year_fraction(
                         self.settlement,

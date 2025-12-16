@@ -88,7 +88,8 @@
 use crate::calibration::{
     config::{CalibrationConfig, ValidationMode},
     pricing::{CalibrationPricer, RatesQuoteUseCase},
-    quotes::RatesQuote,
+    pricing::conventions as conv,
+    quotes::{InstrumentConventions, RatesQuote},
     report::CalibrationReport,
     traits::Calibrator,
 };
@@ -306,6 +307,9 @@ impl ForwardCurveCalibrator {
         // Ensure discount curve exists
         let _ = base_context.get_discount_ref(self.discount_curve_id.as_ref())?;
 
+        // Reuse a single pricer instance for convention resolution during filtering
+        let pricer_for_filter = self.make_pricer();
+
         // Filter and sort quotes
         // ... (reuse filtering logic) ...
         let mut sorted_quotes: Vec<RatesQuote> = quotes
@@ -321,7 +325,12 @@ impl ForwardCurveCalibrator {
                         .as_ref()
                         .map(|i| i.as_str())
                         .unwrap_or("");
-                    let float_freq = q.effective_float_frequency(self.currency);
+                    let resolved = conv::resolve_swap_conventions(&pricer_for_filter, q, self.currency);
+                    let float_freq = resolved.map(|r| r.float_freq).unwrap_or_else(|_| {
+                        crate::calibration::quotes::InstrumentConventions::default_float_leg_frequency(
+                            self.currency,
+                        )
+                    });
                     self.matches_tenor(index, &float_freq)
                 }
                 RatesQuote::BasisSwap {
@@ -331,8 +340,15 @@ impl ForwardCurveCalibrator {
                     ..
                 } => {
                     let currency = conventions.currency.unwrap_or(self.currency);
-                    let primary_freq = q.effective_primary_frequency(currency);
-                    let reference_freq = q.effective_reference_frequency(currency);
+                    let resolved = conv::resolve_basis_swap_conventions(&pricer_for_filter, q, currency);
+                    let (primary_freq, reference_freq) = resolved
+                        .map(|r| (r.primary_freq, r.reference_freq))
+                        .unwrap_or_else(|_| {
+                            (
+                                crate::calibration::quotes::InstrumentConventions::default_float_leg_frequency(currency),
+                                crate::calibration::quotes::InstrumentConventions::default_float_leg_frequency(currency),
+                            )
+                        });
                     let p_idx = primary_leg_conventions
                         .index
                         .as_ref()
@@ -650,7 +666,9 @@ impl ForwardCurveCalibrator {
         match quote {
             RatesQuote::FRA { conventions, .. } => {
                 // FRA day-count should typically match tenor conventions
-                let day_count = quote.effective_day_count(self.currency);
+                let day_count = conventions
+                    .day_count
+                    .unwrap_or_else(|| InstrumentConventions::default_money_market_day_count(self.currency));
                 let time_dc = super::discount::default_curve_day_count(self.currency);
                 if day_count != time_dc && self.config.verbose {
                     tracing::warn!(
@@ -663,11 +681,21 @@ impl ForwardCurveCalibrator {
                     );
                 }
             }
-            RatesQuote::Swap { .. } => {
+            RatesQuote::Swap {
+                fixed_leg_conventions,
+                float_leg_conventions,
+                ..
+            } => {
                 // Get conventions with currency defaults
-                let float_freq = quote.effective_float_frequency(self.currency);
-                let fixed_dc = quote.effective_fixed_day_count(self.currency);
-                let float_dc = quote.effective_float_day_count(self.currency);
+                let float_freq = float_leg_conventions
+                    .payment_frequency
+                    .unwrap_or_else(|| InstrumentConventions::default_float_leg_frequency(self.currency));
+                let fixed_dc = fixed_leg_conventions
+                    .day_count
+                    .unwrap_or_else(|| InstrumentConventions::default_fixed_leg_day_count(self.currency));
+                let float_dc = float_leg_conventions
+                    .day_count
+                    .unwrap_or_else(|| InstrumentConventions::default_float_leg_day_count(self.currency));
                 let time_dc = super::discount::default_curve_day_count(self.currency);
 
                 // Check float leg frequency matches calibrator tenor

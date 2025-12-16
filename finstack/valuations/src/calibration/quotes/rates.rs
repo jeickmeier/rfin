@@ -276,6 +276,7 @@ impl RatesQuote {
     /// Uses `conventions.day_count` if specified, otherwise returns the
     /// currency-appropriate default (ACT/360 for USD/EUR/CHF, ACT/365F for GBP/JPY/AUD).
     #[inline]
+    #[deprecated(note = "Use calibration::pricing::conventions::resolve_money_market instead")]
     pub fn effective_day_count(&self, currency: Currency) -> DayCount {
         self.conventions()
             .effective_day_count_or_default(currency)
@@ -286,6 +287,7 @@ impl RatesQuote {
     /// Uses `fixed_leg_conventions.day_count` if specified, otherwise returns
     /// currency-appropriate default (30/360 for most, ACT/365F for GBP).
     #[inline]
+    #[deprecated(note = "Use calibration::pricing::conventions::resolve_swap_conventions instead")]
     pub fn effective_fixed_day_count(&self, currency: Currency) -> DayCount {
         self.fixed_leg_conventions()
             .map(|c| c.effective_swap_day_count_or_default(currency, true))
@@ -297,6 +299,7 @@ impl RatesQuote {
     /// Uses `float_leg_conventions.day_count` if specified, otherwise returns
     /// currency-appropriate default (ACT/360 for most, ACT/365F for GBP/JPY/AUD).
     #[inline]
+    #[deprecated(note = "Use calibration::pricing::conventions::resolve_swap_conventions instead")]
     pub fn effective_float_day_count(&self, currency: Currency) -> DayCount {
         self.float_leg_conventions()
             .map(|c| c.effective_swap_day_count_or_default(currency, false))
@@ -308,6 +311,7 @@ impl RatesQuote {
     /// Uses `fixed_leg_conventions.payment_frequency` if specified, otherwise
     /// returns currency-appropriate default (annual for GBP, semi-annual for others).
     #[inline]
+    #[deprecated(note = "Use calibration::pricing::conventions::resolve_swap_conventions instead")]
     pub fn effective_fixed_frequency(&self, currency: Currency) -> Tenor {
         self.fixed_leg_conventions()
             .and_then(|c| c.payment_frequency)
@@ -319,6 +323,7 @@ impl RatesQuote {
     /// Uses `float_leg_conventions.payment_frequency` if specified, otherwise
     /// returns quarterly as default.
     #[inline]
+    #[deprecated(note = "Use calibration::pricing::conventions::resolve_swap_conventions instead")]
     pub fn effective_float_frequency(&self, currency: Currency) -> Tenor {
         self.float_leg_conventions()
             .and_then(|c| c.payment_frequency)
@@ -337,6 +342,7 @@ impl RatesQuote {
 
     /// Get effective primary leg day count for BasisSwap quotes with currency default.
     #[inline]
+    #[deprecated(note = "Use calibration::pricing::conventions::resolve_basis_swap_conventions instead")]
     pub fn effective_primary_day_count(&self, currency: Currency) -> DayCount {
         self.primary_leg_conventions()
             .map(|c| c.effective_swap_day_count_or_default(currency, false))
@@ -345,6 +351,7 @@ impl RatesQuote {
 
     /// Get effective reference leg day count for BasisSwap quotes with currency default.
     #[inline]
+    #[deprecated(note = "Use calibration::pricing::conventions::resolve_basis_swap_conventions instead")]
     pub fn effective_reference_day_count(&self, currency: Currency) -> DayCount {
         self.reference_leg_conventions()
             .map(|c| c.effective_swap_day_count_or_default(currency, false))
@@ -353,6 +360,7 @@ impl RatesQuote {
 
     /// Get effective primary leg frequency for BasisSwap quotes with currency default.
     #[inline]
+    #[deprecated(note = "Use calibration::pricing::conventions::resolve_basis_swap_conventions instead")]
     pub fn effective_primary_frequency(&self, currency: Currency) -> Tenor {
         self.primary_leg_conventions()
             .and_then(|c| c.payment_frequency)
@@ -361,6 +369,7 @@ impl RatesQuote {
 
     /// Get effective reference leg frequency for BasisSwap quotes with currency default.
     #[inline]
+    #[deprecated(note = "Use calibration::pricing::conventions::resolve_basis_swap_conventions instead")]
     pub fn effective_reference_frequency(&self, currency: Currency) -> Tenor {
         self.reference_leg_conventions()
             .and_then(|c| c.payment_frequency)

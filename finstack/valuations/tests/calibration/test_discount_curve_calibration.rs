@@ -223,7 +223,10 @@ fn test_deposit_repricing_under_bootstrap() {
             conventions,
         } = quote
         {
-            let day_count = quote.effective_day_count(Currency::USD);
+            let day_count = quote
+                .conventions()
+                .day_count
+                .unwrap_or_else(|| InstrumentConventions::default_money_market_day_count(Currency::USD));
             let dep = Deposit {
                 id: format!("DEP-{}", maturity).into(),
                 notional: Money::new(1_000_000.0, Currency::USD),
