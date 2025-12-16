@@ -465,13 +465,21 @@ impl CalibrationPricer {
             attributes: Default::default(),
             // Only set spot_lag_days when use_settlement_start=true; otherwise
             // rely on the explicit start date to avoid double-application
-            spot_lag_days: if self.use_settlement_start {
+            spot_lag_days: if self.use_settlement_start && common.settlement_days != 0 {
                 Some(common.settlement_days)
             } else {
                 None
             },
-            bdc: Some(common.bdc),
-            calendar_id: Some(common.calendar_id.to_string()),
+            bdc: if common.settlement_days == 0 {
+                None
+            } else {
+                Some(common.bdc)
+            },
+            calendar_id: if common.settlement_days == 0 {
+                None
+            } else {
+                Some(common.calendar_id.to_string())
+            },
         };
 
         let pv = dep.value(context, self.base_date)?;
@@ -1150,13 +1158,21 @@ impl CalibrationPricer {
                     quote_rate: Some(*rate),
                     discount_curve_id: self.discount_curve_id.clone(),
                     attributes: Default::default(),
-                    spot_lag_days: if self.use_settlement_start {
+                    spot_lag_days: if self.use_settlement_start && resolved.common.settlement_days != 0 {
                         Some(resolved.common.settlement_days)
                     } else {
                         None
                     },
-                    bdc: Some(resolved.common.bdc),
-                    calendar_id: Some(resolved.common.calendar_id.to_string()),
+                    bdc: if resolved.common.settlement_days == 0 {
+                        None
+                    } else {
+                        Some(resolved.common.bdc)
+                    },
+                    calendar_id: if resolved.common.settlement_days == 0 {
+                        None
+                    } else {
+                        Some(resolved.common.calendar_id.to_string())
+                    },
                 };
                 let pv = dep.value(context, self.base_date)?;
                 Ok(pv.amount() / dep.notional.amount())

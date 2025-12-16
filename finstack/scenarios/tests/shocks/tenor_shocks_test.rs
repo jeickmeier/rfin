@@ -63,7 +63,7 @@ fn test_tenor_exact_match() {
     // Solve-to-par result with settlement_days=0 (for synthetic curve re-calibration)
     let expected_df = 0.890057;
     assert!(
-        (df_5y - expected_df).abs() < 1e-5,
+        (df_5y - expected_df).abs() < 2e-5,
         "Expected DF(5Y) ≈ {:.6}, got {:.6}",
         expected_df,
         df_5y

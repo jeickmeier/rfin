@@ -18,6 +18,7 @@ use crate::calibration::quotes::RatesQuote;
 use crate::calibration::CalibrationReport;
 use finstack_core::market_data::context::MarketContext;
 use finstack_core::market_data::term_structures::DiscountCurve;
+use finstack_core::math::interp::InterpStyle;
 use finstack_core::prelude::*;
 
 impl DiscountCurveCalibrator {
@@ -70,7 +71,11 @@ impl DiscountCurveCalibrator {
         let mut initial_knots = Vec::with_capacity(2);
         initial_knots.push((0.0, 1.0));
         if let Some(knot) = spot_knot {
+            if knot.0 <= 0.0 {
+                // Avoid duplicate 0.0 knot; builder requires strictly increasing times.
+            } else {
             initial_knots.push(knot);
+        }
         }
 
         // Create target
@@ -178,21 +183,76 @@ impl<'a> BootstrapTarget for DiscountBootstrapper<'a> {
     }
 
     fn build_curve(&self, knots: &[(f64, f64)]) -> Result<Self::Curve> {
+        if knots.len() < 2 {
+            return Err(finstack_core::Error::Calibration {
+                message: "Failed to build temp curve: need at least two knots".into(),
+                category: "bootstrapping".to_string(),
+            });
+        }
+        if knots.windows(2).any(|w| w[1].0 <= w[0].0) {
+            return Err(finstack_core::Error::Calibration {
+                message: format!(
+                    "Failed to build temp curve: non-increasing knot times: {:?}",
+                    knots
+                        .windows(2)
+                        .find(|w| w[1].0 <= w[0].0)
+                        .map(|w| (w[0].0, w[1].0))
+                ),
+                category: "bootstrapping".to_string(),
+            });
+        }
+        let interp_style = if knots.len() < 3 {
+            // Some interpolators (e.g., MonotoneConvex) need >=3 points; fallback for early knots.
+            InterpStyle::Linear
+        } else {
+            self.calibrator.solve_interp
+        };
         DiscountCurve::builder(self.calibrator.effective_discount_curve_id())
             .base_date(self.calibrator.base_date)
             .day_count(self.curve_dc)
             .knots(knots.iter().copied())
-            .set_interp(self.calibrator.solve_interp)
+            .set_interp(interp_style)
             .allow_non_monotonic()
             .build_for_solver()
-            .map_err(|_| finstack_core::Error::Calibration {
-                message: "Failed to build temp curve".into(),
+            .map_err(|e| finstack_core::Error::Calibration {
+                message: format!("Failed to build temp curve: {}", e),
                 category: "bootstrapping".to_string(),
             })
     }
 
     fn build_curve_for_solver(&self, knots: &[(f64, f64)]) -> Result<Self::Curve> {
-        self.build_curve(knots)
+        // Use a simple interpolator during solving to avoid strict input requirements.
+        if knots.len() < 2 {
+            return Err(finstack_core::Error::Calibration {
+                message: "Failed to build temp curve: need at least two knots".into(),
+                category: "bootstrapping".to_string(),
+            });
+        }
+        if knots.windows(2).any(|w| w[1].0 <= w[0].0) {
+            return Err(finstack_core::Error::Calibration {
+                message: format!(
+                    "Failed to build temp curve: non-increasing knot times: {:?}",
+                    knots
+                        .windows(2)
+                        .find(|w| w[1].0 <= w[0].0)
+                        .map(|w| (w[0].0, w[1].0))
+                ),
+                category: "bootstrapping".to_string(),
+            });
+        }
+        let interp_style = InterpStyle::Linear;
+
+        DiscountCurve::builder(self.calibrator.effective_discount_curve_id())
+            .base_date(self.calibrator.base_date)
+            .day_count(self.curve_dc)
+            .knots(knots.iter().copied())
+            .set_interp(interp_style)
+            .allow_non_monotonic()
+            .build_for_solver()
+            .map_err(|e| finstack_core::Error::Calibration {
+                message: format!("Failed to build temp curve: {}", e),
+                category: "bootstrapping".to_string(),
+            })
     }
 
     fn build_curve_final(&self, knots: &[(f64, f64)]) -> Result<Self::Curve> {

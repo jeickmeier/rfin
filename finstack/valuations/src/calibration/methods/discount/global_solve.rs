@@ -19,6 +19,7 @@ use crate::calibration::quotes::RatesQuote;
 use crate::calibration::CalibrationReport;
 use finstack_core::market_data::context::MarketContext;
 use finstack_core::market_data::term_structures::DiscountCurve;
+use finstack_core::math::interp::InterpStyle;
 // Note: We use solve_system_with_dim directly on LevenbergMarquardtSolver
 // for safe overdetermined system support (n_residuals > n_params).
 use finstack_core::prelude::*;
@@ -369,23 +370,44 @@ impl DiscountCurveCalibrator {
                 df_hard_max,
             );
 
+            // Ensure knots are strictly increasing; otherwise builder will reject.
+            if knots.windows(2).any(|w| w[1].0 <= w[0].0) {
+                if let Ok(mut err) = residual_error_clone.lock() {
+                    if err.is_none() {
+                        *err = Some(finstack_core::Error::Calibration {
+                            message: format!(
+                                "Failed to build temp curve: non-increasing knot times {:?}",
+                                knots
+                                    .windows(2)
+                                    .find(|w| w[1].0 <= w[0].0)
+                                    .map(|w| (w[0].0, w[1].0))
+                            ),
+                            category: "yield_curve_global_solve".to_string(),
+                        });
+                    }
+                }
+                for r in resid.iter_mut().take(n_residuals) {
+                    *r = crate::calibration::PENALTY;
+                }
+                return;
+            }
+
             // Use build_for_solver() for fast path (skips non-essential validation)
+            // Use a simple interpolator during early solving to relax knot requirements.
+            let interp_style = InterpStyle::Linear;
             let temp_curve = match DiscountCurve::builder(discount_curve_id.clone())
                 .base_date(base_date)
                 .day_count(curve_dc)
                 .knots(knots)
-                .set_interp(solve_interp)
+                .set_interp(interp_style)
                 .allow_non_monotonic()
                 .build_for_solver()
             {
                 Ok(curve) => curve,
-                Err(_) => {
+                Err(e) => {
                     if let Ok(mut err) = residual_error_clone.lock() {
                         if err.is_none() {
-                            *err = Some(finstack_core::Error::Calibration {
-                                message: "Failed to build temp curve".into(),
-                                category: "yield_curve_global_solve".to_string(),
-                            });
+                            *err = Some(e);
                         }
                     }
                     for r in resid.iter_mut().take(n_residuals) {
@@ -447,13 +469,23 @@ impl DiscountCurveCalibrator {
     ) -> Vec<(f64, f64)> {
         let mut knots = Vec::with_capacity(zero_rates.len() + 2);
         knots.push((0.0, 1.0));
+        let mut last_time = 0.0;
 
         // Add spot knot if provided (for OIS spot anchoring)
         if let Some(knot) = spot_knot {
-            knots.push(knot);
+            if knot.0 > 0.0 {
+                knots.push(knot);
+                last_time = knot.0;
+            }
         }
 
         for (&t, &raw_z) in times.iter().zip(zero_rates.iter()) {
+            if t <= last_time {
+                // Skip non-increasing knot to keep builder input valid
+                continue;
+            }
+            last_time = t;
+
             // Clamp zero rate to configured bounds
             let z = raw_z.clamp(rate_bounds.min_rate, rate_bounds.max_rate);
 

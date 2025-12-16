@@ -295,6 +295,7 @@ impl DiscountCurveCalibrator {
     pub(crate) fn create_pricer(&self) -> CalibrationPricer {
         CalibrationPricer::new(self.base_date, self.effective_discount_curve_id())
             .with_forward_curve_id(self.effective_forward_curve_id())
+            .with_settlement_days(0)
             .with_use_settlement_start(true)
     }
 
