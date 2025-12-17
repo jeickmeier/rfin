@@ -24,14 +24,11 @@ impl DenseSystem {
         let mut coeffs = Vec::with_capacity(n_params * n_residuals);
         for i in 0..n_residuals {
             for j in 0..n_params {
-                let val = ((i as f64 + 1.0) * 0.314159).sin()
-                    * ((j as f64 + 1.0) * 0.271828).cos();
+                let val = ((i as f64 + 1.0) * 0.314159).sin() * ((j as f64 + 1.0) * 0.271828).cos();
                 coeffs.push(val);
             }
         }
-        let targets = (0..n_residuals)
-            .map(|i| (i as f64 + 1.0) * 1e-3)
-            .collect();
+        let targets = (0..n_residuals).map(|i| (i as f64 + 1.0) * 1e-3).collect();
         Self {
             n_params,
             n_residuals,
@@ -48,7 +45,11 @@ impl DenseSystem {
             let row_start = i * self.n_params;
             let row = &self.coeffs[row_start..row_start + self.n_params];
             let mut acc = -self.targets[i];
-            acc += row.iter().zip(params.iter()).map(|(a, b)| a * b).sum::<f64>();
+            acc += row
+                .iter()
+                .zip(params.iter())
+                .map(|(a, b)| a * b)
+                .sum::<f64>();
             *resid_slot = acc;
         }
     }
@@ -244,11 +245,7 @@ fn benchmark_irr_periodic(c: &mut Criterion) {
 
 fn benchmark_lm_global_sizes(c: &mut Criterion) {
     let mut group = c.benchmark_group("lm_global");
-    let cases = [
-        ("30x30", 30, 30),
-        ("100x50", 50, 100),
-        ("200x80", 80, 200),
-    ];
+    let cases = [("30x30", 30, 30), ("100x50", 50, 100), ("200x80", 80, 200)];
 
     for (label, n_params, n_residuals) in cases {
         let system = DenseSystem::new(n_params, n_residuals);
@@ -263,9 +260,8 @@ fn benchmark_lm_global_sizes(c: &mut Criterion) {
             let solver = solver.clone();
             move |b| {
                 b.iter(|| {
-                    let residuals = |params: &[f64], resid: &mut [f64]| {
-                        system.residuals(params, resid)
-                    };
+                    let residuals =
+                        |params: &[f64], resid: &mut [f64]| system.residuals(params, resid);
                     solver
                         .solve_system_with_dim_stats(residuals, &initial, n_residuals)
                         .expect("LM solve should succeed");

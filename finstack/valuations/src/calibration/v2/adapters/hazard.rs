@@ -1,4 +1,3 @@
-use crate::calibration::config::CalibrationConfig;
 use crate::calibration::v2::api::schema::HazardCurveParams;
 use crate::calibration::v2::domain::quotes::CreditQuote;
 use crate::calibration::v2::domain::solver::BootstrapTarget;
@@ -6,7 +5,7 @@ use crate::instruments::cds::pricer::CDSPricer;
 use crate::instruments::cds::{CDSConvention, PayReceive};
 use finstack_core::dates::DayCountCtx;
 use finstack_core::market_data::context::MarketContext;
-use finstack_core::market_data::term_structures::{HazardCurve, Seniority};
+use finstack_core::market_data::term_structures::HazardCurve;
 use finstack_core::money::Money;
 use finstack_core::prelude::*;
 use finstack_core::Result;
@@ -19,12 +18,6 @@ use finstack_core::Result;
 /// that match market quotes.
 pub struct HazardBootstrapper {
     params: HazardCurveParams,
-    #[allow(dead_code)]
-    config: CalibrationConfig,
-    quotes: Vec<CreditQuote>,
-    // Cached derived values
-    #[allow(dead_code)]
-    seniority: Seniority,
     convention: CDSConvention,
     base_context: MarketContext,
 }
@@ -35,8 +28,6 @@ impl HazardBootstrapper {
     /// # Arguments
     ///
     /// * `params` - Parameters defining the hazard curve structure
-    /// * `quotes` - CDS quotes used for calibration
-    /// * `config` - Calibration configuration settings
     /// * `base_context` - Market context containing discount curves
     ///
     /// # Returns
@@ -49,12 +40,7 @@ impl HazardBootstrapper {
     /// - USD/CAD: ISDA North American
     /// - EUR/GBP/CHF: ISDA European
     /// - JPY/HKD/SGD/AUD/NZD: ISDA Asian
-    pub fn new(
-        params: HazardCurveParams,
-        quotes: Vec<CreditQuote>,
-        config: CalibrationConfig,
-        base_context: MarketContext,
-    ) -> Self {
+    pub fn new(params: HazardCurveParams, base_context: MarketContext) -> Self {
         // Derive convention from currency (defaulting logic similar to v1)
         let convention = match params.currency {
             Currency::USD | Currency::CAD => CDSConvention::IsdaNa,
@@ -67,22 +53,9 @@ impl HazardBootstrapper {
 
         Self {
             params,
-            config,
-            quotes,
-            seniority: Seniority::Senior, // Default to Senior for now
             convention,
             base_context,
         }
-    }
-
-    /// Returns the CDS quotes used for calibration.
-    ///
-    /// # Returns
-    ///
-    /// A slice of credit quotes (CDS quotes) that will be used
-    /// during the bootstrapping process.
-    pub fn instruments(&self) -> &[CreditQuote] {
-        &self.quotes
     }
 }
 

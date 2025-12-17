@@ -1,4 +1,3 @@
-use crate::calibration::config::CalibrationConfig;
 use crate::calibration::v2::api::schema::BaseCorrelationParams;
 use crate::calibration::v2::domain::quotes::CreditQuote;
 use crate::calibration::v2::domain::solver::BootstrapTarget;
@@ -19,9 +18,6 @@ use std::sync::Arc;
 /// values that match market quotes.
 pub struct BaseCorrelationBootstrapper {
     params: BaseCorrelationParams,
-    #[allow(dead_code)]
-    config: CalibrationConfig,
-    quotes: Vec<CreditQuote>, // Only Tranche quotes
     base_context: MarketContext,
 }
 
@@ -31,35 +27,16 @@ impl BaseCorrelationBootstrapper {
     /// # Arguments
     ///
     /// * `params` - Parameters defining the base correlation curve structure
-    /// * `quotes` - CDS tranche quotes used for calibration
-    /// * `config` - Calibration configuration settings
     /// * `base_context` - Market context containing discount curves and index data
     ///
     /// # Returns
     ///
     /// A new `BaseCorrelationBootstrapper` instance ready for calibration.
-    pub fn new(
-        params: BaseCorrelationParams,
-        quotes: Vec<CreditQuote>,
-        config: CalibrationConfig,
-        base_context: MarketContext,
-    ) -> Self {
+    pub fn new(params: BaseCorrelationParams, base_context: MarketContext) -> Self {
         Self {
             params,
-            config,
-            quotes,
             base_context,
         }
-    }
-
-    /// Returns the tranche quotes used for calibration.
-    ///
-    /// # Returns
-    ///
-    /// A slice of credit quotes (tranche quotes) that will be used
-    /// during the bootstrapping process.
-    pub fn instruments(&self) -> &[CreditQuote] {
-        &self.quotes
     }
 
     fn create_synthetic_tranche(

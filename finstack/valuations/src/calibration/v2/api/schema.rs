@@ -370,8 +370,3 @@ fn default_recovery_04() -> f64 {
 fn default_sabr_beta() -> f64 {
     0.5
 }
-
-#[allow(dead_code)]
-fn default_true() -> bool {
-    true
-}

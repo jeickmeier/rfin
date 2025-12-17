@@ -84,11 +84,7 @@ pub trait GlobalSolveTarget {
     /// Build the final curve returned to callers (strict validation).
     ///
     /// Default implementation delegates to `build_curve_from_params`.
-    fn build_curve_final_from_params(
-        &self,
-        times: &[f64],
-        params: &[f64],
-    ) -> Result<Self::Curve> {
+    fn build_curve_final_from_params(&self, times: &[f64], params: &[f64]) -> Result<Self::Curve> {
         self.build_curve_from_params(times, params)
     }
 
@@ -102,11 +98,7 @@ pub trait GlobalSolveTarget {
     /// Provide per-quote residual weights (for weighted least squares).
     ///
     /// Default implementation fills weights with 1.0 and validates lengths.
-    fn residual_weights(
-        &self,
-        quotes: &[Self::Quote],
-        weights_out: &mut [f64],
-    ) -> Result<()> {
+    fn residual_weights(&self, quotes: &[Self::Quote], weights_out: &mut [f64]) -> Result<()> {
         if quotes.len() != weights_out.len() {
             return Err(finstack_core::Error::Calibration {
                 message: format!(

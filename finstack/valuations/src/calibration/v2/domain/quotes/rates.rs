@@ -12,7 +12,11 @@ use ts_rs::TS;
 /// Interest rate instrument quotes for yield curve calibration.
 #[cfg_attr(feature = "ts_export", derive(TS))]
 #[derive(Clone, Debug, Serialize, Deserialize)]
-#[serde(rename_all = "snake_case", from = "RatesQuoteSerde", into = "RatesQuoteSerde")]
+#[serde(
+    rename_all = "snake_case",
+    from = "RatesQuoteSerde",
+    into = "RatesQuoteSerde"
+)]
 pub enum RatesQuote {
     /// Deposit rate quote.
     Deposit {

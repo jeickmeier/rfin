@@ -56,23 +56,8 @@ fn ois_compounding_for_index(index: &IndexId, currency: Currency) -> FloatingLeg
 
 /// Recognized overnight index keywords for validating OIS swaps.
 const OIS_INDEX_KEYWORDS: &[&str] = &[
-    "SOFR",
-    "FEDFUNDS",
-    "EFFR",
-    "SONIA",
-    "ESTR",
-    "€STR",
-    "EONIA",
-    "TONA",
-    "TONAR",
-    "SARON",
-    "AONIA",
-    "HONIA",
-    "SORA",
-    "CORRA",
-    "HONIX",
-    "BBSWON",
-    "OIS",
+    "SOFR", "FEDFUNDS", "EFFR", "SONIA", "ESTR", "€STR", "EONIA", "TONA", "TONAR", "SARON",
+    "AONIA", "HONIA", "SORA", "CORRA", "HONIX", "BBSWON", "OIS",
 ];
 
 fn is_recognized_ois_index(index: &IndexId) -> bool {
@@ -1591,8 +1576,7 @@ impl CalibrationPricer {
                     }
                     None => {
                         return Err(finstack_core::Error::Validation(
-                            "Swap quote flagged as OIS requires float_leg_conventions.index"
-                                .into(),
+                            "Swap quote flagged as OIS requires float_leg_conventions.index".into(),
                         ));
                     }
                 }

@@ -14,10 +14,33 @@ use crate::calibration::v2::adapters::vol::VolSurfaceAdapter;
 use crate::calibration::v2::api::schema::{CalibrationMethod, StepParams};
 use crate::calibration::v2::domain::pricing::CalibrationPricer;
 use crate::calibration::v2::domain::quotes::{ExtractQuotes, MarketQuote};
-use crate::calibration::v2::domain::solver::{GlobalOptimizer, SequentialBootstrapper};
+use crate::calibration::v2::domain::solver::{
+    BootstrapTarget, GlobalOptimizer, SequentialBootstrapper,
+};
 use crate::calibration::CalibrationReport;
 use finstack_core::market_data::context::MarketContext;
 use finstack_core::prelude::*;
+
+fn err_too_few_points() -> finstack_core::Error {
+    finstack_core::Error::Input(finstack_core::error::InputError::TooFewPoints)
+}
+
+fn require_non_empty<T>(quotes: &[T]) -> Result<()> {
+    if quotes.is_empty() {
+        Err(err_too_few_points())
+    } else {
+        Ok(())
+    }
+}
+
+fn run_bootstrap<T: BootstrapTarget>(
+    target: &T,
+    quotes: &[T::Quote],
+    initial_knots: Vec<(f64, f64)>,
+    config: &CalibrationConfig,
+) -> Result<(T::Curve, CalibrationReport)> {
+    SequentialBootstrapper::bootstrap(target, quotes, initial_knots, config, None)
+}
 
 /// Execute a single calibration step.
 pub fn execute_step(
@@ -29,11 +52,7 @@ pub fn execute_step(
     match params {
         StepParams::Discount(p) => {
             let rates_quotes = quotes.extract_quotes();
-            if rates_quotes.is_empty() {
-                return Err(finstack_core::Error::Input(
-                    finstack_core::error::InputError::TooFewPoints,
-                ));
-            }
+            require_non_empty(&rates_quotes)?;
 
             let pricer = CalibrationPricer::new(p.base_date, p.curve_id.clone())
                 .with_market_conventions(p.currency)
@@ -61,14 +80,7 @@ pub fn execute_step(
 
             let (curve, report) = match p.method {
                 CalibrationMethod::Bootstrap => {
-                    let initial_knots = vec![(0.0, 1.0)];
-                    SequentialBootstrapper::bootstrap(
-                        &target,
-                        &rates_quotes,
-                        initial_knots,
-                        global_config,
-                        None,
-                    )?
+                    run_bootstrap(&target, &rates_quotes, vec![(0.0, 1.0)], global_config)?
                 }
                 CalibrationMethod::Global => {
                     GlobalOptimizer::optimize(&target, &rates_quotes, global_config)?
@@ -81,11 +93,7 @@ pub fn execute_step(
         }
         StepParams::Forward(p) => {
             let rates_quotes = quotes.extract_quotes();
-            if rates_quotes.is_empty() {
-                return Err(finstack_core::Error::Input(
-                    finstack_core::error::InputError::TooFewPoints,
-                ));
-            }
+            require_non_empty(&rates_quotes)?;
 
             let pricer = CalibrationPricer::for_forward_curve(
                 p.base_date,
@@ -111,13 +119,9 @@ pub fn execute_step(
             });
 
             let (curve, report) = match p.method {
-                CalibrationMethod::Bootstrap => SequentialBootstrapper::bootstrap(
-                    &target,
-                    &rates_quotes,
-                    Vec::new(),
-                    global_config,
-                    None,
-                )?,
+                CalibrationMethod::Bootstrap => {
+                    run_bootstrap(&target, &rates_quotes, Vec::new(), global_config)?
+                }
                 CalibrationMethod::Global => {
                     return Err(finstack_core::Error::Input(
                         finstack_core::error::InputError::Invalid,
@@ -131,28 +135,13 @@ pub fn execute_step(
         }
         StepParams::Hazard(p) => {
             let credit_quotes = quotes.extract_quotes();
-            if credit_quotes.is_empty() {
-                return Err(finstack_core::Error::Input(
-                    finstack_core::error::InputError::TooFewPoints,
-                ));
-            }
+            require_non_empty(&credit_quotes)?;
 
-            let target = HazardBootstrapper::new(
-                p.clone(),
-                credit_quotes,
-                global_config.clone(),
-                context.clone(),
-            );
+            let target = HazardBootstrapper::new(p.clone(), context.clone());
 
             let (curve, report) = match p.method {
                 CalibrationMethod::Bootstrap => {
-                    SequentialBootstrapper::bootstrap(
-                        &target,
-                        target.instruments(), // HazardBootstrapper holds the quotes but SequentialBootstrapper needs reference
-                        Vec::new(),
-                        global_config,
-                        None,
-                    )?
+                    run_bootstrap(&target, &credit_quotes, Vec::new(), global_config)?
                 }
                 CalibrationMethod::Global => {
                     return Err(finstack_core::Error::Input(
@@ -167,26 +156,16 @@ pub fn execute_step(
         }
         StepParams::Inflation(p) => {
             let inflation_quotes = quotes.extract_quotes();
-            if inflation_quotes.is_empty() {
-                return Err(finstack_core::Error::Input(
-                    finstack_core::error::InputError::TooFewPoints,
-                ));
-            }
+            require_non_empty(&inflation_quotes)?;
 
-            let target = InflationBootstrapper::new(
-                p.clone(),
-                inflation_quotes, // Consumes quotes
-                global_config.clone(),
-                context.clone(),
-            );
+            let target = InflationBootstrapper::new(p.clone(), context.clone());
 
             let (curve, report) = match p.method {
-                CalibrationMethod::Bootstrap => SequentialBootstrapper::bootstrap(
+                CalibrationMethod::Bootstrap => run_bootstrap(
                     &target,
-                    target.instruments(),
+                    &inflation_quotes,
                     vec![(0.0, p.base_cpi)],
                     global_config,
-                    None,
                 )?,
                 CalibrationMethod::Global => {
                     return Err(finstack_core::Error::Input(
@@ -215,26 +194,12 @@ pub fn execute_step(
         }
         StepParams::BaseCorrelation(p) => {
             let credit_quotes = quotes.extract_quotes();
-            if credit_quotes.is_empty() {
-                return Err(finstack_core::Error::Input(
-                    finstack_core::error::InputError::TooFewPoints,
-                ));
-            }
+            require_non_empty(&credit_quotes)?;
 
-            let target = BaseCorrelationBootstrapper::new(
-                p.clone(),
-                credit_quotes,
-                global_config.clone(),
-                context.clone(),
-            );
+            let target = BaseCorrelationBootstrapper::new(p.clone(), context.clone());
 
-            let (curve, report) = SequentialBootstrapper::bootstrap(
-                &target,
-                target.instruments(), // Needs to expose instruments
-                Vec::new(),
-                global_config,
-                None,
-            )?;
+            let (curve, report) =
+                run_bootstrap(&target, &credit_quotes, Vec::new(), global_config)?;
 
             let mut new_context = context.clone();
             new_context.insert_mut(curve);

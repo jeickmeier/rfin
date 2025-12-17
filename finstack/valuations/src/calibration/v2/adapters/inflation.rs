@@ -1,4 +1,3 @@
-use crate::calibration::config::CalibrationConfig;
 use crate::calibration::v2::api::schema::InflationCurveParams;
 use crate::calibration::v2::domain::quotes::InflationQuote;
 use crate::calibration::v2::domain::solver::BootstrapTarget;
@@ -18,9 +17,6 @@ use finstack_core::Result;
 /// market quotes.
 pub struct InflationBootstrapper {
     params: InflationCurveParams,
-    #[allow(dead_code)]
-    config: CalibrationConfig,
-    quotes: Vec<InflationQuote>,
     base_context: MarketContext,
 }
 
@@ -30,35 +26,16 @@ impl InflationBootstrapper {
     /// # Arguments
     ///
     /// * `params` - Parameters defining the inflation curve structure
-    /// * `quotes` - Inflation swap quotes used for calibration
-    /// * `config` - Calibration configuration settings
     /// * `base_context` - Market context containing discount curves
     ///
     /// # Returns
     ///
     /// A new `InflationBootstrapper` instance ready for calibration.
-    pub fn new(
-        params: InflationCurveParams,
-        quotes: Vec<InflationQuote>,
-        config: CalibrationConfig,
-        base_context: MarketContext,
-    ) -> Self {
+    pub fn new(params: InflationCurveParams, base_context: MarketContext) -> Self {
         Self {
             params,
-            config,
-            quotes,
             base_context,
         }
-    }
-
-    /// Returns the inflation swap quotes used for calibration.
-    ///
-    /// # Returns
-    ///
-    /// A slice of inflation quotes (inflation swap quotes) that will be used
-    /// during the bootstrapping process.
-    pub fn instruments(&self) -> &[InflationQuote] {
-        &self.quotes
     }
 }
 

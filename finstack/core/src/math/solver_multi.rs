@@ -582,15 +582,16 @@ impl LevenbergMarquardtSolver {
         };
 
         // Convergence check: Gradient Norm
-        let convergence_check = |_p: &[f64], _r: &[f64], jac: &[Vec<f64>]| -> Option<LmTerminationReason> {
-            let gradient = &jac[0];
-            let grad_norm: f64 = gradient.iter().map(|g| g * g).sum::<f64>().sqrt();
-            if grad_norm < self.tolerance {
-                Some(LmTerminationReason::ConvergedGradient)
-            } else {
-                None
-            }
-        };
+        let convergence_check =
+            |_p: &[f64], _r: &[f64], jac: &[Vec<f64>]| -> Option<LmTerminationReason> {
+                let gradient = &jac[0];
+                let grad_norm: f64 = gradient.iter().map(|g| g * g).sum::<f64>().sqrt();
+                if grad_norm < self.tolerance {
+                    Some(LmTerminationReason::ConvergedGradient)
+                } else {
+                    None
+                }
+            };
 
         Ok(self
             .solve_lm_core_with_stats(
@@ -637,14 +638,15 @@ impl LevenbergMarquardtSolver {
         };
 
         // Convergence check: Residual Norm
-        let convergence_check = |_p: &[f64], r: &[f64], _jac: &[Vec<f64>]| -> Option<LmTerminationReason> {
-            let resid_norm: f64 = r.iter().map(|val| val * val).sum::<f64>().sqrt();
-            if resid_norm < self.tolerance {
-                Some(LmTerminationReason::ConvergedResidualNorm)
-            } else {
-                None
-            }
-        };
+        let convergence_check =
+            |_p: &[f64], r: &[f64], _jac: &[Vec<f64>]| -> Option<LmTerminationReason> {
+                let resid_norm: f64 = r.iter().map(|val| val * val).sum::<f64>().sqrt();
+                if resid_norm < self.tolerance {
+                    Some(LmTerminationReason::ConvergedResidualNorm)
+                } else {
+                    None
+                }
+            };
 
         self.solve_lm_core_with_stats(
             initial.to_vec(),
@@ -690,14 +692,15 @@ impl LevenbergMarquardtSolver {
         };
 
         // Convergence check: Residual Norm
-        let convergence_check = |_p: &[f64], r: &[f64], _jac: &[Vec<f64>]| -> Option<LmTerminationReason> {
-            let resid_norm: f64 = r.iter().map(|val| val * val).sum::<f64>().sqrt();
-            if resid_norm < self.tolerance {
-                Some(LmTerminationReason::ConvergedResidualNorm)
-            } else {
-                None
-            }
-        };
+        let convergence_check =
+            |_p: &[f64], r: &[f64], _jac: &[Vec<f64>]| -> Option<LmTerminationReason> {
+                let resid_norm: f64 = r.iter().map(|val| val * val).sum::<f64>().sqrt();
+                if resid_norm < self.tolerance {
+                    Some(LmTerminationReason::ConvergedResidualNorm)
+                } else {
+                    None
+                }
+            };
 
         Ok(self
             .solve_lm_core_with_stats(
@@ -733,15 +736,16 @@ impl MultiSolver for LevenbergMarquardtSolver {
         };
 
         // Convergence check: Gradient Norm
-        let convergence_check = |_p: &[f64], _r: &[f64], jac: &[Vec<f64>]| -> Option<LmTerminationReason> {
-            let gradient = &jac[0];
-            let grad_norm: f64 = gradient.iter().map(|g| g * g).sum::<f64>().sqrt();
-            if grad_norm < self.tolerance {
-                Some(LmTerminationReason::ConvergedGradient)
-            } else {
-                None
-            }
-        };
+        let convergence_check =
+            |_p: &[f64], _r: &[f64], jac: &[Vec<f64>]| -> Option<LmTerminationReason> {
+                let gradient = &jac[0];
+                let grad_norm: f64 = gradient.iter().map(|g| g * g).sum::<f64>().sqrt();
+                if grad_norm < self.tolerance {
+                    Some(LmTerminationReason::ConvergedGradient)
+                } else {
+                    None
+                }
+            };
 
         Ok(self
             .solve_lm_core_with_stats(

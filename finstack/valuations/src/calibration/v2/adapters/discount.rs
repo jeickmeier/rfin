@@ -534,11 +534,7 @@ Ensure quotes map to strictly increasing year fractions.",
         self.build_curve_for_solver(&knots)
     }
 
-    fn build_curve_final_from_params(
-        &self,
-        times: &[f64],
-        params: &[f64],
-    ) -> Result<Self::Curve> {
+    fn build_curve_final_from_params(&self, times: &[f64], params: &[f64]) -> Result<Self::Curve> {
         let knots = self.knots_from_params(times, params)?;
         self.build_curve_final(&knots)
     }
@@ -579,11 +575,7 @@ Ensure quotes map to strictly increasing year fractions.",
         format!("{}-{}-{:03}", prefix, maturity, idx)
     }
 
-    fn residual_weights(
-        &self,
-        quotes: &[Self::Quote],
-        weights_out: &mut [f64],
-    ) -> Result<()> {
+    fn residual_weights(&self, quotes: &[Self::Quote], weights_out: &mut [f64]) -> Result<()> {
         if quotes.len() != weights_out.len() {
             return Err(finstack_core::Error::Calibration {
                 message: format!(

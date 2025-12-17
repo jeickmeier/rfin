@@ -108,11 +108,7 @@ impl GlobalOptimizer {
                     eval_idx,
                     "residual evaluation",
                     params,
-                    &format!(
-                        "while evaluating {} quotes: {}",
-                        active_quotes.len(),
-                        e
-                    ),
+                    &format!("while evaluating {} quotes: {}", active_quotes.len(), e),
                 );
                 for r in resid.iter_mut() {
                     *r = PENALTY;
@@ -154,10 +150,7 @@ impl GlobalOptimizer {
             .map(|(r, w)| (r * w).powi(2))
             .sum::<f64>()
             .sqrt();
-        let max_abs_residual = resid_values
-            .iter()
-            .map(|r| r.abs())
-            .fold(0.0_f64, f64::max);
+        let max_abs_residual = resid_values.iter().map(|r| r.abs()).fold(0.0_f64, f64::max);
         let weighted_max_abs_residual = resid_values
             .iter()
             .zip(weight_scales.iter())
@@ -176,10 +169,7 @@ impl GlobalOptimizer {
             "lm_termination_reason",
             format!("{:?}", stats.termination_reason),
         )
-        .with_metadata(
-            "lm_jacobian_evals",
-            stats.jacobian_evals.to_string(),
-        )
+        .with_metadata("lm_jacobian_evals", stats.jacobian_evals.to_string())
         .with_metadata(
             "lm_final_resid_norm",
             format!("{:.2e}", stats.final_residual_norm),
@@ -399,11 +389,7 @@ mod tests {
             }
         }
 
-        fn residual_weights(
-            &self,
-            quotes: &[Self::Quote],
-            weights_out: &mut [f64],
-        ) -> Result<()> {
+        fn residual_weights(&self, quotes: &[Self::Quote], weights_out: &mut [f64]) -> Result<()> {
             if let Some(custom) = &self.weights {
                 assert_eq!(
                     custom.len(),
@@ -495,11 +481,7 @@ mod tests {
 
     #[test]
     fn rejects_non_finite_inputs() {
-        let target = TestTarget::new(
-            vec![f64::NAN],
-            vec![f64::INFINITY],
-            vec![0.0],
-        );
+        let target = TestTarget::new(vec![f64::NAN], vec![f64::INFINITY], vec![0.0]);
         let quotes = vec![0usize];
         let config = CalibrationConfig::default().with_tolerance(1.0);
 
