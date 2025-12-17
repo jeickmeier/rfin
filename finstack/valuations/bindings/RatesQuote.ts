@@ -47,6 +47,18 @@ conventions: InstrumentConventions, } } | { "future": {
  */
 expiry: string, 
 /**
+ * Underlying rate period start date
+ */
+period_start: string, 
+/**
+ * Underlying rate period end date
+ */
+period_end: string, 
+/**
+ * Optional fixing date override (defaults to period_start if null)
+ */
+fixing_date: string | null, 
+/**
  * Contract price (e.g., 99.25 for 0.75% implied rate)
  */
 price: number, 

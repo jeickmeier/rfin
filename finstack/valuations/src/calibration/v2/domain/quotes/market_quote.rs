@@ -34,12 +34,12 @@ impl MarketQuote {
         }
     }
 
-    /// Bump the quote by a given amount.
+    /// Bump the underlying rate quote by a decimal rate amount (e.g., 0.0001 = 1bp).
     ///
-    /// Currently only supported for RatesQuote.
+    /// Currently only supported for RatesQuote; all others are returned unchanged.
     pub fn bump(&self, amount: f64) -> Self {
         match self {
-            MarketQuote::Rates(q) => MarketQuote::Rates(q.bump(amount)),
+            MarketQuote::Rates(q) => MarketQuote::Rates(q.bump_rate_decimal(amount)),
             _ => self.clone(), // No-op for others for now
         }
     }

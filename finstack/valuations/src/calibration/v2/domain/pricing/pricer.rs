@@ -54,6 +54,34 @@ fn ois_compounding_for_index(index: &IndexId, currency: Currency) -> FloatingLeg
     }
 }
 
+/// Recognized overnight index keywords for validating OIS swaps.
+const OIS_INDEX_KEYWORDS: &[&str] = &[
+    "SOFR",
+    "FEDFUNDS",
+    "EFFR",
+    "SONIA",
+    "ESTR",
+    "€STR",
+    "EONIA",
+    "TONA",
+    "TONAR",
+    "SARON",
+    "AONIA",
+    "HONIA",
+    "SORA",
+    "CORRA",
+    "HONIX",
+    "BBSWON",
+    "OIS",
+];
+
+fn is_recognized_ois_index(index: &IndexId) -> bool {
+    let upper = index.as_str().to_ascii_uppercase();
+    OIS_INDEX_KEYWORDS
+        .iter()
+        .any(|keyword| upper.contains(keyword))
+}
+
 // =============================================================================
 // Quote Validation Types
 // =============================================================================
@@ -1547,6 +1575,29 @@ impl CalibrationPricer {
                 _ => {}
             }
 
+            if let RatesQuote::Swap {
+                is_ois: true,
+                float_leg_conventions,
+                ..
+            } = quote
+            {
+                match float_leg_conventions.index.as_ref() {
+                    Some(index_id) if is_recognized_ois_index(index_id) => {}
+                    Some(index_id) => {
+                        return Err(finstack_core::Error::Validation(format!(
+                            "Swap flagged as OIS but float leg index '{}' is not a recognized overnight index",
+                            index_id
+                        )));
+                    }
+                    None => {
+                        return Err(finstack_core::Error::Validation(
+                            "Swap quote flagged as OIS requires float_leg_conventions.index"
+                                .into(),
+                        ));
+                    }
+                }
+            }
+
             // Rate extraction and validation
             let rate = Self::get_rate(quote);
             if !rate.is_finite() {
@@ -1607,7 +1658,7 @@ impl CalibrationPricer {
 mod tests {
     use super::*;
     use crate::calibration::config::RateBounds;
-    use finstack_core::dates::BusinessDayConvention;
+    use finstack_core::dates::{BusinessDayConvention, DayCount, Tenor};
     use finstack_core::market_data::term_structures::discount_curve::DiscountCurve;
     use finstack_core::market_data::term_structures::forward_curve::ForwardCurve;
     use time::Month;
@@ -1805,6 +1856,55 @@ mod tests {
         )
         .expect_err("FRA with end before start should be rejected");
         assert!(matches!(err, finstack_core::Error::Calibration { .. }));
+    }
+
+    fn sample_swap(base_date: Date, index: &str, is_ois: bool) -> RatesQuote {
+        RatesQuote::Swap {
+            maturity: base_date + time::Duration::days(365),
+            rate: 0.02,
+            is_ois,
+            conventions: Default::default(),
+            fixed_leg_conventions: InstrumentConventions::default()
+                .with_payment_frequency(Tenor::semi_annual())
+                .with_day_count(DayCount::Thirty360),
+            float_leg_conventions: InstrumentConventions::default()
+                .with_payment_frequency(Tenor::quarterly())
+                .with_day_count(DayCount::Act360)
+                .with_index(index),
+        }
+    }
+
+    #[test]
+    fn validate_quotes_rejects_misclassified_ois_swap() {
+        let base_date = Date::from_calendar_date(2024, Month::January, 2).expect("valid base date");
+        let swap = sample_swap(base_date, "USD-LIBOR-3M", true);
+        let bounds = RateBounds::default();
+        let err = CalibrationPricer::validate_rates_quotes(
+            &[swap],
+            &bounds,
+            base_date,
+            RatesQuoteUseCase::DiscountCurve {
+                enforce_separation: true,
+            },
+        )
+        .expect_err("LIBOR swap flagged as OIS should be rejected");
+        assert!(matches!(err, finstack_core::Error::Validation(_)));
+    }
+
+    #[test]
+    fn validate_quotes_accepts_known_ois_swap() {
+        let base_date = Date::from_calendar_date(2024, Month::January, 2).expect("valid base date");
+        let swap = sample_swap(base_date, "USD-SOFR-OIS", true);
+        let bounds = RateBounds::default();
+        CalibrationPricer::validate_rates_quotes(
+            &[swap],
+            &bounds,
+            base_date,
+            RatesQuoteUseCase::DiscountCurve {
+                enforce_separation: true,
+            },
+        )
+        .expect("SOFR swap flagged as OIS should pass validation");
     }
 
     #[test]

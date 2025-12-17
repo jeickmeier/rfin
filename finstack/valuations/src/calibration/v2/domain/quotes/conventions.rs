@@ -15,7 +15,7 @@ use ts_rs::TS;
 #[cfg_attr(feature = "ts_export", derive(TS))]
 #[cfg_attr(feature = "ts_export", ts(export))]
 #[derive(Clone, Debug, Default, serde::Serialize, serde::Deserialize, PartialEq)]
-#[serde(default)]
+#[serde(default, deny_unknown_fields)]
 pub struct InstrumentConventions {
     /// Settlement lag in business days from trade date (e.g., 0 for T+0, 2 for T+2)
     #[serde(skip_serializing_if = "Option::is_none")]

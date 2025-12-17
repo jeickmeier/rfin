@@ -251,8 +251,15 @@ impl BootstrapTarget for DiscountCurveTarget {
 
     fn build_curve_final(&self, knots: &[(f64, f64)]) -> Result<Self::Curve> {
         let config_flag = self.config.discount_curve.allow_non_monotonic_final;
-        let allow_non_monotonic = config_flag
-            .unwrap_or_else(|| self.config.effective_rate_bounds(self.currency).min_rate < 0.0);
+        let policy_allow = match self.config.rate_bounds_policy {
+            crate::calibration::config::RateBoundsPolicy::Explicit => {
+                self.config.rate_bounds.min_rate < 0.0
+            }
+            crate::calibration::config::RateBoundsPolicy::AutoCurrency => {
+                matches!(self.currency, Currency::EUR | Currency::JPY | Currency::CHF)
+            }
+        };
+        let allow_non_monotonic = config_flag.unwrap_or(policy_allow);
 
         if allow_non_monotonic && self.solve_interp == InterpStyle::MonotoneConvex {
             return Err(finstack_core::Error::Calibration {
@@ -302,9 +309,18 @@ Disable allow_non_monotonic_final or choose a compatible interpolation style."
                         "Deposit quote requires conventions.day_count to be set".to_string(),
                     )
                 })?;
+                let settlement_start = if quote.conventions().settlement_days.is_some()
+                    || quote.conventions().calendar_id.is_some()
+                    || quote.conventions().business_day_convention.is_some()
+                {
+                    self.pricer
+                        .settlement_date_for_quote(quote.conventions(), self.currency)?
+                } else {
+                    self.settlement_date
+                };
                 let yf = day_count
                     .year_fraction(
-                        self.settlement_date,
+                        settlement_start,
                         *maturity,
                         finstack_core::dates::DayCountCtx::default(),
                     )?
