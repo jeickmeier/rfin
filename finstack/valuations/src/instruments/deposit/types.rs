@@ -147,7 +147,7 @@ impl crate::instruments::common::traits::Instrument for Deposit {
         crate::pricer::InstrumentType::Deposit
     }
 
-    fn as_any(&self) -> &dyn ::std::any::Any {
+    fn as_any(&self) -> &dyn::std::any::Any {
         self
     }
 
