@@ -45,7 +45,11 @@ fn bench_discount_and_forward_steps(c: &mut Criterion) {
                 .with_index("USD-OIS"),
         },
     ];
-    let disc_mq: Vec<MarketQuote> = disc_quotes.iter().cloned().map(MarketQuote::Rates).collect();
+    let disc_mq: Vec<MarketQuote> = disc_quotes
+        .iter()
+        .cloned()
+        .map(MarketQuote::Rates)
+        .collect();
     let disc_step = StepParams::Discount(DiscountCurveParams {
         curve_id: "USD-OIS".into(),
         currency: Currency::USD,
@@ -87,20 +91,37 @@ fn bench_discount_and_forward_steps(c: &mut Criterion) {
 
     c.bench_function("calibration_v2_discount_step", |b| {
         let base = MarketContext::new();
-        b.iter(|| execute_step(black_box(&disc_step), black_box(&disc_mq), black_box(&base), black_box(&settings)).unwrap())
+        b.iter(|| {
+            execute_step(
+                black_box(&disc_step),
+                black_box(&disc_mq),
+                black_box(&base),
+                black_box(&settings),
+            )
+            .unwrap()
+        })
     });
 
     c.bench_function("calibration_v2_discount_then_forward_steps", |b| {
         let base = MarketContext::new();
         b.iter(|| {
-            let (ctx_after_disc, _) =
-                execute_step(black_box(&disc_step), black_box(&disc_mq), black_box(&base), black_box(&settings)).unwrap();
-            execute_step(black_box(&fwd_step), black_box(&fwd_mq), black_box(&ctx_after_disc), black_box(&settings)).unwrap()
+            let (ctx_after_disc, _) = execute_step(
+                black_box(&disc_step),
+                black_box(&disc_mq),
+                black_box(&base),
+                black_box(&settings),
+            )
+            .unwrap();
+            execute_step(
+                black_box(&fwd_step),
+                black_box(&fwd_mq),
+                black_box(&ctx_after_disc),
+                black_box(&settings),
+            )
+            .unwrap()
         })
     });
 }
 
 criterion_group!(benches, bench_discount_and_forward_steps);
 criterion_main!(benches);
-
-

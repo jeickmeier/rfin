@@ -1,10 +1,10 @@
 //! Calibration reporting and diagnostics.
 
+use crate::calibration::solver::SolverConfig;
 use finstack_core::config::ResultsMeta;
 use finstack_core::explain::ExplanationTrace;
 use serde::{Deserialize, Serialize};
 use std::collections::BTreeMap;
-use crate::calibration::solver::SolverConfig;
 
 fn default_true() -> bool {
     true

@@ -75,7 +75,10 @@ impl SurfaceValidator for VolSurface {
                 .iter()
                 .take(5)
                 .map(|(k, t, actual, expected)| {
-                    format!("K={:.2}, T={:.4}y (var={:.6} < {:.6})", k, t, actual, expected)
+                    format!(
+                        "K={:.2}, T={:.4}y (var={:.6} < {:.6})",
+                        k, t, actual, expected
+                    )
                 })
                 .collect();
             let suffix = if violations.len() > 5 {
@@ -228,5 +231,3 @@ impl SurfaceValidator for VolSurface {
         Ok(())
     }
 }
-
-

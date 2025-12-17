@@ -431,7 +431,9 @@ pub fn price_from_ytm_compounded_params(
     ytm: f64,
     comp: YieldCompounding,
 ) -> finstack_core::Result<f64> {
-    let mut pv = 0.0;
+    use finstack_core::math::summation::NeumaierAccumulator;
+
+    let mut pv = NeumaierAccumulator::new();
     for &(date, amount) in flows {
         if date <= as_of {
             continue;
@@ -439,10 +441,10 @@ pub fn price_from_ytm_compounded_params(
         let t = day_count.year_fraction(as_of, date, DayCountCtx::default())?;
         if t > 0.0 {
             let df = df_from_yield(ytm, t, comp, freq)?;
-            pv += amount.amount() * df;
+            pv.add(amount.amount() * df);
         }
     }
-    Ok(pv)
+    Ok(pv.total())
 }
 
 /// Price from ytm compounded.
@@ -570,10 +572,12 @@ pub fn price_from_z_spread(
     as_of: Date,
     z: f64,
 ) -> finstack_core::Result<f64> {
+    use finstack_core::math::summation::NeumaierAccumulator;
+
     let flows = bond.build_schedule(curves, as_of)?;
     let disc = curves.get_discount_ref(&bond.discount_curve_id)?;
 
-    let mut pv = 0.0;
+    let mut pv = NeumaierAccumulator::new();
     for (d, a) in &flows {
         if *d <= as_of {
             continue;
@@ -587,9 +591,9 @@ pub fn price_from_z_spread(
 
         let df = disc.try_df_between_dates(as_of, *d)?;
         let df_z = df * (-z * t_from_as_of).exp();
-        pv += a.amount() * df_z;
+        pv.add(a.amount() * df_z);
     }
-    Ok(pv)
+    Ok(pv.total())
 }
 
 /// Price from Option-Adjusted Spread using the short-rate tree pricer.

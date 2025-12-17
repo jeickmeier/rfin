@@ -138,5 +138,3 @@ impl CalibrationPricer {
         Money::new(specs.face_value * specs.multiplier, currency)
     }
 }
-
-

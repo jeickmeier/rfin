@@ -949,10 +949,17 @@ impl MonotoneConvexStrategy {
             }
 
             // Boundary conditions from Hagan-West (2006):
-            // f_0 = f^d_1 - 0.5 * (f_1 - f^d_1)
-            // f_n = f^d_n - 0.5 * (f_{n-1} - f^d_n)
-            f[0] = fd[0] - 0.5 * (f[1] - fd[0]);
-            f[n - 1] = fd[n - 2] - 0.5 * (f[n - 2] - fd[n - 2]);
+            //
+            // Extrapolate the *instantaneous* forward at the first/last knot from the
+            // adjacent *discrete* forwards:
+            //   f_0     = f^d_0 - 0.5 * (f^d_1     - f^d_0)
+            //   f_{n-1} = f^d_{n-2} + 0.5 * (f^d_{n-2} - f^d_{n-3})
+            //
+            // This matches the standard "linear" extrapolation of discrete forwards at
+            // the ends and avoids coupling the boundary forwards to the interior knot
+            // estimates (which can otherwise amplify endpoint sensitivity for long tenors).
+            f[0] = 1.5 * fd[0] - 0.5 * fd[1];
+            f[n - 1] = 1.5 * fd[n - 2] - 0.5 * fd[n - 3];
 
             // Apply monotonicity constraints to ensure positive forwards
             // and avoid overshoots

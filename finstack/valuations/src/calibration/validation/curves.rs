@@ -2,7 +2,8 @@
 
 use crate::calibration::validation::points::{
     DF_BOUNDS_POINTS, DF_MONO_POINTS, FWD_ARBI_POINTS, FWD_BOUNDS_POINTS, HAZARD_ARBI_POINTS,
-    HAZARD_BOUNDS_POINTS, HAZARD_MONO_POINTS, INFL_ARBI_POINTS, INFL_BOUNDS_POINTS, INFL_MONO_POINTS,
+    HAZARD_BOUNDS_POINTS, HAZARD_MONO_POINTS, INFL_ARBI_POINTS, INFL_BOUNDS_POINTS,
+    INFL_MONO_POINTS,
 };
 use crate::calibration::validation::ValidationConfig;
 use finstack_core::market_data::term_structures::{
@@ -132,7 +133,11 @@ impl CurveValidator for DiscountCurve {
     fn validate_bounds(&self, config: &ValidationConfig) -> Result<()> {
         // Check that discount factors are in (0, max_df]
         // For negative rate environments, DF can exceed 1.0 at short end
-        let max_df = if config.allow_negative_rates { 1.5 } else { 1.0 };
+        let max_df = if config.allow_negative_rates {
+            1.5
+        } else {
+            1.0
+        };
 
         for &t in DF_BOUNDS_POINTS {
             let df = self.df(t);
@@ -539,5 +544,3 @@ impl CurveValidator for BaseCorrelationCurve {
         Ok(())
     }
 }
-
-

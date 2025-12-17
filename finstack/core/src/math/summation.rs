@@ -64,6 +64,42 @@ where
     sum + c
 }
 
+/// Incremental Neumaier compensated summation.
+///
+/// Useful when you want stable accumulation without allocating a temporary
+/// `Vec<f64>` of terms (e.g., PV loops over cashflows).
+#[derive(Debug, Clone, Copy, Default)]
+pub struct NeumaierAccumulator {
+    sum: f64,
+    c: f64,
+}
+
+impl NeumaierAccumulator {
+    /// Create a new accumulator with zero state.
+    #[inline]
+    pub fn new() -> Self {
+        Self { sum: 0.0, c: 0.0 }
+    }
+
+    /// Add a value to the running total.
+    #[inline]
+    pub fn add(&mut self, x: f64) {
+        let t = self.sum + x;
+        self.c += if self.sum.abs() >= x.abs() {
+            (self.sum - t) + x
+        } else {
+            (x - t) + self.sum
+        };
+        self.sum = t;
+    }
+
+    /// Return the compensated total.
+    #[inline]
+    pub fn total(self) -> f64 {
+        self.sum + self.c
+    }
+}
+
 /// Pairwise (divide-and-conquer) summation over a slice.
 pub fn pairwise_sum(xs: &[f64]) -> f64 {
     fn recurse(slice: &[f64]) -> f64 {

@@ -1,7 +1,7 @@
-use crate::calibration::config::CalibrationConfig;
 use crate::calibration::api::schema::{
     SurfaceExtrapolationPolicy, SwaptionVolConvention, SwaptionVolParams,
 };
+use crate::calibration::config::CalibrationConfig;
 use crate::calibration::quotes::{InstrumentConventions, MarketQuote, VolQuote};
 use crate::calibration::CalibrationReport;
 use crate::instruments::common::models::{SABRCalibrator, SABRModel, SABRParameters};
@@ -171,9 +171,8 @@ impl SwaptionVolAdapter {
             // Params has explicit convention.
 
             let res = match params.vol_convention {
-                SwaptionVolConvention::Normal => {
-                    sabr_calibrator.calibrate_with_atm_pinning(fwd_rate, &strikes, &vols, t_exp, 0.0)
-                }
+                SwaptionVolConvention::Normal => sabr_calibrator
+                    .calibrate_with_atm_pinning(fwd_rate, &strikes, &vols, t_exp, 0.0),
                 SwaptionVolConvention::Lognormal => sabr_calibrator.calibrate_auto_shift(
                     fwd_rate,
                     &strikes,
@@ -838,8 +837,7 @@ mod tests {
             sabr_beta: 0.5,
             target_expiries: vec![1.0, 2.0],
             target_tenors: vec![5.0, 10.0],
-            sabr_interpolation:
-                crate::calibration::api::schema::SabrInterpolationMethod::Bilinear,
+            sabr_interpolation: crate::calibration::api::schema::SabrInterpolationMethod::Bilinear,
             calendar_id: None,
             fixed_day_count: Some(DayCount::Act365F),
             vol_tolerance: None,
@@ -855,9 +853,8 @@ mod tests {
             .expect("normal");
         assert!((normal - 0.005).abs() < 1e-12);
 
-        let ln =
-            SwaptionVolAdapter::normalize_quoted_vol(20.0, SwaptionVolConvention::Lognormal)
-                .expect("lognormal");
+        let ln = SwaptionVolAdapter::normalize_quoted_vol(20.0, SwaptionVolConvention::Lognormal)
+            .expect("lognormal");
         assert!((ln - 0.20).abs() < 1e-12);
 
         let shifted = SwaptionVolAdapter::normalize_quoted_vol(
@@ -922,9 +919,7 @@ mod tests {
 
         let mut quotes = Vec::new();
         for &k in &strikes {
-            let vol_dec = model
-                .implied_volatility(fwd, k, t_exp)
-                .expect("true vol");
+            let vol_dec = model.implied_volatility(fwd, k, t_exp).expect("true vol");
             let vol_bp = vol_dec * 10_000.0;
             quotes.push(MarketQuote::Vol(VolQuote::SwaptionVol {
                 expiry: expiry_date,
@@ -942,12 +937,8 @@ mod tests {
         let (surface, _report) =
             SwaptionVolAdapter::calibrate(&p, &quotes, &ctx, &config).expect("calibrate");
 
-        let fitted_atm = surface
-            .value_checked(t_exp, t_ten)
-            .expect("surface point");
-        let true_atm = model
-            .implied_volatility(fwd, fwd, t_exp)
-            .expect("true atm");
+        let fitted_atm = surface.value_checked(t_exp, t_ten).expect("surface point");
+        let true_atm = model.implied_volatility(fwd, fwd, t_exp).expect("true atm");
 
         // 2 vol bp in decimal units = 0.0002
         assert!(
@@ -1012,9 +1003,7 @@ mod tests {
 
         let mut quotes = Vec::new();
         for &k in &strikes {
-            let vol_dec = model
-                .implied_volatility(fwd, k, t_exp)
-                .expect("true vol");
+            let vol_dec = model.implied_volatility(fwd, k, t_exp).expect("true vol");
             let vol_pct = vol_dec * 100.0;
             quotes.push(MarketQuote::Vol(VolQuote::SwaptionVol {
                 expiry: expiry_date,
@@ -1029,18 +1018,15 @@ mod tests {
         }
 
         let config = CalibrationConfig {
-            solver: crate::calibration::solver::SolverConfig::brent_default().with_max_iterations(500),
+            solver: crate::calibration::solver::SolverConfig::brent_default()
+                .with_max_iterations(500),
             ..CalibrationConfig::default()
         };
         let (surface, _report) =
             SwaptionVolAdapter::calibrate(&p, &quotes, &ctx, &config).expect("calibrate");
 
-        let fitted_atm = surface
-            .value_checked(t_exp, t_ten)
-            .expect("surface point");
-        let true_atm = model
-            .implied_volatility(fwd, fwd, t_exp)
-            .expect("true atm");
+        let fitted_atm = surface.value_checked(t_exp, t_ten).expect("surface point");
+        let true_atm = model.implied_volatility(fwd, fwd, t_exp).expect("true atm");
 
         assert!(
             (fitted_atm - true_atm).abs() <= 0.0002,
@@ -1060,15 +1046,15 @@ mod tests {
             .knots([(0.0, 1.0), (30.0, 0.20)])
             .build()
             .expect("discount curve");
-        let fwd_curve = finstack_core::market_data::term_structures::forward_curve::ForwardCurve::builder(
-            "USD-FWD",
-            0.25,
-        )
-        .base_date(base_date)
-        .day_count(DayCount::Act365F)
-        .knots([(0.0, -0.01), (30.0, -0.01)])
-        .build()
-        .expect("forward curve");
+        let fwd_curve =
+            finstack_core::market_data::term_structures::forward_curve::ForwardCurve::builder(
+                "USD-FWD", 0.25,
+            )
+            .base_date(base_date)
+            .day_count(DayCount::Act365F)
+            .knots([(0.0, -0.01), (30.0, -0.01)])
+            .build()
+            .expect("forward curve");
         let ctx = MarketContext::new()
             .insert_discount(disc)
             .insert_forward(fwd_curve);

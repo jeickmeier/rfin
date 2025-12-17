@@ -17,6 +17,7 @@ use finstack_core::dates::{
     ScheduleBuilder, StubKind, Tenor,
 };
 use finstack_core::market_data::context::MarketContext;
+use finstack_core::math::summation::NeumaierAccumulator;
 use finstack_core::money::fx::FxQuery;
 use finstack_core::money::Money;
 use finstack_core::types::{CurveId, InstrumentId};
@@ -275,14 +276,14 @@ impl XccySwap {
 
         let dc_ctx = DayCountCtx::default();
 
-        let mut pv = 0.0;
+        let mut pv = NeumaierAccumulator::new();
 
         // Notional exchanges (principal) in leg currency
         if matches!(self.notional_exchange, NotionalExchange::InitialAndFinal)
             && self.start_date > as_of
         {
             let df = disc.try_df_between_dates(as_of, self.start_date)?;
-            pv += leg.side.initial_principal_sign() * leg.notional.amount() * df;
+            pv.add(leg.side.initial_principal_sign() * leg.notional.amount() * df);
         }
 
         if matches!(
@@ -291,7 +292,7 @@ impl XccySwap {
         ) && self.maturity_date > as_of
         {
             let df = disc.try_df_between_dates(as_of, self.maturity_date)?;
-            pv += leg.side.final_principal_sign() * leg.notional.amount() * df;
+            pv.add(leg.side.final_principal_sign() * leg.notional.amount() * df);
         }
 
         // Floating coupons
@@ -330,10 +331,10 @@ impl XccySwap {
             let coupon = leg.side.coupon_sign() * leg.notional.amount() * total_rate * year_frac;
 
             let df = disc.try_df_between_dates(as_of, payment_date)?;
-            pv += coupon * df;
+            pv.add(coupon * df);
         }
 
-        Ok(Money::new(pv, leg.currency))
+        Ok(Money::new(pv.total(), leg.currency))
     }
 
     fn convert(

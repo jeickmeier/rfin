@@ -6,9 +6,9 @@ use super::schema::CalibrationEnvelopeV2;
 use crate::calibration::adapters::handlers::discount_curve_day_count;
 use crate::calibration::adapters::handlers::{apply_rates_step_conventions, execute_step};
 use crate::calibration::api::schema::StepParams;
+use crate::calibration::api::schema::{CalibrationResult, CalibrationResultEnvelope};
 use crate::calibration::pricing::{CalibrationPricer, RatesQuoteUseCase};
 use crate::calibration::quotes::ExtractQuotes;
-use crate::calibration::api::schema::{CalibrationResult, CalibrationResultEnvelope};
 use crate::calibration::CalibrationReport;
 use finstack_core::explain::{ExplanationTrace, TraceEntry};
 use finstack_core::market_data::context::MarketContext;
@@ -69,7 +69,10 @@ fn aggregate_plan_report(
     );
     report.update_metadata("type", "plan_execution");
     report.update_metadata("method", "plan_execution");
-    report.update_metadata("solver_tolerance", format!("{:.2e}", config.solver.tolerance()));
+    report.update_metadata(
+        "solver_tolerance",
+        format!("{:.2e}", config.solver.tolerance()),
+    );
 
     if !all_steps_validation_passed {
         let mut failures = Vec::new();
@@ -408,8 +411,9 @@ fn preflight_step(
         }
         StepParams::SwaptionVol(p) => {
             let _ = context.get_discount_ref(&p.discount_curve_id)?;
-            if let crate::calibration::api::schema::SwaptionVolConvention::ShiftedLognormal { shift } =
-                p.vol_convention
+            if let crate::calibration::api::schema::SwaptionVolConvention::ShiftedLognormal {
+                shift,
+            } = p.vol_convention
             {
                 if !shift.is_finite() || shift <= 0.0 {
                     return Err(finstack_core::Error::Validation(format!(
@@ -571,7 +575,9 @@ pub fn execute(envelope: &CalibrationEnvelopeV2) -> Result<CalibrationResultEnve
         final_market: (&context).into(),
         report: aggregated_report,
         step_reports,
-        results_meta: finstack_core::config::results_meta(&finstack_core::config::FinstackConfig::default()),
+        results_meta: finstack_core::config::results_meta(
+            &finstack_core::config::FinstackConfig::default(),
+        ),
     };
 
     Ok(CalibrationResultEnvelope::new(result))

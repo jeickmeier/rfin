@@ -1,10 +1,10 @@
 #![cfg(feature = "ts_export")]
 
-use finstack_valuations::calibration::{
-    CalibrationConfig, MultiCurveConfig, RateBounds, SolverConfig, ValidationMode,
-};
 use finstack_valuations::calibration::quotes::{
     CreditQuote, FutureSpecs, InflationQuote, MarketQuote, RatesQuote, VolQuote,
+};
+use finstack_valuations::calibration::{
+    CalibrationConfig, MultiCurveConfig, RateBounds, SolverConfig, ValidationMode,
 };
 use ts_rs::TS;
 

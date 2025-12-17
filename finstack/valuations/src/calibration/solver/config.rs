@@ -124,9 +124,7 @@ impl SolverConfig {
         match &mut self {
             Self::Newton { solver } => solver.tolerance = tolerance,
             Self::Brent { solver } => solver.tolerance = tolerance,
-            Self::GlobalNewton {
-                tolerance: t, ..
-            } => *t = tolerance,
+            Self::GlobalNewton { tolerance: t, .. } => *t = tolerance,
         }
         self
     }

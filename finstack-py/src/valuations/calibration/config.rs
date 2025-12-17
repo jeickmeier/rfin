@@ -1,5 +1,6 @@
 use super::validation::PyValidationConfig;
 use crate::core::common::{labels::normalize_label, pycmp::richcmp_eq_ne};
+use crate::errors::core_to_py;
 use finstack_core::explain::ExplainOpts;
 use finstack_core::market_data::term_structures::Seniority;
 use finstack_valuations::calibration::{
@@ -40,13 +41,19 @@ impl PySolverKind {
 impl PySolverKind {
     #[classattr]
     #[pyo3(name = "NEWTON")]
-    fn newton_attr() -> Self { Self::new(SolverConfig::newton_default()) }
+    fn newton_attr() -> Self {
+        Self::new(SolverConfig::newton_default())
+    }
     #[classattr]
     #[pyo3(name = "BRENT")]
-    fn brent_attr() -> Self { Self::new(SolverConfig::brent_default()) }
+    fn brent_attr() -> Self {
+        Self::new(SolverConfig::brent_default())
+    }
     #[classattr]
     #[pyo3(name = "GLOBAL_NEWTON")]
-    fn global_newton_attr() -> Self { Self::new(SolverConfig::global_newton_default()) }
+    fn global_newton_attr() -> Self {
+        Self::new(SolverConfig::global_newton_default())
+    }
 
     #[classmethod]
     #[pyo3(text_signature = "(cls, name)")]
@@ -172,9 +179,11 @@ impl PyCalibrationMethod {
     fn with_use_analytical_jacobian(&self, value: bool) -> Self {
         match self.inner {
             CalibrationSolveMethod::Bootstrap => Self::new(CalibrationSolveMethod::Bootstrap),
-            CalibrationSolveMethod::GlobalSolve { .. } => Self::new(CalibrationSolveMethod::GlobalSolve {
-                use_analytical_jacobian: value,
-            }),
+            CalibrationSolveMethod::GlobalSolve { .. } => {
+                Self::new(CalibrationSolveMethod::GlobalSolve {
+                    use_analytical_jacobian: value,
+                })
+            }
         }
     }
 
@@ -321,9 +330,7 @@ impl PyRateBounds {
         if let Some(v) = max_rate {
             inner.max_rate = v;
         }
-        if inner.min_rate > inner.max_rate {
-            return Err(PyValueError::new_err("min_rate must be <= max_rate"));
-        }
+        inner.validate().map_err(core_to_py)?;
         Ok(Self::new(inner))
     }
 

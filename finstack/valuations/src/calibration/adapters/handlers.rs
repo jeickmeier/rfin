@@ -2,7 +2,6 @@
 //!
 //! Maps API steps to domain logic execution.
 
-use crate::calibration::config::{CalibrationConfig, CalibrationMethod};
 use crate::calibration::adapters::base_correlation::BaseCorrelationBootstrapper;
 use crate::calibration::adapters::discount::{DiscountCurveTarget, DiscountCurveTargetParams};
 use crate::calibration::adapters::forward::{ForwardCurveTarget, ForwardCurveTargetParams};
@@ -11,17 +10,18 @@ use crate::calibration::adapters::inflation::InflationBootstrapper;
 use crate::calibration::adapters::swaption::SwaptionVolAdapter;
 use crate::calibration::adapters::vol::VolSurfaceAdapter;
 use crate::calibration::api::schema::StepParams;
+use crate::calibration::config::{CalibrationConfig, CalibrationMethod};
 use crate::calibration::pricing::{CalibrationPricer, RatesStepConventions};
 use crate::calibration::quotes::{ExtractQuotes, MarketQuote};
-use crate::calibration::solver::{
-    BootstrapTarget, GlobalFitOptimizer, SequentialBootstrapper,
-};
+use crate::calibration::solver::{BootstrapTarget, GlobalFitOptimizer, SequentialBootstrapper};
 use crate::calibration::CalibrationReport;
 use finstack_core::market_data::context::MarketContext;
 use finstack_core::market_data::term_structures::CreditIndexData;
 use finstack_core::prelude::*;
 
-fn default_curve_day_count(_currency: finstack_core::types::Currency) -> finstack_core::dates::DayCount {
+fn default_curve_day_count(
+    _currency: finstack_core::types::Currency,
+) -> finstack_core::dates::DayCount {
     // Align with the core discount curve builder defaults and scenario expectations.
     finstack_core::dates::DayCount::Act365F
 }

@@ -14,9 +14,7 @@ use finstack_valuations::calibration::api::schema::{
     DiscountCurveParams, ForwardCurveParams, StepParams,
 };
 use finstack_valuations::calibration::pricing::CalibrationPricer;
-use finstack_valuations::calibration::quotes::{
-    InstrumentConventions, MarketQuote, RatesQuote,
-};
+use finstack_valuations::calibration::quotes::{InstrumentConventions, MarketQuote, RatesQuote};
 use finstack_valuations::calibration::CalibrationConfig;
 use finstack_valuations::instruments::common::traits::Instrument;
 use finstack_valuations::instruments::irs::InterestRateSwap;

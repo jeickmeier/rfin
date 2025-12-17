@@ -4,7 +4,6 @@ use crate::core::market_data::term_structures::{
 };
 use crate::errors::core_to_py;
 use finstack_valuations::calibration::{CurveValidator, SurfaceValidator, ValidationConfig};
-use pyo3::exceptions::PyValueError;
 use pyo3::prelude::*;
 use pyo3::types::{PyList, PyModule, PyType};
 use pyo3::Bound;
@@ -160,17 +159,9 @@ impl PyValidationConfig {
             config.check_forward_positivity = val;
         }
         if let Some(val) = min_forward_rate {
-            if val > 0.0 {
-                return Err(PyValueError::new_err(
-                    "min_forward_rate should be non-positive or slightly negative",
-                ));
-            }
             config.min_forward_rate = val;
         }
         if let Some(val) = max_forward_rate {
-            if val <= 0.0 {
-                return Err(PyValueError::new_err("max_forward_rate must be positive"));
-            }
             config.max_forward_rate = val;
         }
         if let Some(val) = check_monotonicity {
@@ -180,16 +171,10 @@ impl PyValidationConfig {
             config.check_arbitrage = val;
         }
         if let Some(val) = tolerance {
-            if val <= 0.0 {
-                return Err(PyValueError::new_err("tolerance must be positive"));
-            }
             config.tolerance = val;
         }
 
         if let Some(val) = max_hazard_rate {
-            if val <= 0.0 {
-                return Err(PyValueError::new_err("max_hazard_rate must be positive"));
-            }
             config.max_hazard_rate = val;
         }
         if let Some(val) = min_cpi_growth {
@@ -198,11 +183,6 @@ impl PyValidationConfig {
         if let Some(val) = max_cpi_growth {
             config.max_cpi_growth = val;
         }
-        if config.min_cpi_growth > config.max_cpi_growth {
-            return Err(PyValueError::new_err(
-                "min_cpi_growth must be <= max_cpi_growth",
-            ));
-        }
 
         if let Some(val) = min_fwd_inflation {
             config.min_fwd_inflation = val;
@@ -210,16 +190,8 @@ impl PyValidationConfig {
         if let Some(val) = max_fwd_inflation {
             config.max_fwd_inflation = val;
         }
-        if config.min_fwd_inflation > config.max_fwd_inflation {
-            return Err(PyValueError::new_err(
-                "min_fwd_inflation must be <= max_fwd_inflation",
-            ));
-        }
 
         if let Some(val) = max_volatility {
-            if val <= 0.0 {
-                return Err(PyValueError::new_err("max_volatility must be positive"));
-            }
             config.max_volatility = val;
         }
 
@@ -230,6 +202,7 @@ impl PyValidationConfig {
             config.lenient_arbitrage = val;
         }
 
+        config.validate().map_err(core_to_py)?;
         Ok(Self::new(config))
     }
 

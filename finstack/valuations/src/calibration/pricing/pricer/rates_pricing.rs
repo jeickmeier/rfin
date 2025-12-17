@@ -1,8 +1,8 @@
 //! Rates instrument pricing for `CalibrationPricer`.
 
 use super::CalibrationPricer;
-use crate::calibration::quotes::{InstrumentConventions, RatesQuote};
 use crate::calibration::quotes::rate_index::{RateIndexConventions, RateIndexKind};
+use crate::calibration::quotes::{InstrumentConventions, RatesQuote};
 use crate::instruments::basis_swap::{BasisSwap, BasisSwapLeg};
 use crate::instruments::common::traits::Instrument;
 use crate::instruments::deposit::Deposit;
@@ -60,7 +60,9 @@ impl CalibrationPricer {
             attributes: Default::default(),
             // Only set spot_lag_days when use_settlement_start=true; otherwise
             // rely on the explicit start date to avoid double-application
-            spot_lag_days: if self.conventions.use_settlement_start.unwrap_or(true) && common.settlement_days != 0 {
+            spot_lag_days: if self.conventions.use_settlement_start.unwrap_or(true)
+                && common.settlement_days != 0
+            {
                 Some(common.settlement_days)
             } else {
                 None
@@ -604,12 +606,18 @@ impl CalibrationPricer {
                     quote_rate: Some(*rate),
                     discount_curve_id: self.discount_curve_id.clone(),
                     attributes: Default::default(),
-                    spot_lag_days: if self.conventions.use_settlement_start.unwrap_or(true) && settlement_days != 0 {
+                    spot_lag_days: if self.conventions.use_settlement_start.unwrap_or(true)
+                        && settlement_days != 0
+                    {
                         Some(settlement_days)
                     } else {
                         None
                     },
-                    bdc: if settlement_days == 0 { None } else { Some(bdc) },
+                    bdc: if settlement_days == 0 {
+                        None
+                    } else {
+                        Some(bdc)
+                    },
                     calendar_id: if settlement_days == 0 {
                         None
                     } else {
@@ -1051,7 +1059,9 @@ impl CalibrationPricer {
                     },
                     self.discount_curve_id.as_str(),
                 )
-                .with_allow_calendar_fallback(self.conventions.allow_calendar_fallback.unwrap_or(false))
+                .with_allow_calendar_fallback(
+                    self.conventions.allow_calendar_fallback.unwrap_or(false),
+                )
                 .with_calendar(payment_calendar_id.to_string());
                 let pv = basis_swap.value(context, self.base_date)?;
                 Ok(pv.amount() / basis_swap.notional.amount())
@@ -1082,5 +1092,3 @@ impl CalibrationPricer {
         format!("FWD_{}", index_name).into()
     }
 }
-
-

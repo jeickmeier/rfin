@@ -162,7 +162,9 @@ fn pv_coupon_from_custom_schedule(
     schedule: &CashFlowSchedule,
     as_of: Date,
 ) -> finstack_core::Result<f64> {
-    let mut pv = 0.0;
+    use finstack_core::math::summation::NeumaierAccumulator;
+
+    let mut pv = NeumaierAccumulator::new();
     for cf in &schedule.flows {
         if cf.date <= as_of {
             continue;
@@ -170,12 +172,12 @@ fn pv_coupon_from_custom_schedule(
         match cf.kind {
             CFKind::Fixed | CFKind::Stub => {
                 let df = disc.try_df_on_date_curve(cf.date)?;
-                pv += cf.amount.amount() * df;
+                pv.add(cf.amount.amount() * df);
             }
             _ => {}
         }
     }
-    Ok(pv)
+    Ok(pv.total())
 }
 
 /// Compute Par ASW using a forward-based methodology with explicit parameters.

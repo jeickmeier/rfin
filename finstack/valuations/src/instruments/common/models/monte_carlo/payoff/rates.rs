@@ -247,17 +247,19 @@ pub fn cap_floor_parity_swap_value(
     strike_rate: f64,
     notional: f64,
 ) -> f64 {
+    use finstack_core::math::summation::NeumaierAccumulator;
+
     assert_eq!(fixing_dates.len(), forward_rates.len());
     assert_eq!(fixing_dates.len(), accrual_fractions.len());
     assert_eq!(fixing_dates.len(), discount_factors.len());
 
-    let mut pv = 0.0;
+    let mut pv = NeumaierAccumulator::new();
     for i in 0..fixing_dates.len() {
         let cashflow = (forward_rates[i] - strike_rate) * accrual_fractions[i] * notional;
-        pv += cashflow * discount_factors[i];
+        pv.add(cashflow * discount_factors[i]);
     }
 
-    pv
+    pv.total()
 }
 
 #[cfg(test)]

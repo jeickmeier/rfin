@@ -14,7 +14,9 @@ use pyo3::types::{PyAny, PyModule, PyType};
 use pyo3::{Bound, PyRef};
 use std::str::FromStr;
 
-fn extract_tenor_opt(obj: Option<Bound<'_, PyAny>>) -> PyResult<Option<finstack_core::dates::Tenor>> {
+fn extract_tenor_opt(
+    obj: Option<Bound<'_, PyAny>>,
+) -> PyResult<Option<finstack_core::dates::Tenor>> {
     let Some(obj) = obj else {
         return Ok(None);
     };
@@ -22,7 +24,9 @@ fn extract_tenor_opt(obj: Option<Bound<'_, PyAny>>) -> PyResult<Option<finstack_
         return Ok(Some(tenor.inner));
     }
     if let Ok(text) = obj.extract::<&str>() {
-        return finstack_core::dates::Tenor::parse(text).map(Some).map_err(crate::errors::core_to_py);
+        return finstack_core::dates::Tenor::parse(text)
+            .map(Some)
+            .map_err(crate::errors::core_to_py);
     }
     Err(pyo3::exceptions::PyTypeError::new_err(
         "Expected Tenor or tenor string like '3M'",
@@ -154,7 +158,9 @@ impl PyInstrumentConventions {
         self.inner.payment_frequency.map(PyTenor::new)
     }
     #[getter]
-    fn business_day_convention(&self) -> Option<crate::core::dates::calendar::PyBusinessDayConvention> {
+    fn business_day_convention(
+        &self,
+    ) -> Option<crate::core::dates::calendar::PyBusinessDayConvention> {
         self.inner
             .business_day_convention
             .map(crate::core::dates::calendar::PyBusinessDayConvention::new)
@@ -165,7 +171,9 @@ impl PyInstrumentConventions {
     }
     #[getter]
     fn currency(&self) -> Option<crate::core::currency::PyCurrency> {
-        self.inner.currency.map(crate::core::currency::PyCurrency::new)
+        self.inner
+            .currency
+            .map(crate::core::currency::PyCurrency::new)
     }
     #[getter]
     fn index(&self) -> Option<String> {
@@ -436,7 +444,10 @@ impl PyRatesQuote {
         let primary = &primary_leg_conventions.inner;
         let reference = &reference_leg_conventions.inner;
 
-        if primary.payment_frequency.is_none() || primary.day_count.is_none() || primary.index.is_none() {
+        if primary.payment_frequency.is_none()
+            || primary.day_count.is_none()
+            || primary.index.is_none()
+        {
             return Err(pyo3::exceptions::PyValueError::new_err(
                 "BasisSwap quote requires primary_leg_conventions.payment_frequency, primary_leg_conventions.day_count, and primary_leg_conventions.index",
             ));
@@ -529,7 +540,9 @@ impl PyRatesQuote {
             RatesQuote::BasisSwap {
                 primary_leg_conventions,
                 ..
-            } => Some(PyInstrumentConventions::new(primary_leg_conventions.clone())),
+            } => Some(PyInstrumentConventions::new(
+                primary_leg_conventions.clone(),
+            )),
             _ => None,
         }
     }

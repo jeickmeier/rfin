@@ -301,7 +301,9 @@ fn discount_curve_global_solve_smoke_v2() {
                 curve_id: "USD-OIS".into(),
                 currency,
                 base_date,
-                method: CalibrationMethod::GlobalSolve { use_analytical_jacobian: false },
+                method: CalibrationMethod::GlobalSolve {
+                    use_analytical_jacobian: false,
+                },
                 interpolation: Default::default(),
                 extrapolation: ExtrapolationPolicy::FlatForward,
                 pricing_discount_id: None,

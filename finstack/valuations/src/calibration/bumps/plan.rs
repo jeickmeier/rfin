@@ -53,7 +53,11 @@ impl PlanBumper {
         Ok(plan)
     }
 
-    fn bump_step_quote_set(plan: &mut CalibrationPlanV2, step: &CalibrationStepV2, bump: &BumpRequest) -> Result<()> {
+    fn bump_step_quote_set(
+        plan: &mut CalibrationPlanV2,
+        step: &CalibrationStepV2,
+        bump: &BumpRequest,
+    ) -> Result<()> {
         let quotes = plan.quote_sets.get_mut(&step.quote_set).ok_or_else(|| {
             finstack_core::Error::Input(finstack_core::error::InputError::NotFound {
                 id: format!("Quote set '{}' not found", step.quote_set),
@@ -84,7 +88,12 @@ fn step_time_axis(step: &CalibrationStepV2) -> Result<(Date, DayCount)> {
     }
 }
 
-fn bump_quotes_by_tenor(quotes: &mut [MarketQuote], base_date: Date, dc: DayCount, bump: &BumpRequest) {
+fn bump_quotes_by_tenor(
+    quotes: &mut [MarketQuote],
+    base_date: Date,
+    dc: DayCount,
+    bump: &BumpRequest,
+) {
     let BumpRequest::Tenors(targets) = bump else {
         return;
     };
@@ -132,5 +141,3 @@ fn quote_time_years(
 fn bp_to_decimal(bp: f64) -> f64 {
     bp * 1e-4
 }
-
-

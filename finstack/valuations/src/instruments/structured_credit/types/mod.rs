@@ -572,7 +572,7 @@ impl StructuredCredit {
         let discount_curve = context.get_discount(&self.discount_curve_id)?;
 
         let price_fn = |spread: f64| -> f64 {
-            let mut pv = 0.0;
+            let mut pv = finstack_core::math::summation::NeumaierAccumulator::new();
             for (date, amount) in &flows {
                 // Calculate discount factor with spread
                 // DF = exp(-(r + s) * t)
@@ -588,7 +588,7 @@ impl StructuredCredit {
                     // Flow is today or past, assume full value or ignore?
                     // Usually ignore past flows, but build_schedule might return future only.
                     // If today, DF=1.
-                    pv += amount.amount();
+                    pv.add(amount.amount());
                     continue;
                 }
 
@@ -601,9 +601,9 @@ impl StructuredCredit {
                 let df_spread = (-spread * t).exp();
                 let df = df_base * df_spread;
 
-                pv += amount.amount() * df;
+                pv.add(amount.amount() * df);
             }
-            pv - market_price
+            pv.total() - market_price
         };
 
         // Solve for spread

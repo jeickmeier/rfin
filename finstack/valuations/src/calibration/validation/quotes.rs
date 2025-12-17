@@ -327,5 +327,3 @@ impl CalibrationPricer {
         Ok(())
     }
 }
-
-

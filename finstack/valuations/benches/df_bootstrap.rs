@@ -3,7 +3,9 @@ use finstack_core::currency::Currency;
 use finstack_core::dates::{Date, DayCount, Tenor};
 use finstack_core::market_data::context::MarketContext;
 use finstack_valuations::calibration::adapters::handlers::execute_step;
-use finstack_valuations::calibration::api::schema::{CalibrationMethod, DiscountCurveParams, StepParams};
+use finstack_valuations::calibration::api::schema::{
+    CalibrationMethod, DiscountCurveParams, StepParams,
+};
 use finstack_valuations::calibration::quotes::{InstrumentConventions, MarketQuote, RatesQuote};
 use finstack_valuations::calibration::CalibrationConfig;
 use std::hint::black_box;
@@ -67,8 +69,13 @@ fn bench_df_bootstrap(c: &mut Criterion) {
 
     c.bench_function("df_bootstrap_small", |b| {
         b.iter(|| {
-            execute_step(black_box(&step), black_box(&market_quotes), black_box(&ctx), black_box(&settings))
-                .unwrap()
+            execute_step(
+                black_box(&step),
+                black_box(&market_quotes),
+                black_box(&ctx),
+                black_box(&settings),
+            )
+            .unwrap()
         })
     });
 }

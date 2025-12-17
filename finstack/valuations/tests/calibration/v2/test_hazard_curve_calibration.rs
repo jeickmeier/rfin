@@ -40,13 +40,12 @@ fn hazard_calibration_positive_rates() {
     let disc = create_test_discount_curve(base);
     let initial_market = MarketContext::new().insert_discount(disc);
 
-    let conventions =
-        finstack_valuations::calibration::quotes::InstrumentConventions::default()
-            .with_day_count(DayCount::Act360)
-            .with_payment_frequency(Tenor::quarterly())
-            .with_settlement_days(0)
-            .with_calendar_id("usny")
-            .with_business_day_convention(BusinessDayConvention::ModifiedFollowing);
+    let conventions = finstack_valuations::calibration::quotes::InstrumentConventions::default()
+        .with_day_count(DayCount::Act360)
+        .with_payment_frequency(Tenor::quarterly())
+        .with_settlement_days(0)
+        .with_calendar_id("usny")
+        .with_business_day_convention(BusinessDayConvention::ModifiedFollowing);
 
     let quotes = vec![
         MarketQuote::Credit(CreditQuote::CDS {
@@ -129,13 +128,12 @@ fn hazard_calibration_rejects_zero_spread() {
     let disc = create_test_discount_curve(base);
     let initial_market = MarketContext::new().insert_discount(disc);
 
-    let conventions =
-        finstack_valuations::calibration::quotes::InstrumentConventions::default()
-            .with_day_count(DayCount::Act360)
-            .with_payment_frequency(Tenor::quarterly())
-            .with_settlement_days(0)
-            .with_calendar_id("usny")
-            .with_business_day_convention(BusinessDayConvention::ModifiedFollowing);
+    let conventions = finstack_valuations::calibration::quotes::InstrumentConventions::default()
+        .with_day_count(DayCount::Act360)
+        .with_payment_frequency(Tenor::quarterly())
+        .with_settlement_days(0)
+        .with_calendar_id("usny")
+        .with_business_day_convention(BusinessDayConvention::ModifiedFollowing);
 
     let quotes = vec![MarketQuote::Credit(CreditQuote::CDS {
         entity: "ZERO-SPREAD".to_string(),

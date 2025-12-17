@@ -1,8 +1,10 @@
 use super::*;
-use crate::calibration::RateBounds;
 use crate::calibration::quotes::{FutureSpecs, InstrumentConventions, RatesQuote};
+use crate::calibration::RateBounds;
 use crate::instruments::common::traits::Instrument;
-use finstack_core::dates::{BusinessDayConvention, CalendarRegistry, Date, DateExt, DayCount, Tenor};
+use finstack_core::dates::{
+    BusinessDayConvention, CalendarRegistry, Date, DateExt, DayCount, Tenor,
+};
 use finstack_core::market_data::context::MarketContext;
 use finstack_core::market_data::term_structures::discount_curve::DiscountCurve;
 use finstack_core::market_data::term_structures::forward_curve::ForwardCurve;
@@ -17,7 +19,9 @@ fn fra_fixing_date_respects_signed_reset_lag_negative() {
     let base_date = Date::from_calendar_date(2024, Month::January, 2).expect("valid base date");
     let pricer = CalibrationPricer::new(base_date, "USD-OIS");
     let start = Date::from_calendar_date(2024, Month::January, 9).expect("valid start date");
-    let calendar = CalendarRegistry::global().resolve_str("usny").expect("usny calendar");
+    let calendar = CalendarRegistry::global()
+        .resolve_str("usny")
+        .expect("usny calendar");
     let expected = start
         .add_business_days(-2, calendar)
         .expect("business day math");
@@ -34,7 +38,9 @@ fn fra_fixing_date_respects_signed_reset_lag_positive() {
     let base_date = Date::from_calendar_date(2024, Month::January, 2).expect("valid base date");
     let pricer = CalibrationPricer::new(base_date, "USD-OIS");
     let start = Date::from_calendar_date(2024, Month::January, 9).expect("valid start date");
-    let calendar = CalendarRegistry::global().resolve_str("usny").expect("usny calendar");
+    let calendar = CalendarRegistry::global()
+        .resolve_str("usny")
+        .expect("usny calendar");
     let expected = start
         .add_business_days(2, calendar)
         .expect("business day math");
@@ -93,7 +99,8 @@ fn create_ois_swap_matches_price_swap_pricing() {
             Currency::USD,
         )
         .expect("create ois swap");
-    let pv_swap = swap.value(&ctx, base_date).expect("value swap").amount() / swap.notional.amount();
+    let pv_swap =
+        swap.value(&ctx, base_date).expect("value swap").amount() / swap.notional.amount();
 
     assert!(
         (pv_norm - pv_swap).abs() < 1e-12,
@@ -298,7 +305,9 @@ fn fixing_calendar_override_is_used() {
         (base_date + time::Duration::days(5))
             .add_business_days(
                 -2,
-                CalendarRegistry::global().resolve_str("usny").expect("usny calendar")
+                CalendarRegistry::global()
+                    .resolve_str("usny")
+                    .expect("usny calendar")
             )
             .expect("business day math")
     );
@@ -307,7 +316,8 @@ fn fixing_calendar_override_is_used() {
 #[test]
 fn validate_curve_dependencies_allows_missing_calibrated_forward() {
     let base_date = Date::from_calendar_date(2024, Month::January, 2).expect("valid base date");
-    let pricer = CalibrationPricer::for_forward_curve(base_date, "FWD_USD-SOFR-3M", "USD-OIS", 0.25);
+    let pricer =
+        CalibrationPricer::for_forward_curve(base_date, "FWD_USD-SOFR-3M", "USD-OIS", 0.25);
 
     // Only provide the reference forward curve; primary (the one being calibrated) is absent.
     let ref_curve = ForwardCurve::builder("FWD_USD-SOFR-6M", 0.5)
@@ -334,7 +344,8 @@ fn validate_curve_dependencies_allows_missing_calibrated_forward() {
 #[test]
 fn validate_curve_dependencies_rejects_missing_unrelated_forward() {
     let base_date = Date::from_calendar_date(2024, Month::January, 2).expect("valid base date");
-    let pricer = CalibrationPricer::for_forward_curve(base_date, "FWD_USD-SOFR-3M", "USD-OIS", 0.25);
+    let pricer =
+        CalibrationPricer::for_forward_curve(base_date, "FWD_USD-SOFR-3M", "USD-OIS", 0.25);
 
     // No forward curves in context; reference leg missing and not the calibrated curve.
     let ctx = MarketContext::new();
@@ -377,7 +388,10 @@ fn future_convexity_uses_market_vol_if_provided() {
         .resolve_future_convexity(&specs_with_vol, Currency::USD, t_exp, t_mat)
         .expect("convexity adjustment with vol");
 
-    assert!(adj_market > adj_default, "market vol should increase convexity");
+    assert!(
+        adj_market > adj_default,
+        "market vol should increase convexity"
+    );
 }
 
 #[test]
@@ -393,5 +407,3 @@ fn future_notional_scales_with_multiplier() {
     let notional = pricer.future_notional(&specs, Currency::USD);
     assert!((notional.amount() - 2_500_000.0).abs() < 1e-6);
 }
-
-

@@ -2,8 +2,8 @@
 
 use super::BumpRequest;
 use crate::calibration::adapters::handlers::execute_step;
-use crate::calibration::config::CalibrationMethod;
 use crate::calibration::api::schema::{DiscountCurveParams, StepParams};
+use crate::calibration::config::CalibrationMethod;
 use crate::calibration::pricing::RatesStepConventions;
 use crate::calibration::quotes::{InstrumentConventions, MarketQuote, RatesQuote};
 use crate::calibration::CalibrationConfig;
@@ -43,7 +43,8 @@ pub fn bump_discount_curve(
         }
     }
 
-    let market_quotes: Vec<MarketQuote> = bumped_quotes.into_iter().map(MarketQuote::Rates).collect();
+    let market_quotes: Vec<MarketQuote> =
+        bumped_quotes.into_iter().map(MarketQuote::Rates).collect();
     let step = StepParams::Discount(params.clone());
     let cfg = CalibrationConfig::default();
     let (ctx, _report) = execute_step(&step, &market_quotes, base_context, &cfg)?;

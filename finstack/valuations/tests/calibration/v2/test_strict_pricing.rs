@@ -20,9 +20,7 @@ use finstack_valuations::calibration::pricing::{
     CalibrationPricer, ConvexityParameters, VolatilitySource,
 };
 use finstack_valuations::calibration::quotes::FutureSpecs;
-use finstack_valuations::calibration::quotes::{
-    InstrumentConventions, MarketQuote, RatesQuote,
-};
+use finstack_valuations::calibration::quotes::{InstrumentConventions, MarketQuote, RatesQuote};
 use std::collections::HashMap;
 use time::Month;
 

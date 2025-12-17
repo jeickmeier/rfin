@@ -13,9 +13,7 @@ use finstack_valuations::calibration::api::schema::{
     CalibrationEnvelopeV2, CalibrationMethod, CalibrationPlanV2, CalibrationStepV2,
     ForwardCurveParams, StepParams,
 };
-use finstack_valuations::calibration::quotes::{
-    InstrumentConventions, MarketQuote, RatesQuote,
-};
+use finstack_valuations::calibration::quotes::{InstrumentConventions, MarketQuote, RatesQuote};
 use finstack_valuations::calibration::CalibrationConfig;
 use std::collections::HashMap;
 use time::Month;

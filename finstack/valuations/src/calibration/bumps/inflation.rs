@@ -2,8 +2,8 @@
 
 use super::BumpRequest;
 use crate::calibration::adapters::handlers::execute_step;
-use crate::calibration::config::CalibrationMethod;
 use crate::calibration::api::schema::{InflationCurveParams, StepParams};
+use crate::calibration::config::CalibrationMethod;
 use crate::calibration::quotes::{InflationQuote, MarketQuote};
 use crate::calibration::CalibrationConfig;
 use finstack_core::market_data::context::MarketContext;

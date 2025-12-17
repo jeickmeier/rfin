@@ -240,13 +240,13 @@ impl MetricCalculator for ZSpreadCalculator {
 
         let objective = |z: f64| -> f64 {
             // Optimized PV calculation using pre-computed flows
-            let mut pv = 0.0;
+            let mut pv = finstack_core::math::summation::NeumaierAccumulator::new();
             for (t, df_base, amt) in &cached_flows {
                 // Apply Z-spread shift: exp(-z * t)
                 let spread_df = (-z * t).exp();
-                pv += amt * df_base * spread_df;
+                pv.add(amt * df_base * spread_df);
             }
-            pv - target_value_ccy
+            pv.total() - target_value_ccy
         };
 
         // Solve using Brent with a maturity-aware bracket and production-grade

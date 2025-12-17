@@ -1,6 +1,7 @@
 //! Validation configuration for curves and surfaces.
 
 use finstack_core::currency::Currency;
+use finstack_core::{Error, Result};
 use serde::{Deserialize, Serialize};
 #[cfg(feature = "ts_export")]
 use ts_rs::TS;
@@ -51,6 +52,32 @@ impl Default for RateBounds {
 }
 
 impl RateBounds {
+    /// Validate bounds for consistency.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if `min_rate > max_rate`.
+    pub fn validate(&self) -> Result<()> {
+        if self.min_rate > self.max_rate {
+            return Err(Error::Validation(format!(
+                "RateBounds invalid: min_rate ({}) must be <= max_rate ({})",
+                self.min_rate, self.max_rate
+            )));
+        }
+        Ok(())
+    }
+
+    /// Construct explicit bounds with validation.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if `min_rate > max_rate`.
+    pub fn try_new(min_rate: f64, max_rate: f64) -> Result<Self> {
+        let bounds = Self { min_rate, max_rate };
+        bounds.validate()?;
+        Ok(bounds)
+    }
+
     /// Create rate bounds for a specific currency based on market conventions.
     ///
     /// - USD/CAD/AUD: Standard developed market bounds [-2%, 50%]
@@ -263,6 +290,64 @@ impl ValidationConfig {
         self.lenient_arbitrage = lenient;
         self
     }
+
+    /// Validate configuration invariants.
+    ///
+    /// This is intentionally strict so that UI/binding layers can be thin and rely on
+    /// core validation for consistent behavior across Rust/Python/WASM.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if any constraints are violated (e.g. min > max, non-positive tolerances).
+    pub fn validate(&self) -> Result<()> {
+        if self.min_forward_rate > 0.0 {
+            return Err(Error::Validation(format!(
+                "ValidationConfig invalid: min_forward_rate must be <= 0.0, got {}",
+                self.min_forward_rate
+            )));
+        }
+        if self.max_forward_rate <= 0.0 {
+            return Err(Error::Validation(format!(
+                "ValidationConfig invalid: max_forward_rate must be > 0.0, got {}",
+                self.max_forward_rate
+            )));
+        }
+        if self.min_forward_rate > self.max_forward_rate {
+            return Err(Error::Validation(format!(
+                "ValidationConfig invalid: min_forward_rate ({}) must be <= max_forward_rate ({})",
+                self.min_forward_rate, self.max_forward_rate
+            )));
+        }
+        if self.tolerance <= 0.0 {
+            return Err(Error::Validation(format!(
+                "ValidationConfig invalid: tolerance must be > 0.0, got {}",
+                self.tolerance
+            )));
+        }
+        if self.max_hazard_rate <= 0.0 {
+            return Err(Error::Validation(format!(
+                "ValidationConfig invalid: max_hazard_rate must be > 0.0, got {}",
+                self.max_hazard_rate
+            )));
+        }
+        if self.min_cpi_growth > self.max_cpi_growth {
+            return Err(Error::Validation(format!(
+                "ValidationConfig invalid: min_cpi_growth ({}) must be <= max_cpi_growth ({})",
+                self.min_cpi_growth, self.max_cpi_growth
+            )));
+        }
+        if self.min_fwd_inflation > self.max_fwd_inflation {
+            return Err(Error::Validation(format!(
+                "ValidationConfig invalid: min_fwd_inflation ({}) must be <= max_fwd_inflation ({})",
+                self.min_fwd_inflation, self.max_fwd_inflation
+            )));
+        }
+        if self.max_volatility <= 0.0 {
+            return Err(Error::Validation(format!(
+                "ValidationConfig invalid: max_volatility must be > 0.0, got {}",
+                self.max_volatility
+            )));
+        }
+        Ok(())
+    }
 }
-
-

@@ -5,6 +5,7 @@
 
 use super::sabr::{SABRModel, SABRParameters};
 use finstack_core::math::solver_multi::AnalyticalDerivatives;
+use finstack_core::{Error, Result};
 use serde::{Deserialize, Serialize};
 
 /// Internal parameter bundle for derivative calculations.
@@ -31,6 +32,85 @@ pub struct SABRMarketData {
     /// Optional shift for handling negative rates in lognormal SABR (beta ≈ 1.0)
     /// Default: 0.02 (200 basis points) if None and rates are negative
     pub shift: Option<f64>,
+}
+
+impl SABRMarketData {
+    /// Construct market data for SABR calibration with validation.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if inputs are inconsistent (e.g. mismatched lengths) or out of range.
+    pub fn try_new(
+        forward: f64,
+        time_to_expiry: f64,
+        strikes: Vec<f64>,
+        market_vols: Vec<f64>,
+        beta: f64,
+    ) -> Result<Self> {
+        if forward <= 0.0 {
+            return Err(Error::Validation(format!(
+                "SABRMarketData invalid: forward must be positive, got {}",
+                forward
+            )));
+        }
+        if time_to_expiry <= 0.0 {
+            return Err(Error::Validation(format!(
+                "SABRMarketData invalid: time_to_expiry must be positive, got {}",
+                time_to_expiry
+            )));
+        }
+        if strikes.is_empty() {
+            return Err(Error::Validation(
+                "SABRMarketData invalid: strikes cannot be empty".to_string(),
+            ));
+        }
+        if strikes.len() != market_vols.len() {
+            return Err(Error::Validation(format!(
+                "SABRMarketData invalid: strikes length ({}) must match market_vols length ({})",
+                strikes.len(),
+                market_vols.len()
+            )));
+        }
+        if !(0.0..=1.0).contains(&beta) {
+            return Err(Error::Validation(format!(
+                "SABRMarketData invalid: beta must be in [0, 1], got {}",
+                beta
+            )));
+        }
+
+        Ok(Self {
+            forward,
+            time_to_expiry,
+            strikes,
+            market_vols,
+            beta,
+            shift: None,
+        })
+    }
+
+    /// Same as `try_new` but allows setting an explicit shift.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if inputs are invalid, or if `shift` is not positive.
+    pub fn try_new_with_shift(
+        forward: f64,
+        time_to_expiry: f64,
+        strikes: Vec<f64>,
+        market_vols: Vec<f64>,
+        beta: f64,
+        shift: f64,
+    ) -> Result<Self> {
+        if shift <= 0.0 {
+            return Err(Error::Validation(format!(
+                "SABRMarketData invalid: shift must be positive, got {}",
+                shift
+            )));
+        }
+        let mut md = Self::try_new(forward, time_to_expiry, strikes, market_vols, beta)?;
+        md.shift = Some(shift);
+        Ok(md)
+    }
 }
 
 /// Analytical derivatives provider for SABR calibration.

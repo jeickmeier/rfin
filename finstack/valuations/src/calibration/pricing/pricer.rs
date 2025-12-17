@@ -12,7 +12,7 @@ mod tests;
 
 use super::{ConvexityParameters, RatesStepConventions};
 use finstack_core::dates::{BusinessDayConvention, Date};
-use finstack_core::types::{CurveId, Currency};
+use finstack_core::types::{Currency, CurveId};
 use serde::{Deserialize, Serialize};
 
 // =============================================================================
@@ -111,7 +111,11 @@ impl CalibrationPricer {
         if n <= 0 {
             return None;
         }
-        Some(if unit == b'Y' { n.saturating_mul(12) } else { n })
+        Some(if unit == b'Y' {
+            n.saturating_mul(12)
+        } else {
+            n
+        })
     }
 
     /// Market-standard calendar identifier for rates by currency.
@@ -224,7 +228,8 @@ impl CalibrationPricer {
             self.conventions.calendar_id = Some(Self::market_calendar_id(currency).to_string());
         }
         if self.conventions.business_day_convention.is_none() {
-            self.conventions.business_day_convention = Some(Self::market_business_day_convention(currency));
+            self.conventions.business_day_convention =
+                Some(Self::market_business_day_convention(currency));
         }
         self
     }
@@ -293,5 +298,3 @@ impl CalibrationPricer {
         format!("FWD_{}", index_name).into()
     }
 }
-
-

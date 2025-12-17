@@ -47,9 +47,9 @@
 //! // Sum of bucketed DV01 will equal parallel DV01 within numerical precision
 //! ```
 
+use crate::calibration::api::schema::DiscountCurveParams;
 use crate::calibration::bumps::rates::{bump_discount_curve, find_closest_quote};
 use crate::calibration::bumps::BumpRequest;
-use crate::calibration::api::schema::DiscountCurveParams;
 use crate::calibration::quotes::RatesQuote;
 use crate::calibration::CalibrationConfig;
 use crate::instruments::common::pricing::HasDiscountCurve;

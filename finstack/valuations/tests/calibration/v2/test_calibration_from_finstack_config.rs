@@ -2,8 +2,8 @@
 
 use finstack_core::config::FinstackConfig;
 use finstack_valuations::calibration::{
-    CalibrationConfig, CalibrationSolveMethod, RateBounds, RateBoundsPolicy,
-    CALIBRATION_CONFIG_KEY_V2, SolverConfig,
+    CalibrationConfig, CalibrationSolveMethod, RateBounds, RateBoundsPolicy, SolverConfig,
+    CALIBRATION_CONFIG_KEY_V2,
 };
 use serde_json::json;
 
@@ -56,7 +56,10 @@ fn calibration_config_defaults_without_extension() {
     let defaults = CalibrationConfig::default();
 
     assert_eq!(cfg_out.solver.tolerance(), defaults.solver.tolerance());
-    assert_eq!(cfg_out.solver.max_iterations(), defaults.solver.max_iterations());
+    assert_eq!(
+        cfg_out.solver.max_iterations(),
+        defaults.solver.max_iterations()
+    );
     assert_eq!(cfg_out.use_parallel, defaults.use_parallel);
     assert_eq!(cfg_out.random_seed, defaults.random_seed);
     assert_eq!(cfg_out.solver, defaults.solver);

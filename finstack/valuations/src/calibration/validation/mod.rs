@@ -22,5 +22,3 @@ pub use config::{
 };
 pub use curves::CurveValidator;
 pub use surfaces::SurfaceValidator;
-
-

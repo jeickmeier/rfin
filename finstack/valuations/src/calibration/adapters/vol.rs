@@ -1,6 +1,6 @@
-use crate::calibration::config::CalibrationConfig;
 use crate::calibration::api::schema::SurfaceExtrapolationPolicy;
 use crate::calibration::api::schema::VolSurfaceParams;
+use crate::calibration::config::CalibrationConfig;
 use crate::calibration::quotes::{MarketQuote, VolQuote};
 use crate::calibration::CalibrationReport;
 use crate::instruments::common::models::{SABRCalibrator, SABRModel, SABRParameters};
@@ -168,16 +168,15 @@ impl VolSurfaceAdapter {
                 Ok(p) => {
                     // Residuals
                     let model = SABRModel::new(p.clone());
-                    let mut bucket_residuals: Vec<(String, f64)> = Vec::with_capacity(strikes.len());
+                    let mut bucket_residuals: Vec<(String, f64)> =
+                        Vec::with_capacity(strikes.len());
                     let mut bucket_error: Option<String> = None;
                     for (i, k) in strikes.iter().enumerate() {
                         match model.implied_volatility(f, *k, t) {
                             Ok(model_vol) => {
                                 let res = (model_vol - vols[i]).abs();
-                                bucket_residuals.push((
-                                    format!("opt_vol_t{:.2}_k{:.2}_i{}", t, k, i),
-                                    res,
-                                ));
+                                bucket_residuals
+                                    .push((format!("opt_vol_t{:.2}_k{:.2}_i{}", t, k, i), res));
                             }
                             Err(e) => {
                                 bucket_error = Some(format!(
@@ -350,9 +349,9 @@ mod tests {
     use super::*;
     use crate::instruments::common::models::SABRParameters;
     use finstack_core::dates::Date;
-    use finstack_core::prelude::DateExt;
     use finstack_core::market_data::context::MarketContext;
     use finstack_core::market_data::term_structures::discount_curve::DiscountCurve;
+    use finstack_core::prelude::DateExt;
     use time::Month;
 
     fn params(alpha: f64, beta: f64, nu: f64, rho: f64, shift: f64) -> SABRParameters {
@@ -523,16 +522,15 @@ mod tests {
             }),
         ];
 
-        let (_surface, report) = VolSurfaceAdapter::calibrate(
-            &params,
-            &quotes,
-            &ctx,
-            &CalibrationConfig::default(),
-        )
-        .expect("calibrate");
+        let (_surface, report) =
+            VolSurfaceAdapter::calibrate(&params, &quotes, &ctx, &CalibrationConfig::default())
+                .expect("calibrate");
 
         assert_eq!(
-            report.metadata.get("failed_expiry_count").map(|s| s.as_str()),
+            report
+                .metadata
+                .get("failed_expiry_count")
+                .map(|s| s.as_str()),
             Some("1")
         );
         assert!(

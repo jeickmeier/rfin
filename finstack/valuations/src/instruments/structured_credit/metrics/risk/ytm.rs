@@ -66,7 +66,7 @@ impl MetricCalculator for YtmCalculator {
 
         // Objective function: PV(y) - target = 0
         let objective = |y: f64| -> f64 {
-            let mut pv = 0.0;
+            let mut pv = finstack_core::math::summation::NeumaierAccumulator::new();
             for (date, amount) in flows {
                 if *date <= context.as_of {
                     continue;
@@ -78,10 +78,10 @@ impl MetricCalculator for YtmCalculator {
 
                 if t > 0.0 {
                     let df = (1.0 + y).powf(-t);
-                    pv += amount.amount() * df;
+                    pv.add(amount.amount() * df);
                 }
             }
-            pv - target_value
+            pv.total() - target_value
         };
 
         // Solve for YTM using Brent solver

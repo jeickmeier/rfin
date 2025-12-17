@@ -1,36 +1,9 @@
+use crate::errors::core_to_py;
 use finstack_valuations::calibration::{SABRCalibrationDerivatives, SABRMarketData};
-use pyo3::exceptions::PyValueError;
+use finstack_valuations::instruments::common::models::volatility::SABRParameters;
 use pyo3::prelude::*;
 use pyo3::types::{PyList, PyModule, PyType};
 use pyo3::Bound;
-
-/// Internal SABR parameters for bindings.
-#[derive(Clone, Debug)]
-pub(crate) struct SABRModelParamsData {
-    alpha: f64,
-    nu: f64,
-    rho: f64,
-    beta: f64,
-}
-
-impl SABRModelParamsData {
-    fn new(alpha: f64, nu: f64, rho: f64, beta: f64) -> Self {
-        Self {
-            alpha,
-            nu,
-            rho,
-            beta,
-        }
-    }
-
-    fn equity_standard(alpha: f64, nu: f64, rho: f64) -> Self {
-        Self::new(alpha, nu, rho, 1.0)
-    }
-
-    fn rates_standard(alpha: f64, nu: f64, rho: f64) -> Self {
-        Self::new(alpha, nu, rho, 0.5)
-    }
-}
 
 /// SABR model parameters for volatility surface calibration.
 ///
@@ -60,11 +33,11 @@ impl SABRModelParamsData {
 )]
 #[derive(Clone, Debug)]
 pub struct PySABRModelParams {
-    pub(crate) inner: SABRModelParamsData,
+    pub(crate) inner: SABRParameters,
 }
 
 impl PySABRModelParams {
-    pub(crate) fn new(inner: SABRModelParamsData) -> Self {
+    pub(crate) fn new(inner: SABRParameters) -> Self {
         Self { inner }
     }
 }
@@ -87,19 +60,9 @@ impl PySABRModelParams {
     /// Raises:
     ///     ValueError: If parameters are out of reasonable ranges
     fn ctor(alpha: f64, nu: f64, rho: f64, beta: f64) -> PyResult<Self> {
-        if alpha <= 0.0 {
-            return Err(PyValueError::new_err("alpha must be positive"));
-        }
-        if nu < 0.0 {
-            return Err(PyValueError::new_err("nu must be non-negative"));
-        }
-        if !(-1.0..=1.0).contains(&rho) {
-            return Err(PyValueError::new_err("rho must be in [-1, 1]"));
-        }
-        if !(0.0..=1.0).contains(&beta) {
-            return Err(PyValueError::new_err("beta must be in [0, 1]"));
-        }
-        Ok(Self::new(SABRModelParamsData::new(alpha, nu, rho, beta)))
+        SABRParameters::new(alpha, beta, nu, rho)
+            .map(Self::new)
+            .map_err(core_to_py)
     }
 
     #[classmethod]
@@ -115,8 +78,10 @@ impl PySABRModelParams {
     ///
     /// Returns:
     ///     SABRModelParams: Parameters with beta=1.0
-    fn equity_standard(_cls: &Bound<'_, PyType>, alpha: f64, nu: f64, rho: f64) -> Self {
-        Self::new(SABRModelParamsData::equity_standard(alpha, nu, rho))
+    fn equity_standard(_cls: &Bound<'_, PyType>, alpha: f64, nu: f64, rho: f64) -> PyResult<Self> {
+        SABRParameters::equity_standard(alpha, nu, rho)
+            .map(Self::new)
+            .map_err(core_to_py)
     }
 
     #[classmethod]
@@ -133,8 +98,10 @@ impl PySABRModelParams {
     ///
     /// Returns:
     ///     SABRModelParams: Parameters with beta=0.5
-    fn rates_standard(_cls: &Bound<'_, PyType>, alpha: f64, nu: f64, rho: f64) -> Self {
-        Self::new(SABRModelParamsData::rates_standard(alpha, nu, rho))
+    fn rates_standard(_cls: &Bound<'_, PyType>, alpha: f64, nu: f64, rho: f64) -> PyResult<Self> {
+        SABRParameters::rates_standard(alpha, nu, rho)
+            .map(Self::new)
+            .map_err(core_to_py)
     }
 
     /// Initial volatility level.
@@ -238,32 +205,9 @@ impl PySABRMarketData {
         market_vols: Vec<f64>,
         beta: f64,
     ) -> PyResult<Self> {
-        if forward <= 0.0 {
-            return Err(PyValueError::new_err("forward must be positive"));
-        }
-        if time_to_expiry <= 0.0 {
-            return Err(PyValueError::new_err("time_to_expiry must be positive"));
-        }
-        if strikes.len() != market_vols.len() {
-            return Err(PyValueError::new_err(
-                "strikes and market_vols must have the same length",
-            ));
-        }
-        if strikes.is_empty() {
-            return Err(PyValueError::new_err("strikes cannot be empty"));
-        }
-        if !(0.0..=1.0).contains(&beta) {
-            return Err(PyValueError::new_err("beta must be in [0, 1]"));
-        }
-
-        Ok(Self::new(SABRMarketData {
-            forward,
-            time_to_expiry,
-            strikes,
-            market_vols,
-            beta,
-            shift: None, // Default to None, could be exposed in future if needed
-        }))
+        SABRMarketData::try_new(forward, time_to_expiry, strikes, market_vols, beta)
+            .map(Self::new)
+            .map_err(core_to_py)
     }
 
     /// Forward price of the underlying.

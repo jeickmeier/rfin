@@ -91,12 +91,12 @@ impl MetricCalculator for ZSpreadCalculator {
 
         // Objective function: PV(z) - target = 0
         let objective = |z: f64| -> f64 {
-            let mut pv = 0.0;
+            let mut pv = finstack_core::math::summation::NeumaierAccumulator::new();
             for (t, df, amt) in &cached_flows {
                 let df_z = df * (-z * t).exp();
-                pv += amt * df_z;
+                pv.add(amt * df_z);
             }
-            pv - target_value
+            pv.total() - target_value
         };
 
         // Solve for z-spread using Brent's method with adaptive bracketing
@@ -321,7 +321,7 @@ pub fn calculate_tranche_z_spread(
     let day_count = DayCount::Act365F;
 
     let objective = |z: f64| -> f64 {
-        let mut pv = 0.0;
+        let mut pv = finstack_core::math::summation::NeumaierAccumulator::new();
         for (date, amount) in cashflows {
             if *date <= as_of {
                 continue;
@@ -336,9 +336,9 @@ pub fn calculate_tranche_z_spread(
                 .unwrap_or(1.0);
             let df_z = df * (-z * t_from_as_of).exp();
 
-            pv += amount.amount() * df_z;
+            pv.add(amount.amount() * df_z);
         }
-        pv - target_pv.amount()
+        pv.total() - target_pv.amount()
     };
 
     // Tolerance: 1e-6 = 0.01 bps precision (market standard)
@@ -376,8 +376,8 @@ pub fn calculate_tranche_cs01(
     let day_count = DayCount::Act365F;
 
     // Calculate base PV
-    let mut base_pv = 0.0;
-    let mut bumped_pv = 0.0;
+    let mut base_pv = finstack_core::math::summation::NeumaierAccumulator::new();
+    let mut bumped_pv = finstack_core::math::summation::NeumaierAccumulator::new();
     let bumped_spread = z_spread + ONE_BASIS_POINT;
 
     for (date, amount) in cashflows {
@@ -395,13 +395,13 @@ pub fn calculate_tranche_cs01(
 
         // Base PV
         let df_base = df * (-z_spread * t_from_as_of).exp();
-        base_pv += amount.amount() * df_base;
+        base_pv.add(amount.amount() * df_base);
 
         // Bumped PV
         let df_bumped = df * (-bumped_spread * t_from_as_of).exp();
-        bumped_pv += amount.amount() * df_bumped;
+        bumped_pv.add(amount.amount() * df_bumped);
     }
 
     // CS01 = -(PV_bumped - PV_base)
-    Ok(-(bumped_pv - base_pv))
+    Ok(-(bumped_pv.total() - base_pv.total()))
 }

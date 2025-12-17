@@ -89,6 +89,8 @@ fn ois_swap(maturity: Date, rate: f64) -> RatesQuote {
     let common_conventions = InstrumentConventions::default()
         // Spot-start (T+2) for USD rates.
         .with_settlement_days(2)
+        // Bloomberg curve table pillars are on accrual-end dates; to match the
+        // published table, we set payment delay to 0 for these test quotes.
         .with_payment_delay(0)
         .with_reset_lag(0)
         .with_calendar_id("usny")
@@ -602,7 +604,7 @@ fn test_bloomberg_usd_ois_calibration_accuracy() {
     // - Short-end (deposits): should match essentially exactly.
     // - Mid-term (1-10Y swaps): sub-bp DF differences.
     // - Long-end (>10Y swaps): a few bp due to annuity sensitivity to interpolation.
-    let short_end_tolerance_bp = 0.01;
+    let short_end_tolerance_bp = 0.008;
     assert!(
         short_end_max_df < short_end_tolerance_bp,
         "Short-end DF max diff ({:.3}bp) exceeds tolerance ({:.1}bp). \
@@ -612,7 +614,7 @@ fn test_bloomberg_usd_ois_calibration_accuracy() {
     );
 
     // Mid-term (1-10Y): should match closely (vendor-grade).
-    let mid_term_tolerance_bp = 0.30;
+    let mid_term_tolerance_bp = 0.29;
     assert!(
         mid_term_max_df < mid_term_tolerance_bp,
         "Mid-term DF max diff ({:.3}bp) exceeds tolerance ({:.1}bp). \
@@ -623,7 +625,7 @@ fn test_bloomberg_usd_ois_calibration_accuracy() {
 
     // Long-end (>10Y): allow a few bp because interpolation differences between
     // pillar points compound through the swap annuity.
-    let long_end_tolerance_bp = 4.75;
+    let long_end_tolerance_bp = 4.25;
     assert!(
         long_end_max_df < long_end_tolerance_bp,
         "Long-end DF max diff ({:.3}bp) exceeds tolerance ({:.1}bp). \
@@ -633,7 +635,7 @@ fn test_bloomberg_usd_ois_calibration_accuracy() {
     );
 
     // Zero rates check (annual compounding, computed consistently from published DF).
-    let zero_rate_tolerance_bp = 0.60;
+    let zero_rate_tolerance_bp = 0.55;
     assert!(
         max_zero_diff < zero_rate_tolerance_bp,
         "Max zero rate diff ({:.2}bp) exceeds tolerance ({:.1}bp). \

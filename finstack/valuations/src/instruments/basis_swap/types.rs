@@ -11,6 +11,7 @@ use finstack_core::{
         Schedule, ScheduleBuilder, StubKind,
     },
     market_data::context::MarketContext,
+    math::summation::NeumaierAccumulator,
     money::Money,
     types::{CurveId, InstrumentId},
     Result,
@@ -258,7 +259,7 @@ impl BasisSwap {
         let fwd = context.get_forward_ref(&leg.forward_curve_id)?;
         let cal = self.resolve_calendar()?;
 
-        let mut pv = 0.0;
+        let mut pv = NeumaierAccumulator::new();
         let currency = self.notional.currency();
         let dc_ctx = DayCountCtx::default();
 
@@ -300,10 +301,10 @@ impl BasisSwap {
 
             // Discount from valuation_date for correct theta
             let df = disc.try_df_between_dates(valuation_date, payment_date)?;
-            pv += payment * df;
+            pv.add(payment * df);
         }
 
-        Ok(Money::new(pv, currency))
+        Ok(Money::new(pv.total(), currency))
     }
 
     /// Calculates the discounted accrual sum (annuity) for a leg.
