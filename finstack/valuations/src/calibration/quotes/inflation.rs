@@ -1,6 +1,6 @@
 //! Inflation instrument quote types.
 //!
-//! Note: Copied from v1 for parallel implementation.
+//! Inflation instrument quotes for inflation curve calibration.
 
 use super::conventions::InstrumentConventions;
 use finstack_core::dates::{Date, Tenor};

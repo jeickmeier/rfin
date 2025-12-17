@@ -457,8 +457,7 @@ mod tests {
     use std::sync::atomic::{AtomicBool, Ordering as AtomicOrdering};
 
     #[derive(Clone, Debug)]
-    #[allow(dead_code)]
-    struct DummyCurve(Vec<f64>);
+    struct DummyCurve(#[allow(dead_code)] Vec<f64>);
 
     struct TestTarget {
         times: Vec<f64>,

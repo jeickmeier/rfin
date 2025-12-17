@@ -1,6 +1,6 @@
 //! Interest rate quote types for yield curve calibration.
 //!
-//! Note: Copied from v1 for parallel implementation.
+//! Interest rate instrument quotes for yield curve calibration.
 
 use super::conventions::InstrumentConventions;
 use crate::calibration::quotes::rate_index::RateIndexConventions;

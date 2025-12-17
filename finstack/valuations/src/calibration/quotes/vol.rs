@@ -1,6 +1,6 @@
 //! Volatility quote types for surface calibration.
 //!
-//! Note: Copied from v1 for parallel implementation.
+//! Defines the volatility quote types used for surface calibration.
 
 use super::conventions::InstrumentConventions;
 use finstack_core::dates::Date;

@@ -316,10 +316,6 @@ pub struct VolSurfaceParams {
 ///
 /// Defines the structure and conventions for building a volatility surface
 /// from swaption quotes using the SABR model.
-/// Parameters for calibrating swaption volatility surfaces.
-///
-/// Defines the structure and conventions for building a volatility surface
-/// from swaption quotes using the SABR model.
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct SwaptionVolParams {
@@ -505,7 +501,6 @@ fn default_unit_notional() -> f64 {
     1.0
 }
 
-#[allow(dead_code)]
 fn default_sabr_beta() -> f64 {
     0.5
 }

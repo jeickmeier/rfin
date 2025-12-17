@@ -1,6 +1,6 @@
 //! Credit instrument quote types for hazard curve and correlation calibration.
 //!
-//! Note: Copied from v1 for parallel implementation.
+//! Credit instrument quotes for hazard curve and correlation calibration.
 
 use super::conventions::InstrumentConventions;
 use finstack_core::dates::Date;

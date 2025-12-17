@@ -61,8 +61,6 @@ pub mod bumps;
 /// Shared constants (tolerances, magic numbers).
 pub mod constants;
 
-// (solver is a real module now; see `pub mod solver;` above)
-
 // Re-exports: Configuration
 pub use config::{
     CalibrationConfig, CalibrationMethod as CalibrationSolveMethod, MultiCurveConfig,

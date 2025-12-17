@@ -69,8 +69,7 @@ impl VolSurfaceAdapter {
 
         // Group by expiry (year fraction)
         let mut quotes_by_expiry: BTreeMap<OrderedFloat<f64>, Vec<&VolQuote>> = BTreeMap::new();
-        // We need day count for time conversion. Default to Act365F for vol surfaces if not specified?
-        // Params doesn't specify DC. v1 uses Act365F.
+        // We need day count for time conversion. Default to Act365F for vol surfaces if not specified.
         let time_dc = finstack_core::dates::DayCount::Act365F;
 
         for q in &vol_quotes {
@@ -213,7 +212,6 @@ impl VolSurfaceAdapter {
         for &t in &params.target_expiries {
             let f = forward_fn(t);
             // Interpolate SABR params for t
-            // Simple nearest or linear. v1 has interpolation logic.
             // For brevity, using nearest valid calibration or linear if possible.
             // Let's implement simple linear interpolation of params.
 

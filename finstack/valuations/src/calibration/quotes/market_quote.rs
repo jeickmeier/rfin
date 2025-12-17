@@ -1,6 +1,6 @@
 //! Unified market quote wrapper type.
 //!
-//! Note: Copied from v1 for parallel implementation.
+//! Unified market quote that can be any instrument type.
 
 use super::{CreditQuote, InflationQuote, RatesQuote, VolQuote};
 #[cfg(feature = "ts_export")]

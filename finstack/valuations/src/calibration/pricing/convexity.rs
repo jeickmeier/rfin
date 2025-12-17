@@ -1,6 +1,6 @@
 //! Convexity adjustment calculations for interest rate futures.
 //!
-//! Note: Copied from v1 for parallel implementation.
+//! Calculate convexity adjustment for interest rate futures.
 
 /// Calculate convexity adjustment for interest rate futures.
 pub fn calculate_convexity_adjustment(

@@ -75,7 +75,6 @@ pub struct DiscountCurveSolveConfig {
     pub bootstrap_seed_global_solve: bool,
     pub allow_seed_fallback: bool,
     /// Override final-curve monotonicity enforcement (None = policy-driven).
-    /// Override final-curve monotonicity enforcement (None = policy-driven).
     #[serde(default)]
     #[cfg_attr(feature = "ts_export", ts(type = "boolean | null"))]
     pub allow_non_monotonic_final: Option<bool>,

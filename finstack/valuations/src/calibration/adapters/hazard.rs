@@ -46,7 +46,7 @@ impl HazardBootstrapper {
     /// - EUR/GBP/CHF: ISDA European
     /// - JPY/HKD/SGD/AUD/NZD: ISDA Asian
     pub fn new(params: HazardCurveParams, base_context: MarketContext) -> Self {
-        // Derive convention from currency (defaulting logic similar to v1)
+        // Derive convention from currency
         let convention = match params.currency {
             Currency::USD | Currency::CAD => CDSConvention::IsdaNa,
             Currency::EUR | Currency::GBP | Currency::CHF => CDSConvention::IsdaEu,

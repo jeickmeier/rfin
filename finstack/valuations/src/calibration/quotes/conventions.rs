@@ -1,6 +1,6 @@
 //! Per-instrument conventions for calibration quotes.
 //!
-//! Note: Copied from v1 for parallel implementation.
+//! Shared instrument-level conventions.
 
 use finstack_core::dates::{BusinessDayConvention, DayCount, Tenor};
 use finstack_core::types::{Currency, IndexId};
