@@ -34,13 +34,70 @@ impl MarketQuote {
         }
     }
 
-    /// Bump the underlying rate quote by a decimal rate amount (e.g., 0.0001 = 1bp).
+    /// Bump the quote in its natural market units.
     ///
-    /// Currently only supported for RatesQuote; all others are returned unchanged.
+    /// The `amount` parameter is interpreted per quote type:
+    ///
+    /// - Rates: decimal rate bump (e.g., `0.0001` = 1bp)
+    /// - Credit: decimal-to-bp conversion (`spread_bp += amount * 10_000`)
+    /// - Vol: absolute vol bump (e.g., `0.01` = +1 vol point)
+    /// - Inflation: decimal rate bump (e.g., `0.0001` = 1bp)
     pub fn bump(&self, amount: f64) -> Self {
         match self {
             MarketQuote::Rates(q) => MarketQuote::Rates(q.bump_rate_decimal(amount)),
-            _ => self.clone(), // No-op for others for now
+            MarketQuote::Credit(q) => MarketQuote::Credit(q.bump_spread_decimal(amount)),
+            MarketQuote::Vol(q) => MarketQuote::Vol(q.bump_vol_absolute(amount)),
+            MarketQuote::Inflation(q) => MarketQuote::Inflation(q.bump_rate_decimal(amount)),
+        }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::calibration::v2::domain::quotes::InstrumentConventions;
+    use finstack_core::dates::Date;
+    use finstack_core::types::UnderlyingId;
+    use time::Month;
+
+    const BP: f64 = 0.0001;
+
+    fn date(year: i32, month: Month, day: u8) -> Date {
+        Date::from_calendar_date(year, month, day).expect("valid date")
+    }
+
+    #[test]
+    fn bump_is_not_a_silent_no_op_for_non_rates_quotes() {
+        let credit = MarketQuote::Credit(CreditQuote::CDS {
+            entity: "ABC".to_string(),
+            maturity: date(2030, Month::January, 1),
+            spread_bp: 100.0,
+            recovery_rate: 0.4,
+            currency: finstack_core::types::Currency::USD,
+            conventions: InstrumentConventions::default(),
+        });
+        let bumped = credit.bump(BP);
+        match bumped {
+            MarketQuote::Credit(CreditQuote::CDS { spread_bp, .. }) => {
+                assert!((spread_bp - 101.0).abs() < 1e-12)
+            }
+            _ => panic!("unexpected variant"),
+        }
+
+        let vol = MarketQuote::Vol(VolQuote::OptionVol {
+            underlying: UnderlyingId::from("SPX"),
+            expiry: date(2030, Month::January, 1),
+            strike: 100.0,
+            vol: 0.20,
+            option_type: "Call".to_string(),
+            conventions: InstrumentConventions::default(),
+        });
+        let bumped = vol.bump(0.01);
+        match bumped {
+            MarketQuote::Vol(VolQuote::OptionVol { vol, .. }) => {
+                assert!((vol - 0.21).abs() < 1e-12)
+            }
+            _ => panic!("unexpected variant"),
         }
     }
 }

@@ -54,73 +54,14 @@
 //!    for risk management).
 //! 3. Future enhancement: Add `payment_delay_days` to leg specs for exact matching.
 
-use finstack_core::types::Currency;
+use finstack_core::config::FinstackConfig;
+use finstack_core::currency::Currency;
 use finstack_core::dates::{BusinessDayConvention, Date, DayCount, DayCountCtx, Tenor};
-use finstack_core::math::interp::ExtrapolationPolicy;
 use finstack_core::market_data::context::MarketContext;
-use finstack_valuations::calibration::CalibrationConfig;
-use finstack_valuations::calibration::v2::api::engine;
-use finstack_valuations::calibration::v2::api::schema::{
-    CalibrationEnvelopeV2, CalibrationMethod, CalibrationPlanV2, CalibrationStepV2,
-    DiscountCurveParams, StepParams,
-};
-use finstack_valuations::calibration::v2::domain::quotes::{InstrumentConventions, MarketQuote, RatesQuote};
-use std::collections::HashMap;
+use finstack_valuations::calibration::methods::discount::DiscountCurveCalibrator;
+use finstack_valuations::calibration::quotes::InstrumentConventions;
+use finstack_valuations::calibration::{Calibrator, RatesQuote, CALIBRATION_CONFIG_KEY_V1};
 use time::Month;
-
-fn calibrate_discount_curve_v2(
-    base_date: Date,
-    curve_id: &str,
-    interpolation: finstack_core::math::interp::InterpStyle,
-    rates_quotes: Vec<RatesQuote>,
-    settings: CalibrationConfig,
-) -> (std::sync::Arc<finstack_core::market_data::term_structures::discount_curve::DiscountCurve>, finstack_valuations::calibration::CalibrationReport) {
-    let currency = Currency::USD;
-    let mut quote_sets: HashMap<String, Vec<MarketQuote>> = HashMap::new();
-    quote_sets.insert(
-        "rates".to_string(),
-        rates_quotes.into_iter().map(MarketQuote::Rates).collect(),
-    );
-
-    let plan = CalibrationPlanV2 {
-        id: "bbg".to_string(),
-        description: None,
-        quote_sets,
-        settings,
-        steps: vec![CalibrationStepV2 {
-            id: "disc".to_string(),
-            quote_set: "rates".to_string(),
-            params: StepParams::Discount(DiscountCurveParams {
-                curve_id: curve_id.into(),
-                currency,
-                base_date,
-                method: CalibrationMethod::Bootstrap,
-                interpolation,
-                extrapolation: ExtrapolationPolicy::FlatForward,
-                pricing_discount_id: None,
-                pricing_forward_id: None,
-                conventions: Default::default(),
-            }),
-        }],
-    };
-
-    let envelope = CalibrationEnvelopeV2 {
-        schema: "finstack.calibration/2".to_string(),
-        plan,
-        initial_market: None,
-    };
-
-    let out = engine::execute(&envelope).expect("discount calibration");
-    let ctx = MarketContext::try_from(out.result.final_market).expect("restore context");
-    let curve = ctx.get_discount(curve_id).expect("discount curve");
-    let step_report = out
-        .result
-        .step_reports
-        .get("disc")
-        .cloned()
-        .expect("step report");
-    (curve, step_report)
-}
 
 /// Helper to create deposit quotes with ACT/360 day count
 fn deposit(maturity: Date, rate: f64) -> RatesQuote {
@@ -486,21 +427,25 @@ fn test_bloomberg_usd_ois_calibration_accuracy() {
     // Enforce market-standard calibration accuracy (internal consistency).
     // This is separate from Bloomberg matching tolerances, which also include convention
     // and interpolation/extrapolation differences.
-    // Bootstrap uses x-space termination in Brent; enforce internal consistency via
-    // max_residual checks below while keeping the solver tolerance realistic for long-end quotes.
-    let settings = CalibrationConfig {
-        tolerance: 1e-8,
-        max_iterations: 200,
-        ..Default::default()
-    };
-
-    let (curve, report) = calibrate_discount_curve_v2(
-        base_date,
-        "USD-OIS",
-        finstack_core::math::interp::InterpStyle::MonotoneConvex,
-        discount_quotes.clone(),
-        settings,
+    let mut cfg = FinstackConfig::default();
+    cfg.extensions.insert(
+        CALIBRATION_CONFIG_KEY_V1,
+        serde_json::json!({
+            // Bootstrap uses x-space termination in Brent; enforce internal consistency via
+            // max_residual checks below while keeping the solver tolerance realistic for long-end quotes.
+            "tolerance": 1e-8,
+            "max_iterations": 200
+        }),
     );
+    let calibrator = DiscountCurveCalibrator::new("USD-OIS", base_date, Currency::USD)
+        .with_finstack_config(&cfg)
+        .expect("valid config")
+        .with_include_spot_knot(false); // Match Bloomberg's curve structure (no spot knot)
+    let base_context = MarketContext::new();
+
+    let (curve, report) = calibrator
+        .calibrate(&discount_quotes, &base_context)
+        .expect("Discount curve calibration should succeed");
 
     // Verify calibration succeeded
     assert!(report.success, "Calibration should report success");
@@ -736,6 +681,8 @@ fn test_bloomberg_usd_ois_calibration_accuracy() {
 /// factors) uses interpolated DFs at each coupon date.
 #[test]
 fn test_interpolation_method_comparison() {
+    use finstack_core::math::interp::InterpStyle;
+
     let base_date = Date::from_calendar_date(2025, Month::December, 10).expect("Valid test date");
 
     // Use a subset of quotes for comparison (short-end to 10Y)
@@ -776,29 +723,21 @@ fn test_interpolation_method_comparison() {
         ),
     ];
 
-    let settings = CalibrationConfig {
-        tolerance: 1e-10,
-        max_iterations: 200,
-        ..Default::default()
-    };
+    let base_context = MarketContext::new();
 
-    // Test MonotoneConvex (industry standard)
-    let (mc_curve, mc_report) = calibrate_discount_curve_v2(
-        base_date,
-        "USD-OIS-MC",
-        finstack_core::math::interp::InterpStyle::MonotoneConvex,
-        test_quotes.clone(),
-        settings.clone(),
-    );
+    // Test MonotoneConvex (default, industry standard)
+    let mc_calibrator = DiscountCurveCalibrator::new("USD-OIS-MC", base_date, Currency::USD)
+        .with_solve_interp(InterpStyle::MonotoneConvex);
+    let (mc_curve, mc_report) = mc_calibrator
+        .calibrate(&test_quotes, &base_context)
+        .expect("MonotoneConvex calibration should succeed");
 
-    // Test LogLinear (piecewise-constant zero rates)
-    let (ll_curve, ll_report) = calibrate_discount_curve_v2(
-        base_date,
-        "USD-OIS-LL",
-        finstack_core::math::interp::InterpStyle::LogLinear,
-        test_quotes.clone(),
-        settings,
-    );
+    // Test LogLinear (piecewise constant zero rates)
+    let ll_calibrator = DiscountCurveCalibrator::new("USD-OIS-LL", base_date, Currency::USD)
+        .with_solve_interp(InterpStyle::LogLinear);
+    let (ll_curve, ll_report) = ll_calibrator
+        .calibrate(&test_quotes, &base_context)
+        .expect("LogLinear calibration should succeed");
 
     assert!(mc_report.success, "MonotoneConvex should succeed");
     assert!(ll_report.success, "LogLinear should succeed");

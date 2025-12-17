@@ -8,14 +8,16 @@ use finstack_core::market_data::context::MarketContext;
 use finstack_core::math::interp::{ExtrapolationPolicy, InterpStyle};
 use finstack_core::money::Money;
 use finstack_core::types::{Currency, CurveId};
-use finstack_valuations::calibration::CalibrationConfig;
 use finstack_valuations::calibration::v2::api::engine;
 use finstack_valuations::calibration::v2::api::schema::{
     CalibrationEnvelopeV2, CalibrationMethod, CalibrationPlanV2, CalibrationStepV2,
     DiscountCurveParams, ForwardCurveParams, StepParams,
 };
 use finstack_valuations::calibration::v2::domain::pricing::CalibrationPricer;
-use finstack_valuations::calibration::v2::domain::quotes::{InstrumentConventions, MarketQuote, RatesQuote};
+use finstack_valuations::calibration::v2::domain::quotes::{
+    InstrumentConventions, MarketQuote, RatesQuote,
+};
+use finstack_valuations::calibration::CalibrationConfig;
 use finstack_valuations::instruments::common::traits::Instrument;
 use finstack_valuations::instruments::irs::InterestRateSwap;
 use finstack_valuations::instruments::{Deposit, ForwardRateAgreement};
@@ -405,9 +407,9 @@ fn discount_curve_deposit_repricing() {
             _ => continue,
         };
 
-        let day_count = conventions.day_count.unwrap_or_else(|| {
-            InstrumentConventions::default_money_market_day_count(currency)
-        });
+        let day_count = conventions
+            .day_count
+            .unwrap_or_else(|| InstrumentConventions::default_money_market_day_count(currency));
 
         let dep = Deposit {
             id: format!("DEP-{}", maturity).into(),
@@ -474,7 +476,11 @@ fn forward_curve_fra_repricing() {
     let mut quote_sets: HashMap<String, Vec<MarketQuote>> = HashMap::new();
     quote_sets.insert(
         "disc".to_string(),
-        disc_quotes.iter().cloned().map(MarketQuote::Rates).collect(),
+        disc_quotes
+            .iter()
+            .cloned()
+            .map(MarketQuote::Rates)
+            .collect(),
     );
     quote_sets.insert(
         "fra".to_string(),
@@ -544,9 +550,9 @@ fn forward_curve_fra_repricing() {
             _ => continue,
         };
 
-        let day_count = conventions.day_count.unwrap_or_else(|| {
-            InstrumentConventions::default_money_market_day_count(currency)
-        });
+        let day_count = conventions
+            .day_count
+            .unwrap_or_else(|| InstrumentConventions::default_money_market_day_count(currency));
 
         // Heuristic fixing date: T-2 if possible.
         let fixing_date = if start >= base_date + time::Duration::days(2) {

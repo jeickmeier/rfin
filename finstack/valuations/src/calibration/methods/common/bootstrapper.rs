@@ -4,8 +4,8 @@
 /// to calibrate various types of curves, such as discount curves and forward
 /// curves.
 use crate::calibration::{
-    bracket_solve_1d_with_diagnostics, CalibrationConfig, CalibrationReport, OBJECTIVE_VALID_ABS_MAX,
-    RESIDUAL_PENALTY_ABS_MIN,
+    bracket_solve_1d_with_diagnostics, CalibrationConfig, CalibrationReport,
+    OBJECTIVE_VALID_ABS_MAX, RESIDUAL_PENALTY_ABS_MIN,
 };
 use finstack_core::prelude::*;
 use std::collections::BTreeMap;
@@ -86,10 +86,7 @@ impl SequentialBootstrapper {
         let mut knots = initial_knots;
         let mut residuals = BTreeMap::new();
         let mut total_iterations = 0;
-        let mut last_time = knots
-            .iter()
-            .map(|(t, _)| *t)
-            .fold(0.0_f64, f64::max);
+        let mut last_time = knots.iter().map(|(t, _)| *t).fold(0.0_f64, f64::max);
 
         // Iterate through sorted quotes
         for (idx, quote) in sorted_quotes.iter().enumerate() {
@@ -118,7 +115,8 @@ impl SequentialBootstrapper {
             let initial_guess = target.initial_guess(quote, &knots)?;
 
             // Track first evaluation error for diagnostics only.
-            let first_eval_error: std::cell::RefCell<Option<String>> = std::cell::RefCell::new(None);
+            let first_eval_error: std::cell::RefCell<Option<String>> =
+                std::cell::RefCell::new(None);
             let eval_counter = AtomicUsize::new(0);
 
             // Define objective function

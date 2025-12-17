@@ -62,7 +62,8 @@ impl GlobalFitOptimizer {
         let solver = config.create_lm_solver();
 
         // Trackers
-        let eval_diagnostics: Arc<Mutex<EvalDiagnostics>> = Arc::new(Mutex::new(EvalDiagnostics::default()));
+        let eval_diagnostics: Arc<Mutex<EvalDiagnostics>> =
+            Arc::new(Mutex::new(EvalDiagnostics::default()));
         let eval_counter = Arc::new(AtomicUsize::new(0));
 
         // Clones for closure
@@ -214,7 +215,10 @@ impl GlobalFitOptimizer {
             "final_unweighted_max_abs_residual",
             format!("{:.2e}", max_abs_residual),
         )
-        .with_metadata("final_weighted_resid_l2_norm", format!("{:.2e}", weighted_l2_norm))
+        .with_metadata(
+            "final_weighted_resid_l2_norm",
+            format!("{:.2e}", weighted_l2_norm),
+        )
         .with_metadata(
             "final_weighted_max_abs_residual",
             format!("{:.2e}", weighted_max_abs_residual),
@@ -618,7 +622,11 @@ mod tests {
                 self.inner.build_time_grid_and_guesses(quotes)
             }
 
-            fn build_curve_from_params(&self, times: &[f64], params: &[f64]) -> Result<Self::Curve> {
+            fn build_curve_from_params(
+                &self,
+                times: &[f64],
+                params: &[f64],
+            ) -> Result<Self::Curve> {
                 self.inner.build_curve_from_params(times, params)
             }
 

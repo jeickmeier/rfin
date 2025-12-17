@@ -552,9 +552,9 @@ Ensure quotes map to strictly increasing year fractions.",
                 if i >= residuals.len() {
                     break;
                 }
-                residuals[i] = self
-                    .pricer
-                    .price_instrument_for_calibration(quote, self.currency, ctx)?;
+                residuals[i] =
+                    self.pricer
+                        .price_instrument_for_calibration(quote, self.currency, ctx)?;
             }
             Ok(())
         })

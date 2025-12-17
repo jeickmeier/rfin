@@ -402,7 +402,9 @@ impl RatesQuote {
                             RateIndexConventions::for_index_with_currency(idx, currency)
                                 .default_payment_frequency
                         })
-                        .unwrap_or_else(|| InstrumentConventions::default_float_leg_frequency(currency))
+                        .unwrap_or_else(|| {
+                            InstrumentConventions::default_float_leg_frequency(currency)
+                        })
                 });
                 format!(
                     "SWAP-{}-{}-fix{:?}-flt{:?}-{:06}",

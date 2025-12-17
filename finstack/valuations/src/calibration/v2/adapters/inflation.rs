@@ -4,11 +4,11 @@ use crate::calibration::v2::domain::solver::BootstrapTarget;
 use crate::instruments::common::traits::Instrument;
 use crate::instruments::inflation_swap::{InflationSwap, PayReceiveInflation};
 use finstack_core::dates::{DayCount, DayCountCtx};
-use finstack_core::prelude::DateExt;
-use finstack_core::market_data::scalars::inflation_index::InflationLag;
 use finstack_core::market_data::context::MarketContext;
+use finstack_core::market_data::scalars::inflation_index::InflationLag;
 use finstack_core::market_data::term_structures::InflationCurve;
 use finstack_core::money::Money;
+use finstack_core::prelude::DateExt;
 use finstack_core::Result;
 
 /// Bootstrapper for inflation curves from inflation swap quotes.
@@ -51,13 +51,17 @@ impl InflationBootstrapper {
         }
         if let Some(num) = upper.strip_suffix('M') {
             let months: u8 = num.trim().parse().map_err(|_| {
-                finstack_core::Error::Validation(format!("Invalid observation_lag '{spec}': expected like '3M'"))
+                finstack_core::Error::Validation(format!(
+                    "Invalid observation_lag '{spec}': expected like '3M'"
+                ))
             })?;
             return Ok(InflationLag::Months(months));
         }
         if let Some(num) = upper.strip_suffix('D') {
             let days: u16 = num.trim().parse().map_err(|_| {
-                finstack_core::Error::Validation(format!("Invalid observation_lag '{spec}': expected like '90D'"))
+                finstack_core::Error::Validation(format!(
+                    "Invalid observation_lag '{spec}': expected like '90D'"
+                ))
             })?;
             return Ok(InflationLag::Days(days));
         }
@@ -66,7 +70,10 @@ impl InflationBootstrapper {
         )))
     }
 
-    fn apply_lag(date: finstack_core::dates::Date, lag: InflationLag) -> finstack_core::dates::Date {
+    fn apply_lag(
+        date: finstack_core::dates::Date,
+        lag: InflationLag,
+    ) -> finstack_core::dates::Date {
         match lag {
             InflationLag::None => date,
             InflationLag::Months(m) => date.add_months(-(m as i32)),
@@ -180,7 +187,11 @@ impl BootstrapTarget for InflationBootstrapper {
             .dc(DayCount::ActAct)
             .side(PayReceiveInflation::PayFixed)
             .lag_override_opt(if has_index_fixings { None } else { Some(lag) })
-            .base_cpi_opt(if has_index_fixings { None } else { Some(base_cpi) })
+            .base_cpi_opt(if has_index_fixings {
+                None
+            } else {
+                Some(base_cpi)
+            })
             .bdc_opt(None)
             .calendar_id_opt(None)
             .build()

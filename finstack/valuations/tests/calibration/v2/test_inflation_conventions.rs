@@ -1,10 +1,12 @@
 //! Integration tests for inflation calibration conventions (v2).
 
 use finstack_core::dates::{Date, DayCount, DayCountCtx};
-use finstack_core::prelude::DateExt;
 use finstack_core::market_data::context::MarketContext;
-use finstack_core::market_data::scalars::inflation_index::{InflationIndex, InflationInterpolation, InflationLag};
+use finstack_core::market_data::scalars::inflation_index::{
+    InflationIndex, InflationInterpolation, InflationLag,
+};
 use finstack_core::market_data::term_structures::discount_curve::DiscountCurve;
+use finstack_core::prelude::DateExt;
 use finstack_core::types::Currency;
 use finstack_valuations::calibration::v2::api::engine;
 use finstack_valuations::calibration::v2::api::schema::{
@@ -31,10 +33,22 @@ fn create_discount_curve(base_date: Date) -> DiscountCurve {
 
 fn create_us_cpi_fixings_with_seasonality() -> InflationIndex {
     let observations = vec![
-        (Date::from_calendar_date(2024, Month::September, 30).expect("date"), 300.0),
-        (Date::from_calendar_date(2024, Month::October, 31).expect("date"), 301.0),
-        (Date::from_calendar_date(2024, Month::November, 30).expect("date"), 302.0),
-        (Date::from_calendar_date(2024, Month::December, 31).expect("date"), 303.0),
+        (
+            Date::from_calendar_date(2024, Month::September, 30).expect("date"),
+            300.0,
+        ),
+        (
+            Date::from_calendar_date(2024, Month::October, 31).expect("date"),
+            301.0,
+        ),
+        (
+            Date::from_calendar_date(2024, Month::November, 30).expect("date"),
+            302.0,
+        ),
+        (
+            Date::from_calendar_date(2024, Month::December, 31).expect("date"),
+            303.0,
+        ),
     ];
 
     // Simple seasonality pattern: October +1%, others neutral.

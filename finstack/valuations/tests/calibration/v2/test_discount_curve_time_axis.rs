@@ -311,7 +311,9 @@ fn solver_curve_build_respects_requested_interpolation() {
     // Non-monotonic DFs are incompatible with MonotoneConvex.
     let non_monotonic = vec![(0.0, 1.0), (1.0, 1.0005), (2.0, 0.98)];
     assert!(
-        target_convex.build_curve_for_solver(&non_monotonic).is_err(),
+        target_convex
+            .build_curve_for_solver(&non_monotonic)
+            .is_err(),
         "MonotoneConvex should reject non-monotonic discount factors"
     );
 

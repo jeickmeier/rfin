@@ -3,17 +3,17 @@ use super::quote::PyMarketQuote;
 use super::report::PyCalibrationReport;
 use crate::core::market_data::context::PyMarketContext;
 use crate::statements::utils::py_to_json;
+use finstack_core::market_data::context::MarketContext;
 use finstack_valuations::calibration::v2::api::engine as calib_engine_v2;
 use finstack_valuations::calibration::v2::api::schema::{
     CalibrationEnvelopeV2, CalibrationPlanV2, CalibrationStepV2, CALIBRATION_SCHEMA_V2,
 };
-use finstack_core::market_data::context::MarketContext;
-use pyo3::IntoPyObjectExt;
 use pyo3::exceptions::PyValueError;
 use pyo3::prelude::*;
 use pyo3::types::PyDict;
 use pyo3::types::PyModule;
 use pyo3::Bound;
+use pyo3::IntoPyObjectExt;
 use std::collections::HashMap;
 
 fn step_from_py(value: &Bound<'_, PyAny>) -> PyResult<CalibrationStepV2> {
@@ -95,9 +95,7 @@ fn execute_calibration_v2(
             .unwrap_or_default(),
     };
 
-    let initial_market = initial_market
-        .as_ref()
-        .map(|ctx| (&ctx.inner).into());
+    let initial_market = initial_market.as_ref().map(|ctx| (&ctx.inner).into());
 
     let envelope = CalibrationEnvelopeV2 {
         schema: CALIBRATION_SCHEMA_V2.to_string(),
@@ -106,7 +104,8 @@ fn execute_calibration_v2(
     };
 
     // Release GIL for compute-heavy calibration work
-    let result = py.detach(|| calib_engine_v2::execute(&envelope))
+    let result = py
+        .detach(|| calib_engine_v2::execute(&envelope))
         .map_err(|e| pyo3::exceptions::PyRuntimeError::new_err(e.to_string()))?;
 
     let market = MarketContext::try_from(result.result.final_market.clone()).map_err(|e| {
@@ -136,5 +135,3 @@ pub(crate) fn register<'py>(
     module.add_function(wrap_pyfunction!(execute_calibration_v2, module)?)?;
     Ok(vec!["CALIBRATION_SCHEMA_V2", "execute_calibration_v2"])
 }
-
-

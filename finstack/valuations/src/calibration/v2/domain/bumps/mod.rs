@@ -13,7 +13,7 @@ impl PlanBumper {
     /// # Arguments
     ///
     /// * `plan` - The calibration plan to modify
-    /// * `amount` - Bump amount (e.g. 0.0001 for 1bp)
+    /// * `amount` - Bump amount, interpreted per quote type (see `MarketQuote::bump`)
     pub fn bump_parallel(plan: &mut CalibrationPlanV2, amount: f64) {
         for quotes in plan.quote_sets.values_mut() {
             for quote in quotes.iter_mut() {

@@ -2,8 +2,8 @@
 
 use super::traits::BootstrapTarget;
 use crate::calibration::{
-    bracket_solve_1d_with_diagnostics, CalibrationConfig, CalibrationReport, OBJECTIVE_VALID_ABS_MAX,
-    RESIDUAL_PENALTY_ABS_MIN,
+    bracket_solve_1d_with_diagnostics, CalibrationConfig, CalibrationReport,
+    OBJECTIVE_VALID_ABS_MAX, RESIDUAL_PENALTY_ABS_MIN,
 };
 use finstack_core::prelude::*;
 use std::collections::BTreeMap;
@@ -27,19 +27,20 @@ impl SequentialBootstrapper {
         let mut knots = initial_knots;
         let mut residuals = BTreeMap::new();
         let mut total_iterations = 0;
-        let mut last_time = knots
-            .iter()
-            .map(|(t, _)| *t)
-            .fold(0.0_f64, f64::max);
+        let mut last_time = knots.iter().map(|(t, _)| *t).fold(0.0_f64, f64::max);
 
         // Centralized sorting by quote time for deterministic bootstrapping.
         // We intentionally do not assume `quotes` are pre-sorted.
         let mut quote_times: Vec<(f64, usize)> = Vec::with_capacity(quotes.len());
         for (idx, quote) in quotes.iter().enumerate() {
-            let time = target.quote_time(quote).map_err(|e| finstack_core::Error::Calibration {
-                message: format!("Bootstrap failed to compute quote_time for quote index {idx}: {e}"),
-                category: "bootstrapping".to_string(),
-            })?;
+            let time = target
+                .quote_time(quote)
+                .map_err(|e| finstack_core::Error::Calibration {
+                    message: format!(
+                        "Bootstrap failed to compute quote_time for quote index {idx}: {e}"
+                    ),
+                    category: "bootstrapping".to_string(),
+                })?;
             if !time.is_finite() || time <= 0.0 {
                 return Err(finstack_core::Error::Calibration {
                     message: format!(
@@ -84,7 +85,8 @@ impl SequentialBootstrapper {
 
             // Track the first evaluation error for diagnostics, but do not fail unless all
             // evaluations are invalid/penalized (market-standard behavior).
-            let first_eval_error: std::cell::RefCell<Option<String>> = std::cell::RefCell::new(None);
+            let first_eval_error: std::cell::RefCell<Option<String>> =
+                std::cell::RefCell::new(None);
             let eval_counter = AtomicUsize::new(0);
 
             // Define objective function
@@ -319,7 +321,8 @@ mod tests {
         }
 
         fn build_curve(&self, knots: &[(f64, f64)]) -> Result<Self::Curve> {
-            knots.last()
+            knots
+                .last()
                 .map(|(_, v)| *v)
                 .ok_or(Error::Input(finstack_core::error::InputError::TooFewPoints))
         }
@@ -341,7 +344,11 @@ mod tests {
             Ok(quote.scale * (*curve - quote.root))
         }
 
-        fn initial_guess(&self, _quote: &Self::Quote, _previous_knots: &[(f64, f64)]) -> Result<f64> {
+        fn initial_guess(
+            &self,
+            _quote: &Self::Quote,
+            _previous_knots: &[(f64, f64)],
+        ) -> Result<f64> {
             Ok(0.0)
         }
 
@@ -432,7 +439,9 @@ mod tests {
             .expect_err("should fail when all evaluations are penalized");
         let msg = format!("{err}");
         assert!(
-            msg.contains("all") && msg.contains("objective evaluations") && msg.contains("invalid/penalized"),
+            msg.contains("all")
+                && msg.contains("objective evaluations")
+                && msg.contains("invalid/penalized"),
             "unexpected error message: {msg}"
         );
     }
@@ -460,7 +469,8 @@ mod tests {
             }
 
             fn build_curve(&self, knots: &[(f64, f64)]) -> Result<Self::Curve> {
-                knots.last()
+                knots
+                    .last()
                     .map(|(_, v)| *v)
                     .ok_or(Error::Input(finstack_core::error::InputError::TooFewPoints))
             }
@@ -504,7 +514,10 @@ mod tests {
         let err = SequentialBootstrapper::bootstrap(&target, &[q], vec![(0.0, 0.0)], &cfg, None)
             .expect_err("bootstrap should fail due to f-space tolerance enforcement");
         let msg = format!("{err}");
-        assert!(msg.contains("exceeds tolerance"), "unexpected error message: {msg}");
+        assert!(
+            msg.contains("exceeds tolerance"),
+            "unexpected error message: {msg}"
+        );
     }
 
     #[test]
@@ -517,7 +530,10 @@ mod tests {
             unsorted_scan: false,
             infeasible_below: None,
         };
-        let q2 = DummyQuote { t: 1.0, ..q1.clone() };
+        let q2 = DummyQuote {
+            t: 1.0,
+            ..q1.clone()
+        };
         let cfg = CalibrationConfig::default();
         let err =
             SequentialBootstrapper::bootstrap(&target, &[q1, q2], vec![(0.0, 0.0)], &cfg, None)

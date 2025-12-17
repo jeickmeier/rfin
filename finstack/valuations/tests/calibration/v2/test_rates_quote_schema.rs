@@ -1,6 +1,4 @@
-use finstack_valuations::calibration::v2::domain::quotes::{
-    InstrumentConventions, RatesQuote,
-};
+use finstack_valuations::calibration::v2::domain::quotes::{InstrumentConventions, RatesQuote};
 
 fn expect_quote_err(payload: &str) {
     let err = serde_json::from_str::<RatesQuote>(payload)
@@ -93,4 +91,3 @@ fn instrument_conventions_unknown_field_is_rejected() {
     serde_json::from_str::<InstrumentConventions>(payload)
         .expect_err("unknown InstrumentConventions field should error");
 }
-

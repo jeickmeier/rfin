@@ -2,7 +2,11 @@
 
 use finstack_core::dates::{BusinessDayConvention, Date, DayCount, Tenor};
 use finstack_core::market_data::context::MarketContext;
-use finstack_core::market_data::term_structures::{BaseCorrelationCurve, CreditIndexData, HazardCurve};
+use finstack_core::market_data::term_structures::discount_curve::DiscountCurve;
+use finstack_core::market_data::term_structures::{
+    BaseCorrelationCurve, CreditIndexData, HazardCurve,
+};
+use finstack_core::money::Money;
 use finstack_core::types::{Currency, CurveId};
 use finstack_valuations::calibration::v2::api::engine;
 use finstack_valuations::calibration::v2::api::schema::{
@@ -12,8 +16,6 @@ use finstack_valuations::calibration::v2::domain::quotes::{CreditQuote, MarketQu
 use finstack_valuations::instruments::cds_tranche::pricer::CDSTranchePricer;
 use finstack_valuations::instruments::cds_tranche::{CdsTranche, TrancheSide};
 use finstack_valuations::instruments::common::traits::Attributes;
-use finstack_core::market_data::term_structures::discount_curve::DiscountCurve;
-use finstack_core::money::Money;
 use std::collections::HashMap;
 use std::sync::Arc;
 use time::Month;
@@ -107,16 +109,19 @@ fn base_correlation_step_builds_curve_and_updates_credit_index_data() {
     let hazard = create_hazard_curve(base_date);
     let target_corr = Arc::new(
         BaseCorrelationCurve::builder("TARGET")
-        .points([(3.0, 0.25), (7.0, 0.35)])
-        .build()
-        .expect("target base correlation"),
+            .points([(3.0, 0.25), (7.0, 0.35)])
+            .build()
+            .expect("target base correlation"),
     );
 
     let quote_market = MarketContext::new()
         .insert_discount(create_discount_curve(base_date))
         .insert_hazard(Arc::clone(&hazard))
         .insert_base_correlation(Arc::clone(&target_corr))
-        .insert_credit_index("CDX", create_credit_index(Arc::clone(&hazard), Arc::clone(&target_corr)));
+        .insert_credit_index(
+            "CDX",
+            create_credit_index(Arc::clone(&hazard), Arc::clone(&target_corr)),
+        );
 
     let notional = 1.0;
     let running_coupon_bp = 100.0;
@@ -150,7 +155,10 @@ fn base_correlation_step_builds_curve_and_updates_credit_index_data() {
         .insert_discount(create_discount_curve(base_date))
         .insert_hazard(Arc::clone(&hazard))
         .insert_base_correlation(Arc::clone(&seed_corr))
-        .insert_credit_index("CDX", create_credit_index(Arc::clone(&hazard), Arc::clone(&seed_corr)));
+        .insert_credit_index(
+            "CDX",
+            create_credit_index(Arc::clone(&hazard), Arc::clone(&seed_corr)),
+        );
 
     // Use fraction attachment/detachment in the quote to validate unit normalization.
     let quotes = vec![
@@ -217,7 +225,9 @@ fn base_correlation_step_builds_curve_and_updates_credit_index_data() {
     let ctx = MarketContext::try_from(result.result.final_market).expect("restore context");
 
     // Calibrated curve is inserted as "{index_id}_CORR".
-    let curve = ctx.get_base_correlation("CDX_CORR").expect("base correlation curve");
+    let curve = ctx
+        .get_base_correlation("CDX_CORR")
+        .expect("base correlation curve");
     assert!((curve.correlation(3.0) - 0.25).abs() < 5e-2);
     assert!((curve.correlation(7.0) - 0.35).abs() < 5e-2);
 

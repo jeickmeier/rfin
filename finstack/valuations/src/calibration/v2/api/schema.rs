@@ -3,12 +3,12 @@
 //! Defines the JSON contract for plan-driven calibration.
 
 use crate::calibration::config::CalibrationConfig;
-use crate::calibration::v2::domain::quotes::MarketQuote;
 use crate::calibration::v2::domain::pricing::ConvexityParameters;
+use crate::calibration::v2::domain::quotes::MarketQuote;
 use finstack_core::dates::BusinessDayConvention;
 use finstack_core::dates::{Date, DayCount, Tenor};
 use finstack_core::market_data::context::MarketContextState;
-use finstack_core::market_data::term_structures::Seniority;
+use finstack_core::market_data::term_structures::{ParInterp, Seniority};
 use finstack_core::math::interp::{ExtrapolationPolicy, InterpStyle};
 use finstack_core::types::{Currency, CurveId};
 use serde::{Deserialize, Serialize};
@@ -255,6 +255,14 @@ pub struct HazardCurveParams {
     /// Interpolation style for the curve.
     #[serde(default = "default_interp_linear")]
     pub interpolation: InterpStyle,
+
+    /// Interpolation method for par spreads reported by the calibrated curve.
+    ///
+    /// Note: this is used for *quoting/interpolation of stored par spreads* and does not affect
+    /// survival no-arbitrage, which is enforced via non-negative hazards and the curve's
+    /// internal log-linear survival interpolation.
+    #[serde(default = "default_par_interp_linear")]
+    pub par_interp: ParInterp,
 }
 
 /// Parameters for inflation curve calibration step.
@@ -305,7 +313,9 @@ pub struct VolSurfaceParams {
     pub base_date: Date,
     /// Identifier for the underlying instrument.
     pub underlying_id: String,
-    /// Model type: "Black", "Normal", "SABR", etc.
+    /// Model type.
+    ///
+    /// Note: v2 currently supports SABR-only; set to `"SABR"` (case-insensitive).
     pub model: String,
     /// Discount curve ID.
     #[serde(default)]
@@ -387,6 +397,13 @@ pub struct SwaptionVolParams {
     #[serde(default)]
     pub vol_tolerance: Option<f64>,
 
+    /// Solver tolerance used inside the SABR calibration routines.
+    ///
+    /// This is an algorithmic convergence tolerance (not a market quoting tolerance).
+    /// If unset, the SABR calibrator default is used.
+    #[serde(default)]
+    pub sabr_tolerance: Option<f64>,
+
     /// Extrapolation policy used when interpolating SABR parameters across the
     /// expiry–tenor grid for target points that do not have a directly calibrated bucket.
     #[serde(default)]
@@ -460,12 +477,18 @@ pub struct BaseCorrelationParams {
 #[derive(Clone, Copy, Debug, Default, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum SwaptionVolConvention {
-    /// Normal (absolute) volatility in basis points
+    /// Normal (absolute) volatility quoted in **basis points**.
+    ///
+    /// Example: `50.0` means 50bp = `0.0050` in internal model units.
     Normal,
-    /// Lognormal (Black) volatility as percentage
+    /// Lognormal (Black) volatility quoted as **percentage**.
+    ///
+    /// Example: `20.0` means 20% = `0.20` in internal model units.
     #[default]
     Lognormal,
-    /// Shifted lognormal for negative rates
+    /// Shifted lognormal (Black) volatility quoted as **percentage**, with an explicit shift.
+    ///
+    /// Example: `20.0` means 20% = `0.20` in internal model units.
     ShiftedLognormal {
         /// Shift amount for negative rate handling
         shift: f64,
@@ -506,6 +529,10 @@ pub enum CalibrationMethod {
 // Defaults
 fn default_interp_linear() -> InterpStyle {
     InterpStyle::Linear
+}
+
+fn default_par_interp_linear() -> ParInterp {
+    ParInterp::Linear
 }
 
 fn default_extrap_flat() -> ExtrapolationPolicy {

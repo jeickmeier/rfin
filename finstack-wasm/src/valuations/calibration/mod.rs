@@ -4,8 +4,8 @@ pub mod config;
 pub mod quote;
 pub mod report;
 pub mod sabr;
-pub mod validation;
 pub mod v2;
+pub mod validation;
 
 pub use config::{JsCalibrationConfig, JsMultiCurveConfig, JsSolverKind};
 pub use quote::{JsCreditQuote, JsInflationQuote, JsMarketQuote, JsRatesQuote, JsVolQuote};

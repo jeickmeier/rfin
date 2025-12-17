@@ -7,8 +7,8 @@
 
 use finstack_core::dates::Date;
 use finstack_core::dates::{BusinessDayConvention, DayCount, Tenor};
-use finstack_core::math::interp::ExtrapolationPolicy;
 use finstack_core::market_data::term_structures::Seniority;
+use finstack_core::math::interp::ExtrapolationPolicy;
 use finstack_core::types::{Currency, CurveId};
 use finstack_valuations::calibration::v2::api::schema::{
     BaseCorrelationParams, CalibrationEnvelopeV2, CalibrationMethod, CalibrationPlanV2,
@@ -126,6 +126,7 @@ fn step_params_v2_roundtrip_for_all_variants() {
         notional: 1.0,
         method: CalibrationMethod::Bootstrap,
         interpolation: Default::default(),
+        par_interp: finstack_core::market_data::term_structures::ParInterp::Linear,
     });
     let _ = roundtrip_json(&hazard);
 
@@ -173,6 +174,7 @@ fn step_params_v2_roundtrip_for_all_variants() {
         calendar_id: None,
         fixed_day_count: None,
         vol_tolerance: None,
+        sabr_tolerance: None,
         sabr_extrapolation: SurfaceExtrapolationPolicy::Error,
         allow_sabr_missing_bucket_fallback: false,
     });

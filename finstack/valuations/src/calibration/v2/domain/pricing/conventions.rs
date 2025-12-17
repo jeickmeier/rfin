@@ -145,13 +145,16 @@ fn resolve_common_for_swap<'a>(
             }
         });
 
-    let reset_lag_days = float_leg.reset_lag.or(conventions.reset_lag).unwrap_or_else(|| {
-        if index_conv.kind == RateIndexKind::OvernightRfr {
-            index_conv.default_reset_lag_days
-        } else {
-            -2
-        }
-    });
+    let reset_lag_days = float_leg
+        .reset_lag
+        .or(conventions.reset_lag)
+        .unwrap_or_else(|| {
+            if index_conv.kind == RateIndexKind::OvernightRfr {
+                index_conv.default_reset_lag_days
+            } else {
+                -2
+            }
+        });
 
     ResolvedCommon {
         settlement_days,
@@ -240,7 +243,9 @@ pub(crate) fn resolve_swap_conventions<'a>(
             let fixed_dc = fixed_leg_conventions
                 .day_count
                 .unwrap_or_else(|| InstrumentConventions::default_fixed_leg_day_count(currency));
-            let float_dc = float_leg_conventions.day_count.unwrap_or(index_conv.day_count);
+            let float_dc = float_leg_conventions
+                .day_count
+                .unwrap_or(index_conv.day_count);
 
             let common = resolve_common_for_swap(
                 pricer,
@@ -337,7 +342,8 @@ mod tests {
     #[test]
     fn swap_defaults_use_index_conventions_for_ois() {
         let base_date = Date::from_calendar_date(2024, Month::January, 2).expect("base_date");
-        let pricer = CalibrationPricer::new(base_date, "USD-OIS").with_market_conventions(Currency::USD);
+        let pricer =
+            CalibrationPricer::new(base_date, "USD-OIS").with_market_conventions(Currency::USD);
 
         let quote = RatesQuote::Swap {
             maturity: Date::from_calendar_date(2025, Month::January, 2).expect("maturity"),
@@ -376,7 +382,8 @@ mod tests {
             },
         };
 
-        let resolved = resolve_basis_swap_conventions(&pricer, &quote, Currency::USD).expect("resolved");
+        let resolved =
+            resolve_basis_swap_conventions(&pricer, &quote, Currency::USD).expect("resolved");
         assert_eq!(resolved.primary_freq, Tenor::parse("3M").expect("3M"));
         assert_eq!(resolved.reference_freq, Tenor::parse("6M").expect("6M"));
     }

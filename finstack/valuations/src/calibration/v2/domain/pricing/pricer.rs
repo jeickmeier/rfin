@@ -1084,9 +1084,9 @@ impl CalibrationPricer {
                 rate,
                 conventions,
             } => {
-                let day_count = conventions
-                    .day_count
-                    .unwrap_or_else(|| InstrumentConventions::default_money_market_day_count(currency));
+                let day_count = conventions.day_count.unwrap_or_else(|| {
+                    InstrumentConventions::default_money_market_day_count(currency)
+                });
                 self.price_deposit(*maturity, *rate, day_count, conventions, currency, context)
             }
 
@@ -1096,9 +1096,9 @@ impl CalibrationPricer {
                 rate,
                 conventions,
             } => {
-                let day_count = conventions
-                    .day_count
-                    .unwrap_or_else(|| InstrumentConventions::default_money_market_day_count(currency));
+                let day_count = conventions.day_count.unwrap_or_else(|| {
+                    InstrumentConventions::default_money_market_day_count(currency)
+                });
                 self.price_fra(
                     *start,
                     *end,
@@ -1195,11 +1195,15 @@ impl CalibrationPricer {
                     )
                 })?;
                 let start = self.effective_start_date(conventions, currency)?;
-                let settlement_days = conventions.settlement_days.or(self.settlement_days).ok_or_else(|| {
-                    finstack_core::Error::Validation(
-                        "Strict pricing requires settlement_days to be set (quote or step)".to_string(),
-                    )
-                })?;
+                let settlement_days = conventions
+                    .settlement_days
+                    .or(self.settlement_days)
+                    .ok_or_else(|| {
+                        finstack_core::Error::Validation(
+                            "Strict pricing requires settlement_days to be set (quote or step)"
+                                .to_string(),
+                        )
+                    })?;
                 let bdc = conventions
                     .business_day_convention
                     .or(self.business_day_convention)
@@ -1215,7 +1219,8 @@ impl CalibrationPricer {
                     .or(self.calendar_id.as_deref())
                     .ok_or_else(|| {
                         finstack_core::Error::Validation(
-                            "Strict pricing requires calendar_id to be set (quote or step)".to_string(),
+                            "Strict pricing requires calendar_id to be set (quote or step)"
+                                .to_string(),
                         )
                     })?;
                 let dep = Deposit {
@@ -1227,9 +1232,7 @@ impl CalibrationPricer {
                     quote_rate: Some(*rate),
                     discount_curve_id: self.discount_curve_id.clone(),
                     attributes: Default::default(),
-                    spot_lag_days: if self.use_settlement_start
-                        && settlement_days != 0
-                    {
+                    spot_lag_days: if self.use_settlement_start && settlement_days != 0 {
                         Some(settlement_days)
                     } else {
                         None
@@ -1277,8 +1280,12 @@ impl CalibrationPricer {
                                 .to_string(),
                         )
                     })?;
-                let (fixing_date, _) =
-                    self.compute_fra_fixing_date(*start, reset_lag, calendar_id, self.allow_calendar_fallback)?;
+                let (fixing_date, _) = self.compute_fra_fixing_date(
+                    *start,
+                    reset_lag,
+                    calendar_id,
+                    self.allow_calendar_fallback,
+                )?;
                 let fra = ForwardRateAgreement::builder()
                     .id(format!("CALIB_FRA_{}_{}", start, end).into())
                     .notional(Money::new(1_000_000.0, currency))
@@ -1364,7 +1371,9 @@ impl CalibrationPricer {
                 let float_freq = float_leg_conventions
                     .payment_frequency
                     .unwrap_or(index_conv.default_payment_frequency);
-                let float_dc = float_leg_conventions.day_count.unwrap_or(index_conv.day_count);
+                let float_dc = float_leg_conventions
+                    .day_count
+                    .unwrap_or(index_conv.day_count);
 
                 let _settlement_days = conventions
                     .settlement_days
@@ -1451,7 +1460,8 @@ impl CalibrationPricer {
                     })
                     .ok_or_else(|| {
                         finstack_core::Error::Validation(
-                            "Strict pricing requires reset_lag to be set (quote or step)".to_string(),
+                            "Strict pricing requires reset_lag to be set (quote or step)"
+                                .to_string(),
                         )
                     })?;
 
@@ -1553,12 +1563,13 @@ impl CalibrationPricer {
                             .to_string(),
                     )
                 })?;
-                let reference_index = reference_leg_conventions.index.as_ref().ok_or_else(|| {
-                    finstack_core::Error::Validation(
-                        "BasisSwap quote requires reference_leg_conventions.index to be set"
-                            .to_string(),
-                    )
-                })?;
+                let reference_index =
+                    reference_leg_conventions.index.as_ref().ok_or_else(|| {
+                        finstack_core::Error::Validation(
+                            "BasisSwap quote requires reference_leg_conventions.index to be set"
+                                .to_string(),
+                        )
+                    })?;
 
                 let primary_freq = primary_leg_conventions.payment_frequency.ok_or_else(|| {
                     finstack_core::Error::Validation(
@@ -1641,7 +1652,8 @@ impl CalibrationPricer {
                     .or(self.default_reset_lag_days)
                     .ok_or_else(|| {
                         finstack_core::Error::Validation(
-                            "Strict pricing requires reset_lag to be set (quote or step)".to_string(),
+                            "Strict pricing requires reset_lag to be set (quote or step)"
+                                .to_string(),
                         )
                     })?;
 
@@ -1662,8 +1674,7 @@ impl CalibrationPricer {
                     start,
                     *maturity,
                     BasisSwapLeg {
-                        forward_curve_id: self
-                            .resolve_forward_curve_id(primary_index.as_str()),
+                        forward_curve_id: self.resolve_forward_curve_id(primary_index.as_str()),
                         frequency: primary_freq,
                         day_count: primary_dc,
                         bdc,
@@ -1672,8 +1683,7 @@ impl CalibrationPricer {
                         spread: *spread_bp / 10_000.0,
                     },
                     BasisSwapLeg {
-                        forward_curve_id: self
-                            .resolve_forward_curve_id(reference_index.as_str()),
+                        forward_curve_id: self.resolve_forward_curve_id(reference_index.as_str()),
                         frequency: reference_freq,
                         day_count: reference_dc,
                         bdc,

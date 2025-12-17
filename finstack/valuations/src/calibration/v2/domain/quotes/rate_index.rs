@@ -154,8 +154,13 @@ fn default_index_day_count(currency: Currency, tokens: &[String], kind: RateInde
             }
             // Currency-style fallbacks
             match currency {
-                Currency::GBP | Currency::JPY | Currency::CAD | Currency::AUD | Currency::NZD
-                | Currency::SGD | Currency::HKD => DayCount::Act365F,
+                Currency::GBP
+                | Currency::JPY
+                | Currency::CAD
+                | Currency::AUD
+                | Currency::NZD
+                | Currency::SGD
+                | Currency::HKD => DayCount::Act365F,
                 _ => DayCount::Act360,
             }
         }
@@ -176,7 +181,10 @@ fn default_ois_compounding(currency: Currency, tokens: &[String]) -> FloatingLeg
     if tokens.iter().any(|t| t == "TONA" || t == "TONAR") {
         return FloatingLegCompounding::tona();
     }
-    if tokens.iter().any(|t| t == "SOFR" || t == "EFFR" || t == "FEDFUNDS") {
+    if tokens
+        .iter()
+        .any(|t| t == "SOFR" || t == "EFFR" || t == "FEDFUNDS")
+    {
         return FloatingLegCompounding::sofr();
     }
 
@@ -195,15 +203,24 @@ mod tests {
 
     #[test]
     fn parses_term_index_tenor() {
-        let c = RateIndexConventions::for_index_with_currency(&IndexId::new("USD-SOFR-3M"), Currency::USD);
+        let c = RateIndexConventions::for_index_with_currency(
+            &IndexId::new("USD-SOFR-3M"),
+            Currency::USD,
+        );
         assert_eq!(c.kind, RateIndexKind::Term);
         assert_eq!(c.tenor, Some(Tenor::parse("3M").expect("tenor")));
-        assert_eq!(c.default_payment_frequency, Tenor::parse("3M").expect("tenor"));
+        assert_eq!(
+            c.default_payment_frequency,
+            Tenor::parse("3M").expect("tenor")
+        );
     }
 
     #[test]
     fn treats_ois_index_as_overnight_rfr_defaults() {
-        let c = RateIndexConventions::for_index_with_currency(&IndexId::new("USD-SOFR-OIS"), Currency::USD);
+        let c = RateIndexConventions::for_index_with_currency(
+            &IndexId::new("USD-SOFR-OIS"),
+            Currency::USD,
+        );
         assert_eq!(c.kind, RateIndexKind::OvernightRfr);
         assert_eq!(c.default_payment_frequency, Tenor::annual());
         assert_eq!(c.default_payment_delay_days, 2);

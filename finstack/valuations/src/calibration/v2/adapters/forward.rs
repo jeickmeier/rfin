@@ -98,6 +98,9 @@ impl BootstrapTarget for ForwardCurveTarget {
     }
 
     fn build_curve(&self, knots: &[(f64, f64)]) -> Result<Self::Curve> {
+        // Time-grid logic should not depend on solver PV tolerance.
+        const TIME_EPSILON: f64 = 1e-12;
+
         let mut full_knots = knots.to_vec();
 
         // Ensure anchor logic
@@ -107,8 +110,10 @@ impl BootstrapTarget for ForwardCurveTarget {
                 category: "bootstrapping".to_string(),
             });
         } else {
-            // Logic from ensure_anchor: derive from first knot if > tolerance
-            if full_knots[0].0 > self.config.tolerance {
+            // If the first knot is not at (or extremely near) t=0, anchor the curve at t=0
+            // using the first knot value. This ensures deterministic knot grids independent
+            // of solver convergence thresholds.
+            if full_knots[0].0 > TIME_EPSILON {
                 full_knots.insert(0, (0.0, full_knots[0].1));
             }
         }
@@ -129,11 +134,9 @@ impl BootstrapTarget for ForwardCurveTarget {
         let mut temp_context = self.base_context.clone();
         temp_context.insert_mut(std::sync::Arc::new(curve.clone()));
 
-        let pv = self.pricer.price_instrument_for_calibration(
-            quote,
-            self.currency,
-            &temp_context,
-        )?;
+        let pv =
+            self.pricer
+                .price_instrument_for_calibration(quote, self.currency, &temp_context)?;
         Ok(pv)
     }
 
@@ -216,5 +219,57 @@ impl BootstrapTarget for ForwardCurveTarget {
             });
         }
         Ok(())
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::calibration::v2::domain::solver::BootstrapTarget;
+    use time::Month;
+
+    #[test]
+    fn forward_curve_anchor_insertion_independent_of_solver_tolerance() {
+        let base_date = Date::from_calendar_date(2025, Month::January, 1).expect("valid date");
+        let currency = Currency::USD;
+        let fwd_curve_id = CurveId::new("fwd");
+        let discount_curve_id = CurveId::new("disc");
+
+        let pricer = CalibrationPricer::for_forward_curve(
+            base_date,
+            fwd_curve_id.clone(),
+            discount_curve_id.clone(),
+            1.0,
+        );
+
+        let mk_target = |tolerance: f64| ForwardCurveTarget {
+            base_date,
+            currency,
+            fwd_curve_id: fwd_curve_id.clone(),
+            discount_curve_id: discount_curve_id.clone(),
+            tenor_years: 1.0,
+            solve_interp: InterpStyle::Linear,
+            config: CalibrationConfig {
+                tolerance,
+                ..CalibrationConfig::default()
+            },
+            pricer: pricer.clone(),
+            time_day_count: DayCount::Act365F,
+            base_context: MarketContext::new(),
+        };
+
+        // Choose a small but realistic first time > 0; old code would conditionally add the
+        // anchor depending on solver tolerance.
+        let knots = vec![(1e-6, 0.01), (1.0, 0.02)];
+
+        let low_tol_curve = mk_target(1e-10)
+            .build_curve(&knots)
+            .expect("curve build should succeed");
+        let high_tol_curve = mk_target(5e-1)
+            .build_curve(&knots)
+            .expect("curve build should succeed");
+
+        assert_eq!(low_tol_curve.knots(), high_tol_curve.knots());
+        assert_eq!(low_tol_curve.knots(), &[0.0, 1e-6, 1.0]);
     }
 }

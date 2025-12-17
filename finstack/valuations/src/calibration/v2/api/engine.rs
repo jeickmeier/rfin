@@ -3,12 +3,12 @@
 //! Orchestrates the execution of a calibration plan.
 
 use super::schema::CalibrationEnvelopeV2;
-use crate::calibration::v2::adapters::handlers::{apply_rates_step_conventions, execute_step};
 use crate::calibration::v2::adapters::handlers::discount_curve_day_count;
+use crate::calibration::v2::adapters::handlers::{apply_rates_step_conventions, execute_step};
 use crate::calibration::v2::api::schema::StepParams;
-use crate::calibration::{CalibrationReport, CalibrationResult, CalibrationResultEnvelope};
 use crate::calibration::v2::domain::pricing::{CalibrationPricer, RatesQuoteUseCase};
 use crate::calibration::v2::domain::quotes::ExtractQuotes;
+use crate::calibration::{CalibrationReport, CalibrationResult, CalibrationResultEnvelope};
 use finstack_core::explain::{ExplanationTrace, TraceEntry};
 use finstack_core::market_data::context::MarketContext;
 use finstack_core::prelude::*;
@@ -76,9 +76,7 @@ fn aggregate_plan_report(
             if !r.validation_passed {
                 failures.push(format!(
                     "{step_id}:{}",
-                    r.validation_error
-                        .as_deref()
-                        .unwrap_or("validation failed")
+                    r.validation_error.as_deref().unwrap_or("validation failed")
                 ));
             }
         }
@@ -305,8 +303,14 @@ fn preflight_step(
                     || upper == "0"
                     || upper == "0M"
                     || upper == "0D"
-                    || upper.strip_suffix('M').and_then(|n| n.trim().parse::<u8>().ok()).is_some()
-                    || upper.strip_suffix('D').and_then(|n| n.trim().parse::<u16>().ok()).is_some();
+                    || upper
+                        .strip_suffix('M')
+                        .and_then(|n| n.trim().parse::<u8>().ok())
+                        .is_some()
+                    || upper
+                        .strip_suffix('D')
+                        .and_then(|n| n.trim().parse::<u16>().ok())
+                        .is_some();
                 if !valid {
                     return Err(finstack_core::Error::Validation(format!(
                         "Invalid observation_lag '{}': expected like '3M' or '90D'",
@@ -385,8 +389,36 @@ fn preflight_step(
             }
             Ok(())
         }
-        StepParams::VolSurface(_) => Ok(()),
-        StepParams::SwaptionVol(_) => Ok(()),
+        StepParams::VolSurface(p) => {
+            let model = p.model.trim().to_ascii_lowercase();
+            if model != "sabr" {
+                return Err(finstack_core::Error::Validation(format!(
+                    "VolSurface model '{}' is not supported (currently supported: 'sabr')",
+                    p.model
+                )));
+            }
+            if p.discount_curve_id.is_none() {
+                return Err(finstack_core::Error::Validation(
+                    "VolSurface step requires discount_curve_id".to_string(),
+                ));
+            }
+            let _ = context.get_discount_ref(p.discount_curve_id.as_ref().expect("checked"))?;
+            Ok(())
+        }
+        StepParams::SwaptionVol(p) => {
+            let _ = context.get_discount_ref(&p.discount_curve_id)?;
+            if let crate::calibration::v2::api::schema::SwaptionVolConvention::ShiftedLognormal { shift } =
+                p.vol_convention
+            {
+                if !shift.is_finite() || shift <= 0.0 {
+                    return Err(finstack_core::Error::Validation(format!(
+                        "Shifted lognormal convention requires a finite, positive shift; got {}",
+                        shift
+                    )));
+                }
+            }
+            Ok(())
+        }
         StepParams::BaseCorrelation(p) => {
             let _ = context.get_discount_ref(&p.discount_curve_id)?;
             let index_data = context.credit_index_ref(&p.index_id)?;
@@ -416,7 +448,8 @@ fn preflight_step(
                     detachment,
                     conventions,
                     ..
-                } = q {
+                } = q
+                {
                     if index != &p.index_id {
                         continue;
                     }
@@ -442,8 +475,7 @@ fn preflight_step(
                         )));
                     }
 
-                    if conventions.payment_frequency.is_none() && p.payment_frequency.is_none()
-                    {
+                    if conventions.payment_frequency.is_none() && p.payment_frequency.is_none() {
                         return Err(finstack_core::Error::Validation(
                             "Missing tranche payment frequency; set quote.conventions.payment_frequency or params.payment_frequency"
                                 .to_string(),
@@ -527,8 +559,12 @@ pub fn execute(envelope: &CalibrationEnvelopeV2) -> Result<CalibrationResultEnve
     }
 
     // 2. Build result
-    let aggregated_report =
-        aggregate_plan_report(aggregated_residuals, total_iterations, &step_reports, &plan.settings);
+    let aggregated_report = aggregate_plan_report(
+        aggregated_residuals,
+        total_iterations,
+        &step_reports,
+        &plan.settings,
+    );
 
     let result = CalibrationResult {
         final_market: (&context).into(),
@@ -550,21 +586,11 @@ mod tests {
         let mut step_reports = BTreeMap::new();
         step_reports.insert(
             "s1".to_string(),
-            CalibrationReport::new(
-                BTreeMap::from([("a".to_string(), 3.0)]),
-                2,
-                true,
-                "ok",
-            ),
+            CalibrationReport::new(BTreeMap::from([("a".to_string(), 3.0)]), 2, true, "ok"),
         );
         step_reports.insert(
             "s2".to_string(),
-            CalibrationReport::new(
-                BTreeMap::from([("b".to_string(), 4.0)]),
-                3,
-                true,
-                "ok",
-            ),
+            CalibrationReport::new(BTreeMap::from([("b".to_string(), 4.0)]), 3, true, "ok"),
         );
 
         let aggregated_residuals =
@@ -602,7 +628,8 @@ mod tests {
         let report = aggregate_plan_report(BTreeMap::new(), 0, &step_reports, &cfg);
         let trace = report.explanation.expect("merged explanation");
         assert!(
-            trace.entries
+            trace
+                .entries
                 .iter()
                 .any(|e| matches!(e, TraceEntry::ComputationStep { name, .. } if name == "inner")),
             "expected merged trace to contain the step's entries"

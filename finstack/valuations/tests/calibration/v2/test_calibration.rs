@@ -138,6 +138,7 @@ fn hazard_curve_calibration_is_deterministic_across_runs() {
                     notional: 1.0,
                     method: CalibrationMethod::Bootstrap,
                     interpolation: Default::default(),
+                    par_interp: finstack_core::market_data::term_structures::ParInterp::Linear,
                 }),
             },
         ],
@@ -214,7 +215,9 @@ fn discount_curve_bootstrap_is_order_independent() {
         MarketContext::try_from(out_shuffled.result.final_market).expect("restore ctx");
 
     let curve_sorted = ctx_sorted.get_discount("USD-OIS").expect("discount curve");
-    let curve_shuffled = ctx_shuffled.get_discount("USD-OIS").expect("discount curve");
+    let curve_shuffled = ctx_shuffled
+        .get_discount("USD-OIS")
+        .expect("discount curve");
 
     assert_eq!(
         curve_sorted
@@ -313,9 +316,15 @@ fn discount_curve_global_solve_smoke_v2() {
     };
 
     let result = engine::execute(&envelope).expect("execute");
-    assert!(result.result.report.success, "global fit should succeed for deposits");
+    assert!(
+        result.result.report.success,
+        "global fit should succeed for deposits"
+    );
 
     let ctx = MarketContext::try_from(result.result.final_market).expect("restore context");
     let disc = ctx.get_discount("USD-OIS").expect("discount curve");
-    assert!(disc.knots().len() >= 2, "expected at least anchor + 1 pillar");
+    assert!(
+        disc.knots().len() >= 2,
+        "expected at least anchor + 1 pillar"
+    );
 }

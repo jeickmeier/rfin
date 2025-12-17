@@ -2,8 +2,8 @@ pub mod config;
 pub mod quote;
 pub mod report;
 pub mod sabr;
-pub mod validation;
 pub mod v2;
+pub mod validation;
 
 use pyo3::prelude::*;
 use pyo3::types::{PyList, PyModule};

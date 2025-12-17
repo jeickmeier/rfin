@@ -1,6 +1,6 @@
 use crate::calibration::config::CalibrationConfig;
-use crate::calibration::v2::api::schema::VolSurfaceParams;
 use crate::calibration::v2::api::schema::SurfaceExtrapolationPolicy;
+use crate::calibration::v2::api::schema::VolSurfaceParams;
 use crate::calibration::v2::domain::quotes::{MarketQuote, VolQuote};
 use crate::calibration::CalibrationReport;
 use crate::instruments::common::models::{SABRCalibrator, SABRModel, SABRParameters};
@@ -44,6 +44,14 @@ impl VolSurfaceAdapter {
         context: &MarketContext,
         config: &CalibrationConfig,
     ) -> Result<(VolSurface, CalibrationReport)> {
+        let model = params.model.trim().to_ascii_lowercase();
+        if model != "sabr" {
+            return Err(finstack_core::Error::Validation(format!(
+                "VolSurface model '{}' is not supported (currently supported: 'sabr')",
+                params.model
+            )));
+        }
+
         // Filter quotes
         let vol_quotes: Vec<&VolQuote> = quotes
             .iter()
@@ -149,21 +157,46 @@ impl VolSurfaceAdapter {
             if strikes.len() < 3 {
                 expiry_errors.insert(
                     *t_key,
-                    format!("Need at least 3 strikes to calibrate SABR; got {}", strikes.len()),
+                    format!(
+                        "Need at least 3 strikes to calibrate SABR; got {}",
+                        strikes.len()
+                    ),
                 );
                 continue;
             }
 
             match sabr_calibrator.calibrate_auto_shift(f, &strikes, &vols, t, params.beta) {
                 Ok(p) => {
-                    sabr_params_by_expiry.insert(*t_key, p.clone());
-
                     // Residuals
-                    let model = SABRModel::new(p);
+                    let model = SABRModel::new(p.clone());
+                    let mut bucket_residuals: Vec<(String, f64)> = Vec::with_capacity(strikes.len());
+                    let mut bucket_error: Option<String> = None;
                     for (i, k) in strikes.iter().enumerate() {
-                        let model_vol = model.implied_volatility(f, *k, t).unwrap_or(0.0);
-                        let res = (model_vol - vols[i]).abs();
-                        residuals.insert(format!("opt_vol_t{:.2}_k{:.2}", t, k), res);
+                        match model.implied_volatility(f, *k, t) {
+                            Ok(model_vol) => {
+                                let res = (model_vol - vols[i]).abs();
+                                bucket_residuals.push((
+                                    format!("opt_vol_t{:.2}_k{:.2}_i{}", t, k, i),
+                                    res,
+                                ));
+                            }
+                            Err(e) => {
+                                bucket_error = Some(format!(
+                                    "SABR implied vol failed at t={:.6}, strike={:.6}: {}",
+                                    t, k, e
+                                ));
+                                break;
+                            }
+                        }
+                    }
+                    if let Some(err) = bucket_error {
+                        expiry_errors.insert(*t_key, err);
+                        continue;
+                    }
+
+                    sabr_params_by_expiry.insert(*t_key, p);
+                    for (k, v) in bucket_residuals {
+                        residuals.insert(k, v);
                     }
                     total_iterations += 1;
                 }
@@ -184,11 +217,8 @@ impl VolSurfaceAdapter {
             // For brevity, using nearest valid calibration or linear if possible.
             // Let's implement simple linear interpolation of params.
 
-            let p = Self::interpolate_params(
-                t,
-                &sabr_params_by_expiry,
-                params.expiry_extrapolation,
-            )?;
+            let p =
+                Self::interpolate_params(t, &sabr_params_by_expiry, params.expiry_extrapolation)?;
             let model = SABRModel::new(p);
 
             for &k in &params.target_strikes {
@@ -239,10 +269,7 @@ impl VolSurfaceAdapter {
             "calibrated_expiry_count",
             sabr_params_by_expiry.len().to_string(),
         );
-        report.update_metadata(
-            "failed_expiry_count",
-            expiry_errors.len().to_string(),
-        );
+        report.update_metadata("failed_expiry_count", expiry_errors.len().to_string());
         if !calibrated_expiries.is_empty() {
             report.update_metadata("calibrated_expiries", calibrated_expiries.join(","));
         }
@@ -324,6 +351,11 @@ Set params.expiry_extrapolation='clamp' to allow flat extrapolation.",
 mod tests {
     use super::*;
     use crate::instruments::common::models::SABRParameters;
+    use finstack_core::dates::Date;
+    use finstack_core::prelude::DateExt;
+    use finstack_core::market_data::context::MarketContext;
+    use finstack_core::market_data::term_structures::discount_curve::DiscountCurve;
+    use time::Month;
 
     fn params(alpha: f64, beta: f64, nu: f64, rho: f64, shift: f64) -> SABRParameters {
         SABRParameters {
@@ -341,12 +373,9 @@ mod tests {
         map.insert(OrderedFloat(1.0), params(0.10, 0.5, 0.30, -0.20, 0.01));
         map.insert(OrderedFloat(2.0), params(0.20, 0.5, 0.40, -0.10, 0.01));
 
-        let err = VolSurfaceAdapter::interpolate_params(
-            0.5,
-            &map,
-            SurfaceExtrapolationPolicy::Error,
-        )
-        .expect_err("out-of-bounds should error");
+        let err =
+            VolSurfaceAdapter::interpolate_params(0.5, &map, SurfaceExtrapolationPolicy::Error)
+                .expect_err("out-of-bounds should error");
         assert!(err.to_string().contains("out of bounds"));
     }
 
@@ -358,20 +387,14 @@ mod tests {
         map.insert(OrderedFloat(1.0), p1.clone());
         map.insert(OrderedFloat(2.0), p2.clone());
 
-        let left = VolSurfaceAdapter::interpolate_params(
-            0.5,
-            &map,
-            SurfaceExtrapolationPolicy::Clamp,
-        )
-        .expect("clamp-left");
+        let left =
+            VolSurfaceAdapter::interpolate_params(0.5, &map, SurfaceExtrapolationPolicy::Clamp)
+                .expect("clamp-left");
         assert_eq!(left.alpha, p1.alpha);
 
-        let right = VolSurfaceAdapter::interpolate_params(
-            3.0,
-            &map,
-            SurfaceExtrapolationPolicy::Clamp,
-        )
-        .expect("clamp-right");
+        let right =
+            VolSurfaceAdapter::interpolate_params(3.0, &map, SurfaceExtrapolationPolicy::Clamp)
+                .expect("clamp-right");
         assert_eq!(right.alpha, p2.alpha);
     }
 
@@ -381,15 +404,146 @@ mod tests {
         map.insert(OrderedFloat(1.0), params(0.10, 0.5, 0.30, -0.20, 0.01));
         map.insert(OrderedFloat(2.0), params(0.20, 0.5, 0.50, 0.10, 0.01));
 
-        let mid = VolSurfaceAdapter::interpolate_params(
-            1.5,
-            &map,
-            SurfaceExtrapolationPolicy::Error,
-        )
-        .expect("in-range");
+        let mid =
+            VolSurfaceAdapter::interpolate_params(1.5, &map, SurfaceExtrapolationPolicy::Error)
+                .expect("in-range");
 
         assert!((mid.alpha - 0.15).abs() < 1e-12);
         assert!((mid.nu - 0.40).abs() < 1e-12);
         assert!((mid.rho - (-0.05)).abs() < 1e-12);
+    }
+
+    fn date(year: i32, month: Month, day: u8) -> Date {
+        Date::from_calendar_date(year, month, day).expect("valid date")
+    }
+
+    #[test]
+    fn vol_surface_rejects_non_sabr_model() {
+        let base_date = date(2025, Month::January, 2);
+        let params = VolSurfaceParams {
+            surface_id: "SPX-VOL".to_string(),
+            base_date,
+            underlying_id: "SPX".to_string(),
+            model: "black".to_string(),
+            discount_curve_id: None,
+            beta: 0.5,
+            target_expiries: vec![0.5],
+            target_strikes: vec![90.0, 100.0, 110.0],
+            spot_override: Some(100.0),
+            dividend_yield_override: Some(0.0),
+            expiry_extrapolation: SurfaceExtrapolationPolicy::Clamp,
+        };
+
+        let err = VolSurfaceAdapter::calibrate(
+            &params,
+            &[],
+            &MarketContext::new(),
+            &CalibrationConfig::default(),
+        )
+        .expect_err("unsupported model should error");
+        assert!(err.to_string().contains("not supported"));
+    }
+
+    #[test]
+    fn vol_surface_marks_implied_vol_failures_as_failed_expiries() {
+        let base_date = date(2025, Month::January, 2);
+        let disc = DiscountCurve::builder("USD-OIS")
+            .base_date(base_date)
+            .day_count(finstack_core::dates::DayCount::Act365F)
+            .knots([(0.0, 1.0), (10.0, 0.80)])
+            .build()
+            .expect("discount curve");
+        let ctx = MarketContext::new().insert_discount(disc);
+
+        let params = VolSurfaceParams {
+            surface_id: "SPX-VOL".to_string(),
+            base_date,
+            underlying_id: "SPX".to_string(),
+            model: "SABR".to_string(),
+            discount_curve_id: Some("USD-OIS".into()),
+            beta: 0.5,
+            target_expiries: vec![1.0, 2.0],
+            target_strikes: vec![90.0, 100.0, 110.0],
+            spot_override: Some(100.0),
+            dividend_yield_override: Some(0.0),
+            // Allow building the surface even if an expiry bucket fails.
+            expiry_extrapolation: SurfaceExtrapolationPolicy::Clamp,
+        };
+
+        let expiry_1y = base_date.add_months(12);
+        let expiry_2y = base_date.add_months(24);
+
+        // One valid expiry (all strikes > 0), one invalid expiry (strike=0 triggers SABR error).
+        let quotes = vec![
+            MarketQuote::Vol(VolQuote::OptionVol {
+                underlying: "SPX".to_string().into(),
+                expiry: expiry_1y,
+                strike: 90.0,
+                vol: 0.20,
+                option_type: "Call".to_string(),
+                conventions: Default::default(),
+            }),
+            MarketQuote::Vol(VolQuote::OptionVol {
+                underlying: "SPX".to_string().into(),
+                expiry: expiry_1y,
+                strike: 100.0,
+                vol: 0.19,
+                option_type: "Call".to_string(),
+                conventions: Default::default(),
+            }),
+            MarketQuote::Vol(VolQuote::OptionVol {
+                underlying: "SPX".to_string().into(),
+                expiry: expiry_1y,
+                strike: 110.0,
+                vol: 0.18,
+                option_type: "Call".to_string(),
+                conventions: Default::default(),
+            }),
+            MarketQuote::Vol(VolQuote::OptionVol {
+                underlying: "SPX".to_string().into(),
+                expiry: expiry_2y,
+                strike: 0.0,
+                vol: 0.20,
+                option_type: "Call".to_string(),
+                conventions: Default::default(),
+            }),
+            MarketQuote::Vol(VolQuote::OptionVol {
+                underlying: "SPX".to_string().into(),
+                expiry: expiry_2y,
+                strike: 100.0,
+                vol: 0.19,
+                option_type: "Call".to_string(),
+                conventions: Default::default(),
+            }),
+            MarketQuote::Vol(VolQuote::OptionVol {
+                underlying: "SPX".to_string().into(),
+                expiry: expiry_2y,
+                strike: 110.0,
+                vol: 0.18,
+                option_type: "Call".to_string(),
+                conventions: Default::default(),
+            }),
+        ];
+
+        let (_surface, report) = VolSurfaceAdapter::calibrate(
+            &params,
+            &quotes,
+            &ctx,
+            &CalibrationConfig::default(),
+        )
+        .expect("calibrate");
+
+        assert_eq!(
+            report.metadata.get("failed_expiry_count").map(|s| s.as_str()),
+            Some("1")
+        );
+        assert!(
+            report
+                .metadata
+                .get("failed_expiry_examples")
+                .is_some_and(|s| s.contains("strike=0.000000")),
+            "missing or unexpected failed_expiry_examples: {:?}",
+            report.metadata.get("failed_expiry_examples")
+        );
     }
 }

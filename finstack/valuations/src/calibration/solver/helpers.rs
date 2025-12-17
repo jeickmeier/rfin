@@ -201,9 +201,13 @@ pub(crate) fn bracket_solve_1d_with_diagnostics(
                     diag.bracket_found = true;
                     return Ok((Some(root_brent), diag));
                 }
-                if let Ok(root_newton) =
-                    solve_1d(SolverKind::Newton, tol, max_iters.max(50), objective, root_brent)
-                {
+                if let Ok(root_newton) = solve_1d(
+                    SolverKind::Newton,
+                    tol,
+                    max_iters.max(50),
+                    objective,
+                    root_brent,
+                ) {
                     let fnv = objective(root_newton);
                     diag.update(root_newton, fnv);
                     if fnv.is_finite() && fnv.abs() < tol {

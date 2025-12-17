@@ -5,20 +5,24 @@
 
 use finstack_core::dates::{BusinessDayConvention, Date, DayCount, Tenor};
 use finstack_core::market_data::context::MarketContext;
+use finstack_core::market_data::term_structures::{DiscountCurve, ForwardCurve};
 use finstack_core::math::interp::ExtrapolationPolicy;
+use finstack_core::math::interp::InterpStyle;
 use finstack_core::prelude::DateExt;
 use finstack_core::types::Currency;
+use finstack_core::types::CurveId;
 use finstack_valuations::calibration::v2::api::engine;
 use finstack_valuations::calibration::v2::api::schema::{
     CalibrationEnvelopeV2, CalibrationMethod, CalibrationPlanV2, CalibrationStepV2,
     DiscountCurveParams, RatesStepConventions, StepParams,
 };
-use finstack_valuations::calibration::v2::domain::pricing::{CalibrationPricer, ConvexityParameters, VolatilitySource};
-use finstack_valuations::calibration::v2::domain::quotes::{InstrumentConventions, MarketQuote, RatesQuote};
+use finstack_valuations::calibration::v2::domain::pricing::{
+    CalibrationPricer, ConvexityParameters, VolatilitySource,
+};
 use finstack_valuations::calibration::v2::domain::quotes::FutureSpecs;
-use finstack_core::market_data::term_structures::{DiscountCurve, ForwardCurve};
-use finstack_core::math::interp::InterpStyle;
-use finstack_core::types::CurveId;
+use finstack_valuations::calibration::v2::domain::quotes::{
+    InstrumentConventions, MarketQuote, RatesQuote,
+};
 use std::collections::HashMap;
 use time::Month;
 
@@ -96,7 +100,8 @@ fn strict_pricing_requires_step_level_defaults() {
         initial_market: Some((&MarketContext::new()).into()),
     };
 
-    let err = engine::execute(&envelope).expect_err("strict pricing should reject missing defaults");
+    let err =
+        engine::execute(&envelope).expect_err("strict pricing should reject missing defaults");
     assert!(matches!(err, finstack_core::Error::Validation(_)));
 }
 
@@ -163,7 +168,10 @@ fn strict_pricing_rejects_missing_fixed_leg_conventions() {
 
     let mut quote_sets: HashMap<String, Vec<MarketQuote>> = HashMap::new();
     // Fixed leg conventions intentionally missing freq/daycount.
-    quote_sets.insert("ois".to_string(), usd_ois_quotes(base, InstrumentConventions::default()));
+    quote_sets.insert(
+        "ois".to_string(),
+        usd_ois_quotes(base, InstrumentConventions::default()),
+    );
 
     let plan = CalibrationPlanV2 {
         id: "plan".to_string(),
@@ -201,8 +209,12 @@ fn strict_pricing_rejects_missing_fixed_leg_conventions() {
         initial_market: Some((&MarketContext::new()).into()),
     };
 
-    let err = engine::execute(&envelope).expect_err("strict pricing should reject missing fixed leg conventions");
-    assert!(matches!(err, finstack_core::Error::Validation(_) | finstack_core::Error::Calibration { .. }));
+    let err = engine::execute(&envelope)
+        .expect_err("strict pricing should reject missing fixed leg conventions");
+    assert!(matches!(
+        err,
+        finstack_core::Error::Validation(_) | finstack_core::Error::Calibration { .. }
+    ));
 }
 
 #[test]
@@ -226,7 +238,9 @@ fn strict_pricing_rejects_future_without_convexity_inputs() {
         .build()
         .expect("forward curve");
 
-    let ctx = MarketContext::new().insert_discount(disc).insert_forward(fwd);
+    let ctx = MarketContext::new()
+        .insert_discount(disc)
+        .insert_forward(fwd);
 
     let quote = RatesQuote::Future {
         expiry: base + time::Duration::days(60),
@@ -273,7 +287,9 @@ fn strict_pricing_allows_future_with_explicit_convexity() {
         .build()
         .expect("forward curve");
 
-    let ctx = MarketContext::new().insert_discount(disc).insert_forward(fwd);
+    let ctx = MarketContext::new()
+        .insert_discount(disc)
+        .insert_forward(fwd);
 
     let quote = RatesQuote::Future {
         expiry: base + time::Duration::days(60),

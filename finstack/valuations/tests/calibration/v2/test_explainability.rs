@@ -8,13 +8,15 @@ use finstack_core::market_data::context::MarketContext;
 use finstack_core::market_data::term_structures::discount_curve::DiscountCurve;
 use finstack_core::math::interp::InterpStyle;
 use finstack_core::types::{Currency, CurveId};
-use finstack_valuations::calibration::CalibrationConfig;
 use finstack_valuations::calibration::v2::api::engine;
 use finstack_valuations::calibration::v2::api::schema::{
     CalibrationEnvelopeV2, CalibrationMethod, CalibrationPlanV2, CalibrationStepV2,
     ForwardCurveParams, StepParams,
 };
-use finstack_valuations::calibration::v2::domain::quotes::{InstrumentConventions, MarketQuote, RatesQuote};
+use finstack_valuations::calibration::v2::domain::quotes::{
+    InstrumentConventions, MarketQuote, RatesQuote,
+};
+use finstack_valuations::calibration::CalibrationConfig;
 use std::collections::HashMap;
 use time::Month;
 
@@ -86,11 +88,7 @@ fn explanation_not_computed_by_default() {
     };
 
     let result = engine::execute(&envelope).expect("execute");
-    let step = result
-        .result
-        .step_reports
-        .get("fwd")
-        .expect("step report");
+    let step = result.result.step_reports.get("fwd").expect("step report");
 
     assert!(step.explanation.is_none());
 }
@@ -136,11 +134,7 @@ fn explanation_is_present_when_enabled() {
     };
 
     let result = engine::execute(&envelope).expect("execute");
-    let step = result
-        .result
-        .step_reports
-        .get("fwd")
-        .expect("step report");
+    let step = result.result.step_reports.get("fwd").expect("step report");
 
     assert!(step.success);
     if let Some(trace) = step.explanation.as_ref() {
@@ -150,5 +144,3 @@ fn explanation_is_present_when_enabled() {
         );
     }
 }
-
-

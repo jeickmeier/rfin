@@ -90,4 +90,77 @@ impl VolQuote {
             _ => None,
         }
     }
+
+    /// Create a new quote with the volatility bumped by an **absolute** amount.
+    ///
+    /// The `vol_bump` parameter is specified in volatility terms (e.g., `0.01`
+    /// for a +1 vol point bump).
+    pub fn bump_vol_absolute(&self, vol_bump: f64) -> Self {
+        match self {
+            VolQuote::OptionVol {
+                underlying,
+                expiry,
+                strike,
+                vol,
+                option_type,
+                conventions,
+            } => VolQuote::OptionVol {
+                underlying: underlying.clone(),
+                expiry: *expiry,
+                strike: *strike,
+                vol: vol + vol_bump,
+                option_type: option_type.clone(),
+                conventions: conventions.clone(),
+            },
+            VolQuote::SwaptionVol {
+                expiry,
+                tenor,
+                strike,
+                vol,
+                quote_type,
+                conventions,
+                fixed_leg_conventions,
+                float_leg_conventions,
+            } => VolQuote::SwaptionVol {
+                expiry: *expiry,
+                tenor: *tenor,
+                strike: *strike,
+                vol: vol + vol_bump,
+                quote_type: quote_type.clone(),
+                conventions: conventions.clone(),
+                fixed_leg_conventions: fixed_leg_conventions.clone(),
+                float_leg_conventions: float_leg_conventions.clone(),
+            },
+        }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use finstack_core::dates::Date;
+    use finstack_core::types::UnderlyingId;
+    use time::Month;
+
+    fn date(year: i32, month: Month, day: u8) -> Date {
+        Date::from_calendar_date(year, month, day).expect("valid date")
+    }
+
+    #[test]
+    fn bump_vol_absolute_adjusts_vol_field() {
+        let q = VolQuote::OptionVol {
+            underlying: UnderlyingId::from("SPX"),
+            expiry: date(2030, Month::January, 1),
+            strike: 100.0,
+            vol: 0.20,
+            option_type: "Call".to_string(),
+            conventions: InstrumentConventions::default(),
+        };
+
+        let bumped = q.bump_vol_absolute(0.01);
+        match bumped {
+            VolQuote::OptionVol { vol, .. } => assert!((vol - 0.21).abs() < 1e-12),
+            _ => panic!("unexpected variant"),
+        }
+    }
 }

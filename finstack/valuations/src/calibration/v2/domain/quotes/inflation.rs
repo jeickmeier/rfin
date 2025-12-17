@@ -90,4 +90,41 @@ impl InflationQuote {
             InflationQuote::YoYInflationSwap { maturity, .. } => Some(*maturity),
         }
     }
+
+    /// Create a new quote with the inflation rate bumped by a **decimal rate** amount.
+    ///
+    /// The `rate_bump` parameter is specified in decimal terms (e.g., `0.0001`
+    /// for 1 basis point).
+    pub fn bump_rate_decimal(&self, rate_bump: f64) -> Self {
+        match self {
+            InflationQuote::InflationSwap {
+                maturity,
+                rate,
+                index,
+                conventions,
+            } => InflationQuote::InflationSwap {
+                maturity: *maturity,
+                rate: rate + rate_bump,
+                index: index.clone(),
+                conventions: conventions.clone(),
+            },
+            InflationQuote::YoYInflationSwap {
+                maturity,
+                rate,
+                index,
+                frequency,
+                conventions,
+                fixed_leg_conventions,
+                inflation_leg_conventions,
+            } => InflationQuote::YoYInflationSwap {
+                maturity: *maturity,
+                rate: rate + rate_bump,
+                index: index.clone(),
+                frequency: *frequency,
+                conventions: conventions.clone(),
+                fixed_leg_conventions: fixed_leg_conventions.clone(),
+                inflation_leg_conventions: inflation_leg_conventions.clone(),
+            },
+        }
+    }
 }

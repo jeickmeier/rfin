@@ -4,13 +4,13 @@ use finstack_core::dates::Date;
 use finstack_core::market_data::context::MarketContext;
 use finstack_core::market_data::term_structures::discount_curve::DiscountCurve;
 use finstack_core::types::{Currency, CurveId};
-use finstack_valuations::calibration::CalibrationConfig;
 use finstack_valuations::calibration::v2::api::engine;
 use finstack_valuations::calibration::v2::api::schema::{
-    CalibrationEnvelopeV2, CalibrationPlanV2, CalibrationStepV2,
-    StepParams, SurfaceExtrapolationPolicy, SwaptionVolConvention, SwaptionVolParams,
+    CalibrationEnvelopeV2, CalibrationPlanV2, CalibrationStepV2, StepParams,
+    SurfaceExtrapolationPolicy, SwaptionVolConvention, SwaptionVolParams,
 };
 use finstack_valuations::calibration::v2::domain::quotes::{MarketQuote, VolQuote};
+use finstack_valuations::calibration::CalibrationConfig;
 use std::collections::HashMap;
 use time::Month;
 
@@ -36,7 +36,7 @@ fn create_test_swaption_quotes() -> Vec<MarketQuote> {
             expiry: Date::from_calendar_date(2026, Month::January, 1).unwrap(),
             tenor: Date::from_calendar_date(2027, Month::January, 1).unwrap(),
             strike: 0.035,
-            vol: 0.012,
+            vol: 120.0,
             quote_type: "OTM-100".to_string(),
             conventions: Default::default(),
             fixed_leg_conventions: Default::default(),
@@ -46,7 +46,7 @@ fn create_test_swaption_quotes() -> Vec<MarketQuote> {
             expiry: Date::from_calendar_date(2026, Month::January, 1).unwrap(),
             tenor: Date::from_calendar_date(2027, Month::January, 1).unwrap(),
             strike: 0.040,
-            vol: 0.010,
+            vol: 100.0,
             quote_type: "ATM-50".to_string(),
             conventions: Default::default(),
             fixed_leg_conventions: Default::default(),
@@ -56,7 +56,7 @@ fn create_test_swaption_quotes() -> Vec<MarketQuote> {
             expiry: Date::from_calendar_date(2026, Month::January, 1).unwrap(),
             tenor: Date::from_calendar_date(2027, Month::January, 1).unwrap(),
             strike: 0.043,
-            vol: 0.009,
+            vol: 90.0,
             quote_type: "ATM".to_string(),
             conventions: Default::default(),
             fixed_leg_conventions: Default::default(),
@@ -66,7 +66,7 @@ fn create_test_swaption_quotes() -> Vec<MarketQuote> {
             expiry: Date::from_calendar_date(2026, Month::January, 1).unwrap(),
             tenor: Date::from_calendar_date(2027, Month::January, 1).unwrap(),
             strike: 0.046,
-            vol: 0.010,
+            vol: 100.0,
             quote_type: "ATM+50".to_string(),
             conventions: Default::default(),
             fixed_leg_conventions: Default::default(),
@@ -76,7 +76,7 @@ fn create_test_swaption_quotes() -> Vec<MarketQuote> {
             expiry: Date::from_calendar_date(2026, Month::January, 1).unwrap(),
             tenor: Date::from_calendar_date(2027, Month::January, 1).unwrap(),
             strike: 0.050,
-            vol: 0.012,
+            vol: 120.0,
             quote_type: "OTM+100".to_string(),
             conventions: Default::default(),
             fixed_leg_conventions: Default::default(),
@@ -87,7 +87,7 @@ fn create_test_swaption_quotes() -> Vec<MarketQuote> {
             expiry: Date::from_calendar_date(2026, Month::January, 1).unwrap(),
             tenor: Date::from_calendar_date(2031, Month::January, 1).unwrap(),
             strike: 0.038,
-            vol: 0.0085,
+            vol: 85.0,
             quote_type: "OTM-100".to_string(),
             conventions: Default::default(),
             fixed_leg_conventions: Default::default(),
@@ -97,7 +97,7 @@ fn create_test_swaption_quotes() -> Vec<MarketQuote> {
             expiry: Date::from_calendar_date(2026, Month::January, 1).unwrap(),
             tenor: Date::from_calendar_date(2031, Month::January, 1).unwrap(),
             strike: 0.042,
-            vol: 0.0075,
+            vol: 75.0,
             quote_type: "ATM-50".to_string(),
             conventions: Default::default(),
             fixed_leg_conventions: Default::default(),
@@ -107,7 +107,7 @@ fn create_test_swaption_quotes() -> Vec<MarketQuote> {
             expiry: Date::from_calendar_date(2026, Month::January, 1).unwrap(),
             tenor: Date::from_calendar_date(2031, Month::January, 1).unwrap(),
             strike: 0.045,
-            vol: 0.007,
+            vol: 70.0,
             quote_type: "ATM".to_string(),
             conventions: Default::default(),
             fixed_leg_conventions: Default::default(),
@@ -117,7 +117,7 @@ fn create_test_swaption_quotes() -> Vec<MarketQuote> {
             expiry: Date::from_calendar_date(2026, Month::January, 1).unwrap(),
             tenor: Date::from_calendar_date(2031, Month::January, 1).unwrap(),
             strike: 0.048,
-            vol: 0.0075,
+            vol: 75.0,
             quote_type: "ATM+50".to_string(),
             conventions: Default::default(),
             fixed_leg_conventions: Default::default(),
@@ -127,7 +127,7 @@ fn create_test_swaption_quotes() -> Vec<MarketQuote> {
             expiry: Date::from_calendar_date(2026, Month::January, 1).unwrap(),
             tenor: Date::from_calendar_date(2031, Month::January, 1).unwrap(),
             strike: 0.052,
-            vol: 0.0085,
+            vol: 85.0,
             quote_type: "OTM+100".to_string(),
             conventions: Default::default(),
             fixed_leg_conventions: Default::default(),
@@ -141,7 +141,8 @@ fn swaption_vol_step_builds_and_inserts_surface() {
     let base_date = Date::from_calendar_date(2025, Month::January, 1).unwrap();
     let currency = Currency::USD;
 
-    let initial_market = MarketContext::new().insert_discount(create_test_discount_curve(base_date));
+    let initial_market =
+        MarketContext::new().insert_discount(create_test_discount_curve(base_date));
 
     let mut quote_sets: HashMap<String, Vec<MarketQuote>> = HashMap::new();
     quote_sets.insert("swpt".to_string(), create_test_swaption_quotes());
@@ -191,7 +192,10 @@ fn swaption_vol_step_builds_and_inserts_surface() {
     assert!(result.result.report.success);
     let step = result.result.step_reports.get("swpt").expect("step report");
     assert!(step.success);
-    assert!(!step.residuals.is_empty(), "expected residuals for calibrated buckets");
+    assert!(
+        !step.residuals.is_empty(),
+        "expected residuals for calibrated buckets"
+    );
 
     let ctx = MarketContext::try_from(result.result.final_market).expect("restore context");
     let surface = ctx.surface("USD-SWPT").expect("surface inserted");
@@ -208,7 +212,8 @@ fn swaption_vol_out_of_bounds_targets_error_by_default() {
     let base_date = Date::from_calendar_date(2025, Month::January, 1).unwrap();
     let currency = Currency::USD;
 
-    let initial_market = MarketContext::new().insert_discount(create_test_discount_curve(base_date));
+    let initial_market =
+        MarketContext::new().insert_discount(create_test_discount_curve(base_date));
 
     let mut quote_sets: HashMap<String, Vec<MarketQuote>> = HashMap::new();
     quote_sets.insert("swpt".to_string(), create_test_swaption_quotes());
@@ -259,7 +264,8 @@ fn swaption_vol_out_of_bounds_targets_can_clamp_when_configured() {
     let base_date = Date::from_calendar_date(2025, Month::January, 1).unwrap();
     let currency = Currency::USD;
 
-    let initial_market = MarketContext::new().insert_discount(create_test_discount_curve(base_date));
+    let initial_market =
+        MarketContext::new().insert_discount(create_test_discount_curve(base_date));
 
     let mut quote_sets: HashMap<String, Vec<MarketQuote>> = HashMap::new();
     quote_sets.insert("swpt".to_string(), create_test_swaption_quotes());
@@ -303,7 +309,9 @@ fn swaption_vol_out_of_bounds_targets_can_clamp_when_configured() {
     let step = result.result.step_reports.get("swpt").expect("step report");
     assert!(step.success);
     assert_eq!(
-        step.metadata.get("clamped_target_points").map(|v| v.as_str()),
+        step.metadata
+            .get("clamped_target_points")
+            .map(|v| v.as_str()),
         Some("2")
     );
 }

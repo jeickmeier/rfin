@@ -39,10 +39,7 @@ fn require_non_empty<T>(quotes: &[T]) -> Result<()> {
 /// Market-standard behavior: quote ordering should not affect calibration outcomes.
 /// The core bootstrapper assumes quotes are already sorted, so we enforce that here
 /// centrally for all bootstrap-based steps.
-fn sort_bootstrap_quotes<T: BootstrapTarget>(
-    target: &T,
-    quotes: &mut Vec<T::Quote>,
-) -> Result<()> {
+fn sort_bootstrap_quotes<T: BootstrapTarget>(target: &T, quotes: &mut Vec<T::Quote>) -> Result<()> {
     if quotes.len() <= 1 {
         return Ok(());
     }
@@ -116,7 +113,9 @@ pub(crate) fn apply_rates_step_conventions(
         pricer = pricer.with_allow_calendar_fallback(allow);
     }
     pricer = pricer.with_use_settlement_start(
-        conventions.use_settlement_start.unwrap_or(default_use_settlement_start),
+        conventions
+            .use_settlement_start
+            .unwrap_or(default_use_settlement_start),
     );
     if let Some(days) = conventions.default_payment_delay_days {
         pricer = pricer.with_default_payment_delay_days(days);
@@ -180,7 +179,7 @@ pub fn execute_step(
     quotes: &[MarketQuote],
     context: &MarketContext,
     global_config: &CalibrationConfig,
-    ) -> Result<(MarketContext, CalibrationReport)> {
+) -> Result<(MarketContext, CalibrationReport)> {
     match params {
         StepParams::Discount(p) => {
             let mut rates_quotes = quotes.extract_quotes();
@@ -337,7 +336,8 @@ pub fn execute_step(
             let target = BaseCorrelationBootstrapper::new(p.clone(), context.clone());
 
             sort_bootstrap_quotes(&target, &mut credit_quotes)?;
-            let (curve, report) = run_bootstrap(&target, &credit_quotes, Vec::new(), global_config)?;
+            let (curve, report) =
+                run_bootstrap(&target, &credit_quotes, Vec::new(), global_config)?;
 
             let mut new_context = context.clone();
             let arc = std::sync::Arc::new(curve);
