@@ -13,6 +13,7 @@ use finstack_core::currency::Currency;
 use finstack_core::explain::ExplainOpts;
 use finstack_core::market_data::term_structures::Seniority;
 
+use finstack_core::math::interp::{ExtrapolationPolicy, InterpStyle};
 use hashbrown::HashMap;
 use serde::{Deserialize, Serialize};
 use serde_json;
@@ -58,9 +59,19 @@ pub enum ResidualWeightingScheme {
 pub struct DiscountCurveSolveConfig {
     pub scan_grid_points: usize,
     pub min_scan_grid_points: usize,
+    /// Initial step size for geometric scan grid.
+    pub scan_grid_step: f64,
     pub df_hard_min: f64,
     pub df_hard_max: f64,
     pub min_t_spot: f64,
+    /// Interpolation style for the constructed curve.
+    #[serde(default)]
+    #[cfg_attr(feature = "ts_export", ts(skip))]
+    pub interp_style: InterpStyle,
+    /// Extrapolation policy for the constructed curve.
+    #[serde(default)]
+    #[cfg_attr(feature = "ts_export", ts(skip))]
+    pub extrapolation_policy: ExtrapolationPolicy,
     pub bootstrap_seed_global_solve: bool,
     pub allow_seed_fallback: bool,
     /// Override final-curve monotonicity enforcement (None = policy-driven).
@@ -81,6 +92,9 @@ impl Default for DiscountCurveSolveConfig {
         Self {
             scan_grid_points: 48,
             min_scan_grid_points: 20,
+            scan_grid_step: 1e-4,
+            interp_style: InterpStyle::default(),
+            extrapolation_policy: ExtrapolationPolicy::default(),
             df_hard_min: 1e-12,
             df_hard_max: 1e6,
             min_t_spot: 1e-6,

@@ -5,7 +5,9 @@
 
 use finstack_core::Result;
 
-use crate::calibration::constants::{OBJECTIVE_VALID_ABS_MAX, PENALTY, RESIDUAL_PENALTY_ABS_MIN};
+use crate::calibration::constants::OBJECTIVE_VALID_ABS_MAX;
+#[cfg(test)]
+use crate::calibration::constants::PENALTY;
 use crate::calibration::solver::SolverConfig;
 use crate::calibration::CalibrationConfig;
 

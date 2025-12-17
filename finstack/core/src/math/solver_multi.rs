@@ -658,6 +658,60 @@ impl LevenbergMarquardtSolver {
         )
     }
 
+    /// Solve system with analytical Jacobian and stats.
+    pub fn solve_system_with_jacobian_stats<Res, D>(
+        &self,
+        residuals: Res,
+        derivatives: &D,
+        initial: &[f64],
+    ) -> Result<LmSolution>
+    where
+        Res: Fn(&[f64], &mut [f64]),
+        D: AnalyticalDerivatives,
+    {
+        // Probe residual dimension
+        if initial.is_empty() {
+            return Err(InputError::Invalid.into());
+        }
+        let mut test_residuals = vec![f64::NAN; initial.len() * 2];
+        residuals(initial, &mut test_residuals);
+        let n_residuals = test_residuals
+            .iter()
+            .position(|r| r.is_nan())
+            .unwrap_or(test_residuals.len());
+
+        let jacobian_func = |p: &[f64], _r: &[f64], eval_counter: &mut usize| -> Vec<Vec<f64>> {
+            if derivatives.has_jacobian() {
+                let mut jac = vec![vec![0.0; p.len()]; n_residuals];
+                if derivatives.jacobian(p, &mut jac).is_some() {
+                    return jac;
+                }
+            }
+            // Fallback
+            self.compute_jacobian_system(&residuals, p, n_residuals, eval_counter)
+        };
+
+        // Convergence check: Residual Norm
+        let convergence_check =
+            |_p: &[f64], r: &[f64], _jac: &[Vec<f64>]| -> Option<LmTerminationReason> {
+                let resid_norm: f64 = r.iter().map(|val| val * val).sum::<f64>().sqrt();
+                if resid_norm < self.tolerance {
+                    Some(LmTerminationReason::ConvergedResidualNorm)
+                } else {
+                    None
+                }
+            };
+
+        self.solve_lm_core_with_stats(
+            initial.to_vec(),
+            &residuals,
+            jacobian_func,
+            convergence_check,
+            n_residuals,
+            None, // bounds
+        )
+    }
+
     /// Solve system with analytical Jacobian.
     pub fn solve_system_with_jacobian<Res, D>(
         &self,

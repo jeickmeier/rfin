@@ -613,4 +613,109 @@ Ensure quotes map to strictly increasing year fractions.",
         }
         Ok(())
     }
+
+    fn jacobian(
+        &self,
+        params: &[f64],
+        times: &[f64],
+        quotes: &[Self::Quote],
+        jacobian: &mut [Vec<f64>],
+    ) -> Result<()> {
+        // Validation of dimensions
+        if jacobian.len() != quotes.len() {
+            return Err(finstack_core::Error::Calibration {
+                message: format!(
+                    "Jacobian rows {} != quotes {}",
+                    jacobian.len(),
+                    quotes.len()
+                ),
+                category: "jacobian".to_string(),
+            });
+        }
+        if params.len() != times.len() {
+            return Err(finstack_core::Error::Calibration {
+                message: format!("Params {} != Times {}", params.len(), times.len()),
+                category: "jacobian".to_string(),
+            });
+        }
+        // Check columns
+        if !jacobian.is_empty() && jacobian[0].len() != params.len() {
+            return Err(finstack_core::Error::Calibration {
+                message: format!(
+                    "Jacobian cols {} != params {}",
+                    jacobian[0].len(),
+                    params.len()
+                ),
+                category: "jacobian".to_string(),
+            });
+        }
+
+        // 1. Calculate base residuals
+        let base_curve = self.build_curve_for_solver_from_params(times, params)?;
+        let mut base_residuals = vec![0.0; quotes.len()];
+        self.calculate_residuals(&base_curve, quotes, &mut base_residuals)?;
+
+        let fd_eps = 1e-8;
+        let mut params_plus = params.to_vec();
+
+        // 2. Iterate parameters (columns)
+        for j in 0..params.len() {
+            let _t_knot = times[j];
+            let p_orig = params[j];
+
+            // Bump parameter
+            let h = (p_orig.abs() * fd_eps).max(fd_eps);
+            params_plus[j] = p_orig + h;
+
+            // Build bumped curve
+            // Note: If build fails, we can't compute derivative. Return error or 0?
+            // LevenbergMarquardtSolver usually retries with smaller step or fails.
+            // We propagate error.
+            let curve_plus = self.build_curve_for_solver_from_params(times, &params_plus)?;
+
+            // 3. Iterate quotes (rows)
+            // Optimization: Only re-price quotes that *could* depend on t_knot.
+            // Heuristic: If quote maturity < t_knot_prev, it likely doesn't depend on t_knot.
+            // Safety buffer: 1.0 year or just check t_quote >= t_knot_prev.
+            // Since we don't easily know t_knot_prev here without index math,
+            // let's assume triangularity: Quote T >= t_knot.
+            // To be safe against interpolation spillover (e.g. linear interp affects [t_{j-1}, t_{j+1}]),
+            // we check T >= t_{j-1}.
+            let t_cutoff = if j > 0 { times[j - 1] } else { 0.0 };
+
+            self.with_temp_context(&curve_plus, |ctx| {
+                for (i, quote) in quotes.iter().enumerate() {
+                    // Skip if quote is "safely" before the bumped knot
+                    // We assume quotes are sorted by maturity in Global Solve usually, but not guaranteed here.
+                    // We check each quote's time.
+                    // Accessing quote_time is cheap.
+                    let t_quote = self.quote_time(quote)?;
+
+                    if t_quote < t_cutoff - 1e-4 {
+                        // Derivative is effectively 0
+                        jacobian[i][j] = 0.0;
+                        continue;
+                    }
+
+                    let val_plus =
+                        self.pricer
+                            .price_instrument_for_calibration(quote, self.currency, ctx)?;
+                    let val_base = base_residuals[i];
+
+                    jacobian[i][j] = (val_plus - val_base) / h;
+                }
+                Ok(())
+            })?;
+
+            // Reset parameter
+            params_plus[j] = p_orig;
+        }
+
+        Ok(())
+    }
+
+    fn supports_analytical_jacobian(&self) -> bool {
+        // We now support a specialized efficient Jacobian calculation
+        true
+    }
 }

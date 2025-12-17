@@ -60,6 +60,18 @@ impl GlobalFitOptimizer {
 
         validate_global_inputs(&times, &initials, n_residuals)?;
 
+        // Determine if we should use analytical Jacobian
+        let use_analytical = match config.calibration_method {
+            crate::calibration::config::CalibrationMethod::GlobalSolve {
+                use_analytical_jacobian,
+            } => use_analytical_jacobian && target.supports_analytical_jacobian(),
+            _ => false,
+        };
+
+        if config.verbose && use_analytical {
+            println!("GlobalFitOptimizer: Using analytical Jacobian.");
+        }
+
         let solver = config.create_lm_solver();
 
         // Trackers
@@ -152,9 +164,74 @@ impl GlobalFitOptimizer {
             }
         };
 
+        // 3. Wrapper for AnalyticalDerivatives
+        #[allow(clippy::type_complexity)]
+        struct TargetDerivatives<'a, T: GlobalSolveTarget> {
+            target: &'a T,
+            curve_builder: Box<dyn Fn(&[f64]) -> Result<T::Curve> + 'a>,
+            active_quotes: &'a [T::Quote],
+            weight_scales: &'a [f64],
+            times: &'a [f64],
+        }
+
+        impl<'a, T: GlobalSolveTarget> finstack_core::math::solver_multi::AnalyticalDerivatives
+            for TargetDerivatives<'a, T>
+        {
+            fn gradient(&self, _params: &[f64], _gradient: &mut [f64]) {
+                // Not used for system solving
+            }
+
+            fn has_gradient(&self) -> bool {
+                false
+            }
+
+            fn jacobian(&self, params: &[f64], jacobian: &mut [Vec<f64>]) -> Option<()> {
+                // 1. Build curve (needed for consistent state check, though optimized jacobian might skip it)
+                // Actually, if we use Optimized FD inside target.jacobian, we might need a scratch curve.
+                // The target.jacobian implementation is responsible for building curves if needed.
+                // But let's build it to match previous logic and validation.
+                if (self.curve_builder)(params).is_err() {
+                    return None;
+                };
+
+                // 2. Compute Jacobian
+                if self
+                    .target
+                    .jacobian(params, self.times, self.active_quotes, jacobian)
+                    .is_err()
+                {
+                    return None;
+                }
+
+                // 3. Apply weights: J_ij *= weight_scales[i]
+                for (i, row) in jacobian.iter_mut().enumerate() {
+                    let scale = self.weight_scales.get(i).copied().unwrap_or(1.0);
+                    for val in row.iter_mut() {
+                        *val *= scale;
+                    }
+                }
+                Some(())
+            }
+
+            fn has_jacobian(&self) -> bool {
+                true
+            }
+        }
+
         // Solve
-        let solution =
-            solver.solve_system_with_dim_stats(residuals_func, &initials, n_residuals)?;
+        let solution = if use_analytical {
+            let curve_builder = |p: &[f64]| target.build_curve_for_solver_from_params(&times, p);
+            let derivatives = TargetDerivatives {
+                target,
+                curve_builder: Box::new(curve_builder),
+                active_quotes: &active_quotes,
+                weight_scales: &weight_scales,
+                times: &times,
+            };
+            solver.solve_system_with_jacobian_stats(residuals_func, &derivatives, &initials)?
+        } else {
+            solver.solve_system_with_dim_stats(residuals_func, &initials, n_residuals)?
+        };
         let solved_params = solution.params;
         let stats = solution.stats;
 

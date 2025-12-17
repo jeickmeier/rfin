@@ -126,4 +126,29 @@ pub trait GlobalSolveTarget {
         quotes: &[Self::Quote],
         residuals: &mut [f64],
     ) -> Result<()>;
+
+    /// Compute the Jacobian matrix of residuals with respect to curve parameters.
+    ///
+    /// # Arguments
+    /// * `params` - The current parameter vector (e.g. zero rates).
+    /// * `times` - The knot times corresponding to parameters.
+    /// * `quotes` - The active calibration quotes corresponding to residuals.
+    /// * `jacobian` - Output matrix (rows=residuals, cols=params).
+    fn jacobian(
+        &self,
+        _params: &[f64],
+        _times: &[f64],
+        _quotes: &[Self::Quote],
+        _jacobian: &mut [Vec<f64>],
+    ) -> Result<()> {
+        Err(finstack_core::Error::Calibration {
+            message: "Analytical Jacobian not implemented for this target".to_string(),
+            category: "analytical_jacobian".to_string(),
+        })
+    }
+
+    /// Returns true if this target supports analytical Jacobian calculation.
+    fn supports_analytical_jacobian(&self) -> bool {
+        false
+    }
 }

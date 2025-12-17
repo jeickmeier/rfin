@@ -138,11 +138,12 @@ impl SequentialBootstrapper {
 
                     // Default scan grid: geometric expansion around the initial guess.
                     // This is more robust than fixed +/- k*step heuristics across regimes.
-                    let step0 = (1e-4 * (1.0 + center.abs())).max(1e-8);
-                    let mut pts = Vec::with_capacity(2 * 16 + 1);
+                    let step0 = (config.discount_curve.scan_grid_step * (1.0 + center.abs())).max(1e-8);
+                    let grid_size = config.discount_curve.scan_grid_points;
+                    let mut pts = Vec::with_capacity(2 * grid_size + 1);
                     pts.push(center);
                     let mut step = step0;
-                    for _ in 0..16 {
+                    for _ in 0..grid_size {
                         pts.push(center - step);
                         pts.push(center + step);
                         step *= 2.0;
