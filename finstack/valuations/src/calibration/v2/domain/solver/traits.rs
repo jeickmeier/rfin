@@ -70,6 +70,59 @@ pub trait GlobalSolveTarget {
     /// Build a curve from parameters (e.g., zero rates).
     fn build_curve_from_params(&self, times: &[f64], params: &[f64]) -> Result<Self::Curve>;
 
+    /// Build a curve for solver iterations (lenient validation allowed).
+    ///
+    /// Default implementation delegates to `build_curve_from_params`.
+    fn build_curve_for_solver_from_params(
+        &self,
+        times: &[f64],
+        params: &[f64],
+    ) -> Result<Self::Curve> {
+        self.build_curve_from_params(times, params)
+    }
+
+    /// Build the final curve returned to callers (strict validation).
+    ///
+    /// Default implementation delegates to `build_curve_from_params`.
+    fn build_curve_final_from_params(
+        &self,
+        times: &[f64],
+        params: &[f64],
+    ) -> Result<Self::Curve> {
+        self.build_curve_from_params(times, params)
+    }
+
+    /// Provide a stable residual key for reporting.
+    ///
+    /// Defaults to `GLOBAL-{idx:06}` if not overridden.
+    fn residual_key(&self, _quote: &Self::Quote, idx: usize) -> String {
+        format!("GLOBAL-{:06}", idx)
+    }
+
+    /// Provide per-quote residual weights (for weighted least squares).
+    ///
+    /// Default implementation fills weights with 1.0 and validates lengths.
+    fn residual_weights(
+        &self,
+        quotes: &[Self::Quote],
+        weights_out: &mut [f64],
+    ) -> Result<()> {
+        if quotes.len() != weights_out.len() {
+            return Err(finstack_core::Error::Calibration {
+                message: format!(
+                    "Global solve requires weights.len() == quotes.len(); got {} vs {}.",
+                    weights_out.len(),
+                    quotes.len()
+                ),
+                category: "global_solve".to_string(),
+            });
+        }
+        for weight in weights_out.iter_mut() {
+            *weight = 1.0;
+        }
+        Ok(())
+    }
+
     /// Calculate residuals for all quotes given the curve.
     ///
     /// Residual units should match the `calculate_residual` contract (price delta

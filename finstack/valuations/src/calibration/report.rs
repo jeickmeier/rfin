@@ -64,7 +64,7 @@ pub struct CalibrationReport {
     pub success: bool,
     /// Final residuals by instrument
     pub residuals: BTreeMap<String, f64>,
-    /// Number of iterations taken
+    /// Number of solver iterations (e.g., accepted LM steps)
     pub iterations: usize,
     /// Final objective function value
     pub objective_value: f64,

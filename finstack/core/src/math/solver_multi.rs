@@ -84,6 +84,51 @@ pub trait AnalyticalDerivatives {
     }
 }
 
+/// Termination reason for the Levenberg-Marquardt solver.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub enum LmTerminationReason {
+    /// Residual norm fell below the configured tolerance.
+    ConvergedResidualNorm,
+    /// Relative residual reduction fell below the configured tolerance.
+    ConvergedRelativeReduction,
+    /// Gradient norm fell below the configured tolerance.
+    ConvergedGradient,
+    /// Parameter update step became smaller than `min_step_size`.
+    StepTooSmall,
+    /// Solver exhausted the iteration budget.
+    MaxIterations,
+    /// Solver encountered an unrecoverable numerical failure.
+    NumericalFailure,
+}
+
+/// Solver statistics for diagnostics and monitoring.
+#[derive(Clone, Debug)]
+pub struct LmStats {
+    /// Number of accepted LM iterations.
+    pub iterations: usize,
+    /// Total residual evaluations performed (including Jacobian probes).
+    pub residual_evals: usize,
+    /// Total Jacobian evaluations performed.
+    pub jacobian_evals: usize,
+    /// Reason why the solver terminated.
+    pub termination_reason: LmTerminationReason,
+    /// Final residual norm when termination occurred.
+    pub final_residual_norm: f64,
+    /// Norm of the final accepted (or attempted) step.
+    pub final_step_norm: f64,
+    /// Final damping parameter (lambda) at termination.
+    pub lambda_final: f64,
+}
+
+/// Solution vector plus solver statistics.
+#[derive(Clone, Debug)]
+pub struct LmSolution {
+    /// Solved parameter vector.
+    pub params: Vec<f64>,
+    /// Detailed solver diagnostics.
+    pub stats: LmStats,
+}
+
 /// Multi-dimensional optimization/root-finding trait.
 ///
 /// Provides a unified interface for solvers that can handle multiple
@@ -282,6 +327,7 @@ impl LevenbergMarquardtSolver {
         residuals: &Res,
         params: &[f64],
         n_residuals: usize,
+        residual_eval_counter: &mut usize,
     ) -> Vec<Vec<f64>>
     where
         Res: Fn(&[f64], &mut [f64]),
@@ -291,6 +337,7 @@ impl LevenbergMarquardtSolver {
 
         let mut r0 = vec![0.0; n_residuals];
         residuals(params, &mut r0);
+        *residual_eval_counter += 1;
 
         let mut params_plus = params.to_vec();
         let mut r_plus = vec![0.0; n_residuals];
@@ -299,6 +346,7 @@ impl LevenbergMarquardtSolver {
             let h = (params[j].abs() * self.fd_step).max(self.fd_step);
             params_plus[j] = params[j] + h;
             residuals(&params_plus, &mut r_plus);
+            *residual_eval_counter += 1;
 
             for i in 0..n_residuals {
                 jacobian[i][j] = (r_plus[i] - r0[i]) / h;
@@ -375,11 +423,7 @@ impl LevenbergMarquardtSolver {
         }
     }
 
-    /// Core Levenberg-Marquardt loop implementation.
-    ///
-    /// Unified strategy for both scalar minimization and system solving.
-    /// Reuses buffers to avoid allocation in the hot loop.
-    fn solve_lm_core<Res, Jac, Check>(
+    fn solve_lm_core_with_stats<Res, Jac, Check>(
         &self,
         mut params: Vec<f64>,
         residuals_func: &Res,
@@ -387,11 +431,11 @@ impl LevenbergMarquardtSolver {
         convergence_check: Check,
         n_residuals: usize,
         bounds: Option<&[(f64, f64)]>,
-    ) -> Result<Vec<f64>>
+    ) -> Result<LmSolution>
     where
         Res: Fn(&[f64], &mut [f64]),
-        Jac: Fn(&[f64], &[f64]) -> Vec<Vec<f64>>,
-        Check: Fn(&[f64], &[f64], &[Vec<f64>]) -> bool, // params, residuals, jacobian -> is_converged
+        Jac: Fn(&[f64], &[f64], &mut usize) -> Vec<Vec<f64>>,
+        Check: Fn(&[f64], &[f64], &[Vec<f64>]) -> Option<LmTerminationReason>,
     {
         if params.is_empty() || n_residuals == 0 {
             return Err(InputError::Invalid.into());
@@ -408,23 +452,58 @@ impl LevenbergMarquardtSolver {
         // Initial residual evaluation
         residuals_func(&params, &mut resid_vec);
         let mut resid_norm: f64 = resid_vec.iter().map(|r| r * r).sum::<f64>().sqrt();
+        let mut residual_evals = 1usize;
+        let mut jacobian_evals = 0usize;
+        let mut iterations = 0usize;
+        let mut last_step_norm = 0.0_f64;
 
         for _iter in 0..self.max_iterations {
             // Compute Jacobian (strategy depends on use case)
-            let jacobian = jacobian_func(&params, &resid_vec);
+            jacobian_evals += 1;
+            let jacobian = jacobian_func(&params, &resid_vec, &mut residual_evals);
 
             // Check custom convergence criteria (e.g. gradient norm vs residual norm)
-            if convergence_check(&params, &resid_vec, &jacobian) {
-                return Ok(params);
+            if let Some(reason) = convergence_check(&params, &resid_vec, &jacobian) {
+                return Ok(LmSolution {
+                    params,
+                    stats: LmStats {
+                        iterations,
+                        residual_evals,
+                        jacobian_evals,
+                        termination_reason: reason,
+                        final_residual_norm: resid_norm,
+                        final_step_norm: last_step_norm,
+                        lambda_final: lambda,
+                    },
+                });
             }
 
             // Solve for step: (J^T J + λI) δ = -J^T r
-            let step = self.solve_normal_equations(&jacobian, &resid_vec, lambda)?;
+            let step = match self.solve_normal_equations(&jacobian, &resid_vec, lambda) {
+                Ok(step) => step,
+                Err(_) => {
+                    lambda *= self.lambda_factor;
+                    lambda = lambda.min(1e15);
+                    continue;
+                }
+            };
 
             // Check step size for convergence
             let step_norm: f64 = step.iter().map(|s| s * s).sum::<f64>().sqrt();
+            last_step_norm = step_norm;
             if step_norm < self.min_step_size {
-                return Ok(params);
+                return Ok(LmSolution {
+                    params,
+                    stats: LmStats {
+                        iterations,
+                        residual_evals,
+                        jacobian_evals,
+                        termination_reason: LmTerminationReason::StepTooSmall,
+                        final_residual_norm: resid_norm,
+                        final_step_norm: last_step_norm,
+                        lambda_final: lambda,
+                    },
+                });
             }
 
             // Try the step: new_params = params + step
@@ -436,6 +515,7 @@ impl LevenbergMarquardtSolver {
 
             // Evaluate new parameters
             residuals_func(&new_params, &mut new_resid);
+            residual_evals += 1;
             let new_norm: f64 = new_resid.iter().map(|r| r * r).sum::<f64>().sqrt();
 
             // Accept or reject step
@@ -444,6 +524,7 @@ impl LevenbergMarquardtSolver {
                 params.copy_from_slice(&new_params);
                 resid_vec.copy_from_slice(&new_resid);
                 resid_norm = new_norm;
+                iterations += 1;
 
                 lambda /= self.lambda_factor;
                 lambda = lambda.max(1e-15);
@@ -454,7 +535,18 @@ impl LevenbergMarquardtSolver {
             }
         }
 
-        Ok(params)
+        Ok(LmSolution {
+            params,
+            stats: LmStats {
+                iterations,
+                residual_evals,
+                jacobian_evals,
+                termination_reason: LmTerminationReason::MaxIterations,
+                final_residual_norm: resid_norm,
+                final_step_norm: last_step_norm,
+                lambda_final: lambda,
+            },
+        })
     }
 
     /// Minimize objective function with analytical derivatives.
@@ -484,26 +576,32 @@ impl LevenbergMarquardtSolver {
         };
 
         // Jacobian strategy: use analytical gradient
-        let jacobian_func = |p: &[f64], _r: &[f64]| -> Vec<Vec<f64>> {
+        let jacobian_func = |p: &[f64], _r: &[f64], _eval_counter: &mut usize| -> Vec<Vec<f64>> {
             // For scalar objective, Jacobian is 1xN (gradient)
             vec![self.compute_gradient_with_analytical(&objective, p, Some(derivatives))]
         };
 
         // Convergence check: Gradient Norm
-        let convergence_check = |_p: &[f64], _r: &[f64], jac: &[Vec<f64>]| -> bool {
+        let convergence_check = |_p: &[f64], _r: &[f64], jac: &[Vec<f64>]| -> Option<LmTerminationReason> {
             let gradient = &jac[0];
             let grad_norm: f64 = gradient.iter().map(|g| g * g).sum::<f64>().sqrt();
-            grad_norm < self.tolerance
+            if grad_norm < self.tolerance {
+                Some(LmTerminationReason::ConvergedGradient)
+            } else {
+                None
+            }
         };
 
-        self.solve_lm_core(
-            initial.to_vec(),
-            &residuals_func,
-            jacobian_func,
-            convergence_check,
-            1, // n_residuals
-            bounds,
-        )
+        Ok(self
+            .solve_lm_core_with_stats(
+                initial.to_vec(),
+                &residuals_func,
+                jacobian_func,
+                convergence_check,
+                1, // n_residuals
+                bounds,
+            )?
+            .params)
     }
 
     /// Solve system of equations with explicit residual dimension.
@@ -518,18 +616,37 @@ impl LevenbergMarquardtSolver {
     where
         Res: Fn(&[f64], &mut [f64]),
     {
+        Ok(self
+            .solve_system_with_dim_stats(residuals, initial, n_residuals)?
+            .params)
+    }
+
+    /// Solve system of equations with explicit residual dimension and stats.
+    pub fn solve_system_with_dim_stats<Res>(
+        &self,
+        residuals: Res,
+        initial: &[f64],
+        n_residuals: usize,
+    ) -> Result<LmSolution>
+    where
+        Res: Fn(&[f64], &mut [f64]),
+    {
         // Jacobian strategy: finite difference system
-        let jacobian_func = |p: &[f64], _r: &[f64]| -> Vec<Vec<f64>> {
-            self.compute_jacobian_system(&residuals, p, n_residuals)
+        let jacobian_func = |p: &[f64], _r: &[f64], eval_counter: &mut usize| -> Vec<Vec<f64>> {
+            self.compute_jacobian_system(&residuals, p, n_residuals, eval_counter)
         };
 
         // Convergence check: Residual Norm
-        let convergence_check = |_p: &[f64], r: &[f64], _jac: &[Vec<f64>]| -> bool {
+        let convergence_check = |_p: &[f64], r: &[f64], _jac: &[Vec<f64>]| -> Option<LmTerminationReason> {
             let resid_norm: f64 = r.iter().map(|val| val * val).sum::<f64>().sqrt();
-            resid_norm < self.tolerance
+            if resid_norm < self.tolerance {
+                Some(LmTerminationReason::ConvergedResidualNorm)
+            } else {
+                None
+            }
         };
 
-        self.solve_lm_core(
+        self.solve_lm_core_with_stats(
             initial.to_vec(),
             &residuals,
             jacobian_func,
@@ -561,7 +678,7 @@ impl LevenbergMarquardtSolver {
             .position(|r| r.is_nan())
             .unwrap_or(test_residuals.len());
 
-        let jacobian_func = |p: &[f64], _r: &[f64]| -> Vec<Vec<f64>> {
+        let jacobian_func = |p: &[f64], _r: &[f64], eval_counter: &mut usize| -> Vec<Vec<f64>> {
             if derivatives.has_jacobian() {
                 let mut jac = vec![vec![0.0; p.len()]; n_residuals];
                 if derivatives.jacobian(p, &mut jac).is_some() {
@@ -569,23 +686,29 @@ impl LevenbergMarquardtSolver {
                 }
             }
             // Fallback
-            self.compute_jacobian_system(&residuals, p, n_residuals)
+            self.compute_jacobian_system(&residuals, p, n_residuals, eval_counter)
         };
 
         // Convergence check: Residual Norm
-        let convergence_check = |_p: &[f64], r: &[f64], _jac: &[Vec<f64>]| -> bool {
+        let convergence_check = |_p: &[f64], r: &[f64], _jac: &[Vec<f64>]| -> Option<LmTerminationReason> {
             let resid_norm: f64 = r.iter().map(|val| val * val).sum::<f64>().sqrt();
-            resid_norm < self.tolerance
+            if resid_norm < self.tolerance {
+                Some(LmTerminationReason::ConvergedResidualNorm)
+            } else {
+                None
+            }
         };
 
-        self.solve_lm_core(
-            initial.to_vec(),
-            &residuals,
-            jacobian_func,
-            convergence_check,
-            n_residuals,
-            None,
-        )
+        Ok(self
+            .solve_lm_core_with_stats(
+                initial.to_vec(),
+                &residuals,
+                jacobian_func,
+                convergence_check,
+                n_residuals,
+                None,
+            )?
+            .params)
     }
 }
 
@@ -605,25 +728,31 @@ impl MultiSolver for LevenbergMarquardtSolver {
         };
 
         // Jacobian strategy: finite difference gradient
-        let jacobian_func = |p: &[f64], _r: &[f64]| -> Vec<Vec<f64>> {
+        let jacobian_func = |p: &[f64], _r: &[f64], _eval_counter: &mut usize| -> Vec<Vec<f64>> {
             vec![self.compute_jacobian(&objective, p)[0].clone()]
         };
 
         // Convergence check: Gradient Norm
-        let convergence_check = |_p: &[f64], _r: &[f64], jac: &[Vec<f64>]| -> bool {
+        let convergence_check = |_p: &[f64], _r: &[f64], jac: &[Vec<f64>]| -> Option<LmTerminationReason> {
             let gradient = &jac[0];
             let grad_norm: f64 = gradient.iter().map(|g| g * g).sum::<f64>().sqrt();
-            grad_norm < self.tolerance
+            if grad_norm < self.tolerance {
+                Some(LmTerminationReason::ConvergedGradient)
+            } else {
+                None
+            }
         };
 
-        self.solve_lm_core(
-            initial.to_vec(),
-            &residuals_func,
-            jacobian_func,
-            convergence_check,
-            1, // n_residuals
-            bounds,
-        )
+        Ok(self
+            .solve_lm_core_with_stats(
+                initial.to_vec(),
+                &residuals_func,
+                jacobian_func,
+                convergence_check,
+                1, // n_residuals
+                bounds,
+            )?
+            .params)
     }
 
     fn solve_system<Res>(&self, residuals: Res, initial: &[f64]) -> Result<Vec<f64>>
@@ -702,6 +831,50 @@ mod tests {
 
         assert!((result[0] - 3.0).abs() < 1e-6);
         assert!((result[1] - 2.0).abs() < 1e-6);
+    }
+
+    #[test]
+    fn test_lm_stats_reports_convergence_reason() {
+        let solver = LevenbergMarquardtSolver::new().with_tolerance(1e-12);
+
+        let residuals = |params: &[f64], resid: &mut [f64]| {
+            resid[0] = params[0] + params[1] - 5.0;
+            resid[1] = params[0] - params[1] - 1.0;
+        };
+
+        let initial = vec![0.0, 0.0];
+        let solution = solver
+            .solve_system_with_dim_stats(residuals, &initial, 2)
+            .expect("stats solve should succeed");
+
+        assert_eq!(
+            solution.stats.termination_reason,
+            LmTerminationReason::ConvergedResidualNorm
+        );
+        assert!(solution.stats.residual_evals >= 1);
+        assert!(solution.stats.jacobian_evals >= 1);
+    }
+
+    #[test]
+    fn test_lm_stats_reports_max_iterations() {
+        let solver = LevenbergMarquardtSolver::new()
+            .with_tolerance(1e-12)
+            .with_max_iterations(0);
+
+        let residuals = |params: &[f64], resid: &mut [f64]| {
+            resid[0] = params[0] - 1.0;
+        };
+
+        let initial = vec![0.0];
+        let solution = solver
+            .solve_system_with_dim_stats(residuals, &initial, 1)
+            .expect("stats solve should succeed");
+
+        assert_eq!(
+            solution.stats.termination_reason,
+            LmTerminationReason::MaxIterations
+        );
+        assert_eq!(solution.stats.iterations, 0);
     }
 
     #[test]

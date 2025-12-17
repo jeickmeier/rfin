@@ -193,6 +193,54 @@ impl DiscountCurveTarget {
             op(&temp_context)
         }
     }
+
+    fn knots_from_params(&self, times: &[f64], params: &[f64]) -> Result<Vec<(f64, f64)>> {
+        if times.len() != params.len() {
+            return Err(finstack_core::Error::Calibration {
+                message: format!(
+                    "Global solve dimension mismatch: {} times vs {} params",
+                    times.len(),
+                    params.len()
+                ),
+                category: "global_solve".to_string(),
+            });
+        }
+
+        let mut knots = Vec::with_capacity(times.len() + 2);
+        knots.push((0.0, 1.0));
+
+        if let Some(spot) = self.spot_knot {
+            if spot.0 > 0.0 {
+                knots.push(spot);
+            }
+        }
+
+        let bounds = self.config.effective_rate_bounds(self.currency);
+        let mut last_t = self.spot_knot.map(|spot| spot.0).unwrap_or(0.0);
+
+        for (&t, &z) in times.iter().zip(params.iter()) {
+            if t <= last_t {
+                return Err(finstack_core::Error::Calibration {
+                    message: format!(
+                        "Non-increasing knot time {:.10} detected (previous {:.10}). \
+Global solve requires strictly increasing times.",
+                        t, last_t
+                    ),
+                    category: "global_solve".to_string(),
+                });
+            }
+            last_t = t;
+            let clamped_z = z.clamp(bounds.min_rate, bounds.max_rate);
+            let mut df = Self::zero_rate_to_df(clamped_z, t);
+            df = df.clamp(
+                self.config.discount_curve.df_hard_min,
+                self.config.discount_curve.df_hard_max,
+            );
+            knots.push((t, df));
+        }
+
+        Ok(knots)
+    }
 }
 
 impl BootstrapTarget for DiscountCurveTarget {
@@ -474,51 +522,25 @@ Ensure quotes map to strictly increasing year fractions.",
     }
 
     fn build_curve_from_params(&self, times: &[f64], params: &[f64]) -> Result<Self::Curve> {
-        if times.len() != params.len() {
-            return Err(finstack_core::Error::Calibration {
-                message: format!(
-                    "Global solve dimension mismatch: {} times vs {} params",
-                    times.len(),
-                    params.len()
-                ),
-                category: "global_solve".to_string(),
-            });
-        }
+        self.build_curve_for_solver_from_params(times, params)
+    }
 
-        let mut knots = Vec::with_capacity(times.len() + 2);
-        knots.push((0.0, 1.0));
-
-        if let Some(spot) = self.spot_knot {
-            if spot.0 > 0.0 {
-                knots.push(spot);
-            }
-        }
-
-        let bounds = self.config.effective_rate_bounds(self.currency);
-        let mut last_t = self.spot_knot.map(|spot| spot.0).unwrap_or(0.0);
-
-        for (&t, &z) in times.iter().zip(params.iter()) {
-            if t <= last_t {
-                return Err(finstack_core::Error::Calibration {
-                    message: format!(
-                        "Non-increasing knot time {:.10} detected (previous {:.10}). \
-Global solve requires strictly increasing times.",
-                        t, last_t
-                    ),
-                    category: "global_solve".to_string(),
-                });
-            }
-            last_t = t;
-            let clamped_z = z.clamp(bounds.min_rate, bounds.max_rate);
-            let mut df = Self::zero_rate_to_df(clamped_z, t);
-            df = df.clamp(
-                self.config.discount_curve.df_hard_min,
-                self.config.discount_curve.df_hard_max,
-            );
-            knots.push((t, df));
-        }
-
+    fn build_curve_for_solver_from_params(
+        &self,
+        times: &[f64],
+        params: &[f64],
+    ) -> Result<Self::Curve> {
+        let knots = self.knots_from_params(times, params)?;
         self.build_curve_for_solver(&knots)
+    }
+
+    fn build_curve_final_from_params(
+        &self,
+        times: &[f64],
+        params: &[f64],
+    ) -> Result<Self::Curve> {
+        let knots = self.knots_from_params(times, params)?;
+        self.build_curve_final(&knots)
     }
 
     fn calculate_residuals(
@@ -536,5 +558,49 @@ Global solve requires strictly increasing times.",
             }
             Ok(())
         })
+    }
+
+    fn residual_key(&self, quote: &Self::Quote, idx: usize) -> String {
+        use RatesQuote::*;
+        let prefix = match quote {
+            Deposit { .. } => "DEP",
+            FRA { .. } => "FRA",
+            Future { .. } => "FUT",
+            Swap { is_ois, .. } => {
+                if *is_ois {
+                    "OIS"
+                } else {
+                    "SWP"
+                }
+            }
+            BasisSwap { .. } => "BAS",
+        };
+        let maturity = quote.maturity_date();
+        format!("{}-{}-{:03}", prefix, maturity, idx)
+    }
+
+    fn residual_weights(
+        &self,
+        quotes: &[Self::Quote],
+        weights_out: &mut [f64],
+    ) -> Result<()> {
+        if quotes.len() != weights_out.len() {
+            return Err(finstack_core::Error::Calibration {
+                message: format!(
+                    "Global solve requires weights.len() == quotes.len(); got {} vs {}.",
+                    weights_out.len(),
+                    quotes.len()
+                ),
+                category: "global_solve".to_string(),
+            });
+        }
+
+        for (i, quote) in quotes.iter().enumerate() {
+            let t = self.quote_time(quote)?.max(1e-6);
+            // DV01 grows roughly linearly with maturity; use sqrt to moderate long tenors.
+            let weight = t.sqrt().max(1e-3);
+            weights_out[i] = weight;
+        }
+        Ok(())
     }
 }

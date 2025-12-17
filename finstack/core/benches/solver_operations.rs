@@ -7,8 +7,52 @@ use criterion::{criterion_group, criterion_main, BenchmarkId, Criterion};
 use finstack_core::cashflow::xirr::InternalRateOfReturn;
 use finstack_core::dates::{Date, DayCount};
 use finstack_core::math::solver::{BrentSolver, NewtonSolver, Solver};
+use finstack_core::math::solver_multi::LevenbergMarquardtSolver;
 use std::hint::black_box;
 use time::Month;
+
+#[derive(Clone)]
+struct DenseSystem {
+    n_params: usize,
+    n_residuals: usize,
+    coeffs: Vec<f64>,
+    targets: Vec<f64>,
+}
+
+impl DenseSystem {
+    fn new(n_params: usize, n_residuals: usize) -> Self {
+        let mut coeffs = Vec::with_capacity(n_params * n_residuals);
+        for i in 0..n_residuals {
+            for j in 0..n_params {
+                let val = ((i as f64 + 1.0) * 0.314159).sin()
+                    * ((j as f64 + 1.0) * 0.271828).cos();
+                coeffs.push(val);
+            }
+        }
+        let targets = (0..n_residuals)
+            .map(|i| (i as f64 + 1.0) * 1e-3)
+            .collect();
+        Self {
+            n_params,
+            n_residuals,
+            coeffs,
+            targets,
+        }
+    }
+
+    fn residuals(&self, params: &[f64], resid: &mut [f64]) {
+        assert_eq!(params.len(), self.n_params);
+        assert!(resid.len() >= self.n_residuals);
+
+        for (i, resid_slot) in resid.iter_mut().enumerate().take(self.n_residuals) {
+            let row_start = i * self.n_params;
+            let row = &self.coeffs[row_start..row_start + self.n_params];
+            let mut acc = -self.targets[i];
+            acc += row.iter().zip(params.iter()).map(|(a, b)| a * b).sum::<f64>();
+            *resid_slot = acc;
+        }
+    }
+}
 
 fn benchmark_newton_analytic_vs_fd(c: &mut Criterion) {
     let mut group = c.benchmark_group("newton_solver");
@@ -198,6 +242,41 @@ fn benchmark_irr_periodic(c: &mut Criterion) {
     group.finish();
 }
 
+fn benchmark_lm_global_sizes(c: &mut Criterion) {
+    let mut group = c.benchmark_group("lm_global");
+    let cases = [
+        ("30x30", 30, 30),
+        ("100x50", 50, 100),
+        ("200x80", 80, 200),
+    ];
+
+    for (label, n_params, n_residuals) in cases {
+        let system = DenseSystem::new(n_params, n_residuals);
+        let initial = vec![0.01; n_params];
+        let solver = LevenbergMarquardtSolver::new()
+            .with_tolerance(1e-10)
+            .with_max_iterations(200);
+
+        group.bench_function(BenchmarkId::new("lm_global", label), {
+            let system = system.clone();
+            let initial = initial.clone();
+            let solver = solver.clone();
+            move |b| {
+                b.iter(|| {
+                    let residuals = |params: &[f64], resid: &mut [f64]| {
+                        system.residuals(params, resid)
+                    };
+                    solver
+                        .solve_system_with_dim_stats(residuals, &initial, n_residuals)
+                        .expect("LM solve should succeed");
+                });
+            }
+        });
+    }
+
+    group.finish();
+}
+
 criterion_group!(
     benches,
     benchmark_newton_analytic_vs_fd,
@@ -205,5 +284,6 @@ criterion_group!(
     benchmark_xirr_daycount_variants,
     benchmark_solver_comparison,
     benchmark_irr_periodic,
+    benchmark_lm_global_sizes,
 );
 criterion_main!(benches);
