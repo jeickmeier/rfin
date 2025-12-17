@@ -84,15 +84,7 @@ export const InflationCurveCalibration: React.FC<InflationCurveCalibrationProps>
   onCalibrated,
   className,
 }) => {
-  const {
-    curveId,
-    currency,
-    indexName,
-    baseCpi,
-    discountCurveId,
-    showChart,
-    config,
-  } = state;
+  const { curveId, currency, indexName, baseCpi, discountCurveId, showChart, config } = state;
   const baseDate = useMemo(() => toFsDate(state.baseDate), [state.baseDate]);
 
   const [localQuotes, setLocalQuotes] = useState<InflationSwapQuoteData[]>(

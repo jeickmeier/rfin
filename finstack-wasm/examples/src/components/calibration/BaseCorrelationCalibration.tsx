@@ -167,7 +167,9 @@ export const BaseCorrelationCalibration: React.FC<BaseCorrelationCalibrationProp
       ];
 
       const outputCurveId = `${indexId}_CORR`;
-      const calibratedCurve = marketCtx.baseCorrelation(outputCurveId) as unknown as CalibratedBaseCorrelationCurve;
+      const calibratedCurve = marketCtx.baseCorrelation(
+        outputCurveId
+      ) as unknown as CalibratedBaseCorrelationCurve;
 
       const sampleDetachments = [3, 7, 10, 15, 30];
       const sampleValues: CurveDataPoint[] = sampleDetachments.map((d) => ({

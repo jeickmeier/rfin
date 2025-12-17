@@ -24,7 +24,7 @@ def test_attribution_from_json_minimal() -> None:
                         "Fixed": {
                             "coupon_type": "Cash",
                             "rate": 0.045,
-                                    "freq": {"count": 6, "unit": "months"},
+                            "freq": {"count": 6, "unit": "months"},
                             "dc": "Thirty360",
                             "bdc": "following",
                             "calendar_id": None,
@@ -104,7 +104,7 @@ def test_attribution_from_json_with_waterfall() -> None:
                         "Fixed": {
                             "coupon_type": "Cash",
                             "rate": 0.045,
-                                    "freq": {"count": 6, "unit": "months"},
+                            "freq": {"count": 6, "unit": "months"},
                             "dc": "Thirty360",
                             "bdc": "following",
                             "calendar_id": None,
@@ -181,7 +181,7 @@ def test_attribution_from_json_with_config() -> None:
                         "Fixed": {
                             "coupon_type": "Cash",
                             "rate": 0.045,
-                                    "freq": {"count": 6, "unit": "months"},
+                            "freq": {"count": 6, "unit": "months"},
                             "dc": "Thirty360",
                             "bdc": "following",
                             "calendar_id": None,

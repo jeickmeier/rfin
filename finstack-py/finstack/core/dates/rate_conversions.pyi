@@ -128,9 +128,3 @@ def continuous_to_simple(
         Equivalent simple interest rate.
     """
     ...
-
-
-
-
-
-

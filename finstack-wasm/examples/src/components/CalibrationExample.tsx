@@ -509,37 +509,49 @@ export const CalibrationExample: React.FC = () => {
           </p>
           <ul className="space-y-2 text-sm">
             <li className="flex gap-2">
-              <code className="bg-muted px-1.5 py-0.5 rounded text-xs">kind: &quot;discount&quot;</code>
+              <code className="bg-muted px-1.5 py-0.5 rounded text-xs">
+                kind: &quot;discount&quot;
+              </code>
               <span className="text-muted-foreground">
                 Bootstrap OIS/Treasury curves from deposits and swaps
               </span>
             </li>
             <li className="flex gap-2">
-              <code className="bg-muted px-1.5 py-0.5 rounded text-xs">kind: &quot;forward&quot;</code>
+              <code className="bg-muted px-1.5 py-0.5 rounded text-xs">
+                kind: &quot;forward&quot;
+              </code>
               <span className="text-muted-foreground">
                 Calibrate LIBOR/SOFR forward curves from FRAs and swaps
               </span>
             </li>
             <li className="flex gap-2">
-              <code className="bg-muted px-1.5 py-0.5 rounded text-xs">kind: &quot;hazard&quot;</code>
+              <code className="bg-muted px-1.5 py-0.5 rounded text-xs">
+                kind: &quot;hazard&quot;
+              </code>
               <span className="text-muted-foreground">
                 Calibrate credit default probability curves from CDS spreads
               </span>
             </li>
             <li className="flex gap-2">
-              <code className="bg-muted px-1.5 py-0.5 rounded text-xs">kind: &quot;inflation&quot;</code>
+              <code className="bg-muted px-1.5 py-0.5 rounded text-xs">
+                kind: &quot;inflation&quot;
+              </code>
               <span className="text-muted-foreground">
                 Calibrate CPI projection curves from inflation swap quotes
               </span>
             </li>
             <li className="flex gap-2">
-              <code className="bg-muted px-1.5 py-0.5 rounded text-xs">kind: &quot;vol_surface&quot;</code>
+              <code className="bg-muted px-1.5 py-0.5 rounded text-xs">
+                kind: &quot;vol_surface&quot;
+              </code>
               <span className="text-muted-foreground">
                 Calibrate implied volatility surfaces from option quotes
               </span>
             </li>
             <li className="flex gap-2">
-              <code className="bg-muted px-1.5 py-0.5 rounded text-xs">kind: &quot;base_correlation&quot;</code>
+              <code className="bg-muted px-1.5 py-0.5 rounded text-xs">
+                kind: &quot;base_correlation&quot;
+              </code>
               <span className="text-muted-foreground">
                 Calibrate base correlation curves from CDO tranche quotes
               </span>
