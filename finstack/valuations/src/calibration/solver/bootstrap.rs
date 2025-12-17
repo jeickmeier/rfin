@@ -1,8 +1,10 @@
 //! Generic sequential bootstrapping algorithm.
 
-use super::traits::BootstrapTarget;
 use super::bracket_solve_1d_with_diagnostics;
-use crate::calibration::{CalibrationConfig, CalibrationReport, OBJECTIVE_VALID_ABS_MAX, RESIDUAL_PENALTY_ABS_MIN};
+use super::traits::BootstrapTarget;
+use crate::calibration::{
+    CalibrationConfig, CalibrationReport, OBJECTIVE_VALID_ABS_MAX, RESIDUAL_PENALTY_ABS_MIN,
+};
 use finstack_core::prelude::*;
 use std::collections::BTreeMap;
 use std::sync::atomic::{AtomicUsize, Ordering};
@@ -87,13 +89,19 @@ impl SequentialBootstrapper {
                 std::cell::RefCell::new(None);
             let eval_counter = AtomicUsize::new(0);
 
+            // Optimization: reuse buffer to avoid allocation in hot loop
+            let reuse_buffer = std::cell::RefCell::new(Vec::with_capacity(knots.len() + 1));
+
             // Define objective function
             let objective = |value: f64| -> f64 {
                 let eval_idx = eval_counter.fetch_add(1, Ordering::Relaxed) + 1;
-                // Build temporary knots list
-                let mut temp_knots = Vec::with_capacity(knots.len() + 1);
-                temp_knots.extend_from_slice(&knots);
-                temp_knots.push((time, value));
+
+                // Reuse vector from RefCell
+                let mut temp_knots_guard = reuse_buffer.borrow_mut();
+                temp_knots_guard.clear();
+                temp_knots_guard.extend_from_slice(&knots);
+                temp_knots_guard.push((time, value));
+                let temp_knots = &*temp_knots_guard;
 
                 // 1. Build temporary curve
                 let curve = match target.build_curve_for_solver(&temp_knots) {
@@ -138,7 +146,8 @@ impl SequentialBootstrapper {
 
                     // Default scan grid: geometric expansion around the initial guess.
                     // This is more robust than fixed +/- k*step heuristics across regimes.
-                    let step0 = (config.discount_curve.scan_grid_step * (1.0 + center.abs())).max(1e-8);
+                    let step0 =
+                        (config.discount_curve.scan_grid_step * (1.0 + center.abs())).max(1e-8);
                     let grid_size = config.discount_curve.scan_grid_points;
                     let mut pts = Vec::with_capacity(2 * grid_size + 1);
                     pts.push(center);

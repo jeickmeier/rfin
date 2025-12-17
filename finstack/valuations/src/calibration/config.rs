@@ -84,6 +84,9 @@ pub struct DiscountCurveSolveConfig {
     /// Weighting scheme for global solve residuals.
     #[serde(default)]
     pub weighting_scheme: ResidualWeightingScheme,
+    /// Step size (h) for finite-difference Jacobian calculation.
+    #[serde(default)]
+    pub jacobian_step_size: f64,
 }
 
 impl Default for DiscountCurveSolveConfig {
@@ -102,6 +105,7 @@ impl Default for DiscountCurveSolveConfig {
             allow_non_monotonic_final: None,
             strict_pricing: false,
             weighting_scheme: ResidualWeightingScheme::default(),
+            jacobian_step_size: 1e-8,
         }
     }
 }
