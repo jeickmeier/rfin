@@ -1061,18 +1061,9 @@ impl CalibrationPricer {
 
     /// Check if a basis swap leg matches the calibrator's tenor.
     fn leg_matches_tenor(&self, index: &str, freq: &Tenor, tenor_years: f64) -> bool {
-        // Check index name for tenor token
+        // Check index name for tenor token (zero-allocation scan).
         let tenor_months = (tenor_years * 12.0).round() as i32;
-        let token = format!("{}M", tenor_months).to_ascii_uppercase();
-
-        let normalized = index.to_ascii_uppercase();
-        let tokens: Vec<&str> = normalized
-            .split(|c: char| !c.is_ascii_alphanumeric())
-            .filter(|t| !t.is_empty())
-            .collect();
-
-        let index_matches =
-            tokens.contains(&token.as_str()) || (tenor_months == 12 && tokens.contains(&"1Y"));
+        let index_matches = Self::has_tenor_token_months(index, tenor_months);
 
         // Check frequency match
         let freq_matches = if freq.unit == finstack_core::dates::TenorUnit::Months {

@@ -51,6 +51,69 @@ pub struct CalibrationPricer {
 }
 
 impl CalibrationPricer {
+    // =========================================================================
+    // Internal helpers (perf-critical)
+    // =========================================================================
+
+    /// Return `true` if any ASCII-alphanumeric token in `s` represents the given tenor in months.
+    ///
+    /// This is a **zero-allocation** scanner used in hot-path quote dispatch.
+    /// Recognizes tokens like `3M`, `12M`, `1Y`, `2Y` (case-insensitive).
+    pub(crate) fn has_tenor_token_months(s: &str, tenor_months: i32) -> bool {
+        // Fast path: impossible/invalid
+        if tenor_months <= 0 {
+            return false;
+        }
+
+        // Tokenize on non-alphanumeric without allocating (maximal ASCII-alnum substrings).
+        let bytes = s.as_bytes();
+        let mut i = 0usize;
+        while i < bytes.len() {
+            while i < bytes.len() && !bytes[i].is_ascii_alphanumeric() {
+                i += 1;
+            }
+            let start = i;
+            while i < bytes.len() && bytes[i].is_ascii_alphanumeric() {
+                i += 1;
+            }
+            if start < i {
+                if let Some(m) = Self::parse_tenor_token_months(&s[start..i]) {
+                    if m == tenor_months {
+                        return true;
+                    }
+                }
+            }
+        }
+        false
+    }
+
+    /// Parse a token like `3M` or `1Y` (case-insensitive) into months.
+    #[inline]
+    fn parse_tenor_token_months(tok: &str) -> Option<i32> {
+        let b = tok.as_bytes();
+        if b.len() < 2 {
+            return None;
+        }
+        let last = b[b.len() - 1];
+        let unit = last.to_ascii_uppercase();
+        if unit != b'M' && unit != b'Y' {
+            return None;
+        }
+
+        // Parse integer prefix (no allocation).
+        let mut n: i32 = 0;
+        for &ch in &b[..b.len() - 1] {
+            if !ch.is_ascii_digit() {
+                return None;
+            }
+            n = n.saturating_mul(10).saturating_add((ch - b'0') as i32);
+        }
+        if n <= 0 {
+            return None;
+        }
+        Some(if unit == b'Y' { n.saturating_mul(12) } else { n })
+    }
+
     /// Market-standard calendar identifier for rates by currency.
     ///
     /// These identifiers must exist in `CalendarRegistry`.
@@ -219,17 +282,8 @@ impl CalibrationPricer {
         if let Some(tenor) = self.tenor_years {
             // Use .round() to avoid float precision issues (e.g., 0.25 * 12 = 2.9999...)
             let tenor_months = (tenor * 12.0).round() as i32;
-            let token = format!("{}M", tenor_months).to_ascii_uppercase();
-
-            // Tokenize on non-alphanumerics to avoid substring traps ("13M" contains "3M")
-            let normalized = index_name.to_ascii_uppercase();
-            let tokens: Vec<&str> = normalized
-                .split(|c: char| !c.is_ascii_alphanumeric())
-                .filter(|t| !t.is_empty())
-                .collect();
-
-            let matches_tenor =
-                tokens.contains(&token.as_str()) || (tenor_months == 12 && tokens.contains(&"1Y"));
+            // PERF: zero-allocation token scan (avoid uppercasing + Vec collection).
+            let matches_tenor = Self::has_tenor_token_months(index_name, tenor_months);
 
             if matches_tenor {
                 return self.forward_curve_id.clone();

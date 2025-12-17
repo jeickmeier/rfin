@@ -237,14 +237,29 @@ impl SequentialBootstrapper {
             // Validate result
             target.validate_knot(time, solved_value)?;
 
-            // Compute final residual and commit
-            let mut final_knots = knots.clone();
-            final_knots.push((time, solved_value));
-            let final_curve = target.build_curve_for_solver(&final_knots)?;
-            let residual_signed = target.calculate_residual(&final_curve, quote)?;
+            // Compute final residual and commit.
+            //
+            // PERF: avoid `knots.clone()` by temporarily pushing the candidate knot and popping
+            // on error. This keeps the hot loop allocation-free while preserving correctness.
+            knots.push((time, solved_value));
+            let final_curve = match target.build_curve_for_solver(&knots) {
+                Ok(c) => c,
+                Err(e) => {
+                    knots.pop();
+                    return Err(e);
+                }
+            };
+            let residual_signed = match target.calculate_residual(&final_curve, quote) {
+                Ok(r) => r,
+                Err(e) => {
+                    knots.pop();
+                    return Err(e);
+                }
+            };
             let residual_abs = residual_signed.abs();
 
             if !residual_signed.is_finite() || residual_abs >= RESIDUAL_PENALTY_ABS_MIN {
+                knots.pop();
                 return Err(finstack_core::Error::Calibration {
                     message: format!(
                         "Bootstrap converged to invalid/penalty residual at t={:.6}: residual={} (|.|={:.3e})",
@@ -254,6 +269,7 @@ impl SequentialBootstrapper {
                 });
             }
             if residual_abs > config.solver.tolerance() {
+                knots.pop();
                 return Err(finstack_core::Error::Calibration {
                     message: format!(
                         "Bootstrap failed to converge at t={:.6}: residual={} (|.|={:.3e}) exceeds tolerance={:.3e}",
@@ -263,7 +279,6 @@ impl SequentialBootstrapper {
                 });
             }
 
-            knots.push((time, solved_value));
             last_time = time;
 
             // Store residual

@@ -123,8 +123,8 @@ impl GlobalFitOptimizer {
                 return;
             }
 
-            // Zero out buffer
-            for r in resid.iter_mut() {
+            // Zero out only the used prefix (n_residuals); the solver may pass a larger scratch.
+            for r in resid.iter_mut().take(n_residuals) {
                 *r = 0.0;
             }
 
@@ -159,8 +159,8 @@ impl GlobalFitOptimizer {
                 return;
             }
 
-            for (i, r) in resid.iter_mut().enumerate().take(n_residuals) {
-                *r *= weight_scales[i];
+            for (r, w) in resid[..n_residuals].iter_mut().zip(weight_scales.iter()) {
+                *r *= *w;
             }
         };
 
@@ -168,7 +168,6 @@ impl GlobalFitOptimizer {
         #[allow(clippy::type_complexity)]
         struct TargetDerivatives<'a, T: GlobalSolveTarget> {
             target: &'a T,
-            curve_builder: Box<dyn Fn(&[f64]) -> Result<T::Curve> + 'a>,
             active_quotes: &'a [T::Quote],
             weight_scales: &'a [f64],
             times: &'a [f64],
@@ -186,13 +185,14 @@ impl GlobalFitOptimizer {
             }
 
             fn jacobian(&self, params: &[f64], jacobian: &mut [Vec<f64>]) -> Option<()> {
-                // 1. Build curve (needed for consistent state check, though optimized jacobian might skip it)
-                // Actually, if we use Optimized FD inside target.jacobian, we might need a scratch curve.
-                // The target.jacobian implementation is responsible for building curves if needed.
-                // But let's build it to match previous logic and validation.
-                if (self.curve_builder)(params).is_err() {
+                // Optional feasibility check: avoid producing a Jacobian for infeasible params.
+                if self
+                    .target
+                    .build_curve_for_solver_from_params(self.times, params)
+                    .is_err()
+                {
                     return None;
-                };
+                }
 
                 // 2. Compute Jacobian
                 if self
@@ -220,10 +220,8 @@ impl GlobalFitOptimizer {
 
         // Solve
         let solution = if use_analytical {
-            let curve_builder = |p: &[f64]| target.build_curve_for_solver_from_params(&times, p);
             let derivatives = TargetDerivatives {
                 target,
-                curve_builder: Box::new(curve_builder),
                 active_quotes: &active_quotes,
                 weight_scales: &weight_scales,
                 times: &times,
