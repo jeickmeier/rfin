@@ -4,14 +4,14 @@ Script to run all example notebooks and report their status.
 Uses nbclient to execute notebooks programmatically.
 """
 
+import os
+import re
 import sys
 import time
 from datetime import datetime
 from pathlib import Path
 from typing import Dict, List, Tuple
 
-import os
-import re
 import nbformat
 from nbclient import NotebookClient
 from nbclient.exceptions import CellExecutionError

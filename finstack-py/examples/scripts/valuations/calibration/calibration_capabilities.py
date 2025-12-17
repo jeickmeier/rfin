@@ -2,8 +2,6 @@
 
 from __future__ import annotations
 
-# pyright: reportMissingImports=false
-
 import math
 from datetime import date, timedelta
 from typing import Dict, List, Optional, Sequence, Tuple
@@ -14,8 +12,12 @@ from finstack.core.market_data.surfaces import VolSurface as MarketVolSurface
 from finstack.core.market_data.term_structures import BaseCorrelationCurve, CreditIndexData
 from finstack.valuations import calibration as cal
 
+# pyright: reportMissingImports=false
+
+
 RatesPoint = Tuple[str, Dict[str, object]]
 SwaptionPoint = Tuple[date, date, float]
+
 
 def _freq_to_tenor(freq: Frequency) -> str:
     """Convert Frequency enum (used throughout the examples) into a Tenor string (e.g. '3M')."""
