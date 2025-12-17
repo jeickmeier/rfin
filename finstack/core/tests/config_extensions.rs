@@ -118,4 +118,3 @@ fn tolerance_config_partial_deserialize_uses_defaults() {
     assert_eq!(tol.rate_epsilon, 1e-14);
     assert_eq!(tol.generic_epsilon, 1e-10); // default
 }
-

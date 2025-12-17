@@ -12,9 +12,8 @@ use finstack_core::config::FinstackConfig;
 pub const SENSITIVITIES_CONFIG_KEY_V1: &str = "valuations.sensitivities.v1";
 
 /// Standard risk bucket grid in years used for IR DV01 and credit CS01.
-pub const STANDARD_BUCKETS_YEARS: [f64; 11] = [
-    0.25, 0.5, 1.0, 2.0, 3.0, 5.0, 7.0, 10.0, 15.0, 20.0, 30.0,
-];
+pub const STANDARD_BUCKETS_YEARS: [f64; 11] =
+    [0.25, 0.5, 1.0, 2.0, 3.0, 5.0, 7.0, 10.0, 15.0, 20.0, 30.0];
 
 /// Resolved (fully-populated) sensitivities configuration.
 #[derive(Clone, Debug, PartialEq)]
@@ -100,7 +99,9 @@ fn ensure_bucket_grid(name: &str, buckets: &[f64]) -> finstack_core::Result<()> 
 /// If the extension section `valuations.sensitivities.v1` is present, its fields override
 /// the defaults; otherwise defaults are used.
 #[cfg(feature = "serde")]
-pub fn from_finstack_config_or_default(cfg: &FinstackConfig) -> finstack_core::Result<SensitivitiesConfig> {
+pub fn from_finstack_config_or_default(
+    cfg: &FinstackConfig,
+) -> finstack_core::Result<SensitivitiesConfig> {
     let mut base = SensitivitiesConfig::default();
 
     if let Some(raw) = cfg.extensions.get(SENSITIVITIES_CONFIG_KEY_V1) {
@@ -144,8 +145,8 @@ pub fn from_finstack_config_or_default(cfg: &FinstackConfig) -> finstack_core::R
 
 /// Resolve sensitivities defaults without requiring the `serde` feature.
 #[cfg(not(feature = "serde"))]
-pub fn from_finstack_config_or_default(_cfg: &FinstackConfig) -> finstack_core::Result<SensitivitiesConfig> {
+pub fn from_finstack_config_or_default(
+    _cfg: &FinstackConfig,
+) -> finstack_core::Result<SensitivitiesConfig> {
     Ok(SensitivitiesConfig::default())
 }
-
-

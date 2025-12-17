@@ -14,14 +14,12 @@ fn bench_df_bootstrap(c: &mut Criterion) {
         RatesQuote::Deposit {
             maturity: base_date + time::Duration::days(30),
             rate: 0.045,
-            conventions: InstrumentConventions::default()
-                .with_day_count(DayCount::Act360),
+            conventions: InstrumentConventions::default().with_day_count(DayCount::Act360),
         },
         RatesQuote::Deposit {
             maturity: base_date + time::Duration::days(90),
             rate: 0.046,
-            conventions: InstrumentConventions::default()
-                .with_day_count(DayCount::Act360),
+            conventions: InstrumentConventions::default().with_day_count(DayCount::Act360),
         },
         RatesQuote::Swap {
             maturity: base_date + time::Duration::days(365),

@@ -21,7 +21,7 @@ fn test_v2_simple_usd_calibration() {
 
     // 1. Create Quotes
     let mut quotes = Vec::new();
-    
+
     // Deposit (Discount)
     quotes.push(MarketQuote::Rates(RatesQuote::Deposit {
         maturity: base_date + time::Duration::days(1), // Overnight
@@ -123,20 +123,27 @@ fn test_v2_simple_usd_calibration() {
 
     // Forward rate checks might need adjustment if rate changes due to different date
     // But since market data is synthetic/flat-ish, it should be robust.
-    
+
     // 4. Verify
     assert!(result.result.report.success);
-    
-    let context = MarketContext::try_from(result.result.final_market).expect("Failed to restore context");
+
+    let context =
+        MarketContext::try_from(result.result.final_market).expect("Failed to restore context");
 
     // Check Discount Curve
-    let discount = context.get_discount("USD-OIS").expect("Discount curve missing");
+    let discount = context
+        .get_discount("USD-OIS")
+        .expect("Discount curve missing");
     let df_1y = discount.df(1.0);
     assert!(df_1y < 1.0 && df_1y > 0.9, "Reasonable DF");
 
     // Check Forward Curve
-    let forward = context.get_forward("USD-3M").expect("Forward curve missing");
+    let forward = context
+        .get_forward("USD-3M")
+        .expect("Forward curve missing");
     let fwd_0 = forward.rate(0.0);
-    assert!((fwd_0 - 0.0530).abs() < 1e-4, "Spot forward should match first FRA");
+    assert!(
+        (fwd_0 - 0.0530).abs() < 1e-4,
+        "Spot forward should match first FRA"
+    );
 }
-

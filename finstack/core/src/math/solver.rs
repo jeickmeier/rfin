@@ -307,9 +307,7 @@ impl NewtonSolver {
             }
 
             // Avoid division by zero with both absolute and relative guards
-            if fpx.abs() < self.min_derivative
-                && fpx.abs() < self.min_derivative_rel * fx.abs()
-            {
+            if fpx.abs() < self.min_derivative && fpx.abs() < self.min_derivative_rel * fx.abs() {
                 return Err(InputError::Invalid.into());
             }
 

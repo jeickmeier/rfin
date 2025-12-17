@@ -393,7 +393,9 @@ impl ConvexityParameters {
 ///
 /// Note: Prefer using [`ConvexityParameters::for_currency`] directly.
 #[inline]
-pub fn default_convexity_params(currency: finstack_core::currency::Currency) -> ConvexityParameters {
+pub fn default_convexity_params(
+    currency: finstack_core::currency::Currency,
+) -> ConvexityParameters {
     ConvexityParameters::for_currency(currency)
 }
 
@@ -542,4 +544,3 @@ mod tests {
         assert!((params.mean_reversion - 0.10).abs() < 1e-10);
     }
 }
-

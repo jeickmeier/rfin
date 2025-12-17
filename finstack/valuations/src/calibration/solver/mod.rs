@@ -11,5 +11,3 @@ pub use config::SolverConfig;
 
 pub(crate) use helpers::bracket_solve_1d_with_diagnostics;
 pub use helpers::{create_simple_solver, solve_1d, BracketDiagnostics, PENALTY};
-
-

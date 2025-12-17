@@ -36,15 +36,13 @@ fn test_jacobian_not_computed_by_default() {
             start: create_date(2025, Month::April, 15).unwrap(),
             end: create_date(2025, Month::July, 15).unwrap(),
             rate: 0.045,
-            conventions: InstrumentConventions::default()
-                .with_day_count(DayCount::Act360),
+            conventions: InstrumentConventions::default().with_day_count(DayCount::Act360),
         },
         RatesQuote::FRA {
             start: create_date(2025, Month::July, 15).unwrap(),
             end: create_date(2025, Month::October, 15).unwrap(),
             rate: 0.046,
-            conventions: InstrumentConventions::default()
-                .with_day_count(DayCount::Act360),
+            conventions: InstrumentConventions::default().with_day_count(DayCount::Act360),
         },
     ];
 
@@ -80,15 +78,13 @@ fn test_jacobian_computed_when_enabled() {
             start: create_date(2025, Month::April, 15).unwrap(),
             end: create_date(2025, Month::July, 15).unwrap(),
             rate: 0.045,
-            conventions: InstrumentConventions::default()
-                .with_day_count(DayCount::Act360),
+            conventions: InstrumentConventions::default().with_day_count(DayCount::Act360),
         },
         RatesQuote::FRA {
             start: create_date(2025, Month::July, 15).unwrap(),
             end: create_date(2025, Month::October, 15).unwrap(),
             rate: 0.046,
-            conventions: InstrumentConventions::default()
-                .with_day_count(DayCount::Act360),
+            conventions: InstrumentConventions::default().with_day_count(DayCount::Act360),
         },
     ];
 

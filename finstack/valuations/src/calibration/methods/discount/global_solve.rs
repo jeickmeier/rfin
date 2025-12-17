@@ -82,8 +82,11 @@ impl DiscountCurveCalibrator {
                 finstack_core::error::InputError::TooFewPoints,
             ))?
             .conventions();
-        let first_settle =
-            crate::calibration::pricing::conventions::resolve_common(&pricer, first_conv, self.currency);
+        let first_settle = crate::calibration::pricing::conventions::resolve_common(
+            &pricer,
+            first_conv,
+            self.currency,
+        );
         for q in sorted_quotes.iter().skip(1) {
             let s = crate::calibration::pricing::conventions::resolve_common(
                 &pricer,
@@ -419,17 +422,18 @@ impl DiscountCurveCalibrator {
             let temp_context = base_context_clone.clone().insert_discount(temp_curve);
 
             for (i, quote) in active_quotes_clone.iter().enumerate().take(n_residuals) {
-                resid[i] = match pricer_clone.price_instrument_strict(quote, currency, &temp_context) {
-                    Ok(v) => v,
-                    Err(e) => {
-                        if let Ok(mut err) = residual_error_clone.lock() {
-                            if err.is_none() {
-                                *err = Some(e);
+                resid[i] =
+                    match pricer_clone.price_instrument_strict(quote, currency, &temp_context) {
+                        Ok(v) => v,
+                        Err(e) => {
+                            if let Ok(mut err) = residual_error_clone.lock() {
+                                if err.is_none() {
+                                    *err = Some(e);
+                                }
                             }
+                            crate::calibration::PENALTY
                         }
-                        crate::calibration::PENALTY
-                    }
-                };
+                    };
             }
         };
 
@@ -551,7 +555,9 @@ impl DiscountCurveCalibrator {
         let final_context = base_context.clone().insert_discount(pricing_curve);
         for (idx, quote) in active_quotes.iter().enumerate() {
             let ctx = final_context.clone();
-            let residual = pricer.price_instrument_strict(quote, self.currency, &ctx)?.abs();
+            let residual = pricer
+                .price_instrument_strict(quote, self.currency, &ctx)?
+                .abs();
             residuals_map.insert(format!("GLOBAL-{:06}", idx), residual);
             residual_values.push(residual);
         }

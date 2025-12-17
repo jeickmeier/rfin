@@ -4,8 +4,8 @@ use crate::calibration::v2::domain::quotes::{MarketQuote, VolQuote};
 use crate::calibration::CalibrationReport;
 use crate::instruments::common::models::{SABRCalibrator, SABRModel, SABRParameters};
 use finstack_core::market_data::context::MarketContext;
-use finstack_core::market_data::surfaces::vol_surface::VolSurface;
 use finstack_core::market_data::scalars::MarketScalar;
+use finstack_core::market_data::surfaces::vol_surface::VolSurface;
 use finstack_core::Result;
 use ordered_float::OrderedFloat;
 use std::collections::BTreeMap;
@@ -44,13 +44,18 @@ impl VolSurfaceAdapter {
         config: &CalibrationConfig,
     ) -> Result<(VolSurface, CalibrationReport)> {
         // Filter quotes
-        let vol_quotes: Vec<&VolQuote> = quotes.iter().filter_map(|q| match q {
-            MarketQuote::Vol(vq) => Some(vq),
-            _ => None,
-        }).collect();
+        let vol_quotes: Vec<&VolQuote> = quotes
+            .iter()
+            .filter_map(|q| match q {
+                MarketQuote::Vol(vq) => Some(vq),
+                _ => None,
+            })
+            .collect();
 
         if vol_quotes.is_empty() {
-            return Err(finstack_core::Error::Input(finstack_core::error::InputError::TooFewPoints));
+            return Err(finstack_core::Error::Input(
+                finstack_core::error::InputError::TooFewPoints,
+            ));
         }
 
         // Group by expiry (year fraction)
@@ -77,9 +82,11 @@ impl VolSurfaceAdapter {
         let spot = if let Some(s) = params.spot_override {
             s
         } else {
-            let scalar = context.price(&params.underlying_id).map_err(|_| finstack_core::Error::Input(
-                finstack_core::error::InputError::NotFound { id: params.underlying_id.clone() }
-            ))?;
+            let scalar = context.price(&params.underlying_id).map_err(|_| {
+                finstack_core::Error::Input(finstack_core::error::InputError::NotFound {
+                    id: params.underlying_id.clone(),
+                })
+            })?;
             match scalar {
                 MarketScalar::Price(m) => m.amount(),
                 MarketScalar::Unitless(v) => *v,
@@ -87,9 +94,12 @@ impl VolSurfaceAdapter {
         };
 
         // Resolve discount curve
-        let disc_id = params.discount_curve_id.clone().ok_or(finstack_core::Error::Input(
-            finstack_core::error::InputError::Invalid // Should specify discount curve
-        ))?;
+        let disc_id = params
+            .discount_curve_id
+            .clone()
+            .ok_or(finstack_core::Error::Input(
+                finstack_core::error::InputError::Invalid, // Should specify discount curve
+            ))?;
         let discount = context.get_discount_ref(&disc_id)?;
 
         // Dividend yield
@@ -115,7 +125,8 @@ impl VolSurfaceAdapter {
             .with_tolerance(config.tolerance)
             .with_max_iterations(config.max_iterations);
 
-        let mut sabr_params_by_expiry: BTreeMap<OrderedFloat<f64>, SABRParameters> = BTreeMap::new();
+        let mut sabr_params_by_expiry: BTreeMap<OrderedFloat<f64>, SABRParameters> =
+            BTreeMap::new();
         let mut residuals = BTreeMap::new();
         let mut total_iterations = 0;
 
@@ -140,7 +151,7 @@ impl VolSurfaceAdapter {
             match sabr_calibrator.calibrate_auto_shift(f, &strikes, &vols, t, params.beta) {
                 Ok(p) => {
                     sabr_params_by_expiry.insert(*t_key, p.clone());
-                    
+
                     // Residuals
                     let model = SABRModel::new(p);
                     for (i, k) in strikes.iter().enumerate() {
@@ -167,7 +178,7 @@ impl VolSurfaceAdapter {
             // Simple nearest or linear. v1 has interpolation logic.
             // For brevity, using nearest valid calibration or linear if possible.
             // Let's implement simple linear interpolation of params.
-            
+
             let p = Self::interpolate_params(t, &sabr_params_by_expiry)?;
             let model = SABRModel::new(p);
 
@@ -183,7 +194,7 @@ impl VolSurfaceAdapter {
         }
 
         if failed {
-             return Err(finstack_core::Error::Calibration {
+            return Err(finstack_core::Error::Calibration {
                 message: "Failed to build vol surface grid".to_string(),
                 category: "vol_surface".to_string(),
             });
@@ -200,7 +211,7 @@ impl VolSurfaceAdapter {
             "vol_surface",
             residuals,
             total_iterations,
-            config.tolerance
+            config.tolerance,
         );
 
         Ok((surface, report))
@@ -208,7 +219,7 @@ impl VolSurfaceAdapter {
 
     fn interpolate_params(
         t: f64,
-        params: &BTreeMap<OrderedFloat<f64>, SABRParameters>
+        params: &BTreeMap<OrderedFloat<f64>, SABRParameters>,
     ) -> Result<SABRParameters> {
         if params.is_empty() {
             return Err(finstack_core::Error::Calibration {
@@ -216,7 +227,7 @@ impl VolSurfaceAdapter {
                 category: "vol_surface".to_string(),
             });
         }
-        
+
         // Find neighbors
         let mut before = None;
         let mut after = None;
@@ -242,12 +253,10 @@ impl VolSurfaceAdapter {
                     rho: p1.rho * (1.0 - w) + p2.rho * w,
                     shift: p1.shift, // assume constant or interpolate
                 })
-            },
+            }
             (Some((_, p)), _) => Ok(p.clone()),
             (_, Some((_, p))) => Ok(p.clone()),
             _ => unreachable!(),
         }
     }
 }
-
-

@@ -245,5 +245,3 @@ mod tests {
         assert!(diag.valid_eval_count < diag.eval_count);
     }
 }
-
-

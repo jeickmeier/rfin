@@ -31,8 +31,8 @@
 //! let residual = pricer.price_instrument(&quote, &context)?;
 //! ```
 
-use super::convexity::ConvexityParameters;
 use super::conventions as conv;
+use super::convexity::ConvexityParameters;
 use crate::calibration::quotes::{FutureSpecs, InstrumentConventions, RatesQuote};
 use crate::instruments::basis_swap::{BasisSwap, BasisSwapLeg};
 use crate::instruments::common::traits::Instrument;
@@ -242,7 +242,6 @@ impl CalibrationPricer {
             ))
         }
     }
-
 
     /// Create a pricer configured for forward curve calibration.
     ///
@@ -1069,7 +1068,15 @@ impl CalibrationPricer {
                 conventions,
             } => {
                 let day_count = conv::resolve_money_market(self, conventions, currency).day_count;
-                self.price_fra(*start, *end, *rate, day_count, conventions, currency, context)
+                self.price_fra(
+                    *start,
+                    *end,
+                    *rate,
+                    day_count,
+                    conventions,
+                    currency,
+                    context,
+                )
             }
 
             RatesQuote::Future {
@@ -1079,11 +1086,7 @@ impl CalibrationPricer {
                 conventions,
             } => self.price_future(*expiry, *price, specs, conventions, currency, context),
 
-            RatesQuote::Swap {
-                maturity,
-                rate,
-                ..
-            } => {
+            RatesQuote::Swap { maturity, rate, .. } => {
                 let resolved = conv::resolve_swap_conventions(self, quote, currency)?;
                 let is_ois = quote.is_ois_suitable();
                 self.price_swap(
@@ -1097,7 +1100,11 @@ impl CalibrationPricer {
                     is_ois,
                     match quote {
                         RatesQuote::Swap { conventions, .. } => conventions,
-                        _ => return Err(finstack_core::Error::Input(finstack_core::error::InputError::Invalid)),
+                        _ => {
+                            return Err(finstack_core::Error::Input(
+                                finstack_core::error::InputError::Invalid,
+                            ))
+                        }
                     },
                     currency,
                     context,
@@ -1158,7 +1165,9 @@ impl CalibrationPricer {
                     quote_rate: Some(*rate),
                     discount_curve_id: self.discount_curve_id.clone(),
                     attributes: Default::default(),
-                    spot_lag_days: if self.use_settlement_start && resolved.common.settlement_days != 0 {
+                    spot_lag_days: if self.use_settlement_start
+                        && resolved.common.settlement_days != 0
+                    {
                         Some(resolved.common.settlement_days)
                     } else {
                         None
@@ -1320,7 +1329,8 @@ impl CalibrationPricer {
                     start,
                     *maturity,
                     BasisSwapLeg {
-                        forward_curve_id: self.resolve_forward_curve_id(resolved.primary_index.as_str()),
+                        forward_curve_id: self
+                            .resolve_forward_curve_id(resolved.primary_index.as_str()),
                         frequency: resolved.primary_freq,
                         day_count: resolved.primary_dc,
                         bdc: common.bdc,
@@ -1329,7 +1339,8 @@ impl CalibrationPricer {
                         spread: *spread_bp / 10_000.0,
                     },
                     BasisSwapLeg {
-                        forward_curve_id: self.resolve_forward_curve_id(resolved.reference_index.as_str()),
+                        forward_curve_id: self
+                            .resolve_forward_curve_id(resolved.reference_index.as_str()),
                         frequency: resolved.reference_freq,
                         day_count: resolved.reference_dc,
                         bdc: common.bdc,
@@ -1393,15 +1404,18 @@ impl CalibrationPricer {
             } = quote
             {
                 // Get index names from conventions
-                let primary_index = primary_leg_conventions.index.as_ref()
-                    .ok_or_else(|| finstack_core::Error::Validation(
-                        "BasisSwap requires primary_leg_conventions.index".to_string()
-                    ))?;
-                let reference_index = reference_leg_conventions.index.as_ref()
-                    .ok_or_else(|| finstack_core::Error::Validation(
-                        "BasisSwap requires reference_leg_conventions.index".to_string()
-                    ))?;
-                
+                let primary_index = primary_leg_conventions.index.as_ref().ok_or_else(|| {
+                    finstack_core::Error::Validation(
+                        "BasisSwap requires primary_leg_conventions.index".to_string(),
+                    )
+                })?;
+                let reference_index =
+                    reference_leg_conventions.index.as_ref().ok_or_else(|| {
+                        finstack_core::Error::Validation(
+                            "BasisSwap requires reference_leg_conventions.index".to_string(),
+                        )
+                    })?;
+
                 // Use resolver for consistent curve ID derivation
                 let primary_fwd = self.resolve_forward_curve_id(primary_index.as_str());
                 let ref_fwd = self.resolve_forward_curve_id(reference_index.as_str());
@@ -1609,22 +1623,29 @@ mod tests {
         // USD defaults to T+2
         let usd_pricer = CalibrationPricer::new(base_date, "USD-OIS");
         assert_eq!(
-            conv::resolve_common(&usd_pricer, &InstrumentConventions::default(), Currency::USD)
-                .settlement_days,
+            conv::resolve_common(
+                &usd_pricer,
+                &InstrumentConventions::default(),
+                Currency::USD
+            )
+            .settlement_days,
             2
         );
 
         // GBP defaults to T+0
         let gbp_pricer = CalibrationPricer::new(base_date, "GBP-SONIA");
         assert_eq!(
-            conv::resolve_common(&gbp_pricer, &InstrumentConventions::default(), Currency::GBP)
-                .settlement_days,
+            conv::resolve_common(
+                &gbp_pricer,
+                &InstrumentConventions::default(),
+                Currency::GBP
+            )
+            .settlement_days,
             0
         );
 
         // Explicit override
-        let custom_pricer =
-            CalibrationPricer::new(base_date, "USD-OIS").with_settlement_days(1);
+        let custom_pricer = CalibrationPricer::new(base_date, "USD-OIS").with_settlement_days(1);
         assert_eq!(
             conv::resolve_common(
                 &custom_pricer,
@@ -1646,12 +1667,7 @@ mod tests {
         let base_date =
             Date::from_calendar_date(2024, time::Month::January, 15).expect("valid date");
 
-        let pricer = CalibrationPricer::for_forward_curve(
-            base_date,
-            "USD-3M-FWD",
-            "USD-OIS",
-            0.25,
-        );
+        let pricer = CalibrationPricer::for_forward_curve(base_date, "USD-3M-FWD", "USD-OIS", 0.25);
 
         // Forward mode should use base_date directly
         assert!(!pricer.use_settlement_start);
@@ -1671,12 +1687,7 @@ mod tests {
             Date::from_calendar_date(2024, time::Month::January, 15).expect("valid date");
 
         // 3M tenor (0.25 years)
-        let pricer = CalibrationPricer::for_forward_curve(
-            base_date,
-            "USD-3M-FWD",
-            "USD-OIS",
-            0.25,
-        );
+        let pricer = CalibrationPricer::for_forward_curve(base_date, "USD-3M-FWD", "USD-OIS", 0.25);
 
         // Should match indices ending with "3M" or containing "-3M"
         assert_eq!(
@@ -1712,8 +1723,7 @@ mod tests {
             RatesQuote::Deposit {
                 maturity,
                 rate: 0.04,
-                conventions: InstrumentConventions::default()
-                    .with_day_count(DayCount::Act360),
+                conventions: InstrumentConventions::default().with_day_count(DayCount::Act360),
             },
             RatesQuote::Swap {
                 maturity,
@@ -1760,14 +1770,12 @@ mod tests {
             RatesQuote::Deposit {
                 maturity,
                 rate: 0.04,
-                conventions: InstrumentConventions::default()
-                    .with_day_count(DayCount::Act360),
+                conventions: InstrumentConventions::default().with_day_count(DayCount::Act360),
             },
             RatesQuote::Deposit {
                 maturity,
                 rate: 0.041,
-                conventions: InstrumentConventions::default()
-                    .with_day_count(DayCount::Act360),
+                conventions: InstrumentConventions::default().with_day_count(DayCount::Act360),
             },
         ];
 
@@ -1829,10 +1837,8 @@ mod tests {
         );
 
         // Index "SOFR" does NOT contain "3M", but freq is quarterly (3M)
-        let freq_3m =
-            finstack_core::dates::Tenor::new(3, finstack_core::dates::TenorUnit::Months);
-        let freq_6m =
-            finstack_core::dates::Tenor::new(6, finstack_core::dates::TenorUnit::Months);
+        let freq_3m = finstack_core::dates::Tenor::new(3, finstack_core::dates::TenorUnit::Months);
+        let freq_6m = finstack_core::dates::Tenor::new(6, finstack_core::dates::TenorUnit::Months);
 
         // Should match via frequency even though index name doesn't have "3M"
         assert!(

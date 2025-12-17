@@ -21,4 +21,3 @@ pub enum MarketQuote {
     /// Inflation quotes
     Inflation(InflationQuote),
 }
-

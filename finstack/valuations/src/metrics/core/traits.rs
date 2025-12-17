@@ -10,8 +10,8 @@ use crate::metrics::MetricId;
 use finstack_core::prelude::*;
 use finstack_core::types::CurveId;
 
-use std::sync::Arc;
 use finstack_core::config::FinstackConfig;
+use std::sync::Arc;
 
 /// Core trait for metric calculators.
 ///

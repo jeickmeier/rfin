@@ -214,6 +214,10 @@ pub struct DiscountCurveSolveConfig {
     pub min_t_spot: f64,
     pub bootstrap_seed_global_solve: bool,
     pub allow_seed_fallback: bool,
+    /// Override final-curve monotonicity enforcement (None = policy-driven).
+    #[serde(default)]
+    #[cfg_attr(feature = "ts_export", ts(type = "boolean | null"))]
+    pub allow_non_monotonic_final: Option<bool>,
 }
 
 impl Default for DiscountCurveSolveConfig {
@@ -226,6 +230,7 @@ impl Default for DiscountCurveSolveConfig {
             min_t_spot: 1e-6,
             bootstrap_seed_global_solve: true,
             allow_seed_fallback: false,
+            allow_non_monotonic_final: None,
         }
     }
 }

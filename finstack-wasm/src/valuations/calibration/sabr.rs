@@ -101,7 +101,9 @@ impl JsSABRModelParams {
         if !(0.0..=1.0).contains(&beta) {
             return Err(JsValue::from_str("beta must be in [0, 1]"));
         }
-        Ok(Self::from_inner(SABRModelParamsData::new(alpha, nu, rho, beta)))
+        Ok(Self::from_inner(SABRModelParamsData::new(
+            alpha, nu, rho, beta,
+        )))
     }
 
     /// Create SABR parameters with equity market standard (beta=1.0).
@@ -164,7 +166,9 @@ impl JsSABRModelParams {
         if !(0.0..=1.0).contains(&beta) {
             return Err(JsValue::from_str("beta must be in [0, 1]"));
         }
-        Ok(Self::from_inner(SABRModelParamsData::new(alpha, nu, rho, beta)))
+        Ok(Self::from_inner(SABRModelParamsData::new(
+            alpha, nu, rho, beta,
+        )))
     }
 
     // Getters

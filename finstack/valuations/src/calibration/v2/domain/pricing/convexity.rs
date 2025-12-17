@@ -266,8 +266,8 @@ impl ConvexityParameters {
 
 /// Get default convexity parameters for a currency.
 #[inline]
-pub fn default_convexity_params(currency: finstack_core::currency::Currency) -> ConvexityParameters {
+pub fn default_convexity_params(
+    currency: finstack_core::currency::Currency,
+) -> ConvexityParameters {
     ConvexityParameters::for_currency(currency)
 }
-
-

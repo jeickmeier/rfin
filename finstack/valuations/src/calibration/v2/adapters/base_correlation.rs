@@ -4,7 +4,7 @@ use crate::calibration::v2::domain::quotes::CreditQuote;
 use crate::calibration::v2::domain::solver::BootstrapTarget;
 use crate::instruments::cds_tranche::pricer::CDSTranchePricer;
 use crate::instruments::cds_tranche::{CdsTranche, TrancheSide};
-use finstack_core::dates::{Date, DayCount, Tenor, BusinessDayConvention};
+use finstack_core::dates::{BusinessDayConvention, Date, DayCount, Tenor};
 use finstack_core::market_data::context::MarketContext;
 use finstack_core::market_data::term_structures::{BaseCorrelationCurve, CreditIndexData};
 use finstack_core::money::Money;
@@ -61,7 +61,7 @@ impl BaseCorrelationBootstrapper {
     pub fn instruments(&self) -> &[CreditQuote] {
         &self.quotes
     }
-    
+
     fn create_synthetic_tranche(
         &self,
         attach_pct: f64,
@@ -69,20 +69,25 @@ impl BaseCorrelationBootstrapper {
         maturity: Date,
         running_spread_bp: f64,
     ) -> Result<CdsTranche> {
-         CdsTranche::builder()
+        CdsTranche::builder()
             .id("CALIB_TRANCHE".into())
             .index_name(self.params.index_id.clone())
             .series(self.params.series)
             .attach_pct(attach_pct)
             .detach_pct(detach_pct)
-            .notional(Money::new(10_000_000.0, finstack_core::currency::Currency::USD)) // TODO: Infer currency
+            .notional(Money::new(
+                10_000_000.0,
+                finstack_core::currency::Currency::USD,
+            )) // TODO: Infer currency
             .maturity(maturity)
             .running_coupon_bp(running_spread_bp)
             .payment_frequency(Tenor::quarterly())
             .day_count(DayCount::Act360)
             .business_day_convention(BusinessDayConvention::Following)
             .discount_curve_id(self.params.discount_curve_id.clone())
-            .credit_index_id(finstack_core::types::CurveId::new(self.params.index_id.clone()))
+            .credit_index_id(finstack_core::types::CurveId::new(
+                self.params.index_id.clone(),
+            ))
             .side(TrancheSide::SellProtection)
             .build()
             .map_err(|e| finstack_core::Error::Validation(e.to_string()))
@@ -96,7 +101,9 @@ impl BootstrapTarget for BaseCorrelationBootstrapper {
     fn quote_time(&self, quote: &Self::Quote) -> Result<f64> {
         match quote {
             CreditQuote::CDSTranche { detachment, .. } => Ok(*detachment),
-            _ => Err(finstack_core::Error::Input(finstack_core::error::InputError::Invalid)),
+            _ => Err(finstack_core::Error::Input(
+                finstack_core::error::InputError::Invalid,
+            )),
         }
     }
 
@@ -104,7 +111,7 @@ impl BootstrapTarget for BaseCorrelationBootstrapper {
         // knots are (detachment, correlation)
         let sorted_knots = knots.to_vec();
         // Assuming knots are sorted by bootstrapper
-        
+
         BaseCorrelationCurve::builder(format!("{}_CORR", self.params.index_id))
             .knots(sorted_knots)
             .build()
@@ -120,13 +127,22 @@ impl BootstrapTarget for BaseCorrelationBootstrapper {
                 upfront_pct,
                 running_spread_bp,
                 ..
-            } if index == &self.params.index_id => {
-                (*attachment, *detachment, *maturity, *upfront_pct, *running_spread_bp)
+            } if index == &self.params.index_id => (
+                *attachment,
+                *detachment,
+                *maturity,
+                *upfront_pct,
+                *running_spread_bp,
+            ),
+            _ => {
+                return Err(finstack_core::Error::Input(
+                    finstack_core::error::InputError::Invalid,
+                ))
             }
-            _ => return Err(finstack_core::Error::Input(finstack_core::error::InputError::Invalid)),
         };
 
-        let synthetic_tranche = self.create_synthetic_tranche(attach_pct, detach_pct, maturity, running_spread_bp)?;
+        let synthetic_tranche =
+            self.create_synthetic_tranche(attach_pct, detach_pct, maturity, running_spread_bp)?;
         let target_upfront = upfront_pct / 100.0 * synthetic_tranche.notional.amount();
 
         let pricing_model = CDSTranchePricer::new();
@@ -137,10 +153,15 @@ impl BootstrapTarget for BaseCorrelationBootstrapper {
             base_correlation_curve: Arc::new(curve.clone()),
             ..original_index_data.clone()
         };
-        
-        let temp_context = self.base_context.clone().insert_credit_index(&self.params.index_id, updated_index_data);
 
-        let pv = pricing_model.price_tranche(&synthetic_tranche, &temp_context, self.params.base_date)?.amount();
+        let temp_context = self
+            .base_context
+            .clone()
+            .insert_credit_index(&self.params.index_id, updated_index_data);
+
+        let pv = pricing_model
+            .price_tranche(&synthetic_tranche, &temp_context, self.params.base_date)?
+            .amount();
         Ok(pv - target_upfront)
     }
 

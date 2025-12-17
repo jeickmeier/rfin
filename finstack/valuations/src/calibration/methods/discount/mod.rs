@@ -395,7 +395,7 @@ impl DiscountCurveCalibrator {
         // Use log-spacing for wide ranges, but handle edge cases
         // If df_lo is very small (< 1e-6), use hybrid approach
         let use_log_spacing = df_lo > 1e-6 && df_hi / df_lo > 10.0;
-        
+
         if use_log_spacing {
             // Log-spaced points across the full range (stable for wide DF ranges)
             let log_lo = df_lo.ln();
@@ -484,9 +484,7 @@ impl Calibrator<RatesQuote, DiscountCurve> for DiscountCurveCalibrator {
         // validation and ensures consistent behavior across all calibration paths.
 
         match self.config.calibration_method {
-            CalibrationMethod::Bootstrap => {
-                self.bootstrap_curve(instruments, base_context)
-            }
+            CalibrationMethod::Bootstrap => self.bootstrap_curve(instruments, base_context),
             CalibrationMethod::GlobalSolve { .. } => {
                 self.calibrate_global(instruments, base_context)
             }

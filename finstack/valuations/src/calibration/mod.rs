@@ -57,8 +57,6 @@
 
 // Submodules
 pub mod bumps;
-/// Version 2 of the calibration API with plan-driven execution.
-pub mod v2;
 mod config;
 pub mod methods;
 pub mod pricing;
@@ -67,6 +65,8 @@ mod report;
 mod solver;
 pub mod spec;
 mod traits;
+/// Version 2 of the calibration API with plan-driven execution.
+pub mod v2;
 mod validation;
 
 // Re-exports: Configuration
@@ -92,7 +92,7 @@ pub use pricing::{CalibrationPricer, ConvexityParameters, RatesQuoteUseCase};
 // Re-exports: Reports and specs
 pub use report::CalibrationReport;
 pub(crate) use solver::bracket_solve_1d_with_diagnostics;
-pub use solver::{create_simple_solver, solve_1d, BracketDiagnostics, PENALTY, SolverConfig};
+pub use solver::{create_simple_solver, solve_1d, BracketDiagnostics, SolverConfig, PENALTY};
 pub use spec::{
     CalibrationEnvelope, CalibrationResult, CalibrationResultEnvelope, CalibrationSpec,
     CalibrationStep, CALIBRATION_SCHEMA_V1,

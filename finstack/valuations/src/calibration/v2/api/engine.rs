@@ -33,9 +33,9 @@ pub fn execute(envelope: &CalibrationEnvelopeV2) -> Result<CalibrationResultEnve
         })?;
 
         let (new_context, report) = execute_step(&step.params, quotes, &context, &plan.settings)?;
-        
+
         context = new_context;
-        
+
         // Aggregate report
         for (k, v) in &report.residuals {
             aggregated_residuals.insert(format!("{}:{}", step.id, k), *v);
@@ -54,7 +54,10 @@ pub fn execute(envelope: &CalibrationEnvelopeV2) -> Result<CalibrationResultEnve
             m.insert("method".to_string(), "plan_execution".to_string());
             m
         },
-        max_residual: aggregated_residuals.values().cloned().fold(0.0_f64, f64::max),
+        max_residual: aggregated_residuals
+            .values()
+            .cloned()
+            .fold(0.0_f64, f64::max),
         iterations: total_iterations,
         residuals: aggregated_residuals,
         explanation: None, // Could merge traces if needed

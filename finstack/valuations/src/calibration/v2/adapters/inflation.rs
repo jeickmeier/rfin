@@ -82,7 +82,10 @@ impl BootstrapTarget for InflationBootstrapper {
         if !full_knots.iter().any(|(t, _)| t.abs() < 1e-8) {
             full_knots.insert(0, (0.0, self.params.base_cpi));
         }
-        full_knots.sort_by(|a, b| a.0.partial_cmp(&b.0).expect("Time values should be comparable"));
+        full_knots.sort_by(|a, b| {
+            a.0.partial_cmp(&b.0)
+                .expect("Time values should be comparable")
+        });
 
         InflationCurve::builder(self.params.curve_id.to_string())
             .base_cpi(self.params.base_cpi)
@@ -93,12 +96,21 @@ impl BootstrapTarget for InflationBootstrapper {
 
     fn calculate_residual(&self, curve: &Self::Curve, quote: &Self::Quote) -> Result<f64> {
         let (maturity, rate, index_name) = match quote {
-            InflationQuote::InflationSwap { maturity, rate, index, .. } => (*maturity, *rate, index),
-            _ => return Err(finstack_core::Error::Input(finstack_core::error::InputError::Invalid)),
+            InflationQuote::InflationSwap {
+                maturity,
+                rate,
+                index,
+                ..
+            } => (*maturity, *rate, index),
+            _ => {
+                return Err(finstack_core::Error::Input(
+                    finstack_core::error::InputError::Invalid,
+                ))
+            }
         };
 
         if index_name != &self.params.index {
-             return Err(finstack_core::Error::Validation(format!(
+            return Err(finstack_core::Error::Validation(format!(
                 "Quote index {} does not match calibrator index {}",
                 index_name, self.params.index
             )));
@@ -113,14 +125,14 @@ impl BootstrapTarget for InflationBootstrapper {
             .fixed_rate(rate)
             .inflation_index_id(self.params.index.clone().into())
             .discount_curve_id(self.params.discount_curve_id.clone())
-            .dc(DayCount::ActAct) 
+            .dc(DayCount::ActAct)
             .side(PayReceiveInflation::PayFixed)
             .build()
             .map_err(|e| finstack_core::Error::Validation(e.to_string()))?;
 
         // Context needs the curve being calibrated + discount curve
         let temp_context = self.base_context.clone().insert_inflation(curve.clone());
-        
+
         let pv = swap.value(&temp_context, base_date)?.amount();
         Ok(pv / swap.notional.amount())
     }

@@ -31,8 +31,10 @@ pub trait BootstrapTarget {
 
     /// Calculate the pricing residual for a quote given the curve.
     ///
-    /// Residual = Model Price - Market Price (or Rate).
-    /// Result should be 0.0 when perfectly calibrated.
+    /// Residuals may be expressed as model-minus-market price deltas **or**
+    /// normalized PV per unit notional (e.g., PV of a par instrument). The solver
+    /// only requires a signed scalar that crosses zero at the solution, so choose
+    /// a consistent unit across all quotes for meaningful tolerances.
     fn calculate_residual(&self, curve: &Self::Curve, quote: &Self::Quote) -> Result<f64>;
 
     /// Provide an initial guess for the solver for the next knot.
@@ -66,15 +68,13 @@ pub trait GlobalSolveTarget {
     ) -> Result<TimeGridAndGuesses<Self::Quote>>;
 
     /// Build a curve from parameters (e.g., zero rates).
-    fn build_curve_from_params(
-        &self,
-        times: &[f64],
-        params: &[f64],
-    ) -> Result<Self::Curve>;
+    fn build_curve_from_params(&self, times: &[f64], params: &[f64]) -> Result<Self::Curve>;
 
     /// Calculate residuals for all quotes given the curve.
     ///
-    /// Populates the `residuals` slice.
+    /// Residual units should match the `calculate_residual` contract (price delta
+    /// or normalized PV) so that tolerance/reporting can be interpreted
+    /// consistently across instruments. Populates the `residuals` slice.
     fn calculate_residuals(
         &self,
         curve: &Self::Curve,
@@ -82,4 +82,3 @@ pub trait GlobalSolveTarget {
         residuals: &mut [f64],
     ) -> Result<()>;
 }
-

@@ -19,6 +19,7 @@ mod test_calibration_repricing;
 mod test_calibration_serialization;
 mod test_curve_monotonicity;
 mod test_discount_curve_calibration;
+mod test_discount_curve_time_axis;
 mod test_explainability;
 mod test_forward_parity;
 mod test_hazard_curve_calibration;

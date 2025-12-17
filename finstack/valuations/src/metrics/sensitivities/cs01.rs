@@ -70,7 +70,8 @@ where
     // we introduce a large "base effect" when the in-context hazard curve was not itself
     // calibrated from the stored par points.
     let base_pv = if discount_id.is_some() && hazard.par_spread_points().next().is_some() {
-        let base_recal = bump_hazard_spreads(hazard, base_ctx, &BumpRequest::Parallel(0.0), discount_id)?;
+        let base_recal =
+            bump_hazard_spreads(hazard, base_ctx, &BumpRequest::Parallel(0.0), discount_id)?;
         let base_ctx_recal = base_ctx.clone().insert_hazard(base_recal);
         revalue_with_context(&base_ctx_recal)?
     } else {
@@ -117,7 +118,8 @@ where
     // Same "base effect" guard as parallel CS01: if we're bumping par spreads and
     // re-bootstrapping, the base PV should be computed under the unbumped re-calibrated curve.
     let base_pv = if discount_id.is_some() && hazard.par_spread_points().next().is_some() {
-        let base_recal = bump_hazard_spreads(hazard, base_ctx, &BumpRequest::Parallel(0.0), discount_id)?;
+        let base_recal =
+            bump_hazard_spreads(hazard, base_ctx, &BumpRequest::Parallel(0.0), discount_id)?;
         let base_ctx_recal = base_ctx.clone().insert_hazard(base_recal);
         revalue_with_context(&base_ctx_recal)?
     } else {
@@ -183,7 +185,6 @@ fn format_credit_bucket_label(years: f64) -> String {
     }
 }
 
-
 // ===== Generic Calculators =====
 
 use crate::instruments::common::pricing::HasDiscountCurve;
@@ -240,13 +241,7 @@ where
             inst_arc.value(temp_ctx, as_of)
         };
 
-        compute_parallel_cs01_with_context(
-            context,
-            &hazard_id,
-            Some(&discount_id),
-            bump_bp,
-            reval,
-        )
+        compute_parallel_cs01_with_context(context, &hazard_id, Some(&discount_id), bump_bp, reval)
     }
 }
 

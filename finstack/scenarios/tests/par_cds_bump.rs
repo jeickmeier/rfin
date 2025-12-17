@@ -12,14 +12,14 @@ use time::Month;
 fn test_par_cds_bump_integration() {
     // Setup market with hazard curve and discount curve
     let base_date = Date::from_calendar_date(2025, Month::January, 1).unwrap();
-    
+
     // Create discount curve (needed for recalibration)
     let discount = DiscountCurve::builder("USD-OIS")
         .base_date(base_date)
         .knots(vec![(0.0, 1.0), (1.0, 0.95), (5.0, 0.80), (10.0, 0.60)])
         .build()
         .unwrap();
-    
+
     // Create hazard curve with par spreads (needed for recalibration path)
     // Par spread ≈ hazard_rate * 10000 * (1 - recovery)
     // For 1Y: 0.01 * 10000 * 0.6 = 60 bp
@@ -74,10 +74,7 @@ fn test_par_cds_bump_integration() {
 
     // With recalibration, the relationship is more complex than a simple shift
     // The key is that the hazard rate should increase when the par spread is bumped up
-    println!(
-        "Original: {}, Bumped: {}",
-        original_lambda, l_5y
-    );
+    println!("Original: {}, Bumped: {}", original_lambda, l_5y);
     assert!(
         l_5y > original_lambda,
         "Hazard rate should increase from Par CDS spread bump: original {}, got {}",

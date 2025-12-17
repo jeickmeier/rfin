@@ -205,9 +205,12 @@ impl InstrumentConventions {
     #[inline]
     pub fn default_money_market_day_count(currency: Currency) -> DayCount {
         match currency {
-            Currency::GBP | Currency::JPY | Currency::AUD | Currency::NZD | Currency::HKD | Currency::SGD => {
-                DayCount::Act365F
-            }
+            Currency::GBP
+            | Currency::JPY
+            | Currency::AUD
+            | Currency::NZD
+            | Currency::HKD
+            | Currency::SGD => DayCount::Act365F,
             _ => DayCount::Act360,
         }
     }
@@ -271,7 +274,11 @@ impl InstrumentConventions {
 
     /// Get effective payment frequency, using provided value or currency default.
     #[inline]
-    pub fn effective_payment_frequency_or_default(&self, currency: Currency, is_fixed: bool) -> Tenor {
+    pub fn effective_payment_frequency_or_default(
+        &self,
+        currency: Currency,
+        is_fixed: bool,
+    ) -> Tenor {
         self.payment_frequency.unwrap_or_else(|| {
             if is_fixed {
                 Self::default_fixed_leg_frequency(currency)
@@ -283,7 +290,11 @@ impl InstrumentConventions {
 
     /// Get effective day count for a swap leg, using provided value or currency default.
     #[inline]
-    pub fn effective_swap_day_count_or_default(&self, currency: Currency, is_fixed: bool) -> DayCount {
+    pub fn effective_swap_day_count_or_default(
+        &self,
+        currency: Currency,
+        is_fixed: bool,
+    ) -> DayCount {
         self.day_count.unwrap_or_else(|| {
             if is_fixed {
                 Self::default_fixed_leg_day_count(currency)
@@ -310,5 +321,3 @@ impl InstrumentConventions {
         self.reset_lag.unwrap_or(-2)
     }
 }
-
-

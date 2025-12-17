@@ -21,10 +21,10 @@ pub const CALIBRATION_SCHEMA_V2: &str = "finstack.calibration/2";
 pub struct CalibrationEnvelopeV2 {
     /// Schema version identifier (must be "finstack.calibration/2").
     pub schema: String,
-    
+
     /// The calibration plan defining steps and quotes.
     pub plan: CalibrationPlanV2,
-    
+
     /// Optional initial market state (curves, surfaces, scalars).
     /// If not provided, starts with an empty context.
     #[serde(default)]
@@ -37,18 +37,18 @@ pub struct CalibrationEnvelopeV2 {
 pub struct CalibrationPlanV2 {
     /// Unique identifier for this plan.
     pub id: String,
-    
+
     /// Optional description.
     #[serde(default)]
     pub description: Option<String>,
-    
+
     /// Named sets of market quotes.
     /// Steps reference these sets by name.
     pub quote_sets: HashMap<String, Vec<MarketQuote>>,
-    
+
     /// Ordered list of calibration steps.
     pub steps: Vec<CalibrationStepV2>,
-    
+
     /// Global calibration configuration (tolerances, bounds).
     #[serde(default)]
     pub settings: CalibrationConfig,
@@ -60,10 +60,10 @@ pub struct CalibrationPlanV2 {
 pub struct CalibrationStepV2 {
     /// Unique identifier for this step.
     pub id: String,
-    
+
     /// Name of the quote set to use from `plan.quote_sets`.
     pub quote_set: String,
-    
+
     /// Step parameters defining the target and methodology.
     #[serde(flatten)]
     pub params: StepParams,
@@ -75,19 +75,19 @@ pub struct CalibrationStepV2 {
 pub enum StepParams {
     /// Discount curve calibration.
     Discount(DiscountCurveParams),
-    
+
     /// Forward curve calibration.
     Forward(ForwardCurveParams),
-    
+
     /// Hazard curve calibration.
     Hazard(HazardCurveParams),
-    
+
     /// Inflation curve calibration.
     Inflation(InflationCurveParams),
-    
+
     /// Volatility surface calibration.
     VolSurface(VolSurfaceParams),
-    
+
     /// Swaption volatility surface calibration.
     SwaptionVol(SwaptionVolParams),
 

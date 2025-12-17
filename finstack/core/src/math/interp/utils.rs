@@ -59,11 +59,7 @@ pub fn locate_segment(xs: &[f64], x: f64) -> Result<usize, Error> {
     if xs.is_empty() {
         return Err(InputError::TooFewPoints.into());
     }
-    if x < xs[0]
-        || x > *xs
-            .last()
-            .expect("xs should not be empty (checked above)")
-    {
+    if x < xs[0] || x > *xs.last().expect("xs should not be empty (checked above)") {
         return Err(Error::InterpOutOfBounds);
     }
     let idx = xs.partition_point(|k| *k < x);

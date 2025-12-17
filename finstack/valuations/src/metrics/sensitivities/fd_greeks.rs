@@ -9,9 +9,7 @@
 use std::marker::PhantomData;
 
 use crate::instruments::common::traits::{EquityDependencies, Instrument};
-use crate::metrics::core::finite_difference::{
-    central_mixed,
-};
+use crate::metrics::core::finite_difference::central_mixed;
 use crate::metrics::sensitivities::config as sens_config;
 use crate::metrics::{bump_scalar_price, scale_surface};
 use crate::metrics::{MetricCalculator, MetricContext};

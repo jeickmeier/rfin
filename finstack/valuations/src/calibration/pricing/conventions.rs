@@ -92,38 +92,51 @@ pub(crate) fn resolve_common<'a>(
 }
 
 fn require_i32(field: Option<i32>, name: &'static str) -> Result<i32> {
-    field.ok_or_else(|| finstack_core::Error::Validation(format!(
-        "Instrument conventions require '{}' to be set",
-        name
-    )))
+    field.ok_or_else(|| {
+        finstack_core::Error::Validation(format!(
+            "Instrument conventions require '{}' to be set",
+            name
+        ))
+    })
 }
 
 fn require_str<'a>(field: Option<&'a str>, name: &'static str) -> Result<&'a str> {
-    field.ok_or_else(|| finstack_core::Error::Validation(format!(
-        "Instrument conventions require '{}' to be set",
-        name
-    )))
+    field.ok_or_else(|| {
+        finstack_core::Error::Validation(format!(
+            "Instrument conventions require '{}' to be set",
+            name
+        ))
+    })
 }
 
-fn require_bdc(field: Option<BusinessDayConvention>, name: &'static str) -> Result<BusinessDayConvention> {
-    field.ok_or_else(|| finstack_core::Error::Validation(format!(
-        "Instrument conventions require '{}' to be set",
-        name
-    )))
+fn require_bdc(
+    field: Option<BusinessDayConvention>,
+    name: &'static str,
+) -> Result<BusinessDayConvention> {
+    field.ok_or_else(|| {
+        finstack_core::Error::Validation(format!(
+            "Instrument conventions require '{}' to be set",
+            name
+        ))
+    })
 }
 
 fn require_day_count(field: Option<DayCount>, name: &'static str) -> Result<DayCount> {
-    field.ok_or_else(|| finstack_core::Error::Validation(format!(
-        "Instrument conventions require '{}' to be set",
-        name
-    )))
+    field.ok_or_else(|| {
+        finstack_core::Error::Validation(format!(
+            "Instrument conventions require '{}' to be set",
+            name
+        ))
+    })
 }
 
 fn require_tenor(field: Option<Tenor>, name: &'static str) -> Result<Tenor> {
-    field.ok_or_else(|| finstack_core::Error::Validation(format!(
-        "Instrument conventions require '{}' to be set",
-        name
-    )))
+    field.ok_or_else(|| {
+        finstack_core::Error::Validation(format!(
+            "Instrument conventions require '{}' to be set",
+            name
+        ))
+    })
 }
 
 pub(crate) fn resolve_settlement_strict<'a>(
@@ -148,7 +161,8 @@ pub(crate) fn resolve_common_strict<'a>(
     _currency: Currency,
 ) -> Result<ResolvedCommon<'a>> {
     let settlement_days = require_i32(quote_conventions.settlement_days, "settlement_days")?;
-    let payment_delay_days = require_i32(quote_conventions.payment_delay_days, "payment_delay_days")?;
+    let payment_delay_days =
+        require_i32(quote_conventions.payment_delay_days, "payment_delay_days")?;
     let reset_lag_days = require_i32(quote_conventions.reset_lag, "reset_lag")?;
     let calendar_id = require_str(quote_conventions.calendar_id.as_deref(), "calendar_id")?;
     let bdc = require_bdc(
@@ -248,23 +262,28 @@ pub(crate) fn resolve_basis_swap_conventions<'a>(
             })?;
             let reference_index = reference_leg_conventions.index.as_ref().ok_or_else(|| {
                 finstack_core::Error::Validation(
-                    "BasisSwap quote requires reference_leg_conventions.index to be set".to_string(),
+                    "BasisSwap quote requires reference_leg_conventions.index to be set"
+                        .to_string(),
                 )
             })?;
 
             let primary_freq = primary_leg_conventions
                 .payment_frequency
-                .unwrap_or_else(|| InstrumentConventions::default_float_leg_frequency(basis_currency));
+                .unwrap_or_else(|| {
+                    InstrumentConventions::default_float_leg_frequency(basis_currency)
+                });
             let reference_freq = reference_leg_conventions
                 .payment_frequency
-                .unwrap_or_else(|| InstrumentConventions::default_float_leg_frequency(basis_currency));
+                .unwrap_or_else(|| {
+                    InstrumentConventions::default_float_leg_frequency(basis_currency)
+                });
 
-            let primary_dc = primary_leg_conventions
-                .day_count
-                .unwrap_or_else(|| InstrumentConventions::default_float_leg_day_count(basis_currency));
-            let reference_dc = reference_leg_conventions
-                .day_count
-                .unwrap_or_else(|| InstrumentConventions::default_float_leg_day_count(basis_currency));
+            let primary_dc = primary_leg_conventions.day_count.unwrap_or_else(|| {
+                InstrumentConventions::default_float_leg_day_count(basis_currency)
+            });
+            let reference_dc = reference_leg_conventions.day_count.unwrap_or_else(|| {
+                InstrumentConventions::default_float_leg_day_count(basis_currency)
+            });
 
             Ok(ResolvedBasisSwapConventions {
                 currency: basis_currency,
@@ -302,7 +321,8 @@ pub(crate) fn resolve_basis_swap_conventions_strict<'a>(
             })?;
             let reference_index = reference_leg_conventions.index.as_ref().ok_or_else(|| {
                 finstack_core::Error::Validation(
-                    "BasisSwap quote requires reference_leg_conventions.index to be set".to_string(),
+                    "BasisSwap quote requires reference_leg_conventions.index to be set"
+                        .to_string(),
                 )
             })?;
 
@@ -348,8 +368,7 @@ mod tests {
 
     #[test]
     fn settlement_days_precedence_quote_over_pricer_over_default() {
-        let base_date =
-            Date::from_calendar_date(2025, Month::January, 1).expect("valid test date");
+        let base_date = Date::from_calendar_date(2025, Month::January, 1).expect("valid test date");
 
         // GBP default is 0, set pricer to 1, quote to 2
         let pricer = CalibrationPricer::new(base_date, "GBP-OIS")
@@ -371,8 +390,7 @@ mod tests {
 
     #[test]
     fn calendar_precedence_quote_over_default() {
-        let base_date =
-            Date::from_calendar_date(2025, Month::January, 1).expect("valid test date");
+        let base_date = Date::from_calendar_date(2025, Month::January, 1).expect("valid test date");
         let pricer = CalibrationPricer::new(base_date, "USD-OIS");
 
         let quote_conv = InstrumentConventions::default().with_calendar_id("custom");
@@ -381,13 +399,15 @@ mod tests {
 
         let quote_conv_none = InstrumentConventions::default();
         let resolved2 = resolve_common(&pricer, &quote_conv_none, Currency::USD);
-        assert_eq!(resolved2.calendar_id, default_calendar_for_currency(Currency::USD));
+        assert_eq!(
+            resolved2.calendar_id,
+            default_calendar_for_currency(Currency::USD)
+        );
     }
 
     #[test]
     fn common_defaults_are_stable() {
-        let base_date =
-            Date::from_calendar_date(2025, Month::January, 1).expect("valid test date");
+        let base_date = Date::from_calendar_date(2025, Month::January, 1).expect("valid test date");
         let pricer = CalibrationPricer::new(base_date, "USD-OIS");
 
         let c = InstrumentConventions::default();
@@ -397,4 +417,3 @@ mod tests {
         assert_eq!(resolved.bdc, BusinessDayConvention::ModifiedFollowing);
     }
 }
-

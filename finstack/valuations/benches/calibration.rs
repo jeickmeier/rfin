@@ -18,11 +18,11 @@ use finstack_core::math::interp::InterpStyle;
 use finstack_valuations::calibration::methods::swaption_vol::{
     AtmStrikeConvention, SwaptionVolCalibrator, SwaptionVolConvention,
 };
-use finstack_valuations::calibration::quotes::InstrumentConventions;
 use finstack_valuations::calibration::methods::{
     BaseCorrelationCalibrator, DiscountCurveCalibrator, ForwardCurveCalibrator,
     HazardCurveCalibrator, InflationCurveCalibrator, VolSurfaceCalibrator,
 };
+use finstack_valuations::calibration::quotes::InstrumentConventions;
 use finstack_valuations::calibration::{
     CalibrationConfig, CalibrationSpec, CalibrationStep, Calibrator, CreditQuote, InflationQuote,
     RatesQuote, SolverKind, VolQuote, CALIBRATION_CONFIG_KEY_V1,
@@ -66,8 +66,7 @@ fn create_deposit_quotes(base_date: Date, num_deposits: usize) -> Vec<RatesQuote
         quotes.push(RatesQuote::Deposit {
             maturity,
             rate,
-            conventions: InstrumentConventions::default()
-                .with_day_count(DayCount::Act360),
+            conventions: InstrumentConventions::default().with_day_count(DayCount::Act360),
         });
     }
 
@@ -115,8 +114,7 @@ fn create_fra_quotes(base_date: Date, num_fras: usize) -> Vec<RatesQuote> {
             start,
             end,
             rate,
-            conventions: InstrumentConventions::default()
-                .with_day_count(DayCount::Act360),
+            conventions: InstrumentConventions::default().with_day_count(DayCount::Act360),
         });
     }
 

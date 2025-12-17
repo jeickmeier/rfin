@@ -3,6 +3,7 @@
 //! Maps API steps to domain logic execution.
 
 use crate::calibration::config::CalibrationConfig;
+use crate::calibration::methods::discount::default_curve_day_count;
 use crate::calibration::v2::adapters::base_correlation::BaseCorrelationBootstrapper;
 use crate::calibration::v2::adapters::discount::{DiscountCurveTarget, DiscountCurveTargetParams};
 use crate::calibration::v2::adapters::forward::{ForwardCurveTarget, ForwardCurveTargetParams};
@@ -39,7 +40,7 @@ pub fn execute_step(
                 .with_discount_curve_id(p.pricing_discount_id.clone().unwrap_or(p.curve_id.clone()))
                 .with_forward_curve_id(p.pricing_forward_id.clone().unwrap_or(p.curve_id.clone()));
 
-            let curve_dc = finstack_core::dates::DayCount::Act365F; 
+            let curve_dc = default_curve_day_count(p.currency);
             let settlement = pricer.settlement_date(p.currency)?;
 
             let target = DiscountCurveTarget::new(DiscountCurveTargetParams {
@@ -94,7 +95,7 @@ pub fn execute_step(
             )
             .with_market_conventions(p.currency);
 
-            let curve_dc = finstack_core::dates::DayCount::Act365F;
+            let curve_dc = default_curve_day_count(p.currency);
 
             let target = ForwardCurveTarget::new(ForwardCurveTargetParams {
                 base_date: p.base_date,
@@ -110,17 +111,17 @@ pub fn execute_step(
             });
 
             let (curve, report) = match p.method {
-                CalibrationMethod::Bootstrap => {
-                    SequentialBootstrapper::bootstrap(
-                        &target,
-                        &rates_quotes,
-                        Vec::new(),
-                        global_config,
-                        None,
-                    )?
-                }
+                CalibrationMethod::Bootstrap => SequentialBootstrapper::bootstrap(
+                    &target,
+                    &rates_quotes,
+                    Vec::new(),
+                    global_config,
+                    None,
+                )?,
                 CalibrationMethod::Global => {
-                    return Err(finstack_core::Error::Input(finstack_core::error::InputError::Invalid));
+                    return Err(finstack_core::Error::Input(
+                        finstack_core::error::InputError::Invalid,
+                    ));
                 }
             };
 
@@ -136,20 +137,27 @@ pub fn execute_step(
                 ));
             }
 
-            let target = HazardBootstrapper::new(p.clone(), credit_quotes, global_config.clone(), context.clone());
+            let target = HazardBootstrapper::new(
+                p.clone(),
+                credit_quotes,
+                global_config.clone(),
+                context.clone(),
+            );
 
             let (curve, report) = match p.method {
                 CalibrationMethod::Bootstrap => {
                     SequentialBootstrapper::bootstrap(
                         &target,
                         target.instruments(), // HazardBootstrapper holds the quotes but SequentialBootstrapper needs reference
-                        Vec::new(), 
+                        Vec::new(),
                         global_config,
                         None,
                     )?
                 }
                 CalibrationMethod::Global => {
-                    return Err(finstack_core::Error::Input(finstack_core::error::InputError::Invalid));
+                    return Err(finstack_core::Error::Input(
+                        finstack_core::error::InputError::Invalid,
+                    ));
                 }
             };
 
@@ -173,17 +181,17 @@ pub fn execute_step(
             );
 
             let (curve, report) = match p.method {
-                CalibrationMethod::Bootstrap => {
-                    SequentialBootstrapper::bootstrap(
-                        &target,
-                        target.instruments(), 
-                        vec![(0.0, p.base_cpi)], 
-                        global_config,
-                        None,
-                    )?
-                }
+                CalibrationMethod::Bootstrap => SequentialBootstrapper::bootstrap(
+                    &target,
+                    target.instruments(),
+                    vec![(0.0, p.base_cpi)],
+                    global_config,
+                    None,
+                )?,
                 CalibrationMethod::Global => {
-                    return Err(finstack_core::Error::Input(finstack_core::error::InputError::Invalid));
+                    return Err(finstack_core::Error::Input(
+                        finstack_core::error::InputError::Invalid,
+                    ));
                 }
             };
 
@@ -192,36 +200,38 @@ pub fn execute_step(
             Ok((new_context, report))
         }
         StepParams::VolSurface(p) => {
-            let (surface, report) = VolSurfaceAdapter::calibrate(p, quotes, context, global_config)?;
+            let (surface, report) =
+                VolSurfaceAdapter::calibrate(p, quotes, context, global_config)?;
             let mut new_context = context.clone();
             new_context.insert_surface_mut(std::sync::Arc::new(surface));
             Ok((new_context, report))
         }
         StepParams::SwaptionVol(p) => {
-            let (surface, report) = SwaptionVolAdapter::calibrate(p, quotes, context, global_config)?;
+            let (surface, report) =
+                SwaptionVolAdapter::calibrate(p, quotes, context, global_config)?;
             let mut new_context = context.clone();
             new_context.insert_surface_mut(std::sync::Arc::new(surface));
             Ok((new_context, report))
         }
         StepParams::BaseCorrelation(p) => {
-             let credit_quotes = quotes.extract_quotes();
-             if credit_quotes.is_empty() {
+            let credit_quotes = quotes.extract_quotes();
+            if credit_quotes.is_empty() {
                 return Err(finstack_core::Error::Input(
                     finstack_core::error::InputError::TooFewPoints,
                 ));
             }
-            
+
             let target = BaseCorrelationBootstrapper::new(
                 p.clone(),
                 credit_quotes,
                 global_config.clone(),
-                context.clone()
+                context.clone(),
             );
 
             let (curve, report) = SequentialBootstrapper::bootstrap(
                 &target,
                 target.instruments(), // Needs to expose instruments
-                Vec::new(), 
+                Vec::new(),
                 global_config,
                 None,
             )?;

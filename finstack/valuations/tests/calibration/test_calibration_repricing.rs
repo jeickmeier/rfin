@@ -30,9 +30,9 @@ use finstack_valuations::calibration::methods::discount::DiscountCurveCalibrator
 use finstack_valuations::calibration::methods::forward_curve::ForwardCurveCalibrator;
 use finstack_valuations::calibration::quotes::InstrumentConventions;
 use finstack_valuations::calibration::{Calibrator, RatesQuote, CALIBRATION_CONFIG_KEY_V1};
-use finstack_valuations::instruments::{Deposit, ForwardRateAgreement};
 use finstack_valuations::instruments::common::traits::Instrument;
 use finstack_valuations::instruments::irs::InterestRateSwap;
+use finstack_valuations::instruments::{Deposit, ForwardRateAgreement};
 use finstack_valuations::metrics::MetricCalculator;
 use time::Month;
 
@@ -254,10 +254,9 @@ fn test_discount_curve_deposit_repricing() {
             conventions,
         } = quote
         {
-            let day_count = quote
-                .conventions()
-                .day_count
-                .unwrap_or_else(|| InstrumentConventions::default_money_market_day_count(Currency::USD));
+            let day_count = quote.conventions().day_count.unwrap_or_else(|| {
+                InstrumentConventions::default_money_market_day_count(Currency::USD)
+            });
             let dep = Deposit {
                 id: format!("DEP-{}", maturity).into(),
                 notional: Money::new(NOTIONAL, Currency::USD),
@@ -384,10 +383,9 @@ fn test_forward_curve_fra_repricing() {
             conventions: _,
         } = quote
         {
-            let day_count = quote
-                .conventions()
-                .day_count
-                .unwrap_or_else(|| InstrumentConventions::default_money_market_day_count(Currency::USD));
+            let day_count = quote.conventions().day_count.unwrap_or_else(|| {
+                InstrumentConventions::default_money_market_day_count(Currency::USD)
+            });
             let fixing_date = if *start >= base_date + time::Duration::days(2) {
                 *start - time::Duration::days(2)
             } else {

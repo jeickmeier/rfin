@@ -110,26 +110,55 @@ impl BootstrapTarget for HazardBootstrapper {
 
     fn calculate_residual(&self, curve: &Self::Curve, quote: &Self::Quote) -> Result<f64> {
         let base_date = self.params.base_date;
-        let discount = self.base_context.get_discount_ref(&self.params.discount_curve_id)?;
+        let discount = self
+            .base_context
+            .get_discount_ref(&self.params.discount_curve_id)?;
         let pricer = CDSPricer::new();
 
         // Extract quote details
         let (maturity, spread_bp, upfront_pct_opt, conventions) = match quote {
-            CreditQuote::CDS { maturity, spread_bp, conventions, .. } => 
-                (*maturity, *spread_bp, None, conventions),
-            CreditQuote::CDSUpfront { maturity, running_spread_bp, upfront_pct, conventions, .. } => 
-                (*maturity, *running_spread_bp, Some(*upfront_pct), conventions),
-            _ => return Err(finstack_core::Error::Input(finstack_core::error::InputError::Invalid)),
+            CreditQuote::CDS {
+                maturity,
+                spread_bp,
+                conventions,
+                ..
+            } => (*maturity, *spread_bp, None, conventions),
+            CreditQuote::CDSUpfront {
+                maturity,
+                running_spread_bp,
+                upfront_pct,
+                conventions,
+                ..
+            } => (
+                *maturity,
+                *running_spread_bp,
+                Some(*upfront_pct),
+                conventions,
+            ),
+            _ => {
+                return Err(finstack_core::Error::Input(
+                    finstack_core::error::InputError::Invalid,
+                ))
+            }
         };
 
         // Build instrument
         let premium_spec = crate::instruments::cds::PremiumLegSpec {
             start: base_date,
             end: maturity,
-            freq: conventions.payment_frequency.unwrap_or(self.convention.frequency()),
+            freq: conventions
+                .payment_frequency
+                .unwrap_or(self.convention.frequency()),
             stub: self.convention.stub_convention(),
-            bdc: conventions.business_day_convention.unwrap_or(self.convention.business_day_convention()),
-            calendar_id: Some(conventions.effective_payment_calendar_id().unwrap_or(self.convention.default_calendar()).to_string()),
+            bdc: conventions
+                .business_day_convention
+                .unwrap_or(self.convention.business_day_convention()),
+            calendar_id: Some(
+                conventions
+                    .effective_payment_calendar_id()
+                    .unwrap_or(self.convention.default_calendar())
+                    .to_string(),
+            ),
             dc: conventions.day_count.unwrap_or(self.convention.day_count()),
             spread_bp,
             discount_curve_id: self.params.discount_curve_id.clone(),
@@ -138,7 +167,10 @@ impl BootstrapTarget for HazardBootstrapper {
         let protection_spec = crate::instruments::cds::ProtectionLegSpec {
             credit_curve_id: self.params.curve_id.clone(),
             recovery_rate: self.params.recovery_rate,
-            settlement_delay: conventions.settlement_days.unwrap_or(self.convention.settlement_delay() as i32) as u16,
+            settlement_delay: conventions
+                .settlement_days
+                .unwrap_or(self.convention.settlement_delay() as i32)
+                as u16,
         };
 
         let cds = crate::instruments::cds::CreditDefaultSwapBuilder::new()
@@ -155,7 +187,9 @@ impl BootstrapTarget for HazardBootstrapper {
 
         match upfront_pct_opt {
             None => Ok(npv / cds.notional.amount()),
-            Some(upfront) => Ok((npv - cds.notional.amount() * upfront / 100.0) / cds.notional.amount()),
+            Some(upfront) => {
+                Ok((npv - cds.notional.amount() * upfront / 100.0) / cds.notional.amount())
+            }
         }
     }
 

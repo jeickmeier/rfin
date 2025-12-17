@@ -19,8 +19,8 @@
 //! - [`RatesQuoteUseCase`]: Validation mode (discount vs forward curve)
 //! - [`ConvexityParameters`]: Futures convexity adjustment configuration
 
-mod convexity;
 pub(crate) mod conventions;
+mod convexity;
 mod pricer;
 
 pub use convexity::{

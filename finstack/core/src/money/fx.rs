@@ -189,7 +189,6 @@ impl Default for FxConfig {
     }
 }
 
-
 /// Result of an FX rate lookup with simple triangulation info.
 ///
 #[derive(Clone, Debug, PartialEq)]

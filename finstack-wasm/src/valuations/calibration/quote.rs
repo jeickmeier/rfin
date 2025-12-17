@@ -101,8 +101,7 @@ impl JsRatesQuote {
             inner: RatesQuote::Deposit {
                 maturity: maturity.inner(),
                 rate,
-                conventions: InstrumentConventions::default()
-                    .with_day_count(dc),
+                conventions: InstrumentConventions::default().with_day_count(dc),
             },
         })
     }
@@ -122,8 +121,7 @@ impl JsRatesQuote {
                 start: start.inner(),
                 end: end.inner(),
                 rate,
-                conventions: InstrumentConventions::default()
-                    .with_day_count(dc),
+                conventions: InstrumentConventions::default().with_day_count(dc),
             },
         })
     }

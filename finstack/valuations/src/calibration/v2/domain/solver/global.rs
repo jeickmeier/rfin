@@ -32,15 +32,15 @@ impl GlobalOptimizer {
         }
 
         let solver = config.create_lm_solver();
-        
+
         // Trackers
         let eval_counter = Arc::new(AtomicUsize::new(0));
         let residual_error: Arc<Mutex<Option<finstack_core::Error>>> = Arc::new(Mutex::new(None));
-        
+
         // Clones for closure
         let eval_counter_clone = Arc::clone(&eval_counter);
         let residual_error_clone = Arc::clone(&residual_error);
-        
+
         // We can't easily move `target` into the closure if it's a reference.
         // The LM solver requires the closure to be `Send` if we were using multi-threading,
         // but here it's executed sequentially by the solver.
@@ -51,7 +51,7 @@ impl GlobalOptimizer {
         // Since we are inside a function, `&T` is fine as long as the closure doesn't escape.
         // But `solve_system_with_dim` might require `'static` or similar depending on implementation.
         // Let's assume standard borrow checking works here.
-        
+
         let residuals_func = |params: &[f64], resid: &mut [f64]| {
             eval_counter_clone.fetch_add(1, Ordering::Relaxed);
 
@@ -129,5 +129,3 @@ impl GlobalOptimizer {
         Ok((final_curve, report))
     }
 }
-
-

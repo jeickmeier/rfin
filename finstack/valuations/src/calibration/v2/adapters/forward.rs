@@ -1,9 +1,9 @@
 //! Forward curve calibration adapter.
 
+use crate::calibration::config::CalibrationConfig;
 use crate::calibration::v2::domain::pricing::CalibrationPricer;
 use crate::calibration::v2::domain::quotes::RatesQuote;
 use crate::calibration::v2::domain::solver::BootstrapTarget;
-use crate::calibration::config::CalibrationConfig;
 use finstack_core::dates::{Date, DayCount, DayCountCtx};
 use finstack_core::market_data::context::MarketContext;
 use finstack_core::market_data::term_structures::ForwardCurve;
@@ -89,15 +89,12 @@ impl BootstrapTarget for ForwardCurveTarget {
 
     fn quote_time(&self, quote: &Self::Quote) -> Result<f64> {
         let knot_date = quote.maturity_date();
-        self.time_day_count.year_fraction(
-            self.base_date,
-            knot_date,
-            DayCountCtx::default(),
-        )
-        .map_err(|e| finstack_core::Error::Calibration {
-            message: format!("YF calc failed: {}", e),
-            category: "bootstrapping".to_string(),
-        })
+        self.time_day_count
+            .year_fraction(self.base_date, knot_date, DayCountCtx::default())
+            .map_err(|e| finstack_core::Error::Calibration {
+                message: format!("YF calc failed: {}", e),
+                category: "bootstrapping".to_string(),
+            })
     }
 
     fn build_curve(&self, knots: &[(f64, f64)]) -> Result<Self::Curve> {
@@ -113,35 +110,32 @@ impl BootstrapTarget for ForwardCurveTarget {
             }
         }
 
-        ForwardCurve::builder(
-            self.fwd_curve_id.clone(),
-            self.tenor_years,
-        )
-        .base_date(self.base_date)
-        .knots(full_knots)
-        .set_interp(self.solve_interp)
-        .day_count(self.time_day_count)
-        .build()
-        .map_err(|e| finstack_core::Error::Calibration {
-            message: format!("Failed to build temp forward curve: {}", e),
-            category: "bootstrapping".to_string(),
-        })
+        ForwardCurve::builder(self.fwd_curve_id.clone(), self.tenor_years)
+            .base_date(self.base_date)
+            .knots(full_knots)
+            .set_interp(self.solve_interp)
+            .day_count(self.time_day_count)
+            .build()
+            .map_err(|e| finstack_core::Error::Calibration {
+                message: format!("Failed to build temp forward curve: {}", e),
+                category: "bootstrapping".to_string(),
+            })
     }
 
     fn calculate_residual(&self, curve: &Self::Curve, quote: &Self::Quote) -> Result<f64> {
         let mut temp_context = self.base_context.clone();
         temp_context.insert_mut(std::sync::Arc::new(curve.clone()));
-        
-        let pv = self.pricer.price_instrument(quote, self.currency, &temp_context)?;
+
+        let pv = self
+            .pricer
+            .price_instrument(quote, self.currency, &temp_context)?;
         Ok(pv)
     }
 
     fn initial_guess(&self, quote: &Self::Quote, previous_knots: &[(f64, f64)]) -> Result<f64> {
         match quote {
             RatesQuote::FRA { rate, .. } => Ok(*rate),
-            RatesQuote::Future {
-                price, specs, .. 
-            } => {
+            RatesQuote::Future { price, specs, .. } => {
                 let implied_rate = (100.0 - price) / 100.0;
                 if let Some(adj) = specs.convexity_adjustment {
                     Ok(implied_rate + adj)
@@ -154,7 +148,8 @@ impl BootstrapTarget for ForwardCurveTarget {
                 let g = previous_knots.last().map(|(_, fwd)| *fwd).or_else(|| {
                     // Fallback to discount curve zero rate if available
                     let t = self.tenor_years.max(1.0 / 12.0);
-                    self.base_context.get_discount_ref(self.discount_curve_id.as_ref())
+                    self.base_context
+                        .get_discount_ref(self.discount_curve_id.as_ref())
                         .ok()
                         .map(|disc_curve| disc_curve.zero(t))
                 });
@@ -178,10 +173,11 @@ impl BootstrapTarget for ForwardCurveTarget {
         grid.push(initial_guess);
 
         // Filter to bounds
-        let filtered: Vec<f64> = grid.into_iter()
+        let filtered: Vec<f64> = grid
+            .into_iter()
             .filter(|&r| r >= bounds.min_rate - 0.05 && r <= bounds.max_rate + 0.05)
             .collect();
-        
+
         let mut res = filtered;
         res.sort_by(|a, b| a.total_cmp(b));
         res.dedup();
@@ -210,4 +206,3 @@ impl BootstrapTarget for ForwardCurveTarget {
         Ok(())
     }
 }
-

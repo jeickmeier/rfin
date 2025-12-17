@@ -199,5 +199,3 @@ impl SequentialBootstrapper {
         Ok((final_curve, report))
     }
 }
-
-

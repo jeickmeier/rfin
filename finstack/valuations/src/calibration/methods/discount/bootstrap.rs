@@ -12,8 +12,8 @@
 
 use super::DiscountCurveCalibrator;
 use crate::calibration::methods::common::bootstrapper::BootstrapTarget;
-use crate::calibration::pricing::{CalibrationPricer, RatesQuoteUseCase};
 use crate::calibration::pricing::conventions as conv;
+use crate::calibration::pricing::{CalibrationPricer, RatesQuoteUseCase};
 use crate::calibration::quotes::RatesQuote;
 use crate::calibration::CalibrationReport;
 use finstack_core::market_data::context::MarketContext;
@@ -74,8 +74,8 @@ impl DiscountCurveCalibrator {
             if knot.0 <= 0.0 {
                 // Avoid duplicate 0.0 knot; builder requires strictly increasing times.
             } else {
-            initial_knots.push(knot);
-        }
+                initial_knots.push(knot);
+            }
         }
 
         // Create target
@@ -97,13 +97,7 @@ impl DiscountCurveCalibrator {
                 None, // No explanation trace passed for now
             )?;
 
-        self.build_final_curve_and_report(
-            curve,
-            report.residuals,
-            report.iterations,
-            None,
-            t_spot,
-        )
+        self.build_final_curve_and_report(curve, report.residuals, report.iterations, None, t_spot)
     }
 
     // Helper reused for final build
@@ -170,7 +164,9 @@ impl<'a> BootstrapTarget for DiscountBootstrapper<'a> {
     type Curve = DiscountCurve;
 
     fn quote_time(&self, quote: &Self::Quote) -> Result<f64> {
-        let dc = conv::resolve_money_market(self.pricer, quote.conventions(), self.calibrator.currency).day_count;
+        let dc =
+            conv::resolve_money_market(self.pricer, quote.conventions(), self.calibrator.currency)
+                .day_count;
         dc.year_fraction(
             self.calibrator.base_date,
             quote.maturity_date(),
@@ -280,12 +276,11 @@ impl<'a> BootstrapTarget for DiscountBootstrapper<'a> {
         match quote {
             RatesQuote::Deposit { maturity, .. } => {
                 let r = CalibrationPricer::get_rate(quote);
-                let day_count = quote
-                    .conventions()
-                    .day_count
-                    .ok_or_else(|| finstack_core::Error::Validation(
+                let day_count = quote.conventions().day_count.ok_or_else(|| {
+                    finstack_core::Error::Validation(
                         "Deposit quote requires conventions.day_count to be set".to_string(),
-                    ))?;
+                    )
+                })?;
                 let yf = day_count
                     .year_fraction(
                         self.settlement,
@@ -341,13 +336,13 @@ impl<'a> BootstrapTarget for DiscountBootstrapper<'a> {
 
     fn scan_points(&self, quote: &Self::Quote, initial_guess: f64) -> Result<Vec<f64>> {
         let time = self.quote_time(quote)?;
-        
+
         // Get discount factor bounds for this maturity
         let (df_lo, df_hi) = self.calibrator.df_bounds_for_time(time);
-        
+
         // Clamp initial guess to bounds
         let clamped_initial = initial_guess.clamp(df_lo, df_hi);
-        
+
         let num_points = self.calibrator.config.discount_curve.scan_grid_points;
         let min_points = self.calibrator.config.discount_curve.min_scan_grid_points;
         let mut grid = DiscountCurveCalibrator::maturity_aware_scan_grid(
@@ -356,7 +351,7 @@ impl<'a> BootstrapTarget for DiscountBootstrapper<'a> {
             clamped_initial,
             num_points,
         );
-        
+
         // Ensure we have enough points - if grid is too sparse, add more
         if grid.len() < min_points {
             // Add additional linear-spaced points across the range
@@ -371,7 +366,7 @@ impl<'a> BootstrapTarget for DiscountBootstrapper<'a> {
             grid.sort_by(|a, b| b.total_cmp(a));
             grid.dedup_by(|a, b| (*a - *b).abs() < (df_hi - df_lo) * 0.001);
         }
-        
+
         Ok(grid)
     }
 

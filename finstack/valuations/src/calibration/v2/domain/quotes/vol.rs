@@ -91,5 +91,3 @@ impl VolQuote {
         }
     }
 }
-
-

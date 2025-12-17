@@ -1,5 +1,5 @@
-mod convexity;
 pub(crate) mod conventions;
+mod convexity;
 mod pricer;
 
 pub use convexity::{
@@ -7,5 +7,3 @@ pub use convexity::{
     ho_lee_convexity, ConvexityParameters, VolatilitySource,
 };
 pub use pricer::{CalibrationPricer, RatesQuoteUseCase};
-
-

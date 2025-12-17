@@ -54,9 +54,9 @@ use crate::calibration::methods::DiscountCurveCalibrator;
 use crate::calibration::RatesQuote;
 use crate::instruments::common::pricing::HasDiscountCurve;
 use crate::instruments::common::traits::{CurveDependencies, Instrument, RatesCurveKind};
+use crate::metrics::sensitivities::config as sens_config;
 use crate::metrics::MetricCalculator;
 use crate::metrics::{MetricContext, MetricId};
-use crate::metrics::sensitivities::config as sens_config;
 
 use finstack_core::market_data::bumps::BumpSpec;
 use finstack_core::market_data::context::MarketContext;

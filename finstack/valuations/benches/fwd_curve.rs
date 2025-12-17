@@ -22,15 +22,13 @@ fn bench_forward_curve(c: &mut Criterion) {
             start: base_date + time::Duration::days(90),
             end: base_date + time::Duration::days(180),
             rate: 0.047,
-            conventions: InstrumentConventions::default()
-                .with_day_count(DayCount::Act360),
+            conventions: InstrumentConventions::default().with_day_count(DayCount::Act360),
         },
         RatesQuote::FRA {
             start: base_date + time::Duration::days(180),
             end: base_date + time::Duration::days(270),
             rate: 0.048,
-            conventions: InstrumentConventions::default()
-                .with_day_count(DayCount::Act360),
+            conventions: InstrumentConventions::default().with_day_count(DayCount::Act360),
         },
     ];
     let calibrator =

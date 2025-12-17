@@ -1,16 +1,16 @@
 pub mod conventions;
-pub mod rates;
 pub mod credit;
-pub mod vol;
 pub mod inflation;
 pub mod market_quote;
+pub mod rates;
+pub mod vol;
 
 pub use conventions::InstrumentConventions;
-pub use rates::{RatesQuote, FutureSpecs};
 pub use credit::CreditQuote;
-pub use vol::VolQuote;
 pub use inflation::InflationQuote;
 pub use market_quote::MarketQuote;
+pub use rates::{FutureSpecs, RatesQuote};
+pub use vol::VolQuote;
 
 /// Trait for filtering quote collections into specific types.
 pub trait ExtractQuotes<T> {
@@ -61,4 +61,3 @@ impl ExtractQuotes<InflationQuote> for [MarketQuote] {
             .collect()
     }
 }
-

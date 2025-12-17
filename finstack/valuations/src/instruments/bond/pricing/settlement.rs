@@ -15,7 +15,9 @@ pub(super) fn settlement_date(bond: &Bond, as_of: Date) -> Result<Date> {
         CashflowSpec::Floating(spec) => (spec.rate_spec.calendar_id.as_deref(), spec.rate_spec.bdc),
         CashflowSpec::Amortizing { base, .. } => match &**base {
             CashflowSpec::Fixed(spec) => (spec.calendar_id.as_deref(), spec.bdc),
-            CashflowSpec::Floating(spec) => (spec.rate_spec.calendar_id.as_deref(), spec.rate_spec.bdc),
+            CashflowSpec::Floating(spec) => {
+                (spec.rate_spec.calendar_id.as_deref(), spec.rate_spec.bdc)
+            }
             _ => (None, BusinessDayConvention::Following),
         },
     };
@@ -29,4 +31,3 @@ pub(super) fn settlement_date(bond: &Bond, as_of: Date) -> Result<Date> {
 
     Ok(as_of.add_weekdays(sd))
 }
-

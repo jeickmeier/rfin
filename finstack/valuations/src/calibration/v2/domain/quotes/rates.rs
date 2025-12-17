@@ -222,8 +222,7 @@ impl RatesQuote {
     /// Get the float leg index for Swap quotes.
     #[inline]
     pub fn float_index(&self) -> Option<&IndexId> {
-        self.float_leg_conventions()
-            .and_then(|c| c.index.as_ref())
+        self.float_leg_conventions().and_then(|c| c.index.as_ref())
     }
 
     /// Get the primary leg index for BasisSwap quotes.
@@ -324,11 +323,20 @@ impl RatesQuote {
     /// Format a descriptive residual key for calibration reports.
     pub fn format_residual_key(&self, counter: usize, currency: Currency) -> String {
         match self {
-            RatesQuote::Deposit { maturity, conventions, .. } => {
+            RatesQuote::Deposit {
+                maturity,
+                conventions,
+                ..
+            } => {
                 let dc = conventions.effective_day_count_or_default(currency);
                 format!("DEP-{}-{:?}-{:06}", maturity, dc, counter)
             }
-            RatesQuote::FRA { start, end, conventions, .. } => {
+            RatesQuote::FRA {
+                start,
+                end,
+                conventions,
+                ..
+            } => {
                 let dc = conventions.effective_day_count_or_default(currency);
                 format!("FRA-{}-{}-{:?}-{:06}", start, end, dc, counter)
             }
@@ -350,20 +358,20 @@ impl RatesQuote {
                 fixed_leg_conventions,
                 ..
             } => {
-                let index = float_leg_conventions.index.as_ref()
+                let index = float_leg_conventions
+                    .index
+                    .as_ref()
                     .map(|i| i.as_str())
                     .unwrap_or("UNKNOWN");
-                let fixed_freq = fixed_leg_conventions.payment_frequency
-                    .unwrap_or_else(|| InstrumentConventions::default_fixed_leg_frequency(currency));
-                let float_freq = float_leg_conventions.payment_frequency
-                    .unwrap_or_else(|| InstrumentConventions::default_float_leg_frequency(currency));
+                let fixed_freq = fixed_leg_conventions.payment_frequency.unwrap_or_else(|| {
+                    InstrumentConventions::default_fixed_leg_frequency(currency)
+                });
+                let float_freq = float_leg_conventions.payment_frequency.unwrap_or_else(|| {
+                    InstrumentConventions::default_float_leg_frequency(currency)
+                });
                 format!(
                     "SWAP-{}-{}-fix{:?}-flt{:?}-{:06}",
-                    index,
-                    maturity,
-                    fixed_freq,
-                    float_freq,
-                    counter
+                    index, maturity, fixed_freq, float_freq, counter
                 )
             }
             RatesQuote::BasisSwap {
@@ -372,10 +380,14 @@ impl RatesQuote {
                 reference_leg_conventions,
                 ..
             } => {
-                let primary_idx = primary_leg_conventions.index.as_ref()
+                let primary_idx = primary_leg_conventions
+                    .index
+                    .as_ref()
                     .map(|i| i.as_str())
                     .unwrap_or("PRIMARY");
-                let ref_idx = reference_leg_conventions.index.as_ref()
+                let ref_idx = reference_leg_conventions
+                    .index
+                    .as_ref()
                     .map(|i| i.as_str())
                     .unwrap_or("REFERENCE");
                 format!(
@@ -448,5 +460,3 @@ impl Default for FutureSpecs {
         }
     }
 }
-
-

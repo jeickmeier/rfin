@@ -28,5 +28,3 @@ impl PlanBumper {
         plan
     }
 }
-
-

@@ -127,8 +127,7 @@ impl PyRatesQuote {
         Ok(Self::new(RatesQuote::Deposit {
             maturity: maturity_date,
             rate,
-            conventions: InstrumentConventions::default()
-                .with_day_count(dc),
+            conventions: InstrumentConventions::default().with_day_count(dc),
         }))
     }
 
@@ -148,8 +147,7 @@ impl PyRatesQuote {
             start: start_date,
             end: end_date,
             rate,
-            conventions: InstrumentConventions::default()
-                .with_day_count(dc),
+            conventions: InstrumentConventions::default().with_day_count(dc),
         }))
     }
 
@@ -226,8 +224,7 @@ impl PyRatesQuote {
         Ok(Self::new(RatesQuote::BasisSwap {
             maturity: maturity_date,
             spread_bp,
-            conventions: InstrumentConventions::default()
-                .with_currency(ccy),
+            conventions: InstrumentConventions::default().with_currency(ccy),
             primary_leg_conventions: InstrumentConventions::default()
                 .with_index(primary_index)
                 .with_payment_frequency(primary_frequency.inner)
@@ -287,7 +284,11 @@ impl PyRatesQuote {
                 ..
             } => {
                 let maturity_py = date_to_py(py, *maturity)?;
-                let index = float_leg_conventions.index.as_ref().map(|i| i.as_str()).unwrap_or("");
+                let index = float_leg_conventions
+                    .index
+                    .as_ref()
+                    .map(|i| i.as_str())
+                    .unwrap_or("");
                 Ok(format!(
                     "RatesQuote.swap(maturity={}, rate={:.6}, index='{}')",
                     maturity_py, rate, index
@@ -301,8 +302,16 @@ impl PyRatesQuote {
                 ..
             } => {
                 let maturity_py = date_to_py(py, *maturity)?;
-                let primary_index = primary_leg_conventions.index.as_ref().map(|i| i.as_str()).unwrap_or("");
-                let reference_index = reference_leg_conventions.index.as_ref().map(|i| i.as_str()).unwrap_or("");
+                let primary_index = primary_leg_conventions
+                    .index
+                    .as_ref()
+                    .map(|i| i.as_str())
+                    .unwrap_or("");
+                let reference_index = reference_leg_conventions
+                    .index
+                    .as_ref()
+                    .map(|i| i.as_str())
+                    .unwrap_or("");
                 Ok(format!(
                     "RatesQuote.basis_swap(maturity={}, primary_index='{}', reference_index='{}', spread_bp={:.6})",
                     maturity_py, primary_index, reference_index, spread_bp
