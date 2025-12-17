@@ -1,6 +1,8 @@
 //! Discount curve calibration adapter.
 
 use crate::calibration::config::CalibrationConfig;
+use crate::calibration::config::ResidualWeightingScheme;
+use crate::calibration::constants::*;
 use crate::calibration::pricing::CalibrationPricer;
 use crate::calibration::quotes::RatesQuote;
 use crate::calibration::solver::{BootstrapTarget, GlobalSolveTarget};
@@ -126,12 +128,12 @@ impl DiscountCurveTarget {
         if df_lo.is_finite() && df_lo > 0.0 {
             grid.push(df_lo);
         }
-        if df_hi.is_finite() && df_hi > 0.0 && (df_hi - df_lo).abs() > 1e-10 {
+        if df_hi.is_finite() && df_hi > 0.0 && (df_hi - df_lo).abs() > TOLERANCE_DUP_KNOTS {
             grid.push(df_hi);
         }
 
         let center = initial_df.clamp(df_lo, df_hi);
-        let use_log_spacing = df_lo > 1e-12 && df_hi / df_lo > 10.0;
+        let use_log_spacing = df_lo > DF_MIN_HARD && df_hi / df_lo > 10.0;
 
         if use_log_spacing {
             let log_lo = df_lo.ln();
@@ -159,8 +161,8 @@ impl DiscountCurveTarget {
         if center.is_finite() && center > 0.0 {
             grid.push(center);
             let log_center = center.ln();
-            let log_lo = df_lo.max(1e-12).ln();
-            let log_hi = df_hi.max(1e-12).ln();
+            let log_lo = df_lo.max(DF_MIN_HARD).ln();
+            let log_hi = df_hi.max(DF_MIN_HARD).ln();
             const LOG_STEPS: [f64; 8] = [1e-4, 2e-4, 5e-4, 1e-3, 2e-3, 5e-3, 1e-2, 2e-2];
             for step in LOG_STEPS {
                 for sign in [-1.0, 1.0] {
@@ -176,7 +178,7 @@ impl DiscountCurveTarget {
         }
 
         grid.sort_by(|a, b| b.total_cmp(a));
-        grid.dedup_by(|a, b| (*a - *b).abs() < (df_hi - df_lo) * 0.001);
+        grid.dedup_by(|a, b| (*a - *b).abs() < (df_hi - df_lo) * TOLERANCE_GRID_DEDUP);
         grid
     }
 
@@ -384,7 +386,7 @@ Disable allow_non_monotonic_final or choose a compatible interpolation style."
                     .iter()
                     .copied()
                     .rev()
-                    .filter(|(ti, dfi)| *ti > 1e-8 && dfi.is_finite() && *dfi > 0.0)
+                    .filter(|(ti, dfi)| *ti > MIN_GRID_SPACING && dfi.is_finite() && *dfi > 0.0)
                     .take(2)
                     .collect();
 
@@ -392,7 +394,7 @@ Disable allow_non_monotonic_final or choose a compatible interpolation style."
                     let (t1, df1) = last_two[0];
                     let (t0, df0) = last_two[1];
                     let dt = t1 - t0;
-                    if dt > 1e-8 {
+                    if dt > MIN_GRID_SPACING {
                         let f = (df0.ln() - df1.ln()) / dt;
                         let ln_df = df1.ln() - f * (t - t1);
                         let df = ln_df.exp();
@@ -402,7 +404,7 @@ Disable allow_non_monotonic_final or choose a compatible interpolation style."
                     }
                 } else if last_two.len() == 1 {
                     let (t1, df1) = last_two[0];
-                    if t1 > 1e-8 {
+                    if t1 > MIN_GRID_SPACING {
                         let df = df1.powf(t / t1);
                         if df.is_finite() && df > 0.0 {
                             guess = Some(df);
@@ -438,7 +440,7 @@ Disable allow_non_monotonic_final or choose a compatible interpolation style."
                 }
             }
             grid.sort_by(|a, b| b.total_cmp(a));
-            grid.dedup_by(|a, b| (*a - *b).abs() < (df_hi - df_lo) * 0.001);
+            grid.dedup_by(|a, b| (*a - *b).abs() < (df_hi - df_lo) * TOLERANCE_GRID_DEDUP);
         }
 
         Ok(grid)
@@ -495,7 +497,6 @@ impl GlobalSolveTarget for DiscountCurveTarget {
 
         entries.sort_by(|a, b| a.0.total_cmp(&b.0));
 
-        const DUPLICATE_TOL: f64 = 1e-10;
         let mut times = Vec::with_capacity(entries.len());
         let mut initials = Vec::with_capacity(entries.len());
         let mut active_quotes = Vec::with_capacity(entries.len());
@@ -503,7 +504,7 @@ impl GlobalSolveTarget for DiscountCurveTarget {
 
         for (t, z, quote) in entries {
             if let Some(prev) = last_time {
-                if (t - prev).abs() <= DUPLICATE_TOL {
+                if (t - prev).abs() <= TOLERANCE_DUP_KNOTS {
                     return Err(finstack_core::Error::Calibration {
                         message: format!(
                             "Duplicate or unsorted knot times detected (prev={:.10}, new={:.10}). \
@@ -593,9 +594,22 @@ Ensure quotes map to strictly increasing year fractions.",
 
         for (i, quote) in quotes.iter().enumerate() {
             let t = self.quote_time(quote)?.max(1e-6);
-            // DV01 grows roughly linearly with maturity; use sqrt to moderate long tenors.
-            let weight = t.sqrt().max(1e-3);
-            weights_out[i] = weight;
+
+            let weight = match self.config.discount_curve.weighting_scheme {
+                ResidualWeightingScheme::Equal => 1.0,
+                ResidualWeightingScheme::LinearTime => t,
+                ResidualWeightingScheme::SqrtTime => t.sqrt(),
+                ResidualWeightingScheme::InverseDuration => {
+                    // Approximation: Duration ~ t for zero-coupon, ~ fixed_leg_duration for swaps
+                    // For calibration, quotes are par instruments, so residuals are usually in Rate space.
+                    // Sensitivity of Par Rate to curve bumps (DV01) is proportional to duration.
+                    // We weight by 1/DV01 to normalize to "Price-like" errors or equalize importance.
+                    // Simplified: duration ~ t.
+                    1.0 / t.max(0.1)
+                }
+            };
+
+            weights_out[i] = weight.max(WEIGHT_MIN_FLOOR);
         }
         Ok(())
     }

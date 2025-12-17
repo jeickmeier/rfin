@@ -6,12 +6,12 @@
 //! - Entity seniority mappings for credit calibration
 //! - Rate bounds for market-regime-aware calibration
 
+use crate::calibration::solver::SolverConfig;
+use crate::calibration::validation::{RateBounds, RateBoundsPolicy, ValidationMode};
 use finstack_core::config::FinstackConfig;
 use finstack_core::currency::Currency;
 use finstack_core::explain::ExplainOpts;
 use finstack_core::market_data::term_structures::Seniority;
-use crate::calibration::validation::{RateBounds, RateBoundsPolicy, ValidationMode};
-use crate::calibration::solver::SolverConfig;
 
 use hashbrown::HashMap;
 use serde::{Deserialize, Serialize};
@@ -35,6 +35,22 @@ pub enum CalibrationMethod {
     },
 }
 
+/// Policy for weighting residuals in global solve calibration.
+#[cfg_attr(feature = "ts_export", derive(TS))]
+#[cfg_attr(feature = "ts_export", ts(export))]
+#[derive(Clone, Debug, PartialEq, Eq, Default, Serialize, Deserialize)]
+pub enum ResidualWeightingScheme {
+    /// Equal weighting (1.0 for all quotes).
+    Equal,
+    /// Weight by time to maturity (t).
+    LinearTime,
+    /// Weight by square root of time (sqrt(t)).
+    #[default]
+    SqrtTime,
+    /// Weight by inverse duration (1/DV01 approximation).
+    InverseDuration,
+}
+
 #[cfg_attr(feature = "ts_export", derive(TS))]
 #[cfg_attr(feature = "ts_export", ts(export))]
 #[derive(Clone, Debug, Serialize, Deserialize)]
@@ -48,9 +64,16 @@ pub struct DiscountCurveSolveConfig {
     pub bootstrap_seed_global_solve: bool,
     pub allow_seed_fallback: bool,
     /// Override final-curve monotonicity enforcement (None = policy-driven).
+    /// Override final-curve monotonicity enforcement (None = policy-driven).
     #[serde(default)]
     #[cfg_attr(feature = "ts_export", ts(type = "boolean | null"))]
     pub allow_non_monotonic_final: Option<bool>,
+    /// Enforce strict pricing (all conventions must be explicit).
+    #[serde(default)]
+    pub strict_pricing: bool,
+    /// Weighting scheme for global solve residuals.
+    #[serde(default)]
+    pub weighting_scheme: ResidualWeightingScheme,
 }
 
 impl Default for DiscountCurveSolveConfig {
@@ -64,6 +87,8 @@ impl Default for DiscountCurveSolveConfig {
             bootstrap_seed_global_solve: true,
             allow_seed_fallback: false,
             allow_non_monotonic_final: None,
+            strict_pricing: false,
+            weighting_scheme: ResidualWeightingScheme::default(),
         }
     }
 }

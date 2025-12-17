@@ -5,30 +5,9 @@
 
 use finstack_core::Result;
 
-use crate::calibration::CalibrationConfig;
+use crate::calibration::constants::{OBJECTIVE_VALID_ABS_MAX, PENALTY, RESIDUAL_PENALTY_ABS_MIN};
 use crate::calibration::solver::SolverConfig;
-
-/// Finite penalty value used in objective functions instead of infinity.
-///
-/// Using a moderate large finite value (1e6) helps solvers behave more predictably
-/// than extremely large values like 1e12, which can cause numerical instability
-/// with gradient-based methods. The value is chosen to be:
-/// - Large enough to clearly indicate failure/infeasibility
-/// - Small enough to avoid gradient explosion issues
-/// - Proportional to typical financial quantities (notional-normalized PVs)
-pub const PENALTY: f64 = 1e6;
-
-/// Maximum absolute objective value treated as "valid" during bracketing scans.
-///
-/// Values with `|f(x)| >= OBJECTIVE_VALID_ABS_MAX` are treated as penalized/infeasible
-/// during the scan phase (but are still counted toward total evaluations).
-pub const OBJECTIVE_VALID_ABS_MAX: f64 = PENALTY / 10.0;
-
-/// Minimum absolute residual value treated as a "penalty" for reporting/diagnostics.
-///
-/// This aligns with `CalibrationReport` which excludes penalty-like residuals from RMSE/max
-/// when non-penalty values exist.
-pub const RESIDUAL_PENALTY_ABS_MIN: f64 = PENALTY * 0.5;
+use crate::calibration::CalibrationConfig;
 
 /// Solve a 1D root-finding problem using the configured solver kind.
 ///

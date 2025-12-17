@@ -5,7 +5,8 @@
 //! - Residual weighting is supported via per-quote weights (weighted least squares).
 
 use super::traits::GlobalSolveTarget;
-use crate::calibration::{CalibrationConfig, CalibrationReport, PENALTY};
+use crate::calibration::constants::PENALTY;
+use crate::calibration::{CalibrationConfig, CalibrationReport};
 use finstack_core::prelude::*;
 use std::collections::BTreeMap;
 use std::sync::atomic::{AtomicUsize, Ordering};

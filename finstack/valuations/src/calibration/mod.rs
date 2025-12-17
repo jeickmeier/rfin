@@ -58,6 +58,9 @@ mod validation;
 /// Curve bumping helpers used by scenarios and risk metrics (v2 re-calibration).
 pub mod bumps;
 
+/// Shared constants (tolerances, magic numbers).
+pub mod constants;
+
 // (solver is a real module now; see `pub mod solver;` above)
 
 // Re-exports: Configuration
