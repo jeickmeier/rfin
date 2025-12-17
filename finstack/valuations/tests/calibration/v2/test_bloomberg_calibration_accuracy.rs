@@ -12,8 +12,8 @@
 //! | Tenor Bucket | Expected Accuracy | Primary Factors |
 //! |--------------|-------------------|-----------------|
 //! | Short-end (<1Y) | < 0.1bp | Deposit pricing is simple and exact |
-//! | Mid-term (1-10Y) | < 1bp | Minor interpolation differences |
-//! | Long-end (>10Y) | < 6bp | Interpolation method affects annuity |
+//! | Mid-term (1-10Y) | < 0.5bp | Minor interpolation differences |
+//! | Long-end (>10Y) | < 5bp | Interpolation method affects annuity |
 //!
 //! ## Sources of Differences
 //!
@@ -28,12 +28,12 @@
 //! Test results show MonotoneConvex vs LogLinear can differ by up to ±2.6bp at
 //! intermediate points, which affects the annuity and thus the calibrated endpoint DF.
 //!
-//! ### 2. Payment Delay (Minor Factor)
+//! ### 2. Payment Delay (Vendor / Table Convention)
 //!
-//! Bloomberg OIS swaps have **Pay Delay: 2 Business Days** on both legs. This means
-//! actual payments occur 2 days after the period end. Our current implementation
-//! assumes payment at period end. For a 30Y swap, this contributes ~0.5bp to the
-//! annuity difference.
+//! Many vendor OIS swap conventions use **Pay Delay: 2 Business Days** on both legs.
+//! However, the curve table points used in this test appear to be quoted on *accrual end*
+//! dates (no payment delay baked into the pillar dates). For Bloomberg table matching,
+//! we therefore set payment delay to 0 in these quotes.
 //!
 //! ### 3. Compounding Convention for Zero Rates
 //!
@@ -48,11 +48,10 @@
 //!
 //! ## Recommendations for Closer Bloomberg Matching
 //!
-//! 1. Use `InterpStyle::LogLinear` if Bloomberg matching is critical and arbitrage-
-//!    free forwards are less important.
-//! 2. Accept ~5bp long-end tolerance for MonotoneConvex (industry standard, better
-//!    for risk management).
-//! 3. Future enhancement: Add `payment_delay_days` to leg specs for exact matching.
+//! 1. Ensure curve time-axis uses ACT/360 (Bloomberg table convention for USD OIS).
+//! 2. Ensure USD spot-start settlement (T+2) is modeled consistently.
+//! 3. Accept a few bp long-end tolerance under MonotoneConvex due to interpolation
+//!    differences that compound through long-dated swap annuities.
 
 use finstack_core::config::FinstackConfig;
 use finstack_core::currency::Currency;
@@ -69,7 +68,8 @@ use time::Month;
 fn deposit(maturity: Date, rate: f64) -> RatesQuote {
     let conventions = InstrumentConventions::default()
         .with_day_count(DayCount::Act360)
-        .with_settlement_days(0)
+        // Bloomberg USD OIS curve instruments are spot-start (T+2) in USD.
+        .with_settlement_days(2)
         .with_payment_delay(0)
         .with_reset_lag(0)
         .with_calendar_id("usny")
@@ -85,7 +85,8 @@ fn deposit(maturity: Date, rate: f64) -> RatesQuote {
 /// Helper to create OIS swap quotes with annual frequency and ACT/360
 fn ois_swap(maturity: Date, rate: f64) -> RatesQuote {
     let common_conventions = InstrumentConventions::default()
-        .with_settlement_days(0)
+        // Spot-start (T+2) for USD rates.
+        .with_settlement_days(2)
         .with_payment_delay(0)
         .with_reset_lag(0)
         .with_calendar_id("usny")
@@ -109,14 +110,14 @@ fn ois_swap(maturity: Date, rate: f64) -> RatesQuote {
 
 /// Test calibration accuracy against Bloomberg USD OIS curve data.
 ///
-/// This test uses actual market quotes from Bloomberg (settle date: 2025-12-10)
+/// This test uses actual market quotes from Bloomberg (curve date: 2025-12-10, USD spot-start)
 /// and validates that the calibrated curve produces zero rates and discount factors
 /// within acceptable tolerance of Bloomberg's values.
 ///
 /// Data source: Bloomberg USD OIS curve (USSOC Curncy)
 #[test]
 fn test_bloomberg_usd_ois_calibration_accuracy() {
-    // Bloomberg settle date: 2025-12-10
+    // Bloomberg curve date: 2025-12-10 (pricing date; instruments are spot-start in USD).
     let base_date = Date::from_calendar_date(2025, Month::December, 10).expect("Valid test date");
 
     // Bloomberg USD OIS curve data (Settle: 12/10/2025)
@@ -452,7 +453,21 @@ fn test_bloomberg_usd_ois_calibration_accuracy() {
         extrapolation: finstack_core::math::interp::ExtrapolationPolicy::FlatForward,
         pricing_discount_id: None,
         pricing_forward_id: None,
-        conventions: Default::default(),
+        // Ensure the curve time-axis matches Bloomberg's published conventions
+        // for the USD OIS curve table (ACT/360).
+        conventions: finstack_valuations::calibration::pricing::RatesStepConventions {
+            curve_day_count: Some(DayCount::Act360),
+            // USD spot-start; this ensures the pricer settlement logic matches
+            // how the market quotes were generated (T+2), without relying on
+            // currency-derived defaults.
+            settlement_days: Some(2),
+            calendar_id: Some("usny".to_string()),
+            business_day_convention: Some(BusinessDayConvention::ModifiedFollowing),
+            // Keep vendor-style strictness off for this test; instrument quotes
+            // carry their own explicit conventions.
+            strict_pricing: Some(false),
+            ..Default::default()
+        },
     };
     let step = StepParams::Discount(params);
     let quotes: Vec<MarketQuote> = discount_quotes.iter().cloned().map(MarketQuote::Rates).collect();
@@ -498,8 +513,17 @@ fn test_bloomberg_usd_ois_calibration_accuracy() {
         // Get annually compounded zero rate (matches Bloomberg convention)
         let calc_zero_annual = curve.zero_annual(yf);
 
+        // Bloomberg tables often report "zero rates" using a display convention that may not be
+        // exactly internally consistent with the published DFs (and may differ by vendor).
+        // For vendor-grade accuracy, compare the curve-implied annual zero from the published DF.
+        let bbg_zero_from_df = if yf > 0.0 {
+            bbg_df.powf(-1.0 / yf) - 1.0
+        } else {
+            0.0
+        };
+
         // Calculate differences
-        let diff_annual = (calc_zero_annual - bbg_zero_rate) * 10_000.0;
+        let diff_annual = (calc_zero_annual - bbg_zero_from_df) * 10_000.0;
         let df_diff_bp = (calc_df - bbg_df) * 10_000.0;
 
         // Use annual compounding (best match so far)
@@ -511,9 +535,10 @@ fn test_bloomberg_usd_ois_calibration_accuracy() {
         let has_large_df_diff = df_diff_bp.abs() > 0.1;
         if is_first_five || has_large_df_diff {
             println!(
-                "  {} | BBG: {:.5}% | Annual: {:.5}% ({:+.2}bp) | BBG DF: {:.6} | Calc DF: {:.6} | DF diff: {:+.2}bp{}",
+                "  {} | BBG zero(tbl): {:.5}% | BBG zero(from DF): {:.5}% | Annual: {:.5}% ({:+.2}bp) | BBG DF: {:.6} | Calc DF: {:.6} | DF diff: {:+.2}bp{}",
                 maturity,
                 bbg_zero_rate * 100.0,
+                bbg_zero_from_df * 100.0,
                 calc_zero_annual * 100.0, diff_annual,
                 bbg_df,
                 calc_df,
@@ -565,15 +590,11 @@ fn test_bloomberg_usd_ois_calibration_accuracy() {
         .fold(0.0, f64::max);
     let avg_df_diff: f64 = df_diffs_bp.iter().sum::<f64>() / df_diffs_bp.len() as f64;
 
-    // ACCURACY CHECKS BY TENOR:
-    // Short-end (deposits): should match well
-    // Note: Tolerances relaxed from 0.1bp to 5bp due to settlement convention differences
-    // between Bloomberg's curve (settle date = base_date) and our calibration.
-    // TODO: Investigate exact Bloomberg conventions for tighter matching.
-    // Empirically, the published Bloomberg curve points differ from our calibration
-    // by ~0-4bp in DF across the deposit bucket when using our curve conventions
-    // and interpolation defaults.
-    let short_end_tolerance_bp = 5.0;
+    // ACCURACY CHECKS BY TENOR (Bloomberg/FinCAD-style tolerances):
+    // - Short-end (deposits): should match essentially exactly.
+    // - Mid-term (1-10Y swaps): sub-bp DF differences.
+    // - Long-end (>10Y swaps): a few bp due to annuity sensitivity to interpolation.
+    let short_end_tolerance_bp = 0.1;
     assert!(
         short_end_max_df < short_end_tolerance_bp,
         "Short-end DF max diff ({:.3}bp) exceeds tolerance ({:.1}bp). \
@@ -582,12 +603,8 @@ fn test_bloomberg_usd_ois_calibration_accuracy() {
         short_end_tolerance_bp
     );
 
-    // Mid-term (1-10Y): should match reasonably
-    // Note: Tolerances relaxed from 1bp to 40bp due to convention differences.
-    // TODO: Investigate exact Bloomberg conventions for tighter matching.
-    // Mid-curve differences are dominated by interpolation and convention deltas.
-    // Allow wider tolerance to keep the test stable while still catching regressions.
-    let mid_term_tolerance_bp = 50.0;
+    // Mid-term (1-10Y): should match closely (vendor-grade).
+    let mid_term_tolerance_bp = 0.5;
     assert!(
         mid_term_max_df < mid_term_tolerance_bp,
         "Mid-term DF max diff ({:.3}bp) exceeds tolerance ({:.1}bp). \
@@ -596,11 +613,9 @@ fn test_bloomberg_usd_ois_calibration_accuracy() {
         mid_term_tolerance_bp
     );
 
-    // Long-end (>10Y): extrapolation differences expected
-    // Note: Tolerances relaxed from 6bp to 60bp due to convention and extrapolation differences.
-    // TODO: Investigate exact Bloomberg conventions for tighter matching.
-    // Long-end differences can exceed 60bp in DF under some interpolation choices.
-    let long_end_tolerance_bp = 70.0;
+    // Long-end (>10Y): allow a few bp because interpolation differences between
+    // pillar points compound through the swap annuity.
+    let long_end_tolerance_bp = 5.0;
     assert!(
         long_end_max_df < long_end_tolerance_bp,
         "Long-end DF max diff ({:.3}bp) exceeds tolerance ({:.1}bp). \
@@ -609,9 +624,8 @@ fn test_bloomberg_usd_ois_calibration_accuracy() {
         long_end_tolerance_bp
     );
 
-    // Zero rates check (display convention)
-    // Note: Tolerance relaxed from 3bp to 10bp due to convention differences.
-    let zero_rate_tolerance_bp = 12.0;
+    // Zero rates check (annual compounding, computed consistently from published DF).
+    let zero_rate_tolerance_bp = 1.0;
     assert!(
         max_zero_diff < zero_rate_tolerance_bp,
         "Max zero rate diff ({:.2}bp) exceeds tolerance ({:.1}bp). \
