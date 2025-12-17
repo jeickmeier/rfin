@@ -62,8 +62,8 @@ pub mod bumps;
 
 // Re-exports: Configuration
 pub use config::{
-    CalibrationConfig, CalibrationMethod as CalibrationSolveMethod, MultiCurveConfig, RateBounds,
-    RateBoundsPolicy, SolverKind, ValidationMode, CALIBRATION_CONFIG_KEY_V2,
+    CalibrationConfig, CalibrationMethod as CalibrationSolveMethod, MultiCurveConfig,
+    CALIBRATION_CONFIG_KEY_V2,
 };
 
 // Re-exports: SABR derivatives (from instruments module)
@@ -74,9 +74,12 @@ pub use crate::instruments::common::models::volatility::sabr_derivatives::{
 // Re-exports: Reports
 pub use report::CalibrationReport;
 pub use solver::{
-    create_simple_solver, solve_1d, BracketDiagnostics, OBJECTIVE_VALID_ABS_MAX, PENALTY,
-    RESIDUAL_PENALTY_ABS_MIN,
+    create_simple_solver, solve_1d, BracketDiagnostics, SolverConfig, OBJECTIVE_VALID_ABS_MAX,
+    PENALTY, RESIDUAL_PENALTY_ABS_MIN,
 };
 
 // Re-exports: Validation
-pub use validation::{CurveValidator, SurfaceValidator, ValidationConfig};
+pub use validation::{
+    CurveValidator, RateBounds, RateBoundsPolicy, SurfaceValidator, ValidationConfig,
+    ValidationMode,
+};

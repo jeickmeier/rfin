@@ -131,8 +131,8 @@ impl VolSurfaceAdapter {
 
         // Calibrate SABR per expiry
         let sabr_calibrator = SABRCalibrator::new()
-            .with_tolerance(config.tolerance)
-            .with_max_iterations(config.max_iterations);
+            .with_tolerance(config.solver.tolerance())
+            .with_max_iterations(config.solver.max_iterations());
 
         let mut sabr_params_by_expiry: BTreeMap<OrderedFloat<f64>, SABRParameters> =
             BTreeMap::new();
@@ -256,7 +256,7 @@ impl VolSurfaceAdapter {
             "vol_surface",
             residuals,
             total_iterations,
-            config.tolerance,
+            config.solver.tolerance(),
         );
         report.update_metadata(
             "expiry_extrapolation_policy",

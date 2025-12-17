@@ -2,9 +2,9 @@
 
 use super::BumpRequest;
 use crate::calibration::adapters::handlers::execute_step;
-use crate::calibration::api::schema::{
-    CalibrationMethod, DiscountCurveParams, RatesStepConventions, StepParams,
-};
+use crate::calibration::config::CalibrationMethod;
+use crate::calibration::api::schema::{DiscountCurveParams, StepParams};
+use crate::calibration::pricing::RatesStepConventions;
 use crate::calibration::quotes::{InstrumentConventions, MarketQuote, RatesQuote};
 use crate::calibration::CalibrationConfig;
 use finstack_core::dates::{Date, DayCount, DayCountCtx};

@@ -1,5 +1,5 @@
 use super::*;
-use crate::calibration::config::RateBounds;
+use crate::calibration::RateBounds;
 use crate::calibration::quotes::{FutureSpecs, InstrumentConventions, RatesQuote};
 use crate::instruments::common::traits::Instrument;
 use finstack_core::dates::{BusinessDayConvention, CalendarRegistry, Date, DateExt, DayCount, Tenor};

@@ -103,7 +103,7 @@ impl SwaptionVolAdapter {
         let sabr_solver_tolerance = params.sabr_tolerance.unwrap_or(1e-6);
         let sabr_calibrator = SABRCalibrator::new()
             .with_tolerance(sabr_solver_tolerance)
-            .with_max_iterations(config.max_iterations);
+            .with_max_iterations(config.solver.max_iterations());
 
         let mut sabr_params: SABRParamsByExpiryTenor = BTreeMap::new();
         let mut residuals = BTreeMap::new();
@@ -1029,7 +1029,7 @@ mod tests {
         }
 
         let config = CalibrationConfig {
-            max_iterations: 500,
+            solver: crate::calibration::solver::SolverConfig::brent_default().with_max_iterations(500),
             ..CalibrationConfig::default()
         };
         let (surface, _report) =

@@ -79,7 +79,8 @@ impl ForwardCurveTarget {
 
     /// Calculate scale-aware tolerance for knot collision detection.
     pub fn scale_aware_tolerance(&self, knot_time: f64) -> f64 {
-        (self.config.tolerance * (1.0 + knot_time)).max(self.config.tolerance)
+        let tol = self.config.solver.tolerance();
+        (tol * (1.0 + knot_time)).max(tol)
     }
 }
 
@@ -250,7 +251,8 @@ mod tests {
             tenor_years: 1.0,
             solve_interp: InterpStyle::Linear,
             config: CalibrationConfig {
-                tolerance,
+                solver: crate::calibration::solver::SolverConfig::brent_default()
+                    .with_tolerance(tolerance),
                 ..CalibrationConfig::default()
             },
             pricer: pricer.clone(),

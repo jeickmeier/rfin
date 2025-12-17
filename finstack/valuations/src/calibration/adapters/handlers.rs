@@ -2,7 +2,7 @@
 //!
 //! Maps API steps to domain logic execution.
 
-use crate::calibration::config::CalibrationConfig;
+use crate::calibration::config::{CalibrationConfig, CalibrationMethod};
 use crate::calibration::adapters::base_correlation::BaseCorrelationBootstrapper;
 use crate::calibration::adapters::discount::{DiscountCurveTarget, DiscountCurveTargetParams};
 use crate::calibration::adapters::forward::{ForwardCurveTarget, ForwardCurveTargetParams};
@@ -10,8 +10,8 @@ use crate::calibration::adapters::hazard::HazardBootstrapper;
 use crate::calibration::adapters::inflation::InflationBootstrapper;
 use crate::calibration::adapters::swaption::SwaptionVolAdapter;
 use crate::calibration::adapters::vol::VolSurfaceAdapter;
-use crate::calibration::api::schema::{CalibrationMethod, RatesStepConventions, StepParams};
-use crate::calibration::pricing::CalibrationPricer;
+use crate::calibration::api::schema::StepParams;
+use crate::calibration::pricing::{CalibrationPricer, RatesStepConventions};
 use crate::calibration::quotes::{ExtractQuotes, MarketQuote};
 use crate::calibration::solver::{
     BootstrapTarget, GlobalFitOptimizer, SequentialBootstrapper,
@@ -135,28 +135,28 @@ pub(crate) fn apply_rates_step_conventions(
     pricer = pricer.with_strict_pricing(strict_pricing);
 
     if strict_pricing {
-        if pricer.settlement_days.is_none() {
+        if pricer.conventions.settlement_days.is_none() {
             return Err(finstack_core::Error::Validation(
                 "Strict pricing requires step-level settlement_days to be set".to_string(),
             ));
         }
-        if pricer.calendar_id.is_none() {
+        if pricer.conventions.calendar_id.is_none() {
             return Err(finstack_core::Error::Validation(
                 "Strict pricing requires step-level calendar_id to be set".to_string(),
             ));
         }
-        if pricer.business_day_convention.is_none() {
+        if pricer.conventions.business_day_convention.is_none() {
             return Err(finstack_core::Error::Validation(
                 "Strict pricing requires step-level business_day_convention to be set".to_string(),
             ));
         }
-        if pricer.default_payment_delay_days.is_none() {
+        if pricer.conventions.default_payment_delay_days.is_none() {
             return Err(finstack_core::Error::Validation(
                 "Strict pricing requires step-level default_payment_delay_days to be set"
                     .to_string(),
             ));
         }
-        if pricer.default_reset_lag_days.is_none() {
+        if pricer.conventions.default_reset_lag_days.is_none() {
             return Err(finstack_core::Error::Validation(
                 "Strict pricing requires step-level default_reset_lag_days to be set".to_string(),
             ));
@@ -218,7 +218,7 @@ pub fn execute_step(
                     sort_bootstrap_quotes(&target, &mut rates_quotes)?;
                     run_bootstrap(&target, &rates_quotes, vec![(0.0, 1.0)], global_config)?
                 }
-                CalibrationMethod::Global => {
+                CalibrationMethod::GlobalSolve { .. } => {
                     GlobalFitOptimizer::optimize(&target, &rates_quotes, global_config)?
                 }
             };
@@ -259,7 +259,7 @@ pub fn execute_step(
                     sort_bootstrap_quotes(&target, &mut rates_quotes)?;
                     run_bootstrap(&target, &rates_quotes, Vec::new(), global_config)?
                 }
-                CalibrationMethod::Global => {
+                CalibrationMethod::GlobalSolve { .. } => {
                     return Err(finstack_core::Error::Input(
                         finstack_core::error::InputError::Invalid,
                     ));
@@ -281,7 +281,7 @@ pub fn execute_step(
                     sort_bootstrap_quotes(&target, &mut credit_quotes)?;
                     run_bootstrap(&target, &credit_quotes, Vec::new(), global_config)?
                 }
-                CalibrationMethod::Global => {
+                CalibrationMethod::GlobalSolve { .. } => {
                     return Err(finstack_core::Error::Input(
                         finstack_core::error::InputError::Invalid,
                     ));
@@ -308,7 +308,7 @@ pub fn execute_step(
                     vec![(0.0, p.base_cpi)],
                     global_config,
                 )?,
-                CalibrationMethod::Global => {
+                CalibrationMethod::GlobalSolve { .. } => {
                     return Err(finstack_core::Error::Input(
                         finstack_core::error::InputError::Invalid,
                     ));

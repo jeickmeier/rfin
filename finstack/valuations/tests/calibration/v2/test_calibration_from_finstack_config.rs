@@ -2,8 +2,8 @@
 
 use finstack_core::config::FinstackConfig;
 use finstack_valuations::calibration::{
-    CalibrationConfig, CalibrationSolveMethod, RateBounds, RateBoundsPolicy, SolverKind,
-    CALIBRATION_CONFIG_KEY_V2,
+    CalibrationConfig, CalibrationSolveMethod, RateBounds, RateBoundsPolicy,
+    CALIBRATION_CONFIG_KEY_V2, SolverConfig,
 };
 use serde_json::json;
 
@@ -13,11 +13,13 @@ fn calibration_config_applies_extension_overrides() {
     cfg.extensions.insert(
         CALIBRATION_CONFIG_KEY_V2,
         json!({
-            "tolerance": 1e-8,
-            "max_iterations": 250,
+            "solver": {
+                "method": "newton",
+                "tolerance": 1e-8,
+                "max_iterations": 250
+            },
             "use_parallel": true,
             "random_seed": null,
-            "solver_kind": "Newton",
             "rate_bounds_policy": "explicit",
             "rate_bounds": { "min_rate": -0.01, "max_rate": 0.10 },
             "calibration_method": { "GlobalSolve": { "use_analytical_jacobian": true } }
@@ -26,11 +28,11 @@ fn calibration_config_applies_extension_overrides() {
 
     let cfg_out =
         CalibrationConfig::from_finstack_config_or_default(&cfg).expect("apply overrides");
-    assert_eq!(cfg_out.tolerance, 1e-8);
-    assert_eq!(cfg_out.max_iterations, 250);
+    assert_eq!(cfg_out.solver.tolerance(), 1e-8);
+    assert_eq!(cfg_out.solver.max_iterations(), 250);
     assert!(cfg_out.use_parallel);
     assert_eq!(cfg_out.random_seed, None);
-    assert_eq!(cfg_out.solver_kind, SolverKind::Newton);
+    assert!(matches!(cfg_out.solver, SolverConfig::Newton { .. }));
     assert_eq!(cfg_out.rate_bounds_policy, RateBoundsPolicy::Explicit);
     assert_eq!(
         cfg_out.rate_bounds,
@@ -53,11 +55,11 @@ fn calibration_config_defaults_without_extension() {
     let cfg_out = CalibrationConfig::from_finstack_config_or_default(&cfg).expect("defaults");
     let defaults = CalibrationConfig::default();
 
-    assert_eq!(cfg_out.tolerance, defaults.tolerance);
-    assert_eq!(cfg_out.max_iterations, defaults.max_iterations);
+    assert_eq!(cfg_out.solver.tolerance(), defaults.solver.tolerance());
+    assert_eq!(cfg_out.solver.max_iterations(), defaults.solver.max_iterations());
     assert_eq!(cfg_out.use_parallel, defaults.use_parallel);
     assert_eq!(cfg_out.random_seed, defaults.random_seed);
-    assert_eq!(cfg_out.solver_kind, defaults.solver_kind);
+    assert_eq!(cfg_out.solver, defaults.solver);
     assert_eq!(cfg_out.rate_bounds_policy, defaults.rate_bounds_policy);
     assert_eq!(cfg_out.rate_bounds, defaults.rate_bounds);
 }

@@ -96,10 +96,10 @@ impl CalibrationPricer {
             return Ok(adj);
         }
 
-        let params = match &self.convexity_params {
+        let params = match &self.conventions.convexity_params {
             Some(p) => p.clone(),
             None => {
-                if self.strict_pricing {
+                if self.conventions.strict_pricing.unwrap_or(false) {
                     return Err(finstack_core::Error::Validation(
                         "Strict pricing requires futures convexity_params (step-level) or specs.convexity_adjustment (quote-level)".to_string(),
                     ));
@@ -111,7 +111,7 @@ impl CalibrationPricer {
         // In strict mode, prohibit "market implied" fallback to internal defaults.
         // If the caller requests MarketImplied but does not supply an explicit vol,
         // fail fast rather than silently using base_volatility heuristics.
-        if self.strict_pricing
+        if self.conventions.strict_pricing.unwrap_or(false)
             && matches!(
                 params.vol_source,
                 super::super::convexity::VolatilitySource::MarketImplied { .. }

@@ -170,8 +170,8 @@ impl SequentialBootstrapper {
                 &objective,
                 initial_guess,
                 scan_points_ref,
-                config.tolerance,
-                config.max_iterations,
+                config.solver.tolerance(),
+                config.solver.max_iterations(),
             )?;
 
             total_iterations += diag.eval_count;
@@ -184,7 +184,7 @@ impl SequentialBootstrapper {
                 // accept it; otherwise fail fast rather than running a generic solver through
                 // infeasible regions (which is often unstable and non-deterministic).
                 if let (Some(best_x), Some(best_f)) = (diag.best_point, diag.best_value) {
-                    if best_f.is_finite() && best_f.abs() <= config.tolerance {
+                    if best_f.is_finite() && best_f.abs() <= config.solver.tolerance() {
                         best_x
                     } else {
                         return Err(finstack_core::Error::Calibration {
@@ -192,7 +192,7 @@ impl SequentialBootstrapper {
                                 "Bootstrap failed at t={:.6}: no bracket found and best |residual|={:.3e} exceeds tolerance={:.3e} (scan_bounds=[{:.3e}, {:.3e}])",
                                 time,
                                 best_f.abs(),
-                                config.tolerance,
+                                config.solver.tolerance(),
                                 diag.scan_bounds.0,
                                 diag.scan_bounds.1
                             ),
@@ -243,11 +243,11 @@ impl SequentialBootstrapper {
                     category: "bootstrapping".to_string(),
                 });
             }
-            if residual_abs > config.tolerance {
+            if residual_abs > config.solver.tolerance() {
                 return Err(finstack_core::Error::Calibration {
                     message: format!(
                         "Bootstrap failed to converge at t={:.6}: residual={} (|.|={:.3e}) exceeds tolerance={:.3e}",
-                        time, residual_signed, residual_abs, config.tolerance
+                        time, residual_signed, residual_abs, config.solver.tolerance()
                     ),
                     category: "bootstrapping".to_string(),
                 });
@@ -268,7 +268,7 @@ impl SequentialBootstrapper {
                         iteration: sorted_idx,
                         residual: residual_signed,
                         knots_updated: vec![format!("t={:.4}", time)],
-                        converged: residual_abs <= config.tolerance,
+                        converged: residual_abs <= config.solver.tolerance(),
                     },
                     config.explain.max_entries,
                 );
@@ -282,7 +282,7 @@ impl SequentialBootstrapper {
             "generic_bootstrap",
             residuals,
             total_iterations,
-            config.tolerance,
+            config.solver.tolerance(),
         );
         let report = if let Some(t) = trace {
             report.with_explanation(t)
@@ -381,8 +381,9 @@ mod tests {
             infeasible_below: None,
         };
         let cfg = CalibrationConfig {
-            tolerance: 1e-10,
-            max_iterations: 200,
+            solver: crate::calibration::solver::SolverConfig::brent_default()
+                .with_tolerance(1e-10)
+                .with_max_iterations(200),
             ..CalibrationConfig::default()
         };
         let (curve, report) =
@@ -404,8 +405,9 @@ mod tests {
             infeasible_below: Some(0.0),
         };
         let cfg = CalibrationConfig {
-            tolerance: 1e-10,
-            max_iterations: 200,
+            solver: crate::calibration::solver::SolverConfig::brent_default()
+                .with_tolerance(1e-10)
+                .with_max_iterations(200),
             ..CalibrationConfig::default()
         };
         let (curve, report) =
@@ -428,9 +430,9 @@ mod tests {
             infeasible_below: None,
         };
         let cfg = CalibrationConfig {
-            tolerance: 1e-10,
-            max_iterations: 200,
-            solver_kind: crate::calibration::SolverKind::Brent,
+            solver: crate::calibration::solver::SolverConfig::brent_default()
+                .with_tolerance(1e-10)
+                .with_max_iterations(200),
             ..CalibrationConfig::default()
         };
         let err = SequentialBootstrapper::bootstrap(&target, &[q], vec![(0.0, 0.0)], &cfg, None)
@@ -504,9 +506,9 @@ mod tests {
             scale: 1.0e4,
         };
         let cfg = CalibrationConfig {
-            tolerance: 1e-10,
-            max_iterations: 200,
-            solver_kind: crate::calibration::SolverKind::Brent,
+            solver: crate::calibration::solver::SolverConfig::brent_default()
+                .with_tolerance(1e-10)
+                .with_max_iterations(200),
             ..CalibrationConfig::default()
         };
         let err = SequentialBootstrapper::bootstrap(&target, &[q], vec![(0.0, 0.0)], &cfg, None)
@@ -557,8 +559,9 @@ mod tests {
             infeasible_below: None,
         };
         let cfg = CalibrationConfig {
-            tolerance: 1e-12,
-            max_iterations: 200,
+            solver: crate::calibration::solver::SolverConfig::brent_default()
+                .with_tolerance(1e-12)
+                .with_max_iterations(200),
             ..CalibrationConfig::default()
         };
 

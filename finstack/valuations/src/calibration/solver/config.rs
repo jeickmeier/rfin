@@ -31,6 +31,8 @@ use serde::{Deserialize, Serialize};
 /// // Serialize to JSON for persistence
 /// let json = serde_json::to_string(&config)?;
 /// ```
+#[cfg_attr(feature = "ts_export", derive(ts_rs::TS))]
+#[cfg_attr(feature = "ts_export", ts(export))]
 #[derive(Clone, Debug, Serialize, Deserialize, PartialEq)]
 #[serde(tag = "method", rename_all = "snake_case")]
 pub enum SolverConfig {
@@ -38,6 +40,7 @@ pub enum SolverConfig {
     Newton {
         /// Full solver state from `finstack-core`.
         #[serde(flatten)]
+        #[cfg_attr(feature = "ts_export", ts(skip))]
         solver: NewtonSolver,
     },
 
@@ -45,6 +48,7 @@ pub enum SolverConfig {
     Brent {
         /// Full solver state from `finstack-core`.
         #[serde(flatten)]
+        #[cfg_attr(feature = "ts_export", ts(skip))]
         solver: BrentSolver,
     },
     /// Global Newton-style solve (with optional LM damping for robustness).
@@ -95,6 +99,48 @@ impl SolverConfig {
         Self::Brent {
             solver: solver.clone(),
         }
+    }
+
+    /// Get the convergence tolerance.
+    pub fn tolerance(&self) -> f64 {
+        match self {
+            Self::Newton { solver } => solver.tolerance,
+            Self::Brent { solver } => solver.tolerance,
+            Self::GlobalNewton { tolerance, .. } => *tolerance,
+        }
+    }
+
+    /// Get the maximum number of iterations.
+    pub fn max_iterations(&self) -> usize {
+        match self {
+            Self::Newton { solver } => solver.max_iterations,
+            Self::Brent { solver } => solver.max_iterations,
+            Self::GlobalNewton { max_iterations, .. } => *max_iterations,
+        }
+    }
+
+    /// Set the tolerance (builder pattern).
+    pub fn with_tolerance(mut self, tolerance: f64) -> Self {
+        match &mut self {
+            Self::Newton { solver } => solver.tolerance = tolerance,
+            Self::Brent { solver } => solver.tolerance = tolerance,
+            Self::GlobalNewton {
+                tolerance: t, ..
+            } => *t = tolerance,
+        }
+        self
+    }
+
+    /// Set the maximum iterations (builder pattern).
+    pub fn with_max_iterations(mut self, max_iterations: usize) -> Self {
+        match &mut self {
+            Self::Newton { solver } => solver.max_iterations = max_iterations,
+            Self::Brent { solver } => solver.max_iterations = max_iterations,
+            Self::GlobalNewton {
+                max_iterations: m, ..
+            } => *m = max_iterations,
+        }
+        self
     }
 }
 

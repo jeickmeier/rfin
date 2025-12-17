@@ -3,7 +3,7 @@ use crate::core::common::{labels::normalize_label, pycmp::richcmp_eq_ne};
 use finstack_core::explain::ExplainOpts;
 use finstack_core::market_data::term_structures::Seniority;
 use finstack_valuations::calibration::{
-    CalibrationConfig, CalibrationSolveMethod, MultiCurveConfig, RateBounds, SolverKind,
+    CalibrationConfig, CalibrationSolveMethod, MultiCurveConfig, RateBounds, SolverConfig,
     ValidationMode,
 };
 use pyo3::basic::CompareOp;
@@ -17,21 +17,21 @@ use pyo3::Bound;
     name = "SolverKind",
     frozen
 )]
-#[derive(Clone, Debug, PartialEq, Eq)]
+#[derive(Clone, Debug, PartialEq)]
 pub struct PySolverKind {
-    pub(crate) inner: SolverKind,
+    pub(crate) inner: SolverConfig,
 }
 
 impl PySolverKind {
-    pub(crate) const fn new(inner: SolverKind) -> Self {
+    pub(crate) const fn new(inner: SolverConfig) -> Self {
         Self { inner }
     }
 
-    const fn discriminant(&self) -> isize {
+    fn discriminant(&self) -> isize {
         match self.inner {
-            SolverKind::Newton => 0,
-            SolverKind::Brent => 1,
-            SolverKind::LevenbergMarquardt => 2,
+            SolverConfig::Newton { .. } => 0,
+            SolverConfig::Brent { .. } => 1,
+            SolverConfig::GlobalNewton { .. } => 2,
         }
     }
 }
@@ -39,20 +39,23 @@ impl PySolverKind {
 #[pymethods]
 impl PySolverKind {
     #[classattr]
-    const NEWTON: Self = Self::new(SolverKind::Newton);
+    #[pyo3(name = "NEWTON")]
+    fn newton_attr() -> Self { Self::new(SolverConfig::newton_default()) }
     #[classattr]
-    const BRENT: Self = Self::new(SolverKind::Brent);
+    #[pyo3(name = "BRENT")]
+    fn brent_attr() -> Self { Self::new(SolverConfig::brent_default()) }
     #[classattr]
-    const LEVENBERG_MARQUARDT: Self = Self::new(SolverKind::LevenbergMarquardt);
+    #[pyo3(name = "GLOBAL_NEWTON")]
+    fn global_newton_attr() -> Self { Self::new(SolverConfig::global_newton_default()) }
 
     #[classmethod]
     #[pyo3(text_signature = "(cls, name)")]
     fn from_name(_cls: &Bound<'_, PyType>, name: &str) -> PyResult<Self> {
         match normalize_label(name).as_str() {
-            "newton" => Ok(Self::new(SolverKind::Newton)),
-            "brent" => Ok(Self::new(SolverKind::Brent)),
-            "levenberg_marquardt" | "levenbergmarquardt" => {
-                Ok(Self::new(SolverKind::LevenbergMarquardt))
+            "newton" => Ok(Self::new(SolverConfig::newton_default())),
+            "brent" => Ok(Self::new(SolverConfig::brent_default())),
+            "global_newton" | "levenberg_marquardt" | "levenbergmarquardt" => {
+                Ok(Self::new(SolverConfig::global_newton_default()))
             }
             other => Err(PyKeyError::new_err(format!("Unknown solver kind: {other}"))),
         }
@@ -61,9 +64,9 @@ impl PySolverKind {
     #[getter]
     fn name(&self) -> &'static str {
         match self.inner {
-            SolverKind::Newton => "newton",
-            SolverKind::Brent => "brent",
-            SolverKind::LevenbergMarquardt => "levenberg_marquardt",
+            SolverConfig::Newton { .. } => "newton",
+            SolverConfig::Brent { .. } => "brent",
+            SolverConfig::GlobalNewton { .. } => "global_newton",
         }
     }
 
@@ -498,10 +501,10 @@ impl PyCalibrationConfig {
     ) -> PyResult<Self> {
         let mut inner = CalibrationConfig::default();
         if let Some(val) = tolerance {
-            inner.tolerance = val;
+            inner.solver = inner.solver.with_tolerance(val);
         }
         if let Some(val) = max_iterations {
-            inner.max_iterations = val;
+            inner.solver = inner.solver.with_max_iterations(val);
         }
         if let Some(flag) = use_parallel {
             inner.use_parallel = flag;
@@ -514,7 +517,7 @@ impl PyCalibrationConfig {
             inner.verbose = flag;
         }
         if let Some(kind) = solver_kind {
-            inner.solver_kind = kind.inner.clone();
+            inner.solver = kind.inner.clone();
         }
         if let Some(cfg) = multi_curve {
             inner.multi_curve = cfg.inner.clone();
@@ -552,12 +555,12 @@ impl PyCalibrationConfig {
 
     #[getter]
     fn tolerance(&self) -> f64 {
-        self.inner.tolerance
+        self.inner.solver.tolerance()
     }
 
     #[getter]
     fn max_iterations(&self) -> usize {
-        self.inner.max_iterations
+        self.inner.solver.max_iterations()
     }
 
     #[getter]
@@ -577,7 +580,7 @@ impl PyCalibrationConfig {
 
     #[getter]
     fn solver_kind(&self) -> PySolverKind {
-        PySolverKind::new(self.inner.solver_kind.clone())
+        PySolverKind::new(self.inner.solver.clone())
     }
 
     #[getter]
@@ -626,13 +629,13 @@ impl PyCalibrationConfig {
 
     fn with_tolerance(&self, tolerance: f64) -> Self {
         let mut next = self.inner.clone();
-        next.tolerance = tolerance;
+        next.solver = next.solver.with_tolerance(tolerance);
         Self::new(next)
     }
 
     fn with_max_iterations(&self, max_iterations: usize) -> Self {
         let mut next = self.inner.clone();
-        next.max_iterations = max_iterations;
+        next.solver = next.solver.with_max_iterations(max_iterations);
         Self::new(next)
     }
 
@@ -656,7 +659,7 @@ impl PyCalibrationConfig {
 
     fn with_solver_kind(&self, kind: PyRef<PySolverKind>) -> Self {
         let mut next = self.inner.clone();
-        next.solver_kind = kind.inner.clone();
+        next.solver = kind.inner.clone();
         Self::new(next)
     }
 
@@ -713,13 +716,13 @@ impl PyCalibrationConfig {
 
     fn __repr__(&self) -> PyResult<String> {
         let mut parts = vec![
-            format!("tolerance={}", self.inner.tolerance),
-            format!("max_iterations={}", self.inner.max_iterations),
+            format!("tolerance={}", self.inner.solver.tolerance()),
+            format!("max_iterations={}", self.inner.solver.max_iterations()),
             format!("use_parallel={}", self.inner.use_parallel),
             format!("verbose={}", self.inner.verbose),
             format!(
                 "solver_kind='{}'",
-                PySolverKind::new(self.inner.solver_kind.clone()).name()
+                PySolverKind::new(self.inner.solver.clone()).name()
             ),
             format!(
                 "calibration_method='{}'",

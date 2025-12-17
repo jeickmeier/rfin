@@ -433,10 +433,11 @@ fn test_bloomberg_usd_ois_calibration_accuracy() {
     cfg.extensions.insert(
         CALIBRATION_CONFIG_KEY_V2,
         serde_json::json!({
-            // Bootstrap uses x-space termination in Brent; enforce internal consistency via
-            // max_residual checks below while keeping the solver tolerance realistic for long-end quotes.
-            "tolerance": 1e-8,
-            "max_iterations": 200
+            "solver": {
+                "method": "brent",
+                "tolerance": 1e-8,
+                "max_iterations": 200
+            }
         }),
     );
     let settings =

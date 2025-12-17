@@ -5,7 +5,8 @@
 
 use finstack_core::Result;
 
-use crate::calibration::{CalibrationConfig, SolverKind};
+use crate::calibration::CalibrationConfig;
+use crate::calibration::solver::SolverConfig;
 
 /// Finite penalty value used in objective functions instead of infinity.
 ///
@@ -33,30 +34,24 @@ pub const RESIDUAL_PENALTY_ABS_MIN: f64 = PENALTY * 0.5;
 ///
 /// This replaces the former `with_solver!` macro with a plain helper function
 /// to make control flow explicit and IDE-friendly.
-pub fn solve_1d<Fun>(kind: SolverKind, tol: f64, iters: usize, f: Fun, init: f64) -> Result<f64>
+pub fn solve_1d<Fun>(solver: &SolverConfig, f: Fun, init: f64) -> Result<f64>
 where
     Fun: Fn(f64) -> f64,
 {
-    use finstack_core::math::{BrentSolver, NewtonSolver, Solver};
+    use finstack_core::math::{BrentSolver, Solver};
 
-    match kind {
-        SolverKind::Newton => {
-            let solver = NewtonSolver::new()
-                .with_tolerance(tol)
-                .with_max_iterations(iters);
-            solver.solve(f, init)
-        }
-        SolverKind::Brent => {
-            let solver = BrentSolver::new()
-                .with_tolerance(tol)
-                .with_max_iterations(iters);
-            solver.solve(f, init)
-        }
+    match solver {
+        SolverConfig::Newton { solver } => solver.solve(f, init),
+        SolverConfig::Brent { solver } => solver.solve(f, init),
         // For multi-dimensional kinds, fall back to Brent for 1D problems
-        SolverKind::LevenbergMarquardt => {
+        SolverConfig::GlobalNewton {
+            tolerance,
+            max_iterations,
+            ..
+        } => {
             let solver = BrentSolver::new()
-                .with_tolerance(tol)
-                .with_max_iterations(iters);
+                .with_tolerance(*tolerance)
+                .with_max_iterations(*max_iterations);
             solver.solve(f, init)
         }
     }
@@ -193,21 +188,20 @@ pub(crate) fn bracket_solve_1d_with_diagnostics(
 
                 // Fallback: robust Brent (x-space) + Newton polish (f-space) from bracket midpoint.
                 let guess = 0.5 * (prev_point + point);
-                let root_brent =
-                    solve_1d(SolverKind::Brent, tol, max_iters.max(50), objective, guess)?;
+                let solver_brent = SolverConfig::brent_default()
+                    .with_tolerance(tol)
+                    .with_max_iterations(max_iters.max(50));
+                let root_brent = solve_1d(&solver_brent, objective, guess)?;
                 let fb2 = objective(root_brent);
                 diag.update(root_brent, fb2);
                 if fb2.is_finite() && fb2.abs() < tol {
                     diag.bracket_found = true;
                     return Ok((Some(root_brent), diag));
                 }
-                if let Ok(root_newton) = solve_1d(
-                    SolverKind::Newton,
-                    tol,
-                    max_iters.max(50),
-                    objective,
-                    root_brent,
-                ) {
+                let solver_newton = SolverConfig::newton_default()
+                    .with_tolerance(tol)
+                    .with_max_iterations(max_iters.max(50));
+                if let Ok(root_newton) = solve_1d(&solver_newton, objective, root_brent) {
                     let fnv = objective(root_newton);
                     diag.update(root_newton, fnv);
                     if fnv.is_finite() && fnv.abs() < tol {
@@ -231,9 +225,7 @@ pub(crate) fn bracket_solve_1d_with_diagnostics(
 /// Create a simple solver wrapper for calibration methods using `solve_1d` internally.
 pub fn create_simple_solver(config: &CalibrationConfig) -> impl finstack_core::math::Solver {
     struct SimpleSolver {
-        kind: SolverKind,
-        tolerance: f64,
-        max_iterations: usize,
+        solver: SolverConfig,
     }
 
     impl finstack_core::math::Solver for SimpleSolver {
@@ -241,20 +233,12 @@ pub fn create_simple_solver(config: &CalibrationConfig) -> impl finstack_core::m
         where
             Fun: Fn(f64) -> f64,
         {
-            solve_1d(
-                self.kind.clone(),
-                self.tolerance,
-                self.max_iterations,
-                f,
-                initial_guess,
-            )
+            solve_1d(&self.solver, f, initial_guess)
         }
     }
 
     SimpleSolver {
-        kind: config.solver_kind.clone(),
-        tolerance: config.tolerance,
-        max_iterations: config.max_iterations,
+        solver: config.solver.clone(),
     }
 }
 

@@ -41,8 +41,8 @@ impl CalibrationPricer {
         conventions: &InstrumentConventions,
         currency: Currency,
     ) -> finstack_core::Result<Date> {
-        if self.use_settlement_start {
-            if self.strict_pricing {
+        if self.conventions.use_settlement_start.unwrap_or(true) {
+            if self.conventions.strict_pricing.unwrap_or(false) {
                 self.settlement_date_for_quote_explicit(conventions, currency)
             } else {
                 self.settlement_date_for_quote(conventions, currency)
@@ -81,7 +81,7 @@ impl CalibrationPricer {
                 // Final adjustment ensures we land on a business day
                 adjust(spot, bdc, calendar)
             }
-        } else if self.allow_calendar_fallback {
+        } else if self.conventions.allow_calendar_fallback.unwrap_or(false) {
             // Fallback: calendar not found, use calendar-day addition with warning.
             tracing::warn!(
                 calendar_id = calendar_id,
@@ -113,7 +113,7 @@ impl CalibrationPricer {
     ) -> finstack_core::Result<Date> {
         let days = quote_conventions
             .settlement_days
-            .or(self.settlement_days)
+            .or(self.conventions.settlement_days)
             .ok_or_else(|| {
                 finstack_core::Error::Validation(
                     "Strict pricing requires settlement_days to be set (quote or step)".to_string(),
@@ -123,7 +123,7 @@ impl CalibrationPricer {
         let calendar_id = quote_conventions
             .calendar_id
             .as_deref()
-            .or(self.calendar_id.as_deref())
+            .or(self.conventions.calendar_id.as_deref())
             .ok_or_else(|| {
                 finstack_core::Error::Validation(
                     "Strict pricing requires calendar_id to be set (quote or step)".to_string(),
@@ -132,7 +132,7 @@ impl CalibrationPricer {
 
         let bdc = quote_conventions
             .business_day_convention
-            .or(self.business_day_convention)
+            .or(self.conventions.business_day_convention)
             .ok_or_else(|| {
                 finstack_core::Error::Validation(
                     "Strict pricing requires business_day_convention to be set (quote or step)"
@@ -148,7 +148,7 @@ impl CalibrationPricer {
                 let spot = self.base_date.add_business_days(days, calendar)?;
                 adjust(spot, bdc, calendar)
             }
-        } else if self.allow_calendar_fallback {
+        } else if self.conventions.allow_calendar_fallback.unwrap_or(false) {
             tracing::warn!(
                 calendar_id = calendar_id,
                 currency = ?currency,

@@ -25,7 +25,7 @@ impl CalibrationPricer {
         currency: Currency,
         context: &MarketContext,
     ) -> Result<f64> {
-        if self.strict_pricing {
+        if self.conventions.strict_pricing.unwrap_or(false) {
             self.price_instrument_strict(quote, currency, context)
         } else {
             self.price_instrument(quote, currency, context)
@@ -60,7 +60,7 @@ impl CalibrationPricer {
             attributes: Default::default(),
             // Only set spot_lag_days when use_settlement_start=true; otherwise
             // rely on the explicit start date to avoid double-application
-            spot_lag_days: if self.use_settlement_start && common.settlement_days != 0 {
+            spot_lag_days: if self.conventions.use_settlement_start.unwrap_or(true) && common.settlement_days != 0 {
                 Some(common.settlement_days)
             } else {
                 None
@@ -101,7 +101,7 @@ impl CalibrationPricer {
             start,
             reset_lag,
             calendar_id,
-            self.allow_calendar_fallback,
+            self.conventions.allow_calendar_fallback.unwrap_or(false),
         )?;
 
         if self.verbose {
@@ -323,7 +323,7 @@ impl CalibrationPricer {
             reference_leg,
             self.discount_curve_id.as_str(),
         )
-        .with_allow_calendar_fallback(self.allow_calendar_fallback)
+        .with_allow_calendar_fallback(self.conventions.allow_calendar_fallback.unwrap_or(false))
         .with_calendar(calendar_id.to_string());
 
         // For discount curve calibration (tenor_years=None), both forward curves must exist
@@ -569,7 +569,7 @@ impl CalibrationPricer {
                 let start = self.effective_start_date(conventions, currency)?;
                 let settlement_days = conventions
                     .settlement_days
-                    .or(self.settlement_days)
+                    .or(self.conventions.settlement_days)
                     .ok_or_else(|| {
                         finstack_core::Error::Validation(
                             "Strict pricing requires settlement_days to be set (quote or step)"
@@ -578,7 +578,7 @@ impl CalibrationPricer {
                     })?;
                 let bdc = conventions
                     .business_day_convention
-                    .or(self.business_day_convention)
+                    .or(self.conventions.business_day_convention)
                     .ok_or_else(|| {
                         finstack_core::Error::Validation(
                             "Strict pricing requires business_day_convention to be set (quote or step)"
@@ -588,7 +588,7 @@ impl CalibrationPricer {
                 let calendar_id = conventions
                     .calendar_id
                     .as_deref()
-                    .or(self.calendar_id.as_deref())
+                    .or(self.conventions.calendar_id.as_deref())
                     .ok_or_else(|| {
                         finstack_core::Error::Validation(
                             "Strict pricing requires calendar_id to be set (quote or step)"
@@ -604,7 +604,7 @@ impl CalibrationPricer {
                     quote_rate: Some(*rate),
                     discount_curve_id: self.discount_curve_id.clone(),
                     attributes: Default::default(),
-                    spot_lag_days: if self.use_settlement_start && settlement_days != 0 {
+                    spot_lag_days: if self.conventions.use_settlement_start.unwrap_or(true) && settlement_days != 0 {
                         Some(settlement_days)
                     } else {
                         None
@@ -632,7 +632,7 @@ impl CalibrationPricer {
                 })?;
                 let reset_lag = conventions
                     .reset_lag
-                    .or(self.default_reset_lag_days)
+                    .or(self.conventions.default_reset_lag_days)
                     .ok_or_else(|| {
                         finstack_core::Error::Validation(
                             "Strict pricing requires reset_lag to be set (quote or step)"
@@ -641,7 +641,7 @@ impl CalibrationPricer {
                     })?;
                 let calendar_id = conventions
                     .effective_fixing_calendar_id()
-                    .or(self.calendar_id.as_deref())
+                    .or(self.conventions.calendar_id.as_deref())
                     .ok_or_else(|| {
                         finstack_core::Error::Validation(
                             "Strict pricing requires a fixing calendar to be set (quote or step)"
@@ -652,7 +652,7 @@ impl CalibrationPricer {
                     *start,
                     reset_lag,
                     calendar_id,
-                    self.allow_calendar_fallback,
+                    self.conventions.allow_calendar_fallback.unwrap_or(false),
                 )?;
                 let fra = ForwardRateAgreement::builder()
                     .id(format!("CALIB_FRA_{}_{}", start, end).into())
@@ -743,22 +743,12 @@ impl CalibrationPricer {
                     .day_count
                     .unwrap_or(index_conv.day_count);
 
-                let _settlement_days = conventions
-                    .settlement_days
-                    .or(self.settlement_days)
-                    .ok_or_else(|| {
-                        finstack_core::Error::Validation(
-                            "Strict pricing requires settlement_days to be set (quote or step)"
-                                .to_string(),
-                        )
-                    })?;
-
                 let calendar_id = conventions
                     .calendar_id
                     .as_deref()
                     .or(fixed_leg_conventions.calendar_id.as_deref())
                     .or(float_leg_conventions.calendar_id.as_deref())
-                    .or(self.calendar_id.as_deref())
+                    .or(self.conventions.calendar_id.as_deref())
                     .ok_or_else(|| {
                         finstack_core::Error::Validation(
                             "Strict pricing requires calendar_id to be set (quote or step)"
@@ -770,7 +760,7 @@ impl CalibrationPricer {
                     .business_day_convention
                     .or(fixed_leg_conventions.business_day_convention)
                     .or(float_leg_conventions.business_day_convention)
-                    .or(self.business_day_convention)
+                    .or(self.conventions.business_day_convention)
                     .ok_or_else(|| {
                         finstack_core::Error::Validation(
                             "Strict pricing requires business_day_convention to be set (quote or step)"
@@ -784,7 +774,7 @@ impl CalibrationPricer {
                     .or(float_leg_conventions.fixing_calendar_id.as_deref())
                     .or(conventions.calendar_id.as_deref())
                     .or(float_leg_conventions.calendar_id.as_deref())
-                    .or(self.calendar_id.as_deref())
+                    .or(self.conventions.calendar_id.as_deref())
                     .unwrap_or(calendar_id);
 
                 let payment_calendar_id = conventions
@@ -795,7 +785,7 @@ impl CalibrationPricer {
                     .or(conventions.calendar_id.as_deref())
                     .or(fixed_leg_conventions.calendar_id.as_deref())
                     .or(float_leg_conventions.calendar_id.as_deref())
-                    .or(self.calendar_id.as_deref())
+                    .or(self.conventions.calendar_id.as_deref())
                     .unwrap_or(calendar_id);
 
                 let payment_delay = conventions
@@ -806,7 +796,7 @@ impl CalibrationPricer {
                         if index_conv.kind == RateIndexKind::OvernightRfr {
                             Some(index_conv.default_payment_delay_days)
                         } else {
-                            self.default_payment_delay_days
+                            self.conventions.default_payment_delay_days
                         }
                     })
                     .ok_or_else(|| {
@@ -823,7 +813,7 @@ impl CalibrationPricer {
                         if index_conv.kind == RateIndexKind::OvernightRfr {
                             Some(index_conv.default_reset_lag_days)
                         } else {
-                            self.default_reset_lag_days
+                            self.conventions.default_reset_lag_days
                         }
                     })
                     .ok_or_else(|| {
@@ -833,7 +823,7 @@ impl CalibrationPricer {
                         )
                     })?;
 
-                let start = if self.use_settlement_start {
+                let start = if self.conventions.use_settlement_start.unwrap_or(true) {
                     // settlement_date_for_quote_explicit uses pricer step-level conventions.
                     self.settlement_date_for_quote_explicit(conventions, currency)?
                 } else {
@@ -969,7 +959,7 @@ impl CalibrationPricer {
 
                 let settlement_days = conventions
                     .settlement_days
-                    .or(self.settlement_days)
+                    .or(self.conventions.settlement_days)
                     .ok_or_else(|| {
                         finstack_core::Error::Validation(
                             "Strict pricing requires settlement_days to be set (quote or step)"
@@ -980,7 +970,7 @@ impl CalibrationPricer {
                 let calendar_id = conventions
                     .calendar_id
                     .as_deref()
-                    .or(self.calendar_id.as_deref())
+                    .or(self.conventions.calendar_id.as_deref())
                     .ok_or_else(|| {
                         finstack_core::Error::Validation(
                             "Strict pricing requires calendar_id to be set (quote or step)"
@@ -990,7 +980,7 @@ impl CalibrationPricer {
 
                 let bdc = conventions
                     .business_day_convention
-                    .or(self.business_day_convention)
+                    .or(self.conventions.business_day_convention)
                     .ok_or_else(|| {
                         finstack_core::Error::Validation(
                             "Strict pricing requires business_day_convention to be set (quote or step)"
@@ -1002,12 +992,12 @@ impl CalibrationPricer {
                     .payment_calendar_id
                     .as_deref()
                     .or(conventions.calendar_id.as_deref())
-                    .or(self.calendar_id.as_deref())
+                    .or(self.conventions.calendar_id.as_deref())
                     .unwrap_or(calendar_id);
 
                 let payment_delay_days = conventions
                     .payment_delay_days
-                    .or(self.default_payment_delay_days)
+                    .or(self.conventions.default_payment_delay_days)
                     .ok_or_else(|| {
                         finstack_core::Error::Validation(
                             "Strict pricing requires payment_delay_days to be set (quote or step)"
@@ -1017,7 +1007,7 @@ impl CalibrationPricer {
 
                 let reset_lag_days = conventions
                     .reset_lag
-                    .or(self.default_reset_lag_days)
+                    .or(self.conventions.default_reset_lag_days)
                     .ok_or_else(|| {
                         finstack_core::Error::Validation(
                             "Strict pricing requires reset_lag to be set (quote or step)"
@@ -1025,7 +1015,7 @@ impl CalibrationPricer {
                         )
                     })?;
 
-                let start = if self.use_settlement_start {
+                let start = if self.conventions.use_settlement_start.unwrap_or(true) {
                     let conv_for_settlement = InstrumentConventions {
                         settlement_days: Some(settlement_days),
                         calendar_id: Some(calendar_id.to_string()),
@@ -1061,7 +1051,7 @@ impl CalibrationPricer {
                     },
                     self.discount_curve_id.as_str(),
                 )
-                .with_allow_calendar_fallback(self.allow_calendar_fallback)
+                .with_allow_calendar_fallback(self.conventions.allow_calendar_fallback.unwrap_or(false))
                 .with_calendar(payment_calendar_id.to_string());
                 let pv = basis_swap.value(context, self.base_date)?;
                 Ok(pv.amount() / basis_swap.notional.amount())

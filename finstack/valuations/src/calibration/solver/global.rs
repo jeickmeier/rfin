@@ -187,7 +187,7 @@ impl GlobalFitOptimizer {
             "global_fit",
             residuals_map,
             stats.iterations,
-            config.tolerance,
+            config.solver.tolerance(),
         )
         .with_metadata("method", "global_fit_lm_weighted_lsq")
         .with_metadata("tolerance_definition", "abs_l2(weighted_residuals)")

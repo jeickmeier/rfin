@@ -301,10 +301,10 @@ impl BootstrapTarget for DiscountCurveTarget {
     fn build_curve_final(&self, knots: &[(f64, f64)]) -> Result<Self::Curve> {
         let config_flag = self.config.discount_curve.allow_non_monotonic_final;
         let policy_allow = match self.config.rate_bounds_policy {
-            crate::calibration::config::RateBoundsPolicy::Explicit => {
+            crate::calibration::RateBoundsPolicy::Explicit => {
                 self.config.rate_bounds.min_rate < 0.0
             }
-            crate::calibration::config::RateBoundsPolicy::AutoCurrency => {
+            crate::calibration::RateBoundsPolicy::AutoCurrency => {
                 matches!(self.currency, Currency::EUR | Currency::JPY | Currency::CHF)
             }
         };

@@ -287,7 +287,7 @@ mod tests {
             discount_curve_id: CurveId::new("USD-OIS".to_string()),
             recovery_rate: 0.4,
             notional: 1.0,
-            method: crate::calibration::api::schema::CalibrationMethod::Bootstrap,
+            method: crate::calibration::config::CalibrationMethod::Bootstrap,
             interpolation: InterpStyle::Linear,
             par_interp: ParInterp::Linear,
         }

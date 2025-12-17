@@ -127,8 +127,9 @@ fn discount_curve_swap_repricing() {
     );
 
     let settings = CalibrationConfig {
-        tolerance: 1e-12,
-        max_iterations: 200,
+        solver: finstack_valuations::calibration::solver::SolverConfig::brent_default()
+            .with_tolerance(1e-12)
+            .with_max_iterations(200),
         ..Default::default()
     };
 
@@ -259,8 +260,9 @@ fn discount_curve_swap_repricing_respects_requested_interp() {
     );
 
     let settings = CalibrationConfig {
-        tolerance: 1e-12,
-        max_iterations: 200,
+        solver: finstack_valuations::calibration::solver::SolverConfig::brent_default()
+            .with_tolerance(1e-12)
+            .with_max_iterations(200),
         ..Default::default()
     };
 
@@ -362,8 +364,9 @@ fn discount_curve_deposit_repricing() {
     );
 
     let settings = CalibrationConfig {
-        tolerance: 1e-12,
-        max_iterations: 200,
+        solver: finstack_valuations::calibration::solver::SolverConfig::brent_default()
+            .with_tolerance(1e-12)
+            .with_max_iterations(200),
         ..Default::default()
     };
 
@@ -488,8 +491,9 @@ fn forward_curve_fra_repricing() {
     );
 
     let settings = CalibrationConfig {
-        tolerance: 1e-12,
-        max_iterations: 200,
+        solver: finstack_valuations::calibration::solver::SolverConfig::brent_default()
+            .with_tolerance(1e-12)
+            .with_max_iterations(200),
         ..Default::default()
     };
 

@@ -136,6 +136,7 @@ pub trait Solver: Send + Sync {
 ///   (2nd ed.). Dover. Chapter 8.
 #[derive(Clone, Debug, PartialEq)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+#[cfg_attr(feature = "serde", serde(default))]
 pub struct NewtonSolver {
     /// Convergence tolerance
     pub tolerance: f64,
@@ -386,6 +387,7 @@ impl NewtonSolver {
 ///   for Mathematical Computations*. Prentice-Hall.
 #[derive(Clone, Debug, PartialEq)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+#[cfg_attr(feature = "serde", serde(default))]
 pub struct BrentSolver {
     /// Convergence tolerance
     pub tolerance: f64,

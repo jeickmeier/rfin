@@ -1,22 +1,22 @@
 //! Calibration configuration types for WASM bindings.
 
 use crate::utils::json::{from_js_value, to_js_value};
-use finstack_valuations::calibration::{CalibrationConfig, MultiCurveConfig, SolverKind};
+use finstack_valuations::calibration::{CalibrationConfig, MultiCurveConfig, SolverConfig};
 use wasm_bindgen::prelude::*;
 
 /// Solver strategy enumeration for calibration routines.
 #[wasm_bindgen(js_name = SolverKind)]
 #[derive(Clone, Debug)]
 pub struct JsSolverKind {
-    inner: SolverKind,
+    inner: SolverConfig,
 }
 
 impl JsSolverKind {
-    pub(crate) fn from_inner(inner: SolverKind) -> Self {
+    pub(crate) fn from_inner(inner: SolverConfig) -> Self {
         Self { inner }
     }
 
-    pub(crate) fn inner(&self) -> SolverKind {
+    pub(crate) fn inner(&self) -> SolverConfig {
         self.inner.clone()
     }
 }
@@ -27,7 +27,7 @@ impl JsSolverKind {
     #[wasm_bindgen(js_name = Newton)]
     pub fn newton() -> Self {
         Self {
-            inner: SolverKind::Newton,
+            inner: SolverConfig::newton_default(),
         }
     }
 
@@ -35,15 +35,15 @@ impl JsSolverKind {
     #[wasm_bindgen(js_name = Brent)]
     pub fn brent() -> Self {
         Self {
-            inner: SolverKind::Brent,
+            inner: SolverConfig::brent_default(),
         }
     }
 
-    /// Levenberg-Marquardt optimizer.
-    #[wasm_bindgen(js_name = LevenbergMarquardt)]
-    pub fn levenberg_marquardt() -> Self {
+    /// Global Newton optimizer.
+    #[wasm_bindgen(js_name = GlobalNewton)]
+    pub fn global_newton() -> Self {
         Self {
-            inner: SolverKind::LevenbergMarquardt,
+            inner: SolverConfig::global_newton_default(),
         }
     }
 
@@ -52,9 +52,9 @@ impl JsSolverKind {
     pub fn from_name(name: &str) -> Result<JsSolverKind, JsValue> {
         let normalized = name.to_ascii_lowercase().replace('-', "_");
         let kind = match normalized.as_str() {
-            "newton" => SolverKind::Newton,
-            "brent" => SolverKind::Brent,
-            "levenberg_marquardt" => SolverKind::LevenbergMarquardt,
+            "newton" => SolverConfig::newton_default(),
+            "brent" => SolverConfig::brent_default(),
+            "global_newton" | "levenberg_marquardt" => SolverConfig::global_newton_default(),
             _ => return Err(JsValue::from_str(&format!("Unknown solver kind: {}", name))),
         };
         Ok(Self { inner: kind })
@@ -64,9 +64,9 @@ impl JsSolverKind {
     #[wasm_bindgen(getter, js_name = name)]
     pub fn name(&self) -> String {
         match self.inner {
-            SolverKind::Newton => "newton".to_string(),
-            SolverKind::Brent => "brent".to_string(),
-            SolverKind::LevenbergMarquardt => "levenberg_marquardt".to_string(),
+            SolverConfig::Newton { .. } => "newton".to_string(),
+            SolverConfig::Brent { .. } => "brent".to_string(),
+            SolverConfig::GlobalNewton { .. } => "global_newton".to_string(),
         }
     }
 }
@@ -188,13 +188,13 @@ impl JsCalibrationConfig {
     /// Get tolerance.
     #[wasm_bindgen(getter)]
     pub fn tolerance(&self) -> f64 {
-        self.inner.tolerance
+        self.inner.solver.tolerance()
     }
 
     /// Get max iterations.
     #[wasm_bindgen(getter, js_name = maxIterations)]
     pub fn max_iterations(&self) -> usize {
-        self.inner.max_iterations
+        self.inner.solver.max_iterations()
     }
 
     /// Get parallel flag.
@@ -212,14 +212,14 @@ impl JsCalibrationConfig {
     /// Get solver kind.
     #[wasm_bindgen(getter, js_name = solverKind)]
     pub fn solver_kind(&self) -> JsSolverKind {
-        JsSolverKind::from_inner(self.inner.solver_kind.clone())
+        JsSolverKind::from_inner(self.inner.solver.clone())
     }
 
     /// Set tolerance.
     #[wasm_bindgen(js_name = withTolerance)]
     pub fn with_tolerance(&self, tolerance: f64) -> JsCalibrationConfig {
         let mut next = self.inner.clone();
-        next.tolerance = tolerance;
+        next.solver = next.solver.with_tolerance(tolerance);
         Self::from_inner(next)
     }
 
@@ -227,7 +227,7 @@ impl JsCalibrationConfig {
     #[wasm_bindgen(js_name = withMaxIterations)]
     pub fn with_max_iterations(&self, max_iterations: usize) -> JsCalibrationConfig {
         let mut next = self.inner.clone();
-        next.max_iterations = max_iterations;
+        next.solver = next.solver.with_max_iterations(max_iterations);
         Self::from_inner(next)
     }
 
@@ -251,7 +251,7 @@ impl JsCalibrationConfig {
     #[wasm_bindgen(js_name = withSolverKind)]
     pub fn with_solver_kind(&self, kind: &JsSolverKind) -> JsCalibrationConfig {
         let mut next = self.inner.clone();
-        next.solver_kind = kind.inner();
+        next.solver = kind.inner();
         Self::from_inner(next)
     }
 

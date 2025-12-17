@@ -69,7 +69,7 @@ fn aggregate_plan_report(
     );
     report.update_metadata("type", "plan_execution");
     report.update_metadata("method", "plan_execution");
-    report.update_metadata("solver_tolerance", format!("{:.2e}", config.tolerance));
+    report.update_metadata("solver_tolerance", format!("{:.2e}", config.solver.tolerance()));
 
     if !all_steps_validation_passed {
         let mut failures = Vec::new();
@@ -597,7 +597,7 @@ mod tests {
         let aggregated_residuals =
             BTreeMap::from([("s1:a".to_string(), 3.0), ("s2:b".to_string(), 4.0)]);
         let cfg = crate::calibration::config::CalibrationConfig {
-            tolerance: 1e-12,
+            solver: crate::calibration::solver::SolverConfig::brent_default().with_tolerance(1e-12),
             ..Default::default()
         };
         let report = aggregate_plan_report(aggregated_residuals, 5, &step_reports, &cfg);

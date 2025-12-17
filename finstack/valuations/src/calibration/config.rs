@@ -10,181 +10,14 @@ use finstack_core::config::FinstackConfig;
 use finstack_core::currency::Currency;
 use finstack_core::explain::ExplainOpts;
 use finstack_core::market_data::term_structures::Seniority;
+use crate::calibration::validation::{RateBounds, RateBoundsPolicy, ValidationMode};
+use crate::calibration::solver::SolverConfig;
 
 use hashbrown::HashMap;
 use serde::{Deserialize, Serialize};
 use serde_json;
 #[cfg(feature = "ts_export")]
 use ts_rs::TS;
-
-fn default_rate_bounds_policy_for_serde() -> RateBoundsPolicy {
-    // v2 plan-driven default: choose currency-aware bounds unless explicitly overridden.
-    RateBoundsPolicy::AutoCurrency
-}
-
-/// Configurable bounds for forward/zero rates during calibration.
-///
-/// Different market regimes require different rate bounds:
-/// - Developed markets (USD, EUR, GBP): typically [-2%, 50%]
-/// - Negative rate environments (EUR, JPY, CHF): [-5%, 20%]
-/// - Emerging markets (TRY, ARS, BRL): [-5%, 200%]
-///
-/// # Examples
-///
-/// ```
-/// use finstack_valuations::calibration::RateBounds;
-/// use finstack_core::currency::Currency;
-///
-/// // Use currency-specific defaults
-/// let usd_bounds = RateBounds::for_currency(Currency::USD);
-/// assert!(usd_bounds.min_rate < 0.0);
-///
-/// // Or customize for specific scenarios
-/// let em_bounds = RateBounds::emerging_markets();
-/// assert!(em_bounds.max_rate > 1.0);
-/// ```
-#[cfg_attr(feature = "ts_export", derive(TS))]
-#[cfg_attr(feature = "ts_export", ts(export))]
-#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
-pub struct RateBounds {
-    /// Minimum allowed rate (decimal, e.g., -0.02 for -2%)
-    pub min_rate: f64,
-    /// Maximum allowed rate (decimal, e.g., 0.50 for 50%)
-    pub max_rate: f64,
-}
-
-impl Default for RateBounds {
-    fn default() -> Self {
-        Self {
-            min_rate: -0.02,
-            max_rate: 0.50,
-        }
-    }
-}
-
-impl RateBounds {
-    /// Create rate bounds for a specific currency based on market conventions.
-    ///
-    /// - USD/CAD/AUD: Standard developed market bounds [-2%, 50%]
-    /// - EUR/JPY/CHF: Extended negative rate support [-5%, 30%]
-    /// - GBP: Standard with slightly wider negative [-3%, 50%]
-    /// - TRY/ARS/BRL/ZAR: Emerging market bounds [-5%, 200%]
-    /// - Other: Conservative developed market defaults
-    pub fn for_currency(currency: Currency) -> Self {
-        match currency {
-            // Deep negative rate environments
-            Currency::EUR | Currency::JPY | Currency::CHF => Self {
-                min_rate: -0.05,
-                max_rate: 0.30,
-            },
-            // Standard developed markets
-            Currency::USD | Currency::CAD | Currency::AUD | Currency::NZD => Self {
-                min_rate: -0.02,
-                max_rate: 0.50,
-            },
-            // GBP slightly wider negative
-            Currency::GBP => Self {
-                min_rate: -0.03,
-                max_rate: 0.50,
-            },
-            // Emerging markets with potential for high rates
-            Currency::TRY | Currency::ARS | Currency::BRL | Currency::ZAR | Currency::MXN => {
-                Self::emerging_markets()
-            }
-            // Default: conservative developed market
-            _ => Self::default(),
-        }
-    }
-
-    /// Rate bounds for emerging markets with potential hyperinflation.
-    ///
-    /// Allows rates up to 200% to accommodate countries like Turkey and Argentina.
-    pub fn emerging_markets() -> Self {
-        Self {
-            min_rate: -0.05,
-            max_rate: 2.00, // 200%
-        }
-    }
-
-    /// Rate bounds for negative rate environments.
-    ///
-    /// Optimized for EUR/JPY/CHF where deeply negative rates are common.
-    pub fn negative_rate_environment() -> Self {
-        Self {
-            min_rate: -0.10, // -10%
-            max_rate: 0.20,  // 20%
-        }
-    }
-
-    /// Rate bounds for stress testing scenarios.
-    ///
-    /// Very wide bounds to allow extreme scenarios.
-    pub fn stress_test() -> Self {
-        Self {
-            min_rate: -0.20, // -20%
-            max_rate: 5.00,  // 500%
-        }
-    }
-
-    /// Check if a rate is within bounds.
-    #[inline]
-    pub fn contains(&self, rate: f64) -> bool {
-        rate >= self.min_rate && rate <= self.max_rate
-    }
-
-    /// Clamp a rate to be within bounds.
-    #[inline]
-    pub fn clamp(&self, rate: f64) -> f64 {
-        rate.clamp(self.min_rate, self.max_rate)
-    }
-}
-
-/// How `CalibrationConfig` obtains rate bounds.
-///
-/// Market-standard bounds depend on currency/market regime. `AutoCurrency` makes this choice
-/// explicit and avoids relying on `RateBounds::default()` as an implicit assumption.
-#[cfg_attr(feature = "ts_export", derive(TS))]
-#[cfg_attr(feature = "ts_export", ts(export))]
-#[derive(Clone, Debug, Default, Serialize, Deserialize, PartialEq, Eq)]
-#[serde(rename_all = "snake_case")]
-pub enum RateBoundsPolicy {
-    /// Pick currency-specific bounds via `RateBounds::for_currency(currency)`.
-    #[default]
-    AutoCurrency,
-    /// Use the explicit `CalibrationConfig.rate_bounds` values.
-    Explicit,
-}
-
-/// Runtime validation behavior for arbitrage/consistency checks.
-#[cfg_attr(feature = "ts_export", derive(TS))]
-#[cfg_attr(feature = "ts_export", ts(export))]
-#[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq)]
-pub enum ValidationMode {
-    /// Emit warnings (non-fatal) when validations fail
-    Warn,
-    /// Treat validation failures as hard errors
-    Error,
-}
-
-/// Solver type selection for calibration.
-///
-/// For 1D problems (most curve calibrations), Newton or Brent are used directly.
-/// For multi-dimensional problems, use `create_lm_solver()` method on `CalibrationConfig`.
-/// Note that LevenbergMarquardt variant automatically falls back to Brent for 1D solve_1d() calls.
-#[cfg_attr(feature = "ts_export", derive(TS))]
-#[cfg_attr(feature = "ts_export", ts(export))]
-#[derive(Clone, Debug, PartialEq, Eq, Default, Serialize, Deserialize)]
-/// Solver Kind enumeration.
-pub enum SolverKind {
-    /// Newton-Raphson solver with automatic derivative estimation (1D only)
-    Newton,
-    /// Brent's method solver - robust bracketing method (1D only, recommended)
-    #[default]
-    Brent,
-    /// Levenberg-Marquardt for non-linear least squares (multi-dimensional).
-    /// Falls back to Brent for 1D problems. Use `create_lm_solver()` for multi-D.
-    LevenbergMarquardt,
-}
 
 /// Calibration method selection (bootstrap vs global solve).
 #[cfg_attr(feature = "ts_export", derive(TS))]
@@ -270,18 +103,14 @@ impl MultiCurveConfig {
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(default, deny_unknown_fields)]
 pub struct CalibrationConfig {
-    /// Solver tolerance for convergence checks
-    pub tolerance: f64,
-    /// Maximum iterations for solver
-    pub max_iterations: usize,
+    /// Solver configuration including method and parameters (tolerance, iterations).
+    pub solver: SolverConfig,
     /// Use parallel processing when available
     pub use_parallel: bool,
     /// Random seed for reproducible results
     pub random_seed: Option<u64>,
     /// Enable verbose logging
     pub verbose: bool,
-    /// Solver type selection
-    pub solver_kind: SolverKind,
     /// Entity-specific seniority mappings for credit calibration
     #[cfg_attr(feature = "ts_export", ts(type = "Record<string, string>"))]
     pub entity_seniority: HashMap<String, Seniority>,
@@ -305,7 +134,7 @@ pub struct CalibrationConfig {
     ///
     /// - `auto_currency` is market-standard: bounds depend on currency/market regime.
     /// - `explicit` uses `rate_bounds` as provided.
-    #[serde(default = "default_rate_bounds_policy_for_serde")]
+    #[serde(default = "crate::calibration::validation::default_rate_bounds_policy_for_serde")]
     pub rate_bounds_policy: RateBoundsPolicy,
     /// Rate bounds for forward/zero rate calibration.
     /// Currency-specific defaults can be set via `with_rate_bounds_for_currency()`.
@@ -326,12 +155,10 @@ pub const CALIBRATION_CONFIG_KEY_V2: &str = "valuations.calibration.v2";
 impl Default for CalibrationConfig {
     fn default() -> Self {
         Self {
-            tolerance: 1e-10,
-            max_iterations: 100,
+            solver: SolverConfig::default(),
             use_parallel: false, // Deterministic by default
             random_seed: Some(42),
             verbose: false,
-            solver_kind: SolverKind::default(),
             entity_seniority: HashMap::new(),
             multi_curve: MultiCurveConfig::default(),
             use_fd_sabr_gradients: false, // Use fast analytical approximations by default
@@ -366,7 +193,7 @@ impl CalibrationConfig {
     /// let cfg = FinstackConfig::default();
     /// let calib_cfg = CalibrationConfig::from_finstack_config_or_default(&cfg)
     ///     .expect("valid config");
-    /// assert_eq!(calib_cfg.tolerance, 1e-10); // default
+    /// assert_eq!(calib_cfg.solver.tolerance(), 1e-10); // default
     /// ```
     #[cfg(feature = "serde")]
     pub fn from_finstack_config_or_default(cfg: &FinstackConfig) -> finstack_core::Result<Self> {
@@ -478,14 +305,14 @@ impl CalibrationConfig {
     /// Set the solver tolerance.
     #[must_use]
     pub fn with_tolerance(mut self, tolerance: f64) -> Self {
-        self.tolerance = tolerance;
+        self.solver = self.solver.with_tolerance(tolerance);
         self
     }
 
     /// Set the maximum number of iterations.
     #[must_use]
     pub fn with_max_iterations(mut self, max_iterations: usize) -> Self {
-        self.max_iterations = max_iterations;
+        self.solver = self.solver.with_max_iterations(max_iterations);
         self
     }
 
@@ -515,16 +342,16 @@ impl CalibrationConfig {
     /// use finstack_valuations::calibration::CalibrationConfig;
     ///
     /// let config = CalibrationConfig::conservative();
-    /// assert_eq!(config.tolerance, 1e-12);
+    /// assert_eq!(config.solver.tolerance(), 1e-12);
     /// ```
     pub fn conservative() -> Self {
         Self {
-            tolerance: 1e-12,
-            max_iterations: 100,
+            solver: SolverConfig::brent_default()
+                .with_tolerance(1e-12)
+                .with_max_iterations(100),
             use_parallel: false, // Deterministic
             random_seed: Some(42),
             verbose: false,
-            solver_kind: SolverKind::Brent, // Robust bracketing solver
             entity_seniority: HashMap::new(),
             multi_curve: MultiCurveConfig::default(),
             use_fd_sabr_gradients: true, // Use more accurate FD gradients for conservative mode
@@ -560,16 +387,16 @@ impl CalibrationConfig {
     /// use finstack_valuations::calibration::CalibrationConfig;
     ///
     /// let config = CalibrationConfig::aggressive();
-    /// assert_eq!(config.max_iterations, 1000);
+    /// assert_eq!(config.solver.max_iterations(), 1000);
     /// ```
     pub fn aggressive() -> Self {
         Self {
-            tolerance: 1e-6,
-            max_iterations: 1000,
+            solver: SolverConfig::brent_default()
+                .with_tolerance(1e-6)
+                .with_max_iterations(1000),
             use_parallel: false, // Keep deterministic by default
             random_seed: Some(42),
             verbose: false,
-            solver_kind: SolverKind::Brent,
             entity_seniority: HashMap::new(),
             multi_curve: MultiCurveConfig::default(),
             use_fd_sabr_gradients: false, // Use fast analytical approximations for speed
@@ -602,16 +429,16 @@ impl CalibrationConfig {
     /// use finstack_valuations::calibration::CalibrationConfig;
     ///
     /// let config = CalibrationConfig::fast();
-    /// assert_eq!(config.max_iterations, 50);
+    /// assert_eq!(config.solver.max_iterations(), 50);
     /// ```
     pub fn fast() -> Self {
         Self {
-            tolerance: 1e-4,
-            max_iterations: 50,
+            solver: SolverConfig::brent_default()
+                .with_tolerance(1e-4)
+                .with_max_iterations(50),
             use_parallel: false,
             random_seed: Some(42),
             verbose: false,
-            solver_kind: SolverKind::Brent, // Fast bracketing method
             entity_seniority: HashMap::new(),
             multi_curve: MultiCurveConfig::default(),
             use_fd_sabr_gradients: false, // Use fast analytical approximations
@@ -634,12 +461,12 @@ impl CalibrationConfig {
         use finstack_core::math::solver_multi::LevenbergMarquardtSolver;
 
         LevenbergMarquardtSolver::new()
-            .with_tolerance(self.tolerance)
-            .with_max_iterations(self.max_iterations)
+            .with_tolerance(self.solver.tolerance())
+            .with_max_iterations(self.solver.max_iterations())
     }
 
     /// Check if configured for multi-dimensional solving
     pub fn is_multi_dimensional(&self) -> bool {
-        matches!(self.solver_kind, SolverKind::LevenbergMarquardt)
+        matches!(self.solver, SolverConfig::GlobalNewton { .. })
     }
 }

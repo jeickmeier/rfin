@@ -148,8 +148,9 @@ fn swaption_vol_step_builds_and_inserts_surface() {
     quote_sets.insert("swpt".to_string(), create_test_swaption_quotes());
 
     let settings = CalibrationConfig {
-        tolerance: 1e-10,
-        max_iterations: 200,
+        solver: finstack_valuations::calibration::solver::SolverConfig::brent_default()
+            .with_tolerance(1e-10)
+            .with_max_iterations(200),
         ..Default::default()
     };
 

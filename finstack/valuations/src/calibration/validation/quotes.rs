@@ -157,7 +157,7 @@ impl CalibrationPricer {
     /// Unified validation for rate quotes with use-case-specific rules.
     pub fn validate_rates_quotes(
         quotes: &[RatesQuote],
-        rate_bounds: &crate::calibration::config::RateBounds,
+        rate_bounds: &crate::calibration::validation::RateBounds,
         base_date: Date,
         use_case: RatesQuoteUseCase,
     ) -> Result<()> {

@@ -48,28 +48,28 @@ pub(crate) fn resolve_common<'a>(
 ) -> ResolvedCommon<'a> {
     let settlement_days = quote_conventions
         .settlement_days
-        .or(pricer.settlement_days)
+        .or(pricer.conventions.settlement_days)
         .unwrap_or_else(|| CalibrationPricer::market_settlement_days(currency));
 
     let calendar_id = quote_conventions
         .calendar_id
         .as_deref()
-        .or(pricer.calendar_id.as_deref())
+        .or(pricer.conventions.calendar_id.as_deref())
         .unwrap_or_else(|| CalibrationPricer::market_calendar_id(currency));
 
     let fixing_calendar_id = quote_conventions
         .effective_fixing_calendar_id()
-        .or(pricer.calendar_id.as_deref())
+        .or(pricer.conventions.calendar_id.as_deref())
         .unwrap_or(calendar_id);
 
     let payment_calendar_id = quote_conventions
         .effective_payment_calendar_id()
-        .or(pricer.calendar_id.as_deref())
+        .or(pricer.conventions.calendar_id.as_deref())
         .unwrap_or(calendar_id);
 
     let bdc = quote_conventions
         .business_day_convention
-        .or(pricer.business_day_convention)
+        .or(pricer.conventions.business_day_convention)
         .unwrap_or_else(|| CalibrationPricer::market_business_day_convention(currency));
 
     ResolvedCommon {
@@ -95,7 +95,7 @@ fn resolve_common_for_swap<'a>(
 
     let settlement_days = conventions
         .settlement_days
-        .or(pricer.settlement_days)
+        .or(pricer.conventions.settlement_days)
         .unwrap_or_else(|| CalibrationPricer::market_settlement_days(currency));
 
     let calendar_id = conventions
@@ -103,14 +103,14 @@ fn resolve_common_for_swap<'a>(
         .as_deref()
         .or(fixed_leg.calendar_id.as_deref())
         .or(float_leg.calendar_id.as_deref())
-        .or(pricer.calendar_id.as_deref())
+        .or(pricer.conventions.calendar_id.as_deref())
         .unwrap_or_else(|| CalibrationPricer::market_calendar_id(currency));
 
     let bdc = conventions
         .business_day_convention
         .or(fixed_leg.business_day_convention)
         .or(float_leg.business_day_convention)
-        .or(pricer.business_day_convention)
+        .or(pricer.conventions.business_day_convention)
         .unwrap_or_else(|| CalibrationPricer::market_business_day_convention(currency));
 
     let fixing_calendar_id = conventions
@@ -119,7 +119,7 @@ fn resolve_common_for_swap<'a>(
         .or(float_leg.fixing_calendar_id.as_deref())
         .or(conventions.calendar_id.as_deref())
         .or(float_leg.calendar_id.as_deref())
-        .or(pricer.calendar_id.as_deref())
+        .or(pricer.conventions.calendar_id.as_deref())
         .unwrap_or(calendar_id);
 
     let payment_calendar_id = conventions
@@ -130,7 +130,7 @@ fn resolve_common_for_swap<'a>(
         .or(conventions.calendar_id.as_deref())
         .or(fixed_leg.calendar_id.as_deref())
         .or(float_leg.calendar_id.as_deref())
-        .or(pricer.calendar_id.as_deref())
+        .or(pricer.conventions.calendar_id.as_deref())
         .unwrap_or(calendar_id);
 
     let payment_delay_days = conventions

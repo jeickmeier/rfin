@@ -16,7 +16,10 @@ mod surfaces;
 #[cfg(test)]
 mod tests;
 
-pub use config::ValidationConfig;
+pub use config::{
+    default_rate_bounds_policy_for_serde, RateBounds, RateBoundsPolicy, ValidationConfig,
+    ValidationMode,
+};
 pub use curves::CurveValidator;
 pub use surfaces::SurfaceValidator;
 

@@ -184,8 +184,9 @@ fn discount_curve_bootstrap_is_order_independent() {
                 q
             },
             settings: finstack_valuations::calibration::CalibrationConfig {
-                tolerance: 1e-12,
-                max_iterations: 200,
+                solver: finstack_valuations::calibration::solver::SolverConfig::brent_default()
+                    .with_tolerance(1e-12)
+                    .with_max_iterations(200),
                 ..Default::default()
             },
             steps: vec![CalibrationStepV2 {
@@ -288,8 +289,9 @@ fn discount_curve_global_solve_smoke_v2() {
         description: None,
         quote_sets,
         settings: finstack_valuations::calibration::CalibrationConfig {
-            tolerance: 1e-10,
-            max_iterations: 200,
+            solver: finstack_valuations::calibration::solver::SolverConfig::brent_default()
+                .with_tolerance(1e-10)
+                .with_max_iterations(200),
             ..Default::default()
         },
         steps: vec![CalibrationStepV2 {
@@ -299,7 +301,7 @@ fn discount_curve_global_solve_smoke_v2() {
                 curve_id: "USD-OIS".into(),
                 currency,
                 base_date,
-                method: CalibrationMethod::Global,
+                method: CalibrationMethod::GlobalSolve { use_analytical_jacobian: false },
                 interpolation: Default::default(),
                 extrapolation: ExtrapolationPolicy::FlatForward,
                 pricing_discount_id: None,

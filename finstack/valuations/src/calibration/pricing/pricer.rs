@@ -10,7 +10,7 @@ mod settlement;
 #[cfg(test)]
 mod tests;
 
-use super::convexity::ConvexityParameters;
+use super::{ConvexityParameters, RatesStepConventions};
 use finstack_core::dates::{BusinessDayConvention, Date};
 use finstack_core::types::{CurveId, Currency};
 use serde::{Deserialize, Serialize};
@@ -40,49 +40,14 @@ pub struct CalibrationPricer {
     pub discount_curve_id: CurveId,
     /// Forward curve ID for floating leg projections
     pub forward_curve_id: CurveId,
-    /// Settlement lag in business days (None = use quote convention or currency default)
-    #[serde(default)]
-    pub settlement_days: Option<i32>,
-    /// Schedule/calendar identifier for settlement and date adjustments.
-    ///
-    /// If `None`, pricing will use the quote convention (if provided) or the
-    /// market default for the calibration currency.
-    #[serde(default)]
-    pub calendar_id: Option<String>,
-    /// Business day convention for settlement and schedule date adjustments.
-    ///
-    /// If `None`, pricing will use the quote convention (if provided) or the
-    /// market default for the calibration currency.
-    #[serde(default)]
-    pub business_day_convention: Option<BusinessDayConvention>,
-    /// Allow calendar-day settlement fallback
-    #[serde(default)]
-    pub allow_calendar_fallback: bool,
-    /// Enable strict pricing (no implicit currency-based convention fallbacks).
-    #[serde(default)]
-    pub strict_pricing: bool,
-    /// Default payment delay in business days (step-level).
-    #[serde(default)]
-    pub default_payment_delay_days: Option<i32>,
-    /// Default reset lag in business days (step-level).
-    #[serde(default)]
-    pub default_reset_lag_days: Option<i32>,
-    /// Use settlement date as instrument start (true for discount curves)
-    #[serde(default = "default_use_settlement_start")]
-    pub use_settlement_start: bool,
-    /// Optional convexity parameters for futures pricing
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub convexity_params: Option<ConvexityParameters>,
+    /// Step-level conventions for pricing and settlement.
+    pub conventions: RatesStepConventions,
     /// Tenor in years for forward curve (used for basis swap curve resolution)
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub tenor_years: Option<f64>,
     /// Enable verbose logging during pricing
     #[serde(default)]
     pub verbose: bool,
-}
-
-fn default_use_settlement_start() -> bool {
-    true
 }
 
 impl CalibrationPricer {
@@ -126,15 +91,10 @@ impl CalibrationPricer {
             base_date,
             discount_curve_id: curve_id.clone(),
             forward_curve_id: curve_id,
-            settlement_days: None,
-            calendar_id: None,
-            business_day_convention: None,
-            allow_calendar_fallback: false,
-            strict_pricing: false,
-            default_payment_delay_days: None,
-            default_reset_lag_days: None,
-            use_settlement_start: true,
-            convexity_params: None,
+            conventions: RatesStepConventions {
+                use_settlement_start: Some(true),
+                ..Default::default()
+            },
             tenor_years: None,
             verbose: false,
         }
@@ -151,15 +111,10 @@ impl CalibrationPricer {
             base_date,
             discount_curve_id: discount_curve_id.into(),
             forward_curve_id: forward_curve_id.into(),
-            settlement_days: None,
-            calendar_id: None,
-            business_day_convention: None,
-            allow_calendar_fallback: false,
-            strict_pricing: false,
-            default_payment_delay_days: None,
-            default_reset_lag_days: None,
-            use_settlement_start: false,
-            convexity_params: None,
+            conventions: RatesStepConventions {
+                use_settlement_start: Some(false),
+                ..Default::default()
+            },
             tenor_years: Some(tenor_years),
             verbose: false,
         }
@@ -179,19 +134,19 @@ impl CalibrationPricer {
 
     /// Set explicit settlement days (overrides quote convention and currency default).
     pub fn with_settlement_days(mut self, days: i32) -> Self {
-        self.settlement_days = Some(days);
+        self.conventions.settlement_days = Some(days);
         self
     }
 
     /// Set the calendar identifier used for settlement/schedule generation.
     pub fn with_calendar_id(mut self, calendar_id: impl Into<String>) -> Self {
-        self.calendar_id = Some(calendar_id.into());
+        self.conventions.calendar_id = Some(calendar_id.into());
         self
     }
 
     /// Set the business day convention used for settlement/schedule generation.
     pub fn with_business_day_convention(mut self, bdc: BusinessDayConvention) -> Self {
-        self.business_day_convention = Some(bdc);
+        self.conventions.business_day_convention = Some(bdc);
         self
     }
 
@@ -199,51 +154,51 @@ impl CalibrationPricer {
     ///
     /// Quote-level conventions still take precedence at pricing time.
     pub fn with_market_conventions(mut self, currency: Currency) -> Self {
-        if self.settlement_days.is_none() {
-            self.settlement_days = Some(Self::market_settlement_days(currency));
+        if self.conventions.settlement_days.is_none() {
+            self.conventions.settlement_days = Some(Self::market_settlement_days(currency));
         }
-        if self.calendar_id.is_none() {
-            self.calendar_id = Some(Self::market_calendar_id(currency).to_string());
+        if self.conventions.calendar_id.is_none() {
+            self.conventions.calendar_id = Some(Self::market_calendar_id(currency).to_string());
         }
-        if self.business_day_convention.is_none() {
-            self.business_day_convention = Some(Self::market_business_day_convention(currency));
+        if self.conventions.business_day_convention.is_none() {
+            self.conventions.business_day_convention = Some(Self::market_business_day_convention(currency));
         }
         self
     }
 
     /// Allow (or disallow) calendar-day settlement fallback.
     pub fn with_allow_calendar_fallback(mut self, allow: bool) -> Self {
-        self.allow_calendar_fallback = allow;
+        self.conventions.allow_calendar_fallback = Some(allow);
         self
     }
 
     /// Enable or disable strict pricing mode.
     pub fn with_strict_pricing(mut self, strict: bool) -> Self {
-        self.strict_pricing = strict;
+        self.conventions.strict_pricing = Some(strict);
         self
     }
 
     /// Set the step-level default payment delay days (after period end).
     pub fn with_default_payment_delay_days(mut self, days: i32) -> Self {
-        self.default_payment_delay_days = Some(days);
+        self.conventions.default_payment_delay_days = Some(days);
         self
     }
 
     /// Set the step-level default reset lag days (fixing offset from period start).
     pub fn with_default_reset_lag_days(mut self, days: i32) -> Self {
-        self.default_reset_lag_days = Some(days);
+        self.conventions.default_reset_lag_days = Some(days);
         self
     }
 
     /// Set whether to use settlement date as instrument start.
     pub fn with_use_settlement_start(mut self, use_settlement: bool) -> Self {
-        self.use_settlement_start = use_settlement;
+        self.conventions.use_settlement_start = Some(use_settlement);
         self
     }
 
     /// Set convexity parameters for futures pricing.
     pub fn with_convexity_params(mut self, params: ConvexityParameters) -> Self {
-        self.convexity_params = Some(params);
+        self.conventions.convexity_params = Some(params);
         self
     }
 

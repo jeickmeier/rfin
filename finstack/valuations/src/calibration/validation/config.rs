@@ -1,8 +1,162 @@
 //! Validation configuration for curves and surfaces.
 
+use finstack_core::currency::Currency;
 use serde::{Deserialize, Serialize};
+#[cfg(feature = "ts_export")]
+use ts_rs::TS;
+
+pub fn default_rate_bounds_policy_for_serde() -> RateBoundsPolicy {
+    // v2 plan-driven default: choose currency-aware bounds unless explicitly overridden.
+    RateBoundsPolicy::AutoCurrency
+}
+
+/// Configurable bounds for forward/zero rates during calibration.
+///
+/// Different market regimes require different rate bounds:
+/// - Developed markets (USD, EUR, GBP): typically [-2%, 50%]
+/// - Negative rate environments (EUR, JPY, CHF): [-5%, 20%]
+/// - Emerging markets (TRY, ARS, BRL): [-5%, 200%]
+///
+/// # Examples
+///
+/// ```
+/// use finstack_valuations::calibration::RateBounds;
+/// use finstack_core::currency::Currency;
+///
+/// // Use currency-specific defaults
+/// let usd_bounds = RateBounds::for_currency(Currency::USD);
+/// assert!(usd_bounds.min_rate < 0.0);
+///
+/// // Or customize for specific scenarios
+/// let em_bounds = RateBounds::emerging_markets();
+/// assert!(em_bounds.max_rate > 1.0);
+/// ```
+#[cfg_attr(feature = "ts_export", derive(TS))]
+#[cfg_attr(feature = "ts_export", ts(export))]
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+pub struct RateBounds {
+    /// Minimum allowed rate (decimal, e.g., -0.02 for -2%)
+    pub min_rate: f64,
+    /// Maximum allowed rate (decimal, e.g., 0.50 for 50%)
+    pub max_rate: f64,
+}
+
+impl Default for RateBounds {
+    fn default() -> Self {
+        Self {
+            min_rate: -0.02,
+            max_rate: 0.50,
+        }
+    }
+}
+
+impl RateBounds {
+    /// Create rate bounds for a specific currency based on market conventions.
+    ///
+    /// - USD/CAD/AUD: Standard developed market bounds [-2%, 50%]
+    /// - EUR/JPY/CHF: Extended negative rate support [-5%, 30%]
+    /// - GBP: Standard with slightly wider negative [-3%, 50%]
+    /// - TRY/ARS/BRL/ZAR: Emerging market bounds [-5%, 200%]
+    /// - Other: Conservative developed market defaults
+    pub fn for_currency(currency: Currency) -> Self {
+        match currency {
+            // Deep negative rate environments
+            Currency::EUR | Currency::JPY | Currency::CHF => Self {
+                min_rate: -0.05,
+                max_rate: 0.30,
+            },
+            // Standard developed markets
+            Currency::USD | Currency::CAD | Currency::AUD | Currency::NZD => Self {
+                min_rate: -0.02,
+                max_rate: 0.50,
+            },
+            // GBP slightly wider negative
+            Currency::GBP => Self {
+                min_rate: -0.03,
+                max_rate: 0.50,
+            },
+            // Emerging markets with potential for high rates
+            Currency::TRY | Currency::ARS | Currency::BRL | Currency::ZAR | Currency::MXN => {
+                Self::emerging_markets()
+            }
+            // Default: conservative developed market
+            _ => Self::default(),
+        }
+    }
+
+    /// Rate bounds for emerging markets with potential hyperinflation.
+    ///
+    /// Allows rates up to 200% to accommodate countries like Turkey and Argentina.
+    pub fn emerging_markets() -> Self {
+        Self {
+            min_rate: -0.05,
+            max_rate: 2.00, // 200%
+        }
+    }
+
+    /// Rate bounds for negative rate environments.
+    ///
+    /// Optimized for EUR/JPY/CHF where deeply negative rates are common.
+    pub fn negative_rate_environment() -> Self {
+        Self {
+            min_rate: -0.10, // -10%
+            max_rate: 0.20,  // 20%
+        }
+    }
+
+    /// Rate bounds for stress testing scenarios.
+    ///
+    /// Very wide bounds to allow extreme scenarios.
+    pub fn stress_test() -> Self {
+        Self {
+            min_rate: -0.20, // -20%
+            max_rate: 5.00,  // 500%
+        }
+    }
+
+    /// Check if a rate is within bounds.
+    #[inline]
+    pub fn contains(&self, rate: f64) -> bool {
+        rate >= self.min_rate && rate <= self.max_rate
+    }
+
+    /// Clamp a rate to be within bounds.
+    #[inline]
+    pub fn clamp(&self, rate: f64) -> f64 {
+        rate.clamp(self.min_rate, self.max_rate)
+    }
+}
+
+/// How `CalibrationConfig` obtains rate bounds.
+///
+/// Market-standard bounds depend on currency/market regime. `AutoCurrency` makes this choice
+/// explicit and avoids relying on `RateBounds::default()` as an implicit assumption.
+#[cfg_attr(feature = "ts_export", derive(TS))]
+#[cfg_attr(feature = "ts_export", ts(export))]
+#[derive(Clone, Debug, Default, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "snake_case")]
+pub enum RateBoundsPolicy {
+    /// Pick currency-specific bounds via `RateBounds::for_currency(currency)`.
+    #[default]
+    AutoCurrency,
+    /// Use the explicit `CalibrationConfig.rate_bounds` values.
+    Explicit,
+}
+
+/// Runtime validation behavior for arbitrage/consistency checks.
+#[cfg_attr(feature = "ts_export", derive(TS))]
+#[cfg_attr(feature = "ts_export", ts(export))]
+#[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq)]
+pub enum ValidationMode {
+    /// Emit warnings (non-fatal) when validations fail
+    Warn,
+    /// Treat validation failures as hard errors
+    Error,
+}
 
 /// Validation configuration for different curve types.
+#[cfg_attr(feature = "ts_export", derive(TS))]
+#[cfg_attr(feature = "ts_export", ts(export))]
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct ValidationConfig {
     /// Enable forward rate positivity check

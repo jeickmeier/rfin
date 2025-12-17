@@ -1,7 +1,7 @@
 #![cfg(feature = "ts_export")]
 
 use finstack_valuations::calibration::{
-    CalibrationConfig, MultiCurveConfig, RateBounds, SolverKind, ValidationMode,
+    CalibrationConfig, MultiCurveConfig, RateBounds, SolverConfig, ValidationMode,
 };
 use finstack_valuations::calibration::quotes::{
     CreditQuote, FutureSpecs, InflationQuote, MarketQuote, RatesQuote, VolQuote,
@@ -19,7 +19,7 @@ fn export_calibration_types() {
     std::env::set_var("TS_RS_EXPORT_DIR", OUT_DIR);
 
     CalibrationConfig::export().expect("export CalibrationConfig");
-    SolverKind::export().expect("export SolverKind");
+    SolverConfig::export().expect("export SolverConfig");
     MultiCurveConfig::export().expect("export MultiCurveConfig");
     RateBounds::export().expect("export RateBounds");
     ValidationMode::export().expect("export ValidationMode");
