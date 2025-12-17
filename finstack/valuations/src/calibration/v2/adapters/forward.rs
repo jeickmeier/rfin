@@ -139,7 +139,9 @@ impl BootstrapTarget for ForwardCurveTarget {
     fn initial_guess(&self, quote: &Self::Quote, previous_knots: &[(f64, f64)]) -> Result<f64> {
         match quote {
             RatesQuote::FRA { rate, .. } => Ok(*rate),
-            RatesQuote::Future { price, specs, .. } => {
+            RatesQuote::Future {
+                price, specs, .. 
+            } => {
                 let implied_rate = (100.0 - price) / 100.0;
                 if let Some(adj) = specs.convexity_adjustment {
                     Ok(implied_rate + adj)

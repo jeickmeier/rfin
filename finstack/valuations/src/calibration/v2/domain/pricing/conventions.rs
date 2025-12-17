@@ -10,6 +10,8 @@ pub(crate) struct ResolvedCommon<'a> {
     pub payment_delay_days: i32,
     pub reset_lag_days: i32,
     pub calendar_id: &'a str,
+    pub fixing_calendar_id: &'a str,
+    pub payment_calendar_id: &'a str,
     pub bdc: BusinessDayConvention,
 }
 
@@ -59,6 +61,16 @@ pub(crate) fn resolve_common<'a>(
         .or(pricer.calendar_id.as_deref())
         .unwrap_or_else(|| CalibrationPricer::market_calendar_id(currency));
 
+    let fixing_calendar_id = quote_conventions
+        .effective_fixing_calendar_id()
+        .or(pricer.calendar_id.as_deref())
+        .unwrap_or(calendar_id);
+
+    let payment_calendar_id = quote_conventions
+        .effective_payment_calendar_id()
+        .or(pricer.calendar_id.as_deref())
+        .unwrap_or(calendar_id);
+
     let bdc = quote_conventions
         .business_day_convention
         .or(pricer.business_day_convention)
@@ -69,6 +81,8 @@ pub(crate) fn resolve_common<'a>(
         payment_delay_days: quote_conventions.effective_payment_delay_days(),
         reset_lag_days: quote_conventions.effective_reset_lag_days(),
         calendar_id,
+        fixing_calendar_id,
+        payment_calendar_id,
         bdc,
     }
 }
@@ -137,12 +151,20 @@ pub(crate) fn resolve_common_strict<'a>(
         quote_conventions.business_day_convention,
         "business_day_convention",
     )?;
+    let fixing_calendar_id = quote_conventions
+        .effective_fixing_calendar_id()
+        .unwrap_or(calendar_id);
+    let payment_calendar_id = quote_conventions
+        .effective_payment_calendar_id()
+        .unwrap_or(calendar_id);
 
     Ok(ResolvedCommon {
         settlement_days,
         payment_delay_days,
         reset_lag_days,
         calendar_id,
+        fixing_calendar_id,
+        payment_calendar_id,
         bdc,
     })
 }

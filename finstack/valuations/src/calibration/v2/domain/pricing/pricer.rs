@@ -444,33 +444,14 @@ impl CalibrationPricer {
     ) -> Result<f64> {
         let common = conv::resolve_common(self, conventions, currency);
         let reset_lag = common.reset_lag_days;
-        let calendar_id = common.calendar_id;
-        let registry = CalendarRegistry::global();
+        let calendar_id = common.fixing_calendar_id;
 
-        // Track whether we actually found the calendar (for FRA builder)
-        let calendar_found = registry.resolve_str(calendar_id).is_some();
-
-        // Use business-day subtraction for fixing date calculation
-        let fixing_date = if let Some(calendar) = registry.resolve_str(calendar_id) {
-            // Business day subtraction using negative offset
-            if start >= self.base_date {
-                start.add_business_days(-reset_lag, calendar)?
-            } else {
-                self.base_date
-            }
-        } else if self.allow_calendar_fallback {
-            // Fallback to calendar days if no calendar available (explicitly enabled).
-            if start >= self.base_date + time::Duration::days(reset_lag as i64) {
-                start - time::Duration::days(reset_lag as i64)
-            } else {
-                self.base_date
-            }
-        } else {
-            return Err(finstack_core::Error::calendar_not_found_with_suggestions(
-                calendar_id.to_string(),
-                registry.available_ids(),
-            ));
-        };
+        let (fixing_date, calendar_found) = self.compute_fra_fixing_date(
+            start,
+            reset_lag,
+            calendar_id,
+            self.allow_calendar_fallback,
+        )?;
 
         if self.verbose {
             tracing::debug!(
@@ -505,66 +486,66 @@ impl CalibrationPricer {
             .forward_id(self.forward_curve_id.clone())
             .pay_fixed(false) // Receive fixed, pay floating (consistent with forward curve calibration)
             .build()
-            .map_err(|_| finstack_core::Error::Internal)?;
+            .map_err(|e| finstack_core::Error::Calibration {
+                message: format!(
+                    "FRA builder failed for start {} end {}: {}",
+                    start, end, e
+                ),
+                category: "fra_pricing".to_string(),
+            })?;
 
         let pv = fra.value(context, self.base_date)?;
         Ok(pv.amount() / fra.notional.amount())
     }
 
     /// Price a futures quote for calibration.
+    #[allow(clippy::too_many_arguments)]
     pub fn price_future(
         &self,
         expiry: Date,
+        period_start: Date,
+        period_end: Date,
+        fixing_date: Option<Date>,
         price: f64,
         specs: &FutureSpecs,
         _conventions: &InstrumentConventions,
         currency: Currency,
         context: &MarketContext,
     ) -> Result<f64> {
-        let period_start = expiry;
-        let period_end = expiry.add_months(specs.delivery_months as i32);
-        let fixing_date = expiry; // Typically same as expiry for futures
+        // Default fixing date to the underlying period start when not supplied.
+        let fixing_date = fixing_date.unwrap_or(period_start);
+
+        let dc_ctx = DayCountCtx::default();
+        let time_to_expiry = specs
+            .day_count
+            .year_fraction(self.base_date, expiry, dc_ctx)
+            .unwrap_or(0.0);
+        let time_to_maturity = specs
+            .day_count
+            .year_fraction(self.base_date, period_end, dc_ctx)
+            .unwrap_or(0.0);
 
         // Calculate convexity adjustment using priority:
         // 1. Quote-level override
         // 2. Pricer-level custom params
         // 3. Currency-specific defaults
-        let convexity_adj = if let Some(adj) = specs.convexity_adjustment {
-            Some(adj)
-        } else {
-            let params = self
-                .convexity_params
-                .clone()
-                .unwrap_or_else(|| ConvexityParameters::for_currency(currency));
+        let convexity_adj =
+            self.resolve_future_convexity(specs, currency, time_to_expiry, time_to_maturity);
 
-            let adj =
-                params.calculate_for_future(self.base_date, expiry, period_end, specs.day_count);
-
-            if self.verbose {
-                let dc_ctx = DayCountCtx::default();
-                let time_to_expiry = specs
-                    .day_count
-                    .year_fraction(self.base_date, expiry, dc_ctx)
-                    .unwrap_or(0.0);
-                let time_to_maturity = specs
-                    .day_count
-                    .year_fraction(self.base_date, period_end, dc_ctx)
-                    .unwrap_or(0.0);
-                tracing::debug!(
-                    future_expiry = %expiry,
-                    time_to_expiry = time_to_expiry,
-                    time_to_maturity = time_to_maturity,
-                    convexity_adjustment = adj,
-                    "Futures convexity adjustment"
-                );
-            }
-
-            Some(adj)
-        };
+        if self.verbose {
+            tracing::debug!(
+                future_expiry = %expiry,
+                time_to_expiry = time_to_expiry,
+                time_to_maturity = time_to_maturity,
+                market_implied_vol = ?specs.market_implied_vol,
+                convexity_adjustment = ?convexity_adj,
+                "Futures convexity adjustment"
+            );
+        }
 
         let future = InterestRateFuture::builder()
             .id(format!("CALIB_FUT_{}", expiry).into())
-            .notional(Money::new(specs.face_value, currency))
+            .notional(self.future_notional(specs, currency))
             .expiry_date(expiry)
             .fixing_date(fixing_date)
             .period_start(period_start)
@@ -591,6 +572,67 @@ impl CalibrationPricer {
         Ok(pv.amount() / future.notional.amount())
     }
 
+    /// Compute FRA fixing date using signed reset lag and calendars.
+    ///
+    /// Returns the fixing date and a flag indicating whether the calendar was found.
+    fn compute_fra_fixing_date(
+        &self,
+        start: Date,
+        reset_lag: i32,
+        calendar_id: &str,
+        allow_calendar_fallback: bool,
+    ) -> finstack_core::Result<(Date, bool)> {
+        let registry = CalendarRegistry::global();
+        if let Some(calendar) = registry.resolve_str(calendar_id) {
+            let fixing_date = if start >= self.base_date {
+                start.add_business_days(reset_lag, calendar)?
+            } else {
+                self.base_date
+            };
+            Ok((fixing_date, true))
+        } else if allow_calendar_fallback {
+            let candidate = start + time::Duration::days(reset_lag as i64);
+            let fixing_date = if candidate >= self.base_date {
+                candidate
+            } else {
+                self.base_date
+            };
+            Ok((fixing_date, false))
+        } else {
+            Err(finstack_core::Error::calendar_not_found_with_suggestions(
+                calendar_id.to_string(),
+                registry.available_ids(),
+            ))
+        }
+    }
+
+    fn resolve_future_convexity(
+        &self,
+        specs: &FutureSpecs,
+        currency: Currency,
+        time_to_expiry: f64,
+        time_to_maturity: f64,
+    ) -> Option<f64> {
+        if let Some(adj) = specs.convexity_adjustment {
+            return Some(adj);
+        }
+
+        let params = self
+            .convexity_params
+            .clone()
+            .unwrap_or_else(|| ConvexityParameters::for_currency(currency));
+
+        Some(params.calculate_adjustment_with_market_vol(
+            time_to_expiry,
+            time_to_maturity,
+            specs.market_implied_vol,
+        ))
+    }
+
+    fn future_notional(&self, specs: &FutureSpecs, currency: Currency) -> Money {
+        Money::new(specs.face_value * specs.multiplier, currency)
+    }
+
     /// Price a swap quote for calibration.
     #[allow(clippy::too_many_arguments)]
     pub fn price_swap(
@@ -611,7 +653,8 @@ impl CalibrationPricer {
         let start = self.effective_start_date(conventions, currency)?;
         let payment_delay = common.payment_delay_days;
         let reset_lag = common.reset_lag_days;
-        let calendar_id = common.calendar_id.to_string();
+        let payment_calendar_id = common.payment_calendar_id.to_string();
+        let fixing_calendar_id = common.fixing_calendar_id.to_string();
 
         let fixed_spec = FixedLegSpec {
             discount_curve_id: self.discount_curve_id.clone(),
@@ -619,7 +662,7 @@ impl CalibrationPricer {
             freq: fixed_freq,
             dc: fixed_dc,
             bdc: common.bdc,
-            calendar_id: Some(calendar_id.clone()),
+            calendar_id: Some(payment_calendar_id.clone()),
             stub: StubKind::None,
             par_method: None,
             compounding_simple: true,
@@ -657,8 +700,8 @@ impl CalibrationPricer {
             freq: float_freq,
             dc: float_dc,
             bdc: common.bdc,
-            calendar_id: Some(calendar_id.clone()),
-            fixing_calendar_id: Some(calendar_id),
+            calendar_id: Some(payment_calendar_id),
+            fixing_calendar_id: Some(fixing_calendar_id),
             stub: StubKind::None,
             reset_lag_days: reset_lag,
             start,
@@ -701,7 +744,7 @@ impl CalibrationPricer {
         let start = self.effective_start_date(conventions, currency)?;
         let reset_lag = common.reset_lag_days;
         let payment_delay = common.payment_delay_days;
-        let calendar_id = common.calendar_id;
+        let calendar_id = common.payment_calendar_id;
 
         // Determine forward curve IDs based on calibration mode
         let (primary_forward_id, reference_forward_id) = if let Some(tenor) = self.tenor_years {
@@ -856,7 +899,8 @@ impl CalibrationPricer {
         let start = self.effective_start_date(conventions, currency)?;
         let payment_delay = resolved.common.payment_delay_days;
         let reset_lag = resolved.common.reset_lag_days;
-        let calendar_id = resolved.common.calendar_id.to_string();
+        let payment_calendar_id = resolved.common.payment_calendar_id.to_string();
+        let fixing_calendar_id = resolved.common.fixing_calendar_id.to_string();
 
         // Determine whether to use OIS pricing (same logic as price_swap)
         let use_ois_pricing = is_ois && self.tenor_years.is_none();
@@ -873,7 +917,7 @@ impl CalibrationPricer {
             freq: resolved.fixed_freq,
             dc: resolved.fixed_dc,
             bdc: resolved.common.bdc,
-            calendar_id: Some(calendar_id.clone()),
+            calendar_id: Some(payment_calendar_id.clone()),
             stub: StubKind::None,
             par_method: None,
             compounding_simple: true,
@@ -882,15 +926,27 @@ impl CalibrationPricer {
             payment_delay_days: payment_delay,
         };
 
+        let (float_discount_id, float_forward_id) = if use_ois_pricing {
+            (
+                self.discount_curve_id.clone(),
+                self.discount_curve_id.clone(),
+            )
+        } else {
+            (
+                self.discount_curve_id.clone(),
+                self.forward_curve_id.clone(),
+            )
+        };
+
         let float_spec = FloatLegSpec {
-            discount_curve_id: self.discount_curve_id.clone(),
-            forward_curve_id: self.forward_curve_id.clone(),
+            discount_curve_id: float_discount_id,
+            forward_curve_id: float_forward_id,
             spread_bp: 0.0,
             freq: resolved.float_freq,
             dc: resolved.float_dc,
             bdc: resolved.common.bdc,
-            calendar_id: Some(calendar_id.clone()),
-            fixing_calendar_id: Some(calendar_id),
+            calendar_id: Some(payment_calendar_id),
+            fixing_calendar_id: Some(fixing_calendar_id),
             stub: StubKind::None,
             reset_lag_days: reset_lag,
             start,
@@ -941,10 +997,23 @@ impl CalibrationPricer {
 
             RatesQuote::Future {
                 expiry,
+                period_start,
+                period_end,
+                fixing_date,
                 price,
                 specs,
                 conventions,
-            } => self.price_future(*expiry, *price, specs, conventions, currency, context),
+            } => self.price_future(
+                *expiry,
+                *period_start,
+                *period_end,
+                *fixing_date,
+                *price,
+                specs,
+                conventions,
+                currency,
+                context,
+            ),
 
             RatesQuote::Swap {
                 maturity,
@@ -1058,19 +1127,9 @@ impl CalibrationPricer {
                     )
                 })?;
                 let reset_lag = common.reset_lag_days;
-                let calendar_id = common.calendar_id;
-                let registry = CalendarRegistry::global();
-                let calendar = registry.resolve_str(calendar_id).ok_or_else(|| {
-                    finstack_core::Error::calendar_not_found_with_suggestions(
-                        calendar_id.to_string(),
-                        registry.available_ids(),
-                    )
-                })?;
-                let fixing_date = if *start >= self.base_date {
-                    start.add_business_days(-reset_lag, calendar)?
-                } else {
-                    self.base_date
-                };
+                let calendar_id = common.fixing_calendar_id;
+                let (fixing_date, _) =
+                    self.compute_fra_fixing_date(*start, reset_lag, calendar_id, false)?;
                 let fra = ForwardRateAgreement::builder()
                     .id(format!("CALIB_FRA_{}_{}", start, end).into())
                     .notional(Money::new(1_000_000.0, currency))
@@ -1085,16 +1144,35 @@ impl CalibrationPricer {
                     .forward_id(self.forward_curve_id.clone())
                     .pay_fixed(false)
                     .build()
-                    .map_err(|_| finstack_core::Error::Internal)?;
+                    .map_err(|e| finstack_core::Error::Calibration {
+                        message: format!(
+                            "FRA builder failed for start {} end {}: {}",
+                            start, end, e
+                        ),
+                        category: "fra_pricing".to_string(),
+                    })?;
                 let pv = fra.value(context, self.base_date)?;
                 Ok(pv.amount() / fra.notional.amount())
             }
             RatesQuote::Future {
                 expiry,
+                period_start,
+                period_end,
+                fixing_date,
                 price,
                 specs,
                 conventions,
-            } => self.price_future(*expiry, *price, specs, conventions, currency, context),
+            } => self.price_future(
+                *expiry,
+                *period_start,
+                *period_end,
+                *fixing_date,
+                *price,
+                specs,
+                conventions,
+                currency,
+                context,
+            ),
             RatesQuote::Swap {
                 maturity,
                 rate,
@@ -1107,7 +1185,8 @@ impl CalibrationPricer {
                 let start = self.effective_start_date(conventions, currency)?;
                 let payment_delay = resolved.common.payment_delay_days;
                 let reset_lag = resolved.common.reset_lag_days;
-                let calendar_id = resolved.common.calendar_id.to_string();
+                let payment_calendar_id = resolved.common.payment_calendar_id.to_string();
+                let fixing_calendar_id = resolved.common.fixing_calendar_id.to_string();
 
                 let fixed_spec = FixedLegSpec {
                     discount_curve_id: self.discount_curve_id.clone(),
@@ -1115,7 +1194,7 @@ impl CalibrationPricer {
                     freq: resolved.fixed_freq,
                     dc: resolved.fixed_dc,
                     bdc: resolved.common.bdc,
-                    calendar_id: Some(calendar_id.clone()),
+                    calendar_id: Some(payment_calendar_id.clone()),
                     stub: StubKind::None,
                     par_method: None,
                     compounding_simple: true,
@@ -1146,8 +1225,8 @@ impl CalibrationPricer {
                     freq: resolved.float_freq,
                     dc: resolved.float_dc,
                     bdc: resolved.common.bdc,
-                    calendar_id: Some(calendar_id.clone()),
-                    fixing_calendar_id: Some(calendar_id),
+                    calendar_id: Some(payment_calendar_id),
+                    fixing_calendar_id: Some(fixing_calendar_id),
                     stub: StubKind::None,
                     reset_lag_days: reset_lag,
                     start,
@@ -1207,7 +1286,7 @@ impl CalibrationPricer {
                     self.discount_curve_id.as_str(),
                 )
                 .with_allow_calendar_fallback(self.allow_calendar_fallback)
-                .with_calendar(common.calendar_id.to_string());
+                .with_calendar(common.payment_calendar_id.to_string());
                 let pv = basis_swap.value(context, self.base_date)?;
                 Ok(pv.amount() / basis_swap.notional.amount())
             }
@@ -1229,12 +1308,60 @@ impl CalibrationPricer {
         }
     }
 
+    /// Build a duplicate-detection key tailored to the quote type.
+    fn dedupe_key(quote: &RatesQuote) -> String {
+        match quote {
+            RatesQuote::Deposit { maturity, .. } => format!("DEP|{}", maturity),
+            RatesQuote::FRA { start, end, .. } => format!("FRA|{}|{}", start, end),
+            RatesQuote::Future {
+                expiry,
+                period_start,
+                period_end,
+                ..
+            } => format!("FUT|{}|{}|{}", expiry, period_start, period_end),
+            RatesQuote::Swap {
+                maturity,
+                is_ois,
+                float_leg_conventions,
+                ..
+            } => {
+                let index = float_leg_conventions
+                    .index
+                    .as_ref()
+                    .map(|i| i.as_str())
+                    .unwrap_or("UNKNOWN");
+                format!("SWAP|{}|{}|{}", maturity, index, is_ois)
+            }
+            RatesQuote::BasisSwap {
+                maturity,
+                primary_leg_conventions,
+                reference_leg_conventions,
+                ..
+            } => {
+                let primary_idx = primary_leg_conventions
+                    .index
+                    .as_ref()
+                    .map(|i| i.as_str())
+                    .unwrap_or("PRIMARY");
+                let ref_idx = reference_leg_conventions
+                    .index
+                    .as_ref()
+                    .map(|i| i.as_str())
+                    .unwrap_or("REFERENCE");
+                format!("BASIS|{}|{}|{}", maturity, primary_idx, ref_idx)
+            }
+        }
+    }
+
     /// Pre-validate that all required curves exist for the quote set.
     pub fn validate_curve_dependencies(
         &self,
         quotes: &[RatesQuote],
         context: &MarketContext,
     ) -> Result<()> {
+        let calibrating_forward_id = self.forward_curve_id.as_str();
+        let allow_missing_calibrated_curve = self.tenor_years.is_some();
+
         for quote in quotes {
             if let RatesQuote::BasisSwap {
                 primary_leg_conventions,
@@ -1256,27 +1383,57 @@ impl CalibrationPricer {
                 let primary_fwd = self.resolve_forward_curve_id(primary_index.as_str());
                 let ref_fwd = self.resolve_forward_curve_id(reference_index.as_str());
 
-                if context.get_forward_ref(primary_fwd.as_str()).is_err() {
-                    return Err(finstack_core::Error::Input(
-                        finstack_core::error::InputError::NotFound {
-                            id: format!(
-                                "Forward curve '{}' required for basis swap calibration. \
-                                 Please calibrate the forward curve first.",
-                                primary_fwd
-                            ),
-                        },
-                    ));
-                }
-                if context.get_forward_ref(ref_fwd.as_str()).is_err() {
-                    return Err(finstack_core::Error::Input(
-                        finstack_core::error::InputError::NotFound {
-                            id: format!(
-                                "Forward curve '{}' required for basis swap calibration. \
-                                 Please calibrate the forward curve first.",
-                                ref_fwd
-                            ),
-                        },
-                    ));
+                let primary_missing = context.get_forward_ref(primary_fwd.as_str()).is_err();
+                let reference_missing = context.get_forward_ref(ref_fwd.as_str()).is_err();
+
+                if allow_missing_calibrated_curve {
+                    // In forward calibration we allow the calibrated curve to be absent.
+                    if primary_missing && primary_fwd.as_str() != calibrating_forward_id {
+                        return Err(finstack_core::Error::Input(
+                            finstack_core::error::InputError::NotFound {
+                                id: format!(
+                                    "Forward curve '{}' required for basis swap calibration. \
+                                     Please calibrate the forward curve first.",
+                                    primary_fwd
+                                ),
+                            },
+                        ));
+                    }
+
+                    if reference_missing && ref_fwd.as_str() != calibrating_forward_id {
+                        return Err(finstack_core::Error::Input(
+                            finstack_core::error::InputError::NotFound {
+                                id: format!(
+                                    "Forward curve '{}' required for basis swap calibration. \
+                                     Please calibrate the forward curve first.",
+                                    ref_fwd
+                                ),
+                            },
+                        ));
+                    }
+                } else {
+                    if primary_missing {
+                        return Err(finstack_core::Error::Input(
+                            finstack_core::error::InputError::NotFound {
+                                id: format!(
+                                    "Forward curve '{}' required for basis swap calibration. \
+                                     Please calibrate the forward curve first.",
+                                    primary_fwd
+                                ),
+                            },
+                        ));
+                    }
+                    if reference_missing {
+                        return Err(finstack_core::Error::Input(
+                            finstack_core::error::InputError::NotFound {
+                                id: format!(
+                                    "Forward curve '{}' required for basis swap calibration. \
+                                     Please calibrate the forward curve first.",
+                                    ref_fwd
+                                ),
+                            },
+                        ));
+                    }
                 }
             }
         }
@@ -1297,10 +1454,10 @@ impl CalibrationPricer {
             ));
         }
 
-        // 2. Duplicate (type, maturity) detection
+        // 2. Duplicate detection with instrument-specific keys
         let mut seen = std::collections::HashSet::new();
         for quote in quotes {
-            let key = (quote.get_type(), quote.maturity_date());
+            let key = Self::dedupe_key(quote);
             if !seen.insert(key) {
                 return Err(finstack_core::Error::Input(
                     finstack_core::error::InputError::Invalid,
@@ -1331,6 +1488,55 @@ impl CalibrationPricer {
                 {
                     separation_violations.push(quote.get_type());
                 }
+            }
+
+            // Instrument-specific date sanity
+            match quote {
+                RatesQuote::FRA { start, end, .. } => {
+                    if *start <= base_date {
+                        return Err(finstack_core::Error::Calibration {
+                            message: format!(
+                                "FRA start {} is on or before base date {}",
+                                start, base_date
+                            ),
+                            category: "quote_validation".to_string(),
+                        });
+                    }
+                    if *end <= *start {
+                        return Err(finstack_core::Error::Calibration {
+                            message: format!(
+                                "FRA end {} is on or before start {}",
+                                end, start
+                            ),
+                            category: "quote_validation".to_string(),
+                        });
+                    }
+                }
+                RatesQuote::Future {
+                    period_start,
+                    period_end,
+                    ..
+                } => {
+                    if *period_start <= base_date {
+                        return Err(finstack_core::Error::Calibration {
+                            message: format!(
+                                "Future period_start {} is on or before base date {}",
+                                period_start, base_date
+                            ),
+                            category: "quote_validation".to_string(),
+                        });
+                    }
+                    if *period_end <= *period_start {
+                        return Err(finstack_core::Error::Calibration {
+                            message: format!(
+                                "Future period_end {} is on or before period_start {}",
+                                period_end, period_start
+                            ),
+                            category: "quote_validation".to_string(),
+                        });
+                    }
+                }
+                _ => {}
             }
 
             // Rate extraction and validation
@@ -1386,6 +1592,377 @@ impl CalibrationPricer {
         }
 
         Ok(())
+    }
+}
+
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::calibration::config::RateBounds;
+    use time::Month;
+    use finstack_core::market_data::term_structures::discount_curve::DiscountCurve;
+    use finstack_core::market_data::term_structures::forward_curve::ForwardCurve;
+    use finstack_core::dates::BusinessDayConvention;
+
+    #[test]
+    fn fra_fixing_date_respects_signed_reset_lag_negative() {
+        let base_date =
+            Date::from_calendar_date(2024, Month::January, 2).expect("valid base date");
+        let pricer = CalibrationPricer::new(base_date, "USD-OIS");
+        let start =
+            Date::from_calendar_date(2024, Month::January, 9).expect("valid start date");
+        let calendar = CalendarRegistry::global()
+            .resolve_str("usny")
+            .expect("usny calendar");
+        let expected = start
+            .add_business_days(-2, calendar)
+            .expect("business day math");
+
+        let (fixing, found) =
+            pricer.compute_fra_fixing_date(start, -2, "usny", false).expect("fixing date");
+        assert!(found);
+        assert_eq!(fixing, expected);
+    }
+
+    #[test]
+    fn fra_fixing_date_respects_signed_reset_lag_positive() {
+        let base_date =
+            Date::from_calendar_date(2024, Month::January, 2).expect("valid base date");
+        let pricer = CalibrationPricer::new(base_date, "USD-OIS");
+        let start =
+            Date::from_calendar_date(2024, Month::January, 9).expect("valid start date");
+        let calendar = CalendarRegistry::global()
+            .resolve_str("usny")
+            .expect("usny calendar");
+        let expected = start
+            .add_business_days(2, calendar)
+            .expect("business day math");
+
+        let (fixing, found) =
+            pricer.compute_fra_fixing_date(start, 2, "usny", false).expect("fixing date");
+        assert!(found);
+        assert_eq!(fixing, expected);
+    }
+
+    #[test]
+    fn fra_fixing_date_falls_back_to_calendar_days_when_allowed() {
+        let base_date =
+            Date::from_calendar_date(2024, Month::January, 2).expect("valid base date");
+        let pricer = CalibrationPricer::new(base_date, "USD-OIS").with_allow_calendar_fallback(true);
+        let start =
+            Date::from_calendar_date(2024, Month::January, 9).expect("valid start date");
+        let expected = start + time::Duration::days(-2);
+
+        let (fixing, found) =
+            pricer.compute_fra_fixing_date(start, -2, "missing-calendar", true).expect("fixing");
+        assert!(!found);
+        assert_eq!(fixing, expected);
+    }
+
+    #[test]
+    fn create_ois_swap_matches_price_swap_pricing() {
+        let base_date =
+            Date::from_calendar_date(2024, Month::January, 2).expect("valid base date");
+        let disc = DiscountCurve::builder("USD-OIS")
+            .base_date(base_date)
+            .knots([(0.0, 1.0), (5.0, 0.80)])
+            .build()
+            .expect("discount curve");
+
+        let ctx = MarketContext::new().insert_discount(disc);
+
+        let pricer = CalibrationPricer::new(base_date, "USD-OIS");
+        let maturity = base_date + time::Duration::days(365);
+        let quote = RatesQuote::Swap {
+            maturity,
+            rate: 0.02,
+            is_ois: true,
+            conventions: Default::default(),
+            fixed_leg_conventions: InstrumentConventions::default(),
+            float_leg_conventions: InstrumentConventions::default().with_index("USD-SOFR"),
+        };
+
+        let pv_norm = pricer
+            .price_instrument(&quote, Currency::USD, &ctx)
+            .expect("price swap");
+
+        let swap = pricer
+            .create_ois_swap(&quote, Money::new(1_000_000.0, Currency::USD), Currency::USD)
+            .expect("create ois swap");
+        let pv_swap = swap
+            .value(&ctx, base_date)
+            .expect("value swap")
+            .amount()
+            / swap.notional.amount();
+
+        assert!(
+            (pv_norm - pv_swap).abs() < 1e-12,
+            "OIS construction mismatch: pricer={} vs builder={}",
+            pv_norm,
+            pv_swap
+        );
+    }
+
+    #[test]
+    fn validate_quotes_allows_distinct_fras_with_same_end() {
+        let base_date =
+            Date::from_calendar_date(2024, Month::January, 2).expect("valid base date");
+        let fra1 = RatesQuote::FRA {
+            start: base_date + time::Duration::days(30),
+            end: base_date + time::Duration::days(60),
+            rate: 0.05,
+            conventions: Default::default(),
+        };
+        let fra2 = RatesQuote::FRA {
+            start: base_date + time::Duration::days(35),
+            end: base_date + time::Duration::days(60),
+            rate: 0.051,
+            conventions: Default::default(),
+        };
+        let bounds = RateBounds::default();
+        CalibrationPricer::validate_rates_quotes(
+            &[fra1, fra2],
+            &bounds,
+            base_date,
+            RatesQuoteUseCase::DiscountCurve {
+                enforce_separation: false,
+            },
+        )
+        .expect("distinct FRAs should not be considered duplicates");
+    }
+
+    #[test]
+    fn validate_quotes_rejects_duplicate_fra() {
+        let base_date =
+            Date::from_calendar_date(2024, Month::January, 2).expect("valid base date");
+        let fra = RatesQuote::FRA {
+            start: base_date + time::Duration::days(30),
+            end: base_date + time::Duration::days(60),
+            rate: 0.05,
+            conventions: Default::default(),
+        };
+        let bounds = RateBounds::default();
+        let err = CalibrationPricer::validate_rates_quotes(
+            &[fra.clone(), fra],
+            &bounds,
+            base_date,
+            RatesQuoteUseCase::DiscountCurve {
+                enforce_separation: false,
+            },
+        )
+        .expect_err("duplicate FRA should be rejected");
+
+        match err {
+            finstack_core::Error::Input(finstack_core::error::InputError::Invalid) => {}
+            other => panic!("Unexpected error: {:?}", other),
+        }
+    }
+
+    #[test]
+    fn validate_quotes_rejects_started_fra() {
+        let base_date =
+            Date::from_calendar_date(2024, Month::January, 10).expect("valid base date");
+        let fra = RatesQuote::FRA {
+            start: base_date, // same as base -> invalid
+            end: base_date + time::Duration::days(30),
+            rate: 0.05,
+            conventions: Default::default(),
+        };
+        let bounds = RateBounds::default();
+        let err = CalibrationPricer::validate_rates_quotes(
+            &[fra],
+            &bounds,
+            base_date,
+            RatesQuoteUseCase::DiscountCurve {
+                enforce_separation: false,
+            },
+        )
+        .expect_err("FRA starting on base date should be rejected");
+        assert!(matches!(
+            err,
+            finstack_core::Error::Calibration { .. }
+        ));
+    }
+
+    #[test]
+    fn validate_quotes_rejects_fra_with_inverted_dates() {
+        let base_date =
+            Date::from_calendar_date(2024, Month::January, 2).expect("valid base date");
+        let fra = RatesQuote::FRA {
+            start: base_date + time::Duration::days(40),
+            end: base_date + time::Duration::days(10), // ends before start
+            rate: 0.05,
+            conventions: Default::default(),
+        };
+        let bounds = RateBounds::default();
+        let err = CalibrationPricer::validate_rates_quotes(
+            &[fra],
+            &bounds,
+            base_date,
+            RatesQuoteUseCase::DiscountCurve {
+                enforce_separation: false,
+            },
+        )
+        .expect_err("FRA with end before start should be rejected");
+        assert!(matches!(
+            err,
+            finstack_core::Error::Calibration { .. }
+        ));
+    }
+
+    #[test]
+    fn settlement_respects_custom_bdc() {
+        // Saturday base date; Preceding should move to prior Friday.
+        let base_date =
+            Date::from_calendar_date(2024, Month::January, 6).expect("valid base date");
+        let pricer = CalibrationPricer::new(base_date, "USD-OIS");
+        let conventions = InstrumentConventions::default()
+            .with_settlement_days(0)
+            .with_business_day_convention(BusinessDayConvention::Preceding)
+            .with_calendar_id("usny");
+
+        let settlement = pricer
+            .settlement_date_for_quote(&conventions, Currency::USD)
+            .expect("settlement");
+
+        assert_eq!(
+            settlement,
+            Date::from_calendar_date(2024, Month::January, 5).expect("valid date")
+        );
+    }
+
+    #[test]
+    fn fixing_calendar_override_is_used() {
+        let base_date =
+            Date::from_calendar_date(2024, Month::January, 2).expect("valid base date");
+        let pricer = CalibrationPricer::new(base_date, "USD-OIS");
+        let conventions = InstrumentConventions::default()
+            .with_calendar_id("missing-calendar")
+            .with_fixing_calendar_id("usny")
+            .with_reset_lag(-2);
+
+        let common = conv::resolve_common(&pricer, &conventions, Currency::USD);
+        assert_eq!(common.fixing_calendar_id, "usny");
+
+        let (fixing_date, found) =
+            pricer.compute_fra_fixing_date(base_date + time::Duration::days(5), -2, common.fixing_calendar_id, false).expect("fixing date");
+        assert!(found, "should use fixing calendar even if general calendar is missing");
+        assert_eq!(
+            fixing_date,
+            (base_date + time::Duration::days(5))
+                .add_business_days(
+                    -2,
+                    CalendarRegistry::global()
+                        .resolve_str("usny")
+                        .expect("usny calendar")
+                )
+                .expect("business day math")
+        );
+    }
+
+    #[test]
+    fn validate_curve_dependencies_allows_missing_calibrated_forward() {
+        let base_date =
+            Date::from_calendar_date(2024, Month::January, 2).expect("valid base date");
+        let pricer = CalibrationPricer::for_forward_curve(
+            base_date,
+            "FWD_USD-SOFR-3M",
+            "USD-OIS",
+            0.25,
+        );
+
+        // Only provide the reference forward curve; primary (the one being calibrated) is absent.
+        let ref_curve = ForwardCurve::builder("FWD_USD-SOFR-6M", 0.5)
+            .base_date(base_date)
+            .knots([(0.0, 0.03), (5.0, 0.03)])
+            .build()
+            .expect("forward curve");
+
+        let ctx = MarketContext::new().insert_forward(ref_curve);
+
+        let quote = RatesQuote::BasisSwap {
+            maturity: base_date + time::Duration::days(365),
+            spread_bp: 0.0,
+            conventions: InstrumentConventions::default().with_currency(Currency::USD),
+            primary_leg_conventions: InstrumentConventions::default().with_index("USD-SOFR-3M"),
+            reference_leg_conventions: InstrumentConventions::default().with_index("USD-SOFR-6M"),
+        };
+
+        pricer
+            .validate_curve_dependencies(&[quote], &ctx)
+            .expect("calibrated forward curve may be missing");
+    }
+
+    #[test]
+    fn validate_curve_dependencies_rejects_missing_unrelated_forward() {
+        let base_date =
+            Date::from_calendar_date(2024, Month::January, 2).expect("valid base date");
+        let pricer = CalibrationPricer::for_forward_curve(
+            base_date,
+            "FWD_USD-SOFR-3M",
+            "USD-OIS",
+            0.25,
+        );
+
+        // No forward curves in context; reference leg missing and not the calibrated curve.
+        let ctx = MarketContext::new();
+
+        let quote = RatesQuote::BasisSwap {
+            maturity: base_date + time::Duration::days(365),
+            spread_bp: 0.0,
+            conventions: InstrumentConventions::default().with_currency(Currency::USD),
+            primary_leg_conventions: InstrumentConventions::default().with_index("USD-SOFR-3M"),
+            reference_leg_conventions: InstrumentConventions::default().with_index("USD-SOFR-6M"),
+        };
+
+        let err = pricer
+            .validate_curve_dependencies(&[quote], &ctx)
+            .expect_err("missing reference forward curve should error");
+
+        match err {
+            finstack_core::Error::Input(finstack_core::error::InputError::NotFound { .. }) => {}
+            other => panic!("Unexpected error: {:?}", other),
+        }
+    }
+
+    #[test]
+    fn future_convexity_uses_market_vol_if_provided() {
+        let base_date =
+            Date::from_calendar_date(2024, Month::January, 2).expect("valid base date");
+        let pricer = CalibrationPricer::new(base_date, "USD-OIS");
+        let specs_default = FutureSpecs::default();
+        let specs_with_vol = FutureSpecs {
+            market_implied_vol: Some(0.02),
+            ..FutureSpecs::default()
+        };
+
+        let t_exp = 0.5;
+        let t_mat = 0.75;
+
+        let adj_default = pricer
+            .resolve_future_convexity(&specs_default, Currency::USD, t_exp, t_mat)
+            .expect("convexity adjustment");
+        let adj_market = pricer
+            .resolve_future_convexity(&specs_with_vol, Currency::USD, t_exp, t_mat)
+            .expect("convexity adjustment with vol");
+
+        assert!(adj_market > adj_default, "market vol should increase convexity");
+    }
+
+    #[test]
+    fn future_notional_scales_with_multiplier() {
+        let base_date =
+            Date::from_calendar_date(2024, Month::January, 2).expect("valid base date");
+        let pricer = CalibrationPricer::new(base_date, "USD-OIS");
+        let specs = FutureSpecs {
+            face_value: 1_000_000.0,
+            multiplier: 2.5,
+            ..FutureSpecs::default()
+        };
+
+        let notional = pricer.future_notional(&specs, Currency::USD);
+        assert!((notional.amount() - 2_500_000.0).abs() < 1e-6);
     }
 }
 

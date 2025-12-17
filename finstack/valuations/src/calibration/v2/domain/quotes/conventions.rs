@@ -25,7 +25,11 @@ pub struct InstrumentConventions {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub payment_delay_days: Option<i32>,
 
-    /// Reset lag in business days for floating rate fixings (e.g., -2 for T-2)
+    /// Reset lag as a **signed** business-day offset for floating rate fixings.
+    ///
+    /// Examples:
+    /// - `-2` = fixing two business days **before** period start (T-2)
+    /// - `+2` = fixing two business days **after** period start (T+2)
     #[serde(skip_serializing_if = "Option::is_none")]
     pub reset_lag: Option<i32>,
 
@@ -299,10 +303,11 @@ impl InstrumentConventions {
 
     /// Get the effective reset lag in business days before period start for fixings.
     ///
-    /// Market convention: 2 by default unless explicitly provided on the quote.
+    /// Market convention: -2 by default (T-2 fixing); positive values indicate
+    /// fixing after the accrual start.
     #[inline]
     pub fn effective_reset_lag_days(&self) -> i32 {
-        self.reset_lag.unwrap_or(2)
+        self.reset_lag.unwrap_or(-2)
     }
 }
 

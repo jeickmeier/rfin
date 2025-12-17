@@ -4,7 +4,6 @@
 
 use super::conventions::InstrumentConventions;
 use finstack_core::dates::{Date, DayCount};
-use finstack_core::prelude::*;
 use finstack_core::types::{Currency, IndexId};
 #[cfg(feature = "ts_export")]
 use ts_rs::TS;
@@ -46,6 +45,16 @@ pub enum RatesQuote {
         /// Expiry date
         #[cfg_attr(feature = "ts_export", ts(type = "string"))]
         expiry: Date,
+        /// Underlying rate period start date
+        #[cfg_attr(feature = "ts_export", ts(type = "string"))]
+        period_start: Date,
+        /// Underlying rate period end date
+        #[cfg_attr(feature = "ts_export", ts(type = "string"))]
+        period_end: Date,
+        /// Optional fixing date override (defaults to period_start if None)
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        #[cfg_attr(feature = "ts_export", ts(type = "string | null"))]
+        fixing_date: Option<Date>,
         /// Contract price
         price: f64,
         /// Contract specifications
@@ -120,9 +129,7 @@ impl RatesQuote {
         match self {
             RatesQuote::Deposit { maturity, .. } => *maturity,
             RatesQuote::FRA { end, .. } => *end,
-            RatesQuote::Future { expiry, specs, .. } => {
-                expiry.add_months(specs.delivery_months as i32)
-            }
+            RatesQuote::Future { period_end, .. } => *period_end,
             RatesQuote::Swap { maturity, .. } => *maturity,
             RatesQuote::BasisSwap { maturity, .. } => *maturity,
         }
@@ -268,11 +275,17 @@ impl RatesQuote {
             },
             RatesQuote::Future {
                 expiry,
+                period_start,
+                period_end,
+                fixing_date,
                 price,
                 specs,
                 conventions,
             } => RatesQuote::Future {
                 expiry: *expiry,
+                period_start: *period_start,
+                period_end: *period_end,
+                fixing_date: *fixing_date,
                 price: price - (amount * 100.0),
                 specs: specs.clone(),
                 conventions: conventions.clone(),
@@ -319,10 +332,16 @@ impl RatesQuote {
                 let dc = conventions.effective_day_count_or_default(currency);
                 format!("FRA-{}-{}-{:?}-{:06}", start, end, dc, counter)
             }
-            RatesQuote::Future { expiry, specs, .. } => {
+            RatesQuote::Future {
+                expiry,
+                period_start,
+                period_end,
+                specs,
+                ..
+            } => {
                 format!(
-                    "FUT-{}-{}m-{:?}-{:06}",
-                    expiry, specs.delivery_months, specs.day_count, counter
+                    "FUT-{}-{}-{}-{:?}-{:06}",
+                    expiry, period_start, period_end, specs.day_count, counter
                 )
             }
             RatesQuote::Swap {
@@ -396,6 +415,9 @@ pub struct FutureSpecs {
     pub day_count: DayCount,
     /// Convexity adjustment (for long-dated futures)
     pub convexity_adjustment: Option<f64>,
+    /// Optional market-implied volatility for convexity calculation
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub market_implied_vol: Option<f64>,
     /// Tick size (minimum price increment)
     #[serde(default = "default_tick_size")]
     pub tick_size: f64,
@@ -415,11 +437,12 @@ fn default_tick_value() -> f64 {
 impl Default for FutureSpecs {
     fn default() -> Self {
         Self {
-            multiplier: 1_000_000.0,
+            multiplier: 1.0,
             face_value: 1_000_000.0,
             delivery_months: 3,
             day_count: DayCount::Act360,
             convexity_adjustment: None,
+            market_implied_vol: None,
             tick_size: default_tick_size(),
             tick_value: default_tick_value(),
         }
