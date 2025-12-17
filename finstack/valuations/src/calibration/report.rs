@@ -21,18 +21,18 @@ struct ResidualDiagnostics {
 /// Penalties (INFINITY or values >= PENALTY * 0.5) are excluded from max/RMSE
 /// unless ALL values are penalties, in which case the raw stats are used.
 fn compute_residual_diagnostics(residuals: &BTreeMap<String, f64>) -> ResidualDiagnostics {
-    let penalty = crate::calibration::PENALTY;
+    let penalty_abs_min = crate::calibration::RESIDUAL_PENALTY_ABS_MIN;
 
     // Filter to finite non-penalty values
     let finite_vals: Vec<f64> = residuals
         .values()
         .copied()
-        .filter(|r| r.is_finite() && r.abs() < penalty * 0.5)
+        .filter(|r| r.is_finite() && r.abs() < penalty_abs_min)
         .collect();
 
     let has_penalty = residuals
         .values()
-        .any(|r| !r.is_finite() || r.abs() >= penalty * 0.5);
+        .any(|r| !r.is_finite() || r.abs() >= penalty_abs_min);
 
     let max_residual = if finite_vals.is_empty() {
         residuals.values().map(|r| r.abs()).fold(0.0, f64::max)
@@ -254,10 +254,10 @@ impl CalibrationReport {
 
         // Determine success and convergence reason
         let (success, convergence_reason) = if diag.has_penalty {
-            let penalty = crate::calibration::PENALTY;
+            let penalty_abs_min = crate::calibration::RESIDUAL_PENALTY_ABS_MIN;
             let penalty_instruments: Vec<&String> = residuals
                 .iter()
-                .filter(|(_, r)| !r.is_finite() || r.abs() >= penalty * 0.5)
+                .filter(|(_, r)| !r.is_finite() || r.abs() >= penalty_abs_min)
                 .map(|(k, _)| k)
                 .collect();
             (

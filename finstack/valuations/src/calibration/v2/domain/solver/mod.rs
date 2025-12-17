@@ -4,5 +4,5 @@ pub mod global;
 pub mod traits;
 
 pub use bootstrap::SequentialBootstrapper;
-pub use global::GlobalOptimizer;
+pub use global::GlobalFitOptimizer;
 pub use traits::{BootstrapTarget, GlobalSolveTarget};

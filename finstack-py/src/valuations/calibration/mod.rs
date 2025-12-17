@@ -1,9 +1,9 @@
 pub mod config;
-pub mod methods;
 pub mod quote;
 pub mod report;
 pub mod sabr;
 pub mod validation;
+pub mod v2;
 
 use pyo3::prelude::*;
 use pyo3::types::{PyList, PyModule};
@@ -31,8 +31,8 @@ pub(crate) fn register<'py>(
     let report_exports = report::register(py, &module)?;
     exports.extend(report_exports.iter().copied());
 
-    let methods_exports = methods::register(py, &module)?;
-    exports.extend(methods_exports.iter().copied());
+    let v2_exports = v2::register(py, &module)?;
+    exports.extend(v2_exports.iter().copied());
 
     let validation_exports = validation::register(py, &module)?;
     exports.extend(validation_exports.iter().copied());

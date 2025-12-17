@@ -84,13 +84,13 @@ impl CDSConvention {
     ///
     /// Returns the standard calendar for business day adjustments:
     /// - North America: `nyse` (New York Stock Exchange)
-    /// - Europe: `target` (TARGET2 / ECB)
+    /// - Europe: `target2` (TARGET2 / ECB)
     /// - Asia: `jpto` (Tokyo Stock Exchange)
     #[must_use]
     pub fn default_calendar(&self) -> &'static str {
         match self {
             CDSConvention::IsdaNa => "nyse",
-            CDSConvention::IsdaEu => "target",
+            CDSConvention::IsdaEu => "target2",
             CDSConvention::IsdaAs => "jpto",
             CDSConvention::Custom => "nyse", // Default to NYSE
         }

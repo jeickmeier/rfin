@@ -2,6 +2,7 @@ pub mod conventions;
 pub mod credit;
 pub mod inflation;
 pub mod market_quote;
+pub mod rate_index;
 pub mod rates;
 pub mod vol;
 

@@ -2,9 +2,10 @@ use crate::core::common::args::{CurrencyArg, DayCountArg};
 use crate::core::dates::daycount::PyDayCount;
 use crate::core::dates::schedule::PyFrequency;
 use crate::core::dates::utils::{date_to_py, py_to_date};
-use finstack_valuations::calibration::quotes::InstrumentConventions;
-use finstack_valuations::calibration::{
-    CreditQuote, FutureSpecs, InflationQuote, MarketQuote, RatesQuote, VolQuote,
+use finstack_core::prelude::DateExt;
+use finstack_valuations::calibration::v2::domain::quotes::{
+    CreditQuote, FutureSpecs, InflationQuote, InstrumentConventions, MarketQuote, RatesQuote,
+    VolQuote,
 };
 use pyo3::prelude::*;
 use pyo3::types::{PyAny, PyModule, PyType};
@@ -160,8 +161,13 @@ impl PyRatesQuote {
         specs: PyRef<PyFutureSpecs>,
     ) -> PyResult<Self> {
         let expiry_date = py_to_date(&expiry)?;
+        let period_start = expiry_date;
+        let period_end = expiry_date.add_months(specs.inner.delivery_months as i32);
         Ok(Self::new(RatesQuote::Future {
             expiry: expiry_date,
+            period_start,
+            period_end,
+            fixing_date: None,
             price,
             specs: specs.inner.clone(),
             conventions: Default::default(),

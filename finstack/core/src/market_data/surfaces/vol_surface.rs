@@ -522,8 +522,8 @@ impl VolSurfaceBuilder {
         if self.expiries.is_empty() || self.strikes.is_empty() {
             return Err(InputError::TooFewPoints.into());
         }
-        crate::math::interp::utils::validate_knots(&self.expiries[..])?;
-        crate::math::interp::utils::validate_knots(&self.strikes[..])?;
+        validate_axis(&self.expiries[..])?;
+        validate_axis(&self.strikes[..])?;
         if self.vols.len() != self.expiries.len() {
             return Err(InputError::DimensionMismatch.into());
         }
@@ -564,8 +564,8 @@ impl VolSurface {
         if expiries.is_empty() || strikes.is_empty() {
             return Err(InputError::TooFewPoints.into());
         }
-        crate::math::interp::utils::validate_knots(expiries)?;
-        crate::math::interp::utils::validate_knots(strikes)?;
+        validate_axis(expiries)?;
+        validate_axis(strikes)?;
         let n = expiries.len() * strikes.len();
         if vols_row_major.len() != n {
             return Err(InputError::DimensionMismatch.into());
@@ -597,6 +597,20 @@ impl VolSurface {
             vols: array,
         })
     }
+}
+
+fn validate_axis(axis: &[f64]) -> crate::Result<()> {
+    if axis.is_empty() {
+        return Err(InputError::TooFewPoints.into());
+    }
+    if axis.iter().any(|x| !x.is_finite()) {
+        return Err(InputError::Invalid.into());
+    }
+    // Allow singleton axes (e.g., a 1xN “surface”) for clamped evaluation.
+    if axis.len() > 1 {
+        crate::math::interp::utils::validate_knots(axis)?;
+    }
+    Ok(())
 }
 
 // -----------------------------------------------------------------------------

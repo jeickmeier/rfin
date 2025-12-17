@@ -66,17 +66,12 @@ pub use core::volatility::{
     JsVolatilityConvention as VolatilityConvention,
 };
 pub use valuations::calibration::{
-    JsBaseCorrelationCalibrator as BaseCorrelationCalibrator,
     JsCalibrationConfig as CalibrationConfig, JsCalibrationReport as CalibrationReport,
-    JsCreditQuote as CreditQuote, JsDiscountCurveCalibrator as DiscountCurveCalibrator,
-    JsForwardCurveCalibrator as ForwardCurveCalibrator,
-    JsHazardCurveCalibrator as HazardCurveCalibrator,
-    JsInflationCurveCalibrator as InflationCurveCalibrator, JsInflationQuote as InflationQuote,
-    JsMarketQuote as MarketQuote, JsMultiCurveConfig as MultiCurveConfig,
-    JsRatesQuote as RatesQuote, JsSABRCalibrationDerivatives as SABRCalibrationDerivatives,
-    JsSABRMarketData as SABRMarketData, JsSABRModelParams as SABRModelParams,
+    JsCreditQuote as CreditQuote, JsInflationQuote as InflationQuote, JsMarketQuote as MarketQuote,
+    JsMultiCurveConfig as MultiCurveConfig, JsRatesQuote as RatesQuote,
+    JsSABRCalibrationDerivatives as SABRCalibrationDerivatives, JsSABRMarketData as SABRMarketData,
+    JsSABRModelParams as SABRModelParams,
     JsSolverKind as SolverKind, JsValidationConfig as ValidationConfig, JsVolQuote as VolQuote,
-    JsVolSurfaceCalibrator as VolSurfaceCalibrator,
 };
 // Validation functions
 pub use valuations::calibration::validation::{

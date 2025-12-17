@@ -1,4 +1,8 @@
-//! Generic global optimization algorithm.
+//! Simultaneous (single-start) weighted least-squares calibration using Levenberg–Marquardt.
+//!
+//! Notes:
+//! - This is **not** a global-search optimizer (no multi-start / basin-hopping).
+//! - Residual weighting is supported via per-quote weights (weighted least squares).
 
 use super::traits::GlobalSolveTarget;
 use crate::calibration::{CalibrationConfig, CalibrationReport, PENALTY};
@@ -7,11 +11,34 @@ use std::collections::BTreeMap;
 use std::sync::atomic::{AtomicUsize, Ordering};
 use std::sync::{Arc, Mutex};
 
-/// Generic global optimizer using Levenberg-Marquardt.
-pub struct GlobalOptimizer;
+fn penalty_residual_value(params: &[f64]) -> f64 {
+    // Avoid a perfectly flat penalty surface: add a small, scale-aware component
+    // so LM has a direction to move toward feasible regions.
+    let mut norm2 = 0.0_f64;
+    for &p in params {
+        if p.is_finite() {
+            norm2 += p * p;
+        }
+    }
+    PENALTY + (norm2.min(PENALTY))
+}
 
-impl GlobalOptimizer {
-    /// Run the global optimization.
+fn fill_penalty(resid: &mut [f64], n_residuals: usize, params: &[f64]) {
+    let v = penalty_residual_value(params);
+    for r in resid.iter_mut().take(n_residuals) {
+        *r = v;
+    }
+}
+
+/// Simultaneous weighted least-squares optimizer (single-start LM).
+pub struct GlobalFitOptimizer;
+
+impl GlobalFitOptimizer {
+    /// Run a simultaneous weighted least-squares fit using Levenberg–Marquardt.
+    ///
+    /// # Tolerance semantics
+    /// The configured tolerance is applied to the **L2 norm of the weighted residual vector**,
+    /// i.e. after scaling each residual \(r_i\) by \(\sqrt{w_i}\).
     pub fn optimize<T>(
         target: &T,
         quotes: &[T::Quote],
@@ -19,7 +46,6 @@ impl GlobalOptimizer {
     ) -> Result<(T::Curve, CalibrationReport)>
     where
         T: GlobalSolveTarget,
-        T::Quote: Clone, // Needed for safe sharing in closure
     {
         // 1. Build grid and guesses
         let (times, initials, active_quotes) = target.build_time_grid_and_guesses(quotes)?;
@@ -36,23 +62,12 @@ impl GlobalOptimizer {
         let solver = config.create_lm_solver();
 
         // Trackers
-        let residual_error: Arc<Mutex<Option<finstack_core::Error>>> = Arc::new(Mutex::new(None));
+        let eval_diagnostics: Arc<Mutex<EvalDiagnostics>> = Arc::new(Mutex::new(EvalDiagnostics::default()));
         let eval_counter = Arc::new(AtomicUsize::new(0));
 
         // Clones for closure
-        let residual_error_clone = Arc::clone(&residual_error);
+        let eval_diagnostics_clone = Arc::clone(&eval_diagnostics);
         let eval_counter_clone = Arc::clone(&eval_counter);
-
-        // We can't easily move `target` into the closure if it's a reference.
-        // The LM solver requires the closure to be `Send` if we were using multi-threading,
-        // but here it's executed sequentially by the solver.
-        // However, `solver.solve_system` takes `Fn`.
-        // If `target` is not `Clone` or `Send`, we might have issues if the solver was parallel.
-        // But the current `LevenbergMarquardtSolver` is sequential.
-        // We need to ensure `target` outlives the closure or is ref-counted.
-        // Since we are inside a function, `&T` is fine as long as the closure doesn't escape.
-        // But `solve_system_with_dim` might require `'static` or similar depending on implementation.
-        // Let's assume standard borrow checking works here.
 
         let mut weights = vec![1.0_f64; n_residuals];
         target.residual_weights(&active_quotes, &mut weights)?;
@@ -78,6 +93,22 @@ impl GlobalOptimizer {
         let residuals_func = |params: &[f64], resid: &mut [f64]| {
             let eval_idx = eval_counter_clone.fetch_add(1, Ordering::Relaxed) + 1;
 
+            if resid.len() < n_residuals {
+                record_eval_error(
+                    &eval_diagnostics_clone,
+                    eval_idx,
+                    "residual buffer",
+                    params,
+                    &format!(
+                        "residual buffer too small: got {}, need {}",
+                        resid.len(),
+                        n_residuals
+                    ),
+                );
+                fill_penalty(resid, resid.len(), params);
+                return;
+            }
+
             // Zero out buffer
             for r in resid.iter_mut() {
                 *r = 0.0;
@@ -88,31 +119,29 @@ impl GlobalOptimizer {
                 Ok(c) => c,
                 Err(e) => {
                     record_eval_error(
-                        &residual_error_clone,
+                        &eval_diagnostics_clone,
                         eval_idx,
                         "curve construction",
                         params,
                         &format!("{}", e),
                     );
-                    for r in resid.iter_mut() {
-                        *r = PENALTY;
-                    }
+                    fill_penalty(resid, n_residuals, params);
                     return;
                 }
             };
 
             // 2. Calculate residuals
-            if let Err(e) = target.calculate_residuals(&curve, &active_quotes, resid) {
+            if let Err(e) =
+                target.calculate_residuals(&curve, &active_quotes, &mut resid[..n_residuals])
+            {
                 record_eval_error(
-                    &residual_error_clone,
+                    &eval_diagnostics_clone,
                     eval_idx,
                     "residual evaluation",
                     params,
                     &format!("while evaluating {} quotes: {}", active_quotes.len(), e),
                 );
-                for r in resid.iter_mut() {
-                    *r = PENALTY;
-                }
+                fill_penalty(resid, n_residuals, params);
                 return;
             }
 
@@ -126,10 +155,6 @@ impl GlobalOptimizer {
             solver.solve_system_with_dim_stats(residuals_func, &initials, n_residuals)?;
         let solved_params = solution.params;
         let stats = solution.stats;
-
-        if let Some(e) = residual_error.lock().ok().and_then(|mut err| err.take()) {
-            return Err(e);
-        }
 
         // Build final curve
         let final_curve = target.build_curve_final_from_params(&times, &solved_params)?;
@@ -157,21 +182,26 @@ impl GlobalOptimizer {
             .map(|(r, w)| (r * w).abs())
             .fold(0.0_f64, f64::max);
 
-        let report = CalibrationReport::for_type_with_tolerance(
-            "global_solve",
+        let mut report = CalibrationReport::for_type_with_tolerance(
+            "global_fit",
             residuals_map,
             stats.iterations,
             config.tolerance,
         )
-        .with_metadata("method", "global_solve")
+        .with_metadata("method", "global_fit_lm_weighted_lsq")
+        .with_metadata("tolerance_definition", "abs_l2(weighted_residuals)")
         .with_metadata("residual_evals", stats.residual_evals.to_string())
+        .with_metadata(
+            "residual_closure_evals",
+            eval_counter.load(Ordering::Relaxed).to_string(),
+        )
         .with_metadata(
             "lm_termination_reason",
             format!("{:?}", stats.termination_reason),
         )
         .with_metadata("lm_jacobian_evals", stats.jacobian_evals.to_string())
         .with_metadata(
-            "lm_final_resid_norm",
+            "lm_final_weighted_resid_l2_norm",
             format!("{:.2e}", stats.final_residual_norm),
         )
         .with_metadata(
@@ -179,13 +209,29 @@ impl GlobalOptimizer {
             format!("{:.2e}", stats.final_step_norm),
         )
         .with_metadata("lm_lambda_final", format!("{:.2e}", stats.lambda_final))
-        .with_metadata("l2_norm", format!("{:.2e}", l2_norm))
-        .with_metadata("max_abs_residual", format!("{:.2e}", max_abs_residual))
-        .with_metadata("weighted_l2_norm", format!("{:.2e}", weighted_l2_norm))
+        .with_metadata("final_unweighted_resid_l2_norm", format!("{:.2e}", l2_norm))
         .with_metadata(
-            "weighted_max_abs_residual",
+            "final_unweighted_max_abs_residual",
+            format!("{:.2e}", max_abs_residual),
+        )
+        .with_metadata("final_weighted_resid_l2_norm", format!("{:.2e}", weighted_l2_norm))
+        .with_metadata(
+            "final_weighted_max_abs_residual",
             format!("{:.2e}", weighted_max_abs_residual),
         );
+
+        // Attach diagnostics from any infeasible evaluations encountered during solving.
+        if let Ok(diag) = eval_diagnostics.lock() {
+            report.metadata.insert(
+                "invalid_eval_count".to_string(),
+                diag.invalid_eval_count.to_string(),
+            );
+            if let Some(first) = &diag.first_invalid_eval {
+                report
+                    .metadata
+                    .insert("first_invalid_eval".to_string(), first.clone());
+            }
+        }
 
         Ok((final_curve, report))
     }
@@ -203,14 +249,24 @@ fn validate_global_inputs(times: &[f64], initials: &[f64], n_residuals: usize) -
         });
     }
 
-    if times.len() != n_residuals {
+    if initials.is_empty() {
         return Err(finstack_core::Error::Calibration {
             message: format!(
-                "Global solve requires times.len() == active_quotes.len(); got {} vs {}.",
-                times.len(),
+                "Global fit requires at least one parameter; got n_params=0 and n_residuals={}.",
                 n_residuals
             ),
-            category: "global_solve".to_string(),
+            category: "global_fit".to_string(),
+        });
+    }
+
+    if n_residuals < initials.len() {
+        return Err(finstack_core::Error::Calibration {
+            message: format!(
+                "Global fit requires n_residuals >= n_params for a stable least-squares solve; got {} vs {}.",
+                n_residuals,
+                initials.len()
+            ),
+            category: "global_fit".to_string(),
         });
     }
 
@@ -221,7 +277,7 @@ fn validate_global_inputs(times: &[f64], initials: &[f64], n_residuals: usize) -
                     "Global solve requires strictly positive finite times; got {} at index {}.",
                     t, idx
                 ),
-                category: "global_solve".to_string(),
+                category: "global_fit".to_string(),
             });
         }
     }
@@ -233,7 +289,7 @@ fn validate_global_inputs(times: &[f64], initials: &[f64], n_residuals: usize) -
                     "Global solve requires finite initial guesses; got {} at index {}.",
                     init, idx
                 ),
-                category: "global_solve".to_string(),
+                category: "global_fit".to_string(),
             });
         }
     }
@@ -250,7 +306,7 @@ fn validate_global_inputs(times: &[f64], initials: &[f64], n_residuals: usize) -
                     prev,
                     next
                 ),
-                category: "global_solve".to_string(),
+                category: "global_fit".to_string(),
             });
         }
     }
@@ -258,30 +314,33 @@ fn validate_global_inputs(times: &[f64], initials: &[f64], n_residuals: usize) -
     Ok(())
 }
 
+#[derive(Debug, Default)]
+struct EvalDiagnostics {
+    invalid_eval_count: usize,
+    first_invalid_eval: Option<String>,
+}
+
 fn record_eval_error(
-    store: &Arc<Mutex<Option<finstack_core::Error>>>,
+    store: &Arc<Mutex<EvalDiagnostics>>,
     eval_idx: usize,
     stage: &str,
     params: &[f64],
     detail: &str,
 ) {
-    if let Ok(mut err) = store.lock() {
-        if err.is_some() {
+    if let Ok(mut diag) = store.lock() {
+        diag.invalid_eval_count += 1;
+        if diag.first_invalid_eval.is_some() {
             return;
         }
         let (min_param, max_param) = param_range(params);
-        let message = format!(
-            "Global solve {stage} failed at eval #{eval_idx} (param_range=[{min:.4e}, {max:.4e}]): {detail}",
+        diag.first_invalid_eval = Some(format!(
+            "Global fit {stage} failed at eval #{eval_idx} (param_range=[{min:.4e}, {max:.4e}]): {detail}",
             stage = stage,
             eval_idx = eval_idx,
             min = min_param,
             max = max_param,
             detail = detail
-        );
-        *err = Some(finstack_core::Error::Calibration {
-            message,
-            category: "global_solve".to_string(),
-        });
+        ));
     }
 }
 
@@ -313,6 +372,7 @@ mod tests {
     use super::*;
     use crate::calibration::CalibrationConfig;
     use finstack_core::Error;
+    use std::sync::atomic::{AtomicBool, Ordering as AtomicOrdering};
 
     #[derive(Clone, Debug)]
     #[allow(dead_code)]
@@ -426,17 +486,17 @@ mod tests {
         let config = CalibrationConfig::default().with_tolerance(1.0);
 
         let (_curve, report) =
-            GlobalOptimizer::optimize(&target, &quotes, &config).expect("optimization succeeds");
+            GlobalFitOptimizer::optimize(&target, &quotes, &config).expect("optimization succeeds");
 
         let meta = report
             .metadata
-            .get("max_abs_residual")
-            .expect("metadata should contain max_abs_residual");
+            .get("final_unweighted_max_abs_residual")
+            .expect("metadata should contain final_unweighted_max_abs_residual");
         let parsed: f64 = meta.parse().expect("metadata should parse as f64");
 
         assert!(
             (parsed - 2.0e-2).abs() < 1e-12,
-            "max_abs_residual metadata should use absolute values (got {})",
+            "final_unweighted_max_abs_residual metadata should use absolute values (got {})",
             parsed
         );
     }
@@ -447,7 +507,7 @@ mod tests {
         let quotes = vec![0usize, 1usize];
         let config = CalibrationConfig::default().with_tolerance(1.0);
 
-        let err = GlobalOptimizer::optimize(&target, &quotes, &config).expect_err("should fail");
+        let err = GlobalFitOptimizer::optimize(&target, &quotes, &config).expect_err("should fail");
         match err {
             Error::Calibration { message, .. } => {
                 assert!(
@@ -466,7 +526,7 @@ mod tests {
         let quotes = vec![0usize, 1usize];
         let config = CalibrationConfig::default().with_tolerance(1.0);
 
-        let err = GlobalOptimizer::optimize(&target, &quotes, &config).expect_err("should fail");
+        let err = GlobalFitOptimizer::optimize(&target, &quotes, &config).expect_err("should fail");
         match err {
             Error::Calibration { message, .. } => {
                 assert!(
@@ -485,7 +545,7 @@ mod tests {
         let quotes = vec![0usize];
         let config = CalibrationConfig::default().with_tolerance(1.0);
 
-        let err = GlobalOptimizer::optimize(&target, &quotes, &config).expect_err("should fail");
+        let err = GlobalFitOptimizer::optimize(&target, &quotes, &config).expect_err("should fail");
         match err {
             Error::Calibration { message, .. } => {
                 assert!(
@@ -508,20 +568,100 @@ mod tests {
         let config = CalibrationConfig::default().with_tolerance(1.0);
 
         let (_curve, report) =
-            GlobalOptimizer::optimize(&target, &quotes, &config).expect("optimization succeeds");
+            GlobalFitOptimizer::optimize(&target, &quotes, &config).expect("optimization succeeds");
 
         assert!(report.residuals.contains_key("TEST-5"));
         assert!(report.residuals.contains_key("TEST-7"));
 
         let weighted_l2 = report
             .metadata
-            .get("weighted_l2_norm")
-            .expect("metadata should include weighted_l2_norm");
+            .get("final_weighted_resid_l2_norm")
+            .expect("metadata should include final_weighted_resid_l2_norm");
         let expected = ((0.01_f64 * 2.0).powi(2) + (0.02_f64 * 1.0).powi(2)).sqrt();
         assert_eq!(
             weighted_l2,
             &format!("{:.2e}", expected),
             "weighted_l2_norm should reflect weights"
+        );
+    }
+
+    #[test]
+    fn supports_overdetermined_least_squares() {
+        let target = TestTarget::new(vec![1.0, 2.0], vec![0.0, 0.0], vec![0.01, -0.02, 0.03]);
+        let quotes = vec![10usize, 11usize, 12usize];
+        let config = CalibrationConfig::default().with_tolerance(1e12);
+
+        let (_curve, report) =
+            GlobalFitOptimizer::optimize(&target, &quotes, &config).expect("should succeed");
+
+        assert_eq!(report.residuals.len(), 3);
+        assert!(report.residuals.contains_key("GLOBAL-000010"));
+        assert!(report.residuals.contains_key("GLOBAL-000011"));
+        assert!(report.residuals.contains_key("GLOBAL-000012"));
+    }
+
+    #[test]
+    fn intermediate_eval_errors_are_reported_but_not_fatal_if_final_evaluation_succeeds() {
+        struct FlakyResidualTarget {
+            inner: TestTarget,
+            fail_once: AtomicBool,
+        }
+
+        impl GlobalSolveTarget for FlakyResidualTarget {
+            type Quote = usize;
+            type Curve = DummyCurve;
+
+            fn build_time_grid_and_guesses(
+                &self,
+                quotes: &[Self::Quote],
+            ) -> Result<(Vec<f64>, Vec<f64>, Vec<Self::Quote>)> {
+                self.inner.build_time_grid_and_guesses(quotes)
+            }
+
+            fn build_curve_from_params(&self, times: &[f64], params: &[f64]) -> Result<Self::Curve> {
+                self.inner.build_curve_from_params(times, params)
+            }
+
+            fn calculate_residuals(
+                &self,
+                curve: &Self::Curve,
+                quotes: &[Self::Quote],
+                residuals: &mut [f64],
+            ) -> Result<()> {
+                if self
+                    .fail_once
+                    .compare_exchange(false, true, AtomicOrdering::SeqCst, AtomicOrdering::SeqCst)
+                    .is_ok()
+                {
+                    return Err(finstack_core::Error::Calibration {
+                        message: "intentional transient residual failure".to_string(),
+                        category: "test".to_string(),
+                    });
+                }
+                self.inner.calculate_residuals(curve, quotes, residuals)
+            }
+        }
+
+        let target = FlakyResidualTarget {
+            inner: TestTarget::from_len(2, vec![0.01, 0.02]),
+            fail_once: AtomicBool::new(false),
+        };
+        let quotes = vec![0usize, 1usize];
+        let config = CalibrationConfig::default().with_tolerance(1e12);
+
+        let (_curve, report) =
+            GlobalFitOptimizer::optimize(&target, &quotes, &config).expect("should succeed");
+
+        let invalid_count: usize = report
+            .metadata
+            .get("invalid_eval_count")
+            .expect("should include invalid_eval_count")
+            .parse()
+            .expect("invalid_eval_count should parse");
+        assert!(invalid_count >= 1);
+        assert!(
+            report.metadata.contains_key("first_invalid_eval"),
+            "should include first_invalid_eval"
         );
     }
 }

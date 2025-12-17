@@ -3,14 +3,13 @@ import {
   BaseCorrelationCurve,
   CalibrationConfig,
   CreditIndexData,
-  DiscountCurve,
-  DiscountCurveCalibrator,
   FsDate,
   Frequency,
   HazardCurve,
   MarketContext,
   RatesQuote,
   SolverKind,
+  executeCalibrationV2,
 } from 'finstack-wasm';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
@@ -49,6 +48,13 @@ const createDefaultConfig = () =>
     .withSolverKind(SolverKind.Brent())
     .withMaxIterations(40)
     .withVerbose(false);
+
+const isoDate = (date: FsDate): string => {
+  const y = String(date.year).padStart(4, '0');
+  const m = String(date.month).padStart(2, '0');
+  const d = String(date.day).padStart(2, '0');
+  return `${y}-${m}-${d}`;
+};
 
 /** Quote factory for initial market setup */
 const createDiscountQuotesForMarket = () => [
@@ -201,15 +207,31 @@ export const CalibrationExample: React.FC = () => {
         // Create fresh quotes for initial market calibration
         const quotesForInit = createDiscountQuotesForMarket();
 
-        const calibrator = new DiscountCurveCalibrator('USD-OIS', baseDate, 'USD');
-        const calibratorWithConfig = calibrator.withConfig(defaultConfig);
-        const [curve] = calibratorWithConfig.calibrate(quotesForInit, null) as [
-          DiscountCurve,
-          unknown,
-        ];
+        const quoteSet = quotesForInit.map((q) => q.toMarketQuote().toJSON());
+        const envelope = {
+          schema: 'finstack.calibration/2',
+          plan: {
+            id: 'init:discount',
+            quote_sets: { ois: quoteSet },
+            steps: [
+              {
+                id: 'disc',
+                quote_set: 'ois',
+                kind: 'discount',
+                curve_id: 'USD-OIS',
+                currency: 'USD',
+                base_date: isoDate(baseDate),
+              },
+            ],
+            settings: defaultConfig.toJSON(),
+          },
+        };
 
-        const marketCtx = new MarketContext();
-        marketCtx.insertDiscount(curve);
+        const [marketCtx] = executeCalibrationV2(envelope) as [
+          MarketContext,
+          unknown,
+          Record<string, unknown>,
+        ];
 
         // Create credit index data for base correlation calibration
         const indexHazardCurve = new HazardCurve(
@@ -482,47 +504,42 @@ export const CalibrationExample: React.FC = () => {
         </CardHeader>
         <CardContent className="space-y-4">
           <p className="text-muted-foreground text-sm">
-            The calibration module provides specialized calibrators for different market data types:
+            Calibration is plan-driven in v2 via{' '}
+            <code className="bg-muted px-1.5 py-0.5 rounded text-xs">executeCalibrationV2</code>.
           </p>
           <ul className="space-y-2 text-sm">
             <li className="flex gap-2">
-              <code className="bg-muted px-1.5 py-0.5 rounded text-xs">
-                DiscountCurveCalibrator
-              </code>
+              <code className="bg-muted px-1.5 py-0.5 rounded text-xs">kind: &quot;discount&quot;</code>
               <span className="text-muted-foreground">
                 Bootstrap OIS/Treasury curves from deposits and swaps
               </span>
             </li>
             <li className="flex gap-2">
-              <code className="bg-muted px-1.5 py-0.5 rounded text-xs">ForwardCurveCalibrator</code>
+              <code className="bg-muted px-1.5 py-0.5 rounded text-xs">kind: &quot;forward&quot;</code>
               <span className="text-muted-foreground">
                 Calibrate LIBOR/SOFR forward curves from FRAs and swaps
               </span>
             </li>
             <li className="flex gap-2">
-              <code className="bg-muted px-1.5 py-0.5 rounded text-xs">HazardCurveCalibrator</code>
+              <code className="bg-muted px-1.5 py-0.5 rounded text-xs">kind: &quot;hazard&quot;</code>
               <span className="text-muted-foreground">
                 Calibrate credit default probability curves from CDS spreads
               </span>
             </li>
             <li className="flex gap-2">
-              <code className="bg-muted px-1.5 py-0.5 rounded text-xs">
-                InflationCurveCalibrator
-              </code>
+              <code className="bg-muted px-1.5 py-0.5 rounded text-xs">kind: &quot;inflation&quot;</code>
               <span className="text-muted-foreground">
                 Calibrate CPI projection curves from inflation swap quotes
               </span>
             </li>
             <li className="flex gap-2">
-              <code className="bg-muted px-1.5 py-0.5 rounded text-xs">VolSurfaceCalibrator</code>
+              <code className="bg-muted px-1.5 py-0.5 rounded text-xs">kind: &quot;vol_surface&quot;</code>
               <span className="text-muted-foreground">
                 Calibrate implied volatility surfaces from option quotes
               </span>
             </li>
             <li className="flex gap-2">
-              <code className="bg-muted px-1.5 py-0.5 rounded text-xs">
-                BaseCorrelationCalibrator
-              </code>
+              <code className="bg-muted px-1.5 py-0.5 rounded text-xs">kind: &quot;base_correlation&quot;</code>
               <span className="text-muted-foreground">
                 Calibrate base correlation curves from CDO tranche quotes
               </span>

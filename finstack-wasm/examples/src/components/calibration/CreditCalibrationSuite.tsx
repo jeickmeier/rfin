@@ -17,11 +17,10 @@ import {
   CalibrationConfig,
   CreditIndexData,
   DiscountCurve,
-  DiscountCurveCalibrator,
+  executeCalibrationV2,
   FsDate,
   Frequency,
   HazardCurve,
-  HazardCurveCalibrator,
   MarketContext,
   RatesQuote,
   CreditQuote,
@@ -184,6 +183,13 @@ export function createDefaultCreditCalibrationState(
 // ============================================================================
 
 const toFsDate = (date: DateJson): FsDate => new FsDate(date.year, date.month, date.day);
+
+const isoDate = (date: FsDate): string => {
+  const y = String(date.year).padStart(4, '0');
+  const m = String(date.month).padStart(2, '0');
+  const d = String(date.day).padStart(2, '0');
+  return `${y}-${m}-${d}`;
+};
 
 const mapFrequency = (freq: FrequencyType): ReturnType<typeof Frequency.annual> => {
   switch (freq) {
@@ -366,17 +372,33 @@ export const CreditCalibrationSuite: React.FC<CreditCalibrationSuiteProps> = ({
       const config = buildWasmConfig(state.config);
       const wasmQuotes = buildDiscountQuotes(state.discountQuotes);
 
-      const calibrator = new DiscountCurveCalibrator(
-        state.discountCurveId,
-        baseDate,
-        state.currency
-      );
-      const calibratorWithConfig = calibrator.withConfig(config);
+      const quoteSet = wasmQuotes.map((q) => q.toMarketQuote().toJSON());
+      const envelope = {
+        schema: 'finstack.calibration/2',
+        plan: {
+          id: `discount:${state.discountCurveId}`,
+          quote_sets: { ois: quoteSet },
+          steps: [
+            {
+              id: 'disc',
+              quote_set: 'ois',
+              kind: 'discount',
+              curve_id: state.discountCurveId,
+              currency: state.currency,
+              base_date: isoDate(baseDate),
+            },
+          ],
+          settings: config.toJSON(),
+        },
+      };
 
-      const [curve, report] = calibratorWithConfig.calibrate(wasmQuotes, null) as [
-        DiscountCurve,
+      const [marketCtx, report] = executeCalibrationV2(envelope) as [
+        MarketContext,
         { success: boolean; iterations: number; maxResidual: number },
+        Record<string, unknown>,
       ];
+
+      const curve = marketCtx.discount(state.discountCurveId) as unknown as DiscountCurve;
 
       // Sample curve
       const sampleTimes = [0.25, 0.5, 1, 2, 3, 5, 7, 10];
@@ -399,10 +421,7 @@ export const CreditCalibrationSuite: React.FC<CreditCalibrationSuiteProps> = ({
       setStepResults((prev) => ({ ...prev, discount: result }));
       setStepStatus((prev) => ({ ...prev, discount: report.success ? 'success' : 'failed' }));
 
-      // Build initial market context
-      const ctx = new MarketContext();
-      ctx.insertDiscount(curve);
-      setMarket(ctx);
+      setMarket(marketCtx);
     } catch (err) {
       setError((err as Error).message);
       setStepStatus((prev) => ({ ...prev, discount: 'failed' }));
@@ -426,20 +445,39 @@ export const CreditCalibrationSuite: React.FC<CreditCalibrationSuiteProps> = ({
       const config = buildWasmConfig(state.config);
       const wasmQuotes = buildCreditQuotes(state.hazardQuotes);
 
-      const calibrator = new HazardCurveCalibrator(
-        state.entity,
-        state.seniority,
-        state.recoveryRate,
-        baseDate,
-        state.currency,
-        state.discountCurveId
-      );
-      const calibratorWithConfig = calibrator.withConfig(config);
+      const curveId = `${state.entity}-${state.seniority}`;
+      const quoteSet = wasmQuotes.map((q) => q.toMarketQuote().toJSON());
+      const envelope = {
+        schema: 'finstack.calibration/2',
+        initial_market: market.toState(),
+        plan: {
+          id: `hazard:${curveId}`,
+          quote_sets: { cds: quoteSet },
+          steps: [
+            {
+              id: 'haz',
+              quote_set: 'cds',
+              kind: 'hazard',
+              curve_id: curveId,
+              entity: state.entity,
+              seniority: state.seniority,
+              currency: state.currency,
+              base_date: isoDate(baseDate),
+              discount_curve_id: state.discountCurveId,
+              recovery_rate: state.recoveryRate,
+            },
+          ],
+          settings: config.toJSON(),
+        },
+      };
 
-      const [curve, report] = calibratorWithConfig.calibrate(wasmQuotes, market) as [
-        HazardCurve,
+      const [marketCtx, report] = executeCalibrationV2(envelope) as [
+        MarketContext,
         { success: boolean; iterations: number; maxResidual: number },
+        Record<string, unknown>,
       ];
+
+      const curve = marketCtx.hazard(curveId) as unknown as HazardCurve;
 
       // Sample curve
       const sampleTimes = [0.5, 1, 2, 3, 5, 7, 10];
@@ -462,9 +500,7 @@ export const CreditCalibrationSuite: React.FC<CreditCalibrationSuiteProps> = ({
       setStepResults((prev) => ({ ...prev, hazard: result }));
       setStepStatus((prev) => ({ ...prev, hazard: report.success ? 'success' : 'failed' }));
 
-      // Update market context
-      market.insertHazard(curve);
-      setMarket(market);
+      setMarket(marketCtx);
     } catch (err) {
       setError((err as Error).message);
       setStepStatus((prev) => ({ ...prev, hazard: 'failed' }));

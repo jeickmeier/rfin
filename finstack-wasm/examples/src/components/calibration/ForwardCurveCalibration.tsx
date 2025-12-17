@@ -1,11 +1,11 @@
 import React, { useState, useCallback, useMemo, useEffect } from 'react';
 import {
   CalibrationConfig,
-  ForwardCurveCalibrator,
   Frequency,
   FsDate,
   MarketContext,
   RatesQuote,
+  executeCalibrationV2,
   SolverKind,
 } from 'finstack-wasm';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
@@ -72,6 +72,13 @@ const buildWasmConfig = (config: CalibrationConfigJson): CalibrationConfig => {
 
 /** Convert DateJson to FsDate */
 const toFsDate = (date: DateJson): FsDate => new FsDate(date.year, date.month, date.day);
+
+const isoDate = (date: FsDate): string => {
+  const y = String(date.year).padStart(4, '0');
+  const m = String(date.month).padStart(2, '0');
+  const d = String(date.day).padStart(2, '0');
+  return `${y}-${m}-${d}`;
+};
 
 /** Convert quote data to WASM RatesQuote objects */
 const buildWasmQuotes = (quotes: ForwardQuoteData[]): RatesQuote[] => {
@@ -164,19 +171,38 @@ export const ForwardCurveCalibration: React.FC<ForwardCurveCalibrationProps> = (
       const calibrationConfig = buildWasmConfig(config);
       const wasmQuotes = buildWasmQuotes(quotes);
 
-      const calibrator = new ForwardCurveCalibrator(
-        curveId,
-        tenor,
-        baseDate,
-        currency,
-        discountCurveId
-      );
-      const calibratorWithConfig = calibrator.withConfig(calibrationConfig);
+      const quoteSet = wasmQuotes.map((q) => q.toMarketQuote().toJSON());
+      const envelope = {
+        schema: 'finstack.calibration/2',
+        initial_market: market.toState(),
+        plan: {
+          id: `forward:${curveId}`,
+          quote_sets: {
+            fwd: quoteSet,
+          },
+          steps: [
+            {
+              id: 'fwd',
+              quote_set: 'fwd',
+              kind: 'forward',
+              curve_id: curveId,
+              currency,
+              base_date: isoDate(baseDate),
+              tenor_years: tenor,
+              discount_curve_id: discountCurveId,
+            },
+          ],
+          settings: calibrationConfig.toJSON(),
+        },
+      };
 
-      const [calibratedCurve, report] = calibratorWithConfig.calibrate(wasmQuotes, market) as [
-        CalibratedForwardCurve,
+      const [marketCtx, report] = executeCalibrationV2(envelope) as [
+        MarketContext,
         { success: boolean; iterations: number; maxResidual: number },
+        Record<string, unknown>,
       ];
+
+      const calibratedCurve = marketCtx.forward(curveId) as unknown as CalibratedForwardCurve;
 
       const sampleTimes = [0.25, 0.5, 1, 2, 3, 5, 7, 10];
       const sampleValues: CurveDataPoint[] = sampleTimes.map((t) => ({

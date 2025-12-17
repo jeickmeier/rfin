@@ -3,6 +3,7 @@
 //! Note: Copied from v1 for parallel implementation.
 
 use super::conventions::InstrumentConventions;
+use crate::calibration::v2::domain::quotes::rate_index::RateIndexConventions;
 use finstack_core::dates::{Date, DayCount};
 use finstack_core::types::{Currency, IndexId};
 use serde::{Deserialize, Serialize};
@@ -121,7 +122,17 @@ impl RatesQuote {
     pub fn is_ois_suitable(&self) -> bool {
         match self {
             RatesQuote::Deposit { .. } => true,
-            RatesQuote::Swap { is_ois, .. } => *is_ois,
+            RatesQuote::Swap {
+                is_ois,
+                float_leg_conventions,
+                ..
+            } => {
+                *is_ois
+                    || float_leg_conventions
+                        .index
+                        .as_ref()
+                        .is_some_and(RateIndexConventions::is_overnight_rfr_index)
+            }
             _ => false,
         }
     }
@@ -384,7 +395,14 @@ impl RatesQuote {
                     InstrumentConventions::default_fixed_leg_frequency(currency)
                 });
                 let float_freq = float_leg_conventions.payment_frequency.unwrap_or_else(|| {
-                    InstrumentConventions::default_float_leg_frequency(currency)
+                    float_leg_conventions
+                        .index
+                        .as_ref()
+                        .map(|idx| {
+                            RateIndexConventions::for_index_with_currency(idx, currency)
+                                .default_payment_frequency
+                        })
+                        .unwrap_or_else(|| InstrumentConventions::default_float_leg_frequency(currency))
                 });
                 format!(
                     "SWAP-{}-{}-fix{:?}-flt{:?}-{:06}",

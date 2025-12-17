@@ -1,9 +1,10 @@
 import React, { useState, useCallback, useMemo, useEffect } from 'react';
 import {
   CalibrationConfig,
-  DiscountCurveCalibrator,
+  executeCalibrationV2,
   FsDate,
   Frequency,
+  MarketContext,
   RatesQuote,
   SolverKind,
 } from 'finstack-wasm';
@@ -70,6 +71,13 @@ const buildWasmConfig = (config: CalibrationConfigJson): CalibrationConfig => {
 
 /** Convert DateJson to FsDate */
 const toFsDate = (date: DateJson): FsDate => new FsDate(date.year, date.month, date.day);
+
+const isoDate = (date: FsDate): string => {
+  const y = String(date.year).padStart(4, '0');
+  const m = String(date.month).padStart(2, '0');
+  const d = String(date.day).padStart(2, '0');
+  return `${y}-${m}-${d}`;
+};
 
 /** Convert quote data to WASM RatesQuote objects */
 const buildWasmQuotes = (quotes: DiscountQuoteData[]): RatesQuote[] => {
@@ -153,13 +161,35 @@ export const DiscountCurveCalibration: React.FC<DiscountCurveCalibrationProps> =
       const calibrationConfig = buildWasmConfig(config);
       const wasmQuotes = buildWasmQuotes(quotes);
 
-      const calibrator = new DiscountCurveCalibrator(curveId, baseDate, currency);
-      const calibratorWithConfig = calibrator.withConfig(calibrationConfig);
+      const quoteSet = wasmQuotes.map((q) => q.toMarketQuote().toJSON());
+      const envelope = {
+        schema: 'finstack.calibration/2',
+        plan: {
+          id: `discount:${curveId}`,
+          quote_sets: {
+            ois: quoteSet,
+          },
+          steps: [
+            {
+              id: 'disc',
+              quote_set: 'ois',
+              kind: 'discount',
+              curve_id: curveId,
+              currency,
+              base_date: isoDate(baseDate),
+            },
+          ],
+          settings: calibrationConfig.toJSON(),
+        },
+      };
 
-      const [calibratedCurve, report] = calibratorWithConfig.calibrate(wasmQuotes, null) as [
-        CalibratedCurve,
+      const [marketCtx, report] = executeCalibrationV2(envelope) as [
+        MarketContext,
         { success: boolean; iterations: number; maxResidual: number },
+        Record<string, unknown>,
       ];
+
+      const calibratedCurve = marketCtx.discount(curveId) as unknown as CalibratedCurve;
 
       const sampleTimes = [0.25, 0.5, 1, 2, 3, 5, 7, 10, 15, 20, 30];
       const sampleValues: CurveDataPoint[] = sampleTimes.map((t) => ({

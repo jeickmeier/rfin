@@ -231,28 +231,35 @@ class TestCalibrationRoundtrips:
 
     def test_calibration_quotes_roundtrip(self) -> None:
         """Calibration should accept quotes and return usable curve."""
-        from finstack.valuations.calibration import DiscountCurveCalibrator, RatesQuote
-
-        calibrator = DiscountCurveCalibrator("USD-OIS", dt.date(2024, 1, 2), Currency("USD"))
+        from finstack.valuations import calibration as cal
 
         quotes = [
-            RatesQuote.deposit(dt.date(2024, 4, 2), 0.0500, DayCount.ACT_360),
-            RatesQuote.deposit(dt.date(2024, 7, 2), 0.0505, DayCount.ACT_360),
-            RatesQuote.deposit(dt.date(2025, 1, 2), 0.0510, DayCount.ACT_360),
-            RatesQuote.deposit(dt.date(2026, 1, 2), 0.0520, DayCount.ACT_360),
+            cal.RatesQuote.deposit(dt.date(2024, 4, 2), 0.0500, DayCount.ACT_360),
+            cal.RatesQuote.deposit(dt.date(2024, 7, 2), 0.0505, DayCount.ACT_360),
+            cal.RatesQuote.deposit(dt.date(2025, 1, 2), 0.0510, DayCount.ACT_360),
+            cal.RatesQuote.deposit(dt.date(2026, 1, 2), 0.0520, DayCount.ACT_360),
+        ]
+        quote_sets = {"ois": [q.to_market_quote() for q in quotes]}
+        steps = [
+            {
+                "id": "disc",
+                "quote_set": "ois",
+                "kind": "discount",
+                "curve_id": "USD-OIS",
+                "currency": "USD",
+                "base_date": "2024-01-02",
+            }
         ]
 
-        curve, report = calibrator.calibrate(quotes)
+        market, report, _step_reports = cal.execute_calibration_v2(
+            "plan_roundtrip_discount",
+            quote_sets,
+            steps,
+        )
 
-        # Verify calibration succeeded
         assert report.success
-        assert curve.id == "USD-OIS"
-
-        # Curve should be usable in market context
-        market = MarketContext()
-        market.insert_discount(curve)
         retrieved = market.discount("USD-OIS")
-        assert retrieved.id == curve.id
+        assert retrieved.id == "USD-OIS"
 
 
 class TestPricingRoundtrips:

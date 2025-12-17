@@ -1,10 +1,10 @@
 import React, { useState, useCallback, useEffect, useMemo } from 'react';
 import {
-  BaseCorrelationCalibrator,
   CalibrationConfig,
   CreditQuote,
   FsDate,
   MarketContext,
+  executeCalibrationV2,
   SolverKind,
 } from 'finstack-wasm';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
@@ -54,6 +54,13 @@ const buildWasmConfig = (config: CalibrationConfigJson): CalibrationConfig => {
 
 /** Convert DateJson to FsDate */
 const toFsDate = (date: DateJson): FsDate => new FsDate(date.year, date.month, date.day);
+
+const isoDate = (date: FsDate): string => {
+  const y = String(date.year).padStart(4, '0');
+  const m = String(date.month).padStart(2, '0');
+  const d = String(date.day).padStart(2, '0');
+  return `${y}-${m}-${d}`;
+};
 
 /** Convert quote data to WASM CreditQuote objects */
 const buildWasmQuotes = (quotes: TrancheQuoteData[]): CreditQuote[] => {
@@ -125,20 +132,42 @@ export const BaseCorrelationCalibration: React.FC<BaseCorrelationCalibrationProp
       const calibrationConfig = buildWasmConfig(config);
       const wasmQuotes = buildWasmQuotes(quotes);
 
-      const calibrator = new BaseCorrelationCalibrator(indexId, series, maturityYears, baseDate);
-      const calibratorWithConfig = calibrator
-        .withConfig(calibrationConfig)
-        .withDiscountCurveId(discountCurveId);
-
       const detachmentPoints = quotes.map((q) => q.detachment).sort((a, b) => a - b);
-      const calibratorWithPoints = calibratorWithConfig.withDetachmentPoints(
-        new Float64Array(detachmentPoints)
-      );
+      const quoteSet = wasmQuotes.map((q) => q.toMarketQuote().toJSON());
+      const envelope = {
+        schema: 'finstack.calibration/2',
+        initial_market: market.toState(),
+        plan: {
+          id: `base_correlation:${indexId}`,
+          quote_sets: {
+            tranches: quoteSet,
+          },
+          steps: [
+            {
+              id: 'corr',
+              quote_set: 'tranches',
+              kind: 'base_correlation',
+              index_id: indexId,
+              series,
+              maturity_years: maturityYears,
+              base_date: isoDate(baseDate),
+              discount_curve_id: discountCurveId,
+              detachment_points: detachmentPoints,
+              use_imm_dates: false,
+            },
+          ],
+          settings: calibrationConfig.toJSON(),
+        },
+      };
 
-      const [calibratedCurve, report] = calibratorWithPoints.calibrate(wasmQuotes, market) as [
-        CalibratedBaseCorrelationCurve,
+      const [marketCtx, report] = executeCalibrationV2(envelope) as [
+        MarketContext,
         { success: boolean; iterations: number; maxResidual: number },
+        Record<string, unknown>,
       ];
+
+      const outputCurveId = `${indexId}_CORR`;
+      const calibratedCurve = marketCtx.baseCorrelation(outputCurveId) as unknown as CalibratedBaseCorrelationCurve;
 
       const sampleDetachments = [3, 7, 10, 15, 30];
       const sampleValues: CurveDataPoint[] = sampleDetachments.map((d) => ({
@@ -153,7 +182,7 @@ export const BaseCorrelationCalibration: React.FC<BaseCorrelationCalibrationProp
       const effectiveSuccess = correlationsValid && sampleValues.length > 0;
 
       const calibrationResult: CalibrationResult = {
-        curveId,
+        curveId: outputCurveId,
         curveType: 'Base Correlation',
         success: effectiveSuccess,
         iterations: report.iterations,

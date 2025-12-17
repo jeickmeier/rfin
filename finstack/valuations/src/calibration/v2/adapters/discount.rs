@@ -288,7 +288,8 @@ impl BootstrapTarget for DiscountCurveTarget {
             .base_date(self.base_date)
             .day_count(self.curve_day_count)
             .knots(knots.iter().copied())
-            .set_interp(InterpStyle::Linear)
+            .set_interp(self.solve_interp)
+            .extrapolation(self.extrapolation)
             .allow_non_monotonic()
             .build_for_solver()
             .map_err(|e| finstack_core::Error::Calibration {
@@ -341,7 +342,8 @@ Disable allow_non_monotonic_final or choose a compatible interpolation style."
 
     fn calculate_residual(&self, curve: &Self::Curve, quote: &Self::Quote) -> Result<f64> {
         self.with_temp_context(curve, |ctx| {
-            self.pricer.price_instrument(quote, self.currency, ctx)
+            self.pricer
+                .price_instrument_for_calibration(quote, self.currency, ctx)
         })
     }
 
@@ -550,7 +552,9 @@ Ensure quotes map to strictly increasing year fractions.",
                 if i >= residuals.len() {
                     break;
                 }
-                residuals[i] = self.pricer.price_instrument(quote, self.currency, ctx)?;
+                residuals[i] = self
+                    .pricer
+                    .price_instrument_for_calibration(quote, self.currency, ctx)?;
             }
             Ok(())
         })
@@ -562,8 +566,8 @@ Ensure quotes map to strictly increasing year fractions.",
             Deposit { .. } => "DEP",
             FRA { .. } => "FRA",
             Future { .. } => "FUT",
-            Swap { is_ois, .. } => {
-                if *is_ois {
+            Swap { .. } => {
+                if quote.is_ois_suitable() {
                     "OIS"
                 } else {
                     "SWP"

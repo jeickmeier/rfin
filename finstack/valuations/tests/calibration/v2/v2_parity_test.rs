@@ -1,6 +1,7 @@
 //! Parity tests for Calibration v2.
 
 use finstack_core::market_data::context::{MarketContext, MarketContextState};
+use finstack_core::math::interp::ExtrapolationPolicy;
 use finstack_core::prelude::*;
 use finstack_core::types::Currency;
 use finstack_valuations::calibration::v2::api::engine;
@@ -55,17 +56,17 @@ fn test_v2_simple_usd_calibration() {
         }));
     }
 
-    // Forward Quotes (3M FRAs)
+    // Forward Quotes (3M FRAs) - ensure start/end are strictly after base_date.
     let fwd_quotes = vec![
         MarketQuote::Rates(RatesQuote::FRA {
-            start: base_date,
-            end: base_date.add_months(3),
+            start: base_date + time::Duration::days(90),
+            end: base_date + time::Duration::days(180),
             rate: 0.0530,
             conventions: InstrumentConventions::default().with_day_count(DayCount::Act360),
         }),
         MarketQuote::Rates(RatesQuote::FRA {
-            start: base_date.add_months(3),
-            end: base_date.add_months(6),
+            start: base_date + time::Duration::days(180),
+            end: base_date + time::Duration::days(270),
             rate: 0.0540,
             conventions: InstrumentConventions::default().with_day_count(DayCount::Act360),
         }),
@@ -91,9 +92,10 @@ fn test_v2_simple_usd_calibration() {
                     base_date,
                     method: CalibrationMethod::Bootstrap,
                     interpolation: Default::default(),
-                    extrapolation: Default::default(),
+                    extrapolation: ExtrapolationPolicy::FlatForward,
                     pricing_discount_id: None,
                     pricing_forward_id: None,
+                    conventions: Default::default(),
                 }),
             },
             CalibrationStepV2 {
@@ -107,6 +109,7 @@ fn test_v2_simple_usd_calibration() {
                     discount_curve_id: "USD-OIS".into(),
                     method: CalibrationMethod::Bootstrap,
                     interpolation: Default::default(),
+                    conventions: Default::default(),
                 }),
             },
         ],

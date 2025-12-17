@@ -1,5 +1,6 @@
 use crate::calibration::config::CalibrationConfig;
 use crate::calibration::v2::api::schema::VolSurfaceParams;
+use crate::calibration::v2::api::schema::SurfaceExtrapolationPolicy;
 use crate::calibration::v2::domain::quotes::{MarketQuote, VolQuote};
 use crate::calibration::CalibrationReport;
 use crate::instruments::common::models::{SABRCalibrator, SABRModel, SABRParameters};
@@ -128,6 +129,7 @@ impl VolSurfaceAdapter {
         let mut sabr_params_by_expiry: BTreeMap<OrderedFloat<f64>, SABRParameters> =
             BTreeMap::new();
         let mut residuals = BTreeMap::new();
+        let mut expiry_errors: BTreeMap<OrderedFloat<f64>, String> = BTreeMap::new();
         let mut total_iterations = 0;
 
         for (t_key, expiry_quotes) in &quotes_by_expiry {
@@ -145,7 +147,11 @@ impl VolSurfaceAdapter {
             }
 
             if strikes.len() < 3 {
-                continue; // Need at least 3 points
+                expiry_errors.insert(
+                    *t_key,
+                    format!("Need at least 3 strikes to calibrate SABR; got {}", strikes.len()),
+                );
+                continue;
             }
 
             match sabr_calibrator.calibrate_auto_shift(f, &strikes, &vols, t, params.beta) {
@@ -161,8 +167,8 @@ impl VolSurfaceAdapter {
                     }
                     total_iterations += 1;
                 }
-                Err(_) => {
-                    // Log failure?
+                Err(e) => {
+                    expiry_errors.insert(*t_key, e.to_string());
                 }
             }
         }
@@ -170,7 +176,6 @@ impl VolSurfaceAdapter {
         // Build grid
         // Use params.target_expiries and target_strikes
         let mut grid = Vec::new();
-        let mut failed = false;
 
         for &t in &params.target_expiries {
             let f = forward_fn(t);
@@ -179,25 +184,25 @@ impl VolSurfaceAdapter {
             // For brevity, using nearest valid calibration or linear if possible.
             // Let's implement simple linear interpolation of params.
 
-            let p = Self::interpolate_params(t, &sabr_params_by_expiry)?;
+            let p = Self::interpolate_params(
+                t,
+                &sabr_params_by_expiry,
+                params.expiry_extrapolation,
+            )?;
             let model = SABRModel::new(p);
 
             for &k in &params.target_strikes {
-                match model.implied_volatility(f, k, t) {
-                    Ok(v) => grid.push(v),
-                    Err(_) => {
-                        grid.push(0.0);
-                        failed = true;
+                let v = model.implied_volatility(f, k, t).map_err(|e| {
+                    finstack_core::Error::Calibration {
+                        message: format!(
+                            "Failed to compute SABR implied vol at t={:.6}, k={:.6}: {}",
+                            t, k, e
+                        ),
+                        category: "vol_surface".to_string(),
                     }
-                }
+                })?;
+                grid.push(v);
             }
-        }
-
-        if failed {
-            return Err(finstack_core::Error::Calibration {
-                message: "Failed to build vol surface grid".to_string(),
-                category: "vol_surface".to_string(),
-            });
         }
 
         let surface = VolSurface::from_grid(
@@ -207,12 +212,43 @@ impl VolSurfaceAdapter {
             &grid,
         )?;
 
-        let report = CalibrationReport::for_type_with_tolerance(
+        let calibrated_expiries: Vec<String> = sabr_params_by_expiry
+            .keys()
+            .map(|k| format!("{:.6}", k.into_inner()))
+            .collect();
+        let failed_examples: Vec<String> = expiry_errors
+            .iter()
+            .take(5)
+            .map(|(t, e)| format!("t={:.6}: {}", t.into_inner(), e))
+            .collect();
+
+        let mut report = CalibrationReport::for_type_with_tolerance(
             "vol_surface",
             residuals,
             total_iterations,
             config.tolerance,
         );
+        report.update_metadata(
+            "expiry_extrapolation_policy",
+            match params.expiry_extrapolation {
+                SurfaceExtrapolationPolicy::Error => "error",
+                SurfaceExtrapolationPolicy::Clamp => "clamp",
+            },
+        );
+        report.update_metadata(
+            "calibrated_expiry_count",
+            sabr_params_by_expiry.len().to_string(),
+        );
+        report.update_metadata(
+            "failed_expiry_count",
+            expiry_errors.len().to_string(),
+        );
+        if !calibrated_expiries.is_empty() {
+            report.update_metadata("calibrated_expiries", calibrated_expiries.join(","));
+        }
+        if !failed_examples.is_empty() {
+            report.update_metadata("failed_expiry_examples", failed_examples.join(" | "));
+        }
 
         Ok((surface, report))
     }
@@ -220,12 +256,35 @@ impl VolSurfaceAdapter {
     fn interpolate_params(
         t: f64,
         params: &BTreeMap<OrderedFloat<f64>, SABRParameters>,
+        extrapolation: SurfaceExtrapolationPolicy,
     ) -> Result<SABRParameters> {
         if params.is_empty() {
             return Err(finstack_core::Error::Calibration {
                 message: "No calibrated SABR parameters".to_string(),
                 category: "vol_surface".to_string(),
             });
+        }
+
+        let min_t = params
+            .keys()
+            .next()
+            .expect("params non-empty (checked above)")
+            .into_inner();
+        let max_t = params
+            .keys()
+            .next_back()
+            .expect("params non-empty (checked above)")
+            .into_inner();
+
+        if extrapolation == SurfaceExtrapolationPolicy::Error {
+            // Require targets to be within the calibrated expiry range.
+            if t < min_t || t > max_t {
+                return Err(finstack_core::Error::Validation(format!(
+                    "Target expiry t={:.6} is out of bounds for calibrated expiries [{:.6}, {:.6}]. \
+Set params.expiry_extrapolation='clamp' to allow flat extrapolation.",
+                    t, min_t, max_t
+                )));
+            }
         }
 
         // Find neighbors
@@ -258,5 +317,79 @@ impl VolSurfaceAdapter {
             (_, Some((_, p))) => Ok(p.clone()),
             _ => unreachable!(),
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::instruments::common::models::SABRParameters;
+
+    fn params(alpha: f64, beta: f64, nu: f64, rho: f64, shift: f64) -> SABRParameters {
+        SABRParameters {
+            alpha,
+            beta,
+            nu,
+            rho,
+            shift: Some(shift),
+        }
+    }
+
+    #[test]
+    fn interpolate_params_out_of_bounds_errors_by_default() {
+        let mut map = BTreeMap::new();
+        map.insert(OrderedFloat(1.0), params(0.10, 0.5, 0.30, -0.20, 0.01));
+        map.insert(OrderedFloat(2.0), params(0.20, 0.5, 0.40, -0.10, 0.01));
+
+        let err = VolSurfaceAdapter::interpolate_params(
+            0.5,
+            &map,
+            SurfaceExtrapolationPolicy::Error,
+        )
+        .expect_err("out-of-bounds should error");
+        assert!(err.to_string().contains("out of bounds"));
+    }
+
+    #[test]
+    fn interpolate_params_out_of_bounds_clamps_when_configured() {
+        let mut map = BTreeMap::new();
+        let p1 = params(0.10, 0.5, 0.30, -0.20, 0.01);
+        let p2 = params(0.20, 0.5, 0.40, -0.10, 0.01);
+        map.insert(OrderedFloat(1.0), p1.clone());
+        map.insert(OrderedFloat(2.0), p2.clone());
+
+        let left = VolSurfaceAdapter::interpolate_params(
+            0.5,
+            &map,
+            SurfaceExtrapolationPolicy::Clamp,
+        )
+        .expect("clamp-left");
+        assert_eq!(left.alpha, p1.alpha);
+
+        let right = VolSurfaceAdapter::interpolate_params(
+            3.0,
+            &map,
+            SurfaceExtrapolationPolicy::Clamp,
+        )
+        .expect("clamp-right");
+        assert_eq!(right.alpha, p2.alpha);
+    }
+
+    #[test]
+    fn interpolate_params_linearly_interpolates_in_range() {
+        let mut map = BTreeMap::new();
+        map.insert(OrderedFloat(1.0), params(0.10, 0.5, 0.30, -0.20, 0.01));
+        map.insert(OrderedFloat(2.0), params(0.20, 0.5, 0.50, 0.10, 0.01));
+
+        let mid = VolSurfaceAdapter::interpolate_params(
+            1.5,
+            &map,
+            SurfaceExtrapolationPolicy::Error,
+        )
+        .expect("in-range");
+
+        assert!((mid.alpha - 0.15).abs() < 1e-12);
+        assert!((mid.nu - 0.40).abs() < 1e-12);
+        assert!((mid.rho - (-0.05)).abs() < 1e-12);
     }
 }

@@ -102,7 +102,10 @@ impl BootstrapTarget for ForwardCurveTarget {
 
         // Ensure anchor logic
         if full_knots.is_empty() {
-            full_knots.push((0.0, 0.02)); // Fallback if strictly empty
+            return Err(finstack_core::Error::Calibration {
+                message: "Failed to build temp forward curve: need at least one knot".into(),
+                category: "bootstrapping".to_string(),
+            });
         } else {
             // Logic from ensure_anchor: derive from first knot if > tolerance
             if full_knots[0].0 > self.config.tolerance {
@@ -126,9 +129,11 @@ impl BootstrapTarget for ForwardCurveTarget {
         let mut temp_context = self.base_context.clone();
         temp_context.insert_mut(std::sync::Arc::new(curve.clone()));
 
-        let pv = self
-            .pricer
-            .price_instrument(quote, self.currency, &temp_context)?;
+        let pv = self.pricer.price_instrument_for_calibration(
+            quote,
+            self.currency,
+            &temp_context,
+        )?;
         Ok(pv)
     }
 
@@ -163,25 +168,32 @@ impl BootstrapTarget for ForwardCurveTarget {
 
     fn scan_points(&self, _quote: &Self::Quote, initial_guess: f64) -> Result<Vec<f64>> {
         let bounds = self.config.effective_rate_bounds(self.currency);
-        let mut grid = vec![
-            -0.10, -0.05, -0.03, -0.02, -0.01, -0.005, 0.0, 0.002, 0.005, 0.01, 0.015, 0.02, 0.025,
-            0.03, 0.035, 0.04, 0.045, 0.05, 0.06, 0.075, 0.10, 0.125, 0.15, 0.20, 0.25, 0.30, 0.40,
-            0.50,
-        ];
+        let center = if initial_guess.is_finite() {
+            initial_guess.clamp(bounds.min_rate, bounds.max_rate)
+        } else {
+            0.0_f64.clamp(bounds.min_rate, bounds.max_rate)
+        };
 
-        // Add initial guess
-        grid.push(initial_guess);
+        // Bounded geometric expansion around the initial guess.
+        // This avoids hard-coded scan grids while keeping the search within
+        // the configured rate bounds.
+        let step0 = (1e-4 * (1.0 + center.abs())).max(1e-8);
+        let mut step = step0;
 
-        // Filter to bounds
-        let filtered: Vec<f64> = grid
-            .into_iter()
-            .filter(|&r| r >= bounds.min_rate - 0.05 && r <= bounds.max_rate + 0.05)
-            .collect();
+        let mut pts = Vec::with_capacity(2 * 16 + 3);
+        pts.push(bounds.min_rate);
+        pts.push(center);
+        pts.push(bounds.max_rate);
 
-        let mut res = filtered;
-        res.sort_by(|a, b| a.total_cmp(b));
-        res.dedup();
-        Ok(res)
+        for _ in 0..16 {
+            pts.push((center - step).clamp(bounds.min_rate, bounds.max_rate));
+            pts.push((center + step).clamp(bounds.min_rate, bounds.max_rate));
+            step *= 2.0;
+        }
+
+        pts.sort_by(|a, b| a.total_cmp(b));
+        pts.dedup_by(|a, b| (*a - *b).abs() < 1e-12);
+        Ok(pts)
     }
 
     fn validate_knot(&self, time: f64, value: f64) -> Result<()> {

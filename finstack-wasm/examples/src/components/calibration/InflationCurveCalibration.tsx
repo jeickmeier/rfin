@@ -2,9 +2,9 @@ import React, { useState, useCallback, useMemo, useEffect } from 'react';
 import {
   CalibrationConfig,
   FsDate,
-  InflationCurveCalibrator,
   InflationQuote,
   MarketContext,
+  executeCalibrationV2,
   SolverKind,
 } from 'finstack-wasm';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
@@ -59,6 +59,13 @@ const buildWasmConfig = (config: CalibrationConfigJson): CalibrationConfig => {
 /** Convert DateJson to FsDate */
 const toFsDate = (date: DateJson): FsDate => new FsDate(date.year, date.month, date.day);
 
+const isoDate = (date: FsDate): string => {
+  const y = String(date.year).padStart(4, '0');
+  const m = String(date.month).padStart(2, '0');
+  const d = String(date.day).padStart(2, '0');
+  return `${y}-${m}-${d}`;
+};
+
 /** Convert quote data to WASM InflationQuote objects */
 const buildWasmQuotes = (quotes: InflationSwapQuoteData[]): InflationQuote[] => {
   return quotes.map((q) =>
@@ -78,7 +85,7 @@ export const InflationCurveCalibration: React.FC<InflationCurveCalibrationProps>
   className,
 }) => {
   const {
-    curveId: _curveId,
+    curveId,
     currency,
     indexName,
     baseCpi,
@@ -117,7 +124,7 @@ export const InflationCurveCalibration: React.FC<InflationCurveCalibrationProps>
   const [curve, setCurve] = useState<CalibratedInflationCurve | null>(null);
   const [error, setError] = useState<string | null>(null);
 
-  const runCalibration = useCallback(() => {
+  const runCalibration = () => {
     if (quotes.length === 0) {
       setError('No inflation quotes provided');
       return;
@@ -134,19 +141,40 @@ export const InflationCurveCalibration: React.FC<InflationCurveCalibrationProps>
       const calibrationConfig = buildWasmConfig(config);
       const wasmQuotes = buildWasmQuotes(quotes);
 
-      const calibrator = new InflationCurveCalibrator(
-        indexName,
-        baseDate,
-        currency,
-        baseCpi,
-        discountCurveId
-      );
-      const calibratorWithConfig = calibrator.withConfig(calibrationConfig);
+      const quoteSet = wasmQuotes.map((q) => q.toMarketQuote().toJSON());
+      const envelope = {
+        schema: 'finstack.calibration/2',
+        initial_market: market.toState(),
+        plan: {
+          id: `inflation:${curveId}`,
+          quote_sets: {
+            infl: quoteSet,
+          },
+          steps: [
+            {
+              id: 'infl',
+              quote_set: 'infl',
+              kind: 'inflation',
+              curve_id: curveId,
+              currency,
+              base_date: isoDate(baseDate),
+              discount_curve_id: discountCurveId,
+              index: indexName,
+              observation_lag: '3M',
+              base_cpi: baseCpi,
+            },
+          ],
+          settings: calibrationConfig.toJSON(),
+        },
+      };
 
-      const [calibratedCurve, report] = calibratorWithConfig.calibrate(wasmQuotes, market) as [
-        CalibratedInflationCurve,
+      const [marketCtx, report] = executeCalibrationV2(envelope) as [
+        MarketContext,
         { success: boolean; iterations: number; maxResidual: number },
+        Record<string, unknown>,
       ];
+
+      const calibratedCurve = marketCtx.inflation(curveId) as unknown as CalibratedInflationCurve;
 
       const sampleTimes = [1, 2, 3, 5, 7, 10];
       const sampleValues: CurveDataPoint[] = sampleTimes.map((t) => ({
@@ -156,7 +184,7 @@ export const InflationCurveCalibration: React.FC<InflationCurveCalibrationProps>
       }));
 
       const calibrationResult: CalibrationResult = {
-        curveId: indexName,
+        curveId,
         curveType: 'Inflation',
         success: report.success,
         iterations: report.iterations,
@@ -184,17 +212,7 @@ export const InflationCurveCalibration: React.FC<InflationCurveCalibrationProps>
       setResult(failedResult);
       onCalibrated?.(failedResult);
     }
-  }, [
-    baseDate,
-    currency,
-    quotes,
-    indexName,
-    baseCpi,
-    discountCurveId,
-    config,
-    market,
-    onCalibrated,
-  ]);
+  };
 
   const getImpliedInflation = (t: number) => {
     if (!curve) return 0;

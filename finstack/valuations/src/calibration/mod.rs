@@ -92,7 +92,10 @@ pub use pricing::{CalibrationPricer, ConvexityParameters, RatesQuoteUseCase};
 // Re-exports: Reports and specs
 pub use report::CalibrationReport;
 pub(crate) use solver::bracket_solve_1d_with_diagnostics;
-pub use solver::{create_simple_solver, solve_1d, BracketDiagnostics, SolverConfig, PENALTY};
+pub use solver::{
+    create_simple_solver, solve_1d, BracketDiagnostics, SolverConfig, OBJECTIVE_VALID_ABS_MAX,
+    PENALTY, RESIDUAL_PENALTY_ABS_MIN,
+};
 pub use spec::{
     CalibrationEnvelope, CalibrationResult, CalibrationResultEnvelope, CalibrationSpec,
     CalibrationStep, CALIBRATION_SCHEMA_V1,

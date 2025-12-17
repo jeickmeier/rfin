@@ -1,4 +1,5 @@
 use super::super::quotes::{InstrumentConventions, RatesQuote};
+use crate::calibration::v2::domain::quotes::rate_index::{RateIndexConventions, RateIndexKind};
 use finstack_core::dates::{BusinessDayConvention, DayCount, Tenor};
 use finstack_core::types::{Currency, IndexId};
 use finstack_core::Result;
@@ -13,11 +14,6 @@ pub(crate) struct ResolvedCommon<'a> {
     pub fixing_calendar_id: &'a str,
     pub payment_calendar_id: &'a str,
     pub bdc: BusinessDayConvention,
-}
-
-pub(crate) struct ResolvedMoneyMarket<'a> {
-    pub common: ResolvedCommon<'a>,
-    pub day_count: DayCount,
 }
 
 pub(crate) struct ResolvedSwapConventions<'a> {
@@ -87,6 +83,87 @@ pub(crate) fn resolve_common<'a>(
     }
 }
 
+fn resolve_common_for_swap<'a>(
+    pricer: &'a CalibrationPricer,
+    conventions: &'a InstrumentConventions,
+    fixed_leg: &'a InstrumentConventions,
+    float_leg: &'a InstrumentConventions,
+    currency: Currency,
+    float_index: &'a IndexId,
+) -> ResolvedCommon<'a> {
+    let index_conv = RateIndexConventions::for_index_with_currency(float_index, currency);
+
+    let settlement_days = conventions
+        .settlement_days
+        .or(pricer.settlement_days)
+        .unwrap_or_else(|| CalibrationPricer::market_settlement_days(currency));
+
+    let calendar_id = conventions
+        .calendar_id
+        .as_deref()
+        .or(fixed_leg.calendar_id.as_deref())
+        .or(float_leg.calendar_id.as_deref())
+        .or(pricer.calendar_id.as_deref())
+        .unwrap_or_else(|| CalibrationPricer::market_calendar_id(currency));
+
+    let bdc = conventions
+        .business_day_convention
+        .or(fixed_leg.business_day_convention)
+        .or(float_leg.business_day_convention)
+        .or(pricer.business_day_convention)
+        .unwrap_or_else(|| CalibrationPricer::market_business_day_convention(currency));
+
+    let fixing_calendar_id = conventions
+        .fixing_calendar_id
+        .as_deref()
+        .or(float_leg.fixing_calendar_id.as_deref())
+        .or(conventions.calendar_id.as_deref())
+        .or(float_leg.calendar_id.as_deref())
+        .or(pricer.calendar_id.as_deref())
+        .unwrap_or(calendar_id);
+
+    let payment_calendar_id = conventions
+        .payment_calendar_id
+        .as_deref()
+        .or(fixed_leg.payment_calendar_id.as_deref())
+        .or(float_leg.payment_calendar_id.as_deref())
+        .or(conventions.calendar_id.as_deref())
+        .or(fixed_leg.calendar_id.as_deref())
+        .or(float_leg.calendar_id.as_deref())
+        .or(pricer.calendar_id.as_deref())
+        .unwrap_or(calendar_id);
+
+    let payment_delay_days = conventions
+        .payment_delay_days
+        .or(fixed_leg.payment_delay_days)
+        .or(float_leg.payment_delay_days)
+        .unwrap_or_else(|| {
+            if index_conv.kind == RateIndexKind::OvernightRfr {
+                index_conv.default_payment_delay_days
+            } else {
+                0
+            }
+        });
+
+    let reset_lag_days = float_leg.reset_lag.or(conventions.reset_lag).unwrap_or_else(|| {
+        if index_conv.kind == RateIndexKind::OvernightRfr {
+            index_conv.default_reset_lag_days
+        } else {
+            -2
+        }
+    });
+
+    ResolvedCommon {
+        settlement_days,
+        payment_delay_days,
+        reset_lag_days,
+        calendar_id,
+        fixing_calendar_id,
+        payment_calendar_id,
+        bdc,
+    }
+}
+
 fn require_i32(field: Option<i32>, name: &'static str) -> Result<i32> {
     field.ok_or_else(|| {
         finstack_core::Error::Validation(format!(
@@ -117,24 +194,6 @@ fn require_bdc(
     })
 }
 
-fn require_day_count(field: Option<DayCount>, name: &'static str) -> Result<DayCount> {
-    field.ok_or_else(|| {
-        finstack_core::Error::Validation(format!(
-            "Instrument conventions require '{}' to be set",
-            name
-        ))
-    })
-}
-
-fn require_tenor(field: Option<Tenor>, name: &'static str) -> Result<Tenor> {
-    field.ok_or_else(|| {
-        finstack_core::Error::Validation(format!(
-            "Instrument conventions require '{}' to be set",
-            name
-        ))
-    })
-}
-
 pub(crate) fn resolve_settlement_strict<'a>(
     quote_conventions: &'a InstrumentConventions,
     _currency: Currency,
@@ -152,50 +211,6 @@ pub(crate) fn resolve_settlement_strict<'a>(
     })
 }
 
-pub(crate) fn resolve_common_strict<'a>(
-    quote_conventions: &'a InstrumentConventions,
-    _currency: Currency,
-) -> Result<ResolvedCommon<'a>> {
-    let settlement_days = require_i32(quote_conventions.settlement_days, "settlement_days")?;
-    let payment_delay_days =
-        require_i32(quote_conventions.payment_delay_days, "payment_delay_days")?;
-    let reset_lag_days = require_i32(quote_conventions.reset_lag, "reset_lag")?;
-    let calendar_id = require_str(quote_conventions.calendar_id.as_deref(), "calendar_id")?;
-    let bdc = require_bdc(
-        quote_conventions.business_day_convention,
-        "business_day_convention",
-    )?;
-    let fixing_calendar_id = quote_conventions
-        .effective_fixing_calendar_id()
-        .unwrap_or(calendar_id);
-    let payment_calendar_id = quote_conventions
-        .effective_payment_calendar_id()
-        .unwrap_or(calendar_id);
-
-    Ok(ResolvedCommon {
-        settlement_days,
-        payment_delay_days,
-        reset_lag_days,
-        calendar_id,
-        fixing_calendar_id,
-        payment_calendar_id,
-        bdc,
-    })
-}
-
-pub(crate) fn resolve_money_market<'a>(
-    pricer: &'a CalibrationPricer,
-    quote_conventions: &'a InstrumentConventions,
-    currency: Currency,
-) -> ResolvedMoneyMarket<'a> {
-    let common = resolve_common(pricer, quote_conventions, currency);
-    let day_count = quote_conventions
-        .day_count
-        .unwrap_or_else(|| InstrumentConventions::default_money_market_day_count(currency));
-
-    ResolvedMoneyMarket { common, day_count }
-}
-
 pub(crate) fn resolve_swap_conventions<'a>(
     pricer: &'a CalibrationPricer,
     quote: &'a RatesQuote,
@@ -208,27 +223,33 @@ pub(crate) fn resolve_swap_conventions<'a>(
             float_leg_conventions,
             ..
         } => {
-            let common = resolve_common(pricer, conventions, currency);
-
             let fixed_freq = fixed_leg_conventions
                 .payment_frequency
                 .unwrap_or_else(|| InstrumentConventions::default_fixed_leg_frequency(currency));
-            let float_freq = float_leg_conventions
-                .payment_frequency
-                .unwrap_or_else(|| InstrumentConventions::default_float_leg_frequency(currency));
-
-            let fixed_dc = fixed_leg_conventions
-                .day_count
-                .unwrap_or_else(|| InstrumentConventions::default_fixed_leg_day_count(currency));
-            let float_dc = float_leg_conventions
-                .day_count
-                .unwrap_or_else(|| InstrumentConventions::default_float_leg_day_count(currency));
-
             let index = float_leg_conventions.index.as_ref().ok_or_else(|| {
                 finstack_core::Error::Validation(
                     "Swap quote requires float_leg_conventions.index to be set".to_string(),
                 )
             })?;
+
+            let index_conv = RateIndexConventions::for_index_with_currency(index, currency);
+            let float_freq = float_leg_conventions
+                .payment_frequency
+                .unwrap_or(index_conv.default_payment_frequency);
+
+            let fixed_dc = fixed_leg_conventions
+                .day_count
+                .unwrap_or_else(|| InstrumentConventions::default_fixed_leg_day_count(currency));
+            let float_dc = float_leg_conventions.day_count.unwrap_or(index_conv.day_count);
+
+            let common = resolve_common_for_swap(
+                pricer,
+                conventions,
+                fixed_leg_conventions,
+                float_leg_conventions,
+                currency,
+                index,
+            );
 
             Ok(ResolvedSwapConventions {
                 common,
@@ -271,23 +292,24 @@ pub(crate) fn resolve_basis_swap_conventions<'a>(
                 )
             })?;
 
+            let primary_index_conv =
+                RateIndexConventions::for_index_with_currency(primary_index, basis_currency);
+            let reference_index_conv =
+                RateIndexConventions::for_index_with_currency(reference_index, basis_currency);
+
             let primary_freq = primary_leg_conventions
                 .payment_frequency
-                .unwrap_or_else(|| {
-                    InstrumentConventions::default_float_leg_frequency(basis_currency)
-                });
+                .unwrap_or(primary_index_conv.default_payment_frequency);
             let reference_freq = reference_leg_conventions
                 .payment_frequency
-                .unwrap_or_else(|| {
-                    InstrumentConventions::default_float_leg_frequency(basis_currency)
-                });
+                .unwrap_or(reference_index_conv.default_payment_frequency);
 
-            let primary_dc = primary_leg_conventions.day_count.unwrap_or_else(|| {
-                InstrumentConventions::default_float_leg_day_count(basis_currency)
-            });
-            let reference_dc = reference_leg_conventions.day_count.unwrap_or_else(|| {
-                InstrumentConventions::default_float_leg_day_count(basis_currency)
-            });
+            let primary_dc = primary_leg_conventions
+                .day_count
+                .unwrap_or(primary_index_conv.day_count);
+            let reference_dc = reference_leg_conventions
+                .day_count
+                .unwrap_or(reference_index_conv.day_count);
 
             Ok(ResolvedBasisSwapConventions {
                 currency: basis_currency,
@@ -305,61 +327,57 @@ pub(crate) fn resolve_basis_swap_conventions<'a>(
     }
 }
 
-pub(crate) fn resolve_basis_swap_conventions_strict<'a>(
-    quote: &'a RatesQuote,
-    currency: Currency,
-) -> Result<ResolvedBasisSwapConventions<'a>> {
-    match quote {
-        RatesQuote::BasisSwap {
-            conventions,
-            primary_leg_conventions,
-            reference_leg_conventions,
-            ..
-        } => {
-            let basis_currency = conventions.currency.unwrap_or(currency);
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::calibration::v2::domain::pricing::pricer::CalibrationPricer;
+    use finstack_core::dates::Date;
+    use time::Month;
 
-            let primary_index = primary_leg_conventions.index.as_ref().ok_or_else(|| {
-                finstack_core::Error::Validation(
-                    "BasisSwap quote requires primary_leg_conventions.index to be set".to_string(),
-                )
-            })?;
-            let reference_index = reference_leg_conventions.index.as_ref().ok_or_else(|| {
-                finstack_core::Error::Validation(
-                    "BasisSwap quote requires reference_leg_conventions.index to be set"
-                        .to_string(),
-                )
-            })?;
+    #[test]
+    fn swap_defaults_use_index_conventions_for_ois() {
+        let base_date = Date::from_calendar_date(2024, Month::January, 2).expect("base_date");
+        let pricer = CalibrationPricer::new(base_date, "USD-OIS").with_market_conventions(Currency::USD);
 
-            let primary_freq = require_tenor(
-                primary_leg_conventions.payment_frequency,
-                "primary_leg_conventions.payment_frequency",
-            )?;
-            let reference_freq = require_tenor(
-                reference_leg_conventions.payment_frequency,
-                "reference_leg_conventions.payment_frequency",
-            )?;
+        let quote = RatesQuote::Swap {
+            maturity: Date::from_calendar_date(2025, Month::January, 2).expect("maturity"),
+            rate: 0.02,
+            is_ois: false,
+            conventions: InstrumentConventions::default(),
+            fixed_leg_conventions: InstrumentConventions::default(),
+            float_leg_conventions: InstrumentConventions {
+                index: Some(IndexId::new("USD-SOFR-OIS")),
+                ..InstrumentConventions::default()
+            },
+        };
 
-            let primary_dc = require_day_count(
-                primary_leg_conventions.day_count,
-                "primary_leg_conventions.day_count",
-            )?;
-            let reference_dc = require_day_count(
-                reference_leg_conventions.day_count,
-                "reference_leg_conventions.day_count",
-            )?;
+        let resolved = resolve_swap_conventions(&pricer, &quote, Currency::USD).expect("resolved");
+        assert_eq!(resolved.float_freq, Tenor::annual());
+        assert_eq!(resolved.common.payment_delay_days, 2);
+        assert_eq!(resolved.common.reset_lag_days, 0);
+    }
 
-            Ok(ResolvedBasisSwapConventions {
-                currency: basis_currency,
-                primary_freq,
-                reference_freq,
-                primary_dc,
-                reference_dc,
-                primary_index,
-                reference_index,
-            })
-        }
-        _ => Err(finstack_core::Error::Input(
-            finstack_core::error::InputError::Invalid,
-        )),
+    #[test]
+    fn basis_swap_defaults_use_index_tenors() {
+        let base_date = Date::from_calendar_date(2024, Month::January, 2).expect("base_date");
+        let pricer = CalibrationPricer::new(base_date, "USD-OIS");
+
+        let quote = RatesQuote::BasisSwap {
+            maturity: Date::from_calendar_date(2026, Month::January, 2).expect("maturity"),
+            spread_bp: 10.0,
+            conventions: InstrumentConventions::default(),
+            primary_leg_conventions: InstrumentConventions {
+                index: Some(IndexId::new("USD-SOFR-3M")),
+                ..InstrumentConventions::default()
+            },
+            reference_leg_conventions: InstrumentConventions {
+                index: Some(IndexId::new("USD-SOFR-6M")),
+                ..InstrumentConventions::default()
+            },
+        };
+
+        let resolved = resolve_basis_swap_conventions(&pricer, &quote, Currency::USD).expect("resolved");
+        assert_eq!(resolved.primary_freq, Tenor::parse("3M").expect("3M"));
+        assert_eq!(resolved.reference_freq, Tenor::parse("6M").expect("6M"));
     }
 }

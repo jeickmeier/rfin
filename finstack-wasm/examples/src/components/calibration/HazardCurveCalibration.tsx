@@ -3,8 +3,8 @@ import {
   CalibrationConfig,
   CreditQuote,
   FsDate,
-  HazardCurveCalibrator,
   MarketContext,
+  executeCalibrationV2,
   SolverKind,
 } from 'finstack-wasm';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
@@ -51,6 +51,13 @@ const buildWasmConfig = (config: CalibrationConfigJson): CalibrationConfig => {
 
 /** Convert DateJson to FsDate */
 const toFsDate = (date: DateJson): FsDate => new FsDate(date.year, date.month, date.day);
+
+const isoDate = (date: FsDate): string => {
+  const y = String(date.year).padStart(4, '0');
+  const m = String(date.month).padStart(2, '0');
+  const d = String(date.day).padStart(2, '0');
+  return `${y}-${m}-${d}`;
+};
 
 /** Convert quote data to WASM CreditQuote objects */
 const buildWasmQuotes = (quotes: CdsQuoteData[]): CreditQuote[] => {
@@ -130,20 +137,41 @@ export const HazardCurveCalibration: React.FC<HazardCurveCalibrationProps> = ({
       const calibrationConfig = buildWasmConfig(config);
       const wasmQuotes = buildWasmQuotes(quotes);
 
-      const calibrator = new HazardCurveCalibrator(
-        entity,
-        seniority,
-        recoveryRate,
-        baseDate,
-        currency,
-        discountCurveId
-      );
-      const calibratorWithConfig = calibrator.withConfig(calibrationConfig);
+      const curveId = `${entity}-${seniority}`;
+      const quoteSet = wasmQuotes.map((q) => q.toMarketQuote().toJSON());
+      const envelope = {
+        schema: 'finstack.calibration/2',
+        initial_market: market.toState(),
+        plan: {
+          id: `hazard:${curveId}`,
+          quote_sets: {
+            cds: quoteSet,
+          },
+          steps: [
+            {
+              id: 'haz',
+              quote_set: 'cds',
+              kind: 'hazard',
+              curve_id: curveId,
+              entity,
+              seniority,
+              currency,
+              base_date: isoDate(baseDate),
+              discount_curve_id: discountCurveId,
+              recovery_rate: recoveryRate,
+            },
+          ],
+          settings: calibrationConfig.toJSON(),
+        },
+      };
 
-      const [calibratedCurve, report] = calibratorWithConfig.calibrate(wasmQuotes, market) as [
-        CalibratedHazardCurve,
+      const [marketCtx, report] = executeCalibrationV2(envelope) as [
+        MarketContext,
         { success: boolean; iterations: number; maxResidual: number },
+        Record<string, unknown>,
       ];
+
+      const calibratedCurve = marketCtx.hazard(curveId) as unknown as CalibratedHazardCurve;
 
       const sampleTimes = [0.5, 1, 2, 3, 5, 7, 10];
       const sampleValues: CurveDataPoint[] = sampleTimes.map((t) => ({
@@ -153,7 +181,7 @@ export const HazardCurveCalibration: React.FC<HazardCurveCalibrationProps> = ({
       }));
 
       const calibrationResult: CalibrationResult = {
-        curveId: `${entity}-${seniority}`,
+        curveId,
         curveType: 'Hazard (Credit)',
         success: report.success,
         iterations: report.iterations,

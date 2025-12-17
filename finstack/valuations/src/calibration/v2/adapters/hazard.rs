@@ -148,11 +148,13 @@ impl BootstrapTarget for HazardBootstrapper {
 
         let cds = crate::instruments::cds::CreditDefaultSwapBuilder::new()
             .id("CALIB_CDS".into())
-            .notional(Money::new(10_000_000.0, self.params.currency))
+            .notional(Money::new(self.params.notional, self.params.currency))
             .side(PayReceive::PayFixed)
             .convention(self.convention)
             .premium(premium_spec)
             .protection(protection_spec)
+            .pricing_overrides(crate::instruments::PricingOverrides::default())
+            .attributes(crate::instruments::common::traits::Attributes::new())
             .build()
             .map_err(|e| finstack_core::Error::Validation(e.to_string()))?;
 

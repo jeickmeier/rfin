@@ -296,10 +296,10 @@ fn final_curve_policy_follows_rate_bounds_and_interp_guard() {
 }
 
 #[test]
-fn solver_curve_build_uses_permissive_interpolation() {
+fn solver_curve_build_respects_requested_interpolation() {
     let base_date = Date::from_calendar_date(2025, Month::January, 2).unwrap();
     let pricer = CalibrationPricer::new(base_date, CurveId::from("USD-OIS"));
-    let target = build_target_with_config(
+    let target_convex = build_target_with_config(
         base_date,
         base_date,
         pricer,
@@ -308,10 +308,32 @@ fn solver_curve_build_uses_permissive_interpolation() {
         InterpStyle::MonotoneConvex,
     );
 
-    let knots = vec![(0.0, 1.0), (1.0, 1.0005), (2.0, 0.98)];
-    target
-        .build_curve_for_solver(&knots)
-        .expect("solver should use permissive interpolation and succeed");
+    // Non-monotonic DFs are incompatible with MonotoneConvex.
+    let non_monotonic = vec![(0.0, 1.0), (1.0, 1.0005), (2.0, 0.98)];
+    assert!(
+        target_convex.build_curve_for_solver(&non_monotonic).is_err(),
+        "MonotoneConvex should reject non-monotonic discount factors"
+    );
+
+    // Monotone DFs should be accepted.
+    let monotonic = vec![(0.0, 1.0), (1.0, 0.98), (2.0, 0.95)];
+    target_convex
+        .build_curve_for_solver(&monotonic)
+        .expect("MonotoneConvex should accept monotonic discount factors");
+
+    // Linear interpolation remains permissive for solver exploration.
+    let pricer_lin = CalibrationPricer::new(base_date, CurveId::from("USD-OIS"));
+    let target_lin = build_target_with_config(
+        base_date,
+        base_date,
+        pricer_lin,
+        CalibrationConfig::default(),
+        Currency::USD,
+        InterpStyle::Linear,
+    );
+    target_lin
+        .build_curve_for_solver(&non_monotonic)
+        .expect("Linear interpolation should accept non-monotonic discount factors");
 }
 
 #[test]

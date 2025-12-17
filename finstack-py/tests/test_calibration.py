@@ -5,7 +5,6 @@ import datetime as dt
 from finstack.core.dates import DayCount
 from finstack.core.dates.schedule import Frequency
 from finstack.core.market_data import MarketContext
-from finstack.core.market_data.scalars import MarketScalar
 from finstack.core.market_data.term_structures import DiscountCurve
 import pytest
 
@@ -168,153 +167,121 @@ def test_quote_constructors_cover_all_variants() -> None:
 
 def test_simple_calibration_flow_and_report() -> None:
     """Test simple calibration flow and report generation."""
-    base_date = dt.date(2024, 1, 2)
-
-    # Use DiscountCurveCalibrator instead of SimpleCalibration
-    from finstack.core.currency import Currency
-
-    calibrator = cal.DiscountCurveCalibrator("USD-OIS", base_date, Currency("USD"))
-    # CalibrationConfig is currently a standalone config object; calibrators use dedicated
-    # mutators (e.g., with_multi_curve_config/with_solve_interp) rather than with_config.
-
     quotes = [
         cal.RatesQuote.deposit(dt.date(2024, 2, 2), 0.02, DayCount.ACT_360),
         cal.RatesQuote.deposit(dt.date(2024, 5, 2), 0.025, DayCount.ACT_360),
     ]
+    quote_sets = {"ois": [q.to_market_quote() for q in quotes]}
+    steps = [
+        {
+            "id": "disc",
+            "quote_set": "ois",
+            "kind": "discount",
+            "curve_id": "USD-OIS",
+            "currency": "USD",
+            "base_date": "2024-01-02",
+        }
+    ]
 
-    market_ctx = MarketContext()
-    curve, report = calibrator.calibrate(quotes, market_ctx)
+    market_ctx, report, step_reports = cal.execute_calibration_v2(
+        "plan_discount",
+        quote_sets,
+        steps,
+    )
 
-    # Insert curve into market context
-    market_ctx.insert_discount(curve)
+    # Verify curve is usable in market context
+    curve = market_ctx.discount("USD-OIS")
+    assert curve.id == "USD-OIS"
 
     stats = market_ctx.stats()
     assert stats["total_curves"] >= 0
 
     assert report.success
     assert report.iterations >= 0
-    assert "calibration" in report.convergence_reason.lower() or "converged" in report.convergence_reason.lower()
+    assert (
+        "calibration" in report.convergence_reason.lower()
+        or "converged" in report.convergence_reason.lower()
+        or "plan execution" in report.convergence_reason.lower()
+    )
     assert isinstance(report.residuals, dict)
     assert isinstance(report.metadata, dict)
     assert report.objective_value >= 0.0
+    assert isinstance(step_reports, dict)
+    assert "disc" in step_reports
 
     report_dict = report.to_dict()
     assert report_dict["success"] == report.success
     assert isinstance(report_dict["residuals"], dict)
 
 
-def test_discount_curve_calibrator_basic() -> None:
-    """Test basic discount curve calibrator functionality."""
-    base_date = dt.date(2024, 1, 2)
-    quotes = [
-        cal.RatesQuote.deposit(base_date + dt.timedelta(days=30), 0.02, "ACT/360"),
-        cal.RatesQuote.swap(
-            base_date + dt.timedelta(days=365),
-            0.024,
-            Frequency.ANNUAL,
-            Frequency.SEMI_ANNUAL,
-            "30/360",
-            "ACT/360",
-            "USD-SOFR",
-        ),
-    ]
-    calibrator = cal.DiscountCurveCalibrator("USD-OIS", base_date, "USD")
-    curve, report = calibrator.calibrate(quotes)
-    assert report.success
-    assert len(curve.points) > 0
-
-
-def test_forward_curve_calibrator_with_context() -> None:
-    """Test forward curve calibrator with market context."""
+def test_execute_calibration_v2_forward_step() -> None:
+    """Forward curve step should work when initial market contains discount curve."""
     base_date = dt.date(2024, 1, 2)
     market = MarketContext()
     market.insert_discount(_make_discount_curve(base_date))
+
     fra = cal.RatesQuote.fra(
         base_date + dt.timedelta(days=90),
         base_date + dt.timedelta(days=180),
         0.031,
         "ACT/360",
     )
-    calibrator = cal.ForwardCurveCalibrator(
-        "USD-SOFR-3M",
-        0.25,
-        base_date,
-        "USD",
-        "USD-OIS",
+    quote_sets = {"fwd": [fra.to_market_quote()]}
+    steps = [
+        {
+            "id": "fwd",
+            "quote_set": "fwd",
+            "kind": "forward",
+            "curve_id": "USD-SOFR-3M",
+            "currency": "USD",
+            "base_date": "2024-01-02",
+            "tenor_years": 0.25,
+            "discount_curve_id": "USD-OIS",
+        }
+    ]
+
+    market_ctx, report, _step_reports = cal.execute_calibration_v2(
+        "plan_forward",
+        quote_sets,
+        steps,
+        initial_market=market,
     )
-    curve, report = calibrator.calibrate([fra], market)
     assert report.success
+    curve = market_ctx.forward("USD-SOFR-3M")
     assert len(curve.points) > 0
 
 
-def test_hazard_curve_calibrator_basic() -> None:
-    """Test basic hazard curve calibrator functionality."""
+def test_execute_calibration_v2_hazard_step() -> None:
+    """Hazard curve step should work when initial market contains discount curve."""
     base_date = dt.date(2024, 1, 2)
     market = MarketContext()
     market.insert_discount(_make_discount_curve(base_date))
     cds = cal.CreditQuote.cds("ACME", base_date + dt.timedelta(days=365), 120.0, 0.4, "USD")
-    calibrator = cal.HazardCurveCalibrator(
-        "ACME",
-        "senior",
-        0.4,
-        base_date,
-        "USD",
-        "USD-OIS",
-    )
-    curve, report = calibrator.calibrate([cds], market)
-    assert report.success
-    assert curve.recovery_rate == pytest.approx(0.4)
-
-
-def test_inflation_curve_calibrator_handles_empty_quotes() -> None:
-    """Test that inflation curve calibrator rejects empty quotes."""
-    base_date = dt.date(2024, 1, 2)
-    market = MarketContext()
-    market.insert_discount(_make_discount_curve(base_date))
-    calibrator = cal.InflationCurveCalibrator(
-        "US-CPI",
-        base_date,
-        "USD",
-        300.0,
-        "USD-OIS",
-    )
-    with pytest.raises(finstack.ParameterError, match=r"At least two data points are required"):
-        calibrator.calibrate([], market)
-
-
-def test_vol_surface_calibrator_builds_surface() -> None:
-    """Test that vol surface calibrator builds volatility surface correctly."""
-    base_date = dt.date(2024, 1, 2)
-    market = MarketContext()
-    market.insert_discount(_make_discount_curve(base_date))
-    market.insert_price("ACME", MarketScalar.unitless(100.0))
-    market.insert_price("ACME-DIVYIELD", MarketScalar.unitless(0.01))
-    # Use volatilities that ensure variance increases with expiry to avoid arbitrage
-    # Variance = vol^2 * T, so we need vol^2 at T=1.0y >= vol^2 at T=0.5y
-    # Using higher vols at longer expiry ensures this
-    quotes = [
-        cal.VolQuote.option_vol("ACME", base_date + dt.timedelta(days=180), 90.0, 0.20, "Call"),
-        cal.VolQuote.option_vol("ACME", base_date + dt.timedelta(days=180), 100.0, 0.18, "Call"),
-        cal.VolQuote.option_vol("ACME", base_date + dt.timedelta(days=180), 110.0, 0.20, "Call"),
-        # Higher vols at longer expiry to ensure variance increases
-        cal.VolQuote.option_vol("ACME", base_date + dt.timedelta(days=365), 90.0, 0.25, "Call"),
-        cal.VolQuote.option_vol("ACME", base_date + dt.timedelta(days=365), 100.0, 0.22, "Call"),
-        cal.VolQuote.option_vol("ACME", base_date + dt.timedelta(days=365), 110.0, 0.24, "Call"),
+    quote_sets = {"cds": [cds.to_market_quote()]}
+    steps = [
+        {
+            "id": "haz",
+            "quote_set": "cds",
+            "kind": "hazard",
+            "curve_id": "ACME-USD-SENIOR",
+            "entity": "ACME",
+            "seniority": "senior",
+            "currency": "USD",
+            "base_date": "2024-01-02",
+            "discount_curve_id": "USD-OIS",
+            "recovery_rate": 0.4,
+        }
     ]
-    calibrator = (
-        cal.VolSurfaceCalibrator("ACME-VOL", 1.0, [0.5, 1.0], [90.0, 100.0, 110.0])
-        .with_base_date(base_date)
-        .with_base_currency("USD")
-        .with_discount_id("USD-OIS")
+
+    market_ctx, report, _step_reports = cal.execute_calibration_v2(
+        "plan_hazard",
+        quote_sets,
+        steps,
+        initial_market=market,
     )
-    surface, report = calibrator.calibrate(quotes, market)
-    # SABR calibration can be sensitive to input data - check if we got a surface even if not perfect
-    if not report.success:
-        # If calibration failed, it might be due to data inconsistency
-        # In that case, we should still verify the error is reasonable
-        assert report.max_residual < 1.0, f"Calibration residual too large: {report.max_residual}"
-    else:
-        assert surface.value(0.5, 100.0) > 0.0
+    assert report.success
+    curve = market_ctx.hazard("ACME-USD-SENIOR")
+    assert curve.recovery_rate == pytest.approx(0.4)
 
 
 def test_validate_discount_curve_helpers() -> None:

@@ -7,7 +7,7 @@ import {
   Money,
   SolverKind,
   VolQuote,
-  VolSurfaceCalibrator,
+  executeCalibrationV2,
 } from 'finstack-wasm';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { CurveChart, StatusBadge, CalibrationMetrics } from './CurveChart';
@@ -54,6 +54,13 @@ const buildWasmConfig = (config: CalibrationConfigJson, tolerance: number): Cali
 
 /** Convert DateJson to FsDate */
 const toFsDate = (date: DateJson): FsDate => new FsDate(date.year, date.month, date.day);
+
+const isoDate = (date: FsDate): string => {
+  const y = String(date.year).padStart(4, '0');
+  const m = String(date.month).padStart(2, '0');
+  const d = String(date.day).padStart(2, '0');
+  return `${y}-${m}-${d}`;
+};
 
 /** Convert quote data to WASM VolQuote objects */
 const buildWasmQuotes = (quotes: VolQuoteData[]): VolQuote[] => {
@@ -140,20 +147,42 @@ export const VolSurfaceCalibration: React.FC<VolSurfaceCalibrationProps> = ({
       const calibrationConfig = buildWasmConfig(config, effectiveTolerance);
       const wasmQuotes = buildWasmQuotes(quotes);
 
-      const calibrator = new VolSurfaceCalibrator(
-        curveId,
-        1,
-        new Float64Array(expiries),
-        new Float64Array(strikes)
-      )
-        .withBaseDate(baseDate)
-        .withConfig(calibrationConfig)
-        .withDiscountId(discountCurveId);
+      const quoteSet = wasmQuotes.map((q) => q.toMarketQuote().toJSON());
+      const envelope = {
+        schema: 'finstack.calibration/2',
+        initial_market: market.toState(),
+        plan: {
+          id: `vol_surface:${curveId}`,
+          quote_sets: {
+            vol: quoteSet,
+          },
+          steps: [
+            {
+              id: 'vol',
+              quote_set: 'vol',
+              kind: 'vol_surface',
+              surface_id: curveId,
+              base_date: isoDate(baseDate),
+              underlying_id: underlying,
+              model: 'SABR',
+              discount_curve_id: discountCurveId,
+              target_expiries: expiries,
+              target_strikes: strikes,
+              spot_override: spotPrice,
+              dividend_yield_override: 0.015,
+            },
+          ],
+          settings: calibrationConfig.toJSON(),
+        },
+      };
 
-      const [calibratedSurface, report] = calibrator.calibrate(wasmQuotes, market) as [
-        CalibratedVolSurface,
+      const [marketCtx, report] = executeCalibrationV2(envelope) as [
+        MarketContext,
         { success: boolean; iterations: number; maxResidual: number },
+        Record<string, unknown>,
       ];
+
+      const calibratedSurface = marketCtx.surface(curveId) as unknown as CalibratedVolSurface;
 
       const atmStrike =
         strikes.find((s) => Math.abs(s - 100) < 5) || strikes[Math.floor(strikes.length / 2)];

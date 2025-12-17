@@ -3,9 +3,9 @@
 use crate::core::common::parse::ParseFromString;
 use crate::core::dates::{FsDate, Tenor};
 use crate::utils::json::{from_js_value, to_js_value};
-use finstack_valuations::calibration::quotes::InstrumentConventions;
-use finstack_valuations::calibration::{
-    CreditQuote, FutureSpecs, InflationQuote, MarketQuote, RatesQuote, VolQuote,
+use finstack_valuations::calibration::v2::domain::quotes::{
+    CreditQuote, FutureSpecs, InflationQuote, InstrumentConventions, MarketQuote, RatesQuote,
+    VolQuote,
 };
 use wasm_bindgen::prelude::*;
 
@@ -85,6 +85,7 @@ impl JsRatesQuote {
         Self { inner }
     }
 
+    #[allow(dead_code)]
     pub(crate) fn inner(&self) -> RatesQuote {
         self.inner.clone()
     }
@@ -190,6 +191,7 @@ impl JsCreditQuote {
         Self { inner }
     }
 
+    #[allow(dead_code)]
     pub(crate) fn inner(&self) -> CreditQuote {
         self.inner.clone()
     }
@@ -296,6 +298,7 @@ impl JsVolQuote {
         Self { inner }
     }
 
+    #[allow(dead_code)]
     pub(crate) fn inner(&self) -> VolQuote {
         self.inner.clone()
     }
@@ -379,6 +382,7 @@ impl JsInflationQuote {
         Self { inner }
     }
 
+    #[allow(dead_code)]
     pub(crate) fn inner(&self) -> InflationQuote {
         self.inner.clone()
     }

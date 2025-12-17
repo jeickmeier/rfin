@@ -17,10 +17,10 @@ fn calibration_config_applies_extension_overrides() {
             "max_iterations": 250,
             "use_parallel": true,
             "random_seed": null,
-            "solver_kind": "newton",
+            "solver_kind": "Newton",
             "rate_bounds_policy": "explicit",
             "rate_bounds": { "min_rate": -0.01, "max_rate": 0.10 },
-            "calibration_method": { "global_solve": { "use_analytical_jacobian": true } }
+            "calibration_method": { "GlobalSolve": { "use_analytical_jacobian": true } }
         }),
     );
 

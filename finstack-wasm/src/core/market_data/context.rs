@@ -8,7 +8,8 @@ use crate::core::market_data::term_structures::{
     JsInflationCurve,
 };
 use crate::core::utils::js_array_from_iter;
-use finstack_core::market_data::context::{ContextStats, MarketContext};
+use crate::utils::json::{from_js_value, to_js_value};
+use finstack_core::market_data::context::{ContextStats, MarketContext, MarketContextState};
 use finstack_core::types::CurveId;
 use std::sync::Arc;
 use wasm_bindgen::prelude::*;
@@ -136,6 +137,22 @@ impl JsMarketContext {
         JsMarketContext {
             inner: self.inner.clone(),
         }
+    }
+
+    /// Export the context as a serializable `MarketContextState`.
+    #[wasm_bindgen(js_name = toState)]
+    pub fn to_state(&self) -> Result<JsValue, JsValue> {
+        let state: MarketContextState = (&self.inner).into();
+        to_js_value(&state)
+    }
+
+    /// Build a `MarketContext` from a `MarketContextState`.
+    #[wasm_bindgen(js_name = fromState)]
+    pub fn from_state(value: JsValue) -> Result<JsMarketContext, JsValue> {
+        let state: MarketContextState = from_js_value(value)?;
+        let ctx = MarketContext::try_from(state)
+            .map_err(|e| JsValue::from_str(&format!("Failed to build MarketContext: {e}")))?;
+        Ok(JsMarketContext::from_owned(ctx))
     }
 
     #[wasm_bindgen(js_name = insertDiscount)]

@@ -17,6 +17,18 @@ use super::super::{CalibrationConfig, SolverKind};
 /// - Proportional to typical financial quantities (notional-normalized PVs)
 pub const PENALTY: f64 = 1e6;
 
+/// Maximum absolute objective value treated as "valid" during bracketing scans.
+///
+/// Values with `|f(x)| >= OBJECTIVE_VALID_ABS_MAX` are treated as penalized/infeasible
+/// during the scan phase (but are still counted toward total evaluations).
+pub const OBJECTIVE_VALID_ABS_MAX: f64 = PENALTY / 10.0;
+
+/// Minimum absolute residual value treated as a "penalty" for reporting/diagnostics.
+///
+/// This aligns with `CalibrationReport` which excludes penalty-like residuals from RMSE/max
+/// when non-penalty values exist.
+pub const RESIDUAL_PENALTY_ABS_MIN: f64 = PENALTY * 0.5;
+
 /// Solve a 1D root-finding problem using the configured solver kind.
 ///
 /// This replaces the former `with_solver!` macro with a plain helper function
@@ -86,7 +98,7 @@ impl BracketDiagnostics {
 
     fn update(&mut self, point: f64, value: f64) {
         self.eval_count += 1;
-        if value.is_finite() && value.abs() < PENALTY / 10.0 {
+        if value.is_finite() && value.abs() < OBJECTIVE_VALID_ABS_MAX {
             self.valid_eval_count += 1;
             let is_better = match self.best_value {
                 None => true,
@@ -122,7 +134,7 @@ pub(crate) fn bracket_solve_1d_with_diagnostics(
         let value = objective(point);
         diag.update(point, value);
 
-        if !value.is_finite() || value.abs() >= PENALTY / 10.0 {
+        if !value.is_finite() || value.abs() >= OBJECTIVE_VALID_ABS_MAX {
             continue;
         }
 
@@ -136,8 +148,71 @@ pub(crate) fn bracket_solve_1d_with_diagnostics(
                 return Ok((Some(point), diag));
             }
             if prev_value.signum() != value.signum() {
-                let guess = (prev_point + point) * 0.5;
-                let root = solve_1d(SolverKind::Brent, tol, max_iters.max(50), objective, guess)?;
+                // Market-standard: bracket is valid; converge primarily on f-space (|f| < tol).
+                // We prefer a simple bisection on the bracket to guarantee reduction in |f|
+                // for well-behaved monotone objectives. If midpoints become invalid/penalized,
+                // we fall back to Brent+Newton.
+                let mut a = prev_point;
+                let mut b = point;
+                let mut fa = prev_value;
+
+                let mut bisection_ok = true;
+                for _ in 0..max_iters.max(50) {
+                    let m = 0.5 * (a + b);
+                    let fm = objective(m);
+                    diag.update(m, fm);
+
+                    if fm.is_finite() && fm.abs() < tol {
+                        diag.bracket_found = true;
+                        return Ok((Some(m), diag));
+                    }
+
+                    if !fm.is_finite() || fm.abs() >= OBJECTIVE_VALID_ABS_MAX {
+                        bisection_ok = false;
+                        break;
+                    }
+
+                    if fa.signum() != fm.signum() {
+                        b = m;
+                    } else {
+                        a = m;
+                        fa = fm;
+                    }
+                }
+
+                if bisection_ok {
+                    // If we didn't meet tol, return best observed point (if any).
+                    if let (Some(best_point), Some(best_value)) = (diag.best_point, diag.best_value)
+                    {
+                        if best_value.is_finite() && best_value.abs() < tol {
+                            diag.bracket_found = true;
+                            return Ok((Some(best_point), diag));
+                        }
+                    }
+                }
+
+                // Fallback: robust Brent (x-space) + Newton polish (f-space) from bracket midpoint.
+                let guess = 0.5 * (prev_point + point);
+                let root_brent =
+                    solve_1d(SolverKind::Brent, tol, max_iters.max(50), objective, guess)?;
+                let fb2 = objective(root_brent);
+                diag.update(root_brent, fb2);
+                if fb2.is_finite() && fb2.abs() < tol {
+                    diag.bracket_found = true;
+                    return Ok((Some(root_brent), diag));
+                }
+                if let Ok(root_newton) =
+                    solve_1d(SolverKind::Newton, tol, max_iters.max(50), objective, root_brent)
+                {
+                    let fnv = objective(root_newton);
+                    diag.update(root_newton, fnv);
+                    if fnv.is_finite() && fnv.abs() < tol {
+                        diag.bracket_found = true;
+                        return Ok((Some(root_newton), diag));
+                    }
+                }
+
+                let root = root_brent;
                 diag.bracket_found = true;
                 return Ok((Some(root), diag));
             }

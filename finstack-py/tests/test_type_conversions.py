@@ -256,18 +256,32 @@ class TestNoneAndOptionalHandling:
 
     def test_optional_market_context_none(self) -> None:
         """Optional market context should accept None."""
-        from finstack.valuations.calibration import DiscountCurveCalibrator, RatesQuote
-
-        calibrator = DiscountCurveCalibrator("USD-OIS", dt.date(2024, 1, 2), Currency("USD"))
+        from finstack.valuations import calibration as cal
 
         quotes = [
-            RatesQuote.deposit(dt.date(2025, 1, 2), 0.05, DayCount.ACT_360),
-            RatesQuote.deposit(dt.date(2026, 1, 2), 0.055, DayCount.ACT_360),
+            cal.RatesQuote.deposit(dt.date(2025, 1, 2), 0.05, DayCount.ACT_360),
+            cal.RatesQuote.deposit(dt.date(2026, 1, 2), 0.055, DayCount.ACT_360),
+        ]
+        quote_sets = {"ois": [q.to_market_quote() for q in quotes]}
+        steps = [
+            {
+                "id": "disc",
+                "quote_set": "ois",
+                "kind": "discount",
+                "curve_id": "USD-OIS",
+                "currency": "USD",
+                "base_date": "2024-01-02",
+            }
         ]
 
-        # Calibrate without market context (should use None/empty context)
-        curve, report = calibrator.calibrate(quotes, market=None)
-        assert curve is not None
+        # Execute without initial_market (should use empty context)
+        market, report, _step_reports = cal.execute_calibration_v2(
+            "plan_discount_optional_market",
+            quote_sets,
+            steps,
+            initial_market=None,
+        )
+        assert market.discount("USD-OIS") is not None
         assert report.success
 
 

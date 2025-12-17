@@ -123,47 +123,56 @@ class TestCalibrationErrors:
 
     def test_calibration_with_too_few_points(self) -> None:
         """Calibration with insufficient data should raise appropriate error."""
-        from finstack.valuations.calibration import DiscountCurveCalibrator, RatesQuote
+        from finstack.valuations import calibration as cal
 
-        calibrator = DiscountCurveCalibrator("USD-OIS", dt.date(2024, 1, 2), Currency("USD"))
+        quote_sets = {"ois": []}
+        steps = [
+            {
+                "id": "disc",
+                "quote_set": "ois",
+                "kind": "discount",
+                "curve_id": "USD-OIS",
+                "currency": "USD",
+                "base_date": "2024-01-02",
+            }
+        ]
 
-        # Single quote should fail (need at least 2 points)
-        quotes = [RatesQuote.deposit(dt.date(2025, 1, 2), 0.05, DayCount.ACT_360)]
-
-        # Single quote might be accepted (creates flat curve) or rejected
-        # The calibrator may accept a single quote, so we'll skip this test or check for success
-        market_ctx = MarketContext()
-        try:
-            curve, _report = calibrator.calibrate(quotes, market_ctx)
-            # If it succeeds, that's also valid behavior - single quote creates flat curve
-            assert curve is not None
-        except (finstack.ParameterError, finstack.ValidationError, ValueError) as e:
-            # If it fails, that's also valid - check error mentions insufficient data
-            error_msg = str(e).lower()
-            assert "at least" in error_msg or "insufficient" in error_msg or "too few" in error_msg
+        with pytest.raises((finstack.ValidationError, finstack.ParameterError, RuntimeError, ValueError)):
+            cal.execute_calibration_v2("plan_empty_quotes", quote_sets, steps)
 
     def test_calibration_with_non_monotonic_knots(self) -> None:
         """Non-monotonic times should raise ParameterError."""
         # Create quotes with non-increasing maturities
-        from finstack.valuations.calibration import DiscountCurveCalibrator, RatesQuote
+        from finstack.valuations import calibration as cal
 
-        calibrator = DiscountCurveCalibrator("USD-OIS", dt.date(2024, 1, 2), Currency("USD"))
-
-        # Quotes with decreasing maturities (invalid)
         quotes = [
-            RatesQuote.deposit(dt.date(2026, 1, 2), 0.05, DayCount.ACT_360),
-            RatesQuote.deposit(dt.date(2025, 1, 2), 0.04, DayCount.ACT_360),  # Earlier maturity after later one
+            cal.RatesQuote.deposit(dt.date(2026, 1, 2), 0.05, DayCount.ACT_360),
+            cal.RatesQuote.deposit(dt.date(2025, 1, 2), 0.04, DayCount.ACT_360),  # Earlier maturity after later one
+        ]
+        quote_sets = {"ois": [q.to_market_quote() for q in quotes]}
+        steps = [
+            {
+                "id": "disc",
+                "quote_set": "ois",
+                "kind": "discount",
+                "curve_id": "USD-OIS",
+                "currency": "USD",
+                "base_date": "2024-01-02",
+            }
         ]
 
-        market_ctx = MarketContext()
-        # The calibrator may sort quotes automatically, so non-monotonic might not error
-        # Try calibration and check if it succeeds or fails appropriately
+        # Quotes may be internally sorted/validated. Accept either outcome.
         try:
-            curve, _report = calibrator.calibrate(quotes, market_ctx)
-            # If it succeeds, quotes were likely sorted automatically
-            assert curve is not None
-        except (finstack.ParameterError, finstack.CalibrationError, ValueError) as e:
-            # If it fails, check error mentions ordering
+            market, report, _ = cal.execute_calibration_v2("plan_non_monotonic", quote_sets, steps)
+            assert market.discount("USD-OIS") is not None
+            assert report is not None
+        except (
+            finstack.ParameterError,
+            finstack.CalibrationError,
+            finstack.ValidationError,
+            RuntimeError,
+            ValueError,
+        ) as e:
             error_msg = str(e).lower()
             assert any(word in error_msg for word in ["monotonic", "increasing", "decreasing", "order", "sorted"])
 

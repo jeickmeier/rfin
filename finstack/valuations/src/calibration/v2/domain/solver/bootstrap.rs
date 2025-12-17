@@ -2,11 +2,12 @@
 
 use super::traits::BootstrapTarget;
 use crate::calibration::{
-    bracket_solve_1d_with_diagnostics, create_simple_solver, CalibrationConfig, CalibrationReport,
-    PENALTY,
+    bracket_solve_1d_with_diagnostics, CalibrationConfig, CalibrationReport, OBJECTIVE_VALID_ABS_MAX,
+    RESIDUAL_PENALTY_ABS_MIN,
 };
 use finstack_core::prelude::*;
 use std::collections::BTreeMap;
+use std::sync::atomic::{AtomicUsize, Ordering};
 
 /// Generic sequential bootstrapper.
 pub struct SequentialBootstrapper;
@@ -15,7 +16,7 @@ impl SequentialBootstrapper {
     /// Run the sequential bootstrapping algorithm.
     pub fn bootstrap<T>(
         target: &T,
-        sorted_quotes: &[T::Quote],
+        quotes: &[T::Quote],
         initial_knots: Vec<(f64, f64)>,
         config: &CalibrationConfig,
         mut trace: Option<finstack_core::explain::ExplanationTrace>,
@@ -26,22 +27,69 @@ impl SequentialBootstrapper {
         let mut knots = initial_knots;
         let mut residuals = BTreeMap::new();
         let mut total_iterations = 0;
+        let mut last_time = knots
+            .iter()
+            .map(|(t, _)| *t)
+            .fold(0.0_f64, f64::max);
 
-        let solver = create_simple_solver(config);
+        // Centralized sorting by quote time for deterministic bootstrapping.
+        // We intentionally do not assume `quotes` are pre-sorted.
+        let mut quote_times: Vec<(f64, usize)> = Vec::with_capacity(quotes.len());
+        for (idx, quote) in quotes.iter().enumerate() {
+            let time = target.quote_time(quote).map_err(|e| finstack_core::Error::Calibration {
+                message: format!("Bootstrap failed to compute quote_time for quote index {idx}: {e}"),
+                category: "bootstrapping".to_string(),
+            })?;
+            if !time.is_finite() || time <= 0.0 {
+                return Err(finstack_core::Error::Calibration {
+                    message: format!(
+                        "Bootstrap quote_time must be finite and > 0; got t={} (quote index {})",
+                        time, idx
+                    ),
+                    category: "bootstrapping".to_string(),
+                });
+            }
+            quote_times.push((time, idx));
+        }
+        quote_times.sort_by(|(t1, i1), (t2, i2)| {
+            t1.partial_cmp(t2)
+                .unwrap_or(std::cmp::Ordering::Equal)
+                .then_with(|| i1.cmp(i2))
+        });
 
-        // Iterate through sorted quotes
-        for (idx, quote) in sorted_quotes.iter().enumerate() {
-            // Calculate knot time
-            let time = target.quote_time(quote)?;
+        // Iterate through time-sorted quotes
+        for (sorted_idx, (time, original_idx)) in quote_times.into_iter().enumerate() {
+            let quote = &quotes[original_idx];
+            if time < last_time {
+                return Err(finstack_core::Error::Calibration {
+                    message: format!(
+                        "Bootstrap requires increasing quote times; got t={:.12} after last_time={:.12} (quote index {})",
+                        time, last_time, original_idx
+                    ),
+                    category: "bootstrapping".to_string(),
+                });
+            }
+            if (time - last_time).abs() <= 1e-12 {
+                return Err(finstack_core::Error::Calibration {
+                    message: format!(
+                        "Bootstrap rejects duplicate quote times: t={:.12} appears more than once (quote index {})",
+                        time, original_idx
+                    ),
+                    category: "bootstrapping".to_string(),
+                });
+            }
 
             // Initial guess
             let initial_guess = target.initial_guess(quote, &knots)?;
 
-            let residual_error: std::cell::RefCell<Option<finstack_core::Error>> =
-                std::cell::RefCell::new(None);
+            // Track the first evaluation error for diagnostics, but do not fail unless all
+            // evaluations are invalid/penalized (market-standard behavior).
+            let first_eval_error: std::cell::RefCell<Option<String>> = std::cell::RefCell::new(None);
+            let eval_counter = AtomicUsize::new(0);
 
             // Define objective function
             let objective = |value: f64| -> f64 {
+                let eval_idx = eval_counter.fetch_add(1, Ordering::Relaxed) + 1;
                 // Build temporary knots list
                 let mut temp_knots = Vec::with_capacity(knots.len() + 1);
                 temp_knots.extend_from_slice(&knots);
@@ -51,10 +99,14 @@ impl SequentialBootstrapper {
                 let curve = match target.build_curve_for_solver(&temp_knots) {
                     Ok(c) => c,
                     Err(e) => {
-                        if residual_error.borrow().is_none() {
-                            *residual_error.borrow_mut() = Some(e);
+                        if first_eval_error.borrow().is_none() {
+                            *first_eval_error.borrow_mut() = Some(format!(
+                                "eval#{eval_idx} curve construction failed at value={value}: {e}"
+                            ));
                         }
-                        return PENALTY;
+                        // Market-standard: treat infeasible evaluations as invalid (not a flat penalty),
+                        // so the scan/bracketing logic can ignore them without polluting diagnostics.
+                        return f64::NAN;
                     }
                 };
 
@@ -62,16 +114,18 @@ impl SequentialBootstrapper {
                 match target.calculate_residual(&curve, quote) {
                     Ok(r) => r,
                     Err(e) => {
-                        if residual_error.borrow().is_none() {
-                            *residual_error.borrow_mut() = Some(e);
+                        if first_eval_error.borrow().is_none() {
+                            *first_eval_error.borrow_mut() = Some(format!(
+                                "eval#{eval_idx} residual evaluation failed at value={value}: {e}"
+                            ));
                         }
-                        PENALTY
+                        f64::NAN
                     }
                 }
             };
 
             // Determine scan points
-            let scan_points = {
+            let mut scan_points = {
                 let points = target.scan_points(quote, initial_guess)?;
                 if !points.is_empty() {
                     points
@@ -82,19 +136,33 @@ impl SequentialBootstrapper {
                         0.0
                     };
 
-                    let mag = center.abs().max(1.0);
-                    let step = (0.25 * mag).max(1e-6);
-                    vec![
-                        center - 4.0 * step,
-                        center - 2.0 * step,
-                        center - 1.0 * step,
-                        center,
-                        center + 1.0 * step,
-                        center + 2.0 * step,
-                        center + 4.0 * step,
-                    ]
+                    // Default scan grid: geometric expansion around the initial guess.
+                    // This is more robust than fixed +/- k*step heuristics across regimes.
+                    let step0 = (1e-4 * (1.0 + center.abs())).max(1e-8);
+                    let mut pts = Vec::with_capacity(2 * 16 + 1);
+                    pts.push(center);
+                    let mut step = step0;
+                    for _ in 0..16 {
+                        pts.push(center - step);
+                        pts.push(center + step);
+                        step *= 2.0;
+                    }
+                    pts
                 }
             };
+            // Defensive normalization (targets may provide unsorted or duplicated scan grids).
+            scan_points.retain(|x| x.is_finite());
+            if initial_guess.is_finite() {
+                scan_points.push(initial_guess);
+            }
+            scan_points.sort_by(|a, b| a.partial_cmp(b).unwrap_or(std::cmp::Ordering::Equal));
+            scan_points.dedup_by(|a, b| (*a - *b).abs() < 1e-12);
+            if scan_points.is_empty() {
+                return Err(finstack_core::Error::Calibration {
+                    message: format!("Bootstrap failed at t={:.6}: scan_points is empty after filtering non-finite values.", time),
+                    category: "bootstrapping".to_string(),
+                });
+            }
             let scan_points_ref = scan_points.as_slice();
 
             // Solve using bracket + polish
@@ -106,39 +174,54 @@ impl SequentialBootstrapper {
                 config.max_iterations,
             )?;
 
-            if let Some(e) = residual_error.borrow_mut().take() {
-                return Err(finstack_core::Error::Calibration {
-                    message: format!(
-                        "Bootstrap residual evaluation failed at t={:.4}: {}",
-                        time, e
-                    ),
-                    category: "bootstrapping".to_string(),
-                });
-            }
-
             total_iterations += diag.eval_count;
 
             let solved_value = if let Some(root) = tentative {
                 root
             } else {
-                // No bracket found - try direct solver if we had valid points
-                if diag.valid_eval_count == 0 {
+                // No sign-change bracket found.
+                // Market-standard behavior: if the scan found a point already within tolerance,
+                // accept it; otherwise fail fast rather than running a generic solver through
+                // infeasible regions (which is often unstable and non-deterministic).
+                if let (Some(best_x), Some(best_f)) = (diag.best_point, diag.best_value) {
+                    if best_f.is_finite() && best_f.abs() <= config.tolerance {
+                        best_x
+                    } else {
+                        return Err(finstack_core::Error::Calibration {
+                            message: format!(
+                                "Bootstrap failed at t={:.6}: no bracket found and best |residual|={:.3e} exceeds tolerance={:.3e} (scan_bounds=[{:.3e}, {:.3e}])",
+                                time,
+                                best_f.abs(),
+                                config.tolerance,
+                                diag.scan_bounds.0,
+                                diag.scan_bounds.1
+                            ),
+                            category: "bootstrapping".to_string(),
+                        });
+                    }
+                } else if diag.valid_eval_count == 0 {
+                    let hint = first_eval_error.borrow().clone().unwrap_or_else(|| {
+                        "no error recorded (all evaluations penalized or non-finite)".to_string()
+                    });
                     return Err(finstack_core::Error::Calibration {
                         message: format!(
-                            "Bootstrap failed at t={:.4}: all {} objective evaluations returned invalid/penalized values.", 
-                            time, diag.eval_count
+                            "Bootstrap failed at t={:.6}: all {} objective evaluations returned invalid/penalized values (|f| >= {:.3e}). First error: {}",
+                            time, diag.eval_count, OBJECTIVE_VALID_ABS_MAX, hint
+                        ),
+                        category: "bootstrapping".to_string(),
+                    });
+                } else {
+                    return Err(finstack_core::Error::Calibration {
+                        message: format!(
+                            "Bootstrap failed at t={:.6}: no bracket found despite {} valid evaluations (scan_bounds=[{:.3e}, {:.3e}]).",
+                            time,
+                            diag.valid_eval_count,
+                            diag.scan_bounds.0,
+                            diag.scan_bounds.1
                         ),
                         category: "bootstrapping".to_string(),
                     });
                 }
-
-                let best_guess = diag.best_point.unwrap_or(initial_guess);
-                solver.solve(objective, best_guess).map_err(|e| {
-                    finstack_core::Error::Calibration {
-                        message: format!("Bootstrap solver failed at t={:.4}: {}", time, e),
-                        category: "bootstrapping".to_string(),
-                    }
-                })?
             };
 
             // Validate result
@@ -148,33 +231,44 @@ impl SequentialBootstrapper {
             let mut final_knots = knots.clone();
             final_knots.push((time, solved_value));
             let final_curve = target.build_curve_for_solver(&final_knots)?;
-            let residual = target.calculate_residual(&final_curve, quote)?.abs();
+            let residual_signed = target.calculate_residual(&final_curve, quote)?;
+            let residual_abs = residual_signed.abs();
 
-            if !residual.is_finite() || residual > PENALTY * 0.5 {
+            if !residual_signed.is_finite() || residual_abs >= RESIDUAL_PENALTY_ABS_MIN {
                 return Err(finstack_core::Error::Calibration {
                     message: format!(
-                        "Solver converged to invalid residual at t={:.4}: {}",
-                        time, residual
+                        "Bootstrap converged to invalid/penalty residual at t={:.6}: residual={} (|.|={:.3e})",
+                        time, residual_signed, residual_abs
+                    ),
+                    category: "bootstrapping".to_string(),
+                });
+            }
+            if residual_abs > config.tolerance {
+                return Err(finstack_core::Error::Calibration {
+                    message: format!(
+                        "Bootstrap failed to converge at t={:.6}: residual={} (|.|={:.3e}) exceeds tolerance={:.3e}",
+                        time, residual_signed, residual_abs, config.tolerance
                     ),
                     category: "bootstrapping".to_string(),
                 });
             }
 
             knots.push((time, solved_value));
+            last_time = time;
 
             // Store residual
-            let key = format!("quote_{:06}", idx);
-            residuals.insert(key, residual);
+            let key = format!("quote_{:06}", sorted_idx);
+            residuals.insert(key, residual_signed);
 
             // Trace
             if let Some(t) = &mut trace {
                 use finstack_core::explain::TraceEntry;
                 t.push(
                     TraceEntry::CalibrationIteration {
-                        iteration: idx,
-                        residual,
+                        iteration: sorted_idx,
+                        residual: residual_signed,
                         knots_updated: vec![format!("t={:.4}", time)],
-                        converged: true,
+                        converged: residual_abs <= config.tolerance,
                     },
                     config.explain.max_entries,
                 );
@@ -197,5 +291,283 @@ impl SequentialBootstrapper {
         };
 
         Ok((final_curve, report))
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use finstack_core::Error;
+
+    #[derive(Clone, Debug)]
+    struct DummyQuote {
+        t: f64,
+        root: f64,
+        scale: f64,
+        unsorted_scan: bool,
+        infeasible_below: Option<f64>,
+    }
+
+    struct DummyTarget;
+
+    impl BootstrapTarget for DummyTarget {
+        type Quote = DummyQuote;
+        type Curve = f64;
+
+        fn quote_time(&self, quote: &Self::Quote) -> Result<f64> {
+            Ok(quote.t)
+        }
+
+        fn build_curve(&self, knots: &[(f64, f64)]) -> Result<Self::Curve> {
+            knots.last()
+                .map(|(_, v)| *v)
+                .ok_or(Error::Input(finstack_core::error::InputError::TooFewPoints))
+        }
+
+        fn build_curve_for_solver(&self, knots: &[(f64, f64)]) -> Result<Self::Curve> {
+            self.build_curve(knots)
+        }
+
+        fn calculate_residual(&self, curve: &Self::Curve, quote: &Self::Quote) -> Result<f64> {
+            if let Some(th) = quote.infeasible_below {
+                if *curve < th {
+                    return Err(Error::Calibration {
+                        message: format!("infeasible curve value {}", curve),
+                        category: "test".to_string(),
+                    });
+                }
+            }
+            // Residual is scaled in f-space to test tolerance enforcement.
+            Ok(quote.scale * (*curve - quote.root))
+        }
+
+        fn initial_guess(&self, _quote: &Self::Quote, _previous_knots: &[(f64, f64)]) -> Result<f64> {
+            Ok(0.0)
+        }
+
+        fn scan_points(&self, quote: &Self::Quote, _initial_guess: f64) -> Result<Vec<f64>> {
+            let base = vec![-1.0, 0.0, 0.25, 0.75, 1.0];
+            if quote.unsorted_scan {
+                Ok(vec![1.0, 0.0, 0.75, 0.25, -1.0])
+            } else {
+                Ok(base)
+            }
+        }
+
+        fn validate_knot(&self, _time: f64, value: f64) -> Result<()> {
+            if !value.is_finite() {
+                return Err(Error::Calibration {
+                    message: "non-finite knot".to_string(),
+                    category: "test".to_string(),
+                });
+            }
+            Ok(())
+        }
+    }
+
+    #[test]
+    fn bootstrap_succeeds_with_unsorted_scan_points() {
+        let target = DummyTarget;
+        let q = DummyQuote {
+            t: 1.0,
+            root: 0.5,
+            scale: 1.0,
+            unsorted_scan: true,
+            infeasible_below: None,
+        };
+        let cfg = CalibrationConfig {
+            tolerance: 1e-10,
+            max_iterations: 200,
+            ..CalibrationConfig::default()
+        };
+        let (curve, report) =
+            SequentialBootstrapper::bootstrap(&target, &[q], vec![(0.0, 0.0)], &cfg, None)
+                .expect("bootstrap should succeed");
+        assert!((curve - 0.5).abs() < 1e-6);
+        assert!(report.success);
+    }
+
+    #[test]
+    fn bootstrap_succeeds_with_infeasible_trial_points() {
+        // Some objective evaluations error out (infeasible region), but a valid root exists.
+        let target = DummyTarget;
+        let q = DummyQuote {
+            t: 1.0,
+            root: 0.5,
+            scale: 1.0,
+            unsorted_scan: false,
+            infeasible_below: Some(0.0),
+        };
+        let cfg = CalibrationConfig {
+            tolerance: 1e-10,
+            max_iterations: 200,
+            ..CalibrationConfig::default()
+        };
+        let (curve, report) =
+            SequentialBootstrapper::bootstrap(&target, &[q], vec![(0.0, 0.0)], &cfg, None)
+                .expect("bootstrap should succeed despite infeasible points");
+        assert!((curve - 0.5).abs() < 1e-6);
+        assert!(report.success);
+    }
+
+    #[test]
+    fn bootstrap_rejects_when_all_objective_evals_are_penalized() {
+        // Extremely steep residuals can exceed the objective validity cap used by the
+        // bracketing diagnostics. In that case, we should fail with a clear error.
+        let target = DummyTarget;
+        let q = DummyQuote {
+            t: 1.0,
+            root: 0.5,
+            scale: 1e9, // makes |f| >> OBJECTIVE_VALID_ABS_MAX across the scan grid
+            unsorted_scan: false,
+            infeasible_below: None,
+        };
+        let cfg = CalibrationConfig {
+            tolerance: 1e-10,
+            max_iterations: 200,
+            solver_kind: crate::calibration::SolverKind::Brent,
+            ..CalibrationConfig::default()
+        };
+        let err = SequentialBootstrapper::bootstrap(&target, &[q], vec![(0.0, 0.0)], &cfg, None)
+            .expect_err("should fail when all evaluations are penalized");
+        let msg = format!("{err}");
+        assert!(
+            msg.contains("all") && msg.contains("objective evaluations") && msg.contains("invalid/penalized"),
+            "unexpected error message: {msg}"
+        );
+    }
+
+    #[test]
+    fn bootstrap_enforces_f_space_tolerance_not_just_x_space() {
+        // Core Brent termination is x-space based. For large-magnitude roots and steep residuals,
+        // x-space termination can occur while |residual| is still far above tolerance.
+        // This test ensures the bootstrapper enforces |residual| <= tolerance after solving.
+        #[derive(Clone, Debug)]
+        struct SteepQuote {
+            t: f64,
+            root: f64,
+            scale: f64,
+        }
+
+        struct SteepTarget;
+
+        impl BootstrapTarget for SteepTarget {
+            type Quote = SteepQuote;
+            type Curve = f64;
+
+            fn quote_time(&self, quote: &Self::Quote) -> Result<f64> {
+                Ok(quote.t)
+            }
+
+            fn build_curve(&self, knots: &[(f64, f64)]) -> Result<Self::Curve> {
+                knots.last()
+                    .map(|(_, v)| *v)
+                    .ok_or(Error::Input(finstack_core::error::InputError::TooFewPoints))
+            }
+
+            fn calculate_residual(&self, curve: &Self::Curve, quote: &Self::Quote) -> Result<f64> {
+                let dx = *curve - quote.root;
+                // Make the true root occur at a sub-ULP shift from `quote.root` at this magnitude
+                // so no representable x can achieve |residual| <= tol.
+                // This forces the bootstrapper's post-solve f-space tolerance check to trigger.
+                Ok(quote.scale * dx + dx * dx * dx + 1e-6)
+            }
+
+            fn initial_guess(
+                &self,
+                quote: &Self::Quote,
+                _previous_knots: &[(f64, f64)],
+            ) -> Result<f64> {
+                // Avoid starting at the root, and avoid symmetric brackets that hit the root at the first midpoint.
+                Ok(quote.root + 1.3)
+            }
+
+            fn scan_points(&self, quote: &Self::Quote, _initial_guess: f64) -> Result<Vec<f64>> {
+                // Deliberately asymmetric bracket so bisection midpoints don't immediately equal `root`.
+                Ok(vec![quote.root - 1.0, quote.root + 2.0])
+            }
+        }
+
+        let target = SteepTarget;
+        let q = SteepQuote {
+            t: 1.0,
+            root: 1.0e8 + 0.1,
+            // Keep |f| within the objective-valid cap for scan points (dx=±1 => |f| ~ 1e4).
+            scale: 1.0e4,
+        };
+        let cfg = CalibrationConfig {
+            tolerance: 1e-10,
+            max_iterations: 200,
+            solver_kind: crate::calibration::SolverKind::Brent,
+            ..CalibrationConfig::default()
+        };
+        let err = SequentialBootstrapper::bootstrap(&target, &[q], vec![(0.0, 0.0)], &cfg, None)
+            .expect_err("bootstrap should fail due to f-space tolerance enforcement");
+        let msg = format!("{err}");
+        assert!(msg.contains("exceeds tolerance"), "unexpected error message: {msg}");
+    }
+
+    #[test]
+    fn bootstrap_rejects_non_increasing_times() {
+        let target = DummyTarget;
+        let q1 = DummyQuote {
+            t: 1.0,
+            root: 0.5,
+            scale: 1.0,
+            unsorted_scan: false,
+            infeasible_below: None,
+        };
+        let q2 = DummyQuote { t: 1.0, ..q1.clone() };
+        let cfg = CalibrationConfig::default();
+        let err =
+            SequentialBootstrapper::bootstrap(&target, &[q1, q2], vec![(0.0, 0.0)], &cfg, None)
+                .expect_err("should reject duplicate times");
+        assert!(format!("{err}").contains("duplicate quote times"));
+    }
+
+    #[test]
+    fn bootstrap_is_deterministic_under_quote_shuffling() {
+        let target = DummyTarget;
+        let q_short = DummyQuote {
+            t: 1.0,
+            root: 0.25,
+            scale: 1.0,
+            unsorted_scan: false,
+            infeasible_below: None,
+        };
+        let q_long = DummyQuote {
+            t: 2.0,
+            root: 0.75,
+            scale: 1.0,
+            unsorted_scan: false,
+            infeasible_below: None,
+        };
+        let cfg = CalibrationConfig {
+            tolerance: 1e-12,
+            max_iterations: 200,
+            ..CalibrationConfig::default()
+        };
+
+        let (curve_sorted, report_sorted) = SequentialBootstrapper::bootstrap(
+            &target,
+            &[q_short.clone(), q_long.clone()],
+            vec![(0.0, 0.0)],
+            &cfg,
+            None,
+        )
+        .expect("sorted input should succeed");
+        let (curve_shuffled, report_shuffled) = SequentialBootstrapper::bootstrap(
+            &target,
+            &[q_long, q_short],
+            vec![(0.0, 0.0)],
+            &cfg,
+            None,
+        )
+        .expect("shuffled input should succeed");
+
+        assert!((curve_sorted - curve_shuffled).abs() < 1e-12);
+        assert_eq!(report_sorted.residuals, report_shuffled.residuals);
+        assert!((report_sorted.rmse - report_shuffled.rmse).abs() < 1e-12);
+        assert!((report_sorted.objective_value - report_shuffled.objective_value).abs() < 1e-12);
     }
 }
