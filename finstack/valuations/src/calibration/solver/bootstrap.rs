@@ -104,7 +104,7 @@ impl SequentialBootstrapper {
                 let temp_knots = &*temp_knots_guard;
 
                 // 1. Build temporary curve
-                let curve = match target.build_curve_for_solver(&temp_knots) {
+                let curve = match target.build_curve_for_solver(temp_knots) {
                     Ok(c) => c,
                     Err(e) => {
                         if first_eval_error.borrow().is_none() {

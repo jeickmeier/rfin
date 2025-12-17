@@ -59,7 +59,9 @@ use finstack_core::dates::{BusinessDayConvention, Date, DayCount, DayCountCtx, T
 use finstack_core::market_data::context::MarketContext;
 use finstack_core::math::interp::InterpStyle;
 use finstack_valuations::calibration::adapters::handlers::execute_step;
-use finstack_valuations::calibration::api::schema::{CalibrationMethod, DiscountCurveParams, StepParams};
+use finstack_valuations::calibration::api::schema::{
+    CalibrationMethod, DiscountCurveParams, StepParams,
+};
 use finstack_valuations::calibration::quotes::{InstrumentConventions, MarketQuote, RatesQuote};
 use finstack_valuations::calibration::{CalibrationConfig, CALIBRATION_CONFIG_KEY_V2};
 use time::Month;
@@ -436,13 +438,12 @@ fn test_bloomberg_usd_ois_calibration_accuracy() {
         serde_json::json!({
             "solver": {
                 "method": "brent",
-                "tolerance": 1e-8,
-                "max_iterations": 200
+                "tolerance": 1e-10,
+                "max_iterations": 500
             }
         }),
     );
-    let settings =
-        CalibrationConfig::from_finstack_config_or_default(&cfg).expect("valid config");
+    let settings = CalibrationConfig::from_finstack_config_or_default(&cfg).expect("valid config");
 
     let params = DiscountCurveParams {
         curve_id: "USD-OIS".into(),
@@ -470,18 +471,25 @@ fn test_bloomberg_usd_ois_calibration_accuracy() {
         },
     };
     let step = StepParams::Discount(params);
-    let quotes: Vec<MarketQuote> = discount_quotes.iter().cloned().map(MarketQuote::Rates).collect();
+    let quotes: Vec<MarketQuote> = discount_quotes
+        .iter()
+        .cloned()
+        .map(MarketQuote::Rates)
+        .collect();
     let base_context = MarketContext::new();
 
     let (ctx, report) = execute_step(&step, &quotes, &base_context, &settings)
         .expect("Discount curve calibration should succeed");
-    let curve = ctx.get_discount_ref("USD-OIS").expect("curve inserted").clone();
+    let curve = ctx
+        .get_discount_ref("USD-OIS")
+        .expect("curve inserted")
+        .clone();
 
     // Verify calibration succeeded
     assert!(report.success, "Calibration should report success");
     assert!(
-        report.max_residual < 1e-8,
-        "Calibration max_residual must be < 1e-8 (market-standard). Got {:.3e}. Reason: {}",
+        report.max_residual < 1e-10,
+        "Calibration max_residual must be < 1e-10 (market-standard). Got {:.3e}. Reason: {}",
         report.max_residual,
         report.convergence_reason
     );
@@ -594,7 +602,7 @@ fn test_bloomberg_usd_ois_calibration_accuracy() {
     // - Short-end (deposits): should match essentially exactly.
     // - Mid-term (1-10Y swaps): sub-bp DF differences.
     // - Long-end (>10Y swaps): a few bp due to annuity sensitivity to interpolation.
-    let short_end_tolerance_bp = 0.1;
+    let short_end_tolerance_bp = 0.01;
     assert!(
         short_end_max_df < short_end_tolerance_bp,
         "Short-end DF max diff ({:.3}bp) exceeds tolerance ({:.1}bp). \
@@ -604,7 +612,7 @@ fn test_bloomberg_usd_ois_calibration_accuracy() {
     );
 
     // Mid-term (1-10Y): should match closely (vendor-grade).
-    let mid_term_tolerance_bp = 0.5;
+    let mid_term_tolerance_bp = 0.30;
     assert!(
         mid_term_max_df < mid_term_tolerance_bp,
         "Mid-term DF max diff ({:.3}bp) exceeds tolerance ({:.1}bp). \
@@ -615,7 +623,7 @@ fn test_bloomberg_usd_ois_calibration_accuracy() {
 
     // Long-end (>10Y): allow a few bp because interpolation differences between
     // pillar points compound through the swap annuity.
-    let long_end_tolerance_bp = 5.0;
+    let long_end_tolerance_bp = 4.75;
     assert!(
         long_end_max_df < long_end_tolerance_bp,
         "Long-end DF max diff ({:.3}bp) exceeds tolerance ({:.1}bp). \
@@ -625,7 +633,7 @@ fn test_bloomberg_usd_ois_calibration_accuracy() {
     );
 
     // Zero rates check (annual compounding, computed consistently from published DF).
-    let zero_rate_tolerance_bp = 1.0;
+    let zero_rate_tolerance_bp = 0.60;
     assert!(
         max_zero_diff < zero_rate_tolerance_bp,
         "Max zero rate diff ({:.2}bp) exceeds tolerance ({:.1}bp). \
@@ -751,7 +759,11 @@ fn test_interpolation_method_comparison() {
     ];
 
     let base_context = MarketContext::new();
-    let quotes: Vec<MarketQuote> = test_quotes.iter().cloned().map(MarketQuote::Rates).collect();
+    let quotes: Vec<MarketQuote> = test_quotes
+        .iter()
+        .cloned()
+        .map(MarketQuote::Rates)
+        .collect();
     let settings = CalibrationConfig::default();
 
     // Test MonotoneConvex (industry standard)
@@ -773,7 +785,10 @@ fn test_interpolation_method_comparison() {
         &settings,
     )
     .expect("MonotoneConvex calibration should succeed");
-    let mc_curve = mc_ctx.get_discount_ref("USD-OIS-MC").expect("curve inserted").clone();
+    let mc_curve = mc_ctx
+        .get_discount_ref("USD-OIS-MC")
+        .expect("curve inserted")
+        .clone();
 
     // Test LogLinear (piecewise constant zero rates)
     let ll_params = DiscountCurveParams {
@@ -794,7 +809,10 @@ fn test_interpolation_method_comparison() {
         &settings,
     )
     .expect("LogLinear calibration should succeed");
-    let ll_curve = ll_ctx.get_discount_ref("USD-OIS-LL").expect("curve inserted").clone();
+    let ll_curve = ll_ctx
+        .get_discount_ref("USD-OIS-LL")
+        .expect("curve inserted")
+        .clone();
 
     assert!(mc_report.success, "MonotoneConvex should succeed");
     assert!(ll_report.success, "LogLinear should succeed");
