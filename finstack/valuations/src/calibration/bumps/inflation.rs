@@ -3,7 +3,7 @@
 use super::BumpRequest;
 use crate::calibration::adapters::handlers::execute_step;
 use crate::calibration::api::schema::{CalibrationMethod, InflationCurveParams, StepParams};
-use crate::calibration::domain::quotes::{InflationQuote, MarketQuote};
+use crate::calibration::quotes::{InflationQuote, MarketQuote};
 use crate::calibration::CalibrationConfig;
 use finstack_core::market_data::context::MarketContext;
 use finstack_core::market_data::term_structures::inflation::InflationCurve;

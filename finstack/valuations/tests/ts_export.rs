@@ -3,7 +3,7 @@
 use finstack_valuations::calibration::{
     CalibrationConfig, MultiCurveConfig, RateBounds, SolverKind, ValidationMode,
 };
-use finstack_valuations::calibration::domain::quotes::{
+use finstack_valuations::calibration::quotes::{
     CreditQuote, FutureSpecs, InflationQuote, MarketQuote, RatesQuote, VolQuote,
 };
 use ts_rs::TS;

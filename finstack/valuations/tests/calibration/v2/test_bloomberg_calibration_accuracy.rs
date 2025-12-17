@@ -61,7 +61,7 @@ use finstack_core::market_data::context::MarketContext;
 use finstack_core::math::interp::InterpStyle;
 use finstack_valuations::calibration::adapters::handlers::execute_step;
 use finstack_valuations::calibration::api::schema::{CalibrationMethod, DiscountCurveParams, StepParams};
-use finstack_valuations::calibration::domain::quotes::{InstrumentConventions, MarketQuote, RatesQuote};
+use finstack_valuations::calibration::quotes::{InstrumentConventions, MarketQuote, RatesQuote};
 use finstack_valuations::calibration::{CalibrationConfig, CALIBRATION_CONFIG_KEY_V2};
 use time::Month;
 

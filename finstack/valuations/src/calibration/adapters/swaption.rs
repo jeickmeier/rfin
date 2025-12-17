@@ -2,7 +2,7 @@ use crate::calibration::config::CalibrationConfig;
 use crate::calibration::api::schema::{
     SurfaceExtrapolationPolicy, SwaptionVolConvention, SwaptionVolParams,
 };
-use crate::calibration::domain::quotes::{InstrumentConventions, MarketQuote, VolQuote};
+use crate::calibration::quotes::{InstrumentConventions, MarketQuote, VolQuote};
 use crate::calibration::CalibrationReport;
 use crate::instruments::common::models::{SABRCalibrator, SABRModel, SABRParameters};
 use finstack_core::dates::{

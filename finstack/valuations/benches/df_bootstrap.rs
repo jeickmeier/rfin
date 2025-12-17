@@ -4,7 +4,7 @@ use finstack_core::dates::{Date, DayCount, Tenor};
 use finstack_core::market_data::context::MarketContext;
 use finstack_valuations::calibration::adapters::handlers::execute_step;
 use finstack_valuations::calibration::api::schema::{CalibrationMethod, DiscountCurveParams, StepParams};
-use finstack_valuations::calibration::domain::quotes::{InstrumentConventions, MarketQuote, RatesQuote};
+use finstack_valuations::calibration::quotes::{InstrumentConventions, MarketQuote, RatesQuote};
 use finstack_valuations::calibration::CalibrationConfig;
 use std::hint::black_box;
 use time::Month;

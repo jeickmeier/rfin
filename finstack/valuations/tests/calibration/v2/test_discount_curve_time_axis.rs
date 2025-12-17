@@ -5,9 +5,9 @@ use finstack_core::types::{Currency, CurveId};
 use finstack_valuations::calibration::adapters::discount::{
     DiscountCurveTarget, DiscountCurveTargetParams,
 };
-use finstack_valuations::calibration::domain::pricing::CalibrationPricer;
-use finstack_valuations::calibration::domain::quotes::{InstrumentConventions, RatesQuote};
-use finstack_valuations::calibration::domain::solver::{BootstrapTarget, GlobalSolveTarget};
+use finstack_valuations::calibration::pricing::CalibrationPricer;
+use finstack_valuations::calibration::quotes::{InstrumentConventions, RatesQuote};
+use finstack_valuations::calibration::solver::{BootstrapTarget, GlobalSolveTarget};
 use finstack_valuations::calibration::CalibrationConfig;
 use time::{Duration, Month};
 

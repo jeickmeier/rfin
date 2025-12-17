@@ -3,8 +3,8 @@
 //! Defines the JSON contract for plan-driven calibration.
 
 use crate::calibration::config::CalibrationConfig;
-use crate::calibration::domain::pricing::ConvexityParameters;
-use crate::calibration::domain::quotes::MarketQuote;
+use crate::calibration::pricing::ConvexityParameters;
+use crate::calibration::quotes::MarketQuote;
 use crate::calibration::CalibrationReport;
 use finstack_core::config::ResultsMeta;
 use finstack_core::dates::BusinessDayConvention;

@@ -9,7 +9,7 @@ use finstack_valuations::calibration::api::schema::{
     CalibrationEnvelopeV2, CalibrationPlanV2, CalibrationStepV2, StepParams,
     SurfaceExtrapolationPolicy, SwaptionVolConvention, SwaptionVolParams,
 };
-use finstack_valuations::calibration::domain::quotes::{MarketQuote, VolQuote};
+use finstack_valuations::calibration::quotes::{MarketQuote, VolQuote};
 use finstack_valuations::calibration::CalibrationConfig;
 use std::collections::HashMap;
 use time::Month;

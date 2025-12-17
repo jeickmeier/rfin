@@ -1,7 +1,7 @@
 //! Focused tests for v2 rates quotes used in discount/forward calibration.
 
 use finstack_core::dates::{Date, DayCount, Tenor};
-use finstack_valuations::calibration::domain::quotes::{InstrumentConventions, RatesQuote};
+use finstack_valuations::calibration::quotes::{InstrumentConventions, RatesQuote};
 use time::Month;
 
 #[test]

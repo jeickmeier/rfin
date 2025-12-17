@@ -19,7 +19,7 @@ use finstack_core::math::interp::InterpStyle;
 use finstack_core::money::Money;
 use finstack_valuations::calibration::adapters::handlers::execute_step;
 use finstack_valuations::calibration::api::schema::{CalibrationMethod, HazardCurveParams, StepParams};
-use finstack_valuations::calibration::domain::quotes::{CreditQuote, MarketQuote};
+use finstack_valuations::calibration::quotes::{CreditQuote, MarketQuote};
 use finstack_valuations::calibration::CalibrationConfig;
 use finstack_valuations::instruments::cds::CreditDefaultSwap;
 use finstack_valuations::instruments::common::traits::Instrument;

@@ -1,4 +1,4 @@
-use finstack_valuations::calibration::domain::quotes::{InstrumentConventions, RatesQuote};
+use finstack_valuations::calibration::quotes::{InstrumentConventions, RatesQuote};
 
 fn expect_quote_err(payload: &str) {
     let err = serde_json::from_str::<RatesQuote>(payload)

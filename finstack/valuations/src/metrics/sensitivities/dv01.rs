@@ -50,7 +50,7 @@
 use crate::calibration::bumps::rates::{bump_discount_curve, find_closest_quote};
 use crate::calibration::bumps::BumpRequest;
 use crate::calibration::api::schema::DiscountCurveParams;
-use crate::calibration::domain::quotes::RatesQuote;
+use crate::calibration::quotes::RatesQuote;
 use crate::calibration::CalibrationConfig;
 use crate::instruments::common::pricing::HasDiscountCurve;
 use crate::instruments::common::traits::{CurveDependencies, Instrument, RatesCurveKind};

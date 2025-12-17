@@ -55,7 +55,7 @@ impl MarketQuote {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::calibration::domain::quotes::InstrumentConventions;
+    use crate::calibration::quotes::InstrumentConventions;
     use finstack_core::dates::Date;
     use finstack_core::types::UnderlyingId;
     use time::Month;

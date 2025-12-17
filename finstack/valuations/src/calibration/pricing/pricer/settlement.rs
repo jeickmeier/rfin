@@ -1,7 +1,7 @@
 //! Settlement and start-date logic for `CalibrationPricer`.
 
 use super::CalibrationPricer;
-use crate::calibration::domain::quotes::InstrumentConventions;
+use crate::calibration::quotes::InstrumentConventions;
 use finstack_core::dates::{adjust, CalendarRegistry, Date, DateExt};
 use finstack_core::types::Currency;
 
@@ -171,7 +171,7 @@ impl CalibrationPricer {
     /// Compute FRA fixing date using signed reset lag and calendars.
     ///
     /// Returns the fixing date and a flag indicating whether the calendar was found.
-    pub(in crate::calibration::domain::pricing::pricer) fn compute_fra_fixing_date(
+    pub(in crate::calibration::pricing::pricer) fn compute_fra_fixing_date(
         &self,
         start: Date,
         reset_lag: i32,

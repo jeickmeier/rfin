@@ -5,7 +5,7 @@ use crate::calibration::adapters::handlers::execute_step;
 use crate::calibration::api::schema::{
     CalibrationMethod, DiscountCurveParams, RatesStepConventions, StepParams,
 };
-use crate::calibration::domain::quotes::{InstrumentConventions, MarketQuote, RatesQuote};
+use crate::calibration::quotes::{InstrumentConventions, MarketQuote, RatesQuote};
 use crate::calibration::CalibrationConfig;
 use finstack_core::dates::{Date, DayCount, DayCountCtx};
 use finstack_core::market_data::context::MarketContext;

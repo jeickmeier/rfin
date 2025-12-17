@@ -1,9 +1,9 @@
 //! Forward curve calibration adapter.
 
 use crate::calibration::config::CalibrationConfig;
-use crate::calibration::domain::pricing::CalibrationPricer;
-use crate::calibration::domain::quotes::RatesQuote;
-use crate::calibration::domain::solver::BootstrapTarget;
+use crate::calibration::pricing::CalibrationPricer;
+use crate::calibration::quotes::RatesQuote;
+use crate::calibration::solver::BootstrapTarget;
 use finstack_core::dates::{Date, DayCount, DayCountCtx};
 use finstack_core::market_data::context::MarketContext;
 use finstack_core::market_data::term_structures::ForwardCurve;
@@ -225,7 +225,7 @@ impl BootstrapTarget for ForwardCurveTarget {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::calibration::domain::solver::BootstrapTarget;
+    use crate::calibration::solver::BootstrapTarget;
     use time::Month;
 
     #[test]

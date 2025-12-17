@@ -1,8 +1,8 @@
 //! Rates instrument pricing for `CalibrationPricer`.
 
 use super::CalibrationPricer;
-use crate::calibration::domain::quotes::{InstrumentConventions, RatesQuote};
-use crate::calibration::domain::quotes::rate_index::{RateIndexConventions, RateIndexKind};
+use crate::calibration::quotes::{InstrumentConventions, RatesQuote};
+use crate::calibration::quotes::rate_index::{RateIndexConventions, RateIndexKind};
 use crate::instruments::basis_swap::{BasisSwap, BasisSwapLeg};
 use crate::instruments::common::traits::Instrument;
 use crate::instruments::deposit::Deposit;

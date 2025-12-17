@@ -6,8 +6,8 @@ use super::schema::CalibrationEnvelopeV2;
 use crate::calibration::adapters::handlers::discount_curve_day_count;
 use crate::calibration::adapters::handlers::{apply_rates_step_conventions, execute_step};
 use crate::calibration::api::schema::StepParams;
-use crate::calibration::domain::pricing::{CalibrationPricer, RatesQuoteUseCase};
-use crate::calibration::domain::quotes::ExtractQuotes;
+use crate::calibration::pricing::{CalibrationPricer, RatesQuoteUseCase};
+use crate::calibration::quotes::ExtractQuotes;
 use crate::calibration::api::schema::{CalibrationResult, CalibrationResultEnvelope};
 use crate::calibration::CalibrationReport;
 use finstack_core::explain::{ExplanationTrace, TraceEntry};
@@ -93,7 +93,7 @@ fn aggregate_plan_report(
 
 fn preflight_step(
     step: &crate::calibration::api::schema::CalibrationStepV2,
-    quotes: &[crate::calibration::domain::quotes::MarketQuote],
+    quotes: &[crate::calibration::quotes::MarketQuote],
     context: &MarketContext,
     global_config: &crate::calibration::config::CalibrationConfig,
 ) -> Result<()> {
@@ -174,7 +174,7 @@ fn preflight_step(
             }
             for q in &credit_quotes {
                 match q {
-                    crate::calibration::domain::quotes::CreditQuote::CDS {
+                    crate::calibration::quotes::CreditQuote::CDS {
                         entity,
                         recovery_rate,
                         currency,
@@ -223,7 +223,7 @@ fn preflight_step(
                             }
                         }
                     }
-                    crate::calibration::domain::quotes::CreditQuote::CDSUpfront {
+                    crate::calibration::quotes::CreditQuote::CDSUpfront {
                         entity,
                         recovery_rate,
                         currency,
@@ -431,7 +431,7 @@ fn preflight_step(
                 )));
             }
 
-            let credit_quotes: Vec<crate::calibration::domain::quotes::CreditQuote> =
+            let credit_quotes: Vec<crate::calibration::quotes::CreditQuote> =
                 quotes.extract_quotes();
             if credit_quotes.is_empty() {
                 return Err(finstack_core::Error::Input(
@@ -443,7 +443,7 @@ fn preflight_step(
             let mut tranche_recovery: Option<f64> = None;
 
             for q in &credit_quotes {
-                if let crate::calibration::domain::quotes::CreditQuote::CDSTranche {
+                if let crate::calibration::quotes::CreditQuote::CDSTranche {
                     index,
                     attachment,
                     detachment,

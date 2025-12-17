@@ -1,9 +1,9 @@
 //! Discount curve calibration adapter.
 
 use crate::calibration::config::CalibrationConfig;
-use crate::calibration::domain::pricing::CalibrationPricer;
-use crate::calibration::domain::quotes::RatesQuote;
-use crate::calibration::domain::solver::{BootstrapTarget, GlobalSolveTarget};
+use crate::calibration::pricing::CalibrationPricer;
+use crate::calibration::quotes::RatesQuote;
+use crate::calibration::solver::{BootstrapTarget, GlobalSolveTarget};
 use finstack_core::dates::{Date, DayCount};
 use finstack_core::market_data::context::MarketContext;
 use finstack_core::market_data::term_structures::DiscountCurve;

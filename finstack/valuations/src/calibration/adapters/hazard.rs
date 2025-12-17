@@ -1,6 +1,6 @@
 use crate::calibration::api::schema::HazardCurveParams;
-use crate::calibration::domain::quotes::CreditQuote;
-use crate::calibration::domain::solver::BootstrapTarget;
+use crate::calibration::quotes::CreditQuote;
+use crate::calibration::solver::BootstrapTarget;
 use crate::instruments::cds::pricer::CDSPricer;
 use crate::instruments::cds::{CDSConvention, PayReceive};
 use finstack_core::dates::DayCountCtx;
@@ -273,7 +273,7 @@ impl BootstrapTarget for HazardBootstrapper {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::calibration::domain::solver::BootstrapTarget;
+    use crate::calibration::solver::BootstrapTarget;
     use finstack_core::market_data::term_structures::ParInterp;
     use time::Month;
 

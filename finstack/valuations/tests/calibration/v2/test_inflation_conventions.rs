@@ -12,7 +12,7 @@ use finstack_valuations::calibration::api::engine;
 use finstack_valuations::calibration::api::schema::{
     CalibrationEnvelopeV2, CalibrationPlanV2, CalibrationStepV2, InflationCurveParams, StepParams,
 };
-use finstack_valuations::calibration::domain::quotes::{InflationQuote, MarketQuote};
+use finstack_valuations::calibration::quotes::{InflationQuote, MarketQuote};
 use std::collections::HashMap;
 use time::Month;
 

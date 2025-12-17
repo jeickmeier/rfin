@@ -1,7 +1,7 @@
 use crate::calibration::api::schema::BaseCorrelationParams;
-use crate::calibration::domain::quotes::CreditQuote;
-use crate::calibration::domain::quotes::InstrumentConventions;
-use crate::calibration::domain::solver::BootstrapTarget;
+use crate::calibration::quotes::CreditQuote;
+use crate::calibration::quotes::InstrumentConventions;
+use crate::calibration::solver::BootstrapTarget;
 use crate::instruments::cds_tranche::pricer::CDSTranchePricer;
 use crate::instruments::cds_tranche::{CdsTranche, TrancheSide};
 use crate::instruments::common::traits::Attributes;

@@ -1,8 +1,8 @@
 //! Quote validation utilities for `CalibrationPricer`.
 
-use crate::calibration::domain::pricing::{CalibrationPricer, RatesQuoteUseCase};
-use crate::calibration::domain::quotes::rate_index::RateIndexConventions;
-use crate::calibration::domain::quotes::RatesQuote;
+use crate::calibration::pricing::{CalibrationPricer, RatesQuoteUseCase};
+use crate::calibration::quotes::rate_index::RateIndexConventions;
+use crate::calibration::quotes::RatesQuote;
 use finstack_core::dates::Date;
 use finstack_core::market_data::context::MarketContext;
 use finstack_core::prelude::*;

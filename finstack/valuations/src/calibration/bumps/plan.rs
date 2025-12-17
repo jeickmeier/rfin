@@ -6,7 +6,7 @@
 
 use super::BumpRequest;
 use crate::calibration::api::schema::{CalibrationPlanV2, CalibrationStepV2, StepParams};
-use crate::calibration::domain::quotes::MarketQuote;
+use crate::calibration::quotes::MarketQuote;
 use finstack_core::dates::{Date, DayCount, DayCountCtx};
 use finstack_core::prelude::*;
 
@@ -121,8 +121,8 @@ fn quote_time_years(
         MarketQuote::Credit(c) => c.maturity_date()?,
         MarketQuote::Inflation(i) => i.maturity_date()?,
         MarketQuote::Vol(v) => match v {
-            crate::calibration::domain::quotes::VolQuote::OptionVol { expiry, .. } => *expiry,
-            crate::calibration::domain::quotes::VolQuote::SwaptionVol { expiry, .. } => *expiry,
+            crate::calibration::quotes::VolQuote::OptionVol { expiry, .. } => *expiry,
+            crate::calibration::quotes::VolQuote::SwaptionVol { expiry, .. } => *expiry,
         },
     };
     dc.year_fraction(base_date, end, ctx).ok()

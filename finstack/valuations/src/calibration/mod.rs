@@ -18,7 +18,7 @@
 //!     CalibrationEnvelopeV2, CalibrationPlanV2, CalibrationStepV2, StepParams,
 //!     DiscountCurveParams, CalibrationMethod, CALIBRATION_SCHEMA_V2,
 //! };
-//! use finstack_valuations::calibration::domain::quotes::{MarketQuote, RatesQuote};
+//! use finstack_valuations::calibration::quotes::{MarketQuote, RatesQuote};
 //! use std::collections::HashMap;
 //!
 //! let quote_sets: HashMap<String, Vec<MarketQuote>> = HashMap::new();
@@ -43,8 +43,12 @@
 pub mod adapters;
 /// Plan-driven calibration API (schema + execution engine).
 pub mod api;
-/// Domain types used by the plan-driven engine (quotes, pricing, solver utilities).
-pub mod domain;
+/// Pricing infrastructure used by the plan-driven engine.
+pub mod pricing;
+/// Market quote types and extraction used by the plan-driven engine.
+pub mod quotes;
+/// Solver utilities and implementations used by calibration.
+pub mod solver;
 
 // Shared infrastructure
 mod config;
@@ -54,8 +58,7 @@ mod validation;
 /// Curve bumping helpers used by scenarios and risk metrics (v2 re-calibration).
 pub mod bumps;
 
-/// Solver utilities and implementations (re-export of `domain::solver`).
-pub use domain::solver as solver;
+// (solver is a real module now; see `pub mod solver;` above)
 
 // Re-exports: Configuration
 pub use config::{

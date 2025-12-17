@@ -28,7 +28,7 @@ fn step_from_py(value: &Bound<'_, PyAny>) -> PyResult<CalibrationStepV2> {
 fn quote_sets_from_py(
     py: Python<'_>,
     quote_sets: HashMap<String, Vec<Py<PyMarketQuote>>>,
-) -> PyResult<HashMap<String, Vec<finstack_valuations::calibration::domain::quotes::MarketQuote>>>
+) -> PyResult<HashMap<String, Vec<finstack_valuations::calibration::quotes::MarketQuote>>>
 {
     let mut out = HashMap::with_capacity(quote_sets.len());
     for (k, quotes) in quote_sets {

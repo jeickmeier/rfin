@@ -11,9 +11,9 @@ use crate::calibration::adapters::inflation::InflationBootstrapper;
 use crate::calibration::adapters::swaption::SwaptionVolAdapter;
 use crate::calibration::adapters::vol::VolSurfaceAdapter;
 use crate::calibration::api::schema::{CalibrationMethod, RatesStepConventions, StepParams};
-use crate::calibration::domain::pricing::CalibrationPricer;
-use crate::calibration::domain::quotes::{ExtractQuotes, MarketQuote};
-use crate::calibration::domain::solver::{
+use crate::calibration::pricing::CalibrationPricer;
+use crate::calibration::quotes::{ExtractQuotes, MarketQuote};
+use crate::calibration::solver::{
     BootstrapTarget, GlobalFitOptimizer, SequentialBootstrapper,
 };
 use crate::calibration::CalibrationReport;

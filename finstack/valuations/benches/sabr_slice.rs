@@ -4,7 +4,7 @@ use finstack_core::market_data::context::MarketContext;
 use finstack_core::market_data::term_structures::discount_curve::DiscountCurve;
 use finstack_valuations::calibration::adapters::handlers::execute_step;
 use finstack_valuations::calibration::api::schema::{StepParams, VolSurfaceParams};
-use finstack_valuations::calibration::domain::quotes::{MarketQuote, VolQuote};
+use finstack_valuations::calibration::quotes::{MarketQuote, VolQuote};
 use finstack_valuations::calibration::CalibrationConfig;
 use std::hint::black_box;
 use time::Month;

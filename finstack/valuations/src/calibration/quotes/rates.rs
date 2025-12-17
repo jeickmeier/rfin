@@ -3,7 +3,7 @@
 //! Note: Copied from v1 for parallel implementation.
 
 use super::conventions::InstrumentConventions;
-use crate::calibration::domain::quotes::rate_index::RateIndexConventions;
+use crate::calibration::quotes::rate_index::RateIndexConventions;
 use finstack_core::dates::{Date, DayCount};
 use finstack_core::types::{Currency, IndexId};
 use serde::{Deserialize, Serialize};

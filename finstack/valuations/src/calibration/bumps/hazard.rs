@@ -3,7 +3,7 @@
 use super::BumpRequest;
 use crate::calibration::adapters::handlers::execute_step;
 use crate::calibration::api::schema::{CalibrationMethod, HazardCurveParams, StepParams};
-use crate::calibration::domain::quotes::{CreditQuote, MarketQuote};
+use crate::calibration::quotes::{CreditQuote, MarketQuote};
 use crate::calibration::CalibrationConfig;
 use finstack_core::market_data::context::MarketContext;
 use finstack_core::market_data::term_structures::hazard_curve::HazardCurve;

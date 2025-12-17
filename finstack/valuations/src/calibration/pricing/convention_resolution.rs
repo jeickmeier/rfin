@@ -1,5 +1,5 @@
 use super::super::quotes::{InstrumentConventions, RatesQuote};
-use crate::calibration::domain::quotes::rate_index::{RateIndexConventions, RateIndexKind};
+use crate::calibration::quotes::rate_index::{RateIndexConventions, RateIndexKind};
 use finstack_core::dates::{BusinessDayConvention, DayCount, Tenor};
 use finstack_core::types::{Currency, IndexId};
 use finstack_core::Result;
@@ -335,7 +335,7 @@ pub(crate) fn resolve_basis_swap_conventions<'a>(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::calibration::domain::pricing::pricer::CalibrationPricer;
+    use crate::calibration::pricing::pricer::CalibrationPricer;
     use finstack_core::dates::Date;
     use time::Month;
 

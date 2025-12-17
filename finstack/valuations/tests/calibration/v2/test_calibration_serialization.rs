@@ -16,7 +16,7 @@ use finstack_valuations::calibration::api::schema::{
     InflationCurveParams, StepParams, SurfaceExtrapolationPolicy, SwaptionVolParams,
     VolSurfaceParams,
 };
-use finstack_valuations::calibration::domain::quotes::{
+use finstack_valuations::calibration::quotes::{
     CreditQuote, MarketQuote, RatesQuote, VolQuote,
 };
 use std::collections::HashMap;

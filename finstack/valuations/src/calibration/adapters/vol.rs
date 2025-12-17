@@ -1,7 +1,7 @@
 use crate::calibration::config::CalibrationConfig;
 use crate::calibration::api::schema::SurfaceExtrapolationPolicy;
 use crate::calibration::api::schema::VolSurfaceParams;
-use crate::calibration::domain::quotes::{MarketQuote, VolQuote};
+use crate::calibration::quotes::{MarketQuote, VolQuote};
 use crate::calibration::CalibrationReport;
 use crate::instruments::common::models::{SABRCalibrator, SABRModel, SABRParameters};
 use finstack_core::market_data::context::MarketContext;

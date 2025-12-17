@@ -16,11 +16,11 @@ use finstack_valuations::calibration::api::schema::{
     CalibrationEnvelopeV2, CalibrationMethod, CalibrationPlanV2, CalibrationStepV2,
     DiscountCurveParams, RatesStepConventions, StepParams,
 };
-use finstack_valuations::calibration::domain::pricing::{
+use finstack_valuations::calibration::pricing::{
     CalibrationPricer, ConvexityParameters, VolatilitySource,
 };
-use finstack_valuations::calibration::domain::quotes::FutureSpecs;
-use finstack_valuations::calibration::domain::quotes::{
+use finstack_valuations::calibration::quotes::FutureSpecs;
+use finstack_valuations::calibration::quotes::{
     InstrumentConventions, MarketQuote, RatesQuote,
 };
 use std::collections::HashMap;

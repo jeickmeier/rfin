@@ -1,6 +1,6 @@
 use crate::calibration::api::schema::InflationCurveParams;
-use crate::calibration::domain::quotes::InflationQuote;
-use crate::calibration::domain::solver::BootstrapTarget;
+use crate::calibration::quotes::InflationQuote;
+use crate::calibration::solver::BootstrapTarget;
 use crate::instruments::common::traits::Instrument;
 use crate::instruments::inflation_swap::{InflationSwap, PayReceiveInflation};
 use finstack_core::dates::{DayCount, DayCountCtx};

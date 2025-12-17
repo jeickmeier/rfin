@@ -1,6 +1,6 @@
 use super::*;
 use crate::calibration::config::RateBounds;
-use crate::calibration::domain::quotes::{FutureSpecs, InstrumentConventions, RatesQuote};
+use crate::calibration::quotes::{FutureSpecs, InstrumentConventions, RatesQuote};
 use crate::instruments::common::traits::Instrument;
 use finstack_core::dates::{BusinessDayConvention, CalendarRegistry, Date, DateExt, DayCount, Tenor};
 use finstack_core::market_data::context::MarketContext;

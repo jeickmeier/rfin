@@ -1,7 +1,7 @@
 //! Futures pricing helpers for `CalibrationPricer`.
 
 use super::CalibrationPricer;
-use crate::calibration::domain::quotes::{FutureSpecs, InstrumentConventions};
+use crate::calibration::quotes::{FutureSpecs, InstrumentConventions};
 use crate::instruments::common::traits::Instrument;
 use crate::instruments::ir_future::InterestRateFuture;
 use finstack_core::dates::{Date, DayCountCtx};
@@ -85,7 +85,7 @@ impl CalibrationPricer {
         Ok(pv.amount() / future.notional.amount())
     }
 
-    pub(in crate::calibration::domain::pricing::pricer) fn resolve_future_convexity(
+    pub(in crate::calibration::pricing::pricer) fn resolve_future_convexity(
         &self,
         specs: &FutureSpecs,
         currency: Currency,
@@ -130,7 +130,7 @@ impl CalibrationPricer {
         ))
     }
 
-    pub(in crate::calibration::domain::pricing::pricer) fn future_notional(
+    pub(in crate::calibration::pricing::pricer) fn future_notional(
         &self,
         specs: &FutureSpecs,
         currency: Currency,
