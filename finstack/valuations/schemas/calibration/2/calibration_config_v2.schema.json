@@ -1,0 +1,10 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "valuations.calibration.v2",
+  "title": "CalibrationConfig",
+  "type": "object",
+  "description": "Optional calibration overrides sourced from FinstackConfig.extensions['valuations.calibration.v2'].",
+  "additionalProperties": true
+}
+
+

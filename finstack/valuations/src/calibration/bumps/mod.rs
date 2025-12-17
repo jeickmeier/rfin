@@ -4,6 +4,10 @@ pub mod hazard;
 pub mod inflation;
 pub mod rates;
 
+mod plan;
+
+pub use plan::PlanBumper;
+
 /// Request for a curve bump operation.
 #[derive(Clone, Debug, PartialEq)]
 pub enum BumpRequest {

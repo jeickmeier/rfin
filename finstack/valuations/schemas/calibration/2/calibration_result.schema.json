@@ -1,0 +1,14 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "finstack.calibration_result/2",
+  "title": "CalibrationReport",
+  "type": "object",
+  "description": "Calibration diagnostic report (used at plan level and per-step).",
+  "additionalProperties": true,
+  "properties": {
+    "schema": { "const": "finstack.calibration/2" }
+  },
+  "required": ["schema"]
+}
+
+

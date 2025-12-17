@@ -8,12 +8,12 @@ use finstack_core::market_data::context::MarketContext;
 use finstack_core::market_data::term_structures::discount_curve::DiscountCurve;
 use finstack_core::math::interp::InterpStyle;
 use finstack_core::types::{Currency, CurveId};
-use finstack_valuations::calibration::v2::api::engine;
-use finstack_valuations::calibration::v2::api::schema::{
+use finstack_valuations::calibration::api::engine;
+use finstack_valuations::calibration::api::schema::{
     CalibrationEnvelopeV2, CalibrationMethod, CalibrationPlanV2, CalibrationStepV2,
     ForwardCurveParams, StepParams,
 };
-use finstack_valuations::calibration::v2::domain::quotes::{
+use finstack_valuations::calibration::domain::quotes::{
     InstrumentConventions, MarketQuote, RatesQuote,
 };
 use finstack_valuations::calibration::CalibrationConfig;

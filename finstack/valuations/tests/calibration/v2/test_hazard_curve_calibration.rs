@@ -6,12 +6,12 @@ use finstack_core::market_data::term_structures::discount_curve::DiscountCurve;
 use finstack_core::market_data::term_structures::Seniority;
 use finstack_core::math::interp::InterpStyle;
 use finstack_core::types::{Currency, CurveId};
-use finstack_valuations::calibration::v2::api::engine;
-use finstack_valuations::calibration::v2::api::schema::{
+use finstack_valuations::calibration::api::engine;
+use finstack_valuations::calibration::api::schema::{
     CalibrationEnvelopeV2, CalibrationMethod, CalibrationPlanV2, CalibrationStepV2,
     HazardCurveParams, StepParams,
 };
-use finstack_valuations::calibration::v2::domain::quotes::{CreditQuote, MarketQuote};
+use finstack_valuations::calibration::domain::quotes::{CreditQuote, MarketQuote};
 use std::collections::HashMap;
 use time::Month;
 
@@ -41,7 +41,7 @@ fn hazard_calibration_positive_rates() {
     let initial_market = MarketContext::new().insert_discount(disc);
 
     let conventions =
-        finstack_valuations::calibration::v2::domain::quotes::InstrumentConventions::default()
+        finstack_valuations::calibration::domain::quotes::InstrumentConventions::default()
             .with_day_count(DayCount::Act360)
             .with_payment_frequency(Tenor::quarterly())
             .with_settlement_days(0)
@@ -130,7 +130,7 @@ fn hazard_calibration_rejects_zero_spread() {
     let initial_market = MarketContext::new().insert_discount(disc);
 
     let conventions =
-        finstack_valuations::calibration::v2::domain::quotes::InstrumentConventions::default()
+        finstack_valuations::calibration::domain::quotes::InstrumentConventions::default()
             .with_day_count(DayCount::Act360)
             .with_payment_frequency(Tenor::quarterly())
             .with_settlement_days(0)

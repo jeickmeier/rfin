@@ -3,12 +3,12 @@ use finstack_core::dates::{Date, DayCount};
 use finstack_core::market_data::context::MarketContext;
 use finstack_core::math::interp::{ExtrapolationPolicy, InterpStyle};
 use finstack_core::types::{Currency, CurveId};
-use finstack_valuations::calibration::v2::adapters::discount::{
+use finstack_valuations::calibration::adapters::discount::{
     DiscountCurveTarget, DiscountCurveTargetParams,
 };
-use finstack_valuations::calibration::v2::domain::pricing::CalibrationPricer;
-use finstack_valuations::calibration::v2::domain::quotes::{InstrumentConventions, RatesQuote};
-use finstack_valuations::calibration::v2::domain::solver::{BootstrapTarget, GlobalSolveTarget};
+use finstack_valuations::calibration::domain::pricing::CalibrationPricer;
+use finstack_valuations::calibration::domain::quotes::{InstrumentConventions, RatesQuote};
+use finstack_valuations::calibration::domain::solver::{BootstrapTarget, GlobalSolveTarget};
 use finstack_valuations::calibration::CalibrationConfig;
 use time::Month;
 

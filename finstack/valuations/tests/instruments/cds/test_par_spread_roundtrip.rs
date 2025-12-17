@@ -14,11 +14,13 @@
 use finstack_core::currency::Currency;
 use finstack_core::dates::Date;
 use finstack_core::market_data::context::MarketContext;
-use finstack_core::market_data::term_structures::{DiscountCurve, Seniority};
+use finstack_core::market_data::term_structures::{DiscountCurve, ParInterp, Seniority};
 use finstack_core::math::interp::InterpStyle;
 use finstack_core::money::Money;
-use finstack_valuations::calibration::methods::hazard_curve::HazardCurveCalibrator;
-use finstack_valuations::calibration::{Calibrator, CreditQuote};
+use finstack_valuations::calibration::adapters::handlers::execute_step;
+use finstack_valuations::calibration::api::schema::{CalibrationMethod, HazardCurveParams, StepParams};
+use finstack_valuations::calibration::domain::quotes::{CreditQuote, MarketQuote};
+use finstack_valuations::calibration::CalibrationConfig;
 use finstack_valuations::instruments::cds::CreditDefaultSwap;
 use finstack_valuations::instruments::common::traits::Instrument;
 use time::Month;
@@ -54,20 +56,31 @@ fn test_cds_par_spread_roundtrip_1y() {
         conventions: Default::default(),
     }];
 
-    // Bootstrap hazard curve
-    let calibrator = HazardCurveCalibrator::new(
-        "ROUNDTRIP-TEST",
-        Seniority::Senior,
-        0.40,
-        base,
-        Currency::USD,
-        "USD-OIS",
-    );
-
     let disc = create_discount_curve(base);
     let market_calib = MarketContext::new().insert_discount(disc);
 
-    let (hazard_curve, _report) = calibrator.calibrate(&quotes, &market_calib).unwrap();
+    // Bootstrap hazard curve (v2 step engine)
+    let settings = CalibrationConfig::default();
+    let params = HazardCurveParams {
+        curve_id: "ROUNDTRIP-TEST-senior".into(),
+        entity: "ROUNDTRIP-TEST".to_string(),
+        seniority: Seniority::Senior,
+        currency: Currency::USD,
+        base_date: base,
+        discount_curve_id: "USD-OIS".into(),
+        recovery_rate: 0.40,
+        notional: 1.0,
+        method: CalibrationMethod::Bootstrap,
+        interpolation: Default::default(),
+        par_interp: ParInterp::Linear,
+    };
+    let step = StepParams::Hazard(params.clone());
+    let market_quotes: Vec<MarketQuote> = quotes.into_iter().map(MarketQuote::Credit).collect();
+    let (ctx, _report) = execute_step(&step, &market_quotes, &market_calib, &settings).unwrap();
+    let hazard_curve = ctx
+        .get_hazard_ref(params.curve_id.as_str())
+        .expect("hazard inserted")
+        .clone();
 
     // Create CDS at the quoted spread
     // Hazard curve ID is "{entity}-{seniority}" per HazardCurveCalibrator
@@ -134,20 +147,30 @@ fn test_cds_par_spread_roundtrip_multi_tenor() {
         })
         .collect();
 
-    // Bootstrap hazard curve
-    let calibrator = HazardCurveCalibrator::new(
-        "MULTI-TENOR-TEST",
-        Seniority::Senior,
-        0.40,
-        base,
-        Currency::USD,
-        "USD-OIS",
-    );
-
     let disc = create_discount_curve(base);
     let market_calib = MarketContext::new().insert_discount(disc);
 
-    let (hazard_curve, _report) = calibrator.calibrate(&quotes, &market_calib).unwrap();
+    let settings = CalibrationConfig::default();
+    let params = HazardCurveParams {
+        curve_id: "MULTI-TENOR-TEST-senior".into(),
+        entity: "MULTI-TENOR-TEST".to_string(),
+        seniority: Seniority::Senior,
+        currency: Currency::USD,
+        base_date: base,
+        discount_curve_id: "USD-OIS".into(),
+        recovery_rate: 0.40,
+        notional: 1.0,
+        method: CalibrationMethod::Bootstrap,
+        interpolation: Default::default(),
+        par_interp: ParInterp::Linear,
+    };
+    let step = StepParams::Hazard(params.clone());
+    let market_quotes: Vec<MarketQuote> = quotes.iter().cloned().map(MarketQuote::Credit).collect();
+    let (ctx, _report) = execute_step(&step, &market_quotes, &market_calib, &settings).unwrap();
+    let hazard_curve = ctx
+        .get_hazard_ref(params.curve_id.as_str())
+        .expect("hazard inserted")
+        .clone();
 
     // Reprice each CDS at its quoted spread
     let market_price = MarketContext::new()
@@ -190,7 +213,7 @@ fn test_cds_par_spread_calculation_consistency() {
     let base = Date::from_calendar_date(2025, Month::January, 15).unwrap();
     let maturity = Date::from_calendar_date(2030, Month::January, 15).unwrap();
 
-    let quotes = vec![CreditQuote::CDS {
+    let quotes = [CreditQuote::CDS {
         entity: "PAR-CONSISTENCY-TEST".to_string(),
         maturity,
         spread_bp: 200.0, // 200bp
@@ -199,19 +222,30 @@ fn test_cds_par_spread_calculation_consistency() {
         conventions: Default::default(),
     }];
 
-    let calibrator = HazardCurveCalibrator::new(
-        "PAR-CONSISTENCY-TEST",
-        Seniority::Senior,
-        0.40,
-        base,
-        Currency::USD,
-        "USD-OIS",
-    );
-
     let disc = create_discount_curve(base);
     let market_calib = MarketContext::new().insert_discount(disc);
 
-    let (hazard_curve, _report) = calibrator.calibrate(&quotes, &market_calib).unwrap();
+    let settings = CalibrationConfig::default();
+    let params = HazardCurveParams {
+        curve_id: "PAR-CONSISTENCY-TEST-senior".into(),
+        entity: "PAR-CONSISTENCY-TEST".to_string(),
+        seniority: Seniority::Senior,
+        currency: Currency::USD,
+        base_date: base,
+        discount_curve_id: "USD-OIS".into(),
+        recovery_rate: 0.40,
+        notional: 1.0,
+        method: CalibrationMethod::Bootstrap,
+        interpolation: Default::default(),
+        par_interp: ParInterp::Linear,
+    };
+    let step = StepParams::Hazard(params.clone());
+    let market_quotes: Vec<MarketQuote> = quotes.iter().cloned().map(MarketQuote::Credit).collect();
+    let (ctx, _report) = execute_step(&step, &market_quotes, &market_calib, &settings).unwrap();
+    let hazard_curve = ctx
+        .get_hazard_ref(params.curve_id.as_str())
+        .expect("hazard inserted")
+        .clone();
 
     // Create market with calibrated hazard curve
     let market_price = MarketContext::new()

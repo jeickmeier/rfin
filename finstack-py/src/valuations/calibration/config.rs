@@ -3,7 +3,8 @@ use crate::core::common::{labels::normalize_label, pycmp::richcmp_eq_ne};
 use finstack_core::explain::ExplainOpts;
 use finstack_core::market_data::term_structures::Seniority;
 use finstack_valuations::calibration::{
-    CalibrationConfig, CalibrationMethod, MultiCurveConfig, RateBounds, SolverKind, ValidationMode,
+    CalibrationConfig, CalibrationSolveMethod, MultiCurveConfig, RateBounds, SolverKind,
+    ValidationMode,
 };
 use pyo3::basic::CompareOp;
 use pyo3::exceptions::{PyKeyError, PyValueError};
@@ -101,18 +102,18 @@ impl PySolverKind {
 )]
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct PyCalibrationMethod {
-    pub(crate) inner: CalibrationMethod,
+    pub(crate) inner: CalibrationSolveMethod,
 }
 
 impl PyCalibrationMethod {
-    pub(crate) const fn new(inner: CalibrationMethod) -> Self {
+    pub(crate) const fn new(inner: CalibrationSolveMethod) -> Self {
         Self { inner }
     }
 
     const fn discriminant(&self) -> (isize, bool) {
         match self.inner {
-            CalibrationMethod::Bootstrap => (0, false),
-            CalibrationMethod::GlobalSolve {
+            CalibrationSolveMethod::Bootstrap => (0, false),
+            CalibrationSolveMethod::GlobalSolve {
                 use_analytical_jacobian,
             } => (1, use_analytical_jacobian),
         }
@@ -122,9 +123,9 @@ impl PyCalibrationMethod {
 #[pymethods]
 impl PyCalibrationMethod {
     #[classattr]
-    const BOOTSTRAP: Self = Self::new(CalibrationMethod::Bootstrap);
+    const BOOTSTRAP: Self = Self::new(CalibrationSolveMethod::Bootstrap);
     #[classattr]
-    const GLOBAL_SOLVE: Self = Self::new(CalibrationMethod::GlobalSolve {
+    const GLOBAL_SOLVE: Self = Self::new(CalibrationSolveMethod::GlobalSolve {
         use_analytical_jacobian: false,
     });
 
@@ -137,8 +138,8 @@ impl PyCalibrationMethod {
         use_analytical_jacobian: bool,
     ) -> PyResult<Self> {
         match normalize_label(name).as_str() {
-            "bootstrap" => Ok(Self::new(CalibrationMethod::Bootstrap)),
-            "global_solve" => Ok(Self::new(CalibrationMethod::GlobalSolve {
+            "bootstrap" => Ok(Self::new(CalibrationSolveMethod::Bootstrap)),
+            "global_solve" => Ok(Self::new(CalibrationSolveMethod::GlobalSolve {
                 use_analytical_jacobian,
             })),
             other => Err(PyKeyError::new_err(format!(
@@ -150,16 +151,16 @@ impl PyCalibrationMethod {
     #[getter]
     fn name(&self) -> &'static str {
         match self.inner {
-            CalibrationMethod::Bootstrap => "bootstrap",
-            CalibrationMethod::GlobalSolve { .. } => "global_solve",
+            CalibrationSolveMethod::Bootstrap => "bootstrap",
+            CalibrationSolveMethod::GlobalSolve { .. } => "global_solve",
         }
     }
 
     #[getter]
     fn use_analytical_jacobian(&self) -> bool {
         match self.inner {
-            CalibrationMethod::Bootstrap => false,
-            CalibrationMethod::GlobalSolve {
+            CalibrationSolveMethod::Bootstrap => false,
+            CalibrationSolveMethod::GlobalSolve {
                 use_analytical_jacobian,
             } => use_analytical_jacobian,
         }
@@ -167,8 +168,8 @@ impl PyCalibrationMethod {
 
     fn with_use_analytical_jacobian(&self, value: bool) -> Self {
         match self.inner {
-            CalibrationMethod::Bootstrap => Self::new(CalibrationMethod::Bootstrap),
-            CalibrationMethod::GlobalSolve { .. } => Self::new(CalibrationMethod::GlobalSolve {
+            CalibrationSolveMethod::Bootstrap => Self::new(CalibrationSolveMethod::Bootstrap),
+            CalibrationSolveMethod::GlobalSolve { .. } => Self::new(CalibrationSolveMethod::GlobalSolve {
                 use_analytical_jacobian: value,
             }),
         }
@@ -176,8 +177,8 @@ impl PyCalibrationMethod {
 
     fn __repr__(&self) -> String {
         match self.inner {
-            CalibrationMethod::Bootstrap => "CalibrationMethod('bootstrap')".to_string(),
-            CalibrationMethod::GlobalSolve {
+            CalibrationSolveMethod::Bootstrap => "CalibrationMethod('bootstrap')".to_string(),
+            CalibrationSolveMethod::GlobalSolve {
                 use_analytical_jacobian,
             } => format!(
                 "CalibrationMethod('global_solve', use_analytical_jacobian={})",

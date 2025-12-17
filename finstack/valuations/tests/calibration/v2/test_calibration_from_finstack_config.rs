@@ -2,8 +2,8 @@
 
 use finstack_core::config::FinstackConfig;
 use finstack_valuations::calibration::{
-    CalibrationConfig, CalibrationMethod, RateBounds, RateBoundsPolicy, SolverKind,
-    CALIBRATION_CONFIG_KEY_V1,
+    CalibrationConfig, CalibrationSolveMethod, RateBounds, RateBoundsPolicy, SolverKind,
+    CALIBRATION_CONFIG_KEY_V2,
 };
 use serde_json::json;
 
@@ -11,7 +11,7 @@ use serde_json::json;
 fn calibration_config_applies_extension_overrides() {
     let mut cfg = FinstackConfig::default();
     cfg.extensions.insert(
-        CALIBRATION_CONFIG_KEY_V1,
+        CALIBRATION_CONFIG_KEY_V2,
         json!({
             "tolerance": 1e-8,
             "max_iterations": 250,
@@ -41,7 +41,7 @@ fn calibration_config_applies_extension_overrides() {
     );
     assert!(matches!(
         cfg_out.calibration_method,
-        CalibrationMethod::GlobalSolve {
+        CalibrationSolveMethod::GlobalSolve {
             use_analytical_jacobian: true
         }
     ));

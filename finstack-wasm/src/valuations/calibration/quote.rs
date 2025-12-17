@@ -3,7 +3,7 @@
 use crate::core::common::parse::ParseFromString;
 use crate::core::dates::{FsDate, Tenor};
 use crate::utils::json::{from_js_value, to_js_value};
-use finstack_valuations::calibration::v2::domain::quotes::{
+use finstack_valuations::calibration::domain::quotes::{
     CreditQuote, FutureSpecs, InflationQuote, InstrumentConventions, MarketQuote, RatesQuote,
     VolQuote,
 };

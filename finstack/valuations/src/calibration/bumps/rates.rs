@@ -1,51 +1,54 @@
-//! Shared rates curve bumping logic.
+//! Shared rates curve bumping logic (v2 plan-driven calibration).
 
 use super::BumpRequest;
-use crate::calibration::methods::DiscountCurveCalibrator;
-use crate::calibration::quotes::InstrumentConventions;
-use crate::calibration::{Calibrator, RatesQuote};
+use crate::calibration::adapters::handlers::execute_step;
+use crate::calibration::api::schema::{
+    CalibrationMethod, DiscountCurveParams, RatesStepConventions, StepParams,
+};
+use crate::calibration::domain::quotes::{InstrumentConventions, MarketQuote, RatesQuote};
+use crate::calibration::CalibrationConfig;
 use finstack_core::dates::{Date, DayCount, DayCountCtx};
 use finstack_core::market_data::context::MarketContext;
 use finstack_core::market_data::term_structures::discount_curve::DiscountCurve;
+use finstack_core::math::interp::ExtrapolationPolicy;
 use finstack_core::types::Currency;
 
-/// Bump discount curve by shocking par rates and re-calibrating.
+/// Bump a discount curve by shocking rates quotes and re-calibrating via the v2 step engine.
 pub fn bump_discount_curve(
     quotes: &[RatesQuote],
-    calibrator: &DiscountCurveCalibrator,
+    params: &DiscountCurveParams,
     base_context: &MarketContext,
     bump: &BumpRequest,
-    as_of: Date,
 ) -> finstack_core::Result<DiscountCurve> {
-    // Clone quotes to apply bumps
-    let mut bumped_quotes = quotes.to_vec();
+    let as_of = params.base_date;
+
+    // Clone quotes to apply bumps.
+    let mut bumped_quotes: Vec<RatesQuote> = quotes.to_vec();
 
     match bump {
         BumpRequest::Parallel(bp) => {
             let bump_decimal = bp * 1e-4;
-            for q in &mut bumped_quotes {
-                bump_quote_rate(q, bump_decimal);
-            }
+            bumped_quotes = bumped_quotes
+                .into_iter()
+                .map(|q| q.bump_rate_decimal(bump_decimal))
+                .collect();
         }
         BumpRequest::Tenors(targets) => {
-            // Sequential bumping for each target
             for (target_t, bp) in targets {
                 if let Some(idx) = find_closest_quote(&bumped_quotes, *target_t, as_of) {
                     let bump_decimal = bp * 1e-4;
-                    bump_quote_rate(&mut bumped_quotes[idx], bump_decimal);
+                    bumped_quotes[idx] = bumped_quotes[idx].bump_rate_decimal(bump_decimal);
                 }
             }
         }
     }
 
-    // Re-calibrate curve
-    let (new_curve, _report) = calibrator.calibrate(&bumped_quotes, base_context)?;
+    let market_quotes: Vec<MarketQuote> = bumped_quotes.into_iter().map(MarketQuote::Rates).collect();
+    let step = StepParams::Discount(params.clone());
+    let cfg = CalibrationConfig::default();
+    let (ctx, _report) = execute_step(&step, &market_quotes, base_context, &cfg)?;
 
-    // We should ideally ensure the ID matches the original if passed, but
-    // the calibrator returns a curve with the ID from the calibrator config.
-    // The caller (scenarios/metrics) handles re-inserting with correct ID if needed.
-
-    Ok(new_curve)
+    Ok(ctx.get_discount_ref(params.curve_id.as_str())?.clone())
 }
 
 /// Find the quote closest to the target maturity.
@@ -95,27 +98,7 @@ pub fn bump_discount_curve_synthetic(
         Currency::USD
     };
 
-    // Synthesize quotes
-    // We assume the curve is an OIS-like curve (risk-free).
-    // We synthesize OIS Swaps for each knot point (except t=0).
-    // Rate is implied par rate.
-    // Ideally we use a helper to compute par rate from the curve itself.
-    // ParRate = (FirstDF - LastDF) / PV01? For OIS?
-    // For OIS, approx ParRate = -ln(DF)/T (continuously compounded) or simple compounding depending on daycount.
-    // Let's use the `ZeroRate` as the proxy for the quote if we treat them as Zero Coupon generators?
-    // Calibrator can take Deposits/Swaps.
-    // If we synthesize Deposits for short end and OIS Swaps for long end.
-    //
-    // Simplification: Treat all points as OIS Swaps (1 payment at end? No, annual/freq).
-    // OR: Synthesize "Zero Coupon OIS" (effectively calibration to ZC rates).
-    // The `DiscountCurveCalibrator` handles standard instruments.
-    // If we feed it `Swap` with `fixed_freq = Annual`, it expects an annual stream.
-    //
-    // Alternative: Use `Deposit` for everything? Deposit is simple interest ZC.
-    // Rate = (1/DF - 1) * (360/Days).
-    // This is robust for all points.
-    // Let's use `RatesQuote::Deposit` for all knots. It simply converts DF to a simple rate.
-    // This allows "perfect" round trip if we use Act365F or matching DC.
+    // Synthesize deposit-style quotes for each knot (excluding t≈0) and re-calibrate.
 
     let mut quotes = Vec::new();
     let dc = DayCount::Act365F;
@@ -139,48 +122,31 @@ pub fn bump_discount_curve_synthetic(
             0.0
         };
 
-        // Apply bump
-        let mut bumped_rate = rate;
-        match bump {
-            BumpRequest::Parallel(bp) => {
-                bumped_rate += bp * 1e-4;
-            }
-            BumpRequest::Tenors(targets) => {
-                for (target_t, bp) in targets {
-                    if (t - *target_t).abs() < 0.1 {
-                        bumped_rate += bp * 1e-4;
-                    }
-                }
-            }
-        }
-
         quotes.push(RatesQuote::Deposit {
             maturity,
-            rate: bumped_rate,
-            conventions: InstrumentConventions::default().with_day_count(dc),
+            rate,
+            conventions: InstrumentConventions::default()
+                .with_day_count(dc)
+                .with_settlement_days(0),
         });
     }
 
-    // Calibrate - disable spot knot to preserve original curve structure
-    // (the input curve doesn't have a spot knot, so neither should the output)
-    // Use settlement_days=0 because we're re-calibrating from an existing curve's
-    // intrinsic discount factors, not from market quotes with settlement conventions.
-    let calibrator = DiscountCurveCalibrator::new(curve_id.clone(), base_date, currency)
-        .with_include_spot_knot(false)
-        /* .with_settlement_days(0) */
-        /* .with_allow_calendar_fallback(true) */;
+    let params = DiscountCurveParams {
+        curve_id: curve_id.clone(),
+        currency,
+        base_date,
+        method: CalibrationMethod::Bootstrap,
+        interpolation: Default::default(),
+        extrapolation: ExtrapolationPolicy::FlatForward,
+        pricing_discount_id: None,
+        pricing_forward_id: None,
+        conventions: RatesStepConventions {
+            curve_day_count: Some(DayCount::Act365F),
+            settlement_days: Some(0),
+            use_settlement_start: Some(false),
+            ..Default::default()
+        },
+    };
 
-    let (new_curve, _report) = calibrator.calibrate(&quotes, context)?;
-    Ok(new_curve)
-}
-
-/// Bump the rate of a quote by the given amount (decimal).
-pub fn bump_quote_rate(quote: &mut RatesQuote, bump_decimal: f64) {
-    match quote {
-        RatesQuote::Deposit { rate, .. } => *rate += bump_decimal,
-        RatesQuote::FRA { rate, .. } => *rate += bump_decimal,
-        RatesQuote::Future { price, .. } => *price -= bump_decimal * 100.0, // Price = 100 - rate%
-        RatesQuote::Swap { rate, .. } => *rate += bump_decimal,
-        RatesQuote::BasisSwap { spread_bp, .. } => *spread_bp += bump_decimal * 10_000.0,
-    }
+    bump_discount_curve(&quotes, &params, context, bump)
 }

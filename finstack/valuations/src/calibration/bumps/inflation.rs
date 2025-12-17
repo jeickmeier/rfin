@@ -1,8 +1,10 @@
 //! Shared inflation curve bumping logic.
 
 use super::BumpRequest;
-use crate::calibration::methods::InflationCurveCalibrator;
-use crate::calibration::{Calibrator, InflationQuote};
+use crate::calibration::adapters::handlers::execute_step;
+use crate::calibration::api::schema::{CalibrationMethod, InflationCurveParams, StepParams};
+use crate::calibration::domain::quotes::{InflationQuote, MarketQuote};
+use crate::calibration::CalibrationConfig;
 use finstack_core::market_data::context::MarketContext;
 use finstack_core::market_data::term_structures::inflation::InflationCurve;
 use finstack_core::types::Currency;
@@ -89,16 +91,22 @@ pub fn bump_inflation_rates(
         return Ok(curve.clone());
     }
 
-    // Calibrate new curve
-    let calibrator = InflationCurveCalibrator::new(
-        curve_id.clone(),
-        base_date,
+    let market_quotes: Vec<MarketQuote> = quotes.into_iter().map(MarketQuote::Inflation).collect();
+    let params = InflationCurveParams {
+        curve_id: curve_id.clone(),
         currency,
+        base_date,
+        discount_curve_id: discount_id.clone(),
+        index: curve_id.as_str().to_string(),
+        observation_lag: "NONE".to_string(),
         base_cpi,
-        discount_id.clone(),
-    );
+        notional: 1.0,
+        method: CalibrationMethod::Bootstrap,
+        interpolation: Default::default(),
+    };
 
-    let (new_curve, _report) = calibrator.calibrate(&quotes, context)?;
-
-    Ok(new_curve)
+    let cfg = CalibrationConfig::default();
+    let step = StepParams::Inflation(params.clone());
+    let (ctx, _report) = execute_step(&step, &market_quotes, context, &cfg)?;
+    Ok(ctx.get_inflation_ref(params.curve_id.as_str())?.clone())
 }

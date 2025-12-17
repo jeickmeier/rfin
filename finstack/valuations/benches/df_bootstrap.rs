@@ -2,15 +2,16 @@ use criterion::{criterion_group, criterion_main, Criterion};
 use finstack_core::currency::Currency;
 use finstack_core::dates::{Date, DayCount, Tenor};
 use finstack_core::market_data::context::MarketContext;
-use finstack_valuations::calibration::methods::discount::DiscountCurveCalibrator;
-use finstack_valuations::calibration::quotes::InstrumentConventions;
-use finstack_valuations::calibration::{Calibrator, RatesQuote};
+use finstack_valuations::calibration::adapters::handlers::execute_step;
+use finstack_valuations::calibration::api::schema::{CalibrationMethod, DiscountCurveParams, StepParams};
+use finstack_valuations::calibration::domain::quotes::{InstrumentConventions, MarketQuote, RatesQuote};
+use finstack_valuations::calibration::CalibrationConfig;
 use std::hint::black_box;
 use time::Month;
 
 fn bench_df_bootstrap(c: &mut Criterion) {
     let base_date = Date::from_calendar_date(2025, Month::January, 1).unwrap();
-    let quotes = vec![
+    let quotes = [
         RatesQuote::Deposit {
             maturity: base_date + time::Duration::days(30),
             rate: 0.045,
@@ -48,12 +49,25 @@ fn bench_df_bootstrap(c: &mut Criterion) {
                 .with_index("USD-OIS"),
         },
     ];
-    let calibrator = DiscountCurveCalibrator::new("USD-OIS", base_date, Currency::USD);
     let ctx = MarketContext::new();
+    let settings = CalibrationConfig::default();
+    let params = DiscountCurveParams {
+        curve_id: "USD-OIS".into(),
+        currency: Currency::USD,
+        base_date,
+        method: CalibrationMethod::Bootstrap,
+        interpolation: Default::default(),
+        extrapolation: finstack_core::math::interp::ExtrapolationPolicy::FlatForward,
+        pricing_discount_id: None,
+        pricing_forward_id: None,
+        conventions: Default::default(),
+    };
+    let step = StepParams::Discount(params);
+    let market_quotes: Vec<MarketQuote> = quotes.iter().cloned().map(MarketQuote::Rates).collect();
+
     c.bench_function("df_bootstrap_small", |b| {
         b.iter(|| {
-            calibrator
-                .calibrate(black_box(&quotes), black_box(&ctx))
+            execute_step(black_box(&step), black_box(&market_quotes), black_box(&ctx), black_box(&settings))
                 .unwrap()
         })
     });

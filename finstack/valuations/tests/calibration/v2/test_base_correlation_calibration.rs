@@ -8,11 +8,11 @@ use finstack_core::market_data::term_structures::{
 };
 use finstack_core::money::Money;
 use finstack_core::types::{Currency, CurveId};
-use finstack_valuations::calibration::v2::api::engine;
-use finstack_valuations::calibration::v2::api::schema::{
+use finstack_valuations::calibration::api::engine;
+use finstack_valuations::calibration::api::schema::{
     BaseCorrelationParams, CalibrationEnvelopeV2, CalibrationPlanV2, CalibrationStepV2, StepParams,
 };
-use finstack_valuations::calibration::v2::domain::quotes::{CreditQuote, MarketQuote};
+use finstack_valuations::calibration::domain::quotes::{CreditQuote, MarketQuote};
 use finstack_valuations::instruments::cds_tranche::pricer::CDSTranchePricer;
 use finstack_valuations::instruments::cds_tranche::{CdsTranche, TrancheSide};
 use finstack_valuations::instruments::common::traits::Attributes;

@@ -1,4 +1,4 @@
-//! Comprehensive calibration framework for term structures and surfaces.
+//! Calibration framework (plan-driven API).
 //!
 //! Provides market-standard calibration methodologies for:
 //! - Interest rate curves (discount/forward)
@@ -7,72 +7,60 @@
 //! - Volatility surfaces
 //! - Base correlation curves
 //!
-//! Supports both sequential bootstrapping and global optimization approaches.
+//! Supports both sequential bootstrapping and global optimization approaches via a
+//! **plan-driven calibration API** (schema version `"finstack.calibration/2"`).
 //!
-//! ## Multi-Curve Framework
-//!
-//! The calibration framework follows the post-2008 multi-curve methodology where
-//! discount and forward curves are calibrated separately to capture basis spreads.
+//! ## Quick start (v2 plan-driven)
 //!
 //! ```ignore
-//! use finstack_core::config::FinstackConfig;
-//! use finstack_valuations::calibration::methods::{
-//!     DiscountCurveCalibrator, ForwardCurveCalibrator
+//! use finstack_valuations::calibration::api::engine;
+//! use finstack_valuations::calibration::api::schema::{
+//!     CalibrationEnvelopeV2, CalibrationPlanV2, CalibrationStepV2, StepParams,
+//!     DiscountCurveParams, CalibrationMethod, CALIBRATION_SCHEMA_V2,
 //! };
+//! use finstack_valuations::calibration::domain::quotes::{MarketQuote, RatesQuote};
+//! use std::collections::HashMap;
 //!
-//! let mut cfg = FinstackConfig::default();
-//! cfg.extensions.insert(
-//!     "valuations.calibration.v1",
-//!     serde_json::json!({
-//!         "multi_curve": { "calibrate_basis": true, "enforce_separation": true }
-//!     })
-//! );
+//! let quote_sets: HashMap<String, Vec<MarketQuote>> = HashMap::new();
+//! let steps: Vec<CalibrationStepV2> = Vec::new();
 //!
-//! // Step 1: Calibrate OIS discount curve using deposits and OIS swaps
-//! let ois_quotes = vec![/* deposits and OIS swaps */];
-//! let disc_calibrator = DiscountCurveCalibrator::new("USD-OIS", base_date, Currency::USD)
-//!     .with_finstack_config(&cfg)?;
-//! let (discount_curve, _) = disc_calibrator.calibrate(&ois_quotes, &context)?;
-//!
-//! // Step 2: Add discount curve to context
-//! let context = context.insert_discount(discount_curve);
-//!
-//! // Step 3: Calibrate forward curves using FRAs, futures, and tenor-specific swaps
-//! let libor_quotes = vec![/* FRAs, futures, and LIBOR swaps */];
-//! let fwd_calibrator = ForwardCurveCalibrator::new(
-//!     "USD-SOFR-3M-FWD", 0.25, base_date, Currency::USD, "USD-OIS"
-//! );
-//! let (forward_curve, _) = fwd_calibrator.calibrate(&libor_quotes, &context)?;
+//! let plan = CalibrationPlanV2 {
+//!     id: "plan".to_string(),
+//!     description: None,
+//!     quote_sets,
+//!     steps,
+//!     settings: Default::default(),
+//! };
+//! let envelope = CalibrationEnvelopeV2 {
+//!     schema: CALIBRATION_SCHEMA_V2.to_string(),
+//!     plan,
+//!     initial_market: None,
+//! };
+//! let _result = engine::execute(&envelope)?;
 //! ```
-//!
-//! ### Multi-Curve Calibration Notes
-//!
-//! 1. **Instrument Selection**:
-//!    - For discount curve: Use deposits and OIS swaps (instruments that don't require forward curves)
-//!    - For forward curves: Use FRAs, futures, and tenor-specific swaps
-//!
-//! 2. **Calibration Order**:
-//!    - Always calibrate discount curve first
-//!    - Then calibrate forward curves with discount curve in context
 
-// Submodules
-pub mod bumps;
+/// Adapters mapping API steps to domain execution.
+pub mod adapters;
+/// Plan-driven calibration API (schema + execution engine).
+pub mod api;
+/// Domain types used by the plan-driven engine (quotes, pricing, solver utilities).
+pub mod domain;
+
+// Shared infrastructure
 mod config;
-pub mod methods;
-pub mod pricing;
-pub mod quotes;
 mod report;
-mod solver;
-pub mod spec;
-mod traits;
-/// Version 2 of the calibration API with plan-driven execution.
-pub mod v2;
 mod validation;
+
+/// Curve bumping helpers used by scenarios and risk metrics (v2 re-calibration).
+pub mod bumps;
+
+/// Solver utilities and implementations (re-export of `domain::solver`).
+pub use domain::solver as solver;
 
 // Re-exports: Configuration
 pub use config::{
-    CalibrationConfig, CalibrationMethod, MultiCurveConfig, RateBounds, RateBoundsPolicy,
-    SolverKind, ValidationMode, CALIBRATION_CONFIG_KEY_V1,
+    CalibrationConfig, CalibrationMethod as CalibrationSolveMethod, MultiCurveConfig, RateBounds,
+    RateBoundsPolicy, SolverKind, ValidationMode, CALIBRATION_CONFIG_KEY_V2,
 };
 
 // Re-exports: SABR derivatives (from instruments module)
@@ -80,27 +68,12 @@ pub use crate::instruments::common::models::volatility::sabr_derivatives::{
     SABRCalibrationDerivatives, SABRMarketData,
 };
 
-// Re-exports: Quote schemas (from quotes module)
-pub use quotes::{
-    CreditQuote, FutureSpecs, InflationQuote, InstrumentConventions, MarketQuote, RatesQuote,
-    VolQuote,
-};
-
-// Re-exports: Pricing infrastructure
-pub use pricing::{CalibrationPricer, ConvexityParameters, RatesQuoteUseCase};
-
-// Re-exports: Reports and specs
+// Re-exports: Reports
 pub use report::CalibrationReport;
-pub(crate) use solver::bracket_solve_1d_with_diagnostics;
 pub use solver::{
-    create_simple_solver, solve_1d, BracketDiagnostics, SolverConfig, OBJECTIVE_VALID_ABS_MAX,
-    PENALTY, RESIDUAL_PENALTY_ABS_MIN,
-};
-pub use spec::{
-    CalibrationEnvelope, CalibrationResult, CalibrationResultEnvelope, CalibrationSpec,
-    CalibrationStep, CALIBRATION_SCHEMA_V1,
+    create_simple_solver, solve_1d, BracketDiagnostics, OBJECTIVE_VALID_ABS_MAX, PENALTY,
+    RESIDUAL_PENALTY_ABS_MIN,
 };
 
-// Re-exports: Traits and validation
-pub use traits::Calibrator;
+// Re-exports: Validation
 pub use validation::{CurveValidator, SurfaceValidator, ValidationConfig};

@@ -3,7 +3,7 @@ use crate::core::dates::daycount::PyDayCount;
 use crate::core::dates::schedule::PyFrequency;
 use crate::core::dates::utils::{date_to_py, py_to_date};
 use finstack_core::prelude::DateExt;
-use finstack_valuations::calibration::v2::domain::quotes::{
+use finstack_valuations::calibration::domain::quotes::{
     CreditQuote, FutureSpecs, InflationQuote, InstrumentConventions, MarketQuote, RatesQuote,
     VolQuote,
 };

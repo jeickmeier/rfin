@@ -114,7 +114,7 @@ impl JsFinstackConfig {
 
     /// Set an extension section in the configuration.
     ///
-    /// @param {string} key - Extension key (e.g., "valuations.calibration.v1")
+    /// @param {string} key - Extension key (e.g., "valuations.calibration.v2")
     /// @param {any} value - Extension configuration value (must be JSON-serializable)
     #[wasm_bindgen(js_name = setExtension)]
     pub fn set_extension(&mut self, key: &str, value: JsValue) -> Result<(), JsValue> {

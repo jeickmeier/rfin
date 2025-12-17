@@ -1,17 +1,17 @@
 use criterion::{criterion_group, criterion_main, Criterion};
-use finstack_core::currency::Currency;
 use finstack_core::dates::Date;
 use finstack_core::market_data::context::MarketContext;
 use finstack_core::market_data::term_structures::discount_curve::DiscountCurve;
-use finstack_valuations::calibration::methods::sabr_surface::VolSurfaceCalibrator;
-use finstack_valuations::calibration::Calibrator;
-use finstack_valuations::calibration::VolQuote;
+use finstack_valuations::calibration::adapters::handlers::execute_step;
+use finstack_valuations::calibration::api::schema::{StepParams, VolSurfaceParams};
+use finstack_valuations::calibration::domain::quotes::{MarketQuote, VolQuote};
+use finstack_valuations::calibration::CalibrationConfig;
 use std::hint::black_box;
 use time::Month;
 
 fn bench_sabr_slice(c: &mut Criterion) {
     let base_date = Date::from_calendar_date(2025, Month::January, 1).unwrap();
-    let quotes = vec![
+    let quotes = [
         VolQuote::OptionVol {
             underlying: "SPY".to_string().into(),
             expiry: base_date + time::Duration::days(30),
@@ -37,10 +37,21 @@ fn bench_sabr_slice(c: &mut Criterion) {
             conventions: Default::default(),
         },
     ];
-    let calibrator =
-        VolSurfaceCalibrator::new("SPY-VOL", 1.0, vec![1.0 / 12.0], vec![95.0, 100.0, 105.0])
-            .with_base_date(base_date)
-            .with_base_currency(Currency::USD);
+    let settings = CalibrationConfig::default();
+    let params = VolSurfaceParams {
+        surface_id: "SPY-VOL".to_string(),
+        base_date,
+        underlying_id: "SPY".to_string(),
+        model: "SABR".to_string(),
+        discount_curve_id: Some("USD-OIS".into()),
+        beta: 1.0,
+        target_expiries: vec![1.0 / 12.0],
+        target_strikes: vec![95.0, 100.0, 105.0],
+        spot_override: None,
+        dividend_yield_override: None,
+        expiry_extrapolation: Default::default(),
+    };
+    let step = StepParams::VolSurface(params);
     let disc = DiscountCurve::builder("USD-OIS")
         .base_date(base_date)
         .knots([(0.0, 1.0), (5.0, 0.78)])
@@ -56,10 +67,10 @@ fn bench_sabr_slice(c: &mut Criterion) {
             "SPY-DIVYIELD",
             finstack_core::market_data::scalars::MarketScalar::Unitless(0.02),
         );
+    let market_quotes: Vec<MarketQuote> = quotes.iter().cloned().map(MarketQuote::Vol).collect();
     c.bench_function("sabr_slice_calibration", |b| {
         b.iter(|| {
-            calibrator
-                .calibrate(black_box(&quotes), black_box(&market))
+            execute_step(black_box(&step), black_box(&market_quotes), black_box(&market), black_box(&settings))
                 .unwrap()
         })
     });

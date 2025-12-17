@@ -9,7 +9,7 @@ This document analyzes the current state of `FinstackConfig` usage across the fi
 - Keep **`finstack_core::config::FinstackConfig` as the single top-level config type**.
 - Add an optional **`extensions` map** (namespaced, versioned keys → JSON objects).
 - Crates own their section schemas; core stays rounding-focused.
-- First adopter: **valuations calibration** reads `extensions["valuations.calibration.v1"]` for overrides; otherwise uses existing defaults.
+- First adopter: **valuations calibration** reads `extensions["valuations.calibration.v2"]` for overrides; otherwise uses existing defaults.
 
 Canonical v1 JSON shape:
 
@@ -21,7 +21,7 @@ Canonical v1 JSON shape:
     "output_scale": { "overrides": { "USD": 4 } }
   },
   "extensions": {
-    "valuations.calibration.v1": {
+    "valuations.calibration.v2": {
       "tolerance": 1e-8,
       "max_iterations": 250,
       "use_parallel": true,
@@ -280,7 +280,7 @@ To keep schemas stable and avoid collisions, require:
 
 - Key format: **`"{crate}.{domain}.v{N}"`**
   - Examples:
-    - `"valuations.calibration.v1"`
+    - `"valuations.calibration.v2"`
     - `"valuations.monte_carlo.v1"`
     - `"statements.monte_carlo.v1"`
     - `"portfolio.aggregation.v1"`
@@ -295,8 +295,8 @@ The “extensions map” pattern is UI-friendly because it is already JSON.
 To keep schemas auditable and golden-testable:
 
 - Each crate should publish a JSON schema per section version, e.g.:
-  - `finstack/valuations/schemas/config/valuations.calibration.v1.schema.json`
-  - `finstack/valuations/schemas/config/valuations.monte_carlo.v1.schema.json`
+  - `finstack/valuations/schemas/calibration/2/calibration_config_v2.schema.json`
+  - `finstack/valuations/schemas/monte_carlo/1/monte_carlo_config_v1.schema.json`
 - The schema should be generated from the Rust type when possible (or maintained by hand if needed),
   but the key requirement is that it is **versioned and stable**.
 
@@ -309,11 +309,11 @@ Each crate defines its config struct locally with `#[serde(deny_unknown_fields)]
 
 ```rust
 // in finstack-valuations
-pub const CALIBRATION_CONFIG_KEY_V1: &str = "valuations.calibration.v1";
+pub const CALIBRATION_CONFIG_KEY_V2: &str = "valuations.calibration.v2";
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
-pub struct CalibrationConfigV1 {
+pub struct CalibrationConfigV2 {
     pub tolerance: f64,
     pub max_iterations: usize,
     #[serde(default)]
@@ -323,9 +323,9 @@ pub struct CalibrationConfigV1 {
     // ...
 }
 
-impl CalibrationConfigV1 {
+impl CalibrationConfigV2 {
     pub fn from_engine(cfg: &EngineConfig) -> Result<Self> {
-        if let Some(raw) = cfg.extensions.get(CALIBRATION_CONFIG_KEY_V1) {
+        if let Some(raw) = cfg.extensions.get(CALIBRATION_CONFIG_KEY_V2) {
             Ok(serde_json::from_value(raw.clone())?)
         } else {
             Ok(Self::default_from_engine(cfg))
@@ -368,7 +368,7 @@ Your current worker does essentially:
 - `JSON.parse`
 - extract a couple of keys
 
-So the worker is already compatible with an **“engine config envelope”**: it can continue extracting `numeric.rounding...` (or whatever we standardize), while future UI features can pass sections like `"valuations.calibration.v1"` without changing the core WASM bindings.
+So the worker is already compatible with an **“engine config envelope”**: it can continue extracting `numeric.rounding...` (or whatever we standardize), while future UI features can pass sections like `"valuations.calibration.v2"` without changing the core WASM bindings.
 
 ### 4.1) Concrete “standard JSON” shape (what gets passed as `configJson`)
 
@@ -390,7 +390,7 @@ Recommended canonical JSON shape for `EngineConfig`:
   },
   "validation": { "mode": "error" },
   "extensions": {
-    "valuations.calibration.v1": {
+    "valuations.calibration.v2": {
       "tolerance": 1e-10,
       "max_iterations": 100,
       "solver_kind": "brent"
@@ -422,7 +422,7 @@ If we standardize on the new envelope, the worker should instead read:
 - `cfgParsed.numeric.rounding.mode`
 
 This is a mechanical refactor and keeps the “config-as-JSON string” contract intact.
-It also unlocks passing `"valuations.calibration.v1"` into the worker without the worker
+It also unlocks passing `"valuations.calibration.v2"` into the worker without the worker
 having to understand calibration fields—it can simply forward the JSON to Rust/WASM entrypoints.
 
 ### 4.3) Python impact (parity story)

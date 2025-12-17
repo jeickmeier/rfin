@@ -327,7 +327,7 @@ impl PyFinstackConfig {
     /// Parameters
     /// ----------
     /// key : str
-    ///     Extension key (e.g., "valuations.calibration.v1")
+    ///     Extension key (e.g., "valuations.calibration.v2")
     /// value : dict or any JSON-serializable value
     ///     Extension configuration value
     ///

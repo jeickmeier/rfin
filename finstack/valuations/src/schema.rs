@@ -23,7 +23,7 @@ pub fn bond_schema() -> Value {
 ///
 /// Returns schema for calibration configuration options.
 pub fn calibration_config_schema() -> Value {
-    include_schema!("../schemas/calibration/1/config.schema.json")
+    include_schema!("../schemas/calibration/2/calibration_config_v2.schema.json")
 }
 
 /// Get JSON-Schema for ValuationResult.
@@ -37,7 +37,7 @@ pub fn valuation_result_schema() -> Value {
 ///
 /// Returns schema for calibration diagnostic report.
 pub fn calibration_report_schema() -> Value {
-    include_schema!("../schemas/calibration/1/calibration_result.schema.json")
+    include_schema!("../schemas/calibration/2/calibration_result.schema.json")
 }
 
 #[cfg(test)]

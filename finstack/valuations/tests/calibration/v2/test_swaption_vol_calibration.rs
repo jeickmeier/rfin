@@ -4,12 +4,12 @@ use finstack_core::dates::Date;
 use finstack_core::market_data::context::MarketContext;
 use finstack_core::market_data::term_structures::discount_curve::DiscountCurve;
 use finstack_core::types::{Currency, CurveId};
-use finstack_valuations::calibration::v2::api::engine;
-use finstack_valuations::calibration::v2::api::schema::{
+use finstack_valuations::calibration::api::engine;
+use finstack_valuations::calibration::api::schema::{
     CalibrationEnvelopeV2, CalibrationPlanV2, CalibrationStepV2, StepParams,
     SurfaceExtrapolationPolicy, SwaptionVolConvention, SwaptionVolParams,
 };
-use finstack_valuations::calibration::v2::domain::quotes::{MarketQuote, VolQuote};
+use finstack_valuations::calibration::domain::quotes::{MarketQuote, VolQuote};
 use finstack_valuations::calibration::CalibrationConfig;
 use std::collections::HashMap;
 use time::Month;

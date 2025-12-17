@@ -1,10 +1,13 @@
 //! Shared hazard curve bumping logic.
 
 use super::BumpRequest;
-use crate::calibration::methods::HazardCurveCalibrator;
-use crate::calibration::{Calibrator, CreditQuote};
+use crate::calibration::adapters::handlers::execute_step;
+use crate::calibration::api::schema::{CalibrationMethod, HazardCurveParams, StepParams};
+use crate::calibration::domain::quotes::{CreditQuote, MarketQuote};
+use crate::calibration::CalibrationConfig;
 use finstack_core::market_data::context::MarketContext;
 use finstack_core::market_data::term_structures::hazard_curve::HazardCurve;
+use finstack_core::market_data::term_structures::ParInterp;
 use finstack_core::market_data::term_structures::Seniority;
 use finstack_core::types::Currency;
 use finstack_core::types::CurveId;
@@ -78,25 +81,25 @@ pub fn bump_hazard_spreads(
         });
     }
 
-    // Calibrate new curve
-    let calibrator = HazardCurveCalibrator::new(
-        issuer,
+    let market_quotes: Vec<MarketQuote> = quotes.into_iter().map(MarketQuote::Credit).collect();
+    let params = HazardCurveParams {
+        curve_id: hazard.id().clone(),
+        entity: issuer,
         seniority,
-        recovery,
-        base_date,
         currency,
-        discount_id.clone(),
-    );
+        base_date,
+        discount_curve_id: discount_id.clone(),
+        recovery_rate: recovery,
+        notional: 1.0,
+        method: CalibrationMethod::Bootstrap,
+        interpolation: Default::default(),
+        par_interp: ParInterp::Linear,
+    };
 
-    let (new_curve, _report) = calibrator.calibrate(&quotes, context)?;
-
-    // Restore original ID to ensure it overrides correctly in MarketContext
-    let final_curve = new_curve
-        .to_builder_with_id(hazard.id().clone())
-        .build()
-        .map_err(|_| finstack_core::Error::Internal)?;
-
-    Ok(final_curve)
+    let cfg = CalibrationConfig::default();
+    let step = StepParams::Hazard(params.clone());
+    let (ctx, _report) = execute_step(&step, &market_quotes, context, &cfg)?;
+    Ok(ctx.get_hazard_ref(params.curve_id.as_str())?.clone())
 }
 
 /// Fallback: bump hazard rates directly (Model Sensitivity).

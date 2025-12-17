@@ -4,12 +4,12 @@ use finstack_core::market_data::context::{MarketContext, MarketContextState};
 use finstack_core::math::interp::ExtrapolationPolicy;
 use finstack_core::prelude::*;
 use finstack_core::types::Currency;
-use finstack_valuations::calibration::v2::api::engine;
-use finstack_valuations::calibration::v2::api::schema::{
+use finstack_valuations::calibration::api::engine;
+use finstack_valuations::calibration::api::schema::{
     CalibrationEnvelopeV2, CalibrationMethod, CalibrationPlanV2, CalibrationStepV2,
     DiscountCurveParams, ForwardCurveParams, StepParams,
 };
-use finstack_valuations::calibration::v2::domain::quotes::{
+use finstack_valuations::calibration::domain::quotes::{
     InstrumentConventions, MarketQuote, RatesQuote,
 };
 use std::collections::HashMap;

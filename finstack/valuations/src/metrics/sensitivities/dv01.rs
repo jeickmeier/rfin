@@ -49,9 +49,9 @@
 
 use crate::calibration::bumps::rates::{bump_discount_curve, find_closest_quote};
 use crate::calibration::bumps::BumpRequest;
-use crate::calibration::methods::DiscountCurveCalibrator;
-
-use crate::calibration::RatesQuote;
+use crate::calibration::api::schema::DiscountCurveParams;
+use crate::calibration::domain::quotes::RatesQuote;
+use crate::calibration::CalibrationConfig;
 use crate::instruments::common::pricing::HasDiscountCurve;
 use crate::instruments::common::traits::{CurveDependencies, Instrument, RatesCurveKind};
 use crate::metrics::sensitivities::config as sens_config;
@@ -139,8 +139,10 @@ pub enum CurveSelection {
 pub struct ParRateContext {
     /// Calibration quotes sorted by maturity
     pub quotes: Vec<RatesQuote>,
-    /// Calibrator used to build the curve
-    pub calibrator: DiscountCurveCalibrator,
+    /// Discount-curve step parameters describing how to rebuild the curve.
+    pub params: DiscountCurveParams,
+    /// Global calibration settings (tolerances, bounds).
+    pub settings: CalibrationConfig,
     /// Base market context (without the curve being calibrated)
     pub base_context: MarketContext,
 }
@@ -151,7 +153,7 @@ impl ParRateContext {
     /// Quotes are automatically sorted by maturity date.
     pub fn new(
         quotes: Vec<RatesQuote>,
-        calibrator: DiscountCurveCalibrator,
+        params: DiscountCurveParams,
         base_context: MarketContext,
     ) -> Self {
         let mut sorted_quotes = quotes;
@@ -162,9 +164,17 @@ impl ParRateContext {
         });
         Self {
             quotes: sorted_quotes,
-            calibrator,
+            params,
+            settings: CalibrationConfig::default(),
             base_context,
         }
+    }
+
+    /// Override plan-level calibration settings (tolerances, bounds).
+    #[must_use]
+    pub fn with_settings(mut self, settings: CalibrationConfig) -> Self {
+        self.settings = settings;
+        self
     }
 }
 
@@ -643,10 +653,9 @@ where
 
                 match bump_discount_curve(
                     &par_context.quotes,
-                    &par_context.calibrator,
+                    &par_context.params,
                     &par_context.base_context,
                     &bump_request,
-                    as_of,
                 ) {
                     Ok(bumped_curve) => {
                         // Replace curve in context and reprice

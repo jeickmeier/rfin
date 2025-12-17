@@ -6,12 +6,12 @@ use finstack_core::market_data::term_structures::Seniority;
 use finstack_core::math::interp::ExtrapolationPolicy;
 use finstack_core::prelude::DateExt;
 use finstack_core::types::{Currency, CurveId};
-use finstack_valuations::calibration::v2::api::engine;
-use finstack_valuations::calibration::v2::api::schema::{
+use finstack_valuations::calibration::api::engine;
+use finstack_valuations::calibration::api::schema::{
     CalibrationEnvelopeV2, CalibrationMethod, CalibrationPlanV2, CalibrationStepV2,
     DiscountCurveParams, HazardCurveParams, StepParams,
 };
-use finstack_valuations::calibration::v2::domain::quotes::{
+use finstack_valuations::calibration::domain::quotes::{
     CreditQuote, InstrumentConventions, MarketQuote, RatesQuote,
 };
 use std::collections::HashMap;

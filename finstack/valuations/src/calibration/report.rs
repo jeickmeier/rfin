@@ -4,6 +4,7 @@ use finstack_core::config::ResultsMeta;
 use finstack_core::explain::ExplanationTrace;
 use serde::{Deserialize, Serialize};
 use std::collections::BTreeMap;
+use crate::calibration::solver::SolverConfig;
 
 fn default_true() -> bool {
     true
@@ -95,7 +96,7 @@ pub struct CalibrationReport {
     /// Captures the complete solver state for reproducibility. Defaults to
     /// Hybrid solver if not explicitly set.
     #[serde(default)]
-    pub solver_config: crate::calibration::SolverConfig,
+    pub solver_config: SolverConfig,
     /// Result metadata (timestamp, version, rounding context, etc.)
     #[serde(default)]
     pub results_meta: ResultsMeta,
@@ -133,7 +134,7 @@ impl CalibrationReport {
             validation_error: None,
             convergence_reason: convergence_reason.into(),
             metadata: BTreeMap::new(),
-            solver_config: crate::calibration::SolverConfig::default(),
+            solver_config: SolverConfig::default(),
             results_meta,
             explanation: None,
         }
@@ -168,7 +169,7 @@ impl CalibrationReport {
     }
 
     /// Set solver configuration (builder pattern).
-    pub fn with_solver_config(mut self, config: crate::calibration::SolverConfig) -> Self {
+    pub fn with_solver_config(mut self, config: SolverConfig) -> Self {
         self.solver_config = config;
         self
     }
@@ -200,7 +201,7 @@ impl CalibrationReport {
     }
 
     /// Update solver configuration on an existing report.
-    pub fn update_solver_config(&mut self, config: crate::calibration::SolverConfig) {
+    pub fn update_solver_config(&mut self, config: SolverConfig) {
         self.solver_config = config;
     }
 
@@ -312,7 +313,7 @@ impl Default for CalibrationReport {
             validation_error: None,
             convergence_reason: "Not started".to_string(),
             metadata: BTreeMap::new(),
-            solver_config: crate::calibration::SolverConfig::default(),
+            solver_config: SolverConfig::default(),
             results_meta,
             explanation: None,
         }

@@ -10,13 +10,13 @@ use finstack_core::dates::{BusinessDayConvention, DayCount, Tenor};
 use finstack_core::market_data::term_structures::Seniority;
 use finstack_core::math::interp::ExtrapolationPolicy;
 use finstack_core::types::{Currency, CurveId};
-use finstack_valuations::calibration::v2::api::schema::{
+use finstack_valuations::calibration::api::schema::{
     BaseCorrelationParams, CalibrationEnvelopeV2, CalibrationMethod, CalibrationPlanV2,
     CalibrationStepV2, DiscountCurveParams, ForwardCurveParams, HazardCurveParams,
     InflationCurveParams, StepParams, SurfaceExtrapolationPolicy, SwaptionVolParams,
     VolSurfaceParams,
 };
-use finstack_valuations::calibration::v2::domain::quotes::{
+use finstack_valuations::calibration::domain::quotes::{
     CreditQuote, MarketQuote, RatesQuote, VolQuote,
 };
 use std::collections::HashMap;

@@ -18,8 +18,8 @@ use serde_json;
 use ts_rs::TS;
 
 fn default_rate_bounds_policy_for_serde() -> RateBoundsPolicy {
-    // Backward compatible: older serialized configs only have `rate_bounds`.
-    RateBoundsPolicy::Explicit
+    // v2 plan-driven default: choose currency-aware bounds unless explicitly overridden.
+    RateBoundsPolicy::AutoCurrency
 }
 
 /// Configurable bounds for forward/zero rates during calibration.
@@ -320,8 +320,8 @@ pub struct CalibrationConfig {
     pub discount_curve: DiscountCurveSolveConfig,
 }
 
-/// Extension section key for calibration overrides.
-pub const CALIBRATION_CONFIG_KEY_V1: &str = "valuations.calibration.v1";
+/// Extension section key for calibration overrides (v2).
+pub const CALIBRATION_CONFIG_KEY_V2: &str = "valuations.calibration.v2";
 
 impl Default for CalibrationConfig {
     fn default() -> Self {
@@ -349,7 +349,7 @@ impl Default for CalibrationConfig {
 impl CalibrationConfig {
     /// Build a calibration config from a `FinstackConfig` extension section.
     ///
-    /// If the extension section `valuations.calibration.v1` is present, its
+    /// If the extension section `valuations.calibration.v2` is present, its
     /// fields override the defaults; otherwise defaults are used.
     ///
     /// # Errors
@@ -370,12 +370,12 @@ impl CalibrationConfig {
     /// ```
     #[cfg(feature = "serde")]
     pub fn from_finstack_config_or_default(cfg: &FinstackConfig) -> finstack_core::Result<Self> {
-        if let Some(raw) = cfg.extensions.get(CALIBRATION_CONFIG_KEY_V1) {
+        if let Some(raw) = cfg.extensions.get(CALIBRATION_CONFIG_KEY_V2) {
             // Deserialize directly into CalibrationConfig; missing fields use defaults via #[serde(default)]
             serde_json::from_value(raw.clone()).map_err(|e| finstack_core::Error::Calibration {
                 message: format!(
                     "Failed to parse extension '{}': {}",
-                    CALIBRATION_CONFIG_KEY_V1, e
+                    CALIBRATION_CONFIG_KEY_V2, e
                 ),
                 category: "config".to_string(),
             })

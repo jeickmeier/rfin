@@ -119,17 +119,26 @@
 //! ## Calibration
 //!
 //! ```rust,ignore
-//! use finstack_core::currency::Currency;
-//! use finstack_core::dates::create_date;
-//! use time::Month;
-//!
 //! # fn main() -> Result<(), Box<dyn std::error::Error>> {
-//! let base_date = create_date(2025, Month::January, 15)?;
+//! use finstack_valuations::calibration::api::engine;
+//! use finstack_valuations::calibration::api::schema::{
+//!     CalibrationEnvelopeV2, CalibrationPlanV2, CALIBRATION_SCHEMA_V2,
+//! };
 //!
-//! // Build a CalibrationSpec pipeline (JSON-serializable) and execute it.
-//! // See calibration::spec for full examples.
-//! // let spec = CalibrationSpec { base_date, base_currency: Currency::USD, .. };
-//! // let (market_context, report) = spec.execute(None)?;
+//! // Build a plan-driven v2 envelope and execute it.
+//! // (See `calibration::api::schema` for the full contract.)
+//! let envelope = CalibrationEnvelopeV2 {
+//!     schema: CALIBRATION_SCHEMA_V2.to_string(),
+//!     plan: CalibrationPlanV2 {
+//!         id: "plan".to_string(),
+//!         description: None,
+//!         quote_sets: Default::default(),
+//!         steps: vec![],
+//!         settings: Default::default(),
+//!     },
+//!     initial_market: None,
+//! };
+//! let _result = engine::execute(&envelope)?;
 //! # Ok(())
 //! # }
 //! ```

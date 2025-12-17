@@ -3,9 +3,10 @@ use finstack_core::currency::Currency;
 use finstack_core::dates::{Date, DayCount};
 use finstack_core::market_data::context::MarketContext;
 use finstack_core::market_data::term_structures::discount_curve::DiscountCurve;
-use finstack_valuations::calibration::methods::forward_curve::ForwardCurveCalibrator;
-use finstack_valuations::calibration::quotes::InstrumentConventions;
-use finstack_valuations::calibration::{Calibrator, RatesQuote};
+use finstack_valuations::calibration::adapters::handlers::execute_step;
+use finstack_valuations::calibration::api::schema::{CalibrationMethod, ForwardCurveParams, StepParams};
+use finstack_valuations::calibration::domain::quotes::{InstrumentConventions, MarketQuote, RatesQuote};
+use finstack_valuations::calibration::CalibrationConfig;
 use std::hint::black_box;
 use time::Month;
 
@@ -17,7 +18,7 @@ fn bench_forward_curve(c: &mut Criterion) {
         .build()
         .unwrap();
     let ctx = MarketContext::new().insert_discount(disc);
-    let quotes = vec![
+    let quotes = [
         RatesQuote::FRA {
             start: base_date + time::Duration::days(90),
             end: base_date + time::Duration::days(180),
@@ -31,12 +32,22 @@ fn bench_forward_curve(c: &mut Criterion) {
             conventions: InstrumentConventions::default().with_day_count(DayCount::Act360),
         },
     ];
-    let calibrator =
-        ForwardCurveCalibrator::new("USD-SOFR-3M-FWD", 0.25, base_date, Currency::USD, "USD-OIS");
+    let settings = CalibrationConfig::default();
+    let params = ForwardCurveParams {
+        curve_id: "USD-SOFR-3M-FWD".into(),
+        currency: Currency::USD,
+        base_date,
+        tenor_years: 0.25,
+        discount_curve_id: "USD-OIS".into(),
+        method: CalibrationMethod::Bootstrap,
+        interpolation: Default::default(),
+        conventions: Default::default(),
+    };
+    let step = StepParams::Forward(params);
+    let market_quotes: Vec<MarketQuote> = quotes.iter().cloned().map(MarketQuote::Rates).collect();
     c.bench_function("fwd_curve_fra_strip", |b| {
         b.iter(|| {
-            calibrator
-                .calibrate(black_box(&quotes), black_box(&ctx))
+            execute_step(black_box(&step), black_box(&market_quotes), black_box(&ctx), black_box(&settings))
                 .unwrap()
         })
     });

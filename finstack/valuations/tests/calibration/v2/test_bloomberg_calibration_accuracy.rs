@@ -58,9 +58,11 @@ use finstack_core::config::FinstackConfig;
 use finstack_core::currency::Currency;
 use finstack_core::dates::{BusinessDayConvention, Date, DayCount, DayCountCtx, Tenor};
 use finstack_core::market_data::context::MarketContext;
-use finstack_valuations::calibration::methods::discount::DiscountCurveCalibrator;
-use finstack_valuations::calibration::quotes::InstrumentConventions;
-use finstack_valuations::calibration::{Calibrator, RatesQuote, CALIBRATION_CONFIG_KEY_V1};
+use finstack_core::math::interp::InterpStyle;
+use finstack_valuations::calibration::adapters::handlers::execute_step;
+use finstack_valuations::calibration::api::schema::{CalibrationMethod, DiscountCurveParams, StepParams};
+use finstack_valuations::calibration::domain::quotes::{InstrumentConventions, MarketQuote, RatesQuote};
+use finstack_valuations::calibration::{CalibrationConfig, CALIBRATION_CONFIG_KEY_V2};
 use time::Month;
 
 /// Helper to create deposit quotes with ACT/360 day count
@@ -429,7 +431,7 @@ fn test_bloomberg_usd_ois_calibration_accuracy() {
     // and interpolation/extrapolation differences.
     let mut cfg = FinstackConfig::default();
     cfg.extensions.insert(
-        CALIBRATION_CONFIG_KEY_V1,
+        CALIBRATION_CONFIG_KEY_V2,
         serde_json::json!({
             // Bootstrap uses x-space termination in Brent; enforce internal consistency via
             // max_residual checks below while keeping the solver tolerance realistic for long-end quotes.
@@ -437,15 +439,27 @@ fn test_bloomberg_usd_ois_calibration_accuracy() {
             "max_iterations": 200
         }),
     );
-    let calibrator = DiscountCurveCalibrator::new("USD-OIS", base_date, Currency::USD)
-        .with_finstack_config(&cfg)
-        .expect("valid config")
-        .with_include_spot_knot(false); // Match Bloomberg's curve structure (no spot knot)
+    let settings =
+        CalibrationConfig::from_finstack_config_or_default(&cfg).expect("valid config");
+
+    let params = DiscountCurveParams {
+        curve_id: "USD-OIS".into(),
+        currency: Currency::USD,
+        base_date,
+        method: CalibrationMethod::Bootstrap,
+        interpolation: InterpStyle::MonotoneConvex,
+        extrapolation: finstack_core::math::interp::ExtrapolationPolicy::FlatForward,
+        pricing_discount_id: None,
+        pricing_forward_id: None,
+        conventions: Default::default(),
+    };
+    let step = StepParams::Discount(params);
+    let quotes: Vec<MarketQuote> = discount_quotes.iter().cloned().map(MarketQuote::Rates).collect();
     let base_context = MarketContext::new();
 
-    let (curve, report) = calibrator
-        .calibrate(&discount_quotes, &base_context)
+    let (ctx, report) = execute_step(&step, &quotes, &base_context, &settings)
         .expect("Discount curve calibration should succeed");
+    let curve = ctx.get_discount_ref("USD-OIS").expect("curve inserted").clone();
 
     // Verify calibration succeeded
     assert!(report.success, "Calibration should report success");
@@ -681,12 +695,10 @@ fn test_bloomberg_usd_ois_calibration_accuracy() {
 /// factors) uses interpolated DFs at each coupon date.
 #[test]
 fn test_interpolation_method_comparison() {
-    use finstack_core::math::interp::InterpStyle;
-
     let base_date = Date::from_calendar_date(2025, Month::December, 10).expect("Valid test date");
 
     // Use a subset of quotes for comparison (short-end to 10Y)
-    let test_quotes = vec![
+    let test_quotes = [
         // Short-term deposits
         deposit(
             Date::from_calendar_date(2025, Month::December, 19).expect("Valid date"),
@@ -724,20 +736,50 @@ fn test_interpolation_method_comparison() {
     ];
 
     let base_context = MarketContext::new();
+    let quotes: Vec<MarketQuote> = test_quotes.iter().cloned().map(MarketQuote::Rates).collect();
+    let settings = CalibrationConfig::default();
 
-    // Test MonotoneConvex (default, industry standard)
-    let mc_calibrator = DiscountCurveCalibrator::new("USD-OIS-MC", base_date, Currency::USD)
-        .with_solve_interp(InterpStyle::MonotoneConvex);
-    let (mc_curve, mc_report) = mc_calibrator
-        .calibrate(&test_quotes, &base_context)
-        .expect("MonotoneConvex calibration should succeed");
+    // Test MonotoneConvex (industry standard)
+    let mc_params = DiscountCurveParams {
+        curve_id: "USD-OIS-MC".into(),
+        currency: Currency::USD,
+        base_date,
+        method: CalibrationMethod::Bootstrap,
+        interpolation: InterpStyle::MonotoneConvex,
+        extrapolation: finstack_core::math::interp::ExtrapolationPolicy::FlatForward,
+        pricing_discount_id: None,
+        pricing_forward_id: None,
+        conventions: Default::default(),
+    };
+    let (mc_ctx, mc_report) = execute_step(
+        &StepParams::Discount(mc_params),
+        &quotes,
+        &base_context,
+        &settings,
+    )
+    .expect("MonotoneConvex calibration should succeed");
+    let mc_curve = mc_ctx.get_discount_ref("USD-OIS-MC").expect("curve inserted").clone();
 
     // Test LogLinear (piecewise constant zero rates)
-    let ll_calibrator = DiscountCurveCalibrator::new("USD-OIS-LL", base_date, Currency::USD)
-        .with_solve_interp(InterpStyle::LogLinear);
-    let (ll_curve, ll_report) = ll_calibrator
-        .calibrate(&test_quotes, &base_context)
-        .expect("LogLinear calibration should succeed");
+    let ll_params = DiscountCurveParams {
+        curve_id: "USD-OIS-LL".into(),
+        currency: Currency::USD,
+        base_date,
+        method: CalibrationMethod::Bootstrap,
+        interpolation: InterpStyle::LogLinear,
+        extrapolation: finstack_core::math::interp::ExtrapolationPolicy::FlatForward,
+        pricing_discount_id: None,
+        pricing_forward_id: None,
+        conventions: Default::default(),
+    };
+    let (ll_ctx, ll_report) = execute_step(
+        &StepParams::Discount(ll_params),
+        &quotes,
+        &base_context,
+        &settings,
+    )
+    .expect("LogLinear calibration should succeed");
+    let ll_curve = ll_ctx.get_discount_ref("USD-OIS-LL").expect("curve inserted").clone();
 
     assert!(mc_report.success, "MonotoneConvex should succeed");
     assert!(ll_report.success, "LogLinear should succeed");

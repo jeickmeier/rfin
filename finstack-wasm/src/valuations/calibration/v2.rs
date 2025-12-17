@@ -4,8 +4,8 @@ use crate::core::market_data::context::JsMarketContext;
 use crate::utils::json::from_js_value;
 use crate::valuations::calibration::report::JsCalibrationReport;
 use finstack_core::market_data::context::MarketContext;
-use finstack_valuations::calibration::v2::api::engine as calib_engine_v2;
-use finstack_valuations::calibration::v2::api::schema::CalibrationEnvelopeV2;
+use finstack_valuations::calibration::api::engine as calib_engine_v2;
+use finstack_valuations::calibration::api::schema::CalibrationEnvelopeV2;
 use js_sys::{Array, Object, Reflect};
 use wasm_bindgen::prelude::*;
 

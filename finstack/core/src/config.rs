@@ -102,7 +102,7 @@ pub struct FinstackConfig {
     pub tolerances: ToleranceConfig,
     /// Optional module-specific configuration sections (versioned, namespaced keys).
     ///
-    /// Keys follow `{crate}.{domain}.v{N}`, e.g., `valuations.calibration.v1`.
+    /// Keys follow `{crate}.{domain}.v{N}`, e.g., `valuations.calibration.v2`.
     /// Values are validated by the owning crate's strict serde schema.
     #[cfg(feature = "serde")]
     #[cfg_attr(

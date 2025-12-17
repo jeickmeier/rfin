@@ -4,8 +4,8 @@ use super::report::PyCalibrationReport;
 use crate::core::market_data::context::PyMarketContext;
 use crate::statements::utils::py_to_json;
 use finstack_core::market_data::context::MarketContext;
-use finstack_valuations::calibration::v2::api::engine as calib_engine_v2;
-use finstack_valuations::calibration::v2::api::schema::{
+use finstack_valuations::calibration::api::engine as calib_engine_v2;
+use finstack_valuations::calibration::api::schema::{
     CalibrationEnvelopeV2, CalibrationPlanV2, CalibrationStepV2, CALIBRATION_SCHEMA_V2,
 };
 use pyo3::exceptions::PyValueError;
@@ -28,7 +28,7 @@ fn step_from_py(value: &Bound<'_, PyAny>) -> PyResult<CalibrationStepV2> {
 fn quote_sets_from_py(
     py: Python<'_>,
     quote_sets: HashMap<String, Vec<Py<PyMarketQuote>>>,
-) -> PyResult<HashMap<String, Vec<finstack_valuations::calibration::v2::domain::quotes::MarketQuote>>>
+) -> PyResult<HashMap<String, Vec<finstack_valuations::calibration::domain::quotes::MarketQuote>>>
 {
     let mut out = HashMap::with_capacity(quote_sets.len());
     for (k, quotes) in quote_sets {

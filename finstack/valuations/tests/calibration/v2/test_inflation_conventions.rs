@@ -8,11 +8,11 @@ use finstack_core::market_data::scalars::inflation_index::{
 use finstack_core::market_data::term_structures::discount_curve::DiscountCurve;
 use finstack_core::prelude::DateExt;
 use finstack_core::types::Currency;
-use finstack_valuations::calibration::v2::api::engine;
-use finstack_valuations::calibration::v2::api::schema::{
+use finstack_valuations::calibration::api::engine;
+use finstack_valuations::calibration::api::schema::{
     CalibrationEnvelopeV2, CalibrationPlanV2, CalibrationStepV2, InflationCurveParams, StepParams,
 };
-use finstack_valuations::calibration::v2::domain::quotes::{InflationQuote, MarketQuote};
+use finstack_valuations::calibration::domain::quotes::{InflationQuote, MarketQuote};
 use std::collections::HashMap;
 use time::Month;
 

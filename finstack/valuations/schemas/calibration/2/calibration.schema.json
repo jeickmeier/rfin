@@ -1,0 +1,14 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "finstack.calibration/2",
+  "title": "CalibrationEnvelopeV2",
+  "type": "object",
+  "description": "Plan-driven calibration request envelope (v2).",
+  "additionalProperties": true,
+  "properties": {
+    "schema": { "const": "finstack.calibration/2" }
+  },
+  "required": ["schema"]
+}
+
+

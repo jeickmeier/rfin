@@ -11,16 +11,16 @@ use finstack_core::math::interp::InterpStyle;
 use finstack_core::prelude::DateExt;
 use finstack_core::types::Currency;
 use finstack_core::types::CurveId;
-use finstack_valuations::calibration::v2::api::engine;
-use finstack_valuations::calibration::v2::api::schema::{
+use finstack_valuations::calibration::api::engine;
+use finstack_valuations::calibration::api::schema::{
     CalibrationEnvelopeV2, CalibrationMethod, CalibrationPlanV2, CalibrationStepV2,
     DiscountCurveParams, RatesStepConventions, StepParams,
 };
-use finstack_valuations::calibration::v2::domain::pricing::{
+use finstack_valuations::calibration::domain::pricing::{
     CalibrationPricer, ConvexityParameters, VolatilitySource,
 };
-use finstack_valuations::calibration::v2::domain::quotes::FutureSpecs;
-use finstack_valuations::calibration::v2::domain::quotes::{
+use finstack_valuations::calibration::domain::quotes::FutureSpecs;
+use finstack_valuations::calibration::domain::quotes::{
     InstrumentConventions, MarketQuote, RatesQuote,
 };
 use std::collections::HashMap;
