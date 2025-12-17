@@ -181,11 +181,17 @@ fn default_ois_compounding(currency: Currency, tokens: &[String]) -> FloatingLeg
     if tokens.iter().any(|t| t == "TONA" || t == "TONAR") {
         return FloatingLegCompounding::tona();
     }
+    // USD overnight indices are not all the same:
+    // - SOFR OIS uses a 2-business-day lookback (ARRC)
+    // - Fed Funds / EFFR-style OIS typically uses no lookback
+    if tokens.iter().any(|t| t == "SOFR") {
+        return FloatingLegCompounding::sofr();
+    }
     if tokens
         .iter()
-        .any(|t| t == "SOFR" || t == "EFFR" || t == "FEDFUNDS")
+        .any(|t| t == "EFFR" || t == "FEDFUNDS" || t == "FEDFUND" || t == "FF")
     {
-        return FloatingLegCompounding::sofr();
+        return FloatingLegCompounding::fedfunds();
     }
 
     // Currency fallback for generic ids like "USD-OIS".
@@ -229,5 +235,18 @@ mod tests {
             c.ois_compounding,
             Some(FloatingLegCompounding::CompoundedInArrears { .. })
         ));
+    }
+
+    #[test]
+    fn treats_fedfunds_ois_index_as_no_lookback() {
+        let c = RateIndexConventions::for_index_with_currency(
+            &IndexId::new("USD-FEDFUNDS-OIS"),
+            Currency::USD,
+        );
+        assert_eq!(c.kind, RateIndexKind::OvernightRfr);
+        assert_eq!(c.default_payment_frequency, Tenor::annual());
+        assert_eq!(c.default_payment_delay_days, 2);
+        assert_eq!(c.default_reset_lag_days, 0);
+        assert_eq!(c.ois_compounding, Some(FloatingLegCompounding::fedfunds()));
     }
 }

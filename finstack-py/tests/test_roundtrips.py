@@ -234,10 +234,26 @@ class TestCalibrationRoundtrips:
         from finstack.valuations import calibration as cal
 
         quotes = [
-            cal.RatesQuote.deposit(dt.date(2024, 4, 2), 0.0500, DayCount.ACT_360),
-            cal.RatesQuote.deposit(dt.date(2024, 7, 2), 0.0505, DayCount.ACT_360),
-            cal.RatesQuote.deposit(dt.date(2025, 1, 2), 0.0510, DayCount.ACT_360),
-            cal.RatesQuote.deposit(dt.date(2026, 1, 2), 0.0520, DayCount.ACT_360),
+            cal.RatesQuote.deposit(
+                dt.date(2024, 4, 2),
+                0.0500,
+                conventions=cal.InstrumentConventions(day_count=DayCount.ACT_360),
+            ),
+            cal.RatesQuote.deposit(
+                dt.date(2024, 7, 2),
+                0.0505,
+                conventions=cal.InstrumentConventions(day_count=DayCount.ACT_360),
+            ),
+            cal.RatesQuote.deposit(
+                dt.date(2025, 1, 2),
+                0.0510,
+                conventions=cal.InstrumentConventions(day_count=DayCount.ACT_360),
+            ),
+            cal.RatesQuote.deposit(
+                dt.date(2026, 1, 2),
+                0.0520,
+                conventions=cal.InstrumentConventions(day_count=DayCount.ACT_360),
+            ),
         ]
         quote_sets = {"ois": [q.to_market_quote() for q in quotes]}
         steps = [

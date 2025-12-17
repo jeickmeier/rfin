@@ -26,39 +26,114 @@ class FutureSpecs:
     def convexity_adjustment(self) -> Optional[float]: ...
     def __repr__(self) -> str: ...
 
+class InstrumentConventions:
+    def __init__(
+        self,
+        settlement_days: int | None = ...,
+        payment_delay_days: int | None = ...,
+        reset_lag: int | None = ...,
+        calendar_id: str | None = ...,
+        fixing_calendar_id: str | None = ...,
+        payment_calendar_id: str | None = ...,
+        reset_frequency: Any | None = ...,
+        payment_frequency: Any | None = ...,
+        business_day_convention: Any | None = ...,
+        day_count: Any | None = ...,
+        currency: Any | None = ...,
+        index: Any | None = ...,
+        recovery_rate: float | None = ...,
+    ) -> None: ...
+    @property
+    def settlement_days(self) -> int | None: ...
+    @property
+    def payment_delay_days(self) -> int | None: ...
+    @property
+    def reset_lag(self) -> int | None: ...
+    @property
+    def calendar_id(self) -> str | None: ...
+    @property
+    def fixing_calendar_id(self) -> str | None: ...
+    @property
+    def payment_calendar_id(self) -> str | None: ...
+    @property
+    def reset_frequency(self) -> Any | None: ...
+    @property
+    def payment_frequency(self) -> Any | None: ...
+    @property
+    def business_day_convention(self) -> Any | None: ...
+    @property
+    def day_count(self) -> Any | None: ...
+    @property
+    def currency(self) -> Any | None: ...
+    @property
+    def index(self) -> str | None: ...
+    @property
+    def recovery_rate(self) -> float | None: ...
+    def __repr__(self) -> str: ...
+
 class RatesQuote:
     @classmethod
-    def deposit(cls, maturity: Any, rate: float, day_count: Any) -> RatesQuote: ...
+    def deposit(
+        cls,
+        maturity: Any,
+        rate: float,
+        *,
+        conventions: InstrumentConventions,
+    ) -> RatesQuote: ...
     @classmethod
-    def fra(cls, start: Any, end: Any, rate: float, day_count: Any) -> RatesQuote: ...
+    def fra(
+        cls,
+        start: Any,
+        end: Any,
+        rate: float,
+        *,
+        conventions: InstrumentConventions,
+    ) -> RatesQuote: ...
     @classmethod
-    def future(cls, expiry: Any, price: float, specs: FutureSpecs) -> RatesQuote: ...
+    def future(
+        cls,
+        expiry: Any,
+        price: float,
+        specs: FutureSpecs,
+        *,
+        fixing_date: Any | None = ...,
+        conventions: InstrumentConventions | None = ...,
+    ) -> RatesQuote: ...
     @classmethod
     def swap(
         cls,
         maturity: Any,
         rate: float,
-        fixed_freq: Any,
-        float_freq: Any,
-        fixed_day_count: Any,
-        float_day_count: Any,
-        index: str,
+        *,
+        fixed_leg_conventions: InstrumentConventions,
+        float_leg_conventions: InstrumentConventions,
+        is_ois: bool = ...,
+        conventions: InstrumentConventions | None = ...,
     ) -> RatesQuote: ...
     @classmethod
     def basis_swap(
         cls,
         maturity: Any,
-        primary_index: str,
-        reference_index: str,
         spread_bp: float,
-        primary_frequency: Any,
-        reference_frequency: Any,
-        primary_day_count: Any,
-        reference_day_count: Any,
-        currency: Any,
+        *,
+        primary_leg_conventions: InstrumentConventions,
+        reference_leg_conventions: InstrumentConventions,
+        conventions: InstrumentConventions,
     ) -> RatesQuote: ...
     @property
     def kind(self) -> str: ...
+    @property
+    def conventions(self) -> InstrumentConventions: ...
+    @property
+    def is_ois(self) -> bool: ...
+    @property
+    def fixed_leg_conventions(self) -> InstrumentConventions | None: ...
+    @property
+    def float_leg_conventions(self) -> InstrumentConventions | None: ...
+    @property
+    def primary_leg_conventions(self) -> InstrumentConventions | None: ...
+    @property
+    def reference_leg_conventions(self) -> InstrumentConventions | None: ...
     def to_market_quote(self) -> MarketQuote: ...
     def __repr__(self) -> str: ...
 

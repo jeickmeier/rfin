@@ -500,6 +500,13 @@ impl PyCalibrationConfig {
         explain: Option<bool>,
     ) -> PyResult<Self> {
         let mut inner = CalibrationConfig::default();
+        // Apply solver kind first, then apply numeric overrides (tolerance / max_iterations).
+        //
+        // Rationale: `SolverKind` wraps a full `SolverConfig` with its own defaults.
+        // Users expect explicit `tolerance`/`max_iterations` args to win over those defaults.
+        if let Some(kind) = solver_kind {
+            inner.solver = kind.inner.clone();
+        }
         if let Some(val) = tolerance {
             inner.solver = inner.solver.with_tolerance(val);
         }
@@ -515,9 +522,6 @@ impl PyCalibrationConfig {
         inner.random_seed = random_seed;
         if let Some(flag) = verbose {
             inner.verbose = flag;
-        }
-        if let Some(kind) = solver_kind {
-            inner.solver = kind.inner.clone();
         }
         if let Some(cfg) = multi_curve {
             inner.multi_curve = cfg.inner.clone();
@@ -659,7 +663,14 @@ impl PyCalibrationConfig {
 
     fn with_solver_kind(&self, kind: PyRef<PySolverKind>) -> Self {
         let mut next = self.inner.clone();
-        next.solver = kind.inner.clone();
+        // Preserve any explicit numeric overrides currently stored in `next.solver`.
+        let tol = next.solver.tolerance();
+        let max_it = next.solver.max_iterations();
+        next.solver = kind
+            .inner
+            .clone()
+            .with_tolerance(tol)
+            .with_max_iterations(max_it);
         Self::new(next)
     }
 

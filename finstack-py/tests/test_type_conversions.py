@@ -259,8 +259,16 @@ class TestNoneAndOptionalHandling:
         from finstack.valuations import calibration as cal
 
         quotes = [
-            cal.RatesQuote.deposit(dt.date(2025, 1, 2), 0.05, DayCount.ACT_360),
-            cal.RatesQuote.deposit(dt.date(2026, 1, 2), 0.055, DayCount.ACT_360),
+            cal.RatesQuote.deposit(
+                dt.date(2025, 1, 2),
+                0.05,
+                conventions=cal.InstrumentConventions(day_count=DayCount.ACT_360),
+            ),
+            cal.RatesQuote.deposit(
+                dt.date(2026, 1, 2),
+                0.055,
+                conventions=cal.InstrumentConventions(day_count=DayCount.ACT_360),
+            ),
         ]
         quote_sets = {"ois": [q.to_market_quote() for q in quotes]}
         steps = [

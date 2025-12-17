@@ -1,8 +1,10 @@
-use crate::core::common::args::{CurrencyArg, DayCountArg};
+use crate::core::common::args::{BusinessDayConventionArg, CurrencyArg, DayCountArg};
 use crate::core::dates::daycount::PyDayCount;
 use crate::core::dates::schedule::PyFrequency;
 use crate::core::dates::utils::{date_to_py, py_to_date};
+use crate::core::dates::PyTenor;
 use finstack_core::prelude::DateExt;
+use finstack_core::types::IndexId;
 use finstack_valuations::calibration::quotes::{
     CreditQuote, FutureSpecs, InflationQuote, InstrumentConventions, MarketQuote, RatesQuote,
     VolQuote,
@@ -10,6 +12,174 @@ use finstack_valuations::calibration::quotes::{
 use pyo3::prelude::*;
 use pyo3::types::{PyAny, PyModule, PyType};
 use pyo3::{Bound, PyRef};
+use std::str::FromStr;
+
+fn extract_tenor_opt(obj: Option<Bound<'_, PyAny>>) -> PyResult<Option<finstack_core::dates::Tenor>> {
+    let Some(obj) = obj else {
+        return Ok(None);
+    };
+    if let Ok(tenor) = obj.extract::<PyRef<'_, PyTenor>>() {
+        return Ok(Some(tenor.inner));
+    }
+    if let Ok(text) = obj.extract::<&str>() {
+        return finstack_core::dates::Tenor::parse(text).map(Some).map_err(crate::errors::core_to_py);
+    }
+    Err(pyo3::exceptions::PyTypeError::new_err(
+        "Expected Tenor or tenor string like '3M'",
+    ))
+}
+
+fn extract_index_opt(obj: Option<Bound<'_, PyAny>>) -> PyResult<Option<IndexId>> {
+    let Some(obj) = obj else {
+        return Ok(None);
+    };
+    if let Ok(text) = obj.extract::<&str>() {
+        // `IndexId` parsing is infallible (string newtype); keep this explicit to avoid
+        // surfacing hidden defaults while also not forcing error handling in Python.
+        return Ok(Some(IndexId::from_str(text).unwrap()));
+    }
+    Err(pyo3::exceptions::PyTypeError::new_err(
+        "Expected index id string like 'USD-SOFR-3M'",
+    ))
+}
+
+#[pyclass(
+    module = "finstack.valuations.calibration",
+    name = "InstrumentConventions",
+    frozen
+)]
+#[derive(Clone, Debug)]
+pub struct PyInstrumentConventions {
+    pub(crate) inner: InstrumentConventions,
+}
+
+impl PyInstrumentConventions {
+    pub(crate) fn new(inner: InstrumentConventions) -> Self {
+        Self { inner }
+    }
+}
+
+#[pymethods]
+impl PyInstrumentConventions {
+    #[new]
+    #[pyo3(
+        signature = (
+            settlement_days=None,
+            payment_delay_days=None,
+            reset_lag=None,
+            calendar_id=None,
+            fixing_calendar_id=None,
+            payment_calendar_id=None,
+            reset_frequency=None,
+            payment_frequency=None,
+            business_day_convention=None,
+            day_count=None,
+            currency=None,
+            index=None,
+            recovery_rate=None
+        ),
+        text_signature = "(settlement_days=None, payment_delay_days=None, reset_lag=None, calendar_id=None, fixing_calendar_id=None, payment_calendar_id=None, reset_frequency=None, payment_frequency=None, business_day_convention=None, day_count=None, currency=None, index=None, recovery_rate=None)"
+    )]
+    fn ctor(
+        settlement_days: Option<i32>,
+        payment_delay_days: Option<i32>,
+        reset_lag: Option<i32>,
+        calendar_id: Option<String>,
+        fixing_calendar_id: Option<String>,
+        payment_calendar_id: Option<String>,
+        reset_frequency: Option<Bound<'_, PyAny>>,
+        payment_frequency: Option<Bound<'_, PyAny>>,
+        business_day_convention: Option<Bound<'_, PyAny>>,
+        day_count: Option<Bound<'_, PyAny>>,
+        currency: Option<Bound<'_, PyAny>>,
+        index: Option<Bound<'_, PyAny>>,
+        recovery_rate: Option<f64>,
+    ) -> PyResult<Self> {
+        let mut inner = InstrumentConventions::default();
+        inner.settlement_days = settlement_days;
+        inner.payment_delay_days = payment_delay_days;
+        inner.reset_lag = reset_lag;
+        inner.calendar_id = calendar_id;
+        inner.fixing_calendar_id = fixing_calendar_id;
+        inner.payment_calendar_id = payment_calendar_id;
+        inner.reset_frequency = extract_tenor_opt(reset_frequency)?;
+        inner.payment_frequency = extract_tenor_opt(payment_frequency)?;
+        if let Some(bdc) = business_day_convention {
+            let BusinessDayConventionArg(conv) = BusinessDayConventionArg::extract_bound(&bdc)?;
+            inner.business_day_convention = Some(conv);
+        }
+        if let Some(dc) = day_count {
+            let DayCountArg(dc) = DayCountArg::extract_bound(&dc)?;
+            inner.day_count = Some(dc);
+        }
+        if let Some(ccy) = currency {
+            let CurrencyArg(ccy) = CurrencyArg::extract_bound(&ccy)?;
+            inner.currency = Some(ccy);
+        }
+        inner.index = extract_index_opt(index)?;
+        inner.recovery_rate = recovery_rate;
+        Ok(Self::new(inner))
+    }
+
+    #[getter]
+    fn settlement_days(&self) -> Option<i32> {
+        self.inner.settlement_days
+    }
+    #[getter]
+    fn payment_delay_days(&self) -> Option<i32> {
+        self.inner.payment_delay_days
+    }
+    #[getter]
+    fn reset_lag(&self) -> Option<i32> {
+        self.inner.reset_lag
+    }
+    #[getter]
+    fn calendar_id(&self) -> Option<String> {
+        self.inner.calendar_id.clone()
+    }
+    #[getter]
+    fn fixing_calendar_id(&self) -> Option<String> {
+        self.inner.fixing_calendar_id.clone()
+    }
+    #[getter]
+    fn payment_calendar_id(&self) -> Option<String> {
+        self.inner.payment_calendar_id.clone()
+    }
+    #[getter]
+    fn reset_frequency(&self) -> Option<PyTenor> {
+        self.inner.reset_frequency.map(PyTenor::new)
+    }
+    #[getter]
+    fn payment_frequency(&self) -> Option<PyTenor> {
+        self.inner.payment_frequency.map(PyTenor::new)
+    }
+    #[getter]
+    fn business_day_convention(&self) -> Option<crate::core::dates::calendar::PyBusinessDayConvention> {
+        self.inner
+            .business_day_convention
+            .map(crate::core::dates::calendar::PyBusinessDayConvention::new)
+    }
+    #[getter]
+    fn day_count(&self) -> Option<PyDayCount> {
+        self.inner.day_count.map(PyDayCount::new)
+    }
+    #[getter]
+    fn currency(&self) -> Option<crate::core::currency::PyCurrency> {
+        self.inner.currency.map(crate::core::currency::PyCurrency::new)
+    }
+    #[getter]
+    fn index(&self) -> Option<String> {
+        self.inner.index.as_ref().map(|idx| idx.to_string())
+    }
+    #[getter]
+    fn recovery_rate(&self) -> Option<f64> {
+        self.inner.recovery_rate
+    }
+
+    fn __repr__(&self) -> String {
+        format!("InstrumentConventions({:?})", self.inner)
+    }
+}
 
 #[pyclass(
     module = "finstack.valuations.calibration",
@@ -116,129 +286,183 @@ impl PyRatesQuote {
 #[pymethods]
 impl PyRatesQuote {
     #[classmethod]
-    #[pyo3(text_signature = "(cls, maturity, rate, day_count)")]
-    fn deposit(
-        _cls: &Bound<'_, PyType>,
-        maturity: Bound<'_, PyAny>,
-        rate: f64,
-        day_count: Bound<'_, PyAny>,
-    ) -> PyResult<Self> {
-        let maturity_date = py_to_date(&maturity)?;
-        let DayCountArg(dc) = DayCountArg::extract_bound(&day_count)?;
-        Ok(Self::new(RatesQuote::Deposit {
-            maturity: maturity_date,
-            rate,
-            conventions: InstrumentConventions::default().with_day_count(dc),
-        }))
-    }
-
-    #[classmethod]
-    #[pyo3(text_signature = "(cls, start, end, rate, day_count)")]
-    fn fra(
-        _cls: &Bound<'_, PyType>,
-        start: Bound<'_, PyAny>,
-        end: Bound<'_, PyAny>,
-        rate: f64,
-        day_count: Bound<'_, PyAny>,
-    ) -> PyResult<Self> {
-        let start_date = py_to_date(&start)?;
-        let end_date = py_to_date(&end)?;
-        let DayCountArg(dc) = DayCountArg::extract_bound(&day_count)?;
-        Ok(Self::new(RatesQuote::FRA {
-            start: start_date,
-            end: end_date,
-            rate,
-            conventions: InstrumentConventions::default().with_day_count(dc),
-        }))
-    }
-
-    #[classmethod]
-    #[pyo3(text_signature = "(cls, expiry, price, specs)")]
+    #[pyo3(
+        signature = (expiry, price, specs, *, fixing_date=None, conventions=None),
+        text_signature = "(cls, expiry, price, specs, *, fixing_date=None, conventions=None)"
+    )]
     fn future(
         _cls: &Bound<'_, PyType>,
         expiry: Bound<'_, PyAny>,
         price: f64,
         specs: PyRef<PyFutureSpecs>,
+        fixing_date: Option<Bound<'_, PyAny>>,
+        conventions: Option<PyRef<PyInstrumentConventions>>,
     ) -> PyResult<Self> {
         let expiry_date = py_to_date(&expiry)?;
         let period_start = expiry_date;
         let period_end = expiry_date.add_months(specs.inner.delivery_months as i32);
+        let fixing_date = match fixing_date {
+            None => None,
+            Some(v) => Some(py_to_date(&v)?),
+        };
         Ok(Self::new(RatesQuote::Future {
             expiry: expiry_date,
             period_start,
             period_end,
-            fixing_date: None,
+            fixing_date,
             price,
             specs: specs.inner.clone(),
-            conventions: Default::default(),
+            conventions: conventions.map(|c| c.inner.clone()).unwrap_or_default(),
         }))
     }
 
     #[classmethod]
     #[pyo3(
-        text_signature = "(cls, maturity, rate, fixed_freq, float_freq, fixed_day_count, float_day_count, index)"
+        signature = (maturity, rate, *, conventions),
+        text_signature = "(cls, maturity, rate, *, conventions)"
+    )]
+    fn deposit(
+        _cls: &Bound<'_, PyType>,
+        maturity: Bound<'_, PyAny>,
+        rate: f64,
+        conventions: PyRef<PyInstrumentConventions>,
+    ) -> PyResult<Self> {
+        if conventions.inner.day_count.is_none() {
+            return Err(pyo3::exceptions::PyValueError::new_err(
+                "Deposit quote requires conventions.day_count",
+            ));
+        }
+        let maturity_date = py_to_date(&maturity)?;
+        Ok(Self::new(RatesQuote::Deposit {
+            maturity: maturity_date,
+            rate,
+            conventions: conventions.inner.clone(),
+        }))
+    }
+
+    #[classmethod]
+    #[pyo3(
+        signature = (start, end, rate, *, conventions),
+        text_signature = "(cls, start, end, rate, *, conventions)"
+    )]
+    fn fra(
+        _cls: &Bound<'_, PyType>,
+        start: Bound<'_, PyAny>,
+        end: Bound<'_, PyAny>,
+        rate: f64,
+        conventions: PyRef<PyInstrumentConventions>,
+    ) -> PyResult<Self> {
+        if conventions.inner.day_count.is_none() {
+            return Err(pyo3::exceptions::PyValueError::new_err(
+                "FRA quote requires conventions.day_count",
+            ));
+        }
+        let start_date = py_to_date(&start)?;
+        let end_date = py_to_date(&end)?;
+        Ok(Self::new(RatesQuote::FRA {
+            start: start_date,
+            end: end_date,
+            rate,
+            conventions: conventions.inner.clone(),
+        }))
+    }
+
+    #[classmethod]
+    #[pyo3(
+        signature = (
+            maturity,
+            rate,
+            *,
+            fixed_leg_conventions,
+            float_leg_conventions,
+            is_ois = false,
+            conventions = None
+        ),
+        text_signature = "(cls, maturity, rate, *, fixed_leg_conventions, float_leg_conventions, is_ois=False, conventions=None)"
     )]
     fn swap(
         _cls: &Bound<'_, PyType>,
         maturity: Bound<'_, PyAny>,
         rate: f64,
-        fixed_freq: PyRef<PyFrequency>,
-        float_freq: PyRef<PyFrequency>,
-        fixed_day_count: Bound<'_, PyAny>,
-        float_day_count: Bound<'_, PyAny>,
-        index: &str,
+        fixed_leg_conventions: PyRef<PyInstrumentConventions>,
+        float_leg_conventions: PyRef<PyInstrumentConventions>,
+        is_ois: bool,
+        conventions: Option<PyRef<PyInstrumentConventions>>,
     ) -> PyResult<Self> {
+        let fixed = &fixed_leg_conventions.inner;
+        let float = &float_leg_conventions.inner;
+        if fixed.payment_frequency.is_none() || fixed.day_count.is_none() {
+            return Err(pyo3::exceptions::PyValueError::new_err(
+                "Swap quote requires fixed_leg_conventions.payment_frequency and fixed_leg_conventions.day_count",
+            ));
+        }
+        if float.payment_frequency.is_none() || float.day_count.is_none() || float.index.is_none() {
+            return Err(pyo3::exceptions::PyValueError::new_err(
+                "Swap quote requires float_leg_conventions.payment_frequency, float_leg_conventions.day_count, and float_leg_conventions.index",
+            ));
+        }
+
         let maturity_date = py_to_date(&maturity)?;
-        let DayCountArg(fixed_dc) = DayCountArg::extract_bound(&fixed_day_count)?;
-        let DayCountArg(float_dc) = DayCountArg::extract_bound(&float_day_count)?;
         Ok(Self::new(RatesQuote::Swap {
             maturity: maturity_date,
             rate,
-            is_ois: false,
-            conventions: Default::default(),
-            fixed_leg_conventions: InstrumentConventions::default()
-                .with_payment_frequency(fixed_freq.inner)
-                .with_day_count(fixed_dc),
-            float_leg_conventions: InstrumentConventions::default()
-                .with_payment_frequency(float_freq.inner)
-                .with_day_count(float_dc)
-                .with_index(index),
+            is_ois,
+            conventions: conventions.map(|c| c.inner.clone()).unwrap_or_default(),
+            fixed_leg_conventions: fixed_leg_conventions.inner.clone(),
+            float_leg_conventions: float_leg_conventions.inner.clone(),
         }))
     }
 
     #[classmethod]
-    #[allow(clippy::too_many_arguments)]
     #[pyo3(
-        text_signature = "(cls, maturity, primary_index, reference_index, spread_bp, primary_frequency, reference_frequency, primary_day_count, reference_day_count, currency)"
+        signature = (
+            maturity,
+            spread_bp,
+            *,
+            primary_leg_conventions,
+            reference_leg_conventions,
+            conventions
+        ),
+        text_signature = "(cls, maturity, spread_bp, *, primary_leg_conventions, reference_leg_conventions, conventions)"
     )]
     fn basis_swap(
         _cls: &Bound<'_, PyType>,
         maturity: Bound<'_, PyAny>,
-        primary_index: &str,
-        reference_index: &str,
         spread_bp: f64,
-        primary_frequency: PyRef<PyFrequency>,
-        reference_frequency: PyRef<PyFrequency>,
-        primary_day_count: Bound<'_, PyAny>,
-        reference_day_count: Bound<'_, PyAny>,
-        currency: Bound<'_, PyAny>,
+        primary_leg_conventions: PyRef<PyInstrumentConventions>,
+        reference_leg_conventions: PyRef<PyInstrumentConventions>,
+        conventions: PyRef<PyInstrumentConventions>,
     ) -> PyResult<Self> {
+        let primary = &primary_leg_conventions.inner;
+        let reference = &reference_leg_conventions.inner;
+
+        if primary.payment_frequency.is_none() || primary.day_count.is_none() || primary.index.is_none() {
+            return Err(pyo3::exceptions::PyValueError::new_err(
+                "BasisSwap quote requires primary_leg_conventions.payment_frequency, primary_leg_conventions.day_count, and primary_leg_conventions.index",
+            ));
+        }
+        if reference.payment_frequency.is_none()
+            || reference.day_count.is_none()
+            || reference.index.is_none()
+        {
+            return Err(pyo3::exceptions::PyValueError::new_err(
+                "BasisSwap quote requires reference_leg_conventions.payment_frequency, reference_leg_conventions.day_count, and reference_leg_conventions.index",
+            ));
+        }
+        let inst = conventions.inner.clone();
+        if inst.currency.is_none() {
+            return Err(pyo3::exceptions::PyValueError::new_err(
+                "BasisSwap quote requires conventions.currency",
+            ));
+        }
+
         let maturity_date = py_to_date(&maturity)?;
-        let DayCountArg(primary_dc) = DayCountArg::extract_bound(&primary_day_count)?;
-        let DayCountArg(reference_dc) = DayCountArg::extract_bound(&reference_day_count)?;
-        let CurrencyArg(ccy) = CurrencyArg::extract_bound(&currency)?;
         Ok(Self::new(RatesQuote::BasisSwap {
             maturity: maturity_date,
             spread_bp,
-            conventions: InstrumentConventions::default().with_currency(ccy),
-            primary_leg_conventions: InstrumentConventions::default()
-                .with_index(primary_index)
-                .with_payment_frequency(primary_frequency.inner)
-                .with_day_count(primary_dc),
-            reference_leg_conventions: InstrumentConventions::default()
-                .with_index(reference_index)
-                .with_payment_frequency(reference_frequency.inner)
-                .with_day_count(reference_dc),
+            conventions: inst,
+            primary_leg_conventions: primary_leg_conventions.inner.clone(),
+            reference_leg_conventions: reference_leg_conventions.inner.clone(),
         }))
     }
 
@@ -255,6 +479,72 @@ impl PyRatesQuote {
 
     fn to_market_quote(&self) -> PyMarketQuote {
         PyMarketQuote::new(MarketQuote::Rates(self.inner.clone()))
+    }
+
+    #[getter]
+    fn conventions(&self) -> PyInstrumentConventions {
+        let conv = match &self.inner {
+            RatesQuote::Deposit { conventions, .. } => conventions,
+            RatesQuote::FRA { conventions, .. } => conventions,
+            RatesQuote::Future { conventions, .. } => conventions,
+            RatesQuote::Swap { conventions, .. } => conventions,
+            RatesQuote::BasisSwap { conventions, .. } => conventions,
+        };
+        PyInstrumentConventions::new(conv.clone())
+    }
+
+    #[getter]
+    fn is_ois(&self) -> bool {
+        match &self.inner {
+            RatesQuote::Swap { is_ois, .. } => *is_ois,
+            _ => false,
+        }
+    }
+
+    #[getter]
+    fn fixed_leg_conventions(&self) -> Option<PyInstrumentConventions> {
+        match &self.inner {
+            RatesQuote::Swap {
+                fixed_leg_conventions,
+                ..
+            } => Some(PyInstrumentConventions::new(fixed_leg_conventions.clone())),
+            _ => None,
+        }
+    }
+
+    #[getter]
+    fn float_leg_conventions(&self) -> Option<PyInstrumentConventions> {
+        match &self.inner {
+            RatesQuote::Swap {
+                float_leg_conventions,
+                ..
+            } => Some(PyInstrumentConventions::new(float_leg_conventions.clone())),
+            _ => None,
+        }
+    }
+
+    #[getter]
+    fn primary_leg_conventions(&self) -> Option<PyInstrumentConventions> {
+        match &self.inner {
+            RatesQuote::BasisSwap {
+                primary_leg_conventions,
+                ..
+            } => Some(PyInstrumentConventions::new(primary_leg_conventions.clone())),
+            _ => None,
+        }
+    }
+
+    #[getter]
+    fn reference_leg_conventions(&self) -> Option<PyInstrumentConventions> {
+        match &self.inner {
+            RatesQuote::BasisSwap {
+                reference_leg_conventions,
+                ..
+            } => Some(PyInstrumentConventions::new(
+                reference_leg_conventions.clone(),
+            )),
+            _ => None,
+        }
     }
 
     fn __repr__(&self, py: Python<'_>) -> PyResult<String> {
@@ -726,6 +1016,7 @@ pub(crate) fn register<'py>(
     module: &Bound<'py, PyModule>,
 ) -> PyResult<Vec<&'static str>> {
     module.add_class::<PyFutureSpecs>()?;
+    module.add_class::<PyInstrumentConventions>()?;
     module.add_class::<PyRatesQuote>()?;
     module.add_class::<PyCreditQuote>()?;
     module.add_class::<PyVolQuote>()?;
@@ -733,6 +1024,7 @@ pub(crate) fn register<'py>(
     module.add_class::<PyMarketQuote>()?;
     Ok(vec![
         "FutureSpecs",
+        "InstrumentConventions",
         "RatesQuote",
         "CreditQuote",
         "VolQuote",

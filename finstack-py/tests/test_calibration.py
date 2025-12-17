@@ -27,13 +27,14 @@ def _make_discount_curve(base_date: dt.date) -> DiscountCurve:
 def test_solver_kind_and_multicurve_helpers() -> None:
     """Test SolverKind and MultiCurveConfig functionality."""
     lm = cal.SolverKind.from_name("levenberg_marquardt")
-    assert lm == cal.SolverKind.LEVENBERG_MARQUARDT
-    assert lm.name == "levenberg_marquardt"
-    assert hash(lm) == hash(cal.SolverKind.LEVENBERG_MARQUARDT)
+    # Backwards-compatible alias: LM maps to the current global Newton solve.
+    assert lm == cal.SolverKind.GLOBAL_NEWTON
+    assert lm.name == "global_newton"
+    assert hash(lm) == hash(cal.SolverKind.GLOBAL_NEWTON)
 
-    lm = cal.SolverKind.LEVENBERG_MARQUARDT
-    assert lm.__repr__() == "SolverKind('levenberg_marquardt')"
-    assert str(lm) == "levenberg_marquardt"
+    lm = cal.SolverKind.GLOBAL_NEWTON
+    assert lm.__repr__() == "SolverKind('global_newton')"
+    assert str(lm) == "global_newton"
 
     mc = cal.MultiCurveConfig(False, False)
     assert not mc.calibrate_basis
@@ -47,14 +48,14 @@ def test_solver_kind_and_multicurve_helpers() -> None:
 def test_calibration_config_builder_and_mutators() -> None:
     """Test CalibrationConfig builder and mutator methods."""
     base_cfg = cal.CalibrationConfig(
-        1e-8,
-        50,
-        True,
-        None,
-        True,
-        cal.SolverKind.BRENT,
-        cal.MultiCurveConfig(False, False),
-        {"ACME": "senior"},
+        tolerance=1e-8,
+        max_iterations=50,
+        use_parallel=True,
+        random_seed=None,
+        verbose=True,
+        solver_kind=cal.SolverKind.BRENT,
+        multi_curve=cal.MultiCurveConfig(False, False),
+        entity_seniority={"ACME": "senior"},
     )
 
     assert pytest.approx(base_cfg.tolerance) == 1e-8
@@ -100,28 +101,45 @@ def test_quote_constructors_cover_all_variants() -> None:
     assert future_specs.convexity_adjustment == pytest.approx(0.1)
     assert "FutureSpecs" in repr(future_specs)
 
-    depo = cal.RatesQuote.deposit(dt.date(2024, 4, 1), 0.02, "ACT/360")
-    fra = cal.RatesQuote.fra(dt.date(2024, 5, 1), dt.date(2024, 8, 1), 0.021, "ACT/360")
+    depo = cal.RatesQuote.deposit(
+        dt.date(2024, 4, 1),
+        0.02,
+        conventions=cal.InstrumentConventions(day_count="ACT/360"),
+    )
+    fra = cal.RatesQuote.fra(
+        dt.date(2024, 5, 1),
+        dt.date(2024, 8, 1),
+        0.021,
+        conventions=cal.InstrumentConventions(day_count="ACT/360"),
+    )
     fut = cal.RatesQuote.future(dt.date(2024, 6, 1), 99.1, future_specs)
     swap = cal.RatesQuote.swap(
         dt.date(2025, 6, 1),
         0.0225,
-        Frequency.QUARTERLY,
-        Frequency.SEMI_ANNUAL,
-        "ACT/360",
-        "30/360",
-        "USD-SOFR",
+        fixed_leg_conventions=cal.InstrumentConventions(
+            payment_frequency="3M",
+            day_count="ACT/360",
+        ),
+        float_leg_conventions=cal.InstrumentConventions(
+            payment_frequency="6M",
+            day_count="30/360",
+            index="USD-SOFR",
+        ),
     )
     basis = cal.RatesQuote.basis_swap(
         dt.date(2026, 6, 1),
-        "USD-SOFR-3M",
-        "USD-SOFR-6M",
         15.0,
-        Frequency.QUARTERLY,
-        Frequency.SEMI_ANNUAL,
-        "ACT/360",
-        "ACT/360",
-        "USD",
+        primary_leg_conventions=cal.InstrumentConventions(
+            payment_frequency="3M",
+            day_count="ACT/360",
+            index="USD-SOFR-3M",
+        ),
+        reference_leg_conventions=cal.InstrumentConventions(
+            payment_frequency="6M",
+            day_count="ACT/360",
+            index="USD-SOFR-6M",
+        ),
+        conventions=cal.InstrumentConventions(currency="USD"),
     )
 
     assert depo.kind == "deposit"
@@ -168,8 +186,16 @@ def test_quote_constructors_cover_all_variants() -> None:
 def test_simple_calibration_flow_and_report() -> None:
     """Test simple calibration flow and report generation."""
     quotes = [
-        cal.RatesQuote.deposit(dt.date(2024, 2, 2), 0.02, DayCount.ACT_360),
-        cal.RatesQuote.deposit(dt.date(2024, 5, 2), 0.025, DayCount.ACT_360),
+        cal.RatesQuote.deposit(
+            dt.date(2024, 2, 2),
+            0.02,
+            conventions=cal.InstrumentConventions(day_count=DayCount.ACT_360),
+        ),
+        cal.RatesQuote.deposit(
+            dt.date(2024, 5, 2),
+            0.025,
+            conventions=cal.InstrumentConventions(day_count=DayCount.ACT_360),
+        ),
     ]
     quote_sets = {"ois": [q.to_market_quote() for q in quotes]}
     steps = [
@@ -224,7 +250,7 @@ def test_execute_calibration_v2_forward_step() -> None:
         base_date + dt.timedelta(days=90),
         base_date + dt.timedelta(days=180),
         0.031,
-        "ACT/360",
+        conventions=cal.InstrumentConventions(day_count="ACT/360"),
     )
     quote_sets = {"fwd": [fra.to_market_quote()]}
     steps = [

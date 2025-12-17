@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+# pyright: reportMissingImports=false
+
 import math
 from datetime import date, timedelta
 from typing import Dict, List, Optional, Sequence, Tuple
@@ -15,6 +17,29 @@ from finstack.valuations import calibration as cal
 RatesPoint = Tuple[str, Dict[str, object]]
 SwaptionPoint = Tuple[date, date, float]
 
+def _freq_to_tenor(freq: Frequency) -> str:
+    """Convert Frequency enum (used throughout the examples) into a Tenor string (e.g. '3M')."""
+    import re
+
+    # Current bindings stringify as e.g. "Frequency.months(12)".
+    text = str(freq).strip()
+    m = re.match(r"^Frequency\.(days|weeks|months|years)\((\d+)\)$", text)
+    if m:
+        unit = m.group(1)
+        n = int(m.group(2))
+        if unit == "days":
+            return f"{n}D"
+        if unit == "weeks":
+            return f"{n}W"
+        if unit == "years":
+            return f"{n}Y"
+        # months
+        if n % 12 == 0:
+            return f"{n // 12}Y"
+        return f"{n}M"
+
+    raise ValueError(f"Unsupported frequency for tenor conversion: {freq!r}") from None
+
 
 def build_market_quotes(
     base_date: date,
@@ -23,25 +48,43 @@ def build_market_quotes(
 
     # Discount curve anchors (SOFR OIS swaps)
     discount_quotes = [
-        cal.RatesQuote.deposit(base_date + timedelta(days=30), 0.0450, "ACT/360"),
-        cal.RatesQuote.deposit(base_date + timedelta(days=90), 0.0465, "ACT/360"),
+        cal.RatesQuote.deposit(
+            base_date + timedelta(days=30),
+            0.0450,
+            conventions=cal.InstrumentConventions(day_count="ACT/360"),
+        ),
+        cal.RatesQuote.deposit(
+            base_date + timedelta(days=90),
+            0.0465,
+            conventions=cal.InstrumentConventions(day_count="ACT/360"),
+        ),
         cal.RatesQuote.swap(
             base_date + timedelta(days=365),
             0.0475,
-            Frequency.ANNUAL,
-            Frequency.QUARTERLY,
-            "30/360",
-            "ACT/360",
-            "USD-SOFR",
+            fixed_leg_conventions=cal.InstrumentConventions(
+                payment_frequency="1Y",
+                day_count="30/360",
+            ),
+            float_leg_conventions=cal.InstrumentConventions(
+                payment_frequency="3M",
+                day_count="ACT/360",
+                index="USD-SOFR",
+            ),
+            is_ois=True,
         ),
         cal.RatesQuote.swap(
             base_date + timedelta(days=365 * 3),
             0.0485,
-            Frequency.ANNUAL,
-            Frequency.QUARTERLY,
-            "30/360",
-            "ACT/360",
-            "USD-SOFR",
+            fixed_leg_conventions=cal.InstrumentConventions(
+                payment_frequency="1Y",
+                day_count="30/360",
+            ),
+            float_leg_conventions=cal.InstrumentConventions(
+                payment_frequency="3M",
+                day_count="ACT/360",
+                index="USD-SOFR",
+            ),
+            is_ois=True,
         ),
     ]
 
@@ -112,31 +155,46 @@ def build_market_quotes(
         expanded: List[cal.RatesQuote] = []
         for kind, info in points:
             if kind == "fra":
-                expanded.append(cal.RatesQuote.fra(info["start"], info["end"], info["rate"], info["day_count"]))
+                expanded.append(
+                    cal.RatesQuote.fra(
+                        info["start"],
+                        info["end"],
+                        info["rate"],
+                        conventions=cal.InstrumentConventions(day_count=info["day_count"]),
+                    )
+                )
             elif kind == "swap":
                 expanded.append(
                     cal.RatesQuote.swap(
                         info["maturity"],
                         info["rate"],
-                        info["fixed_freq"],
-                        info["float_freq"],
-                        info["fixed_dc"],
-                        info["float_dc"],
-                        info["index"],
+                        fixed_leg_conventions=cal.InstrumentConventions(
+                            payment_frequency=_freq_to_tenor(info["fixed_freq"]),
+                            day_count=info["fixed_dc"],
+                        ),
+                        float_leg_conventions=cal.InstrumentConventions(
+                            payment_frequency=_freq_to_tenor(info["float_freq"]),
+                            day_count=info["float_dc"],
+                            index=info["index"],
+                        ),
                     )
                 )
             elif kind == "basis":
                 expanded.append(
                     cal.RatesQuote.basis_swap(
                         info["maturity"],
-                        info["primary_index"],
-                        info["reference_index"],
                         info["spread_bp"],
-                        info["primary_freq"],
-                        info["reference_freq"],
-                        info["primary_dc"],
-                        info["reference_dc"],
-                        info["currency"],
+                        primary_leg_conventions=cal.InstrumentConventions(
+                            payment_frequency=_freq_to_tenor(info["primary_freq"]),
+                            day_count=info["primary_dc"],
+                            index=info["primary_index"],
+                        ),
+                        reference_leg_conventions=cal.InstrumentConventions(
+                            payment_frequency=_freq_to_tenor(info["reference_freq"]),
+                            day_count=info["reference_dc"],
+                            index=info["reference_index"],
+                        ),
+                        conventions=cal.InstrumentConventions(currency=info["currency"]),
                     )
                 )
         return expanded

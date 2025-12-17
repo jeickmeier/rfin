@@ -159,6 +159,17 @@ impl FloatingLegCompounding {
         }
     }
 
+    /// USD Fed Funds / EFFR-style overnight convention (no lookback).
+    ///
+    /// Bloomberg `FEDL01 Index` OIS conventions typically do **not** apply the SOFR-style
+    /// observation lookback. We model that as `lookback_days = 0`.
+    pub fn fedfunds() -> Self {
+        Self::CompoundedInArrears {
+            lookback_days: 0,
+            observation_shift: None,
+        }
+    }
+
     /// GBP SONIA standard convention (5-day lookback per BoE).
     pub fn sonia() -> Self {
         Self::CompoundedInArrears {
