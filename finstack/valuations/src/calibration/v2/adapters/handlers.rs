@@ -35,6 +35,7 @@ pub fn execute_step(
             }
 
             let pricer = CalibrationPricer::new(p.base_date, p.curve_id.clone())
+                .with_market_conventions(p.currency)
                 .with_discount_curve_id(p.pricing_discount_id.clone().unwrap_or(p.curve_id.clone()))
                 .with_forward_curve_id(p.pricing_forward_id.clone().unwrap_or(p.curve_id.clone()));
 
@@ -90,7 +91,8 @@ pub fn execute_step(
                 p.curve_id.clone(),
                 p.discount_curve_id.clone(),
                 p.tenor_years,
-            );
+            )
+            .with_market_conventions(p.currency);
 
             let curve_dc = finstack_core::dates::DayCount::Act365F;
 

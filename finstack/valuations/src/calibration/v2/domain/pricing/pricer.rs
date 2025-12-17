@@ -82,6 +82,18 @@ pub struct CalibrationPricer {
     /// Settlement lag in business days (None = use quote convention or currency default)
     #[serde(default)]
     pub settlement_days: Option<i32>,
+    /// Schedule/calendar identifier for settlement and date adjustments.
+    ///
+    /// If `None`, pricing will use the quote convention (if provided) or the
+    /// market default for the calibration currency.
+    #[serde(default)]
+    pub calendar_id: Option<String>,
+    /// Business day convention for settlement and schedule date adjustments.
+    ///
+    /// If `None`, pricing will use the quote convention (if provided) or the
+    /// market default for the calibration currency.
+    #[serde(default)]
+    pub business_day_convention: Option<BusinessDayConvention>,
     /// Allow calendar-day settlement fallback
     #[serde(default)]
     pub allow_calendar_fallback: bool,
@@ -104,6 +116,39 @@ fn default_use_settlement_start() -> bool {
 }
 
 impl CalibrationPricer {
+    /// Market-standard calendar identifier for rates by currency.
+    ///
+    /// These identifiers must exist in `CalendarRegistry`.
+    pub fn market_calendar_id(currency: Currency) -> &'static str {
+        match currency {
+            Currency::USD => "usny",
+            Currency::EUR => "target2",
+            Currency::GBP => "gblo",
+            Currency::JPY => "jpto",
+            Currency::CHF => "chzu",
+            Currency::AUD => "ausy",
+            Currency::CAD => "cato",
+            Currency::NZD => "nzau",
+            Currency::HKD => "hkex",
+            Currency::SGD => "sgex",
+            _ => "usny",
+        }
+    }
+
+    /// Market-standard spot settlement lag (business days) by currency.
+    pub fn market_settlement_days(currency: Currency) -> i32 {
+        match currency {
+            Currency::GBP => 0,
+            Currency::AUD | Currency::CAD => 1,
+            _ => 2,
+        }
+    }
+
+    /// Market-standard business day convention for rates scheduling.
+    pub fn market_business_day_convention(_currency: Currency) -> BusinessDayConvention {
+        BusinessDayConvention::ModifiedFollowing
+    }
+
     /// Create a new calibration pricer with defaults.
     pub fn new(base_date: Date, curve_id: impl Into<CurveId>) -> Self {
         let curve_id = curve_id.into();
@@ -112,6 +157,8 @@ impl CalibrationPricer {
             discount_curve_id: curve_id.clone(),
             forward_curve_id: curve_id,
             settlement_days: None,
+            calendar_id: None,
+            business_day_convention: None,
             allow_calendar_fallback: false,
             use_settlement_start: true,
             convexity_params: None,
@@ -160,6 +207,8 @@ impl CalibrationPricer {
             discount_curve_id: discount_curve_id.into(),
             forward_curve_id: forward_curve_id.into(),
             settlement_days: None,
+            calendar_id: None,
+            business_day_convention: None,
             allow_calendar_fallback: false,
             use_settlement_start: false,
             convexity_params: None,
@@ -183,6 +232,34 @@ impl CalibrationPricer {
     /// Set explicit settlement days (overrides quote convention and currency default).
     pub fn with_settlement_days(mut self, days: i32) -> Self {
         self.settlement_days = Some(days);
+        self
+    }
+
+    /// Set the calendar identifier used for settlement/schedule generation.
+    pub fn with_calendar_id(mut self, calendar_id: impl Into<String>) -> Self {
+        self.calendar_id = Some(calendar_id.into());
+        self
+    }
+
+    /// Set the business day convention used for settlement/schedule generation.
+    pub fn with_business_day_convention(mut self, bdc: BusinessDayConvention) -> Self {
+        self.business_day_convention = Some(bdc);
+        self
+    }
+
+    /// Populate missing pricer-level conventions using market defaults for the given currency.
+    ///
+    /// Quote-level conventions still take precedence at pricing time.
+    pub fn with_market_conventions(mut self, currency: Currency) -> Self {
+        if self.settlement_days.is_none() {
+            self.settlement_days = Some(Self::market_settlement_days(currency));
+        }
+        if self.calendar_id.is_none() {
+            self.calendar_id = Some(Self::market_calendar_id(currency).to_string());
+        }
+        if self.business_day_convention.is_none() {
+            self.business_day_convention = Some(Self::market_business_day_convention(currency));
+        }
         self
     }
 
@@ -268,6 +345,7 @@ impl CalibrationPricer {
         let common = conv::resolve_common(self, quote_conventions, currency);
         let days = common.settlement_days;
         let calendar_id = common.calendar_id;
+        let bdc = common.bdc;
 
         let registry = CalendarRegistry::global();
 
@@ -275,16 +353,12 @@ impl CalibrationPricer {
         if let Some(calendar) = registry.resolve_str(calendar_id) {
             if days == 0 {
                 // T+0: just ensure base_date is a business day (use consistent BDC)
-                adjust(
-                    self.base_date,
-                    BusinessDayConvention::ModifiedFollowing,
-                    calendar,
-                )
+                adjust(self.base_date, bdc, calendar)
             } else {
                 // Add business days and adjust result
                 let spot = self.base_date.add_business_days(days, calendar)?;
                 // Final adjustment ensures we land on a business day
-                adjust(spot, BusinessDayConvention::ModifiedFollowing, calendar)
+                adjust(spot, bdc, calendar)
             }
         } else if self.allow_calendar_fallback {
             // Fallback: calendar not found, use calendar-day addition with warning.

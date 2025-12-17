@@ -288,6 +288,22 @@ impl InstrumentConventions {
             }
         })
     }
+
+    /// Get the effective payment delay in business days after period end.
+    ///
+    /// Market convention: 0 by default unless explicitly provided on the quote.
+    #[inline]
+    pub fn effective_payment_delay_days(&self) -> i32 {
+        self.payment_delay_days.unwrap_or(0)
+    }
+
+    /// Get the effective reset lag in business days before period start for fixings.
+    ///
+    /// Market convention: 2 by default unless explicitly provided on the quote.
+    #[inline]
+    pub fn effective_reset_lag_days(&self) -> i32 {
+        self.reset_lag.unwrap_or(2)
+    }
 }
 
 

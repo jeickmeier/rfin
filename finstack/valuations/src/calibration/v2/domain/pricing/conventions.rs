@@ -43,51 +43,33 @@ pub(crate) struct ResolvedSettlement<'a> {
     pub bdc: BusinessDayConvention,
 }
 
-pub(crate) fn default_calendar_for_currency(currency: Currency) -> &'static str {
-    match currency {
-        Currency::USD => "usny",
-        Currency::EUR => "target2",
-        Currency::GBP => "gblo",
-        Currency::JPY => "jpto",
-        Currency::CHF => "chzu",
-        Currency::AUD => "ausy",
-        Currency::CAD => "cato",
-        Currency::NZD => "nzau",
-        Currency::HKD => "hkex",
-        Currency::SGD => "sgex",
-        _ => "usny",
-    }
-}
-
-pub(crate) fn default_settlement_days(currency: Currency) -> i32 {
-    match currency {
-        Currency::GBP => 0,
-        Currency::AUD | Currency::CAD => 1,
-        _ => 2,
-    }
-}
-
 pub(crate) fn resolve_common<'a>(
-    pricer: &CalibrationPricer,
+    pricer: &'a CalibrationPricer,
     quote_conventions: &'a InstrumentConventions,
     currency: Currency,
 ) -> ResolvedCommon<'a> {
     let settlement_days = quote_conventions
         .settlement_days
         .or(pricer.settlement_days)
-        .unwrap_or_else(|| default_settlement_days(currency));
+        .unwrap_or_else(|| CalibrationPricer::market_settlement_days(currency));
 
     let calendar_id = quote_conventions
         .calendar_id
         .as_deref()
-        .unwrap_or_else(|| default_calendar_for_currency(currency));
+        .or(pricer.calendar_id.as_deref())
+        .unwrap_or_else(|| CalibrationPricer::market_calendar_id(currency));
+
+    let bdc = quote_conventions
+        .business_day_convention
+        .or(pricer.business_day_convention)
+        .unwrap_or_else(|| CalibrationPricer::market_business_day_convention(currency));
 
     ResolvedCommon {
         settlement_days,
-        payment_delay_days: quote_conventions.payment_delay_days.unwrap_or(0),
-        reset_lag_days: quote_conventions.reset_lag.unwrap_or(2),
+        payment_delay_days: quote_conventions.effective_payment_delay_days(),
+        reset_lag_days: quote_conventions.effective_reset_lag_days(),
         calendar_id,
-        bdc: BusinessDayConvention::ModifiedFollowing,
+        bdc,
     }
 }
 
@@ -166,7 +148,7 @@ pub(crate) fn resolve_common_strict<'a>(
 }
 
 pub(crate) fn resolve_money_market<'a>(
-    pricer: &CalibrationPricer,
+    pricer: &'a CalibrationPricer,
     quote_conventions: &'a InstrumentConventions,
     currency: Currency,
 ) -> ResolvedMoneyMarket<'a> {
@@ -179,7 +161,7 @@ pub(crate) fn resolve_money_market<'a>(
 }
 
 pub(crate) fn resolve_swap_conventions<'a>(
-    pricer: &CalibrationPricer,
+    pricer: &'a CalibrationPricer,
     quote: &'a RatesQuote,
     currency: Currency,
 ) -> Result<ResolvedSwapConventions<'a>> {
@@ -228,7 +210,7 @@ pub(crate) fn resolve_swap_conventions<'a>(
 }
 
 pub(crate) fn resolve_basis_swap_conventions<'a>(
-    _pricer: &CalibrationPricer,
+    _pricer: &'a CalibrationPricer,
     quote: &'a RatesQuote,
     currency: Currency,
 ) -> Result<ResolvedBasisSwapConventions<'a>> {
