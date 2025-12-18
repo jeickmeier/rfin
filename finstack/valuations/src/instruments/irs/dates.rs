@@ -1,7 +1,7 @@
 //! Date and business day utilities for interest rate swaps.
 
-use finstack_core::dates::{Date, DateExt};
 use finstack_core::dates::calendar::registry::CalendarRegistry;
+use finstack_core::dates::{Date, DateExt};
 
 /// Apply a payment-delay in business days using an optional holiday calendar.
 ///
@@ -42,4 +42,3 @@ pub(crate) fn add_payment_delay(date: Date, delay_days: i32, calendar_id: Option
     // Fallback: weekday-only (Mon-Fri), ignores holidays.
     date.add_weekdays(delay_days)
 }
-

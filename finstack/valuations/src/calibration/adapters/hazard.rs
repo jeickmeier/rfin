@@ -1,7 +1,7 @@
 use crate::calibration::api::schema::HazardCurveParams;
+use crate::calibration::pricing::quote_factory;
 use crate::calibration::quotes::CreditQuote;
 use crate::calibration::solver::BootstrapTarget;
-use crate::calibration::pricing::quote_factory;
 use crate::instruments::cds::CDSConvention;
 use finstack_core::dates::DayCountCtx;
 use finstack_core::market_data::context::MarketContext;
@@ -202,9 +202,9 @@ impl BootstrapTarget for HazardBootstrapper {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::calibration::solver::BootstrapTarget;
     use crate::calibration::pricing::quote_factory;
     use crate::calibration::quotes::InstrumentConventions;
+    use crate::calibration::solver::BootstrapTarget;
     use finstack_core::market_data::term_structures::discount_curve::DiscountCurve;
     use finstack_core::market_data::term_structures::ParInterp;
     use time::Month;
@@ -297,9 +297,12 @@ mod tests {
             conventions: InstrumentConventions::default(),
         };
 
-        let (inst, upfront_opt) =
-            quote_factory::build_instrument_for_credit_quote(&quote, &params, CDSConvention::IsdaNa)
-                .expect("factory build");
+        let (inst, upfront_opt) = quote_factory::build_instrument_for_credit_quote(
+            &quote,
+            &params,
+            CDSConvention::IsdaNa,
+        )
+        .expect("factory build");
         let upfront = upfront_opt.expect("expected upfront");
 
         let pv = inst.value(&ctx, base_date).expect("pv").amount();

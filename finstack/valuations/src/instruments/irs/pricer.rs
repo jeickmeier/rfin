@@ -25,12 +25,12 @@ use finstack_core::math::kahan_sum;
 use finstack_core::money::Money;
 use finstack_core::Result;
 
-use crate::instruments::irs::FloatingLegCompounding;
 use crate::instruments::irs::dates::add_payment_delay;
+use crate::instruments::irs::FloatingLegCompounding;
 use finstack_core::dates::calendar::registry::CalendarRegistry;
+use finstack_core::dates::{DateExt, DayCountCtx};
 use finstack_core::market_data::term_structures::discount_curve::DiscountCurve;
 use finstack_core::market_data::term_structures::forward_curve::ForwardCurve;
-use finstack_core::dates::{DayCountCtx, DateExt};
 
 /// Minimum threshold for discount factor values to avoid numerical instability.
 ///
@@ -210,7 +210,11 @@ impl InterestRateSwap {
         let mut terms = Vec::new();
         let mut accrual_start = self.float.start;
 
-        for cf in schedule.flows.iter().filter(|cf| cf.kind == crate::cashflow::primitives::CFKind::FloatReset) {
+        for cf in schedule
+            .flows
+            .iter()
+            .filter(|cf| cf.kind == crate::cashflow::primitives::CFKind::FloatReset)
+        {
             let accrual_end = cf.date;
 
             // Skip settled cashflows
@@ -224,16 +228,14 @@ impl InterestRateSwap {
                 // Single-curve discount-only fast path when no observation shifting:
                 // Product of (1 + r_i * dcf_i) is exactly DF(S)/DF(E).
                 1.0 / relative_df(disc, accrual_start, accrual_end)?
-            } else if proj.is_some()
-                && disc.id() == proj.expect("checked").id()
-                && total_shift == 0
+            } else if proj.is_some() && disc.id() == proj.expect("checked").id() && total_shift == 0
             {
                 // Fast path for single-curve OIS without lookback/shift:
                 1.0 / relative_df(disc, accrual_start, accrual_end)?
             } else {
                 let mut acc = 1.0;
                 let mut d = accrual_start;
-                
+
                 // Step through business days in the accrual period
                 while d < accrual_end {
                     let next_d = if let Some(cal) = cal {
@@ -241,10 +243,17 @@ impl InterestRateSwap {
                     } else {
                         d.add_weekdays(1)
                     };
-                    let step_end = if next_d > accrual_end { accrual_end } else { next_d };
-                    
-                    let dcf = self.float.dc.year_fraction(d, step_end, DayCountCtx::default())?;
-                    
+                    let step_end = if next_d > accrual_end {
+                        accrual_end
+                    } else {
+                        next_d
+                    };
+
+                    let dcf = self
+                        .float
+                        .dc
+                        .year_fraction(d, step_end, DayCountCtx::default())?;
+
                     let obs_start = if total_shift == 0 {
                         d
                     } else if let Some(cal) = cal {
@@ -259,7 +268,7 @@ impl InterestRateSwap {
                     } else {
                         step_end.add_weekdays(total_shift)
                     };
-                    
+
                     // Seasoned compounded swaps: for observation dates before `as_of`,
                     // require explicit fixings (do not silently extrapolate).
                     let r = if obs_start < as_of {
@@ -308,7 +317,8 @@ impl InterestRateSwap {
                         let comp = 1.0 / df_between; // DF(obs_start)/DF(obs_end)
                         if dcf <= 0.0 {
                             return Err(finstack_core::error::Error::Validation(
-                                "Non-positive day-count fraction encountered in compounding step.".into(),
+                                "Non-positive day-count fraction encountered in compounding step."
+                                    .into(),
                             ));
                         }
                         (comp - 1.0) / dcf
@@ -322,12 +332,13 @@ impl InterestRateSwap {
             // Coupon amount: N * [(compound_factor - 1) + spread * total_dcf]
             // Note: alpha_total is cf.accrual_factor from builder
             let interest = self.notional.amount() * (compound_factor - 1.0);
-            let spread_contrib = self.notional.amount() * (self.float.spread_bp * BP_TO_DECIMAL) * cf.accrual_factor;
-            
+            let spread_contrib =
+                self.notional.amount() * (self.float.spread_bp * BP_TO_DECIMAL) * cf.accrual_factor;
+
             // Discount to payment date (holiday-aware)
             let payment_date = add_payment_delay(accrual_end, payment_delay, calendar_id);
             let df = relative_df(disc, as_of, payment_date)?;
-            
+
             terms.push((interest + spread_contrib) * df);
             accrual_start = accrual_end;
         }
@@ -483,7 +494,11 @@ impl InterestRateSwap {
 
             // Apply payment delay: actual payment occurs payment_delay_days after period end.
             // Use holiday-aware business days when a calendar is available.
-            let payment_date = add_payment_delay(accrual_end, self.float.payment_delay_days, self.float.calendar_id.as_deref());
+            let payment_date = add_payment_delay(
+                accrual_end,
+                self.float.payment_delay_days,
+                self.float.calendar_id.as_deref(),
+            );
 
             // Discount from as_of for correct theta
             let df = relative_df(disc, as_of, payment_date)?;
@@ -562,7 +577,9 @@ pub fn npv(irs: &InterestRateSwap, context: &MarketContext, as_of: Date) -> Resu
             // For single-curve setups it is common to have only a discount curve loaded;
             // in that case we derive implied overnight forwards from the discount curve.
             let proj = if irs.is_single_curve_ois() {
-                context.get_forward_ref(irs.float.forward_curve_id.as_ref()).ok()
+                context
+                    .get_forward_ref(irs.float.forward_curve_id.as_ref())
+                    .ok()
             } else {
                 Some(context.get_forward_ref(irs.float.forward_curve_id.as_ref())?)
             };
@@ -582,12 +599,12 @@ pub fn npv(irs: &InterestRateSwap, context: &MarketContext, as_of: Date) -> Resu
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::instruments::common::traits::Instrument;
     use finstack_core::currency::Currency;
     use finstack_core::market_data::context::MarketContext;
     use finstack_core::market_data::term_structures::discount_curve::DiscountCurve;
     use finstack_core::money::Money;
     use finstack_core::types::{CurveId, InstrumentId};
-    use crate::instruments::common::traits::Instrument;
     use time::Month;
 
     #[test]

@@ -155,7 +155,8 @@ pub fn float_leg_schedule_with_curves(
         });
     let mut sched = float_b.build_with_curves(curves)?;
     // IRS do not exchange notionals; return coupon-only schedule as documented.
-    sched.flows
+    sched
+        .flows
         .retain(|cf| cf.kind == crate::cashflow::primitives::CFKind::FloatReset);
     Ok(sched)
 }
@@ -392,7 +393,10 @@ mod tests {
         let irs = InterestRateSwap::example().expect("example IRS");
         let fixed = fixed_leg_schedule(&irs).expect("fixed schedule");
         assert!(
-            fixed.flows.iter().all(|cf| cf.kind == CFKind::Fixed || cf.kind == CFKind::Stub),
+            fixed
+                .flows
+                .iter()
+                .all(|cf| cf.kind == CFKind::Fixed || cf.kind == CFKind::Stub),
             "fixed_leg_schedule should be coupon-only"
         );
 

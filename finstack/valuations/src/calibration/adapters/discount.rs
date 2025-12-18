@@ -3,8 +3,8 @@
 use crate::calibration::config::CalibrationConfig;
 use crate::calibration::config::ResidualWeightingScheme;
 use crate::calibration::constants::*;
-use crate::calibration::pricing::CalibrationPricer;
 use crate::calibration::pricing::convention_resolution as conv;
+use crate::calibration::pricing::CalibrationPricer;
 use crate::calibration::quotes::RatesQuote;
 use crate::calibration::solver::{BootstrapTarget, GlobalSolveTarget};
 use finstack_core::dates::{Date, DayCount};
@@ -760,8 +760,8 @@ mod tests {
             float_leg_conventions: InstrumentConventions::default().with_index("USD-SOFR-OIS"),
         };
 
-        let resolved = conv::resolve_swap_conventions(&pricer, &quote, Currency::USD)
-            .expect("resolved");
+        let resolved =
+            conv::resolve_swap_conventions(&pricer, &quote, Currency::USD).expect("resolved");
         assert_eq!(resolved.common.payment_delay_days, 2);
 
         let pay_date = crate::instruments::irs::dates::add_payment_delay(

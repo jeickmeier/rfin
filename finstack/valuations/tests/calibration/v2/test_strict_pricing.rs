@@ -157,9 +157,8 @@ fn strict_pricing_succeeds_with_explicit_step_defaults() {
         // references observation dates before as_of (e.g., T+0 start with SOFR lookback).
         initial_market: {
             let base = base_date();
-            let fixings: Vec<(Date, f64)> = (1..=10)
-                .map(|i| (base.add_weekdays(-i), 0.05))
-                .collect();
+            let fixings: Vec<(Date, f64)> =
+                (1..=10).map(|i| (base.add_weekdays(-i), 0.05)).collect();
             let m = MarketContext::new()
                 .insert_series(ScalarTimeSeries::new("FIXING:USD-OIS", fixings, None).unwrap());
             Some((&m).into())

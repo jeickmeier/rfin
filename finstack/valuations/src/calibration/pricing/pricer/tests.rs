@@ -133,13 +133,9 @@ fn factory_matches_price_instrument_deposit() {
         .price_instrument(&quote, Currency::USD, &ctx)
         .expect("price via pricer");
 
-    let inst = quote_factory::build_instrument_for_rates_quote(
-        &pricer,
-        &quote,
-        Currency::USD,
-        false,
-    )
-    .expect("factory instrument");
+    let inst =
+        quote_factory::build_instrument_for_rates_quote(&pricer, &quote, Currency::USD, false)
+            .expect("factory instrument");
     let pv = inst.value(&ctx, base_date).expect("pv").amount() / CALIBRATION_NOTIONAL;
 
     assert!(

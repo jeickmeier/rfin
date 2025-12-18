@@ -4,8 +4,8 @@ use super::CalibrationPricer;
 use crate::calibration::pricing::quote_factory::{self, CALIBRATION_NOTIONAL};
 use crate::calibration::quotes::RatesQuote;
 use crate::instruments::InterestRateSwap;
-use finstack_core::money::Money;
 use finstack_core::market_data::context::MarketContext;
+use finstack_core::money::Money;
 use finstack_core::types::Currency;
 use finstack_core::Result;
 
@@ -56,13 +56,8 @@ impl CalibrationPricer {
         _notional: Money,
         currency: Currency,
     ) -> Result<InterestRateSwap> {
-        let inst =
-            quote_factory::build_instrument_for_rates_quote(self, quote, currency, false)?;
-        if let Some(swap) = inst
-            .as_ref()
-            .as_any()
-            .downcast_ref::<InterestRateSwap>()
-        {
+        let inst = quote_factory::build_instrument_for_rates_quote(self, quote, currency, false)?;
+        if let Some(swap) = inst.as_ref().as_any().downcast_ref::<InterestRateSwap>() {
             return Ok(swap.clone());
         }
         Err(finstack_core::Error::Input(
@@ -81,5 +76,4 @@ impl CalibrationPricer {
         let pv = inst.value(context, self.base_date)?;
         Ok(pv.amount() / CALIBRATION_NOTIONAL)
     }
-
 }

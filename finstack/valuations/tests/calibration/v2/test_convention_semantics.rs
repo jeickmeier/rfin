@@ -26,13 +26,20 @@ fn test_reset_lag_translation_semantics() {
     };
 
     let irs = pricer
-        .create_ois_swap(&quote, Money::new(1_000_000.0, Currency::USD), Currency::USD)
+        .create_ois_swap(
+            &quote,
+            Money::new(1_000_000.0, Currency::USD),
+            Currency::USD,
+        )
         .expect("should build swap");
 
     // Translation check: -2 signed quote lag should become +2 unsigned instrument lag
     // IRS/CashflowBuilder does: accrual_start - reset_lag_days
-    assert_eq!(irs.float.reset_lag_days, 2, "Signed quote lag -2 should be translated to +2 for instrument");
-    
+    assert_eq!(
+        irs.float.reset_lag_days, 2,
+        "Signed quote lag -2 should be translated to +2 for instrument"
+    );
+
     // Reverse check: +2 signed quote lag should become -2 unsigned instrument lag (fixing after start)
     let quote_positive = RatesQuote::Swap {
         maturity: base.add_months(12),
@@ -49,8 +56,15 @@ fn test_reset_lag_translation_semantics() {
     };
 
     let irs_positive = pricer
-        .create_ois_swap(&quote_positive, Money::new(1_000_000.0, Currency::USD), Currency::USD)
+        .create_ois_swap(
+            &quote_positive,
+            Money::new(1_000_000.0, Currency::USD),
+            Currency::USD,
+        )
         .expect("should build swap");
 
-    assert_eq!(irs_positive.float.reset_lag_days, -2, "Signed quote lag +2 should be translated to -2 for instrument");
+    assert_eq!(
+        irs_positive.float.reset_lag_days, -2,
+        "Signed quote lag +2 should be translated to -2 for instrument"
+    );
 }

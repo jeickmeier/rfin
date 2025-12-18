@@ -46,9 +46,9 @@
 //! - Tuckman, B., & Serrat, A. (2011). *Fixed Income Securities*. Chapter 4.
 //! - Kahan, W. (1965). "Further Remarks on Reducing Truncation Errors."
 
+use crate::instruments::irs::dates::add_payment_delay;
 use crate::instruments::InterestRateSwap;
 use crate::metrics::{MetricCalculator, MetricContext};
-use crate::instruments::irs::dates::add_payment_delay;
 use finstack_core::dates::Date;
 use finstack_core::math::kahan_sum;
 
@@ -102,7 +102,8 @@ impl MetricCalculator for AnnuityCalculator {
 
             // Apply payment delay: actual payment occurs payment_delay_days after period end
             // Use shared helper for holiday-aware business day adjustment
-            let payment_date = add_payment_delay(d, payment_delay, irs.fixed.calendar_id.as_deref());
+            let payment_date =
+                add_payment_delay(d, payment_delay, irs.fixed.calendar_id.as_deref());
 
             // Use shared helper - handles epsilon validation and relative DF calculation
             let df = crate::instruments::irs::pricer::relative_df(&disc, as_of, payment_date)?;

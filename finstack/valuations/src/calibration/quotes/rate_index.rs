@@ -178,8 +178,8 @@ fn registry_conventions(index: &str, currency_hint: Currency) -> Option<RateInde
             0,
             Some(FloatingLegCompounding::fedfunds()),
         )),
-        "USD-FEDFUNDS-OIS" | "USD-FEDFUNDS" | "USD-FF-OIS" | "USD-EFFR-OIS" | "USD-EFFR" => Some(
-            mk(
+        "USD-FEDFUNDS-OIS" | "USD-FEDFUNDS" | "USD-FF-OIS" | "USD-EFFR-OIS" | "USD-EFFR" => {
+            Some(mk(
                 Currency::USD,
                 RateIndexKind::OvernightRfr,
                 None,
@@ -188,8 +188,8 @@ fn registry_conventions(index: &str, currency_hint: Currency) -> Option<RateInde
                 2,
                 0,
                 Some(FloatingLegCompounding::fedfunds()),
-            ),
-        ),
+            ))
+        }
         // GBP SONIA (Act/365F, commonly 5-day lookback convention)
         "GBP-SONIA-OIS" | "GBP-SONIA" | "SONIA-OIS" => Some(mk(
             Currency::GBP,
@@ -202,8 +202,8 @@ fn registry_conventions(index: &str, currency_hint: Currency) -> Option<RateInde
             Some(FloatingLegCompounding::sonia()),
         )),
         // EUR €STR (Act/360, commonly treated as 2-day lag/shift convention)
-        "EUR-ESTR-OIS" | "EUR-ESTR" | "ESTR-OIS" | "EUR-EST-OIS" | "EUR-EST" | "EST-OIS" => Some(
-            mk(
+        "EUR-ESTR-OIS" | "EUR-ESTR" | "ESTR-OIS" | "EUR-EST-OIS" | "EUR-EST" | "EST-OIS" => {
+            Some(mk(
                 Currency::EUR,
                 RateIndexKind::OvernightRfr,
                 None,
@@ -212,8 +212,8 @@ fn registry_conventions(index: &str, currency_hint: Currency) -> Option<RateInde
                 2,
                 0,
                 Some(FloatingLegCompounding::estr()),
-            ),
-        ),
+            ))
+        }
         // JPY TONA (Act/365F, commonly 2-day lag convention)
         "JPY-TONA-OIS" | "JPY-TONA" | "TONA-OIS" | "JPY-TONAR-OIS" | "JPY-TONAR" | "TONAR-OIS" => {
             Some(mk(
@@ -409,7 +409,8 @@ mod tests {
 
     #[test]
     fn treats_generic_usd_ois_as_no_lookback_by_default() {
-        let c = RateIndexConventions::for_index_with_currency(&IndexId::new("USD-OIS"), Currency::USD);
+        let c =
+            RateIndexConventions::for_index_with_currency(&IndexId::new("USD-OIS"), Currency::USD);
         assert_eq!(c.kind, RateIndexKind::OvernightRfr);
         assert_eq!(c.default_payment_frequency, Tenor::annual());
         assert_eq!(c.default_payment_delay_days, 2);
@@ -419,7 +420,8 @@ mod tests {
 
     #[test]
     fn treats_usd_sofr_index_as_no_lookback_by_default() {
-        let c = RateIndexConventions::for_index_with_currency(&IndexId::new("USD-SOFR"), Currency::USD);
+        let c =
+            RateIndexConventions::for_index_with_currency(&IndexId::new("USD-SOFR"), Currency::USD);
         assert_eq!(c.kind, RateIndexKind::OvernightRfr);
         assert_eq!(c.default_payment_frequency, Tenor::annual());
         assert_eq!(c.default_payment_delay_days, 2);

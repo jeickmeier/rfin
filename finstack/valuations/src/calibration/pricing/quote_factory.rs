@@ -8,13 +8,13 @@ use super::pricer::CalibrationPricer;
 use crate::calibration::api::schema::HazardCurveParams;
 use crate::calibration::quotes::{CreditQuote, InstrumentConventions, RatesQuote};
 use crate::instruments::basis_swap::{BasisSwap, BasisSwapLeg};
+use crate::instruments::cds::CreditDefaultSwapBuilder;
 use crate::instruments::common::traits::Instrument;
 use crate::instruments::deposit::Deposit;
 use crate::instruments::fra::ForwardRateAgreement;
-use crate::instruments::irs::{FloatingLegCompounding, IrsLegConventions, PayReceive};
 use crate::instruments::ir_future::InterestRateFuture;
+use crate::instruments::irs::{FloatingLegCompounding, IrsLegConventions, PayReceive};
 use crate::instruments::InterestRateSwap;
-use crate::instruments::cds::CreditDefaultSwapBuilder;
 use finstack_core::dates::StubKind;
 use finstack_core::money::Money;
 use finstack_core::types::Currency;
@@ -48,9 +48,9 @@ pub(crate) fn build_instrument_for_rates_quote(
                     )
                 })?
             } else {
-                conventions
-                    .day_count
-                    .unwrap_or_else(|| InstrumentConventions::default_money_market_day_count(currency))
+                conventions.day_count.unwrap_or_else(|| {
+                    InstrumentConventions::default_money_market_day_count(currency)
+                })
             };
 
             let start = pricer.effective_start_date(conventions, currency)?;
@@ -101,9 +101,9 @@ pub(crate) fn build_instrument_for_rates_quote(
                     )
                 })?
             } else {
-                conventions
-                    .day_count
-                    .unwrap_or_else(|| InstrumentConventions::default_money_market_day_count(currency))
+                conventions.day_count.unwrap_or_else(|| {
+                    InstrumentConventions::default_money_market_day_count(currency)
+                })
             };
 
             let common = conv::resolve_common(pricer, conventions, currency);
@@ -166,8 +166,12 @@ pub(crate) fn build_instrument_for_rates_quote(
                 .year_fraction(pricer.base_date, *period_end, dc_ctx)
                 .unwrap_or(0.0);
 
-            let convexity_adj =
-                pricer.resolve_future_convexity(specs, currency, time_to_expiry, time_to_maturity)?;
+            let convexity_adj = pricer.resolve_future_convexity(
+                specs,
+                currency,
+                time_to_expiry,
+                time_to_maturity,
+            )?;
 
             let future = InterestRateFuture::builder()
                 .id(format!("CALIB_FUT_{}", expiry).into())
@@ -230,7 +234,10 @@ pub(crate) fn build_instrument_for_rates_quote(
                 };
                 (pricer.discount_curve_id.clone(), proj_id)
             } else {
-                (pricer.discount_curve_id.clone(), pricer.forward_curve_id.clone())
+                (
+                    pricer.discount_curve_id.clone(),
+                    pricer.forward_curve_id.clone(),
+                )
             };
 
             let conventions = IrsLegConventions {
@@ -337,7 +344,8 @@ pub(crate) fn build_instrument_for_rates_quote(
                     business_day_convention: Some(bdc),
                     ..Default::default()
                 };
-                pricer.settlement_date_for_quote_explicit(&conv_for_settlement, resolved.currency)?
+                pricer
+                    .settlement_date_for_quote_explicit(&conv_for_settlement, resolved.currency)?
             } else {
                 pricer.base_date
             };
@@ -348,7 +356,8 @@ pub(crate) fn build_instrument_for_rates_quote(
                 start,
                 *maturity,
                 BasisSwapLeg {
-                    forward_curve_id: pricer.resolve_forward_curve_id(resolved.primary_index.as_str()),
+                    forward_curve_id: pricer
+                        .resolve_forward_curve_id(resolved.primary_index.as_str()),
                     frequency: resolved.primary_freq,
                     day_count: resolved.primary_dc,
                     bdc,
@@ -357,9 +366,8 @@ pub(crate) fn build_instrument_for_rates_quote(
                     spread: *spread_bp / 10_000.0,
                 },
                 BasisSwapLeg {
-                    forward_curve_id: pricer.resolve_forward_curve_id(
-                        resolved.reference_index.as_str(),
-                    ),
+                    forward_curve_id: pricer
+                        .resolve_forward_curve_id(resolved.reference_index.as_str()),
                     frequency: resolved.reference_freq,
                     day_count: resolved.reference_dc,
                     bdc,
@@ -369,7 +377,9 @@ pub(crate) fn build_instrument_for_rates_quote(
                 },
                 pricer.discount_curve_id.as_str(),
             )
-            .with_allow_calendar_fallback(pricer.conventions.allow_calendar_fallback.unwrap_or(false))
+            .with_allow_calendar_fallback(
+                pricer.conventions.allow_calendar_fallback.unwrap_or(false),
+            )
             .with_calendar(payment_calendar_id.to_string());
 
             Ok(Arc::new(basis_swap))
@@ -399,7 +409,12 @@ pub(crate) fn build_instrument_for_credit_quote(
             upfront_pct,
             conventions,
             ..
-        } => (*maturity, *running_spread_bp, Some(*upfront_pct), conventions),
+        } => (
+            *maturity,
+            *running_spread_bp,
+            Some(*upfront_pct),
+            conventions,
+        ),
         _ => {
             return Err(finstack_core::Error::Input(
                 finstack_core::error::InputError::Invalid,
@@ -448,9 +463,8 @@ pub(crate) fn build_instrument_for_credit_quote(
         .build()
         .map_err(|e| finstack_core::Error::Validation(e.to_string()))?;
 
-    let upfront_cash = upfront_pct_opt.map(|pct| Money::new(params.notional * pct / 100.0, params.currency));
+    let upfront_cash =
+        upfront_pct_opt.map(|pct| Money::new(params.notional * pct / 100.0, params.currency));
 
     Ok((Arc::new(cds), upfront_cash))
 }
-
-

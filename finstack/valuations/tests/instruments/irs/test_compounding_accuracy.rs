@@ -1,38 +1,44 @@
-use finstack_core::dates::{Date, DayCount, Tenor, BusinessDayConvention};
-use finstack_core::prelude::{DateExt, Money};
-use finstack_core::types::Currency;
-use finstack_valuations::instruments::irs::{FixedLegSpec, FloatLegSpec, FloatingLegCompounding, PayReceive};
-use finstack_valuations::instruments::InterestRateSwap;
-use finstack_valuations::instruments::common::traits::Instrument;
-use finstack_core::market_data::term_structures::discount_curve::DiscountCurve;
-use finstack_core::market_data::term_structures::forward_curve::ForwardCurve;
+use finstack_core::dates::calendar::registry::CalendarRegistry;
+use finstack_core::dates::{BusinessDayConvention, Date, DayCount, Tenor};
 use finstack_core::market_data::context::MarketContext;
 use finstack_core::market_data::scalars::ScalarTimeSeries;
+use finstack_core::market_data::term_structures::discount_curve::DiscountCurve;
+use finstack_core::market_data::term_structures::forward_curve::ForwardCurve;
 use finstack_core::math::interp::InterpStyle;
-use finstack_core::dates::calendar::registry::CalendarRegistry;
+use finstack_core::prelude::{DateExt, Money};
+use finstack_core::types::Currency;
+use finstack_valuations::instruments::common::traits::Instrument;
+use finstack_valuations::instruments::irs::{
+    FixedLegSpec, FloatLegSpec, FloatingLegCompounding, PayReceive,
+};
+use finstack_valuations::instruments::InterestRateSwap;
 use time::Month;
 
 #[test]
 fn test_compounding_lookback_sensitivity() {
     let base = Date::from_calendar_date(2025, Month::January, 1).unwrap();
-    let cal = CalendarRegistry::global().resolve_str("USNY").expect("USNY calendar");
+    let cal = CalendarRegistry::global()
+        .resolve_str("USNY")
+        .expect("USNY calendar");
     // Use a spot-starting swap (T+2) so SOFR lookback does not require historical fixings
     // at valuation date `base`.
     let start = base.add_business_days(2, cal).unwrap();
-    
+
     // Flat 5% discount curve
     let disc = DiscountCurve::builder("DISC")
         .base_date(base)
         .knots([(0.0, 1.0), (1.0, 0.951229)]) // exp(-0.05 * 1)
         .set_interp(InterpStyle::LogLinear)
-        .build().unwrap();
+        .build()
+        .unwrap();
 
     // Increasing forward curve: starts at 5%, ends at 10%
     let fwd = ForwardCurve::builder("FWD", 0.0)
         .base_date(base)
         .knots([(0.0, 0.05), (1.0, 0.10)])
         .set_interp(InterpStyle::Linear)
-        .build().unwrap();
+        .build()
+        .unwrap();
 
     let ctx = MarketContext::new()
         .insert_discount(disc.clone())
@@ -40,7 +46,9 @@ fn test_compounding_lookback_sensitivity() {
 
     // If lookback pushes observations before `as_of`, provide minimal fixings so the test
     // remains focused on the lookback sensitivity (not fixing-data availability).
-    let earliest_obs = start.add_business_days(-2, cal).unwrap_or(start.add_weekdays(-2));
+    let earliest_obs = start
+        .add_business_days(-2, cal)
+        .unwrap_or(start.add_weekdays(-2));
     let ctx = if earliest_obs < base {
         let mut obs: Vec<(Date, f64)> = Vec::new();
         let mut d = earliest_obs;
@@ -80,14 +88,18 @@ fn test_compounding_lookback_sensitivity() {
             calendar_id: Some("USNY".into()),
             start,
             end: start.add_months(12),
-            compounding: FloatingLegCompounding::CompoundedInArrears { lookback_days: 0, observation_shift: None },
+            compounding: FloatingLegCompounding::CompoundedInArrears {
+                lookback_days: 0,
+                observation_shift: None,
+            },
             payment_delay_days: 0,
             spread_bp: 0.0,
             fixing_calendar_id: None,
             stub: finstack_core::dates::StubKind::None,
             reset_lag_days: 0,
         })
-        .build().unwrap();
+        .build()
+        .unwrap();
 
     // NPV with zero lookback
     let npv_no_lookback = irs.value(&ctx, base).unwrap().amount();
@@ -95,10 +107,16 @@ fn test_compounding_lookback_sensitivity() {
     // NPV with 2 days lookback
     // Since the curve is increasing, looking back 2 days should use LOWER rates,
     // so the floating leg PV should DECREASE, and NPV (Rec Fixed) should INCREASE.
-    irs.float.compounding = FloatingLegCompounding::CompoundedInArrears { lookback_days: 2, observation_shift: None };
+    irs.float.compounding = FloatingLegCompounding::CompoundedInArrears {
+        lookback_days: 2,
+        observation_shift: None,
+    };
     let npv_lookback = irs.value(&ctx, base).unwrap().amount();
 
-    assert!(npv_lookback > npv_no_lookback, "Lookback in increasing rate env should increase RecFixed NPV (lower float PV)");
+    assert!(
+        npv_lookback > npv_no_lookback,
+        "Lookback in increasing rate env should increase RecFixed NPV (lower float PV)"
+    );
 }
 
 #[test]
@@ -108,13 +126,15 @@ fn test_payment_delay_sensitivity() {
         .base_date(base)
         .knots([(0.0, 1.0), (1.0, 0.95)])
         .set_interp(InterpStyle::LogLinear)
-        .build().unwrap();
+        .build()
+        .unwrap();
 
     let fwd = ForwardCurve::builder("FWD", 0.0)
         .base_date(base)
         .knots([(0.0, 0.05), (1.0, 0.05)])
         .set_interp(InterpStyle::Linear)
-        .build().unwrap();
+        .build()
+        .unwrap();
 
     let ctx = MarketContext::new()
         .insert_discount(disc)
@@ -145,7 +165,9 @@ fn test_payment_delay_sensitivity() {
 #[test]
 fn test_seasoned_compounded_swap_requires_fixings() {
     let start = Date::from_calendar_date(2025, Month::January, 2).unwrap();
-    let cal = CalendarRegistry::global().resolve_str("USNY").expect("USNY calendar");
+    let cal = CalendarRegistry::global()
+        .resolve_str("USNY")
+        .expect("USNY calendar");
     let as_of = start.add_business_days(5, cal).unwrap();
 
     let disc = DiscountCurve::builder("DISC")
@@ -219,7 +241,9 @@ fn test_seasoned_compounded_swap_requires_fixings() {
 #[test]
 fn test_seasoned_compounded_swap_with_fixings_prices() {
     let start = Date::from_calendar_date(2025, Month::January, 2).unwrap();
-    let cal = CalendarRegistry::global().resolve_str("USNY").expect("USNY calendar");
+    let cal = CalendarRegistry::global()
+        .resolve_str("USNY")
+        .expect("USNY calendar");
     let as_of = start.add_business_days(5, cal).unwrap();
 
     let disc = DiscountCurve::builder("DISC")
