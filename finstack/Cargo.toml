@@ -11,7 +11,7 @@ default = ["core"]
 
 # Crate selection features
 core = ["dep:finstack_core"]
-statements = ["core", "dep:finstack_statements"]
+statements = ["core", "dep:finstack_statements", "dep:indexmap"]
 valuations = ["core", "dep:finstack_valuations"]
 scenarios = ["core", "statements", "dep:finstack_scenarios"]
 portfolio = ["core", "statements", "valuations", "dep:finstack_portfolio"]
@@ -30,9 +30,9 @@ finstack_valuations = { package = "finstack-valuations", path = "valuations", op
 finstack_portfolio = { package = "finstack-portfolio", path = "portfolio", optional = true }
 finstack_io = { package = "finstack-io", path = "io", optional = true }
 finstack_scenarios = { package = "finstack-scenarios", path = "scenarios", optional = true }
+indexmap = { version = "2", optional = true }
 
 [dev-dependencies]
-indexmap = { version = "2", features = ["serde"] }
 serde_json = "1.0"
 time = { version = "0.3", features = ["macros"] }
 

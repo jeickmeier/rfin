@@ -29,9 +29,6 @@ ts-rs = { version = "10", optional = true, features = ["serde-compat"] }
 # Month enum required by Date bindings
 time = { version = "0.3", default-features = false }
 
-# Enable getrandom "js" feature for WASM builds
-getrandom = { version = "0.2", features = ["js"] }
-
 [dev-dependencies]
 wasm-bindgen-test = "0.3"
 
