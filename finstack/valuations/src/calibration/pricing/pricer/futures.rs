@@ -85,7 +85,7 @@ impl CalibrationPricer {
         Ok(pv.amount() / future.notional.amount())
     }
 
-    pub(in crate::calibration::pricing::pricer) fn resolve_future_convexity(
+    pub(crate) fn resolve_future_convexity(
         &self,
         specs: &FutureSpecs,
         currency: Currency,

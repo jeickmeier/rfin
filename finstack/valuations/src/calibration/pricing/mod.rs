@@ -2,6 +2,7 @@
 pub(crate) mod convention_resolution;
 mod convexity;
 mod pricer;
+pub(crate) mod quote_factory;
 
 use finstack_core::dates::{BusinessDayConvention, DayCount};
 use serde::{Deserialize, Serialize};

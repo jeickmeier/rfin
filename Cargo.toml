@@ -31,7 +31,7 @@ exclude = ["finstack-py", "finstack-wasm"]
 ignore-filename-regex = ["tests?/", "target/", "\\.cargo/", ".*finstack-py/.*", ".*finstack-wasm/.*"]
 
 [workspace.package]
-version = "0.3.0"
+version = "0.4.0"
 edition = "2021"
 rust-version = "1.90"
 authors = ["Jon Eickmeier (me@jeickmeier.com)"]

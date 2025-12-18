@@ -1,4 +1,5 @@
 use super::*;
+use crate::calibration::pricing::quote_factory::{self, CALIBRATION_NOTIONAL};
 use crate::calibration::quotes::{FutureSpecs, InstrumentConventions, RatesQuote};
 use crate::calibration::RateBounds;
 use crate::instruments::common::traits::Instrument;
@@ -107,6 +108,43 @@ fn create_ois_swap_matches_price_swap_pricing() {
         "OIS construction mismatch: pricer={} vs builder={}",
         pv_norm,
         pv_swap
+    );
+}
+
+#[test]
+fn factory_matches_price_instrument_deposit() {
+    let base_date = Date::from_calendar_date(2024, Month::January, 2).expect("valid base date");
+    let disc = DiscountCurve::builder("USD-OIS")
+        .base_date(base_date)
+        .knots([(0.0, 1.0), (1.0, 0.99)])
+        .build()
+        .expect("discount curve");
+    let ctx = MarketContext::new().insert_discount(disc);
+
+    let pricer = CalibrationPricer::new(base_date, "USD-OIS");
+    let maturity = base_date + time::Duration::days(30);
+    let quote = RatesQuote::Deposit {
+        maturity,
+        rate: 0.05,
+        conventions: InstrumentConventions::default(),
+    };
+
+    let price = pricer
+        .price_instrument(&quote, Currency::USD, &ctx)
+        .expect("price via pricer");
+
+    let inst = quote_factory::build_instrument_for_rates_quote(
+        &pricer,
+        &quote,
+        Currency::USD,
+        false,
+    )
+    .expect("factory instrument");
+    let pv = inst.value(&ctx, base_date).expect("pv").amount() / CALIBRATION_NOTIONAL;
+
+    assert!(
+        (price - pv).abs() < 1e-10,
+        "factory path should match pricing dispatch"
     );
 }
 

@@ -1,12 +1,11 @@
 use crate::calibration::api::schema::HazardCurveParams;
 use crate::calibration::quotes::CreditQuote;
 use crate::calibration::solver::BootstrapTarget;
-use crate::instruments::cds::pricer::CDSPricer;
-use crate::instruments::cds::{CDSConvention, PayReceive};
+use crate::calibration::pricing::quote_factory;
+use crate::instruments::cds::CDSConvention;
 use finstack_core::dates::DayCountCtx;
 use finstack_core::market_data::context::MarketContext;
 use finstack_core::market_data::term_structures::HazardCurve;
-use finstack_core::money::Money;
 use finstack_core::prelude::*;
 use finstack_core::Result;
 
@@ -94,89 +93,19 @@ impl BootstrapTarget for HazardBootstrapper {
 
     fn calculate_residual(&self, curve: &Self::Curve, quote: &Self::Quote) -> Result<f64> {
         let base_date = self.params.base_date;
-        let discount = self
-            .base_context
-            .get_discount_ref(&self.params.discount_curve_id)?;
-        let pricer = CDSPricer::new();
+        let (instrument, upfront_opt) =
+            quote_factory::build_instrument_for_credit_quote(quote, &self.params, self.convention)?;
 
-        // Extract quote details
-        let (maturity, spread_bp, upfront_pct_opt, conventions) = match quote {
-            CreditQuote::CDS {
-                maturity,
-                spread_bp,
-                conventions,
-                ..
-            } => (*maturity, *spread_bp, None, conventions),
-            CreditQuote::CDSUpfront {
-                maturity,
-                running_spread_bp,
-                upfront_pct,
-                conventions,
-                ..
-            } => (
-                *maturity,
-                *running_spread_bp,
-                Some(*upfront_pct),
-                conventions,
-            ),
-            _ => {
-                return Err(finstack_core::Error::Input(
-                    finstack_core::error::InputError::Invalid,
-                ))
-            }
+        let mut temp_ctx = self.base_context.clone();
+        temp_ctx.insert_mut(std::sync::Arc::new(curve.clone()));
+
+        let npv = instrument.value(&temp_ctx, base_date)?.amount();
+        let adjusted = match upfront_opt {
+            None => npv,
+            Some(upfront) => npv - upfront.amount(),
         };
 
-        // Build instrument
-        let premium_spec = crate::instruments::cds::PremiumLegSpec {
-            start: base_date,
-            end: maturity,
-            freq: conventions
-                .payment_frequency
-                .unwrap_or(self.convention.frequency()),
-            stub: self.convention.stub_convention(),
-            bdc: conventions
-                .business_day_convention
-                .unwrap_or(self.convention.business_day_convention()),
-            calendar_id: Some(
-                conventions
-                    .effective_payment_calendar_id()
-                    .unwrap_or(self.convention.default_calendar())
-                    .to_string(),
-            ),
-            dc: conventions.day_count.unwrap_or(self.convention.day_count()),
-            spread_bp,
-            discount_curve_id: self.params.discount_curve_id.clone(),
-        };
-
-        let protection_spec = crate::instruments::cds::ProtectionLegSpec {
-            credit_curve_id: self.params.curve_id.clone(),
-            recovery_rate: self.params.recovery_rate,
-            settlement_delay: conventions
-                .settlement_days
-                .unwrap_or(self.convention.settlement_delay() as i32)
-                as u16,
-        };
-
-        let cds = crate::instruments::cds::CreditDefaultSwapBuilder::new()
-            .id("CALIB_CDS".into())
-            .notional(Money::new(self.params.notional, self.params.currency))
-            .side(PayReceive::PayFixed)
-            .convention(self.convention)
-            .premium(premium_spec)
-            .protection(protection_spec)
-            .pricing_overrides(crate::instruments::PricingOverrides::default())
-            .attributes(crate::instruments::common::traits::Attributes::new())
-            .build()
-            .map_err(|e| finstack_core::Error::Validation(e.to_string()))?;
-
-        let npv = pricer.npv(&cds, discount, curve, base_date)?.amount();
-
-        match upfront_pct_opt {
-            None => Ok(npv / cds.notional.amount()),
-            Some(upfront) => {
-                Ok((npv - cds.notional.amount() * upfront / 100.0) / cds.notional.amount())
-            }
-        }
+        Ok(adjusted / self.params.notional)
     }
 
     fn initial_guess(&self, _quote: &Self::Quote, previous_knots: &[(f64, f64)]) -> Result<f64> {
@@ -274,6 +203,9 @@ impl BootstrapTarget for HazardBootstrapper {
 mod tests {
     use super::*;
     use crate::calibration::solver::BootstrapTarget;
+    use crate::calibration::pricing::quote_factory;
+    use crate::calibration::quotes::InstrumentConventions;
+    use finstack_core::market_data::term_structures::discount_curve::DiscountCurve;
     use finstack_core::market_data::term_structures::ParInterp;
     use time::Month;
 
@@ -329,5 +261,49 @@ mod tests {
         assert!((0.0..=1.0).contains(&s5));
         assert!((0.0..=1.0).contains(&s10));
         assert!(s1 >= s5 && s5 >= s10);
+    }
+
+    #[test]
+    fn credit_factory_returns_upfront_for_cds_upfront() {
+        let base_date = Date::from_calendar_date(2024, Month::January, 2).expect("date");
+        let mut params = base_params();
+        params.base_date = base_date;
+        params.discount_curve_id = "USD-OIS".into();
+        params.notional = 1_000_000.0;
+        params.recovery_rate = 0.4;
+
+        let hazard = HazardCurve::builder("CRV")
+            .base_date(base_date)
+            .knots([(0.0, 0.01), (5.0, 0.015)])
+            .build()
+            .expect("hazard curve");
+        let disc = DiscountCurve::builder("USD-OIS")
+            .base_date(base_date)
+            .knots([(0.0, 1.0), (5.0, 0.95)])
+            .build()
+            .expect("disc");
+
+        let ctx = MarketContext::new()
+            .insert_discount(disc)
+            .insert_hazard(hazard.clone());
+
+        let quote = CreditQuote::CDSUpfront {
+            entity: "ABC".to_string(),
+            maturity: base_date + time::Duration::days(365),
+            upfront_pct: 2.0,
+            running_spread_bp: 100.0,
+            recovery_rate: 0.4,
+            currency: Currency::USD,
+            conventions: InstrumentConventions::default(),
+        };
+
+        let (inst, upfront_opt) =
+            quote_factory::build_instrument_for_credit_quote(&quote, &params, CDSConvention::IsdaNa)
+                .expect("factory build");
+        let upfront = upfront_opt.expect("expected upfront");
+
+        let pv = inst.value(&ctx, base_date).expect("pv").amount();
+        let adjusted = pv - upfront.amount();
+        assert!(adjusted.is_finite());
     }
 }

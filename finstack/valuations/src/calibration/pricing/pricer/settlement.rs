@@ -171,7 +171,7 @@ impl CalibrationPricer {
     /// Compute FRA fixing date using signed reset lag and calendars.
     ///
     /// Returns the fixing date and a flag indicating whether the calendar was found.
-    pub(in crate::calibration::pricing::pricer) fn compute_fra_fixing_date(
+    pub(crate) fn compute_fra_fixing_date(
         &self,
         start: Date,
         reset_lag: i32,
