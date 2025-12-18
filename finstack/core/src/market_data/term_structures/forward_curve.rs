@@ -294,6 +294,98 @@ impl ForwardCurve {
         integral / dt
     }
 
+    /// Fallible: implied **projection discount factor** from `0` to `t` (years).
+    ///
+    /// This is a convenience for Bloomberg-style curve inspection where a projection curve
+    /// is displayed with both forward rates and an implied discount factor curve.
+    ///
+    /// The forward curve stores **simple forward rates** for a fixed tenor. We interpret the
+    /// curve as defining an average simple rate over each accrual interval and chain
+    /// accrual factors deterministically:
+    ///
+    /// ```text
+    /// DF(0) = 1
+    /// DF(t + dt) = DF(t) / (1 + avg_fwd(t, t+dt) * dt)
+    /// ```
+    ///
+    /// Where `avg_fwd(t, t+dt)` is computed via [`rate_period`](Self::rate_period) to match
+    /// the library’s interpolation/shape assumptions.
+    ///
+    /// Notes
+    /// -----
+    /// - This is **not** a discount curve used for PV discounting; it is an *implied projection DF*.
+    /// - The stepping size uses the curve’s `tenor_years` with a final fractional step when needed.
+    pub fn try_df(&self, t: f64) -> crate::Result<f64> {
+        if !t.is_finite() {
+            return Err(InputError::Invalid.into());
+        }
+        if t < 0.0 {
+            return Err(crate::Error::Validation(format!(
+                "ForwardCurve df(t) requires t >= 0; got t={t}"
+            )));
+        }
+        if t == 0.0 {
+            return Ok(1.0);
+        }
+
+        let tau = self.tenor;
+        if !tau.is_finite() || tau <= 0.0 {
+            // Builder should prevent this; treat as invalid input defensively.
+            return Err(InputError::Invalid.into());
+        }
+
+        const EPS: f64 = 1e-12;
+        let mut df = 1.0_f64;
+        let mut cur = 0.0_f64;
+
+        while cur + EPS < t {
+            let nxt = (cur + tau).min(t);
+            let dt = nxt - cur;
+            if dt <= 0.0 {
+                break;
+            }
+            let avg = self.rate_period(cur, nxt);
+            let denom = 1.0 + avg * dt;
+            if !denom.is_finite() || denom <= 0.0 {
+                return Err(crate::Error::Validation(format!(
+                    "Invalid implied projection DF step for {}: t={cur:.6} -> {nxt:.6}, avg_fwd={avg:.6}, denom={denom:.6}",
+                    self.id.as_str(),
+                )));
+            }
+            df /= denom;
+            cur = nxt;
+        }
+
+        if !df.is_finite() || df <= 0.0 {
+            return Err(crate::Error::Validation(format!(
+                "Invalid implied projection DF for {} at t={t}: {df}",
+                self.id.as_str()
+            )));
+        }
+        Ok(df)
+    }
+
+    /// Implied projection discount factor from `0` to `t` (years).
+    ///
+    /// Panics if `t` is invalid. Prefer [`try_df`](Self::try_df) for error handling.
+    #[inline]
+    pub fn df(&self, t: f64) -> f64 {
+        self.try_df(t)
+            .expect("ForwardCurve df(t) failed; use try_df for error handling")
+    }
+
+    /// Fallible: implied projection discount factor on a calendar date using the curve's day-count.
+    #[inline]
+    pub fn try_df_on_date_curve(&self, date: Date) -> crate::Result<f64> {
+        let t = if date == self.base {
+            0.0
+        } else {
+            self.day_count
+                .year_fraction(self.base, date, DayCountCtx::default())?
+        };
+        self.try_df(t)
+    }
+
     /// Create a new curve with a key-rate bump applied at a target time `t` (in years) (fallible).
     ///
     /// Create a new curve with a triangular key-rate bump using explicit bucket neighbors.

@@ -23,13 +23,17 @@ use finstack_valuations::metrics::MetricCalculator;
 use std::collections::HashMap;
 use time::Month;
 
+use super::tolerances;
+
 const NOTIONAL: f64 = 1_000_000.0; // $1M notional
 
 /// OIS swap repricing tolerance in basis points for externally-constructed swaps.
-const OIS_SWAP_TOLERANCE_BP: f64 = 1.5;
+///
+/// Vendor-grade expectation: external repricing should land within ~0.1bp of par.
+const OIS_SWAP_TOLERANCE_BP: f64 = tolerances::SWAP_REPRICE_TOL_BP;
 
 /// FRA repricing tolerance per $1M notional.
-const FRA_TOLERANCE_DOLLARS: f64 = 150.0;
+const FRA_TOLERANCE_DOLLARS: f64 = tolerances::FRA_REPRICE_ABS_TOL_DOLLARS;
 
 fn calculate_swap_dv01(swap: &InterestRateSwap, ctx: &MarketContext, as_of: Date) -> f64 {
     use finstack_valuations::metrics::MetricContext;
@@ -49,7 +53,7 @@ fn calculate_swap_dv01(swap: &InterestRateSwap, ctx: &MarketContext, as_of: Date
 }
 
 fn swap_tolerance_from_dv01(dv01: f64, tolerance_bp: f64) -> f64 {
-    (tolerance_bp * dv01.abs()).max(50.0) // Minimum $50 tolerance
+    tolerances::pv_tolerance_from_dv01(dv01, tolerance_bp)
 }
 
 fn run_plan(envelope: &CalibrationEnvelopeV2) -> MarketContext {
@@ -428,9 +432,10 @@ fn discount_curve_deposit_repricing() {
 
         let pv = dep.value(&ctx, base_date).unwrap();
         assert!(
-            pv.amount().abs() <= 1.0,
-            "deposit should reprice within $1. PV=${:.2}",
-            pv.amount()
+            pv.amount().abs() <= tolerances::REPRICE_PV_ABS_TOL_DOLLARS,
+            "deposit should reprice within ${}. PV=${:.6}",
+            tolerances::REPRICE_PV_ABS_TOL_DOLLARS,
+            pv.amount(),
         );
     }
 }

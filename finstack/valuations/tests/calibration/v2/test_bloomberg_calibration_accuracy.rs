@@ -11,7 +11,7 @@
 //!
 //! | Tenor Bucket | Expected Accuracy | Primary Factors |
 //! |--------------|-------------------|-----------------|
-//! | Short-end (<1Y) | < 0.1bp | Deposit pricing is simple and exact |
+//! | Short-end (<1Y) | < 0.05bp | Deposit pricing is simple and exact |
 //! | Mid-term (1-10Y) | < 0.5bp | Minor interpolation differences |
 //! | Long-end (>10Y) | < 5bp | Interpolation method affects annuity |
 //!
@@ -62,6 +62,8 @@ use finstack_valuations::calibration::api::schema::{
 use finstack_valuations::calibration::quotes::{InstrumentConventions, MarketQuote, RatesQuote};
 use finstack_valuations::calibration::{CalibrationConfig, CALIBRATION_CONFIG_KEY_V2};
 use time::Month;
+
+use super::tolerances;
 
 /// Helper to create deposit quotes with ACT/360 day count
 fn deposit(maturity: Date, rate: f64) -> RatesQuote {
@@ -427,7 +429,7 @@ fn test_bloomberg_usd_ois_calibration_accuracy() {
     // - T+2 settlement
     // - ACT/360 on both legs
     // - Pay delay 2 business days
-    // - PiecewiseQuadraticForward interpolation
+    // - MonotoneConvex interpolation (vendor-style discount curve smoothing)
     let mut cfg = FinstackConfig::default();
     cfg.extensions.insert(
         CALIBRATION_CONFIG_KEY_V2,
@@ -446,12 +448,13 @@ fn test_bloomberg_usd_ois_calibration_accuracy() {
         currency: Currency::USD,
         base_date,
         method: CalibrationMethod::Bootstrap,
-        interpolation: InterpStyle::PiecewiseQuadraticForward,
+        interpolation: InterpStyle::MonotoneConvex,
         extrapolation: finstack_core::math::interp::ExtrapolationPolicy::FlatForward,
         pricing_discount_id: None,
         pricing_forward_id: None,
         conventions: finstack_valuations::calibration::pricing::RatesStepConventions {
-            // Match notebook/script: use default curve day-count (do not override).
+            // Keep the curve time-axis default (ACT/365F) to match Bloomberg's published
+            // continuous-zero rates comparison logic used below.
             curve_day_count: None,
             // USD spot-start; this ensures the pricer settlement logic matches
             // how the market quotes were generated (T+2), without relying on
@@ -577,7 +580,7 @@ fn test_bloomberg_usd_ois_calibration_accuracy() {
     // - Short-end (deposits): should match essentially exactly.
     // - Mid-term (1-10Y swaps): sub-bp DF differences.
     // - Long-end (>10Y swaps): a few bp due to annuity sensitivity to interpolation.
-    let short_end_tolerance_bp = 0.01;
+    let short_end_tolerance_bp = tolerances::BBG_DF_TOL_BP_SHORT;
     assert!(
         short_end_max_df < short_end_tolerance_bp,
         "Short-end DF max diff ({:.3}bp) exceeds tolerance ({:.1}bp). \
@@ -587,7 +590,7 @@ fn test_bloomberg_usd_ois_calibration_accuracy() {
     );
 
     // Mid-term (1-10Y): should match closely (vendor-grade).
-    let mid_term_tolerance_bp = 0.5;
+    let mid_term_tolerance_bp = tolerances::BBG_DF_TOL_BP_MID;
     assert!(
         mid_term_max_df < mid_term_tolerance_bp,
         "Mid-term DF max diff ({:.3}bp) exceeds tolerance ({:.1}bp). \
@@ -598,7 +601,7 @@ fn test_bloomberg_usd_ois_calibration_accuracy() {
 
     // Long-end (>10Y): allow a few bp because interpolation differences between
     // pillar points compound through the swap annuity.
-    let long_end_tolerance_bp = 10.0;
+    let long_end_tolerance_bp = tolerances::BBG_DF_TOL_BP_LONG;
     assert!(
         long_end_max_df < long_end_tolerance_bp,
         "Long-end DF max diff ({:.3}bp) exceeds tolerance ({:.1}bp). \
@@ -608,7 +611,7 @@ fn test_bloomberg_usd_ois_calibration_accuracy() {
     );
 
     // Zero rates check (continuous compounding, matching the notebook output).
-    let zero_rate_tolerance_bp = 1.00;
+    let zero_rate_tolerance_bp = tolerances::BBG_ZERO_TOL_BP;
     assert!(
         max_zero_diff < zero_rate_tolerance_bp,
         "Max zero rate diff ({:.2}bp) exceeds tolerance ({:.1}bp). \

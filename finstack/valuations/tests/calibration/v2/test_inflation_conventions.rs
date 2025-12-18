@@ -16,6 +16,8 @@ use finstack_valuations::calibration::quotes::{InflationQuote, MarketQuote};
 use std::collections::HashMap;
 use time::Month;
 
+use super::tolerances::{assert_close_abs, F64_ABS_TOL_LOOSE};
+
 fn create_discount_curve(base_date: Date) -> DiscountCurve {
     DiscountCurve::builder("USD-OIS")
         .base_date(base_date)
@@ -117,7 +119,12 @@ fn inflation_quote_time_uses_lagged_fixing_date() {
 
     assert_eq!(curve.knots().first().copied(), Some(0.0));
     assert_eq!(curve.knots().len(), 2);
-    assert!((curve.knots()[1] - expected_t).abs() < 1e-10);
+    assert_close_abs(
+        curve.knots()[1],
+        expected_t,
+        F64_ABS_TOL_LOOSE,
+        "inflation knot time should match expected lag-adjusted time-axis",
+    );
 }
 
 #[test]

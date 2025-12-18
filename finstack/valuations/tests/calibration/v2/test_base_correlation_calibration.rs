@@ -13,12 +13,15 @@ use finstack_valuations::calibration::api::schema::{
     BaseCorrelationParams, CalibrationEnvelopeV2, CalibrationPlanV2, CalibrationStepV2, StepParams,
 };
 use finstack_valuations::calibration::quotes::{CreditQuote, MarketQuote};
+use finstack_valuations::calibration::CalibrationConfig;
 use finstack_valuations::instruments::cds_tranche::pricer::CDSTranchePricer;
 use finstack_valuations::instruments::cds_tranche::{CdsTranche, TrancheSide};
 use finstack_valuations::instruments::common::traits::Attributes;
 use std::collections::HashMap;
 use std::sync::Arc;
 use time::Month;
+
+use super::tolerances;
 
 fn create_discount_curve(base_date: Date) -> DiscountCurve {
     DiscountCurve::builder("USD-OIS")
@@ -189,7 +192,12 @@ fn base_correlation_step_builds_curve_and_updates_credit_index_data() {
         id: "plan".to_string(),
         description: None,
         quote_sets,
-        settings: Default::default(),
+        settings: CalibrationConfig {
+            solver: finstack_valuations::calibration::solver::SolverConfig::brent_default()
+                .with_tolerance(tolerances::BASE_CORR_UPFRONT_FRAC_TOL)
+                .with_max_iterations(500),
+            ..Default::default()
+        },
         steps: vec![CalibrationStepV2 {
             id: "corr".to_string(),
             quote_set: "tranches".to_string(),
@@ -221,6 +229,12 @@ fn base_correlation_step_builds_curve_and_updates_credit_index_data() {
     assert!(result.result.report.success);
     let step = result.result.step_reports.get("corr").expect("step report");
     assert!(step.success);
+    assert!(
+        step.max_residual <= tolerances::BASE_CORR_UPFRONT_FRAC_TOL,
+        "base correlation fit must be vendor-grade: max_residual={:.3e} > tol={:.3e}",
+        step.max_residual,
+        tolerances::BASE_CORR_UPFRONT_FRAC_TOL
+    );
 
     let ctx = MarketContext::try_from(result.result.final_market).expect("restore context");
 
@@ -228,8 +242,12 @@ fn base_correlation_step_builds_curve_and_updates_credit_index_data() {
     let curve = ctx
         .get_base_correlation("CDX_CORR")
         .expect("base correlation curve");
-    assert!((curve.correlation(3.0) - 0.25).abs() < 5e-2);
-    assert!((curve.correlation(7.0) - 0.35).abs() < 5e-2);
+    let arb = curve.validate_arbitrage_free();
+    assert!(
+        arb.is_arbitrage_free,
+        "calibrated base correlation curve must be arbitrage-free; violations={:?}",
+        arb.violations
+    );
 
     // Credit index aggregate is updated to reference the calibrated curve.
     let index = ctx.credit_index_ref("CDX").expect("credit index");

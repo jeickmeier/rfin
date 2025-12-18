@@ -678,6 +678,25 @@ impl PyForwardCurve {
     fn rate(&self, t: f64) -> f64 {
         self.inner.rate(t)
     }
+
+    /// Implied projection discount factor ``df(t)`` from `0` to `t` (years).
+    ///
+    /// Notes
+    /// -----
+    /// This is a *projection DF* implied by chaining the forward curve's simple rates;
+    /// it is not a PV discount curve. It is primarily intended for Bloomberg-style
+    /// curve table comparisons.
+    #[pyo3(text_signature = "(self, t)")]
+    fn df(&self, t: f64) -> PyResult<f64> {
+        Ok(self.inner.try_df(t).map_err(core_to_py)?)
+    }
+
+    /// Implied projection discount factor on a calendar date using the curve's day-count.
+    #[pyo3(text_signature = "(self, date)")]
+    fn df_on_date(&self, date: Bound<'_, PyAny>) -> PyResult<f64> {
+        let d = py_to_date(&date).context("date")?;
+        Ok(self.inner.try_df_on_date_curve(d).map_err(core_to_py)?)
+    }
 }
 
 /// Credit hazard curve with piecewise-constant survival probabilities.

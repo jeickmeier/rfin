@@ -12,6 +12,8 @@ use finstack_valuations::calibration::solver::{BootstrapTarget, GlobalSolveTarge
 use finstack_valuations::calibration::CalibrationConfig;
 use time::{Duration, Month};
 
+use super::tolerances::{assert_close_abs, F64_ABS_TOL_STRICT};
+
 fn build_target(
     base_date: Date,
     settlement_date: Date,
@@ -85,11 +87,11 @@ fn quote_time_uses_curve_day_count_not_instrument_defaults() {
         )
         .expect("year fraction");
 
-    assert!(
-        (actual - expected).abs() < 1e-12,
-        "expected {:.12}, got {:.12}",
+    assert_close_abs(
+        actual,
         expected,
-        actual
+        F64_ABS_TOL_STRICT,
+        "quote_time (Act365F) should match DayCount::year_fraction",
     );
 }
 
@@ -130,11 +132,11 @@ fn deposit_initial_guess_respects_business_day_settlement() {
         .max(1e-6);
     let expected_df = 1.0 / (1.0 + 0.05 * yf);
 
-    assert!(
-        (df - expected_df).abs() < 1e-12,
-        "expected {:.12}, got {:.12}",
+    assert_close_abs(
+        df,
         expected_df,
-        df
+        F64_ABS_TOL_STRICT,
+        "deposit initial_guess should match simple-money-market DF",
     );
 }
 

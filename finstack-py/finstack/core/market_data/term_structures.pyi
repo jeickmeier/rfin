@@ -421,6 +421,18 @@ class ForwardCurve:
         If t < 0 or if extrapolation fails.
     """
 
+    def df(self, t: float) -> float: ...
+    """Implied projection discount factor from 0 to ``t`` (years).
+
+    Notes
+    -----
+    This is a *projection DF* implied by chaining the forward curve's simple rates;
+    it is not a PV discount curve.
+    """
+
+    def df_on_date(self, date: Union[str, date]) -> float: ...
+    """Implied projection discount factor on a calendar date using the curve's day-count."""
+
     def __repr__(self) -> str: ...
 
 class HazardCurve:

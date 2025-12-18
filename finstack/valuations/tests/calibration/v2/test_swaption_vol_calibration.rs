@@ -14,6 +14,8 @@ use finstack_valuations::calibration::CalibrationConfig;
 use std::collections::HashMap;
 use time::Month;
 
+use super::tolerances;
+
 fn create_test_discount_curve(base_date: Date) -> DiscountCurve {
     DiscountCurve::builder("USD-OIS")
         .base_date(base_date)
@@ -176,8 +178,10 @@ fn swaption_vol_step_builds_and_inserts_surface() {
                 sabr_interpolation: Default::default(),
                 calendar_id: None,
                 fixed_day_count: None,
-                vol_tolerance: None,
-                sabr_tolerance: None,
+                // Vendor-grade surface fit requirements (normal vols in decimal).
+                vol_tolerance: Some(tolerances::SWAPTION_VOL_FIT_TOL_NORMAL_DECIMAL),
+                // Internal SABR solver tolerance (root-finder tolerance).
+                sabr_tolerance: Some(1e-8),
                 sabr_extrapolation: SurfaceExtrapolationPolicy::Error,
                 allow_sabr_missing_bucket_fallback: false,
             }),
@@ -197,6 +201,12 @@ fn swaption_vol_step_builds_and_inserts_surface() {
     assert!(
         !step.residuals.is_empty(),
         "expected residuals for calibrated buckets"
+    );
+    assert!(
+        step.max_residual <= tolerances::SWAPTION_VOL_FIT_TOL_NORMAL_DECIMAL,
+        "swaption vol fit must be vendor-grade: max_residual={:.3e} > tol={:.3e}",
+        step.max_residual,
+        tolerances::SWAPTION_VOL_FIT_TOL_NORMAL_DECIMAL
     );
 
     let ctx = MarketContext::try_from(result.result.final_market).expect("restore context");

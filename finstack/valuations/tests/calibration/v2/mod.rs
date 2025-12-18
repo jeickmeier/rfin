@@ -21,3 +21,5 @@ mod test_simple_calibration_builder;
 mod test_strict_pricing;
 mod test_swaption_vol_calibration;
 mod v2_parity_test;
+
+mod tolerances;

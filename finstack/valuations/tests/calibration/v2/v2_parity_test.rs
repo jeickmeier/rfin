@@ -10,8 +10,11 @@ use finstack_valuations::calibration::api::schema::{
     DiscountCurveParams, ForwardCurveParams, StepParams,
 };
 use finstack_valuations::calibration::quotes::{InstrumentConventions, MarketQuote, RatesQuote};
+use finstack_valuations::calibration::CalibrationConfig;
 use std::collections::HashMap;
 use time::Month;
+
+use super::tolerances;
 
 #[test]
 fn test_v2_simple_usd_calibration() {
@@ -79,7 +82,12 @@ fn test_v2_simple_usd_calibration() {
         id: "test_plan".to_string(),
         description: None,
         quote_sets,
-        settings: Default::default(),
+        settings: CalibrationConfig {
+            solver: finstack_valuations::calibration::solver::SolverConfig::brent_default()
+                .with_tolerance(1e-12)
+                .with_max_iterations(250),
+            ..Default::default()
+        },
         steps: vec![
             CalibrationStepV2 {
                 id: "step_1".to_string(),
@@ -144,7 +152,7 @@ fn test_v2_simple_usd_calibration() {
         .expect("Forward curve missing");
     let fwd_0 = forward.rate(0.0);
     assert!(
-        (fwd_0 - 0.0530).abs() < 1e-4,
+        (fwd_0 - 0.0530).abs() < tolerances::FWD_RATE_ABS_TOL,
         "Spot forward should match first FRA"
     );
 }
