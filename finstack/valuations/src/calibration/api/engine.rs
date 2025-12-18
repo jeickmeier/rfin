@@ -407,12 +407,15 @@ fn preflight_step(
                     p.model
                 )));
             }
-            if p.discount_curve_id.is_none() {
-                return Err(finstack_core::Error::Validation(
-                    "VolSurface step requires discount_curve_id".to_string(),
-                ));
-            }
-            let _ = context.get_discount_ref(p.discount_curve_id.as_ref().expect("checked"))?;
+            let discount_id = p
+                .discount_curve_id
+                .as_deref()
+                .ok_or_else(|| {
+                    finstack_core::Error::Validation(
+                        "VolSurface step requires discount_curve_id".to_string(),
+                    )
+                })?;
+            let _ = context.get_discount_ref(discount_id)?;
             Ok(())
         }
         StepParams::SwaptionVol(p) => {

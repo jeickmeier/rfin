@@ -51,35 +51,6 @@
 //! - [`api`] for the plan schema and engine.
 //! - [`solver`] for the underlying numerical solvers.
 //! - [`quotes`] for market data representation.
-//!
-//! ## Quick start (v2 plan-driven)
-//!
-//! ```ignore
-//! use finstack_valuations::calibration::api::engine;
-//! use finstack_valuations::calibration::api::schema::{
-//!     CalibrationEnvelopeV2, CalibrationPlanV2, CalibrationStepV2, StepParams,
-//!     DiscountCurveParams, CalibrationMethod, CALIBRATION_SCHEMA_V2,
-//! };
-//! use finstack_valuations::calibration::quotes::{MarketQuote, RatesQuote};
-//! use std::collections::HashMap;
-//!
-//! let quote_sets: HashMap<String, Vec<MarketQuote>> = HashMap::new();
-//! let steps: Vec<CalibrationStepV2> = Vec::new();
-//!
-//! let plan = CalibrationPlanV2 {
-//!     id: "plan".to_string(),
-//!     description: None,
-//!     quote_sets,
-//!     steps,
-//!     settings: Default::default(),
-//! };
-//! let envelope = CalibrationEnvelopeV2 {
-//!     schema: CALIBRATION_SCHEMA_V2.to_string(),
-//!     plan,
-//!     initial_market: None,
-//! };
-//! let _result = engine::execute(&envelope)?;
-//! ```
 
 /// Adapters mapping API steps to domain execution.
 pub mod adapters;

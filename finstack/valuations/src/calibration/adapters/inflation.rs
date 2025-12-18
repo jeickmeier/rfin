@@ -215,7 +215,8 @@ impl InflationBootstrapper {
             ctx.insert_mut(curve.clone());
             op(&ctx)
         } else {
-            let temp_context = self.base_context.clone().insert_inflation(curve.clone());
+            let mut temp_context = self.base_context.clone();
+            temp_context.insert_mut(curve.clone());
             op(&temp_context)
         }
     }

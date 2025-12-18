@@ -1,9 +1,9 @@
 //! Curve validators (discount/forward/hazard/inflation/base-correlation).
 
 use crate::calibration::validation::points::{
-    DF_BOUNDS_POINTS, DF_MONO_POINTS, FWD_ARBI_POINTS, FWD_BOUNDS_POINTS, HAZARD_ARBI_POINTS,
-    HAZARD_BOUNDS_POINTS, HAZARD_MONO_POINTS, INFL_ARBI_POINTS, INFL_BOUNDS_POINTS,
-    INFL_MONO_POINTS,
+    DF_ARBI_POINTS, DF_BOUNDS_POINTS, DF_MONO_POINTS, FWD_ARBI_POINTS, FWD_BOUNDS_POINTS,
+    HAZARD_ARBI_POINTS, HAZARD_BOUNDS_POINTS, HAZARD_MONO_POINTS, INFL_ARBI_POINTS,
+    INFL_BOUNDS_POINTS, INFL_MONO_POINTS,
 };
 use crate::calibration::validation::ValidationConfig;
 use finstack_core::market_data::term_structures::{
@@ -54,11 +54,9 @@ impl CurveValidator for DiscountCurve {
         }
 
         // Check forward rate positivity
-        let times = [0.25, 0.5, 1.0, 2.0, 3.0, 5.0, 7.0, 10.0, 15.0, 20.0, 30.0];
-
-        for i in 0..times.len() - 1 {
-            let t1 = times[i];
-            let t2 = times[i + 1];
+        for i in 0..DF_ARBI_POINTS.len() - 1 {
+            let t1 = DF_ARBI_POINTS[i];
+            let t2 = DF_ARBI_POINTS[i + 1];
 
             let df1 = self.df(t1);
             let df2 = self.df(t2);

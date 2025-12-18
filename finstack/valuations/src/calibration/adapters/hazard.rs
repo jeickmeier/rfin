@@ -94,8 +94,9 @@ impl HazardBootstrapper {
             ctx.insert_mut(curve.clone());
             op(&ctx)
         } else {
-            let temp_ctx = self.base_context.clone().insert_hazard(curve.clone());
-            op(&temp_ctx)
+            let mut temp_context = self.base_context.clone();
+            temp_context.insert_mut(curve.clone());
+            op(&temp_context)
         }
     }
 }
