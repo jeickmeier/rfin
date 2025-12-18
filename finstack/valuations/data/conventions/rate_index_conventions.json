@@ -1,0 +1,113 @@
+{
+  "schema": "finstack.calibration.conventions.registry.v1",
+  "namespace": "calibration.rate_index",
+  "version": 1,
+  "entries": [
+    {
+      "ids": ["USD-SOFR-OIS", "SOFR-OIS"],
+      "record": {
+        "currency": "USD",
+        "kind": "overnight_rfr",
+        "tenor": null,
+        "day_count": "Act360",
+        "default_payment_frequency": "1Y",
+        "default_payment_delay_days": 2,
+        "default_reset_lag_days": 0,
+        "ois_compounding": "sofr"
+      }
+    },
+    {
+      "ids": ["USD-SOFR", "SOFR"],
+      "record": {
+        "currency": "USD",
+        "kind": "overnight_rfr",
+        "tenor": null,
+        "day_count": "Act360",
+        "default_payment_frequency": "1Y",
+        "default_payment_delay_days": 2,
+        "default_reset_lag_days": 0,
+        "ois_compounding": "fedfunds"
+      }
+    },
+    {
+      "ids": ["USD-OIS"],
+      "record": {
+        "currency": "USD",
+        "kind": "overnight_rfr",
+        "tenor": null,
+        "day_count": "Act360",
+        "default_payment_frequency": "1Y",
+        "default_payment_delay_days": 2,
+        "default_reset_lag_days": 0,
+        "ois_compounding": "fedfunds"
+      }
+    },
+    {
+      "ids": ["USD-FEDFUNDS-OIS", "USD-FEDFUNDS", "USD-FF-OIS", "USD-EFFR-OIS", "USD-EFFR"],
+      "record": {
+        "currency": "USD",
+        "kind": "overnight_rfr",
+        "tenor": null,
+        "day_count": "Act360",
+        "default_payment_frequency": "1Y",
+        "default_payment_delay_days": 2,
+        "default_reset_lag_days": 0,
+        "ois_compounding": "fedfunds"
+      }
+    },
+    {
+      "ids": ["GBP-SONIA-OIS", "GBP-SONIA", "SONIA-OIS"],
+      "record": {
+        "currency": "GBP",
+        "kind": "overnight_rfr",
+        "tenor": null,
+        "day_count": "Act365F",
+        "default_payment_frequency": "1Y",
+        "default_payment_delay_days": 2,
+        "default_reset_lag_days": 0,
+        "ois_compounding": "sonia"
+      }
+    },
+    {
+      "ids": ["EUR-ESTR-OIS", "EUR-ESTR", "ESTR-OIS", "EUR-EST-OIS", "EUR-EST", "EST-OIS"],
+      "record": {
+        "currency": "EUR",
+        "kind": "overnight_rfr",
+        "tenor": null,
+        "day_count": "Act360",
+        "default_payment_frequency": "1Y",
+        "default_payment_delay_days": 2,
+        "default_reset_lag_days": 0,
+        "ois_compounding": "estr"
+      }
+    },
+    {
+      "ids": ["JPY-TONA-OIS", "JPY-TONA", "TONA-OIS", "JPY-TONAR-OIS", "JPY-TONAR", "TONAR-OIS"],
+      "record": {
+        "currency": "JPY",
+        "kind": "overnight_rfr",
+        "tenor": null,
+        "day_count": "Act365F",
+        "default_payment_frequency": "1Y",
+        "default_payment_delay_days": 2,
+        "default_reset_lag_days": 0,
+        "ois_compounding": "tona"
+      }
+    },
+    {
+      "ids": ["CHF-SARON-OIS", "CHF-SARON", "SARON-OIS"],
+      "record": {
+        "currency": "CHF",
+        "kind": "overnight_rfr",
+        "tenor": null,
+        "day_count": "Act360",
+        "default_payment_frequency": "1Y",
+        "default_payment_delay_days": 2,
+        "default_reset_lag_days": 0,
+        "ois_compounding": "saron"
+      }
+    }
+  ]
+}
+
+

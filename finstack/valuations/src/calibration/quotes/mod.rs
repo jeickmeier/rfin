@@ -16,6 +16,7 @@
 pub mod conventions;
 pub mod credit;
 pub mod inflation;
+mod json_registry;
 pub mod market_quote;
 pub mod rate_index;
 pub mod rates;

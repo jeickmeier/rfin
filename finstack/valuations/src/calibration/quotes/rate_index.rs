@@ -7,9 +7,15 @@
 use crate::instruments::irs::FloatingLegCompounding;
 use finstack_core::dates::{DayCount, Tenor};
 use finstack_core::types::{Currency, IndexId};
+use std::collections::HashMap;
+use std::sync::OnceLock;
+
+use super::json_registry::{build_lookup_map_mapped, RegistryFile};
 
 /// Type of rate index for convention determination.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+#[cfg_attr(feature = "serde", serde(rename_all = "snake_case"))]
 pub(crate) enum RateIndexKind {
     /// Overnight Risk-Free Rate index (e.g., SOFR, SONIA, ESTR).
     OvernightRfr,
@@ -48,7 +54,7 @@ impl RateIndexConventions {
     /// to determine if the index is a term index or an overnight RFR.
     pub(crate) fn for_index_with_currency(index: &IndexId, currency_hint: Currency) -> Self {
         // Registry-first resolution: prefer explicit per-index conventions for market accuracy.
-        if let Some(c) = registry_conventions(index.as_str(), currency_hint) {
+        if let Some(c) = registry_conventions(index.as_str()) {
             return c;
         }
 
@@ -103,13 +109,141 @@ impl RateIndexConventions {
     /// `USD-SOFR-OIS` and `GBP-SONIA-OIS`.
     /// Returns true if the index identifier is a recognized overnight RFR.
     pub(crate) fn is_overnight_rfr_index(index: &IndexId) -> bool {
-        if let Some(c) = registry_conventions(index.as_str(), Currency::USD) {
+        if let Some(c) = registry_conventions(index.as_str()) {
             return c.kind == RateIndexKind::OvernightRfr;
         }
         let tokens = tokenize_index(index.as_str());
         let tenor = tokens.iter().find_map(|t| Tenor::parse(t).ok());
         is_overnight_rfr_tokens(&tokens) && tenor.is_none()
     }
+}
+
+// ============================================================================
+// JSON registry (explicit conventions)
+// ============================================================================
+
+#[derive(Clone, Debug, serde::Deserialize)]
+#[serde(deny_unknown_fields)]
+struct RateIndexConventionsRecord {
+    currency: Currency,
+    kind: RateIndexKind,
+    #[serde(default)]
+    tenor: Option<String>,
+    day_count: DayCount,
+    default_payment_frequency: String,
+    default_payment_delay_days: i32,
+    default_reset_lag_days: i32,
+    #[serde(default)]
+    ois_compounding: Option<OisCompoundingSpec>,
+}
+
+#[derive(Clone, Debug, serde::Deserialize)]
+#[serde(rename_all = "snake_case")]
+enum OisCompoundingSpec {
+    Sofr,
+    Sonia,
+    Estr,
+    Tona,
+    Fedfunds,
+    Saron,
+    CompoundedInArrears {
+        lookback_days: i32,
+        observation_shift: Option<i32>,
+    },
+}
+
+impl OisCompoundingSpec {
+    fn to_compounding(&self) -> FloatingLegCompounding {
+        match self {
+            Self::Sofr => FloatingLegCompounding::sofr(),
+            Self::Sonia => FloatingLegCompounding::sonia(),
+            Self::Estr => FloatingLegCompounding::estr(),
+            Self::Tona => FloatingLegCompounding::tona(),
+            Self::Fedfunds => FloatingLegCompounding::fedfunds(),
+            Self::Saron => FloatingLegCompounding::CompoundedInArrears {
+                lookback_days: 2,
+                observation_shift: None,
+            },
+            Self::CompoundedInArrears {
+                lookback_days,
+                observation_shift,
+            } => FloatingLegCompounding::CompoundedInArrears {
+                lookback_days: *lookback_days,
+                observation_shift: *observation_shift,
+            },
+        }
+    }
+}
+
+impl RateIndexConventionsRecord {
+    fn into_conventions(self) -> RateIndexConventions {
+        let tenor = self.tenor.map(|s| {
+            Tenor::parse(&s).unwrap_or_else(|e| {
+                panic!("Invalid `tenor` in rate index conventions registry: '{}': {}", s, e)
+            })
+        });
+
+        let default_payment_frequency =
+            Tenor::parse(&self.default_payment_frequency).unwrap_or_else(|e| {
+                panic!(
+                    "Invalid `default_payment_frequency` in rate index conventions registry: '{}': {}",
+                    self.default_payment_frequency, e
+                )
+            });
+
+        let ois_compounding = self.ois_compounding.as_ref().map(|s| s.to_compounding());
+
+        // Basic invariants: avoid silently encoding impossible combinations.
+        match self.kind {
+            RateIndexKind::OvernightRfr => {
+                if tenor.is_some() {
+                    panic!("Overnight RFR index conventions must not specify a tenor");
+                }
+                if ois_compounding.is_none() {
+                    panic!("Overnight RFR index conventions must specify `ois_compounding`");
+                }
+            }
+            RateIndexKind::Term | RateIndexKind::Unknown => {
+                if ois_compounding.is_some() {
+                    panic!("Non-overnight index conventions must not specify `ois_compounding`");
+                }
+            }
+        }
+
+        RateIndexConventions {
+            currency: self.currency,
+            kind: self.kind,
+            tenor,
+            day_count: self.day_count,
+            default_payment_frequency,
+            default_payment_delay_days: self.default_payment_delay_days,
+            default_reset_lag_days: self.default_reset_lag_days,
+            ois_compounding,
+        }
+    }
+}
+
+fn normalize_registry_id(id: &str) -> String {
+    // Keep this in sync with `tokenize_index()` normalization:
+    // - normalize "€STR" spelling into ASCII
+    // - uppercase for case-insensitive matching
+    // - collapse separators so "USD_SOFR_OIS" and "USD-SOFR-OIS" match
+    let normalized = id.replace('€', "E").to_uppercase();
+    normalized
+        .split(|c: char| !c.is_ascii_alphanumeric())
+        .filter(|t| !t.is_empty())
+        .collect::<Vec<_>>()
+        .join("-")
+}
+
+fn rate_index_conventions_registry() -> &'static HashMap<String, RateIndexConventions> {
+    static REGISTRY: OnceLock<HashMap<String, RateIndexConventions>> = OnceLock::new();
+    REGISTRY.get_or_init(|| {
+        let json = include_str!("../../../data/conventions/rate_index_conventions.json");
+        let file: RegistryFile<RateIndexConventionsRecord> = serde_json::from_str(json)
+            .expect("Failed to parse embedded rate index conventions registry JSON");
+        build_lookup_map_mapped(file, normalize_registry_id, |rec| rec.clone().into_conventions())
+    })
 }
 
 fn tokenize_index(index: &str) -> Vec<String> {
@@ -123,150 +257,10 @@ fn tokenize_index(index: &str) -> Vec<String> {
         .collect()
 }
 
-/// Registry of explicit per-index conventions.
-///
-/// This is intentionally small and conservative: prefer being explicit for the
-/// common production indices and falling back to heuristic parsing for anything
-/// unknown. This avoids silently mis-classifying indices when tokens collide.
-fn registry_conventions(index: &str, currency_hint: Currency) -> Option<RateIndexConventions> {
-    // Normalize into ASCII-ish uppercase tokens (match tokenize_index behavior).
-    let normalized = index.replace('€', "E").to_uppercase();
-
-    // Helper: construct without allocating tokens.
-    let mk = |currency: Currency,
-              kind: RateIndexKind,
-              tenor: Option<Tenor>,
-              day_count: DayCount,
-              default_payment_frequency: Tenor,
-              default_payment_delay_days: i32,
-              default_reset_lag_days: i32,
-              ois_compounding: Option<FloatingLegCompounding>| {
-        RateIndexConventions {
-            currency,
-            kind,
-            tenor,
-            day_count,
-            default_payment_frequency,
-            default_payment_delay_days,
-            default_reset_lag_days,
-            ois_compounding,
-        }
-    };
-
-    // Overnight indices (explicit, registry-first).
-    //
-    // Notes:
-    // - Payment delay conventions can vary by venue/clearer. We use the same defaults as the
-    //   previous heuristic path unless we have strong, explicit conventions (USD).
-    match normalized.as_str() {
-        // Explicit SOFR OIS identifiers.
-        "USD-SOFR-OIS" | "SOFR-OIS" => Some(mk(
-            Currency::USD,
-            RateIndexKind::OvernightRfr,
-            None,
-            DayCount::Act360,
-            Tenor::annual(),
-            2,
-            0,
-            Some(FloatingLegCompounding::sofr()),
-        )),
-        // Explicit overnight SOFR index (not the OIS product identifier).
-        //
-        // Default to the *no-lookback* variant for stability/bootstrapping. Callers who want
-        // SOFR lookback conventions should use "USD-SOFR-OIS".
-        "USD-SOFR" | "SOFR" => Some(mk(
-            Currency::USD,
-            RateIndexKind::OvernightRfr,
-            None,
-            DayCount::Act360,
-            Tenor::annual(),
-            2,
-            0,
-            Some(FloatingLegCompounding::fedfunds()),
-        )),
-        // Generic USD "OIS" is ambiguous (historically Fed Funds vs SOFR).
-        // Default to the *no-lookback* variant for stability/bootstrapping; callers
-        // who want SOFR lookback conventions should use "USD-SOFR-OIS".
-        "USD-OIS" => Some(mk(
-            Currency::USD,
-            RateIndexKind::OvernightRfr,
-            None,
-            DayCount::Act360,
-            Tenor::annual(),
-            2,
-            0,
-            Some(FloatingLegCompounding::fedfunds()),
-        )),
-        "USD-FEDFUNDS-OIS" | "USD-FEDFUNDS" | "USD-FF-OIS" | "USD-EFFR-OIS" | "USD-EFFR" => {
-            Some(mk(
-                Currency::USD,
-                RateIndexKind::OvernightRfr,
-                None,
-                DayCount::Act360,
-                Tenor::annual(),
-                2,
-                0,
-                Some(FloatingLegCompounding::fedfunds()),
-            ))
-        }
-        // GBP SONIA (Act/365F, commonly 5-day lookback convention)
-        "GBP-SONIA-OIS" | "GBP-SONIA" | "SONIA-OIS" => Some(mk(
-            Currency::GBP,
-            RateIndexKind::OvernightRfr,
-            None,
-            DayCount::Act365F,
-            Tenor::annual(),
-            2,
-            0,
-            Some(FloatingLegCompounding::sonia()),
-        )),
-        // EUR €STR (Act/360, commonly treated as 2-day lag/shift convention)
-        "EUR-ESTR-OIS" | "EUR-ESTR" | "ESTR-OIS" | "EUR-EST-OIS" | "EUR-EST" | "EST-OIS" => {
-            Some(mk(
-                Currency::EUR,
-                RateIndexKind::OvernightRfr,
-                None,
-                DayCount::Act360,
-                Tenor::annual(),
-                2,
-                0,
-                Some(FloatingLegCompounding::estr()),
-            ))
-        }
-        // JPY TONA (Act/365F, commonly 2-day lag convention)
-        "JPY-TONA-OIS" | "JPY-TONA" | "TONA-OIS" | "JPY-TONAR-OIS" | "JPY-TONAR" | "TONAR-OIS" => {
-            Some(mk(
-                Currency::JPY,
-                RateIndexKind::OvernightRfr,
-                None,
-                DayCount::Act365F,
-                Tenor::annual(),
-                2,
-                0,
-                Some(FloatingLegCompounding::tona()),
-            ))
-        }
-        // CHF SARON (Act/360 per common money-market style, 2-day lag default)
-        "CHF-SARON-OIS" | "CHF-SARON" | "SARON-OIS" => Some(mk(
-            Currency::CHF,
-            RateIndexKind::OvernightRfr,
-            None,
-            DayCount::Act360,
-            Tenor::annual(),
-            2,
-            0,
-            Some(FloatingLegCompounding::CompoundedInArrears {
-                lookback_days: 2,
-                observation_shift: None,
-            }),
-        )),
-        _ => {
-            // If we can't parse a currency token at all, do not claim registry match.
-            // (This prevents accidentally treating "OIS" in some unrelated name as USD OIS.)
-            let _ = currency_hint;
-            None
-        }
-    }
+/// Registry of explicit per-index conventions loaded from embedded JSON.
+fn registry_conventions(index: &str) -> Option<RateIndexConventions> {
+    let key = normalize_registry_id(index);
+    rate_index_conventions_registry().get(&key).cloned()
 }
 
 fn parse_currency_token(token: &str) -> Option<Currency> {
