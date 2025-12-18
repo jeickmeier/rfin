@@ -267,7 +267,11 @@ impl CalibrationPricer {
             } = quote
             {
                 match float_leg_conventions.index.as_ref() {
-                    Some(index_id) if RateIndexConventions::is_overnight_rfr_index(index_id) => {}
+                    Some(index_id)
+                        if RateIndexConventions::require_for_index(index_id)?.kind
+                            == crate::calibration::quotes::rate_index::RateIndexKind::OvernightRfr =>
+                    {
+                    }
                     Some(index_id) => {
                         return Err(finstack_core::Error::Validation(format!(
                             "Swap flagged as OIS but float leg index '{}' is not a recognized overnight index",

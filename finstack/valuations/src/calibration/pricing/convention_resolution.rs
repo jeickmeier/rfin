@@ -97,8 +97,8 @@ fn resolve_common_for_swap<'a>(
     float_leg: &'a InstrumentConventions,
     currency: Currency,
     float_index: &'a IndexId,
-) -> ResolvedCommon<'a> {
-    let index_conv = RateIndexConventions::for_index_with_currency(float_index, currency);
+) -> Result<ResolvedCommon<'a>> {
+    let index_conv = RateIndexConventions::require_for_index(float_index)?;
 
     let settlement_days = conventions
         .settlement_days
@@ -166,7 +166,7 @@ fn resolve_common_for_swap<'a>(
     // Negate signed quote lag to get unsigned instrument lag offset (start - offset)
     let reset_lag_days = -reset_lag_quote;
 
-    ResolvedCommon {
+    Ok(ResolvedCommon {
         settlement_days,
         payment_delay_days,
         reset_lag_days,
@@ -174,7 +174,7 @@ fn resolve_common_for_swap<'a>(
         fixing_calendar_id,
         payment_calendar_id,
         bdc,
-    }
+    })
 }
 
 fn require_i32(field: Option<i32>, name: &'static str) -> Result<i32> {
@@ -261,7 +261,7 @@ pub(crate) fn resolve_swap_conventions<'a>(
                 )
             })?;
 
-            let index_conv = RateIndexConventions::for_index_with_currency(index, currency);
+            let index_conv = RateIndexConventions::require_for_index(index)?;
 
             let strict = pricer.conventions.strict_pricing.unwrap_or(false);
 
@@ -339,7 +339,7 @@ pub(crate) fn resolve_swap_conventions<'a>(
                 float_leg_conventions,
                 currency,
                 index,
-            );
+            )?;
 
             Ok(ResolvedSwapConventions {
                 common,
@@ -382,10 +382,8 @@ pub(crate) fn resolve_basis_swap_conventions<'a>(
                 )
             })?;
 
-            let primary_index_conv =
-                RateIndexConventions::for_index_with_currency(primary_index, basis_currency);
-            let reference_index_conv =
-                RateIndexConventions::for_index_with_currency(reference_index, basis_currency);
+            let primary_index_conv = RateIndexConventions::require_for_index(primary_index)?;
+            let reference_index_conv = RateIndexConventions::require_for_index(reference_index)?;
 
             let primary_freq = primary_leg_conventions
                 .payment_frequency

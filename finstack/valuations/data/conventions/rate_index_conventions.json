@@ -4,6 +4,58 @@
   "version": 1,
   "entries": [
     {
+        "ids": ["USD-SOFR-1M", "SOFR-1M"],
+        "record": {
+          "currency": "USD",
+          "kind": "term",
+          "tenor": "1M",
+          "day_count": "Act360",
+          "default_payment_frequency": "1M",
+          "default_payment_delay_days": 0,
+          "default_reset_lag_days": -2,
+          "ois_compounding": null
+        }
+    },
+    {
+      "ids": ["USD-SOFR-3M", "SOFR-3M"],
+      "record": {
+        "currency": "USD",
+        "kind": "term",
+        "tenor": "3M",
+        "day_count": "Act360",
+        "default_payment_frequency": "3M",
+        "default_payment_delay_days": 0,
+        "default_reset_lag_days": -2,
+        "ois_compounding": null
+      }
+    },
+    {
+      "ids": ["USD-SOFR-6M", "SOFR-6M"],
+      "record": {
+        "currency": "USD",
+        "kind": "term",
+        "tenor": "6M",
+        "day_count": "Act360",
+        "default_payment_frequency": "6M",
+        "default_payment_delay_days": 0,
+        "default_reset_lag_days": -2,
+        "ois_compounding": null
+      }
+    },
+    {
+      "ids": ["USD-LIBOR-3M", "LIBOR-3M"],
+      "record": {
+        "currency": "USD",
+        "kind": "term",
+        "tenor": "3M",
+        "day_count": "Act360",
+        "default_payment_frequency": "3M",
+        "default_payment_delay_days": 0,
+        "default_reset_lag_days": -2,
+        "ois_compounding": null
+      }
+    },
+    {
       "ids": ["USD-SOFR-OIS", "SOFR-OIS"],
       "record": {
         "currency": "USD",

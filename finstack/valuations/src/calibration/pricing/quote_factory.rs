@@ -214,10 +214,9 @@ pub(crate) fn build_instrument_for_rates_quote(
             let fixing_calendar_id = resolved.common.fixing_calendar_id.to_string();
 
             let index_conv =
-                crate::calibration::quotes::rate_index::RateIndexConventions::for_index_with_currency(
+                crate::calibration::quotes::rate_index::RateIndexConventions::require_for_index(
                     resolved.index,
-                    currency,
-                );
+                )?;
             let use_compounding = index_conv.kind
                 == crate::calibration::quotes::rate_index::RateIndexKind::OvernightRfr;
 
