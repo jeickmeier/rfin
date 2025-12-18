@@ -11,7 +11,10 @@ use finstack_core::types::Currency;
 use finstack_core::Result;
 
 impl CalibrationPricer {
-    /// Price a futures quote for calibration.
+    /// Price an interest rate future for calibration.
+    ///
+    /// Handles convexity adjustment resolution based on pricer conventions
+    /// and market-implied volatility inputs.
     #[allow(clippy::too_many_arguments)]
     pub fn price_future(
         &self,

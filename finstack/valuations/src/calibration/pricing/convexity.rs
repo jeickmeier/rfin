@@ -70,6 +70,10 @@ pub enum VolatilitySource {
 }
 
 /// Convexity adjustment parameters for interest rate futures.
+///
+/// Supports simple Hull-White (no mean reversion) and Ho-Lee models
+/// for calculating the yield difference between forward rates and
+/// futures rates.
 #[derive(Clone, Debug, serde::Serialize, serde::Deserialize)]
 pub struct ConvexityParameters {
     /// Base rate volatility (used when vol_source is Default)

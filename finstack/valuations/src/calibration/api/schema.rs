@@ -54,54 +54,54 @@ impl CalibrationResultEnvelope {
 }
 
 /// Top-level envelope for calibration requests.
+///
+/// This is the outer-most structure for a calibration request (v2). It includes
+/// the schema version, the plan to execute, and an optional initial market state
+/// to build upon.
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct CalibrationEnvelopeV2 {
-    /// Schema version identifier (must be "finstack.calibration/2").
+    /// Schema version identifier (must be [`CALIBRATION_SCHEMA_V2`]).
     pub schema: String,
-
-    /// The calibration plan defining steps and quotes.
+    /// The calibration plan containing steps and quote data.
     pub plan: CalibrationPlanV2,
-
-    /// Optional initial market state (curves, surfaces, scalars).
-    /// If not provided, starts with an empty context.
+    /// Optional initial market context (e.g., existing curves) to use as a baseline.
     #[serde(default)]
     pub initial_market: Option<MarketContextState>,
 }
 
 /// A calibration plan containing quote sets and execution steps.
+///
+/// A plan organizes market data into named sets and defines a sequence of
+/// [`CalibrationStepV2`] to be executed.
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct CalibrationPlanV2 {
-    /// Unique identifier for this plan.
+    /// Unique identifier for the calibration plan.
     pub id: String,
-
-    /// Optional description.
+    /// Optional human-readable description of the plan's purpose.
     #[serde(default)]
     pub description: Option<String>,
-
-    /// Named sets of market quotes.
-    /// Steps reference these sets by name.
+    /// Market data organized by set name (referenced by steps).
     pub quote_sets: HashMap<String, Vec<MarketQuote>>,
-
-    /// Ordered list of calibration steps.
+    /// Sequence of calibration steps to execute.
     pub steps: Vec<CalibrationStepV2>,
-
-    /// Global calibration configuration (tolerances, bounds).
+    /// Global settings for the calibration process.
     #[serde(default)]
     pub settings: CalibrationConfig,
 }
 
 /// A single step in the calibration process.
+///
+/// Each step targets the construction or update of a specific market object
+/// (e.g., a yield curve) using a specified set of quotes.
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct CalibrationStepV2 {
-    /// Unique identifier for this step.
+    /// Unique identifier for the object being calibrated in this step.
     pub id: String,
-
-    /// Name of the quote set to use from `plan.quote_sets`.
+    /// Reference to a named quote set in the parent plan.
     pub quote_set: String,
-
-    /// Step parameters defining the target and methodology.
+    /// Step-specific parameters and configuration.
     #[serde(flatten)]
     pub params: StepParams,
 }

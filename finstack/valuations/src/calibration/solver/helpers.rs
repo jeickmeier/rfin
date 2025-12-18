@@ -14,7 +14,8 @@ use crate::calibration::CalibrationConfig;
 /// Solve a 1D root-finding problem using the configured solver kind.
 ///
 /// This replaces the former `with_solver!` macro with a plain helper function
-/// to make control flow explicit and IDE-friendly.
+/// to make control flow explicit and IDE-friendly. Dispatches to Newton,
+/// Brent, or a Brent-fallback for the 1D case of global config.
 pub fn solve_1d<Fun>(solver: &SolverConfig, f: Fun, init: f64) -> Result<f64>
 where
     Fun: Fn(f64) -> f64,
@@ -39,19 +40,22 @@ where
 }
 
 /// Diagnostics from bracketing scan, useful for error reporting.
+///
+/// Tracks the effectiveness of the initial scan grid and identifies the
+/// best points observed if formal convergence fails.
 #[derive(Debug, Clone)]
 pub struct BracketDiagnostics {
-    /// Whether a sign-change bracket was found
+    /// Whether a sign-change bracket was found.
     pub bracket_found: bool,
-    /// Best candidate point (minimum |f|)
+    /// Best candidate point (minimum |f|) observed during the scan.
     pub best_point: Option<f64>,
-    /// Best objective value (minimum |f|)
+    /// Best objective value (minimum |f|) observed during the scan.
     pub best_value: Option<f64>,
-    /// Number of objective evaluations performed
+    /// Total number of objective evaluations performed.
     pub eval_count: usize,
-    /// Number of valid (non-penalized) evaluations
+    /// Number of valid (non-penalized, non-NaN) evaluations.
     pub valid_eval_count: usize,
-    /// Scan bounds used [lo, hi]
+    /// Scan bounds used by the grid search [lo, hi].
     pub scan_bounds: (f64, f64),
 }
 

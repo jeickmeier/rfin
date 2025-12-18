@@ -53,6 +53,7 @@ impl PlanBumper {
         Ok(plan)
     }
 
+    /// Bumps the quote set associated with a specific calibration step.
     fn bump_step_quote_set(
         plan: &mut CalibrationPlanV2,
         step: &CalibrationStepV2,
@@ -70,6 +71,7 @@ impl PlanBumper {
     }
 }
 
+/// Resolve the base date and day count for a step's time axis.
 fn step_time_axis(step: &CalibrationStepV2) -> Result<(Date, DayCount)> {
     match &step.params {
         StepParams::Discount(p) => Ok((
@@ -88,6 +90,7 @@ fn step_time_axis(step: &CalibrationStepV2) -> Result<(Date, DayCount)> {
     }
 }
 
+/// Apply tenor-based bumps to a collection of market quotes.
 fn bump_quotes_by_tenor(
     quotes: &mut [MarketQuote],
     base_date: Date,
@@ -119,6 +122,7 @@ fn bump_quotes_by_tenor(
     }
 }
 
+/// Extract the maturity or expiry time (in years) for a market quote.
 fn quote_time_years(
     q: &MarketQuote,
     base_date: Date,

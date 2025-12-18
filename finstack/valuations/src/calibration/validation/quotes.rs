@@ -64,7 +64,10 @@ impl CalibrationPricer {
         }
     }
 
-    /// Pre-validate that all required curves exist for the quote set.
+    /// Pre-validate that all required external curves exist for the quote set.
+    ///
+    /// This prevents "curve not found" errors deep in the bootstrapping loop
+    /// by verifying dependencies (e.g. projection curves for basis swaps) upfront.
     pub fn validate_curve_dependencies(
         &self,
         quotes: &[RatesQuote],
@@ -155,6 +158,13 @@ impl CalibrationPricer {
     }
 
     /// Unified validation for rate quotes with use-case-specific rules.
+    ///
+    /// This method enforces:
+    /// 1. Non-empty quote sets.
+    /// 2. Duplicate detection using instrument-specific keys.
+    /// 3. Rate sanity checks (finite, within bounds).
+    /// 4. Maturity sanity checks (must be after base date).
+    /// 5. Domain-specific rules (e.g. forward curves cannot use Deposits).
     pub fn validate_rates_quotes(
         quotes: &[RatesQuote],
         rate_bounds: &crate::calibration::validation::RateBounds,

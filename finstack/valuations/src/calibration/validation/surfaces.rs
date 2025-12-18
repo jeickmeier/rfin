@@ -5,17 +5,29 @@ use finstack_core::market_data::surfaces::vol_surface::VolSurface;
 use finstack_core::{Error, Result};
 
 /// Validation for volatility surfaces.
+///
+/// Implementations of this trait provide arbitrage checks (calendar spread,
+/// butterfly spread) and volatility range validation. These ensure that
+/// the calibrated surface is arbitrage-free and numerically stable.
 pub trait SurfaceValidator {
     /// Validate no calendar spread arbitrage.
+    ///
+    /// Checks that total variance (σ²T) is monotonically increasing with expiry,
+    /// ensuring that longer-dated options are not cheaper than shorter-dated ones.
     fn validate_calendar_spread(&self, config: &ValidationConfig) -> Result<()>;
 
     /// Validate no butterfly arbitrage.
+    ///
+    /// Checks that total variance (σ²T) is convex in strike, ensuring that
+    /// butterfly spreads have non-negative value.
     fn validate_butterfly_spread(&self, config: &ValidationConfig) -> Result<()>;
 
     /// Validate volatility bounds.
+    ///
+    /// Ensures volatility is positive and within reasonable financial limits.
     fn validate_vol_bounds(&self, config: &ValidationConfig) -> Result<()>;
 
-    /// Run all validations.
+    /// Run all validations defined in this trait.
     fn validate(&self, config: &ValidationConfig) -> Result<()> {
         self.validate_calendar_spread(config)?;
         self.validate_butterfly_spread(config)?;

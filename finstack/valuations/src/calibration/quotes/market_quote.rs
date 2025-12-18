@@ -6,20 +6,24 @@ use super::{CreditQuote, InflationQuote, RatesQuote, VolQuote};
 #[cfg(feature = "ts_export")]
 use ts_rs::TS;
 
-/// Unified market quote that can be any instrument type.
+/// Unified market quote wrapper for all calibration instrument types.
+///
+/// This enum acts as a container for heterogeneous market data inputs
+/// (rates, credit, volatility, inflation) used during the 9-step
+/// calibration planning process.
 #[cfg_attr(feature = "ts_export", derive(TS))]
 #[cfg_attr(feature = "ts_export", ts(export))]
 #[cfg_attr(feature = "ts_export", ts(rename_all = "snake_case"))]
 #[derive(Clone, Debug, serde::Serialize, serde::Deserialize)]
 #[serde(rename_all = "snake_case", deny_unknown_fields)]
 pub enum MarketQuote {
-    /// Interest rate quotes
+    /// Interest rate quotes (deposits, FRAs, futures, swaps).
     Rates(RatesQuote),
-    /// Credit quotes
+    /// Credit quotes (CDS, CDS upfront index).
     Credit(CreditQuote),
-    /// Volatility quotes
+    /// Volatility quotes (option/swaption implied volatility).
     Vol(VolQuote),
-    /// Inflation quotes
+    /// Inflation quotes (inflation swaps, CPI fixings).
     Inflation(InflationQuote),
 }
 

@@ -37,6 +37,9 @@ use serde::{Deserialize, Serialize};
 #[serde(tag = "method", rename_all = "snake_case")]
 pub enum SolverConfig {
     /// Newton-Raphson solver with finite difference derivatives.
+    ///
+    /// Suitable for smooth, continuous objectives where a good initial
+    /// guess is available. Rapidly converges once near the root.
     Newton {
         /// Full solver state from `finstack-core`.
         #[serde(flatten)]
@@ -45,19 +48,26 @@ pub enum SolverConfig {
     },
 
     /// Brent's method (bracketing solver).
+    ///
+    /// Guaranteed to converge if a sign-change bracket is found. More
+    /// robust than Newton for poorly-behaved objectives.
     Brent {
         /// Full solver state from `finstack-core`.
         #[serde(flatten)]
         #[cfg_attr(feature = "ts_export", ts(skip))]
         solver: BrentSolver,
     },
+
     /// Global Newton-style solve (with optional LM damping for robustness).
+    ///
+    /// Used in simultaneous fitting where multi-dimensional convergence
+    /// is required across all knots.
     GlobalNewton {
-        /// Convergence tolerance
+        /// Convergence tolerance (L2 norm of residuals).
         tolerance: f64,
-        /// Maximum iterations
+        /// Maximum iterations.
         max_iterations: usize,
-        /// Apply LM-style damping to improve robustness
+        /// Apply LM-style damping to improve robustness in ill-conditioned regions.
         use_lm_damping: bool,
     },
 }

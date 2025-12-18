@@ -26,6 +26,9 @@ pub(crate) const CALIBRATION_NOTIONAL: f64 = 1_000_000.0;
 
 /// Build a rates instrument (deposit/FRA/future/swap/basis swap) for a quote.
 ///
+/// Maps generic [`MarketQuote`] types to concrete pricing instruments
+/// compatible with the [`Instrument`] trait.
+///
 /// `strict` mirrors the previous strict pricing path (requires explicit
 /// conventions and fails fast when missing).
 pub(crate) fn build_instrument_for_rates_quote(
@@ -389,8 +392,8 @@ pub(crate) fn build_instrument_for_rates_quote(
 
 /// Build a CDS instrument for hazard calibration.
 ///
-/// Returns the instrument plus an optional upfront `Money` to subtract from PV
-/// when handling CDSUpfront residuals (to mirror prior behavior).
+/// Returns the instrument plus an optional upfront [`Money`] to subtract from PV
+/// when handling `CDSUpfront` residuals.
 pub(crate) fn build_instrument_for_credit_quote(
     quote: &CreditQuote,
     params: &HazardCurveParams,

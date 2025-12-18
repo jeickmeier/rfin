@@ -19,6 +19,7 @@ use finstack_core::market_data::context::MarketContext;
 use finstack_core::market_data::term_structures::CreditIndexData;
 use finstack_core::prelude::*;
 
+/// Default day count for curves if not explicitly provided in conventions.
 fn default_curve_day_count(
     _currency: finstack_core::types::Currency,
 ) -> finstack_core::dates::DayCount {
@@ -26,10 +27,12 @@ fn default_curve_day_count(
     finstack_core::dates::DayCount::Act365F
 }
 
+/// Error returned when a calibration step is requested with no market quotes.
 fn err_too_few_points() -> finstack_core::Error {
     finstack_core::Error::Input(finstack_core::error::InputError::TooFewPoints)
 }
 
+/// Enforce that a quote collection is not empty before starting a solver.
 fn require_non_empty<T>(quotes: &[T]) -> Result<()> {
     if quotes.is_empty() {
         Err(err_too_few_points())
@@ -82,6 +85,7 @@ fn sort_bootstrap_quotes<T: BootstrapTarget>(target: &T, quotes: &mut Vec<T::Quo
     Ok(())
 }
 
+/// Execute a sequential bootstrap solve.
 fn run_bootstrap<T: BootstrapTarget>(
     target: &T,
     quotes: &[T::Quote],
@@ -98,6 +102,10 @@ fn run_bootstrap<T: BootstrapTarget>(
     SequentialBootstrapper::bootstrap(target, quotes, initial_knots, config, trace)
 }
 
+/// Apply step-level conventions to a pricer.
+///
+/// This resolves overrides for settlement, calendars, and pricing logic
+/// (e.g. convexity) before an instrument is priced against a curve candidate.
 pub(crate) fn apply_rates_step_conventions(
     mut pricer: CalibrationPricer,
     currency: finstack_core::types::Currency,
@@ -168,6 +176,7 @@ pub(crate) fn apply_rates_step_conventions(
     }
 }
 
+/// Resolve the day count convention for a discount or forward curve.
 pub(crate) fn discount_curve_day_count(
     currency: finstack_core::types::Currency,
     conventions: &RatesStepConventions,
@@ -178,6 +187,17 @@ pub(crate) fn discount_curve_day_count(
 }
 
 /// Execute a single calibration step.
+///
+/// This is the main entry point for the calibration engine to process a
+/// [`CalibrationStepV2`]. It extracts relevant quotes, prepares the
+/// target adapter, executes the solver (Bootstrap or Global), and
+/// updates the market context with the result.
+///
+/// # Returns
+///
+/// A tuple containing:
+/// - Updated [`MarketContext`] with the new curve/surface.
+/// - [`CalibrationReport`] containing solver performance and diagnostics.
 pub fn execute_step(
     params: &StepParams,
     quotes: &[MarketQuote],

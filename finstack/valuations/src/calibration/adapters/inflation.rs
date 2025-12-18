@@ -18,8 +18,10 @@ use finstack_core::Result;
 /// prices synthetic inflation swaps to solve for CPI values that match
 /// market quotes.
 pub struct InflationBootstrapper {
-    params: InflationCurveParams,
-    base_context: MarketContext,
+    /// Parameters for the inflation curve (ID, interpolation, etc).
+    pub params: InflationCurveParams,
+    /// Baseline market context containing discount curves.
+    pub base_context: MarketContext,
 }
 
 impl InflationBootstrapper {
@@ -40,6 +42,7 @@ impl InflationBootstrapper {
         }
     }
 
+    /// Parse an observation lag string (e.g. "3M").
     fn parse_lag(spec: &str) -> Result<InflationLag> {
         let s = spec.trim();
         if s.is_empty() {
@@ -70,6 +73,7 @@ impl InflationBootstrapper {
         )))
     }
 
+    /// Apply an observation lag to a date.
     fn apply_lag(
         date: finstack_core::dates::Date,
         lag: InflationLag,
@@ -82,6 +86,7 @@ impl InflationBootstrapper {
         }
     }
 
+    /// Resolve the effective observation lag (from index or params).
     fn effective_lag(&self) -> Result<InflationLag> {
         if let Some(index) = self
             .base_context
@@ -92,6 +97,7 @@ impl InflationBootstrapper {
         Self::parse_lag(&self.params.observation_lag)
     }
 
+    /// Resolve the effective base CPI level (from index or params).
     fn effective_base_cpi(&self) -> Result<f64> {
         if let Some(index) = self
             .base_context

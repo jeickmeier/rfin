@@ -10,10 +10,35 @@ use std::collections::BTreeMap;
 use std::sync::atomic::{AtomicUsize, Ordering};
 
 /// Generic sequential bootstrapper.
+///
+/// Implements a robust sequential bootstrapping algorithm that iterates through
+/// a sorted list of market quotes and solves for each curve/surface knot
+/// independently. This is the industry standard for liquid interest rate
+/// and credit curves where causality (independence of knots at earlier times)
+/// is preserved.
+///
+/// The algorithm uses a hybrid bracketing-plus-polishing approach:
+/// 1. **Scan**: Evaluates the objective on a grid to find a sign-change bracket.
+/// 2. **Bracket**: If no bracket is found, fall back to initial guess or best point.
+/// 3. **Solve**: Use Brent's method (bracketing) for robustness followed by optional
+///    Newton-Raphson polishing for high-precision convergence in f-space.
 pub struct SequentialBootstrapper;
 
 impl SequentialBootstrapper {
-    /// Run the sequential bootstrapping algorithm.
+    /// Execute the sequential bootstrapping algorithm.
+    ///
+    /// # Generic Parameters
+    /// * `T` - The calibration target (e.g., [`DiscountCurveTarget`](crate::calibration::adapters::discount::DiscountCurveTarget)).
+    ///
+    /// # Arguments
+    /// * `target` - The domain-specific implementation of the [`BootstrapTarget`] trait.
+    /// * `quotes` - The list of high-level market quotes to fit.
+    /// * `initial_knots` - Optional pre-existing knots (e.g., spot or short-end anchors).
+    /// * `config` - Calibration settings specifying tolerances and methods.
+    /// * `trace` - Optional trace for collecting diagnostics and intermediate steps.
+    ///
+    /// # Returns
+    /// A pair containing the calibrated term structure and a diagnostic report.
     pub fn bootstrap<T>(
         target: &T,
         quotes: &[T::Quote],

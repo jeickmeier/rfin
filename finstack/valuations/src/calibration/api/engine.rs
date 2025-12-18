@@ -15,6 +15,7 @@ use finstack_core::market_data::context::MarketContext;
 use finstack_core::prelude::*;
 use std::collections::BTreeMap;
 
+/// Merges explanation traces from individual calibration steps into a plan-level trace.
 fn merge_step_traces(
     step_reports: &BTreeMap<String, CalibrationReport>,
     config: &crate::calibration::config::CalibrationConfig,
@@ -46,6 +47,7 @@ fn merge_step_traces(
     Some(merged)
 }
 
+/// Aggregates per-step reports into a single plan execution report.
 fn aggregate_plan_report(
     aggregated_residuals: BTreeMap<String, f64>,
     total_iterations: usize,
@@ -94,6 +96,10 @@ fn aggregate_plan_report(
     report
 }
 
+/// Perform "pre-flight" validation of a calibration step before execution.
+///
+/// This checks for quote availability, parameter consistency, and
+/// cross-curve dependencies (e.g. valid discount curve for hazard calibration).
 fn preflight_step(
     step: &crate::calibration::api::schema::CalibrationStepV2,
     quotes: &[crate::calibration::quotes::MarketQuote],
@@ -529,7 +535,11 @@ fn preflight_step(
     }
 }
 
-/// Execute a calibration plan.
+/// Execute a full [`CalibrationEnvelopeV2`] plan.
+///
+/// This is the primary entry point for the calibration system. It
+/// processes a sequential list of calibration steps, updates the market
+/// context statefully, and produces a final aggregated result.
 pub fn execute(envelope: &CalibrationEnvelopeV2) -> Result<CalibrationResultEnvelope> {
     let mut context: MarketContext = match &envelope.initial_market {
         Some(state) => MarketContext::try_from(state.clone())

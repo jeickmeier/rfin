@@ -277,6 +277,7 @@ impl VolSurfaceAdapter {
         Ok((surface, report))
     }
 
+    /// Interpolate SABR parameters across the 1D expiry axis.
     fn interpolate_params(
         t: f64,
         params: &BTreeMap<OrderedFloat<f64>, SABRParameters>,

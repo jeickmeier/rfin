@@ -1,3 +1,18 @@
+//! Market data representation (quotes) for calibration.
+//!
+//! This module defines the core types for market data inputs, including IR rates,
+//! credit spreads, inflation, and volatility. It provides a polymorphic
+//! [`MarketQuote`] enum and utilities for filtering and extracting specific
+//! data types for calibration steps.
+//!
+//! # Submodules
+//! - [`market_quote`]: The top-level [`MarketQuote`] enum.
+//! - [`rates`]: Interest rate instruments (deposits, FRAs, futures, swaps).
+//! - [`credit`]: Credit-default swaps (CDS) and tranches.
+//! - [`inflation`]: Inflation-linked swaps.
+//! - [`vol`]: Volatility instruments (options, swaptions).
+//! - [`conventions`]: Instrument-specific pricing conventions.
+
 pub mod conventions;
 pub mod credit;
 pub mod inflation;
@@ -14,8 +29,14 @@ pub use rates::{FutureSpecs, RatesQuote};
 pub use vol::VolQuote;
 
 /// Trait for filtering quote collections into specific types.
+///
+/// This trait allows callers to extract a subset of specific quote types (e.g., only
+/// `RatesQuote`) from a heterogeneous collection of `MarketQuote` objects.
 pub trait ExtractQuotes<T> {
-    /// Extract quotes of type `T` from a collection of market quotes.
+    /// Extract all quotes matching type `T` from the collection.
+    ///
+    /// # Returns
+    /// A vector of cloned quotes of type `T`.
     fn extract_quotes(&self) -> Vec<T>;
 }
 

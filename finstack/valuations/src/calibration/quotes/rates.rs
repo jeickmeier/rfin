@@ -11,6 +11,10 @@ use serde::{Deserialize, Serialize};
 use ts_rs::TS;
 
 /// Interest rate instrument quotes for yield curve calibration.
+///
+/// Defines the full set of market instruments used for discounting and
+/// forward curve bootstrapping, including money market (deposits, FRAs),
+/// exchange-traded (futures), and OTC (swaps, basis swaps) products.
 #[cfg_attr(feature = "ts_export", derive(TS))]
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(
@@ -19,88 +23,88 @@ use ts_rs::TS;
     into = "RatesQuoteSerde"
 )]
 pub enum RatesQuote {
-    /// Deposit rate quote.
+    /// Money market deposit rate (e.g. Fed Funds, SOFR deposits).
     Deposit {
-        /// Maturity date
+        /// Maturity date of the deposit period.
         #[cfg_attr(feature = "ts_export", ts(type = "string"))]
         maturity: Date,
-        /// Quoted rate (decimal)
+        /// Quoted rate in decimal terms (e.g. 0.05 for 5%).
         rate: f64,
-        /// Per-instrument conventions
+        /// Optional conventions (day count, settlement).
         #[serde(default, skip_serializing_if = "InstrumentConventions::is_empty")]
         conventions: InstrumentConventions,
     },
-    /// Forward Rate Agreement quote.
+    /// Over-the-counter Forward Rate Agreement (FRA).
     FRA {
-        /// Start date
+        /// Start date of the forward accrual period.
         #[cfg_attr(feature = "ts_export", ts(type = "string"))]
         start: Date,
-        /// End date
+        /// End date of the forward accrual period.
         #[cfg_attr(feature = "ts_export", ts(type = "string"))]
         end: Date,
-        /// Quoted rate (decimal)
+        /// Forward rate in decimal terms.
         rate: f64,
-        /// Per-instrument conventions
+        /// Optional conventions.
         #[serde(default, skip_serializing_if = "InstrumentConventions::is_empty")]
         conventions: InstrumentConventions,
     },
-    /// Interest Rate Future quote
+    /// Exchange-traded Interest Rate Future (e.g. SOFR, EURIBOR, SONIA).
     Future {
-        /// Expiry date
+        /// Contract expiry date.
         #[cfg_attr(feature = "ts_export", ts(type = "string"))]
         expiry: Date,
-        /// Underlying rate period start date
+        /// Underlying rate period start date.
         #[cfg_attr(feature = "ts_export", ts(type = "string"))]
         period_start: Date,
-        /// Underlying rate period end date
+        /// Underlying rate period end date.
         #[cfg_attr(feature = "ts_export", ts(type = "string"))]
         period_end: Date,
-        /// Optional fixing date override (defaults to period_start if None)
+        /// Optional fixing date override.
         #[serde(default, skip_serializing_if = "Option::is_none")]
         #[cfg_attr(feature = "ts_export", ts(type = "string | null"))]
         fixing_date: Option<Date>,
-        /// Contract price
+        /// Quoted contract price (e.g. 95.0 for a 5% rate).
         price: f64,
-        /// Contract specifications
+        /// Fixed contract specifications (multiplier, face value, etc.).
         specs: FutureSpecs,
-        /// Per-instrument conventions
+        /// Optional conventions.
         #[serde(default, skip_serializing_if = "InstrumentConventions::is_empty")]
         conventions: InstrumentConventions,
     },
-    /// Interest Rate Swap quote.
+    /// Interest Rate Swap (IRS), supporting both IBOR and OIS.
     Swap {
-        /// Swap maturity
+        /// Maturity date of the swap.
         #[cfg_attr(feature = "ts_export", ts(type = "string"))]
         maturity: Date,
-        /// Par rate (decimal)
+        /// Par swap rate in decimal terms.
         rate: f64,
-        /// Whether this is an OIS (Overnight Index Swap)
+        /// Flag indicating this is an OIS (Overnight Index Swap).
         #[serde(default)]
         is_ois: bool,
-        /// Instrument-wide conventions
+        /// Instrument-wide conventions.
         #[serde(default, skip_serializing_if = "InstrumentConventions::is_empty")]
         conventions: InstrumentConventions,
-        /// Fixed leg conventions
+        /// Specific conventions for the fixed leg.
         #[serde(default, skip_serializing_if = "InstrumentConventions::is_empty")]
         fixed_leg_conventions: InstrumentConventions,
-        /// Float leg conventions
+        /// Specific conventions for the floating leg (including index).
         #[serde(default, skip_serializing_if = "InstrumentConventions::is_empty")]
         float_leg_conventions: InstrumentConventions,
     },
-    /// Basis Swap quote for multi-curve construction.
+    /// Basis Swap quote for multi-curve calibration (e.g. 3M vs 6M).
     BasisSwap {
-        /// Swap maturity
+        /// Maturity date of the basis swap.
         #[cfg_attr(feature = "ts_export", ts(type = "string"))]
         maturity: Date,
-        /// Basis spread in basis points
+        /// Basis spread in basis points (bp).
         spread_bp: f64,
-        /// Instrument-wide conventions
+        /// Instrument-wide conventions.
         #[serde(default, skip_serializing_if = "InstrumentConventions::is_empty")]
         conventions: InstrumentConventions,
-        /// Primary leg conventions
+        /// Conventions specifically for the primary leg.
         #[serde(default, skip_serializing_if = "InstrumentConventions::is_empty")]
         primary_leg_conventions: InstrumentConventions,
-        /// Reference leg conventions
+        /// Conventions specifically for the reference leg.
         #[serde(default, skip_serializing_if = "InstrumentConventions::is_empty")]
         reference_leg_conventions: InstrumentConventions,
     },

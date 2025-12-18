@@ -12,18 +12,32 @@ use finstack_core::market_data::term_structures::{
 };
 use finstack_core::{Error, Result};
 
-/// Core validation trait for market data structures.
+/// Core validation trait for term structures.
+///
+/// Implementations of this trait provide standard financial sanity checks
+/// for discount, forward, hazard, and inflation curves. These checks
+/// ensure that calibrated curves are economically meaningful and
+/// arbitrage-free.
 pub trait CurveValidator {
     /// Validate that the curve satisfies no-arbitrage constraints.
+    ///
+    /// For discount curves, this verifies forward rate positivity.
+    /// For hazard curves, it verifies survival probability consistency.
     fn validate_no_arbitrage(&self, config: &ValidationConfig) -> Result<()>;
 
     /// Validate monotonicity constraints.
+    ///
+    /// Ensures discount factors/survival probabilities are monotonically
+    /// decreasing with time (in positive rate environments).
     fn validate_monotonicity(&self, config: &ValidationConfig) -> Result<()>;
 
-    /// Validate that all values are within reasonable bounds.
+    /// Validate that all values are within reasonable financial bounds.
+    ///
+    /// Checks for extreme rates (hyperinflation, deep negative rates)
+    /// or non-physical probabilities.
     fn validate_bounds(&self, config: &ValidationConfig) -> Result<()>;
 
-    /// Run all validations.
+    /// Run all validations defined in this trait.
     fn validate(&self, config: &ValidationConfig) -> Result<()> {
         self.validate_no_arbitrage(config)?;
         self.validate_monotonicity(config)?;

@@ -7,8 +7,50 @@
 //! - Volatility surfaces
 //! - Base correlation curves
 //!
-//! Supports both sequential bootstrapping and global optimization approaches via a
-//! **plan-driven calibration API** (schema version `"finstack.calibration/2"`).
+//! # Features
+//! - **Plan-Driven API**: Uses schema version `"finstack.calibration/2"` for structured calibration plans.
+//! - **Flexible Solvers**: Supports both sequential bootstrapping and global optimization (Newton/LM).
+//! - **Market Standards**: Implements post-2008 multi-curve frameworks and strict pricing conventions.
+//! - **Extensible Architecture**: Easy to add new instrument types and calibration targets.
+//!
+//! # Quick Example
+//!
+//! ```rust
+//! use finstack_valuations::calibration::api::engine;
+//! use finstack_valuations::calibration::api::schema::{
+//!     CalibrationEnvelopeV2, CalibrationPlanV2, CalibrationStepV2, StepParams,
+//!     DiscountCurveParams, CalibrationMethod, CALIBRATION_SCHEMA_V2,
+//! };
+//! use finstack_valuations::calibration::quotes::{MarketQuote, RatesQuote};
+//! use std::collections::HashMap;
+//!
+//! # fn example() -> finstack_core::Result<()> {
+//! let quote_sets: HashMap<String, Vec<MarketQuote>> = HashMap::new();
+//! let steps: Vec<CalibrationStepV2> = Vec::new();
+//!
+//! let plan = CalibrationPlanV2 {
+//!     id: "plan".to_string(),
+//!     description: None,
+//!     quote_sets,
+//!     steps,
+//!     settings: Default::default(),
+//! };
+//! let envelope = CalibrationEnvelopeV2 {
+//!     schema: CALIBRATION_SCHEMA_V2.to_string(),
+//!     plan,
+//!     initial_market: None,
+//! };
+//!
+//! // Execute the calibration plan
+//! let result = engine::execute(&envelope)?;
+//! # Ok(())
+//! # }
+//! ```
+//!
+//! # See Also
+//! - [`api`] for the plan schema and engine.
+//! - [`solver`] for the underlying numerical solvers.
+//! - [`quotes`] for market data representation.
 //!
 //! ## Quick start (v2 plan-driven)
 //!

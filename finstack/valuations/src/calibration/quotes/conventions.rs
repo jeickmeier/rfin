@@ -84,19 +84,19 @@ pub struct InstrumentConventions {
 }
 
 impl InstrumentConventions {
-    /// Create conventions with settlement days.
+    /// Set the settlement lag in business days.
     pub fn with_settlement_days(mut self, days: i32) -> Self {
         self.settlement_days = Some(days);
         self
     }
 
-    /// Create conventions with payment delay.
+    /// Set the payment delay in business days after period end.
     pub fn with_payment_delay(mut self, days: i32) -> Self {
         self.payment_delay_days = Some(days);
         self
     }
 
-    /// Create conventions with reset lag.
+    /// Set the signed business-day reset lag.
     pub fn with_reset_lag(mut self, days: i32) -> Self {
         self.reset_lag = Some(days);
         self

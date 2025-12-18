@@ -32,14 +32,35 @@ fn fill_penalty(resid: &mut [f64], n_residuals: usize, params: &[f64]) {
 }
 
 /// Simultaneous weighted least-squares optimizer (single-start LM).
+///
+/// Implements a global optimization approach that fits all knots simultaneously
+/// by minimizing the sum of weighted squared residuals. This is particularly
+/// useful for overdetermined systems (e.g., fitting a smooth curve to many
+/// noisy market quotes), multi-curve systems with complex inter-dependencies,
+/// or when analytical Jacobians are available for performance.
+///
+/// Under the hood, it uses the Levenberg–Marquardt algorithm from `finstack-core`,
+/// which provides robust convergence by damping the Gauss-Newton step toward
+/// gradient descent when in non-linear or ill-conditioned regions.
 pub struct GlobalFitOptimizer;
 
 impl GlobalFitOptimizer {
-    /// Run a simultaneous weighted least-squares fit using Levenberg–Marquardt.
+    /// Execute a simultaneous weighted least-squares fit.
     ///
-    /// # Tolerance semantics
+    /// # Generic Parameters
+    /// * `T` - The calibration target (e.g., [`DiscountCurveTarget`](crate::calibration::adapters::discount::DiscountCurveTarget)).
+    ///
+    /// # Arguments
+    /// * `target` - The domain-specific implementation of the [`GlobalSolveTarget`] trait.
+    /// * `quotes` - The list of high-level market quotes to fit.
+    /// * `config` - Calibration settings specifying tolerances and methods.
+    ///
+    /// # Returns
+    /// A pair containing the calibrated term structure and a diagnostic report.
+    ///
+    /// # Tolerance Semantics
     /// The configured tolerance is applied to the **L2 norm of the weighted residual vector**,
-    /// i.e. after scaling each residual \(r_i\) by \(\sqrt{w_i}\).
+    /// i.e., after scaling each residual \(r_i\) by \(\sqrt{w_i}\).
     pub fn optimize<T>(
         target: &T,
         quotes: &[T::Quote],

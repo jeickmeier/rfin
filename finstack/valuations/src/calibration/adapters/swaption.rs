@@ -372,12 +372,14 @@ Set params.sabr_extrapolation='clamp' to allow flat extrapolation.",
     // Market-standard forward/par swap rate + SABR parameter interpolation
     // =========================================================================
 
+    /// Determine the ATM strike for a swaption.
     fn atm_strike(params: &SwaptionVolParams, forward_swap_rate: f64) -> f64 {
         let _ = params;
         // For vanilla swaps, par rate == forward par rate for a par swap.
         forward_swap_rate
     }
 
+    /// Resolve swaption leg conventions from quote and plan parameters.
     fn resolve_leg_conventions<'a>(
         params: &'a SwaptionVolParams,
         quote: &'a VolQuote,
@@ -586,6 +588,7 @@ Set params.sabr_extrapolation='clamp' to allow flat extrapolation.",
         Ok(pv01)
     }
 
+    /// Extract unique expiry and tenor axes from a parameter map.
     fn sabr_grid_axes(sabr_params: &SABRParamsByExpiryTenor) -> (Vec<f64>, Vec<f64>) {
         let mut expiries_bp = Vec::new();
         let mut tenors_bp = Vec::new();
@@ -613,6 +616,7 @@ Set params.sabr_extrapolation='clamp' to allow flat extrapolation.",
         (expiries, tenors)
     }
 
+    /// Find the indices of the interval bracketing a target point on an axis.
     fn bracket_axis(
         axis: &[f64],
         target: f64,
@@ -654,6 +658,7 @@ Set params.sabr_extrapolation='clamp' to allow flat extrapolation.",
         Some((axis.len() - 1, axis.len() - 1))
     }
 
+    /// Interpolate SABR parameters across the 2D (expiry, tenor) grid.
     fn interpolate_sabr_params_bilinear(
         target_expiry: f64,
         target_tenor: f64,

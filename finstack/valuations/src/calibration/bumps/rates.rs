@@ -13,7 +13,10 @@ use finstack_core::market_data::term_structures::discount_curve::DiscountCurve;
 use finstack_core::math::interp::ExtrapolationPolicy;
 use finstack_core::types::Currency;
 
-/// Bump a discount curve by shocking rates quotes and re-calibrating via the v2 step engine.
+/// Bump a discount curve by shocking rate quotes and re-calibrating.
+///
+/// This applies a [`BumpRequest`] to a collection of [`RatesQuote`]s and
+/// re-executes the calibration step to produce a new [`DiscountCurve`].
 pub fn bump_discount_curve(
     quotes: &[RatesQuote],
     params: &DiscountCurveParams,
@@ -75,6 +78,9 @@ pub fn find_closest_quote(quotes: &[RatesQuote], target_years: f64, as_of: Date)
 }
 
 /// Bump discount curve by synthesizing par instruments (OIS Swaps) from the curve, shocking them, and re-calibrating.
+///
+/// Used when original quotes are unavailable. It implies par rates from
+/// the current curve discount factors, applies shocks, and re-bootstraps.
 pub fn bump_discount_curve_synthetic(
     curve: &finstack_core::market_data::term_structures::discount_curve::DiscountCurve,
     context: &MarketContext,

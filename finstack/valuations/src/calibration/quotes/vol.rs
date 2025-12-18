@@ -8,7 +8,7 @@ use finstack_core::types::UnderlyingId;
 #[cfg(feature = "ts_export")]
 use ts_rs::TS;
 
-/// Volatility quotes for surface calibration.
+/// Volatility quotes for option and swaption surface calibration.
 #[cfg_attr(feature = "ts_export", derive(TS))]
 #[cfg_attr(feature = "ts_export", ts(export))]
 #[cfg_attr(feature = "ts_export", ts(rename_all = "snake_case"))]
@@ -16,7 +16,7 @@ use ts_rs::TS;
 #[serde(rename_all = "snake_case", deny_unknown_fields)]
 #[allow(clippy::large_enum_variant)]
 pub enum VolQuote {
-    /// Option implied volatility quote
+    /// Equity or commodity option implied volatility quote.
     OptionVol {
         /// Underlying identifier
         #[cfg_attr(feature = "ts_export", ts(type = "string"))]
@@ -34,7 +34,7 @@ pub enum VolQuote {
         #[serde(default, skip_serializing_if = "InstrumentConventions::is_empty")]
         conventions: InstrumentConventions,
     },
-    /// Swaption implied volatility
+    /// Interest rate swaption implied volatility quote.
     SwaptionVol {
         /// Option expiry
         #[cfg_attr(feature = "ts_export", ts(type = "string"))]

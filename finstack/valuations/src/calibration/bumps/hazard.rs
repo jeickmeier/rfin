@@ -15,7 +15,12 @@ use finstack_core::types::CurveId;
 
 /// Bump hazard curve by shocking par spreads and re-calibrating.
 ///
-/// Falls back to hazard rate shifting if par spread information is missing.
+/// This is the standard "Risk Re-calibration" approach. It extracts par
+/// points from the current curve, applies shocks, and builds a new
+/// [`CreditQuote`] set to solve for a new hazard curve.
+///
+/// Falls back to hazard rate shifting if par spread information or a
+/// discount curve is missing.
 pub fn bump_hazard_spreads(
     hazard: &HazardCurve,
     context: &MarketContext,
@@ -103,7 +108,7 @@ pub fn bump_hazard_spreads(
     Ok(ctx.get_hazard_ref(params.curve_id.as_str())?.clone())
 }
 
-/// Fallback: bump hazard rates directly (Model Sensitivity).
+/// Fallback: bump hazard rates directly (Model Sensitivity / Hazard Delta).
 fn bump_hazard_shift_fallback(
     hazard: &HazardCurve,
     bump: &BumpRequest,

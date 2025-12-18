@@ -4,14 +4,22 @@ use finstack_core::prelude::*;
 pub type TimeGridAndGuesses<Q> = (Vec<f64>, Vec<f64>, Vec<Q>);
 
 /// Trait defining the specific physics for a bootstrapping process.
+///
+/// Implementations of this trait provide the domain-specific logic needed
+/// to solve for individual knots sequentially. This includes mapping quotes
+/// to times, building curves from partial knots, and calculating pricing
+/// residuals.
 pub trait BootstrapTarget {
-    /// Type of input quote (e.g., RatesQuote, CreditQuote).
+    /// Type of input quote (e.g., [`RatesQuote`](crate::calibration::quotes::RatesQuote)).
     type Quote;
 
-    /// Type of the curve being built (e.g., DiscountCurve, ForwardCurve).
+    /// Type of the curve being built (e.g., [`DiscountCurve`](finstack_core::market_data::DiscountCurve)).
     type Curve;
 
     /// Get the time (year fraction) for the knot corresponding to this quote.
+    ///
+    /// The bootstrapper requires increasing quote times and will sort inputs
+    /// automatically.
     fn quote_time(&self, quote: &Self::Quote) -> Result<f64>;
 
     /// Build a temporary curve from a set of knots.
@@ -20,11 +28,18 @@ pub trait BootstrapTarget {
     fn build_curve(&self, knots: &[(f64, f64)]) -> Result<Self::Curve>;
 
     /// Build a temporary curve for the solver (fast path, lenient validation).
+    ///
+    /// Overriding this can improve performance by skipping expensive checks
+    /// (e.g. strict monotonicity) during optimization if they are enforced
+    /// by the solver bounds or the final build step.
     fn build_curve_for_solver(&self, knots: &[(f64, f64)]) -> Result<Self::Curve> {
         self.build_curve(knots)
     }
 
     /// Build the final curve (strict validation).
+    ///
+    /// Called once after a knot is successfully solved to ensure the final
+    /// term structure meets all requirements.
     fn build_curve_final(&self, knots: &[(f64, f64)]) -> Result<Self::Curve> {
         self.build_curve(knots)
     }
@@ -38,20 +53,31 @@ pub trait BootstrapTarget {
     fn calculate_residual(&self, curve: &Self::Curve, quote: &Self::Quote) -> Result<f64>;
 
     /// Provide an initial guess for the solver for the next knot.
+    ///
+    /// Usually based on the previous knot or forward-flat extrapolation.
     fn initial_guess(&self, quote: &Self::Quote, previous_knots: &[(f64, f64)]) -> Result<f64>;
 
     /// Get scan points for root bracketing for the given quote.
+    ///
+    /// If empty, the bootstrapper uses its default geometric scan grid.
     fn scan_points(&self, _quote: &Self::Quote, _initial_guess: f64) -> Result<Vec<f64>> {
         Ok(Vec::new())
     }
 
     /// Optional: Validate the solved value before accepting it.
+    ///
+    /// Allows enforcing domain constraints (e.g. positive hazard rates)
+    /// that are not captured by the residual formula.
     fn validate_knot(&self, _time: f64, _value: f64) -> Result<()> {
         Ok(())
     }
 }
 
 /// Trait defining the specific physics for a global optimization process.
+///
+/// Implementations of this trait provide the logic needed for simultaneous
+/// fitting of multiple knots. This is used for multi-curve calibration
+/// or sparse data scenarios where sequential bootstrapping is insufficient.
 pub trait GlobalSolveTarget {
     /// Type of input quote.
     type Quote;
@@ -61,7 +87,8 @@ pub trait GlobalSolveTarget {
 
     /// Build the time grid and initial guesses for the optimization.
     ///
-    /// Returns (times, initial_params, active_quotes).
+    /// Returns `(times, initial_params, active_quotes)`. The length of `times`
+    /// determines the dimensionality of the problem.
     fn build_time_grid_and_guesses(
         &self,
         quotes: &[Self::Quote],
@@ -97,7 +124,8 @@ pub trait GlobalSolveTarget {
 
     /// Provide per-quote residual weights (for weighted least squares).
     ///
-    /// Default implementation fills weights with 1.0 and validates lengths.
+    /// Higher weights increase the penalty for residuals on specific quotes.
+    /// Default implementation fills weights with 1.0.
     fn residual_weights(&self, quotes: &[Self::Quote], weights_out: &mut [f64]) -> Result<()> {
         if quotes.len() != weights_out.len() {
             return Err(finstack_core::Error::Calibration {

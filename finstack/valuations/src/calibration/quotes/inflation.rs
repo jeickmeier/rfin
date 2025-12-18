@@ -7,7 +7,7 @@ use finstack_core::dates::{Date, Tenor};
 #[cfg(feature = "ts_export")]
 use ts_rs::TS;
 
-/// Inflation instrument quotes.
+/// Inflation instrument quotes for CPI and inflation curve calibration.
 #[cfg_attr(feature = "ts_export", derive(TS))]
 #[cfg_attr(feature = "ts_export", ts(export))]
 #[cfg_attr(feature = "ts_export", ts(rename_all = "snake_case"))]
@@ -15,7 +15,7 @@ use ts_rs::TS;
 #[serde(rename_all = "snake_case", deny_unknown_fields)]
 #[allow(clippy::large_enum_variant)]
 pub enum InflationQuote {
-    /// Zero-coupon inflation swap quote
+    /// Zero-coupon inflation swap (ZCIS) quote.
     InflationSwap {
         /// Swap maturity
         #[cfg_attr(feature = "ts_export", ts(type = "string"))]
@@ -28,7 +28,7 @@ pub enum InflationQuote {
         #[serde(default, skip_serializing_if = "InstrumentConventions::is_empty")]
         conventions: InstrumentConventions,
     },
-    /// Year-on-year inflation swap
+    /// Year-on-year (YoY) inflation swap quote.
     YoYInflationSwap {
         /// Swap maturity
         #[cfg_attr(feature = "ts_export", ts(type = "string"))]

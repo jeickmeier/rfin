@@ -175,13 +175,19 @@ pub enum RateBoundsPolicy {
 #[cfg_attr(feature = "ts_export", ts(export))]
 #[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq)]
 pub enum ValidationMode {
-    /// Emit warnings (non-fatal) when validations fail
+    /// Emit warnings (non-fatal) when validations fail.
+    /// Useful for exploratory analysis or legacy data.
     Warn,
-    /// Treat validation failures as hard errors
+    /// Treat validation failures as hard errors.
+    /// Recommended for production and strict pricing.
     Error,
 }
 
-/// Validation configuration for different curve types.
+/// Validation configuration for curve and surface sanity checks.
+///
+/// This structure defines the limits for various financial metrics
+/// (forward rates, hazard rates, inflation growth) and toggles
+/// for specific arbitrage and monotonicity checks.
 #[cfg_attr(feature = "ts_export", derive(TS))]
 #[cfg_attr(feature = "ts_export", ts(export))]
 #[derive(Clone, Debug, Serialize, Deserialize)]

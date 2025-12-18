@@ -10,7 +10,10 @@ use finstack_core::types::Currency;
 use finstack_core::Result;
 
 impl CalibrationPricer {
-    /// Price a rate instrument for calibration (strict when enabled).
+    /// Price a rate instrument for calibration purposes.
+    ///
+    /// This is the main entry point for bootstrap-driven pricing. It
+    /// builds a temporary pricing instrument and evaluates its PV.
     pub fn price_instrument_for_calibration(
         &self,
         quote: &RatesQuote,

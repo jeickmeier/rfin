@@ -19,8 +19,10 @@ use std::sync::Arc;
 /// creates synthetic tranches and prices them to solve for correlation
 /// values that match market quotes.
 pub struct BaseCorrelationBootstrapper {
-    params: BaseCorrelationParams,
-    base_context: MarketContext,
+    /// Parameters defining the base correlation curve structure (index, settlement, etc).
+    pub params: BaseCorrelationParams,
+    /// Baseline market context containing discount curves and credit index components.
+    pub base_context: MarketContext,
 }
 
 impl BaseCorrelationBootstrapper {
@@ -41,6 +43,10 @@ impl BaseCorrelationBootstrapper {
         }
     }
 
+    /// Create a synthetic CDS tranche instrument for calibration.
+    ///
+    /// The tranche is used as the calibration instrument whose PV is reconciled
+    /// against market quotes.
     fn create_synthetic_tranche(
         &self,
         attach_pct: f64,
@@ -77,6 +83,7 @@ impl BaseCorrelationBootstrapper {
             .map_err(|e| finstack_core::Error::Validation(e.to_string()))
     }
 
+    /// Normalize a percentage value (either 0.01 or 1.0).
     fn normalize_pct(value: f64) -> f64 {
         if (0.0..=1.0).contains(&value) {
             value * 100.0
@@ -85,6 +92,7 @@ impl BaseCorrelationBootstrapper {
         }
     }
 
+    /// Validate that correlation points are monotone and within bounds [0, 1].
     fn validate_monotone_and_bounds(points: &[(f64, f64)]) -> Result<()> {
         for &(_, corr) in points {
             if !corr.is_finite() || !(0.0..=1.0).contains(&corr) {
@@ -108,6 +116,7 @@ impl BaseCorrelationBootstrapper {
         Ok(())
     }
 
+    /// Resolve schedule conventions from quote-level overrides or plan defaults.
     fn resolve_schedule_conventions(
         &self,
         conventions: &InstrumentConventions,

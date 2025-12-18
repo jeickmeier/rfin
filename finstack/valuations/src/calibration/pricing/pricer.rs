@@ -32,20 +32,24 @@ pub enum RatesQuoteUseCase {
 }
 
 /// Instrument pricer for curve calibration.
+///
+/// This struct centralizes instrument construction and PV calculation
+/// during the calibration process. It maintains base dates, curve
+/// identifiers, and pricing conventions.
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct CalibrationPricer {
-    /// Base date for pricing
+    /// Base date for pricing (usually the valuation date).
     pub base_date: Date,
-    /// Discount curve ID for pricing
+    /// Identifier for the discount curve used to calculate PV.
     pub discount_curve_id: CurveId,
-    /// Forward curve ID for floating leg projections
+    /// Identifier for the forward curve used for projection.
     pub forward_curve_id: CurveId,
     /// Step-level conventions for pricing and settlement.
     pub conventions: RatesStepConventions,
-    /// Tenor in years for forward curve (used for basis swap curve resolution)
+    /// Optional tenor in years for forward curve resolution.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub tenor_years: Option<f64>,
-    /// Enable verbose logging during pricing
+    /// Enable verbose logging during pricing for debugging.
     #[serde(default)]
     pub verbose: bool,
 }
@@ -217,9 +221,7 @@ impl CalibrationPricer {
         self
     }
 
-    /// Populate missing pricer-level conventions using market defaults for the given currency.
-    ///
-    /// Quote-level conventions still take precedence at pricing time.
+    /// Populate missing conventions using market defaults for a currency.
     pub fn with_market_conventions(mut self, currency: Currency) -> Self {
         if self.conventions.settlement_days.is_none() {
             self.conventions.settlement_days = Some(Self::market_settlement_days(currency));
@@ -282,7 +284,7 @@ impl CalibrationPricer {
         self
     }
 
-    /// Resolve forward curve ID for basis swap legs.
+    /// Resolve the forward curve identifier for a basis swap leg.
     pub fn resolve_forward_curve_id(&self, index_name: &str) -> CurveId {
         if let Some(tenor) = self.tenor_years {
             // Use .round() to avoid float precision issues (e.g., 0.25 * 12 = 2.9999...)

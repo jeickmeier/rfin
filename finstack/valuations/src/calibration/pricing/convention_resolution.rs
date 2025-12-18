@@ -6,6 +6,7 @@ use finstack_core::Result;
 
 use super::pricer::CalibrationPricer;
 
+/// Resolved common conventions for a single calibration instrument.
 pub(crate) struct ResolvedCommon<'a> {
     pub settlement_days: i32,
     pub payment_delay_days: i32,
@@ -16,6 +17,7 @@ pub(crate) struct ResolvedCommon<'a> {
     pub bdc: BusinessDayConvention,
 }
 
+/// Resolved conventions for a vanilla interest rate swap.
 pub(crate) struct ResolvedSwapConventions<'a> {
     pub common: ResolvedCommon<'a>,
     pub fixed_freq: Tenor,
@@ -35,12 +37,14 @@ pub(crate) struct ResolvedBasisSwapConventions<'a> {
     pub reference_index: &'a IndexId,
 }
 
+/// Resolved settlement conventions.
 pub(crate) struct ResolvedSettlement<'a> {
     pub settlement_days: i32,
     pub calendar_id: &'a str,
     pub bdc: BusinessDayConvention,
 }
 
+/// Resolve common conventions (calendars, BDC, lags) for an instrument.
 pub(crate) fn resolve_common<'a>(
     pricer: &'a CalibrationPricer,
     quote_conventions: &'a InstrumentConventions,
@@ -182,6 +186,24 @@ fn require_i32(field: Option<i32>, name: &'static str) -> Result<i32> {
     })
 }
 
+fn require_day_count(field: Option<DayCount>, name: &'static str) -> Result<DayCount> {
+    field.ok_or_else(|| {
+        finstack_core::Error::Validation(format!(
+            "Instrument conventions require '{}' to be set",
+            name
+        ))
+    })
+}
+
+fn require_tenor(field: Option<Tenor>, name: &'static str) -> Result<Tenor> {
+    field.ok_or_else(|| {
+        finstack_core::Error::Validation(format!(
+            "Instrument conventions require '{}' to be set",
+            name
+        ))
+    })
+}
+
 fn require_str<'a>(field: Option<&'a str>, name: &'static str) -> Result<&'a str> {
     field.ok_or_else(|| {
         finstack_core::Error::Validation(format!(
@@ -220,6 +242,7 @@ pub(crate) fn resolve_settlement_strict<'a>(
     })
 }
 
+/// Resolve all conventions for a vanilla interest rate swap.
 pub(crate) fn resolve_swap_conventions<'a>(
     pricer: &'a CalibrationPricer,
     quote: &'a RatesQuote,
@@ -240,38 +263,74 @@ pub(crate) fn resolve_swap_conventions<'a>(
 
             let index_conv = RateIndexConventions::for_index_with_currency(index, currency);
 
-            let fixed_freq = fixed_leg_conventions
-                .payment_frequency
-                .or(conventions.payment_frequency)
-                .unwrap_or_else(|| {
-                    if index_conv.kind == RateIndexKind::OvernightRfr {
-                        // OIS fixed legs are typically annual (e.g., SOFR/SONIA/€STR OIS).
-                        index_conv.default_payment_frequency
-                    } else {
-                        InstrumentConventions::default_fixed_leg_frequency(currency)
-                    }
-                });
-            let float_freq = float_leg_conventions
-                .payment_frequency
-                .or(conventions.payment_frequency)
-                .unwrap_or(index_conv.default_payment_frequency);
+            let strict = pricer.conventions.strict_pricing.unwrap_or(false);
 
-            let fixed_dc = fixed_leg_conventions
-                .day_count
-                .or(conventions.day_count)
-                .unwrap_or_else(|| {
-                    // OIS fixed legs follow money-market style day count conventions (e.g., ACT/360
-                    // for USD/EUR), whereas IBOR-style swaps commonly use 30/360.
-                    if quote.is_ois_suitable() {
-                        InstrumentConventions::default_money_market_day_count(currency)
-                    } else {
-                        InstrumentConventions::default_fixed_leg_day_count(currency)
-                    }
-                });
-            let float_dc = float_leg_conventions
-                .day_count
-                .or(conventions.day_count)
-                .unwrap_or(index_conv.day_count);
+            let fixed_freq = if strict {
+                require_tenor(
+                    fixed_leg_conventions
+                        .payment_frequency
+                        .or(conventions.payment_frequency),
+                    "fixed_leg_conventions.payment_frequency",
+                )?
+            } else {
+                fixed_leg_conventions
+                    .payment_frequency
+                    .or(conventions.payment_frequency)
+                    .unwrap_or_else(|| {
+                        if index_conv.kind == RateIndexKind::OvernightRfr {
+                            // OIS fixed legs are typically annual (e.g., SOFR/SONIA/€STR OIS).
+                            index_conv.default_payment_frequency
+                        } else {
+                            InstrumentConventions::default_fixed_leg_frequency(currency)
+                        }
+                    })
+            };
+
+            let float_freq = if strict {
+                require_tenor(
+                    float_leg_conventions
+                        .payment_frequency
+                        .or(conventions.payment_frequency),
+                    "float_leg_conventions.payment_frequency",
+                )?
+            } else {
+                float_leg_conventions
+                    .payment_frequency
+                    .or(conventions.payment_frequency)
+                    .unwrap_or(index_conv.default_payment_frequency)
+            };
+
+            let fixed_dc = if strict {
+                require_day_count(
+                    fixed_leg_conventions.day_count.or(conventions.day_count),
+                    "fixed_leg_conventions.day_count",
+                )?
+            } else {
+                fixed_leg_conventions
+                    .day_count
+                    .or(conventions.day_count)
+                    .unwrap_or_else(|| {
+                        // OIS fixed legs follow money-market style day count conventions (e.g., ACT/360
+                        // for USD/EUR), whereas IBOR-style swaps commonly use 30/360.
+                        if quote.is_ois_suitable() {
+                            InstrumentConventions::default_money_market_day_count(currency)
+                        } else {
+                            InstrumentConventions::default_fixed_leg_day_count(currency)
+                        }
+                    })
+            };
+
+            let float_dc = if strict {
+                require_day_count(
+                    float_leg_conventions.day_count.or(conventions.day_count),
+                    "float_leg_conventions.day_count",
+                )?
+            } else {
+                float_leg_conventions
+                    .day_count
+                    .or(conventions.day_count)
+                    .unwrap_or(index_conv.day_count)
+            };
 
             let common = resolve_common_for_swap(
                 pricer,

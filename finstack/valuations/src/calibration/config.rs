@@ -21,6 +21,23 @@ use serde_json;
 use ts_rs::TS;
 
 /// Calibration method selection (bootstrap vs global solve).
+///
+/// Defines the numerical approach used to solve for curve/surface parameters.
+/// Bootstrap is the traditional sequential approach, while GlobalSolve
+/// solves all parameters simultaneously.
+///
+/// # Variants
+/// - [`Bootstrap`]: Traditional sequential bootstrap where each knot is solved
+///   independently based on the previous knots.
+/// - [`GlobalSolve`]: Simultaneous optimization of all knots using Levenberg-Marquardt
+///   or Newton-Raphson.
+///
+/// # Examples
+/// ```rust
+/// use finstack_valuations::calibration::api::schema::CalibrationMethod;
+///
+/// let method = CalibrationMethod::GlobalSolve { use_analytical_jacobian: true };
+/// ```
 #[cfg_attr(feature = "ts_export", derive(TS))]
 #[cfg_attr(feature = "ts_export", ts(export))]
 #[derive(Clone, Debug, PartialEq, Eq, Default, Serialize, Deserialize)]
@@ -37,6 +54,15 @@ pub enum CalibrationMethod {
 }
 
 /// Policy for weighting residuals in global solve calibration.
+///
+/// Determines how the objective function weights individual instrument fitting
+/// errors (residuals) during optimization.
+///
+/// # Variants
+/// - [`Equal`]: Every instrument contributes equally to the objective.
+/// - [`LinearTime`]: Weights increase linearly with time to maturity.
+/// - [`SqrtTime`]: Weights increase with the square root of time (market-standard).
+/// - [`InverseDuration`]: Weights based on inverse DV01 approximation.
 #[cfg_attr(feature = "ts_export", derive(TS))]
 #[cfg_attr(feature = "ts_export", ts(export))]
 #[derive(Clone, Debug, PartialEq, Eq, Default, Serialize, Deserialize)]
@@ -52,17 +78,41 @@ pub enum ResidualWeightingScheme {
     InverseDuration,
 }
 
+/// Discount-curve specific numerical solver configuration.
+///
+/// Controls the search space and numerical stability of the discount curve
+/// bootstrapping or global solve process.
+///
+/// # Invariants
+/// - `df_hard_min` > 0
+/// - `scan_grid_points` > 0
+///
+/// # Examples
+/// ```rust,ignore
+/// use finstack_valuations::calibration::config::DiscountCurveSolveConfig;
+///
+/// let config = DiscountCurveSolveConfig {
+///     scan_grid_points: 64,
+///     df_hard_min: 1e-10,
+///     ..Default::default()
+/// };
+/// ```
 #[cfg_attr(feature = "ts_export", derive(TS))]
 #[cfg_attr(feature = "ts_export", ts(export))]
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(default, deny_unknown_fields)]
 pub struct DiscountCurveSolveConfig {
+    /// Number of points in the initial geometric scan grid.
     pub scan_grid_points: usize,
+    /// Minimum required success points in scan before attempting polish.
     pub min_scan_grid_points: usize,
     /// Initial step size for geometric scan grid.
     pub scan_grid_step: f64,
+    /// Absolute minimum allowed discount factor (prevents singularity).
     pub df_hard_min: f64,
+    /// Absolute maximum allowed discount factor (prevents divergence).
     pub df_hard_max: f64,
+    /// Minimum time threshold for considering a knot at spot (t=0).
     pub min_t_spot: f64,
     /// Interpolation style for the constructed curve.
     #[serde(default)]
@@ -72,7 +122,9 @@ pub struct DiscountCurveSolveConfig {
     #[serde(default)]
     #[cfg_attr(feature = "ts_export", ts(skip))]
     pub extrapolation_policy: ExtrapolationPolicy,
+    /// Whether to use a sequential bootstrap to seed a global solve.
     pub bootstrap_seed_global_solve: bool,
+    /// Allow falling back to a seed value if solving fails.
     pub allow_seed_fallback: bool,
     /// Override final-curve monotonicity enforcement (None = policy-driven).
     #[serde(default)]
@@ -113,16 +165,18 @@ impl Default for DiscountCurveSolveConfig {
     }
 }
 
-/// Multi-curve calibration configuration
+/// Multi-curve calibration framework configuration (post-2008 standard).
+///
+/// Controls how the calibrator handles the separation of discounting
+/// and forwarding curves, which became standard industry practice after 2008.
 #[cfg_attr(feature = "ts_export", derive(TS))]
 #[cfg_attr(feature = "ts_export", ts(export))]
 #[derive(Clone, Debug, Serialize, Deserialize)]
-/// Multi Curve Config structure.
 pub struct MultiCurveConfig {
-    /// Whether to calibrate basis spreads
+    /// Whether to calibrate basis spreads between different indices (e.g., Libor vs OIS).
     pub calibrate_basis: bool,
 
-    /// Whether to enforce strict separation (fail if trying to derive forward from discount)
+    /// Whether to enforce strict separation (fail if trying to derive forward from discount).
     pub enforce_separation: bool,
 }
 
@@ -142,50 +196,58 @@ impl MultiCurveConfig {
     }
 }
 
-/// Configuration for calibration processes.
+/// Global configuration for the calibration subsystem.
+///
+/// This struct consolidates all settings for solvers, validation, and market-regime
+/// specific bounds. It is typically derived from a `FinstackConfig` extension section.
+///
+/// # Examples
+/// ```rust
+/// use finstack_valuations::calibration::CalibrationConfig;
+///
+/// // Create a default config
+/// let config = CalibrationConfig::default();
+///
+/// // Create a conservative config for high-precision risk systems
+/// let conservative = CalibrationConfig::conservative();
+/// ```
 #[cfg_attr(feature = "ts_export", derive(TS))]
 #[cfg_attr(feature = "ts_export", ts(export))]
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(default, deny_unknown_fields)]
 pub struct CalibrationConfig {
-    /// Solver configuration including method and parameters (tolerance, iterations).
+    /// Solver configuration including numerical method (e.g., Brent) and parameters (tolerance, iterations).
     pub solver: SolverConfig,
-    /// Use parallel processing when available
+    /// Use parallel processing when available (e.g., for independent curves).
     pub use_parallel: bool,
-    /// Random seed for reproducible results
+    /// Random seed for reproducible results in stochastic solvers (if any).
     pub random_seed: Option<u64>,
-    /// Enable verbose logging
+    /// Enable verbose logging of the calibration process.
     pub verbose: bool,
-    /// Entity-specific seniority mappings for credit calibration
+    /// Entity-specific seniority mappings for credit calibration.
     #[cfg_attr(feature = "ts_export", ts(type = "Record<string, string>"))]
     pub entity_seniority: HashMap<String, Seniority>,
-    /// Multi-curve framework configuration
+    /// Multi-curve framework configuration (discounting vs forwarding).
     pub multi_curve: MultiCurveConfig,
     /// Use finite-difference gradients for SABR calibration instead of analytical approximations.
-    /// Analytical gradients are faster but use approximations (treating x(z) as ~constant).
-    /// FD gradients are slower but more accurate, especially for far-from-ATM strikes.
     pub use_fd_sabr_gradients: bool,
-    /// Explanation options (opt-in detailed trace)
+    /// Explanation options (opt-in detailed trace for debugging).
     #[serde(skip)]
     #[cfg_attr(feature = "ts_export", ts(skip))]
     pub explain: ExplainOpts,
-    /// Runtime validation mode (warnings vs errors). Feature `strict_validation` may still harden checks.
+    /// Runtime validation mode (warnings vs errors).
     pub validation_mode: ValidationMode,
-    /// Validation configuration with thresholds and checks
+    /// Validation configuration with thresholds and quality checks.
     #[serde(default)]
     #[cfg_attr(feature = "ts_export", ts(type = "Record<string, unknown>"))]
     pub validation: crate::calibration::validation::ValidationConfig,
     /// Policy for selecting rate bounds (explicit vs currency-derived).
-    ///
-    /// - `auto_currency` is market-standard: bounds depend on currency/market regime.
-    /// - `explicit` uses `rate_bounds` as provided.
     #[serde(default = "crate::calibration::validation::default_rate_bounds_policy_for_serde")]
     pub rate_bounds_policy: RateBoundsPolicy,
-    /// Rate bounds for forward/zero rate calibration.
-    /// Currency-specific defaults can be set via `with_rate_bounds_for_currency()`.
+    /// Rate bounds for forward/zero rate calibration (when policy is `Explicit`).
     #[serde(default)]
     pub rate_bounds: RateBounds,
-    /// Calibration method (bootstrap vs global solve).
+    /// High-level calibration method (bootstrap vs global solve).
     #[serde(default)]
     pub calibration_method: CalibrationMethod,
 

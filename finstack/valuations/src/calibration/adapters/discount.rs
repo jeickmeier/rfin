@@ -15,12 +15,15 @@ use finstack_core::prelude::*;
 use finstack_core::types::{Currency, CurveId};
 use std::cell::RefCell;
 
-/// Parameters for constructing a `DiscountCurveTarget`.
+/// Parameters for constructing a [`DiscountCurveTarget`].
+///
+/// This struct consolidates all inputs required to execute a discount curve
+/// calibration, including base dates, currency, and multi-curve convention IDs.
 #[derive(Clone)]
 pub struct DiscountCurveTargetParams {
-    /// Base date for the curve.
+    /// Base date for the curve (usually the calibration valuation date).
     pub base_date: Date,
-    /// Currency of the curve.
+    /// Currency of the curve and its associated instruments.
     pub currency: Currency,
     /// Identifier for the curve being built.
     pub curve_id: CurveId,
@@ -36,17 +39,31 @@ pub struct DiscountCurveTargetParams {
     pub config: CalibrationConfig,
     /// Pricer for calibration instruments.
     pub pricer: CalibrationPricer,
-    /// Day count convention for the curve.
+    /// Day count convention for mapping dates to year fractions on the curve.
     pub curve_day_count: DayCount,
     /// Optional spot knot (t_spot, 1.0) if enabled.
     pub spot_knot: Option<(f64, f64)>,
-    /// Settlement date.
+    /// Settlement date (T+lag).
     pub settlement_date: Date,
     /// Context needed for pricing against OTHER curves (if any).
     pub base_context: MarketContext,
 }
 
 /// Target for discount curve calibration (Bootstrap and Global).
+///
+/// This struct implements the calibration logic for IR discount curves,
+/// supporting both sequential bootstrapping and simultaneous global optimization.
+/// It acts as a bridge between the numerical solvers and the financial instrument
+/// pricing logic.
+///
+/// # Examples
+/// ```rust,no_run
+/// # use finstack_valuations::calibration::adapters::discount::{DiscountCurveTarget, DiscountCurveTargetParams};
+/// # fn example(params: DiscountCurveTargetParams) {
+/// let target = DiscountCurveTarget::new(params);
+/// // Use with SequentialBootstrapper or GlobalFitOptimizer
+/// # }
+/// ```
 pub struct DiscountCurveTarget {
     /// Base date for the curve.
     pub base_date: Date,
@@ -74,12 +91,12 @@ pub struct DiscountCurveTarget {
     pub settlement_date: Date,
     /// Context needed for pricing against OTHER curves (if any).
     pub base_context: MarketContext,
-    /// Optional reusable context for sequential solvers.
+    /// Optional reusable context for sequential solvers to reduce memory pressure.
     reuse_context: Option<RefCell<MarketContext>>,
 }
 
 impl DiscountCurveTarget {
-    /// Create a new `DiscountCurveTarget` from parameters.
+    /// Create a new [`DiscountCurveTarget`] from parameters.
     pub fn new(params: DiscountCurveTargetParams) -> Self {
         let reuse_context = if params.config.use_parallel {
             None

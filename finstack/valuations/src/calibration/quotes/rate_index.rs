@@ -8,26 +8,44 @@ use crate::instruments::irs::FloatingLegCompounding;
 use finstack_core::dates::{DayCount, Tenor};
 use finstack_core::types::{Currency, IndexId};
 
+/// Type of rate index for convention determination.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub(crate) enum RateIndexKind {
+    /// Overnight Risk-Free Rate index (e.g., SOFR, SONIA, ESTR).
     OvernightRfr,
+    /// Term index with a fixed period (e.g., 3M LIBOR, 6M EURIBOR).
     Term,
+    /// Unknown or generic index.
     Unknown,
 }
 
+/// This structure captures the necessary details for pricing instruments
+/// tied to this index, such as payment frequency, resets, and compounding.
 #[derive(Clone, Debug, PartialEq)]
 pub(crate) struct RateIndexConventions {
+    /// Operating currency of the index.
     pub currency: Currency,
+    /// Index category (Overnight vs Term).
     pub kind: RateIndexKind,
+    /// Index tenor (None for overnight indices).
     pub tenor: Option<Tenor>,
+    /// Market standard day count convention.
     pub day_count: DayCount,
+    /// Typical payment frequency for swaps referencing this index.
     pub default_payment_frequency: Tenor,
+    /// Business days between accrual end and payment.
     pub default_payment_delay_days: i32,
+    /// Business days between fixing and accrual start.
     pub default_reset_lag_days: i32,
+    /// Methodology for compounding overnight rates (OIS only).
     pub ois_compounding: Option<FloatingLegCompounding>,
 }
 
 impl RateIndexConventions {
+    /// Resolve conventions for a given index identifier.
+    ///
+    /// Periodically updated registry and heuristic token parsing are used
+    /// to determine if the index is a term index or an overnight RFR.
     pub(crate) fn for_index_with_currency(index: &IndexId, currency_hint: Currency) -> Self {
         // Registry-first resolution: prefer explicit per-index conventions for market accuracy.
         if let Some(c) = registry_conventions(index.as_str(), currency_hint) {
@@ -83,6 +101,7 @@ impl RateIndexConventions {
     ///
     /// This is intentionally heuristic and designed for market-style identifiers like
     /// `USD-SOFR-OIS` and `GBP-SONIA-OIS`.
+    /// Returns true if the index identifier is a recognized overnight RFR.
     pub(crate) fn is_overnight_rfr_index(index: &IndexId) -> bool {
         if let Some(c) = registry_conventions(index.as_str(), Currency::USD) {
             return c.kind == RateIndexKind::OvernightRfr;

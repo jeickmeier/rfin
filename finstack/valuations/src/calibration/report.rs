@@ -11,16 +11,28 @@ fn default_true() -> bool {
 }
 
 /// Diagnostics computed from residual values.
+///
+/// Provides a statistical summary of the instrument fitting errors.
+#[derive(Debug)]
 struct ResidualDiagnostics {
+    /// Maximum absolute residual across all instruments.
     max_residual: f64,
+    /// Root mean square error of all residuals.
     rmse: f64,
+    /// Whether any residual was a penalty value (solver failure).
     has_penalty: bool,
 }
 
 /// Filter out penalty sentinel values and compute common diagnostics.
 ///
-/// Penalties (INFINITY or values >= PENALTY * 0.5) are excluded from max/RMSE
-/// unless ALL values are penalties, in which case the raw stats are used.
+/// Penalties (INFINITY or values >= [`PENALTY`](crate::calibration::PENALTY) * 0.5) are
+/// excluded from max/RMSE unless ALL values are penalties.
+///
+/// # Arguments
+/// * `residuals` - Map of instrument identifiers to their final residual values.
+///
+/// # Returns
+/// A [`ResidualDiagnostics`] struct containing max, RMSE, and penalty status.
 fn compute_residual_diagnostics(residuals: &BTreeMap<String, f64>) -> ResidualDiagnostics {
     let penalty_abs_min = crate::calibration::RESIDUAL_PENALTY_ABS_MIN;
 
@@ -58,49 +70,55 @@ fn compute_residual_diagnostics(residuals: &BTreeMap<String, f64>) -> ResidualDi
     }
 }
 
-/// Calibration diagnostic report.
+/// Detailed report of a calibration exercise.
+///
+/// Consolidates success status, residuals, convergence diagnostics, and optional
+/// tracing information. Used by the calibration engine to return results and
+/// by risk systems to audit calibration quality.
+///
+/// # Examples
+/// ```rust
+/// use finstack_valuations::calibration::CalibrationReport;
+/// use std::collections::BTreeMap;
+///
+/// let mut residuals = BTreeMap::new();
+/// residuals.insert("1Y".to_string(), 1e-12);
+///
+/// let report = CalibrationReport::new(residuals, 10, true, "Converged");
+/// assert!(report.success);
+/// assert!(report.max_residual <= 1e-12);
+/// ```
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct CalibrationReport {
-    /// Calibration success flag
+    /// User-facing success flag. True only if both fitting and validation passed.
     pub success: bool,
-    /// Final residuals by instrument
+    /// Final residuals (fitting errors) by instrument identifier.
     pub residuals: BTreeMap<String, f64>,
-    /// Number of solver iterations (e.g., accepted LM steps)
+    /// Number of solver iterations or function evaluations.
     pub iterations: usize,
-    /// Final objective function value
+    /// Final objective function value (usually RMSE).
     pub objective_value: f64,
-    /// Maximum absolute residual
+    /// Maximum absolute residual across all instruments.
     pub max_residual: f64,
-    /// Root mean square error
+    /// Root mean square error of all residuals.
     pub rmse: f64,
-    /// Whether the calibrated market object passed validation checks (no-arbitrage, bounds, etc).
-    ///
-    /// This flag is independent from the solver residual tolerance checks.
-    /// Market-standard workflows typically require both:
-    /// - fit criteria met, and
-    /// - validation/no-arbitrage checks passed.
-    ///
-    /// When `validation_passed == false`, `success` should generally be `false` even if residuals
-    /// are within tolerance.
+    /// Whether the calibrated market object passed all validation checks.
     #[serde(default = "default_true")]
     pub validation_passed: bool,
-    /// Optional validation failure details (set when `validation_passed == false`).
+    /// Optional details on validation failures.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub validation_error: Option<String>,
-    /// Convergence reason
+    /// Human-readable reason for convergence or failure.
     pub convergence_reason: String,
-    /// Calibration metadata (key-value pairs for domain-specific info)
+    /// Domain-specific metadata (e.g., "type": "yield_curve").
     pub metadata: BTreeMap<String, String>,
-    /// Solver configuration used for calibration.
-    ///
-    /// Captures the complete solver state for reproducibility. Defaults to
-    /// Hybrid solver if not explicitly set.
+    /// Solver configuration used during this calibration run.
     #[serde(default)]
     pub solver_config: SolverConfig,
-    /// Result metadata (timestamp, version, rounding context, etc.)
+    /// Results metadata (timestamp, software version, etc.).
     #[serde(default)]
     pub results_meta: ResultsMeta,
-    /// Optional explanation trace (enabled via CalibrationConfig.explain)
+    /// Optional detailed trace of the calibration steps (enabled via config).
     #[serde(skip_serializing_if = "Option::is_none")]
     pub explanation: Option<ExplanationTrace>,
 }

@@ -1,3 +1,15 @@
+//! Calibration pricing infrastructure.
+//!
+//! This module defines the conventions, pricer, and factories required to value
+//! financial instruments during the calibration process. It ensures that
+//! market-standard pricing logic is consistently applied across all adapters.
+//!
+//! # Submodules
+//! - [`pricer`]: The core [`CalibrationPricer`] that handles multi-curve context.
+//! - [`convention_resolution`]: Logic for mapping high-level strings to concrete conventions.
+//! - [`quote_factory`]: Converts market quotes into concrete instrument objects.
+//! - [`convexity`]: Utilities for futures convexity adjustments.
+
 /// Convention resolution for pricing (turns quote conventions + market defaults into effective inputs).
 pub(crate) mod convention_resolution;
 mod convexity;

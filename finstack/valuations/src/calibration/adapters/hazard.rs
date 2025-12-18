@@ -16,14 +16,24 @@ const HAZARD_HARD_MAX: f64 = 10.0;
 
 /// Bootstrapper for hazard curves from CDS quotes.
 ///
-/// Implements sequential bootstrapping of hazard curves using CDS quotes
-/// with different maturities. The bootstrapper derives CDS conventions from
-/// currency and prices synthetic CDS instruments to solve for hazard rates
-/// that match market quotes.
+/// Implements sequential bootstrapping of hazard curves (survival probabilities)
+/// using market CDS quotes with varying maturities. It derives standard ISDA
+/// conventions (e.g., North American, European, Asian) from the currency and
+/// prices synthetic CDS instruments to solve for the hazard rate at each knot.
+///
+/// # Invariants
+/// - Hazard rates must be non-negative (to ensure non-increasing survival).
+/// - Knot times must be strictly increasing.
+///
+/// # See Also
+/// - [`crate::instruments::cds`] for details on the underlying instruments.
 pub struct HazardBootstrapper {
-    params: HazardCurveParams,
-    convention: CDSConvention,
-    base_context: MarketContext,
+    /// Parameters defining the hazard curve structure and IDs.
+    pub params: HazardCurveParams,
+    /// CDS pricing convention (e.g., ISDA) derived from currency.
+    pub convention: CDSConvention,
+    /// Market context providing discount curves for PV calculations.
+    pub base_context: MarketContext,
 }
 
 impl HazardBootstrapper {
@@ -269,6 +279,9 @@ mod tests {
         let mut params = base_params();
         params.base_date = base_date;
         params.discount_curve_id = "USD-OIS".into();
+        // Ensure the hazard curve we insert matches the id referenced by the CDS instrument factory.
+        // The factory wires `credit_curve_id = params.curve_id`.
+        params.curve_id = "CRV".into();
         params.notional = 1_000_000.0;
         params.recovery_rate = 0.4;
 

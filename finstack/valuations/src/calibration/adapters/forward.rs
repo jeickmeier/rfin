@@ -14,29 +14,33 @@ use finstack_core::types::{Currency, CurveId};
 /// Parameters for constructing a `ForwardCurveTarget`.
 #[derive(Clone)]
 pub struct ForwardCurveTargetParams {
-    /// Base date for the curve.
+    /// Base date for the curve (valuation date).
     pub base_date: Date,
-    /// Currency of the curve.
+    /// Currency of the forward curve (e.g. USD).
     pub currency: Currency,
-    /// Identifier for the forward curve being built.
+    /// Unique identifier for the forward curve being calibrated.
     pub fwd_curve_id: CurveId,
-    /// Identifier for the discount curve to use.
+    /// Identifier for the discount curve used for PV calculation.
     pub discount_curve_id: CurveId,
-    /// Tenor in years for the forward curve.
+    /// Tenor associated with the forward rates (e.g. 3M, 6M).
     pub tenor_years: f64,
-    /// Interpolation style for solving.
+    /// Numerical interpolation style used during the solving process.
     pub solve_interp: InterpStyle,
-    /// Calibration configuration.
+    /// Global calibration settings (tolerances, rate bounds).
     pub config: CalibrationConfig,
-    /// Pricer for calibration instruments.
+    /// Factory for building pricing instruments from quotes.
     pub pricer: CalibrationPricer,
-    /// Day count convention for time calculations.
+    /// Convention for converting dates to time axis (year fractions).
     pub time_day_count: DayCount,
-    /// Context needed for pricing against OTHER curves (if any).
+    /// Context providing supporting market data (e.g. discount curves).
     pub base_context: MarketContext,
 }
 
 /// Target for forward curve calibration (Bootstrap).
+///
+/// This adapter bridges the [`SequentialBootstrapper`] with the forward rate
+/// curve pricing logic. It handles knot anchor insertion at t=0 and provides
+/// rate-bound aware scanning for numerical stability.
 pub struct ForwardCurveTarget {
     /// Base date for the curve.
     pub base_date: Date,
@@ -56,7 +60,7 @@ pub struct ForwardCurveTarget {
     pub pricer: CalibrationPricer,
     /// Day count convention for time calculations.
     pub time_day_count: DayCount,
-    /// Context needed for pricing against OTHER curves (if any).
+    /// Baseline market context.
     pub base_context: MarketContext,
 }
 

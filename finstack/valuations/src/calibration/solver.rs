@@ -1,8 +1,26 @@
-//! Solver utilities and implementations for calibration (v2).
+//! Solver utilities and implementations for calibration.
 //!
-//! This module is the single solver surface for calibration:
-//! - **Algorithms**: sequential bootstrapping and global least-squares optimization
-//! - **Utilities**: bracketing/root-finding helpers and solver configuration
+//! This module provides the central interface for numerical optimization in the
+//! calibration framework. It supports two primary methodologies:
+//!
+//! # Features
+//! - **Sequential Bootstrapping**: Solves for curve knots one by one, ensuring high
+//!   performance and exact fits for liquid market instruments.
+//! - **Global Least-Squares**: Simultaneous optimization of all parameters,
+//!   suitable for smoothing and multi-dimensional surface fitting.
+//!
+//! # Quick Example
+//! ```rust
+//! # use finstack_valuations::calibration::{create_simple_solver, CalibrationConfig};
+//! // Create a simple 1D Brent solver with default tolerances
+//! let config = CalibrationConfig::default();
+//! let solver = create_simple_solver(&config);
+//! ```
+//!
+//! # See Also
+//! - [`bootstrap`] for the sequential bootstrapping algorithm.
+//! - [`global`] for the global optimization framework.
+//! - [`traits`] for the target interfaces.
 
 pub mod bootstrap;
 mod config;

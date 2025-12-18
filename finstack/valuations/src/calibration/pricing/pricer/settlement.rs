@@ -9,6 +9,8 @@ use super::super::convention_resolution as conv;
 
 impl CalibrationPricer {
     /// Resolve settlement date using strictly provided quote conventions (no defaults).
+    ///
+    /// Useful for validating that a quote set contains all necessary metadata.
     pub fn settlement_date_for_quote_strict(
         &self,
         quote_conventions: &InstrumentConventions,
@@ -35,7 +37,10 @@ impl CalibrationPricer {
         }
     }
 
-    /// Get the effective start date for instruments.
+    /// Get the effective start date for an instrument.
+    ///
+    /// Depending on pricer configuration, this may be the valuation
+    /// base date or the instrument's settlement date.
     pub fn effective_start_date(
         &self,
         conventions: &InstrumentConventions,
@@ -52,12 +57,12 @@ impl CalibrationPricer {
         }
     }
 
-    /// Calculate settlement date from base date using business-day calendar.
+    /// Calculate the default settlement date for a currency.
     pub fn settlement_date(&self, currency: Currency) -> finstack_core::Result<Date> {
         self.settlement_date_for_quote(&InstrumentConventions::default(), currency)
     }
 
-    /// Calculate settlement date for a specific quote's conventions.
+    /// Calculate the settlement date for a specific quote's conventions.
     pub fn settlement_date_for_quote(
         &self,
         quote_conventions: &InstrumentConventions,
