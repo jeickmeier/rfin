@@ -193,7 +193,8 @@ fn test_bucketed_vs_parallel_dv01_sanity() {
     // Make this an OIS-style swap so that pricing depends only on the discount
     // curve; this keeps bucketed vs parallel DV01 comparable in a single-curve
     // setting, which is what this sanity check is targeting.
-    swap.float.compounding = FloatingLegCompounding::sofr();
+    // Use lookback=0 to avoid requiring historical fixings at as_of for the first coupon.
+    swap.float.compounding = FloatingLegCompounding::fedfunds();
     swap.float.forward_curve_id = "USD_OIS".into();
 
     let disc_curve = build_flat_discount_curve(0.05, as_of);

@@ -5,6 +5,7 @@
 
 use finstack_core::dates::{BusinessDayConvention, Date, DayCount, Tenor};
 use finstack_core::market_data::context::MarketContext;
+use finstack_core::market_data::scalars::ScalarTimeSeries;
 use finstack_core::market_data::term_structures::{DiscountCurve, ForwardCurve};
 use finstack_core::math::interp::ExtrapolationPolicy;
 use finstack_core::math::interp::InterpStyle;
@@ -152,7 +153,17 @@ fn strict_pricing_succeeds_with_explicit_step_defaults() {
     let envelope = CalibrationEnvelopeV2 {
         schema: "finstack.calibration/2".to_string(),
         plan,
-        initial_market: Some((&MarketContext::new()).into()),
+        // Provide minimal fixings for USD-OIS in case the first compounded coupon
+        // references observation dates before as_of (e.g., T+0 start with SOFR lookback).
+        initial_market: {
+            let base = base_date();
+            let fixings: Vec<(Date, f64)> = (1..=10)
+                .map(|i| (base.add_weekdays(-i), 0.05))
+                .collect();
+            let m = MarketContext::new()
+                .insert_series(ScalarTimeSeries::new("FIXING:USD-OIS", fixings, None).unwrap());
+            Some((&m).into())
+        },
     };
 
     let result = engine::execute(&envelope).expect("execute");

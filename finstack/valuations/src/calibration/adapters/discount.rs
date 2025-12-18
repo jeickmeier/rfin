@@ -4,6 +4,7 @@ use crate::calibration::config::CalibrationConfig;
 use crate::calibration::config::ResidualWeightingScheme;
 use crate::calibration::constants::*;
 use crate::calibration::pricing::CalibrationPricer;
+use crate::calibration::pricing::convention_resolution as conv;
 use crate::calibration::quotes::RatesQuote;
 use crate::calibration::solver::{BootstrapTarget, GlobalSolveTarget};
 use finstack_core::dates::{Date, DayCount};
@@ -250,10 +251,24 @@ impl BootstrapTarget for DiscountCurveTarget {
     type Curve = DiscountCurve;
 
     fn quote_time(&self, quote: &Self::Quote) -> Result<f64> {
+        let pillar_date = match quote {
+            RatesQuote::Swap { maturity, .. } => {
+                // Align the calibration knot with the actual swap payment date (maturity plus
+                // payment delay in business days). This avoids extrapolating over the small
+                // interval [maturity, maturity+lag] when OIS conventions apply a payment lag.
+                let resolved = conv::resolve_swap_conventions(&self.pricer, quote, self.currency)?;
+                crate::instruments::irs::dates::add_payment_delay(
+                    *maturity,
+                    resolved.common.payment_delay_days,
+                    Some(resolved.common.payment_calendar_id),
+                )
+            }
+            _ => quote.maturity_date(),
+        };
         self.curve_day_count
             .year_fraction(
                 self.base_date,
-                quote.maturity_date(),
+                pillar_date,
                 finstack_core::dates::DayCountCtx::default(),
             )
             .map_err(|e| finstack_core::Error::Calibration {
@@ -712,5 +727,164 @@ Ensure quotes map to strictly increasing year fractions.",
     fn supports_analytical_jacobian(&self) -> bool {
         // We now support a specialized efficient Jacobian calculation
         true
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::calibration::pricing::CalibrationPricer;
+    use crate::calibration::quotes::conventions::InstrumentConventions;
+    use crate::calibration::solver::BootstrapTarget;
+    use crate::calibration::solver::GlobalFitOptimizer;
+    use finstack_core::dates::DayCountCtx;
+    use finstack_core::dates::Tenor;
+    use finstack_core::math::interp::{ExtrapolationPolicy, InterpStyle};
+    use finstack_core::types::CurveId;
+    use time::Month;
+
+    #[test]
+    fn discount_quote_time_uses_swap_payment_date_when_payment_delay_applies() {
+        let base_date = Date::from_calendar_date(2024, Month::January, 2).expect("base_date");
+        let maturity = Date::from_calendar_date(2024, Month::January, 4).expect("maturity");
+
+        let pricer =
+            CalibrationPricer::new(base_date, "USD-OIS").with_market_conventions(Currency::USD);
+
+        let quote = RatesQuote::Swap {
+            maturity,
+            rate: 0.02,
+            is_ois: false,
+            conventions: InstrumentConventions::default(),
+            fixed_leg_conventions: InstrumentConventions::default(),
+            float_leg_conventions: InstrumentConventions::default().with_index("USD-SOFR-OIS"),
+        };
+
+        let resolved = conv::resolve_swap_conventions(&pricer, &quote, Currency::USD)
+            .expect("resolved");
+        assert_eq!(resolved.common.payment_delay_days, 2);
+
+        let pay_date = crate::instruments::irs::dates::add_payment_delay(
+            maturity,
+            resolved.common.payment_delay_days,
+            Some(resolved.common.payment_calendar_id),
+        );
+        let expected = DayCount::Act365F
+            .year_fraction(base_date, pay_date, DayCountCtx::default())
+            .expect("yf");
+
+        let target = DiscountCurveTarget::new(DiscountCurveTargetParams {
+            base_date,
+            currency: Currency::USD,
+            curve_id: CurveId::new("USD-OIS"),
+            discount_curve_id: CurveId::new("USD-OIS"),
+            forward_curve_id: CurveId::new("USD-OIS"),
+            solve_interp: InterpStyle::Linear,
+            extrapolation: ExtrapolationPolicy::FlatZero,
+            config: CalibrationConfig::default(),
+            pricer,
+            curve_day_count: DayCount::Act365F,
+            spot_knot: None,
+            settlement_date: base_date,
+            base_context: MarketContext::new(),
+        });
+
+        let actual = BootstrapTarget::quote_time(&target, &quote).expect("quote_time");
+        assert!((actual - expected).abs() < 1e-15);
+    }
+
+    #[test]
+    fn global_solve_discount_curve_converges_beyond_1e8_pv_noise_floor() {
+        let base_date = Date::from_calendar_date(2025, Month::December, 10).expect("base_date");
+        let pricer =
+            CalibrationPricer::new(base_date, "USD-OIS").with_market_conventions(Currency::USD);
+
+        let deposit_conv = InstrumentConventions::default()
+            .with_day_count(DayCount::Act360)
+            .with_settlement_days(2)
+            .with_calendar_id("usny");
+
+        let ois_fixed_leg = InstrumentConventions::default()
+            .with_payment_frequency(Tenor::annual())
+            .with_day_count(DayCount::Act360)
+            .with_settlement_days(2)
+            .with_payment_delay(2)
+            .with_calendar_id("usny");
+
+        let ois_float_leg = InstrumentConventions::default()
+            .with_payment_frequency(Tenor::annual())
+            .with_day_count(DayCount::Act360)
+            .with_reset_lag(0)
+            .with_calendar_id("usny")
+            .with_index("USD-SOFR-OIS");
+
+        let quotes = vec![
+            RatesQuote::Deposit {
+                maturity: Date::from_calendar_date(2025, Month::December, 19).expect("mat"),
+                rate: 0.0364447,
+                conventions: deposit_conv.clone(),
+            },
+            RatesQuote::Deposit {
+                maturity: Date::from_calendar_date(2026, Month::November, 12).expect("mat"),
+                rate: 0.0345356,
+                conventions: deposit_conv,
+            },
+            RatesQuote::Swap {
+                maturity: Date::from_calendar_date(2026, Month::December, 14).expect("mat"),
+                rate: 0.0343446,
+                is_ois: true,
+                conventions: InstrumentConventions::default(),
+                fixed_leg_conventions: ois_fixed_leg.clone(),
+                float_leg_conventions: ois_float_leg.clone(),
+            },
+            // 18M OIS introduces an intermediate stub coupon.
+            RatesQuote::Swap {
+                maturity: Date::from_calendar_date(2027, Month::June, 14).expect("mat"),
+                rate: 0.0332849,
+                is_ois: true,
+                conventions: InstrumentConventions::default(),
+                fixed_leg_conventions: ois_fixed_leg.clone(),
+                float_leg_conventions: ois_float_leg.clone(),
+            },
+            RatesQuote::Swap {
+                maturity: Date::from_calendar_date(2055, Month::December, 13).expect("mat"),
+                rate: 0.0401000,
+                is_ois: true,
+                conventions: InstrumentConventions::default(),
+                fixed_leg_conventions: ois_fixed_leg,
+                float_leg_conventions: ois_float_leg,
+            },
+        ];
+
+        let mut config = CalibrationConfig::default();
+        config.solver = config.solver.with_tolerance(1e-12);
+        config.calibration_method = crate::calibration::config::CalibrationMethod::GlobalSolve {
+            use_analytical_jacobian: true,
+        };
+
+        let target = DiscountCurveTarget::new(DiscountCurveTargetParams {
+            base_date,
+            currency: Currency::USD,
+            curve_id: CurveId::new("USD-OIS"),
+            discount_curve_id: CurveId::new("USD-OIS"),
+            forward_curve_id: CurveId::new("USD-OIS"),
+            solve_interp: InterpStyle::MonotoneConvex,
+            extrapolation: ExtrapolationPolicy::FlatForward,
+            config,
+            pricer,
+            curve_day_count: DayCount::Act365F,
+            spot_knot: None,
+            settlement_date: base_date,
+            base_context: MarketContext::new(),
+        });
+
+        let (_curve, report) =
+            GlobalFitOptimizer::optimize(&target, &quotes, &target.config).expect("solve");
+        assert!(
+            report.max_residual < 1e-10,
+            "expected GlobalSolve to fit beyond 1e-10; got max_residual={:.2e} (termination={:?})",
+            report.max_residual,
+            report.metadata.get("lm_termination_reason")
+        );
     }
 }

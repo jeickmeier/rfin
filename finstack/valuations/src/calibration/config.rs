@@ -105,7 +105,10 @@ impl Default for DiscountCurveSolveConfig {
             allow_non_monotonic_final: None,
             strict_pricing: false,
             weighting_scheme: ResidualWeightingScheme::default(),
-            jacobian_step_size: 1e-8,
+            // `jacobian_step_size` is used as a *relative* bump size (h = max(eps, |p|*eps)).
+            // For typical discount-curve zero rates (~1-5%), `1e-8` can make PV differences
+            // fall into numerical noise and cause GlobalSolve to stall (e.g. StepTooSmall).
+            jacobian_step_size: 1e-6,
         }
     }
 }
@@ -235,7 +238,7 @@ impl CalibrationConfig {
     /// let cfg = FinstackConfig::default();
     /// let calib_cfg = CalibrationConfig::from_finstack_config_or_default(&cfg)
     ///     .expect("valid config");
-    /// assert_eq!(calib_cfg.solver.tolerance(), 1e-10); // default
+    /// assert_eq!(calib_cfg.solver.tolerance(), 1e-12); // default
     /// ```
     #[cfg(feature = "serde")]
     pub fn from_finstack_config_or_default(cfg: &FinstackConfig) -> finstack_core::Result<Self> {

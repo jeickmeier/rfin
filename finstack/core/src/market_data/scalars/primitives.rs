@@ -274,6 +274,25 @@ impl ScalarTimeSeries {
         self.values_on_days(&[days]).map(|v| v[0])
     }
 
+    /// Retrieve the value for an **exactly observed** date.
+    ///
+    /// Unlike [`value_on`], this does **not** interpolate or carry values forward.
+    /// It is intended for market fixings where missing observations must be treated
+    /// as an error (e.g., RFR overnight fixings).
+    pub fn value_on_exact(&self, date: Date) -> Result<f64> {
+        use crate::error::InputError;
+
+        let q = to_days(date);
+        let date_vec = self.data.dates();
+        let value_vec = self.data.values();
+        match date_vec.binary_search(&q) {
+            Ok(idx) => Ok(value_vec[idx]),
+            Err(_) => Err(crate::Error::Input(InputError::NotFound {
+                id: format!("series '{}' observation on {}", self.id.as_str(), date),
+            })),
+        }
+    }
+
     /// Retrieve values for multiple dates at once.
     ///
     /// The returned vector is aligned with the input order. Step interpolation

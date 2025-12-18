@@ -75,7 +75,10 @@ pub(crate) fn resolve_common<'a>(
     ResolvedCommon {
         settlement_days,
         payment_delay_days: quote_conventions.effective_payment_delay_days(),
-        reset_lag_days: quote_conventions.effective_reset_lag_days(),
+        // Quote reset lag is signed: -2 means 2 days before (T-2).
+        // Instrument reset_lag_days is unsigned offset subtracted: start - offset.
+        // So negate to align: -(-2) = 2.
+        reset_lag_days: -quote_conventions.effective_reset_lag_days(),
         calendar_id,
         fixing_calendar_id,
         payment_calendar_id,
@@ -145,7 +148,7 @@ fn resolve_common_for_swap<'a>(
             }
         });
 
-    let reset_lag_days = float_leg
+    let reset_lag_quote = float_leg
         .reset_lag
         .or(conventions.reset_lag)
         .unwrap_or_else(|| {
@@ -155,6 +158,9 @@ fn resolve_common_for_swap<'a>(
                 -2
             }
         });
+
+    // Negate signed quote lag to get unsigned instrument lag offset (start - offset)
+    let reset_lag_days = -reset_lag_quote;
 
     ResolvedCommon {
         settlement_days,
@@ -226,9 +232,6 @@ pub(crate) fn resolve_swap_conventions<'a>(
             float_leg_conventions,
             ..
         } => {
-            let fixed_freq = fixed_leg_conventions
-                .payment_frequency
-                .unwrap_or_else(|| InstrumentConventions::default_fixed_leg_frequency(currency));
             let index = float_leg_conventions.index.as_ref().ok_or_else(|| {
                 finstack_core::Error::Validation(
                     "Swap quote requires float_leg_conventions.index to be set".to_string(),
@@ -236,15 +239,38 @@ pub(crate) fn resolve_swap_conventions<'a>(
             })?;
 
             let index_conv = RateIndexConventions::for_index_with_currency(index, currency);
+
+            let fixed_freq = fixed_leg_conventions
+                .payment_frequency
+                .or(conventions.payment_frequency)
+                .unwrap_or_else(|| {
+                    if index_conv.kind == RateIndexKind::OvernightRfr {
+                        // OIS fixed legs are typically annual (e.g., SOFR/SONIA/€STR OIS).
+                        index_conv.default_payment_frequency
+                    } else {
+                        InstrumentConventions::default_fixed_leg_frequency(currency)
+                    }
+                });
             let float_freq = float_leg_conventions
                 .payment_frequency
+                .or(conventions.payment_frequency)
                 .unwrap_or(index_conv.default_payment_frequency);
 
             let fixed_dc = fixed_leg_conventions
                 .day_count
-                .unwrap_or_else(|| InstrumentConventions::default_fixed_leg_day_count(currency));
+                .or(conventions.day_count)
+                .unwrap_or_else(|| {
+                    // OIS fixed legs follow money-market style day count conventions (e.g., ACT/360
+                    // for USD/EUR), whereas IBOR-style swaps commonly use 30/360.
+                    if quote.is_ois_suitable() {
+                        InstrumentConventions::default_money_market_day_count(currency)
+                    } else {
+                        InstrumentConventions::default_fixed_leg_day_count(currency)
+                    }
+                });
             let float_dc = float_leg_conventions
                 .day_count
+                .or(conventions.day_count)
                 .unwrap_or(index_conv.day_count);
 
             let common = resolve_common_for_swap(
@@ -304,16 +330,20 @@ pub(crate) fn resolve_basis_swap_conventions<'a>(
 
             let primary_freq = primary_leg_conventions
                 .payment_frequency
+                .or(conventions.payment_frequency)
                 .unwrap_or(primary_index_conv.default_payment_frequency);
             let reference_freq = reference_leg_conventions
                 .payment_frequency
+                .or(conventions.payment_frequency)
                 .unwrap_or(reference_index_conv.default_payment_frequency);
 
             let primary_dc = primary_leg_conventions
                 .day_count
+                .or(conventions.day_count)
                 .unwrap_or(primary_index_conv.day_count);
             let reference_dc = reference_leg_conventions
                 .day_count
+                .or(conventions.day_count)
                 .unwrap_or(reference_index_conv.day_count);
 
             Ok(ResolvedBasisSwapConventions {
@@ -358,9 +388,58 @@ mod tests {
         };
 
         let resolved = resolve_swap_conventions(&pricer, &quote, Currency::USD).expect("resolved");
+        assert_eq!(resolved.fixed_freq, Tenor::annual());
+        assert_eq!(resolved.fixed_dc, DayCount::Act360);
         assert_eq!(resolved.float_freq, Tenor::annual());
         assert_eq!(resolved.common.payment_delay_days, 2);
         assert_eq!(resolved.common.reset_lag_days, 0);
+    }
+
+    #[test]
+    fn swap_respects_quote_level_conventions_over_defaults() {
+        let base_date = Date::from_calendar_date(2024, Month::January, 2).expect("base_date");
+        let pricer =
+            CalibrationPricer::new(base_date, "USD-OIS").with_market_conventions(Currency::USD);
+
+        let quote = RatesQuote::Swap {
+            maturity: Date::from_calendar_date(2025, Month::January, 2).expect("maturity"),
+            rate: 0.02,
+            is_ois: true,
+            conventions: InstrumentConventions::default()
+                .with_day_count(DayCount::Act365F)
+                .with_payment_frequency(Tenor::quarterly()),
+            fixed_leg_conventions: InstrumentConventions::default(),
+            float_leg_conventions: InstrumentConventions::default().with_index("USD-SOFR-OIS"),
+        };
+
+        let resolved = resolve_swap_conventions(&pricer, &quote, Currency::USD).expect("resolved");
+        assert_eq!(resolved.fixed_dc, DayCount::Act365F);
+        assert_eq!(resolved.float_dc, DayCount::Act365F);
+        assert_eq!(resolved.fixed_freq, Tenor::quarterly());
+        assert_eq!(resolved.float_freq, Tenor::quarterly());
+    }
+
+    #[test]
+    fn swap_defaults_keep_thirty360_for_non_ois() {
+        let base_date = Date::from_calendar_date(2024, Month::January, 2).expect("base_date");
+        let pricer =
+            CalibrationPricer::new(base_date, "USD-OIS").with_market_conventions(Currency::USD);
+
+        let quote = RatesQuote::Swap {
+            maturity: Date::from_calendar_date(2025, Month::January, 2).expect("maturity"),
+            rate: 0.02,
+            is_ois: false,
+            conventions: InstrumentConventions::default(),
+            fixed_leg_conventions: InstrumentConventions::default(),
+            float_leg_conventions: InstrumentConventions {
+                index: Some(IndexId::new("USD-SOFR-3M")),
+                ..InstrumentConventions::default()
+            },
+        };
+
+        let resolved = resolve_swap_conventions(&pricer, &quote, Currency::USD).expect("resolved");
+        assert_eq!(resolved.fixed_freq, Tenor::semi_annual());
+        assert_eq!(resolved.fixed_dc, DayCount::Thirty360);
     }
 
     #[test]

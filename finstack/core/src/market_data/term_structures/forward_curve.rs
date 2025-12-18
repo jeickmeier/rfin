@@ -264,7 +264,34 @@ impl ForwardCurve {
     #[inline]
     pub fn rate_period(&self, t1: f64, t2: f64) -> f64 {
         debug_assert!(t2 > t1, "t2 must be after t1");
-        (self.rate(t1) + self.rate(t2)) * 0.5
+        // Market-standard interpretation: average forward over the interval.
+        //
+        // We approximate the integral average of the interpolated forward curve:
+        //   avg = (1 / (t2 - t1)) * ∫_{t1}^{t2} f(t) dt
+        //
+        // Use fixed-segment Simpson's rule for determinism (no adaptive stepping).
+        // This is materially better than endpoint averaging for curved/interpolated shapes.
+        let dt = t2 - t1;
+        if dt <= 0.0 {
+            return self.rate(t1);
+        }
+
+        // 8 sub-intervals (must be even). Chosen as a stable compromise:
+        // - deterministic
+        // - cheap
+        // - accurate enough for daily/short intervals used by RFR compounding
+        const N: usize = 8;
+        let h = dt / (N as f64);
+
+        // Simpson weights: 1,4,2,4,...,2,4,1
+        let mut sum = self.rate(t1) + self.rate(t2);
+        for i in 1..N {
+            let t = t1 + (i as f64) * h;
+            let w = if i % 2 == 0 { 2.0 } else { 4.0 };
+            sum += w * self.rate(t);
+        }
+        let integral = (h / 3.0) * sum;
+        integral / dt
     }
 
     /// Create a new curve with a key-rate bump applied at a target time `t` (in years) (fallible).

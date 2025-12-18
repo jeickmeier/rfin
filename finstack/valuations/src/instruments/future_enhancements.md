@@ -44,9 +44,6 @@
 - High: Provide callable/compound CDS option scaffolding and early-exercise approximations.
 - Moderate: Add normal/Bachelier spread model and displaced-diffusion support for deep OTM/ITM quotes.
 
-# cds_tranche
-- High: Provide tranche option (STO/CDO2) hooks and dynamic spread modeling for risk scenarios.
-
 # cliquet_option
 - High: Support stochastic volatility and jump diffusion for equity-linked structures.
 - Moderate: Add semi-analytic approximations for additive cliquets to reduce MC runtime.
@@ -156,7 +153,7 @@
 
 # structured_credit
 - High: Support base/curvature OAS grids and callable step-up tranches.
-- High: Provide calibration helpers to market ABX/iTraxx/CMBX tranches and price-yield surfaces.
+
 
 # swaption
 - High: Support stochastic rate models (HW/LMM) and smile-consistent pricing beyond SABR interpolation.

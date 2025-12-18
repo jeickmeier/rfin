@@ -6,7 +6,6 @@ use finstack_core::dates::calendar::business_days::HolidayCalendar;
 use finstack_core::dates::calendar::calendar_by_id;
 use finstack_core::dates::{adjust, Date, DateExt};
 use finstack_core::money::Money;
-use time::Duration;
 
 /// Add a PIK cashflow if the amount is nonzero.
 ///
@@ -60,7 +59,9 @@ pub(in crate::cashflow::builder) fn compute_reset_date(
             reset_date = adjust(reset_date, bdc, cal)?;
             Ok(reset_date)
         }
-        None => Ok(accrual_start - Duration::days(reset_lag_days as i64)),
+        // Fallback: weekday-only business day arithmetic (Mon-Fri), ignores holidays.
+        // This is strictly better than calendar-day shifting for market conventions like T-2.
+        None => Ok(accrual_start.add_weekdays(-reset_lag_days)),
     }
 }
 

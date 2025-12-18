@@ -29,6 +29,12 @@ pub(crate) struct RateIndexConventions {
 
 impl RateIndexConventions {
     pub(crate) fn for_index_with_currency(index: &IndexId, currency_hint: Currency) -> Self {
+        // Registry-first resolution: prefer explicit per-index conventions for market accuracy.
+        if let Some(c) = registry_conventions(index.as_str(), currency_hint) {
+            return c;
+        }
+
+        // Fallback: heuristic token parsing for legacy/unregistered indices.
         let tokens = tokenize_index(index.as_str());
         let currency = tokens
             .first()
@@ -78,6 +84,9 @@ impl RateIndexConventions {
     /// This is intentionally heuristic and designed for market-style identifiers like
     /// `USD-SOFR-OIS` and `GBP-SONIA-OIS`.
     pub(crate) fn is_overnight_rfr_index(index: &IndexId) -> bool {
+        if let Some(c) = registry_conventions(index.as_str(), Currency::USD) {
+            return c.kind == RateIndexKind::OvernightRfr;
+        }
         let tokens = tokenize_index(index.as_str());
         let tenor = tokens.iter().find_map(|t| Tenor::parse(t).ok());
         is_overnight_rfr_tokens(&tokens) && tenor.is_none()
@@ -93,6 +102,152 @@ fn tokenize_index(index: &str) -> Vec<String> {
         .filter(|t| !t.is_empty())
         .map(|t| t.to_string())
         .collect()
+}
+
+/// Registry of explicit per-index conventions.
+///
+/// This is intentionally small and conservative: prefer being explicit for the
+/// common production indices and falling back to heuristic parsing for anything
+/// unknown. This avoids silently mis-classifying indices when tokens collide.
+fn registry_conventions(index: &str, currency_hint: Currency) -> Option<RateIndexConventions> {
+    // Normalize into ASCII-ish uppercase tokens (match tokenize_index behavior).
+    let normalized = index.replace('€', "E").to_uppercase();
+
+    // Helper: construct without allocating tokens.
+    let mk = |currency: Currency,
+              kind: RateIndexKind,
+              tenor: Option<Tenor>,
+              day_count: DayCount,
+              default_payment_frequency: Tenor,
+              default_payment_delay_days: i32,
+              default_reset_lag_days: i32,
+              ois_compounding: Option<FloatingLegCompounding>| {
+        RateIndexConventions {
+            currency,
+            kind,
+            tenor,
+            day_count,
+            default_payment_frequency,
+            default_payment_delay_days,
+            default_reset_lag_days,
+            ois_compounding,
+        }
+    };
+
+    // Overnight indices (explicit, registry-first).
+    //
+    // Notes:
+    // - Payment delay conventions can vary by venue/clearer. We use the same defaults as the
+    //   previous heuristic path unless we have strong, explicit conventions (USD).
+    match normalized.as_str() {
+        // Explicit SOFR OIS identifiers.
+        "USD-SOFR-OIS" | "SOFR-OIS" => Some(mk(
+            Currency::USD,
+            RateIndexKind::OvernightRfr,
+            None,
+            DayCount::Act360,
+            Tenor::annual(),
+            2,
+            0,
+            Some(FloatingLegCompounding::sofr()),
+        )),
+        // Explicit overnight SOFR index (not the OIS product identifier).
+        //
+        // Default to the *no-lookback* variant for stability/bootstrapping. Callers who want
+        // SOFR lookback conventions should use "USD-SOFR-OIS".
+        "USD-SOFR" | "SOFR" => Some(mk(
+            Currency::USD,
+            RateIndexKind::OvernightRfr,
+            None,
+            DayCount::Act360,
+            Tenor::annual(),
+            2,
+            0,
+            Some(FloatingLegCompounding::fedfunds()),
+        )),
+        // Generic USD "OIS" is ambiguous (historically Fed Funds vs SOFR).
+        // Default to the *no-lookback* variant for stability/bootstrapping; callers
+        // who want SOFR lookback conventions should use "USD-SOFR-OIS".
+        "USD-OIS" => Some(mk(
+            Currency::USD,
+            RateIndexKind::OvernightRfr,
+            None,
+            DayCount::Act360,
+            Tenor::annual(),
+            2,
+            0,
+            Some(FloatingLegCompounding::fedfunds()),
+        )),
+        "USD-FEDFUNDS-OIS" | "USD-FEDFUNDS" | "USD-FF-OIS" | "USD-EFFR-OIS" | "USD-EFFR" => Some(
+            mk(
+                Currency::USD,
+                RateIndexKind::OvernightRfr,
+                None,
+                DayCount::Act360,
+                Tenor::annual(),
+                2,
+                0,
+                Some(FloatingLegCompounding::fedfunds()),
+            ),
+        ),
+        // GBP SONIA (Act/365F, commonly 5-day lookback convention)
+        "GBP-SONIA-OIS" | "GBP-SONIA" | "SONIA-OIS" => Some(mk(
+            Currency::GBP,
+            RateIndexKind::OvernightRfr,
+            None,
+            DayCount::Act365F,
+            Tenor::annual(),
+            2,
+            0,
+            Some(FloatingLegCompounding::sonia()),
+        )),
+        // EUR €STR (Act/360, commonly treated as 2-day lag/shift convention)
+        "EUR-ESTR-OIS" | "EUR-ESTR" | "ESTR-OIS" | "EUR-EST-OIS" | "EUR-EST" | "EST-OIS" => Some(
+            mk(
+                Currency::EUR,
+                RateIndexKind::OvernightRfr,
+                None,
+                DayCount::Act360,
+                Tenor::annual(),
+                2,
+                0,
+                Some(FloatingLegCompounding::estr()),
+            ),
+        ),
+        // JPY TONA (Act/365F, commonly 2-day lag convention)
+        "JPY-TONA-OIS" | "JPY-TONA" | "TONA-OIS" | "JPY-TONAR-OIS" | "JPY-TONAR" | "TONAR-OIS" => {
+            Some(mk(
+                Currency::JPY,
+                RateIndexKind::OvernightRfr,
+                None,
+                DayCount::Act365F,
+                Tenor::annual(),
+                2,
+                0,
+                Some(FloatingLegCompounding::tona()),
+            ))
+        }
+        // CHF SARON (Act/360 per common money-market style, 2-day lag default)
+        "CHF-SARON-OIS" | "CHF-SARON" | "SARON-OIS" => Some(mk(
+            Currency::CHF,
+            RateIndexKind::OvernightRfr,
+            None,
+            DayCount::Act360,
+            Tenor::annual(),
+            2,
+            0,
+            Some(FloatingLegCompounding::CompoundedInArrears {
+                lookback_days: 2,
+                observation_shift: None,
+            }),
+        )),
+        _ => {
+            // If we can't parse a currency token at all, do not claim registry match.
+            // (This prevents accidentally treating "OIS" in some unrelated name as USD OIS.)
+            let _ = currency_hint;
+            None
+        }
+    }
 }
 
 fn parse_currency_token(token: &str) -> Option<Currency> {
@@ -199,6 +354,8 @@ fn default_ois_compounding(currency: Currency, tokens: &[String]) -> FloatingLeg
         Currency::GBP => FloatingLegCompounding::sonia(),
         Currency::EUR => FloatingLegCompounding::estr(),
         Currency::JPY => FloatingLegCompounding::tona(),
+        // For USD, avoid assuming SOFR lookback unless it is explicitly tagged.
+        Currency::USD => FloatingLegCompounding::fedfunds(),
         _ => FloatingLegCompounding::sofr(),
     }
 }
@@ -243,6 +400,26 @@ mod tests {
             &IndexId::new("USD-FEDFUNDS-OIS"),
             Currency::USD,
         );
+        assert_eq!(c.kind, RateIndexKind::OvernightRfr);
+        assert_eq!(c.default_payment_frequency, Tenor::annual());
+        assert_eq!(c.default_payment_delay_days, 2);
+        assert_eq!(c.default_reset_lag_days, 0);
+        assert_eq!(c.ois_compounding, Some(FloatingLegCompounding::fedfunds()));
+    }
+
+    #[test]
+    fn treats_generic_usd_ois_as_no_lookback_by_default() {
+        let c = RateIndexConventions::for_index_with_currency(&IndexId::new("USD-OIS"), Currency::USD);
+        assert_eq!(c.kind, RateIndexKind::OvernightRfr);
+        assert_eq!(c.default_payment_frequency, Tenor::annual());
+        assert_eq!(c.default_payment_delay_days, 2);
+        assert_eq!(c.default_reset_lag_days, 0);
+        assert_eq!(c.ois_compounding, Some(FloatingLegCompounding::fedfunds()));
+    }
+
+    #[test]
+    fn treats_usd_sofr_index_as_no_lookback_by_default() {
+        let c = RateIndexConventions::for_index_with_currency(&IndexId::new("USD-SOFR"), Currency::USD);
         assert_eq!(c.kind, RateIndexKind::OvernightRfr);
         assert_eq!(c.default_payment_frequency, Tenor::annual());
         assert_eq!(c.default_payment_delay_days, 2);

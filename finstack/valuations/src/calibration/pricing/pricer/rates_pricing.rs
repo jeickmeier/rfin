@@ -7,7 +7,7 @@ use crate::instruments::basis_swap::{BasisSwap, BasisSwapLeg};
 use crate::instruments::common::traits::Instrument;
 use crate::instruments::deposit::Deposit;
 use crate::instruments::fra::ForwardRateAgreement;
-use crate::instruments::irs::{FixedLegSpec, FloatLegSpec, FloatingLegCompounding, PayReceive};
+use crate::instruments::irs::{FloatingLegCompounding, IrsLegConventions, PayReceive};
 use crate::instruments::InterestRateSwap;
 use finstack_core::dates::{Date, DayCount, StubKind, Tenor};
 use finstack_core::market_data::context::MarketContext;
@@ -155,7 +155,7 @@ impl CalibrationPricer {
         maturity: Date,
         rate: f64,
         resolved: &conv::ResolvedSwapConventions<'_>,
-        is_ois_quote: bool,
+        _is_ois_quote: bool,
         conventions: &InstrumentConventions,
         currency: Currency,
         context: &MarketContext,
@@ -166,38 +166,31 @@ impl CalibrationPricer {
         let payment_calendar_id = resolved.common.payment_calendar_id.to_string();
         let fixing_calendar_id = resolved.common.fixing_calendar_id.to_string();
 
-        let fixed_spec = FixedLegSpec {
-            discount_curve_id: self.discount_curve_id.clone(),
-            rate,
-            freq: resolved.fixed_freq,
-            dc: resolved.fixed_dc,
-            bdc: resolved.common.bdc,
-            calendar_id: Some(payment_calendar_id.clone()),
-            stub: StubKind::None,
-            par_method: None,
-            compounding_simple: true,
-            start,
-            end: maturity,
-            payment_delay_days: payment_delay,
-        };
+        // Determine whether to use OIS/compounding pricing:
+        // Use OIS compounding if the index is an overnight RFR (e.g. SOFR, SONIA, ESTR).
+        // This applies both for discount curve calibration and forward curve calibration.
+        let index_conv = RateIndexConventions::for_index_with_currency(resolved.index, currency);
+        let use_compounding = index_conv.kind == RateIndexKind::OvernightRfr;
 
-        // Determine whether to use OIS pricing:
-        // - For discount curve calibration (tenor_years=None): use OIS pricing if quote is OIS-suitable
-        // - For forward curve calibration (tenor_years=Some): always use standard pricing to project
-        //   using the forward curve being calibrated
-        let use_ois_pricing = is_ois_quote && self.tenor_years.is_none();
-
-        let (float_discount_id, float_forward_id, compounding) = if use_ois_pricing {
-            // OIS pricing: use same curve for discount and forward, with OIS compounding
+        let (float_discount_id, float_forward_id, compounding) = if use_compounding {
+            // OIS pricing: use discount curve for discounting.
+            // For projection, use forward_curve_id (the curve being calibrated)
+            // or discount_curve_id if this is a single-curve OIS calibration.
+            let proj_id = if self.tenor_years.is_none() {
+                self.discount_curve_id.clone()
+            } else {
+                self.forward_curve_id.clone()
+            };
+            
             (
                 self.discount_curve_id.clone(),
-                self.discount_curve_id.clone(),
-                RateIndexConventions::for_index_with_currency(resolved.index, currency)
+                proj_id,
+                index_conv
                     .ois_compounding
-                    .unwrap_or(FloatingLegCompounding::sofr()),
+                    .unwrap_or_else(FloatingLegCompounding::sofr),
             )
         } else {
-            // Standard pricing: separate discount and forward curves, simple compounding
+            // Standard term-rate pricing: separate discount and forward curves, simple compounding
             (
                 self.discount_curve_id.clone(),
                 self.forward_curve_id.clone(),
@@ -205,31 +198,48 @@ impl CalibrationPricer {
             )
         };
 
-        let float_spec = FloatLegSpec {
-            discount_curve_id: float_discount_id,
-            forward_curve_id: float_forward_id,
-            spread_bp: 0.0,
-            freq: resolved.float_freq,
-            dc: resolved.float_dc,
+        let conventions = IrsLegConventions {
+            fixed_freq: resolved.fixed_freq,
+            float_freq: resolved.float_freq,
+            fixed_dc: resolved.fixed_dc,
+            float_dc: resolved.float_dc,
             bdc: resolved.common.bdc,
-            calendar_id: Some(payment_calendar_id),
+            payment_calendar_id: Some(payment_calendar_id),
             fixing_calendar_id: Some(fixing_calendar_id),
             stub: StubKind::None,
             reset_lag_days: reset_lag,
-            start,
-            end: maturity,
-            compounding,
             payment_delay_days: payment_delay,
         };
 
-        let swap = InterestRateSwap {
-            id: format!("CALIB_SWAP_{}", maturity).into(),
-            notional: Money::new(1_000_000.0, currency),
-            side: PayReceive::ReceiveFixed,
-            fixed: fixed_spec,
-            float: float_spec,
-            margin_spec: None,
-            attributes: Default::default(),
+        let id = format!("CALIB_SWAP_{}", maturity).into();
+        let notional = Money::new(1_000_000.0, currency);
+        let side = PayReceive::ReceiveFixed;
+
+        let swap = if use_compounding {
+            InterestRateSwap::create_ois_swap_with_conventions(
+                id,
+                notional,
+                rate,
+                start,
+                maturity,
+                side,
+                float_discount_id,
+                float_forward_id,
+                compounding,
+                conventions,
+            )?
+        } else {
+            InterestRateSwap::create_term_swap_with_conventions(
+                id,
+                notional,
+                rate,
+                start,
+                maturity,
+                side,
+                float_discount_id,
+                float_forward_id,
+                conventions,
+            )?
         };
 
         let pv = swap.value(context, self.base_date)?;
@@ -377,36 +387,26 @@ impl CalibrationPricer {
         let payment_calendar_id = resolved.common.payment_calendar_id.to_string();
         let fixing_calendar_id = resolved.common.fixing_calendar_id.to_string();
 
-        // Determine whether to use OIS pricing (same logic as price_swap)
-        let use_ois_pricing = quote.is_ois_suitable() && self.tenor_years.is_none();
+        let index_conv = RateIndexConventions::for_index_with_currency(resolved.index, currency);
+        let use_compounding = index_conv.kind == RateIndexKind::OvernightRfr;
 
-        let compounding = if use_ois_pricing {
-            RateIndexConventions::for_index_with_currency(resolved.index, currency)
+        let compounding = if use_compounding {
+            index_conv
                 .ois_compounding
-                .unwrap_or(FloatingLegCompounding::sofr())
+                .unwrap_or_else(FloatingLegCompounding::sofr)
         } else {
             FloatingLegCompounding::Simple
         };
 
-        let fixed_spec = FixedLegSpec {
-            discount_curve_id: self.discount_curve_id.clone(),
-            rate,
-            freq: resolved.fixed_freq,
-            dc: resolved.fixed_dc,
-            bdc: resolved.common.bdc,
-            calendar_id: Some(payment_calendar_id.clone()),
-            stub: StubKind::None,
-            par_method: None,
-            compounding_simple: true,
-            start,
-            end: maturity,
-            payment_delay_days: payment_delay,
-        };
-
-        let (float_discount_id, float_forward_id) = if use_ois_pricing {
+        let (float_discount_id, float_forward_id) = if use_compounding {
+            let proj_id = if self.tenor_years.is_none() {
+                self.discount_curve_id.clone()
+            } else {
+                self.forward_curve_id.clone()
+            };
             (
                 self.discount_curve_id.clone(),
-                self.discount_curve_id.clone(),
+                proj_id,
             )
         } else {
             (
@@ -415,30 +415,48 @@ impl CalibrationPricer {
             )
         };
 
-        let float_spec = FloatLegSpec {
-            discount_curve_id: float_discount_id,
-            forward_curve_id: float_forward_id,
-            spread_bp: 0.0,
-            freq: resolved.float_freq,
-            dc: resolved.float_dc,
+        let conventions = IrsLegConventions {
+            fixed_freq: resolved.fixed_freq,
+            float_freq: resolved.float_freq,
+            fixed_dc: resolved.fixed_dc,
+            float_dc: resolved.float_dc,
             bdc: resolved.common.bdc,
-            calendar_id: Some(payment_calendar_id),
+            payment_calendar_id: Some(payment_calendar_id),
             fixing_calendar_id: Some(fixing_calendar_id),
             stub: StubKind::None,
             reset_lag_days: reset_lag,
-            start,
-            end: maturity,
-            compounding,
             payment_delay_days: payment_delay,
         };
 
-        InterestRateSwap::builder()
-            .id(format!("SWAP-{}", maturity).into())
-            .notional(notional)
-            .side(PayReceive::ReceiveFixed)
-            .fixed(fixed_spec)
-            .float(float_spec)
-            .build()
+        let id = format!("SWAP-{}", maturity).into();
+        let side = PayReceive::ReceiveFixed;
+
+        if use_compounding {
+            InterestRateSwap::create_ois_swap_with_conventions(
+                id,
+                notional,
+                rate,
+                start,
+                maturity,
+                side,
+                float_discount_id,
+                float_forward_id,
+                compounding,
+                conventions,
+            )
+        } else {
+            InterestRateSwap::create_term_swap_with_conventions(
+                id,
+                notional,
+                rate,
+                start,
+                maturity,
+                side,
+                float_discount_id,
+                float_forward_id,
+                conventions,
+            )
+        }
     }
 
     // =========================================================================
@@ -814,7 +832,7 @@ impl CalibrationPricer {
                         )
                     })?;
 
-                let reset_lag = float_leg_conventions
+                let reset_lag_quote = float_leg_conventions
                     .reset_lag
                     .or(conventions.reset_lag)
                     .or_else(|| {
@@ -831,6 +849,10 @@ impl CalibrationPricer {
                         )
                     })?;
 
+                // Quote reset lag is signed (e.g. -2 for T-2), while the IRS instrument expects
+                // an unsigned offset such that fixing_date = start - reset_lag_days.
+                let reset_lag_days = -reset_lag_quote;
+
                 let start = if self.conventions.use_settlement_start.unwrap_or(true) {
                     // settlement_date_for_quote_explicit uses pricer step-level conventions.
                     self.settlement_date_for_quote_explicit(conventions, currency)?
@@ -841,29 +863,19 @@ impl CalibrationPricer {
                 let payment_calendar_id = payment_calendar_id.to_string();
                 let fixing_calendar_id = fixing_calendar_id.to_string();
 
-                let fixed_spec = FixedLegSpec {
-                    discount_curve_id: self.discount_curve_id.clone(),
-                    rate: *rate,
-                    freq: fixed_freq,
-                    dc: fixed_dc,
-                    bdc,
-                    calendar_id: Some(payment_calendar_id.clone()),
-                    stub: StubKind::None,
-                    par_method: None,
-                    compounding_simple: true,
-                    start,
-                    end: *maturity,
-                    payment_delay_days: payment_delay,
-                };
-
-                let use_ois_pricing = quote.is_ois_suitable() && self.tenor_years.is_none();
-                let (float_discount_id, float_forward_id, compounding) = if use_ois_pricing {
+                let use_compounding = index_conv.kind == RateIndexKind::OvernightRfr;
+                let (float_discount_id, float_forward_id, compounding) = if use_compounding {
+                    let proj_id = if self.tenor_years.is_none() {
+                        self.discount_curve_id.clone()
+                    } else {
+                        self.forward_curve_id.clone()
+                    };
                     (
                         self.discount_curve_id.clone(),
-                        self.discount_curve_id.clone(),
-                        RateIndexConventions::for_index_with_currency(index, currency)
+                        proj_id,
+                        index_conv
                             .ois_compounding
-                            .unwrap_or(FloatingLegCompounding::sofr()),
+                            .unwrap_or_else(FloatingLegCompounding::sofr),
                     )
                 } else {
                     (
@@ -873,31 +885,48 @@ impl CalibrationPricer {
                     )
                 };
 
-                let float_spec = FloatLegSpec {
-                    discount_curve_id: float_discount_id,
-                    forward_curve_id: float_forward_id,
-                    spread_bp: 0.0,
-                    freq: float_freq,
-                    dc: float_dc,
+                let conventions = IrsLegConventions {
+                    fixed_freq,
+                    float_freq,
+                    fixed_dc,
+                    float_dc,
                     bdc,
-                    calendar_id: Some(payment_calendar_id),
+                    payment_calendar_id: Some(payment_calendar_id),
                     fixing_calendar_id: Some(fixing_calendar_id),
                     stub: StubKind::None,
-                    reset_lag_days: reset_lag,
-                    start,
-                    end: *maturity,
-                    compounding,
+                    reset_lag_days,
                     payment_delay_days: payment_delay,
                 };
 
-                let swap = InterestRateSwap {
-                    id: format!("CALIB_SWAP_{}", maturity).into(),
-                    notional: Money::new(1_000_000.0, currency),
-                    side: PayReceive::ReceiveFixed,
-                    fixed: fixed_spec,
-                    float: float_spec,
-                    margin_spec: None,
-                    attributes: Default::default(),
+                let id = format!("CALIB_SWAP_{}", maturity).into();
+                let notional = Money::new(1_000_000.0, currency);
+                let side = PayReceive::ReceiveFixed;
+
+                let swap = if use_compounding {
+                    InterestRateSwap::create_ois_swap_with_conventions(
+                        id,
+                        notional,
+                        *rate,
+                        start,
+                        *maturity,
+                        side,
+                        float_discount_id,
+                        float_forward_id,
+                        compounding,
+                        conventions,
+                    )?
+                } else {
+                    InterestRateSwap::create_term_swap_with_conventions(
+                        id,
+                        notional,
+                        *rate,
+                        start,
+                        *maturity,
+                        side,
+                        float_discount_id,
+                        float_forward_id,
+                        conventions,
+                    )?
                 };
                 let pv = swap.value(context, self.base_date)?;
                 Ok(pv.amount() / swap.notional.amount())

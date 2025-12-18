@@ -32,6 +32,7 @@
 //! - **ISDA 2006 Definitions**: Sections 4.1-4.2 (term rates)
 //! - **ISDA 2021 Definitions**: Section 4.5 (compounded RFR)
 
+use crate::instruments::irs::FloatingLegCompounding;
 use crate::instruments::InterestRateSwap;
 use crate::metrics::{MetricCalculator, MetricContext};
 
@@ -49,13 +50,25 @@ impl MetricCalculator for FloatLegPvCalculator {
         // Use the same discount curve as the main IRS pricer (fixed-leg curve)
         let disc = context.curves.get_discount(&irs.fixed.discount_curve_id)?;
 
-        let pv_money = if irs.is_ois() {
-            // OIS / compounded RFR swap: reuse discount-only helper for consistency with npv()
-            irs.pv_compounded_float_leg(&disc, as_of)?
-        } else {
-            // Non-OIS swap: requires forward curve for float leg pricing
-            let fwd = context.curves.get_forward(&irs.float.forward_curve_id)?;
-            irs.pv_float_leg(&disc, fwd.as_ref(), as_of)?
+        let pv_money = match irs.float.compounding {
+            FloatingLegCompounding::Simple => {
+                let fwd = context.curves.get_forward(&irs.float.forward_curve_id)?;
+                irs.pv_float_leg(&disc, fwd.as_ref(), as_of)?
+            }
+            FloatingLegCompounding::CompoundedInArrears { .. } => {
+                // Compounded RFR swap (single-curve or multi-curve).
+                //
+                // In single-curve setups the forward curve may not be loaded; in that case
+                // the pricer derives implied overnight forwards from the discount curve.
+                let proj = if irs.is_single_curve_ois() {
+                    context.curves.get_forward(&irs.float.forward_curve_id).ok()
+                } else {
+                    Some(context.curves.get_forward(&irs.float.forward_curve_id)?)
+                };
+                let fixings_id = format!("FIXING:{}", irs.float.forward_curve_id.as_str());
+                let fixings = context.curves.series(&fixings_id).ok();
+                irs.pv_compounded_float_leg(&disc, proj.as_deref(), as_of, fixings)?
+            }
         };
 
         Ok(pv_money.amount())

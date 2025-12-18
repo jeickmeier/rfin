@@ -148,11 +148,12 @@ pub struct FloatLegSpec {
     /// - `Simple` (default): LIBOR-style simple interest
     /// - `CompoundedInArrears`: SOFR/SONIA-style daily compounding
     ///
-    /// # Note
+    /// # Implementation Notes
     ///
-    /// Currently implemented for documentation and future use. The pricing
-    /// engine defaults to simple compounding for all floating legs.
-    /// Full compounded-in-arrears support will be added in a future release.
+    /// Compounded-in-arrears is implemented for IRS pricing in `instruments::irs` with
+    /// support for lookback and observation shift conventions. For seasoned (already
+    /// started) compounded swaps, pricing requires explicit fixings for observation
+    /// dates prior to `as_of`.
     #[cfg_attr(feature = "serde", serde(default))]
     pub compounding: crate::instruments::irs::FloatingLegCompounding,
     /// Payment delay in business days after period end (default: 0).

@@ -9,6 +9,8 @@ mod test_calibration;
 mod test_calibration_from_finstack_config;
 mod test_calibration_repricing;
 mod test_calibration_serialization;
+mod test_compounded_calibration_pricer;
+mod test_convention_semantics;
 mod test_discount_curve_calibration;
 mod test_discount_curve_time_axis;
 mod test_explainability;

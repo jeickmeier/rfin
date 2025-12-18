@@ -64,7 +64,13 @@ pub fn fixed_leg_schedule(irs: &InterestRateSwap) -> Result<CashFlowSchedule> {
             calendar_id: irs.fixed.calendar_id.as_deref().map(String::from),
             stub: irs.fixed.stub,
         });
-    fixed_b.build()
+    let mut sched = fixed_b.build()?;
+    // IRS do not exchange notionals; return coupon-only schedule as documented.
+    sched.flows.retain(|cf| {
+        cf.kind == crate::cashflow::primitives::CFKind::Fixed
+            || cf.kind == crate::cashflow::primitives::CFKind::Stub
+    });
+    Ok(sched)
 }
 
 /// Build an unsigned floating-leg cashflow schedule for an IRS.
@@ -147,7 +153,11 @@ pub fn float_leg_schedule_with_curves(
             freq: irs.float.freq,
             stub: irs.float.stub,
         });
-    float_b.build_with_curves(curves)
+    let mut sched = float_b.build_with_curves(curves)?;
+    // IRS do not exchange notionals; return coupon-only schedule as documented.
+    sched.flows
+        .retain(|cf| cf.kind == crate::cashflow::primitives::CFKind::FloatReset);
+    Ok(sched)
 }
 
 /// Build signed dated flows for an IRS, suitable for `CashflowProvider`.
@@ -370,4 +380,26 @@ pub fn full_signed_schedule_with_curves(
         day_count: irs.fixed.dc, // Use fixed leg day count as representative
         meta: Default::default(),
     })
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use finstack_core::cashflow::primitives::CFKind;
+
+    #[test]
+    fn irs_leg_schedules_do_not_emit_notional_flows() {
+        let irs = InterestRateSwap::example().expect("example IRS");
+        let fixed = fixed_leg_schedule(&irs).expect("fixed schedule");
+        assert!(
+            fixed.flows.iter().all(|cf| cf.kind == CFKind::Fixed || cf.kind == CFKind::Stub),
+            "fixed_leg_schedule should be coupon-only"
+        );
+
+        let float = float_leg_schedule(&irs).expect("float schedule");
+        assert!(
+            float.flows.iter().all(|cf| cf.kind == CFKind::FloatReset),
+            "float_leg_schedule should be coupon-only"
+        );
+    }
 }

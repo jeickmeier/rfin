@@ -8,7 +8,7 @@
 //! `CurveId`. Calendar identifiers remain `Option<&'static str>` for stable
 //! serde and lookups.
 use finstack_core::currency::Currency;
-use finstack_core::dates::Date;
+use finstack_core::dates::{BusinessDayConvention, Date, DayCount, StubKind, Tenor};
 use finstack_core::market_data::context::MarketContext;
 use finstack_core::money::Money;
 use finstack_core::types::{CurveId, InstrumentId};
@@ -23,6 +23,36 @@ pub use crate::instruments::common::parameters::legs::{ParRateMethod, PayReceive
 // Re-export from common parameters
 pub use crate::instruments::common::parameters::legs::FixedLegSpec;
 pub use crate::instruments::common::parameters::legs::FloatLegSpec;
+use crate::instruments::irs::FloatingLegCompounding;
+
+/// Leg-level conventions for building a vanilla fixed-vs-float IRS.
+///
+/// This is intentionally minimal: it captures the schedule/lag/calendar knobs
+/// that are commonly resolved from market conventions (e.g. calibration quote
+/// conventions) while keeping the instrument surface stable.
+#[derive(Clone, Debug)]
+pub struct IrsLegConventions {
+    /// Fixed leg payment frequency.
+    pub fixed_freq: Tenor,
+    /// Float leg payment frequency.
+    pub float_freq: Tenor,
+    /// Fixed leg accrual day-count.
+    pub fixed_dc: DayCount,
+    /// Float leg accrual day-count.
+    pub float_dc: DayCount,
+    /// Payment date business day convention.
+    pub bdc: BusinessDayConvention,
+    /// Calendar id used for payment date adjustment on both legs.
+    pub payment_calendar_id: Option<String>,
+    /// Calendar id used for fixing/reset date adjustment.
+    pub fixing_calendar_id: Option<String>,
+    /// Stub handling.
+    pub stub: StubKind,
+    /// Reset lag in business days (start - reset_lag_days).
+    pub reset_lag_days: i32,
+    /// Payment delay in business days after period end.
+    pub payment_delay_days: i32,
+}
 
 /// Interest rate swap with fixed and floating legs.
 ///
@@ -98,6 +128,142 @@ pub struct InterestRateSwap {
     pub attributes: Attributes,
 }
 
+impl InterestRateSwap {
+    /// Create a **term-rate** (LIBOR/SOFR-term style) swap with `Simple` floating compounding.
+    ///
+    /// This is a thin variant constructor intended to avoid drift between instrument
+    /// construction sites (e.g. calibration vs ad-hoc pricing) by centralizing the
+    /// leg wiring and `FloatingLegCompounding` selection.
+    ///
+    /// - Discounting always uses `discount_curve_id` (fixed leg discount curve).
+    /// - Projection always uses `forward_curve_id`.
+    #[allow(clippy::too_many_arguments)]
+    pub fn create_term_swap_with_conventions(
+        id: InstrumentId,
+        notional: Money,
+        fixed_rate: f64,
+        start: Date,
+        end: Date,
+        side: PayReceive,
+        discount_curve_id: CurveId,
+        forward_curve_id: CurveId,
+        conventions: IrsLegConventions,
+    ) -> finstack_core::Result<Self> {
+        let fixed = FixedLegSpec {
+            discount_curve_id: discount_curve_id.clone(),
+            rate: fixed_rate,
+            freq: conventions.fixed_freq,
+            dc: conventions.fixed_dc,
+            bdc: conventions.bdc,
+            calendar_id: conventions.payment_calendar_id.clone(),
+            stub: conventions.stub,
+            start,
+            end,
+            par_method: None,
+            compounding_simple: true,
+            payment_delay_days: conventions.payment_delay_days,
+        };
+
+        let float = FloatLegSpec {
+            discount_curve_id,
+            forward_curve_id,
+            spread_bp: 0.0,
+            freq: conventions.float_freq,
+            dc: conventions.float_dc,
+            bdc: conventions.bdc,
+            calendar_id: conventions.payment_calendar_id,
+            stub: conventions.stub,
+            reset_lag_days: conventions.reset_lag_days,
+            fixing_calendar_id: conventions.fixing_calendar_id,
+            start,
+            end,
+            compounding: FloatingLegCompounding::Simple,
+            payment_delay_days: conventions.payment_delay_days,
+        };
+
+        let swap = Self {
+            id,
+            notional,
+            side,
+            fixed,
+            float,
+            margin_spec: None,
+            attributes: Default::default(),
+        };
+        swap.validate()?;
+        Ok(swap)
+    }
+
+    /// Create an **OIS / overnight RFR** swap with compounded-in-arrears floating compounding.
+    ///
+    /// This constructor enforces that the floating leg uses `CompoundedInArrears` compounding.
+    /// For single-curve OIS pricing, pass `projection_curve_id == discount_curve_id`.
+    #[allow(clippy::too_many_arguments)]
+    pub fn create_ois_swap_with_conventions(
+        id: InstrumentId,
+        notional: Money,
+        fixed_rate: f64,
+        start: Date,
+        end: Date,
+        side: PayReceive,
+        discount_curve_id: CurveId,
+        projection_curve_id: CurveId,
+        ois_compounding: FloatingLegCompounding,
+        conventions: IrsLegConventions,
+    ) -> finstack_core::Result<Self> {
+        if matches!(ois_compounding, FloatingLegCompounding::Simple) {
+            return Err(finstack_core::error::Error::Validation(
+                "OIS swap requires compounded-in-arrears floating compounding (got Simple)"
+                    .to_string(),
+            ));
+        }
+
+        let fixed = FixedLegSpec {
+            discount_curve_id: discount_curve_id.clone(),
+            rate: fixed_rate,
+            freq: conventions.fixed_freq,
+            dc: conventions.fixed_dc,
+            bdc: conventions.bdc,
+            calendar_id: conventions.payment_calendar_id.clone(),
+            stub: conventions.stub,
+            start,
+            end,
+            par_method: None,
+            compounding_simple: true,
+            payment_delay_days: conventions.payment_delay_days,
+        };
+
+        let float = FloatLegSpec {
+            discount_curve_id,
+            forward_curve_id: projection_curve_id,
+            spread_bp: 0.0,
+            freq: conventions.float_freq,
+            dc: conventions.float_dc,
+            bdc: conventions.bdc,
+            calendar_id: conventions.payment_calendar_id,
+            stub: conventions.stub,
+            reset_lag_days: conventions.reset_lag_days,
+            fixing_calendar_id: conventions.fixing_calendar_id,
+            start,
+            end,
+            compounding: ois_compounding,
+            payment_delay_days: conventions.payment_delay_days,
+        };
+
+        let swap = Self {
+            id,
+            notional,
+            side,
+            fixed,
+            float,
+            margin_spec: None,
+            attributes: Default::default(),
+        };
+        swap.validate()?;
+        Ok(swap)
+    }
+}
+
 /// Configuration for standard swap construction.
 struct SwapConfig<'a> {
     disc_curve: &'a str,
@@ -108,13 +274,13 @@ struct SwapConfig<'a> {
 
 /// Schedule configuration with separate fixed and float leg parameters
 struct IRSScheduleConfig {
-    fixed_freq: finstack_core::dates::Tenor,
-    fixed_dc: finstack_core::dates::DayCount,
-    float_freq: finstack_core::dates::Tenor,
-    float_dc: finstack_core::dates::DayCount,
-    bdc: finstack_core::dates::BusinessDayConvention,
+    fixed_freq: Tenor,
+    fixed_dc: DayCount,
+    float_freq: Tenor,
+    float_dc: DayCount,
+    bdc: BusinessDayConvention,
     calendar_id: Option<String>,
-    stub: finstack_core::dates::StubKind,
+    stub: StubKind,
 }
 
 impl IRSScheduleConfig {
@@ -172,6 +338,59 @@ impl InterestRateSwap {
     /// # Ok::<(), finstack_core::Error>(())
     /// ```
     pub fn validate(&self) -> finstack_core::Result<()> {
+        // Validate finiteness early to avoid NaN poisoning and panics in downstream code.
+        if !self.notional.amount().is_finite() {
+            return Err(finstack_core::error::Error::Validation(
+                "Invalid notional: amount must be finite.".into(),
+            ));
+        }
+        if !self.fixed.rate.is_finite() {
+            return Err(finstack_core::error::Error::Validation(
+                "Invalid fixed rate: must be finite.".into(),
+            ));
+        }
+        if !self.float.spread_bp.is_finite() {
+            return Err(finstack_core::error::Error::Validation(
+                "Invalid floating spread (bp): must be finite.".into(),
+            ));
+        }
+
+        // Reset lag is a signed business-day offset applied to the accrual start to obtain
+        // the reset/fixing date. Market convention for "T-2" is commonly represented as -2.
+        // Guard only against absurd magnitudes that indicate unit mistakes.
+        if self.float.reset_lag_days.abs() > 31 {
+            return Err(finstack_core::error::Error::Validation(
+                "Invalid floating reset lag: absolute value too large (expected a small number of business days)."
+                    .into(),
+            ));
+        }
+        if self.fixed.payment_delay_days < 0 || self.float.payment_delay_days < 0 {
+            return Err(finstack_core::error::Error::Validation(
+                "Invalid payment delay: must be non-negative (business days).".into(),
+            ));
+        }
+        if let crate::instruments::irs::FloatingLegCompounding::CompoundedInArrears {
+            lookback_days,
+            observation_shift,
+        } = self.float.compounding
+        {
+            if lookback_days < 0 {
+                return Err(finstack_core::error::Error::Validation(
+                    "Invalid RFR lookback: must be non-negative (business days).".into(),
+                ));
+            }
+            if let Some(shift) = observation_shift {
+                // Observation shift can be negative, but must be within a sane bound to avoid
+                // accidental unit mistakes (e.g., passing years as days).
+                if shift.abs() > 31 {
+                    return Err(finstack_core::error::Error::Validation(
+                        "Invalid observation shift: absolute value too large (expected a small number of business days)."
+                            .into(),
+                    ));
+                }
+            }
+        }
+
         // Validate fixed leg date range
         if self.fixed.end <= self.fixed.start {
             return Err(finstack_core::error::Error::Validation(format!(
@@ -550,5 +769,29 @@ mod tests {
         assert_eq!(swap.fixed.end, end);
         assert_eq!(swap.float.start, start);
         assert_eq!(swap.float.end, end);
+    }
+
+    #[test]
+    fn validate_rejects_nan_rate_and_spread() {
+        let mut swap = InterestRateSwap::example().expect("example swap");
+        swap.fixed.rate = f64::NAN;
+        assert!(swap.validate().is_err(), "NaN fixed rate must be rejected");
+
+        let mut swap2 = InterestRateSwap::example().expect("example swap2");
+        swap2.float.spread_bp = f64::INFINITY;
+        assert!(
+            swap2.validate().is_err(),
+            "Infinite spread must be rejected"
+        );
+    }
+
+    #[test]
+    fn validate_rejects_negative_payment_delay_and_reset_lag() {
+        let mut swap = InterestRateSwap::example().expect("example swap");
+        swap.fixed.payment_delay_days = -1;
+        assert!(
+            swap.validate().is_err(),
+            "negative payment delay must be rejected"
+        );
     }
 }

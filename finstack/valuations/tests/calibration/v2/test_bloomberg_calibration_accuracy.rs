@@ -108,7 +108,10 @@ fn ois_swap(maturity: Date, rate: f64) -> RatesQuote {
         float_leg_conventions: common_conventions
             .with_payment_frequency(Tenor::annual())
             .with_day_count(DayCount::Act360)
-            .with_index("USD-SOFR"),
+            // Bloomberg curve tables are typically built using a simplified OIS convention
+            // without observation lookback/shift. Use the generic USD OIS index here to
+            // match the published discount factor table more closely.
+            .with_index("USD-OIS"),
     }
 }
 

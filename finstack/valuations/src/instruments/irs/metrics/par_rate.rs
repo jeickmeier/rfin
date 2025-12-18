@@ -39,35 +39,42 @@
 //! - Hull, J. C. (2018). *Options, Futures, and Other Derivatives*. Chapter 7.
 //! - Kahan, W. (1965). "Further Remarks on Reducing Truncation Errors."
 
-use crate::instruments::{irs::ParRateMethod, InterestRateSwap};
+use crate::instruments::irs::{ParRateMethod, FloatingLegCompounding};
+use crate::instruments::InterestRateSwap;
 use crate::metrics::{MetricCalculator, MetricContext, MetricId};
 use finstack_core::dates::Date;
 use finstack_core::market_data::term_structures::discount_curve::DiscountCurve;
-use finstack_core::math::kahan_sum;
-
-/// Basis points to decimal conversion factor.
-const BP_TO_DECIMAL: f64 = 1e-4;
 
 /// Minimum threshold for annuity values to avoid division by near-zero.
-///
-/// Set to 1e-12 to protect against:
-/// - Expired swaps (no future cashflows)
-/// - Very short stub periods
-/// - Extreme discounting scenarios
-///
-/// This aligns with ISDA stress testing requirements and ensures numerical
-/// stability for par rate calculations.
 const ANNUITY_EPSILON: f64 = 1e-12;
 
+/// Returns true if the DiscountRatio identity is valid for this IRS configuration.
+///
+/// Market-standard prerequisites for using `(DF(start)-DF(end))/annuity`:
+/// - Unseasoned: `as_of <= start`
+/// - Single-curve: forward curve id == discount curve id
+/// - Term-style floating leg (`Simple`) with **no spread**
+/// - No payment delays on either leg (otherwise numerator dates don't align with payment DFs)
+fn discount_ratio_allowed(irs: &InterestRateSwap, as_of: Date) -> bool {
+    if as_of > irs.fixed.start {
+        return false;
+    }
+    if irs.float.forward_curve_id != irs.fixed.discount_curve_id {
+        return false;
+    }
+    if !matches!(irs.float.compounding, FloatingLegCompounding::Simple) {
+        return false;
+    }
+    if irs.float.spread_bp.abs() > f64::EPSILON {
+        return false;
+    }
+    if irs.fixed.payment_delay_days != 0 || irs.float.payment_delay_days != 0 {
+        return false;
+    }
+    true
+}
+
 /// Par rate calculator for interest rate swaps.
-///
-/// Computes the fixed rate that makes the swap's net present value equal to zero.
-/// Supports both forward-based (works for seasoned swaps) and discount-ratio
-/// (exact for unseasoned swaps only) methods.
-///
-/// # Dependencies
-///
-/// Requires the `Annuity` metric to be computed first.
 pub struct ParRateCalculator;
 
 impl MetricCalculator for ParRateCalculator {
@@ -77,16 +84,24 @@ impl MetricCalculator for ParRateCalculator {
 
     fn calculate(&self, context: &mut MetricContext) -> finstack_core::Result<f64> {
         let irs: &InterestRateSwap = context.instrument_as()?;
-
         let disc = context.curves.get_discount(&irs.fixed.discount_curve_id)?;
+        
         let method = irs.fixed.par_method.unwrap_or(ParRateMethod::ForwardBased);
+        
+        // For compounded swaps, we always use the forward-based (PV-based) method
+        // to ensure all RFR-specific conventions (lookback, shift) are captured.
+        if matches!(irs.float.compounding, FloatingLegCompounding::CompoundedInArrears { .. }) {
+            return par_rate_pv_based(irs, context, &disc);
+        }
+
         match method {
-            ParRateMethod::ForwardBased => par_rate_forward_based(irs, context, &disc),
+            ParRateMethod::ForwardBased => par_rate_pv_based(irs, context, &disc),
             ParRateMethod::DiscountRatio => {
-                // (P(as_of,T0) - P(as_of,Tn)) / Sum alpha_i P(as_of,Ti)
-                // This formulation is only exact for unseasoned swaps where
-                // `as_of` is on or before the fixed leg start date.
                 let as_of = context.as_of;
+                if !discount_ratio_allowed(irs, as_of) {
+                    // Safer default: fall back to PV-based par rate when identity prerequisites do not hold.
+                    return par_rate_pv_based(irs, context, &disc);
+                }
                 let sched = crate::cashflow::builder::build_dates(
                     irs.fixed.start,
                     irs.fixed.end,
@@ -98,18 +113,14 @@ impl MetricCalculator for ParRateCalculator {
                 let dates: Vec<Date> = sched.dates;
                 if dates.len() < 2 {
                     return Err(finstack_core::error::Error::Validation(
-                        "Par rate calculation failed: swap schedule has fewer than 2 dates. \
-                         Check that start and end dates are valid and frequency allows at least one period.".into()
+                        "Par rate calculation failed: swap schedule has fewer than 2 dates.".into()
                     ));
                 }
 
-                // For seasoned swaps (`as_of` after the start date), fall back to the
-                // forward-based method, which is robust for live trades.
                 if as_of > dates[0] {
-                    return par_rate_forward_based(irs, context, &disc);
+                    return par_rate_pv_based(irs, context, &disc);
                 }
 
-                // Numerator: P(as_of,T0) - P(as_of,Tn)
                 let p0 = crate::instruments::irs::pricer::relative_df(&disc, as_of, dates[0])?;
                 let pn = crate::instruments::irs::pricer::relative_df(
                     &disc,
@@ -118,146 +129,146 @@ impl MetricCalculator for ParRateCalculator {
                 )?;
                 let num = p0 - pn;
 
-                // Denominator: Sum alpha_i P(as_of,Ti) for future cashflows
-                // Use Kahan summation for numerical stability
-                let mut terms = Vec::with_capacity(dates.len());
-                let mut prev = dates[0];
-                for &d in &dates[1..] {
-                    // Only include future cashflows
-                    if d <= as_of {
-                        prev = d;
-                        continue;
-                    }
-
-                    let alpha = irs.fixed.dc.year_fraction(
-                        prev,
-                        d,
-                        finstack_core::dates::DayCountCtx::default(),
-                    )?;
-                    let p = crate::instruments::irs::pricer::relative_df(&disc, as_of, d)?;
-                    terms.push(alpha * p);
-                    prev = d;
+                let annuity = context.computed.get(&MetricId::Annuity).copied().unwrap_or(0.0);
+                if annuity.abs() < ANNUITY_EPSILON {
+                    return Err(finstack_core::error::Error::Validation("Annuity near zero".into()));
+                }
+                
+                // Note: DiscountRatio usually assumes zero spread on the floating leg.
+                // If there's a spread, we must use the PV-based method.
+                if irs.float.spread_bp.abs() > f64::EPSILON {
+                    return par_rate_pv_based(irs, context, &disc);
                 }
 
-                let den = kahan_sum(terms);
-
-                // Guard against division by near-zero annuity
-                if den.abs() < ANNUITY_EPSILON {
-                    return Err(finstack_core::error::Error::Validation(format!(
-                        "Par rate calculation failed: annuity ({:.2e}) is below numerical stability \
-                         threshold ({:.2e}). This may indicate an expired swap, degenerate schedule, \
-                         or extreme discounting scenario.",
-                        den, ANNUITY_EPSILON
-                    )));
-                }
-                Ok(num / den)
+                Ok(num / annuity)
             }
         }
     }
 }
 
-/// Forward-based par rate calculation used for both the default method and
-/// as a fallback when the discount-ratio method is not applicable (e.g. for
-/// seasoned swaps where `as_of` is after the fixed leg start date).
+/// Par rate calculation based on PV of the floating leg.
 ///
-/// # Numerical Stability
-///
-/// - Uses Kahan compensated summation for PV accumulation
-/// - Guards against division by near-zero annuity with ANNUITY_EPSILON threshold
-/// - Returns descriptive errors for degenerate cases
-fn par_rate_forward_based(
+/// Refactored to reuse the pricer's own floating leg PV logic for perfect consistency.
+fn par_rate_pv_based(
     irs: &InterestRateSwap,
     ctx: &MetricContext,
     disc: &DiscountCurve,
 ) -> finstack_core::Result<f64> {
-    // float PV / (N * annuity)
-    let fwd = ctx.curves.get_forward(&irs.float.forward_curve_id)?;
     let as_of = ctx.as_of;
-    let base = disc.base_date();
-
-    // Annuity is sum(yf*df) in years (computed with Kahan summation in AnnuityCalculator)
     let annuity = ctx.computed.get(&MetricId::Annuity).copied().unwrap_or(0.0);
 
-    // Guard against division by near-zero annuity
     if annuity.abs() < ANNUITY_EPSILON {
         return Err(finstack_core::error::Error::Validation(format!(
             "Par rate calculation failed: annuity ({:.2e}) is below numerical stability \
-             threshold ({:.2e}). This may indicate an expired swap, degenerate schedule, \
-             or extreme discounting scenario.",
+             threshold ({:.2e}).",
             annuity, ANNUITY_EPSILON
         )));
     }
 
-    let fs = crate::cashflow::builder::build_dates(
-        irs.float.start,
-        irs.float.end,
-        irs.float.freq,
-        irs.float.stub,
-        irs.float.bdc,
-        irs.float.calendar_id.as_deref(),
-    );
-    let schedule: Vec<Date> = fs.dates;
-    if schedule.len() < 2 {
-        return Err(finstack_core::error::Error::Validation(
-            "Par rate calculation failed: floating leg schedule has fewer than 2 dates. \
-             Check that start and end dates are valid and frequency allows at least one period."
-                .into(),
-        ));
-    }
-
-    // Collect terms for Kahan summation
-    let mut terms = Vec::with_capacity(schedule.len());
-    let mut prev = schedule[0];
-    for &d in &schedule[1..] {
-        // Only include future cashflows
-        if d <= as_of {
-            prev = d;
-            continue;
+    // Reuse the pricer's PV logic based on compounding type
+    let pv_float = match irs.float.compounding {
+        FloatingLegCompounding::Simple => {
+            let fwd = ctx.curves.get_forward(&irs.float.forward_curve_id)?;
+            irs.pv_float_leg(disc, fwd.as_ref(), as_of)?
         }
-
-        // Times to accrual boundaries measured from curve base date. Clamp to
-        // zero if the boundary is on or before the base date to avoid invalid
-        // date ranges when the curve is built with `base_date = as_of`.
-        let t1 = if prev <= base {
-            0.0
-        } else {
-            irs.float
-                .dc
-                .year_fraction(base, prev, finstack_core::dates::DayCountCtx::default())?
-        };
-        let t2 = if d <= base {
-            0.0
-        } else {
-            irs.float
-                .dc
-                .year_fraction(base, d, finstack_core::dates::DayCountCtx::default())?
-        };
-
-        let yf =
-            irs.float
-                .dc
-                .year_fraction(prev, d, finstack_core::dates::DayCountCtx::default())?;
-
-        // Only call rate_period if t1 < t2 to avoid date ordering errors
-        let f = if t2 > t1 {
-            fwd.rate_period(t1, t2)
-        } else {
-            0.0
-        };
-        let rate = f + (irs.float.spread_bp * BP_TO_DECIMAL);
-        let coupon = irs.notional.amount() * rate * yf;
-
-        // Use shared helper - handles epsilon validation and relative DF calculation
-        let df = crate::instruments::irs::pricer::relative_df(disc, as_of, d)?;
-
-        terms.push(coupon * df);
-        prev = d;
-    }
-
-    // Use Kahan compensated summation for numerical stability
-    let pv = kahan_sum(terms);
+        FloatingLegCompounding::CompoundedInArrears { .. } => {
+            let proj = if irs.is_single_curve_ois() {
+                ctx.curves.get_forward(&irs.float.forward_curve_id).ok()
+            } else {
+                Some(ctx.curves.get_forward(&irs.float.forward_curve_id)?)
+            };
+            let fixings_id = format!("FIXING:{}", irs.float.forward_curve_id.as_str());
+            let fixings = ctx.curves.series(&fixings_id).ok();
+            irs.pv_compounded_float_leg(disc, proj.as_deref(), as_of, fixings)?
+        }
+    };
 
     // Par rate = float_pv / (notional * annuity)
-    // Annuity is sum(yf*df), so this gives: pv / (notional * sum(yf*df))
-    Ok(pv / (irs.notional.amount() * annuity))
+    Ok(pv_float.amount() / (irs.notional.amount() * annuity))
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use finstack_core::currency::Currency;
+    use finstack_core::dates::{BusinessDayConvention, DayCount, StubKind, Tenor};
+    use finstack_core::money::Money;
+    use finstack_core::types::{CurveId, InstrumentId};
+    use time::Month;
+
+    fn date(y: i32, m: u8, d: u8) -> Date {
+        Date::from_calendar_date(y, Month::try_from(m).expect("valid month"), d)
+            .expect("valid date")
+    }
+
+    #[test]
+    fn discount_ratio_allowed_requires_single_curve_no_spread_no_payment_delay_unseasoned() {
+        let disc = CurveId::new("DISC");
+        let fwd = CurveId::new("FWD");
+        let start = date(2024, 1, 10);
+        let end = date(2025, 1, 10);
+        let as_of = date(2024, 1, 1);
+
+        let irs = InterestRateSwap::builder()
+            .id(InstrumentId::new("IRS"))
+            .notional(Money::new(1_000_000.0, Currency::USD))
+            .side(crate::instruments::irs::PayReceive::PayFixed)
+            .fixed(crate::instruments::common::parameters::legs::FixedLegSpec {
+                discount_curve_id: disc.clone(),
+                rate: 0.03,
+                freq: Tenor::semi_annual(),
+                dc: DayCount::Thirty360,
+                bdc: BusinessDayConvention::ModifiedFollowing,
+                calendar_id: None,
+                stub: StubKind::None,
+                start,
+                end,
+                par_method: Some(ParRateMethod::DiscountRatio),
+                compounding_simple: true,
+                payment_delay_days: 0,
+            })
+            .float(crate::instruments::common::parameters::legs::FloatLegSpec {
+                discount_curve_id: disc.clone(),
+                forward_curve_id: fwd.clone(), // multi-curve
+                spread_bp: 0.0,
+                freq: Tenor::quarterly(),
+                dc: DayCount::Act360,
+                bdc: BusinessDayConvention::ModifiedFollowing,
+                calendar_id: None,
+                stub: StubKind::None,
+                reset_lag_days: 2,
+                start,
+                end,
+                compounding: FloatingLegCompounding::Simple,
+                fixing_calendar_id: None,
+                payment_delay_days: 0,
+            })
+            .build()
+            .expect("irs");
+
+        assert!(!discount_ratio_allowed(&irs, as_of), "multi-curve not allowed");
+
+        let mut irs2 = irs.clone();
+        irs2.float.forward_curve_id = disc.clone();
+        assert!(discount_ratio_allowed(&irs2, as_of), "single-curve allowed");
+
+        irs2.float.spread_bp = 5.0;
+        assert!(!discount_ratio_allowed(&irs2, as_of), "spread disallowed");
+
+        let mut irs3 = irs2.clone();
+        irs3.float.spread_bp = 0.0;
+        irs3.float.payment_delay_days = 2;
+        assert!(
+            !discount_ratio_allowed(&irs3, as_of),
+            "payment delay disallowed"
+        );
+
+        let seasoned_as_of = date(2024, 2, 1);
+        let mut irs4 = irs.clone();
+        irs4.float.forward_curve_id = disc.clone();
+        assert!(
+            !discount_ratio_allowed(&irs4, seasoned_as_of),
+            "seasoned disallowed"
+        );
+    }
 }
