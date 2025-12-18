@@ -7,6 +7,7 @@ use finstack_valuations::calibration::adapters::discount::{
     DiscountCurveTarget, DiscountCurveTargetParams,
 };
 use finstack_valuations::calibration::pricing::CalibrationPricer;
+use finstack_valuations::calibration::pricing::PreparedRatesQuote;
 use finstack_valuations::calibration::quotes::{InstrumentConventions, RatesQuote};
 use finstack_valuations::calibration::solver::{BootstrapTarget, GlobalSolveTarget};
 use finstack_valuations::calibration::CalibrationConfig;
@@ -56,14 +57,21 @@ fn bench_discount_v2_residuals(c: &mut Criterion) {
         base_context: MarketContext::new(),
     });
 
+    let strict = target.pricer.conventions.strict_pricing.unwrap_or(false);
+    let prepared_quotes: Vec<PreparedRatesQuote> = quotes
+        .into_iter()
+        .map(|q| PreparedRatesQuote::new(&target.pricer, q, Currency::USD, strict))
+        .collect::<finstack_core::Result<_>>()
+        .expect("prepare quotes");
+
     let knots = vec![(0.0, 1.0), (0.5, 0.98), (2.0, 0.9)];
     let curve = target.build_curve_for_solver(&knots).expect("temp curve");
-    let mut residuals = vec![0.0; quotes.len()];
+    let mut residuals = vec![0.0; prepared_quotes.len()];
 
     c.bench_function("discount_v2_residuals_seq", |b| {
         b.iter(|| {
             target
-                .calculate_residuals(&curve, &quotes, &mut residuals)
+                .calculate_residuals(&curve, &prepared_quotes, &mut residuals)
                 .expect("residual calculation");
         });
     });

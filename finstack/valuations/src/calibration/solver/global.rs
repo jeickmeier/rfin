@@ -9,8 +9,7 @@ use crate::calibration::constants::PENALTY;
 use crate::calibration::{CalibrationConfig, CalibrationReport};
 use finstack_core::prelude::*;
 use std::collections::BTreeMap;
-use std::sync::atomic::{AtomicUsize, Ordering};
-use std::sync::{Arc, Mutex};
+use std::cell::{Cell, RefCell};
 
 fn penalty_residual_value(params: &[f64]) -> f64 {
     // Avoid a perfectly flat penalty surface: add a small, scale-aware component
@@ -95,14 +94,10 @@ impl GlobalFitOptimizer {
 
         let solver = config.create_lm_solver();
 
-        // Trackers
-        let eval_diagnostics: Arc<Mutex<EvalDiagnostics>> =
-            Arc::new(Mutex::new(EvalDiagnostics::default()));
-        let eval_counter = Arc::new(AtomicUsize::new(0));
-
-        // Clones for closure
-        let eval_diagnostics_clone = Arc::clone(&eval_diagnostics);
-        let eval_counter_clone = Arc::clone(&eval_counter);
+        // Trackers (hot path): solver closures only require `Fn`, not `Send + Sync`,
+        // so we can avoid `Arc/Atomic/Mutex` and use cheap interior mutability.
+        let eval_diagnostics: RefCell<EvalDiagnostics> = RefCell::new(EvalDiagnostics::default());
+        let eval_counter: Cell<usize> = Cell::new(0);
 
         let mut weights = vec![1.0_f64; n_residuals];
         target.residual_weights(&active_quotes, &mut weights)?;
@@ -126,11 +121,12 @@ impl GlobalFitOptimizer {
         let weight_scales: Vec<f64> = weights.iter().map(|w| w.sqrt()).collect();
 
         let residuals_func = |params: &[f64], resid: &mut [f64]| {
-            let eval_idx = eval_counter_clone.fetch_add(1, Ordering::Relaxed) + 1;
+            let eval_idx = eval_counter.get() + 1;
+            eval_counter.set(eval_idx);
 
             if resid.len() < n_residuals {
                 record_eval_error(
-                    &eval_diagnostics_clone,
+                    &eval_diagnostics,
                     eval_idx,
                     "residual buffer",
                     params,
@@ -154,7 +150,7 @@ impl GlobalFitOptimizer {
                 Ok(c) => c,
                 Err(e) => {
                     record_eval_error(
-                        &eval_diagnostics_clone,
+                        &eval_diagnostics,
                         eval_idx,
                         "curve construction",
                         params,
@@ -170,7 +166,7 @@ impl GlobalFitOptimizer {
                 target.calculate_residuals(&curve, &active_quotes, &mut resid[..n_residuals])
             {
                 record_eval_error(
-                    &eval_diagnostics_clone,
+                    &eval_diagnostics,
                     eval_idx,
                     "residual evaluation",
                     params,
@@ -291,7 +287,7 @@ impl GlobalFitOptimizer {
         .with_metadata("residual_evals", stats.residual_evals.to_string())
         .with_metadata(
             "residual_closure_evals",
-            eval_counter.load(Ordering::Relaxed).to_string(),
+            eval_counter.get().to_string(),
         )
         .with_metadata(
             "lm_termination_reason",
@@ -322,7 +318,8 @@ impl GlobalFitOptimizer {
         );
 
         // Attach diagnostics from any infeasible evaluations encountered during solving.
-        if let Ok(diag) = eval_diagnostics.lock() {
+        {
+            let diag = eval_diagnostics.borrow();
             report.metadata.insert(
                 "invalid_eval_count".to_string(),
                 diag.invalid_eval_count.to_string(),
@@ -422,27 +419,26 @@ struct EvalDiagnostics {
 }
 
 fn record_eval_error(
-    store: &Arc<Mutex<EvalDiagnostics>>,
+    store: &RefCell<EvalDiagnostics>,
     eval_idx: usize,
     stage: &str,
     params: &[f64],
     detail: &str,
 ) {
-    if let Ok(mut diag) = store.lock() {
-        diag.invalid_eval_count += 1;
-        if diag.first_invalid_eval.is_some() {
-            return;
-        }
-        let (min_param, max_param) = param_range(params);
-        diag.first_invalid_eval = Some(format!(
-            "Global fit {stage} failed at eval #{eval_idx} (param_range=[{min:.4e}, {max:.4e}]): {detail}",
-            stage = stage,
-            eval_idx = eval_idx,
-            min = min_param,
-            max = max_param,
-            detail = detail
-        ));
+    let mut diag = store.borrow_mut();
+    diag.invalid_eval_count += 1;
+    if diag.first_invalid_eval.is_some() {
+        return;
     }
+    let (min_param, max_param) = param_range(params);
+    diag.first_invalid_eval = Some(format!(
+        "Global fit {stage} failed at eval #{eval_idx} (param_range=[{min:.4e}, {max:.4e}]): {detail}",
+        stage = stage,
+        eval_idx = eval_idx,
+        min = min_param,
+        max = max_param,
+        detail = detail
+    ));
 }
 
 fn param_range(params: &[f64]) -> (f64, f64) {

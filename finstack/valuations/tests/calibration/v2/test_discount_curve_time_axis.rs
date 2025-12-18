@@ -6,6 +6,7 @@ use finstack_valuations::calibration::adapters::discount::{
     DiscountCurveTarget, DiscountCurveTargetParams,
 };
 use finstack_valuations::calibration::pricing::CalibrationPricer;
+use finstack_valuations::calibration::pricing::PreparedRatesQuote;
 use finstack_valuations::calibration::quotes::{InstrumentConventions, RatesQuote};
 use finstack_valuations::calibration::solver::{BootstrapTarget, GlobalSolveTarget};
 use finstack_valuations::calibration::CalibrationConfig;
@@ -72,7 +73,10 @@ fn quote_time_uses_curve_day_count_not_instrument_defaults() {
         CalibrationPricer::new(base_date, CurveId::from("USD-OIS")),
     );
 
-    let actual = target.quote_time(&quote).expect("quote time");
+    let strict = target.pricer.conventions.strict_pricing.unwrap_or(false);
+    let prepared =
+        PreparedRatesQuote::new(&target.pricer, quote, Currency::USD, strict).expect("prepare");
+    let actual = target.quote_time(&prepared).expect("quote time");
     let expected = DayCount::Act365F
         .year_fraction(
             base_date,
@@ -114,7 +118,10 @@ fn deposit_initial_guess_respects_business_day_settlement() {
 
     let target = build_target(base_date, settlement_date, pricer);
 
-    let df = target.initial_guess(&quote, &[]).expect("initial guess");
+    let strict = target.pricer.conventions.strict_pricing.unwrap_or(false);
+    let prepared =
+        PreparedRatesQuote::new(&target.pricer, quote.clone(), Currency::USD, strict).expect("prepare");
+    let df = target.initial_guess(&prepared, &[]).expect("initial guess");
 
     let day_count = quote.conventions().day_count.unwrap();
     let yf = day_count
@@ -154,7 +161,12 @@ fn global_solve_time_grid_is_sorted() {
         CalibrationPricer::new(base_date, CurveId::from("USD-OIS")),
     );
 
-    let unsorted = vec![quote_long.clone(), quote_short.clone()];
+    let strict = target.pricer.conventions.strict_pricing.unwrap_or(false);
+    let quote_long_p =
+        PreparedRatesQuote::new(&target.pricer, quote_long, Currency::USD, strict).expect("prepare");
+    let quote_short_p =
+        PreparedRatesQuote::new(&target.pricer, quote_short, Currency::USD, strict).expect("prepare");
+    let unsorted = vec![quote_long_p.clone(), quote_short_p.clone()];
     let (times, _, active_quotes) = target
         .build_time_grid_and_guesses(&unsorted)
         .expect("sorted grid");
@@ -165,7 +177,10 @@ fn global_solve_time_grid_is_sorted() {
         times
     );
 
-    let maturities: Vec<Date> = active_quotes.iter().map(|q| q.maturity_date()).collect();
+    let maturities: Vec<Date> = active_quotes
+        .iter()
+        .map(|q| q.quote.maturity_date())
+        .collect();
     assert_eq!(maturities, vec![maturity_short, maturity_long]);
 }
 
@@ -191,8 +206,14 @@ fn global_solve_rejects_duplicate_times() {
         CalibrationPricer::new(base_date, CurveId::from("USD-OIS")),
     );
 
+    let strict = target.pricer.conventions.strict_pricing.unwrap_or(false);
+    let quote_a_p =
+        PreparedRatesQuote::new(&target.pricer, quote_a, Currency::USD, strict).expect("prepare");
+    let quote_b_p =
+        PreparedRatesQuote::new(&target.pricer, quote_b, Currency::USD, strict).expect("prepare");
+
     let err = target
-        .build_time_grid_and_guesses(&[quote_a, quote_b])
+        .build_time_grid_and_guesses(&[quote_a_p, quote_b_p])
         .expect_err("duplicate times should error");
 
     if let finstack_core::Error::Calibration { category, .. } = err {
@@ -365,9 +386,12 @@ fn scan_points_cover_short_end_range() {
         conventions,
     };
 
-    let guess = target.initial_guess(&quote, &[]).expect("initial guess");
+    let strict = target.pricer.conventions.strict_pricing.unwrap_or(false);
+    let prepared =
+        PreparedRatesQuote::new(&target.pricer, quote, Currency::USD, strict).expect("prepare");
+    let guess = target.initial_guess(&prepared, &[]).expect("initial guess");
     let grid = target
-        .scan_points(&quote, guess)
+        .scan_points(&prepared, guess)
         .expect("short-end scan points");
 
     assert!(

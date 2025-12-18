@@ -10,7 +10,23 @@ use finstack_core::market_data::context::MarketContext;
 use finstack_core::market_data::term_structures::{BaseCorrelationCurve, CreditIndexData};
 use finstack_core::money::Money;
 use finstack_core::Result;
+use std::cell::RefCell;
 use std::sync::Arc;
+
+/// A prepared tranche quote paired with a pre-built tranche instrument.
+#[derive(Clone)]
+pub struct PreparedTrancheQuote {
+    /// Original tranche quote payload.
+    pub quote: Arc<CreditQuote>,
+    /// Pre-built tranche instrument used for pricing.
+    pub tranche: Arc<CdsTranche>,
+    /// Tranche notional (cached for residual normalization).
+    pub notional: f64,
+    /// Target upfront fraction (cached; upfront_pct / 100).
+    pub target_upfront_frac: f64,
+    /// Normalized detachment point in percent (used as the knot-time for bootstrapping).
+    pub detachment_pct: f64,
+}
 
 /// Bootstrapper for base correlation curves from CDS tranche quotes.
 ///
@@ -23,6 +39,8 @@ pub struct BaseCorrelationBootstrapper {
     pub params: BaseCorrelationParams,
     /// Baseline market context containing discount curves and credit index components.
     pub base_context: MarketContext,
+    /// Optional reusable context for sequential solvers to reduce memory pressure.
+    reuse_context: Option<RefCell<MarketContext>>,
 }
 
 impl BaseCorrelationBootstrapper {
@@ -36,10 +54,107 @@ impl BaseCorrelationBootstrapper {
     /// # Returns
     ///
     /// A new `BaseCorrelationBootstrapper` instance ready for calibration.
-    pub fn new(params: BaseCorrelationParams, base_context: MarketContext) -> Self {
+    pub fn new(params: BaseCorrelationParams, base_context: MarketContext, use_parallel: bool) -> Self {
+        let reuse_context = if use_parallel {
+            None
+        } else {
+            Some(RefCell::new(base_context.clone()))
+        };
         Self {
             params,
             base_context,
+            reuse_context,
+        }
+    }
+
+    /// Pre-build tranche instruments once per quote so residual evaluation does not allocate.
+    pub fn prepare_quotes(&self, quotes: Vec<CreditQuote>) -> Result<Vec<PreparedTrancheQuote>> {
+        quotes
+            .into_iter()
+            .map(|q| {
+                // Validate and pre-build tranche once.
+                let (attach_pct, detach_pct, maturity, upfront_pct, running_spread_bp) = match &q {
+                    CreditQuote::CDSTranche {
+                        index,
+                        attachment,
+                        detachment,
+                        maturity,
+                        upfront_pct,
+                        running_spread_bp,
+                        ..
+                    } if index == &self.params.index_id => (
+                        *attachment,
+                        *detachment,
+                        *maturity,
+                        *upfront_pct,
+                        *running_spread_bp,
+                    ),
+                    _ => {
+                        return Err(finstack_core::Error::Input(
+                            finstack_core::error::InputError::Invalid,
+                        ))
+                    }
+                };
+
+                let quote_conventions = match &q {
+                    CreditQuote::CDSTranche { conventions, .. } => conventions,
+                    _ => unreachable!("validated above"),
+                };
+
+                let schedule_conventions = self.resolve_schedule_conventions(quote_conventions)?;
+                let tranche = self.create_synthetic_tranche(
+                    attach_pct,
+                    detach_pct,
+                    maturity,
+                    running_spread_bp,
+                    schedule_conventions,
+                )?;
+                let notional = tranche.notional.amount();
+                if !notional.is_finite() || notional <= 0.0 {
+                    return Err(finstack_core::Error::Validation(format!(
+                        "Invalid tranche notional: {}",
+                        notional
+                    )));
+                }
+                let target_upfront_frac = upfront_pct / 100.0;
+                let detachment_pct = Self::normalize_pct(detach_pct);
+
+                Ok(PreparedTrancheQuote {
+                    quote: Arc::new(q),
+                    tranche: Arc::new(tranche),
+                    notional,
+                    target_upfront_frac,
+                    detachment_pct,
+                })
+            })
+            .collect()
+    }
+
+    fn with_temp_context<F, T>(&self, curve: &BaseCorrelationCurve, op: F) -> Result<T>
+    where
+        F: FnOnce(&MarketContext) -> Result<T>,
+    {
+        if let Some(ctx_cell) = &self.reuse_context {
+            let mut ctx = ctx_cell.borrow_mut();
+
+            let original_index_data = self.base_context.credit_index_ref(&self.params.index_id)?;
+            let updated_index_data = CreditIndexData {
+                base_correlation_curve: Arc::new(curve.clone()),
+                ..original_index_data.clone()
+            };
+            ctx.insert_credit_index_mut(&self.params.index_id, updated_index_data);
+            op(&ctx)
+        } else {
+            let original_index_data = self.base_context.credit_index_ref(&self.params.index_id)?;
+            let updated_index_data = CreditIndexData {
+                base_correlation_curve: Arc::new(curve.clone()),
+                ..original_index_data.clone()
+            };
+            let temp_context = self
+                .base_context
+                .clone()
+                .insert_credit_index(&self.params.index_id, updated_index_data);
+            op(&temp_context)
         }
     }
 
@@ -166,16 +281,11 @@ impl BaseCorrelationBootstrapper {
 }
 
 impl BootstrapTarget for BaseCorrelationBootstrapper {
-    type Quote = CreditQuote;
+    type Quote = PreparedTrancheQuote;
     type Curve = BaseCorrelationCurve;
 
     fn quote_time(&self, quote: &Self::Quote) -> Result<f64> {
-        match quote {
-            CreditQuote::CDSTranche { detachment, .. } => Ok(Self::normalize_pct(*detachment)),
-            _ => Err(finstack_core::Error::Input(
-                finstack_core::error::InputError::Invalid,
-            )),
-        }
+        Ok(quote.detachment_pct)
     }
 
     fn build_curve(&self, knots: &[(f64, f64)]) -> Result<Self::Curve> {
@@ -232,69 +342,14 @@ impl BootstrapTarget for BaseCorrelationBootstrapper {
     }
 
     fn calculate_residual(&self, curve: &Self::Curve, quote: &Self::Quote) -> Result<f64> {
-        let (attach_pct, detach_pct, maturity, upfront_pct, running_spread_bp) = match quote {
-            CreditQuote::CDSTranche {
-                index,
-                attachment,
-                detachment,
-                maturity,
-                upfront_pct,
-                running_spread_bp,
-                ..
-            } if index == &self.params.index_id => (
-                *attachment,
-                *detachment,
-                *maturity,
-                *upfront_pct,
-                *running_spread_bp,
-            ),
-            _ => {
-                return Err(finstack_core::Error::Input(
-                    finstack_core::error::InputError::Invalid,
-                ))
-            }
-        };
-
-        let quote_conventions = match quote {
-            CreditQuote::CDSTranche { conventions, .. } => conventions,
-            _ => unreachable!("quote type validated above"),
-        };
-        let schedule_conventions = self.resolve_schedule_conventions(quote_conventions)?;
-
-        let synthetic_tranche = self.create_synthetic_tranche(
-            attach_pct,
-            detach_pct,
-            maturity,
-            running_spread_bp,
-            schedule_conventions,
-        )?;
-        let notional = synthetic_tranche.notional.amount();
-        if !notional.is_finite() || notional <= 0.0 {
-            return Err(finstack_core::Error::Validation(format!(
-                "Invalid tranche notional: {}",
-                notional
-            )));
-        }
-        let target_upfront_frac = upfront_pct / 100.0;
-
         let pricing_model = CDSTranchePricer::new();
 
-        // Update context with candidate curve
-        let original_index_data = self.base_context.credit_index_ref(&self.params.index_id)?;
-        let updated_index_data = CreditIndexData {
-            base_correlation_curve: Arc::new(curve.clone()),
-            ..original_index_data.clone()
-        };
-
-        let temp_context = self
-            .base_context
-            .clone()
-            .insert_credit_index(&self.params.index_id, updated_index_data);
-
-        let pv = pricing_model
-            .price_tranche(&synthetic_tranche, &temp_context, self.params.base_date)?
-            .amount();
-        Ok(pv / notional - target_upfront_frac)
+        self.with_temp_context(curve, |ctx| {
+            let pv = pricing_model
+                .price_tranche(quote.tranche.as_ref(), ctx, self.params.base_date)?
+                .amount();
+            Ok(pv / quote.notional - quote.target_upfront_frac)
+        })
     }
 
     fn initial_guess(&self, _quote: &Self::Quote, previous_knots: &[(f64, f64)]) -> Result<f64> {

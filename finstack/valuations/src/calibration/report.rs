@@ -36,31 +36,47 @@ struct ResidualDiagnostics {
 fn compute_residual_diagnostics(residuals: &BTreeMap<String, f64>) -> ResidualDiagnostics {
     let penalty_abs_min = crate::calibration::RESIDUAL_PENALTY_ABS_MIN;
 
-    // Filter to finite non-penalty values
-    let finite_vals: Vec<f64> = residuals
-        .values()
-        .copied()
-        .filter(|r| r.is_finite() && r.abs() < penalty_abs_min)
-        .collect();
+    // PERF: single pass, no allocation. Track both:
+    // - "valid" residuals: finite and non-penalty
+    // - fallbacks: all residuals (including penalties) if no valid exist
+    let mut has_penalty = false;
 
-    let has_penalty = residuals
-        .values()
-        .any(|r| !r.is_finite() || r.abs() >= penalty_abs_min);
+    let mut max_abs_all = 0.0_f64;
+    let mut sum_sq_all = 0.0_f64;
+    let mut n_all = 0usize;
 
-    let max_residual = if finite_vals.is_empty() {
-        residuals.values().map(|r| r.abs()).fold(0.0, f64::max)
-    } else {
-        finite_vals.iter().map(|r| r.abs()).fold(0.0, f64::max)
-    };
+    let mut max_abs_valid = 0.0_f64;
+    let mut sum_sq_valid = 0.0_f64;
+    let mut n_valid = 0usize;
 
-    let rmse = if residuals.is_empty() {
+    for &r in residuals.values() {
+        n_all += 1;
+        let abs = r.abs();
+        if abs > max_abs_all {
+            max_abs_all = abs;
+        }
+        sum_sq_all += r * r;
+
+        let is_penalty = !r.is_finite() || abs >= penalty_abs_min;
+        has_penalty |= is_penalty;
+
+        if !is_penalty {
+            n_valid += 1;
+            if abs > max_abs_valid {
+                max_abs_valid = abs;
+            }
+            sum_sq_valid += r * r;
+        }
+    }
+
+    let max_residual = if n_valid > 0 { max_abs_valid } else { max_abs_all };
+
+    let rmse = if n_all == 0 {
         0.0
-    } else if finite_vals.is_empty() {
-        let sum_sq: f64 = residuals.values().map(|r| r * r).sum();
-        (sum_sq / residuals.len() as f64).sqrt()
+    } else if n_valid > 0 {
+        (sum_sq_valid / n_valid as f64).sqrt()
     } else {
-        let sum_sq: f64 = finite_vals.iter().map(|r| r * r).sum();
-        (sum_sq / finite_vals.len() as f64).sqrt()
+        (sum_sq_all / n_all as f64).sqrt()
     };
 
     ResidualDiagnostics {

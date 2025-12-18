@@ -5,6 +5,8 @@ use crate::calibration::config::ResidualWeightingScheme;
 use crate::calibration::constants::*;
 use crate::calibration::pricing::convention_resolution as conv;
 use crate::calibration::pricing::CalibrationPricer;
+use crate::calibration::pricing::prepared::PreparedRatesQuote;
+use crate::calibration::pricing::quote_factory::CALIBRATION_NOTIONAL;
 use crate::calibration::quotes::RatesQuote;
 use crate::calibration::solver::{BootstrapTarget, GlobalSolveTarget};
 use finstack_core::dates::{Date, DayCount};
@@ -264,10 +266,11 @@ Global solve requires strictly increasing times.",
 }
 
 impl BootstrapTarget for DiscountCurveTarget {
-    type Quote = RatesQuote;
+    type Quote = PreparedRatesQuote;
     type Curve = DiscountCurve;
 
     fn quote_time(&self, quote: &Self::Quote) -> Result<f64> {
+        let quote = quote.quote.as_ref();
         let pillar_date = match quote {
             RatesQuote::Swap { maturity, .. } => {
                 // Align the calibration knot with the actual swap payment date (maturity plus
@@ -376,29 +379,30 @@ Disable allow_non_monotonic_final or choose a compatible interpolation style."
 
     fn calculate_residual(&self, curve: &Self::Curve, quote: &Self::Quote) -> Result<f64> {
         self.with_temp_context(curve, |ctx| {
-            self.pricer
-                .price_instrument_for_calibration(quote, self.currency, ctx)
+            let pv = quote.instrument.value(ctx, self.base_date)?.amount();
+            Ok(pv / CALIBRATION_NOTIONAL)
         })
     }
 
     fn initial_guess(&self, quote: &Self::Quote, previous_knots: &[(f64, f64)]) -> Result<f64> {
+        let q = quote.quote.as_ref();
         let t = self.quote_time(quote)?;
         let (df_lo, df_hi) = self.df_bounds_for_time(t);
 
-        match quote {
+        match q {
             RatesQuote::Deposit { maturity, .. } => {
-                let r = CalibrationPricer::get_rate(quote);
-                let day_count = quote.conventions().day_count.ok_or_else(|| {
+                let r = CalibrationPricer::get_rate(q);
+                let day_count = q.conventions().day_count.ok_or_else(|| {
                     finstack_core::Error::Validation(
                         "Deposit quote requires conventions.day_count to be set".to_string(),
                     )
                 })?;
-                let settlement_start = if quote.conventions().settlement_days.is_some()
-                    || quote.conventions().calendar_id.is_some()
-                    || quote.conventions().business_day_convention.is_some()
+                let settlement_start = if q.conventions().settlement_days.is_some()
+                    || q.conventions().calendar_id.is_some()
+                    || q.conventions().business_day_convention.is_some()
                 {
                     self.pricer
-                        .settlement_date_for_quote(quote.conventions(), self.currency)?
+                        .settlement_date_for_quote(q.conventions(), self.currency)?
                 } else {
                     self.settlement_date
                 };
@@ -503,7 +507,7 @@ Disable allow_non_monotonic_final or choose a compatible interpolation style."
 }
 
 impl GlobalSolveTarget for DiscountCurveTarget {
-    type Quote = RatesQuote;
+    type Quote = PreparedRatesQuote;
     type Curve = DiscountCurve;
 
     fn build_time_grid_and_guesses(
@@ -514,6 +518,7 @@ impl GlobalSolveTarget for DiscountCurveTarget {
         let mut entries = Vec::new();
 
         for quote in quotes {
+            let q = quote.quote.as_ref();
             let t = self.quote_time(quote)?;
             if t <= 0.0 {
                 continue;
@@ -522,7 +527,7 @@ impl GlobalSolveTarget for DiscountCurveTarget {
             // Initial guess (zero rate)
             // Simplified: use quote rate.
             // Note: For Global Solve, quotes are often swaps where rate ~ zero rate for flat curves.
-            let rate = CalibrationPricer::get_rate(quote);
+            let rate = CalibrationPricer::get_rate(q);
             let z = rate.clamp(bounds.min_rate, bounds.max_rate);
             entries.push((t, z, quote.clone()));
         }
@@ -585,9 +590,8 @@ Ensure quotes map to strictly increasing year fractions.",
                 if i >= residuals.len() {
                     break;
                 }
-                residuals[i] =
-                    self.pricer
-                        .price_instrument_for_calibration(quote, self.currency, ctx)?;
+                let pv = quote.instrument.value(ctx, self.base_date)?.amount();
+                residuals[i] = pv / CALIBRATION_NOTIONAL;
             }
             Ok(())
         })
@@ -595,12 +599,13 @@ Ensure quotes map to strictly increasing year fractions.",
 
     fn residual_key(&self, quote: &Self::Quote, idx: usize) -> String {
         use RatesQuote::*;
-        let prefix = match quote {
+        let q = quote.quote.as_ref();
+        let prefix = match q {
             Deposit { .. } => "DEP",
             FRA { .. } => "FRA",
             Future { .. } => "FUT",
             Swap { .. } => {
-                if quote.is_ois_suitable() {
+                if q.is_ois_suitable() {
                     "OIS"
                 } else {
                     "SWP"
@@ -608,7 +613,7 @@ Ensure quotes map to strictly increasing year fractions.",
             }
             BasisSwap { .. } => "BAS",
         };
-        let maturity = quote.maturity_date();
+        let maturity = q.maturity_date();
         format!("{}-{}-{:03}", prefix, maturity, idx)
     }
 
@@ -726,9 +731,8 @@ Ensure quotes map to strictly increasing year fractions.",
                     continue;
                 }
 
-                let val_plus =
-                    self.pricer
-                        .price_instrument_for_calibration(quote, self.currency, ctx)?;
+                let pv = quote.instrument.value(ctx, self.base_date)?.amount();
+                let val_plus = pv / CALIBRATION_NOTIONAL;
                 let val_base = base_residuals[i];
 
                 jacobian[i][j] = (val_plus - val_base) / h;
@@ -751,6 +755,7 @@ Ensure quotes map to strictly increasing year fractions.",
 mod tests {
     use super::*;
     use crate::calibration::pricing::CalibrationPricer;
+    use crate::calibration::pricing::prepared::PreparedRatesQuote;
     use crate::calibration::quotes::conventions::InstrumentConventions;
     use crate::calibration::solver::BootstrapTarget;
     use crate::calibration::solver::GlobalFitOptimizer;
@@ -763,7 +768,9 @@ mod tests {
     #[test]
     fn discount_quote_time_uses_swap_payment_date_when_payment_delay_applies() {
         let base_date = Date::from_calendar_date(2024, Month::January, 2).expect("base_date");
-        let maturity = Date::from_calendar_date(2024, Month::January, 4).expect("maturity");
+        // Use a realistic maturity so the quote can be prepared (instrument build succeeds).
+        // The test is about the time-axis (payment delay), not edge-case schedule handling.
+        let maturity = base_date + time::Duration::days(365);
 
         let pricer =
             CalibrationPricer::new(base_date, "USD-OIS").with_market_conventions(Currency::USD);
@@ -806,7 +813,10 @@ mod tests {
             base_context: MarketContext::new(),
         });
 
-        let actual = BootstrapTarget::quote_time(&target, &quote).expect("quote_time");
+        let strict = target.pricer.conventions.strict_pricing.unwrap_or(false);
+        let prepared = PreparedRatesQuote::new(&target.pricer, quote, Currency::USD, strict)
+            .expect("prepare");
+        let actual = BootstrapTarget::quote_time(&target, &prepared).expect("quote_time");
         assert!((actual - expected).abs() < 1e-15);
     }
 
@@ -895,8 +905,15 @@ mod tests {
             base_context: MarketContext::new(),
         });
 
+        let strict = target.pricer.conventions.strict_pricing.unwrap_or(false);
+        let prepared_quotes: Vec<PreparedRatesQuote> = quotes
+            .into_iter()
+            .map(|q| PreparedRatesQuote::new(&target.pricer, q, Currency::USD, strict))
+            .collect::<Result<_>>()
+            .expect("prepare quotes");
+
         let (_curve, report) =
-            GlobalFitOptimizer::optimize(&target, &quotes, &target.config).expect("solve");
+            GlobalFitOptimizer::optimize(&target, &prepared_quotes, &target.config).expect("solve");
         assert!(
             report.max_residual < 1e-10,
             "expected GlobalSolve to fit beyond 1e-10; got max_residual={:.2e} (termination={:?})",

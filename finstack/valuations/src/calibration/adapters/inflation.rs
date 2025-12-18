@@ -10,6 +10,82 @@ use finstack_core::market_data::term_structures::InflationCurve;
 use finstack_core::money::Money;
 use finstack_core::prelude::DateExt;
 use finstack_core::Result;
+use std::cell::RefCell;
+use std::sync::Arc;
+
+/// A prepared inflation quote paired with a pre-built `InflationSwap` instrument.
+#[derive(Clone)]
+pub struct PreparedInflationQuote {
+    /// Original quote payload.
+    pub quote: Arc<InflationQuote>,
+    /// Pre-built inflation swap instrument for pricing against candidate curves.
+    pub swap: Arc<InflationSwap>,
+}
+
+impl PreparedInflationQuote {
+    fn new(raw: InflationQuote, params: &InflationCurveParams, base_context: &MarketContext) -> Result<Self> {
+        let (maturity, rate, index_name) = match &raw {
+            InflationQuote::InflationSwap {
+                maturity,
+                rate,
+                index,
+                ..
+            } => (*maturity, *rate, index.as_str()),
+            _ => {
+                return Err(finstack_core::Error::Input(
+                    finstack_core::error::InputError::Invalid,
+                ))
+            }
+        };
+
+        if index_name != params.index && index_name != params.curve_id.as_str() {
+            return Err(finstack_core::Error::Validation(format!(
+                "Quote index {} does not match calibrator index {}",
+                index_name, params.index
+            )));
+        }
+
+        let base_date = params.base_date;
+        let has_index_fixings = base_context
+            .inflation_index_ref(params.curve_id.as_str())
+            .is_some();
+
+        let (lag, base_cpi) = if let Some(index) = base_context.inflation_index_ref(params.curve_id.as_str()) {
+            let base_cpi = index.value_on(base_date).map_err(|e| {
+                finstack_core::Error::Validation(format!(
+                    "Failed to resolve base CPI from inflation index '{}': {}",
+                    params.curve_id.as_str(),
+                    e
+                ))
+            })?;
+            (index.lag(), base_cpi)
+        } else {
+            (InflationBootstrapper::parse_lag(&params.observation_lag)?, params.base_cpi)
+        };
+
+        let swap = InflationSwap::builder()
+            .id("CALIB_ZCIS".into())
+            .notional(Money::new(params.notional, params.currency))
+            .start(base_date)
+            .maturity(maturity)
+            .fixed_rate(rate)
+            .inflation_index_id(params.curve_id.clone())
+            .discount_curve_id(params.discount_curve_id.clone())
+            .dc(DayCount::ActAct)
+            .side(PayReceiveInflation::PayFixed)
+            .lag_override_opt(if has_index_fixings { None } else { Some(lag) })
+            .base_cpi_opt(if has_index_fixings { None } else { Some(base_cpi) })
+            .bdc_opt(None)
+            .calendar_id_opt(None)
+            .build()
+            .map_err(|e| finstack_core::Error::Validation(e.to_string()))?;
+
+        Ok(Self {
+            quote: Arc::new(raw),
+            swap: Arc::new(swap),
+        })
+    }
+}
 
 /// Bootstrapper for inflation curves from inflation swap quotes.
 ///
@@ -22,6 +98,8 @@ pub struct InflationBootstrapper {
     pub params: InflationCurveParams,
     /// Baseline market context containing discount curves.
     pub base_context: MarketContext,
+    /// Optional reusable context for sequential solvers to reduce memory pressure.
+    reuse_context: Option<RefCell<MarketContext>>,
 }
 
 impl InflationBootstrapper {
@@ -35,11 +113,25 @@ impl InflationBootstrapper {
     /// # Returns
     ///
     /// A new `InflationBootstrapper` instance ready for calibration.
-    pub fn new(params: InflationCurveParams, base_context: MarketContext) -> Self {
+    pub fn new(params: InflationCurveParams, base_context: MarketContext, use_parallel: bool) -> Self {
+        let reuse_context = if use_parallel {
+            None
+        } else {
+            Some(RefCell::new(base_context.clone()))
+        };
         Self {
             params,
             base_context,
+            reuse_context,
         }
+    }
+
+    /// Pre-build per-quote instruments so solver residual evaluation is allocation-free.
+    pub fn prepare_quotes(&self, quotes: Vec<InflationQuote>) -> Result<Vec<PreparedInflationQuote>> {
+        quotes
+            .into_iter()
+            .map(|q| PreparedInflationQuote::new(q, &self.params, &self.base_context))
+            .collect()
     }
 
     /// Parse an observation lag string (e.g. "3M").
@@ -113,14 +205,28 @@ impl InflationBootstrapper {
         }
         Ok(self.params.base_cpi)
     }
+
+    fn with_temp_context<F, T>(&self, curve: &InflationCurve, op: F) -> Result<T>
+    where
+        F: FnOnce(&MarketContext) -> Result<T>,
+    {
+        if let Some(ctx_cell) = &self.reuse_context {
+            let mut ctx = ctx_cell.borrow_mut();
+            ctx.insert_mut(curve.clone());
+            op(&ctx)
+        } else {
+            let temp_context = self.base_context.clone().insert_inflation(curve.clone());
+            op(&temp_context)
+        }
+    }
 }
 
 impl BootstrapTarget for InflationBootstrapper {
-    type Quote = InflationQuote;
+    type Quote = PreparedInflationQuote;
     type Curve = InflationCurve;
 
     fn quote_time(&self, quote: &Self::Quote) -> Result<f64> {
-        let maturity = quote.maturity_date().ok_or(finstack_core::Error::Input(
+        let maturity = quote.quote.as_ref().maturity_date().ok_or(finstack_core::Error::Input(
             finstack_core::error::InputError::Invalid,
         ))?;
         // Align time-axis with `InflationSwap` pricing conventions:
@@ -153,66 +259,17 @@ impl BootstrapTarget for InflationBootstrapper {
     }
 
     fn calculate_residual(&self, curve: &Self::Curve, quote: &Self::Quote) -> Result<f64> {
-        let (maturity, rate, index_name) = match quote {
-            InflationQuote::InflationSwap {
-                maturity,
-                rate,
-                index,
-                ..
-            } => (*maturity, *rate, index),
-            _ => {
-                return Err(finstack_core::Error::Input(
-                    finstack_core::error::InputError::Invalid,
-                ))
-            }
-        };
-
-        if index_name != &self.params.index && index_name != self.params.curve_id.as_str() {
-            return Err(finstack_core::Error::Validation(format!(
-                "Quote index {} does not match calibrator index {}",
-                index_name, self.params.index
-            )));
-        }
-
         let base_date = self.params.base_date;
-        let has_index_fixings = self
-            .base_context
-            .inflation_index_ref(self.params.curve_id.as_str())
-            .is_some();
-        let lag = self.effective_lag()?;
-        let base_cpi = self.effective_base_cpi()?;
-
-        let swap = InflationSwap::builder()
-            .id("CALIB_ZCIS".into())
-            .notional(Money::new(self.params.notional, self.params.currency))
-            .start(base_date)
-            .maturity(maturity)
-            .fixed_rate(rate)
-            .inflation_index_id(self.params.curve_id.clone())
-            .discount_curve_id(self.params.discount_curve_id.clone())
-            .dc(DayCount::ActAct)
-            .side(PayReceiveInflation::PayFixed)
-            .lag_override_opt(if has_index_fixings { None } else { Some(lag) })
-            .base_cpi_opt(if has_index_fixings {
-                None
-            } else {
-                Some(base_cpi)
-            })
-            .bdc_opt(None)
-            .calendar_id_opt(None)
-            .build()
-            .map_err(|e| finstack_core::Error::Validation(e.to_string()))?;
-
         // Context needs the curve being calibrated + discount curve
-        let temp_context = self.base_context.clone().insert_inflation(curve.clone());
-
-        let pv = swap.value(&temp_context, base_date)?.amount();
-        Ok(pv / swap.notional.amount())
+        self.with_temp_context(curve, |ctx| {
+            let pv = quote.swap.value(ctx, base_date)?.amount();
+            Ok(pv / self.params.notional)
+        })
     }
 
     fn initial_guess(&self, quote: &Self::Quote, _previous_knots: &[(f64, f64)]) -> Result<f64> {
         let t = self.quote_time(quote)?;
-        let rate = match quote {
+        let rate = match quote.quote.as_ref() {
             InflationQuote::InflationSwap { rate, .. } => *rate,
             _ => 0.02,
         };

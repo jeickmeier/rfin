@@ -2,6 +2,8 @@
 
 use crate::calibration::config::CalibrationConfig;
 use crate::calibration::pricing::CalibrationPricer;
+use crate::calibration::pricing::prepared::PreparedRatesQuote;
+use crate::calibration::pricing::quote_factory::CALIBRATION_NOTIONAL;
 use crate::calibration::quotes::RatesQuote;
 use crate::calibration::solver::BootstrapTarget;
 use finstack_core::dates::{Date, DayCount, DayCountCtx};
@@ -10,6 +12,7 @@ use finstack_core::market_data::term_structures::ForwardCurve;
 use finstack_core::math::interp::InterpStyle;
 use finstack_core::prelude::*;
 use finstack_core::types::{Currency, CurveId};
+use std::cell::RefCell;
 
 /// Parameters for constructing a `ForwardCurveTarget`.
 #[derive(Clone)]
@@ -62,11 +65,18 @@ pub struct ForwardCurveTarget {
     pub time_day_count: DayCount,
     /// Baseline market context.
     pub base_context: MarketContext,
+    /// Optional reusable context for sequential solvers to reduce memory pressure.
+    reuse_context: Option<RefCell<MarketContext>>,
 }
 
 impl ForwardCurveTarget {
     /// Create a new `ForwardCurveTarget` from parameters.
     pub fn new(params: ForwardCurveTargetParams) -> Self {
+        let reuse_context = if params.config.use_parallel {
+            None
+        } else {
+            Some(RefCell::new(params.base_context.clone()))
+        };
         Self {
             base_date: params.base_date,
             currency: params.currency,
@@ -78,6 +88,7 @@ impl ForwardCurveTarget {
             pricer: params.pricer,
             time_day_count: params.time_day_count,
             base_context: params.base_context,
+            reuse_context,
         }
     }
 
@@ -86,14 +97,28 @@ impl ForwardCurveTarget {
         let tol = self.config.solver.tolerance();
         (tol * (1.0 + knot_time)).max(tol)
     }
+
+    fn with_temp_context<F, T>(&self, curve: &ForwardCurve, op: F) -> Result<T>
+    where
+        F: FnOnce(&MarketContext) -> Result<T>,
+    {
+        if let Some(ctx_cell) = &self.reuse_context {
+            let mut ctx = ctx_cell.borrow_mut();
+            ctx.insert_mut(curve.clone());
+            op(&ctx)
+        } else {
+            let temp_context = self.base_context.clone().insert_forward(curve.clone());
+            op(&temp_context)
+        }
+    }
 }
 
 impl BootstrapTarget for ForwardCurveTarget {
-    type Quote = RatesQuote;
+    type Quote = PreparedRatesQuote;
     type Curve = ForwardCurve;
 
     fn quote_time(&self, quote: &Self::Quote) -> Result<f64> {
-        let knot_date = quote.maturity_date();
+        let knot_date = quote.quote.as_ref().maturity_date();
         self.time_day_count
             .year_fraction(self.base_date, knot_date, DayCountCtx::default())
             .map_err(|e| finstack_core::Error::Calibration {
@@ -136,17 +161,15 @@ impl BootstrapTarget for ForwardCurveTarget {
     }
 
     fn calculate_residual(&self, curve: &Self::Curve, quote: &Self::Quote) -> Result<f64> {
-        let mut temp_context = self.base_context.clone();
-        temp_context.insert_mut(std::sync::Arc::new(curve.clone()));
-
-        let pv =
-            self.pricer
-                .price_instrument_for_calibration(quote, self.currency, &temp_context)?;
-        Ok(pv)
+        self.with_temp_context(curve, |ctx| {
+            let pv = quote.instrument.value(ctx, self.base_date)?.amount();
+            Ok(pv / CALIBRATION_NOTIONAL)
+        })
     }
 
     fn initial_guess(&self, quote: &Self::Quote, previous_knots: &[(f64, f64)]) -> Result<f64> {
-        match quote {
+        let q = quote.quote.as_ref();
+        match q {
             RatesQuote::FRA { rate, .. } => Ok(*rate),
             RatesQuote::Future { price, specs, .. } => {
                 let implied_rate = (100.0 - price) / 100.0;
@@ -247,21 +270,31 @@ mod tests {
             1.0,
         );
 
-        let mk_target = |tolerance: f64| ForwardCurveTarget {
-            base_date,
-            currency,
-            fwd_curve_id: fwd_curve_id.clone(),
-            discount_curve_id: discount_curve_id.clone(),
-            tenor_years: 1.0,
-            solve_interp: InterpStyle::Linear,
-            config: CalibrationConfig {
+        let mk_target = |tolerance: f64| {
+            let base_context = MarketContext::new();
+            let config = CalibrationConfig {
                 solver: crate::calibration::solver::SolverConfig::brent_default()
                     .with_tolerance(tolerance),
                 ..CalibrationConfig::default()
-            },
-            pricer: pricer.clone(),
-            time_day_count: DayCount::Act365F,
-            base_context: MarketContext::new(),
+            };
+            let reuse_context = if config.use_parallel {
+                None
+            } else {
+                Some(RefCell::new(base_context.clone()))
+            };
+            ForwardCurveTarget {
+                base_date,
+                currency,
+                fwd_curve_id: fwd_curve_id.clone(),
+                discount_curve_id: discount_curve_id.clone(),
+                tenor_years: 1.0,
+                solve_interp: InterpStyle::Linear,
+                config,
+                pricer: pricer.clone(),
+                time_day_count: DayCount::Act365F,
+                base_context,
+                reuse_context,
+            }
         };
 
         // Choose a small but realistic first time > 0; old code would conditionally add the

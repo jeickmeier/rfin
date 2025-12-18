@@ -12,6 +12,7 @@ use crate::calibration::adapters::vol::VolSurfaceAdapter;
 use crate::calibration::api::schema::StepParams;
 use crate::calibration::config::{CalibrationConfig, CalibrationMethod};
 use crate::calibration::pricing::{CalibrationPricer, RatesStepConventions};
+use crate::calibration::pricing::prepared::{PreparedCreditQuote, PreparedRatesQuote};
 use crate::calibration::quotes::{ExtractQuotes, MarketQuote};
 use crate::calibration::solver::{BootstrapTarget, GlobalFitOptimizer, SequentialBootstrapper};
 use crate::calibration::CalibrationReport;
@@ -206,13 +207,18 @@ pub fn execute_step(
 ) -> Result<(MarketContext, CalibrationReport)> {
     match params {
         StepParams::Discount(p) => {
-            let mut rates_quotes = quotes.extract_quotes();
+            let rates_quotes = quotes.extract_quotes();
             require_non_empty(&rates_quotes)?;
 
             let pricer = CalibrationPricer::new(p.base_date, p.curve_id.clone())
                 .with_discount_curve_id(p.pricing_discount_id.clone().unwrap_or(p.curve_id.clone()))
                 .with_forward_curve_id(p.pricing_forward_id.clone().unwrap_or(p.curve_id.clone()));
             let pricer = apply_rates_step_conventions(pricer, p.currency, &p.conventions, true)?;
+            let strict = pricer.conventions.strict_pricing.unwrap_or(false);
+            let mut prepared_quotes: Vec<PreparedRatesQuote> = rates_quotes
+                .into_iter()
+                .map(|q| PreparedRatesQuote::new(&pricer, q, p.currency, strict))
+                .collect::<Result<_>>()?;
 
             let curve_dc = discount_curve_day_count(p.currency, &p.conventions);
             let settlement = pricer.settlement_date(p.currency)?;
@@ -235,11 +241,11 @@ pub fn execute_step(
 
             let (curve, report) = match p.method {
                 CalibrationMethod::Bootstrap => {
-                    sort_bootstrap_quotes(&target, &mut rates_quotes)?;
-                    run_bootstrap(&target, &rates_quotes, vec![(0.0, 1.0)], global_config)?
+                    sort_bootstrap_quotes(&target, &mut prepared_quotes)?;
+                    run_bootstrap(&target, &prepared_quotes, vec![(0.0, 1.0)], global_config)?
                 }
                 CalibrationMethod::GlobalSolve { .. } => {
-                    GlobalFitOptimizer::optimize(&target, &rates_quotes, global_config)?
+                    GlobalFitOptimizer::optimize(&target, &prepared_quotes, global_config)?
                 }
             };
 
@@ -248,7 +254,7 @@ pub fn execute_step(
             Ok((new_context, report))
         }
         StepParams::Forward(p) => {
-            let mut rates_quotes = quotes.extract_quotes();
+            let rates_quotes = quotes.extract_quotes();
             require_non_empty(&rates_quotes)?;
 
             let pricer = CalibrationPricer::for_forward_curve(
@@ -258,6 +264,11 @@ pub fn execute_step(
                 p.tenor_years,
             );
             let pricer = apply_rates_step_conventions(pricer, p.currency, &p.conventions, false)?;
+            let strict = pricer.conventions.strict_pricing.unwrap_or(false);
+            let mut prepared_quotes: Vec<PreparedRatesQuote> = rates_quotes
+                .into_iter()
+                .map(|q| PreparedRatesQuote::new(&pricer, q, p.currency, strict))
+                .collect::<Result<_>>()?;
 
             let curve_dc = discount_curve_day_count(p.currency, &p.conventions);
 
@@ -276,8 +287,8 @@ pub fn execute_step(
 
             let (curve, report) = match p.method {
                 CalibrationMethod::Bootstrap => {
-                    sort_bootstrap_quotes(&target, &mut rates_quotes)?;
-                    run_bootstrap(&target, &rates_quotes, Vec::new(), global_config)?
+                    sort_bootstrap_quotes(&target, &mut prepared_quotes)?;
+                    run_bootstrap(&target, &prepared_quotes, Vec::new(), global_config)?
                 }
                 CalibrationMethod::GlobalSolve { .. } => {
                     return Err(finstack_core::Error::Input(
@@ -291,15 +302,19 @@ pub fn execute_step(
             Ok((new_context, report))
         }
         StepParams::Hazard(p) => {
-            let mut credit_quotes = quotes.extract_quotes();
+            let credit_quotes = quotes.extract_quotes();
             require_non_empty(&credit_quotes)?;
 
-            let target = HazardBootstrapper::new(p.clone(), context.clone());
+            let target = HazardBootstrapper::new(p.clone(), context.clone(), global_config.use_parallel);
+            let mut prepared_quotes: Vec<PreparedCreditQuote> = credit_quotes
+                .into_iter()
+                .map(|q| PreparedCreditQuote::new(q, &target.params, target.convention))
+                .collect::<Result<_>>()?;
 
             let (curve, report) = match p.method {
                 CalibrationMethod::Bootstrap => {
-                    sort_bootstrap_quotes(&target, &mut credit_quotes)?;
-                    run_bootstrap(&target, &credit_quotes, Vec::new(), global_config)?
+                    sort_bootstrap_quotes(&target, &mut prepared_quotes)?;
+                    run_bootstrap(&target, &prepared_quotes, Vec::new(), global_config)?
                 }
                 CalibrationMethod::GlobalSolve { .. } => {
                     return Err(finstack_core::Error::Input(
@@ -313,17 +328,19 @@ pub fn execute_step(
             Ok((new_context, report))
         }
         StepParams::Inflation(p) => {
-            let mut inflation_quotes = quotes.extract_quotes();
+            let inflation_quotes = quotes.extract_quotes();
             require_non_empty(&inflation_quotes)?;
 
-            let target = InflationBootstrapper::new(p.clone(), context.clone());
+            let target =
+                InflationBootstrapper::new(p.clone(), context.clone(), global_config.use_parallel);
+            let mut prepared_quotes = target.prepare_quotes(inflation_quotes)?;
 
             let (curve, report) = match p.method {
                 CalibrationMethod::Bootstrap => run_bootstrap(
                     &target,
                     {
-                        sort_bootstrap_quotes(&target, &mut inflation_quotes)?;
-                        &inflation_quotes
+                        sort_bootstrap_quotes(&target, &mut prepared_quotes)?;
+                        &prepared_quotes
                     },
                     vec![(0.0, p.base_cpi)],
                     global_config,
@@ -354,14 +371,19 @@ pub fn execute_step(
             Ok((new_context, report))
         }
         StepParams::BaseCorrelation(p) => {
-            let mut credit_quotes = quotes.extract_quotes();
+            let credit_quotes = quotes.extract_quotes();
             require_non_empty(&credit_quotes)?;
 
-            let target = BaseCorrelationBootstrapper::new(p.clone(), context.clone());
+            let target = BaseCorrelationBootstrapper::new(
+                p.clone(),
+                context.clone(),
+                global_config.use_parallel,
+            );
 
-            sort_bootstrap_quotes(&target, &mut credit_quotes)?;
+            let mut prepared_quotes = target.prepare_quotes(credit_quotes)?;
+            sort_bootstrap_quotes(&target, &mut prepared_quotes)?;
             let (curve, report) =
-                run_bootstrap(&target, &credit_quotes, Vec::new(), global_config)?;
+                run_bootstrap(&target, &prepared_quotes, Vec::new(), global_config)?;
 
             let mut new_context = context.clone();
             let arc = std::sync::Arc::new(curve);

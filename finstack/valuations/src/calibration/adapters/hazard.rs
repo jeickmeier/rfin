@@ -1,6 +1,5 @@
 use crate::calibration::api::schema::HazardCurveParams;
-use crate::calibration::pricing::quote_factory;
-use crate::calibration::quotes::CreditQuote;
+use crate::calibration::pricing::prepared::PreparedCreditQuote;
 use crate::calibration::solver::BootstrapTarget;
 use crate::instruments::cds::CDSConvention;
 use finstack_core::dates::DayCountCtx;
@@ -8,6 +7,7 @@ use finstack_core::market_data::context::MarketContext;
 use finstack_core::market_data::term_structures::HazardCurve;
 use finstack_core::prelude::*;
 use finstack_core::Result;
+use std::cell::RefCell;
 
 const HAZARD_HARD_MIN: f64 = 0.0;
 // Safety cap: λ=10 implies ~99.995% 1Y default probability and can lead to numerical underflow
@@ -34,6 +34,8 @@ pub struct HazardBootstrapper {
     pub convention: CDSConvention,
     /// Market context providing discount curves for PV calculations.
     pub base_context: MarketContext,
+    /// Optional reusable context for sequential solvers to reduce memory pressure.
+    reuse_context: Option<RefCell<MarketContext>>,
 }
 
 impl HazardBootstrapper {
@@ -54,7 +56,11 @@ impl HazardBootstrapper {
     /// - USD/CAD: ISDA North American
     /// - EUR/GBP/CHF: ISDA European
     /// - JPY/HKD/SGD/AUD/NZD: ISDA Asian
-    pub fn new(params: HazardCurveParams, base_context: MarketContext) -> Self {
+    pub fn new(
+        params: HazardCurveParams,
+        base_context: MarketContext,
+        use_parallel: bool,
+    ) -> Self {
         // Derive convention from currency
         let convention = match params.currency {
             Currency::USD | Currency::CAD => CDSConvention::IsdaNa,
@@ -65,21 +71,42 @@ impl HazardBootstrapper {
             _ => CDSConvention::IsdaNa,
         };
 
+        let reuse_context = if use_parallel {
+            None
+        } else {
+            Some(RefCell::new(base_context.clone()))
+        };
+
         Self {
             params,
             convention,
             base_context,
+            reuse_context,
+        }
+    }
+
+    fn with_temp_context<F, T>(&self, curve: &HazardCurve, op: F) -> Result<T>
+    where
+        F: FnOnce(&MarketContext) -> Result<T>,
+    {
+        if let Some(ctx_cell) = &self.reuse_context {
+            let mut ctx = ctx_cell.borrow_mut();
+            ctx.insert_mut(curve.clone());
+            op(&ctx)
+        } else {
+            let temp_ctx = self.base_context.clone().insert_hazard(curve.clone());
+            op(&temp_ctx)
         }
     }
 }
 
 impl BootstrapTarget for HazardBootstrapper {
-    type Quote = CreditQuote;
+    type Quote = PreparedCreditQuote;
     type Curve = HazardCurve;
 
     fn quote_time(&self, quote: &Self::Quote) -> Result<f64> {
         let dc = self.convention.day_count();
-        let maturity = quote.maturity_date().ok_or(finstack_core::Error::Input(
+        let maturity = quote.quote.as_ref().maturity_date().ok_or(finstack_core::Error::Input(
             finstack_core::error::InputError::Invalid,
         ))?;
         dc.year_fraction(self.params.base_date, maturity, DayCountCtx::default())
@@ -103,19 +130,14 @@ impl BootstrapTarget for HazardBootstrapper {
 
     fn calculate_residual(&self, curve: &Self::Curve, quote: &Self::Quote) -> Result<f64> {
         let base_date = self.params.base_date;
-        let (instrument, upfront_opt) =
-            quote_factory::build_instrument_for_credit_quote(quote, &self.params, self.convention)?;
-
-        let mut temp_ctx = self.base_context.clone();
-        temp_ctx.insert_mut(std::sync::Arc::new(curve.clone()));
-
-        let npv = instrument.value(&temp_ctx, base_date)?.amount();
-        let adjusted = match upfront_opt {
-            None => npv,
-            Some(upfront) => npv - upfront.amount(),
-        };
-
-        Ok(adjusted / self.params.notional)
+        self.with_temp_context(curve, |ctx| {
+            let npv = quote.instrument.value(ctx, base_date)?.amount();
+            let adjusted = match quote.upfront_opt.as_ref() {
+                None => npv,
+                Some(upfront) => npv - upfront.amount(),
+            };
+            Ok(adjusted / self.params.notional)
+        })
     }
 
     fn initial_guess(&self, _quote: &Self::Quote, previous_knots: &[(f64, f64)]) -> Result<f64> {
@@ -213,6 +235,7 @@ impl BootstrapTarget for HazardBootstrapper {
 mod tests {
     use super::*;
     use crate::calibration::pricing::quote_factory;
+    use crate::calibration::quotes::CreditQuote;
     use crate::calibration::quotes::InstrumentConventions;
     use crate::calibration::solver::BootstrapTarget;
     use finstack_core::market_data::term_structures::discount_curve::DiscountCurve;
@@ -237,7 +260,7 @@ mod tests {
 
     #[test]
     fn validate_knot_rejects_negative_hazard() {
-        let target = HazardBootstrapper::new(base_params(), MarketContext::default());
+        let target = HazardBootstrapper::new(base_params(), MarketContext::default(), false);
         let err = target
             .validate_knot(1.0, -1e-6)
             .expect_err("should reject negative hazard");
@@ -246,7 +269,7 @@ mod tests {
 
     #[test]
     fn validate_knot_rejects_hazard_above_max() {
-        let target = HazardBootstrapper::new(base_params(), MarketContext::default());
+        let target = HazardBootstrapper::new(base_params(), MarketContext::default(), false);
         let err = target
             .validate_knot(1.0, HAZARD_HARD_MAX + 1e-6)
             .expect_err("should reject excessive hazard");
@@ -257,7 +280,7 @@ mod tests {
     fn build_curve_preserves_par_interp_and_monotone_survival() {
         let mut p = base_params();
         p.par_interp = ParInterp::LogLinear;
-        let target = HazardBootstrapper::new(p, MarketContext::default());
+        let target = HazardBootstrapper::new(p, MarketContext::default(), false);
 
         let curve = target
             .build_curve(&[(1.0, 0.02), (5.0, 0.03)])
