@@ -305,10 +305,11 @@ pub fn execute_step(
             let credit_quotes = quotes.extract_quotes();
             require_non_empty(&credit_quotes)?;
 
-            let target = HazardBootstrapper::new(p.clone(), context.clone(), global_config.use_parallel);
+            let target =
+                HazardBootstrapper::new(p.clone(), context.clone(), global_config.use_parallel)?;
             let mut prepared_quotes: Vec<PreparedCreditQuote> = credit_quotes
                 .into_iter()
-                .map(|q| PreparedCreditQuote::new(q, &target.params, target.convention))
+                .map(|q| PreparedCreditQuote::new(q, &target.params, target.cds_conventions))
                 .collect::<Result<_>>()?;
 
             let (curve, report) = match p.method {

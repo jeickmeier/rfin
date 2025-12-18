@@ -125,34 +125,22 @@ impl CalibrationPricer {
     /// Market-standard calendar identifier for rates by currency.
     ///
     /// These identifiers must exist in `CalendarRegistry`.
-    pub fn market_calendar_id(currency: Currency) -> &'static str {
-        match currency {
-            Currency::USD => "usny",
-            Currency::EUR => "target2",
-            Currency::GBP => "gblo",
-            Currency::JPY => "jpto",
-            Currency::CHF => "chzu",
-            Currency::AUD => "ausy",
-            Currency::CAD => "cato",
-            Currency::NZD => "nzau",
-            Currency::HKD => "hkex",
-            Currency::SGD => "sgex",
-            _ => "usny",
-        }
+    pub(crate) fn market_calendar_id(currency: Currency) -> &'static str {
+        crate::calibration::quotes::conventions::DepositConventions::for_currency(currency)
+            .calendar_id
+            .as_str()
     }
 
     /// Market-standard spot settlement lag (business days) by currency.
-    pub fn market_settlement_days(currency: Currency) -> i32 {
-        match currency {
-            Currency::GBP => 0,
-            Currency::AUD | Currency::CAD => 1,
-            _ => 2,
-        }
+    pub(crate) fn market_settlement_days(currency: Currency) -> i32 {
+        crate::calibration::quotes::conventions::DepositConventions::for_currency(currency)
+            .settlement_days
     }
 
     /// Market-standard business day convention for rates scheduling.
-    pub fn market_business_day_convention(_currency: Currency) -> BusinessDayConvention {
-        BusinessDayConvention::ModifiedFollowing
+    pub(crate) fn market_business_day_convention(_currency: Currency) -> BusinessDayConvention {
+        crate::calibration::quotes::conventions::DepositConventions::for_currency(_currency)
+            .business_day_convention
     }
 
     /// Create a new calibration pricer with defaults.

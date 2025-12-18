@@ -6,6 +6,11 @@ use finstack_core::dates::{BusinessDayConvention, DayCount, Tenor};
 use finstack_core::types::{Currency, IndexId};
 #[cfg(feature = "ts_export")]
 use ts_rs::TS;
+use std::collections::HashMap;
+use std::sync::OnceLock;
+
+use super::json_registry::{build_lookup_map_mapped, RegistryFile};
+
 
 /// Per-instrument conventions for calibration.
 ///
@@ -193,117 +198,6 @@ impl InstrumentConventions {
             .or(self.calendar_id.as_deref())
     }
 
-    // =========================================================================
-    // Currency-Specific Default Conventions
-    // =========================================================================
-
-    /// Default day count for money market instruments (deposits, FRAs) by currency.
-    ///
-    /// Market conventions:
-    /// - GBP, JPY, AUD, NZD, HKD, SGD: ACT/365F
-    /// - USD, EUR, CHF, CAD, and others: ACT/360
-    #[inline]
-    pub fn default_money_market_day_count(currency: Currency) -> DayCount {
-        match currency {
-            Currency::GBP
-            | Currency::JPY
-            | Currency::AUD
-            | Currency::NZD
-            | Currency::HKD
-            | Currency::SGD => DayCount::Act365F,
-            _ => DayCount::Act360,
-        }
-    }
-
-    /// Default fixed leg day count for swaps by currency.
-    ///
-    /// Market conventions:
-    /// - GBP: ACT/365F
-    /// - EUR, CHF: 30/360 (ISDA)
-    /// - USD, others: 30/360
-    #[inline]
-    pub fn default_fixed_leg_day_count(currency: Currency) -> DayCount {
-        match currency {
-            Currency::GBP => DayCount::Act365F,
-            _ => DayCount::Thirty360,
-        }
-    }
-
-    /// Default float leg day count for swaps by currency.
-    ///
-    /// Market conventions:
-    /// - GBP: ACT/365F
-    /// - USD, EUR, CHF, others: ACT/360
-    #[inline]
-    pub fn default_float_leg_day_count(currency: Currency) -> DayCount {
-        match currency {
-            Currency::GBP | Currency::JPY | Currency::AUD => DayCount::Act365F,
-            _ => DayCount::Act360,
-        }
-    }
-
-    /// Default fixed leg payment frequency for swaps by currency.
-    ///
-    /// Market conventions:
-    /// - GBP (SONIA): Annual
-    /// - USD, EUR, others: Semi-annual
-    #[inline]
-    pub fn default_fixed_leg_frequency(currency: Currency) -> Tenor {
-        match currency {
-            Currency::GBP => Tenor::annual(),
-            _ => Tenor::semi_annual(),
-        }
-    }
-
-    /// Default float leg payment frequency for swaps by currency.
-    ///
-    /// For OIS swaps, this is typically annual (paid at maturity for short tenors).
-    /// For IBOR-style swaps, this matches the index tenor (e.g., 3M for 3M LIBOR).
-    #[inline]
-    pub fn default_float_leg_frequency(_currency: Currency) -> Tenor {
-        // Default to quarterly for most swaps; OIS typically annual
-        Tenor::quarterly()
-    }
-
-    /// Get effective day count, using provided value or currency default for money market.
-    #[inline]
-    pub fn effective_day_count_or_default(&self, currency: Currency) -> DayCount {
-        self.day_count
-            .unwrap_or_else(|| Self::default_money_market_day_count(currency))
-    }
-
-    /// Get effective payment frequency, using provided value or currency default.
-    #[inline]
-    pub fn effective_payment_frequency_or_default(
-        &self,
-        currency: Currency,
-        is_fixed: bool,
-    ) -> Tenor {
-        self.payment_frequency.unwrap_or_else(|| {
-            if is_fixed {
-                Self::default_fixed_leg_frequency(currency)
-            } else {
-                Self::default_float_leg_frequency(currency)
-            }
-        })
-    }
-
-    /// Get effective day count for a swap leg, using provided value or currency default.
-    #[inline]
-    pub fn effective_swap_day_count_or_default(
-        &self,
-        currency: Currency,
-        is_fixed: bool,
-    ) -> DayCount {
-        self.day_count.unwrap_or_else(|| {
-            if is_fixed {
-                Self::default_fixed_leg_day_count(currency)
-            } else {
-                Self::default_float_leg_day_count(currency)
-            }
-        })
-    }
-
     /// Get the effective payment delay in business days after period end.
     ///
     /// Market convention: 0 by default unless explicitly provided on the quote.
@@ -319,5 +213,135 @@ impl InstrumentConventions {
     #[inline]
     pub fn effective_reset_lag_days(&self) -> i32 {
         self.reset_lag.unwrap_or(-2)
+    }
+}
+
+// ============================================================================
+// Instrument-centric convention registries
+// ============================================================================
+
+#[derive(Clone, Debug, PartialEq)]
+pub(crate) struct DepositConventions {
+    pub calendar_id: String,
+    pub settlement_days: i32,
+    pub business_day_convention: BusinessDayConvention,
+    pub day_count: DayCount,
+}
+
+#[derive(Clone, Debug, serde::Deserialize)]
+#[serde(deny_unknown_fields)]
+struct DepositConventionsRecord {
+    calendar_id: String,
+    settlement_days: i32,
+    business_day_convention: BusinessDayConvention,
+    day_count: DayCount,
+}
+
+impl DepositConventionsRecord {
+    fn into_conventions(self) -> DepositConventions {
+        DepositConventions {
+            calendar_id: self.calendar_id,
+            settlement_days: self.settlement_days,
+            business_day_convention: self.business_day_convention,
+            day_count: self.day_count,
+        }
+    }
+}
+
+#[derive(Clone, Debug, PartialEq)]
+pub(crate) struct FraConventions {
+    pub calendar_id: String,
+    pub settlement_days: i32,
+    pub business_day_convention: BusinessDayConvention,
+    pub day_count: DayCount,
+}
+
+#[derive(Clone, Debug, serde::Deserialize)]
+#[serde(deny_unknown_fields)]
+struct FraConventionsRecord {
+    calendar_id: String,
+    settlement_days: i32,
+    business_day_convention: BusinessDayConvention,
+    day_count: DayCount,
+}
+
+impl FraConventionsRecord {
+    fn into_conventions(self) -> FraConventions {
+        FraConventions {
+            calendar_id: self.calendar_id,
+            settlement_days: self.settlement_days,
+            business_day_convention: self.business_day_convention,
+            day_count: self.day_count,
+        }
+    }
+}
+
+fn normalize_currency_key(id: &str) -> String {
+    id.trim().to_uppercase()
+}
+
+fn deposit_registry() -> &'static HashMap<String, DepositConventions> {
+    static REGISTRY: OnceLock<HashMap<String, DepositConventions>> = OnceLock::new();
+    REGISTRY.get_or_init(|| {
+        let json = include_str!("../../../data/conventions/deposit_conventions.json");
+        let file: RegistryFile<DepositConventionsRecord> =
+            serde_json::from_str(json).expect("Failed to parse embedded deposit conventions JSON");
+        build_lookup_map_mapped(file, normalize_currency_key, |rec| rec.clone().into_conventions())
+    })
+}
+
+fn fra_registry() -> &'static HashMap<String, FraConventions> {
+    static REGISTRY: OnceLock<HashMap<String, FraConventions>> = OnceLock::new();
+    REGISTRY.get_or_init(|| {
+        let json = include_str!("../../../data/conventions/fra_conventions.json");
+        let file: RegistryFile<FraConventionsRecord> =
+            serde_json::from_str(json).expect("Failed to parse embedded FRA conventions JSON");
+        build_lookup_map_mapped(file, normalize_currency_key, |rec| rec.clone().into_conventions())
+    })
+}
+
+impl DepositConventions {
+    pub(crate) fn for_currency(currency: Currency) -> &'static Self {
+        let key = currency.to_string();
+        deposit_registry()
+            .get(&key)
+            .or_else(|| deposit_registry().get("DEFAULT"))
+            .unwrap_or_else(|| {
+                panic!(
+                    "Missing deposit conventions for '{}' and missing DEFAULT entry",
+                    key
+                )
+            })
+    }
+
+    /// Resolve deposit conventions using an optional index key (e.g., "USD-SOFR", "EUR-ESTR-OIS").
+    ///
+    /// Resolution order:
+    /// 1) `index` (if provided) against `deposit_conventions.json` entry IDs
+    /// 2) `currency` against `deposit_conventions.json` entry IDs
+    /// 3) "DEFAULT"
+    pub(crate) fn for_currency_or_index(currency: Currency, index: Option<&IndexId>) -> &'static Self {
+        if let Some(index) = index {
+            let key = normalize_currency_key(index.as_str());
+            if let Some(found) = deposit_registry().get(&key) {
+                return found;
+            }
+        }
+        Self::for_currency(currency)
+    }
+}
+
+impl FraConventions {
+    pub(crate) fn for_currency(currency: Currency) -> &'static Self {
+        let key = currency.to_string();
+        fra_registry()
+            .get(&key)
+            .or_else(|| fra_registry().get("DEFAULT"))
+            .unwrap_or_else(|| {
+                panic!(
+                    "Missing FRA conventions for '{}' and missing DEFAULT entry",
+                    key
+                )
+            })
     }
 }

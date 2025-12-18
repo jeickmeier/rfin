@@ -178,6 +178,7 @@ fn swaption_vol_step_builds_and_inserts_surface() {
                 sabr_interpolation: Default::default(),
                 calendar_id: None,
                 fixed_day_count: None,
+                swap_index: Some("USD-SOFR-3M".into()),
                 // Vendor-grade surface fit requirements (normal vols in decimal).
                 vol_tolerance: Some(tolerances::SWAPTION_VOL_FIT_TOL_NORMAL_DECIMAL),
                 // Internal SABR solver tolerance (root-finder tolerance).
@@ -252,6 +253,7 @@ fn swaption_vol_out_of_bounds_targets_error_by_default() {
                 sabr_interpolation: Default::default(),
                 calendar_id: None,
                 fixed_day_count: None,
+                swap_index: Some("USD-SOFR-3M".into()),
                 vol_tolerance: None,
                 sabr_tolerance: None,
                 sabr_extrapolation: SurfaceExtrapolationPolicy::Error,
@@ -305,6 +307,7 @@ fn swaption_vol_out_of_bounds_targets_can_clamp_when_configured() {
                 sabr_interpolation: Default::default(),
                 calendar_id: None,
                 fixed_day_count: None,
+                swap_index: Some("USD-SOFR-3M".into()),
                 vol_tolerance: None,
                 sabr_tolerance: None,
                 sabr_extrapolation: SurfaceExtrapolationPolicy::Clamp,

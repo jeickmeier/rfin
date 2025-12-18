@@ -1,11 +1,10 @@
 use crate::calibration::api::schema::HazardCurveParams;
 use crate::calibration::pricing::prepared::PreparedCreditQuote;
 use crate::calibration::solver::BootstrapTarget;
-use crate::instruments::cds::CDSConvention;
+use crate::instruments::cds::CdsConventionResolved;
 use finstack_core::dates::DayCountCtx;
 use finstack_core::market_data::context::MarketContext;
 use finstack_core::market_data::term_structures::HazardCurve;
-use finstack_core::prelude::*;
 use finstack_core::Result;
 use std::cell::RefCell;
 
@@ -30,8 +29,8 @@ const HAZARD_HARD_MAX: f64 = 10.0;
 pub struct HazardBootstrapper {
     /// Parameters defining the hazard curve structure and IDs.
     pub params: HazardCurveParams,
-    /// CDS pricing convention (e.g., ISDA) derived from currency.
-    pub convention: CDSConvention,
+    /// CDS market conventions resolved from (currency, doc_clause).
+    pub(crate) cds_conventions: &'static CdsConventionResolved,
     /// Market context providing discount curves for PV calculations.
     pub base_context: MarketContext,
     /// Optional reusable context for sequential solvers to reduce memory pressure.
@@ -60,16 +59,9 @@ impl HazardBootstrapper {
         params: HazardCurveParams,
         base_context: MarketContext,
         use_parallel: bool,
-    ) -> Self {
-        // Derive convention from currency
-        let convention = match params.currency {
-            Currency::USD | Currency::CAD => CDSConvention::IsdaNa,
-            Currency::EUR | Currency::GBP | Currency::CHF => CDSConvention::IsdaEu,
-            Currency::JPY | Currency::HKD | Currency::SGD | Currency::AUD | Currency::NZD => {
-                CDSConvention::IsdaAs
-            }
-            _ => CDSConvention::IsdaNa,
-        };
+    ) -> Result<Self> {
+        let cds_conventions =
+            crate::instruments::cds::resolve_market_conventions(params.currency, params.doc_clause.as_deref())?;
 
         let reuse_context = if use_parallel {
             None
@@ -77,12 +69,12 @@ impl HazardBootstrapper {
             Some(RefCell::new(base_context.clone()))
         };
 
-        Self {
+        Ok(Self {
             params,
-            convention,
+            cds_conventions,
             base_context,
             reuse_context,
-        }
+        })
     }
 
     fn with_temp_context<F, T>(&self, curve: &HazardCurve, op: F) -> Result<T>
@@ -106,7 +98,7 @@ impl BootstrapTarget for HazardBootstrapper {
     type Curve = HazardCurve;
 
     fn quote_time(&self, quote: &Self::Quote) -> Result<f64> {
-        let dc = self.convention.day_count();
+        let dc = self.cds_conventions.day_count;
         let maturity = quote.quote.as_ref().maturity_date().ok_or(finstack_core::Error::Input(
             finstack_core::error::InputError::Invalid,
         ))?;
@@ -116,7 +108,7 @@ impl BootstrapTarget for HazardBootstrapper {
     fn build_curve(&self, knots: &[(f64, f64)]) -> Result<Self::Curve> {
         HazardCurve::builder(self.params.curve_id.to_string())
             .base_date(self.params.base_date)
-            .day_count(self.convention.day_count())
+            .day_count(self.cds_conventions.day_count)
             .issuer(self.params.entity.clone())
             .seniority(self.params.seniority)
             .currency(self.params.currency)
@@ -239,8 +231,11 @@ mod tests {
     use crate::calibration::quotes::CreditQuote;
     use crate::calibration::quotes::InstrumentConventions;
     use crate::calibration::solver::BootstrapTarget;
+    use finstack_core::dates::Date;
     use finstack_core::market_data::term_structures::discount_curve::DiscountCurve;
     use finstack_core::market_data::term_structures::ParInterp;
+    use finstack_core::math::interp::InterpStyle;
+    use finstack_core::types::{Currency, CurveId};
     use time::Month;
 
     fn base_params() -> HazardCurveParams {
@@ -256,12 +251,14 @@ mod tests {
             method: crate::calibration::config::CalibrationMethod::Bootstrap,
             interpolation: InterpStyle::Linear,
             par_interp: ParInterp::Linear,
+            doc_clause: None,
         }
     }
 
     #[test]
     fn validate_knot_rejects_negative_hazard() {
-        let target = HazardBootstrapper::new(base_params(), MarketContext::default(), false);
+        let target =
+            HazardBootstrapper::new(base_params(), MarketContext::default(), false).expect("target");
         let err = target
             .validate_knot(1.0, -1e-6)
             .expect_err("should reject negative hazard");
@@ -270,7 +267,8 @@ mod tests {
 
     #[test]
     fn validate_knot_rejects_hazard_above_max() {
-        let target = HazardBootstrapper::new(base_params(), MarketContext::default(), false);
+        let target =
+            HazardBootstrapper::new(base_params(), MarketContext::default(), false).expect("target");
         let err = target
             .validate_knot(1.0, HAZARD_HARD_MAX + 1e-6)
             .expect_err("should reject excessive hazard");
@@ -281,7 +279,7 @@ mod tests {
     fn build_curve_preserves_par_interp_and_monotone_survival() {
         let mut p = base_params();
         p.par_interp = ParInterp::LogLinear;
-        let target = HazardBootstrapper::new(p, MarketContext::default(), false);
+        let target = HazardBootstrapper::new(p, MarketContext::default(), false).expect("target");
 
         let curve = target
             .build_curve(&[(1.0, 0.02), (5.0, 0.03)])
@@ -334,12 +332,12 @@ mod tests {
             conventions: InstrumentConventions::default(),
         };
 
-        let (inst, upfront_opt) = quote_factory::build_instrument_for_credit_quote(
-            &quote,
-            &params,
-            CDSConvention::IsdaNa,
-        )
-        .expect("factory build");
+        let cds_conventions =
+            crate::instruments::cds::resolve_market_conventions(Currency::USD, None)
+                .expect("cds conventions");
+        let (inst, upfront_opt) =
+            quote_factory::build_instrument_for_credit_quote(&quote, &params, cds_conventions)
+                .expect("factory build");
         let upfront = upfront_opt.expect("expected upfront");
 
         let pv = inst.value(&ctx, base_date).expect("pv").amount();

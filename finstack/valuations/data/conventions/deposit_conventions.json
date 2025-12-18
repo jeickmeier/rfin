@@ -1,0 +1,142 @@
+{
+  "schema": "finstack.calibration.conventions.registry.v1",
+  "namespace": "calibration.deposit",
+  "version": 1,
+  "entries": [
+    {
+      "ids": ["DEFAULT"],
+      "record": {
+        "calendar_id": "usny",
+        "settlement_days": 2,
+        "business_day_convention": "modified_following",
+        "day_count": "Act360"
+      }
+    },
+    {
+      "ids": [
+        "USD",
+        "USD-SOFR",
+        "SOFR",
+        "USD-SOFR-OIS",
+        "SOFR-OIS",
+        "USD-SOFR-1M",
+        "SOFR-1M",
+        "USD-SOFR-3M",
+        "SOFR-3M",
+        "USD-SOFR-6M",
+        "SOFR-6M",
+        "USD-LIBOR-3M",
+        "LIBOR-3M"
+      ],
+      "record": {
+        "calendar_id": "usny",
+        "settlement_days": 2,
+        "business_day_convention": "modified_following",
+        "day_count": "Act360"
+      }
+    },
+    {
+      "ids": [
+        "EUR",
+        "EUR-ESTR",
+        "ESTR",
+        "EUR-ESTR-OIS",
+        "ESTR-OIS",
+        "EUR-EST",
+        "EST",
+        "EUR-EST-OIS",
+        "EST-OIS"
+      ],
+      "record": {
+        "calendar_id": "target2",
+        "settlement_days": 2,
+        "business_day_convention": "modified_following",
+        "day_count": "Act360"
+      }
+    },
+    {
+      "ids": ["GBP", "GBP-SONIA", "SONIA", "GBP-SONIA-OIS", "SONIA-OIS"],
+      "record": {
+        "calendar_id": "gblo",
+        "settlement_days": 0,
+        "business_day_convention": "modified_following",
+        "day_count": "Act365F"
+      }
+    },
+    {
+      "ids": [
+        "JPY",
+        "JPY-TONA",
+        "TONA",
+        "JPY-TONAR",
+        "TONAR",
+        "JPY-TONA-OIS",
+        "TONA-OIS",
+        "JPY-TONAR-OIS",
+        "TONAR-OIS"
+      ],
+      "record": {
+        "calendar_id": "jpto",
+        "settlement_days": 2,
+        "business_day_convention": "modified_following",
+        "day_count": "Act365F"
+      }
+    },
+    {
+      "ids": ["CHF", "CHF-SARON", "SARON", "CHF-SARON-OIS", "SARON-OIS"],
+      "record": {
+        "calendar_id": "chzh",
+        "settlement_days": 2,
+        "business_day_convention": "modified_following",
+        "day_count": "Act360"
+      }
+    },
+    {
+      "ids": ["AUD", "AUD-AONIA", "AONIA", "AUD-AONIA-OIS", "AONIA-OIS"],
+      "record": {
+        "calendar_id": "auce",
+        "settlement_days": 1,
+        "business_day_convention": "modified_following",
+        "day_count": "Act365F"
+      }
+    },
+    {
+      "ids": ["CAD", "CAD-CORRA", "CORRA", "CAD-CORRA-OIS", "CORRA-OIS"],
+      "record": {
+        "calendar_id": "cato",
+        "settlement_days": 1,
+        "business_day_convention": "modified_following",
+        "day_count": "Act360"
+      }
+    },
+    {
+      "ids": ["NZD", "NZD-OCR", "OCR", "NZD-OCR-OIS", "OCR-OIS"],
+      "record": {
+        "calendar_id": "nzau",
+        "settlement_days": 2,
+        "business_day_convention": "modified_following",
+        "day_count": "Act365F"
+      }
+    },
+    {
+      "ids": ["HKD", "HKD-HONIA", "HONIA", "HKD-HONIA-OIS", "HONIA-OIS"],
+      "record": {
+        "calendar_id": "hkex",
+        "settlement_days": 2,
+        "business_day_convention": "modified_following",
+        "day_count": "Act365F"
+      }
+    },
+    {
+      "ids": ["SGD", "SGD-SORA", "SORA", "SGD-SORA-OIS", "SORA-OIS"],
+      "record": {
+        "calendar_id": "sgsi",
+        "settlement_days": 2,
+        "business_day_convention": "modified_following",
+        "day_count": "Act365F"
+      }
+    }
+  ]
+}
+
+

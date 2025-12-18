@@ -11,7 +11,7 @@
 use crate::calibration::api::schema::HazardCurveParams;
 use crate::calibration::pricing::quote_factory;
 use crate::calibration::quotes::{CreditQuote, RatesQuote};
-use crate::instruments::cds::CDSConvention;
+use crate::instruments::cds::CdsConventionResolved;
 use crate::instruments::common::traits::Instrument;
 use finstack_core::money::Money;
 use finstack_core::types::Currency;
@@ -67,10 +67,14 @@ pub struct PreparedCreditQuote {
 
 impl PreparedCreditQuote {
     /// Build a prepared credit quote (CDS/CDSUpfront) once.
-    pub fn new(quote: CreditQuote, params: &HazardCurveParams, convention: CDSConvention) -> Result<Self> {
+    pub(crate) fn new(
+        quote: CreditQuote,
+        params: &HazardCurveParams,
+        cds_conventions: &CdsConventionResolved,
+    ) -> Result<Self> {
         let quote = Arc::new(quote);
         let (instrument, upfront_opt) =
-            quote_factory::build_instrument_for_credit_quote(quote.as_ref(), params, convention)?;
+            quote_factory::build_instrument_for_credit_quote(quote.as_ref(), params, cds_conventions)?;
         Ok(Self {
             quote,
             instrument,

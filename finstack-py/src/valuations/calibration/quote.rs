@@ -319,7 +319,7 @@ impl PyRatesQuote {
             period_end,
             fixing_date,
             price,
-            specs: specs.inner.clone(),
+            specs: Some(specs.inner.clone()),
             conventions: conventions.map(|c| c.inner.clone()).unwrap_or_default(),
         }))
     }

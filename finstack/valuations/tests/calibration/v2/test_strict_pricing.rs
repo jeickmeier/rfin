@@ -256,7 +256,7 @@ fn strict_pricing_rejects_future_without_convexity_inputs() {
         period_end: base + time::Duration::days(180),
         fixing_date: None,
         price: 95.0,
-        specs: FutureSpecs::default(),
+        specs: Some(FutureSpecs::default()),
         conventions: Default::default(),
     };
 
@@ -305,10 +305,10 @@ fn strict_pricing_allows_future_with_explicit_convexity() {
         period_end: base + time::Duration::days(180),
         fixing_date: None,
         price: 95.0,
-        specs: FutureSpecs {
+        specs: Some(FutureSpecs {
             convexity_adjustment: Some(0.0001),
             ..FutureSpecs::default()
-        },
+        }),
         conventions: Default::default(),
     };
 
@@ -346,7 +346,7 @@ fn strict_pricing_allows_future_with_explicit_convexity() {
         period_end: base + time::Duration::days(180),
         fixing_date: None,
         price: 95.0,
-        specs: FutureSpecs::default(),
+        specs: Some(FutureSpecs::default()),
         conventions: Default::default(),
     };
 

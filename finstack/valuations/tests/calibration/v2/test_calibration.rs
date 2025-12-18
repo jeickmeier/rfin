@@ -139,6 +139,7 @@ fn hazard_curve_calibration_is_deterministic_across_runs() {
                     method: CalibrationMethod::Bootstrap,
                     interpolation: Default::default(),
                     par_interp: finstack_core::market_data::term_structures::ParInterp::Linear,
+                    doc_clause: None,
                 }),
             },
         ],

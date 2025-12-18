@@ -12,7 +12,7 @@ use finstack_core::dates::{Date, DayCount, Tenor};
 use finstack_core::market_data::context::MarketContextState;
 use finstack_core::market_data::term_structures::{ParInterp, Seniority};
 use finstack_core::math::interp::{ExtrapolationPolicy, InterpStyle};
-use finstack_core::types::{Currency, CurveId};
+use finstack_core::types::{Currency, CurveId, IndexId};
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 
@@ -232,6 +232,18 @@ pub struct HazardCurveParams {
     /// internal log-linear survival interpolation.
     #[serde(default = "default_par_interp_linear")]
     pub par_interp: ParInterp,
+
+    /// Optional CDS doc clause / market convention identifier.
+    ///
+    /// This selects the pricing/schedule conventions for the synthetic CDS instruments used
+    /// during calibration. If omitted, the default for the currency is used.
+    ///
+    /// Examples (current built-ins):
+    /// - `"IsdaNa"` (USD/CAD default)
+    /// - `"IsdaEu"` (EUR/GBP/CHF default)
+    /// - `"IsdaAs"` (JPY/AUD/NZD/HKD/SGD default)
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub doc_clause: Option<String>,
 }
 
 /// Parameters for inflation curve calibration step.
@@ -354,6 +366,15 @@ pub struct SwaptionVolParams {
     /// Optional day count convention for fixed leg calculations.
     #[serde(default)]
     pub fixed_day_count: Option<DayCount>,
+
+    /// Optional floating index identifier used to resolve market swap conventions.
+    ///
+    /// Swaption forward/par rate calculations require swap schedule conventions (fixed frequency,
+    /// day count, calendar, BDC) that are now indexed off a rate index conventions registry.
+    ///
+    /// If omitted, individual swaption quotes must provide `float_leg_conventions.index`.
+    #[serde(default)]
+    pub swap_index: Option<IndexId>,
     /// Reporting tolerance used to determine calibration success.
     ///
     /// This is distinct from `plan.settings.tolerance` (solver tolerance). For swaption-vol

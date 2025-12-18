@@ -50,16 +50,24 @@ pub(crate) fn resolve_common<'a>(
     quote_conventions: &'a InstrumentConventions,
     currency: Currency,
 ) -> ResolvedCommon<'a> {
+    // Generic, currency-based defaults for non-swap instruments.
+    // These are now sourced from the deposit conventions registry (instrument-centric).
+    let defaults =
+        crate::calibration::quotes::conventions::DepositConventions::for_currency_or_index(
+            currency,
+            quote_conventions.index.as_ref(),
+        );
+
     let settlement_days = quote_conventions
         .settlement_days
         .or(pricer.conventions.settlement_days)
-        .unwrap_or_else(|| CalibrationPricer::market_settlement_days(currency));
+        .unwrap_or(defaults.settlement_days);
 
     let calendar_id = quote_conventions
         .calendar_id
         .as_deref()
         .or(pricer.conventions.calendar_id.as_deref())
-        .unwrap_or_else(|| CalibrationPricer::market_calendar_id(currency));
+        .unwrap_or(defaults.calendar_id.as_str());
 
     let fixing_calendar_id = quote_conventions
         .effective_fixing_calendar_id()
@@ -74,7 +82,7 @@ pub(crate) fn resolve_common<'a>(
     let bdc = quote_conventions
         .business_day_convention
         .or(pricer.conventions.business_day_convention)
-        .unwrap_or_else(|| CalibrationPricer::market_business_day_convention(currency));
+        .unwrap_or(defaults.business_day_convention);
 
     ResolvedCommon {
         settlement_days,
@@ -95,7 +103,7 @@ fn resolve_common_for_swap<'a>(
     conventions: &'a InstrumentConventions,
     fixed_leg: &'a InstrumentConventions,
     float_leg: &'a InstrumentConventions,
-    currency: Currency,
+    _currency: Currency,
     float_index: &'a IndexId,
 ) -> Result<ResolvedCommon<'a>> {
     let index_conv = RateIndexConventions::require_for_index(float_index)?;
@@ -103,7 +111,7 @@ fn resolve_common_for_swap<'a>(
     let settlement_days = conventions
         .settlement_days
         .or(pricer.conventions.settlement_days)
-        .unwrap_or_else(|| CalibrationPricer::market_settlement_days(currency));
+        .unwrap_or(index_conv.market_settlement_days);
 
     let calendar_id = conventions
         .calendar_id
@@ -111,14 +119,14 @@ fn resolve_common_for_swap<'a>(
         .or(fixed_leg.calendar_id.as_deref())
         .or(float_leg.calendar_id.as_deref())
         .or(pricer.conventions.calendar_id.as_deref())
-        .unwrap_or_else(|| CalibrationPricer::market_calendar_id(currency));
+        .unwrap_or(index_conv.market_calendar_id.as_str());
 
     let bdc = conventions
         .business_day_convention
         .or(fixed_leg.business_day_convention)
         .or(float_leg.business_day_convention)
         .or(pricer.conventions.business_day_convention)
-        .unwrap_or_else(|| CalibrationPricer::market_business_day_convention(currency));
+        .unwrap_or(index_conv.market_business_day_convention);
 
     let fixing_calendar_id = conventions
         .fixing_calendar_id
@@ -276,14 +284,7 @@ pub(crate) fn resolve_swap_conventions<'a>(
                 fixed_leg_conventions
                     .payment_frequency
                     .or(conventions.payment_frequency)
-                    .unwrap_or_else(|| {
-                        if index_conv.kind == RateIndexKind::OvernightRfr {
-                            // OIS fixed legs are typically annual (e.g., SOFR/SONIA/€STR OIS).
-                            index_conv.default_payment_frequency
-                        } else {
-                            InstrumentConventions::default_fixed_leg_frequency(currency)
-                        }
-                    })
+                    .unwrap_or(index_conv.default_fixed_leg_frequency)
             };
 
             let float_freq = if strict {
@@ -309,15 +310,7 @@ pub(crate) fn resolve_swap_conventions<'a>(
                 fixed_leg_conventions
                     .day_count
                     .or(conventions.day_count)
-                    .unwrap_or_else(|| {
-                        // OIS fixed legs follow money-market style day count conventions (e.g., ACT/360
-                        // for USD/EUR), whereas IBOR-style swaps commonly use 30/360.
-                        if quote.is_ois_suitable() {
-                            InstrumentConventions::default_money_market_day_count(currency)
-                        } else {
-                            InstrumentConventions::default_fixed_leg_day_count(currency)
-                        }
-                    })
+                    .unwrap_or(index_conv.default_fixed_leg_day_count)
             };
 
             let float_dc = if strict {

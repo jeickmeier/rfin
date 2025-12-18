@@ -125,6 +125,7 @@ fn step_params_v2_roundtrip_for_all_variants() {
         method: CalibrationMethod::Bootstrap,
         interpolation: Default::default(),
         par_interp: finstack_core::market_data::term_structures::ParInterp::Linear,
+        doc_clause: None,
     });
     let _ = roundtrip_json(&hazard);
 
@@ -171,6 +172,7 @@ fn step_params_v2_roundtrip_for_all_variants() {
         sabr_interpolation: Default::default(),
         calendar_id: None,
         fixed_day_count: None,
+        swap_index: Some("USD-SOFR-3M".into()),
         vol_tolerance: None,
         sabr_tolerance: None,
         sabr_extrapolation: SurfaceExtrapolationPolicy::Error,

@@ -174,7 +174,7 @@ impl BootstrapTarget for ForwardCurveTarget {
             RatesQuote::FRA { rate, .. } => Ok(*rate),
             RatesQuote::Future { price, specs, .. } => {
                 let implied_rate = (100.0 - price) / 100.0;
-                if let Some(adj) = specs.convexity_adjustment {
+                if let Some(adj) = specs.as_ref().and_then(|s| s.convexity_adjustment) {
                     Ok(implied_rate + adj)
                 } else {
                     Ok(implied_rate)

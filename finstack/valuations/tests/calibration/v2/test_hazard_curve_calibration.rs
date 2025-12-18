@@ -99,6 +99,7 @@ fn hazard_calibration_positive_rates() {
                 method: CalibrationMethod::Bootstrap,
                 interpolation: Default::default(),
                 par_interp: finstack_core::market_data::term_structures::ParInterp::Linear,
+                doc_clause: None,
             }),
         }],
     };
@@ -167,6 +168,7 @@ fn hazard_calibration_rejects_zero_spread() {
                 method: CalibrationMethod::Bootstrap,
                 interpolation: Default::default(),
                 par_interp: finstack_core::market_data::term_structures::ParInterp::Linear,
+                doc_clause: None,
             }),
         }],
     };

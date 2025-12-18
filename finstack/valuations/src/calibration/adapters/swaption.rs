@@ -2,7 +2,8 @@ use crate::calibration::api::schema::{
     SurfaceExtrapolationPolicy, SwaptionVolConvention, SwaptionVolParams,
 };
 use crate::calibration::config::CalibrationConfig;
-use crate::calibration::quotes::{InstrumentConventions, MarketQuote, VolQuote};
+use crate::calibration::quotes::{MarketQuote, VolQuote};
+use crate::calibration::quotes::rate_index::RateIndexConventions;
 use crate::calibration::CalibrationReport;
 use crate::instruments::common::models::{SABRCalibrator, SABRModel, SABRParameters};
 use finstack_core::dates::{
@@ -77,9 +78,25 @@ impl SwaptionVolAdapter {
     ) -> Result<(VolSurface, CalibrationReport)> {
         // Group quotes by (expiry_years, tenor_years) using stable basis-point keys.
         let mut grouped_quotes: QuotesByExpiryTenor<'_> = BTreeMap::new();
-        let dc = params
-            .fixed_day_count
-            .unwrap_or_else(|| InstrumentConventions::default_fixed_leg_day_count(params.currency));
+        let dc = if let Some(dc) = params.fixed_day_count {
+            dc
+        } else {
+            let idx_from_quotes = quotes.iter().find_map(|q| match q {
+                MarketQuote::Vol(VolQuote::SwaptionVol {
+                    float_leg_conventions,
+                    ..
+                }) => float_leg_conventions.index.as_ref(),
+                _ => None,
+            });
+            let idx = params.swap_index.as_ref().or(idx_from_quotes).ok_or_else(|| {
+                finstack_core::Error::Validation(
+                    "Swaption vol calibration requires either SwaptionVolParams.fixed_day_count \
+                     or SwaptionVolParams.swap_index (or per-quote float_leg_conventions.index)"
+                        .to_string(),
+                )
+            })?;
+            RateIndexConventions::require_for_index(idx)?.default_fixed_leg_day_count
+        };
 
         for q in quotes {
             if let MarketQuote::Vol(VolQuote::SwaptionVol { expiry, tenor, .. }) = q {
@@ -123,7 +140,7 @@ impl SwaptionVolAdapter {
                     .ok_or(finstack_core::Error::Input(
                         finstack_core::error::InputError::TooFewPoints,
                     ))?;
-            let leg_conv = Self::resolve_leg_conventions(params, representative);
+            let leg_conv = Self::resolve_leg_conventions(params, representative)?;
 
             // Calculate forward swap rate (exact PV01 schedule; multi-curve supported).
             let fwd_rate =
@@ -306,7 +323,7 @@ Set params.sabr_extrapolation='clamp' to allow flat extrapolation.",
                 }
 
                 let val = if let Some(p) = p {
-                    let leg_conv = Self::default_leg_conventions(params);
+                    let leg_conv = Self::default_leg_conventions(params)?;
                     let f = Self::calculate_forward_swap_rate_years(
                         params, texp, tten, &leg_conv, context,
                     )?;
@@ -383,42 +400,53 @@ Set params.sabr_extrapolation='clamp' to allow flat extrapolation.",
     fn resolve_leg_conventions<'a>(
         params: &'a SwaptionVolParams,
         quote: &'a VolQuote,
-    ) -> SwaptionLegConventions<'a> {
+    ) -> Result<SwaptionLegConventions<'a>> {
         // IMPORTANT: avoid cloning leg conventions if we return borrowed fields (calendar_id).
         // We need `calendar_id` to borrow from `params` or `quote`, not from locals.
         let fixed_leg = quote.fixed_leg_conventions();
         let float_leg = quote.float_leg_conventions();
         let common = quote.conventions();
 
+        let idx = float_leg
+            .and_then(|l| l.index.as_ref())
+            .or(params.swap_index.as_ref())
+            .ok_or_else(|| {
+                finstack_core::Error::Validation(
+                    "Swaption vol quote requires float_leg_conventions.index, or SwaptionVolParams.swap_index must be set".to_string(),
+                )
+            })?;
+        let idx_conv = RateIndexConventions::require_for_index(idx)?;
+
         let fixed_freq = fixed_leg
             .and_then(|l| l.payment_frequency)
-            .unwrap_or_else(|| InstrumentConventions::default_fixed_leg_frequency(params.currency));
+            .unwrap_or(idx_conv.default_fixed_leg_frequency);
         let float_freq = float_leg
             .and_then(|l| l.payment_frequency)
-            .unwrap_or_else(|| InstrumentConventions::default_float_leg_frequency(params.currency));
+            .unwrap_or(idx_conv.default_payment_frequency);
 
         let fixed_day_count = fixed_leg
             .and_then(|l| l.day_count)
             .or(params.fixed_day_count)
-            .unwrap_or_else(|| InstrumentConventions::default_fixed_leg_day_count(params.currency));
+            .unwrap_or(idx_conv.default_fixed_leg_day_count);
         let float_day_count = float_leg
             .and_then(|l| l.day_count)
-            .unwrap_or_else(|| InstrumentConventions::default_float_leg_day_count(params.currency));
+            .unwrap_or(idx_conv.day_count);
 
         let bdc = common
             .business_day_convention
             .or(fixed_leg.and_then(|l| l.business_day_convention))
             .or(float_leg.and_then(|l| l.business_day_convention))
-            .unwrap_or(BusinessDayConvention::ModifiedFollowing);
+            .unwrap_or(idx_conv.market_business_day_convention);
 
         let calendar_id = params
             .calendar_id
             .as_deref()
             .or(common.calendar_id.as_deref())
             .or(fixed_leg.and_then(|l| l.calendar_id.as_deref()))
-            .or(float_leg.and_then(|l| l.calendar_id.as_deref()));
+            .or(float_leg.and_then(|l| l.calendar_id.as_deref()))
+            .or(Some(idx_conv.market_calendar_id.as_str()));
 
-        SwaptionLegConventions {
+        Ok(SwaptionLegConventions {
             fixed_freq,
             float_freq,
             fixed_day_count,
@@ -426,21 +454,31 @@ Set params.sabr_extrapolation='clamp' to allow flat extrapolation.",
             fixed_bdc: bdc,
             float_bdc: bdc,
             calendar_id,
-        }
+        })
     }
 
-    fn default_leg_conventions<'a>(params: &'a SwaptionVolParams) -> SwaptionLegConventions<'a> {
-        SwaptionLegConventions {
-            fixed_freq: InstrumentConventions::default_fixed_leg_frequency(params.currency),
-            float_freq: InstrumentConventions::default_float_leg_frequency(params.currency),
-            fixed_day_count: params.fixed_day_count.unwrap_or_else(|| {
-                InstrumentConventions::default_fixed_leg_day_count(params.currency)
-            }),
-            float_day_count: InstrumentConventions::default_float_leg_day_count(params.currency),
-            fixed_bdc: BusinessDayConvention::ModifiedFollowing,
-            float_bdc: BusinessDayConvention::ModifiedFollowing,
-            calendar_id: params.calendar_id.as_deref(),
-        }
+    fn default_leg_conventions<'a>(params: &'a SwaptionVolParams) -> Result<SwaptionLegConventions<'a>> {
+        let idx = params.swap_index.as_ref().ok_or_else(|| {
+            finstack_core::Error::Validation(
+                "Swaption vol interpolation requires SwaptionVolParams.swap_index to be set".to_string(),
+            )
+        })?;
+        let idx_conv = RateIndexConventions::require_for_index(idx)?;
+
+        Ok(SwaptionLegConventions {
+            fixed_freq: idx_conv.default_fixed_leg_frequency,
+            float_freq: idx_conv.default_payment_frequency,
+            fixed_day_count: params
+                .fixed_day_count
+                .unwrap_or(idx_conv.default_fixed_leg_day_count),
+            float_day_count: idx_conv.day_count,
+            fixed_bdc: idx_conv.market_business_day_convention,
+            float_bdc: idx_conv.market_business_day_convention,
+            calendar_id: params
+                .calendar_id
+                .as_deref()
+                .or(Some(idx_conv.market_calendar_id.as_str())),
+        })
     }
 
     fn calculate_forward_swap_rate_years(
@@ -845,6 +883,7 @@ mod tests {
             sabr_interpolation: crate::calibration::api::schema::SabrInterpolationMethod::Bilinear,
             calendar_id: None,
             fixed_day_count: Some(DayCount::Act365F),
+            swap_index: Some("USD-SOFR-3M".into()),
             vol_tolerance: None,
             sabr_tolerance: None,
             sabr_extrapolation: SurfaceExtrapolationPolicy::Error,
@@ -901,7 +940,7 @@ mod tests {
         p.target_tenors = vec![t_ten];
         p.vol_tolerance = Some(0.0020);
 
-        let leg = SwaptionVolAdapter::default_leg_conventions(&p);
+        let leg = SwaptionVolAdapter::default_leg_conventions(&p).expect("leg conventions");
         let fwd = SwaptionVolAdapter::calculate_forward_swap_rate_years(
             &p,
             expiry_years,
@@ -985,7 +1024,7 @@ mod tests {
         p.target_tenors = vec![t_ten];
         p.vol_tolerance = Some(0.0020);
 
-        let leg = SwaptionVolAdapter::default_leg_conventions(&p);
+        let leg = SwaptionVolAdapter::default_leg_conventions(&p).expect("leg conventions");
         let fwd = SwaptionVolAdapter::calculate_forward_swap_rate_years(
             &p,
             expiry_years,
@@ -1084,7 +1123,7 @@ mod tests {
         p.target_expiries = vec![t_exp];
         p.target_tenors = vec![t_ten];
 
-        let leg = SwaptionVolAdapter::default_leg_conventions(&p);
+        let leg = SwaptionVolAdapter::default_leg_conventions(&p).expect("leg conventions");
         let fwd = SwaptionVolAdapter::calculate_forward_swap_rate_years(
             &p,
             expiry_years,
@@ -1133,7 +1172,7 @@ mod tests {
         let ctx = MarketContext::new().insert_discount(disc);
 
         let p = params(base_date);
-        let leg = SwaptionVolAdapter::default_leg_conventions(&p);
+        let leg = SwaptionVolAdapter::default_leg_conventions(&p).expect("leg conventions");
 
         let expiry_years: f64 = 1.0;
         let tenor_years: f64 = 5.0;

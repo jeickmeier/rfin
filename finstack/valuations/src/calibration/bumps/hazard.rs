@@ -100,6 +100,7 @@ pub fn bump_hazard_spreads(
         method: CalibrationMethod::Bootstrap,
         interpolation: Default::default(),
         par_interp: ParInterp::Linear,
+        doc_clause: None,
     };
 
     let cfg = CalibrationConfig::default();

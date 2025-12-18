@@ -2,12 +2,48 @@
 
 use super::CalibrationPricer;
 use crate::calibration::quotes::InstrumentConventions;
-use finstack_core::dates::{adjust, CalendarRegistry, Date, DateExt};
+use finstack_core::dates::{adjust, BusinessDayConvention, CalendarRegistry, Date, DateExt};
 use finstack_core::types::Currency;
 
 use super::super::convention_resolution as conv;
 
 impl CalibrationPricer {
+    pub(crate) fn settlement_date_from_components(
+        &self,
+        settlement_days: i32,
+        calendar_id: &str,
+        bdc: BusinessDayConvention,
+        currency: Currency,
+    ) -> finstack_core::Result<Date> {
+        let registry = CalendarRegistry::global();
+
+        if let Some(calendar) = registry.resolve_str(calendar_id) {
+            if settlement_days == 0 {
+                adjust(self.base_date, bdc, calendar)
+            } else {
+                let spot = self.base_date.add_business_days(settlement_days, calendar)?;
+                adjust(spot, bdc, calendar)
+            }
+        } else if self.conventions.allow_calendar_fallback.unwrap_or(false) {
+            tracing::warn!(
+                calendar_id = calendar_id,
+                currency = ?currency,
+                "Calendar not found, falling back to calendar-day settlement"
+            );
+            Ok(if settlement_days == 0 {
+                self.base_date
+            } else {
+                self.base_date + time::Duration::days(settlement_days as i64)
+            })
+        } else {
+            Err(finstack_core::Error::Input(
+                finstack_core::error::InputError::NotFound {
+                    id: format!("calendar '{}'", calendar_id),
+                },
+            ))
+        }
+    }
+
     /// Resolve settlement date using strictly provided quote conventions (no defaults).
     ///
     /// Useful for validating that a quote set contains all necessary metadata.
@@ -69,42 +105,12 @@ impl CalibrationPricer {
         currency: Currency,
     ) -> finstack_core::Result<Date> {
         let common = conv::resolve_common(self, quote_conventions, currency);
-        let days = common.settlement_days;
-        let calendar_id = common.calendar_id;
-        let bdc = common.bdc;
-
-        let registry = CalendarRegistry::global();
-
-        // If we have a valid calendar, use business-day arithmetic
-        if let Some(calendar) = registry.resolve_str(calendar_id) {
-            if days == 0 {
-                // T+0: just ensure base_date is a business day (use consistent BDC)
-                adjust(self.base_date, bdc, calendar)
-            } else {
-                // Add business days and adjust result
-                let spot = self.base_date.add_business_days(days, calendar)?;
-                // Final adjustment ensures we land on a business day
-                adjust(spot, bdc, calendar)
-            }
-        } else if self.conventions.allow_calendar_fallback.unwrap_or(false) {
-            // Fallback: calendar not found, use calendar-day addition with warning.
-            tracing::warn!(
-                calendar_id = calendar_id,
-                currency = ?currency,
-                "Calendar not found, falling back to calendar-day settlement"
-            );
-            Ok(if days == 0 {
-                self.base_date
-            } else {
-                self.base_date + time::Duration::days(days as i64)
-            })
-        } else {
-            Err(finstack_core::Error::Input(
-                finstack_core::error::InputError::NotFound {
-                    id: format!("calendar '{}'", calendar_id),
-                },
-            ))
-        }
+        self.settlement_date_from_components(
+            common.settlement_days,
+            common.calendar_id,
+            common.bdc,
+            currency,
+        )
     }
 
     /// Calculate settlement date for a specific quote using only explicitly provided conventions.

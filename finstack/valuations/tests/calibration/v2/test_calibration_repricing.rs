@@ -412,9 +412,7 @@ fn discount_curve_deposit_repricing() {
             _ => continue,
         };
 
-        let day_count = conventions
-            .day_count
-            .unwrap_or_else(|| InstrumentConventions::default_money_market_day_count(currency));
+        let day_count = conventions.day_count.unwrap_or(DayCount::Act360);
 
         let dep = Deposit {
             id: format!("DEP-{}", maturity).into(),
@@ -557,9 +555,7 @@ fn forward_curve_fra_repricing() {
             _ => continue,
         };
 
-        let day_count = conventions
-            .day_count
-            .unwrap_or_else(|| InstrumentConventions::default_money_market_day_count(currency));
+        let day_count = conventions.day_count.unwrap_or(DayCount::Act360);
 
         // Heuristic fixing date: T-2 if possible.
         let fixing_date = if start >= base_date + time::Duration::days(2) {

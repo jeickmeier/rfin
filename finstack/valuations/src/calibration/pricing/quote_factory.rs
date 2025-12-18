@@ -6,7 +6,7 @@
 use super::convention_resolution as conv;
 use super::pricer::CalibrationPricer;
 use crate::calibration::api::schema::HazardCurveParams;
-use crate::calibration::quotes::{CreditQuote, InstrumentConventions, RatesQuote};
+use crate::calibration::quotes::{CreditQuote, RatesQuote};
 use crate::instruments::basis_swap::{BasisSwap, BasisSwapLeg};
 use crate::instruments::cds::CreditDefaultSwapBuilder;
 use crate::instruments::common::traits::Instrument;
@@ -52,7 +52,11 @@ pub(crate) fn build_instrument_for_rates_quote(
                 })?
             } else {
                 conventions.day_count.unwrap_or_else(|| {
-                    InstrumentConventions::default_money_market_day_count(currency)
+                    crate::calibration::quotes::conventions::DepositConventions::for_currency_or_index(
+                        currency,
+                        conventions.index.as_ref(),
+                    )
+                    .day_count
                 })
             };
 
@@ -105,7 +109,8 @@ pub(crate) fn build_instrument_for_rates_quote(
                 })?
             } else {
                 conventions.day_count.unwrap_or_else(|| {
-                    InstrumentConventions::default_money_market_day_count(currency)
+                    crate::calibration::quotes::conventions::FraConventions::for_currency(currency)
+                        .day_count
                 })
             };
 
@@ -157,6 +162,9 @@ pub(crate) fn build_instrument_for_rates_quote(
             specs,
             ..
         } => {
+            let specs = specs
+                .clone()
+                .unwrap_or_else(|| crate::calibration::quotes::rates::FutureSpecs::default_for_currency(currency));
             let fixing_date = fixing_date.unwrap_or(*period_start);
 
             let dc_ctx = finstack_core::dates::DayCountCtx::default();
@@ -170,7 +178,7 @@ pub(crate) fn build_instrument_for_rates_quote(
                 .unwrap_or(0.0);
 
             let convexity_adj = pricer.resolve_future_convexity(
-                specs,
+                &specs,
                 currency,
                 time_to_expiry,
                 time_to_maturity,
@@ -206,8 +214,16 @@ pub(crate) fn build_instrument_for_rates_quote(
 
         RatesQuote::Swap { maturity, rate, .. } => {
             let resolved = conv::resolve_swap_conventions(pricer, quote, currency)?;
-            let conventions = quote.conventions();
-            let start = pricer.effective_start_date(conventions, currency)?;
+            let start = if pricer.conventions.use_settlement_start.unwrap_or(true) {
+                pricer.settlement_date_from_components(
+                    resolved.common.settlement_days,
+                    resolved.common.calendar_id,
+                    resolved.common.bdc,
+                    currency,
+                )?
+            } else {
+                pricer.base_date
+            };
             let payment_delay = resolved.common.payment_delay_days;
             let reset_lag = resolved.common.reset_lag_days;
             let payment_calendar_id = resolved.common.payment_calendar_id.to_string();
@@ -223,6 +239,7 @@ pub(crate) fn build_instrument_for_rates_quote(
             let compounding = if use_compounding {
                 index_conv
                     .ois_compounding
+                    .clone()
                     .unwrap_or_else(FloatingLegCompounding::sofr)
             } else {
                 FloatingLegCompounding::Simple
@@ -297,30 +314,64 @@ pub(crate) fn build_instrument_for_rates_quote(
         } => {
             let resolved = conv::resolve_basis_swap_conventions(pricer, quote, currency)?;
 
-            let settlement_days = conventions
-                .settlement_days
-                .or(pricer.conventions.settlement_days)
-                .ok_or_else(|| {
-                    finstack_core::Error::Validation(
-                        "Strict pricing requires settlement_days to be set (quote or step)"
-                            .to_string(),
-                    )
-                })?;
+            let strict = pricer.conventions.strict_pricing.unwrap_or(false);
+            let primary_index_conv =
+                crate::calibration::quotes::rate_index::RateIndexConventions::require_for_index(
+                    resolved.primary_index,
+                )?;
 
-            let calendar_id = conventions
-                .calendar_id
-                .as_deref()
-                .or(pricer.conventions.calendar_id.as_deref())
-                .ok_or_else(|| {
-                    finstack_core::Error::Validation(
-                        "Strict pricing requires calendar_id to be set (quote or step)".to_string(),
-                    )
-                })?;
+            let settlement_days = if strict {
+                conventions
+                    .settlement_days
+                    .or(pricer.conventions.settlement_days)
+                    .ok_or_else(|| {
+                        finstack_core::Error::Validation(
+                            "Strict pricing requires settlement_days to be set (quote or step)"
+                                .to_string(),
+                        )
+                    })?
+            } else {
+                conventions
+                    .settlement_days
+                    .or(pricer.conventions.settlement_days)
+                    .unwrap_or(primary_index_conv.market_settlement_days)
+            };
 
-            let bdc = conventions
-                .business_day_convention
-                .or(pricer.conventions.business_day_convention)
-                .unwrap_or_else(|| CalibrationPricer::market_business_day_convention(currency));
+            let calendar_id = if strict {
+                conventions
+                    .calendar_id
+                    .as_deref()
+                    .or(pricer.conventions.calendar_id.as_deref())
+                    .ok_or_else(|| {
+                        finstack_core::Error::Validation(
+                            "Strict pricing requires calendar_id to be set (quote or step)"
+                                .to_string(),
+                        )
+                    })?
+            } else {
+                conventions
+                    .calendar_id
+                    .as_deref()
+                    .or(pricer.conventions.calendar_id.as_deref())
+                    .unwrap_or(primary_index_conv.market_calendar_id.as_str())
+            };
+
+            let bdc = if strict {
+                conventions
+                    .business_day_convention
+                    .or(pricer.conventions.business_day_convention)
+                    .ok_or_else(|| {
+                        finstack_core::Error::Validation(
+                            "Strict pricing requires business_day_convention to be set (quote or step)"
+                                .to_string(),
+                        )
+                    })?
+            } else {
+                conventions
+                    .business_day_convention
+                    .or(pricer.conventions.business_day_convention)
+                    .unwrap_or(primary_index_conv.market_business_day_convention)
+            };
 
             let payment_calendar_id = conventions
                 .payment_calendar_id
@@ -340,14 +391,7 @@ pub(crate) fn build_instrument_for_rates_quote(
                 .unwrap_or(0);
 
             let start = if pricer.conventions.use_settlement_start.unwrap_or(true) {
-                let conv_for_settlement = InstrumentConventions {
-                    settlement_days: Some(settlement_days),
-                    calendar_id: Some(calendar_id.to_string()),
-                    business_day_convention: Some(bdc),
-                    ..Default::default()
-                };
-                pricer
-                    .settlement_date_for_quote_explicit(&conv_for_settlement, resolved.currency)?
+                pricer.settlement_date_from_components(settlement_days, calendar_id, bdc, resolved.currency)?
             } else {
                 pricer.base_date
             };
@@ -396,7 +440,7 @@ pub(crate) fn build_instrument_for_rates_quote(
 pub(crate) fn build_instrument_for_credit_quote(
     quote: &CreditQuote,
     params: &HazardCurveParams,
-    convention: crate::instruments::cds::CDSConvention,
+    cds_conventions: &crate::instruments::cds::CdsConventionResolved,
 ) -> Result<(Arc<dyn Instrument>, Option<Money>)> {
     let (maturity, spread_bp, upfront_pct_opt, conventions) = match quote {
         CreditQuote::CDS {
@@ -429,18 +473,18 @@ pub(crate) fn build_instrument_for_credit_quote(
         end: maturity,
         freq: conventions
             .payment_frequency
-            .unwrap_or(convention.frequency()),
-        stub: convention.stub_convention(),
+            .unwrap_or(cds_conventions.frequency),
+        stub: cds_conventions.stub_convention,
         bdc: conventions
             .business_day_convention
-            .unwrap_or(convention.business_day_convention()),
+            .unwrap_or(cds_conventions.business_day_convention),
         calendar_id: Some(
             conventions
                 .effective_payment_calendar_id()
-                .unwrap_or(convention.default_calendar())
+                .unwrap_or(cds_conventions.default_calendar_id.as_str())
                 .to_string(),
         ),
-        dc: conventions.day_count.unwrap_or(convention.day_count()),
+        dc: conventions.day_count.unwrap_or(cds_conventions.day_count),
         spread_bp,
         discount_curve_id: params.discount_curve_id.clone(),
     };
@@ -450,14 +494,14 @@ pub(crate) fn build_instrument_for_credit_quote(
         recovery_rate: params.recovery_rate,
         settlement_delay: conventions
             .settlement_days
-            .unwrap_or(convention.settlement_delay() as i32) as u16,
+            .unwrap_or(cds_conventions.settlement_delay_days as i32) as u16,
     };
 
     let cds = CreditDefaultSwapBuilder::new()
         .id("CALIB_CDS".into())
         .notional(Money::new(params.notional, params.currency))
         .side(crate::instruments::cds::PayReceive::PayFixed)
-        .convention(convention)
+        .convention(cds_conventions.doc_clause)
         .premium(premium_spec)
         .protection(protection_spec)
         .pricing_overrides(crate::instruments::PricingOverrides::default())

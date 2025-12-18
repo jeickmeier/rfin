@@ -3,10 +3,13 @@
 //! Interest rate instrument quotes for yield curve calibration.
 
 use super::conventions::InstrumentConventions;
+use super::json_registry::{build_lookup_map_mapped, RegistryFile};
 use crate::calibration::quotes::rate_index::RateIndexConventions;
-use finstack_core::dates::{Date, DayCount};
+use finstack_core::dates::{Date, DayCount, Tenor};
 use finstack_core::types::{Currency, IndexId};
 use serde::{Deserialize, Serialize};
+use std::collections::HashMap;
+use std::sync::OnceLock;
 #[cfg(feature = "ts_export")]
 use ts_rs::TS;
 
@@ -66,7 +69,8 @@ pub enum RatesQuote {
         /// Quoted contract price (e.g. 95.0 for a 5% rate).
         price: f64,
         /// Fixed contract specifications (multiplier, face value, etc.).
-        specs: FutureSpecs,
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        specs: Option<FutureSpecs>,
         /// Optional conventions.
         #[serde(default, skip_serializing_if = "InstrumentConventions::is_empty")]
         conventions: InstrumentConventions,
@@ -360,7 +364,13 @@ impl RatesQuote {
                 conventions,
                 ..
             } => {
-                let dc = conventions.effective_day_count_or_default(currency);
+                let dc = conventions.day_count.unwrap_or_else(|| {
+                    crate::calibration::quotes::conventions::DepositConventions::for_currency_or_index(
+                        currency,
+                        conventions.index.as_ref(),
+                    )
+                    .day_count
+                });
                 format!("DEP-{}-{:?}-{:06}", maturity, dc, counter)
             }
             RatesQuote::FRA {
@@ -369,7 +379,10 @@ impl RatesQuote {
                 conventions,
                 ..
             } => {
-                let dc = conventions.effective_day_count_or_default(currency);
+                let dc = conventions.day_count.unwrap_or_else(|| {
+                    crate::calibration::quotes::conventions::FraConventions::for_currency(currency)
+                        .day_count
+                });
                 format!("FRA-{}-{}-{:?}-{:06}", start, end, dc, counter)
             }
             RatesQuote::Future {
@@ -379,9 +392,13 @@ impl RatesQuote {
                 specs,
                 ..
             } => {
+                let dc = specs
+                    .as_ref()
+                    .map(|s| s.day_count)
+                    .unwrap_or_else(|| FutureSpecs::default_for_currency(currency).day_count);
                 format!(
                     "FUT-{}-{}-{}-{:?}-{:06}",
-                    expiry, period_start, period_end, specs.day_count, counter
+                    expiry, period_start, period_end, dc, counter
                 )
             }
             RatesQuote::Swap {
@@ -396,7 +413,12 @@ impl RatesQuote {
                     .map(|i| i.as_str())
                     .unwrap_or("UNKNOWN");
                 let fixed_freq = fixed_leg_conventions.payment_frequency.unwrap_or_else(|| {
-                    InstrumentConventions::default_fixed_leg_frequency(currency)
+                    float_leg_conventions
+                        .index
+                        .as_ref()
+                        .and_then(RateIndexConventions::try_for_index)
+                        .map(|c| c.default_fixed_leg_frequency)
+                        .unwrap_or_else(|| Tenor::parse("6M").expect("valid tenor"))
                 });
                 let float_freq = float_leg_conventions.payment_frequency.unwrap_or_else(|| {
                     float_leg_conventions
@@ -404,7 +426,7 @@ impl RatesQuote {
                         .as_ref()
                         .and_then(RateIndexConventions::try_for_index)
                         .map(|c| c.default_payment_frequency)
-                        .unwrap_or_else(|| InstrumentConventions::default_float_leg_frequency(currency))
+                        .unwrap_or_else(|| Tenor::parse("3M").expect("valid tenor"))
                 });
                 format!(
                     "SWAP-{}-{}-fix{:?}-flt{:?}-{:06}",
@@ -474,6 +496,61 @@ pub struct FutureSpecs {
     pub tick_value: f64,
 }
 
+// =========================================================================
+// IR futures default specs registry (currency-based)
+// =========================================================================
+
+#[derive(Clone, Debug, serde::Deserialize)]
+#[serde(deny_unknown_fields)]
+struct IrFuturesConventionsRecord {
+    multiplier: f64,
+    face_value: f64,
+    delivery_months: u8,
+    day_count: DayCount,
+    tick_size: f64,
+    tick_value: f64,
+}
+
+fn normalize_currency_key(id: &str) -> String {
+    id.trim().to_uppercase()
+}
+
+fn ir_futures_specs_registry() -> &'static HashMap<String, IrFuturesConventionsRecord> {
+    static REGISTRY: OnceLock<HashMap<String, IrFuturesConventionsRecord>> = OnceLock::new();
+    REGISTRY.get_or_init(|| {
+        let json = include_str!("../../../data/conventions/irfutures_conventions.json");
+        let file: RegistryFile<IrFuturesConventionsRecord> =
+            serde_json::from_str(json).expect("Failed to parse embedded IR futures conventions JSON");
+        build_lookup_map_mapped(file, normalize_currency_key, |rec| rec.clone())
+    })
+}
+
+impl FutureSpecs {
+    pub(crate) fn default_for_currency(currency: Currency) -> Self {
+        let key = currency.to_string();
+        let rec = ir_futures_specs_registry()
+            .get(&key)
+            .or_else(|| ir_futures_specs_registry().get("DEFAULT"))
+            .unwrap_or_else(|| {
+                panic!(
+                    "Missing IR futures conventions for '{}' and missing DEFAULT entry",
+                    key
+                )
+            });
+
+        Self {
+            multiplier: rec.multiplier,
+            face_value: rec.face_value,
+            delivery_months: rec.delivery_months,
+            day_count: rec.day_count,
+            convexity_adjustment: None,
+            market_implied_vol: None,
+            tick_size: rec.tick_size,
+            tick_value: rec.tick_value,
+        }
+    }
+}
+
 fn default_tick_size() -> f64 {
     0.0025
 }
@@ -529,7 +606,8 @@ struct FutureSerde {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     fixing_date: Option<Date>,
     price: f64,
-    specs: FutureSpecs,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    specs: Option<FutureSpecs>,
     #[serde(default, skip_serializing_if = "InstrumentConventions::is_empty")]
     conventions: InstrumentConventions,
 }
@@ -807,7 +885,7 @@ mod tests {
             period_end: date(2025, Month::June, 1),
             fixing_date: None,
             price: 99.25,
-            specs: FutureSpecs::default(),
+            specs: None,
             conventions: InstrumentConventions::default(),
         }
     }

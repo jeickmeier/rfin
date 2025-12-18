@@ -12,12 +12,13 @@ use finstack_core::money::Money;
 use finstack_core::types::InstrumentId;
 
 use crate::instruments::cds::pricer::CDSPricer;
+use std::sync::OnceLock;
 
 // Re-export PayReceive from common parameters (works for both IRS and CDS)
 pub use crate::instruments::common::parameters::legs::PayReceive;
 
 /// ISDA CDS conventions
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub enum CDSConvention {
     /// Standard North American convention (quarterly, Act/360)
@@ -31,6 +32,26 @@ pub enum CDSConvention {
 }
 
 impl CDSConvention {
+    fn registry_id(&self) -> &'static str {
+        match self {
+            CDSConvention::IsdaNa => "ANY:IsdaNa",
+            CDSConvention::IsdaEu => "ANY:IsdaEu",
+            CDSConvention::IsdaAs => "ANY:IsdaAs",
+            CDSConvention::Custom => "ANY:Custom",
+        }
+    }
+
+    fn registry(&self) -> &'static CdsConventionResolved {
+        cds_conventions_registry()
+            .get(self.registry_id())
+            .unwrap_or_else(|| {
+                panic!(
+                    "Missing CDS conventions registry entry for '{}'",
+                    self.registry_id()
+                )
+            })
+    }
+
     /// Get the standard day count convention.
     ///
     /// Per ISDA standards:
@@ -38,17 +59,13 @@ impl CDSConvention {
     /// - Asia: ACT/365F
     #[must_use]
     pub fn day_count(&self) -> DayCount {
-        match self {
-            CDSConvention::IsdaNa | CDSConvention::IsdaEu => DayCount::Act360,
-            CDSConvention::IsdaAs => DayCount::Act365F,
-            CDSConvention::Custom => DayCount::Act360, // Default
-        }
+        self.registry().day_count
     }
 
     /// Get the standard payment frequency (quarterly for all conventions).
     #[must_use]
     pub fn frequency(&self) -> Tenor {
-        Tenor::quarterly()
+        self.registry().frequency
     }
 
     /// Get the standard business day convention.
@@ -58,13 +75,13 @@ impl CDSConvention {
     /// the next month.
     #[must_use]
     pub fn business_day_convention(&self) -> BusinessDayConvention {
-        BusinessDayConvention::ModifiedFollowing
+        self.registry().business_day_convention
     }
 
     /// Get the standard stub convention.
     #[must_use]
     pub fn stub_convention(&self) -> StubKind {
-        StubKind::ShortFront
+        self.registry().stub_convention
     }
 
     /// Get the standard settlement delay in business days.
@@ -73,11 +90,7 @@ impl CDSConvention {
     /// for standard CDS conventions by region.
     #[must_use]
     pub fn settlement_delay(&self) -> u16 {
-        match self {
-            CDSConvention::IsdaNa | CDSConvention::IsdaEu => 3,
-            CDSConvention::IsdaAs => 3, // Most Asian markets use 3 days (some use 2)
-            CDSConvention::Custom => 3, // Default to 3 days
-        }
+        self.registry().settlement_delay_days
     }
 
     /// Get the default holiday calendar identifier for this convention.
@@ -88,13 +101,118 @@ impl CDSConvention {
     /// - Asia: `jpto` (Tokyo Stock Exchange)
     #[must_use]
     pub fn default_calendar(&self) -> &'static str {
-        match self {
-            CDSConvention::IsdaNa => "nyse",
-            CDSConvention::IsdaEu => "target2",
-            CDSConvention::IsdaAs => "jpto",
-            CDSConvention::Custom => "nyse", // Default to NYSE
+        self.registry().default_calendar_id.as_str()
+    }
+}
+
+pub(crate) fn resolve_market_conventions(
+    currency: Currency,
+    doc_clause: Option<&str>,
+) -> finstack_core::Result<&'static CdsConventionResolved> {
+    let ccy = currency.to_string();
+
+    let normalize_clause = |s: &str| {
+        let t = s.trim();
+        if t.eq_ignore_ascii_case("default") {
+            return "DEFAULT".to_string();
+        }
+        let canon = t.to_ascii_lowercase().replace('-', "_");
+        match canon.as_str() {
+            "isdana" | "isda_na" => "IsdaNa".to_string(),
+            "isdaeu" | "isda_eu" => "IsdaEu".to_string(),
+            "isdaas" | "isda_as" => "IsdaAs".to_string(),
+            "custom" => "Custom".to_string(),
+            _ => t.to_string(),
+        }
+    };
+
+    let key = if let Some(clause) = doc_clause {
+        format!("{}:{}", ccy, normalize_clause(clause))
+    } else {
+        format!("{}:DEFAULT", ccy)
+    };
+
+    // If caller specified a doc clause, do not silently change it. Fall back only for the
+    // "no clause provided" case, or for missing currency defaults.
+    if let Some(found) = cds_conventions_registry().get(&key) {
+        return Ok(found);
+    }
+
+    if doc_clause.is_some() {
+        return Err(finstack_core::Error::Validation(format!(
+            "Unknown CDS market conventions key '{}'. Add it to finstack/valuations/data/conventions/cds_conventions.json",
+            key
+        )));
+    }
+
+    // Currency default missing: fall back to global default.
+    cds_conventions_registry()
+        .get("DEFAULT:DEFAULT")
+        .ok_or_else(|| {
+            finstack_core::Error::Validation(
+                "Missing CDS market conventions entry 'DEFAULT:DEFAULT'".to_string(),
+            )
+        })
+}
+
+#[derive(Clone, Debug, PartialEq)]
+pub(crate) struct CdsConventionResolved {
+    pub(crate) doc_clause: CDSConvention,
+    pub(crate) day_count: DayCount,
+    pub(crate) frequency: Tenor,
+    pub(crate) business_day_convention: BusinessDayConvention,
+    pub(crate) stub_convention: StubKind,
+    pub(crate) settlement_delay_days: u16,
+    pub(crate) default_calendar_id: String,
+}
+
+#[derive(Clone, Debug, serde::Deserialize)]
+#[serde(deny_unknown_fields)]
+struct CdsConventionRecord {
+    doc_clause: CDSConvention,
+    day_count: DayCount,
+    frequency: String,
+    business_day_convention: BusinessDayConvention,
+    stub_convention: StubKind,
+    settlement_delay_days: u16,
+    default_calendar_id: String,
+}
+
+impl CdsConventionRecord {
+    fn into_resolved(self) -> CdsConventionResolved {
+        let frequency = Tenor::parse(&self.frequency).unwrap_or_else(|e| {
+            panic!(
+                "Invalid `frequency` in CDS conventions registry: '{}': {}",
+                self.frequency, e
+            )
+        });
+        CdsConventionResolved {
+            doc_clause: self.doc_clause,
+            day_count: self.day_count,
+            frequency,
+            business_day_convention: self.business_day_convention,
+            stub_convention: self.stub_convention,
+            settlement_delay_days: self.settlement_delay_days,
+            default_calendar_id: self.default_calendar_id,
         }
     }
+}
+
+fn normalize_cds_key(id: &str) -> String {
+    id.trim().to_string()
+}
+
+fn cds_conventions_registry() -> &'static std::collections::HashMap<String, CdsConventionResolved> {
+    static REGISTRY: OnceLock<std::collections::HashMap<String, CdsConventionResolved>> =
+        OnceLock::new();
+    REGISTRY.get_or_init(|| {
+        let json = include_str!("../../../data/conventions/cds_conventions.json");
+        let file: crate::calibration::quotes::json_registry::RegistryFile<CdsConventionRecord> = serde_json::from_str(json)
+            .expect("Failed to parse embedded CDS conventions registry JSON");
+        crate::calibration::quotes::json_registry::build_lookup_map_mapped(file, normalize_cds_key, |rec| {
+            rec.clone().into_resolved()
+        })
+    })
 }
 
 // Re-export from common parameters

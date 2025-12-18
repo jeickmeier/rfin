@@ -5,7 +5,7 @@
 //! index identifier (Bloomberg/FinCad style).
 
 use crate::instruments::irs::FloatingLegCompounding;
-use finstack_core::dates::{DayCount, Tenor};
+use finstack_core::dates::{BusinessDayConvention, DayCount, Tenor};
 use finstack_core::types::{Currency, IndexId};
 use finstack_core::Result;
 use std::collections::HashMap;
@@ -46,11 +46,26 @@ pub(crate) struct RateIndexConventions {
     pub default_reset_lag_days: i32,
     /// Methodology for compounding overnight rates (OIS only).
     pub ois_compounding: Option<FloatingLegCompounding>,
+
+    // =========================================================================
+    // Swap market defaults (combined from prior currency-market conventions)
+    // =========================================================================
+
+    /// Market-standard calendar identifier for swaps referencing this index.
+    pub market_calendar_id: String,
+    /// Market-standard spot settlement lag (business days) for swaps referencing this index.
+    pub market_settlement_days: i32,
+    /// Market-standard business day convention for scheduling swaps referencing this index.
+    pub market_business_day_convention: BusinessDayConvention,
+    /// Market-standard fixed leg day count for swaps referencing this index.
+    pub default_fixed_leg_day_count: DayCount,
+    /// Market-standard fixed leg frequency for swaps referencing this index.
+    pub default_fixed_leg_frequency: Tenor,
 }
 
 impl RateIndexConventions {
     /// Try to resolve conventions for an index identifier from the embedded registry.
-    pub(crate) fn try_for_index(index: &IndexId) -> Option<Self> {
+    pub(crate) fn try_for_index(index: &IndexId) -> Option<&'static Self> {
         registry_conventions(index.as_str())
     }
 
@@ -58,7 +73,7 @@ impl RateIndexConventions {
     ///
     /// This is intentionally **strict**: if the index is not present in
     /// `rate_index_conventions.json`, an error is returned.
-    pub(crate) fn require_for_index(index: &IndexId) -> Result<Self> {
+    pub(crate) fn require_for_index(index: &IndexId) -> Result<&'static Self> {
         Self::try_for_index(index).ok_or_else(|| {
             finstack_core::Error::Validation(format!(
                 "Missing rate index conventions for '{}'. Add it to finstack/valuations/data/conventions/rate_index_conventions.json",
@@ -85,15 +100,20 @@ impl RateIndexConventions {
 #[serde(deny_unknown_fields)]
 struct RateIndexConventionsRecord {
     currency: Currency,
-    kind: RateIndexKind,
+              kind: RateIndexKind,
     #[serde(default)]
     tenor: Option<String>,
-    day_count: DayCount,
+              day_count: DayCount,
     default_payment_frequency: String,
-    default_payment_delay_days: i32,
-    default_reset_lag_days: i32,
+              default_payment_delay_days: i32,
+              default_reset_lag_days: i32,
     #[serde(default)]
     ois_compounding: Option<OisCompoundingSpec>,
+    market_calendar_id: String,
+    market_settlement_days: i32,
+    market_business_day_convention: BusinessDayConvention,
+    default_fixed_leg_day_count: DayCount,
+    default_fixed_leg_frequency: String,
 }
 
 #[derive(Clone, Debug, serde::Deserialize)]
@@ -150,6 +170,14 @@ impl RateIndexConventionsRecord {
                 )
             });
 
+        let default_fixed_leg_frequency =
+            Tenor::parse(&self.default_fixed_leg_frequency).unwrap_or_else(|e| {
+                panic!(
+                    "Invalid `default_fixed_leg_frequency` in rate index conventions registry: '{}': {}",
+                    self.default_fixed_leg_frequency, e
+                )
+            });
+
         let ois_compounding = self.ois_compounding.as_ref().map(|s| s.to_compounding());
 
         // Basic invariants: avoid silently encoding impossible combinations.
@@ -178,6 +206,11 @@ impl RateIndexConventionsRecord {
             default_payment_delay_days: self.default_payment_delay_days,
             default_reset_lag_days: self.default_reset_lag_days,
             ois_compounding,
+            market_calendar_id: self.market_calendar_id,
+            market_settlement_days: self.market_settlement_days,
+            market_business_day_convention: self.market_business_day_convention,
+            default_fixed_leg_day_count: self.default_fixed_leg_day_count,
+            default_fixed_leg_frequency,
         }
     }
 }
@@ -206,9 +239,9 @@ fn rate_index_conventions_registry() -> &'static HashMap<String, RateIndexConven
 }
 
 /// Registry of explicit per-index conventions loaded from embedded JSON.
-fn registry_conventions(index: &str) -> Option<RateIndexConventions> {
+fn registry_conventions(index: &str) -> Option<&'static RateIndexConventions> {
     let key = normalize_registry_id(index);
-    rate_index_conventions_registry().get(&key).cloned()
+    rate_index_conventions_registry().get(&key)
 }
 
 #[cfg(test)]

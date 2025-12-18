@@ -1,0 +1,31 @@
+{
+  "schema": "finstack.calibration.conventions.registry.v1",
+  "namespace": "calibration.ir_futures",
+  "version": 1,
+  "entries": [
+    {
+      "ids": ["DEFAULT"],
+      "record": {
+        "multiplier": 1.0,
+        "face_value": 1000000.0,
+        "delivery_months": 3,
+        "day_count": "Act360",
+        "tick_size": 0.0025,
+        "tick_value": 6.25
+      }
+    },
+    {
+      "ids": ["USD"],
+      "record": {
+        "multiplier": 1.0,
+        "face_value": 1000000.0,
+        "delivery_months": 3,
+        "day_count": "Act360",
+        "tick_size": 0.0025,
+        "tick_value": 6.25
+      }
+    }
+  ]
+}
+
+

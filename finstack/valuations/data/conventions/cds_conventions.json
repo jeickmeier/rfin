@@ -1,0 +1,101 @@
+{
+  "schema": "finstack.instruments.cds.conventions.registry.v2",
+  "namespace": "instruments.cds.market_conventions",
+  "version": 2,
+  "entries": [
+    {
+      "ids": [
+        "ANY:IsdaNa",
+        "USD:IsdaNa",
+        "USD:DEFAULT",
+        "CAD:IsdaNa",
+        "CAD:DEFAULT",
+        "MXN:IsdaNa",
+        "MXN:DEFAULT",
+        "DEFAULT:DEFAULT"
+      ],
+      "record": {
+        "doc_clause": "IsdaNa",
+        "day_count": "Act360",
+        "frequency": "3M",
+        "business_day_convention": "modified_following",
+        "stub_convention": "ShortFront",
+        "settlement_delay_days": 3,
+        "default_calendar_id": "nyse"
+      }
+    },
+    {
+      "ids": [
+        "ANY:IsdaEu",
+        "EUR:IsdaEu",
+        "EUR:DEFAULT",
+        "GBP:IsdaEu",
+        "GBP:DEFAULT",
+        "CHF:IsdaEu",
+        "CHF:DEFAULT",
+        "SEK:IsdaEu",
+        "SEK:DEFAULT",
+        "NOK:IsdaEu",
+        "NOK:DEFAULT",
+        "DKK:IsdaEu",
+        "DKK:DEFAULT"
+      ],
+      "record": {
+        "doc_clause": "IsdaEu",
+        "day_count": "Act360",
+        "frequency": "3M",
+        "business_day_convention": "modified_following",
+        "stub_convention": "ShortFront",
+        "settlement_delay_days": 3,
+        "default_calendar_id": "target2"
+      }
+    },
+    {
+      "ids": [
+        "ANY:IsdaAs",
+        "JPY:IsdaAs",
+        "JPY:DEFAULT",
+        "AUD:IsdaAs",
+        "AUD:DEFAULT",
+        "NZD:IsdaAs",
+        "NZD:DEFAULT",
+        "HKD:IsdaAs",
+        "HKD:DEFAULT",
+        "SGD:IsdaAs",
+        "SGD:DEFAULT",
+        "KRW:IsdaAs",
+        "KRW:DEFAULT"
+      ],
+      "record": {
+        "doc_clause": "IsdaAs",
+        "day_count": "Act365F",
+        "frequency": "3M",
+        "business_day_convention": "modified_following",
+        "stub_convention": "ShortFront",
+        "settlement_delay_days": 3,
+        "default_calendar_id": "jpto"
+      }
+    },
+    {
+      "ids": [
+        "ANY:Custom",
+        "DEFAULT:Custom",
+        "USD:Custom",
+        "EUR:Custom",
+        "GBP:Custom",
+        "JPY:Custom"
+      ],
+      "record": {
+        "doc_clause": "Custom",
+        "day_count": "Act360",
+        "frequency": "3M",
+        "business_day_convention": "modified_following",
+        "stub_convention": "ShortFront",
+        "settlement_delay_days": 3,
+        "default_calendar_id": "nyse"
+      }
+    }
+  ]
+}
+
+
