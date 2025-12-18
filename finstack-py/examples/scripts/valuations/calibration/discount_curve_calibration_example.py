@@ -1,0 +1,718 @@
+"""Calibrate a USD OIS discount curve using `execute_calibration_v2`.
+
+This script is a standalone equivalent of the notebook:
+`finstack-py/examples/notebooks/valuations/18_valuations_calibration.ipynb`.
+
+Run:
+  uv run python finstack-py/examples/scripts/valuations/calibration/discount_curve_calibration_example.py
+"""
+
+from __future__ import annotations
+
+# pyright: reportMissingImports=false, reportMissingModuleSource=false
+
+from dataclasses import dataclass
+from datetime import date
+from typing import Iterable, List, Optional, Sequence, Tuple
+
+from finstack.core.market_data.context import MarketContext
+from finstack.valuations import calibration as cal
+
+
+@dataclass(frozen=True)
+class BloombergZeroPoint:
+    maturity: date
+    zero_pct: float
+    df: float
+
+
+DEFAULT_OIS_INDEX_ID = "USD-FEDFUNDS-OIS"
+
+
+def _maybe_get_calendar(code: str):
+    # finstack exports dates as a flat module: finstack.core.dates.get_calendar(...)
+    from finstack.core import dates as fdates
+
+    return fdates.get_calendar(code)
+
+
+def _add_payment_delay_business_days(d: date, delay_days: int, calendar_id: Optional[str]) -> date:
+    """Replicate `irs::dates::add_payment_delay` behavior (business days, fallback to weekdays)."""
+
+    if delay_days <= 0:
+        return d
+
+    from finstack.core import dates as fdates
+
+    if calendar_id:
+        try:
+            cal_ = _maybe_get_calendar(calendar_id)
+            return fdates.add_business_days(d, delay_days, cal_)
+        except Exception:
+            # Match Rust fallback semantics (Mon-Fri, ignore holidays).
+            return fdates.add_weekdays(d, delay_days)
+
+    return fdates.add_weekdays(d, delay_days)
+
+
+def _settlement_date(
+    base_date: date,
+    *,
+    settlement_days: int,
+    calendar_id: str,
+    bdc: str,
+) -> date:
+    """Replicate `CalibrationPricer::settlement_date_for_quote` (happy path)."""
+
+    from finstack.core import dates as fdates
+
+    cal_ = _maybe_get_calendar(calendar_id)
+    bdc_ = fdates.BusinessDayConvention.from_name(bdc)
+    if settlement_days == 0:
+        return fdates.adjust(base_date, bdc_, cal_)
+    spot = fdates.add_business_days(base_date, settlement_days, cal_)
+    return fdates.adjust(spot, bdc_, cal_)
+
+
+def build_usd_ois_quotes(base_date: date, *, ois_index_id: str = DEFAULT_OIS_INDEX_ID) -> List[cal.RatesQuote]:
+    """Build USD OIS deposit + swap quotes (as shown in the calibration notebook)."""
+
+    deposit_conv = cal.InstrumentConventions(
+        day_count="ACT/360",
+        settlement_days=2,
+        calendar_id="usny",
+    )
+    ois_fixed_leg = cal.InstrumentConventions(
+        payment_frequency="1Y",
+        settlement_days=2,
+        payment_delay_days=2,
+        calendar_id="usny",
+        day_count="ACT/360",
+        index=ois_index_id,
+    )
+    ois_float_leg = cal.InstrumentConventions(
+        payment_frequency="1Y",
+        day_count="ACT/360",
+        reset_lag=0,
+        calendar_id="usny",
+        index=ois_index_id,
+    )
+
+    return [
+        # Short-term deposits (actual maturities from the notebook)
+        cal.RatesQuote.deposit(date(2025, 12, 19), 0.0364447, conventions=deposit_conv),  # 1W
+        cal.RatesQuote.deposit(date(2025, 12, 26), 0.0364455, conventions=deposit_conv),  # 2W
+        cal.RatesQuote.deposit(date(2026, 1, 2), 0.0365300, conventions=deposit_conv),  # 3W
+        cal.RatesQuote.deposit(date(2026, 1, 12), 0.0364950, conventions=deposit_conv),  # 1M
+        cal.RatesQuote.deposit(date(2026, 2, 12), 0.0364050, conventions=deposit_conv),  # 2M
+        cal.RatesQuote.deposit(date(2026, 3, 12), 0.0363477, conventions=deposit_conv),  # 3M
+        cal.RatesQuote.deposit(date(2026, 4, 13), 0.0361400, conventions=deposit_conv),  # 4M
+        cal.RatesQuote.deposit(date(2026, 5, 12), 0.0359544, conventions=deposit_conv),  # 5M
+        cal.RatesQuote.deposit(date(2026, 6, 12), 0.0358000, conventions=deposit_conv),  # 6M
+        cal.RatesQuote.deposit(date(2026, 7, 13), 0.0355310, conventions=deposit_conv),  # 7M
+        cal.RatesQuote.deposit(date(2026, 8, 12), 0.0352500, conventions=deposit_conv),  # 8M
+        cal.RatesQuote.deposit(date(2026, 9, 14), 0.0350225, conventions=deposit_conv),  # 9M
+        cal.RatesQuote.deposit(date(2026, 10, 13), 0.0347742, conventions=deposit_conv),  # 10M
+        cal.RatesQuote.deposit(date(2026, 11, 12), 0.0345356, conventions=deposit_conv),  # 11M
+        # OIS swaps (>= 1Y)
+        cal.RatesQuote.swap(
+            date(2026, 12, 14),
+            0.0343446,
+            fixed_leg_conventions=ois_fixed_leg,
+            float_leg_conventions=ois_float_leg,
+            is_ois=True,
+        ),
+        cal.RatesQuote.swap(
+            date(2027, 6, 14),
+            0.0332849,
+            fixed_leg_conventions=ois_fixed_leg,
+            float_leg_conventions=ois_float_leg,
+            is_ois=True,
+        ),
+        cal.RatesQuote.swap(
+            date(2027, 12, 13),
+            0.0329864,
+            fixed_leg_conventions=ois_fixed_leg,
+            float_leg_conventions=ois_float_leg,
+            is_ois=True,
+        ),
+        cal.RatesQuote.swap(
+            date(2028, 12, 12),
+            0.0330190,
+            fixed_leg_conventions=ois_fixed_leg,
+            float_leg_conventions=ois_float_leg,
+            is_ois=True,
+        ),
+        cal.RatesQuote.swap(
+            date(2029, 12, 12),
+            0.0333823,
+            fixed_leg_conventions=ois_fixed_leg,
+            float_leg_conventions=ois_float_leg,
+            is_ois=True,
+        ),
+        cal.RatesQuote.swap(
+            date(2030, 12, 12),
+            0.0338799,
+            fixed_leg_conventions=ois_fixed_leg,
+            float_leg_conventions=ois_float_leg,
+            is_ois=True,
+        ),
+        cal.RatesQuote.swap(
+            date(2031, 12, 12),
+            0.0344608,
+            fixed_leg_conventions=ois_fixed_leg,
+            float_leg_conventions=ois_float_leg,
+            is_ois=True,
+        ),
+        cal.RatesQuote.swap(
+            date(2032, 12, 13),
+            0.0350619,
+            fixed_leg_conventions=ois_fixed_leg,
+            float_leg_conventions=ois_float_leg,
+            is_ois=True,
+        ),
+        cal.RatesQuote.swap(
+            date(2033, 12, 12),
+            0.0356592,
+            fixed_leg_conventions=ois_fixed_leg,
+            float_leg_conventions=ois_float_leg,
+            is_ois=True,
+        ),
+        cal.RatesQuote.swap(
+            date(2034, 12, 12),
+            0.0362453,
+            fixed_leg_conventions=ois_fixed_leg,
+            float_leg_conventions=ois_float_leg,
+            is_ois=True,
+        ),
+        cal.RatesQuote.swap(
+            date(2035, 12, 12),
+            0.0368206,
+            fixed_leg_conventions=ois_fixed_leg,
+            float_leg_conventions=ois_float_leg,
+            is_ois=True,
+        ),
+        cal.RatesQuote.swap(
+            date(2037, 12, 14),
+            0.0378975,
+            fixed_leg_conventions=ois_fixed_leg,
+            float_leg_conventions=ois_float_leg,
+            is_ois=True,
+        ),
+        cal.RatesQuote.swap(
+            date(2040, 12, 12),
+            0.0391717,
+            fixed_leg_conventions=ois_fixed_leg,
+            float_leg_conventions=ois_float_leg,
+            is_ois=True,
+        ),
+        cal.RatesQuote.swap(
+            date(2045, 12, 12),
+            0.0402348,
+            fixed_leg_conventions=ois_fixed_leg,
+            float_leg_conventions=ois_float_leg,
+            is_ois=True,
+        ),
+        cal.RatesQuote.swap(
+            date(2050, 12, 12),
+            0.0403809,
+            fixed_leg_conventions=ois_fixed_leg,
+            float_leg_conventions=ois_float_leg,
+            is_ois=True,
+        ),
+        cal.RatesQuote.swap(
+            date(2055, 12, 13),
+            0.0401000,
+            fixed_leg_conventions=ois_fixed_leg,
+            float_leg_conventions=ois_float_leg,
+            is_ois=True,
+        ),
+        cal.RatesQuote.swap(
+            date(2065, 12, 14),
+            0.0390413,
+            fixed_leg_conventions=ois_fixed_leg,
+            float_leg_conventions=ois_float_leg,
+            is_ois=True,
+        ),
+        cal.RatesQuote.swap(
+            date(2075, 12, 12),
+            0.0378761,
+            fixed_leg_conventions=ois_fixed_leg,
+            float_leg_conventions=ois_float_leg,
+            is_ois=True,
+        ),
+    ]
+
+
+def print_conventions_debug(
+    base_date: date,
+    *,
+    curve_day_count: Optional[str],
+    strict_step_pricing: bool,
+    ois_index_id: str,
+) -> None:
+    """Print the exact conventions we pass into quote constructors and the step plan."""
+
+    deposit_conv = cal.InstrumentConventions(
+        day_count="ACT/360",
+        settlement_days=2,
+        calendar_id="usny",
+    )
+    ois_fixed_leg = cal.InstrumentConventions(
+        payment_frequency="1Y",
+        settlement_days=2,
+        payment_delay_days=2,
+        calendar_id="usny",
+        day_count="ACT/360",
+        index=ois_index_id,
+    )
+    ois_float_leg = cal.InstrumentConventions(
+        payment_frequency="1Y",
+        day_count="ACT/360",
+        reset_lag=0,
+        calendar_id="usny",
+        index=ois_index_id,
+    )
+
+    step_conventions = build_discount_step_conventions(
+        curve_day_count=curve_day_count,
+        strict_pricing=strict_step_pricing,
+    )
+
+    print()
+    print("Conventions debug:")
+    print("  deposit_conv:", deposit_conv)
+    print("  ois_fixed_leg:", ois_fixed_leg)
+    print("  ois_float_leg:", ois_float_leg)
+    print("  step.conventions:", step_conventions)
+    print(
+        "  step.settlement_date(base_date):",
+        _settlement_date(
+            base_date,
+            settlement_days=int(step_conventions["settlement_days"]),
+            calendar_id=str(step_conventions["calendar_id"]),
+            bdc=str(step_conventions["business_day_convention"]),
+        ),
+    )
+
+
+def build_discount_step_conventions(
+    *,
+    curve_day_count: Optional[str],
+    strict_pricing: bool,
+) -> dict:
+    """Build the JSON conventions payload for the v2 discount step."""
+
+    def normalize_dc(dc: str) -> str:
+        key = dc.strip().lower().replace("_", "").replace("-", "").replace(" ", "")
+        # Accept common human labels and map to schema enum variants.
+        aliases = {
+            "act/360": "act360",
+            "act360": "act360",
+            "act/365f": "act365f",
+            "act365f": "act365f",
+            "act_365f": "act365f",
+            "act_365_fixed": "act365f",
+            "act/365l": "act365l",
+            "act365l": "act365l",
+            "actact": "act_act",
+            "act/act": "act_act",
+            "thirty360": "thirty360",
+            "30/360": "thirty360",
+            "30e/360": "thirty_e360",
+            "thirtye360": "thirty_e360",
+            "bus252": "bus252",
+        }
+        return aliases.get(key, dc)
+
+    out: dict = {}
+    if curve_day_count is not None:
+        out["curve_day_count"] = normalize_dc(curve_day_count)
+
+    # Make the step-level conventions explicit for debugging deterministically.
+    # These match typical USD OIS setup and are consistent with the notebook quote conventions.
+    out["settlement_days"] = 2
+    out["calendar_id"] = "usny"
+    out["business_day_convention"] = "modified_following"
+    out["allow_calendar_fallback"] = False
+    out["use_settlement_start"] = True
+
+    if strict_pricing:
+        out["strict_pricing"] = True
+        # Required by strict pricing mode (step-level, even if quotes specify leg delays).
+        out["default_payment_delay_days"] = 2
+        out["default_reset_lag_days"] = 0
+
+    return out
+
+
+def bloomberg_zero_points() -> Sequence[BloombergZeroPoint]:
+    """Bloomberg zero table used in the notebook (rates in percent)."""
+
+    raw: Sequence[Tuple[date, float, float]] = [
+        (date(2025, 12, 19), 3.69398, 0.999090),
+        (date(2025, 12, 26), 3.69282, 0.998383),
+        (date(2026, 1, 2), 3.69935, 0.997672),
+        (date(2026, 1, 12), 3.69440, 0.996665),
+        (date(2026, 2, 12), 3.68001, 0.993568),
+        (date(2026, 3, 12), 3.66918, 0.990794),
+        (date(2026, 4, 13), 3.64279, 0.987701),
+        (date(2026, 5, 12), 3.61916, 0.984944),
+        (date(2026, 6, 12), 3.59832, 0.982024),
+        (date(2026, 7, 13), 3.56631, 0.979212),
+        (date(2026, 8, 12), 3.53343, 0.976562),
+        (date(2026, 9, 14), 3.50543, 0.973654),
+        (date(2026, 10, 13), 3.47621, 0.971185),
+        (date(2026, 11, 12), 3.44791, 0.968667),
+        (date(2026, 12, 14), 3.42406, 0.965976),
+        (date(2027, 6, 14), 3.32790, 0.951003),
+        (date(2027, 12, 13), 3.28850, 0.936093),
+        (date(2028, 12, 12), 3.29221, 0.905709),
+        (date(2029, 12, 12), 3.32985, 0.875056),
+        (date(2030, 12, 12), 3.38188, 0.844195),
+        (date(2031, 12, 12), 3.44337, 0.813113),
+        (date(2032, 12, 13), 3.50778, 0.781903),
+        (date(2033, 12, 12), 3.57278, 0.751102),
+        (date(2034, 12, 12), 3.63749, 0.720527),
+        (date(2035, 12, 12), 3.70206, 0.690312),
+        (date(2037, 12, 14), 3.82585, 0.631387),
+        (date(2040, 12, 12), 3.97745, 0.550311),
+        (date(2045, 12, 12), 4.10343, 0.439783),
+        (date(2050, 12, 12), 4.10412, 0.358105),
+        (date(2055, 12, 13), 4.03819, 0.297434),
+        (date(2065, 12, 14), 3.81263, 0.217291),
+        (date(2075, 12, 12), 3.55798, 0.168578),
+    ]
+    return [BloombergZeroPoint(maturity=m, zero_pct=z, df=df) for m, z, df in raw]
+
+
+def top_residuals(report: object, limit: int = 10) -> List[Tuple[str, float]]:
+    """Extract the largest absolute residuals from a step report (best-effort)."""
+
+    residuals = getattr(report, "residuals", None)
+    if not isinstance(residuals, dict):
+        return []
+    pairs: List[Tuple[str, float]] = []
+    for k, v in residuals.items():
+        try:
+            pairs.append((str(k), float(v)))
+        except (TypeError, ValueError):
+            continue
+    pairs.sort(key=lambda kv: abs(kv[1]), reverse=True)
+    return pairs[:limit]
+
+
+def print_bloomberg_comparison(
+    base_date: date,
+    curve: object,
+    points: Iterable[BloombergZeroPoint],
+) -> None:
+    header = (
+        f"{'Maturity':<12} {'BBG Zero%':>10} {'Calc Zero%':>11} {'Diff (bp)':>10} "
+        f"{'BBG DF':>10} {'Calc DF':>10} {'DF Diff':>10}"
+    )
+    print()
+    print(header)
+    print("-" * len(header))
+
+    for pt in points:
+        calc_df = float(curve.df_on_date(pt.maturity))
+        calc_zero_pct = float(curve.zero_on_date(pt.maturity)) * 100.0
+        zero_diff_bp = (calc_zero_pct - pt.zero_pct) * 100.0
+        df_diff = calc_df - pt.df
+        _ = base_date  # retained for symmetry with notebook, useful if you extend to tenor plots
+        print(
+            f"{pt.maturity} {pt.zero_pct:>10.5f} {calc_zero_pct:>11.5f} {zero_diff_bp:>10.2f} "
+            f"{pt.df:>10.6f} {calc_df:>10.6f} {df_diff:>10.6f}"
+        )
+
+
+def print_bbg_df_debug(
+    *,
+    base_date: date,
+    curve: object,
+    points: Sequence[BloombergZeroPoint],
+    swap_payment_delay_days: int,
+    swap_payment_calendar_id: str,
+) -> None:
+    """Debug DF mismatches by comparing maturity-date vs pillar-date discount factors."""
+
+    try:
+        curve_dc = curve.day_count
+        curve_base = curve.base_date()
+    except Exception:
+        curve_dc = None
+        curve_base = base_date
+
+    from finstack.core import dates as fdates
+
+    dc_act360 = fdates.DayCount.ACT_360
+    dc_act365f = fdates.DayCount.ACT_365F
+
+    print()
+    print("DF debug (maturity vs pillar date):")
+    print(f"  curve.base_date: {curve_base}")
+    if curve_dc is not None:
+        print(f"  curve.day_count: {curve_dc.name}")
+    print(f"  assumed swap payment_delay_days: {swap_payment_delay_days} business days")
+    print(f"  assumed swap payment_calendar_id: {swap_payment_calendar_id}")
+
+    header = (
+        f"{'Maturity':<12} {'BBG DF':>10} {'DF(maturity)':>13} {'DF(pillar)':>11} "
+        f"{'pillar':>12} {'|Δm|':>8} {'|Δp|':>8} {'t365':>8} {'t360':>8}"
+    )
+    print()
+    print(header)
+    print("-" * len(header))
+
+    for pt in points:
+        df_maturity = float(curve.df_on_date(pt.maturity))
+        pillar = _add_payment_delay_business_days(
+            pt.maturity,
+            swap_payment_delay_days,
+            swap_payment_calendar_id,
+        )
+        df_pillar = float(curve.df_on_date(pillar))
+        dm = abs(df_maturity - pt.df)
+        dp = abs(df_pillar - pt.df)
+
+        t365 = dc_act365f.year_fraction(base_date, pt.maturity, None)
+        t360 = dc_act360.year_fraction(base_date, pt.maturity, None)
+
+        print(
+            f"{pt.maturity} {pt.df:>10.6f} {df_maturity:>13.6f} {df_pillar:>11.6f} "
+            f"{pillar} {dm:>8.2e} {dp:>8.2e} {t365:>8.4f} {t360:>8.4f}"
+        )
+
+
+def try_plot_zero_comparison(
+    base_date: date,
+    curve: object,
+    points: Sequence[BloombergZeroPoint],
+) -> None:
+    try:
+        import matplotlib.pyplot as plt  # type: ignore
+    except Exception as exc:  # pragma: no cover
+        print()
+        print("Plot skipped (matplotlib not available).")
+        print(f"Reason: {exc}")
+        return
+
+    tenors = []
+    bbg_zeros = []
+    calc_zeros = []
+    bbg_dfs = []
+    calc_dfs = []
+
+    for pt in points:
+        t = (pt.maturity - base_date).days / 365.0
+        tenors.append(t)
+        bbg_zeros.append(pt.zero_pct)
+        calc_zeros.append(float(curve.zero_on_date(pt.maturity)) * 100.0)
+        bbg_dfs.append(pt.df)
+        calc_dfs.append(float(curve.df_on_date(pt.maturity)))
+
+    fig, axes = plt.subplots(2, 2, figsize=(14, 10))
+    ax1, ax2, ax3, ax4 = axes.flatten()
+
+    ax1.plot(tenors, bbg_zeros, "o-", color="orange", label="Bloomberg", markersize=5, linewidth=1.5)
+    ax1.plot(tenors, calc_zeros, "s--", color="blue", label="Finstack", markersize=4, linewidth=1.5)
+    ax1.set_ylabel("Zero Rate (%)")
+    ax1.set_title("Zero Rate Comparison")
+    ax1.legend(loc="lower right")
+    ax1.grid(True, alpha=0.3)
+    ax1.set_xlim(0, max(tenors) + 1)
+
+    ax2.plot(tenors, bbg_dfs, "o-", color="orange", label="Bloomberg", markersize=5, linewidth=1.5)
+    ax2.plot(tenors, calc_dfs, "s--", color="blue", label="Finstack", markersize=4, linewidth=1.5)
+    ax2.set_ylabel("Discount Factor")
+    ax2.set_title("Discount Factor Comparison")
+    ax2.legend(loc="upper right")
+    ax2.grid(True, alpha=0.3)
+    ax2.set_xlim(0, max(tenors) + 1)
+
+    zero_diffs_bp = [(c - b) * 100.0 for c, b in zip(calc_zeros, bbg_zeros)]
+    ax3.bar(tenors, zero_diffs_bp, width=0.4, color="steelblue", alpha=0.7, edgecolor="black", linewidth=0.5)
+    ax3.axhline(y=0, color="black", linestyle="-", linewidth=0.8)
+    ax3.set_xlabel("Tenor (Years)")
+    ax3.set_ylabel("Diff (bp)")
+    ax3.set_title("Zero Rate Difference (Finstack - Bloomberg)")
+    ax3.grid(True, alpha=0.3)
+    ax3.set_xlim(0, max(tenors) + 1)
+
+    df_diffs = [(c - b) * 10000.0 for c, b in zip(calc_dfs, bbg_dfs)]
+    ax4.bar(tenors, df_diffs, width=0.4, color="indianred", alpha=0.7, edgecolor="black", linewidth=0.5)
+    ax4.axhline(y=0, color="black", linestyle="-", linewidth=0.8)
+    ax4.set_xlabel("Tenor (Years)")
+    ax4.set_ylabel("Diff (×10⁻⁴)")
+    ax4.set_title("Discount Factor Difference (Finstack - Bloomberg)")
+    ax4.grid(True, alpha=0.3)
+    ax4.set_xlim(0, max(tenors) + 1)
+
+    plt.suptitle(
+        "USD OIS Discount Curve Calibration: Bloomberg vs Finstack Library",
+        fontsize=14,
+        fontweight="bold",
+    )
+    plt.tight_layout()
+    plt.show()
+
+
+def calibrate_discount_curve(
+    base_date: date,
+    *,
+    use_global_solve: bool,
+    use_analytical_jacobian: bool,
+    tolerance: float,
+    curve_day_count: Optional[str],
+    strict_step_pricing: bool,
+    ois_index_id: str,
+) -> Tuple[MarketContext, object, object]:
+    quotes = build_usd_ois_quotes(base_date, ois_index_id=ois_index_id)
+
+    method_json: object
+    if use_global_solve:
+        method_json = {"GlobalSolve": {"use_analytical_jacobian": use_analytical_jacobian}}
+    else:
+        method_json = "Bootstrap"
+
+    quote_sets = {"ois": [q.to_market_quote() for q in quotes]}
+    step_conventions = build_discount_step_conventions(
+        curve_day_count=curve_day_count,
+        strict_pricing=strict_step_pricing,
+    )
+    steps = [
+        {
+            "id": "disc",
+            "quote_set": "ois",
+            "kind": "discount",
+            "curve_id": "USD-OIS",
+            "currency": "USD",
+            "base_date": str(base_date),
+            "method": method_json,
+            "conventions": step_conventions,
+            "interpolation": "piecewise_quadratic_forward",
+            "extrapolation": "flat_forward",
+        }
+    ]
+
+    # `verbose=True` increases engine-side diagnostics. `explain=True` enables structured traces.
+    settings = cal.CalibrationConfig(tolerance=tolerance, verbose=True, explain=True)
+    market = MarketContext()
+    market, plan_report, step_reports = cal.execute_calibration_v2(
+        "example_discount_curve",
+        quote_sets,
+        steps,
+        settings=settings,
+    )
+    return market, plan_report, step_reports["disc"]
+
+
+def main() -> None:
+    import argparse
+
+    parser = argparse.ArgumentParser(description="USD OIS discount-curve calibration example (execute_calibration_v2).")
+    parser.add_argument("--global-solve", action="store_true", help="Use GlobalSolve (otherwise Bootstrap).")
+    parser.add_argument(
+        "--no-analytical-jacobian",
+        action="store_true",
+        help="For GlobalSolve only: disable analytical Jacobian.",
+    )
+    parser.add_argument("--tolerance", type=float, default=1e-8, help="Calibration tolerance (default: 1e-8).")
+    parser.add_argument(
+        "--curve-day-count",
+        type=str,
+        default=None,
+        help="Override curve day-count for date->time mapping (e.g. 'ACT/360', 'act360', 'ACT/365F', 'act365f').",
+    )
+    parser.add_argument(
+        "--strict-step-pricing",
+        action="store_true",
+        help="Enable strict pricing mode at the step level (requires explicit step defaults).",
+    )
+    parser.add_argument(
+        "--ois-index",
+        type=str,
+        default=DEFAULT_OIS_INDEX_ID,
+        help="Overnight index id for OIS float leg (e.g. 'USD-FEDFUNDS-OIS', 'USD-EFFR-OIS', 'USD-SOFR-OIS').",
+    )
+    parser.add_argument(
+        "--debug-conventions",
+        action="store_true",
+        help="Print the quote and step-level conventions used for instrument construction.",
+    )
+    parser.add_argument(
+        "--compare-bloomberg",
+        action="store_true",
+        help="Print zero-rate / DF comparison against Bloomberg table from the notebook.",
+    )
+    parser.add_argument(
+        "--debug-bbg-df",
+        action="store_true",
+        help="Extra diagnostics for BBG DF diffs: compare DF at maturity vs pillar date (maturity+payment_delay).",
+    )
+    parser.add_argument(
+        "--plot",
+        action="store_true",
+        help="Plot Bloomberg vs calibrated curve (requires matplotlib). Implies --compare-bloomberg.",
+    )
+    args = parser.parse_args()
+
+    # Always define base_date - Bloomberg settle date (per notebook).
+    base_date = date(2025, 12, 10)
+
+    if args.debug_conventions:
+        print_conventions_debug(
+            base_date,
+            curve_day_count=args.curve_day_count,
+            strict_step_pricing=bool(args.strict_step_pricing),
+            ois_index_id=str(args.ois_index),
+        )
+
+    use_analytical_jacobian = not args.no_analytical_jacobian
+    market, plan_report, disc_report = calibrate_discount_curve(
+        base_date,
+        use_global_solve=bool(args.global_solve),
+        use_analytical_jacobian=use_analytical_jacobian,
+        tolerance=float(args.tolerance),
+        curve_day_count=args.curve_day_count,
+        strict_step_pricing=bool(args.strict_step_pricing),
+        ois_index_id=str(args.ois_index),
+    )
+
+    curve = market.discount("USD-OIS")
+    print("Discount curve calibrated:", curve.id)
+    print("Plan success:", bool(getattr(plan_report, "success", False)))
+    print("Step success:", bool(getattr(disc_report, "success", False)))
+    print("Max residual:", getattr(disc_report, "max_residual", None))
+    print("RMSE:", getattr(disc_report, "rmse", None))
+    print("Number of knots:", len(list(getattr(curve, "points", []))))
+
+    residuals = top_residuals(disc_report, limit=10)
+    if residuals:
+        print()
+        print("Top residuals (abs):")
+        for k, v in residuals:
+            print(f"  {k}: {v:.3e}")
+
+    if args.compare_bloomberg or args.plot:
+        points = list(bloomberg_zero_points())
+        print_bloomberg_comparison(base_date, curve, points)
+
+    if args.debug_bbg_df:
+        print_bbg_df_debug(
+            base_date=base_date,
+            curve=curve,
+            points=list(bloomberg_zero_points()),
+            swap_payment_delay_days=2,
+            swap_payment_calendar_id="usny",
+        )
+
+    if args.plot:
+        try_plot_zero_comparison(base_date, curve, list(bloomberg_zero_points()))
+
+
+if __name__ == "__main__":
+    main()
+
+
