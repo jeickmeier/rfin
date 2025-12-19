@@ -28,13 +28,10 @@ pub fn build_rate_instrument(quote: &RateQuote, ctx: &BuildCtx) -> Result<Box<dy
             rate,
         } => {
             let conv = registry.require_rate_index(index)?;
-            // Important: store the instrument's `start` as the trade/as_of date and let the
-            // instrument apply spot lag consistently via `spot_lag_days_opt`.
-            //
-            // If we set `start` to the already spot-adjusted date AND set `spot_lag_days_opt`,
-            // the instrument will apply spot lag twice when generating/pricing cashflows.
-            let start = ctx.as_of;
             let spot_start = resolve_spot_date(ctx.as_of, conv)?;
+            // Resolve concrete accrual start/end dates here so the built instrument
+            // remains fixed even if as_of changes later.
+            let start = spot_start;
 
             // Resolve calendar for tenor addition
             let cal_registry = CalendarRegistry::global();
@@ -65,7 +62,6 @@ pub fn build_rate_instrument(quote: &RateQuote, ctx: &BuildCtx) -> Result<Box<dy
                 .quote_rate_opt(Some(*rate))
                 .discount_curve_id(CurveId::new(discount_id))
                 // Optional fields
-                .spot_lag_days_opt(Some(conv.market_settlement_days))
                 .bdc_opt(Some(conv.market_business_day_convention))
                 .calendar_id_opt(Some(conv.market_calendar_id.clone()))
                 .attributes(Default::default())

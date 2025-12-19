@@ -1,8 +1,11 @@
 use crate::calibration::api::schema::HazardCurveParams;
-use crate::calibration::config::{CalibrationConfig, CalibrationMethod};
+use crate::calibration::config::{CalibrationConfig, CalibrationMethod, ResidualWeightingScheme};
 use crate::calibration::prepared::CalibrationQuote;
-use crate::calibration::solver::{BootstrapTarget, SequentialBootstrapper};
+use crate::calibration::solver::{
+    BootstrapTarget, GlobalFitOptimizer, GlobalSolveTarget, SequentialBootstrapper,
+};
 use crate::calibration::targets::util::sort_bootstrap_quotes;
+use crate::calibration::constants::WEIGHT_MIN_FLOOR;
 use crate::calibration::CalibrationReport;
 use crate::instruments::cds::CdsConventionResolved;
 use crate::market::build::context::BuildCtx;
@@ -19,6 +22,7 @@ const HAZARD_HARD_MIN: f64 = 0.0;
 // Safety cap: λ=10 implies ~99.995% 1Y default probability and can lead to numerical underflow
 // in long-dated curves. Treat as a hard validation error during calibration.
 const HAZARD_HARD_MAX: f64 = 10.0;
+const TOLERANCE_DUP_KNOTS: f64 = 1e-12;
 
 /// Bootstrapper for hazard curves from CDS quotes.
 ///
@@ -40,6 +44,8 @@ pub struct HazardBootstrapper {
     pub(crate) cds_conventions: &'static CdsConventionResolved,
     /// Market context providing discount curves for PV calculations.
     pub base_context: MarketContext,
+    /// Global calibration settings (used for solver controls and weights).
+    pub config: CalibrationConfig,
     /// Optional reusable context for sequential solvers to reduce memory pressure.
     reuse_context: Option<RefCell<MarketContext>>,
 }
@@ -51,6 +57,7 @@ impl HazardBootstrapper {
     ///
     /// * `params` - Parameters defining the hazard curve structure
     /// * `base_context` - Market context containing discount curves
+    /// * `config` - Global calibration settings (solver controls and weights)
     ///
     /// # Returns
     ///
@@ -65,14 +72,14 @@ impl HazardBootstrapper {
     pub fn new(
         params: HazardCurveParams,
         base_context: MarketContext,
-        use_parallel: bool,
+        config: CalibrationConfig,
     ) -> Result<Self> {
         let cds_conventions = crate::instruments::cds::resolve_market_conventions(
             params.currency,
             params.doc_clause.as_deref(),
         )?;
 
-        let reuse_context = if use_parallel {
+        let reuse_context = if config.use_parallel {
             None
         } else {
             Some(RefCell::new(base_context.clone()))
@@ -82,6 +89,7 @@ impl HazardBootstrapper {
             params,
             cds_conventions,
             base_context,
+            config,
             reuse_context,
         })
     }
@@ -101,8 +109,7 @@ impl HazardBootstrapper {
             ));
         }
 
-        let target =
-            HazardBootstrapper::new(params.clone(), context.clone(), global_config.use_parallel)?;
+        let target = HazardBootstrapper::new(params.clone(), context.clone(), global_config.clone())?;
 
         let mut prepared_quotes: Vec<CalibrationQuote> = Vec::with_capacity(cds_quotes.len());
         let mut curve_ids = HashMap::new();
@@ -165,15 +172,44 @@ impl HazardBootstrapper {
                 )?
             }
             CalibrationMethod::GlobalSolve { .. } => {
-                return Err(finstack_core::Error::Input(
-                    finstack_core::error::InputError::Invalid,
-                ));
+                GlobalFitOptimizer::optimize(&target, &prepared_quotes, global_config)?
             }
         };
+
+        let mut report = report;
+        report.update_solver_config(global_config.solver.clone());
 
         let mut new_context = context.clone();
         new_context.insert_mut(curve);
         Ok((new_context, report))
+    }
+
+    fn quote_hazard_guess(&self, quote: &CalibrationQuote) -> Option<f64> {
+        let pq = match quote {
+            CalibrationQuote::Cds(pq, _) => pq,
+            _ => return None,
+        };
+
+        let (spread_bp, recovery) = match pq.quote.as_ref() {
+            crate::market::quotes::cds::CdsQuote::CdsParSpread {
+                spread_bp,
+                recovery_rate,
+                ..
+            } => (*spread_bp, *recovery_rate),
+            crate::market::quotes::cds::CdsQuote::CdsUpfront {
+                running_spread_bp,
+                recovery_rate,
+                ..
+            } => (*running_spread_bp, *recovery_rate),
+        };
+
+        let loss_given_default = (1.0 - recovery).max(1e-6);
+        let guess = (spread_bp / 10_000.0) / loss_given_default;
+        if guess.is_finite() && guess >= 0.0 {
+            Some(guess.clamp(HAZARD_HARD_MIN, HAZARD_HARD_MAX))
+        } else {
+            None
+        }
     }
 
     fn with_temp_context<F, T>(&self, curve: &HazardCurve, op: F) -> Result<T>
@@ -340,6 +376,184 @@ impl BootstrapTarget for HazardBootstrapper {
     }
 }
 
+impl GlobalSolveTarget for HazardBootstrapper {
+    type Quote = CalibrationQuote;
+    type Curve = HazardCurve;
+
+    fn build_time_grid_and_guesses(
+        &self,
+        quotes: &[Self::Quote],
+    ) -> Result<(Vec<f64>, Vec<f64>, Vec<Self::Quote>)> {
+        let seed_curve = self
+            .base_context
+            .get_hazard(self.params.curve_id.as_str())
+            .ok();
+
+        let mut entries = Vec::with_capacity(quotes.len());
+
+        for quote in quotes {
+            let t = self.quote_time(quote)?;
+            if !t.is_finite() || t <= 0.0 {
+                continue;
+            }
+
+            let guess = if let Some(curve) = seed_curve.as_ref() {
+                curve.hazard_rate(t)
+            } else {
+                self.quote_hazard_guess(quote).unwrap_or(0.01)
+            };
+
+            let guess = if guess.is_finite() {
+                guess.clamp(HAZARD_HARD_MIN, HAZARD_HARD_MAX)
+            } else {
+                0.01
+            };
+
+            entries.push((t, guess, quote.clone()));
+        }
+
+        entries.sort_by(|a, b| a.0.total_cmp(&b.0));
+
+        let mut times = Vec::with_capacity(entries.len());
+        let mut initials = Vec::with_capacity(entries.len());
+        let mut active_quotes = Vec::with_capacity(entries.len());
+        let mut last_time: Option<f64> = None;
+
+        for (t, guess, quote) in entries {
+            if let Some(prev) = last_time {
+                if (t - prev).abs() <= TOLERANCE_DUP_KNOTS {
+                    return Err(finstack_core::Error::Calibration {
+                        message: format!(
+                            "Duplicate or unsorted hazard knot times detected (prev={:.10}, new={:.10}). \
+Ensure quotes map to strictly increasing year fractions.",
+                            prev, t
+                        ),
+                        category: "global_solve".to_string(),
+                    });
+                }
+            }
+            last_time = Some(t);
+            times.push(t);
+            initials.push(guess);
+            active_quotes.push(quote);
+        }
+
+        Ok((times, initials, active_quotes))
+    }
+
+    fn build_curve_from_params(&self, times: &[f64], params: &[f64]) -> Result<Self::Curve> {
+        self.build_curve_for_solver_from_params(times, params)
+    }
+
+    fn build_curve_for_solver_from_params(
+        &self,
+        times: &[f64],
+        params: &[f64],
+    ) -> Result<Self::Curve> {
+        if times.len() != params.len() {
+            return Err(finstack_core::Error::Calibration {
+                message: format!(
+                    "Global solve dimension mismatch: {} times vs {} params",
+                    times.len(),
+                    params.len()
+                ),
+                category: "global_solve".to_string(),
+            });
+        }
+
+        let mut knots = Vec::with_capacity(times.len());
+        let mut last_t = 0.0;
+
+        for (&t, &lambda) in times.iter().zip(params.iter()) {
+            if t <= last_t {
+                return Err(finstack_core::Error::Calibration {
+                    message: format!(
+                        "Non-increasing hazard knot time {:.10} detected (previous {:.10}). \
+Global solve requires strictly increasing times.",
+                        t, last_t
+                    ),
+                    category: "global_solve".to_string(),
+                });
+            }
+            self.validate_knot(t, lambda)?;
+            last_t = t;
+            knots.push((t, lambda));
+        }
+
+        self.build_curve_for_solver(&knots)
+    }
+
+    fn build_curve_final_from_params(&self, times: &[f64], params: &[f64]) -> Result<Self::Curve> {
+        self.build_curve_for_solver_from_params(times, params)
+    }
+
+    fn calculate_residuals(
+        &self,
+        curve: &Self::Curve,
+        quotes: &[Self::Quote],
+        residuals: &mut [f64],
+    ) -> Result<()> {
+        if residuals.len() < quotes.len() {
+            return Err(finstack_core::Error::Calibration {
+                message: format!(
+                    "Global solve residuals buffer too small: got {} need {}",
+                    residuals.len(),
+                    quotes.len()
+                ),
+                category: "global_solve".to_string(),
+            });
+        }
+
+        self.with_temp_context(curve, |ctx| {
+            for (i, quote) in quotes.iter().enumerate() {
+                let pq = match quote {
+                    CalibrationQuote::Cds(pq, _) => pq,
+                    _ => {
+                        return Err(finstack_core::Error::Input(
+                            finstack_core::error::InputError::Invalid,
+                        ))
+                    }
+                };
+                let npv = pq.instrument.value_raw(ctx, self.params.base_date)?;
+                residuals[i] = npv / self.params.notional;
+            }
+            Ok(())
+        })
+    }
+
+    fn residual_key(&self, quote: &Self::Quote, idx: usize) -> String {
+        let q = quote.instrument();
+        format!("{}-{:03}", q.id(), idx)
+    }
+
+    fn residual_weights(&self, quotes: &[Self::Quote], weights_out: &mut [f64]) -> Result<()> {
+        if quotes.len() != weights_out.len() {
+            return Err(finstack_core::Error::Calibration {
+                message: format!(
+                    "Global solve requires weights.len() == quotes.len(); got {} vs {}.",
+                    weights_out.len(),
+                    quotes.len()
+                ),
+                category: "global_solve".to_string(),
+            });
+        }
+
+        for (i, quote) in quotes.iter().enumerate() {
+            let t = self.quote_time(quote)?.max(1e-6);
+
+            let weight = match self.config.discount_curve.weighting_scheme {
+                ResidualWeightingScheme::Equal => 1.0,
+                ResidualWeightingScheme::LinearTime => t,
+                ResidualWeightingScheme::SqrtTime => t.sqrt(),
+                ResidualWeightingScheme::InverseDuration => 1.0 / t.max(0.1),
+            };
+
+            weights_out[i] = weight.max(WEIGHT_MIN_FLOOR);
+        }
+        Ok(())
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -371,7 +585,11 @@ mod tests {
 
     #[test]
     fn validate_knot_rejects_negative_hazard() {
-        let target = HazardBootstrapper::new(base_params(), MarketContext::default(), false)
+        let target = HazardBootstrapper::new(
+            base_params(),
+            MarketContext::default(),
+            CalibrationConfig::default(),
+        )
             .expect("target");
         let err = target
             .validate_knot(1.0, -1e-6)
@@ -381,7 +599,11 @@ mod tests {
 
     #[test]
     fn validate_knot_rejects_hazard_above_max() {
-        let target = HazardBootstrapper::new(base_params(), MarketContext::default(), false)
+        let target = HazardBootstrapper::new(
+            base_params(),
+            MarketContext::default(),
+            CalibrationConfig::default(),
+        )
             .expect("target");
         let err = target
             .validate_knot(1.0, HAZARD_HARD_MAX + 1e-6)
@@ -393,7 +615,9 @@ mod tests {
     fn build_curve_preserves_par_interp_and_monotone_survival() {
         let mut p = base_params();
         p.par_interp = ParInterp::LogLinear;
-        let target = HazardBootstrapper::new(p, MarketContext::default(), false).expect("target");
+        let target =
+            HazardBootstrapper::new(p, MarketContext::default(), CalibrationConfig::default())
+                .expect("target");
 
         let curve = target
             .build_curve(&[(1.0, 0.02), (5.0, 0.03)])
