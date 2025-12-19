@@ -1,3 +1,5 @@
+//! Global registry for market conventions.
+
 use super::defs::{
     CdsConventions, InflationSwapConventions, IrFutureConventions, OptionConventions,
     RateIndexConventions, SwaptionConventions,
@@ -12,8 +14,26 @@ use std::sync::OnceLock;
 
 /// Global registry of market conventions.
 ///
-/// This registry provides a single source of truth for convention lookups,
-/// ensuring strict handling of missing data.
+/// This registry provides a single source of truth for convention lookups, ensuring strict
+/// handling of missing data. Conventions are loaded from embedded JSON data on first access
+/// and cached for the lifetime of the program.
+///
+/// # Thread Safety
+///
+/// The registry is thread-safe and can be accessed concurrently from multiple threads.
+/// The singleton is initialized lazily on first access.
+///
+/// # Examples
+///
+/// ```rust
+/// use finstack_valuations::market::conventions::registry::ConventionRegistry;
+/// use finstack_valuations::market::conventions::ids::IndexId;
+///
+/// let registry = ConventionRegistry::global();
+/// let conv = registry.require_rate_index(&IndexId::new("USD-SOFR-OIS"))?;
+/// assert_eq!(conv.currency, finstack_core::currency::Currency::USD);
+/// # Ok::<(), finstack_core::Error>(())
+/// ```
 #[derive(Debug, Default)]
 pub struct ConventionRegistry {
     /// Registry of Rate Index conventions.
@@ -34,6 +54,23 @@ pub struct ConventionRegistry {
 
 impl ConventionRegistry {
     /// Create a new registry from in-memory maps.
+    ///
+    /// This constructor is primarily used for testing. In production, use [`global()`](Self::global)
+    /// to access the singleton registry loaded from embedded JSON data.
+    ///
+    /// # Arguments
+    ///
+    /// * `rate_index` - Map of rate index IDs to conventions
+    /// * `cds` - Map of CDS convention keys to conventions
+    /// * `cds_tranche` - Map of CDS tranche convention keys to conventions
+    /// * `swaption` - Map of swaption convention IDs to conventions
+    /// * `inflation_swap` - Map of inflation swap convention IDs to conventions
+    /// * `option` - Map of option convention IDs to conventions
+    /// * `ir_future` - Map of IR future contract IDs to conventions
+    ///
+    /// # Returns
+    ///
+    /// A new `ConventionRegistry` instance.
     pub fn new(
         rate_index: HashMap<IndexId, RateIndexConventions>,
         cds: HashMap<CdsConventionKey, CdsConventions>,
@@ -56,7 +93,27 @@ impl ConventionRegistry {
 
     /// Access the global singleton registry.
     ///
-    /// This will be initialized with embedded JSON data on the first call.
+    /// This will be initialized with embedded JSON data on the first call. The registry
+    /// is loaded from embedded JSON files in `data/conventions/` and cached for the
+    /// lifetime of the program.
+    ///
+    /// # Returns
+    ///
+    /// A reference to the global `ConventionRegistry` instance.
+    ///
+    /// # Panics
+    ///
+    /// Panics if convention data cannot be loaded from embedded JSON files. This should
+    /// only occur if the build process is misconfigured.
+    ///
+    /// # Examples
+    ///
+    /// ```rust
+    /// use finstack_valuations::market::conventions::registry::ConventionRegistry;
+    ///
+    /// let registry = ConventionRegistry::global();
+    /// // Registry is now initialized and ready to use
+    /// ```
     pub fn global() -> &'static Self {
         static REGISTRY: OnceLock<ConventionRegistry> = OnceLock::new();
         REGISTRY.get_or_init(|| ConventionRegistry {
@@ -79,7 +136,28 @@ impl ConventionRegistry {
 
     /// Resolve conventions for a Rate Index.
     ///
-    /// Errors if the index is not found.
+    /// # Arguments
+    ///
+    /// * `id` - The rate index identifier
+    ///
+    /// # Returns
+    ///
+    /// `Ok(&RateIndexConventions)` if found, or `Err` with a validation error if not found.
+    ///
+    /// # Errors
+    ///
+    /// Returns `Error::Validation` if the index is not found in the registry.
+    ///
+    /// # Examples
+    ///
+    /// ```rust
+    /// use finstack_valuations::market::conventions::registry::ConventionRegistry;
+    /// use finstack_valuations::market::conventions::ids::IndexId;
+    ///
+    /// let registry = ConventionRegistry::global();
+    /// let conv = registry.require_rate_index(&IndexId::new("USD-SOFR-OIS"))?;
+    /// # Ok::<(), finstack_core::Error>(())
+    /// ```
     pub fn require_rate_index(&self, id: &IndexId) -> Result<&RateIndexConventions> {
         self.rate_index.get(id).ok_or_else(|| {
             Error::Validation(format!(
@@ -91,7 +169,33 @@ impl ConventionRegistry {
 
     /// Resolve conventions for a CDS key.
     ///
-    /// Errors if key not found.
+    /// # Arguments
+    ///
+    /// * `key` - The CDS convention key (currency + doc clause)
+    ///
+    /// # Returns
+    ///
+    /// `Ok(&CdsConventions)` if found, or `Err` with a validation error if not found.
+    ///
+    /// # Errors
+    ///
+    /// Returns `Error::Validation` if the key is not found in the registry.
+    ///
+    /// # Examples
+    ///
+    /// ```rust
+    /// use finstack_valuations::market::conventions::registry::ConventionRegistry;
+    /// use finstack_valuations::market::conventions::ids::{CdsConventionKey, CdsDocClause};
+    /// use finstack_core::currency::Currency;
+    ///
+    /// let registry = ConventionRegistry::global();
+    /// let key = CdsConventionKey {
+    ///     currency: Currency::USD,
+    ///     doc_clause: CdsDocClause::Cr14,
+    /// };
+    /// let conv = registry.require_cds(&key)?;
+    /// # Ok::<(), finstack_core::Error>(())
+    /// ```
     pub fn require_cds(&self, key: &CdsConventionKey) -> Result<&CdsConventions> {
         self.cds.get(key).ok_or_else(|| {
             Error::Validation(format!(
@@ -102,6 +206,18 @@ impl ConventionRegistry {
     }
 
     /// Resolve conventions for a CDS Tranche key.
+    ///
+    /// # Arguments
+    ///
+    /// * `key` - The CDS convention key (currency + doc clause)
+    ///
+    /// # Returns
+    ///
+    /// `Ok(&CdsConventions)` if found, or `Err` with a validation error if not found.
+    ///
+    /// # Errors
+    ///
+    /// Returns `Error::Validation` if the key is not found in the registry.
     pub fn require_cds_tranche(&self, key: &CdsConventionKey) -> Result<&CdsConventions> {
         self.cds_tranche.get(key).ok_or_else(|| {
             Error::Validation(format!(
@@ -112,6 +228,18 @@ impl ConventionRegistry {
     }
 
     /// Resolve conventions for a Swaption.
+    ///
+    /// # Arguments
+    ///
+    /// * `id` - The swaption convention identifier
+    ///
+    /// # Returns
+    ///
+    /// `Ok(&SwaptionConventions)` if found, or `Err` with a validation error if not found.
+    ///
+    /// # Errors
+    ///
+    /// Returns `Error::Validation` if the ID is not found in the registry.
     pub fn require_swaption(&self, id: &SwaptionConventionId) -> Result<&SwaptionConventions> {
         self.swaption.get(id).ok_or_else(|| {
             Error::Validation(format!(
@@ -122,6 +250,18 @@ impl ConventionRegistry {
     }
 
     /// Resolve conventions for an Inflation Swap.
+    ///
+    /// # Arguments
+    ///
+    /// * `id` - The inflation swap convention identifier
+    ///
+    /// # Returns
+    ///
+    /// `Ok(&InflationSwapConventions)` if found, or `Err` with a validation error if not found.
+    ///
+    /// # Errors
+    ///
+    /// Returns `Error::Validation` if the ID is not found in the registry.
     pub fn require_inflation_swap(
         &self,
         id: &InflationSwapConventionId,
@@ -135,6 +275,18 @@ impl ConventionRegistry {
     }
 
     /// Resolve conventions for an Option.
+    ///
+    /// # Arguments
+    ///
+    /// * `id` - The option convention identifier
+    ///
+    /// # Returns
+    ///
+    /// `Ok(&OptionConventions)` if found, or `Err` with a validation error if not found.
+    ///
+    /// # Errors
+    ///
+    /// Returns `Error::Validation` if the ID is not found in the registry.
     pub fn require_option(&self, id: &OptionConventionId) -> Result<&OptionConventions> {
         self.option.get(id).ok_or_else(|| {
             Error::Validation(format!(
@@ -145,6 +297,18 @@ impl ConventionRegistry {
     }
 
     /// Resolve conventions for an Interest Rate Future contract.
+    ///
+    /// # Arguments
+    ///
+    /// * `id` - The IR future contract identifier
+    ///
+    /// # Returns
+    ///
+    /// `Ok(&IrFutureConventions)` if found, or `Err` with a validation error if not found.
+    ///
+    /// # Errors
+    ///
+    /// Returns `Error::Validation` if the ID is not found in the registry.
     pub fn require_ir_future(
         &self,
         id: &IrFutureContractId,

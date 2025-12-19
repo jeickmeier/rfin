@@ -1,3 +1,10 @@
+//! Market convention definitions for indices, options, and credit.
+//!
+//! This module defines the data structures for all market convention types. Conventions capture
+//! market-standard parameters such as day count conventions, business day adjustments, payment
+//! frequencies, and settlement lags that are required for accurate instrument construction
+//! and pricing.
+
 use crate::instruments::irs::FloatingLegCompounding;
 use crate::market::conventions::ids::IndexId;
 use finstack_core::dates::{BusinessDayConvention, DayCount, Tenor};
@@ -5,16 +12,47 @@ use finstack_core::types::Currency;
 use serde::{Deserialize, Serialize};
 
 /// Type of rate index for convention determination.
+///
+/// Distinguishes between overnight risk-free rate (RFR) indices and term indices, which have
+/// different conventions for compounding, payment frequencies, and reset lags.
+///
+/// # Examples
+///
+/// ```rust
+/// use finstack_valuations::market::conventions::defs::RateIndexKind;
+///
+/// let overnight = RateIndexKind::OvernightRfr;
+/// let term = RateIndexKind::Term;
+/// ```
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum RateIndexKind {
     /// Overnight Risk-Free Rate index (e.g., SOFR, SONIA, ESTR).
+    ///
+    /// These indices require compounding conventions and typically use OIS-style swap conventions.
     OvernightRfr,
     /// Term index with a fixed period (e.g., 3M LIBOR, 6M EURIBOR).
+    ///
+    /// These indices have fixed reset periods and use standard swap conventions.
     Term,
 }
 
 /// Convention details for pricing instruments tied to a rate index.
+///
+/// This structure captures all market-standard parameters for instruments referencing a rate
+/// index, including day count, business day conventions, payment frequencies, and settlement
+/// lags. Used by builders to construct deposits, FRAs, swaps, and other rate instruments.
+///
+/// # Examples
+///
+/// ```rust
+/// use finstack_valuations::market::conventions::defs::{RateIndexConventions, RateIndexKind};
+/// use finstack_core::dates::{BusinessDayConvention, DayCount, Tenor};
+/// use finstack_core::currency::Currency;
+///
+/// // In practice, conventions are loaded from the registry
+/// // let conv = registry.require_rate_index(&IndexId::new("USD-SOFR-OIS"))?;
+/// ```
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 pub struct RateIndexConventions {
     /// Operating currency of the index.
@@ -48,6 +86,20 @@ pub struct RateIndexConventions {
 }
 
 /// Conventions for Credit Default Swaps.
+///
+/// Defines market-standard parameters for CDS instruments, including payment frequencies,
+/// day count conventions, business day adjustments, and settlement lags. Used by CDS builders
+/// to construct instruments with correct market conventions.
+///
+/// # Examples
+///
+/// ```rust
+/// use finstack_valuations::market::conventions::defs::CdsConventions;
+/// use finstack_core::dates::{BusinessDayConvention, DayCount, Tenor};
+///
+/// // In practice, conventions are loaded from the registry
+/// // let conv = registry.require_cds(&CdsConventionKey { ... })?;
+/// ```
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 pub struct CdsConventions {
     /// The calendar used for business day adjustments.
@@ -63,6 +115,10 @@ pub struct CdsConventions {
 }
 
 /// Conventions for Options (Equity/Commodity/FX).
+///
+/// Defines market-standard parameters for option instruments, including settlement calendars,
+/// business day conventions, and settlement lags. Used by option builders to construct
+/// instruments with correct market conventions.
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 pub struct OptionConventions {
     /// Calendar for exercise and settlement.
@@ -74,6 +130,10 @@ pub struct OptionConventions {
 }
 
 /// Conventions for Swaptions (Volatility Surfaces).
+///
+/// Defines market-standard parameters for swaption instruments, including exercise calendars,
+/// business day conventions, fixed leg conventions, and floating leg index references. Used
+/// by swaption builders to construct instruments with correct market conventions.
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 pub struct SwaptionConventions {
     /// Calendar for exercise and settlement.
@@ -91,6 +151,10 @@ pub struct SwaptionConventions {
 }
 
 /// Conventions for Inflation Swaps (ZCIS).
+///
+/// Defines market-standard parameters for inflation swap instruments, including payment
+/// calendars, business day conventions, day count conventions, and inflation lag periods.
+/// Used by inflation swap builders to construct instruments with correct market conventions.
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 pub struct InflationSwapConventions {
     /// Calendar for payment/fixing.
@@ -106,6 +170,11 @@ pub struct InflationSwapConventions {
 }
 
 /// Conventions for Interest Rate Futures.
+///
+/// Defines market-standard parameters for interest rate future contracts, including contract
+/// specifications (face value, tick size, tick value), delivery months, settlement lags, and
+/// optional convexity adjustments. Used by futures builders to construct instruments with
+/// correct market conventions.
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 pub struct IrFutureConventions {
     /// Underlying rate index identifier.

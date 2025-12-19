@@ -1,10 +1,67 @@
+//! CDS market quote schema.
+
 use super::ids::{Pillar, QuoteId};
 use crate::market::conventions::ids::CdsConventionKey;
 use serde::{Deserialize, Serialize};
 #[cfg(feature = "ts_export")]
 use ts_rs::TS;
 
-/// Market quote for credit instruments.
+/// Market quote for credit default swap (CDS) instruments.
+///
+/// CDS quotes can be specified in two formats:
+/// 1. **Par spread**: The spread that makes the CDS have zero present value
+/// 2. **Upfront + running**: A fixed upfront payment plus a running spread
+///
+/// Both formats include recovery rate assumptions and reference entity information.
+///
+/// # Examples
+///
+/// Par spread quote:
+/// ```rust
+/// use finstack_valuations::market::quotes::cds::CdsQuote;
+/// use finstack_valuations::market::quotes::ids::{Pillar, QuoteId};
+/// use finstack_valuations::market::conventions::ids::{CdsConventionKey, CdsDocClause};
+/// use finstack_core::currency::Currency;
+///
+/// # fn example() -> finstack_core::Result<()> {
+/// let quote = CdsQuote::CdsParSpread {
+///     id: QuoteId::new("CDS-ABC-CORP-5Y"),
+///     entity: "ABC Corp".to_string(),
+///     convention: CdsConventionKey {
+///         currency: Currency::USD,
+///         doc_clause: CdsDocClause::Cr14,
+///     },
+///     pillar: Pillar::Tenor("5Y".parse()?),
+///     spread_bp: 150.0,
+///     recovery_rate: 0.40,
+/// };
+/// # Ok(())
+/// # }
+/// ```
+///
+/// Upfront quote:
+/// ```rust
+/// use finstack_valuations::market::quotes::cds::CdsQuote;
+/// use finstack_valuations::market::quotes::ids::{Pillar, QuoteId};
+/// use finstack_valuations::market::conventions::ids::{CdsConventionKey, CdsDocClause};
+/// use finstack_core::currency::Currency;
+///
+/// # fn example() -> finstack_core::Result<()> {
+/// let quote = CdsQuote::CdsUpfront {
+///     id: QuoteId::new("CDS-ABC-CORP-5Y"),
+///     entity: "ABC Corp".to_string(),
+///     convention: CdsConventionKey {
+///         currency: Currency::USD,
+///         doc_clause: CdsDocClause::Cr14,
+///     },
+///     pillar: Pillar::Tenor("5Y".parse()?),
+///     running_spread_bp: 500.0,
+///     upfront_pct: 0.02, // 2% upfront
+///     recovery_rate: 0.40,
+/// };
+/// # Ok(())
+/// # }
+/// ```
 #[cfg_attr(feature = "ts_export", derive(TS))]
 #[cfg_attr(feature = "ts_export", ts(export))]
 #[cfg_attr(feature = "ts_export", ts(rename_all = "snake_case"))]
@@ -53,6 +110,36 @@ pub enum CdsQuote {
 
 impl CdsQuote {
     /// Get the unique identifier of the quote.
+    ///
+    /// # Returns
+    ///
+    /// A reference to the quote's [`QuoteId`].
+    ///
+    /// # Examples
+    ///
+    /// ```rust
+    /// use finstack_valuations::market::quotes::cds::CdsQuote;
+    /// use finstack_valuations::market::quotes::ids::{Pillar, QuoteId};
+    /// use finstack_valuations::market::conventions::ids::{CdsConventionKey, CdsDocClause};
+    /// use finstack_core::currency::Currency;
+    ///
+    /// # fn example() -> finstack_core::Result<()> {
+    /// let quote = CdsQuote::CdsParSpread {
+    ///     id: QuoteId::new("CDS-ABC-CORP-5Y"),
+    ///     entity: "ABC Corp".to_string(),
+    ///     convention: CdsConventionKey {
+    ///         currency: Currency::USD,
+    ///         doc_clause: CdsDocClause::Cr14,
+    ///     },
+    ///     pillar: Pillar::Tenor("5Y".parse()?),
+    ///     spread_bp: 150.0,
+    ///     recovery_rate: 0.40,
+    /// };
+    ///
+    /// assert_eq!(quote.id().as_str(), "CDS-ABC-CORP-5Y");
+    /// # Ok(())
+    /// # }
+    /// ```
     pub fn id(&self) -> &QuoteId {
         match self {
             CdsQuote::CdsParSpread { id, .. } => id,
@@ -62,10 +149,44 @@ impl CdsQuote {
 
     /// Create a new quote with the spread bumped.
     ///
-    /// For par spread quotes, bumps `spread_bp`.
-    /// For upfront quotes, bumps `running_spread_bp`.
+    /// For par spread quotes, bumps `spread_bp`. For upfront quotes, bumps `running_spread_bp`.
+    /// The upfront percentage remains unchanged.
     ///
-    /// The `bump` argument is in basis points.
+    /// # Arguments
+    ///
+    /// * `bump_decimal` - The bump amount in decimal terms (e.g., `0.0001` for 1 basis point).
+    ///   This is converted to basis points internally (multiplied by 10,000).
+    ///
+    /// # Returns
+    ///
+    /// A new `CdsQuote` with the bumped spread.
+    ///
+    /// # Examples
+    ///
+    /// ```rust
+    /// use finstack_valuations::market::quotes::cds::CdsQuote;
+    /// use finstack_valuations::market::quotes::ids::{Pillar, QuoteId};
+    /// use finstack_valuations::market::conventions::ids::{CdsConventionKey, CdsDocClause};
+    /// use finstack_core::currency::Currency;
+    ///
+    /// # fn example() -> finstack_core::Result<()> {
+    /// let quote = CdsQuote::CdsParSpread {
+    ///     id: QuoteId::new("CDS-ABC-CORP-5Y"),
+    ///     entity: "ABC Corp".to_string(),
+    ///     convention: CdsConventionKey {
+    ///         currency: Currency::USD,
+    ///         doc_clause: CdsDocClause::Cr14,
+    ///     },
+    ///     pillar: Pillar::Tenor("5Y".parse()?),
+    ///     spread_bp: 150.0,
+    ///     recovery_rate: 0.40,
+    /// };
+    ///
+    /// // Bump by 1 basis point (0.0001 decimal)
+    /// let bumped = quote.bump(0.0001);
+    /// # Ok(())
+    /// # }
+    /// ```
     pub fn bump(&self, bump_decimal: f64) -> Self {
         let bump_bp = bump_decimal * 10_000.0;
         match self {

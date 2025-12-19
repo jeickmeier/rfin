@@ -1,3 +1,5 @@
+//! Loader for CDS tranche conventions embedded in JSON registries.
+
 use crate::market::conventions::defs::CdsConventions;
 use crate::market::conventions::ids::{CdsConventionKey, CdsDocClause};
 use finstack_core::dates::{BusinessDayConvention, DayCount, Tenor};

@@ -16,7 +16,90 @@ use finstack_core::money::Money;
 use finstack_core::types::{CurveId, InstrumentId};
 use finstack_core::Result;
 
-/// Build an instrument from a RateQuote.
+/// Build an interest rate instrument from a [`RateQuote`].
+///
+/// This function resolves conventions, calculates accrual dates, and constructs a concrete
+/// instrument instance based on the quote type. Supported quote types include deposits, FRAs,
+/// interest rate futures, and swaps (both term and overnight).
+///
+/// # Arguments
+///
+/// * `quote` - The market quote containing rate/price and pillar information
+/// * `ctx` - Build context with valuation date, notional, and curve mappings
+///
+/// # Returns
+///
+/// `Ok(Box<dyn Instrument>)` with the constructed instrument, or `Err` if:
+/// - Convention lookup fails (missing index or future contract)
+/// - Calendar resolution fails
+/// - Date calculations fail (invalid tenor, business day adjustment)
+/// - Instrument construction fails (invalid parameters)
+///
+/// # Examples
+///
+/// Building a deposit:
+/// ```rust
+/// use finstack_valuations::market::build::context::BuildCtx;
+/// use finstack_valuations::market::build::rates::build_rate_instrument;
+/// use finstack_valuations::market::quotes::ids::{Pillar, QuoteId};
+/// use finstack_valuations::market::quotes::rates::RateQuote;
+/// use finstack_valuations::market::conventions::ids::IndexId;
+/// use finstack_core::dates::Date;
+/// use std::collections::HashMap;
+///
+/// # fn example() -> finstack_core::Result<()> {
+/// let ctx = BuildCtx::new(
+///     Date::from_calendar_date(2024, time::Month::January, 2)?,
+///     1_000_000.0,
+///     HashMap::new(),
+/// );
+///
+/// let quote = RateQuote::Deposit {
+///     id: QuoteId::new("USD-SOFR-DEP-1M"),
+///     index: IndexId::new("USD-SOFR-1M"),
+///     pillar: Pillar::Tenor("1M".parse()?),
+///     rate: 0.0525,
+/// };
+///
+/// let instrument = build_rate_instrument(&quote, &ctx)?;
+/// # Ok(())
+/// # }
+/// ```
+///
+/// Building a swap:
+/// ```rust
+/// use finstack_valuations::market::build::context::BuildCtx;
+/// use finstack_valuations::market::build::rates::build_rate_instrument;
+/// use finstack_valuations::market::quotes::ids::{Pillar, QuoteId};
+/// use finstack_valuations::market::quotes::rates::RateQuote;
+/// use finstack_valuations::market::conventions::ids::IndexId;
+/// use finstack_core::dates::Date;
+/// use std::collections::HashMap;
+///
+/// # fn example() -> finstack_core::Result<()> {
+/// let ctx = BuildCtx::new(
+///     Date::from_calendar_date(2024, time::Month::January, 2)?,
+///     1_000_000.0,
+///     HashMap::new(),
+/// );
+///
+/// let quote = RateQuote::Swap {
+///     id: QuoteId::new("USD-OIS-SWAP-5Y"),
+///     index: IndexId::new("USD-SOFR-OIS"),
+///     pillar: Pillar::Tenor("5Y".parse()?),
+///     rate: 0.0450,
+///     spread: None,
+/// };
+///
+/// let instrument = build_rate_instrument(&quote, &ctx)?;
+/// # Ok(())
+/// # }
+/// ```
+///
+/// # See Also
+///
+/// - [`RateQuote`](crate::market::quotes::rates::RateQuote) for supported quote types
+/// - [`BuildCtx`](crate::market::build::context::BuildCtx) for build context configuration
 pub fn build_rate_instrument(quote: &RateQuote, ctx: &BuildCtx) -> Result<Box<dyn Instrument>> {
     let registry = ConventionRegistry::global();
 

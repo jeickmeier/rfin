@@ -1,3 +1,5 @@
+//! Shared JSON registry loader helpers.
+
 use std::collections::HashMap;
 use finstack_core::Error;
 

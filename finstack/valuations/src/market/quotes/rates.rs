@@ -1,3 +1,5 @@
+//! Interest rate market quote schema.
+
 use super::ids::{Pillar, QuoteId};
 use crate::market::conventions::ids::{IndexId, IrFutureContractId};
 use finstack_core::dates::Date;
@@ -6,6 +8,47 @@ use serde::{Deserialize, Serialize};
 use ts_rs::TS;
 
 /// Market quote for interest rate instruments.
+///
+/// This enum represents all supported interest rate quote types: deposits, forward rate agreements
+/// (FRAs), interest rate futures, and interest rate swaps. Each variant includes the necessary
+/// identifiers, pillars, and market values for instrument construction.
+///
+/// # Examples
+///
+/// Deposit quote:
+/// ```rust
+/// use finstack_valuations::market::quotes::rates::RateQuote;
+/// use finstack_valuations::market::quotes::ids::{Pillar, QuoteId};
+/// use finstack_valuations::market::conventions::ids::IndexId;
+///
+/// # fn example() -> finstack_core::Result<()> {
+/// let quote = RateQuote::Deposit {
+///     id: QuoteId::new("USD-SOFR-DEP-1M"),
+///     index: IndexId::new("USD-SOFR-1M"),
+///     pillar: Pillar::Tenor("1M".parse()?),
+///     rate: 0.0525,
+/// };
+/// # Ok(())
+/// # }
+/// ```
+///
+/// Swap quote:
+/// ```rust
+/// use finstack_valuations::market::quotes::rates::RateQuote;
+/// use finstack_valuations::market::quotes::ids::{Pillar, QuoteId};
+/// use finstack_valuations::market::conventions::ids::IndexId;
+///
+/// # fn example() -> finstack_core::Result<()> {
+/// let quote = RateQuote::Swap {
+///     id: QuoteId::new("USD-OIS-SWAP-5Y"),
+///     index: IndexId::new("USD-SOFR-OIS"),
+///     pillar: Pillar::Tenor("5Y".parse()?),
+///     rate: 0.0450,
+///     spread: None,
+/// };
+/// # Ok(())
+/// # }
+/// ```
 #[cfg_attr(feature = "ts_export", derive(TS))]
 #[cfg_attr(feature = "ts_export", ts(export))]
 #[cfg_attr(feature = "ts_export", ts(rename_all = "snake_case"))]
@@ -81,6 +124,30 @@ pub enum RateQuote {
 
 impl RateQuote {
     /// Get the unique identifier of the quote.
+    ///
+    /// # Returns
+    ///
+    /// A reference to the quote's [`QuoteId`].
+    ///
+    /// # Examples
+    ///
+    /// ```rust
+    /// use finstack_valuations::market::quotes::rates::RateQuote;
+    /// use finstack_valuations::market::quotes::ids::{Pillar, QuoteId};
+    /// use finstack_valuations::market::conventions::ids::IndexId;
+    ///
+    /// # fn example() -> finstack_core::Result<()> {
+    /// let quote = RateQuote::Deposit {
+    ///     id: QuoteId::new("USD-SOFR-DEP-1M"),
+    ///     index: IndexId::new("USD-SOFR-1M"),
+    ///     pillar: Pillar::Tenor("1M".parse()?),
+    ///     rate: 0.0525,
+    /// };
+    ///
+    /// assert_eq!(quote.id().as_str(), "USD-SOFR-DEP-1M");
+    /// # Ok(())
+    /// # }
+    /// ```
     pub fn id(&self) -> &QuoteId {
         match self {
             RateQuote::Deposit { id, .. } => id,
@@ -91,6 +158,31 @@ impl RateQuote {
     }
 
     /// Get the resolved value (rate or price) of the quote.
+    ///
+    /// # Returns
+    ///
+    /// For deposit, FRA, and swap quotes: the rate value (decimal).
+    /// For futures quotes: the price value.
+    ///
+    /// # Examples
+    ///
+    /// ```rust
+    /// use finstack_valuations::market::quotes::rates::RateQuote;
+    /// use finstack_valuations::market::quotes::ids::{Pillar, QuoteId};
+    /// use finstack_valuations::market::conventions::ids::IndexId;
+    ///
+    /// # fn example() -> finstack_core::Result<()> {
+    /// let quote = RateQuote::Deposit {
+    ///     id: QuoteId::new("USD-SOFR-DEP-1M"),
+    ///     index: IndexId::new("USD-SOFR-1M"),
+    ///     pillar: Pillar::Tenor("1M".parse()?),
+    ///     rate: 0.0525,
+    /// };
+    ///
+    /// assert_eq!(quote.value(), 0.0525);
+    /// # Ok(())
+    /// # }
+    /// ```
     pub fn value(&self) -> f64 {
         match self {
             RateQuote::Deposit { rate, .. } => *rate,
@@ -102,8 +194,39 @@ impl RateQuote {
 
     /// Create a new quote with the value bumped by `bump`.
     ///
-    /// For rates, `bump` is added to the rate.
-    /// For futures price, `bump` is added directly to the price.
+    /// For rates (deposit, FRA, swap), `bump` is added to the rate (in decimal terms,
+    /// e.g., `0.0001` for 1 basis point). For futures, `bump` is added directly to the price.
+    ///
+    /// # Arguments
+    ///
+    /// * `bump` - The amount to add to the quote value (decimal for rates, absolute for futures)
+    ///
+    /// # Returns
+    ///
+    /// A new `RateQuote` with the bumped value.
+    ///
+    /// # Examples
+    ///
+    /// Bumping a deposit rate:
+    /// ```rust
+    /// use finstack_valuations::market::quotes::rates::RateQuote;
+    /// use finstack_valuations::market::quotes::ids::{Pillar, QuoteId};
+    /// use finstack_valuations::market::conventions::ids::IndexId;
+    ///
+    /// # fn example() -> finstack_core::Result<()> {
+    /// let quote = RateQuote::Deposit {
+    ///     id: QuoteId::new("USD-SOFR-DEP-1M"),
+    ///     index: IndexId::new("USD-SOFR-1M"),
+    ///     pillar: Pillar::Tenor("1M".parse()?),
+    ///     rate: 0.0525,
+    /// };
+    ///
+    /// // Bump by 1 basis point (0.0001)
+    /// let bumped = quote.bump(0.0001);
+    /// assert_eq!(bumped.value(), 0.0526);
+    /// # Ok(())
+    /// # }
+    /// ```
     pub fn bump(&self, bump: f64) -> Self {
         match self {
             RateQuote::Deposit {

@@ -1,17 +1,48 @@
+//! Stable identifiers for convention lookups.
+//!
+//! This module provides type-safe identifiers for all convention types. These identifiers
+//! prevent accidental mismatches between different ID types and ensure conventions are looked
+//! up correctly.
+
 use finstack_core::currency::Currency;
 use serde::{Deserialize, Serialize};
 use std::fmt;
 
 /// Stable identifier for a rate index (e.g., "USD-SOFR-OIS", "EUR-EURIBOR-6M").
+///
+/// Used to look up [`RateIndexConventions`](crate::market::conventions::defs::RateIndexConventions)
+/// from the convention registry. Index IDs should follow a consistent naming convention
+/// (e.g., "{currency}-{index}-{tenor}").
+///
+/// # Examples
+///
+/// ```rust
+/// use finstack_valuations::market::conventions::ids::IndexId;
+///
+/// let id = IndexId::new("USD-SOFR-OIS");
+/// assert_eq!(id.as_str(), "USD-SOFR-OIS");
+/// ```
 #[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize, PartialOrd, Ord)]
 pub struct IndexId(String);
 
 impl IndexId {
-    /// Create a new IndexId from a string.
+    /// Create a new `IndexId` from a string.
+    ///
+    /// # Arguments
+    ///
+    /// * `s` - The index identifier string
+    ///
+    /// # Returns
+    ///
+    /// A new `IndexId` instance.
     pub fn new(s: impl Into<String>) -> Self {
         Self(s.into())
     }
-    /// View the inner string.
+    /// View the inner string representation.
+    ///
+    /// # Returns
+    ///
+    /// A string slice containing the identifier.
     pub fn as_str(&self) -> &str {
         &self.0
     }
@@ -30,16 +61,40 @@ impl From<&str> for IndexId {
 }
 
 /// Stable identifier for an Interest Rate Future contract (e.g., "CME:SR3").
+///
+/// Used to look up [`IrFutureConventions`](crate::market::conventions::defs::IrFutureConventions)
+/// from the convention registry. Contract IDs typically follow exchange:contract format.
+///
+/// # Examples
+///
+/// ```rust
+/// use finstack_valuations::market::conventions::ids::IrFutureContractId;
+///
+/// let id = IrFutureContractId::new("CME:SR3");
+/// assert_eq!(id.as_str(), "CME:SR3");
+/// ```
 #[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize, PartialOrd, Ord)]
 pub struct IrFutureContractId(String);
 
 impl IrFutureContractId {
-    /// Create a new IrFutureContractId from a string.
+    /// Create a new `IrFutureContractId` from a string.
+    ///
+    /// # Arguments
+    ///
+    /// * `s` - The contract identifier string
+    ///
+    /// # Returns
+    ///
+    /// A new `IrFutureContractId` instance.
     pub fn new(s: impl Into<String>) -> Self {
         Self(s.into())
     }
 
-    /// View the inner string.
+    /// View the inner string representation.
+    ///
+    /// # Returns
+    ///
+    /// A string slice containing the identifier.
     pub fn as_str(&self) -> &str {
         &self.0
     }
@@ -58,6 +113,18 @@ impl From<&str> for IrFutureContractId {
 }
 
 /// CDS market standard documentation clauses.
+///
+/// Represents the ISDA documentation clause used for CDS contracts. Different clauses
+/// define different restructuring events and settlement procedures. Used as part of
+/// [`CdsConventionKey`] to look up CDS conventions.
+///
+/// # Examples
+///
+/// ```rust
+/// use finstack_valuations::market::conventions::ids::CdsDocClause;
+///
+/// let clause = CdsDocClause::Cr14; // Cum-Restructuring 2014
+/// ```
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
 #[serde(rename_all = "PascalCase")]
 pub enum CdsDocClause {
@@ -104,6 +171,22 @@ impl std::str::FromStr for CdsDocClause {
 }
 
 /// Key to look up CDS conventions (Currency + DocClause).
+///
+/// CDS conventions are identified by both currency and documentation clause, as different
+/// clauses have different market conventions. Used to look up [`CdsConventions`](crate::market::conventions::defs::CdsConventions)
+/// from the convention registry.
+///
+/// # Examples
+///
+/// ```rust
+/// use finstack_valuations::market::conventions::ids::{CdsConventionKey, CdsDocClause};
+/// use finstack_core::currency::Currency;
+///
+/// let key = CdsConventionKey {
+///     currency: Currency::USD,
+///     doc_clause: CdsDocClause::Cr14,
+/// };
+/// ```
 #[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
 pub struct CdsConventionKey {
     /// The currency of the CDS.
@@ -119,15 +202,39 @@ impl fmt::Display for CdsConventionKey {
 }
 
 /// Identifier for Option market conventions (Equity/FX/Commodity).
+///
+/// Used to look up [`OptionConventions`](crate::market::conventions::defs::OptionConventions)
+/// from the convention registry. Convention IDs typically follow "{currency}-{asset-class}" format.
+///
+/// # Examples
+///
+/// ```rust
+/// use finstack_valuations::market::conventions::ids::OptionConventionId;
+///
+/// let id = OptionConventionId::new("USD-EQUITY");
+/// assert_eq!(id.as_str(), "USD-EQUITY");
+/// ```
 #[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize, PartialOrd, Ord)]
 pub struct OptionConventionId(pub String);
 
 impl OptionConventionId {
-    /// Create a new OptionConventionId from a string.
+    /// Create a new `OptionConventionId` from a string.
+    ///
+    /// # Arguments
+    ///
+    /// * `s` - The convention identifier string
+    ///
+    /// # Returns
+    ///
+    /// A new `OptionConventionId` instance.
     pub fn new(s: impl Into<String>) -> Self {
         Self(s.into())
     }
-    /// View the inner string.
+    /// View the inner string representation.
+    ///
+    /// # Returns
+    ///
+    /// A string slice containing the identifier.
     pub fn as_str(&self) -> &str {
         &self.0
     }
@@ -146,15 +253,39 @@ impl From<&str> for OptionConventionId {
 }
 
 /// Identifier for Swaption market conventions (e.g., "USD", "EUR").
+///
+/// Used to look up [`SwaptionConventions`](crate::market::conventions::defs::SwaptionConventions)
+/// from the convention registry. Convention IDs are typically currency codes.
+///
+/// # Examples
+///
+/// ```rust
+/// use finstack_valuations::market::conventions::ids::SwaptionConventionId;
+///
+/// let id = SwaptionConventionId::new("USD");
+/// assert_eq!(id.as_str(), "USD");
+/// ```
 #[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize, PartialOrd, Ord)]
 pub struct SwaptionConventionId(pub String);
 
 impl SwaptionConventionId {
-    /// Create a new SwaptionConventionId from a string.
+    /// Create a new `SwaptionConventionId` from a string.
+    ///
+    /// # Arguments
+    ///
+    /// * `s` - The convention identifier string
+    ///
+    /// # Returns
+    ///
+    /// A new `SwaptionConventionId` instance.
     pub fn new(s: impl Into<String>) -> Self {
         Self(s.into())
     }
-    /// View the inner string.
+    /// View the inner string representation.
+    ///
+    /// # Returns
+    ///
+    /// A string slice containing the identifier.
     pub fn as_str(&self) -> &str {
         &self.0
     }
@@ -173,15 +304,39 @@ impl From<&str> for SwaptionConventionId {
 }
 
 /// Identifier for Inflation Swap market conventions (e.g., "USD-CPI", "UK-RPI").
+///
+/// Used to look up [`InflationSwapConventions`](crate::market::conventions::defs::InflationSwapConventions)
+/// from the convention registry. Convention IDs typically follow "{currency}-{index}" format.
+///
+/// # Examples
+///
+/// ```rust
+/// use finstack_valuations::market::conventions::ids::InflationSwapConventionId;
+///
+/// let id = InflationSwapConventionId::new("USD-CPI");
+/// assert_eq!(id.as_str(), "USD-CPI");
+/// ```
 #[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize, PartialOrd, Ord)]
 pub struct InflationSwapConventionId(pub String);
 
 impl InflationSwapConventionId {
-    /// Create a new InflationSwapConventionId from a string.
+    /// Create a new `InflationSwapConventionId` from a string.
+    ///
+    /// # Arguments
+    ///
+    /// * `s` - The convention identifier string
+    ///
+    /// # Returns
+    ///
+    /// A new `InflationSwapConventionId` instance.
     pub fn new(s: impl Into<String>) -> Self {
         Self(s.into())
     }
-    /// View the inner string.
+    /// View the inner string representation.
+    ///
+    /// # Returns
+    ///
+    /// A string slice containing the identifier.
     pub fn as_str(&self) -> &str {
         &self.0
     }

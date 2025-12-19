@@ -1,3 +1,5 @@
+//! Legacy unified market quote wrapper.
+
 use super::cds::CdsQuote;
 use super::cds_tranche::CdsTrancheQuote;
 use super::rates::RateQuote;

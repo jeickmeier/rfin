@@ -17,7 +17,108 @@ use finstack_core::money::Money;
 use finstack_core::types::{CurveId, InstrumentId};
 use finstack_core::Result;
 
-/// Build an instrument from a CdsQuote.
+/// Build a Credit Default Swap instrument from a [`CdsQuote`].
+///
+/// This function resolves CDS conventions, calculates IMM roll dates, and constructs a CDS
+/// instrument with premium and protection legs configured according to market standards.
+/// Supports both par spread quotes and upfront + running spread quotes.
+///
+/// # Arguments
+///
+/// * `quote` - The CDS market quote (either par spread or upfront + running)
+/// * `ctx` - Build context with valuation date, notional, and curve mappings
+///
+/// # Returns
+///
+/// `Ok(Box<dyn Instrument>)` with the constructed CDS instrument, or `Err` if:
+/// - Convention lookup fails (missing CDS convention key)
+/// - Calendar resolution fails
+/// - Date calculations fail (invalid pillar, IMM roll date resolution)
+/// - Instrument construction fails (invalid parameters)
+///
+/// # CDS Date Conventions
+///
+/// CDS instruments use IMM roll dates (20th of March, June, September, December) for
+/// start dates. The start date is set to the IMM date on or before spot, and maturity
+/// is adjusted to the next IMM date after the pillar date.
+///
+/// # Examples
+///
+/// Building from a par spread quote:
+/// ```rust
+/// use finstack_valuations::market::build::context::BuildCtx;
+/// use finstack_valuations::market::build::cds::build_cds_instrument;
+/// use finstack_valuations::market::quotes::cds::CdsQuote;
+/// use finstack_valuations::market::quotes::ids::{Pillar, QuoteId};
+/// use finstack_valuations::market::conventions::ids::{CdsConventionKey, CdsDocClause};
+/// use finstack_core::dates::Date;
+/// use finstack_core::currency::Currency;
+/// use std::collections::HashMap;
+///
+/// # fn example() -> finstack_core::Result<()> {
+/// let ctx = BuildCtx::new(
+///     Date::from_calendar_date(2024, time::Month::January, 2)?,
+///     10_000_000.0,
+///     HashMap::new(),
+/// );
+///
+/// let quote = CdsQuote::CdsParSpread {
+///     id: QuoteId::new("CDS-ABC-CORP-5Y"),
+///     entity: "ABC Corp".to_string(),
+///     convention: CdsConventionKey {
+///         currency: Currency::USD,
+///         doc_clause: CdsDocClause::Cr14,
+///     },
+///     pillar: Pillar::Tenor("5Y".parse()?),
+///     spread_bp: 150.0,
+///     recovery_rate: 0.40,
+/// };
+///
+/// let instrument = build_cds_instrument(&quote, &ctx)?;
+/// # Ok(())
+/// # }
+/// ```
+///
+/// Building from an upfront quote:
+/// ```rust
+/// use finstack_valuations::market::build::context::BuildCtx;
+/// use finstack_valuations::market::build::cds::build_cds_instrument;
+/// use finstack_valuations::market::quotes::cds::CdsQuote;
+/// use finstack_valuations::market::quotes::ids::{Pillar, QuoteId};
+/// use finstack_valuations::market::conventions::ids::{CdsConventionKey, CdsDocClause};
+/// use finstack_core::dates::Date;
+/// use finstack_core::currency::Currency;
+/// use std::collections::HashMap;
+///
+/// # fn example() -> finstack_core::Result<()> {
+/// let ctx = BuildCtx::new(
+///     Date::from_calendar_date(2024, time::Month::January, 2)?,
+///     10_000_000.0,
+///     HashMap::new(),
+/// );
+///
+/// let quote = CdsQuote::CdsUpfront {
+///     id: QuoteId::new("CDS-ABC-CORP-5Y"),
+///     entity: "ABC Corp".to_string(),
+///     convention: CdsConventionKey {
+///         currency: Currency::USD,
+///         doc_clause: CdsDocClause::Cr14,
+///     },
+///     pillar: Pillar::Tenor("5Y".parse()?),
+///     running_spread_bp: 500.0,
+///     upfront_pct: 0.02, // 2% upfront
+///     recovery_rate: 0.40,
+/// };
+///
+/// let instrument = build_cds_instrument(&quote, &ctx)?;
+/// # Ok(())
+/// # }
+/// ```
+///
+/// # See Also
+///
+/// - [`CdsQuote`](crate::market::quotes::cds::CdsQuote) for supported quote types
+/// - [`BuildCtx`](crate::market::build::context::BuildCtx) for build context configuration
 pub fn build_cds_instrument(quote: &CdsQuote, ctx: &BuildCtx) -> Result<Box<dyn Instrument>> {
     let registry = ConventionRegistry::global();
 

@@ -1,3 +1,5 @@
+//! Loader for inflation swap conventions embedded in JSON registries.
+
 use super::json::{build_lookup_map_mapped, RegistryFile};
 use crate::market::conventions::defs::InflationSwapConventions;
 use crate::market::conventions::ids::InflationSwapConventionId;

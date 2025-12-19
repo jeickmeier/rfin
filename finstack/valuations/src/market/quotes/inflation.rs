@@ -1,6 +1,7 @@
 //! Inflation instrument quote types.
 //!
-//! Inflation instrument quotes for inflation curve calibration.
+//! Inflation instrument quotes for CPI and inflation curve calibration. Supports both
+//! zero-coupon inflation swaps (ZCIS) and year-on-year (YoY) inflation swaps.
 
 use crate::market::conventions::ids::InflationSwapConventionId;
 use finstack_core::dates::{Date, Tenor};
@@ -8,6 +9,44 @@ use finstack_core::dates::{Date, Tenor};
 use ts_rs::TS;
 
 /// Inflation instrument quotes for CPI and inflation curve calibration.
+///
+/// Supports two types of inflation swaps:
+/// 1. **Zero-coupon inflation swaps (ZCIS)**: Single payment at maturity based on cumulative inflation
+/// 2. **Year-on-year (YoY) inflation swaps**: Periodic payments based on year-over-year inflation
+///
+/// # Examples
+///
+/// Zero-coupon inflation swap:
+/// ```rust
+/// use finstack_valuations::market::quotes::inflation::InflationQuote;
+/// use finstack_valuations::market::conventions::ids::InflationSwapConventionId;
+/// use finstack_core::dates::Date;
+///
+/// let quote = InflationQuote::InflationSwap {
+///     maturity: Date::from_calendar_date(2029, time::Month::June, 20).unwrap(),
+///     rate: 0.025, // 2.5% fixed rate
+///     index: "US-CPI-U".to_string(),
+///     convention: InflationSwapConventionId::new("USD-CPI"),
+/// };
+/// ```
+///
+/// Year-on-year inflation swap:
+/// ```rust
+/// use finstack_valuations::market::quotes::inflation::InflationQuote;
+/// use finstack_valuations::market::conventions::ids::InflationSwapConventionId;
+/// use finstack_core::dates::{Date, Tenor};
+///
+/// # fn example() -> finstack_core::Result<()> {
+/// let quote = InflationQuote::YoYInflationSwap {
+///     maturity: Date::from_calendar_date(2029, time::Month::June, 20)?,
+///     rate: 0.025,
+///     index: "US-CPI-U".to_string(),
+///     frequency: Tenor::new(1, finstack_core::dates::TenorUnit::Years),
+///     convention: InflationSwapConventionId::new("USD-CPI"),
+/// };
+/// # Ok(())
+/// # }
+/// ```
 #[cfg_attr(feature = "ts_export", derive(TS))]
 #[cfg_attr(feature = "ts_export", ts(export))]
 #[cfg_attr(feature = "ts_export", ts(rename_all = "snake_case"))]
@@ -48,6 +87,27 @@ pub enum InflationQuote {
 
 impl InflationQuote {
     /// Get maturity date for this quote if applicable.
+    ///
+    /// # Returns
+    ///
+    /// `Some(maturity_date)` for all inflation quote variants, or `None` if not applicable.
+    ///
+    /// # Examples
+    ///
+    /// ```rust
+    /// use finstack_valuations::market::quotes::inflation::InflationQuote;
+    /// use finstack_valuations::market::conventions::ids::InflationSwapConventionId;
+    /// use finstack_core::dates::Date;
+    ///
+    /// let quote = InflationQuote::InflationSwap {
+    ///     maturity: Date::from_calendar_date(2029, time::Month::June, 20).unwrap(),
+    ///     rate: 0.025,
+    ///     index: "US-CPI-U".to_string(),
+    ///     convention: InflationSwapConventionId::new("USD-CPI"),
+    /// };
+    ///
+    /// assert_eq!(quote.maturity_date(), Some(Date::from_calendar_date(2029, time::Month::June, 20).unwrap()));
+    /// ```
     pub fn maturity_date(&self) -> Option<Date> {
         match self {
             InflationQuote::InflationSwap { maturity, .. } => Some(*maturity),
@@ -55,10 +115,33 @@ impl InflationQuote {
         }
     }
 
-    /// Create a new quote with the inflation rate bumped by a **decimal rate** amount.
+    /// Create a new quote with the inflation rate bumped by a decimal amount.
     ///
-    /// The `rate_bump` parameter is specified in decimal terms (e.g., `0.0001`
-    /// for 1 basis point).
+    /// # Arguments
+    ///
+    /// * `rate_bump` - The bump amount in decimal terms (e.g., `0.0001` for 1 basis point)
+    ///
+    /// # Returns
+    ///
+    /// A new `InflationQuote` with the bumped rate.
+    ///
+    /// # Examples
+    ///
+    /// ```rust
+    /// use finstack_valuations::market::quotes::inflation::InflationQuote;
+    /// use finstack_valuations::market::conventions::ids::InflationSwapConventionId;
+    /// use finstack_core::dates::Date;
+    ///
+    /// let quote = InflationQuote::InflationSwap {
+    ///     maturity: Date::from_calendar_date(2029, time::Month::June, 20).unwrap(),
+    ///     rate: 0.025,
+    ///     index: "US-CPI-U".to_string(),
+    ///     convention: InflationSwapConventionId::new("USD-CPI"),
+    /// };
+    ///
+    /// // Bump by 1 basis point
+    /// let bumped = quote.bump_rate_decimal(0.0001);
+    /// ```
     pub fn bump_rate_decimal(&self, rate_bump: f64) -> Self {
         match self {
             InflationQuote::InflationSwap {

@@ -1,3 +1,5 @@
+//! Loader for CDS conventions embedded in JSON registries.
+
 use super::json::{build_lookup_map_mapped, RegistryFile};
 use crate::market::conventions::defs::CdsConventions;
 use crate::market::conventions::ids::{CdsConventionKey, CdsDocClause};

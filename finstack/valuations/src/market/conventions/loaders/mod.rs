@@ -1,3 +1,5 @@
+//! Embedded JSON convention loaders.
+
 /// CDS convention loader.
 pub mod cds;
 /// CDS tranche convention loader.

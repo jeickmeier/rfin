@@ -1,3 +1,5 @@
+//! Loader for interest rate future conventions embedded in JSON registries.
+
 use super::json::{build_lookup_map_mapped, RegistryFile};
 use crate::market::conventions::defs::IrFutureConventions;
 use crate::market::conventions::ids::{IndexId, IrFutureContractId};
