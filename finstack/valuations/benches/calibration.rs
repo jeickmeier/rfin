@@ -4,14 +4,17 @@
 
 use criterion::{criterion_group, criterion_main, Criterion};
 use finstack_core::currency::Currency;
-use finstack_core::dates::{Date, DayCount, Tenor};
+use finstack_core::dates::Date;
 use finstack_core::market_data::context::MarketContext;
-use finstack_valuations::calibration::adapters::handlers::execute_step;
+use finstack_valuations::calibration::targets::handlers::execute_step;
 use finstack_valuations::calibration::api::schema::{
     CalibrationMethod, DiscountCurveParams, ForwardCurveParams, StepParams,
 };
-use finstack_valuations::calibration::quotes::{InstrumentConventions, MarketQuote, RatesQuote};
 use finstack_valuations::calibration::CalibrationConfig;
+use finstack_valuations::market::conventions::ids::IndexId;
+use finstack_valuations::market::quotes::ids::{Pillar, QuoteId};
+use finstack_valuations::market::quotes::market_quote::MarketQuote;
+use finstack_valuations::market::quotes::rates::RateQuote;
 use std::hint::black_box;
 use time::Month;
 
@@ -20,29 +23,25 @@ fn bench_discount_and_forward_steps(c: &mut Criterion) {
     let settings = CalibrationConfig::default();
 
     // Discount curve inputs
-    let disc_quotes: Vec<RatesQuote> = vec![
-        RatesQuote::Deposit {
-            maturity: base_date + time::Duration::days(30),
+    let disc_quotes: Vec<RateQuote> = vec![
+        RateQuote::Deposit {
+            id: QuoteId::new("DEP-1M"),
+            index: IndexId::new("USD-SOFR"),
+            pillar: Pillar::Date(base_date + time::Duration::days(30)),
             rate: 0.045,
-            conventions: InstrumentConventions::default().with_day_count(DayCount::Act360),
         },
-        RatesQuote::Deposit {
-            maturity: base_date + time::Duration::days(90),
+        RateQuote::Deposit {
+            id: QuoteId::new("DEP-3M"),
+            index: IndexId::new("USD-SOFR"),
+            pillar: Pillar::Date(base_date + time::Duration::days(90)),
             rate: 0.046,
-            conventions: InstrumentConventions::default().with_day_count(DayCount::Act360),
         },
-        RatesQuote::Swap {
-            maturity: base_date + time::Duration::days(365),
+        RateQuote::Swap {
+            id: QuoteId::new("SWP-1Y"),
+            index: IndexId::new("USD-SOFR-OIS"),
+            pillar: Pillar::Date(base_date + time::Duration::days(365)),
             rate: 0.047,
-            is_ois: true,
-            conventions: Default::default(),
-            fixed_leg_conventions: InstrumentConventions::default()
-                .with_payment_frequency(Tenor::semi_annual())
-                .with_day_count(DayCount::Thirty360),
-            float_leg_conventions: InstrumentConventions::default()
-                .with_payment_frequency(Tenor::daily())
-                .with_day_count(DayCount::Act360)
-                .with_index("USD-OIS"),
+            spread: None,
         },
     ];
     let disc_mq: Vec<MarketQuote> = disc_quotes
@@ -63,18 +62,20 @@ fn bench_discount_and_forward_steps(c: &mut Criterion) {
     });
 
     // Forward curve inputs
-    let fwd_quotes: Vec<RatesQuote> = vec![
-        RatesQuote::FRA {
-            start: base_date + time::Duration::days(90),
-            end: base_date + time::Duration::days(180),
+    let fwd_quotes: Vec<RateQuote> = vec![
+        RateQuote::Fra {
+            id: QuoteId::new("FRA-3x6"),
+            index: IndexId::new("USD-SOFR-3M"),
+            start: Pillar::Date(base_date + time::Duration::days(90)),
+            end: Pillar::Date(base_date + time::Duration::days(180)),
             rate: 0.047,
-            conventions: InstrumentConventions::default().with_day_count(DayCount::Act360),
         },
-        RatesQuote::FRA {
-            start: base_date + time::Duration::days(180),
-            end: base_date + time::Duration::days(270),
+        RateQuote::Fra {
+            id: QuoteId::new("FRA-6x9"),
+            index: IndexId::new("USD-SOFR-3M"),
+            start: Pillar::Date(base_date + time::Duration::days(180)),
+            end: Pillar::Date(base_date + time::Duration::days(270)),
             rate: 0.048,
-            conventions: InstrumentConventions::default().with_day_count(DayCount::Act360),
         },
     ];
     let fwd_mq: Vec<MarketQuote> = fwd_quotes.iter().cloned().map(MarketQuote::Rates).collect();

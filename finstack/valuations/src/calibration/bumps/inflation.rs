@@ -1,11 +1,13 @@
 //! Shared inflation curve bumping logic.
 
 use super::BumpRequest;
-use crate::calibration::adapters::handlers::execute_step;
 use crate::calibration::api::schema::{InflationCurveParams, StepParams};
 use crate::calibration::config::CalibrationMethod;
-use crate::calibration::quotes::{InflationQuote, MarketQuote};
+use crate::calibration::targets::handlers::execute_step;
 use crate::calibration::CalibrationConfig;
+use crate::market::conventions::ids::InflationSwapConventionId;
+use crate::market::quotes::inflation::InflationQuote;
+use crate::market::quotes::market_quote::MarketQuote;
 use finstack_core::market_data::context::MarketContext;
 use finstack_core::market_data::term_structures::inflation::InflationCurve;
 use finstack_core::types::Currency;
@@ -48,6 +50,14 @@ pub fn bump_inflation_rates(
         Currency::USD // Fallback
     };
 
+    // Map currency to standard inflation convention ID
+    let convention_id = match currency {
+        Currency::USD => InflationSwapConventionId("USD-CPI".into()),
+        Currency::EUR => InflationSwapConventionId("EUR-HICP".into()),
+        Currency::GBP => InflationSwapConventionId("UK-RPI".into()),
+        _ => InflationSwapConventionId(format!("{}-CPI", currency)), // Best guess fallback
+    };
+
     let base_cpi = curve.base_cpi();
     let knots = curve.knots(); // time in years
 
@@ -86,7 +96,7 @@ pub fn bump_inflation_rates(
             maturity,
             rate: bumped_rate,
             index: curve_id.as_str().to_string(), // Use curve ID as index name? Or generic?
-            conventions: Default::default(),
+            convention: convention_id.clone(),
         });
     }
 

@@ -14,11 +14,10 @@ This module supports:
 ## Structure
 
 The module is organized into several key areas:
-- `api/`: Defines the structured calibration schema (V2) and execution engine.
+- `api/`: Defines the structured calibration schema and execution engine.
 - `solver/`: Contains core numerical solvers (Sequential Bootstrap, Levenberg-Marquardt).
-- `pricing/`: Infrastructure for pricing instruments during calibration.
-- `quotes/`: Market quote types and extraction logic.
-- `adapters/`: Logic for mapping abstract calibration steps to concrete execution.
+- `targets/`: Core logic for instrument-specific calibration targets (Bootstrappers).
+- `prepared.rs`: Internal calibration quote envelopes (wrapping market-level quotes).
 - `validation/`: Runtime validation of calibrated structures.
 - `bumps/`: Support for re-calibration and risk sensitivities.
 
@@ -29,12 +28,12 @@ The module is organized into several key areas:
 ```rust
 use finstack_valuations::calibration::api::engine;
 use finstack_valuations::calibration::api::schema::{
-    CalibrationEnvelopeV2, CalibrationPlanV2, CALIBRATION_SCHEMA_V2,
+    CalibrationEnvelope, CalibrationPlan, CALIBRATION_SCHEMA,
 };
 
-fn run_calibration(plan: CalibrationPlanV2) -> finstack_core::Result<()> {
-    let envelope = CalibrationEnvelopeV2 {
-        schema: CALIBRATION_SCHEMA_V2.to_string(),
+fn run_calibration(plan: CalibrationPlan) -> finstack_core::Result<()> {
+    let envelope = CalibrationEnvelope {
+        schema: CALIBRATION_SCHEMA.to_string(),
         plan,
         initial_market: None,
     };
@@ -48,14 +47,13 @@ fn run_calibration(plan: CalibrationPlanV2) -> finstack_core::Result<()> {
 ## Adding New Features
 
 ### Adding a New Calibration Target
-1. Implement the `BootstrapTarget` trait in `solver/traits.rs` (if using bootstrapping).
-2. Implement the `GlobalSolveTarget` trait (if using global optimization).
-3. Register the new target in the `api` engine and `adapters`.
+1. Implement the `BootstrapTarget` trait in `solver/` (if using bootstrapping).
+2. Create a new target/bootstrapper in `targets/`.
+3. Register the new target in the `api` engine and `targets/handlers.rs`.
 
 ### Adding a New Instrument Type
-1. Define the instrument's quote type in `quotes/`.
-2. Implement a `CalibrationPricer` in `pricing/`.
-3. Update `quote_factory` to support extracting the new instrument.
+1. Define the instrument's quote type in `market/quotes/`.
+2. Update the `targets/` logic to support building and pricing the new instrument.
 
 ## Performance and Reliability
 

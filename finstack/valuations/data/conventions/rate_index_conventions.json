@@ -4,25 +4,31 @@
   "version": 2,
   "entries": [
     {
-        "ids": ["USD-SOFR-1M", "SOFR-1M"],
-        "record": {
-          "currency": "USD",
-          "kind": "term",
-          "tenor": "1M",
-          "day_count": "Act360",
-          "default_payment_frequency": "1M",
-          "default_payment_delay_days": 0,
-          "default_reset_lag_days": -2,
-          "ois_compounding": null,
-          "market_calendar_id": "usny",
-          "market_settlement_days": 2,
-          "market_business_day_convention": "modified_following",
-          "default_fixed_leg_day_count": "Thirty360",
-          "default_fixed_leg_frequency": "6M"
-        }
+      "ids": [
+        "USD-SOFR-1M",
+        "SOFR-1M"
+      ],
+      "record": {
+        "currency": "USD",
+        "kind": "term",
+        "tenor": "1M",
+        "day_count": "Act360",
+        "default_payment_frequency": "1M",
+        "default_payment_delay_days": 0,
+        "default_reset_lag_days": -2,
+        "ois_compounding": null,
+        "market_calendar_id": "usny",
+        "market_settlement_days": 2,
+        "market_business_day_convention": "modified_following",
+        "default_fixed_leg_day_count": "Thirty360",
+        "default_fixed_leg_frequency": "6M"
+      }
     },
     {
-      "ids": ["USD-SOFR-3M", "SOFR-3M"],
+      "ids": [
+        "USD-SOFR-3M",
+        "SOFR-3M"
+      ],
       "record": {
         "currency": "USD",
         "kind": "term",
@@ -40,7 +46,11 @@
       }
     },
     {
-      "ids": ["USD-SOFR-6M", "SOFR-6M"],
+      "ids": [
+        "USD-SOFR-6M",
+        "SOFR-6M",
+        "USD-Standard-Swap"
+      ],
       "record": {
         "currency": "USD",
         "kind": "term",
@@ -58,7 +68,10 @@
       }
     },
     {
-      "ids": ["USD-LIBOR-3M", "LIBOR-3M"],
+      "ids": [
+        "USD-LIBOR-3M",
+        "LIBOR-3M"
+      ],
       "record": {
         "currency": "USD",
         "kind": "term",
@@ -76,7 +89,10 @@
       }
     },
     {
-      "ids": ["USD-SOFR-OIS", "SOFR-OIS"],
+      "ids": [
+        "USD-SOFR-OIS",
+        "SOFR-OIS"
+      ],
       "record": {
         "currency": "USD",
         "kind": "overnight_rfr",
@@ -94,7 +110,10 @@
       }
     },
     {
-      "ids": ["USD-SOFR", "SOFR"],
+      "ids": [
+        "USD-SOFR",
+        "SOFR"
+      ],
       "record": {
         "currency": "USD",
         "kind": "overnight_rfr",
@@ -112,7 +131,9 @@
       }
     },
     {
-      "ids": ["USD-OIS"],
+      "ids": [
+        "USD-OIS"
+      ],
       "record": {
         "currency": "USD",
         "kind": "overnight_rfr",
@@ -130,7 +151,13 @@
       }
     },
     {
-      "ids": ["USD-FEDFUNDS-OIS", "USD-FEDFUNDS", "USD-FF-OIS", "USD-EFFR-OIS", "USD-EFFR"],
+      "ids": [
+        "USD-FEDFUNDS-OIS",
+        "USD-FEDFUNDS",
+        "USD-FF-OIS",
+        "USD-EFFR-OIS",
+        "USD-EFFR"
+      ],
       "record": {
         "currency": "USD",
         "kind": "overnight_rfr",
@@ -148,7 +175,11 @@
       }
     },
     {
-      "ids": ["GBP-SONIA-OIS", "GBP-SONIA", "SONIA-OIS"],
+      "ids": [
+        "GBP-SONIA-OIS",
+        "GBP-SONIA",
+        "SONIA-OIS"
+      ],
       "record": {
         "currency": "GBP",
         "kind": "overnight_rfr",
@@ -166,7 +197,14 @@
       }
     },
     {
-      "ids": ["EUR-ESTR-OIS", "EUR-ESTR", "ESTR-OIS", "EUR-EST-OIS", "EUR-EST", "EST-OIS"],
+      "ids": [
+        "EUR-ESTR-OIS",
+        "EUR-ESTR",
+        "ESTR-OIS",
+        "EUR-EST-OIS",
+        "EUR-EST",
+        "EST-OIS"
+      ],
       "record": {
         "currency": "EUR",
         "kind": "overnight_rfr",
@@ -184,7 +222,14 @@
       }
     },
     {
-      "ids": ["JPY-TONA-OIS", "JPY-TONA", "TONA-OIS", "JPY-TONAR-OIS", "JPY-TONAR", "TONAR-OIS"],
+      "ids": [
+        "JPY-TONA-OIS",
+        "JPY-TONA",
+        "TONA-OIS",
+        "JPY-TONAR-OIS",
+        "JPY-TONAR",
+        "TONAR-OIS"
+      ],
       "record": {
         "currency": "JPY",
         "kind": "overnight_rfr",
@@ -202,7 +247,11 @@
       }
     },
     {
-      "ids": ["CHF-SARON-OIS", "CHF-SARON", "SARON-OIS"],
+      "ids": [
+        "CHF-SARON-OIS",
+        "CHF-SARON",
+        "SARON-OIS"
+      ],
       "record": {
         "currency": "CHF",
         "kind": "overnight_rfr",
@@ -218,8 +267,27 @@
         "default_fixed_leg_day_count": "Act360",
         "default_fixed_leg_frequency": "1Y"
       }
+    },
+    {
+      "ids": [
+        "USD-Deposit",
+        "USD-DEPOSIT"
+      ],
+      "record": {
+        "currency": "USD",
+        "kind": "term",
+        "tenor": "1D",
+        "day_count": "Act360",
+        "default_payment_frequency": "1D",
+        "default_payment_delay_days": 0,
+        "default_reset_lag_days": 0,
+        "ois_compounding": null,
+        "market_calendar_id": "usny",
+        "market_settlement_days": 2,
+        "market_business_day_convention": "modified_following",
+        "default_fixed_leg_day_count": "Act360",
+        "default_fixed_leg_frequency": "1Y"
+      }
     }
   ]
 }
-
-

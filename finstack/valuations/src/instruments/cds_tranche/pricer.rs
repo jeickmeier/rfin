@@ -503,10 +503,22 @@ impl CDSTranchePricer {
         )?;
 
         // Net present value depends on the side
-        let net_pv = match tranche.side {
+        let mut net_pv = match tranche.side {
             TrancheSide::SellProtection => pv_premium - pv_protection,
             TrancheSide::BuyProtection => pv_protection - pv_premium,
         };
+
+        // Apply upfront if present. Positive amount is paid by protection buyer.
+        if let Some((dt, amount)) = tranche.upfront {
+            if dt >= as_of {
+                let df = discount_curve.try_df_between_dates(as_of, dt)?;
+                let upfront_pv = amount.amount() * df;
+                match tranche.side {
+                    TrancheSide::BuyProtection => net_pv -= upfront_pv,
+                    TrancheSide::SellProtection => net_pv += upfront_pv,
+                }
+            }
+        }
 
         Ok(Money::new(net_pv, tranche.notional.currency()))
     }

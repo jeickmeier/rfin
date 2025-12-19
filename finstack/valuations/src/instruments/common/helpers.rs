@@ -42,6 +42,43 @@ where
     npv_using_curve_dc(disc, as_of, &flows)
 }
 
+/// Schedule → PV helper that uses the curve's own day count convention (raw f64).
+///
+/// Returns unrounded NPV for high-precision calibration/risk.
+pub fn schedule_pv_using_curve_dc_raw<S>(
+    instrument: &S,
+    curves: &MarketContext,
+    as_of: Date,
+    discount_curve_id: &finstack_core::types::CurveId,
+) -> finstack_core::Result<f64>
+where
+    S: crate::cashflow::traits::CashflowProvider,
+{
+    use finstack_core::dates::DayCountCtx;
+    use finstack_core::math::kahan_sum;
+
+    let flows = S::build_schedule(instrument, curves, as_of)?;
+    let disc = curves.get_discount_ref(discount_curve_id.as_str())?;
+
+    let mut terms = Vec::with_capacity(flows.len());
+    let dc = disc.day_count();
+
+    for (date, amount) in flows {
+        // Include cashflows that occur exactly on `as_of` (t=0, df=1).
+        // Skipping them can break calibration bracketing for instruments that settle on `as_of`
+        // (e.g. T+0 deposits), because the initial exchange is incorrectly dropped.
+        if date < as_of {
+            continue;
+        }
+        // Use relative time from as_of (T+0)
+        let t = dc.year_fraction(as_of, date, DayCountCtx::default())?;
+        let df = disc.df(t);
+        terms.push(amount.amount() * df);
+    }
+
+    Ok(kahan_sum(terms))
+}
+
 /// Shared helper to build a ValuationResult with a set of metrics.
 ///
 /// Centralizes the repeated pattern across instruments to compute base value,

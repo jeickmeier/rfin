@@ -6,7 +6,7 @@ use crate::statements::utils::py_to_json;
 use finstack_core::market_data::context::MarketContext;
 use finstack_valuations::calibration::api::engine as calib_engine_v2;
 use finstack_valuations::calibration::api::schema::{
-    CalibrationEnvelopeV2, CalibrationPlanV2, CalibrationStepV2, CALIBRATION_SCHEMA_V2,
+    CalibrationEnvelope, CalibrationPlan, CalibrationStep, CALIBRATION_SCHEMA,
 };
 use pyo3::exceptions::PyValueError;
 use pyo3::prelude::*;
@@ -16,11 +16,11 @@ use pyo3::Bound;
 use pyo3::IntoPyObjectExt;
 use std::collections::HashMap;
 
-fn step_from_py(value: &Bound<'_, PyAny>) -> PyResult<CalibrationStepV2> {
+fn step_from_py(value: &Bound<'_, PyAny>) -> PyResult<CalibrationStep> {
     let json_value = py_to_json(value)?;
     serde_json::from_value(json_value).map_err(|e| {
         PyValueError::new_err(format!(
-            "Invalid v2 calibration step. Expected a dict matching CalibrationStepV2 schema: {e}"
+            "Invalid v2 calibration step. Expected a dict matching CalibrationStep schema: {e}"
         ))
     })
 }
@@ -28,7 +28,7 @@ fn step_from_py(value: &Bound<'_, PyAny>) -> PyResult<CalibrationStepV2> {
 fn quote_sets_from_py(
     py: Python<'_>,
     quote_sets: HashMap<String, Vec<Py<PyMarketQuote>>>,
-) -> PyResult<HashMap<String, Vec<finstack_valuations::calibration::quotes::MarketQuote>>> {
+) -> PyResult<HashMap<String, Vec<finstack_valuations::market::quotes::market_quote::MarketQuote>>> {
     let mut out = HashMap::with_capacity(quote_sets.len());
     for (k, quotes) in quote_sets {
         let mut v = Vec::with_capacity(quotes.len());
@@ -54,7 +54,7 @@ fn quote_sets_from_py(
 /// quote_sets : dict[str, list[MarketQuote]]
 ///     Named collections of quotes; steps reference these by name.
 /// steps : list[dict]
-///     Each step is a JSON-like dict matching the v2 schema for `CalibrationStepV2`.
+///     Each step is a JSON-like dict matching the v2 schema for `CalibrationStep`.
 /// settings : CalibrationConfig | None
 ///     Optional global calibration settings (tolerances, bounds, etc.).
 /// initial_market : MarketContext | None
@@ -83,7 +83,7 @@ fn execute_calibration_v2(
         rust_steps.push(step_from_py(&step)?);
     }
 
-    let plan = CalibrationPlanV2 {
+    let plan = CalibrationPlan {
         id: plan_id,
         description,
         quote_sets,
@@ -96,8 +96,8 @@ fn execute_calibration_v2(
 
     let initial_market = initial_market.as_ref().map(|ctx| (&ctx.inner).into());
 
-    let envelope = CalibrationEnvelopeV2 {
-        schema: CALIBRATION_SCHEMA_V2.to_string(),
+    let envelope = CalibrationEnvelope {
+        schema: CALIBRATION_SCHEMA.to_string(),
         plan,
         initial_market,
     };
@@ -130,7 +130,7 @@ pub(crate) fn register<'py>(
     _py: Python<'py>,
     module: &Bound<'py, PyModule>,
 ) -> PyResult<Vec<&'static str>> {
-    module.add("CALIBRATION_SCHEMA_V2", CALIBRATION_SCHEMA_V2)?;
+    module.add("CALIBRATION_SCHEMA", CALIBRATION_SCHEMA)?;
     module.add_function(wrap_pyfunction!(execute_calibration_v2, module)?)?;
-    Ok(vec!["CALIBRATION_SCHEMA_V2", "execute_calibration_v2"])
+    Ok(vec!["CALIBRATION_SCHEMA", "execute_calibration_v2"])
 }

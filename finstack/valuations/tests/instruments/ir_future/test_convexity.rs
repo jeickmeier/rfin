@@ -4,12 +4,13 @@ use super::utils::*;
 use finstack_valuations::instruments::ir_future::{FutureContractSpecs, Position};
 
 #[test]
-fn test_automatic_convexity_near_term() {
+fn test_strict_convexity_error() {
     let (as_of, start, end) = near_term_dates();
     let market = build_standard_market(as_of, 0.05);
 
-    let future = create_custom_future(
-        "NEAR",
+    // Create future with explicit None convexity (overriding default 0.0 from utils)
+    let mut future = create_custom_future(
+        "STRICT_TEST",
         1_000_000.0,
         start,
         start,
@@ -17,22 +18,32 @@ fn test_automatic_convexity_near_term() {
         97.50,
         Position::Long,
     );
-    let pv = future.npv(&market).unwrap();
+    future.contract_specs.convexity_adjustment = None;
+    future.volatility_id = None;
 
-    // Should apply automatic convexity adjustment
-    assert!(pv.amount().is_finite());
+    let result = future.npv(&market);
+
+    // Should fail because strict mode requires explicit adjustment or vol surface
+    assert!(result.is_err());
+    assert!(result
+        .unwrap_err()
+        .to_string()
+        .contains("Missing volatility_id"));
 }
 
 #[test]
-fn test_automatic_convexity_far_forward() {
+fn test_automatic_convexity_far_forward_error() {
     let (as_of, start, end) = far_forward_dates();
     let market = build_standard_market(as_of, 0.05);
 
-    let future = create_custom_future("FAR", 1_000_000.0, start, start, end, 97.50, Position::Long);
-    let pv = future.npv(&market).unwrap();
+    let mut future =
+        create_custom_future("FAR", 1_000_000.0, start, start, end, 97.50, Position::Long);
+    future.contract_specs.convexity_adjustment = None;
 
-    // Far forward should have larger convexity adjustment
-    assert!(pv.amount().is_finite());
+    let result = future.npv(&market);
+
+    // Should fail in strict mode
+    assert!(result.is_err());
 }
 
 #[test]
@@ -59,19 +70,7 @@ fn test_convexity_impact() {
     let (as_of, start, end) = far_forward_dates();
     let market = build_standard_market(as_of, 0.05);
 
-    // No explicit convexity (uses automatic)
-    let no_ca = create_custom_future(
-        "NO_CA",
-        1_000_000.0,
-        start,
-        start,
-        end,
-        97.50,
-        Position::Long,
-    );
-    let pv_no_ca = no_ca.npv(&market).unwrap().amount();
-
-    // With zero convexity adjustment
+    // Case 1: Explicit Zero
     let specs_zero_ca = FutureContractSpecs {
         convexity_adjustment: Some(0.0),
         ..FutureContractSpecs::default()
@@ -79,10 +78,17 @@ fn test_convexity_impact() {
     let with_zero_ca = create_standard_future(start, end).with_contract_specs(specs_zero_ca);
     let pv_zero_ca = with_zero_ca.npv(&market).unwrap().amount();
 
-    // Automatic convexity should produce different result than zero
-    // (unless very short dated)
-    assert!(pv_no_ca.is_finite());
-    assert!(pv_zero_ca.is_finite());
+    // Case 2: Explicit Positive Adjustment
+    let specs_pos_ca = FutureContractSpecs {
+        convexity_adjustment: Some(0.0050), // 50bps
+        ..FutureContractSpecs::default()
+    };
+    let with_pos_ca = create_standard_future(start, end).with_contract_specs(specs_pos_ca);
+    let pv_pos_ca = with_pos_ca.npv(&market).unwrap().amount();
+
+    // PV should be lower with positive convexity adjustment (Long Future: PV ~ Rate_implied - (Rate_fwd + Conv))
+    // If Conv is positive, AdjustedRate is higher, so (Implied - Adjusted) is smaller.
+    assert!(pv_pos_ca < pv_zero_ca);
 }
 
 #[test]

@@ -647,6 +647,14 @@ impl crate::instruments::common::traits::Instrument for InterestRateSwap {
         crate::instruments::irs::pricer::npv(self, curves, as_of)
     }
 
+    fn value_raw(
+        &self,
+        curves: &finstack_core::market_data::context::MarketContext,
+        as_of: finstack_core::dates::Date,
+    ) -> finstack_core::Result<f64> {
+        crate::instruments::irs::pricer::npv_raw(self, curves, as_of)
+    }
+
     fn price_with_metrics(
         &self,
         curves: &finstack_core::market_data::context::MarketContext,

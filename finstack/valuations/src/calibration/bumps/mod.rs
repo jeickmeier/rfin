@@ -7,7 +7,7 @@
 //! - [`rates`]: Bumping logic for Interest Rate curves.
 //! - [`hazard`]: Bumping logic for Credit (Hazard) curves.
 //! - [`inflation`]: Bumping logic for Inflation curves.
-//! - [`plan`]: High-level orchestrator for bumping an entire [`CalibrationPlanV2`](crate::calibration::api::schema::CalibrationPlanV2).
+//! - [`plan`]: High-level orchestrator for bumping an entire [`CalibrationPlan`](crate::calibration::api::schema::CalibrationPlan).
 
 pub mod hazard;
 pub mod inflation;

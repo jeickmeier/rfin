@@ -1,13 +1,16 @@
 use criterion::{criterion_group, criterion_main, Criterion};
 use finstack_core::currency::Currency;
-use finstack_core::dates::{Date, DayCount};
+use finstack_core::dates::Date;
 use finstack_core::market_data::context::MarketContext;
 use finstack_core::market_data::term_structures::discount_curve::DiscountCurve;
-use finstack_valuations::calibration::adapters::handlers::execute_step;
+use finstack_valuations::calibration::targets::handlers::execute_step;
 use finstack_valuations::calibration::api::schema::{
     CalibrationMethod, ForwardCurveParams, StepParams,
 };
-use finstack_valuations::calibration::quotes::{InstrumentConventions, MarketQuote, RatesQuote};
+use finstack_valuations::market::quotes::ids::{Pillar, QuoteId};
+use finstack_valuations::market::quotes::market_quote::MarketQuote;
+use finstack_valuations::market::quotes::rates::RateQuote;
+use finstack_valuations::market::conventions::ids::IndexId;
 use finstack_valuations::calibration::CalibrationConfig;
 use std::hint::black_box;
 use time::Month;
@@ -21,17 +24,19 @@ fn bench_forward_curve(c: &mut Criterion) {
         .unwrap();
     let ctx = MarketContext::new().insert_discount(disc);
     let quotes = [
-        RatesQuote::FRA {
-            start: base_date + time::Duration::days(90),
-            end: base_date + time::Duration::days(180),
+        RateQuote::Fra {
+            id: QuoteId::new("FRA-3x6"),
+            index: IndexId::new("USD-SOFR-3M"),
+            start: Pillar::Date(base_date + time::Duration::days(90)),
+            end: Pillar::Date(base_date + time::Duration::days(180)),
             rate: 0.047,
-            conventions: InstrumentConventions::default().with_day_count(DayCount::Act360),
         },
-        RatesQuote::FRA {
-            start: base_date + time::Duration::days(180),
-            end: base_date + time::Duration::days(270),
+        RateQuote::Fra {
+            id: QuoteId::new("FRA-6x9"),
+            index: IndexId::new("USD-SOFR-3M"),
+            start: Pillar::Date(base_date + time::Duration::days(180)),
+            end: Pillar::Date(base_date + time::Duration::days(270)),
             rate: 0.048,
-            conventions: InstrumentConventions::default().with_day_count(DayCount::Act360),
         },
     ];
     let settings = CalibrationConfig::default();

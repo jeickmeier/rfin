@@ -157,7 +157,7 @@ impl InterestRateSwap {
         proj: Option<&ForwardCurve>,
         as_of: Date,
         fixings: Option<&ScalarTimeSeries>,
-    ) -> Result<Money> {
+    ) -> Result<f64> {
         self.pv_compounded_in_arrears_float_leg(disc, proj, as_of, fixings)
     }
 
@@ -185,7 +185,7 @@ impl InterestRateSwap {
         proj: Option<&ForwardCurve>,
         as_of: Date,
         fixings: Option<&ScalarTimeSeries>,
-    ) -> Result<Money> {
+    ) -> Result<f64> {
         let schedule = crate::instruments::irs::cashflow::float_leg_schedule(self)?;
         let payment_delay = self.float.payment_delay_days;
         let calendar_id = self.float.calendar_id.as_deref();
@@ -344,7 +344,7 @@ impl InterestRateSwap {
         }
 
         let total_pv = kahan_sum(terms);
-        Ok(Money::new(total_pv, self.notional.currency()))
+        Ok(total_pv)
     }
 
     /// Compute PV of fixed leg (helper for value calculation).
@@ -374,7 +374,7 @@ impl InterestRateSwap {
         &self,
         disc: &finstack_core::market_data::term_structures::discount_curve::DiscountCurve,
         as_of: Date,
-    ) -> finstack_core::Result<Money> {
+    ) -> finstack_core::Result<f64> {
         let sched = crate::instruments::irs::cashflow::fixed_leg_schedule(self)?;
 
         // Payment delay in business days (typically 2 for Bloomberg OIS swaps)
@@ -405,7 +405,7 @@ impl InterestRateSwap {
 
         // Use Kahan compensated summation for numerical stability
         let total = kahan_sum(terms);
-        Ok(Money::new(total, self.notional.currency()))
+        Ok(total)
     }
 
     /// Compute PV of floating leg (helper for value calculation).
@@ -447,7 +447,7 @@ impl InterestRateSwap {
         disc: &finstack_core::market_data::term_structures::discount_curve::DiscountCurve,
         fwd: &finstack_core::market_data::term_structures::forward_curve::ForwardCurve,
         as_of: Date,
-    ) -> finstack_core::Result<Money> {
+    ) -> finstack_core::Result<f64> {
         // Build the floating-leg schedule via the shared cashflow builder so reset
         // lags, calendars, and stub handling stay centralized.
         let schedule = crate::instruments::irs::cashflow::float_leg_schedule(self)?;
@@ -508,7 +508,7 @@ impl InterestRateSwap {
         }
 
         let total = kahan_sum(terms);
-        Ok(Money::new(total, self.notional.currency()))
+        Ok(total)
     }
 }
 
@@ -562,6 +562,12 @@ impl InterestRateSwap {
 /// # }
 /// ```
 pub fn npv(irs: &InterestRateSwap, context: &MarketContext, as_of: Date) -> Result<Money> {
+    let npv_val = npv_raw(irs, context, as_of)?;
+    Ok(Money::new(npv_val, irs.notional.currency()))
+}
+
+/// Compute the raw Net Present Value (f64) without rounding.
+pub fn npv_raw(irs: &InterestRateSwap, context: &MarketContext, as_of: Date) -> Result<f64> {
     let disc = context.get_discount_ref(irs.fixed.discount_curve_id.as_ref())?;
     let pv_fixed = irs.pv_fixed_leg(disc, as_of)?;
 
@@ -590,8 +596,8 @@ pub fn npv(irs: &InterestRateSwap, context: &MarketContext, as_of: Date) -> Resu
     };
 
     let npv = match irs.side {
-        crate::instruments::irs::PayReceive::PayFixed => (pv_float - pv_fixed)?,
-        crate::instruments::irs::PayReceive::ReceiveFixed => (pv_fixed - pv_float)?,
+        crate::instruments::irs::PayReceive::PayFixed => pv_float - pv_fixed,
+        crate::instruments::irs::PayReceive::ReceiveFixed => pv_fixed - pv_float,
     };
     Ok(npv)
 }

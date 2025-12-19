@@ -61,6 +61,8 @@ pub enum InstrumentType {
     InflationLinkedBond = 19,
     /// Zero-coupon inflation swap.
     InflationSwap = 20,
+    /// Year-on-year inflation swap.
+    YoYInflationSwap = 53,
     /// Interest rate futures contract.
     InterestRateFuture = 21,
     /// Variance swap (volatility exposure).
@@ -133,6 +135,7 @@ impl InstrumentType {
             InstrumentType::XccySwap => "XccySwap",
             InstrumentType::InflationLinkedBond => "InflationLinkedBond",
             InstrumentType::InflationSwap => "InflationSwap",
+            InstrumentType::YoYInflationSwap => "YoYInflationSwap",
             InstrumentType::InterestRateFuture => "InterestRateFuture",
             InstrumentType::VarianceSwap => "VarianceSwap",
             InstrumentType::Equity => "Equity",
@@ -182,6 +185,7 @@ impl std::fmt::Display for InstrumentType {
             InstrumentType::XccySwap => "xccy_swap",
             InstrumentType::InflationLinkedBond => "inflation_linked_bond",
             InstrumentType::InflationSwap => "inflation_swap",
+            InstrumentType::YoYInflationSwap => "yoy_inflation_swap",
             InstrumentType::InterestRateFuture => "interest_rate_future",
             InstrumentType::VarianceSwap => "variance_swap",
             InstrumentType::Equity => "equity",
@@ -236,6 +240,9 @@ impl std::str::FromStr for InstrumentType {
             }
             "inflation_linked_bond" | "ilb" => Ok(InstrumentType::InflationLinkedBond),
             "inflation_swap" => Ok(InstrumentType::InflationSwap),
+            "yoy_inflation_swap" | "yo_y_inflation_swap" | "inflation_yoy_swap" | "yoy_swap" => {
+                Ok(InstrumentType::YoYInflationSwap)
+            }
             "interest_rate_future" | "ir_future" | "irfuture" => {
                 Ok(InstrumentType::InterestRateFuture)
             }
@@ -880,6 +887,16 @@ fn register_all_pricers(registry: &mut PricerRegistry) {
         crate::instruments::inflation_swap::pricer::SimpleInflationSwapDiscountingPricer::default()
     );
 
+    // YoY Inflation Swap
+    register_pricer!(
+        registry,
+        YoYInflationSwap,
+        Discounting,
+        crate::instruments::common::GenericDiscountingPricer::<
+            crate::instruments::inflation_swap::YoYInflationSwap,
+        >::new(InstrumentType::YoYInflationSwap)
+    );
+
     // Inflation Linked Bond
     register_pricer!(
         registry,
@@ -1374,6 +1391,15 @@ mod tests {
                 ))
                 .is_some(),
             "InflationSwap Discounting pricer should be registered"
+        );
+        assert!(
+            registry
+                .get_pricer(PricerKey::new(
+                    InstrumentType::YoYInflationSwap,
+                    ModelKey::Discounting
+                ))
+                .is_some(),
+            "YoYInflationSwap Discounting pricer should be registered"
         );
         assert!(
             registry

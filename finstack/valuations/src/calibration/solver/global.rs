@@ -8,8 +8,8 @@ use super::traits::GlobalSolveTarget;
 use crate::calibration::constants::PENALTY;
 use crate::calibration::{CalibrationConfig, CalibrationReport};
 use finstack_core::prelude::*;
-use std::collections::BTreeMap;
 use std::cell::{Cell, RefCell};
+use std::collections::BTreeMap;
 
 fn penalty_residual_value(params: &[f64]) -> f64 {
     // Avoid a perfectly flat penalty surface: add a small, scale-aware component
@@ -47,7 +47,7 @@ impl GlobalFitOptimizer {
     /// Execute a simultaneous weighted least-squares fit.
     ///
     /// # Generic Parameters
-    /// * `T` - The calibration target (e.g., [`DiscountCurveTarget`](crate::calibration::adapters::discount::DiscountCurveTarget)).
+    /// * `T` - The calibration target (e.g., [`DiscountCurveTarget`](crate::calibration::targets::discount::DiscountCurveTarget)).
     ///
     /// # Arguments
     /// * `target` - The domain-specific implementation of the [`GlobalSolveTarget`] trait.
@@ -276,19 +276,25 @@ impl GlobalFitOptimizer {
             .map(|(r, w)| (r * w).abs())
             .fold(0.0_f64, f64::max);
 
+        let success_tolerance = config.discount_curve.validation_tolerance;
         let mut report = CalibrationReport::for_type_with_tolerance(
             "global_fit",
             residuals_map,
             stats.iterations,
-            config.solver.tolerance(),
+            success_tolerance,
         )
         .with_metadata("method", "global_fit_lm_weighted_lsq")
         .with_metadata("tolerance_definition", "abs_l2(weighted_residuals)")
-        .with_metadata("residual_evals", stats.residual_evals.to_string())
         .with_metadata(
-            "residual_closure_evals",
-            eval_counter.get().to_string(),
+            "validation_tolerance",
+            format!("{:.2e}", success_tolerance),
         )
+        .with_metadata(
+            "solver_tolerance",
+            format!("{:.2e}", config.solver.tolerance()),
+        )
+        .with_metadata("residual_evals", stats.residual_evals.to_string())
+        .with_metadata("residual_closure_evals", eval_counter.get().to_string())
         .with_metadata(
             "lm_termination_reason",
             format!("{:?}", stats.termination_reason),

@@ -101,6 +101,7 @@ pub(crate) fn bracket_solve_1d_with_diagnostics(
     max_iters: usize,
 ) -> Result<(Option<f64>, BracketDiagnostics)> {
     let mut diag = BracketDiagnostics::new(scan_points);
+    let mut valid_points: Vec<(f64, f64)> = Vec::with_capacity(scan_points.len() + 8);
 
     let v0 = objective(initial);
     diag.update(initial, v0);
@@ -108,8 +109,10 @@ pub(crate) fn bracket_solve_1d_with_diagnostics(
         diag.bracket_found = true;
         return Ok((Some(initial), diag));
     }
+    if v0.is_finite() && v0.abs() < OBJECTIVE_VALID_ABS_MAX {
+        valid_points.push((initial, v0));
+    }
 
-    let mut last_valid: Option<(f64, f64)> = None;
     for &point in scan_points {
         let value = objective(point);
         diag.update(point, value);
@@ -117,94 +120,156 @@ pub(crate) fn bracket_solve_1d_with_diagnostics(
         if !value.is_finite() || value.abs() >= OBJECTIVE_VALID_ABS_MAX {
             continue;
         }
+        valid_points.push((point, value));
+    }
 
-        if let Some((prev_point, prev_value)) = last_valid {
-            if prev_value == 0.0 {
-                diag.bracket_found = true;
-                return Ok((Some(prev_point), diag));
-            }
-            if value == 0.0 {
-                diag.bracket_found = true;
-                return Ok((Some(point), diag));
-            }
-            if prev_value.signum() != value.signum() {
-                // Market-standard: bracket is valid; converge primarily on f-space (|f| < tol).
-                // We prefer a simple bisection on the bracket to guarantee reduction in |f|
-                // for well-behaved monotone objectives. If midpoints become invalid/penalized,
-                // we fall back to Brent+Newton.
-                let mut a = prev_point;
-                let mut b = point;
-                let mut fa = prev_value;
+    if valid_points.is_empty() {
+        return Ok((None, diag));
+    }
 
-                let mut bisection_ok = true;
-                for _ in 0..max_iters.max(50) {
-                    let m = 0.5 * (a + b);
-                    let fm = objective(m);
-                    diag.update(m, fm);
+    // Robust bracket selection:
+    // sort by x and choose the bracket whose midpoint is closest to the initial guess.
+    valid_points.sort_by(|a, b| a.0.total_cmp(&b.0));
+    type Bracket = ((f64, f64), (f64, f64), f64); // ((x0,f0),(x1,f1),score)
+    let mut best_bracket: Option<Bracket> = None;
+    for w in valid_points.windows(2) {
+        let (x0, f0) = w[0];
+        let (x1, f1) = w[1];
+        if f0 == 0.0 {
+            diag.bracket_found = true;
+            return Ok((Some(x0), diag));
+        }
+        if f1 == 0.0 {
+            diag.bracket_found = true;
+            return Ok((Some(x1), diag));
+        }
+        if f0.signum() == f1.signum() {
+            continue;
+        }
+        let mid = 0.5 * (x0 + x1);
+        let score = (mid - initial).abs();
+        let replace = match &best_bracket {
+            None => true,
+            Some((_, _, best_score)) => score < *best_score,
+        };
+        if replace {
+            best_bracket = Some(((x0, f0), (x1, f1), score));
+        }
+    }
 
-                    if fm.is_finite() && fm.abs() < tol {
-                        diag.bracket_found = true;
-                        return Ok((Some(m), diag));
-                    }
+    let Some(((mut a, mut fa), (mut b, _fb), _)) = best_bracket else {
+        // No sign-change found. Try a bounded Newton fallback from the best observed point.
+        if let Some(x0) = diag.best_point {
+            let mut x = x0;
+            let lo = diag.scan_bounds.0;
+            let hi = diag.scan_bounds.1;
+            let iters = max_iters.clamp(50, 200);
 
-                    if !fm.is_finite() || fm.abs() >= OBJECTIVE_VALID_ABS_MAX {
-                        bisection_ok = false;
-                        break;
-                    }
-
-                    if fa.signum() != fm.signum() {
-                        b = m;
-                    } else {
-                        a = m;
-                        fa = fm;
-                    }
-                }
-
-                if bisection_ok {
-                    // If we didn't meet tol, return best observed point (if any).
-                    if let (Some(best_point), Some(best_value)) = (diag.best_point, diag.best_value)
-                    {
-                        if best_value.is_finite() && best_value.abs() < tol {
-                            diag.bracket_found = true;
-                            return Ok((Some(best_point), diag));
-                        }
-                    }
-                }
-
-                // Fallback: robust Brent (x-space) + Newton polish (f-space) from bracket midpoint.
-                let guess = 0.5 * (prev_point + point);
-                let solver_brent = SolverConfig::brent_default()
-                    .with_tolerance(tol)
-                    .with_max_iterations(max_iters.max(50));
-                let root_brent = solve_1d(&solver_brent, objective, guess)?;
-                let fb2 = objective(root_brent);
-                diag.update(root_brent, fb2);
-                if fb2.is_finite() && fb2.abs() < tol {
+            for _ in 0..iters {
+                let fx = objective(x);
+                diag.update(x, fx);
+                if fx.is_finite() && fx.abs() < tol {
                     diag.bracket_found = true;
-                    return Ok((Some(root_brent), diag));
+                    return Ok((Some(x), diag));
                 }
-                let solver_newton = SolverConfig::newton_default()
-                    .with_tolerance(tol)
-                    .with_max_iterations(max_iters.max(50));
-                if let Ok(root_newton) = solve_1d(&solver_newton, objective, root_brent) {
-                    let fnv = objective(root_newton);
-                    diag.update(root_newton, fnv);
-                    if fnv.is_finite() && fnv.abs() < tol {
-                        diag.bracket_found = true;
-                        return Ok((Some(root_newton), diag));
-                    }
+                if !fx.is_finite() || fx.abs() >= OBJECTIVE_VALID_ABS_MAX {
+                    break;
                 }
 
-                let root = root_brent;
-                diag.bracket_found = true;
-                return Ok((Some(root), diag));
+                // Finite-difference derivative (central difference).
+                let h = (1e-6_f64).max(1e-6 * x.abs());
+                let x_lo = (x - h).clamp(lo, hi);
+                let x_hi = (x + h).clamp(lo, hi);
+                if (x_hi - x_lo).abs() < 1e-16 {
+                    break;
+                }
+                let f_lo = objective(x_lo);
+                let f_hi = objective(x_hi);
+                diag.update(x_lo, f_lo);
+                diag.update(x_hi, f_hi);
+                if !f_lo.is_finite() || !f_hi.is_finite() {
+                    break;
+                }
+                let dfdx = (f_hi - f_lo) / (x_hi - x_lo);
+                if !dfdx.is_finite() || dfdx.abs() < 1e-16 {
+                    break;
+                }
+
+                let x_next = (x - fx / dfdx).clamp(lo, hi);
+                if !x_next.is_finite() || (x_next - x).abs() < 1e-16 {
+                    break;
+                }
+                x = x_next;
             }
         }
 
-        last_valid = Some((point, value));
+        return Ok((None, diag));
+    };
+
+    // Market-standard: bracket is valid; converge primarily on f-space (|f| < tol).
+    // We prefer a simple bisection on the bracket to guarantee reduction in |f|
+    // for well-behaved monotone objectives. If midpoints become invalid/penalized,
+    // we fall back to Brent+Newton.
+    let mut bisection_ok = true;
+    for _ in 0..max_iters.max(50) {
+        let m = 0.5 * (a + b);
+        let fm = objective(m);
+        diag.update(m, fm);
+
+        if fm.is_finite() && fm.abs() < tol {
+            diag.bracket_found = true;
+            return Ok((Some(m), diag));
+        }
+
+        if !fm.is_finite() || fm.abs() >= OBJECTIVE_VALID_ABS_MAX {
+            bisection_ok = false;
+            break;
+        }
+
+        if fa.signum() != fm.signum() {
+            b = m;
+        } else {
+            a = m;
+            fa = fm;
+        }
     }
 
-    Ok((None, diag))
+    if bisection_ok {
+        // If we didn't meet tol, return best observed point (if any).
+        if let (Some(best_point), Some(best_value)) = (diag.best_point, diag.best_value) {
+            if best_value.is_finite() && best_value.abs() < tol {
+                diag.bracket_found = true;
+                return Ok((Some(best_point), diag));
+            }
+        }
+    }
+
+    // Fallback: robust Brent (x-space) + Newton polish (f-space) from bracket midpoint.
+    let guess = 0.5 * (a + b);
+    let solver_brent = SolverConfig::brent_default()
+        .with_tolerance(tol)
+        .with_max_iterations(max_iters.max(50));
+    let root_brent = solve_1d(&solver_brent, objective, guess)?;
+    let fb2 = objective(root_brent);
+    diag.update(root_brent, fb2);
+    if fb2.is_finite() && fb2.abs() < tol {
+        diag.bracket_found = true;
+        return Ok((Some(root_brent), diag));
+    }
+    let solver_newton = SolverConfig::newton_default()
+        .with_tolerance(tol)
+        .with_max_iterations(max_iters.max(50));
+    if let Ok(root_newton) = solve_1d(&solver_newton, objective, root_brent) {
+        let fnv = objective(root_newton);
+        diag.update(root_newton, fnv);
+        if fnv.is_finite() && fnv.abs() < tol {
+            diag.bracket_found = true;
+            return Ok((Some(root_newton), diag));
+        }
+    }
+
+    diag.bracket_found = true;
+    Ok((Some(root_brent), diag))
 }
 
 /// Create a simple solver wrapper for calibration methods using `solve_1d` internally.

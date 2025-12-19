@@ -9,7 +9,7 @@ class SolverKind:
 
     NEWTON: SolverKind
     BRENT: SolverKind
-    LEVENBERG_MARQUARDT: SolverKind
+    GLOBAL_NEWTON: SolverKind
 
     @classmethod
     def from_name(cls, name: str) -> SolverKind: ...

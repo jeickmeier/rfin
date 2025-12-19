@@ -259,16 +259,8 @@ class TestNoneAndOptionalHandling:
         from finstack.valuations import calibration as cal
 
         quotes = [
-            cal.RatesQuote.deposit(
-                dt.date(2025, 1, 2),
-                0.05,
-                conventions=cal.InstrumentConventions(day_count=DayCount.ACT_360),
-            ),
-            cal.RatesQuote.deposit(
-                dt.date(2026, 1, 2),
-                0.055,
-                conventions=cal.InstrumentConventions(day_count=DayCount.ACT_360),
-            ),
+            cal.RatesQuote.deposit("DEPO-1", "USD-DEPOSIT", dt.date(2025, 1, 2), 0.05),
+            cal.RatesQuote.deposit("DEPO-2", "USD-DEPOSIT", dt.date(2026, 1, 2), 0.055),
         ]
         quote_sets = {"ois": [q.to_market_quote() for q in quotes]}
         steps = [
@@ -279,6 +271,14 @@ class TestNoneAndOptionalHandling:
                 "curve_id": "USD-OIS",
                 "currency": "USD",
                 "base_date": "2024-01-02",
+                "conventions": {
+                    "curve_day_count": "act365f",
+                    "settlement_days": 2,
+                    "calendar_id": "usny",
+                    "business_day_convention": "modified_following",
+                    "allow_calendar_fallback": False,
+                    "use_settlement_start": True,
+                },
             }
         ]
 

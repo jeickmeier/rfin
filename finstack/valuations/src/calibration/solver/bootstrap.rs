@@ -28,7 +28,7 @@ impl SequentialBootstrapper {
     /// Execute the sequential bootstrapping algorithm.
     ///
     /// # Generic Parameters
-    /// * `T` - The calibration target (e.g., [`DiscountCurveTarget`](crate::calibration::adapters::discount::DiscountCurveTarget)).
+    /// * `T` - The calibration target (e.g., [`DiscountCurveTarget`](crate::calibration::targets::discount::DiscountCurveTarget)).
     ///
     /// # Arguments
     /// * `target` - The domain-specific implementation of the [`BootstrapTarget`] trait.
@@ -48,6 +48,7 @@ impl SequentialBootstrapper {
     ) -> Result<(T::Curve, CalibrationReport)>
     where
         T: BootstrapTarget,
+        T::Quote: std::fmt::Debug,
     {
         let mut knots = initial_knots;
         let mut residuals = BTreeMap::new();
@@ -224,8 +225,9 @@ impl SequentialBootstrapper {
                     } else {
                         return Err(finstack_core::Error::Calibration {
                             message: format!(
-                                "Bootstrap failed at t={:.6}: no bracket found and best |residual|={:.3e} exceeds tolerance={:.3e} (scan_bounds=[{:.3e}, {:.3e}])",
+                                "Bootstrap failed at t={:.6} (quote={:?}): no bracket found and best |residual|={:.3e} exceeds tolerance={:.3e} (scan_bounds=[{:.3e}, {:.3e}])",
                                 time,
+                                quote,
                                 best_f.abs(),
                                 config.solver.tolerance(),
                                 diag.scan_bounds.0,

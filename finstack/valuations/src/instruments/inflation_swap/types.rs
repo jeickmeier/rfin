@@ -1,7 +1,7 @@
 //! Zero-coupon Inflation Swap types and pricing implementation.
 
 use crate::instruments::common::traits::Attributes;
-use finstack_core::dates::BusinessDayConvention;
+use finstack_core::dates::{BusinessDayConvention, DayCountCtx, StubKind, Tenor};
 use finstack_core::market_data::context::MarketContext;
 use finstack_core::market_data::scalars::inflation_index::InflationLag;
 use finstack_core::prelude::*;
@@ -455,6 +455,269 @@ impl crate::instruments::common::pricing::HasDiscountCurve for InflationSwap {
 
 // Implement CurveDependencies for DV01 calculator
 impl crate::instruments::common::traits::CurveDependencies for InflationSwap {
+    fn curve_dependencies(&self) -> crate::instruments::common::traits::InstrumentCurves {
+        crate::instruments::common::traits::InstrumentCurves::builder()
+            .discount(self.discount_curve_id.clone())
+            .forward(self.inflation_index_id.clone())
+            .build()
+    }
+}
+
+/// Year-on-year (YoY) Inflation Swap instrument.
+///
+/// Pays periodic inflation rates (CPI ratios over each period) versus a fixed rate.
+#[derive(Clone, Debug, finstack_valuations_macros::FinancialBuilder)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+#[cfg_attr(feature = "serde", serde(deny_unknown_fields))]
+pub struct YoYInflationSwap {
+    /// Unique instrument identifier
+    pub id: InstrumentId,
+    /// Notional in quote currency
+    pub notional: Money,
+    /// Start date of the first accrual period
+    pub start: Date,
+    /// Maturity date
+    pub maturity: Date,
+    /// Fixed rate (decimal)
+    pub fixed_rate: f64,
+    /// Payment frequency
+    pub frequency: Tenor,
+    /// Inflation index identifier (e.g., US-CPI-U)
+    pub inflation_index_id: CurveId,
+    /// Discount curve identifier (quote currency)
+    pub discount_curve_id: CurveId,
+    /// Day count for fixed leg accrual calculation
+    pub dc: DayCount,
+    /// Trade side
+    pub side: PayReceiveInflation,
+    /// Optional contract-level lag override (if set, overrides index lag)
+    #[builder(optional)]
+    pub lag_override: Option<InflationLag>,
+    /// Business day convention for payment date adjustment.
+    #[builder(optional)]
+    pub bdc: Option<BusinessDayConvention>,
+    /// Holiday calendar identifier for payment date adjustment.
+    #[builder(optional)]
+    pub calendar_id: Option<String>,
+    /// Attributes for scenario selection and tagging
+    pub attributes: Attributes,
+}
+
+impl YoYInflationSwap {
+    /// Validate structural invariants of the YoY inflation swap.
+    pub fn validate(&self) -> finstack_core::Result<()> {
+        if self.start >= self.maturity {
+            return Err(finstack_core::error::InputError::InvalidDateRange.into());
+        }
+        if self.notional.amount() <= 0.0 {
+            return Err(finstack_core::error::InputError::NonPositiveValue.into());
+        }
+        if self.frequency.count == 0 {
+            return Err(finstack_core::error::InputError::Invalid.into());
+        }
+        Ok(())
+    }
+
+    fn effective_lag(&self, curves: &MarketContext) -> InflationLag {
+        if let Some(lag) = self.lag_override {
+            return lag;
+        }
+        if let Some(index) = curves.inflation_index_ref(self.inflation_index_id.as_str()) {
+            return index.lag();
+        }
+        InflationLag::None
+    }
+
+    fn apply_lag(date: Date, lag: InflationLag) -> Date {
+        match lag {
+            InflationLag::None => date,
+            InflationLag::Months(m) => date.add_months(-(m as i32)),
+            InflationLag::Days(d) => date - time::Duration::days(d as i64),
+            _ => date,
+        }
+    }
+
+    fn signed_year_fraction(start: Date, end: Date) -> f64 {
+        if end >= start {
+            DayCount::Act365F
+                .year_fraction(start, end, DayCountCtx::default())
+                .unwrap_or(0.0)
+        } else {
+            -DayCount::Act365F
+                .year_fraction(end, start, DayCountCtx::default())
+                .unwrap_or(0.0)
+        }
+    }
+
+    fn adjusted_payment_date(&self, date: Date) -> Date {
+        let bdc = self.bdc.unwrap_or(BusinessDayConvention::Following);
+        if let Some(ref cal_id) = self.calendar_id {
+            use finstack_core::dates::calendar::registry::CalendarRegistry;
+            if let Some(cal) = CalendarRegistry::global().resolve_str(cal_id) {
+                return finstack_core::dates::adjust(date, bdc, cal).unwrap_or(date);
+            }
+        }
+        date
+    }
+
+    fn cpi_value(
+        &self,
+        curves: &MarketContext,
+        as_of: Date,
+        date: Date,
+    ) -> finstack_core::Result<f64> {
+        if let Some(index) = curves.inflation_index_ref(self.inflation_index_id.as_str()) {
+            if let Ok(value) = index.value_on(date) {
+                return Ok(value);
+            }
+        }
+
+        let lag = self.effective_lag(curves);
+        let lagged_date = Self::apply_lag(date, lag);
+        let curve = curves.get_inflation_ref(self.inflation_index_id.as_str())?;
+        let t = Self::signed_year_fraction(as_of, lagged_date);
+        Ok(curve.cpi(t))
+    }
+
+    fn schedule(&self) -> finstack_core::Result<Vec<(Date, Date, Date)>> {
+        let bdc = self.bdc.unwrap_or(BusinessDayConvention::Following);
+        let schedule = crate::cashflow::builder::date_generation::build_dates_checked(
+            self.start,
+            self.maturity,
+            self.frequency,
+            StubKind::None,
+            bdc,
+            self.calendar_id.as_deref(),
+        )?;
+
+        if schedule.dates.len() < 2 {
+            return Err(finstack_core::Error::Input(
+                finstack_core::error::InputError::Invalid,
+            ));
+        }
+
+        let mut periods = Vec::with_capacity(schedule.dates.len().saturating_sub(1));
+        for window in schedule.dates.windows(2) {
+            let start = window[0];
+            let end = window[1];
+            let pay = self.adjusted_payment_date(end);
+            periods.push((start, end, pay));
+        }
+        Ok(periods)
+    }
+
+    /// Calculates the raw present value (f64) of the YoY inflation swap.
+    pub fn npv_raw(
+        &self,
+        curves: &MarketContext,
+        as_of: Date,
+    ) -> finstack_core::Result<f64> {
+        let disc = curves.get_discount_ref(self.discount_curve_id.as_str())?;
+        let mut pv = 0.0_f64;
+
+        for (start, end, pay) in self.schedule()? {
+            let accrual = self
+                .dc
+                .year_fraction(start, end, DayCountCtx::default())?;
+
+            let cpi_start = self.cpi_value(curves, as_of, start)?;
+            if cpi_start <= 0.0 {
+                return Err(finstack_core::error::InputError::NonPositiveValue.into());
+            }
+            let cpi_end = self.cpi_value(curves, as_of, end)?;
+
+            let inflation_leg = self.notional.amount() * (cpi_end / cpi_start - 1.0);
+            let fixed_leg = self.notional.amount() * self.fixed_rate * accrual;
+
+            let net = match self.side {
+                PayReceiveInflation::PayFixed => inflation_leg - fixed_leg,
+                PayReceiveInflation::ReceiveFixed => fixed_leg - inflation_leg,
+            };
+
+            let t_discount = disc.day_count().year_fraction(
+                as_of,
+                pay,
+                DayCountCtx::default(),
+            )?;
+            let df = disc.df(t_discount);
+            pv += net * df;
+        }
+
+        Ok(pv)
+    }
+
+    /// Calculates the present value of the YoY inflation swap.
+    pub fn npv(&self, curves: &MarketContext, as_of: Date) -> finstack_core::Result<Money> {
+        let pv = self.npv_raw(curves, as_of)?;
+        Ok(Money::new(pv, self.notional.currency()))
+    }
+}
+
+impl crate::instruments::common::traits::Instrument for YoYInflationSwap {
+    fn id(&self) -> &str {
+        self.id.as_str()
+    }
+
+    fn key(&self) -> crate::pricer::InstrumentType {
+        crate::pricer::InstrumentType::YoYInflationSwap
+    }
+
+    fn as_any(&self) -> &dyn ::std::any::Any {
+        self
+    }
+
+    fn attributes(&self) -> &crate::instruments::common::traits::Attributes {
+        &self.attributes
+    }
+
+    fn attributes_mut(&mut self) -> &mut crate::instruments::common::traits::Attributes {
+        &mut self.attributes
+    }
+
+    fn clone_box(&self) -> Box<dyn crate::instruments::common::traits::Instrument> {
+        Box::new(self.clone())
+    }
+
+    fn value(
+        &self,
+        curves: &finstack_core::market_data::context::MarketContext,
+        as_of: finstack_core::dates::Date,
+    ) -> finstack_core::Result<finstack_core::money::Money> {
+        self.npv(curves, as_of)
+    }
+
+    fn value_raw(
+        &self,
+        curves: &finstack_core::market_data::context::MarketContext,
+        as_of: finstack_core::dates::Date,
+    ) -> finstack_core::Result<f64> {
+        self.npv_raw(curves, as_of)
+    }
+
+    fn price_with_metrics(
+        &self,
+        curves: &finstack_core::market_data::context::MarketContext,
+        as_of: finstack_core::dates::Date,
+        metrics: &[crate::metrics::MetricId],
+    ) -> finstack_core::Result<crate::results::ValuationResult> {
+        let base_value = self.value(curves, as_of)?;
+        crate::instruments::common::helpers::build_with_metrics_dyn(
+            std::sync::Arc::new(self.clone()),
+            std::sync::Arc::new(curves.clone()),
+            as_of,
+            base_value,
+            metrics,
+        )
+    }
+}
+
+impl crate::instruments::common::pricing::HasDiscountCurve for YoYInflationSwap {
+    fn discount_curve_id(&self) -> &CurveId {
+        &self.discount_curve_id
+    }
+}
+
+impl crate::instruments::common::traits::CurveDependencies for YoYInflationSwap {
     fn curve_dependencies(&self) -> crate::instruments::common::traits::InstrumentCurves {
         crate::instruments::common::traits::InstrumentCurves::builder()
             .discount(self.discount_curve_id.clone())

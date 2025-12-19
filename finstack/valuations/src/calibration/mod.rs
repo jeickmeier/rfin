@@ -8,7 +8,7 @@
 //! - Base correlation curves
 //!
 //! # Features
-//! - **Plan-Driven API**: Uses schema version `"finstack.calibration/2"` for structured calibration plans.
+//! - **Plan-Driven API**: Uses `"finstack.calibration"` schema for structured calibration plans.
 //! - **Flexible Solvers**: Supports both sequential bootstrapping and global optimization (Newton/LM).
 //! - **Market Standards**: Implements post-2008 multi-curve frameworks and strict pricing conventions.
 //! - **Extensible Architecture**: Easy to add new instrument types and calibration targets.
@@ -18,25 +18,26 @@
 //! ```rust
 //! use finstack_valuations::calibration::api::engine;
 //! use finstack_valuations::calibration::api::schema::{
-//!     CalibrationEnvelopeV2, CalibrationPlanV2, CalibrationStepV2, StepParams,
-//!     DiscountCurveParams, CalibrationMethod, CALIBRATION_SCHEMA_V2,
+//!     CalibrationEnvelope, CalibrationPlan, CalibrationStep, StepParams,
+//!     DiscountCurveParams, CalibrationMethod, CALIBRATION_SCHEMA,
 //! };
-//! use finstack_valuations::calibration::quotes::{MarketQuote, RatesQuote};
+//! use finstack_valuations::market::quotes::rates::RateQuote;
+//! use finstack_valuations::market::quotes::market_quote::MarketQuote;
 //! use std::collections::HashMap;
 //!
 //! # fn example() -> finstack_core::Result<()> {
 //! let quote_sets: HashMap<String, Vec<MarketQuote>> = HashMap::new();
-//! let steps: Vec<CalibrationStepV2> = Vec::new();
+//! let steps: Vec<CalibrationStep> = Vec::new();
 //!
-//! let plan = CalibrationPlanV2 {
+//! let plan = CalibrationPlan {
 //!     id: "plan".to_string(),
 //!     description: None,
 //!     quote_sets,
 //!     steps,
 //!     settings: Default::default(),
 //! };
-//! let envelope = CalibrationEnvelopeV2 {
-//!     schema: CALIBRATION_SCHEMA_V2.to_string(),
+//! let envelope = CalibrationEnvelope {
+//!     schema: CALIBRATION_SCHEMA.to_string(),
 //!     plan,
 //!     initial_market: None,
 //! };
@@ -50,34 +51,33 @@
 //! # See Also
 //! - [`api`] for the plan schema and engine.
 //! - [`solver`] for the underlying numerical solvers.
-//! - [`quotes`] for market data representation.
+//! - [`crate::market::quotes`] for market data representation.
 
-/// Adapters mapping API steps to domain execution.
-pub mod adapters;
 /// Plan-driven calibration API (schema + execution engine).
 pub mod api;
-/// Pricing infrastructure used by the plan-driven engine.
-pub mod pricing;
-/// Market quote types and extraction used by the plan-driven engine.
-pub mod quotes;
+/// Prepared quotes for calibration.
+pub mod prepared;
 /// Solver utilities and implementations used by calibration.
 pub mod solver;
+/// Calibration targets mapping API steps to domain execution.
+pub mod targets;
 
 // Shared infrastructure
 mod config;
 mod report;
 mod validation;
 
-/// Curve bumping helpers used by scenarios and risk metrics (v2 re-calibration).
+/// Curve bumping helpers used by scenarios and risk metrics (re-calibration).
 pub mod bumps;
 
 /// Shared constants (tolerances, magic numbers).
 pub mod constants;
 
+/// Convexity adjustment logic.
 // Re-exports: Configuration
 pub use config::{
     CalibrationConfig, CalibrationMethod as CalibrationSolveMethod, MultiCurveConfig,
-    CALIBRATION_CONFIG_KEY_V2,
+    ResidualWeightingScheme, CALIBRATION_CONFIG_KEY,
 };
 
 // Re-exports: SABR derivatives (from instruments module)

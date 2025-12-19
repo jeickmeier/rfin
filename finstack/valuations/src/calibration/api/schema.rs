@@ -1,11 +1,11 @@
-//! Calibration v2 Schema.
+//! Calibration Schema.
 //!
 //! Defines the JSON contract for plan-driven calibration.
 
-pub use crate::calibration::config::{CalibrationConfig, CalibrationMethod};
-pub use crate::calibration::pricing::RatesStepConventions;
-use crate::calibration::quotes::MarketQuote;
+pub use crate::calibration::config::{CalibrationConfig, CalibrationMethod, RatesStepConventions};
+// pub use crate::calibration::pricing::RatesStepConventions; // Moved to config
 use crate::calibration::CalibrationReport;
+use crate::market::quotes::market_quote::MarketQuote;
 use finstack_core::config::ResultsMeta;
 use finstack_core::dates::BusinessDayConvention;
 use finstack_core::dates::{Date, DayCount, Tenor};
@@ -16,8 +16,8 @@ use finstack_core::types::{Currency, CurveId, IndexId};
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 
-/// Schema version identifier for calibration v2 API.
-pub const CALIBRATION_SCHEMA_V2: &str = "finstack.calibration/2";
+/// Schema version identifier for calibration API.
+pub const CALIBRATION_SCHEMA: &str = "finstack.calibration";
 
 /// Complete calibration result with market snapshot and diagnostics.
 #[derive(Clone, Debug, Serialize, Deserialize)]
@@ -33,21 +33,21 @@ pub struct CalibrationResult {
     pub results_meta: ResultsMeta,
 }
 
-/// Top-level envelope for calibration results (v2).
+/// Top-level envelope for calibration results.
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct CalibrationResultEnvelope {
-    /// Schema version identifier (must be "finstack.calibration/2").
+    /// Schema version identifier (must be "finstack.calibration").
     pub schema: String,
     /// The calibration result.
     pub result: CalibrationResult,
 }
 
 impl CalibrationResultEnvelope {
-    /// Create a new v2 result envelope.
+    /// Create a new result envelope.
     pub fn new(result: CalibrationResult) -> Self {
         Self {
-            schema: CALIBRATION_SCHEMA_V2.to_string(),
+            schema: CALIBRATION_SCHEMA.to_string(),
             result,
         }
     }
@@ -55,16 +55,16 @@ impl CalibrationResultEnvelope {
 
 /// Top-level envelope for calibration requests.
 ///
-/// This is the outer-most structure for a calibration request (v2). It includes
+/// This is the outer-most structure for a calibration request. It includes
 /// the schema version, the plan to execute, and an optional initial market state
 /// to build upon.
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
-pub struct CalibrationEnvelopeV2 {
-    /// Schema version identifier (must be [`CALIBRATION_SCHEMA_V2`]).
+pub struct CalibrationEnvelope {
+    /// Schema version identifier (must be [`CALIBRATION_SCHEMA`]).
     pub schema: String,
     /// The calibration plan containing steps and quote data.
-    pub plan: CalibrationPlanV2,
+    pub plan: CalibrationPlan,
     /// Optional initial market context (e.g., existing curves) to use as a baseline.
     #[serde(default)]
     pub initial_market: Option<MarketContextState>,
@@ -73,10 +73,10 @@ pub struct CalibrationEnvelopeV2 {
 /// A calibration plan containing quote sets and execution steps.
 ///
 /// A plan organizes market data into named sets and defines a sequence of
-/// [`CalibrationStepV2`] to be executed.
+/// [`CalibrationStep`] to be executed.
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
-pub struct CalibrationPlanV2 {
+pub struct CalibrationPlan {
     /// Unique identifier for the calibration plan.
     pub id: String,
     /// Optional human-readable description of the plan's purpose.
@@ -85,7 +85,7 @@ pub struct CalibrationPlanV2 {
     /// Market data organized by set name (referenced by steps).
     pub quote_sets: HashMap<String, Vec<MarketQuote>>,
     /// Sequence of calibration steps to execute.
-    pub steps: Vec<CalibrationStepV2>,
+    pub steps: Vec<CalibrationStep>,
     /// Global settings for the calibration process.
     #[serde(default)]
     pub settings: CalibrationConfig,
@@ -96,7 +96,7 @@ pub struct CalibrationPlanV2 {
 /// Each step targets the construction or update of a specific market object
 /// (e.g., a yield curve) using a specified set of quotes.
 #[derive(Clone, Debug, Serialize, Deserialize)]
-pub struct CalibrationStepV2 {
+pub struct CalibrationStep {
     /// Unique identifier for the object being calibrated in this step.
     pub id: String,
     /// Reference to a named quote set in the parent plan.
@@ -296,7 +296,7 @@ pub struct VolSurfaceParams {
     pub underlying_id: String,
     /// Model type.
     ///
-    /// Note: v2 currently supports SABR-only; set to `"SABR"` (case-insensitive).
+    /// Note: currently supports SABR-only; set to `"SABR"` (case-insensitive).
     pub model: String,
     /// Discount curve ID.
     #[serde(default)]

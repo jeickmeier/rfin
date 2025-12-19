@@ -2,10 +2,12 @@ use criterion::{criterion_group, criterion_main, Criterion};
 use finstack_core::dates::Date;
 use finstack_core::market_data::context::MarketContext;
 use finstack_core::market_data::term_structures::discount_curve::DiscountCurve;
-use finstack_valuations::calibration::adapters::handlers::execute_step;
 use finstack_valuations::calibration::api::schema::{StepParams, VolSurfaceParams};
-use finstack_valuations::calibration::quotes::{MarketQuote, VolQuote};
+use finstack_valuations::calibration::targets::handlers::execute_step;
 use finstack_valuations::calibration::CalibrationConfig;
+use finstack_valuations::market::conventions::ids::OptionConventionId;
+use finstack_valuations::market::quotes::market_quote::MarketQuote;
+use finstack_valuations::market::quotes::vol::VolQuote;
 use std::hint::black_box;
 use time::Month;
 
@@ -18,7 +20,7 @@ fn bench_sabr_slice(c: &mut Criterion) {
             strike: 95.0,
             vol: 0.22,
             option_type: "Call".to_string(),
-            conventions: Default::default(),
+            convention: OptionConventionId("USD-Option".into()),
         },
         VolQuote::OptionVol {
             underlying: "SPY".to_string().into(),
@@ -26,7 +28,7 @@ fn bench_sabr_slice(c: &mut Criterion) {
             strike: 100.0,
             vol: 0.20,
             option_type: "Call".to_string(),
-            conventions: Default::default(),
+            convention: OptionConventionId("USD-Option".into()),
         },
         VolQuote::OptionVol {
             underlying: "SPY".to_string().into(),
@@ -34,7 +36,7 @@ fn bench_sabr_slice(c: &mut Criterion) {
             strike: 105.0,
             vol: 0.21,
             option_type: "Call".to_string(),
-            conventions: Default::default(),
+            convention: OptionConventionId("USD-Option".into()),
         },
     ];
     let settings = CalibrationConfig::default();

@@ -504,6 +504,7 @@ fn create_institutional_portfolio(num_positions: usize) -> finstack_portfolio::P
             convention,
             premium,
             protection,
+            upfront: None,
             pricing_overrides: Default::default(),
             attributes: Default::default(),
             margin_spec: None,

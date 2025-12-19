@@ -50,13 +50,13 @@
 use crate::calibration::api::schema::DiscountCurveParams;
 use crate::calibration::bumps::rates::{bump_discount_curve, find_closest_quote};
 use crate::calibration::bumps::BumpRequest;
-use crate::calibration::quotes::RatesQuote;
 use crate::calibration::CalibrationConfig;
 use crate::instruments::common::pricing::HasDiscountCurve;
 use crate::instruments::common::traits::{CurveDependencies, Instrument, RatesCurveKind};
 use crate::metrics::sensitivities::config as sens_config;
 use crate::metrics::MetricCalculator;
 use crate::metrics::{MetricContext, MetricId};
+use crate::market::quotes::rates::RateQuote;
 
 use finstack_core::market_data::bumps::BumpSpec;
 use finstack_core::market_data::context::MarketContext;
@@ -138,7 +138,7 @@ pub enum CurveSelection {
 #[derive(Clone)]
 pub struct ParRateContext {
     /// Calibration quotes sorted by maturity
-    pub quotes: Vec<RatesQuote>,
+    pub quotes: Vec<RateQuote>,
     /// Discount-curve step parameters describing how to rebuild the curve.
     pub params: DiscountCurveParams,
     /// Global calibration settings (tolerances, bounds).
@@ -152,15 +152,20 @@ impl ParRateContext {
     ///
     /// Quotes are automatically sorted by maturity date.
     pub fn new(
-        quotes: Vec<RatesQuote>,
+        quotes: Vec<RateQuote>,
         params: DiscountCurveParams,
         base_context: MarketContext,
     ) -> Self {
         let mut sorted_quotes = quotes;
         sorted_quotes.sort_by(|a, b| {
-            a.maturity_date()
-                .partial_cmp(&b.maturity_date())
-                .unwrap_or(std::cmp::Ordering::Equal)
+            let ad = approx_quote_maturity_date(a);
+            let bd = approx_quote_maturity_date(b);
+            match (ad, bd) {
+                (Some(a), Some(b)) => a.cmp(&b),
+                (Some(_), None) => std::cmp::Ordering::Less,
+                (None, Some(_)) => std::cmp::Ordering::Greater,
+                (None, None) => a.id().as_str().cmp(b.id().as_str()),
+            }
         });
         Self {
             quotes: sorted_quotes,
@@ -175,6 +180,24 @@ impl ParRateContext {
     pub fn with_settings(mut self, settings: CalibrationConfig) -> Self {
         self.settings = settings;
         self
+    }
+}
+
+/// Best-effort maturity date for sorting quotes (used for par-rate bumping).
+///
+/// This intentionally does **not** resolve tenors into dates (that requires a base date and
+/// conventions). Quotes without an absolute maturity are sorted after those with one.
+fn approx_quote_maturity_date(q: &RateQuote) -> Option<finstack_core::dates::Date> {
+    match q {
+        RateQuote::Deposit { pillar, .. } | RateQuote::Swap { pillar, .. } => match pillar {
+            crate::market::quotes::ids::Pillar::Date(d) => Some(*d),
+            crate::market::quotes::ids::Pillar::Tenor(_) => None,
+        },
+        RateQuote::Fra { end, .. } => match end {
+            crate::market::quotes::ids::Pillar::Date(d) => Some(*d),
+            crate::market::quotes::ids::Pillar::Tenor(_) => None,
+        },
+        RateQuote::Futures { expiry, .. } => Some(*expiry),
     }
 }
 

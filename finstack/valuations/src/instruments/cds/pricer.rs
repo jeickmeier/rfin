@@ -251,6 +251,7 @@ impl CDSPricer {
     ///
     /// where R is the recovery rate, DF is the discount factor, S is the
     /// survival probability, and delay is the settlement delay in years.
+    /// Calculate PV of protection leg (Money)
     pub fn pv_protection_leg(
         &self,
         cds: &CreditDefaultSwap,
@@ -258,6 +259,18 @@ impl CDSPricer {
         surv: &dyn Survival,
         as_of: Date,
     ) -> Result<Money> {
+        let pv = self.pv_protection_leg_raw(cds, disc, surv, as_of)?;
+        Ok(Money::new(pv, cds.notional.currency()))
+    }
+
+    /// Calculate PV of protection leg (raw f64)
+    pub fn pv_protection_leg_raw(
+        &self,
+        cds: &CreditDefaultSwap,
+        disc: &dyn Discounting,
+        surv: &dyn Survival,
+        as_of: Date,
+    ) -> Result<f64> {
         // Validate recovery rate upfront for better error messages
         CreditDefaultSwap::validate_recovery_rate(cds.protection.recovery_rate)?;
 
@@ -313,13 +326,11 @@ impl CDSPricer {
             )?,
         };
 
-        Ok(Money::new(
-            protection_pv * cds.notional.amount(),
-            cds.notional.currency(),
-        ))
+        Ok(protection_pv * cds.notional.amount())
     }
 
     /// Calculate PV of premium leg with optional accrual-on-default
+    /// Calculate PV of premium leg (Money)
     pub fn pv_premium_leg(
         &self,
         cds: &CreditDefaultSwap,
@@ -327,6 +338,18 @@ impl CDSPricer {
         surv: &dyn Survival,
         as_of: Date,
     ) -> Result<Money> {
+        let pv = self.pv_premium_leg_raw(cds, disc, surv, as_of)?;
+        Ok(Money::new(pv, cds.notional.currency()))
+    }
+
+    /// Calculate PV of premium leg (raw f64)
+    pub fn pv_premium_leg_raw(
+        &self,
+        cds: &CreditDefaultSwap,
+        disc: &dyn Discounting,
+        surv: &dyn Survival,
+        as_of: Date,
+    ) -> Result<f64> {
         let base_date = disc.base_date();
         let schedule = self.generate_schedule(cds, as_of)?;
 
@@ -361,10 +384,7 @@ impl CDSPricer {
             }
         }
 
-        Ok(Money::new(
-            premium_pv * cds.notional.amount(),
-            cds.notional.currency(),
-        ))
+        Ok(premium_pv * cds.notional.amount())
     }
 
     /// Calculate accrual-on-default for a period using configured method

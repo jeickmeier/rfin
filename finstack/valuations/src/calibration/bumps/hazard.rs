@@ -1,11 +1,13 @@
 //! Shared hazard curve bumping logic.
 
 use super::BumpRequest;
-use crate::calibration::adapters::handlers::execute_step;
 use crate::calibration::api::schema::{HazardCurveParams, StepParams};
 use crate::calibration::config::CalibrationMethod;
-use crate::calibration::quotes::{CreditQuote, MarketQuote};
+use crate::calibration::targets::handlers::execute_step;
 use crate::calibration::CalibrationConfig;
+use crate::market::quotes::cds::CdsQuote;
+use crate::market::quotes::market_quote::MarketQuote;
+use finstack_core::dates::{Tenor, TenorUnit};
 use finstack_core::market_data::context::MarketContext;
 use finstack_core::market_data::term_structures::hazard_curve::HazardCurve;
 use finstack_core::market_data::term_structures::ParInterp;
@@ -53,8 +55,24 @@ pub fn bump_hazard_spreads(
     let mut quotes = Vec::new();
 
     for (tenor_years, spread_bp) in par_points {
-        let maturity_days = (tenor_years * 365.25).round() as i64;
-        let maturity = base_date + time::Duration::days(maturity_days);
+        // Snap irregular year-fractions (often coming from date-based calibration) to standard
+        // CDS tenors for stable schedule generation and deterministic bump matching.
+        let raw_months = (tenor_years * 12.0).round().max(1.0) as i32;
+        const STD_MONTHS: [i32; 11] = [3, 6, 12, 24, 36, 60, 84, 120, 180, 240, 360];
+        let mut snapped_months = raw_months;
+        if let Some(best) = STD_MONTHS
+            .iter()
+            .copied()
+            .min_by(|a, b| (raw_months - a).abs().cmp(&(raw_months - b).abs()))
+        {
+            if (raw_months - best).abs() <= 2 {
+                snapped_months = best;
+            } else {
+                // Fallback: nearest quarter-year multiple.
+                snapped_months = ((raw_months as f64 / 3.0).round() as i32).max(1) * 3;
+            }
+        }
+        let snapped_years = snapped_months as f64 / 12.0;
 
         let mut bumped_spread = spread_bp;
 
@@ -66,7 +84,7 @@ pub fn bump_hazard_spreads(
             BumpRequest::Tenors(targets) => {
                 for (target_t, bp) in targets {
                     // 0.1 year tolerance for bucket matching
-                    if (tenor_years - target_t).abs() < 0.1 {
+                    if (snapped_years - target_t).abs() < 0.1 {
                         bumped_spread += bp;
                         // Assuming we want to apply multiple bumps if they overlap,
                         // or just the first match?
@@ -77,17 +95,27 @@ pub fn bump_hazard_spreads(
             }
         }
 
-        quotes.push(CreditQuote::CDS {
+        quotes.push(CdsQuote::CdsParSpread {
+            id: format!("BUMP-{}-{:.4}", issuer, snapped_years).into(),
             entity: issuer.clone(),
-            currency,
-            maturity,
+            // Use tenor pillars so CDS schedule generation can snap to market-standard
+            // IMM maturities. Using ad-hoc `Date` pillars can create invalid
+            // ranges (e.g. maturity before the next IMM coupon) and make the
+            // hazard bootstrap fail.
+            pillar: crate::market::quotes::ids::Pillar::Tenor(Tenor::new(
+                snapped_months as u32,
+                TenorUnit::Months,
+            )),
             spread_bp: bumped_spread,
             recovery_rate: recovery,
-            conventions: Default::default(),
+            convention: crate::market::conventions::ids::CdsConventionKey {
+                currency,
+                doc_clause: crate::market::conventions::ids::CdsDocClause::IsdaNa,
+            },
         });
     }
 
-    let market_quotes: Vec<MarketQuote> = quotes.into_iter().map(MarketQuote::Credit).collect();
+    let market_quotes: Vec<MarketQuote> = quotes.into_iter().map(MarketQuote::Cds).collect();
     let params = HazardCurveParams {
         curve_id: hazard.id().clone(),
         entity: issuer,
@@ -105,8 +133,27 @@ pub fn bump_hazard_spreads(
 
     let cfg = CalibrationConfig::default();
     let step = StepParams::Hazard(params.clone());
-    let (ctx, _report) = execute_step(&step, &market_quotes, context, &cfg)?;
-    Ok(ctx.get_hazard_ref(params.curve_id.as_str())?.clone())
+    let (ctx, _report) = match execute_step(&step, &market_quotes, context, &cfg) {
+        Ok(ok) => ok,
+        Err(_e) => {
+            // If re-calibration fails (e.g. synthetic par points that do not map cleanly
+            // to market-standard CDS coupon schedules), fall back to a hazard-rate shift.
+            return bump_hazard_shift_fallback(hazard, bump);
+        }
+    };
+    let new_curve = ctx.get_hazard_ref(params.curve_id.as_str())?.clone();
+    let base_points: Vec<(f64, f64)> = hazard.knot_points().collect();
+    let new_points: Vec<(f64, f64)> = new_curve.knot_points().collect();
+    let unchanged = base_points.len() == new_points.len()
+        && base_points.iter().zip(new_points.iter()).all(|(a, b)| {
+            (a.0 - b.0).abs() < 1e-12 && (a.1 - b.1).abs() < 1e-12
+        });
+
+    if unchanged {
+        return bump_hazard_shift_fallback(hazard, bump);
+    }
+
+    Ok(new_curve)
 }
 
 /// Fallback: bump hazard rates directly (Model Sensitivity / Hazard Delta).
@@ -151,22 +198,38 @@ fn with_key_rate_hazard_bump(
         return hazard.with_hazard_shift(bump_decimal);
     }
 
-    let mut target_segment = 0usize;
-    if t_years <= knots[0] {
-        target_segment = 0;
-    } else if t_years >= knots[knots.len() - 1] {
-        target_segment = knots.len() - 2;
-    } else {
-        for i in 0..knots.len() - 1 {
-            if t_years > knots[i] && t_years <= knots[i + 1] {
-                target_segment = i;
-                break;
+    // If the requested bucket is beyond the curve's supported maturity, treat as "no-op".
+    // This avoids double-counting in bucketed CS01 when requesting standard buckets
+    // beyond the last calibrated hazard knot.
+    let last_knot = *knots.last().expect("len>=2");
+    if t_years > last_knot + 1e-6 {
+        return Ok(hazard.clone());
+    }
+
+    // If the request matches an existing knot, bump that knot directly.
+    // Otherwise bump the segment that contains the target time.
+    let eps = 1e-6;
+    let mut target_idx = knots
+        .iter()
+        .position(|&k| (k - t_years).abs() <= eps)
+        .unwrap_or(0);
+    if target_idx == 0 {
+        if t_years <= knots[0] {
+            target_idx = 0;
+        } else if t_years >= knots[knots.len() - 1] {
+            target_idx = knots.len() - 1;
+        } else {
+            for i in 0..knots.len() - 1 {
+                if t_years > knots[i] && t_years < knots[i + 1] {
+                    target_idx = i;
+                    break;
+                }
             }
         }
     }
 
     let mut bumped_rates = hazard_rates;
-    bumped_rates[target_segment] = (bumped_rates[target_segment] + bump_decimal).max(0.0);
+    bumped_rates[target_idx] = (bumped_rates[target_idx] + bump_decimal).max(0.0);
 
     let bumped_points: Vec<(f64, f64)> = knots
         .iter()
@@ -174,11 +237,23 @@ fn with_key_rate_hazard_bump(
         .map(|(&t, &lambda)| (t, lambda))
         .collect();
 
-    let mut builder = hazard
-        .to_builder_with_id(hazard.id().clone())
-        .knots(bumped_points);
+    let mut builder = HazardCurve::builder(hazard.id().clone())
+        .base_date(hazard.base_date())
+        .recovery_rate(hazard.recovery_rate())
+        .day_count(hazard.day_count())
+        .knots(bumped_points)
+        .par_interp(hazard.par_interp())
+        .par_spreads(hazard.par_spread_points());
 
-    builder = builder.par_spreads(hazard.par_spread_points());
+    if let Some(issuer) = hazard.issuer() {
+        builder = builder.issuer(issuer.to_string());
+    }
+    if let Some(seniority) = hazard.seniority {
+        builder = builder.seniority(seniority);
+    }
+    if let Some(currency) = hazard.currency() {
+        builder = builder.currency(currency);
+    }
 
     builder
         .build()

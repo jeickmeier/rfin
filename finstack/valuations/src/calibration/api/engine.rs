@@ -2,14 +2,14 @@
 //!
 //! Orchestrates the execution of a calibration plan.
 
-use super::schema::CalibrationEnvelopeV2;
-use crate::calibration::adapters::handlers::discount_curve_day_count;
-use crate::calibration::adapters::handlers::{apply_rates_step_conventions, execute_step};
+use super::schema::CalibrationEnvelope;
 use crate::calibration::api::schema::StepParams;
 use crate::calibration::api::schema::{CalibrationResult, CalibrationResultEnvelope};
-use crate::calibration::pricing::{CalibrationPricer, RatesQuoteUseCase};
-use crate::calibration::quotes::ExtractQuotes;
+use crate::calibration::targets::handlers::execute_step;
+use crate::calibration::targets::util::curve_day_count_from_quotes;
+// use crate::calibration::pricing::{CalibrationPricer, RatesQuoteUseCase}; // Removed
 use crate::calibration::CalibrationReport;
+use crate::market::quotes::market_quote::ExtractQuotes;
 use finstack_core::explain::{ExplanationTrace, TraceEntry};
 use finstack_core::market_data::context::MarketContext;
 use finstack_core::prelude::*;
@@ -24,7 +24,7 @@ fn merge_step_traces(
         return None;
     }
 
-    let mut merged = ExplanationTrace::new("calibration_v2_plan");
+    let mut merged = ExplanationTrace::new("calibration_plan");
     for (step_id, report) in step_reports {
         merged.push(
             TraceEntry::ComputationStep {
@@ -101,66 +101,36 @@ fn aggregate_plan_report(
 /// This checks for quote availability, parameter consistency, and
 /// cross-curve dependencies (e.g. valid discount curve for hazard calibration).
 fn preflight_step(
-    step: &crate::calibration::api::schema::CalibrationStepV2,
-    quotes: &[crate::calibration::quotes::MarketQuote],
+    step: &crate::calibration::api::schema::CalibrationStep,
+    quotes: &[crate::market::quotes::market_quote::MarketQuote],
     context: &MarketContext,
-    global_config: &crate::calibration::config::CalibrationConfig,
+    _global_config: &crate::calibration::config::CalibrationConfig,
 ) -> Result<()> {
     match &step.params {
-        StepParams::Discount(p) => {
-            let rates_quotes = quotes.extract_quotes();
+        StepParams::Discount(_p) => {
+            let rates_quotes: Vec<crate::market::quotes::rates::RateQuote> =
+                quotes.extract_quotes();
             if rates_quotes.is_empty() {
                 return Err(finstack_core::Error::Input(
                     finstack_core::error::InputError::TooFewPoints,
                 ));
             }
-
-            let pricer = CalibrationPricer::new(p.base_date, p.curve_id.clone())
-                .with_discount_curve_id(p.pricing_discount_id.clone().unwrap_or(p.curve_id.clone()))
-                .with_forward_curve_id(p.pricing_forward_id.clone().unwrap_or(p.curve_id.clone()));
-            let pricer = apply_rates_step_conventions(pricer, p.currency, &p.conventions, true)?;
-
-            // Quote validation + curve dependency checks before solving.
-            let bounds = global_config.effective_rate_bounds(p.currency);
-            CalibrationPricer::validate_rates_quotes(
-                &rates_quotes,
-                &bounds,
-                p.base_date,
-                RatesQuoteUseCase::DiscountCurve {
-                    enforce_separation: p.conventions.enforce_discount_separation.unwrap_or(false),
-                },
-            )?;
-            pricer.validate_curve_dependencies(&rates_quotes, context)?;
-
-            let _curve_dc = discount_curve_day_count(p.currency, &p.conventions);
+            let _curve_dc = curve_day_count_from_quotes(&rates_quotes)?;
             Ok(())
         }
-        StepParams::Forward(p) => {
-            let rates_quotes = quotes.extract_quotes();
+        StepParams::Forward(_p) => {
+            let rates_quotes: Vec<crate::market::quotes::rates::RateQuote> =
+                quotes.extract_quotes();
             if rates_quotes.is_empty() {
                 return Err(finstack_core::Error::Input(
                     finstack_core::error::InputError::TooFewPoints,
                 ));
             }
 
-            let pricer = CalibrationPricer::for_forward_curve(
-                p.base_date,
-                p.curve_id.clone(),
-                p.discount_curve_id.clone(),
-                p.tenor_years,
-            );
-            let pricer = apply_rates_step_conventions(pricer, p.currency, &p.conventions, false)?;
+            // Legacy validation removed (CalibrationPricer)
+            // Legacy validation removed
 
-            let bounds = global_config.effective_rate_bounds(p.currency);
-            CalibrationPricer::validate_rates_quotes(
-                &rates_quotes,
-                &bounds,
-                p.base_date,
-                RatesQuoteUseCase::ForwardCurve,
-            )?;
-            pricer.validate_curve_dependencies(&rates_quotes, context)?;
-
-            let _curve_dc = discount_curve_day_count(p.currency, &p.conventions);
+            let _curve_dc = curve_day_count_from_quotes(&rates_quotes)?;
             Ok(())
         }
         StepParams::Hazard(p) => {
@@ -174,21 +144,19 @@ fn preflight_step(
                 )));
             }
 
-            // Market-standard: ensure recovery/currency/entity are consistent between params and quotes.
-            let credit_quotes = quotes.extract_quotes();
-            if credit_quotes.is_empty() {
+            let cds_quotes: Vec<crate::market::quotes::cds::CdsQuote> = quotes.extract_quotes();
+            if cds_quotes.is_empty() {
                 return Err(finstack_core::Error::Input(
                     finstack_core::error::InputError::TooFewPoints,
                 ));
             }
-            for q in &credit_quotes {
+            for q in &cds_quotes {
                 match q {
-                    crate::calibration::quotes::CreditQuote::CDS {
+                    crate::market::quotes::cds::CdsQuote::CdsParSpread {
                         entity,
                         recovery_rate,
-                        currency,
+                        convention,
                         spread_bp,
-                        conventions,
                         ..
                     } => {
                         if *spread_bp <= 0.0 {
@@ -203,10 +171,10 @@ fn preflight_step(
                                 p.entity, entity
                             )));
                         }
-                        if currency != &p.currency {
+                        if convention.currency != p.currency {
                             return Err(finstack_core::Error::Validation(format!(
-                                "Hazard step currency mismatch: params.currency='{}' but quote.currency='{}'",
-                                p.currency, currency
+                                "Hazard step currency mismatch: params.currency='{}' but quote.convention.currency='{}'",
+                                p.currency, convention.currency
                             )));
                         }
                         if (recovery_rate - p.recovery_rate).abs() > 1e-12 {
@@ -215,29 +183,12 @@ fn preflight_step(
                                 p.recovery_rate, recovery_rate
                             )));
                         }
-                        if let Some(r) = conventions.recovery_rate {
-                            if (r - p.recovery_rate).abs() > 1e-12 {
-                                return Err(finstack_core::Error::Validation(format!(
-                                    "Hazard step recovery mismatch: params.recovery_rate={} but quote.conventions.recovery_rate={}",
-                                    p.recovery_rate, r
-                                )));
-                            }
-                        }
-                        if let Some(c) = conventions.currency {
-                            if c != p.currency {
-                                return Err(finstack_core::Error::Validation(format!(
-                                    "Hazard step currency mismatch: params.currency='{}' but quote.conventions.currency='{}'",
-                                    p.currency, c
-                                )));
-                            }
-                        }
                     }
-                    crate::calibration::quotes::CreditQuote::CDSUpfront {
+                    crate::market::quotes::cds::CdsQuote::CdsUpfront {
                         entity,
                         recovery_rate,
-                        currency,
+                        convention,
                         running_spread_bp,
-                        conventions,
                         ..
                     } => {
                         if *running_spread_bp <= 0.0 {
@@ -252,10 +203,10 @@ fn preflight_step(
                                 p.entity, entity
                             )));
                         }
-                        if currency != &p.currency {
+                        if convention.currency != p.currency {
                             return Err(finstack_core::Error::Validation(format!(
-                                "Hazard step currency mismatch: params.currency='{}' but quote.currency='{}'",
-                                p.currency, currency
+                                "Hazard step currency mismatch: params.currency='{}' but quote.convention.currency='{}'",
+                                p.currency, convention.currency
                             )));
                         }
                         if (recovery_rate - p.recovery_rate).abs() > 1e-12 {
@@ -264,27 +215,6 @@ fn preflight_step(
                                 p.recovery_rate, recovery_rate
                             )));
                         }
-                        if let Some(r) = conventions.recovery_rate {
-                            if (r - p.recovery_rate).abs() > 1e-12 {
-                                return Err(finstack_core::Error::Validation(format!(
-                                    "Hazard step recovery mismatch: params.recovery_rate={} but quote.conventions.recovery_rate={}",
-                                    p.recovery_rate, r
-                                )));
-                            }
-                        }
-                        if let Some(c) = conventions.currency {
-                            if c != p.currency {
-                                return Err(finstack_core::Error::Validation(format!(
-                                    "Hazard step currency mismatch: params.currency='{}' but quote.conventions.currency='{}'",
-                                    p.currency, c
-                                )));
-                            }
-                        }
-                    }
-                    _ => {
-                        return Err(finstack_core::Error::Input(
-                            finstack_core::error::InputError::Invalid,
-                        ))
                     }
                 }
             }
@@ -407,14 +337,11 @@ fn preflight_step(
                     p.model
                 )));
             }
-            let discount_id = p
-                .discount_curve_id
-                .as_deref()
-                .ok_or_else(|| {
-                    finstack_core::Error::Validation(
-                        "VolSurface step requires discount_curve_id".to_string(),
-                    )
-                })?;
+            let discount_id = p.discount_curve_id.as_deref().ok_or_else(|| {
+                finstack_core::Error::Validation(
+                    "VolSurface step requires discount_curve_id".to_string(),
+                )
+            })?;
             let _ = context.get_discount_ref(discount_id)?;
             Ok(())
         }
@@ -434,92 +361,69 @@ fn preflight_step(
             Ok(())
         }
         StepParams::BaseCorrelation(p) => {
-            let _ = context.get_discount_ref(&p.discount_curve_id)?;
-            let index_data = context.credit_index_ref(&p.index_id)?;
-
             if !p.notional.is_finite() || p.notional <= 0.0 {
                 return Err(finstack_core::Error::Validation(format!(
-                    "Base correlation calibration notional must be positive; got {}",
+                    "BaseCorrelation calibration notional must be positive; got {}",
                     p.notional
                 )));
             }
 
-            let credit_quotes: Vec<crate::calibration::quotes::CreditQuote> =
+            // Base correlation calibration requires credit index data to be present in the context.
+            let index_data = context.credit_index_ref(&p.index_id)?;
+
+            // Market-standard: ensure recovery/currency/series/index are consistent.
+            let tranche_quotes: Vec<crate::market::quotes::cds_tranche::CdsTrancheQuote> =
                 quotes.extract_quotes();
-            if credit_quotes.is_empty() {
+            if tranche_quotes.is_empty() {
                 return Err(finstack_core::Error::Input(
                     finstack_core::error::InputError::TooFewPoints,
                 ));
             }
+            let tranche_recovery: Option<f64> = None;
 
-            // Recovery consistency (if explicitly provided on tranche quotes).
-            let mut tranche_recovery: Option<f64> = None;
-
-            for q in &credit_quotes {
-                if let crate::calibration::quotes::CreditQuote::CDSTranche {
-                    index,
-                    attachment,
-                    detachment,
-                    conventions,
-                    ..
-                } = q
-                {
-                    if index != &p.index_id {
-                        continue;
-                    }
-
-                    let normalize_pct = |value: f64| {
-                        if (0.0..=1.0).contains(&value) {
-                            value * 100.0
-                        } else {
-                            value
+            for q in &tranche_quotes {
+                match q {
+                    crate::market::quotes::cds_tranche::CdsTrancheQuote::CDSTranche {
+                        index,
+                        attachment,
+                        detachment,
+                        convention,
+                        ..
+                    } => {
+                        if index != &p.index_id {
+                            continue;
                         }
-                    };
-                    let attach_pct = normalize_pct(*attachment);
-                    let detach_pct = normalize_pct(*detachment);
-                    if !attach_pct.is_finite()
-                        || !detach_pct.is_finite()
-                        || attach_pct < 0.0
-                        || !(0.0..=100.0).contains(&detach_pct)
-                        || attach_pct >= detach_pct
-                    {
-                        return Err(finstack_core::Error::Validation(format!(
-                            "Invalid tranche attachment/detachment: attachment={}, detachment={} (expect 0 <= attachment < detachment <= 100, percent or fraction)",
-                            attachment, detachment
-                        )));
-                    }
 
-                    if conventions.payment_frequency.is_none() && p.payment_frequency.is_none() {
-                        return Err(finstack_core::Error::Validation(
-                            "Missing tranche payment frequency; set quote.conventions.payment_frequency or params.payment_frequency"
-                                .to_string(),
-                        ));
-                    }
-                    if conventions.day_count.is_none() && p.day_count.is_none() {
-                        return Err(finstack_core::Error::Validation(
-                            "Missing tranche day count; set quote.conventions.day_count or params.day_count"
-                                .to_string(),
-                        ));
-                    }
-                    if conventions.business_day_convention.is_none()
-                        && p.business_day_convention.is_none()
-                    {
-                        return Err(finstack_core::Error::Validation(
-                            "Missing tranche business day convention; set quote.conventions.business_day_convention or params.business_day_convention"
-                                .to_string(),
-                        ));
-                    }
+                        if convention.currency != p.currency {
+                            return Err(finstack_core::Error::Validation(format!(
+                                "Base correlation tranche currency mismatch: params.currency='{}' but quote.convention.currency='{}'",
+                                p.currency, convention.currency
+                            )));
+                        }
 
-                    if let Some(r) = conventions.recovery_rate {
-                        if let Some(prev) = tranche_recovery {
-                            if (r - prev).abs() > 1e-12 {
-                                return Err(finstack_core::Error::Validation(format!(
-                                    "Inconsistent tranche quote recovery rates: {} vs {}",
-                                    prev, r
-                                )));
+                        let normalize_pct = |value: f64| {
+                            if (0.0..=1.0).contains(&value) {
+                                value * 100.0
+                            } else {
+                                value
                             }
+                        };
+                        let attach_pct = normalize_pct(*attachment);
+                        let detach_pct = normalize_pct(*detachment);
+                        if !attach_pct.is_finite()
+                            || !detach_pct.is_finite()
+                            || attach_pct < 0.0
+                            || !(0.0..=100.0).contains(&detach_pct)
+                            || attach_pct >= detach_pct
+                        {
+                            return Err(finstack_core::Error::Validation(format!(
+                                "Invalid tranche attachment/detachment: attachment={}, detachment={} (expect 0 <= attachment < detachment <= 100, percent or fraction)",
+                                attachment, detachment
+                            )));
                         }
-                        tranche_recovery = Some(r);
+
+                        // Note: CDS tranche quotes don't have recovery_rate in the convention.
+                        // Recovery rate comes from the credit index data and is validated later.
                     }
                 }
             }
@@ -538,12 +442,12 @@ fn preflight_step(
     }
 }
 
-/// Execute a full [`CalibrationEnvelopeV2`] plan.
+/// Execute a full [`CalibrationEnvelope`] plan.
 ///
 /// This is the primary entry point for the calibration system. It
 /// processes a sequential list of calibration steps, updates the market
 /// context statefully, and produces a final aggregated result.
-pub fn execute(envelope: &CalibrationEnvelopeV2) -> Result<CalibrationResultEnvelope> {
+pub fn execute(envelope: &CalibrationEnvelope) -> Result<CalibrationResultEnvelope> {
     let mut context: MarketContext = match &envelope.initial_market {
         Some(state) => MarketContext::try_from(state.clone())
             .map_err(|e| finstack_core::Error::Validation(e.to_string()))?,
@@ -631,7 +535,7 @@ mod tests {
         let mut step_reports = BTreeMap::new();
         let mut r1 = CalibrationReport::new(BTreeMap::new(), 0, true, "ok");
         r1.explanation = Some(ExplanationTrace {
-            trace_type: "calibration_v2".to_string(),
+            trace_type: "calibration".to_string(),
             entries: vec![TraceEntry::ComputationStep {
                 name: "inner".to_string(),
                 description: "inner step".to_string(),

@@ -10,7 +10,7 @@ pub type TimeGridAndGuesses<Q> = (Vec<f64>, Vec<f64>, Vec<Q>);
 /// to times, building curves from partial knots, and calculating pricing
 /// residuals.
 pub trait BootstrapTarget {
-    /// Type of input quote (e.g., [`RatesQuote`](crate::calibration::quotes::RatesQuote)).
+    /// Type of input quote (e.g., [`RateQuote`](crate::market::quotes::rates::RateQuote)).
     type Quote;
 
     /// Type of the curve being built (e.g., [`DiscountCurve`](finstack_core::market_data::DiscountCurve)).

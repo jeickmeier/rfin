@@ -71,6 +71,6 @@ impl MetricCalculator for FloatLegPvCalculator {
             }
         };
 
-        Ok(pv_money.amount())
+        Ok(pv_money)
     }
 }

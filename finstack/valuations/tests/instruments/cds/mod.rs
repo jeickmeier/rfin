@@ -20,3 +20,4 @@ mod test_par_spread_roundtrip;
 mod quantlib_parity;
 
 mod test_cds_pricing_2;
+mod test_upfront;

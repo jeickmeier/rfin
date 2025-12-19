@@ -61,4 +61,7 @@ pub mod pricer;
 mod types;
 
 pub use pricer::SimpleInflationSwapDiscountingPricer;
-pub use types::{InflationSwap, InflationSwapBuilder, PayReceiveInflation};
+pub use types::{
+    InflationSwap, InflationSwapBuilder, PayReceiveInflation, YoYInflationSwap,
+    YoYInflationSwapBuilder,
+};

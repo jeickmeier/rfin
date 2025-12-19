@@ -5,14 +5,14 @@ use crate::utils::json::from_js_value;
 use crate::valuations::calibration::report::JsCalibrationReport;
 use finstack_core::market_data::context::MarketContext;
 use finstack_valuations::calibration::api::engine as calib_engine_v2;
-use finstack_valuations::calibration::api::schema::CalibrationEnvelopeV2;
+use finstack_valuations::calibration::api::schema::CalibrationEnvelope;
 use js_sys::{Array, Object, Reflect};
 use wasm_bindgen::prelude::*;
 
 /// Execute a calibration v2 plan.
 ///
 /// This is the canonical WASM entrypoint for calibration. It accepts a JS object
-/// matching the v2 schema (`CalibrationEnvelopeV2`) and returns a JS object
+/// matching the v2 schema (`CalibrationEnvelope`) and returns a JS object
 /// matching `CalibrationResultEnvelope` (final market snapshot + reports).
 ///
 /// @param {any} envelope - JSON-like object conforming to the v2 calibration schema
@@ -20,7 +20,7 @@ use wasm_bindgen::prelude::*;
 /// @throws {Error} If deserialization fails or calibration fails
 #[wasm_bindgen(js_name = executeCalibrationV2)]
 pub fn execute_calibration_v2(envelope: JsValue) -> Result<JsValue, JsValue> {
-    let env: CalibrationEnvelopeV2 = from_js_value(envelope)?;
+    let env: CalibrationEnvelope = from_js_value(envelope)?;
     let result = calib_engine_v2::execute(&env).map_err(|e| JsValue::from_str(&e.to_string()))?;
 
     let market = MarketContext::try_from(result.result.final_market.clone())

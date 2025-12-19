@@ -114,7 +114,7 @@ pub use fx_option::FxOption;
 pub use fx_spot::FxSpot;
 pub use fx_swap::FxSwap;
 pub use inflation_linked_bond::InflationLinkedBond;
-pub use inflation_swap::InflationSwap;
+pub use inflation_swap::{InflationSwap, YoYInflationSwap};
 pub use ir_future::InterestRateFuture;
 pub use irs::InterestRateSwap;
 pub use lookback_option::{LookbackOption, LookbackType};

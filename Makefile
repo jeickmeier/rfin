@@ -1,4 +1,4 @@
-.PHONY: help setup-python build build-prod test-rust test-rust-slow test-rust-doc test-python doc clean fmt lint stubs coverage coverage-html coverage-open coverage-lcov wasm-examples-dev examples ci_test install-nextest book-build book-serve book-clean book-watch install-mdbook bench-perf bench-baseline bench-flamegraph bench-compare
+.PHONY: help setup-python build build-prod test-rust test-rust-slow test-rust-doc test-python doc clean fmt lint stubs coverage coverage-html coverage-open coverage-lcov wasm-examples-dev examples ci_test install-nextest book-build book-serve book-clean book-watch install-mdbook bench-perf bench-baseline bench-flamegraph bench-compare install-bloat size-wasm size-py size-core size-all
 
 help:
 	@echo "Builds:"
@@ -35,6 +35,13 @@ help:
 	@echo "  bench-baseline     				- Save benchmark baseline for comparison"
 	@echo "  bench-compare      				- Compare benchmarks against baseline"
 	@echo "  bench-flamegraph   				- Generate CPU flamegraph for MC pricing"
+	@echo ""
+	@echo "Binary Size Analysis:"
+	@echo "  install-bloat      				- Install cargo-bloat tool for size analysis"
+	@echo "  size-wasm          				- Analyze WASM binary size by crate"
+	@echo "  size-py            				- Analyze Python bindings binary size by crate"
+	@echo "  size-core          				- Show finstack-core contribution in binaries"
+	@echo "  size-all           				- Analyze all binaries (WASM, Python)"
 	@echo ""
 	@echo "Documentation:"
 	@echo "  doc            				- Generate rustdoc documentation (workspace crates only, no deps)"
@@ -279,3 +286,68 @@ book-clean:
 check-dups:
 	@echo "Checking for duplicate code..."
 	npx jscpd --pattern "**/src/**/*.rs" --ignore "**/target/**,**/node_modules/**,**/tests/**"
+
+# Binary size analysis targets
+install-bloat:
+	@if command -v cargo-bloat >/dev/null 2>&1; then \
+		echo "cargo-bloat already installed"; \
+	else \
+		echo "Installing cargo-bloat..."; \
+		cargo install cargo-bloat --locked; \
+	fi
+
+size-wasm: install-bloat
+	@echo "Analyzing WASM binary size..."
+	@echo "Building WASM binary first..."
+	cd finstack-wasm && wasm-pack build --target web --release
+	@echo ""
+	@echo "=== WASM Binary Size Analysis (by crate) ==="
+	cargo bloat --release --crates -p finstack-wasm --target wasm32-unknown-unknown
+	@echo ""
+	@echo "=== WASM Binary Size Analysis (by function) ==="
+	cargo bloat --release --functions -p finstack-wasm --target wasm32-unknown-unknown | head -50
+
+size-py: install-bloat
+	@echo "Analyzing Python bindings binary size..."
+	@echo "Building Python bindings first..."
+	cd finstack-py && cargo build --release
+	@echo ""
+	@echo "=== Python Bindings Binary Size Analysis (by crate) ==="
+	cargo bloat --release --crates -p finstack-py
+	@echo ""
+	@echo "=== Python Bindings Binary Size Analysis (by function) ==="
+	cargo bloat --release --functions -p finstack-py | head -50
+
+size-core: install-bloat
+	@echo "Analyzing finstack-core contribution in binaries..."
+	@echo "Note: Library crates (rlib) cannot be analyzed directly."
+	@echo "Showing finstack-core size contribution in binaries that use it..."
+	@echo ""
+	@echo "=== finstack-core in WASM binary ==="
+	@if [ -f finstack-wasm/target/wasm32-unknown-unknown/release/finstack_wasm.wasm ]; then \
+		cargo bloat --release --crates -p finstack-wasm --target wasm32-unknown-unknown | grep -E "(finstack-core|File|Compressed)" || echo "Build WASM first with: make size-wasm"; \
+	else \
+		echo "WASM not built. Building now..."; \
+		cd finstack-wasm && wasm-pack build --target web --release 2>/dev/null || true; \
+		cargo bloat --release --crates -p finstack-wasm --target wasm32-unknown-unknown 2>/dev/null | grep -E "(finstack-core|File|Compressed)" || echo "Could not analyze WASM"; \
+	fi
+	@echo ""
+	@echo "=== finstack-core in Python bindings ==="
+	@if [ -f finstack-py/target/release/libfinstack*.so ] || [ -f finstack-py/target/release/libfinstack*.dylib ] || [ -f finstack-py/target/release/finstack*.dll ]; then \
+		cargo bloat --release --crates -p finstack-py 2>/dev/null | grep -E "(finstack-core|File|Compressed)" || echo "Could not analyze Python bindings"; \
+	else \
+		echo "Python bindings not built. Building now..."; \
+		cd finstack-py && cargo build --release 2>/dev/null || true; \
+		cargo bloat --release --crates -p finstack-py 2>/dev/null | grep -E "(finstack-core|File|Compressed)" || echo "Could not analyze Python bindings"; \
+	fi
+
+size-all: size-wasm size-py
+	@echo ""
+	@echo "=== Summary: Binary sizes ==="
+	@echo "WASM binary:"
+	@ls -lh finstack-wasm/pkg/finstack_wasm_bg.wasm 2>/dev/null || echo "  (not built)"
+	@echo "Python bindings:"
+	@find finstack-py -name "*.so" -o -name "*.dylib" -o -name "*.dll" 2>/dev/null | xargs ls -lh 2>/dev/null || echo "  (not built)"
+	@echo ""
+	@echo "Note: Library crates (rlib) like finstack-core cannot be analyzed directly."
+	@echo "Use 'make size-core' to see finstack-core contribution in binaries."

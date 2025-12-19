@@ -1,11 +1,14 @@
 #![cfg(feature = "ts_export")]
 
-use finstack_valuations::calibration::quotes::{
-    CreditQuote, FutureSpecs, InflationQuote, MarketQuote, RatesQuote, VolQuote,
-};
 use finstack_valuations::calibration::{
     CalibrationConfig, MultiCurveConfig, RateBounds, SolverConfig, ValidationMode,
 };
+use finstack_valuations::market::quotes::cds::CdsQuote;
+use finstack_valuations::market::quotes::cds_tranche::CdsTrancheQuote;
+use finstack_valuations::market::quotes::inflation::InflationQuote;
+use finstack_valuations::market::quotes::market_quote::MarketQuote;
+use finstack_valuations::market::quotes::rates::RateQuote as RatesQuote;
+use finstack_valuations::market::quotes::vol::VolQuote;
 use ts_rs::TS;
 
 const OUT_DIR: &str = concat!(
@@ -25,9 +28,9 @@ fn export_calibration_types() {
     ValidationMode::export().expect("export ValidationMode");
 
     RatesQuote::export().expect("export RatesQuote");
-    CreditQuote::export().expect("export CreditQuote");
+    CdsQuote::export().expect("export CdsQuote");
+    CdsTrancheQuote::export().expect("export CdsTrancheQuote");
     VolQuote::export().expect("export VolQuote");
     InflationQuote::export().expect("export InflationQuote");
     MarketQuote::export().expect("export MarketQuote");
-    FutureSpecs::export().expect("export FutureSpecs");
 }

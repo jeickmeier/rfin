@@ -17,14 +17,17 @@ use finstack_core::market_data::context::MarketContext;
 use finstack_core::market_data::term_structures::{DiscountCurve, ParInterp, Seniority};
 use finstack_core::math::interp::InterpStyle;
 use finstack_core::money::Money;
-use finstack_valuations::calibration::adapters::handlers::execute_step;
 use finstack_valuations::calibration::api::schema::{
     CalibrationMethod, HazardCurveParams, StepParams,
 };
-use finstack_valuations::calibration::quotes::{CreditQuote, MarketQuote};
+use finstack_valuations::calibration::targets::handlers::execute_step;
 use finstack_valuations::calibration::CalibrationConfig;
 use finstack_valuations::instruments::cds::CreditDefaultSwap;
 use finstack_valuations::instruments::common::traits::Instrument;
+use finstack_valuations::market::conventions::ids::{CdsConventionKey, CdsDocClause};
+use finstack_valuations::market::quotes::cds::CdsQuote;
+use finstack_valuations::market::quotes::ids::{Pillar, QuoteId};
+use finstack_valuations::market::quotes::market_quote::MarketQuote;
 use time::Month;
 
 fn create_discount_curve(base_date: Date) -> DiscountCurve {
@@ -49,13 +52,16 @@ fn test_cds_par_spread_roundtrip_1y() {
     let par_spread_bp = 100.0; // 100bp
 
     // Create CDS quote
-    let quotes = vec![CreditQuote::CDS {
+    let quotes = vec![CdsQuote::CdsParSpread {
+        id: QuoteId::new("CDS-1Y"),
         entity: "ROUNDTRIP-TEST".to_string(),
-        maturity,
+        pillar: Pillar::Date(maturity),
         spread_bp: par_spread_bp,
         recovery_rate: 0.40,
-        currency: Currency::USD,
-        conventions: Default::default(),
+        convention: CdsConventionKey {
+            currency: Currency::USD,
+            doc_clause: CdsDocClause::IsdaNa,
+        },
     }];
 
     let disc = create_discount_curve(base);
@@ -78,7 +84,7 @@ fn test_cds_par_spread_roundtrip_1y() {
         doc_clause: None,
     };
     let step = StepParams::Hazard(params.clone());
-    let market_quotes: Vec<MarketQuote> = quotes.into_iter().map(MarketQuote::Credit).collect();
+    let market_quotes: Vec<MarketQuote> = quotes.into_iter().map(MarketQuote::Cds).collect();
     let (ctx, _report) = execute_step(&step, &market_quotes, &market_calib, &settings).unwrap();
     let hazard_curve = ctx
         .get_hazard_ref(params.curve_id.as_str())
@@ -138,15 +144,19 @@ fn test_cds_par_spread_roundtrip_multi_tenor() {
     ];
 
     // Create quotes
-    let quotes: Vec<CreditQuote> = tenors_and_spreads
+    let quotes: Vec<CdsQuote> = tenors_and_spreads
         .iter()
-        .map(|(maturity, spread)| CreditQuote::CDS {
+        .enumerate()
+        .map(|(i, (maturity, spread))| CdsQuote::CdsParSpread {
+            id: QuoteId::new(format!("CDS-{}", i)),
             entity: "MULTI-TENOR-TEST".to_string(),
-            maturity: *maturity,
+            pillar: Pillar::Date(*maturity),
             spread_bp: *spread,
             recovery_rate: 0.40,
-            currency: Currency::USD,
-            conventions: Default::default(),
+            convention: CdsConventionKey {
+                currency: Currency::USD,
+                doc_clause: CdsDocClause::IsdaNa,
+            },
         })
         .collect();
 
@@ -169,7 +179,7 @@ fn test_cds_par_spread_roundtrip_multi_tenor() {
         doc_clause: None,
     };
     let step = StepParams::Hazard(params.clone());
-    let market_quotes: Vec<MarketQuote> = quotes.iter().cloned().map(MarketQuote::Credit).collect();
+    let market_quotes: Vec<MarketQuote> = quotes.iter().cloned().map(MarketQuote::Cds).collect();
     let (ctx, _report) = execute_step(&step, &market_quotes, &market_calib, &settings).unwrap();
     let hazard_curve = ctx
         .get_hazard_ref(params.curve_id.as_str())
@@ -217,13 +227,16 @@ fn test_cds_par_spread_calculation_consistency() {
     let base = Date::from_calendar_date(2025, Month::January, 15).unwrap();
     let maturity = Date::from_calendar_date(2030, Month::January, 15).unwrap();
 
-    let quotes = [CreditQuote::CDS {
+    let quotes = [CdsQuote::CdsParSpread {
+        id: QuoteId::new("CDS-5Y"),
         entity: "PAR-CONSISTENCY-TEST".to_string(),
-        maturity,
+        pillar: Pillar::Date(maturity),
         spread_bp: 200.0, // 200bp
         recovery_rate: 0.40,
-        currency: Currency::USD,
-        conventions: Default::default(),
+        convention: CdsConventionKey {
+            currency: Currency::USD,
+            doc_clause: CdsDocClause::IsdaNa,
+        },
     }];
 
     let disc = create_discount_curve(base);
@@ -245,7 +258,7 @@ fn test_cds_par_spread_calculation_consistency() {
         doc_clause: None,
     };
     let step = StepParams::Hazard(params.clone());
-    let market_quotes: Vec<MarketQuote> = quotes.iter().cloned().map(MarketQuote::Credit).collect();
+    let market_quotes: Vec<MarketQuote> = quotes.iter().cloned().map(MarketQuote::Cds).collect();
     let (ctx, _report) = execute_step(&step, &market_quotes, &market_calib, &settings).unwrap();
     let hazard_curve = ctx
         .get_hazard_ref(params.curve_id.as_str())

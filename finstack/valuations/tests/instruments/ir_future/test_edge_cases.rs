@@ -62,6 +62,7 @@ fn test_zero_face_value() {
 
     let specs = FutureContractSpecs {
         face_value: 0.0,
+        convexity_adjustment: Some(0.0),
         ..FutureContractSpecs::default()
     };
 

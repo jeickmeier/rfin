@@ -193,7 +193,7 @@ fn par_rate_pv_based(
     };
 
     // Par rate = float_pv / (notional * annuity)
-    Ok(pv_float.amount() / (irs.notional.amount() * annuity))
+    Ok(pv_float / (irs.notional.amount() * annuity))
 }
 
 #[cfg(test)]

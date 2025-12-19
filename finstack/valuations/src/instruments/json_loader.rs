@@ -69,6 +69,8 @@ pub enum InstrumentJson {
     BasisSwap(BasisSwap),
     /// Inflation swap
     InflationSwap(InflationSwap),
+    /// Year-on-year inflation swap
+    YoYInflationSwap(YoYInflationSwap),
     /// Forward rate agreement (FRA)
     ForwardRateAgreement(ForwardRateAgreement),
     /// Swaption (option on swap)
@@ -166,6 +168,7 @@ impl InstrumentJson {
             InstrumentJson::InterestRateSwap(i) => Ok(Box::new(i)),
             InstrumentJson::BasisSwap(i) => Ok(Box::new(i)),
             InstrumentJson::InflationSwap(i) => Ok(Box::new(i)),
+            InstrumentJson::YoYInflationSwap(i) => Ok(Box::new(i)),
             InstrumentJson::FxSwap(i) => Ok(Box::new(i)),
             InstrumentJson::VarianceSwap(i) => Ok(Box::new(i)),
 
@@ -265,6 +268,9 @@ impl<'de> Deserialize<'de> for InstrumentJson {
                 .map_err(D::Error::custom),
             "inflation_swap" => serde_json::from_str(&spec_str)
                 .map(Self::InflationSwap)
+                .map_err(D::Error::custom),
+            "yoy_inflation_swap" | "yo_y_inflation_swap" => serde_json::from_str(&spec_str)
+                .map(Self::YoYInflationSwap)
                 .map_err(D::Error::custom),
             "fx_swap" => serde_json::from_str(&spec_str)
                 .map(Self::FxSwap)
@@ -383,6 +389,8 @@ impl<'de> Deserialize<'de> for InstrumentJson {
                     "interest_rate_swap",
                     "basis_swap",
                     "inflation_swap",
+                    "yoy_inflation_swap",
+                    "yo_y_inflation_swap",
                     "fx_swap",
                     "variance_swap",
                     "forward_rate_agreement",

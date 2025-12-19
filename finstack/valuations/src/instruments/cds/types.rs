@@ -157,13 +157,13 @@ pub(crate) fn resolve_market_conventions(
 
 #[derive(Clone, Debug, PartialEq)]
 pub(crate) struct CdsConventionResolved {
-    pub(crate) doc_clause: CDSConvention,
-    pub(crate) day_count: DayCount,
-    pub(crate) frequency: Tenor,
-    pub(crate) business_day_convention: BusinessDayConvention,
-    pub(crate) stub_convention: StubKind,
-    pub(crate) settlement_delay_days: u16,
-    pub(crate) default_calendar_id: String,
+    pub doc_clause: CDSConvention,
+    pub day_count: DayCount,
+    pub frequency: Tenor,
+    pub business_day_convention: BusinessDayConvention,
+    pub stub_convention: StubKind,
+    pub settlement_delay_days: u16,
+    pub default_calendar_id: String,
 }
 
 #[derive(Clone, Debug, serde::Deserialize)]
@@ -171,19 +171,19 @@ pub(crate) struct CdsConventionResolved {
 struct CdsConventionRecord {
     doc_clause: CDSConvention,
     day_count: DayCount,
-    frequency: String,
+    payment_frequency: String,
     business_day_convention: BusinessDayConvention,
     stub_convention: StubKind,
-    settlement_delay_days: u16,
-    default_calendar_id: String,
+    settlement_days: u16,
+    calendar_id: String,
 }
 
 impl CdsConventionRecord {
     fn into_resolved(self) -> CdsConventionResolved {
-        let frequency = Tenor::parse(&self.frequency).unwrap_or_else(|e| {
+        let frequency = Tenor::parse(&self.payment_frequency).unwrap_or_else(|e| {
             panic!(
-                "Invalid `frequency` in CDS conventions registry: '{}': {}",
-                self.frequency, e
+                "Invalid `payment_frequency` in CDS conventions registry: '{}': {}",
+                self.payment_frequency, e
             )
         });
         CdsConventionResolved {
@@ -192,8 +192,8 @@ impl CdsConventionRecord {
             frequency,
             business_day_convention: self.business_day_convention,
             stub_convention: self.stub_convention,
-            settlement_delay_days: self.settlement_delay_days,
-            default_calendar_id: self.default_calendar_id,
+            settlement_delay_days: self.settlement_days,
+            default_calendar_id: self.calendar_id,
         }
     }
 }
@@ -207,11 +207,15 @@ fn cds_conventions_registry() -> &'static std::collections::HashMap<String, CdsC
         OnceLock::new();
     REGISTRY.get_or_init(|| {
         let json = include_str!("../../../data/conventions/cds_conventions.json");
-        let file: crate::calibration::quotes::json_registry::RegistryFile<CdsConventionRecord> = serde_json::from_str(json)
-            .expect("Failed to parse embedded CDS conventions registry JSON");
-        crate::calibration::quotes::json_registry::build_lookup_map_mapped(file, normalize_cds_key, |rec| {
-            rec.clone().into_resolved()
-        })
+        let file: crate::market::conventions::loaders::json::RegistryFile<CdsConventionRecord> =
+            serde_json::from_str(json)
+                .expect("Failed to parse embedded CDS conventions registry JSON");
+        crate::market::conventions::loaders::json::build_lookup_map_mapped(
+            file,
+            normalize_cds_key,
+            |rec| rec.clone().into_resolved(),
+        )
+        .expect("Failed to build CDS conventions lookup map")
     })
 }
 
@@ -274,6 +278,16 @@ pub struct CreditDefaultSwap {
     pub protection: ProtectionLegSpec,
     /// Pricing overrides (including upfront payment)
     pub pricing_overrides: PricingOverrides,
+    /// Upfront payment (Date, Money).
+    ///
+    /// The amount is defined as a payment from Protection Buyer to Protection Seller.
+    /// - If positive: Buyer pays Seller.
+    /// - If negative: Seller pays Buyer.
+    #[cfg_attr(
+        feature = "serde",
+        serde(default, skip_serializing_if = "Option::is_none")
+    )]
+    pub upfront: Option<(Date, Money)>,
     /// Optional OTC margin specification for VM/IM.
     ///
     /// For cleared CDS (e.g., via ICE Clear Credit), use
@@ -444,6 +458,7 @@ impl CreditDefaultSwap {
                 settlement_delay: convention.settlement_delay(),
             },
             pricing_overrides: PricingOverrides::default(),
+            upfront: None,
             margin_spec: None,
             attributes: Attributes::new(),
         }
@@ -554,32 +569,57 @@ impl CreditDefaultSwap {
     }
 
     /// Calculate the net present value of this CDS
+    /// Calculate the net present value of this CDS
     pub fn npv(
         &self,
         market: &MarketContext,
         as_of: finstack_core::dates::Date,
     ) -> finstack_core::Result<Money> {
+        let npv_amount = self.npv_raw(market, as_of)?;
+        Ok(Money::new(npv_amount, self.notional.currency()))
+    }
+
+    /// Calculate the raw net present value of this CDS (f64)
+    pub fn npv_raw(
+        &self,
+        market: &MarketContext,
+        as_of: finstack_core::dates::Date,
+    ) -> finstack_core::Result<f64> {
         let disc = market.get_discount_ref(&self.premium.discount_curve_id)?;
         let surv = market.get_hazard_ref(&self.protection.credit_curve_id)?;
         let pricer = CDSPricer::new();
 
         // Calculate NPV as protection leg PV - premium leg PV (from buyer's perspective)
-        let protection_pv = pricer.pv_protection_leg(self, disc, surv, as_of)?;
-        let premium_pv = pricer.pv_premium_leg(self, disc, surv, as_of)?;
+        let protection_pv = pricer.pv_protection_leg_raw(self, disc, surv, as_of)?;
+        let premium_pv = pricer.pv_premium_leg_raw(self, disc, surv, as_of)?;
+
+        // Calculate Upfront PV
+        let upfront_pv = if let Some((dt, amount)) = self.upfront {
+            if dt >= as_of {
+                let df = disc.try_df_between_dates(as_of, dt)?;
+                amount.amount() * df
+            } else {
+                0.0 // Past cashflow
+            }
+        } else {
+            0.0
+        };
 
         // Apply sign convention based on side
+        // Base NPV = Protection (received) - Premium (paid) [as Buyer]
+        // Upfront: Positive amount is paid by Buyer. So it reduces Buyer NPV.
         let npv_amount = match self.side {
             PayReceive::PayFixed => {
-                // Protection buyer: pays premium, receives protection
-                protection_pv.amount() - premium_pv.amount()
+                // Protection buyer: pays premium, receives protection, pays upfront (if positive)
+                protection_pv - premium_pv - upfront_pv
             }
             PayReceive::ReceiveFixed => {
-                // Protection seller: receives premium, pays protection
-                premium_pv.amount() - protection_pv.amount()
+                // Protection seller: receives premium, pays protection, receives upfront (if positive)
+                premium_pv - protection_pv + upfront_pv
             }
         };
 
-        Ok(Money::new(npv_amount, self.notional.currency()))
+        Ok(npv_amount)
     }
 }
 
@@ -614,6 +654,14 @@ impl crate::instruments::common::traits::Instrument for CreditDefaultSwap {
         as_of: finstack_core::dates::Date,
     ) -> finstack_core::Result<finstack_core::money::Money> {
         self.npv(market, as_of)
+    }
+
+    fn value_raw(
+        &self,
+        market: &finstack_core::market_data::context::MarketContext,
+        as_of: finstack_core::dates::Date,
+    ) -> finstack_core::Result<f64> {
+        self.npv_raw(market, as_of)
     }
 
     fn price_with_metrics(
@@ -660,6 +708,15 @@ impl crate::cashflow::traits::CashflowProvider for CreditDefaultSwap {
     ) -> finstack_core::Result<DatedFlows> {
         // For theta calculation, we only care about premium cashflows
         // Protection leg is continuous and doesn't have discrete cashflows
-        self.build_premium_schedule(curves, as_of)
+        let mut flows = self.build_premium_schedule(curves, as_of)?;
+
+        // Add upfront if present
+        if let Some((dt, amount)) = self.upfront {
+            flows.push((dt, amount));
+            // Sort by date to maintain schedule order
+            flows.sort_by_key(|(d, _)| *d);
+        }
+
+        Ok(flows)
     }
 }

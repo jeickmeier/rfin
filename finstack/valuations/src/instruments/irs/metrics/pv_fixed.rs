@@ -36,6 +36,6 @@ impl MetricCalculator for FixedLegPvCalculator {
         let disc = context.curves.get_discount(&irs.fixed.discount_curve_id)?;
 
         let pv = irs.pv_fixed_leg(&disc, as_of)?;
-        Ok(pv.amount())
+        Ok(pv)
     }
 }

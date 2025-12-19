@@ -1,92 +1,33 @@
 //! Quote types for calibration in WASM.
 
-use crate::core::common::parse::ParseFromString;
-use crate::core::dates::{FsDate, Tenor};
+use crate::core::dates::FsDate;
 use crate::utils::json::{from_js_value, to_js_value};
-use finstack_valuations::calibration::quotes::{
-    CreditQuote, FutureSpecs, InflationQuote, InstrumentConventions, MarketQuote, RatesQuote,
-    VolQuote,
+use finstack_valuations::market::conventions::ids::{
+    IndexId, InflationSwapConventionId, SwaptionConventionId,
 };
+use finstack_valuations::market::quotes::cds::CdsQuote;
+use finstack_valuations::market::quotes::inflation::InflationQuote;
+use finstack_valuations::market::quotes::market_quote::MarketQuote;
+use finstack_valuations::market::quotes::rates::RateQuote;
+use finstack_valuations::market::quotes::vol::VolQuote;
+use finstack_valuations::market::quotes::ids::{Pillar, QuoteId};
 use wasm_bindgen::prelude::*;
-
-/// Future contract specifications.
-#[wasm_bindgen(js_name = FutureSpecs)]
-#[derive(Clone, Debug)]
-pub struct JsFutureSpecs {
-    inner: FutureSpecs,
-}
-
-impl JsFutureSpecs {
-    #[allow(dead_code)]
-    pub(crate) fn from_inner(inner: FutureSpecs) -> Self {
-        Self { inner }
-    }
-
-    #[allow(dead_code)]
-    pub(crate) fn inner(&self) -> FutureSpecs {
-        self.inner.clone()
-    }
-}
-
-#[wasm_bindgen(js_class = FutureSpecs)]
-impl JsFutureSpecs {
-    /// Create future specifications.
-    #[wasm_bindgen(constructor)]
-    pub fn new(
-        multiplier: f64,
-        face_value: f64,
-        delivery_months: u8,
-        day_count: &str,
-    ) -> Result<JsFutureSpecs, JsValue> {
-        use finstack_core::dates::DayCount;
-        let dc = DayCount::parse_from_string(day_count)?;
-        let specs = FutureSpecs {
-            multiplier,
-            face_value,
-            delivery_months,
-            day_count: dc,
-            convexity_adjustment: None,
-            ..Default::default()
-        };
-        Ok(Self { inner: specs })
-    }
-
-    /// With convexity adjustment.
-    #[wasm_bindgen(js_name = withConvexityAdjustment)]
-    pub fn with_convexity_adjustment(&self, adjustment: f64) -> JsFutureSpecs {
-        let mut next = self.inner.clone();
-        next.convexity_adjustment = Some(adjustment);
-        Self::from_inner(next)
-    }
-
-    /// Create from JSON representation.
-    #[wasm_bindgen(js_name = fromJSON)]
-    pub fn from_json(value: JsValue) -> Result<JsFutureSpecs, JsValue> {
-        from_js_value(value).map(JsFutureSpecs::from_inner)
-    }
-
-    /// Convert to JSON representation.
-    #[wasm_bindgen(js_name = toJSON)]
-    pub fn to_json(&self) -> Result<JsValue, JsValue> {
-        to_js_value(&self.inner)
-    }
-}
 
 /// Rates market quote.
 #[wasm_bindgen(js_name = RatesQuote)]
 #[derive(Clone, Debug)]
 pub struct JsRatesQuote {
-    inner: RatesQuote,
+    inner: RateQuote,
 }
 
 impl JsRatesQuote {
     #[allow(dead_code)]
-    pub(crate) fn from_inner(inner: RatesQuote) -> Self {
+    pub(crate) fn from_inner(inner: RateQuote) -> Self {
         Self { inner }
     }
 
     #[allow(dead_code)]
-    pub(crate) fn inner(&self) -> RatesQuote {
+    pub(crate) fn inner(&self) -> RateQuote {
         self.inner.clone()
     }
 }
@@ -95,68 +36,54 @@ impl JsRatesQuote {
 impl JsRatesQuote {
     /// Create a deposit quote.
     #[wasm_bindgen(js_name = deposit)]
-    pub fn deposit(maturity: &FsDate, rate: f64, day_count: &str) -> Result<JsRatesQuote, JsValue> {
-        use finstack_core::dates::DayCount;
-        let dc = DayCount::parse_from_string(day_count)?;
-        Ok(Self {
-            inner: RatesQuote::Deposit {
-                maturity: maturity.inner(),
+    pub fn deposit(id: &str, index: &str, maturity: &FsDate, rate: f64) -> JsRatesQuote {
+        Self {
+            inner: RateQuote::Deposit {
+                id: QuoteId::new(id),
+                index: IndexId::new(index),
+                pillar: Pillar::Date(maturity.inner()),
                 rate,
-                conventions: InstrumentConventions::default().with_day_count(dc),
             },
-        })
+        }
     }
 
     /// Create an FRA quote.
     #[wasm_bindgen(js_name = fra)]
     pub fn fra(
+        id: &str,
+        index: &str,
         start: &FsDate,
         end: &FsDate,
         rate: f64,
-        day_count: &str,
-    ) -> Result<JsRatesQuote, JsValue> {
-        use finstack_core::dates::DayCount;
-        let dc = DayCount::parse_from_string(day_count)?;
-        Ok(Self {
-            inner: RatesQuote::FRA {
-                start: start.inner(),
-                end: end.inner(),
+    ) -> JsRatesQuote {
+        Self {
+            inner: RateQuote::Fra {
+                id: QuoteId::new(id),
+                index: IndexId::new(index),
+                start: Pillar::Date(start.inner()),
+                end: Pillar::Date(end.inner()),
                 rate,
-                conventions: InstrumentConventions::default().with_day_count(dc),
             },
-        })
+        }
     }
 
     /// Create a swap quote.
     #[wasm_bindgen(js_name = swap)]
     pub fn swap(
+        id: &str,
+        index: &str,
         maturity: &FsDate,
         rate: f64,
-        fixed_freq: &Tenor,
-        float_freq: &Tenor,
-        fixed_dc: &str,
-        float_dc: &str,
-        index: &str,
-    ) -> Result<JsRatesQuote, JsValue> {
-        use finstack_core::dates::DayCount;
-        let fixed_day_count = DayCount::parse_from_string(fixed_dc)?;
-        let float_day_count = DayCount::parse_from_string(float_dc)?;
-
-        Ok(Self {
-            inner: RatesQuote::Swap {
-                maturity: maturity.inner(),
+    ) -> JsRatesQuote {
+        Self {
+            inner: RateQuote::Swap {
+                id: QuoteId::new(id),
+                index: IndexId::new(index),
+                pillar: Pillar::Date(maturity.inner()),
                 rate,
-                is_ois: false,
-                conventions: Default::default(),
-                fixed_leg_conventions: InstrumentConventions::default()
-                    .with_payment_frequency(fixed_freq.inner())
-                    .with_day_count(fixed_day_count),
-                float_leg_conventions: InstrumentConventions::default()
-                    .with_payment_frequency(float_freq.inner())
-                    .with_day_count(float_day_count)
-                    .with_index(index),
+                spread: None,
             },
-        })
+        }
     }
 
     /// Convert to MarketQuote.
@@ -182,94 +109,59 @@ impl JsRatesQuote {
 #[wasm_bindgen(js_name = CreditQuote)]
 #[derive(Clone, Debug)]
 pub struct JsCreditQuote {
-    inner: CreditQuote,
+    inner: CdsQuote,
 }
 
 impl JsCreditQuote {
     #[allow(dead_code)]
-    pub(crate) fn from_inner(inner: CreditQuote) -> Self {
+    pub(crate) fn from_inner(inner: CdsQuote) -> Self {
         Self { inner }
     }
 
     #[allow(dead_code)]
-    pub(crate) fn inner(&self) -> CreditQuote {
+    pub(crate) fn inner(&self) -> CdsQuote {
         self.inner.clone()
     }
 }
 
 #[wasm_bindgen(js_class = CreditQuote)]
 impl JsCreditQuote {
-    /// Create a CDS quote.
-    #[wasm_bindgen(js_name = cds)]
-    pub fn cds(
+    /// Create a CDS par spread quote.
+    #[wasm_bindgen(js_name = cdsParSpread)]
+    pub fn cds_par_spread(
+        id: &str,
         entity: &str,
         maturity: &FsDate,
         spread_bp: f64,
         recovery_rate: f64,
         currency: &str,
+        doc_clause: &str,
     ) -> Result<JsCreditQuote, JsValue> {
-        let ccy: finstack_core::currency::Currency = currency
-            .parse()
-            .map_err(|_| JsValue::from_str(&format!("Unknown currency: {}", currency)))?;
+        use finstack_core::types::Currency;
+        use finstack_valuations::market::conventions::ids::{CdsConventionKey, CdsDocClause};
+        
+        let ccy: Currency = currency.parse::<Currency>().map_err(|e: strum::ParseError| JsValue::from_str(&e.to_string()))?;
+        let doc: CdsDocClause = doc_clause.parse::<CdsDocClause>().map_err(|e: String| JsValue::from_str(&e))?;
+
         Ok(Self {
-            inner: CreditQuote::CDS {
+            inner: CdsQuote::CdsParSpread {
+                id: QuoteId::new(id),
                 entity: entity.to_string(),
-                maturity: maturity.inner(),
+                pillar: Pillar::Date(maturity.inner()),
                 spread_bp,
                 recovery_rate,
-                currency: ccy,
-                conventions: Default::default(),
+                convention: CdsConventionKey {
+                    currency: ccy,
+                    doc_clause: doc,
+                },
             },
         })
-    }
-
-    /// Create a CDS tranche quote for base correlation calibration.
-    ///
-    /// @param {string} index - Index identifier (e.g., "CDX.NA.IG.42", "iTraxx.Europe.40")
-    /// @param {number} attachment - Attachment point (% of notional, e.g., 0.0 for equity tranche)
-    /// @param {number} detachment - Detachment point (% of notional, e.g., 3.0 for 0-3% tranche)
-    /// @param {FsDate} maturity - Tranche maturity date
-    /// @param {number} upfront_pct - Upfront payment (% of notional)
-    /// @param {number} running_spread_bp - Running spread in basis points
-    /// @returns {CreditQuote} CDS tranche quote for calibration
-    ///
-    /// @example
-    /// ```javascript
-    /// // 0-3% equity tranche
-    /// const equityTranche = CreditQuote.cdsTranche(
-    ///   "CDX.NA.IG.42", 0.0, 3.0, new FsDate(2029, 6, 20), 35.0, 500.0
-    /// );
-    /// // 3-7% mezzanine tranche
-    /// const mezzTranche = CreditQuote.cdsTranche(
-    ///   "CDX.NA.IG.42", 3.0, 7.0, new FsDate(2029, 6, 20), 8.0, 500.0
-    /// );
-    /// ```
-    #[wasm_bindgen(js_name = cdsTranche)]
-    pub fn cds_tranche(
-        index: &str,
-        attachment: f64,
-        detachment: f64,
-        maturity: &FsDate,
-        upfront_pct: f64,
-        running_spread_bp: f64,
-    ) -> JsCreditQuote {
-        Self {
-            inner: CreditQuote::CDSTranche {
-                index: index.to_string(),
-                attachment,
-                detachment,
-                maturity: maturity.inner(),
-                upfront_pct,
-                running_spread_bp,
-                conventions: Default::default(),
-            },
-        }
     }
 
     /// Convert to MarketQuote.
     #[wasm_bindgen(js_name = toMarketQuote)]
     pub fn to_market_quote(&self) -> JsMarketQuote {
-        JsMarketQuote::from_inner(MarketQuote::Credit(self.inner.clone()))
+        JsMarketQuote::from_inner(MarketQuote::Cds(self.inner.clone()))
     }
 
     /// Create from JSON representation.
@@ -306,27 +198,6 @@ impl JsVolQuote {
 
 #[wasm_bindgen(js_class = VolQuote)]
 impl JsVolQuote {
-    /// Create an option vol quote.
-    #[wasm_bindgen(js_name = optionVol)]
-    pub fn option_vol(
-        underlying: &str,
-        expiry: &FsDate,
-        strike: f64,
-        vol: f64,
-        option_type: &str,
-    ) -> JsVolQuote {
-        Self {
-            inner: VolQuote::OptionVol {
-                underlying: underlying.to_string().into(),
-                expiry: expiry.inner(),
-                strike,
-                vol,
-                option_type: option_type.to_string(),
-                conventions: Default::default(),
-            },
-        }
-    }
-
     /// Create a swaption vol quote.
     #[wasm_bindgen(js_name = swaptionVol)]
     pub fn swaption_vol(
@@ -335,6 +206,7 @@ impl JsVolQuote {
         strike: f64,
         vol: f64,
         quote_type: &str,
+        convention: &str,
     ) -> JsVolQuote {
         Self {
             inner: VolQuote::SwaptionVol {
@@ -343,9 +215,7 @@ impl JsVolQuote {
                 strike,
                 vol,
                 quote_type: quote_type.to_string(),
-                conventions: Default::default(),
-                fixed_leg_conventions: Default::default(),
-                float_leg_conventions: Default::default(),
+                convention: SwaptionConventionId::new(convention),
             },
         }
     }
@@ -392,13 +262,18 @@ impl JsInflationQuote {
 impl JsInflationQuote {
     /// Create an inflation swap quote.
     #[wasm_bindgen(js_name = inflationSwap)]
-    pub fn inflation_swap(maturity: &FsDate, rate: f64, index: &str) -> JsInflationQuote {
+    pub fn inflation_swap(
+        maturity: &FsDate,
+        rate: f64,
+        index: &str,
+        convention: &str,
+    ) -> JsInflationQuote {
         Self {
             inner: InflationQuote::InflationSwap {
                 maturity: maturity.inner(),
                 rate,
                 index: index.to_string(),
-                conventions: Default::default(),
+                convention: InflationSwapConventionId::new(convention),
             },
         }
     }
@@ -442,7 +317,8 @@ impl JsMarketQuote {
     pub fn kind(&self) -> String {
         match &self.inner {
             MarketQuote::Rates(_) => "rates".to_string(),
-            MarketQuote::Credit(_) => "credit".to_string(),
+            MarketQuote::Cds(_) => "cds".to_string(),
+            MarketQuote::CdsTranche(_) => "cds_tranche".to_string(),
             MarketQuote::Vol(_) => "vol".to_string(),
             MarketQuote::Inflation(_) => "inflation".to_string(),
         }

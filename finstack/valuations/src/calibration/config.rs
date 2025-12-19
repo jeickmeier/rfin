@@ -139,6 +139,8 @@ pub struct DiscountCurveSolveConfig {
     /// Step size (h) for finite-difference Jacobian calculation.
     #[serde(default)]
     pub jacobian_step_size: f64,
+    /// Tolerance for determining calibration success (applied to residuals).
+    pub validation_tolerance: f64,
 }
 
 impl Default for DiscountCurveSolveConfig {
@@ -161,6 +163,8 @@ impl Default for DiscountCurveSolveConfig {
             // For typical discount-curve zero rates (~1-5%), `1e-8` can make PV differences
             // fall into numerical noise and cause GlobalSolve to stall (e.g. StepTooSmall).
             jacobian_step_size: 1e-6,
+            // Validation success tolerance for residuals (per notional).
+            validation_tolerance: 1e-8,
         }
     }
 }
@@ -256,8 +260,8 @@ pub struct CalibrationConfig {
     pub discount_curve: DiscountCurveSolveConfig,
 }
 
-/// Extension section key for calibration overrides (v2).
-pub const CALIBRATION_CONFIG_KEY_V2: &str = "valuations.calibration.v2";
+/// Extension section key for calibration overrides.
+pub const CALIBRATION_CONFIG_KEY: &str = "valuations.calibration";
 
 impl Default for CalibrationConfig {
     fn default() -> Self {
@@ -283,7 +287,7 @@ impl Default for CalibrationConfig {
 impl CalibrationConfig {
     /// Build a calibration config from a `FinstackConfig` extension section.
     ///
-    /// If the extension section `valuations.calibration.v2` is present, its
+    /// If the extension section `valuations.calibration` is present, its
     /// fields override the defaults; otherwise defaults are used.
     ///
     /// # Errors
@@ -304,12 +308,12 @@ impl CalibrationConfig {
     /// ```
     #[cfg(feature = "serde")]
     pub fn from_finstack_config_or_default(cfg: &FinstackConfig) -> finstack_core::Result<Self> {
-        if let Some(raw) = cfg.extensions.get(CALIBRATION_CONFIG_KEY_V2) {
+        if let Some(raw) = cfg.extensions.get(CALIBRATION_CONFIG_KEY) {
             // Deserialize directly into CalibrationConfig; missing fields use defaults via #[serde(default)]
             serde_json::from_value(raw.clone()).map_err(|e| finstack_core::Error::Calibration {
                 message: format!(
                     "Failed to parse extension '{}': {}",
-                    CALIBRATION_CONFIG_KEY_V2, e
+                    CALIBRATION_CONFIG_KEY, e
                 ),
                 category: "config".to_string(),
             })
@@ -576,4 +580,69 @@ impl CalibrationConfig {
     pub fn is_multi_dimensional(&self) -> bool {
         matches!(self.solver, SolverConfig::GlobalNewton { .. })
     }
+}
+
+/// Step-level conventions for rates calibration (discount and forward curves).
+///
+/// This is a Bloomberg/FinCad-style design: curve construction uses a small set of
+/// *step-level* conventions (e.g., curve time-axis day count).
+#[cfg_attr(feature = "ts_export", derive(TS))]
+#[cfg_attr(feature = "ts_export", ts(export))]
+#[derive(Clone, Debug, Default, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct RatesStepConventions {
+    /// Day count used to map dates to year fractions for curve knot times.
+    #[serde(default)]
+    #[cfg_attr(feature = "ts_export", ts(type = "string | null"))]
+    pub curve_day_count: Option<finstack_core::dates::DayCount>,
+
+    /// Optional pricer-level settlement lag override (business days).
+    #[serde(default)]
+    pub settlement_days: Option<i32>,
+
+    /// Optional pricer-level calendar identifier override.
+    #[serde(default)]
+    pub calendar_id: Option<String>,
+
+    /// Optional pricer-level business day convention override.
+    #[serde(default)]
+    #[cfg_attr(feature = "ts_export", ts(type = "string | null"))]
+    pub business_day_convention: Option<finstack_core::dates::BusinessDayConvention>,
+
+    /// Allow calendar-day fallback when the requested calendar is missing.
+    #[serde(default)]
+    pub allow_calendar_fallback: Option<bool>,
+
+    /// Whether instruments start at settlement (true for discount curves).
+    #[serde(default)]
+    pub use_settlement_start: Option<bool>,
+
+    /// Enable vendor-style strict pricing in this step.
+    ///
+    /// When enabled, calibration will fail fast if required pricing conventions are
+    /// not explicitly provided. This avoids hidden currency-based defaults
+    /// and improves vendor-matching determinism.
+    #[serde(default)]
+    pub strict_pricing: Option<bool>,
+
+    /// Step-level default payment delay (business days) used when quotes do not specify one.
+    ///
+    /// In strict pricing mode, this must be explicitly provided unless the instrument's
+    /// conventions (e.g., overnight RFR index rules) supply a deterministic value.
+    #[serde(default)]
+    pub default_payment_delay_days: Option<i32>,
+
+    /// Step-level default reset lag (business days) used when quotes do not specify one.
+    ///
+    /// In strict pricing mode, this must be explicitly provided unless the instrument's
+    /// conventions (e.g., overnight RFR index rules) supply a deterministic value.
+    #[serde(default)]
+    pub default_reset_lag_days: Option<i32>,
+
+    /// Enforce discount-curve separation (reject non-OIS forward-dependent quotes).
+    ///
+    /// Default is `false` to preserve backwards compatibility; enable to match
+    /// vendor-style strict validation.
+    #[serde(default)]
+    pub enforce_discount_separation: Option<bool>,
 }

@@ -1,0 +1,1149 @@
+use crate::calibration::api::schema::DiscountCurveParams;
+use crate::calibration::config::ResidualWeightingScheme;
+use crate::calibration::config::{CalibrationConfig, CalibrationMethod};
+use crate::calibration::constants::*;
+use crate::calibration::prepared::CalibrationQuote;
+use crate::calibration::solver::{
+    BootstrapTarget, GlobalFitOptimizer, GlobalSolveTarget, SequentialBootstrapper,
+};
+use crate::calibration::CalibrationReport;
+use crate::market::build::prepared::PreparedQuote;
+use crate::market::quotes::market_quote::ExtractQuotes;
+use crate::market::quotes::market_quote::MarketQuote;
+use finstack_core::dates::{Date, DayCount, DayCountCtx};
+use finstack_core::market_data::context::MarketContext;
+use finstack_core::market_data::term_structures::DiscountCurve;
+use finstack_core::math::interp::{ExtrapolationPolicy, InterpStyle};
+use finstack_core::prelude::*;
+use finstack_core::types::{Currency, CurveId};
+use std::cell::RefCell;
+
+
+/// Parameters for constructing a [`DiscountCurveTarget`].
+///
+/// This struct consolidates all inputs required to execute a discount curve
+/// calibration, including base dates, currency, and multi-curve convention IDs.
+#[derive(Clone)]
+pub struct DiscountCurveTargetParams {
+    /// Base date for the curve (usually the calibration valuation date).
+    pub base_date: Date,
+    /// Currency of the curve and its associated instruments.
+    pub currency: Currency,
+    /// Identifier for the curve being built.
+    pub curve_id: CurveId,
+    /// Effective ID for pricing (usually same as curve_id).
+    pub discount_curve_id: CurveId,
+    /// Effective ID for pricing forward rates.
+    pub forward_curve_id: CurveId,
+    /// Interpolation style for solving.
+    pub solve_interp: InterpStyle,
+    /// Extrapolation policy.
+    pub extrapolation: ExtrapolationPolicy,
+    /// Calibration configuration.
+    /// Calibration configuration.
+    pub config: CalibrationConfig,
+    // pub pricer: CalibrationPricer, // Removed
+    /// Day count convention for mapping dates to year fractions on the curve.
+    pub curve_day_count: DayCount,
+    /// Optional spot knot (t_spot, 1.0) if enabled.
+    pub spot_knot: Option<(f64, f64)>,
+    /// Settlement date (T+lag).
+    pub settlement_date: Date,
+    /// Residual normalization notional (used to scale PV residuals to per-unit notional).
+    ///
+    /// Calibration tolerances are interpreted in **per-notional** residual units, so
+    /// a realistic notional can be used for instrument construction without making
+    /// solver tolerances unrealistically tight in absolute currency terms.
+    pub residual_notional: f64,
+    /// Context needed for pricing against OTHER curves (if any).
+    pub base_context: MarketContext,
+}
+
+/// Target for discount curve calibration (Bootstrap and Global).
+///
+/// This struct implements the calibration logic for IR discount curves,
+/// supporting both sequential bootstrapping and simultaneous global optimization.
+/// It acts as a bridge between the numerical solvers and the financial instrument
+/// pricing logic.
+///
+/// # Examples
+/// ```rust,no_run
+/// # use finstack_valuations::calibration::targets::discount::{DiscountCurveTarget, DiscountCurveTargetParams};
+/// # fn example(params: DiscountCurveTargetParams) {
+/// let target = DiscountCurveTarget::new(params);
+/// // Use with SequentialBootstrapper or GlobalFitOptimizer
+/// # }
+/// ```
+pub struct DiscountCurveTarget {
+    /// Base date for the curve.
+    pub base_date: Date,
+    /// Currency of the curve.
+    pub currency: Currency,
+    /// Identifier for the curve being built.
+    pub curve_id: CurveId,
+    /// Effective ID for pricing (usually same as curve_id).
+    pub discount_curve_id: CurveId,
+    /// Effective ID for pricing forward rates.
+    pub forward_curve_id: CurveId,
+    /// Interpolation style for solving.
+    pub solve_interp: InterpStyle,
+    /// Extrapolation policy.
+    pub extrapolation: ExtrapolationPolicy,
+    /// Calibration configuration.
+    /// Calibration configuration.
+    pub config: CalibrationConfig,
+    // pub pricer: CalibrationPricer, // Removed
+    /// Day count convention for the curve.
+    pub curve_day_count: DayCount,
+    /// Optional spot knot (t_spot, 1.0) if enabled.
+    pub spot_knot: Option<(f64, f64)>,
+    /// Settlement date.
+    pub settlement_date: Date,
+    /// Residual normalization notional.
+    pub residual_notional: f64,
+    /// Context needed for pricing against OTHER curves (if any).
+    pub base_context: MarketContext,
+    /// Optional reusable context for sequential solvers to reduce memory pressure.
+    reuse_context: Option<RefCell<MarketContext>>,
+    /// Optional seed curve used to initialize global solves.
+    initial_curve: Option<DiscountCurve>,
+}
+
+impl DiscountCurveTarget {
+    /// Create a new [`DiscountCurveTarget`] from parameters.
+    pub fn new(params: DiscountCurveTargetParams) -> Self {
+        let reuse_context = if params.config.use_parallel {
+            None
+        } else {
+            Some(RefCell::new(params.base_context.clone()))
+        };
+        Self {
+            base_date: params.base_date,
+            currency: params.currency,
+            curve_id: params.curve_id,
+            discount_curve_id: params.discount_curve_id,
+            forward_curve_id: params.forward_curve_id,
+            solve_interp: params.solve_interp,
+            extrapolation: params.extrapolation,
+            config: params.config,
+            curve_day_count: params.curve_day_count,
+            settlement_date: params.settlement_date,
+            residual_notional: params.residual_notional,
+            spot_knot: params.spot_knot,
+            base_context: params.base_context,
+            reuse_context,
+            initial_curve: None,
+        }
+    }
+
+    /// Compute DF bounds for time t based on rate bounds.
+    fn df_bounds_for_time(&self, time: f64) -> (f64, f64) {
+        let bounds = self.config.effective_rate_bounds(self.currency);
+        let df_lo = (-bounds.max_rate * time).exp();
+        let df_hi = (-bounds.min_rate * time).exp();
+        (df_lo, df_hi)
+    }
+
+    /// Helper to convert zero rate to DF.
+    fn zero_rate_to_df(z: f64, t: f64) -> f64 {
+        (-z * t).exp()
+    }
+
+    /// Generate maturity-aware scan grid.
+    fn maturity_aware_scan_grid(
+        df_lo: f64,
+        df_hi: f64,
+        initial_df: f64,
+        num_points: usize,
+    ) -> Vec<f64> {
+        let mut grid = Vec::with_capacity(num_points + 20);
+
+        if df_lo.is_finite() && df_lo > 0.0 {
+            grid.push(df_lo);
+        }
+        if df_hi.is_finite() && df_hi > 0.0 && (df_hi - df_lo).abs() > TOLERANCE_DUP_KNOTS {
+            grid.push(df_hi);
+        }
+
+        let center = initial_df.clamp(df_lo, df_hi);
+        let use_log_spacing = df_lo > DF_MIN_HARD && df_hi / df_lo > 10.0;
+
+        if use_log_spacing {
+            let log_lo = df_lo.ln();
+            let log_hi = df_hi.ln();
+            let coarse_points = num_points.saturating_sub(10).max(8);
+            for i in 1..coarse_points {
+                let t = i as f64 / coarse_points as f64;
+                let log_df = log_lo + t * (log_hi - log_lo);
+                let df = log_df.exp();
+                if df.is_finite() && df > 0.0 && df > df_lo && df < df_hi {
+                    grid.push(df);
+                }
+            }
+        } else {
+            let coarse_points = num_points.saturating_sub(10).max(8);
+            for i in 1..coarse_points {
+                let t = i as f64 / coarse_points as f64;
+                let df = df_lo + t * (df_hi - df_lo);
+                if df.is_finite() && df > 0.0 && df > df_lo && df < df_hi {
+                    grid.push(df);
+                }
+            }
+        }
+
+        if center.is_finite() && center > 0.0 {
+            grid.push(center);
+            let log_center = center.ln();
+            let log_lo = df_lo.max(DF_MIN_HARD).ln();
+            let log_hi = df_hi.max(DF_MIN_HARD).ln();
+            const LOG_STEPS: [f64; 8] = [1e-4, 2e-4, 5e-4, 1e-3, 2e-3, 5e-3, 1e-2, 2e-2];
+            for step in LOG_STEPS {
+                for sign in [-1.0, 1.0] {
+                    let candidate = log_center + sign * step;
+                    if candidate >= log_lo && candidate <= log_hi {
+                        let df = candidate.exp();
+                        if df >= df_lo && df <= df_hi && df.is_finite() && df > 0.0 {
+                            grid.push(df);
+                        }
+                    }
+                }
+            }
+        }
+
+        // Keep scan points ordered in x-space so bracketing logic can reliably detect
+        // adjacent sign changes.
+        grid.sort_by(|a, b| b.total_cmp(a));
+        grid.dedup_by(|a, b| (*a - *b).abs() < (df_hi - df_lo) * TOLERANCE_GRID_DEDUP);
+        grid
+    }
+
+    fn with_temp_context<F, T>(&self, curve: &DiscountCurve, op: F) -> Result<T>
+    where
+        F: FnOnce(&MarketContext) -> Result<T>,
+    {
+        if let Some(ctx_cell) = &self.reuse_context {
+            let mut ctx = ctx_cell.borrow_mut();
+            ctx.insert_mut(curve.clone());
+            op(&ctx)
+        } else {
+            let mut temp_context = self.base_context.clone();
+            temp_context.insert_mut(curve.clone());
+            op(&temp_context)
+        }
+    }
+
+    fn knots_from_params(&self, times: &[f64], params: &[f64]) -> Result<Vec<(f64, f64)>> {
+        if times.len() != params.len() {
+            return Err(finstack_core::Error::Calibration {
+                message: format!(
+                    "Global solve dimension mismatch: {} times vs {} params",
+                    times.len(),
+                    params.len()
+                ),
+                category: "global_solve".to_string(),
+            });
+        }
+
+        let mut knots = Vec::with_capacity(times.len() + 2);
+        knots.push((0.0, 1.0));
+
+        if let Some(spot) = self.spot_knot {
+            if spot.0 > 0.0 {
+                knots.push(spot);
+            }
+        }
+
+        let bounds = self.config.effective_rate_bounds(self.currency);
+        let mut last_t = self.spot_knot.map(|spot| spot.0).unwrap_or(0.0);
+
+        for (&t, &z) in times.iter().zip(params.iter()) {
+            if t <= last_t {
+                return Err(finstack_core::Error::Calibration {
+                    message: format!(
+                        "Non-increasing knot time {:.10} detected (previous {:.10}). \
+Global solve requires strictly increasing times.",
+                        t, last_t
+                    ),
+                    category: "global_solve".to_string(),
+                });
+            }
+            last_t = t;
+            let clamped_z = z.clamp(bounds.min_rate, bounds.max_rate);
+            let mut df = Self::zero_rate_to_df(clamped_z, t);
+            df = df.clamp(
+                self.config.discount_curve.df_hard_min,
+                self.config.discount_curve.df_hard_max,
+            );
+            knots.push((t, df));
+        }
+
+        Ok(knots)
+    }
+
+    /// Execute the full calibration for a discount curve step.
+    pub fn solve(
+        params: &DiscountCurveParams,
+        quotes: &[MarketQuote],
+        context: &MarketContext,
+        global_config: &CalibrationConfig,
+    ) -> Result<(MarketContext, CalibrationReport)> {
+        // Apply step-level calibration method preferences to the shared config.
+        let mut config = global_config.clone();
+        config.calibration_method = params.method.clone();
+
+        let rates_quotes: Vec<crate::market::quotes::rates::RateQuote> = quotes.extract_quotes();
+
+        if rates_quotes.is_empty() {
+            return Err(finstack_core::Error::Input(
+                finstack_core::error::InputError::TooFewPoints,
+            ));
+        }
+
+        // Curve time axis day count:
+        //
+        // In the prior calibration engine (master-era `calibration/adapters/discount.rs`),
+        // the curve day count was a *required* input and (for Bloomberg-style OIS)
+        // is typically **Act/365F**, even though many of the underlying instruments
+        // (OIS, deposits) accrue on Act/360.
+        //
+        // Defaulting to the quote accrual day-count (often Act/360) materially shifts
+        // the curve's time mapping and can produce large zero-rate/DF differences when
+        // compared to vendor curves that report Act/365F continuous zeros.
+        let curve_dc = params
+            .conventions
+            .curve_day_count
+            .unwrap_or(finstack_core::dates::DayCount::Act365F);
+        let settlement = params.base_date;
+
+        let mut curve_ids = std::collections::HashMap::new();
+        let discount_id = params
+            .pricing_discount_id
+            .as_ref()
+            .unwrap_or(&params.curve_id);
+        curve_ids.insert("discount".to_string(), discount_id.to_string());
+
+        let forward_id = params
+            .pricing_forward_id
+            .as_ref()
+            .unwrap_or(&params.curve_id);
+        curve_ids.insert("forward".to_string(), forward_id.to_string());
+
+        // Use a realistic notional to avoid Money rounding noise in coupon construction.
+        let build_ctx = crate::market::build::context::BuildCtx {
+            as_of: params.base_date,
+            notional: 1_000_000.0,
+            curve_ids,
+            attributes: std::collections::HashMap::new(),
+        };
+
+        let mut prepared_quotes: Vec<CalibrationQuote> = Vec::with_capacity(rates_quotes.len());
+
+        for q in rates_quotes {
+            let instrument = crate::market::build::rates::build_rate_instrument(&q, &build_ctx)
+                .map_err(|e| {
+                    finstack_core::Error::Validation(format!("Failed to build instrument: {}", e))
+                })?;
+            let instrument: std::sync::Arc<dyn crate::instruments::common::traits::Instrument> =
+                instrument.into();
+
+            let maturity_date = if let Some(dep) = instrument
+                .as_any()
+                .downcast_ref::<crate::instruments::deposit::Deposit>()
+            {
+                // Use the *effective* end date (BDC/calendar adjusted) so quote_time matches
+                // the cashflow maturity used by pricing. Otherwise bootstrap may fail to bracket
+                // because the solver is placing knots at unadjusted dates while valuation
+                // discounts cashflows to adjusted dates.
+                dep.effective_end_date()?
+            } else if let Some(fra) = instrument
+                .as_any()
+                .downcast_ref::<crate::instruments::fra::ForwardRateAgreement>(
+            ) {
+                fra.end_date
+            } else if let Some(swp) = instrument
+                .as_any()
+                .downcast_ref::<crate::instruments::irs::InterestRateSwap>()
+            {
+                // Align the calibration pillar with the actual swap payment date (end + payment delay),
+                // matching the legacy discount engine behavior. This avoids fitting on termination
+                // while pricing discounts to a later payment date under OIS conventions.
+                let end = std::cmp::max(swp.fixed.end, swp.float.end);
+                crate::instruments::irs::dates::add_payment_delay(
+                    end,
+                    swp.fixed.payment_delay_days,
+                    swp.fixed.calendar_id.as_deref(),
+                )
+            } else if let Some(fut) = instrument
+                .as_any()
+                .downcast_ref::<crate::instruments::ir_future::InterestRateFuture>()
+            {
+                fut.expiry_date
+            } else {
+                params.base_date
+            };
+
+            let pillar_time =
+                curve_dc.year_fraction(params.base_date, maturity_date, DayCountCtx::default())?;
+
+            let prepared = PreparedQuote::new(
+                std::sync::Arc::new(q),
+                instrument,
+                maturity_date,
+                pillar_time,
+            );
+            prepared_quotes.push(CalibrationQuote::Rates(prepared));
+        }
+
+        let mut target = DiscountCurveTarget::new(DiscountCurveTargetParams {
+            base_date: params.base_date,
+            currency: params.currency,
+            curve_id: params.curve_id.clone(),
+            discount_curve_id: params
+                .pricing_discount_id
+                .clone()
+                .unwrap_or(params.curve_id.clone()),
+            forward_curve_id: params
+                .pricing_forward_id
+                .clone()
+                .unwrap_or(params.curve_id.clone()),
+            solve_interp: params.interpolation,
+            extrapolation: params.extrapolation,
+            config: config.clone(),
+            curve_day_count: curve_dc,
+            spot_knot: None,
+            settlement_date: settlement,
+            residual_notional: build_ctx.notional,
+            base_context: context.clone(),
+        });
+
+        // Optional bootstrap seeding for the global solve to improve convergence and accuracy.
+        let mut seed_report: Option<CalibrationReport> = None;
+        let mut seed_error: Option<String> = None;
+        if matches!(params.method, CalibrationMethod::GlobalSolve { .. })
+            && config.discount_curve.bootstrap_seed_global_solve
+        {
+            let mut seed_quotes = prepared_quotes.clone();
+            crate::calibration::targets::util::sort_bootstrap_quotes(
+                &target,
+                &mut seed_quotes,
+            )?;
+
+            match SequentialBootstrapper::bootstrap(
+                &target,
+                &seed_quotes,
+                vec![(0.0, 1.0)],
+                &config,
+                None,
+            ) {
+                Ok((curve_seed, report)) => {
+                    target.initial_curve = Some(curve_seed);
+                    seed_report = Some(report);
+                }
+                Err(e) => {
+                    seed_error = Some(format!("{e}"));
+                }
+            }
+        }
+
+        let (mut curve, mut report) = match params.method {
+            CalibrationMethod::Bootstrap => {
+                crate::calibration::targets::util::sort_bootstrap_quotes(
+                    &target,
+                    &mut prepared_quotes,
+                )?;
+                SequentialBootstrapper::bootstrap(
+                    &target,
+                    &prepared_quotes,
+                    vec![(0.0, 1.0)],
+                    &config,
+                    None,
+                )?
+            }
+            CalibrationMethod::GlobalSolve { .. } => {
+                GlobalFitOptimizer::optimize(&target, &prepared_quotes, &config)?
+            }
+        };
+
+        // Prefer a high-quality bootstrap seed if it outperforms the global solve.
+        if let (CalibrationMethod::GlobalSolve { .. }, Some(seed_rep)) =
+            (&params.method, seed_report.as_ref())
+        {
+            if seed_rep.success
+                && seed_rep.max_residual <= config.discount_curve.validation_tolerance
+                && seed_rep.max_residual <= report.max_residual
+            {
+                if let Some(seed_curve) = target.initial_curve.clone() {
+                    curve = seed_curve;
+                    report = seed_rep.clone();
+                    report
+                        .metadata
+                        .insert("adopted_bootstrap_seed".to_string(), "true".to_string());
+                }
+            }
+        }
+
+        let mut new_context = context.clone();
+        new_context.insert_mut(curve);
+        let mut report = report;
+
+        // Track solver configuration used and any seed diagnostics for transparency.
+        report.update_solver_config(config.solver.clone());
+        if let Some(seed) = seed_report {
+            report.metadata.insert(
+                "bootstrap_seed_max_residual".to_string(),
+                format!("{:.2e}", seed.max_residual),
+            );
+            report.metadata.insert(
+                "bootstrap_seed_iterations".to_string(),
+                seed.iterations.to_string(),
+            );
+        }
+        if let Some(err) = seed_error {
+            report
+                .metadata
+                .insert("bootstrap_seed_error".to_string(), err);
+        }
+
+        Ok((new_context, report))
+    }
+}
+
+impl BootstrapTarget for DiscountCurveTarget {
+    type Quote = CalibrationQuote;
+    type Curve = DiscountCurve;
+
+    fn quote_time(&self, quote: &Self::Quote) -> Result<f64> {
+        Ok(quote.pillar_time())
+    }
+
+    fn build_curve(&self, knots: &[(f64, f64)]) -> Result<Self::Curve> {
+        self.build_curve_for_solver(knots)
+    }
+
+    fn build_curve_for_solver(&self, knots: &[(f64, f64)]) -> Result<Self::Curve> {
+        if knots.len() < 2 {
+            return Err(finstack_core::Error::Calibration {
+                message: "Failed to build temp curve: need at least two knots".into(),
+                category: "bootstrapping".to_string(),
+            });
+        }
+        if knots.windows(2).any(|w| w[1].0 <= w[0].0) {
+            return Err(finstack_core::Error::Calibration {
+                message: format!(
+                    "Failed to build temp curve: non-increasing knot times: {:?}",
+                    knots
+                        .windows(2)
+                        .find(|w| w[1].0 <= w[0].0)
+                        .map(|w| (w[0].0, w[1].0))
+                ),
+                category: "bootstrapping".to_string(),
+            });
+        }
+
+        // The solver curve should respect the same monotonic/no-arbitrage policy as the final
+        // curve. Allowing non-monotone solver curves can make bootstrapping converge to
+        // an infeasible (arbitrage) shape and then fail only at the end.
+        let config_flag = self.config.discount_curve.allow_non_monotonic_final;
+        let policy_allow = match self.config.rate_bounds_policy {
+            crate::calibration::RateBoundsPolicy::Explicit => self.config.rate_bounds.min_rate < 0.0,
+            crate::calibration::RateBoundsPolicy::AutoCurrency => {
+                matches!(self.currency, Currency::EUR | Currency::JPY | Currency::CHF)
+            }
+        };
+        let allow_non_monotonic = config_flag.unwrap_or(policy_allow);
+
+        if !allow_non_monotonic {
+            // Hard guard: even if the underlying curve builder's `build_for_solver()` is lenient,
+            // we must not allow the solver to explore arbitrage shapes when the final curve
+            // forbids them.
+            if knots.windows(2).any(|w| w[1].1 > w[0].1) {
+                return Err(finstack_core::Error::Calibration {
+                    message: "Discount factors must be non-increasing".to_string(),
+                    category: "curve_build".to_string(),
+                });
+            }
+        }
+
+        let mut builder = DiscountCurve::builder(self.discount_curve_id.clone())
+            .base_date(self.base_date)
+            .day_count(self.curve_day_count)
+            .knots(knots.iter().copied())
+            .set_interp(self.solve_interp)
+            .extrapolation(self.extrapolation);
+
+        builder = if allow_non_monotonic {
+            builder.allow_non_monotonic()
+        } else {
+            builder.enforce_no_arbitrage()
+        };
+
+        builder.build_for_solver().map_err(|e| finstack_core::Error::Calibration {
+            message: format!("Failed to build temp curve: {}", e),
+            category: "bootstrapping".to_string(),
+        })
+    }
+
+    fn build_curve_final(&self, knots: &[(f64, f64)]) -> Result<Self::Curve> {
+        let config_flag = self.config.discount_curve.allow_non_monotonic_final;
+        let policy_allow = match self.config.rate_bounds_policy {
+            crate::calibration::RateBoundsPolicy::Explicit => {
+                self.config.rate_bounds.min_rate < 0.0
+            }
+            crate::calibration::RateBoundsPolicy::AutoCurrency => {
+                matches!(self.currency, Currency::EUR | Currency::JPY | Currency::CHF)
+            }
+        };
+        let allow_non_monotonic = config_flag.unwrap_or(policy_allow);
+
+        if allow_non_monotonic && self.solve_interp == InterpStyle::MonotoneConvex {
+            return Err(finstack_core::Error::Calibration {
+                message: "MonotoneConvex interpolation requires non-increasing discount factors. \
+Disable allow_non_monotonic_final or choose a compatible interpolation style."
+                    .to_string(),
+                category: "curve_build".to_string(),
+            });
+        }
+
+        let mut builder = DiscountCurve::builder(self.curve_id.clone())
+            .base_date(self.base_date)
+            .day_count(self.curve_day_count)
+            .knots(knots.iter().copied())
+            .set_interp(self.solve_interp)
+            .extrapolation(self.extrapolation);
+
+        if allow_non_monotonic {
+            builder = builder.allow_non_monotonic();
+        } else {
+            builder = builder.enforce_no_arbitrage();
+        }
+
+        builder
+            .build()
+            .map_err(|e| finstack_core::Error::Calibration {
+                message: e.to_string(),
+                category: "curve_build".to_string(),
+            })
+    }
+
+    fn calculate_residual(&self, curve: &Self::Curve, quote: &Self::Quote) -> Result<f64> {
+        self.with_temp_context(curve, |ctx| {
+            let pv = quote.instrument().value_raw(ctx, self.base_date)?;
+            if !self.residual_notional.is_finite() || self.residual_notional <= 0.0 {
+                return Err(finstack_core::Error::Validation(format!(
+                    "Invalid residual_notional {}: expected finite positive value",
+                    self.residual_notional
+                )));
+            }
+            Ok(pv / self.residual_notional)
+        })
+    }
+
+    fn initial_guess(&self, quote: &Self::Quote, previous_knots: &[(f64, f64)]) -> Result<f64> {
+        let t = self.quote_time(quote)?;
+        let (df_lo, df_hi) = self.df_bounds_for_time(t);
+
+        // Try exact match for Deposit/FRA/Swap using simple discounting guess
+        // We use pillar_time as proxy for duration.
+        // df = 1 / (1 + rate * t)
+        if let CalibrationQuote::Rates(pq) = quote {
+            use crate::market::quotes::rates::RateQuote;
+            match pq.quote.as_ref() {
+                RateQuote::Deposit { rate, .. }
+                | RateQuote::Fra { rate, .. }
+                | RateQuote::Swap { rate, .. } => {
+                    // Simple guess: ACT/360 or similar effect using pillar time
+                    // For initial guess, accuracy isn't critical, just finding the basin of attraction.
+                    // df = 1 / (1 + r * t)
+                    let df = 1.0 / (1.0 + rate * t);
+                    return Ok(df.clamp(df_lo, df_hi));
+                }
+                RateQuote::Futures { price, .. } => {
+                    let rate = (100.0 - price) / 100.0;
+                    let df = 1.0 / (1.0 + rate * t);
+                    return Ok(df.clamp(df_lo, df_hi));
+                }
+            }
+        }
+
+        // Try to get a rate for deposit-like guess?
+        // Since we abstracted the quote types, let's use a robust extrapolation fallback.
+        let mut guess = None;
+        let last_two: Vec<(f64, f64)> = previous_knots
+            .iter()
+            .copied()
+            .rev()
+            .filter(|(ti, dfi)| *ti > MIN_GRID_SPACING && dfi.is_finite() && *dfi > 0.0)
+            .take(2)
+            .collect();
+
+        if last_two.len() == 2 {
+            let (t1, df1) = last_two[0];
+            let (t0, df0) = last_two[1];
+            let dt = t1 - t0;
+            if dt > MIN_GRID_SPACING {
+                let f = (df0.ln() - df1.ln()) / dt;
+                let ln_df = df1.ln() - f * (t - t1);
+                let df = ln_df.exp();
+                if df.is_finite() && df > 0.0 {
+                    guess = Some(df);
+                }
+            }
+        } else if last_two.len() == 1 {
+            let (t1, df1) = last_two[0];
+            if t1 > MIN_GRID_SPACING {
+                let df = df1.powf(t / t1);
+                if df.is_finite() && df > 0.0 {
+                    guess = Some(df);
+                }
+            }
+        }
+
+        // If no previous knots (first point), try a safe default (e.g. rate=0.03 or similar)
+        let df = guess.unwrap_or_else(|| {
+            // Fallback: 3% rate
+            (-0.03 * t).exp()
+        });
+
+        Ok(df.clamp(df_lo, df_hi))
+    }
+
+    fn scan_points(&self, quote: &Self::Quote, initial_guess: f64) -> Result<Vec<f64>> {
+        let time = self.quote_time(quote)?;
+        let (df_lo, df_hi) = self.df_bounds_for_time(time);
+        let clamped_initial = initial_guess.clamp(df_lo, df_hi);
+
+        let num_points = self.config.discount_curve.scan_grid_points;
+        let min_points = self.config.discount_curve.min_scan_grid_points;
+        let mut grid = Self::maturity_aware_scan_grid(df_lo, df_hi, clamped_initial, num_points);
+
+        if grid.len() < min_points {
+            let num_additional = min_points - grid.len().min(min_points);
+            for i in 0..=num_additional {
+                let t = i as f64 / num_additional as f64;
+                let df = df_lo + t * (df_hi - df_lo);
+                if df.is_finite() && df > 0.0 {
+                    grid.push(df);
+                }
+            }
+            grid.sort_by(|a, b| b.total_cmp(a));
+            grid.dedup_by(|a, b| (*a - *b).abs() < (df_hi - df_lo) * TOLERANCE_GRID_DEDUP);
+        }
+
+        Ok(grid)
+    }
+
+    fn validate_knot(&self, time: f64, value: f64) -> Result<()> {
+        if !value.is_finite() || value <= 0.0 {
+            return Err(finstack_core::Error::Calibration {
+                message: format!(
+                    "Non-finite or non-positive discount factor at t={:.6}",
+                    time
+                ),
+                category: "bootstrapping".to_string(),
+            });
+        }
+        let (lo, hi) = self.df_bounds_for_time(time);
+        if value < lo || value > hi {
+            return Err(finstack_core::Error::Calibration {
+                message: format!(
+                    "DF out of bounds at t={:.4}: got {:.6}, range [{:.6}, {:.6}]",
+                    time, value, lo, hi
+                ),
+                category: "bootstrapping".to_string(),
+            });
+        }
+        Ok(())
+    }
+}
+
+impl GlobalSolveTarget for DiscountCurveTarget {
+    type Quote = CalibrationQuote;
+    type Curve = DiscountCurve;
+
+    fn build_time_grid_and_guesses(
+        &self,
+        quotes: &[Self::Quote],
+    ) -> Result<(Vec<f64>, Vec<f64>, Vec<Self::Quote>)> {
+        let bounds = self.config.effective_rate_bounds(self.currency);
+        let mut entries = Vec::new();
+        let seed_curve = self.initial_curve.as_ref();
+
+        for quote in quotes {
+            let t = self.quote_time(quote)?;
+            if t <= 0.0 {
+                continue;
+            }
+
+            // Prefer seeded zeros from an initial curve (bootstrap) if available.
+            let z = if let Some(curve) = seed_curve {
+                let df = if t > 0.0 {
+                    curve.df(t)
+                } else {
+                    1.0
+                };
+                if df.is_finite() && df > 0.0 {
+                    let implied_z = -df.ln() / t.max(1e-9);
+                    implied_z.clamp(bounds.min_rate, bounds.max_rate)
+                } else {
+                    0.03_f64.clamp(bounds.min_rate, bounds.max_rate)
+                }
+            } else {
+                0.03_f64.clamp(bounds.min_rate, bounds.max_rate)
+            };
+            entries.push((t, z, quote));
+        }
+
+        // Note: we can't clone CalibrationQuote easily as it contains Box<dyn>.
+        // BUT GlobalSolveTarget requires returning Vec<Self::Quote>.
+        // CalibrationQuote currently derives Debug but not Clone.
+        // We need to implement Clone for it? PreparedQuote implementation details...
+        // Wait, PreparedQuote<Q> contains Box<dyn Instrument>. Instrument requires clone_box.
+        // So we can implement Clone for CalibrationQuote easily if we add it.
+        // OR we can change the signature to return indices? No, the trait requires Quotes.
+        // Let's verify CalibrationQuote clonability.
+        // PreparedQuote wraps Box<dyn Instrument>, which has clone_box.
+
+        // For now, let's assume we sort, and we have to return NEW vector of quotes.
+        // This suggests we need Clone on CalibrationQuote.
+
+        // Sort by time
+        entries.sort_by(|a, b| a.0.total_cmp(&b.0));
+
+        let mut times = Vec::with_capacity(entries.len());
+        let mut initials = Vec::with_capacity(entries.len());
+        let mut active_quotes = Vec::with_capacity(entries.len());
+        let mut last_time: Option<f64> = None;
+
+        for (t, z, quote) in entries {
+            if let Some(prev) = last_time {
+                if (t - prev).abs() <= TOLERANCE_DUP_KNOTS {
+                    return Err(finstack_core::Error::Calibration {
+                        message: format!(
+                            "Duplicate or unsorted knot times detected (prev={:.10}, new={:.10}). \
+Ensure quotes map to strictly increasing year fractions.",
+                            prev, t
+                        ),
+                        category: "global_solve".to_string(),
+                    });
+                }
+            }
+            last_time = Some(t);
+            times.push(t);
+            initials.push(z);
+            active_quotes.push(quote.clone());
+        }
+
+        Ok((times, initials, active_quotes))
+    }
+
+    fn build_curve_from_params(&self, times: &[f64], params: &[f64]) -> Result<Self::Curve> {
+        self.build_curve_for_solver_from_params(times, params)
+    }
+
+    fn build_curve_for_solver_from_params(
+        &self,
+        times: &[f64],
+        params: &[f64],
+    ) -> Result<Self::Curve> {
+        let knots = self.knots_from_params(times, params)?;
+        self.build_curve_for_solver(&knots)
+    }
+
+    fn build_curve_final_from_params(&self, times: &[f64], params: &[f64]) -> Result<Self::Curve> {
+        let knots = self.knots_from_params(times, params)?;
+        self.build_curve_final(&knots)
+    }
+
+    fn calculate_residuals(
+        &self,
+        curve: &Self::Curve,
+        quotes: &[Self::Quote],
+        residuals: &mut [f64],
+    ) -> Result<()> {
+        self.with_temp_context(curve, |ctx| {
+            for (i, quote) in quotes.iter().enumerate() {
+                if i >= residuals.len() {
+                    break;
+                }
+                let pv = quote.instrument().value_raw(ctx, self.base_date)?;
+                residuals[i] = pv / 1.0;
+            }
+            Ok(())
+        })
+    }
+
+    fn residual_key(&self, quote: &Self::Quote, idx: usize) -> String {
+        let q = quote.instrument();
+        format!("{}-{:03}", q.id(), idx)
+    }
+
+    fn residual_weights(&self, quotes: &[Self::Quote], weights_out: &mut [f64]) -> Result<()> {
+        if quotes.len() != weights_out.len() {
+            return Err(finstack_core::Error::Calibration {
+                message: format!(
+                    "Global solve requires weights.len() == quotes.len(); got {} vs {}.",
+                    weights_out.len(),
+                    quotes.len()
+                ),
+                category: "global_solve".to_string(),
+            });
+        }
+
+        for (i, quote) in quotes.iter().enumerate() {
+            let t = self.quote_time(quote)?.max(1e-6);
+
+            let weight = match self.config.discount_curve.weighting_scheme {
+                ResidualWeightingScheme::Equal => 1.0,
+                ResidualWeightingScheme::LinearTime => t,
+                ResidualWeightingScheme::SqrtTime => t.sqrt(),
+                ResidualWeightingScheme::InverseDuration => {
+                    // Approximation: Duration ~ t
+                    1.0 / t.max(0.1)
+                }
+            };
+
+            weights_out[i] = weight.max(WEIGHT_MIN_FLOOR);
+        }
+        Ok(())
+    }
+
+    fn jacobian(
+        &self,
+        params: &[f64],
+        times: &[f64],
+        quotes: &[Self::Quote],
+        jacobian: &mut [Vec<f64>],
+    ) -> Result<()> {
+        // Validation of dimensions
+        if jacobian.len() != quotes.len() {
+            return Err(finstack_core::Error::Calibration {
+                message: format!(
+                    "Jacobian rows {} != quotes {}",
+                    jacobian.len(),
+                    quotes.len()
+                ),
+                category: "jacobian".to_string(),
+            });
+        }
+        if params.len() != times.len() {
+            return Err(finstack_core::Error::Calibration {
+                message: format!("Params {} != Times {}", params.len(), times.len()),
+                category: "jacobian".to_string(),
+            });
+        }
+        // Check columns
+        if !jacobian.is_empty() && jacobian[0].len() != params.len() {
+            return Err(finstack_core::Error::Calibration {
+                message: format!(
+                    "Jacobian cols {} != params {}",
+                    jacobian[0].len(),
+                    params.len()
+                ),
+                category: "jacobian".to_string(),
+            });
+        }
+
+        // 1. Calculate base residuals
+        let base_curve = self.build_curve_for_solver_from_params(times, params)?;
+        let mut base_residuals = vec![0.0; quotes.len()];
+        self.calculate_residuals(&base_curve, quotes, &mut base_residuals)?;
+
+        // Use configured step size
+        let fd_eps = self.config.discount_curve.jacobian_step_size;
+        let mut params_plus = params.to_vec();
+        let mut temp_context = self.base_context.clone();
+
+        // 2. Iterate parameters (columns)
+        for j in 0..params.len() {
+            let _t_knot = times[j];
+            let p_orig = params[j];
+
+            // Bump parameter
+            let h = (p_orig.abs() * fd_eps).max(fd_eps);
+            params_plus[j] = p_orig + h;
+
+            // Build bumped curve
+            let curve_plus = self.build_curve_for_solver_from_params(times, &params_plus)?;
+
+            // Update context with bumped curve
+            temp_context = temp_context.insert_discount(curve_plus);
+
+            // 3. Iterate quotes (rows)
+            let t_cutoff = if j > 0 { times[j - 1] } else { 0.0 };
+            let ctx = &temp_context;
+
+            for (i, quote) in quotes.iter().enumerate() {
+                // Skip if quote is "safely" before the bumped knot
+                let t_quote = self.quote_time(quote)?;
+
+                if t_quote < t_cutoff - 1e-4 {
+                    // Derivative is effectively 0
+                    jacobian[i][j] = 0.0;
+                    continue;
+                }
+
+                let pv = quote.instrument().value(ctx, self.base_date)?.amount();
+                let val_plus = pv / 1.0;
+                let val_base = base_residuals[i];
+
+                jacobian[i][j] = (val_plus - val_base) / h;
+            }
+
+            // Reset parameter
+            params_plus[j] = p_orig;
+        }
+
+        Ok(())
+    }
+
+    fn supports_analytical_jacobian(&self) -> bool {
+        true
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    // use crate::calibration::pricing::convention_resolution as conv; // Removed
+    // use crate::calibration::pricing::prepared::PreparedRatesQuote; // Removed
+    // use crate::calibration::pricing::CalibrationPricer; // Removed
+    use crate::calibration::prepared::CalibrationQuote;
+    use crate::calibration::solver::BootstrapTarget;
+    use crate::calibration::solver::GlobalFitOptimizer;
+    use crate::market::build::prepared::PreparedQuote;
+    use finstack_core::dates::DayCountCtx;
+    use finstack_core::math::interp::{ExtrapolationPolicy, InterpStyle};
+    use finstack_core::types::CurveId;
+    use time::Month;
+
+    #[test]
+    fn discount_quote_time_uses_swap_payment_date_when_payment_delay_applies() {
+        let base_date = Date::from_calendar_date(2024, Month::January, 2).expect("base_date");
+        let maturity = base_date + time::Duration::days(365);
+
+        // Native Quote
+        // Native Quote
+        let quote = crate::market::quotes::rates::RateQuote::Swap {
+            id: crate::market::quotes::ids::QuoteId::new("SWP-1Y"),
+            index: crate::market::conventions::ids::IndexId::new("USD-SOFR-OIS"),
+            pillar: crate::market::quotes::ids::Pillar::Date(maturity), // 1Y
+            rate: 0.02,
+            spread: None,
+        };
+
+        // Assume delay 2 days (standard OIS)
+        let delay = 2;
+        let cal_id = "usny";
+        let pay_date =
+            crate::instruments::irs::dates::add_payment_delay(maturity, delay, Some(cal_id));
+
+        let expected_yf = DayCount::Act365F
+            .year_fraction(base_date, pay_date, DayCountCtx::default())
+            .expect("expected year_fraction to succeed");
+
+        let target = DiscountCurveTarget::new(DiscountCurveTargetParams {
+            base_date,
+            currency: Currency::USD,
+            curve_id: CurveId::new("USD-OIS"),
+            discount_curve_id: CurveId::new("USD-OIS"),
+            forward_curve_id: CurveId::new("USD-OIS"),
+            solve_interp: InterpStyle::Linear,
+            extrapolation: ExtrapolationPolicy::FlatZero,
+            config: CalibrationConfig::default(),
+            curve_day_count: DayCount::Act365F,
+            spot_knot: None,
+            settlement_date: base_date,
+            residual_notional: 1.0,
+            base_context: MarketContext::new(),
+        });
+
+        // Mock instrument using Deposit with all required fields
+        let instrument = std::sync::Arc::new(crate::instruments::deposit::Deposit {
+            id: InstrumentId::new("DEP-1Y"),
+            quote_rate: Some(0.02),
+            discount_curve_id: CurveId::new("USD-OIS"),
+            attributes: Default::default(),
+            spot_lag_days: Some(0),
+            bdc: Some(BusinessDayConvention::Following),
+            calendar_id: None,
+            start: base_date,
+            end: pay_date,
+            notional: Money::new(1.0, Currency::USD),
+            day_count: DayCount::Act360,
+        });
+
+        let pq = PreparedQuote::new(
+            std::sync::Arc::new(quote),
+            instrument,
+            pay_date,
+            expected_yf,
+        );
+        let cal_quote = CalibrationQuote::Rates(pq);
+
+        let actual = BootstrapTarget::quote_time(&target, &cal_quote).expect("quote_time");
+        assert!((actual - expected_yf).abs() < 1e-15);
+    }
+
+    #[test]
+    fn global_solve_discount_curve_sanity_check() {
+        // Sanity check that GlobalFitOptimizer runs with DiscountCurveTarget.
+        let base_date = Date::from_calendar_date(2025, Month::December, 10).expect("base_date");
+        let mut config = CalibrationConfig::default();
+        config.solver = config.solver.with_tolerance(1e-9);
+        config.calibration_method = crate::calibration::config::CalibrationMethod::GlobalSolve {
+            use_analytical_jacobian: true,
+        };
+
+        let target = DiscountCurveTarget::new(DiscountCurveTargetParams {
+            base_date,
+            currency: Currency::USD,
+            curve_id: CurveId::new("USD-OIS"),
+            discount_curve_id: CurveId::new("USD-OIS"),
+            forward_curve_id: CurveId::new("USD-OIS"),
+            solve_interp: InterpStyle::Linear,
+            extrapolation: ExtrapolationPolicy::FlatZero,
+            config: config.clone(),
+            curve_day_count: DayCount::Act365F,
+            spot_knot: None,
+            settlement_date: base_date,
+            residual_notional: 1.0,
+            base_context: MarketContext::new(),
+        });
+
+        // Manual Simple Quote (Deposit)
+        let maturity = base_date + time::Duration::days(365);
+        let rate = 0.05;
+        let p_time = 1.0;
+
+        // RateQuote::Deposit
+        let quote = crate::market::quotes::rates::RateQuote::Deposit {
+            id: crate::market::quotes::ids::QuoteId::new("DEP-1Y"),
+            index: crate::market::conventions::ids::IndexId::new("USD-SOFR"),
+            pillar: crate::market::quotes::ids::Pillar::Date(maturity),
+            rate,
+        };
+
+        // Dummy Instrument for PreparedQuote
+        let instrument = std::sync::Arc::new(crate::instruments::deposit::Deposit {
+            id: InstrumentId::new("DEP-1Y"),
+            quote_rate: Some(rate),
+            discount_curve_id: CurveId::new("USD-OIS"),
+            attributes: Default::default(),
+            spot_lag_days: Some(0),
+            bdc: Some(BusinessDayConvention::Following),
+            calendar_id: None,
+            start: base_date,
+            end: maturity,
+            notional: Money::new(1.0, Currency::USD),
+            day_count: DayCount::Act360,
+        });
+
+        let pq = PreparedQuote::new(std::sync::Arc::new(quote), instrument, maturity, p_time);
+        let quotes = vec![CalibrationQuote::Rates(pq)];
+
+        let (_curve, report) =
+            GlobalFitOptimizer::optimize(&target, &quotes, &config).expect("solve");
+        println!("Max residual: {}", report.max_residual);
+        assert!(report.max_residual < 1e-6);
+    }
+}

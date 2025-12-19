@@ -1,12 +1,13 @@
 //! Calibration plan bumping utilities.
 //!
-//! These helpers mutate a `CalibrationPlanV2` in-place by bumping the quotes in the plan.
+//! These helpers mutate a `CalibrationPlan` in-place by bumping the quotes in the plan.
 //! They are intended for risk/scenario workflows where you want to *re-run* calibration
 //! under bumped quotes.
 
 use super::BumpRequest;
-use crate::calibration::api::schema::{CalibrationPlanV2, CalibrationStepV2, StepParams};
-use crate::calibration::quotes::MarketQuote;
+use crate::calibration::api::schema::{CalibrationPlan, CalibrationStep, StepParams};
+use crate::market::quotes::ids::Pillar;
+use crate::market::quotes::market_quote::MarketQuote;
 use finstack_core::dates::{Date, DayCount, DayCountCtx};
 use finstack_core::prelude::*;
 
@@ -23,7 +24,7 @@ impl PlanBumper {
     /// Note: For tenor bumps we use each step's `base_date` and (where applicable) step conventions
     /// (e.g. rates curve day-count). If the same `quote_set` is referenced by multiple steps with
     /// different base dates, tenor bumps will apply once per referencing step.
-    pub fn bump(plan: &mut CalibrationPlanV2, bump: &BumpRequest) -> Result<()> {
+    pub fn bump(plan: &mut CalibrationPlan, bump: &BumpRequest) -> Result<()> {
         match bump {
             BumpRequest::Parallel(bp) => {
                 let amount = bp_to_decimal(*bp);
@@ -48,15 +49,15 @@ impl PlanBumper {
     }
 
     /// Create a new plan with bump applied.
-    pub fn apply(mut plan: CalibrationPlanV2, bump: &BumpRequest) -> Result<CalibrationPlanV2> {
+    pub fn apply(mut plan: CalibrationPlan, bump: &BumpRequest) -> Result<CalibrationPlan> {
         Self::bump(&mut plan, bump)?;
         Ok(plan)
     }
 
     /// Bumps the quote set associated with a specific calibration step.
     fn bump_step_quote_set(
-        plan: &mut CalibrationPlanV2,
-        step: &CalibrationStepV2,
+        plan: &mut CalibrationPlan,
+        step: &CalibrationStep,
         bump: &BumpRequest,
     ) -> Result<()> {
         let quotes = plan.quote_sets.get_mut(&step.quote_set).ok_or_else(|| {
@@ -72,7 +73,7 @@ impl PlanBumper {
 }
 
 /// Resolve the base date and day count for a step's time axis.
-fn step_time_axis(step: &CalibrationStepV2) -> Result<(Date, DayCount)> {
+fn step_time_axis(step: &CalibrationStep) -> Result<(Date, DayCount)> {
     match &step.params {
         StepParams::Discount(p) => Ok((
             p.base_date,
@@ -130,15 +131,54 @@ fn quote_time_years(
     ctx: DayCountCtx,
 ) -> Option<f64> {
     let end = match q {
-        MarketQuote::Rates(r) => r.maturity_date(),
-        MarketQuote::Credit(c) => c.maturity_date()?,
-        MarketQuote::Inflation(i) => i.maturity_date()?,
+        MarketQuote::Rates(r) => match r {
+            crate::market::quotes::rates::RateQuote::Deposit { pillar, .. } => {
+                resolve_pillar(pillar, base_date)?
+            }
+            crate::market::quotes::rates::RateQuote::Fra { end, .. } => {
+                resolve_pillar(end, base_date)?
+            }
+            crate::market::quotes::rates::RateQuote::Futures { expiry, .. } => *expiry,
+            crate::market::quotes::rates::RateQuote::Swap { pillar, .. } => {
+                resolve_pillar(pillar, base_date)?
+            }
+        },
+        MarketQuote::Cds(c) => match c {
+            crate::market::quotes::cds::CdsQuote::CdsParSpread { pillar, .. } => {
+                resolve_pillar(pillar, base_date)?
+            }
+            crate::market::quotes::cds::CdsQuote::CdsUpfront { pillar, .. } => {
+                resolve_pillar(pillar, base_date)?
+            }
+        },
+        MarketQuote::CdsTranche(_) => return None, // Or handle if tranches have pillars
+        MarketQuote::Inflation(i) => match i {
+            crate::market::quotes::inflation::InflationQuote::InflationSwap {
+                maturity, ..
+            } => *maturity,
+            crate::market::quotes::inflation::InflationQuote::YoYInflationSwap {
+                maturity, ..
+            } => *maturity,
+        },
         MarketQuote::Vol(v) => match v {
-            crate::calibration::quotes::VolQuote::OptionVol { expiry, .. } => *expiry,
-            crate::calibration::quotes::VolQuote::SwaptionVol { expiry, .. } => *expiry,
+            crate::market::quotes::vol::VolQuote::OptionVol { expiry, .. } => *expiry,
+            crate::market::quotes::vol::VolQuote::SwaptionVol { expiry, .. } => *expiry,
         },
     };
     dc.year_fraction(base_date, end, ctx).ok()
+}
+
+fn resolve_pillar(pillar: &Pillar, base_date: Date) -> Option<Date> {
+    match pillar {
+        Pillar::Date(d) => Some(*d),
+        Pillar::Tenor(t) => t
+            .add_to_date(
+                base_date,
+                None,
+                finstack_core::dates::BusinessDayConvention::Following,
+            )
+            .ok(),
+    }
 }
 
 #[inline]

@@ -216,6 +216,7 @@ impl CDSIndex {
             premium: self.premium.clone(),
             protection: self.protection.clone(),
             pricing_overrides: self.pricing_overrides.clone(),
+            upfront: None,
             margin_spec: self.margin_spec.clone(),
             attributes: self.attributes.clone(),
         }

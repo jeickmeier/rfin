@@ -1,12 +1,14 @@
-//! Shared rates curve bumping logic (v2 plan-driven calibration).
+//! Shared rates curve bumping logic (plan-driven calibration).
 
 use super::BumpRequest;
-use crate::calibration::adapters::handlers::execute_step;
 use crate::calibration::api::schema::{DiscountCurveParams, StepParams};
 use crate::calibration::config::CalibrationMethod;
-use crate::calibration::pricing::RatesStepConventions;
-use crate::calibration::quotes::{InstrumentConventions, MarketQuote, RatesQuote};
+use crate::calibration::config::RatesStepConventions;
+use crate::calibration::targets::handlers::execute_step;
 use crate::calibration::CalibrationConfig;
+use crate::market::quotes::ids::{Pillar, QuoteId};
+use crate::market::quotes::market_quote::MarketQuote;
+use crate::market::quotes::rates::RateQuote;
 use finstack_core::dates::{Date, DayCount, DayCountCtx};
 use finstack_core::market_data::context::MarketContext;
 use finstack_core::market_data::term_structures::discount_curve::DiscountCurve;
@@ -15,10 +17,10 @@ use finstack_core::types::Currency;
 
 /// Bump a discount curve by shocking rate quotes and re-calibrating.
 ///
-/// This applies a [`BumpRequest`] to a collection of [`RatesQuote`]s and
+/// This applies a [`BumpRequest`] to a collection of [`RateQuote`]s and
 /// re-executes the calibration step to produce a new [`DiscountCurve`].
 pub fn bump_discount_curve(
-    quotes: &[RatesQuote],
+    quotes: &[RateQuote],
     params: &DiscountCurveParams,
     base_context: &MarketContext,
     bump: &BumpRequest,
@@ -26,21 +28,21 @@ pub fn bump_discount_curve(
     let as_of = params.base_date;
 
     // Clone quotes to apply bumps.
-    let mut bumped_quotes: Vec<RatesQuote> = quotes.to_vec();
+    let mut bumped_quotes: Vec<RateQuote> = quotes.to_vec();
 
     match bump {
         BumpRequest::Parallel(bp) => {
             let bump_decimal = bp * 1e-4;
             bumped_quotes = bumped_quotes
                 .into_iter()
-                .map(|q| q.bump_rate_decimal(bump_decimal))
+                .map(|q| q.bump(bump_decimal))
                 .collect();
         }
         BumpRequest::Tenors(targets) => {
             for (target_t, bp) in targets {
                 if let Some(idx) = find_closest_quote(&bumped_quotes, *target_t, as_of) {
                     let bump_decimal = bp * 1e-4;
-                    bumped_quotes[idx] = bumped_quotes[idx].bump_rate_decimal(bump_decimal);
+                    bumped_quotes[idx] = bumped_quotes[idx].bump(bump_decimal);
                 }
             }
         }
@@ -55,18 +57,49 @@ pub fn bump_discount_curve(
     Ok(ctx.get_discount_ref(params.curve_id.as_str())?.clone())
 }
 
+/// Helper to resolve maturity date of a quote.
+fn resolve_maturity(q: &RateQuote, base_date: Date) -> Option<Date> {
+    // Basic resolution using base_date + pillar
+    // This ignores spot lag or BDC, but is sufficient for "closest quote" heuristics.
+    match q {
+        RateQuote::Deposit { pillar, .. } => resolve_pillar(pillar, base_date),
+        RateQuote::Fra { end, .. } => resolve_pillar(end, base_date),
+        RateQuote::Futures { expiry, .. } => Some(*expiry),
+        RateQuote::Swap { pillar, .. } => resolve_pillar(pillar, base_date),
+    }
+}
+
+fn resolve_pillar(pillar: &Pillar, base_date: Date) -> Option<Date> {
+    match pillar {
+        Pillar::Date(d) => Some(*d),
+        Pillar::Tenor(t) => {
+            // Approx add tenor
+            // For bumping grouping, exact BDC usually doesn't change the "closest" logic significantly.
+            t.add_to_date(
+                base_date,
+                None,
+                finstack_core::dates::BusinessDayConvention::Following,
+            )
+            .ok()
+        }
+    }
+}
+
 /// Find the quote closest to the target maturity.
-pub fn find_closest_quote(quotes: &[RatesQuote], target_years: f64, as_of: Date) -> Option<usize> {
+pub fn find_closest_quote(quotes: &[RateQuote], target_years: f64, as_of: Date) -> Option<usize> {
     let dc = DayCount::Act365F; // Simple day count for proximity check
     quotes
         .iter()
         .enumerate()
         .min_by(|(_, a), (_, b)| {
+            let a_date = resolve_maturity(a, as_of).unwrap_or(as_of);
+            let b_date = resolve_maturity(b, as_of).unwrap_or(as_of);
+
             let a_yf = dc
-                .year_fraction(as_of, a.maturity_date(), DayCountCtx::default())
+                .year_fraction(as_of, a_date, DayCountCtx::default())
                 .unwrap_or(0.0);
             let b_yf = dc
-                .year_fraction(as_of, b.maturity_date(), DayCountCtx::default())
+                .year_fraction(as_of, b_date, DayCountCtx::default())
                 .unwrap_or(0.0);
             let a_dist = (a_yf - target_years).abs();
             let b_dist = (b_yf - target_years).abs();
@@ -105,6 +138,16 @@ pub fn bump_discount_curve_synthetic(
         Currency::USD
     };
 
+    // Choose synthetic index
+    let index_id = match currency {
+        Currency::USD => "USD-SOFR",
+        Currency::EUR => "EUR-ESTR",
+        Currency::GBP => "GBP-SONIA",
+        Currency::JPY => "JPY-TONA",
+        _ => "USD-SOFR",
+    }
+    .to_string();
+
     // Synthesize deposit-style quotes for each knot (excluding t≈0) and re-calibrate.
 
     let mut quotes = Vec::new();
@@ -122,19 +165,18 @@ pub fn bump_discount_curve_synthetic(
 
         let yf = dc.year_fraction(base_date, maturity, dc_ctx).unwrap_or(t);
 
-        // Simple rate: DF = 1 / (1 + r * t)  => 1 + r*t = 1/DF => r*t = 1/DF - 1 => r = (1/DF - 1)/t
+        // Simple rate: DF = 1 / (1 + r * t)
         let rate = if yf > 1e-4 {
             (1.0 / df - 1.0) / yf
         } else {
             0.0
         };
 
-        quotes.push(RatesQuote::Deposit {
-            maturity,
+        quotes.push(RateQuote::Deposit {
+            id: QuoteId::new(format!("SYNTH-{}", t)),
+            index: crate::market::conventions::ids::IndexId::new(index_id.clone()),
+            pillar: Pillar::Date(maturity),
             rate,
-            conventions: InstrumentConventions::default()
-                .with_day_count(dc)
-                .with_settlement_days(0),
         });
     }
 

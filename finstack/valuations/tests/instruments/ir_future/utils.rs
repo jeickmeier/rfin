@@ -57,7 +57,10 @@ pub fn create_standard_future(start: Date, end: Date) -> InterestRateFuture {
         quoted_price: 97.50, // Implies 2.5% rate
         day_count: DayCount::Act360,
         position: Position::Long,
-        contract_specs: FutureContractSpecs::default(),
+        contract_specs: FutureContractSpecs {
+            convexity_adjustment: Some(0.0),
+            ..FutureContractSpecs::default()
+        },
         discount_curve_id: "USD_OIS".into(),
         forward_id: "USD_LIBOR_3M".into(),
         volatility_id: None,
@@ -85,7 +88,10 @@ pub fn create_custom_future(
         quoted_price,
         day_count: DayCount::Act360,
         position,
-        contract_specs: FutureContractSpecs::default(),
+        contract_specs: FutureContractSpecs {
+            convexity_adjustment: Some(0.0),
+            ..FutureContractSpecs::default()
+        },
         discount_curve_id: "USD_OIS".into(),
         forward_id: "USD_LIBOR_3M".into(),
         volatility_id: None,
@@ -100,7 +106,7 @@ pub fn create_sofr_specs() -> FutureContractSpecs {
         tick_size: 0.0025, // 0.25 bp
         tick_value: 6.25,  // $6.25 per tick for 3M
         delivery_months: 3,
-        convexity_adjustment: None,
+        convexity_adjustment: Some(0.0),
     }
 }
 
@@ -111,7 +117,7 @@ pub fn create_eurodollar_specs() -> FutureContractSpecs {
         tick_size: 0.0025,
         tick_value: 6.25,
         delivery_months: 3,
-        convexity_adjustment: None,
+        convexity_adjustment: Some(0.0),
     }
 }
 

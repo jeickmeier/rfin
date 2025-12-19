@@ -135,6 +135,20 @@ impl Deposit {
             &self.discount_curve_id,
         )
     }
+
+    /// Calculate the raw (unrounded) net present value of this deposit.
+    pub fn npv_raw(
+        &self,
+        context: &finstack_core::market_data::context::MarketContext,
+        as_of: finstack_core::dates::Date,
+    ) -> finstack_core::Result<f64> {
+        crate::instruments::common::helpers::schedule_pv_using_curve_dc_raw(
+            self,
+            context,
+            as_of,
+            &self.discount_curve_id,
+        )
+    }
 }
 
 // Explicit Instrument trait implementation (replaces macro for better IDE visibility)
@@ -170,6 +184,14 @@ impl crate::instruments::common::traits::Instrument for Deposit {
     ) -> finstack_core::Result<finstack_core::money::Money> {
         // Call the instrument's own NPV method
         self.npv(curves, as_of)
+    }
+
+    fn value_raw(
+        &self,
+        curves: &finstack_core::market_data::context::MarketContext,
+        as_of: finstack_core::dates::Date,
+    ) -> finstack_core::Result<f64> {
+        self.npv_raw(curves, as_of)
     }
 
     fn price_with_metrics(

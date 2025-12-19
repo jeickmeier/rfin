@@ -99,15 +99,26 @@ impl ForwardRateAgreement {
     }
 
     /// Calculate the net present value of this FRA
+    /// Calculate the net present value of this FRA (rounded Money)
     pub fn npv(
         &self,
         context: &finstack_core::market_data::context::MarketContext,
         as_of: finstack_core::dates::Date,
     ) -> finstack_core::Result<Money> {
+        let pv = self.npv_raw(context, as_of)?;
+        Ok(Money::new(pv, self.notional.currency()))
+    }
+
+    /// Calculate the raw net present value of this FRA (unrounded f64)
+    pub fn npv_raw(
+        &self,
+        context: &finstack_core::market_data::context::MarketContext,
+        as_of: finstack_core::dates::Date,
+    ) -> finstack_core::Result<f64> {
         // Settlement for a FRA occurs at the start of the accrual period; past
         // settlement implies zero PV.
         if as_of >= self.start_date {
-            return Ok(Money::new(0.0, self.notional.currency()));
+            return Ok(0.0);
         }
 
         // Determine fixing date: prefer explicit fixing_date if it looks meaningful,
@@ -176,7 +187,7 @@ impl ForwardRateAgreement {
         // If the accrual length is zero, PV is zero. When fixing is in the past,
         // continue to project using forwards unless an observed fixing is wired.
         if tau == 0.0 {
-            return Ok(Money::new(0.0, self.notional.currency()));
+            return Ok(0.0);
         }
 
         // Forward rate over the period and DF to settlement (start)
@@ -207,7 +218,7 @@ impl ForwardRateAgreement {
             self.notional.amount() * rate_diff * tau * df_settlement
         };
         let signed_pv = if self.pay_fixed { -pv } else { pv };
-        Ok(Money::new(signed_pv, self.notional.currency()))
+        Ok(signed_pv)
     }
 }
 
@@ -244,6 +255,14 @@ impl crate::instruments::common::traits::Instrument for ForwardRateAgreement {
     ) -> finstack_core::Result<finstack_core::money::Money> {
         // Call the instrument's own NPV method
         self.npv(curves, as_of)
+    }
+
+    fn value_raw(
+        &self,
+        curves: &finstack_core::market_data::context::MarketContext,
+        as_of: finstack_core::dates::Date,
+    ) -> finstack_core::Result<f64> {
+        self.npv_raw(curves, as_of)
     }
 
     fn price_with_metrics(

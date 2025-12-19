@@ -23,9 +23,7 @@ from .validation import (
 )
 from .quote import (
     CreditQuote,
-    FutureSpecs,
     InflationQuote,
-    InstrumentConventions,
     MarketQuote,
     RatesQuote,
     VolQuote,
@@ -33,7 +31,7 @@ from .quote import (
 from finstack.core.market_data import MarketContext
 from typing import Any
 
-CALIBRATION_SCHEMA_V2: str
+CALIBRATION_SCHEMA: str
 
 def execute_calibration_v2(
     plan_id: str,
@@ -45,7 +43,7 @@ def execute_calibration_v2(
 ) -> tuple[MarketContext, CalibrationReport, dict[str, CalibrationReport]]: ...
 
 __all__ = [
-    "CALIBRATION_SCHEMA_V2",
+    "CALIBRATION_SCHEMA",
     "execute_calibration_v2",
     "SolverKind",
     "CalibrationMethod",
@@ -53,8 +51,6 @@ __all__ = [
     "RateBounds",
     "MultiCurveConfig",
     "CalibrationConfig",
-    "FutureSpecs",
-    "InstrumentConventions",
     "RatesQuote",
     "CreditQuote",
     "VolQuote",

@@ -86,6 +86,9 @@ pub struct CdsTranche {
     pub accumulated_loss: f64,
     /// Whether to enforce standard IMM dates (20th of Mar, Jun, Sep, Dec)
     pub standard_imm_dates: bool,
+    /// Optional upfront payment (date, amount). Positive means paid by protection buyer.
+    #[cfg_attr(feature = "serde", serde(default))]
+    pub upfront: Option<(Date, Money)>,
     /// Attributes for tagging and selection
     pub attributes: Attributes,
 }
@@ -171,6 +174,7 @@ impl CdsTranche {
             effective_date: None,
             accumulated_loss: tranche_params.accumulated_loss,
             standard_imm_dates: false,
+            upfront: None,
             attributes: Attributes::new(),
         }
     }
@@ -212,6 +216,7 @@ impl CdsTranche {
             effective_date: None,
             accumulated_loss: tranche_params.accumulated_loss,
             standard_imm_dates: true,
+            upfront: None,
             attributes: Attributes::new(),
         }
     }

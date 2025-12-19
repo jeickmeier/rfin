@@ -132,7 +132,10 @@ impl InterestRateFuture {
             .quoted_price(95.50)
             .day_count(finstack_core::dates::DayCount::Act360)
             .position(Position::Long)
-            .contract_specs(FutureContractSpecs::default())
+            .contract_specs(FutureContractSpecs {
+                convexity_adjustment: Some(0.0), // Strict mode requires explicit adjustment or vol surface
+                ..FutureContractSpecs::default()
+            })
             .discount_curve_id(CurveId::new("USD-OIS"))
             .forward_id(CurveId::new("USD-SOFR-3M"))
             .attributes(Attributes::new())
@@ -157,7 +160,14 @@ impl InterestRateFuture {
     /// PV = (R_implied - R_model_adj) × FaceValue × tau(period_start, period_end) × contracts × position_sign
     ///
     /// Uses discount/forward curves from the MarketContext and applies convexity adjustments.
+    /// Calculates the present value of the interest rate future (rounded Money)
     pub fn npv(&self, context: &MarketContext) -> finstack_core::Result<Money> {
+        let pv = self.npv_raw(context)?;
+        Ok(Money::new(pv, self.notional.currency()))
+    }
+
+    /// Calculates the raw present value of the interest rate future (f64)
+    pub fn npv_raw(&self, context: &MarketContext) -> finstack_core::Result<f64> {
         use finstack_core::dates::DayCountCtx;
 
         let disc = context.get_discount_ref(&self.discount_curve_id)?;
@@ -197,7 +207,7 @@ impl InterestRateFuture {
             .year_fraction(self.period_start, self.period_end, DayCountCtx::default())?
             .max(0.0);
         if tau == 0.0 {
-            return Ok(Money::new(0.0, self.notional.currency()));
+            return Ok(0.0);
         }
 
         // Position sign: Long benefits when implied > model (rates down → price up)
@@ -215,7 +225,7 @@ impl InterestRateFuture {
 
         let pv_per_contract = (implied_rate - adjusted_rate) * self.contract_specs.face_value * tau;
         let pv_total = sign * contracts_scale * pv_per_contract;
-        Ok(Money::new(pv_total, self.notional.currency()))
+        Ok(pv_total)
     }
 
     /// Derive contract tick value for the instrument accrual.
@@ -248,19 +258,14 @@ impl InterestRateFuture {
             let surface = context.surface(vol_id)?;
             surface.value_checked(t_fixing, forward_rate)?
         } else {
-            // Estimate convexity using a Hull-White style approximation
-            // Fallback hardcoded volatilities (should be roughly Normal vol)
-            if t_fixing <= 0.25 {
-                0.008
-            } else if t_fixing <= 0.5 {
-                0.0085
-            } else if t_fixing <= 1.0 {
-                0.009
-            } else if t_fixing <= 2.0 {
-                0.0095
-            } else {
-                0.01
-            }
+            return Err(finstack_core::Error::Input(
+                finstack_core::error::InputError::NotFound {
+                    id: format!(
+                        "IR Future {}: Missing volatility_id or fixed convexity_adjustment",
+                        self.id
+                    ),
+                },
+            ));
         };
 
         let tau_len = t_end - t_start;
@@ -303,6 +308,14 @@ impl crate::instruments::common::traits::Instrument for InterestRateFuture {
         _as_of: finstack_core::dates::Date,
     ) -> finstack_core::Result<finstack_core::money::Money> {
         self.npv(curves)
+    }
+
+    fn value_raw(
+        &self,
+        curves: &finstack_core::market_data::context::MarketContext,
+        _as_of: finstack_core::dates::Date,
+    ) -> finstack_core::Result<f64> {
+        self.npv_raw(curves)
     }
 
     fn price_with_metrics(
