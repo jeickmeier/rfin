@@ -94,24 +94,19 @@ pub fn execute_waterfall_with_explanation(
         .iter()
         .map(|t| t.recipients.len())
         .sum::<usize>();
-    let mut distributions: HashMap<RecipientType, Money> =
-        HashMap::with_capacity(estimated_recipients);
-    let mut payment_records = Vec::with_capacity(estimated_recipients);
+    let mut allocation_output = AllocationOutput::with_capacity(estimated_recipients, &explain);
     let mut total_diverted = Money::new(0.0, waterfall.base_currency);
     let mut had_diversions = false;
     let mut diversion_reason = None;
 
-    let mut trace = if explain.enabled {
-        Some(ExplanationTrace::new("waterfall"))
-    } else {
-        None
-    };
-
-    // Build tranche index for O(1) lookup by id
-    let mut tranche_index: HashMap<&str, usize> = HashMap::with_capacity(tranches.tranches.len());
-    for (i, t) in tranches.tranches.iter().enumerate() {
-        tranche_index.insert(t.id.as_str(), i);
-    }
+    // Build allocation context for reuse across tiers
+    let allocation_ctx = AllocationContext::new(
+        waterfall.base_currency,
+        tranches,
+        context.pool_balance,
+        context.payment_date,
+        context.market,
+    );
 
     // Evaluate coverage tests
     let coverage_test_results = evaluate_coverage_tests(
@@ -150,37 +145,23 @@ pub fn execute_waterfall_with_explanation(
 
         let tier_cash = match tier.allocation_mode {
             AllocationMode::Sequential => allocate_sequential(
-                waterfall.base_currency,
+                &allocation_ctx,
                 tier,
                 target_recipients,
                 remaining,
-                tranches,
-                &tranche_index,
-                context.pool_balance,
                 context.period_start,
-                context.payment_date,
-                context.market,
                 tier_diverted,
-                &mut distributions,
-                &mut payment_records,
-                &mut trace,
+                &mut allocation_output,
                 &explain,
             )?,
             AllocationMode::ProRata => allocate_pro_rata(
-                waterfall.base_currency,
+                &allocation_ctx,
                 tier,
                 target_recipients,
                 remaining,
-                tranches,
-                &tranche_index,
-                context.pool_balance,
                 context.period_start,
-                context.payment_date,
-                context.market,
                 tier_diverted,
-                &mut distributions,
-                &mut payment_records,
-                &mut trace,
+                &mut allocation_output,
                 &explain,
             )?,
         };
@@ -197,14 +178,14 @@ pub fn execute_waterfall_with_explanation(
         payment_date: context.payment_date,
         total_available: context.available_cash,
         tier_allocations,
-        distributions,
-        payment_records,
+        distributions: allocation_output.distributions,
+        payment_records: allocation_output.payment_records,
         coverage_tests: coverage_test_results,
         diverted_cash: total_diverted,
         remaining_cash: remaining,
         had_diversions,
         diversion_reason,
-        explanation: trace,
+        explanation: allocation_output.trace,
     })
 }
 
@@ -222,7 +203,7 @@ pub fn execute_waterfall_with_workspace(
     let mut had_diversions = false;
     let mut diversion_reason = None;
 
-    let mut trace = if explain.enabled {
+    let trace = if explain.enabled {
         Some(ExplanationTrace::new("waterfall"))
     } else {
         None
@@ -233,6 +214,16 @@ pub fn execute_waterfall_with_workspace(
         .iter()
         .map(|(k, v)| (k.as_str(), *v))
         .collect();
+
+    // Build allocation context for reuse across tiers
+    let allocation_ctx = AllocationContext {
+        base_currency: waterfall.base_currency,
+        tranches,
+        tranche_index,
+        pool_balance: context.pool_balance,
+        payment_date: context.payment_date,
+        market: context.market,
+    };
 
     // Evaluate coverage tests into workspace buffer
     workspace.coverage_tests.clear();
@@ -257,6 +248,13 @@ pub fn execute_waterfall_with_workspace(
         diversion_reason = Some("OC or IC test failed".to_string());
     }
 
+    // Create allocation output from workspace state
+    let mut allocation_output = AllocationOutput {
+        distributions: std::mem::take(&mut workspace.distributions),
+        payment_records: std::mem::take(&mut workspace.payment_records),
+        trace,
+    };
+
     for tier in &waterfall.tiers {
         let (target_recipients, tier_diverted): (&[Recipient], bool) = if tier.divertible
             && diversion_active
@@ -276,37 +274,23 @@ pub fn execute_waterfall_with_workspace(
 
         let tier_cash = match tier.allocation_mode {
             AllocationMode::Sequential => allocate_sequential(
-                waterfall.base_currency,
+                &allocation_ctx,
                 tier,
                 target_recipients,
                 remaining,
-                tranches,
-                &tranche_index,
-                context.pool_balance,
                 context.period_start,
-                context.payment_date,
-                context.market,
                 tier_diverted,
-                &mut workspace.distributions,
-                &mut workspace.payment_records,
-                &mut trace,
+                &mut allocation_output,
                 &explain,
             )?,
             AllocationMode::ProRata => allocate_pro_rata(
-                waterfall.base_currency,
+                &allocation_ctx,
                 tier,
                 target_recipients,
                 remaining,
-                tranches,
-                &tranche_index,
-                context.pool_balance,
                 context.period_start,
-                context.payment_date,
-                context.market,
                 tier_diverted,
-                &mut workspace.distributions,
-                &mut workspace.payment_records,
-                &mut trace,
+                &mut allocation_output,
                 &explain,
             )?,
         };
@@ -321,18 +305,22 @@ pub fn execute_waterfall_with_workspace(
         remaining = remaining.checked_sub(tier_cash)?;
     }
 
+    // Restore workspace state for future reuse
+    workspace.distributions = allocation_output.distributions.clone();
+    workspace.payment_records = allocation_output.payment_records.clone();
+
     Ok(WaterfallDistribution {
         payment_date: context.payment_date,
         total_available: context.available_cash,
         tier_allocations: workspace.tier_allocations.clone(),
-        distributions: workspace.distributions.clone(),
-        payment_records: workspace.payment_records.clone(),
+        distributions: allocation_output.distributions,
+        payment_records: allocation_output.payment_records,
         coverage_tests: workspace.coverage_tests.clone(),
         diverted_cash: total_diverted,
         remaining_cash: remaining,
         had_diversions,
         diversion_reason,
-        explanation: trace,
+        explanation: allocation_output.trace,
     })
 }
 
@@ -418,22 +406,16 @@ impl AllocationOutput {
 /// Allocate cash sequentially to recipients.
 #[allow(clippy::too_many_arguments)]
 fn allocate_sequential(
-    base_currency: Currency,
+    ctx: &AllocationContext,
     tier: &WaterfallTier,
     recipients: &[Recipient],
     mut available: Money,
-    tranches: &TrancheStructure,
-    tranche_index: &HashMap<&str, usize>,
-    pool_balance: Money,
     period_start: Date,
-    payment_date: Date,
-    market: &MarketContext,
     diverted: bool,
-    distributions: &mut HashMap<RecipientType, Money>,
-    payment_records: &mut Vec<PaymentRecord>,
-    trace: &mut Option<ExplanationTrace>,
+    output: &mut AllocationOutput,
     explain: &ExplainOpts,
 ) -> Result<Money> {
+    let base_currency = ctx.base_currency;
     let mut tier_total = Money::new(0.0, base_currency);
 
     for recipient in recipients {
@@ -445,12 +427,12 @@ fn allocate_sequential(
             base_currency,
             &recipient.calculation,
             available,
-            tranches,
-            tranche_index,
-            pool_balance,
+            ctx.tranches,
+            &ctx.tranche_index,
+            ctx.pool_balance,
             period_start,
-            payment_date,
-            market,
+            ctx.payment_date,
+            ctx.market,
         )?;
 
         let paid = if requested.amount() <= available.amount() {
@@ -465,7 +447,7 @@ fn allocate_sequential(
 
         // Update distributions
         use std::collections::hash_map::Entry;
-        match distributions.entry(recipient.recipient_type.clone()) {
+        match output.distributions.entry(recipient.recipient_type.clone()) {
             Entry::Occupied(mut e) => {
                 let next = e.get().checked_add(paid)?;
                 e.insert(next);
@@ -475,7 +457,7 @@ fn allocate_sequential(
             }
         }
 
-        payment_records.push(PaymentRecord {
+        output.payment_records.push(PaymentRecord {
             tier_id: tier.id.clone(),
             recipient_id: recipient.id.clone(),
             priority: tier.priority,
@@ -486,7 +468,7 @@ fn allocate_sequential(
             diverted,
         });
 
-        if let Some(ref mut t) = trace {
+        if let Some(ref mut t) = output.trace {
             t.push(
                 TraceEntry::WaterfallStep {
                     period: 0,
@@ -523,22 +505,16 @@ fn allocate_sequential(
 /// Allocate cash pro-rata to recipients using penny-safe allocation.
 #[allow(clippy::too_many_arguments)]
 fn allocate_pro_rata(
-    base_currency: Currency,
+    ctx: &AllocationContext,
     tier: &WaterfallTier,
     recipients: &[Recipient],
     available: Money,
-    tranches: &TrancheStructure,
-    tranche_index: &HashMap<&str, usize>,
-    pool_balance: Money,
     period_start: Date,
-    payment_date: Date,
-    market: &MarketContext,
     diverted: bool,
-    distributions: &mut HashMap<RecipientType, Money>,
-    payment_records: &mut Vec<PaymentRecord>,
-    trace: &mut Option<ExplanationTrace>,
+    output: &mut AllocationOutput,
     explain: &ExplainOpts,
 ) -> Result<Money> {
+    let base_currency = ctx.base_currency;
     if recipients.is_empty() {
         return Ok(Money::new(0.0, base_currency));
     }
@@ -552,12 +528,12 @@ fn allocate_pro_rata(
             base_currency,
             &recipient.calculation,
             available,
-            tranches,
-            tranche_index,
-            pool_balance,
+            ctx.tranches,
+            &ctx.tranche_index,
+            ctx.pool_balance,
             period_start,
-            payment_date,
-            market,
+            ctx.payment_date,
+            ctx.market,
         )?;
         total_requested = total_requested.checked_add(requested)?;
         recipient_requests.push((recipient, requested));
@@ -633,7 +609,7 @@ fn allocate_pro_rata(
             .unwrap_or(Money::new(0.0, base_currency));
 
         use std::collections::hash_map::Entry;
-        match distributions.entry(recipient.recipient_type.clone()) {
+        match output.distributions.entry(recipient.recipient_type.clone()) {
             Entry::Occupied(mut e) => {
                 let next = e.get().checked_add(paid)?;
                 e.insert(next);
@@ -650,7 +626,7 @@ fn allocate_pro_rata(
             1.0 / recipients.len() as f64
         };
 
-        payment_records.push(PaymentRecord {
+        output.payment_records.push(PaymentRecord {
             tier_id: tier.id.clone(),
             recipient_id: recipient.id.clone(),
             priority: tier.priority,
@@ -661,7 +637,7 @@ fn allocate_pro_rata(
             diverted,
         });
 
-        if let Some(ref mut t) = trace {
+        if let Some(ref mut t) = output.trace {
             t.push(
                 TraceEntry::WaterfallStep {
                     period: 0,

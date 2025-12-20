@@ -286,24 +286,29 @@ cargo build --lib  # ✅ Compiles successfully
 
 ---
 
-### [ ] Step 3.2: Refactor allocate_pro_rata() and allocate_sequential()
+### [x] Step 3.2: Refactor allocate_pro_rata() and allocate_sequential()
+<!-- chat-id: 07d0d6ba-3ad0-4e5c-8574-2402ed1cc8c9 -->
 **File**: `finstack/valuations/src/instruments/structured_credit/pricing/waterfall.rs`
 
 **Tasks**:
-- Update `allocate_pro_rata()` signature to take context structs
-- Keep internal logic identical initially
-- Update `allocate_sequential()` similarly
-- Update all call sites to construct context structs
+- ✅ Update `allocate_pro_rata()` signature to take context structs
+- ✅ Keep internal logic identical initially
+- ✅ Update `allocate_sequential()` similarly
+- ✅ Update all call sites to construct context structs
 
 **Verification**:
 ```bash
-cargo test --lib instruments::structured_credit::pricing::waterfall
+cargo test --lib instruments::structured_credit::pricing::waterfall  # ✅ 1 test passed
+cargo test --test instruments_tests structured_credit                # ✅ 195 tests passed
+cargo clippy --lib --package finstack-valuations -- -D warnings      # ✅ No warnings
 ```
 
 **Acceptance**:
-- ✅ Functions compile with new signatures
-- ✅ All tests pass unchanged
-- ✅ Call sites updated correctly
+- ✅ Functions compile with new signatures (reduced from 15 to 8 parameters)
+- ✅ All tests pass unchanged (196 total tests passing)
+- ✅ Call sites updated correctly (execute_waterfall and execute_waterfall_with_workspace)
+- ✅ Added `#[allow(clippy::too_many_arguments)]` for 8-parameter functions
+- ✅ Internal logic unchanged - all behavior preserved
 
 ---
 
