@@ -87,7 +87,8 @@ cargo clippy -- -D warnings
 
 ---
 
-### [ ] Step 1.2: Implement Metrics Strict Mode
+### [x] Step 1.2: Implement Metrics Strict Mode
+<!-- chat-id: 900079e3-c324-43d7-a181-98a77f67e2fd -->
 
 **Goal**: Add strict/best-effort modes to MetricRegistry with proper error propagation.
 
@@ -147,6 +148,30 @@ cargo clippy -- -D warnings
 - Circular dependencies detected with full path
 - All tests pass
 - No clippy warnings
+
+**Completed**:
+- ✅ Added `StrictMode` enum with `Strict` and `BestEffort` variants (with comprehensive documentation)
+- ✅ Modified `compute()` to default to strict mode (breaking change)
+- ✅ Added `compute_best_effort()` public method for opt-in fallback behavior
+- ✅ Added internal `compute_with_mode()` method for mode control
+- ✅ Updated error handling in compute implementation:
+  - Strict mode: returns `UnknownMetric`, `MetricNotApplicable`, or `MetricCalculationFailed` errors
+  - Best effort mode: logs warnings and inserts 0.0 as fallback
+- ✅ Fixed dependency resolution to propagate errors (removed `let _ =` pattern)
+- ✅ Enhanced cycle detection in `visit_metric()` with full path tracking using `CircularDependency` error
+- ✅ Added 9 comprehensive unit tests:
+  - `test_strict_mode_unknown_metric()` - verifies UnknownMetric error
+  - `test_strict_mode_calculation_failure()` - verifies MetricCalculationFailed error
+  - `test_strict_mode_not_applicable()` - verifies MetricNotApplicable error
+  - `test_best_effort_mode_fallback()` - verifies 0.0 fallback behavior
+  - `test_circular_dependency_detection()` - verifies CircularDependency error with path
+  - `test_dependency_resolution_error_propagation()` - verifies nested circular deps detected
+  - `test_strict_mode_is_default()` - verifies strict is default
+  - `test_dependency_ordering()` - verifies correct dependency resolution order
+  - `test_mixed_success_and_failure_best_effort()` - verifies partial success in best-effort mode
+- ✅ All 9 tests pass
+- ✅ Clippy passes with zero warnings
+- ✅ Documentation updated with examples for all new APIs
 
 ---
 
