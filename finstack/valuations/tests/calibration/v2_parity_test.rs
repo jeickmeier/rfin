@@ -44,7 +44,7 @@ fn test_v2_simple_usd_calibration() {
             index: IndexId::new("USD-OIS"),
             pillar: Pillar::Tenor(Tenor::parse(tenor).unwrap()),
             rate,
-            spread: None,
+            spread_decimal: None,
         }));
     }
 

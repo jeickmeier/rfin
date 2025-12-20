@@ -310,12 +310,12 @@ fn test_fx_settlement_integration() {
     )
     .expect("GBP/JPY spot date calculation should succeed");
 
-    // Expected: Fri May 2 (business day both), Mon May 5 (UK holiday, JPX open) → skip,
-    // Tue May 6 (both open) → settle May 6
+    // Expected: Wed May 7, 2025
+    // (May 5 is joint closure UK+JP, May 6 is JPX substitute holiday)
     assert_eq!(
         gbp_jpy_spot,
-        date!(2025 - 05 - 06),
-        "GBP/JPY T+2 spot from May 1, 2025 should be May 6, 2025 (skips UK holiday)"
+        date!(2025 - 05 - 07),
+        "GBP/JPY T+2 spot from May 1, 2025 should be May 7, 2025 (skips May 5-6 holidays)"
     );
 
     println!("✓ FX settlement integration test passed:");

@@ -796,7 +796,7 @@ cargo test results::dataframe --lib
 
 ---
 
-### [ ] Step 3.4: Phase 3 Integration & Regression Suite
+### [x] Step 3.4: Phase 3 Integration & Regression Suite
 <!-- chat-id: 00636a2e-87a1-4b65-a6a5-753fcc1004a3 -->
 
 **Goal**: Full regression testing across all phases.
@@ -829,6 +829,25 @@ cargo test --test full_regression -- --nocapture --test-threads=1
 - Golden file differences explained and documented
 - No unexpected behavioral changes
 - Performance benchmarks within tolerance (<10% regression)
+
+**Completed**:
+- ✅ Created comprehensive regression suite (`finstack/valuations/tests/integration/full_regression.rs`)
+- ✅ Implemented 4 end-to-end integration tests covering all phases:
+  - `test_full_workflow_100_bond_portfolio` - 100 bonds across 3 currencies, 9 metrics per bond (900 total metrics), strict mode validation
+  - `test_fx_settlement_integration` - FX spot date calculations with joint business day counting (USD/EUR, GBP/JPY)
+  - `test_metrics_strict_mode_no_silent_failures` - Strict mode prevents silent zeros, unknown metrics rejected
+  - `test_dataframe_export_metric_keys` - DataFrame export uses correct MetricId constants
+- ✅ Fixed 3 test files with outdated `spread` field (now `spread_decimal`):
+  - `tests/market/build/test_rates.rs`
+  - `tests/calibration/test_bloomberg_calibration_accuracy.rs`
+  - `tests/calibration/v2_parity_test.rs`
+- ✅ All 4 regression tests passing (100% pass rate)
+- ✅ Tests validate:
+  - Phase 1: Metrics strict mode with error propagation (no silent failures)
+  - Phase 2: FX settlement with joint business day logic (ISDA-compliant)
+  - Phase 3: DataFrame export with correct metric key mapping
+- ✅ Updated `tests/integration/mod.rs` to include full_regression module
+- ✅ Zero clippy warnings in test code
 
 ---
 

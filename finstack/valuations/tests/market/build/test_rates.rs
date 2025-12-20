@@ -85,7 +85,7 @@ fn test_build_swap() {
         index: "USD-SOFR-3M".into(),
         pillar: Pillar::Tenor(Tenor::parse("5Y").unwrap()),
         rate: 0.030,
-        spread: None,
+        spread_decimal: None,
     };
 
     let instrument = build_rate_instrument(&quote, &ctx).expect("build swap");

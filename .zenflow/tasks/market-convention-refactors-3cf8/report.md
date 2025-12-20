@@ -3,7 +3,7 @@
 **Task**: Market Convention Refactors  
 **Complexity**: HARD  
 **Duration**: December 18-20, 2024 (3 working days)  
-**Status**: ✅ Complete (15/16 steps)
+**Status**: ✅ Complete (16/16 steps - 100%)
 
 ---
 
@@ -17,7 +17,7 @@ This report summarizes the successful implementation of critical market conventi
 |--------|-------|
 | **Breaking Changes Implemented** | 4 critical fixes |
 | **New Safety Features** | 8 APIs (strict parsing, joint business days, etc.) |
-| **Tests Added** | 69 tests (19 integration, 50+ unit) |
+| **Tests Added** | 73 tests (23 integration, 50+ unit) |
 | **Documentation** | 170+ KB (migration guide, changelog, API docs) |
 | **Files Modified** | 23 core files across 4 crates |
 | **Lines of Code Changed** | ~3,000 lines (est.) |
@@ -160,7 +160,7 @@ This report summarizes the successful implementation of critical market conventi
 
 ### Phase 3: API Safety & Reporting (Week 3)
 
-**Status**: ⚠️ Mostly Complete (3/4 steps)
+**Status**: ✅ Complete (4/4 steps)
 
 #### 3.1 Deprecate Panicking Constructors
 **Location**: `finstack/valuations/src/instruments/cds_option/`
@@ -209,14 +209,23 @@ This report summarizes the successful implementation of critical market conventi
 **Impact**: DataFrame exports now correctly populate duration, DV01, convexity, YTM fields. No more missing metrics due to key drift.
 
 #### 3.4 Phase 3 Integration & Regression Suite
-**Status**: ❌ Not Completed
+**Status**: ✅ Complete
 
-**Reason**: Step was deferred due to time constraints. Existing integration tests from earlier phases provide adequate coverage:
-- Phase 1: 7 metrics integration tests
-- Phase 2: 12 FX settlement integration tests
-- Combined: 19 integration tests covering all breaking changes
+**Created**:
+- Comprehensive regression test suite (`finstack/valuations/tests/integration/full_regression.rs`)
+- 4 end-to-end integration tests (488 lines):
+  - `test_full_workflow_100_bond_portfolio` - Multi-currency portfolio pricing
+  - `test_fx_settlement_integration` - FX spot date validation
+  - `test_metrics_strict_mode_no_silent_failures` - Strict mode error handling
+  - `test_dataframe_export_metric_keys` - DataFrame export validation
+- Portfolio: 100 bonds (60 USD, 25 EUR, 15 GBP) with varying maturities (1-10 years)
+- Metrics: 9 metrics per bond computed in strict mode (900 total computations)
+- All tests passing with 100% success rate
 
-**Recommended**: Add comprehensive end-to-end regression suite in 0.9.0 release.
+**Fixed**:
+- 3 test files updated to use `spread_decimal` instead of deprecated `spread` field
+
+**Impact**: Comprehensive regression coverage across all 3 phases with realistic portfolio sizes and multi-currency scenarios.
 
 ---
 
@@ -321,7 +330,7 @@ This report summarizes the successful implementation of critical market conventi
 
 ### Integration Test Coverage
 
-**Total**: 19 integration tests
+**Total**: 23 integration tests
 
 **Phase 1 (Metrics)**:
 - `metrics_strict_mode.rs` - 7 tests:
@@ -345,6 +354,13 @@ This report summarizes the successful implementation of critical market conventi
   - Error handling (unknown calendars)
   - Calendar resolution correctness
   - Iteration limit safety
+
+**Phase 3 (Full Regression)**:
+- `full_regression.rs` - 4 tests:
+  - 100-bond multi-currency portfolio workflow (900 metrics computed)
+  - FX settlement integration (USD/EUR, GBP/JPY spot date validation)
+  - Metrics strict mode with no silent failures
+  - DataFrame export with correct metric key mapping
 
 ### Golden Reference Files
 
@@ -800,22 +816,17 @@ cargo test --package finstack-valuations calibration::targets::discount
 
 ### Medium-Term (0.9.0 Release - Q1 2025)
 
-1. **Complete Step 3.4**: Full regression suite
-   - End-to-end workflow tests (calibration → pricing → metrics → export)
-   - Multi-instrument portfolio tests
-   - Scenario testing with edge cases
-
-2. **Technical Debt Reduction**: Address 199 expect/panic violations
+1. **Technical Debt Reduction**: Address 199 expect/panic violations
    - Prioritize constructors (~50 files)
    - Calibration paths (~70 violations)
    - Pricing engine (~40 violations)
    - Test/unreachable cases (~39 violations)
 
-3. **Performance Optimizations**: Based on benchmark results
+2. **Performance Optimizations**: Based on benchmark results
    - Identify any regressions
    - Optimize hot paths if needed
 
-4. **Documentation Refinements**: Based on user feedback
+3. **Documentation Refinements**: Based on user feedback
    - Update migration guide with real-world examples
    - Add more FAQ entries
    - Create video walkthrough (optional)
@@ -843,7 +854,7 @@ cargo test --package finstack-valuations calibration::targets::discount
 ### Functional Requirements
 
 - [x] **All unit tests pass** (50+ tests, 100% pass rate)
-- [x] **All integration tests pass** (19 tests, 100% pass rate)
+- [x] **All integration tests pass** (23 tests, 100% pass rate)
 - [x] **Golden files updated** (fx_spot_dates.json with documented rationale)
 - [x] **Clippy and rustfmt pass** (zero new warnings)
 
@@ -866,9 +877,7 @@ cargo test --package finstack-valuations calibration::targets::discount
 - [x] **Calibration tolerances work across notionals** (tested with 1.0 and 1M notionals)
 - [x] **Metric errors are actionable** (no silent zeros in strict mode, detailed error messages)
 
-**Overall Status**: ✅ **15/16 steps complete** (94%)
-
-**Deferred**: Step 3.4 (comprehensive regression suite) - recommended for 0.9.0
+**Overall Status**: ✅ **16/16 steps complete** (100%)
 
 ---
 
@@ -886,7 +895,7 @@ The Market Convention Refactors task successfully addressed **4 critical safety 
 1. **Correctness**: All critical bugs fixed with golden test validation
 2. **Safety**: Strict mode default prevents silent errors; safety lints prevent regressions
 3. **Compliance**: FX settlement now ISDA-compliant (validated against 5 market calendars)
-4. **Testing**: 69 tests with 100% coverage of new error paths
+4. **Testing**: 73 tests with 100% coverage of new error paths and comprehensive regression suite
 5. **Documentation**: Migration guide with decision tree, FAQ, and multiple strategies
 6. **Bindings**: Python and WASM updated with API parity
 
@@ -901,10 +910,9 @@ The Market Convention Refactors task successfully addressed **4 critical safety 
 **Ready for Release** with the following caveats:
 
 1. ✅ **Code**: All safety fixes implemented and tested
-2. ✅ **Tests**: Comprehensive coverage (69 tests, golden references)
+2. ✅ **Tests**: Comprehensive coverage (73 tests including full regression suite, golden references)
 3. ✅ **Docs**: Migration support complete and verified
 4. ⚠️ **Performance**: Benchmark infrastructure ready; full validation pending
-5. ⚠️ **Regression**: Step 3.4 deferred to 0.9.0 (existing 19 integration tests provide interim coverage)
 
 **Action**: Proceed to version tagging after addressing pre-release checklist (version update, link updates, final smoke test).
 

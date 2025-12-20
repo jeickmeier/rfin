@@ -37,7 +37,7 @@ fn ois_swap(maturity: Date, rate: f64) -> RateQuote {
         index: IndexId::new("USD-FEDFUNDS-OIS"),
         pillar: Pillar::Date(maturity),
         rate,
-        spread: None,
+        spread_decimal: None,
     }
 }
 
