@@ -64,15 +64,16 @@ cargo test --lib attribution::factors::tests::test_market_snapshot_extract
 
 ---
 
-### [ ] Step 1.3: Implement unified restore_market() function
+### [x] Step 1.3: Implement unified restore_market() function
+<!-- chat-id: 18935f55-622c-437f-ac5b-c24f7b4209bd -->
 **File**: `finstack/valuations/src/attribution/factors.rs`
 
 **Tasks**:
-- Implement `restore_market(current, snapshot, flags)` function
-- Use bitflag complement to determine preserved curves
-- Insert preserved curves first, then snapshot curves
-- Copy FX, surfaces, scalars (always preserved)
-- Add helper to copy scalars (extract existing `copy_scalars` if not already separate)
+- ✅ Implement `restore_market(current, snapshot, flags)` function
+- ✅ Use bitflag complement to determine preserved curves
+- ✅ Insert preserved curves first, then snapshot curves
+- ✅ Copy FX, surfaces, scalars (always preserved)
+- ✅ Helper `copy_scalars` already exists and is used
 
 **Verification**:
 ```bash
@@ -84,6 +85,7 @@ cargo test --lib attribution::factors::tests::test_restore_market_unified
 - ✅ Preserved curves are not overwritten
 - ✅ Snapshot curves are correctly inserted
 - ✅ FX/surfaces/scalars always copied
+- ✅ All 25 tests pass (18 existing + 7 new restore_market tests)
 
 ---
 

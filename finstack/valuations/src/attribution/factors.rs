@@ -237,6 +237,110 @@ impl MarketSnapshot {
 
         snapshot
     }
+
+    /// Restore market by applying snapshot curves and preserving non-snapshot curves.
+    ///
+    /// This function selectively replaces curves in the market context based on the restore flags.
+    /// Curves marked by `restore_flags` are taken from the snapshot, while all other curves
+    /// are preserved from the current market. FX, surfaces, and scalars are always preserved
+    /// from the current market.
+    ///
+    /// # Arguments
+    ///
+    /// * `current_market` - The current market context to start from
+    /// * `snapshot` - Snapshot containing curves to restore
+    /// * `restore_flags` - Flags indicating which curve families to restore from snapshot
+    ///
+    /// # Returns
+    ///
+    /// A new market context with the specified curves restored from snapshot and all other
+    /// data preserved from the current market.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use finstack_valuations::attribution::factors::{MarketSnapshot, CurveRestoreFlags};
+    /// use finstack_core::market_data::context::MarketContext;
+    ///
+    /// let current_market = MarketContext::new();
+    /// // ... populate current_market with various curves
+    ///
+    /// // Create a snapshot with just discount curves
+    /// let snapshot = MarketSnapshot::extract(&current_market, CurveRestoreFlags::DISCOUNT);
+    ///
+    /// // Restore only discount curves, preserve everything else
+    /// let new_market = MarketSnapshot::restore_market(
+    ///     &current_market,
+    ///     &snapshot,
+    ///     CurveRestoreFlags::DISCOUNT
+    /// );
+    ///
+    /// // Restore all rates curves (discount + forward)
+    /// let rates_snapshot = MarketSnapshot::extract(&current_market, CurveRestoreFlags::RATES);
+    /// let rates_market = MarketSnapshot::restore_market(
+    ///     &current_market,
+    ///     &rates_snapshot,
+    ///     CurveRestoreFlags::RATES
+    /// );
+    /// ```
+    pub fn restore_market(
+        current_market: &MarketContext,
+        snapshot: &MarketSnapshot,
+        restore_flags: CurveRestoreFlags,
+    ) -> MarketContext {
+        let mut new_market = MarketContext::new();
+
+        // Determine which curves to preserve (complement of restore flags)
+        // Use bitwise NOT to get all flags except the ones we're restoring
+        let preserve_flags = !restore_flags & CurveRestoreFlags::all();
+
+        // Extract preserved curves from current market
+        let preserved = MarketSnapshot::extract(current_market, preserve_flags);
+
+        // Insert preserved curves first (these are NOT being restored from snapshot)
+        for (_id, curve) in &preserved.discount_curves {
+            new_market = new_market.insert_discount(Arc::clone(curve));
+        }
+        for (_id, curve) in &preserved.forward_curves {
+            new_market = new_market.insert_forward(Arc::clone(curve));
+        }
+        for (_id, curve) in &preserved.hazard_curves {
+            new_market = new_market.insert_hazard(Arc::clone(curve));
+        }
+        for (_id, curve) in &preserved.inflation_curves {
+            new_market = new_market.insert_inflation(Arc::clone(curve));
+        }
+        for (_id, curve) in &preserved.base_correlation_curves {
+            new_market = new_market.insert_base_correlation(Arc::clone(curve));
+        }
+
+        // Insert snapshot curves (these ARE being restored)
+        // Only insert curves that were actually in the snapshot
+        for (_id, curve) in &snapshot.discount_curves {
+            new_market = new_market.insert_discount(Arc::clone(curve));
+        }
+        for (_id, curve) in &snapshot.forward_curves {
+            new_market = new_market.insert_forward(Arc::clone(curve));
+        }
+        for (_id, curve) in &snapshot.hazard_curves {
+            new_market = new_market.insert_hazard(Arc::clone(curve));
+        }
+        for (_id, curve) in &snapshot.inflation_curves {
+            new_market = new_market.insert_inflation(Arc::clone(curve));
+        }
+        for (_id, curve) in &snapshot.base_correlation_curves {
+            new_market = new_market.insert_base_correlation(Arc::clone(curve));
+        }
+
+        // Always preserve FX, surfaces, and scalars from current market
+        if let Some(fx) = &current_market.fx {
+            new_market.insert_fx_mut(Arc::clone(fx));
+        }
+        new_market.surfaces = current_market.surfaces.clone();
+        copy_scalars(current_market, &mut new_market);
+
+        new_market
+    }
 }
 
 /// Extract all discount and forward curves from a market context.
@@ -1038,5 +1142,278 @@ mod tests {
         assert!(snapshot.hazard_curves.is_empty());
         assert!(snapshot.inflation_curves.is_empty());
         assert!(snapshot.base_correlation_curves.is_empty());
+    }
+
+    #[test]
+    fn test_restore_market_unified_discount_only() {
+        let base_date = date!(2025 - 01 - 15);
+        let discount_curve = create_test_discount_curve("USD-OIS", base_date);
+        let forward_curve = create_test_forward_curve("USD-SOFR", base_date);
+        let hazard_curve = create_test_hazard_curve("CORP-A", base_date);
+
+        let current_market = MarketContext::new()
+            .insert_discount(discount_curve)
+            .insert_forward(forward_curve)
+            .insert_hazard(hazard_curve);
+
+        // Create snapshot with a different discount curve
+        let new_discount = create_test_discount_curve("EUR-OIS", base_date);
+        let snapshot = MarketSnapshot {
+            discount_curves: vec![("EUR-OIS".into(), Arc::new(new_discount))]
+                .into_iter()
+                .collect(),
+            ..Default::default()
+        };
+
+        // Restore only discount curves
+        let restored = MarketSnapshot::restore_market(
+            &current_market,
+            &snapshot,
+            CurveRestoreFlags::DISCOUNT,
+        );
+
+        // Should have new discount curve from snapshot
+        assert!(restored.get_discount("EUR-OIS").is_ok());
+        // Original discount curve should be replaced
+        assert!(restored.get_discount("USD-OIS").is_err());
+        // Forward and hazard curves should be preserved
+        assert!(restored.get_forward("USD-SOFR").is_ok());
+        assert!(restored.get_hazard("CORP-A").is_ok());
+    }
+
+    #[test]
+    fn test_restore_market_unified_rates() {
+        let base_date = date!(2025 - 01 - 15);
+        let discount_curve = create_test_discount_curve("USD-OIS", base_date);
+        let forward_curve = create_test_forward_curve("USD-SOFR", base_date);
+        let hazard_curve = create_test_hazard_curve("CORP-A", base_date);
+
+        let current_market = MarketContext::new()
+            .insert_discount(discount_curve)
+            .insert_forward(forward_curve)
+            .insert_hazard(hazard_curve);
+
+        // Create snapshot with new rates curves
+        let new_discount = create_test_discount_curve("EUR-OIS", base_date);
+        let new_forward = create_test_forward_curve("EUR-ESTR", base_date);
+        let snapshot = MarketSnapshot {
+            discount_curves: vec![("EUR-OIS".into(), Arc::new(new_discount))]
+                .into_iter()
+                .collect(),
+            forward_curves: vec![("EUR-ESTR".into(), Arc::new(new_forward))]
+                .into_iter()
+                .collect(),
+            ..Default::default()
+        };
+
+        // Restore rates curves (discount + forward)
+        let restored = MarketSnapshot::restore_market(
+            &current_market,
+            &snapshot,
+            CurveRestoreFlags::RATES,
+        );
+
+        // Should have new rates curves from snapshot
+        assert!(restored.get_discount("EUR-OIS").is_ok());
+        assert!(restored.get_forward("EUR-ESTR").is_ok());
+        // Original rates curves should be replaced
+        assert!(restored.get_discount("USD-OIS").is_err());
+        assert!(restored.get_forward("USD-SOFR").is_err());
+        // Hazard curve should be preserved
+        assert!(restored.get_hazard("CORP-A").is_ok());
+    }
+
+    #[test]
+    fn test_restore_market_unified_all_curves() {
+        let base_date = date!(2025 - 01 - 15);
+        let discount_curve = create_test_discount_curve("USD-OIS", base_date);
+        let forward_curve = create_test_forward_curve("USD-SOFR", base_date);
+        let hazard_curve = create_test_hazard_curve("CORP-A", base_date);
+        let inflation_curve = create_test_inflation_curve("US-CPI", base_date);
+        let base_corr_curve = create_test_base_correlation_curve("CDX-IG", base_date);
+
+        let current_market = MarketContext::new()
+            .insert_discount(discount_curve)
+            .insert_forward(forward_curve)
+            .insert_hazard(hazard_curve)
+            .insert_inflation(inflation_curve)
+            .insert_base_correlation(base_corr_curve);
+
+        // Create snapshot with new curves for all types
+        let new_discount = create_test_discount_curve("EUR-OIS", base_date);
+        let new_forward = create_test_forward_curve("EUR-ESTR", base_date);
+        let new_hazard = create_test_hazard_curve("CORP-B", base_date);
+        let new_inflation = create_test_inflation_curve("EU-HICP", base_date);
+        let new_base_corr = create_test_base_correlation_curve("ITRAXX", base_date);
+
+        let snapshot = MarketSnapshot {
+            discount_curves: vec![("EUR-OIS".into(), Arc::new(new_discount))]
+                .into_iter()
+                .collect(),
+            forward_curves: vec![("EUR-ESTR".into(), Arc::new(new_forward))]
+                .into_iter()
+                .collect(),
+            hazard_curves: vec![("CORP-B".into(), Arc::new(new_hazard))]
+                .into_iter()
+                .collect(),
+            inflation_curves: vec![("EU-HICP".into(), Arc::new(new_inflation))]
+                .into_iter()
+                .collect(),
+            base_correlation_curves: vec![("ITRAXX".into(), Arc::new(new_base_corr))]
+                .into_iter()
+                .collect(),
+        };
+
+        // Restore all curve types
+        let restored =
+            MarketSnapshot::restore_market(&current_market, &snapshot, CurveRestoreFlags::all());
+
+        // Should have all new curves from snapshot
+        assert!(restored.get_discount("EUR-OIS").is_ok());
+        assert!(restored.get_forward("EUR-ESTR").is_ok());
+        assert!(restored.get_hazard("CORP-B").is_ok());
+        assert!(restored.get_inflation("EU-HICP").is_ok());
+        assert!(restored.get_base_correlation("ITRAXX").is_ok());
+
+        // Original curves should be replaced
+        assert!(restored.get_discount("USD-OIS").is_err());
+        assert!(restored.get_forward("USD-SOFR").is_err());
+        assert!(restored.get_hazard("CORP-A").is_err());
+        assert!(restored.get_inflation("US-CPI").is_err());
+        assert!(restored.get_base_correlation("CDX-IG").is_err());
+    }
+
+    #[test]
+    fn test_restore_market_unified_preserve_non_restore_curves() {
+        let base_date = date!(2025 - 01 - 15);
+        let discount_curve = create_test_discount_curve("USD-OIS", base_date);
+        let forward_curve = create_test_forward_curve("USD-SOFR", base_date);
+        let hazard_curve = create_test_hazard_curve("CORP-A", base_date);
+        let inflation_curve = create_test_inflation_curve("US-CPI", base_date);
+
+        let current_market = MarketContext::new()
+            .insert_discount(discount_curve)
+            .insert_forward(forward_curve)
+            .insert_hazard(hazard_curve)
+            .insert_inflation(inflation_curve);
+
+        // Create snapshot with only new hazard curve
+        let new_hazard = create_test_hazard_curve("CORP-B", base_date);
+        let snapshot = MarketSnapshot {
+            hazard_curves: vec![("CORP-B".into(), Arc::new(new_hazard))]
+                .into_iter()
+                .collect(),
+            ..Default::default()
+        };
+
+        // Restore only hazard curves (credit)
+        let restored = MarketSnapshot::restore_market(
+            &current_market,
+            &snapshot,
+            CurveRestoreFlags::CREDIT,
+        );
+
+        // Should have new hazard curve from snapshot
+        assert!(restored.get_hazard("CORP-B").is_ok());
+        // Original hazard curve should be replaced
+        assert!(restored.get_hazard("CORP-A").is_err());
+        // All other curves should be preserved
+        assert!(restored.get_discount("USD-OIS").is_ok());
+        assert!(restored.get_forward("USD-SOFR").is_ok());
+        assert!(restored.get_inflation("US-CPI").is_ok());
+    }
+
+    #[test]
+    fn test_restore_market_unified_empty_snapshot() {
+        let base_date = date!(2025 - 01 - 15);
+        let discount_curve = create_test_discount_curve("USD-OIS", base_date);
+        let forward_curve = create_test_forward_curve("USD-SOFR", base_date);
+
+        let current_market = MarketContext::new()
+            .insert_discount(discount_curve)
+            .insert_forward(forward_curve);
+
+        // Create empty snapshot
+        let snapshot = MarketSnapshot::default();
+
+        // Restore with RATES flag but empty snapshot
+        let restored = MarketSnapshot::restore_market(
+            &current_market,
+            &snapshot,
+            CurveRestoreFlags::RATES,
+        );
+
+        // No curves should exist (snapshot was empty, so all rates curves removed)
+        assert!(restored.get_discount("USD-OIS").is_err());
+        assert!(restored.get_forward("USD-SOFR").is_err());
+    }
+
+    #[test]
+    fn test_restore_market_unified_empty_current_market() {
+        let base_date = date!(2025 - 01 - 15);
+        let current_market = MarketContext::new();
+
+        // Create snapshot with curves
+        let new_discount = create_test_discount_curve("USD-OIS", base_date);
+        let new_forward = create_test_forward_curve("USD-SOFR", base_date);
+        let snapshot = MarketSnapshot {
+            discount_curves: vec![("USD-OIS".into(), Arc::new(new_discount))]
+                .into_iter()
+                .collect(),
+            forward_curves: vec![("USD-SOFR".into(), Arc::new(new_forward))]
+                .into_iter()
+                .collect(),
+            ..Default::default()
+        };
+
+        // Restore into empty market
+        let restored = MarketSnapshot::restore_market(
+            &current_market,
+            &snapshot,
+            CurveRestoreFlags::RATES,
+        );
+
+        // Should have curves from snapshot
+        assert!(restored.get_discount("USD-OIS").is_ok());
+        assert!(restored.get_forward("USD-SOFR").is_ok());
+    }
+
+    #[test]
+    fn test_restore_market_unified_complement_flags() {
+        let base_date = date!(2025 - 01 - 15);
+        let discount_curve = create_test_discount_curve("USD-OIS", base_date);
+        let forward_curve = create_test_forward_curve("USD-SOFR", base_date);
+        let hazard_curve = create_test_hazard_curve("CORP-A", base_date);
+
+        let current_market = MarketContext::new()
+            .insert_discount(discount_curve)
+            .insert_forward(forward_curve)
+            .insert_hazard(hazard_curve);
+
+        // Create snapshot with new discount and hazard curves
+        let new_discount = create_test_discount_curve("EUR-OIS", base_date);
+        let new_hazard = create_test_hazard_curve("CORP-B", base_date);
+        let snapshot = MarketSnapshot {
+            discount_curves: vec![("EUR-OIS".into(), Arc::new(new_discount))]
+                .into_iter()
+                .collect(),
+            hazard_curves: vec![("CORP-B".into(), Arc::new(new_hazard))]
+                .into_iter()
+                .collect(),
+            ..Default::default()
+        };
+
+        // Restore everything except forward curves
+        let flags = CurveRestoreFlags::all() & !CurveRestoreFlags::FORWARD;
+        let restored = MarketSnapshot::restore_market(&current_market, &snapshot, flags);
+
+        // Should have new discount and hazard from snapshot
+        assert!(restored.get_discount("EUR-OIS").is_ok());
+        assert!(restored.get_hazard("CORP-B").is_ok());
+        // Original discount and hazard should be replaced
+        assert!(restored.get_discount("USD-OIS").is_err());
+        assert!(restored.get_hazard("CORP-A").is_err());
+        // Forward curve should be preserved (not in restore flags)
+        assert!(restored.get_forward("USD-SOFR").is_ok());
     }
 }
