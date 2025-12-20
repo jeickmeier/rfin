@@ -51,12 +51,13 @@ Save to `{@artifacts_path}/plan.md`. If the feature is trivial and doesn't warra
 
 ---
 
-### [ ] Step: Phase 1 - Remove `freeze_all_market`
+### [x] Step: Phase 1 - Remove `freeze_all_market`
+<!-- chat-id: ca45de5f-47a8-465c-a3c9-9372dba85508 -->
 
-1. Replace call site in `attribution/parallel.rs:126` with direct `market_t0.clone()`
-2. Remove function definition from `attribution/factors.rs` (lines 521-537)
-3. Remove test `test_freeze_all_market` from `attribution/factors.rs` (lines 577-588)
-4. Verify no remaining imports or references
+1. Replace call site in `attribution/parallel.rs:126` with direct `market_t0.clone()` ✅
+2. Remove function definition from `attribution/factors.rs` (lines 521-537) ✅
+3. Remove test `test_freeze_all_market` from `attribution/factors.rs` (lines 577-588) ✅
+4. Verify no remaining imports or references ✅
 
 ---
 

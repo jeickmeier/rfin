@@ -123,7 +123,7 @@ pub fn attribute_pnl_parallel(
 
     // Step 2: Carry attribution (time decay + accruals)
     // Price at T₁ date with T₀ market
-    let market_frozen = freeze_all_market(market_t0, market_t1);
+    let market_frozen = market_t0.clone();
     let val_carry = reprice_instrument(instrument, &market_frozen, as_of_t1)?;
     num_repricings += 1;
 
