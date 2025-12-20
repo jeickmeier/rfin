@@ -6,12 +6,12 @@ ensuring that both typed objects and string aliases work correctly.
 
 import datetime as dt
 
-import pytest
-
-import finstack
 from finstack.core.currency import Currency
 from finstack.core.dates import BusinessDayConvention, DayCount, Frequency, ScheduleBuilder, get_calendar
 from finstack.core.market_data import DiscountCurve
+import pytest
+
+import finstack
 
 
 class TestCurrencyConversions:

@@ -667,12 +667,13 @@ fn create_institutional_portfolio(num_positions: usize) -> finstack_portfolio::P
     for i in 0..positions_per_derivative.min(2) {
         let cds_option_id = format!("CDSOPTION_{}", i);
 
-        let option_params = CdsOptionParams::call(
+        let option_params = CdsOptionParams::try_call(
             100.0,                            // strike spread bp
             base + time::Duration::days(180), // expiry
             maturity_5y(),                    // CDS maturity
             Money::new(10_000_000.0, Currency::USD),
-        );
+        )
+        .expect("valid CDS option params");
 
         let credit_params = CreditParams::new(
             "CORP",
@@ -680,13 +681,14 @@ fn create_institutional_portfolio(num_positions: usize) -> finstack_portfolio::P
             "CORP-HAZARD",
         );
 
-        let cds_option = CdsOption::new(
+        let cds_option = CdsOption::try_new(
             cds_option_id.clone(),
             &option_params,
             &credit_params,
             "USD-OIS",
             "CDS-SPREAD-VOL",
-        );
+        )
+        .expect("valid CDS option");
 
         let entity_id = format!("FUND_{}", (i % 5) + 1);
         builder = builder.position(

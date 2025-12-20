@@ -987,7 +987,7 @@ mod tests {
             } => {
                 assert_eq!(metric_id, "invalid_metric");
                 // Should include standard metrics
-                assert!(available.len() > 0);
+                assert!(!available.is_empty());
                 assert!(available.contains(&"dv01".to_string()));
                 assert!(available.contains(&"theta".to_string()));
                 assert!(available.contains(&"cs01".to_string()));

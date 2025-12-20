@@ -144,13 +144,14 @@ impl CdsOptionBuilder {
         let expiry = as_of.add_months(self.expiry_months);
         let cds_maturity = as_of.add_months(self.cds_maturity_months);
 
-        let mut option_params = CdsOptionParams::new(
+        let mut option_params = CdsOptionParams::try_new(
             self.strike_bp,
             expiry,
             cds_maturity,
             self.notional,
             self.option_type,
-        );
+        )
+        .expect("valid option params");
 
         if self.is_index {
             option_params = option_params
@@ -159,13 +160,14 @@ impl CdsOptionBuilder {
         }
 
         let credit_params = CreditParams::corporate_standard("SN", "HZ-SN");
-        let mut option = CdsOption::new(
+        let mut option = CdsOption::try_new(
             self.id,
             &option_params,
             &credit_params,
             "USD-OIS",
             "CDS-OPT-VOL",
-        );
+        )
+        .expect("valid CDS option");
 
         if let Some(vol) = self.implied_vol {
             option.pricing_overrides.implied_volatility = Some(vol);

@@ -1181,14 +1181,14 @@ mod tests {
                     .expect("year_fraction");
 
                 let quote = crate::market::quotes::rates::RateQuote::Deposit {
-                    id: crate::market::quotes::ids::QuoteId::new(&format!("DEP-{}D", days)),
+                    id: crate::market::quotes::ids::QuoteId::new(format!("DEP-{}D", days)),
                     index: crate::market::conventions::ids::IndexId::new("USD-SOFR"),
                     pillar: crate::market::quotes::ids::Pillar::Date(maturity),
                     rate,
                 };
 
                 let instrument = std::sync::Arc::new(crate::instruments::deposit::Deposit {
-                    id: InstrumentId::new(&format!("DEP-{}D", days)),
+                    id: InstrumentId::new(format!("DEP-{}D", days)),
                     quote_rate: Some(rate),
                     discount_curve_id: CurveId::new("USD-OIS"),
                     attributes: Default::default(),

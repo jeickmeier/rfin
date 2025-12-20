@@ -17,21 +17,23 @@ fn test_cds_option_construction() {
     let expiry = date!(2026 - 01 - 01);
     let maturity = date!(2031 - 01 - 01);
 
-    let option_params = CdsOptionParams::call(
+    let option_params = CdsOptionParams::try_call(
         100.0,
         expiry,
         maturity,
         Money::new(10_000_000.0, Currency::USD),
-    );
+    )
+    .expect("valid call params");
     let credit_params = CreditParams::corporate_standard("CORP", "HZ-CORP");
 
-    let option = CdsOption::new(
+    let option = CdsOption::try_new(
         "TEST-CDSOPT",
         &option_params,
         &credit_params,
         "USD-OIS",
         "CDS-VOL",
-    );
+    )
+    .expect("valid CDS option");
 
     assert_eq!(option.id(), "TEST-CDSOPT");
     assert_eq!(option.strike_spread_bp, 100.0);
