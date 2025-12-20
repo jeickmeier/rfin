@@ -292,7 +292,8 @@ cargo test calibration --test integration_tests -- --nocapture
 
 ---
 
-### [ ] Step 1.5: Phase 1 Integration & Documentation
+### [x] Step 1.5: Phase 1 Integration & Documentation
+<!-- chat-id: d7adb084-677d-461a-8565-69b47c5396bf -->
 
 **Goal**: Integration tests and migration guide for Phase 1 changes.
 
@@ -322,6 +323,28 @@ make lint-rust
 - Migration guide includes before/after examples
 - Documentation builds without warnings
 - All Phase 1 changes tested end-to-end
+
+**Completed**:
+- ✅ Created comprehensive integration test suite in `tests/integration/metrics_strict_mode.rs` with 7 test cases:
+  - `test_all_metrics_succeed_strict_mode()` - verifies strict mode succeeds with valid metrics
+  - `test_unknown_metric_fails_strict_mode()` - verifies strict mode fails on unknown metrics
+  - `test_best_effort_mode_partial_success()` - verifies best effort fallback behavior
+  - `test_strict_is_default()` - verifies compute() defaults to strict mode
+  - `test_metric_parse_strict()` - verifies strict parsing rejects unknown metric names
+  - `test_from_str_still_permissive()` - verifies FromStr remains permissive for backwards compat
+  - `test_end_to_end_workflow()` - realistic workflow with calibration → pricing → multi-metric valuation
+- ✅ All 7 integration tests pass
+- ✅ Created comprehensive migration guide in `finstack/valuations/MIGRATION.md`:
+  - Overview of Phase 1 changes
+  - Breaking changes summary with migration paths
+  - Before/after code examples for all changes
+  - FAQ section with common issues and solutions
+  - Migration checklist for application and library code
+  - Covers strict mode default, metric parsing, calibration fixes, error handling
+- ✅ Exported `StrictMode` from metrics module for public use
+- ✅ All 19 metrics core tests pass
+- ✅ All 3 calibration discount target tests pass (including residual normalization test)
+- ✅ Documentation complete with examples and migration paths
 
 ---
 
