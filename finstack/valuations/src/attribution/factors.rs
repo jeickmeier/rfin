@@ -514,6 +514,9 @@ fn copy_scalars(from: &MarketContext, to: &mut MarketContext) {
 
 /// Replace rates curves in a market context with curves from a snapshot.
 ///
+/// This is a thin wrapper around [`MarketSnapshot::restore_market`] that maintains
+/// backward compatibility with the original API.
+///
 /// # Arguments
 ///
 /// * `market` - Market context to modify
@@ -526,45 +529,21 @@ pub fn restore_rates_curves(
     market: &MarketContext,
     snapshot: &RatesCurvesSnapshot,
 ) -> MarketContext {
-    // Clone the market to preserve all data, then rebuild with updated curves
-    let mut temp_market = MarketContext::new();
-
-    // Copy non-rates curves (credit, inflation, correlations)
-    for curve_id in market.curve_ids() {
-        // Copy hazard curves
-        if let Ok(hazard) = market.get_hazard(curve_id) {
-            temp_market = temp_market.insert_hazard(hazard);
-        }
-        // Copy inflation curves
-        else if let Ok(inflation) = market.get_inflation(curve_id) {
-            temp_market = temp_market.insert_inflation(inflation);
-        }
-        // Copy base correlation curves
-        else if let Ok(base_corr) = market.get_base_correlation(curve_id) {
-            temp_market = temp_market.insert_base_correlation(base_corr);
-        }
-    }
-
-    // Insert snapshot rates curves
-    for (_id, curve) in &snapshot.discount_curves {
-        temp_market = temp_market.insert_discount(Arc::clone(curve));
-    }
-    for (_id, curve) in &snapshot.forward_curves {
-        temp_market = temp_market.insert_forward(Arc::clone(curve));
-    }
-
-    // Copy other market data (FX, surfaces, scalars) from original market
-    if let Some(fx) = &market.fx {
-        temp_market.insert_fx_mut(Arc::clone(fx));
-    }
-    temp_market.surfaces = market.surfaces.clone();
-
-    copy_scalars(market, &mut temp_market);
-
-    temp_market
+    // Convert specific snapshot to unified snapshot
+    let unified = MarketSnapshot {
+        discount_curves: snapshot.discount_curves.clone(),
+        forward_curves: snapshot.forward_curves.clone(),
+        ..Default::default()
+    };
+    
+    // Use unified restore function with RATES flag
+    MarketSnapshot::restore_market(market, &unified, CurveRestoreFlags::RATES)
 }
 
 /// Replace credit curves in a market context with curves from a snapshot.
+///
+/// This is a thin wrapper around [`MarketSnapshot::restore_market`] that maintains
+/// backward compatibility with the original API.
 ///
 /// # Arguments
 ///
@@ -578,46 +557,20 @@ pub fn restore_credit_curves(
     market: &MarketContext,
     snapshot: &CreditCurvesSnapshot,
 ) -> MarketContext {
-    // Clone the market to preserve all data, then rebuild with updated curves
-    let mut temp_market = MarketContext::new();
-
-    // Copy non-credit curves
-    for curve_id in market.curve_ids() {
-        // Copy discount curves
-        if let Ok(discount) = market.get_discount(curve_id) {
-            temp_market = temp_market.insert_discount(discount);
-        }
-        // Copy forward curves
-        else if let Ok(forward) = market.get_forward(curve_id) {
-            temp_market = temp_market.insert_forward(forward);
-        }
-        // Copy inflation curves
-        else if let Ok(inflation) = market.get_inflation(curve_id) {
-            temp_market = temp_market.insert_inflation(inflation);
-        }
-        // Copy base correlation curves
-        else if let Ok(base_corr) = market.get_base_correlation(curve_id) {
-            temp_market = temp_market.insert_base_correlation(base_corr);
-        }
-    }
-
-    // Insert snapshot hazard curves
-    for (_id, curve) in &snapshot.hazard_curves {
-        temp_market = temp_market.insert_hazard(Arc::clone(curve));
-    }
-
-    // Copy other market data (FX, surfaces, scalars)
-    if let Some(fx) = &market.fx {
-        temp_market.insert_fx_mut(Arc::clone(fx));
-    }
-    temp_market.surfaces = market.surfaces.clone();
-
-    copy_scalars(market, &mut temp_market);
-
-    temp_market
+    // Convert specific snapshot to unified snapshot
+    let unified = MarketSnapshot {
+        hazard_curves: snapshot.hazard_curves.clone(),
+        ..Default::default()
+    };
+    
+    // Use unified restore function with CREDIT flag
+    MarketSnapshot::restore_market(market, &unified, CurveRestoreFlags::CREDIT)
 }
 
 /// Replace inflation curves in a market context with curves from a snapshot.
+///
+/// This is a thin wrapper around [`MarketSnapshot::restore_market`] that maintains
+/// backward compatibility with the original API.
 ///
 /// # Arguments
 ///
@@ -631,39 +584,20 @@ pub fn restore_inflation_curves(
     market: &MarketContext,
     snapshot: &InflationCurvesSnapshot,
 ) -> MarketContext {
-    // Clone the market to preserve all data, then rebuild with updated curves
-    let mut temp_market = MarketContext::new();
-
-    // Copy non-inflation curves
-    for curve_id in market.curve_ids() {
-        if let Ok(discount) = market.get_discount(curve_id) {
-            temp_market = temp_market.insert_discount(discount);
-        } else if let Ok(forward) = market.get_forward(curve_id) {
-            temp_market = temp_market.insert_forward(forward);
-        } else if let Ok(hazard) = market.get_hazard(curve_id) {
-            temp_market = temp_market.insert_hazard(hazard);
-        } else if let Ok(base_corr) = market.get_base_correlation(curve_id) {
-            temp_market = temp_market.insert_base_correlation(base_corr);
-        }
-    }
-
-    // Insert snapshot inflation curves
-    for (_id, curve) in &snapshot.inflation_curves {
-        temp_market = temp_market.insert_inflation(Arc::clone(curve));
-    }
-
-    // Copy other market data (FX, surfaces, scalars)
-    if let Some(fx) = &market.fx {
-        temp_market.insert_fx_mut(Arc::clone(fx));
-    }
-    temp_market.surfaces = market.surfaces.clone();
-
-    copy_scalars(market, &mut temp_market);
-
-    temp_market
+    // Convert specific snapshot to unified snapshot
+    let unified = MarketSnapshot {
+        inflation_curves: snapshot.inflation_curves.clone(),
+        ..Default::default()
+    };
+    
+    // Use unified restore function with INFLATION flag
+    MarketSnapshot::restore_market(market, &unified, CurveRestoreFlags::INFLATION)
 }
 
 /// Replace correlation curves in a market context with curves from a snapshot.
+///
+/// This is a thin wrapper around [`MarketSnapshot::restore_market`] that maintains
+/// backward compatibility with the original API.
 ///
 /// # Arguments
 ///
@@ -677,36 +611,14 @@ pub fn restore_correlations(
     market: &MarketContext,
     snapshot: &CorrelationsSnapshot,
 ) -> MarketContext {
-    // Clone the market to preserve all data, then rebuild with updated curves
-    let mut temp_market = MarketContext::new();
-
-    // Copy non-correlation curves
-    for curve_id in market.curve_ids() {
-        if let Ok(discount) = market.get_discount(curve_id) {
-            temp_market = temp_market.insert_discount(discount);
-        } else if let Ok(forward) = market.get_forward(curve_id) {
-            temp_market = temp_market.insert_forward(forward);
-        } else if let Ok(hazard) = market.get_hazard(curve_id) {
-            temp_market = temp_market.insert_hazard(hazard);
-        } else if let Ok(inflation) = market.get_inflation(curve_id) {
-            temp_market = temp_market.insert_inflation(inflation);
-        }
-    }
-
-    // Insert snapshot base correlation curves
-    for (_id, curve) in &snapshot.base_correlation_curves {
-        temp_market = temp_market.insert_base_correlation(Arc::clone(curve));
-    }
-
-    // Copy other market data (FX, surfaces, scalars)
-    if let Some(fx) = &market.fx {
-        temp_market.insert_fx_mut(Arc::clone(fx));
-    }
-    temp_market.surfaces = market.surfaces.clone();
-
-    copy_scalars(market, &mut temp_market);
-
-    temp_market
+    // Convert specific snapshot to unified snapshot
+    let unified = MarketSnapshot {
+        base_correlation_curves: snapshot.base_correlation_curves.clone(),
+        ..Default::default()
+    };
+    
+    // Use unified restore function with CORRELATION flag
+    MarketSnapshot::restore_market(market, &unified, CurveRestoreFlags::CORRELATION)
 }
 
 /// Replace FX matrix in a market context.
