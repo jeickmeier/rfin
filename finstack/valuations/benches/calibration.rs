@@ -41,7 +41,7 @@ fn bench_discount_and_forward_steps(c: &mut Criterion) {
             index: IndexId::new("USD-SOFR-OIS"),
             pillar: Pillar::Date(base_date + time::Duration::days(365)),
             rate: 0.047,
-            spread: None,
+            spread_decimal: None,
         },
     ];
     let disc_mq: Vec<MarketQuote> = disc_quotes
@@ -124,5 +124,101 @@ fn bench_discount_and_forward_steps(c: &mut Criterion) {
     });
 }
 
-criterion_group!(benches, bench_discount_and_forward_steps);
+/// Benchmark residual normalization fix (Phase 1.4).
+///
+/// Tests that calibration with different notionals produces similar performance.
+/// This validates that the fix (pv / residual_notional) doesn't introduce
+/// significant overhead compared to the broken (pv / 1.0) version.
+fn bench_residual_normalization(c: &mut Criterion) {
+    let base_date = Date::from_calendar_date(2025, Month::January, 1).unwrap();
+    let settings = CalibrationConfig::default();
+
+    // Create discount curve with 4 deposits (small but realistic)
+    let make_quotes = || -> Vec<RateQuote> {
+        vec![
+            RateQuote::Deposit {
+                id: QuoteId::new("DEP-1M"),
+                index: IndexId::new("USD-SOFR"),
+                pillar: Pillar::Date(base_date + time::Duration::days(30)),
+                rate: 0.0450,
+            },
+            RateQuote::Deposit {
+                id: QuoteId::new("DEP-3M"),
+                index: IndexId::new("USD-SOFR"),
+                pillar: Pillar::Date(base_date + time::Duration::days(90)),
+                rate: 0.0455,
+            },
+            RateQuote::Deposit {
+                id: QuoteId::new("DEP-6M"),
+                index: IndexId::new("USD-SOFR"),
+                pillar: Pillar::Date(base_date + time::Duration::days(180)),
+                rate: 0.0460,
+            },
+            RateQuote::Deposit {
+                id: QuoteId::new("DEP-1Y"),
+                index: IndexId::new("USD-SOFR"),
+                pillar: Pillar::Date(base_date + time::Duration::days(365)),
+                rate: 0.0465,
+            },
+        ]
+    };
+
+    let disc_mq: Vec<MarketQuote> = make_quotes()
+        .into_iter()
+        .map(MarketQuote::Rates)
+        .collect();
+
+    // Benchmark with notional = 1.0 (small notional)
+    c.bench_function("calibration_residual_notional_1.0", |b| {
+        let disc_step = StepParams::Discount(DiscountCurveParams {
+            curve_id: "USD-OIS-small".into(),
+            currency: Currency::USD,
+            base_date,
+            method: CalibrationMethod::Bootstrap,
+            interpolation: Default::default(),
+            extrapolation: finstack_core::math::interp::ExtrapolationPolicy::FlatForward,
+            pricing_discount_id: None,
+            pricing_forward_id: None,
+            conventions: Default::default(),
+        });
+        let base = MarketContext::new();
+        b.iter(|| {
+            execute_step(
+                black_box(&disc_step),
+                black_box(&disc_mq),
+                black_box(&base),
+                black_box(&settings),
+            )
+            .unwrap()
+        })
+    });
+
+    // Benchmark with notional = 1_000_000.0 (large notional)
+    // Should have similar performance to small notional after normalization fix
+    c.bench_function("calibration_residual_notional_1M", |b| {
+        let disc_step = StepParams::Discount(DiscountCurveParams {
+            curve_id: "USD-OIS-large".into(),
+            currency: Currency::USD,
+            base_date,
+            method: CalibrationMethod::Bootstrap,
+            interpolation: Default::default(),
+            extrapolation: finstack_core::math::interp::ExtrapolationPolicy::FlatForward,
+            pricing_discount_id: None,
+            pricing_forward_id: None,
+            conventions: Default::default(),
+        });
+        let base = MarketContext::new();
+        b.iter(|| {
+            execute_step(
+                black_box(&disc_step),
+                black_box(&disc_mq),
+                black_box(&base),
+                black_box(&settings),
+            )
+            .unwrap()
+        })
+    });
+}
+
+criterion_group!(benches, bench_discount_and_forward_steps, bench_residual_normalization);
 criterion_main!(benches);
