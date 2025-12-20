@@ -797,6 +797,7 @@ cargo test results::dataframe --lib
 ---
 
 ### [ ] Step 3.4: Phase 3 Integration & Regression Suite
+<!-- chat-id: 00636a2e-87a1-4b65-a6a5-753fcc1004a3 -->
 
 **Goal**: Full regression testing across all phases.
 

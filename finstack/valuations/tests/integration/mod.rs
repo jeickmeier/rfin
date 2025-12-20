@@ -8,6 +8,10 @@
 //!
 //! # Phase 2: Market Convention Alignment
 //! - [`fx_settlement`]: FX spot date calculations and joint business day counting
+//!
+//! # Phase 3: API Safety & Reporting
+//! - [`full_regression`]: Comprehensive end-to-end regression test covering all phases
 
+pub mod full_regression;
 pub mod fx_settlement;
 pub mod metrics_strict_mode;
