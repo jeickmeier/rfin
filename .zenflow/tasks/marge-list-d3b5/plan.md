@@ -634,6 +634,7 @@ cd finstack && cargo doc --no-deps --all-features  # ✅ Successful (22.4s)
 ---
 
 ### [ ] Step: Create pull request and review
+<!-- chat-id: e6e7853a-bf47-423a-8b15-6c6f3d3d9354 -->
 **Tasks**:
 - Create PR with detailed description
 - Link to spec.md and this plan
