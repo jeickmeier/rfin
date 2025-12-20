@@ -116,6 +116,129 @@ pub struct ScalarsSnapshot {
     pub dividends: HashMap<CurveId, Arc<DividendSchedule>>,
 }
 
+/// Unified market snapshot that can hold any combination of curve types.
+///
+/// This struct provides a unified container for all curve types that can be extracted
+/// from a market context. It's designed to work with `CurveRestoreFlags` to selectively
+/// extract and restore different curve families.
+///
+/// # Examples
+///
+/// ```
+/// use finstack_valuations::attribution::factors::{MarketSnapshot, CurveRestoreFlags};
+/// use finstack_core::market_data::context::MarketContext;
+///
+/// // Create a market context with some curves
+/// let market = MarketContext::new();
+/// // ... add curves to market
+///
+/// // Extract only discount and forward curves (rates family)
+/// let snapshot = MarketSnapshot::extract(&market, CurveRestoreFlags::RATES);
+///
+/// // Extract all curve types
+/// let full_snapshot = MarketSnapshot::extract(&market, CurveRestoreFlags::all());
+///
+/// // Extract everything except credit curves
+/// let no_credit = MarketSnapshot::extract(
+///     &market,
+///     CurveRestoreFlags::all() & !CurveRestoreFlags::HAZARD
+/// );
+/// ```
+#[derive(Clone, Debug, Default)]
+pub struct MarketSnapshot {
+    /// Discount curves indexed by curve ID
+    pub discount_curves: HashMap<CurveId, Arc<DiscountCurve>>,
+    /// Forward curves indexed by curve ID
+    pub forward_curves: HashMap<CurveId, Arc<ForwardCurve>>,
+    /// Hazard curves indexed by curve ID
+    pub hazard_curves: HashMap<CurveId, Arc<HazardCurve>>,
+    /// Inflation curves indexed by curve ID
+    pub inflation_curves: HashMap<CurveId, Arc<InflationCurve>>,
+    /// Base correlation curves indexed by curve ID
+    pub base_correlation_curves: HashMap<CurveId, Arc<BaseCorrelationCurve>>,
+}
+
+impl MarketSnapshot {
+    /// Extract curves from a market context based on which flags are set.
+    ///
+    /// Only the curve types corresponding to set flags will be extracted into
+    /// the snapshot. Other curve type fields will remain empty.
+    ///
+    /// # Arguments
+    ///
+    /// * `market` - Market context to extract curves from
+    /// * `flags` - Bitflags indicating which curve families to extract
+    ///
+    /// # Returns
+    ///
+    /// A new `MarketSnapshot` containing only the requested curve types.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use finstack_valuations::attribution::factors::{MarketSnapshot, CurveRestoreFlags};
+    /// use finstack_core::market_data::context::MarketContext;
+    ///
+    /// let market = MarketContext::new();
+    /// // ... populate market with curves
+    ///
+    /// // Extract only discount curves
+    /// let snapshot = MarketSnapshot::extract(&market, CurveRestoreFlags::DISCOUNT);
+    /// assert!(snapshot.forward_curves.is_empty());
+    /// assert!(snapshot.hazard_curves.is_empty());
+    ///
+    /// // Extract both discount and forward curves
+    /// let rates_snapshot = MarketSnapshot::extract(&market, CurveRestoreFlags::RATES);
+    ///
+    /// // Extract all curve types
+    /// let full_snapshot = MarketSnapshot::extract(&market, CurveRestoreFlags::all());
+    /// ```
+    pub fn extract(market: &MarketContext, flags: CurveRestoreFlags) -> Self {
+        let mut snapshot = Self::default();
+
+        for curve_id in market.curve_ids() {
+            // Extract discount curves if flag is set
+            if flags.contains(CurveRestoreFlags::DISCOUNT) {
+                if let Ok(curve) = market.get_discount(curve_id) {
+                    snapshot.discount_curves.insert(curve_id.clone(), curve);
+                }
+            }
+
+            // Extract forward curves if flag is set
+            if flags.contains(CurveRestoreFlags::FORWARD) {
+                if let Ok(curve) = market.get_forward(curve_id) {
+                    snapshot.forward_curves.insert(curve_id.clone(), curve);
+                }
+            }
+
+            // Extract hazard curves if flag is set
+            if flags.contains(CurveRestoreFlags::HAZARD) {
+                if let Ok(curve) = market.get_hazard(curve_id) {
+                    snapshot.hazard_curves.insert(curve_id.clone(), curve);
+                }
+            }
+
+            // Extract inflation curves if flag is set
+            if flags.contains(CurveRestoreFlags::INFLATION) {
+                if let Ok(curve) = market.get_inflation(curve_id) {
+                    snapshot.inflation_curves.insert(curve_id.clone(), curve);
+                }
+            }
+
+            // Extract base correlation curves if flag is set
+            if flags.contains(CurveRestoreFlags::CORRELATION) {
+                if let Ok(curve) = market.get_base_correlation(curve_id) {
+                    snapshot
+                        .base_correlation_curves
+                        .insert(curve_id.clone(), curve);
+                }
+            }
+        }
+
+        snapshot
+    }
+}
+
 /// Extract all discount and forward curves from a market context.
 ///
 /// # Arguments
@@ -710,5 +833,210 @@ mod tests {
         let only_discount = CurveRestoreFlags::RATES & !CurveRestoreFlags::FORWARD;
         assert!(only_discount.contains(CurveRestoreFlags::DISCOUNT));
         assert!(!only_discount.contains(CurveRestoreFlags::FORWARD));
+    }
+
+    fn create_test_forward_curve(id: &str, base_date: Date) -> ForwardCurve {
+        ForwardCurve::builder(id, 0.25) // 3M tenor
+            .base_date(base_date)
+            .knots(vec![(0.0, 0.02), (1.0, 0.025), (5.0, 0.03)])
+            .build()
+            .expect("ForwardCurve builder should succeed with valid test data")
+    }
+
+    fn create_test_hazard_curve(id: &str, base_date: Date) -> HazardCurve {
+        HazardCurve::builder(id)
+            .base_date(base_date)
+            .knots(vec![(0.0, 0.0050), (1.0, 0.0055), (5.0, 0.0060)])
+            .build()
+            .expect("HazardCurve builder should succeed with valid test data")
+    }
+
+    fn create_test_inflation_curve(id: &str, _base_date: Date) -> InflationCurve {
+        InflationCurve::builder(id)
+            .base_cpi(100.0)
+            .knots(vec![(0.0, 100.0), (1.0, 102.0), (5.0, 110.0)])
+            .build()
+            .expect("InflationCurve builder should succeed with valid test data")
+    }
+
+    fn create_test_base_correlation_curve(id: &str, _base_date: Date) -> BaseCorrelationCurve {
+        BaseCorrelationCurve::builder(id)
+            .points(vec![
+                (0.03, 0.30), // 3% detach
+                (0.07, 0.40), // 7% detach
+                (0.10, 0.50), // 10% detach
+                (0.15, 0.60), // 15% detach
+                (0.30, 0.70), // 30% detach
+            ])
+            .build()
+            .expect("BaseCorrelationCurve builder should succeed with valid test data")
+    }
+
+    #[test]
+    fn test_market_snapshot_extract_single_discount() {
+        let base_date = date!(2025 - 01 - 15);
+        let discount_curve = create_test_discount_curve("USD-OIS", base_date);
+        let forward_curve = create_test_forward_curve("USD-SOFR", base_date);
+        let hazard_curve = create_test_hazard_curve("CORP-A", base_date);
+
+        let market = MarketContext::new()
+            .insert_discount(discount_curve)
+            .insert_forward(forward_curve)
+            .insert_hazard(hazard_curve);
+
+        // Extract only discount curves
+        let snapshot = MarketSnapshot::extract(&market, CurveRestoreFlags::DISCOUNT);
+
+        assert_eq!(snapshot.discount_curves.len(), 1);
+        assert!(snapshot.discount_curves.contains_key("USD-OIS"));
+        assert!(snapshot.forward_curves.is_empty());
+        assert!(snapshot.hazard_curves.is_empty());
+        assert!(snapshot.inflation_curves.is_empty());
+        assert!(snapshot.base_correlation_curves.is_empty());
+    }
+
+    #[test]
+    fn test_market_snapshot_extract_rates_combination() {
+        let base_date = date!(2025 - 01 - 15);
+        let discount_curve = create_test_discount_curve("USD-OIS", base_date);
+        let forward_curve = create_test_forward_curve("USD-SOFR", base_date);
+        let hazard_curve = create_test_hazard_curve("CORP-A", base_date);
+
+        let market = MarketContext::new()
+            .insert_discount(discount_curve)
+            .insert_forward(forward_curve)
+            .insert_hazard(hazard_curve);
+
+        // Extract rates (discount + forward)
+        let snapshot = MarketSnapshot::extract(&market, CurveRestoreFlags::RATES);
+
+        assert_eq!(snapshot.discount_curves.len(), 1);
+        assert_eq!(snapshot.forward_curves.len(), 1);
+        assert!(snapshot.discount_curves.contains_key("USD-OIS"));
+        assert!(snapshot.forward_curves.contains_key("USD-SOFR"));
+        assert!(snapshot.hazard_curves.is_empty());
+        assert!(snapshot.inflation_curves.is_empty());
+        assert!(snapshot.base_correlation_curves.is_empty());
+    }
+
+    #[test]
+    fn test_market_snapshot_extract_all_curve_types() {
+        let base_date = date!(2025 - 01 - 15);
+        let discount_curve = create_test_discount_curve("USD-OIS", base_date);
+        let forward_curve = create_test_forward_curve("USD-SOFR", base_date);
+        let hazard_curve = create_test_hazard_curve("CORP-A", base_date);
+        let inflation_curve = create_test_inflation_curve("US-CPI", base_date);
+        let base_corr_curve = create_test_base_correlation_curve("CDX-IG", base_date);
+
+        let market = MarketContext::new()
+            .insert_discount(discount_curve)
+            .insert_forward(forward_curve)
+            .insert_hazard(hazard_curve)
+            .insert_inflation(inflation_curve)
+            .insert_base_correlation(base_corr_curve);
+
+        // Extract all curve types
+        let snapshot = MarketSnapshot::extract(&market, CurveRestoreFlags::all());
+
+        assert_eq!(snapshot.discount_curves.len(), 1);
+        assert_eq!(snapshot.forward_curves.len(), 1);
+        assert_eq!(snapshot.hazard_curves.len(), 1);
+        assert_eq!(snapshot.inflation_curves.len(), 1);
+        assert_eq!(snapshot.base_correlation_curves.len(), 1);
+        assert!(snapshot.discount_curves.contains_key("USD-OIS"));
+        assert!(snapshot.forward_curves.contains_key("USD-SOFR"));
+        assert!(snapshot.hazard_curves.contains_key("CORP-A"));
+        assert!(snapshot.inflation_curves.contains_key("US-CPI"));
+        assert!(snapshot.base_correlation_curves.contains_key("CDX-IG"));
+    }
+
+    #[test]
+    fn test_market_snapshot_extract_empty_flags() {
+        let base_date = date!(2025 - 01 - 15);
+        let discount_curve = create_test_discount_curve("USD-OIS", base_date);
+        let forward_curve = create_test_forward_curve("USD-SOFR", base_date);
+
+        let market = MarketContext::new()
+            .insert_discount(discount_curve)
+            .insert_forward(forward_curve);
+
+        // Extract with empty flags (nothing should be extracted)
+        let snapshot = MarketSnapshot::extract(&market, CurveRestoreFlags::empty());
+
+        assert!(snapshot.discount_curves.is_empty());
+        assert!(snapshot.forward_curves.is_empty());
+        assert!(snapshot.hazard_curves.is_empty());
+        assert!(snapshot.inflation_curves.is_empty());
+        assert!(snapshot.base_correlation_curves.is_empty());
+    }
+
+    #[test]
+    fn test_market_snapshot_extract_from_empty_market() {
+        let market = MarketContext::new();
+
+        // Extract from empty market with all flags
+        let snapshot = MarketSnapshot::extract(&market, CurveRestoreFlags::all());
+
+        assert!(snapshot.discount_curves.is_empty());
+        assert!(snapshot.forward_curves.is_empty());
+        assert!(snapshot.hazard_curves.is_empty());
+        assert!(snapshot.inflation_curves.is_empty());
+        assert!(snapshot.base_correlation_curves.is_empty());
+    }
+
+    #[test]
+    fn test_market_snapshot_extract_multiple_curves_same_type() {
+        let base_date = date!(2025 - 01 - 15);
+        let discount_curve1 = create_test_discount_curve("USD-OIS", base_date);
+        let discount_curve2 = create_test_discount_curve("EUR-OIS", base_date);
+        let discount_curve3 = create_test_discount_curve("GBP-OIS", base_date);
+
+        let market = MarketContext::new()
+            .insert_discount(discount_curve1)
+            .insert_discount(discount_curve2)
+            .insert_discount(discount_curve3);
+
+        // Extract only discount curves
+        let snapshot = MarketSnapshot::extract(&market, CurveRestoreFlags::DISCOUNT);
+
+        assert_eq!(snapshot.discount_curves.len(), 3);
+        assert!(snapshot.discount_curves.contains_key("USD-OIS"));
+        assert!(snapshot.discount_curves.contains_key("EUR-OIS"));
+        assert!(snapshot.discount_curves.contains_key("GBP-OIS"));
+        assert!(snapshot.forward_curves.is_empty());
+    }
+
+    #[test]
+    fn test_market_snapshot_extract_complement_flags() {
+        let base_date = date!(2025 - 01 - 15);
+        let discount_curve = create_test_discount_curve("USD-OIS", base_date);
+        let forward_curve = create_test_forward_curve("USD-SOFR", base_date);
+        let hazard_curve = create_test_hazard_curve("CORP-A", base_date);
+
+        let market = MarketContext::new()
+            .insert_discount(discount_curve)
+            .insert_forward(forward_curve)
+            .insert_hazard(hazard_curve);
+
+        // Extract everything except hazard curves
+        let flags = CurveRestoreFlags::all() & !CurveRestoreFlags::HAZARD;
+        let snapshot = MarketSnapshot::extract(&market, flags);
+
+        assert_eq!(snapshot.discount_curves.len(), 1);
+        assert_eq!(snapshot.forward_curves.len(), 1);
+        assert!(snapshot.hazard_curves.is_empty());
+        assert!(snapshot.discount_curves.contains_key("USD-OIS"));
+        assert!(snapshot.forward_curves.contains_key("USD-SOFR"));
+    }
+
+    #[test]
+    fn test_market_snapshot_default() {
+        let snapshot = MarketSnapshot::default();
+
+        assert!(snapshot.discount_curves.is_empty());
+        assert!(snapshot.forward_curves.is_empty());
+        assert!(snapshot.hazard_curves.is_empty());
+        assert!(snapshot.inflation_curves.is_empty());
+        assert!(snapshot.base_correlation_curves.is_empty());
     }
 }

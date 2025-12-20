@@ -40,15 +40,16 @@ cargo test --lib attribution::factors::tests::test_curve_restore_flags
 
 ---
 
-### [ ] Step 1.2: Create unified MarketSnapshot struct
+### [x] Step 1.2: Create unified MarketSnapshot struct
+<!-- chat-id: 1411c378-792c-4fa1-9fba-9a03cb1a205f -->
 **File**: `finstack/valuations/src/attribution/factors.rs`
 
 **Tasks**:
-- Add `MarketSnapshot` struct after existing snapshot types (~line 70)
-- Include all 5 curve type HashMap fields
-- Derive Clone, Debug, Default
-- Implement `MarketSnapshot::extract(market, flags)` method
-- Add unit tests for extraction with various flag combinations
+- ✅ Add `MarketSnapshot` struct after existing snapshot types (~line 119)
+- ✅ Include all 5 curve type HashMap fields
+- ✅ Derive Clone, Debug, Default
+- ✅ Implement `MarketSnapshot::extract(market, flags)` method
+- ✅ Add unit tests for extraction with various flag combinations (8 tests added)
 
 **Verification**:
 ```bash
@@ -59,6 +60,7 @@ cargo test --lib attribution::factors::tests::test_market_snapshot_extract
 - ✅ Struct compiles and derives work
 - ✅ Extract method correctly filters by flags
 - ✅ Tests cover single flags, combinations, and empty markets
+- ✅ All 18 attribution::factors tests pass (10 existing + 8 new)
 
 ---
 
