@@ -42,16 +42,23 @@ impl JsMetricId {
 
 #[wasm_bindgen(js_class = MetricId)]
 impl JsMetricId {
-    /// Parse a metric ID from a string name.
+    /// Parse a metric ID from a string name (permissive).
+    ///
+    /// **Warning**: This method accepts unknown metric names and creates custom metrics.
+    /// For strict validation of user inputs, use `parseStrict()` instead.
     ///
     /// @param {string} name - Metric name like "pv", "dv01", "duration_modified"
     /// @returns {MetricId} Parsed metric identifier
-    /// @throws {Error} If metric name is unknown
     ///
     /// @example
     /// ```typescript
+    /// // Known metrics:
     /// const pv = MetricId.fromName("pv");
     /// const dv01 = MetricId.fromName("dv01");
+    ///
+    /// // Unknown names create custom metrics (permissive):
+    /// const custom = MetricId.fromName("my_custom_metric");
+    /// console.log(custom.name); // "my_custom_metric"
     /// ```
     #[wasm_bindgen(js_name = fromName)]
     pub fn from_name(name: &str) -> JsMetricId {
@@ -61,6 +68,44 @@ impl JsMetricId {
             name.parse()
                 .expect("MetricId::from_str never fails, creates Custom for unknown names"),
         )
+    }
+
+    /// Parse a metric ID from a string name strictly.
+    ///
+    /// This method validates that the metric name is a known standard metric.
+    /// Use this for user inputs, configuration files, and external APIs where
+    /// unknown metrics should be rejected with a clear error.
+    ///
+    /// @param {string} name - Metric name like "pv", "dv01", "duration_modified"
+    /// @returns {MetricId} Parsed metric identifier
+    /// @throws {Error} If the metric name is not a known standard metric.
+    ///                 The error includes a list of all available metrics.
+    ///
+    /// @example
+    /// ```typescript
+    /// // Known metrics parse successfully:
+    /// const dv01 = MetricId.parseStrict("dv01");
+    /// console.log(dv01.name); // "dv01"
+    ///
+    /// // Unknown metrics throw an error:
+    /// try {
+    ///   MetricId.parseStrict("unknown_metric");
+    /// } catch (error) {
+    ///   console.error("Invalid metric:", error.message);
+    ///   // Error message includes list of available metrics
+    /// }
+    ///
+    /// // Migration from fromName:
+    /// // OLD (permissive):
+    /// const metric = MetricId.fromName(userInput);
+    /// // NEW (strict - recommended for user inputs):
+    /// const metric = MetricId.parseStrict(userInput);
+    /// ```
+    #[wasm_bindgen(js_name = parseStrict)]
+    pub fn parse_strict(name: &str) -> Result<JsMetricId, JsValue> {
+        MetricId::parse_strict(name)
+            .map(JsMetricId::from_inner)
+            .map_err(|e| JsValue::from_str(&e.to_string()))
     }
 
     /// Get the string name of the metric.

@@ -30,6 +30,10 @@ impl PyMetricId {
     #[pyo3(text_signature = "(cls, name)")]
     /// Parse a metric identifier, falling back to a custom metric when unknown.
     ///
+    /// .. warning::
+    ///     This method accepts unknown metric names and creates custom metrics.
+    ///     For strict validation of user inputs, use :meth:`parse_strict` instead.
+    ///
     /// Args:
     ///     name: Metric label such as ``"pv"`` or ``"dv01"``.
     ///
@@ -39,9 +43,53 @@ impl PyMetricId {
     /// Examples:
     ///     >>> MetricId.from_name("dv01").name
     ///     'dv01'
+    ///     >>> # Unknown names create custom metrics (permissive):
+    ///     >>> MetricId.from_name("my_custom_metric").name
+    ///     'my_custom_metric'
     fn from_name(_cls: &Bound<'_, PyType>, name: &str) -> PyResult<Self> {
         let metric: MetricId = name.parse().unwrap_or_else(|_| unreachable!());
         Ok(Self::new(metric))
+    }
+
+    #[classmethod]
+    #[pyo3(text_signature = "(cls, name)")]
+    /// Parse a metric identifier strictly, rejecting unknown metric names.
+    ///
+    /// This method validates that the metric name is a known standard metric.
+    /// Use this for user inputs, configuration files, and external APIs where
+    /// unknown metrics should be rejected with a clear error.
+    ///
+    /// Args:
+    ///     name: Metric label such as ``"pv"`` or ``"dv01"``.
+    ///
+    /// Returns:
+    ///     MetricId: Identifier corresponding to ``name``.
+    ///
+    /// Raises:
+    ///     ValueError: If the metric name is not a known standard metric.
+    ///         The error includes a list of all available metrics.
+    ///
+    /// Examples:
+    ///     >>> # Known metrics parse successfully:
+    ///     >>> MetricId.parse_strict("dv01").name
+    ///     'dv01'
+    ///
+    ///     >>> # Unknown metrics raise ValueError:
+    ///     >>> try:
+    ///     ...     MetricId.parse_strict("unknown_metric")
+    ///     ... except ValueError as e:
+    ///     ...     print("Caught error:", str(e))
+    ///     Caught error: Unknown metric 'unknown_metric'...
+    ///
+    ///     >>> # Migration from from_name:
+    ///     >>> # OLD (permissive):
+    ///     >>> metric = MetricId.from_name(user_input)
+    ///     >>> # NEW (strict - recommended for user inputs):
+    ///     >>> metric = MetricId.parse_strict(user_input)
+    fn parse_strict(_cls: &Bound<'_, PyType>, name: &str) -> PyResult<Self> {
+        MetricId::parse_strict(name)
+            .map(Self::new)
+            .map_err(|e| pyo3::exceptions::PyValueError::new_err(e.to_string()))
     }
 
     /// Snake-case name of the metric.

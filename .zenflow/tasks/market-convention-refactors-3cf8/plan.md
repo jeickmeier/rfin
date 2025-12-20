@@ -929,9 +929,17 @@ cargo doc --no-deps 2>&1 | grep warning
 
 ---
 
-### [ ] Step 4.3: Update Python & WASM Bindings
+### [x] Step 4.3: Update Python & WASM Bindings
+<!-- chat-id: 2383fa65-90ee-4edd-a557-5ff0269ddc90 -->
 
 **Goal**: Sync bindings with Rust changes.
+
+**Completed**: ✅ All changes implemented and verified
+- Added `parse_strict()` / `parseStrict()` to both Python and WASM MetricId
+- Updated swap quote schema to use `spread_decimal` in both bindings
+- Documentation complete with migration examples
+- Both bindings compile cleanly with zero warnings (except expected deprecations)
+- Full report: `python-wasm-bindings-update-report.md`
 
 **Files to modify**:
 - `finstack-py/src/valuations/metrics/registry.rs`
