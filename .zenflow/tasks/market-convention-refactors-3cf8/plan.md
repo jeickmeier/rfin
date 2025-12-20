@@ -9,24 +9,22 @@
 
 ## Agent Instructions
 
-**IMPORTANT DECISIONS NEEDED** (ask user before starting implementation):
+**USER DECISIONS CONFIRMED**:
 
 1. **Metrics Strict Mode Default** (Phase 1):
-   - Option A: Make strict mode default immediately (breaking)
-   - Option B: Feature flag in 0.x, strict default in 1.0 (gradual)
-   - **Recommendation**: Option B
+   - ✅ **CHOSEN**: Option A - Make strict mode default immediately (breaking)
+   - This is more aggressive than recommended but ensures safety from the start
+   - Impact: All code using metrics must handle errors explicitly
 
 2. **Quote Unit Convention** (Phase 2):
-   - Option A: `spread_bp` (basis points) - recommended
-   - Option B: `spread_decimal` (decimal)
-   - **Recommendation**: Option A
+   - ✅ **CHOSEN**: Option B - `spread_decimal` (decimal representation)
+   - Note: This differs from the recommendation of `spread_bp` (basis points)
+   - Impact: Use `spread_decimal` field; no conversion needed (1bp = 0.0001)
 
 3. **Constructor Migration** (Phase 3):
-   - Option A: Remove `new()` immediately (breaking)
-   - Option B: Deprecate first, remove in 1.0 (gradual)
-   - **Recommendation**: Option B
-
-**Ask user to confirm these decisions before proceeding with implementation.**
+   - ✅ **CHOSEN**: Option B - Deprecate first, remove in 1.0 (gradual)
+   - Matches recommendation for gradual migration
+   - Impact: Add `#[deprecated]` attributes; users get warnings first
 
 ---
 
@@ -45,6 +43,8 @@
 ---
 
 ## Phase 1: Critical Safety Fixes (Week 1)
+
+**Note**: Strict mode is the default immediately per user decision (breaking change approach).
 
 ### [ ] Step 1.1: Add New Error Variants to Core
 
@@ -81,6 +81,8 @@ cargo clippy -- -D warnings
 
 **Goal**: Add strict/best-effort modes to MetricRegistry with proper error propagation.
 
+**USER DECISION**: Strict mode is the default immediately (breaking change).
+
 **Files to modify**:
 - `finstack/valuations/src/metrics/core/registry.rs`
 - `finstack/valuations/src/metrics/core/mod.rs` (re-exports)
@@ -93,11 +95,18 @@ cargo clippy -- -D warnings
        BestEffort,
    }
    ```
-2. Modify `compute()` signature to accept `mode: StrictMode`
-3. Add convenience methods:
-   - `compute_strict(&self, ids, ctx) -> Result<HashMap<MetricId, f64>>`
-   - `compute_best_effort(&self, ids, ctx) -> Result<HashMap<MetricId, f64>>`
-4. Update error handling in compute (lines 187-240):
+2. **BREAKING**: Modify `compute()` to default to strict mode:
+   ```rust
+   // Primary method defaults to strict:
+   pub fn compute(&self, ids: &[MetricId], ctx: &mut MetricContext) 
+       -> Result<HashMap<MetricId, f64>> {
+       self.compute_with_mode(ids, ctx, StrictMode::Strict)
+   }
+   ```
+3. Add mode-specific methods:
+   - `compute_with_mode(&self, ids, ctx, mode: StrictMode) -> Result<...>` (internal)
+   - `compute_best_effort(&self, ids, ctx) -> Result<...>` (for opt-in fallback)
+4. Update error handling in compute implementation (lines 187-240):
    - Strict mode: return Err for missing metrics, failed calcs, non-applicable
    - Best effort mode: insert 0.0 with explicit tracing/logging
 5. Add dependency resolution error propagation (lines 290-298):
@@ -249,6 +258,8 @@ make lint-rust
 
 ## Phase 2: Market Convention Alignment (Week 2)
 
+**Note**: This phase uses `spread_decimal` convention per user decision (differs from spec recommendation).
+
 ### [ ] Step 2.1: Implement Joint Business Day Logic
 
 **Goal**: Add joint calendar business day counting for FX settlement.
@@ -287,7 +298,9 @@ cargo test instruments::common::fx_dates --lib -- --nocapture
 
 ### [ ] Step 2.2: Fix Quote Units (Swap Spread)
 
-**Goal**: Rename spread field with explicit units and remove conversion.
+**Goal**: Rename spread field with explicit decimal units and remove conversion.
+
+**USER DECISION**: Using `spread_decimal` (not `spread_bp`) per user preference.
 
 **Files to modify**:
 - `finstack/valuations/src/market/quotes/rates.rs` (RateQuote enum)
@@ -301,22 +314,24 @@ cargo test instruments::common::fx_dates --lib -- --nocapture
    
    // AFTER:
    #[serde(alias = "spread")] // Backwards compat
-   spread_bp: Option<f64>,
+   spread_decimal: Option<f64>,
    ```
 2. In `build_rate_instrument()`:
    ```rust
    // BEFORE:
    if let Some(s) = spread {
-       swap.float.spread_bp = *s * 10000.0;
+       swap.float.spread_bp = *s * 10000.0;  // Wrong conversion
    }
    
    // AFTER:
-   if let Some(spread_bp) = spread_bp {
-       swap.float.spread_bp = *spread_bp; // Direct assignment
+   if let Some(spread_decimal) = spread_decimal {
+       swap.float.spread_bp = *spread_decimal * 10000.0;  // Correct: decimal → bp
    }
    ```
+   Note: Internal `swap.float.spread_bp` field stays in basis points; only the quote schema field name changes to clarify units.
+
 3. Update all tests using old `spread` field
-4. Update rustdoc examples
+4. Update rustdoc examples to show decimal format (e.g., 0.0010 for 10bp)
 
 **Verification**:
 ```bash
@@ -326,14 +341,14 @@ cargo test market::build::rates --lib
 ```
 
 **Tests to add**:
-- `test_swap_spread_bp_no_conversion()`
+- `test_swap_spread_decimal_conversion()` - verify 0.0010 → 10.0bp
 - `test_swap_spread_serde_backwards_compat()`
-- `test_swap_spread_bp_programmatic_api()`
+- `test_swap_spread_decimal_programmatic_api()`
 
 **Acceptance**:
-- `spread_bp = 10.0` → `swap.float.spread_bp = 10.0` (no *10000)
-- Old JSON `"spread": 10.0` deserializes correctly
-- New JSON `"spread_bp": 10.0` preferred in docs
+- `spread_decimal = 0.0010` → `swap.float.spread_bp = 10.0`
+- Old JSON `"spread": 0.0010` deserializes correctly via alias
+- New JSON `"spread_decimal": 0.0010` preferred in docs
 - All tests pass
 
 ---
@@ -370,29 +385,40 @@ cargo test --test integration -- fx_settlement
 
 ## Phase 3: API Safety & Reporting (Week 3)
 
-### [ ] Step 3.1: Remove Panicking Constructors
+**Note**: Using deprecation-first approach per user decision (gradual migration, removal in 1.0).
 
-**Goal**: Eliminate panicking `new()` methods from instrument constructors.
+### [ ] Step 3.1: Deprecate Panicking Constructors
+
+**Goal**: Mark panicking `new()` methods as deprecated, steering users toward `try_new()`.
+
+**USER DECISION**: Using deprecation-first approach (gradual migration, Option B).
 
 **Files to modify**:
 - `finstack/valuations/src/instruments/cds_option/*.rs`
 - Search for other panicking constructors: `grep -r "expect.*Invalid.*parameters" src/instruments/`
 
 **Changes**:
-1. For each panicking constructor:
+1. For each panicking constructor, add deprecation warning:
    ```rust
-   // OPTION A: Remove entirely (recommended)
-   // Delete pub fn new()
-   
-   // OPTION B: Keep for tests only
-   #[cfg(test)]
+   #[deprecated(
+       since = "0.8.0",
+       note = "Use `try_new()` instead to handle errors explicitly. \
+               This method will panic on invalid parameters and will be \
+               removed in version 1.0.0"
+   )]
    pub fn new(...) -> Self {
        Self::try_new(...).expect("Invalid parameters")
    }
    ```
-2. Ensure `try_new() -> Result<Self>` is the only public constructor
-3. Update all internal uses to `try_new()`
-4. Update tests to handle `Result`
+2. Ensure `try_new() -> Result<Self>` is well-documented as the preferred constructor
+3. Update internal uses to prefer `try_new()` where possible
+4. Add clippy allow for deprecated methods in tests:
+   ```rust
+   #[cfg(test)]
+   #[allow(deprecated)]
+   mod tests { ... }
+   ```
+5. Document removal timeline in migration guide
 
 **Verification**:
 ```bash
@@ -738,14 +764,16 @@ cargo bench --bench fx_dates -- --save-baseline after
 If critical issues arise during implementation:
 
 ### Phase-wise Rollback
-- **Phase 1**: Feature flag `strict_metrics_mode` (default off)
-- **Phase 2**: Feature flag `legacy_fx_settlement` (preserve old behavior)
-- **Phase 3**: Deprecation instead of immediate removal
+- **Phase 1**: Add `compute_best_effort()` as workaround; document migration path for gradual adoption
+- **Phase 2**: Feature flag `legacy_fx_settlement` (preserve old behavior if needed)
+- **Phase 3**: Already using deprecation approach (gradual migration built-in)
 
 ### Emergency Rollback
 1. Revert to previous release tag
 2. Apply hotfix to main branch
 3. Re-plan implementation with additional safeguards
+
+**Note**: Phase 1 uses immediate breaking changes per user decision, so rollback requires reverting the entire phase or providing `compute_best_effort()` as the default with `compute_strict()` as opt-in.
 
 ---
 
