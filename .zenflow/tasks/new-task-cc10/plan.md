@@ -72,15 +72,18 @@ Save to `{@artifacts_path}/plan.md`. If the feature is trivial and doesn't warra
 
 ---
 
-### [ ] Step: Phase 3 - Audit Other Unused Parameters
+### [x] Step: Phase 3 - Audit Other Unused Parameters
+<!-- chat-id: 4ad5058d-e56e-458d-8c1e-96a49417fdf9 -->
 
-1. Investigate remaining files with unused `_idx` parameters:
-   - `calibration/solver/global.rs`
-   - `instruments/structured_credit/pricing/stochastic/tree/tree.rs`
-   - `instruments/swaption/pricing/tree_valuator.rs`
-   - `instruments/common/models/trees/hull_white_tree.rs`
-2. Determine if parameters are trait implementations or can be removed
-3. Document findings and remove where safe or add `#[allow(unused)]` with explanation
+1. Investigate remaining files with unused `_idx` parameters: ✅
+   - `calibration/solver/global.rs` - Trait implementation, intentional
+   - `instruments/structured_credit/pricing/stochastic/tree/tree.rs` - Parameter IS used
+   - `instruments/swaption/pricing/tree_valuator.rs` - Both parameters ARE used
+   - `instruments/common/models/trees/hull_white_tree.rs` - All parameters ARE used
+2. Determine if parameters are trait implementations or can be removed ✅
+3. Document findings and remove where safe or add `#[allow(unused)]` with explanation ✅
+   - Findings documented in `unused_parameters_audit.md`
+   - **No code changes required** - all `_param` prefixes are correct
 
 ---
 
