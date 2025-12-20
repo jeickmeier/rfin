@@ -352,7 +352,8 @@ make lint-rust
 
 **Note**: This phase uses `spread_decimal` convention per user decision (differs from spec recommendation).
 
-### [ ] Step 2.1: Implement Joint Business Day Logic
+### [x] Step 2.1: Implement Joint Business Day Logic
+<!-- chat-id: 185f3196-be3b-4f3a-9f15-dca4b6ce4fc8 -->
 
 **Goal**: Add joint calendar business day counting for FX settlement.
 
@@ -385,6 +386,29 @@ cargo test instruments::common::fx_dates --lib -- --nocapture
 - Unknown calendar IDs return `CalendarNotFound` error
 - Explicit None uses weekends-only (not as fallback)
 - All tests pass
+
+**Completed**:
+- ✅ Added `add_joint_business_days()` function with joint calendar business day counting
+- ✅ Updated `roll_spot_date()` to use `add_joint_business_days()` instead of calendar days
+- ✅ Made `resolve_calendar()` return `Result<CalendarWrapper>` with proper error handling
+- ✅ Removed silent fallback to `weekends_only()` - now errors on unknown calendar IDs
+- ✅ Added `CalendarWrapper` enum with `Debug` implementation for error display
+- ✅ Added 11 comprehensive tests covering all scenarios:
+  - `test_add_joint_business_days_no_holidays()` - weekends-only calendars
+  - `test_add_joint_business_days_base_holiday()` - MLK day on NYSE
+  - `test_add_joint_business_days_quote_holiday()` - Christmas/Boxing Day on GBLO
+  - `test_add_joint_business_days_both_holidays()` - New Year's Day joint closure
+  - `test_add_joint_business_days_zero_days()` - edge case
+  - `test_roll_spot_date_near_holiday()` - T+2 spot rolling near holiday
+  - `test_resolve_calendar_unknown_id()` - error on unknown calendar
+  - `test_resolve_calendar_explicit_none()` - weekends-only without error
+  - `test_adjust_joint_calendar_unknown_base()` - error on unknown base calendar
+  - `test_adjust_joint_calendar_unknown_quote()` - error on unknown quote calendar
+  - `test_roll_spot_date_unknown_calendar()` - error propagation
+- ✅ All 11 tests pass
+- ✅ Clippy passes with zero warnings
+- ✅ Documentation complete with examples for all new APIs
+- ✅ Error messages include suggestions for available calendar IDs
 
 ---
 

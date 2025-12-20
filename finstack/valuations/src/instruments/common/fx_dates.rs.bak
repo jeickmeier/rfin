@@ -95,8 +95,8 @@ pub fn adjust_joint_calendar(
 
     let mut d = date;
     for _ in 0..5 {
-        let adj_base = adjust(d, bdc, base_cal.as_holiday_calendar())?;
-        let adj_quote = adjust(adj_base, bdc, quote_cal.as_holiday_calendar())?;
+        let adj_base = adjust(d, bdc, base_cal.as_ref())?;
+        let adj_quote = adjust(adj_base, bdc, quote_cal.as_ref())?;
         if adj_quote == d {
             return Ok(adj_quote);
         }
@@ -162,11 +162,11 @@ pub fn add_joint_business_days(
     let mut iters = 0;
     
     while count < n_days && iters < MAX_ITERS {
-        date += Duration::days(1);
+        date = date + Duration::days(1);
         
         // Check if business day on both calendars
-        if base_cal.as_holiday_calendar().is_business_day(date) 
-           && quote_cal.as_holiday_calendar().is_business_day(date) {
+        if base_cal.as_ref().is_business_day(date) 
+           && quote_cal.as_ref().is_business_day(date) {
             count += 1;
         }
         
@@ -387,9 +387,9 @@ mod tests {
         let sunday = create_date(2024, Month::January, 14).unwrap();
         let monday = create_date(2024, Month::January, 15).unwrap();
         
-        assert!(!cal.as_holiday_calendar().is_business_day(saturday), "Saturday should not be business day");
-        assert!(!cal.as_holiday_calendar().is_business_day(sunday), "Sunday should not be business day");
-        assert!(cal.as_holiday_calendar().is_business_day(monday), "Monday should be business day (no holidays)");
+        assert!(!cal.as_ref().is_business_day(saturday), "Saturday should not be business day");
+        assert!(!cal.as_ref().is_business_day(sunday), "Sunday should not be business day");
+        assert!(cal.as_ref().is_business_day(monday), "Monday should be business day (no holidays)");
     }
 
     #[test]
