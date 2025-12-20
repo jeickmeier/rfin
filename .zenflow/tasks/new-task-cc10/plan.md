@@ -18,7 +18,8 @@ Do not make assumptions on important decisions — get clarification first.
 
 ## Workflow Steps
 
-### [ ] Step: Technical Specification
+### [x] Step: Technical Specification
+<!-- chat-id: 211536c9-8823-4a17-a219-46d25ef431d9 -->
 
 Assess the task's difficulty, as underestimating it leads to poor outcomes.
 - easy: Straightforward implementation, trivial bug fix or feature
@@ -50,15 +51,47 @@ Save to `{@artifacts_path}/plan.md`. If the feature is trivial and doesn't warra
 
 ---
 
-### [ ] Step: Implementation
+### [ ] Step: Phase 1 - Remove `freeze_all_market`
 
-Implement the task according to the technical specification and general engineering best practices.
+1. Replace call site in `attribution/parallel.rs:126` with direct `market_t0.clone()`
+2. Remove function definition from `attribution/factors.rs` (lines 521-537)
+3. Remove test `test_freeze_all_market` from `attribution/factors.rs` (lines 577-588)
+4. Verify no remaining imports or references
 
-1. Break the task into steps where possible.
-2. Implement the required changes in the codebase.
-3. Add and run relevant tests and linters.
-4. Perform basic manual verification if applicable.
-5. After completion, write a report to `{@artifacts_path}/report.md` describing:
-   - What was implemented
-   - How the solution was tested
-   - The biggest issues or challenges encountered
+---
+
+### [ ] Step: Phase 2 - Inline `compute_forward_rate` Stubs
+
+1. Update `CapPayoff::on_event` at line 119 to inline the forward rate logic
+2. Update `FloorPayoff::on_event` at line 208 to inline the forward rate logic
+3. Remove `CapPayoff::compute_forward_rate` method (lines 93-102)
+4. Remove `FloorPayoff::compute_forward_rate` method (lines 191-193)
+5. Add TODO comments indicating where Hull-White implementation would go
+
+---
+
+### [ ] Step: Phase 3 - Audit Other Unused Parameters
+
+1. Investigate remaining files with unused `_idx` parameters:
+   - `calibration/solver/global.rs`
+   - `instruments/structured_credit/pricing/stochastic/tree/tree.rs`
+   - `instruments/swaption/pricing/tree_valuator.rs`
+   - `instruments/common/models/trees/hull_white_tree.rs`
+2. Determine if parameters are trait implementations or can be removed
+3. Document findings and remove where safe or add `#[allow(unused)]` with explanation
+
+---
+
+### [ ] Step: Verification and Testing
+
+1. Run valuations tests: `make test-rust`
+2. Run linting: `make lint-rust`
+3. Spot check specific tests:
+   - `cargo test --package finstack-valuations attribution`
+   - `cargo test --package finstack-valuations rates_payoff`
+4. Verify code compiles without errors or warnings
+5. Write report to `{@artifacts_path}/report.md` describing:
+   - Lines of code removed
+   - Tests updated
+   - Test results
+   - Any discovered edge cases or challenges
