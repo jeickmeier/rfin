@@ -203,25 +203,34 @@ cargo test --lib --features mc 2>&1 | grep rates::tests
 
 ---
 
-### [ ] Step 2.2: Merge LookbackCall and LookbackPut
+### [x] Step 2.2: Merge LookbackCall and LookbackPut
+<!-- chat-id: 0a799090-1db9-451b-9ecf-58ce7d01d92e -->
 **File**: `finstack/valuations/src/instruments/common/models/monte_carlo/payoff/lookback.rs`
 
 **Tasks**:
-- Add `LookbackDirection` enum (Call, Put)
-- Create unified `Lookback` struct with `direction` field
-- Implement `new()` to initialize `extreme_spot` based on direction
-- Merge `on_event()` implementations with match on direction
-- Add type aliases for backward compatibility
+- ✅ Add `LookbackDirection` enum (Call, Put)
+- ✅ Create unified `Lookback` struct with `direction` field
+- ✅ Implement `new()` to initialize `extreme_spot` based on direction
+- ✅ Merge `on_event()` implementations with match on direction
+- ✅ Add type aliases for backward compatibility (`LookbackCall`, `LookbackPut`)
+- ✅ Update all call sites to pass `LookbackDirection` parameter
+- ✅ Add `#[allow(deprecated)]` annotations for backward compatibility
 
 **Verification**:
 ```bash
-cargo test --lib instruments::common::models::monte_carlo::payoff::lookback
+cargo test --lib --features mc lookback   # ✅ 18 tests pass (10 new unified tests + 8 existing)
+make test-rust                            # ✅ All 5779 tests pass
+make lint-rust                            # ✅ Zero warnings
 ```
 
 **Acceptance**:
-- ✅ Unified struct compiles and tests pass
+- ✅ Unified struct compiles and tests pass (18 tests passing)
 - ✅ Extreme tracking (min/max) works correctly
-- ✅ Backward-compatible aliases work
+- ✅ Backward-compatible aliases work (deprecated but functional)
+- ✅ All call sites updated (lookback_option/pricer.rs, path_dependent.rs)
+- ✅ No clippy warnings (proper use of #[allow(deprecated)])
+- ✅ Code reduction: ~150 lines → ~112 lines for unified implementation (25% reduction)
+- ✅ Added comprehensive tests: OTM scenarios, notional scaling, reset behavior
 
 ---
 
