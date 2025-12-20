@@ -145,6 +145,7 @@ cargo clippy --lib -- -D warnings                                       # ✅ No
 ---
 
 ### [ ] Step 1.6: Phase 1 integration and documentation
+<!-- chat-id: 7abdee37-0d58-4eeb-92e7-697932bffc0f -->
 **Files**: `finstack/valuations/src/attribution/factors.rs`, `finstack/valuations/CHANGELOG.md`
 
 **Tasks**:
@@ -176,25 +177,27 @@ cargo doc --no-deps --open
 **Impact**: ~150 lines → ~50 lines per pair (66% reduction)  
 **Estimated Time**: 2-3 days
 
-### [ ] Step 2.1: Merge CapPayoff and FloorPayoff
+### [x] Step 2.1: Merge CapPayoff and FloorPayoff
+<!-- chat-id: 8f5f4876-5c5e-4006-ad41-da94571cbec3 -->
 **File**: `finstack/valuations/src/instruments/common/models/monte_carlo/payoff/rates.rs`
 
 **Tasks**:
-- Add `RatesPayoffType` enum (Cap, Floor)
-- Create unified `RatesPayoff` struct with `payoff_type` field
-- Merge `impl Payoff for CapPayoff` and `FloorPayoff` into single impl
-- Use match on `payoff_type` for the one diverging line
-- Keep `CapPayoff` and `FloorPayoff` as type aliases (deprecated)
+- ✅ Add `RatesPayoffType` enum (Cap, Floor)
+- ✅ Create unified `RatesPayoff` struct with `payoff_type` field
+- ✅ Merge `impl Payoff for CapPayoff` and `FloorPayoff` into single impl
+- ✅ Use match on `payoff_type` for the one diverging line
+- ✅ Keep `CapPayoff` and `FloorPayoff` as type aliases (deprecated)
 
 **Verification**:
 ```bash
-cargo test --lib instruments::common::models::monte_carlo::payoff::tests
+cargo test --lib --features mc 2>&1 | grep rates::tests
 ```
 
 **Acceptance**:
-- ✅ Unified struct compiles and tests pass
+- ✅ Unified struct compiles and tests pass (7 tests passing)
 - ✅ Behavior identical to original implementations
 - ✅ Type aliases maintain backward compatibility
+- ✅ No clippy warnings (make lint-rust passes)
 
 ---
 

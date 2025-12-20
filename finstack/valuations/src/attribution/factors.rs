@@ -1,7 +1,138 @@
 //! Factor decomposition logic for P&L attribution.
+//! Market factor manipulation for P&L attribution analysis.
 //!
-//! Provides functions to freeze/restore specific market factors while
-//! manipulating MarketContext for attribution analysis.
+//! This module provides functions to selectively freeze and restore specific market
+//! factors (curves, FX, volatility surfaces, scalars) while manipulating a
+//! [`MarketContext`]. This is essential for attribution analysis, where we need to
+//! isolate the impact of individual market moves on instrument valuations.
+//!
+//! # Architecture
+//!
+//! The module uses a **unified snapshot and restoration framework** based on bitflags
+//! to eliminate code duplication. Instead of separate restore functions for each curve
+//! family, we provide:
+//!
+//! 1. **[`CurveRestoreFlags`]** - Bitflags to specify which curve families to restore
+//! 2. **[`MarketSnapshot`]** - Unified container for all curve types
+//! 3. **[`MarketSnapshot::restore_market`]** - Generic restore function that works with any flag combination
+//!
+//! The original `restore_*_curves()` functions are maintained as thin wrappers for
+//! backward compatibility, but internally they delegate to the unified implementation.
+//!
+//! # Benefits of the Unified Approach
+//!
+//! - **Reduced duplication**: Eliminates ~200 lines of nearly-identical code
+//! - **Composability**: Easily restore any combination of curve families with flags
+//! - **Maintainability**: Single source of truth for restoration logic
+//! - **Testability**: One implementation to test instead of four separate functions
+//!
+//! # Usage Examples
+//!
+//! ## Basic: Restore individual curve families
+//!
+//! ```rust
+//! use finstack_valuations::attribution::factors::{
+//!     extract_rates_curves, restore_rates_curves, CurveRestoreFlags, MarketSnapshot
+//! };
+//! use finstack_core::market_data::context::MarketContext;
+//!
+//! // Original API (backward compatible)
+//! let market_t0 = MarketContext::new();
+//! // ... populate market_t0 with curves
+//!
+//! let rates_snapshot = extract_rates_curves(&market_t0);
+//! let market_t1 = MarketContext::new(); // market with moved curves
+//! // ... populate market_t1 with shocked curves
+//!
+//! // Restore t0 rates while keeping t1 credit/inflation/correlation curves
+//! let mixed_market = restore_rates_curves(&market_t1, &rates_snapshot);
+//! ```
+//!
+//! ## Advanced: Restore arbitrary combinations with unified API
+//!
+//! ```rust
+//! use finstack_valuations::attribution::factors::{CurveRestoreFlags, MarketSnapshot};
+//! use finstack_core::market_data::context::MarketContext;
+//!
+//! let market_t0 = MarketContext::new();
+//! let market_t1 = MarketContext::new();
+//! // ... populate both markets
+//!
+//! // Extract only discount and hazard curves from t0
+//! let snapshot = MarketSnapshot::extract(
+//!     &market_t0,
+//!     CurveRestoreFlags::DISCOUNT | CurveRestoreFlags::HAZARD
+//! );
+//!
+//! // Restore those curves to t1, preserving forward/inflation/correlation from t1
+//! let mixed_market = MarketSnapshot::restore_market(
+//!     &market_t1,
+//!     &snapshot,
+//!     CurveRestoreFlags::DISCOUNT | CurveRestoreFlags::HAZARD
+//! );
+//!
+//! // Or restore everything except hazard curves
+//! let all_but_credit = MarketSnapshot::extract(
+//!     &market_t0,
+//!     CurveRestoreFlags::all() & !CurveRestoreFlags::HAZARD
+//! );
+//! let market = MarketSnapshot::restore_market(
+//!     &market_t1,
+//!     &all_but_credit,
+//!     CurveRestoreFlags::all() & !CurveRestoreFlags::HAZARD
+//! );
+//! ```
+//!
+//! ## P&L Attribution Workflow
+//!
+//! ```rust
+//! use finstack_valuations::attribution::factors::{
+//!     CurveRestoreFlags, MarketSnapshot, extract_rates_curves, extract_credit_curves
+//! };
+//! use finstack_core::market_data::context::MarketContext;
+//!
+//! // Start with markets at t0 and t1
+//! let market_t0 = MarketContext::new();
+//! let market_t1 = MarketContext::new();
+//! // ... populate both markets
+//!
+//! // Attribute P&L to rates move
+//! let rates_snapshot = extract_rates_curves(&market_t0);
+//! let market_only_rates_moved = MarketSnapshot::restore_market(
+//!     &market_t1,
+//!     &MarketSnapshot {
+//!         discount_curves: rates_snapshot.discount_curves,
+//!         forward_curves: rates_snapshot.forward_curves,
+//!         ..Default::default()
+//!     },
+//!     CurveRestoreFlags::RATES
+//! );
+//! // Price with market_only_rates_moved to isolate rates P&L
+//!
+//! // Attribute P&L to credit move
+//! let credit_snapshot = extract_credit_curves(&market_t0);
+//! let market_only_credit_moved = MarketSnapshot::restore_market(
+//!     &market_t1,
+//!     &MarketSnapshot {
+//!         hazard_curves: credit_snapshot.hazard_curves,
+//!         ..Default::default()
+//!     },
+//!     CurveRestoreFlags::CREDIT
+//! );
+//! // Price with market_only_credit_moved to isolate credit P&L
+//! ```
+//!
+//! # Implementation Notes
+//!
+//! - **Preservation semantics**: Curves NOT in `restore_flags` are preserved from `current_market`
+//! - **FX/surfaces/scalars**: Always preserved from `current_market` regardless of flags
+//! - **Ordering**: Preserved curves inserted first, then snapshot curves (allows snapshot to override)
+//! - **Empty snapshots**: Safe to pass empty snapshots; only curves present are inserted
+//!
+//! # See Also
+//!
+//! - [`crate::attribution::parallel`] - Parallel attribution using this module
+//! - [`crate::attribution::waterfall`] - Waterfall attribution using this module
 
 use bitflags::bitflags;
 use finstack_core::market_data::context::MarketContext;
