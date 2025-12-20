@@ -175,7 +175,8 @@ cargo clippy -- -D warnings
 
 ---
 
-### [ ] Step 1.3: Add Strict Metric Parsing
+### [x] Step 1.3: Add Strict Metric Parsing
+<!-- chat-id: 5b3b1e09-b3c5-4c5f-9dd1-e27e8f141528 -->
 
 **Goal**: Provide strict parsing for metric IDs from user inputs.
 
@@ -216,10 +217,31 @@ cargo test metrics::core::ids --lib
 - `test_from_str_still_permissive()`
 
 **Acceptance**:
-- Strict parsing errors on unknown metrics
-- FromStr remains permissive
-- Error includes list of available metrics
-- All tests pass
+- ✅ Strict parsing errors on unknown metrics
+- ✅ FromStr remains permissive
+- ✅ Error includes list of available metrics
+- ✅ All tests pass
+
+**Completed**:
+- ✅ Added `MetricId::parse_strict()` method with comprehensive documentation and examples
+- ✅ Method uses `finstack_core::Error::UnknownMetric` for unknown metric names
+- ✅ Error includes the invalid metric name and complete list of available standard metrics
+- ✅ `FromStr` implementation remains unchanged for backward compatibility (permissive mode)
+- ✅ Updated `FromStr` documentation to recommend `parse_strict()` for user inputs
+- ✅ Added 8 comprehensive unit tests:
+  - `test_parse_strict_known_metric()` - verifies known metrics parse correctly (case insensitive)
+  - `test_parse_strict_unknown_metric()` - verifies unknown metrics return errors
+  - `test_parse_strict_error_includes_available_metrics()` - verifies error includes full metric list
+  - `test_from_str_still_permissive()` - verifies FromStr accepts custom metrics
+  - `test_parse_strict_vs_from_str_behavior()` - verifies behavioral differences
+  - `test_custom_metric_creation()` - verifies custom metric behavior
+  - `test_all_standard_metrics_parseable_strict()` - verifies all standard metrics work
+  - `test_case_insensitivity()` - verifies case-insensitive parsing
+- ✅ Added 3 doc tests (all passing) with proper public API imports
+- ✅ All 8 unit tests pass
+- ✅ All 3 doc tests pass
+- ✅ Clippy passes with zero warnings
+- ✅ Documentation includes migration guide from FromStr to parse_strict
 
 ---
 

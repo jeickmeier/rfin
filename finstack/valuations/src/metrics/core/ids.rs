@@ -55,6 +55,68 @@ impl MetricId {
         !Self::ALL_STANDARD.iter().any(|m| m == self)
     }
 
+    /// Parses a string into a MetricId with strict validation.
+    ///
+    /// Unlike `FromStr`, this method returns an error for unknown metric names
+    /// rather than creating a custom metric. Use this for user-provided inputs
+    /// where typos should be caught, not silently accepted.
+    ///
+    /// # Errors
+    ///
+    /// Returns `Error::UnknownMetric` if the string does not match any standard
+    /// metric. The error includes the invalid metric name and a list of all
+    /// available standard metrics.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use finstack_valuations::metrics::MetricId;
+    ///
+    /// // Parse known metric - succeeds
+    /// let dv01 = MetricId::parse_strict("dv01").unwrap();
+    /// assert_eq!(dv01, MetricId::Dv01);
+    ///
+    /// // Case insensitive
+    /// let theta = MetricId::parse_strict("THETA").unwrap();
+    /// assert_eq!(theta, MetricId::Theta);
+    ///
+    /// // Unknown metric - fails with error
+    /// let result = MetricId::parse_strict("dv01x");
+    /// assert!(result.is_err());
+    /// ```
+    ///
+    /// # Migration from FromStr
+    ///
+    /// If you need backward compatibility (accept custom metrics), use `FromStr::from_str`
+    /// or the `.parse()` method which never fails:
+    ///
+    /// ```
+    /// use finstack_valuations::metrics::MetricId;
+    /// use std::str::FromStr;
+    ///
+    /// // FromStr allows custom metrics (backwards compatible)
+    /// let custom = MetricId::from_str("my_custom_metric").unwrap();
+    /// assert!(custom.is_custom());
+    ///
+    /// // Strict parsing rejects unknown metrics
+    /// let result = MetricId::parse_strict("my_custom_metric");
+    /// assert!(result.is_err());
+    /// ```
+    pub fn parse_strict(s: &str) -> finstack_core::Result<Self> {
+        let lower = s.to_lowercase();
+        if let Some(id) = metric_lookup().get(&lower) {
+            Ok(id.clone())
+        } else {
+            Err(finstack_core::Error::unknown_metric(
+                s,
+                Self::ALL_STANDARD
+                    .iter()
+                    .map(|m| m.as_str().to_string())
+                    .collect(),
+            ))
+        }
+    }
+
     // ========================================================================
     // Core Risk Metrics
     // ========================================================================
@@ -829,10 +891,29 @@ fn metric_lookup() -> &'static HashMap<String, MetricId> {
 impl FromStr for MetricId {
     type Err = (); // Never fails since we have a catch-all Custom variant
 
-    /// Parses a string into a MetricId.
+    /// Parses a string into a MetricId (permissive mode).
     ///
     /// This method never fails - any unrecognized string becomes a custom metric.
     /// Standard metrics are matched case-insensitively in snake_case format.
+    ///
+    /// **For user-provided inputs**, prefer `MetricId::parse_strict()` which
+    /// rejects unknown metrics instead of silently creating custom metrics.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use finstack_valuations::metrics::MetricId;
+    /// use std::str::FromStr;
+    ///
+    /// // Known metric - parsed as standard
+    /// let dv01 = MetricId::from_str("dv01").unwrap();
+    /// assert_eq!(dv01, MetricId::Dv01);
+    /// assert!(!dv01.is_custom());
+    ///
+    /// // Unknown metric - becomes custom (no error)
+    /// let custom = MetricId::from_str("my_metric").unwrap();
+    /// assert!(custom.is_custom());
+    /// ```
     fn from_str(s: &str) -> Result<Self, Self::Err> {
         let lower = s.to_lowercase();
         if let Some(id) = metric_lookup().get(&lower) {
@@ -840,5 +921,141 @@ impl FromStr for MetricId {
         } else {
             Ok(MetricId::custom(lower))
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_parse_strict_known_metric() {
+        // Test lowercase
+        let dv01 = MetricId::parse_strict("dv01").unwrap();
+        assert_eq!(dv01, MetricId::Dv01);
+        assert!(!dv01.is_custom());
+
+        // Test uppercase (case insensitive)
+        let theta = MetricId::parse_strict("THETA").unwrap();
+        assert_eq!(theta, MetricId::Theta);
+        assert!(!theta.is_custom());
+
+        // Test mixed case
+        let cs01 = MetricId::parse_strict("Cs01").unwrap();
+        assert_eq!(cs01, MetricId::Cs01);
+        assert!(!cs01.is_custom());
+
+        // Test various standard metrics
+        let delta = MetricId::parse_strict("delta").unwrap();
+        assert_eq!(delta, MetricId::Delta);
+
+        let ytm = MetricId::parse_strict("ytm").unwrap();
+        assert_eq!(ytm, MetricId::Ytm);
+
+        let convexity = MetricId::parse_strict("convexity").unwrap();
+        assert_eq!(convexity, MetricId::Convexity);
+    }
+
+    #[test]
+    fn test_parse_strict_unknown_metric() {
+        // Unknown metric should fail
+        let result = MetricId::parse_strict("dv01x");
+        assert!(result.is_err());
+
+        // Check error contains metric name
+        let err = result.unwrap_err();
+        let err_msg = format!("{}", err);
+        assert!(err_msg.to_lowercase().contains("dv01x"));
+
+        // Test other typos
+        assert!(MetricId::parse_strict("theta2").is_err());
+        assert!(MetricId::parse_strict("cs_01").is_err());
+        assert!(MetricId::parse_strict("unknown_metric").is_err());
+    }
+
+    #[test]
+    fn test_parse_strict_error_includes_available_metrics() {
+        let result = MetricId::parse_strict("invalid_metric");
+        assert!(result.is_err());
+
+        // The error should be UnknownMetric variant
+        match result.unwrap_err() {
+            finstack_core::Error::UnknownMetric {
+                metric_id,
+                available,
+            } => {
+                assert_eq!(metric_id, "invalid_metric");
+                // Should include standard metrics
+                assert!(available.len() > 0);
+                assert!(available.contains(&"dv01".to_string()));
+                assert!(available.contains(&"theta".to_string()));
+                assert!(available.contains(&"cs01".to_string()));
+            }
+            _ => panic!("Expected UnknownMetric error"),
+        }
+    }
+
+    #[test]
+    fn test_from_str_still_permissive() {
+        // FromStr should still accept unknown metrics
+        let known = MetricId::from_str("dv01").unwrap();
+        assert_eq!(known, MetricId::Dv01);
+        assert!(!known.is_custom());
+
+        // Unknown metric becomes custom (no error)
+        let custom = MetricId::from_str("my_custom_metric").unwrap();
+        assert!(custom.is_custom());
+        assert_eq!(custom.as_str(), "my_custom_metric");
+
+        // Another unknown metric
+        let custom2 = MetricId::from_str("user_defined_123").unwrap();
+        assert!(custom2.is_custom());
+    }
+
+    #[test]
+    fn test_parse_strict_vs_from_str_behavior() {
+        // Known metric: both work the same
+        let strict = MetricId::parse_strict("theta").unwrap();
+        let permissive = MetricId::from_str("theta").unwrap();
+        assert_eq!(strict, permissive);
+
+        // Unknown metric: strict fails, permissive creates custom
+        let strict_result = MetricId::parse_strict("custom_metric");
+        assert!(strict_result.is_err());
+
+        let permissive_result = MetricId::from_str("custom_metric").unwrap();
+        assert!(permissive_result.is_custom());
+    }
+
+    #[test]
+    fn test_custom_metric_creation() {
+        let custom = MetricId::custom("my_metric");
+        assert!(custom.is_custom());
+        assert_eq!(custom.as_str(), "my_metric");
+
+        // Custom metrics not in ALL_STANDARD
+        assert!(!MetricId::ALL_STANDARD.contains(&custom));
+    }
+
+    #[test]
+    fn test_all_standard_metrics_parseable_strict() {
+        // Every standard metric should be parseable via parse_strict
+        for metric in MetricId::ALL_STANDARD {
+            let parsed = MetricId::parse_strict(metric.as_str()).unwrap();
+            assert_eq!(&parsed, metric);
+            assert!(!parsed.is_custom());
+        }
+    }
+
+    #[test]
+    fn test_case_insensitivity() {
+        // Strict parsing is case insensitive
+        let lower = MetricId::parse_strict("dv01").unwrap();
+        let upper = MetricId::parse_strict("DV01").unwrap();
+        let mixed = MetricId::parse_strict("Dv01").unwrap();
+
+        assert_eq!(lower, upper);
+        assert_eq!(lower, mixed);
+        assert_eq!(lower, MetricId::Dv01);
     }
 }
