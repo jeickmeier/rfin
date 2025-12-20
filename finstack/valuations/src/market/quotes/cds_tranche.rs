@@ -26,7 +26,7 @@ use ts_rs::TS;
 ///     index: "CDX.NA.IG".to_string(),
 ///     attachment: 0.03,  // 3%
 ///     detachment: 0.07, // 7%
-///     maturity: Date::from_calendar_date(2029, time::Month::June, 20)?,
+///     maturity: Date::from_calendar_date(2029, time::Month::June, 20).unwrap(),
 ///     upfront_pct: -2.5, // -2.5% upfront
 ///     running_spread_bp: 500.0,
 ///     convention: CdsConventionKey {
@@ -83,24 +83,24 @@ impl CdsTrancheQuote {
     /// use finstack_core::dates::Date;
     /// use finstack_core::currency::Currency;
     ///
-    /// # fn example() -> finstack_core::Result<()> {
-    /// let quote = CdsTrancheQuote::CDSTranche {
-    ///     id: QuoteId::new("CDX-IG-3-7"),
-    ///     index: "CDX.NA.IG".to_string(),
-    ///     attachment: 0.03,
-    ///     detachment: 0.07,
-    ///     maturity: Date::from_calendar_date(2029, time::Month::June, 20)?,
-    ///     upfront_pct: -2.5,
-    ///     running_spread_bp: 500.0,
-    ///     convention: CdsConventionKey {
-    ///         currency: Currency::USD,
-    ///         doc_clause: CdsDocClause::Cr14,
-    ///     },
-    /// };
-    ///
-    /// assert_eq!(quote.id().as_str(), "CDX-IG-3-7");
-    /// # Ok(())
-    /// # }
+/// # fn example() -> finstack_core::Result<()> {
+/// let quote = CdsTrancheQuote::CDSTranche {
+///     id: QuoteId::new("CDX-IG-3-7"),
+///     index: "CDX.NA.IG".to_string(),
+///     attachment: 0.03,
+///     detachment: 0.07,
+///     maturity: Date::from_calendar_date(2029, time::Month::June, 20).unwrap(),
+///     upfront_pct: -2.5,
+///     running_spread_bp: 500.0,
+///     convention: CdsConventionKey {
+///         currency: Currency::USD,
+///         doc_clause: CdsDocClause::Cr14,
+///     },
+/// };
+///
+/// assert_eq!(quote.id().as_str(), "CDX-IG-3-7");
+/// # Ok(())
+/// # }
     /// ```
     pub fn id(&self) -> &QuoteId {
         match self {
@@ -130,25 +130,25 @@ impl CdsTrancheQuote {
     /// use finstack_core::dates::Date;
     /// use finstack_core::currency::Currency;
     ///
-    /// # fn example() -> finstack_core::Result<()> {
-    /// let quote = CdsTrancheQuote::CDSTranche {
-    ///     id: QuoteId::new("CDX-IG-3-7"),
-    ///     index: "CDX.NA.IG".to_string(),
-    ///     attachment: 0.03,
-    ///     detachment: 0.07,
-    ///     maturity: Date::from_calendar_date(2029, time::Month::June, 20)?,
-    ///     upfront_pct: -2.5,
-    ///     running_spread_bp: 500.0,
-    ///     convention: CdsConventionKey {
-    ///         currency: Currency::USD,
-    ///         doc_clause: CdsDocClause::Cr14,
-    ///     },
-    /// };
-    ///
-    /// // Bump by 1 basis point
-    /// let bumped = quote.bump(0.0001);
-    /// # Ok(())
-    /// # }
+/// # fn example() -> finstack_core::Result<()> {
+/// let quote = CdsTrancheQuote::CDSTranche {
+///     id: QuoteId::new("CDX-IG-3-7"),
+///     index: "CDX.NA.IG".to_string(),
+///     attachment: 0.03,
+///     detachment: 0.07,
+///     maturity: Date::from_calendar_date(2029, time::Month::June, 20).unwrap(),
+///     upfront_pct: -2.5,
+///     running_spread_bp: 500.0,
+///     convention: CdsConventionKey {
+///         currency: Currency::USD,
+///         doc_clause: CdsDocClause::Cr14,
+///     },
+/// };
+///
+/// // Bump by 1 basis point
+/// let bumped = quote.bump(0.0001);
+/// # Ok(())
+/// # }
     /// ```
     pub fn bump(&self, bump_decimal: f64) -> Self {
         let bump_bp = bump_decimal * 10_000.0;

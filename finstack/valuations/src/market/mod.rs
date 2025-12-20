@@ -39,14 +39,14 @@
 //! let _registry = ConventionRegistry::global();
 //!
 //! // Create build context
-//! let as_of = Date::from_calendar_date(2024, time::Month::January, 2)?;
+//! let as_of = Date::from_calendar_date(2024, time::Month::January, 2).unwrap();
 //! let ctx = BuildCtx::new(as_of, 1_000_000.0, HashMap::new());
 //!
 //! // Create a deposit quote
 //! let quote = RateQuote::Deposit {
 //!     id: QuoteId::new("USD-SOFR-DEP-1M"),
 //!     index: IndexId::new("USD-SOFR-1M"),
-//!     pillar: Pillar::Tenor("1M".parse()?),
+//!     pillar: Pillar::Tenor("1M".parse().unwrap()),
 //!     rate: 0.0525,
 //! };
 //!

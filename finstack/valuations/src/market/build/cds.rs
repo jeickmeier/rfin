@@ -54,7 +54,7 @@ use finstack_core::Result;
 ///
 /// # fn example() -> finstack_core::Result<()> {
 /// let ctx = BuildCtx::new(
-///     Date::from_calendar_date(2024, time::Month::January, 2)?,
+///     Date::from_calendar_date(2024, time::Month::January, 2).unwrap(),
 ///     10_000_000.0,
 ///     HashMap::new(),
 /// );
@@ -66,7 +66,7 @@ use finstack_core::Result;
 ///         currency: Currency::USD,
 ///         doc_clause: CdsDocClause::Cr14,
 ///     },
-///     pillar: Pillar::Tenor("5Y".parse()?),
+///     pillar: Pillar::Tenor("5Y".parse().unwrap()),
 ///     spread_bp: 150.0,
 ///     recovery_rate: 0.40,
 /// };
@@ -89,7 +89,7 @@ use finstack_core::Result;
 ///
 /// # fn example() -> finstack_core::Result<()> {
 /// let ctx = BuildCtx::new(
-///     Date::from_calendar_date(2024, time::Month::January, 2)?,
+///     Date::from_calendar_date(2024, time::Month::January, 2).unwrap(),
 ///     10_000_000.0,
 ///     HashMap::new(),
 /// );
@@ -101,7 +101,7 @@ use finstack_core::Result;
 ///         currency: Currency::USD,
 ///         doc_clause: CdsDocClause::Cr14,
 ///     },
-///     pillar: Pillar::Tenor("5Y".parse()?),
+///     pillar: Pillar::Tenor("5Y".parse().unwrap()),
 ///     running_spread_bp: 500.0,
 ///     upfront_pct: 0.02, // 2% upfront
 ///     recovery_rate: 0.40,

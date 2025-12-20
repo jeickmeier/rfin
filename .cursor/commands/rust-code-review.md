@@ -27,9 +27,3 @@ Critical Issues: Bugs, safety violations, or panic risks.
 Refactoring Suggestions: Specific blocks of code rewritten to be more idiomatic or performant (with explanations).
 
 API Polish: Suggestions to make the library easier for others to use.
-
-The Code:
-
-Rust
-
-[PASTE YOUR CODE HERE]

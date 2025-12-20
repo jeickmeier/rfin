@@ -31,7 +31,7 @@ use std::sync::Arc;
 /// # use finstack_valuations::market::quotes::ids::QuoteId;
 /// # use finstack_core::dates::Date;
 /// # use std::sync::Arc;
-/// # use crate::instruments::Instrument;
+/// # use finstack_valuations::instruments::Instrument;
 /// #
 /// # fn example() -> finstack_core::Result<()> {
 /// // In practice, this would be created by a builder function
@@ -93,7 +93,7 @@ impl<Q> PreparedQuote<Q> {
     /// # use finstack_valuations::market::build::prepared::PreparedQuote;
     /// # use finstack_core::dates::Date;
     /// # use std::sync::Arc;
-    /// # use crate::instruments::Instrument;
+    /// # use finstack_valuations::instruments::Instrument;
     /// #
     /// # fn example(quote: Arc<String>, instrument: Arc<dyn Instrument>) -> finstack_core::Result<()> {
     /// let pillar_date = Date::from_calendar_date(2025, time::Month::January, 2).unwrap();

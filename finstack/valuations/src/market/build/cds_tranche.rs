@@ -144,7 +144,7 @@ impl CdsTrancheBuildOverrides {
 ///
 /// # fn example() -> finstack_core::Result<()> {
 /// let ctx = BuildCtx::new(
-///     Date::from_calendar_date(2024, time::Month::January, 2)?,
+///     Date::from_calendar_date(2024, time::Month::January, 2).unwrap(),
 ///     100_000_000.0, // Base notional
 ///     HashMap::new(),
 /// );
@@ -154,7 +154,7 @@ impl CdsTrancheBuildOverrides {
 ///     index: "CDX.NA.IG".to_string(),
 ///     attachment: 0.03,  // 3%
 ///     detachment: 0.07,   // 7%
-///     maturity: Date::from_calendar_date(2029, time::Month::June, 20)?,
+///     maturity: Date::from_calendar_date(2029, time::Month::June, 20).unwrap(),
 ///     upfront_pct: -2.5, // -2.5% upfront
 ///     running_spread_bp: 500.0,
 ///     convention: CdsConventionKey {

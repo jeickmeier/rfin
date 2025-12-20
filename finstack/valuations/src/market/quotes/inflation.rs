@@ -38,7 +38,7 @@ use ts_rs::TS;
 ///
 /// # fn example() -> finstack_core::Result<()> {
 /// let quote = InflationQuote::YoYInflationSwap {
-///     maturity: Date::from_calendar_date(2029, time::Month::June, 20)?,
+///     maturity: Date::from_calendar_date(2029, time::Month::June, 20).unwrap(),
 ///     rate: 0.025,
 ///     index: "US-CPI-U".to_string(),
 ///     frequency: Tenor::new(1, finstack_core::dates::TenorUnit::Years),
