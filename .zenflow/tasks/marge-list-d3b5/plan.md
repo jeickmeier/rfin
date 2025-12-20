@@ -312,25 +312,31 @@ cargo clippy --lib --package finstack-valuations -- -D warnings      # ✅ No wa
 
 ---
 
-### [ ] Step 3.3: Create unified execute_waterfall_core()
+### [x] Step 3.3: Create unified execute_waterfall_core()
+<!-- chat-id: 658a4ea5-4e01-46c8-b6ea-c61f6a760100 -->
 **File**: `finstack/valuations/src/instruments/structured_credit/pricing/waterfall.rs`
 
 **Tasks**:
-- Implement `execute_waterfall_core()` with optional workspace parameter
-- Merge logic from `execute_waterfall_with_explanation()` and `execute_waterfall_with_workspace()`
-- Use `Option<&mut WaterfallWorkspace>` to branch between local and workspace state
-- Update wrapper functions to call core implementation
+- ✅ Implement `execute_waterfall_core()` with optional workspace parameter
+- ✅ Merge logic from `execute_waterfall_with_explanation()` and `execute_waterfall_with_workspace()`
+- ✅ Use `Option<&mut WaterfallWorkspace>` to branch between local and workspace state
+- ✅ Update wrapper functions to call core implementation
 
 **Verification**:
 ```bash
-cargo test --lib instruments::structured_credit::pricing::waterfall
-cargo test --test integration_waterfall
+cargo test --lib instruments::structured_credit::pricing::waterfall  # ✅ 1 test passed
+cargo test --test instruments_tests structured_credit                # ✅ 195 tests passed
+cargo clippy --lib --package finstack-valuations -- -D warnings      # ✅ No warnings
 ```
 
 **Acceptance**:
 - ✅ Core function handles both workspace and non-workspace cases
-- ✅ Wrapper functions are thin (2-3 lines)
-- ✅ All tests pass with identical results
+- ✅ Wrapper functions are thin (1 line each, down from 107 and 133 lines)
+- ✅ All tests pass with identical results (196 total: 1 unit + 195 integration)
+- ✅ Code reduction: 874 → 808 lines (66 lines removed, 7.5% reduction)
+- ✅ Zero clippy warnings
+- ✅ Backward compatible: all existing call sites work unchanged
+- ✅ Comprehensive completion document created: PHASE3_STEP3_COMPLETE.md
 
 ---
 

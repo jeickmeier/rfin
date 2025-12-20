@@ -79,34 +79,39 @@ pub fn execute_waterfall(
     execute_waterfall_with_explanation(waterfall, tranches, pool, context, ExplainOpts::disabled())
 }
 
-/// Execute waterfall with optional explanation trace.
-pub fn execute_waterfall_with_explanation(
+/// Core waterfall execution logic with optional workspace for zero-allocation hot paths.
+///
+/// This is the unified implementation that handles both regular and workspace-based execution.
+/// When `workspace` is `Some`, it uses pre-allocated buffers for zero-allocation execution.
+/// When `workspace` is `None`, it allocates local state as needed.
+fn execute_waterfall_core(
     waterfall: &Waterfall,
     tranches: &TrancheStructure,
     pool: &Pool,
     context: WaterfallContext,
     explain: ExplainOpts,
+    mut workspace: Option<&mut WaterfallWorkspace>,
 ) -> Result<WaterfallDistribution> {
     let mut remaining = context.available_cash;
-    let mut tier_allocations = Vec::with_capacity(waterfall.tiers.len());
-    let estimated_recipients = waterfall
-        .tiers
-        .iter()
-        .map(|t| t.recipients.len())
-        .sum::<usize>();
-    let mut allocation_output = AllocationOutput::with_capacity(estimated_recipients, &explain);
     let mut total_diverted = Money::new(0.0, waterfall.base_currency);
     let mut had_diversions = false;
     let mut diversion_reason = None;
 
+    // Build tranche index fresh (cheap operation)
+    let mut tranche_index = HashMap::with_capacity(tranches.tranches.len());
+    for (i, t) in tranches.tranches.iter().enumerate() {
+        tranche_index.insert(t.id.as_str(), i);
+    }
+
     // Build allocation context for reuse across tiers
-    let allocation_ctx = AllocationContext::new(
-        waterfall.base_currency,
+    let allocation_ctx = AllocationContext {
+        base_currency: waterfall.base_currency,
         tranches,
-        context.pool_balance,
-        context.payment_date,
-        context.market,
-    );
+        tranche_index,
+        pool_balance: context.pool_balance,
+        payment_date: context.payment_date,
+        market: context.market,
+    };
 
     // Evaluate coverage tests
     let coverage_test_results = evaluate_coverage_tests(
@@ -124,6 +129,37 @@ pub fn execute_waterfall_with_explanation(
         had_diversions = true;
         diversion_reason = Some("OC or IC test failed".to_string());
     }
+
+    // Create allocation output, using workspace buffers if available
+    let mut allocation_output = if let Some(ref mut ws) = workspace {
+        // Clear workspace buffers and reuse them
+        ws.distributions.clear();
+        ws.payment_records.clear();
+        ws.tier_allocations.clear();
+        ws.coverage_tests.clear();
+        ws.coverage_tests.extend(coverage_test_results.iter().cloned());
+        
+        AllocationOutput {
+            distributions: std::mem::take(&mut ws.distributions),
+            payment_records: std::mem::take(&mut ws.payment_records),
+            trace: if explain.enabled {
+                Some(ExplanationTrace::new("waterfall"))
+            } else {
+                None
+            },
+        }
+    } else {
+        // Allocate fresh buffers
+        let estimated_recipients = waterfall
+            .tiers
+            .iter()
+            .map(|t| t.recipients.len())
+            .sum::<usize>();
+        AllocationOutput::with_capacity(estimated_recipients, &explain)
+    };
+
+    // Storage for tier allocations (will be moved to workspace or returned directly)
+    let mut tier_allocations = Vec::with_capacity(waterfall.tiers.len());
 
     // Process tiers in priority order
     for tier in &waterfall.tiers {
@@ -174,19 +210,41 @@ pub fn execute_waterfall_with_explanation(
         remaining = remaining.checked_sub(tier_cash)?;
     }
 
-    Ok(WaterfallDistribution {
+    // Build the final distribution result
+    let distribution = WaterfallDistribution {
         payment_date: context.payment_date,
         total_available: context.available_cash,
-        tier_allocations,
-        distributions: allocation_output.distributions,
-        payment_records: allocation_output.payment_records,
-        coverage_tests: coverage_test_results,
+        tier_allocations: tier_allocations.clone(),
+        distributions: allocation_output.distributions.clone(),
+        payment_records: allocation_output.payment_records.clone(),
+        coverage_tests: coverage_test_results.clone(),
         diverted_cash: total_diverted,
         remaining_cash: remaining,
         had_diversions,
         diversion_reason,
         explanation: allocation_output.trace,
-    })
+    };
+
+    // If using workspace, restore buffers for future reuse
+    if let Some(ws) = workspace {
+        ws.distributions = allocation_output.distributions;
+        ws.payment_records = allocation_output.payment_records;
+        ws.tier_allocations = tier_allocations;
+        ws.coverage_tests = coverage_test_results;
+    }
+
+    Ok(distribution)
+}
+
+/// Execute waterfall with optional explanation trace.
+pub fn execute_waterfall_with_explanation(
+    waterfall: &Waterfall,
+    tranches: &TrancheStructure,
+    pool: &Pool,
+    context: WaterfallContext,
+    explain: ExplainOpts,
+) -> Result<WaterfallDistribution> {
+    execute_waterfall_core(waterfall, tranches, pool, context, explain, None)
 }
 
 /// Execute waterfall using a pre-allocated workspace for zero-allocation hot paths.
@@ -198,130 +256,7 @@ pub fn execute_waterfall_with_workspace(
     explain: ExplainOpts,
     workspace: &mut WaterfallWorkspace,
 ) -> Result<WaterfallDistribution> {
-    let mut remaining = context.available_cash;
-    let mut total_diverted = Money::new(0.0, waterfall.base_currency);
-    let mut had_diversions = false;
-    let mut diversion_reason = None;
-
-    let trace = if explain.enabled {
-        Some(ExplanationTrace::new("waterfall"))
-    } else {
-        None
-    };
-
-    let tranche_index: HashMap<&str, usize> = workspace
-        .tranche_index
-        .iter()
-        .map(|(k, v)| (k.as_str(), *v))
-        .collect();
-
-    // Build allocation context for reuse across tiers
-    let allocation_ctx = AllocationContext {
-        base_currency: waterfall.base_currency,
-        tranches,
-        tranche_index,
-        pool_balance: context.pool_balance,
-        payment_date: context.payment_date,
-        market: context.market,
-    };
-
-    // Evaluate coverage tests into workspace buffer
-    workspace.coverage_tests.clear();
-    let coverage_test_results = evaluate_coverage_tests(
-        waterfall,
-        tranches,
-        pool,
-        context.payment_date,
-        context.available_cash,
-        context.interest_collections,
-    )?;
-    workspace
-        .coverage_tests
-        .extend(coverage_test_results.iter().cloned());
-
-    let diversion_active = workspace
-        .coverage_tests
-        .iter()
-        .any(|(_, _, passed)| !passed);
-    if diversion_active {
-        had_diversions = true;
-        diversion_reason = Some("OC or IC test failed".to_string());
-    }
-
-    // Create allocation output from workspace state
-    let mut allocation_output = AllocationOutput {
-        distributions: std::mem::take(&mut workspace.distributions),
-        payment_records: std::mem::take(&mut workspace.payment_records),
-        trace,
-    };
-
-    for tier in &waterfall.tiers {
-        let (target_recipients, tier_diverted): (&[Recipient], bool) = if tier.divertible
-            && diversion_active
-        {
-            let senior_tier = waterfall
-                .tiers
-                .iter()
-                .filter(|t| t.priority < tier.priority && t.payment_type == PaymentType::Principal)
-                .min_by_key(|t| t.priority);
-
-            senior_tier
-                .map(|s| (&s.recipients[..], true))
-                .unwrap_or((&tier.recipients[..], false))
-        } else {
-            (&tier.recipients[..], false)
-        };
-
-        let tier_cash = match tier.allocation_mode {
-            AllocationMode::Sequential => allocate_sequential(
-                &allocation_ctx,
-                tier,
-                target_recipients,
-                remaining,
-                context.period_start,
-                tier_diverted,
-                &mut allocation_output,
-                &explain,
-            )?,
-            AllocationMode::ProRata => allocate_pro_rata(
-                &allocation_ctx,
-                tier,
-                target_recipients,
-                remaining,
-                context.period_start,
-                tier_diverted,
-                &mut allocation_output,
-                &explain,
-            )?,
-        };
-
-        if tier_diverted {
-            total_diverted = total_diverted.checked_add(tier_cash)?;
-        }
-
-        workspace
-            .tier_allocations
-            .push((tier.id.clone(), tier_cash));
-        remaining = remaining.checked_sub(tier_cash)?;
-    }
-
-    // Restore workspace state for future reuse
-    workspace.distributions = allocation_output.distributions.clone();
-    workspace.payment_records = allocation_output.payment_records.clone();
-
-    Ok(WaterfallDistribution {
-        payment_date: context.payment_date,
-        total_available: context.available_cash,
-        tier_allocations: workspace.tier_allocations.clone(),
-        distributions: allocation_output.distributions,
-        payment_records: allocation_output.payment_records,
-        coverage_tests: workspace.coverage_tests.clone(),
-        diverted_cash: total_diverted,
-        remaining_cash: remaining,
-        had_diversions,
-        diversion_reason,
-        explanation: allocation_output.trace,
-    })
+    execute_waterfall_core(waterfall, tranches, pool, context, explain, Some(workspace))
 }
 
 // ============================================================================
