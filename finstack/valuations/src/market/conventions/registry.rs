@@ -184,7 +184,7 @@ impl ConventionRegistry {
     /// let registry = ConventionRegistry::global();
     /// let key = CdsConventionKey {
     ///     currency: Currency::USD,
-///     doc_clause: CdsDocClause::IsdaNa,
+    ///     doc_clause: CdsDocClause::IsdaNa,
     /// };
     /// let conv = registry.require_cds(&key)?;
     /// # Ok::<(), finstack_core::Error>(())
