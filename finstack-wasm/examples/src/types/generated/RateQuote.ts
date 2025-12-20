@@ -3,80 +3,96 @@
 /**
  * Market quote for interest rate instruments.
  */
-export type RateQuote = { "deposit": { 
-/**
- * Unique identifier for the quote.
- */
-id: string, 
-/**
- * Rate index identifier (e.g. "USD-SOFR-3M").
- */
-index: string, 
-/**
- * Maturity pillar (e.g. Tenor("3M") or Date("2024-01-01")).
- */
-pillar: string, 
-/**
- * Rate value (decimal).
- */
-rate: number, } } | { "fra": { 
-/**
- * Unique identifier for the quote.
- */
-id: string, 
-/**
- * Rate index identifier.
- */
-index: string, 
-/**
- * Start date pillar.
- */
-start: string, 
-/**
- * End date pillar.
- */
-end: string, 
-/**
- * Rate value (decimal).
- */
-rate: number, } } | { "futures": { 
-/**
- * Unique identifier for the quote.
- */
-id: string, 
-/**
- * Future contract identifier (e.g. "CME:SR3").
- */
-contract: string, 
-/**
- * Expiry date of the future.
- */
-expiry: string, 
-/**
- * Price of the future (e.g. 98.50).
- */
-price: number, 
-/**
- * Optional convexity adjustment (rate, decimal).
- */
-convexity_adjustment: number | null, } } | { "swap": { 
-/**
- * Unique identifier for the quote.
- */
-id: string, 
-/**
- * Rate index identifier (floating leg).
- */
-index: string, 
-/**
- * Maturity pillar of the swap.
- */
-pillar: string, 
-/**
- * Fixed rate (decimal) making the swap PV=0.
- */
-rate: number, 
-/**
- * Optional spread over the index (decimal).
- */
-spread: number | null, } };
+export type RateQuote =
+  | {
+      deposit: {
+        /**
+         * Unique identifier for the quote.
+         */
+        id: string;
+        /**
+         * Rate index identifier (e.g. "USD-SOFR-3M").
+         */
+        index: string;
+        /**
+         * Maturity pillar (e.g. Tenor("3M") or Date("2024-01-01")).
+         */
+        pillar: string;
+        /**
+         * Rate value (decimal).
+         */
+        rate: number;
+      };
+    }
+  | {
+      fra: {
+        /**
+         * Unique identifier for the quote.
+         */
+        id: string;
+        /**
+         * Rate index identifier.
+         */
+        index: string;
+        /**
+         * Start date pillar.
+         */
+        start: string;
+        /**
+         * End date pillar.
+         */
+        end: string;
+        /**
+         * Rate value (decimal).
+         */
+        rate: number;
+      };
+    }
+  | {
+      futures: {
+        /**
+         * Unique identifier for the quote.
+         */
+        id: string;
+        /**
+         * Future contract identifier (e.g. "CME:SR3").
+         */
+        contract: string;
+        /**
+         * Expiry date of the future.
+         */
+        expiry: string;
+        /**
+         * Price of the future (e.g. 98.50).
+         */
+        price: number;
+        /**
+         * Optional convexity adjustment (rate, decimal).
+         */
+        convexity_adjustment: number | null;
+      };
+    }
+  | {
+      swap: {
+        /**
+         * Unique identifier for the quote.
+         */
+        id: string;
+        /**
+         * Rate index identifier (floating leg).
+         */
+        index: string;
+        /**
+         * Maturity pillar of the swap.
+         */
+        pillar: string;
+        /**
+         * Fixed rate (decimal) making the swap PV=0.
+         */
+        rate: number;
+        /**
+         * Optional spread over the index (decimal).
+         */
+        spread: number | null;
+      };
+    };

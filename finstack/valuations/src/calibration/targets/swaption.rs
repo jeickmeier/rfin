@@ -118,9 +118,18 @@ impl SwaptionVolBootstrapper {
         };
 
         for q in quotes {
-            if let MarketQuote::Vol(VolQuote::SwaptionVol { expiry, tenor, .. }) = q {
+            if let MarketQuote::Vol(VolQuote::SwaptionVol {
+                expiry, maturity, ..
+            }) = q
+            {
+                if *maturity < *expiry {
+                    return Err(finstack_core::Error::Validation(format!(
+                        "Swaption maturity {} must be on/after expiry {}",
+                        maturity, expiry
+                    )));
+                }
                 let t_exp = dc.year_fraction(params.base_date, *expiry, DayCountCtx::default())?;
-                let t_ten = dc.year_fraction(*expiry, *tenor, DayCountCtx::default())?;
+                let t_ten = dc.year_fraction(*expiry, *maturity, DayCountCtx::default())?;
                 let key = (to_basis_points(t_exp), to_basis_points(t_ten));
 
                 if let MarketQuote::Vol(vq) = q {
@@ -988,7 +997,7 @@ mod tests {
             let vol_bp = vol_dec * 10_000.0;
             quotes.push(MarketQuote::Vol(VolQuote::SwaptionVol {
                 expiry: expiry_date,
-                tenor: maturity_date,
+                maturity: maturity_date,
                 strike: k,
                 vol: vol_bp,
                 quote_type: "implied_vol".to_string(),
@@ -1070,7 +1079,7 @@ mod tests {
             let vol_pct = vol_dec * 100.0;
             quotes.push(MarketQuote::Vol(VolQuote::SwaptionVol {
                 expiry: expiry_date,
-                tenor: maturity_date,
+                maturity: maturity_date,
                 strike: k,
                 vol: vol_pct,
                 quote_type: "implied_vol".to_string(),
@@ -1157,7 +1166,7 @@ mod tests {
             // Percent-quoted; exact values don't matter for this check (shift is insufficient).
             quotes.push(MarketQuote::Vol(VolQuote::SwaptionVol {
                 expiry: expiry_date,
-                tenor: maturity_date,
+                maturity: maturity_date,
                 strike: k,
                 vol: 20.0,
                 quote_type: "implied_vol".to_string(),

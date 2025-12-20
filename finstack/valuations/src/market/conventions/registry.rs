@@ -40,8 +40,6 @@ pub struct ConventionRegistry {
     pub rate_index: HashMap<IndexId, RateIndexConventions>,
     /// Registry of CDS conventions.
     pub cds: HashMap<CdsConventionKey, CdsConventions>,
-    /// Registry of CDS Tranche conventions.
-    pub cds_tranche: HashMap<CdsConventionKey, CdsConventions>,
     /// Registry of Swaption conventions.
     pub swaption: HashMap<SwaptionConventionId, SwaptionConventions>,
     /// Registry of Inflation Swap conventions.
@@ -62,7 +60,6 @@ impl ConventionRegistry {
     ///
     /// * `rate_index` - Map of rate index IDs to conventions
     /// * `cds` - Map of CDS convention keys to conventions
-    /// * `cds_tranche` - Map of CDS tranche convention keys to conventions
     /// * `swaption` - Map of swaption convention IDs to conventions
     /// * `inflation_swap` - Map of inflation swap convention IDs to conventions
     /// * `option` - Map of option convention IDs to conventions
@@ -74,7 +71,6 @@ impl ConventionRegistry {
     pub fn new(
         rate_index: HashMap<IndexId, RateIndexConventions>,
         cds: HashMap<CdsConventionKey, CdsConventions>,
-        cds_tranche: HashMap<CdsConventionKey, CdsConventions>,
         swaption: HashMap<SwaptionConventionId, SwaptionConventions>,
         inflation_swap: HashMap<InflationSwapConventionId, InflationSwapConventions>,
         option: HashMap<OptionConventionId, OptionConventions>,
@@ -83,7 +79,6 @@ impl ConventionRegistry {
         Self {
             rate_index,
             cds,
-            cds_tranche,
             swaption,
             inflation_swap,
             option,
@@ -121,8 +116,6 @@ impl ConventionRegistry {
                 .expect("Failed to load embedded rate index conventions registry"),
             cds: super::loaders::cds::load_registry()
                 .expect("Failed to load embedded CDS conventions registry"),
-            cds_tranche: super::loaders::cds_tranche::load_registry()
-                .expect("Failed to load embedded CDS tranche conventions registry"),
             swaption: super::loaders::swaption::load_registry()
                 .expect("Failed to load embedded swaption conventions registry"),
             inflation_swap: super::loaders::inflation_swap::load_registry()
@@ -200,28 +193,6 @@ impl ConventionRegistry {
         self.cds.get(key).ok_or_else(|| {
             Error::Validation(format!(
                 "Missing CDS conventions for '{}'. check cds_conventions.json",
-                key
-            ))
-        })
-    }
-
-    /// Resolve conventions for a CDS Tranche key.
-    ///
-    /// # Arguments
-    ///
-    /// * `key` - The CDS convention key (currency + doc clause)
-    ///
-    /// # Returns
-    ///
-    /// `Ok(&CdsConventions)` if found, or `Err` with a validation error if not found.
-    ///
-    /// # Errors
-    ///
-    /// Returns `Error::Validation` if the key is not found in the registry.
-    pub fn require_cds_tranche(&self, key: &CdsConventionKey) -> Result<&CdsConventions> {
-        self.cds_tranche.get(key).ok_or_else(|| {
-            Error::Validation(format!(
-                "Missing CDS Tranche conventions for '{}'. check cds_tranche_conventions.json",
                 key
             ))
         })

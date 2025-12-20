@@ -195,7 +195,7 @@ impl JsVolQuote {
     #[wasm_bindgen(js_name = swaptionVol)]
     pub fn swaption_vol(
         expiry: &FsDate,
-        tenor: &FsDate,
+        maturity: &FsDate,
         strike: f64,
         vol: f64,
         quote_type: &str,
@@ -204,7 +204,7 @@ impl JsVolQuote {
         Self {
             inner: VolQuote::SwaptionVol {
                 expiry: expiry.inner(),
-                tenor: tenor.inner(),
+                maturity: maturity.inner(),
                 strike,
                 vol,
                 quote_type: quote_type.to_string(),

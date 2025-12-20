@@ -14,7 +14,7 @@ use std::sync::Arc;
 ///
 /// # Invariants
 ///
-/// - `pillar_time` is calculated as `(pillar_date - as_of) / 365.25` (or similar day-count convention)
+/// - `pillar_time` is calculated using the day-count convention chosen by the calibration target
 /// - `pillar_date` corresponds to the maturity date of the instrument's pillar
 /// - `instrument` is fully configured and ready for pricing
 ///

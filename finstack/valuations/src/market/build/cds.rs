@@ -5,14 +5,11 @@ use crate::instruments::common::parameters::legs::{PayReceive, PremiumLegSpec, P
 use crate::instruments::common::traits::{Attributes, Instrument};
 use crate::instruments::PricingOverrides;
 use crate::market::build::context::BuildCtx;
-use crate::market::conventions::defs::CdsConventions;
+use crate::market::build::helpers::{resolve_calendar, resolve_spot_date};
 use crate::market::conventions::registry::ConventionRegistry;
 use crate::market::quotes::cds::CdsQuote;
 use crate::market::quotes::ids::Pillar;
-use finstack_core::dates::{
-    adjust, next_cds_date, CalendarRegistry, Date, DateExt, HolidayCalendar, StubKind,
-};
-use finstack_core::error::Error;
+use finstack_core::dates::{adjust, next_cds_date, DateExt, StubKind};
 use finstack_core::money::Money;
 use finstack_core::types::{CurveId, InstrumentId};
 use finstack_core::Result;
@@ -160,11 +157,15 @@ pub fn build_cds_instrument(quote: &CdsQuote, ctx: &BuildCtx) -> Result<Box<dyn 
     };
 
     let conv = registry.require_cds(convention_key)?;
-    let spot = resolve_spot_date(ctx.as_of, conv)?;
+    let spot = resolve_spot_date(
+        ctx.as_of,
+        &conv.calendar_id,
+        conv.settlement_days,
+        conv.business_day_convention,
+    )?;
 
     // Resolve calendar for tenor addition
-    let cal_registry = CalendarRegistry::global();
-    let cal = resolve_calendar(cal_registry, &conv.calendar_id)?;
+    let cal = resolve_calendar(&conv.calendar_id)?;
 
     // CDS Start: Market standard is the prior CDS roll (20th of Mar/Jun/Sep/Dec).
     // Use the CDS IMM roll date on or before spot.
@@ -177,7 +178,11 @@ pub fn build_cds_instrument(quote: &CdsQuote, ctx: &BuildCtx) -> Result<Box<dyn 
             let raw = t.add_to_date(start, Some(cal), conv.business_day_convention)?;
             next_cds_date(raw - time::Duration::days(1))
         }
-        Pillar::Date(d) => *d,
+        Pillar::Date(d) => {
+            // Enforce IMM alignment even for explicit dates.
+            let adjusted = adjust(*d, conv.business_day_convention, cal)?;
+            next_cds_date(adjusted - time::Duration::days(1))
+        }
     };
 
     let discount_id = ctx
@@ -235,26 +240,4 @@ pub fn build_cds_instrument(quote: &CdsQuote, ctx: &BuildCtx) -> Result<Box<dyn 
     Ok(Box::new(cds))
 }
 
-// Helpers (duplicated from rates.rs for now, could be shared)
-
-fn resolve_calendar<'a>(
-    registry: &'a CalendarRegistry,
-    id: &str,
-) -> Result<&'a dyn HolidayCalendar> {
-    registry
-        .resolve_str(id)
-        .ok_or_else(|| Error::calendar_not_found_with_suggestions(id, &[]))
-}
-
-fn resolve_spot_date(as_of: Date, conv: &CdsConventions) -> Result<Date> {
-    let cal = CalendarRegistry::global().resolve_str(&conv.calendar_id);
-    if let Some(c) = cal {
-        let spot = as_of.add_business_days(conv.settlement_days, c)?;
-        adjust(spot, conv.business_day_convention, c)
-    } else {
-        Err(Error::calendar_not_found_with_suggestions(
-            &conv.calendar_id,
-            &[],
-        ))
-    }
-}
+// Helpers moved to build::helpers

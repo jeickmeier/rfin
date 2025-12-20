@@ -52,6 +52,8 @@ pub mod cds;
 pub mod cds_tranche;
 /// Context for building instruments.
 pub mod context;
+/// Shared helper functions for builders.
+pub mod helpers;
 /// Envelope for prepared quotes.
 pub mod prepared;
 /// Builders for rates instruments.

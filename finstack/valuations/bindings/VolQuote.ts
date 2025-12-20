@@ -29,9 +29,9 @@ option_type: string, } } | { "swaption_vol": {
  */
 expiry: string, 
 /**
- * Underlying swap tenor
+ * Underlying swap maturity date
  */
-tenor: string, 
+maturity: string, 
 /**
  * Strike rate
  */

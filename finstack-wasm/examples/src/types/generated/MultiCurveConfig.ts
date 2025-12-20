@@ -6,12 +6,13 @@
  * Controls how the calibrator handles the separation of discounting
  * and forwarding curves, which became standard industry practice after 2008.
  */
-export type MultiCurveConfig = { 
-/**
- * Whether to calibrate basis spreads between different indices (e.g., Libor vs OIS).
- */
-calibrate_basis: boolean, 
-/**
- * Whether to enforce strict separation (fail if trying to derive forward from discount).
- */
-enforce_separation: boolean, };
+export type MultiCurveConfig = {
+  /**
+   * Whether to calibrate basis spreads between different indices (e.g., Libor vs OIS).
+   */
+  calibrate_basis: boolean;
+  /**
+   * Whether to enforce strict separation (fail if trying to derive forward from discount).
+   */
+  enforce_separation: boolean;
+};

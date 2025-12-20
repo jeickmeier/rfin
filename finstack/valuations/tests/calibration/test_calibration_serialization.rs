@@ -236,7 +236,7 @@ fn market_quote_roundtrip_smoke() {
 
     let vq = MarketQuote::Vol(VolQuote::SwaptionVol {
         expiry: base_date + time::Duration::days(365),
-        tenor: base_date + time::Duration::days(365 * 5),
+        maturity: base_date + time::Duration::days(365 * 5),
         strike: 0.04,
         vol: 0.01,
         quote_type: "ATM".to_string(),

@@ -5,12 +5,11 @@ use crate::instruments::cds_tranche::parameters::CDSTrancheParams;
 use crate::instruments::cds_tranche::{CdsTranche, TrancheSide};
 use crate::instruments::common::traits::Instrument;
 use crate::market::build::context::BuildCtx;
-use crate::market::conventions::defs::CdsConventions;
+use crate::market::build::helpers::{resolve_calendar, resolve_spot_date};
 use crate::market::conventions::registry::ConventionRegistry;
 use crate::market::quotes::cds_tranche::CdsTrancheQuote;
 use finstack_core::dates::{
-    adjust, BusinessDayConvention, CalendarRegistry, Date, DateExt, DayCount, HolidayCalendar,
-    StubKind, Tenor,
+    adjust, next_cds_date, BusinessDayConvention, DateExt, DayCount, StubKind, Tenor,
 };
 use finstack_core::error::Error;
 use finstack_core::money::Money;
@@ -94,7 +93,7 @@ impl CdsTrancheBuildOverrides {
             day_count: None,
             business_day_convention: None,
             calendar_id: None,
-            use_imm_dates: false,
+            use_imm_dates: true,
         }
     }
 }
@@ -216,11 +215,15 @@ pub fn build_cds_tranche_instrument(
     };
 
     let conv = registry.require_cds(convention_key)?;
-    let spot = resolve_spot_date(ctx.as_of, conv)?;
+    let spot = resolve_spot_date(
+        ctx.as_of,
+        &conv.calendar_id,
+        conv.settlement_days,
+        conv.business_day_convention,
+    )?;
 
     // Resolve calendar for tenor addition
-    let cal_registry = CalendarRegistry::global();
-    let _cal = resolve_calendar(cal_registry, &conv.calendar_id)?;
+    let cal = resolve_calendar(&conv.calendar_id)?;
 
     let discount_id = ctx
         .curve_id("discount")
@@ -250,6 +253,20 @@ pub fn build_cds_tranche_instrument(
         )
     });
 
+    if !overrides.use_imm_dates {
+        return Err(Error::Validation(
+            "Non-IMM CDS tranche schedules are not supported in strict market mode".to_string(),
+        ));
+    }
+
+    // CDS-style effective date (prior IMM) and IMM-aligned maturity.
+    let roll_anchor = spot.add_months(-3);
+    let effective_date = next_cds_date(roll_anchor);
+    let maturity_imm = {
+        let adjusted = adjust(maturity, conv.business_day_convention, cal)?;
+        next_cds_date(adjusted - time::Duration::days(1))
+    };
+
     // Construct Params
     let tranche_params = CDSTrancheParams {
         index_name: index.clone(),
@@ -257,7 +274,7 @@ pub fn build_cds_tranche_instrument(
         attach_pct: attachment * 100.0, // Params expect percent
         detach_pct: detachment * 100.0, // Params expect percent
         notional: Money::new(notional_amt, convention_key.currency),
-        maturity,
+        maturity: maturity_imm,
         running_coupon_bp: running_spread_bp,
         accumulated_loss: 0.0,
     };
@@ -274,7 +291,7 @@ pub fn build_cds_tranche_instrument(
             .calendar_id
             .clone()
             .or_else(|| Some(conv.calendar_id.clone())),
-        stub: StubKind::ShortFront, // Default?
+        stub: StubKind::ShortFront,
     };
 
     // Side: Quote usually implies we are observing market price.
@@ -289,32 +306,11 @@ pub fn build_cds_tranche_instrument(
         CurveId::new(credit_id),
         side,
     );
-    instrument.standard_imm_dates = overrides.use_imm_dates;
+    instrument.standard_imm_dates = true;
+    instrument.effective_date = Some(effective_date);
     instrument.upfront = upfront_payment;
 
     Ok(Box::new(instrument))
 }
 
-// Helpers
-
-fn resolve_calendar<'a>(
-    registry: &'a CalendarRegistry,
-    id: &str,
-) -> Result<&'a dyn HolidayCalendar> {
-    registry
-        .resolve_str(id)
-        .ok_or_else(|| Error::calendar_not_found_with_suggestions(id, &[]))
-}
-
-fn resolve_spot_date(as_of: Date, conv: &CdsConventions) -> Result<Date> {
-    let cal = CalendarRegistry::global().resolve_str(&conv.calendar_id);
-    if let Some(c) = cal {
-        let spot = as_of.add_business_days(conv.settlement_days, c)?;
-        adjust(spot, conv.business_day_convention, c)
-    } else {
-        Err(Error::calendar_not_found_with_suggestions(
-            &conv.calendar_id,
-            &[],
-        ))
-    }
-}
+// Helpers moved to build::helpers

@@ -10,6 +10,17 @@ use crate::market::quotes::inflation::InflationQuote;
 use crate::market::quotes::rates::RateQuote;
 use finstack_core::money::Money;
 
+/// A prepared CDS tranche quote ready for use in calibration.
+#[derive(Debug, Clone)]
+pub struct CdsTrancheCalibrationQuote {
+    /// Prepared quote with constructed instrument and pillar timing.
+    pub prepared: PreparedQuote<CdsTrancheQuote>,
+    /// Optional upfront cashflow from the market quote.
+    pub upfront: Option<Money>,
+    /// Detachment point in percentage terms (e.g. 3.0 for 3%).
+    pub detachment_pct: f64,
+}
+
 /// A prepared quote ready for use in calibration.
 ///
 /// This wraps a Quote (data), a prepared Instrument (constructed via builder),
@@ -21,7 +32,7 @@ pub enum CalibrationQuote {
     /// Credit quote (CDS Par Spread, Upfront). Includes optional upfront cashflow.
     Cds(PreparedQuote<CdsQuote>, Option<Money>),
     /// CDS Tranche quote.
-    CdsTranche(PreparedQuote<CdsTrancheQuote>, Option<Money>),
+    CdsTranche(CdsTrancheCalibrationQuote),
     /// Inflation quote (ZCIS)
     Inflation(PreparedQuote<InflationQuote>),
     // Add Vol later
@@ -33,7 +44,7 @@ impl CalibrationQuote {
         match self {
             CalibrationQuote::Rates(q) => q.instrument.as_ref(),
             CalibrationQuote::Cds(q, _) => q.instrument.as_ref(),
-            CalibrationQuote::CdsTranche(q, _) => q.instrument.as_ref(),
+            CalibrationQuote::CdsTranche(q) => q.prepared.instrument.as_ref(),
             CalibrationQuote::Inflation(q) => q.instrument.as_ref(),
         }
     }
@@ -43,7 +54,7 @@ impl CalibrationQuote {
         match self {
             CalibrationQuote::Rates(q) => q.pillar_time,
             CalibrationQuote::Cds(q, _) => q.pillar_time,
-            CalibrationQuote::CdsTranche(q, _) => q.pillar_time,
+            CalibrationQuote::CdsTranche(q) => q.prepared.pillar_time,
             CalibrationQuote::Inflation(q) => q.pillar_time,
         }
     }

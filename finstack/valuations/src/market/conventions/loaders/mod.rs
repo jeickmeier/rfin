@@ -2,8 +2,6 @@
 
 /// CDS convention loader.
 pub mod cds;
-/// CDS tranche convention loader.
-pub mod cds_tranche;
 /// Inflation Swap convention loader.
 pub mod inflation_swap;
 /// Interest Rate Future convention loader.

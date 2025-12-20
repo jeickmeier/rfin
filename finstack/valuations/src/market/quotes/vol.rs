@@ -14,7 +14,7 @@ use ts_rs::TS;
 ///
 /// Supports two types of volatility quotes:
 /// 1. **Option volatility**: For equity, commodity, or FX options with strike and expiry
-/// 2. **Swaption volatility**: For interest rate swaptions with strike, expiry, and underlying swap tenor
+/// 2. **Swaption volatility**: For interest rate swaptions with strike, expiry, and underlying swap maturity date
 ///
 /// # Examples
 ///
@@ -43,7 +43,7 @@ use ts_rs::TS;
 ///
 /// let quote = VolQuote::SwaptionVol {
 ///     expiry: Date::from_calendar_date(2025, time::Month::June, 20).unwrap(),
-///     tenor: Date::from_calendar_date(2030, time::Month::June, 20).unwrap(),
+///     maturity: Date::from_calendar_date(2030, time::Month::June, 20).unwrap(),
 ///     strike: 0.045, // 4.5% strike rate
 ///     vol: 0.15, // 15% implied volatility
 ///     quote_type: "Normal".to_string(),
@@ -80,9 +80,10 @@ pub enum VolQuote {
         /// Option expiry
         #[cfg_attr(feature = "ts_export", ts(type = "string"))]
         expiry: Date,
-        /// Underlying swap tenor
+        /// Underlying swap maturity date
         #[cfg_attr(feature = "ts_export", ts(type = "string"))]
-        tenor: Date,
+        #[serde(alias = "tenor")]
+        maturity: Date,
         /// Strike rate
         strike: f64,
         /// Implied volatility
@@ -145,14 +146,14 @@ impl VolQuote {
             },
             VolQuote::SwaptionVol {
                 expiry,
-                tenor,
+                maturity,
                 strike,
                 vol,
                 quote_type,
                 convention,
             } => VolQuote::SwaptionVol {
                 expiry: *expiry,
-                tenor: *tenor,
+                maturity: *maturity,
                 strike: *strike,
                 vol: vol + vol_bump,
                 quote_type: quote_type.clone(),

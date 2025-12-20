@@ -6,12 +6,12 @@ use crate::instruments::fra::ForwardRateAgreement;
 use crate::instruments::ir_future::{FutureContractSpecs, InterestRateFuture, Position};
 use crate::instruments::irs::{InterestRateSwap, IrsLegConventions};
 use crate::market::build::context::BuildCtx;
+use crate::market::build::helpers::{resolve_calendar, resolve_spot_date};
 use crate::market::conventions::defs::{RateIndexConventions, RateIndexKind};
 use crate::market::conventions::registry::ConventionRegistry;
 use crate::market::quotes::ids::Pillar;
 use crate::market::quotes::rates::RateQuote;
-use finstack_core::dates::{adjust, CalendarRegistry, Date, DateExt, HolidayCalendar, TenorUnit};
-use finstack_core::error::Error;
+use finstack_core::dates::{adjust, Date, DateExt, TenorUnit};
 use finstack_core::money::Money;
 use finstack_core::types::{CurveId, InstrumentId};
 use finstack_core::Result;
@@ -111,14 +111,18 @@ pub fn build_rate_instrument(quote: &RateQuote, ctx: &BuildCtx) -> Result<Box<dy
             rate,
         } => {
             let conv = registry.require_rate_index(index)?;
-            let spot_start = resolve_spot_date(ctx.as_of, conv)?;
+            let spot_start = resolve_spot_date(
+                ctx.as_of,
+                &conv.market_calendar_id,
+                conv.market_settlement_days,
+                conv.market_business_day_convention,
+            )?;
             // Resolve concrete accrual start/end dates here so the built instrument
             // remains fixed even if as_of changes later.
             let start = spot_start;
 
             // Resolve calendar for tenor addition
-            let cal_registry = CalendarRegistry::global();
-            let cal = resolve_calendar(cal_registry, &conv.market_calendar_id)?;
+            let cal = resolve_calendar(&conv.market_calendar_id)?;
 
             let end = match pillar {
                 Pillar::Tenor(t) => {
@@ -160,10 +164,14 @@ pub fn build_rate_instrument(quote: &RateQuote, ctx: &BuildCtx) -> Result<Box<dy
             rate,
         } => {
             let conv = registry.require_rate_index(index)?;
-            let spot = resolve_spot_date(ctx.as_of, conv)?;
+            let spot = resolve_spot_date(
+                ctx.as_of,
+                &conv.market_calendar_id,
+                conv.market_settlement_days,
+                conv.market_business_day_convention,
+            )?;
 
-            let cal_registry = CalendarRegistry::global();
-            let cal = resolve_calendar(cal_registry, &conv.market_calendar_id)?;
+            let cal = resolve_calendar(&conv.market_calendar_id)?;
 
             // Resolve start/end dates from SPOT
             let start_date = match start_pillar {
@@ -221,8 +229,7 @@ pub fn build_rate_instrument(quote: &RateQuote, ctx: &BuildCtx) -> Result<Box<dy
             let fut_conv = registry.require_ir_future(contract)?;
             let idx_conv = registry.require_rate_index(&fut_conv.index_id)?;
 
-            let cal_registry = CalendarRegistry::global();
-            let cal = resolve_calendar(cal_registry, &fut_conv.calendar_id)?;
+            let cal = resolve_calendar(&fut_conv.calendar_id)?;
             let bdc = idx_conv.market_business_day_convention;
 
             let expiry_date = adjust(*expiry, bdc, cal)?;
@@ -282,10 +289,14 @@ pub fn build_rate_instrument(quote: &RateQuote, ctx: &BuildCtx) -> Result<Box<dy
             spread,
         } => {
             let conv = registry.require_rate_index(index)?;
-            let spot = resolve_spot_date(ctx.as_of, conv)?;
+            let spot = resolve_spot_date(
+                ctx.as_of,
+                &conv.market_calendar_id,
+                conv.market_settlement_days,
+                conv.market_business_day_convention,
+            )?;
 
-            let cal_registry = CalendarRegistry::global();
-            let cal = resolve_calendar(cal_registry, &conv.market_calendar_id)?;
+            let cal = resolve_calendar(&conv.market_calendar_id)?;
 
             // Swap start is spot
             let start = spot;
@@ -369,52 +380,16 @@ pub fn build_rate_instrument(quote: &RateQuote, ctx: &BuildCtx) -> Result<Box<dy
 
 // Helpers
 
-fn resolve_calendar<'a>(
-    registry: &'a CalendarRegistry,
-    id: &str,
-) -> Result<&'a dyn HolidayCalendar> {
-    registry
-        .resolve_str(id)
-        .ok_or_else(|| Error::calendar_not_found_with_suggestions(id, &[]))
-}
-
-fn resolve_spot_date(as_of: Date, conv: &RateIndexConventions) -> Result<Date> {
-    let cal = CalendarRegistry::global().resolve_str(&conv.market_calendar_id);
-    if let Some(c) = cal {
-        let spot = as_of.add_business_days(conv.market_settlement_days, c)?;
-        adjust(spot, conv.market_business_day_convention, c)
-    } else {
-        Err(Error::calendar_not_found_with_suggestions(
-            &conv.market_calendar_id,
-            &[],
-        ))
-    }
-}
-
 // Kept for other date adjustments if needed, but not used directly for Tenor anymore
 #[allow(dead_code)]
 fn adjust_date(date: Date, conv: &RateIndexConventions) -> Result<Date> {
-    let cal = CalendarRegistry::global().resolve_str(&conv.market_calendar_id);
-    if let Some(c) = cal {
-        adjust(date, conv.market_business_day_convention, c)
-    } else {
-        Err(Error::calendar_not_found_with_suggestions(
-            &conv.market_calendar_id,
-            &[],
-        ))
-    }
+    let cal = resolve_calendar(&conv.market_calendar_id)?;
+    adjust(date, conv.market_business_day_convention, cal)
 }
 
 fn resolve_fixing_date(start: Date, conv: &RateIndexConventions) -> Result<Date> {
-    let cal = CalendarRegistry::global().resolve_str(&conv.market_calendar_id);
+    let cal = resolve_calendar(&conv.market_calendar_id)?;
     let lag = conv.default_reset_lag_days;
 
-    if let Some(c) = cal {
-        start.add_business_days(-lag, c)
-    } else {
-        Err(Error::calendar_not_found_with_suggestions(
-            &conv.market_calendar_id,
-            &[],
-        ))
-    }
+    start.add_business_days(-lag, cal)
 }

@@ -2,7 +2,7 @@
 
 use crate::calibration::api::schema::BaseCorrelationParams;
 use crate::calibration::config::CalibrationConfig;
-use crate::calibration::prepared::CalibrationQuote;
+use crate::calibration::prepared::{CalibrationQuote, CdsTrancheCalibrationQuote};
 use crate::calibration::solver::{BootstrapTarget, SequentialBootstrapper};
 use crate::calibration::targets::util::sort_bootstrap_quotes;
 use crate::calibration::CalibrationReport;
@@ -12,6 +12,7 @@ use crate::market::build::prepared::PreparedQuote;
 use crate::market::conventions::registry::ConventionRegistry;
 use crate::market::quotes::cds_tranche::CdsTrancheQuote;
 use crate::market::quotes::market_quote::{ExtractQuotes, MarketQuote};
+use finstack_core::dates::DayCountCtx;
 use finstack_core::market_data::context::MarketContext;
 use finstack_core::market_data::term_structures::BaseCorrelationCurve;
 use finstack_core::money::Money;
@@ -105,6 +106,10 @@ impl BaseCorrelationBootstrapper {
             .collect();
         let mut seen_detachments: Vec<f64> = Vec::new();
         let maturity_tol_days: i64 = if self.params.use_imm_dates { 40 } else { 7 };
+        let time_dc = self
+            .params
+            .day_count
+            .unwrap_or(finstack_core::dates::DayCount::Act365F);
 
         for q in quotes {
             let (index, attachment, detachment, maturity, upfront_pct, convention) = match &q {
@@ -133,7 +138,7 @@ impl BaseCorrelationBootstrapper {
                 )));
             }
 
-            ConventionRegistry::global().require_cds_tranche(convention)?;
+            ConventionRegistry::global().require_cds(convention)?;
             // Build a pricer instrument with *no embedded upfront cashflow* so that
             // `tranche.upfront(...)` returns the model-implied upfront for the running coupon.
             let q_pricing = match &q {
@@ -192,12 +197,14 @@ impl BaseCorrelationBootstrapper {
                 }
             }
             let pillar_date = maturity;
+            let pillar_time =
+                time_dc.year_fraction(self.params.base_date, maturity, DayCountCtx::default())?;
 
             let prepared_quote = PreparedQuote::new(
                 Arc::new(q.clone()),
                 Arc::<dyn crate::instruments::common::traits::Instrument>::from(instrument),
                 pillar_date,
-                detachment_pct,
+                pillar_time,
             );
 
             // Market tranche upfront is quoted as a percentage of tranche notional.
@@ -207,7 +214,11 @@ impl BaseCorrelationBootstrapper {
                 upfront_pct * 0.01 * tranche_notional,
                 self.params.currency,
             ));
-            prepared.push(CalibrationQuote::CdsTranche(prepared_quote, upfront_money));
+            prepared.push(CalibrationQuote::CdsTranche(CdsTrancheCalibrationQuote {
+                prepared: prepared_quote,
+                upfront: upfront_money,
+                detachment_pct,
+            }));
         }
 
         if !expected_detachments.is_empty() {
@@ -271,7 +282,7 @@ impl BootstrapTarget for BaseCorrelationBootstrapper {
 
     fn quote_time(&self, quote: &Self::Quote) -> Result<f64> {
         match quote {
-            CalibrationQuote::CdsTranche(pq, _) => Ok(pq.pillar_time),
+            CalibrationQuote::CdsTranche(pq) => Ok(pq.detachment_pct),
             _ => Err(finstack_core::Error::Input(
                 finstack_core::error::InputError::Invalid,
             )),
@@ -334,7 +345,7 @@ impl BootstrapTarget for BaseCorrelationBootstrapper {
 
     fn calculate_residual(&self, curve: &Self::Curve, quote: &Self::Quote) -> Result<f64> {
         let (pq, upfront) = match quote {
-            CalibrationQuote::CdsTranche(pq, upfront) => (pq, upfront),
+            CalibrationQuote::CdsTranche(pq) => (&pq.prepared, &pq.upfront),
             _ => {
                 return Err(finstack_core::Error::Input(
                     finstack_core::error::InputError::Invalid,

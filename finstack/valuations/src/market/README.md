@@ -8,7 +8,7 @@ pricing pipelines.
 
 - Market quotes for rates, credit, inflation, and volatility surfaces
 - Convention registries loaded from embedded JSON data
-- Quote-to-instrument builders for calibration workflows
+- Quote-to-instrument builders for rates and credit calibration workflows
 - Prepared quote envelopes with precomputed maturity time
 
 This module is intentionally focused on market data representation and construction logic, not
@@ -24,8 +24,8 @@ pricing models or calibration solvers.
 
 1. Load conventions via `ConventionRegistry::global()` (embedded JSON registries).
 2. Parse market quotes into typed structs/enums in `quotes/`.
-3. Use builders in `build/` with a `BuildCtx` to create concrete instruments.
-4. Wrap the result into `PreparedQuote` for calibration or downstream pricing.
+3. Use builders in `build/` with a `BuildCtx` to create concrete instruments (rates/credit).
+4. For inflation and vol, builders live in calibration targets; wrap into `PreparedQuote` there.
 
 ## Key Types
 
@@ -70,7 +70,6 @@ inserting entries into the registry.
 
 - Rate index conventions (`rate_index_conventions.json`)
 - CDS conventions (`cds_conventions.json`)
-- CDS tranche conventions (`cds_tranche_conventions.json`)
 - Swaption conventions (`swaption_conventions.json`)
 - Inflation swap conventions (`inflation_swap_conventions.json`)
 - Option conventions (`option_conventions.json`)

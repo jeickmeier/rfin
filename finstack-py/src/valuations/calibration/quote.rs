@@ -419,21 +419,21 @@ impl PyVolQuote {
 
     #[classmethod]
     #[allow(clippy::too_many_arguments)]
-    #[pyo3(text_signature = "(cls, expiry, tenor, strike, vol, quote_type, convention)")]
+    #[pyo3(text_signature = "(cls, expiry, maturity, strike, vol, quote_type, convention)")]
     fn swaption_vol(
         _cls: &Bound<'_, PyType>,
         expiry: Bound<'_, PyAny>,
-        tenor: Bound<'_, PyAny>,
+        maturity: Bound<'_, PyAny>,
         strike: f64,
         vol: f64,
         quote_type: &str,
         convention: &str,
     ) -> PyResult<Self> {
         let expiry_date = py_to_date(&expiry)?;
-        let tenor_date = py_to_date(&tenor)?;
+        let maturity_date = py_to_date(&maturity)?;
         Ok(Self::new(VolQuote::SwaptionVol {
             expiry: expiry_date,
-            tenor: tenor_date,
+            maturity: maturity_date,
             strike,
             vol,
             quote_type: quote_type.to_string(),
