@@ -46,7 +46,8 @@
 
 **Note**: Strict mode is the default immediately per user decision (breaking change approach).
 
-### [ ] Step 1.1: Add New Error Variants to Core
+### [x] Step 1.1: Add New Error Variants to Core
+<!-- chat-id: 2fdd1882-83d7-4254-a4b2-af4896c015e2 -->
 
 **Goal**: Extend `finstack-core` error types for metrics framework.
 
@@ -59,7 +60,7 @@
    - `MetricNotApplicable { metric_id, instrument_type }`
    - `MetricCalculationFailed { metric_id, cause }`
    - `CircularDependency { path }`
-   - `CalendarNotFound { calendar_id, hint }`
+   - `CalendarNotFound { calendar_id, hint }` (already exists in InputError)
 2. Implement `Display` for each variant
 3. Add helper constructors (optional)
 
@@ -71,9 +72,18 @@ cargo clippy -- -D warnings
 ```
 
 **Acceptance**:
-- All error variants compile and have Display implementations
-- No clippy warnings
-- Rustdoc examples build (if added)
+- ✅ All error variants compile and have Display implementations
+- ✅ No clippy warnings
+- ✅ Rustdoc examples build and doc tests pass
+
+**Completed**:
+- Added 4 new error variants to `Error` enum: `UnknownMetric`, `MetricNotApplicable`, `MetricCalculationFailed`, `CircularDependency`
+- Each variant includes comprehensive documentation with examples
+- Added helper constructor methods: `unknown_metric()`, `metric_not_applicable()`, `metric_calculation_failed()`, `circular_dependency()`
+- Added 5 new unit tests covering all new error variants
+- All 35 error module tests pass
+- All 11 doc tests pass
+- Clippy passes with zero warnings
 
 ---
 

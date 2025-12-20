@@ -327,6 +327,10 @@ pub enum InputError {
 /// - **CurrencyMismatch**: Binary operation on incompatible currencies
 /// - **Calibration**: Numerical fitting or solver convergence failure
 /// - **Validation**: Market data structural checks failed
+/// - **UnknownMetric**: Requested metric ID not recognized
+/// - **MetricNotApplicable**: Metric cannot be computed for given instrument type
+/// - **MetricCalculationFailed**: Metric computation encountered an error
+/// - **CircularDependency**: Circular dependency detected in metric dependency graph
 /// - **Internal**: Unexpected system-level failures
 ///
 /// # Examples
@@ -348,6 +352,7 @@ pub enum InputError {
 ///         Error::InterpOutOfBounds => "Query outside curve range".to_string(),
 ///         Error::Calibration { message, .. } => format!("Calibration failed: {}", message),
 ///         Error::Validation(msg) => format!("Validation error: {}", msg),
+///         Error::UnknownMetric { metric_id, .. } => format!("Unknown metric: {}", metric_id),
 ///         Error::Internal => "Internal error".to_string(),
 ///         _ => "Unknown error".to_string(), // Non-exhaustive enum
 ///     }
@@ -385,6 +390,49 @@ pub enum Error {
     /// Market data validation failure (no-arbitrage, monotonicity, bounds).
     #[error("Validation error: {0}")]
     Validation(String),
+    /// Unknown metric requested.
+    ///
+    /// This error occurs when attempting to compute or parse a metric ID that
+    /// is not recognized in the standard metrics registry.
+    #[error("Unknown metric '{metric_id}'{}", format_suggestions(.available))]
+    UnknownMetric {
+        /// The requested metric ID that was not recognized.
+        metric_id: String,
+        /// List of available standard metric IDs for user reference.
+        available: Vec<String>,
+    },
+    /// Metric not applicable to instrument type.
+    ///
+    /// This error occurs when attempting to compute a metric that does not
+    /// make sense for the given instrument type (e.g., YTM for a swap).
+    #[error("Metric '{metric_id}' is not applicable to instrument type '{instrument_type}'")]
+    MetricNotApplicable {
+        /// The metric ID that was requested.
+        metric_id: String,
+        /// The instrument type for which the metric is not applicable.
+        instrument_type: String,
+    },
+    /// Metric calculation failed.
+    ///
+    /// This error wraps the underlying cause when a metric calculator
+    /// encounters an error during computation (e.g., missing market data).
+    #[error("Metric '{metric_id}' calculation failed: {cause}")]
+    MetricCalculationFailed {
+        /// The metric ID that failed to compute.
+        metric_id: String,
+        /// The underlying error that caused the failure.
+        #[source]
+        cause: Box<Error>,
+    },
+    /// Circular dependency detected in metric dependency graph.
+    ///
+    /// This error occurs when metric dependencies form a cycle, making it
+    /// impossible to determine a valid evaluation order.
+    #[error("Circular dependency detected in metrics: {}", .path.join(" -> "))]
+    CircularDependency {
+        /// The path of metric IDs forming the cycle.
+        path: Vec<String>,
+    },
     /// Catch-all for unexpected internal failures.
     #[error("Internal system error")]
     Internal,
@@ -443,6 +491,88 @@ impl Error {
             requested: requested_str,
             suggestions,
         })
+    }
+
+    /// Create an UnknownMetric error with the list of available standard metrics.
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// use finstack_core::error::Error;
+    ///
+    /// let available = vec!["dv01".to_string(), "duration_mod".to_string(), "ytm".to_string()];
+    /// let err = Error::unknown_metric("dv1", available);
+    ///
+    /// let msg = format!("{}", err);
+    /// assert!(msg.contains("dv01") || msg.contains("Did you mean"));
+    /// ```
+    pub fn unknown_metric(metric_id: impl Into<String>, available: Vec<String>) -> Self {
+        Self::UnknownMetric {
+            metric_id: metric_id.into(),
+            available,
+        }
+    }
+
+    /// Create a MetricNotApplicable error.
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// use finstack_core::error::Error;
+    ///
+    /// let err = Error::metric_not_applicable("ytm", "Swap");
+    ///
+    /// let msg = format!("{}", err);
+    /// assert!(msg.contains("ytm"));
+    /// assert!(msg.contains("Swap"));
+    /// ```
+    pub fn metric_not_applicable(
+        metric_id: impl Into<String>,
+        instrument_type: impl Into<String>,
+    ) -> Self {
+        Self::MetricNotApplicable {
+            metric_id: metric_id.into(),
+            instrument_type: instrument_type.into(),
+        }
+    }
+
+    /// Create a MetricCalculationFailed error wrapping an underlying cause.
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// use finstack_core::error::{Error, InputError};
+    ///
+    /// let cause = Error::Input(InputError::NotFound { id: "curve".to_string() });
+    /// let err = Error::metric_calculation_failed("dv01", cause);
+    ///
+    /// let msg = format!("{}", err);
+    /// assert!(msg.contains("dv01"));
+    /// assert!(msg.contains("calculation failed"));
+    /// ```
+    pub fn metric_calculation_failed(metric_id: impl Into<String>, cause: Error) -> Self {
+        Self::MetricCalculationFailed {
+            metric_id: metric_id.into(),
+            cause: Box::new(cause),
+        }
+    }
+
+    /// Create a CircularDependency error with the dependency path.
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// use finstack_core::error::Error;
+    ///
+    /// let path = vec!["metric_a".to_string(), "metric_b".to_string(), "metric_a".to_string()];
+    /// let err = Error::circular_dependency(path);
+    ///
+    /// let msg = format!("{}", err);
+    /// assert!(msg.contains("metric_a"));
+    /// assert!(msg.contains("->"));
+    /// ```
+    pub fn circular_dependency(path: Vec<String>) -> Self {
+        Self::CircularDependency { path }
     }
 }
 
@@ -557,5 +687,110 @@ mod tests {
         assert_eq!(edit_distance(&abc, "abd"), 1);
         assert_eq!(edit_distance(&abc, "ab"), 1);
         assert_eq!(edit_distance(&empty, "abc"), 3);
+    }
+
+    #[test]
+    fn test_unknown_metric() {
+        let available = vec![
+            "dv01".to_string(),
+            "duration_mod".to_string(),
+            "ytm".to_string(),
+        ];
+        let err = Error::unknown_metric("dv1", available.clone());
+
+        let msg = format!("{}", err);
+        assert!(msg.contains("Unknown metric 'dv1'"));
+
+        match err {
+            Error::UnknownMetric { metric_id, available: avail } => {
+                assert_eq!(metric_id, "dv1");
+                assert_eq!(avail.len(), 3);
+                assert!(avail.contains(&"dv01".to_string()));
+            }
+            _ => panic!("Expected UnknownMetric variant"),
+        }
+    }
+
+    #[test]
+    fn test_metric_not_applicable() {
+        let err = Error::metric_not_applicable("ytm", "Swap");
+
+        let msg = format!("{}", err);
+        assert!(msg.contains("ytm"));
+        assert!(msg.contains("Swap"));
+        assert!(msg.contains("not applicable"));
+
+        match err {
+            Error::MetricNotApplicable { metric_id, instrument_type } => {
+                assert_eq!(metric_id, "ytm");
+                assert_eq!(instrument_type, "Swap");
+            }
+            _ => panic!("Expected MetricNotApplicable variant"),
+        }
+    }
+
+    #[test]
+    fn test_metric_calculation_failed() {
+        let cause = Error::Input(InputError::NotFound {
+            id: "missing_curve".to_string(),
+        });
+        let err = Error::metric_calculation_failed("dv01", cause.clone());
+
+        let msg = format!("{}", err);
+        assert!(msg.contains("dv01"));
+        assert!(msg.contains("calculation failed"));
+        assert!(msg.contains("missing_curve"));
+
+        match err {
+            Error::MetricCalculationFailed { metric_id, cause: boxed_cause } => {
+                assert_eq!(metric_id, "dv01");
+                assert_eq!(*boxed_cause, cause);
+            }
+            _ => panic!("Expected MetricCalculationFailed variant"),
+        }
+    }
+
+    #[test]
+    fn test_circular_dependency() {
+        let path = vec![
+            "metric_a".to_string(),
+            "metric_b".to_string(),
+            "metric_c".to_string(),
+            "metric_a".to_string(),
+        ];
+        let err = Error::circular_dependency(path.clone());
+
+        let msg = format!("{}", err);
+        assert!(msg.contains("Circular dependency"));
+        assert!(msg.contains("metric_a -> metric_b -> metric_c -> metric_a"));
+
+        match err {
+            Error::CircularDependency { path: cycle_path } => {
+                assert_eq!(cycle_path, path);
+                assert_eq!(cycle_path.len(), 4);
+                assert_eq!(cycle_path[0], cycle_path[3]); // Cycle back to start
+            }
+            _ => panic!("Expected CircularDependency variant"),
+        }
+    }
+
+    #[test]
+    fn test_metric_errors_are_clonable() {
+        let err1 = Error::unknown_metric("test", vec!["dv01".to_string()]);
+        let err2 = err1.clone();
+        assert_eq!(err1, err2);
+
+        let err3 = Error::metric_not_applicable("ytm", "Swap");
+        let err4 = err3.clone();
+        assert_eq!(err3, err4);
+
+        let cause = Error::Internal;
+        let err5 = Error::metric_calculation_failed("test", cause);
+        let err6 = err5.clone();
+        assert_eq!(err5, err6);
+
+        let err7 = Error::circular_dependency(vec!["a".to_string(), "b".to_string()]);
+        let err8 = err7.clone();
+        assert_eq!(err7, err8);
     }
 }
