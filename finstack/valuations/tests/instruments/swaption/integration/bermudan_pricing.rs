@@ -1,5 +1,7 @@
 //! Integration tests for Bermudan swaption pricing.
 
+#![allow(clippy::unwrap_used)]
+
 use finstack_core::currency::Currency;
 use finstack_core::dates::{Date, DayCount, Tenor};
 use finstack_core::market_data::context::MarketContext;

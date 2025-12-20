@@ -512,6 +512,7 @@ impl MetricRegistry {
 }
 
 #[cfg(test)]
+#[allow(clippy::unwrap_used)]
 mod tests {
     use super::*;
     use crate::instruments::common::traits::{Attributes, Instrument};

@@ -34,14 +34,14 @@ fn bench_df_bootstrap(c: &mut Criterion) {
             index: IndexId::new("USD-SOFR-OIS"),
             pillar: Pillar::Date(base_date + time::Duration::days(365)),
             rate: 0.047,
-            spread: None,
+            spread_decimal: None,
         },
         RateQuote::Swap {
             id: QuoteId::new("SWP-2Y"),
             index: IndexId::new("USD-SOFR-OIS"),
             pillar: Pillar::Date(base_date + time::Duration::days(365 * 2)),
             rate: 0.048,
-            spread: None,
+            spread_decimal: None,
         },
     ];
     let ctx = MarketContext::new();

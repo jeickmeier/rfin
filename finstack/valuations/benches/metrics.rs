@@ -3,6 +3,8 @@
 //! This benchmark suite tests the performance of strict vs best-effort
 //! metric computation modes introduced in Phase 1.2.
 
+#![allow(clippy::unwrap_used)]
+
 use criterion::{criterion_group, criterion_main, BenchmarkId, Criterion};
 use finstack_core::currency::Currency;
 use finstack_core::dates::Date;
@@ -11,6 +13,7 @@ use finstack_core::market_data::term_structures::DiscountCurve;
 use finstack_core::math::interp::InterpStyle;
 use finstack_core::money::Money;
 use finstack_valuations::instruments::bond::Bond;
+use finstack_valuations::instruments::common::traits::Instrument;
 use finstack_valuations::metrics::MetricId;
 use std::hint::black_box;
 use time::Month;

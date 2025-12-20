@@ -231,6 +231,7 @@ pub fn roll_spot_date(
 }
 
 #[cfg(test)]
+#[allow(clippy::unwrap_used)]
 mod tests {
     use super::*;
     use finstack_core::dates::create_date;

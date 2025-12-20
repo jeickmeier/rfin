@@ -1,5 +1,7 @@
 //! Unit tests for CdsOptionParams builder and validation.
 
+#![allow(clippy::unwrap_used)]
+
 use finstack_core::currency::Currency;
 use finstack_core::money::Money;
 use finstack_valuations::instruments::cds_option::parameters::CdsOptionParams;

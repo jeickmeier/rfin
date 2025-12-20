@@ -156,6 +156,7 @@ fn test_usd_eur_spot_christmas_2024() {
 /// - May 4 (Sun): Greenery Day
 /// - May 5 (Mon): Children's Day (JPX closed)
 /// - May 6 (Tue): Substitute holiday for Greenery Day (JPX closed)
+///
 /// UK Early May Bank Holiday is first Monday in May (May 5, 2025).
 /// Joint closure on May 5, JPX-only closure on May 6 → spot on May 7.
 #[test]
