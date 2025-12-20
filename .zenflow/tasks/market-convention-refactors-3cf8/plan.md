@@ -1172,6 +1172,11 @@ cargo bench --bench fx_dates -- --save-baseline after
 
 ---
 
+
+### [ ] Step: Ensure that rust tests work without error
+<!-- chat-id: 998a67f4-fa9c-4727-acab-fa7ce6a46d99 -->
+
+Run make test-rust and ensure that all tests pass without error.
 ## Rollback Strategy
 
 If critical issues arise during implementation:
