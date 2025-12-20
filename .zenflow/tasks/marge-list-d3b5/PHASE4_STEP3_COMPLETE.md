@@ -31,7 +31,7 @@ Updated module-level documentation in `factors.rs` with new section:
 - Recommends migration from old functions
 
 ### 3. Updated Call Sites
-Added `#[allow(deprecated)]` annotations to modules still using old functions:
+Added `#[allow(deprecated)]` annotations to modules and tests still using old functions:
 
 **`finstack/valuations/src/attribution/parallel.rs`:**
 ```rust
@@ -47,11 +47,30 @@ Added `#[allow(deprecated)]` annotations to modules still using old functions:
 #![allow(deprecated)]
 ```
 
+**`finstack/valuations/src/attribution/factors.rs` (test module):**
+```rust
+#[cfg(test)]
+#[allow(deprecated)] // TODO: Migrate tests to use trait-based extraction
+mod tests {
+```
+
+**`finstack/valuations/tests/attribution/scalars_attribution.rs` (2 test functions):**
+```rust
+#[test]
+#[allow(deprecated)] // TODO: Migrate to ScalarsSnapshot::extract()
+fn test_scalars_snapshot_extraction() {
+
+#[test]
+#[allow(deprecated)] // TODO: Migrate to ScalarsSnapshot::extract()
+fn test_market_scalar_freeze_restore() {
+```
+
 This allows for:
 - Zero breakage of existing code
 - Clear migration path via TODO comments
 - Gradual migration without urgent pressure
 - All existing tests continue to pass
+- Clean lint: `make lint-rust` passes with zero warnings
 
 ## Test Results
 
@@ -70,6 +89,7 @@ This allows for:
 ### Code Quality
 ```
 ✅ cargo clippy --lib -- -D warnings: 0 warnings
+✅ make lint-rust: Passes with zero warnings
 ✅ cargo doc --no-deps --lib: Documentation builds successfully
 ✅ 177 pre-existing rustdoc warnings (not from our changes)
 ```
@@ -131,6 +151,7 @@ cargo test --test attribution_tests         # ✅ 32 tests pass
 
 # Code quality
 cargo clippy --lib -- -D warnings           # ✅ 0 warnings
+make lint-rust                              # ✅ 0 warnings (all crates)
 cargo doc --no-deps --lib                   # ✅ Builds successfully
 ```
 

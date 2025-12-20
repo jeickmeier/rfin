@@ -503,6 +503,7 @@ cargo clippy --lib --package finstack-valuations -- -D warnings      # ✅ Zero 
 ---
 
 ### [ ] Step 5.2: Integration testing and benchmarking
+<!-- chat-id: d7f310ca-563e-449e-b280-e65e5855b68b -->
 **Files**: Integration tests, benchmarks
 
 **Tasks**:
