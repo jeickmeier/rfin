@@ -989,6 +989,16 @@ pub trait Instrument: Send + Sync {
         None
     }
 
+    /// Spot price identifier for this instrument.
+    ///
+    /// Returns the market data key used to fetch the underlying spot or price level
+    /// when computing delta/vega-style sensitivities.
+    ///
+    /// Default implementation returns `None`.
+    fn spot_id(&self) -> Option<&str> {
+        None
+    }
+
     /// Volatility surface ID for this instrument.
     ///
     /// Returns the volatility surface ID if this instrument depends on implied vol.

@@ -23,7 +23,7 @@ pub fn d(y: i32, m: u8, day: u8) -> Date {
 
 /// Create a standard TIPS bond for testing
 pub fn sample_tips() -> InflationLinkedBond {
-    InflationLinkedBond::builder()
+    let mut bond = InflationLinkedBond::builder()
         .id(InstrumentId::new("TIPS-TEST"))
         .notional(Money::new(1_000_000.0, Currency::USD))
         .real_coupon(0.0125) // 1.25% real coupon
@@ -42,12 +42,15 @@ pub fn sample_tips() -> InflationLinkedBond {
         .inflation_index_id(CurveId::new("US-CPI-U"))
         .attributes(Attributes::new())
         .build()
-        .unwrap()
+        .unwrap();
+
+    bond.quoted_clean = Some(100.0);
+    bond
 }
 
 /// Create a UK Index-Linked Gilt for testing
 pub fn sample_uk_linker() -> InflationLinkedBond {
-    InflationLinkedBond::builder()
+    let mut bond = InflationLinkedBond::builder()
         .id(InstrumentId::new("UK-GILT-TEST"))
         .notional(Money::new(1_000_000.0, Currency::GBP))
         .real_coupon(0.00625) // 0.625% real coupon
@@ -66,7 +69,10 @@ pub fn sample_uk_linker() -> InflationLinkedBond {
         .inflation_index_id(CurveId::new("UK-RPI"))
         .attributes(Attributes::new())
         .build()
-        .unwrap()
+        .unwrap();
+
+    bond.quoted_clean = Some(100.0);
+    bond
 }
 
 /// Create a market context with inflation index (linear interpolation for TIPS)

@@ -222,7 +222,7 @@ pub use core::finite_difference::{
     bump_discount_curve_parallel, bump_scalar_price, bump_sizes, scale_surface,
 };
 pub use core::ids::MetricId;
-pub use core::registry::MetricRegistry;
+pub use core::registry::{MetricRegistry, StrictMode};
 pub use core::traits::{MetricCalculator, MetricContext, Structured2D, Structured3D};
 pub use sensitivities::cs01::{
     compute_key_rate_cs01_series_with_context, compute_parallel_cs01_with_context,

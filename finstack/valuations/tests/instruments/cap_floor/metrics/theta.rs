@@ -13,6 +13,7 @@ use finstack_valuations::instruments::common::traits::Instrument;
 use finstack_valuations::instruments::{ExerciseStyle, PricingOverrides, SettlementType};
 use finstack_valuations::metrics::MetricId;
 use time::macros::date;
+use time::Duration;
 
 fn build_flat_forward_curve(rate: f64, base_date: Date, curve_id: &str) -> ForwardCurve {
     ForwardCurve::builder(curve_id, 0.25)
@@ -50,12 +51,16 @@ fn build_flat_vol_surface(vol: f64, _base_date: Date, surface_id: &str) -> VolSu
 }
 
 fn create_standard_cap(as_of: Date, end: Date, strike: f64) -> InterestRateOption {
+    // Theta rolls the valuation date forward (default 1D). Keep the first fixing
+    // date strictly after `as_of` so the rolled date doesn't cross a fixing.
+    let start_date = as_of + Duration::days(2);
+
     InterestRateOption {
         id: "CAP_TEST".into(),
         rate_option_type: RateOptionType::Cap,
         notional: Money::new(1_000_000.0, Currency::USD),
         strike_rate: strike,
-        start_date: as_of,
+        start_date,
         end_date: end,
         frequency: Tenor::quarterly(),
         day_count: DayCount::Act360,
@@ -104,12 +109,14 @@ fn test_floor_theta() {
     let as_of = date!(2024 - 01 - 01);
     let end = date!(2029 - 01 - 01);
 
+    let start_date = as_of + Duration::days(2);
+
     let floor = InterestRateOption {
         id: "FLOOR_TEST".into(),
         rate_option_type: RateOptionType::Floor,
         notional: Money::new(1_000_000.0, Currency::USD),
         strike_rate: 0.05,
-        start_date: as_of,
+        start_date,
         end_date: end,
         frequency: Tenor::quarterly(),
         day_count: DayCount::Act360,

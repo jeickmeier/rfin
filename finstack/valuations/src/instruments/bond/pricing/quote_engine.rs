@@ -835,9 +835,18 @@ pub fn compute_quotes(
         MetricId::ISpread,
     ];
 
-    // We don't actually care about the HashMap return; we just want
-    // the side-effect of populating `ctx.computed`.
-    let _ = registry.compute(&metric_ids, &mut ctx)?;
+    // Some quote metrics are not applicable to all bond types (e.g. FRN vs fixed),
+    // and we want `compute_quotes` to return whatever is available rather than
+    // failing the entire quote set.
+    for metric_id in metric_ids.iter() {
+        if let Err(err) = registry.compute(std::slice::from_ref(metric_id), &mut ctx) {
+            tracing::debug!(
+                metric_id = metric_id.as_str(),
+                error = %err,
+                "Bond quote engine metric computation failed; leaving unset"
+            );
+        }
+    }
 
     // Read back the metrics we care about.
     let ytm = ctx.computed.get(&MetricId::Ytm).copied();

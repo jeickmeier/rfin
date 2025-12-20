@@ -18,6 +18,29 @@ The `finstack-valuations` crate provides a comprehensive valuation engine for fi
 
 ---
 
+## ⚠️ Version 0.8.0 Migration Notice
+
+**Breaking changes in this release**. If upgrading from 0.7.x, please review:
+
+- 📖 **Migration Guide**: See `MIGRATION_GUIDE.md` in repository root for comprehensive upgrade instructions
+- 📋 **Changelog**: See `CHANGELOG.md` below for detailed changes
+- ⏱️ **Estimated Migration Time**: 2-4 hours for most applications
+
+**Key Changes**:
+- 🔴 **Metrics now use strict mode by default** - Errors instead of `0.0` for unknown/failed metrics
+- 🔴 **FX settlement dates corrected** - Now uses joint business day logic (ISDA-compliant)
+- 🟠 **Calendar errors no longer silent** - Unknown calendar IDs return errors
+- 🟡 **Deprecated constructors** - Use `try_new()` instead of panicking `new()` methods
+
+**Quick Start Migration**:
+1. Add error handling for `compute()` calls OR use `compute_best_effort()` for gradual migration
+2. Update FX-related tests if using multi-currency instruments
+3. Replace deprecated `new()` constructors with `try_new()` variants
+
+See examples below for updated API usage patterns.
+
+---
+
 ## Architecture
 
 ```
@@ -314,7 +337,7 @@ println!("Bond NPV: {}", pv);
 ```rust
 use finstack_valuations::metrics::MetricId;
 
-// Request specific metrics
+// Request specific metrics (strict mode - new in 0.8.0)
 let metrics = vec![
     MetricId::Ytm,
     MetricId::DurationMod,  // Modified duration
@@ -322,12 +345,16 @@ let metrics = vec![
     MetricId::Dv01,
 ];
 
+// price_with_metrics now uses strict mode (errors for unknown/failed metrics)
 let result = bond.price_with_metrics(&market, as_of, &metrics)?;
 
 println!("NPV: {}", result.value);
-println!("YTM: {:.2}%", result.measures["ytm"] * 100.0);
-println!("Modified Duration: {:.2}", result.measures["modified_duration"]);
-println!("DV01: ${:.2}", result.measures["dv01"]);
+println!("YTM: {:.2}%", result.metric("ytm").unwrap() * 100.0);
+println!("Modified Duration: {:.2}", result.metric("duration_mod").unwrap());
+println!("DV01: ${:.2}", result.metric("dv01").unwrap());
+
+// For gradual migration, use best-effort mode (0.8.0+):
+// let result = bond.price_with_metrics_best_effort(&market, as_of, &metrics)?;
 ```
 
 ### Curve Calibration

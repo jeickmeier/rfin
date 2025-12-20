@@ -1,5 +1,7 @@
 //! Test helpers for autocallable tests.
 
+#![allow(clippy::unwrap_used)]
+
 use finstack_core::currency::Currency;
 use finstack_core::dates::{Date, DayCount};
 use finstack_core::market_data::context::MarketContext;

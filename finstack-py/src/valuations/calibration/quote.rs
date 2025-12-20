@@ -136,16 +136,38 @@ impl PyRatesQuote {
 
     #[classmethod]
     #[pyo3(
-        signature = (id, index, maturity, rate, *, spread=None),
-        text_signature = "(cls, id, index, maturity, rate, *, spread=None)"
+        signature = (id, index, maturity, rate, *, spread_decimal=None),
+        text_signature = "(cls, id, index, maturity, rate, *, spread_decimal=None)"
     )]
+    /// Create a swap rate quote.
+    ///
+    /// Args:
+    ///     id: Quote identifier.
+    ///     index: Rate index (e.g., "USD-SOFR-3M").
+    ///     maturity: Swap maturity as Tenor or Date.
+    ///     rate: Par swap rate (decimal, e.g., 0.05 for 5%).
+    ///     spread_decimal: Optional spread in decimal format (e.g., 0.0010 for 10bp).
+    ///                     Note: This is in decimal, not basis points.
+    ///
+    /// Returns:
+    ///     RatesQuote: Swap rate quote.
+    ///
+    /// Examples:
+    ///     >>> # 5Y swap at 5% with 10bp spread:
+    ///     >>> quote = RatesQuote.swap(
+    ///     ...     "swap_5y",
+    ///     ...     "USD-SOFR-3M",
+    ///     ...     "5Y",
+    ///     ...     0.05,
+    ///     ...     spread_decimal=0.0010
+    ///     ... )
     fn swap(
         _cls: &Bound<'_, PyType>,
         id: &str,
         index: Bound<'_, PyAny>,
         maturity: Bound<'_, PyAny>,
         rate: f64,
-        spread: Option<f64>,
+        spread_decimal: Option<f64>,
     ) -> PyResult<Self> {
         let index_id = parse_index(index)?;
         let pillar = parse_pillar(maturity)?;
@@ -154,7 +176,7 @@ impl PyRatesQuote {
             index: index_id,
             pillar,
             rate,
-            spread,
+            spread_decimal,
         }))
     }
 
@@ -203,11 +225,11 @@ impl PyRatesQuote {
                 id,
                 pillar,
                 rate,
-                spread,
+                spread_decimal,
                 ..
             } => Ok(format!(
-                "RatesQuote.swap(id='{}', pillar='{}', rate={:.6}, spread={:?})",
-                id, pillar, rate, spread
+                "RatesQuote.swap(id='{}', pillar='{}', rate={:.6}, spread_decimal={:?})",
+                id, pillar, rate, spread_decimal
             )),
         }
     }

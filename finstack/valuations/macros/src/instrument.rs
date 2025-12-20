@@ -1,6 +1,6 @@
 use proc_macro::TokenStream;
 use quote::{format_ident, quote};
-use syn::{parse_macro_input, DeriveInput};
+use syn::{parse_macro_input, Data, DeriveInput, GenericArgument, PathArguments, Type};
 
 /// Derive macro to implement the `Instrument` trait with consistent boilerplate.
 ///
@@ -13,6 +13,8 @@ use syn::{parse_macro_input, DeriveInput};
 pub fn derive_instrument_impl(input: TokenStream) -> TokenStream {
     let input = parse_macro_input!(input as DeriveInput);
     let ident = input.ident.clone();
+    let spot_id_impl = spot_id_impl(&input);
+    let vol_surface_impl = vol_surface_impl(&input);
 
     let mut key_ident: Option<syn::Ident> = None;
     let mut price_fn_ident: syn::Ident = format_ident!("npv");
@@ -99,8 +101,117 @@ pub fn derive_instrument_impl(input: TokenStream) -> TokenStream {
                     metrics,
                 )
             }
+
+            #spot_id_impl
+            #vol_surface_impl
         }
     };
 
     TokenStream::from(expanded)
+}
+
+fn spot_id_impl(input: &DeriveInput) -> proc_macro2::TokenStream {
+    let Some(field_type) = find_field_type(input, "spot_id") else {
+        return quote! {};
+    };
+
+    let body = if is_option_string(&field_type) {
+        quote! { self.spot_id.as_deref() }
+    } else if is_string(&field_type) {
+        quote! { Some(self.spot_id.as_str()) }
+    } else {
+        return quote! {};
+    };
+
+    quote! {
+        fn spot_id(&self) -> Option<&str> {
+            #body
+        }
+    }
+}
+
+fn vol_surface_impl(input: &DeriveInput) -> proc_macro2::TokenStream {
+    let Some(field_type) = find_field_type(input, "vol_surface_id") else {
+        return quote! {};
+    };
+
+    let body = if is_option_curve_id(&field_type) {
+        quote! { self.vol_surface_id.clone() }
+    } else if is_curve_id(&field_type) {
+        quote! { Some(self.vol_surface_id.clone()) }
+    } else {
+        return quote! {};
+    };
+
+    quote! {
+        fn vol_surface_id(&self) -> Option<finstack_core::types::CurveId> {
+            #body
+        }
+    }
+}
+
+fn find_field_type(input: &DeriveInput, field_name: &str) -> Option<Type> {
+    match &input.data {
+        Data::Struct(data_struct) => data_struct
+            .fields
+            .iter()
+            .find(|field| {
+                field
+                    .ident
+                    .as_ref()
+                    .map(|id| id == field_name)
+                    .unwrap_or(false)
+            })
+            .map(|field| field.ty.clone()),
+        _ => None,
+    }
+}
+
+fn is_option_curve_id(ty: &Type) -> bool {
+    is_option_of(ty, "CurveId")
+}
+
+fn is_curve_id(ty: &Type) -> bool {
+    if let Type::Path(type_path) = ty {
+        return type_path
+            .path
+            .segments
+            .last()
+            .map(|segment| segment.ident == "CurveId")
+            .unwrap_or(false);
+    }
+    false
+}
+
+fn is_option_string(ty: &Type) -> bool {
+    is_option_of(ty, "String")
+}
+
+fn is_string(ty: &Type) -> bool {
+    if let Type::Path(type_path) = ty {
+        return type_path
+            .path
+            .segments
+            .last()
+            .map(|segment| segment.ident == "String")
+            .unwrap_or(false);
+    }
+    false
+}
+
+fn is_option_of(ty: &Type, target: &str) -> bool {
+    if let Type::Path(type_path) = ty {
+        if let Some(segment) = type_path.path.segments.last() {
+            if segment.ident == "Option" {
+                if let PathArguments::AngleBracketed(args) = &segment.arguments {
+                    if let Some(GenericArgument::Type(Type::Path(inner_path))) = args.args.first() {
+                        if let Some(last) = inner_path.path.segments.last() {
+                            return last.ident == target;
+                        }
+                    }
+                }
+            }
+        }
+    }
+    false
 }

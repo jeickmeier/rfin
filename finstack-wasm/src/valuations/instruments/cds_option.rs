@@ -53,13 +53,14 @@ impl JsCdsOption {
             ));
         }
 
-        let mut option_params = CdsOptionParams::new(
+        let mut option_params = CdsOptionParams::try_new(
             strike_spread_bp,
             expiry.inner(),
             cds_maturity.inner(),
             notional.inner(),
             option_type_value,
-        );
+        )
+        .map_err(|e| js_error(e.to_string()))?;
 
         if underlying_is_index.unwrap_or(false) {
             let factor = index_factor.unwrap_or(1.0);
@@ -74,13 +75,14 @@ impl JsCdsOption {
         let vol_str = optional_static_str(Some(vol_surface.to_string()))
             .ok_or_else(|| js_error("vol surface required".to_string()))?;
 
-        let option = CdsOption::new(
+        let option = CdsOption::try_new(
             instrument_id_from_str(instrument_id),
             &option_params,
             &credit_params,
             disc_str,
             vol_str,
-        );
+        )
+        .map_err(|e| js_error(e.to_string()))?;
 
         Ok(JsCdsOption::from_inner(option))
     }

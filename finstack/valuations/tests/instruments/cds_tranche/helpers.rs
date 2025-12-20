@@ -74,6 +74,7 @@ pub fn standard_credit_index() -> CreditIndexData {
 pub fn standard_market_context() -> MarketContext {
     MarketContext::new()
         .insert_discount(standard_discount_curve())
+        .insert_hazard(standard_hazard_curve())
         .insert_credit_index("CDX.NA.IG.42", standard_credit_index())
 }
 
@@ -85,18 +86,20 @@ pub fn market_context_with_issuers(n: usize) -> MarketContext {
         .build()
         .unwrap();
 
-    let index_curve = HazardCurve::builder("CDX.NA.IG.42")
-        .base_date(base_date())
-        .recovery_rate(0.40)
-        .knots(vec![
-            (1.0, 0.012),
-            (3.0, 0.017),
-            (5.0, 0.022),
-            (10.0, 0.028),
-        ])
-        .par_spreads(vec![(1.0, 65.0), (3.0, 85.0), (5.0, 105.0), (10.0, 145.0)])
-        .build()
-        .unwrap();
+    let index_curve = Arc::new(
+        HazardCurve::builder("CDX.NA.IG.42")
+            .base_date(base_date())
+            .recovery_rate(0.40)
+            .knots(vec![
+                (1.0, 0.012),
+                (3.0, 0.017),
+                (5.0, 0.022),
+                (10.0, 0.028),
+            ])
+            .par_spreads(vec![(1.0, 65.0), (3.0, 85.0), (5.0, 105.0), (10.0, 145.0)])
+            .build()
+            .unwrap(),
+    );
 
     let base_corr_curve = standard_correlation_curve();
 
@@ -121,7 +124,7 @@ pub fn market_context_with_issuers(n: usize) -> MarketContext {
     let index = CreditIndexData::builder()
         .num_constituents(n as u16)
         .recovery_rate(0.40)
-        .index_credit_curve(Arc::new(index_curve))
+        .index_credit_curve(Arc::clone(&index_curve))
         .base_correlation_curve(Arc::new(base_corr_curve))
         .with_issuer_curves(issuer_curves)
         .build()
@@ -129,6 +132,7 @@ pub fn market_context_with_issuers(n: usize) -> MarketContext {
 
     MarketContext::new()
         .insert_discount(discount_curve)
+        .insert_hazard(Arc::clone(&index_curve))
         .insert_credit_index("CDX.NA.IG.42", index)
 }
 

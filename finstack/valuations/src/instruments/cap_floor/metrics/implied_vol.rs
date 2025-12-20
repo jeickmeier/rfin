@@ -75,8 +75,13 @@ impl MetricCalculator for ImpliedVolCalculator {
 
         // Objective function: Black price - market price = 0
         let objective = |vol: f64| {
+            // Keep the objective well-defined and sign-consistent so the solver can
+            // bracket a root robustly.
+            //
+            // At vol -> 0, the Black price approaches 0, so the residual approaches
+            // `-market_price`.
             if vol <= 0.0 {
-                return market_price; // High error for negative vols
+                return -market_price;
             }
 
             let mut inputs = base_inputs;
@@ -84,7 +89,7 @@ impl MetricCalculator for ImpliedVolCalculator {
 
             match price_caplet_floorlet(inputs) {
                 Ok(price) => price.amount() - market_price,
-                Err(_) => market_price, // High error on pricing failure
+                Err(_) => market_price, // Treat pricing failure as a large positive residual
             }
         };
 

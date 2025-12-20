@@ -61,7 +61,13 @@ impl JsRatesQuote {
         }
     }
 
-    /// Create a swap quote.
+    /// Create a swap quote without spread.
+    ///
+    /// @param {string} id - Quote identifier
+    /// @param {string} index - Rate index (e.g., "USD-SOFR-3M")
+    /// @param {FsDate} maturity - Swap maturity date
+    /// @param {number} rate - Par swap rate in decimal (e.g., 0.05 for 5%)
+    /// @returns {JsRatesQuote} Swap quote
     #[wasm_bindgen(js_name = swap)]
     pub fn swap(id: &str, index: &str, maturity: &FsDate, rate: f64) -> JsRatesQuote {
         Self {
@@ -70,7 +76,46 @@ impl JsRatesQuote {
                 index: IndexId::new(index),
                 pillar: Pillar::Date(maturity.inner()),
                 rate,
-                spread: None,
+                spread_decimal: None,
+            },
+        }
+    }
+
+    /// Create a swap quote with spread.
+    ///
+    /// @param {string} id - Quote identifier
+    /// @param {string} index - Rate index (e.g., "USD-SOFR-3M")
+    /// @param {FsDate} maturity - Swap maturity date
+    /// @param {number} rate - Par swap rate in decimal (e.g., 0.05 for 5%)
+    /// @param {number} spreadDecimal - Spread in decimal (e.g., 0.0010 for 10bp)
+    /// @returns {JsRatesQuote} Swap quote with spread
+    ///
+    /// @example
+    /// ```typescript
+    /// // 5Y swap at 5% with 10bp spread:
+    /// const quote = JsRatesQuote.swapWithSpread(
+    ///   "swap_5y",
+    ///   "USD-SOFR-3M",
+    ///   new FsDate(2030, 1, 15),
+    ///   0.05,
+    ///   0.0010  // 10bp in decimal
+    /// );
+    /// ```
+    #[wasm_bindgen(js_name = swapWithSpread)]
+    pub fn swap_with_spread(
+        id: &str,
+        index: &str,
+        maturity: &FsDate,
+        rate: f64,
+        spread_decimal: f64,
+    ) -> JsRatesQuote {
+        Self {
+            inner: RateQuote::Swap {
+                id: QuoteId::new(id),
+                index: IndexId::new(index),
+                pillar: Pillar::Date(maturity.inner()),
+                rate,
+                spread_decimal: Some(spread_decimal),
             },
         }
     }

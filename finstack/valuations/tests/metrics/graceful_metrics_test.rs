@@ -1,10 +1,13 @@
 //! Tests for graceful metric calculation error handling.
 //!
-//! Verifies that when a metric calculation fails or is missing,
-//! the system continues computing other metrics and returns 0.0
-//! for the failed metric.
+//! Verifies strict vs best-effort behavior.
+//!
+//! - In strict mode (default), unknown/missing metrics return errors.
+//! - In best-effort mode, failures are coerced to `0.0` and the computation
+//!   continues.
 
 use finstack_core::prelude::*;
+use finstack_core::Error;
 use finstack_valuations::instruments::bond::Bond;
 use finstack_valuations::instruments::common::traits::Instrument;
 use finstack_valuations::metrics::{MetricContext, MetricId, MetricRegistry};
@@ -12,7 +15,7 @@ use std::sync::Arc;
 use time::macros::date;
 
 #[test]
-fn test_missing_metric_returns_zero() {
+fn test_missing_metric_errors_in_strict_mode() {
     // Create a simple bond
     let bond = Bond::fixed(
         "TEST_BOND",
@@ -40,21 +43,17 @@ fn test_missing_metric_returns_zero() {
     let metrics = vec![MetricId::Ytm];
     let result = registry.compute(&metrics, &mut context);
 
-    // Should not error
-    assert!(result.is_ok(), "Should handle missing metric gracefully");
-
-    let computed = result.unwrap();
-
-    // Should return 0.0 for missing metric
-    assert_eq!(
-        computed.get(&MetricId::Ytm),
-        Some(&0.0),
-        "Missing metric should return 0.0"
-    );
+    match result {
+        Err(Error::UnknownMetric { metric_id, .. }) => {
+            assert_eq!(metric_id, "ytm");
+        }
+        Err(other) => panic!("unexpected error: {}", other),
+        Ok(_) => panic!("expected strict mode to error on missing metric"),
+    }
 }
 
 #[test]
-fn test_partial_metric_failure_continues() {
+fn test_missing_metrics_return_zero_in_best_effort_mode() {
     // Create a simple bond
     let bond = Bond::fixed(
         "TEST_BOND",
@@ -80,13 +79,9 @@ fn test_partial_metric_failure_continues() {
 
     // Try to compute multiple metrics, none of which exist
     let metrics = vec![MetricId::Ytm, MetricId::DurationMac, MetricId::Dv01];
-    let result = registry.compute(&metrics, &mut context);
+    let result = registry.compute_best_effort(&metrics, &mut context);
 
-    // Should not error
-    assert!(
-        result.is_ok(),
-        "Should handle all missing metrics gracefully"
-    );
+    assert!(result.is_ok(), "best-effort mode should never error");
 
     let computed = result.unwrap();
 
@@ -124,15 +119,12 @@ fn test_some_metrics_succeed_some_fail() {
     // Use standard registry which has bond metrics
     let registry = standard_registry();
 
-    // Try to compute metrics - some might fail due to missing market data
+    // Try to compute metrics - they will fail in strict mode due to missing market data,
+    // but should be coerced to 0.0 in best-effort mode.
     let metrics = vec![MetricId::Ytm, MetricId::DurationMac];
-    let result = registry.compute(&metrics, &mut context);
+    let result = registry.compute_best_effort(&metrics, &mut context);
 
-    // Should not error even if calculations fail
-    assert!(
-        result.is_ok(),
-        "Should handle calculation failures gracefully"
-    );
+    assert!(result.is_ok(), "best-effort mode should never error");
 
     let computed = result.unwrap();
 

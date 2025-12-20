@@ -88,7 +88,7 @@ use finstack_core::Result;
 ///     index: IndexId::new("USD-SOFR-OIS"),
 ///     pillar: Pillar::Tenor("5Y".parse().unwrap()),
 ///     rate: 0.0450,
-///     spread: None,
+///     spread_decimal: None,
 /// };
 ///
 /// let instrument = build_rate_instrument(&quote, &ctx)?;
@@ -286,7 +286,7 @@ pub fn build_rate_instrument(quote: &RateQuote, ctx: &BuildCtx) -> Result<Box<dy
             index,
             pillar,
             rate,
-            spread,
+            spread_decimal,
         } => {
             let conv = registry.require_rate_index(index)?;
             let spot = resolve_spot_date(
@@ -369,8 +369,10 @@ pub fn build_rate_instrument(quote: &RateQuote, ctx: &BuildCtx) -> Result<Box<dy
             };
 
             // Apply spread if present
-            if let Some(s) = spread {
-                swap.float.spread_bp = *s * 10000.0; // spread is decimal (e.g. 0.0010), spread_bp is bps
+            // spread_decimal is in decimal format (e.g., 0.0010 for 10bp)
+            // Convert to basis points by multiplying by 10000
+            if let Some(spread_decimal) = spread_decimal {
+                swap.float.spread_bp = *spread_decimal * 10000.0;
             }
 
             Ok(Box::new(swap))
@@ -392,4 +394,137 @@ fn resolve_fixing_date(start: Date, conv: &RateIndexConventions) -> Result<Date>
     let lag = conv.default_reset_lag_days;
 
     start.add_business_days(-lag, cal)
+}
+
+#[cfg(test)]
+#[allow(clippy::unwrap_used)]
+mod tests {
+    use super::*;
+    use crate::market::conventions::ids::IndexId;
+    use crate::market::quotes::ids::{Pillar, QuoteId};
+    use std::collections::HashMap;
+
+    /// Test that spread_decimal is correctly converted to basis points
+    #[test]
+    fn test_swap_spread_decimal_conversion() -> Result<()> {
+        let ctx = BuildCtx::new(
+            Date::from_calendar_date(2024, time::Month::January, 2).unwrap(),
+            1_000_000.0,
+            HashMap::new(),
+        );
+
+        // Create a swap quote with spread_decimal = 0.0010 (10bp)
+        let quote = RateQuote::Swap {
+            id: QuoteId::new("USD-SOFR-OIS-SWAP-5Y"),
+            index: IndexId::new("USD-SOFR-OIS"),
+            pillar: Pillar::Tenor(finstack_core::dates::Tenor::new(
+                5,
+                finstack_core::dates::TenorUnit::Years,
+            )),
+            rate: 0.0450,
+            spread_decimal: Some(0.0010), // 10bp in decimal
+        };
+
+        let instrument = build_rate_instrument(&quote, &ctx)?;
+
+        // Downcast to InterestRateSwap to access spread_bp
+        use crate::instruments::irs::InterestRateSwap;
+        let swap = instrument
+            .as_any()
+            .downcast_ref::<InterestRateSwap>()
+            .expect("Expected InterestRateSwap");
+
+        // Verify spread_decimal (0.0010) was converted to spread_bp (10.0)
+        assert_eq!(
+            swap.float.spread_bp, 10.0,
+            "Expected spread_decimal of 0.0010 to convert to 10.0 basis points"
+        );
+
+        Ok(())
+    }
+
+    /// Test that swap with no spread works correctly
+    #[test]
+    fn test_swap_no_spread() -> Result<()> {
+        let ctx = BuildCtx::new(
+            Date::from_calendar_date(2024, time::Month::January, 2).unwrap(),
+            1_000_000.0,
+            HashMap::new(),
+        );
+
+        let quote = RateQuote::Swap {
+            id: QuoteId::new("USD-SOFR-OIS-SWAP-5Y"),
+            index: IndexId::new("USD-SOFR-OIS"),
+            pillar: Pillar::Tenor(finstack_core::dates::Tenor::new(
+                5,
+                finstack_core::dates::TenorUnit::Years,
+            )),
+            rate: 0.0450,
+            spread_decimal: None,
+        };
+
+        let instrument = build_rate_instrument(&quote, &ctx)?;
+
+        // Should build successfully
+        use crate::instruments::irs::InterestRateSwap;
+        let swap = instrument
+            .as_any()
+            .downcast_ref::<InterestRateSwap>()
+            .expect("Expected InterestRateSwap");
+
+        // Default spread_bp should be 0.0
+        assert_eq!(
+            swap.float.spread_bp, 0.0,
+            "Expected default spread_bp to be 0.0"
+        );
+
+        Ok(())
+    }
+
+    /// Test spread conversion with various values
+    #[test]
+    fn test_swap_spread_various_values() -> Result<()> {
+        let test_cases = vec![
+            (0.0001, 1.0),    // 1bp
+            (0.0010, 10.0),   // 10bp
+            (0.0050, 50.0),   // 50bp
+            (0.0100, 100.0),  // 100bp (1%)
+            (-0.0010, -10.0), // -10bp (negative spread)
+        ];
+
+        for (spread_decimal, expected_bp) in test_cases {
+            let ctx = BuildCtx::new(
+                Date::from_calendar_date(2024, time::Month::January, 2).unwrap(),
+                1_000_000.0,
+                HashMap::new(),
+            );
+
+            let quote = RateQuote::Swap {
+                id: QuoteId::new("USD-SOFR-OIS-SWAP-5Y"),
+                index: IndexId::new("USD-SOFR-OIS"),
+                pillar: Pillar::Tenor(finstack_core::dates::Tenor::new(
+                    5,
+                    finstack_core::dates::TenorUnit::Years,
+                )),
+                rate: 0.0450,
+                spread_decimal: Some(spread_decimal),
+            };
+
+            let instrument = build_rate_instrument(&quote, &ctx)?;
+
+            use crate::instruments::irs::InterestRateSwap;
+            let swap = instrument
+                .as_any()
+                .downcast_ref::<InterestRateSwap>()
+                .expect("Expected InterestRateSwap");
+
+            assert_eq!(
+                swap.float.spread_bp, expected_bp,
+                "spread_decimal {} should convert to {} basis points",
+                spread_decimal, expected_bp
+            );
+        }
+
+        Ok(())
+    }
 }

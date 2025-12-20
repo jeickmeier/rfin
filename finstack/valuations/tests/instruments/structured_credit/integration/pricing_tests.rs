@@ -132,8 +132,7 @@ fn test_structured_credit_dirty_price() {
     let result = sc.price_with_metrics(&market, test_date(), &[MetricId::DirtyPrice]);
 
     // Assert
-    assert!(result.is_ok());
-    let result = result.unwrap();
+    let result = result.expect("Structured credit clean/dirty pricing should succeed");
     assert!(result.measures.contains_key("dirty_price"));
 
     let price = result.measures["dirty_price"];
@@ -172,8 +171,7 @@ fn test_structured_credit_clean_price() {
     );
 
     // Assert
-    assert!(result.is_ok());
-    let result = result.unwrap();
+    let result = result.expect("Structured credit clean/dirty pricing should succeed");
 
     let dirty = result.measures["dirty_price"];
     let clean = result.measures["clean_price"];

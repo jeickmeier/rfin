@@ -48,13 +48,14 @@ fn create_cds_option(
         credit_curve_id: "ACME-HAZARD".into(),
     };
 
-    CdsOption::new(
+    CdsOption::try_new(
         format!("CDS_OPT_{}M_{}Y", expiry_months, cds_tenor_years),
         &option_params,
         &credit_params,
         "USD-OIS",
         "CDS-VOL",
     )
+    .expect("valid CDS option setup")
 }
 
 fn create_market() -> MarketContext {

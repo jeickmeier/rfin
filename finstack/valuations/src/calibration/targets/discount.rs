@@ -862,7 +862,7 @@ Ensure quotes map to strictly increasing year fractions.",
                     break;
                 }
                 let pv = quote.instrument().value_raw(ctx, self.base_date)?;
-                residuals[i] = pv / 1.0;
+                residuals[i] = pv / self.residual_notional;
             }
             Ok(())
         })
@@ -979,7 +979,7 @@ Ensure quotes map to strictly increasing year fractions.",
                 }
 
                 let pv = quote.instrument().value(ctx, self.base_date)?.amount();
-                let val_plus = pv / 1.0;
+                let val_plus = pv / self.residual_notional;
                 let val_base = base_residuals[i];
 
                 jacobian[i][j] = (val_plus - val_base) / h;
@@ -1024,7 +1024,7 @@ mod tests {
             index: crate::market::conventions::ids::IndexId::new("USD-SOFR-OIS"),
             pillar: crate::market::quotes::ids::Pillar::Date(maturity), // 1Y
             rate: 0.02,
-            spread: None,
+            spread_decimal: None,
         };
 
         // Assume delay 2 days (standard OIS)
@@ -1141,5 +1141,113 @@ mod tests {
             GlobalFitOptimizer::optimize(&target, &quotes, &config).expect("solve");
         println!("Max residual: {}", report.max_residual);
         assert!(report.max_residual < 1e-6);
+    }
+
+    #[test]
+    fn test_residual_normalization_invariance() {
+        // Test that calibration with different notionals produces identical curves
+        // This verifies the fix for residual normalization (pv / residual_notional)
+        let base_date = Date::from_calendar_date(2025, Month::December, 10).expect("base_date");
+        let mut config = CalibrationConfig::default();
+        config.solver = config.solver.with_tolerance(1e-9);
+        config.calibration_method = crate::calibration::config::CalibrationMethod::GlobalSolve {
+            use_analytical_jacobian: true,
+        };
+
+        // Helper function to run calibration with a given notional
+        let run_calibration = |notional: f64| -> DiscountCurve {
+            let target = DiscountCurveTarget::new(DiscountCurveTargetParams {
+                base_date,
+                currency: Currency::USD,
+                curve_id: CurveId::new("USD-OIS"),
+                discount_curve_id: CurveId::new("USD-OIS"),
+                forward_curve_id: CurveId::new("USD-OIS"),
+                solve_interp: InterpStyle::Linear,
+                extrapolation: ExtrapolationPolicy::FlatZero,
+                config: config.clone(),
+                curve_day_count: DayCount::Act365F,
+                spot_knot: None,
+                settlement_date: base_date,
+                residual_notional: notional, // Different notionals
+                base_context: MarketContext::new(),
+            });
+
+            // Create a few deposit quotes with different maturities
+            let mut quotes = Vec::new();
+            for (days, rate) in [(30, 0.04), (90, 0.045), (180, 0.05), (365, 0.055)] {
+                let maturity = base_date + time::Duration::days(days);
+                let p_time = DayCount::Act365F
+                    .year_fraction(base_date, maturity, DayCountCtx::default())
+                    .expect("year_fraction");
+
+                let quote = crate::market::quotes::rates::RateQuote::Deposit {
+                    id: crate::market::quotes::ids::QuoteId::new(format!("DEP-{}D", days)),
+                    index: crate::market::conventions::ids::IndexId::new("USD-SOFR"),
+                    pillar: crate::market::quotes::ids::Pillar::Date(maturity),
+                    rate,
+                };
+
+                let instrument = std::sync::Arc::new(crate::instruments::deposit::Deposit {
+                    id: InstrumentId::new(format!("DEP-{}D", days)),
+                    quote_rate: Some(rate),
+                    discount_curve_id: CurveId::new("USD-OIS"),
+                    attributes: Default::default(),
+                    spot_lag_days: Some(0),
+                    bdc: Some(BusinessDayConvention::Following),
+                    calendar_id: None,
+                    start: base_date,
+                    end: maturity,
+                    notional: Money::new(notional, Currency::USD),
+                    day_count: DayCount::Act360,
+                });
+
+                let pq =
+                    PreparedQuote::new(std::sync::Arc::new(quote), instrument, maturity, p_time);
+                quotes.push(CalibrationQuote::Rates(pq));
+            }
+
+            let (curve, report) =
+                GlobalFitOptimizer::optimize(&target, &quotes, &config).expect("solve");
+
+            // Ensure calibration succeeded with normalized residuals
+            println!(
+                "Notional {} - Max residual: {:.2e}",
+                notional, report.max_residual
+            );
+            assert!(
+                report.max_residual < 1e-8,
+                "Max residual should be < 1e-8 in normalized units"
+            );
+
+            curve
+        };
+
+        // Run with notional = 1.0
+        let curve_notional_1 = run_calibration(1.0);
+
+        // Run with notional = 1,000,000.0
+        let curve_notional_1m = run_calibration(1_000_000.0);
+
+        // Compare curves at several points - they should be identical (within numerical tolerance)
+        let test_times = vec![0.0, 0.25, 0.5, 0.75, 1.0];
+        for t in test_times {
+            let df_1 = curve_notional_1.df(t);
+            let df_1m = curve_notional_1m.df(t);
+
+            println!(
+                "t={:.2}: df(notional=1.0)={:.12}, df(notional=1M)={:.12}, diff={:.2e}",
+                t,
+                df_1,
+                df_1m,
+                (df_1 - df_1m).abs()
+            );
+
+            assert!(
+                (df_1 - df_1m).abs() < 1e-12,
+                "Discount factors should be identical (within 1e-12) for t={:.2}, but got diff={:.2e}",
+                t,
+                (df_1 - df_1m).abs()
+            );
+        }
     }
 }
