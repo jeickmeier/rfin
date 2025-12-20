@@ -9,14 +9,14 @@ Run:
 
 from __future__ import annotations
 
-# pyright: reportMissingImports=false, reportMissingModuleSource=false
-
 from dataclasses import dataclass
 from datetime import date
 from typing import Iterable, List, Optional, Sequence, Tuple
 
 from finstack.core.market_data.context import MarketContext
 from finstack.valuations import calibration as cal
+
+# pyright: reportMissingImports=false, reportMissingModuleSource=false
 
 
 @dataclass(frozen=True)
@@ -714,5 +714,3 @@ def main() -> None:
 
 if __name__ == "__main__":
     main()
-
-
