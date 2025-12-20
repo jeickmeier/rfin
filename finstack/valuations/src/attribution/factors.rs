@@ -474,6 +474,26 @@ impl MarketSnapshot {
     }
 }
 
+// ═══════════════════════════════════════════════════════════════════════════════
+// Trait-Based Market Data Extraction
+// ═══════════════════════════════════════════════════════════════════════════════
+
+/// Trait for types that can be extracted from a [`MarketContext`].
+///
+/// This trait provides a unified interface for extracting different types of market
+/// data snapshots from a market context.
+pub trait MarketExtractable: Sized {
+    /// Extract this snapshot type from a market context.
+    fn extract(market: &MarketContext) -> Self;
+}
+
+/// Generic helper function to extract a snapshot from a market context.
+///
+/// Uses type inference to determine which snapshot type to extract.
+pub fn extract<T: MarketExtractable>(market: &MarketContext) -> T {
+    T::extract(market)
+}
+
 /// Extract all discount and forward curves from a market context.
 ///
 /// # Arguments

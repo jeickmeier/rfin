@@ -376,23 +376,28 @@ cargo clippy --lib -- -D warnings         # ✅ Zero warnings
 **Impact**: 6 functions → 1 generic + 6 trait impls  
 **Estimated Time**: 2 days
 
-### [ ] Step 4.1: Define MarketExtractable trait
+### [x] Step 4.1: Define MarketExtractable trait
 <!-- chat-id: 6497c36e-5d81-4ed5-8736-12641b8ea1bd -->
 **File**: `finstack/valuations/src/attribution/factors.rs`
 
 **Tasks**:
-- Add `MarketExtractable` trait with `extract(market) -> Self` method
-- Add documentation explaining trait purpose
-- Add generic `extract::<T>(market)` helper function
+- ✅ Add `MarketExtractable` trait with `extract(market) -> Self` method
+- ✅ Add documentation explaining trait purpose
+- ✅ Add generic `extract::<T>(market)` helper function
 
 **Verification**:
 ```bash
-cargo build --lib
+cargo build --lib                         # ✅ Compiles successfully
+cargo test --lib attribution::factors     # ✅ 31 tests pass
+cargo doc --no-deps --lib                 # ✅ Documentation builds
 ```
 
 **Acceptance**:
 - ✅ Trait compiles and is well-documented
 - ✅ Generic helper works with type inference
+- ✅ Trait definition added at line 485 with clear documentation
+- ✅ Generic extract() function added at line 493
+- ✅ All existing tests still pass (31 tests)
 
 ---
 
