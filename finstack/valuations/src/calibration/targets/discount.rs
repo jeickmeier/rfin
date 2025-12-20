@@ -1024,7 +1024,7 @@ mod tests {
             index: crate::market::conventions::ids::IndexId::new("USD-SOFR-OIS"),
             pillar: crate::market::quotes::ids::Pillar::Date(maturity), // 1Y
             rate: 0.02,
-            spread: None,
+            spread_decimal: None,
         };
 
         // Assume delay 2 days (standard OIS)

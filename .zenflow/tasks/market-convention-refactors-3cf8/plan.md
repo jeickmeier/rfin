@@ -412,7 +412,8 @@ cargo test instruments::common::fx_dates --lib -- --nocapture
 
 ---
 
-### [ ] Step 2.2: Fix Quote Units (Swap Spread)
+### [x] Step 2.2: Fix Quote Units (Swap Spread)
+<!-- chat-id: b436acb9-412e-46ad-9d34-eccd385d0ca3 -->
 
 **Goal**: Rename spread field with explicit decimal units and remove conversion.
 
@@ -466,6 +467,34 @@ cargo test market::build::rates --lib
 - Old JSON `"spread": 0.0010` deserializes correctly via alias
 - New JSON `"spread_decimal": 0.0010` preferred in docs
 - All tests pass
+
+**Completed**:
+- ✅ Renamed `spread` field to `spread_decimal` in `RateQuote::Swap` with comprehensive documentation
+- ✅ Added `#[serde(default, alias = "spread")]` for backwards compatibility
+- ✅ Updated field documentation to clarify decimal format (e.g., 0.0010 for 10bp)
+- ✅ Updated `bump()` method to use `spread_decimal` field name
+- ✅ Updated `build_rate_instrument()` to use `spread_decimal` variable name with clearer conversion comments
+- ✅ Updated doc example in `rates.rs` to use `spread_decimal: None`
+- ✅ Updated doc example in `build/rates.rs` to use `spread_decimal: None`
+- ✅ Fixed existing test in `calibration/targets/discount.rs` to use `spread_decimal`
+- ✅ Added 6 comprehensive unit tests in `rates.rs`:
+  - `test_swap_spread_decimal_programmatic_api()` - verifies field works in programmatic API
+  - `test_swap_spread_serde_new_field()` - verifies new field name serializes/deserializes correctly
+  - `test_swap_spread_serde_backwards_compat()` - verifies old "spread" field still works via alias
+  - `test_swap_spread_serialization()` - verifies serialization uses new field name + round-trip
+  - `test_swap_no_spread()` - verifies None spread works correctly
+  - `test_swap_bump_preserves_spread()` - verifies bumping preserves spread_decimal
+- ✅ Added 3 comprehensive unit tests in `build/rates.rs`:
+  - `test_swap_spread_decimal_conversion()` - verifies 0.0010 decimal → 10.0 basis points
+  - `test_swap_no_spread()` - verifies swap with no spread builds correctly (default 0.0bp)
+  - `test_swap_spread_various_values()` - verifies conversion with various decimal values including negative spreads
+- ✅ All 6 rates tests pass
+- ✅ All 3 build/rates tests pass
+- ✅ All 3 calibration discount tests pass (including the test using spread_decimal)
+- ✅ Clippy passes with zero warnings
+- ✅ Backwards compatibility: old JSON with "spread" field deserializes correctly via serde alias
+- ✅ New JSON uses "spread_decimal" field name in serialized output
+- ✅ Conversion verified: spread_decimal 0.0010 → spread_bp 10.0
 
 ---
 
