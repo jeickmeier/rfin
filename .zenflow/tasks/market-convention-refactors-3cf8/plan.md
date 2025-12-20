@@ -728,7 +728,8 @@ cargo clippy --all-features -- -D warnings
 
 ---
 
-### [ ] Step 3.3: Fix Results Export Metric Mapping
+### [x] Step 3.3: Fix Results Export Metric Mapping
+<!-- chat-id: 020c0361-a456-436d-a9b6-38c16e009fde -->
 
 **Goal**: Use correct MetricId constants for DataFrame export.
 
@@ -736,7 +737,7 @@ cargo clippy --all-features -- -D warnings
 - `finstack/valuations/src/results/dataframe.rs`
 
 **Changes**:
-1. Add import: `use crate::metrics::core::ids::MetricId;`
+1. Add import: `use crate::metrics::MetricId;`
 2. Update `to_row()` implementation (lines 42-56):
    ```rust
    // Add helper method:
@@ -768,6 +769,30 @@ cargo test results::dataframe --lib
 - All metric keys use MetricId constants
 - Tests verify each field correctly populated
 - No hardcoded string keys remain
+
+**Completed**:
+- ✅ Added import `use crate::metrics::MetricId;` (using public re-export from metrics module)
+- ✅ Implemented `get_measure()` helper method that takes `MetricId` and returns `Option<f64>`
+- ✅ Updated `to_row()` implementation to use MetricId constants:
+  - `dv01` uses `MetricId::Dv01`
+  - `convexity` uses `MetricId::Convexity`
+  - `duration` uses `MetricId::DurationMod` with fallback to `MetricId::DurationMac`
+  - `ytm` uses `MetricId::Ytm`
+- ✅ Added comprehensive documentation to `to_row()` explaining duration fallback behavior
+- ✅ Added 9 comprehensive unit tests:
+  - `test_to_row_dv01_mapping()` - verifies DV01 extraction with correct metric key
+  - `test_to_row_convexity_mapping()` - verifies Convexity extraction with correct metric key
+  - `test_to_row_duration_mod_mapping()` - verifies Modified Duration extraction with correct metric key
+  - `test_to_row_duration_mac_fallback()` - verifies Macaulay Duration fallback when Modified is absent
+  - `test_to_row_duration_mod_preferred_over_mac()` - verifies Modified Duration takes precedence when both present
+  - `test_to_row_ytm_mapping()` - verifies YTM extraction with correct metric key
+  - `test_to_row_all_metrics_populated()` - verifies all metrics populate correctly together
+  - `test_to_row_legacy_keys_not_used()` - verifies old incorrect keys like "duration" and "modified_duration" don't work
+  - (Existing tests: `test_valuation_result_to_row()`, `test_results_to_rows_batch()`, `test_row_serialization()`)
+- ✅ All 11 dataframe tests pass (9 new + 2 existing)
+- ✅ Clippy passes with zero warnings
+- ✅ No hardcoded metric string keys remain in production code
+- ✅ All field mappings use MetricId constants for type safety and correctness
 
 ---
 
