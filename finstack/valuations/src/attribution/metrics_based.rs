@@ -173,6 +173,34 @@ pub fn attribute_pnl_metrics_based(
     as_of_t0: Date,
     as_of_t1: Date,
 ) -> Result<PnlAttribution> {
+    let input = AttributionInput {
+        instrument,
+        market_t0,
+        market_t1,
+        as_of_t0,
+        as_of_t1,
+        config: None,
+        model_params_t0: None,
+        val_t0: Some(val_t0),
+        val_t1: Some(val_t1),
+        strict_validation: false,
+    };
+    attribute_pnl_metrics_based_impl(&input)
+}
+
+/// Internal implementation of metrics-based attribution using `AttributionInput`.
+///
+/// This is the core implementation that uses the context struct pattern
+/// to reduce parameter count and improve maintainability.
+fn attribute_pnl_metrics_based_impl(input: &AttributionInput) -> Result<PnlAttribution> {
+    let instrument = input.instrument;
+    let market_t0 = input.market_t0;
+    let market_t1 = input.market_t1;
+    let as_of_t0 = input.as_of_t0;
+    let as_of_t1 = input.as_of_t1;
+    let val_t0 = input.val_t0.expect("val_t0 required for metrics-based attribution");
+    let val_t1 = input.val_t1.expect("val_t1 required for metrics-based attribution");
+    
     // Total P&L
     let total_pnl = compute_pnl(
         val_t0.value,

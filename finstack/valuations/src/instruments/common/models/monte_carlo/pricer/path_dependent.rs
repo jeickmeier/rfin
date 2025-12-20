@@ -609,6 +609,7 @@ mod tests {
     use crate::instruments::common::models::monte_carlo::payoff::asian::{
         AsianCall, AveragingMethod,
     };
+    #[allow(deprecated)]
     use crate::instruments::common::models::monte_carlo::payoff::lookback::LookbackCall;
 
     #[test]
@@ -641,7 +642,13 @@ mod tests {
         let pricer = PathDependentPricer::new(config);
 
         let gbm = GbmProcess::new(GbmParams::new(0.05, 0.0, 0.3));
-        let lookback = LookbackCall::new(100.0, 1.0, 252);
+        #[allow(deprecated)]
+        let lookback = LookbackCall::new(
+            crate::instruments::common::models::monte_carlo::payoff::lookback::LookbackDirection::Call,
+            100.0,
+            1.0,
+            252,
+        );
 
         let result = pricer
             .price(&gbm, 100.0, 1.0, 252, &lookback, Currency::USD, 1.0)

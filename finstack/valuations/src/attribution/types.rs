@@ -4,11 +4,15 @@
 //! constituent factors: carry, curve shifts, credit spreads, FX, volatility,
 //! model parameters, and market scalars.
 
-use finstack_core::config::RoundingContext;
+use finstack_core::config::{FinstackConfig, RoundingContext};
 use finstack_core::money::fx::FxPolicyMeta;
 use finstack_core::prelude::*;
 use finstack_core::types::CurveId;
 use indexmap::IndexMap;
+use std::sync::Arc;
+
+use crate::instruments::common::traits::Instrument;
+use crate::results::ValuationResult;
 
 #[cfg(feature = "serde")]
 use serde::{Deserialize, Serialize};
@@ -83,6 +87,103 @@ pub enum AttributionFactor {
 
     /// Market scalars (dividends, equity/commodity prices, inflation indices).
     MarketScalars,
+}
+
+/// Input parameters for P&L attribution.
+///
+/// Consolidates common parameters used across all attribution methods
+/// (parallel, waterfall, metrics-based) to reduce function parameter counts
+/// and improve API ergonomics.
+///
+/// # Method-Specific Parameters
+///
+/// Different attribution methods use different subsets of these parameters:
+///
+/// - **Parallel**: Uses `config` and `model_params_t0`
+/// - **Waterfall**: Uses `config`, `model_params_t0`, and `strict_validation`
+/// - **MetricsBased**: Uses `val_t0` and `val_t1`
+///
+/// # Examples
+///
+/// ```rust,ignore
+/// use finstack_valuations::attribution::{AttributionInput, AttributionMethod};
+/// use finstack_core::prelude::Date;
+///
+/// // Parallel attribution
+/// let input = AttributionInput {
+///     instrument: &my_bond,
+///     market_t0: &market_t0,
+///     market_t1: &market_t1,
+///     as_of_t0: Date::new(2024, 1, 1),
+///     as_of_t1: Date::new(2024, 1, 2),
+///     config: Some(&config),
+///     model_params_t0: None,
+///     val_t0: None,
+///     val_t1: None,
+///     strict_validation: false,
+/// };
+///
+/// let attribution = attribute_pnl(AttributionMethod::Parallel, &input)?;
+///
+/// // Metrics-based attribution
+/// let input = AttributionInput {
+///     instrument: &my_bond,
+///     market_t0: &market_t0,
+///     market_t1: &market_t1,
+///     as_of_t0: Date::new(2024, 1, 1),
+///     as_of_t1: Date::new(2024, 1, 2),
+///     config: None,
+///     model_params_t0: None,
+///     val_t0: Some(&val_t0),
+///     val_t1: Some(&val_t1),
+///     strict_validation: false,
+/// };
+///
+/// let attribution = attribute_pnl(AttributionMethod::MetricsBased, &input)?;
+/// ```
+#[derive(Clone)]
+pub struct AttributionInput<'a> {
+    /// Instrument to attribute P&L for.
+    pub instrument: &'a Arc<dyn Instrument>,
+
+    /// Market state at time T₀.
+    pub market_t0: &'a MarketContext,
+
+    /// Market state at time T₁.
+    pub market_t1: &'a MarketContext,
+
+    /// Valuation date T₀.
+    pub as_of_t0: Date,
+
+    /// Valuation date T₁.
+    pub as_of_t1: Date,
+
+    /// Configuration for rounding context (used by parallel and waterfall).
+    ///
+    /// Set to `None` for metrics-based attribution.
+    pub config: Option<&'a FinstackConfig>,
+
+    /// Model parameters snapshot at T₀ (used by parallel and waterfall).
+    ///
+    /// If provided, T₀ valuation will use these model parameters.
+    /// Set to `None` for metrics-based attribution or when using current model parameters.
+    pub model_params_t0: Option<&'a crate::attribution::model_params::ModelParamsSnapshot>,
+
+    /// Pre-computed valuation at T₀ (used by metrics-based).
+    ///
+    /// Set to `None` for parallel and waterfall attribution.
+    pub val_t0: Option<&'a ValuationResult>,
+
+    /// Pre-computed valuation at T₁ (used by metrics-based).
+    ///
+    /// Set to `None` for parallel and waterfall attribution.
+    pub val_t1: Option<&'a ValuationResult>,
+
+    /// Strict validation for waterfall attribution (default: false).
+    ///
+    /// When true, waterfall attribution will error if factor order is incomplete.
+    /// When false, missing factors are silently ignored.
+    pub strict_validation: bool,
 }
 
 /// Complete P&L attribution result for a single instrument.
@@ -827,6 +928,23 @@ impl PnlAttribution {
     }
 }
 
+#[cfg(feature = "serde")]
+impl JsonEnvelope for PnlAttribution {
+    fn parse_error(e: serde_json::Error) -> finstack_core::Error {
+        finstack_core::Error::Calibration {
+            message: format!("Failed to parse P&L attribution JSON: {}", e),
+            category: "json_parse".to_string(),
+        }
+    }
+
+    fn serialize_error(e: serde_json::Error) -> finstack_core::Error {
+        finstack_core::Error::Calibration {
+            message: format!("Failed to serialize P&L attribution: {}", e),
+            category: "json_serialize".to_string(),
+        }
+    }
+}
+
 impl std::fmt::Display for AttributionMethod {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
@@ -955,4 +1073,447 @@ mod tests {
         assert!(!attr.meta.notes.is_empty());
         assert_eq!(attr.residual.amount(), 0.0);
     }
+
+    #[test]
+    #[cfg(feature = "serde")]
+    fn test_pnl_attribution_json_envelope_trait() {
+        let total = Money::new(1000.0, Currency::USD);
+        let mut attr = PnlAttribution::new(
+            total,
+            "BOND-001",
+            date!(2025 - 01 - 15),
+            date!(2025 - 01 - 16),
+            AttributionMethod::Parallel,
+        );
+
+        // Set some values
+        attr.carry = Money::new(100.0, Currency::USD);
+        attr.rates_curves_pnl = Money::new(500.0, Currency::USD);
+        attr.fx_pnl = Money::new(390.0, Currency::USD);
+        attr.compute_residual()
+            .expect("Residual computation should succeed");
+
+        // Test to_json from JsonEnvelope trait
+        let json = attr.to_json().expect("to_json should succeed");
+        assert!(json.contains("BOND-001"));
+        assert!(json.contains("\"carry\""));
+
+        // Test from_json from JsonEnvelope trait
+        let parsed = PnlAttribution::from_json(&json)
+            .expect("from_json should succeed");
+        assert_eq!(parsed.total_pnl, attr.total_pnl);
+        assert_eq!(parsed.carry, attr.carry);
+        assert_eq!(parsed.rates_curves_pnl, attr.rates_curves_pnl);
+        assert_eq!(parsed.fx_pnl, attr.fx_pnl);
+        assert_eq!(parsed.residual.amount(), attr.residual.amount());
+
+        // Test from_reader from JsonEnvelope trait
+        let reader = std::io::Cursor::new(json.as_bytes());
+        let parsed_from_reader = PnlAttribution::from_reader(reader)
+            .expect("from_reader should succeed");
+        assert_eq!(parsed_from_reader.total_pnl, attr.total_pnl);
+    }
 }
+
+/// Trait for types that can be serialized to/from JSON envelopes.
+///
+/// Provides default implementations for common JSON I/O operations with
+/// consistent error handling. Types implementing this trait must provide
+/// error conversion methods to map `serde_json` errors to domain-specific
+/// error types.
+///
+/// # Type Requirements
+///
+/// Implementors must:
+/// - Implement `serde::Serialize` for JSON output
+/// - Implement `serde::de::DeserializeOwned` for JSON input
+/// - Provide `parse_error` to convert deserialization errors
+/// - Provide `serialize_error` to convert serialization errors
+///
+/// # Examples
+///
+/// ```rust,ignore
+/// use finstack_valuations::attribution::JsonEnvelope;
+/// use serde::{Deserialize, Serialize};
+///
+/// #[derive(Serialize, Deserialize)]
+/// struct MyEnvelope {
+///     schema: String,
+///     data: String,
+/// }
+///
+/// impl JsonEnvelope for MyEnvelope {
+///     fn parse_error(e: serde_json::Error) -> finstack_core::Error {
+///         finstack_core::Error::Calibration {
+///             message: format!("Failed to parse envelope: {}", e),
+///             category: "json_parse".to_string(),
+///         }
+///     }
+///
+///     fn serialize_error(e: serde_json::Error) -> finstack_core::Error {
+///         finstack_core::Error::Calibration {
+///             message: format!("Failed to serialize envelope: {}", e),
+///             category: "json_serialize".to_string(),
+///         }
+///     }
+/// }
+///
+/// // Now you can use the trait methods:
+/// let envelope = MyEnvelope {
+///     schema: "v1".to_string(),
+///     data: "test".to_string(),
+/// };
+///
+/// // Serialize to JSON string
+/// let json = envelope.to_json()?;
+///
+/// // Parse from JSON string
+/// let parsed = MyEnvelope::from_json(&json)?;
+///
+/// // Parse from reader
+/// let cursor = std::io::Cursor::new(json.as_bytes());
+/// let from_reader = MyEnvelope::from_reader(cursor)?;
+/// ```
+///
+/// # Design Rationale
+///
+/// This trait eliminates boilerplate code for envelope types while maintaining:
+/// - **Type safety**: Uses associated error types rather than generic `serde_json::Error`
+/// - **Consistency**: All envelopes use the same serialization format (pretty-printed JSON)
+/// - **Flexibility**: Implementors control error messages and categories
+/// - **Ergonomics**: Three-line trait impl replaces ~30 lines of duplicate code per type
+///
+/// # Performance
+///
+/// JSON serialization is not optimized for performance. For high-throughput scenarios,
+/// consider binary formats (bincode, MessagePack) or zero-copy alternatives (flatbuffers).
+#[cfg(feature = "serde")]
+pub trait JsonEnvelope: Sized + Serialize + serde::de::DeserializeOwned {
+    /// Convert a JSON parsing error to the domain error type.
+    ///
+    /// # Arguments
+    ///
+    /// * `e` - The serde_json deserialization error
+    ///
+    /// # Returns
+    ///
+    /// Domain-specific error with context about the failure.
+    ///
+    /// # Examples
+    ///
+    /// ```rust,ignore
+    /// fn parse_error(e: serde_json::Error) -> finstack_core::Error {
+    ///     finstack_core::Error::Calibration {
+    ///         message: format!("Failed to parse attribution envelope: {}", e),
+    ///         category: "json_parse".to_string(),
+    ///     }
+    /// }
+    /// ```
+    fn parse_error(e: serde_json::Error) -> finstack_core::Error;
+
+    /// Convert a JSON serialization error to the domain error type.
+    ///
+    /// # Arguments
+    ///
+    /// * `e` - The serde_json serialization error
+    ///
+    /// # Returns
+    ///
+    /// Domain-specific error with context about the failure.
+    ///
+    /// # Examples
+    ///
+    /// ```rust,ignore
+    /// fn serialize_error(e: serde_json::Error) -> finstack_core::Error {
+    ///     finstack_core::Error::Calibration {
+    ///         message: format!("Failed to serialize attribution envelope: {}", e),
+    ///         category: "json_serialize".to_string(),
+    ///     }
+    /// }
+    /// ```
+    fn serialize_error(e: serde_json::Error) -> finstack_core::Error;
+
+    /// Parse from a JSON string.
+    ///
+    /// Uses `serde_json::from_str` internally with custom error conversion.
+    ///
+    /// # Arguments
+    ///
+    /// * `json` - JSON string to parse
+    ///
+    /// # Returns
+    ///
+    /// Parsed instance or error if JSON is malformed or fields are missing.
+    ///
+    /// # Errors
+    ///
+    /// Returns error via `parse_error` if:
+    /// - JSON syntax is invalid
+    /// - Required fields are missing (for `#[serde(deny_unknown_fields)]` types)
+    /// - Type conversions fail
+    /// - Custom validation fails (for types with `#[serde(deserialize_with)]`)
+    ///
+    /// # Examples
+    ///
+    /// ```rust,ignore
+    /// let json = r#"{"schema": "v1", "data": "test"}"#;
+    /// let envelope = MyEnvelope::from_json(json)?;
+    /// ```
+    fn from_json(json: &str) -> Result<Self> {
+        serde_json::from_str(json).map_err(Self::parse_error)
+    }
+
+    /// Parse from a reader (file, socket, buffer, etc.).
+    ///
+    /// Uses `serde_json::from_reader` internally with custom error conversion.
+    /// Efficient for large JSON payloads as it streams parsing.
+    ///
+    /// # Arguments
+    ///
+    /// * `reader` - Any type implementing `std::io::Read`
+    ///
+    /// # Returns
+    ///
+    /// Parsed instance or error if JSON is malformed or fields are missing.
+    ///
+    /// # Errors
+    ///
+    /// Same error conditions as `from_json`, plus I/O errors from the reader.
+    ///
+    /// # Examples
+    ///
+    /// ```rust,ignore
+    /// // From file
+    /// let file = std::fs::File::open("envelope.json")?;
+    /// let envelope = MyEnvelope::from_reader(file)?;
+    ///
+    /// // From in-memory buffer
+    /// let cursor = std::io::Cursor::new(json_bytes);
+    /// let envelope = MyEnvelope::from_reader(cursor)?;
+    /// ```
+    fn from_reader<R: std::io::Read>(reader: R) -> Result<Self> {
+        serde_json::from_reader(reader).map_err(Self::parse_error)
+    }
+
+    /// Serialize to a pretty-printed JSON string.
+    ///
+    /// Uses `serde_json::to_string_pretty` for human-readable output with
+    /// 2-space indentation. For compact JSON, use `serde_json::to_string(self)`
+    /// directly.
+    ///
+    /// # Returns
+    ///
+    /// JSON string with proper formatting or error if serialization fails.
+    ///
+    /// # Errors
+    ///
+    /// Returns error via `serialize_error` if:
+    /// - Circular references detected (should not happen with finite types)
+    /// - Custom serialization logic fails
+    /// - Very rare serde_json internal errors
+    ///
+    /// # Examples
+    ///
+    /// ```rust,ignore
+    /// let envelope = MyEnvelope { schema: "v1".to_string(), data: "test".to_string() };
+    /// let json = envelope.to_json()?;
+    /// println!("{}", json);  // Pretty-printed with indentation
+    /// ```
+    fn to_json(&self) -> Result<String> {
+        serde_json::to_string_pretty(self).map_err(Self::serialize_error)
+    }
+}
+
+#[cfg(all(test, feature = "serde"))]
+mod json_envelope_tests {
+    use super::*;
+
+    /// Test envelope type to verify JsonEnvelope trait functionality.
+    #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+    struct TestEnvelope {
+        schema: String,
+        data: String,
+        number: i32,
+    }
+
+    impl JsonEnvelope for TestEnvelope {
+        fn parse_error(e: serde_json::Error) -> finstack_core::Error {
+            finstack_core::Error::Calibration {
+                message: format!("Failed to parse test envelope: {}", e),
+                category: "test_parse".to_string(),
+            }
+        }
+
+        fn serialize_error(e: serde_json::Error) -> finstack_core::Error {
+            finstack_core::Error::Calibration {
+                message: format!("Failed to serialize test envelope: {}", e),
+                category: "test_serialize".to_string(),
+            }
+        }
+    }
+
+    #[test]
+    fn test_json_envelope_roundtrip() {
+        let envelope = TestEnvelope {
+            schema: "test/v1".to_string(),
+            data: "test data".to_string(),
+            number: 42,
+        };
+
+        // Serialize to JSON
+        let json = envelope.to_json().expect("Serialization should succeed");
+        assert!(json.contains("\"schema\""));
+        assert!(json.contains("\"test/v1\""));
+        assert!(json.contains("\"data\""));
+        assert!(json.contains("\"test data\""));
+        assert!(json.contains("\"number\""));
+        assert!(json.contains("42"));
+
+        // Parse back from JSON
+        let parsed =
+            TestEnvelope::from_json(&json).expect("Deserialization should succeed");
+        assert_eq!(parsed.schema, envelope.schema);
+        assert_eq!(parsed.data, envelope.data);
+        assert_eq!(parsed.number, envelope.number);
+    }
+
+    #[test]
+    fn test_json_envelope_from_reader() {
+        let envelope = TestEnvelope {
+            schema: "test/v1".to_string(),
+            data: "reader test".to_string(),
+            number: 123,
+        };
+
+        // Serialize to JSON
+        let json = envelope.to_json().expect("Serialization should succeed");
+
+        // Create a reader from the JSON string
+        let cursor = std::io::Cursor::new(json.as_bytes());
+
+        // Parse from reader
+        let parsed = TestEnvelope::from_reader(cursor)
+            .expect("Deserialization from reader should succeed");
+        assert_eq!(parsed.schema, envelope.schema);
+        assert_eq!(parsed.data, envelope.data);
+        assert_eq!(parsed.number, envelope.number);
+    }
+
+    #[test]
+    fn test_json_envelope_parse_error() {
+        let invalid_json = r#"{"schema": "test/v1", "data": "test", "number": "not a number"}"#;
+
+        let result = TestEnvelope::from_json(invalid_json);
+        assert!(result.is_err());
+
+        // Verify error message contains expected details
+        let err = result.expect_err("Expected error from invalid JSON");
+        if let finstack_core::Error::Calibration { message, category } = err {
+            assert!(message.contains("Failed to parse test envelope"));
+            assert_eq!(category, "test_parse");
+        } else {
+            panic!("Expected Calibration error, got: {:?}", err);
+        }
+    }
+
+    #[test]
+    fn test_json_envelope_missing_fields() {
+        let incomplete_json = r#"{"schema": "test/v1"}"#;
+
+        let result = TestEnvelope::from_json(incomplete_json);
+        assert!(result.is_err());
+
+        let err = result.expect_err("Expected error from incomplete JSON");
+        if let finstack_core::Error::Calibration { message, category } = err {
+            assert!(message.contains("Failed to parse test envelope"));
+            assert_eq!(category, "test_parse");
+        } else {
+            panic!("Expected Calibration error, got: {:?}", err);
+        }
+    }
+
+    #[test]
+    fn test_json_envelope_malformed_json() {
+        let malformed_json = r#"{"schema": "test/v1", "data": "test", "number": 42"#; // Missing closing brace
+
+        let result = TestEnvelope::from_json(malformed_json);
+        assert!(result.is_err());
+
+        let err = result.expect_err("Expected error from malformed JSON");
+        if let finstack_core::Error::Calibration { message, category } = err {
+            assert!(message.contains("Failed to parse test envelope"));
+            assert_eq!(category, "test_parse");
+        } else {
+            panic!("Expected Calibration error, got: {:?}", err);
+        }
+    }
+
+    #[test]
+    fn test_json_envelope_reader_io_error() {
+        // Create a reader that will fail
+        struct FailingReader;
+        impl std::io::Read for FailingReader {
+            fn read(&mut self, _buf: &mut [u8]) -> std::io::Result<usize> {
+                Err(std::io::Error::other("Simulated I/O error"))
+            }
+        }
+
+        let result = TestEnvelope::from_reader(FailingReader);
+        assert!(result.is_err());
+
+        let err = result.expect_err("Expected error from I/O failure");
+        if let finstack_core::Error::Calibration { message, .. } = err {
+            assert!(message.contains("Failed to parse test envelope"));
+        } else {
+            panic!("Expected Calibration error, got: {:?}", err);
+        }
+    }
+
+    #[test]
+    fn test_json_envelope_pretty_printing() {
+        let envelope = TestEnvelope {
+            schema: "test/v1".to_string(),
+            data: "test".to_string(),
+            number: 42,
+        };
+
+        let json = envelope.to_json().expect("Serialization should succeed");
+
+        // Verify pretty-printing (should have newlines and indentation)
+        assert!(json.contains('\n'));
+        assert!(json.lines().count() > 1);
+
+        // Should be parseable
+        let parsed =
+            TestEnvelope::from_json(&json).expect("Parsing pretty JSON should succeed");
+        assert_eq!(parsed, envelope);
+    }
+
+    #[test]
+    fn test_json_envelope_equivalence() {
+        let envelope1 = TestEnvelope {
+            schema: "test/v1".to_string(),
+            data: "data1".to_string(),
+            number: 100,
+        };
+
+        let envelope2 = TestEnvelope {
+            schema: "test/v1".to_string(),
+            data: "data1".to_string(),
+            number: 100,
+        };
+
+        let json1 = envelope1.to_json().expect("Serialization should succeed");
+        let json2 = envelope2.to_json().expect("Serialization should succeed");
+
+        // JSON should be identical for identical structs
+        assert_eq!(json1, json2);
+
+        // Both should parse to equivalent structs
+        let parsed1 = TestEnvelope::from_json(&json1).expect("Parse should succeed");
+        let parsed2 = TestEnvelope::from_json(&json2).expect("Parse should succeed");
+        assert_eq!(parsed1, parsed2);
+        assert_eq!(parsed1, envelope1);
+    }
+}
+
