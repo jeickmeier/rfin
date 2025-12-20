@@ -518,23 +518,7 @@ pub fn restore_scalars(market: &MarketContext, snapshot: &ScalarsSnapshot) -> Ma
     new_market
 }
 
-/// Create a hybrid market context: T₀ market data with T₁ structure.
-///
-/// This is the baseline for carry attribution: values T₁ with market frozen at T₀.
-///
-/// # Arguments
-///
-/// * `market_t0` - Market context at T₀
-/// * `market_t1` - Market context at T₁ (for structure reference)
-///
-/// # Returns
-///
-/// New market context with T₀ market data.
-pub fn freeze_all_market(market_t0: &MarketContext, _market_t1: &MarketContext) -> MarketContext {
-    // For carry attribution, we simply use the T₀ market as-is
-    // (pricing at T₁ date with T₀ market isolates time decay)
-    market_t0.clone()
-}
+
 
 #[cfg(test)]
 mod tests {
@@ -574,16 +558,4 @@ mod tests {
         assert!(restored.get_discount("EUR-OIS").is_ok());
     }
 
-    #[test]
-    fn test_freeze_all_market() {
-        let base_date = date!(2025 - 01 - 15);
-        let curve_t0 = create_test_discount_curve("USD-OIS", base_date);
-        let curve_t1 = create_test_discount_curve("USD-OIS", base_date);
-
-        let market_t0 = MarketContext::new().insert_discount(curve_t0);
-        let market_t1 = MarketContext::new().insert_discount(curve_t1);
-
-        let frozen = freeze_all_market(&market_t0, &market_t1);
-        assert!(frozen.get_discount("USD-OIS").is_ok());
-    }
 }
