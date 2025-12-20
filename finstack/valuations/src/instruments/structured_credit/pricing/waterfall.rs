@@ -384,10 +384,10 @@ impl<'a> AllocationContext<'a> {
     }
 }
 
-/// Mutable state for allocation tracking.
+/// Mutable output for allocation tracking.
 ///
 /// Groups mutable state that is updated during allocation.
-pub struct AllocationState {
+pub struct AllocationOutput {
     /// Accumulated distributions by recipient
     pub distributions: HashMap<RecipientType, Money>,
     /// Payment records for audit trail
@@ -396,7 +396,7 @@ pub struct AllocationState {
     pub trace: Option<ExplanationTrace>,
 }
 
-impl AllocationState {
+impl AllocationOutput {
     /// Create new allocation state with pre-allocated capacity.
     pub fn with_capacity(estimated_recipients: usize, explain: &ExplainOpts) -> Self {
         Self {
