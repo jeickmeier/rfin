@@ -24,6 +24,7 @@ thiserror = "2.0"
 num-complex = "0.4"
 statrs = { version = "0.18", default-features = false }
 ts-rs = { version = "10", optional = true, features = ["serde-compat", "no-serde-warnings"] }
+bitflags = "2.4"
 
 [dev-dependencies]
 time = { version = "0.3", features = ["macros"] }

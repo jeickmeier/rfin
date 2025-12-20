@@ -3,6 +3,7 @@
 //! Provides functions to freeze/restore specific market factors while
 //! manipulating MarketContext for attribution analysis.
 
+use bitflags::bitflags;
 use finstack_core::market_data::context::MarketContext;
 use finstack_core::market_data::dividends::DividendSchedule;
 use finstack_core::market_data::scalars::inflation_index::InflationIndex;
@@ -17,6 +18,53 @@ use finstack_core::money::fx::FxMatrix;
 use finstack_core::types::CurveId;
 use hashbrown::HashMap;
 use std::sync::Arc;
+
+bitflags! {
+    /// Flags indicating which curve families to restore from snapshot vs. preserve from market.
+    ///
+    /// This enum is used to control which curve types should be restored from a snapshot
+    /// when rebuilding a market context. Curves not marked in the flags will be preserved
+    /// from the original market context.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use finstack_valuations::attribution::factors::CurveRestoreFlags;
+    ///
+    /// // Restore only discount curves
+    /// let flags = CurveRestoreFlags::DISCOUNT;
+    ///
+    /// // Restore both discount and forward curves (rates)
+    /// let rates = CurveRestoreFlags::RATES;
+    /// assert_eq!(rates, CurveRestoreFlags::DISCOUNT | CurveRestoreFlags::FORWARD);
+    ///
+    /// // Restore everything except hazard curves
+    /// let all_but_credit = CurveRestoreFlags::all() & !CurveRestoreFlags::HAZARD;
+    ///
+    /// // Check if discount curves should be restored
+    /// if rates.contains(CurveRestoreFlags::DISCOUNT) {
+    ///     // ... restore discount curves
+    /// }
+    /// ```
+    #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
+    pub struct CurveRestoreFlags: u8 {
+        /// Restore discount curves from snapshot
+        const DISCOUNT    = 0b0000_0001;
+        /// Restore forward curves from snapshot
+        const FORWARD     = 0b0000_0010;
+        /// Restore hazard curves from snapshot
+        const HAZARD      = 0b0000_0100;
+        /// Restore inflation curves from snapshot
+        const INFLATION   = 0b0000_1000;
+        /// Restore base correlation curves from snapshot
+        const CORRELATION = 0b0001_0000;
+
+        /// Convenience combination: restore both discount and forward curves (rates family)
+        const RATES  = Self::DISCOUNT.bits() | Self::FORWARD.bits();
+        /// Convenience combination: restore hazard curves (credit family)
+        const CREDIT = Self::HAZARD.bits();
+    }
+}
 
 /// Snapshot of all discount and forward curves from a market context.
 #[derive(Clone, Debug)]
@@ -554,5 +602,113 @@ mod tests {
 
         assert!(restored.get_discount("USD-OIS").is_ok());
         assert!(restored.get_discount("EUR-OIS").is_ok());
+    }
+
+    #[test]
+    fn test_curve_restore_flags_individual() {
+        // Test individual flags are distinct
+        assert_ne!(CurveRestoreFlags::DISCOUNT, CurveRestoreFlags::FORWARD);
+        assert_ne!(CurveRestoreFlags::DISCOUNT, CurveRestoreFlags::HAZARD);
+        assert_ne!(CurveRestoreFlags::HAZARD, CurveRestoreFlags::INFLATION);
+        assert_ne!(CurveRestoreFlags::INFLATION, CurveRestoreFlags::CORRELATION);
+    }
+
+    #[test]
+    fn test_curve_restore_flags_union() {
+        // Test union operations
+        let discount_forward = CurveRestoreFlags::DISCOUNT | CurveRestoreFlags::FORWARD;
+        assert!(discount_forward.contains(CurveRestoreFlags::DISCOUNT));
+        assert!(discount_forward.contains(CurveRestoreFlags::FORWARD));
+        assert!(!discount_forward.contains(CurveRestoreFlags::HAZARD));
+
+        // Test RATES convenience constant
+        assert_eq!(CurveRestoreFlags::RATES, discount_forward);
+        assert!(CurveRestoreFlags::RATES.contains(CurveRestoreFlags::DISCOUNT));
+        assert!(CurveRestoreFlags::RATES.contains(CurveRestoreFlags::FORWARD));
+    }
+
+    #[test]
+    fn test_curve_restore_flags_intersection() {
+        // Test intersection operations
+        let rates = CurveRestoreFlags::RATES;
+        let discount_hazard = CurveRestoreFlags::DISCOUNT | CurveRestoreFlags::HAZARD;
+
+        let intersection = rates & discount_hazard;
+        assert!(intersection.contains(CurveRestoreFlags::DISCOUNT));
+        assert!(!intersection.contains(CurveRestoreFlags::FORWARD));
+        assert!(!intersection.contains(CurveRestoreFlags::HAZARD));
+    }
+
+    #[test]
+    fn test_curve_restore_flags_complement() {
+        // Test complement operations
+        let all = CurveRestoreFlags::all();
+        let not_discount = all & !CurveRestoreFlags::DISCOUNT;
+
+        assert!(!not_discount.contains(CurveRestoreFlags::DISCOUNT));
+        assert!(not_discount.contains(CurveRestoreFlags::FORWARD));
+        assert!(not_discount.contains(CurveRestoreFlags::HAZARD));
+        assert!(not_discount.contains(CurveRestoreFlags::INFLATION));
+        assert!(not_discount.contains(CurveRestoreFlags::CORRELATION));
+    }
+
+    #[test]
+    fn test_curve_restore_flags_all_but_credit() {
+        // Test combining complement with intersection
+        let all_but_credit = CurveRestoreFlags::all() & !CurveRestoreFlags::HAZARD;
+
+        assert!(all_but_credit.contains(CurveRestoreFlags::DISCOUNT));
+        assert!(all_but_credit.contains(CurveRestoreFlags::FORWARD));
+        assert!(!all_but_credit.contains(CurveRestoreFlags::HAZARD));
+        assert!(all_but_credit.contains(CurveRestoreFlags::INFLATION));
+        assert!(all_but_credit.contains(CurveRestoreFlags::CORRELATION));
+    }
+
+    #[test]
+    fn test_curve_restore_flags_credit_constant() {
+        // Test CREDIT convenience constant
+        assert_eq!(CurveRestoreFlags::CREDIT, CurveRestoreFlags::HAZARD);
+        assert!(CurveRestoreFlags::CREDIT.contains(CurveRestoreFlags::HAZARD));
+        assert!(!CurveRestoreFlags::CREDIT.contains(CurveRestoreFlags::DISCOUNT));
+    }
+
+    #[test]
+    fn test_curve_restore_flags_empty() {
+        // Test empty flags
+        let empty = CurveRestoreFlags::empty();
+        assert!(!empty.contains(CurveRestoreFlags::DISCOUNT));
+        assert!(!empty.contains(CurveRestoreFlags::FORWARD));
+        assert!(!empty.contains(CurveRestoreFlags::HAZARD));
+        assert!(!empty.contains(CurveRestoreFlags::INFLATION));
+        assert!(!empty.contains(CurveRestoreFlags::CORRELATION));
+    }
+
+    #[test]
+    fn test_curve_restore_flags_all() {
+        // Test all flags
+        let all = CurveRestoreFlags::all();
+        assert!(all.contains(CurveRestoreFlags::DISCOUNT));
+        assert!(all.contains(CurveRestoreFlags::FORWARD));
+        assert!(all.contains(CurveRestoreFlags::HAZARD));
+        assert!(all.contains(CurveRestoreFlags::INFLATION));
+        assert!(all.contains(CurveRestoreFlags::CORRELATION));
+        assert!(all.contains(CurveRestoreFlags::RATES));
+        assert!(all.contains(CurveRestoreFlags::CREDIT));
+    }
+
+    #[test]
+    fn test_curve_restore_flags_bitwise_combinations() {
+        // Test complex bitwise combinations
+        let rates_and_inflation = CurveRestoreFlags::RATES | CurveRestoreFlags::INFLATION;
+        assert!(rates_and_inflation.contains(CurveRestoreFlags::DISCOUNT));
+        assert!(rates_and_inflation.contains(CurveRestoreFlags::FORWARD));
+        assert!(rates_and_inflation.contains(CurveRestoreFlags::INFLATION));
+        assert!(!rates_and_inflation.contains(CurveRestoreFlags::HAZARD));
+        assert!(!rates_and_inflation.contains(CurveRestoreFlags::CORRELATION));
+
+        // Test subtraction using complement
+        let only_discount = CurveRestoreFlags::RATES & !CurveRestoreFlags::FORWARD;
+        assert!(only_discount.contains(CurveRestoreFlags::DISCOUNT));
+        assert!(!only_discount.contains(CurveRestoreFlags::FORWARD));
     }
 }

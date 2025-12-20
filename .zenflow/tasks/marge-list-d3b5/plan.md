@@ -16,15 +16,16 @@ This plan breaks down the "Marge List" code consolidation into incremental, test
 ### [x] Step: Technical Specification
 ✅ Created comprehensive technical specification in spec.md
 
-### [ ] Step 1.1: Add bitflags dependency and CurveRestoreFlags
+### [x] Step 1.1: Add bitflags dependency and CurveRestoreFlags
+<!-- chat-id: d2b8f327-d90c-40e6-bdab-d62951c6e506 -->
 **File**: `finstack/valuations/Cargo.toml`, `finstack/valuations/src/attribution/factors.rs`
 
 **Tasks**:
-- Add `bitflags = "2.4"` to valuations Cargo.toml
-- Define `CurveRestoreFlags` bitflags enum in factors.rs (lines after existing imports)
-- Add constants: DISCOUNT, FORWARD, HAZARD, INFLATION, CORRELATION
-- Add convenience combinations: RATES, CREDIT
-- Write unit tests for bitflag operations (union, intersection, complement)
+- ✅ Add `bitflags = "2.4"` to valuations Cargo.toml
+- ✅ Define `CurveRestoreFlags` bitflags enum in factors.rs (lines after existing imports)
+- ✅ Add constants: DISCOUNT, FORWARD, HAZARD, INFLATION, CORRELATION
+- ✅ Add convenience combinations: RATES, CREDIT
+- ✅ Write unit tests for bitflag operations (union, intersection, complement)
 
 **Verification**:
 ```bash
