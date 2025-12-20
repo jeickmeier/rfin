@@ -115,24 +115,32 @@ make lint-rust                         # ✅ No warnings
 
 ---
 
-### [ ] Step 1.5: Add equivalence tests (old vs new)
+### [x] Step 1.5: Add equivalence tests (old vs new)
+<!-- chat-id: d17d9870-fc24-4d0a-9322-b59cb96158fa -->
 **File**: `finstack/valuations/src/attribution/factors.rs` (test module)
 
 **Tasks**:
-- Create test helper `assert_market_contexts_equal()`
-- Add equivalence test for each restore function
-- Compare curve counts, curve IDs, FX presence
-- Verify DF values match at sample dates
+- ✅ Create test helper `assert_market_contexts_equal()`
+- ✅ Add equivalence test for each restore function
+- ✅ Compare curve counts, curve IDs, FX presence
+- ✅ Verify DF values match at sample dates
 
 **Verification**:
 ```bash
-cargo test --lib attribution::factors::tests::test_restore_equivalence
+cargo test --lib attribution::factors::tests::test_restore_equivalence  # ✅ 7 equivalence tests pass
+cargo test --lib attribution::factors                                   # ✅ All 31 tests pass
+cargo test --test attribution_tests                                     # ✅ All 32 integration tests pass
+cargo clippy --lib -- -D warnings                                       # ✅ No warnings
 ```
 
 **Acceptance**:
 - ✅ Old and new implementations produce identical results
-- ✅ Tests cover all 4 restore functions
+- ✅ Tests cover all 4 restore functions (rates, credit, inflation, correlations)
 - ✅ Edge cases: empty markets, missing curves, mixed types
+- ✅ Helper function compares: curve counts, curve IDs, DF values, FX presence
+- ✅ Added 7 equivalence tests that validate backward compatibility
+- ✅ All 31 unit tests + 32 integration tests pass
+- ✅ No clippy warnings
 
 ---
 

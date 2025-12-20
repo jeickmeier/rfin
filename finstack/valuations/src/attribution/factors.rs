@@ -1328,4 +1328,470 @@ mod tests {
         // Forward curve should be preserved (not in restore flags)
         assert!(restored.get_forward("USD-SOFR").is_ok());
     }
+
+    // ============================================================================
+    // Equivalence Tests: Verify new unified implementation produces identical
+    // results to the old implementation behavior
+    // ============================================================================
+
+    /// Helper function to assert two market contexts have equivalent curve structure.
+    /// 
+    /// This compares:
+    /// - Curve counts by type
+    /// - Curve IDs present
+    /// - Discount factor values at sample dates (for discount curves)
+    /// - FX provider presence
+    fn assert_market_contexts_equal(ctx1: &MarketContext, ctx2: &MarketContext, label: &str) {
+        // Count curves by type
+        let count_discount_1: usize = ctx1
+            .curve_ids()
+            .filter(|id| ctx1.get_discount(id).is_ok())
+            .count();
+        let count_discount_2: usize = ctx2
+            .curve_ids()
+            .filter(|id| ctx2.get_discount(id).is_ok())
+            .count();
+        assert_eq!(
+            count_discount_1, count_discount_2,
+            "{}: discount curve counts differ",
+            label
+        );
+
+        let count_forward_1: usize = ctx1
+            .curve_ids()
+            .filter(|id| ctx1.get_forward(id).is_ok())
+            .count();
+        let count_forward_2: usize = ctx2
+            .curve_ids()
+            .filter(|id| ctx2.get_forward(id).is_ok())
+            .count();
+        assert_eq!(
+            count_forward_1, count_forward_2,
+            "{}: forward curve counts differ",
+            label
+        );
+
+        let count_hazard_1: usize = ctx1
+            .curve_ids()
+            .filter(|id| ctx1.get_hazard(id).is_ok())
+            .count();
+        let count_hazard_2: usize = ctx2
+            .curve_ids()
+            .filter(|id| ctx2.get_hazard(id).is_ok())
+            .count();
+        assert_eq!(
+            count_hazard_1, count_hazard_2,
+            "{}: hazard curve counts differ",
+            label
+        );
+
+        let count_inflation_1: usize = ctx1
+            .curve_ids()
+            .filter(|id| ctx1.get_inflation(id).is_ok())
+            .count();
+        let count_inflation_2: usize = ctx2
+            .curve_ids()
+            .filter(|id| ctx2.get_inflation(id).is_ok())
+            .count();
+        assert_eq!(
+            count_inflation_1, count_inflation_2,
+            "{}: inflation curve counts differ",
+            label
+        );
+
+        let count_corr_1: usize = ctx1
+            .curve_ids()
+            .filter(|id| ctx1.get_base_correlation(id).is_ok())
+            .count();
+        let count_corr_2: usize = ctx2
+            .curve_ids()
+            .filter(|id| ctx2.get_base_correlation(id).is_ok())
+            .count();
+        assert_eq!(
+            count_corr_1, count_corr_2,
+            "{}: base correlation curve counts differ",
+            label
+        );
+
+        // Compare curve IDs
+        let mut ids1: Vec<_> = ctx1.curve_ids().map(|id| id.to_string()).collect();
+        let mut ids2: Vec<_> = ctx2.curve_ids().map(|id| id.to_string()).collect();
+        ids1.sort();
+        ids2.sort();
+        assert_eq!(ids1, ids2, "{}: curve IDs differ", label);
+
+        // Compare discount factor values at sample dates for discount curves
+        let sample_dates = vec![
+            date!(2025 - 01 - 15),
+            date!(2025 - 06 - 15),
+            date!(2026 - 01 - 15),
+            date!(2030 - 01 - 15),
+        ];
+
+        for curve_id in ctx1.curve_ids() {
+            if let (Ok(curve1), Ok(curve2)) = (ctx1.get_discount(curve_id), ctx2.get_discount(curve_id))
+            {
+                for &sample_date in &sample_dates {
+                    // Use try_df_on_date_curve which uses the curve's own day count
+                    let df1 = curve1.try_df_on_date_curve(sample_date).unwrap_or(1.0);
+                    let df2 = curve2.try_df_on_date_curve(sample_date).unwrap_or(1.0);
+                    assert!(
+                        (df1 - df2).abs() < 1e-10,
+                        "{}: discount factor mismatch for curve {} at {:?}: {} vs {}",
+                        label,
+                        curve_id,
+                        sample_date,
+                        df1,
+                        df2
+                    );
+                }
+            }
+        }
+
+        // Compare FX provider presence
+        assert_eq!(
+            ctx1.fx.is_some(),
+            ctx2.fx.is_some(),
+            "{}: FX provider presence differs",
+            label
+        );
+    }
+
+    #[test]
+    fn test_restore_rates_curves_equivalence() {
+        let base_date = date!(2025 - 01 - 15);
+
+        // Build a market with multiple curve types
+        let discount1 = create_test_discount_curve("USD-OIS", base_date);
+        let discount2 = create_test_discount_curve("EUR-OIS", base_date);
+        let forward1 = create_test_forward_curve("USD-SOFR", base_date);
+        let forward2 = create_test_forward_curve("EUR-ESTR", base_date);
+        let hazard1 = create_test_hazard_curve("CORP-A", base_date);
+        let inflation1 = create_test_inflation_curve("US-CPI", base_date);
+
+        let market = MarketContext::new()
+            .insert_discount(discount1)
+            .insert_discount(discount2)
+            .insert_forward(forward1)
+            .insert_forward(forward2)
+            .insert_hazard(hazard1)
+            .insert_inflation(inflation1);
+
+        // Extract rates snapshot
+        let snapshot = extract_rates_curves(&market);
+
+        // Create a different market to restore into
+        let hazard2 = create_test_hazard_curve("CORP-B", base_date);
+        let inflation2 = create_test_inflation_curve("EU-HICP", base_date);
+        let target_market = MarketContext::new()
+            .insert_hazard(hazard2)
+            .insert_inflation(inflation2);
+
+        // Restore using wrapper function
+        let restored = restore_rates_curves(&target_market, &snapshot);
+
+        // Verify: should have rates curves from snapshot
+        assert!(restored.get_discount("USD-OIS").is_ok());
+        assert!(restored.get_discount("EUR-OIS").is_ok());
+        assert!(restored.get_forward("USD-SOFR").is_ok());
+        assert!(restored.get_forward("EUR-ESTR").is_ok());
+
+        // Verify: should preserve non-rates curves from target
+        assert!(restored.get_hazard("CORP-B").is_ok());
+        assert!(restored.get_inflation("EU-HICP").is_ok());
+
+        // Verify: should NOT have original hazard/inflation from source market
+        assert!(restored.get_hazard("CORP-A").is_err());
+        assert!(restored.get_inflation("US-CPI").is_err());
+
+        // Create expected result using unified approach for comparison
+        let unified_snapshot = MarketSnapshot {
+            discount_curves: snapshot.discount_curves.clone(),
+            forward_curves: snapshot.forward_curves.clone(),
+            ..Default::default()
+        };
+        let expected = MarketSnapshot::restore_market(
+            &target_market,
+            &unified_snapshot,
+            CurveRestoreFlags::RATES,
+        );
+
+        assert_market_contexts_equal(&restored, &expected, "restore_rates_curves equivalence");
+    }
+
+    #[test]
+    fn test_restore_credit_curves_equivalence() {
+        let base_date = date!(2025 - 01 - 15);
+
+        // Build a market with multiple curve types
+        let discount1 = create_test_discount_curve("USD-OIS", base_date);
+        let forward1 = create_test_forward_curve("USD-SOFR", base_date);
+        let hazard1 = create_test_hazard_curve("CORP-A", base_date);
+        let hazard2 = create_test_hazard_curve("CORP-B", base_date);
+        let inflation1 = create_test_inflation_curve("US-CPI", base_date);
+
+        let market = MarketContext::new()
+            .insert_discount(discount1)
+            .insert_forward(forward1)
+            .insert_hazard(hazard1)
+            .insert_hazard(hazard2)
+            .insert_inflation(inflation1);
+
+        // Extract credit snapshot
+        let snapshot = extract_credit_curves(&market);
+
+        // Create a different market to restore into
+        let discount2 = create_test_discount_curve("EUR-OIS", base_date);
+        let forward2 = create_test_forward_curve("EUR-ESTR", base_date);
+        let target_market = MarketContext::new()
+            .insert_discount(discount2)
+            .insert_forward(forward2);
+
+        // Restore using wrapper function
+        let restored = restore_credit_curves(&target_market, &snapshot);
+
+        // Verify: should have hazard curves from snapshot
+        assert!(restored.get_hazard("CORP-A").is_ok());
+        assert!(restored.get_hazard("CORP-B").is_ok());
+
+        // Verify: should preserve non-credit curves from target
+        assert!(restored.get_discount("EUR-OIS").is_ok());
+        assert!(restored.get_forward("EUR-ESTR").is_ok());
+
+        // Verify: should NOT have original discount/forward from source market
+        assert!(restored.get_discount("USD-OIS").is_err());
+        assert!(restored.get_forward("USD-SOFR").is_err());
+
+        // Create expected result using unified approach for comparison
+        let unified_snapshot = MarketSnapshot {
+            hazard_curves: snapshot.hazard_curves.clone(),
+            ..Default::default()
+        };
+        let expected = MarketSnapshot::restore_market(
+            &target_market,
+            &unified_snapshot,
+            CurveRestoreFlags::CREDIT,
+        );
+
+        assert_market_contexts_equal(&restored, &expected, "restore_credit_curves equivalence");
+    }
+
+    #[test]
+    fn test_restore_inflation_curves_equivalence() {
+        let base_date = date!(2025 - 01 - 15);
+
+        // Build a market with multiple curve types
+        let discount1 = create_test_discount_curve("USD-OIS", base_date);
+        let hazard1 = create_test_hazard_curve("CORP-A", base_date);
+        let inflation1 = create_test_inflation_curve("US-CPI", base_date);
+        let inflation2 = create_test_inflation_curve("EU-HICP", base_date);
+
+        let market = MarketContext::new()
+            .insert_discount(discount1)
+            .insert_hazard(hazard1)
+            .insert_inflation(inflation1)
+            .insert_inflation(inflation2);
+
+        // Extract inflation snapshot
+        let snapshot = extract_inflation_curves(&market);
+
+        // Create a different market to restore into
+        let discount2 = create_test_discount_curve("EUR-OIS", base_date);
+        let hazard2 = create_test_hazard_curve("CORP-B", base_date);
+        let target_market = MarketContext::new()
+            .insert_discount(discount2)
+            .insert_hazard(hazard2);
+
+        // Restore using wrapper function
+        let restored = restore_inflation_curves(&target_market, &snapshot);
+
+        // Verify: should have inflation curves from snapshot
+        assert!(restored.get_inflation("US-CPI").is_ok());
+        assert!(restored.get_inflation("EU-HICP").is_ok());
+
+        // Verify: should preserve non-inflation curves from target
+        assert!(restored.get_discount("EUR-OIS").is_ok());
+        assert!(restored.get_hazard("CORP-B").is_ok());
+
+        // Verify: should NOT have original curves from source market
+        assert!(restored.get_discount("USD-OIS").is_err());
+        assert!(restored.get_hazard("CORP-A").is_err());
+
+        // Create expected result using unified approach for comparison
+        let unified_snapshot = MarketSnapshot {
+            inflation_curves: snapshot.inflation_curves.clone(),
+            ..Default::default()
+        };
+        let expected = MarketSnapshot::restore_market(
+            &target_market,
+            &unified_snapshot,
+            CurveRestoreFlags::INFLATION,
+        );
+
+        assert_market_contexts_equal(&restored, &expected, "restore_inflation_curves equivalence");
+    }
+
+    #[test]
+    fn test_restore_correlations_equivalence() {
+        let base_date = date!(2025 - 01 - 15);
+
+        // Build a market with multiple curve types
+        let discount1 = create_test_discount_curve("USD-OIS", base_date);
+        let hazard1 = create_test_hazard_curve("CORP-A", base_date);
+        let corr1 = create_test_base_correlation_curve("CDX-IG", base_date);
+        let corr2 = create_test_base_correlation_curve("ITRAXX", base_date);
+
+        let market = MarketContext::new()
+            .insert_discount(discount1)
+            .insert_hazard(hazard1)
+            .insert_base_correlation(corr1)
+            .insert_base_correlation(corr2);
+
+        // Extract correlation snapshot
+        let snapshot = extract_correlations(&market);
+
+        // Create a different market to restore into
+        let discount2 = create_test_discount_curve("EUR-OIS", base_date);
+        let hazard2 = create_test_hazard_curve("CORP-B", base_date);
+        let target_market = MarketContext::new()
+            .insert_discount(discount2)
+            .insert_hazard(hazard2);
+
+        // Restore using wrapper function
+        let restored = restore_correlations(&target_market, &snapshot);
+
+        // Verify: should have correlation curves from snapshot
+        assert!(restored.get_base_correlation("CDX-IG").is_ok());
+        assert!(restored.get_base_correlation("ITRAXX").is_ok());
+
+        // Verify: should preserve non-correlation curves from target
+        assert!(restored.get_discount("EUR-OIS").is_ok());
+        assert!(restored.get_hazard("CORP-B").is_ok());
+
+        // Verify: should NOT have original curves from source market
+        assert!(restored.get_discount("USD-OIS").is_err());
+        assert!(restored.get_hazard("CORP-A").is_err());
+
+        // Create expected result using unified approach for comparison
+        let unified_snapshot = MarketSnapshot {
+            base_correlation_curves: snapshot.base_correlation_curves.clone(),
+            ..Default::default()
+        };
+        let expected = MarketSnapshot::restore_market(
+            &target_market,
+            &unified_snapshot,
+            CurveRestoreFlags::CORRELATION,
+        );
+
+        assert_market_contexts_equal(
+            &restored,
+            &expected,
+            "restore_correlations equivalence",
+        );
+    }
+
+    #[test]
+    fn test_restore_equivalence_empty_markets() {
+        let base_date = date!(2025 - 01 - 15);
+
+        // Test with empty source market
+        let empty_market = MarketContext::new();
+        let snapshot = extract_rates_curves(&empty_market);
+        let target = MarketContext::new()
+            .insert_discount(create_test_discount_curve("USD-OIS", base_date));
+
+        let restored = restore_rates_curves(&target, &snapshot);
+
+        // Should have removed all rates curves (snapshot was empty)
+        assert!(restored.get_discount("USD-OIS").is_err());
+
+        // Test with empty target market
+        let source = MarketContext::new()
+            .insert_discount(create_test_discount_curve("USD-OIS", base_date));
+        let snapshot2 = extract_rates_curves(&source);
+        let empty_target = MarketContext::new();
+
+        let restored2 = restore_rates_curves(&empty_target, &snapshot2);
+
+        // Should have rates curves from snapshot
+        assert!(restored2.get_discount("USD-OIS").is_ok());
+    }
+
+    #[test]
+    fn test_restore_equivalence_mixed_curve_types() {
+        let base_date = date!(2025 - 01 - 15);
+
+        // Build a complex market with all curve types
+        let discount1 = create_test_discount_curve("USD-OIS", base_date);
+        let discount2 = create_test_discount_curve("EUR-OIS", base_date);
+        let forward1 = create_test_forward_curve("USD-SOFR", base_date);
+        let hazard1 = create_test_hazard_curve("CORP-A", base_date);
+        let inflation1 = create_test_inflation_curve("US-CPI", base_date);
+        let corr1 = create_test_base_correlation_curve("CDX-IG", base_date);
+
+        let market = MarketContext::new()
+            .insert_discount(discount1)
+            .insert_discount(discount2)
+            .insert_forward(forward1)
+            .insert_hazard(hazard1)
+            .insert_inflation(inflation1)
+            .insert_base_correlation(corr1);
+
+        // Extract each type of snapshot
+        let rates_snap = extract_rates_curves(&market);
+        let credit_snap = extract_credit_curves(&market);
+        let inflation_snap = extract_inflation_curves(&market);
+        let corr_snap = extract_correlations(&market);
+
+        // Build a different target market
+        let target_discount = create_test_discount_curve("GBP-OIS", base_date);
+        let target_hazard = create_test_hazard_curve("CORP-B", base_date);
+        let target = MarketContext::new()
+            .insert_discount(target_discount)
+            .insert_hazard(target_hazard);
+
+        // Restore rates curves
+        let after_rates = restore_rates_curves(&target, &rates_snap);
+        assert_eq!(
+            after_rates
+                .curve_ids()
+                .filter(|id| after_rates.get_discount(id).is_ok())
+                .count(),
+            2
+        );
+        assert_eq!(
+            after_rates
+                .curve_ids()
+                .filter(|id| after_rates.get_forward(id).is_ok())
+                .count(),
+            1
+        );
+        assert!(after_rates.get_hazard("CORP-B").is_ok()); // preserved
+
+        // Restore credit curves on top of rates
+        let after_credit = restore_credit_curves(&after_rates, &credit_snap);
+        assert!(after_credit.get_discount("USD-OIS").is_ok()); // preserved from rates
+        assert!(after_credit.get_discount("EUR-OIS").is_ok()); // preserved from rates
+        assert!(after_credit.get_forward("USD-SOFR").is_ok()); // preserved from rates
+        assert!(after_credit.get_hazard("CORP-A").is_ok()); // restored
+        assert!(after_credit.get_hazard("CORP-B").is_err()); // replaced
+
+        // Restore inflation curves
+        let after_inflation = restore_inflation_curves(&after_credit, &inflation_snap);
+        assert!(after_inflation.get_inflation("US-CPI").is_ok()); // restored
+
+        // Restore correlation curves
+        let final_market = restore_correlations(&after_inflation, &corr_snap);
+        assert!(final_market.get_base_correlation("CDX-IG").is_ok()); // restored
+
+        // Verify final state has all original curves except CORP-B
+        assert!(final_market.get_discount("USD-OIS").is_ok());
+        assert!(final_market.get_discount("EUR-OIS").is_ok());
+        assert!(final_market.get_forward("USD-SOFR").is_ok());
+        assert!(final_market.get_hazard("CORP-A").is_ok());
+        assert!(final_market.get_inflation("US-CPI").is_ok());
+        assert!(final_market.get_base_correlation("CDX-IG").is_ok());
+        assert!(final_market.get_discount("GBP-OIS").is_err());
+        assert!(final_market.get_hazard("CORP-B").is_err());
+    }
 }
