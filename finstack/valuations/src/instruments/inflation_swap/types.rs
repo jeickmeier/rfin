@@ -406,7 +406,7 @@ impl crate::instruments::common::traits::Instrument for InflationSwap {
         crate::pricer::InstrumentType::InflationSwap
     }
 
-    fn as_any(&self) -> &dyn ::std::any::Any {
+    fn as_any(&self) -> &dyn::std::any::Any {
         self
     }
 
@@ -654,7 +654,7 @@ impl crate::instruments::common::traits::Instrument for YoYInflationSwap {
         crate::pricer::InstrumentType::YoYInflationSwap
     }
 
-    fn as_any(&self) -> &dyn ::std::any::Any {
+    fn as_any(&self) -> &dyn::std::any::Any {
         self
     }
 

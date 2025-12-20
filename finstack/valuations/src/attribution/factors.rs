@@ -518,8 +518,6 @@ pub fn restore_scalars(market: &MarketContext, snapshot: &ScalarsSnapshot) -> Ma
     new_market
 }
 
-
-
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -557,5 +555,4 @@ mod tests {
         assert!(restored.get_discount("USD-OIS").is_ok());
         assert!(restored.get_discount("EUR-OIS").is_ok());
     }
-
 }

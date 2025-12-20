@@ -89,7 +89,6 @@ impl CapPayoff {
             next_fixing_idx: 0,
         }
     }
-
 }
 
 impl Payoff for CapPayoff {
@@ -180,7 +179,6 @@ impl FloorPayoff {
             next_fixing_idx: 0,
         }
     }
-
 }
 
 impl Payoff for FloorPayoff {
@@ -195,7 +193,7 @@ impl Payoff for FloorPayoff {
 
             if (state.time - target_time).abs() < 1e-6 {
                 let short_rate = state.get("short_rate").unwrap_or(0.0);
-                
+
                 // TODO: Replace with proper Hull-White forward rate calculation:
                 // L(t,T,T+τ) = [P(t,T) - P(t,T+τ)] / [τ P(t,T+τ)]
                 // where P(t,T) is the Hull-White bond price formula.
