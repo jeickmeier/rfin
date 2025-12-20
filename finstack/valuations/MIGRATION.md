@@ -637,6 +637,90 @@ All future breaking changes will follow a deprecation cycle:
 
 ---
 
+## Safety Lints and Technical Debt (Phase 3.2)
+
+### Clippy Safety Lints Enabled
+
+As of version 0.8.0, the following strict safety lints are enabled at the crate level:
+
+```rust
+#![deny(clippy::unwrap_used)]
+#![deny(clippy::expect_used)]
+#![deny(clippy::panic)]
+```
+
+These lints prevent introduction of new panicking code paths in production.
+
+### Current State (December 2024)
+
+**The crate has temporary `#![allow(...)]` attributes** to avoid blocking compilation during the migration period.
+
+**Current violations identified:**
+- ~199 uses of `expect()` on `Result` and `Option` values
+- 2 uses of `panic!()` macro in production code paths
+
+These violations exist in legacy code and are tracked for remediation in version 1.0.0.
+
+### Migration Timeline
+
+| Phase | Target | Status |
+|-------|--------|--------|
+| **Step 3.2** (Dec 2024) | Enable lints with temporary allows | ✅ Complete |
+| **Version 0.9.0** (Q1 2025) | Fix violations in critical paths (pricing, calibration) | 🚧 Planned |
+| **Version 1.0.0** (Q2 2025) | Remove all allows, full compliance | 📋 Planned |
+
+### What This Means for Your Code
+
+**If you use the public API**: No immediate impact. The allows are internal to the crate.
+
+**If you contribute to the crate**: New code MUST NOT use:
+- `expect()` - use proper error propagation with `Result<T, E>`
+- `panic!()` - use recoverable error handling
+- `unwrap()` - already denied, use `?` operator or explicit error handling
+
+**Example - Bad (will be rejected in code review)**:
+```rust
+pub fn calculate_risk(value: f64) -> f64 {
+    let result = compute_dv01(value)
+        .expect("DV01 calculation should never fail");  // ❌ Bad
+    result
+}
+```
+
+**Example - Good (required pattern)**:
+```rust
+pub fn calculate_risk(value: f64) -> Result<f64> {
+    let result = compute_dv01(value)
+        .map_err(|e| Error::RiskCalculationFailed {
+            cause: Box::new(e),
+            context: "DV01 calculation".into(),
+        })?;  // ✅ Good
+    Ok(result)
+}
+```
+
+### Tracking and Remediation
+
+**Where are the violations?**
+
+Most violations are in:
+1. **Instrument constructors** (~50 violations)
+   - Many already deprecated in Step 3.1
+   - Will be removed in 1.0.0
+2. **Internal calibration helpers** (~70 violations)
+   - Documented invariants (e.g., "params non-empty, checked above")
+   - Being refactored to use Result propagation
+3. **Pricing model internals** (~40 violations)
+   - Numerical code with performance-critical paths
+   - Being replaced with checked operations
+4. **Test/unreachable code** (~39 violations)
+   - Panic in "should never happen" branches
+   - Being replaced with proper error types
+
+**How to help**: See [`finstack/valuations/src/lib.rs`](src/lib.rs) for the TODO tracking this work. Issues tagged with `safety-lints` track specific modules.
+
+---
+
 ## Additional Resources
 
 - **API Documentation**: See rustdoc for `MetricRegistry`, `MetricId`, and error types

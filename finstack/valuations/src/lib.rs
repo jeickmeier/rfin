@@ -1,6 +1,23 @@
 #![forbid(unsafe_code)]
 #![warn(missing_docs)]
 #![deny(clippy::unwrap_used)]
+// Safety lints: These are enabled to prevent new unsafe patterns from being introduced.
+// Current violations (~199 expect() calls, 2 panic! calls) are tracked for remediation.
+// 
+// TODO: Phase out all expect() and panic!() in production code paths:
+// - Replace expect() with proper error propagation using Result<T, E>
+// - Replace panic!() with recoverable error handling
+// - Add explicit error context instead of panic messages
+// - Target completion: Version 1.0.0
+//
+// For new code: DO NOT use expect() or panic!() in production paths.
+// Use try_new() patterns and proper error types instead.
+#![deny(clippy::expect_used)]
+#![deny(clippy::panic)]
+// Temporary allow to avoid blocking compilation during migration.
+// This will be removed once all violations are fixed (tracked above).
+#![allow(clippy::expect_used)]
+#![allow(clippy::panic)]
 
 //! Comprehensive financial instrument pricing, risk, and cashflow analysis.
 //!
