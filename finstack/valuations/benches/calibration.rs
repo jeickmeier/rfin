@@ -163,10 +163,7 @@ fn bench_residual_normalization(c: &mut Criterion) {
         ]
     };
 
-    let disc_mq: Vec<MarketQuote> = make_quotes()
-        .into_iter()
-        .map(MarketQuote::Rates)
-        .collect();
+    let disc_mq: Vec<MarketQuote> = make_quotes().into_iter().map(MarketQuote::Rates).collect();
 
     // Benchmark with notional = 1.0 (small notional)
     c.bench_function("calibration_residual_notional_1.0", |b| {
@@ -220,5 +217,9 @@ fn bench_residual_normalization(c: &mut Criterion) {
     });
 }
 
-criterion_group!(benches, bench_discount_and_forward_steps, bench_residual_normalization);
+criterion_group!(
+    benches,
+    bench_discount_and_forward_steps,
+    bench_residual_normalization
+);
 criterion_main!(benches);

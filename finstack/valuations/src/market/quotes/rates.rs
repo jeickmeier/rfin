@@ -296,7 +296,10 @@ mod tests {
         let quote = RateQuote::Swap {
             id: QuoteId::new("TEST-SWAP-5Y"),
             index: IndexId::new("USD-SOFR-OIS"),
-            pillar: Pillar::Tenor(finstack_core::dates::Tenor::new(5, finstack_core::dates::TenorUnit::Years)),
+            pillar: Pillar::Tenor(finstack_core::dates::Tenor::new(
+                5,
+                finstack_core::dates::TenorUnit::Years,
+            )),
             rate: 0.0450,
             spread_decimal: Some(0.0010), // 10bp in decimal
         };
@@ -322,7 +325,7 @@ mod tests {
         }"#;
 
         let quote: RateQuote = serde_json::from_str(json).expect("Failed to deserialize");
-        
+
         match quote {
             RateQuote::Swap { spread_decimal, .. } => {
                 assert_eq!(spread_decimal, Some(0.0010));
@@ -343,11 +346,16 @@ mod tests {
             "spread": 0.0010
         }"#;
 
-        let quote: RateQuote = serde_json::from_str(json).expect("Failed to deserialize with old 'spread' field");
-        
+        let quote: RateQuote =
+            serde_json::from_str(json).expect("Failed to deserialize with old 'spread' field");
+
         match quote {
             RateQuote::Swap { spread_decimal, .. } => {
-                assert_eq!(spread_decimal, Some(0.0010), "Old 'spread' field should map to spread_decimal");
+                assert_eq!(
+                    spread_decimal,
+                    Some(0.0010),
+                    "Old 'spread' field should map to spread_decimal"
+                );
             }
             _ => panic!("Expected Swap variant"),
         }
@@ -359,18 +367,27 @@ mod tests {
         let quote = RateQuote::Swap {
             id: QuoteId::new("TEST-SWAP-5Y"),
             index: IndexId::new("USD-SOFR-OIS"),
-            pillar: Pillar::Tenor(finstack_core::dates::Tenor::new(5, finstack_core::dates::TenorUnit::Years)),
+            pillar: Pillar::Tenor(finstack_core::dates::Tenor::new(
+                5,
+                finstack_core::dates::TenorUnit::Years,
+            )),
             rate: 0.0450,
             spread_decimal: Some(0.0010),
         };
 
         let json = serde_json::to_string(&quote).expect("Failed to serialize");
         println!("Serialized JSON: {}", json);
-        
+
         // Should use new field name "spread_decimal" in output
-        assert!(json.contains("spread_decimal"), "Serialized JSON should use 'spread_decimal' field name");
-        assert!(!json.contains("\"spread\":"), "Serialized JSON should not use old 'spread' field name (except in spread_decimal)");
-        
+        assert!(
+            json.contains("spread_decimal"),
+            "Serialized JSON should use 'spread_decimal' field name"
+        );
+        assert!(
+            !json.contains("\"spread\":"),
+            "Serialized JSON should not use old 'spread' field name (except in spread_decimal)"
+        );
+
         // Test round-trip: deserialize and verify
         let roundtrip: RateQuote = serde_json::from_str(&json).expect("Failed to deserialize");
         match roundtrip {
@@ -387,7 +404,10 @@ mod tests {
         let quote = RateQuote::Swap {
             id: QuoteId::new("TEST-SWAP-5Y"),
             index: IndexId::new("USD-SOFR-OIS"),
-            pillar: Pillar::Tenor(finstack_core::dates::Tenor::new(5, finstack_core::dates::TenorUnit::Years)),
+            pillar: Pillar::Tenor(finstack_core::dates::Tenor::new(
+                5,
+                finstack_core::dates::TenorUnit::Years,
+            )),
             rate: 0.0450,
             spread_decimal: None,
         };
@@ -408,7 +428,8 @@ mod tests {
             "rate": 0.0450
         }"#;
 
-        let quote: RateQuote = serde_json::from_str(json).expect("Failed to deserialize without spread");
+        let quote: RateQuote =
+            serde_json::from_str(json).expect("Failed to deserialize without spread");
         match quote {
             RateQuote::Swap { spread_decimal, .. } => {
                 assert_eq!(spread_decimal, None);
@@ -423,7 +444,10 @@ mod tests {
         let quote = RateQuote::Swap {
             id: QuoteId::new("TEST-SWAP-5Y"),
             index: IndexId::new("USD-SOFR-OIS"),
-            pillar: Pillar::Tenor(finstack_core::dates::Tenor::new(5, finstack_core::dates::TenorUnit::Years)),
+            pillar: Pillar::Tenor(finstack_core::dates::Tenor::new(
+                5,
+                finstack_core::dates::TenorUnit::Years,
+            )),
             rate: 0.0450,
             spread_decimal: Some(0.0010),
         };
@@ -431,7 +455,11 @@ mod tests {
         let bumped = quote.bump(0.0001); // Bump by 1bp
 
         match bumped {
-            RateQuote::Swap { rate, spread_decimal, .. } => {
+            RateQuote::Swap {
+                rate,
+                spread_decimal,
+                ..
+            } => {
                 assert_eq!(rate, 0.0451); // rate bumped
                 assert_eq!(spread_decimal, Some(0.0010)); // spread unchanged
             }

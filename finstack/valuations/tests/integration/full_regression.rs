@@ -217,7 +217,8 @@ fn test_full_workflow_100_bond_portfolio() {
         let pv = bond.value(&market, as_of).expect("Bond should price");
 
         // Create metric context
-        let mut context = MetricContext::new(Arc::new(bond.clone()), Arc::new(market.clone()), as_of, pv);
+        let mut context =
+            MetricContext::new(Arc::new(bond.clone()), Arc::new(market.clone()), as_of, pv);
 
         // Compute metrics in strict mode (tests Phase 1: no silent failures)
         let result = metrics_registry
@@ -322,8 +323,6 @@ fn test_fx_settlement_integration() {
     println!("  - GBP/JPY T+2 spot correctly handles UK Early May Bank Holiday");
 }
 
-
-
 #[test]
 fn test_metrics_strict_mode_no_silent_failures() {
     // Test Phase 1 strict mode: verify no silent zeros or missing metrics
@@ -422,7 +421,8 @@ fn test_dataframe_export_metric_keys() {
 
     // Compute PV and metrics
     let pv = bond.value(&market, as_of).expect("Should price");
-    let mut context = MetricContext::new(Arc::new(bond.clone()), Arc::new(market.clone()), as_of, pv);
+    let mut context =
+        MetricContext::new(Arc::new(bond.clone()), Arc::new(market.clone()), as_of, pv);
     let metrics_registry = standard_registry();
     let computed_metrics = metrics_registry
         .compute(&metric_ids, &mut context)

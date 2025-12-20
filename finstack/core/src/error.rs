@@ -702,7 +702,10 @@ mod tests {
         assert!(msg.contains("Unknown metric 'dv1'"));
 
         match err {
-            Error::UnknownMetric { metric_id, available: avail } => {
+            Error::UnknownMetric {
+                metric_id,
+                available: avail,
+            } => {
                 assert_eq!(metric_id, "dv1");
                 assert_eq!(avail.len(), 3);
                 assert!(avail.contains(&"dv01".to_string()));
@@ -721,7 +724,10 @@ mod tests {
         assert!(msg.contains("not applicable"));
 
         match err {
-            Error::MetricNotApplicable { metric_id, instrument_type } => {
+            Error::MetricNotApplicable {
+                metric_id,
+                instrument_type,
+            } => {
                 assert_eq!(metric_id, "ytm");
                 assert_eq!(instrument_type, "Swap");
             }
@@ -742,7 +748,10 @@ mod tests {
         assert!(msg.contains("missing_curve"));
 
         match err {
-            Error::MetricCalculationFailed { metric_id, cause: boxed_cause } => {
+            Error::MetricCalculationFailed {
+                metric_id,
+                cause: boxed_cause,
+            } => {
                 assert_eq!(metric_id, "dv01");
                 assert_eq!(*boxed_cause, cause);
             }

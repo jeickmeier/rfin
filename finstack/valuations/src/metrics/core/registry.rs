@@ -355,24 +355,22 @@ impl MetricRegistry {
                 Ok(value) => {
                     context.computed.insert(metric_id, value);
                 }
-                Err(err) => {
-                    match mode {
-                        StrictMode::Strict => {
-                            return Err(finstack_core::Error::metric_calculation_failed(
-                                metric_id.as_str(),
-                                err,
-                            ));
-                        }
-                        StrictMode::BestEffort => {
-                            tracing::warn!(
-                                metric_id = %metric_id.as_str(),
-                                error = %err,
-                                "Metric calculation failed, inserting 0.0 as fallback"
-                            );
-                            context.computed.insert(metric_id, 0.0);
-                        }
+                Err(err) => match mode {
+                    StrictMode::Strict => {
+                        return Err(finstack_core::Error::metric_calculation_failed(
+                            metric_id.as_str(),
+                            err,
+                        ));
                     }
-                }
+                    StrictMode::BestEffort => {
+                        tracing::warn!(
+                            metric_id = %metric_id.as_str(),
+                            error = %err,
+                            "Metric calculation failed, inserting 0.0 as fallback"
+                        );
+                        context.computed.insert(metric_id, 0.0);
+                    }
+                },
             }
         }
 
@@ -472,15 +470,12 @@ impl MetricRegistry {
         if temp_mark.contains(&id) {
             // Circular dependency detected - build the cycle path
             path.push(id.clone());
-            let cycle_start = path
-                .iter()
-                .position(|m| m == &id)
-                .unwrap_or(0);
+            let cycle_start = path.iter().position(|m| m == &id).unwrap_or(0);
             let cycle_path: Vec<String> = path[cycle_start..]
                 .iter()
                 .map(|m| m.as_str().to_string())
                 .collect();
-            
+
             return Err(finstack_core::Error::circular_dependency(cycle_path));
         }
 
@@ -519,9 +514,9 @@ impl MetricRegistry {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::instruments::common::traits::{Attributes, Instrument};
     use crate::metrics::core::ids::MetricId;
     use crate::metrics::core::traits::{MetricCalculator, MetricContext};
-    use crate::instruments::common::traits::{Attributes, Instrument};
     use crate::pricer::InstrumentType;
     use crate::results::ValuationResult;
     use finstack_core::prelude::*;
@@ -727,11 +722,7 @@ mod tests {
             }),
             &[],
         );
-        registry.register_metric(
-            MetricId::Convexity,
-            Arc::new(FailCalculator),
-            &[],
-        );
+        registry.register_metric(MetricId::Convexity, Arc::new(FailCalculator), &[]);
 
         let mut context = create_test_context();
 
@@ -784,7 +775,10 @@ mod tests {
 
         assert!(result.is_err());
         let err = result.unwrap_err();
-        assert!(matches!(err, finstack_core::Error::CircularDependency { .. }));
+        assert!(matches!(
+            err,
+            finstack_core::Error::CircularDependency { .. }
+        ));
 
         // Extract path from error
         if let finstack_core::Error::CircularDependency { path } = err {
@@ -840,11 +834,7 @@ mod tests {
     #[test]
     fn test_strict_mode_is_default() {
         let mut registry = MetricRegistry::new();
-        registry.register_metric(
-            MetricId::Dv01,
-            Arc::new(FailCalculator),
-            &[],
-        );
+        registry.register_metric(MetricId::Dv01, Arc::new(FailCalculator), &[]);
 
         let mut context = create_test_context();
 
@@ -907,11 +897,7 @@ mod tests {
             }),
             &[],
         );
-        registry.register_metric(
-            MetricId::Convexity,
-            Arc::new(FailCalculator),
-            &[],
-        );
+        registry.register_metric(MetricId::Convexity, Arc::new(FailCalculator), &[]);
         registry.register_metric(
             MetricId::Theta,
             Arc::new(SuccessCalculator {

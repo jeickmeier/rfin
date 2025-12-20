@@ -416,13 +416,16 @@ mod tests {
         let quote = RateQuote::Swap {
             id: QuoteId::new("USD-SOFR-OIS-SWAP-5Y"),
             index: IndexId::new("USD-SOFR-OIS"),
-            pillar: Pillar::Tenor(finstack_core::dates::Tenor::new(5, finstack_core::dates::TenorUnit::Years)),
+            pillar: Pillar::Tenor(finstack_core::dates::Tenor::new(
+                5,
+                finstack_core::dates::TenorUnit::Years,
+            )),
             rate: 0.0450,
             spread_decimal: Some(0.0010), // 10bp in decimal
         };
 
         let instrument = build_rate_instrument(&quote, &ctx)?;
-        
+
         // Downcast to InterestRateSwap to access spread_bp
         use crate::instruments::irs::InterestRateSwap;
         let swap = instrument
@@ -451,13 +454,16 @@ mod tests {
         let quote = RateQuote::Swap {
             id: QuoteId::new("USD-SOFR-OIS-SWAP-5Y"),
             index: IndexId::new("USD-SOFR-OIS"),
-            pillar: Pillar::Tenor(finstack_core::dates::Tenor::new(5, finstack_core::dates::TenorUnit::Years)),
+            pillar: Pillar::Tenor(finstack_core::dates::Tenor::new(
+                5,
+                finstack_core::dates::TenorUnit::Years,
+            )),
             rate: 0.0450,
             spread_decimal: None,
         };
 
         let instrument = build_rate_instrument(&quote, &ctx)?;
-        
+
         // Should build successfully
         use crate::instruments::irs::InterestRateSwap;
         let swap = instrument
@@ -466,7 +472,10 @@ mod tests {
             .expect("Expected InterestRateSwap");
 
         // Default spread_bp should be 0.0
-        assert_eq!(swap.float.spread_bp, 0.0, "Expected default spread_bp to be 0.0");
+        assert_eq!(
+            swap.float.spread_bp, 0.0,
+            "Expected default spread_bp to be 0.0"
+        );
 
         Ok(())
     }
@@ -475,11 +484,11 @@ mod tests {
     #[test]
     fn test_swap_spread_various_values() -> Result<()> {
         let test_cases = vec![
-            (0.0001, 1.0),      // 1bp
-            (0.0010, 10.0),     // 10bp
-            (0.0050, 50.0),     // 50bp
-            (0.0100, 100.0),    // 100bp (1%)
-            (-0.0010, -10.0),   // -10bp (negative spread)
+            (0.0001, 1.0),    // 1bp
+            (0.0010, 10.0),   // 10bp
+            (0.0050, 50.0),   // 50bp
+            (0.0100, 100.0),  // 100bp (1%)
+            (-0.0010, -10.0), // -10bp (negative spread)
         ];
 
         for (spread_decimal, expected_bp) in test_cases {
@@ -492,13 +501,16 @@ mod tests {
             let quote = RateQuote::Swap {
                 id: QuoteId::new("USD-SOFR-OIS-SWAP-5Y"),
                 index: IndexId::new("USD-SOFR-OIS"),
-                pillar: Pillar::Tenor(finstack_core::dates::Tenor::new(5, finstack_core::dates::TenorUnit::Years)),
+                pillar: Pillar::Tenor(finstack_core::dates::Tenor::new(
+                    5,
+                    finstack_core::dates::TenorUnit::Years,
+                )),
                 rate: 0.0450,
                 spread_decimal: Some(spread_decimal),
             };
 
             let instrument = build_rate_instrument(&quote, &ctx)?;
-            
+
             use crate::instruments::irs::InterestRateSwap;
             let swap = instrument
                 .as_any()

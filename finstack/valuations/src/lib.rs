@@ -3,7 +3,7 @@
 #![deny(clippy::unwrap_used)]
 // Safety lints: These are enabled to prevent new unsafe patterns from being introduced.
 // Current violations (~199 expect() calls, 2 panic! calls) are tracked for remediation.
-// 
+//
 // TODO: Phase out all expect() and panic!() in production code paths:
 // - Replace expect() with proper error propagation using Result<T, E>
 // - Replace panic!() with recoverable error handling

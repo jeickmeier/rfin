@@ -13,7 +13,7 @@ use time::Month;
 fn bench_add_joint_business_days(c: &mut Criterion) {
     let trade_date = Date::from_calendar_date(2024, Month::December, 27).unwrap(); // Friday before year-end
     let bdc = BusinessDayConvention::Following;
-    
+
     c.bench_function("add_joint_business_days_usd_eur_2days", |b| {
         b.iter(|| {
             add_joint_business_days(
@@ -25,7 +25,7 @@ fn bench_add_joint_business_days(c: &mut Criterion) {
             )
         })
     });
-    
+
     c.bench_function("add_joint_business_days_gbp_jpy_2days", |b| {
         b.iter(|| {
             add_joint_business_days(
@@ -37,7 +37,7 @@ fn bench_add_joint_business_days(c: &mut Criterion) {
             )
         })
     });
-    
+
     // Test with longer horizons
     c.bench_function("add_joint_business_days_usd_eur_5days", |b| {
         b.iter(|| {
@@ -50,7 +50,7 @@ fn bench_add_joint_business_days(c: &mut Criterion) {
             )
         })
     });
-    
+
     c.bench_function("add_joint_business_days_usd_eur_10days", |b| {
         b.iter(|| {
             add_joint_business_days(
@@ -68,7 +68,7 @@ fn bench_add_joint_business_days(c: &mut Criterion) {
 fn bench_roll_spot_date(c: &mut Criterion) {
     let trade_date = Date::from_calendar_date(2024, Month::December, 27).unwrap();
     let bdc = BusinessDayConvention::Following;
-    
+
     c.bench_function("roll_spot_date_usd_eur_t2", |b| {
         b.iter(|| {
             roll_spot_date(
@@ -80,7 +80,7 @@ fn bench_roll_spot_date(c: &mut Criterion) {
             )
         })
     });
-    
+
     c.bench_function("roll_spot_date_gbp_jpy_t2", |b| {
         b.iter(|| {
             roll_spot_date(
@@ -92,7 +92,7 @@ fn bench_roll_spot_date(c: &mut Criterion) {
             )
         })
     });
-    
+
     c.bench_function("roll_spot_date_usd_gbp_t2", |b| {
         b.iter(|| {
             roll_spot_date(
@@ -104,7 +104,7 @@ fn bench_roll_spot_date(c: &mut Criterion) {
             )
         })
     });
-    
+
     // Test with no calendars (weekends only)
     c.bench_function("roll_spot_date_weekends_only_t2", |b| {
         b.iter(|| {
@@ -122,17 +122,29 @@ fn bench_roll_spot_date(c: &mut Criterion) {
 /// Benchmark FX settlement for different date scenarios
 fn bench_fx_settlement_scenarios(c: &mut Criterion) {
     let bdc = BusinessDayConvention::Following;
-    
+
     // Different trade dates to test holiday handling
     let scenarios = vec![
-        ("regular_weekday", Date::from_calendar_date(2024, Month::June, 5).unwrap()), // Regular Wednesday
-        ("before_weekend", Date::from_calendar_date(2024, Month::June, 7).unwrap()),  // Friday
-        ("year_end", Date::from_calendar_date(2024, Month::December, 27).unwrap()),   // Friday before year-end
-        ("near_holiday", Date::from_calendar_date(2024, Month::July, 3).unwrap()),    // Wednesday before July 4th
+        (
+            "regular_weekday",
+            Date::from_calendar_date(2024, Month::June, 5).unwrap(),
+        ), // Regular Wednesday
+        (
+            "before_weekend",
+            Date::from_calendar_date(2024, Month::June, 7).unwrap(),
+        ), // Friday
+        (
+            "year_end",
+            Date::from_calendar_date(2024, Month::December, 27).unwrap(),
+        ), // Friday before year-end
+        (
+            "near_holiday",
+            Date::from_calendar_date(2024, Month::July, 3).unwrap(),
+        ), // Wednesday before July 4th
     ];
-    
+
     let mut group = c.benchmark_group("fx_settlement_scenarios");
-    
+
     for (name, trade_date) in scenarios {
         group.bench_with_input(
             BenchmarkId::new("usd_eur", name),
@@ -149,7 +161,7 @@ fn bench_fx_settlement_scenarios(c: &mut Criterion) {
                 })
             },
         );
-        
+
         group.bench_with_input(
             BenchmarkId::new("gbp_jpy", name),
             &trade_date,
@@ -166,20 +178,20 @@ fn bench_fx_settlement_scenarios(c: &mut Criterion) {
             },
         );
     }
-    
+
     group.finish();
 }
 
 /// Benchmark FX settlement for a batch of trades (portfolio-like)
 fn bench_fx_settlement_batch(c: &mut Criterion) {
     let bdc = BusinessDayConvention::Following;
-    
+
     // Create a batch of 100 trades over a month
     let base_date = Date::from_calendar_date(2024, Month::June, 1).unwrap();
     let trade_dates: Vec<Date> = (0..100)
         .map(|i| base_date + time::Duration::days((i * 30) / 100))
         .collect();
-    
+
     c.bench_function("fx_settlement_batch_100_usd_eur", |b| {
         b.iter(|| {
             trade_dates
@@ -196,7 +208,7 @@ fn bench_fx_settlement_batch(c: &mut Criterion) {
                 .collect::<Result<Vec<_>, _>>()
         })
     });
-    
+
     c.bench_function("fx_settlement_batch_100_gbp_jpy", |b| {
         b.iter(|| {
             trade_dates
@@ -222,7 +234,7 @@ fn bench_fx_settlement_batch(c: &mut Criterion) {
 fn bench_calendar_complexity(c: &mut Criterion) {
     let trade_date = Date::from_calendar_date(2024, Month::December, 27).unwrap();
     let bdc = BusinessDayConvention::Following;
-    
+
     // Weekends only (simplest)
     c.bench_function("calendar_complexity_weekends_only", |b| {
         b.iter(|| {
@@ -235,7 +247,7 @@ fn bench_calendar_complexity(c: &mut Criterion) {
             )
         })
     });
-    
+
     // One real calendar (moderate)
     c.bench_function("calendar_complexity_one_calendar_usd", |b| {
         b.iter(|| {
@@ -248,7 +260,7 @@ fn bench_calendar_complexity(c: &mut Criterion) {
             )
         })
     });
-    
+
     // Two real calendars (full joint calculation)
     c.bench_function("calendar_complexity_two_calendars_usd_eur", |b| {
         b.iter(|| {
@@ -261,7 +273,7 @@ fn bench_calendar_complexity(c: &mut Criterion) {
             )
         })
     });
-    
+
     // Two calendars with many holidays (GBP/JPY around Golden Week)
     let golden_week_date = Date::from_calendar_date(2025, Month::April, 28).unwrap();
     c.bench_function("calendar_complexity_golden_week_gbp_jpy", |b| {

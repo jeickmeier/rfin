@@ -623,7 +623,7 @@ impl crate::instruments::common::traits::Instrument for InterestRateSwap {
         crate::pricer::InstrumentType::IRS
     }
 
-    fn as_any(&self) -> &dyn::std::any::Any {
+    fn as_any(&self) -> &dyn ::std::any::Any {
         self
     }
 

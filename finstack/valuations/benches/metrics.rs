@@ -18,15 +18,15 @@ use time::Month;
 /// Create a simple market with discount curve for benchmarking
 fn create_benchmark_market() -> MarketContext {
     let base_date = Date::from_calendar_date(2025, Month::January, 1).unwrap();
-    
+
     // Create discount curve with builder pattern
     let discount_curve = DiscountCurve::builder("USD-OIS")
         .base_date(base_date)
         .knots([
             (0.0, 1.0),
-            (0.08, 0.9985),   // ~30 days
-            (0.25, 0.9950),   // ~90 days
-            (0.5, 0.9890),    // ~180 days
+            (0.08, 0.9985), // ~30 days
+            (0.25, 0.9950), // ~90 days
+            (0.5, 0.9890),  // ~180 days
             (1.0, 0.9750),
             (2.0, 0.9500),
             (3.0, 0.9250),
@@ -37,7 +37,7 @@ fn create_benchmark_market() -> MarketContext {
         .set_interp(InterpStyle::LogLinear)
         .build()
         .unwrap();
-    
+
     MarketContext::new().insert_discount(discount_curve)
 }
 
@@ -46,7 +46,7 @@ fn create_benchmark_bond(base_date: Date) -> Bond {
     let notional = Money::new(1_000_000.0, Currency::USD);
     let coupon_rate = 0.05;
     let maturity_date = base_date + time::Duration::days(365 * 5);
-    
+
     Bond::fixed(
         "BOND-5Y",
         notional,
@@ -65,7 +65,7 @@ fn bench_metrics_bond_standard(c: &mut Criterion) {
     let base_date = Date::from_calendar_date(2025, Month::January, 1).unwrap();
     let market = create_benchmark_market();
     let bond = create_benchmark_bond(base_date);
-    
+
     // Standard bond metrics
     let metric_ids = vec![
         MetricId::Dv01,
@@ -78,7 +78,7 @@ fn bench_metrics_bond_standard(c: &mut Criterion) {
         MetricId::Accrued,
         MetricId::Theta,
     ];
-    
+
     c.bench_function("metrics_bond_9_standard_metrics", |b| {
         b.iter(|| {
             bond.price_with_metrics(
@@ -95,14 +95,14 @@ fn bench_metrics_pricing_only(c: &mut Criterion) {
     let base_date = Date::from_calendar_date(2025, Month::January, 1).unwrap();
     let market = create_benchmark_market();
     let bond = create_benchmark_bond(base_date);
-    
+
     // Just pricing metrics (no greeks/risk)
     let metric_ids = vec![
         MetricId::CleanPrice,
         MetricId::DirtyPrice,
         MetricId::Accrued,
     ];
-    
+
     c.bench_function("metrics_bond_3_pricing_metrics", |b| {
         b.iter(|| {
             bond.price_with_metrics(
@@ -119,7 +119,7 @@ fn bench_metrics_scaling(c: &mut Criterion) {
     let base_date = Date::from_calendar_date(2025, Month::January, 1).unwrap();
     let market = create_benchmark_market();
     let bond = create_benchmark_bond(base_date);
-    
+
     // Test with different numbers of metrics
     let all_metrics = vec![
         MetricId::CleanPrice,
@@ -133,12 +133,12 @@ fn bench_metrics_scaling(c: &mut Criterion) {
         MetricId::Theta,
         MetricId::ZSpread,
     ];
-    
+
     let mut group = c.benchmark_group("metrics_scaling");
-    
+
     for num_metrics in [1, 3, 5, 10] {
         let metric_ids: Vec<MetricId> = all_metrics.iter().take(num_metrics).cloned().collect();
-        
+
         group.bench_with_input(
             BenchmarkId::new("metrics", num_metrics),
             &metric_ids,
@@ -153,7 +153,7 @@ fn bench_metrics_scaling(c: &mut Criterion) {
             },
         );
     }
-    
+
     group.finish();
 }
 
@@ -161,7 +161,7 @@ fn bench_metrics_scaling(c: &mut Criterion) {
 fn bench_metrics_portfolio(c: &mut Criterion) {
     let base_date = Date::from_calendar_date(2025, Month::January, 1).unwrap();
     let market = create_benchmark_market();
-    
+
     // Create a portfolio of bonds with different maturities
     let maturities = [2, 3, 5, 7, 10]; // years
     let bonds: Vec<Bond> = maturities
@@ -179,22 +179,21 @@ fn bench_metrics_portfolio(c: &mut Criterion) {
             )
         })
         .collect();
-    
-    let metric_ids = vec![
-        MetricId::Dv01,
-        MetricId::Convexity,
-        MetricId::DurationMod,
-    ];
-    
+
+    let metric_ids = vec![MetricId::Dv01, MetricId::Convexity, MetricId::DurationMod];
+
     c.bench_function("metrics_portfolio_5_bonds_3_metrics", |b| {
         b.iter(|| {
-            bonds.iter().map(|bond| {
-                bond.price_with_metrics(
-                    black_box(&market),
-                    black_box(base_date),
-                    black_box(&metric_ids),
-                )
-            }).collect::<Result<Vec<_>, _>>()
+            bonds
+                .iter()
+                .map(|bond| {
+                    bond.price_with_metrics(
+                        black_box(&market),
+                        black_box(base_date),
+                        black_box(&metric_ids),
+                    )
+                })
+                .collect::<Result<Vec<_>, _>>()
         })
     });
 }

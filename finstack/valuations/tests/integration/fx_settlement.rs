@@ -348,10 +348,7 @@ fn test_unknown_base_calendar_errors() {
         Some("gblo"),
     );
 
-    assert!(
-        result.is_err(),
-        "Unknown base calendar should return error"
-    );
+    assert!(result.is_err(), "Unknown base calendar should return error");
 
     // Verify it's a CalendarNotFound error
     if let Err(err) = result {

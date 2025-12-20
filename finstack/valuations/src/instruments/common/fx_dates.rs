@@ -36,12 +36,12 @@ pub fn resolve_calendar(cal_id: Option<&str>) -> Result<CalendarWrapper> {
         if let Some(resolved) = CalendarRegistry::global().resolve_str(id) {
             return Ok(CalendarWrapper::Borrowed(resolved));
         }
-        
+
         // Error instead of silent fallback
         let available = CalendarRegistry::global().available_ids();
         return Err(Error::calendar_not_found_with_suggestions(id, available));
     }
-    
+
     // Only use weekends_only if explicitly None (not as fallback)
     Ok(CalendarWrapper::Owned(weekends_only()))
 }
@@ -59,7 +59,9 @@ impl std::fmt::Debug for CalendarWrapper {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
             CalendarWrapper::Borrowed(_) => write!(f, "CalendarWrapper::Borrowed(<calendar>)"),
-            CalendarWrapper::Owned(cal) => f.debug_tuple("CalendarWrapper::Owned").field(cal).finish(),
+            CalendarWrapper::Owned(cal) => {
+                f.debug_tuple("CalendarWrapper::Owned").field(cal).finish()
+            }
         }
     }
 }
@@ -153,31 +155,32 @@ pub fn add_joint_business_days(
 ) -> Result<Date> {
     let base_cal = resolve_calendar(base_cal_id)?;
     let quote_cal = resolve_calendar(quote_cal_id)?;
-    
+
     let mut date = start;
     let mut count = 0u32;
-    
+
     // Iterate until we've found n_days that are business days on BOTH calendars
     const MAX_ITERS: u32 = 1000; // Safety limit (n_days * 5 would be sufficient for most cases)
     let mut iters = 0;
-    
+
     while count < n_days && iters < MAX_ITERS {
         date += Duration::days(1);
-        
+
         // Check if business day on both calendars
-        if base_cal.as_holiday_calendar().is_business_day(date) 
-           && quote_cal.as_holiday_calendar().is_business_day(date) {
+        if base_cal.as_holiday_calendar().is_business_day(date)
+            && quote_cal.as_holiday_calendar().is_business_day(date)
+        {
             count += 1;
         }
-        
+
         iters += 1;
     }
-    
+
     if iters >= MAX_ITERS {
         use finstack_core::error::InputError;
         return Err(Error::Input(InputError::InvalidDateRange));
     }
-    
+
     Ok(date)
 }
 
@@ -224,13 +227,7 @@ pub fn roll_spot_date(
     quote_cal_id: Option<&str>,
 ) -> Result<Date> {
     // Use joint business day counting instead of calendar days
-    add_joint_business_days(
-        trade_date,
-        spot_lag_days,
-        bdc,
-        base_cal_id,
-        quote_cal_id,
-    )
+    add_joint_business_days(trade_date, spot_lag_days, bdc, base_cal_id, quote_cal_id)
 }
 
 #[cfg(test)]
@@ -262,7 +259,7 @@ mod tests {
         // Test when base calendar has a holiday
         // Using NYSE (US markets closed on holidays) vs weekends-only
         let start = create_date(2024, Month::January, 12).unwrap(); // Friday before MLK day (Jan 15, 2024)
-        
+
         let result = add_joint_business_days(
             start,
             3,
@@ -287,7 +284,7 @@ mod tests {
         // Test when quote calendar has a holiday
         // Using weekends-only vs UK calendar
         let start = create_date(2024, Month::December, 23).unwrap(); // Monday before Christmas
-        
+
         let result = add_joint_business_days(
             start,
             3,
@@ -313,7 +310,7 @@ mod tests {
         // Test when both calendars have holidays (joint closure)
         // New Year's Day is typically closed on both NYSE and GBLO
         let start = create_date(2023, Month::December, 29).unwrap(); // Friday before New Year
-        
+
         let result = add_joint_business_days(
             start,
             2,
@@ -336,7 +333,7 @@ mod tests {
     fn test_roll_spot_date_near_holiday() {
         // Test T+2 spot rolling near a holiday
         let trade_date = create_date(2024, Month::January, 12).unwrap(); // Friday before MLK day
-        
+
         let spot_date = roll_spot_date(
             trade_date,
             2, // T+2
@@ -359,9 +356,9 @@ mod tests {
     fn test_resolve_calendar_unknown_id() {
         // Test that unknown calendar IDs error
         let result = resolve_calendar(Some("unknown_calendar_id"));
-        
+
         assert!(result.is_err(), "Unknown calendar ID should error");
-        
+
         let err = result.unwrap_err();
         assert!(
             matches!(err, Error::Input(ref e) if matches!(
@@ -377,33 +374,37 @@ mod tests {
     fn test_resolve_calendar_explicit_none() {
         // Test that explicit None uses weekends-only without error
         let result = resolve_calendar(None);
-        
+
         assert!(result.is_ok(), "Explicit None should not error");
-        
+
         let cal = result.unwrap();
         // Verify it's the weekends-only calendar by checking behavior
         // Saturdays and Sundays should not be business days
         let saturday = create_date(2024, Month::January, 13).unwrap();
         let sunday = create_date(2024, Month::January, 14).unwrap();
         let monday = create_date(2024, Month::January, 15).unwrap();
-        
-        assert!(!cal.as_holiday_calendar().is_business_day(saturday), "Saturday should not be business day");
-        assert!(!cal.as_holiday_calendar().is_business_day(sunday), "Sunday should not be business day");
-        assert!(cal.as_holiday_calendar().is_business_day(monday), "Monday should be business day (no holidays)");
+
+        assert!(
+            !cal.as_holiday_calendar().is_business_day(saturday),
+            "Saturday should not be business day"
+        );
+        assert!(
+            !cal.as_holiday_calendar().is_business_day(sunday),
+            "Sunday should not be business day"
+        );
+        assert!(
+            cal.as_holiday_calendar().is_business_day(monday),
+            "Monday should be business day (no holidays)"
+        );
     }
 
     #[test]
     fn test_add_joint_business_days_zero_days() {
         // Edge case: adding 0 days should return the start date
         let start = create_date(2024, Month::January, 15).unwrap();
-        let result = add_joint_business_days(
-            start,
-            0,
-            BusinessDayConvention::Following,
-            None,
-            None,
-        )
-        .expect("Should succeed");
+        let result =
+            add_joint_business_days(start, 0, BusinessDayConvention::Following, None, None)
+                .expect("Should succeed");
 
         assert_eq!(result, start, "Adding 0 days should return start date");
     }
@@ -418,7 +419,7 @@ mod tests {
             Some("unknown_base"),
             None,
         );
-        
+
         assert!(result.is_err(), "Unknown base calendar should error");
     }
 
@@ -432,7 +433,7 @@ mod tests {
             None,
             Some("unknown_quote"),
         );
-        
+
         assert!(result.is_err(), "Unknown quote calendar should error");
     }
 
@@ -447,7 +448,7 @@ mod tests {
             Some("unknown_cal"),
             None,
         );
-        
+
         assert!(result.is_err(), "Unknown calendar should error");
     }
 }

@@ -17,7 +17,7 @@ use finstack_core::prelude::{Currency, Money};
 use finstack_core::Error;
 use finstack_valuations::instruments::bond::Bond;
 use finstack_valuations::instruments::common::traits::Instrument;
-use finstack_valuations::metrics::{MetricId, MetricContext, standard_registry};
+use finstack_valuations::metrics::{standard_registry, MetricContext, MetricId};
 use std::sync::Arc;
 use time::macros::date;
 
@@ -177,7 +177,10 @@ fn test_unknown_metric_fails_strict_mode() {
             // Also acceptable if metric exists but isn't applicable to bond
             assert_eq!(metric_id, "nonexistent_metric");
         }
-        other => panic!("Expected UnknownMetric or MetricNotApplicable error, got: {:?}", other),
+        other => panic!(
+            "Expected UnknownMetric or MetricNotApplicable error, got: {:?}",
+            other
+        ),
     }
 }
 
@@ -192,7 +195,7 @@ fn test_best_effort_mode_partial_success() {
 
     let mut context = MetricContext::new(Arc::new(bond), Arc::new(market), as_of, pv);
 
-    // Mix valid and invalid metrics  
+    // Mix valid and invalid metrics
     let metric_ids = vec![
         MetricId::CleanPrice,
         MetricId::custom("nonexistent_metric"), // This should fallback to 0.0
@@ -238,10 +241,7 @@ fn test_strict_is_default() {
 
     let mut context = MetricContext::new(Arc::new(bond), Arc::new(market), as_of, pv);
 
-    let metric_ids = vec![
-        MetricId::CleanPrice,
-        MetricId::custom("unknown_metric"),
-    ];
+    let metric_ids = vec![MetricId::CleanPrice, MetricId::custom("unknown_metric")];
 
     let registry = standard_registry();
 
@@ -250,14 +250,25 @@ fn test_strict_is_default() {
 
     // Both default compute() and best_effort should behave differently
     let market2 = create_bond_market(as_of);
-    let mut context_be = MetricContext::new(Arc::new(create_test_bond(as_of)), Arc::new(market2), as_of, pv);
+    let mut context_be = MetricContext::new(
+        Arc::new(create_test_bond(as_of)),
+        Arc::new(market2),
+        as_of,
+        pv,
+    );
     let best_effort_result = registry.compute_best_effort(&metric_ids, &mut context_be);
 
     // Default compute() should fail (strict mode)
-    assert!(default_result.is_err(), "Default compute() should fail on unknown metric");
+    assert!(
+        default_result.is_err(),
+        "Default compute() should fail on unknown metric"
+    );
 
     // Best effort should succeed
-    assert!(best_effort_result.is_ok(), "Best effort mode should succeed on unknown metric");
+    assert!(
+        best_effort_result.is_ok(),
+        "Best effort mode should succeed on unknown metric"
+    );
 
     // Verify default compute() returns appropriate error
     match default_result.unwrap_err() {
@@ -265,7 +276,10 @@ fn test_strict_is_default() {
             // Expected error types
         }
         other => {
-            panic!("Expected UnknownMetric or MetricNotApplicable error, got: {:?}", other);
+            panic!(
+                "Expected UnknownMetric or MetricNotApplicable error, got: {:?}",
+                other
+            );
         }
     }
 }
@@ -276,11 +290,17 @@ fn test_metric_parse_strict() {
 
     // Known metrics should parse
     let ytm_result = MetricId::parse_strict("ytm");
-    assert!(ytm_result.is_ok(), "Known metric 'ytm' should parse in strict mode");
+    assert!(
+        ytm_result.is_ok(),
+        "Known metric 'ytm' should parse in strict mode"
+    );
     assert_eq!(ytm_result.unwrap(), MetricId::Ytm);
 
     let dv01_result = MetricId::parse_strict("dv01");
-    assert!(dv01_result.is_ok(), "Known metric 'dv01' should parse in strict mode");
+    assert!(
+        dv01_result.is_ok(),
+        "Known metric 'dv01' should parse in strict mode"
+    );
     assert_eq!(dv01_result.unwrap(), MetricId::Dv01);
 
     // Unknown metrics should fail
@@ -291,17 +311,29 @@ fn test_metric_parse_strict() {
     );
 
     match unknown_result.unwrap_err() {
-        Error::UnknownMetric { metric_id, available } => {
+        Error::UnknownMetric {
+            metric_id,
+            available,
+        } => {
             assert_eq!(metric_id, "made_up_metric");
-            assert!(!available.is_empty(), "Error should include list of available metrics");
-            assert!(available.contains(&"ytm".to_string()), "Available list should include 'ytm'");
+            assert!(
+                !available.is_empty(),
+                "Error should include list of available metrics"
+            );
+            assert!(
+                available.contains(&"ytm".to_string()),
+                "Available list should include 'ytm'"
+            );
         }
         other => panic!("Expected UnknownMetric error, got: {:?}", other),
     }
 
     // Verify case insensitivity
     let ytm_upper = MetricId::parse_strict("YTM");
-    assert!(ytm_upper.is_ok(), "Strict parsing should be case insensitive");
+    assert!(
+        ytm_upper.is_ok(),
+        "Strict parsing should be case insensitive"
+    );
     assert_eq!(ytm_upper.unwrap(), MetricId::Ytm);
 }
 
@@ -347,7 +379,8 @@ fn test_end_to_end_workflow() {
     ];
 
     let registry = standard_registry();
-    let metrics = registry.compute(&all_bond_metrics, &mut context)
+    let metrics = registry
+        .compute(&all_bond_metrics, &mut context)
         .expect("All standard bond metrics should compute successfully");
 
     // 3. Verify risk metrics are reasonable
@@ -355,19 +388,43 @@ fn test_end_to_end_workflow() {
     let duration_mod = metrics[&MetricId::DurationMod];
     let convexity = metrics[&MetricId::Convexity];
 
-    assert!(dv01.is_finite() && dv01 != 0.0, "DV01 should be finite and non-zero, got {}", dv01);
-    assert!(duration_mod.is_finite() && duration_mod > 0.0, "Modified duration should be positive and finite, got {}", duration_mod);
-    assert!(convexity.is_finite(), "Convexity should be finite, got {}", convexity);
+    assert!(
+        dv01.is_finite() && dv01 != 0.0,
+        "DV01 should be finite and non-zero, got {}",
+        dv01
+    );
+    assert!(
+        duration_mod.is_finite() && duration_mod > 0.0,
+        "Modified duration should be positive and finite, got {}",
+        duration_mod
+    );
+    assert!(
+        convexity.is_finite(),
+        "Convexity should be finite, got {}",
+        convexity
+    );
 
     // 4. Verify price metrics
     let clean_price = metrics[&MetricId::CleanPrice];
     let dirty_price = metrics[&MetricId::DirtyPrice];
     let accrued = metrics[&MetricId::Accrued];
 
-    assert!(clean_price > 0.0 && clean_price.is_finite(), "Clean price should be positive and finite, got {}", clean_price);
-    assert!(dirty_price.is_finite(), "Dirty price should be finite, got {}", dirty_price);
-    assert!(accrued >= 0.0 && accrued.is_finite(), "Accrued interest should be non-negative and finite, got {}", accrued);
-    
+    assert!(
+        clean_price > 0.0 && clean_price.is_finite(),
+        "Clean price should be positive and finite, got {}",
+        clean_price
+    );
+    assert!(
+        dirty_price.is_finite(),
+        "Dirty price should be finite, got {}",
+        dirty_price
+    );
+    assert!(
+        accrued >= 0.0 && accrued.is_finite(),
+        "Accrued interest should be non-negative and finite, got {}",
+        accrued
+    );
+
     // Verify dirty price relationship (allowing for floating point tolerance)
     let price_sum_diff = (dirty_price - (clean_price + accrued)).abs();
     assert!(

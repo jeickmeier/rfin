@@ -341,11 +341,7 @@ mod tests {
 
         let row = result.to_row();
 
-        assert_eq!(
-            row.dv01,
-            Some(500.0),
-            "DV01 still works with correct key"
-        );
+        assert_eq!(row.dv01, Some(500.0), "DV01 still works with correct key");
         assert!(
             row.duration.is_none(),
             "Duration should be None with legacy keys (not duration_mod or duration_mac)"
