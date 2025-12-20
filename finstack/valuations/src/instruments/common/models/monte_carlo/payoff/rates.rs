@@ -90,16 +90,6 @@ impl CapPayoff {
         }
     }
 
-    /// Compute forward rate from short rate (simplified approximation).
-    ///
-    /// In practice, this would use the Hull-White bond price formula.
-    /// For simplicity, we use r(t) as a proxy for forward rate.
-    fn compute_forward_rate(&self, short_rate: f64, _idx: usize) -> f64 {
-        // Simple approximation: forward rate ≈ short rate
-        // In full implementation, use HW bond prices:
-        // L(t,T,T+τ) = [P(t,T) - P(t,T+τ)] / [τ P(t,T+τ)]
-        short_rate
-    }
 }
 
 impl Payoff for CapPayoff {
@@ -115,8 +105,11 @@ impl Payoff for CapPayoff {
                 // zero forward rate and zero caplet payoff for that fixing period.
                 let short_rate = state.get("short_rate").unwrap_or(0.0);
 
-                // Compute forward rate
-                let forward_rate = self.compute_forward_rate(short_rate, self.next_fixing_idx);
+                // TODO: Replace with proper Hull-White forward rate calculation:
+                // L(t,T,T+τ) = [P(t,T) - P(t,T+τ)] / [τ P(t,T+τ)]
+                // where P(t,T) is the Hull-White bond price formula.
+                // Currently using short_rate as a simplified approximation.
+                let forward_rate = short_rate;
 
                 // Caplet payoff: max(L - K, 0) * τ * N * DF
                 let caplet_payoff = (forward_rate - self.strike_rate).max(0.0)
@@ -188,9 +181,6 @@ impl FloorPayoff {
         }
     }
 
-    fn compute_forward_rate(&self, short_rate: f64, _idx: usize) -> f64 {
-        short_rate
-    }
 }
 
 impl Payoff for FloorPayoff {
@@ -205,7 +195,12 @@ impl Payoff for FloorPayoff {
 
             if (state.time - target_time).abs() < 1e-6 {
                 let short_rate = state.get("short_rate").unwrap_or(0.0);
-                let forward_rate = self.compute_forward_rate(short_rate, self.next_fixing_idx);
+                
+                // TODO: Replace with proper Hull-White forward rate calculation:
+                // L(t,T,T+τ) = [P(t,T) - P(t,T+τ)] / [τ P(t,T+τ)]
+                // where P(t,T) is the Hull-White bond price formula.
+                // Currently using short_rate as a simplified approximation.
+                let forward_rate = short_rate;
 
                 // Floorlet payoff: max(K - L, 0) * τ * N * DF
                 let floorlet_payoff = (self.strike_rate - forward_rate).max(0.0)

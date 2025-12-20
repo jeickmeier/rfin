@@ -61,13 +61,14 @@ Save to `{@artifacts_path}/plan.md`. If the feature is trivial and doesn't warra
 
 ---
 
-### [ ] Step: Phase 2 - Inline `compute_forward_rate` Stubs
+### [x] Step: Phase 2 - Inline `compute_forward_rate` Stubs
+<!-- chat-id: 3069cfe4-479f-4392-a78d-a3fdf912e9d9 -->
 
-1. Update `CapPayoff::on_event` at line 119 to inline the forward rate logic
-2. Update `FloorPayoff::on_event` at line 208 to inline the forward rate logic
-3. Remove `CapPayoff::compute_forward_rate` method (lines 93-102)
-4. Remove `FloorPayoff::compute_forward_rate` method (lines 191-193)
-5. Add TODO comments indicating where Hull-White implementation would go
+1. Update `CapPayoff::on_event` at line 119 to inline the forward rate logic ✅
+2. Update `FloorPayoff::on_event` at line 208 to inline the forward rate logic ✅
+3. Remove `CapPayoff::compute_forward_rate` method (lines 93-102) ✅
+4. Remove `FloorPayoff::compute_forward_rate` method (lines 191-193) ✅
+5. Add TODO comments indicating where Hull-White implementation would go ✅
 
 ---
 
