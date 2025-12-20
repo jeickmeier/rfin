@@ -93,6 +93,7 @@ fn rebuild_hazard_with_id(
 }
 
 #[cfg(test)]
+#[allow(deprecated)]
 mod tests {
     use super::*;
     use crate::instruments::cds_option::parameters::CdsOptionParams;

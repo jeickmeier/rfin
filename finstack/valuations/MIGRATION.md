@@ -1,6 +1,6 @@
-# Migration Guide: Market Convention Refactors (Phase 1)
+# Migration Guide: Market Convention Refactors (Phases 1-3)
 
-This guide helps you migrate code to use the new **strict metrics mode** and related safety improvements introduced in Phase 1 of the market convention refactors.
+This guide helps you migrate code to use the new **strict metrics mode**, **API safety improvements**, and related changes introduced in the market convention refactors.
 
 **Version**: 0.8.0  
 **Date**: December 2024  
@@ -12,11 +12,12 @@ This guide helps you migrate code to use the new **strict metrics mode** and rel
 
 1. [Overview](#overview)
 2. [Breaking Changes Summary](#breaking-changes-summary)
-3. [Metrics Framework Changes](#metrics-framework-changes)
-4. [Calibration Improvements](#calibration-improvements)
-5. [Error Handling Updates](#error-handling-updates)
-6. [Migration Checklist](#migration-checklist)
-7. [FAQ](#faq)
+3. [Metrics Framework Changes (Phase 1)](#metrics-framework-changes)
+4. [Calibration Improvements (Phase 1)](#calibration-improvements)
+5. [Constructor Deprecations (Phase 3)](#constructor-deprecations)
+6. [Error Handling Updates](#error-handling-updates)
+7. [Migration Checklist](#migration-checklist)
+8. [FAQ](#faq)
 
 ---
 
@@ -211,6 +212,230 @@ let target_1 = DiscountCurveTarget::new_from_instruments(
 );
 
 // Both should converge to same curve (within tolerance)
+```
+
+---
+
+## Constructor Deprecations
+
+### Panicking Constructors Deprecated (Phase 3)
+
+**What Changed**: Panicking constructors (those using `.expect()` internally) are now deprecated. These will be removed in version 1.0.0.
+
+**Affected APIs**:
+- `CdsOption::new()` → Use `CdsOption::try_new()?` instead
+- `CdsOptionParams::new()` → Use `CdsOptionParams::try_new()?` instead
+- `CdsOptionParams::call()` → Use `CdsOptionParams::try_call()?` instead
+- `CdsOptionParams::put()` → Use `CdsOptionParams::try_put()?` instead
+
+**Migration Timeline**:
+- **Version 0.8.0**: Constructors deprecated with compiler warnings
+- **Version 1.0.0**: Deprecated constructors will be removed
+
+### Why This Change?
+
+Panicking constructors are unsafe for library APIs because:
+1. **Panic propagation**: Panics can't be caught and handled gracefully
+2. **Error context loss**: Stack unwinding loses detailed error information
+3. **FFI safety**: Panics across FFI boundaries are undefined behavior
+4. **Production risk**: Panics in financial code can crash pricing engines
+
+### Migration Examples
+
+#### Example 1: CdsOption Construction
+
+**Before (0.7.x)**:
+```rust
+use finstack_valuations::instruments::cds_option::{CdsOption, CdsOptionParams};
+use finstack_valuations::instruments::CreditParams;
+
+let option_params = CdsOptionParams::call(
+    100.0,                              // strike_spread_bp
+    date!(2025 - 06 - 20),             // expiry
+    date!(2030 - 06 - 20),             // cds_maturity
+    Money::new(10_000_000.0, Currency::USD),
+);
+
+let credit_params = CreditParams::corporate_standard("CORP", "CORP_HAZARD");
+
+let option = CdsOption::new(
+    "CDSOPT-CALL-CORP-5Y",
+    &option_params,
+    &credit_params,
+    "USD-OIS",
+    "CDSOPT-VOL",
+);
+// ⚠️ This will panic if parameters are invalid!
+```
+
+**After (0.8.0)** - **Recommended Approach**:
+```rust
+use finstack_valuations::instruments::cds_option::{CdsOption, CdsOptionParams};
+use finstack_valuations::instruments::CreditParams;
+
+// Use try_call() instead of call()
+let option_params = CdsOptionParams::try_call(
+    100.0,                              // strike_spread_bp
+    date!(2025 - 06 - 20),             // expiry
+    date!(2030 - 06 - 20),             // cds_maturity
+    Money::new(10_000_000.0, Currency::USD),
+)?;  // ✅ Errors are returned, not panicked
+
+let credit_params = CreditParams::corporate_standard("CORP", "CORP_HAZARD");
+
+// Use try_new() instead of new()
+let option = CdsOption::try_new(
+    "CDSOPT-CALL-CORP-5Y",
+    &option_params,
+    &credit_params,
+    "USD-OIS",
+    "CDSOPT-VOL",
+)?;  // ✅ Errors are returned with full context
+```
+
+#### Example 2: Put Option with Error Handling
+
+**Before (0.7.x)**:
+```rust
+let put_params = CdsOptionParams::put(
+    150.0,
+    date!(2025 - 12 - 20),
+    date!(2030 - 12 - 20),
+    Money::new(5_000_000.0, Currency::USD),
+);
+// ⚠️ Panics if expiry > maturity or other validation fails
+```
+
+**After (0.8.0)**:
+```rust
+let put_params = match CdsOptionParams::try_put(
+    150.0,
+    date!(2025 - 12 - 20),
+    date!(2030 - 12 - 20),
+    Money::new(5_000_000.0, Currency::USD),
+) {
+    Ok(params) => params,
+    Err(e) => {
+        // ✅ Detailed error with validation failure reason
+        eprintln!("Failed to create CDS option params: {}", e);
+        // Can log, return error, use fallback, etc.
+        return Err(e);
+    }
+};
+```
+
+#### Example 3: Batch Construction with Error Collection
+
+**Before (0.7.x)**:
+```rust
+let options: Vec<CdsOption> = strikes
+    .iter()
+    .map(|&strike| {
+        let params = CdsOptionParams::call(strike, expiry, maturity, notional);
+        CdsOption::new(format!("OPT-{}", strike), &params, &credit, disc, vol)
+    })
+    .collect();
+// ⚠️ First invalid strike causes panic, loses all progress
+```
+
+**After (0.8.0)**:
+```rust
+let options: Result<Vec<CdsOption>> = strikes
+    .iter()
+    .map(|&strike| {
+        let params = CdsOptionParams::try_call(strike, expiry, maturity, notional)?;
+        CdsOption::try_new(format!("OPT-{}", strike), &params, &credit, disc, vol)
+    })
+    .collect();
+
+// ✅ Collect all errors, handle them gracefully
+match options {
+    Ok(opts) => { /* All options created successfully */ }
+    Err(e) => {
+        eprintln!("Failed to create option batch: {}", e);
+        // Can retry with different parameters, skip invalid strikes, etc.
+    }
+}
+```
+
+### Deprecation Warnings
+
+You'll see compiler warnings like this:
+
+```
+warning: use of deprecated method `CdsOption::new`:
+  Use `try_new()` instead to handle errors explicitly.
+  This method will panic on invalid parameters and will be
+  removed in version 1.0.0
+   --> src/main.rs:42:18
+    |
+42  |     let option = CdsOption::new(...);
+    |                  ^^^^^^^^^^^^^^
+```
+
+### Suppressing Warnings (Temporary)
+
+If you need to suppress warnings during gradual migration:
+
+```rust
+// Option 1: Suppress for specific usage
+#[allow(deprecated)]
+let option = CdsOption::new(...);
+
+// Option 2: Suppress for entire module (tests only!)
+#[cfg(test)]
+#[allow(deprecated)]
+mod tests {
+    // ... test code using deprecated constructors
+}
+```
+
+**Warning**: Only suppress warnings as a temporary migration step. Update to `try_new()` variants as soon as possible.
+
+### Test Code Migration
+
+For test code using deprecated constructors:
+
+**Before (0.7.x)**:
+```rust
+#[test]
+fn test_option_pricing() {
+    let params = CdsOptionParams::call(100.0, expiry, maturity, notional);
+    let option = CdsOption::new("TEST", &params, &credit, disc, vol);
+    
+    let pv = option.npv(&market, as_of).unwrap();
+    assert!(pv.amount() > 0.0);
+}
+```
+
+**After (0.8.0)** - **Option A: Use `try_new()` with `.expect()`** (recommended):
+```rust
+#[test]
+fn test_option_pricing() {
+    let params = CdsOptionParams::try_call(100.0, expiry, maturity, notional)
+        .expect("Valid test parameters");
+    let option = CdsOption::try_new("TEST", &params, &credit, disc, vol)
+        .expect("Valid test option");
+    
+    let pv = option.npv(&market, as_of).unwrap();
+    assert!(pv.amount() > 0.0);
+}
+```
+
+**After (0.8.0)** - **Option B: Suppress warnings temporarily**:
+```rust
+#[cfg(test)]
+#[allow(deprecated)]
+mod tests {
+    #[test]
+    fn test_option_pricing() {
+        let params = CdsOptionParams::call(100.0, expiry, maturity, notional);
+        let option = CdsOption::new("TEST", &params, &credit, disc, vol);
+        
+        let pv = option.npv(&market, as_of).unwrap();
+        assert!(pv.amount() > 0.0);
+    }
+}
 ```
 
 ---

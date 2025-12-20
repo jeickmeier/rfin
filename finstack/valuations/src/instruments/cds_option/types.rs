@@ -155,28 +155,34 @@ impl CdsOption {
     }
 
     /// Create a canonical example CDS option (call on CDS spread).
+    ///
+    /// # Panics
+    ///
+    /// Panics if the example parameters are invalid (should never happen).
     #[must_use]
     pub fn example() -> Self {
         use finstack_core::currency::Currency;
         use time::Month;
-        let option_params = CdsOptionParams::call(
+        let option_params = CdsOptionParams::try_call(
             100.0,
             Date::from_calendar_date(2025, Month::June, 20).expect("Valid example date"),
             Date::from_calendar_date(2030, Month::June, 20).expect("Valid example date"),
             Money::new(10_000_000.0, Currency::USD),
-        );
+        )
+        .expect("Valid example parameters");
         let credit_params =
             crate::instruments::common::parameters::CreditParams::corporate_standard(
                 "CORP",
                 "CORP-HAZARD",
             );
-        CdsOption::new(
+        CdsOption::try_new(
             InstrumentId::new("CDSOPT-CALL-CORP-5Y"),
             &option_params,
             &credit_params,
             "USD-OIS",
             "CDSOPT-VOL",
         )
+        .expect("Valid example parameters")
     }
 
     /// Create a new credit option using parameter structs with validation.
@@ -236,6 +242,17 @@ impl CdsOption {
     /// - `credit_params`: reference entity, recovery rate, and the hazard `credit_id`
     /// - `discount_curve_id`: discount curve identifier for discounting cashflows
     /// - `vol_surface_id`: volatility surface identifier for the CDS option
+    ///
+    /// # Deprecation
+    ///
+    /// This method will panic on invalid parameters. Use [`try_new`](Self::try_new) instead for
+    /// explicit error handling. This method will be removed in version 1.0.0.
+    #[deprecated(
+        since = "0.8.0",
+        note = "Use `try_new()` instead to handle errors explicitly. \
+                This method will panic on invalid parameters and will be \
+                removed in version 1.0.0"
+    )]
     #[must_use]
     pub fn new(
         id: impl Into<InstrumentId>,

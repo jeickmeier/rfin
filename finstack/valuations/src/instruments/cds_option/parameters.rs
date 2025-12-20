@@ -126,6 +126,17 @@ impl CdsOptionParams {
     /// Create new credit option parameters (panics on invalid input).
     ///
     /// For production code, prefer [`try_new`](Self::try_new) which returns a Result.
+    ///
+    /// # Deprecation
+    ///
+    /// This method will panic on invalid parameters. Use [`try_new`](Self::try_new) instead for
+    /// explicit error handling. This method will be removed in version 1.0.0.
+    #[deprecated(
+        since = "0.8.0",
+        note = "Use `try_new()` instead to handle errors explicitly. \
+                This method will panic on invalid parameters and will be \
+                removed in version 1.0.0"
+    )]
     #[must_use]
     pub fn new(
         strike_spread_bp: f64,
@@ -149,7 +160,19 @@ impl CdsOptionParams {
     /// # Panics
     ///
     /// Panics if inputs are invalid. For fallible construction, use [`try_call`](Self::try_call).
+    ///
+    /// # Deprecation
+    ///
+    /// This method will panic on invalid parameters. Use [`try_call`](Self::try_call) instead for
+    /// explicit error handling. This method will be removed in version 1.0.0.
+    #[deprecated(
+        since = "0.8.0",
+        note = "Use `try_call()` instead to handle errors explicitly. \
+                This method will panic on invalid parameters and will be \
+                removed in version 1.0.0"
+    )]
     #[must_use]
+    #[allow(deprecated)]
     pub fn call(strike_spread_bp: f64, expiry: Date, cds_maturity: Date, notional: Money) -> Self {
         Self::new(
             strike_spread_bp,
@@ -181,7 +204,19 @@ impl CdsOptionParams {
     /// # Panics
     ///
     /// Panics if inputs are invalid. For fallible construction, use [`try_put`](Self::try_put).
+    ///
+    /// # Deprecation
+    ///
+    /// This method will panic on invalid parameters. Use [`try_put`](Self::try_put) instead for
+    /// explicit error handling. This method will be removed in version 1.0.0.
+    #[deprecated(
+        since = "0.8.0",
+        note = "Use `try_put()` instead to handle errors explicitly. \
+                This method will panic on invalid parameters and will be \
+                removed in version 1.0.0"
+    )]
     #[must_use]
+    #[allow(deprecated)]
     pub fn put(strike_spread_bp: f64, expiry: Date, cds_maturity: Date, notional: Money) -> Self {
         Self::new(
             strike_spread_bp,
