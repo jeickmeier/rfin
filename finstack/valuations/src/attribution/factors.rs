@@ -494,7 +494,110 @@ pub fn extract<T: MarketExtractable>(market: &MarketContext) -> T {
     T::extract(market)
 }
 
+// Implement MarketExtractable for all snapshot types
+impl MarketExtractable for RatesCurvesSnapshot {
+    fn extract(market: &MarketContext) -> Self {
+        let mut discount_curves = HashMap::new();
+        let mut forward_curves = HashMap::new();
+
+        // Use public API to iterate through curves
+        for curve_id in market.curve_ids() {
+            // Try to get as discount curve
+            if let Ok(discount) = market.get_discount(curve_id) {
+                discount_curves.insert(curve_id.clone(), discount);
+            }
+            // Try to get as forward curve
+            else if let Ok(forward) = market.get_forward(curve_id) {
+                forward_curves.insert(curve_id.clone(), forward);
+            }
+        }
+
+        RatesCurvesSnapshot {
+            discount_curves,
+            forward_curves,
+        }
+    }
+}
+
+impl MarketExtractable for CreditCurvesSnapshot {
+    fn extract(market: &MarketContext) -> Self {
+        let mut hazard_curves = HashMap::new();
+
+        for curve_id in market.curve_ids() {
+            if let Ok(hazard) = market.get_hazard(curve_id) {
+                hazard_curves.insert(curve_id.clone(), hazard);
+            }
+        }
+
+        CreditCurvesSnapshot { hazard_curves }
+    }
+}
+
+impl MarketExtractable for InflationCurvesSnapshot {
+    fn extract(market: &MarketContext) -> Self {
+        let mut inflation_curves = HashMap::new();
+
+        for curve_id in market.curve_ids() {
+            if let Ok(inflation) = market.get_inflation(curve_id) {
+                inflation_curves.insert(curve_id.clone(), inflation);
+            }
+        }
+
+        InflationCurvesSnapshot { inflation_curves }
+    }
+}
+
+impl MarketExtractable for CorrelationsSnapshot {
+    fn extract(market: &MarketContext) -> Self {
+        let mut base_correlation_curves = HashMap::new();
+
+        for curve_id in market.curve_ids() {
+            if let Ok(base_corr) = market.get_base_correlation(curve_id) {
+                base_correlation_curves.insert(curve_id.clone(), base_corr);
+            }
+        }
+
+        CorrelationsSnapshot {
+            base_correlation_curves,
+        }
+    }
+}
+
+impl MarketExtractable for VolatilitySnapshot {
+    fn extract(market: &MarketContext) -> Self {
+        VolatilitySnapshot {
+            surfaces: market.surfaces.clone(),
+        }
+    }
+}
+
+impl MarketExtractable for ScalarsSnapshot {
+    fn extract(market: &MarketContext) -> Self {
+        ScalarsSnapshot {
+            prices: market
+                .prices_iter()
+                .map(|(k, v)| (k.clone(), v.clone()))
+                .collect(),
+            series: market
+                .series_iter()
+                .map(|(k, v)| (k.clone(), v.clone()))
+                .collect(),
+            inflation_indices: market
+                .inflation_indices_iter()
+                .map(|(k, v)| (k.clone(), Arc::clone(v)))
+                .collect(),
+            dividends: market
+                .dividends_iter()
+                .map(|(k, v)| (k.clone(), Arc::clone(v)))
+                .collect(),
+        }
+    }
+}
+
 /// Extract all discount and forward curves from a market context.
+///
+/// This function is now a thin wrapper around the `MarketExtractable` trait.
+/// Consider using `RatesCurvesSnapshot::extract(market)` or `extract::<RatesCurvesSnapshot>(market)` instead.
 ///
 /// # Arguments
 ///
@@ -504,28 +607,13 @@ pub fn extract<T: MarketExtractable>(market: &MarketContext) -> T {
 ///
 /// Snapshot containing all rates curves.
 pub fn extract_rates_curves(market: &MarketContext) -> RatesCurvesSnapshot {
-    let mut discount_curves = HashMap::new();
-    let mut forward_curves = HashMap::new();
-
-    // Use public API to iterate through curves
-    for curve_id in market.curve_ids() {
-        // Try to get as discount curve
-        if let Ok(discount) = market.get_discount(curve_id) {
-            discount_curves.insert(curve_id.clone(), discount);
-        }
-        // Try to get as forward curve
-        else if let Ok(forward) = market.get_forward(curve_id) {
-            forward_curves.insert(curve_id.clone(), forward);
-        }
-    }
-
-    RatesCurvesSnapshot {
-        discount_curves,
-        forward_curves,
-    }
+    RatesCurvesSnapshot::extract(market)
 }
 
 /// Extract all credit hazard curves from a market context.
+///
+/// This function is now a thin wrapper around the `MarketExtractable` trait.
+/// Consider using `CreditCurvesSnapshot::extract(market)` or `extract::<CreditCurvesSnapshot>(market)` instead.
 ///
 /// # Arguments
 ///
@@ -535,18 +623,13 @@ pub fn extract_rates_curves(market: &MarketContext) -> RatesCurvesSnapshot {
 ///
 /// Snapshot containing all hazard curves.
 pub fn extract_credit_curves(market: &MarketContext) -> CreditCurvesSnapshot {
-    let mut hazard_curves = HashMap::new();
-
-    for curve_id in market.curve_ids() {
-        if let Ok(hazard) = market.get_hazard(curve_id) {
-            hazard_curves.insert(curve_id.clone(), hazard);
-        }
-    }
-
-    CreditCurvesSnapshot { hazard_curves }
+    CreditCurvesSnapshot::extract(market)
 }
 
 /// Extract all inflation curves from a market context.
+///
+/// This function is now a thin wrapper around the `MarketExtractable` trait.
+/// Consider using `InflationCurvesSnapshot::extract(market)` or `extract::<InflationCurvesSnapshot>(market)` instead.
 ///
 /// # Arguments
 ///
@@ -556,18 +639,13 @@ pub fn extract_credit_curves(market: &MarketContext) -> CreditCurvesSnapshot {
 ///
 /// Snapshot containing all inflation curves.
 pub fn extract_inflation_curves(market: &MarketContext) -> InflationCurvesSnapshot {
-    let mut inflation_curves = HashMap::new();
-
-    for curve_id in market.curve_ids() {
-        if let Ok(inflation) = market.get_inflation(curve_id) {
-            inflation_curves.insert(curve_id.clone(), inflation);
-        }
-    }
-
-    InflationCurvesSnapshot { inflation_curves }
+    InflationCurvesSnapshot::extract(market)
 }
 
 /// Extract all base correlation curves from a market context.
+///
+/// This function is now a thin wrapper around the `MarketExtractable` trait.
+/// Consider using `CorrelationsSnapshot::extract(market)` or `extract::<CorrelationsSnapshot>(market)` instead.
 ///
 /// # Arguments
 ///
@@ -577,17 +655,7 @@ pub fn extract_inflation_curves(market: &MarketContext) -> InflationCurvesSnapsh
 ///
 /// Snapshot containing all correlation curves.
 pub fn extract_correlations(market: &MarketContext) -> CorrelationsSnapshot {
-    let mut base_correlation_curves = HashMap::new();
-
-    for curve_id in market.curve_ids() {
-        if let Ok(base_corr) = market.get_base_correlation(curve_id) {
-            base_correlation_curves.insert(curve_id.clone(), base_corr);
-        }
-    }
-
-    CorrelationsSnapshot {
-        base_correlation_curves,
-    }
+    CorrelationsSnapshot::extract(market)
 }
 
 /// Extract FX matrix from a market context.
@@ -605,6 +673,9 @@ pub fn extract_fx(market: &MarketContext) -> Option<Arc<FxMatrix>> {
 
 /// Extract volatility surfaces from a market context.
 ///
+/// This function is now a thin wrapper around the `MarketExtractable` trait.
+/// Consider using `VolatilitySnapshot::extract(market)` or `extract::<VolatilitySnapshot>(market)` instead.
+///
 /// # Arguments
 ///
 /// * `market` - Market context to extract from
@@ -613,12 +684,13 @@ pub fn extract_fx(market: &MarketContext) -> Option<Arc<FxMatrix>> {
 ///
 /// Snapshot containing all volatility surfaces.
 pub fn extract_volatility(market: &MarketContext) -> VolatilitySnapshot {
-    VolatilitySnapshot {
-        surfaces: market.surfaces.clone(),
-    }
+    VolatilitySnapshot::extract(market)
 }
 
 /// Extract market scalars from a market context.
+///
+/// This function is now a thin wrapper around the `MarketExtractable` trait.
+/// Consider using `ScalarsSnapshot::extract(market)` or `extract::<ScalarsSnapshot>(market)` instead.
 ///
 /// # Arguments
 ///
@@ -628,24 +700,7 @@ pub fn extract_volatility(market: &MarketContext) -> VolatilitySnapshot {
 ///
 /// Snapshot containing all market scalars.
 pub fn extract_scalars(market: &MarketContext) -> ScalarsSnapshot {
-    ScalarsSnapshot {
-        prices: market
-            .prices_iter()
-            .map(|(k, v)| (k.clone(), v.clone()))
-            .collect(),
-        series: market
-            .series_iter()
-            .map(|(k, v)| (k.clone(), v.clone()))
-            .collect(),
-        inflation_indices: market
-            .inflation_indices_iter()
-            .map(|(k, v)| (k.clone(), Arc::clone(v)))
-            .collect(),
-        dividends: market
-            .dividends_iter()
-            .map(|(k, v)| (k.clone(), Arc::clone(v)))
-            .collect(),
-    }
+    ScalarsSnapshot::extract(market)
 }
 
 fn copy_scalars(from: &MarketContext, to: &mut MarketContext) {
@@ -1944,5 +1999,170 @@ mod tests {
         assert!(final_market.get_base_correlation("CDX-IG").is_ok());
         assert!(final_market.get_discount("GBP-OIS").is_err());
         assert!(final_market.get_hazard("CORP-B").is_err());
+    }
+
+    // ===== MarketExtractable Trait Tests =====
+
+    #[test]
+    fn test_market_extractable_rates_curves() {
+        let base_date = date!(2025 - 01 - 15);
+        let discount = create_test_discount_curve("USD-OIS", base_date);
+        
+        let market = MarketContext::new().insert_discount(discount);
+
+        // Test trait method
+        let snapshot = RatesCurvesSnapshot::extract(&market);
+        assert_eq!(snapshot.discount_curves.len(), 1);
+        assert!(snapshot.discount_curves.contains_key("USD-OIS"));
+
+        // Test generic function
+        let generic_snapshot: RatesCurvesSnapshot = extract(&market);
+        assert_eq!(generic_snapshot.discount_curves.len(), 1);
+        assert!(generic_snapshot.discount_curves.contains_key("USD-OIS"));
+    }
+
+    #[test]
+    fn test_market_extractable_credit_curves() {
+        let base_date = date!(2025 - 01 - 15);
+        let hazard = create_test_hazard_curve("CORP-A", base_date);
+        let market = MarketContext::new().insert_hazard(hazard);
+
+        // Test trait method
+        let snapshot = CreditCurvesSnapshot::extract(&market);
+        assert_eq!(snapshot.hazard_curves.len(), 1);
+        assert!(snapshot.hazard_curves.contains_key("CORP-A"));
+
+        // Test generic function
+        let generic_snapshot: CreditCurvesSnapshot = extract(&market);
+        assert_eq!(generic_snapshot.hazard_curves.len(), 1);
+    }
+
+    #[test]
+    fn test_market_extractable_inflation_curves() {
+        let base_date = date!(2025 - 01 - 15);
+        let inflation = create_test_inflation_curve("US-CPI", base_date);
+        let market = MarketContext::new().insert_inflation(inflation);
+
+        // Test trait method
+        let snapshot = InflationCurvesSnapshot::extract(&market);
+        assert_eq!(snapshot.inflation_curves.len(), 1);
+        assert!(snapshot.inflation_curves.contains_key("US-CPI"));
+
+        // Test generic function
+        let generic_snapshot: InflationCurvesSnapshot = extract(&market);
+        assert_eq!(generic_snapshot.inflation_curves.len(), 1);
+    }
+
+    #[test]
+    fn test_market_extractable_correlations() {
+        let base_date = date!(2025 - 01 - 15);
+        let base_corr = create_test_base_correlation_curve("CDX-IG", base_date);
+        let market = MarketContext::new().insert_base_correlation(base_corr);
+
+        // Test trait method
+        let snapshot = CorrelationsSnapshot::extract(&market);
+        assert_eq!(snapshot.base_correlation_curves.len(), 1);
+        assert!(snapshot.base_correlation_curves.contains_key("CDX-IG"));
+
+        // Test generic function
+        let generic_snapshot: CorrelationsSnapshot = extract(&market);
+        assert_eq!(generic_snapshot.base_correlation_curves.len(), 1);
+    }
+
+    #[test]
+    fn test_market_extractable_volatility() {
+        // VolatilitySnapshot extracts from surfaces field which requires complex setup
+        // Test with empty market to verify trait works
+        let market = MarketContext::new();
+
+        // Test trait method
+        let snapshot = VolatilitySnapshot::extract(&market);
+        assert!(snapshot.surfaces.is_empty());
+
+        // Test generic function
+        let generic_snapshot: VolatilitySnapshot = extract(&market);
+        assert!(generic_snapshot.surfaces.is_empty());
+    }
+
+    #[test]
+    fn test_market_extractable_scalars() {
+        // Test with empty market to verify trait works
+        let market = MarketContext::new();
+
+        // Test trait method
+        let snapshot = ScalarsSnapshot::extract(&market);
+        assert_eq!(snapshot.prices.len(), 0);
+        assert_eq!(snapshot.series.len(), 0);
+        assert_eq!(snapshot.inflation_indices.len(), 0);
+        assert_eq!(snapshot.dividends.len(), 0);
+
+        // Test generic function
+        let generic_snapshot: ScalarsSnapshot = extract(&market);
+        assert_eq!(generic_snapshot.prices.len(), 0);
+    }
+
+    #[test]
+    fn test_trait_vs_function_equivalence() {
+        // Verify that trait-based extraction produces identical results to function calls
+        let base_date = date!(2025 - 01 - 15);
+        let discount = create_test_discount_curve("USD-OIS", base_date);
+        let market = MarketContext::new().insert_discount(discount);
+
+        // Compare old function vs trait method
+        let function_result = extract_rates_curves(&market);
+        let trait_result = RatesCurvesSnapshot::extract(&market);
+
+        assert_eq!(function_result.discount_curves.len(), trait_result.discount_curves.len());
+        assert_eq!(function_result.forward_curves.len(), trait_result.forward_curves.len());
+        
+        // Verify curve IDs match
+        for (id, _) in &function_result.discount_curves {
+            assert!(trait_result.discount_curves.contains_key(id));
+        }
+    }
+
+    #[test]
+    fn test_generic_extract_with_type_inference() {
+        let base_date = date!(2025 - 01 - 15);
+        let discount = create_test_discount_curve("USD-OIS", base_date);
+        let market = MarketContext::new().insert_discount(discount);
+
+        // Test that type inference works correctly
+        let _rates: RatesCurvesSnapshot = extract(&market);
+        let _volatility: VolatilitySnapshot = extract(&market);
+        let _scalars: ScalarsSnapshot = extract(&market);
+        
+        // If this compiles, type inference is working correctly
+    }
+
+    #[test]
+    fn test_market_extractable_multiple_curves() {
+        use finstack_core::market_data::term_structures::ForwardCurve;
+        
+        let base_date = date!(2025 - 01 - 15);
+        let discount1 = create_test_discount_curve("USD-OIS", base_date);
+        let discount2 = create_test_discount_curve("EUR-OIS", base_date);
+        
+        let forward = ForwardCurve::builder("USD-SOFR", 0.25) // 3-month forward
+            .base_date(base_date)
+            .knots(vec![(0.0, 0.03), (1.0, 0.035), (5.0, 0.04)])
+            .set_interp(InterpStyle::Linear)
+            .build()
+            .expect("ForwardCurve builder should succeed");
+
+        let market = MarketContext::new()
+            .insert_discount(discount1)
+            .insert_discount(discount2)
+            .insert_forward(forward);
+
+        // Extract rates curves
+        let snapshot = RatesCurvesSnapshot::extract(&market);
+        
+        // Verify we got all curves
+        assert_eq!(snapshot.discount_curves.len(), 2);
+        assert_eq!(snapshot.forward_curves.len(), 1);
+        assert!(snapshot.discount_curves.contains_key("USD-OIS"));
+        assert!(snapshot.discount_curves.contains_key("EUR-OIS"));
+        assert!(snapshot.forward_curves.contains_key("USD-SOFR"));
     }
 }

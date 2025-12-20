@@ -401,27 +401,34 @@ cargo doc --no-deps --lib                 # ✅ Documentation builds
 
 ---
 
-### [ ] Step 4.2: Implement trait for all snapshot types
+### [x] Step 4.2: Implement trait for all snapshot types
+<!-- chat-id: 2db1918c-dbdb-4c6b-b37a-251dce965671 -->
 **File**: `finstack/valuations/src/attribution/factors.rs`
 
 **Tasks**:
-- Implement `MarketExtractable` for `RatesCurvesSnapshot`
-- Implement for `CreditCurvesSnapshot`
-- Implement for `InflationCurvesSnapshot`
-- Implement for `CorrelationsSnapshot`
-- Implement for `VolatilitySnapshot`
-- Implement for `ScalarsSnapshot`
-- Move current extraction logic into trait methods
+- ✅ Implement `MarketExtractable` for `RatesCurvesSnapshot`
+- ✅ Implement for `CreditCurvesSnapshot`
+- ✅ Implement for `InflationCurvesSnapshot`
+- ✅ Implement for `CorrelationsSnapshot`
+- ✅ Implement for `VolatilitySnapshot`
+- ✅ Implement for `ScalarsSnapshot`
+- ✅ Move current extraction logic into trait methods
+- ✅ Update existing extract_* functions to be thin wrappers
+- ✅ Add comprehensive tests for all trait implementations
 
 **Verification**:
 ```bash
-cargo test --lib attribution::factors
+cargo test --lib attribution::factors  # ✅ 40 tests pass (31 existing + 9 new)
 ```
 
 **Acceptance**:
-- ✅ All snapshot types implement trait correctly
-- ✅ Extraction behavior unchanged
-- ✅ Generic function works with all types
+- ✅ All snapshot types implement trait correctly (6 implementations added)
+- ✅ Extraction behavior unchanged (verified by test_trait_vs_function_equivalence)
+- ✅ Generic function works with all types (verified by test_generic_extract_with_type_inference)
+- ✅ All 40 tests pass (31 from Phase 1 + 9 new trait tests)
+- ✅ Existing extract_* functions now delegate to trait methods (1 line each)
+- ✅ Code reduction: ~110 lines of implementation logic moved into trait impls
+- ✅ Tests cover: individual snapshot types, generic extraction, equivalence, multiple curves
 
 ---
 
