@@ -4,11 +4,15 @@
 //! constituent factors: carry, curve shifts, credit spreads, FX, volatility,
 //! model parameters, and market scalars.
 
-use finstack_core::config::RoundingContext;
+use finstack_core::config::{FinstackConfig, RoundingContext};
 use finstack_core::money::fx::FxPolicyMeta;
 use finstack_core::prelude::*;
 use finstack_core::types::CurveId;
 use indexmap::IndexMap;
+use std::sync::Arc;
+
+use crate::instruments::common::traits::Instrument;
+use crate::results::ValuationResult;
 
 #[cfg(feature = "serde")]
 use serde::{Deserialize, Serialize};
@@ -83,6 +87,103 @@ pub enum AttributionFactor {
 
     /// Market scalars (dividends, equity/commodity prices, inflation indices).
     MarketScalars,
+}
+
+/// Input parameters for P&L attribution.
+///
+/// Consolidates common parameters used across all attribution methods
+/// (parallel, waterfall, metrics-based) to reduce function parameter counts
+/// and improve API ergonomics.
+///
+/// # Method-Specific Parameters
+///
+/// Different attribution methods use different subsets of these parameters:
+///
+/// - **Parallel**: Uses `config` and `model_params_t0`
+/// - **Waterfall**: Uses `config`, `model_params_t0`, and `strict_validation`
+/// - **MetricsBased**: Uses `val_t0` and `val_t1`
+///
+/// # Examples
+///
+/// ```rust,ignore
+/// use finstack_valuations::attribution::{AttributionInput, AttributionMethod};
+/// use finstack_core::prelude::Date;
+///
+/// // Parallel attribution
+/// let input = AttributionInput {
+///     instrument: &my_bond,
+///     market_t0: &market_t0,
+///     market_t1: &market_t1,
+///     as_of_t0: Date::new(2024, 1, 1),
+///     as_of_t1: Date::new(2024, 1, 2),
+///     config: Some(&config),
+///     model_params_t0: None,
+///     val_t0: None,
+///     val_t1: None,
+///     strict_validation: false,
+/// };
+///
+/// let attribution = attribute_pnl(AttributionMethod::Parallel, &input)?;
+///
+/// // Metrics-based attribution
+/// let input = AttributionInput {
+///     instrument: &my_bond,
+///     market_t0: &market_t0,
+///     market_t1: &market_t1,
+///     as_of_t0: Date::new(2024, 1, 1),
+///     as_of_t1: Date::new(2024, 1, 2),
+///     config: None,
+///     model_params_t0: None,
+///     val_t0: Some(&val_t0),
+///     val_t1: Some(&val_t1),
+///     strict_validation: false,
+/// };
+///
+/// let attribution = attribute_pnl(AttributionMethod::MetricsBased, &input)?;
+/// ```
+#[derive(Clone)]
+pub struct AttributionInput<'a> {
+    /// Instrument to attribute P&L for.
+    pub instrument: &'a Arc<dyn Instrument>,
+
+    /// Market state at time T₀.
+    pub market_t0: &'a MarketContext,
+
+    /// Market state at time T₁.
+    pub market_t1: &'a MarketContext,
+
+    /// Valuation date T₀.
+    pub as_of_t0: Date,
+
+    /// Valuation date T₁.
+    pub as_of_t1: Date,
+
+    /// Configuration for rounding context (used by parallel and waterfall).
+    ///
+    /// Set to `None` for metrics-based attribution.
+    pub config: Option<&'a FinstackConfig>,
+
+    /// Model parameters snapshot at T₀ (used by parallel and waterfall).
+    ///
+    /// If provided, T₀ valuation will use these model parameters.
+    /// Set to `None` for metrics-based attribution or when using current model parameters.
+    pub model_params_t0: Option<&'a crate::attribution::model_params::ModelParamsSnapshot>,
+
+    /// Pre-computed valuation at T₀ (used by metrics-based).
+    ///
+    /// Set to `None` for parallel and waterfall attribution.
+    pub val_t0: Option<&'a ValuationResult>,
+
+    /// Pre-computed valuation at T₁ (used by metrics-based).
+    ///
+    /// Set to `None` for parallel and waterfall attribution.
+    pub val_t1: Option<&'a ValuationResult>,
+
+    /// Strict validation for waterfall attribution (default: false).
+    ///
+    /// When true, waterfall attribution will error if factor order is incomplete.
+    /// When false, missing factors are silently ignored.
+    pub strict_validation: bool,
 }
 
 /// Complete P&L attribution result for a single instrument.

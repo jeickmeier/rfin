@@ -120,11 +120,43 @@ pub fn attribute_pnl_waterfall(
     strict_validation: bool,
     model_params_t0: Option<&crate::attribution::model_params::ModelParamsSnapshot>,
 ) -> Result<PnlAttribution> {
+    let input = AttributionInput {
+        instrument,
+        market_t0,
+        market_t1,
+        as_of_t0,
+        as_of_t1,
+        config: Some(_config),
+        model_params_t0,
+        val_t0: None,
+        val_t1: None,
+        strict_validation,
+    };
+    attribute_pnl_waterfall_impl(&input, factor_order)
+}
+
+/// Internal implementation of waterfall attribution using `AttributionInput`.
+///
+/// This is the core implementation that uses the context struct pattern
+/// to reduce parameter count and improve maintainability.
+fn attribute_pnl_waterfall_impl(
+    input: &AttributionInput,
+    factor_order: Vec<AttributionFactor>,
+) -> Result<PnlAttribution> {
     if factor_order.is_empty() {
         return Err(Error::Validation(
             "Waterfall attribution requires non-empty factor_order".to_string(),
         ));
     }
+    
+    let instrument = input.instrument;
+    let market_t0 = input.market_t0;
+    let market_t1 = input.market_t1;
+    let as_of_t0 = input.as_of_t0;
+    let as_of_t1 = input.as_of_t1;
+    let model_params_t0 = input.model_params_t0;
+    let _config = input.config.expect("config required for waterfall attribution");
+    let strict_validation = input.strict_validation;
 
     // Step 1: Price at T₀
     // Use T₀ model parameters for T₀ valuation if available

@@ -86,6 +86,34 @@ pub fn attribute_pnl_parallel(
     _config: &FinstackConfig,
     model_params_t0: Option<&crate::attribution::model_params::ModelParamsSnapshot>,
 ) -> Result<PnlAttribution> {
+    let input = AttributionInput {
+        instrument,
+        market_t0,
+        market_t1,
+        as_of_t0,
+        as_of_t1,
+        config: Some(_config),
+        model_params_t0,
+        val_t0: None,
+        val_t1: None,
+        strict_validation: false,
+    };
+    attribute_pnl_parallel_impl(&input)
+}
+
+/// Internal implementation of parallel attribution using `AttributionInput`.
+///
+/// This is the core implementation that uses the context struct pattern
+/// to reduce parameter count and improve maintainability.
+fn attribute_pnl_parallel_impl(input: &AttributionInput) -> Result<PnlAttribution> {
+    let instrument = input.instrument;
+    let market_t0 = input.market_t0;
+    let market_t1 = input.market_t1;
+    let as_of_t0 = input.as_of_t0;
+    let as_of_t1 = input.as_of_t1;
+    let model_params_t0 = input.model_params_t0;
+    let _config = input.config.expect("config required for parallel attribution");
+    
     let mut num_repricings = 0;
 
     // Step 1: Price at T₀ and T₁
