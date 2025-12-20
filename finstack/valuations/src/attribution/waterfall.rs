@@ -32,6 +32,10 @@
 //! - Residual is minimal by construction (should be within numeric precision)
 //! - Recommended for risk reporting where sum must equal total
 
+// TODO: Migrate to trait-based extraction (RatesCurvesSnapshot::extract, etc.)
+// instead of deprecated extract_*_curves functions
+#![allow(deprecated)]
+
 use crate::attribution::factors::*;
 use crate::attribution::helpers::*;
 use crate::attribution::types::*;

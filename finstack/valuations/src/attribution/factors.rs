@@ -129,6 +129,33 @@
 //! - **Ordering**: Preserved curves inserted first, then snapshot curves (allows snapshot to override)
 //! - **Empty snapshots**: Safe to pass empty snapshots; only curves present are inserted
 //!
+//! # Trait-Based Extraction (Recommended)
+//!
+//! The module also provides a trait-based extraction system via [`MarketExtractable`]
+//! that offers better type safety and composability:
+//!
+//! ```rust
+//! use finstack_valuations::attribution::factors::{
+//!     MarketExtractable, RatesCurvesSnapshot, CreditCurvesSnapshot
+//! };
+//! use finstack_core::market_data::context::MarketContext;
+//!
+//! let market = MarketContext::new();
+//! // ... populate market
+//!
+//! // Type-safe extraction with trait methods
+//! let rates = RatesCurvesSnapshot::extract(&market);
+//! let credit = CreditCurvesSnapshot::extract(&market);
+//!
+//! // Or use the generic helper with type inference
+//! use finstack_valuations::attribution::factors::extract;
+//! let rates: RatesCurvesSnapshot = extract(&market);
+//! ```
+//!
+//! The old `extract_*_curves()` functions are deprecated in favor of this trait-based
+//! approach, which provides better type inference and reduces the module's public API
+//! surface.
+//!
 //! # See Also
 //!
 //! - [`crate::attribution::parallel`] - Parallel attribution using this module
@@ -606,6 +633,23 @@ impl MarketExtractable for ScalarsSnapshot {
 /// # Returns
 ///
 /// Snapshot containing all rates curves.
+///
+/// # Migration
+///
+/// Use the trait-based approach instead:
+/// ```ignore
+/// // Old way (deprecated)
+/// let snapshot = extract_rates_curves(&market);
+///
+/// // New way (recommended)
+/// let snapshot = RatesCurvesSnapshot::extract(&market);
+/// // or
+/// let snapshot = extract::<RatesCurvesSnapshot>(&market);
+/// ```
+#[deprecated(
+    since = "0.1.0",
+    note = "Use RatesCurvesSnapshot::extract() or extract::<RatesCurvesSnapshot>() instead"
+)]
 pub fn extract_rates_curves(market: &MarketContext) -> RatesCurvesSnapshot {
     RatesCurvesSnapshot::extract(market)
 }
@@ -622,6 +666,23 @@ pub fn extract_rates_curves(market: &MarketContext) -> RatesCurvesSnapshot {
 /// # Returns
 ///
 /// Snapshot containing all hazard curves.
+///
+/// # Migration
+///
+/// Use the trait-based approach instead:
+/// ```ignore
+/// // Old way (deprecated)
+/// let snapshot = extract_credit_curves(&market);
+///
+/// // New way (recommended)
+/// let snapshot = CreditCurvesSnapshot::extract(&market);
+/// // or
+/// let snapshot = extract::<CreditCurvesSnapshot>(&market);
+/// ```
+#[deprecated(
+    since = "0.1.0",
+    note = "Use CreditCurvesSnapshot::extract() or extract::<CreditCurvesSnapshot>() instead"
+)]
 pub fn extract_credit_curves(market: &MarketContext) -> CreditCurvesSnapshot {
     CreditCurvesSnapshot::extract(market)
 }
@@ -638,6 +699,23 @@ pub fn extract_credit_curves(market: &MarketContext) -> CreditCurvesSnapshot {
 /// # Returns
 ///
 /// Snapshot containing all inflation curves.
+///
+/// # Migration
+///
+/// Use the trait-based approach instead:
+/// ```ignore
+/// // Old way (deprecated)
+/// let snapshot = extract_inflation_curves(&market);
+///
+/// // New way (recommended)
+/// let snapshot = InflationCurvesSnapshot::extract(&market);
+/// // or
+/// let snapshot = extract::<InflationCurvesSnapshot>(&market);
+/// ```
+#[deprecated(
+    since = "0.1.0",
+    note = "Use InflationCurvesSnapshot::extract() or extract::<InflationCurvesSnapshot>() instead"
+)]
 pub fn extract_inflation_curves(market: &MarketContext) -> InflationCurvesSnapshot {
     InflationCurvesSnapshot::extract(market)
 }
@@ -654,6 +732,23 @@ pub fn extract_inflation_curves(market: &MarketContext) -> InflationCurvesSnapsh
 /// # Returns
 ///
 /// Snapshot containing all correlation curves.
+///
+/// # Migration
+///
+/// Use the trait-based approach instead:
+/// ```ignore
+/// // Old way (deprecated)
+/// let snapshot = extract_correlations(&market);
+///
+/// // New way (recommended)
+/// let snapshot = CorrelationsSnapshot::extract(&market);
+/// // or
+/// let snapshot = extract::<CorrelationsSnapshot>(&market);
+/// ```
+#[deprecated(
+    since = "0.1.0",
+    note = "Use CorrelationsSnapshot::extract() or extract::<CorrelationsSnapshot>() instead"
+)]
 pub fn extract_correlations(market: &MarketContext) -> CorrelationsSnapshot {
     CorrelationsSnapshot::extract(market)
 }
@@ -683,6 +778,23 @@ pub fn extract_fx(market: &MarketContext) -> Option<Arc<FxMatrix>> {
 /// # Returns
 ///
 /// Snapshot containing all volatility surfaces.
+///
+/// # Migration
+///
+/// Use the trait-based approach instead:
+/// ```ignore
+/// // Old way (deprecated)
+/// let snapshot = extract_volatility(&market);
+///
+/// // New way (recommended)
+/// let snapshot = VolatilitySnapshot::extract(&market);
+/// // or
+/// let snapshot = extract::<VolatilitySnapshot>(&market);
+/// ```
+#[deprecated(
+    since = "0.1.0",
+    note = "Use VolatilitySnapshot::extract() or extract::<VolatilitySnapshot>() instead"
+)]
 pub fn extract_volatility(market: &MarketContext) -> VolatilitySnapshot {
     VolatilitySnapshot::extract(market)
 }
@@ -699,6 +811,23 @@ pub fn extract_volatility(market: &MarketContext) -> VolatilitySnapshot {
 /// # Returns
 ///
 /// Snapshot containing all market scalars.
+///
+/// # Migration
+///
+/// Use the trait-based approach instead:
+/// ```ignore
+/// // Old way (deprecated)
+/// let snapshot = extract_scalars(&market);
+///
+/// // New way (recommended)
+/// let snapshot = ScalarsSnapshot::extract(&market);
+/// // or
+/// let snapshot = extract::<ScalarsSnapshot>(&market);
+/// ```
+#[deprecated(
+    since = "0.1.0",
+    note = "Use ScalarsSnapshot::extract() or extract::<ScalarsSnapshot>() instead"
+)]
 pub fn extract_scalars(market: &MarketContext) -> ScalarsSnapshot {
     ScalarsSnapshot::extract(market)
 }
@@ -912,6 +1041,7 @@ pub fn restore_scalars(market: &MarketContext, snapshot: &ScalarsSnapshot) -> Ma
 }
 
 #[cfg(test)]
+#[allow(deprecated)] // TODO: Migrate tests to use trait-based extraction
 mod tests {
     use super::*;
     use finstack_core::dates::Date;

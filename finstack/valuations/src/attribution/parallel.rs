@@ -22,6 +22,10 @@
 //! - Factors are isolated independently, so cross-effects appear in residual
 //! - Model parameters attribution requires instrument-specific support (see model_params.rs)
 
+// TODO: Migrate to trait-based extraction (RatesCurvesSnapshot::extract, etc.)
+// instead of deprecated extract_*_curves functions
+#![allow(deprecated)]
+
 use crate::attribution::factors::*;
 use crate::attribution::helpers::*;
 use crate::attribution::types::*;

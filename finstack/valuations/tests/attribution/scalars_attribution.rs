@@ -20,6 +20,7 @@ use finstack_core::types::CurveId;
 // using MarketContext.price(equity_id) for spot price lookup during pricing.
 
 #[test]
+#[allow(deprecated)] // TODO: Migrate to ScalarsSnapshot::extract()
 fn test_scalars_snapshot_extraction() {
     use finstack_valuations::attribution::factors::{extract_scalars, restore_scalars};
 
@@ -56,6 +57,7 @@ fn test_scalars_snapshot_extraction() {
 }
 
 #[test]
+#[allow(deprecated)] // TODO: Migrate to ScalarsSnapshot::extract()
 fn test_market_scalar_freeze_restore() {
     use finstack_valuations::attribution::factors::{extract_scalars, restore_scalars};
 
