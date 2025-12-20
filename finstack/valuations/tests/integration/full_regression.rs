@@ -280,8 +280,8 @@ fn test_fx_settlement_integration() {
     let trade_date = date!(2024 - 12 - 27); // Friday before New Year's week
 
     // Test USD/EUR settlement (T+2 with joint NYSE and TARGET2 calendars)
-    // Expected: skip weekend (Sat 28, Sun 29), skip Mon 30 and Tue 31 (both closed),
-    // skip Wed Jan 1 (New Year's Day, both closed) → settle Thu Jan 2
+    // From our Phase 2 validated tests: Dec 27 + T+2 business days = Dec 31
+    // (Skips weekend Sat 28, Sun 29; counts Mon 30 and Tue 31 as business days)
     let usd_eur_spot = roll_spot_date(
         trade_date,
         2,
@@ -293,8 +293,8 @@ fn test_fx_settlement_integration() {
 
     assert_eq!(
         usd_eur_spot,
-        date!(2025 - 01 - 02),
-        "USD/EUR T+2 spot from Dec 27, 2024 should be Jan 2, 2025 (joint business days)"
+        date!(2024 - 12 - 31),
+        "USD/EUR T+2 spot from Dec 27, 2024 should be Dec 31, 2024 (joint business days)"
     );
 
     // Test GBP/JPY settlement (T+2 with joint GBLO and JPX calendars)
