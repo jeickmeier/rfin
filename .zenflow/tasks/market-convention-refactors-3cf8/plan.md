@@ -1,64 +1,781 @@
-# Spec and build
+# Market Convention Refactors - Implementation Plan
 
 ## Configuration
-- **Artifacts Path**: {@artifacts_path} → `.zenflow/tasks/{task_id}`
+- **Artifacts Path**: `.zenflow/tasks/market-convention-refactors-3cf8`
+- **Complexity**: HARD
+- **Estimated Duration**: 4 weeks (18 working days)
 
 ---
 
 ## Agent Instructions
 
-Ask the user questions when anything is unclear or needs their input. This includes:
-- Ambiguous or incomplete requirements
-- Technical decisions that affect architecture or user experience
-- Trade-offs that require business context
+**IMPORTANT DECISIONS NEEDED** (ask user before starting implementation):
 
-Do not make assumptions on important decisions — get clarification first.
+1. **Metrics Strict Mode Default** (Phase 1):
+   - Option A: Make strict mode default immediately (breaking)
+   - Option B: Feature flag in 0.x, strict default in 1.0 (gradual)
+   - **Recommendation**: Option B
+
+2. **Quote Unit Convention** (Phase 2):
+   - Option A: `spread_bp` (basis points) - recommended
+   - Option B: `spread_decimal` (decimal)
+   - **Recommendation**: Option A
+
+3. **Constructor Migration** (Phase 3):
+   - Option A: Remove `new()` immediately (breaking)
+   - Option B: Deprecate first, remove in 1.0 (gradual)
+   - **Recommendation**: Option B
+
+**Ask user to confirm these decisions before proceeding with implementation.**
 
 ---
 
 ## Workflow Steps
 
-### [ ] Step: Technical Specification
+### [x] Step: Technical Specification
+<!-- chat-id: e41ce7fc-ca60-4343-b6f4-b00104b80512 -->
 
-Assess the task's difficulty, as underestimating it leads to poor outcomes.
-- easy: Straightforward implementation, trivial bug fix or feature
-- medium: Moderate complexity, some edge cases or caveats to consider
-- hard: Complex logic, many caveats, architectural considerations, or high-risk changes
-
-Create a technical specification for the task that is appropriate for the complexity level:
-- Review the existing codebase architecture and identify reusable components.
-- Define the implementation approach based on established patterns in the project.
-- Identify all source code files that will be created or modified.
-- Define any necessary data model, API, or interface changes.
-- Describe verification steps using the project's test and lint commands.
-
-Save the output to `{@artifacts_path}/spec.md` with:
-- Technical context (language, dependencies)
-- Implementation approach
-- Source code structure changes
-- Data model / API / interface changes
-- Verification approach
-
-If the task is complex enough, create a detailed implementation plan based on `{@artifacts_path}/spec.md`:
-- Break down the work into concrete tasks (incrementable, testable milestones)
-- Each task should reference relevant contracts and include verification steps
-- Replace the Implementation step below with the planned tasks
-
-Rule of thumb for step size: each step should represent a coherent unit of work (e.g., implement a component, add an API endpoint, write tests for a module). Avoid steps that are too granular (single function).
-
-Save to `{@artifacts_path}/plan.md`. If the feature is trivial and doesn't warrant this breakdown, keep the Implementation step below as is.
+**Completed**: Comprehensive spec created in `spec.md`
+- Complexity assessed as HARD
+- 3 phases identified (Critical Safety, Conventions, API Safety)
+- ~300 lines of code changes across 10-15 files
+- Breaking changes documented with migration paths
+- Full test strategy defined
 
 ---
 
-### [ ] Step: Implementation
+## Phase 1: Critical Safety Fixes (Week 1)
 
-Implement the task according to the technical specification and general engineering best practices.
+### [ ] Step 1.1: Add New Error Variants to Core
 
-1. Break the task into steps where possible.
-2. Implement the required changes in the codebase.
-3. Add and run relevant tests and linters.
-4. Perform basic manual verification if applicable.
-5. After completion, write a report to `{@artifacts_path}/report.md` describing:
-   - What was implemented
-   - How the solution was tested
-   - The biggest issues or challenges encountered
+**Goal**: Extend `finstack-core` error types for metrics framework.
+
+**Files to modify**:
+- `finstack/core/src/error.rs`
+
+**Changes**:
+1. Add error variants:
+   - `UnknownMetric { metric_id, available }`
+   - `MetricNotApplicable { metric_id, instrument_type }`
+   - `MetricCalculationFailed { metric_id, cause }`
+   - `CircularDependency { path }`
+   - `CalendarNotFound { calendar_id, hint }`
+2. Implement `Display` for each variant
+3. Add helper constructors (optional)
+
+**Verification**:
+```bash
+cd finstack/core
+cargo test error
+cargo clippy -- -D warnings
+```
+
+**Acceptance**:
+- All error variants compile and have Display implementations
+- No clippy warnings
+- Rustdoc examples build (if added)
+
+---
+
+### [ ] Step 1.2: Implement Metrics Strict Mode
+
+**Goal**: Add strict/best-effort modes to MetricRegistry with proper error propagation.
+
+**Files to modify**:
+- `finstack/valuations/src/metrics/core/registry.rs`
+- `finstack/valuations/src/metrics/core/mod.rs` (re-exports)
+
+**Changes**:
+1. Add `StrictMode` enum:
+   ```rust
+   pub enum StrictMode {
+       Strict,
+       BestEffort,
+   }
+   ```
+2. Modify `compute()` signature to accept `mode: StrictMode`
+3. Add convenience methods:
+   - `compute_strict(&self, ids, ctx) -> Result<HashMap<MetricId, f64>>`
+   - `compute_best_effort(&self, ids, ctx) -> Result<HashMap<MetricId, f64>>`
+4. Update error handling in compute (lines 187-240):
+   - Strict mode: return Err for missing metrics, failed calcs, non-applicable
+   - Best effort mode: insert 0.0 with explicit tracing/logging
+5. Add dependency resolution error propagation (lines 290-298):
+   - Remove `let _ =` pattern
+   - Propagate errors from `visit_metric`
+6. Add cycle detection in `visit_metric` (lines 304-350):
+   - Build path during recursion
+   - Return `Err(CircularDependency { path })`
+
+**Verification**:
+```bash
+cd finstack/valuations
+cargo test metrics::core::registry --lib -- --nocapture
+cargo clippy -- -D warnings
+```
+
+**Tests to add** (in `registry.rs`):
+- `test_strict_mode_unknown_metric()`
+- `test_strict_mode_calculation_failure()`
+- `test_strict_mode_not_applicable()`
+- `test_best_effort_mode_fallback()`
+- `test_circular_dependency_detection()`
+- `test_dependency_resolution_error_propagation()`
+
+**Acceptance**:
+- Strict mode returns Err for all error cases
+- Best effort mode inserts 0.0 and logs warnings
+- Circular dependencies detected with full path
+- All tests pass
+- No clippy warnings
+
+---
+
+### [ ] Step 1.3: Add Strict Metric Parsing
+
+**Goal**: Provide strict parsing for metric IDs from user inputs.
+
+**Files to modify**:
+- `finstack/valuations/src/metrics/core/ids.rs`
+
+**Changes**:
+1. Add `parse_strict(s: &str) -> Result<MetricId>` method
+2. Implementation:
+   ```rust
+   pub fn parse_strict(s: &str) -> Result<Self> {
+       let lower = s.to_lowercase();
+       if let Some(id) = metric_lookup().get(&lower) {
+           Ok(id.clone())
+       } else {
+           Err(Error::UnknownMetric {
+               metric_id: s.to_string(),
+               available: Self::ALL_STANDARD
+                   .iter()
+                   .map(|m| m.as_str().to_string())
+                   .collect(),
+           })
+       }
+   }
+   ```
+3. Keep `FromStr` implementation unchanged (backwards compat)
+4. Update docs recommending strict for user inputs
+
+**Verification**:
+```bash
+cd finstack/valuations
+cargo test metrics::core::ids --lib
+```
+
+**Tests to add**:
+- `test_parse_strict_known_metric()`
+- `test_parse_strict_unknown_metric()`
+- `test_from_str_still_permissive()`
+
+**Acceptance**:
+- Strict parsing errors on unknown metrics
+- FromStr remains permissive
+- Error includes list of available metrics
+- All tests pass
+
+---
+
+### [ ] Step 1.4: Fix Calibration Residual Normalization
+
+**Goal**: Normalize global residuals by `residual_notional`.
+
+**Files to modify**:
+- `finstack/valuations/src/calibration/targets/discount.rs`
+
+**Changes**:
+1. Locate global residual calculation (around line 57 in `calculate_residuals`)
+2. Change:
+   ```rust
+   // BEFORE:
+   residuals[i] = pv / 1.0;
+   
+   // AFTER:
+   residuals[i] = pv / self.residual_notional;
+   ```
+
+**Verification**:
+```bash
+cd finstack/valuations
+cargo test calibration::targets::discount --lib
+cargo test calibration --test integration_tests -- --nocapture
+```
+
+**Tests to add**:
+- `test_residual_normalization_invariance()` - same curve with different notionals
+
+**Acceptance**:
+- Notional 1.0 and 1_000_000.0 produce identical curves (within 1e-12)
+- Max residual ≤ 1e-8 in normalized units
+- Existing calibration tests still pass
+
+---
+
+### [ ] Step 1.5: Phase 1 Integration & Documentation
+
+**Goal**: Integration tests and migration guide for Phase 1 changes.
+
+**Files to create/modify**:
+- `finstack/valuations/tests/integration/metrics_strict_mode.rs` (new)
+- `finstack/valuations/MIGRATION.md` (update or create)
+
+**Changes**:
+1. Add integration test covering multi-metric strict mode workflow
+2. Test scenarios:
+   - Request 10 metrics, all succeed
+   - Request 10 metrics, 1 fails → all fail in strict mode
+   - Request 10 metrics, 1 fails → 9 succeed in best effort
+3. Update migration guide with examples from spec
+4. Add rustdoc examples to new APIs
+
+**Verification**:
+```bash
+cd finstack/valuations
+cargo test --test integration -- metrics_strict_mode
+make test-rust  # Full suite
+make lint-rust
+```
+
+**Acceptance**:
+- Integration tests pass
+- Migration guide includes before/after examples
+- Documentation builds without warnings
+- All Phase 1 changes tested end-to-end
+
+---
+
+## Phase 2: Market Convention Alignment (Week 2)
+
+### [ ] Step 2.1: Implement Joint Business Day Logic
+
+**Goal**: Add joint calendar business day counting for FX settlement.
+
+**Files to modify**:
+- `finstack/valuations/src/instruments/common/fx_dates.rs`
+
+**Changes**:
+1. Add new function `add_joint_business_days()` (see spec for implementation)
+2. Update `roll_spot_date()` to use joint business day logic
+3. Make `resolve_calendar()` return `Result` (error on unknown ID)
+4. Remove silent fallback to `weekends_only()`
+
+**Verification**:
+```bash
+cd finstack/valuations
+cargo test instruments::common::fx_dates --lib -- --nocapture
+```
+
+**Tests to add**:
+- `test_add_joint_business_days_no_holidays()`
+- `test_add_joint_business_days_base_holiday()`
+- `test_add_joint_business_days_quote_holiday()`
+- `test_add_joint_business_days_both_holidays()`
+- `test_roll_spot_date_near_holiday()`
+- `test_resolve_calendar_unknown_id()`
+- `test_resolve_calendar_explicit_none()`
+
+**Acceptance**:
+- Joint business day counting skips days when either calendar is closed
+- Unknown calendar IDs return `CalendarNotFound` error
+- Explicit None uses weekends-only (not as fallback)
+- All tests pass
+
+---
+
+### [ ] Step 2.2: Fix Quote Units (Swap Spread)
+
+**Goal**: Rename spread field with explicit units and remove conversion.
+
+**Files to modify**:
+- `finstack/valuations/src/market/quotes/rates.rs` (RateQuote enum)
+- `finstack/valuations/src/market/build/rates.rs` (builder, line ~373)
+
+**Changes**:
+1. In `RateQuote::Swap`:
+   ```rust
+   // BEFORE:
+   spread: Option<f64>,
+   
+   // AFTER:
+   #[serde(alias = "spread")] // Backwards compat
+   spread_bp: Option<f64>,
+   ```
+2. In `build_rate_instrument()`:
+   ```rust
+   // BEFORE:
+   if let Some(s) = spread {
+       swap.float.spread_bp = *s * 10000.0;
+   }
+   
+   // AFTER:
+   if let Some(spread_bp) = spread_bp {
+       swap.float.spread_bp = *spread_bp; // Direct assignment
+   }
+   ```
+3. Update all tests using old `spread` field
+4. Update rustdoc examples
+
+**Verification**:
+```bash
+cd finstack/valuations
+cargo test market::quotes::rates --lib
+cargo test market::build::rates --lib
+```
+
+**Tests to add**:
+- `test_swap_spread_bp_no_conversion()`
+- `test_swap_spread_serde_backwards_compat()`
+- `test_swap_spread_bp_programmatic_api()`
+
+**Acceptance**:
+- `spread_bp = 10.0` → `swap.float.spread_bp = 10.0` (no *10000)
+- Old JSON `"spread": 10.0` deserializes correctly
+- New JSON `"spread_bp": 10.0` preferred in docs
+- All tests pass
+
+---
+
+### [ ] Step 2.3: FX Integration Tests & Golden Files
+
+**Goal**: Validate FX settlement against ISDA conventions and update golden files.
+
+**Files to create/modify**:
+- `finstack/valuations/tests/integration/fx_settlement.rs` (new)
+- `finstack/valuations/tests/golden/fx_spot_dates.json` (update)
+
+**Changes**:
+1. Create test cases:
+   - USD/EUR around New Year (T+2, joint holidays)
+   - GBP/JPY around UK/JP holidays
+   - USD/TRY around Turkish holidays
+2. Compare results against vendor calendars (Bloomberg, ISDA)
+3. Document expected date shifts from legacy behavior
+4. Update golden files with new correct dates
+
+**Verification**:
+```bash
+cd finstack/valuations
+cargo test --test integration -- fx_settlement
+```
+
+**Acceptance**:
+- All test cases match ISDA conventions
+- Golden files updated with documented rationale
+- Legacy behavior differences documented in test comments
+
+---
+
+## Phase 3: API Safety & Reporting (Week 3)
+
+### [ ] Step 3.1: Remove Panicking Constructors
+
+**Goal**: Eliminate panicking `new()` methods from instrument constructors.
+
+**Files to modify**:
+- `finstack/valuations/src/instruments/cds_option/*.rs`
+- Search for other panicking constructors: `grep -r "expect.*Invalid.*parameters" src/instruments/`
+
+**Changes**:
+1. For each panicking constructor:
+   ```rust
+   // OPTION A: Remove entirely (recommended)
+   // Delete pub fn new()
+   
+   // OPTION B: Keep for tests only
+   #[cfg(test)]
+   pub fn new(...) -> Self {
+       Self::try_new(...).expect("Invalid parameters")
+   }
+   ```
+2. Ensure `try_new() -> Result<Self>` is the only public constructor
+3. Update all internal uses to `try_new()`
+4. Update tests to handle `Result`
+
+**Verification**:
+```bash
+cd finstack/valuations
+cargo test instruments --lib
+# Verify no panics in non-test code:
+cargo clippy -- -D clippy::expect_used -D clippy::unwrap_used -D clippy::panic
+```
+
+**Acceptance**:
+- No panicking constructors in production code paths
+- All instrument construction via `try_new()`
+- Tests updated to use `try_new()?` or `expect` in test context
+- Clippy passes with strict lints
+
+---
+
+### [ ] Step 3.2: Add Clippy Lints to Prevent Regressions
+
+**Goal**: Enforce safety lints at crate level.
+
+**Files to modify**:
+- `finstack/valuations/src/lib.rs`
+
+**Changes**:
+1. Add at top of lib.rs:
+   ```rust
+   #![deny(clippy::expect_used)]
+   #![deny(clippy::unwrap_used)]
+   #![deny(clippy::panic)]
+   ```
+2. Allow exceptions only where necessary (e.g., tests):
+   ```rust
+   #[cfg(test)]
+   #[allow(clippy::expect_used)]
+   mod tests { ... }
+   ```
+3. Fix any violations surfaced by lints
+
+**Verification**:
+```bash
+cd finstack/valuations
+cargo clippy --all-features -- -D warnings
+```
+
+**Acceptance**:
+- Clippy passes with all safety lints enabled
+- Exceptions explicitly documented with `#[allow]` and rationale
+- No new panics possible in production code
+
+---
+
+### [ ] Step 3.3: Fix Results Export Metric Mapping
+
+**Goal**: Use correct MetricId constants for DataFrame export.
+
+**Files to modify**:
+- `finstack/valuations/src/results/dataframe.rs`
+
+**Changes**:
+1. Add import: `use crate::metrics::core::ids::MetricId;`
+2. Update `to_row()` implementation (lines 42-56):
+   ```rust
+   // Add helper method:
+   fn get_measure(&self, id: MetricId) -> Option<f64> {
+       self.measures.get(id.as_str()).copied()
+   }
+   
+   // Update field mappings:
+   dv01: self.get_measure(MetricId::Dv01),
+   convexity: self.get_measure(MetricId::Convexity),
+   duration: self.get_measure(MetricId::DurationMod)
+       .or_else(|| self.get_measure(MetricId::DurationMac)),
+   ytm: self.get_measure(MetricId::Ytm),
+   ```
+
+**Verification**:
+```bash
+cd finstack/valuations
+cargo test results::dataframe --lib
+```
+
+**Tests to add**:
+- `test_to_row_duration_mod_mapping()`
+- `test_to_row_duration_mac_fallback()`
+- `test_to_row_dv01_mapping()`
+- `test_to_row_convexity_mapping()`
+
+**Acceptance**:
+- All metric keys use MetricId constants
+- Tests verify each field correctly populated
+- No hardcoded string keys remain
+
+---
+
+### [ ] Step 3.4: Phase 3 Integration & Regression Suite
+
+**Goal**: Full regression testing across all phases.
+
+**Files to create/modify**:
+- `finstack/valuations/tests/integration/full_regression.rs` (new)
+- Update existing golden test files as needed
+
+**Changes**:
+1. End-to-end workflow tests:
+   - Calibrate OIS curve (50 quotes)
+   - Price bond portfolio (100 bonds)
+   - Compute 10 metrics per bond (strict mode)
+   - Export to DataFrame
+   - Validate FX settlement for multi-currency
+2. Run against golden files
+3. Document expected differences (FX dates, residuals)
+4. Update baselines if changes are expected and correct
+
+**Verification**:
+```bash
+cd finstack
+make test-rust
+make lint-rust
+cargo test --test full_regression -- --nocapture --test-threads=1
+```
+
+**Acceptance**:
+- All integration tests pass
+- Golden file differences explained and documented
+- No unexpected behavioral changes
+- Performance benchmarks within tolerance (<10% regression)
+
+---
+
+## Phase 4: Documentation & Migration (Week 4)
+
+### [ ] Step 4.1: Write Migration Guide
+
+**Goal**: Comprehensive migration documentation for users.
+
+**Files to create/modify**:
+- `MIGRATION_GUIDE.md` (new, root level)
+- `finstack/valuations/CHANGELOG.md` (update)
+
+**Contents**:
+1. Overview of breaking changes
+2. Phase-by-phase migration instructions
+3. Code examples (from spec):
+   - Metrics strict mode usage
+   - FX settlement error handling
+   - Quote units updates
+   - Constructor changes
+4. Decision tree for migration strategies
+5. FAQs (common errors, workarounds)
+6. Deprecation timeline
+
+**Acceptance**:
+- Guide covers all breaking changes
+- Examples are copy-pasteable and correct
+- Links to relevant API docs
+- Reviewed by at least one other developer
+
+---
+
+### [ ] Step 4.2: Update API Documentation
+
+**Goal**: Ensure all changed APIs have correct rustdoc.
+
+**Files to modify**:
+- All files modified in Phases 1-3
+
+**Changes**:
+1. Add/update rustdoc for:
+   - New methods (compute_strict, parse_strict, add_joint_business_days, etc.)
+   - Changed signatures (compute with mode parameter)
+   - Error variants
+2. Add `# Examples` sections with usage
+3. Add `# Errors` sections documenting error conditions
+4. Cross-link related APIs
+
+**Verification**:
+```bash
+cargo doc --no-deps --open
+# Check for warnings:
+cargo doc --no-deps 2>&1 | grep warning
+```
+
+**Acceptance**:
+- No rustdoc warnings
+- All public APIs documented
+- Examples compile and run
+- Errors documented
+
+---
+
+### [ ] Step 4.3: Update Python & WASM Bindings
+
+**Goal**: Sync bindings with Rust changes.
+
+**Files to modify**:
+- `finstack-py/src/valuations/metrics/registry.rs`
+- `finstack-py/src/valuations/metrics/ids.rs`
+- `finstack-wasm/src/valuations/metrics/registry.rs`
+- `finstack-wasm/src/valuations/metrics/ids.rs`
+
+**Changes**:
+1. Python bindings:
+   - Expose `compute_strict()` and `compute_best_effort()`
+   - Expose `MetricId.parse_strict()`
+   - Update error conversions for new error variants
+   - Update Pydantic models for quote schema changes
+
+2. WASM bindings:
+   - Expose `computeStrict()` and `computeBestEffort()` (camelCase)
+   - Expose `MetricId.parseStrict()`
+   - Update TypeScript types for quote schema
+   - Update error mappings
+
+**Verification**:
+```bash
+make test-python
+make test-wasm
+make lint-python
+make lint-wasm
+```
+
+**Acceptance**:
+- Python API parity with Rust
+- WASM API parity with Rust
+- All binding tests pass
+- TypeScript types correct
+
+---
+
+### [ ] Step 4.4: Performance Benchmarks
+
+**Goal**: Validate no significant performance regressions.
+
+**Files to create/modify**:
+- `finstack/valuations/benches/metrics.rs` (update)
+- `finstack/valuations/benches/calibration.rs` (update)
+- `finstack/valuations/benches/fx_dates.rs` (new)
+
+**Benchmarks to run**:
+1. Metrics computation:
+   - 1000 instruments × 10 metrics (strict vs best effort)
+   - Expected: <5% difference
+2. Calibration:
+   - 200-quote OIS curve (before/after residual fix)
+   - Expected: <1% difference (pure fix)
+3. FX settlement:
+   - 10,000 spot date calculations (joint business days)
+   - Expected: <10% regression (more correct but may be slower)
+
+**Verification**:
+```bash
+cd finstack/valuations
+cargo bench --bench metrics -- --save-baseline after
+cargo bench --bench calibration -- --save-baseline after
+cargo bench --bench fx_dates -- --save-baseline after
+# Compare against "before" baseline (captured before changes)
+```
+
+**Acceptance**:
+- All benchmarks within acceptable regression thresholds
+- Any >10% regressions justified and documented
+- Results saved for future comparison
+
+---
+
+### [ ] Step 4.5: Final Release Preparation
+
+**Goal**: Prepare for release with all artifacts.
+
+**Files to create/modify**:
+- `CHANGELOG.md` (root level)
+- `finstack/valuations/README.md`
+- Release notes draft
+
+**Tasks**:
+1. Update CHANGELOG:
+   - Version number (e.g., 0.8.0)
+   - Breaking changes section (summarize each phase)
+   - Fixes section (residual normalization, metric mapping)
+   - Migration guide link
+2. Update README:
+   - Quick start examples using new APIs
+   - Link to migration guide
+   - Deprecation warnings (if using gradual migration)
+3. Draft release notes:
+   - High-level summary
+   - Breaking changes with mitigation
+   - Known issues (if any)
+   - Upgrade instructions
+
+**Verification**:
+- Changelog follows Keep a Changelog format
+- All links work
+- Version numbers consistent across crates
+
+**Acceptance**:
+- All documentation complete and accurate
+- Release notes reviewed
+- Ready for version tag and publish
+
+---
+
+### [ ] Step: Final Report
+
+**Goal**: Summarize implementation and outcomes.
+
+**Files to create**:
+- `.zenflow/tasks/market-convention-refactors-3cf8/report.md`
+
+**Contents**:
+1. **What was implemented**:
+   - Summary of each phase
+   - Files changed (count, LOC metrics)
+   - Breaking changes applied
+
+2. **How it was tested**:
+   - Unit test coverage (% and count)
+   - Integration test scenarios
+   - Golden file validation results
+   - Performance benchmark results
+
+3. **Challenges encountered**:
+   - Unexpected dependencies or complications
+   - Design decisions made during implementation
+   - Areas needing further work
+
+4. **Migration impact**:
+   - Estimated effort for users to migrate
+   - Known compatibility issues
+   - Support plan
+
+**Acceptance**:
+- Report is comprehensive and accurate
+- Includes metrics and evidence
+- Documents lessons learned
+- Ready for stakeholder review
+
+---
+
+## Rollback Strategy
+
+If critical issues arise during implementation:
+
+### Phase-wise Rollback
+- **Phase 1**: Feature flag `strict_metrics_mode` (default off)
+- **Phase 2**: Feature flag `legacy_fx_settlement` (preserve old behavior)
+- **Phase 3**: Deprecation instead of immediate removal
+
+### Emergency Rollback
+1. Revert to previous release tag
+2. Apply hotfix to main branch
+3. Re-plan implementation with additional safeguards
+
+---
+
+## Success Criteria Summary
+
+### Functional
+- ✅ All ~50+ unit tests pass (100% coverage for changed code)
+- ✅ All ~10 integration tests pass
+- ✅ Golden files updated with documented rationale
+- ✅ Clippy and rustfmt pass with zero warnings
+
+### Performance
+- ✅ Metrics strict mode overhead <5%
+- ✅ Calibration performance within 1%
+- ✅ FX settlement <10% regression (justified)
+
+### Documentation
+- ✅ Migration guide complete with examples
+- ✅ API docs updated (no warnings)
+- ✅ CHANGELOG and release notes drafted
+- ✅ Python/WASM bindings synced
+
+### Compliance
+- ✅ FX settlement matches ISDA conventions (test verified)
+- ✅ Calibration tolerances work across notionals (test verified)
+- ✅ Metric errors are actionable (no silent zeros in strict mode)
+
+---
+
+**Total Estimated Steps**: 19 concrete implementation steps
+**Estimated Duration**: 18-20 working days (4 weeks)
+**Risk Level**: High (breaking changes, convention alignment)
+**Mitigation**: Phased rollout, comprehensive testing, gradual migration paths
