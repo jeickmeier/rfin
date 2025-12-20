@@ -928,6 +928,23 @@ impl PnlAttribution {
     }
 }
 
+#[cfg(feature = "serde")]
+impl JsonEnvelope for PnlAttribution {
+    fn parse_error(e: serde_json::Error) -> finstack_core::Error {
+        finstack_core::Error::Calibration {
+            message: format!("Failed to parse P&L attribution JSON: {}", e),
+            category: "json_parse".to_string(),
+        }
+    }
+
+    fn serialize_error(e: serde_json::Error) -> finstack_core::Error {
+        finstack_core::Error::Calibration {
+            message: format!("Failed to serialize P&L attribution: {}", e),
+            category: "json_serialize".to_string(),
+        }
+    }
+}
+
 impl std::fmt::Display for AttributionMethod {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
@@ -1055,6 +1072,46 @@ mod tests {
         assert!(result.is_err());
         assert!(!attr.meta.notes.is_empty());
         assert_eq!(attr.residual.amount(), 0.0);
+    }
+
+    #[test]
+    #[cfg(feature = "serde")]
+    fn test_pnl_attribution_json_envelope_trait() {
+        let total = Money::new(1000.0, Currency::USD);
+        let mut attr = PnlAttribution::new(
+            total,
+            "BOND-001",
+            date!(2025 - 01 - 15),
+            date!(2025 - 01 - 16),
+            AttributionMethod::Parallel,
+        );
+
+        // Set some values
+        attr.carry = Money::new(100.0, Currency::USD);
+        attr.rates_curves_pnl = Money::new(500.0, Currency::USD);
+        attr.fx_pnl = Money::new(390.0, Currency::USD);
+        attr.compute_residual()
+            .expect("Residual computation should succeed");
+
+        // Test to_json from JsonEnvelope trait
+        let json = attr.to_json().expect("to_json should succeed");
+        assert!(json.contains("BOND-001"));
+        assert!(json.contains("\"carry\""));
+
+        // Test from_json from JsonEnvelope trait
+        let parsed = PnlAttribution::from_json(&json)
+            .expect("from_json should succeed");
+        assert_eq!(parsed.total_pnl, attr.total_pnl);
+        assert_eq!(parsed.carry, attr.carry);
+        assert_eq!(parsed.rates_curves_pnl, attr.rates_curves_pnl);
+        assert_eq!(parsed.fx_pnl, attr.fx_pnl);
+        assert_eq!(parsed.residual.amount(), attr.residual.amount());
+
+        // Test from_reader from JsonEnvelope trait
+        let reader = std::io::Cursor::new(json.as_bytes());
+        let parsed_from_reader = PnlAttribution::from_reader(reader)
+            .expect("from_reader should succeed");
+        assert_eq!(parsed_from_reader.total_pnl, attr.total_pnl);
     }
 }
 

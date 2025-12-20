@@ -5,7 +5,7 @@
 
 use super::{
     attribute_pnl_metrics_based, attribute_pnl_parallel, attribute_pnl_waterfall,
-    AttributionMethod, PnlAttribution,
+    types::JsonEnvelope, AttributionMethod, PnlAttribution,
 };
 use crate::instruments::json_loader::InstrumentJson;
 use crate::metrics::MetricId;
@@ -43,34 +43,26 @@ impl AttributionEnvelope {
         }
     }
 
-    /// Parse from JSON string.
-    pub fn from_json(json: &str) -> Result<Self> {
-        serde_json::from_str(json).map_err(|e| finstack_core::Error::Calibration {
-            message: format!("Failed to parse attribution JSON: {}", e),
-            category: "json_parse".to_string(),
-        })
-    }
-
-    /// Parse from JSON reader.
-    pub fn from_reader<R: std::io::Read>(reader: R) -> Result<Self> {
-        serde_json::from_reader(reader).map_err(|e| finstack_core::Error::Calibration {
-            message: format!("Failed to parse attribution JSON: {}", e),
-            category: "json_parse".to_string(),
-        })
-    }
-
-    /// Serialize to JSON string.
-    pub fn to_string(&self) -> Result<String> {
-        serde_json::to_string_pretty(self).map_err(|e| finstack_core::Error::Calibration {
-            message: format!("Failed to serialize attribution: {}", e),
-            category: "json_serialize".to_string(),
-        })
-    }
-
     /// Execute the attribution and return the result envelope.
     pub fn execute(&self) -> Result<AttributionResultEnvelope> {
         let result = self.attribution.execute()?;
         Ok(AttributionResultEnvelope::new(result))
+    }
+}
+
+impl JsonEnvelope for AttributionEnvelope {
+    fn parse_error(e: serde_json::Error) -> finstack_core::Error {
+        finstack_core::Error::Calibration {
+            message: format!("Failed to parse attribution JSON: {}", e),
+            category: "json_parse".to_string(),
+        }
+    }
+
+    fn serialize_error(e: serde_json::Error) -> finstack_core::Error {
+        finstack_core::Error::Calibration {
+            message: format!("Failed to serialize attribution: {}", e),
+            category: "json_serialize".to_string(),
+        }
     }
 }
 
@@ -273,21 +265,21 @@ impl AttributionResultEnvelope {
             result,
         }
     }
+}
 
-    /// Serialize to JSON string.
-    pub fn to_string(&self) -> Result<String> {
-        serde_json::to_string_pretty(self).map_err(|e| finstack_core::Error::Calibration {
-            message: format!("Failed to serialize attribution result: {}", e),
-            category: "json_serialize".to_string(),
-        })
-    }
-
-    /// Parse from JSON string.
-    pub fn from_json(json: &str) -> Result<Self> {
-        serde_json::from_str(json).map_err(|e| finstack_core::Error::Calibration {
+impl JsonEnvelope for AttributionResultEnvelope {
+    fn parse_error(e: serde_json::Error) -> finstack_core::Error {
+        finstack_core::Error::Calibration {
             message: format!("Failed to parse attribution result JSON: {}", e),
             category: "json_parse".to_string(),
-        })
+        }
+    }
+
+    fn serialize_error(e: serde_json::Error) -> finstack_core::Error {
+        finstack_core::Error::Calibration {
+            message: format!("Failed to serialize attribution result: {}", e),
+            category: "json_serialize".to_string(),
+        }
     }
 }
 
@@ -366,5 +358,101 @@ mod tests {
         assert!(json.get("strict_validation").is_some());
         // metrics should not be present when None
         assert!(json.get("metrics").is_none());
+    }
+
+    #[test]
+    fn test_attribution_envelope_json_envelope_trait() {
+        use crate::instruments::Bond;
+
+        let bond = Bond::fixed(
+            "TEST-BOND",
+            Money::new(1_000_000.0, Currency::USD),
+            0.05,
+            create_date(2024, Month::January, 1).expect("Valid test date"),
+            create_date(2034, Month::January, 1).expect("Valid test date"),
+            "USD-OIS",
+        );
+
+        let spec = AttributionSpec {
+            instrument: InstrumentJson::Bond(bond),
+            market_t0: MarketContextState {
+                curves: vec![],
+                surfaces: vec![],
+                prices: std::collections::BTreeMap::new(),
+                series: vec![],
+                inflation_indices: vec![],
+                credit_indices: vec![],
+                collateral: std::collections::BTreeMap::new(),
+            },
+            market_t1: MarketContextState {
+                curves: vec![],
+                surfaces: vec![],
+                prices: std::collections::BTreeMap::new(),
+                series: vec![],
+                inflation_indices: vec![],
+                credit_indices: vec![],
+                collateral: std::collections::BTreeMap::new(),
+            },
+            as_of_t0: create_date(2025, Month::January, 1).expect("Valid test date"),
+            as_of_t1: create_date(2025, Month::January, 2).expect("Valid test date"),
+            method: AttributionMethod::Parallel,
+            model_params_t0: None,
+            config: None,
+        };
+
+        let envelope = AttributionEnvelope::new(spec);
+
+        // Test to_json from JsonEnvelope trait
+        let json = envelope.to_json().expect("to_json should succeed");
+        assert!(json.contains("finstack.attribution/1"));
+
+        // Test from_json from JsonEnvelope trait
+        let parsed = AttributionEnvelope::from_json(&json)
+            .expect("from_json should succeed");
+        assert_eq!(parsed.schema, ATTRIBUTION_SCHEMA_V1);
+        assert_eq!(parsed.attribution.as_of_t0, envelope.attribution.as_of_t0);
+
+        // Test from_reader from JsonEnvelope trait
+        let reader = std::io::Cursor::new(json.as_bytes());
+        let parsed_from_reader = AttributionEnvelope::from_reader(reader)
+            .expect("from_reader should succeed");
+        assert_eq!(parsed_from_reader.schema, ATTRIBUTION_SCHEMA_V1);
+    }
+
+    #[test]
+    fn test_attribution_result_envelope_json_envelope_trait() {
+        use finstack_core::config::ResultsMeta;
+
+        let total = Money::new(1000.0, Currency::USD);
+        let attribution = PnlAttribution::new(
+            total,
+            "TEST-BOND",
+            create_date(2025, Month::January, 1).expect("Valid test date"),
+            create_date(2025, Month::January, 2).expect("Valid test date"),
+            AttributionMethod::Parallel,
+        );
+
+        let result = AttributionResult {
+            attribution,
+            results_meta: ResultsMeta::default(),
+        };
+
+        let envelope = AttributionResultEnvelope::new(result);
+
+        // Test to_json from JsonEnvelope trait
+        let json = envelope.to_json().expect("to_json should succeed");
+        assert!(json.contains("finstack.attribution/1"));
+
+        // Test from_json from JsonEnvelope trait
+        let parsed = AttributionResultEnvelope::from_json(&json)
+            .expect("from_json should succeed");
+        assert_eq!(parsed.schema, ATTRIBUTION_SCHEMA_V1);
+        assert_eq!(parsed.result.attribution.total_pnl, envelope.result.attribution.total_pnl);
+
+        // Test from_reader from JsonEnvelope trait (newly available!)
+        let reader = std::io::Cursor::new(json.as_bytes());
+        let parsed_from_reader = AttributionResultEnvelope::from_reader(reader)
+            .expect("from_reader should succeed");
+        assert_eq!(parsed_from_reader.schema, ATTRIBUTION_SCHEMA_V1);
     }
 }
