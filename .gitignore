@@ -81,3 +81,7 @@ finstack-py/examples/outputs/
 
 # LLM
 .windsurf/
+.zencoder/
+.zenflow/
+.cursor/
+.agent/
