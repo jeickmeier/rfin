@@ -366,18 +366,13 @@ fn test_bucketed_vega_sums_to_total() {
 
     // Compute both total Vega and bucketed Vega
     let results = registry
-        .compute(
-            &[MetricId::Vega, MetricId::BucketedVega],
-            &mut context,
-        )
+        .compute(&[MetricId::Vega, MetricId::BucketedVega], &mut context)
         .unwrap();
 
     let total_vega = *results.get(&MetricId::Vega).unwrap();
 
     // Get bucketed Vega from matrix
-    let bucketed_matrix = context
-        .computed_matrix
-        .get(&MetricId::BucketedVega);
+    let bucketed_matrix = context.computed_matrix.get(&MetricId::BucketedVega);
 
     if let Some(matrix) = bucketed_matrix {
         let sum_bucketed: f64 = matrix.values.iter().flatten().sum();

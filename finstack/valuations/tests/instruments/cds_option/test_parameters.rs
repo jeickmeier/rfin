@@ -14,8 +14,8 @@ fn test_call_constructor() {
     let maturity = date!(2030 - 12 - 31);
     let notional = Money::new(10_000_000.0, Currency::USD);
 
-    let params = CdsOptionParams::try_call(100.0, expiry, maturity, notional)
-        .expect("valid call params");
+    let params =
+        CdsOptionParams::try_call(100.0, expiry, maturity, notional).expect("valid call params");
 
     assert_eq!(params.strike_spread_bp, 100.0);
     assert_eq!(params.expiry, expiry);
@@ -34,8 +34,8 @@ fn test_put_constructor() {
     let maturity = date!(2030 - 12 - 31);
     let notional = Money::new(5_000_000.0, Currency::EUR);
 
-    let params = CdsOptionParams::try_put(150.0, expiry, maturity, notional)
-        .expect("valid put params");
+    let params =
+        CdsOptionParams::try_put(150.0, expiry, maturity, notional).expect("valid put params");
 
     assert_eq!(params.strike_spread_bp, 150.0);
     assert!(matches!(params.option_type, OptionType::Put));

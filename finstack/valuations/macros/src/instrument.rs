@@ -1,8 +1,6 @@
 use proc_macro::TokenStream;
 use quote::{format_ident, quote};
-use syn::{
-    parse_macro_input, Data, DeriveInput, GenericArgument, PathArguments, Type,
-};
+use syn::{parse_macro_input, Data, DeriveInput, GenericArgument, PathArguments, Type};
 
 /// Derive macro to implement the `Instrument` trait with consistent boilerplate.
 ///
@@ -157,7 +155,13 @@ fn find_field_type(input: &DeriveInput, field_name: &str) -> Option<Type> {
         Data::Struct(data_struct) => data_struct
             .fields
             .iter()
-            .find(|field| field.ident.as_ref().map(|id| id == field_name).unwrap_or(false))
+            .find(|field| {
+                field
+                    .ident
+                    .as_ref()
+                    .map(|id| id == field_name)
+                    .unwrap_or(false)
+            })
             .map(|field| field.ty.clone()),
         _ => None,
     }

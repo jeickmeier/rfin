@@ -12,8 +12,8 @@ use finstack_valuations::instruments::cap_floor::{InterestRateOption, RateOption
 use finstack_valuations::instruments::common::traits::Instrument;
 use finstack_valuations::instruments::{ExerciseStyle, PricingOverrides, SettlementType};
 use finstack_valuations::metrics::MetricId;
-use time::Duration;
 use time::macros::date;
+use time::Duration;
 
 fn build_flat_forward_curve(rate: f64, base_date: Date, curve_id: &str) -> ForwardCurve {
     ForwardCurve::builder(curve_id, 0.25)

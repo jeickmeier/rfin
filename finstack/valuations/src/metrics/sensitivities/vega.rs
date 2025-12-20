@@ -266,7 +266,9 @@ where
                     MarketScalar::Price(m) => m.amount(),
                     MarketScalar::Unitless(v) => *v,
                 })
-                .ok_or_else(|| finstack_core::Error::from(finstack_core::error::InputError::Invalid))?;
+                .ok_or_else(|| {
+                    finstack_core::Error::from(finstack_core::error::InputError::Invalid)
+                })?;
 
             self.strikes.iter().map(|k| k * spot).collect()
         } else {
@@ -321,12 +323,7 @@ where
             .collect();
         let col_labels: Vec<String> = self.strikes.iter().map(|&k| format!("{:.2}", k)).collect();
 
-        let _ = context.store_matrix2d(
-            MetricId::BucketedVega,
-            row_labels,
-            col_labels,
-            matrix,
-        );
+        let _ = context.store_matrix2d(MetricId::BucketedVega, row_labels, col_labels, matrix);
 
         Ok(target_total)
     }

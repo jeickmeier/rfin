@@ -139,14 +139,8 @@ impl PyCdsOption {
         }
 
         let credit_params = CreditParams::new("CDS_OPTION", recovery, credit);
-        let option = CdsOption::try_new(
-            id,
-            &option_params,
-            &credit_params,
-            discount,
-            vol_surface,
-        )
-        .map_err(|e| PyValueError::new_err(e.to_string()))?;
+        let option = CdsOption::try_new(id, &option_params, &credit_params, discount, vol_surface)
+            .map_err(|e| PyValueError::new_err(e.to_string()))?;
         Ok(Self::new(option))
     }
 

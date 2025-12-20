@@ -12,8 +12,8 @@ use finstack_valuations::instruments::cap_floor::{InterestRateOption, RateOption
 use finstack_valuations::instruments::common::traits::Instrument;
 use finstack_valuations::instruments::{ExerciseStyle, PricingOverrides, SettlementType};
 use finstack_valuations::metrics::MetricId;
-use time::Duration;
 use time::macros::date;
+use time::Duration;
 
 fn build_realistic_forward_curve(base_date: Date) -> ForwardCurve {
     // Realistic upward-sloping forward curve
