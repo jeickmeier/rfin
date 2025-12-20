@@ -3,6 +3,7 @@
 use crate::core::dates::utils::{date_to_py, py_to_date};
 use crate::errors::map_error;
 use finstack_core::prelude::FinstackConfig;
+use finstack_valuations::attribution::types::JsonEnvelope;
 use finstack_valuations::attribution::{
     attribute_pnl_metrics_based, attribute_pnl_parallel, attribute_pnl_waterfall,
     AttributionFactor, AttributionMeta, AttributionMethod, CreditCurvesAttribution,
@@ -786,7 +787,7 @@ pub fn attribution_result_to_json(attribution: &PyPnlAttribution) -> PyResult<St
     };
 
     let envelope = AttributionResultEnvelope::new(result);
-    envelope.to_string().map_err(map_error)
+    envelope.to_json().map_err(map_error)
 }
 
 /// Register attribution bindings with Python module.

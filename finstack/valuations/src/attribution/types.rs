@@ -1407,7 +1407,7 @@ mod json_envelope_tests {
         assert!(result.is_err());
 
         // Verify error message contains expected details
-        let err = result.unwrap_err();
+        let err = result.expect_err("Expected error from invalid JSON");
         if let finstack_core::Error::Calibration { message, category } = err {
             assert!(message.contains("Failed to parse test envelope"));
             assert_eq!(category, "test_parse");
@@ -1423,7 +1423,7 @@ mod json_envelope_tests {
         let result = TestEnvelope::from_json(incomplete_json);
         assert!(result.is_err());
 
-        let err = result.unwrap_err();
+        let err = result.expect_err("Expected error from incomplete JSON");
         if let finstack_core::Error::Calibration { message, category } = err {
             assert!(message.contains("Failed to parse test envelope"));
             assert_eq!(category, "test_parse");
@@ -1439,7 +1439,7 @@ mod json_envelope_tests {
         let result = TestEnvelope::from_json(malformed_json);
         assert!(result.is_err());
 
-        let err = result.unwrap_err();
+        let err = result.expect_err("Expected error from malformed JSON");
         if let finstack_core::Error::Calibration { message, category } = err {
             assert!(message.contains("Failed to parse test envelope"));
             assert_eq!(category, "test_parse");
@@ -1454,17 +1454,14 @@ mod json_envelope_tests {
         struct FailingReader;
         impl std::io::Read for FailingReader {
             fn read(&mut self, _buf: &mut [u8]) -> std::io::Result<usize> {
-                Err(std::io::Error::new(
-                    std::io::ErrorKind::Other,
-                    "Simulated I/O error",
-                ))
+                Err(std::io::Error::other("Simulated I/O error"))
             }
         }
 
         let result = TestEnvelope::from_reader(FailingReader);
         assert!(result.is_err());
 
-        let err = result.unwrap_err();
+        let err = result.expect_err("Expected error from I/O failure");
         if let finstack_core::Error::Calibration { message, .. } = err {
             assert!(message.contains("Failed to parse test envelope"));
         } else {

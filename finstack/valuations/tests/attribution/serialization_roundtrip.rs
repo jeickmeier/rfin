@@ -10,7 +10,7 @@ use finstack_core::money::Money;
 use finstack_valuations::attribution::types::JsonEnvelope;
 use finstack_valuations::attribution::{
     AttributionConfig, AttributionEnvelope, AttributionFactor, AttributionMethod,
-    AttributionResultEnvelope, AttributionSpec, ModelParamsSnapshot, PnlAttribution,
+    AttributionSpec, ModelParamsSnapshot,
 };
 use finstack_valuations::cashflow::builder::{
     DefaultModelSpec, PrepaymentModelSpec, RecoveryModelSpec,
