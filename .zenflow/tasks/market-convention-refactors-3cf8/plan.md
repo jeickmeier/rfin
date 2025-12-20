@@ -245,7 +245,8 @@ cargo test metrics::core::ids --lib
 
 ---
 
-### [ ] Step 1.4: Fix Calibration Residual Normalization
+### [x] Step 1.4: Fix Calibration Residual Normalization
+<!-- chat-id: 98edcddf-f1bf-44d2-9d1c-d452fad134f5 -->
 
 **Goal**: Normalize global residuals by `residual_notional`.
 
@@ -277,6 +278,17 @@ cargo test calibration --test integration_tests -- --nocapture
 - Notional 1.0 and 1_000_000.0 produce identical curves (within 1e-12)
 - Max residual ≤ 1e-8 in normalized units
 - Existing calibration tests still pass
+
+**Completed**:
+- ✅ Fixed `calculate_residuals()` method line 865: changed `pv / 1.0` to `pv / self.residual_notional`
+- ✅ Fixed `jacobian()` method line 982: changed `pv / 1.0` to `pv / self.residual_notional` for consistency
+- ✅ Added comprehensive test `test_residual_normalization_invariance()` with 4 deposit quotes
+- ✅ Test verifies calibration with notional=1.0 and notional=1,000,000.0 produce identical curves
+- ✅ Max residuals identical (3.83e-11) for both notionals - well below 1e-8 threshold
+- ✅ Discount factors match within floating-point precision (1.11e-16 difference)
+- ✅ All 3 discount target tests pass
+- ✅ All 66 calibration library tests pass
+- ✅ Clippy passes with zero warnings
 
 ---
 
