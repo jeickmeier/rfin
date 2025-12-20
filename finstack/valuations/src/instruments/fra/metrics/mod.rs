@@ -28,6 +28,9 @@ pub fn register_fra_metrics(registry: &mut MetricRegistry) {
             (Dv01, crate::metrics::UnifiedDv01Calculator::<
                 crate::instruments::ForwardRateAgreement,
             >::new(crate::metrics::Dv01CalculatorConfig::parallel_combined())),
+            (Pv01, crate::metrics::UnifiedDv01Calculator::<
+                crate::instruments::ForwardRateAgreement,
+            >::new(crate::metrics::Dv01CalculatorConfig::parallel_combined())),
             (ParRate, FraParRateCalculator),
             (BucketedDv01, crate::metrics::UnifiedDv01Calculator::<
                 crate::instruments::ForwardRateAgreement,

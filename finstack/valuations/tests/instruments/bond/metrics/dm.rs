@@ -11,7 +11,7 @@ use std::sync::Arc;
 use time::macros::date;
 
 #[test]
-fn test_dm_fixed_bond_zero() {
+fn test_dm_fixed_bond_is_rejected_in_strict_mode() {
     let as_of = date!(2025 - 01 - 01);
     let bond = Bond::fixed(
         "DM1",
@@ -29,11 +29,16 @@ fn test_dm_fixed_bond_zero() {
         .unwrap();
     let market = finstack_core::market_data::context::MarketContext::new().insert_discount(curve);
 
-    let result = bond
+    let err = bond
         .price_with_metrics(&market, as_of, &[MetricId::DiscountMargin])
-        .unwrap();
-    let dm = *result.measures.get("discount_margin").unwrap();
-    assert_eq!(dm, 0.0); // Fixed bonds return 0 DM
+        .expect_err("discount margin should not be available for fixed-rate bonds");
+
+    match err {
+        Error::MetricCalculationFailed { metric_id, .. } => {
+            assert_eq!(metric_id, "discount_margin");
+        }
+        other => panic!("unexpected error type: {}", other),
+    }
 }
 
 /// DM should surface a missing discount curve error instead of silently returning 0.0

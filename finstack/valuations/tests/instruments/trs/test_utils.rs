@@ -143,7 +143,9 @@ impl Default for TestEquityTrsBuilder {
             discount_curve_id: "USD-OIS".into(),
             forward_curve_id: "USD-SOFR-3M".into(),
             spread_bp: 25.0,
-            start: as_of_date(),
+            // Keep `start` strictly after `as_of` so theta (which rolls the
+            // valuation date forward) doesn't cross the start date.
+            start: as_of_date() + time::Duration::days(2),
             end: d(2026, 1, 2),
             side: TrsSide::ReceiveTotalReturn,
             initial_level: None,
@@ -254,7 +256,9 @@ impl Default for TestFIIndexTrsBuilder {
             discount_curve_id: "USD-OIS".into(),
             forward_curve_id: "USD-SOFR-3M".into(),
             spread_bp: 100.0,
-            start: as_of_date(),
+            // Keep `start` strictly after `as_of` so theta (which rolls the
+            // valuation date forward) doesn't cross the start date.
+            start: as_of_date() + time::Duration::days(2),
             end: d(2026, 1, 2),
             side: TrsSide::ReceiveTotalReturn,
             initial_level: None,

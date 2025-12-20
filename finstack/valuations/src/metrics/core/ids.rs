@@ -323,6 +323,9 @@ impl MetricId {
     /// Vega (price sensitivity to volatility)
     pub const Vega: Self = Self(Cow::Borrowed("vega"));
 
+        /// Bucketed Vega (surface point sensitivities)
+        pub const BucketedVega: Self = Self(Cow::Borrowed("bucketed_vega"));
+
     /// Rho (price sensitivity to interest rates)
     pub const Rho: Self = Self(Cow::Borrowed("rho"));
 
@@ -762,6 +765,7 @@ impl MetricId {
         MetricId::Delta,
         MetricId::Gamma,
         MetricId::Vega,
+        MetricId::BucketedVega,
         MetricId::Rho,
         MetricId::ForeignRho,
         MetricId::ForwardPv01,

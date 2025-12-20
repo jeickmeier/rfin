@@ -35,6 +35,16 @@ impl MetricCalculator for AccruedCalculator {
             })
         })?;
 
+        // If there are no payments, or we are before the first payment or after the final one,
+        // there is no accrued interest to compute.
+        if let (Some((first_date, _)), Some((last_date, _))) = (flows.first(), flows.last()) {
+            if context.as_of < *first_date || context.as_of >= *last_date {
+                return Ok(0.0);
+            }
+        } else {
+            return Ok(0.0);
+        }
+
         // Find surrounding payment dates
         let (last_payment, next_payment) = find_surrounding_dates(flows, context.as_of)?;
 

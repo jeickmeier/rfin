@@ -12,6 +12,7 @@ use finstack_valuations::instruments::cap_floor::{InterestRateOption, RateOption
 use finstack_valuations::instruments::common::traits::Instrument;
 use finstack_valuations::instruments::{ExerciseStyle, PricingOverrides, SettlementType};
 use finstack_valuations::metrics::MetricId;
+use time::Duration;
 use time::macros::date;
 
 fn build_realistic_forward_curve(base_date: Date) -> ForwardCurve {
@@ -64,6 +65,7 @@ fn build_realistic_vol_surface(_base_date: Date) -> VolSurface {
 #[test]
 fn test_realistic_usd_cap_pricing() {
     let as_of = date!(2024 - 01 - 01);
+    let start = as_of + Duration::days(2);
     let end = date!(2029 - 01 - 01);
 
     let cap = InterestRateOption {
@@ -71,7 +73,7 @@ fn test_realistic_usd_cap_pricing() {
         rate_option_type: RateOptionType::Cap,
         notional: Money::new(10_000_000.0, Currency::USD),
         strike_rate: 0.05, // 5% ATM
-        start_date: as_of,
+        start_date: start,
         end_date: end,
         frequency: Tenor::quarterly(),
         day_count: DayCount::Act360,
@@ -109,6 +111,7 @@ fn test_realistic_usd_cap_pricing() {
 #[test]
 fn test_realistic_otm_floor_pricing() {
     let as_of = date!(2024 - 01 - 01);
+    let start = as_of + Duration::days(2);
     let end = date!(2027 - 01 - 01);
 
     let floor = InterestRateOption {
@@ -116,7 +119,7 @@ fn test_realistic_otm_floor_pricing() {
         rate_option_type: RateOptionType::Floor,
         notional: Money::new(5_000_000.0, Currency::USD),
         strike_rate: 0.03, // 3% OTM floor (forwards ~5%)
-        start_date: as_of,
+        start_date: start,
         end_date: end,
         frequency: Tenor::quarterly(),
         day_count: DayCount::Act360,
@@ -151,6 +154,7 @@ fn test_realistic_otm_floor_pricing() {
 #[test]
 fn test_all_greeks_with_realistic_market() {
     let as_of = date!(2024 - 01 - 01);
+    let start = as_of + Duration::days(2);
     let end = date!(2029 - 01 - 01);
 
     let cap = InterestRateOption {
@@ -158,7 +162,7 @@ fn test_all_greeks_with_realistic_market() {
         rate_option_type: RateOptionType::Cap,
         notional: Money::new(10_000_000.0, Currency::USD),
         strike_rate: 0.05,
-        start_date: as_of,
+        start_date: start,
         end_date: end,
         frequency: Tenor::quarterly(),
         day_count: DayCount::Act360,
@@ -209,6 +213,7 @@ fn test_all_greeks_with_realistic_market() {
 #[test]
 fn test_semi_annual_vs_quarterly_frequency() {
     let as_of = date!(2024 - 01 - 01);
+    let start = as_of + Duration::days(2);
     let end = date!(2029 - 01 - 01);
 
     let quarterly_cap = InterestRateOption {
@@ -216,7 +221,7 @@ fn test_semi_annual_vs_quarterly_frequency() {
         rate_option_type: RateOptionType::Cap,
         notional: Money::new(10_000_000.0, Currency::USD),
         strike_rate: 0.05,
-        start_date: as_of,
+        start_date: start,
         end_date: end,
         frequency: Tenor::quarterly(),
         day_count: DayCount::Act360,
@@ -237,7 +242,7 @@ fn test_semi_annual_vs_quarterly_frequency() {
         rate_option_type: RateOptionType::Cap,
         notional: Money::new(10_000_000.0, Currency::USD),
         strike_rate: 0.05,
-        start_date: as_of,
+        start_date: start,
         end_date: end,
         frequency: Tenor::semi_annual(),
         day_count: DayCount::Act360,

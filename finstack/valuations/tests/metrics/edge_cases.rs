@@ -140,9 +140,9 @@ fn test_zero_recovery_cds() {
 
     // Recovery01 should still compute even with zero recovery
     let results = registry
-        .compute(&[MetricId::custom("recovery01")], &mut context)
+        .compute(&[MetricId::Recovery01], &mut context)
         .unwrap();
-    let recovery01 = results.get(&MetricId::custom("recovery01"));
+    let recovery01 = results.get(&MetricId::Recovery01);
 
     // Should either compute a value or return 0.0 (not error)
     if let Some(val) = recovery01 {

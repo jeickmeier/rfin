@@ -66,13 +66,51 @@ pub struct WalCalculator;
 
 impl MetricCalculator for WalCalculator {
     fn calculate(&self, context: &mut MetricContext) -> Result<f64> {
-        let details = context.detailed_tranche_cashflows.as_ref().ok_or_else(|| {
-            finstack_core::Error::from(finstack_core::error::InputError::NotFound {
-                id: "detailed_tranche_cashflows".to_string(),
-            })
-        })?;
+        if let Some(details) = context.detailed_tranche_cashflows.as_ref() {
+            return calculate_tranche_wal(details, context.as_of);
+        }
 
-        calculate_tranche_wal(details, context.as_of)
+        // Fallback: derive an approximate WAL directly from aggregated cashflows when
+        // detailed tranche flows were not cached into the metric context. This keeps the
+        // metric available for simple deals (e.g., single-tranche) without re-running the
+        // structured credit simulation just to populate tranche-level cashflows.
+        if let Some(flows) = context.cashflows.as_ref() {
+            let mut weighted_sum = 0.0;
+            let mut total_principal = 0.0;
+
+            for (date, amount) in flows {
+                if *date <= context.as_of {
+                    continue;
+                }
+
+                let principal = amount.amount().abs();
+                if principal == 0.0 {
+                    continue;
+                }
+
+                let years = finstack_core::dates::DayCount::Act365F
+                    .year_fraction(
+                        context.as_of,
+                        *date,
+                        finstack_core::dates::DayCountCtx::default(),
+                    )
+                    .unwrap_or(0.0);
+                weighted_sum += principal * years;
+                total_principal += principal;
+            }
+
+            return if total_principal > 0.0 {
+                Ok(weighted_sum / total_principal)
+            } else {
+                Ok(0.0)
+            };
+        }
+
+        Err(finstack_core::Error::from(
+            finstack_core::error::InputError::NotFound {
+                id: "detailed_tranche_cashflows".to_string(),
+            },
+        ))
     }
 
     fn dependencies(&self) -> &[MetricId] {

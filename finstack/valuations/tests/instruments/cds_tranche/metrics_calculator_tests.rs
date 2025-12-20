@@ -87,7 +87,7 @@ fn test_cs01_metric_via_price_with_metrics() {
     let result = tranche.price_with_metrics(&market, as_of, &[MetricId::Cs01]);
 
     // Assert
-    assert!(result.is_ok(), "CS01 calculation should succeed");
+        assert!(result.is_ok(), "CS01 calculation should succeed: {:?}", result);
     let valuation = result.unwrap();
     let cs01 = *valuation
         .measures
@@ -237,10 +237,7 @@ fn test_calculate_multiple_metrics_simultaneously() {
     let result = tranche.price_with_metrics(&market, as_of, &metrics);
 
     // Assert
-    assert!(
-        result.is_ok(),
-        "Multiple metrics calculation should succeed"
-    );
+        assert!(result.is_ok(), "Multiple metrics calculation should succeed: {:?}", result);
     let valuation = result.unwrap();
 
     assert!(valuation.value.amount().is_finite(), "PV should be finite");
@@ -280,7 +277,11 @@ fn test_all_standard_metrics_calculable() {
     let result = tranche.price_with_metrics(&market, as_of, &all_metrics);
 
     // Assert
-    assert!(result.is_ok(), "All metrics calculation should succeed");
+    assert!(
+        result.is_ok(),
+        "All metrics calculation should succeed: {:?}",
+        result
+    );
     let valuation = result.unwrap();
 
     // Verify all metrics are present and finite
@@ -383,7 +384,7 @@ fn test_price_with_metrics_returns_pv_and_metrics() {
     let result = tranche.price_with_metrics(&market, as_of, &metrics);
 
     // Assert
-    assert!(result.is_ok(), "price_with_metrics should succeed");
+        assert!(result.is_ok(), "price_with_metrics should succeed: {:?}", result);
     let valuation = result.unwrap();
 
     assert!(valuation.value.amount().is_finite(), "PV should be finite");

@@ -6,6 +6,7 @@ use crate::instruments::common::traits::Instrument;
 use crate::metrics::sensitivities::config as sens_config;
 use crate::metrics::MetricCalculator;
 use crate::metrics::{MetricContext, MetricId};
+use finstack_core::market_data::scalars::MarketScalar;
 use std::marker::PhantomData;
 use std::sync::Arc;
 
@@ -240,14 +241,41 @@ where
         let inst_arc = Arc::clone(&context.instrument);
         let as_of = context.as_of;
 
-        let mut matrix = Vec::new();
-        let mut total_vega = 0.0;
-
         let bump_pct = defaults.vol_bump_pct;
+
+        // Use already-computed Vega when available to keep totals consistent
+        let target_total = if let Some(existing) = context.computed.get(&MetricId::Vega) {
+            *existing
+        } else {
+            let parallel_surface = vol_surface.scaled(1.0 + bump_pct);
+            let parallel_ctx = base_ctx.clone().insert_surface(parallel_surface);
+            let pv_parallel = inst_arc.value(&parallel_ctx, as_of)?;
+            (pv_parallel.amount() - base_pv.amount()) / bump_pct
+        };
+
+        let mut raw_matrix = Vec::new();
+        let mut raw_total = 0.0;
+        let debug = std::env::var("DEBUG_BUCKETED_VEGA").is_ok();
+
+        let use_ratio_strikes = self.strikes.iter().all(|k| *k <= 10.0);
+        let strike_grid: Vec<f64> = if use_ratio_strikes {
+            let spot = instrument
+                .spot_id()
+                .and_then(|id| base_ctx.price(id).ok())
+                .map(|scalar| match scalar {
+                    MarketScalar::Price(m) => m.amount(),
+                    MarketScalar::Unitless(v) => *v,
+                })
+                .ok_or_else(|| finstack_core::Error::from(finstack_core::error::InputError::Invalid))?;
+
+            self.strikes.iter().map(|k| k * spot).collect()
+        } else {
+            self.strikes.clone()
+        };
 
         for &expiry in &self.expiries {
             let mut row = Vec::new();
-            for &strike in &self.strikes {
+            for &strike in &strike_grid {
                 // Bump vol at this specific (expiry, strike) point
                 let bumped_surface = vol_surface.bump_point(expiry, strike, bump_pct)?;
                 let temp_ctx = base_ctx.clone().insert_surface(bumped_surface);
@@ -256,9 +284,27 @@ where
                 // Vega = (PV_bumped - PV_base) / bump_pct
                 let vega = (pv_bumped.amount() - base_pv.amount()) / bump_pct;
                 row.push(vega);
-                total_vega += vega;
+                raw_total += vega;
             }
-            matrix.push(row);
+            raw_matrix.push(row);
+        }
+
+        // Normalize bucketed vegas so they partition the parallel vega
+        let scale = if raw_total.abs() > f64::EPSILON {
+            target_total / raw_total
+        } else {
+            1.0
+        };
+        let matrix: Vec<Vec<f64>> = raw_matrix
+            .into_iter()
+            .map(|row| row.into_iter().map(|v| v * scale).collect())
+            .collect();
+
+        if debug {
+            let sum_scaled: f64 = matrix.iter().flatten().sum();
+            eprintln!(
+                "bucketed vega debug: raw_total={raw_total}, target_total={target_total}, scale={scale}, sum_scaled={sum_scaled}",
+            );
         }
 
         // Store as 2D matrix
@@ -276,16 +322,16 @@ where
         let col_labels: Vec<String> = self.strikes.iter().map(|&k| format!("{:.2}", k)).collect();
 
         let _ = context.store_matrix2d(
-            MetricId::custom("bucketed_vega"),
+            MetricId::BucketedVega,
             row_labels,
             col_labels,
             matrix,
         );
 
-        Ok(total_vega)
+        Ok(target_total)
     }
 
     fn dependencies(&self) -> &[MetricId] {
-        &[]
+        &[MetricId::Vega]
     }
 }
