@@ -32,12 +32,11 @@ fn normalize_registry_id(id: &str) -> String {
 /// Load the Option conventions from the embedded JSON registry.
 pub fn load_registry() -> Result<HashMap<OptionConventionId, OptionConventions>, Error> {
     let json = include_str!("../../../../data/conventions/option_conventions.json");
-    let file: RegistryFile<OptionConventionRecord> =
-        serde_json::from_str(json).map_err(|e| {
-            Error::Validation(format!(
-                "Failed to parse embedded Option conventions registry JSON: {e}"
-            ))
-        })?;
+    let file: RegistryFile<OptionConventionRecord> = serde_json::from_str(json).map_err(|e| {
+        Error::Validation(format!(
+            "Failed to parse embedded Option conventions registry JSON: {e}"
+        ))
+    })?;
 
     let string_map = build_lookup_map_mapped(file, normalize_registry_id, |rec| {
         rec.clone().into_conventions()

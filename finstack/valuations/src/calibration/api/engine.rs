@@ -3,8 +3,8 @@
 //! Orchestrates the execution of a calibration plan.
 
 use super::schema::CalibrationEnvelope;
-use crate::calibration::api::schema::{CalibrationResult, CalibrationResultEnvelope, StepParams};
 use crate::calibration::api::schema::CalibrationStep;
+use crate::calibration::api::schema::{CalibrationResult, CalibrationResultEnvelope, StepParams};
 use crate::calibration::targets::handlers::execute_step;
 use crate::calibration::targets::util::curve_day_count_from_quotes;
 // use crate::calibration::pricing::{CalibrationPricer, RatesQuoteUseCase}; // Removed
@@ -490,10 +490,22 @@ fn extract_step_output(
     context: &MarketContext,
 ) -> Result<(StepOutput, Option<(String, CreditIndexData)>)> {
     match &step.params {
-        StepParams::Discount(p) => Ok((StepOutput::Curve(context.get_discount(&p.curve_id)?.into()), None)),
-        StepParams::Forward(p) => Ok((StepOutput::Curve(context.get_forward(&p.curve_id)?.into()), None)),
-        StepParams::Hazard(p) => Ok((StepOutput::Curve(context.get_hazard(&p.curve_id)?.into()), None)),
-        StepParams::Inflation(p) => Ok((StepOutput::Curve(context.get_inflation(&p.curve_id)?.into()), None)),
+        StepParams::Discount(p) => Ok((
+            StepOutput::Curve(context.get_discount(&p.curve_id)?.into()),
+            None,
+        )),
+        StepParams::Forward(p) => Ok((
+            StepOutput::Curve(context.get_forward(&p.curve_id)?.into()),
+            None,
+        )),
+        StepParams::Hazard(p) => Ok((
+            StepOutput::Curve(context.get_hazard(&p.curve_id)?.into()),
+            None,
+        )),
+        StepParams::Inflation(p) => Ok((
+            StepOutput::Curve(context.get_inflation(&p.curve_id)?.into()),
+            None,
+        )),
         StepParams::BaseCorrelation(p) => {
             let curve_id = base_correlation_curve_id(p);
             let curve = context.get_base_correlation(curve_id.as_str())?;
@@ -503,8 +515,12 @@ fn extract_step_output(
                 .map(|idx| (p.index_id.clone(), idx.clone()));
             Ok((StepOutput::Curve(curve.into()), credit_index_update))
         }
-        StepParams::VolSurface(p) => Ok((StepOutput::Surface(context.surface(&p.surface_id)?), None)),
-        StepParams::SwaptionVol(p) => Ok((StepOutput::Surface(context.surface(&p.surface_id)?), None)),
+        StepParams::VolSurface(p) => {
+            Ok((StepOutput::Surface(context.surface(&p.surface_id)?), None))
+        }
+        StepParams::SwaptionVol(p) => {
+            Ok((StepOutput::Surface(context.surface(&p.surface_id)?), None))
+        }
     }
 }
 
@@ -593,8 +609,7 @@ pub fn execute(envelope: &CalibrationEnvelope) -> Result<CalibrationResultEnvelo
                 let item = &batch[0];
                 let (new_context, report) =
                     execute_step(&item.step.params, item.quotes, &context, &plan.settings)?;
-                let (output, credit_index_update) =
-                    extract_step_output(item.step, &new_context)?;
+                let (output, credit_index_update) = extract_step_output(item.step, &new_context)?;
                 vec![StepExecutionResult {
                     output,
                     credit_index_update,
@@ -604,12 +619,8 @@ pub fn execute(envelope: &CalibrationEnvelope) -> Result<CalibrationResultEnvelo
                 batch
                     .par_iter()
                     .map(|item| {
-                        let (new_context, report) = execute_step(
-                            &item.step.params,
-                            item.quotes,
-                            &context,
-                            &plan.settings,
-                        )?;
+                        let (new_context, report) =
+                            execute_step(&item.step.params, item.quotes, &context, &plan.settings)?;
                         let (output, credit_index_update) =
                             extract_step_output(item.step, &new_context)?;
                         Ok(StepExecutionResult {

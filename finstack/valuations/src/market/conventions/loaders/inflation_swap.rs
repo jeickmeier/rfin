@@ -43,13 +43,12 @@ fn normalize_registry_id(id: &str) -> String {
 pub fn load_registry() -> Result<HashMap<InflationSwapConventionId, InflationSwapConventions>, Error>
 {
     let json = include_str!("../../../../data/conventions/inflation_swap_conventions.json");
-    let file: RegistryFile<InflationSwapConventionRecord> = serde_json::from_str(json).map_err(
-        |e| {
+    let file: RegistryFile<InflationSwapConventionRecord> =
+        serde_json::from_str(json).map_err(|e| {
             Error::Validation(format!(
                 "Failed to parse embedded Inflation Swap conventions registry JSON: {e}"
             ))
-        },
-    )?;
+        })?;
 
     let string_map = build_lookup_map_mapped(file, normalize_registry_id, |rec| {
         rec.clone().into_conventions()

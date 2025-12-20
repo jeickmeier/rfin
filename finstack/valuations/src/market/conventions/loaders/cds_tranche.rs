@@ -5,10 +5,10 @@ use crate::market::conventions::ids::{CdsConventionKey, CdsDocClause};
 use finstack_core::dates::{BusinessDayConvention, DayCount, Tenor};
 use finstack_core::types::Currency;
 use finstack_core::Error;
-use std::collections::HashMap;
-use serde::{Deserialize, Deserializer};
 use serde::de::Error as DeError;
+use serde::{Deserialize, Deserializer};
 use serde_json::Value;
+use std::collections::HashMap;
 
 fn deserialize_business_day_convention<'de, D>(
     deserializer: D,
@@ -18,8 +18,7 @@ where
 {
     let raw = String::deserialize(deserializer)?;
     let normalized = raw.to_lowercase();
-    BusinessDayConvention::deserialize(Value::String(normalized))
-        .map_err(D::Error::custom)
+    BusinessDayConvention::deserialize(Value::String(normalized)).map_err(D::Error::custom)
 }
 
 #[derive(Clone, Debug, serde::Deserialize)]
@@ -64,12 +63,11 @@ fn normalize_registry_id(id: &str) -> String {
 /// Load the CDS Tranche conventions from the embedded JSON registry.
 pub fn load_registry() -> Result<HashMap<CdsConventionKey, CdsConventions>, Error> {
     let json = include_str!("../../../../data/conventions/cds_tranche_conventions.json");
-    let records: Vec<CdsTrancheConventionsRecord> = serde_json::from_str(json)
-        .map_err(|e| {
-            Error::Validation(format!(
-                "Failed to parse embedded CDS Tranche conventions registry JSON: {e}"
-            ))
-        })?;
+    let records: Vec<CdsTrancheConventionsRecord> = serde_json::from_str(json).map_err(|e| {
+        Error::Validation(format!(
+            "Failed to parse embedded CDS Tranche conventions registry JSON: {e}"
+        ))
+    })?;
 
     let mut final_map = HashMap::new();
     for rec in records {
@@ -89,8 +87,8 @@ pub fn load_registry() -> Result<HashMap<CdsConventionKey, CdsConventions>, Erro
             ))
         })?;
 
-        let clause: CdsDocClause =
-            serde_json::from_value(Value::String(parts[1].to_string())).map_err(|e| {
+        let clause: CdsDocClause = serde_json::from_value(Value::String(parts[1].to_string()))
+            .map_err(|e| {
                 Error::Validation(format!(
                     "Invalid doc clause in CDS Tranche convention id '{}': {}",
                     id, e

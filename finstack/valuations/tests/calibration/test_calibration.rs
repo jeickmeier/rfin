@@ -80,9 +80,7 @@ fn hazard_curve_calibration_is_deterministic_across_runs() {
         .into_iter()
         .map(|q| match q {
             MarketQuote::Cds(CdsQuote::CdsParSpread {
-                pillar,
-                spread_bp,
-                ..
+                pillar, spread_bp, ..
             }) => {
                 let maturity = match pillar.clone() {
                     Pillar::Date(d) => d,
@@ -120,9 +118,9 @@ fn discount_curve_bootstrap_is_order_independent() {
                         .add_to_date(base_date, None, BusinessDayConvention::Following)
                         .expect("tenor add"),
                 };
-                let yf =
-                    DayCount::Act360.year_fraction(base_date, maturity, DayCountCtx::default())
-                        .unwrap();
+                let yf = DayCount::Act360
+                    .year_fraction(base_date, maturity, DayCountCtx::default())
+                    .unwrap();
                 1.0 / (1.0 + rate * yf)
             }
             _ => unreachable!(),
@@ -155,13 +153,16 @@ fn discount_curve_global_solve_smoke_v2() {
             let maturity = tenor
                 .add_to_date(base_date, None, BusinessDayConvention::Following)
                 .expect("tenor add");
-            let yf =
-                DayCount::Act360.year_fraction(base_date, maturity, DayCountCtx::default())
-                    .unwrap();
+            let yf = DayCount::Act360
+                .year_fraction(base_date, maturity, DayCountCtx::default())
+                .unwrap();
             1.0 / (1.0 + rate * yf)
         })
         .collect();
 
     assert!(dfs.iter().all(|df| *df > 0.0 && *df < 1.0));
-    assert!(dfs.windows(2).all(|w| w[1] < w[0]), "discount factors should decay");
+    assert!(
+        dfs.windows(2).all(|w| w[1] < w[0]),
+        "discount factors should decay"
+    );
 }

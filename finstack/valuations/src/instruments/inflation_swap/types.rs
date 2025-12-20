@@ -607,18 +607,12 @@ impl YoYInflationSwap {
     }
 
     /// Calculates the raw present value (f64) of the YoY inflation swap.
-    pub fn npv_raw(
-        &self,
-        curves: &MarketContext,
-        as_of: Date,
-    ) -> finstack_core::Result<f64> {
+    pub fn npv_raw(&self, curves: &MarketContext, as_of: Date) -> finstack_core::Result<f64> {
         let disc = curves.get_discount_ref(self.discount_curve_id.as_str())?;
         let mut pv = 0.0_f64;
 
         for (start, end, pay) in self.schedule()? {
-            let accrual = self
-                .dc
-                .year_fraction(start, end, DayCountCtx::default())?;
+            let accrual = self.dc.year_fraction(start, end, DayCountCtx::default())?;
 
             let cpi_start = self.cpi_value(curves, as_of, start)?;
             if cpi_start <= 0.0 {
@@ -634,11 +628,9 @@ impl YoYInflationSwap {
                 PayReceiveInflation::ReceiveFixed => fixed_leg - inflation_leg,
             };
 
-            let t_discount = disc.day_count().year_fraction(
-                as_of,
-                pay,
-                DayCountCtx::default(),
-            )?;
+            let t_discount = disc
+                .day_count()
+                .year_fraction(as_of, pay, DayCountCtx::default())?;
             let df = disc.df(t_discount);
             pv += net * df;
         }

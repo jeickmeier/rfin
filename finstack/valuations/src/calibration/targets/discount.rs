@@ -18,7 +18,6 @@ use finstack_core::prelude::*;
 use finstack_core::types::{Currency, CurveId};
 use std::cell::RefCell;
 
-
 /// Parameters for constructing a [`DiscountCurveTarget`].
 ///
 /// This struct consolidates all inputs required to execute a discount curve
@@ -348,8 +347,8 @@ Global solve requires strictly increasing times.",
 
             let maturity_date = if let Some(dep) = instrument
                 .as_any()
-                .downcast_ref::<crate::instruments::deposit::Deposit>()
-            {
+                .downcast_ref::<crate::instruments::deposit::Deposit>(
+            ) {
                 // Use the *effective* end date (BDC/calendar adjusted) so quote_time matches
                 // the cashflow maturity used by pricing. Otherwise bootstrap may fail to bracket
                 // because the solver is placing knots at unadjusted dates while valuation
@@ -375,8 +374,8 @@ Global solve requires strictly increasing times.",
                 )
             } else if let Some(fut) = instrument
                 .as_any()
-                .downcast_ref::<crate::instruments::ir_future::InterestRateFuture>()
-            {
+                .downcast_ref::<crate::instruments::ir_future::InterestRateFuture>(
+            ) {
                 fut.expiry_date
             } else {
                 params.base_date
@@ -423,10 +422,7 @@ Global solve requires strictly increasing times.",
             && config.discount_curve.bootstrap_seed_global_solve
         {
             let mut seed_quotes = prepared_quotes.clone();
-            crate::calibration::targets::util::sort_bootstrap_quotes(
-                &target,
-                &mut seed_quotes,
-            )?;
+            crate::calibration::targets::util::sort_bootstrap_quotes(&target, &mut seed_quotes)?;
 
             match SequentialBootstrapper::bootstrap(
                 &target,
@@ -545,7 +541,9 @@ impl BootstrapTarget for DiscountCurveTarget {
         // an infeasible (arbitrage) shape and then fail only at the end.
         let config_flag = self.config.discount_curve.allow_non_monotonic_final;
         let policy_allow = match self.config.rate_bounds_policy {
-            crate::calibration::RateBoundsPolicy::Explicit => self.config.rate_bounds.min_rate < 0.0,
+            crate::calibration::RateBoundsPolicy::Explicit => {
+                self.config.rate_bounds.min_rate < 0.0
+            }
             crate::calibration::RateBoundsPolicy::AutoCurrency => {
                 matches!(self.currency, Currency::EUR | Currency::JPY | Currency::CHF)
             }
@@ -577,10 +575,12 @@ impl BootstrapTarget for DiscountCurveTarget {
             builder.enforce_no_arbitrage()
         };
 
-        builder.build_for_solver().map_err(|e| finstack_core::Error::Calibration {
-            message: format!("Failed to build temp curve: {}", e),
-            category: "bootstrapping".to_string(),
-        })
+        builder
+            .build_for_solver()
+            .map_err(|e| finstack_core::Error::Calibration {
+                message: format!("Failed to build temp curve: {}", e),
+                category: "bootstrapping".to_string(),
+            })
     }
 
     fn build_curve_final(&self, knots: &[(f64, f64)]) -> Result<Self::Curve> {
@@ -776,11 +776,7 @@ impl GlobalSolveTarget for DiscountCurveTarget {
 
             // Prefer seeded zeros from an initial curve (bootstrap) if available.
             let z = if let Some(curve) = seed_curve {
-                let df = if t > 0.0 {
-                    curve.df(t)
-                } else {
-                    1.0
-                };
+                let df = if t > 0.0 { curve.df(t) } else { 1.0 };
                 if df.is_finite() && df > 0.0 {
                     let implied_z = -df.ln() / t.max(1e-9);
                     implied_z.clamp(bounds.min_rate, bounds.max_rate)

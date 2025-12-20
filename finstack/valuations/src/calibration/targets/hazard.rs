@@ -1,11 +1,11 @@
 use crate::calibration::api::schema::HazardCurveParams;
 use crate::calibration::config::{CalibrationConfig, CalibrationMethod, ResidualWeightingScheme};
+use crate::calibration::constants::WEIGHT_MIN_FLOOR;
 use crate::calibration::prepared::CalibrationQuote;
 use crate::calibration::solver::{
     BootstrapTarget, GlobalFitOptimizer, GlobalSolveTarget, SequentialBootstrapper,
 };
 use crate::calibration::targets::util::sort_bootstrap_quotes;
-use crate::calibration::constants::WEIGHT_MIN_FLOOR;
 use crate::calibration::CalibrationReport;
 use crate::instruments::cds::CdsConventionResolved;
 use crate::market::build::context::BuildCtx;
@@ -109,14 +109,12 @@ impl HazardBootstrapper {
             ));
         }
 
-        let target = HazardBootstrapper::new(params.clone(), context.clone(), global_config.clone())?;
+        let target =
+            HazardBootstrapper::new(params.clone(), context.clone(), global_config.clone())?;
 
         let mut prepared_quotes: Vec<CalibrationQuote> = Vec::with_capacity(cds_quotes.len());
         let mut curve_ids = HashMap::new();
-        curve_ids.insert(
-            "discount".to_string(),
-            params.discount_curve_id.to_string(),
-        );
+        curve_ids.insert("discount".to_string(), params.discount_curve_id.to_string());
         curve_ids.insert("credit".to_string(), params.curve_id.to_string());
         let build_ctx = BuildCtx::new(params.base_date, params.notional, curve_ids);
 
@@ -590,7 +588,7 @@ mod tests {
             MarketContext::default(),
             CalibrationConfig::default(),
         )
-            .expect("target");
+        .expect("target");
         let err = target
             .validate_knot(1.0, -1e-6)
             .expect_err("should reject negative hazard");
@@ -604,7 +602,7 @@ mod tests {
             MarketContext::default(),
             CalibrationConfig::default(),
         )
-            .expect("target");
+        .expect("target");
         let err = target
             .validate_knot(1.0, HAZARD_HARD_MAX + 1e-6)
             .expect_err("should reject excessive hazard");

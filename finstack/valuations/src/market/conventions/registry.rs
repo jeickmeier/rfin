@@ -309,10 +309,7 @@ impl ConventionRegistry {
     /// # Errors
     ///
     /// Returns `Error::Validation` if the ID is not found in the registry.
-    pub fn require_ir_future(
-        &self,
-        id: &IrFutureContractId,
-    ) -> Result<&IrFutureConventions> {
+    pub fn require_ir_future(&self, id: &IrFutureContractId) -> Result<&IrFutureConventions> {
         self.ir_future.get(id).ok_or_else(|| {
             Error::Validation(format!(
                 "Missing IR future conventions for '{}'. check ir_future_conventions.json",

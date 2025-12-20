@@ -70,14 +70,12 @@ impl OisCompoundingSpec {
 impl RateIndexConventionsRecord {
     fn into_conventions(self) -> Result<RateIndexConventions, Error> {
         let tenor = match self.tenor {
-            Some(s) => Some(
-                Tenor::parse(&s).map_err(|e| {
-                    Error::Validation(format!(
-                        "Invalid `tenor` in rate index conventions registry: '{}': {}",
-                        s, e
-                    ))
-                })?,
-            ),
+            Some(s) => Some(Tenor::parse(&s).map_err(|e| {
+                Error::Validation(format!(
+                    "Invalid `tenor` in rate index conventions registry: '{}': {}",
+                    s, e
+                ))
+            })?),
             None => None,
         };
 
@@ -149,9 +147,12 @@ fn normalize_registry_id(id: &str) -> String {
 /// Load the rate index conventions from the embedded JSON registry.
 pub fn load_registry() -> Result<HashMap<IndexId, RateIndexConventions>, Error> {
     let json = include_str!("../../../../data/conventions/rate_index_conventions.json");
-    let file: RegistryFile<RateIndexConventionsRecord> = serde_json::from_str(json).map_err(
-        |e| Error::Validation(format!("Failed to parse embedded rate index conventions registry JSON: {e}")),
-    )?;
+    let file: RegistryFile<RateIndexConventionsRecord> =
+        serde_json::from_str(json).map_err(|e| {
+            Error::Validation(format!(
+                "Failed to parse embedded rate index conventions registry JSON: {e}"
+            ))
+        })?;
 
     let string_map = build_lookup_map_mapped(file, normalize_registry_id, |rec| {
         rec.clone().into_conventions()

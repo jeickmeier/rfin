@@ -160,8 +160,8 @@ impl ForwardCurveTarget {
 
             let maturity_date = if let Some(dep) = instrument
                 .as_any()
-                .downcast_ref::<crate::instruments::deposit::Deposit>()
-            {
+                .downcast_ref::<crate::instruments::deposit::Deposit>(
+            ) {
                 dep.effective_end_date()?
             } else if let Some(fra) = instrument
                 .as_any()

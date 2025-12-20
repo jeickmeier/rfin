@@ -2,15 +2,15 @@ use criterion::{criterion_group, criterion_main, Criterion};
 use finstack_core::currency::Currency;
 use finstack_core::dates::Date;
 use finstack_core::market_data::context::MarketContext;
-use finstack_valuations::calibration::targets::handlers::execute_step;
 use finstack_valuations::calibration::api::schema::{
     CalibrationMethod, DiscountCurveParams, StepParams,
 };
+use finstack_valuations::calibration::targets::handlers::execute_step;
+use finstack_valuations::calibration::CalibrationConfig;
+use finstack_valuations::market::conventions::ids::IndexId;
 use finstack_valuations::market::quotes::ids::{Pillar, QuoteId};
 use finstack_valuations::market::quotes::market_quote::MarketQuote;
 use finstack_valuations::market::quotes::rates::RateQuote;
-use finstack_valuations::market::conventions::ids::IndexId;
-use finstack_valuations::calibration::CalibrationConfig;
 use std::hint::black_box;
 use time::Month;
 

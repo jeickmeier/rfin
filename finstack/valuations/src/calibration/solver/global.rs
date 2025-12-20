@@ -285,10 +285,7 @@ impl GlobalFitOptimizer {
         )
         .with_metadata("method", "global_fit_lm_weighted_lsq")
         .with_metadata("tolerance_definition", "abs_l2(weighted_residuals)")
-        .with_metadata(
-            "validation_tolerance",
-            format!("{:.2e}", success_tolerance),
-        )
+        .with_metadata("validation_tolerance", format!("{:.2e}", success_tolerance))
         .with_metadata(
             "solver_tolerance",
             format!("{:.2e}", config.solver.tolerance()),

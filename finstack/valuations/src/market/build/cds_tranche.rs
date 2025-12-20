@@ -263,7 +263,9 @@ pub fn build_cds_tranche_instrument(
     };
 
     let schedule_params = ScheduleParams {
-        freq: overrides.payment_frequency.unwrap_or(conv.payment_frequency),
+        freq: overrides
+            .payment_frequency
+            .unwrap_or(conv.payment_frequency),
         dc: overrides.day_count.unwrap_or(conv.day_count),
         bdc: overrides
             .business_day_convention

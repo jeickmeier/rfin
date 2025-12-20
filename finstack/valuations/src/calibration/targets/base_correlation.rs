@@ -87,6 +87,16 @@ impl BaseCorrelationBootstrapper {
             calendar_id: self.params.calendar_id.clone(),
             use_imm_dates: self.params.use_imm_dates,
         };
+        if !self.params.detachment_points.is_empty() {
+            for d in &self.params.detachment_points {
+                if !d.is_finite() || *d <= 0.0 || *d > 100.0 {
+                    return Err(finstack_core::Error::Validation(format!(
+                        "detachment point {} must be in (0, 100]",
+                        d
+                    )));
+                }
+            }
+        }
         let expected_detachments: Vec<f64> = self
             .params
             .detachment_points
@@ -148,9 +158,12 @@ impl BaseCorrelationBootstrapper {
                 },
             };
 
-            let instrument = build_cds_tranche_instrument(&q_pricing, &build_ctx, &overrides).map_err(
-                |e| finstack_core::Error::Validation(format!("Failed to build tranche instrument: {e}")),
-            )?;
+            let instrument = build_cds_tranche_instrument(&q_pricing, &build_ctx, &overrides)
+                .map_err(|e| {
+                    finstack_core::Error::Validation(format!(
+                        "Failed to build tranche instrument: {e}"
+                    ))
+                })?;
 
             let detachment_pct = Self::normalize_pct(detachment);
             if !expected_detachments.is_empty()

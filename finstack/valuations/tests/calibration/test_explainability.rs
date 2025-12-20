@@ -10,8 +10,8 @@ use finstack_core::math::interp::InterpStyle;
 use finstack_core::types::{Currency, CurveId};
 use finstack_valuations::calibration::api::engine;
 use finstack_valuations::calibration::api::schema::{
-    CalibrationEnvelope, CalibrationMethod, CalibrationPlan, CalibrationStep,
-    ForwardCurveParams, StepParams,
+    CalibrationEnvelope, CalibrationMethod, CalibrationPlan, CalibrationStep, ForwardCurveParams,
+    StepParams,
 };
 use finstack_valuations::calibration::CalibrationConfig;
 use finstack_valuations::market::conventions::ids::IndexId;

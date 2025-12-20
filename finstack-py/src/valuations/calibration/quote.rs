@@ -42,8 +42,7 @@ fn parse_index(obj: Bound<'_, PyAny>) -> PyResult<IndexId> {
 }
 
 fn parse_doc_clause(text: &str) -> PyResult<CdsDocClause> {
-    CdsDocClause::from_str(text)
-        .map_err(|e| pyo3::exceptions::PyValueError::new_err(e.to_string()))
+    CdsDocClause::from_str(text).map_err(|e| pyo3::exceptions::PyValueError::new_err(e.to_string()))
 }
 
 #[pyclass(
@@ -175,9 +174,12 @@ impl PyRatesQuote {
 
     fn __repr__(&self, py: Python<'_>) -> PyResult<String> {
         match &self.inner {
-            RatesQuote::Deposit { id, pillar, rate, .. } => {
-                Ok(format!("RatesQuote.deposit(id='{}', pillar='{}', rate={:.6})", id, pillar, rate))
-            }
+            RatesQuote::Deposit {
+                id, pillar, rate, ..
+            } => Ok(format!(
+                "RatesQuote.deposit(id='{}', pillar='{}', rate={:.6})",
+                id, pillar, rate
+            )),
             RatesQuote::Fra {
                 id,
                 start,
@@ -188,9 +190,14 @@ impl PyRatesQuote {
                 "RatesQuote.fra(id='{}', start='{}', end='{}', rate={:.6})",
                 id, start, end, rate
             )),
-            RatesQuote::Futures { id, expiry, price, .. } => {
+            RatesQuote::Futures {
+                id, expiry, price, ..
+            } => {
                 let expiry_py = date_to_py(py, *expiry)?;
-                Ok(format!("RatesQuote.futures(id='{}', expiry={}, price={:.6})", id, expiry_py, price))
+                Ok(format!(
+                    "RatesQuote.futures(id='{}', expiry={}, price={:.6})",
+                    id, expiry_py, price
+                ))
             }
             RatesQuote::Swap {
                 id,
@@ -244,7 +251,10 @@ impl PyCreditQuote {
         Ok(Self::new(MarketQuote::Cds(CdsQuote::CdsParSpread {
             id: QuoteId::new(id),
             entity: entity.to_string(),
-            convention: CdsConventionKey { currency: ccy, doc_clause: doc },
+            convention: CdsConventionKey {
+                currency: ccy,
+                doc_clause: doc,
+            },
             pillar,
             spread_bp,
             recovery_rate,
@@ -273,7 +283,10 @@ impl PyCreditQuote {
         Ok(Self::new(MarketQuote::Cds(CdsQuote::CdsUpfront {
             id: QuoteId::new(id),
             entity: entity.to_string(),
-            convention: CdsConventionKey { currency: ccy, doc_clause: doc },
+            convention: CdsConventionKey {
+                currency: ccy,
+                doc_clause: doc,
+            },
             pillar,
             running_spread_bp,
             upfront_pct,
@@ -310,7 +323,10 @@ impl PyCreditQuote {
                 maturity: maturity_date,
                 upfront_pct,
                 running_spread_bp,
-                convention: CdsConventionKey { currency: ccy, doc_clause: doc },
+                convention: CdsConventionKey {
+                    currency: ccy,
+                    doc_clause: doc,
+                },
             },
         )))
     }
@@ -596,7 +612,9 @@ impl PyMarketQuote {
                 RatesQuote::Swap { .. } => "MarketQuote.from_rates(swap)".to_string(),
             },
             MarketQuote::Cds(q) => match q {
-                CdsQuote::CdsParSpread { .. } => "MarketQuote.from_credit(cds_par_spread)".to_string(),
+                CdsQuote::CdsParSpread { .. } => {
+                    "MarketQuote.from_credit(cds_par_spread)".to_string()
+                }
                 CdsQuote::CdsUpfront { .. } => "MarketQuote.from_credit(cds_upfront)".to_string(),
             },
             MarketQuote::CdsTranche(_) => "MarketQuote.from_credit(cds_tranche)".to_string(),

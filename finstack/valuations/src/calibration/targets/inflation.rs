@@ -82,7 +82,13 @@ impl InflationBootstrapper {
                 index,
                 frequency,
                 convention,
-            } => (*maturity, *rate, index.as_str(), Some(*frequency), convention),
+            } => (
+                *maturity,
+                *rate,
+                index.as_str(),
+                Some(*frequency),
+                convention,
+            ),
         };
 
         // Load conventions

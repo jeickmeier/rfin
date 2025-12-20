@@ -175,10 +175,7 @@ fn test_all_types_calibration_parity() {
             ..
         }) = q
         {
-            assert!(
-                detachment > attachment,
-                "detachment must exceed attachment"
-            );
+            assert!(detachment > attachment, "detachment must exceed attachment");
             assert!(*detachment <= 1.0, "detachment should be capped at 100%");
         }
     }

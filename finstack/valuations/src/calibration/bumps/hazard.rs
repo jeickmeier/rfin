@@ -145,9 +145,10 @@ pub fn bump_hazard_spreads(
     let base_points: Vec<(f64, f64)> = hazard.knot_points().collect();
     let new_points: Vec<(f64, f64)> = new_curve.knot_points().collect();
     let unchanged = base_points.len() == new_points.len()
-        && base_points.iter().zip(new_points.iter()).all(|(a, b)| {
-            (a.0 - b.0).abs() < 1e-12 && (a.1 - b.1).abs() < 1e-12
-        });
+        && base_points
+            .iter()
+            .zip(new_points.iter())
+            .all(|(a, b)| (a.0 - b.0).abs() < 1e-12 && (a.1 - b.1).abs() < 1e-12);
 
     if unchanged {
         return bump_hazard_shift_fallback(hazard, bump);

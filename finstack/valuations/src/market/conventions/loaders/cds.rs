@@ -57,12 +57,11 @@ fn normalize_registry_id(id: &str) -> String {
 /// Load the CDS conventions from the embedded JSON registry.
 pub fn load_registry() -> Result<HashMap<CdsConventionKey, CdsConventions>, Error> {
     let json = include_str!("../../../../data/conventions/cds_conventions.json");
-    let file: RegistryFile<CdsConventionsRecord> =
-        serde_json::from_str(json).map_err(|e| {
-            Error::Validation(format!(
-                "Failed to parse embedded CDS conventions registry JSON: {e}"
-            ))
-        })?;
+    let file: RegistryFile<CdsConventionsRecord> = serde_json::from_str(json).map_err(|e| {
+        Error::Validation(format!(
+            "Failed to parse embedded CDS conventions registry JSON: {e}"
+        ))
+    })?;
 
     let string_map = build_lookup_map_mapped(file, normalize_registry_id, |rec| {
         rec.clone().into_conventions()

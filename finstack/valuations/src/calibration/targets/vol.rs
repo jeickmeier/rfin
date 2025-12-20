@@ -46,6 +46,17 @@ impl VolSurfaceBootstrapper {
         context: &MarketContext,
         config: &CalibrationConfig,
     ) -> Result<(VolSurface, CalibrationReport)> {
+        if params.target_expiries.is_empty() {
+            return Err(finstack_core::Error::Validation(
+                "VolSurfaceParams.target_expiries must not be empty".to_string(),
+            ));
+        }
+        if params.target_strikes.len() < 3 {
+            return Err(finstack_core::Error::Validation(
+                "VolSurfaceParams.target_strikes must contain at least three points".to_string(),
+            ));
+        }
+
         let model = params.model.trim().to_ascii_lowercase();
         if model != "sabr" {
             return Err(finstack_core::Error::Validation(format!(

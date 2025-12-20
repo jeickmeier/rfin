@@ -226,15 +226,15 @@ pub fn build_rate_instrument(quote: &RateQuote, ctx: &BuildCtx) -> Result<Box<dy
             let bdc = idx_conv.market_business_day_convention;
 
             let expiry_date = adjust(*expiry, bdc, cal)?;
-            let period_start_unadj = expiry_date.add_business_days(fut_conv.settlement_days, cal)?;
+            let period_start_unadj =
+                expiry_date.add_business_days(fut_conv.settlement_days, cal)?;
             let period_start = adjust(period_start_unadj, bdc, cal)?;
 
             let delivery_tenor = finstack_core::dates::Tenor::new(
                 fut_conv.delivery_months as u32,
                 TenorUnit::Months,
             );
-            let period_end =
-                delivery_tenor.add_to_date(period_start, Some(cal), bdc)?;
+            let period_end = delivery_tenor.add_to_date(period_start, Some(cal), bdc)?;
 
             let fixing_date = resolve_fixing_date(period_start, idx_conv)?;
 

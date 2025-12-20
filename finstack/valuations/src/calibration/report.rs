@@ -69,7 +69,11 @@ fn compute_residual_diagnostics(residuals: &BTreeMap<String, f64>) -> ResidualDi
         }
     }
 
-    let max_residual = if n_valid > 0 { max_abs_valid } else { max_abs_all };
+    let max_residual = if n_valid > 0 {
+        max_abs_valid
+    } else {
+        max_abs_all
+    };
 
     let rmse = if n_all == 0 {
         0.0

@@ -6,11 +6,11 @@ use finstack_valuations::market::conventions::ids::{
     IndexId, InflationSwapConventionId, SwaptionConventionId,
 };
 use finstack_valuations::market::quotes::cds::CdsQuote;
+use finstack_valuations::market::quotes::ids::{Pillar, QuoteId};
 use finstack_valuations::market::quotes::inflation::InflationQuote;
 use finstack_valuations::market::quotes::market_quote::MarketQuote;
 use finstack_valuations::market::quotes::rates::RateQuote;
 use finstack_valuations::market::quotes::vol::VolQuote;
-use finstack_valuations::market::quotes::ids::{Pillar, QuoteId};
 use wasm_bindgen::prelude::*;
 
 /// Rates market quote.
@@ -49,13 +49,7 @@ impl JsRatesQuote {
 
     /// Create an FRA quote.
     #[wasm_bindgen(js_name = fra)]
-    pub fn fra(
-        id: &str,
-        index: &str,
-        start: &FsDate,
-        end: &FsDate,
-        rate: f64,
-    ) -> JsRatesQuote {
+    pub fn fra(id: &str, index: &str, start: &FsDate, end: &FsDate, rate: f64) -> JsRatesQuote {
         Self {
             inner: RateQuote::Fra {
                 id: QuoteId::new(id),
@@ -69,12 +63,7 @@ impl JsRatesQuote {
 
     /// Create a swap quote.
     #[wasm_bindgen(js_name = swap)]
-    pub fn swap(
-        id: &str,
-        index: &str,
-        maturity: &FsDate,
-        rate: f64,
-    ) -> JsRatesQuote {
+    pub fn swap(id: &str, index: &str, maturity: &FsDate, rate: f64) -> JsRatesQuote {
         Self {
             inner: RateQuote::Swap {
                 id: QuoteId::new(id),
@@ -139,9 +128,13 @@ impl JsCreditQuote {
     ) -> Result<JsCreditQuote, JsValue> {
         use finstack_core::types::Currency;
         use finstack_valuations::market::conventions::ids::{CdsConventionKey, CdsDocClause};
-        
-        let ccy: Currency = currency.parse::<Currency>().map_err(|e: strum::ParseError| JsValue::from_str(&e.to_string()))?;
-        let doc: CdsDocClause = doc_clause.parse::<CdsDocClause>().map_err(|e: String| JsValue::from_str(&e))?;
+
+        let ccy: Currency = currency
+            .parse::<Currency>()
+            .map_err(|e: strum::ParseError| JsValue::from_str(&e.to_string()))?;
+        let doc: CdsDocClause = doc_clause
+            .parse::<CdsDocClause>()
+            .map_err(|e: String| JsValue::from_str(&e))?;
 
         Ok(Self {
             inner: CdsQuote::CdsParSpread {

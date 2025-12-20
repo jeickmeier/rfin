@@ -564,16 +564,6 @@ impl PyVolSurfaceCalibrator {
         target_expiries: Vec<f64>,
         target_strikes: Vec<f64>,
     ) -> PyResult<Self> {
-        if target_expiries.is_empty() {
-            return Err(pyo3::exceptions::PyValueError::new_err(
-                "target_expiries must not be empty",
-            ));
-        }
-        if target_strikes.len() < 3 {
-            return Err(pyo3::exceptions::PyValueError::new_err(
-                "target_strikes must contain at least three points",
-            ));
-        }
         Ok(Self::new(VolSurfaceCalibrator::new(
             surface_id,
             beta,
@@ -789,19 +779,6 @@ impl PyBaseCorrelationCalibrator {
     /// Raises:
     ///     ValueError: If points list is empty or contains invalid values
     fn with_detachment_points(&self, points: Vec<f64>) -> PyResult<Self> {
-        if points.is_empty() {
-            return Err(pyo3::exceptions::PyValueError::new_err(
-                "detachment_points cannot be empty",
-            ));
-        }
-        for &p in &points {
-            if p <= 0.0 || p > 100.0 {
-                return Err(pyo3::exceptions::PyValueError::new_err(format!(
-                    "detachment point {} must be in (0, 100]",
-                    p
-                )));
-            }
-        }
         Ok(Self::new(self.inner.clone().with_detachment_points(points)))
     }
 

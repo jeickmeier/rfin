@@ -11,12 +11,12 @@ use finstack_core::math::interp::InterpStyle;
 use finstack_valuations::calibration::api::schema::{
     CalibrationMethod, DiscountCurveParams, StepParams,
 };
-use finstack_valuations::calibration::ResidualWeightingScheme;
 use finstack_valuations::calibration::targets::handlers::execute_step;
+use finstack_valuations::calibration::ResidualWeightingScheme;
 use finstack_valuations::calibration::{CalibrationConfig, CALIBRATION_CONFIG_KEY};
-use finstack_valuations::market::quotes::market_quote::MarketQuote;
-use finstack_valuations::market::quotes::ids::{Pillar, QuoteId};
 use finstack_valuations::market::conventions::ids::IndexId;
+use finstack_valuations::market::quotes::ids::{Pillar, QuoteId};
+use finstack_valuations::market::quotes::market_quote::MarketQuote;
 use finstack_valuations::market::quotes::rates::RateQuote;
 use time::Month;
 
@@ -322,26 +322,26 @@ fn test_bloomberg_usd_ois_calibration_accuracy() {
             0.0382585,
             0.631387,
         ), // 12Y
-        // (
-        //     Date::from_calendar_date(2040, Month::December, 12).expect("Valid date"),
-        //     0.0397745,
-        //     0.550311,
-        // ), // 15Y
-        // (
-        //     Date::from_calendar_date(2045, Month::December, 12).expect("Valid date"),
-        //     0.0410343,
-        //     0.439783,
-        // ), // 20Y
-        // (
-        //     Date::from_calendar_date(2050, Month::December, 12).expect("Valid date"),
-        //     0.0410412,
-        //     0.358105,
-        // ), // 25Y (peak)
-        // (
-        //     Date::from_calendar_date(2055, Month::December, 13).expect("Valid date"),
-        //     0.0403819,
-        //     0.297434,
-        // ), // 30Y
+           // (
+           //     Date::from_calendar_date(2040, Month::December, 12).expect("Valid date"),
+           //     0.0397745,
+           //     0.550311,
+           // ), // 15Y
+           // (
+           //     Date::from_calendar_date(2045, Month::December, 12).expect("Valid date"),
+           //     0.0410343,
+           //     0.439783,
+           // ), // 20Y
+           // (
+           //     Date::from_calendar_date(2050, Month::December, 12).expect("Valid date"),
+           //     0.0410412,
+           //     0.358105,
+           // ), // 25Y (peak)
+           // (
+           //     Date::from_calendar_date(2055, Month::December, 13).expect("Valid date"),
+           //     0.0403819,
+           //     0.297434,
+           // ), // 30Y
     ];
 
     let mut cfg = FinstackConfig::default();
@@ -363,11 +363,13 @@ fn test_bloomberg_usd_ois_calibration_accuracy() {
         curve_id: "USD-OIS".into(),
         currency: Currency::USD,
         base_date,
-        method: CalibrationMethod::GlobalSolve { use_analytical_jacobian: true },
+        method: CalibrationMethod::GlobalSolve {
+            use_analytical_jacobian: true,
+        },
         interpolation: InterpStyle::LogLinear,
         extrapolation: finstack_core::math::interp::ExtrapolationPolicy::FlatForward,
         pricing_discount_id: None,
-        pricing_forward_id: None, 
+        pricing_forward_id: None,
         conventions: finstack_valuations::calibration::api::schema::RatesStepConventions {
             curve_day_count: Some(DayCount::Act365F),
             settlement_days: Some(2),
@@ -444,18 +446,46 @@ fn test_interpolation_method_comparison() {
     let base_date = Date::from_calendar_date(2025, Month::December, 10).expect("Valid test date");
 
     let test_quotes = [
-        deposit(Date::from_calendar_date(2025, Month::December, 19).expect("Valid date"), 0.0364447),
-        deposit(Date::from_calendar_date(2026, Month::January, 12).expect("Valid date"), 0.0364950),
-        deposit(Date::from_calendar_date(2026, Month::March, 12).expect("Valid date"), 0.0363477),
-        deposit(Date::from_calendar_date(2026, Month::June, 12).expect("Valid date"), 0.0358000),
-        ois_swap(Date::from_calendar_date(2026, Month::December, 14).expect("Valid date"), 0.0343446),
-        ois_swap(Date::from_calendar_date(2027, Month::December, 13).expect("Valid date"), 0.0329864),
-        ois_swap(Date::from_calendar_date(2030, Month::December, 12).expect("Valid date"), 0.0338799),
-        ois_swap(Date::from_calendar_date(2035, Month::December, 12).expect("Valid date"), 0.0370206),
+        deposit(
+            Date::from_calendar_date(2025, Month::December, 19).expect("Valid date"),
+            0.0364447,
+        ),
+        deposit(
+            Date::from_calendar_date(2026, Month::January, 12).expect("Valid date"),
+            0.0364950,
+        ),
+        deposit(
+            Date::from_calendar_date(2026, Month::March, 12).expect("Valid date"),
+            0.0363477,
+        ),
+        deposit(
+            Date::from_calendar_date(2026, Month::June, 12).expect("Valid date"),
+            0.0358000,
+        ),
+        ois_swap(
+            Date::from_calendar_date(2026, Month::December, 14).expect("Valid date"),
+            0.0343446,
+        ),
+        ois_swap(
+            Date::from_calendar_date(2027, Month::December, 13).expect("Valid date"),
+            0.0329864,
+        ),
+        ois_swap(
+            Date::from_calendar_date(2030, Month::December, 12).expect("Valid date"),
+            0.0338799,
+        ),
+        ois_swap(
+            Date::from_calendar_date(2035, Month::December, 12).expect("Valid date"),
+            0.0370206,
+        ),
     ];
 
     let base_context = MarketContext::new();
-    let quotes: Vec<MarketQuote> = test_quotes.iter().cloned().map(MarketQuote::Rates).collect();
+    let quotes: Vec<MarketQuote> = test_quotes
+        .iter()
+        .cloned()
+        .map(MarketQuote::Rates)
+        .collect();
     let settings = CalibrationConfig::default();
 
     let mc_params = DiscountCurveParams {
@@ -469,8 +499,17 @@ fn test_interpolation_method_comparison() {
         pricing_forward_id: None,
         conventions: Default::default(),
     };
-    let (mc_ctx, mc_report) = execute_step(&StepParams::Discount(mc_params), &quotes, &base_context, &settings).expect("MC failed");
-    let mc_curve = mc_ctx.get_discount_ref("USD-OIS-MC").expect("curve inserted").clone();
+    let (mc_ctx, mc_report) = execute_step(
+        &StepParams::Discount(mc_params),
+        &quotes,
+        &base_context,
+        &settings,
+    )
+    .expect("MC failed");
+    let mc_curve = mc_ctx
+        .get_discount_ref("USD-OIS-MC")
+        .expect("curve inserted")
+        .clone();
 
     let ll_params = DiscountCurveParams {
         curve_id: "USD-OIS-LL".into(),
@@ -483,8 +522,17 @@ fn test_interpolation_method_comparison() {
         pricing_forward_id: None,
         conventions: Default::default(),
     };
-    let (ll_ctx, ll_report) = execute_step(&StepParams::Discount(ll_params), &quotes, &base_context, &settings).expect("LL failed");
-    let ll_curve = ll_ctx.get_discount_ref("USD-OIS-LL").expect("curve inserted").clone();
+    let (ll_ctx, ll_report) = execute_step(
+        &StepParams::Discount(ll_params),
+        &quotes,
+        &base_context,
+        &settings,
+    )
+    .expect("LL failed");
+    let ll_curve = ll_ctx
+        .get_discount_ref("USD-OIS-LL")
+        .expect("curve inserted")
+        .clone();
 
     assert!(mc_report.success);
     assert!(ll_report.success);
