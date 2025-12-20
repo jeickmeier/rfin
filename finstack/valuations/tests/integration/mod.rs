@@ -1,6 +1,13 @@
-//! Integration tests module for Phase 1 refactors.
+//! Integration tests module for market convention refactors.
 //!
 //! This module contains end-to-end integration tests that verify the
-//! complete workflows affected by Phase 1 market convention refactors.
+//! complete workflows affected by market convention refactors across all phases.
+//!
+//! # Phase 1: Critical Safety Fixes
+//! - [`metrics_strict_mode`]: Metrics framework with strict error handling
+//!
+//! # Phase 2: Market Convention Alignment
+//! - [`fx_settlement`]: FX spot date calculations and joint business day counting
 
+pub mod fx_settlement;
 pub mod metrics_strict_mode;
