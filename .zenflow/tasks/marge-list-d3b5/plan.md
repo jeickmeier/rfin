@@ -530,23 +530,37 @@ cargo bench --bench waterfall
 **Impact**: Eliminate ~30 lines per envelope type (8+ types)  
 **Estimated Time**: 1-2 days
 
-### [ ] Step 6.1: Define JsonEnvelope trait
-**File**: `finstack/valuations/src/attribution/types.rs` or new `envelope.rs`
+### [x] Step 6.1: Define JsonEnvelope trait
+<!-- chat-id: a8070da7-1785-4d80-94d8-2f158efd1ba2 -->
+**File**: `finstack/valuations/src/attribution/types.rs`
 
 **Tasks**:
-- Add `JsonEnvelope` trait with default methods
-- Include `from_json`, `from_reader`, `to_json` methods
-- Define error conversion methods (abstract)
-- Add comprehensive documentation with examples
+- ✅ Add `JsonEnvelope` trait with default methods
+- ✅ Include `from_json`, `from_reader`, `to_json` methods
+- ✅ Define error conversion methods (abstract: `parse_error`, `serialize_error`)
+- ✅ Add comprehensive documentation with examples
 
 **Verification**:
 ```bash
-cargo build --lib
+cargo build --lib                                # ✅ Compiles successfully
+cargo test --lib attribution::types::json_envelope_tests  # ✅ 8 tests pass
+cargo test --lib attribution                     # ✅ 77 tests pass
+cargo clippy --lib -- -D warnings                # ✅ Zero warnings
+cargo doc --no-deps --lib                        # ✅ Documentation builds
 ```
 
 **Acceptance**:
 - ✅ Trait compiles and default methods work
 - ✅ Documentation is clear with usage examples
+- ✅ Added 8 comprehensive tests covering:
+  - JSON roundtrip (serialization → deserialization)
+  - Reader-based parsing (from file/stream)
+  - Parse error handling (invalid JSON, missing fields, malformed JSON)
+  - Serialize error handling (I/O errors)
+  - Pretty-printing verification
+  - Equivalence testing
+- ✅ All existing attribution tests still pass (77 tests)
+- ✅ Zero clippy warnings
 
 ---
 

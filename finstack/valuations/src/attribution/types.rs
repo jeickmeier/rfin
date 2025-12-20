@@ -1057,3 +1057,409 @@ mod tests {
         assert_eq!(attr.residual.amount(), 0.0);
     }
 }
+
+/// Trait for types that can be serialized to/from JSON envelopes.
+///
+/// Provides default implementations for common JSON I/O operations with
+/// consistent error handling. Types implementing this trait must provide
+/// error conversion methods to map `serde_json` errors to domain-specific
+/// error types.
+///
+/// # Type Requirements
+///
+/// Implementors must:
+/// - Implement `serde::Serialize` for JSON output
+/// - Implement `serde::de::DeserializeOwned` for JSON input
+/// - Provide `parse_error` to convert deserialization errors
+/// - Provide `serialize_error` to convert serialization errors
+///
+/// # Examples
+///
+/// ```rust,ignore
+/// use finstack_valuations::attribution::JsonEnvelope;
+/// use serde::{Deserialize, Serialize};
+///
+/// #[derive(Serialize, Deserialize)]
+/// struct MyEnvelope {
+///     schema: String,
+///     data: String,
+/// }
+///
+/// impl JsonEnvelope for MyEnvelope {
+///     fn parse_error(e: serde_json::Error) -> finstack_core::Error {
+///         finstack_core::Error::Calibration {
+///             message: format!("Failed to parse envelope: {}", e),
+///             category: "json_parse".to_string(),
+///         }
+///     }
+///
+///     fn serialize_error(e: serde_json::Error) -> finstack_core::Error {
+///         finstack_core::Error::Calibration {
+///             message: format!("Failed to serialize envelope: {}", e),
+///             category: "json_serialize".to_string(),
+///         }
+///     }
+/// }
+///
+/// // Now you can use the trait methods:
+/// let envelope = MyEnvelope {
+///     schema: "v1".to_string(),
+///     data: "test".to_string(),
+/// };
+///
+/// // Serialize to JSON string
+/// let json = envelope.to_json()?;
+///
+/// // Parse from JSON string
+/// let parsed = MyEnvelope::from_json(&json)?;
+///
+/// // Parse from reader
+/// let cursor = std::io::Cursor::new(json.as_bytes());
+/// let from_reader = MyEnvelope::from_reader(cursor)?;
+/// ```
+///
+/// # Design Rationale
+///
+/// This trait eliminates boilerplate code for envelope types while maintaining:
+/// - **Type safety**: Uses associated error types rather than generic `serde_json::Error`
+/// - **Consistency**: All envelopes use the same serialization format (pretty-printed JSON)
+/// - **Flexibility**: Implementors control error messages and categories
+/// - **Ergonomics**: Three-line trait impl replaces ~30 lines of duplicate code per type
+///
+/// # Performance
+///
+/// JSON serialization is not optimized for performance. For high-throughput scenarios,
+/// consider binary formats (bincode, MessagePack) or zero-copy alternatives (flatbuffers).
+#[cfg(feature = "serde")]
+pub trait JsonEnvelope: Sized + Serialize + serde::de::DeserializeOwned {
+    /// Convert a JSON parsing error to the domain error type.
+    ///
+    /// # Arguments
+    ///
+    /// * `e` - The serde_json deserialization error
+    ///
+    /// # Returns
+    ///
+    /// Domain-specific error with context about the failure.
+    ///
+    /// # Examples
+    ///
+    /// ```rust,ignore
+    /// fn parse_error(e: serde_json::Error) -> finstack_core::Error {
+    ///     finstack_core::Error::Calibration {
+    ///         message: format!("Failed to parse attribution envelope: {}", e),
+    ///         category: "json_parse".to_string(),
+    ///     }
+    /// }
+    /// ```
+    fn parse_error(e: serde_json::Error) -> finstack_core::Error;
+
+    /// Convert a JSON serialization error to the domain error type.
+    ///
+    /// # Arguments
+    ///
+    /// * `e` - The serde_json serialization error
+    ///
+    /// # Returns
+    ///
+    /// Domain-specific error with context about the failure.
+    ///
+    /// # Examples
+    ///
+    /// ```rust,ignore
+    /// fn serialize_error(e: serde_json::Error) -> finstack_core::Error {
+    ///     finstack_core::Error::Calibration {
+    ///         message: format!("Failed to serialize attribution envelope: {}", e),
+    ///         category: "json_serialize".to_string(),
+    ///     }
+    /// }
+    /// ```
+    fn serialize_error(e: serde_json::Error) -> finstack_core::Error;
+
+    /// Parse from a JSON string.
+    ///
+    /// Uses `serde_json::from_str` internally with custom error conversion.
+    ///
+    /// # Arguments
+    ///
+    /// * `json` - JSON string to parse
+    ///
+    /// # Returns
+    ///
+    /// Parsed instance or error if JSON is malformed or fields are missing.
+    ///
+    /// # Errors
+    ///
+    /// Returns error via `parse_error` if:
+    /// - JSON syntax is invalid
+    /// - Required fields are missing (for `#[serde(deny_unknown_fields)]` types)
+    /// - Type conversions fail
+    /// - Custom validation fails (for types with `#[serde(deserialize_with)]`)
+    ///
+    /// # Examples
+    ///
+    /// ```rust,ignore
+    /// let json = r#"{"schema": "v1", "data": "test"}"#;
+    /// let envelope = MyEnvelope::from_json(json)?;
+    /// ```
+    fn from_json(json: &str) -> Result<Self> {
+        serde_json::from_str(json).map_err(Self::parse_error)
+    }
+
+    /// Parse from a reader (file, socket, buffer, etc.).
+    ///
+    /// Uses `serde_json::from_reader` internally with custom error conversion.
+    /// Efficient for large JSON payloads as it streams parsing.
+    ///
+    /// # Arguments
+    ///
+    /// * `reader` - Any type implementing `std::io::Read`
+    ///
+    /// # Returns
+    ///
+    /// Parsed instance or error if JSON is malformed or fields are missing.
+    ///
+    /// # Errors
+    ///
+    /// Same error conditions as `from_json`, plus I/O errors from the reader.
+    ///
+    /// # Examples
+    ///
+    /// ```rust,ignore
+    /// // From file
+    /// let file = std::fs::File::open("envelope.json")?;
+    /// let envelope = MyEnvelope::from_reader(file)?;
+    ///
+    /// // From in-memory buffer
+    /// let cursor = std::io::Cursor::new(json_bytes);
+    /// let envelope = MyEnvelope::from_reader(cursor)?;
+    /// ```
+    fn from_reader<R: std::io::Read>(reader: R) -> Result<Self> {
+        serde_json::from_reader(reader).map_err(Self::parse_error)
+    }
+
+    /// Serialize to a pretty-printed JSON string.
+    ///
+    /// Uses `serde_json::to_string_pretty` for human-readable output with
+    /// 2-space indentation. For compact JSON, use `serde_json::to_string(self)`
+    /// directly.
+    ///
+    /// # Returns
+    ///
+    /// JSON string with proper formatting or error if serialization fails.
+    ///
+    /// # Errors
+    ///
+    /// Returns error via `serialize_error` if:
+    /// - Circular references detected (should not happen with finite types)
+    /// - Custom serialization logic fails
+    /// - Very rare serde_json internal errors
+    ///
+    /// # Examples
+    ///
+    /// ```rust,ignore
+    /// let envelope = MyEnvelope { schema: "v1".to_string(), data: "test".to_string() };
+    /// let json = envelope.to_json()?;
+    /// println!("{}", json);  // Pretty-printed with indentation
+    /// ```
+    fn to_json(&self) -> Result<String> {
+        serde_json::to_string_pretty(self).map_err(Self::serialize_error)
+    }
+}
+
+#[cfg(all(test, feature = "serde"))]
+mod json_envelope_tests {
+    use super::*;
+
+    /// Test envelope type to verify JsonEnvelope trait functionality.
+    #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+    struct TestEnvelope {
+        schema: String,
+        data: String,
+        number: i32,
+    }
+
+    impl JsonEnvelope for TestEnvelope {
+        fn parse_error(e: serde_json::Error) -> finstack_core::Error {
+            finstack_core::Error::Calibration {
+                message: format!("Failed to parse test envelope: {}", e),
+                category: "test_parse".to_string(),
+            }
+        }
+
+        fn serialize_error(e: serde_json::Error) -> finstack_core::Error {
+            finstack_core::Error::Calibration {
+                message: format!("Failed to serialize test envelope: {}", e),
+                category: "test_serialize".to_string(),
+            }
+        }
+    }
+
+    #[test]
+    fn test_json_envelope_roundtrip() {
+        let envelope = TestEnvelope {
+            schema: "test/v1".to_string(),
+            data: "test data".to_string(),
+            number: 42,
+        };
+
+        // Serialize to JSON
+        let json = envelope.to_json().expect("Serialization should succeed");
+        assert!(json.contains("\"schema\""));
+        assert!(json.contains("\"test/v1\""));
+        assert!(json.contains("\"data\""));
+        assert!(json.contains("\"test data\""));
+        assert!(json.contains("\"number\""));
+        assert!(json.contains("42"));
+
+        // Parse back from JSON
+        let parsed =
+            TestEnvelope::from_json(&json).expect("Deserialization should succeed");
+        assert_eq!(parsed.schema, envelope.schema);
+        assert_eq!(parsed.data, envelope.data);
+        assert_eq!(parsed.number, envelope.number);
+    }
+
+    #[test]
+    fn test_json_envelope_from_reader() {
+        let envelope = TestEnvelope {
+            schema: "test/v1".to_string(),
+            data: "reader test".to_string(),
+            number: 123,
+        };
+
+        // Serialize to JSON
+        let json = envelope.to_json().expect("Serialization should succeed");
+
+        // Create a reader from the JSON string
+        let cursor = std::io::Cursor::new(json.as_bytes());
+
+        // Parse from reader
+        let parsed = TestEnvelope::from_reader(cursor)
+            .expect("Deserialization from reader should succeed");
+        assert_eq!(parsed.schema, envelope.schema);
+        assert_eq!(parsed.data, envelope.data);
+        assert_eq!(parsed.number, envelope.number);
+    }
+
+    #[test]
+    fn test_json_envelope_parse_error() {
+        let invalid_json = r#"{"schema": "test/v1", "data": "test", "number": "not a number"}"#;
+
+        let result = TestEnvelope::from_json(invalid_json);
+        assert!(result.is_err());
+
+        // Verify error message contains expected details
+        let err = result.unwrap_err();
+        if let finstack_core::Error::Calibration { message, category } = err {
+            assert!(message.contains("Failed to parse test envelope"));
+            assert_eq!(category, "test_parse");
+        } else {
+            panic!("Expected Calibration error, got: {:?}", err);
+        }
+    }
+
+    #[test]
+    fn test_json_envelope_missing_fields() {
+        let incomplete_json = r#"{"schema": "test/v1"}"#;
+
+        let result = TestEnvelope::from_json(incomplete_json);
+        assert!(result.is_err());
+
+        let err = result.unwrap_err();
+        if let finstack_core::Error::Calibration { message, category } = err {
+            assert!(message.contains("Failed to parse test envelope"));
+            assert_eq!(category, "test_parse");
+        } else {
+            panic!("Expected Calibration error, got: {:?}", err);
+        }
+    }
+
+    #[test]
+    fn test_json_envelope_malformed_json() {
+        let malformed_json = r#"{"schema": "test/v1", "data": "test", "number": 42"#; // Missing closing brace
+
+        let result = TestEnvelope::from_json(malformed_json);
+        assert!(result.is_err());
+
+        let err = result.unwrap_err();
+        if let finstack_core::Error::Calibration { message, category } = err {
+            assert!(message.contains("Failed to parse test envelope"));
+            assert_eq!(category, "test_parse");
+        } else {
+            panic!("Expected Calibration error, got: {:?}", err);
+        }
+    }
+
+    #[test]
+    fn test_json_envelope_reader_io_error() {
+        // Create a reader that will fail
+        struct FailingReader;
+        impl std::io::Read for FailingReader {
+            fn read(&mut self, _buf: &mut [u8]) -> std::io::Result<usize> {
+                Err(std::io::Error::new(
+                    std::io::ErrorKind::Other,
+                    "Simulated I/O error",
+                ))
+            }
+        }
+
+        let result = TestEnvelope::from_reader(FailingReader);
+        assert!(result.is_err());
+
+        let err = result.unwrap_err();
+        if let finstack_core::Error::Calibration { message, .. } = err {
+            assert!(message.contains("Failed to parse test envelope"));
+        } else {
+            panic!("Expected Calibration error, got: {:?}", err);
+        }
+    }
+
+    #[test]
+    fn test_json_envelope_pretty_printing() {
+        let envelope = TestEnvelope {
+            schema: "test/v1".to_string(),
+            data: "test".to_string(),
+            number: 42,
+        };
+
+        let json = envelope.to_json().expect("Serialization should succeed");
+
+        // Verify pretty-printing (should have newlines and indentation)
+        assert!(json.contains('\n'));
+        assert!(json.lines().count() > 1);
+
+        // Should be parseable
+        let parsed =
+            TestEnvelope::from_json(&json).expect("Parsing pretty JSON should succeed");
+        assert_eq!(parsed, envelope);
+    }
+
+    #[test]
+    fn test_json_envelope_equivalence() {
+        let envelope1 = TestEnvelope {
+            schema: "test/v1".to_string(),
+            data: "data1".to_string(),
+            number: 100,
+        };
+
+        let envelope2 = TestEnvelope {
+            schema: "test/v1".to_string(),
+            data: "data1".to_string(),
+            number: 100,
+        };
+
+        let json1 = envelope1.to_json().expect("Serialization should succeed");
+        let json2 = envelope2.to_json().expect("Serialization should succeed");
+
+        // JSON should be identical for identical structs
+        assert_eq!(json1, json2);
+
+        // Both should parse to equivalent structs
+        let parsed1 = TestEnvelope::from_json(&json1).expect("Parse should succeed");
+        let parsed2 = TestEnvelope::from_json(&json2).expect("Parse should succeed");
+        assert_eq!(parsed1, parsed2);
+        assert_eq!(parsed1, envelope1);
+    }
+}
+
