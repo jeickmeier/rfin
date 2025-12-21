@@ -365,13 +365,14 @@ where
 /// use finstack_valuations::metrics::GenericTheta;
 /// use finstack_valuations::instruments::Bond;
 /// use finstack_valuations::metrics::{MetricRegistry, MetricId};
+/// use finstack_valuations::pricer::InstrumentType;
 /// use std::sync::Arc;
 ///
 /// let mut registry = MetricRegistry::new();
 /// registry.register_metric(
 ///     MetricId::Theta,
 ///     Arc::new(GenericTheta::<Bond>::default()),
-///     &["Bond"],
+///     &[InstrumentType::Bond],
 /// );
 /// ```
 pub struct GenericTheta<I> {

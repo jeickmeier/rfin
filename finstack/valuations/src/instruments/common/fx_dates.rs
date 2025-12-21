@@ -134,7 +134,8 @@ pub fn adjust_joint_calendar(
 /// # Examples
 ///
 /// ```
-/// # use finstack_core::dates::{Date, BusinessDayConvention};
+/// # use finstack_core::dates::{create_date, BusinessDayConvention};
+/// # use time::Month;
 /// # use finstack_valuations::instruments::common::fx_dates::add_joint_business_days;
 /// let trade_date = create_date(2024, Month::January, 15).unwrap();
 /// let spot_date = add_joint_business_days(
@@ -208,7 +209,8 @@ pub fn add_joint_business_days(
 /// # Examples
 ///
 /// ```
-/// # use finstack_core::dates::{Date, BusinessDayConvention};
+/// # use finstack_core::dates::{create_date, BusinessDayConvention};
+/// # use time::Month;
 /// # use finstack_valuations::instruments::common::fx_dates::roll_spot_date;
 /// let trade_date = create_date(2024, Month::January, 15).unwrap();
 /// let spot_date = roll_spot_date(

@@ -18,7 +18,7 @@ use crate::pricer::InstrumentType;
 /// # Examples
 ///
 /// ```
-/// use finstack_valuations::metrics::core::registry::StrictMode;
+/// use finstack_valuations::metrics::StrictMode;
 ///
 /// // Strict mode (default): fails fast on any error
 /// let mode = StrictMode::Strict;
@@ -229,8 +229,7 @@ impl MetricRegistry {
     /// # Examples
     ///
     /// ```no_run
-    /// use finstack_valuations::metrics::core::{registry::MetricRegistry, ids::MetricId};
-    /// # use finstack_valuations::metrics::core::traits::MetricContext;
+    /// use finstack_valuations::metrics::{MetricContext, MetricId, MetricRegistry};
     /// # fn example(registry: &MetricRegistry, mut context: MetricContext) -> finstack_core::Result<()> {
     /// // Strict mode (default): fails fast on any error
     /// let metrics = vec![MetricId::Dv01, MetricId::Convexity];
@@ -271,8 +270,7 @@ impl MetricRegistry {
     /// # Examples
     ///
     /// ```no_run
-    /// use finstack_valuations::metrics::core::{registry::MetricRegistry, ids::MetricId};
-    /// # use finstack_valuations::metrics::core::traits::MetricContext;
+    /// use finstack_valuations::metrics::{MetricContext, MetricId, MetricRegistry};
     /// # fn example(registry: &MetricRegistry, mut context: MetricContext) -> finstack_core::Result<()> {
     /// // Best-effort mode: continues on errors
     /// let metrics = vec![MetricId::Dv01, MetricId::Convexity];
