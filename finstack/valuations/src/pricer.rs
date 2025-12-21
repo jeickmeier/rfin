@@ -688,6 +688,14 @@ fn register_all_pricers(registry: &mut PricerRegistry) {
         crate::instruments::ir_future::pricer::SimpleIrFutureDiscountingPricer::default()
     );
 
+    // Bond Future
+    register_pricer!(
+        registry,
+        BondFuture,
+        Discounting,
+        crate::instruments::bond_future::pricer::BondFuturePricer
+    );
+
     // Cap/Floor
     register_pricer!(
         registry,

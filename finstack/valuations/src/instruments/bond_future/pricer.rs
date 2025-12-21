@@ -290,6 +290,54 @@ impl BondFuturePricer {
     }
 }
 
+// ========================= PRICER TRAIT IMPLEMENTATION =========================
+
+impl crate::pricer::Pricer for BondFuturePricer {
+    fn key(&self) -> crate::pricer::PricerKey {
+        crate::pricer::PricerKey::new(
+            crate::pricer::InstrumentType::BondFuture,
+            crate::pricer::ModelKey::Discounting,
+        )
+    }
+
+    fn price_dyn(
+        &self,
+        instrument: &dyn crate::instruments::common::traits::Instrument,
+        _market: &MarketContext,
+        _as_of: finstack_core::dates::Date,
+    ) -> crate::pricer::PricingResult<crate::results::ValuationResult> {
+        // Type-safe downcast to BondFuture
+        let future = instrument
+            .as_any()
+            .downcast_ref::<super::BondFuture>()
+            .ok_or_else(|| {
+                crate::pricer::PricingError::type_mismatch(
+                    crate::pricer::InstrumentType::BondFuture,
+                    instrument.key(),
+                )
+            })?;
+
+        // Bond future pricing requires the CTD bond to be provided explicitly.
+        // The standard Pricer trait doesn't support additional parameters, so for now,
+        // users should call BondFuturePricer::calculate_npv() directly with the CTD bond.
+        //
+        // Future enhancement: Add an instrument registry to MarketContext to store
+        // and retrieve bonds by ID, allowing automatic CTD bond lookup.
+        Err(crate::pricer::PricingError::ModelFailure(format!(
+            "Bond future pricing requires explicit CTD bond provision. \
+             The CTD bond (ID: {}) must be provided directly to BondFuturePricer::calculate_npv(). \
+             This limitation will be resolved when an instrument registry is added to MarketContext.",
+            future.ctd_bond_id.as_str()
+        )))
+    }
+}
+
+impl Default for BondFuturePricer {
+    fn default() -> Self {
+        Self
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -780,5 +828,101 @@ mod tests {
         );
         
         println!("NPV formula verification successful!");
+    }
+
+    // ========== Pricer Registration Tests ==========
+
+    #[test]
+    fn test_pricer_registration() {
+        // Test that BondFuturePricer is registered in the standard registry
+        let registry = crate::pricer::create_standard_registry();
+        let key = crate::pricer::PricerKey::new(
+            crate::pricer::InstrumentType::BondFuture,
+            crate::pricer::ModelKey::Discounting,
+        );
+
+        // Should be able to retrieve the pricer
+        assert!(
+            registry.get_pricer(key).is_some(),
+            "BondFuturePricer should be registered in standard registry"
+        );
+    }
+
+    #[test]
+    fn test_pricer_key() {
+        // Test that BondFuturePricer returns the correct key
+        use crate::pricer::Pricer;
+        
+        let pricer = BondFuturePricer::default();
+        let key = pricer.key();
+
+        assert_eq!(
+            key.instrument,
+            crate::pricer::InstrumentType::BondFuture,
+            "Pricer should have BondFuture instrument type"
+        );
+        assert_eq!(
+            key.model,
+            crate::pricer::ModelKey::Discounting,
+            "Pricer should use Discounting model"
+        );
+    }
+
+    #[test]
+    fn test_pricer_error_message() {
+        // Test that calling price_dyn returns an informative error message
+        use crate::pricer::Pricer;
+        
+        let deliverable = super::super::DeliverableBond {
+            bond_id: InstrumentId::new("US912828XG33"),
+            conversion_factor: 0.8234,
+        };
+
+        let future = super::super::BondFutureBuilder::new()
+            .id(InstrumentId::new("TYH5"))
+            .notional(Money::new(1_000_000.0, Currency::USD))
+            .expiry_date(date!(2025 - 03 - 20))
+            .delivery_start(date!(2025 - 03 - 21))
+            .delivery_end(date!(2025 - 03 - 31))
+            .quoted_price(125.50)
+            .position(Position::Long)
+            .contract_specs(super::super::BondFutureSpecs::default())
+            .deliverable_basket(vec![deliverable])
+            .ctd_bond_id(InstrumentId::new("US912828XG33"))
+            .discount_curve_id(CurveId::new("USD-TREASURY"))
+            .attributes(crate::instruments::common::traits::Attributes::new())
+            .build()
+            .expect("Valid bond future");
+
+        let pricer = BondFuturePricer::default();
+        let market = create_test_market(0.06);
+        let as_of = date!(2025 - 01 - 15);
+
+        // Call price_dyn - should return an error with helpful message
+        let result = pricer.price_dyn(&future, &market, as_of);
+
+        assert!(
+            result.is_err(),
+            "price_dyn should return an error for bond futures"
+        );
+
+        // Verify the error message is helpful
+        let err = result.unwrap_err();
+        let err_msg = err.to_string();
+        assert!(
+            err_msg.contains("CTD bond"),
+            "Error message should mention CTD bond, got: {}",
+            err_msg
+        );
+        assert!(
+            err_msg.contains("US912828XG33"),
+            "Error message should include CTD bond ID, got: {}",
+            err_msg
+        );
+        assert!(
+            err_msg.contains("calculate_npv"),
+            "Error message should suggest using calculate_npv directly, got: {}",
+            err_msg
+        );
     }
 }
