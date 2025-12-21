@@ -105,6 +105,8 @@ pub enum InstrumentType {
     EquityTotalReturnSwap = 50,
     /// Fixed Income Index Total Return Swap.
     FIIndexTotalReturnSwap = 51,
+    /// Bond future (futures on a deliverable bond basket with CTD mechanics).
+    BondFuture = 54,
 }
 
 impl InstrumentType {
@@ -157,6 +159,7 @@ impl InstrumentType {
             InstrumentType::DCF => "DCF",
             InstrumentType::EquityTotalReturnSwap => "EquityTotalReturnSwap",
             InstrumentType::FIIndexTotalReturnSwap => "FIIndexTotalReturnSwap",
+            InstrumentType::BondFuture => "BondFuture",
         }
     }
 }
@@ -207,6 +210,7 @@ impl std::fmt::Display for InstrumentType {
             InstrumentType::DCF => "dcf",
             InstrumentType::EquityTotalReturnSwap => "equity_total_return_swap",
             InstrumentType::FIIndexTotalReturnSwap => "fi_index_total_return_swap",
+            InstrumentType::BondFuture => "bond_future",
         };
         write!(f, "{}", label)
     }
@@ -273,6 +277,7 @@ impl std::str::FromStr for InstrumentType {
             "fi_index_total_return_swap" | "fi_index_trs" | "fiindex_trs" | "fiindextrs" => {
                 Ok(InstrumentType::FIIndexTotalReturnSwap)
             }
+            "bond_future" | "bondfuture" => Ok(InstrumentType::BondFuture),
             other => Err(format!("Unknown instrument type: {}", other)),
         }
     }
@@ -1486,5 +1491,13 @@ mod tests {
                 .is_some(),
             "PrivateMarketsFund Discounting pricer should be registered"
         );
+    }
+
+    #[test]
+    fn test_instrument_type_bond_future() {
+        let inst_type = InstrumentType::BondFuture;
+        assert_eq!(inst_type.as_str(), "BondFuture");
+        assert_eq!(format!("{}", inst_type), "bond_future");
+        assert_eq!(inst_type as u16, 54);
     }
 }
