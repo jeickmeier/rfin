@@ -227,3 +227,236 @@ mod serde_tests {
         }
     }
 }
+
+// =============================================================================
+// Additional Comprehensive Tests for Phase 1 Coverage
+// =============================================================================
+
+#[test]
+fn test_forward_curve_spread_based_construction() {
+    // Test spread over base curve
+    let _disc_curve = finstack_core::market_data::term_structures::DiscountCurve::builder("DISC")
+        .base_date(test_date())
+        .knots([(0.0, 1.0), (1.0, 0.95), (2.0, 0.90)])
+        .build()
+        .unwrap();
+    
+    let fwd_curve = ForwardCurve::builder("FWD-SPREAD", 0.25)
+        .base_date(test_date())
+        .knots([(0.0, 0.01), (1.0, 0.015), (2.0, 0.02)]) // Spread
+        .build()
+        .unwrap();
+    
+    // Verify rate calculations with spread
+    let rate = fwd_curve.rate(1.0);
+    assert!(rate > 0.0);
+}
+
+#[test]
+fn test_forward_curve_tenor_mismatch() {
+    // Test with different tenor than knots
+    let curve = ForwardCurve::builder("TEST", 0.5) // 6-month tenor
+        .base_date(test_date())
+        .knots([(0.0, 0.03), (0.25, 0.032), (1.0, 0.04)])
+        .build()
+        .unwrap();
+    
+    assert_eq!(curve.tenor(), 0.5);
+    let rate = curve.rate(0.75);
+    assert!(rate > 0.03 && rate < 0.05);
+}
+
+#[test]
+fn test_forward_curve_rate_conversion_continuous() {
+    // Test continuous compounding
+    let curve = ForwardCurve::builder("TEST", 0.25)
+        .base_date(test_date())
+        .day_count(DayCount::Act360)
+        .knots([(0.0, 0.05), (1.0, 0.05)])
+        .build()
+        .unwrap();
+    
+    let rate = curve.rate(0.5);
+    assert!((rate - 0.05).abs() < 0.001);
+}
+
+#[test]
+fn test_forward_curve_negative_forwards() {
+    // Negative rates are allowed
+    let curve = ForwardCurve::builder("NEGATIVE", 0.25)
+        .base_date(test_date())
+        .knots([(0.0, -0.01), (1.0, -0.005)])
+        .build()
+        .unwrap();
+    
+    let rate = curve.rate(0.5);
+    assert!(rate < 0.0);
+}
+
+#[test]
+fn test_forward_curve_inverted() {
+    // Inverted yield curve
+    let curve = ForwardCurve::builder("INVERTED", 0.25)
+        .base_date(test_date())
+        .knots([(0.0, 0.05), (1.0, 0.03), (2.0, 0.02)])
+        .build()
+        .unwrap();
+    
+    assert!(curve.rate(0.0) > curve.rate(2.0));
+}
+
+#[test]
+fn test_forward_curve_very_long_tenors() {
+    // Very long dated forwards
+    let curve = ForwardCurve::builder("LONG", 0.25)
+        .base_date(test_date())
+        .knots([(0.0, 0.03), (1.0, 0.035), (10.0, 0.04), (30.0, 0.045)])
+        .build()
+        .unwrap();
+    
+    let rate_30y = curve.rate(30.0);
+    assert!((rate_30y - 0.045).abs() < 1e-10);
+}
+
+#[test]
+fn test_forward_curve_short_tenors() {
+    // Very short dated forwards
+    let curve = ForwardCurve::builder("SHORT", 0.25)
+        .base_date(test_date())
+        .knots([(0.0, 0.03), (0.01, 0.031), (0.1, 0.032)])
+        .build()
+        .unwrap();
+    
+    let rate = curve.rate(0.05);
+    assert!(rate > 0.03 && rate < 0.033);
+}
+
+#[test]
+fn test_forward_curve_extrapolation_left() {
+    // Extrapolate below minimum knot
+    let curve = ForwardCurve::builder("TEST", 0.25)
+        .base_date(test_date())
+        .knots([(1.0, 0.03), (2.0, 0.04)])
+        .extrapolation(ExtrapolationPolicy::FlatForward)
+        .build()
+        .unwrap();
+    
+    // Should flat extrapolate
+    let rate = curve.rate(0.5);
+    assert!((rate - 0.03).abs() < 1e-10);
+}
+
+#[test]
+fn test_forward_curve_extrapolation_right() {
+    // Extrapolate above maximum knot
+    let curve = ForwardCurve::builder("TEST", 0.25)
+        .base_date(test_date())
+        .knots([(0.0, 0.03), (1.0, 0.04)])
+        .extrapolation(ExtrapolationPolicy::FlatForward)
+        .build()
+        .unwrap();
+    
+    // Should flat extrapolate
+    let rate = curve.rate(5.0);
+    assert!((rate - 0.04).abs() < 1e-10);
+}
+
+#[test]
+fn test_forward_curve_reset_lag() {
+    // Test with various reset lags
+    for lag in [0, 1, 2, 5] {
+        let curve = ForwardCurve::builder("TEST", 0.25)
+            .base_date(test_date())
+            .reset_lag(lag)
+            .knots([(0.0, 0.03), (1.0, 0.04)])
+            .build()
+            .unwrap();
+        
+        assert_eq!(curve.reset_lag(), lag);
+    }
+}
+
+#[test]
+fn test_forward_curve_day_count_variations() {
+    // Test with different day count conventions
+    let day_counts = [
+        DayCount::Act360,
+        DayCount::Act365F,
+        DayCount::Thirty360,
+    ];
+    
+    for dc in day_counts {
+        let curve = ForwardCurve::builder("TEST", 0.25)
+            .base_date(test_date())
+            .day_count(dc)
+            .knots([(0.0, 0.03), (1.0, 0.04)])
+            .build()
+            .unwrap();
+        
+        assert_eq!(curve.day_count(), dc);
+    }
+}
+
+#[test]
+fn test_forward_curve_single_knot() {
+    // Single knot = flat curve
+    let curve = ForwardCurve::builder("FLAT", 0.25)
+        .base_date(test_date())
+        .knots([(0.0, 0.05)])
+        .build()
+        .unwrap();
+    
+    // Should be flat at all tenors
+    assert!((curve.rate(0.0) - 0.05).abs() < 1e-10);
+    assert!((curve.rate(1.0) - 0.05).abs() < 1e-10);
+    assert!((curve.rate(10.0) - 0.05).abs() < 1e-10);
+}
+
+#[test]
+fn test_forward_curve_many_knots() {
+    // Many knots for fine granularity
+    let knots: Vec<(f64, f64)> = (0..=20)
+        .map(|i| (i as f64 * 0.5, 0.03 + i as f64 * 0.001))
+        .collect();
+    
+    let curve = ForwardCurve::builder("GRANULAR", 0.25)
+        .base_date(test_date())
+        .knots(knots)
+        .build()
+        .unwrap();
+    
+    // Should interpolate smoothly
+    for t in [0.25, 0.75, 1.5, 5.5] {
+        let rate = curve.rate(t);
+        assert!(rate > 0.03 && rate < 0.05);
+    }
+}
+
+#[cfg(feature = "serde")]
+#[test]
+fn test_forward_curve_serde_all_fields() {
+    // Test full serde round-trip with all fields
+    let original = ForwardCurve::builder("FULL-TEST", 0.25)
+        .base_date(test_date())
+        .reset_lag(2)
+        .day_count(DayCount::Act360)
+        .knots([(0.0, 0.03), (1.0, 0.04), (2.0, 0.045)])
+        .set_interp(InterpStyle::CubicHermite)
+        .extrapolation(ExtrapolationPolicy::FlatForward)
+        .build()
+        .unwrap();
+    
+    let json = serde_json::to_string(&original).unwrap();
+    let deserialized: ForwardCurve = serde_json::from_str(&json).unwrap();
+    
+    assert_eq!(original.id(), deserialized.id());
+    assert_eq!(original.tenor(), deserialized.tenor());
+    assert_eq!(original.reset_lag(), deserialized.reset_lag());
+    assert_eq!(original.day_count(), deserialized.day_count());
+    assert_eq!(original.knots(), deserialized.knots());
+    
+    // Verify rates match
+    for t in [0.0, 0.5, 1.0, 1.5, 2.0] {
+        assert!((original.rate(t) - deserialized.rate(t)).abs() < 1e-12);
+    }
+}

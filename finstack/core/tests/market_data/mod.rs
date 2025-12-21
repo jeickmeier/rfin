@@ -31,6 +31,9 @@ mod scalars;
 // Credit index data
 mod credit_index;
 
+// Volatility surfaces
+mod surfaces;
+
 // Serialization tests
 #[cfg(feature = "serde")]
 mod serde;

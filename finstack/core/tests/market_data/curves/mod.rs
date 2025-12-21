@@ -6,9 +6,11 @@
 //! - [`hazard`] - Credit hazard rate curves (survival probabilities)
 //! - [`inflation`] - Inflation/CPI curves
 //! - [`base_correlation`] - Credit index base correlation curves
+//! - [`flat_tests`] - Flat curve tests
 
 mod base_correlation;
 mod discount;
+mod flat_tests;
 mod forward;
 mod hazard;
 mod inflation;
