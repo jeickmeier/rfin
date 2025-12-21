@@ -771,7 +771,7 @@ impl TreeModel for ShortRateTree {
         valuator: &V,
     ) -> Result<f64> {
         if self.rates.is_empty() {
-            println!("DEBUG: ShortRateTree::price - rates is empty");
+            tracing::debug!("ShortRateTree::price called before calibration (rates is empty)");
             return Err(Error::Internal); // Tree not calibrated
         }
 

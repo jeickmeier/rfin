@@ -62,9 +62,9 @@ use crate::metrics::MetricId;
 use crate::pricer::InstrumentType;
 use finstack_core::market_data::context::MarketContext;
 use finstack_core::prelude::*;
-use hashbrown::{HashMap, HashSet};
 use serde::{Deserialize, Serialize};
 use std::any::Any;
+use std::collections::{BTreeMap, BTreeSet};
 
 /// Metadata for instrument categorization, tagging, and scenario selection.
 ///
@@ -120,11 +120,16 @@ use std::any::Any;
 /// assert!(!attrs.matches_selector("tag:high-yield"));
 /// ```
 #[derive(Clone, Debug, Default, Serialize, Deserialize)]
+#[cfg_attr(feature = "serde", serde(deny_unknown_fields))]
 pub struct Attributes {
     /// User-defined tags for categorization (e.g., "high-yield", "energy").
-    pub tags: HashSet<String>,
+    ///
+    /// Stored as an ordered set to ensure deterministic serialization and stable iteration.
+    pub tags: BTreeSet<String>,
     /// Key-value metadata pairs for structured attributes.
-    pub meta: HashMap<String, String>,
+    ///
+    /// Stored as an ordered map to ensure deterministic serialization and stable iteration.
+    pub meta: BTreeMap<String, String>,
 }
 
 impl Attributes {

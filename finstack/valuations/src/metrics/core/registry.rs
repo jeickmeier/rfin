@@ -151,7 +151,9 @@ impl MetricRegistry {
     ///
     /// See unit tests and `examples/` for usage.
     pub fn available_metrics(&self) -> Vec<MetricId> {
-        self.entries.keys().cloned().collect()
+        let mut v: Vec<MetricId> = self.entries.keys().cloned().collect();
+        v.sort_by(|a, b| a.as_str().cmp(b.as_str()));
+        v
     }
 
     /// Gets metrics applicable to a specific instrument type.
@@ -167,11 +169,14 @@ impl MetricRegistry {
     ///
     /// See unit tests and `examples/` for usage.
     pub fn metrics_for_instrument(&self, instrument_type: &str) -> Vec<MetricId> {
-        self.entries
+        let mut v: Vec<MetricId> = self
+            .entries
             .iter()
             .filter(|(_, entry)| entry.applies_to(instrument_type))
             .map(|(id, _)| id.clone())
-            .collect()
+            .collect();
+        v.sort_by(|a, b| a.as_str().cmp(b.as_str()));
+        v
     }
 
     /// Checks if a metric is applicable to a specific instrument type.

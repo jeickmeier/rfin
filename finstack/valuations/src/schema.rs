@@ -5,6 +5,7 @@
 //! in validation, UI forms, and contract generation.
 
 use serde_json::Value;
+use std::sync::OnceLock;
 
 macro_rules! include_schema {
     ($path:literal) => {
@@ -16,28 +17,40 @@ macro_rules! include_schema {
 ///
 /// Sourced from the generated instrument schemas under `schemas/instruments/1/`.
 pub fn bond_schema() -> Value {
-    include_schema!("../schemas/instruments/1/bond.schema.json")
+    static SCHEMA: OnceLock<Value> = OnceLock::new();
+    SCHEMA
+        .get_or_init(|| include_schema!("../schemas/instruments/1/bond.schema.json"))
+        .clone()
 }
 
 /// Get JSON-Schema for CalibrationConfig.
 ///
 /// Returns schema for calibration configuration options.
 pub fn calibration_config_schema() -> Value {
-    include_schema!("../schemas/calibration/2/calibration_config_v2.schema.json")
+    static SCHEMA: OnceLock<Value> = OnceLock::new();
+    SCHEMA
+        .get_or_init(|| include_schema!("../schemas/calibration/2/calibration_config_v2.schema.json"))
+        .clone()
 }
 
 /// Get JSON-Schema for ValuationResult.
 ///
 /// Returns schema for valuation result envelope (PV + metrics).
 pub fn valuation_result_schema() -> Value {
-    include_schema!("../schemas/results/1/valuation_result.schema.json")
+    static SCHEMA: OnceLock<Value> = OnceLock::new();
+    SCHEMA
+        .get_or_init(|| include_schema!("../schemas/results/1/valuation_result.schema.json"))
+        .clone()
 }
 
 /// Get JSON-Schema for CalibrationReport.
 ///
 /// Returns schema for calibration diagnostic report.
 pub fn calibration_report_schema() -> Value {
-    include_schema!("../schemas/calibration/2/calibration_result.schema.json")
+    static SCHEMA: OnceLock<Value> = OnceLock::new();
+    SCHEMA
+        .get_or_init(|| include_schema!("../schemas/calibration/2/calibration_result.schema.json"))
+        .clone()
 }
 
 #[cfg(test)]

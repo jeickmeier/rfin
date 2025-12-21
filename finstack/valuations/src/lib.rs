@@ -270,6 +270,13 @@
 //! - [`finstack_portfolio`]: Multi-instrument portfolio aggregation
 //! - [`finstack_scenarios`]: Scenario analysis and stress testing
 
+// The valuations crate’s public contracts (schemas/envelopes) and the UI/bindings assume serde is
+// available. The codebase historically had partial `cfg(feature="serde")` gating that could
+// compile-break in no-serde builds. Make the requirement explicit until a full non-serde surface
+// is designed.
+#[cfg(not(feature = "serde"))]
+compile_error!("finstack-valuations requires the `serde` feature (enabled by default).");
+
 pub mod calibration;
 pub mod cashflow;
 pub mod constants;

@@ -89,7 +89,7 @@ impl GlobalFitOptimizer {
         };
 
         if config.verbose && use_analytical {
-            println!("GlobalFitOptimizer: Using analytical Jacobian.");
+            tracing::info!("GlobalFitOptimizer: using analytical Jacobian");
         }
 
         let solver = config.create_lm_solver();

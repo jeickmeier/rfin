@@ -304,8 +304,12 @@ where
 
         if debug {
             let sum_scaled: f64 = matrix.iter().flatten().sum();
-            eprintln!(
-                "bucketed vega debug: raw_total={raw_total}, target_total={target_total}, scale={scale}, sum_scaled={sum_scaled}",
+            tracing::debug!(
+                raw_total = raw_total,
+                target_total = target_total,
+                scale = scale,
+                sum_scaled = sum_scaled,
+                "bucketed vega debug"
             );
         }
 
