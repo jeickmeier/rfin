@@ -21,9 +21,7 @@ pub mod pricer;
 pub mod metrics;
 
 // Re-export commonly used types
-pub use types::BondFuturePlaceholder;
-pub use pricer::BondFuturePricer;
-pub use metrics::BondFutureMetrics;
+pub use types::{BondFuture, BondFutureBuilder, BondFutureSpecs, DeliverableBond, Position};
 
 #[cfg(test)]
 mod tests {

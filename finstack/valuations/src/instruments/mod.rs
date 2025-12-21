@@ -98,7 +98,7 @@ pub use barrier_option::{BarrierOption, BarrierType};
 pub use basis_swap::BasisSwap;
 pub use basket::Basket;
 pub use bond::Bond;
-pub use bond_future::BondFuturePlaceholder;
+pub use bond_future::{BondFuture, BondFutureBuilder, BondFutureSpecs, DeliverableBond};
 pub use cap_floor::RateOptionType;
 pub use cds::CreditDefaultSwap;
 pub use cds_index::CDSIndex;
