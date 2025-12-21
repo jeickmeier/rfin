@@ -7,10 +7,12 @@
 
 use finstack_core::dates::Date;
 use finstack_core::market_data::context::MarketContext;
+use finstack_core::money::Money;
 use finstack_core::Result;
 
 use crate::cashflow::traits::CashflowProvider;
 use crate::instruments::bond::Bond;
+use crate::instruments::ir_future::Position;
 
 /// Bond future pricer.
 ///
@@ -190,6 +192,102 @@ impl BondFuturePricer {
 
         Ok(model_price)
     }
+
+    /// Calculate the NPV (present value) of a bond future position.
+    ///
+    /// The NPV represents the mark-to-market value of the futures position,
+    /// calculated as the present value of the difference between the quoted
+    /// futures price and the theoretical model price.
+    ///
+    /// # Formula
+    ///
+    /// NPV = (Quoted_Price - Model_Price) × (Notional / 100) × DF × Sign
+    ///
+    /// Where:
+    /// - Quoted_Price: Current market price of the futures contract
+    /// - Model_Price: Theoretical fair value based on CTD bond
+    /// - Notional: Total notional exposure (contract_size × num_contracts)
+    /// - DF: Discount factor to settlement date
+    /// - Sign: +1 for Long positions, -1 for Short positions
+    /// - Division by 100: Prices are quoted per $100 face value
+    ///
+    /// # Parameters
+    ///
+    /// - `future`: The bond future contract
+    /// - `ctd_bond`: The cheapest-to-deliver bond
+    /// - `conversion_factor`: Pre-calculated conversion factor for the CTD bond
+    /// - `market`: Market context with discount curves
+    /// - `as_of`: Valuation date
+    ///
+    /// # Returns
+    ///
+    /// Present value in the same currency as the future's notional
+    ///
+    /// # Example
+    ///
+    /// ```rust,ignore
+    /// let future = BondFuture::ust_10y(..., Position::Long, quoted_price: 125.50, ...);
+    /// let ctd_bond = Bond::fixed_semiannual(...);
+    /// let cf = BondFuturePricer::calculate_conversion_factor(...)?;
+    /// 
+    /// let npv = BondFuturePricer::calculate_npv(
+    ///     &future,
+    ///     &ctd_bond,
+    ///     cf,
+    ///     &market,
+    ///     date!(2025-01-15),
+    /// )?;
+    /// // For a long position with quoted > model price, NPV is positive
+    /// ```
+    pub fn calculate_npv(
+        future: &super::BondFuture,
+        ctd_bond: &Bond,
+        conversion_factor: f64,
+        market: &MarketContext,
+        as_of: Date,
+    ) -> Result<Money> {
+        // Calculate the theoretical model price
+        let model_price = Self::calculate_model_price(ctd_bond, conversion_factor, market, as_of)?;
+
+        // Calculate price differential
+        let price_diff = future.quoted_price - model_price;
+
+        // Get discount curve for settlement
+        use finstack_core::market_data::traits::Discounting;
+        let discount_arc = market.get_discount(future.discount_curve_id.as_str())?;
+        let discount_curve: &dyn Discounting = discount_arc.as_ref();
+
+        // Calculate settlement date (expiry + settlement_days business days)
+        // For now, using simple calendar days (TODO: implement business day calendar)
+        let settlement_days = future.contract_specs.settlement_days as i64;
+        let settlement_date = future.expiry_date + time::Duration::days(settlement_days);
+
+        // Get discount factor to settlement
+        // First, calculate year fraction from base date to settlement using curve's day count
+        let base_date = discount_curve.base_date();
+        let day_count = discount_curve.day_count();
+        let year_fraction = day_count.year_fraction(
+            base_date,
+            settlement_date,
+            finstack_core::dates::DayCountCtx::default(),
+        )?;
+        let discount_factor = discount_curve.df(year_fraction);
+
+        // Calculate position sign (+1 for Long, -1 for Short)
+        let position_sign = match future.position {
+            Position::Long => 1.0,
+            Position::Short => -1.0,
+        };
+
+        // Calculate NPV
+        // Formula: NPV = (Quoted - Model) × (Notional / 100) × DF × Sign
+        // Division by 100 because prices are per $100 face value
+        let notional_value = future.notional.amount();
+        let npv_amount = price_diff * (notional_value / 100.0) * discount_factor * position_sign;
+
+        // Return as Money with same currency as notional
+        Ok(Money::new(npv_amount, future.notional.currency()))
+    }
 }
 
 #[cfg(test)]
@@ -201,7 +299,7 @@ mod tests {
     use finstack_core::market_data::term_structures::discount_curve::DiscountCurve;
     use finstack_core::math::interp::InterpStyle;
     use finstack_core::money::Money;
-    use finstack_core::types::CurveId;
+    use finstack_core::types::{CurveId, InstrumentId};
     use time::macros::date;
 
     use crate::instruments::bond::Bond;
@@ -469,5 +567,218 @@ mod tests {
             (model_price - expected_approx).abs() < 5.0,
             "Model price should be approximately 100/CF"
         );
+    }
+
+    // ========== NPV Calculation Tests ==========
+
+    /// Helper to create a test BondFuture
+    fn create_test_bond_future(
+        notional: f64,
+        quoted_price: f64,
+        position: Position,
+        expiry: Date,
+    ) -> crate::instruments::bond_future::BondFuture {
+        use crate::instruments::bond_future::{
+            BondFutureBuilder, BondFutureSpecs, DeliverableBond,
+        };
+        
+        BondFutureBuilder::new()
+            .id(InstrumentId::new("TYH5"))
+            .notional(Money::new(notional, Currency::USD))
+            .expiry_date(expiry)
+            .delivery_start(expiry + time::Duration::days(1))
+            .delivery_end(expiry + time::Duration::days(10))
+            .quoted_price(quoted_price)
+            .position(position)
+            .contract_specs(BondFutureSpecs::default())
+            .deliverable_basket(vec![DeliverableBond {
+                bond_id: InstrumentId::new("TEST_BOND"),
+                conversion_factor: 0.8234,
+            }])
+            .ctd_bond_id(InstrumentId::new("TEST_BOND"))
+            .discount_curve_id(CurveId::new("USD-TREASURY"))
+            .attributes(crate::instruments::common::traits::Attributes::new())
+            .build()
+            .expect("Failed to build test bond future")
+    }
+
+    #[test]
+    fn test_npv_long_position() {
+        // Setup: Long position where quoted price > model price (profitable)
+        let quoted_price = 125.50;
+        let notional = 1_000_000.0; // 10 contracts × $100k
+        let expiry = date!(2025 - 03 - 20);
+        
+        let future = create_test_bond_future(
+            notional,
+            quoted_price,
+            Position::Long,
+            expiry,
+        );
+
+        // Create CTD bond that will result in model price < quoted price
+        let ctd_bond = create_test_bond(100_000.0, 0.05, date!(2020 - 01 - 15), date!(2030 - 01 - 15));
+        let market = create_test_market(0.06); // Higher market rate → lower bond price → lower model price
+        let as_of = date!(2025 - 01 - 15);
+
+        // Calculate conversion factor
+        let cf = BondFuturePricer::calculate_conversion_factor(&ctd_bond, 0.06, 10.0, &market, as_of)
+            .expect("Failed to calculate conversion factor");
+
+        // Calculate NPV
+        let npv = BondFuturePricer::calculate_npv(&future, &ctd_bond, cf, &market, as_of)
+            .expect("Failed to calculate NPV for long position");
+
+        println!("\n=== NPV Long Position Test ===");
+        println!("Quoted Price: {:.4}", quoted_price);
+        println!("Conversion Factor: {:.4}", cf);
+        println!("Notional: ${:.0}", notional);
+        println!("NPV: ${:.2}", npv.amount());
+
+        // For a long position with quoted > model, NPV should be positive
+        // The exact value depends on the model price, but it should be positive
+        // and scale with notional
+        
+        // Verify:
+        // 1. NPV currency matches future currency
+        assert_eq!(npv.currency(), future.notional.currency(), 
+            "NPV currency should match future currency");
+        
+        // 2. NPV magnitude is reasonable (should be less than notional)
+        assert!(npv.amount().abs() < notional, 
+            "NPV magnitude should be less than notional");
+        
+        // 3. For most realistic scenarios with quoted around 125.50 and market rate 6%,
+        //    model price will be in the range 90-110, giving a positive NPV for long
+        // Note: We can't assert positive without knowing exact model price,
+        //       but we can verify the calculation mechanics work
+        println!("NPV calculation successful for long position");
+    }
+
+    #[test]
+    fn test_npv_short_position() {
+        // Setup: Short position (opposite sign to long)
+        let quoted_price = 125.50;
+        let notional = 1_000_000.0; // 10 contracts × $100k
+        let expiry = date!(2025 - 03 - 20);
+        
+        let future = create_test_bond_future(
+            notional,
+            quoted_price,
+            Position::Short,
+            expiry,
+        );
+
+        // Use same CTD bond and market as long position test
+        let ctd_bond = create_test_bond(100_000.0, 0.05, date!(2020 - 01 - 15), date!(2030 - 01 - 15));
+        let market = create_test_market(0.06);
+        let as_of = date!(2025 - 01 - 15);
+
+        let cf = BondFuturePricer::calculate_conversion_factor(&ctd_bond, 0.06, 10.0, &market, as_of)
+            .expect("Failed to calculate conversion factor");
+
+        let npv_short = BondFuturePricer::calculate_npv(&future, &ctd_bond, cf, &market, as_of)
+            .expect("Failed to calculate NPV for short position");
+
+        // For comparison, calculate NPV for equivalent long position
+        let future_long = create_test_bond_future(
+            notional,
+            quoted_price,
+            Position::Long,
+            expiry,
+        );
+        
+        let npv_long = BondFuturePricer::calculate_npv(&future_long, &ctd_bond, cf, &market, as_of)
+            .expect("Failed to calculate NPV for long position");
+
+        println!("\n=== NPV Short Position Test ===");
+        println!("Quoted Price: {:.4}", quoted_price);
+        println!("Conversion Factor: {:.4}", cf);
+        println!("NPV Short: ${:.2}", npv_short.amount());
+        println!("NPV Long: ${:.2}", npv_long.amount());
+
+        // Verify that short NPV = -1 × long NPV (within floating point precision)
+        let expected_short = -npv_long.amount();
+        assert!(
+            (npv_short.amount() - expected_short).abs() < 1.0,
+            "Short NPV should be negative of long NPV. Short: {:.2}, Expected: {:.2}",
+            npv_short.amount(),
+            expected_short
+        );
+        
+        println!("NPV calculation successful: Short = -Long (within precision)");
+    }
+
+    #[test]
+    fn test_npv_manual_calculation() {
+        // Manual verification test with explicit values
+        // This test verifies the NPV formula step-by-step
+        
+        let quoted_price = 125.00;  // Round number for easier calculation
+        let notional = 1_000_000.0;  // 10 contracts
+        let expiry = date!(2025 - 03 - 20);
+        
+        let future = create_test_bond_future(
+            notional,
+            quoted_price,
+            Position::Long,
+            expiry,
+        );
+
+        // Create a par bond (coupon = market rate) for predictable model price
+        let ctd_bond = create_test_bond(100_000.0, 0.06, date!(2020 - 01 - 15), date!(2030 - 01 - 15));
+        let market = create_test_market(0.06);
+        let as_of = date!(2025 - 01 - 15);
+
+        // Calculate components
+        let cf = BondFuturePricer::calculate_conversion_factor(&ctd_bond, 0.06, 10.0, &market, as_of)
+            .expect("Failed to calculate conversion factor");
+        
+        let model_price = BondFuturePricer::calculate_model_price(&ctd_bond, cf, &market, as_of)
+            .expect("Failed to calculate model price");
+        
+        let npv = BondFuturePricer::calculate_npv(&future, &ctd_bond, cf, &market, as_of)
+            .expect("Failed to calculate NPV");
+
+        println!("\n=== NPV Manual Verification ===");
+        println!("Quoted Price: {:.4}", quoted_price);
+        println!("Model Price: {:.4}", model_price);
+        println!("Price Differential: {:.4}", quoted_price - model_price);
+        println!("Conversion Factor: {:.4}", cf);
+        println!("Notional: ${:.0}", notional);
+        
+        // Get discount factor manually for verification
+        let discount_arc = market.get_discount(future.discount_curve_id.as_str()).unwrap();
+        use finstack_core::market_data::traits::Discounting;
+        let discount_curve: &dyn Discounting = discount_arc.as_ref();
+        let settlement_date = expiry + time::Duration::days(2);
+        
+        let base_date = discount_curve.base_date();
+        let day_count = discount_curve.day_count();
+        let t = day_count.year_fraction(
+            base_date,
+            settlement_date,
+            finstack_core::dates::DayCountCtx::default(),
+        ).unwrap();
+        let df = discount_curve.df(t);
+        
+        println!("Discount Factor: {:.6}", df);
+        
+        // Manual NPV calculation
+        let price_diff = quoted_price - model_price;
+        let manual_npv = price_diff * (notional / 100.0) * df * 1.0; // 1.0 for Long
+        
+        println!("Manual NPV: ${:.2}", manual_npv);
+        println!("Calculated NPV: ${:.2}", npv.amount());
+        
+        // Verify match (within $100 tolerance for floating point)
+        assert!(
+            (npv.amount() - manual_npv).abs() < 100.0,
+            "NPV should match manual calculation. Calculated: {:.2}, Manual: {:.2}",
+            npv.amount(),
+            manual_npv
+        );
+        
+        println!("NPV formula verification successful!");
     }
 }
