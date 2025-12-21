@@ -1004,6 +1004,107 @@ fn test_bond_future_dv01_sign_convention() {
 }
 
 #[test]
+fn test_invoice_price() {
+    // Test the invoice_price() method with realistic UST 10Y contract
+    let market = create_realistic_market();
+    let (bonds, mut deliverable_bonds) = create_deliverable_basket();
+    let as_of = date!(2025 - 01 - 15);
+
+    // Calculate conversion factors
+    let standard_coupon = 0.06;
+    let standard_maturity = 10.0;
+
+    for (i, bond) in bonds.iter().enumerate() {
+        let cf = BondFuturePricer::calculate_conversion_factor(
+            bond,
+            standard_coupon,
+            standard_maturity,
+            &market,
+            as_of,
+        )
+        .expect("Failed to calculate conversion factor");
+        deliverable_bonds[i].conversion_factor = cf;
+        println!(
+            "Bond {} ({}): CF = {:.4}",
+            i + 1,
+            deliverable_bonds[i].bond_id.as_str(),
+            cf
+        );
+    }
+
+    // Create a UST 10Y future
+    let quoted_price = 125.50; // e.g., 125-16/32
+    let expiry = date!(2025 - 03 - 20);
+    let delivery_start = date!(2025 - 03 - 21);
+    let delivery_end = date!(2025 - 03 - 31);
+
+    let future = BondFuture::ust_10y(
+        InstrumentId::new("TYH5"),
+        Money::new(1_000_000.0, Currency::USD), // 10 contracts
+        expiry,
+        delivery_start,
+        delivery_end,
+        quoted_price,
+        Position::Long,
+        deliverable_bonds.clone(),
+        InstrumentId::new("US912828XG33"), // First bond as CTD
+        CurveId::new("USD-TREASURY"),
+    )
+    .expect("Failed to create UST 10Y future");
+
+    // Calculate invoice price for settlement (T+2 after expiry)
+    let settlement_date = date!(2025 - 03 - 23);
+    let ctd_bond = &bonds[0]; // First bond is the CTD
+
+    let invoice = future
+        .invoice_price(ctd_bond, &market, settlement_date)
+        .expect("Failed to calculate invoice price");
+
+    println!("Futures quoted price: {:.2}", quoted_price);
+    println!("CTD bond conversion factor: {:.4}", deliverable_bonds[0].conversion_factor);
+    println!("Settlement date: {}", settlement_date);
+    println!("Invoice price: {}", invoice);
+
+    // Verify invoice price components
+    // Invoice = (Futures_Price × CF) + Accrued
+    let cf = deliverable_bonds[0].conversion_factor;
+    
+    // Invoice should be positive and reasonable
+    assert!(
+        invoice.amount() > 0.0,
+        "Invoice price should be positive"
+    );
+
+    // For a 125.50 futures price with CF ~0.8, invoice should be ~103 per $100 face
+    // For 10 contracts ($1M notional), total should be ~$1,030,000
+    let expected_per_100 = quoted_price * cf;
+    let expected_total = (future.notional.amount() / 100.0) * expected_per_100;
+    
+    // Allow for accrued interest variation (within ±5% of expected)
+    let tolerance = expected_total * 0.05;
+    let diff = (invoice.amount() - expected_total).abs();
+    
+    println!("Expected invoice (without accrued): ${:.2}", expected_total);
+    println!("Actual invoice (with accrued): ${:.2}", invoice.amount());
+    println!("Difference: ${:.2}", diff);
+    
+    assert!(
+        diff < tolerance,
+        "Invoice price should be within 5% of expected: expected=${:.2}, actual=${:.2}, diff=${:.2}",
+        expected_total,
+        invoice.amount(),
+        diff
+    );
+
+    // Verify currency matches
+    assert_eq!(
+        invoice.currency(),
+        Currency::USD,
+        "Invoice should be in USD"
+    );
+}
+
+#[test]
 fn test_bucketed_dv01_registration() {
     // Verify that BucketedDv01 metric is correctly registered for BondFuture
     //

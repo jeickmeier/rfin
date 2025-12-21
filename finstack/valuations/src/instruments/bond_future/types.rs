@@ -800,6 +800,114 @@ impl BondFuture {
             .attributes(Attributes::new())
             .try_build()
     }
+
+    /// Calculate the invoice price for settlement of the bond future.
+    ///
+    /// The invoice price is the amount the buyer pays to the seller when taking delivery
+    /// of the underlying bond at expiry. It consists of:
+    /// - The futures price scaled by the conversion factor (bringing CTD bond to standard terms)
+    /// - Plus accrued interest on the CTD bond at settlement
+    ///
+    /// Formula: `Invoice = (Futures_Price × Conversion_Factor) + Accrued_Interest`
+    ///
+    /// # Arguments
+    ///
+    /// * `ctd_bond` - The cheapest-to-deliver bond reference
+    /// * `market` - Market context containing curves for accrued interest calculation
+    /// * `settlement_date` - Settlement date (typically T+2 after expiry)
+    ///
+    /// # Returns
+    ///
+    /// Invoice price in the same currency as the futures contract notional.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if:
+    /// - CTD bond is not found in the deliverable basket
+    /// - Cashflow schedule building fails
+    /// - Accrued interest calculation fails
+    ///
+    /// # Examples
+    ///
+    /// ```rust,ignore
+    /// use finstack_valuations::instruments::bond_future::BondFuture;
+    /// use finstack_valuations::instruments::bond::Bond;
+    /// use finstack_core::market_data::context::MarketContext;
+    /// use finstack_core::dates::Date;
+    /// use time::Month;
+    ///
+    /// # let future = create_test_bond_future();
+    /// # let ctd_bond = create_test_bond();
+    /// # let market = MarketContext::new();
+    ///
+    /// // Calculate invoice price for settlement 2 days after expiry
+    /// let settlement = Date::from_calendar_date(2025, Month::March, 23).unwrap();
+    /// let invoice = future.invoice_price(&ctd_bond, &market, settlement)?;
+    ///
+    /// // For futures price 125.50 and CF 0.8234:
+    /// // Invoice = (125.50 × 0.8234) + accrued
+    /// # Ok::<(), Box<dyn std::error::Error>>(())
+    /// ```
+    pub fn invoice_price(
+        &self,
+        ctd_bond: &crate::instruments::bond::Bond,
+        market: &finstack_core::market_data::context::MarketContext,
+        settlement_date: Date,
+    ) -> finstack_core::Result<Money> {
+        // Find the conversion factor for the CTD bond
+        let conversion_factor = self
+            .deliverable_basket
+            .iter()
+            .find(|db| db.bond_id == self.ctd_bond_id)
+            .ok_or_else(|| {
+                finstack_core::error::InputError::NotFound {
+                    id: format!(
+                        "CTD bond {} not found in deliverable basket",
+                        self.ctd_bond_id.as_str()
+                    ),
+                }
+            })?
+            .conversion_factor;
+
+        // Get the CTD bond's cashflow schedule
+        let schedule = ctd_bond.get_full_schedule(market)?;
+
+        // Calculate accrued interest at settlement date
+        use crate::cashflow::accrual::{accrued_interest_amount, AccrualConfig, ExCouponRule};
+        
+        let accrual_config = AccrualConfig {
+            method: ctd_bond.accrual_method.clone(),
+            ex_coupon: ctd_bond.ex_coupon_days.map(|days| ExCouponRule {
+                days_before_coupon: days,
+                calendar_id: ctd_bond.ex_coupon_calendar_id.clone(),
+            }),
+            include_pik: true,
+        };
+
+        let accrued_amount = accrued_interest_amount(&schedule, settlement_date, &accrual_config)?;
+
+        // Convert accrued interest from absolute currency units to percentage of par
+        // accrued_amount is in dollars (e.g., $7,000 on $100,000 notional)
+        // We need to express it as dollars per $100 face (e.g., $7 per $100)
+        let ctd_notional = ctd_bond.notional.amount();
+        let accrued_pct = (accrued_amount / ctd_notional) * 100.0;
+
+        // Calculate invoice price per contract
+        // Invoice = (Futures_Price × CF) + Accrued
+        // Note: Futures price is quoted per $100 face value, so we scale appropriately
+        let futures_price_pct = self.quoted_price; // e.g., 125.50 for 125-16/32
+        let invoice_pct = (futures_price_pct * conversion_factor) + accrued_pct;
+
+        // Convert from percentage to actual money amount for contract size
+        // Contract size is typically $100,000, so invoice_pct is per $100 face
+        let invoice_per_contract = (invoice_pct / 100.0) * self.contract_specs.contract_size;
+
+        // Scale by number of contracts (notional / contract_size)
+        let num_contracts = self.notional.amount() / self.contract_specs.contract_size;
+        let total_invoice = invoice_per_contract * num_contracts;
+
+        Ok(Money::new(total_invoice, self.notional.currency()))
+    }
 }
 
 // Manually implement a validated builder method
