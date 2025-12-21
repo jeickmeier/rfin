@@ -758,19 +758,16 @@ impl BaseCorrelationCurveBuilder {
             return Err(InputError::TooFewPoints.into());
         }
 
-        // Sort by detachment point
+        // Sort by detachment point deterministically (panic-free even with NaNs).
         let mut sorted_points = self.points;
-        sorted_points.sort_by(|a, b| {
-            a.0.partial_cmp(&b.0)
-                .expect("f64 comparison should always be comparable")
-        });
+        sorted_points.sort_by(|a, b| a.0.total_cmp(&b.0));
 
         // Validate points
         for (detachment, corr) in &sorted_points {
-            if *detachment < 0.0 {
-                return Err(InputError::NegativeValue.into());
+            if !detachment.is_finite() || *detachment < 0.0 {
+                return Err(InputError::Invalid.into());
             }
-            if *corr > 1.0 {
+            if !corr.is_finite() || *corr < 0.0 || *corr > 1.0 {
                 return Err(InputError::Invalid.into());
             }
         }

@@ -662,10 +662,11 @@ impl HazardCurveBuilder {
             return Err(InputError::TooFewPoints.into());
         }
 
-        // Validate hazard rates: non-negative and finite
+        // Validate knot times and hazard rates: times must be finite/non-negative; rates non-negative and finite.
         for &(t, lambda) in &self.points {
-            #[cfg(not(debug_assertions))]
-            let _ = t;
+            if !t.is_finite() || t < 0.0 {
+                return Err(InputError::Invalid.into());
+            }
             if lambda < 0.0 {
                 return Err(InputError::NegativeValue.into());
             }
@@ -690,19 +691,18 @@ impl HazardCurveBuilder {
         }
 
         let mut points = self.points;
-        points.sort_by(|a, b| {
-            a.0.partial_cmp(&b.0)
-                .expect("f64 comparison should always be comparable")
-        });
+        points.sort_by(|a, b| a.0.total_cmp(&b.0));
         let (kvec, lvec): (Vec<f64>, Vec<f64>) = points.into_iter().unzip();
         if kvec.len() > 1 {
             crate::math::interp::utils::validate_knots(&kvec)?;
         }
         let mut par_pts = self.par_points;
-        par_pts.sort_by(|a, b| {
-            a.0.partial_cmp(&b.0)
-                .expect("f64 comparison should always be comparable")
-        });
+        for &(t, spread) in &par_pts {
+            if !t.is_finite() || t < 0.0 || !spread.is_finite() {
+                return Err(InputError::Invalid.into());
+            }
+        }
+        par_pts.sort_by(|a, b| a.0.total_cmp(&b.0));
         let (p_ten, p_spd): (Vec<f64>, Vec<f64>) = par_pts.into_iter().unzip();
 
         // Convert hazard rates to survival probabilities for interpolation

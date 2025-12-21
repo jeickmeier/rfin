@@ -23,13 +23,12 @@
 - **What’s missing**: A first-class Agency MBS instrument (FNMA/FHLMC/GNMA) with pass-through cashflows.
 - **Core missing functionality**:
 - **Prepayment modeling hooks**: PSA / CPR / SMM (start simple, but must exist).
-  - **Reuse plan**: Prefer reusing `structured_credit` prepayment specs/models and/or the `cashflow` builder’s `prepayment` spec + CPR/PSA/SMM conversions, rather than duplicating prepayment math.
+- **Reuse plan**: Prefer reusing `structured_credit` prepayment specs/models and/or the `cashflow` builder’s `prepayment` spec + CPR/PSA/SMM conversions, rather than duplicating prepayment math.
 - **Servicing / guarantee / g-fee**: Ability to represent net coupon vs gross WAC.
-  - **Reuse plan**: Represent servicing/g-fee as periodic fees using existing cashflow fee specs/emission; only extend fee bases/specs if needed (avoid bespoke per-instrument fee logic).
+- **Reuse plan**: Represent servicing/g-fee as periodic fees using existing cashflow fee specs/emission; only extend fee bases/specs if needed (avoid bespoke per-instrument fee logic).
 - **Delay / payment timing**: Delay conventions by program and settlement.
 - **Risk**: OAS, effective duration/convexity, key-rate DV01 (optional), price/yield style outputs.
 - **Market data needs**: OIS discount curve, optional forward curve; option-adjusted model inputs (vol, mean reversion) if doing OAS.
-
 - **TBA (To‑Be‑Announced) forward**
 - **What’s missing**: A TBA trade representation (generic agency, coupon, maturity “bucket”, settlement month).
 - **Core missing functionality**:
@@ -37,13 +36,11 @@
 - **Cheapest-to-deliver / allocation**: Allow either a simplified “assumed pool” mapping or explicit pool allocation.
 - **Risk**: Dollar price/PV, DV01/OAS-style risk proxies consistent with market usage.
 - **Operationally important**: TBAs are a distinct object in real books; representing as generic structured credit loses key conventions.
-
 - **Dollar roll**
 - **What’s missing**: A first-class roll trade (sell/buy TBAs different settlements) or explicit modeling via two linked TBAs + financing carry.
 - **Core missing functionality**:
 - **Implied financing**: Carry/roll specialness representation.
 - **Risk**: PV and roll sensitivity.
-
 - **Agency CMO tranches (minimal set)**
 - **What’s missing**: A minimal CMO tranche instrument set suitable for portfolio reporting.
 - **Core missing functionality**:
@@ -77,7 +74,6 @@
 - **Settlement conventions**: Spot lags (T+2/T+1), holidays/calendars, business day adjustment.
 - **Pricing**: Forward points from curves or direct quoted forward override.
 - **Risk**: FX delta exposure; PV in a chosen reporting currency with explicit FX policy.
-
 - **NDF (non-deliverable forward)**
 - **What’s missing**: A first-class NDF for EM currencies (cash-settled in a settlement currency).
 - **Core missing functionality**:
@@ -93,14 +89,12 @@
 - **Contract specs**: Unit of measure, multiplier, currency, delivery month, exchange conventions (for futures).
 - **Pricing**: Curve-based forward price and/or quoted price override.
 - **Risk**: Delta to commodity forward curve; FX exposure if priced in non-reporting currency.
-
 - **Commodity swap (fixed-for-floating / index swap)**
 - **What’s missing**: The most common institutional commodity derivative besides futures.
 - **Core missing functionality**:
 - **Floating leg**: References a commodity index/average (monthly average, etc.).
 - **Schedules**: Periodic settlement schedules and averaging.
 - **Risk**: Curve bucket deltas (or at least parallel delta), PV by period.
-
 - **Commodity vanilla option**
 - **What’s missing**: Basic optionality on commodities (hedge fund + producer/consumer hedging workflows).
 - **Core missing functionality**:
@@ -115,7 +109,6 @@
 - **Underlying definition**: Link to a vol index term structure / implied forward index (market data object).
 - **Settlement**: Cash settlement conventions at expiry.
 - **Risk**: Delta to vol index level/term structure; PV/MTM.
-
 - **Volatility index option (e.g., VIX option)**
 - **What’s missing**: Options on vol indices (not equivalent to equity options or variance swaps operationally).
 - **Core missing functionality**:
@@ -129,4 +122,3 @@
 - **Conventions**: Calendars, business-day conventions, settlement lags, accrual conventions where applicable.
 - **MarketContext wiring**: Clear required curves/surfaces/fixings per instrument (`required_*` introspection).
 - **Risk metrics**: At least “desk-real” first-order risk (DV01 / delta / vega) plus a small set of standard outputs.
-- **Overrides**: Support `PricingOverrides` where market quotes are commonly used in practice (futures price, TBA dollar price, forward points, implied vol).

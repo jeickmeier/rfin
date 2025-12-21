@@ -46,7 +46,8 @@ use crate::math::{BrentSolver, Solver};
 use crate::Result;
 
 /// Volatility quoting convention.
-#[derive(Clone, Copy, Debug, PartialEq, serde::Serialize, serde::Deserialize)]
+#[derive(Clone, Copy, Debug, PartialEq)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub enum VolatilityConvention {
     /// Normal (absolute) volatility in basis points
     Normal,
@@ -192,6 +193,22 @@ pub fn convert_atm_volatility(
             value: time_to_expiry,
         }
         .into());
+    }
+
+    if !forward_rate.is_finite() {
+        return Err(InputError::Invalid.into());
+    }
+
+    // Validate shifts for shifted-lognormal conventions
+    if let VolatilityConvention::ShiftedLognormal { shift } = from_convention {
+        if !shift.is_finite() {
+            return Err(InputError::Invalid.into());
+        }
+    }
+    if let VolatilityConvention::ShiftedLognormal { shift } = to_convention {
+        if !shift.is_finite() {
+            return Err(InputError::Invalid.into());
+        }
     }
 
     // Validate forward rate for lognormal conventions

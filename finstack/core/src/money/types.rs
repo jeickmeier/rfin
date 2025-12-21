@@ -33,12 +33,15 @@ use super::rounding::{
     try_amount_from_repr, AmountRepr,
 };
 
-/// Helper function to format integers with thousands separators.
-fn format_with_separators(n: i64) -> String {
-    let s = n.abs().to_string();
-    let bytes = s.as_bytes();
-    // Reserve a bit extra for separators
-    let mut rev: Vec<u8> = Vec::with_capacity(bytes.len() + bytes.len() / 3);
+/// Helper function to format an integer string (optionally prefixed by `-`) with thousands separators.
+fn format_with_separators(int_str: &str) -> String {
+    let (is_neg, digits) = match int_str.strip_prefix('-') {
+        Some(rest) => (true, rest),
+        None => (false, int_str),
+    };
+
+    let bytes = digits.as_bytes();
+    let mut rev: Vec<u8> = Vec::with_capacity(bytes.len() + bytes.len() / 3 + 1);
     for (i, &b) in bytes.iter().rev().enumerate() {
         if i > 0 && i % 3 == 0 {
             rev.push(b',');
@@ -46,9 +49,10 @@ fn format_with_separators(n: i64) -> String {
         rev.push(b);
     }
     rev.reverse();
+
     let mut out = String::from_utf8(rev)
         .expect("format_with_separators only constructs ASCII digits and commas");
-    if n < 0 {
+    if is_neg {
         out.insert(0, '-');
     }
     out
@@ -96,9 +100,9 @@ impl Money {
     /// use finstack_core::currency::Currency;
     ///
     /// let amount = Money::new(1_042_315.67, Currency::USD);
-    /// assert_eq!(amount.format(2, true), "1042315.67 USD");
+    /// assert_eq!(amount.format(2, true), "USD 1042315.67");
     /// assert_eq!(amount.format(2, false), "1042315.67");
-    /// assert_eq!(amount.format(0, true), "1042316 USD");
+    /// assert_eq!(amount.format(0, true), "USD 1042316");
     /// ```
     pub fn format(&self, decimals: usize, show_currency: bool) -> String {
         use super::rounding::round_decimal;
@@ -107,9 +111,9 @@ impl Money {
             decimals as i32,
             crate::config::RoundingMode::Bankers,
         );
-        let value = format!("{:.prec$}", rounded, prec = decimals);
+        let value = format!("{val:.prec$}", val = rounded, prec = decimals);
         if show_currency {
-            format!("{} {}", value, self.currency())
+            format!("{} {}", self.currency(), value)
         } else {
             value
         }
@@ -125,8 +129,7 @@ impl Money {
     ///
     /// let amount = Money::new(1_042_315.67, Currency::USD);
     /// let formatted = amount.format_with_separators(2);
-    /// // Exact format may vary by locale, but should include currency
-    /// assert!(formatted.contains("USD"));
+    /// assert_eq!(formatted, "USD 1,042,315.67");
     /// ```
     pub fn format_with_separators(&self, decimals: usize) -> String {
         use super::rounding::round_decimal;
@@ -135,25 +138,18 @@ impl Money {
             decimals as i32,
             crate::config::RoundingMode::Bankers,
         );
-        let amt = amount_from_repr(rounded);
-        let int_part = amt.trunc() as i64;
-        let frac_part =
-            ((amt.abs() - amt.abs().trunc()) * 10_f64.powi(decimals as i32)).round() as i64;
-
-        // Format integer part with thousands separators
-        let int_str = format_with_separators(int_part);
-
-        if decimals > 0 {
-            format!(
-                "{}.{:0width$} {}",
-                int_str,
-                frac_part,
-                self.currency(),
-                width = decimals
-            )
+        let s = format!("{val:.prec$}", val = rounded, prec = decimals);
+        let (int_part, frac_part) = match s.split_once('.') {
+            Some((i, f)) => (i, Some(f)),
+            None => (s.as_str(), None),
+        };
+        let int_fmt = format_with_separators(int_part);
+        let value = if let Some(frac) = frac_part {
+            format!("{int_fmt}.{frac}")
         } else {
-            format!("{} {}", int_str, self.currency())
-        }
+            int_fmt
+        };
+        format!("{} {}", self.currency(), value)
     }
 
     /// Create a new [`Money`] value using ISO 4217 minor units.
@@ -811,7 +807,7 @@ mod tests {
         let m = Money::new(-1234.56, Currency::USD);
         let formatted = m.format_with_separators(2);
         assert!(
-            formatted.starts_with("-1,234.56 USD"),
+            formatted.starts_with("USD -1,234.56"),
             "formatted output should keep sign on integer part only: {}",
             formatted
         );

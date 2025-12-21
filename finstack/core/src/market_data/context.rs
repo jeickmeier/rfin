@@ -255,6 +255,17 @@ pub enum CurveState {
 }
 
 #[cfg(feature = "serde")]
+fn curve_state_id(s: &CurveState) -> &CurveId {
+    match s {
+        CurveState::Discount(c) => c.id(),
+        CurveState::Forward(c) => c.id(),
+        CurveState::Hazard(c) => c.id(),
+        CurveState::Inflation(c) => c.id(),
+        CurveState::BaseCorrelation(c) => c.id(),
+    }
+}
+
+#[cfg(feature = "serde")]
 impl CurveStorage {
     /// Convert to serializable state.
     ///
@@ -329,11 +340,11 @@ pub struct CreditIndexState {
     /// ID of the base correlation curve (must exist in context curves)
     pub base_correlation_curve_id: String,
     /// Optional map of issuer ID → hazard curve ID
-    pub issuer_credit_curve_ids: Option<std::collections::HashMap<String, String>>,
+    pub issuer_credit_curve_ids: Option<std::collections::BTreeMap<String, String>>,
     /// Optional map of issuer ID → recovery rate
-    pub issuer_recovery_rates: Option<std::collections::HashMap<String, f64>>,
+    pub issuer_recovery_rates: Option<std::collections::BTreeMap<String, f64>>,
     /// Optional map of issuer ID → weight
-    pub issuer_weights: Option<std::collections::HashMap<String, f64>>,
+    pub issuer_weights: Option<std::collections::BTreeMap<String, f64>>,
 }
 
 // -----------------------------------------------------------------------------
@@ -367,15 +378,18 @@ pub struct MarketContextState {
 #[cfg(feature = "serde")]
 impl From<&MarketContext> for MarketContextState {
     fn from(ctx: &MarketContext) -> Self {
-        // Convert all curves
-        let curves: Vec<CurveState> = ctx
-            .curves
-            .values()
-            .map(|storage| storage.to_state())
-            .collect();
+        // Convert all curves (sort deterministically by id for stable snapshots).
+        let mut curves: Vec<CurveState> = ctx.curves.values().map(|storage| storage.to_state()).collect();
+        curves.sort_by(|a, b| curve_state_id(a).cmp(curve_state_id(b)));
 
-        // Convert all surfaces
-        let surfaces: Vec<_> = ctx.surfaces.values().map(|surf| (**surf).clone()).collect();
+        // Convert all surfaces (sort deterministically by key id).
+        let mut surfaces_pairs: Vec<(CurveId, crate::market_data::surfaces::vol_surface::VolSurface)> = ctx
+            .surfaces
+            .iter()
+            .map(|(id, surf)| (id.clone(), (**surf).clone()))
+            .collect();
+        surfaces_pairs.sort_by(|a, b| a.0.cmp(&b.0));
+        let surfaces: Vec<_> = surfaces_pairs.into_iter().map(|(_, surf)| surf).collect();
 
         // Convert prices (CurveId → String)
         let prices: std::collections::BTreeMap<String, _> = ctx
@@ -384,39 +398,57 @@ impl From<&MarketContext> for MarketContextState {
             .map(|(id, scalar)| (id.to_string(), scalar.clone()))
             .collect();
 
-        // Convert series
-        let series: Vec<_> = ctx.series.values().cloned().collect();
-
-        // Convert inflation indices
-        let inflation_indices: Vec<_> = ctx
-            .inflation_indices
-            .values()
-            .map(|idx| (**idx).clone())
+        // Convert series (sort deterministically by key id).
+        let mut series_pairs: Vec<(CurveId, crate::market_data::scalars::ScalarTimeSeries)> = ctx
+            .series
+            .iter()
+            .map(|(id, series)| (id.clone(), series.clone()))
             .collect();
+        series_pairs.sort_by(|a, b| a.0.cmp(&b.0));
+        let series: Vec<_> = series_pairs.into_iter().map(|(_, series)| series).collect();
 
-        // Convert credit indices (extract IDs from Arc references)
-        let credit_indices: Vec<CreditIndexState> = ctx
+        // Convert inflation indices (sort deterministically by key id).
+        let mut inflation_pairs: Vec<(CurveId, crate::market_data::scalars::InflationIndex)> = ctx
+            .inflation_indices
+            .iter()
+            .map(|(id, idx)| (id.clone(), (**idx).clone()))
+            .collect();
+        inflation_pairs.sort_by(|a, b| a.0.cmp(&b.0));
+        let inflation_indices: Vec<_> = inflation_pairs.into_iter().map(|(_, idx)| idx).collect();
+
+        // Convert credit indices (extract IDs from Arc references; sort deterministically by id).
+        let mut credit_pairs: Vec<(CurveId, CreditIndexState)> = ctx
             .credit_indices
             .iter()
             .map(|(id, data)| {
-                let issuer_ids = data.issuer_credit_curves.as_ref().map(|map| {
-                    map.iter()
-                        .map(|(issuer, curve)| (issuer.clone(), curve.id().to_string()))
-                        .collect()
-                });
+                let issuer_ids: Option<std::collections::BTreeMap<String, String>> =
+                    data.issuer_credit_curves.as_ref().map(|map| {
+                        map.iter()
+                            .map(|(issuer, curve)| (issuer.clone(), curve.id().to_string()))
+                            .collect()
+                    });
+                let issuer_recovery_rates: Option<std::collections::BTreeMap<String, f64>> =
+                    data.issuer_recovery_rates.as_ref().map(|m| m.iter().map(|(k, v)| (k.clone(), *v)).collect());
+                let issuer_weights: Option<std::collections::BTreeMap<String, f64>> =
+                    data.issuer_weights.as_ref().map(|m| m.iter().map(|(k, v)| (k.clone(), *v)).collect());
 
-                CreditIndexState {
-                    id: id.to_string(),
-                    num_constituents: data.num_constituents,
-                    recovery_rate: data.recovery_rate,
-                    index_credit_curve_id: data.index_credit_curve.id().to_string(),
-                    base_correlation_curve_id: data.base_correlation_curve.id().to_string(),
-                    issuer_credit_curve_ids: issuer_ids,
-                    issuer_recovery_rates: data.issuer_recovery_rates.clone(),
-                    issuer_weights: data.issuer_weights.clone(),
-                }
+                (
+                    id.clone(),
+                    CreditIndexState {
+                        id: id.to_string(),
+                        num_constituents: data.num_constituents,
+                        recovery_rate: data.recovery_rate,
+                        index_credit_curve_id: data.index_credit_curve.id().to_string(),
+                        base_correlation_curve_id: data.base_correlation_curve.id().to_string(),
+                        issuer_credit_curve_ids: issuer_ids,
+                        issuer_recovery_rates,
+                        issuer_weights,
+                    },
+                )
             })
             .collect();
+        credit_pairs.sort_by(|a, b| a.0.cmp(&b.0));
+        let credit_indices: Vec<CreditIndexState> = credit_pairs.into_iter().map(|(_, s)| s).collect();
 
         // Convert collateral mappings
         let collateral: std::collections::BTreeMap<String, String> = ctx
@@ -497,8 +529,12 @@ impl TryFrom<MarketContextState> for MarketContext {
                 index_credit_curve: index_curve,
                 base_correlation_curve: base_corr,
                 issuer_credit_curves: issuer_curves,
-                issuer_recovery_rates: credit_state.issuer_recovery_rates,
-                issuer_weights: credit_state.issuer_weights,
+                issuer_recovery_rates: credit_state
+                    .issuer_recovery_rates
+                    .map(|m| m.into_iter().collect::<std::collections::HashMap<_, _>>()),
+                issuer_weights: credit_state
+                    .issuer_weights
+                    .map(|m| m.into_iter().collect::<std::collections::HashMap<_, _>>()),
             };
 
             ctx.credit_indices

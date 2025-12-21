@@ -42,6 +42,10 @@ impl InterpolationStrategy for LinearStrategy {
     ) -> f64 {
         use super::utils::check_extrapolation;
 
+        if !x.is_finite() {
+            return f64::NAN;
+        }
+
         // Handle extrapolation based on policy
         if let Some(val) = check_extrapolation(
             x,
@@ -77,7 +81,10 @@ impl InterpolationStrategy for LinearStrategy {
         }
 
         // Interior linear interpolation
-        let idx = locate_segment(knots, x).expect("Segment location should succeed for valid x");
+        let idx = match locate_segment(knots, x) {
+            Ok(i) => i,
+            Err(_) => return f64::NAN,
+        };
         let x0 = knots[idx];
         let x1 = knots[idx + 1];
         let y0 = values[idx];
@@ -94,6 +101,10 @@ impl InterpolationStrategy for LinearStrategy {
         extrapolation: ExtrapolationPolicy,
     ) -> f64 {
         use super::utils::check_extrapolation;
+
+        if !x.is_finite() {
+            return f64::NAN;
+        }
 
         // Handle extrapolation based on policy
         if let Some(val) = check_extrapolation(
@@ -116,7 +127,10 @@ impl InterpolationStrategy for LinearStrategy {
         }
 
         // Interior linear interpolation derivative
-        let idx = locate_segment(knots, x).expect("Segment location should succeed for valid x");
+        let idx = match locate_segment(knots, x) {
+            Ok(i) => i,
+            Err(_) => return f64::NAN,
+        };
         segment_slope(knots, values, idx, idx + 1)
     }
 }
@@ -169,6 +183,10 @@ impl InterpolationStrategy for LogLinearStrategy {
     ) -> f64 {
         use super::utils::check_extrapolation;
 
+        if !x.is_finite() {
+            return f64::NAN;
+        }
+
         // Handle extrapolation based on policy
         if let Some(val) = check_extrapolation(
             x,
@@ -208,7 +226,10 @@ impl InterpolationStrategy for LogLinearStrategy {
         }
 
         // Interior interpolation
-        let idx = locate_segment(knots, x).expect("Segment location should succeed for valid x");
+        let idx = match locate_segment(knots, x) {
+            Ok(i) => i,
+            Err(_) => return f64::NAN,
+        };
         let x0 = knots[idx];
         let x1 = knots[idx + 1];
         let y0 = self.log_values[idx];
@@ -229,6 +250,10 @@ impl InterpolationStrategy for LogLinearStrategy {
 
         use super::utils::check_extrapolation;
 
+        if !x.is_finite() {
+            return f64::NAN;
+        }
+
         // At boundaries, handle based on extrapolation policy
         if let Some(val) = check_extrapolation(
             x,
@@ -238,8 +263,8 @@ impl InterpolationStrategy for LogLinearStrategy {
                 ExtrapolationPolicy::FlatZero => 0.0,
                 ExtrapolationPolicy::FlatForward => {
                     let slope = log_segment_slope(&self.log_values, knots, 0, 1);
-                    let f_val = self.interp(x, knots, &[], extrapolation);
-                    f_val * slope
+                    let extrapolated_log = self.log_values[0] + slope * (x - knots[0]);
+                    extrapolated_log.exp() * slope
                 }
             },
             |policy| match policy {
@@ -247,8 +272,8 @@ impl InterpolationStrategy for LogLinearStrategy {
                 ExtrapolationPolicy::FlatForward => {
                     let n = knots.len();
                     let slope = log_segment_slope(&self.log_values, knots, n - 2, n - 1);
-                    let f_val = self.interp(x, knots, &[], extrapolation);
-                    f_val * slope
+                    let extrapolated_log = self.log_values[n - 1] + slope * (x - knots[n - 1]);
+                    extrapolated_log.exp() * slope
                 }
             },
         ) {
@@ -257,7 +282,10 @@ impl InterpolationStrategy for LogLinearStrategy {
 
         // Get the interpolated value and log-linear slope
         let f_val = self.interp(x, knots, &[], extrapolation);
-        let idx = locate_segment(knots, x).expect("Segment location should succeed for valid x");
+        let idx = match locate_segment(knots, x) {
+            Ok(i) => i,
+            Err(_) => return f64::NAN,
+        };
         let slope = log_segment_slope(&self.log_values, knots, idx, idx + 1);
 
         // Derivative: f(x) * (slope in log space)
@@ -395,6 +423,10 @@ impl InterpolationStrategy for PiecewiseQuadraticForwardStrategy {
     ) -> f64 {
         use super::utils::check_extrapolation;
 
+        if !x.is_finite() {
+            return f64::NAN;
+        }
+
         if let Some(val) = check_extrapolation(
             x,
             knots,
@@ -411,7 +443,10 @@ impl InterpolationStrategy for PiecewiseQuadraticForwardStrategy {
             return val;
         }
 
-        let idx = locate_segment(knots, x).expect("Segment location should succeed for valid x");
+        let idx = match locate_segment(knots, x) {
+            Ok(i) => i,
+            Err(_) => return f64::NAN,
+        };
         let s = x - knots[idx];
         let y = self.a[idx] + self.b[idx] * s + self.c[idx] * s * s + self.d[idx] * s * s * s;
         (-y).exp()
@@ -425,6 +460,10 @@ impl InterpolationStrategy for PiecewiseQuadraticForwardStrategy {
         extrapolation: ExtrapolationPolicy,
     ) -> f64 {
         use super::utils::check_extrapolation;
+
+        if !x.is_finite() {
+            return f64::NAN;
+        }
 
         if let Some(val) = check_extrapolation(
             x,
@@ -442,7 +481,10 @@ impl InterpolationStrategy for PiecewiseQuadraticForwardStrategy {
             return val;
         }
 
-        let idx = locate_segment(knots, x).expect("Segment location should succeed for valid x");
+        let idx = match locate_segment(knots, x) {
+            Ok(i) => i,
+            Err(_) => return f64::NAN,
+        };
         let s = x - knots[idx];
 
         let y = self.a[idx] + self.b[idx] * s + self.c[idx] * s * s + self.d[idx] * s * s * s;
@@ -532,6 +574,10 @@ impl InterpolationStrategy for CubicHermiteStrategy {
     ) -> f64 {
         use super::utils::check_extrapolation;
 
+        if !x.is_finite() {
+            return f64::NAN;
+        }
+
         // Handle extrapolation based on policy
         if let Some(val) = check_extrapolation(
             x,
@@ -571,7 +617,10 @@ impl InterpolationStrategy for CubicHermiteStrategy {
         }
 
         // Interior interpolation using cubic Hermite
-        let i = locate_segment(knots, x).expect("Segment location should succeed for valid x");
+        let i = match locate_segment(knots, x) {
+            Ok(i) => i,
+            Err(_) => return f64::NAN,
+        };
         let x0 = knots[i];
         let x1 = knots[i + 1];
         let h = x1 - x0;
@@ -605,6 +654,10 @@ impl InterpolationStrategy for CubicHermiteStrategy {
     ) -> f64 {
         use super::utils::check_extrapolation;
 
+        if !x.is_finite() {
+            return f64::NAN;
+        }
+
         // Handle extrapolation based on policy
         if let Some(val) = check_extrapolation(
             x,
@@ -630,7 +683,10 @@ impl InterpolationStrategy for CubicHermiteStrategy {
             return self.ms[idx];
         }
 
-        let i = locate_segment(knots, x).expect("Segment location should succeed for valid x");
+        let i = match locate_segment(knots, x) {
+            Ok(i) => i,
+            Err(_) => return f64::NAN,
+        };
         let x0 = knots[i];
         let x1 = knots[i + 1];
         let h = x1 - x0;
@@ -793,6 +849,10 @@ impl InterpolationStrategy for MonotoneConvexStrategy {
     ) -> f64 {
         use super::utils::check_extrapolation;
 
+        if !x.is_finite() {
+            return f64::NAN;
+        }
+
         // Handle extrapolation based on policy
         if let Some(val) = check_extrapolation(
             x,
@@ -832,7 +892,10 @@ impl InterpolationStrategy for MonotoneConvexStrategy {
         }
 
         // Interior interpolation using Hagan-West formula
-        let i = locate_segment(knots, x).expect("Segment location should succeed for valid x");
+        let i = match locate_segment(knots, x) {
+            Ok(i) => i,
+            Err(_) => return f64::NAN,
+        };
         self.interpolate_segment(i, x, knots)
     }
 
@@ -844,6 +907,10 @@ impl InterpolationStrategy for MonotoneConvexStrategy {
         extrapolation: ExtrapolationPolicy,
     ) -> f64 {
         use super::utils::check_extrapolation;
+
+        if !x.is_finite() {
+            return f64::NAN;
+        }
 
         // Handle extrapolation based on policy
         if let Some(val) = check_extrapolation(
@@ -884,7 +951,10 @@ impl InterpolationStrategy for MonotoneConvexStrategy {
         }
 
         // Interior: d/dx[DF(t)] = -f(t) * DF(t)
-        let i = locate_segment(knots, x).expect("Segment location should succeed for valid x");
+        let i = match locate_segment(knots, x) {
+            Ok(i) => i,
+            Err(_) => return f64::NAN,
+        };
         let df = self.interpolate_segment(i, x, knots);
         let fwd = self.forward_rate_in_segment(i, x, knots);
         -fwd * df
