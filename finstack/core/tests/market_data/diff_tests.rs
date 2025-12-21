@@ -877,7 +877,7 @@ fn test_vol_surface_single_expiry() {
 #[test]
 fn test_scalar_neutral_shift() {
     let price = Money::new(100.0, Currency::USD);
-    let market_t0 = MarketContext::new().insert_price("TEST", MarketScalar::Price(price.clone()));
+    let market_t0 = MarketContext::new().insert_price("TEST", MarketScalar::Price(price));
     let market_t1 = MarketContext::new().insert_price("TEST", MarketScalar::Price(price));
 
     let shift = measure_scalar_shift("TEST", &market_t0, &market_t1)

@@ -72,73 +72,262 @@ fn credit_index_builder_validates_bad_input() {
 }
 
 // =============================================================================
-// Additional Comprehensive Tests for Phase 1 Coverage
+// Additional Comprehensive Tests for Phase 4 Coverage
 // =============================================================================
-
-#[test]
-fn test_credit_index_spread_curve_construction() {
-    let _spreads = vec![(0.5, 0.01), (1.0, 0.012), (3.0, 0.015), (5.0, 0.018)];
-    
-    // Credit index should handle spread curves
-    // Add construction and validation tests
-}
 
 #[test]
 fn test_credit_index_recovery_rate_scenarios() {
     // Test with various recovery rates: 0%, 40%, 100%
+    let hazard = Arc::new(sample_hazard_curve("CDX"));
+    let base_corr = Arc::new(sample_base_correlation_curve("CDX-BC"));
+    
     let recovery_rates = [0.0, 0.4, 1.0];
     
     for rr in recovery_rates {
-        // Verify recovery rate handling
-        assert!(rr >= 0.0 && rr <= 1.0);
+        let data = CreditIndexData::builder()
+            .num_constituents(125)
+            .recovery_rate(rr)
+            .index_credit_curve(hazard.clone())
+            .base_correlation_curve(base_corr.clone())
+            .build()
+            .expect("valid recovery rate");
+        
+        assert_eq!(data.recovery_rate, rr);
     }
 }
 
 #[test]
-fn test_credit_index_defaults_adjustment() {
-    // Test index adjustments for defaults in basket
-    // Should reduce notional and adjust spread
-}
-
-#[test]
-fn test_credit_index_spread_compounding() {
-    // Test spread compounding logic
-    let spread = 0.01; // 100 bps
-    let time = 1.0;
+fn test_credit_index_default_recovery_rate() {
+    // Test that default recovery rate is 0.40 (40%)
+    let hazard = Arc::new(sample_hazard_curve("CDX"));
+    let base_corr = Arc::new(sample_base_correlation_curve("CDX-BC"));
     
-    // Verify compounding calculation
-    let factor = (-spread * time as f64).exp();
-    assert!(factor < 1.0);
-}
-
-#[test]
-fn test_credit_index_tenor_interpolation() {
-    // Test interpolation between index tenors
-    let tenors = vec![1.0, 3.0, 5.0, 7.0, 10.0];
+    let data = CreditIndexData::builder()
+        .num_constituents(125)
+        // No recovery_rate specified, should default to 0.40
+        .index_credit_curve(hazard)
+        .base_correlation_curve(base_corr)
+        .build()
+        .expect("valid credit index with default recovery");
     
-    // Should interpolate smoothly between pillars
-    for t in tenors {
-        assert!(t > 0.0);
-    }
+    assert_eq!(data.recovery_rate, 0.40);
 }
 
 #[test]
-fn test_credit_index_zero_spread() {
-    // Test with zero spread (risk-free equivalent)
-    let spread = 0.0;
-    assert!(spread == 0.0);
+fn test_credit_index_recovery_rate_above_one_fails() {
+    // Test that recovery rate > 1.0 fails validation
+    let hazard = Arc::new(sample_hazard_curve("CDX"));
+    let base_corr = Arc::new(sample_base_correlation_curve("CDX-BC"));
+    
+    let err = CreditIndexData::builder()
+        .num_constituents(125)
+        .recovery_rate(1.5) // Invalid: > 1.0
+        .index_credit_curve(hazard)
+        .base_correlation_curve(base_corr)
+        .build()
+        .expect_err("recovery rate > 1.0 should fail");
+    
+    assert!(matches!(err, finstack_core::Error::Input(_)));
 }
 
 #[test]
-fn test_credit_index_high_spread() {
-    // Test with distressed credit spreads (>1000 bps)
-    let spread = 0.15; // 1500 bps
-    assert!(spread > 0.10);
+fn test_credit_index_zero_constituents_fails() {
+    // Test that num_constituents = 0 fails validation
+    let hazard = Arc::new(sample_hazard_curve("CDX"));
+    let base_corr = Arc::new(sample_base_correlation_curve("CDX-BC"));
+    
+    let err = CreditIndexData::builder()
+        .num_constituents(0) // Invalid: must be > 0
+        .recovery_rate(0.4)
+        .index_credit_curve(hazard)
+        .base_correlation_curve(base_corr)
+        .build()
+        .expect_err("num_constituents = 0 should fail");
+    
+    assert!(matches!(err, finstack_core::Error::Input(_)));
 }
 
-#[cfg(feature = "serde")]
 #[test]
-fn test_credit_index_serde_round_trip() {
-    // Test serialization of credit index curves
-    // Should preserve spreads, recovery, and tenors
+fn test_credit_index_missing_index_curve_fails() {
+    // Test that missing index_credit_curve fails build()
+    let base_corr = Arc::new(sample_base_correlation_curve("CDX-BC"));
+    
+    let err = CreditIndexData::builder()
+        .num_constituents(125)
+        .recovery_rate(0.4)
+        // Missing: .index_credit_curve()
+        .base_correlation_curve(base_corr)
+        .build()
+        .expect_err("missing index_credit_curve should fail");
+    
+    assert!(matches!(err, finstack_core::Error::Input(_)));
+}
+
+#[test]
+fn test_credit_index_missing_base_correlation_fails() {
+    // Test that missing base_correlation_curve fails build()
+    let hazard = Arc::new(sample_hazard_curve("CDX"));
+    
+    let err = CreditIndexData::builder()
+        .num_constituents(125)
+        .recovery_rate(0.4)
+        .index_credit_curve(hazard)
+        // Missing: .base_correlation_curve()
+        .build()
+        .expect_err("missing base_correlation_curve should fail");
+    
+    assert!(matches!(err, finstack_core::Error::Input(_)));
+}
+
+#[test]
+fn test_credit_index_missing_num_constituents_fails() {
+    // Test that missing num_constituents fails build()
+    let hazard = Arc::new(sample_hazard_curve("CDX"));
+    let base_corr = Arc::new(sample_base_correlation_curve("CDX-BC"));
+    
+    let err = CreditIndexData::builder()
+        // Missing: .num_constituents()
+        .recovery_rate(0.4)
+        .index_credit_curve(hazard)
+        .base_correlation_curve(base_corr)
+        .build()
+        .expect_err("missing num_constituents should fail");
+    
+    assert!(matches!(err, finstack_core::Error::Input(_)));
+}
+
+#[test]
+fn test_credit_index_add_issuer_curve_to_empty() {
+    // Test adding a single issuer curve when none exist
+    let hazard = Arc::new(sample_hazard_curve("CDX"));
+    let base_corr = Arc::new(sample_base_correlation_curve("CDX-BC"));
+    let issuer_curve = Arc::new(sample_hazard_curve("IssuerB"));
+    
+    let data = CreditIndexData::builder()
+        .num_constituents(2)
+        .recovery_rate(0.4)
+        .index_credit_curve(hazard)
+        .base_correlation_curve(base_corr)
+        .add_issuer_curve("IssuerB".to_string(), issuer_curve)
+        .build()
+        .expect("add_issuer_curve should work");
+    
+    assert!(data.has_issuer_curves());
+    assert_eq!(data.issuer_ids(), vec!["IssuerB".to_string()]);
+}
+
+#[test]
+fn test_credit_index_add_multiple_issuer_curves() {
+    // Test adding multiple issuer curves one at a time
+    let hazard = Arc::new(sample_hazard_curve("CDX"));
+    let base_corr = Arc::new(sample_base_correlation_curve("CDX-BC"));
+    let issuer1 = Arc::new(sample_hazard_curve("Issuer1"));
+    let issuer2 = Arc::new(sample_hazard_curve("Issuer2"));
+    
+    let data = CreditIndexData::builder()
+        .num_constituents(2)
+        .recovery_rate(0.4)
+        .index_credit_curve(hazard)
+        .base_correlation_curve(base_corr)
+        .add_issuer_curve("Issuer1".to_string(), issuer1)
+        .add_issuer_curve("Issuer2".to_string(), issuer2)
+        .build()
+        .expect("multiple add_issuer_curve should work");
+    
+    assert!(data.has_issuer_curves());
+    let ids = data.issuer_ids();
+    assert_eq!(ids.len(), 2);
+    assert!(ids.contains(&"Issuer1".to_string()));
+    assert!(ids.contains(&"Issuer2".to_string()));
+}
+
+#[test]
+fn test_credit_index_issuer_recovery_rates() {
+    // Test issuer-specific recovery rates
+    let hazard = Arc::new(sample_hazard_curve("CDX"));
+    let base_corr = Arc::new(sample_base_correlation_curve("CDX-BC"));
+    
+    let mut recovery_rates = HashMap::new();
+    recovery_rates.insert("IssuerA".to_string(), 0.30);
+    recovery_rates.insert("IssuerB".to_string(), 0.50);
+    
+    let data = CreditIndexData::builder()
+        .num_constituents(2)
+        .recovery_rate(0.40) // Default recovery
+        .index_credit_curve(hazard)
+        .base_correlation_curve(base_corr)
+        .with_issuer_recovery_rates(recovery_rates)
+        .build()
+        .expect("issuer recovery rates should work");
+    
+    // Should return issuer-specific rates
+    assert_eq!(data.get_issuer_recovery("IssuerA"), 0.30);
+    assert_eq!(data.get_issuer_recovery("IssuerB"), 0.50);
+    
+    // Unknown issuer should return default
+    assert_eq!(data.get_issuer_recovery("Unknown"), 0.40);
+}
+
+#[test]
+fn test_credit_index_issuer_weights() {
+    // Test issuer-specific weights
+    let hazard = Arc::new(sample_hazard_curve("CDX"));
+    let base_corr = Arc::new(sample_base_correlation_curve("CDX-BC"));
+    
+    let mut weights = HashMap::new();
+    weights.insert("IssuerA".to_string(), 0.60);
+    weights.insert("IssuerB".to_string(), 0.40);
+    
+    let data = CreditIndexData::builder()
+        .num_constituents(2)
+        .recovery_rate(0.40)
+        .index_credit_curve(hazard)
+        .base_correlation_curve(base_corr)
+        .with_issuer_weights(weights)
+        .build()
+        .expect("issuer weights should work");
+    
+    // Should return issuer-specific weights
+    assert_eq!(data.get_issuer_weight("IssuerA"), 0.60);
+    assert_eq!(data.get_issuer_weight("IssuerB"), 0.40);
+    
+    // Unknown issuer should return equal weight (1/N)
+    assert_eq!(data.get_issuer_weight("Unknown"), 0.50); // 1/2
+}
+
+#[test]
+fn test_credit_index_equal_weighting_fallback() {
+    // Test that unknown issuers get equal weight (1/N) when no weights specified
+    let hazard = Arc::new(sample_hazard_curve("CDX"));
+    let base_corr = Arc::new(sample_base_correlation_curve("CDX-BC"));
+    
+    let data = CreditIndexData::builder()
+        .num_constituents(125)
+        .recovery_rate(0.40)
+        .index_credit_curve(hazard)
+        .base_correlation_curve(base_corr)
+        .build()
+        .expect("default weighting should work");
+    
+    // All issuers should get equal weight
+    let expected_weight = 1.0 / 125.0;
+    assert_eq!(data.get_issuer_weight("AnyIssuer"), expected_weight);
+}
+
+#[test]
+fn test_credit_index_no_issuer_curves() {
+    // Test issuer_ids() returns empty when no issuer curves
+    let hazard = Arc::new(sample_hazard_curve("CDX"));
+    let base_corr = Arc::new(sample_base_correlation_curve("CDX-BC"));
+    
+    let data = CreditIndexData::builder()
+        .num_constituents(125)
+        .recovery_rate(0.40)
+        .index_credit_curve(hazard)
+        .base_correlation_curve(base_corr)
+        .build()
+        .expect("index without issuer curves");
+    
+    assert!(!data.has_issuer_curves());
+    assert!(data.issuer_ids().is_empty());
 }

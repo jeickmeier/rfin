@@ -37,8 +37,8 @@ fn test_kahan_sum_empty() {
 
 #[test]
 fn test_kahan_sum_single_element() {
-    let result = kahan_sum(vec![3.14].into_iter());
-    assert_eq!(result, 3.14, "Single element should be preserved");
+    let result = kahan_sum(vec![3.15].into_iter());
+    assert_eq!(result, 3.15, "Single element should be preserved");
 }
 
 #[test]
@@ -218,7 +218,7 @@ fn test_neumaier_accumulator_clone() {
     let mut acc = NeumaierAccumulator::new();
     acc.add(7.5);
     
-    let acc_cloned = acc.clone();
+    let acc_cloned = acc; // Copy, not clone
     assert_eq!(acc_cloned.total(), 7.5, "Clone should preserve state");
 }
 
@@ -258,10 +258,10 @@ fn test_pairwise_sum_empty() {
 
 #[test]
 fn test_pairwise_sum_single() {
-    let values = [3.14];
+    let values = [3.15];
     let result = pairwise_sum(&values);
     
-    assert_eq!(result, 3.14, "Single element should be preserved");
+    assert_eq!(result, 3.15, "Single element should be preserved");
 }
 
 #[test]
@@ -383,8 +383,8 @@ fn test_stable_sum_precision_preservation() {
     
     // Naive summation would lose the three 1.0 values
     // Stable should preserve them
-    let expected = 3.0;
-    assert!(result >= 2.0 && result <= 4.0, "Should preserve small values: got {}", result);
+    let _expected = 3.0;
+    assert!((2.0..=4.0).contains(&result), "Should preserve small values: got {}", result);
 }
 
 // ===================================================================
@@ -435,8 +435,8 @@ fn test_methods_with_large_cancellation() {
     
     // All should detect the 1.0 remainder
     // (Though precision may vary)
-    assert!(kahan_result >= 0.0 && kahan_result <= 2.0);
-    assert!(neumaier_result >= 0.0 && neumaier_result <= 2.0);
-    assert!(pairwise_result >= 0.0 && pairwise_result <= 2.0);
-    assert!(stable_result >= 0.0 && stable_result <= 2.0);
+    assert!((0.0..=2.0).contains(&kahan_result));
+    assert!((0.0..=2.0).contains(&neumaier_result));
+    assert!((0.0..=2.0).contains(&pairwise_result));
+    assert!((0.0..=2.0).contains(&stable_result));
 }
