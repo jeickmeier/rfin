@@ -6,12 +6,14 @@ ensuring that both typed objects and string aliases work correctly.
 
 import datetime as dt
 
+from finstack.core.currency import Currency
+from finstack.core.dates import BusinessDayConvention, DayCount, Frequency, ScheduleBuilder, adjust, get_calendar
+from finstack.core.market_data import DiscountCurve, VolSurface
+from finstack.core.money import Money
 import pytest
 
 import finstack
-from finstack.core.currency import Currency
-from finstack.core.dates import BusinessDayConvention, DayCount, Frequency, ScheduleBuilder, get_calendar
-from finstack.core.market_data import DiscountCurve
+from finstack.valuations import calibration as cal
 
 
 class TestCurrencyConversions:
@@ -89,8 +91,6 @@ class TestBusinessDayConventionConversions:
 
     def test_bdc_from_string_variations(self) -> None:
         """BusinessDayConvention should accept various string formats."""
-        from finstack.core.dates import adjust
-
         calendar = get_calendar("usny")
         test_date = dt.date(2024, 1, 1)  # This is a holiday
 
@@ -111,8 +111,6 @@ class TestBusinessDayConventionConversions:
 
     def test_invalid_bdc_raises_error(self) -> None:
         """Invalid business day convention should raise error."""
-        from finstack.core.dates import adjust
-
         calendar = get_calendar("usny")
 
         with pytest.raises((ValueError, finstack.ParameterError)):
@@ -188,8 +186,6 @@ class TestDateConversions:
 
     def test_date_object_accepted(self) -> None:
         """Python date objects should be accepted."""
-        from finstack.core.dates import adjust
-
         calendar = get_calendar("usny")
         test_date = dt.date(2024, 6, 15)
         result = adjust(test_date, BusinessDayConvention.FOLLOWING, calendar)
@@ -197,8 +193,6 @@ class TestDateConversions:
 
     def test_datetime_object_accepted(self) -> None:
         """Python datetime objects should be accepted (date portion used)."""
-        from finstack.core.dates import adjust
-
         calendar = get_calendar("usny")
         test_datetime = dt.datetime(2024, 6, 15, 14, 30)
         result = adjust(test_datetime, BusinessDayConvention.FOLLOWING, calendar)
@@ -206,8 +200,6 @@ class TestDateConversions:
 
     def test_invalid_date_type_raises_error(self) -> None:
         """Non-date objects should raise TypeError."""
-        from finstack.core.dates import adjust
-
         calendar = get_calendar("usny")
 
         with pytest.raises((TypeError, ValueError), match=r"Expected datetime.date|Invalid input"):
@@ -219,8 +211,6 @@ class TestMoneyConversions:
 
     def test_money_from_amount_and_currency(self) -> None:
         """Money should accept both numeric amount and currency."""
-        from finstack.core.money import Money
-
         # With Currency object
         money1 = Money(1000.0, Currency("USD"))
         assert money1 is not None
@@ -231,8 +221,6 @@ class TestMoneyConversions:
 
     def test_money_formatting(self) -> None:
         """Money should format correctly."""
-        from finstack.core.money import Money
-
         money = Money(1_000_000.50, Currency("USD"))
         formatted = money.format()
         assert "USD" in formatted
@@ -256,8 +244,6 @@ class TestNoneAndOptionalHandling:
 
     def test_optional_market_context_none(self) -> None:
         """Optional market context should accept None."""
-        from finstack.valuations import calibration as cal
-
         quotes = [
             cal.RatesQuote.deposit("DEPO-1", "USD-DEPOSIT", dt.date(2025, 1, 2), 0.05),
             cal.RatesQuote.deposit("DEPO-2", "USD-DEPOSIT", dt.date(2026, 1, 2), 0.055),
@@ -305,8 +291,6 @@ class TestListAndVectorConversions:
 
     def test_list_of_floats_for_grid(self) -> None:
         """Lists of floats should convert properly."""
-        from finstack.core.market_data import VolSurface
-
         surface = VolSurface(
             "EQ-FLAT",
             expiries=[1.0, 2.0, 3.0],
@@ -342,8 +326,6 @@ class TestEdgeCases:
 
     def test_numeric_precision(self) -> None:
         """Numeric conversions should preserve precision where possible."""
-        from finstack.core.money import Money
-
         # Test with high precision value
         precise_value = 1234567.89012345
         money = Money(precise_value, Currency("USD"))

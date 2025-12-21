@@ -6,12 +6,15 @@ to ensure proper error mapping from Rust to Python exceptions.
 
 import datetime as dt
 
+from finstack.core.currency import Currency
+from finstack.core.dates import BusinessDayConvention, DayCount, adjust, get_calendar
+from finstack.core.market_data import DiscountCurve, FxMatrix, MarketContext, VolSurface
+from finstack.valuations.instruments import Bond
+from finstack.valuations.pricer import create_standard_registry
 import pytest
 
 import finstack
-from finstack.core.currency import Currency
-from finstack.core.dates import BusinessDayConvention, DayCount, get_calendar
-from finstack.core.market_data import DiscountCurve, MarketContext
+from finstack.valuations import calibration as cal
 
 
 class TestExceptionHierarchy:
@@ -86,8 +89,6 @@ class TestDateErrors:
 
     def test_business_day_adjustment_failure(self) -> None:
         """Business day adjustment failures should raise DateError."""
-        from finstack.core.dates import adjust
-
         calendar = get_calendar("usny")
         # Test with a date far in the past/future that might cause adjustment issues
         # Exact behavior depends on implementation
@@ -108,8 +109,6 @@ class TestMarketDataErrors:
 
     def test_missing_fx_rate_error(self) -> None:
         """Accessing non-existent FX rate should raise MissingFxRateError."""
-        from finstack.core.market_data import FxMatrix
-
         fx = FxMatrix()
 
         # Querying FX rate that doesn't exist should raise error
@@ -123,8 +122,6 @@ class TestCalibrationErrors:
 
     def test_calibration_with_too_few_points(self) -> None:
         """Calibration with insufficient data should raise appropriate error."""
-        from finstack.valuations import calibration as cal
-
         quote_sets = {"ois": []}
         steps = [
             {
@@ -143,7 +140,6 @@ class TestCalibrationErrors:
     def test_calibration_with_non_monotonic_knots(self) -> None:
         """Non-monotonic times should raise ParameterError."""
         # Create quotes with non-increasing maturities
-        from finstack.valuations import calibration as cal
 
         quotes = [
             cal.RatesQuote.deposit("DEPO-2", "USD-DEPOSIT", dt.date(2026, 1, 2), 0.05),
@@ -201,8 +197,6 @@ class TestValidationErrors:
 
     def test_dimension_mismatch_error(self) -> None:
         """Dimension mismatches should raise ParameterError."""
-        from finstack.core.market_data import VolSurface
-
         # Grid dimensions don't match strikes/expiries
         with pytest.raises((finstack.ParameterError, ValueError), match=r"dimension|row count|must match"):
             VolSurface(
@@ -218,9 +212,6 @@ class TestPricingErrors:
 
     def test_unknown_pricer_error(self) -> None:
         """Pricing with unknown instrument/model combo should raise PricingError."""
-        from finstack.valuations.instruments import Bond
-        from finstack.valuations.pricer import create_standard_registry
-
         registry = create_standard_registry()
         market = MarketContext()
 
