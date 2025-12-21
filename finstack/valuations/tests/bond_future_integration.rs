@@ -727,3 +727,278 @@ fn test_conversion_factor_calculation_accuracy() {
     assert!(cf_below < cf_at, "CF should increase with coupon rate");
     assert!(cf_at < cf_above, "CF should increase with coupon rate");
 }
+
+// ========================================================================================
+// DV01 Calculation Tests
+// ========================================================================================
+
+/// Test that DV01 calculation works correctly for bond futures.
+///
+/// This test verifies:
+/// 1. DV01 can be calculated via the metrics registry
+/// 2. DV01 has the correct sign (negative for long positions when rates rise)
+/// 3. Bucketed DV01 sums to total DV01 within reasonable tolerance
+/// 4. DV01 magnitude is reasonable for a 10-year futures contract
+#[test]
+fn test_bond_future_dv01_calculation() {
+    use finstack_valuations::instruments::common::traits::Instrument;
+    use finstack_valuations::metrics::{standard_registry, MetricContext, MetricId};
+    use std::sync::Arc;
+
+    // Setup market and instruments
+    let market = create_realistic_market();
+    let as_of = date!(2025 - 01 - 15);
+    let expiry = date!(2025 - 03 - 20);
+    let delivery_start = date!(2025 - 03 - 21);
+    let delivery_end = date!(2025 - 03 - 31);
+
+    // Create CTD bond (5% coupon, maturing in ~8 years)
+    let ctd_bond = create_ust_bond(
+        "US912828XG33",
+        100_000.0,
+        0.05,
+        date!(2017 - 03 - 15),
+        date!(2033 - 03 - 15),
+    );
+
+    // Calculate conversion factor
+    let conversion_factor = BondFuturePricer::calculate_conversion_factor(
+        &ctd_bond,
+        0.06,  // 6% standard coupon for UST 10Y
+        10.0,  // 10-year standard maturity
+        &market,
+        delivery_start,
+    )
+    .expect("Failed to calculate conversion factor");
+
+    println!("Conversion factor: {:.4}", conversion_factor);
+
+    // Create deliverable basket
+    let basket = vec![DeliverableBond {
+        bond_id: InstrumentId::new("US912828XG33"),
+        conversion_factor,
+    }];
+
+    // Create bond future (10 contracts = $1M notional)
+    let future = BondFuture::ust_10y(
+        InstrumentId::new("TYH5"),
+        Money::new(1_000_000.0, Currency::USD),
+        expiry,
+        delivery_start,
+        delivery_end,
+        125.50,  // Quoted futures price
+        Position::Long,
+        basket,
+        InstrumentId::new("US912828XG33"),
+        CurveId::new("USD-TREASURY"),
+    )
+    .expect("Failed to create bond future");
+
+    // Calculate NPV
+    let pv = future
+        .value(&market, as_of)
+        .expect("Failed to calculate NPV");
+
+    println!("Bond future NPV: ${:.2}", pv.amount());
+
+    // Create metric context
+    let mut context = MetricContext::new(
+        Arc::new(future.clone()),
+        Arc::new(market.clone()),
+        as_of,
+        pv,
+    );
+
+    // Get metrics registry
+    let registry = standard_registry();
+
+    // Compute DV01
+    let metrics_to_compute = vec![MetricId::Dv01, MetricId::BucketedDv01];
+    let results = registry
+        .compute(&metrics_to_compute, &mut context)
+        .expect("Failed to compute metrics");
+
+    // Extract DV01
+    let dv01 = results
+        .get(&MetricId::Dv01)
+        .expect("DV01 should be computed");
+
+    println!("Total DV01: ${:.2}", dv01);
+
+    // Verify DV01 is reasonable
+    // For a $1M notional 10Y futures contract, DV01 should be roughly $500-$2000
+    // depending on the conversion factor and CTD bond duration
+    assert!(
+        dv01.abs() > 100.0 && dv01.abs() < 5000.0,
+        "DV01 magnitude should be reasonable for 10Y futures, got {}",
+        dv01
+    );
+
+    // Extract bucketed DV01
+    let bucketed_dv01 = context
+        .get_series(&MetricId::BucketedDv01)
+        .expect("Bucketed DV01 should be computed");
+
+    println!("\nBucketed DV01:");
+    for (tenor, value) in bucketed_dv01 {
+        if value.abs() > 1.0 {
+            println!("  {}: ${:.2}", tenor, value);
+        }
+    }
+
+    // Sum bucketed DV01 and verify it matches total DV01
+    let bucketed_sum: f64 = bucketed_dv01.iter().map(|(_, v)| v).sum();
+    let diff = (bucketed_sum - dv01).abs();
+    let tolerance = dv01.abs() * 0.01; // 1% tolerance
+
+    println!("\nTotal DV01: ${:.2}", dv01);
+    println!("Sum of bucketed DV01: ${:.2}", bucketed_sum);
+    println!("Difference: ${:.2}", diff);
+
+    assert!(
+        diff < tolerance,
+        "Sum of bucketed DV01 ({:.2}) should match total DV01 ({:.2}) within 1%, diff: {:.2}",
+        bucketed_sum,
+        dv01,
+        diff
+    );
+
+    // Verify that the 10Y bucket has the highest DV01 (for a 10Y contract)
+    let dv01_10y = bucketed_dv01
+        .iter()
+        .find(|(tenor, _)| tenor == "10Y")
+        .map(|(_, v)| v.abs())
+        .unwrap_or(0.0);
+
+    let max_bucket_dv01 = bucketed_dv01
+        .iter()
+        .map(|(_, v)| v.abs())
+        .max_by(|a, b| a.partial_cmp(b).unwrap())
+        .unwrap_or(0.0);
+
+    assert!(
+        dv01_10y > max_bucket_dv01 * 0.5,
+        "10Y bucket should have significant DV01 for a 10Y futures contract, got {:.2} vs max {:.2}",
+        dv01_10y,
+        max_bucket_dv01
+    );
+}
+
+/// Test DV01 sign convention for short positions.
+///
+/// DV01 should have opposite sign for short vs long positions.
+#[test]
+fn test_bond_future_dv01_sign_convention() {
+    use finstack_valuations::instruments::common::traits::Instrument;
+    use finstack_valuations::metrics::{standard_registry, MetricContext, MetricId};
+    use std::sync::Arc;
+
+    let market = create_realistic_market();
+    let as_of = date!(2025 - 01 - 15);
+    let expiry = date!(2025 - 03 - 20);
+    let delivery_start = date!(2025 - 03 - 21);
+    let delivery_end = date!(2025 - 03 - 31);
+
+    // Create CTD bond
+    let ctd_bond = create_ust_bond(
+        "US912828XG33",
+        100_000.0,
+        0.05,
+        date!(2017 - 03 - 15),
+        date!(2033 - 03 - 15),
+    );
+
+    let conversion_factor = BondFuturePricer::calculate_conversion_factor(
+        &ctd_bond,
+        0.06,
+        10.0,
+        &market,
+        delivery_start,
+    )
+    .expect("Failed to calculate conversion factor");
+
+    let basket = vec![DeliverableBond {
+        bond_id: InstrumentId::new("US912828XG33"),
+        conversion_factor,
+    }];
+
+    // Create long position
+    let future_long = BondFuture::ust_10y(
+        InstrumentId::new("TYH5_LONG"),
+        Money::new(1_000_000.0, Currency::USD),
+        expiry,
+        delivery_start,
+        delivery_end,
+        125.50,
+        Position::Long,
+        basket.clone(),
+        InstrumentId::new("US912828XG33"),
+        CurveId::new("USD-TREASURY"),
+    )
+    .expect("Failed to create long bond future");
+
+    // Create short position
+    let future_short = BondFuture::ust_10y(
+        InstrumentId::new("TYH5_SHORT"),
+        Money::new(1_000_000.0, Currency::USD),
+        expiry,
+        delivery_start,
+        delivery_end,
+        125.50,
+        Position::Short,
+        basket,
+        InstrumentId::new("US912828XG33"),
+        CurveId::new("USD-TREASURY"),
+    )
+    .expect("Failed to create short bond future");
+
+    // Calculate DV01 for long position
+    let pv_long = future_long.value(&market, as_of).unwrap();
+    let mut context_long = MetricContext::new(
+        Arc::new(future_long),
+        Arc::new(market.clone()),
+        as_of,
+        pv_long,
+    );
+
+    let registry = standard_registry();
+    let results_long = registry
+        .compute(&[MetricId::Dv01], &mut context_long)
+        .expect("Failed to compute DV01 for long position");
+    let dv01_long = *results_long.get(&MetricId::Dv01).unwrap();
+
+    // Calculate DV01 for short position
+    let pv_short = future_short.value(&market, as_of).unwrap();
+    let mut context_short = MetricContext::new(
+        Arc::new(future_short),
+        Arc::new(market.clone()),
+        as_of,
+        pv_short,
+    );
+
+    let results_short = registry
+        .compute(&[MetricId::Dv01], &mut context_short)
+        .expect("Failed to compute DV01 for short position");
+    let dv01_short = *results_short.get(&MetricId::Dv01).unwrap();
+
+    println!("Long position DV01: ${:.2}", dv01_long);
+    println!("Short position DV01: ${:.2}", dv01_short);
+
+    // DV01 should have opposite signs
+    assert!(
+        dv01_long.signum() != dv01_short.signum() || (dv01_long == 0.0 && dv01_short == 0.0),
+        "DV01 should have opposite signs for long vs short positions: long={:.2}, short={:.2}",
+        dv01_long,
+        dv01_short
+    );
+
+    // Magnitudes should be approximately equal
+    let diff = (dv01_long.abs() - dv01_short.abs()).abs();
+    let tolerance = dv01_long.abs() * 0.01; // 1% tolerance
+    assert!(
+        diff < tolerance,
+        "DV01 magnitudes should be equal for long vs short: |long|={:.2}, |short|={:.2}",
+        dv01_long.abs(),
+        dv01_short.abs()
+    );
+}

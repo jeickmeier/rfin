@@ -406,6 +406,7 @@ pub fn standard_registry() -> MetricRegistry {
     crate::instruments::deposit::metrics::register_deposit_metrics(&mut registry);
     crate::instruments::fra::metrics::register_fra_metrics(&mut registry);
     crate::instruments::ir_future::metrics::register_ir_future_metrics(&mut registry);
+    crate::instruments::bond_future::metrics::register_bond_future_metrics(&mut registry);
     crate::instruments::cds::metrics::register_cds_metrics(&mut registry);
     crate::instruments::cds_index::metrics::register_cds_index_metrics(&mut registry);
     crate::instruments::cds_tranche::metrics::register_cds_tranche_metrics(&mut registry);
