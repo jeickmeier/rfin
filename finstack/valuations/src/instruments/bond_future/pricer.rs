@@ -323,12 +323,12 @@ impl crate::pricer::Pricer for BondFuturePricer {
         // let ctd_bond_any = market.instrument(future.ctd_bond_id.as_str())?;
         // let ctd_bond = ctd_bond_any.downcast_ref::<Bond>()?;
         
-        return Err(crate::pricer::PricingError::ModelFailure(format!(
+        Err(crate::pricer::PricingError::ModelFailure(format!(
             "BondFuture pricing requires instrument registry in MarketContext (not yet implemented). \
              CTD bond ID: {}. \
              This is a known limitation that will be resolved when MarketContext gains instrument registry support.",
             future.ctd_bond_id.as_str()
-        )));
+        )))
 
         // Unreachable code below (will be enabled once instrument registry is implemented):
         /*
