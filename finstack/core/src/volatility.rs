@@ -35,7 +35,20 @@
 //!     1.0, // 1 year to expiry
 //! )?;
 //!
-//! assert!((lognormal_vol - 0.2).abs() < 1e-6); // ~20% lognormal vol
+//! // For small vols, ATM normal ↔ lognormal conversion is approximately:
+//! // sigma_lognormal ≈ sigma_normal / forward.
+//! let approx = normal_vol / forward;
+//! assert!((lognormal_vol - approx).abs() < 1e-3);
+//!
+//! // Round-trip conversion is deterministic (up to solver tolerance).
+//! let recovered = convert_atm_volatility(
+//!     lognormal_vol,
+//!     VolatilityConvention::Lognormal,
+//!     VolatilityConvention::Normal,
+//!     forward,
+//!     1.0,
+//! )?;
+//! assert!((recovered - normal_vol).abs() < 1e-10);
 //! # Ok(())
 //! # }
 //! ```
