@@ -92,6 +92,203 @@ impl Default for BondFutureSpecs {
     }
 }
 
+impl BondFutureSpecs {
+    /// UST 10-year futures contract specifications.
+    ///
+    /// **Market**: U.S. Treasury
+    /// **Exchange**: Chicago Board of Trade (CBOT)
+    /// **Contract**: 10-Year T-Note Futures
+    ///
+    /// # Specifications
+    ///
+    /// - Contract size: $100,000
+    /// - Tick size: 1/32 of a point (0.03125)
+    /// - Tick value: $31.25 per tick
+    /// - Standard coupon: 6% annual
+    /// - Standard maturity: 10 years
+    /// - Settlement: T+2 business days
+    /// - Day count: Actual/Actual (ISDA)
+    /// - Deliverable: U.S. Treasury notes with at least 6.5 years remaining maturity
+    ///
+    /// # Examples
+    ///
+    /// ```rust
+    /// use finstack_valuations::instruments::bond_future::BondFutureSpecs;
+    ///
+    /// let specs = BondFutureSpecs::ust_10y();
+    /// assert_eq!(specs.contract_size, 100_000.0);
+    /// assert_eq!(specs.standard_coupon, 0.06);
+    /// ```
+    pub fn ust_10y() -> Self {
+        Self::default()
+    }
+
+    /// UST 5-year futures contract specifications.
+    ///
+    /// **Market**: U.S. Treasury
+    /// **Exchange**: Chicago Board of Trade (CBOT)
+    /// **Contract**: 5-Year T-Note Futures
+    ///
+    /// # Specifications
+    ///
+    /// - Contract size: $100,000
+    /// - Tick size: 1/4 of 1/32 of a point (0.0078125)
+    /// - Tick value: $15.625 per tick
+    /// - Standard coupon: 6% annual
+    /// - Standard maturity: 5 years
+    /// - Settlement: T+2 business days
+    /// - Day count: Actual/Actual (ISDA)
+    /// - Deliverable: U.S. Treasury notes with at least 4 years, 2 months remaining maturity
+    ///
+    /// # Examples
+    ///
+    /// ```rust
+    /// use finstack_valuations::instruments::bond_future::BondFutureSpecs;
+    ///
+    /// let specs = BondFutureSpecs::ust_5y();
+    /// assert_eq!(specs.contract_size, 100_000.0);
+    /// assert_eq!(specs.tick_size, 1.0 / 128.0);
+    /// assert_eq!(specs.standard_maturity_years, 5.0);
+    /// ```
+    pub fn ust_5y() -> Self {
+        Self {
+            contract_size: 100_000.0,
+            tick_size: 1.0 / 128.0,     // 1/4 of 1/32 = 1/128
+            tick_value: 15.625,         // $100,000 × 1/128 × 1% = $15.625
+            standard_coupon: 0.06,      // 6%
+            standard_maturity_years: 5.0,
+            settlement_days: 2,
+        }
+    }
+
+    /// UST 2-year futures contract specifications.
+    ///
+    /// **Market**: U.S. Treasury
+    /// **Exchange**: Chicago Board of Trade (CBOT)
+    /// **Contract**: 2-Year T-Note Futures
+    ///
+    /// # Specifications
+    ///
+    /// - Contract size: $200,000 (note: double the 5Y/10Y contracts)
+    /// - Tick size: 1/4 of 1/32 of a point (0.0078125)
+    /// - Tick value: $15.625 per tick (= $200,000 × 1/128 × 1% / 2)
+    /// - Standard coupon: 6% annual
+    /// - Standard maturity: 2 years
+    /// - Settlement: T+2 business days
+    /// - Day count: Actual/Actual (ISDA)
+    /// - Deliverable: U.S. Treasury notes with at least 1 year, 9 months remaining maturity
+    ///
+    /// # Examples
+    ///
+    /// ```rust
+    /// use finstack_valuations::instruments::bond_future::BondFutureSpecs;
+    ///
+    /// let specs = BondFutureSpecs::ust_2y();
+    /// assert_eq!(specs.contract_size, 200_000.0);
+    /// assert_eq!(specs.tick_size, 1.0 / 128.0);
+    /// assert_eq!(specs.standard_maturity_years, 2.0);
+    /// ```
+    pub fn ust_2y() -> Self {
+        Self {
+            contract_size: 200_000.0,   // 2Y contracts are $200k (double 5Y/10Y)
+            tick_size: 1.0 / 128.0,     // 1/4 of 1/32 = 1/128
+            tick_value: 15.625,         // $200,000 × 1/128 × 1% / 2 = $15.625
+            standard_coupon: 0.06,      // 6%
+            standard_maturity_years: 2.0,
+            settlement_days: 2,
+        }
+    }
+
+    /// German Bund futures contract specifications.
+    ///
+    /// **Market**: Germany (Eurex)
+    /// **Exchange**: Eurex Exchange
+    /// **Contract**: Euro-Bund Futures
+    ///
+    /// # Specifications
+    ///
+    /// - Contract size: €100,000
+    /// - Tick size: 0.01 (1 basis point)
+    /// - Tick value: €10 per tick
+    /// - Standard coupon: 6% annual
+    /// - Standard maturity: 10 years
+    /// - Settlement: T+2 business days
+    /// - Day count: Actual/Actual (ISDA)
+    /// - Deliverable: German Federal bonds with 8.5 to 10.5 years remaining maturity
+    ///
+    /// # Notes
+    ///
+    /// - Quoted in percentage points (e.g., 125.50 = 125.50%)
+    /// - Different tick size from UST (decimal vs. 32nds)
+    /// - Settlement follows TARGET2 calendar
+    ///
+    /// # Examples
+    ///
+    /// ```rust
+    /// use finstack_valuations::instruments::bond_future::BondFutureSpecs;
+    ///
+    /// let specs = BondFutureSpecs::bund();
+    /// assert_eq!(specs.contract_size, 100_000.0);
+    /// assert_eq!(specs.tick_size, 0.01);
+    /// assert_eq!(specs.tick_value, 10.0);
+    /// ```
+    pub fn bund() -> Self {
+        Self {
+            contract_size: 100_000.0,
+            tick_size: 0.01,            // 1 basis point
+            tick_value: 10.0,           // €100,000 × 0.01% = €10
+            standard_coupon: 0.06,      // 6%
+            standard_maturity_years: 10.0,
+            settlement_days: 2,
+        }
+    }
+
+    /// UK Gilt futures contract specifications.
+    ///
+    /// **Market**: United Kingdom
+    /// **Exchange**: ICE Futures Europe (LIFFE)
+    /// **Contract**: Long Gilt Futures
+    ///
+    /// # Specifications
+    ///
+    /// - Contract size: £100,000
+    /// - Tick size: 0.01 (1 basis point)
+    /// - Tick value: £10 per tick
+    /// - Standard coupon: 4% annual (note: different from UST/Bund 6%)
+    /// - Standard maturity: 10 years
+    /// - Settlement: T+2 business days
+    /// - Day count: Actual/Actual (ISDA)
+    /// - Deliverable: UK Gilts with 8.75 to 13 years remaining maturity
+    ///
+    /// # Notes
+    ///
+    /// - Quoted in percentage points (e.g., 125.50 = 125.50%)
+    /// - Standard coupon is 4%, not 6% like other major markets
+    /// - Settlement follows UK bank holidays
+    /// - Long Gilt contract covers 8.75-13 year maturity range
+    ///
+    /// # Examples
+    ///
+    /// ```rust
+    /// use finstack_valuations::instruments::bond_future::BondFutureSpecs;
+    ///
+    /// let specs = BondFutureSpecs::gilt();
+    /// assert_eq!(specs.contract_size, 100_000.0);
+    /// assert_eq!(specs.tick_size, 0.01);
+    /// assert_eq!(specs.standard_coupon, 0.04);  // 4%, not 6%
+    /// ```
+    pub fn gilt() -> Self {
+        Self {
+            contract_size: 100_000.0,
+            tick_size: 0.01,            // 1 basis point
+            tick_value: 10.0,           // £100,000 × 0.01% = £10
+            standard_coupon: 0.04,      // 4% (different from UST/Bund)
+            standard_maturity_years: 10.0,
+            settlement_days: 2,
+        }
+    }
+}
+
 /// Bond future instrument.
 ///
 /// A bond future is a standardized contract to buy or sell a government bond at a
@@ -295,6 +492,61 @@ mod tests {
         assert_eq!(specs.tick_size, 1.0 / 32.0);
         assert_eq!(specs.tick_value, 31.25);
         assert_eq!(specs.standard_coupon, 0.06);
+        assert_eq!(specs.standard_maturity_years, 10.0);
+        assert_eq!(specs.settlement_days, 2);
+    }
+
+    #[test]
+    fn test_ust_10y_specs() {
+        let specs = BondFutureSpecs::ust_10y();
+        assert_eq!(specs.contract_size, 100_000.0);
+        assert_eq!(specs.tick_size, 1.0 / 32.0);
+        assert_eq!(specs.tick_value, 31.25);
+        assert_eq!(specs.standard_coupon, 0.06);
+        assert_eq!(specs.standard_maturity_years, 10.0);
+        assert_eq!(specs.settlement_days, 2);
+    }
+
+    #[test]
+    fn test_ust_5y_specs() {
+        let specs = BondFutureSpecs::ust_5y();
+        assert_eq!(specs.contract_size, 100_000.0);
+        assert_eq!(specs.tick_size, 1.0 / 128.0);
+        assert_eq!(specs.tick_value, 15.625);
+        assert_eq!(specs.standard_coupon, 0.06);
+        assert_eq!(specs.standard_maturity_years, 5.0);
+        assert_eq!(specs.settlement_days, 2);
+    }
+
+    #[test]
+    fn test_ust_2y_specs() {
+        let specs = BondFutureSpecs::ust_2y();
+        assert_eq!(specs.contract_size, 200_000.0);  // Note: 2Y is $200k
+        assert_eq!(specs.tick_size, 1.0 / 128.0);
+        assert_eq!(specs.tick_value, 15.625);
+        assert_eq!(specs.standard_coupon, 0.06);
+        assert_eq!(specs.standard_maturity_years, 2.0);
+        assert_eq!(specs.settlement_days, 2);
+    }
+
+    #[test]
+    fn test_bund_specs() {
+        let specs = BondFutureSpecs::bund();
+        assert_eq!(specs.contract_size, 100_000.0);
+        assert_eq!(specs.tick_size, 0.01);
+        assert_eq!(specs.tick_value, 10.0);
+        assert_eq!(specs.standard_coupon, 0.06);
+        assert_eq!(specs.standard_maturity_years, 10.0);
+        assert_eq!(specs.settlement_days, 2);
+    }
+
+    #[test]
+    fn test_gilt_specs() {
+        let specs = BondFutureSpecs::gilt();
+        assert_eq!(specs.contract_size, 100_000.0);
+        assert_eq!(specs.tick_size, 0.01);
+        assert_eq!(specs.tick_value, 10.0);
+        assert_eq!(specs.standard_coupon, 0.04);  // Different from UST/Bund
         assert_eq!(specs.standard_maturity_years, 10.0);
         assert_eq!(specs.settlement_days, 2);
     }
