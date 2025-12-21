@@ -332,8 +332,6 @@ fn test_forward_curve_short_tenors() {
 }
 
 #[test]
-
-#[test]
 fn test_forward_curve_reset_lag() {
     // Test with various reset lags
     for lag in [0, 1, 2, 5] {

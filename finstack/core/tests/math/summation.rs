@@ -9,7 +9,7 @@ use finstack_core::math::summation::{
 #[test]
 fn test_kahan_sum_basic() {
     let values = vec![0.1, 0.2, 0.3];
-    let result = kahan_sum(values.into_iter());
+    let result = kahan_sum(values);
     
     // Should be close to 0.6
     assert!((result - 0.6).abs() < 1e-15, "Basic sum should be accurate");
@@ -20,31 +20,31 @@ fn test_kahan_sum_large_small_large() {
     // Classic floating-point issue: adding small number to large number
     // Kahan should handle this better than naive summation
     let values = vec![1e16, 1.0, -1e16];
-    let result = kahan_sum(values.into_iter());
+    let result = kahan_sum(values);
     
     // Naive sum would lose the 1.0 completely; Kahan should preserve something
     // but may not preserve exactly 1.0 due to the extreme magnitude difference
-    assert!(result >= 0.0 && result <= 2.0, "Kahan should preserve small value: got {}", result);
+    assert!((0.0..=2.0).contains(&result), "Kahan should preserve small value: got {}", result);
 }
 
 #[test]
 fn test_kahan_sum_empty() {
     let values: Vec<f64> = vec![];
-    let result = kahan_sum(values.into_iter());
+    let result = kahan_sum(values);
     
     assert_eq!(result, 0.0, "Empty sum should be zero");
 }
 
 #[test]
 fn test_kahan_sum_single_element() {
-    let result = kahan_sum(vec![3.15].into_iter());
+    let result = kahan_sum(vec![3.15]);
     assert_eq!(result, 3.15, "Single element should be preserved");
 }
 
 #[test]
 fn test_kahan_sum_negative_values() {
     let values = vec![-0.1, -0.2, -0.3];
-    let result = kahan_sum(values.into_iter());
+    let result = kahan_sum(values);
     
     assert!((result - (-0.6)).abs() < 1e-15, "Should handle negative values");
 }
@@ -65,7 +65,7 @@ fn test_kahan_sum_many_small_values() {
 fn test_kahan_sum_mixed_sign() {
     // Alternating positive and negative values
     let values = vec![1.0, -1.0, 1.0, -1.0, 1.0, -1.0];
-    let result = kahan_sum(values.into_iter());
+    let result = kahan_sum(values);
     
     // 3 positive and 3 negative = 0.0
     assert!((result - 0.0).abs() < 1e-10, "Should handle mixed signs, got {}", result);
@@ -78,7 +78,7 @@ fn test_kahan_sum_mixed_sign() {
 #[test]
 fn test_neumaier_sum_basic() {
     let values = vec![0.1, 0.2, 0.3];
-    let result = neumaier_sum(values.into_iter());
+    let result = neumaier_sum(values);
     
     assert!((result - 0.6).abs() < 1e-15, "Basic sum should be accurate");
 }
@@ -87,7 +87,7 @@ fn test_neumaier_sum_basic() {
 fn test_neumaier_sum_large_small_opposite() {
     // Neumaier should handle mixed-sign values better than Kahan
     let values = vec![1e16, 1.0, -1e16];
-    let result = neumaier_sum(values.into_iter());
+    let result = neumaier_sum(values);
     
     assert!((result - 1.0).abs() < 1e-15, "Neumaier should preserve small value");
 }
@@ -95,21 +95,21 @@ fn test_neumaier_sum_large_small_opposite() {
 #[test]
 fn test_neumaier_sum_empty() {
     let values: Vec<f64> = vec![];
-    let result = neumaier_sum(values.into_iter());
+    let result = neumaier_sum(values);
     
     assert_eq!(result, 0.0, "Empty sum should be zero");
 }
 
 #[test]
 fn test_neumaier_sum_single_element() {
-    let result = neumaier_sum(vec![2.71].into_iter());
+    let result = neumaier_sum(vec![2.71]);
     assert_eq!(result, 2.71, "Single element should be preserved");
 }
 
 #[test]
 fn test_neumaier_sum_negative_values() {
     let values = vec![-0.5, -0.25, -0.125];
-    let result = neumaier_sum(values.into_iter());
+    let result = neumaier_sum(values);
     
     let expected = -0.875;
     assert!((result - expected).abs() < 1e-15, "Should handle negative values");
@@ -125,7 +125,7 @@ fn test_neumaier_sum_financial_cashflows() {
         10.0,    // year 3 return
         110.0,   // year 4 return + principal
     ];
-    let result = neumaier_sum(values.into_iter());
+    let result = neumaier_sum(values);
     
     let expected = 40.0;
     assert!((result - expected).abs() < 1e-12, "Should handle cashflows accurately");
@@ -138,7 +138,7 @@ fn test_neumaier_sum_large_then_small_additions() {
     for i in 1..=100 {
         values.push((i as f64) * 1e-5);
     }
-    let result = neumaier_sum(values.into_iter());
+    let result = neumaier_sum(values);
     
     // The sum of 1e-5, 2e-5, ..., 100e-5 = 1e-5 * (1+2+...+100) = 1e-5 * 5050 = 0.05050
     let expected = 1e10 + 0.05050;
