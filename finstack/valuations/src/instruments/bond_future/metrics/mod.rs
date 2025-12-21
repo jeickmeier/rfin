@@ -43,6 +43,7 @@
 //! ```
 
 use crate::metrics::MetricRegistry;
+use crate::pricer::InstrumentType;
 
 /// Register all bond future metrics to a registry.
 ///

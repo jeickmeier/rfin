@@ -319,7 +319,7 @@ impl crate::pricer::Pricer for BondFuturePricer {
 
         // Look up the CTD bond from the instrument registry
         let ctd_bond_any = market
-            .get_instrument(future.ctd_bond_id.as_str())
+            .instrument(future.ctd_bond_id.as_str())
             .map_err(|e| {
                 crate::pricer::PricingError::ModelFailure(format!(
                     "CTD bond (ID: {}) not found in instrument registry: {}",
