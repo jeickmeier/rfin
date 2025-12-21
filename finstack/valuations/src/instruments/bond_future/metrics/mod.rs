@@ -66,7 +66,7 @@ use crate::metrics::MetricRegistry;
 pub fn register_bond_future_metrics(registry: &mut MetricRegistry) {
     crate::register_metrics! {
         registry: registry,
-        instrument: "BondFuture",
+        instrument: InstrumentType::BondFuture,
         metrics: [
             (Dv01, crate::metrics::UnifiedDv01Calculator::<
                 crate::instruments::bond_future::BondFuture,
