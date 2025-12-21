@@ -217,6 +217,7 @@ def main() -> None:
         discount_curve="USD-OIS",
         forward_curve="USD-SOFR-3M",
         position="long",
+        convexity_adjustment=0.0,
     )
     future_result = registry.price_with_metrics(
         future,

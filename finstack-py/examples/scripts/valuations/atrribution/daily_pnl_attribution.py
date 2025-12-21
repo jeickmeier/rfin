@@ -8,11 +8,13 @@ daily MTM changes.
 
 from datetime import date
 
-from finstack import Money
+from finstack import Money, FinstackError
 from finstack.core.market_data.context import MarketContext
-from finstack.core.market_data.term_structures import DiscountCurve
+from finstack.core.market_data.term_structures import DiscountCurve, HazardCurve
 from finstack.valuations.attribution import AttributionMethod, attribute_pnl
 from finstack.valuations.instruments import Bond
+
+HAZARD_ID = "USD-CREDIT"
 
 
 def create_market_with_rate(as_of_date, rate):
@@ -30,6 +32,9 @@ def create_market_with_rate(as_of_date, rate):
 
     market = MarketContext()
     market.insert_discount(curve)
+    # Add a flat hazard curve so credit metrics (e.g., CS01) are available.
+    hazard = HazardCurve(HAZARD_ID, as_of_date, [(0.0, 0.01), (30.0, 0.01)])
+    market.insert_hazard(hazard)
     return market
 
 
@@ -154,7 +159,12 @@ def example_metric_based_attribution(bond, market_t0, market_t1, t0, t1):
     print("  Second-order: Convexity (for bonds), Gamma, Volga, Vanna")
 
     # Run attribution
-    attr = attribute_pnl(bond, market_t0, market_t1, t0, t1, method=method)
+    try:
+        attr = attribute_pnl(bond, market_t0, market_t1, t0, t1, method=method)
+    except FinstackError as exc:
+        print("Metrics-based attribution unavailable, falling back to parallel:", exc)
+        fallback = AttributionMethod.parallel()
+        attr = attribute_pnl(bond, market_t0, market_t1, t0, t1, method=fallback)
 
     # Display results
     print(f"\n{'Attribution Results':^70}")
@@ -274,13 +284,18 @@ def main():
     print("=" * 70)
 
     # Create a 5-year corporate bond with 5% coupon
-    bond = Bond.fixed_semiannual(
-        "CORP-001",
-        Money(1_000_000, "USD"),
-        0.05,  # 5% coupon
-        date(2025, 1, 1),
-        date(2030, 1, 1),
-        "USD-OIS",
+    bond = (
+        Bond.builder("CORP-001")
+        .money(Money(1_000_000, "USD"))
+        .issue(date(2025, 1, 1))
+        .maturity(date(2030, 1, 1))
+        .coupon_rate(0.05)
+        .frequency("SemiAnnual")
+        .day_count("30/360")
+        .bdc("Following")
+        .disc_id("USD-OIS")
+        .credit_curve(HAZARD_ID)
+        .build()
     )
     print(f"Instrument: {bond.instrument_id}")
     print(f"  Notional:    {Money(1_000_000, 'USD')}")

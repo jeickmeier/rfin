@@ -77,171 +77,48 @@ def _settlement_date(
 def build_usd_ois_quotes(base_date: date, *, ois_index_id: str = DEFAULT_OIS_INDEX_ID) -> List[cal.RatesQuote]:
     """Build USD OIS deposit + swap quotes (as shown in the calibration notebook)."""
 
-    deposit_conv = cal.InstrumentConventions(
-        day_count="ACT/360",
-        settlement_days=2,
-        calendar_id="usny",
-    )
-    ois_fixed_leg = cal.InstrumentConventions(
-        payment_frequency="1Y",
-        settlement_days=2,
-        payment_delay_days=2,
-        calendar_id="usny",
-        day_count="ACT/360",
-        index=ois_index_id,
-    )
-    ois_float_leg = cal.InstrumentConventions(
-        payment_frequency="1Y",
-        day_count="ACT/360",
-        reset_lag=0,
-        calendar_id="usny",
-        index=ois_index_id,
-    )
-
-    return [
-        # Short-term deposits (actual maturities from the notebook)
-        cal.RatesQuote.deposit(date(2025, 12, 19), 0.0364447, conventions=deposit_conv),  # 1W
-        cal.RatesQuote.deposit(date(2025, 12, 26), 0.0364455, conventions=deposit_conv),  # 2W
-        cal.RatesQuote.deposit(date(2026, 1, 2), 0.0365300, conventions=deposit_conv),  # 3W
-        cal.RatesQuote.deposit(date(2026, 1, 12), 0.0364950, conventions=deposit_conv),  # 1M
-        cal.RatesQuote.deposit(date(2026, 2, 12), 0.0364050, conventions=deposit_conv),  # 2M
-        cal.RatesQuote.deposit(date(2026, 3, 12), 0.0363477, conventions=deposit_conv),  # 3M
-        cal.RatesQuote.deposit(date(2026, 4, 13), 0.0361400, conventions=deposit_conv),  # 4M
-        cal.RatesQuote.deposit(date(2026, 5, 12), 0.0359544, conventions=deposit_conv),  # 5M
-        cal.RatesQuote.deposit(date(2026, 6, 12), 0.0358000, conventions=deposit_conv),  # 6M
-        cal.RatesQuote.deposit(date(2026, 7, 13), 0.0355310, conventions=deposit_conv),  # 7M
-        cal.RatesQuote.deposit(date(2026, 8, 12), 0.0352500, conventions=deposit_conv),  # 8M
-        cal.RatesQuote.deposit(date(2026, 9, 14), 0.0350225, conventions=deposit_conv),  # 9M
-        cal.RatesQuote.deposit(date(2026, 10, 13), 0.0347742, conventions=deposit_conv),  # 10M
-        cal.RatesQuote.deposit(date(2026, 11, 12), 0.0345356, conventions=deposit_conv),  # 11M
-        # OIS swaps (>= 1Y)
-        cal.RatesQuote.swap(
-            date(2026, 12, 14),
-            0.0343446,
-            fixed_leg_conventions=ois_fixed_leg,
-            float_leg_conventions=ois_float_leg,
-            is_ois=True,
-        ),
-        cal.RatesQuote.swap(
-            date(2027, 6, 14),
-            0.0332849,
-            fixed_leg_conventions=ois_fixed_leg,
-            float_leg_conventions=ois_float_leg,
-            is_ois=True,
-        ),
-        cal.RatesQuote.swap(
-            date(2027, 12, 13),
-            0.0329864,
-            fixed_leg_conventions=ois_fixed_leg,
-            float_leg_conventions=ois_float_leg,
-            is_ois=True,
-        ),
-        cal.RatesQuote.swap(
-            date(2028, 12, 12),
-            0.0330190,
-            fixed_leg_conventions=ois_fixed_leg,
-            float_leg_conventions=ois_float_leg,
-            is_ois=True,
-        ),
-        cal.RatesQuote.swap(
-            date(2029, 12, 12),
-            0.0333823,
-            fixed_leg_conventions=ois_fixed_leg,
-            float_leg_conventions=ois_float_leg,
-            is_ois=True,
-        ),
-        cal.RatesQuote.swap(
-            date(2030, 12, 12),
-            0.0338799,
-            fixed_leg_conventions=ois_fixed_leg,
-            float_leg_conventions=ois_float_leg,
-            is_ois=True,
-        ),
-        cal.RatesQuote.swap(
-            date(2031, 12, 12),
-            0.0344608,
-            fixed_leg_conventions=ois_fixed_leg,
-            float_leg_conventions=ois_float_leg,
-            is_ois=True,
-        ),
-        cal.RatesQuote.swap(
-            date(2032, 12, 13),
-            0.0350619,
-            fixed_leg_conventions=ois_fixed_leg,
-            float_leg_conventions=ois_float_leg,
-            is_ois=True,
-        ),
-        cal.RatesQuote.swap(
-            date(2033, 12, 12),
-            0.0356592,
-            fixed_leg_conventions=ois_fixed_leg,
-            float_leg_conventions=ois_float_leg,
-            is_ois=True,
-        ),
-        cal.RatesQuote.swap(
-            date(2034, 12, 12),
-            0.0362453,
-            fixed_leg_conventions=ois_fixed_leg,
-            float_leg_conventions=ois_float_leg,
-            is_ois=True,
-        ),
-        cal.RatesQuote.swap(
-            date(2035, 12, 12),
-            0.0368206,
-            fixed_leg_conventions=ois_fixed_leg,
-            float_leg_conventions=ois_float_leg,
-            is_ois=True,
-        ),
-        cal.RatesQuote.swap(
-            date(2037, 12, 14),
-            0.0378975,
-            fixed_leg_conventions=ois_fixed_leg,
-            float_leg_conventions=ois_float_leg,
-            is_ois=True,
-        ),
-        cal.RatesQuote.swap(
-            date(2040, 12, 12),
-            0.0391717,
-            fixed_leg_conventions=ois_fixed_leg,
-            float_leg_conventions=ois_float_leg,
-            is_ois=True,
-        ),
-        cal.RatesQuote.swap(
-            date(2045, 12, 12),
-            0.0402348,
-            fixed_leg_conventions=ois_fixed_leg,
-            float_leg_conventions=ois_float_leg,
-            is_ois=True,
-        ),
-        cal.RatesQuote.swap(
-            date(2050, 12, 12),
-            0.0403809,
-            fixed_leg_conventions=ois_fixed_leg,
-            float_leg_conventions=ois_float_leg,
-            is_ois=True,
-        ),
-        cal.RatesQuote.swap(
-            date(2055, 12, 13),
-            0.0401000,
-            fixed_leg_conventions=ois_fixed_leg,
-            float_leg_conventions=ois_float_leg,
-            is_ois=True,
-        ),
-        cal.RatesQuote.swap(
-            date(2065, 12, 14),
-            0.0390413,
-            fixed_leg_conventions=ois_fixed_leg,
-            float_leg_conventions=ois_float_leg,
-            is_ois=True,
-        ),
-        cal.RatesQuote.swap(
-            date(2075, 12, 12),
-            0.0378761,
-            fixed_leg_conventions=ois_fixed_leg,
-            float_leg_conventions=ois_float_leg,
-            is_ois=True,
-        ),
+    quotes: List[cal.RatesQuote] = [
+        cal.RatesQuote.deposit("DEP-1W", ois_index_id, date(2025, 12, 19), 0.0364447),
+        cal.RatesQuote.deposit("DEP-2W", ois_index_id, date(2025, 12, 26), 0.0364455),
+        cal.RatesQuote.deposit("DEP-3W", ois_index_id, date(2026, 1, 2), 0.0365300),
+        cal.RatesQuote.deposit("DEP-1M", ois_index_id, date(2026, 1, 12), 0.0364950),
+        cal.RatesQuote.deposit("DEP-2M", ois_index_id, date(2026, 2, 12), 0.0364050),
+        cal.RatesQuote.deposit("DEP-3M", ois_index_id, date(2026, 3, 12), 0.0363477),
+        cal.RatesQuote.deposit("DEP-4M", ois_index_id, date(2026, 4, 13), 0.0361400),
+        cal.RatesQuote.deposit("DEP-5M", ois_index_id, date(2026, 5, 12), 0.0359544),
+        cal.RatesQuote.deposit("DEP-6M", ois_index_id, date(2026, 6, 12), 0.0358000),
+        cal.RatesQuote.deposit("DEP-7M", ois_index_id, date(2026, 7, 13), 0.0355310),
+        cal.RatesQuote.deposit("DEP-8M", ois_index_id, date(2026, 8, 12), 0.0352500),
+        cal.RatesQuote.deposit("DEP-9M", ois_index_id, date(2026, 9, 14), 0.0350225),
+        cal.RatesQuote.deposit("DEP-10M", ois_index_id, date(2026, 10, 13), 0.0347742),
+        cal.RatesQuote.deposit("DEP-11M", ois_index_id, date(2026, 11, 12), 0.0345356),
     ]
+
+    swap_points = [
+        ("SWAP-1Y", date(2026, 12, 14), 0.0343446),
+        ("SWAP-18M", date(2027, 6, 14), 0.0332849),
+        ("SWAP-2Y", date(2027, 12, 13), 0.0329864),
+        ("SWAP-3Y", date(2028, 12, 12), 0.0330190),
+        ("SWAP-4Y", date(2029, 12, 12), 0.0333823),
+        ("SWAP-5Y", date(2030, 12, 12), 0.0338799),
+        ("SWAP-6Y", date(2031, 12, 12), 0.0344608),
+        ("SWAP-7Y", date(2032, 12, 13), 0.0350619),
+        ("SWAP-8Y", date(2033, 12, 12), 0.0356592),
+        ("SWAP-9Y", date(2034, 12, 12), 0.0362453),
+        ("SWAP-10Y", date(2035, 12, 12), 0.0368206),
+        ("SWAP-12Y", date(2037, 12, 14), 0.0378975),
+        ("SWAP-15Y", date(2040, 12, 12), 0.0391717),
+        ("SWAP-20Y", date(2045, 12, 12), 0.0402348),
+        ("SWAP-25Y", date(2050, 12, 12), 0.0403809),
+        ("SWAP-30Y", date(2055, 12, 13), 0.0401000),
+        ("SWAP-40Y", date(2065, 12, 14), 0.0390413),
+        ("SWAP-50Y", date(2075, 12, 12), 0.0378761),
+    ]
+
+    for swap_id, maturity, rate in swap_points:
+        quotes.append(cal.RatesQuote.swap(swap_id, ois_index_id, maturity, rate))
+
+    return quotes
 
 
 def print_conventions_debug(
@@ -251,28 +128,7 @@ def print_conventions_debug(
     strict_step_pricing: bool,
     ois_index_id: str,
 ) -> None:
-    """Print the exact conventions we pass into quote constructors and the step plan."""
-
-    deposit_conv = cal.InstrumentConventions(
-        day_count="ACT/360",
-        settlement_days=2,
-        calendar_id="usny",
-    )
-    ois_fixed_leg = cal.InstrumentConventions(
-        payment_frequency="1Y",
-        settlement_days=2,
-        payment_delay_days=2,
-        calendar_id="usny",
-        day_count="ACT/360",
-        index=ois_index_id,
-    )
-    ois_float_leg = cal.InstrumentConventions(
-        payment_frequency="1Y",
-        day_count="ACT/360",
-        reset_lag=0,
-        calendar_id="usny",
-        index=ois_index_id,
-    )
+    """Print the simplified conventions used in the v2 quote API."""
 
     step_conventions = build_discount_step_conventions(
         curve_day_count=curve_day_count,
@@ -281,9 +137,8 @@ def print_conventions_debug(
 
     print()
     print("Conventions debug:")
-    print("  deposit_conv:", deposit_conv)
-    print("  ois_fixed_leg:", ois_fixed_leg)
-    print("  ois_float_leg:", ois_float_leg)
+    print("  deposits: ACT/360, 2bd settle (implicit)")
+    print("  OIS swaps: fixed 1Y vs float 1Y reset, index:", ois_index_id)
     print("  step.conventions:", step_conventions)
     print(
         "  step.settlement_date(base_date):",

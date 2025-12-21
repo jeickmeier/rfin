@@ -130,7 +130,7 @@ def main() -> None:
         index_trs,
         "discounting",
         market,
-        ["par_spread", "ir01"],
+        ["par_spread", "dv01"],
     )
     print("FI index TRS PV:", round(index_result.value.amount, 2), index_result.value.currency)
     print("FI index TRS par spread:", index_result.measures.get("par_spread"))
