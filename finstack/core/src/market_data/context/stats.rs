@@ -113,6 +113,7 @@ impl MarketContext {
             && self.series.is_empty()
             && self.inflation_indices.is_empty()
             && self.credit_indices.is_empty()
+            && self.instruments.is_empty()
             && self.collateral.is_empty()
     }
 
@@ -124,6 +125,7 @@ impl MarketContext {
             + self.series.len()
             + self.inflation_indices.len()
             + self.credit_indices.len()
+            + self.instruments.len()
             + if self.fx.is_some() { 1 } else { 0 }
     }
 

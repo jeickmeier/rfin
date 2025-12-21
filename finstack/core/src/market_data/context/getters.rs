@@ -1,7 +1,7 @@
 use std::sync::Arc;
 
 use crate::market_data::traits::Discounting;
-use crate::types::CurveId;
+use crate::types::{CurveId, InstrumentId};
 use crate::Result;
 
 use super::curve_storage::CurveStorage;
@@ -525,6 +525,27 @@ impl MarketContext {
         // Update the context
         self.credit_indices.insert(cid, Arc::new(updated_index));
         true
+    }
+
+    // -----------------------------------------------------------------------------
+    // Instrument registry (type-erased)
+    // -----------------------------------------------------------------------------
+
+    /// Borrow a type-erased instrument from the registry.
+    pub fn get_instrument(&self, id: impl AsRef<str>) -> Result<&dyn std::any::Any> {
+        let key = id.as_ref();
+        let id = InstrumentId::from(key);
+        self.instruments
+            .get(&id)
+            .map(|arc| arc.as_ref() as &dyn std::any::Any)
+            .ok_or_else(|| crate::error::InputError::NotFound { id: key.to_string() }.into())
+    }
+
+    /// Alias for [`MarketContext::get_instrument`].
+    ///
+    /// Named to read naturally at call sites (`market.instrument("...")?`).
+    pub fn instrument(&self, id: impl AsRef<str>) -> Result<&dyn std::any::Any> {
+        self.get_instrument(id)
     }
 }
 

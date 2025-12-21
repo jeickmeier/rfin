@@ -1497,23 +1497,20 @@ impl crate::instruments::common::traits::Instrument for BondFuture {
         market: &finstack_core::market_data::context::MarketContext,
         as_of: finstack_core::dates::Date,
     ) -> finstack_core::Result<finstack_core::money::Money> {
-        // TODO: Instrument registry not yet implemented in MarketContext
-        // Once implemented, this will lookup the CTD bond and calculate NPV.
-        // See corresponding TODO in pricer.rs for more details.
-        
-        Err(finstack_core::Error::Input(finstack_core::error::InputError::NotFound {
-            id: format!(
-                "BondFuture.value() requires instrument registry in MarketContext (not yet implemented). \
-                 CTD bond ID: {}. Use standalone pricing methods with explicit CTD bond parameter instead.",
-                self.ctd_bond_id.as_str()
-            ),
-        }))
-        
-        // Unreachable code below (will be enabled once instrument registry is implemented):
-        /*
         // Look up the CTD bond from the instrument registry
         let ctd_bond_any = market.instrument(self.ctd_bond_id.as_str())?;
-        let ctd_bond = ctd_bond_any.downcast_ref::<crate::instruments::bond::Bond>()?;
+
+        // Downcast to Bond
+        let ctd_bond = ctd_bond_any
+            .downcast_ref::<crate::instruments::bond::Bond>()
+            .ok_or_else(|| {
+                finstack_core::Error::Input(finstack_core::error::InputError::NotFound {
+                    id: format!(
+                        "CTD bond (ID: {}) is not a Bond type",
+                        self.ctd_bond_id.as_str()
+                    ),
+                })
+            })?;
 
         // Calculate conversion factor
         let conversion_factor = super::pricer::BondFuturePricer::calculate_conversion_factor(
@@ -1525,8 +1522,13 @@ impl crate::instruments::common::traits::Instrument for BondFuture {
         )?;
 
         // Calculate and return NPV
-        super::pricer::BondFuturePricer::calculate_npv(self, ctd_bond, conversion_factor, market, as_of)
-        */
+        super::pricer::BondFuturePricer::calculate_npv(
+            self,
+            ctd_bond,
+            conversion_factor,
+            market,
+            as_of,
+        )
     }
 
     fn price_with_metrics(

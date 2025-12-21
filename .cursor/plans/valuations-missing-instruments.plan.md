@@ -57,15 +57,6 @@
 - **Pricing**: Forward-style pricing (carry/dividend yield) or quoted futures price override.
 - **Risk**: Delta/beta exposure to underlying index; PV/mark-to-market in settlement currency.
 
-#### 3) Bond futures (high impact)
-
-- **Bond future (UST/Bund/Gilt style)**
-- **What’s missing**: Futures on a deliverable bond basket, distinct from swaps.
-- **Core missing functionality**:
-- **CTD/basket mechanics**: Deliverable basket + conversion factors + CTD selection (can start with “user-specified CTD” MVP).
-- **Invoice price + accrued**: Settlement mechanics.
-- **Risk**: DV01 (contract DV01 via CTD), key rate exposure (optional), PV/mark-to-market.
-
 #### 4) FX forwards + NDFs (high impact)
 
 - **FX forward (deliverable)**
@@ -121,4 +112,3 @@
 - **JSON interoperability**: Schema-stable `InstrumentJson` variant(s), strict `deny_unknown_fields`, and round-trip tests.
 - **Conventions**: Calendars, business-day conventions, settlement lags, accrual conventions where applicable.
 - **MarketContext wiring**: Clear required curves/surfaces/fixings per instrument (`required_*` introspection).
-- **Risk metrics**: At least “desk-real” first-order risk (DV01 / delta / vega) plus a small set of standard outputs.

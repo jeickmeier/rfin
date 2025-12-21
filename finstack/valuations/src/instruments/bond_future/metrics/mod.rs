@@ -93,7 +93,7 @@ mod tests {
         register_bond_future_metrics(&mut registry);
 
         // Verify metrics are registered for BondFuture
-        let metrics = registry.metrics_for_instrument("BondFuture");
+        let metrics = registry.metrics_for_instrument(InstrumentType::BondFuture);
         
         // Verify DV01 is registered
         assert!(

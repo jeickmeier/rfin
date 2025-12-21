@@ -56,7 +56,7 @@ use hashbrown::HashMap;
 use std::sync::Arc;
 
 use crate::money::fx::FxMatrix;
-use crate::types::CurveId;
+use crate::types::{CurveId, InstrumentId};
 
 use super::{
     dividends::DividendSchedule,
@@ -100,6 +100,12 @@ pub struct MarketContext {
 
     /// Collateral CSA code mappings
     pub(super) collateral: HashMap<String, CurveId>,
+
+    /// Type-erased instrument registry (optional, used by higher-level pricing layers).
+    ///
+    /// This enables workflows that need to look up referenced instruments (e.g. CTD bonds in
+    /// futures) without the core crate depending on valuation-layer instrument types.
+    pub(super) instruments: HashMap<InstrumentId, Arc<dyn std::any::Any + Send + Sync>>,
 
     /// Historical market scenarios for VaR calculation
     ///

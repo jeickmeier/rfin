@@ -1,7 +1,7 @@
 use std::sync::Arc;
 
 use crate::money::fx::FxMatrix;
-use crate::types::CurveId;
+use crate::types::{CurveId, InstrumentId};
 
 use super::curve_storage::CurveStorage;
 use super::MarketContext;
@@ -308,6 +308,31 @@ impl MarketContext {
         history: Arc<dyn std::any::Any + Send + Sync>,
     ) -> &mut Self {
         self.market_history = Some(history);
+        self
+    }
+
+    /// Insert a type-erased instrument into the context registry.
+    ///
+    /// This is used by higher-level pricing layers for instruments that reference other
+    /// instruments (e.g., bond futures referencing a CTD bond).
+    pub fn insert_instrument(
+        mut self,
+        id: impl AsRef<str>,
+        instrument: Arc<dyn std::any::Any + Send + Sync>,
+    ) -> Self {
+        self.instruments
+            .insert(InstrumentId::new(id.as_ref()), instrument);
+        self
+    }
+
+    /// In-place insert of an instrument into the registry.
+    pub fn insert_instrument_mut(
+        &mut self,
+        id: impl AsRef<str>,
+        instrument: Arc<dyn std::any::Any + Send + Sync>,
+    ) -> &mut Self {
+        self.instruments
+            .insert(InstrumentId::new(id.as_ref()), instrument);
         self
     }
 

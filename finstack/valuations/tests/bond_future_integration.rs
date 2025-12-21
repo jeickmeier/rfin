@@ -15,6 +15,7 @@ use finstack_valuations::instruments::bond_future::{
     BondFuture, DeliverableBond, Position,
 };
 use finstack_valuations::instruments::bond_future::pricer::BondFuturePricer;
+use finstack_valuations::pricer::InstrumentType;
 use time::macros::date;
 
 // ========================================================================================
@@ -760,7 +761,7 @@ fn test_bond_future_dv01_calculation() {
         date!(2033 - 03 - 15),
     );
 
-    // Register CTD bond in instrument registry
+    // Create market context and register CTD bond for BondFuture::value()
     let market = create_realistic_market()
         .insert_instrument("US912828XG33", Arc::new(ctd_bond.clone()));
 
@@ -919,7 +920,7 @@ fn test_bond_future_dv01_sign_convention() {
         date!(2033 - 03 - 15),
     );
 
-    // Register CTD bond in instrument registry
+    // Create market context and register CTD bond for BondFuture::value()
     let market = create_realistic_market()
         .insert_instrument("US912828XG33", Arc::new(ctd_bond.clone()));
 
@@ -1136,7 +1137,7 @@ fn test_bucketed_dv01_registration() {
     let registry = standard_registry();
 
     // Verify BondFuture has metrics registered
-    let bond_future_metrics = registry.metrics_for_instrument("BondFuture");
+    let bond_future_metrics = registry.metrics_for_instrument(InstrumentType::BondFuture);
     
     assert!(
         bond_future_metrics.contains(&MetricId::Dv01),

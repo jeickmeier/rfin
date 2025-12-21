@@ -303,8 +303,8 @@ impl crate::pricer::Pricer for BondFuturePricer {
     fn price_dyn(
         &self,
         instrument: &dyn crate::instruments::common::traits::Instrument,
-        market: &MarketContext,
-        as_of: finstack_core::dates::Date,
+        _market: &MarketContext,
+        _as_of: finstack_core::dates::Date,
     ) -> crate::pricer::PricingResult<crate::results::ValuationResult> {
         // Type-safe downcast to BondFuture
         let future = instrument

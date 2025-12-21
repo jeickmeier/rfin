@@ -691,6 +691,11 @@ impl FxMatrix {
                 dst.put(*pair, *rate);
             }
         }
+        // IMPORTANT: ensure the bumped pair is not shadowed by copied cached quotes.
+        // `FxMatrix::rate` consults the quote cache before consulting the provider.
+        // Without overwriting the bumped pair here, callers that queried the original
+        // matrix first would keep seeing the stale cached quote instead of the bumped quote.
+        bumped.set_quote(from, to, bumped_rate);
 
         Ok(bumped)
     }
