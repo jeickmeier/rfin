@@ -23,7 +23,7 @@ fn money_display_respects_output_scale() {
         overrides: Default::default(),
     };
     cfg.rounding.output_scale = CurrencyScalePolicy {
-        overrides: std::iter::once((Currency::USD, 3)).collect(),
+        overrides: std::collections::BTreeMap::from([(Currency::USD, 3)]),
     };
     let s = m.format_with_config(&cfg);
     assert_eq!(s, "USD 1.235");

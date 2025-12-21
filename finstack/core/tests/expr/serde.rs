@@ -14,7 +14,7 @@ use finstack_core::expr::dag::{BoundaryType, CacheStrategy, DagNode, ExecutionPl
 use finstack_core::expr::{
     CompiledExpr, EvalOpts, EvaluationResult, Expr, ExprNode, Function, SimpleContext,
 };
-use hashbrown::HashMap;
+use std::collections::BTreeMap;
 use std::collections::HashSet;
 
 #[test]
@@ -124,8 +124,8 @@ fn test_evaluation_result_serde() {
             numeric_mode: NumericMode::F64,
             rounding: RoundingContext {
                 mode: RoundingMode::Bankers,
-                ingest_scale_by_ccy: HashMap::new(),
-                output_scale_by_ccy: HashMap::new(),
+                ingest_scale_by_ccy: BTreeMap::new(),
+                output_scale_by_ccy: BTreeMap::new(),
                 tolerances: ToleranceConfig::default(),
                 version: 1,
             },
@@ -198,8 +198,8 @@ fn test_execution_plan_serde() {
             numeric_mode: NumericMode::F64,
             rounding: RoundingContext {
                 mode: RoundingMode::Bankers,
-                ingest_scale_by_ccy: HashMap::new(),
-                output_scale_by_ccy: HashMap::new(),
+                ingest_scale_by_ccy: BTreeMap::new(),
+                output_scale_by_ccy: BTreeMap::new(),
                 tolerances: ToleranceConfig::default(),
                 version: 1,
             },
@@ -252,8 +252,8 @@ fn test_compiled_expr_serde() {
         numeric_mode: NumericMode::F64,
         rounding: RoundingContext {
             mode: RoundingMode::Bankers,
-            ingest_scale_by_ccy: HashMap::new(),
-            output_scale_by_ccy: HashMap::new(),
+            ingest_scale_by_ccy: BTreeMap::new(),
+            output_scale_by_ccy: BTreeMap::new(),
             tolerances: ToleranceConfig::default(),
             version: 1,
         },

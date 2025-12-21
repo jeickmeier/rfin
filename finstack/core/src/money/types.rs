@@ -50,10 +50,13 @@ fn format_with_separators(int_str: &str) -> String {
     }
     rev.reverse();
 
-    let mut out = String::from_utf8(rev)
-        .expect("format_with_separators only constructs ASCII digits and commas");
+    let mut out = String::with_capacity(rev.len() + usize::from(is_neg));
     if is_neg {
-        out.insert(0, '-');
+        out.push('-');
+    }
+    for b in rev {
+        // We only ever push ASCII digits and commas.
+        out.push(b as char);
     }
     out
 }
@@ -701,9 +704,14 @@ impl AddAssign for Money {
     /// total += Money::new(50.0, Currency::USD);
     /// assert_eq!(total.amount(), 150.0);
     /// ```
+    #[track_caller]
     fn add_assign(&mut self, rhs: Self) {
-        ensure_same_currency(self, &rhs)
-            .expect("Currency mismatch in AddAssign - currencies must match");
+        if self.currency != rhs.currency {
+            panic!(
+                "Currency mismatch in Money::add_assign: lhs={}, rhs={}",
+                self.currency, rhs.currency
+            );
+        }
         self.amount = repr_add(self.amount, rhs.amount);
     }
 }
@@ -726,9 +734,14 @@ impl SubAssign for Money {
     /// total -= Money::new(30.0, Currency::USD);
     /// assert_eq!(total.amount(), 70.0);
     /// ```
+    #[track_caller]
     fn sub_assign(&mut self, rhs: Self) {
-        ensure_same_currency(self, &rhs)
-            .expect("Currency mismatch in SubAssign - currencies must match");
+        if self.currency != rhs.currency {
+            panic!(
+                "Currency mismatch in Money::sub_assign: lhs={}, rhs={}",
+                self.currency, rhs.currency
+            );
+        }
         self.amount = repr_sub(self.amount, rhs.amount);
     }
 }

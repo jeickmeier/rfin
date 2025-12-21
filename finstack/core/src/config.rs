@@ -40,10 +40,7 @@ use serde::{Deserialize, Serialize};
 #[cfg(feature = "serde")]
 use serde_json::Value as JsonValue;
 
-#[cfg(feature = "serde")]
 use std::collections::BTreeMap;
-
-use hashbrown::HashMap;
 
 /// Rounding modes supported by the library.
 ///
@@ -150,11 +147,11 @@ impl ConfigExtensions {
 /// ```rust
 /// use finstack_core::config::{CurrencyScalePolicy, FinstackConfig};
 /// use finstack_core::currency::Currency;
-/// use hashbrown::HashMap;
+/// use std::collections::BTreeMap;
 ///
 /// let mut cfg = FinstackConfig::default();
 /// cfg.rounding.output_scale = CurrencyScalePolicy {
-///     overrides: HashMap::from([(Currency::KWD, 3)]),
+///     overrides: BTreeMap::from([(Currency::KWD, 3)]),
 /// };
 ///
 /// assert_eq!(cfg.output_scale(Currency::KWD), 3);
@@ -163,7 +160,7 @@ impl ConfigExtensions {
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
 pub struct CurrencyScalePolicy {
     /// Explicit currency overrides for scale.
-    pub overrides: HashMap<crate::currency::Currency, u32>,
+    pub overrides: BTreeMap<crate::currency::Currency, u32>,
 }
 
 /// Full rounding policy used at IO boundaries and normalization steps.
@@ -236,9 +233,9 @@ pub struct RoundingContext {
     /// Active rounding mode.
     pub mode: RoundingMode,
     /// Ingest scale map snapshot by currency code.
-    pub ingest_scale_by_ccy: HashMap<crate::currency::Currency, u32>,
+    pub ingest_scale_by_ccy: BTreeMap<crate::currency::Currency, u32>,
     /// Output scale map snapshot by currency code.
-    pub output_scale_by_ccy: HashMap<crate::currency::Currency, u32>,
+    pub output_scale_by_ccy: BTreeMap<crate::currency::Currency, u32>,
     /// Tolerance settings snapshot for floating-point comparisons.
     #[cfg_attr(feature = "serde", serde(default))]
     pub tolerances: ToleranceConfig,

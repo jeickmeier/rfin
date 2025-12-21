@@ -480,7 +480,6 @@ Global solve requires strictly increasing times.",
 
         let mut new_context = context.clone();
         new_context.insert_mut(curve);
-        let mut report = report;
 
         // Track solver configuration used and any seed diagnostics for transparency.
         report.update_solver_config(config.solver.clone());

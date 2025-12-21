@@ -211,6 +211,13 @@ pub fn convert_atm_volatility(
         }
     }
 
+    // At expiry, option value is intrinsic and independent of volatility.
+    // There is no unique price-matching volatility across conventions; preserve
+    // the caller's quote deterministically (after basic validation above).
+    if time_to_expiry == 0.0 {
+        return Ok(vol);
+    }
+
     // Validate forward rate for lognormal conventions
     validate_forward_for_convention(forward_rate, from_convention)?;
     validate_forward_for_convention(forward_rate, to_convention)?;
@@ -231,21 +238,7 @@ pub fn convert_atm_volatility(
         }
     }
 
-    // Fast analytic ATM approximation for Normal <-> Lognormal
-    // σ_normal ≈ σ_lognormal * F (at ATM)
-    if let (VolatilityConvention::Normal, VolatilityConvention::Lognormal) =
-        (from_convention, to_convention)
-    {
-        // forward_rate is already validated to be positive for Lognormal target
-        return Ok(vol / forward_rate);
-    }
-    if let (VolatilityConvention::Lognormal, VolatilityConvention::Normal) =
-        (from_convention, to_convention)
-    {
-        return Ok(vol * forward_rate);
-    }
-
-    // General case: price matching with numerical solver
+    // Price matching with numerical solver
     let f = forward_rate;
     let t = time_to_expiry.max(0.0);
 
@@ -409,6 +402,38 @@ fn compute_initial_guess(
 mod tests {
     use super::*;
 
+    fn atm_price(
+        convention: VolatilityConvention,
+        forward: f64,
+        vol: f64,
+        t: f64,
+    ) -> f64 {
+        match convention {
+            VolatilityConvention::Normal => bachelier_price(forward, forward, vol, t),
+            VolatilityConvention::Lognormal => black_price(forward, forward, vol, t),
+            VolatilityConvention::ShiftedLognormal { shift } => {
+                black_shifted_price(forward, forward, vol, t, shift)
+            }
+        }
+    }
+
+    fn assert_price_matched(
+        from_conv: VolatilityConvention,
+        to_conv: VolatilityConvention,
+        forward: f64,
+        t: f64,
+        from_vol: f64,
+        to_vol: f64,
+    ) {
+        let p_from = atm_price(from_conv, forward, from_vol, t);
+        let p_to = atm_price(to_conv, forward, to_vol, t);
+        let err = (p_to - p_from).abs();
+        assert!(
+            err <= 1e-12,
+            "ATM price mismatch: from={p_from}, to={p_to}, err={err}, forward={forward}, t={t}, from_vol={from_vol}, to_vol={to_vol}"
+        );
+    }
+
     #[test]
     fn test_normal_vs_lognormal_atm_conversion() {
         let forward = 0.05; // 5% forward rate
@@ -424,7 +449,14 @@ mod tests {
         )
         .expect("conversion should succeed");
 
-        assert!((lognormal_vol - 0.2).abs() < 1e-6); // Should be 20% lognormal vol
+        assert_price_matched(
+            VolatilityConvention::Normal,
+            VolatilityConvention::Lognormal,
+            forward,
+            1.0,
+            normal_vol,
+            lognormal_vol,
+        );
 
         // Convert back
         let recovered_normal = convert_atm_volatility(
@@ -453,6 +485,15 @@ mod tests {
             1.0,
         )
         .expect("conversion should succeed");
+
+        assert_price_matched(
+            VolatilityConvention::Normal,
+            VolatilityConvention::ShiftedLognormal { shift },
+            forward,
+            1.0,
+            normal_vol,
+            shifted_ln,
+        );
 
         let recovered = convert_atm_volatility(
             shifted_ln,
@@ -483,6 +524,15 @@ mod tests {
             1.0,
         )
         .expect("conversion should succeed");
+
+        assert_price_matched(
+            VolatilityConvention::Lognormal,
+            VolatilityConvention::ShiftedLognormal { shift },
+            forward,
+            1.0,
+            ln_vol,
+            shifted_ln,
+        );
 
         let recovered = convert_atm_volatility(
             shifted_ln,
@@ -677,6 +727,15 @@ mod tests {
         )
         .expect("conversion should succeed");
 
+        assert_price_matched(
+            VolatilityConvention::ShiftedLognormal { shift: shift1 },
+            VolatilityConvention::ShiftedLognormal { shift: shift2 },
+            forward,
+            1.0,
+            vol,
+            converted,
+        );
+
         // Round trip
         let recovered = convert_atm_volatility(
             converted,
@@ -709,9 +768,9 @@ mod tests {
         )
         .expect("should succeed");
 
-        // At expiry, prices are intrinsic - vol convention doesn't matter
-        // The solver may return a different value, but price should match
-        assert!(result > 0.0);
+        // At expiry, there is no unique price-matching volatility, so we preserve
+        // the caller's quote deterministically.
+        assert_eq!(result, vol);
     }
 
     #[test]
@@ -719,26 +778,48 @@ mod tests {
         // Test cases representing typical market scenarios
 
         // Case 1: Low rate environment
+        let normal_vol = 0.005; // 50bp normal vol
+        let forward = 0.01; // 1% forward
+        let t = 1.0;
+
         let result = convert_atm_volatility(
-            0.005, // 50bp normal vol
+            normal_vol,
             VolatilityConvention::Normal,
             VolatilityConvention::Lognormal,
-            0.01, // 1% forward
-            1.0,
+            forward,
+            t,
         )
         .expect("should succeed");
-        assert!((result - 0.5).abs() < 1e-6); // ~50% lognormal
+
+        assert_price_matched(
+            VolatilityConvention::Normal,
+            VolatilityConvention::Lognormal,
+            forward,
+            t,
+            normal_vol,
+            result,
+        );
 
         // Case 2: Higher rate environment
+        let normal_vol = 0.012; // 120bp normal vol
+        let forward = 0.04; // 4% forward
+        let t = 1.0;
         let result = convert_atm_volatility(
-            0.012, // 120bp normal vol
+            normal_vol,
             VolatilityConvention::Normal,
             VolatilityConvention::Lognormal,
-            0.04, // 4% forward
-            1.0,
+            forward,
+            t,
         )
         .expect("should succeed");
-        assert!((result - 0.3).abs() < 1e-6); // ~30% lognormal
+        assert_price_matched(
+            VolatilityConvention::Normal,
+            VolatilityConvention::Lognormal,
+            forward,
+            t,
+            normal_vol,
+            result,
+        );
 
         // Case 3: Longer expiry
         let normal_vol = 0.008;
@@ -753,7 +834,6 @@ mod tests {
         )
         .expect("should succeed");
 
-        // For ATM, vol conversion is independent of time
         let ln_5y = convert_atm_volatility(
             normal_vol,
             VolatilityConvention::Normal,
@@ -763,7 +843,22 @@ mod tests {
         )
         .expect("should succeed");
 
-        // Fast analytic path gives same result
-        assert!((ln_1y - ln_5y).abs() < 1e-10);
+        // Both should price-match for their respective expiries.
+        assert_price_matched(
+            VolatilityConvention::Normal,
+            VolatilityConvention::Lognormal,
+            forward,
+            1.0,
+            normal_vol,
+            ln_1y,
+        );
+        assert_price_matched(
+            VolatilityConvention::Normal,
+            VolatilityConvention::Lognormal,
+            forward,
+            5.0,
+            normal_vol,
+            ln_5y,
+        );
     }
 }

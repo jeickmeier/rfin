@@ -2,7 +2,21 @@
 use strum_macros::{EnumIter, EnumString, Display};
 use num_enum::{IntoPrimitive, TryFromPrimitive};
 
-#[derive(Debug, Copy, Clone, PartialEq, Eq, Hash, EnumString, EnumIter, Display, IntoPrimitive, TryFromPrimitive)]
+#[derive(
+    Debug,
+    Copy,
+    Clone,
+    PartialEq,
+    Eq,
+    PartialOrd,
+    Ord,
+    Hash,
+    EnumString,
+    EnumIter,
+    Display,
+    IntoPrimitive,
+    TryFromPrimitive,
+)]
 #[cfg_attr(feature="serde", derive(serde::Serialize, serde::Deserialize))]
 /// ISO 4217 currency enumeration
 #[strum(ascii_case_insensitive)]
