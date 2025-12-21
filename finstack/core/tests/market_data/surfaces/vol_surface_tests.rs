@@ -187,23 +187,20 @@ fn test_vol_surface_unsorted_strikes() {
 }
 
 #[test]
-fn test_vol_surface_negative_values() {
-    // Negative expiries should fail
-    let result = VolSurface::builder("TEST")
-        .expiries(&[-1.0, 1.0])
-        .strikes(&[100.0])
-        .row(&[0.2])
-        .row(&[0.2])
-        .build();
-    assert!(result.is_err());
-    
-    // Negative strikes allowed (for certain products)
+fn test_vol_surface_negative_strikes() {
+    // Negative strikes are allowed (for certain products like spreads)
     let result = VolSurface::builder("TEST")
         .expiries(&[1.0])
         .strikes(&[-10.0, 0.0, 10.0])
         .row(&[0.2, 0.2, 0.2])
         .build();
     assert!(result.is_ok());
+    
+    let surf = result.unwrap();
+    // Test interpolation with negative strikes
+    assert!(surf.value_clamped(1.0, -10.0) > 0.0);
+    assert!(surf.value_clamped(1.0, 0.0) > 0.0);
+    assert!(surf.value_clamped(1.0, 10.0) > 0.0);
 }
 
 #[test]

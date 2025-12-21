@@ -178,9 +178,6 @@ fn sp_piecewise_verification() {
 // Additional Comprehensive Tests for Phase 1 Coverage
 // =============================================================================
 
-use finstack_core::dates::{Date, DayCount};
-use finstack_core::market_data::term_structures::HazardCurve;
-
 fn test_date() -> Date {
     Date::from_calendar_date(2025, Month::January, 1).unwrap()
 }

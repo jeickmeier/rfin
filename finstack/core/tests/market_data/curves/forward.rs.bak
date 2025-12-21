@@ -332,6 +332,34 @@ fn test_forward_curve_short_tenors() {
 }
 
 #[test]
+fn test_forward_curve_extrapolation_left() {
+    // Extrapolate below minimum knot
+    let curve = ForwardCurve::builder("TEST", 0.25)
+        .base_date(test_date())
+        .knots([(1.0, 0.03), (2.0, 0.04)])
+        .extrapolation(ExtrapolationPolicy::FlatForward)
+        .build()
+        .unwrap();
+    
+    // Should flat extrapolate
+    let rate = curve.rate(0.5);
+    assert!((rate - 0.03).abs() < 1e-10);
+}
+
+#[test]
+fn test_forward_curve_extrapolation_right() {
+    // Extrapolate above maximum knot
+    let curve = ForwardCurve::builder("TEST", 0.25)
+        .base_date(test_date())
+        .knots([(0.0, 0.03), (1.0, 0.04)])
+        .extrapolation(ExtrapolationPolicy::FlatForward)
+        .build()
+        .unwrap();
+    
+    // Should flat extrapolate
+    let rate = curve.rate(5.0);
+    assert!((rate - 0.04).abs() < 1e-10);
+}
 
 #[test]
 fn test_forward_curve_reset_lag() {
