@@ -317,27 +317,21 @@ impl crate::pricer::Pricer for BondFuturePricer {
                 )
             })?;
 
-        // Look up the CTD bond from the instrument registry
-        let ctd_bond_any = market
-            .instrument(future.ctd_bond_id.as_str())
-            .map_err(|e| {
-                crate::pricer::PricingError::ModelFailure(format!(
-                    "CTD bond (ID: {}) not found in instrument registry: {}",
-                    future.ctd_bond_id.as_str(),
-                    e
-                ))
-            })?;
+        // TODO: Instrument registry not yet implemented in MarketContext
+        // Once implemented (see finstack/core/src/market_data/context.rs),
+        // this will lookup the CTD bond from the registry:
+        // let ctd_bond_any = market.instrument(future.ctd_bond_id.as_str())?;
+        // let ctd_bond = ctd_bond_any.downcast_ref::<Bond>()?;
+        
+        return Err(crate::pricer::PricingError::ModelFailure(format!(
+            "BondFuture pricing requires instrument registry in MarketContext (not yet implemented). \
+             CTD bond ID: {}. \
+             This is a known limitation that will be resolved when MarketContext gains instrument registry support.",
+            future.ctd_bond_id.as_str()
+        )));
 
-        // Downcast to Bond
-        let ctd_bond = ctd_bond_any
-            .downcast_ref::<Bond>()
-            .ok_or_else(|| {
-                crate::pricer::PricingError::ModelFailure(format!(
-                    "CTD bond (ID: {}) is not a Bond type",
-                    future.ctd_bond_id.as_str()
-                ))
-            })?;
-
+        // Unreachable code below (will be enabled once instrument registry is implemented):
+        /*
         // Calculate conversion factor
         let conversion_factor = Self::calculate_conversion_factor(
             ctd_bond,
@@ -356,6 +350,7 @@ impl crate::pricer::Pricer for BondFuturePricer {
             as_of,
             npv,
         ))
+        */
     }
 }
 
