@@ -22,6 +22,9 @@ mod context;
 // Bump infrastructure
 mod bumps;
 
+// Diff measurements
+mod diff_tests;
+
 // FX providers
 mod fx;
 
