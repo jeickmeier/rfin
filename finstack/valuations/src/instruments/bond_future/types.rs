@@ -1641,4 +1641,46 @@ mod instrument_trait_tests {
         assert_eq!(curves.len(), 1);
         assert_eq!(curves[0].as_str(), "USD-TREASURY");
     }
+
+    #[test]
+    fn test_curve_dependencies() {
+        let deliverable = DeliverableBond {
+            bond_id: InstrumentId::new("US912828XG33"),
+            conversion_factor: 0.8234,
+        };
+
+        let future = BondFutureBuilder::new()
+            .id(InstrumentId::new("TYH5"))
+            .notional(Money::new(1_000_000.0, Currency::USD))
+            .expiry_date(Date::from_calendar_date(2025, Month::March, 20).expect("Valid date"))
+            .delivery_start(
+                Date::from_calendar_date(2025, Month::March, 21).expect("Valid date"),
+            )
+            .delivery_end(Date::from_calendar_date(2025, Month::March, 31).expect("Valid date"))
+            .quoted_price(125.50)
+            .position(Position::Long)
+            .contract_specs(BondFutureSpecs::default())
+            .deliverable_basket(vec![deliverable])
+            .ctd_bond_id(InstrumentId::new("US912828XG33"))
+            .discount_curve_id(CurveId::new("USD-TREASURY"))
+            .attributes(Attributes::new())
+            .build()
+            .expect("Valid bond future");
+
+        use crate::instruments::common::pricing::HasDiscountCurve;
+        use crate::instruments::common::traits::CurveDependencies;
+
+        // Test HasDiscountCurve trait
+        let discount_id = future.discount_curve_id();
+        assert_eq!(discount_id.as_str(), "USD-TREASURY");
+
+        // Test CurveDependencies trait
+        let curves = future.curve_dependencies();
+        assert_eq!(curves.discount_curves.len(), 1);
+        assert_eq!(curves.discount_curves[0].as_str(), "USD-TREASURY");
+        assert_eq!(curves.forward_curves.len(), 0);
+        assert_eq!(curves.credit_curves.len(), 0);
+        assert!(!curves.is_empty());
+        assert_eq!(curves.len(), 1);
+    }
 }
