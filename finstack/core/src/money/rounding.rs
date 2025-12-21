@@ -175,4 +175,249 @@ mod tests {
         let val = result.expect("Conversion should succeed");
         assert!(val > 0.0, "Converted value must not be zero");
     }
+
+    // ========================================================================
+    // repr_add and repr_sub tests
+    // ========================================================================
+
+    #[test]
+    fn repr_add_basic() {
+        let a = Decimal::from_str("100.50").unwrap();
+        let b = Decimal::from_str("50.25").unwrap();
+        let result = repr_add(a, b);
+        assert_eq!(result, Decimal::from_str("150.75").unwrap());
+    }
+
+    #[test]
+    fn repr_add_negative() {
+        let a = Decimal::from_str("100.00").unwrap();
+        let b = Decimal::from_str("-25.00").unwrap();
+        let result = repr_add(a, b);
+        assert_eq!(result, Decimal::from_str("75.00").unwrap());
+    }
+
+    #[test]
+    fn repr_sub_basic() {
+        let a = Decimal::from_str("100.00").unwrap();
+        let b = Decimal::from_str("30.00").unwrap();
+        let result = repr_sub(a, b);
+        assert_eq!(result, Decimal::from_str("70.00").unwrap());
+    }
+
+    #[test]
+    fn repr_sub_negative_result() {
+        let a = Decimal::from_str("25.00").unwrap();
+        let b = Decimal::from_str("100.00").unwrap();
+        let result = repr_sub(a, b);
+        assert_eq!(result, Decimal::from_str("-75.00").unwrap());
+    }
+
+    // ========================================================================
+    // repr_mul_f64 tests
+    // ========================================================================
+
+    #[test]
+    fn repr_mul_f64_positive() {
+        let a = Decimal::from_str("100.00").unwrap();
+        let result = repr_mul_f64(a, 2.5);
+        assert_eq!(result, Decimal::from_str("250.00").unwrap());
+    }
+
+    #[test]
+    fn repr_mul_f64_negative_scalar() {
+        let a = Decimal::from_str("50.00").unwrap();
+        let result = repr_mul_f64(a, -2.0);
+        assert_eq!(result, Decimal::from_str("-100.00").unwrap());
+    }
+
+    #[test]
+    fn repr_mul_f64_fractional() {
+        let a = Decimal::from_str("100.00").unwrap();
+        let result = repr_mul_f64(a, 0.1);
+        let expected = Decimal::from_str("10.00").unwrap();
+        assert!((result - expected).abs() < Decimal::from_str("0.01").unwrap());
+    }
+
+    #[test]
+    #[should_panic(expected = "Money multiplication requires finite scalar")]
+    fn repr_mul_f64_panics_on_nan() {
+        let a = Decimal::from_str("100.00").unwrap();
+        repr_mul_f64(a, f64::NAN);
+    }
+
+    #[test]
+    #[should_panic(expected = "Money multiplication requires finite scalar")]
+    fn repr_mul_f64_panics_on_infinity() {
+        let a = Decimal::from_str("100.00").unwrap();
+        repr_mul_f64(a, f64::INFINITY);
+    }
+
+    // ========================================================================
+    // repr_div_f64 tests
+    // ========================================================================
+
+    #[test]
+    fn repr_div_f64_positive() {
+        let a = Decimal::from_str("100.00").unwrap();
+        let result = repr_div_f64(a, 2.0);
+        assert_eq!(result, Decimal::from_str("50.00").unwrap());
+    }
+
+    #[test]
+    fn repr_div_f64_negative_scalar() {
+        let a = Decimal::from_str("100.00").unwrap();
+        let result = repr_div_f64(a, -4.0);
+        assert_eq!(result, Decimal::from_str("-25.00").unwrap());
+    }
+
+    #[test]
+    fn repr_div_f64_fractional_divisor() {
+        let a = Decimal::from_str("100.00").unwrap();
+        let result = repr_div_f64(a, 0.5);
+        assert_eq!(result, Decimal::from_str("200.00").unwrap());
+    }
+
+    #[test]
+    #[should_panic(expected = "Money division requires finite scalar")]
+    fn repr_div_f64_panics_on_nan() {
+        let a = Decimal::from_str("100.00").unwrap();
+        repr_div_f64(a, f64::NAN);
+    }
+
+    #[test]
+    #[should_panic(expected = "Money division requires finite scalar")]
+    fn repr_div_f64_panics_on_infinity() {
+        let a = Decimal::from_str("100.00").unwrap();
+        repr_div_f64(a, f64::INFINITY);
+    }
+
+    #[test]
+    #[should_panic(expected = "Money division by zero is not allowed")]
+    fn repr_div_f64_panics_on_zero() {
+        let a = Decimal::from_str("100.00").unwrap();
+        repr_div_f64(a, 0.0);
+    }
+
+    // ========================================================================
+    // round_f64 tests
+    // ========================================================================
+
+    #[test]
+    fn round_f64_bankers_positive() {
+        let result = round_f64(1.5, 0, RoundingMode::Bankers);
+        assert_eq!(result, Decimal::from_str("2").unwrap());
+    }
+
+    #[test]
+    fn round_f64_bankers_tie_to_even() {
+        // 2.5 rounds to 2 (even), 3.5 rounds to 4 (even)
+        let result1 = round_f64(2.5, 0, RoundingMode::Bankers);
+        assert_eq!(result1, Decimal::from_str("2").unwrap());
+        
+        let result2 = round_f64(3.5, 0, RoundingMode::Bankers);
+        assert_eq!(result2, Decimal::from_str("4").unwrap());
+    }
+
+    #[test]
+    fn round_f64_away_from_zero() {
+        let result1 = round_f64(1.5, 0, RoundingMode::AwayFromZero);
+        assert_eq!(result1, Decimal::from_str("2").unwrap());
+        
+        let result2 = round_f64(-1.5, 0, RoundingMode::AwayFromZero);
+        assert_eq!(result2, Decimal::from_str("-2").unwrap());
+    }
+
+    #[test]
+    fn round_f64_toward_zero() {
+        let result1 = round_f64(1.9, 0, RoundingMode::TowardZero);
+        assert_eq!(result1, Decimal::from_str("1").unwrap());
+        
+        let result2 = round_f64(-1.9, 0, RoundingMode::TowardZero);
+        assert_eq!(result2, Decimal::from_str("-1").unwrap());
+    }
+
+    #[test]
+    fn round_f64_floor() {
+        let result1 = round_f64(1.9, 0, RoundingMode::Floor);
+        assert_eq!(result1, Decimal::from_str("1").unwrap());
+        
+        let result2 = round_f64(-1.1, 0, RoundingMode::Floor);
+        assert_eq!(result2, Decimal::from_str("-2").unwrap());
+    }
+
+    #[test]
+    fn round_f64_ceil() {
+        let result1 = round_f64(1.1, 0, RoundingMode::Ceil);
+        assert_eq!(result1, Decimal::from_str("2").unwrap());
+        
+        let result2 = round_f64(-1.9, 0, RoundingMode::Ceil);
+        assert_eq!(result2, Decimal::from_str("-1").unwrap());
+    }
+
+    #[test]
+    fn round_f64_with_decimal_places() {
+        let result = round_f64(1.234567, 2, RoundingMode::Bankers);
+        let expected = Decimal::from_str("1.23").unwrap();
+        assert!((result - expected).abs() < Decimal::from_str("0.01").unwrap());
+    }
+
+    #[test]
+    #[should_panic(expected = "Money rounding requires finite scalar")]
+    fn round_f64_panics_on_nan() {
+        round_f64(f64::NAN, 2, RoundingMode::Bankers);
+    }
+
+    // ========================================================================
+    // round_decimal tests
+    // ========================================================================
+
+    #[test]
+    fn round_decimal_bankers() {
+        let val = Decimal::from_str("2.5").unwrap();
+        let result = round_decimal(val, 0, RoundingMode::Bankers);
+        assert_eq!(result, Decimal::from_str("2").unwrap());
+    }
+
+    #[test]
+    fn round_decimal_away_from_zero() {
+        let val = Decimal::from_str("1.5").unwrap();
+        let result = round_decimal(val, 0, RoundingMode::AwayFromZero);
+        assert_eq!(result, Decimal::from_str("2").unwrap());
+    }
+
+    #[test]
+    fn round_decimal_toward_zero() {
+        let val = Decimal::from_str("1.9").unwrap();
+        let result = round_decimal(val, 0, RoundingMode::TowardZero);
+        assert_eq!(result, Decimal::from_str("1").unwrap());
+    }
+
+    #[test]
+    fn round_decimal_floor() {
+        let val = Decimal::from_str("1.9").unwrap();
+        let result = round_decimal(val, 0, RoundingMode::Floor);
+        assert_eq!(result, Decimal::from_str("1").unwrap());
+    }
+
+    #[test]
+    fn round_decimal_ceil() {
+        let val = Decimal::from_str("1.1").unwrap();
+        let result = round_decimal(val, 0, RoundingMode::Ceil);
+        assert_eq!(result, Decimal::from_str("2").unwrap());
+    }
+
+    #[test]
+    fn round_decimal_negative_dp_returns_unchanged() {
+        let val = Decimal::from_str("123.456").unwrap();
+        let result = round_decimal(val, -1, RoundingMode::Bankers);
+        assert_eq!(result, val);
+    }
+
+    #[test]
+    fn round_decimal_with_decimal_places() {
+        let val = Decimal::from_str("1.23456").unwrap();
+        let result = round_decimal(val, 2, RoundingMode::Bankers);
+        let expected = Decimal::from_str("1.23").unwrap();
+        assert!((result - expected).abs() < Decimal::from_str("0.01").unwrap());
+    }
 }

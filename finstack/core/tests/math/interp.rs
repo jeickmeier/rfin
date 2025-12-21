@@ -1245,3 +1245,134 @@ mod serde_tests {
         assert!((flat_fwd.interp(1.5) - deserialized.interp(1.5)).abs() < 1e-10);
     }
 }
+
+// ============================================================================
+// ExtrapolationPolicy Tests
+// ============================================================================
+
+#[cfg(test)]
+mod extrapolation_policy_tests {
+    use super::*;
+
+    #[test]
+    fn default_is_flat_zero() {
+        let default = ExtrapolationPolicy::default();
+        // FlatZero is the default
+        match default {
+            ExtrapolationPolicy::FlatZero => {},
+            _ => panic!("Default should be FlatZero"),
+        }
+    }
+
+    #[test]
+    fn flat_zero_behavior() {
+        let interp = InterpStyle::Linear
+            .build(standard_knots(), standard_dfs(), ExtrapolationPolicy::FlatZero)
+            .unwrap();
+        
+        // Below minimum knot (0.0), should return boundary value
+        let val = interp.interp(-1.0);
+        assert!(approx_eq(val, 1.0, 1e-10), "Should use boundary value");
+        
+        // Above maximum knot (3.0), should return boundary value
+        let val_high = interp.interp(10.0);
+        assert!(approx_eq(val_high, 0.85, 1e-10), "Should use boundary value");
+    }
+
+    #[test]
+    fn flat_forward_behavior() {
+        let interp = InterpStyle::Linear
+            .build(standard_knots(), standard_dfs(), ExtrapolationPolicy::FlatForward)
+            .unwrap();
+        
+        // Test extrapolation (exact behavior depends on implementation)
+        let _ = interp.interp(-1.0);
+        let _ = interp.interp(10.0);
+        // Just verify it doesn't panic with FlatForward
+    }
+
+    #[test]
+    #[cfg(feature = "serde")]
+    fn extrapolation_policy_serialization() {
+        // Test FlatZero
+        let flat_zero = ExtrapolationPolicy::FlatZero;
+        let json = serde_json::to_string(&flat_zero).unwrap();
+        let deserialized: ExtrapolationPolicy = serde_json::from_str(&json).unwrap();
+        match deserialized {
+            ExtrapolationPolicy::FlatZero => {},
+            _ => panic!("Should deserialize to FlatZero"),
+        }
+        
+        // Test FlatForward
+        let flat_fwd = ExtrapolationPolicy::FlatForward;
+        let json = serde_json::to_string(&flat_fwd).unwrap();
+        let deserialized: ExtrapolationPolicy = serde_json::from_str(&json).unwrap();
+        match deserialized {
+            ExtrapolationPolicy::FlatForward => {},
+            _ => panic!("Should deserialize to FlatForward"),
+        }
+    }
+}
+
+// ============================================================================
+// DERIVATIVE_EPSILON Constant Tests
+// ============================================================================
+
+#[cfg(test)]
+mod derivative_epsilon_tests {
+    use super::*;
+
+    #[test]
+    fn derivative_epsilon_defined() {
+        // Verify constant is accessible and has expected value
+        assert_eq!(DERIVATIVE_EPSILON, 1e-6);
+    }
+
+    #[test]
+    fn derivative_epsilon_usage() {
+        // Test that DERIVATIVE_EPSILON is reasonable for finite differences
+        let epsilon = DERIVATIVE_EPSILON;
+        
+        // Simple function: f(x) = x^2, f'(x) = 2x
+        let f = |x: f64| x * x;
+        let x = 2.0;
+        let true_deriv = 2.0 * x; // = 4.0
+        
+        // Finite difference approximation
+        let approx_deriv = (f(x + epsilon) - f(x)) / epsilon;
+        
+        // Should be close with this epsilon
+        assert!(
+            (approx_deriv - true_deriv).abs() < 1e-5,
+            "DERIVATIVE_EPSILON should give reasonable approximations"
+        );
+    }
+}
+
+// ============================================================================
+// InterpStyle PartialEq Tests
+// ============================================================================
+
+#[cfg(test)]
+mod interp_style_eq_tests {
+    use super::*;
+
+    #[test]
+    fn interp_style_equality() {
+        assert_eq!(InterpStyle::Linear, InterpStyle::Linear);
+        assert_eq!(InterpStyle::LogLinear, InterpStyle::LogLinear);
+        assert_eq!(InterpStyle::MonotoneConvex, InterpStyle::MonotoneConvex);
+        assert_eq!(InterpStyle::CubicHermite, InterpStyle::CubicHermite);
+        assert_eq!(
+            InterpStyle::PiecewiseQuadraticForward,
+            InterpStyle::PiecewiseQuadraticForward
+        );
+    }
+
+    #[test]
+    fn interp_style_inequality() {
+        assert_ne!(InterpStyle::Linear, InterpStyle::LogLinear);
+        assert_ne!(InterpStyle::LogLinear, InterpStyle::MonotoneConvex);
+        assert_ne!(InterpStyle::MonotoneConvex, InterpStyle::CubicHermite);
+    }
+}
