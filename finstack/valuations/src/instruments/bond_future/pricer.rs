@@ -796,7 +796,8 @@ mod tests {
         println!("Notional: ${:.0}", notional);
         
         // Get discount factor manually for verification
-        let discount_arc = market.get_discount(future.discount_curve_id.as_str()).unwrap();
+        let discount_arc = market.get_discount(future.discount_curve_id.as_str())
+            .expect("Should have discount curve in test market");
         use finstack_core::market_data::traits::Discounting;
         let discount_curve: &dyn Discounting = discount_arc.as_ref();
         let settlement_date = expiry + time::Duration::days(2);
@@ -807,7 +808,7 @@ mod tests {
             base_date,
             settlement_date,
             finstack_core::dates::DayCountCtx::default(),
-        ).unwrap();
+        ).expect("Should compute year fraction for test dates");
         let df = discount_curve.df(t);
         
         println!("Discount Factor: {:.6}", df);
@@ -853,7 +854,7 @@ mod tests {
         // Test that BondFuturePricer returns the correct key
         use crate::pricer::Pricer;
         
-        let pricer = BondFuturePricer::default();
+        let pricer = BondFuturePricer;
         let key = pricer.key();
 
         assert_eq!(
@@ -894,7 +895,7 @@ mod tests {
             .build()
             .expect("Valid bond future");
 
-        let pricer = BondFuturePricer::default();
+        let pricer = BondFuturePricer;
         let market = create_test_market(0.06);
         let as_of = date!(2025 - 01 - 15);
 
@@ -907,7 +908,7 @@ mod tests {
         );
 
         // Verify the error message is helpful
-        let err = result.unwrap_err();
+        let err = result.expect_err("Should have error for price_dyn on bond future");
         let err_msg = err.to_string();
         assert!(
             err_msg.contains("CTD bond"),

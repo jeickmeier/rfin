@@ -788,7 +788,7 @@ mod instrument_trait_tests {
         let instrument: &dyn Instrument = &future;
         let concrete_future: Option<&BondFuture> = instrument.as_any().downcast_ref::<BondFuture>();
         assert!(concrete_future.is_some());
-        assert_eq!(concrete_future.unwrap().id.as_str(), "TYH5");
+        assert_eq!(concrete_future.expect("Should be BondFuture").id.as_str(), "TYH5");
     }
 
     #[test]
