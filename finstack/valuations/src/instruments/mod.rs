@@ -17,6 +17,8 @@ pub mod basis_swap;
 pub mod basket;
 /// bond module.
 pub mod bond;
+/// bond future module.
+pub mod bond_future;
 /// cap floor module.
 pub mod cap_floor;
 /// cds module.
@@ -96,6 +98,7 @@ pub use barrier_option::{BarrierOption, BarrierType};
 pub use basis_swap::BasisSwap;
 pub use basket::Basket;
 pub use bond::Bond;
+pub use bond_future::BondFuturePlaceholder;
 pub use cap_floor::RateOptionType;
 pub use cds::CreditDefaultSwap;
 pub use cds_index::CDSIndex;
