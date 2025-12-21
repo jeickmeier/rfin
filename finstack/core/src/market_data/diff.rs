@@ -556,12 +556,12 @@ pub fn measure_scalar_shift(
 
     // Extract numeric values from enum
     let value_t0 = match scalar_t0 {
-        MarketScalar::Unitless(v) => *v,
+        MarketScalar::Unitless(v) => v,
         MarketScalar::Price(m) => m.amount(),
     };
 
     let value_t1 = match scalar_t1 {
-        MarketScalar::Unitless(v) => *v,
+        MarketScalar::Unitless(v) => v,
         MarketScalar::Price(m) => m.amount(),
     };
 
