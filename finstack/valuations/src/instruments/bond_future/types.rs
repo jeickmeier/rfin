@@ -538,3 +538,288 @@ mod tests {
         assert_eq!(future.deliverable_basket.len(), 1);
     }
 }
+
+// Implement Instrument trait for BondFuture
+impl crate::instruments::common::traits::Instrument for BondFuture {
+    fn id(&self) -> &str {
+        self.id.as_str()
+    }
+
+    fn key(&self) -> crate::pricer::InstrumentType {
+        crate::pricer::InstrumentType::BondFuture
+    }
+
+    fn as_any(&self) -> &dyn ::std::any::Any {
+        self
+    }
+
+    fn attributes(&self) -> &crate::instruments::common::traits::Attributes {
+        &self.attributes
+    }
+
+    fn attributes_mut(&mut self) -> &mut crate::instruments::common::traits::Attributes {
+        &mut self.attributes
+    }
+
+    fn clone_box(&self) -> Box<dyn crate::instruments::common::traits::Instrument> {
+        Box::new(self.clone())
+    }
+
+    fn value(
+        &self,
+        _market: &finstack_core::market_data::context::MarketContext,
+        _as_of: finstack_core::dates::Date,
+    ) -> finstack_core::Result<finstack_core::money::Money> {
+        // Bond futures require the CTD bond and conversion factor to be provided explicitly
+        // for pricing. Use the BondFuturePricer directly or the pricing registry with
+        // proper CTD bond setup.
+        Err(finstack_core::Error::Input(
+            finstack_core::error::InputError::NotFound {
+                id: format!(
+                    "BondFuture::value() requires CTD bond ({}) and conversion factor. \
+                     Use BondFuturePricer::calculate_npv() or the pricing registry instead.",
+                    self.ctd_bond_id.as_str()
+                ),
+            },
+        ))
+    }
+
+    fn price_with_metrics(
+        &self,
+        market: &finstack_core::market_data::context::MarketContext,
+        as_of: finstack_core::dates::Date,
+        metrics: &[crate::metrics::MetricId],
+    ) -> finstack_core::Result<crate::results::ValuationResult> {
+        // Similar to value(), bond futures need CTD bond and conversion factor
+        // This will be properly implemented when we add the pricing registry integration
+        let base_value = self.value(market, as_of)?;
+        crate::instruments::common::helpers::build_with_metrics_dyn(
+            std::sync::Arc::new(self.clone()),
+            std::sync::Arc::new(market.clone()),
+            as_of,
+            base_value,
+            metrics,
+        )
+    }
+
+    fn required_discount_curves(&self) -> Vec<finstack_core::types::CurveId> {
+        vec![self.discount_curve_id.clone()]
+    }
+}
+
+// Implement HasDiscountCurve for BondFuture
+impl crate::instruments::common::pricing::HasDiscountCurve for BondFuture {
+    fn discount_curve_id(&self) -> &finstack_core::types::CurveId {
+        &self.discount_curve_id
+    }
+}
+
+// Implement CurveDependencies for DV01 calculators
+impl crate::instruments::common::traits::CurveDependencies for BondFuture {
+    fn curve_dependencies(&self) -> crate::instruments::common::traits::InstrumentCurves {
+        crate::instruments::common::traits::InstrumentCurves::builder()
+            .discount(self.discount_curve_id.clone())
+            .build()
+    }
+}
+
+#[cfg(test)]
+mod instrument_trait_tests {
+    use super::*;
+    use finstack_core::currency::Currency;
+    use time::Month;
+
+    #[test]
+    fn test_instrument_trait_key() {
+        let deliverable = DeliverableBond {
+            bond_id: InstrumentId::new("US912828XG33"),
+            conversion_factor: 0.8234,
+        };
+
+        let future = BondFutureBuilder::new()
+            .id(InstrumentId::new("TYH5"))
+            .notional(Money::new(1_000_000.0, Currency::USD))
+            .expiry_date(Date::from_calendar_date(2025, Month::March, 20).expect("Valid date"))
+            .delivery_start(
+                Date::from_calendar_date(2025, Month::March, 21).expect("Valid date"),
+            )
+            .delivery_end(Date::from_calendar_date(2025, Month::March, 31).expect("Valid date"))
+            .quoted_price(125.50)
+            .position(Position::Long)
+            .contract_specs(BondFutureSpecs::default())
+            .deliverable_basket(vec![deliverable])
+            .ctd_bond_id(InstrumentId::new("US912828XG33"))
+            .discount_curve_id(CurveId::new("USD-TREASURY"))
+            .attributes(Attributes::new())
+            .build()
+            .expect("Valid bond future");
+
+        use crate::instruments::common::traits::Instrument;
+        use crate::pricer::InstrumentType;
+
+        assert_eq!(future.key(), InstrumentType::BondFuture);
+        assert_eq!(future.id(), "TYH5");
+    }
+
+    #[test]
+    fn test_instrument_trait_id() {
+        let deliverable = DeliverableBond {
+            bond_id: InstrumentId::new("US912828XG33"),
+            conversion_factor: 0.8234,
+        };
+
+        let future = BondFutureBuilder::new()
+            .id(InstrumentId::new("TYH5"))
+            .notional(Money::new(1_000_000.0, Currency::USD))
+            .expiry_date(Date::from_calendar_date(2025, Month::March, 20).expect("Valid date"))
+            .delivery_start(
+                Date::from_calendar_date(2025, Month::March, 21).expect("Valid date"),
+            )
+            .delivery_end(Date::from_calendar_date(2025, Month::March, 31).expect("Valid date"))
+            .quoted_price(125.50)
+            .position(Position::Long)
+            .contract_specs(BondFutureSpecs::default())
+            .deliverable_basket(vec![deliverable])
+            .ctd_bond_id(InstrumentId::new("US912828XG33"))
+            .discount_curve_id(CurveId::new("USD-TREASURY"))
+            .attributes(Attributes::new())
+            .build()
+            .expect("Valid bond future");
+
+        use crate::instruments::common::traits::Instrument;
+
+        assert_eq!(future.id(), "TYH5");
+    }
+
+    #[test]
+    fn test_instrument_trait_attributes() {
+        let deliverable = DeliverableBond {
+            bond_id: InstrumentId::new("US912828XG33"),
+            conversion_factor: 0.8234,
+        };
+
+        let attrs = Attributes::new()
+            .with_tag("futures")
+            .with_meta("exchange", "CBOT");
+
+        let future = BondFutureBuilder::new()
+            .id(InstrumentId::new("TYH5"))
+            .notional(Money::new(1_000_000.0, Currency::USD))
+            .expiry_date(Date::from_calendar_date(2025, Month::March, 20).expect("Valid date"))
+            .delivery_start(
+                Date::from_calendar_date(2025, Month::March, 21).expect("Valid date"),
+            )
+            .delivery_end(Date::from_calendar_date(2025, Month::March, 31).expect("Valid date"))
+            .quoted_price(125.50)
+            .position(Position::Long)
+            .contract_specs(BondFutureSpecs::default())
+            .deliverable_basket(vec![deliverable])
+            .ctd_bond_id(InstrumentId::new("US912828XG33"))
+            .discount_curve_id(CurveId::new("USD-TREASURY"))
+            .attributes(attrs)
+            .build()
+            .expect("Valid bond future");
+
+        use crate::instruments::common::traits::Instrument;
+
+        assert!(future.attributes().has_tag("futures"));
+        assert_eq!(future.attributes().get_meta("exchange"), Some("CBOT"));
+    }
+
+    #[test]
+    fn test_instrument_trait_clone_box() {
+        let deliverable = DeliverableBond {
+            bond_id: InstrumentId::new("US912828XG33"),
+            conversion_factor: 0.8234,
+        };
+
+        let future = BondFutureBuilder::new()
+            .id(InstrumentId::new("TYH5"))
+            .notional(Money::new(1_000_000.0, Currency::USD))
+            .expiry_date(Date::from_calendar_date(2025, Month::March, 20).expect("Valid date"))
+            .delivery_start(
+                Date::from_calendar_date(2025, Month::March, 21).expect("Valid date"),
+            )
+            .delivery_end(Date::from_calendar_date(2025, Month::March, 31).expect("Valid date"))
+            .quoted_price(125.50)
+            .position(Position::Long)
+            .contract_specs(BondFutureSpecs::default())
+            .deliverable_basket(vec![deliverable])
+            .ctd_bond_id(InstrumentId::new("US912828XG33"))
+            .discount_curve_id(CurveId::new("USD-TREASURY"))
+            .attributes(Attributes::new())
+            .build()
+            .expect("Valid bond future");
+
+        use crate::instruments::common::traits::Instrument;
+
+        let cloned = future.clone_box();
+        assert_eq!(cloned.id(), "TYH5");
+        assert_eq!(cloned.key(), crate::pricer::InstrumentType::BondFuture);
+    }
+
+    #[test]
+    fn test_instrument_trait_as_any_downcast() {
+        let deliverable = DeliverableBond {
+            bond_id: InstrumentId::new("US912828XG33"),
+            conversion_factor: 0.8234,
+        };
+
+        let future = BondFutureBuilder::new()
+            .id(InstrumentId::new("TYH5"))
+            .notional(Money::new(1_000_000.0, Currency::USD))
+            .expiry_date(Date::from_calendar_date(2025, Month::March, 20).expect("Valid date"))
+            .delivery_start(
+                Date::from_calendar_date(2025, Month::March, 21).expect("Valid date"),
+            )
+            .delivery_end(Date::from_calendar_date(2025, Month::March, 31).expect("Valid date"))
+            .quoted_price(125.50)
+            .position(Position::Long)
+            .contract_specs(BondFutureSpecs::default())
+            .deliverable_basket(vec![deliverable])
+            .ctd_bond_id(InstrumentId::new("US912828XG33"))
+            .discount_curve_id(CurveId::new("USD-TREASURY"))
+            .attributes(Attributes::new())
+            .build()
+            .expect("Valid bond future");
+
+        use crate::instruments::common::traits::Instrument;
+
+        let instrument: &dyn Instrument = &future;
+        let concrete_future: Option<&BondFuture> = instrument.as_any().downcast_ref::<BondFuture>();
+        assert!(concrete_future.is_some());
+        assert_eq!(concrete_future.unwrap().id.as_str(), "TYH5");
+    }
+
+    #[test]
+    fn test_required_discount_curves() {
+        let deliverable = DeliverableBond {
+            bond_id: InstrumentId::new("US912828XG33"),
+            conversion_factor: 0.8234,
+        };
+
+        let future = BondFutureBuilder::new()
+            .id(InstrumentId::new("TYH5"))
+            .notional(Money::new(1_000_000.0, Currency::USD))
+            .expiry_date(Date::from_calendar_date(2025, Month::March, 20).expect("Valid date"))
+            .delivery_start(
+                Date::from_calendar_date(2025, Month::March, 21).expect("Valid date"),
+            )
+            .delivery_end(Date::from_calendar_date(2025, Month::March, 31).expect("Valid date"))
+            .quoted_price(125.50)
+            .position(Position::Long)
+            .contract_specs(BondFutureSpecs::default())
+            .deliverable_basket(vec![deliverable])
+            .ctd_bond_id(InstrumentId::new("US912828XG33"))
+            .discount_curve_id(CurveId::new("USD-TREASURY"))
+            .attributes(Attributes::new())
+            .build()
+            .expect("Valid bond future");
+
+        use crate::instruments::common::traits::Instrument;
+
+        let curves = future.required_discount_curves();
+        assert_eq!(curves.len(), 1);
+        assert_eq!(curves[0].as_str(), "USD-TREASURY");
+    }
+}
