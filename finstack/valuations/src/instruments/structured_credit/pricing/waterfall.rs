@@ -137,8 +137,9 @@ fn execute_waterfall_core(
         ws.payment_records.clear();
         ws.tier_allocations.clear();
         ws.coverage_tests.clear();
-        ws.coverage_tests.extend(coverage_test_results.iter().cloned());
-        
+        ws.coverage_tests
+            .extend(coverage_test_results.iter().cloned());
+
         AllocationOutput {
             distributions: std::mem::take(&mut ws.distributions),
             payment_records: std::mem::take(&mut ws.payment_records),

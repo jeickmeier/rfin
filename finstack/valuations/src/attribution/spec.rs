@@ -407,15 +407,14 @@ mod tests {
         assert!(json.contains("finstack.attribution/1"));
 
         // Test from_json from JsonEnvelope trait
-        let parsed = AttributionEnvelope::from_json(&json)
-            .expect("from_json should succeed");
+        let parsed = AttributionEnvelope::from_json(&json).expect("from_json should succeed");
         assert_eq!(parsed.schema, ATTRIBUTION_SCHEMA_V1);
         assert_eq!(parsed.attribution.as_of_t0, envelope.attribution.as_of_t0);
 
         // Test from_reader from JsonEnvelope trait
         let reader = std::io::Cursor::new(json.as_bytes());
-        let parsed_from_reader = AttributionEnvelope::from_reader(reader)
-            .expect("from_reader should succeed");
+        let parsed_from_reader =
+            AttributionEnvelope::from_reader(reader).expect("from_reader should succeed");
         assert_eq!(parsed_from_reader.schema, ATTRIBUTION_SCHEMA_V1);
     }
 
@@ -444,15 +443,17 @@ mod tests {
         assert!(json.contains("finstack.attribution/1"));
 
         // Test from_json from JsonEnvelope trait
-        let parsed = AttributionResultEnvelope::from_json(&json)
-            .expect("from_json should succeed");
+        let parsed = AttributionResultEnvelope::from_json(&json).expect("from_json should succeed");
         assert_eq!(parsed.schema, ATTRIBUTION_SCHEMA_V1);
-        assert_eq!(parsed.result.attribution.total_pnl, envelope.result.attribution.total_pnl);
+        assert_eq!(
+            parsed.result.attribution.total_pnl,
+            envelope.result.attribution.total_pnl
+        );
 
         // Test from_reader from JsonEnvelope trait (newly available!)
         let reader = std::io::Cursor::new(json.as_bytes());
-        let parsed_from_reader = AttributionResultEnvelope::from_reader(reader)
-            .expect("from_reader should succeed");
+        let parsed_from_reader =
+            AttributionResultEnvelope::from_reader(reader).expect("from_reader should succeed");
         assert_eq!(parsed_from_reader.schema, ATTRIBUTION_SCHEMA_V1);
     }
 }

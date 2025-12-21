@@ -152,14 +152,16 @@ fn attribute_pnl_waterfall_impl(
             "Waterfall attribution requires non-empty factor_order".to_string(),
         ));
     }
-    
+
     let instrument = input.instrument;
     let market_t0 = input.market_t0;
     let market_t1 = input.market_t1;
     let as_of_t0 = input.as_of_t0;
     let as_of_t1 = input.as_of_t1;
     let model_params_t0 = input.model_params_t0;
-    let _config = input.config.expect("config required for waterfall attribution");
+    let _config = input
+        .config
+        .expect("config required for waterfall attribution");
     let strict_validation = input.strict_validation;
 
     // Step 1: Price at T₀

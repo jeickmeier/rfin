@@ -116,8 +116,10 @@ fn attribute_pnl_parallel_impl(input: &AttributionInput) -> Result<PnlAttributio
     let as_of_t0 = input.as_of_t0;
     let as_of_t1 = input.as_of_t1;
     let model_params_t0 = input.model_params_t0;
-    let _config = input.config.expect("config required for parallel attribution");
-    
+    let _config = input
+        .config
+        .expect("config required for parallel attribution");
+
     let mut num_repricings = 0;
 
     // Step 1: Price at T₀ and T₁

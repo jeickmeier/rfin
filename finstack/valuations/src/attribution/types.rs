@@ -1099,8 +1099,7 @@ mod tests {
         assert!(json.contains("\"carry\""));
 
         // Test from_json from JsonEnvelope trait
-        let parsed = PnlAttribution::from_json(&json)
-            .expect("from_json should succeed");
+        let parsed = PnlAttribution::from_json(&json).expect("from_json should succeed");
         assert_eq!(parsed.total_pnl, attr.total_pnl);
         assert_eq!(parsed.carry, attr.carry);
         assert_eq!(parsed.rates_curves_pnl, attr.rates_curves_pnl);
@@ -1109,8 +1108,8 @@ mod tests {
 
         // Test from_reader from JsonEnvelope trait
         let reader = std::io::Cursor::new(json.as_bytes());
-        let parsed_from_reader = PnlAttribution::from_reader(reader)
-            .expect("from_reader should succeed");
+        let parsed_from_reader =
+            PnlAttribution::from_reader(reader).expect("from_reader should succeed");
         assert_eq!(parsed_from_reader.total_pnl, attr.total_pnl);
     }
 }
@@ -1370,8 +1369,7 @@ mod json_envelope_tests {
         assert!(json.contains("42"));
 
         // Parse back from JSON
-        let parsed =
-            TestEnvelope::from_json(&json).expect("Deserialization should succeed");
+        let parsed = TestEnvelope::from_json(&json).expect("Deserialization should succeed");
         assert_eq!(parsed.schema, envelope.schema);
         assert_eq!(parsed.data, envelope.data);
         assert_eq!(parsed.number, envelope.number);
@@ -1392,8 +1390,8 @@ mod json_envelope_tests {
         let cursor = std::io::Cursor::new(json.as_bytes());
 
         // Parse from reader
-        let parsed = TestEnvelope::from_reader(cursor)
-            .expect("Deserialization from reader should succeed");
+        let parsed =
+            TestEnvelope::from_reader(cursor).expect("Deserialization from reader should succeed");
         assert_eq!(parsed.schema, envelope.schema);
         assert_eq!(parsed.data, envelope.data);
         assert_eq!(parsed.number, envelope.number);
@@ -1484,8 +1482,7 @@ mod json_envelope_tests {
         assert!(json.lines().count() > 1);
 
         // Should be parseable
-        let parsed =
-            TestEnvelope::from_json(&json).expect("Parsing pretty JSON should succeed");
+        let parsed = TestEnvelope::from_json(&json).expect("Parsing pretty JSON should succeed");
         assert_eq!(parsed, envelope);
     }
 
@@ -1516,4 +1513,3 @@ mod json_envelope_tests {
         assert_eq!(parsed1, envelope1);
     }
 }
-

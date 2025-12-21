@@ -9,8 +9,8 @@ use finstack_core::market_data::context::MarketContextState;
 use finstack_core::money::Money;
 use finstack_valuations::attribution::types::JsonEnvelope;
 use finstack_valuations::attribution::{
-    AttributionConfig, AttributionEnvelope, AttributionFactor, AttributionMethod,
-    AttributionSpec, ModelParamsSnapshot,
+    AttributionConfig, AttributionEnvelope, AttributionFactor, AttributionMethod, AttributionSpec,
+    ModelParamsSnapshot,
 };
 use finstack_valuations::cashflow::builder::{
     DefaultModelSpec, PrepaymentModelSpec, RecoveryModelSpec,

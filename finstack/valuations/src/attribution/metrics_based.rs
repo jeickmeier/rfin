@@ -198,9 +198,13 @@ fn attribute_pnl_metrics_based_impl(input: &AttributionInput) -> Result<PnlAttri
     let market_t1 = input.market_t1;
     let as_of_t0 = input.as_of_t0;
     let as_of_t1 = input.as_of_t1;
-    let val_t0 = input.val_t0.expect("val_t0 required for metrics-based attribution");
-    let val_t1 = input.val_t1.expect("val_t1 required for metrics-based attribution");
-    
+    let val_t0 = input
+        .val_t0
+        .expect("val_t0 required for metrics-based attribution");
+    let val_t1 = input
+        .val_t1
+        .expect("val_t1 required for metrics-based attribution");
+
     // Total P&L
     let total_pnl = compute_pnl(
         val_t0.value,

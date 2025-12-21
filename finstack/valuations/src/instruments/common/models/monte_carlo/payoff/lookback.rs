@@ -69,7 +69,12 @@ impl Lookback {
     /// The `extreme_spot` is initialized to:
     /// - `NEG_INFINITY` for calls (to track maximum)
     /// - `INFINITY` for puts (to track minimum)
-    pub fn new(direction: LookbackDirection, strike: f64, notional: f64, maturity_step: usize) -> Self {
+    pub fn new(
+        direction: LookbackDirection,
+        strike: f64,
+        notional: f64,
+        maturity_step: usize,
+    ) -> Self {
         let extreme_spot = match direction {
             LookbackDirection::Call => f64::NEG_INFINITY,
             LookbackDirection::Put => f64::INFINITY,

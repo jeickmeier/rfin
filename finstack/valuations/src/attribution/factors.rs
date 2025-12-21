@@ -870,7 +870,7 @@ pub fn restore_rates_curves(
         forward_curves: snapshot.forward_curves.clone(),
         ..Default::default()
     };
-    
+
     // Use unified restore function with RATES flag
     MarketSnapshot::restore_market(market, &unified, CurveRestoreFlags::RATES)
 }
@@ -897,7 +897,7 @@ pub fn restore_credit_curves(
         hazard_curves: snapshot.hazard_curves.clone(),
         ..Default::default()
     };
-    
+
     // Use unified restore function with CREDIT flag
     MarketSnapshot::restore_market(market, &unified, CurveRestoreFlags::CREDIT)
 }
@@ -924,7 +924,7 @@ pub fn restore_inflation_curves(
         inflation_curves: snapshot.inflation_curves.clone(),
         ..Default::default()
     };
-    
+
     // Use unified restore function with INFLATION flag
     MarketSnapshot::restore_market(market, &unified, CurveRestoreFlags::INFLATION)
 }
@@ -951,7 +951,7 @@ pub fn restore_correlations(
         base_correlation_curves: snapshot.base_correlation_curves.clone(),
         ..Default::default()
     };
-    
+
     // Use unified restore function with CORRELATION flag
     MarketSnapshot::restore_market(market, &unified, CurveRestoreFlags::CORRELATION)
 }
@@ -1414,11 +1414,8 @@ mod tests {
         };
 
         // Restore only discount curves
-        let restored = MarketSnapshot::restore_market(
-            &current_market,
-            &snapshot,
-            CurveRestoreFlags::DISCOUNT,
-        );
+        let restored =
+            MarketSnapshot::restore_market(&current_market, &snapshot, CurveRestoreFlags::DISCOUNT);
 
         // Should have new discount curve from snapshot
         assert!(restored.get_discount("EUR-OIS").is_ok());
@@ -1455,11 +1452,8 @@ mod tests {
         };
 
         // Restore rates curves (discount + forward)
-        let restored = MarketSnapshot::restore_market(
-            &current_market,
-            &snapshot,
-            CurveRestoreFlags::RATES,
-        );
+        let restored =
+            MarketSnapshot::restore_market(&current_market, &snapshot, CurveRestoreFlags::RATES);
 
         // Should have new rates curves from snapshot
         assert!(restored.get_discount("EUR-OIS").is_ok());
@@ -1555,11 +1549,8 @@ mod tests {
         };
 
         // Restore only hazard curves (credit)
-        let restored = MarketSnapshot::restore_market(
-            &current_market,
-            &snapshot,
-            CurveRestoreFlags::CREDIT,
-        );
+        let restored =
+            MarketSnapshot::restore_market(&current_market, &snapshot, CurveRestoreFlags::CREDIT);
 
         // Should have new hazard curve from snapshot
         assert!(restored.get_hazard("CORP-B").is_ok());
@@ -1585,11 +1576,8 @@ mod tests {
         let snapshot = MarketSnapshot::default();
 
         // Restore with RATES flag but empty snapshot
-        let restored = MarketSnapshot::restore_market(
-            &current_market,
-            &snapshot,
-            CurveRestoreFlags::RATES,
-        );
+        let restored =
+            MarketSnapshot::restore_market(&current_market, &snapshot, CurveRestoreFlags::RATES);
 
         // No curves should exist (snapshot was empty, so all rates curves removed)
         assert!(restored.get_discount("USD-OIS").is_err());
@@ -1615,11 +1603,8 @@ mod tests {
         };
 
         // Restore into empty market
-        let restored = MarketSnapshot::restore_market(
-            &current_market,
-            &snapshot,
-            CurveRestoreFlags::RATES,
-        );
+        let restored =
+            MarketSnapshot::restore_market(&current_market, &snapshot, CurveRestoreFlags::RATES);
 
         // Should have curves from snapshot
         assert!(restored.get_discount("USD-OIS").is_ok());
@@ -1671,7 +1656,7 @@ mod tests {
     // ============================================================================
 
     /// Helper function to assert two market contexts have equivalent curve structure.
-    /// 
+    ///
     /// This compares:
     /// - Curve counts by type
     /// - Curve IDs present
@@ -1765,7 +1750,8 @@ mod tests {
         ];
 
         for curve_id in ctx1.curve_ids() {
-            if let (Ok(curve1), Ok(curve2)) = (ctx1.get_discount(curve_id), ctx2.get_discount(curve_id))
+            if let (Ok(curve1), Ok(curve2)) =
+                (ctx1.get_discount(curve_id), ctx2.get_discount(curve_id))
             {
                 for &sample_date in &sample_dates {
                     // Use try_df_on_date_curve which uses the curve's own day count
@@ -2019,11 +2005,7 @@ mod tests {
             CurveRestoreFlags::CORRELATION,
         );
 
-        assert_market_contexts_equal(
-            &restored,
-            &expected,
-            "restore_correlations equivalence",
-        );
+        assert_market_contexts_equal(&restored, &expected, "restore_correlations equivalence");
     }
 
     #[test]
@@ -2033,8 +2015,8 @@ mod tests {
         // Test with empty source market
         let empty_market = MarketContext::new();
         let snapshot = extract_rates_curves(&empty_market);
-        let target = MarketContext::new()
-            .insert_discount(create_test_discount_curve("USD-OIS", base_date));
+        let target =
+            MarketContext::new().insert_discount(create_test_discount_curve("USD-OIS", base_date));
 
         let restored = restore_rates_curves(&target, &snapshot);
 
@@ -2042,8 +2024,8 @@ mod tests {
         assert!(restored.get_discount("USD-OIS").is_err());
 
         // Test with empty target market
-        let source = MarketContext::new()
-            .insert_discount(create_test_discount_curve("USD-OIS", base_date));
+        let source =
+            MarketContext::new().insert_discount(create_test_discount_curve("USD-OIS", base_date));
         let snapshot2 = extract_rates_curves(&source);
         let empty_target = MarketContext::new();
 
@@ -2137,7 +2119,7 @@ mod tests {
     fn test_market_extractable_rates_curves() {
         let base_date = date!(2025 - 01 - 15);
         let discount = create_test_discount_curve("USD-OIS", base_date);
-        
+
         let market = MarketContext::new().insert_discount(discount);
 
         // Test trait method
@@ -2242,9 +2224,15 @@ mod tests {
         let function_result = extract_rates_curves(&market);
         let trait_result = RatesCurvesSnapshot::extract(&market);
 
-        assert_eq!(function_result.discount_curves.len(), trait_result.discount_curves.len());
-        assert_eq!(function_result.forward_curves.len(), trait_result.forward_curves.len());
-        
+        assert_eq!(
+            function_result.discount_curves.len(),
+            trait_result.discount_curves.len()
+        );
+        assert_eq!(
+            function_result.forward_curves.len(),
+            trait_result.forward_curves.len()
+        );
+
         // Verify curve IDs match
         for (id, _) in &function_result.discount_curves {
             assert!(trait_result.discount_curves.contains_key(id));
@@ -2261,18 +2249,18 @@ mod tests {
         let _rates: RatesCurvesSnapshot = extract(&market);
         let _volatility: VolatilitySnapshot = extract(&market);
         let _scalars: ScalarsSnapshot = extract(&market);
-        
+
         // If this compiles, type inference is working correctly
     }
 
     #[test]
     fn test_market_extractable_multiple_curves() {
         use finstack_core::market_data::term_structures::ForwardCurve;
-        
+
         let base_date = date!(2025 - 01 - 15);
         let discount1 = create_test_discount_curve("USD-OIS", base_date);
         let discount2 = create_test_discount_curve("EUR-OIS", base_date);
-        
+
         let forward = ForwardCurve::builder("USD-SOFR", 0.25) // 3-month forward
             .base_date(base_date)
             .knots(vec![(0.0, 0.03), (1.0, 0.035), (5.0, 0.04)])
@@ -2287,7 +2275,7 @@ mod tests {
 
         // Extract rates curves
         let snapshot = RatesCurvesSnapshot::extract(&market);
-        
+
         // Verify we got all curves
         assert_eq!(snapshot.discount_curves.len(), 2);
         assert_eq!(snapshot.forward_curves.len(), 1);
