@@ -110,3 +110,7 @@ harness = false
 [[bench]]
 name = "fwd_curve"
 harness = false
+
+[[bench]]
+name = "bond_future_bench"
+harness = false
