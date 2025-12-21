@@ -433,10 +433,10 @@ impl PyFxMatrix {
     ///
     /// Returns
     /// -------
-    /// tuple[int, int]
-    ///     Tuple containing cached quote count and reserved capacity.
+    /// int
+    ///     Number of cached quotes.
     #[pyo3(text_signature = "(self)")]
-    fn cache_stats(&self) -> (usize, usize) {
+    fn cache_stats(&self) -> usize {
         self.inner.cache_stats()
     }
 }

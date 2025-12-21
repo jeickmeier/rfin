@@ -71,7 +71,7 @@ impl InterpolationStrategy for LinearStrategy {
         // Exact knot match
         if let Ok(idx_exact) = knots.binary_search_by(|k| {
             k.partial_cmp(&x)
-                .expect("f64 comparison should always be comparable")
+                .unwrap_or(std::cmp::Ordering::Less)
         }) {
             return values[idx_exact];
         }
@@ -202,7 +202,7 @@ impl InterpolationStrategy for LogLinearStrategy {
         // Exact knot match
         if let Ok(idx_exact) = knots.binary_search_by(|k| {
             k.partial_cmp(&x)
-                .expect("f64 comparison should always be comparable")
+                .unwrap_or(std::cmp::Ordering::Less)
         }) {
             return self.log_values[idx_exact].exp();
         }
@@ -565,7 +565,7 @@ impl InterpolationStrategy for CubicHermiteStrategy {
         // Fast-path: exact knot value → short-circuit
         if let Ok(idx) = knots.binary_search_by(|k| {
             k.partial_cmp(&x)
-                .expect("f64 comparison should always be comparable")
+                .unwrap_or(std::cmp::Ordering::Less)
         }) {
             return values[idx];
         }
@@ -625,7 +625,7 @@ impl InterpolationStrategy for CubicHermiteStrategy {
         // For exact knot values, return the precomputed slope
         if let Ok(idx) = knots.binary_search_by(|k| {
             k.partial_cmp(&x)
-                .expect("f64 comparison should always be comparable")
+                .unwrap_or(std::cmp::Ordering::Less)
         }) {
             return self.ms[idx];
         }
@@ -826,7 +826,7 @@ impl InterpolationStrategy for MonotoneConvexStrategy {
         // Exact knot match
         if let Ok(idx_exact) = knots.binary_search_by(|k| {
             k.partial_cmp(&x)
-                .expect("f64 comparison should always be comparable")
+                .unwrap_or(std::cmp::Ordering::Less)
         }) {
             return values[idx_exact];
         }
@@ -877,7 +877,7 @@ impl InterpolationStrategy for MonotoneConvexStrategy {
         // For exact knot values, compute derivative using forward rate
         if let Ok(idx) = knots.binary_search_by(|k| {
             k.partial_cmp(&x)
-                .expect("f64 comparison should always be comparable")
+                .unwrap_or(std::cmp::Ordering::Less)
         }) {
             // d/dx[DF] = -f * DF at knot points
             return -self.f[idx] * values[idx];

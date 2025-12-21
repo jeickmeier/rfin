@@ -42,7 +42,7 @@
 //! | `serde`       | `Serialize`/`Deserialize` for public types         |
 //!
 //! # Minimum Supported Rust Version (MSRV)
-//! This crate targets **Rust 1.75**.  It is tested in CI and follows the
+//! This crate targets **Rust 1.90**.  It is tested in CI and follows the
 //! standard *cargo-semver* guideline: MSRV may only bump in a **minor** release.
 //!
 //! ---

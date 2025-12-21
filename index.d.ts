@@ -661,7 +661,7 @@ export class FxMatrix {
     on: Date,
     policy?: FxConversionPolicy | string | number | null
   ): FxRateResult;
-  cacheStats(): [number, number];
+  cacheStats(): number;
   clearCache(): void;
   clearExpired(): void;
 }

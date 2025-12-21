@@ -45,9 +45,16 @@ pub(crate) fn build_interp_input_error(
     knots: Box<[f64]>,
     values: Box<[f64]>,
     extrapolation: ExtrapolationPolicy,
+    skip_validation: bool,
 ) -> crate::Result<Interp> {
     // Preserve the original interpolation error (usually an InputError).
-    style.build_enum(knots, values, extrapolation)
+    if skip_validation {
+        // Allow domain-specific builders (e.g., discount curves) to defer value validation
+        // to downstream helpers while still validating knot shape upstream.
+        style.build_enum_allow_any_values(knots, values, extrapolation)
+    } else {
+        style.build_enum(knots, values, extrapolation)
+    }
 }
 
 /// Convenience to split points (t, v) into separate vectors.

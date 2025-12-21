@@ -36,21 +36,22 @@ use super::rounding::{
 /// Helper function to format integers with thousands separators.
 fn format_with_separators(n: i64) -> String {
     let s = n.abs().to_string();
-    let mut result = String::new();
-    let chars: Vec<char> = s.chars().collect();
-
-    for (i, c) in chars.iter().rev().enumerate() {
+    let bytes = s.as_bytes();
+    // Reserve a bit extra for separators
+    let mut rev: Vec<u8> = Vec::with_capacity(bytes.len() + bytes.len() / 3);
+    for (i, &b) in bytes.iter().rev().enumerate() {
         if i > 0 && i % 3 == 0 {
-            result.insert(0, ',');
+            rev.push(b',');
         }
-        result.insert(0, *c);
+        rev.push(b);
     }
-
+    rev.reverse();
+    let mut out = String::from_utf8(rev)
+        .expect("format_with_separators only constructs ASCII digits and commas");
     if n < 0 {
-        result.insert(0, '-');
+        out.insert(0, '-');
     }
-
-    result
+    out
 }
 
 /// Currency-tagged monetary amount with safe arithmetic.

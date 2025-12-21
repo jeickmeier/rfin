@@ -55,6 +55,12 @@ pub(crate) fn reciprocal_rate_or_err(
     from: Currency,
     to: Currency,
 ) -> crate::Result<f64> {
+    if !rate.is_finite() {
+        return Err(crate::error::InputError::NonFiniteValue {
+            kind: if rate.is_nan() { "NaN".to_string() } else { "infinity".to_string() },
+        }
+        .into());
+    }
     if rate != 0.0 {
         Ok(1.0 / rate)
     } else {
@@ -299,7 +305,7 @@ impl FxMatrix {
     /// }
     ///
     /// let matrix = FxMatrix::new(Arc::new(StaticFx));
-    /// assert_eq!(matrix.cache_stats().0, 0);
+    /// assert_eq!(matrix.cache_stats(), 0);
     /// ```
     pub fn new(provider: Arc<dyn FxProvider>) -> Self {
         Self::with_config(provider, FxConfig::default())
@@ -335,7 +341,7 @@ impl FxMatrix {
     /// let mut cfg = FxConfig::default();
     /// cfg.cache_capacity = 128;
     /// let matrix = FxMatrix::with_config(Arc::new(StaticFx), cfg);
-    /// assert_eq!(matrix.cache_stats().0, 0);
+    /// assert_eq!(matrix.cache_stats(), 0);
     /// ```
     pub fn with_config(provider: Arc<dyn FxProvider>, config: FxConfig) -> Self {
         let capacity = if config.cache_capacity == 0 {
@@ -548,7 +554,7 @@ impl FxMatrix {
         self.quotes.lock().clear();
     }
 
-    /// Return `(cached_quotes, reserved)` stats for quick diagnostics.
+    /// Return cached quote count for quick diagnostics.
     ///
     /// # Examples
     /// ```rust
@@ -563,11 +569,11 @@ impl FxMatrix {
     /// #         -> finstack_core::Result<f64> { Ok(1.0) }
     /// # }
     /// let matrix = FxMatrix::new(Arc::new(StaticFx));
-    /// assert_eq!(matrix.cache_stats().0, 0);
+    /// assert_eq!(matrix.cache_stats(), 0);
     /// ```
-    pub fn cache_stats(&self) -> (usize, usize) {
+    pub fn cache_stats(&self) -> usize {
         let quotes = self.quotes.lock();
-        (quotes.len(), 0)
+        quotes.len()
     }
 
     /// Extract serializable state from the matrix.
@@ -705,6 +711,8 @@ impl FxMatrix {
         let a = self.get_or_fetch(from, pivot, on, policy)?;
         let b = self.get_or_fetch(pivot, to, on, policy)?;
         let rate = a * b;
+        // Cache derived cross to avoid repeated recomputation
+        self.insert_quote(from, to, rate);
         Ok(rate)
     }
 
@@ -841,10 +849,9 @@ mod tests {
 
         assert_eq!(rate, expected);
 
-        // Test stats reflect quotes and implied
-        let (quotes, implied) = matrix.cache_stats();
+        // Test stats reflect quotes
+        let quotes = matrix.cache_stats();
         assert!(quotes >= 1);
-        assert_eq!(implied, 0);
     }
 
     #[test]
@@ -894,8 +901,8 @@ mod tests {
         // Clear implied entries
         matrix.clear_expired();
 
-        let (_, implied) = matrix.cache_stats();
-        assert_eq!(implied, 0); // Implied cleared
+        let remaining = matrix.cache_stats();
+        assert_eq!(remaining, 0); // Implied cleared
     }
 
     #[test]
@@ -908,16 +915,14 @@ mod tests {
             .rate(FxQuery::new(Currency::USD, Currency::EUR, test_date()))
             .expect("FX rate query should succeed in test");
 
-        let (quotes, implied) = matrix.cache_stats();
+        let quotes = matrix.cache_stats();
         assert!(quotes >= 1);
-        assert_eq!(implied, 0);
 
         // Clear cache
         matrix.clear_cache();
 
-        let (quotes, implied) = matrix.cache_stats();
+        let quotes = matrix.cache_stats();
         assert_eq!(quotes, 0);
-        assert_eq!(implied, 0);
     }
 
     #[test]
@@ -1002,9 +1007,8 @@ mod tests {
         assert_eq!(rate1, rate2);
 
         // Stats indicate stored quotes only
-        let (quotes, implied) = matrix.cache_stats();
+        let quotes = matrix.cache_stats();
         assert!(quotes >= 1);
-        assert_eq!(implied, 0);
     }
 
     #[test]

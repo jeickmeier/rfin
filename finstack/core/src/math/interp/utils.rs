@@ -47,6 +47,9 @@ pub fn validate_knots(knots: &[f64]) -> crate::Result<()> {
     if knots.len() < 2 {
         return Err(InputError::TooFewPoints.into());
     }
+    if knots.iter().any(|k| !k.is_finite()) {
+        return Err(InputError::Invalid.into());
+    }
     if knots.windows(2).any(|w| w[1] <= w[0]) {
         return Err(InputError::NonMonotonicKnots.into());
     }
@@ -59,6 +62,9 @@ pub fn locate_segment(xs: &[f64], x: f64) -> Result<usize, Error> {
     if xs.is_empty() {
         return Err(InputError::TooFewPoints.into());
     }
+    if !x.is_finite() || xs.iter().any(|k| !k.is_finite()) {
+        return Err(InputError::Invalid.into());
+    }
     if x < xs[0] || x > *xs.last().expect("xs should not be empty (checked above)") {
         return Err(Error::InterpOutOfBounds);
     }
@@ -68,7 +74,7 @@ pub fn locate_segment(xs: &[f64], x: f64) -> Result<usize, Error> {
 
 /// Validate that all values are strictly positive.
 pub fn validate_positive_series(values: &[f64]) -> crate::Result<()> {
-    if values.iter().any(|&v| v <= 0.0) {
+    if values.iter().any(|&v| !v.is_finite() || v <= 0.0) {
         return Err(InputError::NonPositiveValue.into());
     }
     Ok(())

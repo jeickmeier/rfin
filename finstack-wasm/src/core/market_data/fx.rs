@@ -262,13 +262,8 @@ impl JsFxMatrix {
     }
 
     #[wasm_bindgen(js_name = cacheStats)]
-    pub fn cache_stats(&self) -> js_sys::Array {
-        let (used, capacity) = self.inner.cache_stats();
-        js_array_from_iter(
-            [used as f64, capacity as f64]
-                .into_iter()
-                .map(JsValue::from_f64),
-        )
+    pub fn cache_stats(&self) -> usize {
+        self.inner.cache_stats()
     }
 
     #[wasm_bindgen(js_name = clearCache)]
