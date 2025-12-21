@@ -21,9 +21,13 @@ use crate::metrics::MetricRegistry;
 /// * `registry` — Metric registry to add TRS metrics to
 pub fn register_trs_metrics(registry: &mut MetricRegistry) {
     use crate::metrics::MetricId;
+    use crate::pricer::InstrumentType;
     use std::sync::Arc;
 
-    let instruments = ["EquityTotalReturnSwap", "FIIndexTotalReturnSwap"];
+    let instruments = [
+        InstrumentType::EquityTotalReturnSwap,
+        InstrumentType::FIIndexTotalReturnSwap,
+    ];
 
     // Common metrics that handle runtime dispatch internally
     let common_metrics = vec![
@@ -58,7 +62,7 @@ pub fn register_trs_metrics(registry: &mut MetricRegistry) {
         >::new(
             crate::metrics::Dv01CalculatorConfig::parallel_combined()
         )),
-        &["EquityTotalReturnSwap"],
+        &[InstrumentType::EquityTotalReturnSwap],
     );
     registry.register_metric(
         MetricId::BucketedDv01,
@@ -67,7 +71,7 @@ pub fn register_trs_metrics(registry: &mut MetricRegistry) {
         >::new(
             crate::metrics::Dv01CalculatorConfig::key_rate()
         )),
-        &["EquityTotalReturnSwap"],
+        &[InstrumentType::EquityTotalReturnSwap],
     );
 
     // FI Index TRS Specifics
@@ -78,7 +82,7 @@ pub fn register_trs_metrics(registry: &mut MetricRegistry) {
         >::new(
             crate::metrics::Dv01CalculatorConfig::parallel_combined()
         )),
-        &["FIIndexTotalReturnSwap"],
+        &[InstrumentType::FIIndexTotalReturnSwap],
     );
     registry.register_metric(
         MetricId::BucketedDv01,
@@ -87,6 +91,6 @@ pub fn register_trs_metrics(registry: &mut MetricRegistry) {
         >::new(
             crate::metrics::Dv01CalculatorConfig::key_rate()
         )),
-        &["FIIndexTotalReturnSwap"],
+        &[InstrumentType::FIIndexTotalReturnSwap],
     );
 }

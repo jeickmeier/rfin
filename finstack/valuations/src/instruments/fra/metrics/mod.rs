@@ -20,10 +20,11 @@ pub use par_rate::FraParRateCalculator;
 /// Each metric is registered with the "FRA" instrument type to ensure
 /// proper applicability filtering.
 pub fn register_fra_metrics(registry: &mut MetricRegistry) {
+    use crate::pricer::InstrumentType;
     // Standard metrics using macro
     crate::register_metrics! {
         registry: registry,
-        instrument: "FRA",
+        instrument: InstrumentType::FRA,
         metrics: [
             (Dv01, crate::metrics::UnifiedDv01Calculator::<
                 crate::instruments::ForwardRateAgreement,

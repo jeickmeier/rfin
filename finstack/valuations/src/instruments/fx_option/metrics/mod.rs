@@ -18,24 +18,25 @@ use crate::metrics::MetricRegistry;
 /// Register FX option metrics with the registry.
 pub fn register_fx_option_metrics(registry: &mut MetricRegistry) {
     use crate::metrics::MetricId;
+    use crate::pricer::InstrumentType;
     use std::sync::Arc;
 
     // Custom metrics for rho split by domestic/foreign
     registry.register_metric(
         MetricId::custom("rho_domestic"),
         Arc::new(rho::RhoDomesticCalculator),
-        &["FxOption"],
+        &[InstrumentType::FxOption],
     );
     registry.register_metric(
         MetricId::custom("rho_foreign"),
         Arc::new(rho::RhoForeignCalculator),
-        &["FxOption"],
+        &[InstrumentType::FxOption],
     );
 
     // Standard metrics using macro
     crate::register_metrics! {
         registry: registry,
-        instrument: "FxOption",
+        instrument: InstrumentType::FxOption,
         metrics: [
             (Delta, delta::DeltaCalculator),
             (Gamma, gamma::GammaCalculator),

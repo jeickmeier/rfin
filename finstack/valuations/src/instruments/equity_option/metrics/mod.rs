@@ -22,18 +22,19 @@ use crate::metrics::MetricRegistry;
 /// Register equity option metrics with the registry.
 pub fn register_equity_option_metrics(registry: &mut MetricRegistry) {
     use crate::metrics::MetricId;
+    use crate::pricer::InstrumentType;
     use std::sync::Arc;
 
     // Custom metric: Dividend risk (dividend yield sensitivity per 1bp)
     registry.register_metric(
         MetricId::Dividend01,
         Arc::new(dividend_risk::DividendRiskCalculator),
-        &["EquityOption"],
+        &[InstrumentType::EquityOption],
     );
 
     crate::register_metrics! {
         registry: registry,
-        instrument: "EquityOption",
+        instrument: InstrumentType::EquityOption,
         metrics: [
             (Delta, delta::DeltaCalculator),
             (Gamma, gamma::GammaCalculator),

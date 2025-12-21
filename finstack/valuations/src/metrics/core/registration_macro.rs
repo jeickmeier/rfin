@@ -30,6 +30,7 @@ macro_rules! register_metrics {
 #[cfg(test)]
 mod tests {
     use crate::metrics::{MetricCalculator, MetricContext, MetricId, MetricRegistry};
+    use crate::pricer::InstrumentType;
     use finstack_core::Result;
 
     struct DummyCalculator;
@@ -45,7 +46,7 @@ mod tests {
 
         register_metrics! {
             registry: registry,
-            instrument: "TestInstrument",
+            instrument: InstrumentType::Bond,
             metrics: [
                 (Accrued, DummyCalculator),
                 (Ytm, DummyCalculator),
@@ -53,7 +54,7 @@ mod tests {
         }
 
         // Verify metrics were registered (basic smoke test)
-        assert!(registry.is_applicable(&MetricId::Accrued, "TestInstrument"));
-        assert!(registry.is_applicable(&MetricId::Ytm, "TestInstrument"));
+        assert!(registry.is_applicable(&MetricId::Accrued, InstrumentType::Bond));
+        assert!(registry.is_applicable(&MetricId::Ytm, InstrumentType::Bond));
     }
 }

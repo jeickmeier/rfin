@@ -26,33 +26,34 @@ pub use risk::{calculate_tranche_cs01, calculate_tranche_duration, calculate_tra
 /// Register all structured credit metrics
 pub fn register_structured_credit_metrics(registry: &mut crate::metrics::MetricRegistry) {
     use crate::metrics::MetricId;
+    use crate::pricer::InstrumentType;
     use std::sync::Arc;
 
     // Model-specific risk metrics (custom metrics)
     registry.register_metric(
         MetricId::Recovery01,
         Arc::new(risk::recovery01::Recovery01Calculator),
-        &["StructuredCredit"],
+        &[InstrumentType::StructuredCredit],
     );
     registry.register_metric(
         MetricId::Prepayment01,
         Arc::new(risk::prepayment01::Prepayment01Calculator),
-        &["StructuredCredit"],
+        &[InstrumentType::StructuredCredit],
     );
     registry.register_metric(
         MetricId::Default01,
         Arc::new(risk::default01::Default01Calculator),
-        &["StructuredCredit"],
+        &[InstrumentType::StructuredCredit],
     );
     registry.register_metric(
         MetricId::Severity01,
         Arc::new(risk::severity01::Severity01Calculator),
-        &["StructuredCredit"],
+        &[InstrumentType::StructuredCredit],
     );
 
     crate::register_metrics! {
         registry: registry,
-        instrument: "StructuredCredit",
+        instrument: InstrumentType::StructuredCredit,
         metrics: [
             // Standard cashflow-based metrics
             (Accrued, pricing::AccruedCalculator),

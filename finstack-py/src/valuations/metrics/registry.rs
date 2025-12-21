@@ -91,9 +91,8 @@ impl PyMetricRegistry {
         instrument_type: Bound<'_, PyAny>,
     ) -> PyResult<Py<PyAny>> {
         let InstrumentTypeArg(inst) = instrument_type.extract()?;
-        let metrics = self
-            .inner
-            .metrics_for_instrument(&instrument_type_label(inst));
+        let _label = instrument_type_label(inst);
+        let metrics = self.inner.metrics_for_instrument(inst);
         self.metric_ids_to_list(py, metrics)
     }
 
@@ -116,9 +115,8 @@ impl PyMetricRegistry {
     ) -> PyResult<bool> {
         let MetricIdArg(metric_id) = metric.extract()?;
         let InstrumentTypeArg(inst) = instrument_type.extract()?;
-        Ok(self
-            .inner
-            .is_applicable(&metric_id, &instrument_type_label(inst)))
+        let _label = instrument_type_label(inst);
+        Ok(self.inner.is_applicable(&metric_id, inst))
     }
 
     #[pyo3(text_signature = "(self, metric)")]

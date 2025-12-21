@@ -14,10 +14,11 @@ use crate::metrics::MetricRegistry;
 
 /// Register IR Future metrics with the registry
 pub fn register_ir_future_metrics(registry: &mut MetricRegistry) {
+    use crate::pricer::InstrumentType;
     // Standard metrics using macro
     crate::register_metrics! {
         registry: registry,
-        instrument: "InterestRateFuture",
+        instrument: InstrumentType::InterestRateFuture,
         metrics: [
             (Dv01, crate::metrics::UnifiedDv01Calculator::<
                 crate::instruments::InterestRateFuture,

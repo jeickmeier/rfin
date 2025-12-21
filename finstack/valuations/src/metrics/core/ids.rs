@@ -52,7 +52,7 @@ impl MetricId {
     /// Returns `true` if the metric was created via `custom()` and is not
     /// part of the standard set.
     pub fn is_custom(&self) -> bool {
-        !Self::ALL_STANDARD.iter().any(|m| m == self)
+        !metric_lookup().contains_key(self.as_str())
     }
 
     /// Parses a string into a MetricId with strict validation.
@@ -869,6 +869,9 @@ impl MetricId {
         MetricId::EnterpriseValue,
         MetricId::EquityValue,
         MetricId::TerminalValuePV,
+        MetricId::ThetaGamma,
+        MetricId::HVAR,
+        MetricId::EXPECTED_SHORTFALL,
     ];
 }
 

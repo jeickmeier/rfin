@@ -9,6 +9,7 @@ use super::traits::{MetricCalculator, MetricContext};
 
 use hashbrown::HashMap;
 use std::sync::Arc;
+use crate::pricer::InstrumentType;
 
 /// Metric computation mode.
 ///
@@ -64,18 +65,18 @@ pub struct MetricRegistry {
 #[derive(Clone, Default)]
 struct MetricEntry {
     default: Option<Arc<dyn MetricCalculator>>,
-    per_instrument: HashMap<&'static str, Arc<dyn MetricCalculator>>,
+    per_instrument: HashMap<InstrumentType, Arc<dyn MetricCalculator>>,
 }
 
 impl MetricEntry {
-    fn get_for(&self, instrument_type: &str) -> Option<&Arc<dyn MetricCalculator>> {
+    fn get_for(&self, instrument_type: InstrumentType) -> Option<&Arc<dyn MetricCalculator>> {
         self.per_instrument
-            .get(instrument_type)
+            .get(&instrument_type)
             .or(self.default.as_ref())
     }
 
-    fn applies_to(&self, instrument_type: &str) -> bool {
-        self.per_instrument.contains_key(instrument_type) || self.default.is_some()
+    fn applies_to(&self, instrument_type: InstrumentType) -> bool {
+        self.per_instrument.contains_key(&instrument_type) || self.default.is_some()
     }
 }
 
@@ -116,7 +117,7 @@ impl MetricRegistry {
         &mut self,
         id: MetricId,
         calculator: Arc<dyn MetricCalculator>,
-        applicable_to: &[&'static str],
+        applicable_to: &[InstrumentType],
     ) -> &mut Self {
         let entry = self.entries.entry(id).or_default();
         if applicable_to.is_empty() {
@@ -168,7 +169,7 @@ impl MetricRegistry {
     /// Vector of metric IDs applicable to the instrument type
     ///
     /// See unit tests and `examples/` for usage.
-    pub fn metrics_for_instrument(&self, instrument_type: &str) -> Vec<MetricId> {
+    pub fn metrics_for_instrument(&self, instrument_type: InstrumentType) -> Vec<MetricId> {
         let mut v: Vec<MetricId> = self
             .entries
             .iter()
@@ -193,7 +194,7 @@ impl MetricRegistry {
     /// `true` if the metric is applicable, `false` otherwise
     ///
     /// See unit tests and `examples/` for usage.
-    pub fn is_applicable(&self, metric_id: &MetricId, instrument_type: &str) -> bool {
+    pub fn is_applicable(&self, metric_id: &MetricId, instrument_type: InstrumentType) -> bool {
         self.entries
             .get(metric_id)
             .map(|entry| entry.applies_to(instrument_type))
@@ -297,7 +298,7 @@ impl MetricRegistry {
         mode: StrictMode,
     ) -> finstack_core::Result<HashMap<MetricId, f64>> {
         // Build dependency graph and compute order for this instrument type
-        let instrument_type = context.instrument.key().as_str();
+        let instrument_type = context.instrument.key();
         let order = self.resolve_dependencies(metric_ids, instrument_type)?;
 
         // Compute metrics in dependency order (consume order to avoid cloning MetricId)
@@ -339,13 +340,13 @@ impl MetricRegistry {
                         StrictMode::Strict => {
                             return Err(finstack_core::Error::metric_not_applicable(
                                 metric_id.as_str(),
-                                instrument_type,
+                                instrument_type.as_str(),
                             ));
                         }
                         StrictMode::BestEffort => {
                             tracing::warn!(
                                 metric_id = %metric_id.as_str(),
-                                instrument_type = %instrument_type,
+                                instrument_type = %instrument_type.as_str(),
                                 "Metric not applicable to instrument type, inserting 0.0 as fallback"
                             );
                             context.computed.insert(metric_id, 0.0);
@@ -407,7 +408,7 @@ impl MetricRegistry {
         &self,
         context: &mut MetricContext,
     ) -> finstack_core::Result<HashMap<MetricId, f64>> {
-        let instrument_type = context.instrument.key().as_str();
+        let instrument_type = context.instrument.key();
         let applicable = self.metrics_for_instrument(instrument_type);
         self.compute(&applicable, context)
     }
@@ -433,7 +434,7 @@ impl MetricRegistry {
     fn resolve_dependencies(
         &self,
         metric_ids: &[MetricId],
-        instrument_type: &str,
+        instrument_type: InstrumentType,
     ) -> finstack_core::Result<Vec<MetricId>> {
         let mut visited = hashbrown::HashSet::new();
         let mut order = Vec::new();
@@ -462,7 +463,7 @@ impl MetricRegistry {
     fn visit_metric(
         &self,
         id: MetricId,
-        instrument_type: &str,
+        instrument_type: InstrumentType,
         visited: &mut hashbrown::HashSet<MetricId>,
         temp_mark: &mut hashbrown::HashSet<MetricId>,
         order: &mut Vec<MetricId>,
@@ -688,7 +689,7 @@ mod tests {
                 value: 100.0,
                 deps: Vec::new(),
             }),
-            &["IRS"], // Only applies to IRS, not Bond
+            &[InstrumentType::IRS], // Only applies to IRS, not Bond
         );
 
         let mut context = create_test_context(); // MockInstrument has type Bond

@@ -29,21 +29,22 @@ pub use weight_risk::WeightRiskCalculator;
 
 /// Register all Basket metrics with the registry
 pub fn register_basket_metrics(registry: &mut MetricRegistry) {
+    use crate::pricer::InstrumentType;
     // Custom metrics for basket-specific risks
     registry.register_metric(
         MetricId::custom("constituent_delta"),
         Arc::new(ConstituentDeltaCalculator),
-        &["Basket"],
+        &[InstrumentType::Basket],
     );
     registry.register_metric(
         MetricId::custom("weight_risk"),
         Arc::new(WeightRiskCalculator),
-        &["Basket"],
+        &[InstrumentType::Basket],
     );
 
     crate::register_metrics! {
         registry: registry,
-        instrument: "Basket",
+        instrument: InstrumentType::Basket,
         metrics: [
             (ConstituentCount, ConstituentCountCalculator),
             (ExpenseRatio, ExpenseRatioCalculator),

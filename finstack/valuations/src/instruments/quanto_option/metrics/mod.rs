@@ -33,12 +33,13 @@ use std::sync::Arc;
 /// Register quanto option metrics with the registry.
 #[cfg(feature = "mc")]
 pub fn register_quanto_option_metrics(registry: &mut MetricRegistry) {
+    use crate::pricer::InstrumentType;
     #[cfg(feature = "mc")]
     {
         // Standard greeks
         crate::register_metrics! {
             registry: registry,
-            instrument: "QuantoOption",
+            instrument: InstrumentType::QuantoOption,
             metrics: [
                 (Delta, delta::DeltaCalculator),
                 (Gamma, gamma::GammaCalculator),
@@ -61,19 +62,19 @@ pub fn register_quanto_option_metrics(registry: &mut MetricRegistry) {
         registry.register_metric(
             MetricId::custom("fx_delta"),
             Arc::new(fx_delta::FxDeltaCalculator),
-            &["QuantoOption"],
+            &[InstrumentType::QuantoOption],
         );
 
         registry.register_metric(
             MetricId::FxVega,
             Arc::new(fx_vega::FxVegaCalculator),
-            &["QuantoOption"],
+            &[InstrumentType::QuantoOption],
         );
 
         registry.register_metric(
             MetricId::Correlation01,
             Arc::new(correlation01::Correlation01Calculator),
-            &["QuantoOption"],
+            &[InstrumentType::QuantoOption],
         );
     }
 }

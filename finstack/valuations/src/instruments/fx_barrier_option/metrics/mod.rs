@@ -22,9 +22,10 @@ use crate::metrics::MetricRegistry;
 /// Register FX barrier option metrics with the registry.
 #[cfg(feature = "mc")]
 pub fn register_fx_barrier_option_metrics(registry: &mut MetricRegistry) {
+    use crate::pricer::InstrumentType;
     crate::register_metrics! {
         registry: registry,
-        instrument: "FxBarrierOption",
+        instrument: InstrumentType::FxBarrierOption,
         metrics: [
             (Delta, delta::DeltaCalculator),
             (Gamma, gamma::GammaCalculator),
@@ -48,9 +49,10 @@ pub fn register_fx_barrier_option_metrics(registry: &mut MetricRegistry) {
 /// Register FX barrier option metrics when MC feature is not available.
 #[cfg(not(feature = "mc"))]
 pub fn register_fx_barrier_option_metrics(registry: &mut MetricRegistry) {
+    use crate::pricer::InstrumentType;
     crate::register_metrics! {
         registry: registry,
-        instrument: "FxBarrierOption",
+        instrument: InstrumentType::FxBarrierOption,
         metrics: [
             (Dv01, crate::metrics::UnifiedDv01Calculator::<
                 crate::instruments::FxBarrierOption,

@@ -33,6 +33,7 @@ use crate::metrics::MetricRegistry;
 /// Register all Repo metrics with the registry.
 pub fn register_repo_metrics(registry: &mut MetricRegistry) {
     use crate::metrics::{MetricCalculator, MetricId};
+    use crate::pricer::InstrumentType;
     use std::sync::Arc;
 
     // Shared calculator for AccruedInterest and Accrued aliases
@@ -41,26 +42,26 @@ pub fn register_repo_metrics(registry: &mut MetricRegistry) {
     registry.register_metric(
         MetricId::AccruedInterest,
         Arc::clone(&accrued_calc),
-        &["Repo"],
+        &[InstrumentType::Repo],
     );
-    registry.register_metric(MetricId::Accrued, accrued_calc, &["Repo"]);
+    registry.register_metric(MetricId::Accrued, accrued_calc, &[InstrumentType::Repo]);
 
     // Repo-specific risk metrics (custom metrics)
     registry.register_metric(
         MetricId::CollateralHaircut01,
         Arc::new(haircut01::Haircut01Calculator),
-        &["Repo"],
+        &[InstrumentType::Repo],
     );
     registry.register_metric(
         MetricId::CollateralPrice01,
         Arc::new(collateral_price01::CollateralPrice01Calculator),
-        &["Repo"],
+        &[InstrumentType::Repo],
     );
 
     // Standard metrics using macro
     crate::register_metrics! {
         registry: registry,
-        instrument: "Repo",
+        instrument: InstrumentType::Repo,
         metrics: [
             (CollateralValue, collateral_value::CollateralValueCalculator),
             (RequiredCollateral, required_collateral::RequiredCollateralCalculator),

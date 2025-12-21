@@ -25,9 +25,10 @@ use crate::metrics::MetricRegistry;
 /// Registers both standard metrics (PV, DV01, Theta, BucketedDV01, CS01) and
 /// facility-specific metrics (utilization rate, available capacity, weighted average cost).
 pub fn register_revolving_credit_metrics(registry: &mut MetricRegistry) {
+    use crate::pricer::InstrumentType;
     crate::register_metrics! {
         registry: registry,
-        instrument: "RevolvingCredit",
+        instrument: InstrumentType::RevolvingCredit,
         metrics: [
             (Dv01, crate::metrics::UnifiedDv01Calculator::<
                 crate::instruments::RevolvingCredit,
@@ -49,18 +50,18 @@ pub fn register_revolving_credit_metrics(registry: &mut MetricRegistry) {
     registry.register_metric(
         MetricId::custom("utilization_rate"),
         Arc::new(UtilizationRateCalculator),
-        &["RevolvingCredit"],
+        &[InstrumentType::RevolvingCredit],
     );
 
     registry.register_metric(
         MetricId::custom("available_capacity"),
         Arc::new(AvailableCapacityCalculator),
-        &["RevolvingCredit"],
+        &[InstrumentType::RevolvingCredit],
     );
 
     registry.register_metric(
         MetricId::custom("weighted_average_cost"),
         Arc::new(ApproxWeightedAverageCostCalculator),
-        &["RevolvingCredit"],
+        &[InstrumentType::RevolvingCredit],
     );
 }

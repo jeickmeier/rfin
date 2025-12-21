@@ -24,6 +24,7 @@ use crate::metrics::MetricRegistry;
 /// Register all inflation swap metrics with the registry
 pub fn register_inflation_swap_metrics(registry: &mut MetricRegistry) {
     use crate::metrics::MetricId;
+    use crate::pricer::InstrumentType;
     use std::sync::Arc;
 
     // Custom metrics
@@ -31,27 +32,27 @@ pub fn register_inflation_swap_metrics(registry: &mut MetricRegistry) {
         .register_metric(
             MetricId::custom("breakeven"),
             Arc::new(breakeven::BreakevenCalculator),
-            &["InflationSwap"],
+            &[InstrumentType::InflationSwap],
         )
         .register_metric(
             MetricId::custom("fixed_leg_pv"),
             Arc::new(fixed_leg_pv::FixedLegPvCalculator),
-            &["InflationSwap"],
+            &[InstrumentType::InflationSwap],
         )
         .register_metric(
             MetricId::custom("inflation_leg_pv"),
             Arc::new(inflation_leg_pv::InflationLegPvCalculator),
-            &["InflationSwap"],
+            &[InstrumentType::InflationSwap],
         )
         .register_metric(
             MetricId::Inflation01,
             Arc::new(inflation01::Inflation01Calculator),
-            &["InflationSwap"],
+            &[InstrumentType::InflationSwap],
         )
         .register_metric(
             MetricId::InflationConvexity,
             Arc::new(inflation_convexity::InflationConvexityCalculator),
-            &["InflationSwap"],
+            &[InstrumentType::InflationSwap],
         )
         .register_metric(
             MetricId::Npv01,
@@ -60,13 +61,13 @@ pub fn register_inflation_swap_metrics(registry: &mut MetricRegistry) {
             >::new(
                 crate::metrics::Dv01CalculatorConfig::parallel_combined()
             )),
-            &["InflationSwap"],
+            &[InstrumentType::InflationSwap],
         );
 
     // Standard metrics using macro
     crate::register_metrics! {
         registry: registry,
-        instrument: "InflationSwap",
+        instrument: InstrumentType::InflationSwap,
         metrics: [
             (ParRate, par_rate::ParRateCalculator),
             (Dv01, crate::metrics::UnifiedDv01Calculator::<

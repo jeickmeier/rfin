@@ -29,39 +29,40 @@ use crate::metrics::MetricRegistry;
 /// Register all CDS Tranche metrics with the registry
 pub fn register_cds_tranche_metrics(registry: &mut MetricRegistry) {
     use crate::metrics::MetricId;
+    use crate::pricer::InstrumentType;
     use std::sync::Arc;
 
     registry
         .register_metric(
             MetricId::custom("upfront"),
             Arc::new(upfront::UpfrontCalculator),
-            &["CDSTranche"],
+            &[InstrumentType::CDSTranche],
         )
         .register_metric(
             MetricId::SpreadDv01,
             Arc::new(spread_dv01::SpreadDv01Calculator),
-            &["CDSTranche"],
+            &[InstrumentType::CDSTranche],
         )
         .register_metric(
             MetricId::Correlation01,
             Arc::new(correlation01::Correlation01Calculator),
-            &["CDSTranche"],
+            &[InstrumentType::CDSTranche],
         )
         .register_metric(
             MetricId::Recovery01,
             Arc::new(recovery01::Recovery01Calculator),
-            &["CDSTranche"],
+            &[InstrumentType::CDSTranche],
         )
         .register_metric(
             MetricId::custom("tail_dependence"),
             Arc::new(tail_dependence::TailDependenceCalculator),
-            &["CDSTranche"],
+            &[InstrumentType::CDSTranche],
         );
 
     // Standard metrics using macro
     crate::register_metrics! {
         registry: registry,
-        instrument: "CDSTranche",
+        instrument: InstrumentType::CDSTranche,
         metrics: [
             (Cs01, crate::metrics::GenericParallelCs01::<
                 crate::instruments::CdsTranche,

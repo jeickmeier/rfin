@@ -121,7 +121,7 @@ impl InstrumentType {
             InstrumentType::CDSTranche => "CDSTranche",
             InstrumentType::CDSOption => "CDSOption",
             InstrumentType::IRS => "InterestRateSwap",
-            InstrumentType::CapFloor => "InterestRateOption",
+            InstrumentType::CapFloor => "CapFloor",
             InstrumentType::Swaption => "Swaption",
             InstrumentType::BermudanSwaption => "BermudanSwaption",
             InstrumentType::BasisSwap => "BasisSwap",
@@ -227,6 +227,7 @@ impl std::str::FromStr for InstrumentType {
             "irs" | "swap" | "interest_rate_swap" => Ok(InstrumentType::IRS),
             "cap_floor" | "capfloor" | "interest_rate_option" => Ok(InstrumentType::CapFloor),
             "swaption" => Ok(InstrumentType::Swaption),
+            "bermudan_swaption" | "bermudanswaption" => Ok(InstrumentType::BermudanSwaption),
             "basis_swap" | "basisswap" => Ok(InstrumentType::BasisSwap),
             "basket" => Ok(InstrumentType::Basket),
             "convertible" | "convertible_bond" => Ok(InstrumentType::Convertible),
@@ -266,6 +267,12 @@ impl std::str::FromStr for InstrumentType {
             "fx_barrier_option" | "fx_barrier" => Ok(InstrumentType::FxBarrierOption),
             "term_loan" | "termloan" | "loan_term" => Ok(InstrumentType::TermLoan),
             "dcf" | "discounted_cash_flow" => Ok(InstrumentType::DCF),
+            "equity_total_return_swap" | "equity_trs" | "equitytrs" => {
+                Ok(InstrumentType::EquityTotalReturnSwap)
+            }
+            "fi_index_total_return_swap" | "fi_index_trs" | "fiindex_trs" | "fiindextrs" => {
+                Ok(InstrumentType::FIIndexTotalReturnSwap)
+            }
             other => Err(format!("Unknown instrument type: {}", other)),
         }
     }

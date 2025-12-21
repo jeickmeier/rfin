@@ -54,9 +54,10 @@ pub mod pv_float;
 
 /// Registers all IRS metrics into a provided registry.
 pub fn register_irs_metrics(registry: &mut crate::metrics::MetricRegistry) {
+    use crate::pricer::InstrumentType;
     crate::register_metrics! {
         registry: registry,
-        instrument: "InterestRateSwap",
+        instrument: InstrumentType::IRS,
         metrics: [
             (Annuity, annuity::AnnuityCalculator),
             (ParRate, par_rate::ParRateCalculator),

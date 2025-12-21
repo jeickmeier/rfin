@@ -23,18 +23,19 @@ use crate::metrics::MetricRegistry;
 /// Register all CDS Option metrics with the registry
 pub fn register_cds_option_metrics(registry: &mut MetricRegistry) {
     use crate::metrics::MetricId;
+    use crate::pricer::InstrumentType;
     use std::sync::Arc;
 
     // Recovery01 (custom metric - recovery rate sensitivity)
     registry.register_metric(
         MetricId::Recovery01,
         Arc::new(recovery01::Recovery01Calculator),
-        &["CDSOption"],
+        &[InstrumentType::CDSOption],
     );
 
     crate::register_metrics! {
         registry: registry,
-        instrument: "CDSOption",
+        instrument: InstrumentType::CDSOption,
         metrics: [
             (Delta, delta::DeltaCalculator),
             (Gamma, gamma::GammaCalculator),

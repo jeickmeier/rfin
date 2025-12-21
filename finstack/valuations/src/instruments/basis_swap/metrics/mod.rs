@@ -15,6 +15,7 @@ pub use par_spread::ParSpreadCalculator;
 pub use pv::PvCalculator;
 
 use crate::metrics::{MetricId, MetricRegistry};
+use crate::pricer::InstrumentType;
 use std::sync::Arc;
 
 /// Registers all basis swap metrics in the standard metric registry.
@@ -30,22 +31,22 @@ pub fn register_basis_swap_metrics(registry: &mut MetricRegistry) {
         .register_metric(
             MetricId::AnnuityPrimary,
             Arc::new(AnnuityCalculator::primary()),
-            &["BasisSwap"],
+            &[InstrumentType::BasisSwap],
         )
         .register_metric(
             MetricId::AnnuityReference,
             Arc::new(AnnuityCalculator::reference()),
-            &["BasisSwap"],
+            &[InstrumentType::BasisSwap],
         )
         .register_metric(
             MetricId::PvPrimary,
             Arc::new(PvCalculator::primary()),
-            &["BasisSwap"],
+            &[InstrumentType::BasisSwap],
         )
         .register_metric(
             MetricId::PvReference,
             Arc::new(PvCalculator::reference()),
-            &["BasisSwap"],
+            &[InstrumentType::BasisSwap],
         );
 
     // DV01 using GenericParallelDv01 in PerCurve mode
@@ -53,7 +54,7 @@ pub fn register_basis_swap_metrics(registry: &mut MetricRegistry) {
     // and stores the results in a bucketed series under BucketedDv01
     crate::register_metrics! {
         registry: registry,
-        instrument: "BasisSwap",
+        instrument: InstrumentType::BasisSwap,
         metrics: [
             (Dv01, crate::metrics::UnifiedDv01Calculator::<crate::instruments::BasisSwap>::new(crate::metrics::Dv01CalculatorConfig::parallel_per_curve())),
             (BasisParSpread, ParSpreadCalculator),

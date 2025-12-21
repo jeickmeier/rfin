@@ -28,24 +28,25 @@ use crate::metrics::MetricRegistry;
 /// Register all CDS metrics with the registry
 pub fn register_cds_metrics(registry: &mut MetricRegistry) {
     use crate::metrics::{MetricCalculator, MetricId};
+    use crate::pricer::InstrumentType;
     use std::sync::Arc;
 
     // Shared calculator for RiskyPv01 and custom "pv01" alias
     let risky_pv01_calc: Arc<dyn MetricCalculator> = Arc::new(risky_pv01::RiskyPv01Calculator);
-    registry.register_metric(MetricId::RiskyPv01, Arc::clone(&risky_pv01_calc), &["CDS"]);
-    registry.register_metric(MetricId::custom("pv01"), risky_pv01_calc, &["CDS"]);
+    registry.register_metric(MetricId::RiskyPv01, Arc::clone(&risky_pv01_calc), &[InstrumentType::CDS]);
+    registry.register_metric(MetricId::custom("pv01"), risky_pv01_calc, &[InstrumentType::CDS]);
 
     // Recovery01 (custom metric - recovery rate sensitivity)
     registry.register_metric(
         MetricId::Recovery01,
         Arc::new(recovery01::Recovery01Calculator),
-        &["CDS"],
+        &[InstrumentType::CDS],
     );
 
     // Standard metrics using macro
     crate::register_metrics! {
         registry: registry,
-        instrument: "CDS",
+        instrument: InstrumentType::CDS,
         metrics: [
             (ParSpread, par_spread::ParSpreadCalculator),
             (Cs01, crate::metrics::GenericParallelCs01::<

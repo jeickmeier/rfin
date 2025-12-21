@@ -20,30 +20,31 @@ use std::sync::Arc;
 #[cfg(feature = "mc")]
 pub fn register_asian_option_metrics(registry: &mut MetricRegistry) {
     use crate::metrics::{GenericFdDelta, GenericFdGamma, GenericFdVanna, GenericFdVolga};
+    use crate::pricer::InstrumentType;
 
     // Use generic FD calculators for Delta, Gamma, Vanna, and Volga
     registry.register_metric(
         MetricId::Delta,
         Arc::new(GenericFdDelta::<crate::instruments::AsianOption>::default()),
-        &["AsianOption"],
+        &[InstrumentType::AsianOption],
     );
 
     registry.register_metric(
         MetricId::Gamma,
         Arc::new(GenericFdGamma::<crate::instruments::AsianOption>::default()),
-        &["AsianOption"],
+        &[InstrumentType::AsianOption],
     );
 
     registry.register_metric(
         MetricId::Vanna,
         Arc::new(GenericFdVanna::<crate::instruments::AsianOption>::default()),
-        &["AsianOption"],
+        &[InstrumentType::AsianOption],
     );
 
     registry.register_metric(
         MetricId::Volga,
         Arc::new(GenericFdVolga::<crate::instruments::AsianOption>::default()),
-        &["AsianOption"],
+        &[InstrumentType::AsianOption],
     );
 
     // Other metrics use custom implementations
@@ -51,7 +52,7 @@ pub fn register_asian_option_metrics(registry: &mut MetricRegistry) {
     {
         crate::register_metrics! {
             registry: registry,
-            instrument: "AsianOption",
+            instrument: InstrumentType::AsianOption,
             metrics: [
                 (Vega, vega::VegaCalculator::default()),
                 (Rho, rho::RhoCalculator::default()),

@@ -25,9 +25,10 @@ use crate::metrics::MetricRegistry;
 
 /// Register swaption metrics with the registry
 pub fn register_swaption_metrics(registry: &mut MetricRegistry) {
+    use crate::pricer::InstrumentType;
     crate::register_metrics! {
         registry: registry,
-        instrument: "Swaption",
+        instrument: InstrumentType::Swaption,
         metrics: [
             (Delta, DeltaCalculator),
             (Gamma, GammaCalculator),
@@ -47,9 +48,10 @@ pub fn register_swaption_metrics(registry: &mut MetricRegistry) {
 
 /// Register Bermudan swaption metrics with the registry
 pub fn register_bermudan_swaption_metrics(registry: &mut MetricRegistry) {
+    use crate::pricer::InstrumentType;
     crate::register_metrics! {
         registry: registry,
-        instrument: "BermudanSwaption",
+        instrument: InstrumentType::BermudanSwaption,
         metrics: [
             (Delta, BermudanDeltaCalculator::new()),
             (Gamma, BermudanGammaCalculator::new()),
@@ -60,7 +62,7 @@ pub fn register_bermudan_swaption_metrics(registry: &mut MetricRegistry) {
     registry.register_metric(
         crate::metrics::MetricId::custom("ExerciseProbability"),
         std::sync::Arc::new(ExerciseProbabilityCalculator::new()),
-        &["BermudanSwaption"],
+        &[InstrumentType::BermudanSwaption],
     );
 }
 

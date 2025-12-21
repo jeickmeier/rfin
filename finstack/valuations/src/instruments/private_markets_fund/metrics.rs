@@ -248,28 +248,29 @@ mod nav01;
 /// Register all private markets fund metrics.
 pub fn register_private_markets_fund_metrics(registry: &mut MetricRegistry) {
     use crate::metrics::MetricId;
+    use crate::pricer::InstrumentType;
     use std::sync::Arc;
 
     // Private markets fund-specific risk metrics (custom metrics)
     registry.register_metric(
         MetricId::Nav01,
         Arc::new(nav01::Nav01Calculator),
-        &["PrivateMarketsFund"],
+        &[InstrumentType::PrivateMarketsFund],
     );
     registry.register_metric(
         MetricId::Carry01,
         Arc::new(carry01::Carry01Calculator),
-        &["PrivateMarketsFund"],
+        &[InstrumentType::PrivateMarketsFund],
     );
     registry.register_metric(
         MetricId::Hurdle01,
         Arc::new(hurdle01::Hurdle01Calculator),
-        &["PrivateMarketsFund"],
+        &[InstrumentType::PrivateMarketsFund],
     );
 
     crate::register_metrics! {
         registry: registry,
-        instrument: "PrivateMarketsFund",
+        instrument: InstrumentType::PrivateMarketsFund,
         metrics: [
             (LpIrr, LpIrrCalculator),
             (GpIrr, GpIrrCalculator),

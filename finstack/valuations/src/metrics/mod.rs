@@ -368,35 +368,35 @@ pub fn standard_registry() -> MetricRegistry {
         std::sync::Arc::new(
             GenericBucketedCs01::<crate::instruments::CreditDefaultSwap>::default(),
         ),
-        &["CreditDefaultSwap"],
+        &[crate::pricer::InstrumentType::CDS],
     );
     registry.register_metric(
         MetricId::BucketedCs01,
         std::sync::Arc::new(
             GenericBucketedCs01::<crate::instruments::cds_index::CDSIndex>::default(),
         ),
-        &["CDSIndex"],
+        &[crate::pricer::InstrumentType::CDSIndex],
     );
     registry.register_metric(
         MetricId::BucketedCs01,
         std::sync::Arc::new(GenericBucketedCs01::<
             crate::instruments::cds_tranche::CdsTranche,
         >::default()),
-        &["CdsTranche"],
+        &[crate::pricer::InstrumentType::CDSTranche],
     );
     registry.register_metric(
         MetricId::BucketedCs01,
         std::sync::Arc::new(GenericBucketedCs01::<
             crate::instruments::cds_option::CdsOption,
         >::default()),
-        &["CdsOption"],
+        &[crate::pricer::InstrumentType::CDSOption],
     );
     registry.register_metric(
         MetricId::BucketedCs01,
         std::sync::Arc::new(GenericBucketedCs01::<
             crate::instruments::revolving_credit::RevolvingCredit,
         >::default()),
-        &["RevolvingCredit"],
+        &[crate::pricer::InstrumentType::RevolvingCredit],
     );
 
     crate::instruments::equity::metrics::register_equity_metrics(&mut registry);

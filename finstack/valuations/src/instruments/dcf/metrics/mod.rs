@@ -78,9 +78,10 @@ impl MetricCalculator for TerminalValuePVCalculator {
 /// - Equity value (`MetricId::EquityValue`)
 /// - Terminal value PV (`MetricId::TerminalValuePV`)
 pub fn register_dcf_metrics(registry: &mut MetricRegistry) {
+    use crate::pricer::InstrumentType;
     crate::register_metrics! {
         registry: registry,
-        instrument: "DCF",
+        instrument: InstrumentType::DCF,
         metrics: [
             // Generic rate risk metrics via unified DV01 calculator
             (

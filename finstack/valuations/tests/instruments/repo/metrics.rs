@@ -426,8 +426,20 @@ fn test_metrics_applicable_to_repo() {
     let registry = standard_registry();
 
     // Check applicability to Repo instrument type
-    assert!(registry.is_applicable(&MetricId::CollateralValue, "Repo"));
-    assert!(registry.is_applicable(&MetricId::RequiredCollateral, "Repo"));
-    assert!(registry.is_applicable(&MetricId::Dv01, "Repo"));
-    assert!(registry.is_applicable(&MetricId::Theta, "Repo"));
+    assert!(registry.is_applicable(
+        &MetricId::CollateralValue,
+        finstack_valuations::pricer::InstrumentType::Repo
+    ));
+    assert!(registry.is_applicable(
+        &MetricId::RequiredCollateral,
+        finstack_valuations::pricer::InstrumentType::Repo
+    ));
+    assert!(registry.is_applicable(
+        &MetricId::Dv01,
+        finstack_valuations::pricer::InstrumentType::Repo
+    ));
+    assert!(registry.is_applicable(
+        &MetricId::Theta,
+        finstack_valuations::pricer::InstrumentType::Repo
+    ));
 }

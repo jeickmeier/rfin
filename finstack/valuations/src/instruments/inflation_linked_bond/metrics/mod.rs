@@ -27,23 +27,24 @@ use std::sync::Arc;
 
 /// Register all ILB metrics with the registry
 pub fn register_ilb_metrics(registry: &mut MetricRegistry) {
+    use crate::pricer::InstrumentType;
     // Custom metric: Inflation01 (inflation curve sensitivity per 1bp)
     registry.register_metric(
         MetricId::Inflation01,
         Arc::new(Inflation01Calculator),
-        &["InflationLinkedBond"],
+        &[InstrumentType::InflationLinkedBond],
     );
 
     // Custom metric: InflationConvexity (second-order inflation sensitivity)
     registry.register_metric(
         MetricId::InflationConvexity,
         Arc::new(InflationConvexityCalculator),
-        &["InflationLinkedBond"],
+        &[InstrumentType::InflationLinkedBond],
     );
 
     crate::register_metrics! {
         registry: registry,
-        instrument: "InflationLinkedBond",
+        instrument: InstrumentType::InflationLinkedBond,
         metrics: [
             (RealYield, RealYieldCalculator),
             (IndexRatio, IndexRatioCalculator),

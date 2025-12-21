@@ -16,9 +16,10 @@ use std::sync::Arc;
 
 /// Register CMS option metrics with the registry.
 pub fn register_cms_option_metrics(registry: &mut MetricRegistry) {
+    use crate::pricer::InstrumentType;
     crate::register_metrics! {
         registry: registry,
-        instrument: "CmsOption",
+        instrument: InstrumentType::CmsOption,
         metrics: [
             (Delta, delta::DeltaCalculator),
             (Vega, vega::VegaCalculator),
@@ -41,6 +42,6 @@ pub fn register_cms_option_metrics(registry: &mut MetricRegistry) {
     registry.register_metric(
         MetricId::ConvexityAdjustmentRisk,
         Arc::new(convexity_adjustment_risk::ConvexityAdjustmentRiskCalculator),
-        &["CmsOption"],
+        &[InstrumentType::CmsOption],
     );
 }

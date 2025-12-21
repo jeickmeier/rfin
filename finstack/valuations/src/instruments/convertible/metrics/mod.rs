@@ -22,34 +22,35 @@ use crate::metrics::MetricRegistry;
 /// Register convertible bond metrics into the registry.
 pub fn register_convertible_metrics(registry: &mut MetricRegistry) {
     use crate::metrics::MetricId;
+    use crate::pricer::InstrumentType;
     use std::sync::Arc;
 
     // Custom metrics (not in standard MetricId enum)
     registry.register_metric(
         MetricId::custom("parity"),
         Arc::new(parity::ParityCalculator),
-        &["ConvertibleBond"],
+        &[InstrumentType::Convertible],
     );
     registry.register_metric(
         MetricId::custom("conversion_premium"),
         Arc::new(conversion_premium::ConversionPremiumCalculator),
-        &["ConvertibleBond"],
+        &[InstrumentType::Convertible],
     );
     registry.register_metric(
         MetricId::Dividend01,
         Arc::new(dividend_risk::DividendRiskCalculator),
-        &["ConvertibleBond"],
+        &[InstrumentType::Convertible],
     );
     registry.register_metric(
         MetricId::Conversion01,
         Arc::new(conversion01::Conversion01Calculator),
-        &["ConvertibleBond"],
+        &[InstrumentType::Convertible],
     );
 
     // Standard metrics using macro
     crate::register_metrics! {
         registry: registry,
-        instrument: "ConvertibleBond",
+        instrument: InstrumentType::Convertible,
         metrics: [
             (Delta, greeks::DeltaCalculator),
             (Gamma, greeks::GammaCalculator),

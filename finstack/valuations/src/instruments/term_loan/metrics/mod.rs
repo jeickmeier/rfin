@@ -98,9 +98,10 @@ use crate::metrics::MetricRegistry;
 /// register_term_loan_metrics(&mut registry);
 /// ```
 pub fn register_term_loan_metrics(registry: &mut MetricRegistry) {
+    use crate::pricer::InstrumentType;
     crate::register_metrics! {
         registry: registry,
-    instrument: "TermLoan",
+        instrument: InstrumentType::TermLoan,
         metrics: [
             (Ytw, YtwCalculator),
 
@@ -129,36 +130,36 @@ pub fn register_term_loan_metrics(registry: &mut MetricRegistry) {
     registry.register_metric(
         MetricId::custom("all_in_rate"),
         Arc::new(AllInRateCalculator),
-        &["TermLoan"],
+        &[InstrumentType::TermLoan],
     );
-    registry.register_metric(MetricId::Ytm, Arc::new(YtmCalculator), &["TermLoan"]);
+    registry.register_metric(MetricId::Ytm, Arc::new(YtmCalculator), &[InstrumentType::TermLoan]);
     registry.register_metric(
         MetricId::DiscountMargin,
         Arc::new(DiscountMarginCalculator),
-        &["TermLoan"],
+        &[InstrumentType::TermLoan],
     );
 
     // Yield to first call (custom id: ytc)
     registry.register_metric(
         MetricId::custom("ytc"),
         Arc::new(YtcCalculator),
-        &["TermLoan"],
+        &[InstrumentType::TermLoan],
     );
 
     // Yields to fixed horizons
     registry.register_metric(
         MetricId::custom("yt2y"),
         Arc::new(Yt2yCalculator),
-        &["TermLoan"],
+        &[InstrumentType::TermLoan],
     );
     registry.register_metric(
         MetricId::custom("yt3y"),
         Arc::new(Yt3yCalculator),
-        &["TermLoan"],
+        &[InstrumentType::TermLoan],
     );
     registry.register_metric(
         MetricId::custom("yt4y"),
         Arc::new(Yt4yCalculator),
-        &["TermLoan"],
+        &[InstrumentType::TermLoan],
     );
 }

@@ -23,9 +23,10 @@ use crate::metrics::MetricRegistry;
 
 /// Register variance swap metrics with the registry.
 pub fn register_variance_swap_metrics(registry: &mut MetricRegistry) {
+    use crate::pricer::InstrumentType;
     crate::register_metrics! {
         registry: registry,
-        instrument: "VarianceSwap",
+        instrument: InstrumentType::VarianceSwap,
         metrics: [
             (Vega, VegaCalculator),
             (Dv01, crate::metrics::UnifiedDv01Calculator::<

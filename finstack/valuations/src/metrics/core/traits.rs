@@ -295,8 +295,6 @@ impl MetricContext {
     {
         let collected: Vec<(String, f64)> =
             series.into_iter().map(|(k, v)| (k.into(), v)).collect();
-        self.computed_series
-            .insert(base_metric_id.clone(), collected.clone());
 
         for (label, value) in &collected {
             let key = if let Some(resolver) = &self.bucket_key_resolver {
@@ -306,6 +304,8 @@ impl MetricContext {
             };
             self.computed.insert(key, *value);
         }
+
+        self.computed_series.insert(base_metric_id, collected);
     }
 
     /// Store a 2D structured metric (rows x cols) under `base_metric_id` and

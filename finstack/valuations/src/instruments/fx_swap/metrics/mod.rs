@@ -22,6 +22,7 @@ use crate::metrics::MetricRegistry;
 /// Register all FX Swap metrics with the registry
 pub fn register_fx_swap_metrics(registry: &mut MetricRegistry) {
     use crate::metrics::MetricId;
+    use crate::pricer::InstrumentType;
     use std::sync::Arc;
 
     // Custom metrics
@@ -29,34 +30,34 @@ pub fn register_fx_swap_metrics(registry: &mut MetricRegistry) {
         .register_metric(
             MetricId::custom("carry_pv"),
             Arc::new(carry_pv::CarryPv),
-            &["FxSwap"],
+            &[InstrumentType::FxSwap],
         )
         .register_metric(
             MetricId::custom("forward_points"),
             Arc::new(forward_points::ForwardPoints),
-            &["FxSwap"],
+            &[InstrumentType::FxSwap],
         )
-        .register_metric(MetricId::Fx01, Arc::new(fx01::FX01), &["FxSwap"])
+        .register_metric(MetricId::Fx01, Arc::new(fx01::FX01), &[InstrumentType::FxSwap])
         .register_metric(
             MetricId::custom("fx_delta"),
             Arc::new(fx_delta::FxDeltaCalculator),
-            &["FxSwap"],
+            &[InstrumentType::FxSwap],
         )
         .register_metric(
             MetricId::Dv01Domestic,
             Arc::new(ir01_domestic::DomesticIR01),
-            &["FxSwap"],
+            &[InstrumentType::FxSwap],
         )
         .register_metric(
             MetricId::Dv01Foreign,
             Arc::new(ir01_foreign::ForeignIR01),
-            &["FxSwap"],
+            &[InstrumentType::FxSwap],
         );
 
     // Standard metrics using macro
     crate::register_metrics! {
         registry: registry,
-        instrument: "FxSwap",
+        instrument: InstrumentType::FxSwap,
         metrics: [
             (Dv01, crate::metrics::UnifiedDv01Calculator::<
                 crate::instruments::FxSwap,

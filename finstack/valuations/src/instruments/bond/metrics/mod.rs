@@ -86,9 +86,10 @@ pub use price_yield_spread::{
 /// register_bond_metrics(&mut registry);
 /// ```
 pub fn register_bond_metrics(registry: &mut crate::metrics::MetricRegistry) {
+    use crate::pricer::InstrumentType;
     crate::register_metrics! {
         registry: registry,
-        instrument: "Bond",
+        instrument: InstrumentType::Bond,
         metrics: [
             (Accrued, AccruedInterestCalculator),
             (AccruedInterest, AccruedInterestCalculator),
