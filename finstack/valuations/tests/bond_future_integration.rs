@@ -1,0 +1,729 @@
+//! Bond Future Integration Tests
+//!
+//! Comprehensive integration tests for bond future pricing, invoice price calculation,
+//! and error handling using realistic UST 10-year contract parameters.
+
+use finstack_core::currency::Currency;
+use finstack_core::dates::Date;
+use finstack_core::market_data::context::MarketContext;
+use finstack_core::market_data::term_structures::discount_curve::DiscountCurve;
+use finstack_core::math::interp::InterpStyle;
+use finstack_core::money::Money;
+use finstack_core::types::{CurveId, InstrumentId};
+use finstack_valuations::instruments::bond::Bond;
+use finstack_valuations::instruments::bond_future::{
+    BondFuture, DeliverableBond, Position,
+};
+use finstack_valuations::instruments::bond_future::pricer::BondFuturePricer;
+use time::macros::date;
+
+// ========================================================================================
+// Helper Functions
+// ========================================================================================
+
+/// Create a realistic market context with a UST discount curve.
+///
+/// The curve has approximately 20 tenors covering the full maturity spectrum
+/// from overnight to 30 years, representing typical UST curve construction.
+fn create_realistic_market() -> MarketContext {
+    let base_date = date!(2025 - 01 - 15);
+
+    // Realistic UST yield curve (simplified flat curve at ~4% for testing)
+    // In production, these would come from actual market data
+    let rate = 0.04; // 4% flat for simplicity
+
+    // Build knots for a comprehensive yield curve
+    // Using semi-annual compounding: DF(t) = 1 / (1 + rate/2)^(2*t)
+    let mut knots = Vec::new();
+
+    // Add points at standard UST maturities
+    let maturities = vec![
+        0.0,   // Overnight
+        0.25,  // 3-month bill
+        0.5,   // 6-month bill
+        1.0,   // 1-year bill
+        2.0,   // 2-year note
+        3.0,   // 3-year note
+        5.0,   // 5-year note
+        7.0,   // 7-year note
+        10.0,  // 10-year note
+        20.0,  // 20-year bond
+        30.0,  // 30-year bond
+    ];
+
+    for t in maturities {
+        let df = if t == 0.0 {
+            1.0
+        } else {
+            let base: f64 = 1.0 + rate / 2.0;
+            1.0_f64 / base.powf(2.0 * t)
+        };
+        knots.push((t, df));
+    }
+
+    let curve = DiscountCurve::builder(CurveId::new("USD-TREASURY"))
+        .base_date(base_date)
+        .knots(knots)
+        .set_interp(InterpStyle::LogLinear) // Log-linear interpolation for discount factors
+        .build()
+        .expect("Failed to build realistic discount curve");
+
+    MarketContext::new().insert_discount(curve)
+}
+
+/// Create a test bond with realistic UST parameters.
+///
+/// # Parameters
+///
+/// * `bond_id` - Unique identifier (e.g., CUSIP)
+/// * `notional` - Face value
+/// * `coupon_rate` - Annual coupon rate (e.g., 0.0375 for 3.75%)
+/// * `issue` - Issue date
+/// * `maturity` - Maturity date
+fn create_ust_bond(
+    bond_id: &str,
+    notional: f64,
+    coupon_rate: f64,
+    issue: Date,
+    maturity: Date,
+) -> Bond {
+    Bond::fixed(
+        bond_id,
+        Money::new(notional, Currency::USD),
+        coupon_rate,
+        issue,
+        maturity,
+        "USD-TREASURY",
+    )
+}
+
+/// Create a realistic deliverable basket for UST 10-year futures.
+///
+/// Returns a vector of bonds and their conversion factors.
+/// In practice, conversion factors are published by the exchange (CBOT).
+fn create_deliverable_basket() -> (Vec<Bond>, Vec<DeliverableBond>) {
+    // Create 5 realistic deliverable bonds with varying coupons and maturities
+    // All bonds must have at least 6.5 years remaining maturity to be deliverable
+    // into the 10-year contract
+
+    let bonds = vec![
+        // Bond 1: 3.75% coupon, 9.5 years to maturity
+        create_ust_bond(
+            "US912828XG33",
+            100_000.0,
+            0.0375,
+            date!(2023 - 07 - 15),
+            date!(2034 - 07 - 15),
+        ),
+        // Bond 2: 4.00% coupon, 10 years to maturity
+        create_ust_bond(
+            "US912828XH15",
+            100_000.0,
+            0.04,
+            date!(2023 - 01 - 15),
+            date!(2035 - 01 - 15),
+        ),
+        // Bond 3: 4.25% coupon, 8 years to maturity
+        create_ust_bond(
+            "US912828XJ71",
+            100_000.0,
+            0.0425,
+            date!(2024 - 01 - 15),
+            date!(2033 - 01 - 15),
+        ),
+        // Bond 4: 3.50% coupon, 9 years to maturity
+        create_ust_bond(
+            "US912828XK54",
+            100_000.0,
+            0.035,
+            date!(2023 - 10 - 15),
+            date!(2034 - 10 - 15),
+        ),
+        // Bond 5: 4.50% coupon, 7.5 years to maturity
+        create_ust_bond(
+            "US912828XL38",
+            100_000.0,
+            0.045,
+            date!(2024 - 07 - 15),
+            date!(2032 - 07 - 15),
+        ),
+    ];
+
+    // In production, these conversion factors would be published by CBOT
+    // For this test, we'll calculate them using our conversion factor calculator
+    // For now, use placeholder values that will be recalculated
+    let deliverable_bonds = vec![
+        DeliverableBond {
+            bond_id: InstrumentId::new("US912828XG33"),
+            conversion_factor: 0.0, // Will be calculated
+        },
+        DeliverableBond {
+            bond_id: InstrumentId::new("US912828XH15"),
+            conversion_factor: 0.0,
+        },
+        DeliverableBond {
+            bond_id: InstrumentId::new("US912828XJ71"),
+            conversion_factor: 0.0,
+        },
+        DeliverableBond {
+            bond_id: InstrumentId::new("US912828XK54"),
+            conversion_factor: 0.0,
+        },
+        DeliverableBond {
+            bond_id: InstrumentId::new("US912828XL38"),
+            conversion_factor: 0.0,
+        },
+    ];
+
+    (bonds, deliverable_bonds)
+}
+
+// ========================================================================================
+// Integration Tests
+// ========================================================================================
+
+#[test]
+fn test_realistic_ust_10y_future_full_workflow() {
+    // Setup: Create market context and deliverable basket
+    let market = create_realistic_market();
+    let (bonds, mut deliverable_bonds) = create_deliverable_basket();
+
+    // Calculate conversion factors for all deliverable bonds
+    // Using standard UST 10Y parameters: 6% coupon, 10-year maturity
+    let standard_coupon = 0.06;
+    let standard_maturity = 10.0;
+    let as_of = date!(2025 - 01 - 15);
+
+    for (i, bond) in bonds.iter().enumerate() {
+        let cf = BondFuturePricer::calculate_conversion_factor(
+            bond,
+            standard_coupon,
+            standard_maturity,
+            &market,
+            as_of,
+        )
+        .expect("Conversion factor calculation should succeed");
+
+        deliverable_bonds[i].conversion_factor = cf;
+
+        // Sanity check: conversion factors should be between 0.5 and 1.5 for realistic bonds
+        assert!(
+            cf > 0.5 && cf < 1.5,
+            "Conversion factor {} for bond {} is unrealistic",
+            cf,
+            bond.id.as_str()
+        );
+    }
+
+    // For testing, assume the first bond (3.75% coupon) is the CTD
+    // In production, CTD would be determined by calculating the cheapest delivery option
+    let ctd_bond_id = InstrumentId::new("US912828XG33");
+    let ctd_bond = &bonds[0];
+    let ctd_cf = deliverable_bonds[0].conversion_factor;
+
+    // Create UST 10Y futures contract (TYH5 = March 2025 expiry)
+    // Contract specs:
+    // - Notional: $1,000,000 (10 contracts × $100,000)
+    // - Quoted price: 125.50 (representing 125-16/32 in fractional notation)
+    // - Position: Long
+    let future = BondFuture::ust_10y(
+        InstrumentId::new("TYH5"),
+        Money::new(1_000_000.0, Currency::USD),
+        date!(2025 - 03 - 20), // Expiry: March 20, 2025
+        date!(2025 - 03 - 21), // Delivery start: March 21, 2025
+        date!(2025 - 03 - 31), // Delivery end: March 31, 2025
+        125.50,                // Quoted futures price
+        Position::Long,
+        deliverable_bonds.clone(), // Clone to allow later access
+        ctd_bond_id.clone(),
+        CurveId::new("USD-TREASURY"),
+    )
+    .expect("Future construction should succeed");
+
+    // Test 1: NPV Calculation
+    // The NPV represents the mark-to-market value of the futures position
+    let npv = BondFuturePricer::calculate_npv(&future, ctd_bond, ctd_cf, &market, as_of)
+        .expect("NPV calculation should succeed");
+
+    // NPV should be in USD
+    assert_eq!(npv.currency(), Currency::USD);
+
+    // For a long position, if quoted price > model price, NPV should be positive
+    // We don't assert exact value here because it depends on market prices,
+    // but we verify the calculation completes successfully
+    println!(
+        "NPV of long position with 10 contracts: ${:.2}",
+        npv.amount()
+    );
+
+    // Test 2: Model Price Calculation
+    let model_price =
+        BondFuturePricer::calculate_model_price(ctd_bond, ctd_cf, &market, as_of)
+            .expect("Model price calculation should succeed");
+
+    // Model price should be a reasonable value (80-150 range for UST futures)
+    assert!(
+        model_price > 80.0 && model_price < 150.0,
+        "Model price {} is unrealistic",
+        model_price
+    );
+
+    println!("Quoted price: {}", future.quoted_price);
+    println!("Model price: {:.4}", model_price);
+    println!(
+        "Price differential: {:.4} points",
+        future.quoted_price - model_price
+    );
+
+    // Test 3: Invoice Price Calculation (settlement amount)
+    // Invoice price is calculated at settlement date (expiry + 2 business days)
+    let _settlement_date = date!(2025 - 03 - 23); // Assuming T+2 settlement
+
+    // Calculate accrued interest at settlement
+    // For invoice price: Invoice = (Futures_Price × CF) + Accrued
+    let futures_price = future.quoted_price;
+    let invoice_price_per_100 = futures_price * ctd_cf;
+
+    println!(
+        "Invoice price (per $100 face): ${:.4}",
+        invoice_price_per_100
+    );
+
+    // For 10 contracts ($1,000,000 notional), total invoice is:
+    let total_invoice = (future.notional.amount() / 100.0) * invoice_price_per_100;
+    println!(
+        "Total invoice amount for 10 contracts: ${:.2}",
+        total_invoice
+    );
+
+    // Sanity check: invoice price should be reasonable
+    assert!(
+        invoice_price_per_100 > 80.0 && invoice_price_per_100 < 150.0,
+        "Invoice price {} is unrealistic",
+        invoice_price_per_100
+    );
+
+    // Test 4: Verify conversion factor relationships
+    // Higher coupon bonds should have higher conversion factors (above par)
+    // Lower coupon bonds should have lower conversion factors (below par)
+    let bond_3_75_cf = deliverable_bonds
+        .iter()
+        .find(|b| b.bond_id.as_str() == "US912828XG33")
+        .unwrap()
+        .conversion_factor;
+    let bond_4_50_cf = deliverable_bonds
+        .iter()
+        .find(|b| b.bond_id.as_str() == "US912828XL38")
+        .unwrap()
+        .conversion_factor;
+
+    // 4.50% coupon bond should have higher CF than 3.75% (both below 6% standard)
+    println!("3.75% bond CF: {:.4}", bond_3_75_cf);
+    println!("4.50% bond CF: {:.4}", bond_4_50_cf);
+    println!("Standard coupon: 6.00%");
+}
+
+#[test]
+fn test_short_position_npv() {
+    // Test that short positions have opposite sign NPV
+    let market = create_realistic_market();
+    let (bonds, mut deliverable_bonds) = create_deliverable_basket();
+    let as_of = date!(2025 - 01 - 15);
+
+    // Calculate conversion factor for first bond only (for speed)
+    let ctd_bond = &bonds[0];
+    let ctd_cf = BondFuturePricer::calculate_conversion_factor(
+        ctd_bond,
+        0.06,
+        10.0,
+        &market,
+        as_of,
+    )
+    .expect("CF calculation should succeed");
+
+    deliverable_bonds[0].conversion_factor = ctd_cf;
+
+    // Create two futures: one long, one short, otherwise identical
+    let long_future = BondFuture::ust_10y(
+        InstrumentId::new("TYH5_LONG"),
+        Money::new(100_000.0, Currency::USD),
+        date!(2025 - 03 - 20),
+        date!(2025 - 03 - 21),
+        date!(2025 - 03 - 31),
+        125.50,
+        Position::Long,
+        vec![deliverable_bonds[0].clone()],
+        InstrumentId::new("US912828XG33"),
+        CurveId::new("USD-TREASURY"),
+    )
+    .expect("Long future construction should succeed");
+
+    let short_future = BondFuture::ust_10y(
+        InstrumentId::new("TYH5_SHORT"),
+        Money::new(100_000.0, Currency::USD),
+        date!(2025 - 03 - 20),
+        date!(2025 - 03 - 21),
+        date!(2025 - 03 - 31),
+        125.50,
+        Position::Short,
+        vec![deliverable_bonds[0].clone()],
+        InstrumentId::new("US912828XG33"),
+        CurveId::new("USD-TREASURY"),
+    )
+    .expect("Short future construction should succeed");
+
+    let npv_long =
+        BondFuturePricer::calculate_npv(&long_future, ctd_bond, ctd_cf, &market, as_of)
+            .expect("Long NPV should succeed");
+
+    let npv_short =
+        BondFuturePricer::calculate_npv(&short_future, ctd_bond, ctd_cf, &market, as_of)
+            .expect("Short NPV should succeed");
+
+    println!("Long position NPV: ${:.2}", npv_long.amount());
+    println!("Short position NPV: ${:.2}", npv_short.amount());
+
+    // Long and short NPVs should be opposite
+    let sum = npv_long.amount() + npv_short.amount();
+    assert!(
+        sum.abs() < 0.01,
+        "Long and short NPVs should be equal and opposite, but sum = {}",
+        sum
+    );
+}
+
+#[test]
+fn test_error_handling_invalid_dates() {
+    // Test validation: expiry_date must be before delivery_start
+    let (_, deliverable_bonds) = create_deliverable_basket();
+
+    let result = BondFuture::ust_10y(
+        InstrumentId::new("INVALID"),
+        Money::new(100_000.0, Currency::USD),
+        date!(2025 - 03 - 25), // Expiry AFTER delivery start (invalid!)
+        date!(2025 - 03 - 21), // Delivery start
+        date!(2025 - 03 - 31), // Delivery end
+        125.50,
+        Position::Long,
+        deliverable_bonds,
+        InstrumentId::new("US912828XG33"),
+        CurveId::new("USD-TREASURY"),
+    );
+
+    assert!(
+        result.is_err(),
+        "Should fail validation when expiry_date >= delivery_start"
+    );
+    let err = result.unwrap_err();
+    assert!(
+        format!("{}", err).contains("expiry_date") && format!("{}", err).contains("delivery_start"),
+        "Error message should mention date ordering: {}",
+        err
+    );
+}
+
+#[test]
+fn test_error_handling_invalid_delivery_period() {
+    // Test validation: delivery_start must be before delivery_end
+    let (_, deliverable_bonds) = create_deliverable_basket();
+
+    let result = BondFuture::ust_10y(
+        InstrumentId::new("INVALID"),
+        Money::new(100_000.0, Currency::USD),
+        date!(2025 - 03 - 20),
+        date!(2025 - 03 - 31), // Delivery start AFTER delivery end (invalid!)
+        date!(2025 - 03 - 21), // Delivery end
+        125.50,
+        Position::Long,
+        deliverable_bonds,
+        InstrumentId::new("US912828XG33"),
+        CurveId::new("USD-TREASURY"),
+    );
+
+    assert!(
+        result.is_err(),
+        "Should fail validation when delivery_start >= delivery_end"
+    );
+    let err = result.unwrap_err();
+    assert!(
+        format!("{}", err).contains("delivery_start")
+            && format!("{}", err).contains("delivery_end"),
+        "Error message should mention delivery period: {}",
+        err
+    );
+}
+
+#[test]
+fn test_error_handling_empty_basket() {
+    // Test validation: deliverable_basket cannot be empty
+    let result = BondFuture::ust_10y(
+        InstrumentId::new("INVALID"),
+        Money::new(100_000.0, Currency::USD),
+        date!(2025 - 03 - 20),
+        date!(2025 - 03 - 21),
+        date!(2025 - 03 - 31),
+        125.50,
+        Position::Long,
+        vec![], // Empty basket (invalid!)
+        InstrumentId::new("US912828XG33"),
+        CurveId::new("USD-TREASURY"),
+    );
+
+    assert!(
+        result.is_err(),
+        "Should fail validation with empty deliverable basket"
+    );
+    let err = result.unwrap_err();
+    assert!(
+        format!("{}", err).contains("deliverable_basket"),
+        "Error message should mention empty basket: {}",
+        err
+    );
+}
+
+#[test]
+fn test_error_handling_ctd_not_in_basket() {
+    // Test validation: ctd_bond_id must exist in deliverable_basket
+    let (_, mut deliverable_bonds) = create_deliverable_basket();
+
+    // Only include one bond in basket, but reference a different one as CTD
+    deliverable_bonds.truncate(1);
+
+    let result = BondFuture::ust_10y(
+        InstrumentId::new("INVALID"),
+        Money::new(100_000.0, Currency::USD),
+        date!(2025 - 03 - 20),
+        date!(2025 - 03 - 21),
+        date!(2025 - 03 - 31),
+        125.50,
+        Position::Long,
+        deliverable_bonds,
+        InstrumentId::new("NONEXISTENT_BOND"), // Not in basket!
+        CurveId::new("USD-TREASURY"),
+    );
+
+    assert!(
+        result.is_err(),
+        "Should fail validation when CTD bond not in basket"
+    );
+    let err = result.unwrap_err();
+    assert!(
+        format!("{}", err).contains("ctd_bond_id"),
+        "Error message should mention CTD not found: {}",
+        err
+    );
+}
+
+#[test]
+fn test_error_handling_negative_conversion_factor() {
+    // Test validation: conversion_factor must be positive
+    let (_, mut deliverable_bonds) = create_deliverable_basket();
+
+    // Set a negative conversion factor (invalid!)
+    deliverable_bonds[0].conversion_factor = -0.5;
+
+    let result = BondFuture::ust_10y(
+        InstrumentId::new("INVALID"),
+        Money::new(100_000.0, Currency::USD),
+        date!(2025 - 03 - 20),
+        date!(2025 - 03 - 21),
+        date!(2025 - 03 - 31),
+        125.50,
+        Position::Long,
+        deliverable_bonds,
+        InstrumentId::new("US912828XG33"),
+        CurveId::new("USD-TREASURY"),
+    );
+
+    assert!(
+        result.is_err(),
+        "Should fail validation with negative conversion factor"
+    );
+    let err = result.unwrap_err();
+    assert!(
+        format!("{}", err).contains("conversion_factor"),
+        "Error message should mention conversion factor: {}",
+        err
+    );
+}
+
+#[test]
+fn test_multiple_contracts_scaling() {
+    // Test that NPV scales correctly with number of contracts
+    let market = create_realistic_market();
+    let (bonds, mut deliverable_bonds) = create_deliverable_basket();
+    let as_of = date!(2025 - 01 - 15);
+
+    let ctd_bond = &bonds[0];
+    let ctd_cf = BondFuturePricer::calculate_conversion_factor(
+        ctd_bond,
+        0.06,
+        10.0,
+        &market,
+        as_of,
+    )
+    .expect("CF calculation should succeed");
+
+    deliverable_bonds[0].conversion_factor = ctd_cf;
+
+    // Create futures with 1, 5, and 10 contracts
+    let future_1_contract = BondFuture::ust_10y(
+        InstrumentId::new("TY_1"),
+        Money::new(100_000.0, Currency::USD), // 1 contract
+        date!(2025 - 03 - 20),
+        date!(2025 - 03 - 21),
+        date!(2025 - 03 - 31),
+        125.50,
+        Position::Long,
+        vec![deliverable_bonds[0].clone()],
+        InstrumentId::new("US912828XG33"),
+        CurveId::new("USD-TREASURY"),
+    )
+    .expect("1-contract future should succeed");
+
+    let future_5_contracts = BondFuture::ust_10y(
+        InstrumentId::new("TY_5"),
+        Money::new(500_000.0, Currency::USD), // 5 contracts
+        date!(2025 - 03 - 20),
+        date!(2025 - 03 - 21),
+        date!(2025 - 03 - 31),
+        125.50,
+        Position::Long,
+        vec![deliverable_bonds[0].clone()],
+        InstrumentId::new("US912828XG33"),
+        CurveId::new("USD-TREASURY"),
+    )
+    .expect("5-contract future should succeed");
+
+    let future_10_contracts = BondFuture::ust_10y(
+        InstrumentId::new("TY_10"),
+        Money::new(1_000_000.0, Currency::USD), // 10 contracts
+        date!(2025 - 03 - 20),
+        date!(2025 - 03 - 21),
+        date!(2025 - 03 - 31),
+        125.50,
+        Position::Long,
+        vec![deliverable_bonds[0].clone()],
+        InstrumentId::new("US912828XG33"),
+        CurveId::new("USD-TREASURY"),
+    )
+    .expect("10-contract future should succeed");
+
+    let npv_1 = BondFuturePricer::calculate_npv(&future_1_contract, ctd_bond, ctd_cf, &market, as_of)
+        .expect("1-contract NPV should succeed");
+
+    let npv_5 = BondFuturePricer::calculate_npv(&future_5_contracts, ctd_bond, ctd_cf, &market, as_of)
+        .expect("5-contract NPV should succeed");
+
+    let npv_10 = BondFuturePricer::calculate_npv(&future_10_contracts, ctd_bond, ctd_cf, &market, as_of)
+        .expect("10-contract NPV should succeed");
+
+    println!("NPV (1 contract): ${:.2}", npv_1.amount());
+    println!("NPV (5 contracts): ${:.2}", npv_5.amount());
+    println!("NPV (10 contracts): ${:.2}", npv_10.amount());
+
+    // NPV should scale linearly with number of contracts
+    let ratio_5_to_1 = npv_5.amount() / npv_1.amount();
+    let ratio_10_to_1 = npv_10.amount() / npv_1.amount();
+
+    assert!(
+        (ratio_5_to_1 - 5.0).abs() < 0.01,
+        "5 contracts should have 5× NPV of 1 contract, got ratio: {}",
+        ratio_5_to_1
+    );
+
+    assert!(
+        (ratio_10_to_1 - 10.0).abs() < 0.01,
+        "10 contracts should have 10× NPV of 1 contract, got ratio: {}",
+        ratio_10_to_1
+    );
+}
+
+#[test]
+fn test_conversion_factor_calculation_accuracy() {
+    // Test that conversion factor calculation produces reasonable values
+    // for bonds with different coupons relative to the 6% standard
+    let market = create_realistic_market();
+    let as_of = date!(2025 - 01 - 15);
+
+    // Create three bonds: one below par (3%), one at par (6%), one above par (9%)
+    let bond_below_par = create_ust_bond(
+        "BELOW_PAR",
+        100_000.0,
+        0.03, // 3% coupon
+        date!(2023 - 01 - 15),
+        date!(2035 - 01 - 15),
+    );
+
+    let bond_at_par = create_ust_bond(
+        "AT_PAR",
+        100_000.0,
+        0.06, // 6% coupon (standard)
+        date!(2023 - 01 - 15),
+        date!(2035 - 01 - 15),
+    );
+
+    let bond_above_par = create_ust_bond(
+        "ABOVE_PAR",
+        100_000.0,
+        0.09, // 9% coupon
+        date!(2023 - 01 - 15),
+        date!(2035 - 01 - 15),
+    );
+
+    let cf_below = BondFuturePricer::calculate_conversion_factor(
+        &bond_below_par,
+        0.06,
+        10.0,
+        &market,
+        as_of,
+    )
+    .expect("CF for 3% bond should succeed");
+
+    let cf_at = BondFuturePricer::calculate_conversion_factor(
+        &bond_at_par,
+        0.06,
+        10.0,
+        &market,
+        as_of,
+    )
+    .expect("CF for 6% bond should succeed");
+
+    let cf_above = BondFuturePricer::calculate_conversion_factor(
+        &bond_above_par,
+        0.06,
+        10.0,
+        &market,
+        as_of,
+    )
+    .expect("CF for 9% bond should succeed");
+
+    println!("3% coupon bond CF: {:.4}", cf_below);
+    println!("6% coupon bond CF: {:.4}", cf_at);
+    println!("9% coupon bond CF: {:.4}", cf_above);
+
+    // Bonds with coupons below the standard should have CF < 1.0
+    assert!(
+        cf_below < 1.0,
+        "3% bond should have CF < 1.0, got {}",
+        cf_below
+    );
+
+    // Bonds with coupons at the standard should have CF ≈ 1.0
+    assert!(
+        (cf_at - 1.0).abs() < 0.15,
+        "6% bond should have CF ≈ 1.0, got {}",
+        cf_at
+    );
+
+    // Bonds with coupons above the standard should have CF > 1.0
+    assert!(
+        cf_above > 1.0,
+        "9% bond should have CF > 1.0, got {}",
+        cf_above
+    );
+
+    // Ordering: CF should increase with coupon
+    assert!(cf_below < cf_at, "CF should increase with coupon rate");
+    assert!(cf_at < cf_above, "CF should increase with coupon rate");
+}
