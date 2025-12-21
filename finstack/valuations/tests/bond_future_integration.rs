@@ -746,7 +746,6 @@ fn test_bond_future_dv01_calculation() {
     use std::sync::Arc;
 
     // Setup market and instruments
-    let market = create_realistic_market();
     let as_of = date!(2025 - 01 - 15);
     let expiry = date!(2025 - 03 - 20);
     let delivery_start = date!(2025 - 03 - 21);
@@ -760,6 +759,10 @@ fn test_bond_future_dv01_calculation() {
         date!(2017 - 03 - 15),
         date!(2033 - 03 - 15),
     );
+
+    // Register CTD bond in instrument registry
+    let market = create_realistic_market()
+        .insert_instrument("US912828XG33", Arc::new(ctd_bond.clone()));
 
     // Calculate conversion factor
     let conversion_factor = BondFuturePricer::calculate_conversion_factor(
@@ -863,10 +866,17 @@ fn test_bond_future_dv01_calculation() {
         diff
     );
 
-    // Verify that the 10Y bucket has the highest DV01 (for a 10Y contract)
+    // Verify that the 7Y or 10Y bucket has significant DV01
+    // (CTD bond matures in ~8 years, so sensitivity is split between 7Y and 10Y buckets)
+    let dv01_7y = bucketed_dv01
+        .iter()
+        .find(|(tenor, _)| tenor.to_lowercase() == "7y")
+        .map(|(_, v)| v.abs())
+        .unwrap_or(0.0);
+
     let dv01_10y = bucketed_dv01
         .iter()
-        .find(|(tenor, _)| tenor == "10Y")
+        .find(|(tenor, _)| tenor.to_lowercase() == "10y")
         .map(|(_, v)| v.abs())
         .unwrap_or(0.0);
 
@@ -876,10 +886,12 @@ fn test_bond_future_dv01_calculation() {
         .max_by(|a, b| a.partial_cmp(b).unwrap())
         .unwrap_or(0.0);
 
+    // Either 7Y or 10Y should have significant DV01 for a 10Y futures contract
+    let combined_7y_10y = dv01_7y + dv01_10y;
     assert!(
-        dv01_10y > max_bucket_dv01 * 0.5,
-        "10Y bucket should have significant DV01 for a 10Y futures contract, got {:.2} vs max {:.2}",
-        dv01_10y,
+        combined_7y_10y > max_bucket_dv01 * 0.8,
+        "7Y+10Y buckets should have significant DV01 for a 10Y futures contract, got {:.2} vs max {:.2}",
+        combined_7y_10y,
         max_bucket_dv01
     );
 }
@@ -893,7 +905,6 @@ fn test_bond_future_dv01_sign_convention() {
     use finstack_valuations::metrics::{standard_registry, MetricContext, MetricId};
     use std::sync::Arc;
 
-    let market = create_realistic_market();
     let as_of = date!(2025 - 01 - 15);
     let expiry = date!(2025 - 03 - 20);
     let delivery_start = date!(2025 - 03 - 21);
@@ -907,6 +918,10 @@ fn test_bond_future_dv01_sign_convention() {
         date!(2017 - 03 - 15),
         date!(2033 - 03 - 15),
     );
+
+    // Register CTD bond in instrument registry
+    let market = create_realistic_market()
+        .insert_instrument("US912828XG33", Arc::new(ctd_bond.clone()));
 
     let conversion_factor = BondFuturePricer::calculate_conversion_factor(
         &ctd_bond,

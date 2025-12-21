@@ -595,6 +595,14 @@ pub struct MarketContext {
     /// and other scenario-based risk metrics. When present, enables VaR
     /// metric calculation.
     pub market_history: Option<Arc<dyn std::any::Any + Send + Sync>>,
+
+    /// Instrument registry for storing and retrieving instruments by ID
+    ///
+    /// Enables lookup of instruments (bonds, swaps, etc.) needed for derivative
+    /// pricing. For example, bond futures need access to the CTD bond for DV01
+    /// calculations. Instruments are stored type-erased and must be downcast
+    /// at retrieval.
+    pub(super) instruments: HashMap<CurveId, Arc<dyn std::any::Any + Send + Sync>>,
 }
 
 impl MarketContext {
@@ -899,6 +907,69 @@ impl MarketContext {
     ) -> &mut Self {
         self.market_history = Some(history);
         self
+    }
+
+    /// Insert an instrument into the registry.
+    ///
+    /// Stores instruments (bonds, swaps, etc.) that can be retrieved by ID.
+    /// This is useful for derivative pricing that requires underlying instruments,
+    /// such as bond futures needing access to the CTD bond.
+    ///
+    /// # Parameters
+    /// - `id`: Instrument identifier
+    /// - `instrument`: Type-erased instrument (must be Send + Sync)
+    ///
+    /// # Examples
+    /// ```rust,ignore
+    /// use finstack_core::market_data::context::MarketContext;
+    /// use std::sync::Arc;
+    ///
+    /// // Assuming Bond implements appropriate traits
+    /// let bond = create_bond();
+    /// let ctx = MarketContext::new()
+    ///     .insert_instrument("US912828XG33", Arc::new(bond));
+    /// ```
+    pub fn insert_instrument(
+        mut self,
+        id: impl AsRef<str>,
+        instrument: Arc<dyn std::any::Any + Send + Sync>,
+    ) -> Self {
+        self.instruments
+            .insert(CurveId::from(id.as_ref()), instrument);
+        self
+    }
+
+    /// In-place insert of an instrument into the registry.
+    pub fn insert_instrument_mut(
+        &mut self,
+        id: impl AsRef<str>,
+        instrument: Arc<dyn std::any::Any + Send + Sync>,
+    ) -> &mut Self {
+        self.instruments
+            .insert(CurveId::from(id.as_ref()), instrument);
+        self
+    }
+
+    /// Retrieve an instrument from the registry.
+    ///
+    /// Returns a type-erased instrument that must be downcast to the expected type.
+    ///
+    /// # Parameters
+    /// - `id`: Instrument identifier
+    ///
+    /// # Returns
+    /// Arc to the type-erased instrument
+    ///
+    /// # Errors
+    /// Returns error if instrument not found
+    pub fn get_instrument(&self, id: &str) -> Result<Arc<dyn std::any::Any + Send + Sync>> {
+        self.instruments
+            .get(&CurveId::from(id))
+            .cloned()
+            .ok_or_else(|| crate::error::InputError::NotFound {
+                id: format!("Instrument: {}", id),
+            }
+            .into())
     }
 
     /// Bump FX spot rate for a currency pair and return a new context.
@@ -1691,6 +1762,7 @@ impl MarketContext {
             dividends: self.dividends.clone(),
             collateral: self.collateral.clone(),
             market_history: self.market_history.clone(),
+            instruments: self.instruments.clone(),
         };
 
         // Roll each curve forward

@@ -106,7 +106,12 @@ fn create_market() -> MarketContext {
         .build()
         .unwrap();
 
-    MarketContext::new().insert_discount(disc)
+    // Register CTD bond in instrument registry for DV01 calculations
+    let ctd_bond = create_ctd_bond();
+
+    MarketContext::new()
+        .insert_discount(disc)
+        .insert_instrument("US912828XG33", std::sync::Arc::new(ctd_bond))
 }
 
 /// Benchmark conversion factor calculation

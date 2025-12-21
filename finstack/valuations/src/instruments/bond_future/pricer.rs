@@ -303,8 +303,8 @@ impl crate::pricer::Pricer for BondFuturePricer {
     fn price_dyn(
         &self,
         instrument: &dyn crate::instruments::common::traits::Instrument,
-        _market: &MarketContext,
-        _as_of: finstack_core::dates::Date,
+        market: &MarketContext,
+        as_of: finstack_core::dates::Date,
     ) -> crate::pricer::PricingResult<crate::results::ValuationResult> {
         // Type-safe downcast to BondFuture
         let future = instrument
@@ -317,18 +317,45 @@ impl crate::pricer::Pricer for BondFuturePricer {
                 )
             })?;
 
-        // Bond future pricing requires the CTD bond to be provided explicitly.
-        // The standard Pricer trait doesn't support additional parameters, so for now,
-        // users should call BondFuturePricer::calculate_npv() directly with the CTD bond.
-        //
-        // Future enhancement: Add an instrument registry to MarketContext to store
-        // and retrieve bonds by ID, allowing automatic CTD bond lookup.
-        Err(crate::pricer::PricingError::ModelFailure(format!(
-            "Bond future pricing requires explicit CTD bond provision. \
-             The CTD bond (ID: {}) must be provided directly to BondFuturePricer::calculate_npv(). \
-             This limitation will be resolved when an instrument registry is added to MarketContext.",
-            future.ctd_bond_id.as_str()
-        )))
+        // Look up the CTD bond from the instrument registry
+        let ctd_bond_any = market
+            .get_instrument(future.ctd_bond_id.as_str())
+            .map_err(|e| {
+                crate::pricer::PricingError::ModelFailure(format!(
+                    "CTD bond (ID: {}) not found in instrument registry: {}",
+                    future.ctd_bond_id.as_str(),
+                    e
+                ))
+            })?;
+
+        // Downcast to Bond
+        let ctd_bond = ctd_bond_any
+            .downcast_ref::<Bond>()
+            .ok_or_else(|| {
+                crate::pricer::PricingError::ModelFailure(format!(
+                    "CTD bond (ID: {}) is not a Bond type",
+                    future.ctd_bond_id.as_str()
+                ))
+            })?;
+
+        // Calculate conversion factor
+        let conversion_factor = Self::calculate_conversion_factor(
+            ctd_bond,
+            future.contract_specs.standard_coupon,
+            future.contract_specs.standard_maturity_years,
+            market,
+            as_of,
+        )?;
+
+        // Calculate NPV
+        let npv = Self::calculate_npv(future, ctd_bond, conversion_factor, market, as_of)?;
+
+        // Return valuation result
+        Ok(crate::results::ValuationResult::stamped(
+            future.id.as_str(),
+            as_of,
+            npv,
+        ))
     }
 }
 
@@ -921,8 +948,8 @@ mod tests {
             err_msg
         );
         assert!(
-            err_msg.contains("calculate_npv"),
-            "Error message should suggest using calculate_npv directly, got: {}",
+            err_msg.contains("instrument registry"),
+            "Error message should mention instrument registry, got: {}",
             err_msg
         );
     }
