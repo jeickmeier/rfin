@@ -57,6 +57,8 @@ pub mod fi_trs;
 pub mod fra;
 /// fx barrier option module.
 pub mod fx_barrier_option;
+/// fx forward module.
+pub mod fx_forward;
 /// fx option module.
 pub mod fx_option;
 /// fx spot module.
@@ -73,6 +75,8 @@ pub mod ir_future;
 pub mod irs;
 /// lookback option module.
 pub mod lookback_option;
+/// non-deliverable forward module.
+pub mod ndf;
 /// pricing overrides module.
 pub mod pricing_overrides;
 /// private markets fund module.
@@ -126,8 +130,11 @@ pub use deposit::Deposit;
 pub use equity::Equity;
 pub use equity_index_future::{EquityFutureSpecs, EquityIndexFuture};
 pub use equity_option::EquityOption;
+pub use equity_trs::EquityTotalReturnSwap;
+pub use fi_trs::FIIndexTotalReturnSwap;
 pub use fra::ForwardRateAgreement;
 pub use fx_barrier_option::FxBarrierOption;
+pub use fx_forward::FxForward;
 pub use fx_option::FxOption;
 pub use fx_spot::FxSpot;
 pub use fx_swap::FxSwap;
@@ -136,6 +143,7 @@ pub use inflation_swap::{InflationSwap, YoYInflationSwap};
 pub use ir_future::InterestRateFuture;
 pub use irs::InterestRateSwap;
 pub use lookback_option::{LookbackOption, LookbackType};
+pub use ndf::Ndf;
 pub use pricing_overrides::PricingOverrides;
 pub use private_markets_fund::PrivateMarketsFund;
 pub use quanto_option::QuantoOption;
@@ -145,13 +153,11 @@ pub use revolving_credit::RevolvingCredit;
 pub use structured_credit::StructuredCredit;
 pub use swaption::Swaption;
 pub use term_loan::TermLoan;
-pub use equity_trs::EquityTotalReturnSwap;
-pub use fi_trs::FIIndexTotalReturnSwap;
 // Re-export TRS common types
 pub use common::parameters::trs_common::{TrsScheduleSpec, TrsSide};
 pub use variance_swap::VarianceSwap;
-pub use vol_index_future::{VolatilityIndexFuture, VolIndexContractSpecs};
-pub use vol_index_option::{VolatilityIndexOption, VolIndexOptionSpecs};
+pub use vol_index_future::{VolIndexContractSpecs, VolatilityIndexFuture};
+pub use vol_index_option::{VolIndexOptionSpecs, VolatilityIndexOption};
 pub use xccy_swap::XccySwap;
 
 // === Common Functionality ===

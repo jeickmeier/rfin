@@ -117,6 +117,10 @@ pub enum InstrumentType {
     VolatilityIndexOption = 58,
     /// Equity index future (ES, NQ, FESX, FDAX, Z, NK).
     EquityIndexFuture = 59,
+    /// FX forward (outright forward, single exchange at maturity).
+    FxForward = 60,
+    /// Non-deliverable forward (NDF) for restricted currencies.
+    Ndf = 61,
 }
 
 impl InstrumentType {
@@ -175,6 +179,8 @@ impl InstrumentType {
             InstrumentType::VolatilityIndexFuture => "VolatilityIndexFuture",
             InstrumentType::VolatilityIndexOption => "VolatilityIndexOption",
             InstrumentType::EquityIndexFuture => "EquityIndexFuture",
+            InstrumentType::FxForward => "FxForward",
+            InstrumentType::Ndf => "Ndf",
         }
     }
 }
@@ -231,6 +237,8 @@ impl std::fmt::Display for InstrumentType {
             InstrumentType::VolatilityIndexFuture => "volatility_index_future",
             InstrumentType::VolatilityIndexOption => "volatility_index_option",
             InstrumentType::EquityIndexFuture => "equity_index_future",
+            InstrumentType::FxForward => "fx_forward",
+            InstrumentType::Ndf => "ndf",
         };
         write!(f, "{}", label)
     }
@@ -298,8 +306,9 @@ impl std::str::FromStr for InstrumentType {
                 Ok(InstrumentType::FIIndexTotalReturnSwap)
             }
             "bond_future" | "bondfuture" => Ok(InstrumentType::BondFuture),
-            "commodity_forward" | "commodityforward" | "commodity_future"
-            | "commodityfuture" => Ok(InstrumentType::CommodityForward),
+            "commodity_forward" | "commodityforward" | "commodity_future" | "commodityfuture" => {
+                Ok(InstrumentType::CommodityForward)
+            }
             "commodity_swap" | "commodityswap" => Ok(InstrumentType::CommoditySwap),
             "volatility_index_future" | "vol_index_future" | "vix_future" | "vixfuture" => {
                 Ok(InstrumentType::VolatilityIndexFuture)
@@ -310,6 +319,8 @@ impl std::str::FromStr for InstrumentType {
             "equity_index_future" | "equityindexfuture" | "eq_future" | "es_future" => {
                 Ok(InstrumentType::EquityIndexFuture)
             }
+            "fx_forward" | "fxforward" | "outright_forward" => Ok(InstrumentType::FxForward),
+            "ndf" | "non_deliverable_forward" => Ok(InstrumentType::Ndf),
             other => Err(format!("Unknown instrument type: {}", other)),
         }
     }
@@ -1179,6 +1190,22 @@ fn register_all_pricers(registry: &mut PricerRegistry) {
         EquityIndexFuture,
         Discounting,
         crate::instruments::equity_index_future::EquityIndexFutureDiscountingPricer
+    );
+
+    // FX Forward
+    register_pricer!(
+        registry,
+        FxForward,
+        Discounting,
+        crate::instruments::fx_forward::FxForwardDiscountingPricer
+    );
+
+    // NDF (Non-Deliverable Forward)
+    register_pricer!(
+        registry,
+        Ndf,
+        Discounting,
+        crate::instruments::ndf::NdfDiscountingPricer
     );
 }
 

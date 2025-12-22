@@ -127,6 +127,10 @@ mod variance_swap;
 // FX Derivatives
 // ============================================================================
 
+/// FX forward tests - Outright FX forward contracts
+#[path = "instruments/fx_forward/mod.rs"]
+mod fx_forward;
+
 /// FX option tests - Currency options (vanilla and exotic)
 #[path = "instruments/fx_option/mod.rs"]
 mod fx_option;
@@ -138,6 +142,10 @@ mod fx_spot;
 /// FX swap tests - FX forward and swap transactions
 #[path = "instruments/fx_swap/mod.rs"]
 mod fx_swap;
+
+/// NDF tests - Non-deliverable forwards for restricted currencies
+#[path = "instruments/ndf/mod.rs"]
+mod ndf;
 
 /// XCCY swap tests - Cross-currency swaps (multi-currency floating legs)
 #[path = "instruments/xccy_swap/mod.rs"]

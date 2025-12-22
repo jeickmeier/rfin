@@ -414,6 +414,9 @@ pub fn standard_registry() -> MetricRegistry {
         &mut registry,
     );
     crate::instruments::commodity_swap::metrics::register_commodity_swap_metrics(&mut registry);
+    // FX instruments
+    crate::instruments::fx_forward::metrics::register_fx_forward_metrics(&mut registry);
+    crate::instruments::ndf::metrics::register_ndf_metrics(&mut registry);
     // Exotic options
     #[cfg(feature = "mc")]
     {

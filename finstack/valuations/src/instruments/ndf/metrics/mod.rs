@@ -1,0 +1,31 @@
+//! NDF metrics module.
+//!
+//! Provides metric calculators specific to `Ndf`, split into focused files.
+//! The calculators compose with the shared metrics framework and are registered
+//! via `register_ndf_metrics`.
+//!
+//! Exposed metrics:
+//! - DV01 (interest rate sensitivity for settlement curve)
+//! - Theta (time decay)
+
+use crate::metrics::MetricRegistry;
+
+/// Register all NDF metrics with the registry.
+pub fn register_ndf_metrics(registry: &mut MetricRegistry) {
+    use crate::pricer::InstrumentType;
+    crate::register_metrics! {
+        registry: registry,
+        instrument: InstrumentType::Ndf,
+        metrics: [
+            (Dv01, crate::metrics::UnifiedDv01Calculator::<
+                crate::instruments::ndf::Ndf,
+            >::new(crate::metrics::Dv01CalculatorConfig::parallel_combined())),
+            (BucketedDv01, crate::metrics::UnifiedDv01Calculator::<
+                crate::instruments::ndf::Ndf,
+            >::new(crate::metrics::Dv01CalculatorConfig::key_rate())),
+            (Theta, crate::metrics::GenericTheta::<
+                crate::instruments::ndf::Ndf,
+            >::default()),
+        ]
+    }
+}
