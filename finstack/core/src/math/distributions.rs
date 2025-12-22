@@ -135,8 +135,8 @@ pub fn binomial_distribution(n: usize, p: f64) -> Vec<f64> {
 /// Calculate binomial probability P(X = k) where X ~ Binomial(n, p).
 ///
 /// Computes the probability mass function for the binomial distribution using
-/// log-space arithmetic to avoid numerical overflow for large n. The binomial
-/// distribution models the number of successes in n independent Bernoulli trials.
+/// the battle-tested `statrs` crate implementation. The binomial distribution
+/// models the number of successes in n independent Bernoulli trials.
 ///
 /// # Mathematical Definition
 ///
@@ -156,13 +156,6 @@ pub fn binomial_distribution(n: usize, p: f64) -> Vec<f64> {
 ///
 /// Probability P(X = k) ∈ [0, 1]
 ///
-/// # Numerical Method
-///
-/// Uses log-space calculation: exp(ln C(n,k) + k ln p + (n-k) ln(1-p))
-/// - Prevents overflow for large n
-/// - Uses Stirling's approximation for n ≥ 20
-/// - Handles edge cases (p=0, p=1, k>n) exactly
-///
 /// # Examples
 ///
 /// ```rust
@@ -176,11 +169,19 @@ pub fn binomial_distribution(n: usize, p: f64) -> Vec<f64> {
 /// let default_prob = binomial_probability(100, 5, 0.05);
 /// ```
 ///
+/// # Implementation
+///
+/// This is a thin wrapper around `statrs::distribution::Binomial::pmf`, which
+/// provides numerically stable computation with proper edge case handling.
+///
 /// # References
 ///
 /// - Johnson, N. L., Kotz, S., & Kemp, A. W. (1993). *Univariate Discrete Distributions*
 ///   (2nd ed.). Wiley. Chapter 3.
 pub fn binomial_probability(n: usize, k: usize, p: f64) -> f64 {
+    use statrs::distribution::{Binomial, Discrete};
+
+    // Handle edge cases that statrs may not accept
     if k > n {
         return 0.0;
     }
@@ -191,10 +192,11 @@ pub fn binomial_probability(n: usize, k: usize, p: f64) -> f64 {
         return if k == n { 1.0 } else { 0.0 };
     }
 
-    // Use log-space calculation to avoid overflow for large n
-    let log_prob =
-        log_binomial_coefficient(n, k) + (k as f64) * p.ln() + ((n - k) as f64) * (1.0 - p).ln();
-    log_prob.exp()
+    // statrs::distribution::Binomial::new(p, n) where p is success probability and n is trials
+    match Binomial::new(p, n as u64) {
+        Ok(binom) => binom.pmf(k as u64),
+        Err(_) => 0.0, // Invalid parameters (should not happen after edge case checks)
+    }
 }
 
 /// Calculate log of binomial coefficient ln(C(n,k)).
