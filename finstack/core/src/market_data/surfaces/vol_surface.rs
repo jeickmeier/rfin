@@ -66,9 +66,10 @@ use crate::{
     types::CurveId,
     Error,
 };
-use ndarray::Array2;
 
 /// Volatility surface defined on expiry × strike grid.
+///
+/// Internally stores volatilities in row-major order as `Vec<f64>`.
 #[derive(Clone, Debug)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 #[cfg_attr(
@@ -79,7 +80,8 @@ pub struct VolSurface {
     id: CurveId,
     expiries: Box<[f64]>,
     strikes: Box<[f64]>,
-    vols: Array2<f64>, // shape: (expiries.len(), strikes.len())
+    /// Row-major storage: vols[expiry_idx * n_strikes + strike_idx]
+    vols: Vec<f64>,
 }
 
 /// Raw serializable state of a VolSurface
@@ -100,12 +102,11 @@ struct RawVolSurface {
 #[cfg(feature = "serde")]
 impl From<VolSurface> for RawVolSurface {
     fn from(surface: VolSurface) -> Self {
-        let vols_flat: Vec<f64> = surface.vols.iter().copied().collect();
         RawVolSurface {
             id: surface.id.to_string(),
             expiries: surface.expiries.to_vec(),
             strikes: surface.strikes.to_vec(),
-            vols_row_major: vols_flat,
+            vols_row_major: surface.vols,
         }
     }
 }
@@ -177,8 +178,9 @@ impl VolSurface {
     pub fn value_checked(&self, expiry: f64, strike: f64) -> crate::Result<f64> {
         let (ie0, exact_e) = self.value_indices(self.expiries.as_ref(), expiry)?;
         let (is0, exact_s) = self.value_indices(self.strikes.as_ref(), strike)?;
+        let n_strikes = self.strikes.len();
         if exact_e && exact_s {
-            return Ok(self.vols[[ie0, is0]]);
+            return Ok(self.vols[ie0 * n_strikes + is0]);
         }
         let ie1 = if exact_e { ie0 } else { ie0 + 1 };
         let is1 = if exact_s { is0 } else { is0 + 1 };
@@ -186,10 +188,10 @@ impl VolSurface {
         let e1 = self.expiries[ie1];
         let s0 = self.strikes[is0];
         let s1 = self.strikes[is1];
-        let q11 = self.vols[[ie0, is0]];
-        let q21 = self.vols[[ie1, is0]];
-        let q12 = self.vols[[ie0, is1]];
-        let q22 = self.vols[[ie1, is1]];
+        let q11 = self.vols[ie0 * n_strikes + is0];
+        let q21 = self.vols[ie1 * n_strikes + is0];
+        let q12 = self.vols[ie0 * n_strikes + is1];
+        let q22 = self.vols[ie1 * n_strikes + is1];
         let t = if exact_e {
             0.0
         } else {
@@ -318,19 +320,19 @@ impl VolSurface {
         let expiry_idx = find_closest_grid_index(self.expiries.as_ref(), clamped_expiry);
         let strike_idx = find_closest_grid_index(self.strikes.as_ref(), clamped_strike);
 
+        let n_strikes = self.strikes.len();
+        let idx = expiry_idx * n_strikes + strike_idx;
+
         // Get current vol at that grid point
-        let current_vol = self.vols[[expiry_idx, strike_idx]];
+        let current_vol = self.vols[idx];
         let bumped_vol = current_vol * (1.0 + bump_pct).max(0.0);
 
-        // Clone the vols array and update the bumped point
+        // Clone the vols vec and update the bumped point
         let mut bumped_vols = self.vols.clone();
-        bumped_vols[[expiry_idx, strike_idx]] = bumped_vol;
-
-        // Convert to row-major vec for from_grid
-        let flat_vols: Vec<f64> = bumped_vols.iter().copied().collect();
+        bumped_vols[idx] = bumped_vol;
 
         // Rebuild surface with same ID and grid
-        Self::from_grid(self.id.as_str(), &self.expiries, &self.strikes, &flat_vols)
+        Self::from_grid(self.id.as_str(), &self.expiries, &self.strikes, &bumped_vols)
     }
 
     /// Return a new volatility surface scaled uniformly by `scale`.
@@ -352,10 +354,8 @@ impl VolSurface {
             };
         }
 
-        // Clone the vols array once and multiply in-place
-        let mut scaled_vols = self.vols.clone();
-        // Use ndarray element-wise multiplication
-        scaled_vols.mapv_inplace(|v| v * scale);
+        // Scale all vols
+        let scaled_vols: Vec<f64> = self.vols.iter().map(|&v| v * scale).collect();
 
         Self {
             id: self.id.clone(),
@@ -381,8 +381,7 @@ impl Bumpable for VolSurface {
             .into());
         }
 
-        let mut bumped_vols = self.vols.clone();
-        match (spec.mode, spec.units) {
+        let bumped_vols: Vec<f64> = match (spec.mode, spec.units) {
             (BumpMode::Additive, BumpUnits::RateBp | BumpUnits::Percent | BumpUnits::Fraction) => {
                 let delta =
                     spec.additive_fraction()
@@ -390,10 +389,10 @@ impl Bumpable for VolSurface {
                             reason: "VolSurface additive bump failed to compute fraction"
                                 .to_string(),
                         })?;
-                bumped_vols.mapv_inplace(|v| (v + delta).max(0.0));
+                self.vols.iter().map(|&v| (v + delta).max(0.0)).collect()
             }
             (BumpMode::Multiplicative, BumpUnits::Factor) => {
-                bumped_vols.mapv_inplace(|v| (v * spec.value).max(0.0));
+                self.vols.iter().map(|&v| (v * spec.value).max(0.0)).collect()
             }
             _ => {
                 return Err(InputError::UnsupportedBump {
@@ -404,7 +403,7 @@ impl Bumpable for VolSurface {
                 }
                 .into());
             }
-        }
+        };
 
         Ok(Self {
             id: self.id.clone(),
@@ -432,7 +431,7 @@ impl VolSurface {
         for (ei, &expiry) in self.expiries.iter().enumerate().take(n_expiries) {
             let mut row = Vec::with_capacity(n_strikes);
             for (si, &strike) in self.strikes.iter().enumerate().take(n_strikes) {
-                let val = self.vols[[ei, si]];
+                let val = self.vols[ei * n_strikes + si];
                 let expiry_match = expiries_filter
                     .map(|flt| flt.iter().any(|e| (e - expiry).abs() < 0.01))
                     .unwrap_or(true);
@@ -542,13 +541,11 @@ impl VolSurfaceBuilder {
             }
         }
         let flat: Vec<f64> = self.vols.into_iter().flatten().collect();
-        let array = Array2::from_shape_vec((self.expiries.len(), self.strikes.len()), flat)
-            .expect("Array shape should match expiries and strikes dimensions");
         Ok(VolSurface {
             id: self.id,
             expiries: self.expiries.into_boxed_slice(),
             strikes: self.strikes.into_boxed_slice(),
-            vols: array,
+            vols: flat,
         })
     }
 }
@@ -578,23 +575,11 @@ impl VolSurface {
                 return Err(InputError::NegativeValue.into());
             }
         }
-        let array =
-            Array2::from_shape_vec((expiries.len(), strikes.len()), vols_row_major.to_vec())
-                .map_err(|e| {
-                    // This should never happen given the length check above, but provide context if it does
-                    crate::Error::Validation(format!(
-                "failed to construct volatility grid: expected shape ({}, {}), got {} elements: {}",
-                expiries.len(),
-                strikes.len(),
-                vols_row_major.len(),
-                e
-            ))
-                })?;
         Ok(Self {
             id: CurveId::new(id.as_ref()),
             expiries: expiries.to_vec().into_boxed_slice(),
             strikes: strikes.to_vec().into_boxed_slice(),
-            vols: array,
+            vols: vols_row_major.to_vec(),
         })
     }
 }

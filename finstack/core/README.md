@@ -101,16 +101,12 @@ See [repository rules](.cursor/rules/rust/crates/core.mdc) for detailed module s
 - `rust_decimal`: Decimal arithmetic (accounting-grade correctness)
 - `time`: Date/time handling (ISO-8601)
 - `serde`/`serde_json`: Serialization with strict field names
-- `rayon`: Optional parallel execution
-- `polars`: DataFrame exports for time-series
 - `thiserror`: Error handling
 - `statrs`: Statistical distributions
 
 ## Features
 
 - `serde` (default): Enable serialization support
-- `parallel` (default): Enable Rayon-based parallel execution
-- `dataframes`: Enable Polars DataFrame exports
 
 ## License
 

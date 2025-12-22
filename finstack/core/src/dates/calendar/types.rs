@@ -94,8 +94,8 @@ impl HolidayCalendar for Calendar {
                 static ONCE: core::sync::atomic::AtomicBool =
                     core::sync::atomic::AtomicBool::new(false);
                 if !ONCE.swap(true, core::sync::atomic::Ordering::Relaxed) {
-                    log::warn!(
-                        "Calendar '{}' falling back to rule-based evaluation outside [{}, {}] bitset range",
+                    eprintln!(
+                        "[finstack] Calendar '{}' falling back to rule-based evaluation outside [{}, {}] bitset range",
                         self.id,
                         BASE_YEAR,
                         END_YEAR

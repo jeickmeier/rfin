@@ -20,7 +20,7 @@ all = ["core", "statements", "valuations", "portfolio", "io", "scenarios"]
 
 # Cross-cutting capability features
 serde = []  # Delegated to subcrates (enabled by default in most)
-parallel = ["finstack_core/parallel", "finstack_valuations/parallel"]
+parallel = ["finstack_valuations/parallel", "finstack_portfolio?/parallel"]
 dataframes = ["finstack_statements/dataframes", "finstack_portfolio/dataframes"]
 
 [dependencies]

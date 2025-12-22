@@ -218,9 +218,8 @@ Core types are designed for cache efficiency:
 
 Areas for potential optimization:
 1. **SIMD vectorization**: Batch interpolation could use SIMD
-2. **Parallel batch ops**: Large batch operations with rayon
-3. **Curve caching**: Frequently-used df values could be memoized
-4. **Calendar compression**: Further bitset optimizations
+2. **Curve caching**: Frequently-used df values could be memoized
+3. **Calendar compression**: Further bitset optimizations
 
 ## Optimization Targets
 
@@ -320,13 +319,13 @@ Recent optimizations have significantly improved performance:
 ## Future Additions
 
 Potential future benchmarks:
-- Expression engine evaluation (AST, DAG)
+
 - Market context lookups and bumps
 - Volatility surface interpolation
 - Integration algorithms (Simpson, Gauss-Legendre)
 - Root finding (Newton-Raphson, Brent)
 - Statistical functions (CDF, quantiles)
-
+- Expression engine evaluation (AST, DAG)
 
 
 

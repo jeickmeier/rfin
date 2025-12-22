@@ -362,24 +362,10 @@ impl DiscountCurve {
         Ok((z2 - z1) / (t2 - t1))
     }
 
-    /// Batch evaluation helper (parallel over `times` slice when compiled
-    /// with the `parallel` feature).
-    #[cfg_attr(docsrs, doc(cfg(feature = "parallel")))]
+    /// Batch evaluation of discount factors for multiple times.
+    #[inline]
     pub fn df_batch(&self, times: &[f64]) -> Vec<f64> {
-        #[cfg(feature = "parallel")]
-        {
-            use rayon::prelude::*;
-            // Parallel iteration is required to be order-stable; results must be bit-identical
-            // to the sequential path. We therefore only parallelize the map, preserving order.
-            // ParallelIterator::collect already pre-allocates, so this is efficient.
-            times.par_iter().map(|&t| self.df(t)).collect()
-        }
-        #[cfg(not(feature = "parallel"))]
-        {
-            let mut result = Vec::with_capacity(times.len());
-            result.extend(times.iter().map(|&t| self.df(t)));
-            result
-        }
+        times.iter().map(|&t| self.df(t)).collect()
     }
 
     /// Fallible: discount factor on a specific date `date` using explicit day-count `dc`.
