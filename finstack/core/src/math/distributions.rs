@@ -7,7 +7,7 @@
 //! # Distributions
 //!
 //! - **Binomial**: Discrete distribution for binary outcomes (coin flips, defaults)
-//! - **Beta**: Continuous distribution on [0,1] (recovery rates, correlations)
+//! - **Beta**: Continuous distribution on \[0,1\] (recovery rates, correlations)
 //!
 //! # Numerical Stability
 //!
@@ -277,7 +277,7 @@ pub fn log_factorial(n: usize) -> f64 {
 /// Sample from Beta(α, β) distribution using the gamma ratio method.
 ///
 /// Generates random samples from the Beta distribution, commonly used for
-/// modeling random variables constrained to [0,1] such as recovery rates,
+/// modeling random variables constrained to \[0,1\] such as recovery rates,
 /// default correlations, and prepayment rates.
 ///
 /// # Distribution Properties

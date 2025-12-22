@@ -77,14 +77,9 @@
 //! # See Also
 //!
 //! - [`HolidayCalendar`] for the core trait
-//! - [`get_calendar`] for calendar lookup by name
-//! - [`BusinessDayConvention`] for adjustment conventions
-//! - [`CompositeCalendar`] for combining calendars
-//!
-//! [`HolidayCalendar`]: business_days::HolidayCalendar
-//! [`get_calendar`]: registry::get_calendar
-//! [`BusinessDayConvention`]: business_days::BusinessDayConvention
-//! [`CompositeCalendar`]: composite::CompositeCalendar
+//! - `get_calendar` for calendar lookup by name
+//! - `BusinessDayConvention` for adjustment conventions
+//! - `CompositeCalendar` for combining calendars
 
 pub(crate) mod algo;
 pub mod business_days;

@@ -6,12 +6,12 @@
 //!
 //! # Root Finding
 //!
-//! The [`solver`] module provides multiple root-finding algorithms:
-//! - [`NewtonSolver`]: Fast convergence, supports analytic derivatives via [`solve_with_derivative`](NewtonSolver::solve_with_derivative)
-//! - [`BrentSolver`]: Robust bracketing method, guaranteed convergence
+//! The `solver` module provides multiple root-finding algorithms:
+//! - `NewtonSolver`: Fast convergence, supports analytic derivatives via `solve_with_derivative`
+//! - `BrentSolver`: Robust bracketing method, guaranteed convergence
 //!
 //! **Performance Tip:** When analytic derivatives are available (e.g., for XIRR, implied volatility),
-//! use [`NewtonSolver::solve_with_derivative`] for 2× fewer function evaluations and better numerical stability.
+//! use `NewtonSolver::solve_with_derivative` for 2× fewer function evaluations and better numerical stability.
 //!
 //! # Examples
 //!

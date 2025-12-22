@@ -276,7 +276,7 @@ impl ScalarTimeSeries {
 
     /// Retrieve the value for an **exactly observed** date.
     ///
-    /// Unlike [`value_on`], this does **not** interpolate or carry values forward.
+    /// Unlike [`Self::value_on`], this does **not** interpolate or carry values forward.
     /// It is intended for market fixings where missing observations must be treated
     /// as an error (e.g., RFR overnight fixings).
     pub fn value_on_exact(&self, date: Date) -> Result<f64> {

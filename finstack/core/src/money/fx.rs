@@ -6,9 +6,9 @@
 //! - provide deterministic lookups with bounded LRU caching
 //!
 //! The public surface remains stable:
-//! - [`FxProvider`] trait for on-demand quotes
-//! - [`FxMatrix`] offering [`FxMatrix::rate`] for consumers and [`crate::market_data::context::MarketContext`]
-//! - [`providers`] module with standard provider implementations
+//! - `FxProvider` trait for on-demand quotes
+//! - `FxMatrix` offering `FxMatrix::rate` for consumers and `MarketContext`
+//! - `providers` module with standard provider implementations
 //!
 //! # Examples
 //! ```rust

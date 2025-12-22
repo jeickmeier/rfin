@@ -5,7 +5,7 @@
 //! - [`fx`] – foreign-exchange interfaces and helpers used by conversions
 //!
 //! Arithmetic refuses to mix currencies unless converted explicitly using an
-//! [`fx::FxProvider`]. Rounding follows per-currency scale with configurable
+//! [`FxProvider`](fx::FxProvider). Rounding follows per-currency scale with configurable
 //! policies via [`crate::config`].
 //!
 //! # Examples

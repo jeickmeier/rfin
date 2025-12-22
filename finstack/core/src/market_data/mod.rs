@@ -2,30 +2,30 @@
 //!
 //! This module provides the core market data types and containers used by
 //! pricing engines throughout Finstack. It includes yield curves, credit curves,
-//! volatility surfaces, and the [`context::MarketContext`] that aggregates them for
+//! volatility surfaces, and the `MarketContext` that aggregates them for
 //! valuation workflows.
 //!
 //! # Market Data Types
 //!
 //! ## Term Structures (1D Curves)
 //!
-//! - **Discount curves** ([`term_structures::DiscountCurve`]): Risk-free rates for discounting
-//! - **Forward curves** ([`term_structures::ForwardCurve`]): Expected future interest rates
-//! - **Hazard curves** ([`term_structures::HazardCurve`]): Credit default intensities
-//! - **Inflation curves** ([`term_structures::InflationCurve`]): CPI expectations
+//! - **Discount curves** (`DiscountCurve`): Risk-free rates for discounting
+//! - **Forward curves** (`ForwardCurve`): Expected future interest rates
+//! - **Hazard curves** (`HazardCurve`): Credit default intensities
+//! - **Inflation curves** (`InflationCurve`): CPI expectations
 //!
 //! ## Surfaces (2D)
 //!
-//! - **Volatility surfaces** ([`surfaces::VolSurface`]): Implied volatility by strike/maturity
+//! - **Volatility surfaces** (`VolSurface`): Implied volatility by strike/maturity
 //!
 //! ## Scalars and Time Series
 //!
-//! - **Market scalars** ([`scalars::MarketScalar`]): Spot prices, FX rates, indices
-//! - **Inflation indices** ([`scalars::InflationIndex`]): CPI/RPI time series
+//! - **Market scalars** (`MarketScalar`): Spot prices, FX rates, indices
+//! - **Inflation indices** (`InflationIndex`): CPI/RPI time series
 //!
 //! # Market Context
 //!
-//! [`context::MarketContext`] aggregates all market data needed for a valuation run:
+//! `MarketContext` aggregates all market data needed for a valuation run:
 //! - Stores curves by ID with type-safe retrieval
 //! - Provides FX conversion via [`crate::money::fx::FxMatrix`]
 //! - Supports scenario bumps and stress testing

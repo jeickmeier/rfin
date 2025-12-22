@@ -99,8 +99,8 @@ impl<'de> serde::Deserialize<'de> for CurveStorage {
 
 /// Serializable state for credit index data.
 ///
-/// Instead of serializing Arc<Curve> directly, we store curve IDs that
-/// reference curves present in the MarketContextState.
+/// Instead of serializing `Arc<Curve>` directly, we store curve IDs that
+/// reference curves present in the `MarketContextState`.
 #[derive(Clone, Debug, serde::Serialize, serde::Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct CreditIndexState {

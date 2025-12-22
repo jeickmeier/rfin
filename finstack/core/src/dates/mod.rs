@@ -2,7 +2,7 @@
 //!
 //! This module wraps the [`time`](https://docs.rs/time) crate and exposes
 //! domain-specific helpers commonly needed by pricing engines. Everything is
-//! available through [`finstack_core::dates`], keeping downstream dependencies
+//! available through `finstack_core::dates`, keeping downstream dependencies
 //! small and version-stable.
 //!
 //! # Highlights

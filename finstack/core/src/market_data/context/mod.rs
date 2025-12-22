@@ -1,6 +1,6 @@
 //! Market data context for aggregating curves, surfaces, and FX rates.
 //!
-//! [`MarketContext`] is the primary container for market data used in valuations.
+//! `MarketContext` is the primary container for market data used in valuations.
 //! It aggregates discount curves, forward curves, hazard curves, volatility
 //! surfaces, FX rates, and market scalars into a single, thread-safe structure.
 //!

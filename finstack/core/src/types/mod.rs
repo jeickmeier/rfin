@@ -2,8 +2,7 @@
 //!
 //! This module collects phantom-typed identifiers (`CurveId`, `InstrumentId`, …),
 //! rate helpers (`Rate`, `Bps`), credit ratings, and convenient aliases used
-//! throughout the platform. Import via `finstack_core::types` or the
-//! [`prelude`](crate::prelude).
+//! throughout the platform.
 //!
 //! # Examples
 //! ```rust

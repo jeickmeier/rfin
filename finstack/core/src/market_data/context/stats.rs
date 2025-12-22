@@ -165,14 +165,14 @@ impl MarketContext {
 
     /// Iterate over all inflation indices.
     ///
-    /// Returns an iterator over (CurveId, Arc<InflationIndex>) pairs.
+    /// Returns an iterator over `(CurveId, Arc<InflationIndex>)` pairs.
     pub fn inflation_indices_iter(&self) -> impl Iterator<Item = (&CurveId, &Arc<InflationIndex>)> {
         self.inflation_indices.iter()
     }
 
     /// Iterate over all dividend schedules.
     ///
-    /// Returns an iterator over (CurveId, Arc<DividendSchedule>) pairs.
+    /// Returns an iterator over `(CurveId, Arc<DividendSchedule>)` pairs.
     pub fn dividends_iter(&self) -> impl Iterator<Item = (&CurveId, &Arc<DividendSchedule>)> {
         self.dividends.iter()
     }

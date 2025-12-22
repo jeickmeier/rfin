@@ -22,7 +22,7 @@ pub trait InterpFn: Send + Sync + Debug {
 /// Strategy trait for interpolation algorithms.
 ///
 /// Encapsulates the strategy-specific precomputed state (slopes, coefficients)
-/// and evaluation logic. Used by the generic [`Interpolator<S>`] container
+/// and evaluation logic. Used by the generic `Interpolator<S>` container
 /// to delegate computation while sharing knot/value storage and validation.
 ///
 /// # Design

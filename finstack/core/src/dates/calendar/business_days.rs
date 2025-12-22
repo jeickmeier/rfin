@@ -121,7 +121,7 @@ pub trait HolidayCalendar {
     /// calendar (i.e. not weekend and not holiday).
     ///
     /// Weekend is defined as Saturday/Sunday and is independent of how a
-    /// particular calendar chooses to label weekends in [`is_holiday`].
+    /// particular calendar chooses to label weekends in [`Self::is_holiday`].
     #[inline]
     fn is_business_day(&self, date: Date) -> bool {
         !date.is_weekend() && !self.is_holiday(date)

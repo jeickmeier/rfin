@@ -493,12 +493,12 @@ impl Money {
         })
     }
 
-    /// Convert this [`Money`] into another currency using an [`fx::FxProvider`].
+    /// Convert this [`Money`] into another currency using an `FxProvider`.
     ///
     /// # Parameters
-    /// - `to`: target [`Currency`]
+    /// - `to`: target [`Currency`](crate::currency::Currency)
     /// - `on`: valuation date used for the FX lookup
-    /// - `provider`: FX source implementing [`fx::FxProvider`]
+    /// - `provider`: FX source implementing `FxProvider`
     /// - `policy`: lookup policy hint passed to the provider
     ///
     /// # Examples

@@ -42,13 +42,13 @@
 //!
 //! # Curve Types
 //!
-//! | Struct                              | Domain  | Specialised trait |
-//! |-------------------------------------|---------|-------------------|
-//! | [`discount_curve::DiscountCurve`]   | Rates   | [`traits::Discount`](crate::market_data::traits::Discount) |
-//! | [`forward_curve::ForwardCurve`]     | Rates   | [`traits::Forward`](crate::market_data::traits::Forward)   |
-//! | [`hazard_curve::HazardCurve`]       | Credit  | [`traits::Survival`](crate::market_data::traits::Survival) |
-//! | [`base_correlation::BaseCorrelationCurve`] | Credit | (none) |
-//! | [`inflation::InflationCurve`]       | CPI     | [`traits::Inflation`](crate::market_data::traits::Inflation) |
+//! | Struct                        | Domain  | Specialised trait |
+//! |-------------------------------|---------|-------------------|
+//! | `DiscountCurve`               | Rates   | `Discount`        |
+//! | `ForwardCurve`                | Rates   | `Forward`         |
+//! | `HazardCurve`                 | Credit  | `Survival`        |
+//! | `BaseCorrelationCurve`        | Credit  | (none)            |
+//! | `InflationCurve`              | CPI     | `Inflation`       |
 //!
 //! ## Choosing an interpolation style
 //! All curves are bootstrapped from knot points and allow selecting an

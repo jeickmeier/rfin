@@ -137,7 +137,7 @@ impl CashFlow {
     /// Validate cashflow amount and fields.
     ///
     /// # Errors
-    /// Returns [`Error::InvalidInput`] if the `amount` is zero.
+    /// Returns [`crate::Error::Input`] if the `amount` is zero.
     ///
     /// # Example
     /// ```rust

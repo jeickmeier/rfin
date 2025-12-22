@@ -1,7 +1,7 @@
 //! Error types for financial computation and validation failures.
 //!
 //! This module defines the unified error hierarchy used throughout Finstack's
-//! core library. All errors bubble up through the [`Error`] enum, which wraps
+//! core library. All errors bubble up through the [`enum@Error`] enum, which wraps
 //! domain-specific failures like input validation, interpolation bounds,
 //! currency mismatches, and calibration failures.
 //!
@@ -123,7 +123,7 @@ use thiserror::Error;
 ///
 /// All user-facing validation issues bubble up via the [`Input`](Error::Input)
 /// wrapper so callers can pattern-match on [`InputError`] for actionable
-/// feedback. Internal failures remain grouped under [`Internal`].
+/// feedback.
 ///
 /// # Variants
 ///

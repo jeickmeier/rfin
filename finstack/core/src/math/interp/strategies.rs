@@ -784,8 +784,6 @@ fn compute_monotone_slopes(xs: &[f64], ys: &[f64]) -> Box<[f64]> {
 // -----------------------------------------------------------------------------
 
 /// Default epsilon for near-zero slope detection in MonotoneConvex.
-///
-/// This value can be customized via [`InterpConfig`](crate::interp_config::InterpConfig).
 pub const DEFAULT_MONOTONE_CONVEX_EPSILON: f64 = 1e-14;
 
 /// Strategy for monotone-convex discount-factor interpolation (Hagan & West, 2006).

@@ -452,7 +452,7 @@ fn gl_nodes_weights(order: usize) -> Result<(&'static [f64], &'static [f64]), Er
     }
 }
 
-/// Gauss–Legendre quadrature over finite interval [a,b].
+/// Gauss–Legendre quadrature over finite interval \[a,b\].
 pub fn gauss_legendre_integrate<F2>(f: F2, a: f64, b: f64, order: usize) -> Result<f64, Error>
 where
     F2: Fn(f64) -> f64,
@@ -474,7 +474,7 @@ where
     Ok(acc * half)
 }
 
-/// Composite Gauss–Legendre over [a,b] using `panels` sub-intervals.
+/// Composite Gauss–Legendre over \[a,b\] using `panels` sub-intervals.
 pub fn gauss_legendre_integrate_composite<F2>(
     f: F2,
     a: f64,

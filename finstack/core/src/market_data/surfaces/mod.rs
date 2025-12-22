@@ -6,7 +6,7 @@
 //!
 //! # Surface Types
 //!
-//! - [`VolSurface`]: Implied volatility by strike and maturity (bilinear interpolation)
+//! - `VolSurface`: Implied volatility by strike and maturity (bilinear interpolation)
 //!
 //! # Examples
 //! ```rust

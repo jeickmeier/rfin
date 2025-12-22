@@ -291,7 +291,7 @@ impl RoundingContext {
     /// Uses tolerance values from the context's [`ToleranceConfig`]:
     /// - Rate: uses [`ToleranceConfig::rate_epsilon`] (default: 1e-12)
     /// - Generic: uses [`ToleranceConfig::generic_epsilon`] (default: 1e-10)
-    /// - Money: uses [`money_epsilon`] (derived from currency scale)
+    /// - Money: uses [`Self::money_epsilon`] (derived from currency scale)
     #[inline]
     pub fn is_effectively_zero(&self, x: f64, kind: ZeroKind) -> bool {
         match kind {

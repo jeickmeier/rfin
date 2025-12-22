@@ -227,7 +227,7 @@ pub enum TraceEntry {
         /// Column labels (Curve Point Dates/Tenors)
         col_labels: Vec<String>,
         /// Sensitivity matrix (Rows x Cols)
-        /// sensitivity[i][j] = change in curve_point[j] / change in instrument[i]
+        /// `sensitivity[i][j]` = change in `curve_point[j]` / change in `instrument[i]`
         sensitivity_matrix: Vec<Vec<f64>>,
     },
 }

@@ -7,9 +7,9 @@
 //! This crate exposes lightweight, composable building-blocks that are
 //! commonly required in pricing engines and risk systems:
 //!
-//! * [`Currency`] – ISO-4217 codes with numeric identifiers and metadata
-//! * [`Money`] – type-safe monetary amounts that refuse to mix currencies
-//! * [`time`] – date/time scaffolding (business calendars, day-count, schedules)
+//! * [`currency::Currency`] – ISO-4217 codes with numeric identifiers and metadata
+//! * [`money::Money`] – type-safe monetary amounts that refuse to mix currencies
+//! * [`dates`] – date/time scaffolding (business calendars, day-count, schedules)
 //!
 //! Note: This crate relies on the Rust standard library. Previous `no_std` claims
 //! have been removed.

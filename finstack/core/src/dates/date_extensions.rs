@@ -86,10 +86,10 @@ pub trait DateExt: Sized {
     ) -> crate::Result<Self>;
 
     /// Returns `true` if the date is a business day according to the provided
-    /// `calendar` (see [`crate::dates::calendar::HolidayCalendar`]).
+    /// `calendar` (see `HolidayCalendar`).
     ///
     /// This is a thin convenience wrapper around
-    /// [`HolidayCalendar::is_business_day`], enabling fluent method-style
+    /// `HolidayCalendar::is_business_day`, enabling fluent method-style
     /// calls. See repository examples under `examples/` for usage.
     fn is_business_day<C: crate::dates::HolidayCalendar + ?Sized>(self, cal: &C) -> bool;
 

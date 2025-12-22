@@ -2,8 +2,8 @@
 //!
 //! Provides types for storing and querying dividend events (cash, stock, yield)
 //! used in equity option pricing, dividend swap valuation, and ETF analytics.
-//! Schedules are stored in [`MarketContext`](crate::market_data::context::MarketContext)
-//! and keyed by [`CurveId`] for consistency with other market data.
+//! Schedules are stored in `MarketContext` and keyed by `CurveId` for consistency
+//! with other market data.
 //!
 //! # Dividend Types
 //!
