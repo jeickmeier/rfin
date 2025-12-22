@@ -161,7 +161,6 @@
 //! - [`crate::attribution::parallel`] - Parallel attribution using this module
 //! - [`crate::attribution::waterfall`] - Waterfall attribution using this module
 
-use bitflags::bitflags;
 use finstack_core::market_data::context::MarketContext;
 use finstack_core::market_data::dividends::DividendSchedule;
 use finstack_core::market_data::scalars::inflation_index::InflationIndex;
@@ -177,50 +176,187 @@ use finstack_core::types::CurveId;
 use finstack_core::collections::HashMap;
 use std::sync::Arc;
 
-bitflags! {
-    /// Flags indicating which curve families to restore from snapshot vs. preserve from market.
-    ///
-    /// This enum is used to control which curve types should be restored from a snapshot
-    /// when rebuilding a market context. Curves not marked in the flags will be preserved
-    /// from the original market context.
-    ///
-    /// # Examples
-    ///
-    /// ```
-    /// use finstack_valuations::attribution::factors::CurveRestoreFlags;
-    ///
-    /// // Restore only discount curves
-    /// let flags = CurveRestoreFlags::DISCOUNT;
-    ///
-    /// // Restore both discount and forward curves (rates)
-    /// let rates = CurveRestoreFlags::RATES;
-    /// assert_eq!(rates, CurveRestoreFlags::DISCOUNT | CurveRestoreFlags::FORWARD);
-    ///
-    /// // Restore everything except hazard curves
-    /// let all_but_credit = CurveRestoreFlags::all() & !CurveRestoreFlags::HAZARD;
-    ///
-    /// // Check if discount curves should be restored
-    /// if rates.contains(CurveRestoreFlags::DISCOUNT) {
-    ///     // ... restore discount curves
-    /// }
-    /// ```
-    #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
-    pub struct CurveRestoreFlags: u8 {
-        /// Restore discount curves from snapshot
-        const DISCOUNT    = 0b0000_0001;
-        /// Restore forward curves from snapshot
-        const FORWARD     = 0b0000_0010;
-        /// Restore hazard curves from snapshot
-        const HAZARD      = 0b0000_0100;
-        /// Restore inflation curves from snapshot
-        const INFLATION   = 0b0000_1000;
-        /// Restore base correlation curves from snapshot
-        const CORRELATION = 0b0001_0000;
+/// Flags indicating which curve families to restore from snapshot vs. preserve from market.
+///
+/// This struct is used to control which curve types should be restored from a snapshot
+/// when rebuilding a market context. Curves not marked in the flags will be preserved
+/// from the original market context.
+///
+/// # Examples
+///
+/// ```
+/// use finstack_valuations::attribution::factors::CurveRestoreFlags;
+///
+/// // Restore only discount curves
+/// let flags = CurveRestoreFlags::DISCOUNT;
+///
+/// // Restore both discount and forward curves (rates)
+/// let rates = CurveRestoreFlags::RATES;
+/// assert_eq!(rates, CurveRestoreFlags::DISCOUNT | CurveRestoreFlags::FORWARD);
+///
+/// // Restore everything except hazard curves
+/// let all_but_credit = CurveRestoreFlags::all() & !CurveRestoreFlags::HAZARD;
+///
+/// // Check if discount curves should be restored
+/// if rates.contains(CurveRestoreFlags::DISCOUNT) {
+///     // ... restore discount curves
+/// }
+/// ```
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Hash)]
+pub struct CurveRestoreFlags {
+    /// Restore discount curves from snapshot
+    pub discount: bool,
+    /// Restore forward curves from snapshot
+    pub forward: bool,
+    /// Restore hazard curves from snapshot
+    pub hazard: bool,
+    /// Restore inflation curves from snapshot
+    pub inflation: bool,
+    /// Restore base correlation curves from snapshot
+    pub correlation: bool,
+}
 
-        /// Convenience combination: restore both discount and forward curves (rates family)
-        const RATES  = Self::DISCOUNT.bits() | Self::FORWARD.bits();
-        /// Convenience combination: restore hazard curves (credit family)
-        const CREDIT = Self::HAZARD.bits();
+impl CurveRestoreFlags {
+    /// Restore discount curves from snapshot
+    pub const DISCOUNT: Self = Self {
+        discount: true,
+        forward: false,
+        hazard: false,
+        inflation: false,
+        correlation: false,
+    };
+
+    /// Restore forward curves from snapshot
+    pub const FORWARD: Self = Self {
+        discount: false,
+        forward: true,
+        hazard: false,
+        inflation: false,
+        correlation: false,
+    };
+
+    /// Restore hazard curves from snapshot
+    pub const HAZARD: Self = Self {
+        discount: false,
+        forward: false,
+        hazard: true,
+        inflation: false,
+        correlation: false,
+    };
+
+    /// Restore inflation curves from snapshot
+    pub const INFLATION: Self = Self {
+        discount: false,
+        forward: false,
+        hazard: false,
+        inflation: true,
+        correlation: false,
+    };
+
+    /// Restore base correlation curves from snapshot
+    pub const CORRELATION: Self = Self {
+        discount: false,
+        forward: false,
+        hazard: false,
+        inflation: false,
+        correlation: true,
+    };
+
+    /// Convenience combination: restore both discount and forward curves (rates family)
+    pub const RATES: Self = Self {
+        discount: true,
+        forward: true,
+        hazard: false,
+        inflation: false,
+        correlation: false,
+    };
+
+    /// Convenience combination: restore hazard curves (credit family)
+    pub const CREDIT: Self = Self {
+        discount: false,
+        forward: false,
+        hazard: true,
+        inflation: false,
+        correlation: false,
+    };
+
+    /// Returns flags with all curve types enabled.
+    #[inline]
+    pub const fn all() -> Self {
+        Self {
+            discount: true,
+            forward: true,
+            hazard: true,
+            inflation: true,
+            correlation: true,
+        }
+    }
+
+    /// Returns flags with no curve types enabled.
+    #[inline]
+    pub const fn empty() -> Self {
+        Self {
+            discount: false,
+            forward: false,
+            hazard: false,
+            inflation: false,
+            correlation: false,
+        }
+    }
+
+    /// Returns true if the specified flags are all set.
+    #[inline]
+    pub const fn contains(&self, other: Self) -> bool {
+        (!other.discount || self.discount)
+            && (!other.forward || self.forward)
+            && (!other.hazard || self.hazard)
+            && (!other.inflation || self.inflation)
+            && (!other.correlation || self.correlation)
+    }
+}
+
+impl std::ops::BitOr for CurveRestoreFlags {
+    type Output = Self;
+
+    #[inline]
+    fn bitor(self, rhs: Self) -> Self::Output {
+        Self {
+            discount: self.discount || rhs.discount,
+            forward: self.forward || rhs.forward,
+            hazard: self.hazard || rhs.hazard,
+            inflation: self.inflation || rhs.inflation,
+            correlation: self.correlation || rhs.correlation,
+        }
+    }
+}
+
+impl std::ops::BitAnd for CurveRestoreFlags {
+    type Output = Self;
+
+    #[inline]
+    fn bitand(self, rhs: Self) -> Self::Output {
+        Self {
+            discount: self.discount && rhs.discount,
+            forward: self.forward && rhs.forward,
+            hazard: self.hazard && rhs.hazard,
+            inflation: self.inflation && rhs.inflation,
+            correlation: self.correlation && rhs.correlation,
+        }
+    }
+}
+
+impl std::ops::Not for CurveRestoreFlags {
+    type Output = Self;
+
+    #[inline]
+    fn not(self) -> Self::Output {
+        Self {
+            discount: !self.discount,
+            forward: !self.forward,
+            hazard: !self.hazard,
+            inflation: !self.inflation,
+            correlation: !self.correlation,
+        }
     }
 }
 

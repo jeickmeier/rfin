@@ -12,7 +12,6 @@ finstack-valuations-macros = { path = "macros" }
 indexmap = { version = "2.12", features = ["serde"] }
 smallvec = { version = "1.15", default-features = false, features = ["serde"] }
 rayon = { version = "1.11", optional = true }
-ordered-float = { version = "4.6", features = ["serde"] }
 serde = { version = "1.0", features = ["derive"], optional = true }
 serde_json = { version = "1.0", features = ["raw_value"], optional = true }
 time = { version = "0.3" }
@@ -21,9 +20,7 @@ nalgebra = { version = "0.34", optional = true }
 tracing = { version = "0.1", default-features = false }
 thiserror = "2.0"
 num-complex = "0.4"
-statrs = { version = "0.18", default-features = false }
 ts-rs = { version = "10", optional = true, features = ["serde-compat", "no-serde-warnings"] }
-bitflags = "2.4"
 
 [dev-dependencies]
 time = { version = "0.3", features = ["macros"] }

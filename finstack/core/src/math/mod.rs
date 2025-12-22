@@ -87,6 +87,8 @@ pub use random::{box_muller_transform, RandomNumberGenerator, TestRng};
 // Raw root finding functions are no longer exported - use trait-based solvers instead
 pub use solver::{BrentSolver, NewtonSolver, Solver};
 pub use solver_multi::{AnalyticalDerivatives, LevenbergMarquardtSolver, MultiSolver};
-pub use special_functions::{erf, norm_cdf, norm_pdf, standard_normal_inv_cdf};
+pub use special_functions::{
+    erf, norm_cdf, norm_pdf, standard_normal_inv_cdf, student_t_cdf, student_t_inv_cdf,
+};
 pub use stats::{correlation, covariance, mean, mean_var, variance};
 pub use summation::{kahan_sum, pairwise_sum, stable_sum};

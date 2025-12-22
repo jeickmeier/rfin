@@ -280,6 +280,111 @@ pub fn standard_normal_inv_cdf(p: f64) -> f64 {
     n.inverse_cdf(p)
 }
 
+/// Student-t cumulative distribution function.
+///
+/// Computes the CDF of the Student-t distribution with the specified degrees of freedom.
+/// For high degrees of freedom (df > 100), uses the normal approximation for efficiency.
+///
+/// # Definition
+///
+/// ```text
+/// F(x; ν) = P(T ≤ x) where T ~ t(ν)
+/// ```
+///
+/// # Arguments
+///
+/// * `x` - Input value (any real number)
+/// * `df` - Degrees of freedom (must be > 0)
+///
+/// # Returns
+///
+/// Cumulative probability F(x; df) ∈ (0, 1)
+///
+/// # Use Cases
+///
+/// - **Copula models**: Student-t copula tail dependence calculations
+/// - **Credit modeling**: Heavy-tailed default correlation
+/// - **Risk metrics**: VaR with fat tails
+/// - **Statistical tests**: t-tests, confidence intervals
+///
+/// # Examples
+///
+/// ```rust
+/// use finstack_core::math::special_functions::student_t_cdf;
+///
+/// // CDF at zero should be 0.5 (symmetric distribution)
+/// assert!((student_t_cdf(0.0, 5.0) - 0.5).abs() < 1e-6);
+///
+/// // High df approaches normal distribution
+/// let t_cdf = student_t_cdf(1.96, 1000.0);
+/// assert!((t_cdf - 0.975).abs() < 0.01);
+/// ```
+///
+/// # Implementation
+///
+/// This is a thin wrapper around `statrs::distribution::StudentsT::cdf`.
+/// For df > 100, uses the normal approximation for better performance.
+#[inline]
+pub fn student_t_cdf(x: f64, df: f64) -> f64 {
+    if df > 100.0 {
+        // High df: normal approximation is accurate and faster
+        return norm_cdf(x);
+    }
+
+    use statrs::distribution::{ContinuousCDF, StudentsT};
+    // StudentsT::new(location=0, scale=1, df) for standard t-distribution
+    match StudentsT::new(0.0, 1.0, df) {
+        Ok(dist) => dist.cdf(x),
+        Err(_) => {
+            // Fallback for invalid df (should not happen with df > 0)
+            norm_cdf(x)
+        }
+    }
+}
+
+/// Inverse Student-t cumulative distribution function.
+///
+/// Computes the inverse CDF (quantile function) of the Student-t distribution.
+///
+/// # Arguments
+///
+/// * `p` - Probability in (0, 1)
+/// * `df` - Degrees of freedom (must be > 0)
+///
+/// # Returns
+///
+/// x such that F(x; df) = p
+///
+/// # Examples
+///
+/// ```rust
+/// use finstack_core::math::special_functions::{student_t_inv_cdf, student_t_cdf};
+///
+/// // Inverse of median should be zero
+/// assert!((student_t_inv_cdf(0.5, 5.0) - 0.0).abs() < 1e-6);
+///
+/// // Round-trip test
+/// let x = student_t_inv_cdf(0.95, 10.0);
+/// let p_back = student_t_cdf(x, 10.0);
+/// assert!((p_back - 0.95).abs() < 1e-6);
+/// ```
+///
+/// # Implementation
+///
+/// This is a thin wrapper around `statrs::distribution::StudentsT::inverse_cdf`.
+pub fn student_t_inv_cdf(p: f64, df: f64) -> f64 {
+    if df > 100.0 {
+        // High df: normal approximation
+        return standard_normal_inv_cdf(p);
+    }
+
+    use statrs::distribution::{ContinuousCDF, StudentsT};
+    match StudentsT::new(0.0, 1.0, df) {
+        Ok(dist) => dist.inverse_cdf(p),
+        Err(_) => standard_normal_inv_cdf(p),
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -483,6 +588,99 @@ mod tests {
                     cond_prob,
                     rho,
                     market_factor
+                );
+            }
+        }
+    }
+
+    #[test]
+    fn test_student_t_cdf() {
+        // Test CDF at zero (should be 0.5 for symmetric distribution)
+        assert!((student_t_cdf(0.0, 5.0) - 0.5).abs() < 1e-6);
+        assert!((student_t_cdf(0.0, 10.0) - 0.5).abs() < 1e-6);
+
+        // Test known values from statistical tables
+        // t-distribution with df=5, x=-2.0 should give CDF ≈ 0.051
+        let cdf = student_t_cdf(-2.0, 5.0);
+        assert!(
+            (cdf - 0.051).abs() < 0.002,
+            "CDF(-2.0, df=5) = {}, expected ~0.051",
+            cdf
+        );
+
+        // Test symmetry: F(-x) = 1 - F(x)
+        let x = 1.5;
+        let df = 5.0;
+        let cdf_neg = student_t_cdf(-x, df);
+        let cdf_pos = student_t_cdf(x, df);
+        assert!(
+            (cdf_neg + cdf_pos - 1.0).abs() < 1e-10,
+            "CDF symmetry violated: F(-{}) + F({}) = {} + {} ≠ 1",
+            x,
+            x,
+            cdf_neg,
+            cdf_pos
+        );
+    }
+
+    #[test]
+    fn test_student_t_cdf_approaches_normal() {
+        // With high df, Student-t approaches Normal
+        let x = -1.5;
+        let t_cdf = student_t_cdf(x, 200.0);
+        let normal_cdf = norm_cdf(x);
+
+        assert!(
+            (t_cdf - normal_cdf).abs() < 0.01,
+            "High df t-distribution should approximate normal: t={}, normal={}",
+            t_cdf,
+            normal_cdf
+        );
+
+        // Test fallback to normal for very high df
+        let t_cdf_high = student_t_cdf(x, 1000.0);
+        assert!(
+            (t_cdf_high - normal_cdf).abs() < 0.001,
+            "Very high df should be almost identical to normal"
+        );
+    }
+
+    #[test]
+    fn test_student_t_inv_cdf() {
+        // Test inverse of median should be zero
+        assert!((student_t_inv_cdf(0.5, 5.0) - 0.0).abs() < 1e-6);
+        assert!((student_t_inv_cdf(0.5, 10.0) - 0.0).abs() < 1e-6);
+
+        // Test round-trip
+        let p = 0.95;
+        let df = 10.0;
+        let x = student_t_inv_cdf(p, df);
+        let p_back = student_t_cdf(x, df);
+        assert!(
+            (p_back - p).abs() < 1e-6,
+            "Round-trip failed: p={}, x={}, p_back={}",
+            p,
+            x,
+            p_back
+        );
+    }
+
+    #[test]
+    fn test_student_t_roundtrip() {
+        let test_probs = [0.1, 0.25, 0.5, 0.75, 0.9, 0.95];
+        let test_dfs = [3.0, 5.0, 10.0, 30.0];
+
+        for &p in &test_probs {
+            for &df in &test_dfs {
+                let x = student_t_inv_cdf(p, df);
+                let p_back = student_t_cdf(x, df);
+                assert!(
+                    (p - p_back).abs() < 1e-5,
+                    "Round-trip failed for p={}, df={}: got x={}, p_back={}",
+                    p,
+                    df,
+                    x,
+                    p_back
                 );
             }
         }

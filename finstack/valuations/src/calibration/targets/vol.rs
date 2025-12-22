@@ -9,8 +9,38 @@ use finstack_core::market_data::context::MarketContext;
 use finstack_core::market_data::scalars::MarketScalar;
 use finstack_core::market_data::surfaces::vol_surface::VolSurface;
 use finstack_core::Result;
-use ordered_float::OrderedFloat;
 use std::collections::BTreeMap;
+
+/// A newtype wrapper for f64 that implements Ord for use as BTreeMap keys.
+/// Uses total ordering where NaN values are treated as greater than all other values.
+#[derive(Clone, Copy, Debug, PartialEq)]
+struct OrderedF64(f64);
+
+impl Eq for OrderedF64 {}
+
+impl PartialOrd for OrderedF64 {
+    fn partial_cmp(&self, other: &Self) -> Option<std::cmp::Ordering> {
+        Some(self.cmp(other))
+    }
+}
+
+impl Ord for OrderedF64 {
+    fn cmp(&self, other: &Self) -> std::cmp::Ordering {
+        self.0.total_cmp(&other.0)
+    }
+}
+
+impl From<f64> for OrderedF64 {
+    fn from(value: f64) -> Self {
+        Self(value)
+    }
+}
+
+impl OrderedF64 {
+    fn into_inner(self) -> f64 {
+        self.0
+    }
+}
 
 /// Bootstrapper for calibrating option volatility surfaces.
 ///
@@ -81,7 +111,7 @@ impl VolSurfaceBootstrapper {
         }
 
         // Group by expiry (year fraction)
-        let mut quotes_by_expiry: BTreeMap<OrderedFloat<f64>, Vec<&VolQuote>> = BTreeMap::new();
+        let mut quotes_by_expiry: BTreeMap<OrderedF64, Vec<&VolQuote>> = BTreeMap::new();
         // We need day count for time conversion. Default to Act365F for vol surfaces if not specified.
         let time_dc = finstack_core::dates::DayCount::Act365F;
 
@@ -146,10 +176,10 @@ impl VolSurfaceBootstrapper {
             .with_tolerance(config.solver.tolerance())
             .with_max_iterations(config.solver.max_iterations());
 
-        let mut sabr_params_by_expiry: BTreeMap<OrderedFloat<f64>, SABRParameters> =
+        let mut sabr_params_by_expiry: BTreeMap<OrderedF64, SABRParameters> =
             BTreeMap::new();
         let mut residuals = BTreeMap::new();
-        let mut expiry_errors: BTreeMap<OrderedFloat<f64>, String> = BTreeMap::new();
+        let mut expiry_errors: BTreeMap<OrderedF64, String> = BTreeMap::new();
         let mut total_iterations = 0;
 
         for (t_key, expiry_quotes) in &quotes_by_expiry {
@@ -293,7 +323,7 @@ impl VolSurfaceBootstrapper {
     /// Interpolate SABR parameters across the 1D expiry axis.
     fn interpolate_params(
         t: f64,
-        params: &BTreeMap<OrderedFloat<f64>, SABRParameters>,
+        params: &BTreeMap<OrderedF64, SABRParameters>,
         extrapolation: SurfaceExtrapolationPolicy,
     ) -> Result<SABRParameters> {
         if params.is_empty() {
@@ -381,8 +411,8 @@ mod tests {
     #[test]
     fn interpolate_params_out_of_bounds_errors_by_default() {
         let mut map = BTreeMap::new();
-        map.insert(OrderedFloat(1.0), params(0.10, 0.5, 0.30, -0.20, 0.01));
-        map.insert(OrderedFloat(2.0), params(0.20, 0.5, 0.40, -0.10, 0.01));
+        map.insert(OrderedF64(1.0), params(0.10, 0.5, 0.30, -0.20, 0.01));
+        map.insert(OrderedF64(2.0), params(0.20, 0.5, 0.40, -0.10, 0.01));
 
         let err = VolSurfaceBootstrapper::interpolate_params(
             0.5,
@@ -398,8 +428,8 @@ mod tests {
         let mut map = BTreeMap::new();
         let p1 = params(0.10, 0.5, 0.30, -0.20, 0.01);
         let p2 = params(0.20, 0.5, 0.40, -0.10, 0.01);
-        map.insert(OrderedFloat(1.0), p1.clone());
-        map.insert(OrderedFloat(2.0), p2.clone());
+        map.insert(OrderedF64(1.0), p1.clone());
+        map.insert(OrderedF64(2.0), p2.clone());
 
         let left = VolSurfaceBootstrapper::interpolate_params(
             0.5,
@@ -421,8 +451,8 @@ mod tests {
     #[test]
     fn interpolate_params_linearly_interpolates_in_range() {
         let mut map = BTreeMap::new();
-        map.insert(OrderedFloat(1.0), params(0.10, 0.5, 0.30, -0.20, 0.01));
-        map.insert(OrderedFloat(2.0), params(0.20, 0.5, 0.50, 0.10, 0.01));
+        map.insert(OrderedF64(1.0), params(0.10, 0.5, 0.30, -0.20, 0.01));
+        map.insert(OrderedF64(2.0), params(0.20, 0.5, 0.50, 0.10, 0.01));
 
         let mid = VolSurfaceBootstrapper::interpolate_params(
             1.5,

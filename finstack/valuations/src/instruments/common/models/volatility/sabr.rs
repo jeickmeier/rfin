@@ -5,7 +5,6 @@
 //! that capture the smile and skew observed in market prices.
 
 use finstack_core::{Error, Result};
-use statrs::distribution::{ContinuousCDF, Normal};
 
 /// SABR model parameters
 #[derive(Clone, Debug)]
@@ -1039,10 +1038,8 @@ fn normal_inverse_cdf(p: f64) -> f64 {
         return f64::INFINITY;
     }
 
-    // Use statrs high-precision implementation
-    let normal =
-        Normal::new(0.0, 1.0).expect("Standard normal distribution should always be valid");
-    normal.inverse_cdf(p)
+    // Use finstack_core high-precision implementation
+    finstack_core::math::standard_normal_inv_cdf(p)
 }
 
 #[cfg(test)]

@@ -27,7 +27,6 @@ use crate::instruments::cds_tranche::pricer::CDSTranchePricer;
 use crate::instruments::cds_tranche::CdsTranche;
 use crate::metrics::{MetricCalculator, MetricContext};
 use finstack_core::Result;
-use statrs::distribution::{ContinuousCDF, StudentsT};
 
 /// Calculator for tail dependence coefficient.
 ///
@@ -90,8 +89,8 @@ fn calculate_student_t_tail_dependence(correlation: f64, df: f64) -> f64 {
 
     let arg = -((nu + 1.0) * (1.0 - rho) / (1.0 + rho)).sqrt();
 
-    // Use accurate Student-t CDF from statrs
-    let t_cdf = student_t_cdf(arg, nu + 1.0);
+    // Use accurate Student-t CDF from finstack_core
+    let t_cdf = student_t_cdf_local(arg, nu + 1.0);
 
     2.0 * t_cdf
 }
@@ -111,25 +110,12 @@ fn calculate_rfl_tail_dependence(correlation: f64, loading_vol: f64) -> f64 {
     prob_high * effective_high_corr.sqrt() * 0.5
 }
 
-/// Calculate Student-t CDF using statrs for accuracy.
+/// Calculate Student-t CDF using finstack_core's implementation.
 ///
 /// For high degrees of freedom (df > 100), uses the normal approximation
-/// which is accurate and faster. Otherwise uses the exact Student-t CDF
-/// from the statrs library.
-fn student_t_cdf(x: f64, df: f64) -> f64 {
-    if df > 100.0 {
-        // High df: normal approximation is accurate and faster
-        return finstack_core::math::norm_cdf(x);
-    }
-
-    // Use statrs for accurate Student-t CDF
-    match StudentsT::new(0.0, 1.0, df) {
-        Ok(dist) => dist.cdf(x),
-        Err(_) => {
-            // Fallback for invalid df (should not happen with df > 2)
-            finstack_core::math::norm_cdf(x)
-        }
-    }
+/// which is accurate and faster. Otherwise uses the exact Student-t CDF.
+fn student_t_cdf_local(x: f64, df: f64) -> f64 {
+    finstack_core::math::student_t_cdf(x, df)
 }
 
 #[cfg(test)]
@@ -142,7 +128,7 @@ mod tests {
         // t-distribution with df=5, x=-2.0 should give CDF ≈ 0.0510
         let df = 5.0;
         let x = -2.0;
-        let cdf = student_t_cdf(x, df);
+        let cdf = student_t_cdf_local(x, df);
 
         // Expected value from statistical tables
         assert!(
@@ -159,8 +145,8 @@ mod tests {
         // Student-t CDF should be symmetric: F(-x) = 1 - F(x)
         let df = 5.0;
         let x = 1.5;
-        let cdf_neg = student_t_cdf(-x, df);
-        let cdf_pos = student_t_cdf(x, df);
+        let cdf_neg = student_t_cdf_local(-x, df);
+        let cdf_pos = student_t_cdf_local(x, df);
 
         assert!(
             (cdf_neg + cdf_pos - 1.0).abs() < 1e-10,
@@ -176,7 +162,7 @@ mod tests {
     fn test_student_t_cdf_high_df_approaches_normal() {
         // With high df, Student-t approaches Normal
         let x = -1.5;
-        let t_cdf = student_t_cdf(x, 200.0);
+        let t_cdf = student_t_cdf_local(x, 200.0);
         let normal_cdf = finstack_core::math::norm_cdf(x);
 
         assert!(
