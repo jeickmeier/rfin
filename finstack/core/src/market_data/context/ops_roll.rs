@@ -97,6 +97,10 @@ impl MarketContext {
                     // in the same way - they're keyed by detachment point, not time
                     CurveStorage::BaseCorrelation(curve.clone())
                 }
+                CurveStorage::VolIndex(curve) => {
+                    let rolled = curve.roll_forward(days)?;
+                    CurveStorage::VolIndex(Arc::new(rolled))
+                }
             };
             new_ctx.curves.insert(id.clone(), rolled_storage);
         }

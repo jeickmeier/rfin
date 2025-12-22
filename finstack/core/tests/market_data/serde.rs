@@ -246,6 +246,7 @@ fn market_context_state_is_deterministically_sorted_and_roundtrips_full_snapshot
             finstack_core::market_data::context::CurveState::BaseCorrelation(bc) => {
                 bc.id().to_string()
             }
+            finstack_core::market_data::context::CurveState::VolIndex(vc) => vc.id().to_string(),
         })
         .collect();
     assert_eq!(

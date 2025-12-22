@@ -12,7 +12,7 @@ use crate::error::{Error, Result};
 use crate::spec::{CurveKind, OperationSpec, TenorMatchMode};
 use crate::utils::{calculate_interpolation_weights, parse_tenor_to_years_with_context};
 use finstack_core::dates::{BusinessDayConvention, DayCount};
-use finstack_core::market_data::bumps::{BumpSpec, MarketBump};
+use finstack_core::market_data::bumps::{Bumpable, BumpSpec, MarketBump};
 
 /// Adapter for curve operations.
 pub struct CurveAdapter;
@@ -300,6 +300,30 @@ impl ScenarioAdapter for CurveAdapter {
                             curve: std::sync::Arc::new(new_curve),
                         }]))
                     }
+                    CurveKind::VolIndex => {
+                        // Volatility index curves store forward volatility levels
+                        // Apply parallel bump to index levels (bp interpreted as index points)
+                        let base_curve =
+                            ctx.market.get_vol_index_ref(curve_id).map_err(|_| {
+                                Error::MarketDataNotFound {
+                                    id: curve_id.to_string(),
+                                }
+                            })?;
+
+                        // For vol index curves, bp is interpreted as index points (not basis points)
+                        let spec = BumpSpec::parallel_bp(*bp);
+                        let new_curve = base_curve.apply_bump(spec).map_err(|e| {
+                            Error::Internal(format!(
+                                "Failed to bump vol index curve: {}",
+                                e
+                            ))
+                        })?;
+
+                        Ok(Some(vec![ScenarioEffect::UpdateVolIndexCurve {
+                            id: curve_id.clone(),
+                            curve: std::sync::Arc::new(new_curve),
+                        }]))
+                    }
                 }
             }
             OperationSpec::CurveNodeBp {
@@ -518,6 +542,54 @@ impl ScenarioAdapter for CurveAdapter {
                                 })?;
 
                         Ok(Some(vec![ScenarioEffect::UpdateDiscountCurve {
+                            id: curve_id.clone(),
+                            curve: std::sync::Arc::new(new_curve),
+                        }]))
+                    }
+                    CurveKind::VolIndex => {
+                        // Volatility index curves - apply node-specific bumps
+                        let base_curve =
+                            ctx.market.get_vol_index_ref(curve_id).map_err(|_| {
+                                Error::MarketDataNotFound {
+                                    id: curve_id.to_string(),
+                                }
+                            })?;
+
+                        let knots: Vec<f64> = base_curve.knots().to_vec();
+                        let targets = resolve_bump_targets(
+                            nodes,
+                            &knots,
+                            *match_mode,
+                            as_of,
+                            base_curve.day_count(),
+                        )?;
+
+                        // Apply node bumps by rebuilding the curve with shifted levels
+                        let mut levels: Vec<f64> = base_curve.levels().to_vec();
+
+                        for (t, bp) in targets {
+                            // Find exact match in knots
+                            if let Some(idx) = knots.iter().position(|&k| (k - t).abs() < 1e-4) {
+                                // bp is in "basis points" but for vol index we interpret as index points / 100
+                                levels[idx] += bp / 100.0;
+                            }
+                        }
+
+                        // Rebuild the vol index curve
+                        let bumped_points: Vec<(f64, f64)> =
+                            knots.into_iter().zip(levels).collect();
+                        let new_curve =
+                            finstack_core::market_data::term_structures::vol_index_curve::VolatilityIndexCurve::builder(
+                                base_curve.id().as_str(),
+                            )
+                            .base_date(base_curve.base_date())
+                            .day_count(base_curve.day_count())
+                            .spot_level(base_curve.spot_level())
+                            .knots(bumped_points)
+                            .build()
+                            .map_err(|e| Error::Internal(format!("Failed to rebuild vol index curve: {}", e)))?;
+
+                        Ok(Some(vec![ScenarioEffect::UpdateVolIndexCurve {
                             id: curve_id.clone(),
                             curve: std::sync::Arc::new(new_curve),
                         }]))

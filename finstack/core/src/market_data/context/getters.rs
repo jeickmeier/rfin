@@ -15,7 +15,7 @@ use crate::market_data::{
     term_structures::{
         base_correlation::BaseCorrelationCurve, credit_index::CreditIndexData,
         discount_curve::DiscountCurve, forward_curve::ForwardCurve, hazard_curve::HazardCurve,
-        inflation::InflationCurve,
+        inflation::InflationCurve, vol_index_curve::VolatilityIndexCurve,
     },
 };
 
@@ -90,6 +90,14 @@ impl MarketContext {
         })
     }
 
+    /// Get a volatility index curve by identifier.
+    pub fn get_vol_index(&self, id: impl AsRef<str>) -> Result<Arc<VolatilityIndexCurve>> {
+        let id_str = id.as_ref();
+        self.get_curve_with_type_check(id_str, "VolIndex", |storage| {
+            storage.vol_index().map(Arc::clone)
+        })
+    }
+
     /// Borrow a discount curve by identifier.
     pub fn get_discount_ref(&self, id: impl AsRef<str>) -> Result<&DiscountCurve> {
         let id_str = id.as_ref();
@@ -153,6 +161,20 @@ impl MarketContext {
             Some(CurveStorage::BaseCorrelation(curve)) => Ok(curve.as_ref()),
             Some(storage) => Err(crate::error::Error::Validation(format!(
                 "Type mismatch: curve '{}' is '{}', expected 'BaseCorrelation'",
+                id_str,
+                storage.curve_type()
+            ))),
+            None => Err(self.missing_curve_error(id_str)),
+        }
+    }
+
+    /// Borrow a volatility index curve by identifier.
+    pub fn get_vol_index_ref(&self, id: impl AsRef<str>) -> Result<&VolatilityIndexCurve> {
+        let id_str = id.as_ref();
+        match self.curves.get(id_str) {
+            Some(CurveStorage::VolIndex(curve)) => Ok(curve.as_ref()),
+            Some(storage) => Err(crate::error::Error::Validation(format!(
+                "Type mismatch: curve '{}' is '{}', expected 'VolIndex'",
                 id_str,
                 storage.curve_type()
             ))),

@@ -366,6 +366,13 @@ impl ScenarioEngine {
                             ctx.market.insert_inflation_mut(curve.as_ref().clone());
                             applied += 1;
                         }
+                        crate::adapters::traits::ScenarioEffect::UpdateVolIndexCurve {
+                            id: _id,
+                            curve,
+                        } => {
+                            ctx.market.insert_vol_index_mut(curve.as_ref().clone());
+                            applied += 1;
+                        }
                         crate::adapters::traits::ScenarioEffect::InstrumentPriceShock {
                             types,
                             attrs,

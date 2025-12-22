@@ -89,6 +89,10 @@ pub mod term_loan;
 pub mod trs;
 /// variance swap module.
 pub mod variance_swap;
+/// volatility index future module.
+pub mod vol_index_future;
+/// volatility index option module.
+pub mod vol_index_option;
 /// cross-currency swap module.
 pub mod xccy_swap;
 
@@ -138,6 +142,8 @@ pub use swaption::Swaption;
 pub use term_loan::TermLoan;
 pub use trs::{EquityTotalReturnSwap, FIIndexTotalReturnSwap};
 pub use variance_swap::VarianceSwap;
+pub use vol_index_future::{VolatilityIndexFuture, VolIndexContractSpecs};
+pub use vol_index_option::{VolatilityIndexOption, VolIndexOptionSpecs};
 pub use xccy_swap::XccySwap;
 
 // === Common Functionality ===

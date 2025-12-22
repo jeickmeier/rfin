@@ -1288,6 +1288,191 @@ impl PyCreditIndexData {
     }
 }
 
+/// Volatility index curve for forward volatility index levels.
+///
+/// Used for pricing volatility index futures and options (e.g., VIX futures).
+///
+/// Parameters
+/// ----------
+/// id : str
+///     Identifier for the volatility index curve.
+/// base_date : datetime.date
+///     Anchor date for the curve (t = 0).
+/// knots : list[tuple[float, float]]
+///     `(time, forward_level)` pairs.
+/// spot_level : float, optional
+///     Current spot level of the volatility index.
+/// day_count : DayCount, optional
+///     Day-count convention for time calculations.
+/// interp : str, optional
+///     Interpolation style (defaults to ``"linear"``).
+/// extrapolation : str, optional
+///     Extrapolation policy (defaults to ``"flat_forward"``).
+///
+/// Returns
+/// -------
+/// VolatilityIndexCurve
+///     Volatility index curve wrapper.
+#[pyclass(
+    module = "finstack.core.market_data.term_structures",
+    name = "VolatilityIndexCurve"
+)]
+#[derive(Clone)]
+pub struct PyVolatilityIndexCurve {
+    pub(crate) inner: Arc<finstack_core::market_data::term_structures::VolatilityIndexCurve>,
+}
+
+impl PyVolatilityIndexCurve {
+    pub(crate) fn new_arc(
+        inner: Arc<finstack_core::market_data::term_structures::VolatilityIndexCurve>,
+    ) -> Self {
+        Self { inner }
+    }
+}
+
+#[pymethods]
+impl PyVolatilityIndexCurve {
+    /// Create a volatility index curve from `(time, level)` knot points.
+    ///
+    /// Parameters
+    /// ----------
+    /// id : str
+    ///     Curve identifier.
+    /// base_date : datetime.date
+    ///     Date corresponding to t = 0.
+    /// knots : list[tuple[float, float]]
+    ///     ``(time, forward_level)`` pairs in ascending time order.
+    /// spot_level : float, optional
+    ///     Current spot level. Defaults to first knot level.
+    /// day_count : DayCount, optional
+    ///     Override the default Act/365F convention.
+    /// interp : str, optional
+    ///     Interpolation style (``"linear"``, ``"monotone_convex"``, etc.).
+    /// extrapolation : str, optional
+    ///     Extrapolation policy name.
+    ///
+    /// Returns
+    /// -------
+    /// VolatilityIndexCurve
+    ///     Volatility index curve.
+    #[new]
+    #[pyo3(signature = (id, base_date, knots, spot_level=None, day_count=None, interp=None, extrapolation=None))]
+    fn ctor(
+        id: &str,
+        base_date: Bound<'_, PyAny>,
+        knots: Bound<'_, PyAny>,
+        spot_level: Option<f64>,
+        day_count: Option<Bound<'_, PyAny>>,
+        interp: Option<Bound<'_, PyAny>>,
+        extrapolation: Option<Bound<'_, PyAny>>,
+    ) -> PyResult<Self> {
+        let knots_vec = extract_float_pairs(&knots)?;
+        if knots_vec.len() < 2 {
+            return Err(PyValueError::new_err(
+                "knots must contain at least two (time, level) pairs",
+            ));
+        }
+        let base = py_to_date(&base_date).context("base_date")?;
+        let style = match interp {
+            None => InterpStyle::Linear,
+            Some(obj) => {
+                if let Ok(InterpStyleArg(v)) = obj.extract::<InterpStyleArg>() {
+                    v
+                } else if let Ok(py_style) = obj.extract::<PyRef<PyInterpStyle>>() {
+                    py_style.inner
+                } else if let Ok(name) = obj.extract::<&str>() {
+                    parse_interp_enum(Some(name), InterpStyle::Linear)?
+                } else {
+                    return Err(pyo3::exceptions::PyTypeError::new_err(
+                        "interp must be InterpStyle or string",
+                    ));
+                }
+            }
+        };
+        let extra = match extrapolation {
+            None => parse_extrap_enum(None)?,
+            Some(obj) => {
+                if let Ok(ExtrapolationPolicyArg(v)) = obj.extract::<ExtrapolationPolicyArg>() {
+                    v
+                } else if let Ok(py_ex) = obj.extract::<PyRef<PyExtrapolationPolicy>>() {
+                    py_ex.inner
+                } else if let Ok(name) = obj.extract::<&str>() {
+                    parse_extrap_enum(Some(name))?
+                } else {
+                    return Err(pyo3::exceptions::PyTypeError::new_err(
+                        "extrapolation must be ExtrapolationPolicy or string",
+                    ));
+                }
+            }
+        };
+        let mut builder =
+            finstack_core::market_data::term_structures::VolatilityIndexCurve::builder(id)
+                .base_date(base)
+                .knots(knots_vec)
+                .set_interp(style)
+                .extrapolation(extra);
+        if let Some(dc) = parse_day_count(day_count)? {
+            builder = builder.day_count(dc);
+        }
+        if let Some(spot) = spot_level {
+            builder = builder.spot_level(spot);
+        }
+        let curve = Python::attach(|py| py.detach(|| builder.build().map_err(core_to_py)))?;
+        Ok(Self::new_arc(Arc::new(curve)))
+    }
+
+    /// Return the curve identifier.
+    #[getter]
+    fn id(&self) -> String {
+        self.inner.id().to_string()
+    }
+
+    /// Base date used for forward level calculations.
+    #[getter]
+    fn base_date(&self, py: Python<'_>) -> PyResult<Py<PyAny>> {
+        date_to_py(py, self.inner.base_date())
+    }
+
+    /// Day-count convention used for time calculations.
+    #[getter]
+    fn day_count(&self) -> PyDayCount {
+        PyDayCount::new(self.inner.day_count())
+    }
+
+    /// Current spot level of the volatility index.
+    #[getter]
+    fn spot_level(&self) -> f64 {
+        self.inner.spot_level()
+    }
+
+    /// Knot points as ``(time, level)`` pairs.
+    #[getter]
+    fn points(&self) -> Vec<(f64, f64)> {
+        self.inner
+            .knots()
+            .iter()
+            .zip(self.inner.levels().iter())
+            .map(|(&t, &lvl)| (t, lvl))
+            .collect()
+    }
+
+    /// Forward volatility index level at time ``t`` in years.
+    ///
+    /// Parameters
+    /// ----------
+    /// t : float
+    ///     Time in years from the base date.
+    ///
+    /// Returns
+    /// -------
+    /// float
+    ///     Forward volatility index level at ``t``.
+    #[pyo3(text_signature = "(self, t)")]
+    fn forward_level(&self, t: f64) -> f64 {
+        self.inner.forward_level(t)
+    }
+}
+
 pub(crate) fn register<'py>(
     py: Python<'py>,
     parent: &Bound<'py, PyModule>,
@@ -1295,7 +1480,7 @@ pub(crate) fn register<'py>(
     let module = PyModule::new(py, "term_structures")?;
     module.setattr(
         "__doc__",
-        "One-dimensional market curves: discount, forward, hazard, inflation, base correlation, and credit index aggregates.",
+        "One-dimensional market curves: discount, forward, hazard, inflation, base correlation, volatility index, and credit index aggregates.",
     )?;
     module.add_class::<PyDiscountCurve>()?;
     module.add_class::<PyForwardCurve>()?;
@@ -1303,6 +1488,7 @@ pub(crate) fn register<'py>(
     module.add_class::<PyInflationCurve>()?;
     module.add_class::<PyBaseCorrelationCurve>()?;
     module.add_class::<PyCreditIndexData>()?;
+    module.add_class::<PyVolatilityIndexCurve>()?;
 
     let exports = [
         "DiscountCurve",
@@ -1311,6 +1497,7 @@ pub(crate) fn register<'py>(
         "InflationCurve",
         "BaseCorrelationCurve",
         "CreditIndexData",
+        "VolatilityIndexCurve",
     ];
     module.setattr("__all__", PyList::new(py, &exports)?)?;
     parent.add_submodule(&module)?;

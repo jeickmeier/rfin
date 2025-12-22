@@ -111,6 +111,10 @@ pub enum InstrumentType {
     CommodityForward = 55,
     /// Commodity swap (fixed-for-floating commodity price exchange).
     CommoditySwap = 56,
+    /// Volatility index future (VIX, VXN, VSTOXX).
+    VolatilityIndexFuture = 57,
+    /// Volatility index option (options on VIX, etc.).
+    VolatilityIndexOption = 58,
 }
 
 impl InstrumentType {
@@ -166,6 +170,8 @@ impl InstrumentType {
             InstrumentType::BondFuture => "BondFuture",
             InstrumentType::CommodityForward => "CommodityForward",
             InstrumentType::CommoditySwap => "CommoditySwap",
+            InstrumentType::VolatilityIndexFuture => "VolatilityIndexFuture",
+            InstrumentType::VolatilityIndexOption => "VolatilityIndexOption",
         }
     }
 }
@@ -219,6 +225,8 @@ impl std::fmt::Display for InstrumentType {
             InstrumentType::BondFuture => "bond_future",
             InstrumentType::CommodityForward => "commodity_forward",
             InstrumentType::CommoditySwap => "commodity_swap",
+            InstrumentType::VolatilityIndexFuture => "volatility_index_future",
+            InstrumentType::VolatilityIndexOption => "volatility_index_option",
         };
         write!(f, "{}", label)
     }
@@ -289,6 +297,12 @@ impl std::str::FromStr for InstrumentType {
             "commodity_forward" | "commodityforward" | "commodity_future"
             | "commodityfuture" => Ok(InstrumentType::CommodityForward),
             "commodity_swap" | "commodityswap" => Ok(InstrumentType::CommoditySwap),
+            "volatility_index_future" | "vol_index_future" | "vix_future" | "vixfuture" => {
+                Ok(InstrumentType::VolatilityIndexFuture)
+            }
+            "volatility_index_option" | "vol_index_option" | "vix_option" | "vixoption" => {
+                Ok(InstrumentType::VolatilityIndexOption)
+            }
             other => Err(format!("Unknown instrument type: {}", other)),
         }
     }

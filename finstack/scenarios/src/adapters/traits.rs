@@ -4,7 +4,7 @@ use crate::spec::{OperationSpec, RateBindingSpec};
 use finstack_core::market_data::bumps::MarketBump;
 
 use finstack_core::market_data::term_structures::{
-    DiscountCurve, ForwardCurve, HazardCurve, InflationCurve,
+    DiscountCurve, ForwardCurve, HazardCurve, InflationCurve, VolatilityIndexCurve,
 };
 use std::sync::Arc;
 
@@ -48,6 +48,14 @@ pub enum ScenarioEffect {
         id: String,
         /// The updated curve instance.
         curve: Arc<InflationCurve>,
+    },
+    /// Update a volatility index curve in the market.
+    #[allow(dead_code)]
+    UpdateVolIndexCurve {
+        /// The curve identifier.
+        id: String,
+        /// The updated curve instance.
+        curve: Arc<VolatilityIndexCurve>,
     },
 
     /// Apply a forecast adjustment to the statement model (% change).

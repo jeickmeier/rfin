@@ -36,6 +36,8 @@ mod swaption;
 mod term_loan;
 mod trs;
 mod variance_swap;
+mod vol_index_future;
+mod vol_index_option;
 
 // Re-export only used wrappers to avoid unused import lints during clippy
 use asian_option::PyAsianOption;
@@ -75,6 +77,8 @@ use swaption::PySwaption;
 use term_loan::PyTermLoan;
 use trs::{PyEquityTotalReturnSwap, PyFiIndexTotalReturnSwap};
 use variance_swap::PyVarianceSwap;
+use vol_index_future::PyVolatilityIndexFuture;
+use vol_index_option::PyVolatilityIndexOption;
 
 use finstack_valuations::instruments::common::traits::Instrument;
 use finstack_valuations::pricer::InstrumentType;
@@ -167,6 +171,16 @@ pub(crate) fn extract_instrument<'py>(value: &Bound<'py, PyAny>) -> PyResult<Ins
     try_extract!(value, PyRangeAccrual, InstrumentType::RangeAccrual);
     try_extract!(value, PyRevolvingCredit, InstrumentType::RevolvingCredit);
     try_extract!(value, PyTermLoan, InstrumentType::TermLoan);
+    try_extract!(
+        value,
+        PyVolatilityIndexFuture,
+        InstrumentType::VolatilityIndexFuture
+    );
+    try_extract!(
+        value,
+        PyVolatilityIndexOption,
+        InstrumentType::VolatilityIndexOption
+    );
 
     Err(PyTypeError::new_err(
         "Unsupported instrument type; construct instruments from finstack.valuations",
@@ -298,6 +312,12 @@ pub(crate) fn register<'py>(
 
     let term_loan_exports = term_loan::register(py, &module)?;
     exports.extend(term_loan_exports.iter().copied());
+
+    let vol_index_future_exports = vol_index_future::register(py, &module)?;
+    exports.extend(vol_index_future_exports.iter().copied());
+
+    let vol_index_option_exports = vol_index_option::register(py, &module)?;
+    exports.extend(vol_index_option_exports.iter().copied());
 
     exports.sort_unstable();
     exports.dedup();

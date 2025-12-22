@@ -8,6 +8,7 @@ use super::scalars::{MarketScalar, ScalarTimeSeries};
 use super::term_structures::{
     base_correlation::BaseCorrelationCurve, discount_curve::DiscountCurve,
     forward_curve::ForwardCurve, hazard_curve::HazardCurve, inflation::InflationCurve,
+    vol_index_curve::VolatilityIndexCurve,
 };
 use crate::currency::Currency;
 use crate::dates::Date;
@@ -610,6 +611,70 @@ impl Bumpable for BaseCorrelationCurve {
         BaseCorrelationCurve::builder(bumped_id)
             .knots(bumped_points)
             .build()
+    }
+}
+
+impl Bumpable for VolatilityIndexCurve {
+    fn apply_bump(&self, spec: BumpSpec) -> crate::Result<Self> {
+        use crate::error::InputError;
+
+        match spec.bump_type {
+            BumpType::Parallel => {
+                // Vol index curves support both additive and multiplicative bumps
+                match (spec.mode, spec.units) {
+                    (BumpMode::Additive, BumpUnits::RateBp) => {
+                        // Interpret bp as index points (1bp = 0.01 index point)
+                        let bump = spec.value / 100.0;
+                        self.try_with_parallel_bump(bump)
+                    }
+                    (BumpMode::Additive, BumpUnits::Fraction) => {
+                        self.try_with_parallel_bump(spec.value)
+                    }
+                    (BumpMode::Additive, BumpUnits::Percent) => {
+                        let frac = spec.value / 100.0;
+                        self.try_with_parallel_bump(frac)
+                    }
+                    (BumpMode::Multiplicative, BumpUnits::Factor) => {
+                        // spec.value is the target factor (e.g., 1.10 for +10%)
+                        let pct = spec.value - 1.0;
+                        self.try_with_percentage_bump(pct)
+                    }
+                    (BumpMode::Multiplicative, BumpUnits::Percent) => {
+                        // spec.value is the percentage (e.g., 10 for +10%)
+                        let pct = spec.value / 100.0;
+                        self.try_with_percentage_bump(pct)
+                    }
+                    _ => Err(InputError::UnsupportedBump {
+                        reason: format!(
+                            "VolatilityIndexCurve parallel bump: unsupported mode/units {:?}/{:?}",
+                            spec.mode, spec.units
+                        ),
+                    }
+                    .into()),
+                }
+            }
+            BumpType::TriangularKeyRate {
+                prev_bucket,
+                target_bucket,
+                next_bucket,
+            } => {
+                let bump = match (spec.mode, spec.units) {
+                    (BumpMode::Additive, BumpUnits::RateBp) => spec.value / 100.0,
+                    (BumpMode::Additive, BumpUnits::Fraction) => spec.value,
+                    (BumpMode::Additive, BumpUnits::Percent) => spec.value / 100.0,
+                    _ => {
+                        return Err(InputError::UnsupportedBump {
+                            reason: format!(
+                                "VolatilityIndexCurve key-rate bump requires Additive mode, got {:?}/{:?}",
+                                spec.mode, spec.units
+                            ),
+                        }
+                        .into());
+                    }
+                };
+                self.try_with_triangular_key_rate_bump(prev_bucket, target_bucket, next_bucket, bump)
+            }
+        }
     }
 }
 

@@ -13,6 +13,7 @@ use super::MarketContext;
 use crate::market_data::term_structures::{
     base_correlation::BaseCorrelationCurve, discount_curve::DiscountCurve,
     forward_curve::ForwardCurve, inflation::InflationCurve,
+    vol_index_curve::VolatilityIndexCurve,
 };
 
 impl MarketContext {
@@ -227,6 +228,26 @@ impl MarketContext {
                             bumped
                         };
                         CurveStorage::BaseCorrelation(Arc::new(final_curve))
+                    }
+                    CurveStorage::VolIndex(original) => {
+                        let bumped = original.apply_bump(bump_spec)?;
+                        let final_curve = if bumped.id() != original.id() {
+                            VolatilityIndexCurve::builder(original.id().as_str())
+                                .base_date(bumped.base_date())
+                                .day_count(bumped.day_count())
+                                .spot_level(bumped.spot_level())
+                                .knots(
+                                    bumped
+                                        .knots()
+                                        .iter()
+                                        .copied()
+                                        .zip(bumped.levels().iter().copied()),
+                                )
+                                .build()?
+                        } else {
+                            bumped
+                        };
+                        CurveStorage::VolIndex(Arc::new(final_curve))
                     }
                 };
 

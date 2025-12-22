@@ -535,6 +535,9 @@ pub enum CurveKind {
     Inflation,
     /// Commodity forward curve.
     Commodity,
+    /// Volatility index curve (VIX, VSTOXX, etc.).
+    #[serde(rename = "vol_index")]
+    VolIndex,
 }
 
 /// Identifies which category of volatility surface an operation targets.

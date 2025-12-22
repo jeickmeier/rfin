@@ -37,6 +37,8 @@ mod swaption;
 mod term_loan;
 mod trs;
 mod variance_swap;
+mod vol_index_future;
+mod vol_index_option;
 
 // Re-export wrapper trait for internal use
 pub(crate) use wrapper::InstrumentWrapper;
@@ -91,6 +93,10 @@ pub use trs::{
     JsFiIndexTotalReturnSwap as FiIndexTotalReturnSwap,
 };
 pub use variance_swap::{JsRealizedVarMethod as RealizedVarMethod, JsVarianceSwap as VarianceSwap};
+#[allow(unused_imports)] // Exported for external consumers via wasm_bindgen
+pub use vol_index_future::JsVolatilityIndexFuture as VolatilityIndexFuture;
+#[allow(unused_imports)] // Exported for external consumers via wasm_bindgen
+pub use vol_index_option::JsVolatilityIndexOption as VolatilityIndexOption;
 
 /// Downcast a JavaScript instrument wrapper into a core instrument reference.
 ///
@@ -167,6 +173,14 @@ pub(crate) fn extract_instrument(value: &JsValue) -> Result<Box<dyn Instrument>,
     try_extract!(range_accrual::JsRangeAccrual, "RangeAccrual");
     try_extract!(revolving_credit::JsRevolvingCredit, "RevolvingCredit");
     try_extract!(term_loan::JsTermLoan, "TermLoan");
+    try_extract!(
+        vol_index_future::JsVolatilityIndexFuture,
+        "VolatilityIndexFuture"
+    );
+    try_extract!(
+        vol_index_option::JsVolatilityIndexOption,
+        "VolatilityIndexOption"
+    );
 
     Err(JsValue::from_str(
         "Unsupported instrument type; construct instruments from finstack-wasm valuations module",

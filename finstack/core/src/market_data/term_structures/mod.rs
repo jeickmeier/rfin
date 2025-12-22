@@ -109,6 +109,8 @@ pub mod forward_curve;
 pub mod hazard_curve;
 /// Real/Breakeven inflation curves.
 pub mod inflation;
+/// Volatility index forward curves (VIX, VXN, VSTOXX).
+pub mod vol_index_curve;
 
 // Re-export for ergonomic access
 pub use base_correlation::*;
@@ -118,5 +120,6 @@ pub use flat::*;
 pub use forward_curve::*;
 pub use hazard_curve::*;
 pub use inflation::*;
+pub use vol_index_curve::*;
 // Re-export the relocated volatility surface
 pub use crate::market_data::surfaces::vol_surface::*;

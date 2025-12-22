@@ -40,11 +40,12 @@ impl std::str::FromStr for OptionType {
 }
 
 /// Exercise style for options
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
 #[cfg_attr(feature = "serde", serde(rename_all = "snake_case"))]
 pub enum ExerciseStyle {
     /// European exercise (only at expiry)
+    #[default]
     European,
     /// American exercise (any time before/at expiry)
     American,

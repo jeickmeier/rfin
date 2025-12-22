@@ -648,3 +648,139 @@ impl JsCreditIndexData {
             .map(|arc| JsHazardCurve::from_arc(Arc::clone(arc)))
     }
 }
+
+#[wasm_bindgen(js_name = VolatilityIndexCurve)]
+#[derive(Clone)]
+pub struct JsVolatilityIndexCurve {
+    inner: Arc<finstack_core::market_data::term_structures::VolatilityIndexCurve>,
+}
+
+impl JsVolatilityIndexCurve {
+    #[allow(dead_code)] // Used when inserted into MarketContext from external callers
+    pub(crate) fn from_arc(
+        inner: Arc<finstack_core::market_data::term_structures::VolatilityIndexCurve>,
+    ) -> Self {
+        Self { inner }
+    }
+
+    #[allow(dead_code)] // Used when extracted from MarketContext by external callers
+    pub(crate) fn inner(
+        &self,
+    ) -> Arc<finstack_core::market_data::term_structures::VolatilityIndexCurve> {
+        Arc::clone(&self.inner)
+    }
+}
+
+#[wasm_bindgen(js_class = VolatilityIndexCurve)]
+impl JsVolatilityIndexCurve {
+    /// Create a volatility index curve with (time, forward_level) knot points.
+    ///
+    /// @param {string} id - Curve identifier used to retrieve it later from MarketContext
+    /// @param {Date} base_date - Anchor date corresponding to t = 0
+    /// @param {Array<number>} times - Time knots in years from base_date
+    /// @param {Array<number>} levels - Forward volatility index levels at each time point
+    /// @param {number} spot_level - Current spot level of the volatility index
+    /// @param {string} day_count - Day count convention (e.g., "act_365f")
+    /// @param {string} interp - Interpolation style ("linear", "monotone_convex", etc.)
+    /// @param {string} extrapolation - Extrapolation policy ("flat_forward")
+    /// @returns {VolatilityIndexCurve} Curve object exposing forward level methods
+    /// @throws {Error} If knots are invalid, times/levels length mismatch, or fewer than 2 points
+    ///
+    /// @example
+    /// ```javascript
+    /// const baseDate = new Date(2024, 1, 2);
+    /// const curve = new VolatilityIndexCurve(
+    ///   "VIX",
+    ///   baseDate,
+    ///   [0.0, 0.25, 0.5, 1.0, 2.0],      // times in years
+    ///   [18.0, 19.5, 20.0, 21.5, 22.0],  // forward volatility index levels
+    ///   18.0,                             // spot level
+    ///   "act_365f",                       // day count
+    ///   "linear",                         // interpolation
+    ///   "flat_forward"                    // extrapolation
+    /// );
+    ///
+    /// console.log(curve.forwardLevel(0.5));  // 20.0 (forward level at 6 months)
+    /// console.log(curve.spotLevel);          // 18.0 (spot level)
+    /// ```
+    #[wasm_bindgen(constructor)]
+    #[allow(clippy::too_many_arguments)]
+    pub fn new(
+        id: &str,
+        base_date: &JsDate,
+        times: Vec<f64>,
+        levels: Vec<f64>,
+        spot_level: Option<f64>,
+        day_count: JsValue,
+        interp: JsValue,
+        extrapolation: JsValue,
+    ) -> Result<JsVolatilityIndexCurve, JsValue> {
+        if times.len() != levels.len() {
+            return Err(js_error("times and levels must have the same length"));
+        }
+        if times.len() < 2 {
+            return Err(js_error(
+                "at least two knots are required to build a volatility index curve",
+            ));
+        }
+
+        let points: Vec<(f64, f64)> = times.into_iter().zip(levels).collect();
+        let style = parse_interp_value(&interp)?;
+        let extrap = parse_extrap_value(&extrapolation)?;
+        let picked_day_count = parse_day_count_jsvalue(&day_count)?.unwrap_or(DayCount::Act365F);
+
+        let mut builder =
+            finstack_core::market_data::term_structures::VolatilityIndexCurve::builder(id)
+                .base_date(base_date.inner())
+                .knots(points)
+                .set_interp(style)
+                .extrapolation(extrap)
+                .day_count(picked_day_count);
+
+        if let Some(spot) = spot_level {
+            builder = builder.spot_level(spot);
+        }
+
+        let curve = builder.build().map_err(core_to_js)?;
+        Ok(JsVolatilityIndexCurve {
+            inner: Arc::new(curve),
+        })
+    }
+
+    #[wasm_bindgen(getter, js_name = id)]
+    pub fn id(&self) -> String {
+        self.inner.id().to_string()
+    }
+
+    #[wasm_bindgen(getter, js_name = baseDate)]
+    pub fn base_date_js(&self) -> JsDate {
+        JsDate::from_core(self.inner.base_date())
+    }
+
+    #[wasm_bindgen(js_name = dayCount)]
+    pub fn day_count_name(&self) -> String {
+        format!("{:?}", self.inner.day_count())
+    }
+
+    #[wasm_bindgen(getter, js_name = spotLevel)]
+    pub fn spot_level(&self) -> f64 {
+        self.inner.spot_level()
+    }
+
+    #[wasm_bindgen(js_name = forwardLevel)]
+    pub fn forward_level(&self, time: f64) -> f64 {
+        self.inner.forward_level(time)
+    }
+
+    #[wasm_bindgen(js_name = points)]
+    pub fn points(&self) -> js_sys::Array {
+        let arr = js_sys::Array::new();
+        for (&t, &lvl) in self.inner.knots().iter().zip(self.inner.levels().iter()) {
+            let tuple = js_sys::Array::new();
+            tuple.push(&JsValue::from_f64(t));
+            tuple.push(&JsValue::from_f64(lvl));
+            arr.push(&tuple);
+        }
+        arr
+    }
+}

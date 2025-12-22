@@ -60,6 +60,12 @@ impl PyCurveKind {
         Self::new(CurveKind::Commodity)
     }
 
+    #[classattr]
+    #[allow(non_snake_case)]
+    fn VolIndex() -> Self {
+        Self::new(CurveKind::VolIndex)
+    }
+
     fn __repr__(&self) -> String {
         match self.inner {
             CurveKind::Discount => "CurveKind.Discount".to_string(),
@@ -67,6 +73,7 @@ impl PyCurveKind {
             CurveKind::ParCDS => "CurveKind.ParCDS".to_string(),
             CurveKind::Inflation => "CurveKind.Inflation".to_string(),
             CurveKind::Commodity => "CurveKind.Commodity".to_string(),
+            CurveKind::VolIndex => "CurveKind.VolIndex".to_string(),
         }
     }
 
@@ -77,6 +84,7 @@ impl PyCurveKind {
             CurveKind::ParCDS => "ParCDS".to_string(),
             CurveKind::Inflation => "Inflation".to_string(),
             CurveKind::Commodity => "Commodity".to_string(),
+            CurveKind::VolIndex => "VolIndex".to_string(),
         }
     }
 

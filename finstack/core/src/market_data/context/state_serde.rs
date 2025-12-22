@@ -34,6 +34,8 @@ pub enum CurveState {
     Inflation(crate::market_data::term_structures::inflation::InflationCurve),
     /// Base correlation curve state
     BaseCorrelation(crate::market_data::term_structures::base_correlation::BaseCorrelationCurve),
+    /// Volatility index curve state (VIX, VXN, VSTOXX)
+    VolIndex(crate::market_data::term_structures::vol_index_curve::VolatilityIndexCurve),
 }
 
 fn curve_state_id(s: &CurveState) -> &CurveId {
@@ -43,6 +45,7 @@ fn curve_state_id(s: &CurveState) -> &CurveId {
         CurveState::Hazard(c) => c.id(),
         CurveState::Inflation(c) => c.id(),
         CurveState::BaseCorrelation(c) => c.id(),
+        CurveState::VolIndex(c) => c.id(),
     }
 }
 
@@ -57,6 +60,7 @@ impl CurveStorage {
             Self::Hazard(curve) => CurveState::Hazard((**curve).clone()),
             Self::Inflation(curve) => CurveState::Inflation((**curve).clone()),
             Self::BaseCorrelation(curve) => CurveState::BaseCorrelation((**curve).clone()),
+            Self::VolIndex(curve) => CurveState::VolIndex((**curve).clone()),
         }
     }
 
@@ -70,6 +74,7 @@ impl CurveStorage {
             CurveState::Hazard(c) => Self::Hazard(Arc::new(c)),
             CurveState::Inflation(c) => Self::Inflation(Arc::new(c)),
             CurveState::BaseCorrelation(c) => Self::BaseCorrelation(Arc::new(c)),
+            CurveState::VolIndex(c) => Self::VolIndex(Arc::new(c)),
         }
     }
 }
