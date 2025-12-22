@@ -238,6 +238,8 @@ impl BumpSpec {
 
 /// Unified bump description spanning curves, surfaces, FX, and scalar prices.
 #[derive(Debug, Clone)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+#[cfg_attr(feature = "serde", serde(tag = "type", rename_all = "snake_case"))]
 pub enum MarketBump {
     /// Standard curve/surface/price bumps addressed by `CurveId`.
     Curve {
