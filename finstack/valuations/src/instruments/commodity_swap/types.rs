@@ -7,13 +7,13 @@
 use crate::instruments::common::pricing::HasDiscountCurve;
 use crate::instruments::common::traits::Attributes;
 use finstack_core::currency::Currency;
-use finstack_core::dates::{BusinessDayConvention, Date, DayCount, DayCountCtx, Tenor};
+use finstack_core::dates::{
+    BusinessDayConvention, CalendarRegistry, Date, DayCount, DayCountCtx, ScheduleBuilder, Tenor,
+};
 use finstack_core::market_data::context::MarketContext;
 use finstack_core::money::Money;
 use finstack_core::types::{CurveId, InstrumentId};
 use finstack_core::Result;
-
-use super::schedule::generate_payment_schedule;
 
 /// Commodity swap (fixed-for-floating commodity price exchange).
 ///
@@ -217,15 +217,28 @@ impl CommoditySwap {
     }
 
     /// Generate the payment schedule for this swap.
-    pub fn payment_schedule(&self, as_of: Date) -> Result<Vec<Date>> {
-        generate_payment_schedule(
-            self.start_date,
-            self.end_date,
-            self.payment_frequency,
-            self.bdc.unwrap_or(BusinessDayConvention::Following),
-            self.calendar_id.as_deref(),
-            as_of,
-        )
+    pub fn payment_schedule(&self, _as_of: Date) -> Result<Vec<Date>> {
+        let bdc = self.bdc.unwrap_or(BusinessDayConvention::Following);
+
+        let mut builder = ScheduleBuilder::new(self.start_date, self.end_date)
+            .frequency(self.payment_frequency);
+
+        // Apply calendar adjustment if calendar_id is specified
+        if let Some(ref cal_id) = self.calendar_id {
+            if let Some(cal) = CalendarRegistry::global().resolve_str(cal_id) {
+                builder = builder.adjust_with(bdc, cal);
+            }
+        }
+
+        let schedule = builder.build()?;
+
+        // Filter to payment dates only (skip start date if it's in the schedule)
+        let dates: Vec<Date> = schedule
+            .into_iter()
+            .filter(|&d| d > self.start_date && d <= self.end_date)
+            .collect();
+
+        Ok(dates)
     }
 
     /// Get all projected cashflows for this swap.

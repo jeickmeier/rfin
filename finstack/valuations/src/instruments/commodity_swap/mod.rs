@@ -27,13 +27,11 @@
 //! assert_eq!(swap.ticker, "NG");
 //! ```
 
-mod schedule;
 mod types;
 /// Pricer for commodity swaps.
 pub mod pricer;
 
 pub use pricer::CommoditySwapDiscountingPricer;
-pub use schedule::generate_payment_schedule;
 pub use types::CommoditySwap;
 
 /// Metrics submodule for commodity swap risk measures.
