@@ -105,17 +105,44 @@ pub enum AttributionFactor {
 ///
 /// # Examples
 ///
-/// ```rust,ignore
-/// use finstack_valuations::attribution::{AttributionInput, AttributionMethod};
-/// use finstack_core::prelude::Date;
+/// ```rust,no_run
+/// use finstack_valuations::attribution::AttributionMethod;
+/// use finstack_valuations::attribution::types::AttributionInput;
+/// use finstack_valuations::attribution::default_attribution_metrics;
+/// use finstack_valuations::instruments::deposit::Deposit;
+/// use finstack_core::config::FinstackConfig;
+/// use finstack_core::currency::Currency;
+/// use finstack_core::market_data::context::MarketContext;
+/// use finstack_core::money::Money;
+/// use std::sync::Arc;
+/// use time::macros::date;
+///
+/// # fn main() -> Result<(), Box<dyn std::error::Error>> {
+/// let as_of_t0 = date!(2024-01-01);
+/// let as_of_t1 = date!(2024-01-02);
+/// let market_t0 = MarketContext::new();
+/// let market_t1 = MarketContext::new();
+/// let config = FinstackConfig::default();
+///
+/// let instrument = Arc::new(
+///     Deposit::builder()
+///         .id("DEP-1D".into())
+///         .notional(Money::new(1_000_000.0, Currency::USD))
+///         .start(as_of_t0)
+///         .end(as_of_t1)
+///         .day_count(finstack_core::dates::DayCount::Act360)
+///         .discount_curve_id("USD-OIS".into())
+///         .build()
+///         .expect("deposit builder should succeed"),
+/// ) as Arc<dyn finstack_valuations::instruments::common::traits::Instrument>;
 ///
 /// // Parallel attribution
 /// let input = AttributionInput {
-///     instrument: &my_bond,
+///     instrument: &instrument,
 ///     market_t0: &market_t0,
 ///     market_t1: &market_t1,
-///     as_of_t0: Date::new(2024, 1, 1),
-///     as_of_t1: Date::new(2024, 1, 2),
+///     as_of_t0,
+///     as_of_t1,
 ///     config: Some(&config),
 ///     model_params_t0: None,
 ///     val_t0: None,
@@ -123,15 +150,21 @@ pub enum AttributionFactor {
 ///     strict_validation: false,
 /// };
 ///
-/// let attribution = attribute_pnl(AttributionMethod::Parallel, &input)?;
+/// // `AttributionInput` is consumed by internal implementations; public entrypoints
+/// // accept the same fields as direct parameters (e.g. `attribute_pnl_parallel`).
+/// let _method = AttributionMethod::Parallel;
+/// let _input_parallel = input;
 ///
 /// // Metrics-based attribution
+/// let metrics = default_attribution_metrics();
+/// let val_t0 = instrument.price_with_metrics(&market_t0, as_of_t0, &metrics)?;
+/// let val_t1 = instrument.price_with_metrics(&market_t1, as_of_t1, &metrics)?;
 /// let input = AttributionInput {
-///     instrument: &my_bond,
+///     instrument: &instrument,
 ///     market_t0: &market_t0,
 ///     market_t1: &market_t1,
-///     as_of_t0: Date::new(2024, 1, 1),
-///     as_of_t1: Date::new(2024, 1, 2),
+///     as_of_t0,
+///     as_of_t1,
 ///     config: None,
 ///     model_params_t0: None,
 ///     val_t0: Some(&val_t0),
@@ -139,7 +172,10 @@ pub enum AttributionFactor {
 ///     strict_validation: false,
 /// };
 ///
-/// let attribution = attribute_pnl(AttributionMethod::MetricsBased, &input)?;
+/// let _method = AttributionMethod::MetricsBased;
+/// let _input_metrics = input;
+/// # Ok(())
+/// # }
 /// ```
 #[derive(Clone)]
 pub struct AttributionInput<'a> {
@@ -193,8 +229,34 @@ pub struct AttributionInput<'a> {
 ///
 /// # Examples
 ///
-/// ```rust,ignore
-/// use finstack_valuations::attribution::{PnlAttribution, AttributionMethod};
+/// ```rust,no_run
+/// use finstack_valuations::attribution::attribute_pnl_parallel;
+/// use finstack_valuations::instruments::deposit::Deposit;
+/// use finstack_core::config::FinstackConfig;
+/// use finstack_core::currency::Currency;
+/// use finstack_core::market_data::context::MarketContext;
+/// use finstack_core::money::Money;
+/// use std::sync::Arc;
+/// use time::macros::date;
+///
+/// # fn main() -> Result<(), Box<dyn std::error::Error>> {
+/// let as_of_t0 = date!(2025-01-15);
+/// let as_of_t1 = date!(2025-01-16);
+/// let market_t0 = MarketContext::new();
+/// let market_t1 = MarketContext::new();
+/// let config = FinstackConfig::default();
+///
+/// let instrument = Arc::new(
+///     Deposit::builder()
+///         .id("DEP-1D".into())
+///         .notional(Money::new(1_000_000.0, Currency::USD))
+///         .start(as_of_t0)
+///         .end(as_of_t1)
+///         .day_count(finstack_core::dates::DayCount::Act360)
+///         .discount_curve_id("USD-OIS".into())
+///         .build()
+///         .expect("deposit builder should succeed"),
+/// ) as Arc<dyn finstack_valuations::instruments::common::traits::Instrument>;
 ///
 /// let attribution = attribute_pnl_parallel(
 ///     &instrument,
@@ -203,6 +265,7 @@ pub struct AttributionInput<'a> {
 ///     as_of_t0,
 ///     as_of_t1,
 ///     &config,
+///     None,
 /// )?;
 ///
 /// println!("Total P&L: {}", attribution.total_pnl);
@@ -210,6 +273,8 @@ pub struct AttributionInput<'a> {
 ///     attribution.carry,
 ///     attribution.carry.amount() / attribution.total_pnl.amount() * 100.0
 /// );
+/// # Ok(())
+/// # }
 /// ```
 #[derive(Clone, Debug)]
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
@@ -1131,10 +1196,11 @@ mod tests {
 ///
 /// # Examples
 ///
-/// ```rust,ignore
-/// use finstack_valuations::attribution::JsonEnvelope;
+/// ```rust,no_run
+/// use finstack_valuations::attribution::types::JsonEnvelope;
 /// use serde::{Deserialize, Serialize};
 ///
+/// # fn main() -> Result<(), Box<dyn std::error::Error>> {
 /// #[derive(Serialize, Deserialize)]
 /// struct MyEnvelope {
 ///     schema: String,
@@ -1172,6 +1238,9 @@ mod tests {
 /// // Parse from reader
 /// let cursor = std::io::Cursor::new(json.as_bytes());
 /// let from_reader = MyEnvelope::from_reader(cursor)?;
+/// # let _ = (parsed, from_reader);
+/// # Ok(())
+/// # }
 /// ```
 ///
 /// # Design Rationale
@@ -1200,7 +1269,7 @@ pub trait JsonEnvelope: Sized + Serialize + serde::de::DeserializeOwned {
     ///
     /// # Examples
     ///
-    /// ```rust,ignore
+    /// ```rust,no_run
     /// fn parse_error(e: serde_json::Error) -> finstack_core::Error {
     ///     finstack_core::Error::Calibration {
     ///         message: format!("Failed to parse attribution envelope: {}", e),
@@ -1222,7 +1291,7 @@ pub trait JsonEnvelope: Sized + Serialize + serde::de::DeserializeOwned {
     ///
     /// # Examples
     ///
-    /// ```rust,ignore
+    /// ```rust,no_run
     /// fn serialize_error(e: serde_json::Error) -> finstack_core::Error {
     ///     finstack_core::Error::Calibration {
     ///         message: format!("Failed to serialize attribution envelope: {}", e),
@@ -1254,9 +1323,38 @@ pub trait JsonEnvelope: Sized + Serialize + serde::de::DeserializeOwned {
     ///
     /// # Examples
     ///
-    /// ```rust,ignore
-    /// let json = r#"{"schema": "v1", "data": "test"}"#;
+    /// ```rust,no_run
+    /// # use finstack_valuations::attribution::types::JsonEnvelope;
+    /// # use serde::{Deserialize, Serialize};
+    /// #
+    /// # #[derive(Serialize, Deserialize)]
+    /// # struct MyEnvelope {
+    /// #     schema: String,
+    /// #     data: String,
+    /// # }
+    /// #
+    /// # impl JsonEnvelope for MyEnvelope {
+    /// #     fn parse_error(e: serde_json::Error) -> finstack_core::Error {
+    /// #         finstack_core::Error::Calibration {
+    /// #             message: format!("Failed to parse envelope: {}", e),
+    /// #             category: "json_parse".to_string(),
+    /// #         }
+    /// #     }
+    /// #
+    /// #     fn serialize_error(e: serde_json::Error) -> finstack_core::Error {
+    /// #         finstack_core::Error::Calibration {
+    /// #             message: format!("Failed to serialize envelope: {}", e),
+    /// #             category: "json_serialize".to_string(),
+    /// #         }
+    /// #     }
+    /// # }
+    /// #
+    /// # fn main() -> Result<(), Box<dyn std::error::Error>> {
+    /// let json = r#"{"schema":"v1","data":"test"}"#;
     /// let envelope = MyEnvelope::from_json(json)?;
+    /// # let _ = envelope;
+    /// # Ok(())
+    /// # }
     /// ```
     fn from_json(json: &str) -> Result<Self> {
         serde_json::from_str(json).map_err(Self::parse_error)
@@ -1281,14 +1379,39 @@ pub trait JsonEnvelope: Sized + Serialize + serde::de::DeserializeOwned {
     ///
     /// # Examples
     ///
-    /// ```rust,ignore
-    /// // From file
-    /// let file = std::fs::File::open("envelope.json")?;
-    /// let envelope = MyEnvelope::from_reader(file)?;
-    ///
-    /// // From in-memory buffer
-    /// let cursor = std::io::Cursor::new(json_bytes);
+    /// ```rust,no_run
+    /// # use finstack_valuations::attribution::types::JsonEnvelope;
+    /// # use serde::{Deserialize, Serialize};
+    /// #
+    /// # #[derive(Serialize, Deserialize)]
+    /// # struct MyEnvelope {
+    /// #     schema: String,
+    /// #     data: String,
+    /// # }
+    /// #
+    /// # impl JsonEnvelope for MyEnvelope {
+    /// #     fn parse_error(e: serde_json::Error) -> finstack_core::Error {
+    /// #         finstack_core::Error::Calibration {
+    /// #             message: format!("Failed to parse envelope: {}", e),
+    /// #             category: "json_parse".to_string(),
+    /// #         }
+    /// #     }
+    /// #
+    /// #     fn serialize_error(e: serde_json::Error) -> finstack_core::Error {
+    /// #         finstack_core::Error::Calibration {
+    /// #             message: format!("Failed to serialize envelope: {}", e),
+    /// #             category: "json_serialize".to_string(),
+    /// #         }
+    /// #     }
+    /// # }
+    /// #
+    /// # fn main() -> Result<(), Box<dyn std::error::Error>> {
+    /// let json = r#"{"schema":"v1","data":"test"}"#;
+    /// let cursor = std::io::Cursor::new(json.as_bytes());
     /// let envelope = MyEnvelope::from_reader(cursor)?;
+    /// # let _ = envelope;
+    /// # Ok(())
+    /// # }
     /// ```
     fn from_reader<R: std::io::Read>(reader: R) -> Result<Self> {
         serde_json::from_reader(reader).map_err(Self::parse_error)
@@ -1313,10 +1436,38 @@ pub trait JsonEnvelope: Sized + Serialize + serde::de::DeserializeOwned {
     ///
     /// # Examples
     ///
-    /// ```rust,ignore
+    /// ```rust,no_run
+    /// # use finstack_valuations::attribution::types::JsonEnvelope;
+    /// # use serde::{Deserialize, Serialize};
+    /// #
+    /// # #[derive(Serialize, Deserialize)]
+    /// # struct MyEnvelope {
+    /// #     schema: String,
+    /// #     data: String,
+    /// # }
+    /// #
+    /// # impl JsonEnvelope for MyEnvelope {
+    /// #     fn parse_error(e: serde_json::Error) -> finstack_core::Error {
+    /// #         finstack_core::Error::Calibration {
+    /// #             message: format!("Failed to parse envelope: {}", e),
+    /// #             category: "json_parse".to_string(),
+    /// #         }
+    /// #     }
+    /// #
+    /// #     fn serialize_error(e: serde_json::Error) -> finstack_core::Error {
+    /// #         finstack_core::Error::Calibration {
+    /// #             message: format!("Failed to serialize envelope: {}", e),
+    /// #             category: "json_serialize".to_string(),
+    /// #         }
+    /// #     }
+    /// # }
+    /// #
+    /// # fn main() -> Result<(), Box<dyn std::error::Error>> {
     /// let envelope = MyEnvelope { schema: "v1".to_string(), data: "test".to_string() };
     /// let json = envelope.to_json()?;
     /// println!("{}", json);  // Pretty-printed with indentation
+    /// # Ok(())
+    /// # }
     /// ```
     fn to_json(&self) -> Result<String> {
         serde_json::to_string_pretty(self).map_err(Self::serialize_error)

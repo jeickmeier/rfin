@@ -100,5 +100,3 @@ impl MarketContext {
         Ok(new_ctx)
     }
 }
-
-

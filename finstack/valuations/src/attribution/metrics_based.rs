@@ -139,9 +139,34 @@ fn extract_bucketed_dv01_per_curve(
 ///
 /// # Examples
 ///
-/// ```rust,ignore
+/// ```rust,no_run
+/// use finstack_core::currency::Currency;
+/// use finstack_core::market_data::context::MarketContext;
+/// use finstack_core::money::Money;
+/// use finstack_valuations::instruments::deposit::Deposit;
 /// use finstack_valuations::attribution::attribute_pnl_metrics_based;
 /// use finstack_valuations::metrics::MetricId;
+/// use std::sync::Arc;
+/// use time::macros::date;
+///
+/// # fn main() -> Result<(), Box<dyn std::error::Error>> {
+/// let as_of_t0 = date!(2025-01-15);
+/// let as_of_t1 = date!(2025-01-16);
+/// let market_t0 = MarketContext::new();
+/// let market_t1 = MarketContext::new();
+///
+/// // Minimal instrument (for compilation); real attribution requires populated market context.
+/// let instrument = Arc::new(
+///     Deposit::builder()
+///         .id("DEP-1D".into())
+///         .notional(Money::new(1_000_000.0, Currency::USD))
+///         .start(as_of_t0)
+///         .end(as_of_t1)
+///         .day_count(finstack_core::dates::DayCount::Act360)
+///         .discount_curve_id("USD-OIS".into())
+///         .build()
+///         .expect("deposit builder should succeed"),
+/// ) as Arc<dyn finstack_valuations::instruments::common::traits::Instrument>;
 ///
 /// // Compute valuations with bucketed metrics for best accuracy
 /// let metrics = vec![
@@ -163,6 +188,9 @@ fn extract_bucketed_dv01_per_curve(
 ///     as_of_t0,
 ///     as_of_t1,
 /// )?;
+/// # let _ = attribution;
+/// # Ok(())
+/// # }
 /// ```
 pub fn attribute_pnl_metrics_based(
     instrument: &Arc<dyn Instrument>,

@@ -132,7 +132,11 @@ pub fn register_term_loan_metrics(registry: &mut MetricRegistry) {
         Arc::new(AllInRateCalculator),
         &[InstrumentType::TermLoan],
     );
-    registry.register_metric(MetricId::Ytm, Arc::new(YtmCalculator), &[InstrumentType::TermLoan]);
+    registry.register_metric(
+        MetricId::Ytm,
+        Arc::new(YtmCalculator),
+        &[InstrumentType::TermLoan],
+    );
     registry.register_metric(
         MetricId::DiscountMargin,
         Arc::new(DiscountMarginCalculator),

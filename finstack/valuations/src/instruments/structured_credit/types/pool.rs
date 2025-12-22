@@ -114,7 +114,16 @@ impl PoolAsset {
     /// * `day_count` - Day count convention
     ///
     /// # Example
-    /// ```ignore
+    /// ```rust,no_run
+    /// use finstack_core::currency::Currency;
+    /// use finstack_core::dates::{Date, DayCount};
+    /// use finstack_core::money::Money;
+    /// use finstack_valuations::instruments::structured_credit::types::pool::PoolAsset;
+    /// use time::Month;
+    ///
+    /// let maturity_date =
+    ///     Date::from_calendar_date(2030, Month::January, 1).expect("valid date");
+    ///
     /// let asset = PoolAsset::floating_rate_loan(
     ///     "LOAN001",
     ///     Money::new(10_000_000.0, Currency::USD),

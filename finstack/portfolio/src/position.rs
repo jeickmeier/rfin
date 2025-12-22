@@ -177,11 +177,40 @@ impl Position {
     ///
     /// # Examples
     ///
-    /// ```rust,ignore
-    /// let position = Position::new(...)
-    ///     .with_tags([("sector", "Technology"), ("region", "US")]);
+    /// ```rust,no_run
+    /// use finstack_portfolio::{Position, PositionUnit};
+    /// use finstack_core::prelude::*;
+    /// use finstack_valuations::instruments::deposit::Deposit;
+    /// use std::sync::Arc;
+    /// use time::macros::date;
+    ///
+    /// # fn main() -> finstack_portfolio::Result<()> {
+    /// let as_of = date!(2024-01-01);
+    ///
+    /// // Create an instrument to attach to the position (example: a simple deposit)
+    /// let deposit = Deposit::builder()
+    ///     .id("DEP_1M".into())
+    ///     .notional(Money::new(1_000_000.0, Currency::USD))
+    ///     .start(as_of)
+    ///     .end(date!(2024-02-01))
+    ///     .day_count(finstack_core::dates::DayCount::Act360)
+    ///     .discount_curve_id("USD".into())
+    ///     .build()
+    ///     .expect("deposit builder should succeed");
+    ///
+    /// let position = Position::new(
+    ///     "POS_001",
+    ///     "ACME_CORP",
+    ///     "DEP_1M",
+    ///     Arc::new(deposit),
+    ///     1.0,
+    ///     PositionUnit::Units,
+    /// )?
+    /// .with_tags([("sector", "Technology"), ("region", "US")]);
     ///
     /// assert_eq!(position.tags.get("sector"), Some(&"Technology".to_string()));
+    /// # Ok(())
+    /// # }
     /// ```
     pub fn with_tags<K, V, I>(mut self, tags: I) -> Self
     where

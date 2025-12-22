@@ -57,7 +57,11 @@ pub(crate) fn reciprocal_rate_or_err(
 ) -> crate::Result<f64> {
     if !rate.is_finite() {
         return Err(crate::error::InputError::NonFiniteValue {
-            kind: if rate.is_nan() { "NaN".to_string() } else { "infinity".to_string() },
+            kind: if rate.is_nan() {
+                "NaN".to_string()
+            } else {
+                "infinity".to_string()
+            },
         }
         .into());
     }

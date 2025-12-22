@@ -19,7 +19,7 @@
 //!
 //! # Examples
 //!
-//! ```ignore
+//! ```rust,no_run
 //! use finstack_valuations::instruments::irs::InterestRateSwap;
 //! use finstack_valuations::instruments::common::traits::Instrument;
 //! use finstack_valuations::metrics::MetricId;
@@ -40,8 +40,9 @@
 //! let metrics = vec![MetricId::ParRate, MetricId::Dv01];
 //! let result = irs.price_with_metrics(&context, as_of, &metrics)?;
 //!
-//! let par_rate = result.measures.get(&MetricId::ParRate);
-//! let dv01 = result.measures.get(&MetricId::Dv01);
+//! let par_rate = result.measures.get(MetricId::ParRate.as_str()).copied();
+//! let dv01 = result.measures.get(MetricId::Dv01.as_str()).copied();
+//! # let _ = (par_rate, dv01);
 //! # Ok(())
 //! # }
 //! ```

@@ -72,18 +72,29 @@ const BP_TO_DECIMAL: f64 = 1e-4;
 ///
 /// # Examples
 ///
-/// ```ignore
-/// // Note: relative_df is a private helper function used internally
+/// ```rust,no_run
 /// use finstack_core::dates::Date;
 /// use finstack_core::market_data::term_structures::discount_curve::DiscountCurve;
-/// use finstack_valuations::instruments::irs::pricer::relative_df;
+/// use time::Month;
 ///
-/// let curve = build_test_curve();
-/// let as_of = Date::from_calendar_date(2024, time::Month::January, 1).unwrap();
-/// let target = Date::from_calendar_date(2025, time::Month::January, 1).unwrap();
+/// # fn main() -> finstack_core::Result<()> {
+/// // `relative_df` is an internal helper; externally, you can compute the same
+/// // quantity using public `DiscountCurve` APIs.
+/// let curve = DiscountCurve::builder("USD-OIS")
+///     .base_date(Date::from_calendar_date(2024, Month::January, 1).expect("valid date"))
+///     .knots([(0.0, 1.0), (1.0, 0.95), (5.0, 0.80)])
+///     .build()
+///     .expect("curve should build");
 ///
-/// let df = relative_df(&curve, as_of, target)?;
+/// let as_of = Date::from_calendar_date(2024, Month::January, 1).unwrap();
+/// let target = Date::from_calendar_date(2025, Month::January, 1).unwrap();
+///
+/// let df_as_of = curve.try_df_on_date_curve(as_of)?;
+/// let df = curve.try_df_between_dates(as_of, target)?;
+/// assert!(df_as_of > 0.0 && df_as_of <= 1.0);
 /// assert!(df > 0.0 && df <= 1.0);
+/// # Ok(())
+/// # }
 /// ```
 pub(in crate::instruments::irs) fn relative_df(
     disc: &finstack_core::market_data::term_structures::discount_curve::DiscountCurve,

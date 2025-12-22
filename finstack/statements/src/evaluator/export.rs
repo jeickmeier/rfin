@@ -20,7 +20,7 @@ use polars::prelude::*;
 ///
 /// # Example
 ///
-/// ```ignore
+/// ```rust,no_run
 /// let df = to_polars_long(&results)?;
 /// // Output:
 /// // ┌─────────────┬───────────┬────────────┬──────────────┬──────────┬────────────┐
@@ -89,7 +89,7 @@ pub fn to_polars_long(results: &Results) -> Result<DataFrame> {
 ///
 /// # Example
 ///
-/// ```ignore
+/// ```rust,no_run
 /// let df = to_polars_long_filtered(&results, &["revenue", "cogs"])?;
 /// ```
 #[cfg(feature = "dataframes")]
@@ -153,7 +153,7 @@ pub fn to_polars_long_filtered(results: &Results, node_filter: &[&str]) -> Resul
 ///
 /// # Example
 ///
-/// ```ignore
+/// ```rust,no_run
 /// let df = to_polars_wide(&results)?;
 /// // Output:
 /// // ┌───────────┬────────────┬──────────┐

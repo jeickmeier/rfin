@@ -54,13 +54,19 @@
 //!
 //! # Example Usage (Future)
 //!
-//! ```rust,ignore
+//! ```rust,no_run
 //! use finstack_statements::extensions::{CreditScorecardExtension, ExtensionRegistry};
+//! use finstack_statements::extensions::ExtensionContext;
 //!
+//! # fn main() -> finstack_statements::Result<()> {
 //! let mut registry = ExtensionRegistry::new();
 //! registry.register(Box::new(CreditScorecardExtension::new()))?;
 //!
+//! # let context: ExtensionContext = unimplemented!("build ExtensionContext from a model and Results");
 //! let results = registry.execute_all(&context)?;
+//! # let _ = results;
+//! # Ok(())
+//! # }
 //! ```
 
 use super::plugin::{Extension, ExtensionContext, ExtensionMetadata, ExtensionResult};

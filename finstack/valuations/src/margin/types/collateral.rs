@@ -284,12 +284,12 @@ impl CollateralEligibility {
 ///
 /// # Example
 ///
-/// ```rust,ignore
-/// let schedule = EligibleCollateralSchedule::builder()
-///     .add(CollateralEligibility::cash())
-///     .add(CollateralEligibility::government_bonds(0.02))
-///     .rehypothecation(false)
-///     .build();
+/// ```rust,no_run
+/// use finstack_valuations::margin::{CollateralEligibility, EligibleCollateralSchedule};
+///
+/// // Start from a standard schedule (BCBS-IOSCO compliant)
+/// let schedule = EligibleCollateralSchedule::bcbs_standard();
+/// # let _ = schedule;
 /// ```
 #[derive(Debug, Clone, PartialEq)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]

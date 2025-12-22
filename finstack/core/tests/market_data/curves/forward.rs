@@ -240,13 +240,13 @@ fn test_forward_curve_spread_based_construction() {
         .knots([(0.0, 1.0), (1.0, 0.95), (2.0, 0.90)])
         .build()
         .unwrap();
-    
+
     let fwd_curve = ForwardCurve::builder("FWD-SPREAD", 0.25)
         .base_date(test_date())
         .knots([(0.0, 0.01), (1.0, 0.015), (2.0, 0.02)]) // Spread
         .build()
         .unwrap();
-    
+
     // Verify rate calculations with spread
     let rate = fwd_curve.rate(1.0);
     assert!(rate > 0.0);
@@ -260,7 +260,7 @@ fn test_forward_curve_tenor_mismatch() {
         .knots([(0.0, 0.03), (0.25, 0.032), (1.0, 0.04)])
         .build()
         .unwrap();
-    
+
     assert_eq!(curve.tenor(), 0.5);
     let rate = curve.rate(0.75);
     assert!(rate > 0.03 && rate < 0.05);
@@ -275,7 +275,7 @@ fn test_forward_curve_rate_conversion_continuous() {
         .knots([(0.0, 0.05), (1.0, 0.05)])
         .build()
         .unwrap();
-    
+
     let rate = curve.rate(0.5);
     assert!((rate - 0.05).abs() < 0.001);
 }
@@ -288,7 +288,7 @@ fn test_forward_curve_negative_forwards() {
         .knots([(0.0, -0.01), (1.0, -0.005)])
         .build()
         .unwrap();
-    
+
     let rate = curve.rate(0.5);
     assert!(rate < 0.0);
 }
@@ -301,7 +301,7 @@ fn test_forward_curve_inverted() {
         .knots([(0.0, 0.05), (1.0, 0.03), (2.0, 0.02)])
         .build()
         .unwrap();
-    
+
     assert!(curve.rate(0.0) > curve.rate(2.0));
 }
 
@@ -313,7 +313,7 @@ fn test_forward_curve_very_long_tenors() {
         .knots([(0.0, 0.03), (1.0, 0.035), (10.0, 0.04), (30.0, 0.045)])
         .build()
         .unwrap();
-    
+
     let rate_30y = curve.rate(30.0);
     assert!((rate_30y - 0.045).abs() < 1e-10);
 }
@@ -326,7 +326,7 @@ fn test_forward_curve_short_tenors() {
         .knots([(0.0, 0.03), (0.01, 0.031), (0.1, 0.032)])
         .build()
         .unwrap();
-    
+
     let rate = curve.rate(0.05);
     assert!(rate > 0.03 && rate < 0.033);
 }
@@ -341,7 +341,7 @@ fn test_forward_curve_reset_lag() {
             .knots([(0.0, 0.03), (1.0, 0.04)])
             .build()
             .unwrap();
-        
+
         assert_eq!(curve.reset_lag(), lag);
     }
 }
@@ -349,12 +349,8 @@ fn test_forward_curve_reset_lag() {
 #[test]
 fn test_forward_curve_day_count_variations() {
     // Test with different day count conventions
-    let day_counts = [
-        DayCount::Act360,
-        DayCount::Act365F,
-        DayCount::Thirty360,
-    ];
-    
+    let day_counts = [DayCount::Act360, DayCount::Act365F, DayCount::Thirty360];
+
     for dc in day_counts {
         let curve = ForwardCurve::builder("TEST", 0.25)
             .base_date(test_date())
@@ -362,7 +358,7 @@ fn test_forward_curve_day_count_variations() {
             .knots([(0.0, 0.03), (1.0, 0.04)])
             .build()
             .unwrap();
-        
+
         assert_eq!(curve.day_count(), dc);
     }
 }
@@ -374,7 +370,7 @@ fn test_forward_curve_single_knot() {
         .base_date(test_date())
         .knots([(0.0, 0.05)])
         .build();
-    
+
     assert!(result.is_err(), "Single knot should be rejected");
 }
 
@@ -384,13 +380,13 @@ fn test_forward_curve_many_knots() {
     let knots: Vec<(f64, f64)> = (0..=20)
         .map(|i| (i as f64 * 0.5, 0.03 + i as f64 * 0.001))
         .collect();
-    
+
     let curve = ForwardCurve::builder("GRANULAR", 0.25)
         .base_date(test_date())
         .knots(knots)
         .build()
         .unwrap();
-    
+
     // Should interpolate smoothly
     for t in [0.25, 0.75, 1.5, 5.5] {
         let rate = curve.rate(t);
@@ -411,16 +407,16 @@ fn test_forward_curve_serde_all_fields() {
         .extrapolation(ExtrapolationPolicy::FlatForward)
         .build()
         .unwrap();
-    
+
     let json = serde_json::to_string(&original).unwrap();
     let deserialized: ForwardCurve = serde_json::from_str(&json).unwrap();
-    
+
     assert_eq!(original.id(), deserialized.id());
     assert_eq!(original.tenor(), deserialized.tenor());
     assert_eq!(original.reset_lag(), deserialized.reset_lag());
     assert_eq!(original.day_count(), deserialized.day_count());
     assert_eq!(original.knots(), deserialized.knots());
-    
+
     // Verify rates match
     for t in [0.0, 0.5, 1.0, 1.5, 2.0] {
         assert!((original.rate(t) - deserialized.rate(t)).abs() < 1e-12);

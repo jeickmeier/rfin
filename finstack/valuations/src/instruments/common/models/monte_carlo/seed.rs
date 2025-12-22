@@ -6,15 +6,19 @@
 //!
 //! # Usage
 //!
-//! ```rust,ignore
-//! use finstack_valuations::instruments::common::mc::seed;
+//! ```rust,no_run
+//! use finstack_core::types::InstrumentId;
+//! use finstack_valuations::instruments::common::models::monte_carlo::seed;
+//!
+//! let instrument_id = InstrumentId::from("BOND-001");
 //!
 //! // Base pricing scenario
-//! let base_seed = seed::derive_seed(&instrument.id, "base");
+//! let base_seed = seed::derive_seed(&instrument_id, "base");
 //!
 //! // Greek calculation scenarios
-//! let delta_up_seed = seed::derive_seed_for_metric(&instrument.id, "delta", "up");
-//! let delta_down_seed = seed::derive_seed_for_metric(&instrument.id, "delta", "down");
+//! let delta_up_seed = seed::derive_seed_for_metric(&instrument_id, "delta", "up");
+//! let delta_down_seed = seed::derive_seed_for_metric(&instrument_id, "delta", "down");
+//! # let _ = (base_seed, delta_up_seed, delta_down_seed);
 //! ```
 
 use finstack_core::types::InstrumentId;

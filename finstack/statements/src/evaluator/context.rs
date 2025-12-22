@@ -157,7 +157,11 @@ impl EvaluationContext {
     ///
     /// # Examples
     ///
-    /// ```rust,ignore
+    /// ```rust,no_run
+    /// use finstack_statements::evaluator::EvaluationContext;
+    ///
+    /// # fn main() -> std::result::Result<(), Box<dyn std::error::Error>> {
+    /// # let context: EvaluationContext = unimplemented!("obtained during evaluation");
     /// // Total interest (cash + PIK)
     /// let total_interest = context.get_cs_value("interest_expense", "total")?;
     ///
@@ -166,6 +170,9 @@ impl EvaluationContext {
     ///
     /// // PIK interest only
     /// let pik_interest = context.get_cs_value("interest_expense_pik", "total")?;
+    /// # let _ = (total_interest, cash_interest, pik_interest);
+    /// # Ok(())
+    /// # }
     /// ```
     pub fn get_cs_value(&self, component: &str, instrument_or_total: &str) -> Result<f64> {
         let cs_cashflows = self

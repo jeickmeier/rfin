@@ -11,9 +11,15 @@
 //! Metrics are stored with fully-qualified IDs like `"fin.gross_profit"`.
 //! In formulas, reference them using the qualified form:
 //!
-//! ```rust,ignore
+//! ```rust,no_run
+//! use finstack_statements::prelude::*;
+//!
+//! # fn main() -> std::result::Result<(), Box<dyn std::error::Error>> {
+//! # let mut model: ModelBuilder<Ready> = unimplemented!("build a ModelBuilder<Ready>");
 //! model.add_metric("fin.gross_profit")?;
 //! model.compute("margin", "fin.gross_profit / revenue")?;
+//! # Ok(())
+//! # }
 //! ```
 //!
 //! ## Namespace Resolution
@@ -41,15 +47,22 @@
 //!
 //! # Example: Safe Custom Metric Definition
 //!
-//! ```rust,ignore
+//! ```rust,no_run
+//! use finstack_statements::prelude::*;
+//!
+//! # fn main() -> std::result::Result<(), Box<dyn std::error::Error>> {
+//! # let mut model: ModelBuilder<Ready> = unimplemented!("build a ModelBuilder<Ready>");
 //! // Load standard metrics under "fin" namespace
 //! model.with_builtin_metrics()?;
 //!
 //! // Define custom metrics under "custom" namespace (no collision)
-//! model.value("revenue", &values);
+//! # let values: &[(PeriodId, AmountOrScalar)] = &[];
+//! model.value("revenue", values);
 //! model.compute("custom.my_margin", "fin.gross_profit / revenue")?;
 //! //                                  ^^^^^^^^^^^^^    ^^^^^^^
 //! //                                  registry metric  user node
+//! # Ok(())
+//! # }
 //! ```
 //!
 //! # See Also

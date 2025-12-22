@@ -69,15 +69,15 @@ fn test_z_spread_missing_discount_curve_returns_error() {
 
     // Expect a propagated input error (missing discount curve), never an apparent "perfect fit" z=0.0.
     match result {
-        Err(Error::Input(InputError::NotFound { id })) => {
+        Err(Error::Input(InputError::MissingCurve { requested, .. })) => {
             assert!(
-                id.contains("USD-OIS"),
+                requested.contains("USD-OIS"),
                 "expected missing discount curve id to mention USD-OIS, got {}",
-                id
+                requested
             );
         }
         Err(e) => panic!(
-            "expected InputError::NotFound for missing discount curve, got {}",
+            "expected InputError::MissingCurve for missing discount curve, got {}",
             e
         ),
         Ok(z) => panic!(

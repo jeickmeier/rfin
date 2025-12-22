@@ -24,7 +24,7 @@
 //!
 //! # Quick Example
 //!
-//! ```rust,ignore
+//! ```rust,no_run
 //! use finstack_valuations::instruments::term_loan::{TermLoan, TermLoanSpec, RateSpec};
 //! use finstack_valuations::instruments::term_loan::spec::AmortizationSpec;
 //! use finstack_valuations::cashflow::builder::specs::CouponType;
@@ -34,7 +34,7 @@
 //! use finstack_core::dates::*;
 //! use finstack_core::types::{InstrumentId, CurveId};
 //! use time::Month;
-//! use std::convert::TryInto;
+//! // Note: `TermLoanSpec -> TermLoan` conversion is not implemented; use the builder or `TermLoan::example()`.
 //!
 //! # fn example() -> Result<(), Box<dyn std::error::Error>> {
 //! // Fixed-rate bullet term loan
@@ -60,7 +60,8 @@
 //!     call_schedule: None,
 //! };
 //!
-//! let loan: TermLoan = spec.try_into()?;
+//! let loan = TermLoan::example();
+//! # let _ = (spec, loan);
 //! # Ok(())
 //! # }
 //! ```

@@ -29,11 +29,12 @@
 //!
 //! # Example: Creating a CSA Specification
 //!
-//! ```rust,ignore
+//! ```rust,no_run
 //! use finstack_valuations::margin::{
 //!     CsaSpec, VmParameters, ImParameters, ImMethodology,
 //!     EligibleCollateralSchedule, MarginTenor,
 //! };
+//! use finstack_valuations::margin::MarginCallTiming;
 //! use finstack_core::currency::Currency;
 //! use finstack_core::money::Money;
 //!
@@ -44,7 +45,7 @@
 //!         threshold: Money::new(10_000_000.0, Currency::USD),
 //!         mta: Money::new(500_000.0, Currency::USD),
 //!         rounding: Money::new(10_000.0, Currency::USD),
-//!         independent_amount: Money::zero(Currency::USD),
+//!         independent_amount: Money::new(0.0, Currency::USD),
 //!         frequency: MarginTenor::Daily,
 //!         settlement_lag: 1,
 //!     },

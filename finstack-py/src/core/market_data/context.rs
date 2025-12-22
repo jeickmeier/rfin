@@ -127,7 +127,7 @@ impl PyMarketContext {
     /// -------
     /// None
     fn insert_discount(&mut self, curve: &PyDiscountCurve) -> PyResult<()> {
-        self.inner.insert_mut(curve.inner.clone());
+        self.inner.insert_discount_mut(curve.inner.as_ref().clone());
         Ok(())
     }
 
@@ -143,7 +143,7 @@ impl PyMarketContext {
     /// -------
     /// None
     fn insert_forward(&mut self, curve: &PyForwardCurve) -> PyResult<()> {
-        self.inner.insert_mut(curve.inner.clone());
+        self.inner.insert_forward_mut(curve.inner.as_ref().clone());
         Ok(())
     }
 
@@ -159,7 +159,7 @@ impl PyMarketContext {
     /// -------
     /// None
     fn insert_hazard(&mut self, curve: &PyHazardCurve) -> PyResult<()> {
-        self.inner.insert_mut(curve.inner.clone());
+        self.inner.insert_hazard_mut(curve.inner.as_ref().clone());
         Ok(())
     }
 
@@ -175,7 +175,8 @@ impl PyMarketContext {
     /// -------
     /// None
     fn insert_inflation(&mut self, curve: &PyInflationCurve) -> PyResult<()> {
-        self.inner.insert_mut(curve.inner.clone());
+        self.inner
+            .insert_inflation_mut(curve.inner.as_ref().clone());
         Ok(())
     }
 
@@ -191,7 +192,8 @@ impl PyMarketContext {
     /// -------
     /// None
     fn insert_base_correlation(&mut self, curve: &PyBaseCorrelationCurve) -> PyResult<()> {
-        self.inner.insert_mut(curve.inner.clone());
+        self.inner
+            .insert_base_correlation_mut(curve.inner.as_ref().clone());
         Ok(())
     }
 
@@ -207,7 +209,7 @@ impl PyMarketContext {
     /// -------
     /// None
     fn insert_fx(&mut self, fx_matrix: &PyFxMatrix) -> PyResult<()> {
-        self.inner.insert_fx_mut(fx_matrix.inner.clone());
+        self.inner.fx = Some(fx_matrix.inner.clone());
         Ok(())
     }
 
@@ -223,7 +225,8 @@ impl PyMarketContext {
     /// -------
     /// None
     fn insert_surface(&mut self, surface: &PyVolSurface) -> PyResult<()> {
-        self.inner.insert_surface_mut(surface.inner.clone());
+        self.inner
+            .insert_surface_mut(surface.inner.as_ref().clone());
         Ok(())
     }
 
@@ -274,7 +277,7 @@ impl PyMarketContext {
     /// None
     fn insert_dividends(&mut self, schedule: &PyDividendSchedule) -> PyResult<()> {
         self.inner
-            .insert_dividends_arc_mut(schedule.inner.as_ref().clone().into());
+            .insert_dividends_mut(schedule.inner.as_ref().clone());
         Ok(())
     }
 

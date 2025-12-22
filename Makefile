@@ -83,7 +83,15 @@ test-rust: install-nextest
 test-rust-slow: install-nextest
 	CARGO_INCREMENTAL=1 cargo nextest run --workspace --exclude finstack-py --features mc,slow --lib --test '*'
 
-test-rust-doc:
+check-no-doctest-ignore:
+	@set -e; \
+	if rg -n '^[[:space:]]*```[^\n]*\bignore\b' --glob '**/*.rs' ; then \
+		echo "ERROR: Found doctest code fences using 'ignore'."; \
+		echo "Use 'rust,no_run' for compile-only examples, 'rust' for runnable examples, or 'text' for non-Rust snippets."; \
+		exit 1; \
+	fi
+
+test-rust-doc: check-no-doctest-ignore
 	CARGO_INCREMENTAL=1 cargo test --workspace --exclude finstack-py --doc --features mc
 
 test-python:

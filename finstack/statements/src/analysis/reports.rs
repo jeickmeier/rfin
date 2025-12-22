@@ -11,9 +11,14 @@
 //!
 //! # Examples
 //!
-//! ```rust,ignore
+//! ```rust,no_run
 //! use finstack_statements::analysis::{Report, PLSummaryReport};
+//! use finstack_statements::evaluator::Results;
+//! use finstack_core::dates::PeriodId;
 //!
+//! # let results: Results = unimplemented!("evaluate a model to obtain Results");
+//! let line_items = vec!["revenue", "cogs"];
+//! let periods = vec![PeriodId::quarter(2025, 1)];
 //! let report = PLSummaryReport::new(&results, line_items, periods);
 //! println!("{}", report.to_string());
 //! ```

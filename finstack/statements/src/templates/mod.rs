@@ -17,16 +17,21 @@
 //!
 //! # Example
 //!
-//! ```rust,ignore
+//! ```rust,no_run
 //! use finstack_statements::prelude::*;
 //! use finstack_statements::templates::TemplatesExtension;
 //!
+//! # fn main() -> std::result::Result<(), Box<dyn std::error::Error>> {
+//! # let values: &[(PeriodId, AmountOrScalar)] = &[];
 //! let model = ModelBuilder::new("demo")
-//!     .periods("2025Q1..Q4", None)?
-//!     .value("additions", &values)
-//!     .value("disposals", &values)
+//!     .periods("2025Q1..2025Q4", None)?
+//!     .value("additions", values)
+//!     .value("disposals", values)
 //!     .add_roll_forward("inventory", &["additions"], &["disposals"])?
 //!     .build()?;
+//! # let _ = model;
+//! # Ok(())
+//! # }
 //! ```
 
 pub mod builder;

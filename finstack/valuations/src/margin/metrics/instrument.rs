@@ -12,20 +12,28 @@
 //!
 //! # Example
 //!
-//! ```rust,ignore
+//! ```rust,no_run
 //! use finstack_valuations::margin::metrics::{InitialMarginMetric, VariationMarginMetric};
 //! use finstack_valuations::instruments::irs::InterestRateSwap;
+//! use finstack_core::market_data::context::MarketContext;
+//! use time::macros::date;
 //!
+//! # fn main() -> finstack_core::Result<()> {
 //! let swap = InterestRateSwap::example()?;
-//! let market = MarketContext::builder().build();
+//! let market = MarketContext::new();
+//! let as_of = date!(2025-01-01);
 //!
 //! // Calculate initial margin
 //! let im_metric = InitialMarginMetric::new();
 //! let im = im_metric.calculate(&swap, &market, as_of)?;
+//! # let _ = im;
 //!
 //! // Calculate variation margin
 //! let vm_metric = VariationMarginMetric::new();
 //! let vm = vm_metric.calculate(&swap, &market, as_of)?;
+//! # let _ = vm;
+//! # Ok(())
+//! # }
 //! ```
 
 use crate::margin::calculators::{

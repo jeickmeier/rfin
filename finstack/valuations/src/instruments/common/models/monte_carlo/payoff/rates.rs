@@ -163,12 +163,22 @@ impl Payoff for RatesPayoff {
 ///
 /// # Migration
 ///
-/// ```ignore
-/// // Old:
-/// let cap = CapPayoff::new(strike, notional, dates, accruals, dfs, ccy);
+/// ```rust,no_run
+/// use finstack_core::currency::Currency;
+/// use finstack_valuations::instruments::common::models::monte_carlo::payoff::rates::{
+///     RatesPayoff, RatesPayoffType,
+/// };
 ///
-/// // New:
+/// // Previously there was a dedicated `CapPayoff` type; use `RatesPayoff` instead:
+/// let strike = 0.03;
+/// let notional = 1_000_000.0;
+/// let dates = vec![0.5, 1.0];
+/// let accruals = vec![0.5, 0.5];
+/// let dfs = vec![0.99, 0.98];
+/// let ccy = Currency::USD;
+///
 /// let cap = RatesPayoff::new(RatesPayoffType::Cap, strike, notional, dates, accruals, dfs, ccy);
+/// # let _ = cap;
 /// ```
 #[deprecated(
     since = "0.1.0",
@@ -182,12 +192,21 @@ pub type CapPayoff = RatesPayoff;
 ///
 /// # Migration
 ///
-/// ```ignore
-/// // Old:
-/// let floor = FloorPayoff::new(strike, notional, dates, accruals, dfs, ccy);
+/// ```rust,no_run
+/// use finstack_core::currency::Currency;
+/// use finstack_valuations::instruments::common::models::monte_carlo::payoff::rates::{
+///     RatesPayoff, RatesPayoffType,
+/// };
 ///
-/// // New:
+/// let strike = 0.03;
+/// let notional = 1_000_000.0;
+/// let dates = vec![0.5, 1.0];
+/// let accruals = vec![0.5, 0.5];
+/// let dfs = vec![0.99, 0.98];
+/// let ccy = Currency::USD;
+///
 /// let floor = RatesPayoff::new(RatesPayoffType::Floor, strike, notional, dates, accruals, dfs, ccy);
+/// # let _ = floor;
 /// ```
 #[deprecated(
     since = "0.1.0",

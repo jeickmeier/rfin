@@ -169,17 +169,24 @@ impl VarResult {
 ///
 /// # Examples
 ///
-/// ```ignore
-/// use finstack_valuations::metrics::risk::{calculate_var, VarConfig, MarketHistory};
+/// ```rust,no_run
+/// use finstack_valuations::instruments::{Bond, Instrument};
+/// use finstack_valuations::metrics::risk::{calculate_var, MarketHistory, MarketScenario, VarConfig};
+/// use finstack_core::market_data::context::MarketContext;
+/// use time::macros::date;
 ///
-/// let bond = Bond::fixed(...);
-/// let market = MarketContext::new()...;
-/// let history = MarketHistory::new(...);
+/// # fn main() -> finstack_core::Result<()> {
+/// let bond = Bond::example();
+/// let market = MarketContext::new();
+/// let as_of = date!(2025-01-01);
+/// let history = MarketHistory::new(as_of, 0, Vec::<MarketScenario>::new());
 /// let config = VarConfig::var_95();
 ///
 /// let result = calculate_var(&bond, &market, &history, as_of, &config)?;
 /// println!("95% VaR: ${:.2}", result.var);
 /// println!("95% ES: ${:.2}", result.expected_shortfall);
+/// # Ok(())
+/// # }
 /// ```
 pub fn calculate_var<I>(
     instrument: &I,
@@ -280,18 +287,24 @@ where
 ///
 /// # Examples
 ///
-/// ```ignore
-/// let instruments = vec![bond1.as_ref(), bond2.as_ref()];
-/// let result = calculate_portfolio_var(
-///     &instruments,
-///     &market,
-///     &history,
-///     as_of,
-///     &VarConfig::var_95()
-/// )?;
-/// println!("Portfolio VaR: ${}", result.var);
-/// println!("Individual VaR sum would be: ${}", sum_of_individual_vars);
-/// println!("Diversification benefit: ${}", sum_of_individual_vars - result.var);
+/// ```rust,no_run
+/// use finstack_valuations::instruments::{Bond, Instrument};
+/// use finstack_valuations::metrics::risk::{calculate_portfolio_var, MarketHistory, MarketScenario, VarConfig};
+/// use finstack_core::market_data::context::MarketContext;
+/// use time::macros::date;
+///
+/// # fn main() -> finstack_core::Result<()> {
+/// let bond1 = Bond::example();
+/// let bond2 = Bond::example();
+/// let instruments: Vec<&dyn Instrument> = vec![&bond1, &bond2];
+///
+/// let market = MarketContext::new();
+/// let as_of = date!(2025-01-01);
+/// let history = MarketHistory::new(as_of, 0, Vec::<MarketScenario>::new());
+/// let result = calculate_portfolio_var(&instruments, &market, &history, as_of, &VarConfig::var_95())?;
+/// println!("Portfolio VaR: ${:.2}", result.var);
+/// # Ok(())
+/// # }
 /// ```
 pub fn calculate_portfolio_var<I>(
     instruments: &[&I],

@@ -117,14 +117,22 @@ fn default_metrics_for_metrics_based() -> Vec<MetricId> {
 ///
 /// # Examples
 ///
-/// ```rust,ignore
+/// ```rust,no_run
 /// use finstack_portfolio::attribute_portfolio_pnl;
 /// use finstack_valuations::attribution::AttributionMethod;
+/// use finstack_core::config::FinstackConfig;
+/// use finstack_core::market_data::context::MarketContext;
+/// use finstack_portfolio::Portfolio;
 /// use time::macros::date;
 ///
+/// # fn main() -> finstack_portfolio::Result<()> {
 /// let as_of_t0 = date!(2025-11-20);  // Yesterday
 /// let as_of_t1 = date!(2025-11-21);  // Today
 ///
+/// # let portfolio: Portfolio = unimplemented!("Provide your portfolio");
+/// # let market_t0: MarketContext = unimplemented!("Provide market at t0");
+/// # let market_t1: MarketContext = unimplemented!("Provide market at t1");
+/// # let config: FinstackConfig = unimplemented!("Provide finstack config");
 /// let attribution = attribute_portfolio_pnl(
 ///     &portfolio,
 ///     &market_t0,
@@ -143,6 +151,8 @@ fn default_metrics_for_metrics_based() -> Vec<MetricId> {
 /// if let Some(pos_attr) = attribution.by_position.get("POS_001") {
 ///     println!("Position POS_001 P&L: {}", pos_attr.total_pnl);
 /// }
+/// # Ok(())
+/// # }
 /// ```
 pub fn attribute_portfolio_pnl(
     portfolio: &Portfolio,

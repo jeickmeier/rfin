@@ -27,7 +27,7 @@
 //! Register exceptions in module init and use the mapping function to convert
 //! Rust errors to appropriate Python exceptions:
 //!
-//! ```rust,ignore
+//! ```rust,no_run
 //! use crate::errors::{register_exceptions, map_error};
 //!
 //! #[pymodule]
@@ -126,7 +126,7 @@ pub fn register_exceptions(py: Python, m: &Bound<'_, PyModule>) -> PyResult<()> 
 ///
 /// # Examples
 ///
-/// ```rust,ignore
+/// ```rust,no_run
 /// let result = compute_something().map_err(map_error)?;
 /// ```
 pub fn map_error(err: CoreError) -> PyErr {

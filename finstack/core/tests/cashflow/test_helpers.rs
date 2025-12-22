@@ -46,7 +46,7 @@
 //!
 //! # Examples
 //!
-//! ```rust,ignore
+//! ```rust,no_run
 //! use crate::test_helpers::{XIRR_TOLERANCE, financial_tolerance, FlatRateCurve};
 //!
 //! // Check XIRR result
@@ -110,7 +110,7 @@ pub fn assert_close(actual: f64, expected: f64, tolerance: f64, label: &str) {
 ///
 /// # Examples
 ///
-/// ```rust,ignore
+/// ```rust,no_run
 /// // $1M notional → $0.01 tolerance
 /// assert_eq!(financial_tolerance(1_000_000.0), 0.01);
 ///
@@ -143,7 +143,7 @@ pub fn financial_tolerance(notional: f64) -> f64 {
 ///
 /// # Example
 ///
-/// ```rust,ignore
+/// ```rust,no_run
 /// let curve = FlatRateCurve::new("USD-OIS", base_date, 0.05);
 /// let df_1y = curve.df(1.0); // ≈ 0.9512 (exp(-0.05))
 /// ```

@@ -51,7 +51,7 @@ impl std::fmt::Display for SimmRiskClass {
 ///
 /// # Example
 ///
-/// ```rust,ignore
+/// ```rust,no_run
 /// use finstack_valuations::margin::SimmSensitivities;
 /// use finstack_core::currency::Currency;
 ///
@@ -63,7 +63,7 @@ impl std::fmt::Display for SimmRiskClass {
 /// sensitivities.add_ir_delta(Currency::USD, "10Y", 25_000.0);
 ///
 /// // Add credit delta
-/// sensitivities.add_credit_delta("CDX.NA.IG", true, 50_000.0);
+/// sensitivities.add_credit_delta("CDX.NA.IG", true, "5Y", 50_000.0);
 /// ```
 #[derive(Debug, Clone, PartialEq)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]

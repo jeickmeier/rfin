@@ -1,5 +1,3 @@
-use std::sync::Arc;
-
 use finstack_core::dates::{Date, DayCount};
 use finstack_core::market_data::surfaces::vol_surface::VolSurface;
 use finstack_core::market_data::term_structures::base_correlation::BaseCorrelationCurve;
@@ -79,15 +77,13 @@ pub(crate) fn sample_base_correlation_curve(id: &str) -> BaseCorrelationCurve {
         .unwrap()
 }
 
-pub(crate) fn sample_vol_surface() -> Arc<VolSurface> {
-    Arc::new(
-        VolSurface::builder("EQ-VOL")
-            .expiries(&[0.25, 0.5, 1.0])
-            .strikes(&[0.9, 1.0, 1.1])
-            .row(&[0.25, 0.24, 0.23])
-            .row(&[0.22, 0.21, 0.2])
-            .row(&[0.2, 0.19, 0.18])
-            .build()
-            .unwrap(),
-    )
+pub(crate) fn sample_vol_surface() -> VolSurface {
+    VolSurface::builder("EQ-VOL")
+        .expiries(&[0.25, 0.5, 1.0])
+        .strikes(&[0.9, 1.0, 1.1])
+        .row(&[0.25, 0.24, 0.23])
+        .row(&[0.22, 0.21, 0.2])
+        .row(&[0.2, 0.19, 0.18])
+        .build()
+        .unwrap()
 }

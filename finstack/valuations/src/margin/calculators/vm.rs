@@ -67,12 +67,13 @@ impl VmResult {
 ///
 /// # Example
 ///
-/// ```rust,ignore
+/// ```rust,no_run
 /// use finstack_valuations::margin::{VmCalculator, CsaSpec};
 /// use finstack_core::money::Money;
 /// use finstack_core::currency::Currency;
 /// use finstack_core::dates::Date;
 ///
+/// # fn main() -> finstack_core::Result<()> {
 /// let csa = CsaSpec::usd_regulatory();
 /// let calc = VmCalculator::new(csa);
 ///
@@ -82,6 +83,8 @@ impl VmResult {
 ///
 /// let result = calc.calculate(exposure, posted, as_of)?;
 /// println!("Delivery required: {}", result.delivery_amount);
+/// # Ok(())
+/// # }
 /// ```
 #[derive(Debug, Clone)]
 pub struct VmCalculator {

@@ -36,10 +36,29 @@ pub trait CashflowProvider: Send + Sync {
     ///
     /// # Examples
     ///
-    /// ```rust,ignore
-    /// fn notional(&self) -> Option<Money> {
-    ///     Some(self.notional)
+    /// ```rust,no_run
+    /// use finstack_core::currency::Currency;
+    /// use finstack_core::dates::Date;
+    /// use finstack_core::market_data::context::MarketContext;
+    /// use finstack_core::money::Money;
+    /// use finstack_valuations::cashflow::traits::{CashflowProvider, DatedFlows};
+    ///
+    /// struct MyInstrument {
+    ///     notional: Money,
     /// }
+    ///
+    /// impl CashflowProvider for MyInstrument {
+    ///     fn build_schedule(&self, _curves: &MarketContext, _as_of: Date) -> finstack_core::Result<DatedFlows> {
+    ///         Ok(vec![])
+    ///     }
+    ///
+    ///     fn notional(&self) -> Option<Money> {
+    ///         Some(self.notional)
+    ///     }
+    /// }
+    ///
+    /// let inst = MyInstrument { notional: Money::new(1_000_000.0, Currency::USD) };
+    /// assert_eq!(inst.notional().unwrap().currency(), Currency::USD);
     /// ```
     fn notional(&self) -> Option<Money> {
         None

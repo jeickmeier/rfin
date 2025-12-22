@@ -11,17 +11,21 @@ use finstack_core::currency::Currency;
 use finstack_core::dates::Date;
 use finstack_core::market_data::context::MarketContext;
 use finstack_core::market_data::context::MarketContextState;
+use finstack_core::market_data::dividends::DividendSchedule;
 use finstack_core::market_data::scalars::inflation_index::{
     InflationIndex, InflationInterpolation, InflationLag,
 };
 use finstack_core::market_data::scalars::{ScalarTimeSeries, SeriesInterpolation};
 use finstack_core::market_data::surfaces::vol_surface::VolSurface;
 use finstack_core::market_data::term_structures::base_correlation::BaseCorrelationCurve;
+use finstack_core::market_data::term_structures::credit_index::CreditIndexData;
 use finstack_core::market_data::term_structures::discount_curve::DiscountCurve;
 use finstack_core::market_data::term_structures::forward_curve::ForwardCurve;
 use finstack_core::market_data::term_structures::hazard_curve::HazardCurve;
-use finstack_core::market_data::term_structures::credit_index::CreditIndexData;
+use finstack_core::money::fx::{providers::SimpleFxProvider, FxConfig, FxMatrix};
+use finstack_core::money::Money;
 use finstack_core::types::CurveId;
+use std::sync::Arc;
 use time::Month;
 
 fn test_date() -> Date {
@@ -120,10 +124,19 @@ fn market_context_roundtrip() {
         .build()
         .unwrap();
 
+    let dividends =
+        DividendSchedule::new("AAPL-DIVS").add_cash(test_date(), Money::new(1.0, Currency::USD));
+
+    let fx_provider = Arc::new(SimpleFxProvider::new());
+    fx_provider.set_quote(Currency::USD, Currency::EUR, 1.1);
+    let fx = FxMatrix::with_config(fx_provider, FxConfig::default());
+
     let ctx = MarketContext::new()
         .insert_discount(discount)
         .insert_forward(forward)
-        .insert_surface(surface);
+        .insert_surface(surface)
+        .insert_dividends(dividends)
+        .insert_fx(fx);
 
     let json = serde_json::to_string_pretty(&ctx).unwrap();
     let deserialized: MarketContext = serde_json::from_str(&json).unwrap();
@@ -131,6 +144,8 @@ fn market_context_roundtrip() {
     assert!(deserialized.get_discount("USD-OIS").is_ok());
     assert!(deserialized.get_forward("USD-SOFR").is_ok());
     assert!(deserialized.surface("VOL").is_ok());
+    assert!(deserialized.dividend_schedule("AAPL-DIVS").is_some());
+    assert!(deserialized.fx.is_some());
 }
 
 #[test]
@@ -211,7 +226,10 @@ fn market_context_state_is_deterministically_sorted_and_roundtrips_full_snapshot
         .insert_credit_index("CDX", credit_index)
         .insert_series(series)
         .insert_surface(surface)
-        .insert_price("EQ-SPOT", MarketScalar::Price(Money::new(100.0, Currency::USD)))
+        .insert_price(
+            "EQ-SPOT",
+            MarketScalar::Price(Money::new(100.0, Currency::USD)),
+        )
         .map_collateral("USD-CSA", CurveId::from("A-DISC"));
 
     let state = MarketContextState::from(&ctx);
@@ -225,10 +243,15 @@ fn market_context_state_is_deterministically_sorted_and_roundtrips_full_snapshot
             finstack_core::market_data::context::CurveState::Forward(fc) => fc.id().to_string(),
             finstack_core::market_data::context::CurveState::Hazard(hc) => hc.id().to_string(),
             finstack_core::market_data::context::CurveState::Inflation(ic) => ic.id().to_string(),
-            finstack_core::market_data::context::CurveState::BaseCorrelation(bc) => bc.id().to_string(),
+            finstack_core::market_data::context::CurveState::BaseCorrelation(bc) => {
+                bc.id().to_string()
+            }
         })
         .collect();
-    assert_eq!(ids, vec!["A-DISC", "B-DISC", "CDX-BC", "CDX-HAZ", "ISSUER2-HAZ"]);
+    assert_eq!(
+        ids,
+        vec!["A-DISC", "B-DISC", "CDX-BC", "CDX-HAZ", "ISSUER2-HAZ"]
+    );
 
     // Full JSON roundtrip should preserve ability to resolve referenced curves
     let json = serde_json::to_string_pretty(&ctx).unwrap();
@@ -247,14 +270,16 @@ fn market_context_state_is_deterministically_sorted_and_roundtrips_full_snapshot
 
 #[test]
 fn curve_storage_roundtrip_and_market_context_state_error_branch() {
-    use finstack_core::market_data::context::{CurveStorage, CurveState};
+    use finstack_core::market_data::context::{CurveState, CurveStorage};
 
     // CurveStorage roundtrip through serde (uses CurveState internally)
-    let storage = CurveStorage::from(DiscountCurve::builder("USD-OIS")
-        .base_date(test_date())
-        .knots([(0.0, 1.0), (1.0, 0.98)])
-        .build()
-        .unwrap());
+    let storage = CurveStorage::from(
+        DiscountCurve::builder("USD-OIS")
+            .base_date(test_date())
+            .knots([(0.0, 1.0), (1.0, 0.98)])
+            .build()
+            .unwrap(),
+    );
     let json = serde_json::to_string(&storage).unwrap();
     let de: CurveStorage = serde_json::from_str(&json).unwrap();
     assert_eq!(de.id().as_str(), "USD-OIS");
@@ -273,10 +298,12 @@ fn curve_storage_roundtrip_and_market_context_state_error_branch() {
     // MarketContextState -> MarketContext error branch: credit index references missing curve IDs.
     let bad_state = MarketContextState {
         curves: vec![],
+        fx: None,
         surfaces: vec![],
         prices: std::collections::BTreeMap::new(),
         series: vec![],
         inflation_indices: vec![],
+        dividends: vec![],
         credit_indices: vec![finstack_core::market_data::context::CreditIndexState {
             id: "CDX".to_string(),
             num_constituents: 125,
@@ -296,17 +323,36 @@ fn curve_storage_roundtrip_and_market_context_state_error_branch() {
 fn curve_state_and_storage_roundtrip_all_variants() {
     use finstack_core::market_data::context::{CurveState, CurveStorage};
     use finstack_core::market_data::term_structures::{
-        base_correlation::BaseCorrelationCurve, discount_curve::DiscountCurve, forward_curve::ForwardCurve,
-        hazard_curve::HazardCurve, inflation::InflationCurve,
+        base_correlation::BaseCorrelationCurve, discount_curve::DiscountCurve,
+        forward_curve::ForwardCurve, hazard_curve::HazardCurve, inflation::InflationCurve,
     };
 
     let d = test_date();
 
-    let disc = DiscountCurve::builder("DISC").base_date(d).knots([(0.0, 1.0), (1.0, 0.99)]).build().unwrap();
-    let fwd = ForwardCurve::builder("FWD", 0.25).base_date(d).knots([(0.0, 0.02), (1.0, 0.03)]).build().unwrap();
-    let haz = HazardCurve::builder("HAZ").base_date(d).knots([(0.0, 0.01), (5.0, 0.02)]).build().unwrap();
-    let inf = InflationCurve::builder("INF").base_cpi(100.0).knots([(0.0, 100.0), (1.0, 101.0)]).build().unwrap();
-    let bc = BaseCorrelationCurve::builder("BC").points([(3.0, 0.25), (7.0, 0.4)]).build().unwrap();
+    let disc = DiscountCurve::builder("DISC")
+        .base_date(d)
+        .knots([(0.0, 1.0), (1.0, 0.99)])
+        .build()
+        .unwrap();
+    let fwd = ForwardCurve::builder("FWD", 0.25)
+        .base_date(d)
+        .knots([(0.0, 0.02), (1.0, 0.03)])
+        .build()
+        .unwrap();
+    let haz = HazardCurve::builder("HAZ")
+        .base_date(d)
+        .knots([(0.0, 0.01), (5.0, 0.02)])
+        .build()
+        .unwrap();
+    let inf = InflationCurve::builder("INF")
+        .base_cpi(100.0)
+        .knots([(0.0, 100.0), (1.0, 101.0)])
+        .build()
+        .unwrap();
+    let bc = BaseCorrelationCurve::builder("BC")
+        .points([(3.0, 0.25), (7.0, 0.4)])
+        .build()
+        .unwrap();
 
     let states = vec![
         CurveState::Discount(disc.clone()),
@@ -320,13 +366,8 @@ fn curve_state_and_storage_roundtrip_all_variants() {
         let _back: CurveState = serde_json::from_str(&json).unwrap();
     }
 
-    let storages: Vec<CurveStorage> = vec![
-        disc.into(),
-        fwd.into(),
-        haz.into(),
-        inf.into(),
-        bc.into(),
-    ];
+    let storages: Vec<CurveStorage> =
+        vec![disc.into(), fwd.into(), haz.into(), inf.into(), bc.into()];
     for s in storages {
         let json = serde_json::to_string(&s).unwrap();
         let back: CurveStorage = serde_json::from_str(&json).unwrap();
@@ -335,11 +376,18 @@ fn curve_state_and_storage_roundtrip_all_variants() {
 }
 
 #[test]
+fn market_context_rejects_market_history_serialization() {
+    let ctx = MarketContext::new().insert_market_history(Arc::new(123_u32));
+    assert!(serde_json::to_string(&ctx).is_err());
+}
+
+#[test]
 fn market_context_state_roundtrip_hits_more_state_serde_lines() {
     use finstack_core::market_data::scalars::MarketScalar;
     use finstack_core::market_data::term_structures::{
-        base_correlation::BaseCorrelationCurve, discount_curve::DiscountCurve, forward_curve::ForwardCurve,
-        hazard_curve::HazardCurve, inflation::InflationCurve, credit_index::CreditIndexData,
+        base_correlation::BaseCorrelationCurve, credit_index::CreditIndexData,
+        discount_curve::DiscountCurve, forward_curve::ForwardCurve, hazard_curve::HazardCurve,
+        inflation::InflationCurve,
     };
     use finstack_core::money::Money;
     use std::sync::Arc;
@@ -347,12 +395,35 @@ fn market_context_state_roundtrip_hits_more_state_serde_lines() {
     let d = test_date();
 
     // Curves of all variants (exercise CurveState enum coverage)
-    let disc = DiscountCurve::builder("USD-OIS").base_date(d).knots([(0.0, 1.0), (5.0, 0.9)]).build().unwrap();
-    let fwd = ForwardCurve::builder("USD-SOFR", 0.25).base_date(d).knots([(0.0, 0.03), (5.0, 0.04)]).build().unwrap();
-    let haz = HazardCurve::builder("CDX-HAZ").base_date(d).knots([(0.0, 0.01), (5.0, 0.02)]).build().unwrap();
-    let issuer_haz = HazardCurve::builder("ISSUER-HAZ").base_date(d).knots([(0.0, 0.02), (5.0, 0.03)]).build().unwrap();
-    let inf = InflationCurve::builder("US-CPI-CURVE").base_cpi(100.0).knots([(0.0, 100.0), (1.0, 101.0)]).build().unwrap();
-    let bc = BaseCorrelationCurve::builder("CDX-BC").points([(3.0, 0.25), (7.0, 0.4)]).build().unwrap();
+    let disc = DiscountCurve::builder("USD-OIS")
+        .base_date(d)
+        .knots([(0.0, 1.0), (5.0, 0.9)])
+        .build()
+        .unwrap();
+    let fwd = ForwardCurve::builder("USD-SOFR", 0.25)
+        .base_date(d)
+        .knots([(0.0, 0.03), (5.0, 0.04)])
+        .build()
+        .unwrap();
+    let haz = HazardCurve::builder("CDX-HAZ")
+        .base_date(d)
+        .knots([(0.0, 0.01), (5.0, 0.02)])
+        .build()
+        .unwrap();
+    let issuer_haz = HazardCurve::builder("ISSUER-HAZ")
+        .base_date(d)
+        .knots([(0.0, 0.02), (5.0, 0.03)])
+        .build()
+        .unwrap();
+    let inf = InflationCurve::builder("US-CPI-CURVE")
+        .base_cpi(100.0)
+        .knots([(0.0, 100.0), (1.0, 101.0)])
+        .build()
+        .unwrap();
+    let bc = BaseCorrelationCurve::builder("CDX-BC")
+        .points([(3.0, 0.25), (7.0, 0.4)])
+        .build()
+        .unwrap();
 
     let mut issuer_curves = std::collections::HashMap::new();
     issuer_curves.insert("ISSUER".to_string(), Arc::new(issuer_haz.clone()));
@@ -394,7 +465,10 @@ fn market_context_state_roundtrip_hits_more_state_serde_lines() {
         .insert_inflation_index("US-CPI", idx)
         .insert_series(series)
         .insert_surface(surface)
-        .insert_price("EQ-SPOT", MarketScalar::Price(Money::new(100.0, Currency::USD)))
+        .insert_price(
+            "EQ-SPOT",
+            MarketScalar::Price(Money::new(100.0, Currency::USD)),
+        )
         .map_collateral("USD-CSA", CurveId::from("USD-OIS"));
 
     // Roundtrip via MarketContextState explicitly

@@ -66,7 +66,7 @@ impl MarginCallTiming {
 ///
 /// # Example
 ///
-/// ```rust,ignore
+/// ```rust,no_run
 /// use finstack_valuations::margin::{
 ///     CsaSpec, VmParameters, ImParameters, EligibleCollateralSchedule,
 ///     MarginCallTiming, ImMethodology, MarginTenor,

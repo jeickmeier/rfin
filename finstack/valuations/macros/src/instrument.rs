@@ -5,10 +5,12 @@ use syn::{parse_macro_input, Data, DeriveInput, GenericArgument, PathArguments, 
 /// Derive macro to implement the `Instrument` trait with consistent boilerplate.
 ///
 /// Usage:
-/// ```ignore
+/// ```text
 /// #[derive(Instrument)]
 /// #[instrument(key = "EquityOption", price_fn = "npv")]
-/// pub struct EquityOption { ... }
+/// pub struct EquityOption {
+///     // ... fields required by the generated Instrument impl (id, attributes, etc.) ...
+/// }
 /// ```
 pub fn derive_instrument_impl(input: TokenStream) -> TokenStream {
     let input = parse_macro_input!(input as DeriveInput);

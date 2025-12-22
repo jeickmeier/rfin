@@ -17,18 +17,16 @@ use finstack_core::Result;
 ///
 /// # Examples
 ///
-/// ```ignore
-/// use finstack_valuations::metrics::{GenericHVar, VarConfig, MetricId};
+/// ```rust,no_run
+/// use finstack_valuations::metrics::{GenericHVar, MetricId, MetricRegistry, VarConfig};
+/// use std::sync::Arc;
 ///
 /// // Create VaR calculator with 95% confidence
 /// let var_calc = GenericHVar::new(VarConfig::var_95());
 ///
 /// // Register in metric registry
-/// registry.register_universal(MetricId::HVAR, Arc::new(var_calc));
-///
-/// // Calculate via price_with_metrics
-/// let result = bond.price_with_metrics(&market, as_of, &[MetricId::HVAR], overrides)?;
-/// let var = result.metrics.get(&MetricId::HVAR)?;
+/// let mut registry = MetricRegistry::new();
+/// registry.register_metric(MetricId::HVAR, Arc::new(var_calc), &[]);
 /// ```
 pub struct GenericHVar {
     config: VarConfig,

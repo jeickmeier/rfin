@@ -123,8 +123,8 @@ fn base_correlation_step_builds_curve_and_updates_credit_index_data() {
 
     let quote_market = MarketContext::new()
         .insert_discount(create_discount_curve(base_date))
-        .insert_hazard(Arc::clone(&hazard))
-        .insert_base_correlation(Arc::clone(&target_corr))
+        .insert_hazard(hazard.as_ref().clone())
+        .insert_base_correlation(target_corr.as_ref().clone())
         .insert_credit_index(
             "CDX",
             create_credit_index(Arc::clone(&hazard), Arc::clone(&target_corr)),
@@ -160,8 +160,8 @@ fn base_correlation_step_builds_curve_and_updates_credit_index_data() {
     );
     let initial_market = MarketContext::new()
         .insert_discount(create_discount_curve(base_date))
-        .insert_hazard(Arc::clone(&hazard))
-        .insert_base_correlation(Arc::clone(&seed_corr))
+        .insert_hazard(hazard.as_ref().clone())
+        .insert_base_correlation(seed_corr.as_ref().clone())
         .insert_credit_index(
             "CDX",
             create_credit_index(Arc::clone(&hazard), Arc::clone(&seed_corr)),

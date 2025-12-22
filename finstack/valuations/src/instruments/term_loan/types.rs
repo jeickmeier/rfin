@@ -123,44 +123,13 @@ pub enum RateSpec {
 ///
 /// Create via [`TermLoanSpec`] conversion or use the builder pattern:
 ///
-/// ```rust,ignore
-/// use finstack_valuations::instruments::term_loan::{TermLoan, TermLoanSpec, RateSpec};
-/// use std::convert::TryInto;
-/// use finstack_valuations::instruments::term_loan::spec::AmortizationSpec;
-/// use finstack_valuations::cashflow::builder::specs::CouponType;
-/// use finstack_valuations::instruments::pricing_overrides::PricingOverrides;
-/// use finstack_valuations::instruments::common::traits::Attributes;
-/// use finstack_core::money::Money;
-/// use finstack_core::currency::Currency;
-/// use finstack_core::dates::*;
-/// use finstack_core::types::{InstrumentId, CurveId};
-/// use time::Month;
+/// ```rust,no_run
+/// use finstack_valuations::instruments::term_loan::TermLoan;
 ///
-/// # fn example() -> Result<(), Box<dyn std::error::Error>> {
-/// let spec = TermLoanSpec {
-///     id: InstrumentId::new("TL-001"),
-///     discount_curve_id: CurveId::new("USD-CREDIT"),
-///     currency: Currency::USD,
-///     issue: create_date(2025, Month::January, 1)?,
-///     maturity: create_date(2030, Month::January, 1)?,
-///     rate: RateSpec::Fixed { rate_bp: 550 },
-///     pay_freq: Tenor::quarterly(),
-///     day_count: DayCount::Act360,
-///     bdc: BusinessDayConvention::ModifiedFollowing,
-///     calendar_id: None,
-///     stub: StubKind::None,
-///     amortization: AmortizationSpec::None,
-///     coupon_type: CouponType::Cash,
-///     upfront_fee: None,
-///     ddtl: None,
-///     covenants: None,
-///     credit_curve_id: None,
-///     pricing_overrides: PricingOverrides::default(),
-///     call_schedule: None,
-/// };
-/// let loan: TermLoan = spec.try_into()?;
-/// # Ok(())
-/// # }
+/// // `TermLoanSpec -> TermLoan` conversion is not part of the public API;
+/// // use the builder or `TermLoan::example()` for a fully validated instance.
+/// let loan = TermLoan::example();
+/// # let _ = loan;
 /// ```
 ///
 /// # Cashflow Generation

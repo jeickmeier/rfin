@@ -132,7 +132,7 @@ pub fn market_context_with_issuers(n: usize) -> MarketContext {
 
     MarketContext::new()
         .insert_discount(discount_curve)
-        .insert_hazard(Arc::clone(&index_curve))
+        .insert_hazard(index_curve.as_ref().clone())
         .insert_credit_index("CDX.NA.IG.42", index)
 }
 

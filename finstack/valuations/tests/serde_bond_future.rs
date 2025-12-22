@@ -96,7 +96,10 @@ fn test_deliverable_bond_serde_roundtrip() {
         serde_json::from_str(&json).expect("Deserialization failed");
 
     assert_eq!(deliverable.bond_id, deserialized.bond_id);
-    assert_eq!(deliverable.conversion_factor, deserialized.conversion_factor);
+    assert_eq!(
+        deliverable.conversion_factor,
+        deserialized.conversion_factor
+    );
 }
 
 #[test]
@@ -432,8 +435,7 @@ fn test_bond_future_different_currencies() {
             .expect("Valid bond future");
 
         let json = serde_json::to_string(&future).expect("Serialization failed");
-        let deserialized: BondFuture =
-            serde_json::from_str(&json).expect("Deserialization failed");
+        let deserialized: BondFuture = serde_json::from_str(&json).expect("Deserialization failed");
 
         assert_eq!(currency, deserialized.notional.currency());
         assert_eq!(future.discount_curve_id, deserialized.discount_curve_id);

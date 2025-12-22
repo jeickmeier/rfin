@@ -73,12 +73,9 @@ pub fn is_standalone_identifier(
 ///
 /// # Example
 ///
-/// ```rust,ignore
-/// let formula = "revenue - cogs + fin.gross_profit";
-/// let all_ids = extract_all_identifiers(formula)?;
-/// assert!(all_ids.contains("revenue"));
-/// assert!(all_ids.contains("cogs"));
-/// assert!(all_ids.contains("fin.gross_profit"));
+/// ```rust,compile_fail
+/// // Internal helper (crate-private module); not part of the public API.
+/// use finstack_statements::utils::formula::extract_all_identifiers;
 /// ```
 pub fn extract_all_identifiers(formula: &str) -> crate::error::Result<IndexSet<String>> {
     let ast = parse_formula(formula)?;
@@ -189,11 +186,9 @@ fn collect_identifiers_from_ast(
 ///
 /// # Example
 ///
-/// ```rust,ignore
-/// let formula = "revenue - cogs + gross_profit";
-/// let known = ["revenue", "cogs", "gross_profit"].iter().map(|s| s.to_string()).collect();
-/// let deps = extract_identifiers(formula, &known);
-/// assert_eq!(deps.len(), 3);
+/// ```rust,compile_fail
+/// // Internal helper (crate-private module); not part of the public API.
+/// use finstack_statements::utils::formula::extract_identifiers;
 /// ```
 pub fn extract_identifiers(
     formula: &str,
@@ -266,11 +261,9 @@ fn extract_identifiers_by_scanning(
 ///
 /// # Example
 ///
-/// ```rust,ignore
-/// let formula = "gross_profit / revenue";
-/// let identifiers = ["gross_profit"].iter().map(|s| s.to_string()).collect();
-/// let result = qualify_identifiers(formula, &identifiers, "fin");
-/// assert_eq!(result, "fin.gross_profit / revenue");
+/// ```rust,compile_fail
+/// // Internal helper (crate-private module); not part of the public API.
+/// use finstack_statements::utils::formula::qualify_identifiers;
 /// ```
 pub fn qualify_identifiers(
     formula: &str,

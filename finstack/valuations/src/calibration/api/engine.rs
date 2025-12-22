@@ -534,7 +534,7 @@ fn apply_step_output(
             context.insert_mut(curve);
         }
         StepOutput::Surface(surface) => {
-            context.insert_surface_mut(surface);
+            context.insert_surface_arc_mut(surface);
         }
     }
 

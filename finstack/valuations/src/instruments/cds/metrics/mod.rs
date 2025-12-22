@@ -33,8 +33,16 @@ pub fn register_cds_metrics(registry: &mut MetricRegistry) {
 
     // Shared calculator for RiskyPv01 and custom "pv01" alias
     let risky_pv01_calc: Arc<dyn MetricCalculator> = Arc::new(risky_pv01::RiskyPv01Calculator);
-    registry.register_metric(MetricId::RiskyPv01, Arc::clone(&risky_pv01_calc), &[InstrumentType::CDS]);
-    registry.register_metric(MetricId::custom("pv01"), risky_pv01_calc, &[InstrumentType::CDS]);
+    registry.register_metric(
+        MetricId::RiskyPv01,
+        Arc::clone(&risky_pv01_calc),
+        &[InstrumentType::CDS],
+    );
+    registry.register_metric(
+        MetricId::custom("pv01"),
+        risky_pv01_calc,
+        &[InstrumentType::CDS],
+    );
 
     // Recovery01 (custom metric - recovery rate sensitivity)
     registry.register_metric(

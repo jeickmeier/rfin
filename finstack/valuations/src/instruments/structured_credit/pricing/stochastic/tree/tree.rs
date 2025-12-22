@@ -19,12 +19,17 @@ use std::collections::HashMap;
 ///
 /// # Example
 ///
-/// ```ignore
-/// let config = ScenarioTreeConfig::rmbs_standard(5.0, 0.045);
-/// let tree = ScenarioTree::build(&config)?;
+/// ```rust,no_run
+/// use finstack_valuations::instruments::structured_credit::pricing::stochastic::tree::{
+///     ScenarioTree, ScenarioTreeConfig,
+/// };
 ///
-/// // Compute expected present value
-/// let pv = tree.expected_pv(discount_curve)?;
+/// let config = ScenarioTreeConfig::rmbs_standard(5.0, 0.045);
+/// let tree = ScenarioTree::build(&config).expect("tree build should succeed");
+///
+/// // Compute expected terminal pool balance (unit notional)
+/// let expected_balance = tree.expected_value(|n| n.pool_balance);
+/// # let _ = expected_balance;
 /// ```
 #[derive(Clone, Debug)]
 pub struct ScenarioTree {

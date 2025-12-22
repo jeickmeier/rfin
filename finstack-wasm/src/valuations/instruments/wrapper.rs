@@ -6,7 +6,7 @@
 ///
 /// # Usage
 ///
-/// ```rust,ignore
+/// ```text
 /// use finstack_wasm::valuations::instruments::InstrumentWrapper;
 /// use finstack_valuations::instruments::bond::Bond;
 /// use wasm_bindgen::prelude::*;

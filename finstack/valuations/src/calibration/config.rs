@@ -88,8 +88,8 @@ pub enum ResidualWeightingScheme {
 /// - `scan_grid_points` > 0
 ///
 /// # Examples
-/// ```rust,ignore
-/// use finstack_valuations::calibration::config::DiscountCurveSolveConfig;
+/// ```rust,no_run
+/// use finstack_valuations::calibration::DiscountCurveSolveConfig;
 ///
 /// let config = DiscountCurveSolveConfig {
 ///     scan_grid_points: 64,

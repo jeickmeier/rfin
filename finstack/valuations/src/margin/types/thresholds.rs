@@ -21,7 +21,11 @@ use finstack_core::money::Money;
 ///
 /// # Example
 ///
-/// ```rust,ignore
+/// ```rust,no_run
+/// use finstack_valuations::margin::{MarginTenor, VmParameters};
+/// use finstack_core::currency::Currency;
+/// use finstack_core::money::Money;
+///
 /// let vm_params = VmParameters {
 ///     threshold: Money::new(10_000_000.0, Currency::USD),
 ///     mta: Money::new(500_000.0, Currency::USD),
@@ -173,7 +177,11 @@ impl Default for VmParameters {
 ///
 /// # Example
 ///
-/// ```rust,ignore
+/// ```rust,no_run
+/// use finstack_valuations::margin::{ImMethodology, ImParameters};
+/// use finstack_core::currency::Currency;
+/// use finstack_core::money::Money;
+///
 /// let im_params = ImParameters {
 ///     methodology: ImMethodology::Simm,
 ///     mpor_days: 10,

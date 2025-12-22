@@ -16,19 +16,31 @@
 //!
 //! # Usage
 //!
-//! ```rust,ignore
-//! use finstack_portfolio::margin::{NettingSetManager, PortfolioMarginAggregator};
+//! ```rust,no_run
+//! use finstack_portfolio::margin::PortfolioMarginAggregator;
+//! use finstack_core::market_data::context::MarketContext;
+//! use finstack_portfolio::Portfolio;
+//! use time::macros::date;
 //!
 //! // Create margin aggregator from portfolio
-//! let aggregator = PortfolioMarginAggregator::from_portfolio(&portfolio);
+//! # fn main() -> finstack_portfolio::Result<()> {
+//! # let portfolio: Portfolio = unimplemented!("Provide your portfolio");
+//! # let market: MarketContext = unimplemented!("Provide market context");
+//! let as_of = date!(2025-11-21);
+//! let mut aggregator = PortfolioMarginAggregator::from_portfolio(&portfolio);
 //!
 //! // Calculate margin requirements
-//! let margin_results = aggregator.calculate(&market, as_of)?;
+//! let margin_results = aggregator.calculate(&portfolio, &market, as_of)?;
 //!
 //! // Get margin by netting set
-//! for (netting_set, margin) in margin_results.by_netting_set() {
-//!     println!("{}: IM={}, VM={}", netting_set, margin.im, margin.vm);
+//! for (netting_set, margin) in &margin_results.by_netting_set {
+//!     println!(
+//!         "{:?}: IM={:?}, VM={:?}",
+//!         netting_set, margin.initial_margin, margin.variation_margin
+//!     );
 //! }
+//! # Ok(())
+//! # }
 //! ```
 
 mod aggregator;

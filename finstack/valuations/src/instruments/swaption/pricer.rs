@@ -174,23 +174,27 @@ impl HullWhiteParams {
 /// For portfolio pricing, calibrate the Hull-White model once and reuse it
 /// across multiple instruments using [`with_calibrated_model`]:
 ///
-/// ```rust,ignore
+/// ```rust,no_run
 /// use finstack_valuations::instruments::swaption::pricer::{
 ///     BermudanSwaptionPricer, HullWhiteParams,
 /// };
 /// use finstack_valuations::instruments::common::models::trees::{HullWhiteTree, HullWhiteTreeConfig};
+/// use finstack_core::market_data::traits::Discounting;
 /// use std::sync::Arc;
 ///
-/// // Calibrate once
+/// # fn main() -> finstack_core::Result<()> {
+/// // Calibrate once (discount curve and horizon omitted here)
+/// # let disc: &dyn Discounting = todo!("provide a discount curve from MarketContext");
+/// let ttm = 5.0;
 /// let config = HullWhiteParams::default().to_tree_config(100);
-/// let tree = Arc::new(HullWhiteTree::calibrate(config, &disc, ttm).unwrap());
+/// let tree = Arc::new(HullWhiteTree::calibrate(config, disc, ttm)?);
 ///
-/// // Reuse for portfolio
-/// for swaption in portfolio {
-///     let pricer = BermudanSwaptionPricer::tree_pricer(HullWhiteParams::default())
-///         .with_calibrated_model(tree.clone());
-///     pricer.price_dyn(&swaption, &market, as_of);
-/// }
+/// // Reuse across many instruments
+/// let pricer = BermudanSwaptionPricer::tree_pricer(HullWhiteParams::default())
+///     .with_calibrated_model(tree.clone());
+/// # let _ = pricer;
+/// # Ok(())
+/// # }
 /// ```
 ///
 /// # Example
@@ -280,16 +284,25 @@ impl BermudanSwaptionPricer {
     ///
     /// # Example
     ///
-    /// ```rust,ignore
+    /// ```rust,no_run
+    /// use finstack_valuations::instruments::common::models::trees::HullWhiteTree;
+    /// use finstack_valuations::instruments::swaption::pricer::{BermudanSwaptionPricer, HullWhiteParams};
+    /// use finstack_core::market_data::traits::Discounting;
     /// use std::sync::Arc;
     ///
+    /// # fn main() -> finstack_core::Result<()> {
     /// // Calibrate once
     /// let config = HullWhiteParams::default().to_tree_config(100);
-    /// let tree = Arc::new(HullWhiteTree::calibrate(config, &disc, ttm)?);
+    /// # let disc: &dyn Discounting = todo!("provide a discount curve from MarketContext");
+    /// let ttm = 5.0;
+    /// let tree = Arc::new(HullWhiteTree::calibrate(config, disc, ttm)?);
     ///
     /// // Price portfolio with reused model
     /// let pricer = BermudanSwaptionPricer::tree_pricer(HullWhiteParams::default())
     ///     .with_calibrated_model(tree);
+    /// # let _ = pricer;
+    /// # Ok(())
+    /// # }
     /// ```
     pub fn with_calibrated_model(mut self, model: Arc<HullWhiteTree>) -> Self {
         self.pre_calibrated_model = Some(model);

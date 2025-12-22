@@ -43,15 +43,27 @@ impl<State> ModelBuilder<State> {
     /// Updated builder with the bond appended to the capital-structure spec.
     ///
     /// # Example
-    /// ```ignore
-    /// .add_bond(
-    ///     "BOND-001",
-    ///     Money::new(10_000_000.0, Currency::USD),
-    ///     0.05,  // 5% coupon
-    ///     issue_date,
-    ///     maturity_date,
-    ///     "USD-OIS",
-    /// )?
+    /// ```rust,no_run
+    /// use finstack_statements::builder::ModelBuilder;
+    /// use finstack_core::prelude::*;
+    /// use time::macros::date;
+    ///
+    /// # fn main() -> std::result::Result<(), Box<dyn std::error::Error>> {
+    /// let issue_date = date!(2025-01-15);
+    /// let maturity_date = date!(2030-01-15);
+    ///
+    /// let builder = ModelBuilder::new("cs-model")
+    ///     .add_bond(
+    ///         "BOND-001",
+    ///         Money::new(10_000_000.0, Currency::USD),
+    ///         0.05, // 5% coupon
+    ///         issue_date,
+    ///         maturity_date,
+    ///         "USD-OIS",
+    ///     )?;
+    /// # let _ = builder;
+    /// # Ok(())
+    /// # }
     /// ```
     pub fn add_bond(
         mut self,
@@ -102,16 +114,28 @@ impl<State> ModelBuilder<State> {
     /// * `forward_curve_id` - Forward curve ID for floating leg
     ///
     /// # Example
-    /// ```ignore
-    /// .add_swap(
-    ///     "SWAP-001",
-    ///     Money::new(5_000_000.0, Currency::USD),
-    ///     0.04,  // 4% fixed rate
-    ///     start_date,
-    ///     maturity_date,
-    ///     "USD-OIS",
-    ///     "USD-SOFR-3M",
-    /// )?
+    /// ```rust,no_run
+    /// use finstack_statements::builder::ModelBuilder;
+    /// use finstack_core::prelude::*;
+    /// use time::macros::date;
+    ///
+    /// # fn main() -> std::result::Result<(), Box<dyn std::error::Error>> {
+    /// let start_date = date!(2025-01-15);
+    /// let maturity_date = date!(2030-01-15);
+    ///
+    /// let builder = ModelBuilder::new("cs-model")
+    ///     .add_swap(
+    ///         "SWAP-001",
+    ///         Money::new(5_000_000.0, Currency::USD),
+    ///         0.04, // 4% fixed rate
+    ///         start_date,
+    ///         maturity_date,
+    ///         "USD-OIS",
+    ///         "USD-SOFR-3M",
+    ///     )?;
+    /// # let _ = builder;
+    /// # Ok(())
+    /// # }
     /// ```
     #[allow(clippy::too_many_arguments)]
     pub fn add_swap(
@@ -159,8 +183,11 @@ impl<State> ModelBuilder<State> {
     /// methods (bonds, swaps).
     ///
     /// # Example
-    /// ```ignore
-    /// .add_custom_debt(
+    /// ```rust,no_run
+    /// use finstack_statements::builder::ModelBuilder;
+    /// use serde_json::json;
+    ///
+    /// let builder = ModelBuilder::new("cs-model").add_custom_debt(
     ///     "TL-A",
     ///     json!({
     ///         "type": "amortizing_loan",
@@ -170,12 +197,10 @@ impl<State> ModelBuilder<State> {
     ///         "maturity_date": "2030-01-15",
     ///         "coupon_rate": 0.06,
     ///         "frequency": "quarterly",
-    ///         "amortization": {
-    ///             "type": "linear",
-    ///             "final_notional": 0.0
-    ///         }
-    ///     })
-    /// )?
+    ///         "amortization": { "type": "linear", "final_notional": 0.0 }
+    ///     }),
+    /// );
+    /// # let _ = builder;
     /// ```
     pub fn add_custom_debt(mut self, id: impl Into<String>, spec: serde_json::Value) -> Self {
         // Add to capital structure
@@ -207,8 +232,9 @@ impl<State> ModelBuilder<State> {
     /// * `waterfall_spec` - Waterfall configuration with ECF sweep and PIK toggle settings
     ///
     /// # Example
-    /// ```ignore
+    /// ```rust,no_run
     /// use finstack_statements::capital_structure::{WaterfallSpec, EcfSweepSpec};
+    /// use finstack_statements::builder::ModelBuilder;
     ///
     /// let waterfall = WaterfallSpec {
     ///     ecf_sweep: Some(EcfSweepSpec {
@@ -222,7 +248,8 @@ impl<State> ModelBuilder<State> {
     ///     ..WaterfallSpec::default()
     /// };
     ///
-    /// builder.waterfall(waterfall);
+    /// let builder = ModelBuilder::new("cs-model").waterfall(waterfall);
+    /// # let _ = builder;
     /// ```
     pub fn waterfall(mut self, waterfall_spec: crate::capital_structure::WaterfallSpec) -> Self {
         ensure_capital_structure(&mut self).waterfall = Some(waterfall_spec);

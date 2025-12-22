@@ -121,5 +121,3 @@ impl MarketContext {
         Self::default()
     }
 }
-
-

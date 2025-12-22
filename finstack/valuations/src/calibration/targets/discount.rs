@@ -222,11 +222,11 @@ impl DiscountCurveTarget {
     {
         if let Some(ctx_cell) = &self.reuse_context {
             let mut ctx = ctx_cell.borrow_mut();
-            ctx.insert_mut(curve.clone());
+            ctx.insert_discount_mut(curve.clone());
             op(&ctx)
         } else {
             let mut temp_context = self.base_context.clone();
-            temp_context.insert_mut(curve.clone());
+            temp_context.insert_discount_mut(curve.clone());
             op(&temp_context)
         }
     }
@@ -479,7 +479,7 @@ Global solve requires strictly increasing times.",
         }
 
         let mut new_context = context.clone();
-        new_context.insert_mut(curve);
+        new_context.insert_discount_mut(curve);
 
         // Track solver configuration used and any seed diagnostics for transparency.
         report.update_solver_config(config.solver.clone());

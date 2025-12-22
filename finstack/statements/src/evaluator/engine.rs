@@ -76,15 +76,25 @@ impl Evaluator {
     ///
     /// # Example
     ///
-    /// ```rust,ignore
-    /// use finstack_statements::Evaluator;
+    /// ```rust,no_run
+    /// use finstack_statements::prelude::Evaluator;
     /// use finstack_core::market_data::context::MarketContext;
+    /// use finstack_core::market_data::term_structures::discount_curve::DiscountCurve;
+    /// use finstack_statements::types::FinancialModelSpec;
+    /// use time::macros::date;
     ///
+    /// # fn main() -> Result<(), Box<dyn std::error::Error>> {
+    /// # let discount_curve: DiscountCurve = unimplemented!("build a discount curve");
     /// let market_ctx = MarketContext::new()
     ///     .insert_discount(discount_curve);
     ///
+    /// let as_of_date = date!(2025-01-31);
+    /// # let model: FinancialModelSpec = unimplemented!("build or load a model");
     /// let mut evaluator = Evaluator::with_market_context(&market_ctx, as_of_date);
     /// let results = evaluator.evaluate(&model)?;  // Uses stored market context
+    /// # let _ = results;
+    /// # Ok(())
+    /// # }
     /// ```
     pub fn with_market_context(
         market_ctx: &finstack_core::market_data::context::MarketContext,
@@ -878,14 +888,20 @@ impl Default for Evaluator {
 ///
 /// # Example
 ///
-/// ```rust,ignore
+/// ```rust,no_run
 /// use finstack_statements::evaluator::Evaluator;
 /// use finstack_core::{dates::Date, market_data::context::MarketContext};
+/// use finstack_statements::types::FinancialModelSpec;
 ///
+/// # fn main() -> Result<(), Box<dyn std::error::Error>> {
 /// let market_ctx = MarketContext::new();
 /// let as_of = Date::from_calendar_date(2025, time::Month::January, 31).expect("test should succeed");
+/// # let model: FinancialModelSpec = unimplemented!("build or load a model");
 /// let mut evaluator = Evaluator::with_market_context(&market_ctx, as_of);
 /// let results = evaluator.evaluate(&model)?;
+/// # let _ = results;
+/// # Ok(())
+/// # }
 /// ```
 #[derive(Clone)]
 pub struct EvaluatorWithContext {

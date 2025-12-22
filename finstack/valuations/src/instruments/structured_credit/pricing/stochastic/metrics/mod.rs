@@ -34,13 +34,26 @@
 //!
 //! # Usage
 //!
-//! ```ignore
-//! let metrics = StochasticMetrics::compute(&tree, &config)?;
+//! ```rust,no_run
+//! use finstack_valuations::instruments::structured_credit::pricing::stochastic::metrics::{
+//!     StochasticMetricsCalculator,
+//! };
+//! use finstack_valuations::instruments::structured_credit::pricing::stochastic::tree::{
+//!     ScenarioTree, ScenarioTreeConfig,
+//! };
+//!
+//! // Build a simple scenario tree configuration (e.g., RMBS-style defaults/prepay)
+//! let config = ScenarioTreeConfig::rmbs_standard(5.0, 0.045);
+//! let tree = ScenarioTree::build(&config).expect("tree build should succeed");
+//!
+//! // Compute metrics directly from the tree (no market data needed)
+//! let calc = StochasticMetricsCalculator::new(1.0);
+//! let metrics = calc.compute_from_tree(&tree);
 //!
 //! println!("Expected Loss: ${:.0}", metrics.expected_loss);
 //! println!("Unexpected Loss: ${:.0}", metrics.unexpected_loss);
 //! println!("99% ES: ${:.0}", metrics.expected_shortfall_99);
-//! println!("Corr01: ${:.2}/1%", metrics.correlation_01);
+//! // Correlation sensitivities are computed separately via `CorrelationSensitivities`.
 //! ```
 
 mod calculator;

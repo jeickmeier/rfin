@@ -76,8 +76,8 @@ pub mod constants;
 /// Convexity adjustment logic.
 // Re-exports: Configuration
 pub use config::{
-    CalibrationConfig, CalibrationMethod as CalibrationSolveMethod, MultiCurveConfig,
-    ResidualWeightingScheme, CALIBRATION_CONFIG_KEY,
+    CalibrationConfig, CalibrationMethod as CalibrationSolveMethod, DiscountCurveSolveConfig,
+    MultiCurveConfig, ResidualWeightingScheme, CALIBRATION_CONFIG_KEY,
 };
 
 // Re-exports: SABR derivatives (from instruments module)

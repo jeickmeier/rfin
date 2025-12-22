@@ -457,42 +457,42 @@ impl MarketSnapshot {
 
         // Insert preserved curves first (these are NOT being restored from snapshot)
         for (_id, curve) in &preserved.discount_curves {
-            new_market = new_market.insert_discount(Arc::clone(curve));
+            new_market = new_market.insert_discount((**curve).clone());
         }
         for (_id, curve) in &preserved.forward_curves {
-            new_market = new_market.insert_forward(Arc::clone(curve));
+            new_market = new_market.insert_forward((**curve).clone());
         }
         for (_id, curve) in &preserved.hazard_curves {
-            new_market = new_market.insert_hazard(Arc::clone(curve));
+            new_market = new_market.insert_hazard((**curve).clone());
         }
         for (_id, curve) in &preserved.inflation_curves {
-            new_market = new_market.insert_inflation(Arc::clone(curve));
+            new_market = new_market.insert_inflation((**curve).clone());
         }
         for (_id, curve) in &preserved.base_correlation_curves {
-            new_market = new_market.insert_base_correlation(Arc::clone(curve));
+            new_market = new_market.insert_base_correlation((**curve).clone());
         }
 
         // Insert snapshot curves (these ARE being restored)
         // Only insert curves that were actually in the snapshot
         for (_id, curve) in &snapshot.discount_curves {
-            new_market = new_market.insert_discount(Arc::clone(curve));
+            new_market = new_market.insert_discount((**curve).clone());
         }
         for (_id, curve) in &snapshot.forward_curves {
-            new_market = new_market.insert_forward(Arc::clone(curve));
+            new_market = new_market.insert_forward((**curve).clone());
         }
         for (_id, curve) in &snapshot.hazard_curves {
-            new_market = new_market.insert_hazard(Arc::clone(curve));
+            new_market = new_market.insert_hazard((**curve).clone());
         }
         for (_id, curve) in &snapshot.inflation_curves {
-            new_market = new_market.insert_inflation(Arc::clone(curve));
+            new_market = new_market.insert_inflation((**curve).clone());
         }
         for (_id, curve) in &snapshot.base_correlation_curves {
-            new_market = new_market.insert_base_correlation(Arc::clone(curve));
+            new_market = new_market.insert_base_correlation((**curve).clone());
         }
 
         // Always preserve FX, surfaces, and scalars from current market
         if let Some(fx) = &current_market.fx {
-            new_market.insert_fx_mut(Arc::clone(fx));
+            new_market.fx = Some(Arc::clone(fx));
         }
         new_market.surfaces = current_market.surfaces.clone();
         copy_scalars(current_market, &mut new_market);
@@ -637,14 +637,20 @@ impl MarketExtractable for ScalarsSnapshot {
 /// # Migration
 ///
 /// Use the trait-based approach instead:
-/// ```ignore
+/// ```rust,no_run
+/// use finstack_core::market_data::context::MarketContext;
+/// use finstack_valuations::attribution::factors::{
+///     extract, extract_rates_curves, MarketExtractable, RatesCurvesSnapshot,
+/// };
+///
+/// let market = MarketContext::new();
+///
 /// // Old way (deprecated)
-/// let snapshot = extract_rates_curves(&market);
+/// let _snapshot = extract_rates_curves(&market);
 ///
 /// // New way (recommended)
-/// let snapshot = RatesCurvesSnapshot::extract(&market);
-/// // or
-/// let snapshot = extract::<RatesCurvesSnapshot>(&market);
+/// let _snapshot = RatesCurvesSnapshot::extract(&market);
+/// let _snapshot = extract::<RatesCurvesSnapshot>(&market);
 /// ```
 #[deprecated(
     since = "0.1.0",
@@ -670,14 +676,20 @@ pub fn extract_rates_curves(market: &MarketContext) -> RatesCurvesSnapshot {
 /// # Migration
 ///
 /// Use the trait-based approach instead:
-/// ```ignore
+/// ```rust,no_run
+/// use finstack_core::market_data::context::MarketContext;
+/// use finstack_valuations::attribution::factors::{
+///     extract, extract_credit_curves, CreditCurvesSnapshot, MarketExtractable,
+/// };
+///
+/// let market = MarketContext::new();
+///
 /// // Old way (deprecated)
-/// let snapshot = extract_credit_curves(&market);
+/// let _snapshot = extract_credit_curves(&market);
 ///
 /// // New way (recommended)
-/// let snapshot = CreditCurvesSnapshot::extract(&market);
-/// // or
-/// let snapshot = extract::<CreditCurvesSnapshot>(&market);
+/// let _snapshot = CreditCurvesSnapshot::extract(&market);
+/// let _snapshot = extract::<CreditCurvesSnapshot>(&market);
 /// ```
 #[deprecated(
     since = "0.1.0",
@@ -703,14 +715,20 @@ pub fn extract_credit_curves(market: &MarketContext) -> CreditCurvesSnapshot {
 /// # Migration
 ///
 /// Use the trait-based approach instead:
-/// ```ignore
+/// ```rust,no_run
+/// use finstack_core::market_data::context::MarketContext;
+/// use finstack_valuations::attribution::factors::{
+///     extract, extract_inflation_curves, InflationCurvesSnapshot, MarketExtractable,
+/// };
+///
+/// let market = MarketContext::new();
+///
 /// // Old way (deprecated)
-/// let snapshot = extract_inflation_curves(&market);
+/// let _snapshot = extract_inflation_curves(&market);
 ///
 /// // New way (recommended)
-/// let snapshot = InflationCurvesSnapshot::extract(&market);
-/// // or
-/// let snapshot = extract::<InflationCurvesSnapshot>(&market);
+/// let _snapshot = InflationCurvesSnapshot::extract(&market);
+/// let _snapshot = extract::<InflationCurvesSnapshot>(&market);
 /// ```
 #[deprecated(
     since = "0.1.0",
@@ -736,14 +754,20 @@ pub fn extract_inflation_curves(market: &MarketContext) -> InflationCurvesSnapsh
 /// # Migration
 ///
 /// Use the trait-based approach instead:
-/// ```ignore
+/// ```rust,no_run
+/// use finstack_core::market_data::context::MarketContext;
+/// use finstack_valuations::attribution::factors::{
+///     extract, extract_correlations, CorrelationsSnapshot, MarketExtractable,
+/// };
+///
+/// let market = MarketContext::new();
+///
 /// // Old way (deprecated)
-/// let snapshot = extract_correlations(&market);
+/// let _snapshot = extract_correlations(&market);
 ///
 /// // New way (recommended)
-/// let snapshot = CorrelationsSnapshot::extract(&market);
-/// // or
-/// let snapshot = extract::<CorrelationsSnapshot>(&market);
+/// let _snapshot = CorrelationsSnapshot::extract(&market);
+/// let _snapshot = extract::<CorrelationsSnapshot>(&market);
 /// ```
 #[deprecated(
     since = "0.1.0",
@@ -782,14 +806,20 @@ pub fn extract_fx(market: &MarketContext) -> Option<Arc<FxMatrix>> {
 /// # Migration
 ///
 /// Use the trait-based approach instead:
-/// ```ignore
+/// ```rust,no_run
+/// use finstack_core::market_data::context::MarketContext;
+/// use finstack_valuations::attribution::factors::{
+///     extract, extract_volatility, MarketExtractable, VolatilitySnapshot,
+/// };
+///
+/// let market = MarketContext::new();
+///
 /// // Old way (deprecated)
-/// let snapshot = extract_volatility(&market);
+/// let _snapshot = extract_volatility(&market);
 ///
 /// // New way (recommended)
-/// let snapshot = VolatilitySnapshot::extract(&market);
-/// // or
-/// let snapshot = extract::<VolatilitySnapshot>(&market);
+/// let _snapshot = VolatilitySnapshot::extract(&market);
+/// let _snapshot = extract::<VolatilitySnapshot>(&market);
 /// ```
 #[deprecated(
     since = "0.1.0",
@@ -815,14 +845,20 @@ pub fn extract_volatility(market: &MarketContext) -> VolatilitySnapshot {
 /// # Migration
 ///
 /// Use the trait-based approach instead:
-/// ```ignore
+/// ```rust,no_run
+/// use finstack_core::market_data::context::MarketContext;
+/// use finstack_valuations::attribution::factors::{
+///     extract, extract_scalars, MarketExtractable, ScalarsSnapshot,
+/// };
+///
+/// let market = MarketContext::new();
+///
 /// // Old way (deprecated)
-/// let snapshot = extract_scalars(&market);
+/// let _snapshot = extract_scalars(&market);
 ///
 /// // New way (recommended)
-/// let snapshot = ScalarsSnapshot::extract(&market);
-/// // or
-/// let snapshot = extract::<ScalarsSnapshot>(&market);
+/// let _snapshot = ScalarsSnapshot::extract(&market);
+/// let _snapshot = extract::<ScalarsSnapshot>(&market);
 /// ```
 #[deprecated(
     since = "0.1.0",
@@ -1005,21 +1041,26 @@ pub fn restore_scalars(market: &MarketContext, snapshot: &ScalarsSnapshot) -> Ma
     // Copy all curves
     for curve_id in market.curve_ids() {
         if let Ok(discount) = market.get_discount(curve_id) {
-            new_market = new_market.insert_discount(discount);
+            let owned = Arc::try_unwrap(discount).unwrap_or_else(|arc| arc.as_ref().clone());
+            new_market = new_market.insert_discount(owned);
         } else if let Ok(forward) = market.get_forward(curve_id) {
-            new_market = new_market.insert_forward(forward);
+            let owned = Arc::try_unwrap(forward).unwrap_or_else(|arc| arc.as_ref().clone());
+            new_market = new_market.insert_forward(owned);
         } else if let Ok(hazard) = market.get_hazard(curve_id) {
-            new_market = new_market.insert_hazard(hazard);
+            let owned = Arc::try_unwrap(hazard).unwrap_or_else(|arc| arc.as_ref().clone());
+            new_market = new_market.insert_hazard(owned);
         } else if let Ok(inflation) = market.get_inflation(curve_id) {
-            new_market = new_market.insert_inflation(inflation);
+            let owned = Arc::try_unwrap(inflation).unwrap_or_else(|arc| arc.as_ref().clone());
+            new_market = new_market.insert_inflation(owned);
         } else if let Ok(base_corr) = market.get_base_correlation(curve_id) {
-            new_market = new_market.insert_base_correlation(base_corr);
+            let owned = Arc::try_unwrap(base_corr).unwrap_or_else(|arc| arc.as_ref().clone());
+            new_market = new_market.insert_base_correlation(owned);
         }
     }
 
     // Copy FX and surfaces
     if let Some(fx) = &market.fx {
-        new_market.insert_fx_mut(Arc::clone(fx));
+        new_market.fx = Some(Arc::clone(fx));
     }
     new_market.surfaces = market.surfaces.clone();
 

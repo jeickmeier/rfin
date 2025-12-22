@@ -108,14 +108,19 @@ impl RiskFactorType {
 ///
 /// # Examples
 ///
-/// ```ignore
+/// ```rust,no_run
 /// use finstack_valuations::instruments::Bond;
 /// use finstack_valuations::metrics::risk::extract_risk_factors;
+/// use finstack_core::market_data::context::MarketContext;
 ///
-/// let bond = Bond::fixed(...);
-/// let market = MarketContext::new()...;
+/// # fn main() -> finstack_core::Result<()> {
+/// let bond = Bond::example();
+/// let market = MarketContext::new();
 /// let factors = extract_risk_factors(&bond, &market)?;
 /// // factors will include discount curve rates at standard tenors
+/// # let _ = factors;
+/// # Ok(())
+/// # }
 /// ```
 pub fn extract_risk_factors<I>(
     instrument: &I,

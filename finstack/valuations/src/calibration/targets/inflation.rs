@@ -250,11 +250,11 @@ impl InflationBootstrapper {
     {
         if let Some(ctx_cell) = &self.reuse_context {
             let mut ctx = ctx_cell.borrow_mut();
-            ctx.insert_mut(curve.clone());
+            ctx.insert_inflation_mut(curve.clone());
             op(&ctx)
         } else {
             let mut temp_context = self.base_context.clone();
-            temp_context.insert_mut(curve.clone());
+            temp_context.insert_inflation_mut(curve.clone());
             op(&temp_context)
         }
     }
@@ -297,7 +297,7 @@ impl InflationBootstrapper {
         };
 
         let mut new_context = context.clone();
-        new_context.insert_mut(curve);
+        new_context.insert_inflation_mut(curve);
         Ok((new_context, report))
     }
 }

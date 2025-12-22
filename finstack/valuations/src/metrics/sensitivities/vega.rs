@@ -61,18 +61,21 @@ pub fn standard_strike_ratios() -> Vec<f64> {
 ///
 /// # Examples
 ///
-/// ```rust,ignore
-/// use finstack_valuations::metrics::vega::ParallelVega;
+/// ```rust,no_run
 /// use finstack_valuations::instruments::EquityOption;
+/// use finstack_valuations::metrics::{MetricId, MetricRegistry, ParallelVega};
+/// use finstack_valuations::pricer::InstrumentType;
+/// use std::sync::Arc;
 ///
 /// // Create calculator for equity options
 /// let calculator = ParallelVega::<EquityOption>::new();
 ///
 /// // Use in metric registry
+/// let mut registry = MetricRegistry::new();
 /// registry.register_metric(
 ///     MetricId::Vega,
 ///     Arc::new(calculator),
-///     &["EquityOption"],
+///     &[InstrumentType::EquityOption],
 /// );
 /// ```
 pub struct ParallelVega<I> {
@@ -154,9 +157,9 @@ where
 ///
 /// # Examples
 ///
-/// ```rust,ignore
-/// use finstack_valuations::metrics::vega::KeyRateVega;
+/// ```rust,no_run
 /// use finstack_valuations::instruments::EquityOption;
+/// use finstack_valuations::metrics::KeyRateVega;
 ///
 /// // Standard equity buckets
 /// let calculator = KeyRateVega::<EquityOption>::standard();

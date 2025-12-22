@@ -106,11 +106,22 @@ impl CcpMethodology {
 ///
 /// # Example
 ///
-/// ```rust,ignore
-/// use finstack_valuations::margin::{ClearingHouseImCalculator, CcpMethodology};
+/// ```rust,no_run
+/// use finstack_valuations::instruments::Instrument;
+/// use finstack_valuations::margin::{ClearingHouseImCalculator, ImCalculator};
+/// use finstack_core::market_data::context::MarketContext;
+/// use finstack_core::dates::Date;
+/// use time::macros::date;
 ///
-/// let calc = ClearingHouseImCalculator::new(CcpMethodology::LchSwapClear);
-/// let im = calc.calculate(&cleared_swap, &context, as_of)?;
+/// # fn main() -> finstack_core::Result<()> {
+/// let calc = ClearingHouseImCalculator::lch_swapclear();
+/// # let cleared_swap: &dyn Instrument = todo!("provide a cleared swap instrument");
+/// # let context = MarketContext::new();
+/// # let as_of: Date = date!(2025-01-01);
+/// let im = calc.calculate(cleared_swap, &context, as_of)?;
+/// # let _ = im;
+/// # Ok(())
+/// # }
 /// ```
 #[derive(Debug, Clone)]
 pub struct ClearingHouseImCalculator {

@@ -33,18 +33,23 @@
 //!
 //! Use `finstack_core::dates` to convert calendar dates to year fractions:
 //!
-//! ```rust,ignore
-//! use finstack_core::dates::{day_count_fraction, DayCount};
+//! ```rust,no_run
+//! use finstack_core::dates::{DayCount, DayCountCtx};
+//! use finstack_valuations::instruments::common::mc::time_grid::TimeGrid;
 //! use time::macros::date;
 //!
+//! # fn main() -> finstack_core::Result<()> {
 //! let start = date!(2024-01-15);
 //! let end = date!(2025-01-15);
 //!
 //! // Apply day-count convention
-//! let time = day_count_fraction(start, end, DayCount::Act365F);
+//! let time = DayCount::Act365F.year_fraction(start, end, DayCountCtx::default())?;
 //!
 //! // Create time grid
 //! let grid = TimeGrid::uniform(time, 252)?;
+//! # let _ = grid;
+//! # Ok(())
+//! # }
 //! ```
 //!
 //! See [CONVENTIONS.md](CONVENTIONS.md) for detailed guidelines.
@@ -78,9 +83,14 @@ impl TimeGrid {
     ///
     /// # Example
     ///
-    /// ```rust,ignore
+    /// ```rust,no_run
     /// // 1 year with 252 trading days
+    /// use finstack_valuations::instruments::common::mc::time_grid::TimeGrid;
+    /// # fn main() -> finstack_core::Result<()> {
     /// let grid = TimeGrid::uniform(1.0, 252)?;
+    /// # let _ = grid;
+    /// # Ok(())
+    /// # }
     /// ```
     pub fn uniform(t_max: f64, num_steps: usize) -> Result<Self> {
         if t_max <= 0.0 {
@@ -111,10 +121,15 @@ impl TimeGrid {
     ///
     /// # Example
     ///
-    /// ```rust,ignore
+    /// ```rust,no_run
     /// // Custom grid with more steps near expiry
+    /// use finstack_valuations::instruments::common::mc::time_grid::TimeGrid;
+    /// # fn main() -> finstack_core::Result<()> {
     /// let times = vec![0.0, 0.5, 0.75, 0.9, 1.0];
     /// let grid = TimeGrid::from_times(times)?;
+    /// # let _ = grid;
+    /// # Ok(())
+    /// # }
     /// ```
     pub fn from_times(times: Vec<f64>) -> Result<Self> {
         if times.is_empty() {

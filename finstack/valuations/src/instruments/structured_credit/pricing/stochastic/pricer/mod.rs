@@ -17,19 +17,43 @@
 //!
 //! # Example
 //!
-//! ```ignore
+//! ```rust,no_run
+//! use finstack_core::currency::Currency;
+//! use finstack_core::dates::Date;
+//! use finstack_core::market_data::term_structures::discount_curve::DiscountCurve;
+//! use finstack_valuations::instruments::structured_credit::pricing::stochastic::pricer::{
+//!     StochasticPricer, StochasticPricerConfig,
+//! };
+//! use std::sync::Arc;
+//! use time::Month;
+//!
+//! # fn main() -> Result<(), Box<dyn std::error::Error>> {
+//! let valuation_date = Date::from_calendar_date(2025, Month::January, 1)?;
+//! let discount_curve = Arc::new(
+//!     DiscountCurve::builder("USD-OIS")
+//!         .base_date(valuation_date)
+//!         .knots([(0.0, 1.0), (1.0, 0.97), (5.0, 0.85)])
+//!         .build()
+//!         .expect("discount curve should build"),
+//! );
+//! let pool_coupon = 0.045;
+//! let horizon_years = 5.0;
+//!
 //! let config = StochasticPricerConfig::rmbs_standard(
 //!     valuation_date,
 //!     discount_curve,
 //!     pool_coupon,
+//!     horizon_years,
 //! );
 //!
 //! let pricer = StochasticPricer::new(config);
-//! let result = pricer.price(&instrument)?;
+//! let result = pricer.price(1_000_000.0, Currency::USD).expect("pricing should succeed");
 //!
 //! println!("NPV: {}", result.npv);
 //! println!("Expected Loss: {}", result.expected_loss);
 //! println!("Unexpected Loss: {}", result.unexpected_loss);
+//! # Ok(())
+//! # }
 //! ```
 
 mod config;

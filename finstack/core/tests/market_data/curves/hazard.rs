@@ -190,15 +190,15 @@ fn test_hazard_curve_sp() {
         .recovery_rate(0.4)
         .build()
         .unwrap();
-    
+
     // Survival probability at t=0 should be 1.0
     let surv_0 = curve.sp(0.0);
     assert!((surv_0 - 1.0).abs() < 1e-12);
-    
+
     // Survival should decrease with time
     let surv_1 = curve.sp(1.0);
     let surv_5 = curve.sp(5.0);
-    
+
     assert!(surv_1 < 1.0 && surv_1 > 0.0);
     assert!(surv_5 < surv_1);
 }
@@ -211,11 +211,11 @@ fn test_hazard_curve_default_probability() {
         .recovery_rate(0.4)
         .build()
         .unwrap();
-    
+
     // Default probability = 1 - survival
     let surv = curve.sp(1.0);
     let default_prob = 1.0 - surv;
-    
+
     assert!(default_prob > 0.0 && default_prob < 1.0);
 }
 
@@ -223,14 +223,14 @@ fn test_hazard_curve_default_probability() {
 fn test_hazard_curve_cds_spread_bootstrap() {
     // Test bootstrapping from CDS spreads
     let spreads = vec![(1.0, 0.0100), (3.0, 0.0150), (5.0, 0.0200)];
-    
+
     let curve = HazardCurve::builder("CDS-BOOT")
         .base_date(test_date())
         .knots(spreads)
         .recovery_rate(0.4)
         .build()
         .unwrap();
-    
+
     // Hazard rates should be consistent with spreads
     let surv = curve.sp(1.0);
     assert!(surv > 0.95 && surv < 1.0);
@@ -245,7 +245,7 @@ fn test_hazard_curve_recovery_rate_zero() {
         .recovery_rate(0.0)
         .build()
         .unwrap();
-    
+
     let surv = curve.sp(1.0);
     assert!(surv < 1.0);
 }
@@ -259,7 +259,7 @@ fn test_hazard_curve_recovery_rate_full() {
         .recovery_rate(1.0)
         .build()
         .unwrap();
-    
+
     // Even with defaults, full recovery means no expected loss
     let surv = curve.sp(1.0);
     assert!(surv > 0.0);
@@ -274,7 +274,7 @@ fn test_hazard_curve_edge_case_zero_spreads() {
         .recovery_rate(0.4)
         .build()
         .unwrap();
-    
+
     // Survival should remain 1.0
     let surv = curve.sp(5.0);
     assert!((surv - 1.0).abs() < 1e-10);
@@ -289,7 +289,7 @@ fn test_hazard_curve_very_long_tenor() {
         .recovery_rate(0.4)
         .build()
         .unwrap();
-    
+
     let surv_30y = curve.sp(30.0);
     assert!(surv_30y > 0.0 && surv_30y < 1.0);
 }
@@ -302,12 +302,12 @@ fn test_hazard_curve_interpolation() {
         .recovery_rate(0.4)
         .build()
         .unwrap();
-    
+
     // Interpolated hazard rate at t=3
     let surv_3 = curve.sp(3.0);
     let surv_1 = curve.sp(1.0);
     let surv_5 = curve.sp(5.0);
-    
+
     // Should be between the pillars
     assert!(surv_3 < surv_1 && surv_3 > surv_5);
 }
@@ -321,12 +321,12 @@ fn test_hazard_curve_serde_round_trip() {
         .recovery_rate(0.4)
         .build()
         .unwrap();
-    
+
     let json = serde_json::to_string(&original).unwrap();
     let deserialized: HazardCurve = serde_json::from_str(&json).unwrap();
-    
+
     assert_eq!(original.id(), deserialized.id());
-    
+
     // Verify survival probabilities match
     for t in [0.0, 1.0, 3.0, 5.0] {
         let orig_surv = original.sp(t);

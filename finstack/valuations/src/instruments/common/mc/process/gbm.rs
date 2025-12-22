@@ -62,7 +62,7 @@
 //!
 //! # Examples
 //!
-//! ```rust,ignore
+//! ```rust,no_run
 //! use finstack_valuations::instruments::common::mc::process::gbm::{GbmProcess, GbmParams};
 //!
 //! let params = GbmParams::new(

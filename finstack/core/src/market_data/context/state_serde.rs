@@ -6,9 +6,11 @@ use super::curve_storage::CurveStorage;
 use super::MarketContext;
 
 use crate::market_data::{
+    dividends::DividendSchedule,
     scalars::{inflation_index::InflationIndex, MarketScalar, ScalarTimeSeries},
     surfaces::vol_surface::VolSurface,
 };
+use crate::money::fx::{providers::SimpleFxProvider, FxMatrix, FxMatrixState, FxProvider};
 
 // -----------------------------------------------------------------------------
 // Serde: CurveState and (De)Serialize impls
@@ -132,6 +134,8 @@ pub struct CreditIndexState {
 pub struct MarketContextState {
     /// All curves (discount, forward, hazard, inflation, base correlation)
     pub curves: Vec<CurveState>,
+    /// FX matrix state (optional)
+    pub fx: Option<FxMatrixState>,
     /// Volatility surfaces
     pub surfaces: Vec<VolSurface>,
     /// Market scalars and prices
@@ -140,6 +144,8 @@ pub struct MarketContextState {
     pub series: Vec<ScalarTimeSeries>,
     /// Inflation indices
     pub inflation_indices: Vec<InflationIndex>,
+    /// Dividend schedules
+    pub dividends: Vec<DividendSchedule>,
     /// Credit index aggregates (references curves by ID)
     pub credit_indices: Vec<CreditIndexState>,
     /// Collateral CSA mappings
@@ -149,9 +155,15 @@ pub struct MarketContextState {
 impl From<&MarketContext> for MarketContextState {
     fn from(ctx: &MarketContext) -> Self {
         // Convert all curves (sort deterministically by id for stable snapshots).
-        let mut curves: Vec<CurveState> =
-            ctx.curves.values().map(|storage| storage.to_state()).collect();
+        let mut curves: Vec<CurveState> = ctx
+            .curves
+            .values()
+            .map(|storage| storage.to_state())
+            .collect();
         curves.sort_by(|a, b| curve_state_id(a).cmp(curve_state_id(b)));
+
+        // Convert FX (if present)
+        let fx = ctx.fx.as_ref().map(|fx| fx.get_serializable_state());
 
         // Convert all surfaces (sort deterministically by key id).
         let mut surfaces_pairs: Vec<(CurveId, VolSurface)> = ctx
@@ -185,8 +197,7 @@ impl From<&MarketContext> for MarketContextState {
             .map(|(id, idx)| (id.clone(), (**idx).clone()))
             .collect();
         inflation_pairs.sort_by(|a, b| a.0.cmp(&b.0));
-        let inflation_indices: Vec<_> =
-            inflation_pairs.into_iter().map(|(_, idx)| idx).collect();
+        let inflation_indices: Vec<_> = inflation_pairs.into_iter().map(|(_, idx)| idx).collect();
 
         // Convert credit indices (extract IDs from Arc references; sort deterministically by id).
         let mut credit_pairs: Vec<(CurveId, CreditIndexState)> = ctx
@@ -199,10 +210,10 @@ impl From<&MarketContext> for MarketContextState {
                             .map(|(issuer, curve)| (issuer.clone(), curve.id().to_string()))
                             .collect()
                     });
-                let issuer_recovery_rates: Option<std::collections::BTreeMap<String, f64>> =
-                    data.issuer_recovery_rates
-                        .as_ref()
-                        .map(|m| m.iter().map(|(k, v)| (k.clone(), *v)).collect());
+                let issuer_recovery_rates: Option<std::collections::BTreeMap<String, f64>> = data
+                    .issuer_recovery_rates
+                    .as_ref()
+                    .map(|m| m.iter().map(|(k, v)| (k.clone(), *v)).collect());
                 let issuer_weights: Option<std::collections::BTreeMap<String, f64>> = data
                     .issuer_weights
                     .as_ref()
@@ -227,6 +238,15 @@ impl From<&MarketContext> for MarketContextState {
         let credit_indices: Vec<CreditIndexState> =
             credit_pairs.into_iter().map(|(_, s)| s).collect();
 
+        // Convert dividends (sort deterministically by id).
+        let mut dividend_pairs: Vec<(CurveId, DividendSchedule)> = ctx
+            .dividends
+            .iter()
+            .map(|(id, divs)| (id.clone(), (**divs).clone()))
+            .collect();
+        dividend_pairs.sort_by(|a, b| a.0.cmp(&b.0));
+        let dividends: Vec<_> = dividend_pairs.into_iter().map(|(_, d)| d).collect();
+
         // Convert collateral mappings
         let collateral: std::collections::BTreeMap<String, String> = ctx
             .collateral
@@ -236,10 +256,12 @@ impl From<&MarketContext> for MarketContextState {
 
         MarketContextState {
             curves,
+            fx,
             surfaces,
             prices,
             series,
             inflation_indices,
+            dividends,
             credit_indices,
             collateral,
         }
@@ -263,6 +285,14 @@ impl TryFrom<MarketContextState> for MarketContext {
             ctx.surfaces.insert(surface.id().clone(), Arc::new(surface));
         }
 
+        // Reconstruct FX matrix if present (using a simple provider to host cached quotes)
+        if let Some(fx_state) = state.fx {
+            let provider: Arc<dyn FxProvider> = Arc::new(SimpleFxProvider::new());
+            let matrix = FxMatrix::with_config(Arc::clone(&provider), fx_state.config);
+            matrix.load_from_state(&fx_state);
+            ctx.fx = Some(Arc::new(matrix));
+        }
+
         // Reconstruct prices
         for (id_str, scalar) in state.prices {
             ctx.prices.insert(CurveId::from(id_str), scalar);
@@ -277,6 +307,12 @@ impl TryFrom<MarketContextState> for MarketContext {
         for idx in state.inflation_indices {
             let id = CurveId::from(idx.id.clone());
             ctx.inflation_indices.insert(id, Arc::new(idx));
+        }
+
+        // Reconstruct dividends
+        for schedule in state.dividends {
+            let id = schedule.id.clone();
+            ctx.dividends.insert(id, Arc::new(schedule));
         }
 
         // Reconstruct credit indices (resolve curve references)
@@ -335,6 +371,11 @@ impl serde::Serialize for MarketContext {
     where
         S: serde::Serializer,
     {
+        if self.market_history.is_some() {
+            return Err(serde::ser::Error::custom(
+                "market_history is runtime-only and cannot be serialized",
+            ));
+        }
         let state: MarketContextState = self.into();
         state.serialize(serializer)
     }
@@ -349,5 +390,3 @@ impl<'de> serde::Deserialize<'de> for MarketContext {
         Self::try_from(state).map_err(serde::de::Error::custom)
     }
 }
-
-

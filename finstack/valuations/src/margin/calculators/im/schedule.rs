@@ -151,11 +151,22 @@ impl RegulatorySchedule {
 ///
 /// # Example
 ///
-/// ```rust,ignore
-/// use finstack_valuations::margin::{ScheduleImCalculator, ScheduleAssetClass};
+/// ```rust,no_run
+/// use finstack_valuations::instruments::Instrument;
+/// use finstack_valuations::margin::{ImCalculator, ScheduleImCalculator};
+/// use finstack_core::dates::Date;
+/// use finstack_core::market_data::context::MarketContext;
+/// use time::macros::date;
 ///
+/// # fn main() -> finstack_core::Result<()> {
 /// let calc = ScheduleImCalculator::bcbs_standard();
-/// let im = calc.calculate(&swap, &context, as_of)?;
+/// # let swap: &dyn Instrument = todo!("provide a swap instrument");
+/// # let context = MarketContext::new();
+/// # let as_of: Date = date!(2025-01-01);
+/// let im = calc.calculate(swap, &context, as_of)?;
+/// # let _ = im;
+/// # Ok(())
+/// # }
 /// ```
 #[derive(Debug, Clone)]
 pub struct ScheduleImCalculator {

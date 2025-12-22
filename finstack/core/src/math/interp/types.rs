@@ -331,7 +331,11 @@ mod tests {
 
         for style in styles {
             let interp = style
-                .build_enum(standard_knots(), standard_dfs(), ExtrapolationPolicy::FlatZero)
+                .build_enum(
+                    standard_knots(),
+                    standard_dfs(),
+                    ExtrapolationPolicy::FlatZero,
+                )
                 .expect("should build in test");
             assert!(approx_eq(interp.interp(0.0), 1.0, 1e-10));
         }
@@ -341,12 +345,20 @@ mod tests {
     #[cfg(feature = "serde")]
     fn style_method_returns_correct_type() {
         let linear = InterpStyle::Linear
-            .build_enum(standard_knots(), standard_dfs(), ExtrapolationPolicy::FlatZero)
+            .build_enum(
+                standard_knots(),
+                standard_dfs(),
+                ExtrapolationPolicy::FlatZero,
+            )
             .expect("should build in test");
         assert_eq!(linear.style(), InterpStyle::Linear);
 
         let log_linear = InterpStyle::LogLinear
-            .build_enum(standard_knots(), standard_dfs(), ExtrapolationPolicy::FlatZero)
+            .build_enum(
+                standard_knots(),
+                standard_dfs(),
+                ExtrapolationPolicy::FlatZero,
+            )
             .expect("should build in test");
         assert_eq!(log_linear.style(), InterpStyle::LogLinear);
     }
@@ -355,12 +367,20 @@ mod tests {
     #[cfg(feature = "serde")]
     fn extrapolation_method_works() {
         let flat_zero = InterpStyle::Linear
-            .build_enum(standard_knots(), standard_dfs(), ExtrapolationPolicy::FlatZero)
+            .build_enum(
+                standard_knots(),
+                standard_dfs(),
+                ExtrapolationPolicy::FlatZero,
+            )
             .expect("should build in test");
         let _ = flat_zero.extrapolation();
 
         let flat_fwd = InterpStyle::LogLinear
-            .build_enum(standard_knots(), standard_dfs(), ExtrapolationPolicy::FlatForward)
+            .build_enum(
+                standard_knots(),
+                standard_dfs(),
+                ExtrapolationPolicy::FlatForward,
+            )
             .expect("should build in test");
         let _ = flat_fwd.extrapolation();
     }

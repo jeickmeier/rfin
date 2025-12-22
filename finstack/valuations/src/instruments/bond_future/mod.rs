@@ -12,13 +12,13 @@
 //!
 //! # Example
 //!
-//! ```ignore
+//! ```rust,no_run
 //! // TODO: Add example once implementation is complete
 //! ```
 
-pub mod types;
-pub mod pricer;
 pub mod metrics;
+pub mod pricer;
+pub mod types;
 
 // Re-export commonly used types
 pub use types::{BondFuture, BondFutureBuilder, BondFutureSpecs, DeliverableBond, Position};

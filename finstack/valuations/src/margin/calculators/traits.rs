@@ -90,11 +90,12 @@ pub struct ImAddon {
 ///
 /// # Example Implementation
 ///
-/// ```rust,ignore
-/// use finstack_valuations::margin::calculators::{ImCalculator, ImResult};
-/// use finstack_valuations::instruments::common::traits::Instrument;
+/// ```rust,no_run
+/// use finstack_valuations::instruments::Instrument;
+/// use finstack_valuations::margin::{ImCalculator, ImMethodology, ImResult};
 /// use finstack_core::market_data::context::MarketContext;
 /// use finstack_core::dates::Date;
+/// use finstack_core::money::Money;
 ///
 /// struct CustomImCalculator {
 ///     fixed_rate: f64,
@@ -108,13 +109,17 @@ pub struct ImAddon {
 ///         as_of: Date,
 ///     ) -> finstack_core::Result<ImResult> {
 ///         let pv = instrument.value(context, as_of)?;
-///         let im = pv * self.fixed_rate;
+///         let im = Money::new(pv.amount().abs() * self.fixed_rate, pv.currency());
 ///         Ok(ImResult::simple(
-///             im.abs(),
-///             finstack_valuations::margin::ImMethodology::InternalModel,
+///             im,
+///             ImMethodology::InternalModel,
 ///             as_of,
 ///             10,
 ///         ))
+///     }
+///
+///     fn methodology(&self) -> ImMethodology {
+///         ImMethodology::InternalModel
 ///     }
 /// }
 /// ```

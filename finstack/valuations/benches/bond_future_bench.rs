@@ -106,8 +106,7 @@ fn create_market() -> MarketContext {
         .build()
         .unwrap();
 
-    MarketContext::new()
-        .insert_discount(disc)
+    MarketContext::new().insert_discount(disc)
 }
 
 /// Benchmark conversion factor calculation
@@ -292,11 +291,7 @@ fn bench_full_metrics(c: &mut Criterion) {
     let market = create_market();
     let as_of = Date::from_calendar_date(2025, Month::January, 15).unwrap();
 
-    let metrics = vec![
-        MetricId::Dv01,
-        MetricId::BucketedDv01,
-        MetricId::Theta,
-    ];
+    let metrics = vec![MetricId::Dv01, MetricId::BucketedDv01, MetricId::Theta];
 
     // Note: This will fail without instrument registry in MarketContext
     // But it benchmarks the combined overhead of all metrics

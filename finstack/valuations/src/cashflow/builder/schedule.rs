@@ -103,11 +103,35 @@ impl CashFlowSchedule {
     /// Returns a `CashFlowBuilder` that can be configured and built.
     ///
     /// # Example
-    /// ```ignore
+    /// ```rust,no_run
+    /// use finstack_core::currency::Currency;
+    /// use finstack_core::dates::{BusinessDayConvention, Date, DayCount, StubKind, Tenor};
+    /// use finstack_core::money::Money;
+    /// use finstack_valuations::cashflow::builder::{CashFlowSchedule, CouponType, FixedCouponSpec};
+    /// use time::Month;
+    ///
+    /// # fn main() -> Result<(), Box<dyn std::error::Error>> {
+    /// let issue = Date::from_calendar_date(2025, Month::January, 15)?;
+    /// let maturity = Date::from_calendar_date(2026, Month::January, 15)?;
+    ///
+    /// let notional = Money::new(1_000_000.0, Currency::USD);
+    /// let spec = FixedCouponSpec {
+    ///     coupon_type: CouponType::Cash,
+    ///     rate: 0.05,
+    ///     freq: Tenor::semi_annual(),
+    ///     dc: DayCount::Act365F,
+    ///     bdc: BusinessDayConvention::Following,
+    ///     calendar_id: None,
+    ///     stub: StubKind::None,
+    /// };
+    ///
     /// let schedule = CashFlowSchedule::builder()
     ///     .principal(notional, issue, maturity)
     ///     .fixed_cf(spec)
     ///     .build()?;
+    /// # let _ = schedule;
+    /// # Ok(())
+    /// # }
     /// ```
     pub fn builder() -> super::CashFlowBuilder {
         super::CashFlowBuilder::default()

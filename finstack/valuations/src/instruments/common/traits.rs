@@ -635,7 +635,7 @@ pub trait Instrument: Send + Sync {
     ///
     /// # Examples
     ///
-    /// ```rust,ignore
+    /// ```rust,no_run
     /// use finstack_valuations::instruments::Instrument;
     /// use finstack_valuations::instruments::pricing_overrides::PricingOverrides;
     ///
@@ -817,11 +817,34 @@ pub trait Instrument: Send + Sync {
     ///
     /// # Examples
     ///
-    /// ```rust,ignore
+    /// ```rust,no_run
     /// // Used internally by risk calculators for high-precision sensitivities
+    /// use finstack_core::currency::Currency;
+    /// use finstack_core::market_data::context::MarketContext;
+    /// use finstack_core::money::Money;
+    /// use finstack_valuations::instruments::{Bond, Instrument};
+    /// use time::macros::date;
+    ///
+    /// # fn main() -> finstack_core::Result<()> {
+    /// let instrument = Bond::fixed(
+    ///     "BOND-001",
+    ///     Money::new(1_000_000.0, Currency::USD),
+    ///     0.05,
+    ///     date!(2025-01-15),
+    ///     date!(2030-01-15),
+    ///     "USD-OIS",
+    /// );
+    /// let market = MarketContext::new();
+    /// let bumped_market = MarketContext::new();
+    /// let as_of = date!(2025-01-15);
+    /// let bump_bp = 1e-4; // 1bp = 0.0001
+    ///
     /// let base_pv = instrument.value_raw(&market, as_of)?;
     /// let bumped_pv = instrument.value_raw(&bumped_market, as_of)?;
     /// let dv01 = (bumped_pv - base_pv) / bump_bp;
+    /// # let _ = dv01;
+    /// # Ok(())
+    /// # }
     /// ```
     fn value_raw(&self, market: &MarketContext, as_of: Date) -> finstack_core::Result<f64> {
         Ok(self.value(market, as_of)?.amount())

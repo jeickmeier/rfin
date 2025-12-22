@@ -1,3 +1,4 @@
+use finstack_core::currency::Currency;
 use finstack_core::dates::{Date, DayCount};
 use finstack_core::market_data::context::MarketContext;
 use finstack_core::market_data::diff::{
@@ -12,8 +13,10 @@ use finstack_core::market_data::term_structures::discount_curve::DiscountCurve;
 use finstack_core::market_data::term_structures::hazard_curve::HazardCurve;
 use finstack_core::market_data::term_structures::inflation::InflationCurve;
 use finstack_core::math::interp::InterpStyle;
-use finstack_core::money::{Money, fx::{FxMatrix, FxProvider, FxConversionPolicy}};
-use finstack_core::currency::Currency;
+use finstack_core::money::{
+    fx::{FxConversionPolicy, FxMatrix, FxProvider},
+    Money,
+};
 use std::sync::Arc;
 use time::Month;
 
@@ -107,9 +110,9 @@ fn test_discount_curve_steepening() {
         .base_date(base_date)
         .knots([
             (0.0, 1.0),
-            (1.0, 0.968),     // -30bp
-            (5.0, 0.835),     // -50bp
-            (10.0, 0.704),    // -100bp
+            (1.0, 0.968),  // -30bp
+            (5.0, 0.835),  // -50bp
+            (10.0, 0.704), // -100bp
         ])
         .set_interp(InterpStyle::Linear)
         .build()
@@ -143,13 +146,9 @@ fn test_discount_curve_zero_shift() {
 
     let market = MarketContext::new().insert_discount(curve);
 
-    let shift = measure_discount_curve_shift(
-        "USD-OIS",
-        &market,
-        &market,
-        TenorSamplingMethod::Standard,
-    )
-    .expect("Should measure shift");
+    let shift =
+        measure_discount_curve_shift("USD-OIS", &market, &market, TenorSamplingMethod::Standard)
+            .expect("Should measure shift");
 
     assert_eq!(shift, 0.0, "Same market should produce zero shift");
 }
@@ -182,13 +181,9 @@ fn test_discount_curve_dynamic_sampling() {
 
     let market = MarketContext::new().insert_discount(curve);
 
-    let shift = measure_discount_curve_shift(
-        "USD-OIS",
-        &market,
-        &market,
-        TenorSamplingMethod::Dynamic,
-    )
-    .expect("Should measure with dynamic sampling");
+    let shift =
+        measure_discount_curve_shift("USD-OIS", &market, &market, TenorSamplingMethod::Dynamic)
+            .expect("Should measure with dynamic sampling");
 
     assert_eq!(shift, 0.0, "Same market should produce zero shift");
 }
@@ -267,7 +262,12 @@ fn test_bucketed_discount_shift_detailed() {
     assert_eq!(shifts.len(), 3, "Should have three tenor shifts");
 
     for (tenor, shift_bp) in &shifts {
-        assert!((shift_bp - 50.0).abs() < 1.0, "Expected ~50bp at tenor {}, got {}", tenor, shift_bp);
+        assert!(
+            (shift_bp - 50.0).abs() < 1.0,
+            "Expected ~50bp at tenor {}, got {}",
+            tenor,
+            shift_bp
+        );
     }
 }
 
@@ -425,13 +425,9 @@ fn test_hazard_curve_dynamic_sampling() {
 
     let market = MarketContext::new().insert_hazard(curve);
 
-    let shift = measure_hazard_curve_shift(
-        "CORP-01",
-        &market,
-        &market,
-        TenorSamplingMethod::Dynamic,
-    )
-    .expect("Should measure with dynamic sampling");
+    let shift =
+        measure_hazard_curve_shift("CORP-01", &market, &market, TenorSamplingMethod::Dynamic)
+            .expect("Should measure with dynamic sampling");
 
     assert_eq!(shift, 0.0, "Same market should produce zero shift");
 }
@@ -494,11 +490,15 @@ fn test_correlation_shift() {
     let market_t0 = MarketContext::new().insert_base_correlation(curve_t0);
     let market_t1 = MarketContext::new().insert_base_correlation(curve_t1);
 
-    let shift = measure_correlation_shift("CDXNA", &market_t0, &market_t1)
-        .expect("Should measure shift");
+    let shift =
+        measure_correlation_shift("CDXNA", &market_t0, &market_t1).expect("Should measure shift");
 
     // Should be in percentage points (100x the fractional shift)
-    assert!((shift - 5.0).abs() < 0.5, "Expected ~5pct pts, got {}", shift);
+    assert!(
+        (shift - 5.0).abs() < 0.5,
+        "Expected ~5pct pts, got {}",
+        shift
+    );
 }
 
 #[test]
@@ -539,14 +539,8 @@ fn test_vol_surface_point_shift() {
     let market_t0 = MarketContext::new().insert_surface(surface_t0);
     let market_t1 = MarketContext::new().insert_surface(surface_t1);
 
-    let shift = measure_vol_surface_shift(
-        "EQ-VOL",
-        &market_t0,
-        &market_t1,
-        Some(1.0),
-        Some(1.0),
-    )
-    .expect("Should measure shift");
+    let shift = measure_vol_surface_shift("EQ-VOL", &market_t0, &market_t1, Some(1.0), Some(1.0))
+        .expect("Should measure shift");
 
     // 0.23 - 0.23 = 0 at 1Y ATM from the surfaces as built
     // Let me verify: at expiry 1.0, strike 1.0 (middle strike), vol should be ~0.23
@@ -576,14 +570,8 @@ fn test_vol_surface_average_shift() {
     let market_t0 = MarketContext::new().insert_surface(surface_t0);
     let market_t1 = MarketContext::new().insert_surface(surface_t1);
 
-    let shift = measure_vol_surface_shift(
-        "EQ-VOL",
-        &market_t0,
-        &market_t1,
-        None,
-        None,
-    )
-    .expect("Should measure average shift");
+    let shift = measure_vol_surface_shift("EQ-VOL", &market_t0, &market_t1, None, None)
+        .expect("Should measure average shift");
 
     assert!(shift > 0.0, "Should detect positive vol shift");
 }
@@ -593,13 +581,7 @@ fn test_vol_surface_missing_error() {
     let market_t0 = MarketContext::new();
     let market_t1 = MarketContext::new();
 
-    let result = measure_vol_surface_shift(
-        "MISSING",
-        &market_t0,
-        &market_t1,
-        None,
-        None,
-    );
+    let result = measure_vol_surface_shift("MISSING", &market_t0, &market_t1, None, None);
 
     assert!(result.is_err(), "Should error on missing surface");
 }
@@ -660,8 +642,8 @@ fn test_scalar_price_shift() {
     let market_t0 = MarketContext::new().insert_price("EQUITY-SPX", MarketScalar::Price(price_t0));
     let market_t1 = MarketContext::new().insert_price("EQUITY-SPX", MarketScalar::Price(price_t1));
 
-    let shift = measure_scalar_shift("EQUITY-SPX", &market_t0, &market_t1)
-        .expect("Should measure shift");
+    let shift =
+        measure_scalar_shift("EQUITY-SPX", &market_t0, &market_t1).expect("Should measure shift");
 
     // (110 / 100 - 1) * 100 = 10%
     assert!((shift - 10.0).abs() < 0.01, "Expected 10%, got {}", shift);
@@ -669,14 +651,20 @@ fn test_scalar_price_shift() {
 
 #[test]
 fn test_scalar_unitless_shift() {
-    let market_t0 = MarketContext::new().insert_price("COMMODITY-GOLD", MarketScalar::Unitless(1800.0));
-    let market_t1 = MarketContext::new().insert_price("COMMODITY-GOLD", MarketScalar::Unitless(1900.0));
+    let market_t0 =
+        MarketContext::new().insert_price("COMMODITY-GOLD", MarketScalar::Unitless(1800.0));
+    let market_t1 =
+        MarketContext::new().insert_price("COMMODITY-GOLD", MarketScalar::Unitless(1900.0));
 
     let shift = measure_scalar_shift("COMMODITY-GOLD", &market_t0, &market_t1)
         .expect("Should measure shift");
 
     // (1900 / 1800 - 1) * 100 = 5.56%
-    assert!((shift - 5.56).abs() < 0.01, "Expected ~5.56%, got {}", shift);
+    assert!(
+        (shift - 5.56).abs() < 0.01,
+        "Expected ~5.56%, got {}",
+        shift
+    );
 }
 
 #[test]
@@ -694,8 +682,7 @@ fn test_scalar_zero_shift() {
     let price = Money::new(100.0, Currency::USD);
     let market = MarketContext::new().insert_price("TEST", MarketScalar::Price(price));
 
-    let shift = measure_scalar_shift("TEST", &market, &market)
-        .expect("Should measure shift");
+    let shift = measure_scalar_shift("TEST", &market, &market).expect("Should measure shift");
 
     assert_eq!(shift, 0.0, "Same scalar should produce zero shift");
 }
@@ -735,22 +722,14 @@ fn test_tenor_sampling_with_all_methods() {
     let market = MarketContext::new().insert_discount(curve);
 
     // Standard sampling
-    let shift_std = measure_discount_curve_shift(
-        "USD-OIS",
-        &market,
-        &market,
-        TenorSamplingMethod::Standard,
-    )
-    .expect("Standard sampling should work");
+    let shift_std =
+        measure_discount_curve_shift("USD-OIS", &market, &market, TenorSamplingMethod::Standard)
+            .expect("Standard sampling should work");
 
     // Dynamic sampling
-    let shift_dyn = measure_discount_curve_shift(
-        "USD-OIS",
-        &market,
-        &market,
-        TenorSamplingMethod::Dynamic,
-    )
-    .expect("Dynamic sampling should work");
+    let shift_dyn =
+        measure_discount_curve_shift("USD-OIS", &market, &market, TenorSamplingMethod::Dynamic)
+            .expect("Dynamic sampling should work");
 
     // Custom sampling
     let shift_custom = measure_discount_curve_shift(
@@ -806,7 +785,11 @@ fn test_discount_shift_negative_shift() {
     .expect("Should measure shift");
 
     // Should detect negative (downward) shift
-    assert!(shift < -40.0, "Should detect negative shift of ~-50bp, got {}", shift);
+    assert!(
+        shift < -40.0,
+        "Should detect negative shift of ~-50bp, got {}",
+        shift
+    );
 }
 
 #[test]
@@ -823,21 +806,13 @@ fn test_hazard_curve_zero_shift_consistency() {
     let market = MarketContext::new().insert_hazard(curve);
 
     // All sampling methods should yield same result for identical curves
-    let shift_std = measure_hazard_curve_shift(
-        "CORP-01",
-        &market,
-        &market,
-        TenorSamplingMethod::Standard,
-    )
-    .expect("Should measure");
+    let shift_std =
+        measure_hazard_curve_shift("CORP-01", &market, &market, TenorSamplingMethod::Standard)
+            .expect("Should measure");
 
-    let shift_dyn = measure_hazard_curve_shift(
-        "CORP-01",
-        &market,
-        &market,
-        TenorSamplingMethod::Dynamic,
-    )
-    .expect("Should measure");
+    let shift_dyn =
+        measure_hazard_curve_shift("CORP-01", &market, &market, TenorSamplingMethod::Dynamic)
+            .expect("Should measure");
 
     assert_eq!(shift_std, 0.0);
     assert_eq!(shift_dyn, 0.0);
@@ -862,14 +837,8 @@ fn test_vol_surface_single_expiry() {
     let market_t0 = MarketContext::new().insert_surface(surface_t0);
     let market_t1 = MarketContext::new().insert_surface(surface_t1);
 
-    let shift = measure_vol_surface_shift(
-        "TEST-VOL",
-        &market_t0,
-        &market_t1,
-        None,
-        None,
-    )
-    .expect("Should measure shift");
+    let shift = measure_vol_surface_shift("TEST-VOL", &market_t0, &market_t1, None, None)
+        .expect("Should measure shift");
 
     assert!(shift > 0.0, "Should detect positive shift");
 }
@@ -880,8 +849,7 @@ fn test_scalar_neutral_shift() {
     let market_t0 = MarketContext::new().insert_price("TEST", MarketScalar::Price(price));
     let market_t1 = MarketContext::new().insert_price("TEST", MarketScalar::Price(price));
 
-    let shift = measure_scalar_shift("TEST", &market_t0, &market_t1)
-        .expect("Should measure shift");
+    let shift = measure_scalar_shift("TEST", &market_t0, &market_t1).expect("Should measure shift");
 
     assert_eq!(shift, 0.0, "Should be zero for identical prices");
 }

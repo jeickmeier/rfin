@@ -48,19 +48,23 @@
     },
     "market_t0": {
       "curves": [],
+      "fx": null,
       "surfaces": [],
       "prices": {},
       "series": [],
       "inflation_indices": [],
+      "dividends": [],
       "credit_indices": [],
       "collateral": {}
     },
     "market_t1": {
       "curves": [],
+      "fx": null,
       "surfaces": [],
       "prices": {},
       "series": [],
       "inflation_indices": [],
+      "dividends": [],
       "credit_indices": [],
       "collateral": {}
     },

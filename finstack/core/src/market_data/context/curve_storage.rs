@@ -1,8 +1,8 @@
 use std::sync::Arc;
 
 use crate::market_data::term_structures::{
-    base_correlation::BaseCorrelationCurve, discount_curve::DiscountCurve, forward_curve::ForwardCurve,
-    hazard_curve::HazardCurve, inflation::InflationCurve,
+    base_correlation::BaseCorrelationCurve, discount_curve::DiscountCurve,
+    forward_curve::ForwardCurve, hazard_curve::HazardCurve, inflation::InflationCurve,
 };
 use crate::types::CurveId;
 
@@ -168,5 +168,3 @@ impl From<Arc<BaseCorrelationCurve>> for CurveStorage {
         Self::BaseCorrelation(c)
     }
 }
-
-

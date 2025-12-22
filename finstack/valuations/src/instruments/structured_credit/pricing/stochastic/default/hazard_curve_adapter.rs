@@ -39,9 +39,14 @@ use finstack_core::math::distributions::binomial_distribution;
 ///
 /// # Example
 ///
-/// ```ignore
+/// ```rust,no_run
 /// use finstack_valuations::instruments::structured_credit::pricing::stochastic::default::HazardCurveDefault;
 /// use finstack_core::market_data::term_structures::hazard_curve::HazardCurve;
+/// use finstack_core::dates::Date;
+/// use time::Month;
+///
+/// # fn main() -> Result<(), Box<dyn std::error::Error>> {
+/// let as_of = Date::from_calendar_date(2025, Month::January, 1)?;
 ///
 /// // Build hazard curve from CDS spreads
 /// let hazard_curve = HazardCurve::builder("CORP-CREDIT")
@@ -51,6 +56,9 @@ use finstack_core::math::distributions::binomial_distribution;
 ///
 /// // Wrap in stochastic adapter with factor sensitivity
 /// let stochastic_default = HazardCurveDefault::new(hazard_curve, 0.5);
+/// # let _ = stochastic_default;
+/// # Ok(())
+/// # }
 /// ```
 #[derive(Clone, Debug)]
 pub struct HazardCurveDefault {

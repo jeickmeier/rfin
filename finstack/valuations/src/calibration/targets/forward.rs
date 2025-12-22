@@ -111,11 +111,11 @@ impl ForwardCurveTarget {
     {
         if let Some(ctx_cell) = &self.reuse_context {
             let mut ctx = ctx_cell.borrow_mut();
-            ctx.insert_mut(curve.clone());
+            ctx.insert_forward_mut(curve.clone());
             op(&ctx)
         } else {
             let mut temp_context = self.base_context.clone();
-            temp_context.insert_mut(curve.clone());
+            temp_context.insert_forward_mut(curve.clone());
             op(&temp_context)
         }
     }
@@ -225,7 +225,7 @@ impl ForwardCurveTarget {
         };
 
         let mut new_context = context.clone();
-        new_context.insert_mut(curve);
+        new_context.insert_forward_mut(curve);
         Ok((new_context, report))
     }
 }

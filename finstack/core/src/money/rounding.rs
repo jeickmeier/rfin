@@ -313,7 +313,7 @@ mod tests {
         // 2.5 rounds to 2 (even), 3.5 rounds to 4 (even)
         let result1 = round_f64(2.5, 0, RoundingMode::Bankers);
         assert_eq!(result1, Decimal::from_str("2").expect("valid decimal"));
-        
+
         let result2 = round_f64(3.5, 0, RoundingMode::Bankers);
         assert_eq!(result2, Decimal::from_str("4").expect("valid decimal"));
     }
@@ -322,7 +322,7 @@ mod tests {
     fn round_f64_away_from_zero() {
         let result1 = round_f64(1.5, 0, RoundingMode::AwayFromZero);
         assert_eq!(result1, Decimal::from_str("2").expect("valid decimal"));
-        
+
         let result2 = round_f64(-1.5, 0, RoundingMode::AwayFromZero);
         assert_eq!(result2, Decimal::from_str("-2").expect("valid decimal"));
     }
@@ -331,7 +331,7 @@ mod tests {
     fn round_f64_toward_zero() {
         let result1 = round_f64(1.9, 0, RoundingMode::TowardZero);
         assert_eq!(result1, Decimal::from_str("1").expect("valid decimal"));
-        
+
         let result2 = round_f64(-1.9, 0, RoundingMode::TowardZero);
         assert_eq!(result2, Decimal::from_str("-1").expect("valid decimal"));
     }
@@ -340,7 +340,7 @@ mod tests {
     fn round_f64_floor() {
         let result1 = round_f64(1.9, 0, RoundingMode::Floor);
         assert_eq!(result1, Decimal::from_str("1").expect("valid decimal"));
-        
+
         let result2 = round_f64(-1.1, 0, RoundingMode::Floor);
         assert_eq!(result2, Decimal::from_str("-2").expect("valid decimal"));
     }
@@ -349,7 +349,7 @@ mod tests {
     fn round_f64_ceil() {
         let result1 = round_f64(1.1, 0, RoundingMode::Ceil);
         assert_eq!(result1, Decimal::from_str("2").expect("valid decimal"));
-        
+
         let result2 = round_f64(-1.9, 0, RoundingMode::Ceil);
         assert_eq!(result2, Decimal::from_str("-1").expect("valid decimal"));
     }

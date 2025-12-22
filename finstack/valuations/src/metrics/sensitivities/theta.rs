@@ -7,33 +7,36 @@
 //!
 //! ## Example 1: Computing 1-Day Theta for an Equity Option
 //!
-//! ```ignore
+//! ```rust,no_run
 //! use finstack_valuations::instruments::EquityOption;
+//! use finstack_valuations::instruments::Instrument;
 //! use finstack_valuations::metrics::{standard_registry, MetricId};
-//! use finstack_core::dates::{create_date, Month};
-//! use finstack_core::types::Currency;
-//! use finstack_core::money::Money;
+//! use finstack_core::dates::create_date;
 //! use finstack_core::market_data::context::MarketContext;
+//! use time::Month;
 //!
 //! # fn main() -> finstack_core::Result<()> {
 //! let as_of = create_date(2024, Month::January, 1)?;
 //! let expiry = create_date(2024, Month::July, 1)?; // 6 months to expiry
 //!
-//! let option = EquityOption::builder("OPT-001")
-//!     .strike(Money::new(100.0, Currency::USD))
-//!     .expiry(expiry)
-//!     .is_call(true)
-//!     .build()?;
+//! let option = EquityOption::european_call(
+//!     "OPT-001",
+//!     "SPX",
+//!     4500.0,
+//!     expiry,
+//!     finstack_core::money::Money::new(100_000.0, finstack_core::currency::Currency::USD),
+//!     100.0,
+//! );
 //!
 //! // Setup market (abbreviated)
-//! # let market = MarketContext::new(as_of);
+//! # let market = MarketContext::new();
 //!
-//! let registry = standard_registry();
+//! let _registry = standard_registry();
 //! let metrics = vec![MetricId::Theta];
 //!
 //! let result = option.price_with_metrics(&market, as_of, &metrics)?;
 //!
-//! if let Some(theta) = result.measures.get(&MetricId::Theta) {
+//! if let Some(theta) = result.measures.get(MetricId::Theta.as_str()) {
 //!     println!("Option value: ${:.2}", result.value.amount());
 //!     println!("1-day theta: ${:.2}", theta);
 //!     // Negative theta indicates time decay (option loses value each day)
@@ -44,26 +47,29 @@
 //!
 //! ## Example 2: Computing Custom Period Theta (1 Week)
 //!
-//! ```ignore
+//! ```rust,no_run
 //! use finstack_valuations::instruments::{EquityOption, PricingOverrides};
+//! use finstack_valuations::instruments::Instrument;
 //! use finstack_valuations::metrics::{standard_registry, MetricId};
-//! use finstack_core::dates::{create_date, Month};
-//! use finstack_core::types::Currency;
-//! use finstack_core::money::Money;
+//! use finstack_core::dates::create_date;
 //! use finstack_core::market_data::context::MarketContext;
+//! use time::Month;
 //!
 //! # fn main() -> finstack_core::Result<()> {
 //! let as_of = create_date(2024, Month::January, 1)?;
-//! let option = EquityOption::builder("OPT-001")
-//!     .strike(Money::new(100.0, Currency::USD))
-//!     .expiry(create_date(2024, Month::July, 1)?)
-//!     .is_call(true)
-//!     .build()?;
+//! let option = EquityOption::european_call(
+//!     "OPT-001",
+//!     "SPX",
+//!     4500.0,
+//!     create_date(2024, Month::July, 1)?,
+//!     finstack_core::money::Money::new(100_000.0, finstack_core::currency::Currency::USD),
+//!     100.0,
+//! );
 //!
 //! // Setup market
-//! # let market = MarketContext::new(as_of);
+//! # let market = MarketContext::new();
 //!
-//! let registry = standard_registry();
+//! let _registry = standard_registry();
 //! let metrics = vec![MetricId::Theta];
 //!
 //! // Customize theta period - supported formats:
@@ -73,7 +79,7 @@
 //! // "1Y", "2Y", ... (years)
 //! let result = option.price_with_metrics(&market, as_of, &metrics)?;
 //!
-//! if let Some(theta) = result.measures.get(&MetricId::Theta) {
+//! if let Some(theta) = result.measures.get(MetricId::Theta.as_str()) {
 //!     println!("1-week theta: ${:.2}", theta);
 //!     println!("This is the expected P&L from holding the option for 1 week");
 //! }
@@ -83,33 +89,28 @@
 //!
 //! ## Example 3: Bond Carry (Theta with Coupon Accrual)
 //!
-//! ```ignore
+//! ```rust,no_run
 //! use finstack_valuations::instruments::{Bond, PricingOverrides};
+//! use finstack_valuations::instruments::Instrument;
 //! use finstack_valuations::metrics::{standard_registry, MetricId};
-//! use finstack_core::dates::{create_date, Month};
-//! use finstack_core::types::{Rate, Currency};
-//! use finstack_core::money::Money;
+//! use finstack_core::dates::create_date;
 //! use finstack_core::market_data::context::MarketContext;
+//! use time::Month;
 //!
 //! # fn main() -> finstack_core::Result<()> {
 //! let as_of = create_date(2024, Month::January, 1)?;
-//! let bond = Bond::builder("BOND-001")
-//!     .issue_date(as_of)
-//!     .maturity(create_date(2029, Month::January, 1)?)
-//!     .coupon_rate(Rate::from_bps(500)) // 5% annual coupon
-//!     .face_value(Money::new(100_000.0, Currency::USD))
-//!     .build()?;
+//! let bond = Bond::example();
 //!
 //! // Setup market
-//! # let market = MarketContext::new(as_of);
+//! # let market = MarketContext::new();
 //!
-//! let registry = standard_registry();
+//! let _registry = standard_registry();
 //! let metrics = vec![MetricId::Theta];
 //!
 //! // Measure 1-month carry
 //! let result = bond.price_with_metrics(&market, as_of, &metrics)?;
 //!
-//! if let Some(theta) = result.measures.get(&MetricId::Theta) {
+//! if let Some(theta) = result.measures.get(MetricId::Theta.as_str()) {
 //!     println!("Bond value: ${:.2}", result.value.amount());
 //!     println!("1-month carry: ${:.2}", theta);
 //!     // Theta includes both:
@@ -125,34 +126,37 @@
 //! When an instrument expires before the theta period ends, theta is automatically
 //! capped at the expiry date:
 //!
-//! ```ignore
+//! ```rust,no_run
 //! use finstack_valuations::instruments::{EquityOption, PricingOverrides};
+//! use finstack_valuations::instruments::Instrument;
 //! use finstack_valuations::metrics::{standard_registry, MetricId};
-//! use finstack_core::dates::{create_date, Month};
-//! use finstack_core::types::Currency;
-//! use finstack_core::money::Money;
+//! use finstack_core::dates::create_date;
 //! use finstack_core::market_data::context::MarketContext;
+//! use time::Month;
 //!
 //! # fn main() -> finstack_core::Result<()> {
 //! let as_of = create_date(2024, Month::June, 25)?;
 //! let expiry = create_date(2024, Month::July, 1)?; // Only 6 days to expiry
 //!
-//! let option = EquityOption::builder("OPT-001")
-//!     .strike(Money::new(100.0, Currency::USD))
-//!     .expiry(expiry)
-//!     .is_call(true)
-//!     .build()?;
+//! let option = EquityOption::european_call(
+//!     "OPT-001",
+//!     "SPX",
+//!     4500.0,
+//!     expiry,
+//!     finstack_core::money::Money::new(100_000.0, finstack_core::currency::Currency::USD),
+//!     100.0,
+//! );
 //!
 //! // Setup market
-//! # let market = MarketContext::new(as_of);
+//! # let market = MarketContext::new();
 //!
-//! let registry = standard_registry();
+//! let _registry = standard_registry();
 //! let metrics = vec![MetricId::Theta];
 //!
 //! // Request 1-week theta, but only 6 days remain
 //! let result = option.price_with_metrics(&market, as_of, &metrics)?;
 //!
-//! if let Some(theta) = result.measures.get(&MetricId::Theta) {
+//! if let Some(theta) = result.measures.get(MetricId::Theta.as_str()) {
 //!     println!("Theta to expiry (6 days): ${:.2}", theta);
 //!     // Theta is computed only to expiry, not the full 7-day period
 //!     // This equals: PV(expiry) - PV(today)

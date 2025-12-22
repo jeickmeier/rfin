@@ -11,10 +11,8 @@ use finstack_core::math::interp::InterpStyle;
 use finstack_core::money::Money;
 use finstack_core::types::{CurveId, InstrumentId};
 use finstack_valuations::instruments::bond::Bond;
-use finstack_valuations::instruments::bond_future::{
-    BondFuture, DeliverableBond, Position,
-};
 use finstack_valuations::instruments::bond_future::pricer::BondFuturePricer;
+use finstack_valuations::instruments::bond_future::{BondFuture, DeliverableBond, Position};
 use finstack_valuations::pricer::InstrumentType;
 use time::macros::date;
 
@@ -39,17 +37,17 @@ fn create_realistic_market() -> MarketContext {
 
     // Add points at standard UST maturities
     let maturities = vec![
-        0.0,   // Overnight
-        0.25,  // 3-month bill
-        0.5,   // 6-month bill
-        1.0,   // 1-year bill
-        2.0,   // 2-year note
-        3.0,   // 3-year note
-        5.0,   // 5-year note
-        7.0,   // 7-year note
-        10.0,  // 10-year note
-        20.0,  // 20-year bond
-        30.0,  // 30-year bond
+        0.0,  // Overnight
+        0.25, // 3-month bill
+        0.5,  // 6-month bill
+        1.0,  // 1-year bill
+        2.0,  // 2-year note
+        3.0,  // 3-year note
+        5.0,  // 5-year note
+        7.0,  // 7-year note
+        10.0, // 10-year note
+        20.0, // 20-year bond
+        30.0, // 30-year bond
     ];
 
     for t in maturities {
@@ -258,9 +256,8 @@ fn test_realistic_ust_10y_future_full_workflow() {
     );
 
     // Test 2: Model Price Calculation
-    let model_price =
-        BondFuturePricer::calculate_model_price(ctd_bond, ctd_cf, &market, as_of)
-            .expect("Model price calculation should succeed");
+    let model_price = BondFuturePricer::calculate_model_price(ctd_bond, ctd_cf, &market, as_of)
+        .expect("Model price calculation should succeed");
 
     // Model price should be a reasonable value (80-150 range for UST futures)
     assert!(
@@ -333,14 +330,9 @@ fn test_short_position_npv() {
 
     // Calculate conversion factor for first bond only (for speed)
     let ctd_bond = &bonds[0];
-    let ctd_cf = BondFuturePricer::calculate_conversion_factor(
-        ctd_bond,
-        0.06,
-        10.0,
-        &market,
-        as_of,
-    )
-    .expect("CF calculation should succeed");
+    let ctd_cf =
+        BondFuturePricer::calculate_conversion_factor(ctd_bond, 0.06, 10.0, &market, as_of)
+            .expect("CF calculation should succeed");
 
     deliverable_bonds[0].conversion_factor = ctd_cf;
 
@@ -373,9 +365,8 @@ fn test_short_position_npv() {
     )
     .expect("Short future construction should succeed");
 
-    let npv_long =
-        BondFuturePricer::calculate_npv(&long_future, ctd_bond, ctd_cf, &market, as_of)
-            .expect("Long NPV should succeed");
+    let npv_long = BondFuturePricer::calculate_npv(&long_future, ctd_bond, ctd_cf, &market, as_of)
+        .expect("Long NPV should succeed");
 
     let npv_short =
         BondFuturePricer::calculate_npv(&short_future, ctd_bond, ctd_cf, &market, as_of)
@@ -556,14 +547,9 @@ fn test_multiple_contracts_scaling() {
     let as_of = date!(2025 - 01 - 15);
 
     let ctd_bond = &bonds[0];
-    let ctd_cf = BondFuturePricer::calculate_conversion_factor(
-        ctd_bond,
-        0.06,
-        10.0,
-        &market,
-        as_of,
-    )
-    .expect("CF calculation should succeed");
+    let ctd_cf =
+        BondFuturePricer::calculate_conversion_factor(ctd_bond, 0.06, 10.0, &market, as_of)
+            .expect("CF calculation should succeed");
 
     deliverable_bonds[0].conversion_factor = ctd_cf;
 
@@ -610,14 +596,17 @@ fn test_multiple_contracts_scaling() {
     )
     .expect("10-contract future should succeed");
 
-    let npv_1 = BondFuturePricer::calculate_npv(&future_1_contract, ctd_bond, ctd_cf, &market, as_of)
-        .expect("1-contract NPV should succeed");
+    let npv_1 =
+        BondFuturePricer::calculate_npv(&future_1_contract, ctd_bond, ctd_cf, &market, as_of)
+            .expect("1-contract NPV should succeed");
 
-    let npv_5 = BondFuturePricer::calculate_npv(&future_5_contracts, ctd_bond, ctd_cf, &market, as_of)
-        .expect("5-contract NPV should succeed");
+    let npv_5 =
+        BondFuturePricer::calculate_npv(&future_5_contracts, ctd_bond, ctd_cf, &market, as_of)
+            .expect("5-contract NPV should succeed");
 
-    let npv_10 = BondFuturePricer::calculate_npv(&future_10_contracts, ctd_bond, ctd_cf, &market, as_of)
-        .expect("10-contract NPV should succeed");
+    let npv_10 =
+        BondFuturePricer::calculate_npv(&future_10_contracts, ctd_bond, ctd_cf, &market, as_of)
+            .expect("10-contract NPV should succeed");
 
     println!("NPV (1 contract): ${:.2}", npv_1.amount());
     println!("NPV (5 contracts): ${:.2}", npv_5.amount());
@@ -672,32 +661,17 @@ fn test_conversion_factor_calculation_accuracy() {
         date!(2035 - 01 - 15),
     );
 
-    let cf_below = BondFuturePricer::calculate_conversion_factor(
-        &bond_below_par,
-        0.06,
-        10.0,
-        &market,
-        as_of,
-    )
-    .expect("CF for 3% bond should succeed");
+    let cf_below =
+        BondFuturePricer::calculate_conversion_factor(&bond_below_par, 0.06, 10.0, &market, as_of)
+            .expect("CF for 3% bond should succeed");
 
-    let cf_at = BondFuturePricer::calculate_conversion_factor(
-        &bond_at_par,
-        0.06,
-        10.0,
-        &market,
-        as_of,
-    )
-    .expect("CF for 6% bond should succeed");
+    let cf_at =
+        BondFuturePricer::calculate_conversion_factor(&bond_at_par, 0.06, 10.0, &market, as_of)
+            .expect("CF for 6% bond should succeed");
 
-    let cf_above = BondFuturePricer::calculate_conversion_factor(
-        &bond_above_par,
-        0.06,
-        10.0,
-        &market,
-        as_of,
-    )
-    .expect("CF for 9% bond should succeed");
+    let cf_above =
+        BondFuturePricer::calculate_conversion_factor(&bond_above_par, 0.06, 10.0, &market, as_of)
+            .expect("CF for 9% bond should succeed");
 
     println!("3% coupon bond CF: {:.4}", cf_below);
     println!("6% coupon bond CF: {:.4}", cf_at);
@@ -762,14 +736,14 @@ fn test_bond_future_dv01_calculation() {
     );
 
     // Create market context and register CTD bond for BondFuture::value()
-    let market = create_realistic_market()
-        .insert_instrument("US912828XG33", Arc::new(ctd_bond.clone()));
+    let market =
+        create_realistic_market().insert_instrument("US912828XG33", Arc::new(ctd_bond.clone()));
 
     // Calculate conversion factor
     let conversion_factor = BondFuturePricer::calculate_conversion_factor(
         &ctd_bond,
-        0.06,  // 6% standard coupon for UST 10Y
-        10.0,  // 10-year standard maturity
+        0.06, // 6% standard coupon for UST 10Y
+        10.0, // 10-year standard maturity
         &market,
         delivery_start,
     )
@@ -790,7 +764,7 @@ fn test_bond_future_dv01_calculation() {
         expiry,
         delivery_start,
         delivery_end,
-        125.50,  // Quoted futures price
+        125.50, // Quoted futures price
         Position::Long,
         basket,
         InstrumentId::new("US912828XG33"),
@@ -921,8 +895,8 @@ fn test_bond_future_dv01_sign_convention() {
     );
 
     // Create market context and register CTD bond for BondFuture::value()
-    let market = create_realistic_market()
-        .insert_instrument("US912828XG33", Arc::new(ctd_bond.clone()));
+    let market =
+        create_realistic_market().insert_instrument("US912828XG33", Arc::new(ctd_bond.clone()));
 
     let conversion_factor = BondFuturePricer::calculate_conversion_factor(
         &ctd_bond,
@@ -1077,33 +1051,33 @@ fn test_invoice_price() {
         .expect("Failed to calculate invoice price");
 
     println!("Futures quoted price: {:.2}", quoted_price);
-    println!("CTD bond conversion factor: {:.4}", deliverable_bonds[0].conversion_factor);
+    println!(
+        "CTD bond conversion factor: {:.4}",
+        deliverable_bonds[0].conversion_factor
+    );
     println!("Settlement date: {}", settlement_date);
     println!("Invoice price: {}", invoice);
 
     // Verify invoice price components
     // Invoice = (Futures_Price × CF) + Accrued
     let cf = deliverable_bonds[0].conversion_factor;
-    
+
     // Invoice should be positive and reasonable
-    assert!(
-        invoice.amount() > 0.0,
-        "Invoice price should be positive"
-    );
+    assert!(invoice.amount() > 0.0, "Invoice price should be positive");
 
     // For a 125.50 futures price with CF ~0.8, invoice should be ~103 per $100 face
     // For 10 contracts ($1M notional), total should be ~$1,030,000
     let expected_per_100 = quoted_price * cf;
     let expected_total = (future.notional.amount() / 100.0) * expected_per_100;
-    
+
     // Allow for accrued interest variation (within ±5% of expected)
     let tolerance = expected_total * 0.05;
     let diff = (invoice.amount() - expected_total).abs();
-    
+
     println!("Expected invoice (without accrued): ${:.2}", expected_total);
     println!("Actual invoice (with accrued): ${:.2}", invoice.amount());
     println!("Difference: ${:.2}", diff);
-    
+
     assert!(
         diff < tolerance,
         "Invoice price should be within 5% of expected: expected=${:.2}, actual=${:.2}, diff=${:.2}",
@@ -1131,14 +1105,14 @@ fn test_bucketed_dv01_registration() {
     //
     // The metric implementation itself (UnifiedDv01Calculator with key_rate config) is
     // correct and will work once the instrument registry is added.
-    
+
     use finstack_valuations::metrics::{standard_registry, MetricId};
 
     let registry = standard_registry();
 
     // Verify BondFuture has metrics registered
     let bond_future_metrics = registry.metrics_for_instrument(InstrumentType::BondFuture);
-    
+
     assert!(
         bond_future_metrics.contains(&MetricId::Dv01),
         "DV01 metric should be registered for BondFuture"

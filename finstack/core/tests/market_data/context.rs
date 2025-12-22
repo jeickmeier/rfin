@@ -95,22 +95,22 @@ fn market_context_inserts_and_retrieves_curves() {
 }
 
 #[test]
-fn market_context_arc_mut_variants_share_storage() {
-    let discount = Arc::new(sample_discount_curve("USD-OIS"));
-    let forward = Arc::new(sample_forward_curve("USD-LIBOR"));
+fn market_context_typed_mut_variants_store_curves() {
+    let discount = sample_discount_curve("USD-OIS");
+    let forward = sample_forward_curve("USD-LIBOR");
 
     let mut ctx = MarketContext::new();
-    ctx.insert_mut(discount.clone()).insert_mut(forward.clone());
+    ctx.insert_discount_mut(discount)
+        .insert_forward_mut(forward);
 
-    // Ensure references point to same data
-    assert!(Arc::ptr_eq(
-        &ctx.get_discount("USD-OIS").unwrap(),
-        &discount
-    ));
-    assert!(Arc::ptr_eq(
-        &ctx.get_forward("USD-LIBOR").unwrap(),
-        &forward
-    ));
+    assert_eq!(
+        ctx.get_discount("USD-OIS").unwrap().id().as_str(),
+        "USD-OIS"
+    );
+    assert_eq!(
+        ctx.get_forward("USD-LIBOR").unwrap().id().as_str(),
+        "USD-LIBOR"
+    );
 }
 
 #[test]
@@ -241,7 +241,7 @@ fn market_context_bumps_surfaces_and_scalars() {
     .unwrap();
 
     let ctx = MarketContext::new()
-        .insert_surface_arc(surface.clone())
+        .insert_surface(surface.clone())
         .insert_price("EQ-SPOT", price.clone())
         .insert_series(series.clone());
 
@@ -307,7 +307,7 @@ fn market_context_handles_additional_introspection() {
     let mut ctx = MarketContext::new();
     assert!(ctx.is_empty());
 
-    ctx.insert_mut(Arc::new(sample_discount_curve("USD-OIS")));
+    ctx.insert_discount_mut(sample_discount_curve("USD-OIS"));
     assert!(!ctx.is_empty());
     assert!(ctx.curve("USD-OIS").is_some());
 
@@ -371,7 +371,7 @@ fn market_context_getters_type_mismatch_and_not_found() {
     let ctx = MarketContext::new()
         .insert_discount(sample_discount_curve("USD-OIS"))
         .insert_forward(sample_forward_curve("USD-LIBOR"))
-        .insert_surface_arc(sample_vol_surface())
+        .insert_surface(sample_vol_surface())
         .insert_price("EQ-SPOT", MarketScalar::Unitless(1.0));
 
     // Not found cases
@@ -396,24 +396,22 @@ fn market_context_getters_type_mismatch_and_not_found() {
 #[test]
 fn market_context_surface_and_dividends_arc_variants_preserve_identity() {
     let surface = sample_vol_surface();
-    let dividends = Arc::new(
-        DividendSchedule::new("AAPL-DIVS")
-            .add_cash(sample_base_date(), Money::new(1.0, Currency::USD)),
-    );
+    let dividends = DividendSchedule::new("AAPL-DIVS")
+        .add_cash(sample_base_date(), Money::new(1.0, Currency::USD));
 
     let mut ctx = MarketContext::new()
-        .insert_surface_arc(surface.clone())
-        .insert_dividends_arc(dividends.clone());
+        .insert_surface(surface.clone())
+        .insert_dividends(dividends.clone());
 
-    // insert_*_mut variants should also work and preserve the Arc when used.
+    // insert_*_mut variants should also work.
     ctx.insert_surface_mut(surface.clone());
-    ctx.insert_dividends_arc_mut(dividends.clone());
+    ctx.insert_dividends_mut(dividends.clone());
 
     let got_surface = ctx.surface("EQ-VOL").unwrap();
-    assert!(Arc::ptr_eq(&got_surface, &surface));
+    assert_eq!(got_surface.id(), surface.id());
 
     let got_divs = ctx.dividend_schedule("AAPL-DIVS").unwrap();
-    assert!(Arc::ptr_eq(&got_divs, &dividends));
+    assert_eq!(got_divs.id, dividends.id);
 }
 
 #[test]
@@ -438,7 +436,7 @@ fn market_context_roll_forward_preserves_ids_and_clones_non_curves() {
         .insert_hazard(sample_hazard_curve("CDX"))
         .insert_inflation(sample_inflation_curve("USD-CPI"))
         .insert_base_correlation(sample_base_correlation_curve("CDX-BC"))
-        .insert_surface_arc(surface.clone())
+        .insert_surface(surface.clone())
         .insert_price("EQ-SPOT", MarketScalar::Unitless(1.0))
         .map_collateral("USD-CSA", CurveId::from("USD-OIS"));
 
@@ -558,7 +556,7 @@ fn market_context_apply_bumps_exercises_all_variants() {
     let ctx = MarketContext::new()
         .insert_discount(sample_discount_curve("USD-OIS"))
         .insert_base_correlation(sample_base_correlation_curve("CDX-BC"))
-        .insert_surface_arc(sample_vol_surface())
+        .insert_surface(sample_vol_surface())
         .insert_fx(sample_fx_matrix());
 
     let df_before = ctx.get_discount_ref("USD-OIS").unwrap().df(2.0);
@@ -664,20 +662,19 @@ fn market_context_apply_bumps_exercises_all_variants() {
 
 #[test]
 fn market_context_insert_and_stats_setters_cover_remaining_paths() {
-    // Cover insert_surface(by value), insert_dividends(by value), insert_fx_arc/mut,
+    // Cover insert_surface(by value), insert_dividends(by value), insert_fx/insert_fx_mut,
     // insert_credit_index_mut, insert_market_history(_mut), map_collateral_mut and
     // the mutable setters/iterators in stats.rs.
     let date = sample_base_date();
 
-    let surface_by_value = finstack_core::market_data::surfaces::vol_surface::VolSurface::builder(
-        "IR-VOL",
-    )
-    .expiries(&[1.0, 2.0])
-    .strikes(&[90.0, 100.0])
-    .row(&[0.2, 0.2])
-    .row(&[0.2, 0.2])
-    .build()
-    .unwrap();
+    let surface_by_value =
+        finstack_core::market_data::surfaces::vol_surface::VolSurface::builder("IR-VOL")
+            .expiries(&[1.0, 2.0])
+            .strikes(&[90.0, 100.0])
+            .row(&[0.2, 0.2])
+            .row(&[0.2, 0.2])
+            .build()
+            .unwrap();
 
     let dividends_by_value =
         DividendSchedule::new("MSFT-DIVS").add_cash(date, Money::new(0.5, Currency::USD));
@@ -691,17 +688,15 @@ fn market_context_insert_and_stats_setters_cover_remaining_paths() {
         .build()
         .unwrap();
 
-    let fx_arc = Arc::new(sample_fx_matrix());
-
     let mut ctx = MarketContext::new()
         .insert_discount(sample_discount_curve("USD-OIS"))
         .insert_surface(surface_by_value)
         .insert_dividends(dividends_by_value)
-        .insert_fx_arc(fx_arc.clone());
+        .insert_fx(sample_fx_matrix());
 
     // insert_credit_index_mut + insert_fx_mut
     ctx.insert_credit_index_mut("CDX", credit_index)
-        .insert_fx_mut(fx_arc.clone());
+        .insert_fx_mut(sample_fx_matrix());
 
     // market history insertion
     let hist_1: Arc<dyn std::any::Any + Send + Sync> = Arc::new(123_i32);
@@ -718,9 +713,13 @@ fn market_context_insert_and_stats_setters_cover_remaining_paths() {
     // stats setters + iterators
     ctx.set_price_mut(CurveId::from("PX"), MarketScalar::Unitless(42.0));
 
-    let series = ScalarTimeSeries::new("TS-2", vec![(date, 1.0), (date + time::Duration::days(1), 2.0)], None)
-        .unwrap()
-        .with_interpolation(SeriesInterpolation::Linear);
+    let series = ScalarTimeSeries::new(
+        "TS-2",
+        vec![(date, 1.0), (date + time::Duration::days(1), 2.0)],
+        None,
+    )
+    .unwrap()
+    .with_interpolation(SeriesInterpolation::Linear);
     ctx.set_series_mut(series);
 
     let idx = Arc::new(
@@ -730,10 +729,8 @@ fn market_context_insert_and_stats_setters_cover_remaining_paths() {
     );
     ctx.set_inflation_index_mut("US-CPI", idx);
 
-    let divs = Arc::new(
-        DividendSchedule::new("AAPL-DIVS")
-            .add_cash(date, Money::new(1.0, Currency::USD)),
-    );
+    let divs =
+        Arc::new(DividendSchedule::new("AAPL-DIVS").add_cash(date, Money::new(1.0, Currency::USD)));
     ctx.set_dividends_mut(divs);
 
     assert_eq!(ctx.prices_iter().count(), 1);
@@ -757,7 +754,7 @@ fn market_context_bump_more_curve_types_and_error_paths() {
         .insert_hazard(sample_hazard_curve("CDX"))
         .insert_inflation(sample_inflation_curve("USD-CPI"))
         .insert_base_correlation(sample_base_correlation_curve("CDX-BC"))
-        .insert_surface_arc(sample_vol_surface());
+        .insert_surface(sample_vol_surface());
 
     let df_before = ctx.get_discount_ref("USD-OIS").unwrap().df(2.0);
     let fwd_before = ctx.get_forward_ref("USD-LIBOR").unwrap().rate(2.0);
@@ -773,11 +770,17 @@ fn market_context_bump_more_curve_types_and_error_paths() {
     bumps.insert(CurveId::from("USD-LIBOR"), BumpSpec::multiplier(1.10));
     bumps.insert(CurveId::from("CDX"), BumpSpec::parallel_bp(5.0));
     bumps.insert(CurveId::from("USD-CPI"), BumpSpec::inflation_shift_pct(2.0));
-    bumps.insert(CurveId::from("CDX-BC"), BumpSpec::correlation_shift_pct(10.0));
+    bumps.insert(
+        CurveId::from("CDX-BC"),
+        BumpSpec::correlation_shift_pct(10.0),
+    );
 
     let bumped = ctx.bump(bumps).unwrap();
 
-    assert_ne!(bumped.get_discount_ref("USD-OIS").unwrap().df(2.0), df_before);
+    assert_ne!(
+        bumped.get_discount_ref("USD-OIS").unwrap().df(2.0),
+        df_before
+    );
     assert_ne!(
         bumped.get_forward_ref("USD-LIBOR").unwrap().rate(2.0),
         fwd_before
@@ -890,7 +893,7 @@ fn market_context_apply_bumps_additional_branches_and_errors() {
     // VolBucketPct parallel fallback (no filters) path
     let surface = sample_vol_surface();
     let base_vol = surface.value_checked(0.5, 1.0).unwrap();
-    let ctx = MarketContext::new().insert_surface_arc(surface);
+    let ctx = MarketContext::new().insert_surface(surface);
     let bumped = ctx
         .apply_bumps(&[MarketBump::VolBucketPct {
             surface_id: CurveId::from("EQ-VOL"),

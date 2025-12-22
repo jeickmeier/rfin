@@ -45,14 +45,14 @@ pub fn execute_step(
             let (surface, report) =
                 VolSurfaceBootstrapper::solve(p, quotes, context, global_config)?;
             let mut new_context = context.clone();
-            new_context.insert_surface_mut(std::sync::Arc::new(surface));
+            new_context.insert_surface_mut(surface);
             Ok((new_context, report))
         }
         StepParams::SwaptionVol(p) => {
             let (surface, report) =
                 SwaptionVolBootstrapper::solve(p, quotes, context, global_config)?;
             let mut new_context = context.clone();
-            new_context.insert_surface_mut(std::sync::Arc::new(surface));
+            new_context.insert_surface_mut(surface);
             Ok((new_context, report))
         }
         StepParams::BaseCorrelation(p) => {

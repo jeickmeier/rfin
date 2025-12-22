@@ -135,18 +135,18 @@
 //!
 //! ## Calibration
 //!
-//! ```rust,ignore
+//! ```rust,no_run
 //! # fn main() -> Result<(), Box<dyn std::error::Error>> {
 //! use finstack_valuations::calibration::api::engine;
 //! use finstack_valuations::calibration::api::schema::{
-//!     CalibrationEnvelopeV2, CalibrationPlanV2, CALIBRATION_SCHEMA_V2,
+//!     CalibrationEnvelope, CalibrationPlan, CALIBRATION_SCHEMA,
 //! };
 //!
 //! // Build a plan-driven v2 envelope and execute it.
 //! // (See `calibration::api::schema` for the full contract.)
-//! let envelope = CalibrationEnvelopeV2 {
-//!     schema: CALIBRATION_SCHEMA_V2.to_string(),
-//!     plan: CalibrationPlanV2 {
+//! let envelope = CalibrationEnvelope {
+//!     schema: CALIBRATION_SCHEMA.to_string(),
+//!     plan: CalibrationPlan {
 //!         id: "plan".to_string(),
 //!         description: None,
 //!         quote_sets: Default::default(),

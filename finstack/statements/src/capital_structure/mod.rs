@@ -25,27 +25,37 @@
 //! - 100% leverage of valuations infrastructure achieved
 //!
 //! ## Example
-//! ```ignore
+//! ```rust,no_run
 //! use finstack_statements::prelude::*;
+//!
+//! use time::macros::date;
+//!
+//! # fn main() -> std::result::Result<(), Box<dyn std::error::Error>> {
+//! let issue_date = date!(2025-01-15);
+//! let maturity_date = date!(2030-01-15);
 //!
 //! let model = ModelBuilder::new("LBO Model")
 //!     .periods("2025Q1..2025Q4", Some("2025Q1"))?
-//!     .value("revenue", &[...])?
-//!     
+//!     .value("revenue", &[(PeriodId::quarter(2025, 1), AmountOrScalar::scalar(100.0))])
 //!     // Add debt instruments
 //!     .add_bond(
 //!         "BOND-001",
 //!         Money::new(10_000_000.0, Currency::USD),
-//!         0.05,  // 5% coupon
+//!         0.05, // 5% coupon
 //!         issue_date,
 //!         maturity_date,
 //!         "USD-OIS",
 //!     )?
-//!     
 //!     // Reference in formulas
 //!     .compute("interest_expense", "cs.interest_expense.BOND-001")?
-//!     .compute("total_debt_service", "cs.interest_expense.total + cs.principal_payment.total")?
+//!     .compute(
+//!         "total_debt_service",
+//!         "cs.interest_expense.total + cs.principal_payment.total",
+//!     )?
 //!     .build()?;
+//! # let _ = model;
+//! # Ok(())
+//! # }
 //! ```
 
 mod builder;

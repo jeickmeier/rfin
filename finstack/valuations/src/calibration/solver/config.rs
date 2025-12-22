@@ -14,10 +14,11 @@ use serde::{Deserialize, Serialize};
 ///
 /// # Examples
 ///
-/// ```ignore
+/// ```rust,no_run
 /// use finstack_valuations::calibration::SolverConfig;
 /// use finstack_core::math::solver::NewtonSolver;
 ///
+/// # fn main() -> Result<(), Box<dyn std::error::Error>> {
 /// // Newton solver with custom tolerance
 /// let config = SolverConfig::Newton {
 ///     solver: NewtonSolver {
@@ -25,11 +26,15 @@ use serde::{Deserialize, Serialize};
 ///         max_iterations: 100,
 ///         fd_step: 1e-8,
 ///         min_derivative: 1e-14,
+///         min_derivative_rel: 1e-6,
 ///     }
 /// };
 ///
 /// // Serialize to JSON for persistence
 /// let json = serde_json::to_string(&config)?;
+/// # let _ = json;
+/// # Ok(())
+/// # }
 /// ```
 #[cfg_attr(feature = "ts_export", derive(ts_rs::TS))]
 #[cfg_attr(feature = "ts_export", ts(export))]

@@ -36,17 +36,24 @@
 //! ## In This Implementation
 //!
 //! The `FxSpot` instrument stores:
-//! ```ignore
-//! FxSpot {
-//!     base: Currency,   // CCY1 - the currency being priced
-//!     quote: Currency,  // CCY2 - the pricing currency
-//!     spot_rate: f64,   // How many units of `quote` per 1 unit of `base`
-//! }
+//! ```rust,no_run
+//! use finstack_core::currency::Currency;
+//! use finstack_core::types::InstrumentId;
+//! use finstack_valuations::instruments::FxSpot;
+//!
+//! // CCY1 (base) is the currency being priced; CCY2 (quote) is the pricing currency.
+//! let mut eur_usd = FxSpot::new(InstrumentId::from("EURUSD"), Currency::EUR, Currency::USD);
+//! // How many units of `quote` per 1 unit of `base`
+//! eur_usd.spot_rate = Some(1.10);
 //! ```
 //!
 //! Example:
-//! ```ignore
-//! let eur_usd = FxSpot::new("EURUSD", Currency::EUR, Currency::USD);
+//! ```rust,no_run
+//! use finstack_core::currency::Currency;
+//! use finstack_core::types::InstrumentId;
+//! use finstack_valuations::instruments::FxSpot;
+//!
+//! let eur_usd = FxSpot::new(InstrumentId::from("EURUSD"), Currency::EUR, Currency::USD);
 //! // If spot_rate = 1.10, this means: 1 EUR = 1.10 USD
 //! ```
 

@@ -178,7 +178,7 @@ impl HazardBootstrapper {
         report.update_solver_config(global_config.solver.clone());
 
         let mut new_context = context.clone();
-        new_context.insert_mut(curve);
+        new_context.insert_hazard_mut(curve);
         Ok((new_context, report))
     }
 
@@ -216,7 +216,7 @@ impl HazardBootstrapper {
     {
         if let Some(ctx_cell) = &self.reuse_context {
             let mut ctx = ctx_cell.borrow_mut();
-            ctx.insert_mut(curve.clone());
+            ctx.insert_hazard_mut(curve.clone());
             // Sync CreditIndex if it exists (so pricer sees trial curve)
             if let Ok(idx) = ctx.credit_index_ref(&self.params.curve_id) {
                 let mut updated = idx.clone();
@@ -226,7 +226,7 @@ impl HazardBootstrapper {
             op(&ctx)
         } else {
             let mut temp_context = self.base_context.clone();
-            temp_context.insert_mut(curve.clone());
+            temp_context.insert_hazard_mut(curve.clone());
             // Sync CreditIndex if it exists
             if let Ok(idx) = temp_context.credit_index_ref(&self.params.curve_id) {
                 let mut updated = idx.clone();

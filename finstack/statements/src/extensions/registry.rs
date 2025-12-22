@@ -11,14 +11,29 @@ use indexmap::IndexMap;
 ///
 /// # Examples
 ///
-/// ```rust,ignore
+/// ```rust,no_run
 /// use finstack_statements::extensions::ExtensionRegistry;
+/// use finstack_statements::extensions::{Extension, ExtensionContext, ExtensionMetadata, ExtensionResult};
 ///
+/// # struct MyExtension;
+/// # impl Extension for MyExtension {
+/// #     fn metadata(&self) -> ExtensionMetadata {
+/// #         ExtensionMetadata { name: "my_extension".into(), version: "0.1.0".into(), description: None, author: None }
+/// #     }
+/// #     fn execute(&mut self, _context: &ExtensionContext) -> finstack_statements::Result<ExtensionResult> {
+/// #         Ok(ExtensionResult::success("ok"))
+/// #     }
+/// # }
+/// # fn main() -> finstack_statements::Result<()> {
 /// let mut registry = ExtensionRegistry::new();
-/// registry.register(Box::new(MyExtension));
+/// registry.register(Box::new(MyExtension))?;
 ///
 /// // Execute all enabled extensions
+/// # let context: ExtensionContext = unimplemented!("build ExtensionContext from model/results");
 /// let results = registry.execute_all(&context)?;
+/// # let _ = results;
+/// # Ok(())
+/// # }
 /// ```
 pub struct ExtensionRegistry {
     /// Registered extensions by name
@@ -49,9 +64,23 @@ impl ExtensionRegistry {
     ///
     /// # Examples
     ///
-    /// ```rust,ignore
+    /// ```rust,no_run
+    /// use finstack_statements::extensions::{Extension, ExtensionContext, ExtensionMetadata, ExtensionResult, ExtensionRegistry};
+    ///
+    /// # fn main() -> finstack_statements::Result<()> {
+    /// # struct MyExtension;
+    /// # impl Extension for MyExtension {
+    /// #     fn metadata(&self) -> ExtensionMetadata {
+    /// #         ExtensionMetadata { name: "my_extension".into(), version: "0.1.0".into(), description: None, author: None }
+    /// #     }
+    /// #     fn execute(&mut self, _context: &ExtensionContext) -> finstack_statements::Result<ExtensionResult> {
+    /// #         Ok(ExtensionResult::success("ok"))
+    /// #     }
+    /// # }
     /// let mut registry = ExtensionRegistry::new();
     /// registry.register(Box::new(MyExtension))?;
+    /// # Ok(())
+    /// # }
     /// ```
     pub fn register(&mut self, extension: Box<dyn Extension>) -> Result<()> {
         let metadata = extension.metadata();

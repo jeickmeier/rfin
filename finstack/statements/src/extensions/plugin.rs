@@ -13,8 +13,10 @@ use serde::{Deserialize, Serialize};
 ///
 /// # Examples
 ///
-/// ```rust,ignore
-/// use finstack_statements::extensions::{Extension, ExtensionContext, ExtensionResult};
+/// ```rust,no_run
+/// use finstack_statements::extensions::{
+///     Extension, ExtensionContext, ExtensionMetadata, ExtensionResult,
+/// };
 ///
 /// struct ValidationExtension;
 ///
@@ -28,7 +30,7 @@ use serde::{Deserialize, Serialize};
 ///         }
 ///     }
 ///
-///     fn execute(&mut self, context: &ExtensionContext) -> Result<ExtensionResult> {
+///     fn execute(&mut self, _context: &ExtensionContext) -> finstack_statements::Result<ExtensionResult> {
 ///         // Perform validation logic
 ///         Ok(ExtensionResult::success("All validations passed"))
 ///     }
@@ -119,8 +121,15 @@ impl<'a> ExtensionContext<'a> {
     /// * `results` - Evaluation output to inspect
     ///
     /// # Example
-    /// ```rust,ignore
-    /// let context = ExtensionContext::new(model, results);
+    /// ```rust,no_run
+    /// use finstack_statements::extensions::ExtensionContext;
+    /// use finstack_statements::types::FinancialModelSpec;
+    /// use finstack_statements::evaluator::Results;
+    ///
+    /// # let model: FinancialModelSpec = unimplemented!("build or load a model");
+    /// # let results: Results = unimplemented!("evaluate the model to obtain Results");
+    /// let context = ExtensionContext::new(&model, &results);
+    /// # let _ = context;
     /// ```
     pub fn new(model: &'a FinancialModelSpec, results: &'a Results) -> Self {
         Self {

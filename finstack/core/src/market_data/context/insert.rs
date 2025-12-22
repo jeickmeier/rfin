@@ -3,7 +3,7 @@ use std::sync::Arc;
 use crate::money::fx::FxMatrix;
 use crate::types::{CurveId, InstrumentId};
 
-use super::curve_storage::CurveStorage;
+use super::CurveStorage;
 use super::MarketContext;
 
 use crate::market_data::{
@@ -12,6 +12,10 @@ use crate::market_data::{
     scalars::{MarketScalar, ScalarTimeSeries},
     surfaces::vol_surface::VolSurface,
     term_structures::credit_index::CreditIndexData,
+    term_structures::{
+        base_correlation::BaseCorrelationCurve, discount_curve::DiscountCurve,
+        forward_curve::ForwardCurve, hazard_curve::HazardCurve, inflation::InflationCurve,
+    },
 };
 
 impl MarketContext {
@@ -19,49 +23,92 @@ impl MarketContext {
     // Insert methods - builder pattern
     // -----------------------------------------------------------------------------
 
-    /// Generic insert for any supported curve type.
-    pub fn insert<T>(mut self, item: T) -> Self
+    /// Insert a generic curve storage entry.
+    ///
+    /// This is primarily intended for downstream crates that operate on heterogeneous
+    /// curve types (e.g., calibration pipelines) and want to update the context
+    /// without matching on concrete curve variants.
+    pub fn insert<C>(mut self, curve: C) -> Self
     where
-        T: Into<CurveStorage>,
+        C: Into<CurveStorage>,
     {
-        let storage: CurveStorage = item.into();
-        self.curves.insert(storage.id().to_owned(), storage);
+        let curve: CurveStorage = curve.into();
+        let id = curve.id().to_owned();
+        self.curves.insert(id, curve);
         self
     }
 
-    /// Generic in-place insert for any supported curve type.
-    pub fn insert_mut<T>(&mut self, item: T) -> &mut Self
+    /// In-place insert of a generic curve storage entry.
+    ///
+    /// See [`MarketContext::insert`] for details.
+    pub fn insert_mut<C>(&mut self, curve: C) -> &mut Self
     where
-        T: Into<CurveStorage>,
+        C: Into<CurveStorage>,
     {
-        let storage: CurveStorage = item.into();
-        self.curves.insert(storage.id().to_owned(), storage);
+        let curve: CurveStorage = curve.into();
+        let id = curve.id().to_owned();
+        self.curves.insert(id, curve);
         self
     }
 
     /// Insert a discount curve.
-    pub fn insert_discount(self, curve: impl Into<CurveStorage>) -> Self {
-        self.insert(curve)
+    pub fn insert_discount(mut self, curve: DiscountCurve) -> Self {
+        self.curves.insert(curve.id().to_owned(), curve.into());
+        self
+    }
+
+    /// In-place insert of a discount curve.
+    pub fn insert_discount_mut(&mut self, curve: DiscountCurve) -> &mut Self {
+        self.curves.insert(curve.id().to_owned(), curve.into());
+        self
     }
 
     /// Insert a forward curve.
-    pub fn insert_forward(self, curve: impl Into<CurveStorage>) -> Self {
-        self.insert(curve)
+    pub fn insert_forward(mut self, curve: ForwardCurve) -> Self {
+        self.curves.insert(curve.id().to_owned(), curve.into());
+        self
+    }
+
+    /// In-place insert of a forward curve.
+    pub fn insert_forward_mut(&mut self, curve: ForwardCurve) -> &mut Self {
+        self.curves.insert(curve.id().to_owned(), curve.into());
+        self
     }
 
     /// Insert a hazard curve.
-    pub fn insert_hazard(self, curve: impl Into<CurveStorage>) -> Self {
-        self.insert(curve)
+    pub fn insert_hazard(mut self, curve: HazardCurve) -> Self {
+        self.curves.insert(curve.id().to_owned(), curve.into());
+        self
+    }
+
+    /// In-place insert of a hazard curve.
+    pub fn insert_hazard_mut(&mut self, curve: HazardCurve) -> &mut Self {
+        self.curves.insert(curve.id().to_owned(), curve.into());
+        self
     }
 
     /// Insert an inflation curve.
-    pub fn insert_inflation(self, curve: impl Into<CurveStorage>) -> Self {
-        self.insert(curve)
+    pub fn insert_inflation(mut self, curve: InflationCurve) -> Self {
+        self.curves.insert(curve.id().to_owned(), curve.into());
+        self
+    }
+
+    /// In-place insert of an inflation curve.
+    pub fn insert_inflation_mut(&mut self, curve: InflationCurve) -> &mut Self {
+        self.curves.insert(curve.id().to_owned(), curve.into());
+        self
     }
 
     /// Insert a base correlation curve.
-    pub fn insert_base_correlation(self, curve: impl Into<CurveStorage>) -> Self {
-        self.insert(curve)
+    pub fn insert_base_correlation(mut self, curve: BaseCorrelationCurve) -> Self {
+        self.curves.insert(curve.id().to_owned(), curve.into());
+        self
+    }
+
+    /// In-place insert of a base correlation curve.
+    pub fn insert_base_correlation_mut(&mut self, curve: BaseCorrelationCurve) -> &mut Self {
+        self.curves.insert(curve.id().to_owned(), curve.into());
+        self
     }
 
     /// Insert a volatility surface.
@@ -89,16 +136,15 @@ impl MarketContext {
         self
     }
 
-    /// Insert a surface provided as an [`Arc`].
-    #[allow(clippy::needless_pass_by_value)]
-    pub fn insert_surface_arc(mut self, surface: Arc<VolSurface>) -> Self {
+    /// In-place insert of a volatility surface.
+    pub fn insert_surface_mut(&mut self, surface: VolSurface) -> &mut Self {
         let id = surface.id().to_owned();
-        self.surfaces.insert(id, surface);
+        self.surfaces.insert(id, Arc::new(surface));
         self
     }
 
-    /// In-place insert of a volatility surface.
-    pub fn insert_surface_mut(&mut self, surface: Arc<VolSurface>) -> &mut Self {
+    /// In-place insert of a shared volatility surface.
+    pub fn insert_surface_arc_mut(&mut self, surface: Arc<VolSurface>) -> &mut Self {
         let id = surface.id().to_owned();
         self.surfaces.insert(id, surface);
         self
@@ -114,18 +160,10 @@ impl MarketContext {
         self
     }
 
-    /// Insert a dividend schedule provided as an [`Arc`].
-    #[allow(clippy::needless_pass_by_value)]
-    pub fn insert_dividends_arc(mut self, schedule: Arc<DividendSchedule>) -> Self {
-        let id = schedule.id.to_owned();
-        self.dividends.insert(id, schedule);
-        self
-    }
-
     /// In-place insert of a dividend schedule.
-    pub fn insert_dividends_arc_mut(&mut self, schedule: Arc<DividendSchedule>) -> &mut Self {
+    pub fn insert_dividends_mut(&mut self, schedule: DividendSchedule) -> &mut Self {
         let id = schedule.id.to_owned();
-        self.dividends.insert(id, schedule);
+        self.dividends.insert(id, Arc::new(schedule));
         self
     }
 
@@ -280,16 +318,9 @@ impl MarketContext {
         self
     }
 
-    /// Insert an FX matrix provided as an [`Arc`].
-    #[allow(clippy::needless_pass_by_value)]
-    pub fn insert_fx_arc(mut self, fx: Arc<FxMatrix>) -> Self {
-        self.fx = Some(fx);
-        self
-    }
-
     /// In-place insert of FX matrix from Arc.
-    pub fn insert_fx_mut(&mut self, fx: Arc<FxMatrix>) -> &mut Self {
-        self.fx = Some(fx);
+    pub fn insert_fx_mut(&mut self, fx: FxMatrix) -> &mut Self {
+        self.fx = Some(Arc::new(fx));
         self
     }
 
@@ -375,5 +406,3 @@ impl MarketContext {
         self
     }
 }
-
-

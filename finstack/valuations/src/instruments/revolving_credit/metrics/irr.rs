@@ -14,18 +14,21 @@
 //!
 //! # Usage
 //!
-//! ```rust,ignore
-//! use finstack_core::cashflow::xirr::xirr;
+//! ```rust,no_run
 //! use finstack_valuations::instruments::revolving_credit::metrics::irr::calculate_path_irr;
+//! use finstack_core::cashflow::xirr::InternalRateOfReturn;
+//! use finstack_core::dates::{Date, DayCount};
+//! use time::Month;
 //!
 //! // For dated cashflows, use core's trait directly:
 //! let dated_cashflows = vec![
-//!     (Date::from_ymd(2025, 1, 1), -1_000_000.0),
-//!     (Date::from_ymd(2026, 1, 1), 1_050_000.0),
+//!     (Date::from_calendar_date(2025, Month::January, 1).unwrap(), -1_000_000.0),
+//!     (Date::from_calendar_date(2026, Month::January, 1).unwrap(), 1_050_000.0),
 //! ];
 //! let irr = dated_cashflows.irr(None).ok();
 //!
 //! // For MC path data with time fractions:
+//! let base_date = Date::from_calendar_date(2025, Month::January, 1).unwrap();
 //! let path_cashflows = vec![(0.0, -1_000_000.0), (1.0, 1_050_000.0)];
 //! let irr = calculate_path_irr(&path_cashflows, base_date, DayCount::Act365F);
 //! ```
@@ -56,11 +59,12 @@ use finstack_core::dates::{Date, DayCount};
 ///
 /// # Example
 ///
-/// ```rust,ignore
+/// ```rust,no_run
 /// use finstack_valuations::instruments::revolving_credit::metrics::irr::calculate_path_irr;
 /// use finstack_core::dates::{Date, DayCount};
+/// use time::Month;
 ///
-/// let base = Date::from_calendar_date(2025, 1, 1).unwrap();
+/// let base = Date::from_calendar_date(2025, Month::January, 1).unwrap();
 /// let cashflows = vec![
 ///     (0.0, -1_000_000.0),    // Initial deployment
 ///     (0.25, 12_500.0),       // Q1 interest

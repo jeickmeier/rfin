@@ -15,7 +15,7 @@ use syn::{parse_macro_input, Data, DeriveInput, Expr, Fields};
 ///
 /// # Example
 ///
-/// ```ignore
+/// ```text
 /// #[derive(FinancialBuilder)]
 /// pub struct Bond {
 ///     pub id: InstrumentId,

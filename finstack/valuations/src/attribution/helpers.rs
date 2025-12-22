@@ -124,17 +124,27 @@ pub fn compute_pnl(
 ///
 /// # Examples
 ///
-/// ```rust,ignore
+/// ```rust,no_run
+/// use finstack_core::currency::Currency;
+/// use finstack_core::market_data::context::MarketContext;
+/// use finstack_core::money::Money;
+/// use finstack_valuations::attribution::helpers::compute_pnl_with_fx;
+/// use time::macros::date;
+///
+/// # fn main() -> Result<(), Box<dyn std::error::Error>> {
 /// // For FX attribution: convert T₀ value with T₀ FX, T₁ value with T₁ FX
 /// let fx_pnl = compute_pnl_with_fx(
-///     pv_t0,
-///     pv_t1,
+///     Money::new(1_000_000.0, Currency::EUR),
+///     Money::new(1_100_000.0, Currency::EUR),
 ///     Currency::USD,
-///     &market_t0,
-///     &market_t1,
-///     as_of_t0,
-///     as_of_t1,
+///     &MarketContext::new(),
+///     &MarketContext::new(),
+///     date!(2025-01-15),
+///     date!(2025-01-16),
 /// )?;
+/// # let _ = fx_pnl;
+/// # Ok(())
+/// # }
 /// ```
 pub fn compute_pnl_with_fx(
     val_t0: Money,

@@ -103,8 +103,15 @@ impl OnlineStats {
     ///
     /// # Example
     ///
-    /// ```rust,ignore
+    /// ```rust,no_run
+    /// use finstack_valuations::instruments::common::mc::online_stats::OnlineStats;
+    ///
+    /// let mut stats = OnlineStats::new();
+    /// stats.update(1.0);
+    /// stats.update(2.0);
+    ///
     /// let (lower, upper) = stats.confidence_interval(0.05); // 95% CI
+    /// assert!(lower <= stats.mean() && stats.mean() <= upper);
     /// ```
     pub fn confidence_interval(&self, alpha: f64) -> (f64, f64) {
         let z = standard_normal_inv_cdf(1.0 - alpha / 2.0);

@@ -37,7 +37,11 @@ pub fn register_fx_swap_metrics(registry: &mut MetricRegistry) {
             Arc::new(forward_points::ForwardPoints),
             &[InstrumentType::FxSwap],
         )
-        .register_metric(MetricId::Fx01, Arc::new(fx01::FX01), &[InstrumentType::FxSwap])
+        .register_metric(
+            MetricId::Fx01,
+            Arc::new(fx01::FX01),
+            &[InstrumentType::FxSwap],
+        )
         .register_metric(
             MetricId::custom("fx_delta"),
             Arc::new(fx_delta::FxDeltaCalculator),

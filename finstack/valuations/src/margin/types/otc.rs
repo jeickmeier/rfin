@@ -22,7 +22,7 @@ use finstack_core::currency::Currency;
 ///
 /// # Example
 ///
-/// ```rust,ignore
+/// ```rust,no_run
 /// use finstack_valuations::margin::{OtcMarginSpec, CsaSpec, ClearingStatus, ImMethodology, MarginTenor};
 ///
 /// // Bilateral (uncleared) derivative

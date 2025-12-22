@@ -189,9 +189,12 @@ pub type VasicekProcess = HullWhite1FProcess;
 ///
 /// # Example
 ///
-/// ```rust,ignore
+/// ```rust,no_run
+/// use finstack_valuations::instruments::common::mc::process::ou::calibrate_theta_from_curve;
+///
 /// let discount_fn = |t: f64| (-0.03 * t).exp();  // Flat 3% curve
 /// let params = calibrate_theta_from_curve(0.03, 0.01, discount_fn, &[0.5, 1.0, 2.0, 5.0]);
+/// # let _ = params;
 /// ```
 pub fn calibrate_theta_from_curve<F>(
     kappa: f64,

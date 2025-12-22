@@ -38,7 +38,11 @@ pub fn register_cds_index_metrics(registry: &mut MetricRegistry) {
         Arc::clone(&risky_pv01_calc),
         &[InstrumentType::CDSIndex],
     );
-    registry.register_metric(MetricId::custom("pv01"), risky_pv01_calc, &[InstrumentType::CDSIndex]);
+    registry.register_metric(
+        MetricId::custom("pv01"),
+        risky_pv01_calc,
+        &[InstrumentType::CDSIndex],
+    );
 
     // Recovery01 (custom metric - recovery rate sensitivity)
     registry.register_metric(

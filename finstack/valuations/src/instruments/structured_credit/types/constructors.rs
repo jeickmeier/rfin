@@ -44,14 +44,25 @@ impl StructuredCredit {
     ///
     /// # Example
     ///
-    /// ```rust,ignore
-    /// let clo = StructuredCredit::builder()
-    ///     .id("MY_CLO")
-    ///     .deal_type(DealType::CLO)
-    ///     .apply_deal_defaults()  // Sets quarterly payment, 15% CPR, 2% CDR, etc.
-    ///     .pool(pool)
-    ///     .tranches(tranches)
-    ///     .build()?;
+    /// ```rust,no_run
+    /// use finstack_valuations::instruments::structured_credit::{DealType, StructuredCredit};
+    ///
+    /// # fn main() -> finstack_core::Result<()> {
+    /// // Start from the canonical example deal and re-apply deal defaults explicitly.
+    /// let base = StructuredCredit::example();
+    /// let clo = StructuredCredit::apply_deal_defaults(
+    ///     "MY_CLO",
+    ///     DealType::CLO,
+    ///     base.pool.clone(),
+    ///     base.tranches.clone(),
+    ///     base.create_waterfall(),
+    ///     base.closing_date,
+    ///     base.legal_maturity,
+    ///     base.discount_curve_id.as_str(),
+    /// );
+    /// # let _ = clo;
+    /// # Ok(())
+    /// # }
     /// ```
     #[allow(clippy::too_many_arguments)]
     pub fn apply_deal_defaults(

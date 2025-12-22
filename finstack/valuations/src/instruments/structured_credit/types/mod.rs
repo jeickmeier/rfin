@@ -347,10 +347,14 @@ impl StructuredCredit {
     ///
     /// # Example
     ///
-    /// ```rust,ignore
-    /// let clo = StructuredCredit::new_clo(...)
+    /// ```rust,no_run
+    /// use finstack_core::dates::BusinessDayConvention;
+    /// use finstack_valuations::instruments::structured_credit::StructuredCredit;
+    ///
+    /// let clo = StructuredCredit::example()
     ///     .with_payment_calendar("nyse")
     ///     .with_payment_bdc(BusinessDayConvention::ModifiedFollowing);
+    /// # let _ = clo;
     /// ```
     #[must_use]
     pub fn with_payment_calendar(mut self, calendar_id: impl Into<String>) -> Self {

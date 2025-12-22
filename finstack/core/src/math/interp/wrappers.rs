@@ -19,12 +19,15 @@ use super::{
 ///
 /// # Example
 ///
-/// ```ignore
+/// ```rust
 /// use finstack_core::math::interp::{LinearDf, ExtrapolationPolicy};
 ///
+/// # fn main() -> finstack_core::Result<()> {
 /// let knots = vec![0.0, 1.0, 2.0].into_boxed_slice();
 /// let dfs = vec![1.0, 0.95, 0.90].into_boxed_slice();
-/// let interp = LinearDf::new(knots, dfs, ExtrapolationPolicy::FlatZero)?;
+/// let _interp = LinearDf::new(knots, dfs, ExtrapolationPolicy::FlatZero)?;
+/// # Ok(())
+/// # }
 /// ```
 pub type LinearDf = Interpolator<LinearStrategy>;
 
@@ -36,12 +39,15 @@ pub type LinearDf = Interpolator<LinearStrategy>;
 ///
 /// # Example
 ///
-/// ```ignore
+/// ```rust
 /// use finstack_core::math::interp::{LogLinearDf, ExtrapolationPolicy};
 ///
+/// # fn main() -> finstack_core::Result<()> {
 /// let knots = vec![0.0, 1.0, 2.0].into_boxed_slice();
 /// let dfs = vec![1.0, 0.95, 0.90].into_boxed_slice();
-/// let interp = LogLinearDf::new(knots, dfs, ExtrapolationPolicy::FlatZero)?;
+/// let _interp = LogLinearDf::new(knots, dfs, ExtrapolationPolicy::FlatZero)?;
+/// # Ok(())
+/// # }
 /// ```
 pub type LogLinearDf = Interpolator<LogLinearStrategy>;
 
@@ -65,12 +71,15 @@ pub type LogLinearDf = Interpolator<LogLinearStrategy>;
 ///
 /// # Example
 ///
-/// ```ignore
+/// ```rust
 /// use finstack_core::math::interp::{CubicHermite, ExtrapolationPolicy};
 ///
+/// # fn main() -> finstack_core::Result<()> {
 /// let knots = vec![0.0, 1.0, 2.0].into_boxed_slice();
 /// let dfs = vec![1.0, 0.95, 0.90].into_boxed_slice();
-/// let interp = CubicHermite::new(knots, dfs, ExtrapolationPolicy::FlatZero)?;
+/// let _interp = CubicHermite::new(knots, dfs, ExtrapolationPolicy::FlatZero)?;
+/// # Ok(())
+/// # }
 /// ```
 pub type CubicHermite = Interpolator<CubicHermiteStrategy>;
 
@@ -105,12 +114,15 @@ pub type CubicHermite = Interpolator<CubicHermiteStrategy>;
 ///
 /// # Example
 ///
-/// ```ignore
+/// ```rust
 /// use finstack_core::math::interp::{MonotoneConvex, ExtrapolationPolicy};
 ///
+/// # fn main() -> finstack_core::Result<()> {
 /// let knots = vec![0.0, 1.0, 2.0].into_boxed_slice();
 /// let dfs = vec![1.0, 0.95, 0.90].into_boxed_slice();
-/// let interp = MonotoneConvex::new(knots, dfs, ExtrapolationPolicy::FlatZero)?;
+/// let _interp = MonotoneConvex::new(knots, dfs, ExtrapolationPolicy::FlatZero)?;
+/// # Ok(())
+/// # }
 /// ```
 pub type MonotoneConvex = Interpolator<MonotoneConvexStrategy>;
 

@@ -24,6 +24,11 @@ impl MarketContext {
     // Single generic typed getters for curves
     // -----------------------------------------------------------------------------
 
+    fn missing_curve_error(&self, id: &str) -> crate::Error {
+        let available: Vec<String> = self.curves.keys().map(|k| k.to_string()).collect();
+        crate::error::Error::missing_curve_with_suggestions(id, &available)
+    }
+
     /// Helper method to extract curve with type checking and error handling
     fn get_curve_with_type_check<T, F>(
         &self,
@@ -43,7 +48,7 @@ impl MarketContext {
                     expected_type
                 ))
             }),
-            None => Err(crate::error::InputError::NotFound { id: id.to_string() }.into()),
+            None => Err(self.missing_curve_error(id)),
         }
     }
 
@@ -95,10 +100,7 @@ impl MarketContext {
                 id_str,
                 storage.curve_type()
             ))),
-            None => Err(crate::error::InputError::NotFound {
-                id: id_str.to_string(),
-            }
-            .into()),
+            None => Err(self.missing_curve_error(id_str)),
         }
     }
 
@@ -112,10 +114,7 @@ impl MarketContext {
                 id_str,
                 storage.curve_type()
             ))),
-            None => Err(crate::error::InputError::NotFound {
-                id: id_str.to_string(),
-            }
-            .into()),
+            None => Err(self.missing_curve_error(id_str)),
         }
     }
 
@@ -129,10 +128,7 @@ impl MarketContext {
                 id_str,
                 storage.curve_type()
             ))),
-            None => Err(crate::error::InputError::NotFound {
-                id: id_str.to_string(),
-            }
-            .into()),
+            None => Err(self.missing_curve_error(id_str)),
         }
     }
 
@@ -146,10 +142,7 @@ impl MarketContext {
                 id_str,
                 storage.curve_type()
             ))),
-            None => Err(crate::error::InputError::NotFound {
-                id: id_str.to_string(),
-            }
-            .into()),
+            None => Err(self.missing_curve_error(id_str)),
         }
     }
 
@@ -163,10 +156,7 @@ impl MarketContext {
                 id_str,
                 storage.curve_type()
             ))),
-            None => Err(crate::error::InputError::NotFound {
-                id: id_str.to_string(),
-            }
-            .into()),
+            None => Err(self.missing_curve_error(id_str)),
         }
     }
 
@@ -538,7 +528,12 @@ impl MarketContext {
         self.instruments
             .get(&id)
             .map(|arc| arc.as_ref() as &dyn std::any::Any)
-            .ok_or_else(|| crate::error::InputError::NotFound { id: key.to_string() }.into())
+            .ok_or_else(|| {
+                crate::error::InputError::NotFound {
+                    id: key.to_string(),
+                }
+                .into()
+            })
     }
 
     /// Alias for [`MarketContext::get_instrument`].
@@ -548,5 +543,3 @@ impl MarketContext {
         self.get_instrument(id)
     }
 }
-
-

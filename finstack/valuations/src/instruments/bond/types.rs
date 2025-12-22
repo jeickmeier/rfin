@@ -215,14 +215,18 @@ impl Bond {
     /// - **Calendar:** Japan holidays
     ///
     /// # Example
-    /// ```ignore
+    /// ```rust,no_run
     /// use finstack_valuations::instruments::bond::Bond;
     /// use finstack_core::money::Money;
     /// use finstack_core::currency::Currency;
-    /// use finstack_core::dates::Date;
+    /// use time::macros::date;
     ///
     /// // US Treasury-style bond (default)
+    /// let notional = Money::new(1_000_000.0, Currency::USD);
+    /// let issue = date!(2025-01-15);
+    /// let maturity = date!(2030-01-15);
     /// let us_bond = Bond::fixed("US-001", notional, 0.05, issue, maturity, "USD-OIS");
+    /// # let _ = us_bond;
     /// ```
     pub fn fixed(
         id: impl Into<InstrumentId>,
@@ -275,10 +279,16 @@ impl Bond {
     /// Panics if bond construction fails (should not occur with valid inputs).
     ///
     /// # Example
-    /// ```ignore
+    /// ```rust,no_run
     /// use finstack_valuations::instruments::bond::Bond;
     /// use finstack_valuations::instruments::common::parameters::BondConvention;
+    /// use finstack_core::money::Money;
+    /// use finstack_core::currency::Currency;
+    /// use time::macros::date;
     ///
+    /// let notional = Money::new(1_000_000.0, Currency::USD);
+    /// let issue = date!(2025-01-15);
+    /// let maturity = date!(2030-01-15);
     /// let treasury = Bond::with_convention(
     ///     "UST-5Y",
     ///     notional,
@@ -288,6 +298,7 @@ impl Bond {
     ///     BondConvention::USTreasury,
     ///     "USD-TREASURY"
     /// );
+    /// # let _ = treasury;
     /// ```
     pub fn with_convention(
         id: impl Into<InstrumentId>,
@@ -343,11 +354,17 @@ impl Bond {
     /// Panics if bond construction fails (should not occur with valid inputs).
     ///
     /// # Example
-    /// ```ignore
+    /// ```rust,no_run
     /// use finstack_valuations::instruments::bond::Bond;
     /// use finstack_core::dates::{Tenor, DayCount};
+    /// use finstack_core::money::Money;
+    /// use finstack_core::currency::Currency;
+    /// use time::macros::date;
     ///
     /// // 3M SOFR + 200bps, quarterly payments
+    /// let notional = Money::new(1_000_000.0, Currency::USD);
+    /// let issue = date!(2025-01-15);
+    /// let maturity = date!(2030-01-15);
     /// let frn = Bond::floating(
     ///     "FRN-001",
     ///     notional,
@@ -359,6 +376,7 @@ impl Bond {
     ///     DayCount::Act360,
     ///     "USD-OIS"
     /// );
+    /// # let _ = frn;
     /// ```
     #[allow(clippy::too_many_arguments)]
     pub fn floating(
@@ -412,14 +430,36 @@ impl Bond {
     /// - Bond construction fails
     ///
     /// # Example
-    /// ```ignore
-    /// // Build custom PIK schedule
+    /// ```rust,no_run
+    /// use finstack_core::currency::Currency;
+    /// use finstack_core::dates::{BusinessDayConvention, DayCount, StubKind, Tenor};
+    /// use finstack_core::money::Money;
+    /// use finstack_valuations::cashflow::builder::{CashFlowSchedule, CouponType, FixedCouponSpec};
+    /// use finstack_valuations::instruments::Bond;
+    /// use time::macros::date;
+    ///
+    /// # fn main() -> finstack_core::Result<()> {
+    /// // Build a custom schedule (PIK, step-ups, amortization, etc.) with `CashFlowSchedule::builder()`.
+    /// let issue = date!(2025-01-15);
+    /// let maturity = date!(2027-01-15);
+    /// let fixed_spec = FixedCouponSpec {
+    ///     coupon_type: CouponType::Cash,
+    ///     rate: 0.06,
+    ///     freq: Tenor::semi_annual(),
+    ///     dc: DayCount::Act365F,
+    ///     bdc: BusinessDayConvention::Following,
+    ///     calendar_id: None,
+    ///     stub: StubKind::None,
+    /// };
     /// let schedule = CashFlowSchedule::builder()
-    ///     .principal(notional, issue, maturity)
-    ///     .fixed_cf(FixedCouponSpec { coupon_type: CouponType::Split { cash_pct: 0.5, pik_pct: 0.5 }, ... })
+    ///     .principal(Money::new(1_000_000.0, Currency::USD), issue, maturity)
+    ///     .fixed_cf(fixed_spec)
     ///     .build()?;
     ///
     /// let bond = Bond::from_cashflows("PIK-001", schedule, "USD-HY", Some(95.0))?;
+    /// # let _ = bond;
+    /// # Ok(())
+    /// # }
     /// ```
     pub fn from_cashflows(
         id: impl Into<InstrumentId>,

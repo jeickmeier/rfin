@@ -30,8 +30,8 @@ use finstack_core::Result;
 ///
 /// Implementing for a custom option:
 ///
-/// ```rust,ignore
-/// use finstack_valuations::metrics::sensitivities::fd_greeks::HasExpiry;
+/// ```rust,no_run
+/// use finstack_valuations::metrics::HasExpiry;
 /// use finstack_core::dates::Date;
 ///
 /// struct CustomOption {
@@ -50,10 +50,13 @@ pub trait HasExpiry {
     ///
     /// # Examples
     ///
-    /// ```rust,ignore
-    /// use finstack_valuations::metrics::sensitivities::fd_greeks::HasExpiry;
+    /// ```rust,no_run
+    /// use finstack_valuations::metrics::HasExpiry;
+    /// use finstack_core::dates::Date;
     ///
-    /// let expiry_date = instrument.expiry();
+    /// # let instrument: &dyn HasExpiry = todo!("an instrument that has an expiry date");
+    /// let expiry_date: Date = instrument.expiry();
+    /// # let _ = expiry_date;
     /// ```
     fn expiry(&self) -> Date;
 }
@@ -68,8 +71,8 @@ pub trait HasExpiry {
 ///
 /// Implementing for a custom option:
 ///
-/// ```rust,ignore
-/// use finstack_valuations::metrics::sensitivities::fd_greeks::HasDayCount;
+/// ```rust,no_run
+/// use finstack_valuations::metrics::HasDayCount;
 /// use finstack_core::dates::DayCount;
 ///
 /// struct CustomOption {
@@ -90,10 +93,13 @@ pub trait HasDayCount {
     ///
     /// # Examples
     ///
-    /// ```rust,ignore
-    /// use finstack_valuations::metrics::sensitivities::fd_greeks::HasDayCount;
+    /// ```rust,no_run
+    /// use finstack_valuations::metrics::HasDayCount;
+    /// use finstack_core::dates::DayCount;
     ///
-    /// let day_count = instrument.day_count();
+    /// # let instrument: &dyn HasDayCount = todo!("an instrument that specifies a day count");
+    /// let day_count: DayCount = instrument.day_count();
+    /// # let _ = day_count;
     /// ```
     fn day_count(&self) -> DayCount;
 }
@@ -115,8 +121,8 @@ pub trait HasDayCount {
 ///
 /// Implementing for a Monte Carlo option:
 ///
-/// ```rust,ignore
-/// use finstack_valuations::metrics::sensitivities::fd_greeks::HasPricingOverrides;
+/// ```rust,no_run
+/// use finstack_valuations::metrics::HasPricingOverrides;
 /// use finstack_valuations::instruments::PricingOverrides;
 ///
 /// struct McOption {
@@ -135,10 +141,11 @@ pub trait HasPricingOverrides {
     ///
     /// # Examples
     ///
-    /// ```rust,ignore
-    /// use finstack_valuations::metrics::sensitivities::fd_greeks::HasPricingOverrides;
+    /// ```rust,no_run
+    /// use finstack_valuations::metrics::HasPricingOverrides;
     ///
     /// // Set deterministic MC seed for greek calculation
+    /// # let instrument: &mut dyn HasPricingOverrides = todo!("a Monte Carlo priced instrument");
     /// instrument.pricing_overrides_mut().mc_seed_scenario = Some("delta_up".to_string());
     /// ```
     fn pricing_overrides_mut(&mut self) -> &mut crate::instruments::PricingOverrides;
@@ -169,18 +176,21 @@ pub trait HasPricingOverrides {
 ///
 /// # Examples
 ///
-/// ```rust,ignore
-/// use finstack_valuations::metrics::sensitivities::fd_greeks::GenericFdDelta;
-/// use finstack_valuations::instruments::EquityOption;
+/// ```rust,no_run
+/// use finstack_valuations::instruments::BarrierOption;
+/// use finstack_valuations::metrics::{GenericFdDelta, MetricId, MetricRegistry};
+/// use finstack_valuations::pricer::InstrumentType;
+/// use std::sync::Arc;
 ///
-/// // Create delta calculator for equity options
-/// let calculator = GenericFdDelta::<EquityOption>::default();
+/// // Create delta calculator for barrier options (generic FD greeks apply to exotics)
+/// let calculator = GenericFdDelta::<BarrierOption>::default();
 ///
 /// // Register in metric registry
+/// let mut registry = MetricRegistry::new();
 /// registry.register_metric(
 ///     MetricId::Delta,
 ///     Arc::new(calculator),
-///     &["EquityOption"],
+///     &[InstrumentType::BarrierOption],
 /// );
 /// ```
 pub struct GenericFdDelta<I> {

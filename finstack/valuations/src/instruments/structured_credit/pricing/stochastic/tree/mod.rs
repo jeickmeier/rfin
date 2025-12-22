@@ -14,17 +14,18 @@
 //!
 //! # Usage
 //!
-//! ```ignore
-//! let config = ScenarioTreeConfig::new(
-//!     60,                          // 60 monthly periods
-//!     5.0,                         // 5 year horizon
-//!     BranchingSpec::Fixed { branches: 3 },
-//! );
+//! ```rust,no_run
+//! use finstack_valuations::instruments::structured_credit::pricing::stochastic::tree::{
+//!     BranchingSpec, ScenarioTree, ScenarioTreeConfig,
+//! };
 //!
-//! let tree = ScenarioTree::build(&config, prepay_model, default_model, seed)?;
+//! // 60 monthly periods over a 5-year horizon (3-branch recombining lattice)
+//! let config = ScenarioTreeConfig::new(60, 5.0, BranchingSpec::fixed(3));
+//! let tree = ScenarioTree::build(&config).expect("tree build should succeed");
 //!
-//! // Compute expected value
+//! // Compute expected value of remaining pool balance at horizon
 //! let ev = tree.expected_value(|node| node.pool_balance);
+//! # let _ = ev;
 //! ```
 
 mod config;

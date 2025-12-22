@@ -9,8 +9,16 @@
 //!
 //! # Usage
 //!
-//! ```rust,ignore
+//! ```rust,no_run
 //! use finstack_valuations::instruments::revolving_credit::pricer;
+//! use finstack_valuations::instruments::revolving_credit::RevolvingCredit;
+//! use finstack_core::market_data::context::MarketContext;
+//! use time::macros::date;
+//!
+//! # fn main() -> finstack_core::Result<()> {
+//! let facility = RevolvingCredit::example();
+//! let market = MarketContext::new();
+//! let as_of = date!(2025-01-01);
 //!
 //! // Unified pricing (automatic method selection)
 //! let pv = pricer::RevolvingCreditPricer::price(&facility, &market, as_of)?;
@@ -22,6 +30,9 @@
 //! let enhanced_result = pricer::RevolvingCreditPricer::price_with_paths(&facility, &market, as_of)?;
 //! let pv_mc = enhanced_result.mc_result.estimate.mean;
 //! let path_pvs = enhanced_result.path_results; // Full distribution for analysis
+//! # let _ = (pv, pv_det, pv_mc, path_pvs);
+//! # Ok(())
+//! # }
 //! ```
 
 pub mod components;

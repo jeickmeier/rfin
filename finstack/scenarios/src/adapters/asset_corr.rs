@@ -9,14 +9,19 @@
 //!
 //! # Usage
 //!
-//! ```ignore
+//! ```rust,no_run
 //! use finstack_scenarios::adapters::asset_corr::*;
+//! use finstack_valuations::instruments::structured_credit::StructuredCredit;
 //!
+//! # fn main() -> finstack_scenarios::Result<()> {
+//! # let mut instruments: Vec<StructuredCredit> = Vec::new();
 //! // Shock all asset correlations by +5%
-//! let (count, warnings) = apply_asset_correlation_shock(&mut instruments, 0.05)?;
+//! let (_count, _warnings) = apply_asset_correlation_shock(&mut instruments, 0.05)?;
 //!
 //! // Shock prepay-default correlation by -10%
-//! let (count, warnings) = apply_prepay_default_correlation_shock(&mut instruments, -0.10)?;
+//! let (_count, _warnings) = apply_prepay_default_correlation_shock(&mut instruments, -0.10)?;
+//! # Ok(())
+//! # }
 //! ```
 //!
 //! # Clamping

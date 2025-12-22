@@ -74,15 +74,15 @@ fn test_dm_missing_forward_curve_returns_error() {
 
     // Expect a propagated input error (missing discount curve), never an apparent "perfect fit" DM of 0.0.
     match result {
-        Err(Error::Input(InputError::NotFound { id })) => {
+        Err(Error::Input(InputError::MissingCurve { requested, .. })) => {
             assert!(
-                id.contains("USD-OIS"),
+                requested.contains("USD-OIS"),
                 "expected missing discount curve id to mention USD-OIS, got {}",
-                id
+                requested
             );
         }
         Err(e) => panic!(
-            "expected InputError::NotFound for missing discount curve, got {}",
+            "expected InputError::MissingCurve for missing discount curve, got {}",
             e
         ),
         Ok(dm) => panic!(

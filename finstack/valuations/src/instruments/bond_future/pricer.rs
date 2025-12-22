@@ -49,8 +49,24 @@ impl BondFuturePricer {
     ///
     /// # Example
     ///
-    /// ```rust,ignore
-    /// let bond = Bond::fixed_semiannual(...);
+    /// ```rust,no_run
+    /// use finstack_core::currency::Currency;
+    /// use finstack_core::market_data::context::MarketContext;
+    /// use finstack_core::money::Money;
+    /// use finstack_valuations::instruments::Bond;
+    /// use finstack_valuations::instruments::bond_future::pricer::BondFuturePricer;
+    /// use time::macros::date;
+    ///
+    /// # fn main() -> finstack_core::Result<()> {
+    /// let market = MarketContext::new();
+    /// let bond = Bond::fixed(
+    ///     "US-CTD",
+    ///     Money::new(100_000.0, Currency::USD),
+    ///     0.05,
+    ///     date!(2020-01-15),
+    ///     date!(2030-01-15),
+    ///     "USD-OIS",
+    /// );
     /// let cf = BondFuturePricer::calculate_conversion_factor(
     ///     &bond,
     ///     0.06,  // 6% standard coupon
@@ -59,6 +75,9 @@ impl BondFuturePricer {
     ///     date!(2025-03-01),
     /// )?;
     /// // cf might be 0.8234 for a bond with 5% coupon
+    /// # let _ = cf;
+    /// # Ok(())
+    /// # }
     /// ```
     pub fn calculate_conversion_factor(
         bond: &Bond,
@@ -133,8 +152,24 @@ impl BondFuturePricer {
     ///
     /// # Example
     ///
-    /// ```rust,ignore
-    /// let ctd_bond = Bond::fixed_semiannual(...);
+    /// ```rust,no_run
+    /// use finstack_core::currency::Currency;
+    /// use finstack_core::market_data::context::MarketContext;
+    /// use finstack_core::money::Money;
+    /// use finstack_valuations::instruments::Bond;
+    /// use finstack_valuations::instruments::bond_future::pricer::BondFuturePricer;
+    /// use time::macros::date;
+    ///
+    /// # fn main() -> finstack_core::Result<()> {
+    /// let market = MarketContext::new();
+    /// let ctd_bond = Bond::fixed(
+    ///     "US-CTD",
+    ///     Money::new(100_000.0, Currency::USD),
+    ///     0.05,
+    ///     date!(2020-01-15),
+    ///     date!(2030-01-15),
+    ///     "USD-OIS",
+    /// );
     /// let cf = 0.8234;
     /// let model_price = BondFuturePricer::calculate_model_price(
     ///     &ctd_bond,
@@ -143,6 +178,9 @@ impl BondFuturePricer {
     ///     date!(2025-01-15),
     /// )?;
     /// // model_price might be 125.50
+    /// # let _ = model_price;
+    /// # Ok(())
+    /// # }
     /// ```
     pub fn calculate_model_price(
         ctd_bond: &Bond,
@@ -150,27 +188,22 @@ impl BondFuturePricer {
         market: &MarketContext,
         as_of: Date,
     ) -> Result<f64> {
-        use std::sync::Arc;
+        use crate::instruments::bond::metrics::accrued::AccruedInterestCalculator;
+        use crate::instruments::bond::metrics::price_yield_spread::CleanPriceCalculator;
         use crate::instruments::common::traits::Instrument;
         use crate::metrics::{MetricCalculator, MetricContext, MetricId};
-        use crate::instruments::bond::metrics::price_yield_spread::CleanPriceCalculator;
-        use crate::instruments::bond::metrics::accrued::AccruedInterestCalculator;
+        use std::sync::Arc;
 
         // Calculate the bond's NPV (dirty price in currency units)
         let dirty_price_money = ctd_bond.value(market, as_of)?;
-        
+
         // We need to calculate accrued interest to get clean price
         // Create a metric context for the calculations
         // Note: MetricContext needs Arc wrappers
         let bond_arc: Arc<dyn Instrument> = Arc::new(ctd_bond.clone());
         let market_arc = Arc::new(market.clone());
-        
-        let mut context = MetricContext::new(
-            bond_arc,
-            market_arc,
-            as_of,
-            dirty_price_money,
-        );
+
+        let mut context = MetricContext::new(bond_arc, market_arc, as_of, dirty_price_money);
 
         // Calculate accrued interest first (required for clean price)
         let accrued_calculator = AccruedInterestCalculator;
@@ -225,11 +258,41 @@ impl BondFuturePricer {
     ///
     /// # Example
     ///
-    /// ```rust,ignore
-    /// let future = BondFuture::ust_10y(..., Position::Long, quoted_price: 125.50, ...);
-    /// let ctd_bond = Bond::fixed_semiannual(...);
-    /// let cf = BondFuturePricer::calculate_conversion_factor(...)?;
-    /// 
+    /// ```rust,no_run
+    /// use finstack_core::currency::Currency;
+    /// use finstack_core::market_data::context::MarketContext;
+    /// use finstack_core::money::Money;
+    /// use finstack_core::types::{CurveId, InstrumentId};
+    /// use finstack_valuations::instruments::Bond;
+    /// use finstack_valuations::instruments::bond_future::{BondFuture, DeliverableBond, Position};
+    /// use finstack_valuations::instruments::bond_future::pricer::BondFuturePricer;
+    /// use time::macros::date;
+    ///
+    /// # fn main() -> finstack_core::Result<()> {
+    /// let market = MarketContext::new();
+    /// let ctd_bond_id = InstrumentId::new("US912828XG33");
+    /// let future = BondFuture::ust_10y(
+    ///     InstrumentId::new("TYH5"),
+    ///     Money::new(1_000_000.0, Currency::USD),
+    ///     date!(2025-03-20),
+    ///     date!(2025-03-21),
+    ///     date!(2025-03-31),
+    ///     125.50,
+    ///     Position::Long,
+    ///     vec![DeliverableBond { bond_id: ctd_bond_id.clone(), conversion_factor: 0.8234 }],
+    ///     ctd_bond_id.clone(),
+    ///     CurveId::new("USD-TREASURY"),
+    /// )?;
+    /// let ctd_bond = Bond::fixed(
+    ///     ctd_bond_id.as_str(),
+    ///     Money::new(100_000.0, Currency::USD),
+    ///     0.05,
+    ///     date!(2020-01-15),
+    ///     date!(2030-01-15),
+    ///     "USD-OIS",
+    /// );
+    /// let cf = 0.8234;
+    ///
     /// let npv = BondFuturePricer::calculate_npv(
     ///     &future,
     ///     &ctd_bond,
@@ -238,6 +301,9 @@ impl BondFuturePricer {
     ///     date!(2025-01-15),
     /// )?;
     /// // For a long position with quoted > model price, NPV is positive
+    /// # let _ = npv;
+    /// # Ok(())
+    /// # }
     /// ```
     pub fn calculate_npv(
         future: &super::BondFuture,
@@ -322,7 +388,7 @@ impl crate::pricer::Pricer for BondFuturePricer {
         // this will lookup the CTD bond from the registry:
         // let ctd_bond_any = market.instrument(future.ctd_bond_id.as_str())?;
         // let ctd_bond = ctd_bond_any.downcast_ref::<Bond>()?;
-        
+
         Err(crate::pricer::PricingError::ModelFailure(format!(
             "BondFuture pricing requires instrument registry in MarketContext (not yet implemented). \
              CTD bond ID: {}. \
@@ -379,7 +445,7 @@ mod tests {
         // Create a flat discount curve at the given rate
         // Using a simple 2-knot curve to approximate flat discount rate
         let base_date = date!(2025 - 01 - 15);
-        
+
         // Calculate discount factors for a flat rate
         // DF(t) = exp(-rate * t) for continuous compounding
         // For semi-annual compounding: DF(t) = 1 / (1 + rate/2)^(2*t)
@@ -390,10 +456,10 @@ mod tests {
         let curve = DiscountCurve::builder(CurveId::new("USD-TREASURY"))
             .base_date(base_date)
             .knots(vec![
-                (0.0, 1.0),      // Today
-                (1.0, df_1y),    // 1 year
-                (5.0, df_5y),    // 5 years
-                (10.0, df_10y),  // 10 years
+                (0.0, 1.0),     // Today
+                (1.0, df_1y),   // 1 year
+                (5.0, df_5y),   // 5 years
+                (10.0, df_10y), // 10 years
             ])
             .set_interp(InterpStyle::Linear)
             .build()
@@ -404,12 +470,7 @@ mod tests {
     }
 
     /// Helper to create a test bond with fixed semi-annual coupons
-    fn create_test_bond(
-        notional: f64,
-        coupon_rate: f64,
-        issue: Date,
-        maturity: Date,
-    ) -> Bond {
+    fn create_test_bond(notional: f64, coupon_rate: f64, issue: Date, maturity: Date) -> Bond {
         Bond::fixed(
             "TEST_BOND",
             Money::new(notional, Currency::USD),
@@ -423,12 +484,19 @@ mod tests {
     #[test]
     fn test_cashflow_debug() {
         // Debug test to see what cashflows are generated
-        let bond = create_test_bond(100_000.0, 0.06, date!(2020 - 01 - 15), date!(2030 - 01 - 15));
+        let bond = create_test_bond(
+            100_000.0,
+            0.06,
+            date!(2020 - 01 - 15),
+            date!(2030 - 01 - 15),
+        );
         let market = create_test_market(0.06);
         let as_of = date!(2025 - 01 - 15);
 
-        let cashflows = bond.build_schedule(&market, as_of).expect("Failed to build cashflow schedule");
-        
+        let cashflows = bond
+            .build_schedule(&market, as_of)
+            .expect("Failed to build cashflow schedule");
+
         println!("\n=== Bond Cashflows ===");
         println!("As of: {:?}", as_of);
         println!("Total flows: {}", cashflows.len());
@@ -444,14 +512,18 @@ mod tests {
     #[test]
     fn test_conversion_factor_par_bond() {
         // For a bond with coupon equal to standard coupon, CF should be ~1.0
-        let bond = create_test_bond(100_000.0, 0.06, date!(2020 - 01 - 15), date!(2030 - 01 - 15));
+        let bond = create_test_bond(
+            100_000.0,
+            0.06,
+            date!(2020 - 01 - 15),
+            date!(2030 - 01 - 15),
+        );
 
         let market = create_test_market(0.06);
         let as_of = date!(2025 - 01 - 15);
 
-        let cf =
-            BondFuturePricer::calculate_conversion_factor(&bond, 0.06, 10.0, &market, as_of)
-                .expect("Failed to calculate conversion factor");
+        let cf = BondFuturePricer::calculate_conversion_factor(&bond, 0.06, 10.0, &market, as_of)
+            .expect("Failed to calculate conversion factor");
 
         // For a bond with coupon = standard coupon and ~10 years to maturity,
         // CF should be close to 1.0
@@ -465,14 +537,18 @@ mod tests {
     #[test]
     fn test_conversion_factor_discount_bond() {
         // For a bond with coupon < standard coupon, CF should be < 1.0
-        let bond = create_test_bond(100_000.0, 0.04, date!(2020 - 01 - 15), date!(2030 - 01 - 15));
+        let bond = create_test_bond(
+            100_000.0,
+            0.04,
+            date!(2020 - 01 - 15),
+            date!(2030 - 01 - 15),
+        );
 
         let market = create_test_market(0.04);
         let as_of = date!(2025 - 01 - 15);
 
-        let cf =
-            BondFuturePricer::calculate_conversion_factor(&bond, 0.06, 10.0, &market, as_of)
-                .expect("Failed to calculate conversion factor");
+        let cf = BondFuturePricer::calculate_conversion_factor(&bond, 0.06, 10.0, &market, as_of)
+            .expect("Failed to calculate conversion factor");
 
         // Lower coupon bond should have CF < 1.0
         assert!(cf < 1.0, "Discount bond CF should be < 1.0, got {}", cf);
@@ -482,14 +558,18 @@ mod tests {
     #[test]
     fn test_conversion_factor_premium_bond() {
         // For a bond with coupon > standard coupon, CF should be > 1.0
-        let bond = create_test_bond(100_000.0, 0.08, date!(2020 - 01 - 15), date!(2030 - 01 - 15));
+        let bond = create_test_bond(
+            100_000.0,
+            0.08,
+            date!(2020 - 01 - 15),
+            date!(2030 - 01 - 15),
+        );
 
         let market = create_test_market(0.08);
         let as_of = date!(2025 - 01 - 15);
 
-        let cf =
-            BondFuturePricer::calculate_conversion_factor(&bond, 0.06, 10.0, &market, as_of)
-                .expect("Failed to calculate conversion factor");
+        let cf = BondFuturePricer::calculate_conversion_factor(&bond, 0.06, 10.0, &market, as_of)
+            .expect("Failed to calculate conversion factor");
 
         // Higher coupon bond should have CF > 1.0
         assert!(cf > 1.0, "Premium bond CF should be > 1.0, got {}", cf);
@@ -499,35 +579,40 @@ mod tests {
     #[test]
     fn test_conversion_factor_rounding() {
         // Test that CF is rounded to 4 decimal places
-        let bond = create_test_bond(100_000.0, 0.055, date!(2020 - 01 - 15), date!(2030 - 01 - 15));
+        let bond = create_test_bond(
+            100_000.0,
+            0.055,
+            date!(2020 - 01 - 15),
+            date!(2030 - 01 - 15),
+        );
 
         let market = create_test_market(0.055);
         let as_of = date!(2025 - 01 - 15);
 
-        let cf =
-            BondFuturePricer::calculate_conversion_factor(&bond, 0.06, 10.0, &market, as_of)
-                .expect("Failed to calculate conversion factor");
+        let cf = BondFuturePricer::calculate_conversion_factor(&bond, 0.06, 10.0, &market, as_of)
+            .expect("Failed to calculate conversion factor");
 
         // Check that CF has at most 4 decimal places
         let cf_scaled = (cf * 10000.0).round();
         let cf_rounded = cf_scaled / 10000.0;
-        assert_eq!(
-            cf, cf_rounded,
-            "CF should be rounded to 4 decimal places"
-        );
+        assert_eq!(cf, cf_rounded, "CF should be rounded to 4 decimal places");
     }
 
     #[test]
     fn test_conversion_factor_short_maturity() {
         // Test CF for a bond with shorter remaining maturity
-        let bond = create_test_bond(100_000.0, 0.05, date!(2023 - 01 - 15), date!(2027 - 01 - 15));
+        let bond = create_test_bond(
+            100_000.0,
+            0.05,
+            date!(2023 - 01 - 15),
+            date!(2027 - 01 - 15),
+        );
 
         let market = create_test_market(0.05);
         let as_of = date!(2025 - 01 - 15);
 
-        let cf =
-            BondFuturePricer::calculate_conversion_factor(&bond, 0.06, 10.0, &market, as_of)
-                .expect("Failed to calculate conversion factor");
+        let cf = BondFuturePricer::calculate_conversion_factor(&bond, 0.06, 10.0, &market, as_of)
+            .expect("Failed to calculate conversion factor");
 
         // Shorter maturity discount bond should have CF very close to 1.0
         // With only 2 years remaining, the coupon difference has minimal impact
@@ -549,7 +634,12 @@ mod tests {
     fn test_model_futures_price_par_bond() {
         // For a par bond (coupon = market rate), clean price should be ~100
         // Model futures price should be close to 100 / CF
-        let bond = create_test_bond(100_000.0, 0.06, date!(2020 - 01 - 15), date!(2030 - 01 - 15));
+        let bond = create_test_bond(
+            100_000.0,
+            0.06,
+            date!(2020 - 01 - 15),
+            date!(2030 - 01 - 15),
+        );
         let market = create_test_market(0.06);
         let as_of = date!(2025 - 01 - 15);
 
@@ -573,8 +663,13 @@ mod tests {
     #[test]
     fn test_model_futures_price_discount_bond() {
         // Discount bond: coupon < market rate, clean price < 100
-        let bond = create_test_bond(100_000.0, 0.04, date!(2020 - 01 - 15), date!(2030 - 01 - 15));
-        let market = create_test_market(0.06);  // Higher market rate than coupon
+        let bond = create_test_bond(
+            100_000.0,
+            0.04,
+            date!(2020 - 01 - 15),
+            date!(2030 - 01 - 15),
+        );
+        let market = create_test_market(0.06); // Higher market rate than coupon
         let as_of = date!(2025 - 01 - 15);
 
         let cf = BondFuturePricer::calculate_conversion_factor(&bond, 0.06, 10.0, &market, as_of)
@@ -592,8 +687,13 @@ mod tests {
     #[test]
     fn test_model_futures_price_premium_bond() {
         // Premium bond: coupon > market rate, clean price > 100
-        let bond = create_test_bond(100_000.0, 0.08, date!(2020 - 01 - 15), date!(2030 - 01 - 15));
-        let market = create_test_market(0.06);  // Lower market rate than coupon
+        let bond = create_test_bond(
+            100_000.0,
+            0.08,
+            date!(2020 - 01 - 15),
+            date!(2030 - 01 - 15),
+        );
+        let market = create_test_market(0.06); // Lower market rate than coupon
         let as_of = date!(2025 - 01 - 15);
 
         let cf = BondFuturePricer::calculate_conversion_factor(&bond, 0.06, 10.0, &market, as_of)
@@ -604,14 +704,22 @@ mod tests {
 
         // Model price should be above 100 for premium bond
         println!("Premium bond - CF: {}, Model Price: {}", cf, model_price);
-        assert!(model_price > 95.0, "Premium bond model price should be reasonably high");
+        assert!(
+            model_price > 95.0,
+            "Premium bond model price should be reasonably high"
+        );
         assert!(model_price < 150.0, "Model price should be reasonable");
     }
 
     #[test]
     fn test_model_futures_price_manual_verification() {
         // Manual verification test with known values
-        let bond = create_test_bond(100_000.0, 0.05, date!(2020 - 01 - 15), date!(2030 - 01 - 15));
+        let bond = create_test_bond(
+            100_000.0,
+            0.05,
+            date!(2020 - 01 - 15),
+            date!(2030 - 01 - 15),
+        );
         let market = create_test_market(0.05);
         let as_of = date!(2025 - 01 - 15);
 
@@ -632,7 +740,7 @@ mod tests {
         // Model_Price = Clean_Price_Percent / CF = 100 / CF
         let expected_approx = 100.0 / cf;
         println!("Expected (100/CF): {:.4}", expected_approx);
-        
+
         assert!(
             (model_price - expected_approx).abs() < 5.0,
             "Model price should be approximately 100/CF"
@@ -651,7 +759,7 @@ mod tests {
         use crate::instruments::bond_future::{
             BondFutureBuilder, BondFutureSpecs, DeliverableBond,
         };
-        
+
         BondFutureBuilder::new()
             .id(InstrumentId::new("TYH5"))
             .notional(Money::new(notional, Currency::USD))
@@ -678,22 +786,23 @@ mod tests {
         let quoted_price = 125.50;
         let notional = 1_000_000.0; // 10 contracts × $100k
         let expiry = date!(2025 - 03 - 20);
-        
-        let future = create_test_bond_future(
-            notional,
-            quoted_price,
-            Position::Long,
-            expiry,
-        );
+
+        let future = create_test_bond_future(notional, quoted_price, Position::Long, expiry);
 
         // Create CTD bond that will result in model price < quoted price
-        let ctd_bond = create_test_bond(100_000.0, 0.05, date!(2020 - 01 - 15), date!(2030 - 01 - 15));
+        let ctd_bond = create_test_bond(
+            100_000.0,
+            0.05,
+            date!(2020 - 01 - 15),
+            date!(2030 - 01 - 15),
+        );
         let market = create_test_market(0.06); // Higher market rate → lower bond price → lower model price
         let as_of = date!(2025 - 01 - 15);
 
         // Calculate conversion factor
-        let cf = BondFuturePricer::calculate_conversion_factor(&ctd_bond, 0.06, 10.0, &market, as_of)
-            .expect("Failed to calculate conversion factor");
+        let cf =
+            BondFuturePricer::calculate_conversion_factor(&ctd_bond, 0.06, 10.0, &market, as_of)
+                .expect("Failed to calculate conversion factor");
 
         // Calculate NPV
         let npv = BondFuturePricer::calculate_npv(&future, &ctd_bond, cf, &market, as_of)
@@ -708,16 +817,21 @@ mod tests {
         // For a long position with quoted > model, NPV should be positive
         // The exact value depends on the model price, but it should be positive
         // and scale with notional
-        
+
         // Verify:
         // 1. NPV currency matches future currency
-        assert_eq!(npv.currency(), future.notional.currency(), 
-            "NPV currency should match future currency");
-        
+        assert_eq!(
+            npv.currency(),
+            future.notional.currency(),
+            "NPV currency should match future currency"
+        );
+
         // 2. NPV magnitude is reasonable (should be less than notional)
-        assert!(npv.amount().abs() < notional, 
-            "NPV magnitude should be less than notional");
-        
+        assert!(
+            npv.amount().abs() < notional,
+            "NPV magnitude should be less than notional"
+        );
+
         // 3. For most realistic scenarios with quoted around 125.50 and market rate 6%,
         //    model price will be in the range 90-110, giving a positive NPV for long
         // Note: We can't assert positive without knowing exact model price,
@@ -731,33 +845,29 @@ mod tests {
         let quoted_price = 125.50;
         let notional = 1_000_000.0; // 10 contracts × $100k
         let expiry = date!(2025 - 03 - 20);
-        
-        let future = create_test_bond_future(
-            notional,
-            quoted_price,
-            Position::Short,
-            expiry,
-        );
+
+        let future = create_test_bond_future(notional, quoted_price, Position::Short, expiry);
 
         // Use same CTD bond and market as long position test
-        let ctd_bond = create_test_bond(100_000.0, 0.05, date!(2020 - 01 - 15), date!(2030 - 01 - 15));
+        let ctd_bond = create_test_bond(
+            100_000.0,
+            0.05,
+            date!(2020 - 01 - 15),
+            date!(2030 - 01 - 15),
+        );
         let market = create_test_market(0.06);
         let as_of = date!(2025 - 01 - 15);
 
-        let cf = BondFuturePricer::calculate_conversion_factor(&ctd_bond, 0.06, 10.0, &market, as_of)
-            .expect("Failed to calculate conversion factor");
+        let cf =
+            BondFuturePricer::calculate_conversion_factor(&ctd_bond, 0.06, 10.0, &market, as_of)
+                .expect("Failed to calculate conversion factor");
 
         let npv_short = BondFuturePricer::calculate_npv(&future, &ctd_bond, cf, &market, as_of)
             .expect("Failed to calculate NPV for short position");
 
         // For comparison, calculate NPV for equivalent long position
-        let future_long = create_test_bond_future(
-            notional,
-            quoted_price,
-            Position::Long,
-            expiry,
-        );
-        
+        let future_long = create_test_bond_future(notional, quoted_price, Position::Long, expiry);
+
         let npv_long = BondFuturePricer::calculate_npv(&future_long, &ctd_bond, cf, &market, as_of)
             .expect("Failed to calculate NPV for long position");
 
@@ -775,7 +885,7 @@ mod tests {
             npv_short.amount(),
             expected_short
         );
-        
+
         println!("NPV calculation successful: Short = -Long (within precision)");
     }
 
@@ -783,30 +893,31 @@ mod tests {
     fn test_npv_manual_calculation() {
         // Manual verification test with explicit values
         // This test verifies the NPV formula step-by-step
-        
-        let quoted_price = 125.00;  // Round number for easier calculation
-        let notional = 1_000_000.0;  // 10 contracts
+
+        let quoted_price = 125.00; // Round number for easier calculation
+        let notional = 1_000_000.0; // 10 contracts
         let expiry = date!(2025 - 03 - 20);
-        
-        let future = create_test_bond_future(
-            notional,
-            quoted_price,
-            Position::Long,
-            expiry,
-        );
+
+        let future = create_test_bond_future(notional, quoted_price, Position::Long, expiry);
 
         // Create a par bond (coupon = market rate) for predictable model price
-        let ctd_bond = create_test_bond(100_000.0, 0.06, date!(2020 - 01 - 15), date!(2030 - 01 - 15));
+        let ctd_bond = create_test_bond(
+            100_000.0,
+            0.06,
+            date!(2020 - 01 - 15),
+            date!(2030 - 01 - 15),
+        );
         let market = create_test_market(0.06);
         let as_of = date!(2025 - 01 - 15);
 
         // Calculate components
-        let cf = BondFuturePricer::calculate_conversion_factor(&ctd_bond, 0.06, 10.0, &market, as_of)
-            .expect("Failed to calculate conversion factor");
-        
+        let cf =
+            BondFuturePricer::calculate_conversion_factor(&ctd_bond, 0.06, 10.0, &market, as_of)
+                .expect("Failed to calculate conversion factor");
+
         let model_price = BondFuturePricer::calculate_model_price(&ctd_bond, cf, &market, as_of)
             .expect("Failed to calculate model price");
-        
+
         let npv = BondFuturePricer::calculate_npv(&future, &ctd_bond, cf, &market, as_of)
             .expect("Failed to calculate NPV");
 
@@ -816,32 +927,35 @@ mod tests {
         println!("Price Differential: {:.4}", quoted_price - model_price);
         println!("Conversion Factor: {:.4}", cf);
         println!("Notional: ${:.0}", notional);
-        
+
         // Get discount factor manually for verification
-        let discount_arc = market.get_discount(future.discount_curve_id.as_str())
+        let discount_arc = market
+            .get_discount(future.discount_curve_id.as_str())
             .expect("Should have discount curve in test market");
         use finstack_core::market_data::traits::Discounting;
         let discount_curve: &dyn Discounting = discount_arc.as_ref();
         let settlement_date = expiry + time::Duration::days(2);
-        
+
         let base_date = discount_curve.base_date();
         let day_count = discount_curve.day_count();
-        let t = day_count.year_fraction(
-            base_date,
-            settlement_date,
-            finstack_core::dates::DayCountCtx::default(),
-        ).expect("Should compute year fraction for test dates");
+        let t = day_count
+            .year_fraction(
+                base_date,
+                settlement_date,
+                finstack_core::dates::DayCountCtx::default(),
+            )
+            .expect("Should compute year fraction for test dates");
         let df = discount_curve.df(t);
-        
+
         println!("Discount Factor: {:.6}", df);
-        
+
         // Manual NPV calculation
         let price_diff = quoted_price - model_price;
         let manual_npv = price_diff * (notional / 100.0) * df * 1.0; // 1.0 for Long
-        
+
         println!("Manual NPV: ${:.2}", manual_npv);
         println!("Calculated NPV: ${:.2}", npv.amount());
-        
+
         // Verify match (within $100 tolerance for floating point)
         assert!(
             (npv.amount() - manual_npv).abs() < 100.0,
@@ -849,7 +963,7 @@ mod tests {
             npv.amount(),
             manual_npv
         );
-        
+
         println!("NPV formula verification successful!");
     }
 
@@ -875,7 +989,7 @@ mod tests {
     fn test_pricer_key() {
         // Test that BondFuturePricer returns the correct key
         use crate::pricer::Pricer;
-        
+
         let pricer = BondFuturePricer;
         let key = pricer.key();
 
@@ -895,7 +1009,7 @@ mod tests {
     fn test_pricer_error_message() {
         // Test that calling price_dyn returns an informative error message
         use crate::pricer::Pricer;
-        
+
         let deliverable = super::super::DeliverableBond {
             bond_id: InstrumentId::new("US912828XG33"),
             conversion_factor: 0.8234,

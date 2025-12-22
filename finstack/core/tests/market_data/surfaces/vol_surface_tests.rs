@@ -9,7 +9,7 @@ fn test_vol_surface_builder_basic() {
         .row(&[0.19, 0.2, 0.21])
         .build()
         .unwrap();
-    
+
     assert_eq!(surface.id().as_str(), "TEST");
     assert_eq!(surface.expiries(), &[1.0, 2.0]);
     assert_eq!(surface.strikes(), &[90.0, 100.0, 110.0]);
@@ -24,11 +24,11 @@ fn test_vol_surface_value_checked() {
         .row(&[0.19, 0.2, 0.21])
         .build()
         .unwrap();
-    
+
     // In-bounds queries
     let v = surface.value_checked(1.5, 100.0).unwrap();
     assert!(v > 0.19 && v < 0.22);
-    
+
     // Out-of-bounds should error
     assert!(surface.value_checked(0.5, 100.0).is_err());
     assert!(surface.value_checked(3.0, 100.0).is_err());
@@ -45,12 +45,12 @@ fn test_vol_surface_value_clamped() {
         .row(&[0.19, 0.2, 0.21])
         .build()
         .unwrap();
-    
+
     // Out-of-bounds queries should clamp
     let v1 = surface.value_clamped(0.5, 100.0); // Clamp expiry to 1.0
     let v2 = surface.value_clamped(1.0, 100.0); // Exact
     assert!((v1 - v2).abs() < 1e-10);
-    
+
     let v3 = surface.value_clamped(1.5, 80.0); // Clamp strike to 90.0
     assert!(v3 > 0.0);
 }
@@ -64,7 +64,7 @@ fn test_vol_surface_value_unchecked_panics() {
         .row(&[0.19, 0.2, 0.21])
         .build()
         .unwrap();
-    
+
     // In-bounds should work
     let v = surface.value_unchecked(1.5, 100.0);
     assert!(v > 0.0);
@@ -78,7 +78,7 @@ fn test_vol_surface_strike_interpolation() {
         .row(&[0.20, 0.25, 0.30])
         .build()
         .unwrap();
-    
+
     // Linear interpolation between strikes
     let v = surface.value_checked(1.0, 95.0).unwrap();
     assert!((v - 0.225).abs() < 0.001); // Should be halfway
@@ -93,7 +93,7 @@ fn test_vol_surface_expiry_interpolation() {
         .row(&[0.30])
         .build()
         .unwrap();
-    
+
     // Linear interpolation between expiries
     let v = surface.value_checked(1.5, 100.0).unwrap();
     assert!((v - 0.25).abs() < 0.001); // Should be halfway
@@ -108,7 +108,7 @@ fn test_vol_surface_bilinear_interpolation() {
         .row(&[0.25, 0.35])
         .build()
         .unwrap();
-    
+
     // Bilinear interpolation at center
     let v = surface.value_checked(1.5, 100.0).unwrap();
     assert!(v > 0.25 && v < 0.30); // Should be between corners
@@ -124,7 +124,7 @@ fn test_vol_surface_exact_nodes() {
         .row(&[0.18, 0.19, 0.20])
         .build()
         .unwrap();
-    
+
     // Exact node queries
     assert!((surface.value_checked(1.0, 90.0).unwrap() - 0.20).abs() < 1e-12);
     assert!((surface.value_checked(2.0, 100.0).unwrap() - 0.20).abs() < 1e-12);
@@ -139,14 +139,14 @@ fn test_vol_surface_builder_validation() {
         .strikes(&[100.0])
         .build();
     assert!(result.is_err());
-    
+
     // Empty strikes
     let result = VolSurface::builder("TEST")
         .expiries(&[1.0])
         .strikes(&[])
         .build();
     assert!(result.is_err());
-    
+
     // Wrong number of rows
     let result = VolSurface::builder("TEST")
         .expiries(&[1.0, 2.0])
@@ -155,7 +155,7 @@ fn test_vol_surface_builder_validation() {
         // Missing second row
         .build();
     assert!(result.is_err());
-    
+
     // Wrong row length
     let result = VolSurface::builder("TEST")
         .expiries(&[1.0])
@@ -195,7 +195,7 @@ fn test_vol_surface_negative_strikes() {
         .row(&[0.2, 0.2, 0.2])
         .build();
     assert!(result.is_ok());
-    
+
     let surf = result.unwrap();
     // Test interpolation with negative strikes
     assert!(surf.value_clamped(1.0, -10.0) > 0.0);
@@ -206,14 +206,8 @@ fn test_vol_surface_negative_strikes() {
 #[test]
 fn test_vol_surface_from_grid() {
     let vols = vec![0.2, 0.21, 0.22, 0.19, 0.2, 0.21];
-    let surface = VolSurface::from_grid(
-        "TEST",
-        &[1.0, 2.0],
-        &[90.0, 100.0, 110.0],
-        &vols,
-    )
-    .unwrap();
-    
+    let surface = VolSurface::from_grid("TEST", &[1.0, 2.0], &[90.0, 100.0, 110.0], &vols).unwrap();
+
     assert_eq!(surface.id().as_str(), "TEST");
     assert_eq!(surface.expiries(), &[1.0, 2.0]);
     assert_eq!(surface.strikes(), &[90.0, 100.0, 110.0]);
@@ -222,12 +216,7 @@ fn test_vol_surface_from_grid() {
 #[test]
 fn test_vol_surface_from_grid_wrong_size() {
     let vols = vec![0.2, 0.21]; // Should be 6 values (2 * 3)
-    let result = VolSurface::from_grid(
-        "TEST",
-        &[1.0, 2.0],
-        &[90.0, 100.0, 110.0],
-        &vols,
-    );
+    let result = VolSurface::from_grid("TEST", &[1.0, 2.0], &[90.0, 100.0, 110.0], &vols);
     assert!(result.is_err());
 }
 
@@ -245,10 +234,10 @@ fn test_vol_surface_single_point() {
         .row(&[0.25])
         .build()
         .unwrap();
-    
+
     // Exact query
     assert!((surface.value_checked(1.0, 100.0).unwrap() - 0.25).abs() < 1e-12);
-    
+
     // Clamped queries (should all give same value)
     assert!((surface.value_clamped(0.5, 100.0) - 0.25).abs() < 1e-12);
     assert!((surface.value_clamped(2.0, 100.0) - 0.25).abs() < 1e-12);
@@ -260,17 +249,17 @@ fn test_vol_surface_single_point() {
 fn test_vol_surface_large_grid() {
     let expiries: Vec<f64> = (1..=10).map(|i| i as f64).collect();
     let strikes: Vec<f64> = (80..=120).step_by(5).map(|s| s as f64).collect();
-    
+
     let mut builder = VolSurface::builder("LARGE");
     builder = builder.expiries(&expiries).strikes(&strikes);
-    
+
     for _ in 0..expiries.len() {
         let row: Vec<f64> = strikes.iter().map(|_| 0.25).collect();
         builder = builder.row(&row);
     }
-    
+
     let surface = builder.build().unwrap();
-    
+
     // Test interpolation in large grid
     let v = surface.value_checked(5.5, 100.0).unwrap();
     assert!((v - 0.25).abs() < 0.001);
@@ -286,17 +275,20 @@ fn test_vol_surface_serde() {
         .row(&[0.19, 0.20, 0.21])
         .build()
         .unwrap();
-    
+
     let json = serde_json::to_string(&surface).unwrap();
     let deser: VolSurface = serde_json::from_str(&json).unwrap();
-    
+
     assert_eq!(deser.id(), surface.id());
     assert_eq!(deser.expiries(), surface.expiries());
     assert_eq!(deser.strikes(), surface.strikes());
-    
+
     // Check values match
-    assert!((deser.value_checked(1.5, 100.0).unwrap() 
-           - surface.value_checked(1.5, 100.0).unwrap()).abs() < 1e-12);
+    assert!(
+        (deser.value_checked(1.5, 100.0).unwrap() - surface.value_checked(1.5, 100.0).unwrap())
+            .abs()
+            < 1e-12
+    );
 }
 
 #[cfg(feature = "serde")]
@@ -322,12 +314,15 @@ fn test_vol_surface_clone() {
         .row(&[0.19, 0.20])
         .build()
         .unwrap();
-    
+
     let cloned = surface.clone();
-    
+
     assert_eq!(cloned.id(), surface.id());
     assert_eq!(cloned.expiries(), surface.expiries());
     assert_eq!(cloned.strikes(), surface.strikes());
-    assert!((cloned.value_checked(1.5, 95.0).unwrap() 
-           - surface.value_checked(1.5, 95.0).unwrap()).abs() < 1e-12);
+    assert!(
+        (cloned.value_checked(1.5, 95.0).unwrap() - surface.value_checked(1.5, 95.0).unwrap())
+            .abs()
+            < 1e-12
+    );
 }

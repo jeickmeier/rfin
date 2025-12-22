@@ -1259,7 +1259,7 @@ mod extrapolation_policy_tests {
         let default = ExtrapolationPolicy::default();
         // FlatZero is the default
         match default {
-            ExtrapolationPolicy::FlatZero => {},
+            ExtrapolationPolicy::FlatZero => {}
             _ => panic!("Default should be FlatZero"),
         }
     }
@@ -1267,24 +1267,35 @@ mod extrapolation_policy_tests {
     #[test]
     fn flat_zero_behavior() {
         let interp = InterpStyle::Linear
-            .build(standard_knots(), standard_dfs(), ExtrapolationPolicy::FlatZero)
+            .build(
+                standard_knots(),
+                standard_dfs(),
+                ExtrapolationPolicy::FlatZero,
+            )
             .unwrap();
-        
+
         // Below minimum knot (0.0), should return boundary value
         let val = interp.interp(-1.0);
         assert!(approx_eq(val, 1.0, 1e-10), "Should use boundary value");
-        
+
         // Above maximum knot (3.0), should return boundary value
         let val_high = interp.interp(10.0);
-        assert!(approx_eq(val_high, 0.85, 1e-10), "Should use boundary value");
+        assert!(
+            approx_eq(val_high, 0.85, 1e-10),
+            "Should use boundary value"
+        );
     }
 
     #[test]
     fn flat_forward_behavior() {
         let interp = InterpStyle::Linear
-            .build(standard_knots(), standard_dfs(), ExtrapolationPolicy::FlatForward)
+            .build(
+                standard_knots(),
+                standard_dfs(),
+                ExtrapolationPolicy::FlatForward,
+            )
             .unwrap();
-        
+
         // Test extrapolation (exact behavior depends on implementation)
         let _ = interp.interp(-1.0);
         let _ = interp.interp(10.0);
@@ -1299,16 +1310,16 @@ mod extrapolation_policy_tests {
         let json = serde_json::to_string(&flat_zero).unwrap();
         let deserialized: ExtrapolationPolicy = serde_json::from_str(&json).unwrap();
         match deserialized {
-            ExtrapolationPolicy::FlatZero => {},
+            ExtrapolationPolicy::FlatZero => {}
             _ => panic!("Should deserialize to FlatZero"),
         }
-        
+
         // Test FlatForward
         let flat_fwd = ExtrapolationPolicy::FlatForward;
         let json = serde_json::to_string(&flat_fwd).unwrap();
         let deserialized: ExtrapolationPolicy = serde_json::from_str(&json).unwrap();
         match deserialized {
-            ExtrapolationPolicy::FlatForward => {},
+            ExtrapolationPolicy::FlatForward => {}
             _ => panic!("Should deserialize to FlatForward"),
         }
     }
@@ -1332,15 +1343,15 @@ mod derivative_epsilon_tests {
     fn derivative_epsilon_usage() {
         // Test that DERIVATIVE_EPSILON is reasonable for finite differences
         let epsilon = DERIVATIVE_EPSILON;
-        
+
         // Simple function: f(x) = x^2, f'(x) = 2x
         let f = |x: f64| x * x;
         let x = 2.0;
         let true_deriv = 2.0 * x; // = 4.0
-        
+
         // Finite difference approximation
         let approx_deriv = (f(x + epsilon) - f(x)) / epsilon;
-        
+
         // Should be close with this epsilon
         assert!(
             (approx_deriv - true_deriv).abs() < 1e-5,

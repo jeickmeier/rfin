@@ -22,27 +22,28 @@
 //!
 //! 2. Example production implementation:
 //!
-//! ```ignore
-//! use rand::prelude::*;
-//! use rand_pcg::Pcg64;
+//! ```rust,no_run
+//! use finstack_core::math::random::RandomNumberGenerator;
 //!
-//! struct ProductionRng(Pcg64);
-//!
-//! impl ProductionRng {
-//!     fn new(seed: u64) -> Self {
-//!         Self(Pcg64::seed_from_u64(seed))
-//!     }
-//! }
+//! /// Placeholder "production" RNG.
+//! ///
+//! /// In real systems, back this with a robust RNG (e.g. PCG64, ChaCha, Xoshiro) from a crate
+//! /// like `rand`, and implement these methods in terms of that generator.
+//! struct ProductionRng;
 //!
 //! impl RandomNumberGenerator for ProductionRng {
-//!     fn uniform(&mut self) -> f64 { self.0.gen() }
-//!     fn normal(&mut self, mean: f64, std_dev: f64) -> f64 {
-//!         use rand_distr::{Distribution, Normal};
-//!         Normal::new(mean, std_dev)
-//!             .expect("Normal::new requires finite mean and std_dev > 0")
-//!             .sample(&mut self.0)
+//!     fn uniform(&mut self) -> f64 {
+//!         0.5
 //!     }
-//!     fn bernoulli(&mut self, p: f64) -> bool { self.0.gen::<f64>() < p }
+//!
+//!     fn normal(&mut self, mean: f64, _std_dev: f64) -> f64 {
+//!         // Placeholder: return the mean. A real implementation would sample.
+//!         mean
+//!     }
+//!
+//!     fn bernoulli(&mut self, p: f64) -> bool {
+//!         p >= 0.5
+//!     }
 //! }
 //! ```
 //!

@@ -36,14 +36,24 @@ use finstack_core::Result;
 ///
 /// # Example
 ///
-/// ```rust,ignore
-/// use finstack_valuations::margin::{HaircutImCalculator, EligibleCollateralSchedule};
+/// ```rust,no_run
+/// use finstack_valuations::instruments::Instrument;
+/// use finstack_valuations::margin::{EligibleCollateralSchedule, HaircutImCalculator, ImCalculator};
+/// use finstack_core::dates::Date;
+/// use finstack_core::market_data::context::MarketContext;
+/// use time::macros::date;
 ///
+/// # fn main() -> finstack_core::Result<()> {
 /// let schedule = EligibleCollateralSchedule::us_treasuries();
 /// let calc = HaircutImCalculator::new(schedule);
 ///
-/// let im = calc.calculate(&repo, &context, as_of)?;
+/// # let repo: &dyn Instrument = todo!("provide a repo / secured financing instrument");
+/// # let context = MarketContext::new();
+/// # let as_of: Date = date!(2025-01-01);
+/// let im = calc.calculate(repo, &context, as_of)?;
 /// println!("Haircut IM: {}", im.amount);
+/// # Ok(())
+/// # }
 /// ```
 #[derive(Debug, Clone)]
 pub struct HaircutImCalculator {

@@ -47,10 +47,13 @@ pub struct CorporateValuationResult {
 ///
 /// # Example
 ///
-/// ```rust,ignore
+/// ```rust,no_run
 /// use finstack_statements::analysis::corporate::evaluate_dcf;
+/// use finstack_statements::types::FinancialModelSpec;
 /// use finstack_valuations::instruments::dcf::TerminalValueSpec;
 ///
+/// # fn main() -> Result<(), Box<dyn std::error::Error>> {
+/// # let model: FinancialModelSpec = unimplemented!("build or load a FinancialModelSpec");
 /// let result = evaluate_dcf(
 ///     &model,
 ///     0.10,  // 10% WACC
@@ -60,6 +63,8 @@ pub struct CorporateValuationResult {
 /// )?;
 ///
 /// println!("Equity Value: {}", result.equity_value);
+/// # Ok(())
+/// # }
 /// ```
 pub fn evaluate_dcf(
     model: &FinancialModelSpec,

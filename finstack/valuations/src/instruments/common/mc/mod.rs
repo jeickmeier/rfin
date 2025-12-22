@@ -159,39 +159,74 @@
 //!
 //! # Quick Start
 //!
-//! ```rust,ignore
-//! use finstack_valuations::instruments::common::mc::prelude::*;
+//! ```rust,no_run
+//! use finstack_core::currency::Currency;
+//! use finstack_valuations::instruments::common::mc::prelude::{ExactGbm, GbmProcess, PhiloxRng};
+//! use finstack_valuations::instruments::common::models::monte_carlo::prelude::{EuropeanCall, McEngine};
 //!
+//! # fn main() -> finstack_core::Result<()> {
 //! // Create MC engine with deterministic seed
 //! let engine = McEngine::builder()
-//!     .num_paths(100_000)
-//!     .num_steps(252)       // Daily steps
-//!     .seed(42)             // Reproducible results
-//!     .variance_reduction(vec![VR::Antithetic, VR::ControlBS])
-//!     .build();
+//!     .num_paths(10_000)
+//!     .uniform_grid(1.0, 252) // 1y horizon, daily-ish steps
+//!     .seed(42) // Reproducible results
+//!     .build()?;
 //!
 //! // Define geometric Brownian motion
-//! let gbm = GbmProcess::new(r, q, sigma);
+//! let r = 0.03;
+//! let q = 0.00;
+//! let sigma = 0.20;
+//! let gbm = GbmProcess::with_params(r, q, sigma);
 //!
 //! // Define European call payoff
-//! let payoff = EuropeanCall::new(strike, notional);
+//! let strike = 100.0;
+//! let notional = 1.0;
+//! let maturity_step = 251;
+//! let payoff = EuropeanCall::new(strike, notional, maturity_step);
 //!
 //! // Price with standard error
-//! let result = engine.price(&gbm, &payoff, market_context)?;
+//! let rng = PhiloxRng::new(42);
+//! let disc = ExactGbm::new();
+//! let initial_state = [100.0];
+//! let result = engine.price(&rng, &gbm, &disc, &initial_state, &payoff, Currency::USD, 1.0)?;
 //! println!("Price: {} ± {} (95% CI)", result.mean, 1.96 * result.stderr);
+//! # Ok(())
+//! # }
 //! ```
 //!
 //! ## American Option Example
 //!
-//! ```rust,ignore
-//! use finstack_valuations::instruments::common::mc::prelude::*;
+//! ```rust,no_run
+//! use finstack_core::currency::Currency;
+//! use finstack_valuations::instruments::common::mc::prelude::GbmProcess;
+//! use finstack_valuations::instruments::common::models::monte_carlo::prelude::{
+//!     AmericanPut, LaguerreBasis, LsmcConfig, LsmcPricer,
+//! };
 //!
-//! // Use Longstaff-Schwartz for American put
-//! let lsm_config = LsmConfig::new()
-//!     .with_basis_degree(3)           // Laguerre polynomials up to degree 3
-//!     .with_regression_on_itm(true);  // Regress only on ITM paths
+//! # fn main() -> finstack_core::Result<()> {
+//! let strike = 100.0;
+//! let process = GbmProcess::with_params(0.03, 0.00, 0.20);
 //!
-//! let result = engine.price_american(&gbm, &put_payoff, lsm_config, market_context)?;
+//! let num_steps = 50;
+//! let exercise_dates = (1..num_steps).collect::<Vec<_>>(); // allow exercise at any step except t=0
+//! let config = LsmcConfig::new(10_000, exercise_dates).with_seed(42);
+//! let pricer = LsmcPricer::new(config);
+//! let exercise = AmericanPut { strike };
+//! let basis = LaguerreBasis::new(3, strike);
+//!
+//! let result = pricer.price(
+//!     &process,
+//!     100.0,
+//!     1.0,
+//!     num_steps,
+//!     &exercise,
+//!     &basis,
+//!     Currency::USD,
+//!     0.03,
+//! )?;
+//! # let _ = result;
+//! # Ok(())
+//! # }
 //! ```
 //!
 //! # See Also

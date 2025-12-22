@@ -26,15 +26,20 @@ use crate::error::InputError;
 ///
 /// # Example
 ///
-/// ```ignore
-/// use finstack_core::math::interp::{Interpolator, LinearStrategy};
+/// ```rust
+/// use finstack_core::math::interp::{ExtrapolationPolicy, InterpFn, Interpolator};
+/// use finstack_core::math::interp::strategies::LinearStrategy;
 ///
+/// # fn main() -> finstack_core::Result<()> {
 /// let interp = Interpolator::<LinearStrategy>::new(
 ///     vec![0.0, 1.0, 2.0].into_boxed_slice(),
 ///     vec![1.0, 0.95, 0.90].into_boxed_slice(),
 ///     ExtrapolationPolicy::FlatZero,
 /// )?;
 /// let value = interp.interp(0.5);
+/// # let _ = value;
+/// # Ok(())
+/// # }
 /// ```
 #[derive(Debug, Clone)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]

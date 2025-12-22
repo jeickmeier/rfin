@@ -127,8 +127,33 @@ pub trait PeriodizedPvExt: CashflowProvider + HasDiscountCurve {
     /// or if the cashflow schedule cannot be built.
     ///
     /// # Example
-    /// ```ignore
+    /// ```rust,no_run
+    /// use finstack_core::dates::{build_periods, DayCount};
+    /// use finstack_core::market_data::context::MarketContext;
+    /// use finstack_core::money::Money;
+    /// use finstack_core::currency::Currency;
+    /// use finstack_valuations::instruments::Bond;
+    /// use finstack_valuations::instruments::common::period_pv::PeriodizedPvExt;
+    /// use time::macros::date;
+    ///
+    /// # fn main() -> finstack_core::Result<()> {
+    /// let base = date!(2025-01-15);
+    /// let market = MarketContext::new();
+    /// let quarters = build_periods("2025Q1..Q4", None)?.periods;
+    ///
+    /// let bond = Bond::fixed(
+    ///     "BOND-1",
+    ///     Money::new(1_000_000.0, Currency::USD),
+    ///     0.05,
+    ///     date!(2025-01-15),
+    ///     date!(2030-01-15),
+    ///     "USD-OIS",
+    /// );
+    ///
     /// let pv_map = bond.periodized_pv(&quarters, &market, base, DayCount::Act365F)?;
+    /// # let _ = pv_map;
+    /// # Ok(())
+    /// # }
     /// ```
     fn periodized_pv(
         &self,
@@ -184,7 +209,31 @@ pub trait PeriodizedPvExt: CashflowProvider + HasDiscountCurve {
     /// is missing or not found in the market context.
     ///
     /// # Example
-    /// ```ignore
+    /// ```rust,no_run
+    /// use finstack_core::dates::{build_periods, DayCount};
+    /// use finstack_core::market_data::context::MarketContext;
+    /// use finstack_core::money::Money;
+    /// use finstack_core::currency::Currency;
+    /// use finstack_core::types::CurveId;
+    /// use finstack_valuations::instruments::Bond;
+    /// use finstack_valuations::instruments::common::period_pv::PeriodizedPvExt;
+    /// use time::macros::date;
+    ///
+    /// # fn main() -> finstack_core::Result<()> {
+    /// let base = date!(2025-01-15);
+    /// let market = MarketContext::new();
+    /// let quarters = build_periods("2025Q1..Q4", None)?.periods;
+    /// let hazard_id = CurveId::new("USD-HY");
+    ///
+    /// let bond = Bond::fixed(
+    ///     "BOND-1",
+    ///     Money::new(1_000_000.0, Currency::USD),
+    ///     0.05,
+    ///     date!(2025-01-15),
+    ///     date!(2030-01-15),
+    ///     "USD-OIS",
+    /// );
+    ///
     /// let pv_map = bond.periodized_pv_credit_adjusted(
     ///     &quarters,
     ///     &market,
@@ -192,6 +241,9 @@ pub trait PeriodizedPvExt: CashflowProvider + HasDiscountCurve {
     ///     base,
     ///     DayCount::Act365F,
     /// )?;
+    /// # let _ = pv_map;
+    /// # Ok(())
+    /// # }
     /// ```
     fn periodized_pv_credit_adjusted(
         &self,

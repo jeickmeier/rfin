@@ -150,16 +150,26 @@ impl SimmRiskWeights {
 ///
 /// # Example
 ///
-/// ```rust,ignore
-/// use finstack_valuations::margin::{SimmCalculator, SimmVersion};
+/// ```rust,no_run
+/// use finstack_valuations::instruments::Instrument;
+/// use finstack_valuations::margin::{ImCalculator, SimmCalculator};
+/// use finstack_core::dates::Date;
+/// use finstack_core::market_data::context::MarketContext;
+/// use time::macros::date;
 ///
-/// let calc = SimmCalculator::new(SimmVersion::V2_6);
-/// let im = calc.calculate(&swap, &context, as_of)?;
+/// # fn main() -> finstack_core::Result<()> {
+/// let calc = SimmCalculator::default();
+/// # let swap: &dyn Instrument = todo!("provide a swap instrument");
+/// # let context = MarketContext::new();
+/// # let as_of: Date = date!(2025-01-01);
+/// let im = calc.calculate(swap, &context, as_of)?;
 ///
 /// println!("SIMM IM: {}", im.amount);
 /// for (risk_class, amount) in &im.breakdown {
 ///     println!("  {}: {}", risk_class, amount);
 /// }
+/// # Ok(())
+/// # }
 /// ```
 #[derive(Debug, Clone)]
 pub struct SimmCalculator {

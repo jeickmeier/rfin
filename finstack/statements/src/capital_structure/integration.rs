@@ -114,13 +114,18 @@ pub fn calculate_period_flows(
 ///
 /// # Example
 ///
-/// ```rust,ignore
-/// use finstack_statements::capital_structure::integration::aggregate_instrument_cashflows;
-/// use finstack_statements::capital_structure::types::CapitalStructureCashflows;
+/// ```rust,no_run
+/// use finstack_statements::capital_structure::{aggregate_instrument_cashflows, CapitalStructureCashflows};
+/// use finstack_statements::CapitalStructureSpec;
 /// use finstack_core::dates::build_periods;
+/// use finstack_core::market_data::context::MarketContext;
+/// use finstack_valuations::cashflow::traits::CashflowProvider;
 /// use indexmap::IndexMap;
+/// use std::sync::Arc;
+/// use time::macros::date;
 ///
-/// let periods = build_periods("2025Q1..Q4", None)?.periods;
+/// # fn main() -> Result<(), Box<dyn std::error::Error>> {
+/// let periods = build_periods("2025Q1..2025Q4", None)?.periods;
 /// let instruments: IndexMap<String, Arc<dyn CashflowProvider + Send + Sync>> = IndexMap::new();
 /// let spec = CapitalStructureSpec {
 ///     debt_instruments: vec![],
@@ -128,10 +133,13 @@ pub fn calculate_period_flows(
 ///     meta: IndexMap::new(),
 ///     reporting_currency: None,
 ///     fx_policy: None,
+///     waterfall: None,
 /// };
 /// let cashflows: CapitalStructureCashflows =
-///     aggregate_instrument_cashflows(&spec, &instruments, &periods, &market_ctx, as_of)?;
+///     aggregate_instrument_cashflows(&spec, &instruments, &periods, &MarketContext::new(), date!(2025-01-01))?;
 /// assert!(cashflows.totals.is_empty());
+/// # Ok(())
+/// # }
 /// ```
 pub fn aggregate_instrument_cashflows(
     spec: &crate::types::CapitalStructureSpec,

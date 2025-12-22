@@ -20,7 +20,9 @@
 //!
 //! # Example
 //!
-//! ```rust,ignore
+//! ```rust,no_run
+//! use finstack_valuations::instruments::common::mc::rng::sobol_pca::pca_ordering;
+//!
 //! // 3-asset basket with correlation
 //! let correlation = vec![
 //!     1.0, 0.8, 0.6,
@@ -28,9 +30,8 @@
 //!     0.6, 0.7, 1.0,
 //! ];
 //!
-//! let (sobol, permutation) = create_sobol_with_pca_ordering(&correlation, 3);
+//! let (_eigenvalues, _eigenvectors, permutation) = pca_ordering(&correlation, 3);
 //!
-//! // sobol generates in PCA-ordered space
 //! // permutation maps back to original asset order
 //! ```
 //!

@@ -24,22 +24,50 @@
 //!
 //! # Examples
 //!
-//! ```rust,ignore
-//! use finstack_valuations::instruments::bond_future::BondFuture;
-//! use finstack_valuations::metrics::{MetricId, MetricContext};
+//! ```rust,no_run
+//! use finstack_core::currency::Currency;
+//! use finstack_core::market_data::context::MarketContext;
+//! use finstack_core::money::Money;
+//! use finstack_core::types::{CurveId, InstrumentId};
+//! use finstack_core::dates::Date;
+//! use finstack_valuations::instruments::bond_future::{BondFuture, DeliverableBond, Position};
+//! use finstack_valuations::instruments::common::traits::Instrument;
+//! use finstack_valuations::metrics::MetricId;
+//! use time::Month;
 //!
-//! // Create a bond future (see BondFuture docs for full example)
-//! let future = BondFuture::ust_10y(...);
+//! # fn main() -> Result<(), Box<dyn std::error::Error>> {
+//! let market = MarketContext::new();
+//! let as_of = Date::from_calendar_date(2025, Month::January, 15)?;
+//!
+//! // Create a bond future (minimal, for compilation)
+//! let future = BondFuture::ust_10y(
+//!     InstrumentId::new("TYH5"),
+//!     Money::new(1_000_000.0, Currency::USD),
+//!     Date::from_calendar_date(2025, Month::March, 20)?,
+//!     Date::from_calendar_date(2025, Month::March, 21)?,
+//!     Date::from_calendar_date(2025, Month::March, 31)?,
+//!     125.50,
+//!     Position::Long,
+//!     vec![DeliverableBond {
+//!         bond_id: InstrumentId::new("US912828XG33"),
+//!         conversion_factor: 0.8234,
+//!     }],
+//!     InstrumentId::new("US912828XG33"),
+//!     CurveId::new("USD-TREASURY"),
+//! )?;
 //!
 //! // Calculate DV01 via the pricing registry
-//! let metrics = future.price_with_metrics(
+//! let result = future.price_with_metrics(
 //!     &market,
 //!     as_of,
 //!     &[MetricId::Dv01, MetricId::BucketedDv01],
 //! )?;
 //!
-//! let dv01 = metrics.metric("dv01").unwrap();
-//! let bucketed = metrics.get_series(&MetricId::BucketedDv01).unwrap();
+//! let dv01 = result.measures.get(MetricId::Dv01.as_str()).copied();
+//! let bucketed_dv01 = result.measures.get(MetricId::BucketedDv01.as_str()).copied();
+//! # let _ = (dv01, bucketed_dv01);
+//! # Ok(())
+//! # }
 //! ```
 
 use crate::metrics::MetricRegistry;
@@ -57,7 +85,7 @@ use crate::pricer::InstrumentType;
 ///
 /// # Examples
 ///
-/// ```rust,ignore
+/// ```rust,no_run
 /// use finstack_valuations::metrics::MetricRegistry;
 /// use finstack_valuations::instruments::bond_future::metrics::register_bond_future_metrics;
 ///
@@ -94,7 +122,7 @@ mod tests {
 
         // Verify metrics are registered for BondFuture
         let metrics = registry.metrics_for_instrument(InstrumentType::BondFuture);
-        
+
         // Verify DV01 is registered
         assert!(
             metrics.contains(&MetricId::Dv01),

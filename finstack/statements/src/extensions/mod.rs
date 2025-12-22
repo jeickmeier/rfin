@@ -15,8 +15,10 @@
 //!
 //! # Examples
 //!
-//! ```rust,ignore
-//! use finstack_statements::extensions::{Extension, ExtensionRegistry, ExtensionContext, ExtensionResult};
+//! ```rust,no_run
+//! use finstack_statements::extensions::{
+//!     Extension, ExtensionContext, ExtensionMetadata, ExtensionRegistry, ExtensionResult,
+//! };
 //!
 //! // Create an extension
 //! struct MyExtension;
@@ -31,15 +33,18 @@
 //!         }
 //!     }
 //!
-//!     fn execute(&mut self, context: &ExtensionContext) -> Result<ExtensionResult> {
+//!     fn execute(&mut self, _context: &ExtensionContext) -> finstack_statements::Result<ExtensionResult> {
 //!         // Process the model and results
 //!         Ok(ExtensionResult::success("Analysis complete"))
 //!     }
 //! }
 //!
 //! // Register and execute
+//! # fn main() -> finstack_statements::Result<()> {
 //! let mut registry = ExtensionRegistry::new();
-//! registry.register(Box::new(MyExtension));
+//! registry.register(Box::new(MyExtension))?;
+//! # Ok(())
+//! # }
 //! ```
 
 mod corkscrew;

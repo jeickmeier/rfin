@@ -77,7 +77,7 @@ use finstack_core::math::solver::{BrentSolver, Solver};
 ///
 /// # Examples
 ///
-/// ```rust,ignore
+/// ```rust,no_run
 /// use finstack_statements::prelude::*;
 /// use finstack_statements::analysis::goal_seek;
 /// use finstack_core::dates::PeriodId;

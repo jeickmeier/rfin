@@ -16,46 +16,18 @@
 //!
 //! ## Example 1: Computing Bucketed DV01 for a Bond
 //!
-//! ```ignore
-//! use finstack_valuations::instruments::Bond;
-//! use finstack_valuations::metrics::{standard_registry, MetricId};
-//! use finstack_core::dates::{create_date, Month};
-//! use finstack_core::types::{CurveId, Rate, Currency};
-//! use finstack_core::money::Money;
+//! ```rust,no_run
+//! use finstack_valuations::instruments::{Bond, Instrument};
+//! use finstack_valuations::metrics::MetricId;
 //! use finstack_core::market_data::context::MarketContext;
-//! use finstack_core::market_data::term_structures::discount_curve::DiscountCurve;
-//! use finstack_core::dates::day_count::DayCount;
+//! use time::macros::date;
 //!
 //! # fn main() -> finstack_core::Result<()> {
-//! // Setup: Create a 5-year bond
-//! let as_of = create_date(2024, Month::January, 1)?;
-//! let maturity = create_date(2029, Month::January, 1)?;
-//! let bond = Bond::builder("BOND-001")
-//!     .issue_date(as_of)
-//!     .maturity(maturity)
-//!     .coupon_rate(Rate::from_bps(500)) // 5.00% coupon
-//!     .face_value(Money::new(100_000.0, Currency::USD))
-//!     .build()?;
-//!
-//! // Create discount curve
-//! let curve_id = CurveId::from("USD-OIS");
-//! let discount_curve = DiscountCurve::builder(curve_id.clone())
-//!     .base_date(as_of)
-//!     .day_count(DayCount::Act365F)
-//!     .knots(vec![
-//!         (0.0, 1.0),
-//!         (1.0, 0.96),
-//!         (2.0, 0.93),
-//!         (5.0, 0.85),
-//!         (10.0, 0.70),
-//!     ])
-//!     .build()?;
-//!
-//! let market = MarketContext::new(as_of)
-//!     .insert_discount(discount_curve);
-//!
-//! // Create registry and request bucketed DV01
-//! let registry = standard_registry();
+//! // Setup: create an example bond and an (empty) market context.
+//! // Note: real runs require a populated market context with required curves.
+//! let as_of = date!(2025-01-01);
+//! let bond = Bond::example();
+//! let market = MarketContext::new();
 //! let metrics = vec![MetricId::BucketedDv01];
 //!
 //! // Price with metrics
@@ -66,16 +38,8 @@
 //! println!("Bond PV: ${:.2}", pv);
 //!
 //! // Get total DV01 (scalar)
-//! if let Some(total_dv01) = result.measures.get(&MetricId::BucketedDv01) {
+//! if let Some(total_dv01) = result.measures.get(MetricId::BucketedDv01.as_str()) {
 //!     println!("Total DV01: ${:.2} per bp", total_dv01);
-//! }
-//!
-//! // Access bucketed series (key-rate DV01 by maturity)
-//! if let Some(bucketed) = result.bucketed_series.get(&MetricId::BucketedDv01) {
-//!     println!("\nBucketed DV01 breakdown:");
-//!     for (bucket, dv01) in bucketed {
-//!         println!("  {} bucket: ${:.2} per bp", bucket, dv01);
-//!     }
 //! }
 //! # Ok(())
 //! # }
@@ -83,36 +47,21 @@
 //!
 //! ## Example 2: Computing Parallel DV01 for an Interest Rate Swap
 //!
-//! ```ignore
-//! use finstack_valuations::instruments::InterestRateSwap;
-//! use finstack_valuations::metrics::{standard_registry, MetricId};
-//! use finstack_core::dates::{create_date, Month};
-//! use finstack_core::types::{CurveId, Rate, Currency};
-//! use finstack_core::money::Money;
+//! ```rust,no_run
+//! use finstack_valuations::instruments::{Instrument, InterestRateSwap};
+//! use finstack_valuations::metrics::MetricId;
 //! use finstack_core::market_data::context::MarketContext;
+//! use time::macros::date;
 //!
 //! # fn main() -> finstack_core::Result<()> {
-//! let as_of = create_date(2024, Month::January, 1)?;
-//!
-//! // Create a 5-year receiver swap (receive fixed, pay floating)
-//! let swap = InterestRateSwap::builder("SWAP-001")
-//!     .start_date(as_of)
-//!     .maturity(create_date(2029, Month::January, 1)?)
-//!     .notional(Money::new(10_000_000.0, Currency::USD))
-//!     .fixed_rate(Rate::from_bps(300)) // 3.00% fixed
-//!     .is_receive_fixed(true)
-//!     .build()?;
-//!
-//! // Setup market with discount and forward curves
-//! // (market setup omitted for brevity)
-//! # let market = MarketContext::new(as_of);
-//!
-//! let registry = standard_registry();
+//! let as_of = date!(2025-01-01);
+//! let swap = InterestRateSwap::example()?;
+//! let market = MarketContext::new();
 //! let metrics = vec![MetricId::Dv01]; // Parallel DV01
 //!
 //! let result = swap.price_with_metrics(&market, as_of, &metrics)?;
 //!
-//! if let Some(dv01) = result.measures.get(&MetricId::Dv01) {
+//! if let Some(dv01) = result.measures.get(MetricId::Dv01.as_str()) {
 //!     println!("Swap DV01: ${:.2} per bp", dv01);
 //!     // Negative DV01 means swap loses value when rates rise
 //!     // (typical for receiver swaps)
@@ -123,33 +72,31 @@
 //!
 //! ## Example 3: Computing Theta (Time Decay) for an Option
 //!
-//! ```ignore
-//! use finstack_valuations::instruments::{EquityOption, PricingOverrides};
-//! use finstack_valuations::metrics::{standard_registry, MetricId};
-//! use finstack_core::dates::{create_date, Month};
-//! use finstack_core::types::Currency;
-//! use finstack_core::money::Money;
+//! ```rust,no_run
+//! use finstack_valuations::instruments::{EquityOption, Instrument, PricingOverrides};
+//! use finstack_valuations::metrics::MetricId;
+//! use finstack_core::dates::create_date;
+//! use finstack_core::market_data::context::MarketContext;
+//! use time::Month;
 //!
 //! # fn main() -> finstack_core::Result<()> {
 //! let as_of = create_date(2024, Month::January, 1)?;
 //! let expiry = create_date(2024, Month::July, 1)?; // 6-month option
 //!
-//! let option = EquityOption::builder("OPT-001")
-//!     .strike(Money::new(100.0, Currency::USD))
-//!     .expiry(expiry)
-//!     .is_call(true)
-//!     .build()?;
-//!
-//! // Setup market (omitted for brevity)
-//! # use finstack_core::market_data::context::MarketContext;
-//! # let market = MarketContext::new(as_of);
-//!
-//! let registry = standard_registry();
+//! let option = EquityOption::european_call(
+//!     "OPT-001",
+//!     "SPX",
+//!     4500.0,
+//!     expiry,
+//!     finstack_core::money::Money::new(100_000.0, finstack_core::currency::Currency::USD),
+//!     100.0,
+//! );
+//! let market = MarketContext::new();
 //! let metrics = vec![MetricId::Theta];
 //!
 //! let result = option.price_with_metrics(&market, as_of, &metrics)?;
 //!
-//! if let Some(theta) = result.measures.get(&MetricId::Theta) {
+//! if let Some(theta) = result.measures.get(MetricId::Theta.as_str()) {
 //!     println!("Option 1-week theta: ${:.2}", theta);
 //!     // Negative theta = option loses value over time (time decay)
 //! }
@@ -159,26 +106,24 @@
 //!
 //! ## Example 4: Computing Multiple Greeks for an Option
 //!
-//! ```ignore
-//! use finstack_valuations::instruments::EquityOption;
-//! use finstack_valuations::metrics::{standard_registry, MetricId};
-//! use finstack_core::dates::{create_date, Month};
-//! use finstack_core::types::Currency;
-//! use finstack_core::money::Money;
+//! ```rust,no_run
+//! use finstack_valuations::instruments::{EquityOption, Instrument};
+//! use finstack_valuations::metrics::MetricId;
+//! use finstack_core::dates::create_date;
+//! use finstack_core::market_data::context::MarketContext;
+//! use time::Month;
 //!
 //! # fn main() -> finstack_core::Result<()> {
 //! let as_of = create_date(2024, Month::January, 1)?;
-//! let option = EquityOption::builder("OPT-001")
-//!     .strike(Money::new(100.0, Currency::USD))
-//!     .expiry(create_date(2024, Month::July, 1)?)
-//!     .is_call(true)
-//!     .build()?;
-//!
-//! // Setup market
-//! # use finstack_core::market_data::context::MarketContext;
-//! # let market = MarketContext::new(as_of);
-//!
-//! let registry = standard_registry();
+//! let option = EquityOption::european_call(
+//!     "OPT-001",
+//!     "SPX",
+//!     4500.0,
+//!     create_date(2024, Month::July, 1)?,
+//!     finstack_core::money::Money::new(100_000.0, finstack_core::currency::Currency::USD),
+//!     100.0,
+//! );
+//! let market = MarketContext::new();
 //! let metrics = vec![
 //!     MetricId::Delta,
 //!     MetricId::Gamma,
@@ -191,11 +136,26 @@
 //!
 //! println!("Option Greeks:");
 //! println!("  PV:    ${:.2}", result.value.amount());
-//! println!("  Delta: {:.4}", result.measures.get(&MetricId::Delta).unwrap_or(&0.0));
-//! println!("  Gamma: {:.4}", result.measures.get(&MetricId::Gamma).unwrap_or(&0.0));
-//! println!("  Vega:  {:.4}", result.measures.get(&MetricId::Vega).unwrap_or(&0.0));
-//! println!("  Theta: {:.4}", result.measures.get(&MetricId::Theta).unwrap_or(&0.0));
-//! println!("  Rho:   {:.4}", result.measures.get(&MetricId::Rho).unwrap_or(&0.0));
+//! println!(
+//!     "  Delta: {:.4}",
+//!     result.measures.get(MetricId::Delta.as_str()).unwrap_or(&0.0)
+//! );
+//! println!(
+//!     "  Gamma: {:.4}",
+//!     result.measures.get(MetricId::Gamma.as_str()).unwrap_or(&0.0)
+//! );
+//! println!(
+//!     "  Vega:  {:.4}",
+//!     result.measures.get(MetricId::Vega.as_str()).unwrap_or(&0.0)
+//! );
+//! println!(
+//!     "  Theta: {:.4}",
+//!     result.measures.get(MetricId::Theta.as_str()).unwrap_or(&0.0)
+//! );
+//! println!(
+//!     "  Rho:   {:.4}",
+//!     result.measures.get(MetricId::Rho.as_str()).unwrap_or(&0.0)
+//! );
 //! # Ok(())
 //! # }
 //! ```
@@ -297,8 +257,10 @@ macro_rules! define_metric_calculator {
 ///
 /// # Examples
 ///
-/// ```ignore
+/// ```rust,no_run
 /// use finstack_valuations::metrics::{metric_not_found, MetricId};
+/// use finstack_core::Result;
+/// use std::collections::HashMap;
 ///
 /// fn get_metric(id: MetricId, results: &HashMap<MetricId, f64>) -> Result<f64> {
 ///     results.get(&id).copied().ok_or_else(|| metric_not_found(id))
@@ -318,11 +280,25 @@ pub fn metric_not_found(metric: MetricId) -> finstack_core::Error {
 ///
 /// # Examples
 ///
-/// ```ignore
+/// ```rust,no_run
 /// use finstack_valuations::metrics::context_not_found;
+/// use finstack_core::types::CurveId;
+/// use finstack_core::Result;
+///
+/// struct PricingContext {
+///     discount_curve_id: Option<CurveId>,
+/// }
+///
+/// impl PricingContext {
+///     fn discount_curve_id(&self) -> Option<&CurveId> {
+///         self.discount_curve_id.as_ref()
+///     }
+/// }
 ///
 /// fn get_curve_id(context: &PricingContext) -> Result<&CurveId> {
-///     context.discount_curve_id().ok_or_else(|| context_not_found("discount_curve_id"))
+///     context
+///         .discount_curve_id()
+///         .ok_or_else(|| context_not_found("discount_curve_id"))
 /// }
 /// ```
 #[inline]

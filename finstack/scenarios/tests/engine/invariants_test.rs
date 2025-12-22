@@ -15,7 +15,6 @@ use finstack_scenarios::{
     CurveKind, ExecutionContext, OperationSpec, ScenarioEngine, ScenarioSpec,
 };
 use finstack_statements::FinancialModelSpec;
-use std::sync::Arc;
 use time::macros::date;
 
 #[test]
@@ -38,7 +37,7 @@ fn test_discount_curve_df_monotonic_after_parallel_shock() {
         .build()
         .unwrap();
 
-    market.insert_mut(Arc::new(curve));
+    market.insert_discount_mut(curve);
 
     // Apply parallel shock
     let scenario = ScenarioSpec {
@@ -103,7 +102,7 @@ fn test_discount_curve_df_monotonic_after_node_shock() {
         .build()
         .unwrap();
 
-    market.insert_mut(Arc::new(curve));
+    market.insert_discount_mut(curve);
 
     // Apply node shock (2Y key-rate bump)
     let scenario = ScenarioSpec {
@@ -167,7 +166,7 @@ fn test_forward_curve_rates_finite_after_parallel_shock() {
         .build()
         .unwrap();
 
-    market.insert_mut(Arc::new(curve));
+    market.insert_forward_mut(curve);
 
     // Apply parallel shock
     let scenario = ScenarioSpec {
@@ -233,7 +232,7 @@ fn test_forward_curve_rates_finite_after_node_shock() {
         .build()
         .unwrap();
 
-    market.insert_mut(Arc::new(curve));
+    market.insert_forward_mut(curve);
 
     // Apply node shock
     let scenario = ScenarioSpec {
@@ -298,7 +297,7 @@ fn test_base_correlation_bounds_after_parallel_shock() {
         .build()
         .unwrap();
 
-    market.insert_mut(Arc::new(curve));
+    market.insert_base_correlation_mut(curve);
 
     // Apply parallel shock (additive)
     let scenario = ScenarioSpec {
@@ -356,7 +355,7 @@ fn test_base_correlation_bounds_after_bucket_shock() {
         .build()
         .unwrap();
 
-    market.insert_mut(Arc::new(curve));
+    market.insert_base_correlation_mut(curve);
 
     // Apply bucket shock to 7% and 15% detachment points
     let scenario = ScenarioSpec {
@@ -415,7 +414,7 @@ fn test_vol_surface_non_negative_after_parallel_shock() {
         .build()
         .unwrap();
 
-    market.insert_surface_mut(Arc::new(surface));
+    market.insert_surface_mut(surface);
 
     // Apply parallel shock
     let scenario = ScenarioSpec {
@@ -479,7 +478,7 @@ fn test_vol_surface_non_negative_after_bucket_shock() {
         .build()
         .unwrap();
 
-    market.insert_surface_mut(Arc::new(surface));
+    market.insert_surface_mut(surface);
 
     // Apply bucket shock to specific strikes
     let scenario = ScenarioSpec {

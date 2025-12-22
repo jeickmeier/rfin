@@ -256,16 +256,29 @@ impl CalibrationReport {
     /// * `tolerance` - Configured tolerance threshold for success determination
     ///
     /// # Example
-    /// ```ignore
+    /// ```rust,no_run
+    /// use finstack_valuations::calibration::CalibrationReport;
+    /// use std::collections::BTreeMap;
+    ///
+    /// # fn main() -> finstack_core::Result<()> {
+    /// let residuals = BTreeMap::from([("DEP-1D".to_string(), 1e-6)]);
+    /// let iterations = 5;
+    /// let tolerance = 1e-4;
+    ///
     /// let report = CalibrationReport::for_type_with_tolerance(
     ///     "yield_curve",
     ///     residuals,
     ///     iterations,
-    ///     config.tolerance,
+    ///     tolerance,
     /// );
     /// if !report.success {
-    ///     return Err(Error::Calibration { ... });
+    ///     return Err(finstack_core::Error::Calibration {
+    ///         message: report.convergence_reason.clone(),
+    ///         category: "calibration".to_string(),
+    ///     });
     /// }
+    /// # Ok(())
+    /// # }
     /// ```
     pub fn for_type_with_tolerance(
         calibration_type: impl Into<String>,

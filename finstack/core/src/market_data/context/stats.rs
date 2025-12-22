@@ -1,4 +1,4 @@
-use hashbrown::HashMap;
+use std::collections::BTreeMap;
 use std::sync::Arc;
 
 use crate::types::CurveId;
@@ -73,8 +73,8 @@ impl MarketContext {
     /// let counts = ctx.count_by_type();
     /// assert_eq!(counts.get("Discount"), Some(&1));
     /// ```
-    pub fn count_by_type(&self) -> HashMap<&'static str, usize> {
-        let mut counts = HashMap::new();
+    pub fn count_by_type(&self) -> BTreeMap<&'static str, usize> {
+        let mut counts = BTreeMap::new();
         for storage in self.curves.values() {
             *counts.entry(storage.curve_type()).or_insert(0) += 1;
         }
@@ -259,9 +259,10 @@ impl MarketContext {
 /// assert_eq!(stats.total_curves, 0);
 /// assert!(!stats.has_fx);
 /// ```
+#[derive(Debug, Clone)]
 pub struct ContextStats {
     /// Count of curves by type
-    pub curve_counts: HashMap<&'static str, usize>,
+    pub curve_counts: BTreeMap<&'static str, usize>,
     /// Total number of curves
     pub total_curves: usize,
     /// Whether FX matrix is present
@@ -304,5 +305,3 @@ impl core::fmt::Display for ContextStats {
         Ok(())
     }
 }
-
-

@@ -19,32 +19,49 @@
 //!
 //! ## Example 1: Key-Rate DV01 for a Bond (Triangular Method)
 //!
-//! ```ignore
+//! ```rust,no_run
 //! use finstack_valuations::instruments::Bond;
 //! use finstack_valuations::metrics::{
-//!     UnifiedDv01Calculator, Dv01CalculatorConfig, MetricContext
+//!     Dv01CalculatorConfig, MetricCalculator, MetricContext, UnifiedDv01Calculator
 //! };
 //!
+//! # fn main() -> finstack_core::Result<()> {
 //! let calculator = UnifiedDv01Calculator::<Bond>::new(
 //!     Dv01CalculatorConfig::triangular_key_rate()
 //! );
 //!
+//! # let mut context: MetricContext = todo!("construct MetricContext during pricing");
 //! let total_dv01 = calculator.calculate(&mut context)?;
 //! // Sum of bucketed DV01 will equal parallel DV01 within ~0.1%
+//! # let _ = total_dv01;
+//! # Ok(())
+//! # }
 //! ```
 //!
 //! ## Example 2: Par-Rate DV01 (Exact Sum)
 //!
-//! ```ignore
-//! use finstack_valuations::metrics::{Dv01CalculatorConfig, ParRateContext};
+//! ```rust,no_run
+//! use finstack_valuations::instruments::Bond;
+//! use finstack_valuations::metrics::{Dv01CalculatorConfig, MetricCalculator, MetricContext, ParRateContext, UnifiedDv01Calculator};
+//! use finstack_valuations::market::quotes::rates::RateQuote;
+//! use finstack_valuations::calibration::api::schema::DiscountCurveParams;
+//! use finstack_core::market_data::context::MarketContext;
 //!
-//! let par_context = ParRateContext::new(quotes, calibrator, base_context);
+//! # fn main() -> finstack_core::Result<()> {
+//! # let quotes: Vec<RateQuote> = Vec::new();
+//! # let params: DiscountCurveParams = todo!("discount curve calibration params");
+//! let base_context = MarketContext::new();
+//! let par_context = ParRateContext::new(quotes, params, base_context);
 //! let calculator = UnifiedDv01Calculator::<Bond>::new(
 //!     Dv01CalculatorConfig::par_rate_key_rate(par_context)
 //! );
 //!
+//! # let mut context: MetricContext = todo!("construct MetricContext during pricing");
 //! let total_dv01 = calculator.calculate(&mut context)?;
 //! // Sum of bucketed DV01 will equal parallel DV01 within numerical precision
+//! # let _ = total_dv01;
+//! # Ok(())
+//! # }
 //! ```
 
 use crate::calibration::api::schema::DiscountCurveParams;
@@ -129,11 +146,16 @@ pub enum CurveSelection {
 ///
 /// # Example
 ///
-/// ```ignore
+/// ```rust,no_run
 /// use finstack_valuations::metrics::ParRateContext;
-/// use finstack_valuations::calibration::methods::DiscountCurveCalibrator;
+/// use finstack_valuations::market::quotes::rates::RateQuote;
+/// use finstack_valuations::calibration::api::schema::DiscountCurveParams;
+/// use finstack_core::market_data::context::MarketContext;
 ///
-/// let context = ParRateContext::new(quotes, calibrator, base_market);
+/// # let quotes: Vec<RateQuote> = Vec::new();
+/// # let params: DiscountCurveParams = todo!("discount curve calibration params");
+/// let base_market = MarketContext::new();
+/// let context = ParRateContext::new(quotes, params, base_market);
 /// ```
 #[derive(Clone)]
 pub struct ParRateContext {

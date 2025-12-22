@@ -56,19 +56,10 @@ use time::{Date, Duration, Month};
 ///
 /// # Examples
 ///
-/// ```rust,ignore
-/// // This function is internal (pub(crate)). For usage, see calendar implementations
-/// // that use Easter Monday (e.g., GBLO, TARGET2).
+/// ```rust,compile_fail
+/// // This helper is internal (pub(crate)); it is not part of the public API.
 /// use finstack_core::dates::calendar::algo::easter_monday;
-/// use time::{Date, Month};
-///
-/// // Easter Monday 2025 falls on April 21
-/// let em_2025 = easter_monday(2025);
-/// # assert_eq!(em_2025, Date::from_calendar_date(2025, Month::April, 21).expect("Valid date"));
-///
-/// // Easter Monday 2024 fell on April 1
-/// let em_2024 = easter_monday(2024);
-/// # assert_eq!(em_2024, Date::from_calendar_date(2024, Month::April, 1).expect("Valid date"));
+/// let _ = easter_monday(2025);
 /// ```
 #[inline]
 pub(crate) fn easter_monday(year: i32) -> Date {
@@ -123,19 +114,10 @@ include!("../../generated/cny_generated.rs");
 ///
 /// # Examples
 ///
-/// ```rust,ignore
-/// // This function is internal (pub(crate)). For usage, see calendar implementations
-/// // that include Chinese New Year holidays.
+/// ```rust,compile_fail
+/// // This helper is internal (pub(crate)); it is not part of the public API.
 /// use finstack_core::dates::calendar::algo::is_cny;
-/// use time::{Date, Month};
-///
-/// // Chinese New Year 2025 is January 29
-/// let cny_2025 = Date::from_calendar_date(2025, Month::January, 29).expect("Valid date");
-/// # assert!(is_cny(cny_2025));
-///
-/// // January 28, 2025 is not CNY
-/// let not_cny = Date::from_calendar_date(2025, Month::January, 28).expect("Valid date");
-/// # assert!(!is_cny(not_cny));
+/// let _ = is_cny(time::macros::date!(2025 - 01 - 29));
 /// ```
 ///
 /// # References
@@ -165,23 +147,10 @@ pub(crate) fn is_cny(date: Date) -> bool {
 ///
 /// # Examples
 ///
-/// ```rust,ignore
-/// // This function is internal (pub(crate)). For usage, see calendar implementations
-/// // that include Chinese New Year holidays.
+/// ```rust,compile_fail
+/// // This helper is internal (pub(crate)); it is not part of the public API.
 /// use finstack_core::dates::calendar::algo::cny_date;
-/// use time::{Date, Month};
-///
-/// // Chinese New Year 2025
-/// let cny_2025 = cny_date(2025).expect("CNY date should exist for 2025");
-/// # assert_eq!(cny_2025, Date::from_calendar_date(2025, Month::January, 29).expect("Valid date"));
-///
-/// // Chinese New Year 2026
-/// let cny_2026 = cny_date(2026).expect("CNY date should exist for 2026");
-/// # assert_eq!(cny_2026, Date::from_calendar_date(2026, Month::February, 17).expect("Valid date"));
-///
-/// // Outside supported range returns None
-/// let cny_1900 = cny_date(1900);
-/// # assert!(cny_1900.is_none());
+/// let _ = cny_date(2025);
 /// ```
 ///
 /// # References

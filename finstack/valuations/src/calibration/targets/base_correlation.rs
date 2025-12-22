@@ -265,7 +265,7 @@ impl BaseCorrelationBootstrapper {
         )?;
 
         let mut new_context = context.clone();
-        new_context.insert_mut(curve.clone());
+        new_context.insert_base_correlation_mut(curve.clone());
         if let Ok(idx) = new_context.credit_index_ref(&params.index_id) {
             let mut updated = idx.clone();
             updated.base_correlation_curve = Arc::new(curve.clone());
@@ -354,7 +354,7 @@ impl BootstrapTarget for BaseCorrelationBootstrapper {
         };
 
         let mut temp_context = self.base_context.clone();
-        temp_context.insert_mut(curve.clone());
+        temp_context.insert_base_correlation_mut(curve.clone());
         if let Ok(idx) = temp_context.credit_index_ref(&self.params.index_id) {
             let mut updated = idx.clone();
             updated.base_correlation_curve = Arc::new(curve.clone());

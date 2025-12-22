@@ -7,9 +7,9 @@
 use super::ids::MetricId;
 use super::traits::{MetricCalculator, MetricContext};
 
+use crate::pricer::InstrumentType;
 use hashbrown::HashMap;
 use std::sync::Arc;
-use crate::pricer::InstrumentType;
 
 /// Metric computation mode.
 ///

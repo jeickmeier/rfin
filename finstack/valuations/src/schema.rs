@@ -44,7 +44,8 @@ pub fn valuation_result_schema() -> &'static Value {
 /// Returns schema for calibration diagnostic report.
 pub fn calibration_report_schema() -> &'static Value {
     static SCHEMA: OnceLock<Value> = OnceLock::new();
-    SCHEMA.get_or_init(|| include_schema!("../schemas/calibration/2/calibration_result.schema.json"))
+    SCHEMA
+        .get_or_init(|| include_schema!("../schemas/calibration/2/calibration_result.schema.json"))
 }
 
 #[cfg(test)]

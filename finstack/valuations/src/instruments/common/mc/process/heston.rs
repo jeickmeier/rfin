@@ -92,7 +92,7 @@
 //!
 //! # Examples
 //!
-//! ```rust,ignore
+//! ```rust,no_run
 //! use finstack_valuations::instruments::common::mc::process::heston::{
 //!     HestonProcess, HestonParams
 //! };
@@ -108,7 +108,7 @@
 //!     0.04,   // v₀ = initial variance (20% current vol)
 //! );
 //!
-//! let heston = HestonProcess::new(params);
+//! let heston = HestonProcess::new(params.clone());
 //!
 //! // Check Feller condition
 //! let feller = 2.0 * params.kappa * params.theta;
