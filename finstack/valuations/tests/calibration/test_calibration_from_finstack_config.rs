@@ -66,3 +66,20 @@ fn calibration_config_defaults_without_extension() {
     assert_eq!(cfg_out.rate_bounds_policy, defaults.rate_bounds_policy);
     assert_eq!(cfg_out.rate_bounds, defaults.rate_bounds);
 }
+
+#[test]
+fn calibration_config_rejects_unknown_fields_in_extension() {
+    let mut cfg = FinstackConfig::default();
+    cfg.extensions.insert(
+        CALIBRATION_CONFIG_KEY,
+        json!({
+            "unknown_field": true
+        }),
+    );
+
+    let err = CalibrationConfig::from_finstack_config_or_default(&cfg)
+        .expect_err("unknown fields should error");
+    let msg = err.to_string();
+    assert!(msg.contains("Failed to parse extension"));
+    assert!(msg.contains(CALIBRATION_CONFIG_KEY));
+}

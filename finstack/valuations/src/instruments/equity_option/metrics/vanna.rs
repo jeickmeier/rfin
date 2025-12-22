@@ -39,13 +39,25 @@ impl MetricCalculator for VannaCalculator {
         };
 
         let spot_bump = current_spot * bump_sizes::SPOT;
-        let vol_bump = bump_sizes::VOLATILITY;
+        let vol_bump_pct = bump_sizes::VOLATILITY;
+
+        // Determine the effective (ATM-ish) volatility so we can convert the relative bump
+        // into an absolute Δσ and compute ∂Δ/∂σ (not ∂Δ/∂scale).
+        let sigma = context
+            .curves
+            .surface_ref(option.vol_surface_id.as_str())
+            .map(|surf| surf.value_clamped(t, option.strike.amount()))
+            .unwrap_or(0.0);
+        let vol_bump_abs = (sigma * vol_bump_pct).abs();
+        if vol_bump_abs < 1e-12 {
+            return Ok(0.0);
+        }
 
         // Compute delta at vol_up: bump both spot and vol, compute delta
         let curves_vol_up = scale_surface(
             &context.curves,
             option.vol_surface_id.as_str(),
-            1.0 + vol_bump,
+            1.0 + vol_bump_pct,
         )?;
 
         // Delta at vol_up: (PV(S+h, σ+h) - PV(S-h, σ+h)) / (2h_S)
@@ -61,7 +73,7 @@ impl MetricCalculator for VannaCalculator {
         let curves_vol_down = scale_surface(
             &context.curves,
             option.vol_surface_id.as_str(),
-            1.0 - vol_bump,
+            1.0 - vol_bump_pct,
         )?;
 
         // Delta at vol_down: (PV(S+h, σ-h) - PV(S-h, σ-h)) / (2h_S)
@@ -73,10 +85,11 @@ impl MetricCalculator for VannaCalculator {
         let pv_down_vol_down = option.npv(&curves_down_vol_down, as_of)?.amount();
         let delta_vol_down = (pv_up_vol_down - pv_down_vol_down) / (2.0 * spot_bump);
 
-        // Vanna = (Delta(σ+h) - Delta(σ-h)) / (2h_σ)
-        // Note: vol_bump is already in absolute terms (0.01), so we need to convert to vol units
-        // Since we're bumping by 1%, the denominator is just 2 * vol_bump
-        let vanna = (delta_vol_up - delta_vol_down) / (2.0 * vol_bump);
+        // Vanna = ∂Δ/∂σ ≈ (Δ(σ+Δσ) - Δ(σ-Δσ)) / (2Δσ)
+        //
+        // We bump the surface multiplicatively (relative) but divide by the corresponding
+        // absolute volatility change Δσ = σ × bump_pct to keep the definition standard.
+        let vanna = (delta_vol_up - delta_vol_down) / (2.0 * vol_bump_abs);
 
         Ok(vanna)
     }

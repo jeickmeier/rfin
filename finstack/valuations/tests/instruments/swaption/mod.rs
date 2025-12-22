@@ -12,6 +12,7 @@ pub mod integration;
 pub mod market;
 pub mod metrics;
 pub mod pricing;
+pub mod core;
 
 /// Common test utilities and fixtures
 pub mod common;

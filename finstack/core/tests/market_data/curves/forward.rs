@@ -243,13 +243,19 @@ fn test_forward_curve_spread_based_construction() {
 
     let fwd_curve = ForwardCurve::builder("FWD-SPREAD", 0.25)
         .base_date(test_date())
-        .knots([(0.0, 0.01), (1.0, 0.015), (2.0, 0.02)]) // Spread
+        .knots([(0.0, 0.01), (1.0, 0.015), (2.0, 0.02)]) // Spread (simple forwards)
+        .set_interp(InterpStyle::Linear)
         .build()
         .unwrap();
 
-    // Verify rate calculations with spread
-    let rate = fwd_curve.rate(1.0);
-    assert!(rate > 0.0);
+    // Verify exact knot values
+    assert!((fwd_curve.rate(0.0) - 0.01).abs() < 1e-15);
+    assert!((fwd_curve.rate(1.0) - 0.015).abs() < 1e-15);
+    assert!((fwd_curve.rate(2.0) - 0.02).abs() < 1e-15);
+
+    // Verify linear interpolation between knots
+    assert!((fwd_curve.rate(0.5) - 0.0125).abs() < 1e-15);
+    assert!((fwd_curve.rate(1.5) - 0.0175).abs() < 1e-15);
 }
 
 #[test]

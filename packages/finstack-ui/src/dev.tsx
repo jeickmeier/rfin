@@ -91,8 +91,7 @@ const DevShell: React.FC = () => {
                 padding: "2px 6px",
                 borderRadius: 4,
                 border: "1px solid #e5e7eb",
-                backgroundColor:
-                  demo === "bond" ? "#e5e7eb" : "transparent",
+                backgroundColor: demo === "bond" ? "#e5e7eb" : "transparent",
                 cursor: "pointer",
                 fontSize: 12,
               }}
@@ -108,8 +107,7 @@ const DevShell: React.FC = () => {
                 padding: "2px 6px",
                 borderRadius: 4,
                 border: "1px solid #e5e7eb",
-                backgroundColor:
-                  demo === "swap" ? "#e5e7eb" : "transparent",
+                backgroundColor: demo === "swap" ? "#e5e7eb" : "transparent",
                 cursor: "pointer",
                 fontSize: 12,
               }}

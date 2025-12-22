@@ -745,4 +745,26 @@ mod tests {
             "expected merged trace to contain the step's entries"
         );
     }
+
+    #[test]
+    fn aggregated_report_surfaces_validation_failures() {
+        let mut step_reports = BTreeMap::new();
+        let failed = CalibrationReport::new(BTreeMap::new(), 1, true, "converged")
+            .with_validation_result(false, Some("invalid curve shape".to_string()));
+        step_reports.insert("curve_step".to_string(), failed);
+
+        let cfg = crate::calibration::config::CalibrationConfig::default();
+        let report = aggregate_plan_report(BTreeMap::new(), 1, &step_reports, &cfg);
+
+        assert!(!report.validation_passed);
+        assert!(!report.success);
+        let msg = report
+            .validation_error
+            .as_deref()
+            .expect("validation error should be present");
+        assert!(
+            msg.contains("curve_step:invalid curve shape"),
+            "expected step id and reason in validation error: {msg}"
+        );
+    }
 }

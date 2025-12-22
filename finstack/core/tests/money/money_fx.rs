@@ -1,5 +1,7 @@
 use finstack_core::dates::Date;
-use finstack_core::money::fx::{FxConversionPolicy, FxMatrix, FxProvider, FxRate};
+use finstack_core::money::fx::{
+    FxConfig, FxConversionPolicy, FxMatrix, FxProvider, FxQuery, FxRate,
+};
 use finstack_core::money::Money;
 use finstack_core::prelude::Currency;
 use std::sync::Arc;
@@ -45,7 +47,10 @@ fn cross_currency_add_fails_without_convert() {
 
 #[test]
 fn closure_check_matrix() {
-    // provider: from USD->EUR 0.9, USD->GBP 0.75, GBP->EUR 1.2, so USD->GBP*GBP->EUR = 0.9 ≈ USD->EUR
+    // Market standard identity: cross rates must satisfy triangular consistency.
+    // We force triangulation via USD pivot:
+    // USD->EUR = 0.9, USD->GBP = 0.75, GBP->USD = 1/0.75
+    // => GBP->EUR = GBP->USD * USD->EUR = 1.2
     struct Prov;
     impl FxProvider for Prov {
         fn rate(
@@ -55,23 +60,44 @@ fn closure_check_matrix() {
             _on: Date,
             _policy: FxConversionPolicy,
         ) -> finstack_core::Result<FxRate> {
-            let r = match (from, to) {
-                (Currency::USD, Currency::EUR) => 0.9,
-                (Currency::USD, Currency::GBP) => 0.75,
-                (Currency::GBP, Currency::EUR) => 1.2,
-                _ => 1.0,
-            };
-            Ok(r)
+            match (from, to) {
+                (Currency::USD, Currency::EUR) => Ok(0.9),
+                (Currency::USD, Currency::GBP) => Ok(0.75),
+                (Currency::GBP, Currency::USD) => Ok(1.0 / 0.75),
+                _ => Err(finstack_core::error::InputError::NotFound {
+                    id: format!("FX:{from}->{to}"),
+                }
+                .into()),
+            }
         }
     }
-    let m = FxMatrix::new(Arc::new(Prov));
+    let cfg = FxConfig {
+        enable_triangulation: true,
+        pivot_currency: Currency::USD,
+        ..Default::default()
+    };
+    let m = FxMatrix::with_config(Arc::new(Prov), cfg);
     let d = Date::from_calendar_date(2025, time::Month::January, 1).unwrap();
-    // Closure diagnostics gated behind test-only methods; verify triangulation via rate call.
-    let _ = m
-        .rate(finstack_core::money::fx::FxQuery::new(
-            Currency::USD,
-            Currency::EUR,
-            d,
-        ))
+
+    // Direct quote (not triangulated)
+    let usd_eur = m
+        .rate(FxQuery::new(Currency::USD, Currency::EUR, d))
         .unwrap();
+    assert!(!usd_eur.triangulated);
+    assert!((usd_eur.rate - 0.9).abs() < 1e-15);
+
+    // Triangulated cross
+    let gbp_eur = m
+        .rate(FxQuery::new(Currency::GBP, Currency::EUR, d))
+        .unwrap();
+    assert!(gbp_eur.triangulated);
+    assert!((gbp_eur.rate - 1.2).abs() < 1e-15);
+
+    // Triangular consistency: USD->GBP * GBP->EUR == USD->EUR
+    let usd_gbp = m
+        .rate(FxQuery::new(Currency::USD, Currency::GBP, d))
+        .unwrap();
+    assert!(!usd_gbp.triangulated);
+    let lhs = usd_gbp.rate * gbp_eur.rate;
+    assert!((lhs - usd_eur.rate).abs() < 1e-12);
 }

@@ -32,13 +32,24 @@ impl MetricCalculator for VolgaCalculator {
             return Ok(0.0);
         }
 
-        let vol_bump = bump_sizes::VOLATILITY;
+        let vol_bump_pct = bump_sizes::VOLATILITY;
+
+        // Convert the relative surface bump into an absolute Δσ for ∂²V/∂σ².
+        let sigma = context
+            .curves
+            .surface_ref(option.vol_surface_id.as_str())
+            .map(|surf| surf.value_clamped(t, option.strike.amount()))
+            .unwrap_or(0.0);
+        let vol_bump_abs = (sigma * vol_bump_pct).abs();
+        if vol_bump_abs < 1e-12 {
+            return Ok(0.0);
+        }
 
         // Bump vol up
         let curves_vol_up = scale_surface(
             &context.curves,
             option.vol_surface_id.as_str(),
-            1.0 + vol_bump,
+            1.0 + vol_bump_pct,
         )?;
         let pv_vol_up = option.npv(&curves_vol_up, as_of)?.amount();
 
@@ -46,13 +57,15 @@ impl MetricCalculator for VolgaCalculator {
         let curves_vol_down = scale_surface(
             &context.curves,
             option.vol_surface_id.as_str(),
-            1.0 - vol_bump,
+            1.0 - vol_bump_pct,
         )?;
         let pv_vol_down = option.npv(&curves_vol_down, as_of)?.amount();
 
-        // Volga = (PV(σ+h) - 2*PV(σ) + PV(σ-h)) / h²
-        // h is in vol units (0.01 = 1%)
-        let volga = (pv_vol_up - 2.0 * base_pv + pv_vol_down) / (vol_bump * vol_bump);
+        // Volga (Vomma) = ∂²V/∂σ² ≈ (V(σ+Δσ) - 2V(σ) + V(σ-Δσ)) / (Δσ)²
+        //
+        // We bump the surface multiplicatively (relative) but divide by the corresponding
+        // absolute volatility change Δσ = σ × bump_pct to keep the definition standard.
+        let volga = (pv_vol_up - 2.0 * base_pv + pv_vol_down) / (vol_bump_abs * vol_bump_abs);
 
         Ok(volga)
     }

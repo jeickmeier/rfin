@@ -685,6 +685,9 @@ impl Swaption {
     /// or `None` if the option has expired.
     pub fn greek_inputs(&self, curves: &MarketContext, as_of: Date) -> Result<Option<GreekInputs>> {
         let disc = curves.get_discount_ref(self.discount_curve_id.as_ref())?;
+        if as_of >= self.expiry {
+            return Ok(None);
+        }
         let t = self.year_fraction(as_of, self.expiry, self.day_count)?;
 
         if t <= 0.0 {
@@ -1006,17 +1009,25 @@ impl BermudanSwaption {
     /// Calculate time to first exercise in years.
     pub fn time_to_first_exercise(&self, as_of: Date) -> Result<f64> {
         match self.first_exercise() {
-            Some(first) => self.day_count.year_fraction(
-                as_of,
-                first,
-                finstack_core::dates::DayCountCtx::default(),
-            ),
+            Some(first) => {
+                if as_of >= first {
+                    return Ok(0.0);
+                }
+                self.day_count.year_fraction(
+                    as_of,
+                    first,
+                    finstack_core::dates::DayCountCtx::default(),
+                )
+            }
             None => Err(Error::Validation("No exercise dates".into())),
         }
     }
 
     /// Calculate time to swap maturity in years.
     pub fn time_to_maturity(&self, as_of: Date) -> Result<f64> {
+        if as_of >= self.swap_end {
+            return Ok(0.0);
+        }
         self.day_count.year_fraction(
             as_of,
             self.swap_end,

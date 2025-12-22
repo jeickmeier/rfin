@@ -11,7 +11,7 @@ use finstack_valuations::cashflow::traits::CashflowProvider;
 use finstack_valuations::instruments::common::traits::Instrument;
 use finstack_valuations::instruments::structured_credit::{
     DealType, PaymentCalculation, Pool, PoolAsset, Recipient, RecipientType, Seniority,
-    StructuredCredit, Tranche, TrancheCoupon, TrancheStructure, Waterfall,
+    StructuredCredit, Tranche, TrancheCoupon, TrancheStructure, TrancheValuationExt, Waterfall,
 };
 use finstack_valuations::metrics::MetricId;
 use time::Month;
@@ -180,6 +180,54 @@ fn test_structured_credit_clean_price() {
     // Clean should be <= Dirty
     assert!(clean <= dirty + 0.01); // Small tolerance for rounding
     assert!(accrued >= 0.0);
+}
+
+// ============================================================================
+// Tranche Cashflow Tests
+// ============================================================================
+
+#[test]
+fn test_structured_credit_tranche_cashflows_generated() {
+    let sc = StructuredCredit::new_abs(
+        "TEST_ABS",
+        create_simple_pool(),
+        create_simple_tranches(),
+        create_simple_waterfall(),
+        Date::from_calendar_date(2024, Month::January, 1).unwrap(),
+        maturity_date(),
+        "USD-OIS",
+    )
+    .with_payment_calendar("nyse");
+
+    let market = MarketContext::new().insert_discount(flat_discount_curve(0.04, test_date()));
+
+    let cashflows = sc
+        .get_tranche_cashflows("SENIOR", &market, test_date())
+        .expect("tranche cashflows should be generated");
+
+    assert!(!cashflows.cashflows.is_empty());
+}
+
+#[test]
+fn test_structured_credit_tranche_value_computation() {
+    let sc = StructuredCredit::new_abs(
+        "TEST_ABS",
+        create_simple_pool(),
+        create_simple_tranches(),
+        create_simple_waterfall(),
+        Date::from_calendar_date(2024, Month::January, 1).unwrap(),
+        maturity_date(),
+        "USD-OIS",
+    )
+    .with_payment_calendar("nyse");
+
+    let market = MarketContext::new().insert_discount(flat_discount_curve(0.04, test_date()));
+
+    let pv = sc
+        .value_tranche("SENIOR", &market, test_date())
+        .expect("tranche PV should be computed");
+
+    assert!(pv.amount() > 0.0);
 }
 
 // ============================================================================

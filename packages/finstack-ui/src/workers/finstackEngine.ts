@@ -106,10 +106,7 @@ type WasmBindings = typeof import("finstack-wasm") & {
     currency: string,
   ) => {
     withConfig: (config: unknown) => unknown;
-    calibrate: (
-      quotes: unknown[],
-      market: MarketContextLike | null,
-    ) => unknown;
+    calibrate: (quotes: unknown[], market: MarketContextLike | null) => unknown;
   };
   ForwardCurveCalibrator: new (
     curveId: string,
@@ -285,8 +282,7 @@ function buildMarketContext(
 
   if (storedMarketJson) {
     const marketCtor = wasm.MarketContext as unknown as MarketContextStatic;
-    let hydratableMarket: HydratableMarket | null =
-      market as HydratableMarket;
+    let hydratableMarket: HydratableMarket | null = market as HydratableMarket;
     try {
       if (typeof marketCtor.fromJson === "function") {
         market = marketCtor.fromJson(storedMarketJson);
@@ -763,11 +759,17 @@ const api = {
         // Create deposit or swap quote based on instrument type
         const instrument = quote.instrument?.toUpperCase() ?? "OIS";
         try {
-          if (instrument === "DEPOSIT" || instrument === "OIS" || tenorMonths <= 12) {
+          if (
+            instrument === "DEPOSIT" ||
+            instrument === "OIS" ||
+            tenorMonths <= 12
+          ) {
             wasmQuotes.push(
               wasm.RatesQuote.deposit(maturityDate, rateValue, "act_360"),
             );
-            diagnostics.push(`Created deposit quote: ${tenorStr} @ ${rateValue}`);
+            diagnostics.push(
+              `Created deposit quote: ${tenorStr} @ ${rateValue}`,
+            );
           } else {
             // For longer tenors, use swap quotes
             wasmQuotes.push(
@@ -784,7 +786,9 @@ const api = {
             diagnostics.push(`Created swap quote: ${tenorStr} @ ${rateValue}`);
           }
         } catch (e) {
-          diagnostics.push(`Failed to create quote for tenor ${tenorStr}: ${e}`);
+          diagnostics.push(
+            `Failed to create quote for tenor ${tenorStr}: ${e}`,
+          );
         }
       }
 
@@ -821,7 +825,9 @@ const api = {
         rmse: number;
       };
 
-      diagnostics.push(`Calibration ${report.success ? "succeeded" : "failed"}`);
+      diagnostics.push(
+        `Calibration ${report.success ? "succeeded" : "failed"}`,
+      );
       diagnostics.push(`Iterations: ${report.iterations}`);
       diagnostics.push(`Convergence: ${report.convergenceReason}`);
       if (report.rmse !== undefined) {
@@ -980,7 +986,9 @@ const api = {
           );
           diagnostics.push(`Created swap quote: ${tenorStr} @ ${rateValue}`);
         } catch (e) {
-          diagnostics.push(`Failed to create quote for tenor ${tenorStr}: ${e}`);
+          diagnostics.push(
+            `Failed to create quote for tenor ${tenorStr}: ${e}`,
+          );
         }
       }
 
@@ -1035,7 +1043,9 @@ const api = {
         rmse: number;
       };
 
-      diagnostics.push(`Calibration ${report.success ? "succeeded" : "failed"}`);
+      diagnostics.push(
+        `Calibration ${report.success ? "succeeded" : "failed"}`,
+      );
       diagnostics.push(`Iterations: ${report.iterations}`);
       diagnostics.push(`Convergence: ${report.convergenceReason}`);
       if (report.rmse !== undefined) {
@@ -1058,7 +1068,19 @@ const api = {
       }
 
       // Extract curve points at standard tenors up to max quote tenor + buffer
-      const allTenors = ["3M", "6M", "1Y", "2Y", "3Y", "5Y", "7Y", "10Y", "15Y", "20Y", "30Y"];
+      const allTenors = [
+        "3M",
+        "6M",
+        "1Y",
+        "2Y",
+        "3Y",
+        "5Y",
+        "7Y",
+        "10Y",
+        "15Y",
+        "20Y",
+        "30Y",
+      ];
       const standardTenors = allTenors.filter(
         (t) => parseTenorToYears(t) <= maxQuoteTenor * 1.2, // Allow 20% buffer beyond max quote
       );

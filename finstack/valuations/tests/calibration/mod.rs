@@ -6,9 +6,11 @@
 mod test_base_correlation_calibration;
 mod test_bloomberg_calibration_accuracy;
 mod test_calibration;
+mod test_calibration_config;
 mod test_calibration_from_finstack_config;
 mod test_calibration_repricing;
 mod test_calibration_serialization;
+mod test_engine_failure_modes;
 mod test_explainability;
 mod test_hazard_curve_calibration;
 mod test_inflation_conventions;

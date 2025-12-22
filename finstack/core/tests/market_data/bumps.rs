@@ -4,6 +4,7 @@ use super::test_helpers::{
 };
 use finstack_core::market_data::bumps::{BumpMode, BumpSpec, BumpType, BumpUnits, Bumpable};
 use finstack_core::market_data::term_structures::hazard_curve::HazardCurve;
+use finstack_core::market_data::term_structures::ForwardCurve;
 
 #[test]
 fn bump_spec_constructors_normalize_values() {
@@ -66,6 +67,57 @@ fn forward_curve_supports_additive_and_multiplicative_bumps() {
         multiplicative.forwards()[1] > curve.forwards()[1],
         "multiplicative bumps scale rates upward"
     );
+}
+
+#[test]
+fn forward_curve_parallel_bump_bp_is_additive_in_rate_space() {
+    let curve = ForwardCurve::builder("USD-SOFR3M", 0.25)
+        .base_date(sample_base_date())
+        .knots([(0.0, 0.03), (1.0, 0.04), (2.0, 0.05)])
+        .build()
+        .unwrap();
+
+    let bumped = curve.apply_bump(BumpSpec::parallel_bp(10.0)).unwrap();
+    // 10bp = 0.001
+    for (orig, b) in curve.forwards().iter().zip(bumped.forwards().iter()) {
+        assert!((*b - (*orig + 0.001)).abs() < 1e-15);
+    }
+}
+
+#[test]
+fn forward_curve_triangular_key_rate_weights_match_market_standard() {
+    let curve = ForwardCurve::builder("USD-SOFR3M", 0.25)
+        .base_date(sample_base_date())
+        // Include knots across the bucket grid so weights are visible at 0.5 and 1.0
+        .knots([(0.0, 0.03), (0.5, 0.032), (1.0, 0.035), (2.0, 0.04)])
+        .set_interp(finstack_core::math::interp::InterpStyle::Linear)
+        .build()
+        .unwrap();
+
+    // Bucketed bump centered at 1.0 with neighbors at 0.0 and 2.0
+    let bp = 20.0;
+    let bumped = curve
+        .apply_bump(BumpSpec::triangular_key_rate_bp(0.0, 1.0, 2.0, bp))
+        .unwrap();
+
+    let bump_rate = bp / 10_000.0;
+
+    // Market-standard triangular weights (defined on bucket grid):
+    // w(0.0)=0, w(0.5)=0.5, w(1.0)=1.0, w(2.0)=0
+    let expected = [(0.0, 0.0), (0.5, 0.5), (1.0, 1.0), (2.0, 0.0)];
+
+    for (t, w) in expected {
+        let base = curve.rate(t);
+        let bumped_rate = bumped.rate(t);
+        assert!(
+            (bumped_rate - (base + bump_rate * w)).abs() < 1e-12,
+            "t={}: expected {}, got {} (w={})",
+            t,
+            base + bump_rate * w,
+            bumped_rate,
+            w
+        );
+    }
 }
 
 #[test]

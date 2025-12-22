@@ -107,6 +107,12 @@ test-ui:
 test-ui-coverage:
 	cd packages/finstack-ui && npm run test:coverage
 
+fmt:
+	make fmt-rust
+	make fmt-python
+	make fmt-wasm
+	make fmt-ui
+
 fmt-rust:
 	cargo fmt --all
 

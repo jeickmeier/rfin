@@ -319,3 +319,59 @@ fn test_valid_surface_passes_arbitrage_checks() {
     assert!(surface.validate_vol_bounds(&config).is_ok());
     assert!(surface.validate(&config).is_ok());
 }
+
+#[test]
+fn test_discount_curve_bounds_rejects_excessive_df() {
+    use finstack_core::market_data::term_structures::discount_curve::DiscountCurve;
+
+    let base_date = Date::from_calendar_date(2025, Month::January, 1).expect("valid date");
+    let config = ValidationConfig::default();
+
+    let curve = DiscountCurve::builder("TEST-DF-BOUNDS")
+        .base_date(base_date)
+        .knots(vec![(0.0, 1.0), (0.25, 1.10), (1.0, 0.95)])
+        .set_interp(InterpStyle::Linear)
+        .allow_non_monotonic()
+        .build()
+        .expect("curve should build");
+
+    let err = curve.validate_bounds(&config).expect_err("should reject DF > 1.0");
+    assert!(err.to_string().contains("exceeds"));
+}
+
+#[test]
+fn test_forward_curve_bounds_rejects_excessive_rate() {
+    use finstack_core::market_data::term_structures::forward_curve::ForwardCurve;
+
+    let base_date = Date::from_calendar_date(2025, Month::January, 1).expect("valid date");
+    let config = ValidationConfig::default();
+
+    let curve = ForwardCurve::builder("TEST-FWD-HIGH", 0.25)
+        .base_date(base_date)
+        .knots(vec![(0.25, 0.02), (1.0, 0.75), (2.0, 0.03)])
+        .build()
+        .expect("forward curve");
+
+    let err = curve
+        .validate_bounds(&config)
+        .expect_err("should reject extreme forward rate");
+    assert!(err.to_string().contains("too high"));
+}
+
+#[test]
+fn test_inflation_curve_hyperinflation_rejected() {
+    use finstack_core::market_data::term_structures::inflation::InflationCurve;
+
+    let config = ValidationConfig::default();
+
+    let curve = InflationCurve::builder("TEST-INFL-HYPER")
+        .base_cpi(100.0)
+        .knots(vec![(1.0, 200.0), (2.0, 300.0)])
+        .build()
+        .expect("inflation curve");
+
+    let err = curve
+        .validate_monotonicity(&config)
+        .expect_err("hyperinflation should be rejected");
+    assert!(err.to_string().contains("Hyperinflation"));
+}

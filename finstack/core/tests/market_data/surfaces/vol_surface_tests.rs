@@ -1,3 +1,4 @@
+use finstack_core::market_data::bumps::{BumpMode, BumpSpec, BumpType, BumpUnits, Bumpable};
 use finstack_core::market_data::surfaces::vol_surface::VolSurface;
 
 #[test]
@@ -51,8 +52,10 @@ fn test_vol_surface_value_clamped() {
     let v2 = surface.value_clamped(1.0, 100.0); // Exact
     assert!((v1 - v2).abs() < 1e-10);
 
-    let v3 = surface.value_clamped(1.5, 80.0); // Clamp strike to 90.0
-    assert!(v3 > 0.0);
+    // Clamp strike to 90.0, then interpolate along expiry:
+    // expiry=1.5 is midpoint between rows at strike=90: (0.20 + 0.19) / 2 = 0.195
+    let v3 = surface.value_clamped(1.5, 80.0);
+    assert!((v3 - 0.195).abs() < 1e-12);
 }
 
 #[test]
@@ -66,8 +69,9 @@ fn test_vol_surface_value_unchecked_panics() {
         .unwrap();
 
     // In-bounds should work
-    let v = surface.value_unchecked(1.5, 100.0);
-    assert!(v > 0.0);
+    let v_checked = surface.value_checked(1.5, 100.0).unwrap();
+    let v_unchecked = surface.value_unchecked(1.5, 100.0);
+    assert!((v_unchecked - v_checked).abs() < 1e-15);
 }
 
 #[test]
@@ -111,7 +115,9 @@ fn test_vol_surface_bilinear_interpolation() {
 
     // Bilinear interpolation at center
     let v = surface.value_checked(1.5, 100.0).unwrap();
-    assert!(v > 0.25 && v < 0.30); // Should be between corners
+    // Center point => average of four corners
+    // (0.20 + 0.30 + 0.25 + 0.35) / 4 = 0.275
+    assert!((v - 0.275).abs() < 1e-12);
 }
 
 #[test]
@@ -198,9 +204,9 @@ fn test_vol_surface_negative_strikes() {
 
     let surf = result.unwrap();
     // Test interpolation with negative strikes
-    assert!(surf.value_clamped(1.0, -10.0) > 0.0);
-    assert!(surf.value_clamped(1.0, 0.0) > 0.0);
-    assert!(surf.value_clamped(1.0, 10.0) > 0.0);
+    assert!((surf.value_clamped(1.0, -10.0) - 0.2).abs() < 1e-12);
+    assert!((surf.value_clamped(1.0, 0.0) - 0.2).abs() < 1e-12);
+    assert!((surf.value_clamped(1.0, 10.0) - 0.2).abs() < 1e-12);
 }
 
 #[test]
@@ -221,9 +227,116 @@ fn test_vol_surface_from_grid_wrong_size() {
 }
 
 #[test]
-fn test_vol_surface_bump_coverage() {
-    // TODO: Test bump functionality when BumpSpec API is understood
-    // Should cover: parallel bumps, absolute vs percentage
+fn test_vol_surface_parallel_bump_additive_percent() {
+    let surface = VolSurface::builder("TEST")
+        .expiries(&[1.0, 2.0])
+        .strikes(&[90.0, 100.0])
+        .row(&[0.20, 0.21])
+        .row(&[0.19, 0.20])
+        .build()
+        .unwrap();
+
+    // +1% additive in Percent units => +0.01 absolute vol points (not a 1% relative change)
+    let bumped = surface
+        .apply_bump(BumpSpec {
+            mode: BumpMode::Additive,
+            units: BumpUnits::Percent,
+            value: 1.0,
+            bump_type: BumpType::Parallel,
+        })
+        .unwrap();
+
+    for &(e, k) in &[(1.0, 90.0), (1.0, 100.0), (2.0, 90.0), (2.0, 100.0)] {
+        let orig = surface.value_checked(e, k).unwrap();
+        let b = bumped.value_checked(e, k).unwrap();
+        assert!((b - (orig + 0.01)).abs() < 1e-12);
+    }
+}
+
+#[test]
+fn test_vol_surface_parallel_bump_multiplicative_factor() {
+    let surface = VolSurface::builder("TEST")
+        .expiries(&[1.0, 2.0])
+        .strikes(&[90.0, 100.0])
+        .row(&[0.20, 0.21])
+        .row(&[0.19, 0.20])
+        .build()
+        .unwrap();
+
+    let bumped = surface.apply_bump(BumpSpec::multiplier(1.10)).unwrap();
+    let orig = surface.value_checked(1.5, 95.0).unwrap();
+    let b = bumped.value_checked(1.5, 95.0).unwrap();
+    assert!((b - orig * 1.10).abs() < 1e-12);
+}
+
+#[test]
+fn test_vol_surface_bump_clamps_to_zero() {
+    let surface = VolSurface::builder("TEST")
+        .expiries(&[1.0])
+        .strikes(&[100.0])
+        .row(&[0.005])
+        .build()
+        .unwrap();
+
+    // Large negative additive bump should clamp to zero
+    let bumped = surface
+        .apply_bump(BumpSpec {
+            mode: BumpMode::Additive,
+            units: BumpUnits::Fraction,
+            value: -1.0,
+            bump_type: BumpType::Parallel,
+        })
+        .unwrap();
+    assert_eq!(bumped.value_checked(1.0, 100.0).unwrap(), 0.0);
+}
+
+#[test]
+fn test_vol_surface_rejects_key_rate_bumps() {
+    let surface = VolSurface::builder("TEST")
+        .expiries(&[1.0, 2.0])
+        .strikes(&[90.0, 100.0])
+        .row(&[0.20, 0.21])
+        .row(&[0.19, 0.20])
+        .build()
+        .unwrap();
+
+    let err = surface
+        .apply_bump(BumpSpec {
+            mode: BumpMode::Additive,
+            units: BumpUnits::Percent,
+            value: 1.0,
+            bump_type: BumpType::TriangularKeyRate {
+                prev_bucket: 1.0,
+                target_bucket: 2.0,
+                next_bucket: 3.0,
+            },
+        })
+        .expect_err("VolSurface should reject key-rate bumps");
+    let msg = format!("{err}");
+    assert!(msg.contains("VolSurface") || msg.contains("Parallel"));
+}
+
+#[test]
+fn test_vol_surface_bucket_bump_filters() {
+    let surface = VolSurface::builder("TEST")
+        .expiries(&[1.0, 2.0])
+        .strikes(&[90.0, 100.0])
+        .row(&[0.20, 0.21])
+        .row(&[0.19, 0.20])
+        .build()
+        .unwrap();
+
+    // Bump only (expiry=2.0, strike=90.0) by +10%
+    let bumped = surface
+        .apply_bucket_bump(Some(&[2.0]), Some(&[90.0]), 10.0)
+        .expect("bucket bump should succeed");
+
+    // Bumped bucket
+    assert!((bumped.value_checked(2.0, 90.0).unwrap() - 0.19 * 1.10).abs() < 1e-12);
+    // Unchanged buckets
+    assert!((bumped.value_checked(1.0, 90.0).unwrap() - 0.20).abs() < 1e-12);
+    assert!((bumped.value_checked(1.0, 100.0).unwrap() - 0.21).abs() < 1e-12);
+    assert!((bumped.value_checked(2.0, 100.0).unwrap() - 0.20).abs() < 1e-12);
 }
 
 #[test]
