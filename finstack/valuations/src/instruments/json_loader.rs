@@ -350,12 +350,14 @@ impl<'de> Deserialize<'de> for InstrumentJson {
                 .map_err(D::Error::custom),
 
             // Total Return Swaps
-            "trs_equity" => serde_json::from_str(&spec_str)
+            "trs_equity" | "equity_trs" => serde_json::from_str(&spec_str)
                 .map(Self::TrsEquity)
                 .map_err(D::Error::custom),
-            "trs_fixed_income_index" => serde_json::from_str(&spec_str)
-                .map(Self::TrsFixedIncomeIndex)
-                .map_err(D::Error::custom),
+            "trs_fixed_income_index" | "fi_trs" | "fixed_income_trs" => {
+                serde_json::from_str(&spec_str)
+                    .map(Self::TrsFixedIncomeIndex)
+                    .map_err(D::Error::custom)
+            }
 
             // Structured Credit
             "structured_credit" => serde_json::from_str(&spec_str)

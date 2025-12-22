@@ -1,14 +1,21 @@
-//! Equity Total Return Swap instrument definitions and helpers.
+//! Equity Total Return Swap instrument definitions.
+//!
+//! This module provides the [`EquityTotalReturnSwap`] instrument for synthetic
+//! equity index or single-stock exposure.
 
-use super::types::{FinancingLegSpec, TrsScheduleSpec, TrsSide};
 use crate::{
+    cashflow::builder::ScheduleParams,
     cashflow::traits::{CashflowProvider, DatedFlows},
-    instruments::{common::parameters::underlying::EquityUnderlyingParams, Attributes},
+    instruments::common::parameters::{
+        legs::FinancingLegSpec, trs_common::TrsScheduleSpec, trs_common::TrsSide,
+        underlying::EquityUnderlyingParams,
+    },
+    instruments::Attributes,
     margin::types::OtcMarginSpec,
 };
 use finstack_core::{
     currency::Currency,
-    dates::Date,
+    dates::{BusinessDayConvention, Date, DayCount, StubKind, Tenor},
     market_data::context::MarketContext,
     money::Money,
     types::{CurveId, InstrumentId},
@@ -21,7 +28,21 @@ use finstack_core::{
 /// The holder receives the total return (price appreciation + dividends) of the underlying
 /// equity in exchange for paying a floating rate plus spread on the notional amount.
 ///
-/// See unit tests and `examples/` for usage.
+/// # Use Cases
+///
+/// - **Synthetic long exposure**: Gain equity index exposure without buying assets
+/// - **Leverage**: Minimize upfront capital requirements
+/// - **ETF replication**: Replicate equity ETF returns synthetically
+/// - **Short exposure**: Easier than borrowing securities
+///
+/// # Example
+///
+/// ```
+/// use finstack_valuations::instruments::equity_trs::EquityTotalReturnSwap;
+///
+/// let trs = EquityTotalReturnSwap::example();
+/// // let pv = trs.npv(&market_context, as_of_date)?;
+/// ```
 #[derive(Clone, Debug, finstack_valuations_macros::FinancialBuilder)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 #[cfg_attr(feature = "serde", serde(deny_unknown_fields))]
@@ -57,43 +78,91 @@ impl EquityTotalReturnSwap {
     ///
     /// Returns a 1-year SPX total return swap with quarterly resets.
     pub fn example() -> Self {
-        use crate::cashflow::builder::ScheduleParams;
         Self::builder()
             .id(InstrumentId::new("TRS-SPX-1Y"))
             .notional(Money::new(5_000_000.0, Currency::USD))
-            .underlying(
-                crate::instruments::common::parameters::EquityUnderlyingParams {
-                    ticker: "SPX".to_string(),
-                    spot_id: "SPX-SPOT".to_string(),
-                    div_yield_id: Some("SPX-DIV".to_string()),
-                    contract_size: 1.0,
-                    currency: Currency::USD,
-                },
-            )
-            .financing(crate::instruments::common::parameters::FinancingLegSpec {
+            .underlying(EquityUnderlyingParams {
+                ticker: "SPX".to_string(),
+                spot_id: "SPX-SPOT".to_string(),
+                div_yield_id: Some("SPX-DIV".to_string()),
+                contract_size: 1.0,
+                currency: Currency::USD,
+            })
+            .financing(FinancingLegSpec {
                 discount_curve_id: CurveId::new("USD-OIS"),
                 forward_curve_id: CurveId::new("USD-SOFR-3M"),
                 spread_bp: 75.0,
-                day_count: finstack_core::dates::DayCount::Act360,
+                day_count: DayCount::Act360,
             })
-            .schedule(super::types::TrsScheduleSpec::from_params(
+            .schedule(TrsScheduleSpec::from_params(
                 Date::from_calendar_date(2024, time::Month::January, 1)
                     .expect("Valid example date"),
                 Date::from_calendar_date(2025, time::Month::January, 1)
                     .expect("Valid example date"),
                 ScheduleParams {
-                    freq: finstack_core::dates::Tenor::quarterly(),
-                    dc: finstack_core::dates::DayCount::Act360,
-                    bdc: finstack_core::dates::BusinessDayConvention::Following,
+                    freq: Tenor::quarterly(),
+                    dc: DayCount::Act360,
+                    bdc: BusinessDayConvention::Following,
                     calendar_id: None,
-                    stub: finstack_core::dates::StubKind::None,
+                    stub: StubKind::None,
                 },
             ))
-            .side(super::types::TrsSide::ReceiveTotalReturn)
+            .side(TrsSide::ReceiveTotalReturn)
             .initial_level_opt(None)
-            .attributes(crate::instruments::Attributes::new())
+            .attributes(Attributes::new())
             .build()
             .expect("Example TRS construction should not fail")
+    }
+
+    /// Creates an equity TRS that replicates an ETF.
+    ///
+    /// This is a convenience constructor for creating TRS positions that synthetically
+    /// replicate equity ETF exposure.
+    ///
+    /// # Arguments
+    /// * `etf_ticker` — ETF ticker symbol (e.g., "SPY", "QQQ")
+    /// * `spot_id` — Market data identifier for the ETF spot price
+    /// * `notional` — Notional amount in the ETF's currency
+    /// * `financing` — Financing leg specification
+    /// * `schedule` — Payment schedule specification
+    /// * `div_yield_id` — Optional dividend yield market data identifier
+    ///
+    /// # Example
+    ///
+    /// ```ignore
+    /// let spy_trs = EquityTotalReturnSwap::replicate_etf(
+    ///     "SPY",
+    ///     "SPY-SPOT",
+    ///     Money::new(10_000_000.0, Currency::USD),
+    ///     financing_spec,
+    ///     schedule_spec,
+    ///     Some("SPY-DIV"),
+    /// );
+    /// ```
+    pub fn replicate_etf(
+        etf_ticker: &str,
+        spot_id: &str,
+        notional: Money,
+        financing: FinancingLegSpec,
+        schedule: TrsScheduleSpec,
+        div_yield_id: Option<&str>,
+    ) -> Self {
+        let mut underlying = EquityUnderlyingParams::new(etf_ticker, spot_id, notional.currency());
+        if let Some(div) = div_yield_id {
+            underlying = underlying.with_dividend_yield(div);
+        }
+
+        Self::builder()
+            .id(InstrumentId::new(format!("TRS-{}", etf_ticker)))
+            .notional(notional)
+            .underlying(underlying)
+            .financing(financing)
+            .schedule(schedule)
+            .side(TrsSide::ReceiveTotalReturn)
+            .initial_level_opt(None)
+            .attributes(Attributes::new())
+            .build()
+            .expect("ETF replication TRS construction should not fail")
     }
 
     /// Calculates the net present value (NPV) of the equity TRS.
@@ -113,8 +182,8 @@ impl EquityTotalReturnSwap {
 
         // Net PV depends on side
         let net_pv = match self.side {
-            super::TrsSide::ReceiveTotalReturn => (total_return_pv - financing_pv)?,
-            super::TrsSide::PayTotalReturn => (financing_pv - total_return_pv)?,
+            TrsSide::ReceiveTotalReturn => (total_return_pv - financing_pv)?,
+            TrsSide::PayTotalReturn => (financing_pv - total_return_pv)?,
         };
 
         Ok(net_pv)
@@ -129,8 +198,7 @@ impl EquityTotalReturnSwap {
     /// # Returns
     /// Present value of the total return leg in the instrument's currency.
     pub fn pv_total_return_leg(&self, curves: &MarketContext, as_of: Date) -> Result<Money> {
-        use crate::instruments::trs::pricing::equity;
-        equity::pv_total_return_leg(self, curves, as_of)
+        crate::instruments::equity_trs::pricer::pv_total_return_leg(self, curves, as_of)
     }
 
     /// Calculates the present value of the financing leg.
@@ -142,14 +210,8 @@ impl EquityTotalReturnSwap {
     /// # Returns
     /// Present value of the financing leg in the instrument's currency.
     pub fn pv_financing_leg(&self, curves: &MarketContext, as_of: Date) -> Result<Money> {
-        use crate::instruments::trs::pricing::engine::TrsEngine;
-        TrsEngine::pv_financing_leg(
-            &self.financing,
-            &self.schedule,
-            self.notional,
-            curves,
-            as_of,
-        )
+        use crate::instruments::common::pricing::TrsEngine;
+        TrsEngine::pv_financing_leg(&self.financing, &self.schedule, self.notional, curves, as_of)
     }
 
     /// Calculates the financing annuity for par spread calculation.
@@ -161,20 +223,15 @@ impl EquityTotalReturnSwap {
     /// # Returns
     /// Financing annuity (sum of discounted year fractions × notional).
     pub fn financing_annuity(&self, curves: &MarketContext, as_of: Date) -> Result<f64> {
-        use crate::instruments::trs::pricing::engine::TrsEngine;
-        TrsEngine::financing_annuity(
-            &self.financing,
-            &self.schedule,
-            self.notional,
-            curves,
-            as_of,
-        )
+        use crate::instruments::common::pricing::TrsEngine;
+        TrsEngine::financing_annuity(&self.financing, &self.schedule, self.notional, curves, as_of)
     }
 }
 
-// Attributable implementation is provided by the impl_instrument! macro
+// ============================================================================
+// Trait Implementations
+// ============================================================================
 
-// Use the macro to implement Instrument with pricing
 impl crate::instruments::common::traits::Instrument for EquityTotalReturnSwap {
     fn id(&self) -> &str {
         self.id.as_str()
@@ -202,18 +259,18 @@ impl crate::instruments::common::traits::Instrument for EquityTotalReturnSwap {
 
     fn value(
         &self,
-        curves: &finstack_core::market_data::context::MarketContext,
-        as_of: finstack_core::dates::Date,
-    ) -> finstack_core::Result<finstack_core::money::Money> {
+        curves: &MarketContext,
+        as_of: Date,
+    ) -> Result<Money> {
         self.npv(curves, as_of)
     }
 
     fn price_with_metrics(
         &self,
-        curves: &finstack_core::market_data::context::MarketContext,
-        as_of: finstack_core::dates::Date,
+        curves: &MarketContext,
+        as_of: Date,
         metrics: &[crate::metrics::MetricId],
-    ) -> finstack_core::Result<crate::results::ValuationResult> {
+    ) -> Result<crate::results::ValuationResult> {
         let base_value = self.value(curves, as_of)?;
         crate::instruments::common::helpers::build_with_metrics_dyn(
             std::sync::Arc::new(self.clone()),
@@ -224,7 +281,7 @@ impl crate::instruments::common::traits::Instrument for EquityTotalReturnSwap {
         )
     }
 
-    fn as_cashflow_provider(&self) -> Option<&dyn crate::cashflow::traits::CashflowProvider> {
+    fn as_cashflow_provider(&self) -> Option<&dyn CashflowProvider> {
         Some(self)
     }
 }
@@ -235,7 +292,7 @@ impl CashflowProvider for EquityTotalReturnSwap {
     }
 
     fn build_schedule(&self, _context: &MarketContext, _as_of: Date) -> Result<DatedFlows> {
-        // For TRS, we'll return the expected payment dates
+        // For TRS, we return the expected payment dates
         // Actual amounts depend on realized returns
         let period_schedule = self.schedule.period_schedule()?;
 
@@ -251,7 +308,7 @@ impl CashflowProvider for EquityTotalReturnSwap {
 }
 
 impl crate::instruments::common::pricing::HasDiscountCurve for EquityTotalReturnSwap {
-    fn discount_curve_id(&self) -> &finstack_core::types::CurveId {
+    fn discount_curve_id(&self) -> &CurveId {
         &self.financing.discount_curve_id
     }
 }
@@ -265,8 +322,9 @@ impl crate::instruments::common::traits::CurveDependencies for EquityTotalReturn
 }
 
 impl crate::instruments::common::pricing::HasForwardCurves for EquityTotalReturnSwap {
-    fn forward_curve_ids(&self) -> Vec<finstack_core::types::CurveId> {
+    fn forward_curve_ids(&self) -> Vec<CurveId> {
         // TRS financing leg typically uses the same curve for projection
         vec![self.financing.discount_curve_id.clone()]
     }
 }
+

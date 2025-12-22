@@ -1,12 +1,17 @@
-//! Fixed Income Index TRS pricing utilities.
+//! Fixed Income Index TRS pricing - yield/carry model.
+//!
+//! This module implements the total return leg pricing for fixed income index TRS
+//! using a forward price plus income model.
 
-use super::engine::{TotalReturnLegParams, TrsEngine, TrsReturnModel};
-use crate::instruments::trs::FIIndexTotalReturnSwap;
+use super::types::FIIndexTotalReturnSwap;
+use crate::instruments::common::pricing::{TotalReturnLegParams, TrsEngine, TrsReturnModel};
 use finstack_core::dates::Date;
 use finstack_core::market_data::context::MarketContext;
+use finstack_core::market_data::scalars::MarketScalar;
 use finstack_core::money::Money;
 use finstack_core::Result;
 
+/// Extracts spot price and index yield from market data.
 fn extract_underlying_data(
     trs: &FIIndexTotalReturnSwap,
     context: &MarketContext,
@@ -14,8 +19,8 @@ fn extract_underlying_data(
     // Try to get index spot price, default to 100.0 if not found (cancels out for % returns)
     let spot = match context.price(trs.underlying.index_id.as_str()) {
         Ok(s) => match s {
-            finstack_core::market_data::scalars::MarketScalar::Unitless(v) => *v,
-            finstack_core::market_data::scalars::MarketScalar::Price(p) => p.amount(),
+            MarketScalar::Unitless(v) => *v,
+            MarketScalar::Price(p) => p.amount(),
         },
         Err(_) => 100.0,
     };
@@ -26,8 +31,8 @@ fn extract_underlying_data(
         .as_ref()
         .and_then(|id| {
             context.price(id.as_str()).ok().map(|s| match s {
-                finstack_core::market_data::scalars::MarketScalar::Unitless(v) => *v,
-                finstack_core::market_data::scalars::MarketScalar::Price(p) => p.amount(),
+                MarketScalar::Unitless(v) => *v,
+                MarketScalar::Price(p) => p.amount(),
             })
         })
         .unwrap_or(0.0);
@@ -35,6 +40,11 @@ fn extract_underlying_data(
     Ok((spot, index_yield))
 }
 
+/// Fixed income index return model using forward price plus income.
+///
+/// Models the total return as:
+/// - **Price return**: Forward price change using F_t = S_0 * e^{(r-y)t}
+/// - **Income return**: Continuous yield approximation (y * dt)
 struct FiIndexReturnModel<'a> {
     trs: &'a FIIndexTotalReturnSwap,
     spot: f64,
@@ -44,8 +54,8 @@ struct FiIndexReturnModel<'a> {
 impl TrsReturnModel for FiIndexReturnModel<'_> {
     fn period_return(
         &self,
-        _period_start: finstack_core::dates::Date,
-        _period_end: finstack_core::dates::Date,
+        _period_start: Date,
+        _period_end: Date,
         t_start: f64,
         t_end: f64,
         _initial_level: f64,
@@ -83,6 +93,12 @@ impl TrsReturnModel for FiIndexReturnModel<'_> {
 
 /// Calculates the present value of the total return leg for a fixed income index TRS.
 ///
+/// Uses a forward price plus income model where:
+/// ```text
+/// F_t = S_0 * e^{(r - y) * t}
+/// Total return = Price return + Income return
+/// ```
+///
 /// # Arguments
 /// * `trs` — The fixed income index TRS instrument
 /// * `context` — Market context containing curves and market data
@@ -92,7 +108,7 @@ impl TrsReturnModel for FiIndexReturnModel<'_> {
 /// Present value of the total return leg in the instrument's currency.
 ///
 /// # Note
-/// This implementation uses a Forward Price + Income model (Arbitrage-Free),
+/// This implementation uses an arbitrage-free Forward Price + Income model,
 /// treating the index yield as a continuous income rate.
 pub fn pv_total_return_leg(
     trs: &FIIndexTotalReturnSwap,
@@ -116,3 +132,4 @@ pub fn pv_total_return_leg(
     };
     TrsEngine::pv_total_return_leg_with_model(params, context, as_of, &model)
 }
+

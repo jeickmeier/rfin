@@ -482,10 +482,10 @@ fn collect_cashflows_impl(
             sc.build_schedule(curves, start_date).ok()
         }
         // TRS (both types)
-        else if let Some(eq_trs) = any_ref.downcast_ref::<trs::EquityTotalReturnSwap>() {
+        else if let Some(eq_trs) = any_ref.downcast_ref::<equity_trs::EquityTotalReturnSwap>() {
             eq_trs.build_schedule(curves, start_date).ok()
         } else if let Some(fi_trs) =
-            any_ref.downcast_ref::<trs::FIIndexTotalReturnSwap>()
+            any_ref.downcast_ref::<fi_trs::FIIndexTotalReturnSwap>()
         {
             fi_trs.build_schedule(curves, start_date).ok()
         }
@@ -588,10 +588,10 @@ fn get_instrument_expiry(instrument: &dyn Any) -> Option<Date> {
     if let Some(repo) = instrument.downcast_ref::<repo::Repo>() {
         return Some(repo.maturity);
     }
-    if let Some(eq_trs) = instrument.downcast_ref::<trs::EquityTotalReturnSwap>() {
+    if let Some(eq_trs) = instrument.downcast_ref::<equity_trs::EquityTotalReturnSwap>() {
         return Some(eq_trs.schedule.end);
     }
-    if let Some(fi_trs) = instrument.downcast_ref::<trs::FIIndexTotalReturnSwap>() {
+    if let Some(fi_trs) = instrument.downcast_ref::<fi_trs::FIIndexTotalReturnSwap>() {
         return Some(fi_trs.schedule.end);
     }
     if let Some(var_swap) = instrument.downcast_ref::<variance_swap::VarianceSwap>() {

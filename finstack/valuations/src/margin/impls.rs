@@ -7,7 +7,9 @@ use crate::instruments::cds::CreditDefaultSwap;
 use crate::instruments::cds_index::CDSIndex;
 use crate::instruments::irs::InterestRateSwap;
 use crate::instruments::repo::Repo;
-use crate::instruments::trs::{EquityTotalReturnSwap, FIIndexTotalReturnSwap};
+use crate::instruments::equity_trs::EquityTotalReturnSwap;
+use crate::instruments::fi_trs::FIIndexTotalReturnSwap;
+use crate::instruments::TrsSide;
 use crate::margin::constants::{
     self, DAYS_PER_YEAR, DEFAULT_BOND_INDEX_DURATION, DURATION_APPROXIMATION_FACTOR,
     INVESTMENT_GRADE_SPREAD_THRESHOLD_BP, ONE_BP, STANDARD_CDS_MATURITY_YEARS,
@@ -270,8 +272,8 @@ impl Marginable for EquityTotalReturnSwap {
         // For Equity TRS, main sensitivity is equity delta
         // Delta = Notional (100% exposure to underlying)
         let delta = match self.side {
-            crate::instruments::trs::TrsSide::ReceiveTotalReturn => self.notional.amount(),
-            crate::instruments::trs::TrsSide::PayTotalReturn => -self.notional.amount(),
+            TrsSide::ReceiveTotalReturn => self.notional.amount(),
+            TrsSide::PayTotalReturn => -self.notional.amount(),
         };
 
         // Use the underlier as the equity identifier
@@ -313,8 +315,8 @@ impl Marginable for FIIndexTotalReturnSwap {
         let dv01 = self.notional.amount().abs() * estimated_duration * ONE_BP;
 
         let signed_dv01 = match self.side {
-            crate::instruments::trs::TrsSide::ReceiveTotalReturn => -dv01, // Long bond = short rates
-            crate::instruments::trs::TrsSide::PayTotalReturn => dv01, // Short bond = long rates
+            TrsSide::ReceiveTotalReturn => -dv01, // Long bond = short rates
+            TrsSide::PayTotalReturn => dv01, // Short bond = long rates
         };
 
         // Map duration to appropriate tenor bucket

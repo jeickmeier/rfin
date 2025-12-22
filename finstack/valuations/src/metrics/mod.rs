@@ -405,7 +405,8 @@ pub fn standard_registry() -> MetricRegistry {
     crate::instruments::term_loan::metrics::register_term_loan_metrics(&mut registry);
     crate::instruments::revolving_credit::metrics::register_revolving_credit_metrics(&mut registry);
     crate::instruments::basis_swap::metrics::register_basis_swap_metrics(&mut registry);
-    crate::instruments::trs::metrics::register_trs_metrics(&mut registry);
+    crate::instruments::equity_trs::metrics::register_equity_trs_metrics(&mut registry);
+    crate::instruments::fi_trs::metrics::register_fi_trs_metrics(&mut registry);
     crate::instruments::variance_swap::metrics::register_variance_swap_metrics(&mut registry);
     crate::instruments::private_markets_fund::register_private_markets_fund_metrics(&mut registry);
     // Commodity instruments

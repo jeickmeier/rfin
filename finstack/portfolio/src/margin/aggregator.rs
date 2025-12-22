@@ -58,14 +58,14 @@ fn as_marginable(instrument: &Arc<dyn Instrument>) -> Option<&dyn Marginable> {
 
     if let Some(eq_trs) = instrument
         .as_any()
-        .downcast_ref::<finstack_valuations::instruments::trs::EquityTotalReturnSwap>(
+        .downcast_ref::<finstack_valuations::instruments::equity_trs::EquityTotalReturnSwap>(
     ) {
         return Some(eq_trs as &dyn Marginable);
     }
 
     if let Some(fi_trs) = instrument
         .as_any()
-        .downcast_ref::<finstack_valuations::instruments::trs::FIIndexTotalReturnSwap>(
+        .downcast_ref::<finstack_valuations::instruments::fi_trs::FIIndexTotalReturnSwap>(
     ) {
         return Some(fi_trs as &dyn Marginable);
     }

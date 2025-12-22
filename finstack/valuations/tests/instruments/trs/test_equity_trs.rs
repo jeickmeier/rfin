@@ -10,7 +10,7 @@ use finstack_core::market_data::scalars::MarketScalar;
 use finstack_core::money::Money;
 use finstack_valuations::cashflow::traits::CashflowProvider;
 use finstack_valuations::instruments::common::traits::Instrument;
-use finstack_valuations::instruments::trs::TrsSide;
+use finstack_valuations::instruments::TrsSide;
 
 // ================================================================================================
 // Construction and Validation Tests

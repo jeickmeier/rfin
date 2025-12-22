@@ -47,6 +47,10 @@ pub mod deposit;
 pub mod equity;
 /// equity option module.
 pub mod equity_option;
+/// equity total return swap module.
+pub mod equity_trs;
+/// fi_trs module (fixed income total return swap).
+pub mod fi_trs;
 /// fra module.
 pub mod fra;
 /// fx barrier option module.
@@ -85,8 +89,6 @@ pub mod structured_credit;
 pub mod swaption;
 /// term loan module.
 pub mod term_loan;
-/// trs module.
-pub mod trs;
 /// variance swap module.
 pub mod variance_swap;
 /// volatility index future module.
@@ -140,7 +142,10 @@ pub use revolving_credit::RevolvingCredit;
 pub use structured_credit::StructuredCredit;
 pub use swaption::Swaption;
 pub use term_loan::TermLoan;
-pub use trs::{EquityTotalReturnSwap, FIIndexTotalReturnSwap};
+pub use equity_trs::EquityTotalReturnSwap;
+pub use fi_trs::FIIndexTotalReturnSwap;
+// Re-export TRS common types
+pub use common::parameters::trs_common::{TrsScheduleSpec, TrsSide};
 pub use variance_swap::VarianceSwap;
 pub use vol_index_future::{VolatilityIndexFuture, VolIndexContractSpecs};
 pub use vol_index_option::{VolatilityIndexOption, VolIndexOptionSpecs};

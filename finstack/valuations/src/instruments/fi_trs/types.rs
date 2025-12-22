@@ -1,13 +1,25 @@
-//! Fixed Income Index Total Return Swap instrument definitions and helpers.
+//! Fixed Income Index Total Return Swap instrument definitions.
+//!
+//! This module provides the [`FIIndexTotalReturnSwap`] instrument for synthetic
+//! fixed income index exposure.
 
-use super::types::{FinancingLegSpec, IndexUnderlyingParams, TrsScheduleSpec, TrsSide};
 use crate::{
+    cashflow::builder::ScheduleParams,
     cashflow::traits::{CashflowProvider, DatedFlows},
-    instruments::common::traits::Attributes,
+    instruments::common::parameters::{
+        legs::FinancingLegSpec, trs_common::TrsScheduleSpec, trs_common::TrsSide,
+        underlying::IndexUnderlyingParams,
+    },
+    instruments::Attributes,
     margin::types::OtcMarginSpec,
 };
 use finstack_core::{
-    dates::Date, market_data::context::MarketContext, money::Money, types::InstrumentId, Result,
+    currency::Currency,
+    dates::{BusinessDayConvention, Date, DayCount, StubKind, Tenor},
+    market_data::context::MarketContext,
+    money::Money,
+    types::{CurveId, InstrumentId},
+    Result,
 };
 
 /// Fixed Income Index Total Return Swap instrument.
@@ -16,7 +28,21 @@ use finstack_core::{
 /// The holder receives the total return (carry + roll) of the underlying index in exchange
 /// for paying a floating rate plus spread on the notional amount.
 ///
-/// See unit tests and `examples/` for usage.
+/// # Use Cases
+///
+/// - **Synthetic bond exposure**: Gain bond index exposure without buying bonds
+/// - **Duration management**: Adjust portfolio duration synthetically
+/// - **ETF replication**: Replicate bond ETF returns synthetically
+/// - **Credit exposure**: Access corporate bond index returns
+///
+/// # Example
+///
+/// ```
+/// use finstack_valuations::instruments::fi_trs::FIIndexTotalReturnSwap;
+///
+/// let trs = FIIndexTotalReturnSwap::example();
+/// // let pv = trs.npv(&market_context, as_of_date)?;
+/// ```
 #[derive(Clone, Debug, finstack_valuations_macros::FinancialBuilder)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 #[cfg_attr(feature = "serde", serde(deny_unknown_fields))]
@@ -50,18 +76,14 @@ pub struct FIIndexTotalReturnSwap {
 impl FIIndexTotalReturnSwap {
     /// Create a canonical example fixed income index TRS (USD Corporate Index, 1Y).
     pub fn example() -> Self {
-        use crate::cashflow::builder::ScheduleParams;
-        use crate::instruments::trs::types::{TrsScheduleSpec, TrsSide};
-        use finstack_core::currency::Currency;
-        use finstack_core::dates::{BusinessDayConvention, DayCount, StubKind, Tenor};
         let underlying = IndexUnderlyingParams::new("US-CORP-INDEX", Currency::USD)
             .with_yield("US-CORP-YIELD")
             .with_duration("US-CORP-DURATION")
             .with_convexity("US-CORP-CONVEXITY")
             .with_contract_size(1.0);
         let financing = FinancingLegSpec {
-            discount_curve_id: finstack_core::types::CurveId::new("USD-OIS"),
-            forward_curve_id: finstack_core::types::CurveId::new("USD-SOFR-3M"),
+            discount_curve_id: CurveId::new("USD-OIS"),
+            forward_curve_id: CurveId::new("USD-SOFR-3M"),
             spread_bp: 100.0,
             day_count: DayCount::Act360,
         };
@@ -76,7 +98,7 @@ impl FIIndexTotalReturnSwap {
                 stub: StubKind::None,
             },
         );
-        FIIndexTotalReturnSwapBuilder::new()
+        Self::builder()
             .id(InstrumentId::new("TRS-US-CORP-1Y"))
             .notional(Money::new(5_000_000.0, Currency::USD))
             .underlying(underlying)
@@ -88,6 +110,61 @@ impl FIIndexTotalReturnSwap {
             .build()
             .expect("Example FIIndexTotalReturnSwap construction should not fail")
     }
+
+    /// Creates an FI TRS that replicates a bond ETF.
+    ///
+    /// This is a convenience constructor for creating TRS positions that synthetically
+    /// replicate bond ETF exposure.
+    ///
+    /// # Arguments
+    /// * `etf_ticker` — ETF ticker symbol (e.g., "LQD", "AGG", "HYG")
+    /// * `notional` — Notional amount in the ETF's currency
+    /// * `financing` — Financing leg specification
+    /// * `schedule` — Payment schedule specification
+    /// * `yield_id` — Optional index yield market data identifier
+    /// * `duration_id` — Optional index duration market data identifier
+    ///
+    /// # Example
+    ///
+    /// ```ignore
+    /// let lqd_trs = FIIndexTotalReturnSwap::replicate_etf(
+    ///     "LQD",
+    ///     Money::new(10_000_000.0, Currency::USD),
+    ///     financing_spec,
+    ///     schedule_spec,
+    ///     Some("LQD-YIELD"),
+    ///     Some("LQD-DURATION"),
+    /// );
+    /// ```
+    pub fn replicate_etf(
+        etf_ticker: &str,
+        notional: Money,
+        financing: FinancingLegSpec,
+        schedule: TrsScheduleSpec,
+        yield_id: Option<&str>,
+        duration_id: Option<&str>,
+    ) -> Self {
+        let mut underlying = IndexUnderlyingParams::new(etf_ticker, notional.currency());
+        if let Some(y) = yield_id {
+            underlying = underlying.with_yield(y);
+        }
+        if let Some(d) = duration_id {
+            underlying = underlying.with_duration(d);
+        }
+
+        Self::builder()
+            .id(InstrumentId::new(format!("TRS-{}", etf_ticker)))
+            .notional(notional)
+            .underlying(underlying)
+            .financing(financing)
+            .schedule(schedule)
+            .side(TrsSide::ReceiveTotalReturn)
+            .initial_level_opt(None)
+            .attributes(Attributes::new())
+            .build()
+            .expect("ETF replication TRS construction should not fail")
+    }
+
     /// Calculates the net present value (NPV) of the fixed income index TRS.
     ///
     /// # Arguments
@@ -105,8 +182,8 @@ impl FIIndexTotalReturnSwap {
 
         // Net PV depends on side
         let net_pv = match self.side {
-            super::TrsSide::ReceiveTotalReturn => (total_return_pv - financing_pv)?,
-            super::TrsSide::PayTotalReturn => (financing_pv - total_return_pv)?,
+            TrsSide::ReceiveTotalReturn => (total_return_pv - financing_pv)?,
+            TrsSide::PayTotalReturn => (financing_pv - total_return_pv)?,
         };
 
         Ok(net_pv)
@@ -121,8 +198,7 @@ impl FIIndexTotalReturnSwap {
     /// # Returns
     /// Present value of the total return leg in the instrument's currency.
     pub fn pv_total_return_leg(&self, curves: &MarketContext, as_of: Date) -> Result<Money> {
-        use crate::instruments::trs::pricing::fixed_income_index;
-        fixed_income_index::pv_total_return_leg(self, curves, as_of)
+        crate::instruments::fi_trs::pricer::pv_total_return_leg(self, curves, as_of)
     }
 
     /// Calculates the present value of the financing leg.
@@ -134,14 +210,8 @@ impl FIIndexTotalReturnSwap {
     /// # Returns
     /// Present value of the financing leg in the instrument's currency.
     pub fn pv_financing_leg(&self, curves: &MarketContext, as_of: Date) -> Result<Money> {
-        use crate::instruments::trs::pricing::engine::TrsEngine;
-        TrsEngine::pv_financing_leg(
-            &self.financing,
-            &self.schedule,
-            self.notional,
-            curves,
-            as_of,
-        )
+        use crate::instruments::common::pricing::TrsEngine;
+        TrsEngine::pv_financing_leg(&self.financing, &self.schedule, self.notional, curves, as_of)
     }
 
     /// Calculates the financing annuity for par spread calculation.
@@ -153,20 +223,15 @@ impl FIIndexTotalReturnSwap {
     /// # Returns
     /// Financing annuity (sum of discounted year fractions × notional).
     pub fn financing_annuity(&self, curves: &MarketContext, as_of: Date) -> Result<f64> {
-        use crate::instruments::trs::pricing::engine::TrsEngine;
-        TrsEngine::financing_annuity(
-            &self.financing,
-            &self.schedule,
-            self.notional,
-            curves,
-            as_of,
-        )
+        use crate::instruments::common::pricing::TrsEngine;
+        TrsEngine::financing_annuity(&self.financing, &self.schedule, self.notional, curves, as_of)
     }
 }
 
-// Attributable implementation is provided by the impl_instrument! macro
+// ============================================================================
+// Trait Implementations
+// ============================================================================
 
-// Use the macro to implement Instrument with pricing
 impl crate::instruments::common::traits::Instrument for FIIndexTotalReturnSwap {
     fn id(&self) -> &str {
         self.id.as_str()
@@ -192,20 +257,16 @@ impl crate::instruments::common::traits::Instrument for FIIndexTotalReturnSwap {
         Box::new(self.clone())
     }
 
-    fn value(
-        &self,
-        curves: &finstack_core::market_data::context::MarketContext,
-        as_of: finstack_core::dates::Date,
-    ) -> finstack_core::Result<finstack_core::money::Money> {
+    fn value(&self, curves: &MarketContext, as_of: Date) -> Result<Money> {
         self.npv(curves, as_of)
     }
 
     fn price_with_metrics(
         &self,
-        curves: &finstack_core::market_data::context::MarketContext,
-        as_of: finstack_core::dates::Date,
+        curves: &MarketContext,
+        as_of: Date,
         metrics: &[crate::metrics::MetricId],
-    ) -> finstack_core::Result<crate::results::ValuationResult> {
+    ) -> Result<crate::results::ValuationResult> {
         let base_value = self.value(curves, as_of)?;
         crate::instruments::common::helpers::build_with_metrics_dyn(
             std::sync::Arc::new(self.clone()),
@@ -216,7 +277,7 @@ impl crate::instruments::common::traits::Instrument for FIIndexTotalReturnSwap {
         )
     }
 
-    fn as_cashflow_provider(&self) -> Option<&dyn crate::cashflow::traits::CashflowProvider> {
+    fn as_cashflow_provider(&self) -> Option<&dyn CashflowProvider> {
         Some(self)
     }
 }
@@ -227,7 +288,7 @@ impl CashflowProvider for FIIndexTotalReturnSwap {
     }
 
     fn build_schedule(&self, _context: &MarketContext, _as_of: Date) -> Result<DatedFlows> {
-        // For TRS, we'll return the expected payment dates
+        // For TRS, we return the expected payment dates
         // Actual amounts depend on realized returns
         let period_schedule = self.schedule.period_schedule()?;
 
@@ -242,7 +303,7 @@ impl CashflowProvider for FIIndexTotalReturnSwap {
 }
 
 impl crate::instruments::common::pricing::HasDiscountCurve for FIIndexTotalReturnSwap {
-    fn discount_curve_id(&self) -> &finstack_core::types::CurveId {
+    fn discount_curve_id(&self) -> &CurveId {
         &self.financing.discount_curve_id
     }
 }
@@ -256,8 +317,9 @@ impl crate::instruments::common::traits::CurveDependencies for FIIndexTotalRetur
 }
 
 impl crate::instruments::common::pricing::HasForwardCurves for FIIndexTotalReturnSwap {
-    fn forward_curve_ids(&self) -> Vec<finstack_core::types::CurveId> {
+    fn forward_curve_ids(&self) -> Vec<CurveId> {
         // TRS financing leg typically uses the same curve for projection
         vec![self.financing.discount_curve_id.clone()]
     }
 }
+

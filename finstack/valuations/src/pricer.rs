@@ -894,7 +894,7 @@ fn register_all_pricers(registry: &mut PricerRegistry) {
         EquityTotalReturnSwap,
         Discounting,
         crate::instruments::common::GenericDiscountingPricer::<
-            crate::instruments::trs::EquityTotalReturnSwap,
+            crate::instruments::equity_trs::EquityTotalReturnSwap,
         >::new(InstrumentType::EquityTotalReturnSwap)
     );
 
@@ -904,7 +904,7 @@ fn register_all_pricers(registry: &mut PricerRegistry) {
         FIIndexTotalReturnSwap,
         Discounting,
         crate::instruments::common::GenericDiscountingPricer::<
-            crate::instruments::trs::FIIndexTotalReturnSwap,
+            crate::instruments::fi_trs::FIIndexTotalReturnSwap,
         >::new(InstrumentType::FIIndexTotalReturnSwap)
     );
 

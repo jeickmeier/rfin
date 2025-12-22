@@ -14,10 +14,11 @@ use finstack_core::{
 };
 use finstack_valuations::cashflow::builder::ScheduleParams;
 use finstack_valuations::instruments::common::parameters::underlying::EquityUnderlyingParams;
-use finstack_valuations::instruments::trs::{
-    EquityTotalReturnSwap, FIIndexTotalReturnSwap, FinancingLegSpec, IndexUnderlyingParams,
-    TrsScheduleSpec, TrsSide,
-};
+use finstack_valuations::instruments::common::parameters::legs::FinancingLegSpec;
+use finstack_valuations::instruments::common::parameters::underlying::IndexUnderlyingParams;
+use finstack_valuations::instruments::equity_trs::EquityTotalReturnSwap;
+use finstack_valuations::instruments::fi_trs::FIIndexTotalReturnSwap;
+use finstack_valuations::instruments::{TrsScheduleSpec, TrsSide};
 use time::Month;
 
 /// Creates a standard test date.

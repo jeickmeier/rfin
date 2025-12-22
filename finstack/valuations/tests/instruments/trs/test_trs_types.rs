@@ -5,7 +5,7 @@
 use super::test_utils::*;
 use finstack_core::dates::{BusinessDayConvention, DayCount, StubKind, Tenor};
 use finstack_valuations::cashflow::builder::ScheduleParams;
-use finstack_valuations::instruments::trs::{TrsScheduleSpec, TrsSide};
+use finstack_valuations::instruments::{TrsScheduleSpec, TrsSide};
 
 // ================================================================================================
 // TrsSide Tests

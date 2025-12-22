@@ -12,6 +12,7 @@ pub mod conventions;
 pub mod legs;
 pub mod market;
 pub mod option_market;
+pub mod trs_common;
 pub mod underlying;
 
 // Re-export commonly used types for convenience
@@ -26,6 +27,7 @@ pub use market::{
     OptionType, SettlementType,
 };
 pub use option_market::OptionMarketParams;
+pub use trs_common::{TrsScheduleSpec, TrsSide};
 pub use underlying::{
     EquityUnderlyingParams, FxUnderlyingParams, IndexUnderlyingParams, UnderlyingParams,
 };

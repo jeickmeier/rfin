@@ -1,11 +1,26 @@
-//! Core types and common engine for Total Return Swaps.
+//! Common TRS types shared between equity and fixed income TRS.
+//!
+//! This module provides shared types used by both [`EquityTotalReturnSwap`]
+//! and [`FIIndexTotalReturnSwap`] instruments.
 
 use crate::cashflow::builder::ScheduleParams;
 use finstack_core::dates::{Date, Schedule, ScheduleBuilder};
 
 /// Side of the TRS trade from the party's perspective.
 ///
-/// See unit tests and `examples/` for usage.
+/// Determines whether the party receives or pays the total return leg.
+///
+/// # Examples
+///
+/// ```
+/// use finstack_valuations::instruments::common::parameters::TrsSide;
+///
+/// let side = TrsSide::ReceiveTotalReturn;
+/// assert_eq!(side.sign(), 1.0);
+///
+/// let side = TrsSide::PayTotalReturn;
+/// assert_eq!(side.sign(), -1.0);
+/// ```
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub enum TrsSide {
@@ -53,6 +68,27 @@ impl TrsSide {
 /// Schedule specification for TRS payment periods.
 ///
 /// Defines the payment schedule and frequency for both legs of the TRS.
+/// This is shared between equity and fixed income TRS instruments.
+///
+/// # Examples
+///
+/// ```
+/// use finstack_valuations::instruments::common::parameters::TrsScheduleSpec;
+/// use finstack_valuations::cashflow::builder::ScheduleParams;
+/// use finstack_core::dates::{Date, Tenor, DayCount, BusinessDayConvention, StubKind};
+///
+/// let schedule = TrsScheduleSpec::from_params(
+///     Date::from_calendar_date(2024, time::Month::January, 1).unwrap(),
+///     Date::from_calendar_date(2025, time::Month::January, 1).unwrap(),
+///     ScheduleParams {
+///         freq: Tenor::quarterly(),
+///         dc: DayCount::Act360,
+///         bdc: BusinessDayConvention::Following,
+///         calendar_id: None,
+///         stub: StubKind::None,
+///     },
+/// );
+/// ```
 #[derive(Clone, Debug)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 #[cfg_attr(feature = "serde", serde(deny_unknown_fields))]
@@ -89,6 +125,3 @@ impl TrsScheduleSpec {
     }
 }
 
-// Re-export common parameter types for backward compatibility
-pub use crate::instruments::common::parameters::legs::{FinancingLegSpec, TotalReturnLegSpec};
-pub use crate::instruments::common::parameters::underlying::IndexUnderlyingParams;

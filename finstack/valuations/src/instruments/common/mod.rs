@@ -50,8 +50,11 @@ pub use parameters::{
     ExerciseStyle, FinancingLegSpec, FixedLegSpec, FloatLegSpec, FxOptionParams,
     FxUnderlyingParams, IndexUnderlyingParams, InterestRateOptionParams, OptionMarketParams,
     OptionType, ParRateMethod, PayReceive, PremiumLegSpec, ProtectionLegSpec, ScheduleSpec,
-    SettlementType, TotalReturnLegSpec, UnderlyingParams,
+    SettlementType, TotalReturnLegSpec, TrsScheduleSpec, TrsSide, UnderlyingParams,
 };
 pub use period_pv::PeriodizedPvExt;
-pub use pricing::{GenericDiscountingPricer, GenericInstrumentPricer};
+pub use pricing::{
+    GenericDiscountingPricer, GenericInstrumentPricer, TotalReturnLegParams, TrsEngine,
+    TrsReturnModel,
+};
 pub use traits::{Attributes, EquityDependencies, EquityInstrumentDeps, Instrument};

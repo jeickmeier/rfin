@@ -12,9 +12,9 @@ use finstack_valuations::instruments::common::parameters::underlying::{
     EquityUnderlyingParams, IndexUnderlyingParams,
 };
 use finstack_valuations::instruments::common::traits::Attributes;
-use finstack_valuations::instruments::trs::{
-    EquityTotalReturnSwap, FIIndexTotalReturnSwap, TrsScheduleSpec, TrsSide,
-};
+use finstack_valuations::instruments::equity_trs::EquityTotalReturnSwap;
+use finstack_valuations::instruments::fi_trs::FIIndexTotalReturnSwap;
+use finstack_valuations::instruments::{TrsScheduleSpec, TrsSide};
 use pyo3::exceptions::PyValueError;
 use pyo3::prelude::*;
 use pyo3::types::{PyAny, PyModule, PyType};

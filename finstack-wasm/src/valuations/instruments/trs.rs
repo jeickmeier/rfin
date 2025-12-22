@@ -8,9 +8,9 @@ use finstack_valuations::instruments::common::parameters::legs::FinancingLegSpec
 use finstack_valuations::instruments::common::parameters::underlying::{
     EquityUnderlyingParams, IndexUnderlyingParams,
 };
-use finstack_valuations::instruments::trs::{
-    EquityTotalReturnSwap, FIIndexTotalReturnSwap, TrsScheduleSpec, TrsSide,
-};
+use finstack_valuations::instruments::equity_trs::EquityTotalReturnSwap;
+use finstack_valuations::instruments::fi_trs::FIIndexTotalReturnSwap;
+use finstack_valuations::instruments::{TrsScheduleSpec, TrsSide};
 use finstack_valuations::pricer::InstrumentType;
 use wasm_bindgen::prelude::*;
 
