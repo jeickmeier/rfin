@@ -1,7 +1,8 @@
 //! Comprehensive tests for private markets fund waterfall functionality.
 
-use finstack_core::prelude::*;
-// use finstack_core::F; // F does not exist
+use finstack_core::currency::Currency;
+use finstack_core::dates::{Date, DayCount};
+use finstack_core::money::Money;
 use finstack_valuations::instruments::private_markets_fund::*;
 use time::Month;
 

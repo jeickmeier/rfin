@@ -7,7 +7,7 @@
 use crate::instruments::common::parameters::OptionType;
 use crate::instruments::swaption::{Swaption, VolatilityModel};
 use crate::metrics::{MetricCalculator, MetricContext, MetricId};
-use finstack_core::prelude::Result;
+use finstack_core::Result;
 
 /// Delta calculator for swaptions
 pub struct DeltaCalculator;

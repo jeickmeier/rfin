@@ -1,7 +1,7 @@
+use finstack_core::config::FinstackConfig;
 use finstack_core::currency::Currency;
 use finstack_core::dates::{create_date, DayCount};
 use finstack_core::money::Money;
-use finstack_core::prelude::FinstackConfig;
 use finstack_portfolio::builder::PortfolioBuilder;
 use finstack_portfolio::optimization::{
     CandidatePosition, DefaultLpOptimizer, MetricExpr, Objective, PerPositionMetric,

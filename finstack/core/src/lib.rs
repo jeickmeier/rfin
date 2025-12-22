@@ -16,7 +16,8 @@
 //!
 //! # Quick start
 //! ```
-//! use finstack_core::prelude::*;
+//! use finstack_core::currency::Currency;
+//! use finstack_core::money::Money;
 //! # fn main() -> finstack_core::Result<()> {
 //!
 //! // Parse ISO-4217 codes (case-insensitive)
@@ -32,8 +33,6 @@
 //! # Ok(())
 //! # }
 //! ```
-//!
-//! See also: the [`prelude`] module for a curated set of commonly used types.
 //!
 //! # Cargo features
 //! | Feature       | Purpose                                            |
@@ -55,7 +54,6 @@ pub mod error;
 /// Market data term‐structure framework (former `curves` module)
 pub mod market_data;
 pub mod money;
-pub mod prelude;
 
 /// Explainability infrastructure (opt-in tracing)
 pub mod explain;

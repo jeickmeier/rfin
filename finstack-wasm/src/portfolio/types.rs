@@ -221,7 +221,7 @@ impl JsPositionUnit {
     #[wasm_bindgen(js_name = notionalWithCcy)]
     pub fn notional_with_ccy(currency: &str) -> Result<JsPositionUnit, JsValue> {
         let ccy = currency
-            .parse::<finstack_core::prelude::Currency>()
+            .parse::<finstack_core::currency::Currency>()
             .map_err(|e| JsValue::from_str(&format!("Failed to parse currency: {}", e)))?;
         Ok(JsPositionUnit {
             inner: PositionUnit::Notional(Some(ccy)),

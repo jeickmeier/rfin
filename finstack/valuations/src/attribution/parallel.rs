@@ -30,7 +30,10 @@ use crate::attribution::factors::*;
 use crate::attribution::helpers::*;
 use crate::attribution::types::*;
 use crate::instruments::common::traits::Instrument;
-use finstack_core::prelude::*;
+use finstack_core::config::FinstackConfig;
+use finstack_core::dates::Date;
+use finstack_core::market_data::context::MarketContext;
+use finstack_core::Result;
 use std::sync::Arc;
 
 /// Perform parallel P&L attribution for an instrument.

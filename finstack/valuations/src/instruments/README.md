@@ -469,7 +469,11 @@ mkdir finstack/valuations/src/instruments/my_instrument
 ```rust
 //! My instrument type definition.
 
-use finstack_core::prelude::*;
+use finstack_core::currency::Currency;
+use finstack_core::dates::Date;
+use finstack_core::market_data::context::MarketContext;
+use finstack_core::money::Money;
+use finstack_core::types::{CurveId, InstrumentId};
 use serde::{Deserialize, Serialize};
 use crate::instruments::common::traits::{Attributes, Instrument};
 use crate::instruments::PricingOverrides;
@@ -579,8 +583,10 @@ impl Instrument for MyInstrument {
 
 use super::MyInstrument;
 use crate::pricer::Pricer;
-use finstack_core::prelude::*;
+use finstack_core::dates::Date;
 use finstack_core::market_data::context::MarketContext;
+use finstack_core::money::Money;
+use finstack_core::Result;
 
 pub struct MyInstrumentPricer;
 
@@ -616,8 +622,9 @@ pub use my_metric::MyMetric;
 
 use crate::metrics::{MetricCalculator, MetricId};
 use crate::instruments::my_instrument::MyInstrument;
-use finstack_core::prelude::*;
+use finstack_core::dates::Date;
 use finstack_core::market_data::context::MarketContext;
+use finstack_core::Result;
 
 /// Calculate a specific metric for MyInstrument.
 pub fn calculate_my_metric(

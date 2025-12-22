@@ -363,10 +363,9 @@ mod tests {
     use super::*;
     use crate::instruments::common::models::SABRParameters;
     use crate::market::conventions::ids::OptionConventionId;
-    use finstack_core::dates::Date;
+    use finstack_core::dates::{Date, DateExt};
     use finstack_core::market_data::context::MarketContext;
     use finstack_core::market_data::term_structures::discount_curve::DiscountCurve;
-    use finstack_core::prelude::DateExt;
     use time::Month;
 
     fn params(alpha: f64, beta: f64, nu: f64, rho: f64, shift: f64) -> SABRParameters {

@@ -9,7 +9,7 @@ use crate::instruments::pricing_overrides::VolSurfaceExtrapolation;
 use crate::instruments::swaption::Swaption;
 use crate::metrics::{MetricCalculator, MetricContext, MetricId};
 use finstack_core::math::solver::{BrentSolver, Solver};
-use finstack_core::prelude::Result;
+use finstack_core::Result;
 
 /// Implied Volatility calculator for swaptions
 pub struct ImpliedVolCalculator;

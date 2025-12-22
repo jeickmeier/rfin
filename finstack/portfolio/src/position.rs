@@ -2,7 +2,8 @@
 
 use crate::error::{PortfolioError, Result};
 use crate::types::{EntityId, PositionId};
-use finstack_core::prelude::*;
+use finstack_core::currency::Currency;
+use finstack_core::money::Money;
 use finstack_valuations::instruments::common::traits::Instrument;
 use finstack_valuations::instruments::InstrumentJson;
 use indexmap::IndexMap;
@@ -179,7 +180,8 @@ impl Position {
     ///
     /// ```rust,no_run
     /// use finstack_portfolio::{Position, PositionUnit};
-    /// use finstack_core::prelude::*;
+    /// use finstack_core::currency::Currency;
+    /// use finstack_core::money::Money;
     /// use finstack_valuations::instruments::deposit::Deposit;
     /// use std::sync::Arc;
     /// use time::macros::date;

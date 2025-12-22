@@ -4,7 +4,7 @@
 //! collateral value to required collateral, normalized by time to maturity.
 
 use crate::metrics::{MetricCalculator, MetricContext, MetricId};
-use finstack_core::prelude::*;
+use finstack_core::Result;
 
 /// Calculate implied collateral return (mark-to-market gain/loss on collateral).
 pub struct ImpliedCollateralReturnCalculator;

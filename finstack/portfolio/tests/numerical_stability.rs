@@ -1,8 +1,10 @@
 mod common;
 
 use common::*;
+use finstack_core::config::FinstackConfig;
+use finstack_core::currency::Currency;
 use finstack_core::math::summation::neumaier_sum;
-use finstack_core::prelude::*;
+use finstack_core::money::Money;
 use finstack_portfolio::types::Entity;
 use finstack_portfolio::{PortfolioBuilder, PortfolioError, Position, PositionUnit};
 use finstack_valuations::instruments::deposit::Deposit;

@@ -2,7 +2,7 @@ use crate::calibration::solver::BootstrapTarget;
 use crate::market::conventions::registry::ConventionRegistry;
 use crate::market::quotes::rates::RateQuote;
 use finstack_core::dates::DayCount;
-use finstack_core::prelude::*;
+use finstack_core::Result;
 
 /// Sort bootstrap quotes by strictly increasing knot time.
 ///

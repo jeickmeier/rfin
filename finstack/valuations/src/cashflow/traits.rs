@@ -2,9 +2,10 @@
 
 pub use crate::cashflow::{DatedFlow, DatedFlows};
 use crate::instruments::common::discountable::Discountable;
+use finstack_core::dates::{Date, DayCount};
 use finstack_core::market_data::context::MarketContext;
 use finstack_core::market_data::traits::Discounting;
-use finstack_core::prelude::*;
+use finstack_core::money::Money;
 
 /// Build cashflow schedules and provide currency-safe aggregation hooks.
 ///

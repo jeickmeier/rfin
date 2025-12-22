@@ -7,10 +7,12 @@
 //! Note: Functions are marked `#[allow(dead_code)]` because each integration test
 //! file compiles `common.rs` separately, and not all tests use all helpers.
 
+use finstack_core::currency::Currency;
+use finstack_core::dates::Date;
+use finstack_core::market_data::context::MarketContext;
 use finstack_core::market_data::term_structures::discount_curve::DiscountCurve;
 use finstack_core::math::interp::InterpStyle;
 use finstack_core::money::fx::{FxConversionPolicy, FxMatrix, FxProvider};
-use finstack_core::prelude::*;
 use std::sync::Arc;
 use time::macros::date;
 

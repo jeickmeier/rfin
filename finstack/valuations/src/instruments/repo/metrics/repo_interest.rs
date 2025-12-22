@@ -4,7 +4,7 @@
 //! instrument's day count and effective rate.
 
 use crate::metrics::{MetricCalculator, MetricContext};
-use finstack_core::prelude::*;
+use finstack_core::Result;
 
 /// Calculate repo interest amount.
 pub struct RepoInterestCalculator;

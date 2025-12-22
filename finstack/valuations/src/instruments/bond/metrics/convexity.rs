@@ -1,7 +1,7 @@
 use crate::instruments::Bond;
 use crate::metrics::{MetricCalculator, MetricContext, MetricId};
+use finstack_core::dates::Date;
 use finstack_core::money::Money;
-use finstack_core::prelude::*;
 
 /// Calculates convexity for bonds.
 ///

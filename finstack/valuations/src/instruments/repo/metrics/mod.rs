@@ -94,7 +94,8 @@ mod tests {
     use finstack_core::market_data::context::MarketContext;
     use finstack_core::market_data::scalars::MarketScalar;
     use finstack_core::market_data::term_structures::discount_curve::DiscountCurve;
-    use finstack_core::prelude::*;
+    use finstack_core::dates::Date;
+    use finstack_core::money::Money;
     use time::Month;
 
     fn test_date(year: i32, month: u8, day: u8) -> Date {

@@ -10,10 +10,11 @@
 //! 4. Circular dependency detection
 //! 5. Unknown metric handling in strict vs permissive parsing
 
+use finstack_core::currency::Currency;
 use finstack_core::dates::{Date, DayCount};
 use finstack_core::market_data::context::MarketContext;
 use finstack_core::market_data::term_structures::DiscountCurve;
-use finstack_core::prelude::{Currency, Money};
+use finstack_core::money::Money;
 use finstack_core::Error;
 use finstack_valuations::instruments::bond::Bond;
 use finstack_valuations::instruments::common::traits::Instrument;

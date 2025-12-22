@@ -7,7 +7,10 @@ use crate::error::{PortfolioError, Result};
 use crate::portfolio::Portfolio;
 use crate::position::PositionUnit;
 use crate::types::PositionId;
-use finstack_core::prelude::*;
+use finstack_core::config::FinstackConfig;
+use finstack_core::dates::Date;
+use finstack_core::market_data::context::MarketContext;
+use finstack_core::money::{fx::FxQuery, Money};
 use finstack_valuations::attribution::{
     attribute_pnl_metrics_based, attribute_pnl_parallel, default_attribution_metrics,
     AttributionMethod, CorrelationsAttribution, CreditCurvesAttribution, FxAttribution,
@@ -580,6 +583,7 @@ impl PortfolioAttribution {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use finstack_core::currency::Currency;
     use finstack_valuations::attribution::default_attribution_metrics;
 
     #[test]

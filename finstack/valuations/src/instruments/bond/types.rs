@@ -1,10 +1,12 @@
 //! Bond instrument types and implementations.
 
-use finstack_core::prelude::*;
-
 use crate::cashflow::builder::CashFlowSchedule;
 use crate::instruments::common::traits::Attributes;
 use crate::instruments::PricingOverrides;
+use finstack_core::currency::Currency;
+use finstack_core::dates::{Date, DayCount};
+use finstack_core::money::Money;
+use finstack_core::Result;
 use finstack_core::types::{CurveId, InstrumentId};
 
 // Re-export for compatibility in tests and external users referencing bond::AmortizationSpec

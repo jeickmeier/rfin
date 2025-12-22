@@ -1,8 +1,10 @@
 //! Edge case and boundary condition tests for repo instruments.
 
 use super::fixtures::*;
+use finstack_core::currency::Currency;
+use finstack_core::dates::{BusinessDayConvention, DayCount};
 use finstack_core::market_data::scalars::MarketScalar;
-use finstack_core::prelude::*;
+use finstack_core::money::Money;
 use finstack_valuations::instruments::common::traits::{Attributes, Instrument};
 use finstack_valuations::instruments::repo::{CollateralSpec, Repo, RepoType};
 

@@ -6,7 +6,7 @@
 //! be combined with other cash-based measures.
 
 use crate::metrics::{MetricCalculator, MetricContext};
-use finstack_core::prelude::*;
+use finstack_core::Result;
 
 /// Calculator for repo accrued interest (currency amount).
 pub struct AccruedInterestCalculator;

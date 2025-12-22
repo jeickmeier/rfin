@@ -1,7 +1,7 @@
 //! Error types for portfolio operations.
 
 use crate::types::{EntityId, PositionId};
-use finstack_core::prelude::*;
+use finstack_core::currency::Currency;
 use thiserror::Error;
 
 /// Convenience result type used throughout the portfolio crate.

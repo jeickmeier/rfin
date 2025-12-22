@@ -45,7 +45,8 @@ impl<State> ModelBuilder<State> {
     /// # Example
     /// ```rust,no_run
     /// use finstack_statements::builder::ModelBuilder;
-    /// use finstack_core::prelude::*;
+    /// use finstack_core::currency::Currency;
+    /// use finstack_core::money::Money;
     /// use time::macros::date;
     ///
     /// # fn main() -> std::result::Result<(), Box<dyn std::error::Error>> {
@@ -116,7 +117,8 @@ impl<State> ModelBuilder<State> {
     /// # Example
     /// ```rust,no_run
     /// use finstack_statements::builder::ModelBuilder;
-    /// use finstack_core::prelude::*;
+    /// use finstack_core::currency::Currency;
+    /// use finstack_core::money::Money;
     /// use time::macros::date;
     ///
     /// # fn main() -> std::result::Result<(), Box<dyn std::error::Error>> {

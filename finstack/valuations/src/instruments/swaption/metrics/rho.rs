@@ -6,7 +6,7 @@
 use crate::instruments::pricing_overrides::VolSurfaceExtrapolation;
 use crate::instruments::swaption::Swaption;
 use crate::metrics::{MetricCalculator, MetricContext, MetricId};
-use finstack_core::prelude::Result;
+use finstack_core::Result;
 
 /// Rho calculator for swaptions (per 1bp)
 pub struct RhoCalculator;

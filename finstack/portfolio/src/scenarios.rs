@@ -136,7 +136,9 @@ mod tests {
     use crate::position::{Position, PositionUnit};
     use crate::test_utils::build_test_market;
     use crate::types::Entity;
-    use finstack_core::prelude::*;
+    use finstack_core::config::FinstackConfig;
+    use finstack_core::currency::Currency;
+    use finstack_core::money::Money;
     use finstack_scenarios::spec::{CurveKind, OperationSpec};
     use finstack_valuations::instruments::deposit::Deposit;
     use std::sync::Arc;

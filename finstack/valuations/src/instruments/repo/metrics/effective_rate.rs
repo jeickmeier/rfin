@@ -4,7 +4,7 @@
 //! adjustments configured on the instrument.
 
 use crate::metrics::{MetricCalculator, MetricContext};
-use finstack_core::prelude::*;
+use finstack_core::Result;
 
 /// Calculate effective repo rate considering special collateral.
 pub struct EffectiveRateCalculator;

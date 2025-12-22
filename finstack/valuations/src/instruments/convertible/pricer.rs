@@ -12,9 +12,10 @@
 //! - `calculate_parity`: Equity parity ratio
 //! - `calculate_conversion_premium`: Conversion premium versus equity value
 
+use finstack_core::dates::Date;
 use finstack_core::error::InputError;
 use finstack_core::market_data::context::MarketContext;
-use finstack_core::prelude::*;
+use finstack_core::money::Money;
 use finstack_core::{Error, Result};
 use std::collections::HashMap;
 

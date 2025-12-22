@@ -99,8 +99,11 @@ mod tests {
     use crate::instruments::cds_option::parameters::CdsOptionParams;
     use crate::instruments::cds_option::CdsOption;
     use crate::instruments::CreditParams;
+    use finstack_core::currency::Currency;
+    use finstack_core::dates::Date;
+    use finstack_core::market_data::context::MarketContext;
     use finstack_core::market_data::term_structures::{DiscountCurve, HazardCurve};
-    use finstack_core::prelude::*;
+    use finstack_core::money::Money;
     use time::macros::date;
 
     /// Create a standard test market with discount and hazard curves.

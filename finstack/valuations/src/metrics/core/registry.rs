@@ -524,7 +524,9 @@ mod tests {
     use crate::metrics::core::traits::{MetricCalculator, MetricContext};
     use crate::pricer::InstrumentType;
     use crate::results::ValuationResult;
-    use finstack_core::prelude::*;
+    use finstack_core::currency::Currency;
+    use finstack_core::market_data::context::MarketContext;
+    use finstack_core::money::Money;
     use std::sync::Arc;
     use time::Date;
 

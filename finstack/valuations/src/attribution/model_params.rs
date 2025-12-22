@@ -7,7 +7,8 @@ use crate::cashflow::builder::{DefaultModelSpec, PrepaymentModelSpec, RecoveryMo
 use crate::instruments::common::traits::Instrument;
 use crate::instruments::convertible::{ConversionSpec, ConvertibleBond};
 use crate::instruments::structured_credit::StructuredCredit;
-use finstack_core::prelude::*;
+use finstack_core::error::Error;
+use finstack_core::Result;
 use std::sync::Arc;
 
 /// Snapshot of extractable model parameters from an instrument.

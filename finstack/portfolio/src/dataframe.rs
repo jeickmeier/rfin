@@ -6,7 +6,8 @@
 
 use crate::metrics::PortfolioMetrics;
 use crate::valuation::PortfolioValuation;
-use finstack_core::prelude::*;
+use finstack_core::error::{Error, InputError};
+use finstack_core::Result;
 
 /// Export position values to a Polars `DataFrame`.
 ///
@@ -161,6 +162,9 @@ mod tests {
     use crate::test_utils::build_test_market;
     use crate::types::Entity;
     use crate::valuation::value_portfolio;
+    use finstack_core::config::FinstackConfig;
+    use finstack_core::currency::Currency;
+    use finstack_core::money::Money;
     use finstack_valuations::instruments::deposit::Deposit;
     use std::sync::Arc;
     use time::macros::date;

@@ -4,7 +4,7 @@
 //! using prices from `MarketContext`.
 
 use crate::metrics::{MetricCalculator, MetricContext};
-use finstack_core::prelude::*;
+use finstack_core::Result;
 
 /// Calculate the market value of collateral.
 pub struct CollateralValueCalculator;

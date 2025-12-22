@@ -4,7 +4,7 @@
 //! instrument's day-count convention.
 
 use crate::metrics::{MetricCalculator, MetricContext};
-use finstack_core::prelude::*;
+use finstack_core::Result;
 
 /// Calculate time to maturity in years.
 pub struct TimeToMaturityCalculator;

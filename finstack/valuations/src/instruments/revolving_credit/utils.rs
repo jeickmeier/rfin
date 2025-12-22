@@ -5,9 +5,9 @@
 
 use super::types::{BaseRateSpec, RevolvingCredit};
 use crate::instruments::common::traits::Attributes;
-use finstack_core::dates::DateExt;
-use finstack_core::dates::{BusinessDayConvention, Date, ScheduleBuilder};
-use finstack_core::prelude::HolidayCalendar;
+use finstack_core::dates::{
+    BusinessDayConvention, Date, DateExt, HolidayCalendar, ScheduleBuilder,
+};
 use finstack_core::Result;
 
 /// Resolve the calendar for a facility from its attributes.

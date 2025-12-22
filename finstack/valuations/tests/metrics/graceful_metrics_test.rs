@@ -6,7 +6,9 @@
 //! - In best-effort mode, failures are coerced to `0.0` and the computation
 //!   continues.
 
-use finstack_core::prelude::*;
+use finstack_core::currency::Currency;
+use finstack_core::market_data::context::MarketContext;
+use finstack_core::money::Money;
 use finstack_core::Error;
 use finstack_valuations::instruments::bond::Bond;
 use finstack_valuations::instruments::common::traits::Instrument;

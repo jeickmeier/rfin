@@ -3,7 +3,10 @@
 mod common;
 
 use common::{base_date, market_with_usd};
-use finstack_core::prelude::*;
+use finstack_core::config::FinstackConfig;
+use finstack_core::currency::Currency;
+use finstack_core::dates::Date;
+use finstack_core::money::Money;
 use finstack_portfolio::PortfolioOptimizer;
 use finstack_portfolio::{
     optimization::{

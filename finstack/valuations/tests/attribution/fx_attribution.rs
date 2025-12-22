@@ -8,9 +8,9 @@ use finstack_core::dates::create_date;
 use finstack_core::market_data::context::MarketContext;
 use finstack_core::market_data::term_structures::discount_curve::DiscountCurve;
 use finstack_core::math::interp::InterpStyle;
+use finstack_core::config::FinstackConfig;
 use finstack_core::money::fx::{FxConversionPolicy, FxMatrix, FxProvider};
 use finstack_core::money::Money;
-use finstack_core::prelude::FinstackConfig;
 use finstack_valuations::attribution::{
     attribute_pnl_parallel, attribute_pnl_waterfall, default_waterfall_order, AttributionFactor,
 };

@@ -3,7 +3,7 @@
 //! Computes the required collateral value including haircut for a repo.
 
 use crate::metrics::{MetricCalculator, MetricContext};
-use finstack_core::prelude::*;
+use finstack_core::Result;
 
 /// Calculate required collateral value including haircut.
 pub struct RequiredCollateralCalculator;

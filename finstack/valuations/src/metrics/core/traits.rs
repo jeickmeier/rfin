@@ -7,7 +7,8 @@
 use crate::instruments::common::traits::Instrument;
 use crate::instruments::structured_credit::TrancheCashflows;
 use crate::metrics::MetricId;
-use finstack_core::prelude::*;
+use finstack_core::dates::{Date, DayCount};
+use finstack_core::money::Money;
 use finstack_core::types::CurveId;
 
 use finstack_core::config::FinstackConfig;

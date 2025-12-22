@@ -4,8 +4,9 @@ use super::universe::PositionFilter;
 use crate::error::{PortfolioError, Result};
 use crate::position::Position;
 use crate::types::PositionId;
+use finstack_core::config::FinstackConfig;
+use finstack_core::market_data::context::MarketContext;
 use finstack_core::math::summation::neumaier_sum;
-use finstack_core::prelude::{FinstackConfig, MarketContext};
 use finstack_valuations::metrics::MetricId;
 use indexmap::IndexMap;
 

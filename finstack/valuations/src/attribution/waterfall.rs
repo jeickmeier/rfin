@@ -40,8 +40,12 @@ use crate::attribution::factors::*;
 use crate::attribution::helpers::*;
 use crate::attribution::types::*;
 use crate::instruments::common::traits::Instrument;
+use finstack_core::config::FinstackConfig;
 use finstack_core::currency::Currency;
-use finstack_core::prelude::*;
+use finstack_core::dates::Date;
+use finstack_core::market_data::context::MarketContext;
+use finstack_core::money::Money;
+use finstack_core::{Error, Result};
 use std::sync::Arc;
 
 /// Default waterfall order for factor attribution.

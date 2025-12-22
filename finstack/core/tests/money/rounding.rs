@@ -1,8 +1,8 @@
 #![cfg(feature = "serde")]
 
 use finstack_core::config::{CurrencyScalePolicy, FinstackConfig, RoundingMode};
+use finstack_core::currency::Currency;
 use finstack_core::money::Money;
-use finstack_core::prelude::Currency;
 
 #[test]
 fn money_display_respects_output_scale() {

@@ -1,7 +1,9 @@
 mod common;
 
 use common::*;
-use finstack_core::prelude::*;
+use finstack_core::config::FinstackConfig;
+use finstack_core::currency::Currency;
+use finstack_core::money::Money;
 use finstack_portfolio::types::Entity;
 use finstack_portfolio::{PortfolioBuilder, Position, PositionUnit};
 use finstack_valuations::instruments::deposit::Deposit;

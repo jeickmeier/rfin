@@ -20,7 +20,7 @@
 //! - Credit correlation trading
 
 use super::{hazard_curve::HazardCurve, BaseCorrelationCurve};
-use crate::prelude::*;
+use crate::Result;
 use std::collections::HashMap;
 use std::sync::Arc;
 

@@ -1,11 +1,11 @@
 use finstack_core::dates::calendar::registry::CalendarRegistry;
-use finstack_core::dates::{BusinessDayConvention, Date, DayCount, Tenor};
+use finstack_core::dates::{BusinessDayConvention, Date, DateExt, DayCount, Tenor};
 use finstack_core::market_data::context::MarketContext;
 use finstack_core::market_data::scalars::ScalarTimeSeries;
 use finstack_core::market_data::term_structures::discount_curve::DiscountCurve;
 use finstack_core::market_data::term_structures::forward_curve::ForwardCurve;
 use finstack_core::math::interp::InterpStyle;
-use finstack_core::prelude::{DateExt, Money};
+use finstack_core::money::Money;
 use finstack_core::types::Currency;
 use finstack_valuations::instruments::common::traits::Instrument;
 use finstack_valuations::instruments::irs::{

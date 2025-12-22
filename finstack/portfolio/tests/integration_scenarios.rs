@@ -4,7 +4,11 @@ mod common;
 #[cfg(feature = "scenarios")]
 use common::*;
 #[cfg(feature = "scenarios")]
-use finstack_core::prelude::*;
+use finstack_core::config::FinstackConfig;
+#[cfg(feature = "scenarios")]
+use finstack_core::currency::Currency;
+#[cfg(feature = "scenarios")]
+use finstack_core::money::Money;
 #[cfg(feature = "scenarios")]
 use finstack_portfolio::types::Entity;
 #[cfg(feature = "scenarios")]

@@ -88,8 +88,9 @@ mod tests {
     use super::*;
     use finstack_core::config::results_meta;
     use finstack_core::config::FinstackConfig;
+    use finstack_core::currency::Currency;
+    use finstack_core::dates::Date;
     use finstack_core::money::Money;
-    use finstack_core::prelude::*;
     use indexmap::IndexMap;
 
     #[test]

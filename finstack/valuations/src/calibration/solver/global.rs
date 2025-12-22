@@ -7,7 +7,7 @@
 use super::traits::GlobalSolveTarget;
 use crate::calibration::constants::PENALTY;
 use crate::calibration::{CalibrationConfig, CalibrationReport};
-use finstack_core::prelude::*;
+use finstack_core::Result;
 use std::cell::{Cell, RefCell};
 use std::collections::BTreeMap;
 

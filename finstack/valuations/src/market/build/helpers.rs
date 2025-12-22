@@ -1,10 +1,9 @@
 //! Shared helpers for quote-to-instrument builders.
 
 use finstack_core::dates::{
-    adjust, BusinessDayConvention, CalendarRegistry, Date, HolidayCalendar,
+    adjust, BusinessDayConvention, CalendarRegistry, Date, DateExt, HolidayCalendar,
 };
 use finstack_core::error::Error;
-use finstack_core::prelude::DateExt;
 use finstack_core::Result;
 
 /// Resolve a holiday calendar by ID from the global registry.

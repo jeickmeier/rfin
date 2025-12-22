@@ -3,7 +3,7 @@
 //! Computes `market_value / required_value` using pre-computed metrics.
 
 use crate::metrics::{MetricCalculator, MetricContext, MetricId};
-use finstack_core::prelude::*;
+use finstack_core::Result;
 
 /// Calculate collateral coverage ratio (market value / required value).
 pub struct CollateralCoverageCalculator;

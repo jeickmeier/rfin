@@ -27,8 +27,8 @@ use finstack_core::market_data::term_structures::{
 };
 use finstack_core::math::interp::InterpStyle;
 use finstack_core::money::fx::{FxConversionPolicy, FxMatrix, FxProvider};
+use finstack_core::config::FinstackConfig;
 use finstack_core::money::Money;
-use finstack_core::prelude::FinstackConfig;
 use finstack_portfolio::types::Entity;
 use finstack_portfolio::{value_portfolio, PortfolioBuilder, Position, PositionUnit};
 use finstack_valuations::cashflow::builder::specs::{CouponType, FixedCouponSpec};

@@ -13,7 +13,8 @@
 //!
 //! ```rust
 //! use finstack_portfolio::builder::PortfolioBuilder;
-//! use finstack_core::prelude::*;
+//! use finstack_core::currency::Currency;
+//! use finstack_core::dates::Date;
 //! use time::Month;
 //!
 //! let valuation_date = Date::from_calendar_date(2024, Month::January, 1).expect("test should succeed");
@@ -39,7 +40,8 @@ use crate::error::Result;
 use crate::portfolio::Portfolio;
 use crate::position::Position;
 use crate::types::{Entity, EntityId, DUMMY_ENTITY_ID};
-use finstack_core::prelude::*;
+use finstack_core::currency::Currency;
+use finstack_core::dates::Date;
 use indexmap::IndexMap;
 
 /// Builder for constructing a [`Portfolio`] with validation.
@@ -232,6 +234,7 @@ mod tests {
     use super::*;
     use crate::position::{Position, PositionUnit};
     use crate::types::Entity;
+    use finstack_core::money::Money;
     use finstack_valuations::instruments::deposit::Deposit;
     use std::sync::Arc;
     use time::macros::date;

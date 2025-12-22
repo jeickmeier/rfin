@@ -29,7 +29,9 @@ mod tests {
     #[allow(unused_imports)]
     use finstack_core::market_data::term_structures::DiscountCurve;
     #[allow(unused_imports)]
-    use finstack_core::prelude::{Currency, Money};
+    use finstack_core::currency::Currency;
+    #[allow(unused_imports)]
+    use finstack_core::money::Money;
     #[allow(unused_imports)]
     use finstack_valuations::instruments::common::parameters::market::OptionType;
     #[allow(unused_imports)]

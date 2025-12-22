@@ -7,6 +7,7 @@
 //! - Supports both financial and non-financial covenants
 
 use crate::covenants::CovenantReport;
+use finstack_core::dates::Date;
 use serde::{Deserialize, Serialize};
 
 // Covenant type definitions were previously under loan; re-introduce minimal versions locally
@@ -284,7 +285,6 @@ pub enum CovenantConsequence {
     },
 }
 use crate::metrics::{MetricContext, MetricId};
-use finstack_core::prelude::*;
 
 use indexmap::IndexMap;
 use std::collections::HashMap;

@@ -13,7 +13,7 @@ use time::Month;
 // Comprehensive parity verification for V2 calibration engine (using V3 adapters).
 // Verifies that the V3 refactored adapters successfully bootstrap all curve types together.
 
-use finstack_core::prelude::*; // Imports DateExt
+use finstack_core::dates::DateExt; // Imports DateExt
 use finstack_core::types::Currency;
 
 // Helper to create date validly

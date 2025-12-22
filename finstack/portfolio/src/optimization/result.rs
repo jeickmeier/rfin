@@ -2,7 +2,7 @@ use super::problem::PortfolioOptimizationProblem;
 use crate::error::{PortfolioError, Result};
 use crate::portfolio::Portfolio;
 use crate::types::PositionId;
-use finstack_core::prelude::*;
+use finstack_core::config::ResultsMeta;
 use indexmap::IndexMap;
 use serde::{Deserialize, Serialize};
 

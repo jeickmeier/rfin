@@ -18,7 +18,11 @@ Portfolio management and aggregation for the Finstack ecosystem.
 ```rust
 use finstack_portfolio::{PortfolioBuilder, Position, PositionUnit, Entity, DUMMY_ENTITY_ID};
 use finstack_portfolio::value_portfolio;
-use finstack_core::prelude::*;
+use finstack_core::config::FinstackConfig;
+use finstack_core::currency::Currency;
+use finstack_core::dates::DayCount;
+use finstack_core::market_data::context::MarketContext;
+use finstack_core::money::Money;
 use finstack_valuations::instruments::deposit::Deposit;
 use std::sync::Arc;
 use time::macros::date;

@@ -2,7 +2,8 @@
 
 use crate::metrics::PortfolioMetrics;
 use crate::valuation::PortfolioValuation;
-use finstack_core::prelude::*;
+use finstack_core::config::ResultsMeta;
+use finstack_core::money::Money;
 use serde::{Deserialize, Serialize};
 
 /// Complete results from portfolio evaluation.
@@ -64,6 +65,8 @@ mod tests {
     use crate::test_utils::build_test_market;
     use crate::types::Entity;
     use crate::valuation::value_portfolio;
+    use finstack_core::config::{results_meta, FinstackConfig};
+    use finstack_core::currency::Currency;
     use finstack_valuations::instruments::deposit::Deposit;
     use std::sync::Arc;
     use time::macros::date;

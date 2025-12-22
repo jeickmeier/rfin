@@ -1,7 +1,9 @@
 //! Tests for repo pricing, interest calculations, and present value.
 
 use super::fixtures::*;
-use finstack_core::prelude::*;
+use finstack_core::currency::Currency;
+use finstack_core::dates::{BusinessDayConvention, DayCount};
+use finstack_core::money::Money;
 use finstack_valuations::instruments::common::traits::{Attributes, Instrument};
 use finstack_valuations::instruments::repo::{Repo, RepoType};
 

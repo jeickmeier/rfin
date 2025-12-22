@@ -3,9 +3,10 @@
 //! This module provides common fixtures and helpers used across unit tests
 //! in the portfolio crate. It is only compiled when running tests.
 
+use finstack_core::dates::Date;
+use finstack_core::market_data::context::MarketContext;
 use finstack_core::market_data::term_structures::discount_curve::DiscountCurve;
 use finstack_core::math::interp::InterpStyle;
-use finstack_core::prelude::*;
 use time::macros::date;
 
 /// Standard base date used across portfolio tests.

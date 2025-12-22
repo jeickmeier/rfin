@@ -6,7 +6,8 @@
 use crate::error::Result;
 use crate::position::Position;
 use crate::valuation::PortfolioValuation;
-use finstack_core::prelude::*;
+use finstack_core::currency::Currency;
+use finstack_core::money::Money;
 use indexmap::IndexMap;
 
 /// Group positions by a specific tag or attribute.
@@ -140,6 +141,9 @@ mod tests {
     use crate::test_utils::build_test_market;
     use crate::types::Entity;
     use crate::valuation::value_portfolio;
+    use finstack_core::config::FinstackConfig;
+    use finstack_core::currency::Currency;
+    use finstack_core::money::Money;
     use finstack_valuations::instruments::deposit::Deposit;
     use std::sync::Arc;
     use time::macros::date;

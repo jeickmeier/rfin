@@ -1,7 +1,9 @@
 //! Tests for repo construction, builders, and validation.
 
 use super::fixtures::*;
-use finstack_core::prelude::*;
+use finstack_core::currency::Currency;
+use finstack_core::dates::{BusinessDayConvention, DayCount};
+use finstack_core::money::Money;
 use finstack_valuations::instruments::common::traits::Attributes;
 use finstack_valuations::instruments::repo::{Repo, RepoBuilder, RepoType};
 

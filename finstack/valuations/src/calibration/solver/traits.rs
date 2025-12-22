@@ -1,4 +1,4 @@
-use finstack_core::prelude::*;
+use finstack_core::Result;
 
 /// Result type for building time grid and initial guesses.
 pub type TimeGridAndGuesses<Q> = (Vec<f64>, Vec<f64>, Vec<Q>);

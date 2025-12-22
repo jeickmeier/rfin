@@ -51,12 +51,13 @@ use crate::cashflow::builder::build_dates;
 use crate::instruments::cds_tranche::{CdsTranche, TrancheSide};
 use crate::instruments::common::traits::Instrument;
 use finstack_core::dates::next_cds_date;
-use finstack_core::dates::{Date, StubKind};
+use finstack_core::dates::{Date, DateExt, StubKind};
 use finstack_core::market_data::traits::Discounting;
 use finstack_core::market_data::{context::MarketContext, term_structures::CreditIndexData};
 use finstack_core::math::binomial_probability;
 use finstack_core::math::{norm_cdf, norm_pdf, standard_normal_inv_cdf, GaussHermiteQuadrature};
-use finstack_core::prelude::*;
+use finstack_core::money::Money;
+use finstack_core::Result;
 
 // Calendar imports for business day settlement
 use finstack_core::dates::calendar::registry::CalendarRegistry;

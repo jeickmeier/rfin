@@ -170,8 +170,8 @@ pub mod accrual;
 // Re-export primary builder type at the cashflow root for ergonomic access.
 pub use builder::CashFlowBuilder;
 
+pub use finstack_core::dates::Date;
 pub use finstack_core::money::Money;
-pub use finstack_core::prelude::Date;
 
 /// Single dated amount in a specific currency.
 pub type DatedFlow = (Date, Money);

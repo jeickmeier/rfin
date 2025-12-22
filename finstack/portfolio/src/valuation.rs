@@ -3,8 +3,10 @@
 use crate::error::{PortfolioError, Result};
 use crate::portfolio::Portfolio;
 use crate::types::{EntityId, PositionId};
+use finstack_core::config::FinstackConfig;
+use finstack_core::market_data::context::MarketContext;
 use finstack_core::math::summation::neumaier_sum;
-use finstack_core::prelude::*;
+use finstack_core::money::{fx::FxQuery, Money};
 use finstack_valuations::metrics::MetricId;
 use finstack_valuations::results::ValuationResult;
 use indexmap::IndexMap;
@@ -421,6 +423,8 @@ mod tests {
     use crate::position::{Position, PositionUnit};
     use crate::test_utils::build_test_market;
     use crate::types::{Entity, DUMMY_ENTITY_ID};
+    use finstack_core::currency::Currency;
+    use finstack_core::money::Money;
     use finstack_valuations::instruments::deposit::Deposit;
     use std::sync::Arc;
     use time::macros::date;

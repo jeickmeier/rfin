@@ -7,7 +7,8 @@
 use crate::error::{PortfolioError, Result};
 use crate::position::Position;
 use crate::types::{Entity, EntityId, DUMMY_ENTITY_ID};
-use finstack_core::prelude::*;
+use finstack_core::currency::Currency;
+use finstack_core::dates::Date;
 use indexmap::IndexMap;
 use serde::{Deserialize, Serialize};
 

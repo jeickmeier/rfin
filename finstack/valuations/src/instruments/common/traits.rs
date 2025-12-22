@@ -61,7 +61,12 @@ use crate::cashflow::traits::CashflowProvider;
 use crate::metrics::MetricId;
 use crate::pricer::InstrumentType;
 use finstack_core::market_data::context::MarketContext;
-use finstack_core::prelude::*;
+use finstack_core::{
+    currency::Currency,
+    dates::Date,
+    money::Money,
+    types::CurveId,
+};
 use serde::{Deserialize, Serialize};
 use std::any::Any;
 use std::collections::{BTreeMap, BTreeSet};

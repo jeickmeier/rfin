@@ -37,8 +37,6 @@ Top‑level modules in `finstack/core/src`:
 - **`error.rs`**: Unified error type (`Error`) and input/validation error variants; re‑exported as
   `finstack_core::Error`.
 - **`explain.rs`**: Explainability infrastructure for tracing and annotating computations.
-- **`prelude.rs`**: Curated re‑exports (`Currency`, `Money`, `Date`, `MarketContext`, `FxMatrix`,
-  `FinstackConfig`, `Solver`, etc.) for ergonomic imports.
 - **`generated/`**: Code generated at build time (currencies, calendars, Chinese New Year tables).
 
 Most submodules have their own `README.md` with deeper explanations and design notes.
@@ -59,12 +57,13 @@ Inside this workspace, other crates depend on the local `finstack-core` via the 
 
 ### Example: currency‑safe money
 
-The recommended entry point for application code is the `prelude`:
+Import the types you need explicitly:
 
 ```rust
-use finstack_core::prelude::*;
+use finstack_core::currency::Currency;
+use finstack_core::money::Money;
 
-fn main() -> Result<()> {
+fn main() -> finstack_core::Result<()> {
     // Work with strongly typed currencies
     let eur = Currency::EUR;
 
@@ -157,7 +156,7 @@ The high‑level process is:
 
 - **3. Wire the new code**
   - Add a new module or file under the appropriate directory.
-  - Expose it via the parent `mod.rs` and, if appropriate, through `lib.rs` and/or `prelude.rs`.
+  - Expose it via the parent `mod.rs` and, if appropriate, through `lib.rs`.
   - Ensure any new public APIs have clear, concise docs and at least one example.
 
 - **4. Test thoroughly**

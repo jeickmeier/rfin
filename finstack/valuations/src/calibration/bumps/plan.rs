@@ -9,7 +9,7 @@ use crate::calibration::api::schema::{CalibrationPlan, CalibrationStep, StepPara
 use crate::market::quotes::ids::Pillar;
 use crate::market::quotes::market_quote::MarketQuote;
 use finstack_core::dates::{Date, DayCount, DayCountCtx};
-use finstack_core::prelude::*;
+use finstack_core::Result;
 
 /// Utilities for bumping calibration plans (risk analysis).
 pub struct PlanBumper;
