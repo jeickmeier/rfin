@@ -33,6 +33,10 @@ pub mod cds_tranche;
 pub mod cliquet_option;
 /// cms option module.
 pub mod cms_option;
+/// commodity forward module.
+pub mod commodity_forward;
+/// commodity swap module.
+pub mod commodity_swap;
 /// convertible module.
 pub mod convertible;
 /// dcf module.
@@ -106,6 +110,8 @@ pub use cds_option::CdsOption;
 pub use cds_tranche::CdsTranche;
 pub use cliquet_option::CliquetOption;
 pub use cms_option::CmsOption;
+pub use commodity_forward::CommodityForward;
+pub use commodity_swap::CommoditySwap;
 pub use convertible::ConvertibleBond;
 pub use dcf::{DiscountedCashFlow, TerminalValueSpec};
 pub use deposit::Deposit;

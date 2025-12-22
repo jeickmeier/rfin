@@ -96,6 +96,25 @@ impl From<ExplanationTrace> for PyExplanationTrace {
 
 #[pymethods]
 impl PyExplanationTrace {
+    #[new]
+    #[pyo3(text_signature = "(trace_type)")]
+    /// Create a new empty trace of the given type.
+    ///
+    /// Parameters
+    /// ----------
+    /// trace_type : str
+    ///     Type of trace (e.g., "calibration", "pricing", "waterfall").
+    ///
+    /// Returns
+    /// -------
+    /// ExplanationTrace
+    ///     Empty trace ready to receive entries.
+    fn ctor(trace_type: String) -> Self {
+        Self {
+            inner: ExplanationTrace::new(trace_type),
+        }
+    }
+
     #[getter]
     /// Type of trace (e.g., "calibration", "pricing").
     fn trace_type(&self) -> &str {

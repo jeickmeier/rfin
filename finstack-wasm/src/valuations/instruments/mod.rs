@@ -12,6 +12,8 @@ mod cds_option;
 mod cds_tranche;
 mod cliquet_option;
 mod cms_option;
+mod commodity_forward;
+mod commodity_swap;
 mod convertible;
 mod dcf;
 mod deposit;
@@ -57,6 +59,7 @@ pub use cds_option::JsCdsOption as CdsOption;
 pub use cds_tranche::JsCdsTranche as CdsTranche;
 pub use cliquet_option::JsCliquetOption as CliquetOption;
 pub use cms_option::JsCmsOption as CmsOption;
+// Commodity instruments: exported directly via wasm_bindgen
 pub use convertible::JsConvertibleBond as ConvertibleBond;
 pub use dcf::evaluate_dcf_wasm;
 pub use deposit::JsDeposit as Deposit;
@@ -156,6 +159,8 @@ pub(crate) fn extract_instrument(value: &JsValue) -> Result<Box<dyn Instrument>,
     try_extract!(barrier_option::JsBarrierOption, "BarrierOption");
     try_extract!(cliquet_option::JsCliquetOption, "CliquetOption");
     try_extract!(cms_option::JsCmsOption, "CmsOption");
+    try_extract!(commodity_forward::JsCommodityForward, "CommodityForward");
+    try_extract!(commodity_swap::JsCommoditySwap, "CommoditySwap");
     try_extract!(fx_barrier_option::JsFxBarrierOption, "FxBarrierOption");
     try_extract!(lookback_option::JsLookbackOption, "LookbackOption");
     try_extract!(quanto_option::JsQuantoOption, "QuantoOption");

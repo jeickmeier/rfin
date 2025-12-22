@@ -440,7 +440,7 @@ impl PyCompiledExpr {
         self.inner.plan.clone().map(PyExecutionPlan::new)
     }
 
-    #[pyo3(text_signature = "(self, columns, data, opts=None)")]
+    #[pyo3(signature = (columns, data, opts=None), text_signature = "(self, columns, data, opts=None)")]
     fn eval(
         &self,
         columns: Vec<String>,

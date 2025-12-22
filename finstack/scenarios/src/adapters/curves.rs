@@ -273,6 +273,33 @@ impl ScenarioAdapter for CurveAdapter {
                             curve: std::sync::Arc::new(new_curve),
                         }]))
                     }
+                    CurveKind::Commodity => {
+                        // Commodity curves are treated like discount curves for bump purposes
+                        // They store forward prices, which we bump like rates
+                        let base_curve = ctx.market.get_discount_ref(curve_id).map_err(|_| {
+                            Error::MarketDataNotFound {
+                                id: curve_id.to_string(),
+                            }
+                        })?;
+
+                        let new_curve = bump_discount_curve_synthetic(
+                            base_curve,
+                            ctx.market,
+                            &bump_req,
+                            as_of,
+                        )
+                        .map_err(|e| {
+                            Error::Internal(format!(
+                                "Failed to bump commodity curve components: {}",
+                                e
+                            ))
+                        })?;
+
+                        Ok(Some(vec![ScenarioEffect::UpdateDiscountCurve {
+                            id: curve_id.clone(),
+                            curve: std::sync::Arc::new(new_curve),
+                        }]))
+                    }
                 }
             }
             OperationSpec::CurveNodeBp {
@@ -459,6 +486,38 @@ impl ScenarioAdapter for CurveAdapter {
                         })?;
 
                         Ok(Some(vec![ScenarioEffect::UpdateInflationCurve {
+                            id: curve_id.clone(),
+                            curve: std::sync::Arc::new(new_curve),
+                        }]))
+                    }
+                    CurveKind::Commodity => {
+                        // Commodity curves treated like discount curves for bump purposes
+                        let base_curve = ctx.market.get_discount_ref(curve_id).map_err(|_| {
+                            Error::MarketDataNotFound {
+                                id: curve_id.to_string(),
+                            }
+                        })?;
+
+                        let knots: Vec<f64> = base_curve.knots().to_vec();
+                        let targets = resolve_bump_targets(
+                            nodes,
+                            &knots,
+                            *match_mode,
+                            as_of,
+                            base_curve.day_count(),
+                        )?;
+                        let bump_req = BumpRequest::Tenors(targets);
+
+                        let new_curve =
+                            bump_discount_curve_synthetic(base_curve, ctx.market, &bump_req, as_of)
+                                .map_err(|e| {
+                                    Error::Internal(format!(
+                                        "Failed to bump commodity curve components: {}",
+                                        e
+                                    ))
+                                })?;
+
+                        Ok(Some(vec![ScenarioEffect::UpdateDiscountCurve {
                             id: curve_id.clone(),
                             curve: std::sync::Arc::new(new_curve),
                         }]))

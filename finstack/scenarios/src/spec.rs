@@ -533,6 +533,8 @@ pub enum CurveKind {
     ParCDS,
     /// Inflation index curve.
     Inflation,
+    /// Commodity forward curve.
+    Commodity,
 }
 
 /// Identifies which category of volatility surface an operation targets.

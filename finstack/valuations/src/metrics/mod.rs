@@ -408,6 +408,11 @@ pub fn standard_registry() -> MetricRegistry {
     crate::instruments::trs::metrics::register_trs_metrics(&mut registry);
     crate::instruments::variance_swap::metrics::register_variance_swap_metrics(&mut registry);
     crate::instruments::private_markets_fund::register_private_markets_fund_metrics(&mut registry);
+    // Commodity instruments
+    crate::instruments::commodity_forward::metrics::register_commodity_forward_metrics(
+        &mut registry,
+    );
+    crate::instruments::commodity_swap::metrics::register_commodity_swap_metrics(&mut registry);
     // Exotic options
     #[cfg(feature = "mc")]
     {

@@ -107,6 +107,10 @@ pub enum InstrumentType {
     FIIndexTotalReturnSwap = 51,
     /// Bond future (futures on a deliverable bond basket with CTD mechanics).
     BondFuture = 54,
+    /// Commodity forward or futures contract.
+    CommodityForward = 55,
+    /// Commodity swap (fixed-for-floating commodity price exchange).
+    CommoditySwap = 56,
 }
 
 impl InstrumentType {
@@ -160,6 +164,8 @@ impl InstrumentType {
             InstrumentType::EquityTotalReturnSwap => "EquityTotalReturnSwap",
             InstrumentType::FIIndexTotalReturnSwap => "FIIndexTotalReturnSwap",
             InstrumentType::BondFuture => "BondFuture",
+            InstrumentType::CommodityForward => "CommodityForward",
+            InstrumentType::CommoditySwap => "CommoditySwap",
         }
     }
 }
@@ -211,6 +217,8 @@ impl std::fmt::Display for InstrumentType {
             InstrumentType::EquityTotalReturnSwap => "equity_total_return_swap",
             InstrumentType::FIIndexTotalReturnSwap => "fi_index_total_return_swap",
             InstrumentType::BondFuture => "bond_future",
+            InstrumentType::CommodityForward => "commodity_forward",
+            InstrumentType::CommoditySwap => "commodity_swap",
         };
         write!(f, "{}", label)
     }
@@ -278,6 +286,9 @@ impl std::str::FromStr for InstrumentType {
                 Ok(InstrumentType::FIIndexTotalReturnSwap)
             }
             "bond_future" | "bondfuture" => Ok(InstrumentType::BondFuture),
+            "commodity_forward" | "commodityforward" | "commodity_future"
+            | "commodityfuture" => Ok(InstrumentType::CommodityForward),
+            "commodity_swap" | "commodityswap" => Ok(InstrumentType::CommoditySwap),
             other => Err(format!("Unknown instrument type: {}", other)),
         }
     }
@@ -1123,6 +1134,22 @@ fn register_all_pricers(registry: &mut PricerRegistry) {
         DCF,
         Discounting,
         crate::instruments::dcf::pricer::DcfPricer
+    );
+
+    // Commodity Forward
+    register_pricer!(
+        registry,
+        CommodityForward,
+        Discounting,
+        crate::instruments::commodity_forward::CommodityForwardDiscountingPricer
+    );
+
+    // Commodity Swap
+    register_pricer!(
+        registry,
+        CommoditySwap,
+        Discounting,
+        crate::instruments::commodity_swap::CommoditySwapDiscountingPricer
     );
 }
 

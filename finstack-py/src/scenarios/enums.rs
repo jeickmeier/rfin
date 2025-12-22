@@ -54,12 +54,19 @@ impl PyCurveKind {
         Self::new(CurveKind::Inflation)
     }
 
+    #[classattr]
+    #[allow(non_snake_case)]
+    fn Commodity() -> Self {
+        Self::new(CurveKind::Commodity)
+    }
+
     fn __repr__(&self) -> String {
         match self.inner {
             CurveKind::Discount => "CurveKind.Discount".to_string(),
             CurveKind::Forecast => "CurveKind.Forecast".to_string(),
             CurveKind::ParCDS => "CurveKind.ParCDS".to_string(),
             CurveKind::Inflation => "CurveKind.Inflation".to_string(),
+            CurveKind::Commodity => "CurveKind.Commodity".to_string(),
         }
     }
 
@@ -69,6 +76,7 @@ impl PyCurveKind {
             CurveKind::Forecast => "Forecast".to_string(),
             CurveKind::ParCDS => "ParCDS".to_string(),
             CurveKind::Inflation => "Inflation".to_string(),
+            CurveKind::Commodity => "Commodity".to_string(),
         }
     }
 

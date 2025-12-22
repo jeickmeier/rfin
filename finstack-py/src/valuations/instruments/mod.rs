@@ -11,6 +11,8 @@ mod cds_option;
 mod cds_tranche;
 mod cliquet_option;
 mod cms_option;
+mod commodity_forward;
+mod commodity_swap;
 mod convertible;
 mod dcf;
 mod deposit;
@@ -49,6 +51,8 @@ use cds_option::PyCdsOption;
 use cds_tranche::PyCdsTranche;
 use cliquet_option::PyCliquetOption;
 use cms_option::PyCmsOption;
+use commodity_forward::PyCommodityForward;
+use commodity_swap::PyCommoditySwap;
 use convertible::PyConvertibleBond;
 use deposit::PyDeposit;
 use equity::PyEquity;
@@ -132,6 +136,12 @@ pub(crate) fn extract_instrument<'py>(value: &Bound<'py, PyAny>) -> PyResult<Ins
     try_extract!(value, PyCdsIndex, InstrumentType::CDSIndex);
     try_extract!(value, PyCdsOption, InstrumentType::CDSOption);
     try_extract!(value, PyCdsTranche, InstrumentType::CDSTranche);
+    try_extract!(
+        value,
+        PyCommodityForward,
+        InstrumentType::CommodityForward
+    );
+    try_extract!(value, PyCommoditySwap, InstrumentType::CommoditySwap);
     try_extract!(value, PyRepo, InstrumentType::Repo);
     try_extract!(
         value,
@@ -264,6 +274,12 @@ pub(crate) fn register<'py>(
 
     let cms_option_exports = cms_option::register(py, &module)?;
     exports.extend(cms_option_exports.iter().copied());
+
+    commodity_forward::register_module(&module)?;
+    exports.push("CommodityForward");
+
+    commodity_swap::register_module(&module)?;
+    exports.push("CommoditySwap");
 
     let fx_barrier_option_exports = fx_barrier_option::register(py, &module)?;
     exports.extend(fx_barrier_option_exports.iter().copied());
