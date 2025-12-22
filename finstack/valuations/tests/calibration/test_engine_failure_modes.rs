@@ -5,15 +5,18 @@ use finstack_core::market_data::context::MarketContext;
 use finstack_core::market_data::term_structures::base_correlation::BaseCorrelationCurve;
 use finstack_core::market_data::term_structures::discount_curve::DiscountCurve;
 use finstack_core::market_data::term_structures::hazard_curve::{HazardCurve, ParInterp};
+use finstack_core::market_data::scalars::inflation_index::{
+    InflationIndex, InflationInterpolation, InflationLag,
+};
 use finstack_core::market_data::term_structures::CreditIndexData;
 use finstack_core::math::interp::InterpStyle;
 use finstack_core::types::Currency;
 use finstack_valuations::calibration::api::engine;
 use finstack_valuations::calibration::api::schema::{
     AtmStrikeConvention, BaseCorrelationParams, CalibrationEnvelope, CalibrationPlan,
-    CalibrationStep, HazardCurveParams, InflationCurveParams, SabrInterpolationMethod,
-    StepParams, SurfaceExtrapolationPolicy, SwaptionVolConvention, SwaptionVolParams,
-    VolSurfaceParams,
+    CalibrationStep, ForwardCurveParams, HazardCurveParams, InflationCurveParams,
+    SabrInterpolationMethod, StepParams, SurfaceExtrapolationPolicy, SwaptionVolConvention,
+    SwaptionVolParams, VolSurfaceParams,
 };
 use finstack_valuations::market::conventions::ids::{CdsConventionKey, CdsDocClause};
 use finstack_valuations::market::quotes::cds::CdsQuote;
@@ -280,6 +283,252 @@ fn base_correlation_preflight_rejects_invalid_attachment_detachment() {
     let msg = err.to_string();
     assert!(
         msg.contains("attachment/detachment"),
+        "unexpected error: {msg}"
+    );
+}
+
+#[test]
+fn base_correlation_preflight_requires_credit_index_data() {
+    let base_date = base_date();
+    let discount = usd_discount_curve(base_date);
+    let initial_market = MarketContext::new().insert_discount(discount);
+
+    let tranche_quote = MarketQuote::CdsTranche(CdsTrancheQuote::CDSTranche {
+        id: QuoteId::new("CDX-IG-0-3"),
+        index: "CDX.NA.IG".to_string(),
+        attachment: 0.0,
+        detachment: 0.03,
+        maturity: Date::from_calendar_date(2030, Month::June, 20).expect("maturity"),
+        upfront_pct: -0.02,
+        running_spread_bp: 500.0,
+        convention: CdsConventionKey {
+            currency: Currency::USD,
+            doc_clause: CdsDocClause::Cr14,
+        },
+    });
+
+    let step = CalibrationStep {
+        id: "corr".to_string(),
+        quote_set: "tranche".to_string(),
+        params: StepParams::BaseCorrelation(BaseCorrelationParams {
+            index_id: "CDX.NA.IG".to_string(),
+            series: 41,
+            maturity_years: 5.0,
+            base_date,
+            discount_curve_id: "USD-OIS".into(),
+            currency: Currency::USD,
+            notional: 1.0,
+            payment_frequency: None,
+            day_count: None,
+            business_day_convention: None,
+            calendar_id: None,
+            detachment_points: vec![0.03],
+            use_imm_dates: false,
+        }),
+    };
+
+    let envelope = envelope_for_step(step, vec![tranche_quote], initial_market);
+    let err = engine::execute(&envelope).expect_err("missing credit index should fail");
+    let msg = err.to_string();
+    assert!(
+        msg.to_ascii_lowercase().contains("credit index")
+            || msg.to_ascii_lowercase().contains("not found"),
+        "unexpected error: {msg}"
+    );
+}
+
+#[test]
+fn base_correlation_preflight_rejects_non_monotone_tranche_points() {
+    let base_date = base_date();
+    let hazard = Arc::new(
+        HazardCurve::builder("CDX-HAZARD")
+            .base_date(base_date)
+            .knots(vec![(1.0, 0.01), (5.0, 0.02)])
+            .recovery_rate(0.40)
+            .build()
+            .expect("hazard curve"),
+    );
+    let base_corr = Arc::new(
+        BaseCorrelationCurve::builder("CDX-CORR")
+            .points(vec![(3.0, 0.25), (10.0, 0.55)])
+            .build()
+            .expect("base correlation curve"),
+    );
+    let hazard_clone = hazard.as_ref().clone();
+    let base_corr_clone = base_corr.as_ref().clone();
+    let index_data = CreditIndexData::builder()
+        .num_constituents(125)
+        .recovery_rate(0.40)
+        .index_credit_curve(hazard)
+        .base_correlation_curve(base_corr)
+        .build()
+        .expect("credit index data");
+
+    let mut initial_market = MarketContext::new();
+    initial_market.insert_hazard_mut(hazard_clone);
+    initial_market.insert_base_correlation_mut(base_corr_clone);
+    initial_market.insert_credit_index_mut("CDX.NA.IG", index_data);
+
+    let tranche_quote = MarketQuote::CdsTranche(CdsTrancheQuote::CDSTranche {
+        id: QuoteId::new("CDX-IG-7-3"),
+        index: "CDX.NA.IG".to_string(),
+        attachment: 0.15,
+        detachment: 0.10, // invalid: detachment < attachment
+        maturity: Date::from_calendar_date(2030, Month::June, 20).expect("maturity"),
+        upfront_pct: -0.02,
+        running_spread_bp: 500.0,
+        convention: CdsConventionKey {
+            currency: Currency::USD,
+            doc_clause: CdsDocClause::Cr14,
+        },
+    });
+
+    let step = CalibrationStep {
+        id: "corr".to_string(),
+        quote_set: "tranche".to_string(),
+        params: StepParams::BaseCorrelation(BaseCorrelationParams {
+            index_id: "CDX.NA.IG".to_string(),
+            series: 41,
+            maturity_years: 5.0,
+            base_date,
+            discount_curve_id: "USD-OIS".into(),
+            currency: Currency::USD,
+            notional: 1.0,
+            payment_frequency: None,
+            day_count: None,
+            business_day_convention: None,
+            calendar_id: None,
+            detachment_points: vec![0.03],
+            use_imm_dates: false,
+        }),
+    };
+
+    let envelope = envelope_for_step(step, vec![tranche_quote], initial_market);
+    let err = engine::execute(&envelope).expect_err("invalid tranche attachment should fail");
+    let msg = err.to_string();
+    assert!(
+        msg.contains("attachment/detachment"),
+        "unexpected error: {msg}"
+    );
+}
+
+#[test]
+fn inflation_preflight_rejects_lag_mismatch_with_index() {
+    let base_date = base_date();
+    let discount = usd_discount_curve(base_date);
+    let observations = vec![
+        (
+            Date::from_calendar_date(2025, Month::January, 2).expect("obs date"),
+            100.0,
+        ),
+        (
+            Date::from_calendar_date(2025, Month::February, 2).expect("obs date"),
+            101.0,
+        ),
+    ];
+    let index = InflationIndex::new("USD-CPI", observations, Currency::USD)
+        .expect("index")
+        .with_interpolation(InflationInterpolation::Linear)
+        .with_lag(InflationLag::Months(3));
+
+    let initial_market = MarketContext::new()
+        .insert_discount(discount)
+        .insert_inflation_index("USD-CPI", index);
+
+    let quote = MarketQuote::Inflation(InflationQuote::InflationSwap {
+        maturity: Date::from_calendar_date(2030, Month::January, 2).expect("maturity"),
+        rate: 0.02,
+        index: "USD-CPI".to_string(),
+        convention: finstack_valuations::market::conventions::ids::InflationSwapConventionId::new(
+            "USD",
+        ),
+    });
+
+    let step = CalibrationStep {
+        id: "infl".to_string(),
+        quote_set: "infl".to_string(),
+        params: StepParams::Inflation(InflationCurveParams {
+            curve_id: "USD-CPI".into(),
+            currency: Currency::USD,
+            base_date,
+            discount_curve_id: "USD-OIS".into(),
+            index: "USD-CPI".to_string(),
+            observation_lag: "1M".to_string(), // mismatch vs index lag (3M)
+            base_cpi: 100.0,
+            notional: 1.0,
+            method: Default::default(),
+            interpolation: Default::default(),
+        }),
+    };
+
+    let envelope = envelope_for_step(step, vec![quote], initial_market);
+    let err = engine::execute(&envelope).expect_err("lag mismatch should fail");
+    let msg = err.to_string();
+    assert!(
+        msg.contains("lag mismatch"),
+        "unexpected error: {msg}"
+    );
+}
+
+#[test]
+fn forward_preflight_requires_quotes() {
+    let base_date = base_date();
+    let discount = usd_discount_curve(base_date);
+    let initial_market = MarketContext::new().insert_discount(discount);
+
+    let step = CalibrationStep {
+        id: "fwd".to_string(),
+        quote_set: "fwd_quotes".to_string(),
+        params: StepParams::Forward(ForwardCurveParams {
+            curve_id: "USD-FWD".into(),
+            currency: Currency::USD,
+            base_date,
+            tenor_years: 5.0,
+            discount_curve_id: "USD-OIS".into(),
+            method: Default::default(),
+            interpolation: Default::default(),
+            conventions: Default::default(),
+        }),
+    };
+
+    let envelope = envelope_for_step(step, Vec::new(), initial_market);
+    let err = engine::execute(&envelope).expect_err("missing forward quotes should fail");
+    let msg = err.to_string().to_ascii_lowercase();
+    assert!(
+        msg.contains("too few points") || msg.contains("at least two"),
+        "unexpected error: {msg}"
+    );
+}
+
+#[test]
+fn vol_surface_requires_quotes_even_when_params_valid() {
+    let base_date = base_date();
+    let discount = usd_discount_curve(base_date);
+    let initial_market = MarketContext::new().insert_discount(discount);
+
+    let step = CalibrationStep {
+        id: "vol".to_string(),
+        quote_set: "vols".to_string(),
+        params: StepParams::VolSurface(VolSurfaceParams {
+            surface_id: "EQ-VOL".to_string(),
+            base_date,
+            underlying_id: "SPX".to_string(),
+            model: "sabr".to_string(),
+            discount_curve_id: Some("USD-OIS".into()),
+            beta: 0.5,
+            target_expiries: vec![1.0], // year fraction (validated by VolSurfaceBootstrapper)
+            target_strikes: vec![0.9, 1.0, 1.1],
+            spot_override: Some(100.0),
+            dividend_yield_override: None,
+            expiry_extrapolation: SurfaceExtrapolationPolicy::Error,
+        }),
+    };
+
+    let envelope = envelope_for_step(step, Vec::new(), initial_market);
+    let err = engine::execute(&envelope).expect_err("missing vol quotes should fail");
+    let msg = err.to_string().to_ascii_lowercase();
+    assert!(
+        msg.contains("too few points") || msg.contains("at least two"),
         "unexpected error: {msg}"
     );
 }

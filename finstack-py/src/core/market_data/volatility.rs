@@ -4,7 +4,7 @@
 //! - `VolatilityConvention`: enum for Normal, Lognormal, and ShiftedLognormal conventions
 //! - Pricing functions: `bachelier_price`, `black_price`, `black_shifted_price`
 //! - `convert_atm_volatility`: utility to convert ATM volatility between conventions
-use finstack_core::volatility::{
+use finstack_core::math::volatility::{
     bachelier_price, black_price, black_shifted_price, convert_atm_volatility, VolatilityConvention,
 };
 use pyo3::prelude::*;

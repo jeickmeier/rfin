@@ -17,3 +17,6 @@ mod edge_cases;
 
 #[path = "metrics/convergence.rs"]
 mod convergence;
+
+#[path = "metrics/fd_greeks.rs"]
+mod fd_greeks;

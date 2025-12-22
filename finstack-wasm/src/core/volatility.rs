@@ -1,7 +1,7 @@
 //! WASM bindings for volatility conventions and conversion utilities.
 
 use crate::core::error::js_error;
-use finstack_core::volatility::{convert_atm_volatility, VolatilityConvention};
+use finstack_core::math::volatility::{convert_atm_volatility, VolatilityConvention};
 use wasm_bindgen::prelude::*;
 
 /// Volatility quoting convention wrapper.

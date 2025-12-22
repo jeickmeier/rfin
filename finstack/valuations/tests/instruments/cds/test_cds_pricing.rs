@@ -144,6 +144,136 @@ fn test_npv_calculation_buyer() {
 }
 
 #[test]
+fn test_par_spread_full_premium_branch() {
+    let as_of = date!(2024 - 01 - 01);
+    let end = date!(2029 - 01 - 01);
+    let disc = build_discount_curve(0.03, as_of, "USD_OIS");
+    let hazard = build_hazard_curve(0.04, 0.40, as_of, "CORP");
+    let market = MarketContext::new()
+        .insert_discount(disc)
+        .insert_hazard(hazard);
+
+    let cds = CreditDefaultSwap::buy_protection(
+        "FULL_PREM",
+        Money::new(10_000_000.0, Currency::USD),
+        100.0,
+        as_of,
+        end,
+        "USD_OIS",
+        "CORP",
+    );
+
+    let pricer_base = CDSPricer::new();
+
+    let mut cfg_full = CDSPricerConfig::isda_standard();
+    cfg_full.par_spread_uses_full_premium = true;
+    let pricer_full = CDSPricer::with_config(cfg_full);
+
+    let par_base = pricer_base
+        .par_spread(
+            &cds,
+            market.get_discount_ref("USD_OIS").unwrap(),
+            market.get_hazard_ref("CORP").unwrap(),
+            as_of,
+        )
+        .expect("par spread");
+
+    let par_full = pricer_full
+        .par_spread(
+            &cds,
+            market.get_discount_ref("USD_OIS").unwrap(),
+            market.get_hazard_ref("CORP").unwrap(),
+            as_of,
+        )
+        .expect("par spread full premium");
+
+    // Full premium denominator is larger -> par spread should tighten.
+    assert!(
+        par_full < par_base,
+        "Full premium par spread should be lower; base={par_base}, full={par_full}"
+    );
+}
+
+#[test]
+fn test_par_spread_errors_when_expired() {
+    let as_of = date!(2029 - 01 - 01);
+    let start = date!(2024 - 01 - 01);
+    let end = as_of; // expired on valuation date
+    let disc = build_discount_curve(0.03, start, "USD_OIS");
+    let hazard = build_hazard_curve(0.02, 0.40, start, "CORP");
+    let market = MarketContext::new()
+        .insert_discount(disc)
+        .insert_hazard(hazard);
+
+    let cds = CreditDefaultSwap::buy_protection(
+        "EXPIRED_PAR",
+        Money::new(10_000_000.0, Currency::USD),
+        100.0,
+        start,
+        end,
+        "USD_OIS",
+        "CORP",
+    );
+
+    let pricer = CDSPricer::new();
+    let err = pricer
+        .par_spread(
+            &cds,
+            market.get_discount_ref("USD_OIS").unwrap(),
+            market.get_hazard_ref("CORP").unwrap(),
+            as_of,
+        )
+        .expect_err("expired CDS should error");
+    let msg = err.to_string();
+    assert!(
+        msg.contains("denominator") || msg.contains("start time"),
+        "expected denominator/start time error, got {msg}"
+    );
+}
+
+#[test]
+fn test_premium_leg_excludes_accrual_when_disabled() {
+    let as_of = date!(2024 - 01 - 01);
+    let end = date!(2026 - 01 - 01);
+    let disc = build_discount_curve(0.02, as_of, "USD_OIS");
+    let hazard = build_hazard_curve(0.05, 0.40, as_of, "CORP");
+    let market = MarketContext::new()
+        .insert_discount(disc)
+        .insert_hazard(hazard);
+
+    let cds = CreditDefaultSwap::buy_protection(
+        "AOE_TOGGLE",
+        Money::new(10_000_000.0, Currency::USD),
+        500.0,
+        as_of,
+        end,
+        "USD_OIS",
+        "CORP",
+    );
+
+    let pricer_default = CDSPricer::new(); // include_accrual = true
+
+    let mut cfg_no_aod = CDSPricerConfig::isda_standard();
+    cfg_no_aod.include_accrual = false;
+    let pricer_no_aod = CDSPricer::with_config(cfg_no_aod);
+
+    let disc_ref = market.get_discount_ref("USD_OIS").unwrap();
+    let hazard_ref = market.get_hazard_ref("CORP").unwrap();
+
+    let with_aod = pricer_default
+        .premium_leg_pv_per_bp(&cds, disc_ref, hazard_ref, as_of)
+        .expect("premium with AoD");
+    let without_aod = pricer_no_aod
+        .premium_leg_pv_per_bp(&cds, disc_ref, hazard_ref, as_of)
+        .expect("premium without AoD");
+
+    assert!(
+        with_aod > without_aod,
+        "Including accrual-on-default should increase premium PV per bp; with={with_aod}, without={without_aod}"
+    );
+}
+
+#[test]
 fn test_npv_buyer_seller_opposite() {
     let as_of = date!(2024 - 01 - 01);
     let end = date!(2029 - 01 - 01);

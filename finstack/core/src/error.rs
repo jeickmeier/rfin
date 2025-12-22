@@ -266,7 +266,7 @@ pub enum InputError {
     /// Lognormal volatility requires positive forward rate.
     ///
     /// The Black (lognormal) model is undefined for non-positive forward rates.
-    /// Use [`VolatilityConvention::ShiftedLognormal`](crate::volatility::VolatilityConvention::ShiftedLognormal)
+    /// Use [`VolatilityConvention::ShiftedLognormal`](crate::math::volatility::VolatilityConvention::ShiftedLognormal)
     /// with an appropriate shift for negative rate environments.
     #[error("Lognormal volatility requires positive forward rate (got {forward:.6}); use ShiftedLognormal with shift >= {required_shift:.6}")]
     NonPositiveForwardForLognormal {
