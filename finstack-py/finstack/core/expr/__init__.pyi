@@ -29,7 +29,7 @@ from ..config import ResultsMeta
 
 class Function:
     """Expression function enumeration.
-    
+
     Supported functions for time-series operations and aggregations.
     Use class attributes to access function variants (e.g., ``Function.LAG``).
     """
@@ -116,10 +116,9 @@ class Function:
 
     def __repr__(self) -> str: ...
 
-
 class BinOp:
     """Binary operation enumeration.
-    
+
     Supported binary operators for arithmetic, comparison, and logical operations.
     """
 
@@ -152,7 +151,6 @@ class BinOp:
 
     def __repr__(self) -> str: ...
 
-
 class UnaryOp:
     """Unary operation enumeration."""
 
@@ -163,13 +161,12 @@ class UnaryOp:
 
     def __repr__(self) -> str: ...
 
-
 class Expr:
     """Expression AST node.
-    
+
     Build expressions using static constructors like :meth:`column`, :meth:`literal`,
     :meth:`call`, :meth:`bin_op`, and :meth:`if_then_else`.
-    
+
     Examples
     --------
         >>> from finstack.core.expr import Expr, Function, BinOp
@@ -183,21 +180,19 @@ class Expr:
         >>> add = Expr.bin_op(BinOp.ADD, x, two)
         >>> # Conditional: if x > 0 then x else -x
         >>> abs_x = Expr.if_then_else(
-        ...     Expr.bin_op(BinOp.GT, x, Expr.literal(0.0)),
-        ...     x,
-        ...     Expr.bin_op(BinOp.MUL, x, Expr.literal(-1.0))
+        ...     Expr.bin_op(BinOp.GT, x, Expr.literal(0.0)), x, Expr.bin_op(BinOp.MUL, x, Expr.literal(-1.0))
         ... )
     """
 
     @staticmethod
     def column(name: str) -> "Expr":
         """Create a column reference expression.
-        
+
         Parameters
         ----------
         name : str
             Column name to reference.
-            
+
         Returns
         -------
         Expr
@@ -208,12 +203,12 @@ class Expr:
     @staticmethod
     def literal(value: float) -> "Expr":
         """Create a literal value expression.
-        
+
         Parameters
         ----------
         value : float
             Constant value.
-            
+
         Returns
         -------
         Expr
@@ -224,14 +219,14 @@ class Expr:
     @staticmethod
     def call(func: Function, args: list["Expr"]) -> "Expr":
         """Create a function call expression.
-        
+
         Parameters
         ----------
         func : Function
             Function to call.
         args : list[Expr]
             Arguments to the function.
-            
+
         Returns
         -------
         Expr
@@ -242,7 +237,7 @@ class Expr:
     @staticmethod
     def bin_op(op: BinOp, left: "Expr", right: "Expr") -> "Expr":
         """Create a binary operation expression.
-        
+
         Parameters
         ----------
         op : BinOp
@@ -251,7 +246,7 @@ class Expr:
             Left operand.
         right : Expr
             Right operand.
-            
+
         Returns
         -------
         Expr
@@ -262,14 +257,14 @@ class Expr:
     @staticmethod
     def unary_op(op: UnaryOp, operand: "Expr") -> "Expr":
         """Create a unary operation expression.
-        
+
         Parameters
         ----------
         op : UnaryOp
             Unary operator.
         operand : Expr
             Operand.
-            
+
         Returns
         -------
         Expr
@@ -278,11 +273,9 @@ class Expr:
         ...
 
     @staticmethod
-    def if_then_else(
-        condition: "Expr", then_expr: "Expr", else_expr: "Expr"
-    ) -> "Expr":
+    def if_then_else(condition: "Expr", then_expr: "Expr", else_expr: "Expr") -> "Expr":
         """Create a conditional expression.
-        
+
         Parameters
         ----------
         condition : Expr
@@ -291,7 +284,7 @@ class Expr:
             Expression if condition is true.
         else_expr : Expr
             Expression if condition is false.
-            
+
         Returns
         -------
         Expr
@@ -301,12 +294,12 @@ class Expr:
 
     def with_id(self, id: int) -> "Expr":
         """Return a copy of this expression with a specific ID.
-        
+
         Parameters
         ----------
         id : int
             Expression ID for DAG deduplication.
-            
+
         Returns
         -------
         Expr
@@ -316,10 +309,9 @@ class Expr:
 
     def __repr__(self) -> str: ...
 
-
 class ExecutionPlan:
     """Execution plan from DAG analysis.
-    
+
     Contains the optimized execution order and metadata for evaluating
     an expression tree with shared subexpression detection.
     """
@@ -341,10 +333,9 @@ class ExecutionPlan:
 
     def __repr__(self) -> str: ...
 
-
 class EvalOpts:
     """Evaluation options for expression execution.
-    
+
     Parameters
     ----------
     plan : ExecutionPlan, optional
@@ -359,7 +350,6 @@ class EvalOpts:
         plan: Optional[ExecutionPlan] = None,
         cache_budget_mb: Optional[int] = None,
     ) -> None: ...
-
     @property
     def cache_budget_mb(self) -> Optional[int]:
         """Memory budget for caching in MB."""
@@ -367,16 +357,14 @@ class EvalOpts:
 
     @cache_budget_mb.setter
     def cache_budget_mb(self, value: Optional[int]) -> None: ...
-
     @property
     def plan(self) -> Optional[ExecutionPlan]:
         """Pre-computed execution plan, if any."""
         ...
 
-
 class EvaluationResult:
     """Result of expression evaluation.
-    
+
     Contains the computed values and metadata about the evaluation.
     """
 
@@ -390,18 +378,17 @@ class EvaluationResult:
         """Execution metadata."""
         ...
 
-
 class CompiledExpr:
     """Compiled expression ready for evaluation.
-    
+
     Compilation performs DAG analysis and prepares the expression for
     efficient evaluation over tabular data.
-    
+
     Parameters
     ----------
     expr : Expr
         Expression to compile.
-        
+
     Examples
     --------
         >>> from finstack.core.expr import Expr, Function, CompiledExpr
@@ -413,18 +400,17 @@ class CompiledExpr:
     """
 
     def __init__(self, expr: Expr) -> None: ...
-
     @classmethod
     def with_planning(cls, expr: Expr, results_meta: ResultsMeta) -> "CompiledExpr":
         """Create a compiled expression with explicit planning metadata.
-        
+
         Parameters
         ----------
         expr : Expr
             Expression to compile.
         results_meta : ResultsMeta
             Metadata for result stamping.
-            
+
         Returns
         -------
         CompiledExpr
@@ -434,12 +420,12 @@ class CompiledExpr:
 
     def with_cache(self, budget_mb: int) -> "CompiledExpr":
         """Return a copy with caching enabled at the given budget.
-        
+
         Parameters
         ----------
         budget_mb : int
             Memory budget for caching in MB.
-            
+
         Returns
         -------
         CompiledExpr
@@ -459,7 +445,7 @@ class CompiledExpr:
         opts: Optional[EvalOpts] = None,
     ) -> EvaluationResult:
         """Evaluate the expression over tabular data.
-        
+
         Parameters
         ----------
         columns : list[str]
@@ -468,12 +454,12 @@ class CompiledExpr:
             Data columns (each inner list is a column).
         opts : EvalOpts, optional
             Evaluation options.
-            
+
         Returns
         -------
         EvaluationResult
             Evaluation result with values and metadata.
-            
+
         Raises
         ------
         ValueError
@@ -481,7 +467,6 @@ class CompiledExpr:
             data columns have inconsistent lengths.
         """
         ...
-
 
 __all__ = [
     "Function",

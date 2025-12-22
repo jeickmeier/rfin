@@ -7,13 +7,13 @@
 //! - Context cloning
 
 use criterion::{criterion_group, criterion_main, BenchmarkId, Criterion};
+use finstack_core::collections::HashMap;
 use finstack_core::dates::Date;
 use finstack_core::market_data::context::{BumpSpec, MarketContext};
 use finstack_core::market_data::surfaces::vol_surface::VolSurface;
 use finstack_core::market_data::term_structures::discount_curve::DiscountCurve;
 use finstack_core::market_data::term_structures::forward_curve::ForwardCurve;
 use finstack_core::market_data::term_structures::hazard_curve::HazardCurve;
-use finstack_core::collections::HashMap;
 use finstack_core::types::CurveId;
 use std::hint::black_box;
 use time::Month;
@@ -75,9 +75,7 @@ fn create_hazard_curve(id: &str, num_points: usize) -> HazardCurve {
 
 fn create_vol_surface(id: &str, n_expiries: usize, n_strikes: usize) -> VolSurface {
     let expiries: Vec<f64> = (1..=n_expiries).map(|i| i as f64 * 0.5).collect();
-    let strikes: Vec<f64> = (0..n_strikes)
-        .map(|i| 80.0 + (i as f64) * 5.0)
-        .collect();
+    let strikes: Vec<f64> = (0..n_strikes).map(|i| 80.0 + (i as f64) * 5.0).collect();
 
     let mut builder = VolSurface::builder(id)
         .expiries(&expiries)
@@ -214,7 +212,10 @@ fn bench_context_bump_operations(c: &mut Criterion) {
     group.bench_function("parallel_bump_multiple", |b| {
         let mut bumps = HashMap::default();
         for i in 0..5 {
-            bumps.insert(CurveId::new(format!("DISC-{}", i)), BumpSpec::parallel_bp(10.0));
+            bumps.insert(
+                CurveId::new(format!("DISC-{}", i)),
+                BumpSpec::parallel_bp(10.0),
+            );
         }
         b.iter(|| {
             let bumped = black_box(&ctx)
@@ -228,7 +229,10 @@ fn bench_context_bump_operations(c: &mut Criterion) {
     group.bench_function("parallel_bump_all_discount", |b| {
         let mut bumps = HashMap::default();
         for i in 0..20 {
-            bumps.insert(CurveId::new(format!("DISC-{}", i)), BumpSpec::parallel_bp(10.0));
+            bumps.insert(
+                CurveId::new(format!("DISC-{}", i)),
+                BumpSpec::parallel_bp(10.0),
+            );
         }
         b.iter(|| {
             let bumped = black_box(&ctx)
@@ -301,4 +305,3 @@ criterion_group!(
     bench_batch_lookups,
 );
 criterion_main!(benches);
-

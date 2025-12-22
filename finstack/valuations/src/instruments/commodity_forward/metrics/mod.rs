@@ -30,4 +30,3 @@ pub fn register_commodity_forward_metrics(registry: &mut MetricRegistry) {
         ]
     }
 }
-

@@ -30,7 +30,11 @@ use std::fmt;
 ///     ...     forward_curve_id="WTI-FORWARD",
 ///     ...     discount_curve_id="USD-OIS"
 ///     ... )
-#[pyclass(module = "finstack.valuations.instruments", name = "CommodityForward", frozen)]
+#[pyclass(
+    module = "finstack.valuations.instruments",
+    name = "CommodityForward",
+    frozen
+)]
 #[derive(Clone, Debug)]
 pub struct PyCommodityForward {
     pub(crate) inner: CommodityForward,
@@ -274,4 +278,3 @@ pub fn register_module(parent: &Bound<'_, PyModule>) -> PyResult<()> {
     parent.add_class::<PyCommodityForward>()?;
     Ok(())
 }
-

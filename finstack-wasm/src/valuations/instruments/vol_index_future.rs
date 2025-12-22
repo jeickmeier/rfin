@@ -136,4 +136,3 @@ impl JsVolatilityIndexFuture {
         JsVolatilityIndexFuture::from_inner(self.inner.clone())
     }
 }
-

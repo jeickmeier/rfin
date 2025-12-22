@@ -31,12 +31,12 @@ use crate::instruments::common::traits::Instrument;
 use crate::margin::calculators::traits::{ImCalculator, ImResult};
 use crate::margin::traits::{SimmRiskClass, SimmSensitivities};
 use crate::margin::types::ImMethodology;
+use finstack_core::collections::HashMap;
 use finstack_core::currency::Currency;
 use finstack_core::dates::Date;
 use finstack_core::market_data::context::MarketContext;
 use finstack_core::money::Money;
 use finstack_core::Result;
-use finstack_core::collections::HashMap;
 
 /// SIMM version identifier.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Default)]
@@ -413,7 +413,9 @@ mod tests {
 
         let dv01_by_tenor: HashMap<String, f64> = [
             ("5y".to_string(), 100_000.0), // $100K DV01 at 5y
-        ].into_iter().collect();
+        ]
+        .into_iter()
+        .collect();
 
         let ir_margin = calc.calculate_ir_delta(&dv01_by_tenor);
 
@@ -451,7 +453,9 @@ mod tests {
         let risk_class_margins: HashMap<SimmRiskClass, f64> = [
             (SimmRiskClass::InterestRate, 1_000_000.0),
             (SimmRiskClass::CreditQualifying, 500_000.0),
-        ].into_iter().collect();
+        ]
+        .into_iter()
+        .collect();
 
         let total = calc.aggregate_risk_classes(&risk_class_margins);
 

@@ -11,12 +11,12 @@ use crate::instruments::cds::CdsConventionResolved;
 use crate::market::build::context::BuildCtx;
 use crate::market::build::prepared::PreparedQuote;
 use crate::market::quotes::market_quote::{ExtractQuotes, MarketQuote};
+use finstack_core::collections::HashMap;
 use finstack_core::dates::DayCountCtx;
 use finstack_core::market_data::context::MarketContext;
 use finstack_core::market_data::term_structures::HazardCurve;
 use finstack_core::Result;
 use std::cell::RefCell;
-use finstack_core::collections::HashMap;
 
 const HAZARD_HARD_MIN: f64 = 0.0;
 // Safety cap: λ=10 implies ~99.995% 1Y default probability and can lead to numerical underflow

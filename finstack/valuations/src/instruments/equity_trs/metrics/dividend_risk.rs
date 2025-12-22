@@ -71,4 +71,3 @@ impl MetricCalculator for Dividend01Calculator {
         Ok(dividend01)
     }
 }
-

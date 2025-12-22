@@ -159,7 +159,9 @@ fn test_fair_forward_calculation() {
     let future = create_es_future_fair_value();
     let as_of = Date::from_calendar_date(2025, Month::January, 1).expect("valid date");
 
-    let fair_forward = future.fair_forward(&market, as_of).expect("should calculate");
+    let fair_forward = future
+        .fair_forward(&market, as_of)
+        .expect("should calculate");
 
     // Fair forward should be above spot (positive carry, no dividends)
     // F = 4500 × exp(0.05 × 0.47) ≈ 4607
@@ -269,4 +271,3 @@ fn test_at_the_money_future() {
     // At-the-money should have zero PV
     assert!(npv.amount().abs() < 0.01);
 }
-

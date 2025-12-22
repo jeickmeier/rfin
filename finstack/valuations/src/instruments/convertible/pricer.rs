@@ -12,12 +12,12 @@
 //! - `calculate_parity`: Equity parity ratio
 //! - `calculate_conversion_premium`: Conversion premium versus equity value
 
+use finstack_core::collections::HashMap;
 use finstack_core::dates::Date;
 use finstack_core::error::InputError;
 use finstack_core::market_data::context::MarketContext;
 use finstack_core::money::Money;
 use finstack_core::{Error, Result};
-use finstack_core::collections::HashMap;
 
 use crate::cashflow::builder::CashFlowSchedule;
 use crate::instruments::common::models::trees::tree_framework::map_date_to_step;

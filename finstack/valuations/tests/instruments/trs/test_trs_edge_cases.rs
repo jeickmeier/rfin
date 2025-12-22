@@ -10,14 +10,13 @@ use finstack_core::market_data::context::MarketContext;
 use finstack_core::market_data::scalars::MarketScalar;
 use finstack_core::money::Money;
 use finstack_valuations::cashflow::builder::ScheduleParams;
-use finstack_valuations::instruments::common::parameters::underlying::EquityUnderlyingParams;
-use finstack_valuations::instruments::common::traits::Instrument;
 use finstack_valuations::instruments::common::parameters::legs::FinancingLegSpec;
+use finstack_valuations::instruments::common::parameters::underlying::EquityUnderlyingParams;
 use finstack_valuations::instruments::common::parameters::underlying::IndexUnderlyingParams;
+use finstack_valuations::instruments::common::traits::Instrument;
 use finstack_valuations::instruments::equity_trs::EquityTotalReturnSwap;
 use finstack_valuations::instruments::fi_trs::FIIndexTotalReturnSwap;
-use finstack_valuations::instruments::{TrsScheduleSpec, TrsSide
-};
+use finstack_valuations::instruments::{TrsScheduleSpec, TrsSide};
 
 // ================================================================================================
 // Currency Mismatch Tests

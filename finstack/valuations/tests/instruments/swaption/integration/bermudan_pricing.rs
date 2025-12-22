@@ -227,7 +227,10 @@ fn test_expired_bermudan_zero_value() {
     // When an instrument is past maturity, we treat it as expired (it shouldn't exist anymore).
     // Time-to-maturity should be non-positive.
     let ttm = swaption.time_to_maturity(as_of).unwrap_or(0.0);
-    assert!(ttm <= 0.0, "Expired swaption should have non-positive TTM, got {ttm}");
+    assert!(
+        ttm <= 0.0,
+        "Expired swaption should have non-positive TTM, got {ttm}"
+    );
 }
 
 #[test]

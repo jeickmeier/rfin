@@ -12,7 +12,7 @@ use crate::error::{Error, Result};
 use crate::spec::{CurveKind, OperationSpec, TenorMatchMode};
 use crate::utils::{calculate_interpolation_weights, parse_tenor_to_years_with_context};
 use finstack_core::dates::{BusinessDayConvention, DayCount};
-use finstack_core::market_data::bumps::{Bumpable, BumpSpec, MarketBump};
+use finstack_core::market_data::bumps::{BumpSpec, Bumpable, MarketBump};
 
 /// Adapter for curve operations.
 pub struct CurveAdapter;
@@ -282,18 +282,14 @@ impl ScenarioAdapter for CurveAdapter {
                             }
                         })?;
 
-                        let new_curve = bump_discount_curve_synthetic(
-                            base_curve,
-                            ctx.market,
-                            &bump_req,
-                            as_of,
-                        )
-                        .map_err(|e| {
-                            Error::Internal(format!(
-                                "Failed to bump commodity curve components: {}",
-                                e
-                            ))
-                        })?;
+                        let new_curve =
+                            bump_discount_curve_synthetic(base_curve, ctx.market, &bump_req, as_of)
+                                .map_err(|e| {
+                                    Error::Internal(format!(
+                                        "Failed to bump commodity curve components: {}",
+                                        e
+                                    ))
+                                })?;
 
                         Ok(Some(vec![ScenarioEffect::UpdateDiscountCurve {
                             id: curve_id.clone(),
@@ -303,20 +299,16 @@ impl ScenarioAdapter for CurveAdapter {
                     CurveKind::VolIndex => {
                         // Volatility index curves store forward volatility levels
                         // Apply parallel bump to index levels (bp interpreted as index points)
-                        let base_curve =
-                            ctx.market.get_vol_index_ref(curve_id).map_err(|_| {
-                                Error::MarketDataNotFound {
-                                    id: curve_id.to_string(),
-                                }
-                            })?;
+                        let base_curve = ctx.market.get_vol_index_ref(curve_id).map_err(|_| {
+                            Error::MarketDataNotFound {
+                                id: curve_id.to_string(),
+                            }
+                        })?;
 
                         // For vol index curves, bp is interpreted as index points (not basis points)
                         let spec = BumpSpec::parallel_bp(*bp);
                         let new_curve = base_curve.apply_bump(spec).map_err(|e| {
-                            Error::Internal(format!(
-                                "Failed to bump vol index curve: {}",
-                                e
-                            ))
+                            Error::Internal(format!("Failed to bump vol index curve: {}", e))
                         })?;
 
                         Ok(Some(vec![ScenarioEffect::UpdateVolIndexCurve {
@@ -548,12 +540,11 @@ impl ScenarioAdapter for CurveAdapter {
                     }
                     CurveKind::VolIndex => {
                         // Volatility index curves - apply node-specific bumps
-                        let base_curve =
-                            ctx.market.get_vol_index_ref(curve_id).map_err(|_| {
-                                Error::MarketDataNotFound {
-                                    id: curve_id.to_string(),
-                                }
-                            })?;
+                        let base_curve = ctx.market.get_vol_index_ref(curve_id).map_err(|_| {
+                            Error::MarketDataNotFound {
+                                id: curve_id.to_string(),
+                            }
+                        })?;
 
                         let knots: Vec<f64> = base_curve.knots().to_vec();
                         let targets = resolve_bump_targets(

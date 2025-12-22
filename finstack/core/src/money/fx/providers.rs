@@ -4,10 +4,10 @@
 //! bindings (Python, WASM, etc.) without duplication.
 
 use super::{FxConversionPolicy, FxProvider};
+use crate::collections::HashMap;
 use crate::currency::Currency;
 use crate::dates::Date;
 use crate::error::InputError;
-use crate::collections::HashMap;
 use parking_lot::RwLock;
 use std::sync::Arc;
 

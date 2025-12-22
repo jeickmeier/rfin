@@ -39,6 +39,8 @@ fn validation_config_rejects_invalid_forward_limits() {
         min_forward_rate: 0.01,
         ..ValidationConfig::default()
     };
-    let err = cfg.validate().expect_err("min_forward_rate > 0 should fail");
+    let err = cfg
+        .validate()
+        .expect_err("min_forward_rate > 0 should fail");
     assert!(err.to_string().contains("min_forward_rate"));
 }

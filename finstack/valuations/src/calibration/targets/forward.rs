@@ -15,8 +15,8 @@ use finstack_core::dates::{Date, DayCount, DayCountCtx};
 use finstack_core::market_data::context::MarketContext;
 use finstack_core::market_data::term_structures::ForwardCurve;
 use finstack_core::math::interp::InterpStyle;
-use finstack_core::Result;
 use finstack_core::types::{Currency, CurveId};
+use finstack_core::Result;
 use std::cell::RefCell;
 
 /// Parameters for constructing a `ForwardCurveTarget`.

@@ -122,4 +122,3 @@ pub fn pv_total_return_leg(
     let model = EquityReturnModel { trs, div_yield };
     TrsEngine::pv_total_return_leg_with_model(params, context, as_of, &model)
 }
-

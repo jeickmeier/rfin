@@ -1,5 +1,6 @@
 //! Hazard curve calibration tests (v2).
 
+use finstack_core::collections::HashMap;
 use finstack_core::dates::Date;
 use finstack_core::market_data::context::MarketContext;
 use finstack_core::market_data::term_structures::discount_curve::DiscountCurve;
@@ -16,7 +17,6 @@ use finstack_valuations::market::conventions::ids::{CdsConventionKey, CdsDocClau
 use finstack_valuations::market::quotes::cds::CdsQuote;
 use finstack_valuations::market::quotes::ids::{Pillar, QuoteId};
 use finstack_valuations::market::quotes::market_quote::MarketQuote;
-use finstack_core::collections::HashMap;
 use time::Month;
 
 fn create_test_discount_curve(base: Date) -> DiscountCurve {

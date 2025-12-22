@@ -439,11 +439,7 @@ impl EquityIndexFuture {
     }
 
     /// Price using fair value (cost-of-carry model).
-    fn price_fair_value(
-        &self,
-        context: &MarketContext,
-        as_of: Date,
-    ) -> finstack_core::Result<f64> {
+    fn price_fair_value(&self, context: &MarketContext, as_of: Date) -> finstack_core::Result<f64> {
         use finstack_core::dates::{DayCount, DayCountCtx};
         use finstack_core::market_data::scalars::MarketScalar;
 
@@ -490,11 +486,7 @@ impl EquityIndexFuture {
     /// ```text
     /// F = S₀ × exp((r - q) × T)
     /// ```
-    pub fn fair_forward(
-        &self,
-        context: &MarketContext,
-        as_of: Date,
-    ) -> finstack_core::Result<f64> {
+    pub fn fair_forward(&self, context: &MarketContext, as_of: Date) -> finstack_core::Result<f64> {
         use finstack_core::dates::{DayCount, DayCountCtx};
         use finstack_core::market_data::scalars::MarketScalar;
 
@@ -558,19 +550,11 @@ impl crate::instruments::common::traits::Instrument for EquityIndexFuture {
         Box::new(self.clone())
     }
 
-    fn value(
-        &self,
-        curves: &MarketContext,
-        as_of: Date,
-    ) -> finstack_core::Result<Money> {
+    fn value(&self, curves: &MarketContext, as_of: Date) -> finstack_core::Result<Money> {
         self.npv(curves, as_of)
     }
 
-    fn value_raw(
-        &self,
-        curves: &MarketContext,
-        as_of: Date,
-    ) -> finstack_core::Result<f64> {
+    fn value_raw(&self, curves: &MarketContext, as_of: Date) -> finstack_core::Result<f64> {
         self.npv_raw(curves, as_of)
     }
 
@@ -663,9 +647,7 @@ mod tests {
             .index_ticker("SPX".to_string())
             .currency(Currency::USD)
             .quantity(10.0)
-            .expiry_date(
-                Date::from_calendar_date(2025, Month::March, 21).expect("valid test date"),
-            )
+            .expiry_date(Date::from_calendar_date(2025, Month::March, 21).expect("valid test date"))
             .last_trading_date(
                 Date::from_calendar_date(2025, Month::March, 20).expect("valid test date"),
             )
@@ -775,4 +757,3 @@ mod tests {
         assert_eq!(future.quantity, recovered.quantity);
     }
 }
-

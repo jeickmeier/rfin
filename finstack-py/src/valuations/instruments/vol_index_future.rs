@@ -106,8 +106,11 @@ impl PyVolatilityIndexFuture {
         let expiry_date = py_to_date(&expiry).context("expiry")?;
         let discount_curve_id =
             CurveId::new(discount_curve.extract::<&str>().context("discount_curve")?);
-        let vol_index_curve_id =
-            CurveId::new(vol_index_curve.extract::<&str>().context("vol_index_curve")?);
+        let vol_index_curve_id = CurveId::new(
+            vol_index_curve
+                .extract::<&str>()
+                .context("vol_index_curve")?,
+        );
         let position_value = parse_position(position).context("position")?;
 
         let specs = VolIndexContractSpecs {
@@ -178,4 +181,3 @@ pub(crate) fn register<'py>(
     module.add_class::<PyVolatilityIndexFuture>()?;
     Ok(vec!["VolatilityIndexFuture"])
 }
-

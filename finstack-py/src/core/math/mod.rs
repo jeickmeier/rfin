@@ -10,10 +10,10 @@ mod special_functions;
 mod stats;
 mod summation;
 
+use finstack_core::collections::HashSet;
 use pyo3::prelude::*;
 use pyo3::types::{PyList, PyModule};
 use pyo3::Bound;
-use finstack_core::collections::HashSet;
 
 pub(crate) fn register<'py>(py: Python<'py>, parent: &Bound<'py, PyModule>) -> PyResult<()> {
     let module = PyModule::new(py, "math")?;

@@ -31,4 +31,3 @@ define_metric_calculator!(
     instrument = VolatilityIndexOption,
     calc = |option, ctx| option.delta(&ctx.curves)
 );
-

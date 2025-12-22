@@ -8,9 +8,9 @@
 use crate::instruments::common::models::trees::NodeState;
 use crate::instruments::common::parameters::OptionMarketParams;
 use crate::instruments::{ExerciseStyle, OptionType};
+use finstack_core::collections::HashSet;
 use finstack_core::market_data::context::MarketContext;
 use finstack_core::{Error, Result};
-use finstack_core::collections::HashSet;
 
 // Import the generic tree framework
 use super::tree_framework::{

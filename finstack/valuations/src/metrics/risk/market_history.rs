@@ -5,12 +5,12 @@
 //! rather than absolute levels, enabling efficient scenario application.
 
 use crate::metrics::risk::RiskFactorType;
+use finstack_core::collections::HashMap;
 use finstack_core::dates::Date;
 use finstack_core::market_data::bumps::{BumpMode, BumpSpec, BumpType, BumpUnits};
 use finstack_core::market_data::context::MarketContext;
 use finstack_core::types::CurveId;
 use finstack_core::Result;
-use finstack_core::collections::HashMap;
 
 /// Historical shift for a single risk factor on a single date.
 ///

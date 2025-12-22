@@ -140,11 +140,7 @@ pub(crate) fn extract_instrument<'py>(value: &Bound<'py, PyAny>) -> PyResult<Ins
     try_extract!(value, PyCdsIndex, InstrumentType::CDSIndex);
     try_extract!(value, PyCdsOption, InstrumentType::CDSOption);
     try_extract!(value, PyCdsTranche, InstrumentType::CDSTranche);
-    try_extract!(
-        value,
-        PyCommodityForward,
-        InstrumentType::CommodityForward
-    );
+    try_extract!(value, PyCommodityForward, InstrumentType::CommodityForward);
     try_extract!(value, PyCommoditySwap, InstrumentType::CommoditySwap);
     try_extract!(value, PyRepo, InstrumentType::Repo);
     try_extract!(

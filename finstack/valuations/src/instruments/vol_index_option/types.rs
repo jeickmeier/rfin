@@ -164,9 +164,7 @@ impl VolatilityIndexOption {
             .strike(20.0)
             .option_type(OptionType::Call)
             .exercise_style(ExerciseStyle::European)
-            .expiry(
-                Date::from_calendar_date(2025, Month::March, 19).expect("Valid example date"),
-            )
+            .expiry(Date::from_calendar_date(2025, Month::March, 19).expect("Valid example date"))
             .contract_specs(VolIndexOptionSpecs::vix())
             .day_count(DayCount::Act365F)
             .discount_curve_id(CurveId::new("USD-OIS"))
@@ -178,12 +176,7 @@ impl VolatilityIndexOption {
     }
 
     /// Create a VIX call option.
-    pub fn vix_call(
-        id: impl Into<String>,
-        strike: f64,
-        expiry: Date,
-        notional: Money,
-    ) -> Self {
+    pub fn vix_call(id: impl Into<String>, strike: f64, expiry: Date, notional: Money) -> Self {
         Self::builder()
             .id(InstrumentId::new(id.into()))
             .notional(notional)
@@ -202,12 +195,7 @@ impl VolatilityIndexOption {
     }
 
     /// Create a VIX put option.
-    pub fn vix_put(
-        id: impl Into<String>,
-        strike: f64,
-        expiry: Date,
-        notional: Money,
-    ) -> Self {
+    pub fn vix_put(id: impl Into<String>, strike: f64, expiry: Date, notional: Money) -> Self {
         Self::builder()
             .id(InstrumentId::new(id.into()))
             .notional(notional)
@@ -268,11 +256,10 @@ impl VolatilityIndexOption {
         let vol_surface = context.surface_ref(&self.vol_of_vol_surface_id)?;
 
         // Calculate time to expiry
-        let t = self.day_count.year_fraction(
-            vol_curve.base_date(),
-            self.expiry,
-            DayCountCtx::default(),
-        )?.max(0.0);
+        let t = self
+            .day_count
+            .year_fraction(vol_curve.base_date(), self.expiry, DayCountCtx::default())?
+            .max(0.0);
 
         if t <= 0.0 {
             // Option has expired, return intrinsic value
@@ -333,11 +320,10 @@ impl VolatilityIndexOption {
     /// Get the forward volatility level at expiry.
     pub fn forward_vol(&self, context: &MarketContext) -> finstack_core::Result<f64> {
         let vol_curve = context.get_vol_index_ref(&self.vol_index_curve_id)?;
-        let t = self.day_count.year_fraction(
-            vol_curve.base_date(),
-            self.expiry,
-            DayCountCtx::default(),
-        )?.max(0.0);
+        let t = self
+            .day_count
+            .year_fraction(vol_curve.base_date(), self.expiry, DayCountCtx::default())?
+            .max(0.0);
         Ok(vol_curve.forward_level(t))
     }
 
@@ -350,11 +336,10 @@ impl VolatilityIndexOption {
         let vol_surface = context.surface_ref(&self.vol_of_vol_surface_id)?;
         let disc = context.get_discount_ref(&self.discount_curve_id)?;
 
-        let t = self.day_count.year_fraction(
-            vol_curve.base_date(),
-            self.expiry,
-            DayCountCtx::default(),
-        )?.max(0.0);
+        let t = self
+            .day_count
+            .year_fraction(vol_curve.base_date(), self.expiry, DayCountCtx::default())?
+            .max(0.0);
 
         if t <= 0.0 {
             // Expired option: delta is 1 if ITM, 0 if OTM
@@ -388,11 +373,10 @@ impl VolatilityIndexOption {
         let vol_surface = context.surface_ref(&self.vol_of_vol_surface_id)?;
         let disc = context.get_discount_ref(&self.discount_curve_id)?;
 
-        let t = self.day_count.year_fraction(
-            vol_curve.base_date(),
-            self.expiry,
-            DayCountCtx::default(),
-        )?.max(0.0);
+        let t = self
+            .day_count
+            .year_fraction(vol_curve.base_date(), self.expiry, DayCountCtx::default())?
+            .max(0.0);
 
         if t <= 0.0 {
             return Ok(0.0);
@@ -420,11 +404,10 @@ impl VolatilityIndexOption {
         let vol_surface = context.surface_ref(&self.vol_of_vol_surface_id)?;
         let disc = context.get_discount_ref(&self.discount_curve_id)?;
 
-        let t = self.day_count.year_fraction(
-            vol_curve.base_date(),
-            self.expiry,
-            DayCountCtx::default(),
-        )?.max(0.0);
+        let t = self
+            .day_count
+            .year_fraction(vol_curve.base_date(), self.expiry, DayCountCtx::default())?
+            .max(0.0);
 
         if t <= 0.0 {
             return Ok(0.0);
@@ -455,11 +438,10 @@ impl VolatilityIndexOption {
         let vol_surface = context.surface_ref(&self.vol_of_vol_surface_id)?;
         let disc = context.get_discount_ref(&self.discount_curve_id)?;
 
-        let t = self.day_count.year_fraction(
-            vol_curve.base_date(),
-            self.expiry,
-            DayCountCtx::default(),
-        )?.max(0.0);
+        let t = self
+            .day_count
+            .year_fraction(vol_curve.base_date(), self.expiry, DayCountCtx::default())?
+            .max(0.0);
 
         if t <= 0.0 {
             return Ok(0.0);
@@ -532,19 +514,11 @@ impl crate::instruments::common::traits::Instrument for VolatilityIndexOption {
         Box::new(self.clone())
     }
 
-    fn value(
-        &self,
-        curves: &MarketContext,
-        _as_of: Date,
-    ) -> finstack_core::Result<Money> {
+    fn value(&self, curves: &MarketContext, _as_of: Date) -> finstack_core::Result<Money> {
         self.npv(curves)
     }
 
-    fn value_raw(
-        &self,
-        curves: &MarketContext,
-        _as_of: Date,
-    ) -> finstack_core::Result<f64> {
+    fn value_raw(&self, curves: &MarketContext, _as_of: Date) -> finstack_core::Result<f64> {
         self.npv_raw(curves)
     }
 
@@ -624,12 +598,7 @@ mod tests {
         let vix = VolatilityIndexCurve::builder("VIX")
             .base_date(base_date)
             .spot_level(18.0)
-            .knots([
-                (0.0, 18.0),
-                (0.25, 20.0),
-                (0.5, 21.0),
-                (1.0, 22.0),
-            ])
+            .knots([(0.0, 18.0), (0.25, 20.0), (0.5, 21.0), (1.0, 22.0)])
             .build()
             .expect("valid VIX curve");
 
@@ -819,7 +788,10 @@ mod tests {
             .expect("valid option");
 
         let vega = option.vega(&market).expect("vega");
-        assert!(vega > 0.0, "Vega should be positive for both calls and puts");
+        assert!(
+            vega > 0.0,
+            "Vega should be positive for both calls and puts"
+        );
     }
 
     #[cfg(feature = "serde")]
@@ -827,9 +799,9 @@ mod tests {
     fn test_serde_round_trip() {
         let option = VolatilityIndexOption::example();
         let json = serde_json::to_string(&option).expect("json serialization");
-        let recovered: VolatilityIndexOption = serde_json::from_str(&json).expect("json deserialization");
+        let recovered: VolatilityIndexOption =
+            serde_json::from_str(&json).expect("json deserialization");
         assert_eq!(option.id, recovered.id);
         assert!((option.strike - recovered.strike).abs() < 1e-10);
     }
 }
-

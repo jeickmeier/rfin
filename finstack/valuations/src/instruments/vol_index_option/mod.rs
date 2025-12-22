@@ -48,5 +48,4 @@
 pub mod metrics;
 mod types;
 
-pub use types::{VolatilityIndexOption, VolIndexOptionSpecs};
-
+pub use types::{VolIndexOptionSpecs, VolatilityIndexOption};

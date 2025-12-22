@@ -10,7 +10,6 @@ ceil, toward/away from zero).
 from typing import Dict, Optional, Union, Any
 from .currency import Currency
 
-
 class RoundingMode:
     """Rounding strategy for decimal arithmetic.
 
@@ -20,7 +19,7 @@ class RoundingMode:
     - CEIL: Round toward positive infinity
     - TOWARD_ZERO: Round toward zero
     - AWAY_FROM_ZERO: Round away from zero
-    
+
     Examples
     --------
         >>> from finstack.core.config import RoundingMode
@@ -43,18 +42,18 @@ class RoundingMode:
     @classmethod
     def from_name(cls, name: str) -> "RoundingMode":
         """Create from string name.
-        
+
         Parameters
         ----------
         name : str
             Rounding mode name (case-insensitive). Valid values:
             "bankers", "floor", "ceil", "toward_zero", "away_from_zero".
-            
+
         Returns
         -------
         RoundingMode
             Rounding mode instance.
-            
+
         Raises
         ------
         ValueError
@@ -65,7 +64,7 @@ class RoundingMode:
     @property
     def name(self) -> str:
         """Get the mode name.
-        
+
         Returns
         -------
         str
@@ -79,18 +78,17 @@ class RoundingMode:
     def __eq__(self, other: object) -> bool: ...
     def __ne__(self, other: object) -> bool: ...
 
-
 class CurrencyScalePolicy:
     """Policy mapping that determines decimal places for each currency.
-    
+
     The policy stores currency-specific overrides. Currencies without
     overrides use their ISO-4217 default decimal places.
-    
+
     Parameters
     ----------
     overrides : dict[str, int], optional
         Mapping from currency code to decimal places.
-        
+
     Examples
     --------
         >>> from finstack.core.config import CurrencyScalePolicy
@@ -100,11 +98,10 @@ class CurrencyScalePolicy:
     """
 
     def __init__(self, overrides: Optional[Dict[str, int]] = None) -> None: ...
-
     @property
     def overrides(self) -> Dict[str, int]:
         """Get the currency scale overrides.
-        
+
         Returns
         -------
         dict[str, int]
@@ -112,12 +109,11 @@ class CurrencyScalePolicy:
         """
         ...
 
-
 class RoundingPolicy:
     """Full rounding policy used at IO boundaries and normalization steps.
-    
+
     Combines the rounding mode with ingest and output scale policies.
-    
+
     Parameters
     ----------
     mode : RoundingMode or str, optional
@@ -126,15 +122,11 @@ class RoundingPolicy:
         Scale policy for ingesting values.
     output_scale : CurrencyScalePolicy or dict, optional
         Scale policy for output formatting.
-        
+
     Examples
     --------
         >>> from finstack.core.config import RoundingPolicy, RoundingMode
-        >>> policy = RoundingPolicy(
-        ...     mode=RoundingMode.FLOOR,
-        ...     ingest_scale={"JPY": 0},
-        ...     output_scale={"USD": 4}
-        ... )
+        >>> policy = RoundingPolicy(mode=RoundingMode.FLOOR, ingest_scale={"JPY": 0}, output_scale={"USD": 4})
     """
 
     def __init__(
@@ -144,7 +136,6 @@ class RoundingPolicy:
         ingest_scale: Optional[Union[CurrencyScalePolicy, Dict[str, int]]] = None,
         output_scale: Optional[Union[CurrencyScalePolicy, Dict[str, int]]] = None,
     ) -> None: ...
-
     @property
     def mode(self) -> RoundingMode:
         """Active rounding mode."""
@@ -160,16 +151,15 @@ class RoundingPolicy:
         """Scale policy for output formatting."""
         ...
 
-
 class ZeroKind:
     """Zero-kind classification for tolerance checks.
-    
+
     Different types of values require different epsilon tolerances when
     checking for effectively-zero values:
     - Money: Use currency-specific scale
     - Rate: Use rate epsilon (1e-12)
     - Generic: Use generic epsilon (1e-10)
-    
+
     Examples
     --------
         >>> from finstack.core.config import ZeroKind
@@ -188,12 +178,12 @@ class ZeroKind:
     @classmethod
     def money(cls, currency: Union[str, Currency]) -> "ZeroKind":
         """Create a money zero-kind for the specified currency.
-        
+
         Parameters
         ----------
         currency : str or Currency
             Currency for the money tolerance.
-            
+
         Returns
         -------
         ZeroKind
@@ -208,10 +198,9 @@ class ZeroKind:
 
     def __repr__(self) -> str: ...
 
-
 class NumericMode:
     """Numeric engine mode compiled into the crate.
-    
+
     Currently only F64 mode is supported.
     """
 
@@ -220,13 +209,12 @@ class NumericMode:
 
     def __repr__(self) -> str: ...
 
-
 class RoundingContext:
     """Snapshot of active rounding settings for result stamping.
-    
+
     Contains the rounding configuration at the time of computation,
     used for audit trails and reproducibility.
-    
+
     Examples
     --------
         >>> from finstack.core.config import FinstackConfig
@@ -258,12 +246,12 @@ class RoundingContext:
 
     def output_scale(self, currency: Union[str, Currency]) -> int:
         """Effective output scale for a currency.
-        
+
         Parameters
         ----------
         currency : str or Currency
             Currency to query.
-            
+
         Returns
         -------
         int
@@ -273,14 +261,14 @@ class RoundingContext:
 
     def money_epsilon(self, currency: Union[str, Currency]) -> float:
         """Money epsilon derived from the currency output scale.
-        
+
         Half of one unit in the last place at the configured scale.
-        
+
         Parameters
         ----------
         currency : str or Currency
             Currency to query.
-            
+
         Returns
         -------
         float
@@ -288,18 +276,16 @@ class RoundingContext:
         """
         ...
 
-    def is_effectively_zero_money(
-        self, amount: float, currency: Union[str, Currency]
-    ) -> bool:
+    def is_effectively_zero_money(self, amount: float, currency: Union[str, Currency]) -> bool:
         """Check if a money amount is effectively zero under this context.
-        
+
         Parameters
         ----------
         amount : float
             Amount to check.
         currency : str or Currency
             Currency of the amount.
-            
+
         Returns
         -------
         bool
@@ -309,14 +295,14 @@ class RoundingContext:
 
     def is_effectively_zero(self, value: float, kind: ZeroKind) -> bool:
         """Check if a value is effectively zero for the specified kind.
-        
+
         Parameters
         ----------
         value : float
             Value to check.
         kind : ZeroKind
             Type of zero comparison.
-            
+
         Returns
         -------
         bool
@@ -324,13 +310,12 @@ class RoundingContext:
         """
         ...
 
-
 class ResultsMeta:
     """Metadata bundle that accompanies valuation outputs.
-    
+
     The metadata is intentionally small so it can be attached to reports
     and downstream data stores for reproducibility and audit trails.
-    
+
     Examples
     --------
         >>> from finstack.core.config import FinstackConfig
@@ -366,7 +351,6 @@ class ResultsMeta:
         ...
 
     def __repr__(self) -> str: ...
-
 
 class FinstackConfig:
     """Global configuration for rounding policies and currency decimal scales.
@@ -416,10 +400,9 @@ class FinstackConfig:
     """
 
     def __init__(self) -> None: ...
-
     def copy(self) -> "FinstackConfig":
         """Create a copy of this configuration.
-        
+
         Returns
         -------
         FinstackConfig
@@ -430,7 +413,7 @@ class FinstackConfig:
     @property
     def rounding_mode(self) -> RoundingMode:
         """Get the current rounding mode.
-        
+
         Returns
         -------
         RoundingMode
@@ -440,19 +423,19 @@ class FinstackConfig:
 
     def set_rounding_mode(self, mode: Union[str, RoundingMode]) -> None:
         """Set the global rounding mode for decimal arithmetic.
-        
+
         Parameters
         ----------
         mode : str or RoundingMode
             New rounding mode. Can be a string (case-insensitive) or a
             :class:`RoundingMode` instance. Valid strings: "bankers", "floor",
             "ceil", "toward_zero", "away_from_zero".
-            
+
         Raises
         ------
         ValueError
             If the mode string is not recognized.
-            
+
         Examples
         --------
             >>> from finstack.core.config import FinstackConfig
@@ -465,12 +448,12 @@ class FinstackConfig:
 
     def ingest_scale(self, currency: Union[str, Currency]) -> int:
         """Get the ingest scale for a currency.
-        
+
         Parameters
         ----------
         currency : str or Currency
             Currency to query.
-            
+
         Returns
         -------
         int
@@ -480,18 +463,18 @@ class FinstackConfig:
 
     def set_ingest_scale(self, currency: Union[str, Currency], decimals: int) -> None:
         """Set the number of decimal places used when creating Money from floats.
-        
+
         The ingest scale controls how many decimal places are preserved when
         converting a float to a Money value. This affects precision during
         monetary operations.
-        
+
         Parameters
         ----------
         currency : str or Currency
             Currency to configure (e.g., "USD", "JPY").
         decimals : int
             Number of decimal places to preserve (must be >= 0).
-            
+
         Examples
         --------
             >>> from finstack.core.config import FinstackConfig
@@ -504,12 +487,12 @@ class FinstackConfig:
 
     def output_scale(self, currency: Union[str, Currency]) -> int:
         """Get the output scale for a currency.
-        
+
         Parameters
         ----------
         currency : str or Currency
             Currency to query.
-            
+
         Returns
         -------
         int
@@ -519,18 +502,18 @@ class FinstackConfig:
 
     def set_output_scale(self, currency: Union[str, Currency], decimals: int) -> None:
         """Set the number of decimal places used when formatting Money to strings.
-        
+
         The output scale controls how many decimal places are shown when converting
         a Money value to a string representation. This affects display formatting
         but does not change the underlying precision.
-        
+
         Parameters
         ----------
         currency : str or Currency
             Currency to configure (e.g., "USD", "JPY").
         decimals : int
             Number of decimal places to display (must be >= 0).
-            
+
         Examples
         --------
             >>> from finstack.core.config import FinstackConfig
@@ -549,7 +532,7 @@ class FinstackConfig:
 
     def rounding_context(self) -> RoundingContext:
         """Build an immutable rounding context snapshot from this configuration.
-        
+
         Returns
         -------
         RoundingContext
@@ -559,7 +542,7 @@ class FinstackConfig:
 
     def results_meta(self) -> ResultsMeta:
         """Build a results metadata snapshot from this configuration.
-        
+
         Returns
         -------
         ResultsMeta
@@ -574,7 +557,7 @@ class FinstackConfig:
 
     def set_extension(self, key: str, value: Any) -> None:
         """Set an extension section in the configuration.
-        
+
         Parameters
         ----------
         key : str
@@ -584,20 +567,18 @@ class FinstackConfig:
         """
         ...
 
-
 # Module-level constant
 NUMERIC_MODE: NumericMode
 """Active numeric mode used by the engine (always F64)."""
 
-
 def rounding_context_from(config: FinstackConfig) -> RoundingContext:
     """Build a rounding context snapshot from a configuration.
-    
+
     Parameters
     ----------
     config : FinstackConfig
         Configuration to snapshot.
-        
+
     Returns
     -------
     RoundingContext
@@ -605,22 +586,20 @@ def rounding_context_from(config: FinstackConfig) -> RoundingContext:
     """
     ...
 
-
 def results_meta(config: FinstackConfig) -> ResultsMeta:
     """Build a results metadata snapshot from a configuration.
-    
+
     Parameters
     ----------
     config : FinstackConfig
         Configuration to snapshot.
-        
+
     Returns
     -------
     ResultsMeta
         Metadata bundle for result stamping.
     """
     ...
-
 
 __all__ = [
     "CurrencyScalePolicy",

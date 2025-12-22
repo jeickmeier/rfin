@@ -191,4 +191,3 @@ mod tests {
         assert!(suggestions.len() <= 3);
     }
 }
-

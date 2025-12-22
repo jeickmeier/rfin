@@ -127,4 +127,3 @@ fn current_loss_percentage_respects_defaults_and_recoveries() {
         "expected 7.5%, got {loss_pct}"
     );
 }
-

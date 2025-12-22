@@ -65,8 +65,9 @@ pub fn register_equity_trs_metrics(registry: &mut MetricRegistry) {
         MetricId::BucketedDv01,
         Arc::new(crate::metrics::UnifiedDv01Calculator::<
             crate::instruments::equity_trs::EquityTotalReturnSwap,
-        >::new(crate::metrics::Dv01CalculatorConfig::key_rate())),
+        >::new(
+            crate::metrics::Dv01CalculatorConfig::key_rate()
+        )),
         &instruments,
     );
 }
-

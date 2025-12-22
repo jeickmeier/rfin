@@ -1,13 +1,14 @@
 //! Failure mode coverage for plan-driven calibration preflight checks.
 
+use finstack_core::collections::HashMap;
 use finstack_core::dates::Date;
 use finstack_core::market_data::context::MarketContext;
-use finstack_core::market_data::term_structures::base_correlation::BaseCorrelationCurve;
-use finstack_core::market_data::term_structures::discount_curve::DiscountCurve;
-use finstack_core::market_data::term_structures::hazard_curve::{HazardCurve, ParInterp};
 use finstack_core::market_data::scalars::inflation_index::{
     InflationIndex, InflationInterpolation, InflationLag,
 };
+use finstack_core::market_data::term_structures::base_correlation::BaseCorrelationCurve;
+use finstack_core::market_data::term_structures::discount_curve::DiscountCurve;
+use finstack_core::market_data::term_structures::hazard_curve::{HazardCurve, ParInterp};
 use finstack_core::market_data::term_structures::CreditIndexData;
 use finstack_core::math::interp::InterpStyle;
 use finstack_core::types::Currency;
@@ -24,7 +25,6 @@ use finstack_valuations::market::quotes::cds_tranche::CdsTrancheQuote;
 use finstack_valuations::market::quotes::ids::{Pillar, QuoteId};
 use finstack_valuations::market::quotes::inflation::InflationQuote;
 use finstack_valuations::market::quotes::market_quote::MarketQuote;
-use finstack_core::collections::HashMap;
 use std::sync::Arc;
 use time::Month;
 
@@ -141,7 +141,10 @@ fn inflation_preflight_rejects_invalid_observation_lag() {
     let envelope = envelope_for_step(step, vec![quote], initial_market);
     let err = engine::execute(&envelope).expect_err("invalid lag should fail");
     let msg = err.to_string();
-    assert!(msg.contains("Invalid observation_lag"), "unexpected error: {msg}");
+    assert!(
+        msg.contains("Invalid observation_lag"),
+        "unexpected error: {msg}"
+    );
 }
 
 #[test]
@@ -208,10 +211,7 @@ fn swaption_vol_preflight_rejects_invalid_shift() {
     let envelope = envelope_for_step(step, Vec::new(), initial_market);
     let err = engine::execute(&envelope).expect_err("invalid shift should fail");
     let msg = err.to_string();
-    assert!(
-        msg.contains("Shifted lognormal"),
-        "unexpected error: {msg}"
-    );
+    assert!(msg.contains("Shifted lognormal"), "unexpected error: {msg}");
 }
 
 #[test]
@@ -464,10 +464,7 @@ fn inflation_preflight_rejects_lag_mismatch_with_index() {
     let envelope = envelope_for_step(step, vec![quote], initial_market);
     let err = engine::execute(&envelope).expect_err("lag mismatch should fail");
     let msg = err.to_string();
-    assert!(
-        msg.contains("lag mismatch"),
-        "unexpected error: {msg}"
-    );
+    assert!(msg.contains("lag mismatch"), "unexpected error: {msg}");
 }
 
 #[test]

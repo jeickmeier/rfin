@@ -2,6 +2,7 @@
 //!
 //! v2 captures explainability traces at the per-step report level.
 
+use finstack_core::collections::HashMap;
 use finstack_core::dates::create_date;
 use finstack_core::explain::ExplainOpts;
 use finstack_core::market_data::context::MarketContext;
@@ -18,7 +19,6 @@ use finstack_valuations::market::conventions::ids::IndexId;
 use finstack_valuations::market::quotes::ids::Pillar;
 use finstack_valuations::market::quotes::market_quote::MarketQuote;
 use finstack_valuations::market::quotes::rates::RateQuote;
-use finstack_core::collections::HashMap;
 use time::Month;
 
 fn base_discount_curve(base_date: finstack_core::dates::Date) -> DiscountCurve {

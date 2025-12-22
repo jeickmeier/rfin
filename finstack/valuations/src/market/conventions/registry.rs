@@ -8,8 +8,8 @@ use super::ids::{
     CdsConventionKey, IndexId, InflationSwapConventionId, IrFutureContractId, OptionConventionId,
     SwaptionConventionId,
 };
-use finstack_core::{Error, Result};
 use finstack_core::collections::HashMap;
+use finstack_core::{Error, Result};
 use std::sync::OnceLock;
 
 /// Global registry of market conventions.

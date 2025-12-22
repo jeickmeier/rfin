@@ -250,8 +250,8 @@ fn compute_initial_guess(
 #[cfg(test)]
 mod tests {
     use super::super::pricing::{bachelier_price, black_price, black_shifted_price};
-    use super::*;
     use super::VolatilityConvention;
+    use super::*;
 
     fn atm_price(convention: VolatilityConvention, forward: f64, vol: f64, t: f64) -> f64 {
         match convention {
@@ -708,4 +708,3 @@ mod tests {
         );
     }
 }
-

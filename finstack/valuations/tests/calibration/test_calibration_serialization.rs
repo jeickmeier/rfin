@@ -5,6 +5,7 @@
 //! - `StepParams` for discount/forward/hazard/inflation/vol/swaption/base-correlation
 //! - Domain quotes (`MarketQuote` + concrete quote enums)
 
+use finstack_core::collections::HashMap;
 use finstack_core::dates::Date;
 use finstack_core::dates::{BusinessDayConvention, DayCount, Tenor};
 use finstack_core::market_data::term_structures::Seniority;
@@ -24,7 +25,6 @@ use finstack_valuations::market::quotes::ids::{Pillar, QuoteId};
 use finstack_valuations::market::quotes::market_quote::MarketQuote;
 use finstack_valuations::market::quotes::rates::RateQuote;
 use finstack_valuations::market::quotes::vol::VolQuote;
-use finstack_core::collections::HashMap;
 use time::Month;
 
 fn maybe_print_json(json: &str) {

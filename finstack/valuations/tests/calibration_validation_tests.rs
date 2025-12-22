@@ -335,7 +335,9 @@ fn test_discount_curve_bounds_rejects_excessive_df() {
         .build()
         .expect("curve should build");
 
-    let err = curve.validate_bounds(&config).expect_err("should reject DF > 1.0");
+    let err = curve
+        .validate_bounds(&config)
+        .expect_err("should reject DF > 1.0");
     assert!(err.to_string().contains("exceeds"));
 }
 

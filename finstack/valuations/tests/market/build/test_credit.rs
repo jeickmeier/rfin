@@ -1,3 +1,4 @@
+use finstack_core::collections::HashMap;
 use finstack_core::currency::Currency;
 use finstack_core::dates::{Date, Tenor};
 use finstack_valuations::instruments::cds::CDSConvention;
@@ -7,7 +8,6 @@ use finstack_valuations::market::build::context::BuildCtx;
 use finstack_valuations::market::conventions::ids::{CdsConventionKey, CdsDocClause};
 use finstack_valuations::market::quotes::cds::CdsQuote;
 use finstack_valuations::market::quotes::ids::Pillar;
-use finstack_core::collections::HashMap;
 
 #[test]
 fn test_build_cds_par_spread() {

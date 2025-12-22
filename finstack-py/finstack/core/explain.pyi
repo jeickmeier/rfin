@@ -12,12 +12,11 @@ Examples
     ...     TraceEntry.calibration_iteration(
     ...         iteration=0, residual=0.005, knots_updated=["2025-01-15"], converged=False
     ...     ),
-    ...     max_entries=100
+    ...     max_entries=100,
     ... )
 """
 
 from typing import Any, Optional
-
 
 class ExplainOpts:
     """Opt-in configuration for generating explanation traces.
@@ -60,16 +59,13 @@ class ExplainOpts:
     DISABLED: "ExplainOpts"
     """Pre-built disabled options (zero overhead)."""
 
-    def __init__(
-        self, enabled: bool = False, max_entries: Optional[int] = None
-    ) -> None: ...
-
+    def __init__(self, enabled: bool = False, max_entries: Optional[int] = None) -> None: ...
     @classmethod
     def enabled(cls) -> "ExplainOpts":
         """Create an enabled ExplainOpts instance with default limits.
-        
+
         Default limit is 1000 entries to prevent unbounded memory growth.
-        
+
         Returns
         -------
         ExplainOpts
@@ -89,17 +85,16 @@ class ExplainOpts:
 
     def __repr__(self) -> str: ...
 
-
 class TraceEntry:
     """Domain-specific trace entry for explainability output.
-    
+
     Use class methods to create entries for different computation types:
     - :meth:`calibration_iteration`: Calibration solver iteration details
     - :meth:`cashflow_pv`: Cashflow present value breakdown
     - :meth:`waterfall_step`: Structured credit waterfall step
     - :meth:`computation_step`: Generic computation step
     - :meth:`jacobian`: Jacobian sensitivity matrix
-    
+
     Examples
     --------
         >>> from finstack.core.explain import TraceEntry
@@ -119,7 +114,7 @@ class TraceEntry:
         converged: bool,
     ) -> "TraceEntry":
         """Create a calibration iteration entry.
-        
+
         Parameters
         ----------
         iteration : int
@@ -130,7 +125,7 @@ class TraceEntry:
             Knot points that were updated (date strings).
         converged : bool
             Whether convergence was achieved.
-            
+
         Returns
         -------
         TraceEntry
@@ -150,7 +145,7 @@ class TraceEntry:
         curve_id: str,
     ) -> "TraceEntry":
         """Create a cashflow present value entry.
-        
+
         Parameters
         ----------
         date : str
@@ -167,7 +162,7 @@ class TraceEntry:
             PV currency code.
         curve_id : str
             Discount curve ID used.
-            
+
         Returns
         -------
         TraceEntry
@@ -188,7 +183,7 @@ class TraceEntry:
         shortfall_currency: Optional[str] = None,
     ) -> "TraceEntry":
         """Create a waterfall step entry.
-        
+
         Parameters
         ----------
         period : int
@@ -207,7 +202,7 @@ class TraceEntry:
             Shortfall amount if any.
         shortfall_currency : str, optional
             Shortfall currency code.
-            
+
         Returns
         -------
         TraceEntry
@@ -223,7 +218,7 @@ class TraceEntry:
         metadata: Optional[dict[str, Any]] = None,
     ) -> "TraceEntry":
         """Create a generic computation step entry.
-        
+
         Parameters
         ----------
         name : str
@@ -232,7 +227,7 @@ class TraceEntry:
             Step description.
         metadata : dict, optional
             Arbitrary metadata (JSON-serializable).
-            
+
         Returns
         -------
         TraceEntry
@@ -248,7 +243,7 @@ class TraceEntry:
         sensitivity_matrix: list[list[float]],
     ) -> "TraceEntry":
         """Create a Jacobian sensitivity matrix entry.
-        
+
         Parameters
         ----------
         row_labels : list[str]
@@ -257,7 +252,7 @@ class TraceEntry:
             Column labels (Curve Point Dates/Tenors).
         sensitivity_matrix : list[list[float]]
             Sensitivity matrix (Rows x Cols).
-            
+
         Returns
         -------
         TraceEntry
@@ -269,7 +264,6 @@ class TraceEntry:
     def kind(self) -> str:
         """Get the entry kind (e.g., 'calibration_iteration', 'cashflow_pv')."""
         ...
-
 
 class ExplanationTrace:
     """Container for detailed execution traces of financial computations.
@@ -293,10 +287,7 @@ class ExplanationTrace:
     --------
         >>> from finstack.core.explain import ExplanationTrace, TraceEntry
         >>> trace = ExplanationTrace("calibration")
-        >>> trace.push(
-        ...     TraceEntry.calibration_iteration(0, 0.005, ["2025-01-15"], False),
-        ...     max_entries=100
-        ... )
+        >>> trace.push(TraceEntry.calibration_iteration(0, 0.005, ["2025-01-15"], False), max_entries=100)
         >>> trace.trace_type
         'calibration'
 
@@ -315,7 +306,7 @@ class ExplanationTrace:
 
     def __init__(self, trace_type: str) -> None:
         """Create a new empty trace of the given type.
-        
+
         Parameters
         ----------
         trace_type : str
@@ -340,9 +331,9 @@ class ExplanationTrace:
 
     def push(self, entry: TraceEntry, max_entries: Optional[int] = None) -> None:
         """Add an entry to the trace, respecting size limits.
-        
+
         If max_entries is reached, marks the trace as truncated.
-        
+
         Parameters
         ----------
         entry : TraceEntry
@@ -354,7 +345,7 @@ class ExplanationTrace:
 
     def to_json(self) -> str:
         """Serialize the full trace to a JSON string (pretty-printed).
-        
+
         Returns
         -------
         str
@@ -363,7 +354,6 @@ class ExplanationTrace:
         ...
 
     def __repr__(self) -> str: ...
-
 
 __all__ = [
     "ExplainOpts",

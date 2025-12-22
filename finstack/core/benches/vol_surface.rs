@@ -13,9 +13,7 @@ use std::hint::black_box;
 
 fn create_vol_surface(n_expiries: usize, n_strikes: usize) -> VolSurface {
     let expiries: Vec<f64> = (1..=n_expiries).map(|i| i as f64 * 0.5).collect();
-    let strikes: Vec<f64> = (0..n_strikes)
-        .map(|i| 80.0 + (i as f64) * 5.0)
-        .collect();
+    let strikes: Vec<f64> = (0..n_strikes).map(|i| 80.0 + (i as f64) * 5.0).collect();
 
     let mut builder = VolSurface::builder("TEST-VOL")
         .expiries(&expiries)
@@ -286,4 +284,3 @@ criterion_group!(
     bench_vol_surface_grid_sizes,
 );
 criterion_main!(benches);
-

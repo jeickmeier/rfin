@@ -161,6 +161,7 @@
 //! - [`crate::attribution::parallel`] - Parallel attribution using this module
 //! - [`crate::attribution::waterfall`] - Waterfall attribution using this module
 
+use finstack_core::collections::HashMap;
 use finstack_core::market_data::context::MarketContext;
 use finstack_core::market_data::dividends::DividendSchedule;
 use finstack_core::market_data::scalars::inflation_index::InflationIndex;
@@ -173,7 +174,6 @@ use finstack_core::market_data::term_structures::hazard_curve::HazardCurve;
 use finstack_core::market_data::term_structures::inflation::InflationCurve;
 use finstack_core::money::fx::FxMatrix;
 use finstack_core::types::CurveId;
-use finstack_core::collections::HashMap;
 use std::sync::Arc;
 
 /// Flags indicating which curve families to restore from snapshot vs. preserve from market.

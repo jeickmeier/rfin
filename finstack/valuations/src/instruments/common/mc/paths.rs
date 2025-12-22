@@ -4,9 +4,9 @@
 //! paths for visualization, debugging, and price explanation. Paths can be captured
 //! in full or sampled for efficiency.
 
+use finstack_core::collections::HashMap;
 use serde::{Deserialize, Serialize};
 use smallvec::SmallVec;
-use finstack_core::collections::HashMap;
 
 /// Default state variable indices for standard single-asset models.
 ///

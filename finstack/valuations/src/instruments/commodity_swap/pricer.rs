@@ -129,4 +129,3 @@ mod tests {
         assert_eq!(valuation.instrument_id, "TEST-SWAP");
     }
 }
-

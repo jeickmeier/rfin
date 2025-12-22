@@ -25,4 +25,3 @@ define_metric_calculator!(
     instrument = VolatilityIndexFuture,
     calc = |future, _ctx| Ok(future.delta_vol())
 );
-

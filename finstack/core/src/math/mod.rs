@@ -64,8 +64,8 @@ pub mod solver;
 pub mod solver_multi;
 pub mod special_functions;
 pub mod stats;
-pub mod volatility;
 pub mod summation;
+pub mod volatility;
 
 // Re-exports for ergonomic access
 pub use distributions::{

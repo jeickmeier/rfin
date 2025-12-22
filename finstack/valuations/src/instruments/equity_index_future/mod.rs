@@ -112,4 +112,3 @@ pub use pricer::EquityIndexFutureDiscountingPricer;
 
 pub mod metrics;
 pub use metrics::register_equity_index_future_metrics;
-

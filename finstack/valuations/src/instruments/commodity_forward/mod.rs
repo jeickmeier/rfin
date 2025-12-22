@@ -35,9 +35,9 @@
 //! assert_eq!(forward.ticker, "CL");
 //! ```
 
-mod types;
 /// Pricer for commodity forwards.
 pub mod pricer;
+mod types;
 
 pub use pricer::CommodityForwardDiscountingPricer;
 pub use types::CommodityForward;
@@ -45,4 +45,3 @@ pub use types::SettlementType;
 
 /// Metrics submodule for commodity forward risk measures.
 pub mod metrics;
-

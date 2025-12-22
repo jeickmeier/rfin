@@ -57,8 +57,9 @@ pub fn register_fi_trs_metrics(registry: &mut MetricRegistry) {
         MetricId::BucketedDv01,
         Arc::new(crate::metrics::UnifiedDv01Calculator::<
             crate::instruments::fi_trs::FIIndexTotalReturnSwap,
-        >::new(crate::metrics::Dv01CalculatorConfig::key_rate())),
+        >::new(
+            crate::metrics::Dv01CalculatorConfig::key_rate()
+        )),
         &instruments,
     );
 }
-

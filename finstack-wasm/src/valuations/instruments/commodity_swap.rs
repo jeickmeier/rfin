@@ -221,4 +221,3 @@ fn parse_tenor(s: &str) -> Result<Tenor, String> {
 
     Ok(Tenor::new(count, unit))
 }
-

@@ -57,4 +57,3 @@ pub fn black_price(forward: f64, strike: f64, sigma: f64, t: f64) -> f64 {
 pub fn black_shifted_price(forward: f64, strike: f64, sigma: f64, t: f64, shift: f64) -> f64 {
     black_price(forward + shift, strike + shift, sigma, t)
 }
-

@@ -286,8 +286,8 @@ pub enum CovenantConsequence {
 }
 use crate::metrics::{MetricContext, MetricId};
 
-use indexmap::IndexMap;
 use finstack_core::collections::HashMap;
+use indexmap::IndexMap;
 use std::sync::Arc;
 
 /// Type alias for custom evaluator functions.

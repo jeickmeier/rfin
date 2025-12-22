@@ -135,8 +135,7 @@ impl CommodityForward {
             .unit("BBL".to_string())
             .multiplier(1.0)
             .settlement_date(
-                Date::from_calendar_date(2025, time::Month::March, 15)
-                    .expect("Valid example date"),
+                Date::from_calendar_date(2025, time::Month::March, 15).expect("Valid example date"),
             )
             .settlement_type_opt(Some(SettlementType::Cash))
             .currency(Currency::USD)
@@ -144,7 +143,11 @@ impl CommodityForward {
             .discount_curve_id(CurveId::new("USD-OIS"))
             .exchange_opt(Some("NYMEX".to_string()))
             .contract_month_opt(Some("2025M03".to_string()))
-            .attributes(Attributes::new().with_tag("energy").with_meta("sector", "crude"))
+            .attributes(
+                Attributes::new()
+                    .with_tag("energy")
+                    .with_meta("sector", "crude"),
+            )
             .build()
             .expect("Example commodity forward construction should not fail")
     }
@@ -321,9 +324,7 @@ mod tests {
             .quantity(1000.0)
             .unit("BBL".to_string())
             .multiplier(1.0)
-            .settlement_date(
-                Date::from_calendar_date(2025, Month::June, 15).expect("valid date"),
-            )
+            .settlement_date(Date::from_calendar_date(2025, Month::June, 15).expect("valid date"))
             .currency(Currency::USD)
             .forward_curve_id(CurveId::new("CL-FWD"))
             .discount_curve_id(CurveId::new("USD-OIS"))
@@ -355,9 +356,7 @@ mod tests {
             .quantity(100.0)
             .unit("OZ".to_string())
             .multiplier(1.0)
-            .settlement_date(
-                Date::from_calendar_date(2025, Month::April, 15).expect("valid date"),
-            )
+            .settlement_date(Date::from_calendar_date(2025, Month::April, 15).expect("valid date"))
             .currency(Currency::USD)
             .quoted_price_opt(Some(2000.0))
             .forward_curve_id(CurveId::new("GC-FWD"))
@@ -371,7 +370,9 @@ mod tests {
         // When quoted price is set, it should be used directly
         let market = MarketContext::new();
         let as_of = Date::from_calendar_date(2025, Month::January, 15).expect("valid date");
-        let price = forward.forward_price(&market, as_of).expect("should get price");
+        let price = forward
+            .forward_price(&market, as_of)
+            .expect("should get price");
         assert_eq!(price, 2000.0);
     }
 
@@ -382,7 +383,10 @@ mod tests {
         let forward = CommodityForward::example();
 
         assert_eq!(forward.id(), "WTI-FWD-2025M03");
-        assert_eq!(forward.key(), crate::pricer::InstrumentType::CommodityForward);
+        assert_eq!(
+            forward.key(),
+            crate::pricer::InstrumentType::CommodityForward
+        );
         assert!(forward.attributes().has_tag("energy"));
     }
 
@@ -402,12 +406,10 @@ mod tests {
     fn test_commodity_forward_serde_roundtrip() {
         let forward = CommodityForward::example();
         let json = serde_json::to_string(&forward).expect("serialize");
-        let deserialized: CommodityForward =
-            serde_json::from_str(&json).expect("deserialize");
+        let deserialized: CommodityForward = serde_json::from_str(&json).expect("deserialize");
 
         assert_eq!(forward.id.as_str(), deserialized.id.as_str());
         assert_eq!(forward.ticker, deserialized.ticker);
         assert_eq!(forward.quantity, deserialized.quantity);
     }
 }
-

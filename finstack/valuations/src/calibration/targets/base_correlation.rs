@@ -12,12 +12,12 @@ use crate::market::build::prepared::PreparedQuote;
 use crate::market::conventions::registry::ConventionRegistry;
 use crate::market::quotes::cds_tranche::CdsTrancheQuote;
 use crate::market::quotes::market_quote::{ExtractQuotes, MarketQuote};
+use finstack_core::collections::HashMap;
 use finstack_core::dates::{DateExt, DayCountCtx};
 use finstack_core::market_data::context::MarketContext;
 use finstack_core::market_data::term_structures::BaseCorrelationCurve;
 use finstack_core::money::Money;
 use finstack_core::Result;
-use finstack_core::collections::HashMap;
 use std::sync::Arc;
 
 /// Bootstrapper that calibrates a [`BaseCorrelationCurve`] from tranche quotes.

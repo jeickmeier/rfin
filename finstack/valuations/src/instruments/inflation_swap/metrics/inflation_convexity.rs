@@ -9,9 +9,9 @@
 use crate::instruments::common::traits::Instrument;
 use crate::instruments::inflation_swap::InflationSwap;
 use crate::metrics::{MetricCalculator, MetricContext, MetricId};
+use finstack_core::collections::HashMap;
 use finstack_core::market_data::bumps::BumpSpec;
 use finstack_core::Result;
-use finstack_core::collections::HashMap;
 
 /// Standard inflation curve bump: 1bp (0.0001)
 const INFLATION_BUMP_BP: f64 = 0.0001;

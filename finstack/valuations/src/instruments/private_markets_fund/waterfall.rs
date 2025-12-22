@@ -10,9 +10,9 @@ use finstack_core::dates::{Date, DayCount};
 use finstack_core::math::solver::{BrentSolver, Solver};
 use finstack_core::money::Money;
 
+use finstack_core::collections::HashMap;
 use indexmap::IndexMap;
 use smallvec::SmallVec;
-use finstack_core::collections::HashMap;
 use std::sync::Arc;
 
 #[cfg(feature = "serde")]

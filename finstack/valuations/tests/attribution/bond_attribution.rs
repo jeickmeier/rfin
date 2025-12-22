@@ -3,12 +3,12 @@
 //! Tests attribution across carry, curve shifts, and other factors for a
 //! simple fixed-rate bond.
 
+use finstack_core::config::FinstackConfig;
 use finstack_core::currency::Currency;
 use finstack_core::dates::create_date;
 use finstack_core::market_data::context::MarketContext;
 use finstack_core::market_data::term_structures::discount_curve::DiscountCurve;
 use finstack_core::math::interp::InterpStyle;
-use finstack_core::config::FinstackConfig;
 use finstack_core::money::Money;
 use finstack_valuations::attribution::{attribute_pnl_parallel, AttributionMethod};
 use finstack_valuations::instruments::bond::Bond;

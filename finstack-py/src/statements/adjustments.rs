@@ -1,4 +1,5 @@
 use crate::statements::evaluator::PyResults;
+use finstack_core::collections::HashMap;
 use finstack_core::dates::PeriodId;
 use finstack_statements::adjustments::engine::NormalizationEngine as RustNormalizationEngine;
 use finstack_statements::adjustments::types::{
@@ -9,7 +10,6 @@ use indexmap::IndexMap;
 use pyo3::prelude::*;
 use pyo3::types::PyModule;
 use pyo3::Bound;
-use finstack_core::collections::HashMap;
 use std::str::FromStr;
 
 /// Configuration for normalizing a financial metric.

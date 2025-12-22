@@ -6,8 +6,8 @@ use crate::instruments::PricingOverrides;
 use finstack_core::currency::Currency;
 use finstack_core::dates::{Date, DayCount};
 use finstack_core::money::Money;
-use finstack_core::Result;
 use finstack_core::types::{CurveId, InstrumentId};
+use finstack_core::Result;
 
 // Re-export for compatibility in tests and external users referencing bond::AmortizationSpec
 pub use super::cashflow_spec::CashflowSpec;

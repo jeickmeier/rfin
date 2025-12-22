@@ -183,4 +183,3 @@ impl JsCommodityForward {
         JsCommodityForward::from_inner(self.inner.clone())
     }
 }
-

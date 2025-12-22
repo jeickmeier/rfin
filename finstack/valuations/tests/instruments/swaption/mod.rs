@@ -7,12 +7,12 @@
 //! - integration/: End-to-end workflows and payer/receiver tests
 //! - edge_cases/: Expiry conditions and numerical stability
 
+pub mod core;
 pub mod edge_cases;
 pub mod integration;
 pub mod market;
 pub mod metrics;
 pub mod pricing;
-pub mod core;
 
 /// Common test utilities and fixtures
 pub mod common;

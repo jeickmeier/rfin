@@ -17,4 +17,3 @@ impl MetricCalculator for FinancingAnnuityCalculator {
         trs.financing_annuity(context.curves.as_ref(), context.as_of)
     }
 }
-

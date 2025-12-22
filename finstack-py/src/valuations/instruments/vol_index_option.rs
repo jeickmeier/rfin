@@ -5,7 +5,9 @@ use crate::core::money::{extract_money, PyMoney};
 use crate::errors::core_to_py;
 use crate::valuations::common::PyInstrumentType;
 use finstack_core::types::{CurveId, InstrumentId};
-use finstack_valuations::instruments::vol_index_option::{VolIndexOptionSpecs, VolatilityIndexOption};
+use finstack_valuations::instruments::vol_index_option::{
+    VolIndexOptionSpecs, VolatilityIndexOption,
+};
 use finstack_valuations::instruments::{ExerciseStyle, OptionType};
 use pyo3::exceptions::PyValueError;
 use pyo3::prelude::*;
@@ -126,13 +128,20 @@ impl PyVolatilityIndexOption {
         let expiry_date = py_to_date(&expiry).context("expiry")?;
         let discount_curve_id =
             CurveId::new(discount_curve.extract::<&str>().context("discount_curve")?);
-        let vol_index_curve_id =
-            CurveId::new(vol_index_curve.extract::<&str>().context("vol_index_curve")?);
-        let vol_of_vol_surface_id =
-            CurveId::new(vol_of_vol_surface.extract::<&str>().context("vol_of_vol_surface")?);
+        let vol_index_curve_id = CurveId::new(
+            vol_index_curve
+                .extract::<&str>()
+                .context("vol_index_curve")?,
+        );
+        let vol_of_vol_surface_id = CurveId::new(
+            vol_of_vol_surface
+                .extract::<&str>()
+                .context("vol_of_vol_surface")?,
+        );
 
         let option_type_value = parse_option_type(option_type).context("option_type")?;
-        let exercise_style_value = parse_exercise_style(exercise_style).context("exercise_style")?;
+        let exercise_style_value =
+            parse_exercise_style(exercise_style).context("exercise_style")?;
 
         let specs = VolIndexOptionSpecs {
             multiplier: multiplier.unwrap_or(100.0),
@@ -218,4 +227,3 @@ pub(crate) fn register<'py>(
     module.add_class::<PyVolatilityIndexOption>()?;
     Ok(vec!["VolatilityIndexOption"])
 }
-

@@ -4,6 +4,7 @@ use crate::core::market_data::context::PyMarketContext;
 use crate::core::market_data::term_structures::PyDiscountCurve;
 use crate::core::money::PyMoney;
 use crate::errors::core_to_py;
+use finstack_core::collections::HashMap;
 use finstack_core::dates::Period;
 use finstack_core::money::Money;
 use finstack_core::types::CurveId;
@@ -11,7 +12,6 @@ use finstack_valuations::cashflow::builder as val_builder;
 use pyo3::prelude::*;
 use pyo3::types::{PyAny, PyList, PyModule, PyType};
 use pyo3::Bound;
-use finstack_core::collections::HashMap;
 
 /// Coupon split type (cash, PIK, split) mirroring valuations builder.
 #[pyclass(

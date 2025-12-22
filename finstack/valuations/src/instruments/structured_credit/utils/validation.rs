@@ -14,8 +14,8 @@ use crate::instruments::structured_credit::pricing::diversion::{
 use crate::instruments::structured_credit::types::{
     AllocationMode, PaymentType, Waterfall, WaterfallTier,
 };
-use finstack_core::Result;
 use finstack_core::collections::HashSet;
+use finstack_core::Result;
 
 #[cfg(feature = "serde")]
 use serde::{Deserialize, Serialize};

@@ -74,8 +74,9 @@ fn bench_simpson_rule(c: &mut Criterion) {
             &intervals,
             |b, &n| {
                 b.iter(|| {
-                    let result = simpson_rule(black_box(gaussian), black_box(-3.0), black_box(3.0), n)
-                        .expect("Simpson rule should succeed");
+                    let result =
+                        simpson_rule(black_box(gaussian), black_box(-3.0), black_box(3.0), n)
+                            .expect("Simpson rule should succeed");
                     black_box(result);
                 })
             },
@@ -391,4 +392,3 @@ criterion_group!(
     bench_integration_comparison,
 );
 criterion_main!(benches);
-

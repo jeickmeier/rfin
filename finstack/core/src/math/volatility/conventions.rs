@@ -49,4 +49,3 @@ pub(super) fn validate_forward_for_convention(
         }
     }
 }
-

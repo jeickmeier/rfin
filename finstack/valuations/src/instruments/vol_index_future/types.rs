@@ -253,8 +253,7 @@ impl VolatilityIndexFuture {
         // NPV = (Quoted - Forward) × Multiplier × Contracts × Sign
         // Long benefits when quoted > forward (we bought cheap)
         // Short benefits when quoted < forward (we sold expensive)
-        let pv_per_contract =
-            (self.quoted_price - forward_vol) * self.contract_specs.multiplier;
+        let pv_per_contract = (self.quoted_price - forward_vol) * self.contract_specs.multiplier;
         let pv_total = sign * contracts * pv_per_contract;
 
         Ok(pv_total)
@@ -317,19 +316,11 @@ impl crate::instruments::common::traits::Instrument for VolatilityIndexFuture {
         Box::new(self.clone())
     }
 
-    fn value(
-        &self,
-        curves: &MarketContext,
-        _as_of: Date,
-    ) -> finstack_core::Result<Money> {
+    fn value(&self, curves: &MarketContext, _as_of: Date) -> finstack_core::Result<Money> {
         self.npv(curves)
     }
 
-    fn value_raw(
-        &self,
-        curves: &MarketContext,
-        _as_of: Date,
-    ) -> finstack_core::Result<f64> {
+    fn value_raw(&self, curves: &MarketContext, _as_of: Date) -> finstack_core::Result<f64> {
         self.npv_raw(curves)
     }
 
@@ -411,12 +402,7 @@ mod tests {
         let vix = VolatilityIndexCurve::builder("VIX")
             .base_date(base_date)
             .spot_level(18.0)
-            .knots([
-                (0.0, 18.0),
-                (0.25, 20.0),
-                (0.5, 21.0),
-                (1.0, 22.0),
-            ])
+            .knots([(0.0, 18.0), (0.25, 20.0), (0.5, 21.0), (1.0, 22.0)])
             .build()
             .expect("valid VIX curve");
 
@@ -534,9 +520,9 @@ mod tests {
     fn test_serde_round_trip() {
         let future = VolatilityIndexFuture::example();
         let json = serde_json::to_string(&future).expect("json serialization");
-        let recovered: VolatilityIndexFuture = serde_json::from_str(&json).expect("json deserialization");
+        let recovered: VolatilityIndexFuture =
+            serde_json::from_str(&json).expect("json deserialization");
         assert_eq!(future.id, recovered.id);
         assert!((future.quoted_price - recovered.quoted_price).abs() < 1e-10);
     }
 }
-

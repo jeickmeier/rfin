@@ -7,10 +7,10 @@
 use crate::cashflow::traits::CashflowProvider;
 use crate::instruments::common::pricing::HasDiscountCurve;
 use crate::instruments::common::traits::Attributes;
-use finstack_core::market_data::context::MarketContext;
-use finstack_core::market_data::scalars::MarketScalar;
 use finstack_core::currency::Currency;
 use finstack_core::dates::Date;
+use finstack_core::market_data::context::MarketContext;
+use finstack_core::market_data::scalars::MarketScalar;
 use finstack_core::money::Money;
 use finstack_core::types::{CurveId, InstrumentId};
 

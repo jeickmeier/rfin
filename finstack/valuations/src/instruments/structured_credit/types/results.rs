@@ -6,11 +6,11 @@
 use crate::cashflow::traits::DatedFlows;
 use crate::metrics::MetricId;
 use finstack_core::cashflow::CashFlow;
+use finstack_core::collections::HashMap;
 use finstack_core::dates::Date;
 use finstack_core::market_data::context::MarketContext;
 use finstack_core::money::Money;
 use finstack_core::Result;
-use finstack_core::collections::HashMap;
 
 #[cfg(feature = "serde")]
 use serde::{Deserialize, Serialize};

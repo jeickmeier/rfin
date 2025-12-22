@@ -59,14 +59,14 @@
 
 use crate::cashflow::traits::CashflowProvider;
 use crate::instruments::common::traits::Attributes;
-use finstack_core::dates::calendar::calendar_by_id;
 use finstack_core::currency::Currency;
+use finstack_core::dates::calendar::calendar_by_id;
 use finstack_core::dates::{adjust, BusinessDayConvention, Date, DateExt};
 use finstack_core::market_data::context::MarketContext;
 use finstack_core::money::fx::FxProvider;
 use finstack_core::money::Money;
-use finstack_core::Result;
 use finstack_core::types::InstrumentId;
+use finstack_core::Result;
 
 /// FX Spot instrument (1 unit of `base` priced in `quote`).
 ///

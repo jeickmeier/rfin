@@ -127,4 +127,3 @@ mod tests {
         assert!(valuation.value.amount() > 0.0);
     }
 }
-

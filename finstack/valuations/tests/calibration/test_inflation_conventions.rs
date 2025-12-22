@@ -1,5 +1,6 @@
 //! Integration tests for inflation calibration conventions (v2).
 
+use finstack_core::collections::HashMap;
 use finstack_core::dates::{Date, DateExt, DayCount, DayCountCtx};
 use finstack_core::market_data::context::MarketContext;
 use finstack_core::market_data::scalars::inflation_index::{
@@ -14,7 +15,6 @@ use finstack_valuations::calibration::api::schema::{
 use finstack_valuations::market::conventions::ids::InflationSwapConventionId;
 use finstack_valuations::market::quotes::inflation::InflationQuote;
 use finstack_valuations::market::quotes::market_quote::MarketQuote;
-use finstack_core::collections::HashMap;
 use time::Month;
 
 use super::tolerances::{assert_close_abs, F64_ABS_TOL_LOOSE};

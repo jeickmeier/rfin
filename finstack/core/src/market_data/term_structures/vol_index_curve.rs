@@ -544,11 +544,7 @@ mod tests {
         assert!((curve.forward_level(0.25) - 20.0).abs() < 1e-10);
         // At 0.125Y (midpoint of first segment), should be ~19.25
         let mid = curve.forward_level(0.125);
-        assert!(
-            (mid - 19.25).abs() < 0.01,
-            "Expected ~19.25, got {}",
-            mid
-        );
+        assert!((mid - 19.25).abs() < 0.01, "Expected ~19.25, got {}", mid);
     }
 
     #[test]
@@ -561,7 +557,9 @@ mod tests {
     #[test]
     fn parallel_bump() {
         let curve = sample_vix_curve();
-        let bumped = curve.try_with_parallel_bump(2.0).expect("Bump should succeed");
+        let bumped = curve
+            .try_with_parallel_bump(2.0)
+            .expect("Bump should succeed");
         assert!((bumped.spot_level() - 20.5).abs() < 1e-10);
         assert!((bumped.forward_level(0.25) - 22.0).abs() < 1e-10);
     }
@@ -586,7 +584,9 @@ mod tests {
 
     #[test]
     fn requires_at_least_two_points() {
-        let result = VolatilityIndexCurve::builder("VIX").knots([(0.0, 18.5)]).build();
+        let result = VolatilityIndexCurve::builder("VIX")
+            .knots([(0.0, 18.5)])
+            .build();
         assert!(result.is_err());
     }
 
@@ -602,4 +602,3 @@ mod tests {
         assert!((curve.forward_level(0.5) - recovered.forward_level(0.5)).abs() < 1e-10);
     }
 }
-

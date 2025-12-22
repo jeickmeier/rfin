@@ -2,6 +2,7 @@ use super::test_helpers::{
     sample_base_correlation_curve, sample_base_date, sample_discount_curve, sample_forward_curve,
     sample_hazard_curve, sample_inflation_curve, sample_vol_surface,
 };
+use finstack_core::collections::HashMap;
 use finstack_core::currency::Currency;
 use finstack_core::dates::Date;
 use finstack_core::market_data::bumps::BumpType;
@@ -14,7 +15,6 @@ use finstack_core::market_data::scalars::{
 use finstack_core::market_data::term_structures::credit_index::CreditIndexData;
 use finstack_core::money::fx::{FxConversionPolicy, FxMatrix, FxProvider};
 use finstack_core::money::Money;
-use finstack_core::collections::HashMap;
 use finstack_core::types::CurveId;
 use std::sync::Arc;
 use time::Month;

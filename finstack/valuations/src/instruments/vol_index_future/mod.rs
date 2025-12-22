@@ -53,7 +53,6 @@ pub mod metrics;
 pub mod pricer;
 mod types;
 
-pub use types::{VolatilityIndexFuture, VolIndexContractSpecs};
+pub use types::{VolIndexContractSpecs, VolatilityIndexFuture};
 
 // Builder provided by FinancialBuilder derive
-

@@ -33,10 +33,10 @@
 use crate::instruments::common::models::trees::HullWhiteTree;
 use crate::instruments::common::parameters::OptionType;
 use crate::instruments::swaption::BermudanSwaption;
+use finstack_core::collections::HashSet;
 use finstack_core::dates::Date;
 use finstack_core::market_data::traits::Discounting;
 use finstack_core::Result;
-use finstack_core::collections::HashSet;
 
 /// Tree valuator for Bermudan swaption pricing.
 ///

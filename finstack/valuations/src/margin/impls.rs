@@ -5,10 +5,10 @@
 
 use crate::instruments::cds::CreditDefaultSwap;
 use crate::instruments::cds_index::CDSIndex;
-use crate::instruments::irs::InterestRateSwap;
-use crate::instruments::repo::Repo;
 use crate::instruments::equity_trs::EquityTotalReturnSwap;
 use crate::instruments::fi_trs::FIIndexTotalReturnSwap;
+use crate::instruments::irs::InterestRateSwap;
+use crate::instruments::repo::Repo;
 use crate::instruments::TrsSide;
 use crate::margin::constants::{
     self, DAYS_PER_YEAR, DEFAULT_BOND_INDEX_DURATION, DURATION_APPROXIMATION_FACTOR,
@@ -316,7 +316,7 @@ impl Marginable for FIIndexTotalReturnSwap {
 
         let signed_dv01 = match self.side {
             TrsSide::ReceiveTotalReturn => -dv01, // Long bond = short rates
-            TrsSide::PayTotalReturn => dv01, // Short bond = long rates
+            TrsSide::PayTotalReturn => dv01,      // Short bond = long rates
         };
 
         // Map duration to appropriate tenor bucket

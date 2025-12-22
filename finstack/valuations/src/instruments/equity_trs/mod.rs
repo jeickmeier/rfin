@@ -40,12 +40,11 @@
 //! - [`crate::instruments::fi_trs`] for fixed income index TRS
 //! - [`TrsEngine`](crate::instruments::common::pricing::TrsEngine) for shared pricing logic
 
-mod types;
 pub mod metrics;
 pub(crate) mod pricer;
+mod types;
 
 pub use types::EquityTotalReturnSwap;
 
 // Re-export common TRS types for convenience
 pub use crate::instruments::common::parameters::trs_common::{TrsScheduleSpec, TrsSide};
-

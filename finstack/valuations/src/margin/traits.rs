@@ -5,12 +5,12 @@
 
 use crate::instruments::common::traits::Instrument;
 use crate::margin::types::OtcMarginSpec;
+use finstack_core::collections::HashMap;
 use finstack_core::currency::Currency;
 use finstack_core::dates::Date;
 use finstack_core::market_data::context::MarketContext;
 use finstack_core::money::Money;
 use finstack_core::Result;
-use finstack_core::collections::HashMap;
 
 /// Risk classes for SIMM categorization.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]

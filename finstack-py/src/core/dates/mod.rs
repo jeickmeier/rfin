@@ -18,9 +18,9 @@ pub use schedule::{PyFrequency, PySchedule, PyScheduleBuilder, PyStubKind};
 #[allow(unused_imports)]
 pub use tenor::{PyTenor, PyTenorUnit};
 
+use finstack_core::collections::HashSet;
 use pyo3::prelude::*;
 use pyo3::types::{PyList, PyModule};
-use finstack_core::collections::HashSet;
 
 pub(crate) fn register<'py>(py: Python<'py>, parent: &Bound<'py, PyModule>) -> PyResult<()> {
     let module = PyModule::new(py, "dates")?;

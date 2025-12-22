@@ -7,9 +7,9 @@
 
 use crate::instruments::cms_option::CmsOption;
 use crate::metrics::{MetricCalculator, MetricContext};
+use finstack_core::collections::HashMap;
 use finstack_core::market_data::bumps::BumpSpec;
 use finstack_core::Result;
-use finstack_core::collections::HashMap;
 
 /// Delta calculator for CMS options.
 pub struct DeltaCalculator;

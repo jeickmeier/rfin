@@ -30,4 +30,3 @@ pub fn register_equity_index_future_metrics(registry: &mut MetricRegistry) {
         ]
     }
 }
-

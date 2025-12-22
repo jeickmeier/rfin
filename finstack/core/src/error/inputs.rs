@@ -295,4 +295,3 @@ mod tests {
         assert!(msg.contains("-0.01"));
     }
 }
-

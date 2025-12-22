@@ -4,6 +4,7 @@ use crate::core::error::core_to_js;
 use crate::core::error::js_error;
 use crate::core::market_data::interp::{parse_extrapolation, parse_interp_style};
 use crate::core::utils::js_array_from_iter;
+use finstack_core::collections::HashMap;
 use finstack_core::currency::Currency as CoreCurrency;
 use finstack_core::dates::{Date, DayCount, DayCountCtx};
 use finstack_core::market_data::term_structures::{
@@ -15,7 +16,6 @@ use finstack_core::market_data::term_structures::{
     inflation::InflationCurve,
 };
 use finstack_core::math::interp::{ExtrapolationPolicy, InterpStyle};
-use finstack_core::collections::HashMap;
 use std::str::FromStr;
 use std::sync::Arc;
 use wasm_bindgen::prelude::*;

@@ -1,5 +1,6 @@
 //! Integration test for swaption volatility calibration (v2).
 
+use finstack_core::collections::HashMap;
 use finstack_core::dates::Date;
 use finstack_core::market_data::context::MarketContext;
 use finstack_core::market_data::term_structures::discount_curve::DiscountCurve;
@@ -13,7 +14,6 @@ use finstack_valuations::calibration::CalibrationConfig;
 use finstack_valuations::market::conventions::ids::SwaptionConventionId;
 use finstack_valuations::market::quotes::market_quote::MarketQuote;
 use finstack_valuations::market::quotes::vol::VolQuote;
-use finstack_core::collections::HashMap;
 use time::Month;
 
 use super::tolerances;

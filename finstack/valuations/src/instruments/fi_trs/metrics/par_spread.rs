@@ -36,4 +36,3 @@ impl MetricCalculator for ParSpreadCalculator {
         Ok(tr_pv.amount() / annuity * 10000.0)
     }
 }
-

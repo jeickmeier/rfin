@@ -18,10 +18,10 @@ use finstack_valuations::instruments::cds_tranche::{CdsTranche, TrancheSide};
 use finstack_valuations::instruments::common::traits::Attributes;
 use finstack_valuations::market::conventions::ids::{CdsConventionKey, CdsDocClause};
 
+use finstack_core::collections::HashMap;
 use finstack_valuations::market::quotes::cds_tranche::CdsTrancheQuote;
 use finstack_valuations::market::quotes::ids::QuoteId;
 use finstack_valuations::market::quotes::market_quote::MarketQuote;
-use finstack_core::collections::HashMap;
 use std::sync::Arc;
 use time::Month;
 

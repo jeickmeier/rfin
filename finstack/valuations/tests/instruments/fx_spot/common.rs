@@ -1,5 +1,6 @@
 //! Shared fixtures and utilities for FX Spot tests.
 
+use finstack_core::collections::HashMap;
 use finstack_core::{
     currency::Currency,
     dates::Date,
@@ -10,7 +11,6 @@ use finstack_core::{
     types::InstrumentId,
 };
 use finstack_valuations::instruments::fx_spot::FxSpot;
-use finstack_core::collections::HashMap;
 use std::sync::Arc;
 use time::Month;
 

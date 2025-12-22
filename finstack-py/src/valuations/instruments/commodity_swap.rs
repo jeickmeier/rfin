@@ -34,7 +34,11 @@ use std::fmt;
 ///     ...     payment_frequency="1M",
 ///     ...     discount_curve_id="USD-OIS"
 ///     ... )
-#[pyclass(module = "finstack.valuations.instruments", name = "CommoditySwap", frozen)]
+#[pyclass(
+    module = "finstack.valuations.instruments",
+    name = "CommoditySwap",
+    frozen
+)]
 #[derive(Clone, Debug)]
 pub struct PyCommoditySwap {
     pub(crate) inner: CommoditySwap,
@@ -318,4 +322,3 @@ pub fn register_module(parent: &Bound<'_, PyModule>) -> PyResult<()> {
     parent.add_class::<PyCommoditySwap>()?;
     Ok(())
 }
-

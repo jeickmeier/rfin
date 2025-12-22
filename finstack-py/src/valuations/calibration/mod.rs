@@ -5,10 +5,10 @@ pub mod sabr;
 pub mod v2;
 pub mod validation;
 
+use finstack_core::collections::HashSet;
 use pyo3::prelude::*;
 use pyo3::types::{PyList, PyModule};
 use pyo3::Bound;
-use finstack_core::collections::HashSet;
 
 pub(crate) fn register<'py>(
     py: Python<'py>,

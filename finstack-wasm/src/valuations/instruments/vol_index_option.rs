@@ -167,4 +167,3 @@ impl JsVolatilityIndexOption {
         JsVolatilityIndexOption::from_inner(self.inner.clone())
     }
 }
-

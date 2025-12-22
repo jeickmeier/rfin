@@ -108,8 +108,8 @@ use finstack_core::market_data::context::MarketContext;
 use finstack_core::money::Money;
 use finstack_core::types::{CurveId, InstrumentId};
 
-use std::any::Any;
 use finstack_core::collections::HashMap;
+use std::any::Any;
 
 #[cfg(feature = "serde")]
 use serde::{Deserialize, Serialize};

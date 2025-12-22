@@ -674,7 +674,12 @@ impl Bumpable for VolatilityIndexCurve {
                         .into());
                     }
                 };
-                self.try_with_triangular_key_rate_bump(prev_bucket, target_bucket, next_bucket, bump)
+                self.try_with_triangular_key_rate_bump(
+                    prev_bucket,
+                    target_bucket,
+                    next_bucket,
+                    bump,
+                )
             }
         }
     }

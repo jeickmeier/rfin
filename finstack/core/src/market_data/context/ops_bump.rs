@@ -12,8 +12,7 @@ use super::MarketContext;
 
 use crate::market_data::term_structures::{
     base_correlation::BaseCorrelationCurve, discount_curve::DiscountCurve,
-    forward_curve::ForwardCurve, inflation::InflationCurve,
-    vol_index_curve::VolatilityIndexCurve,
+    forward_curve::ForwardCurve, inflation::InflationCurve, vol_index_curve::VolatilityIndexCurve,
 };
 
 impl MarketContext {

@@ -332,7 +332,12 @@ impl VolSurface {
         bumped_vols[idx] = bumped_vol;
 
         // Rebuild surface with same ID and grid
-        Self::from_grid(self.id.as_str(), &self.expiries, &self.strikes, &bumped_vols)
+        Self::from_grid(
+            self.id.as_str(),
+            &self.expiries,
+            &self.strikes,
+            &bumped_vols,
+        )
     }
 
     /// Return a new volatility surface scaled uniformly by `scale`.
@@ -391,9 +396,11 @@ impl Bumpable for VolSurface {
                         })?;
                 self.vols.iter().map(|&v| (v + delta).max(0.0)).collect()
             }
-            (BumpMode::Multiplicative, BumpUnits::Factor) => {
-                self.vols.iter().map(|&v| (v * spec.value).max(0.0)).collect()
-            }
+            (BumpMode::Multiplicative, BumpUnits::Factor) => self
+                .vols
+                .iter()
+                .map(|&v| (v * spec.value).max(0.0))
+                .collect(),
             _ => {
                 return Err(InputError::UnsupportedBump {
                     reason: format!(

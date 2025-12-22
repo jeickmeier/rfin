@@ -211,7 +211,13 @@ impl FIIndexTotalReturnSwap {
     /// Present value of the financing leg in the instrument's currency.
     pub fn pv_financing_leg(&self, curves: &MarketContext, as_of: Date) -> Result<Money> {
         use crate::instruments::common::pricing::TrsEngine;
-        TrsEngine::pv_financing_leg(&self.financing, &self.schedule, self.notional, curves, as_of)
+        TrsEngine::pv_financing_leg(
+            &self.financing,
+            &self.schedule,
+            self.notional,
+            curves,
+            as_of,
+        )
     }
 
     /// Calculates the financing annuity for par spread calculation.
@@ -224,7 +230,13 @@ impl FIIndexTotalReturnSwap {
     /// Financing annuity (sum of discounted year fractions × notional).
     pub fn financing_annuity(&self, curves: &MarketContext, as_of: Date) -> Result<f64> {
         use crate::instruments::common::pricing::TrsEngine;
-        TrsEngine::financing_annuity(&self.financing, &self.schedule, self.notional, curves, as_of)
+        TrsEngine::financing_annuity(
+            &self.financing,
+            &self.schedule,
+            self.notional,
+            curves,
+            as_of,
+        )
     }
 }
 
@@ -322,4 +334,3 @@ impl crate::instruments::common::pricing::HasForwardCurves for FIIndexTotalRetur
         vec![self.financing.discount_curve_id.clone()]
     }
 }
-

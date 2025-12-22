@@ -7,6 +7,7 @@
 //! - Evaluation types (CompiledExpr, EvalOpts, EvaluationResult)
 //! - Context types (SimpleContext)
 
+use finstack_core::collections::HashSet;
 use finstack_core::config::{
     NumericMode, ResultsMeta, RoundingContext, RoundingMode, ToleranceConfig,
 };
@@ -14,7 +15,6 @@ use finstack_core::expr::dag::{BoundaryType, CacheStrategy, DagNode, ExecutionPl
 use finstack_core::expr::{
     CompiledExpr, EvalOpts, EvaluationResult, Expr, ExprNode, Function, SimpleContext,
 };
-use finstack_core::collections::HashSet;
 use std::collections::BTreeMap;
 
 #[test]

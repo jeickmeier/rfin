@@ -13,9 +13,9 @@ use finstack_valuations::instruments::bond::metrics::price_yield_spread::{
     AssetSwapMarketCalculator, AssetSwapParCalculator,
 };
 use finstack_valuations::instruments::bond::Bond;
+use finstack_valuations::instruments::bond::CashflowSpec;
 use finstack_valuations::instruments::PricingOverrides;
 use finstack_valuations::metrics::{standard_registry, MetricCalculator, MetricContext, MetricId};
-use finstack_valuations::instruments::bond::CashflowSpec;
 use std::sync::Arc;
 use time::macros::date;
 
@@ -405,7 +405,9 @@ fn test_asw_market_fwd_calculator_requires_accrued_when_clean_price() {
     );
 
     let calc = finstack_valuations::instruments::bond::metrics::price_yield_spread::asw::AssetSwapMarketFwdCalculator;
-    let err = calc.calculate(&mut ctx).expect_err("should require Accrued");
+    let err = calc
+        .calculate(&mut ctx)
+        .expect_err("should require Accrued");
     let msg = format!("{err}");
     assert!(
         msg.contains("metric:Accrued"),
@@ -431,7 +433,9 @@ fn test_asw_par_fwd_calculator_errors_on_fixed_bond() {
     );
 
     let calc = finstack_valuations::instruments::bond::metrics::price_yield_spread::asw::AssetSwapParFwdCalculator;
-    let err = calc.calculate(&mut ctx).expect_err("fixed bond should fail");
+    let err = calc
+        .calculate(&mut ctx)
+        .expect_err("fixed bond should fail");
     let msg = format!("{err}");
     assert!(
         msg.contains("bond.cashflow_spec.floating"),

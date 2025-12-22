@@ -208,4 +208,3 @@ mod tests {
         assert_eq!(valuation.value.amount(), 0.0);
     }
 }
-

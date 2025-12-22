@@ -8,6 +8,7 @@ use crate::scenarios::reports::PyApplicationReport;
 use crate::scenarios::spec::{PyRateBindingSpec, PyScenarioSpec};
 use crate::statements::types::model::PyFinancialModelSpec;
 use crate::valuations::instruments::extract_instrument;
+use finstack_core::collections::HashMap;
 use finstack_scenarios::engine::{ExecutionContext, ScenarioEngine};
 use finstack_scenarios::spec::RateBindingSpec;
 use finstack_scenarios::ScenarioSpec;
@@ -16,7 +17,6 @@ use indexmap::IndexMap;
 use pyo3::exceptions::PyTypeError;
 use pyo3::prelude::*;
 use pyo3::types::{PyAny, PyAnyMethods, PyModule};
-use finstack_core::collections::HashMap;
 
 /// Execution context for scenario application.
 ///

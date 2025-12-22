@@ -5,12 +5,10 @@ use finstack_core::dates::{Date, Tenor};
 use finstack_core::money::Money;
 use finstack_valuations::constants::DECIMAL_TO_PERCENT;
 use finstack_valuations::instruments::structured_credit::types::constants::{
-    ABS_AUTO_STANDARD_CDR, CLO_STANDARD_CDR, CMBS_STANDARD_CDR, PSA_RAMP_MONTHS,
-    PSA_TERMINAL_CPR, RMBS_STANDARD_CDR, SDA_PEAK_CDR, SDA_PEAK_MONTH, SDA_TERMINAL_CDR,
+    ABS_AUTO_STANDARD_CDR, CLO_STANDARD_CDR, CMBS_STANDARD_CDR, PSA_RAMP_MONTHS, PSA_TERMINAL_CPR,
+    RMBS_STANDARD_CDR, SDA_PEAK_CDR, SDA_PEAK_MONTH, SDA_TERMINAL_CDR,
 };
-use finstack_valuations::instruments::structured_credit::utils::rates::{
-    cdr_to_mdr, cpr_to_smm,
-};
+use finstack_valuations::instruments::structured_credit::utils::rates::{cdr_to_mdr, cpr_to_smm};
 use finstack_valuations::instruments::structured_credit::{
     DealType, Pool, PoolAsset, StructuredCredit, Tranche, TrancheCoupon, TrancheStructure,
     Waterfall,
@@ -193,8 +191,7 @@ fn test_current_loss_percentage_handles_zero_balance_and_offsets() {
         maturity_date(),
         "USD-OIS",
     );
-    let expected =
-        (50_000.0 - 10_000.0) / 1_000_000.0 * DECIMAL_TO_PERCENT;
+    let expected = (50_000.0 - 10_000.0) / 1_000_000.0 * DECIMAL_TO_PERCENT;
     let actual = sc.current_loss_percentage().unwrap();
     assert!((actual - expected).abs() < 1e-12);
 }

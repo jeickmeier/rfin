@@ -176,8 +176,7 @@ impl VolSurfaceBootstrapper {
             .with_tolerance(config.solver.tolerance())
             .with_max_iterations(config.solver.max_iterations());
 
-        let mut sabr_params_by_expiry: BTreeMap<OrderedF64, SABRParameters> =
-            BTreeMap::new();
+        let mut sabr_params_by_expiry: BTreeMap<OrderedF64, SABRParameters> = BTreeMap::new();
         let mut residuals = BTreeMap::new();
         let mut expiry_errors: BTreeMap<OrderedF64, String> = BTreeMap::new();
         let mut total_iterations = 0;

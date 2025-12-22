@@ -124,4 +124,3 @@ impl TrsScheduleSpec {
         builder.build()
     }
 }
-

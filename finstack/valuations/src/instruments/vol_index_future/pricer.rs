@@ -33,4 +33,3 @@ impl VolIndexFuturePricer {
         instrument.value(market, as_of)
     }
 }
-

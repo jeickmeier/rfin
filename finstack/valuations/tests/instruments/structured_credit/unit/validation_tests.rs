@@ -5,11 +5,11 @@ use finstack_core::money::Money;
 use finstack_valuations::instruments::structured_credit::pricing::diversion::{
     DiversionCondition, DiversionRule,
 };
-use finstack_valuations::instruments::structured_credit::{
-    AllocationMode, PaymentCalculation, PaymentType, Recipient, RecipientType, WaterfallTier,
-};
 use finstack_valuations::instruments::structured_credit::utils::validation::{
     get_validation_errors, is_valid_waterfall_spec, ValidationError,
+};
+use finstack_valuations::instruments::structured_credit::{
+    AllocationMode, PaymentCalculation, PaymentType, Recipient, RecipientType, WaterfallTier,
 };
 
 fn fixed_fee_recipient(id: &str) -> Recipient {
@@ -33,10 +33,7 @@ fn test_duplicate_tier_ids() {
 
     let errors = get_validation_errors(&tiers, &[], &[]);
     assert_eq!(errors.len(), 1);
-    assert!(matches!(
-        errors[0],
-        ValidationError::DuplicateTierId { .. }
-    ));
+    assert!(matches!(errors[0], ValidationError::DuplicateTierId { .. }));
 }
 
 #[test]
@@ -67,9 +64,8 @@ fn test_empty_tier_is_invalid_except_residual() {
 
 #[test]
 fn test_negative_recipient_weight_is_invalid() {
-    let tier = WaterfallTier::new("tier-a", 1, PaymentType::Fee).add_recipient(
-        fixed_fee_recipient("r1").with_weight(-0.25),
-    );
+    let tier = WaterfallTier::new("tier-a", 1, PaymentType::Fee)
+        .add_recipient(fixed_fee_recipient("r1").with_weight(-0.25));
 
     let errors = get_validation_errors(&[tier], &[], &[]);
     assert_eq!(errors.len(), 1);
@@ -123,27 +119,17 @@ fn test_invalid_diversion_tiers() {
 
     let errors = get_validation_errors(&tiers, &rules, &[]);
     assert_eq!(errors.len(), 2);
-    assert!(errors.iter().all(|err| matches!(err, ValidationError::InvalidDiversionTier { .. })));
+    assert!(errors
+        .iter()
+        .all(|err| matches!(err, ValidationError::InvalidDiversionTier { .. })));
 }
 
 #[test]
 fn test_circular_diversion_detection() {
     let tiers = vec![fee_tier("tier-a", 1), fee_tier("tier-b", 2)];
     let rules = vec![
-        DiversionRule::new(
-            "rule-1",
-            "tier-a",
-            "tier-b",
-            DiversionCondition::Always,
-            1,
-        ),
-        DiversionRule::new(
-            "rule-2",
-            "tier-b",
-            "tier-a",
-            DiversionCondition::Always,
-            2,
-        ),
+        DiversionRule::new("rule-1", "tier-a", "tier-b", DiversionCondition::Always, 1),
+        DiversionRule::new("rule-2", "tier-b", "tier-a", DiversionCondition::Always, 2),
     ];
 
     let errors = get_validation_errors(&tiers, &rules, &[]);

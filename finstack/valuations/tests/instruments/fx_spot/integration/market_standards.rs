@@ -1,6 +1,7 @@
 //! Market standards and industry benchmark tests for FX Spot.
 
 use super::super::common::*;
+use finstack_core::collections::HashMap;
 use finstack_core::{
     currency::Currency,
     market_data::context::MarketContext,
@@ -12,7 +13,6 @@ use finstack_valuations::{
     instruments::{common::traits::Instrument, fx_spot::FxSpot},
     pricer::InstrumentType,
 };
-use finstack_core::collections::HashMap;
 use std::sync::Arc;
 
 #[test]

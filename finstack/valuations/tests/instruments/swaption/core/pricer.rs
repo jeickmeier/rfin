@@ -17,20 +17,16 @@ fn test_simple_swaption_black_pricer_forces_black() {
     let (as_of, expiry, swap_start, swap_end) = standard_dates();
     let mut swaption = create_standard_payer_swaption(expiry, swap_start, swap_end, 0.05);
     swaption.vol_model = finstack_valuations::instruments::swaption::VolatilityModel::Normal;
-    swaption.pricing_overrides = swaption
-        .pricing_overrides
-        .clone()
-        .with_implied_vol(0.25);
+    swaption.pricing_overrides = swaption.pricing_overrides.clone().with_implied_vol(0.25);
 
     let market = create_flat_market(as_of, 0.03, 0.2);
-    let disc = market.get_discount_ref(swaption.discount_curve_id.as_ref()).unwrap();
+    let disc = market
+        .get_discount_ref(swaption.discount_curve_id.as_ref())
+        .unwrap();
 
     let expected_black = swaption.price_black(disc, 0.25, as_of).unwrap();
     let pricer = SimpleSwaptionBlackPricer::with_model(ModelKey::Black76);
-    let result = pricer
-        .price_dyn(&swaption, &market, as_of)
-        .unwrap()
-        .value;
+    let result = pricer.price_dyn(&swaption, &market, as_of).unwrap().value;
 
     assert_approx_eq(
         result.amount(),
@@ -45,17 +41,11 @@ fn test_simple_swaption_pricer_fallback_uses_instrument_value() {
     let (as_of, expiry, swap_start, swap_end) = standard_dates();
     let mut swaption = create_standard_payer_swaption(expiry, swap_start, swap_end, 0.05);
     swaption.vol_model = finstack_valuations::instruments::swaption::VolatilityModel::Normal;
-    swaption.pricing_overrides = swaption
-        .pricing_overrides
-        .clone()
-        .with_implied_vol(0.35);
+    swaption.pricing_overrides = swaption.pricing_overrides.clone().with_implied_vol(0.35);
 
     let market = create_flat_market(as_of, 0.03, 0.2);
     let pricer = SimpleSwaptionBlackPricer::with_model(ModelKey::Discounting);
-    let result = pricer
-        .price_dyn(&swaption, &market, as_of)
-        .unwrap()
-        .value;
+    let result = pricer.price_dyn(&swaption, &market, as_of).unwrap().value;
 
     let expected = swaption.value(&market, as_of).unwrap();
     assert_approx_eq(
@@ -78,7 +68,11 @@ fn test_bermudan_pricer_cached_model_sets_measure() {
         0.03,
         swap_start,
         swap_end,
-        BermudanSchedule::co_terminal(first_exercise, swap_end, finstack_core::dates::Tenor::semi_annual()),
+        BermudanSchedule::co_terminal(
+            first_exercise,
+            swap_end,
+            finstack_core::dates::Tenor::semi_annual(),
+        ),
         "USD_OIS",
         "USD-SOFR-3M",
         "USD-SWPNVOL",
@@ -115,7 +109,11 @@ fn test_bermudan_pricer_expired_returns_zero() {
         0.04,
         swap_start,
         swap_end,
-        BermudanSchedule::co_terminal(first_exercise, swap_end, finstack_core::dates::Tenor::semi_annual()),
+        BermudanSchedule::co_terminal(
+            first_exercise,
+            swap_end,
+            finstack_core::dates::Tenor::semi_annual(),
+        ),
         "USD_OIS",
         "USD-SOFR-3M",
         "USD-SWPNVOL",

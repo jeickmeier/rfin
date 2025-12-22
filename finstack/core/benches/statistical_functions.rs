@@ -55,7 +55,9 @@ fn bench_normal_cdf(c: &mut Criterion) {
     // Batch evaluations
     for size in [10, 100, 1000] {
         group.bench_with_input(BenchmarkId::new("batch", size), &size, |b, &size| {
-            let points: Vec<f64> = (0..size).map(|i| -4.0 + 8.0 * (i as f64) / (size as f64)).collect();
+            let points: Vec<f64> = (0..size)
+                .map(|i| -4.0 + 8.0 * (i as f64) / (size as f64))
+                .collect();
             b.iter(|| {
                 let results: Vec<f64> = points.iter().map(|&x| norm_cdf(x)).collect();
                 black_box(results);
@@ -86,7 +88,9 @@ fn bench_normal_pdf(c: &mut Criterion) {
     // Batch evaluations
     for size in [10, 100, 1000] {
         group.bench_with_input(BenchmarkId::new("batch", size), &size, |b, &size| {
-            let points: Vec<f64> = (0..size).map(|i| -4.0 + 8.0 * (i as f64) / (size as f64)).collect();
+            let points: Vec<f64> = (0..size)
+                .map(|i| -4.0 + 8.0 * (i as f64) / (size as f64))
+                .collect();
             b.iter(|| {
                 let results: Vec<f64> = points.iter().map(|&x| norm_pdf(x)).collect();
                 black_box(results);
@@ -133,7 +137,9 @@ fn bench_normal_inv_cdf(c: &mut Criterion) {
     // Batch evaluations (common in Monte Carlo)
     for size in [10, 100, 1000] {
         group.bench_with_input(BenchmarkId::new("batch", size), &size, |b, &size| {
-            let probs: Vec<f64> = (1..=size).map(|i| (i as f64) / (size as f64 + 1.0)).collect();
+            let probs: Vec<f64> = (1..=size)
+                .map(|i| (i as f64) / (size as f64 + 1.0))
+                .collect();
             b.iter(|| {
                 let results: Vec<f64> = probs.iter().map(|&p| standard_normal_inv_cdf(p)).collect();
                 black_box(results);
@@ -164,7 +170,9 @@ fn bench_error_function(c: &mut Criterion) {
     // Batch evaluations
     for size in [10, 100, 1000] {
         group.bench_with_input(BenchmarkId::new("batch", size), &size, |b, &size| {
-            let points: Vec<f64> = (0..size).map(|i| -3.0 + 6.0 * (i as f64) / (size as f64)).collect();
+            let points: Vec<f64> = (0..size)
+                .map(|i| -3.0 + 6.0 * (i as f64) / (size as f64))
+                .collect();
             b.iter(|| {
                 let results: Vec<f64> = points.iter().map(|&x| erf(x)).collect();
                 black_box(results);
@@ -320,8 +328,12 @@ fn bench_basic_statistics(c: &mut Criterion) {
     let mut group = c.benchmark_group("statistical_basic_stats");
 
     // Create test data
-    let data_100: Vec<f64> = (0..100).map(|i| i as f64 * 0.1 + 0.5 * (i as f64 / 10.0).sin()).collect();
-    let data_1000: Vec<f64> = (0..1000).map(|i| i as f64 * 0.01 + 0.5 * (i as f64 / 100.0).sin()).collect();
+    let data_100: Vec<f64> = (0..100)
+        .map(|i| i as f64 * 0.1 + 0.5 * (i as f64 / 10.0).sin())
+        .collect();
+    let data_1000: Vec<f64> = (0..1000)
+        .map(|i| i as f64 * 0.01 + 0.5 * (i as f64 / 100.0).sin())
+        .collect();
 
     // Mean
     group.bench_function("mean_100", |b| {
@@ -429,19 +441,25 @@ fn bench_cdf_roundtrip(c: &mut Criterion) {
 
     // Batch roundtrip
     for size in [10, 100] {
-        group.bench_with_input(BenchmarkId::new("roundtrip_batch", size), &size, |b, &size| {
-            let x_values: Vec<f64> = (0..size).map(|i| -3.0 + 6.0 * (i as f64) / (size as f64)).collect();
-            b.iter(|| {
-                let results: Vec<f64> = x_values
-                    .iter()
-                    .map(|&x| {
-                        let p = norm_cdf(x);
-                        standard_normal_inv_cdf(p)
-                    })
+        group.bench_with_input(
+            BenchmarkId::new("roundtrip_batch", size),
+            &size,
+            |b, &size| {
+                let x_values: Vec<f64> = (0..size)
+                    .map(|i| -3.0 + 6.0 * (i as f64) / (size as f64))
                     .collect();
-                black_box(results);
-            })
-        });
+                b.iter(|| {
+                    let results: Vec<f64> = x_values
+                        .iter()
+                        .map(|&x| {
+                            let p = norm_cdf(x);
+                            standard_normal_inv_cdf(p)
+                        })
+                        .collect();
+                    black_box(results);
+                })
+            },
+        );
     }
 
     group.finish();
@@ -462,4 +480,3 @@ criterion_group!(
     bench_cdf_roundtrip,
 );
 criterion_main!(benches);
-

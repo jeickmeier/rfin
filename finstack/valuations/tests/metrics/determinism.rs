@@ -19,6 +19,8 @@
 mod tests {
     // Imports are only used when `slow` feature is enabled, so allow unused warnings
     #[allow(unused_imports)]
+    use finstack_core::currency::Currency;
+    #[allow(unused_imports)]
     use finstack_core::dates::{Date, DayCount};
     #[allow(unused_imports)]
     use finstack_core::market_data::context::MarketContext;
@@ -28,8 +30,6 @@ mod tests {
     use finstack_core::market_data::surfaces::VolSurface;
     #[allow(unused_imports)]
     use finstack_core::market_data::term_structures::DiscountCurve;
-    #[allow(unused_imports)]
-    use finstack_core::currency::Currency;
     #[allow(unused_imports)]
     use finstack_core::money::Money;
     #[allow(unused_imports)]

@@ -5,6 +5,7 @@
 //! - DV01-based SIMM calculations
 //! - CSA bilateral vs cleared margin requirements
 
+use finstack_core::collections::HashMap;
 use finstack_core::{currency::Currency, dates::Date, money::Money, types::InstrumentId};
 use finstack_valuations::{
     instruments::{irs::InterestRateSwap, PayReceive},
@@ -13,7 +14,6 @@ use finstack_valuations::{
         ScheduleImCalculator, SimmCalculator, VmCalculator, VmParameters,
     },
 };
-use finstack_core::collections::HashMap;
 use time::Month;
 
 fn test_date() -> Date {

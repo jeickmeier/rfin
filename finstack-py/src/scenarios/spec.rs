@@ -3,13 +3,13 @@
 use crate::core::currency::PyCurrency;
 use crate::scenarios::enums::{PyCurveKind, PyTenorMatchMode, PyVolSurfaceKind};
 use crate::valuations::common::PyInstrumentType;
+use finstack_core::collections::HashMap;
 use finstack_scenarios::{Compounding, OperationSpec, RateBindingSpec, ScenarioSpec, TimeRollMode};
 use indexmap::IndexMap;
 use pyo3::basic::CompareOp;
 use pyo3::exceptions::PyValueError;
 use pyo3::prelude::*;
 use pyo3::types::{PyAny, PyModule, PyType};
-use finstack_core::collections::HashMap;
 
 /// Compounding convention for rate conversions.
 #[pyclass(module = "finstack.scenarios", name = "Compounding", frozen)]

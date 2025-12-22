@@ -202,7 +202,8 @@ fn normalize_cds_key(id: &str) -> String {
     id.trim().to_string()
 }
 
-fn cds_conventions_registry() -> &'static finstack_core::collections::HashMap<String, CdsConventionResolved> {
+fn cds_conventions_registry(
+) -> &'static finstack_core::collections::HashMap<String, CdsConventionResolved> {
     static REGISTRY: OnceLock<finstack_core::collections::HashMap<String, CdsConventionResolved>> =
         OnceLock::new();
     REGISTRY.get_or_init(|| {
