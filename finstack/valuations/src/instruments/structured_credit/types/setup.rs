@@ -9,7 +9,7 @@ use crate::instruments::irs::InterestRateSwap;
 use finstack_core::dates::{Date, Tenor};
 use finstack_core::money::Money;
 use finstack_core::types::ratings::CreditRating;
-use std::collections::HashMap;
+use finstack_core::collections::HashMap;
 
 #[cfg(feature = "serde")]
 use serde::{Deserialize, Serialize};
@@ -161,8 +161,8 @@ impl CoverageTestConfig {
     /// Create new empty configuration
     pub fn new() -> Self {
         Self {
-            oc_triggers: HashMap::new(),
-            ic_triggers: HashMap::new(),
+            oc_triggers: HashMap::default(),
+            ic_triggers: HashMap::default(),
             haircuts: Self::default_haircuts(),
             par_value_threshold: None,
         }
@@ -170,7 +170,7 @@ impl CoverageTestConfig {
 
     /// Standard CLO haircuts (conservative)
     pub fn default_haircuts() -> HashMap<CreditRating, f64> {
-        let mut haircuts = HashMap::new();
+        let mut haircuts = HashMap::default();
         haircuts.insert(CreditRating::AAA, 0.0);
         haircuts.insert(CreditRating::AA, 0.0);
         haircuts.insert(CreditRating::A, 0.01); // 1%
@@ -247,9 +247,9 @@ impl DefaultAssumptions {
             psa_speed: None,
             sda_speed: None,
             abs_speed_monthly: None,
-            cpr_by_asset_type: HashMap::new(),
-            cdr_by_asset_type: HashMap::new(),
-            recovery_by_asset_type: HashMap::new(),
+            cpr_by_asset_type: HashMap::default(),
+            cdr_by_asset_type: HashMap::default(),
+            recovery_by_asset_type: HashMap::default(),
         }
     }
 
@@ -262,9 +262,9 @@ impl DefaultAssumptions {
             psa_speed: Some(RMBS_STANDARD_PSA),
             sda_speed: Some(RMBS_STANDARD_SDA),
             abs_speed_monthly: None,
-            cpr_by_asset_type: HashMap::new(),
-            cdr_by_asset_type: HashMap::new(),
-            recovery_by_asset_type: HashMap::new(),
+            cpr_by_asset_type: HashMap::default(),
+            cdr_by_asset_type: HashMap::default(),
+            recovery_by_asset_type: HashMap::default(),
         }
     }
 
@@ -277,9 +277,9 @@ impl DefaultAssumptions {
             psa_speed: None,
             sda_speed: None,
             abs_speed_monthly: Some(ABS_AUTO_STANDARD_SPEED),
-            cpr_by_asset_type: HashMap::new(),
-            cdr_by_asset_type: HashMap::new(),
-            recovery_by_asset_type: HashMap::new(),
+            cpr_by_asset_type: HashMap::default(),
+            cdr_by_asset_type: HashMap::default(),
+            recovery_by_asset_type: HashMap::default(),
         }
     }
 
@@ -292,16 +292,16 @@ impl DefaultAssumptions {
             psa_speed: None,
             sda_speed: None,
             abs_speed_monthly: None,
-            cpr_by_asset_type: HashMap::new(),
-            cdr_by_asset_type: HashMap::new(),
-            recovery_by_asset_type: HashMap::new(),
+            cpr_by_asset_type: HashMap::default(),
+            cdr_by_asset_type: HashMap::default(),
+            recovery_by_asset_type: HashMap::default(),
         }
     }
 }
 
 impl Default for DefaultAssumptions {
     fn default() -> Self {
-        let mut cpr_by_asset_type = HashMap::new();
+        let mut cpr_by_asset_type = HashMap::default();
         cpr_by_asset_type.insert("mortgage".to_string(), 0.06); // 100% PSA
         cpr_by_asset_type.insert("rmbs".to_string(), 0.06);
         cpr_by_asset_type.insert("auto".to_string(), 0.18);
@@ -315,7 +315,7 @@ impl Default for DefaultAssumptions {
         cpr_by_asset_type.insert("student".to_string(), 0.03);
         cpr_by_asset_type.insert("student_loan".to_string(), 0.03);
 
-        let mut cdr_by_asset_type = HashMap::new();
+        let mut cdr_by_asset_type = HashMap::default();
         cdr_by_asset_type.insert("mortgage".to_string(), 0.002);
         cdr_by_asset_type.insert("rmbs".to_string(), 0.002);
         cdr_by_asset_type.insert("auto".to_string(), 0.02);
@@ -327,7 +327,7 @@ impl Default for DefaultAssumptions {
         cdr_by_asset_type.insert("clo".to_string(), 0.02);
         cdr_by_asset_type.insert("commercial".to_string(), 0.02);
 
-        let mut recovery_by_asset_type = HashMap::new();
+        let mut recovery_by_asset_type = HashMap::default();
         recovery_by_asset_type.insert("mortgage".to_string(), 0.60);
         recovery_by_asset_type.insert("rmbs".to_string(), 0.60);
         recovery_by_asset_type.insert("collateral".to_string(), 0.60);

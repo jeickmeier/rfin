@@ -6,7 +6,7 @@ use finstack_valuations::instruments::common::mc::paths::{
 use pyo3::exceptions::PyValueError;
 use pyo3::prelude::*;
 use pyo3::types::PyDict;
-use std::collections::HashMap;
+use finstack_core::collections::HashMap;
 
 /// Helper function to convert CashflowType to string.
 fn cashflow_type_to_string(cf_type: CashflowType) -> &'static str {

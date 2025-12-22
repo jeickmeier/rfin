@@ -13,7 +13,7 @@ mod summation;
 use pyo3::prelude::*;
 use pyo3::types::{PyList, PyModule};
 use pyo3::Bound;
-use std::collections::HashSet;
+use finstack_core::collections::HashSet;
 
 pub(crate) fn register<'py>(py: Python<'py>, parent: &Bound<'py, PyModule>) -> PyResult<()> {
     let module = PyModule::new(py, "math")?;
@@ -64,7 +64,7 @@ pub(crate) fn register<'py>(py: Python<'py>, parent: &Bound<'py, PyModule>) -> P
     exports.extend(sum_exports.iter().copied());
 
     exports = {
-        let mut seen = HashSet::new();
+        let mut seen = HashSet::default();
         exports
             .into_iter()
             .filter(|item| seen.insert(*item))

@@ -3,7 +3,7 @@
 //! Provides the context interface used by expression evaluators to resolve
 //! column references to array indices at runtime.
 
-use hashbrown::HashMap;
+use crate::collections::HashMap;
 
 /// A simple context that resolves column names to series indices.
 /// Simple name→index context for column resolution.

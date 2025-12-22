@@ -212,7 +212,7 @@ pub fn compute_metrics(
     ctx: &MarketContext,
     base: Date,
     metric_ids: &[MetricId],
-) -> hashbrown::HashMap<MetricId, f64> {
+) -> finstack_core::collections::HashMap<MetricId, f64> {
     let mut registry = MetricRegistry::new();
     finstack_valuations::instruments::deposit::metrics::register_deposit_metrics(&mut registry);
 

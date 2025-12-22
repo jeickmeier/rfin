@@ -58,7 +58,7 @@ use finstack_core::dates::Date;
 use finstack_core::market_data::context::MarketContext;
 use finstack_core::math::solver::{BrentSolver, Solver};
 use finstack_core::Result;
-use std::collections::HashMap;
+use finstack_core::collections::HashMap;
 
 #[cfg(test)]
 use finstack_core::money::Money;
@@ -484,7 +484,7 @@ impl BondValuator {
         let dc_curve = discount_curve.day_count();
         let flows = bond.build_schedule(curves, as_of)?;
 
-        let mut coupon_map = HashMap::new();
+        let mut coupon_map = HashMap::default();
         for (date, amount) in &flows {
             if *date > as_of {
                 let time_frac = dc_curve.year_fraction(
@@ -517,8 +517,8 @@ impl BondValuator {
             }
         }
 
-        let mut call_map = HashMap::new();
-        let mut put_map = HashMap::new();
+        let mut call_map = HashMap::default();
+        let mut put_map = HashMap::default();
         if let Some(ref call_put) = bond.call_put {
             for call in &call_put.calls {
                 if call.date > as_of && call.date <= bond.maturity {
@@ -821,7 +821,7 @@ impl TreePricer {
             // semantics in the short-rate tree. When using the rates+credit tree,
             // we convert bp → decimal and add it to the short rate passed via
             // `INTEREST_RATE`.
-            let mut vars = StateVariables::new();
+            let mut vars = StateVariables::default();
             if use_rates_credit {
                 let base_rate = discount_curve.zero(0.0);
                 let oas_bp = oas;
@@ -1142,7 +1142,7 @@ mod tests {
         tree_high.align_hazard_from_curve(high_hc_ref);
 
         // Initial state
-        let mut vars = StateVariables::new();
+        let mut vars = StateVariables::default();
         vars.insert(tf_keys::INTEREST_RATE, 0.03);
         vars.insert(tf_keys::HAZARD_RATE, 0.01);
 

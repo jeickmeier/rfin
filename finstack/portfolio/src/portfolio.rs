@@ -142,9 +142,9 @@ impl Portfolio {
     /// or [`PortfolioError::UnknownEntity`] when a position references an entity
     /// that is not present in [`Portfolio::entities`].
     pub fn validate(&self) -> Result<()> {
-        use std::collections::HashSet;
+        use finstack_core::collections::HashSet;
 
-        let mut seen_ids = HashSet::new();
+        let mut seen_ids: finstack_core::collections::HashSet<_> = HashSet::default();
         for position in &self.positions {
             // Check for duplicate position IDs
             if !seen_ids.insert(&position.position_id) {

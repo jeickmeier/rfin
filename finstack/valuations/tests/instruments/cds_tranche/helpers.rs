@@ -103,7 +103,7 @@ pub fn market_context_with_issuers(n: usize) -> MarketContext {
 
     let base_corr_curve = standard_correlation_curve();
 
-    let mut issuer_curves = std::collections::HashMap::new();
+    let mut issuer_curves = finstack_core::collections::HashMap::default();
     for i in 0..n {
         let id = format!("ISSUER-{:03}", i + 1);
         let bump = (i as f64) * 0.001;

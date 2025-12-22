@@ -9,7 +9,7 @@ use crate::metrics::sensitivities::dv01::standard_ir_dv01_buckets;
 use finstack_core::market_data::context::MarketContext;
 use finstack_core::types::CurveId;
 use finstack_core::Result;
-use hashbrown::HashSet;
+use finstack_core::collections::HashSet;
 
 /// Risk factor categories for VaR calculation.
 ///
@@ -130,7 +130,7 @@ where
     I: Instrument + CurveDependencies,
 {
     let mut factors = Vec::new();
-    let mut seen = HashSet::new();
+    let mut seen = HashSet::default();
 
     // Get instrument's curve dependencies
     let deps = instrument.curve_dependencies();

@@ -20,8 +20,8 @@
 //! - Credit correlation trading
 
 use super::{hazard_curve::HazardCurve, BaseCorrelationCurve};
+use crate::collections::HashMap;
 use crate::Result;
-use std::collections::HashMap;
 use std::sync::Arc;
 
 /// Aggregated market data for a specific credit index.
@@ -202,7 +202,7 @@ impl CreditIndexDataBuilder {
                 curves.insert(issuer_id, curve);
             }
             None => {
-                let mut curves = HashMap::new();
+                let mut curves = HashMap::default();
                 curves.insert(issuer_id, curve);
                 self.issuer_credit_curves = Some(curves);
             }

@@ -781,8 +781,8 @@ impl FxMatrix {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::collections::HashMap;
     use crate::currency::Currency;
-    use hashbrown::HashMap;
     // no duration needed in tests now
 
     // Mock FX provider for testing
@@ -792,7 +792,7 @@ mod tests {
 
     impl MockFxProvider {
         fn new() -> Self {
-            let mut rates = HashMap::new();
+            let mut rates = HashMap::default();
 
             // Add some mock rates with USD as pivot
             rates.insert((Currency::USD, Currency::EUR), 0.85);
@@ -811,7 +811,7 @@ mod tests {
         }
 
         fn new_incomplete() -> Self {
-            let mut rates = HashMap::new();
+            let mut rates = HashMap::default();
 
             // Only USD pivot rates - no cross-rates available
             rates.insert((Currency::USD, Currency::EUR), 0.85);
@@ -1047,7 +1047,7 @@ mod tests {
         // Create provider with no USD rates at all
         let provider = MockFxProvider {
             rates: {
-                let mut rates = HashMap::new();
+                let mut rates = HashMap::default();
                 rates.insert((Currency::EUR, Currency::GBP), 0.88);
                 rates.insert((Currency::GBP, Currency::EUR), 1.14);
                 rates

@@ -28,7 +28,7 @@
 //! assert_eq!(factor, 2720.0);
 //! ```
 
-use std::collections::HashMap;
+use crate::collections::HashMap;
 use std::sync::OnceLock;
 
 #[cfg(feature = "serde")]
@@ -514,7 +514,7 @@ impl RatingFactorTable {
     /// assert_eq!(table.get_factor(CreditRating::B), 2720.0);
     /// ```
     pub fn moodys_standard() -> Self {
-        let mut factors = HashMap::new();
+        let mut factors = HashMap::default();
         insert_factor(&mut factors, CreditRating::AAA, RatingNotch::Flat, 1.0);
         insert_factor(&mut factors, CreditRating::AA, RatingNotch::Plus, 10.0);
         insert_factor(&mut factors, CreditRating::AA, RatingNotch::Flat, 20.0);
@@ -628,7 +628,7 @@ where
 #[cfg(test)]
 mod tests {
     use super::*;
-    use std::collections::HashMap;
+    use crate::collections::HashMap;
 
     #[test]
     fn test_credit_rating_investment_grade() {
@@ -792,7 +792,7 @@ mod tests {
     #[test]
     fn test_rating_factor_table_default_when_missing() {
         let table = RatingFactorTable {
-            factors: HashMap::new(),
+            factors: HashMap::default(),
             agency: "Test".to_string(),
             methodology: "Test".to_string(),
             default_factor: 42.0,

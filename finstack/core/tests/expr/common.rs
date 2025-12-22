@@ -1,5 +1,4 @@
-use std::collections::HashMap;
-
+use finstack_core::collections::HashMap;
 use finstack_core::expr::ExpressionContext;
 
 /// Lightweight expression context used across evaluator tests.
@@ -11,7 +10,7 @@ pub(crate) struct TestExprCtx {
 impl TestExprCtx {
     pub(crate) fn new() -> Self {
         Self {
-            columns: HashMap::new(),
+            columns: HashMap::default(),
         }
     }
 

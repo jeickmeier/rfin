@@ -180,7 +180,7 @@ impl MetricCalculator for EmbeddedOptionValueCalculator {
             self.tree_steps,
         )?;
 
-        let mut vars = StateVariables::new();
+        let mut vars = StateVariables::default();
         vars.insert(short_rate_keys::OAS, 0.0);
 
         let price_with_options = tree.price(

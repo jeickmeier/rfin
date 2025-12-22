@@ -21,7 +21,7 @@ use finstack_valuations::market::conventions::ids::{CdsConventionKey, CdsDocClau
 use finstack_valuations::market::quotes::cds_tranche::CdsTrancheQuote;
 use finstack_valuations::market::quotes::ids::QuoteId;
 use finstack_valuations::market::quotes::market_quote::MarketQuote;
-use std::collections::HashMap;
+use finstack_core::collections::HashMap;
 use std::sync::Arc;
 use time::Month;
 
@@ -197,7 +197,7 @@ fn base_correlation_step_builds_curve_and_updates_credit_index_data() {
         }),
     ];
 
-    let mut quote_sets: HashMap<String, Vec<MarketQuote>> = HashMap::new();
+    let mut quote_sets: HashMap<String, Vec<MarketQuote>> = HashMap::default();
     quote_sets.insert("tranches".to_string(), quotes);
 
     let plan = CalibrationPlan {

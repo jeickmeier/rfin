@@ -7,7 +7,7 @@ use finstack_valuations::market::build::context::BuildCtx;
 use finstack_valuations::market::conventions::ids::{CdsConventionKey, CdsDocClause};
 use finstack_valuations::market::quotes::cds::CdsQuote;
 use finstack_valuations::market::quotes::ids::Pillar;
-use std::collections::HashMap;
+use finstack_core::collections::HashMap;
 
 #[test]
 fn test_build_cds_par_spread() {
@@ -57,7 +57,7 @@ fn test_build_cds_par_spread() {
 #[test]
 fn test_build_cds_upfront() {
     let as_of = Date::from_calendar_date(2025, time::Month::January, 10).unwrap();
-    let mut curve_ids = HashMap::new();
+    let mut curve_ids = HashMap::default();
     curve_ids.insert("discount".to_string(), "USD-OIS".to_string());
     curve_ids.insert("credit".to_string(), "XYZ-CREDIT".to_string());
 

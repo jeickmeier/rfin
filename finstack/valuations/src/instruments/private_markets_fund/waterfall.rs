@@ -12,7 +12,7 @@ use finstack_core::money::Money;
 
 use indexmap::IndexMap;
 use smallvec::SmallVec;
-use std::collections::HashMap;
+use finstack_core::collections::HashMap;
 use std::sync::Arc;
 
 #[cfg(feature = "serde")]
@@ -613,7 +613,7 @@ impl<'a> EquityWaterfallEngine<'a> {
         ledger_rows: &mut Vec<AllocationRow>,
     ) -> finstack_core::Result<()> {
         // Group events by deal_id
-        let mut deals: HashMap<String, Vec<&FundEvent>> = HashMap::new();
+        let mut deals: HashMap<String, Vec<&FundEvent>> = HashMap::default();
         let mut fund_contributions = Vec::new();
 
         for event in events {

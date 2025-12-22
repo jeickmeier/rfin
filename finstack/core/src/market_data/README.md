@@ -276,7 +276,7 @@ assert_eq!(cpi.id, "US-CPI");
 ### Apply Parallel and Key-Rate Bumps
 
 ```rust
-use hashbrown::HashMap;
+use finstack_core::collections::HashMap;
 use finstack_core::market_data::context::{MarketContext, BumpSpec};
 use finstack_core::market_data::term_structures::DiscountCurve;
 use finstack_core::types::CurveId;
@@ -292,7 +292,7 @@ let curve = DiscountCurve::builder("USD-OIS")
 let ctx = MarketContext::new().insert_discount(curve);
 
 // 100bp parallel bump
-let mut bumps = HashMap::new();
+let mut bumps = HashMap::default();
 bumps.insert(CurveId::from("USD-OIS"), BumpSpec::parallel_bp(100.0));
 
 let bumped = ctx.bump(bumps)?;

@@ -13,7 +13,7 @@ use finstack_core::dates::Date;
 use finstack_core::explain::ExplanationTrace;
 use finstack_core::money::Money;
 use finstack_core::types::ratings::CreditRating;
-use std::collections::HashMap;
+use finstack_core::collections::HashMap;
 
 #[cfg(feature = "serde")]
 use serde::{Deserialize, Serialize};
@@ -350,7 +350,7 @@ impl CoverageTestRules {
     /// Empty/default rules (no haircuts, no threshold).
     pub fn empty() -> Self {
         Self {
-            haircuts: HashMap::new(),
+            haircuts: HashMap::default(),
             par_value_threshold: None,
         }
     }
@@ -418,12 +418,16 @@ pub struct WaterfallWorkspace {
 impl WaterfallWorkspace {
     /// Create a new workspace with pre-allocated capacity.
     pub fn new(num_tiers: usize, num_recipients: usize, num_tranches: usize) -> Self {
+        let mut distributions = HashMap::default();
+        distributions.reserve(num_recipients);
+        let mut tranche_index = HashMap::default();
+        tranche_index.reserve(num_tranches);
         Self {
             tier_allocations: Vec::with_capacity(num_tiers),
-            distributions: HashMap::with_capacity(num_recipients),
+            distributions,
             payment_records: Vec::with_capacity(num_recipients),
             coverage_tests: Vec::with_capacity(num_tranches * 2),
-            tranche_index: HashMap::with_capacity(num_tranches),
+            tranche_index,
         }
     }
 

@@ -36,7 +36,7 @@ use finstack_core::dates::Date;
 use finstack_core::market_data::context::MarketContext;
 use finstack_core::money::Money;
 use finstack_core::Result;
-use std::collections::HashMap;
+use finstack_core::collections::HashMap;
 
 /// SIMM version identifier.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Default)]
@@ -94,7 +94,7 @@ impl SimmRiskWeights {
     /// SIMM v2.6 (2023) risk weights.
     #[must_use]
     pub fn v2_6() -> Self {
-        let mut ir_delta_weights = HashMap::new();
+        let mut ir_delta_weights = HashMap::default();
         // SIMM v2.6 IR risk weights (USD as reference)
         ir_delta_weights.insert("2w".to_string(), 109.0);
         ir_delta_weights.insert("1m".to_string(), 105.0);
@@ -109,7 +109,7 @@ impl SimmRiskWeights {
         ir_delta_weights.insert("20y".to_string(), 54.0);
         ir_delta_weights.insert("30y".to_string(), 62.0);
 
-        let mut cq_delta_weights = HashMap::new();
+        let mut cq_delta_weights = HashMap::default();
         // Credit qualifying risk weights by sector
         cq_delta_weights.insert("sovereigns".to_string(), 85.0);
         cq_delta_weights.insert("financials".to_string(), 85.0);
@@ -285,7 +285,7 @@ impl SimmCalculator {
         currency: Currency,
     ) -> (f64, HashMap<String, Money>) {
         let mut total_im = 0.0;
-        let mut breakdown = HashMap::new();
+        let mut breakdown = HashMap::default();
 
         // IR Delta
         if !sensitivities.ir_delta.is_empty() {
@@ -373,12 +373,12 @@ impl ImCalculator for SimmCalculator {
         // This is a rough approximation - real implementation would compute actual Greeks
         let estimated_dv01 = notional * 0.0001 * 5.0; // Assume ~5y duration
 
-        let mut breakdown = HashMap::new();
-        let mut risk_class_margins = HashMap::new();
+        let mut breakdown = HashMap::default();
+        let mut risk_class_margins = HashMap::default();
 
         // IR risk (primary for IRS, bonds)
         let ir_margin =
-            self.calculate_ir_delta(&HashMap::from([("5y".to_string(), estimated_dv01)]));
+            self.calculate_ir_delta(&[("5y".to_string(), estimated_dv01)].into_iter().collect());
         risk_class_margins.insert(SimmRiskClass::InterestRate, ir_margin);
         breakdown.insert("interest_rate".to_string(), Money::new(ir_margin, currency));
         // Aggregate across risk classes
@@ -411,9 +411,9 @@ mod tests {
     fn ir_delta_calculation() {
         let calc = SimmCalculator::new(SimmVersion::V2_6);
 
-        let dv01_by_tenor = HashMap::from([
+        let dv01_by_tenor: HashMap<String, f64> = [
             ("5y".to_string(), 100_000.0), // $100K DV01 at 5y
-        ]);
+        ].into_iter().collect();
 
         let ir_margin = calc.calculate_ir_delta(&dv01_by_tenor);
 
@@ -448,10 +448,10 @@ mod tests {
     fn aggregation() {
         let calc = SimmCalculator::default();
 
-        let risk_class_margins = HashMap::from([
+        let risk_class_margins: HashMap<SimmRiskClass, f64> = [
             (SimmRiskClass::InterestRate, 1_000_000.0),
             (SimmRiskClass::CreditQualifying, 500_000.0),
-        ]);
+        ].into_iter().collect();
 
         let total = calc.aggregate_risk_classes(&risk_class_margins);
 

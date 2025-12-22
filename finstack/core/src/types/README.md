@@ -158,9 +158,9 @@ IDs are `Hash`, `Eq`, and `Ord`, making them ideal as keys in `HashMap` / `BTree
 
 ```rust
 use finstack_core::types::CurveId;
-use hashbrown::HashMap;
+use finstack_core::collections::HashMap;
 
-let mut curves = HashMap::new();
+let mut curves = HashMap::default();
 curves.insert(CurveId::from("USD-OIS"), 0.045);
 curves.insert(CurveId::from("EUR-OIS"), 0.035);
 

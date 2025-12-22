@@ -14,7 +14,7 @@ use finstack_valuations::calibration::api::schema::{
 use finstack_valuations::market::conventions::ids::InflationSwapConventionId;
 use finstack_valuations::market::quotes::inflation::InflationQuote;
 use finstack_valuations::market::quotes::market_quote::MarketQuote;
-use std::collections::HashMap;
+use finstack_core::collections::HashMap;
 use time::Month;
 
 use super::tolerances::{assert_close_abs, F64_ABS_TOL_LOOSE};
@@ -81,7 +81,7 @@ fn inflation_quote_time_uses_lagged_fixing_date() {
         index: "USA-CPI-U".to_string(),
         convention: InflationSwapConventionId::new("USD"),
     })];
-    let mut quote_sets: HashMap<String, Vec<MarketQuote>> = HashMap::new();
+    let mut quote_sets: HashMap<String, Vec<MarketQuote>> = HashMap::default();
     quote_sets.insert("infl".to_string(), quotes);
 
     let plan = CalibrationPlan {
@@ -139,7 +139,7 @@ fn inflation_preflight_rejects_base_cpi_mismatch_with_fixings() {
         index: "USA-CPI-U".to_string(),
         convention: InflationSwapConventionId::new("USD"),
     })];
-    let mut quote_sets: HashMap<String, Vec<MarketQuote>> = HashMap::new();
+    let mut quote_sets: HashMap<String, Vec<MarketQuote>> = HashMap::default();
     quote_sets.insert("infl".to_string(), quotes);
 
     let plan = CalibrationPlan {

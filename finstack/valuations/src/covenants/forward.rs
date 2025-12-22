@@ -415,13 +415,13 @@ mod tests {
     use time::Month;
 
     struct MockTs {
-        map: std::collections::HashMap<(String, String), f64>,
+        map: finstack_core::collections::HashMap<(String, String), f64>,
     }
 
     impl MockTs {
         fn new() -> Self {
             Self {
-                map: std::collections::HashMap::new(),
+                map: finstack_core::collections::HashMap::default(),
             }
         }
         fn with(mut self, node: &str, period: PeriodId, v: f64) -> Self {

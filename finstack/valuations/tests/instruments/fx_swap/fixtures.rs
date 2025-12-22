@@ -11,7 +11,7 @@ use finstack_core::math::interp::InterpStyle;
 use finstack_core::money::fx::{FxConversionPolicy, FxMatrix, FxProvider, FxRate};
 use finstack_core::money::Money;
 use finstack_valuations::instruments::fx_swap::FxSwap;
-use std::collections::HashMap;
+use finstack_core::collections::HashMap;
 use std::sync::Arc;
 use time::Month;
 
@@ -27,7 +27,7 @@ pub struct MockFxProvider {
 impl MockFxProvider {
     /// Create a new mock provider with EUR/USD = 1.1
     pub fn default_eurusd() -> Self {
-        let mut rates = HashMap::new();
+        let mut rates = HashMap::default();
         rates.insert((Currency::EUR, Currency::USD), 1.1);
         Self { rates }
     }
@@ -135,7 +135,7 @@ pub fn setup_steep_curve_market(as_of: Date) -> MarketContext {
         .build()
         .unwrap();
 
-    let mut rates = HashMap::new();
+    let mut rates = HashMap::default();
     rates.insert((Currency::EUR, Currency::USD), 1.2);
     let provider = MockFxProvider::with_rates(rates);
     let fx_matrix = FxMatrix::new(Arc::new(provider));

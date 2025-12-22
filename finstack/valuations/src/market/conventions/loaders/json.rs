@@ -1,7 +1,7 @@
 //! Shared JSON registry loader helpers.
 
 use finstack_core::Error;
-use std::collections::HashMap;
+use finstack_core::collections::HashMap;
 
 /// A registry JSON file containing entries with alias IDs.
 #[derive(Clone, Debug, serde::Deserialize)]
@@ -39,7 +39,7 @@ pub fn build_lookup_map_mapped<R, K, V: Clone>(
 where
     K: std::hash::Hash + Eq + std::fmt::Display,
 {
-    let mut map: HashMap<K, V> = HashMap::new();
+    let mut map: HashMap<K, V> = HashMap::default();
     for entry in file.entries {
         let value = map_record(&entry.record);
         for id in entry.ids {

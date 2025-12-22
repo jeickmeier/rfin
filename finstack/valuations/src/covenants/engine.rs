@@ -287,7 +287,7 @@ pub enum CovenantConsequence {
 use crate::metrics::{MetricContext, MetricId};
 
 use indexmap::IndexMap;
-use std::collections::HashMap;
+use finstack_core::collections::HashMap;
 use std::sync::Arc;
 
 /// Type alias for custom evaluator functions.
@@ -429,7 +429,7 @@ impl CovenantEngine {
             specs: Vec::new(),
             breach_history: Vec::new(),
             windows: Vec::new(),
-            custom_metrics: HashMap::new(),
+            custom_metrics: HashMap::default(),
         }
     }
 

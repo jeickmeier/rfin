@@ -13,7 +13,7 @@ use finstack_valuations::market::conventions::ids::IndexId;
 use finstack_valuations::market::quotes::ids::{Pillar, QuoteId};
 use finstack_valuations::market::quotes::market_quote::MarketQuote;
 use finstack_valuations::market::quotes::rates::RateQuote;
-use std::collections::HashMap;
+use finstack_core::collections::HashMap;
 use time::Month;
 
 #[test]
@@ -24,7 +24,7 @@ fn missing_quote_set_fails_fast() {
     let plan = CalibrationPlan {
         id: "plan".to_string(),
         description: None,
-        quote_sets: HashMap::new(),
+        quote_sets: HashMap::default(),
         settings: Default::default(),
         steps: vec![CalibrationStep {
             id: "step_1".to_string(),
@@ -58,7 +58,7 @@ fn plan_and_envelope_serde_roundtrip() {
     let base_date = Date::from_calendar_date(2025, Month::January, 2).unwrap();
     let currency = Currency::USD;
 
-    let mut quote_sets: HashMap<String, Vec<MarketQuote>> = HashMap::new();
+    let mut quote_sets: HashMap<String, Vec<MarketQuote>> = HashMap::default();
     quote_sets.insert(
         "usd_ois".to_string(),
         vec![MarketQuote::Rates(RateQuote::Deposit {

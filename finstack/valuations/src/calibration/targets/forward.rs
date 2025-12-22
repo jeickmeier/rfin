@@ -137,7 +137,7 @@ impl ForwardCurveTarget {
 
         let curve_dc = curve_day_count_from_quotes(&rates_quotes)?;
 
-        let mut curve_ids = std::collections::HashMap::new();
+        let mut curve_ids = finstack_core::collections::HashMap::default();
         curve_ids.insert("discount".to_string(), params.discount_curve_id.to_string());
         curve_ids.insert("forward".to_string(), params.curve_id.to_string());
 
@@ -145,7 +145,7 @@ impl ForwardCurveTarget {
             as_of: params.base_date,
             notional: 1.0,
             curve_ids,
-            attributes: std::collections::HashMap::new(),
+            attributes: finstack_core::collections::HashMap::default(),
         };
 
         let mut prepared_quotes: Vec<CalibrationQuote> = Vec::with_capacity(rates_quotes.len());

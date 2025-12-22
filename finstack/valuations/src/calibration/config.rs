@@ -14,7 +14,7 @@ use finstack_core::explain::ExplainOpts;
 use finstack_core::market_data::term_structures::Seniority;
 
 use finstack_core::math::interp::{ExtrapolationPolicy, InterpStyle};
-use hashbrown::HashMap;
+use finstack_core::collections::HashMap;
 use serde::{Deserialize, Serialize};
 use serde_json;
 #[cfg(feature = "ts_export")]
@@ -270,7 +270,7 @@ impl Default for CalibrationConfig {
             use_parallel: false, // Deterministic by default
             random_seed: Some(42),
             verbose: false,
-            entity_seniority: HashMap::new(),
+            entity_seniority: HashMap::default(),
             multi_curve: MultiCurveConfig::default(),
             use_fd_sabr_gradients: false, // Use fast analytical approximations by default
             explain: ExplainOpts::default(), // Disabled by default (zero overhead)
@@ -463,7 +463,7 @@ impl CalibrationConfig {
             use_parallel: false, // Deterministic
             random_seed: Some(42),
             verbose: false,
-            entity_seniority: HashMap::new(),
+            entity_seniority: HashMap::default(),
             multi_curve: MultiCurveConfig::default(),
             use_fd_sabr_gradients: true, // Use more accurate FD gradients for conservative mode
             explain: ExplainOpts::default(),
@@ -508,7 +508,7 @@ impl CalibrationConfig {
             use_parallel: false, // Keep deterministic by default
             random_seed: Some(42),
             verbose: false,
-            entity_seniority: HashMap::new(),
+            entity_seniority: HashMap::default(),
             multi_curve: MultiCurveConfig::default(),
             use_fd_sabr_gradients: false, // Use fast analytical approximations for speed
             explain: ExplainOpts::default(),
@@ -550,7 +550,7 @@ impl CalibrationConfig {
             use_parallel: false,
             random_seed: Some(42),
             verbose: false,
-            entity_seniority: HashMap::new(),
+            entity_seniority: HashMap::default(),
             multi_curve: MultiCurveConfig::default(),
             use_fd_sabr_gradients: false, // Use fast analytical approximations
             explain: ExplainOpts::default(),

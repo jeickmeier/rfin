@@ -10,7 +10,7 @@ use finstack_core::dates::Date;
 use finstack_core::market_data::context::MarketContext;
 use finstack_core::money::Money;
 use finstack_core::Result;
-use std::collections::HashMap;
+use finstack_core::collections::HashMap;
 
 /// Asset class for schedule-based IM calculation.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
@@ -76,7 +76,7 @@ impl RegulatorySchedule {
     /// Annex A, Table 1.
     #[must_use]
     pub fn bcbs_iosco() -> Self {
-        let mut rates = HashMap::new();
+        let mut rates = HashMap::default();
 
         // Interest Rate
         rates.insert(
@@ -248,7 +248,7 @@ impl ImCalculator for ScheduleImCalculator {
             self.default_maturity_years,
         );
 
-        let mut breakdown = HashMap::new();
+        let mut breakdown = HashMap::default();
         breakdown.insert(self.default_asset_class.to_string(), im_amount);
 
         Ok(ImResult::with_breakdown(

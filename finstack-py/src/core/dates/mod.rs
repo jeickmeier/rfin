@@ -20,7 +20,7 @@ pub use tenor::{PyTenor, PyTenorUnit};
 
 use pyo3::prelude::*;
 use pyo3::types::{PyList, PyModule};
-use std::collections::HashSet;
+use finstack_core::collections::HashSet;
 
 pub(crate) fn register<'py>(py: Python<'py>, parent: &Bound<'py, PyModule>) -> PyResult<()> {
     let module = PyModule::new(py, "dates")?;
@@ -62,7 +62,7 @@ pub(crate) fn register<'py>(py: Python<'py>, parent: &Bound<'py, PyModule>) -> P
     exports.extend(rate_exports.iter().copied());
     promote_exports(&module, "rate_conversions", &rate_exports)?;
 
-    let mut uniq = HashSet::new();
+    let mut uniq = HashSet::default();
     exports.retain(|item| uniq.insert(*item));
     exports.sort_unstable();
     module.setattr("__all__", PyList::new(py, &exports)?)?;

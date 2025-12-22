@@ -314,7 +314,7 @@ Global solve requires strictly increasing times.",
             .unwrap_or(finstack_core::dates::DayCount::Act365F);
         let settlement = params.base_date;
 
-        let mut curve_ids = std::collections::HashMap::new();
+        let mut curve_ids = finstack_core::collections::HashMap::default();
         let discount_id = params
             .pricing_discount_id
             .as_ref()
@@ -332,7 +332,7 @@ Global solve requires strictly increasing times.",
             as_of: params.base_date,
             notional: 1_000_000.0,
             curve_ids,
-            attributes: std::collections::HashMap::new(),
+            attributes: finstack_core::collections::HashMap::default(),
         };
 
         let mut prepared_quotes: Vec<CalibrationQuote> = Vec::with_capacity(rates_quotes.len());

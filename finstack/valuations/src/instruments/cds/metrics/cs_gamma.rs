@@ -9,7 +9,7 @@ use crate::instruments::cds::CreditDefaultSwap;
 use crate::instruments::common::traits::Instrument;
 use crate::metrics::{MetricCalculator, MetricContext, MetricId};
 use finstack_core::market_data::bumps::BumpSpec;
-use hashbrown::HashMap;
+use finstack_core::collections::HashMap;
 
 /// Calculates CS-Gamma for credit default swaps.
 pub struct CsGammaCalculator;
@@ -38,7 +38,7 @@ impl MetricCalculator for CsGammaCalculator {
 
         // Create bumped curves (up)
         let bump_spec_up = BumpSpec::parallel_bp(bump_bp);
-        let mut bumps_up = HashMap::new();
+        let mut bumps_up = HashMap::default();
         for curve_id in &curve_ids {
             bumps_up.insert(curve_id.clone(), bump_spec_up);
         }
@@ -48,7 +48,7 @@ impl MetricCalculator for CsGammaCalculator {
 
         // Create bumped curves (down)
         let bump_spec_down = BumpSpec::parallel_bp(-bump_bp);
-        let mut bumps_down = HashMap::new();
+        let mut bumps_down = HashMap::default();
         for curve_id in &curve_ids {
             bumps_down.insert(curve_id.clone(), bump_spec_down);
         }

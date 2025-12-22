@@ -15,7 +15,7 @@ use crate::instruments::structured_credit::types::{
     AllocationMode, PaymentType, Waterfall, WaterfallTier,
 };
 use finstack_core::Result;
-use std::collections::HashSet;
+use finstack_core::collections::HashSet;
 
 #[cfg(feature = "serde")]
 use serde::{Deserialize, Serialize};
@@ -244,7 +244,7 @@ impl WaterfallValidator for Waterfall {
 fn validate_tiers(tiers: &[WaterfallTier]) -> Vec<ValidationError> {
     let mut errors = Vec::new();
 
-    let mut seen_tier_ids = HashSet::new();
+    let mut seen_tier_ids = HashSet::default();
     for tier in tiers {
         if !seen_tier_ids.insert(&tier.id) {
             errors.push(ValidationError::DuplicateTierId {
@@ -260,7 +260,7 @@ fn validate_tiers(tiers: &[WaterfallTier]) -> Vec<ValidationError> {
         }
 
         // Validate recipient IDs within tier
-        let mut seen_recipient_ids = HashSet::new();
+        let mut seen_recipient_ids = HashSet::default();
         for recipient in &tier.recipients {
             if !seen_recipient_ids.insert(&recipient.id) {
                 errors.push(ValidationError::DuplicateRecipientId {

@@ -17,7 +17,7 @@ use finstack_core::error::InputError;
 use finstack_core::market_data::context::MarketContext;
 use finstack_core::money::Money;
 use finstack_core::{Error, Result};
-use std::collections::HashMap;
+use finstack_core::collections::HashMap;
 
 use crate::cashflow::builder::CashFlowSchedule;
 use crate::instruments::common::models::trees::tree_framework::map_date_to_step;
@@ -92,7 +92,7 @@ impl ConvertibleBondValuator {
         }
 
         // Process coupon cashflows (exclude reset-only events) using schedule day count
-        let mut coupon_map = HashMap::new();
+        let mut coupon_map = HashMap::default();
         for cf in cashflow_schedule.coupons() {
             if cf.date < base_date {
                 continue;
@@ -108,8 +108,8 @@ impl ConvertibleBondValuator {
         }
 
         // Map call/put schedules to tree steps
-        let mut call_map = HashMap::new();
-        let mut put_map = HashMap::new();
+        let mut call_map = HashMap::default();
+        let mut put_map = HashMap::default();
 
         if let Some(ref call_put) = bond.call_put {
             // Map call schedule using shared helper

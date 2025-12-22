@@ -21,15 +21,16 @@ pub struct PeriodSchedule {
     /// Generated sequence of payment dates
     pub dates: Vec<Date>,
     /// Mapping from adjusted dates to unadjusted dates
-    pub prev: hashbrown::HashMap<Date, Date>,
+    pub prev: finstack_core::collections::HashMap<Date, Date>,
     /// Set of payment dates that correspond to first or last periods.
-    pub first_or_last: hashbrown::HashSet<Date>,
+    pub first_or_last: finstack_core::collections::HashSet<Date>,
 }
 
 impl PeriodSchedule {
     /// Build prev map and first_or_last set from dates.
     fn from_dates(dates: Vec<Date>) -> Self {
-        let mut prev = hashbrown::HashMap::with_capacity(dates.len());
+        let mut prev = finstack_core::collections::HashMap::default();
+        prev.reserve(dates.len());
         if let Some(&first) = dates.first() {
             let mut p = first;
             for &d in dates.iter().skip(1) {
@@ -38,7 +39,7 @@ impl PeriodSchedule {
             }
         }
 
-        let mut first_or_last = hashbrown::HashSet::new();
+        let mut first_or_last = finstack_core::collections::HashSet::default();
         if let Some(&first) = dates.first() {
             first_or_last.insert(first);
         }

@@ -565,8 +565,8 @@ pub fn execute(envelope: &CalibrationEnvelope) -> Result<CalibrationResultEnvelo
         let mut index = 0;
         while index < plan.steps.len() {
             let mut batch = Vec::new();
-            let mut curve_outputs = HashSet::new();
-            let mut surface_outputs = HashSet::new();
+            let mut curve_outputs: finstack_core::collections::HashSet<_> = HashSet::default();
+            let mut surface_outputs: finstack_core::collections::HashSet<_> = HashSet::default();
 
             while index < plan.steps.len() {
                 let step = &plan.steps[index];

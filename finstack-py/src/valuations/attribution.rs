@@ -14,7 +14,7 @@ use pyo3::prelude::*;
 use pyo3::types::PyString;
 use pythonize::depythonize;
 use serde_json::{self, Value};
-use std::collections::HashMap;
+use finstack_core::collections::HashMap;
 use std::sync::Arc;
 
 /// Python wrapper for AttributionMethod.

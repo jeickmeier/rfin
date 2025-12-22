@@ -74,7 +74,7 @@ use smallvec::SmallVec;
 #[derive(Debug, Clone)]
 struct BuildState {
     flows: Vec<CashFlow>,
-    outstanding_after: hashbrown::HashMap<Date, f64>,
+    outstanding_after: finstack_core::collections::HashMap<Date, f64>,
     outstanding: f64,
 }
 
@@ -98,8 +98,8 @@ pub struct PrincipalEvent {
 
 #[derive(Debug, Clone)]
 struct AmortizationSetup {
-    amort_dates: hashbrown::HashSet<Date>,
-    step_remaining_map: Option<hashbrown::HashMap<Date, Money>>, // for StepRemaining
+    amort_dates: finstack_core::collections::HashSet<Date>,
+    step_remaining_map: Option<finstack_core::collections::HashMap<Date, Money>>, // for StepRemaining
     linear_delta: Option<f64>,                                   // for LinearTo
     percent_per: Option<f64>,                                    // for PercentPerPeriod
 }
@@ -190,9 +190,10 @@ fn derive_amortization_setup(
     }
 
     // Precompute helpers depending on amort spec
-    let step_remaining_map: Option<hashbrown::HashMap<Date, Money>> = match &notional.amort {
+    let step_remaining_map: Option<finstack_core::collections::HashMap<Date, Money>> = match &notional.amort {
         AmortizationSpec::StepRemaining { schedule } => {
-            let mut m = hashbrown::HashMap::with_capacity(schedule.len());
+            let mut m = finstack_core::collections::HashMap::default();
+            m.reserve(schedule.len());
             for (d, mny) in schedule {
                 m.insert(*d, *mny);
             }
@@ -220,7 +221,7 @@ fn derive_amortization_setup(
         _ => (None, None),
     };
 
-    let amort_dates: hashbrown::HashSet<Date> = amort_base
+    let amort_dates: finstack_core::collections::HashSet<Date> = amort_base
         .map(|v| v.iter().copied().skip(1).collect())
         .unwrap_or_default();
 
@@ -281,8 +282,9 @@ fn initialize_build_state(
     }
 
     // Pre-allocate outstanding_after based on number of dates
-    let mut outstanding_after: hashbrown::HashMap<Date, f64> =
-        hashbrown::HashMap::with_capacity(estimated_dates);
+    let mut outstanding_after: finstack_core::collections::HashMap<Date, f64> =
+        finstack_core::collections::HashMap::default();
+    outstanding_after.reserve(estimated_dates);
     outstanding_after.insert(issue, outstanding);
 
     BuildState {

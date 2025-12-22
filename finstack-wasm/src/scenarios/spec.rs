@@ -6,7 +6,7 @@ use crate::scenarios::enums::{
 };
 use finstack_scenarios::spec::RateBindingSpec;
 use finstack_scenarios::{InstrumentType, OperationSpec, ScenarioSpec};
-use std::collections::HashMap;
+use finstack_core::collections::HashMap;
 use wasm_bindgen::prelude::*;
 
 #[wasm_bindgen(js_name = RateBindingSpec)]

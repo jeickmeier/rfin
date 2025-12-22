@@ -18,7 +18,7 @@ use finstack_valuations::market::conventions::ids::IndexId;
 use finstack_valuations::market::quotes::ids::Pillar;
 use finstack_valuations::market::quotes::market_quote::MarketQuote;
 use finstack_valuations::market::quotes::rates::RateQuote;
-use std::collections::HashMap;
+use finstack_core::collections::HashMap;
 use time::Month;
 
 fn base_discount_curve(base_date: finstack_core::dates::Date) -> DiscountCurve {
@@ -60,7 +60,7 @@ fn explanation_not_computed_by_default() {
     let base_date = create_date(2025, Month::January, 15).unwrap();
 
     let ctx = MarketContext::new().insert_discount(base_discount_curve(base_date));
-    let mut quote_sets: HashMap<String, Vec<MarketQuote>> = HashMap::new();
+    let mut quote_sets: HashMap<String, Vec<MarketQuote>> = HashMap::default();
     quote_sets.insert("fwd".to_string(), forward_quotes());
 
     let plan = CalibrationPlan {
@@ -101,7 +101,7 @@ fn explanation_is_present_when_enabled() {
     let base_date = create_date(2025, Month::January, 15).unwrap();
 
     let ctx = MarketContext::new().insert_discount(base_discount_curve(base_date));
-    let mut quote_sets: HashMap<String, Vec<MarketQuote>> = HashMap::new();
+    let mut quote_sets: HashMap<String, Vec<MarketQuote>> = HashMap::default();
     quote_sets.insert("fwd".to_string(), forward_quotes());
 
     let settings = CalibrationConfig {

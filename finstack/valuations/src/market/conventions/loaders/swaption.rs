@@ -5,7 +5,7 @@ use crate::market::conventions::defs::SwaptionConventions;
 use crate::market::conventions::ids::SwaptionConventionId;
 use finstack_core::dates::{BusinessDayConvention, DayCount, Tenor};
 use finstack_core::Error;
-use std::collections::HashMap;
+use finstack_core::collections::HashMap;
 
 #[derive(Clone, Debug, serde::Deserialize)]
 #[serde(deny_unknown_fields)]
@@ -53,7 +53,7 @@ pub fn load_registry() -> Result<HashMap<SwaptionConventionId, SwaptionConventio
     let string_map = build_lookup_map_mapped(file, normalize_registry_id, |rec| {
         rec.clone().into_conventions()
     })?;
-    let mut final_map = HashMap::new();
+    let mut final_map = HashMap::default();
     for (k, v) in string_map {
         final_map.insert(SwaptionConventionId::new(k), v?);
     }

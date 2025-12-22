@@ -14,7 +14,7 @@ use finstack_core::market_data::term_structures::{ParInterp, Seniority};
 use finstack_core::math::interp::{ExtrapolationPolicy, InterpStyle};
 use finstack_core::types::{Currency, CurveId, IndexId};
 use serde::{Deserialize, Serialize};
-use std::collections::HashMap;
+use finstack_core::collections::HashMap;
 
 /// Schema version identifier for calibration API.
 pub const CALIBRATION_SCHEMA: &str = "finstack.calibration";

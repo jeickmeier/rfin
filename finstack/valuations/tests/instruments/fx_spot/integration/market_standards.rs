@@ -12,7 +12,7 @@ use finstack_valuations::{
     instruments::{common::traits::Instrument, fx_spot::FxSpot},
     pricer::InstrumentType,
 };
-use std::collections::HashMap;
+use finstack_core::collections::HashMap;
 use std::sync::Arc;
 
 #[test]
@@ -178,7 +178,7 @@ fn test_basis_point_sensitivity() {
 fn test_triangular_arbitrage_absence() {
     // Verify no triangular arbitrage: EUR/USD * USD/JPY = EUR/JPY
     // Need to add EUR/JPY to the mock provider
-    let mut rates = HashMap::new();
+    let mut rates = HashMap::default();
     rates.insert((Currency::EUR, Currency::USD), 1.20);
     rates.insert((Currency::USD, Currency::JPY), 110.0);
     rates.insert((Currency::EUR, Currency::JPY), 1.20 * 110.0); // 132.0

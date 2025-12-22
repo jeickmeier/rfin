@@ -22,7 +22,7 @@ use finstack_valuations::market::conventions::ids::IndexId;
 use finstack_valuations::market::quotes::ids::{Pillar, QuoteId};
 use finstack_valuations::market::quotes::market_quote::MarketQuote;
 use finstack_valuations::market::quotes::rates::RateQuote;
-use std::collections::HashMap;
+use finstack_core::collections::HashMap;
 use time::Month;
 
 use super::tolerances;
@@ -65,7 +65,7 @@ fn discount_curve_deposit_repricing() {
         },
     ];
 
-    let mut quote_sets: HashMap<String, Vec<MarketQuote>> = HashMap::new();
+    let mut quote_sets: HashMap<String, Vec<MarketQuote>> = HashMap::default();
     quote_sets.insert(
         "mm".to_string(),
         deposit_quotes
@@ -180,7 +180,7 @@ fn forward_curve_fra_repricing() {
         },
     ];
 
-    let mut quote_sets: HashMap<String, Vec<MarketQuote>> = HashMap::new();
+    let mut quote_sets: HashMap<String, Vec<MarketQuote>> = HashMap::default();
     quote_sets.insert(
         "disc".to_string(),
         disc_quotes

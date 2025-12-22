@@ -260,7 +260,7 @@ macro_rules! define_metric_calculator {
 /// ```rust,no_run
 /// use finstack_valuations::metrics::{metric_not_found, MetricId};
 /// use finstack_core::Result;
-/// use std::collections::HashMap;
+/// use finstack_core::collections::HashMap;
 ///
 /// fn get_metric(id: MetricId, results: &HashMap<MetricId, f64>) -> Result<f64> {
 ///     results.get(&id).copied().ok_or_else(|| metric_not_found(id))

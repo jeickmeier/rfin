@@ -16,7 +16,7 @@ use finstack_valuations::market::conventions::ids::{CdsConventionKey, CdsDocClau
 use finstack_valuations::market::quotes::cds::CdsQuote;
 use finstack_valuations::market::quotes::ids::{Pillar, QuoteId};
 use finstack_valuations::market::quotes::market_quote::MarketQuote;
-use std::collections::HashMap;
+use finstack_core::collections::HashMap;
 use time::Month;
 
 fn create_test_discount_curve(base: Date) -> DiscountCurve {
@@ -103,7 +103,7 @@ fn hazard_calibration_positive_rates() {
         }),
     ];
 
-    let mut quote_sets: HashMap<String, Vec<MarketQuote>> = HashMap::new();
+    let mut quote_sets: HashMap<String, Vec<MarketQuote>> = HashMap::default();
     quote_sets.insert("credit".to_string(), quotes);
 
     let hazard_id: CurveId = "ACME-Corp-SENIOR".into();
@@ -173,7 +173,7 @@ fn hazard_calibration_rejects_zero_spread() {
         },
     })];
 
-    let mut quote_sets: HashMap<String, Vec<MarketQuote>> = HashMap::new();
+    let mut quote_sets: HashMap<String, Vec<MarketQuote>> = HashMap::default();
     quote_sets.insert("credit".to_string(), quotes);
 
     let plan = CalibrationPlan {
@@ -283,7 +283,7 @@ fn hazard_calibration_global_solve_sqrt_time_is_not_rougher_than_bootstrap() {
         }),
     ];
 
-    let mut quote_sets: HashMap<String, Vec<MarketQuote>> = HashMap::new();
+    let mut quote_sets: HashMap<String, Vec<MarketQuote>> = HashMap::default();
     quote_sets.insert("credit".to_string(), quotes.clone());
 
     let hazard_id_boot: CurveId = "ACME-Corp-BOOT".into();

@@ -21,7 +21,7 @@ use pyo3::exceptions::{PyTypeError, PyValueError};
 use pyo3::prelude::*;
 use pyo3::types::{PyList, PyModule};
 use pyo3::{Bound, PyRef};
-use std::collections::HashMap;
+use finstack_core::collections::HashMap;
 use std::sync::Arc;
 
 fn parse_day_count(

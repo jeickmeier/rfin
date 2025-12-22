@@ -13,7 +13,7 @@ use finstack_valuations::{
         ScheduleImCalculator, SimmCalculator, VmCalculator, VmParameters,
     },
 };
-use std::collections::HashMap;
+use finstack_core::collections::HashMap;
 use time::Month;
 
 fn test_date() -> Date {
@@ -172,7 +172,7 @@ fn test_simm_calculator_exists() {
     let simm = SimmCalculator::default();
 
     // Test IR delta calculation with empty sensitivities (edge case)
-    let empty_dv01: HashMap<String, f64> = HashMap::new();
+    let empty_dv01: HashMap<String, f64> = HashMap::default();
     let ir_margin = simm.calculate_ir_delta(&empty_dv01);
 
     // Empty sensitivities should produce zero margin

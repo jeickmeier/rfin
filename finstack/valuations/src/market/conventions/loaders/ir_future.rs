@@ -4,7 +4,7 @@ use super::json::{build_lookup_map_mapped, RegistryFile};
 use crate::market::conventions::defs::IrFutureConventions;
 use crate::market::conventions::ids::{IndexId, IrFutureContractId};
 use finstack_core::Error;
-use std::collections::HashMap;
+use finstack_core::collections::HashMap;
 
 #[derive(Clone, Debug, serde::Deserialize)]
 #[serde(deny_unknown_fields)]
@@ -79,7 +79,7 @@ pub fn load_registry() -> Result<HashMap<IrFutureContractId, IrFutureConventions
         rec.clone().into_conventions()
     })?;
 
-    let mut final_map = HashMap::new();
+    let mut final_map = HashMap::default();
     for (k, v) in string_map {
         final_map.insert(IrFutureContractId::new(k), v?);
     }

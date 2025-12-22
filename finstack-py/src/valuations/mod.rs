@@ -14,7 +14,7 @@ pub(crate) mod risk;
 use pyo3::prelude::*;
 use pyo3::types::{PyList, PyModule};
 use pyo3::Bound;
-use std::collections::HashSet;
+use finstack_core::collections::HashSet;
 
 pub(crate) fn register<'py>(py: Python<'py>, parent: &Bound<'py, PyModule>) -> PyResult<()> {
     let module = PyModule::new(py, "valuations")?;
@@ -77,7 +77,7 @@ pub(crate) fn register<'py>(py: Python<'py>, parent: &Bound<'py, PyModule>) -> P
     promote_exports(&module, "attribution", &attr_exports)?;
     exports.extend(attr_exports.iter().copied());
 
-    let mut uniq = HashSet::new();
+    let mut uniq = HashSet::default();
     exports.retain(|item| uniq.insert(*item));
     exports.sort_unstable();
     module.setattr("__all__", PyList::new(py, &exports)?)?;

@@ -134,7 +134,7 @@ impl DiversionEngine {
     /// - Self-referencing rules (A → A)
     /// - Duplicate rule IDs
     pub fn validate(&self) -> Result<()> {
-        let mut seen_ids = HashSet::new();
+        let mut seen_ids: HashSet<&String> = HashSet::default();
         for rule in &self.rules {
             if !seen_ids.insert(&rule.id) {
                 return Err(finstack_core::Error::Validation(format!(
@@ -160,8 +160,8 @@ impl DiversionEngine {
 
     /// Detect circular dependencies in diversion rules using DFS.
     fn detect_cycles(&self) -> Result<()> {
-        let mut graph: HashMap<&str, Vec<&str>> = HashMap::new();
-        let mut all_nodes = HashSet::new();
+        let mut graph: HashMap<&str, Vec<&str>> = HashMap::default();
+        let mut all_nodes: HashSet<&str> = HashSet::default();
 
         for rule in &self.rules {
             all_nodes.insert(rule.source_tier_id.as_str());
@@ -239,7 +239,7 @@ impl DiversionEngine {
         &self,
         test_results: &HashMap<String, bool>,
     ) -> HashMap<String, String> {
-        let mut active = HashMap::new();
+        let mut active = HashMap::default();
 
         for rule in &self.rules {
             if rule.is_active(test_results) {
@@ -283,7 +283,7 @@ mod tests {
     fn test_diversion_condition_evaluation() {
         let rule = DiversionRule::on_test_failure("rule1", "tier_a", "tier_b", "oc_test", 1);
 
-        let mut test_results = HashMap::new();
+        let mut test_results = HashMap::default();
 
         test_results.insert("oc_test".to_string(), true);
         assert!(!rule.is_active(&test_results));
@@ -363,7 +363,7 @@ mod tests {
                 "rule2", "tier_c", "tier_d", "test2", 2,
             ));
 
-        let mut test_results = HashMap::new();
+        let mut test_results = HashMap::default();
         test_results.insert("test1".to_string(), false);
         test_results.insert("test2".to_string(), true);
 

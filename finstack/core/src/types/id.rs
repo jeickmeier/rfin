@@ -42,9 +42,9 @@
 //!
 //! ```rust
 //! use finstack_core::types::CurveId;
-//! use hashbrown::HashMap;
+//! use finstack_core::collections::HashMap;
 //!
-//! let mut curves = HashMap::new();
+//! let mut curves = HashMap::default();
 //! curves.insert(CurveId::from("USD-OIS"), 0.045);
 //! curves.insert(CurveId::from("EUR-OIS"), 0.035);
 //!
@@ -368,9 +368,9 @@ mod tests {
 
     #[test]
     fn id_hashing() {
-        use hashbrown::HashMap;
+        use crate::collections::HashMap;
 
-        let mut map = HashMap::new();
+        let mut map = HashMap::default();
         let id1 = Id::<User>::new("user123");
         let id2 = Id::<User>::new("user123");
 

@@ -37,7 +37,7 @@ fn compute_index_maturity(reset_date: Date, index_tenor: Tenor) -> Date {
 pub(in crate::cashflow::builder) fn emit_fixed_coupons_on(
     d: Date,
     fixed_schedules: &[FixedSchedule],
-    outstanding_after: &hashbrown::HashMap<Date, f64>,
+    outstanding_after: &finstack_core::collections::HashMap<Date, f64>,
     outstanding_fallback: f64,
     ccy: Currency,
     out_flows: &mut Vec<CashFlow>,
@@ -102,7 +102,7 @@ pub(in crate::cashflow::builder) fn emit_fixed_coupons_on(
 pub(in crate::cashflow::builder) fn emit_float_coupons_on(
     d: Date,
     float_schedules: &[FloatSchedule],
-    outstanding_after: &hashbrown::HashMap<Date, f64>,
+    outstanding_after: &finstack_core::collections::HashMap<Date, f64>,
     outstanding_fallback: f64,
     ccy: Currency,
     resolved_curves: &[Option<&ForwardCurve>],

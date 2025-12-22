@@ -6,8 +6,7 @@
 //! of interdependent formulas.
 
 use super::ast::*;
-use rustc_hash::FxHashMap;
-use std::collections::HashSet;
+use crate::collections::{HashMap, HashSet};
 use std::vec::Vec;
 
 /// A node in the execution DAG.
@@ -115,9 +114,9 @@ pub struct CacheStrategy {
 #[derive(Default)]
 pub struct DagBuilder {
     /// Expression cache for deduplication.
-    expr_cache: FxHashMap<Expr, u64>,
+    expr_cache: HashMap<Expr, u64>,
     /// Node storage.
-    nodes: FxHashMap<u64, DagNode>,
+    nodes: HashMap<u64, DagNode>,
     /// Next available node ID.
     next_id: u64,
 }
@@ -223,13 +222,13 @@ impl DagBuilder {
 
     /// Calculate reference counts for all nodes.
     fn calculate_ref_counts(&mut self, root_ids: &[u64]) {
-        let mut ref_counts: FxHashMap<u64, usize> = FxHashMap::default();
-        let mut visited = HashSet::new();
+        let mut ref_counts: HashMap<u64, usize> = HashMap::default();
+        let mut visited = HashSet::default();
 
         fn count_refs(
             node_id: u64,
-            nodes: &FxHashMap<u64, DagNode>,
-            ref_counts: &mut FxHashMap<u64, usize>,
+            nodes: &HashMap<u64, DagNode>,
+            ref_counts: &mut HashMap<u64, usize>,
             visited: &mut HashSet<u64>,
         ) {
             if visited.contains(&node_id) {
@@ -301,13 +300,13 @@ impl DagBuilder {
 
     /// Build topological ordering of nodes.
     fn topological_sort(&self, root_ids: &[u64]) -> Vec<DagNode> {
-        let mut visited = HashSet::new();
+        let mut visited = HashSet::default();
         let mut result = Vec::new();
-        let mut visiting = HashSet::new();
+        let mut visiting = HashSet::default();
 
         fn visit(
             node_id: u64,
-            nodes: &FxHashMap<u64, DagNode>,
+            nodes: &HashMap<u64, DagNode>,
             visited: &mut HashSet<u64>,
             visiting: &mut HashSet<u64>,
             result: &mut Vec<DagNode>,
@@ -348,7 +347,7 @@ impl DagBuilder {
 
     /// Generate cache strategy based on node characteristics.
     fn generate_cache_strategy(&self, nodes: &[DagNode]) -> CacheStrategy {
-        let mut cache_nodes = HashSet::new();
+        let mut cache_nodes = HashSet::default();
         let mut total_cost = 0;
         let mut cacheable_cost = 0;
 

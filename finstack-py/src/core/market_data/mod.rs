@@ -27,7 +27,7 @@ pub use term_structures::{
 use pyo3::prelude::*;
 use pyo3::types::{PyList, PyModule};
 use pyo3::Bound;
-use std::collections::HashSet;
+use finstack_core::collections::HashSet;
 
 pub(crate) fn register<'py>(py: Python<'py>, parent: &Bound<'py, PyModule>) -> PyResult<()> {
     let module = PyModule::new(py, "market_data")?;
@@ -74,7 +74,7 @@ pub(crate) fn register<'py>(py: Python<'py>, parent: &Bound<'py, PyModule>) -> P
     exports.extend(volatility_exports.iter().copied());
     promote_exports(&module, "volatility", &volatility_exports)?;
 
-    let mut uniq = HashSet::new();
+    let mut uniq = HashSet::default();
     exports.retain(|item| uniq.insert(*item));
     exports.sort_unstable();
     module.setattr("__all__", PyList::new(py, &exports)?)?;

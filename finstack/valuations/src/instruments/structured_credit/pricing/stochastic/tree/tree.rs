@@ -10,7 +10,7 @@ use super::{
 use crate::instruments::common::models::correlation::factor_model::FactorSpec;
 use crate::instruments::common::models::correlation::recovery::RecoverySpec;
 use finstack_core::math::standard_normal_inv_cdf;
-use std::collections::HashMap;
+use finstack_core::collections::HashMap;
 
 /// Recombining scenario tree for structured credit.
 ///
@@ -79,7 +79,7 @@ impl ScenarioTree {
     /// Mirrors the shared lattice geometry implemented in
     /// `common::models::trees::trinomial_tree` to keep node growth at O(n²).
     fn build_recombining_tree(&mut self) -> Result<(), String> {
-        let mut layer_map: HashMap<(usize, i32), usize> = HashMap::new();
+        let mut layer_map: HashMap<(usize, i32), usize> = HashMap::default();
         layer_map.insert((0, 0), 0);
 
         for period in 0..self.config.num_periods {

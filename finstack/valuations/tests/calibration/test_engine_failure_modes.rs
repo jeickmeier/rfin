@@ -24,7 +24,7 @@ use finstack_valuations::market::quotes::cds_tranche::CdsTrancheQuote;
 use finstack_valuations::market::quotes::ids::{Pillar, QuoteId};
 use finstack_valuations::market::quotes::inflation::InflationQuote;
 use finstack_valuations::market::quotes::market_quote::MarketQuote;
-use std::collections::HashMap;
+use finstack_core::collections::HashMap;
 use std::sync::Arc;
 use time::Month;
 
@@ -46,7 +46,7 @@ fn envelope_for_step(
     quotes: Vec<MarketQuote>,
     initial_market: MarketContext,
 ) -> CalibrationEnvelope {
-    let mut quote_sets = HashMap::new();
+    let mut quote_sets = HashMap::default();
     quote_sets.insert(step.quote_set.clone(), quotes);
     let plan = CalibrationPlan {
         id: "plan".to_string(),

@@ -1,4 +1,4 @@
-use hashbrown::HashMap;
+use crate::collections::HashMap;
 use std::sync::Arc;
 
 use crate::currency::Currency;
@@ -87,7 +87,7 @@ impl MarketContext {
     ///
     /// # Example
     /// ```rust
-    /// # use hashbrown::HashMap;
+    /// # use finstack_core::collections::HashMap;
     /// # use finstack_core::market_data::context::{MarketContext, BumpSpec};
     /// # use finstack_core::market_data::term_structures::discount_curve::DiscountCurve;
     /// # use finstack_core::dates::Date;
@@ -97,7 +97,7 @@ impl MarketContext {
     /// #     .knots([(0.0, 1.0), (5.0, 0.9)])
     /// #     .build().expect("DiscountCurve builder should succeed");
     /// # let context = MarketContext::new().insert_discount(curve);
-    /// let mut bumps = HashMap::new();
+    /// let mut bumps = HashMap::default();
     /// bumps.insert(CurveId::new("USD-OIS"), BumpSpec::parallel_bp(100.0));
     /// let bumped = context.bump(bumps).expect("Bump operation should succeed");
     /// // The bumped curve replaces the original under the same ID
@@ -271,7 +271,7 @@ impl MarketContext {
         use crate::error::InputError;
 
         let mut ctx = self.clone();
-        let mut curve_bumps: HashMap<CurveId, BumpSpec> = HashMap::new();
+        let mut curve_bumps: HashMap<CurveId, BumpSpec> = HashMap::default();
 
         for bump in bumps {
             match bump {
@@ -304,7 +304,7 @@ impl MarketContext {
 
                     // Parallel fallback if no filters provided
                     if expiries.is_none() && strikes.is_none() {
-                        let mut single = HashMap::new();
+                        let mut single = HashMap::default();
                         single.insert(
                             surface_id.clone(),
                             BumpSpec {

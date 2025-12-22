@@ -13,11 +13,11 @@ use finstack_core::money::Money;
 #[derive(Debug, Clone)]
 pub(in crate::cashflow::builder) struct AmortizationParams<'a> {
     pub(in crate::cashflow::builder) ccy: Currency,
-    pub(in crate::cashflow::builder) amort_dates: &'a hashbrown::HashSet<Date>,
+    pub(in crate::cashflow::builder) amort_dates: &'a finstack_core::collections::HashSet<Date>,
     pub(in crate::cashflow::builder) linear_delta: Option<f64>,
     pub(in crate::cashflow::builder) percent_per: Option<f64>,
     pub(in crate::cashflow::builder) step_remaining_map:
-        &'a Option<hashbrown::HashMap<Date, Money>>,
+        &'a Option<finstack_core::collections::HashMap<Date, Money>>,
 }
 
 fn emit_principal_repayment(

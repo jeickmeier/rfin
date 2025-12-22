@@ -6,7 +6,7 @@ use finstack_core::dates::{Date, DateExt, DayCount};
 use finstack_core::money::Money;
 use finstack_core::types::InstrumentId;
 
-use std::collections::HashMap;
+use finstack_core::collections::HashMap;
 
 #[cfg(feature = "serde")]
 use serde::{Deserialize, Serialize};
@@ -474,7 +474,7 @@ impl AssetPool {
             return;
         }
 
-        let mut groups: HashMap<String, Vec<&PoolAsset>> = HashMap::new();
+        let mut groups: HashMap<String, Vec<&PoolAsset>> = HashMap::default();
 
         for asset in &self.assets {
             let key = format!(
@@ -666,7 +666,11 @@ impl AssetPool {
         // For now, we'll stick to the HashMap but pre-allocate capacity.
         // A better optimization for the future would be to integerize obligor IDs.
 
-        let mut obligor_balances: HashMap<&str, f64> = HashMap::with_capacity(self.assets.len());
+        let mut obligor_balances: HashMap<&str, f64> = {
+            let mut m = HashMap::default();
+            m.reserve(self.assets.len());
+            m
+        };
 
         // Group by obligor
         for asset in &self.assets {
@@ -739,8 +743,8 @@ impl AssetPool {
 /// This ensures statistics are always up-to-date and eliminates cache invalidation bugs.
 pub fn calculate_pool_stats(pool: &AssetPool, as_of: Date) -> PoolStats {
     // Count unique obligors and industries
-    let mut obligors = std::collections::HashSet::new();
-    let mut industries = std::collections::HashSet::new();
+    let mut obligors = finstack_core::collections::HashSet::default();
+    let mut industries = finstack_core::collections::HashSet::default();
 
     for asset in &pool.assets {
         if let Some(ref obligor) = asset.obligor_id {

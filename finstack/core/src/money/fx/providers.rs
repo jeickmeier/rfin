@@ -7,8 +7,8 @@ use super::{FxConversionPolicy, FxProvider};
 use crate::currency::Currency;
 use crate::dates::Date;
 use crate::error::InputError;
+use crate::collections::HashMap;
 use parking_lot::RwLock;
-use std::collections::HashMap;
 use std::sync::Arc;
 
 /// Simple FX provider backed by an in-memory quote store.
@@ -53,7 +53,7 @@ impl SimpleFxProvider {
     /// ```
     pub fn new() -> Self {
         Self {
-            quotes: RwLock::new(HashMap::new()),
+            quotes: RwLock::new(HashMap::default()),
         }
     }
 

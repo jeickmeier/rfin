@@ -31,7 +31,7 @@
 use finstack_core::dates::{Date, DayCount, DayCountCtx};
 use finstack_core::market_data::context::MarketContext;
 use finstack_core::Result;
-use std::collections::HashMap;
+use finstack_core::collections::HashMap;
 
 /// Standard state variable keys for consistency
 pub mod state_keys {
@@ -907,7 +907,7 @@ pub fn single_factor_equity_state(
     dividend_yield: f64,
     volatility: f64,
 ) -> StateVariables {
-    let mut vars = HashMap::new();
+    let mut vars = HashMap::default();
     vars.insert(state_keys::SPOT, spot);
     vars.insert(state_keys::INTEREST_RATE, risk_free_rate);
     vars.insert(state_keys::DIVIDEND_YIELD, dividend_yield);
@@ -923,7 +923,7 @@ pub fn two_factor_equity_rates_state(
     equity_volatility: f64,
     rate_volatility: f64,
 ) -> StateVariables {
-    let mut vars = HashMap::new();
+    let mut vars = HashMap::default();
     vars.insert(state_keys::SPOT, spot);
     vars.insert(state_keys::INTEREST_RATE, risk_free_rate);
     vars.insert(state_keys::DIVIDEND_YIELD, dividend_yield);

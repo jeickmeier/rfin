@@ -1,4 +1,4 @@
-use std::collections::HashMap;
+use finstack_core::collections::HashMap;
 use std::sync::Arc;
 
 use super::test_helpers::{sample_base_correlation_curve, sample_hazard_curve};
@@ -30,7 +30,7 @@ fn credit_index_builder_supports_issuer_curves() {
     let hazard = Arc::new(sample_hazard_curve("CDX"));
     let base_corr = Arc::new(sample_base_correlation_curve("CDX-BC"));
 
-    let mut issuers: HashMap<String, Arc<_>> = HashMap::new();
+    let mut issuers: HashMap<String, Arc<_>> = HashMap::default();
     issuers.insert(
         "IssuerA".to_string(),
         Arc::new(sample_hazard_curve("IssuerA")),
@@ -247,7 +247,7 @@ fn test_credit_index_issuer_recovery_rates() {
     let hazard = Arc::new(sample_hazard_curve("CDX"));
     let base_corr = Arc::new(sample_base_correlation_curve("CDX-BC"));
 
-    let mut recovery_rates = HashMap::new();
+    let mut recovery_rates = HashMap::default();
     recovery_rates.insert("IssuerA".to_string(), 0.30);
     recovery_rates.insert("IssuerB".to_string(), 0.50);
 
@@ -274,7 +274,7 @@ fn test_credit_index_issuer_weights() {
     let hazard = Arc::new(sample_hazard_curve("CDX"));
     let base_corr = Arc::new(sample_base_correlation_curve("CDX-BC"));
 
-    let mut weights = HashMap::new();
+    let mut weights = HashMap::default();
     weights.insert("IssuerA".to_string(), 0.60);
     weights.insert("IssuerB".to_string(), 0.40);
 

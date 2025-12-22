@@ -9,7 +9,7 @@ use pyo3::basic::CompareOp;
 use pyo3::exceptions::PyValueError;
 use pyo3::prelude::*;
 use pyo3::types::{PyAny, PyModule, PyType};
-use std::collections::HashMap;
+use finstack_core::collections::HashMap;
 
 /// Compounding convention for rate conversions.
 #[pyclass(module = "finstack.scenarios", name = "Compounding", frozen)]

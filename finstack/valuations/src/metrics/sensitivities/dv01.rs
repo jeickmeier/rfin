@@ -78,7 +78,7 @@ use crate::metrics::{MetricContext, MetricId};
 use finstack_core::market_data::bumps::BumpSpec;
 use finstack_core::market_data::context::MarketContext;
 use finstack_core::types::CurveId;
-use hashbrown::HashMap;
+use finstack_core::collections::HashMap;
 use std::marker::PhantomData;
 use std::sync::Arc;
 
@@ -468,7 +468,7 @@ where
         // Use value_raw for high-precision sensitivity calculations
         let base_pv = context.instrument.value_raw(base_ctx, as_of)?;
 
-        let mut bumps = HashMap::new();
+        let mut bumps = HashMap::default();
         for (curve_id, _kind) in curves {
             bumps.insert(curve_id.clone(), BumpSpec::parallel_bp(bump_bp));
         }
@@ -500,7 +500,7 @@ where
         let mut total_dv01 = 0.0;
 
         for (curve_id, _kind) in curves {
-            let mut bumps = HashMap::new();
+            let mut bumps = HashMap::default();
             bumps.insert(curve_id.clone(), BumpSpec::parallel_bp(bump_bp));
 
             let bumped_ctx = base_ctx.bump(bumps)?;
@@ -595,7 +595,7 @@ where
             };
 
             // Create triangular key-rate bump with proper neighbors
-            let mut bumps = HashMap::new();
+            let mut bumps = HashMap::default();
             bumps.insert(
                 curve_id.clone(),
                 BumpSpec::triangular_key_rate_bp(prev_bucket, target_time, next_bucket, bump_bp),

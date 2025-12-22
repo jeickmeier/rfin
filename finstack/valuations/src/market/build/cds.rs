@@ -50,13 +50,13 @@ use finstack_core::Result;
 /// use finstack_valuations::market::conventions::ids::{CdsConventionKey, CdsDocClause};
 /// use finstack_core::dates::Date;
 /// use finstack_core::currency::Currency;
-/// use std::collections::HashMap;
+/// use finstack_core::collections::HashMap;
 ///
 /// # fn example() -> finstack_core::Result<()> {
 /// let ctx = BuildCtx::new(
 ///     Date::from_calendar_date(2024, time::Month::January, 2).unwrap(),
 ///     10_000_000.0,
-///     HashMap::new(),
+///     HashMap::default(),
 /// );
 ///
 /// let quote = CdsQuote::CdsParSpread {
@@ -85,13 +85,13 @@ use finstack_core::Result;
 /// use finstack_valuations::market::conventions::ids::{CdsConventionKey, CdsDocClause};
 /// use finstack_core::dates::Date;
 /// use finstack_core::currency::Currency;
-/// use std::collections::HashMap;
+/// use finstack_core::collections::HashMap;
 ///
 /// # fn example() -> finstack_core::Result<()> {
 /// let ctx = BuildCtx::new(
 ///     Date::from_calendar_date(2024, time::Month::January, 2).unwrap(),
 ///     10_000_000.0,
-///     HashMap::new(),
+///     HashMap::default(),
 /// );
 ///
 /// let quote = CdsQuote::CdsUpfront {

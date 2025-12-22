@@ -199,8 +199,8 @@ impl CDSIndexPricer {
         curves: &MarketContext,
         as_of: Date,
     ) -> Result<f64> {
+        use finstack_core::collections::HashMap;
         use finstack_core::market_data::bumps::BumpSpec;
-        use hashbrown::HashMap;
 
         let credit_id = &cds.protection.credit_curve_id;
         let discount_id = &cds.premium.discount_curve_id;
@@ -212,7 +212,7 @@ impl CDSIndexPricer {
         let base_pv = pricer.npv(cds, disc, surv, as_of)?.amount();
 
         // Bump
-        let mut bumps = HashMap::new();
+        let mut bumps = HashMap::default();
         bumps.insert(credit_id.clone(), BumpSpec::parallel_bp(1.0));
         let bumped_curves = curves.bump(bumps)?;
 

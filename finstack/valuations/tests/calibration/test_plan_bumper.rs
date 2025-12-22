@@ -11,7 +11,7 @@ use finstack_valuations::market::conventions::ids::IndexId;
 use finstack_valuations::market::quotes::ids::{Pillar, QuoteId};
 use finstack_valuations::market::quotes::market_quote::MarketQuote;
 use finstack_valuations::market::quotes::rates::RateQuote;
-use std::collections::HashMap;
+use finstack_core::collections::HashMap;
 
 fn d(y: i32, m: time::Month, day: u8) -> Date {
     Date::from_calendar_date(y, m, day).expect("valid date")
@@ -48,7 +48,7 @@ fn discount_step(id: &str, quote_set: &str, base_date: Date) -> CalibrationStep 
 fn plan_bumper_parallel_bumps_all_quote_sets() -> finstack_core::Result<()> {
     let base = d(2025, time::Month::January, 1);
 
-    let mut quote_sets: HashMap<String, Vec<MarketQuote>> = HashMap::new();
+    let mut quote_sets: HashMap<String, Vec<MarketQuote>> = HashMap::default();
     quote_sets.insert(
         "qs1".to_string(),
         vec![
@@ -109,7 +109,7 @@ fn plan_bumper_tenor_bumps_apply_per_step_base_date() -> finstack_core::Result<(
 
     let quote = deposit_quote("DEP-END", Pillar::Date(d(2026, time::Month::January, 1)), 0.05);
 
-    let mut quote_sets: HashMap<String, Vec<MarketQuote>> = HashMap::new();
+    let mut quote_sets: HashMap<String, Vec<MarketQuote>> = HashMap::default();
     quote_sets.insert("qs".to_string(), vec![quote]);
 
     let mut plan = CalibrationPlan {
@@ -144,7 +144,7 @@ fn plan_bumper_missing_quote_set_is_error() {
     let plan = CalibrationPlan {
         id: "PLAN".to_string(),
         description: None,
-        quote_sets: HashMap::new(),
+        quote_sets: HashMap::default(),
         steps: vec![discount_step("disc", "does_not_exist", base)],
         settings: Default::default(),
     };
@@ -160,7 +160,7 @@ fn plan_bumper_missing_quote_set_is_error() {
 #[test]
 fn plan_bumper_apply_returns_new_plan() -> finstack_core::Result<()> {
     let base = d(2025, time::Month::January, 1);
-    let mut quote_sets: HashMap<String, Vec<MarketQuote>> = HashMap::new();
+    let mut quote_sets: HashMap<String, Vec<MarketQuote>> = HashMap::default();
     quote_sets.insert(
         "qs".to_string(),
         vec![deposit_quote(

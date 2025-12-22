@@ -32,7 +32,7 @@
 //! use finstack_valuations::market::conventions::ids::IndexId;
 //! use finstack_valuations::market::conventions::registry::ConventionRegistry;
 //! use finstack_core::dates::Date;
-//! use std::collections::HashMap;
+//! use finstack_core::collections::HashMap;
 //!
 //! # fn example() -> finstack_core::Result<()> {
 //! // Ensure conventions are loaded
@@ -40,7 +40,7 @@
 //!
 //! // Create build context
 //! let as_of = Date::from_calendar_date(2024, time::Month::January, 2).unwrap();
-//! let ctx = BuildCtx::new(as_of, 1_000_000.0, HashMap::new());
+//! let ctx = BuildCtx::new(as_of, 1_000_000.0, HashMap::default());
 //!
 //! // Create a deposit quote
 //! let quote = RateQuote::Deposit {

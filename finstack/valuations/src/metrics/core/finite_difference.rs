@@ -159,10 +159,10 @@ pub fn bump_discount_curve_parallel(
     curve_id: &finstack_core::types::CurveId,
     bump_bp: f64,
 ) -> finstack_core::Result<finstack_core::market_data::context::MarketContext> {
+    use finstack_core::collections::HashMap;
     use finstack_core::market_data::bumps::BumpSpec;
-    use hashbrown::HashMap;
 
-    let mut bumps = HashMap::new();
+    let mut bumps = HashMap::default();
     bumps.insert(curve_id.clone(), BumpSpec::parallel_bp(bump_bp));
     context.bump(bumps)
 }

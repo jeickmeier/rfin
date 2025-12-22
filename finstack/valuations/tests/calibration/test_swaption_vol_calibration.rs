@@ -13,7 +13,7 @@ use finstack_valuations::calibration::CalibrationConfig;
 use finstack_valuations::market::conventions::ids::SwaptionConventionId;
 use finstack_valuations::market::quotes::market_quote::MarketQuote;
 use finstack_valuations::market::quotes::vol::VolQuote;
-use std::collections::HashMap;
+use finstack_core::collections::HashMap;
 use time::Month;
 
 use super::tolerances;
@@ -128,7 +128,7 @@ fn swaption_vol_step_builds_and_inserts_surface() {
     let initial_market =
         MarketContext::new().insert_discount(create_test_discount_curve(base_date));
 
-    let mut quote_sets: HashMap<String, Vec<MarketQuote>> = HashMap::new();
+    let mut quote_sets: HashMap<String, Vec<MarketQuote>> = HashMap::default();
     quote_sets.insert("swpt".to_string(), create_test_swaption_quotes());
 
     let settings = CalibrationConfig {
@@ -210,7 +210,7 @@ fn swaption_vol_out_of_bounds_targets_error_by_default() {
     let initial_market =
         MarketContext::new().insert_discount(create_test_discount_curve(base_date));
 
-    let mut quote_sets: HashMap<String, Vec<MarketQuote>> = HashMap::new();
+    let mut quote_sets: HashMap<String, Vec<MarketQuote>> = HashMap::default();
     quote_sets.insert("swpt".to_string(), create_test_swaption_quotes());
 
     let plan = CalibrationPlan {
@@ -264,7 +264,7 @@ fn swaption_vol_out_of_bounds_targets_can_clamp_when_configured() {
     let initial_market =
         MarketContext::new().insert_discount(create_test_discount_curve(base_date));
 
-    let mut quote_sets: HashMap<String, Vec<MarketQuote>> = HashMap::new();
+    let mut quote_sets: HashMap<String, Vec<MarketQuote>> = HashMap::default();
     quote_sets.insert("swpt".to_string(), create_test_swaption_quotes());
 
     let plan = CalibrationPlan {

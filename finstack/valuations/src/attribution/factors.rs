@@ -174,7 +174,7 @@ use finstack_core::market_data::term_structures::hazard_curve::HazardCurve;
 use finstack_core::market_data::term_structures::inflation::InflationCurve;
 use finstack_core::money::fx::FxMatrix;
 use finstack_core::types::CurveId;
-use hashbrown::HashMap;
+use finstack_core::collections::HashMap;
 use std::sync::Arc;
 
 bitflags! {
@@ -456,37 +456,37 @@ impl MarketSnapshot {
         let preserved = MarketSnapshot::extract(current_market, preserve_flags);
 
         // Insert preserved curves first (these are NOT being restored from snapshot)
-        for (_id, curve) in &preserved.discount_curves {
+        for curve in preserved.discount_curves.values() {
             new_market = new_market.insert_discount((**curve).clone());
         }
-        for (_id, curve) in &preserved.forward_curves {
+        for curve in preserved.forward_curves.values() {
             new_market = new_market.insert_forward((**curve).clone());
         }
-        for (_id, curve) in &preserved.hazard_curves {
+        for curve in preserved.hazard_curves.values() {
             new_market = new_market.insert_hazard((**curve).clone());
         }
-        for (_id, curve) in &preserved.inflation_curves {
+        for curve in preserved.inflation_curves.values() {
             new_market = new_market.insert_inflation((**curve).clone());
         }
-        for (_id, curve) in &preserved.base_correlation_curves {
+        for curve in preserved.base_correlation_curves.values() {
             new_market = new_market.insert_base_correlation((**curve).clone());
         }
 
         // Insert snapshot curves (these ARE being restored)
         // Only insert curves that were actually in the snapshot
-        for (_id, curve) in &snapshot.discount_curves {
+        for curve in snapshot.discount_curves.values() {
             new_market = new_market.insert_discount((**curve).clone());
         }
-        for (_id, curve) in &snapshot.forward_curves {
+        for curve in snapshot.forward_curves.values() {
             new_market = new_market.insert_forward((**curve).clone());
         }
-        for (_id, curve) in &snapshot.hazard_curves {
+        for curve in snapshot.hazard_curves.values() {
             new_market = new_market.insert_hazard((**curve).clone());
         }
-        for (_id, curve) in &snapshot.inflation_curves {
+        for curve in snapshot.inflation_curves.values() {
             new_market = new_market.insert_inflation((**curve).clone());
         }
-        for (_id, curve) in &snapshot.base_correlation_curves {
+        for curve in snapshot.base_correlation_curves.values() {
             new_market = new_market.insert_base_correlation((**curve).clone());
         }
 
@@ -524,8 +524,8 @@ pub fn extract<T: MarketExtractable>(market: &MarketContext) -> T {
 // Implement MarketExtractable for all snapshot types
 impl MarketExtractable for RatesCurvesSnapshot {
     fn extract(market: &MarketContext) -> Self {
-        let mut discount_curves = HashMap::new();
-        let mut forward_curves = HashMap::new();
+        let mut discount_curves = HashMap::default();
+        let mut forward_curves = HashMap::default();
 
         // Use public API to iterate through curves
         for curve_id in market.curve_ids() {
@@ -548,7 +548,7 @@ impl MarketExtractable for RatesCurvesSnapshot {
 
 impl MarketExtractable for CreditCurvesSnapshot {
     fn extract(market: &MarketContext) -> Self {
-        let mut hazard_curves = HashMap::new();
+        let mut hazard_curves = HashMap::default();
 
         for curve_id in market.curve_ids() {
             if let Ok(hazard) = market.get_hazard(curve_id) {
@@ -562,7 +562,7 @@ impl MarketExtractable for CreditCurvesSnapshot {
 
 impl MarketExtractable for InflationCurvesSnapshot {
     fn extract(market: &MarketContext) -> Self {
-        let mut inflation_curves = HashMap::new();
+        let mut inflation_curves = HashMap::default();
 
         for curve_id in market.curve_ids() {
             if let Ok(inflation) = market.get_inflation(curve_id) {
@@ -576,7 +576,7 @@ impl MarketExtractable for InflationCurvesSnapshot {
 
 impl MarketExtractable for CorrelationsSnapshot {
     fn extract(market: &MarketContext) -> Self {
-        let mut base_correlation_curves = HashMap::new();
+        let mut base_correlation_curves = HashMap::default();
 
         for curve_id in market.curve_ids() {
             if let Ok(base_corr) = market.get_base_correlation(curve_id) {
@@ -1068,13 +1068,13 @@ pub fn restore_scalars(market: &MarketContext, snapshot: &ScalarsSnapshot) -> Ma
     for (id, scalar) in &snapshot.prices {
         new_market.set_price_mut(id.clone(), scalar.clone());
     }
-    for (_id, series) in &snapshot.series {
+    for series in snapshot.series.values() {
         new_market.set_series_mut(series.clone());
     }
     for (id, index) in &snapshot.inflation_indices {
         new_market.set_inflation_index_mut(id.as_str(), Arc::clone(index));
     }
-    for (_id, schedule) in &snapshot.dividends {
+    for schedule in snapshot.dividends.values() {
         new_market.set_dividends_mut(Arc::clone(schedule));
     }
 
@@ -2275,7 +2275,7 @@ mod tests {
         );
 
         // Verify curve IDs match
-        for (id, _) in &function_result.discount_curves {
+        for id in function_result.discount_curves.keys() {
             assert!(trait_result.discount_curves.contains_key(id));
         }
     }

@@ -151,22 +151,22 @@ pub struct MetricContext {
     pub base_value: Money,
 
     /// Previously computed metrics (by ID).
-    pub computed: hashbrown::HashMap<MetricId, f64>,
+    pub computed: finstack_core::collections::HashMap<MetricId, f64>,
 
     /// Previously computed 1D bucketed metrics (by ID).
     ///
     /// Example: `MetricId::BucketedDv01` -> [("1m", v1), ("3m", v2), ...]
-    pub computed_series: hashbrown::HashMap<MetricId, Vec<(String, f64)>>,
+    pub computed_series: finstack_core::collections::HashMap<MetricId, Vec<(String, f64)>>,
 
     /// Previously computed 2D structured metrics (by ID).
     ///
     /// Example: vega surface with rows=expiries, cols=strikes
-    pub computed_matrix: hashbrown::HashMap<MetricId, Structured2D>,
+    pub computed_matrix: finstack_core::collections::HashMap<MetricId, Structured2D>,
 
     /// Previously computed 3D structured metrics (by ID).
     ///
     /// Example: 3D bucketed vegas (e.g., expiry x tenor x strike)
-    pub computed_tensor3: hashbrown::HashMap<MetricId, Structured3D>,
+    pub computed_tensor3: finstack_core::collections::HashMap<MetricId, Structured3D>,
 
     /// Cached cashflows for the instrument.
     pub cashflows: Option<Vec<(Date, Money)>>,
@@ -223,10 +223,10 @@ impl MetricContext {
             curves,
             as_of,
             base_value,
-            computed: hashbrown::HashMap::new(),
-            computed_series: hashbrown::HashMap::new(),
-            computed_matrix: hashbrown::HashMap::new(),
-            computed_tensor3: hashbrown::HashMap::new(),
+            computed: finstack_core::collections::HashMap::default(),
+            computed_series: finstack_core::collections::HashMap::default(),
+            computed_matrix: finstack_core::collections::HashMap::default(),
+            computed_tensor3: finstack_core::collections::HashMap::default(),
             cashflows: None,
             detailed_tranche_cashflows: None,
             discount_curve_id: None,

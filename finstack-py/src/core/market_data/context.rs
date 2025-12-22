@@ -20,7 +20,7 @@ use pyo3::exceptions::PyTypeError;
 use pyo3::prelude::*;
 use pyo3::types::{PyDict, PyIterator, PyList, PyModule};
 use pyo3::Bound;
-use std::collections::HashMap;
+use finstack_core::collections::HashMap;
 
 /// Aggregates curves, surfaces, FX matrices, and scalar data for pricing.
 ///

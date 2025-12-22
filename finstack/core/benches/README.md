@@ -16,6 +16,11 @@ cargo bench --package finstack-core --bench interpolation
 cargo bench --package finstack-core --bench curve_operations
 cargo bench --package finstack-core --bench expr_dag
 cargo bench --package finstack-core --bench rolling
+cargo bench --package finstack-core --bench solver_operations
+cargo bench --package finstack-core --bench market_context
+cargo bench --package finstack-core --bench vol_surface
+cargo bench --package finstack-core --bench integration
+cargo bench --package finstack-core --bench statistical_functions
 
 # Quick mode (fewer samples)
 cargo bench --package finstack-core -- --quick
@@ -316,16 +321,112 @@ Recent optimizations have significantly improved performance:
 5. **Comparison tests**: Direct A/B tests of algorithms
 6. **Edge cases**: Extrapolation, boundary conditions
 
+### market_context.rs - Market Context Operations
+
+Tests market data storage and retrieval operations:
+- **Curve Lookups**: Discount, forward, hazard curve retrieval by ID
+- **Surface Lookups**: Volatility surface retrieval
+- **Bump Operations**: Single and batch curve bumping
+- **Context Cloning**: Arc-based shallow copy performance
+
+**Test Scenarios:**
+- Small context (10 curves), medium (50 curves), large (100 curves)
+- Single vs batch lookups
+- Parallel bumps on single and multiple curves
+
+**Key Performance Indicators:**
+- Single lookup: < 50ns (HashMap lookup + Arc clone)
+- Batch 50 lookups: < 2μs
+- Context clone: < 1μs (Arc-based, shallow)
+- Single curve bump: < 5μs
+
+### vol_surface.rs - Volatility Surface Operations
+
+Tests volatility surface construction and interpolation:
+- **Construction**: Surface building from grid data
+- **Bilinear Interpolation**: Single and batch lookups
+- **Boundary Handling**: Checked vs clamped evaluation
+- **Bump Operations**: Parallel, scaled, and point bumps
+
+**Test Scenarios:**
+- Grid sizes: 5×5, 10×10, 20×20, 50×50
+- At-grid vs interpolated lookups
+- In-bounds vs out-of-bounds (clamped)
+
+**Key Performance Indicators:**
+- Single interpolation: 20-50ns
+- Batch 100 lookups: 2-5μs
+- Surface construction (10×10): < 1μs
+- Parallel bump: < 5μs
+
+### integration.rs - Numerical Integration Algorithms
+
+Tests quadrature methods for financial computation:
+- **Simpson's Rule**: Fixed interval integration
+- **Adaptive Simpson**: Error-controlled integration
+- **Gauss-Legendre**: High-order polynomial quadrature
+- **Gauss-Hermite**: Normal distribution integrals (option pricing)
+- **Trapezoidal Rule**: Simple baseline method
+
+**Test Scenarios:**
+- Polynomial, oscillatory, Gaussian functions
+- Different tolerance levels (1e-4 to 1e-10)
+- Quadrature orders (5, 7, 10 for Hermite; 2, 4, 8, 16 for Legendre)
+
+**Key Performance Indicators:**
+- Simpson 100 intervals: < 1μs
+- Gauss-Legendre order 8: < 200ns
+- Gauss-Hermite order 10: < 100ns
+- Adaptive Simpson (tol=1e-8): < 5μs
+
+### statistical_functions.rs - Statistical Functions
+
+Tests probability distributions and basic statistics:
+- **Normal Distribution**: CDF (Φ), PDF (φ), inverse CDF (Φ⁻¹)
+- **Error Function**: erf(x) computation
+- **Binomial Distribution**: PMF and full distribution generation
+- **Beta Sampling**: Recovery rate modeling
+- **Basic Statistics**: mean, variance, covariance, correlation
+
+**Test Scenarios:**
+- Single point vs batch evaluation
+- Standard vs tail regions (important for VaR)
+- Different distribution parameters
+
+**Key Performance Indicators:**
+- norm_cdf single: < 50ns
+- norm_inv_cdf single: < 100ns
+- Binomial probability: < 200ns
+- Beta sample: < 500ns
+- Mean/variance (1000 points): < 5μs
+
+### solver_operations.rs - Root Finding Algorithms
+
+Tests 1D and multi-dimensional solvers:
+- **Newton-Raphson**: With analytic vs finite difference derivatives
+- **Brent's Method**: Robust bracketing solver
+- **XIRR/IRR**: Internal rate of return calculations
+- **Levenberg-Marquardt**: Multi-dimensional least squares
+
+**Test Scenarios:**
+- Simple polynomials and transcendental equations
+- Different daycount conventions for XIRR
+- Dense systems of varying sizes (30×30 to 200×80)
+
+**Key Performance Indicators:**
+- Newton single solve: < 500ns
+- Brent single solve: < 1μs
+- XIRR 6 flows: < 5μs
+- LM 100×50 system: < 1ms
+
 ## Future Additions
 
 Potential future benchmarks:
 
-- Market context lookups and bumps
-- Volatility surface interpolation
-- Integration algorithms (Simpson, Gauss-Legendre)
-- Root finding (Newton-Raphson, Brent)
-- Statistical functions (CDF, quantiles)
-- Expression engine evaluation (AST, DAG)
+- Market data serialization/deserialization
+- Curve calibration workflows
+- FX matrix operations
+- Term structure bump ladders
 
 
 

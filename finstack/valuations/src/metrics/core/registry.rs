@@ -8,7 +8,7 @@ use super::ids::MetricId;
 use super::traits::{MetricCalculator, MetricContext};
 
 use crate::pricer::InstrumentType;
-use hashbrown::HashMap;
+use finstack_core::collections::HashMap;
 use std::sync::Arc;
 
 /// Metric computation mode.
@@ -86,7 +86,7 @@ impl MetricRegistry {
     /// See unit tests and `examples/` for usage.
     pub fn new() -> Self {
         Self {
-            entries: HashMap::new(),
+            entries: HashMap::default(),
         }
     }
 }
@@ -379,7 +379,7 @@ impl MetricRegistry {
         }
 
         // Return only the requested metrics
-        let mut results = HashMap::new();
+        let mut results = HashMap::default();
         for id in metric_ids {
             if let Some(&value) = context.computed.get(id) {
                 results.insert(id.clone(), value);
@@ -434,9 +434,9 @@ impl MetricRegistry {
         metric_ids: &[MetricId],
         instrument_type: InstrumentType,
     ) -> finstack_core::Result<Vec<MetricId>> {
-        let mut visited = hashbrown::HashSet::new();
+        let mut visited = finstack_core::collections::HashSet::default();
         let mut order = Vec::new();
-        let mut temp_mark = hashbrown::HashSet::new();
+        let mut temp_mark = finstack_core::collections::HashSet::default();
         let mut path = Vec::new();
 
         for id in metric_ids {
@@ -462,8 +462,8 @@ impl MetricRegistry {
         &self,
         id: MetricId,
         instrument_type: InstrumentType,
-        visited: &mut hashbrown::HashSet<MetricId>,
-        temp_mark: &mut hashbrown::HashSet<MetricId>,
+        visited: &mut finstack_core::collections::HashSet<MetricId>,
+        temp_mark: &mut finstack_core::collections::HashSet<MetricId>,
         order: &mut Vec<MetricId>,
         path: &mut Vec<MetricId>,
     ) -> finstack_core::Result<()> {

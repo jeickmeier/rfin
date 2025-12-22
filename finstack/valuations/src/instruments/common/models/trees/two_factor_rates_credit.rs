@@ -241,7 +241,7 @@ mod tests {
     fn rates_credit_prices_positive() {
         let tree = RatesCreditTree::new(RatesCreditConfig::default());
         let ctx = MarketContext::new();
-        let mut vars = StateVariables::new();
+        let mut vars = StateVariables::default();
         vars.insert(state_keys::INTEREST_RATE, 0.03);
         vars.insert(state_keys::HAZARD_RATE, 0.01);
         let val = DummyValuator;

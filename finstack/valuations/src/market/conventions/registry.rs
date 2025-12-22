@@ -9,7 +9,7 @@ use super::ids::{
     SwaptionConventionId,
 };
 use finstack_core::{Error, Result};
-use std::collections::HashMap;
+use finstack_core::collections::HashMap;
 use std::sync::OnceLock;
 
 /// Global registry of market conventions.

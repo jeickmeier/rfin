@@ -9,7 +9,7 @@
 //! - `PathState`: State information at a point along a path
 
 use super::paths::CashflowType;
-use std::collections::HashMap;
+use finstack_core::collections::HashMap;
 
 /// Random stream trait for generating random numbers.
 ///
@@ -104,7 +104,7 @@ impl PathState {
         Self {
             step,
             time,
-            vars: StateVariables::new(),
+            vars: StateVariables::default(),
             cashflows: Vec::new(),
         }
     }

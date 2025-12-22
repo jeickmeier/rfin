@@ -640,7 +640,7 @@ pub fn price_from_oas(
     // Get initial short rate from the calibrated tree for the state variables.
     // The tree framework expects an initial rate to be present.
     let initial_rate = short_rate_tree.rate_at_node(0, 0)?;
-    let mut vars = StateVariables::new();
+    let mut vars = StateVariables::default();
     vars.insert(short_rate_keys::SHORT_RATE, initial_rate);
     vars.insert(short_rate_keys::OAS, oas_bp);
 

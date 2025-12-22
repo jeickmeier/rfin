@@ -1,4 +1,4 @@
-use hashbrown::HashMap;
+use crate::collections::HashMap;
 use std::sync::Arc;
 
 use super::curve_storage::CurveStorage;
@@ -56,7 +56,11 @@ impl MarketContext {
     /// ```
     pub fn roll_forward(&self, days: i64) -> crate::Result<Self> {
         let mut new_ctx = Self {
-            curves: HashMap::with_capacity(self.curves.len()),
+            curves: {
+                let mut m = HashMap::default();
+                m.reserve(self.curves.len());
+                m
+            },
             fx: self.fx.clone(),
             surfaces: self.surfaces.clone(),
             prices: self.prices.clone(),

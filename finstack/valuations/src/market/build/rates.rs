@@ -45,13 +45,13 @@ use finstack_core::Result;
 /// use finstack_valuations::market::quotes::rates::RateQuote;
 /// use finstack_valuations::market::conventions::ids::IndexId;
 /// use finstack_core::dates::Date;
-/// use std::collections::HashMap;
+/// use finstack_core::collections::HashMap;
 ///
 /// # fn example() -> finstack_core::Result<()> {
 /// let ctx = BuildCtx::new(
 ///     Date::from_calendar_date(2024, time::Month::January, 2).unwrap(),
 ///     1_000_000.0,
-///     HashMap::new(),
+///     HashMap::default(),
 /// );
 ///
 /// let quote = RateQuote::Deposit {
@@ -74,13 +74,13 @@ use finstack_core::Result;
 /// use finstack_valuations::market::quotes::rates::RateQuote;
 /// use finstack_valuations::market::conventions::ids::IndexId;
 /// use finstack_core::dates::Date;
-/// use std::collections::HashMap;
+/// use finstack_core::collections::HashMap;
 ///
 /// # fn example() -> finstack_core::Result<()> {
 /// let ctx = BuildCtx::new(
 ///     Date::from_calendar_date(2024, time::Month::January, 2).unwrap(),
 ///     1_000_000.0,
-///     HashMap::new(),
+///     HashMap::default(),
 /// );
 ///
 /// let quote = RateQuote::Swap {
@@ -402,7 +402,7 @@ mod tests {
     use super::*;
     use crate::market::conventions::ids::IndexId;
     use crate::market::quotes::ids::{Pillar, QuoteId};
-    use std::collections::HashMap;
+    use finstack_core::collections::HashMap;
 
     /// Test that spread_decimal is correctly converted to basis points
     #[test]
@@ -410,7 +410,7 @@ mod tests {
         let ctx = BuildCtx::new(
             Date::from_calendar_date(2024, time::Month::January, 2).unwrap(),
             1_000_000.0,
-            HashMap::new(),
+            HashMap::default(),
         );
 
         // Create a swap quote with spread_decimal = 0.0010 (10bp)
@@ -449,7 +449,7 @@ mod tests {
         let ctx = BuildCtx::new(
             Date::from_calendar_date(2024, time::Month::January, 2).unwrap(),
             1_000_000.0,
-            HashMap::new(),
+            HashMap::default(),
         );
 
         let quote = RateQuote::Swap {
@@ -496,7 +496,7 @@ mod tests {
             let ctx = BuildCtx::new(
                 Date::from_calendar_date(2024, time::Month::January, 2).unwrap(),
                 1_000_000.0,
-                HashMap::new(),
+                HashMap::default(),
             );
 
             let quote = RateQuote::Swap {

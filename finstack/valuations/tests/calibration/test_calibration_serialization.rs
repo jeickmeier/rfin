@@ -24,7 +24,7 @@ use finstack_valuations::market::quotes::ids::{Pillar, QuoteId};
 use finstack_valuations::market::quotes::market_quote::MarketQuote;
 use finstack_valuations::market::quotes::rates::RateQuote;
 use finstack_valuations::market::quotes::vol::VolQuote;
-use std::collections::HashMap;
+use finstack_core::collections::HashMap;
 use time::Month;
 
 fn maybe_print_json(json: &str) {
@@ -47,7 +47,7 @@ fn envelope_v2_roundtrips() {
     let base_date = Date::from_calendar_date(2025, Month::January, 2).unwrap();
     let currency = Currency::USD;
 
-    let mut quote_sets: HashMap<String, Vec<MarketQuote>> = HashMap::new();
+    let mut quote_sets: HashMap<String, Vec<MarketQuote>> = HashMap::default();
     quote_sets.insert(
         "rates".to_string(),
         vec![MarketQuote::Rates(RateQuote::Deposit {

@@ -16,7 +16,7 @@ use finstack_core::explain::{ExplainOpts, ExplanationTrace, TraceEntry};
 use finstack_core::market_data::context::MarketContext;
 use finstack_core::money::Money;
 use finstack_core::Result;
-use std::collections::HashMap;
+use finstack_core::collections::HashMap;
 
 // ============================================================================
 // CURRENCY PRECISION HELPERS
@@ -98,7 +98,8 @@ fn execute_waterfall_core(
     let mut diversion_reason = None;
 
     // Build tranche index fresh (cheap operation)
-    let mut tranche_index = HashMap::with_capacity(tranches.tranches.len());
+    let mut tranche_index = HashMap::default();
+    tranche_index.reserve(tranches.tranches.len());
     for (i, t) in tranches.tranches.iter().enumerate() {
         tranche_index.insert(t.id.as_str(), i);
     }
@@ -292,7 +293,8 @@ impl<'a> AllocationContext<'a> {
         payment_date: Date,
         market: &'a MarketContext,
     ) -> Self {
-        let mut tranche_index = HashMap::with_capacity(tranches.tranches.len());
+        let mut tranche_index = HashMap::default();
+        tranche_index.reserve(tranches.tranches.len());
         for (i, t) in tranches.tranches.iter().enumerate() {
             tranche_index.insert(t.id.as_str(), i);
         }
@@ -323,8 +325,10 @@ pub struct AllocationOutput {
 impl AllocationOutput {
     /// Create new allocation state with pre-allocated capacity.
     pub fn with_capacity(estimated_recipients: usize, explain: &ExplainOpts) -> Self {
+        let mut distributions = HashMap::default();
+        distributions.reserve(estimated_recipients);
         Self {
-            distributions: HashMap::with_capacity(estimated_recipients),
+            distributions,
             payment_records: Vec::with_capacity(estimated_recipients),
             trace: if explain.enabled {
                 Some(ExplanationTrace::new("waterfall"))

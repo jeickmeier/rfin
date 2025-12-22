@@ -10,7 +10,7 @@ use finstack_core::dates::Date;
 use finstack_core::market_data::context::MarketContext;
 use finstack_core::money::Money;
 use finstack_core::Result;
-use std::collections::HashMap;
+use finstack_core::collections::HashMap;
 
 /// Risk classes for SIMM categorization.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
@@ -114,16 +114,16 @@ impl SimmSensitivities {
     pub fn new(base_currency: Currency) -> Self {
         Self {
             base_currency,
-            ir_delta: HashMap::new(),
-            ir_vega: HashMap::new(),
-            credit_qualifying_delta: HashMap::new(),
-            credit_non_qualifying_delta: HashMap::new(),
-            equity_delta: HashMap::new(),
-            equity_vega: HashMap::new(),
-            fx_delta: HashMap::new(),
-            fx_vega: HashMap::new(),
-            commodity_delta: HashMap::new(),
-            curvature: HashMap::new(),
+            ir_delta: HashMap::default(),
+            ir_vega: HashMap::default(),
+            credit_qualifying_delta: HashMap::default(),
+            credit_non_qualifying_delta: HashMap::default(),
+            equity_delta: HashMap::default(),
+            equity_vega: HashMap::default(),
+            fx_delta: HashMap::default(),
+            fx_vega: HashMap::default(),
+            commodity_delta: HashMap::default(),
+            curvature: HashMap::default(),
         }
     }
 

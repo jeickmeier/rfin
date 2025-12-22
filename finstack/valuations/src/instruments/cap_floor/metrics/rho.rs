@@ -23,7 +23,7 @@ impl MetricCalculator for RhoCalculator {
         let base = context.base_value.amount();
 
         // Build bumps map: parallel +1bp on the discount curve only
-        let mut bumps = hashbrown::HashMap::new();
+        let mut bumps = finstack_core::collections::HashMap::default();
         bumps.insert(
             option.discount_curve_id.to_owned(),
             BumpSpec::parallel_bp(1.0), // +1bp

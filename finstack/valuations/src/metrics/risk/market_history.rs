@@ -10,7 +10,7 @@ use finstack_core::market_data::bumps::{BumpMode, BumpSpec, BumpType, BumpUnits}
 use finstack_core::market_data::context::MarketContext;
 use finstack_core::types::CurveId;
 use finstack_core::Result;
-use hashbrown::HashMap;
+use finstack_core::collections::HashMap;
 
 /// Historical shift for a single risk factor on a single date.
 ///
@@ -90,7 +90,7 @@ impl MarketScenario {
             };
 
             if let Some((curve_id, spec)) = maybe_bump {
-                let mut single = HashMap::new();
+                let mut single = HashMap::default();
                 single.insert(curve_id, spec);
                 bumped_market = bumped_market.bump(single)?;
             }

@@ -16,7 +16,7 @@ use indexmap::IndexMap;
 use pyo3::exceptions::PyTypeError;
 use pyo3::prelude::*;
 use pyo3::types::{PyAny, PyAnyMethods, PyModule};
-use std::collections::HashMap;
+use finstack_core::collections::HashMap;
 
 /// Execution context for scenario application.
 ///

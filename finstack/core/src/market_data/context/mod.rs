@@ -52,7 +52,7 @@ pub use super::bumps::{BumpMode, BumpSpec, BumpUnits};
 #[cfg(feature = "serde")]
 pub use state_serde::{CreditIndexState, CurveState, MarketContextState};
 
-use hashbrown::HashMap;
+use crate::collections::HashMap;
 use std::sync::Arc;
 
 use crate::money::fx::FxMatrix;

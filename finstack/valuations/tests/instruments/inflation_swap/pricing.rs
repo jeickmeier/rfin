@@ -424,7 +424,7 @@ fn test_day_count_impact_on_fixed_leg() {
 
     let ctx = standard_market(as_of, 0.02, 0.04);
 
-    let mut pvs = std::collections::HashMap::new();
+    let mut pvs = finstack_core::collections::HashMap::default();
     for dc in &[DayCount::Act360, DayCount::Act365F, DayCount::Thirty360] {
         let swap = InflationSwapBuilder::new()
             .id("ZCINF-DC".into())

@@ -7,7 +7,7 @@ use crate::market::conventions::ids::IndexId; // Used for normalization if neede
 use finstack_core::dates::{BusinessDayConvention, DayCount, Tenor};
 use finstack_core::types::Currency;
 use finstack_core::Error;
-use std::collections::HashMap;
+use finstack_core::collections::HashMap;
 
 #[derive(Clone, Debug, serde::Deserialize)]
 #[serde(deny_unknown_fields)]
@@ -159,7 +159,7 @@ pub fn load_registry() -> Result<HashMap<IndexId, RateIndexConventions>, Error> 
     })?;
 
     // Convert keys to IndexId
-    let mut final_map = HashMap::new();
+    let mut final_map = HashMap::default();
     for (k, v) in string_map {
         final_map.insert(IndexId::new(k), v?);
     }

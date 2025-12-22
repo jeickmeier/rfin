@@ -9,7 +9,7 @@ use indexmap::IndexMap;
 use pyo3::prelude::*;
 use pyo3::types::PyModule;
 use pyo3::Bound;
-use std::collections::HashMap;
+use finstack_core::collections::HashMap;
 use std::str::FromStr;
 
 /// Configuration for normalizing a financial metric.

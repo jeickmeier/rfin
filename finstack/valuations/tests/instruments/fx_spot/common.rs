@@ -10,7 +10,7 @@ use finstack_core::{
     types::InstrumentId,
 };
 use finstack_valuations::instruments::fx_spot::FxSpot;
-use std::collections::HashMap;
+use finstack_core::collections::HashMap;
 use std::sync::Arc;
 use time::Month;
 
@@ -23,7 +23,7 @@ pub struct MockFxProvider {
 impl MockFxProvider {
     /// Create with standard rates
     pub fn standard() -> Self {
-        let mut rates = HashMap::new();
+        let mut rates = HashMap::default();
         rates.insert((Currency::EUR, Currency::USD), 1.20);
         rates.insert((Currency::GBP, Currency::USD), 1.40);
         rates.insert((Currency::USD, Currency::JPY), 110.0);

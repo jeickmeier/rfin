@@ -19,7 +19,7 @@ use pyo3::prelude::*;
 // use pyo3::FromPyObject; // only needed at call sites using .extract()
 use pyo3::types::{PyAnyMethods, PyDict, PyList, PyModule, PyModuleMethods, PyType};
 use pyo3::Bound;
-use std::collections::HashMap;
+use finstack_core::collections::HashMap;
 use std::fmt;
 use std::str::FromStr;
 

@@ -19,7 +19,7 @@ use finstack_core::dates::{
 use finstack_core::market_data::context::MarketContext;
 use finstack_core::money::Money;
 use finstack_core::Result;
-use std::collections::HashMap;
+use finstack_core::collections::HashMap;
 
 // ============================================================================
 // PUBLIC API
@@ -37,7 +37,7 @@ pub fn run_simulation(
     let tranches = &instrument.tranches;
 
     if pool.total_balance()?.amount() <= 0.0 {
-        return Ok(HashMap::new());
+        return Ok(HashMap::default());
     }
 
     // Validate and extract months per period
@@ -137,7 +137,11 @@ pub fn generate_cashflows(
         .next()
         .map(|r| r.cashflows.len())
         .unwrap_or(0);
-    let mut flow_map: HashMap<Date, Money> = HashMap::with_capacity(estimated_dates);
+    let mut flow_map: HashMap<Date, Money> = {
+        let mut m = HashMap::default();
+        m.reserve(estimated_dates);
+        m
+    };
 
     for result in full_results.values() {
         for (date, amount) in &result.cashflows {

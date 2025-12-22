@@ -15,7 +15,7 @@ use finstack_core::market_data::term_structures::{
     inflation::InflationCurve,
 };
 use finstack_core::math::interp::{ExtrapolationPolicy, InterpStyle};
-use std::collections::HashMap;
+use finstack_core::collections::HashMap;
 use std::str::FromStr;
 use std::sync::Arc;
 use wasm_bindgen::prelude::*;
@@ -587,7 +587,8 @@ impl JsCreditIndexData {
                         "issuerIds and issuerCurves must have the same length",
                     ));
                 }
-                let mut map: HashMap<String, Arc<HazardCurve>> = HashMap::with_capacity(ids.len());
+                let mut map: HashMap<String, Arc<HazardCurve>> = HashMap::default();
+                map.reserve(ids.len());
                 for (id, curve) in ids.into_iter().zip(curves.into_iter()) {
                     map.insert(id, curve.inner());
                 }

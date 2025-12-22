@@ -109,7 +109,7 @@ use finstack_core::money::Money;
 use finstack_core::types::{CurveId, InstrumentId};
 
 use std::any::Any;
-use std::collections::HashMap;
+use finstack_core::collections::HashMap;
 
 #[cfg(feature = "serde")]
 use serde::{Deserialize, Serialize};
@@ -144,7 +144,7 @@ impl Default for MarketConditions {
             hpa: None,
             unemployment: None,
             seasonal_factor: Some(1.0),
-            custom_factors: HashMap::new(),
+            custom_factors: HashMap::default(),
         }
     }
 }
@@ -919,7 +919,7 @@ impl TrancheValuationExt for StructuredCredit {
             .copied()
             .unwrap_or(0.05);
 
-        let final_metrics: std::collections::HashMap<MetricId, f64> =
+        let final_metrics: finstack_core::collections::HashMap<MetricId, f64> =
             computed_metrics.into_iter().collect();
 
         Ok(TrancheValuation {

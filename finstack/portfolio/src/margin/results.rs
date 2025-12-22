@@ -4,7 +4,7 @@ use finstack_core::currency::Currency;
 use finstack_core::dates::Date;
 use finstack_core::money::Money;
 use finstack_valuations::margin::{ImMethodology, NettingSetId, SimmSensitivities};
-use std::collections::HashMap;
+use finstack_core::collections::HashMap;
 
 /// Margin results for a single netting set.
 #[derive(Debug, Clone)]
@@ -55,7 +55,7 @@ impl NettingSetMargin {
             position_count,
             im_methodology,
             sensitivities: None,
-            im_breakdown: HashMap::new(),
+            im_breakdown: HashMap::default(),
         }
     }
 
@@ -108,7 +108,7 @@ impl PortfolioMarginResult {
             total_initial_margin: Money::new(0.0, base_currency),
             total_variation_margin: Money::new(0.0, base_currency),
             total_margin: Money::new(0.0, base_currency),
-            by_netting_set: HashMap::new(),
+            by_netting_set: HashMap::default(),
             total_positions: 0,
             positions_without_margin: 0,
         }

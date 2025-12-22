@@ -11,7 +11,7 @@ use crate::instruments::inflation_linked_bond::InflationLinkedBond;
 use crate::metrics::{MetricCalculator, MetricContext, MetricId};
 use finstack_core::market_data::bumps::BumpSpec;
 use finstack_core::Result;
-use hashbrown::HashMap;
+use finstack_core::collections::HashMap;
 
 /// Standard inflation curve bump: 1bp (0.0001)
 const INFLATION_BUMP_BP: f64 = 0.0001;
@@ -39,7 +39,7 @@ impl MetricCalculator for InflationConvexityCalculator {
 
         // Create bumped curves (up)
         let bump_spec_up = BumpSpec::inflation_shift_pct(bump_bp * 100.0); // Convert bp to percent
-        let mut bumps_up = HashMap::new();
+        let mut bumps_up = HashMap::default();
         bumps_up.insert(inflation_curve_id.clone(), bump_spec_up);
 
         let curves_up = context.curves.bump(bumps_up)?;
@@ -47,7 +47,7 @@ impl MetricCalculator for InflationConvexityCalculator {
 
         // Create bumped curves (down)
         let bump_spec_down = BumpSpec::inflation_shift_pct(-bump_bp * 100.0);
-        let mut bumps_down = HashMap::new();
+        let mut bumps_down = HashMap::default();
         bumps_down.insert(inflation_curve_id.clone(), bump_spec_down);
 
         let curves_down = context.curves.bump(bumps_down)?;

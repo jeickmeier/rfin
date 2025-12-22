@@ -14,8 +14,8 @@ use finstack_core::market_data::scalars::{
 use finstack_core::market_data::term_structures::credit_index::CreditIndexData;
 use finstack_core::money::fx::{FxConversionPolicy, FxMatrix, FxProvider};
 use finstack_core::money::Money;
+use finstack_core::collections::HashMap;
 use finstack_core::types::CurveId;
-use hashbrown::HashMap;
 use std::sync::Arc;
 use time::Month;
 
@@ -193,7 +193,7 @@ fn market_context_supports_curve_bumps() {
         .insert_discount(sample_discount_curve("USD-OIS"))
         .insert_forward(sample_forward_curve("USD-LIBOR"));
 
-    let mut bumps = HashMap::new();
+    let mut bumps = HashMap::default();
     bumps.insert(
         CurveId::new("USD-OIS"),
         finstack_core::market_data::context::BumpSpec::parallel_bp(50.0),
@@ -258,7 +258,7 @@ fn market_context_bumps_surfaces_and_scalars() {
         .value_on(sample_base_date())
         .unwrap();
 
-    let mut bumps = HashMap::new();
+    let mut bumps = HashMap::default();
     bumps.insert(CurveId::from("EQ-VOL"), BumpSpec::multiplier(1.10));
     bumps.insert(
         CurveId::from("EQ-SPOT"),
@@ -342,7 +342,7 @@ fn market_context_update_and_bump_failures() {
     );
     assert!(!ctx.update_base_correlation_curve("UNKNOWN", new_curve));
 
-    let mut bumps = HashMap::new();
+    let mut bumps = HashMap::default();
     bumps.insert(CurveId::new("MISSING"), BumpSpec::parallel_bp(10.0));
     assert!(ctx.bump(bumps).is_err());
 }
@@ -531,7 +531,7 @@ fn market_context_bumps_inflation_triangular_key_rate_branch() {
     let orig = ctx.get_inflation_ref("USD-CPI").unwrap();
     let orig_levels = orig.cpi_levels().to_vec();
 
-    let mut bumps = HashMap::new();
+    let mut bumps = HashMap::default();
     bumps.insert(
         CurveId::from("USD-CPI"),
         BumpSpec::triangular_key_rate_bp(0.0, 1.0, 2.0, 1.0), // 1bp => +0.0001 fraction
@@ -765,7 +765,7 @@ fn market_context_bump_more_curve_types_and_error_paths() {
         .unwrap()
         .correlations()[0];
 
-    let mut bumps = HashMap::new();
+    let mut bumps = HashMap::default();
     bumps.insert(CurveId::from("USD-OIS"), BumpSpec::parallel_bp(10.0));
     bumps.insert(CurveId::from("USD-LIBOR"), BumpSpec::multiplier(1.10));
     bumps.insert(CurveId::from("CDX"), BumpSpec::parallel_bp(5.0));
@@ -802,7 +802,7 @@ fn market_context_bump_more_curve_types_and_error_paths() {
     );
 
     // Error path: attempting to apply a key-rate bump to a VolSurface via ctx.bump should fail
-    let mut bad = HashMap::new();
+    let mut bad = HashMap::default();
     bad.insert(
         CurveId::from("EQ-VOL"),
         BumpSpec::triangular_key_rate_bp(0.25, 0.5, 1.0, 1.0),

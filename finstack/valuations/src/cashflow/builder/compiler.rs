@@ -34,8 +34,8 @@ use super::specs::{
 /// Result type for schedule building with metadata.
 type ScheduleWithMeta = (
     Vec<Date>,
-    hashbrown::HashMap<Date, Date>,
-    hashbrown::HashSet<Date>,
+    finstack_core::collections::HashMap<Date, Date>,
+    finstack_core::collections::HashSet<Date>,
 );
 
 /// Build dates and metadata using the date_generation module.
@@ -63,13 +63,13 @@ fn build_dates_with_meta(
 pub(super) type FixedSchedule = (
     FixedCouponSpec,
     Vec<Date>,
-    hashbrown::HashMap<Date, Date>,
-    hashbrown::HashSet<Date>,
+    finstack_core::collections::HashMap<Date, Date>,
+    finstack_core::collections::HashSet<Date>,
 );
 pub(super) type FloatSchedule = (
     FloatingCouponSpec,
     Vec<Date>,
-    hashbrown::HashMap<Date, Date>,
+    finstack_core::collections::HashMap<Date, Date>,
 );
 
 /// Periodic fee schedule prepared from fee specs.
@@ -89,7 +89,7 @@ pub(super) struct PeriodicFee {
     pub(super) bps: f64,
     pub(super) dc: DayCount,
     pub(super) dates: Vec<Date>,
-    pub(super) prev: hashbrown::HashMap<Date, Date>,
+    pub(super) prev: finstack_core::collections::HashMap<Date, Date>,
 }
 
 pub(super) type PeriodicFees = Vec<PeriodicFee>;

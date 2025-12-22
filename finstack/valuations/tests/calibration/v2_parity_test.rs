@@ -14,7 +14,7 @@ use finstack_valuations::market::conventions::ids::IndexId;
 use finstack_valuations::market::quotes::ids::{Pillar, QuoteId};
 use finstack_valuations::market::quotes::market_quote::MarketQuote;
 use finstack_valuations::market::quotes::rates::RateQuote;
-use std::collections::HashMap;
+use finstack_core::collections::HashMap;
 use time::Month;
 
 use super::tolerances;
@@ -65,7 +65,7 @@ fn test_v2_simple_usd_calibration() {
         }),
     ];
 
-    let mut quote_sets = HashMap::new();
+    let mut quote_sets = HashMap::default();
     quote_sets.insert("usd_ois".to_string(), quotes);
     quote_sets.insert("usd_3m".to_string(), fwd_quotes);
 

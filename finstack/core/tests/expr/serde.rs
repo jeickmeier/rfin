@@ -14,8 +14,8 @@ use finstack_core::expr::dag::{BoundaryType, CacheStrategy, DagNode, ExecutionPl
 use finstack_core::expr::{
     CompiledExpr, EvalOpts, EvaluationResult, Expr, ExprNode, Function, SimpleContext,
 };
+use finstack_core::collections::HashSet;
 use std::collections::BTreeMap;
-use std::collections::HashSet;
 
 #[test]
 fn test_expr_ast_serde_roundtrip() {
@@ -188,7 +188,7 @@ fn test_execution_plan_serde() {
         },
     ];
 
-    let mut cache_nodes = HashSet::new();
+    let mut cache_nodes = HashSet::default();
     cache_nodes.insert(1);
 
     let plan = ExecutionPlan {

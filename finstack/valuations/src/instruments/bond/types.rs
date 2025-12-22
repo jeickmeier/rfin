@@ -748,7 +748,7 @@ impl Bond {
         let initial_rate = tree
             .rate_at_node(0, 0)
             .unwrap_or_else(|_| discount_curve.zero(0.0));
-        let mut vars = StateVariables::new();
+        let mut vars = StateVariables::default();
         vars.insert(state_keys::INTEREST_RATE, initial_rate);
         vars.insert(short_rate_keys::OAS, 0.0);
 

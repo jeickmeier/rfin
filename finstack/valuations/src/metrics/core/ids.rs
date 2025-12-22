@@ -15,7 +15,7 @@
 
 use serde::{Deserialize, Serialize};
 use std::borrow::Cow;
-use std::collections::HashMap;
+use finstack_core::collections::HashMap;
 use std::fmt;
 use std::str::FromStr;
 use std::sync::OnceLock;
@@ -886,7 +886,8 @@ static METRIC_LOOKUP: OnceLock<HashMap<String, MetricId>> = OnceLock::new();
 
 fn metric_lookup() -> &'static HashMap<String, MetricId> {
     METRIC_LOOKUP.get_or_init(|| {
-        let mut map = HashMap::with_capacity(MetricId::ALL_STANDARD.len());
+        let mut map = HashMap::default();
+        map.reserve(MetricId::ALL_STANDARD.len());
         for m in MetricId::ALL_STANDARD {
             // Names are already lower snake_case
             map.insert(m.as_str().to_string(), m.clone());

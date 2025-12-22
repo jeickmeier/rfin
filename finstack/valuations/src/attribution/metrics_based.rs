@@ -60,7 +60,7 @@ use finstack_core::market_data::context::MarketContext;
 use finstack_core::money::Money;
 use finstack_core::Result;
 use finstack_core::types::CurveId;
-use hashbrown::HashMap;
+use finstack_core::collections::HashMap;
 use std::sync::Arc;
 
 /// Extract per-curve bucketed DV01 sensitivities from ValuationResult measures.
@@ -83,7 +83,7 @@ fn extract_bucketed_dv01_per_curve(
     measures: &indexmap::IndexMap<String, f64>,
     curve_ids: &[CurveId],
 ) -> HashMap<CurveId, f64> {
-    let mut result = HashMap::new();
+    let mut result = HashMap::default();
 
     // Pattern 1: Explicit per-curve keys "bucketed_dv01::{curve_id}"
     for curve_id in curve_ids {

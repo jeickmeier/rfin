@@ -23,10 +23,10 @@
 //! };
 //! use finstack_valuations::market::quotes::rates::RateQuote;
 //! use finstack_valuations::market::quotes::market_quote::MarketQuote;
-//! use std::collections::HashMap;
+//! use finstack_core::collections::HashMap;
 //!
 //! # fn example() -> finstack_core::Result<()> {
-//! let quote_sets: HashMap<String, Vec<MarketQuote>> = HashMap::new();
+//! let quote_sets: HashMap<String, Vec<MarketQuote>> = HashMap::default();
 //! let steps: Vec<CalibrationStep> = Vec::new();
 //!
 //! let plan = CalibrationPlan {

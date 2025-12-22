@@ -1,7 +1,7 @@
 //! Build context for quote-to-instrument construction.
 
 use finstack_core::dates::Date;
-use std::collections::HashMap;
+use finstack_core::collections::HashMap;
 
 /// Context for building instruments from market quotes.
 ///
@@ -21,10 +21,10 @@ use std::collections::HashMap;
 /// ```rust
 /// use finstack_valuations::market::build::context::BuildCtx;
 /// use finstack_core::dates::Date;
-/// use std::collections::HashMap;
+/// use finstack_core::collections::HashMap;
 ///
 /// let as_of = Date::from_calendar_date(2024, time::Month::January, 2).unwrap();
-/// let mut curve_ids = HashMap::new();
+/// let mut curve_ids = HashMap::default();
 /// curve_ids.insert("discount".to_string(), "USD-OIS".to_string());
 /// curve_ids.insert("forward".to_string(), "USD-SOFR".to_string());
 ///
@@ -36,12 +36,12 @@ use std::collections::HashMap;
 /// ```rust
 /// use finstack_valuations::market::build::context::BuildCtx;
 /// use finstack_core::dates::Date;
-/// use std::collections::HashMap;
+/// use finstack_core::collections::HashMap;
 ///
 /// let ctx = BuildCtx::new(
 ///     Date::from_calendar_date(2024, time::Month::January, 2).unwrap(),
 ///     1_000_000.0,
-///     HashMap::new(), // Empty - builders will use currency-based defaults
+///     HashMap::default(), // Empty - builders will use currency-based defaults
 /// );
 /// ```
 #[derive(Clone, Debug)]
@@ -91,12 +91,12 @@ impl BuildCtx {
     /// ```rust
     /// use finstack_valuations::market::build::context::BuildCtx;
     /// use finstack_core::dates::Date;
-    /// use std::collections::HashMap;
+    /// use finstack_core::collections::HashMap;
     ///
     /// let ctx = BuildCtx::new(
     ///     Date::from_calendar_date(2024, time::Month::January, 2).unwrap(),
     ///     1_000_000.0,
-    ///     HashMap::new(),
+    ///     HashMap::default(),
     /// );
     /// ```
     pub fn new(as_of: Date, notional: f64, curve_ids: HashMap<String, String>) -> Self {
@@ -104,7 +104,7 @@ impl BuildCtx {
             as_of,
             notional,
             curve_ids,
-            attributes: HashMap::new(),
+            attributes: HashMap::default(),
         }
     }
 
@@ -123,9 +123,9 @@ impl BuildCtx {
     /// ```rust
     /// use finstack_valuations::market::build::context::BuildCtx;
     /// use finstack_core::dates::Date;
-    /// use std::collections::HashMap;
+    /// use finstack_core::collections::HashMap;
     ///
-    /// let mut curve_ids = HashMap::new();
+    /// let mut curve_ids = HashMap::default();
     /// curve_ids.insert("discount".to_string(), "USD-OIS".to_string());
     ///
     /// let ctx = BuildCtx::new(

@@ -6,7 +6,7 @@ use crate::market::conventions::ids::{CdsConventionKey, CdsDocClause};
 use finstack_core::dates::{BusinessDayConvention, DayCount, Tenor};
 use finstack_core::types::Currency;
 use finstack_core::Error;
-use std::collections::HashMap;
+use finstack_core::collections::HashMap;
 
 #[derive(Clone, Debug, serde::Deserialize)]
 #[serde(deny_unknown_fields)]
@@ -89,7 +89,7 @@ pub fn load_registry() -> Result<HashMap<CdsConventionKey, CdsConventions>, Erro
     // For now, I will parse only valid Currency:Clause keys. If "ANY" is present, it's problematic for a strict map unless we handle it.
     // But let's assume the map keys we care about are "CUR:CLAUSE".
 
-    let mut final_map = HashMap::new();
+    let mut final_map = HashMap::default();
     for (key_str, val) in string_map {
         // Skip "ANY" or "DEFAULT" for now unless we decide to expand.
         // Strict implies explicit keys.

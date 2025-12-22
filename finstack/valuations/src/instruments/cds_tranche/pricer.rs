@@ -2245,7 +2245,7 @@ mod tests {
             .build()
             .expect("Curve builder should succeed with valid test data");
 
-        let mut issuer_curves = std::collections::HashMap::new();
+        let mut issuer_curves = finstack_core::collections::HashMap::default();
         for i in 0..n {
             let id = format!("ISSUER-{:03}", i + 1);
             let bump = (i as f64) * 0.001;
@@ -2390,7 +2390,7 @@ mod tests {
         let index_data = ctx_base
             .credit_index("CDX.NA.IG.42")
             .expect("Credit index should exist in test context");
-        let mut issuer_curves = std::collections::HashMap::new();
+        let mut issuer_curves = finstack_core::collections::HashMap::default();
         for i in 0..10 {
             let id = format!("ISSUER-{:03}", i + 1);
             issuer_curves.insert(id, index_data.index_credit_curve.clone());

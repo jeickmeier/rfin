@@ -17,7 +17,7 @@ use super::{
     context::ExpressionContext,
     dag::{DagBuilder, ExecutionPlan},
 };
-use rustc_hash::FxHashMap;
+use crate::collections::HashMap;
 use std::sync::Mutex;
 use std::vec::Vec;
 
@@ -193,7 +193,7 @@ impl CompiledExpr {
 
             // Pre-allocate arena for all node results to avoid per-node Vec allocations
             let mut arena = vec![0.0; len * plan_to_use.nodes.len()];
-            let mut offsets: FxHashMap<u64, (usize, usize)> = FxHashMap::default();
+            let mut offsets: HashMap<u64, (usize, usize)> = HashMap::default();
             let mut cursor = 0;
 
             for node in &plan_to_use.nodes {
@@ -264,7 +264,7 @@ impl CompiledExpr {
         cols: &[&[f64]],
         node: &super::dag::DagNode,
         arena: &[f64],
-        offsets: &FxHashMap<u64, (usize, usize)>,
+        offsets: &HashMap<u64, (usize, usize)>,
         out: &mut [f64],
     ) {
         match &node.expr.node {

@@ -17,7 +17,7 @@ use finstack_core::market_data::context::MarketContext;
 use finstack_core::market_data::term_structures::BaseCorrelationCurve;
 use finstack_core::money::Money;
 use finstack_core::Result;
-use std::collections::HashMap;
+use finstack_core::collections::HashMap;
 use std::sync::Arc;
 
 /// Bootstrapper that calibrates a [`BaseCorrelationCurve`] from tranche quotes.
@@ -68,7 +68,7 @@ impl BaseCorrelationBootstrapper {
     }
 
     fn build_ctx(&self) -> BuildCtx {
-        let mut curve_ids = HashMap::new();
+        let mut curve_ids = HashMap::default();
         curve_ids.insert(
             "discount".to_string(),
             self.params.discount_curve_id.to_string(),

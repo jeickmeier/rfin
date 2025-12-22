@@ -1,5 +1,6 @@
 use std::sync::Arc;
 
+use crate::collections::HashMap;
 use crate::types::CurveId;
 
 use super::curve_storage::CurveStorage;
@@ -325,7 +326,7 @@ impl TryFrom<MarketContextState> for MarketContext {
 
             // Resolve issuer curves if present
             let issuer_curves = if let Some(issuer_ids) = credit_state.issuer_credit_curve_ids {
-                let mut map = std::collections::HashMap::new();
+                let mut map = HashMap::default();
                 for (issuer, curve_id) in issuer_ids {
                     let curve = ctx.get_hazard(&curve_id)?;
                     map.insert(issuer, curve);
@@ -343,10 +344,10 @@ impl TryFrom<MarketContextState> for MarketContext {
                 issuer_credit_curves: issuer_curves,
                 issuer_recovery_rates: credit_state
                     .issuer_recovery_rates
-                    .map(|m| m.into_iter().collect::<std::collections::HashMap<_, _>>()),
+                    .map(|m| m.into_iter().collect::<HashMap<_, _>>()),
                 issuer_weights: credit_state
                     .issuer_weights
-                    .map(|m| m.into_iter().collect::<std::collections::HashMap<_, _>>()),
+                    .map(|m| m.into_iter().collect::<HashMap<_, _>>()),
             };
 
             ctx.credit_indices

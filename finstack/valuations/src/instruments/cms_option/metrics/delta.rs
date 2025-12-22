@@ -9,7 +9,7 @@ use crate::instruments::cms_option::CmsOption;
 use crate::metrics::{MetricCalculator, MetricContext};
 use finstack_core::market_data::bumps::BumpSpec;
 use finstack_core::Result;
-use hashbrown::HashMap;
+use finstack_core::collections::HashMap;
 
 /// Delta calculator for CMS options.
 pub struct DeltaCalculator;
@@ -28,7 +28,7 @@ impl MetricCalculator for DeltaCalculator {
 
         // Bump the relevant curve by 1bp (parallel shift)
         let bump_bp = 1.0;
-        let mut bumps = HashMap::new();
+        let mut bumps = HashMap::default();
         bumps.insert(curve_to_bump.clone(), BumpSpec::parallel_bp(bump_bp));
 
         let curves_bumped = context.curves.bump(bumps)?;

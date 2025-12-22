@@ -11,7 +11,7 @@ use finstack_core::dates::Date;
 use finstack_core::market_data::context::MarketContext;
 use finstack_core::money::Money;
 use finstack_core::Result;
-use std::collections::HashMap;
+use finstack_core::collections::HashMap;
 
 /// CCP methodology type.
 #[derive(Debug, Clone, PartialEq)]
@@ -188,7 +188,7 @@ impl ImCalculator for ClearingHouseImCalculator {
         let rate = self.methodology.conservative_rate();
         let im_amount = notional * rate;
 
-        let mut breakdown = HashMap::new();
+        let mut breakdown = HashMap::default();
         breakdown.insert(self.methodology.to_string(), im_amount);
 
         Ok(ImResult::with_breakdown(

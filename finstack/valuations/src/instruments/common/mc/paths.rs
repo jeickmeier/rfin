@@ -6,7 +6,7 @@
 
 use serde::{Deserialize, Serialize};
 use smallvec::SmallVec;
-use std::collections::HashMap;
+use finstack_core::collections::HashMap;
 
 /// Default state variable indices for standard single-asset models.
 ///
@@ -342,7 +342,7 @@ impl ProcessParams {
     pub fn new(process_type: impl Into<String>) -> Self {
         Self {
             process_type: process_type.into(),
-            parameters: HashMap::new(),
+            parameters: HashMap::default(),
             correlation: None,
             factor_names: Vec::new(),
         }

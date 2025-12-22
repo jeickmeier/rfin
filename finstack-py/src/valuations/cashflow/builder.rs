@@ -11,7 +11,7 @@ use finstack_valuations::cashflow::builder as val_builder;
 use pyo3::prelude::*;
 use pyo3::types::{PyAny, PyList, PyModule, PyType};
 use pyo3::Bound;
-use std::collections::HashMap;
+use finstack_core::collections::HashMap;
 
 /// Coupon split type (cash, PIK, split) mirroring valuations builder.
 #[pyclass(
@@ -703,7 +703,7 @@ impl PyCashFlowSchedule {
         };
 
         // Convert to Python dict: PeriodId.code -> PV (single currency)
-        let mut result = HashMap::new();
+        let mut result = HashMap::default();
         for (period_id, currency_map) in pv_map {
             // For single-currency schedules, take the first (and only) currency
             if let Some((_currency, pv_money)) = currency_map.first() {

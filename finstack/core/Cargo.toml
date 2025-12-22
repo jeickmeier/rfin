@@ -16,7 +16,6 @@ thiserror = { version = "2.0", default-features = false }
 time = { version = "0.3", default-features = false, features = ["macros", "formatting", "parsing", "serde-human-readable", "wasm-bindgen"] }
 smallvec = { version = "1.15", default-features = false }
 phf = { version = "0.13", features = ["macros"], default-features = false }
-hashbrown = "0.16"
 rustc-hash = { workspace = true }
 parking_lot = "0.12"
 lru = "0.16"
@@ -24,9 +23,8 @@ rust_decimal = { version = "1.39", default-features = false, features = ["serde-
 statrs = { version = "0.18", default-features = false }
 
 [build-dependencies]
-serde = { version = "1.0", features = ["derive"], default-features = false }
+serde = { version = "1.0", features = ["derive", "alloc"], default-features = false }
 serde_json = "1.0"
-time = { version = "0.3", default-features = false, features = ["macros", "formatting", "parsing", "serde-human-readable"] }
 
 [dev-dependencies]
 serde_json = "1.0"
@@ -34,7 +32,7 @@ criterion = "0.8"
 
 [features]
 default = ["serde"]
-serde = ["dep:serde", "dep:serde_json", "serde/derive", "time/serde", "time/serde-human-readable", "hashbrown/serde"]
+serde = ["dep:serde", "dep:serde_json", "serde/derive", "time/serde", "time/serde-human-readable"]
 
 [[bench]]
 name = "money_operations"
@@ -62,6 +60,26 @@ harness = false
 
 [[bench]]
 name = "rolling"
+harness = false
+
+[[bench]]
+name = "solver_operations"
+harness = false
+
+[[bench]]
+name = "market_context"
+harness = false
+
+[[bench]]
+name = "vol_surface"
+harness = false
+
+[[bench]]
+name = "integration"
+harness = false
+
+[[bench]]
+name = "statistical_functions"
 harness = false
 
 [package.metadata.docs.rs]

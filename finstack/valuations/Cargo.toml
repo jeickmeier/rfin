@@ -9,7 +9,6 @@ repository.workspace = true
 [dependencies]
 finstack-core = { path = "../core" }
 finstack-valuations-macros = { path = "macros" }
-hashbrown = "0.16"
 indexmap = { version = "2.12", features = ["serde"] }
 smallvec = { version = "1.15", default-features = false, features = ["serde"] }
 rayon = { version = "1.11", optional = true }
@@ -35,7 +34,7 @@ criterion = { version = "0.8", features = ["html_reports"] }
 
 [features]
 default = ["serde", "parallel"]
-serde = ["dep:serde", "dep:serde_json", "finstack-core/serde", "hashbrown/serde"]
+serde = ["dep:serde", "dep:serde_json", "finstack-core/serde"]
 parallel = ["dep:rayon"]
 mc = ["dep:nalgebra"]
 slow = []  # Enable slow-running tests (200k+ MC paths, jump-diffusion, etc.)

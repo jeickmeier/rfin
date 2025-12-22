@@ -16,7 +16,7 @@ use finstack_core::market_data::context::MarketContext;
 use finstack_core::market_data::term_structures::HazardCurve;
 use finstack_core::Result;
 use std::cell::RefCell;
-use std::collections::HashMap;
+use finstack_core::collections::HashMap;
 
 const HAZARD_HARD_MIN: f64 = 0.0;
 // Safety cap: λ=10 implies ~99.995% 1Y default probability and can lead to numerical underflow
@@ -113,7 +113,7 @@ impl HazardBootstrapper {
             HazardBootstrapper::new(params.clone(), context.clone(), global_config.clone())?;
 
         let mut prepared_quotes: Vec<CalibrationQuote> = Vec::with_capacity(cds_quotes.len());
-        let mut curve_ids = HashMap::new();
+        let mut curve_ids = HashMap::default();
         curve_ids.insert("discount".to_string(), params.discount_curve_id.to_string());
         curve_ids.insert("credit".to_string(), params.curve_id.to_string());
         let build_ctx = BuildCtx::new(params.base_date, params.notional, curve_ids);
