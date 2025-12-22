@@ -115,6 +115,8 @@ pub enum InstrumentType {
     VolatilityIndexFuture = 57,
     /// Volatility index option (options on VIX, etc.).
     VolatilityIndexOption = 58,
+    /// Equity index future (ES, NQ, FESX, FDAX, Z, NK).
+    EquityIndexFuture = 59,
 }
 
 impl InstrumentType {
@@ -172,6 +174,7 @@ impl InstrumentType {
             InstrumentType::CommoditySwap => "CommoditySwap",
             InstrumentType::VolatilityIndexFuture => "VolatilityIndexFuture",
             InstrumentType::VolatilityIndexOption => "VolatilityIndexOption",
+            InstrumentType::EquityIndexFuture => "EquityIndexFuture",
         }
     }
 }
@@ -227,6 +230,7 @@ impl std::fmt::Display for InstrumentType {
             InstrumentType::CommoditySwap => "commodity_swap",
             InstrumentType::VolatilityIndexFuture => "volatility_index_future",
             InstrumentType::VolatilityIndexOption => "volatility_index_option",
+            InstrumentType::EquityIndexFuture => "equity_index_future",
         };
         write!(f, "{}", label)
     }
@@ -302,6 +306,9 @@ impl std::str::FromStr for InstrumentType {
             }
             "volatility_index_option" | "vol_index_option" | "vix_option" | "vixoption" => {
                 Ok(InstrumentType::VolatilityIndexOption)
+            }
+            "equity_index_future" | "equityindexfuture" | "eq_future" | "es_future" => {
+                Ok(InstrumentType::EquityIndexFuture)
             }
             other => Err(format!("Unknown instrument type: {}", other)),
         }
@@ -1164,6 +1171,14 @@ fn register_all_pricers(registry: &mut PricerRegistry) {
         CommoditySwap,
         Discounting,
         crate::instruments::commodity_swap::CommoditySwapDiscountingPricer
+    );
+
+    // Equity Index Future
+    register_pricer!(
+        registry,
+        EquityIndexFuture,
+        Discounting,
+        crate::instruments::equity_index_future::EquityIndexFutureDiscountingPricer
     );
 }
 

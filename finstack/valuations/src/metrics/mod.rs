@@ -434,5 +434,8 @@ pub fn standard_registry() -> MetricRegistry {
     crate::instruments::dcf::metrics::register_dcf_metrics(&mut registry);
     crate::instruments::vol_index_future::metrics::register_vol_index_future_metrics(&mut registry);
     crate::instruments::vol_index_option::metrics::register_vol_index_option_metrics(&mut registry);
+    crate::instruments::equity_index_future::metrics::register_equity_index_future_metrics(
+        &mut registry,
+    );
     registry
 }

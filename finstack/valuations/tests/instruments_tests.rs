@@ -107,6 +107,10 @@ mod basket;
 #[path = "instruments/equity_option/mod.rs"]
 mod equity_option;
 
+/// Equity index future tests - Index futures (ES, NQ, FESX, etc.)
+#[path = "instruments/equity_index_future/mod.rs"]
+mod equity_index_future;
+
 /// Lookback option tests
 #[path = "instruments/lookback_option/mod.rs"]
 mod lookback_option;

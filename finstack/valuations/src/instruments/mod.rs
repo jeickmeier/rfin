@@ -45,6 +45,8 @@ pub mod dcf;
 pub mod deposit;
 /// equity module.
 pub mod equity;
+/// equity index future module.
+pub mod equity_index_future;
 /// equity option module.
 pub mod equity_option;
 /// equity total return swap module.
@@ -122,6 +124,7 @@ pub use convertible::ConvertibleBond;
 pub use dcf::{DiscountedCashFlow, TerminalValueSpec};
 pub use deposit::Deposit;
 pub use equity::Equity;
+pub use equity_index_future::{EquityFutureSpecs, EquityIndexFuture};
 pub use equity_option::EquityOption;
 pub use fra::ForwardRateAgreement;
 pub use fx_barrier_option::FxBarrierOption;
