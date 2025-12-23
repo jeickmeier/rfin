@@ -6,9 +6,10 @@
 
 use crate::instruments::common::pricing::HasDiscountCurve;
 use crate::instruments::common::traits::{
-    Attributes, CurveDependencies, Instrument, InstrumentCurves,
+    Attributes, CurveDependencies, CurveIdVec, Instrument, InstrumentCurves,
 };
 use crate::pricer::InstrumentType;
+use smallvec::smallvec;
 use finstack_core::currency::Currency;
 use finstack_core::dates::Date;
 use finstack_core::error::Error as CoreError;
@@ -185,8 +186,8 @@ impl Instrument for DiscountedCashFlow {
         )
     }
 
-    fn required_discount_curves(&self) -> Vec<CurveId> {
-        vec![self.discount_curve_id.clone()]
+    fn required_discount_curves(&self) -> CurveIdVec {
+        smallvec![self.discount_curve_id.clone()]
     }
 }
 

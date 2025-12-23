@@ -5,8 +5,9 @@
 //! the other pays a floating price based on an index.
 
 use crate::instruments::common::pricing::HasDiscountCurve;
-use crate::instruments::common::traits::Attributes;
+use crate::instruments::common::traits::{Attributes, CurveIdVec};
 use finstack_core::currency::Currency;
+use smallvec::smallvec;
 use finstack_core::dates::{
     BusinessDayConvention, CalendarRegistry, Date, DayCount, DayCountCtx, ScheduleBuilder, Tenor,
 };
@@ -334,8 +335,8 @@ impl crate::instruments::common::traits::Instrument for CommoditySwap {
         )
     }
 
-    fn required_discount_curves(&self) -> Vec<CurveId> {
-        vec![self.discount_curve_id.clone()]
+    fn required_discount_curves(&self) -> CurveIdVec {
+        smallvec![self.discount_curve_id.clone()]
     }
 }
 

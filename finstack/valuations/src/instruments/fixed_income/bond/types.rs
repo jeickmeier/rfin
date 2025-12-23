@@ -1,8 +1,9 @@
 //! Bond instrument types and implementations.
 
 use crate::cashflow::builder::CashFlowSchedule;
-use crate::instruments::common::traits::Attributes;
+use crate::instruments::common::traits::{Attributes, CurveIdVec};
 use crate::instruments::PricingOverrides;
+use smallvec::smallvec;
 use finstack_core::currency::Currency;
 use finstack_core::dates::{Date, DayCount};
 use finstack_core::money::Money;
@@ -821,15 +822,15 @@ impl crate::instruments::common::traits::Instrument for Bond {
         )
     }
 
-    fn required_discount_curves(&self) -> Vec<CurveId> {
-        vec![self.discount_curve_id.clone()]
+    fn required_discount_curves(&self) -> CurveIdVec {
+        smallvec![self.discount_curve_id.clone()]
     }
 
-    fn required_hazard_curves(&self) -> Vec<CurveId> {
+    fn required_hazard_curves(&self) -> CurveIdVec {
         if let Some(ref credit_id) = self.credit_curve_id {
-            vec![credit_id.clone()]
+            smallvec![credit_id.clone()]
         } else {
-            vec![]
+            CurveIdVec::new()
         }
     }
 

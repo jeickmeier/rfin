@@ -64,10 +64,80 @@ where
     sum + c
 }
 
+/// Incremental Kahan compensated summation.
+///
+/// Useful when you want stable accumulation without allocating a temporary
+/// `Vec<f64>` of terms (e.g., PV loops over cashflows). Use this when all
+/// values have the same sign (e.g., discounted PVs).
+///
+/// For mixed-sign values (e.g., cashflows with both inflows and outflows),
+/// prefer [`NeumaierAccumulator`] which handles magnitude differences better.
+///
+/// # Example
+///
+/// ```rust
+/// use finstack_core::math::KahanAccumulator;
+///
+/// let mut acc = KahanAccumulator::new();
+/// acc.add(1e16);
+/// acc.add(1.0);
+/// acc.add(-1e16);
+/// // Result is more accurate than naive summation
+/// assert!((acc.total() - 1.0).abs() < 1e-10);
+/// ```
+#[derive(Debug, Clone, Copy, Default)]
+pub struct KahanAccumulator {
+    sum: f64,
+    c: f64, // compensation term
+}
+
+impl KahanAccumulator {
+    /// Create a new accumulator with zero state.
+    #[inline]
+    pub const fn new() -> Self {
+        Self { sum: 0.0, c: 0.0 }
+    }
+
+    /// Add a value to the running total.
+    #[inline]
+    pub fn add(&mut self, x: f64) {
+        let y = x - self.c;
+        let t = self.sum + y;
+        self.c = (t - self.sum) - y;
+        self.sum = t;
+    }
+
+    /// Return the compensated total.
+    #[inline]
+    pub fn total(self) -> f64 {
+        self.sum
+    }
+
+    /// Return the current sum without consuming the accumulator.
+    #[inline]
+    pub fn current(&self) -> f64 {
+        self.sum
+    }
+}
+
 /// Incremental Neumaier compensated summation.
 ///
 /// Useful when you want stable accumulation without allocating a temporary
-/// `Vec<f64>` of terms (e.g., PV loops over cashflows).
+/// `Vec<f64>` of terms (e.g., PV loops over cashflows). This variant handles
+/// mixed-sign values better than [`KahanAccumulator`].
+///
+/// # Example
+///
+/// ```rust
+/// use finstack_core::math::NeumaierAccumulator;
+///
+/// let mut acc = NeumaierAccumulator::new();
+/// for x in [1e16, 1.0, -1e16] {
+///     acc.add(x);
+/// }
+/// // Result is more accurate than naive summation
+/// assert!((acc.total() - 1.0).abs() < 1e-10);
+/// ```
 #[derive(Debug, Clone, Copy, Default)]
 pub struct NeumaierAccumulator {
     sum: f64,
@@ -77,7 +147,7 @@ pub struct NeumaierAccumulator {
 impl NeumaierAccumulator {
     /// Create a new accumulator with zero state.
     #[inline]
-    pub fn new() -> Self {
+    pub const fn new() -> Self {
         Self { sum: 0.0, c: 0.0 }
     }
 
@@ -96,6 +166,12 @@ impl NeumaierAccumulator {
     /// Return the compensated total.
     #[inline]
     pub fn total(self) -> f64 {
+        self.sum + self.c
+    }
+
+    /// Return the current sum without consuming the accumulator.
+    #[inline]
+    pub fn current(&self) -> f64 {
         self.sum + self.c
     }
 }

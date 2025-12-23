@@ -10,7 +10,7 @@ pub mod normal;
 pub mod sabr;
 pub mod sabr_derivatives;
 
-pub use black::{d1, d1_black76, d2, d2_black76};
+pub use black::{d1, d1_black76, d1_d2, d1_d2_black76, d2, d2_black76};
 pub use finstack_core::math::{norm_cdf, norm_pdf};
 pub use heston::{HestonModel, HestonParameters};
 pub use local_vol::{LocalVolBuilder, LocalVolSurface};

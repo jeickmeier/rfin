@@ -44,6 +44,6 @@ pub use trees::{
     TreeParameters, TreeType, TreeValuator, TrinomialTree, TrinomialTreeType,
 };
 pub use volatility::{
-    d1, d1_black76, d2, d2_black76, norm_cdf, norm_pdf, SABRCalibrator, SABRModel, SABRParameters,
-    SABRSmile,
+    d1, d1_black76, d1_d2, d1_d2_black76, d2, d2_black76, norm_cdf, norm_pdf, SABRCalibrator,
+    SABRModel, SABRParameters, SABRSmile,
 };

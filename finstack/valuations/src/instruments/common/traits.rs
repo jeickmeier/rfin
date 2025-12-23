@@ -63,8 +63,15 @@ use crate::pricer::InstrumentType;
 use finstack_core::market_data::context::MarketContext;
 use finstack_core::{currency::Currency, dates::Date, money::Money, types::CurveId};
 use serde::{Deserialize, Serialize};
+use smallvec::SmallVec;
 use std::any::Any;
 use std::collections::{BTreeMap, BTreeSet};
+
+/// Type alias for curve ID collections that are typically small (0-2 items).
+///
+/// Most instruments depend on 1-2 curves. Using SmallVec avoids heap allocation
+/// for the common case while still supporting instruments with more curve dependencies.
+pub type CurveIdVec = SmallVec<[CurveId; 2]>;
 
 /// Metadata for instrument categorization, tagging, and scenario selection.
 ///
@@ -981,8 +988,8 @@ pub trait Instrument: Send + Sync {
     /// # Ok(())
     /// # }
     /// ```
-    fn required_discount_curves(&self) -> Vec<CurveId> {
-        vec![]
+    fn required_discount_curves(&self) -> CurveIdVec {
+        SmallVec::new()
     }
 
     /// Hazard curves required for pricing this instrument.
@@ -990,13 +997,13 @@ pub trait Instrument: Send + Sync {
     /// Returns the list of hazard curve IDs that this instrument depends on.
     /// Used by credit attribution to measure spread shifts.
     ///
-    /// Default implementation returns empty vector.
+    /// Default implementation returns empty collection.
     ///
     /// # Returns
     ///
-    /// Vector of hazard curve IDs (e.g., `["CORP-AA", "CDX.NA.IG"]`)
-    fn required_hazard_curves(&self) -> Vec<CurveId> {
-        vec![]
+    /// Collection of hazard curve IDs (e.g., `["CORP-AA", "CDX.NA.IG"]`)
+    fn required_hazard_curves(&self) -> CurveIdVec {
+        SmallVec::new()
     }
 
     /// FX exposure for this instrument.
@@ -1114,15 +1121,16 @@ pub trait CurveDependencies {
 /// Collection of curves used by an instrument, categorized by type.
 ///
 /// This struct provides a type-safe way to declare curve dependencies
-/// for risk calculations.
+/// for risk calculations. Uses `SmallVec` internally to avoid heap
+/// allocation for the common case (1-2 curves per category).
 #[derive(Default, Clone, Debug)]
 pub struct InstrumentCurves {
     /// Discount curves used by the instrument (including primary and foreign).
-    pub discount_curves: Vec<CurveId>,
+    pub discount_curves: CurveIdVec,
     /// Forward/projection curves used by the instrument.
-    pub forward_curves: Vec<CurveId>,
+    pub forward_curves: CurveIdVec,
     /// Credit/hazard curves used by the instrument.
-    pub credit_curves: Vec<CurveId>,
+    pub credit_curves: CurveIdVec,
 }
 
 impl InstrumentCurves {

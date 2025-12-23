@@ -105,11 +105,14 @@ pub fn build_with_metrics_dyn(
     let registry = standard_registry();
     let metric_measures = registry.compute(metrics, &mut context)?;
 
+    // Pre-allocate capacity to avoid reallocations during insertion.
+    // Estimate: requested metrics + a few extras from composite keys.
+    let mut measures: IndexMap<String, f64> = IndexMap::with_capacity(metrics.len() + 4);
+
     // Deterministic insertion order: follow the requested metrics slice order
-    let mut measures: IndexMap<String, f64> = IndexMap::new();
     for metric_id in metrics {
         if let Some(value) = metric_measures.get(metric_id) {
-            measures.insert(metric_id.as_str().to_string(), *value);
+            measures.insert(metric_id.as_str().into(), *value);
         }
     }
 
@@ -133,7 +136,7 @@ pub fn build_with_metrics_dyn(
         .collect();
     extras.sort_by(|(a, _), (b, _)| a.as_str().cmp(b.as_str()));
     for (metric_id, value) in extras {
-        measures.insert(metric_id.as_str().to_string(), value);
+        measures.insert(metric_id.as_str().into(), value);
     }
 
     let mut result =
@@ -163,11 +166,13 @@ pub fn build_with_metrics_dyn_with_config(
     let registry = standard_registry();
     let metric_measures = registry.compute(metrics, &mut context)?;
 
+    // Pre-allocate capacity to avoid reallocations during insertion.
+    let mut measures: IndexMap<String, f64> = IndexMap::with_capacity(metrics.len() + 4);
+
     // Deterministic insertion order: follow the requested metrics slice order
-    let mut measures: IndexMap<String, f64> = IndexMap::new();
     for metric_id in metrics {
         if let Some(value) = metric_measures.get(metric_id) {
-            measures.insert(metric_id.as_str().to_string(), *value);
+            measures.insert(metric_id.as_str().into(), *value);
         }
     }
 
@@ -186,7 +191,7 @@ pub fn build_with_metrics_dyn_with_config(
         .collect();
     extras.sort_by(|(a, _), (b, _)| a.as_str().cmp(b.as_str()));
     for (metric_id, value) in extras {
-        measures.insert(metric_id.as_str().to_string(), value);
+        measures.insert(metric_id.as_str().into(), value);
     }
 
     let mut result =

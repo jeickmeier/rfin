@@ -232,6 +232,121 @@ pub fn roll_spot_date(
     add_joint_business_days(trade_date, spot_lag_days, bdc, base_cal_id, quote_cal_id)
 }
 
+// ============================================================================
+// Batch-optimized variants (pre-resolved calendars)
+// ============================================================================
+
+/// Pre-resolved calendar pair for batch FX date operations.
+///
+/// Use this when processing many dates with the same calendar pair to avoid
+/// repeated registry lookups. The calendars are resolved once and can be
+/// reused for multiple operations.
+///
+/// # Example
+///
+/// ```
+/// # use finstack_core::dates::{create_date, BusinessDayConvention};
+/// # use time::Month;
+/// # use finstack_valuations::instruments::common::fx_dates::{ResolvedCalendarPair, add_joint_business_days_with_calendars};
+/// // Resolve once
+/// let cals = ResolvedCalendarPair::resolve(Some("nyse"), Some("gblo"))
+///     .expect("Valid calendars");
+///
+/// // Use many times without registry lookup overhead
+/// for _ in 0..1000 {
+///     let start = create_date(2024, Month::January, 15).unwrap();
+///     let result = add_joint_business_days_with_calendars(start, 2, &cals);
+/// }
+/// ```
+pub struct ResolvedCalendarPair {
+    base: CalendarWrapper,
+    quote: CalendarWrapper,
+}
+
+impl ResolvedCalendarPair {
+    /// Resolve a calendar pair from optional calendar IDs.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if either calendar ID is not recognized.
+    pub fn resolve(base_cal_id: Option<&str>, quote_cal_id: Option<&str>) -> Result<Self> {
+        let base = resolve_calendar(base_cal_id)?;
+        let quote = resolve_calendar(quote_cal_id)?;
+        Ok(Self { base, quote })
+    }
+
+    /// Check if a date is a business day on both calendars.
+    #[inline]
+    pub fn is_joint_business_day(&self, date: Date) -> bool {
+        self.base.as_holiday_calendar().is_business_day(date)
+            && self.quote.as_holiday_calendar().is_business_day(date)
+    }
+}
+
+/// Add N business days using pre-resolved calendars.
+///
+/// This is the batch-optimized variant of [`add_joint_business_days`]. Use this
+/// when processing many dates with the same calendar pair to avoid repeated
+/// registry lookups.
+///
+/// # Arguments
+///
+/// * `start` - Starting date
+/// * `n_days` - Number of joint business days to add
+/// * `calendars` - Pre-resolved calendar pair
+///
+/// # Returns
+///
+/// The date that is `n_days` joint business days after `start`.
+#[inline]
+pub fn add_joint_business_days_with_calendars(
+    start: Date,
+    n_days: u32,
+    calendars: &ResolvedCalendarPair,
+) -> Date {
+    let mut date = start;
+    let mut count = 0u32;
+
+    while count < n_days {
+        date += Duration::days(1);
+        if calendars.is_joint_business_day(date) {
+            count += 1;
+        }
+    }
+
+    date
+}
+
+/// Adjust a date using pre-resolved calendars.
+///
+/// This is the batch-optimized variant of [`adjust_joint_calendar`].
+///
+/// # Arguments
+///
+/// * `date` - Date to adjust
+/// * `bdc` - Business day convention
+/// * `calendars` - Pre-resolved calendar pair
+///
+/// # Returns
+///
+/// The adjusted date that is a business day on both calendars.
+pub fn adjust_joint_calendar_with_calendars(
+    date: Date,
+    bdc: BusinessDayConvention,
+    calendars: &ResolvedCalendarPair,
+) -> Result<Date> {
+    let mut d = date;
+    for _ in 0..5 {
+        let adj_base = adjust(d, bdc, calendars.base.as_holiday_calendar())?;
+        let adj_quote = adjust(adj_base, bdc, calendars.quote.as_holiday_calendar())?;
+        if adj_quote == d {
+            return Ok(adj_quote);
+        }
+        d = adj_quote;
+    }
+    Ok(d)
+}
+
 #[cfg(test)]
 #[allow(clippy::unwrap_used)]
 mod tests {

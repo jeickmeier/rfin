@@ -26,7 +26,7 @@
 //! - Black, F., & Scholes, M. (1973). "The Pricing of Options and Corporate Liabilities."
 //! - Garman, M. B., & Kohlhagen, S. W. (1983). "Foreign Currency Option Values."
 
-use crate::instruments::common::models::volatility::black::{d1, d2};
+use crate::instruments::common::models::volatility::black::d1_d2;
 use crate::instruments::common::parameters::OptionType;
 use std::fmt;
 
@@ -107,16 +107,24 @@ pub fn bs_price(
             OptionType::Put => (strike - spot).max(0.0),
         };
     }
-    let d1 = d1(spot, strike, r, sigma, t, q);
-    let d2 = d2(spot, strike, r, sigma, t, q);
+
+    // Use combined d1_d2 to avoid redundant computation
+    let (d1, d2) = d1_d2(spot, strike, r, sigma, t, q);
+
+    // Compute CDFs - use symmetry N(-x) = 1 - N(x) to reduce calls
+    let cdf_d1 = finstack_core::math::norm_cdf(d1);
+    let cdf_d2 = finstack_core::math::norm_cdf(d2);
+
+    let exp_q_t = (-q * t).exp();
+    let exp_r_t = (-r * t).exp();
+
     match option_type {
-        OptionType::Call => {
-            spot * (-q * t).exp() * finstack_core::math::norm_cdf(d1)
-                - strike * (-r * t).exp() * finstack_core::math::norm_cdf(d2)
-        }
+        OptionType::Call => spot * exp_q_t * cdf_d1 - strike * exp_r_t * cdf_d2,
         OptionType::Put => {
-            strike * (-r * t).exp() * finstack_core::math::norm_cdf(-d2)
-                - spot * (-q * t).exp() * finstack_core::math::norm_cdf(-d1)
+            // Use symmetry: N(-x) = 1 - N(x)
+            let cdf_m_d1 = 1.0 - cdf_d1;
+            let cdf_m_d2 = 1.0 - cdf_d2;
+            strike * exp_r_t * cdf_m_d2 - spot * exp_q_t * cdf_m_d1
         }
     }
 }
@@ -170,45 +178,64 @@ pub fn bs_greeks(
     option_type: OptionType,
     theta_days_per_year: f64,
 ) -> BsGreeks {
-    let d1 = d1(spot, strike, r, sigma, t, q);
-    let d2 = d2(spot, strike, r, sigma, t, q);
+    // Use combined d1_d2 to compute both values in one pass (avoids duplicate ln/sqrt)
+    let (d1, d2) = d1_d2(spot, strike, r, sigma, t, q);
+
+    // Pre-compute shared exponentials
     let exp_q_t = (-q * t).exp();
     let exp_r_t = (-r * t).exp();
     let sqrt_t = t.sqrt();
+
+    // PDF is always needed for gamma/vega/theta
     let pdf_d1 = finstack_core::math::norm_pdf(d1);
+
+    // Compute CDFs only twice - use symmetry N(-x) = 1 - N(x) for the complements
     let cdf_d1 = finstack_core::math::norm_cdf(d1);
-    let cdf_m_d1 = finstack_core::math::norm_cdf(-d1);
     let cdf_d2 = finstack_core::math::norm_cdf(d2);
-    let cdf_m_d2 = finstack_core::math::norm_cdf(-d2);
+    let cdf_m_d1 = 1.0 - cdf_d1; // N(-d1) = 1 - N(d1)
+    let cdf_m_d2 = 1.0 - cdf_d2; // N(-d2) = 1 - N(d2)
 
     let delta = match option_type {
         OptionType::Call => exp_q_t * cdf_d1,
         OptionType::Put => -exp_q_t * cdf_m_d1,
     };
-    let gamma = if sigma <= 0.0 {
+
+    // Gamma is the same for calls and puts
+    let gamma = if sigma <= 0.0 || sqrt_t <= 0.0 {
         0.0
     } else {
         exp_q_t * pdf_d1 / (spot * sigma * sqrt_t)
     };
-    let vega = spot * exp_q_t * pdf_d1 * sqrt_t / ONE_PERCENT; // per 1% vol
+
+    // Vega is the same for calls and puts (per 1% vol)
+    let vega = spot * exp_q_t * pdf_d1 * sqrt_t / ONE_PERCENT;
+
+    // Theta differs by option type
+    // Common term for both: -S * φ(d1) * σ * e^(-qT) / (2√T)
+    let theta_common = if sqrt_t > 0.0 {
+        -spot * pdf_d1 * sigma * exp_q_t / (2.0 * sqrt_t)
+    } else {
+        0.0
+    };
+
     let theta = match option_type {
         OptionType::Call => {
-            let term1 = -spot * pdf_d1 * sigma * exp_q_t / (2.0 * sqrt_t);
             let term2 = q * spot * cdf_d1 * exp_q_t;
             let term3 = -r * strike * exp_r_t * cdf_d2;
-            (term1 + term2 + term3) / theta_days_per_year
+            (theta_common + term2 + term3) / theta_days_per_year
         }
         OptionType::Put => {
-            let term1 = -spot * pdf_d1 * sigma * exp_q_t / (2.0 * sqrt_t);
             let term2 = -q * spot * cdf_m_d1 * exp_q_t;
             let term3 = r * strike * exp_r_t * cdf_m_d2;
-            (term1 + term2 + term3) / theta_days_per_year
+            (theta_common + term2 + term3) / theta_days_per_year
         }
     };
+
     let rho_r = match option_type {
         OptionType::Call => strike * t * exp_r_t * cdf_d2 / ONE_PERCENT,
         OptionType::Put => -strike * t * exp_r_t * cdf_m_d2 / ONE_PERCENT,
     };
+
     let rho_q = match option_type {
         OptionType::Call => -spot * t * exp_q_t * cdf_d1 / ONE_PERCENT,
         OptionType::Put => spot * t * exp_q_t * cdf_m_d1 / ONE_PERCENT,

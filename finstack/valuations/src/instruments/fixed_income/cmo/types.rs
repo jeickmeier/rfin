@@ -5,8 +5,9 @@
 //! different risk/return profiles.
 
 use crate::instruments::agency_mbs_passthrough::{AgencyMbsPassthrough, AgencyProgram};
-use crate::instruments::common::traits::Attributes;
+use crate::instruments::common::traits::{Attributes, CurveIdVec};
 use crate::instruments::PricingOverrides;
+use smallvec::smallvec;
 use finstack_core::currency::Currency;
 use finstack_core::dates::Date;
 use finstack_core::money::Money;
@@ -419,8 +420,8 @@ impl crate::instruments::common::traits::Instrument for AgencyCmo {
         )
     }
 
-    fn required_discount_curves(&self) -> Vec<CurveId> {
-        vec![self.discount_curve_id.clone()]
+    fn required_discount_curves(&self) -> CurveIdVec {
+        smallvec![self.discount_curve_id.clone()]
     }
 
     fn scenario_overrides_mut(

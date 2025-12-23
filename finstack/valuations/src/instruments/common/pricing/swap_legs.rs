@@ -22,7 +22,7 @@ use finstack_core::dates::calendar::registry::CalendarRegistry;
 use finstack_core::dates::{Date, DateExt, DayCount, DayCountCtx, Schedule};
 use finstack_core::market_data::term_structures::discount_curve::DiscountCurve;
 use finstack_core::market_data::term_structures::forward_curve::ForwardCurve;
-use finstack_core::math::kahan_sum;
+use finstack_core::math::KahanAccumulator;
 use finstack_core::Result;
 
 // Re-export FloatingRateParams for convenience and backward compatibility
@@ -387,7 +387,8 @@ where
     // Validate parameters at entry point for fail-fast behavior
     params.validate()?;
 
-    let mut terms = Vec::new();
+    // Use incremental Kahan accumulator to avoid Vec allocation
+    let mut acc = KahanAccumulator::new();
 
     for period in periods {
         // Skip settled cashflows
@@ -417,11 +418,10 @@ where
 
         // Discount from as_of for correct theta
         let df = robust_relative_df(disc, as_of, payment_date)?;
-        terms.push(coupon_amount * df);
+        acc.add(coupon_amount * df);
     }
 
-    // Use Kahan compensated summation for numerical stability on long-dated swaps
-    Ok(kahan_sum(terms))
+    Ok(acc.total())
 }
 
 /// Parameters for pricing a fixed rate leg.
@@ -512,7 +512,8 @@ where
     // Validate parameters at entry point
     params.validate()?;
 
-    let mut terms = Vec::new();
+    // Use incremental Kahan accumulator to avoid Vec allocation
+    let mut acc = KahanAccumulator::new();
 
     for period in periods {
         // Skip settled cashflows
@@ -532,11 +533,10 @@ where
 
         // Discount from as_of for correct theta
         let df = robust_relative_df(disc, as_of, payment_date)?;
-        terms.push(coupon_amount * df);
+        acc.add(coupon_amount * df);
     }
 
-    // Use Kahan compensated summation for numerical stability on long-dated swaps
-    Ok(kahan_sum(terms))
+    Ok(acc.total())
 }
 
 /// Compute discounted annuity (sum of DF × year_fraction) for a leg.

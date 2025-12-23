@@ -5,8 +5,9 @@
 //! with optional quoted price override.
 
 use crate::instruments::common::pricing::HasDiscountCurve;
-use crate::instruments::common::traits::Attributes;
+use crate::instruments::common::traits::{Attributes, CurveIdVec};
 use finstack_core::currency::Currency;
+use smallvec::smallvec;
 use finstack_core::dates::Date;
 use finstack_core::market_data::context::MarketContext;
 use finstack_core::money::Money;
@@ -295,8 +296,8 @@ impl crate::instruments::common::traits::Instrument for CommodityForward {
         )
     }
 
-    fn required_discount_curves(&self) -> Vec<CurveId> {
-        vec![self.discount_curve_id.clone()]
+    fn required_discount_curves(&self) -> CurveIdVec {
+        smallvec![self.discount_curve_id.clone()]
     }
 
     fn spot_id(&self) -> Option<&str> {

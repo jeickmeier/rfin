@@ -3,8 +3,9 @@
 //! This module defines the data structures for bond futures, including
 //! the deliverable basket, contract specifications, and the main BondFuture type.
 
-use crate::instruments::common::traits::Attributes;
+use crate::instruments::common::traits::{Attributes, CurveIdVec};
 use finstack_core::dates::Date;
+use smallvec::smallvec;
 use finstack_core::money::Money;
 use finstack_core::types::{CurveId, InstrumentId};
 
@@ -1646,8 +1647,8 @@ impl crate::instruments::common::traits::Instrument for BondFuture {
         )
     }
 
-    fn required_discount_curves(&self) -> Vec<finstack_core::types::CurveId> {
-        vec![self.discount_curve_id.clone()]
+    fn required_discount_curves(&self) -> CurveIdVec {
+        smallvec![self.discount_curve_id.clone()]
     }
 }
 

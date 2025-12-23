@@ -5,8 +5,9 @@
 //! and post-fixing (observed rate) valuation modes.
 
 use crate::instruments::common::pricing::HasDiscountCurve;
-use crate::instruments::common::traits::Attributes;
+use crate::instruments::common::traits::{Attributes, CurveIdVec};
 use finstack_core::currency::Currency;
+use smallvec::smallvec;
 use finstack_core::dates::Date;
 use finstack_core::market_data::context::MarketContext;
 use finstack_core::money::Money;
@@ -407,8 +408,8 @@ impl crate::instruments::common::traits::Instrument for Ndf {
         )
     }
 
-    fn required_discount_curves(&self) -> Vec<CurveId> {
-        let mut curves = vec![self.settlement_curve_id.clone()];
+    fn required_discount_curves(&self) -> CurveIdVec {
+        let mut curves = smallvec![self.settlement_curve_id.clone()];
         if let Some(ref foreign_curve) = self.foreign_curve_id {
             curves.push(foreign_curve.clone());
         }

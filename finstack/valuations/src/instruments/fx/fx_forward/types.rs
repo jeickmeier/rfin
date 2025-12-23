@@ -5,8 +5,9 @@
 //! optional contract rate override.
 
 use crate::instruments::common::pricing::HasDiscountCurve;
-use crate::instruments::common::traits::Attributes;
+use crate::instruments::common::traits::{Attributes, CurveIdVec};
 use finstack_core::currency::Currency;
+use smallvec::smallvec;
 use finstack_core::dates::Date;
 use finstack_core::market_data::context::MarketContext;
 use finstack_core::money::Money;
@@ -346,8 +347,8 @@ impl crate::instruments::common::traits::Instrument for FxForward {
         )
     }
 
-    fn required_discount_curves(&self) -> Vec<CurveId> {
-        vec![
+    fn required_discount_curves(&self) -> CurveIdVec {
+        smallvec![
             self.domestic_discount_curve_id.clone(),
             self.foreign_discount_curve_id.clone(),
         ]

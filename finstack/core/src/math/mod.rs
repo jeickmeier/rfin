@@ -91,4 +91,6 @@ pub use special_functions::{
     erf, norm_cdf, norm_pdf, standard_normal_inv_cdf, student_t_cdf, student_t_inv_cdf,
 };
 pub use stats::{correlation, covariance, mean, mean_var, variance};
-pub use summation::{kahan_sum, pairwise_sum, stable_sum};
+pub use summation::{
+    kahan_sum, neumaier_sum, pairwise_sum, stable_sum, KahanAccumulator, NeumaierAccumulator,
+};
