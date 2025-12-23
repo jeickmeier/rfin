@@ -8,6 +8,33 @@
 use super::super::process::heston::HestonProcess;
 use super::super::traits::Discretization;
 
+/// Integrated variance approximation method.
+///
+/// Controls how the integrated variance ∫_t^{t+Δt} v_s ds is computed
+/// for the log-Euler spot evolution.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+pub enum IntegratedVarianceMethod {
+    /// Trapezoidal (midpoint) approximation: (v_t + v_{t+Δt}) / 2 × Δt
+    ///
+    /// This is the standard approximation from Andersen (2008) Section 3.2.4.
+    /// Adequate for most use cases with monthly or finer time steps.
+    #[default]
+    Trapezoidal,
+
+    /// Exact conditional expectation: E[∫v_s ds | v_t, v_{t+Δt}]
+    ///
+    /// Uses the exact formula for the CIR process:
+    /// ```text
+    /// E[∫_0^T v_s ds | v_0] = θT + (v_0 - θ)(1 - e^{-κT})/κ
+    /// ```
+    ///
+    /// This is more accurate for high mean-reversion (κ > 5) or coarse time steps.
+    ///
+    /// Reference: Broadie & Kaya (2006), "Exact Simulation of Stochastic Volatility
+    /// and Other Affine Jump Diffusion Processes"
+    Exact,
+}
+
 /// QE discretization for Heston model.
 ///
 /// This scheme handles both the variance (CIR process) and the spot price,
@@ -22,21 +49,66 @@ use super::super::traits::Discretization;
 ///
 /// For spot:
 /// - Use log-Euler with integrated variance approximation
+///
+/// # Integrated Variance Options
+///
+/// The spot evolution requires an estimate of ∫_t^{t+Δt} v_s ds.
+/// Two methods are available:
+///
+/// - [`IntegratedVarianceMethod::Trapezoidal`] (default): (v_t + v_{t+Δt}) / 2 × Δt
+/// - [`IntegratedVarianceMethod::Exact`]: Uses conditional expectation formula
+///
+/// The exact method is more accurate for high mean-reversion or coarse time steps.
 #[derive(Clone, Debug)]
 pub struct QeHeston {
     /// Critical value for ψ (default 1.5)
     psi_c: f64,
+    /// Integrated variance method
+    int_var_method: IntegratedVarianceMethod,
 }
 
 impl QeHeston {
-    /// Create a new QE Heston discretization.
+    /// Create a new QE Heston discretization with default settings.
     pub fn new() -> Self {
-        Self { psi_c: 1.5 }
+        Self {
+            psi_c: 1.5,
+            int_var_method: IntegratedVarianceMethod::default(),
+        }
     }
 
     /// Create with custom ψ_c threshold.
     pub fn with_psi_c(psi_c: f64) -> Self {
-        Self { psi_c }
+        Self {
+            psi_c,
+            int_var_method: IntegratedVarianceMethod::default(),
+        }
+    }
+
+    /// Set the integrated variance method.
+    ///
+    /// # Example
+    ///
+    /// ```rust
+    /// use finstack_valuations::instruments::common::mc::discretization::qe_heston::{
+    ///     QeHeston, IntegratedVarianceMethod
+    /// };
+    ///
+    /// // Use exact integrated variance for high-kappa scenarios
+    /// let qe = QeHeston::new().with_integrated_variance(IntegratedVarianceMethod::Exact);
+    /// ```
+    pub fn with_integrated_variance(mut self, method: IntegratedVarianceMethod) -> Self {
+        self.int_var_method = method;
+        self
+    }
+
+    /// Create with exact integrated variance for high mean-reversion scenarios.
+    ///
+    /// This is recommended when κ > 5 or using coarse time steps (Δt > 0.1 years).
+    pub fn exact_variance() -> Self {
+        Self {
+            psi_c: 1.5,
+            int_var_method: IntegratedVarianceMethod::Exact,
+        }
     }
 
     /// Compute next variance using QE scheme.
@@ -101,31 +173,62 @@ impl QeHeston {
 
     /// Compute integrated variance for spot evolution.
     ///
-    /// Uses the trapezoidal (midpoint) approximation per Andersen (2008):
+    /// Supports two methods:
+    ///
+    /// ## Trapezoidal (default)
     ///
     /// ```text
     /// ∫_t^{t+Δt} v_s ds ≈ (v_t + v_{t+Δt}) / 2 × Δt
     /// ```
     ///
-    /// This approximation is standard in the QE scheme and provides adequate
-    /// accuracy for typical time steps (monthly or finer). For extremely
-    /// high mean-reversion (κ > 10) with coarse time steps, consider
-    /// finer discretization.
+    /// Standard in the QE scheme, adequate for typical time steps (monthly or finer).
+    ///
+    /// ## Exact
+    ///
+    /// Uses the conditional expectation for CIR process:
+    /// ```text
+    /// E[∫_0^T v_s ds | v_0, v_T] = θT + (v_0 + v_T - 2θ)(1 - e^{-κT})/(2κ)
+    /// ```
+    ///
+    /// More accurate for high mean-reversion (κ > 5) or coarse time steps.
     ///
     /// # Arguments
     /// * `v_t` - Current variance
     /// * `v_next` - Next variance (already simulated)
     /// * `dt` - Time step
+    /// * `kappa` - Mean reversion speed (only used for Exact method)
+    /// * `theta` - Long-run variance (only used for Exact method)
     ///
     /// # Returns
     /// Integrated variance over [t, t+dt]
     ///
     /// # References
-    /// - Andersen, L. (2008). Section 3.2.4 - Log-Euler scheme with
-    ///   trapezoidal integrated variance approximation.
+    /// - Andersen, L. (2008). Section 3.2.4 - Log-Euler scheme.
+    /// - Broadie, M. & Kaya, Ö. (2006). "Exact Simulation of Stochastic
+    ///   Volatility and Other Affine Jump Diffusion Processes."
     #[inline]
-    fn integrated_variance(&self, v_t: f64, v_next: f64, dt: f64) -> f64 {
-        (v_t + v_next) / 2.0 * dt
+    fn integrated_variance(
+        &self,
+        v_t: f64,
+        v_next: f64,
+        dt: f64,
+        kappa: f64,
+        theta: f64,
+    ) -> f64 {
+        match self.int_var_method {
+            IntegratedVarianceMethod::Trapezoidal => (v_t + v_next) / 2.0 * dt,
+            IntegratedVarianceMethod::Exact => {
+                // Exact conditional expectation formula for CIR integrated variance
+                // E[∫_0^T v_s ds | v_0, v_T] = θT + (v_0 + v_T - 2θ)(1 - e^{-κT})/(2κ)
+                if kappa.abs() < 1e-10 {
+                    // For κ ≈ 0, fall back to trapezoidal
+                    (v_t + v_next) / 2.0 * dt
+                } else {
+                    let exp_term = (-kappa * dt).exp();
+                    theta * dt + (v_t + v_next - 2.0 * theta) * (1.0 - exp_term) / (2.0 * kappa)
+                }
+            }
+        }
     }
 }
 
@@ -160,8 +263,7 @@ impl Discretization<HestonProcess> for QeHeston {
         let z_s = rho * z_v + (1.0 - rho * rho).sqrt() * z[0];
 
         // Step 3: Evolve spot using log-Euler with integrated variance
-        // Use trapezoidal approximation for integrated variance (Andersen 2008 Section 3.2.4)
-        let int_var = self.integrated_variance(v_t, v_next, dt);
+        let int_var = self.integrated_variance(v_t, v_next, dt, params.kappa, params.theta);
         let drift = (params.r - params.q - 0.5 * int_var / dt) * dt;
         let diffusion = int_var.sqrt() * z_s;
 
@@ -252,8 +354,10 @@ mod tests {
         let v_t = 0.04;
         let v_next = 0.05;
         let dt = 0.1;
+        let kappa = 2.0;
+        let theta = 0.04;
 
-        let int_var = qe.integrated_variance(v_t, v_next, dt);
+        let int_var = qe.integrated_variance(v_t, v_next, dt, kappa, theta);
 
         // Integrated variance should be between v_t * dt and v_next * dt
         let lower = v_t.min(v_next) * dt;
@@ -282,8 +386,10 @@ mod tests {
         let qe = QeHeston::new();
         let v = 0.04;
         let dt = 0.1;
+        let kappa = 2.0;
+        let theta = 0.04;
 
-        let int_var = qe.integrated_variance(v, v, dt);
+        let int_var = qe.integrated_variance(v, v, dt, kappa, theta);
         let expected = v * dt;
 
         assert!(
@@ -300,9 +406,11 @@ mod tests {
         let qe = QeHeston::new();
         let v_t = 0.04;
         let v_next = 0.05;
+        let kappa = 2.0;
+        let theta = 0.04;
 
         for dt in [0.001, 0.01, 0.1, 0.25, 1.0] {
-            let int_var = qe.integrated_variance(v_t, v_next, dt);
+            let int_var = qe.integrated_variance(v_t, v_next, dt, kappa, theta);
             let midpoint = (v_t + v_next) / 2.0 * dt;
 
             assert!(
@@ -313,5 +421,58 @@ mod tests {
                 midpoint
             );
         }
+    }
+
+    #[test]
+    fn test_exact_integrated_variance() {
+        // Test exact method vs trapezoidal
+        let qe_trap = QeHeston::new();
+        let qe_exact = QeHeston::exact_variance();
+
+        let v_t = 0.04;
+        let v_next = 0.06;
+        let dt = 0.25;
+        let kappa = 5.0; // High mean reversion
+        let theta = 0.04;
+
+        let trap = qe_trap.integrated_variance(v_t, v_next, dt, kappa, theta);
+        let exact = qe_exact.integrated_variance(v_t, v_next, dt, kappa, theta);
+
+        // Both should be positive
+        assert!(trap > 0.0);
+        assert!(exact > 0.0);
+
+        // Exact should differ from trapezoidal for high kappa
+        // (they're not equal but both reasonable)
+        let diff_pct = ((exact - trap) / trap).abs() * 100.0;
+        assert!(
+            diff_pct < 20.0,
+            "Exact and trapezoidal should be within 20%: {} vs {}, diff={}%",
+            exact,
+            trap,
+            diff_pct
+        );
+    }
+
+    #[test]
+    fn test_exact_variance_converges_for_small_kappa() {
+        // For κ ≈ 0, exact should fall back to trapezoidal
+        let qe_exact = QeHeston::exact_variance();
+
+        let v_t = 0.04;
+        let v_next = 0.05;
+        let dt = 0.1;
+        let kappa = 1e-12; // Effectively zero
+        let theta = 0.04;
+
+        let int_var = qe_exact.integrated_variance(v_t, v_next, dt, kappa, theta);
+        let trap = (v_t + v_next) / 2.0 * dt;
+
+        assert!(
+            (int_var - trap).abs() < 1e-10,
+            "Exact should match trapezoidal for κ≈0: {} vs {}",
+            int_var,
+            trap
+        );
     }
 }

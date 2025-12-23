@@ -174,6 +174,7 @@ fn bs_d2(spot: f64, strike: f64, time: f64, rate: f64, div_yield: f64, vol: f64)
 /// // ATM call delta typically near 0.5
 /// assert!((delta - 0.5).abs() < 0.1);
 /// ```
+#[must_use]
 pub fn bs_call_delta(
     spot: f64,
     strike: f64,
@@ -236,6 +237,7 @@ pub fn bs_call_delta(
 /// // ATM put delta typically near -0.5 (accounting for dividend yield adjustment)
 /// assert!(delta < 0.0 && delta > -1.0);
 /// ```
+#[must_use]
 pub fn bs_put_delta(spot: f64, strike: f64, time: f64, rate: f64, div_yield: f64, vol: f64) -> f64 {
     if time <= 0.0 {
         return if spot < strike { -1.0 } else { 0.0 };
@@ -297,6 +299,7 @@ pub fn bs_put_delta(spot: f64, strike: f64, time: f64, rate: f64, div_yield: f64
 /// let gamma_otm = bs_gamma(spot, 110.0, time, rate, div_yield, vol);
 /// assert!(gamma > gamma_otm);
 /// ```
+#[must_use]
 pub fn bs_gamma(spot: f64, strike: f64, time: f64, rate: f64, div_yield: f64, vol: f64) -> f64 {
     if time <= 0.0 || spot <= 0.0 || vol <= 0.0 {
         return 0.0;
@@ -361,6 +364,7 @@ pub fn bs_gamma(spot: f64, strike: f64, time: f64, rate: f64, div_yield: f64, vo
 /// let vega_short = bs_vega(spot, strike, 0.25, rate, div_yield, vol);
 /// assert!(vega > vega_short);
 /// ```
+#[must_use]
 pub fn bs_vega(spot: f64, strike: f64, time: f64, rate: f64, div_yield: f64, vol: f64) -> f64 {
     if time <= 0.0 {
         return 0.0;
@@ -374,6 +378,7 @@ pub fn bs_vega(spot: f64, strike: f64, time: f64, rate: f64, div_yield: f64, vol
 /// Black-Scholes call theta.
 ///
 /// Θ_call = -S * φ(d1) * σ / (2√T) * exp(-qT) - r*K*exp(-rT)*N(d2) + q*S*exp(-qT)*N(d1)
+#[must_use]
 pub fn bs_call_theta(
     spot: f64,
     strike: f64,
@@ -399,6 +404,7 @@ pub fn bs_call_theta(
 /// Black-Scholes put theta.
 ///
 /// Θ_put = -S * φ(d1) * σ / (2√T) * exp(-qT) + r*K*exp(-rT)*N(-d2) - q*S*exp(-qT)*N(-d1)
+#[must_use]
 pub fn bs_put_theta(spot: f64, strike: f64, time: f64, rate: f64, div_yield: f64, vol: f64) -> f64 {
     if time <= 0.0 {
         return 0.0;
@@ -417,6 +423,7 @@ pub fn bs_put_theta(spot: f64, strike: f64, time: f64, rate: f64, div_yield: f64
 /// Black-Scholes call rho.
 ///
 /// ρ_call = K * T * exp(-rT) * N(d2)
+#[must_use]
 pub fn bs_call_rho(spot: f64, strike: f64, time: f64, rate: f64, div_yield: f64, vol: f64) -> f64 {
     if time <= 0.0 {
         return 0.0;
@@ -429,6 +436,7 @@ pub fn bs_call_rho(spot: f64, strike: f64, time: f64, rate: f64, div_yield: f64,
 /// Black-Scholes put rho.
 ///
 /// ρ_put = -K * T * exp(-rT) * N(-d2)
+#[must_use]
 pub fn bs_put_rho(spot: f64, strike: f64, time: f64, rate: f64, div_yield: f64, vol: f64) -> f64 {
     if time <= 0.0 {
         return 0.0;
@@ -467,6 +475,7 @@ pub struct PutGreeks {
 }
 
 /// Compute all call Greeks at once.
+#[must_use]
 pub fn bs_call_greeks(
     spot: f64,
     strike: f64,
@@ -485,6 +494,7 @@ pub fn bs_call_greeks(
 }
 
 /// Compute all put Greeks at once.
+#[must_use]
 pub fn bs_put_greeks(
     spot: f64,
     strike: f64,

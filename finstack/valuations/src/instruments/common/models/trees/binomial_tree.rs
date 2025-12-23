@@ -52,7 +52,20 @@ impl BinomialTree {
     /// Note: Leisen-Reimer achieves best accuracy with odd step counts.
     /// Consider using [`leisen_reimer_odd`](Self::leisen_reimer_odd) for automatic
     /// adjustment to the nearest odd number.
+    ///
+    /// # Warning
+    ///
+    /// Even step counts may exhibit slower convergence due to the Leisen-Reimer
+    /// inversion properties. For optimal accuracy, prefer [`leisen_reimer_odd`](Self::leisen_reimer_odd).
     pub fn leisen_reimer(steps: usize) -> Self {
+        #[cfg(debug_assertions)]
+        if steps.is_multiple_of(2) {
+            eprintln!(
+                "Warning: BinomialTree::leisen_reimer called with even steps ({}). \
+                 Leisen-Reimer converges faster with odd steps. Consider using leisen_reimer_odd({}).",
+                steps, steps
+            );
+        }
         Self::new(steps, TreeType::LeisenReimer)
     }
 
@@ -617,6 +630,38 @@ pub struct BinomialGreeks {
     pub gamma: f64,
     /// Theta
     pub theta: f64,
+}
+
+impl BinomialGreeks {
+    /// Apply Richardson extrapolation to improve accuracy.
+    ///
+    /// Combines Greeks from trees with N and 2N steps using:
+    /// ```text
+    /// result = (4 × fine - coarse) / 3
+    /// ```
+    ///
+    /// This achieves O(h⁴) accuracy instead of O(h²).
+    ///
+    /// # Example
+    ///
+    /// ```rust,ignore
+    /// let tree_n = BinomialTree::crr(100);
+    /// let tree_2n = BinomialTree::crr(200);
+    ///
+    /// let greeks_n = tree_n.calculate_greeks(&params, ExerciseStyle::American)?;
+    /// let greeks_2n = tree_2n.calculate_greeks(&params, ExerciseStyle::American)?;
+    ///
+    /// let improved = BinomialGreeks::richardson_extrapolate(&greeks_n, &greeks_2n);
+    /// ```
+    #[must_use]
+    pub fn richardson_extrapolate(coarse: &Self, fine: &Self) -> Self {
+        Self {
+            price: (4.0 * fine.price - coarse.price) / 3.0,
+            delta: (4.0 * fine.delta - coarse.delta) / 3.0,
+            gamma: (4.0 * fine.gamma - coarse.gamma) / 3.0,
+            theta: (4.0 * fine.theta - coarse.theta) / 3.0,
+        }
+    }
 }
 
 /// Implementation of TreeModel trait for BinomialTree

@@ -435,6 +435,61 @@ pub struct TreeGreeks {
     pub rho: f64,
 }
 
+impl TreeGreeks {
+    /// Apply Richardson extrapolation to combine Greeks from two step sizes.
+    ///
+    /// Richardson extrapolation improves accuracy by combining results from
+    /// trees with N and 2N steps:
+    ///
+    /// ```text
+    /// result_improved = (4 × result_fine - result_coarse) / 3
+    /// ```
+    ///
+    /// This cancels the O(h²) error term, achieving O(h⁴) accuracy.
+    ///
+    /// # Arguments
+    ///
+    /// * `coarse` - Greeks from tree with N steps
+    /// * `fine` - Greeks from tree with 2N steps
+    ///
+    /// # Returns
+    ///
+    /// Extrapolated Greeks with improved accuracy.
+    ///
+    /// # Example
+    ///
+    /// ```rust,ignore
+    /// let coarse = tree_n.calculate_greeks(...)?;
+    /// let fine = tree_2n.calculate_greeks(...)?;
+    /// let improved = TreeGreeks::richardson_extrapolate(&coarse, &fine);
+    /// ```
+    ///
+    /// # References
+    ///
+    /// - Broadie, M. & Detemple, J. (1996). "American Option Valuation: New Bounds,
+    ///   Approximations, and a Comparison of Existing Methods." Review of Financial
+    ///   Studies, 9(4), 1211-1250.
+    #[must_use]
+    pub fn richardson_extrapolate(coarse: &Self, fine: &Self) -> Self {
+        Self {
+            price: (4.0 * fine.price - coarse.price) / 3.0,
+            delta: (4.0 * fine.delta - coarse.delta) / 3.0,
+            gamma: (4.0 * fine.gamma - coarse.gamma) / 3.0,
+            vega: (4.0 * fine.vega - coarse.vega) / 3.0,
+            theta: (4.0 * fine.theta - coarse.theta) / 3.0,
+            rho: (4.0 * fine.rho - coarse.rho) / 3.0,
+        }
+    }
+
+    /// Apply Richardson extrapolation to a price value only.
+    ///
+    /// Useful when only the price is needed, not all Greeks.
+    #[must_use]
+    pub fn richardson_price(price_coarse: f64, price_fine: f64) -> f64 {
+        (4.0 * price_fine - price_coarse) / 3.0
+    }
+}
+
 /// Configuration for Greek bump sizes.
 ///
 /// Provides control over finite-difference bump sizes used in Greek calculations.

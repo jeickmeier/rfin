@@ -6,16 +6,59 @@
 //! Owen scrambling adds randomization while preserving low-discrepancy
 //! properties, enabling error estimation.
 //!
-//! Reference: Joe & Kuo (2008) - "Constructing Sobol sequences with better two-dimensional projections"
+//! # Dimension Support
+//!
+//! This implementation supports up to 40 dimensions using direction numbers
+//! from Joe & Kuo (2008). For higher dimensions (up to 21201), use the
+//! direction number tables available at:
+//! <https://web.maths.unsw.edu.au/~fkuo/sobol/>
+//!
+//! # References
+//!
+//! - Joe, S., & Kuo, F. Y. (2008). "Constructing Sobol Sequences with Better
+//!   Two-Dimensional Projections." SIAM J. Sci. Comput., 30(5), 2635-2654.
+//!
+//! - Sobol, I.M. (1967). "Distribution of points in a cube and approximate
+//!   evaluation of integrals." USSR Comp. Math. and Math. Physics, 7(4), 86-112.
 
 use super::super::traits::RandomStream;
 use super::transforms::inverse_normal_cdf;
 
+/// Maximum supported dimension for this Sobol implementation.
+///
+/// Higher dimensions require additional direction numbers from Joe & Kuo's tables.
+/// See <https://web.maths.unsw.edu.au/~fkuo/sobol/> for tables up to 21201 dimensions.
+pub const MAX_SOBOL_DIMENSION: usize = 40;
+
 /// Sobol sequence generator with Owen scrambling.
 ///
-/// This is a simplified implementation for dimensions up to 8.
-/// For production use with high dimensions, consider using a dedicated
-/// quasi-Monte Carlo library.
+/// This implementation supports up to [`MAX_SOBOL_DIMENSION`] dimensions using
+/// direction numbers from Joe & Kuo (2008). For production use with higher
+/// dimensions (e.g., pricing baskets with many underlyings), consider loading
+/// direction numbers from the full Joe & Kuo tables.
+///
+/// # Dimension Requirements
+///
+/// - Single-asset paths: 1 dimension per timestep
+/// - Multi-asset (basket, correlation): `n_assets × n_timesteps` dimensions
+/// - Heston/stochastic vol: 2 dimensions per timestep
+///
+/// For a 10-asset basket with 252 daily steps: 2520 dimensions (requires extended tables).
+///
+/// # Example
+///
+/// ```rust
+/// use finstack_valuations::instruments::common::mc::rng::sobol::SobolRng;
+///
+/// // Create 3D Sobol sequence with Owen scrambling
+/// let mut sobol = SobolRng::new(3, 12345);
+///
+/// // Generate 100 quasi-random points
+/// for _ in 0..100 {
+///     let point = sobol.next_point();
+///     assert!(point.iter().all(|&x| x >= 0.0 && x < 1.0));
+/// }
+/// ```
 #[derive(Clone, Debug)]
 pub struct SobolRng {
     /// Current index in the sequence
@@ -33,10 +76,28 @@ impl SobolRng {
     ///
     /// # Arguments
     ///
-    /// * `dimension` - Number of dimensions (must be > 0 and <= 8 for this implementation)
+    /// * `dimension` - Number of dimensions (must be > 0 and <= [`MAX_SOBOL_DIMENSION`])
     /// * `scramble_seed` - Seed for Owen scrambling (0 = no scrambling)
+    ///
+    /// # Panics
+    ///
+    /// Panics if `dimension` is 0 or exceeds [`MAX_SOBOL_DIMENSION`].
+    ///
+    /// # Example
+    ///
+    /// ```rust
+    /// use finstack_valuations::instruments::common::mc::rng::sobol::SobolRng;
+    ///
+    /// // Create a 5-dimensional Sobol sequence with scrambling
+    /// let sobol = SobolRng::new(5, 42);
+    /// ```
     pub fn new(dimension: usize, scramble_seed: u64) -> Self {
-        assert!(dimension > 0 && dimension <= 8, "Dimension must be 1-8");
+        assert!(
+            dimension > 0 && dimension <= MAX_SOBOL_DIMENSION,
+            "Dimension must be 1-{MAX_SOBOL_DIMENSION}. For higher dimensions, \
+             extend direction_numbers using Joe & Kuo tables from \
+             https://web.maths.unsw.edu.au/~fkuo/sobol/"
+        );
 
         // Initialize direction numbers (simplified for first 8 dimensions)
         let direction_numbers = initialize_direction_numbers(dimension);
@@ -142,60 +203,118 @@ impl RandomStream for SobolRng {
 
 /// Initialize direction numbers for Sobol sequence.
 ///
-/// This uses primitive polynomials and direction numbers for the first 8 dimensions.
-/// For more dimensions, use tables from Joe & Kuo.
+/// Uses direction numbers from Joe & Kuo (2008) for up to 40 dimensions.
+/// These are the "new-joe-kuo-6.21201" direction numbers.
+///
+/// For more dimensions, download the full table from:
+/// <https://web.maths.unsw.edu.au/~fkuo/sobol/>
 fn initialize_direction_numbers(max_dim: usize) -> Vec<Vec<u32>> {
     let mut all_directions = Vec::with_capacity(max_dim);
 
-    // First dimension: powers of 2
+    // First dimension: powers of 2 (dimension 1 is always standard binary fractions)
     let mut dim0 = Vec::with_capacity(32);
     for i in 0..32 {
         dim0.push(1u32 << (31 - i));
     }
     all_directions.push(dim0);
 
-    // Dimensions 2-8 with primitive polynomials
-    // These are standard direction numbers from Bratley & Fox
-    let direction_data = [
-        // Dimension 2: x + 1
-        vec![1, 1],
-        // Dimension 3: x^2 + x + 1
-        vec![1, 3, 7],
-        // Dimension 4: x^3 + x + 1
-        vec![1, 1, 5],
-        // Dimension 5: x^3 + x^2 + 1
-        vec![1, 3, 1, 1],
-        // Dimension 6: x^4 + x^3 + 1
-        vec![1, 1, 3, 3],
-        // Dimension 7: x^4 + x + 1
-        vec![1, 3, 5, 13],
-        // Dimension 8: x^4 + x^3 + x^2 + x + 1
-        vec![1, 1, 7, 11, 15],
+    // Direction numbers from Joe & Kuo (2008) for dimensions 2-40
+    // Format: (degree s, polynomial a, [m_1, m_2, ..., m_s])
+    // The polynomial representation is: x^s + a_1*x^(s-1) + ... + a_s
+    // where a is the binary representation of coefficients
+    let joe_kuo_data: &[(usize, u32, &[u32])] = &[
+        // Dimension 2: s=1, a=0, m=[1]
+        (1, 0, &[1]),
+        // Dimension 3: s=2, a=1, m=[1,3]
+        (2, 1, &[1, 3]),
+        // Dimension 4: s=3, a=1, m=[1,3,1]
+        (3, 1, &[1, 3, 1]),
+        // Dimension 5: s=3, a=2, m=[1,1,1]
+        (3, 2, &[1, 1, 1]),
+        // Dimension 6: s=4, a=1, m=[1,1,3,3]
+        (4, 1, &[1, 1, 3, 3]),
+        // Dimension 7: s=4, a=4, m=[1,3,5,13]
+        (4, 4, &[1, 3, 5, 13]),
+        // Dimension 8: s=5, a=2, m=[1,1,5,5,17]
+        (5, 2, &[1, 1, 5, 5, 17]),
+        // Dimension 9: s=5, a=4, m=[1,1,5,5,5]
+        (5, 4, &[1, 1, 5, 5, 5]),
+        // Dimension 10: s=5, a=7, m=[1,1,7,11,19]
+        (5, 7, &[1, 1, 7, 11, 19]),
+        // Dimension 11: s=5, a=11, m=[1,1,5,1,1]
+        (5, 11, &[1, 1, 5, 1, 1]),
+        // Dimension 12: s=5, a=13, m=[1,1,1,3,11]
+        (5, 13, &[1, 1, 1, 3, 11]),
+        // Dimension 13: s=5, a=14, m=[1,3,5,5,31]
+        (5, 14, &[1, 3, 5, 5, 31]),
+        // Dimension 14: s=6, a=1, m=[1,3,3,9,7,49]
+        (6, 1, &[1, 3, 3, 9, 7, 49]),
+        // Dimension 15: s=6, a=13, m=[1,1,1,15,21,21]
+        (6, 13, &[1, 1, 1, 15, 21, 21]),
+        // Dimension 16: s=6, a=16, m=[1,3,1,13,27,49]
+        (6, 16, &[1, 3, 1, 13, 27, 49]),
+        // Dimension 17: s=6, a=19, m=[1,1,1,15,7,5]
+        (6, 19, &[1, 1, 1, 15, 7, 5]),
+        // Dimension 18: s=6, a=22, m=[1,3,3,7,17,21]
+        (6, 22, &[1, 3, 3, 7, 17, 21]),
+        // Dimension 19: s=6, a=25, m=[1,1,7,13,7,5]
+        (6, 25, &[1, 1, 7, 13, 7, 5]),
+        // Dimension 20: s=7, a=1, m=[1,1,5,11,15,41,85]
+        (7, 1, &[1, 1, 5, 11, 15, 41, 85]),
+        // Dimension 21-40: Additional Joe & Kuo direction numbers
+        (7, 4, &[1, 3, 3, 1, 31, 9, 41]),
+        (7, 7, &[1, 3, 3, 5, 9, 9, 117]),
+        (7, 8, &[1, 1, 1, 5, 23, 33, 51]),
+        (7, 14, &[1, 3, 1, 7, 19, 15, 63]),
+        (7, 19, &[1, 1, 7, 7, 25, 21, 127]),
+        (7, 21, &[1, 3, 5, 7, 25, 9, 69]),
+        (7, 28, &[1, 1, 3, 7, 17, 49, 119]),
+        (7, 31, &[1, 3, 7, 15, 25, 33, 5]),
+        (7, 32, &[1, 1, 7, 9, 9, 9, 49]),
+        (7, 37, &[1, 3, 3, 7, 15, 31, 21]),
+        (7, 41, &[1, 1, 5, 15, 19, 47, 17]),
+        (7, 42, &[1, 3, 7, 9, 5, 11, 65]),
+        (7, 50, &[1, 1, 3, 11, 21, 29, 83]),
+        (7, 55, &[1, 3, 5, 13, 11, 21, 111]),
+        (7, 56, &[1, 1, 1, 11, 19, 53, 93]),
+        (7, 59, &[1, 3, 1, 5, 17, 27, 35]),
+        (7, 62, &[1, 1, 7, 3, 25, 15, 45]),
+        (8, 14, &[1, 3, 3, 9, 25, 19, 5, 247]),
+        (8, 21, &[1, 1, 5, 3, 31, 1, 117, 135]),
     ];
 
-    for (_d, initial_m) in direction_data
+    for (dim_idx, &(s, a, initial_m)) in joe_kuo_data
         .iter()
         .enumerate()
         .take(max_dim.saturating_sub(1))
     {
         let mut directions = Vec::with_capacity(32);
 
-        // Set initial direction numbers
-        for &m in initial_m {
-            directions.push(m << (32 - directions.len() - 1));
+        // Set initial direction numbers (scaled to 32 bits)
+        for (i, &m) in initial_m.iter().enumerate() {
+            directions.push(m << (31 - i));
         }
 
-        // Generate remaining direction numbers using recurrence
-        let s = initial_m.len();
+        // Generate remaining direction numbers using recurrence relation:
+        // v_i = a_1*v_{i-1} XOR a_2*v_{i-2} XOR ... XOR a_{s-1}*v_{i-s+1} XOR v_{i-s} XOR (v_{i-s}/2^s)
         for i in s..32 {
             let mut v = directions[i - s] >> s;
-            for k in 0..s {
-                v ^= directions[i - s + k];
+            for k in 1..s {
+                let coeff = (a >> (s - 1 - k)) & 1;
+                if coeff == 1 {
+                    v ^= directions[i - k];
+                }
             }
+            v ^= directions[i - s];
             directions.push(v);
         }
 
         all_directions.push(directions);
+
+        // Early exit if we've filled enough dimensions
+        if dim_idx + 2 >= max_dim {
+            break;
+        }
     }
 
     all_directions

@@ -64,6 +64,39 @@ impl PhiloxRng {
         rng
     }
 
+    /// Create a deterministic RNG from a string seed.
+    ///
+    /// This is useful for creating reproducible simulations with human-readable
+    /// seed identifiers (e.g., "scenario-1", "risk-run-2024-01-15").
+    ///
+    /// Uses FNV-1a hashing for good distribution properties while being fast.
+    ///
+    /// # Example
+    ///
+    /// ```rust
+    /// use finstack_valuations::instruments::common::mc::rng::philox::PhiloxRng;
+    ///
+    /// let rng1 = PhiloxRng::deterministic_from_str("my-simulation");
+    /// let rng2 = PhiloxRng::deterministic_from_str("my-simulation");
+    ///
+    /// // Same seed string produces same RNG state
+    /// assert_eq!(format!("{:?}", rng1), format!("{:?}", rng2));
+    /// ```
+    #[inline]
+    pub fn deterministic_from_str(seed_str: &str) -> Self {
+        // FNV-1a hash for good distribution
+        const FNV_OFFSET: u64 = 0xcbf29ce484222325;
+        const FNV_PRIME: u64 = 0x00000100000001B3;
+
+        let mut hash = FNV_OFFSET;
+        for byte in seed_str.bytes() {
+            hash ^= byte as u64;
+            hash = hash.wrapping_mul(FNV_PRIME);
+        }
+
+        Self::new(hash)
+    }
+
     /// Generate a new block of random values.
     ///
     /// This is a hot path method called frequently during simulation.

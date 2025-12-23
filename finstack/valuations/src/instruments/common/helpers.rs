@@ -244,12 +244,20 @@ pub fn validate_currency_consistency(amounts: &[Money]) -> finstack_core::Result
 ///
 /// # Day Count Convention Handling
 ///
-/// This function correctly separates the day count bases:
-/// - **Discounting**: Uses the discount curve's own day count (`disc_curve.day_count()`)
-/// - **Volatility lookup**: Uses the instrument's day count (assumed to match vol surface calibration)
+/// **Important**: This function correctly separates the day count bases:
 ///
-/// This ensures barrier pricing and other options don't mix bases, which would bias
-/// barrier crossing probabilities and rebate PVs.
+/// - **Discounting (t_disc)**: Uses the discount curve's own day count (`disc_curve.day_count()`).
+///   This is used to calculate the zero rate `r` and ensures proper discount factor calculation
+///   regardless of instrument or volatility conventions.
+///
+/// - **Volatility lookup (t_vol)**: Uses the instrument's `day_count` parameter, which should
+///   match how the volatility surface was calibrated (typically ACT/365F for equity options).
+///   This time is used for vol surface interpolation and returned as the primary `t` output.
+///
+/// This separation is critical for barrier options and other path-dependent derivatives:
+/// - Mixing bases would bias barrier crossing probabilities
+/// - Monte Carlo time stepping should use the vol surface basis
+/// - Rebate PVs require consistent discounting
 ///
 /// # Arguments
 ///
@@ -262,6 +270,15 @@ pub fn validate_currency_consistency(amounts: &[Money]) -> finstack_core::Result
 /// * `day_count` - Day count convention for vol surface time calculation (should match vol surface calibration basis)
 /// * `curves` - Market data context
 /// * `as_of` - Valuation date
+///
+/// # Returns
+///
+/// A tuple `(spot, r, q, sigma, t)` where:
+/// - `spot`: Current spot price
+/// - `r`: Continuously compounded risk-free rate (calculated using disc curve's day count)
+/// - `q`: Dividend yield (0.0 if not provided)
+/// - `sigma`: Implied volatility from the vol surface at (t_vol, strike)
+/// - `t`: Time to expiry using the vol surface day count basis (t_vol)
 #[allow(clippy::too_many_arguments)]
 pub fn collect_black_scholes_inputs(
     spot_id: &str,

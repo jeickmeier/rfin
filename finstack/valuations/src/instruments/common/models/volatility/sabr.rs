@@ -151,6 +151,36 @@ impl SABRParameters {
         Self::new_with_shift(alpha, 1.0, nu, rho, shift)
     }
 
+    /// Create default equity-standard SABR parameters.
+    ///
+    /// Returns parameters suitable as a starting point for equity options:
+    /// - α = 0.20 (20% initial volatility)
+    /// - β = 1.0 (lognormal, standard for equities)
+    /// - ν = 0.30 (30% vol-of-vol)
+    /// - ρ = -0.20 (mild negative correlation, typical equity skew)
+    ///
+    /// These are reasonable defaults for calibration initialization but
+    /// should always be calibrated to market data for production use.
+    pub fn equity_default() -> Self {
+        // These values are always valid, so unwrap is safe
+        Self::new(0.20, 1.0, 0.30, -0.20).expect("default equity parameters are valid")
+    }
+
+    /// Create default rates-standard SABR parameters.
+    ///
+    /// Returns parameters suitable as a starting point for rates options:
+    /// - α = 0.02 (2% normal vol level, typical for rates)
+    /// - β = 0.5 (mixed normal/lognormal, common for rates)
+    /// - ν = 0.30 (30% vol-of-vol)
+    /// - ρ = 0.0 (neutral correlation as starting point)
+    ///
+    /// These are reasonable defaults for calibration initialization but
+    /// should always be calibrated to market data for production use.
+    pub fn rates_default() -> Self {
+        // These values are always valid, so unwrap is safe
+        Self::new(0.02, 0.5, 0.30, 0.0).expect("default rates parameters are valid")
+    }
+
     /// Get the shift parameter
     pub fn shift(&self) -> Option<f64> {
         self.shift
@@ -1162,6 +1192,39 @@ impl SABRSmile {
         }
     }
 
+    /// Returns the ATM (at-the-money) implied volatility.
+    ///
+    /// This is a convenience method that computes the implied volatility
+    /// at strike = forward, which is the most frequently quoted volatility level.
+    ///
+    /// # Returns
+    ///
+    /// ATM implied volatility as a decimal (e.g., 0.20 for 20% vol).
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if the volatility computation fails (e.g., invalid parameters).
+    ///
+    /// # Example
+    ///
+    /// ```rust
+    /// use finstack_valuations::instruments::common::models::volatility::sabr::{
+    ///     SABRParameters, SABRModel, SABRSmile,
+    /// };
+    ///
+    /// let params = SABRParameters::new(0.2, 0.5, 0.3, -0.1).unwrap();
+    /// let model = SABRModel::new(params);
+    /// let smile = SABRSmile::new(model, 100.0, 1.0);
+    ///
+    /// let atm_vol = smile.atm_vol().unwrap();
+    /// assert!(atm_vol > 0.0);
+    /// ```
+    #[must_use = "computed ATM volatility should be used"]
+    pub fn atm_vol(&self) -> Result<f64> {
+        self.model
+            .implied_volatility(self.forward, self.forward, self.time_to_expiry)
+    }
+
     /// Generate volatility smile for given strikes
     pub fn generate_smile(&self, strikes: &[f64]) -> Result<Vec<f64>> {
         let mut vols = Vec::with_capacity(strikes.len());
@@ -1314,6 +1377,138 @@ impl SABRSmile {
 
         Ok(())
     }
+
+    /// Repair arbitrage in the SABR smile by adjusting volatilities.
+    ///
+    /// This method generates a smile and then applies monotonicity and convexity
+    /// corrections to remove static arbitrage violations. The repair is conservative:
+    /// it only modifies volatilities at violating strikes.
+    ///
+    /// # Algorithm
+    ///
+    /// 1. Generate the raw SABR smile
+    /// 2. Apply monotonicity repair: ensure call prices decrease with strike
+    /// 3. Apply butterfly repair: ensure convexity (positive second derivative)
+    ///
+    /// The repair uses a simple projection approach:
+    /// - For monotonicity: clamp prices to maintain decreasing sequence
+    /// - For butterfly: adjust mid-strike to satisfy convexity constraint
+    ///
+    /// # Arguments
+    ///
+    /// * `strikes` - Array of strikes (should be sorted ascending)
+    /// * `r` - Risk-free rate for Black-Scholes conversion
+    /// * `q` - Dividend/foreign rate
+    /// * `max_iterations` - Maximum repair iterations (default: 10)
+    ///
+    /// # Returns
+    ///
+    /// Repaired volatility smile as `Vec<f64>`.
+    ///
+    /// # Example
+    ///
+    /// ```rust,ignore
+    /// let repaired_vols = smile.repair_arbitrage(&strikes, 0.05, 0.02, 10)?;
+    /// ```
+    ///
+    /// # References
+    ///
+    /// - Fengler, M. (2009). "Arbitrage-free smoothing of the implied volatility surface."
+    ///   Quantitative Finance, 9(4), 417-428.
+    pub fn repair_arbitrage(
+        &self,
+        strikes: &[f64],
+        r: f64,
+        q: f64,
+        max_iterations: usize,
+    ) -> Result<Vec<f64>> {
+        if strikes.len() < 3 {
+            return self.generate_smile(strikes);
+        }
+
+        // Generate initial smile
+        let mut vols = self.generate_smile(strikes)?;
+
+        // Convert to call prices for manipulation
+        let mut prices: Vec<f64> = strikes
+            .iter()
+            .zip(vols.iter())
+            .map(|(&k, &vol)| bs_call_price(self.forward, k, r, q, vol, self.time_to_expiry))
+            .collect();
+
+        // Iterative repair
+        for _ in 0..max_iterations {
+            let mut changed = false;
+
+            // Repair monotonicity: C(K₁) > C(K₂) for K₁ < K₂
+            for i in 1..prices.len() {
+                if prices[i] > prices[i - 1] {
+                    // Project to monotonic: set to slightly below previous
+                    prices[i] = prices[i - 1] * 0.9999;
+                    changed = true;
+                }
+            }
+
+            // Repair butterfly convexity: C(K-δ) - 2C(K) + C(K+δ) ≥ 0
+            for i in 1..prices.len() - 1 {
+                let butterfly = prices[i - 1] - 2.0 * prices[i] + prices[i + 1];
+                if butterfly < 0.0 {
+                    // Adjust mid-strike price to satisfy convexity
+                    // C(K) should be at most (C(K-δ) + C(K+δ)) / 2
+                    let max_mid = (prices[i - 1] + prices[i + 1]) / 2.0;
+                    prices[i] = max_mid * 0.9999; // Slightly below for numerical safety
+                    changed = true;
+                }
+            }
+
+            if !changed {
+                break;
+            }
+        }
+
+        // Convert prices back to volatilities using implied vol inversion
+        for i in 0..vols.len() {
+            let target_price = prices[i];
+            let k = strikes[i];
+
+            // Newton-Raphson to find implied vol
+            let mut vol = vols[i]; // Start from original vol
+            for _ in 0..20 {
+                let price = bs_call_price(self.forward, k, r, q, vol, self.time_to_expiry);
+                let vega = bs_call_vega(self.forward, k, r, q, vol, self.time_to_expiry);
+
+                if vega.abs() < 1e-14 {
+                    break;
+                }
+
+                let error = price - target_price;
+                if error.abs() < 1e-10 {
+                    break;
+                }
+
+                vol -= error / vega;
+                vol = vol.clamp(0.001, 5.0); // Reasonable bounds
+            }
+
+            vols[i] = vol;
+        }
+
+        Ok(vols)
+    }
+}
+
+/// Black-Scholes call vega for implied vol inversion.
+#[inline]
+fn bs_call_vega(forward: f64, strike: f64, r: f64, q: f64, vol: f64, t: f64) -> f64 {
+    if t <= 0.0 || vol <= 0.0 {
+        return 0.0;
+    }
+
+    let sqrt_t = t.sqrt();
+    let d1 = ((forward / strike).ln() + (r - q + 0.5 * vol * vol) * t) / (vol * sqrt_t);
+    let pdf_d1 = finstack_core::math::norm_pdf(d1);
+
+    forward * (-q * t).exp() * sqrt_t * pdf_d1
 }
 
 /// Black-Scholes call price for arbitrage checking.
