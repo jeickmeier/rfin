@@ -64,6 +64,60 @@ impl fmt::Display for BsGreeks {
     }
 }
 
+impl BsGreeks {
+    /// Validate that Greeks are within expected bounds.
+    ///
+    /// Returns `true` if all Greeks satisfy their theoretical constraints:
+    /// - Delta: must be in [-1, 1] (calls in [0, 1], puts in [-1, 0])
+    /// - Gamma: must be non-negative (≥ 0)
+    /// - Vega: must be non-negative (≥ 0)
+    ///
+    /// Theta and rhos have no strict sign constraints (can be positive or negative
+    /// depending on option moneyness and rate environment).
+    #[must_use]
+    pub fn is_valid(&self) -> bool {
+        // Delta must be in [-1, 1]
+        if !(-1.0..=1.0).contains(&self.delta) {
+            return false;
+        }
+        // Gamma must be non-negative
+        if self.gamma < 0.0 {
+            return false;
+        }
+        // Vega must be non-negative
+        if self.vega < 0.0 {
+            return false;
+        }
+        // All values must be finite
+        self.delta.is_finite()
+            && self.gamma.is_finite()
+            && self.vega.is_finite()
+            && self.theta.is_finite()
+            && self.rho_r.is_finite()
+            && self.rho_q.is_finite()
+    }
+
+    /// Clamp Greeks to their valid bounds.
+    ///
+    /// This corrects for minor numerical precision issues near boundaries:
+    /// - Delta: clamped to [-1, 1]
+    /// - Gamma: clamped to [0, ∞)
+    /// - Vega: clamped to [0, ∞)
+    ///
+    /// Theta and rhos are not clamped as they have no theoretical bounds.
+    #[must_use]
+    pub fn clamped(self) -> Self {
+        Self {
+            delta: self.delta.clamp(-1.0, 1.0),
+            gamma: self.gamma.max(0.0),
+            vega: self.vega.max(0.0),
+            theta: self.theta,
+            rho_r: self.rho_r,
+            rho_q: self.rho_q,
+        }
+    }
+}
+
 /// Black–Scholes / Garman–Kohlhagen price (per unit, no contract scaling).
 ///
 /// # Arguments
@@ -309,6 +363,75 @@ mod tests {
         assert!(s.contains("Δ="));
         assert!(s.contains("Γ="));
         assert!(s.contains("V="));
+    }
+
+    #[test]
+    fn test_bs_greeks_is_valid() {
+        // Normal ATM call should be valid
+        let greeks = bs_greeks(100.0, 100.0, 0.05, 0.02, 0.20, 1.0, OptionType::Call, 365.0);
+        assert!(greeks.is_valid(), "ATM call Greeks should be valid");
+
+        // Normal ATM put should be valid
+        let put_greeks = bs_greeks(100.0, 100.0, 0.05, 0.02, 0.20, 1.0, OptionType::Put, 365.0);
+        assert!(put_greeks.is_valid(), "ATM put Greeks should be valid");
+
+        // Deep ITM call should still be valid
+        let deep_itm = bs_greeks(200.0, 100.0, 0.05, 0.02, 0.20, 0.01, OptionType::Call, 365.0);
+        assert!(deep_itm.is_valid(), "Deep ITM call Greeks should be valid");
+
+        // Deep OTM put should still be valid
+        let deep_otm = bs_greeks(200.0, 100.0, 0.05, 0.02, 0.20, 0.01, OptionType::Put, 365.0);
+        assert!(deep_otm.is_valid(), "Deep OTM put Greeks should be valid");
+    }
+
+    #[test]
+    fn test_bs_greeks_clamped() {
+        // Create Greeks with slightly out-of-bounds values (simulating numerical noise)
+        let greeks = BsGreeks {
+            delta: 1.0000001, // Slightly above 1.0
+            gamma: -0.0000001, // Slightly negative
+            vega: -0.0000001, // Slightly negative
+            theta: -0.05,
+            rho_r: 0.5,
+            rho_q: -0.3,
+        };
+
+        let clamped = greeks.clamped();
+        assert_eq!(clamped.delta, 1.0);
+        assert_eq!(clamped.gamma, 0.0);
+        assert_eq!(clamped.vega, 0.0);
+        assert_eq!(clamped.theta, -0.05); // Unchanged
+        assert_eq!(clamped.rho_r, 0.5); // Unchanged
+        assert_eq!(clamped.rho_q, -0.3); // Unchanged
+        assert!(clamped.is_valid());
+    }
+
+    #[test]
+    fn test_bs_greeks_delta_bounds() {
+        // Test that delta stays in [-1, 1] for extreme cases
+        let cases = [
+            // (spot, strike, option_type, expected_delta_sign)
+            (1000.0, 100.0, OptionType::Call, 1), // Deep ITM call → delta ≈ 1
+            (10.0, 100.0, OptionType::Call, 1),   // Deep OTM call → delta ≈ 0
+            (1000.0, 100.0, OptionType::Put, -1), // Deep OTM put → delta ≈ 0
+            (10.0, 100.0, OptionType::Put, -1),   // Deep ITM put → delta ≈ -1
+        ];
+
+        for (spot, strike, opt_type, expected_sign) in cases {
+            let greeks = bs_greeks(spot, strike, 0.05, 0.02, 0.20, 1.0, opt_type, 365.0);
+            assert!(
+                greeks.is_valid(),
+                "Greeks should be valid for spot={}, strike={}, type={:?}",
+                spot,
+                strike,
+                opt_type
+            );
+            if expected_sign > 0 {
+                assert!(greeks.delta >= 0.0);
+            } else {
+                assert!(greeks.delta <= 0.0);
+            }
+        }
     }
 }
 

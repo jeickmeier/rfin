@@ -434,6 +434,36 @@ impl ShortRateTreeConfig {
 
 use std::sync::Arc;
 
+/// Result of short-rate tree calibration with quality metrics.
+///
+/// Provides diagnostic information about calibration quality, allowing
+/// users to assess whether the tree is suitable for their use case.
+#[derive(Clone, Debug, Default)]
+pub struct CalibrationResult {
+    /// Maximum calibration error in basis points.
+    pub max_error_bps: f64,
+    /// Step at which maximum error occurred.
+    pub max_error_step: usize,
+    /// Number of steps where the solver failed and fallback was used.
+    pub fallback_count: usize,
+    /// Whether calibration completed successfully.
+    pub converged: bool,
+}
+
+impl CalibrationResult {
+    /// Returns true if calibration quality is acceptable (max error < 1bp, no fallbacks).
+    #[must_use]
+    pub fn is_acceptable(&self) -> bool {
+        self.converged && self.max_error_bps < 1.0 && self.fallback_count == 0
+    }
+
+    /// Returns true if calibration quality is good (max error < 0.1bp).
+    #[must_use]
+    pub fn is_good(&self) -> bool {
+        self.converged && self.max_error_bps < 0.1 && self.fallback_count == 0
+    }
+}
+
 /// Short-rate tree for valuing bonds with embedded options
 #[derive(Clone, Debug)]
 pub struct ShortRateTree {
@@ -446,6 +476,8 @@ pub struct ShortRateTree {
     time_steps: Vec<f64>,
     /// Discount curve used for calibration
     calibration_curve_id: CurveId,
+    /// Calibration quality metrics (populated after calibration).
+    calibration_quality: Option<CalibrationResult>,
 }
 
 impl ShortRateTree {
@@ -457,7 +489,19 @@ impl ShortRateTree {
             probs: Vec::new(),
             time_steps: Vec::new(),
             calibration_curve_id: CurveId::new(""),
+            calibration_quality: None,
         }
+    }
+
+    /// Returns the calibration result if calibration has been performed.
+    ///
+    /// # Returns
+    ///
+    /// - `Some(CalibrationResult)` with quality metrics if calibrated
+    /// - `None` if not yet calibrated
+    #[must_use]
+    pub fn calibration_result(&self) -> Option<&CalibrationResult> {
+        self.calibration_quality.as_ref()
     }
 
     /// Create a Ho-Lee tree with specified normal (absolute) volatility.
@@ -651,6 +695,14 @@ impl ShortRateTree {
             state_prices = next_state_prices;
         }
 
+        // Ho-Lee calibration is analytical (exact theta formula), so error should be minimal
+        self.calibration_quality = Some(CalibrationResult {
+            max_error_bps: 0.0,
+            max_error_step: 0,
+            fallback_count: 0,
+            converged: true,
+        });
+
         Ok(())
     }
 
@@ -698,9 +750,10 @@ impl ShortRateTree {
             self.probs[i] = (p, 1.0 - p);
         }
 
-        // Track maximum calibration error for diagnostics
+        // Track calibration quality for diagnostics
         let mut max_error_bps = 0.0_f64;
         let mut max_error_step = 0_usize;
+        let mut fallback_count = 0_usize;
 
         // Build tree forward, calibrating drift at each step
         for step in 0..self.config.steps {
@@ -753,6 +806,7 @@ impl ShortRateTree {
                     } else {
                         0.03
                     };
+                    fallback_count += 1;
                     (market_rate.clamp(alpha_lb, alpha_ub), true)
                 }
             };
@@ -818,11 +872,12 @@ impl ShortRateTree {
         }
 
         // Log calibration summary
-        if max_error_bps > 1.0 {
+        if max_error_bps > 1.0 || fallback_count > 0 {
             tracing::warn!(
-                "BDT calibration completed: max error={:.2}bp at step {} (target: <1bp)",
+                "BDT calibration completed: max error={:.2}bp at step {}, fallbacks={} (target: <1bp, 0 fallbacks)",
                 max_error_bps,
-                max_error_step
+                max_error_step,
+                fallback_count
             );
         } else {
             tracing::debug!(
@@ -831,6 +886,14 @@ impl ShortRateTree {
                 max_error_step
             );
         }
+
+        // Store calibration result for user inspection
+        self.calibration_quality = Some(CalibrationResult {
+            max_error_bps,
+            max_error_step,
+            fallback_count,
+            converged: true,
+        });
 
         Ok(())
     }

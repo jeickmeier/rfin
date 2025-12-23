@@ -45,6 +45,16 @@ where
 /// Schedule → PV helper that uses the curve's own day count convention (raw f64).
 ///
 /// Returns unrounded NPV for high-precision calibration/risk.
+///
+/// # Numerical Stability
+///
+/// Uses Neumaier compensated summation instead of Kahan summation because
+/// cashflow schedules often contain mixed-sign values (positive inflows and
+/// negative outflows). Neumaier's algorithm handles cases where the sum and
+/// the next value have similar magnitudes but opposite signs better than Kahan.
+///
+/// Reference: Neumaier, A. (1974). "Rundungsfehleranalyse einiger Verfahren
+/// zur Summation endlicher Summen." *ZAMM*, 54(1), 39-51.
 pub fn schedule_pv_using_curve_dc_raw<S>(
     instrument: &S,
     curves: &MarketContext,
@@ -55,7 +65,7 @@ where
     S: crate::cashflow::traits::CashflowProvider,
 {
     use finstack_core::dates::DayCountCtx;
-    use finstack_core::math::kahan_sum;
+    use finstack_core::math::neumaier_sum;
 
     let flows = S::build_schedule(instrument, curves, as_of)?;
     let disc = curves.get_discount_ref(discount_curve_id.as_str())?;
@@ -76,7 +86,7 @@ where
         terms.push(amount.amount() * df);
     }
 
-    Ok(kahan_sum(terms))
+    Ok(neumaier_sum(terms))
 }
 
 /// Shared helper to build a ValuationResult with a set of metrics.
@@ -282,13 +292,26 @@ pub fn collect_black_scholes_inputs(
     };
 
     // Dividend yield (q)
+    //
+    // When a dividend yield ID is explicitly provided, we require the lookup to succeed
+    // and return a unitless scalar. Silent fallback to 0.0 would mask market data
+    // configuration errors.
     let q = if let Some(div_id) = div_yield_id {
-        match curves.price(div_id.as_str()) {
-            Ok(ms) => match ms {
-                MarketScalar::Unitless(v) => *v,
-                MarketScalar::Price(_) => 0.0,
-            },
-            Err(_) => 0.0,
+        let ms = curves.price(div_id.as_str()).map_err(|e| {
+            finstack_core::Error::Validation(format!(
+                "Failed to fetch dividend yield '{}': {}",
+                div_id, e
+            ))
+        })?;
+        match ms {
+            MarketScalar::Unitless(v) => *v,
+            MarketScalar::Price(m) => {
+                return Err(finstack_core::Error::Validation(format!(
+                    "Dividend yield '{}' should be a unitless scalar, got Price({})",
+                    div_id,
+                    m.currency()
+                )));
+            }
         }
     } else {
         0.0

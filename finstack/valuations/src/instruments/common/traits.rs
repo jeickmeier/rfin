@@ -127,7 +127,7 @@ pub type CurveIdVec = SmallVec<[CurveId; 2]>;
 /// assert!(!attrs.matches_selector("tag:high-yield"));
 /// ```
 #[derive(Clone, Debug, Default, Serialize, Deserialize)]
-#[cfg_attr(feature = "serde", serde(deny_unknown_fields))]
+#[serde(deny_unknown_fields)]
 pub struct Attributes {
     /// User-defined tags for categorization (e.g., "high-yield", "energy").
     ///
@@ -202,9 +202,7 @@ impl Attributes {
     /// assert!(attrs.has_tag("technology"));
     /// ```
     pub fn with_tags(mut self, tags: &[&str]) -> Self {
-        for tag in tags {
-            self.tags.insert(tag.to_string());
-        }
+        self.tags.extend(tags.iter().map(|s| (*s).to_string()));
         self
     }
 

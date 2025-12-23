@@ -6,6 +6,21 @@ use finstack_core::dates::{adjust, BusinessDayConvention, Date, HolidayCalendar}
 use finstack_core::{Error, Result};
 use time::Duration;
 
+/// Maximum number of joint calendar adjustment iterations.
+///
+/// When adjusting a date across two calendars, we alternate between adjusting on
+/// the base calendar and the quote calendar until convergence. In practice, this
+/// converges within 2-3 iterations. The limit of 5 provides safety margin for
+/// unusual calendar combinations where holidays cluster together.
+///
+/// # Rationale
+///
+/// Consider a date that falls on a holiday in calendar A, but the adjusted date
+/// lands on a holiday in calendar B, and so on. This is rare but possible when
+/// calendars have adjacent or overlapping holiday patterns (e.g., New Year period
+/// across multiple regions).
+const JOINT_CALENDAR_MAX_ITERATIONS: usize = 5;
+
 fn weekends_only() -> Calendar {
     Calendar::new("weekends_only", "Weekends Only", true, &[])
 }
@@ -96,7 +111,7 @@ pub fn adjust_joint_calendar(
     let quote_cal = resolve_calendar(quote_cal_id)?;
 
     let mut d = date;
-    for _ in 0..5 {
+    for _ in 0..JOINT_CALENDAR_MAX_ITERATIONS {
         let adj_base = adjust(d, bdc, base_cal.as_holiday_calendar())?;
         let adj_quote = adjust(adj_base, bdc, quote_cal.as_holiday_calendar())?;
         if adj_quote == d {
@@ -336,7 +351,7 @@ pub fn adjust_joint_calendar_with_calendars(
     calendars: &ResolvedCalendarPair,
 ) -> Result<Date> {
     let mut d = date;
-    for _ in 0..5 {
+    for _ in 0..JOINT_CALENDAR_MAX_ITERATIONS {
         let adj_base = adjust(d, bdc, calendars.base.as_holiday_calendar())?;
         let adj_quote = adjust(adj_base, bdc, calendars.quote.as_holiday_calendar())?;
         if adj_quote == d {

@@ -475,4 +475,28 @@ mod tests {
             trap
         );
     }
+
+    #[test]
+    fn test_builder_pattern() {
+        // Test that builder pattern works for configuring QE scheme
+        let qe = QeHeston::new().with_integrated_variance(IntegratedVarianceMethod::Exact);
+
+        // Verify it works without panics
+        let params = HestonParams::new(0.05, 0.02, 2.0, 0.04, 0.3, -0.7, 0.04);
+        let v = qe.step_variance(0.04, params.kappa, params.theta, params.sigma_v, 0.1, 0.0);
+        assert!(v >= 0.0);
+    }
+
+    #[test]
+    fn test_with_psi_c() {
+        // Test custom psi_c threshold
+        let qe = QeHeston::with_psi_c(2.0);
+        let params = HestonParams::new(0.05, 0.02, 2.0, 0.04, 0.3, -0.7, 0.04);
+
+        // Variance should remain positive
+        for z in [-2.0, 0.0, 2.0] {
+            let v = qe.step_variance(0.04, params.kappa, params.theta, params.sigma_v, 0.1, z);
+            assert!(v >= 0.0);
+        }
+    }
 }
