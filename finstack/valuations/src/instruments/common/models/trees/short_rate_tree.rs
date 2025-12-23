@@ -106,7 +106,6 @@ pub fn normal_to_lognormal_vol(normal_vol: f64, rate_level: f64) -> Result<f64> 
         rate_level,
         1.0,
     )
-    .map_err(Into::into)
 }
 
 /// Convert lognormal (relative) volatility to normal (absolute) volatility.
@@ -155,7 +154,6 @@ pub fn lognormal_to_normal_vol(lognormal_vol: f64, rate_level: f64) -> Result<f6
         rate_level,
         1.0,
     )
-    .map_err(Into::into)
 }
 
 /// Default normal (absolute) volatility for Ho-Lee model.
@@ -1275,14 +1273,14 @@ mod tests {
     #[allow(deprecated)]
     fn test_normal_to_lognormal_errors_on_zero_rate() {
         let err = normal_to_lognormal_vol(0.01, 0.0).expect_err("should error");
-        assert!(err.to_string().is_empty() == false);
+        assert!(!err.to_string().is_empty());
     }
 
     #[test]
     #[allow(deprecated)]
     fn test_normal_to_lognormal_errors_on_negative_rate() {
         let err = normal_to_lognormal_vol(0.01, -0.01).expect_err("should error");
-        assert!(err.to_string().is_empty() == false);
+        assert!(!err.to_string().is_empty());
     }
 
     // ========================================================================

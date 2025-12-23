@@ -22,6 +22,7 @@ pub mod two_factor_rates_credit;
 
 pub use binomial_tree::{BinomialTree, TreeType};
 pub use hull_white_tree::{HullWhiteTree, HullWhiteTreeConfig};
+#[allow(deprecated)]
 pub use short_rate_tree::{
     lognormal_to_normal_vol, normal_to_lognormal_vol, short_rate_keys, ShortRateModel,
     ShortRateTree, ShortRateTreeConfig, DEFAULT_LOGNORMAL_VOL, DEFAULT_NORMAL_VOL,

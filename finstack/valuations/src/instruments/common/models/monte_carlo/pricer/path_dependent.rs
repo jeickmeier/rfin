@@ -14,7 +14,7 @@ use crate::instruments::common::mc::rng::philox::PhiloxRng;
 use crate::instruments::common::mc::rng::sobol::SobolRng;
 use crate::instruments::common::mc::time_grid::TimeGrid;
 use crate::instruments::common::mc::traits::StochasticProcess;
-use crate::instruments::common::mc::traits::{Discretization, RandomStream};
+use crate::instruments::common::mc::traits::Discretization;
 use finstack_core::currency::Currency;
 use finstack_core::Result;
 
