@@ -41,14 +41,18 @@ impl CDSConvention {
         }
     }
 
-    fn registry(&self) -> &'static CdsConventionResolved {
+    /// Look up resolved conventions from registry.
+    ///
+    /// Returns an error if the registry entry is missing (configuration error).
+    fn try_registry(&self) -> finstack_core::Result<&'static CdsConventionResolved> {
         cds_conventions_registry()
             .get(self.registry_id())
-            .unwrap_or_else(|| {
-                panic!(
-                    "Missing CDS conventions registry entry for '{}'",
+            .ok_or_else(|| {
+                finstack_core::Error::Validation(format!(
+                    "Missing CDS conventions registry entry for '{}'. \
+                     This indicates a configuration error in the embedded CDS conventions data.",
                     self.registry_id()
-                )
+                ))
             })
     }
 
@@ -57,15 +61,23 @@ impl CDSConvention {
     /// Per ISDA standards:
     /// - North America/Europe: ACT/360
     /// - Asia: ACT/365F
+    ///
+    /// Returns ACT/360 as fallback if registry lookup fails.
     #[must_use]
     pub fn day_count(&self) -> DayCount {
-        self.registry().day_count
+        self.try_registry()
+            .map(|r| r.day_count)
+            .unwrap_or(DayCount::Act360)
     }
 
     /// Get the standard payment frequency (quarterly for all conventions).
+    ///
+    /// Returns quarterly as fallback if registry lookup fails.
     #[must_use]
     pub fn frequency(&self) -> Tenor {
-        self.registry().frequency
+        self.try_registry()
+            .map(|r| r.frequency)
+            .unwrap_or_else(|_| Tenor::quarterly())
     }
 
     /// Get the standard business day convention.
@@ -73,24 +85,36 @@ impl CDSConvention {
     /// Per ISDA 2014 Credit Derivatives Definitions Section 4.12, CDS payment
     /// dates use **Modified Following** to prevent dates from rolling into
     /// the next month.
+    ///
+    /// Returns ModifiedFollowing as fallback if registry lookup fails.
     #[must_use]
     pub fn business_day_convention(&self) -> BusinessDayConvention {
-        self.registry().business_day_convention
+        self.try_registry()
+            .map(|r| r.business_day_convention)
+            .unwrap_or(BusinessDayConvention::ModifiedFollowing)
     }
 
     /// Get the standard stub convention.
+    ///
+    /// Returns ShortFront as fallback if registry lookup fails.
     #[must_use]
     pub fn stub_convention(&self) -> StubKind {
-        self.registry().stub_convention
+        self.try_registry()
+            .map(|r| r.stub_convention)
+            .unwrap_or(StubKind::ShortFront)
     }
 
     /// Get the standard settlement delay in business days.
     ///
     /// Returns the number of business days between trade date and settlement
     /// for standard CDS conventions by region.
+    ///
+    /// Returns 3 (T+3) as fallback if registry lookup fails.
     #[must_use]
     pub fn settlement_delay(&self) -> u16 {
-        self.registry().settlement_delay_days
+        self.try_registry()
+            .map(|r| r.settlement_delay_days)
+            .unwrap_or(3)
     }
 
     /// Get the default holiday calendar identifier for this convention.
@@ -99,9 +123,13 @@ impl CDSConvention {
     /// - North America: `nyse` (New York Stock Exchange)
     /// - Europe: `target2` (TARGET2 / ECB)
     /// - Asia: `jpto` (Tokyo Stock Exchange)
+    ///
+    /// Returns "nyse" as fallback if registry lookup fails.
     #[must_use]
     pub fn default_calendar(&self) -> &'static str {
-        self.registry().default_calendar_id.as_str()
+        self.try_registry()
+            .map(|r| r.default_calendar_id.as_str())
+            .unwrap_or("nyse")
     }
 }
 
@@ -179,14 +207,14 @@ struct CdsConventionRecord {
 }
 
 impl CdsConventionRecord {
-    fn into_resolved(self) -> CdsConventionResolved {
-        let frequency = Tenor::parse(&self.payment_frequency).unwrap_or_else(|e| {
-            panic!(
+    fn try_into_resolved(self) -> finstack_core::Result<CdsConventionResolved> {
+        let frequency = Tenor::parse(&self.payment_frequency).map_err(|e| {
+            finstack_core::Error::Validation(format!(
                 "Invalid `payment_frequency` in CDS conventions registry: '{}': {}",
                 self.payment_frequency, e
-            )
-        });
-        CdsConventionResolved {
+            ))
+        })?;
+        Ok(CdsConventionResolved {
             doc_clause: self.doc_clause,
             day_count: self.day_count,
             frequency,
@@ -194,7 +222,7 @@ impl CdsConventionRecord {
             stub_convention: self.stub_convention,
             settlement_delay_days: self.settlement_days,
             default_calendar_id: self.calendar_id,
-        }
+        })
     }
 }
 
@@ -211,12 +239,29 @@ fn cds_conventions_registry(
         let file: crate::market::conventions::loaders::json::RegistryFile<CdsConventionRecord> =
             serde_json::from_str(json)
                 .expect("Failed to parse embedded CDS conventions registry JSON");
-        crate::market::conventions::loaders::json::build_lookup_map_mapped(
-            file,
-            normalize_cds_key,
-            |rec| rec.clone().into_resolved(),
-        )
-        .expect("Failed to build CDS conventions lookup map")
+
+        // Build the registry, converting each record to resolved form
+        let mut map = finstack_core::collections::HashMap::default();
+        for entry in file.entries {
+            // Each entry can have multiple alias IDs
+            match entry.record.clone().try_into_resolved() {
+                Ok(resolved) => {
+                    for id in &entry.ids {
+                        let key = normalize_cds_key(id);
+                        map.insert(key, resolved.clone());
+                    }
+                }
+                Err(e) => {
+                    // Log warning but continue - this is startup-time validation
+                    // The entry will be missing and lookups will fall back to defaults
+                    eprintln!(
+                        "Warning: Failed to load CDS convention '{:?}': {}",
+                        entry.ids, e
+                    );
+                }
+            }
+        }
+        map
     })
 }
 

@@ -277,6 +277,15 @@ pub struct ShortRateTreeConfig {
     /// - Higher values = faster reversion, less rate dispersion
     /// - Only used by BDT; ignored by Ho-Lee
     pub mean_reversion: Option<f64>,
+
+    /// Tree branching type (binomial or trinomial).
+    ///
+    /// - **Binomial**: Standard two-branch tree (up/down)
+    /// - **Trinomial**: Three-branch tree (up/mid/down) for better numerical stability
+    ///   with mean-reverting models like Hull-White and BDT
+    ///
+    /// Default: Binomial. Trinomial is recommended for mean-reverting models.
+    pub branching: TreeBranching,
 }
 
 impl Default for ShortRateTreeConfig {
@@ -290,6 +299,9 @@ impl Default for ShortRateTreeConfig {
 
 impl ShortRateTreeConfig {
     /// Create a Ho-Lee configuration with specified normal volatility.
+    ///
+    /// Uses binomial branching by default. For trinomial branching,
+    /// use [`with_trinomial`](Self::with_trinomial) after construction.
     ///
     /// # Arguments
     ///
@@ -310,10 +322,14 @@ impl ShortRateTreeConfig {
             model: ShortRateModel::HoLee,
             volatility: normal_vol,
             mean_reversion: None,
+            branching: TreeBranching::Binomial,
         }
     }
 
     /// Create a Black-Derman-Toy configuration with specified lognormal volatility.
+    ///
+    /// Uses trinomial branching by default for better numerical stability
+    /// with mean-reverting dynamics. For binomial, use [`with_binomial`](Self::with_binomial).
     ///
     /// # Arguments
     ///
@@ -335,6 +351,8 @@ impl ShortRateTreeConfig {
             model: ShortRateModel::BlackDermanToy,
             volatility: lognormal_vol,
             mean_reversion: Some(mean_reversion),
+            // Trinomial is preferred for mean-reverting models
+            branching: TreeBranching::Trinomial,
         }
     }
 
@@ -348,9 +366,26 @@ impl ShortRateTreeConfig {
     /// Create BDT configuration with default lognormal volatility (20%).
     ///
     /// Suitable for developed market government bonds with positive rates.
-    /// Uses 3% mean reversion as default.
+    /// Uses 3% mean reversion and trinomial branching as defaults.
     pub fn default_bdt(steps: usize) -> Self {
         Self::bdt(steps, DEFAULT_LOGNORMAL_VOL, 0.03)
+    }
+
+    /// Set trinomial branching (recommended for mean-reverting models).
+    ///
+    /// Trinomial trees provide better numerical stability for mean-reverting
+    /// short-rate models like Hull-White and BDT.
+    #[must_use]
+    pub fn with_trinomial(mut self) -> Self {
+        self.branching = TreeBranching::Trinomial;
+        self
+    }
+
+    /// Set binomial branching (standard two-branch tree).
+    #[must_use]
+    pub fn with_binomial(mut self) -> Self {
+        self.branching = TreeBranching::Binomial;
+        self
     }
 
     /// Create configuration from normal volatility, automatically selecting
@@ -808,19 +843,22 @@ impl TreeModel for ShortRateTree {
             }
         });
 
-        // For trinomial trees: (p_up, p_down) default to (1/3, 1/3, 1/3)
-        // For short-rate trees calibrated via binomial, use binomial probs
-        // FIX: Switch to Trinomial branching for improved stability
-        let (p_up, p_down) = self.probs.first().copied().unwrap_or((0.5, 0.5));
-        let p_middle = 0.0; // Binomial mode (trinomial would use ~1/3 each)
-
-        // Use Trinomial branching for better numerical stability with mean-reverting models
-        // Note: For a proper trinomial implementation, probabilities should sum to 1.0
-        // and the tree structure needs to support 3 branches per node.
-        // For now, we delegate using Binomial structure but with the refactored framework.
+        // Set up branching probabilities based on tree type
+        let (p_up, p_down, p_middle) = match self.config.branching {
+            TreeBranching::Trinomial => {
+                // Trinomial: equal probabilities for up/mid/down
+                // This provides better numerical stability for mean-reverting models
+                (1.0 / 3.0, 1.0 / 3.0, 1.0 / 3.0)
+            }
+            TreeBranching::Binomial => {
+                // Binomial: use calibrated probabilities if available, else 50/50
+                let (pu, pd) = self.probs.first().copied().unwrap_or((0.5, 0.5));
+                (pu, pd, 0.0)
+            }
+        };
 
         price_recombining_tree(RecombiningInputs {
-            branching: TreeBranching::Binomial, // TODO: Upgrade to Trinomial after full calibration
+            branching: self.config.branching,
             steps: self.config.steps,
             initial_vars,
             time_to_maturity,
@@ -828,7 +866,11 @@ impl TreeModel for ShortRateTree {
             valuator,
             up_factor: 1.0,   // Not used with custom_state_generator
             down_factor: 1.0, // Not used with custom_state_generator
-            middle_factor: None,
+            middle_factor: if self.config.branching == TreeBranching::Trinomial {
+                Some(1.0)
+            } else {
+                None
+            },
             prob_up: p_up,
             prob_down: p_down,
             prob_middle: Some(p_middle),

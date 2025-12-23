@@ -68,6 +68,16 @@ pub struct BondFutureSpecs {
     pub standard_maturity_years: f64,
     /// Number of business days for settlement after expiry
     pub settlement_days: u32,
+    /// Holiday calendar identifier for business day calculations.
+    ///
+    /// Defaults to "nyse" for US Treasury futures.
+    /// Use "target2" for European government bond futures.
+    #[cfg_attr(feature = "serde", serde(default = "default_calendar_id"))]
+    pub calendar_id: String,
+}
+
+fn default_calendar_id() -> String {
+    "nyse".to_string()
 }
 
 impl Default for BondFutureSpecs {
@@ -80,6 +90,7 @@ impl Default for BondFutureSpecs {
     /// - Standard coupon: 6% (0.06)
     /// - Standard maturity: 10 years
     /// - Settlement: 2 business days
+    /// - Calendar: NYSE (New York Stock Exchange)
     fn default() -> Self {
         Self {
             contract_size: 100_000.0,
@@ -88,6 +99,7 @@ impl Default for BondFutureSpecs {
             standard_coupon: 0.06, // 6%
             standard_maturity_years: 10.0,
             settlement_days: 2,
+            calendar_id: "nyse".to_string(),
         }
     }
 }
@@ -158,6 +170,7 @@ impl BondFutureSpecs {
             standard_coupon: 0.06,  // 6%
             standard_maturity_years: 5.0,
             settlement_days: 2,
+            calendar_id: "nyse".to_string(),
         }
     }
 
@@ -196,6 +209,7 @@ impl BondFutureSpecs {
             standard_coupon: 0.06,    // 6%
             standard_maturity_years: 2.0,
             settlement_days: 2,
+            calendar_id: "nyse".to_string(),
         }
     }
 
@@ -240,6 +254,7 @@ impl BondFutureSpecs {
             standard_coupon: 0.06, // 6%
             standard_maturity_years: 10.0,
             settlement_days: 2,
+            calendar_id: "target2".to_string(), // European settlement calendar
         }
     }
 
@@ -285,6 +300,7 @@ impl BondFutureSpecs {
             standard_coupon: 0.04, // 4% (different from UST/Bund)
             standard_maturity_years: 10.0,
             settlement_days: 2,
+            calendar_id: "gblo".to_string(), // London settlement calendar
         }
     }
 }

@@ -324,9 +324,22 @@ impl BondFuturePricer {
         let discount_curve: &dyn Discounting = discount_arc.as_ref();
 
         // Calculate settlement date (expiry + settlement_days business days)
-        // For now, using simple calendar days (TODO: implement business day calendar)
-        let settlement_days = future.contract_specs.settlement_days as i64;
-        let settlement_date = future.expiry_date + time::Duration::days(settlement_days);
+        // Uses the contract's calendar for proper business day handling
+        use finstack_core::dates::{CalendarRegistry, DateExt};
+        let settlement_days = future.contract_specs.settlement_days as i32;
+        let calendar = CalendarRegistry::global()
+            .resolve_str(&future.contract_specs.calendar_id)
+            .ok_or_else(|| {
+                finstack_core::Error::Validation(format!(
+                    "Unknown calendar '{}' for bond future settlement. \
+                     Available calendars: {:?}",
+                    future.contract_specs.calendar_id,
+                    CalendarRegistry::global().available_ids()
+                ))
+            })?;
+        let settlement_date = future
+            .expiry_date
+            .add_business_days(settlement_days, calendar)?;
 
         // Get discount factor to settlement
         // First, calculate year fraction from base date to settlement using curve's day count
