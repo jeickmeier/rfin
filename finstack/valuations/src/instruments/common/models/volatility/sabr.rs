@@ -177,6 +177,7 @@ impl SABRModel {
     ///
     /// This is the standard SABR formula from Hagan et al. (2002) with enhanced
     /// numerical stability and support for negative rates through shifting.
+    #[must_use = "computed volatility should be used"]
     #[inline]
     pub fn implied_volatility(
         &self,
@@ -190,7 +191,11 @@ impl SABRModel {
         } else {
             // Validate non-negative rates for standard SABR
             if forward <= 0.0 || strike <= 0.0 {
-                return Err(Error::Internal); // Standard SABR requires positive rates
+                return Err(Error::Validation(format!(
+                    "Standard SABR requires positive rates. Got forward={:.6}, strike={:.6}. \
+                     Use shifted SABR (new_with_shift) for negative rates.",
+                    forward, strike
+                )));
             }
             (forward, strike)
         };
@@ -228,10 +233,11 @@ impl SABRModel {
                 / (1.0 - beta)
         };
 
-        // Enhanced ATM detection based on log-moneyness and z
-        let abs_diff = (effective_forward - effective_strike).abs();
-        let relative_diff = abs_diff / effective_forward.max(effective_strike);
-        if abs_diff < 1e-8 || relative_diff < 1e-8 || z.abs() < 1e-8 {
+        // ATM detection using single scale-invariant relative threshold
+        // This ensures consistent behavior regardless of forward/strike scale (rates vs equities)
+        let relative_diff =
+            (effective_forward - effective_strike).abs() / effective_forward.max(effective_strike);
+        if relative_diff < 1e-8 || z.abs() < 1e-8 {
             return self.atm_volatility(effective_forward, time_to_expiry);
         }
 
@@ -277,7 +283,11 @@ impl SABRModel {
 
         // Validate result
         if volatility <= 0.0 || !volatility.is_finite() {
-            return Err(Error::Internal); // Invalid volatility result
+            return Err(Error::Validation(format!(
+                "SABR produced invalid volatility={:.6} for forward={:.6}, strike={:.6}, T={:.4}. \
+                 Check parameter values.",
+                volatility, forward, strike, time_to_expiry
+            )));
         }
 
         Ok(volatility)
@@ -332,59 +342,111 @@ impl SABRModel {
 
         // Validate result
         if vol <= 0.0 || !vol.is_finite() {
-            return Err(Error::Internal); // Invalid ATM volatility
+            return Err(Error::Validation(format!(
+                "SABR ATM volatility calculation produced invalid result={:.6} for forward={:.6}, T={:.4}",
+                vol, forward, time_to_expiry
+            )));
         }
 
         Ok(vol)
     }
 
-    /// Calculate chi(z) for the SABR formula with enhanced numerical stability
+    /// Calculate chi(z) for the SABR formula with enhanced numerical stability.
+    ///
+    /// Uses a smooth blending function between series expansion (for small z)
+    /// and the exact formula (for larger z) to ensure continuous derivatives
+    /// for smooth Greeks near ATM.
+    ///
+    /// # Implementation Notes
+    ///
+    /// - Series expansion: χ(z) ≈ z + (ρ/2)z² + ((2ρ² - 1)/6)z³ + O(z⁴)
+    /// - Smooth sigmoid blend in transition region [1e-5, 1e-3]
+    /// - Special handling for extreme rho values (±1)
     #[inline]
     fn calculate_chi_robust(&self, z: f64) -> Result<f64> {
         let rho = self.params.rho;
 
-        // For very small z, use second-order series expansion to avoid numerical issues.
+        // Fourth-order Taylor series expansion around z = 0:
+        // χ(z) = ln((√(1 - 2ρz + z²) + z - ρ)/(1 - ρ))
         //
-        // Hagan form: χ(z) = ln((√(1 - 2ρz + z²) + z - ρ)/(1 - ρ))
-        // Expand around z = 0 to O(z²) to keep Greeks smooth near ATM.
-        if z.abs() < 1e-4 {
-            let z2 = z * z;
-            // Coefficients from Taylor expansion around z = 0:
-            // χ(z) ≈ z + ρ/2 * z²  for |z| ≪ 1
-            return Ok(z + 0.5 * rho * z2);
-        }
+        // Expand: Let f(z) = √(1 - 2ρz + z²) + z - ρ
+        // f(0) = 1 - ρ
+        // f'(0) = (-ρ + 0)/1 + 1 = 1 - ρ (since d/dz √(1-2ρz+z²)|_{z=0} = -ρ)
+        // etc.
+        //
+        // After careful expansion: χ(z) ≈ z + (ρ/2)z² + ((2ρ² - 1)/6)z³ + O(z⁴)
+        let series_chi = |z_val: f64| -> f64 {
+            let z2 = z_val * z_val;
+            let z3 = z2 * z_val;
+            let z4 = z2 * z2;
+            // Coefficients from Taylor expansion
+            let c1 = 1.0; // coefficient of z
+            let c2 = rho / 2.0; // coefficient of z²
+            let c3 = (2.0 * rho * rho - 1.0) / 6.0; // coefficient of z³
+            let c4 = rho * (5.0 * rho * rho - 3.0) / 24.0; // coefficient of z⁴
+            c1 * z_val + c2 * z2 + c3 * z3 + c4 * z4
+        };
 
-        // Calculate discriminant with protection
-        let discriminant = 1.0 - 2.0 * rho * z + z.powi(2);
+        // Exact chi formula
+        let exact_chi = |z_val: f64| -> Result<f64> {
+            let discriminant = 1.0 - 2.0 * rho * z_val + z_val * z_val;
 
-        if discriminant < 0.0 {
-            return Err(Error::Internal); // Invalid parameters
-        }
-
-        let sqrt_disc = discriminant.sqrt();
-
-        // Enhanced handling for different rho cases
-        if (1.0 - rho).abs() < 1e-6 {
-            // Handle rho ≈ 1 case with series expansion
-            // For rho ≈ 1: χ(z) ≈ z/(1+z/2) for small z
-            if z.abs() < 0.1 {
-                Ok(z / (1.0 + z / 2.0))
-            } else {
-                Ok(z / (1.0 + z))
+            if discriminant < 0.0 {
+                return Err(Error::Validation(format!(
+                    "SABR chi function: negative discriminant {} for z={:.6}, rho={:.6}",
+                    discriminant, z_val, rho
+                )));
             }
-        } else if (-1.0 - rho).abs() < 1e-6 {
-            // Handle rho ≈ -1 case
-            Ok((sqrt_disc + z + 1.0).ln() - 0.5 * 2.0_f64.ln())
-        } else {
-            // Standard case with numerical protection
-            let numerator = sqrt_disc + z - rho;
+
+            let sqrt_disc = discriminant.sqrt();
+
+            // Handle extreme rho cases
+            if (1.0 - rho).abs() < 1e-10 {
+                // rho ≈ 1: Use approximation χ(z) ≈ z / (1 + z/2)
+                return Ok(z_val / (1.0 + z_val / 2.0));
+            }
+            if (1.0 + rho).abs() < 1e-10 {
+                // rho ≈ -1: Use stable form
+                return Ok((sqrt_disc + z_val + 1.0).ln() - (2.0_f64).ln() / 2.0);
+            }
+
+            let numerator = sqrt_disc + z_val - rho;
             let denominator = 1.0 - rho;
 
             if numerator <= 0.0 {
-                return Err(Error::Internal); // Would result in log of non-positive number
+                return Err(Error::Validation(format!(
+                    "SABR chi function: non-positive log argument {} for z={:.6}, rho={:.6}",
+                    numerator, z_val, rho
+                )));
             }
 
             Ok((numerator / denominator).ln())
+        };
+
+        let abs_z = z.abs();
+
+        // Transition region bounds
+        let z_low = 1e-5; // Below this, use pure series
+        let z_high = 1e-3; // Above this, use pure exact
+
+        if abs_z < z_low {
+            // Pure series expansion for very small z
+            Ok(series_chi(z))
+        } else if abs_z > z_high {
+            // Pure exact formula for larger z
+            exact_chi(z)
+        } else {
+            // Smooth sigmoid blend in transition region
+            // Use smooth step function: t = (|z| - z_low) / (z_high - z_low)
+            // blend = 3t² - 2t³ (smooth step with zero derivative at endpoints)
+            let t = (abs_z - z_low) / (z_high - z_low);
+            let blend = t * t * (3.0 - 2.0 * t); // Hermite smoothstep
+
+            let series_val = series_chi(z);
+            let exact_val = exact_chi(z)?;
+
+            // Linear interpolation with smooth weights
+            Ok((1.0 - blend) * series_val + blend * exact_val)
         }
     }
 
@@ -416,14 +478,21 @@ impl SABRModel {
     pub fn validate_inputs(&self, forward: f64, strike: f64, time_to_expiry: f64) -> Result<()> {
         // Time validation
         if time_to_expiry <= 0.0 {
-            return Err(Error::Internal); // Invalid time to expiry
+            return Err(Error::Validation(format!(
+                "SABR time_to_expiry must be positive, got: {:.6}",
+                time_to_expiry
+            )));
         }
 
         // Rate validation based on model type
         if self.params.shift.is_none() {
             // Standard SABR requires positive rates
             if forward <= 0.0 || strike <= 0.0 {
-                return Err(Error::Internal); // Standard SABR requires positive rates
+                return Err(Error::Validation(format!(
+                    "Standard SABR requires positive rates. Got forward={:.6}, strike={:.6}. \
+                     Use shifted SABR for negative rates.",
+                    forward, strike
+                )));
             }
         } else {
             // Shifted SABR allows negative rates but shifted values must be positive
@@ -432,7 +501,13 @@ impl SABRModel {
                 .shift
                 .expect("Shift should be Some when using shifted SABR");
             if forward + shift <= 0.0 || strike + shift <= 0.0 {
-                return Err(Error::Internal); // Shifted rates must result in positive values
+                return Err(Error::Validation(format!(
+                    "Shifted SABR: effective rates must be positive. \
+                     Got forward+shift={:.6}, strike+shift={:.6} (shift={:.6})",
+                    forward + shift,
+                    strike + shift,
+                    shift
+                )));
             }
         }
 
@@ -451,12 +526,17 @@ pub struct SABRCalibrator {
 }
 
 impl SABRCalibrator {
-    /// Create new calibrator
+    /// Create new calibrator with production-ready defaults.
+    ///
+    /// By default, uses finite-difference gradients (`use_fd_gradients: true`)
+    /// for more accurate calibration at the cost of some performance.
+    /// Use `with_fd_gradients(false)` to switch to analytical approximations
+    /// for faster but potentially less accurate calibration.
     pub fn new() -> Self {
         Self {
             tolerance: 1e-6,
             max_iterations: 100,
-            use_fd_gradients: false,
+            use_fd_gradients: true, // Default to FD for production accuracy
         }
     }
 
@@ -550,7 +630,11 @@ impl SABRCalibrator {
         shift: f64,
     ) -> Result<SABRParameters> {
         if strikes.len() != market_vols.len() {
-            return Err(Error::Internal);
+            return Err(Error::Validation(format!(
+                "SABR calibration: strikes length ({}) must match market_vols length ({})",
+                strikes.len(),
+                market_vols.len()
+            )));
         }
 
         // Apply shift to all rates
@@ -559,7 +643,16 @@ impl SABRCalibrator {
 
         // Validate shifted rates are positive
         if shifted_forward <= 0.0 || shifted_strikes.iter().any(|&s| s <= 0.0) {
-            return Err(Error::Internal); // Insufficient shift for negative rates
+            let min_shifted_strike = shifted_strikes
+                .iter()
+                .copied()
+                .min_by(|a, b| a.total_cmp(b))
+                .unwrap_or(0.0);
+            return Err(Error::Validation(format!(
+                "Shifted SABR calibration: shift={:.6} is insufficient. \
+                 shifted_forward={:.6}, min_shifted_strike={:.6}. Increase shift.",
+                shift, shifted_forward, min_shifted_strike
+            )));
         }
 
         // Calibrate using shifted rates
@@ -591,7 +684,11 @@ impl SABRCalibrator {
         beta: f64, // Beta is usually fixed
     ) -> Result<SABRParameters> {
         if strikes.len() != market_vols.len() {
-            return Err(Error::Internal);
+            return Err(Error::Validation(format!(
+                "SABR calibration: strikes length ({}) must match market_vols length ({})",
+                strikes.len(),
+                market_vols.len()
+            )));
         }
 
         // Use Levenberg-Marquardt solver for robust calibration
@@ -661,7 +758,11 @@ impl SABRCalibrator {
         beta: f64,
     ) -> Result<SABRParameters> {
         if strikes.len() != market_vols.len() {
-            return Err(Error::Internal);
+            return Err(Error::Validation(format!(
+                "SABR calibration: strikes length ({}) must match market_vols length ({})",
+                strikes.len(),
+                market_vols.len()
+            )));
         }
 
         // Use analytical derivatives from the local module
@@ -759,7 +860,11 @@ impl SABRCalibrator {
         shift: f64,
     ) -> Result<SABRParameters> {
         if strikes.len() != market_vols.len() {
-            return Err(Error::Internal);
+            return Err(Error::Validation(format!(
+                "SABR calibration: strikes length ({}) must match market_vols length ({})",
+                strikes.len(),
+                market_vols.len()
+            )));
         }
 
         // Apply shift to all rates
@@ -768,7 +873,16 @@ impl SABRCalibrator {
 
         // Validate shifted rates are positive
         if shifted_forward <= 0.0 || shifted_strikes.iter().any(|&s| s <= 0.0) {
-            return Err(Error::Internal); // Insufficient shift for negative rates
+            let min_shifted_strike = shifted_strikes
+                .iter()
+                .copied()
+                .min_by(|a, b| a.total_cmp(b))
+                .unwrap_or(0.0);
+            return Err(Error::Validation(format!(
+                "Shifted SABR calibration: shift={:.6} is insufficient. \
+                 shifted_forward={:.6}, min_shifted_strike={:.6}. Increase shift.",
+                shift, shifted_forward, min_shifted_strike
+            )));
         }
 
         // Calibrate using shifted rates with derivatives
@@ -831,7 +945,11 @@ impl SABRCalibrator {
         beta: f64,
     ) -> Result<SABRParameters> {
         if strikes.len() != market_vols.len() {
-            return Err(Error::Internal);
+            return Err(Error::Validation(format!(
+                "SABR calibration: strikes length ({}) must match market_vols length ({})",
+                strikes.len(),
+                market_vols.len()
+            )));
         }
 
         // Find ATM vol from market data
@@ -983,6 +1101,7 @@ pub struct SABRSmile {
 
 /// Result of arbitrage validation, containing any violations found.
 #[derive(Clone, Debug, Default)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub struct ArbitrageValidationResult {
     /// Strikes where butterfly spread is negative (convexity violation)
     pub butterfly_violations: Vec<ButterflyViolation>,
@@ -992,6 +1111,7 @@ pub struct ArbitrageValidationResult {
 
 /// A butterfly spread violation at a specific strike.
 #[derive(Clone, Debug)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub struct ButterflyViolation {
     /// Strike at which the violation occurs
     pub strike: f64,
@@ -1003,6 +1123,7 @@ pub struct ButterflyViolation {
 
 /// A monotonicity violation between two strikes.
 #[derive(Clone, Debug)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub struct MonotonicityViolation {
     /// Lower strike
     pub strike_low: f64,
@@ -1027,7 +1148,7 @@ impl ArbitrageValidationResult {
         self.butterfly_violations
             .iter()
             .map(|v| v.severity_pct.abs())
-            .max_by(|a, b| a.partial_cmp(b).unwrap_or(std::cmp::Ordering::Equal))
+            .max_by(|a, b| a.total_cmp(b))
     }
 }
 

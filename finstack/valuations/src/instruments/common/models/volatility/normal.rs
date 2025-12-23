@@ -1,30 +1,64 @@
 //! Bachelier (Normal) model helpers.
 //!
 //! The Bachelier model assumes the underlying asset follows a normal distribution
-//! (arithmetic Brownian motion), allowing for negative rates.
+//! (arithmetic Brownian motion), allowing for negative rates. This is the standard
+//! model for interest rate options in many markets.
 //!
-//! Pricing formulas:
+//! # Pricing Formulas
 //!
-//! Call = D(0,T) * [ (F - K) * N(d) + sigma * sqrt(T) * n(d) ]
-//! Put  = D(0,T) * [ (K - F) * N(-d) + sigma * sqrt(T) * n(d) ]
+//! ```text
+//! Call = A * [ (F - K) * N(d) + σ * √T * n(d) ]
+//! Put  = A * [ (K - F) * N(-d) + σ * √T * n(d) ]
 //!
-//! where d = (F - K) / (sigma * sqrt(T))
+//! where d = (F - K) / (σ * √T)
+//!       A = annuity (discount factor × year fraction sum)
+//! ```
+//!
+//! # Use Cases
+//!
+//! - Swaptions with normal volatility quoting
+//! - Caps/floors in negative rate environments
+//! - Interest rate options generally
 
 use finstack_core::math::{norm_cdf, norm_pdf};
 
 /// Calculate d parameter for Bachelier model
 ///
-/// d = (F - K) / (sigma * sqrt(T))
+/// d = (F - K) / (σ * √T)
+///
+/// # Edge Cases
+/// - At expiration (t ≤ 0) or zero volatility: returns appropriate limit
 #[inline]
+#[must_use]
 pub fn d_bachelier(forward: f64, strike: f64, sigma: f64, t: f64) -> f64 {
     if t <= 0.0 || sigma <= 0.0 {
-        return 0.0;
+        // At expiration: d → ±∞ based on intrinsic value
+        let intrinsic_sign = (forward - strike).signum();
+        if intrinsic_sign > 0.0 {
+            return f64::INFINITY;
+        } else if intrinsic_sign < 0.0 {
+            return f64::NEG_INFINITY;
+        } else {
+            return 0.0;
+        }
     }
     (forward - strike) / (sigma * t.sqrt())
 }
 
 /// Bachelier (Normal) model price for a call/payer option
+///
+/// # Arguments
+/// * `option_type` - Call (payer) or Put (receiver)
+/// * `forward` - Forward rate
+/// * `strike` - Strike rate
+/// * `sigma` - Normal volatility (in rate terms, not percentage)
+/// * `t` - Time to expiry in years
+/// * `annuity` - Present value of 1bp running (sum of discount factors × accrual fractions)
+///
+/// # Returns
+/// Option premium in the same units as annuity (typically currency units)
 #[inline]
+#[must_use]
 pub fn bachelier_price(
     option_type: crate::instruments::common::parameters::OptionType,
     forward: f64,
