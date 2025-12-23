@@ -26,7 +26,7 @@ The cashflow module provides the foundation for modeling and analyzing cashflows
 - **Composability**: Builder pattern for flexible schedule construction
 - **Classification**: Rich `CFKind` taxonomy for cashflow categorization
 - **Period Aggregation**: Efficient grouping and present value calculations by reporting period
-- **Accrual Engine**: Generic schedule-driven interest accrual with Linear, Compounded, and Indexed methods
+- **Accrual Engine**: Generic schedule-driven interest accrual with Linear and Compounded methods
 
 All cashflows flow through this module, ensuring consistent handling across bonds, derivatives, loans, and structured products.
 
@@ -75,7 +75,7 @@ cashflow/
 - **`primitives`**: Re-exported from `finstack_core::cashflow::primitives` for fundamental types
 - **`traits`**: `CashflowProvider` trait for instruments to expose schedules (with `notional()` method)
 - **`aggregation`**: Currency-safe merging, period rollup, PV calculations with explicit `DayCountCtx` support
-- **`accrual`**: Generic accrued interest engine supporting Linear, Compounded, and Indexed methods
+- **`accrual`**: Generic accrued interest engine supporting Linear and Compounded methods
 - **`builder`**: Composable schedule construction with specs for coupons, fees, amortization, credit events
 
 ---
@@ -150,7 +150,6 @@ Serializable specifications for:
 Generic schedule-driven accrual supporting:
 - **Linear**: Simple interest interpolation (`Accrued = Coupon × elapsed / period`)
 - **Compounded**: ICMA-style with Taylor expansion for small fractions
-- **Indexed**: Placeholder for inflation-linked conventions
 - **Ex-Coupon**: Calendar-aware ex-coupon date handling
 - **PIK Support**: Optional inclusion of PIK interest in accrued amount
 
@@ -431,9 +430,12 @@ let flows: &[CashFlow] = &schedule.flows;
 let dates: Vec<Date> = schedule.dates();
 
 // Filter by kind
-let coupons = schedule.flows_of_kind(CFKind::Fixed);
-let amorts = schedule.amortizations();
-let redemptions = schedule.redemptions();
+let coupons = schedule.flows.iter()
+    .filter(|cf| cf.kind == CFKind::Fixed);
+let amorts = schedule.flows.iter()
+    .filter(|cf| cf.kind == CFKind::Amortization);
+let redemptions = schedule.flows.iter()
+    .filter(|cf| cf.kind == CFKind::Notional && cf.amount.amount() > 0.0);
 
 // Convenience iterators
 let all_coupons = schedule.coupons();  // Fixed + Stub kinds
@@ -577,14 +579,6 @@ impl CashflowProvider for MyInstrument {
             .build()
     }
 
-    // Convenience: NPV against a discount curve
-    fn npv_with(
-        &self,
-        curves: &MarketContext,
-        as_of: Date,
-        disc: &dyn Discounting,
-        dc: DayCount,
-    ) -> finstack_core::Result<Money>;
 }
 ```
 
@@ -657,20 +651,20 @@ use finstack_valuations::cashflow::builder::{
 // Prepayment models
 let cpr_model = PrepaymentModelSpec::constant_cpr(0.06);  // 6% CPR
 let psa_100 = PrepaymentModelSpec::psa_100();            // 100% PSA
-let psa_150 = PrepaymentModelSpec::psa_150();            // 150% PSA
+let psa_150 = PrepaymentModelSpec::psa(1.5);             // 150% PSA
 
 // Calculate SMM (monthly) from CPR (annual)
 let smm = cpr_model.smm(seasoning_months);
 
 // Default models
 let cdr_model = DefaultModelSpec::constant_cdr(0.02);    // 2% CDR
-let sda_100 = DefaultModelSpec::sda_100();               // 100% SDA
+let sda_100 = DefaultModelSpec::sda(1.0);                // 100% SDA
 
 // Calculate MDR (monthly) from CDR (annual)
 let mdr = cdr_model.mdr(seasoning_months);
 
 // Recovery models
-let recovery = RecoveryModelSpec::recovery_40pct();      // 40% recovery
+let recovery = RecoveryModelSpec::with_lag(0.40, 0);     // 40% recovery
 let recovery_lag = RecoveryModelSpec::with_lag(0.70, 6); // 70%, 6-month lag
 
 // Rate conversions
@@ -993,7 +987,11 @@ fn test_accelerating_amortization() {
         .build()
         .unwrap();
     
-    let amorts: Vec<_> = schedule.amortizations().collect();
+    let amorts: Vec<_> = schedule
+        .flows
+        .iter()
+        .filter(|cf| cf.kind == CFKind::Amortization)
+        .collect();
     
     // Verify increasing payments
     for i in 1..amorts.len() {
@@ -1111,12 +1109,17 @@ Use iterators to avoid unnecessary allocations:
 
 ```rust
 // Good: Iterator (lazy evaluation)
-let total = schedule.flows_of_kind(CFKind::Fixed)
+let total = schedule.flows.iter()
+    .filter(|cf| cf.kind == CFKind::Fixed)
     .map(|cf| cf.amount.amount())
     .sum::<f64>();
 
 // Less efficient: Collect first
-let coupons: Vec<_> = schedule.flows_of_kind(CFKind::Fixed).collect();
+let coupons: Vec<_> = schedule
+    .flows
+    .iter()
+    .filter(|cf| cf.kind == CFKind::Fixed)
+    .collect();
 let total: f64 = coupons.iter().map(|cf| cf.amount.amount()).sum();
 ```
 
@@ -1220,7 +1223,10 @@ proptest! {
             .build()
             .unwrap();
         
-        let total_amort: f64 = schedule.amortizations()
+        let total_amort: f64 = schedule
+            .flows
+            .iter()
+            .filter(|cf| cf.kind == CFKind::Amortization)
             .map(|cf| cf.amount.amount())
             .sum();
         
@@ -1330,7 +1336,7 @@ The cashflow module is the foundation for all instrument valuation in Finstack. 
 
 | Feature | Description |
 |---------|-------------|
-| `accrual` module | Generic accrued interest engine (Linear/Compounded/Indexed) with ex-coupon support |
+| `accrual` module | Generic accrued interest engine (Linear/Compounded) with ex-coupon support |
 | `FloatingRateSpec` | Enhanced with caps, floors, gearing, fixing calendars |
 | `AmortizationSpec::CustomPrincipal` | Explicit principal exchanges on specific dates |
 | `FeeBase::Drawn/Undrawn` | Fee base specification with facility limit support |

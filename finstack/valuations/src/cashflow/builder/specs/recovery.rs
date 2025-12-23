@@ -15,14 +15,4 @@ impl RecoveryModelSpec {
     pub fn with_lag(rate: f64, recovery_lag: u32) -> Self {
         Self { rate, recovery_lag }
     }
-
-    /// 40% recovery rate (common baseline).
-    pub fn recovery_40pct() -> Self {
-        Self::with_lag(0.40, 0)
-    }
-
-    /// 70% recovery rate (high recovery).
-    pub fn recovery_70pct() -> Self {
-        Self::with_lag(0.70, 0)
-    }
 }

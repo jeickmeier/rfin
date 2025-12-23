@@ -1,10 +1,8 @@
 //! Cashflow-related traits and aliases.
 
 pub use crate::cashflow::{DatedFlow, DatedFlows};
-use crate::instruments::common::discountable::Discountable;
-use finstack_core::dates::{Date, DayCount};
+use finstack_core::dates::Date;
 use finstack_core::market_data::context::MarketContext;
-use finstack_core::market_data::traits::Discounting;
 use finstack_core::money::Money;
 
 /// Build cashflow schedules and provide currency-safe aggregation hooks.
@@ -134,20 +132,6 @@ pub trait CashflowProvider: Send + Sync {
         })
     }
 
-    /// Convenience: present value the built schedule against a discount curve and day-count.
-    ///
-    /// See unit tests and `examples/` for usage.
-    fn npv_with(
-        &self,
-        curves: &MarketContext,
-        as_of: Date,
-        disc: &dyn Discounting,
-        dc: DayCount,
-    ) -> finstack_core::Result<Money> {
-        let base = disc.base_date();
-        let flows = self.build_schedule(curves, as_of)?;
-        flows.npv(disc, base, dc)
-    }
 }
 
 #[cfg(test)]

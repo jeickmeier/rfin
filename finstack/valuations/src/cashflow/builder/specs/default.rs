@@ -67,11 +67,6 @@ impl DefaultModelSpec {
         }
     }
 
-    /// 100% SDA (standard default assumption).
-    pub fn sda_100() -> Self {
-        Self::sda(1.0)
-    }
-
     /// 2% CDR (common baseline).
     pub fn cdr_2pct() -> Self {
         Self::constant_cdr(0.02)

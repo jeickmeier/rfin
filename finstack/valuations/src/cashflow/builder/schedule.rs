@@ -142,11 +142,6 @@ impl CashFlowSchedule {
         self.flows.iter().map(|cf| cf.date).collect()
     }
 
-    /// Returns an iterator over flows of the given `CFKind`.
-    pub fn flows_of_kind(&self, kind: CFKind) -> impl Iterator<Item = &CashFlow> {
-        self.flows.iter().filter(move |cf| cf.kind == kind)
-    }
-
     /// Outstanding principal path computed from principal/PIK/amortization flows.
     ///
     /// Returns one entry per cashflow, tracking the outstanding balance after
@@ -198,27 +193,11 @@ impl CashFlowSchedule {
         Ok(out)
     }
 
-    // Convenience iterators for callers to avoid ad-hoc filtering.
-
     /// Get an iterator over coupon cashflows (Fixed and Stub types).
     pub fn coupons(&self) -> impl Iterator<Item = &CashFlow> {
         self.flows
             .iter()
             .filter(|cf| cf.kind == CFKind::Fixed || cf.kind == CFKind::Stub)
-    }
-
-    /// Get an iterator over amortization cashflows.
-    pub fn amortizations(&self) -> impl Iterator<Item = &CashFlow> {
-        self.flows
-            .iter()
-            .filter(|cf| cf.kind == CFKind::Amortization)
-    }
-
-    /// Get an iterator over redemption cashflows (positive notional payments).
-    pub fn redemptions(&self) -> impl Iterator<Item = &CashFlow> {
-        self.flows
-            .iter()
-            .filter(|cf| cf.kind == CFKind::Notional && cf.amount.amount() > 0.0)
     }
 
     /// End-of-date outstanding path: one entry per unique date after applying

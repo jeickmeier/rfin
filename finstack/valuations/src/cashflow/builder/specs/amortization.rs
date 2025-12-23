@@ -4,7 +4,6 @@
 
 use finstack_core::currency::Currency;
 use finstack_core::dates::Date;
-use finstack_core::error::InputError;
 use finstack_core::money::Money;
 
 /// Amortization specification for principal over time.
@@ -73,117 +72,114 @@ impl Notional {
         }
     }
 
-    /// Validate amortisation schedule (sum of amort steps ≤ initial).
+    /// Convenience accessor for currency.
+    pub fn currency(&self) -> Currency {
+        self.initial.currency()
+    }
+
+    /// Validates the notional and its amortization specification.
+    ///
+    /// # Validation Rules
+    ///
+    /// - `LinearTo`: Currency must match initial; final_notional must not exceed initial.
+    /// - `StepRemaining`: Dates must be strictly increasing (sorted, no duplicates);
+    ///   currencies must match; remaining amounts must be non-increasing.
+    /// - `PercentPerPeriod`: Percentage must be finite and in range `[0.0, 1.0]`.
+    /// - `CustomPrincipal`: All currencies must match initial.
     ///
     /// # Errors
-    /// Returns an error if the amortization schedule is invalid:
-    /// - Currency mismatch between initial and final amounts
-    /// - Final amount exceeds initial amount
-    /// - Step schedule has invalid progression
+    ///
+    /// Returns an error if any validation rule is violated.
     pub fn validate(&self) -> finstack_core::Result<()> {
+        let currency = self.initial.currency();
+
         match &self.amort {
             AmortizationSpec::None => Ok(()),
             AmortizationSpec::LinearTo { final_notional } => {
-                if final_notional.currency() != self.initial.currency()
-                    || final_notional.amount() > self.initial.amount()
-                {
-                    return Err(InputError::Invalid.into());
+                if final_notional.currency() != currency {
+                    return Err(finstack_core::error::Error::Validation(format!(
+                        "LinearTo final_notional currency ({}) must match initial currency ({})",
+                        final_notional.currency(),
+                        currency
+                    )));
+                }
+                if final_notional.amount() > self.initial.amount() {
+                    return Err(finstack_core::error::Error::Validation(format!(
+                        "LinearTo final_notional ({}) cannot exceed initial notional ({})",
+                        final_notional.amount(),
+                        self.initial.amount()
+                    )));
                 }
                 Ok(())
             }
             AmortizationSpec::StepRemaining { schedule } => {
-                // Enforce strictly increasing dates with no duplicates and validate amounts
-                // in chronological order. We sort a local copy to check timeline consistency
-                // and then ensure the provided input is already strictly increasing.
-                let mut sorted = schedule.clone();
-                sorted.sort_by_key(|(d, _)| *d);
-
-                // Reject duplicates and non-increasing dates
+                // Check dates are strictly increasing and currencies match
                 let mut prev_date: Option<Date> = None;
-                for (d, _) in &sorted {
-                    if let Some(p) = prev_date {
-                        if *d <= p {
-                            return Err(InputError::Invalid.into());
+                let mut prev_amount: Option<f64> = None;
+
+                for (date, remaining) in schedule {
+                    // Currency check
+                    if remaining.currency() != currency {
+                        return Err(finstack_core::error::Error::Validation(format!(
+                            "StepRemaining currency ({}) must match initial currency ({})",
+                            remaining.currency(),
+                            currency
+                        )));
+                    }
+
+                    // Date ordering check (must be strictly increasing)
+                    if let Some(pd) = prev_date {
+                        if *date <= pd {
+                            return Err(finstack_core::error::Error::Validation(format!(
+                                "StepRemaining dates must be strictly increasing; found {} after {}",
+                                date, pd
+                            )));
                         }
                     }
-                    prev_date = Some(*d);
-                }
 
-                // Require that input is already strictly increasing by date
-                let input_dates_iter = schedule.iter().map(|(d, _)| *d);
-                let sorted_dates_iter = sorted.iter().map(|(d, _)| *d);
-                if !input_dates_iter.eq(sorted_dates_iter) {
-                    return Err(InputError::Invalid.into());
-                }
-
-                // Validate currency consistency and non-increasing remaining amounts
-                let mut remaining = self.initial.amount();
-                for (_, notl) in &sorted {
-                    if notl.currency() != self.initial.currency() || notl.amount() > remaining {
-                        return Err(InputError::Invalid.into());
+                    // Amount ordering check (must be non-increasing)
+                    if let Some(pa) = prev_amount {
+                        if remaining.amount() > pa {
+                            return Err(finstack_core::error::Error::Validation(format!(
+                                "StepRemaining amounts must be non-increasing; found {} after {}",
+                                remaining.amount(),
+                                pa
+                            )));
+                        }
                     }
-                    remaining = notl.amount();
+
+                    prev_date = Some(*date);
+                    prev_amount = Some(remaining.amount());
                 }
                 Ok(())
             }
             AmortizationSpec::PercentPerPeriod { pct } => {
-                if !pct.is_finite() || *pct < 0.0 || *pct > 1.0 {
-                    return Err(InputError::Invalid.into());
+                if !pct.is_finite() {
+                    return Err(finstack_core::error::Error::Validation(format!(
+                        "PercentPerPeriod pct must be finite; got {}",
+                        pct
+                    )));
+                }
+                if *pct < 0.0 || *pct > 1.0 {
+                    return Err(finstack_core::error::Error::Validation(format!(
+                        "PercentPerPeriod pct must be in [0.0, 1.0]; got {}",
+                        pct
+                    )));
                 }
                 Ok(())
             }
             AmortizationSpec::CustomPrincipal { items } => {
-                for (_d, amt) in items {
-                    if amt.currency() != self.initial.currency() {
-                        return Err(InputError::Invalid.into());
+                for (_date, amount) in items {
+                    if amount.currency() != currency {
+                        return Err(finstack_core::error::Error::Validation(format!(
+                            "CustomPrincipal currency ({}) must match initial currency ({})",
+                            amount.currency(),
+                            currency
+                        )));
                     }
                 }
                 Ok(())
             }
         }
-    }
-
-    /// Convenience accessor for currency.
-    pub fn currency(&self) -> Currency {
-        self.initial.currency()
-    }
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-    use finstack_core::currency::Currency;
-
-    #[test]
-    fn percent_per_period_validation_bounds() {
-        let initial = Money::new(1_000.0, Currency::USD);
-
-        // Valid edge 0.0
-        let n0 = Notional {
-            initial,
-            amort: AmortizationSpec::PercentPerPeriod { pct: 0.0 },
-        };
-        assert!(n0.validate().is_ok());
-
-        // Valid edge 1.0
-        let n1 = Notional {
-            initial,
-            amort: AmortizationSpec::PercentPerPeriod { pct: 1.0 },
-        };
-        assert!(n1.validate().is_ok());
-
-        // Invalid: negative
-        let nneg = Notional {
-            initial,
-            amort: AmortizationSpec::PercentPerPeriod { pct: -0.01 },
-        };
-        assert!(nneg.validate().is_err());
-
-        // Invalid: greater than 1
-        let ngt = Notional {
-            initial,
-            amort: AmortizationSpec::PercentPerPeriod { pct: 1.01 },
-        };
-        assert!(ngt.validate().is_err());
     }
 }

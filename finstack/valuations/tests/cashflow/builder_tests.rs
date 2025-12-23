@@ -524,7 +524,7 @@ fn psa_smm_golden_values() {
     );
 
     // 150% PSA should be 1.5x the base values
-    let model_150 = PrepaymentModelSpec::psa_150();
+    let model_150 = PrepaymentModelSpec::psa(1.5);
     let smm_30_150 = model_150.smm(30);
     let cpr_30_150 = smm_to_cpr(smm_30_150);
     assert!(
@@ -541,7 +541,7 @@ fn sda_mdr_golden_values() {
     use finstack_valuations::cashflow::builder::credit_rates::smm_to_cpr;
     use finstack_valuations::cashflow::builder::DefaultModelSpec;
 
-    let model = DefaultModelSpec::sda_100();
+    let model = DefaultModelSpec::sda(1.0);
 
     // Month 0: 0% CDR
     let mdr_0 = model.mdr(0);
@@ -747,7 +747,7 @@ fn sda_matches_industry_standard_curve() {
     use finstack_valuations::cashflow::builder::credit_rates::smm_to_cpr;
     use finstack_valuations::cashflow::builder::DefaultModelSpec;
 
-    let model = DefaultModelSpec::sda_100();
+    let model = DefaultModelSpec::sda(1.0);
 
     // Verify ramp phase (months 1-30)
     for month in 1..=30 {
@@ -794,7 +794,7 @@ fn sda_multiplier_scales_correctly() {
     use finstack_valuations::cashflow::builder::credit_rates::smm_to_cpr;
     use finstack_valuations::cashflow::builder::DefaultModelSpec;
 
-    let sda_100 = DefaultModelSpec::sda_100();
+    let sda_100 = DefaultModelSpec::sda(1.0);
     let sda_200 = DefaultModelSpec::sda(2.0);
 
     // At peak (month 30)

@@ -9,7 +9,6 @@
 //! - Generate period schedules with `build_dates` (graceful fallback)
 //! - Generate period schedules with `build_dates_checked` (strict validation)
 //! - Create `PeriodSchedule` with helper maps for previous date lookups
-//! - Build period definitions from payment dates for PV aggregation
 //! - Apply business day adjustments using calendars
 
 use finstack_core::dates::{BusinessDayConvention, Date, ScheduleBuilder, StubKind, Tenor};
@@ -196,95 +195,6 @@ pub fn build_dates_checked(
     calendar_id: Option<&str>,
 ) -> Result<PeriodSchedule, ScheduleError> {
     build_dates_impl(start, end, freq, stub, bdc, calendar_id, true)
-}
-
-/// Build periods from payment schedule dates for PV aggregation.
-///
-/// Creates Period objects with synthetic IDs based on payment frequency.
-/// Each period spans from one payment date (exclusive start) to the next (inclusive end).
-///
-/// # Arguments
-/// * `payment_dates` - Ordered vector of payment dates
-/// * `frequency` - Payment frequency to derive period kind
-///
-/// # Returns
-/// Vector of Period objects suitable for cashflow aggregation
-pub fn build_periods_from_payment_dates(
-    payment_dates: &[Date],
-    frequency: Tenor,
-) -> Vec<finstack_core::dates::Period> {
-    use finstack_core::dates::{Period, PeriodId, PeriodKind};
-
-    if payment_dates.len() < 2 {
-        return Vec::new();
-    }
-
-    let mut periods = Vec::with_capacity(payment_dates.len() - 1);
-
-    // Determine period kind from frequency
-    let period_kind = match (frequency.count, frequency.unit) {
-        (12, finstack_core::dates::TenorUnit::Months) => PeriodKind::Annual,
-        (1, finstack_core::dates::TenorUnit::Years) => PeriodKind::Annual,
-        (6, finstack_core::dates::TenorUnit::Months) => PeriodKind::SemiAnnual,
-        (3, finstack_core::dates::TenorUnit::Months) => PeriodKind::Quarterly,
-        (1, finstack_core::dates::TenorUnit::Months) => PeriodKind::Monthly,
-        (7, finstack_core::dates::TenorUnit::Days) => PeriodKind::Weekly,
-        (1, finstack_core::dates::TenorUnit::Weeks) => PeriodKind::Weekly,
-        _ => PeriodKind::Quarterly, // Default fallback
-    };
-
-    for i in 0..(payment_dates.len() - 1) {
-        let start = payment_dates[i];
-        let end = payment_dates[i + 1];
-
-        // Create a synthetic PeriodId based on the start date and frequency
-        let period_id = match period_kind {
-            PeriodKind::Quarterly => {
-                let year = start.year();
-                let month = start.month() as u8;
-                let quarter = match month {
-                    1..=3 => 1,
-                    4..=6 => 2,
-                    7..=9 => 3,
-                    _ => 4,
-                };
-                PeriodId::quarter(year, quarter)
-            }
-            PeriodKind::Monthly => {
-                let year = start.year();
-                let month = start.month() as u8;
-                PeriodId::month(year, month)
-            }
-            PeriodKind::SemiAnnual => {
-                let year = start.year();
-                let month = start.month() as u8;
-                let half = if month <= 6 { 1 } else { 2 };
-                PeriodId::half(year, half)
-            }
-            PeriodKind::Annual => {
-                let year = start.year();
-                PeriodId::annual(year)
-            }
-            PeriodKind::Weekly => {
-                // For weekly, use a simple week number based on days since start of year
-                let year = start.year();
-                let year_start = Date::from_calendar_date(year, time::Month::January, 1)
-                    .expect("January 1 should always be valid");
-                let days = (start - year_start).whole_days();
-                let week = ((days / 7) + 1).min(52) as u8;
-                PeriodId::week(year, week)
-            }
-        };
-
-        periods.push(Period {
-            id: period_id,
-            start,
-            end,
-            is_actual: false, // All periods are forecast for pricing
-        });
-    }
-
-    periods
 }
 
 #[cfg(test)]

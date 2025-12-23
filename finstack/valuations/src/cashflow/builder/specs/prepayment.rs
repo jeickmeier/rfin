@@ -65,14 +65,4 @@ impl PrepaymentModelSpec {
     pub fn psa_100() -> Self {
         Self::psa(1.0)
     }
-
-    /// 150% PSA (accelerated prepayment).
-    pub fn psa_150() -> Self {
-        Self::psa(1.5)
-    }
-
-    /// 6% CPR (common baseline).
-    pub fn cpr_6pct() -> Self {
-        Self::constant_cpr(0.06)
-    }
 }
