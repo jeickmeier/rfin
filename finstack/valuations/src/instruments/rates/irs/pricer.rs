@@ -96,7 +96,7 @@ const BP_TO_DECIMAL: f64 = 1e-4;
 /// # Ok(())
 /// # }
 /// ```
-pub(in crate::instruments::irs) fn relative_df(
+pub(in crate::instruments::rates::irs) fn relative_df(
     disc: &finstack_core::market_data::term_structures::discount_curve::DiscountCurve,
     as_of: Date,
     target: Date,

@@ -7,7 +7,7 @@ use finstack_core::market_data::scalars::MarketScalar;
 use finstack_core::market_data::term_structures::DiscountCurve;
 use finstack_core::money::Money;
 use finstack_valuations::instruments::common::traits::Instrument;
-use finstack_valuations::instruments::equity::pricer::{
+use finstack_valuations::instruments::equity::spot::pricer::{
     EquityPricer, SimpleEquityDiscountingPricer,
 };
 use finstack_valuations::instruments::equity::Equity;

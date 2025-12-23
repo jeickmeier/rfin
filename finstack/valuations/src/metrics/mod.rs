@@ -375,7 +375,7 @@ pub fn standard_registry() -> MetricRegistry {
         &[crate::pricer::InstrumentType::RevolvingCredit],
     );
 
-    crate::instruments::equity::metrics::register_equity_metrics(&mut registry);
+    crate::instruments::equity::spot::metrics::register_equity_metrics(&mut registry);
     crate::instruments::basket::metrics::register_basket_metrics(&mut registry);
     crate::instruments::bond::metrics::register_bond_metrics(&mut registry);
     crate::instruments::irs::metrics::register_irs_metrics(&mut registry);

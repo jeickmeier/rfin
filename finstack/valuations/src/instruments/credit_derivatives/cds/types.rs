@@ -207,7 +207,7 @@ fn cds_conventions_registry(
     static REGISTRY: OnceLock<finstack_core::collections::HashMap<String, CdsConventionResolved>> =
         OnceLock::new();
     REGISTRY.get_or_init(|| {
-        let json = include_str!("../../../data/conventions/cds_conventions.json");
+        let json = include_str!("../../../../data/conventions/cds_conventions.json");
         let file: crate::market::conventions::loaders::json::RegistryFile<CdsConventionRecord> =
             serde_json::from_str(json)
                 .expect("Failed to parse embedded CDS conventions registry JSON");

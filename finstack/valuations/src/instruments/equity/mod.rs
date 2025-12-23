@@ -1,55 +1,40 @@
-//! Equity spot position instruments with market data integration.
-//!
-//! Represents spot equity positions (individual stocks, ETFs, indices) with
-//! pricing from market data feeds and risk metric calculations including
-//! dividend sensitivity.
-//!
-//! # Structure
-//!
-//! - **Ticker**: Symbol identifier (e.g., "AAPL", "SPY")
-//! - **Shares**: Number of shares held
-//! - **Price source**: Market data lookup or explicit quote
-//! - **Dividend yield**: For forward pricing and metrics
-//!
-//! # Pricing
-//!
-//! Spot equity value:
-//!
-//! ```text
-//! PV = Shares × Spot_Price
-//! ```
-//!
-//! Forward price for derivatives:
-//!
-//! ```text
-//! F = S × e^((r - q)T)
-//! ```
-//!
-//! where q is the continuous dividend yield.
-//!
-//! # Market Data Integration
-//!
-//! Equity pricing requires:
-//! - **Spot price**: From market data feed or explicit quote
-//! - **Dividend yield**: Historical or implied from options
-//! - **Discount curve**: For present value calculations
-//!
-//! # Key Metrics
-//!
-//! - **Price per share**: Current market price
-//! - **Total value**: Shares × Price
-//! - **Forward price**: Dividend-adjusted forward
-//! - **Dividend yield**: Annualized yield
-//!
-//! # See Also
-//!
-//! - [`Equity`] for instrument struct
-//! - [`Ticker`] for symbol type
-//! - [`equity_option`](super::equity_option) for options on equities
+//! Equity instruments and equity derivatives.
 
-pub mod metrics;
-pub mod pricer;
-mod types;
+/// Autocallable module - Autocallable structured notes.
+pub mod autocallable;
+/// Cliquet option module - Cliquet/ratchet options.
+pub mod cliquet_option;
+/// DCF equity module - Discounted cash flow for equity (renamed from dcf).
+pub mod dcf_equity;
+/// Equity index future module.
+pub mod equity_index_future;
+/// Equity option module - Vanilla equity options.
+pub mod equity_option;
+/// Equity TRS module - Equity total return swaps.
+pub mod equity_trs;
+/// PE fund module - Private equity/markets funds (renamed from private_markets_fund).
+pub mod pe_fund;
+/// Equity spot module - Equity spot positions.
+pub mod spot;
+/// Variance swap module - Variance and volatility swaps.
+pub mod variance_swap;
+/// Volatility index future module.
+pub mod vol_index_future;
+/// Volatility index option module.
+pub mod vol_index_option;
 
-pub use types::Equity;
-pub use types::Ticker;
+// Re-export primary types
+pub use autocallable::{Autocallable, FinalPayoffType};
+pub use cliquet_option::CliquetOption;
+pub use dcf_equity::{DiscountedCashFlow, TerminalValueSpec};
+pub use equity_index_future::{EquityFutureSpecs, EquityIndexFuture};
+pub use equity_option::EquityOption;
+pub use equity_trs::EquityTotalReturnSwap;
+pub use pe_fund::PrivateMarketsFund;
+pub use spot::Equity;
+pub use variance_swap::VarianceSwap;
+pub use vol_index_future::{VolIndexContractSpecs, VolatilityIndexFuture};
+pub use vol_index_option::{VolIndexOptionSpecs, VolatilityIndexOption};
+
+// Preserve public path for equity metrics
+pub use spot::metrics as equity_metrics;

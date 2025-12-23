@@ -902,7 +902,7 @@ fn register_all_pricers(registry: &mut PricerRegistry) {
         registry,
         Equity,
         Discounting,
-        crate::instruments::equity::pricer::SimpleEquityDiscountingPricer
+        crate::instruments::equity::spot::pricer::SimpleEquityDiscountingPricer
     );
 
     // Equity Option

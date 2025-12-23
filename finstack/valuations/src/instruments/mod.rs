@@ -4,173 +4,141 @@
 #[macro_use]
 pub mod common;
 
-// Flattened instrument modules
-/// agency cmo module.
-pub mod agency_cmo;
-/// agency mbs passthrough module.
-pub mod agency_mbs_passthrough;
-/// agency tba module.
-pub mod agency_tba;
-/// asian option module.
-pub mod asian_option;
-/// autocallable module.
-pub mod autocallable;
-/// barrier option module.
-pub mod barrier_option;
-/// basis swap module.
-pub mod basis_swap;
-/// basket module.
-pub mod basket;
-/// bond module.
-pub mod bond;
-/// bond future module.
-pub mod bond_future;
-/// cap floor module.
-pub mod cap_floor;
-/// cds module.
-pub mod cds;
-/// cds index module.
-pub mod cds_index;
-/// cds option module.
-pub mod cds_option;
-/// cds tranche module.
-pub mod cds_tranche;
-/// cliquet option module.
-pub mod cliquet_option;
-/// cms option module.
-pub mod cms_option;
-/// commodity forward module.
-pub mod commodity_forward;
-/// commodity swap module.
-pub mod commodity_swap;
-/// convertible module.
-pub mod convertible;
-/// dcf module.
-pub mod dcf;
-/// deposit module.
-pub mod deposit;
-/// dollar roll module.
-pub mod dollar_roll;
-/// equity module.
+// === Category Modules ===
+/// Commodity derivatives.
+pub mod commodity;
+/// Credit derivatives: CDS and related instruments.
+pub mod credit_derivatives;
+/// Equity instruments and equity derivatives.
 pub mod equity;
-/// equity index future module.
-pub mod equity_index_future;
-/// equity option module.
-pub mod equity_option;
-/// equity total return swap module.
-pub mod equity_trs;
-/// fi_trs module (fixed income total return swap).
-pub mod fi_trs;
-/// fra module.
-pub mod fra;
-/// fx barrier option module.
-pub mod fx_barrier_option;
-/// fx forward module.
-pub mod fx_forward;
-/// fx option module.
-pub mod fx_option;
-/// fx spot module.
-pub mod fx_spot;
-/// fx swap module.
-pub mod fx_swap;
-/// inflation linked bond module.
-pub mod inflation_linked_bond;
-/// inflation swap module.
-pub mod inflation_swap;
-/// ir future module.
-pub mod ir_future;
-/// irs module.
-pub mod irs;
-/// lookback option module.
-pub mod lookback_option;
-/// non-deliverable forward module.
-pub mod ndf;
-/// pricing overrides module.
-pub mod pricing_overrides;
-/// private markets fund module.
-pub mod private_markets_fund;
-/// quanto option module.
-pub mod quanto_option;
-/// range accrual module.
-pub mod range_accrual;
-/// repo module.
-pub mod repo;
-/// revolving credit module.
-pub mod revolving_credit;
-/// structured credit module.
-pub mod structured_credit;
-/// swaption module.
-pub mod swaption;
-/// term loan module.
-pub mod term_loan;
-/// variance swap module.
-pub mod variance_swap;
-/// volatility index future module.
-pub mod vol_index_future;
-/// volatility index option module.
-pub mod vol_index_option;
-/// cross-currency swap module.
-pub mod xccy_swap;
+/// Exotic and path-dependent options.
+pub mod exotics;
+/// Fixed income instruments: bonds, loans, MBS, and structured products.
+pub mod fixed_income;
+/// FX instruments and FX derivatives.
+pub mod fx;
+/// Interest rate derivatives and money market instruments.
+pub mod rates;
+
+// === Backward-Compatible Module Re-exports ===
+// These allow existing code using `instruments::bond`, `instruments::irs`, etc. to continue working.
+
+// Fixed Income
+pub use fixed_income::bond;
+pub use fixed_income::bond_future;
+pub use fixed_income::cmo;
+pub use fixed_income::convertible;
+pub use fixed_income::dollar_roll;
+pub use fixed_income::fi_trs;
+pub use fixed_income::inflation_linked_bond;
+pub use fixed_income::mbs_passthrough;
+pub use fixed_income::revolving_credit;
+pub use fixed_income::structured_credit;
+pub use fixed_income::tba;
+pub use fixed_income::term_loan;
+
+// Rates
+pub use rates::basis_swap;
+pub use rates::cap_floor;
+pub use rates::cms_option;
+pub use rates::deposit;
+pub use rates::fra;
+pub use rates::inflation_swap;
+pub use rates::ir_future;
+pub use rates::irs;
+pub use rates::range_accrual;
+pub use rates::repo;
+pub use rates::swaption;
+pub use rates::xccy_swap;
+
+// Credit Derivatives
+pub use credit_derivatives::cds;
+pub use credit_derivatives::cds_index;
+pub use credit_derivatives::cds_option;
+pub use credit_derivatives::cds_tranche;
+
+// Equity
+pub use equity::autocallable;
+pub use equity::cliquet_option;
+pub use equity::dcf_equity;
+pub use equity::equity_index_future;
+pub use equity::equity_option;
+pub use equity::equity_trs;
+pub use equity::pe_fund;
+pub use equity::spot as equity_spot;
+pub use equity::variance_swap;
+pub use equity::vol_index_future;
+pub use equity::vol_index_option;
+
+// FX
+pub use fx::fx_barrier_option;
+pub use fx::fx_forward;
+pub use fx::fx_option;
+pub use fx::fx_spot;
+pub use fx::fx_swap;
+pub use fx::ndf;
+pub use fx::quanto_option;
+
+// Commodity
+pub use commodity::commodity_forward;
+pub use commodity::commodity_swap;
+
+// Exotics
+pub use exotics::asian_option;
+pub use exotics::barrier_option;
+pub use exotics::basket;
+pub use exotics::lookback_option;
+
+// === Backward-Compatible Module Aliases for Renamed Modules ===
+pub use equity::dcf_equity as dcf;
+pub use equity::pe_fund as private_markets_fund;
+pub use fixed_income::cmo as agency_cmo;
+pub use fixed_income::mbs_passthrough as agency_mbs_passthrough;
+pub use fixed_income::tba as agency_tba;
+// Note: trs was split into equity_trs and fi_trs
+// For backward compatibility, alias trs to equity_trs (the more common case)
+pub use equity::equity_trs as trs;
 
 // Preserve public path for equity metrics after move
-pub use equity::metrics as equity_metrics;
+pub use equity::equity_metrics;
 
 // === Core Instrument Types ===
-pub use agency_cmo::{AgencyCmo, CmoTranche, CmoTrancheType, CmoWaterfall};
-pub use agency_mbs_passthrough::{AgencyMbsPassthrough, AgencyProgram, PoolType};
-pub use agency_tba::{AgencyTba, TbaTerm};
-pub use asian_option::{AsianOption, AveragingMethod};
-pub use autocallable::{Autocallable, FinalPayoffType};
-pub use barrier_option::{BarrierOption, BarrierType};
-pub use basis_swap::BasisSwap;
-pub use basket::Basket;
-pub use bond::Bond;
-pub use bond_future::{BondFuture, BondFutureBuilder, BondFutureSpecs, DeliverableBond};
-pub use cap_floor::RateOptionType;
-pub use cds::CreditDefaultSwap;
-pub use cds_index::CDSIndex;
-pub use cds_option::CdsOption;
-pub use cds_tranche::CdsTranche;
-pub use cliquet_option::CliquetOption;
-pub use cms_option::CmsOption;
-pub use commodity_forward::CommodityForward;
-pub use commodity_swap::CommoditySwap;
-pub use convertible::ConvertibleBond;
-pub use dcf::{DiscountedCashFlow, TerminalValueSpec};
-pub use deposit::Deposit;
-pub use dollar_roll::DollarRoll;
-pub use equity::Equity;
-pub use equity_index_future::{EquityFutureSpecs, EquityIndexFuture};
-pub use equity_option::EquityOption;
-pub use equity_trs::EquityTotalReturnSwap;
-pub use fi_trs::FIIndexTotalReturnSwap;
-pub use fra::ForwardRateAgreement;
-pub use fx_barrier_option::FxBarrierOption;
-pub use fx_forward::FxForward;
-pub use fx_option::FxOption;
-pub use fx_spot::FxSpot;
-pub use fx_swap::FxSwap;
-pub use inflation_linked_bond::InflationLinkedBond;
-pub use inflation_swap::{InflationSwap, YoYInflationSwap};
-pub use ir_future::InterestRateFuture;
-pub use irs::InterestRateSwap;
-pub use lookback_option::{LookbackOption, LookbackType};
-pub use ndf::Ndf;
-pub use pricing_overrides::PricingOverrides;
-pub use private_markets_fund::PrivateMarketsFund;
-pub use quanto_option::QuantoOption;
-pub use range_accrual::RangeAccrual;
-pub use repo::{CollateralSpec, CollateralType, Repo, RepoType};
-pub use revolving_credit::RevolvingCredit;
-pub use structured_credit::StructuredCredit;
-pub use swaption::Swaption;
-pub use term_loan::TermLoan;
-// Re-export TRS common types
-pub use common::parameters::trs_common::{TrsScheduleSpec, TrsSide};
-pub use variance_swap::VarianceSwap;
-pub use vol_index_future::{VolIndexContractSpecs, VolatilityIndexFuture};
-pub use vol_index_option::{VolIndexOptionSpecs, VolatilityIndexOption};
-pub use xccy_swap::XccySwap;
+// Fixed Income
+pub use fixed_income::{
+    AgencyCmo, AgencyMbsPassthrough, AgencyProgram, AgencyTba, Bond, BondFuture, BondFutureBuilder,
+    BondFutureSpecs, CmoTranche, CmoTrancheType, CmoWaterfall, ConvertibleBond, DeliverableBond,
+    DollarRoll, FIIndexTotalReturnSwap, InflationLinkedBond, PoolType, RevolvingCredit,
+    StructuredCredit, TbaTerm, TermLoan,
+};
+
+// Rates
+pub use rates::{
+    BasisSwap, CmsOption, CollateralSpec, CollateralType, Deposit, ForwardRateAgreement,
+    InflationSwap, InterestRateFuture, InterestRateSwap, RangeAccrual, RateOptionType, Repo,
+    RepoType, Swaption, XccySwap, YoYInflationSwap,
+};
+
+// Credit Derivatives
+pub use credit_derivatives::{CDSIndex, CdsOption, CdsTranche, CreditDefaultSwap};
+
+// Equity
+pub use equity::{
+    Autocallable, CliquetOption, DiscountedCashFlow, Equity, EquityFutureSpecs, EquityIndexFuture,
+    EquityOption, EquityTotalReturnSwap, FinalPayoffType, PrivateMarketsFund, TerminalValueSpec,
+    VarianceSwap, VolIndexContractSpecs, VolIndexOptionSpecs, VolatilityIndexFuture,
+    VolatilityIndexOption,
+};
+
+// FX
+pub use fx::{FxBarrierOption, FxForward, FxOption, FxSpot, FxSwap, Ndf, QuantoOption};
+
+// Commodity
+pub use commodity::{CommodityForward, CommoditySwap};
+
+// Exotics
+pub use exotics::{
+    AsianOption, AveragingMethod, BarrierOption, BarrierType, Basket, LookbackOption, LookbackType,
+};
 
 // === Common Functionality ===
 pub use common::build_with_metrics_dyn;
@@ -186,6 +154,13 @@ pub use common::parameters::{
     OptionType, ParRateMethod, PayReceive, PremiumLegSpec, ProtectionLegSpec, ScheduleSpec,
     SettlementType, TotalReturnLegSpec, UnderlyingParams,
 };
+
+// Re-export TRS common types
+pub use common::parameters::trs_common::{TrsScheduleSpec, TrsSide};
+
+/// Pricing overrides module.
+pub mod pricing_overrides;
+pub use pricing_overrides::PricingOverrides;
 
 // === JSON Import/Export ===
 #[cfg(feature = "serde")]
