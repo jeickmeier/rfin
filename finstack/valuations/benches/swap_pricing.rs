@@ -1,22 +1,32 @@
 //! Interest rate swap pricing benchmarks.
 //!
 //! Measures performance of IRS operations:
-//! - Present value calculation
+//! - Present value calculation (with Kahan summation)
 //! - DV01 (bump-and-revalue)
 //! - Annuity factor calculation
 //! - Par rate calculation
+//! - OIS compounding (daily accrual)
+//!
+//! # Numerical Stability Focus
+//!
+//! Long-dated swaps (30Y+) with quarterly/monthly frequencies can have 120-360+
+//! cashflows. The IRS pricer uses **Kahan compensated summation** to prevent
+//! floating-point drift. These benchmarks verify that the numerical stability
+//! overhead is acceptable.
 //!
 //! Market Standards Review (Week 5)
 
 use criterion::{criterion_group, criterion_main, BenchmarkId, Criterion};
 use finstack_core::currency::Currency;
-use finstack_core::dates::Date;
+use finstack_core::dates::{Date, Tenor, TenorUnit};
 use finstack_core::market_data::context::MarketContext;
 use finstack_core::market_data::term_structures::{DiscountCurve, ForwardCurve};
 use finstack_core::math::interp::InterpStyle;
 use finstack_core::money::Money;
+use finstack_core::types::CurveId;
+use finstack_valuations::instruments::common::parameters::legs::{FixedLegSpec, FloatLegSpec};
 use finstack_valuations::instruments::common::traits::Instrument;
-use finstack_valuations::instruments::irs::{InterestRateSwap, PayReceive};
+use finstack_valuations::instruments::irs::{FloatingLegCompounding, InterestRateSwap, PayReceive};
 use finstack_valuations::metrics::MetricId;
 use std::hint::black_box;
 use time::Month;
@@ -36,6 +46,101 @@ fn create_swap(tenor_years: i32) -> InterestRateSwap {
     .expect("Failed to create swap for benchmark")
 }
 
+/// Create a swap with monthly frequency for stress-testing Kahan summation.
+///
+/// A 50Y monthly swap has 600 periods, which is where numerical precision
+/// really matters.
+fn create_monthly_swap(tenor_years: i32) -> InterestRateSwap {
+    let start = Date::from_calendar_date(2025, Month::January, 1).unwrap();
+    let end = Date::from_calendar_date(2025 + tenor_years, Month::January, 1).unwrap();
+
+    let disc_id = CurveId::new("USD-OIS");
+    let fwd_id = CurveId::new("USD-SOFR-1M");
+
+    InterestRateSwap::builder()
+        .id(format!("IRS-{}Y-Monthly", tenor_years).into())
+        .notional(Money::new(10_000_000.0, Currency::USD))
+        .side(PayReceive::PayFixed)
+        .fixed(FixedLegSpec {
+            discount_curve_id: disc_id.clone(),
+            rate: 0.04,
+            freq: Tenor::new(1, TenorUnit::Months), // Monthly fixed
+            dc: finstack_core::dates::DayCount::Act360,
+            bdc: finstack_core::dates::BusinessDayConvention::ModifiedFollowing,
+            calendar_id: None,
+            stub: finstack_core::dates::StubKind::None,
+            start,
+            end,
+            par_method: None,
+            compounding_simple: true,
+            payment_delay_days: 0,
+        })
+        .float(FloatLegSpec {
+            discount_curve_id: disc_id,
+            forward_curve_id: fwd_id,
+            spread_bp: 0.0,
+            freq: Tenor::new(1, TenorUnit::Months), // Monthly float
+            dc: finstack_core::dates::DayCount::Act360,
+            bdc: finstack_core::dates::BusinessDayConvention::ModifiedFollowing,
+            calendar_id: None,
+            stub: finstack_core::dates::StubKind::None,
+            reset_lag_days: 2,
+            start,
+            end,
+            compounding: FloatingLegCompounding::Simple,
+            fixing_calendar_id: None,
+            payment_delay_days: 0,
+        })
+        .build()
+        .expect("Failed to create monthly swap for benchmark")
+}
+
+/// Create an OIS swap with daily compounding for benchmarking the complex
+/// accrual logic.
+fn create_ois_swap(tenor_years: i32) -> InterestRateSwap {
+    let start = Date::from_calendar_date(2025, Month::January, 1).unwrap();
+    let end = Date::from_calendar_date(2025 + tenor_years, Month::January, 1).unwrap();
+
+    let disc_id = CurveId::new("USD-OIS");
+
+    InterestRateSwap::builder()
+        .id(format!("OIS-{}Y", tenor_years).into())
+        .notional(Money::new(10_000_000.0, Currency::USD))
+        .side(PayReceive::PayFixed)
+        .fixed(FixedLegSpec {
+            discount_curve_id: disc_id.clone(),
+            rate: 0.04,
+            freq: Tenor::new(1, TenorUnit::Years), // Annual fixed
+            dc: finstack_core::dates::DayCount::Act360,
+            bdc: finstack_core::dates::BusinessDayConvention::ModifiedFollowing,
+            calendar_id: None,
+            stub: finstack_core::dates::StubKind::None,
+            start,
+            end,
+            par_method: None,
+            compounding_simple: true,
+            payment_delay_days: 2,
+        })
+        .float(FloatLegSpec {
+            discount_curve_id: disc_id.clone(),
+            forward_curve_id: disc_id, // Single-curve OIS
+            spread_bp: 0.0,
+            freq: Tenor::new(1, TenorUnit::Years), // Annual payment with daily compounding
+            dc: finstack_core::dates::DayCount::Act360,
+            bdc: finstack_core::dates::BusinessDayConvention::ModifiedFollowing,
+            calendar_id: None,
+            stub: finstack_core::dates::StubKind::None,
+            reset_lag_days: 0,
+            start,
+            end,
+            compounding: FloatingLegCompounding::sofr(), // Compounded in arrears
+            fixing_calendar_id: None,
+            payment_delay_days: 2,
+        })
+        .build()
+        .expect("Failed to create OIS swap for benchmark")
+}
+
 fn create_market() -> MarketContext {
     let base = Date::from_calendar_date(2025, Month::January, 1).unwrap();
 
@@ -48,6 +153,7 @@ fn create_market() -> MarketContext {
             (5.0, 0.88),
             (10.0, 0.70),
             (30.0, 0.40),
+            (50.0, 0.20),
         ])
         .set_interp(InterpStyle::Linear)
         .build()
@@ -62,6 +168,23 @@ fn create_market() -> MarketContext {
             (5.0, 0.045),
             (10.0, 0.050),
             (30.0, 0.055),
+            (50.0, 0.055),
+        ])
+        .set_interp(InterpStyle::Linear)
+        .build()
+        .unwrap();
+
+    // Monthly forward curve for monthly swaps
+    let fwd_1m = ForwardCurve::builder("USD-SOFR-1M", 1.0 / 12.0)
+        .base_date(base)
+        .knots([
+            (0.0, 0.034),
+            (1.0, 0.037),
+            (2.0, 0.039),
+            (5.0, 0.044),
+            (10.0, 0.049),
+            (30.0, 0.054),
+            (50.0, 0.054),
         ])
         .set_interp(InterpStyle::Linear)
         .build()
@@ -70,6 +193,7 @@ fn create_market() -> MarketContext {
     MarketContext::new()
         .insert_discount(disc)
         .insert_forward(fwd)
+        .insert_forward(fwd_1m)
 }
 
 fn bench_swap_pv(c: &mut Criterion) {
@@ -79,6 +203,54 @@ fn bench_swap_pv(c: &mut Criterion) {
 
     for tenor in [2, 5, 10, 30].iter() {
         let swap = create_swap(*tenor);
+        group.bench_with_input(
+            BenchmarkId::from_parameter(format!("{}Y", tenor)),
+            tenor,
+            |b, _| {
+                b.iter(|| swap.value(black_box(&market), black_box(as_of)));
+            },
+        );
+    }
+    group.finish();
+}
+
+/// Benchmark long-dated swaps with many periods to stress-test Kahan summation.
+///
+/// A 50Y monthly swap has 600 fixed + 600 float = 1200 cashflows.
+/// This is where numerical precision really matters.
+fn bench_swap_pv_kahan_stress(c: &mut Criterion) {
+    let mut group = c.benchmark_group("swap_pv_kahan_stress");
+    group.sample_size(50); // Fewer samples for expensive benchmarks
+    let market = create_market();
+    let as_of = Date::from_calendar_date(2025, Month::January, 1).unwrap();
+
+    // Long-dated monthly swaps: tests Kahan summation with many periods
+    for tenor in [10, 30, 50].iter() {
+        let swap = create_monthly_swap(*tenor);
+        let periods = tenor * 12 * 2; // fixed + float periods
+        group.bench_with_input(
+            BenchmarkId::from_parameter(format!("{}Y_monthly_{}periods", tenor, periods)),
+            tenor,
+            |b, _| {
+                b.iter(|| swap.value(black_box(&market), black_box(as_of)));
+            },
+        );
+    }
+    group.finish();
+}
+
+/// Benchmark OIS swaps with daily compounding.
+///
+/// OIS pricing involves daily rate accumulation which is computationally
+/// more expensive than simple term-rate swaps.
+fn bench_ois_pv(c: &mut Criterion) {
+    let mut group = c.benchmark_group("ois_pv");
+    group.sample_size(30); // OIS is expensive
+    let market = create_market();
+    let as_of = Date::from_calendar_date(2025, Month::January, 1).unwrap();
+
+    for tenor in [1, 2, 5, 10].iter() {
+        let swap = create_ois_swap(*tenor);
         group.bench_with_input(
             BenchmarkId::from_parameter(format!("{}Y", tenor)),
             tenor,
@@ -138,5 +310,12 @@ fn bench_swap_par_rate(c: &mut Criterion) {
     group.finish();
 }
 
-criterion_group!(benches, bench_swap_pv, bench_swap_dv01, bench_swap_par_rate);
+criterion_group!(
+    benches,
+    bench_swap_pv,
+    bench_swap_pv_kahan_stress,
+    bench_ois_pv,
+    bench_swap_dv01,
+    bench_swap_par_rate
+);
 criterion_main!(benches);

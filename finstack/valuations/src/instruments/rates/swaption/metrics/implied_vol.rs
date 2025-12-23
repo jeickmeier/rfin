@@ -58,7 +58,9 @@ impl MetricCalculator for ImpliedVolCalculator {
                 .surface_ref(option.vol_surface_id.as_str())
                 .and_then(
                     |s| match option.pricing_overrides.vol_surface_extrapolation {
-                        VolSurfaceExtrapolation::Clamp => {
+                        VolSurfaceExtrapolation::Clamp
+                        | VolSurfaceExtrapolation::LinearInVariance => {
+                            // LinearInVariance falls back to Clamp until surface impl is ready
                             Ok(s.value_clamped(t, option.strike_rate))
                         }
                         VolSurfaceExtrapolation::Error => s.value_checked(t, option.strike_rate),

@@ -27,7 +27,8 @@ impl MetricCalculator for RhoCalculator {
         } else {
             let vol_surface = context.curves.surface_ref(option.vol_surface_id.as_str())?;
             match option.pricing_overrides.vol_surface_extrapolation {
-                VolSurfaceExtrapolation::Clamp => {
+                VolSurfaceExtrapolation::Clamp | VolSurfaceExtrapolation::LinearInVariance => {
+                    // LinearInVariance falls back to Clamp until surface impl is ready
                     vol_surface.value_clamped(time_to_expiry, option.strike_rate)
                 }
                 VolSurfaceExtrapolation::Error => {

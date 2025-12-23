@@ -26,6 +26,7 @@ ts-rs = { version = "10", optional = true, features = ["serde-compat", "no-serde
 time = { version = "0.3", features = ["macros"] }
 proptest = "1.9"
 criterion = { version = "0.8", features = ["html_reports"] }
+csv = "1.3"
 
 
 

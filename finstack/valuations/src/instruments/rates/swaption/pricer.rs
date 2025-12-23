@@ -99,7 +99,9 @@ impl Pricer for SimpleSwaptionBlackPricer {
                         impl_vol
                     } else {
                         match swaption.pricing_overrides.vol_surface_extrapolation {
-                            VolSurfaceExtrapolation::Clamp => {
+                            VolSurfaceExtrapolation::Clamp
+                            | VolSurfaceExtrapolation::LinearInVariance => {
+                                // LinearInVariance falls back to Clamp until surface impl is ready
                                 vol_surface.value_clamped(time_to_expiry, swaption.strike_rate)
                             }
                             VolSurfaceExtrapolation::Error => vol_surface

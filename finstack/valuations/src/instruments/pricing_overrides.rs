@@ -7,6 +7,13 @@ use finstack_core::money::Money;
 ///
 /// Market-standard production systems typically make this choice explicit because
 /// extrapolation can materially affect PV and greeks.
+///
+/// # Market Standards
+///
+/// - **Error**: Conservative approach for production systems; forces explicit handling.
+/// - **Clamp**: Simple flat extrapolation; common for quick prototyping.
+/// - **LinearInVariance**: Market-standard for equity/FX; preserves no-arbitrage conditions
+///   better than linear-in-vol by extrapolating in total variance space (σ²T).
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 #[cfg_attr(feature = "serde", serde(rename_all = "snake_case"))]
@@ -16,6 +23,29 @@ pub enum VolSurfaceExtrapolation {
     Error,
     /// Flat extrapolation to the nearest edge (clamp to grid).
     Clamp,
+    /// Linear extrapolation in total variance space (σ²T).
+    ///
+    /// This is the market-standard approach for equity and FX volatility surfaces
+    /// because it preserves the no-arbitrage condition that total variance must
+    /// increase with time. The extrapolated volatility is computed as:
+    ///
+    /// ```text
+    /// σ(T_extrap) = sqrt(σ²(T_edge) * T_edge / T_extrap + slope * (T_extrap - T_edge) / T_extrap)
+    /// ```
+    ///
+    /// where `slope` is derived from the variance gradient at the edge.
+    ///
+    /// # When to Use
+    ///
+    /// - Long-dated option pricing where expiries exceed the calibrated grid
+    /// - Scenario analysis requiring extrapolation to extreme tenors
+    /// - Bootstrapping procedures that need consistent variance behavior
+    ///
+    /// # References
+    ///
+    /// - Gatheral, J. (2006). *The Volatility Surface*. Chapter 3.
+    /// - Fengler, M. R. (2009). "Arbitrage-free smoothing of the implied volatility surface."
+    LinearInVariance,
 }
 
 /// Optional parameters that override model pricing with market quotes.
@@ -121,6 +151,23 @@ impl PricingOverrides {
     /// Set volatility surface extrapolation policy.
     pub fn with_vol_surface_extrapolation(mut self, policy: VolSurfaceExtrapolation) -> Self {
         self.vol_surface_extrapolation = policy;
+        self
+    }
+
+    /// Use linear-in-variance extrapolation for vol surfaces.
+    ///
+    /// This is the market-standard approach for equity/FX volatility surfaces
+    /// when extrapolation is required beyond the calibrated grid.
+    ///
+    /// # Example
+    ///
+    /// ```rust
+    /// use finstack_valuations::instruments::pricing_overrides::PricingOverrides;
+    ///
+    /// let overrides = PricingOverrides::none().with_linear_in_variance_extrapolation();
+    /// ```
+    pub fn with_linear_in_variance_extrapolation(mut self) -> Self {
+        self.vol_surface_extrapolation = VolSurfaceExtrapolation::LinearInVariance;
         self
     }
 
@@ -359,5 +406,57 @@ mod tests {
             }
             e => panic!("unexpected error: {e:?}"),
         }
+    }
+
+    #[test]
+    fn test_vol_surface_extrapolation_policies() {
+        // Default is Error
+        let po = PricingOverrides::default();
+        assert_eq!(po.vol_surface_extrapolation, VolSurfaceExtrapolation::Error);
+
+        // Can set to Clamp
+        let po = PricingOverrides::none()
+            .with_vol_surface_extrapolation(VolSurfaceExtrapolation::Clamp);
+        assert_eq!(po.vol_surface_extrapolation, VolSurfaceExtrapolation::Clamp);
+
+        // Can set to LinearInVariance via dedicated method
+        let po = PricingOverrides::none().with_linear_in_variance_extrapolation();
+        assert_eq!(
+            po.vol_surface_extrapolation,
+            VolSurfaceExtrapolation::LinearInVariance
+        );
+
+        // Can set to LinearInVariance via general method
+        let po = PricingOverrides::none()
+            .with_vol_surface_extrapolation(VolSurfaceExtrapolation::LinearInVariance);
+        assert_eq!(
+            po.vol_surface_extrapolation,
+            VolSurfaceExtrapolation::LinearInVariance
+        );
+    }
+
+    #[test]
+    #[cfg(feature = "serde")]
+    fn test_vol_surface_extrapolation_serde() {
+        // Test serialization roundtrip for all policies
+        for policy in [
+            VolSurfaceExtrapolation::Error,
+            VolSurfaceExtrapolation::Clamp,
+            VolSurfaceExtrapolation::LinearInVariance,
+        ] {
+            let po = PricingOverrides::none().with_vol_surface_extrapolation(policy);
+            let json = serde_json::to_string(&po).expect("serialize");
+            let roundtrip: PricingOverrides = serde_json::from_str(&json).expect("deserialize");
+            assert_eq!(roundtrip.vol_surface_extrapolation, policy);
+        }
+
+        // Check snake_case serialization
+        let po = PricingOverrides::none().with_linear_in_variance_extrapolation();
+        let json = serde_json::to_string(&po).expect("serialize");
+        assert!(
+            json.contains("linear_in_variance"),
+            "Should serialize as snake_case: {}",
+            json
+        );
     }
 }

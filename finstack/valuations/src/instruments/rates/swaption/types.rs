@@ -417,7 +417,8 @@ impl Swaption {
             impl_vol
         } else {
             match self.pricing_overrides.vol_surface_extrapolation {
-                VolSurfaceExtrapolation::Clamp => {
+                VolSurfaceExtrapolation::Clamp | VolSurfaceExtrapolation::LinearInVariance => {
+                    // LinearInVariance falls back to Clamp until surface impl is ready
                     vol_surface.value_clamped(time_to_expiry, self.strike_rate)
                 }
                 VolSurfaceExtrapolation::Error => {
@@ -700,7 +701,8 @@ impl Swaption {
         // 3. Volatility surface
         let vol_surface = curves.surface_ref(self.vol_surface_id.as_str())?;
         match self.pricing_overrides.vol_surface_extrapolation {
-            VolSurfaceExtrapolation::Clamp => {
+            VolSurfaceExtrapolation::Clamp | VolSurfaceExtrapolation::LinearInVariance => {
+                // LinearInVariance falls back to Clamp until surface impl is ready
                 Ok(vol_surface.value_clamped(time_to_expiry, self.strike_rate))
             }
             VolSurfaceExtrapolation::Error => {
