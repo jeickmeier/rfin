@@ -329,3 +329,140 @@ fn test_eom_quarterly_through_feb() {
     assert_eq!(dates[1], make_date(2024, 4, 30)); // Apr 30 (not 31)
     assert_eq!(dates[2], make_date(2024, 7, 31)); // Jul 31
 }
+
+// ============================================================================
+// IMM Schedule Tests
+// ============================================================================
+
+#[test]
+fn test_imm_schedule_basic() {
+    // Standard IMM schedule: third Wednesday of Mar/Jun/Sep/Dec
+    let start = make_date(2025, 1, 15);
+    let end = make_date(2025, 12, 31);
+
+    let dates: Vec<_> = ScheduleBuilder::new(start, end)
+        .imm()
+        .build()
+        .unwrap()
+        .into_iter()
+        .collect();
+
+    // Should get 4 dates: Mar 19, Jun 18, Sep 17, Dec 17 (2025 third Wednesdays)
+    assert_eq!(dates.len(), 4);
+    assert_eq!(dates[0], make_date(2025, 3, 19)); // Third Wednesday of March
+    assert_eq!(dates[1], make_date(2025, 6, 18)); // Third Wednesday of June
+    assert_eq!(dates[2], make_date(2025, 9, 17)); // Third Wednesday of September
+    assert_eq!(dates[3], make_date(2025, 12, 17)); // Third Wednesday of December
+}
+
+#[test]
+fn test_imm_schedule_start_on_imm_date() {
+    // When start is already an IMM date, it should be included
+    let start = make_date(2025, 3, 19); // Third Wednesday of March 2025
+    let end = make_date(2025, 9, 30);
+
+    let dates: Vec<_> = ScheduleBuilder::new(start, end)
+        .imm()
+        .build()
+        .unwrap()
+        .into_iter()
+        .collect();
+
+    // Should start from March 19
+    assert_eq!(dates.len(), 3);
+    assert_eq!(dates[0], make_date(2025, 3, 19)); // March IMM
+    assert_eq!(dates[1], make_date(2025, 6, 18)); // June IMM
+    assert_eq!(dates[2], make_date(2025, 9, 17)); // September IMM
+}
+
+#[test]
+fn test_imm_schedule_start_after_first_imm() {
+    // Start after March IMM should skip to June
+    let start = make_date(2025, 3, 20); // Day after March IMM
+    let end = make_date(2025, 9, 30);
+
+    let dates: Vec<_> = ScheduleBuilder::new(start, end)
+        .imm()
+        .build()
+        .unwrap()
+        .into_iter()
+        .collect();
+
+    // Should start from June IMM
+    assert_eq!(dates.len(), 2);
+    assert_eq!(dates[0], make_date(2025, 6, 18)); // June IMM
+    assert_eq!(dates[1], make_date(2025, 9, 17)); // September IMM
+}
+
+#[test]
+fn test_imm_schedule_year_rollover() {
+    // IMM schedule spanning year boundary
+    let start = make_date(2025, 10, 1);
+    let end = make_date(2026, 6, 30);
+
+    let dates: Vec<_> = ScheduleBuilder::new(start, end)
+        .imm()
+        .build()
+        .unwrap()
+        .into_iter()
+        .collect();
+
+    // Dec 2025, Mar 2026, Jun 2026
+    assert_eq!(dates.len(), 3);
+    assert_eq!(dates[0], make_date(2025, 12, 17)); // December 2025 third Wednesday
+    assert_eq!(dates[1], make_date(2026, 3, 18)); // March 2026 third Wednesday
+    assert_eq!(dates[2], make_date(2026, 6, 17)); // June 2026 third Wednesday
+}
+
+#[test]
+fn test_cds_imm_schedule_basic() {
+    // CDS IMM schedule: 20th of Mar/Jun/Sep/Dec
+    let start = make_date(2025, 1, 15);
+    let end = make_date(2025, 12, 20);
+
+    let dates: Vec<_> = ScheduleBuilder::new(start, end)
+        .cds_imm()
+        .build()
+        .unwrap()
+        .into_iter()
+        .collect();
+
+    // Should get 4 dates: Mar 20, Jun 20, Sep 20, Dec 20
+    assert_eq!(dates.len(), 4);
+    assert_eq!(dates[0], make_date(2025, 3, 20));
+    assert_eq!(dates[1], make_date(2025, 6, 20));
+    assert_eq!(dates[2], make_date(2025, 9, 20));
+    assert_eq!(dates[3], make_date(2025, 12, 20));
+}
+
+#[test]
+fn test_imm_vs_cds_imm_difference() {
+    // Verify that IMM and CDS IMM produce different dates
+    let start = make_date(2025, 1, 15);
+    let end = make_date(2025, 6, 30);
+
+    let imm_dates: Vec<_> = ScheduleBuilder::new(start, end)
+        .imm()
+        .build()
+        .unwrap()
+        .into_iter()
+        .collect();
+
+    let cds_dates: Vec<_> = ScheduleBuilder::new(start, end)
+        .cds_imm()
+        .build()
+        .unwrap()
+        .into_iter()
+        .collect();
+
+    // Both should have 2 dates
+    assert_eq!(imm_dates.len(), 2);
+    assert_eq!(cds_dates.len(), 2);
+
+    // IMM: third Wednesday (Mar 19, Jun 18)
+    // CDS: 20th (Mar 20, Jun 20)
+    assert_eq!(imm_dates[0], make_date(2025, 3, 19));
+    assert_eq!(cds_dates[0], make_date(2025, 3, 20));
+    assert_eq!(imm_dates[1], make_date(2025, 6, 18));
+    assert_eq!(cds_dates[1], make_date(2025, 6, 20));
+}

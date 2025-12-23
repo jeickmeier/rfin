@@ -84,6 +84,7 @@ fn schedule_spec_builds_expected_dates() {
         business_day_convention: Some(BusinessDayConvention::Following),
         calendar_id: Some("target2".to_string()),
         end_of_month: false,
+        imm_mode: false,
         cds_imm_mode: false,
         graceful: false,
         allow_missing_calendar: false,

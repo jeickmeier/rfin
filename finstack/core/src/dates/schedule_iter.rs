@@ -10,7 +10,8 @@
 //! - **Stub handling**: Short/long stubs at front or back of schedule
 //! - **Business day adjustment**: Modified Following, Following, Preceding
 //! - **End-of-month**: Snap to month-end for month-based frequencies
-//! - **CDS IMM mode**: Standard credit default swap quarterly schedules
+//! - **IMM mode**: Standard IMM quarterly schedules (third Wednesday of Mar/Jun/Sep/Dec)
+//! - **CDS IMM mode**: Credit default swap quarterly schedules (20th of Mar/Jun/Sep/Dec)
 //! - **Deterministic**: Same inputs always produce identical outputs
 //! - **Deduplication**: Automatically removes duplicate dates from EOM/adjustment
 //!
@@ -47,6 +48,24 @@
 //!
 //! let dates: Vec<_> = sched.into_iter().collect();
 //! // Mar-20, Jun-20, Sep-20, Dec-20 (2025)
+//! assert_eq!(dates.len(), 4);
+//! # Ok::<(), Box<dyn std::error::Error>>(())
+//! ```
+//!
+//! Standard IMM schedule (quarterly on third Wednesday):
+//! ```rust
+//! use finstack_core::dates::ScheduleBuilder;
+//! use time::{Date, Month};
+//!
+//! let start = Date::from_calendar_date(2025, Month::January, 15)?;
+//! let end = Date::from_calendar_date(2025, Month::December, 31)?;
+//!
+//! let sched = ScheduleBuilder::new(start, end)
+//!     .imm()  // Auto-adjusts start to next IMM date (third Wednesday)
+//!     .build()?;
+//!
+//! let dates: Vec<_> = sched.into_iter().collect();
+//! // Mar-19, Jun-18, Sep-17, Dec-17 (2025 third Wednesdays)
 //! assert_eq!(dates.len(), 4);
 //! # Ok::<(), Box<dyn std::error::Error>>(())
 //! ```
@@ -98,7 +117,7 @@
 use smallvec::SmallVec;
 use time::{Date, Duration};
 
-use super::{adjust, next_cds_date, BusinessDayConvention, HolidayCalendar};
+use super::{adjust, next_cds_date, next_imm, BusinessDayConvention, HolidayCalendar};
 use crate::dates::date_extensions::DateExt;
 
 /// Small helper alias when we need to pre-buffer (used only for `ShortFront`).
@@ -437,6 +456,11 @@ fn is_cds_roll_date(date: Date) -> bool {
     crate::dates::imm::is_cds_date(date)
 }
 
+/// Check if a date is a standard IMM date (third Wednesday of Mar/Jun/Sep/Dec).
+fn is_imm_roll_date(date: Date) -> bool {
+    crate::dates::imm::is_imm_date(date)
+}
+
 /// Fluent builder for constructing date schedules with full configurability.
 ///
 /// Provides a type-safe, fluent API for generating payment/coupon schedules
@@ -543,6 +567,9 @@ pub struct ScheduleBuilder<'a> {
     /// Pending calendar ID from `adjust_with_id` - resolved at build time.
     pending_calendar_id: Option<String>,
     eom: bool,
+    /// Standard IMM mode (third Wednesday of Mar/Jun/Sep/Dec) for futures.
+    imm_mode: bool,
+    /// CDS IMM mode (20th of Mar/Jun/Sep/Dec) for credit default swaps.
     cds_imm_mode: bool,
     graceful: bool,
     allow_missing_calendar: bool,
@@ -567,6 +594,7 @@ impl<'a> ScheduleBuilder<'a> {
             cal: None,
             pending_calendar_id: None,
             eom: false,
+            imm_mode: false,
             cds_imm_mode: false,
             graceful: false,
             allow_missing_calendar: false,
@@ -618,12 +646,43 @@ impl<'a> ScheduleBuilder<'a> {
 
     /// Create a CDS IMM schedule (quarterly on the 20th: 20-Mar, 20-Jun, 20-Sep, 20-Dec).
     /// This is a convenience method for credit default swap schedules that follow
-    /// standard IMM roll dates.
+    /// standard CDS roll dates.
     #[must_use]
     pub fn cds_imm(mut self) -> Self {
         self.freq = Tenor::three_months();
         self.stub = StubKind::ShortBack;
         self.cds_imm_mode = true;
+        self
+    }
+
+    /// Create a standard IMM schedule (quarterly on third Wednesday: Mar, Jun, Sep, Dec).
+    ///
+    /// This is used for interest rate futures (Eurodollar, SOFR), currency futures,
+    /// and equity index futures that follow CME IMM roll conventions.
+    ///
+    /// Unlike [`cds_imm()`](Self::cds_imm) which uses the 20th of quarterly months,
+    /// standard IMM dates fall on the third Wednesday.
+    ///
+    /// # Example
+    /// ```rust
+    /// use finstack_core::dates::ScheduleBuilder;
+    /// use time::{Date, Month};
+    ///
+    /// let start = Date::from_calendar_date(2025, Month::January, 15)?;
+    /// let end = Date::from_calendar_date(2025, Month::December, 31)?;
+    ///
+    /// let schedule = ScheduleBuilder::new(start, end)
+    ///     .imm()  // Quarterly on third Wednesday
+    ///     .build()?;
+    ///
+    /// // Generates: Mar-19, Jun-18, Sep-17, Dec-17 (2025 third Wednesdays)
+    /// # Ok::<(), Box<dyn std::error::Error>>(())
+    /// ```
+    #[must_use]
+    pub fn imm(mut self) -> Self {
+        self.freq = Tenor::three_months();
+        self.stub = StubKind::ShortBack;
+        self.imm_mode = true;
         self
     }
 
@@ -823,8 +882,17 @@ impl<'a> ScheduleBuilder<'a> {
                 self.cal
             };
 
-        // Apply CDS IMM start adjustment if requested
-        let (start, end) = if self.cds_imm_mode {
+        // Apply IMM or CDS IMM start adjustment if requested
+        let (start, end) = if self.imm_mode {
+            // Standard IMM: third Wednesday of quarterly months
+            let adj_start = if is_imm_roll_date(self.start) {
+                self.start
+            } else {
+                next_imm(self.start)
+            };
+            (adj_start, self.end)
+        } else if self.cds_imm_mode {
+            // CDS IMM: 20th of quarterly months
             let adj_start = if is_cds_roll_date(self.start) {
                 self.start
             } else {
@@ -888,7 +956,10 @@ pub struct ScheduleSpec {
     pub calendar_id: Option<String>,
     /// If true, always roll to end of month when applicable.
     pub end_of_month: bool,
-    /// If true, use CDS IMM date logic.
+    /// If true, use standard IMM date logic (third Wednesday of quarterly months).
+    #[serde(default)]
+    pub imm_mode: bool,
+    /// If true, use CDS IMM date logic (20th of quarterly months).
     pub cds_imm_mode: bool,
     /// If true, allow graceful handling of edge cases.
     pub graceful: bool,
@@ -914,7 +985,9 @@ impl ScheduleSpec {
             builder = builder.adjust_with_id(conv, id);
         }
 
-        if self.cds_imm_mode {
+        if self.imm_mode {
+            builder = builder.imm();
+        } else if self.cds_imm_mode {
             builder = builder.cds_imm();
         }
 

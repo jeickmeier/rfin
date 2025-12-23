@@ -128,6 +128,41 @@ pub fn is_cds_date(date: Date) -> bool {
     )
 }
 
+/// Check if a date is a standard IMM date (third Wednesday of Mar/Jun/Sep/Dec).
+///
+/// IMM dates are used for interest rate futures, currency futures, and equity index
+/// futures that follow CME IMM roll conventions.
+///
+/// # Example
+/// ```rust
+/// use finstack_core::dates::is_imm_date;
+/// use time::{Date, Month};
+///
+/// let imm_date = Date::from_calendar_date(2025, Month::March, 19)?;
+/// assert!(is_imm_date(imm_date)); // Third Wednesday of March 2025
+///
+/// let non_imm = Date::from_calendar_date(2025, Month::March, 20)?;
+/// assert!(!is_imm_date(non_imm)); // Not a third Wednesday
+/// # Ok::<(), Box<dyn std::error::Error>>(())
+/// ```
+#[must_use]
+pub fn is_imm_date(date: Date) -> bool {
+    // Must be a quarterly month
+    if !matches!(
+        date.month(),
+        Month::March | Month::June | Month::September | Month::December
+    ) {
+        return false;
+    }
+    // Must be a Wednesday
+    if date.weekday() != Weekday::Wednesday {
+        return false;
+    }
+    // Must be the third Wednesday (day 15-21)
+    let day = date.day();
+    (15..=21).contains(&day)
+}
+
 /// Return the **next CDS roll date** (20-Mar/20-Jun/20-Sep/20-Dec) **strictly
 /// after** `date`.
 #[must_use]
@@ -327,5 +362,58 @@ mod tests {
             next_expiry,
             Date::from_calendar_date(2026, Month::January, 16).expect("Valid test date")
         );
+    }
+
+    #[test]
+    fn is_imm_date_third_wednesday_march_2025() {
+        // Third Wednesday of March 2025 is the 19th
+        let imm = Date::from_calendar_date(2025, Month::March, 19).expect("Valid test date");
+        assert!(is_imm_date(imm));
+    }
+
+    #[test]
+    fn is_imm_date_third_wednesday_june_2025() {
+        // Third Wednesday of June 2025 is the 18th
+        let imm = Date::from_calendar_date(2025, Month::June, 18).expect("Valid test date");
+        assert!(is_imm_date(imm));
+    }
+
+    #[test]
+    fn is_imm_date_third_wednesday_september_2025() {
+        // Third Wednesday of September 2025 is the 17th
+        let imm = Date::from_calendar_date(2025, Month::September, 17).expect("Valid test date");
+        assert!(is_imm_date(imm));
+    }
+
+    #[test]
+    fn is_imm_date_third_wednesday_december_2025() {
+        // Third Wednesday of December 2025 is the 17th
+        let imm = Date::from_calendar_date(2025, Month::December, 17).expect("Valid test date");
+        assert!(is_imm_date(imm));
+    }
+
+    #[test]
+    fn is_imm_date_non_quarterly_month() {
+        // Third Wednesday of February 2025 (not a quarterly month)
+        let non_imm = Date::from_calendar_date(2025, Month::February, 19).expect("Valid test date");
+        assert!(!is_imm_date(non_imm));
+    }
+
+    #[test]
+    fn is_imm_date_non_wednesday() {
+        // March 20, 2025 is a Thursday (not the third Wednesday)
+        let non_imm = Date::from_calendar_date(2025, Month::March, 20).expect("Valid test date");
+        assert!(!is_imm_date(non_imm));
+    }
+
+    #[test]
+    fn is_imm_date_wrong_wednesday() {
+        // March 12, 2025 is the second Wednesday (not the third)
+        let non_imm = Date::from_calendar_date(2025, Month::March, 12).expect("Valid test date");
+        assert!(!is_imm_date(non_imm));
+
+        // March 26, 2025 is the fourth Wednesday (not the third)
+        let non_imm2 = Date::from_calendar_date(2025, Month::March, 26).expect("Valid test date");
+        assert!(!is_imm_date(non_imm2));
     }
 }
