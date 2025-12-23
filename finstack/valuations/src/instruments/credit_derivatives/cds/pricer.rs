@@ -11,21 +11,45 @@
 //!
 //! # Par Spread Calculation
 //!
-//! The par spread is calculated using the formula:
+//! The par spread is the spread at which the CDS has zero initial value (i.e.,
+//! protection leg PV equals premium leg PV). It is calculated as:
 //!
 //! ```text
-//! Par Spread (bps) = Protection_PV / (Risky_Annuity × Notional) × 10000
+//! Par Spread = Protection_PV / RPV01
 //! ```
 //!
-//! By default, the denominator uses the Risky Annuity (sum of DF × SP × YearFrac),
-//! which **excludes** accrual-on-default. This matches the ISDA CDS Standard Model
-//! convention where par spread is defined as the ratio of protection leg PV to
-//! the survival-weighted duration.
+//! where RPV01 (Risky PV01 or Risky Duration) is defined as:
 //!
-//! For Bloomberg CDSW-style calculations that include accrual-on-default in
-//! both numerator and denominator, set `par_spread_uses_full_premium = true`
-//! in the `CDSPricerConfig`. The difference is typically < 1bp for investment
-//! grade credits but can reach 2-5 bps for distressed credits.
+//! ```text
+//! RPV01 = Σᵢ DF(tᵢ) × SP(tᵢ) × Δt(tᵢ₋₁, tᵢ)
+//! ```
+//!
+//! - **DF(t)**: Discount factor from valuation date to time t
+//! - **SP(t)**: Survival probability to time t (from hazard curve)
+//! - **Δt**: Day count fraction for the accrual period
+//!
+//! This is the **Risky Annuity** excluding accrual-on-default, which matches
+//! the ISDA CDS Standard Model convention.
+//!
+//! ## ISDA vs Bloomberg CDSW Methodology
+//!
+//! | Methodology | Denominator | Use Case |
+//! |-------------|-------------|----------|
+//! | ISDA Standard Model | Risky Annuity only | Default, curve building |
+//! | Bloomberg CDSW | Includes accrual-on-default | Trading desk analytics |
+//!
+//! The difference is typically:
+//! - **< 1bp** for investment grade credits (hazard rate < 1%)
+//! - **2-5 bps** for high yield/distressed credits (hazard rate > 3%)
+//!
+//! To use Bloomberg CDSW-style calculations, set `par_spread_uses_full_premium = true`
+//! in the [`CDSPricerConfig`].
+//!
+//! ## References
+//!
+//! - ISDA CDS Standard Model (Markit, 2009)
+//! - O'Kane, D. "Modelling Single-name and Multi-name Credit Derivatives" (2008), Chapter 5
+//! - Hull, J.C. & White, A. "Valuing Credit Default Swaps I: No Counterparty Default Risk"
 
 use crate::constants::{isda, time as time_constants, NUMERICAL_TOLERANCE};
 use crate::instruments::cds::{CreditDefaultSwap, PayReceive};
@@ -209,6 +233,7 @@ impl CDSPricerConfig {
 }
 
 /// CDS pricing engine. Stateless wrapper carrying configuration.
+#[derive(Debug)]
 pub struct CDSPricer {
     config: CDSPricerConfig,
 }

@@ -177,6 +177,7 @@ impl SABRModel {
     ///
     /// This is the standard SABR formula from Hagan et al. (2002) with enhanced
     /// numerical stability and support for negative rates through shifting.
+    #[inline]
     pub fn implied_volatility(
         &self,
         forward: f64,
@@ -283,6 +284,7 @@ impl SABRModel {
     }
 
     /// Calculate ATM implied volatility with enhanced numerical stability
+    #[inline]
     fn atm_volatility(&self, forward: f64, time_to_expiry: f64) -> Result<f64> {
         let alpha = self.params.alpha;
         let beta = self.params.beta;
@@ -337,6 +339,7 @@ impl SABRModel {
     }
 
     /// Calculate chi(z) for the SABR formula with enhanced numerical stability
+    #[inline]
     fn calculate_chi_robust(&self, z: f64) -> Result<f64> {
         let rho = self.params.rho;
 
@@ -978,6 +981,56 @@ pub struct SABRSmile {
     time_to_expiry: f64,
 }
 
+/// Result of arbitrage validation, containing any violations found.
+#[derive(Clone, Debug, Default)]
+pub struct ArbitrageValidationResult {
+    /// Strikes where butterfly spread is negative (convexity violation)
+    pub butterfly_violations: Vec<ButterflyViolation>,
+    /// Pairs of strikes where call prices increase (monotonicity violation)
+    pub monotonicity_violations: Vec<MonotonicityViolation>,
+}
+
+/// A butterfly spread violation at a specific strike.
+#[derive(Clone, Debug)]
+pub struct ButterflyViolation {
+    /// Strike at which the violation occurs
+    pub strike: f64,
+    /// Butterfly spread value (negative indicates violation)
+    pub butterfly_value: f64,
+    /// Severity as percentage of mid-strike price
+    pub severity_pct: f64,
+}
+
+/// A monotonicity violation between two strikes.
+#[derive(Clone, Debug)]
+pub struct MonotonicityViolation {
+    /// Lower strike
+    pub strike_low: f64,
+    /// Higher strike
+    pub strike_high: f64,
+    /// Call price at lower strike
+    pub price_low: f64,
+    /// Call price at higher strike (should be lower)
+    pub price_high: f64,
+}
+
+impl ArbitrageValidationResult {
+    /// Returns true if no arbitrage was detected.
+    #[must_use]
+    pub fn is_arbitrage_free(&self) -> bool {
+        self.butterfly_violations.is_empty() && self.monotonicity_violations.is_empty()
+    }
+
+    /// Returns the worst butterfly violation severity, if any.
+    #[must_use]
+    pub fn worst_butterfly_severity(&self) -> Option<f64> {
+        self.butterfly_violations
+            .iter()
+            .map(|v| v.severity_pct.abs())
+            .max_by(|a, b| a.partial_cmp(b).unwrap_or(std::cmp::Ordering::Equal))
+    }
+}
+
 impl SABRSmile {
     /// Create new smile generator
     pub fn new(model: SABRModel, forward: f64, time_to_expiry: f64) -> Self {
@@ -1022,6 +1075,143 @@ impl SABRSmile {
         let strike = self.forward * (z * std_dev).exp();
         Ok(strike)
     }
+
+    /// Validate the generated smile for no-arbitrage conditions.
+    ///
+    /// Checks for two types of static arbitrage:
+    ///
+    /// 1. **Butterfly arbitrage** (convexity): Call(K-δ) - 2·Call(K) + Call(K+δ) ≥ 0
+    ///    A negative butterfly spread means you can buy the wings and sell the body
+    ///    for a risk-free profit.
+    ///
+    /// 2. **Monotonicity arbitrage**: Call prices must decrease as strike increases.
+    ///    If C(K₁) < C(K₂) for K₁ < K₂, you can buy the lower strike and sell the
+    ///    higher strike for immediate profit.
+    ///
+    /// # Arguments
+    /// * `strikes` - Array of strikes to validate (must be sorted ascending)
+    /// * `r` - Risk-free rate for discounting
+    /// * `q` - Dividend/foreign rate
+    ///
+    /// # Returns
+    /// `ArbitrageValidationResult` containing any violations found.
+    ///
+    /// # Example
+    /// ```rust,ignore
+    /// let result = smile.validate_no_arbitrage(&strikes, 0.05, 0.02)?;
+    /// if !result.is_arbitrage_free() {
+    ///     println!("Warning: {} butterfly violations found",
+    ///              result.butterfly_violations.len());
+    /// }
+    /// ```
+    pub fn validate_no_arbitrage(
+        &self,
+        strikes: &[f64],
+        r: f64,
+        q: f64,
+    ) -> Result<ArbitrageValidationResult> {
+        if strikes.len() < 3 {
+            return Ok(ArbitrageValidationResult::default());
+        }
+
+        let vols = self.generate_smile(strikes)?;
+
+        // Convert to call prices for validation
+        let prices: Vec<f64> = strikes
+            .iter()
+            .zip(vols.iter())
+            .map(|(&k, &vol)| bs_call_price(self.forward, k, r, q, vol, self.time_to_expiry))
+            .collect();
+
+        let mut result = ArbitrageValidationResult::default();
+
+        // Tolerance for numerical noise (0.1 bps of notional)
+        let tol = 1e-6;
+
+        // Check monotonicity: C(K₁) > C(K₂) for K₁ < K₂
+        for i in 1..prices.len() {
+            if prices[i] > prices[i - 1] + tol {
+                result.monotonicity_violations.push(MonotonicityViolation {
+                    strike_low: strikes[i - 1],
+                    strike_high: strikes[i],
+                    price_low: prices[i - 1],
+                    price_high: prices[i],
+                });
+            }
+        }
+
+        // Check butterfly positivity (convexity)
+        for i in 1..prices.len() - 1 {
+            let butterfly = prices[i - 1] - 2.0 * prices[i] + prices[i + 1];
+            if butterfly < -tol {
+                let severity_pct = if prices[i] > tol {
+                    butterfly.abs() / prices[i] * 100.0
+                } else {
+                    0.0
+                };
+
+                result.butterfly_violations.push(ButterflyViolation {
+                    strike: strikes[i],
+                    butterfly_value: butterfly,
+                    severity_pct,
+                });
+            }
+        }
+
+        Ok(result)
+    }
+
+    /// Quick check if the smile is arbitrage-free.
+    ///
+    /// Returns `Ok(())` if no arbitrage detected, `Err` with description if arbitrage found.
+    pub fn check_no_arbitrage(&self, strikes: &[f64], r: f64, q: f64) -> Result<()> {
+        let result = self.validate_no_arbitrage(strikes, r, q)?;
+
+        if !result.is_arbitrage_free() {
+            let mut msg = String::from("SABR smile contains arbitrage: ");
+
+            if !result.butterfly_violations.is_empty() {
+                msg.push_str(&format!(
+                    "{} butterfly violations (worst: {:.2}%)",
+                    result.butterfly_violations.len(),
+                    result.worst_butterfly_severity().unwrap_or(0.0)
+                ));
+            }
+
+            if !result.monotonicity_violations.is_empty() {
+                if !result.butterfly_violations.is_empty() {
+                    msg.push_str(", ");
+                }
+                msg.push_str(&format!(
+                    "{} monotonicity violations",
+                    result.monotonicity_violations.len()
+                ));
+            }
+
+            return Err(Error::Validation(msg));
+        }
+
+        Ok(())
+    }
+}
+
+/// Black-Scholes call price for arbitrage checking.
+///
+/// Uses the standard Black-Scholes formula for European call options.
+#[inline]
+fn bs_call_price(forward: f64, strike: f64, r: f64, q: f64, vol: f64, t: f64) -> f64 {
+    if t <= 0.0 {
+        return (forward - strike).max(0.0);
+    }
+
+    let sqrt_t = t.sqrt();
+    let d1 = ((forward / strike).ln() + (r - q + 0.5 * vol * vol) * t) / (vol * sqrt_t);
+    let d2 = d1 - vol * sqrt_t;
+
+    let cdf_d1 = finstack_core::math::norm_cdf(d1);
+    let cdf_d2 = finstack_core::math::norm_cdf(d2);
+
+    forward * (-q * t).exp() * cdf_d1 - strike * (-r * t).exp() * cdf_d2
 }
 
 /// Helper function for normal CDF inverse using high-precision implementation.
@@ -1532,5 +1722,116 @@ mod tests {
 
         let near_one = normal_inverse_cdf(1.0 - 1e-300);
         assert!(near_one > 30.0, "CDF^-1(1-1e-300) should be very positive");
+    }
+
+    // ===================================================================
+    // Arbitrage Validation Tests
+    // ===================================================================
+
+    #[test]
+    fn test_sabr_arbitrage_validation_clean_smile() {
+        // Well-behaved SABR parameters should produce arbitrage-free smile
+        let params = SABRParameters::new(0.2, 0.5, 0.3, -0.2)
+            .expect("Valid SABR parameters");
+        let model = SABRModel::new(params);
+        let smile = SABRSmile::new(model, 100.0, 1.0);
+
+        let strikes: Vec<f64> = (70..=130).step_by(5).map(|k| k as f64).collect();
+        let r = 0.05;
+        let q = 0.02;
+
+        let result = smile
+            .validate_no_arbitrage(&strikes, r, q)
+            .expect("Validation should succeed");
+
+        assert!(
+            result.is_arbitrage_free(),
+            "Standard SABR parameters should be arbitrage-free. \
+             Butterfly violations: {}, Monotonicity violations: {}",
+            result.butterfly_violations.len(),
+            result.monotonicity_violations.len()
+        );
+    }
+
+    #[test]
+    fn test_sabr_arbitrage_check_api() {
+        // Test the simplified check API
+        let params = SABRParameters::new(0.2, 0.5, 0.3, -0.2)
+            .expect("Valid SABR parameters");
+        let model = SABRModel::new(params);
+        let smile = SABRSmile::new(model, 100.0, 1.0);
+
+        let strikes: Vec<f64> = (80..=120).step_by(5).map(|k| k as f64).collect();
+
+        // Should pass without error
+        let check_result = smile.check_no_arbitrage(&strikes, 0.05, 0.02);
+        assert!(
+            check_result.is_ok(),
+            "Clean smile should pass arbitrage check"
+        );
+    }
+
+    #[test]
+    fn test_sabr_arbitrage_validation_result_methods() {
+        // Test ArbitrageValidationResult helper methods
+        let mut result = ArbitrageValidationResult::default();
+
+        // Empty result should be arbitrage-free
+        assert!(result.is_arbitrage_free());
+        assert!(result.worst_butterfly_severity().is_none());
+
+        // Add a violation
+        result.butterfly_violations.push(ButterflyViolation {
+            strike: 100.0,
+            butterfly_value: -0.01,
+            severity_pct: 0.5,
+        });
+
+        assert!(!result.is_arbitrage_free());
+        assert!(
+            (result
+                .worst_butterfly_severity()
+                .expect("severity should exist after adding violation")
+                - 0.5)
+                .abs()
+                < 1e-10
+        );
+    }
+
+    #[test]
+    fn test_sabr_arbitrage_too_few_strikes() {
+        // With fewer than 3 strikes, validation should return empty result
+        let params = SABRParameters::new(0.2, 0.5, 0.3, -0.2)
+            .expect("Valid SABR parameters");
+        let model = SABRModel::new(params);
+        let smile = SABRSmile::new(model, 100.0, 1.0);
+
+        let strikes = vec![95.0, 100.0]; // Only 2 strikes
+
+        let result = smile
+            .validate_no_arbitrage(&strikes, 0.05, 0.02)
+            .expect("Validation should succeed");
+
+        assert!(
+            result.is_arbitrage_free(),
+            "With < 3 strikes, no violations should be reported"
+        );
+    }
+
+    #[test]
+    fn test_sabr_arbitrage_extreme_params_may_have_violations() {
+        // Extreme parameters might produce arbitrage (this tests detection, not prevention)
+        // High vol-of-vol with extreme rho can sometimes produce problematic smiles
+        let params = SABRParameters::new(0.5, 0.9, 1.5, 0.8)
+            .expect("Valid SABR parameters");
+        let model = SABRModel::new(params);
+        let smile = SABRSmile::new(model, 100.0, 0.1); // Short expiry
+
+        let strikes: Vec<f64> = (50..=150).step_by(5).map(|k| k as f64).collect();
+
+        // This tests that the validation runs without panicking
+        // The result may or may not have violations depending on exact parameters
+        let result = smile.validate_no_arbitrage(&strikes, 0.05, 0.02);
+        assert!(result.is_ok(), "Validation should complete without error");
     }
 }

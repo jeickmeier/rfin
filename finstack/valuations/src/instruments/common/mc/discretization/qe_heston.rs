@@ -101,7 +101,29 @@ impl QeHeston {
 
     /// Compute integrated variance for spot evolution.
     ///
-    /// Uses approximation: ∫v(s)ds ≈ (v_t + v_{t+1})/2 * dt
+    /// Uses the trapezoidal (midpoint) approximation per Andersen (2008):
+    ///
+    /// ```text
+    /// ∫_t^{t+Δt} v_s ds ≈ (v_t + v_{t+Δt}) / 2 × Δt
+    /// ```
+    ///
+    /// This approximation is standard in the QE scheme and provides adequate
+    /// accuracy for typical time steps (monthly or finer). For extremely
+    /// high mean-reversion (κ > 10) with coarse time steps, consider
+    /// finer discretization.
+    ///
+    /// # Arguments
+    /// * `v_t` - Current variance
+    /// * `v_next` - Next variance (already simulated)
+    /// * `dt` - Time step
+    ///
+    /// # Returns
+    /// Integrated variance over [t, t+dt]
+    ///
+    /// # References
+    /// - Andersen, L. (2008). Section 3.2.4 - Log-Euler scheme with
+    ///   trapezoidal integrated variance approximation.
+    #[inline]
     fn integrated_variance(&self, v_t: f64, v_next: f64, dt: f64) -> f64 {
         (v_t + v_next) / 2.0 * dt
     }
@@ -138,6 +160,7 @@ impl Discretization<HestonProcess> for QeHeston {
         let z_s = rho * z_v + (1.0 - rho * rho).sqrt() * z[0];
 
         // Step 3: Evolve spot using log-Euler with integrated variance
+        // Use trapezoidal approximation for integrated variance (Andersen 2008 Section 3.2.4)
         let int_var = self.integrated_variance(v_t, v_next, dt);
         let drift = (params.r - params.q - 0.5 * int_var / dt) * dt;
         let diffusion = int_var.sqrt() * z_s;
@@ -221,5 +244,74 @@ mod tests {
         // This is captured in the correlation structure
         assert!(x1[0] > 0.0);
         assert!(x1[1] >= 0.0);
+    }
+
+    #[test]
+    fn test_integrated_variance_bounds() {
+        let qe = QeHeston::new();
+        let v_t = 0.04;
+        let v_next = 0.05;
+        let dt = 0.1;
+
+        let int_var = qe.integrated_variance(v_t, v_next, dt);
+
+        // Integrated variance should be between v_t * dt and v_next * dt
+        let lower = v_t.min(v_next) * dt;
+        let upper = v_t.max(v_next) * dt;
+        assert!(
+            int_var >= lower && int_var <= upper,
+            "Integrated variance {} out of bounds [{}, {}]",
+            int_var,
+            lower,
+            upper
+        );
+
+        // Should equal the midpoint
+        let midpoint = (v_t + v_next) / 2.0 * dt;
+        assert!(
+            (int_var - midpoint).abs() < 1e-12,
+            "Integrated variance should equal midpoint: got {} vs {}",
+            int_var,
+            midpoint
+        );
+    }
+
+    #[test]
+    fn test_integrated_variance_symmetric() {
+        // When v_t == v_next, result should equal v * dt
+        let qe = QeHeston::new();
+        let v = 0.04;
+        let dt = 0.1;
+
+        let int_var = qe.integrated_variance(v, v, dt);
+        let expected = v * dt;
+
+        assert!(
+            (int_var - expected).abs() < 1e-12,
+            "When v_t == v_next, integrated variance should equal v*dt: {} vs {}",
+            int_var,
+            expected
+        );
+    }
+
+    #[test]
+    fn test_integrated_variance_various_dt() {
+        // Test with various time steps
+        let qe = QeHeston::new();
+        let v_t = 0.04;
+        let v_next = 0.05;
+
+        for dt in [0.001, 0.01, 0.1, 0.25, 1.0] {
+            let int_var = qe.integrated_variance(v_t, v_next, dt);
+            let midpoint = (v_t + v_next) / 2.0 * dt;
+
+            assert!(
+                (int_var - midpoint).abs() < 1e-12,
+                "Integrated variance should equal midpoint for dt={}: got {} vs {}",
+                dt,
+                int_var,
+                midpoint
+            );
+        }
     }
 }

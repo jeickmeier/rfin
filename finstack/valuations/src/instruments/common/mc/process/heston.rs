@@ -189,7 +189,26 @@ pub struct HestonProcess {
 
 impl HestonProcess {
     /// Create a new Heston process.
+    ///
+    /// # Feller Condition Warning
+    ///
+    /// If the Feller condition (2κθ ≥ σᵥ²) is violated, a warning is logged.
+    /// When violated, the variance process can reach zero with positive probability,
+    /// though the QE scheme handles this gracefully via truncation.
     pub fn new(params: HestonParams) -> Self {
+        // Warn when Feller condition is violated (variance may hit zero)
+        if !params.satisfies_feller() {
+            let feller_ratio = 2.0 * params.kappa * params.theta / (params.sigma_v * params.sigma_v);
+            tracing::warn!(
+                kappa = params.kappa,
+                theta = params.theta,
+                sigma_v = params.sigma_v,
+                feller_ratio = feller_ratio,
+                "Heston Feller condition violated (2κθ < σᵥ²): variance may reach zero. \
+                 Feller ratio = {:.4} (should be ≥ 1.0). QE scheme will truncate at zero.",
+                feller_ratio
+            );
+        }
         Self { params }
     }
 

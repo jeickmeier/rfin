@@ -1,6 +1,7 @@
 //! Shared Black–Scholes/Garman–Kohlhagen pricing helpers.
 use crate::instruments::common::models::{d1, d2};
 use crate::instruments::common::parameters::OptionType;
+use std::fmt;
 
 /// Conversion constant for per-1% greeks.
 pub const ONE_PERCENT: f64 = 100.0;
@@ -22,7 +23,22 @@ pub struct BsGreeks {
     pub rho_q: f64,
 }
 
+impl fmt::Display for BsGreeks {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(
+            f,
+            "Δ={:.4} Γ={:.6} V={:.4} Θ={:.4} ρr={:.4} ρq={:.4}",
+            self.delta, self.gamma, self.vega, self.theta, self.rho_r, self.rho_q
+        )
+    }
+}
+
 /// Black–Scholes / Garman–Kohlhagen price (per unit, no contract scaling).
+///
+/// # Returns
+/// Option price per unit of the underlying.
+#[must_use]
+#[inline]
 #[allow(clippy::too_many_arguments)]
 pub fn bs_price(
     spot: f64,
@@ -54,6 +70,14 @@ pub fn bs_price(
 }
 
 /// Black–Scholes / Garman–Kohlhagen greeks (per unit, per-1% for vega and rhos).
+///
+/// # Arguments
+/// * `theta_days_per_year` - Day-count basis for theta (e.g., 365.0 for ACT/365)
+///
+/// # Returns
+/// Greeks struct with delta, gamma, vega (per 1% vol), theta (per day), and rhos (per 1%).
+#[must_use]
+#[inline]
 #[allow(clippy::too_many_arguments)]
 pub fn bs_greeks(
     spot: f64,

@@ -223,6 +223,44 @@ pub struct ProtectionLegSpec {
     pub settlement_delay: u16,
 }
 
+impl ProtectionLegSpec {
+    /// Create a new protection leg specification with validation.
+    ///
+    /// # Arguments
+    /// * `credit_curve_id` - Identifier for the hazard/credit curve
+    /// * `recovery_rate` - Recovery rate in [0.0, 1.0] (e.g., 0.4 = 40%)
+    /// * `settlement_delay` - Settlement delay in business days
+    ///
+    /// # Errors
+    /// Returns an error if `recovery_rate` is outside [0.0, 1.0].
+    pub fn new(
+        credit_curve_id: impl Into<CurveId>,
+        recovery_rate: f64,
+        settlement_delay: u16,
+    ) -> finstack_core::Result<Self> {
+        Self::validate_recovery_rate(recovery_rate)?;
+        Ok(Self {
+            credit_curve_id: credit_curve_id.into(),
+            recovery_rate,
+            settlement_delay,
+        })
+    }
+
+    /// Validate that recovery rate is within valid bounds [0, 1].
+    ///
+    /// # Errors
+    /// Returns an error if recovery rate is outside the valid range.
+    pub fn validate_recovery_rate(recovery_rate: f64) -> finstack_core::Result<()> {
+        if !(0.0..=1.0).contains(&recovery_rate) {
+            return Err(finstack_core::Error::Validation(format!(
+                "Recovery rate must be between 0.0 and 1.0, got {}",
+                recovery_rate
+            )));
+        }
+        Ok(())
+    }
+}
+
 // Note: Settlement type (cash/physical/auction) is descriptive-only and does not
 // impact current pricing. It has been removed from `ProtectionLegSpec` to keep
 // the pricing surface minimal and consistent. If needed, store as metadata in

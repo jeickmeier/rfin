@@ -513,14 +513,9 @@ impl CreditDefaultSwap {
     /// Validate recovery rate is within valid bounds [0, 1].
     ///
     /// Returns an error if recovery rate is outside the valid range.
+    #[inline]
     pub fn validate_recovery_rate(recovery_rate: f64) -> finstack_core::Result<()> {
-        if !(0.0..=1.0).contains(&recovery_rate) {
-            return Err(finstack_core::Error::Validation(format!(
-                "Recovery rate must be between 0.0 and 1.0, got {}",
-                recovery_rate
-            )));
-        }
-        Ok(())
+        ProtectionLegSpec::validate_recovery_rate(recovery_rate)
     }
 
     /// Build premium leg cashflows

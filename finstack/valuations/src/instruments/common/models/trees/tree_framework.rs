@@ -384,21 +384,117 @@ pub trait TreeModel {
     }
 }
 
-/// Greeks calculated from tree models
+/// Greeks calculated from tree models.
+///
+/// # Units and Conventions
+///
+/// - **Delta**: Per unit of spot (e.g., delta=0.5 means $0.50 per $1 spot move)
+/// - **Gamma**: Per unit of spot squared (second derivative)
+/// - **Vega**: Per 1% absolute volatility move (e.g., 20% → 21%)
+/// - **Theta**: Per day (negative for long positions typically)
+/// - **Rho**: Per 1 basis point (0.01%) interest rate move
 #[derive(Clone, Debug)]
 pub struct TreeGreeks {
     /// Instrument price
     pub price: f64,
-    /// Delta (spot sensitivity)
+    /// Delta (spot sensitivity per unit spot move)
     pub delta: f64,
-    /// Gamma (curvature)
+    /// Gamma (curvature, second derivative w.r.t. spot)
     pub gamma: f64,
-    /// Vega (volatility sensitivity)
+    /// Vega (volatility sensitivity per 1% vol move)
     pub vega: f64,
-    /// Theta (time decay)
+    /// Theta (time decay per day)
     pub theta: f64,
-    /// Rho (interest rate sensitivity)
+    /// Rho (interest rate sensitivity per 1bp rate move)
     pub rho: f64,
+}
+
+/// Configuration for Greek bump sizes.
+///
+/// Provides control over finite-difference bump sizes used in Greek calculations.
+/// Supports both fixed and adaptive bump sizing based on moneyness.
+///
+/// # Adaptive Bump Sizing
+///
+/// When `adaptive` is true, spot bumps are scaled based on moneyness:
+/// - **Near ATM** (0.8 ≤ S/K ≤ 1.2): Use smaller bumps (0.5%) for accuracy
+/// - **Deep ITM/OTM** (S/K < 0.8 or S/K > 1.2): Use larger bumps (2%) for stability
+///
+/// This improves Greek accuracy across the moneyness spectrum.
+#[derive(Clone, Debug)]
+pub struct GreeksBumpConfig {
+    /// Base spot bump as fraction of spot (default: 0.01 = 1%)
+    pub spot_bump_fraction: f64,
+    /// Volatility bump in absolute terms (default: 0.01 = 1% vol)
+    pub vol_bump_absolute: f64,
+    /// Interest rate bump in absolute terms (default: 0.0001 = 1bp)
+    pub rate_bump_absolute: f64,
+    /// Time bump in years (default: 1/365.25 = 1 day)
+    pub time_bump_years: f64,
+    /// Enable adaptive spot bump sizing based on moneyness
+    pub adaptive: bool,
+}
+
+impl Default for GreeksBumpConfig {
+    fn default() -> Self {
+        Self {
+            spot_bump_fraction: 0.01, // 1% of spot
+            vol_bump_absolute: 0.01,  // 1% vol (absolute, e.g., 20% → 21%)
+            rate_bump_absolute: 0.0001, // 1bp
+            time_bump_years: 1.0 / 365.25, // 1 day
+            adaptive: false,
+        }
+    }
+}
+
+impl GreeksBumpConfig {
+    /// Create config with adaptive bump sizing enabled.
+    pub fn adaptive() -> Self {
+        Self {
+            adaptive: true,
+            ..Default::default()
+        }
+    }
+
+    /// Create config with custom spot bump fraction.
+    pub fn with_spot_bump(mut self, fraction: f64) -> Self {
+        self.spot_bump_fraction = fraction;
+        self
+    }
+
+    /// Calculate the actual spot bump size, optionally adapting to moneyness.
+    ///
+    /// # Arguments
+    /// * `spot` - Current spot price
+    /// * `strike` - Option strike (if available, for moneyness calculation)
+    ///
+    /// # Returns
+    /// Absolute bump size in spot units
+    #[inline]
+    pub fn spot_bump(&self, spot: f64, strike: Option<f64>) -> f64 {
+        if self.adaptive {
+            if let Some(k) = strike {
+                let moneyness = spot / k;
+
+                // Adaptive scaling based on moneyness
+                let scale = if (0.8..=1.2).contains(&moneyness) {
+                    // Near ATM: use smaller bump for accuracy
+                    0.5
+                } else if (0.5..=1.5).contains(&moneyness) {
+                    // Moderate ITM/OTM: standard bump
+                    1.0
+                } else {
+                    // Deep ITM/OTM: larger bump for stability
+                    2.0
+                };
+
+                return self.spot_bump_fraction * scale * spot;
+            }
+        }
+
+        // Default: simple percentage of spot
+        self.spot_bump_fraction * spot
+    }
 }
 
 /// Tree branching type for evolution
