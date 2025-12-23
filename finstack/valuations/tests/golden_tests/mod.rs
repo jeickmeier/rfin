@@ -27,7 +27,7 @@ pub mod loader;
 
 pub use loader::{
     // European options
-    load_golden_tests, assert_within_tolerance, GoldenTestCase, OptionType,
+    load_golden_tests, GoldenTestCase, OptionType,
     // Barrier options
     load_barrier_tests, BarrierTestCase, BarrierType,
     // Asian options
