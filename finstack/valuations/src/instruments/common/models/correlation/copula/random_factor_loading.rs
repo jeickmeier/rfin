@@ -36,28 +36,43 @@
 use super::{select_quadrature, Copula, DEFAULT_QUADRATURE_ORDER};
 use finstack_core::math::{norm_cdf, GaussHermiteQuadrature};
 
+/// Minimum loading (ensures √(1-β²) is well-defined).
+const MIN_LOADING: f64 = 0.01;
+/// Maximum loading (ensures √(1-β²) is well-defined).
+const MAX_LOADING: f64 = 0.99;
+/// CDF argument clipping to prevent overflow.
+const CDF_CLIP: f64 = 10.0;
+
 /// Random Factor Loading copula with stochastic correlation.
 ///
 /// The factor loading is drawn from a distribution at each scenario,
 /// creating uncertainty in the effective correlation level.
+///
+/// # Numerical Stability
+///
+/// - Loading volatility is clamped to [0, 0.5]
+/// - Effective loading is clamped to [0.01, 0.99]
+/// - CDF arguments are clipped to prevent overflow
+/// - Quadrature is cached for performance
 pub struct RandomFactorLoadingCopula {
-    /// Volatility of the factor loading
+    /// Volatility of the factor loading, clamped to [0, 0.5]
     loading_volatility: f64,
     /// Quadrature order for integration
     quadrature_order: u8,
-    /// Minimum loading (ensures √(1-β²) is well-defined)
-    min_loading: f64,
-    /// Maximum loading (ensures √(1-β²) is well-defined)
-    max_loading: f64,
+    /// Cached quadrature for outer integration (loading shock η)
+    outer_quadrature: GaussHermiteQuadrature,
+    /// Cached quadrature for inner integration (market factor Z)
+    inner_quadrature: GaussHermiteQuadrature,
 }
 
 impl Clone for RandomFactorLoadingCopula {
     fn clone(&self) -> Self {
+        let quadrature = select_quadrature(self.quadrature_order);
         Self {
             loading_volatility: self.loading_volatility,
             quadrature_order: self.quadrature_order,
-            min_loading: self.min_loading,
-            max_loading: self.max_loading,
+            outer_quadrature: select_quadrature(self.quadrature_order),
+            inner_quadrature: quadrature,
         }
     }
 }
@@ -67,8 +82,6 @@ impl std::fmt::Debug for RandomFactorLoadingCopula {
         f.debug_struct("RandomFactorLoadingCopula")
             .field("loading_volatility", &self.loading_volatility)
             .field("quadrature_order", &self.quadrature_order)
-            .field("min_loading", &self.min_loading)
-            .field("max_loading", &self.max_loading)
             .finish()
     }
 }
@@ -77,37 +90,36 @@ impl RandomFactorLoadingCopula {
     /// Create a Random Factor Loading copula.
     ///
     /// # Arguments
-    /// * `loading_vol` - Volatility of factor loading (typical: 0.05-0.20)
+    /// * `loading_vol` - Volatility of factor loading, clamped to [0.0, 0.5].
+    ///   Typical values: 0.05-0.20. Higher values increase correlation uncertainty.
+    #[must_use]
     pub fn new(loading_vol: f64) -> Self {
+        let order = DEFAULT_QUADRATURE_ORDER;
         Self {
             loading_volatility: loading_vol.clamp(0.0, 0.5),
-            quadrature_order: DEFAULT_QUADRATURE_ORDER,
-            min_loading: 0.01,
-            max_loading: 0.99,
+            quadrature_order: order,
+            outer_quadrature: select_quadrature(order),
+            inner_quadrature: select_quadrature(order),
         }
     }
 
-    /// Create with custom quadrature order.
+    /// Create with custom quadrature order for higher precision.
+    ///
+    /// # Arguments
+    /// * `loading_vol` - Volatility of factor loading, clamped to [0.0, 0.5]
+    /// * `order` - Quadrature order (5, 7, or 10)
+    #[must_use]
     pub fn with_quadrature_order(loading_vol: f64, order: u8) -> Self {
         Self {
             loading_volatility: loading_vol.clamp(0.0, 0.5),
             quadrature_order: order,
-            min_loading: 0.01,
-            max_loading: 0.99,
+            outer_quadrature: select_quadrature(order),
+            inner_quadrature: select_quadrature(order),
         }
     }
 
-    /// Get quadrature for outer integration.
-    fn outer_quadrature(&self) -> GaussHermiteQuadrature {
-        select_quadrature(self.quadrature_order)
-    }
-
-    /// Get quadrature for inner integration.
-    fn inner_quadrature(&self) -> GaussHermiteQuadrature {
-        select_quadrature(self.quadrature_order)
-    }
-
     /// Get the loading volatility.
+    #[must_use]
     pub fn loading_volatility(&self) -> f64 {
         self.loading_volatility
     }
@@ -115,9 +127,11 @@ impl RandomFactorLoadingCopula {
     /// Compute effective loading given mean and shock.
     ///
     /// β(η) = β̄ + σ_β · η where η ~ N(0,1)
+    ///
+    /// Result is clamped to [0.01, 0.99] to ensure numerical stability.
     fn effective_loading(&self, mean_loading: f64, loading_shock: f64) -> f64 {
         let beta = mean_loading + self.loading_volatility * loading_shock;
-        beta.clamp(self.min_loading, self.max_loading)
+        beta.clamp(MIN_LOADING, MAX_LOADING)
     }
 
     /// Compute idiosyncratic loading given factor loading.
@@ -153,13 +167,14 @@ impl Copula for RandomFactorLoadingCopula {
 
         // P(default | Z, β) = Φ((threshold - β·Z) / γ)
         let conditional_threshold = (default_threshold - beta * z) / gamma;
-        norm_cdf(conditional_threshold.clamp(-10.0, 10.0))
+        norm_cdf(conditional_threshold.clamp(-CDF_CLIP, CDF_CLIP))
     }
 
     fn integrate_fn(&self, f: &dyn Fn(&[f64]) -> f64) -> f64 {
         // Double integral: outer over loading shock η, inner over market Z
-        self.outer_quadrature()
-            .integrate(|eta| self.inner_quadrature().integrate(|z| f(&[z, eta])))
+        // Uses cached quadrature for performance
+        self.outer_quadrature
+            .integrate(|eta| self.inner_quadrature.integrate(|z| f(&[z, eta])))
     }
 
     fn num_factors(&self) -> usize {
@@ -171,22 +186,27 @@ impl Copula for RandomFactorLoadingCopula {
     }
 
     fn tail_dependence(&self, correlation: f64) -> f64 {
-        // RFL has implicit tail dependence through stochastic correlation
-        // When loading is high (tail of loading distribution), correlation spikes
-        // Approximate by considering the high-loading tail contribution
+        // **APPROXIMATE** tail dependence coefficient.
+        //
+        // The RFL copula has implicit tail dependence through stochastic correlation:
+        // when loading is high (tail of loading distribution), correlation spikes,
+        // causing joint extremes to cluster.
+        //
+        // This is NOT the exact formula λ_L = lim_{u→0} P(U₂≤u|U₁≤u), but rather
+        // an effective measure that captures the qualitative behavior.
+        //
+        // For exact tail dependence, Monte Carlo simulation would be required.
 
         let mean_loading = correlation.clamp(0.0, 1.0).sqrt();
 
-        // P(β > threshold) where threshold gives near-perfect correlation
-        // High loading tail: contribution to tail dependence
+        // Probability of high loading (β > β̄ + 2σ)
         let high_loading = (mean_loading + 2.0 * self.loading_volatility).min(0.99);
         let effective_high_corr = high_loading * high_loading;
 
-        // Rough approximation: tail dependence proportional to
-        // probability of high correlation × impact at that correlation
+        // Probability of being in the high-loading tail
         let prob_high_loading = 1.0 - norm_cdf(2.0); // ~2.3%
 
-        // Contribution is small but non-zero
+        // Approximate tail dependence contribution
         prob_high_loading * effective_high_corr.sqrt() * 0.5
     }
 }

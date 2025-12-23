@@ -42,13 +42,16 @@
 /// - p01 = P(X₁=0, X₂=1)
 /// - p00 = P(X₁=0, X₂=0)
 ///
+/// The correlation is automatically clamped to the feasible Fréchet-Hoeffding bounds
+/// to ensure valid joint probabilities while exactly preserving the marginals.
+///
 /// # Arguments
-/// * `p1` - Marginal probability P(X₁=1)
-/// * `p2` - Marginal probability P(X₂=1)
-/// * `correlation` - Correlation between X₁ and X₂
+/// * `p1` - Marginal probability P(X₁=1), clamped to [0, 1]
+/// * `p2` - Marginal probability P(X₂=1), clamped to [0, 1]
+/// * `correlation` - Correlation between X₁ and X₂, clamped to feasible bounds
 ///
 /// # Returns
-/// Tuple (p11, p10, p01, p00) that sums to 1.0
+/// Tuple (p11, p10, p01, p00) that sums to 1.0 and exactly preserves marginals.
 ///
 /// # Example
 /// ```
@@ -56,35 +59,39 @@
 ///
 /// let (p11, p10, p01, p00) = joint_probabilities(0.6, 0.4, 0.3);
 /// assert!((p11 + p10 + p01 + p00 - 1.0).abs() < 1e-10);
+/// // Marginals are exactly preserved:
+/// assert!((p11 + p10 - 0.6).abs() < 1e-10);
+/// assert!((p11 + p01 - 0.4).abs() < 1e-10);
 /// ```
+#[must_use]
 pub fn joint_probabilities(p1: f64, p2: f64, correlation: f64) -> (f64, f64, f64, f64) {
-    // Compute variances
+    // Clamp marginal probabilities to valid range
+    let p1 = p1.clamp(0.0, 1.0);
+    let p2 = p2.clamp(0.0, 1.0);
+
+    // Handle degenerate cases (zero variance)
     let var1 = p1 * (1.0 - p1);
     let var2 = p2 * (1.0 - p2);
 
-    // Covariance from correlation
-    let cov = correlation * (var1 * var2).sqrt();
+    if var1 < 1e-14 || var2 < 1e-14 {
+        // Degenerate case: at least one probability is 0 or 1
+        // Return independent joint probabilities (correlation is meaningless)
+        return (p1 * p2, p1 * (1.0 - p2), (1.0 - p1) * p2, (1.0 - p1) * (1.0 - p2));
+    }
+
+    // Clamp correlation to Fréchet-Hoeffding bounds to ensure valid probabilities
+    let (rho_min, rho_max) = correlation_bounds(p1, p2);
+    let rho = correlation.clamp(rho_min, rho_max);
+
+    // Compute covariance from clamped correlation
+    let cov = rho * (var1 * var2).sqrt();
 
     // Joint probabilities via Bernoulli coupling
-    let mut p11 = (p1 * p2 + cov).clamp(0.0, 1.0);
-    let mut p10 = (p1 * (1.0 - p2) - cov).clamp(0.0, 1.0);
-    let mut p01 = ((1.0 - p1) * p2 - cov).clamp(0.0, 1.0);
-    let mut p00 = ((1.0 - p1) * (1.0 - p2) + cov).clamp(0.0, 1.0);
-
-    // Renormalize to ensure sum exactly 1.0
-    let sum = p11 + p10 + p01 + p00;
-    if sum > 0.0 {
-        p11 /= sum;
-        p10 /= sum;
-        p01 /= sum;
-        p00 /= sum;
-    } else {
-        // Fallback to independent if degenerate
-        p11 = p1 * p2;
-        p10 = p1 * (1.0 - p2);
-        p01 = (1.0 - p1) * p2;
-        p00 = (1.0 - p1) * (1.0 - p2);
-    }
+    // With correlation clamped to feasible bounds, these are guaranteed to be in [0, 1]
+    let p11 = p1 * p2 + cov;
+    let p10 = p1 * (1.0 - p2) - cov;
+    let p01 = (1.0 - p1) * p2 - cov;
+    let p00 = (1.0 - p1) * (1.0 - p2) + cov;
 
     (p11, p10, p01, p00)
 }
@@ -108,10 +115,14 @@ pub struct CorrelatedBernoulli {
 impl CorrelatedBernoulli {
     /// Create a correlated Bernoulli distribution.
     ///
+    /// The correlation is automatically clamped to the Fréchet-Hoeffding bounds
+    /// for the given marginal probabilities to ensure valid joint probabilities.
+    ///
     /// # Arguments
-    /// * `p1` - Marginal probability of first event
-    /// * `p2` - Marginal probability of second event
-    /// * `correlation` - Correlation between events
+    /// * `p1` - Marginal probability of first event, clamped to [0, 1]
+    /// * `p2` - Marginal probability of second event, clamped to [0, 1]
+    /// * `correlation` - Correlation between events, clamped to feasible bounds
+    #[must_use]
     pub fn new(p1: f64, p2: f64, correlation: f64) -> Self {
         let (p11, p10, p01, p00) = joint_probabilities(p1, p2, correlation);
         Self {
@@ -202,12 +213,14 @@ impl CorrelatedBernoulli {
     }
 }
 
-/// Compute the maximum achievable correlation for given marginal probabilities.
+/// Compute the achievable correlation bounds for given marginal probabilities.
 ///
-/// The Fréchet-Hoeffding bounds constrain the correlation:
+/// The Fréchet-Hoeffding bounds constrain the feasible correlation range:
 /// ```text
 /// ρ_min ≤ ρ ≤ ρ_max
 /// ```
+///
+/// These bounds ensure that all joint probabilities remain in [0, 1].
 ///
 /// # Arguments
 /// * `p1` - Marginal probability P(X₁=1)
@@ -215,6 +228,7 @@ impl CorrelatedBernoulli {
 ///
 /// # Returns
 /// Tuple (ρ_min, ρ_max) of achievable correlation bounds
+#[must_use]
 pub fn correlation_bounds(p1: f64, p2: f64) -> (f64, f64) {
     let var1 = p1 * (1.0 - p1);
     let var2 = p2 * (1.0 - p2);
@@ -267,29 +281,69 @@ mod tests {
 
     #[test]
     fn test_joint_probabilities_marginals() {
-        let (p1, p2, corr) = (0.6, 0.4, 0.3);
-        let (p11, p10, p01, p00) = joint_probabilities(p1, p2, corr);
+        let test_cases = vec![
+            (0.6, 0.4, 0.3),
+            (0.5, 0.5, 0.8),
+            (0.1, 0.9, -0.2),
+            (0.3, 0.7, 0.5),
+            (0.8, 0.2, -0.5),
+        ];
 
-        // Check marginal p1 = p11 + p10
-        let computed_p1 = p11 + p10;
-        assert!(
-            (computed_p1 - p1).abs() < 0.05,
-            "Marginal p1 {} should be close to {}",
-            computed_p1,
-            p1
-        );
+        for (p1, p2, corr) in test_cases {
+            let (p11, p10, p01, p00) = joint_probabilities(p1, p2, corr);
 
-        // Check marginal p2 = p11 + p01
-        let computed_p2 = p11 + p01;
-        assert!(
-            (computed_p2 - p2).abs() < 0.05,
-            "Marginal p2 {} should be close to {}",
-            computed_p2,
-            p2
-        );
+            // Check marginal p1 = p11 + p10 (must be exact)
+            let computed_p1 = p11 + p10;
+            assert!(
+                (computed_p1 - p1).abs() < 1e-10,
+                "Marginal p1 {} should equal {} for corr={}",
+                computed_p1,
+                p1,
+                corr
+            );
 
-        // The sum should be 1
-        let _ = p00;
+            // Check marginal p2 = p11 + p01 (must be exact)
+            let computed_p2 = p11 + p01;
+            assert!(
+                (computed_p2 - p2).abs() < 1e-10,
+                "Marginal p2 {} should equal {} for corr={}",
+                computed_p2,
+                p2,
+                corr
+            );
+
+            // All probabilities must be non-negative
+            assert!(p11 >= 0.0, "p11 must be non-negative");
+            assert!(p10 >= 0.0, "p10 must be non-negative");
+            assert!(p01 >= 0.0, "p01 must be non-negative");
+            assert!(p00 >= 0.0, "p00 must be non-negative");
+
+            // Sum must be exactly 1
+            let _ = p00;
+        }
+    }
+
+    #[test]
+    fn test_joint_probabilities_extreme_correlations() {
+        // Test that extreme correlations are clamped to feasible bounds
+        let (p1, p2) = (0.3, 0.7);
+        let (rho_min, rho_max) = correlation_bounds(p1, p2);
+
+        // Request correlation beyond bounds - should still produce valid marginals
+        let (p11, p10, p01, _p00) = joint_probabilities(p1, p2, 2.0); // Way above max
+        assert!((p11 + p10 - p1).abs() < 1e-10);
+        assert!((p11 + p01 - p2).abs() < 1e-10);
+
+        let (p11, p10, p01, _p00) = joint_probabilities(p1, p2, -2.0); // Way below min
+        assert!((p11 + p10 - p1).abs() < 1e-10);
+        assert!((p11 + p01 - p2).abs() < 1e-10);
+
+        // At exact bounds
+        let (p11, p10, _, _) = joint_probabilities(p1, p2, rho_max);
+        assert!((p11 + p10 - p1).abs() < 1e-10);
+
+        let (p11, p10, _, _) = joint_probabilities(p1, p2, rho_min);
+        assert!((p11 + p10 - p1).abs() < 1e-10);
     }
 
     #[test]

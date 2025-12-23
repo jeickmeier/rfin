@@ -38,30 +38,41 @@
 //!   Without Monte Carlo Simulation."
 
 use super::{select_quadrature, Copula};
-use finstack_core::math::norm_cdf;
+use finstack_core::math::{norm_cdf, GaussHermiteQuadrature};
+
+/// CDF argument clipping to prevent overflow.
+const CDF_CLIP: f64 = 10.0;
+/// Default quadrature order for multi-dimensional integration.
+const MULTI_FACTOR_QUADRATURE_ORDER: u8 = 5;
 
 /// Multi-factor Gaussian copula with sector structure.
 ///
 /// Uses a global factor plus sector-specific factors to model
 /// intra-sector vs. inter-sector correlation differences.
+///
+/// # Default Parameters
+///
+/// - Global loading: 0.4 (gives ~16% inter-sector correlation)
+/// - Sector loading: 0.3 (gives ~25% additional intra-sector correlation)
+/// - Quadrature order: 5 (lower for multi-dimensional efficiency)
 pub struct MultiFactorCopula {
     /// Number of systematic factors (global + sectors)
     num_factors_count: usize,
-    /// Quadrature order for integration
-    quadrature_order: u8,
     /// Global factor loading (default for all entities)
     default_global_loading: f64,
     /// Sector factor loading (default for all entities)
     default_sector_loading: f64,
+    /// Cached quadrature for integration
+    quadrature: GaussHermiteQuadrature,
 }
 
 impl Clone for MultiFactorCopula {
     fn clone(&self) -> Self {
         Self {
             num_factors_count: self.num_factors_count,
-            quadrature_order: self.quadrature_order,
             default_global_loading: self.default_global_loading,
             default_sector_loading: self.default_sector_loading,
+            quadrature: select_quadrature(MULTI_FACTOR_QUADRATURE_ORDER),
         }
     }
 }
@@ -70,7 +81,6 @@ impl std::fmt::Debug for MultiFactorCopula {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         f.debug_struct("MultiFactorCopula")
             .field("num_factors_count", &self.num_factors_count)
-            .field("quadrature_order", &self.quadrature_order)
             .field("default_global_loading", &self.default_global_loading)
             .field("default_sector_loading", &self.default_sector_loading)
             .finish()
@@ -80,24 +90,30 @@ impl std::fmt::Debug for MultiFactorCopula {
 impl MultiFactorCopula {
     /// Create a multi-factor copula with specified number of factors.
     ///
+    /// Uses default loadings: β_G=0.4, β_S=0.3
+    ///
     /// # Arguments
     /// * `num_factors` - Total number of factors (1 global + N-1 sector factors)
+    #[must_use]
     pub fn new(num_factors: usize) -> Self {
         let num_factors = num_factors.max(1);
         Self {
             num_factors_count: num_factors,
-            quadrature_order: 5,         // Lower order for multi-dimensional
             default_global_loading: 0.4, // ~16% inter-sector correlation
             default_sector_loading: 0.3, // Additional ~25% intra-sector
+            quadrature: select_quadrature(MULTI_FACTOR_QUADRATURE_ORDER),
         }
     }
 
     /// Create with custom loadings.
     ///
+    /// Loadings are clamped to ensure β_G² + β_S² ≤ 1 (valid variance).
+    ///
     /// # Arguments
     /// * `num_factors` - Total number of factors
-    /// * `global_loading` - Loading on global factor (β_G)
-    /// * `sector_loading` - Loading on sector factor (β_S)
+    /// * `global_loading` - Loading on global factor (β_G), clamped to [0, 0.99]
+    /// * `sector_loading` - Loading on sector factor (β_S), clamped to maintain variance constraint
+    #[must_use]
     pub fn with_loadings(num_factors: usize, global_loading: f64, sector_loading: f64) -> Self {
         // Ensure loadings are valid: β_G² + β_S² ≤ 1
         let gl = global_loading.clamp(0.0, 0.99);
@@ -106,23 +122,24 @@ impl MultiFactorCopula {
 
         Self {
             num_factors_count: num_factors.max(1),
-            quadrature_order: 5,
             default_global_loading: gl,
             default_sector_loading: sl,
+            quadrature: select_quadrature(MULTI_FACTOR_QUADRATURE_ORDER),
         }
     }
 
-    /// Get the quadrature for integration.
-    fn quadrature(&self) -> finstack_core::math::GaussHermiteQuadrature {
-        select_quadrature(self.quadrature_order)
-    }
-
     /// Get the inter-sector correlation (global factor only).
+    ///
+    /// Returns β_G² where β_G is the global factor loading.
+    #[must_use]
     pub fn inter_sector_correlation(&self) -> f64 {
         self.default_global_loading * self.default_global_loading
     }
 
     /// Get the intra-sector correlation (global + sector factors).
+    ///
+    /// Returns β_G² + β_S² where β_G is global and β_S is sector loading.
+    #[must_use]
     pub fn intra_sector_correlation(&self) -> f64 {
         let gl = self.default_global_loading;
         let sl = self.default_sector_loading;
@@ -130,6 +147,8 @@ impl MultiFactorCopula {
     }
 
     /// Compute idiosyncratic loading given factor loadings.
+    ///
+    /// γ = √(1 - β_G² - β_S²) to ensure Var(Aᵢ) = 1
     fn idiosyncratic_loading(&self, global_loading: f64, sector_loading: f64) -> f64 {
         let sum_sq = global_loading * global_loading + sector_loading * sector_loading;
         (1.0 - sum_sq).max(0.0).sqrt()
@@ -140,6 +159,11 @@ impl MultiFactorCopula {
     /// Given total correlation ρ and sector fraction f:
     /// - β_G² = ρ · (1 - f)
     /// - β_S² = ρ · f
+    ///
+    /// # Arguments
+    /// * `total_correlation` - Total correlation, clamped to [0, 0.99]
+    /// * `sector_fraction` - Fraction of correlation from sector factor, clamped to [0, 1]
+    #[must_use]
     pub fn decompose_correlation(
         &self,
         total_correlation: f64,
@@ -183,21 +207,21 @@ impl Copula for MultiFactorCopula {
         let systematic = global_loading * z_global + sector_loading * z_sector;
         let conditional_threshold = (default_threshold - systematic) / gamma;
 
-        norm_cdf(conditional_threshold.clamp(-10.0, 10.0))
+        norm_cdf(conditional_threshold.clamp(-CDF_CLIP, CDF_CLIP))
     }
 
     fn integrate_fn(&self, f: &dyn Fn(&[f64]) -> f64) -> f64 {
         // Multi-dimensional Gauss-Hermite quadrature
-        // For efficiency, use nested integration
+        // Uses cached quadrature for performance
 
         if self.num_factors_count == 1 {
             // Single factor: standard 1D integration
-            return self.quadrature().integrate(|z| f(&[z]));
+            return self.quadrature.integrate(|z| f(&[z]));
         }
 
         // Two-factor case (global + one sector): nested integration
-        self.quadrature().integrate(|z_global| {
-            self.quadrature()
+        self.quadrature.integrate(|z_global| {
+            self.quadrature
                 .integrate(|z_sector| f(&[z_global, z_sector]))
         })
     }

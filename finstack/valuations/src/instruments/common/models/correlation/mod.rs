@@ -11,6 +11,12 @@
 //! - [`recovery`]: Recovery rate models (constant, market-correlated)
 //! - [`factor_model`]: Factor models for correlated behavior
 //! - [`joint_probability`]: Joint probability utilities for correlated events
+//!
+//! # Utilities
+//!
+//! - [`validate_correlation_matrix`]: Validate correlation matrices (symmetry, unit diagonal, PSD)
+//! - [`cholesky_decompose`]: Cholesky decomposition for correlated factor generation
+//! - [`correlation_bounds`]: Fréchet-Hoeffding bounds for correlated Bernoulli
 
 pub mod copula;
 pub mod factor_model;
@@ -22,6 +28,9 @@ pub use copula::{
     Copula, CopulaSpec, GaussianCopula, MultiFactorCopula, RandomFactorLoadingCopula,
     StudentTCopula,
 };
-pub use factor_model::{FactorModel, FactorSpec, SingleFactorModel, TwoFactorModel};
-pub use joint_probability::{joint_probabilities, CorrelatedBernoulli};
+pub use factor_model::{
+    cholesky_decompose, validate_correlation_matrix, CorrelationMatrixError, FactorModel,
+    FactorSpec, MultiFactorModel, SingleFactorModel, TwoFactorModel,
+};
+pub use joint_probability::{correlation_bounds, joint_probabilities, CorrelatedBernoulli};
 pub use recovery::{ConstantRecovery, CorrelatedRecovery, RecoveryModel, RecoverySpec};

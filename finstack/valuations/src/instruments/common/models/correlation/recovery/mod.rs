@@ -145,6 +145,10 @@ impl Default for RecoverySpec {
 
 impl RecoverySpec {
     /// Create constant recovery specification.
+    ///
+    /// # Arguments
+    /// * `rate` - Recovery rate, clamped to [0.0, 1.0]
+    #[must_use]
     pub fn constant(rate: f64) -> Self {
         RecoverySpec::Constant {
             rate: rate.clamp(0.0, 1.0),
@@ -154,9 +158,10 @@ impl RecoverySpec {
     /// Create market-correlated recovery specification.
     ///
     /// # Arguments
-    /// * `mean` - Mean recovery rate (typical: 0.40)
-    /// * `vol` - Recovery volatility (typical: 0.20-0.30)
-    /// * `corr` - Correlation with factor (typical: -0.30 to -0.50)
+    /// * `mean` - Mean recovery rate, clamped to [0.0, 1.0]. Typical: 0.40
+    /// * `vol` - Recovery volatility, clamped to [0.0, 0.5]. Typical: 0.20-0.30
+    /// * `corr` - Correlation with factor, clamped to [-1.0, 1.0]. Typical: -0.30 to -0.50
+    #[must_use]
     pub fn market_correlated(mean: f64, vol: f64, corr: f64) -> Self {
         RecoverySpec::MarketCorrelated {
             mean_recovery: mean.clamp(0.0, 1.0),
@@ -171,11 +176,19 @@ impl RecoverySpec {
     /// - Mean: 40%
     /// - Vol: 25%
     /// - Correlation: -40%
+    #[must_use]
     pub fn market_standard_stochastic() -> Self {
         RecoverySpec::market_correlated(0.40, 0.25, -0.40)
     }
 
     /// Create beta-distributed recovery specification.
+    ///
+    /// Note: Currently approximated via correlated model.
+    ///
+    /// # Arguments
+    /// * `mean` - Mean recovery, clamped to [0.05, 0.95]
+    /// * `std_dev` - Standard deviation, clamped to [0.01, 0.30]
+    #[must_use]
     pub fn beta(mean: f64, std_dev: f64) -> Self {
         RecoverySpec::Beta {
             mean: mean.clamp(0.05, 0.95),
@@ -184,6 +197,13 @@ impl RecoverySpec {
     }
 
     /// Create Frye model specification.
+    ///
+    /// LGD(DR) = base_lgd + sensitivity * DefaultRate
+    ///
+    /// # Arguments
+    /// * `base_lgd` - Base LGD when default rate is zero, clamped to [0.0, 1.0]
+    /// * `sensitivity` - LGD sensitivity to default rate, clamped to [0.0, 5.0]
+    #[must_use]
     pub fn frye(base_lgd: f64, sensitivity: f64) -> Self {
         RecoverySpec::Frye {
             base_lgd: base_lgd.clamp(0.0, 1.0),
@@ -192,6 +212,7 @@ impl RecoverySpec {
     }
 
     /// Build the recovery model instance from this specification.
+    #[must_use]
     pub fn build(&self) -> Box<dyn RecoveryModel> {
         match self {
             RecoverySpec::Constant { rate } => Box::new(ConstantRecovery::new(*rate)),
@@ -224,6 +245,7 @@ impl RecoverySpec {
     }
 
     /// Get expected recovery rate from specification.
+    #[must_use]
     pub fn expected_recovery(&self) -> f64 {
         match self {
             RecoverySpec::Constant { rate } => *rate,

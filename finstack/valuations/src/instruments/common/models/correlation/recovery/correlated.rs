@@ -64,9 +64,10 @@ impl CorrelatedRecovery {
     /// Create a correlated recovery model.
     ///
     /// # Arguments
-    /// * `mean` - Mean recovery rate (typical: 0.40)
-    /// * `vol` - Recovery volatility (typical: 0.20-0.30)
-    /// * `corr` - Correlation with market factor (typical: -0.30 to -0.50)
+    /// * `mean` - Mean recovery rate, clamped to [0.05, 0.95]. Typical: 0.40
+    /// * `vol` - Recovery volatility, clamped to [0.0, 0.50]. Typical: 0.20-0.30
+    /// * `corr` - Correlation with market factor, clamped to [-1.0, 1.0]. Typical: -0.30 to -0.50
+    #[must_use]
     pub fn new(mean: f64, vol: f64, corr: f64) -> Self {
         Self {
             mean_recovery: mean.clamp(0.05, 0.95),
@@ -78,6 +79,14 @@ impl CorrelatedRecovery {
     }
 
     /// Create with custom bounds.
+    ///
+    /// # Arguments
+    /// * `mean` - Mean recovery rate
+    /// * `vol` - Recovery volatility
+    /// * `corr` - Correlation with market factor
+    /// * `min` - Minimum recovery (floor), clamped to [0.0, 0.5]
+    /// * `max` - Maximum recovery (ceiling), clamped to [0.5, 1.0]
+    #[must_use]
     pub fn with_bounds(mean: f64, vol: f64, corr: f64, min: f64, max: f64) -> Self {
         let mut model = Self::new(mean, vol, corr);
         model.min_recovery = min.clamp(0.0, 0.5);
@@ -91,6 +100,7 @@ impl CorrelatedRecovery {
     /// - Mean: 40%
     /// - Vol: 25%
     /// - Correlation: -40%
+    #[must_use]
     pub fn market_standard() -> Self {
         Self::new(0.40, 0.25, -0.40)
     }
@@ -101,21 +111,25 @@ impl CorrelatedRecovery {
     /// - Mean: 40%
     /// - Vol: 30%
     /// - Correlation: -50%
+    #[must_use]
     pub fn conservative() -> Self {
         Self::new(0.40, 0.30, -0.50)
     }
 
     /// Get the mean recovery rate.
+    #[must_use]
     pub fn mean(&self) -> f64 {
         self.mean_recovery
     }
 
     /// Get the recovery volatility.
+    #[must_use]
     pub fn volatility(&self) -> f64 {
         self.recovery_volatility
     }
 
     /// Get the factor correlation.
+    #[must_use]
     pub fn correlation(&self) -> f64 {
         self.factor_correlation
     }

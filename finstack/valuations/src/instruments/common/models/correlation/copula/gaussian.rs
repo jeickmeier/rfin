@@ -38,28 +38,35 @@
 use super::{select_quadrature, Copula, DEFAULT_QUADRATURE_ORDER};
 use finstack_core::math::{norm_cdf, GaussHermiteQuadrature};
 
+/// Minimum correlation for numerical stability.
+const MIN_CORRELATION: f64 = 0.01;
+/// Maximum correlation for numerical stability.
+const MAX_CORRELATION: f64 = 0.99;
+/// CDF argument clipping to prevent overflow.
+const CDF_CLIP: f64 = 10.0;
+
 /// One-factor Gaussian copula model.
 ///
 /// The industry-standard model for credit index tranche pricing,
 /// used with base correlation to capture the correlation smile.
+///
+/// # Numerical Stability
+///
+/// - Correlation is clamped to [0.01, 0.99] to avoid numerical issues
+/// - CDF arguments are clipped to [-10, 10] to prevent overflow
+/// - Quadrature is cached for performance
 pub struct GaussianCopula {
     /// Quadrature order for integration
     quadrature_order: u8,
-    /// Minimum correlation for numerical stability
-    min_correlation: f64,
-    /// Maximum correlation for numerical stability
-    max_correlation: f64,
-    /// CDF argument clipping to prevent overflow
-    cdf_clip: f64,
+    /// Cached quadrature for performance
+    quadrature: GaussHermiteQuadrature,
 }
 
 impl Clone for GaussianCopula {
     fn clone(&self) -> Self {
         Self {
             quadrature_order: self.quadrature_order,
-            min_correlation: self.min_correlation,
-            max_correlation: self.max_correlation,
-            cdf_clip: self.cdf_clip,
+            quadrature: select_quadrature(self.quadrature_order),
         }
     }
 }
@@ -68,9 +75,6 @@ impl std::fmt::Debug for GaussianCopula {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         f.debug_struct("GaussianCopula")
             .field("quadrature_order", &self.quadrature_order)
-            .field("min_correlation", &self.min_correlation)
-            .field("max_correlation", &self.max_correlation)
-            .field("cdf_clip", &self.cdf_clip)
             .finish()
     }
 }
@@ -83,40 +87,34 @@ impl Default for GaussianCopula {
 
 impl GaussianCopula {
     /// Create a new Gaussian copula with default parameters.
+    ///
+    /// Uses 7-point Gauss-Hermite quadrature for integration.
+    #[must_use]
     pub fn new() -> Self {
+        let order = DEFAULT_QUADRATURE_ORDER;
         Self {
-            quadrature_order: DEFAULT_QUADRATURE_ORDER,
-            min_correlation: 0.01,
-            max_correlation: 0.99,
-            cdf_clip: 10.0,
+            quadrature_order: order,
+            quadrature: select_quadrature(order),
         }
     }
 
-    /// Create with custom quadrature order.
+    /// Create with custom quadrature order for higher precision.
+    ///
+    /// # Arguments
+    /// * `order` - Quadrature order (5, 7, or 10). Higher order = more accuracy.
+    #[must_use]
     pub fn with_quadrature_order(order: u8) -> Self {
         Self {
             quadrature_order: order,
-            ..Self::new()
+            quadrature: select_quadrature(order),
         }
-    }
-
-    /// Create with custom correlation bounds.
-    pub fn with_correlation_bounds(min_corr: f64, max_corr: f64) -> Self {
-        Self {
-            min_correlation: min_corr.clamp(0.001, 0.5),
-            max_correlation: max_corr.clamp(0.5, 0.999),
-            ..Self::new()
-        }
-    }
-
-    /// Get the quadrature for integration.
-    fn quadrature(&self) -> GaussHermiteQuadrature {
-        select_quadrature(self.quadrature_order)
     }
 
     /// Smooth correlation boundary to avoid numerical discontinuities.
+    ///
+    /// Clamps correlation to [0.01, 0.99].
     fn smooth_correlation(&self, correlation: f64) -> f64 {
-        correlation.clamp(self.min_correlation, self.max_correlation)
+        correlation.clamp(MIN_CORRELATION, MAX_CORRELATION)
     }
 }
 
@@ -148,13 +146,14 @@ impl Copula for GaussianCopula {
         let conditional_threshold = (default_threshold - sqrt_rho * z) / sqrt_1mr;
 
         // Clip to prevent CDF overflow
-        let clipped = conditional_threshold.clamp(-self.cdf_clip, self.cdf_clip);
+        let clipped = conditional_threshold.clamp(-CDF_CLIP, CDF_CLIP);
         norm_cdf(clipped)
     }
 
     fn integrate_fn(&self, f: &dyn Fn(&[f64]) -> f64) -> f64 {
         // Gauss-Hermite quadrature over standard normal factor Z
-        self.quadrature().integrate(|z| f(&[z]))
+        // Uses cached quadrature for performance
+        self.quadrature.integrate(|z| f(&[z]))
     }
 
     fn num_factors(&self) -> usize {

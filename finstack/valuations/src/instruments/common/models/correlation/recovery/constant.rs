@@ -27,6 +27,7 @@ impl ConstantRecovery {
     ///
     /// # Arguments
     /// * `rate` - Recovery rate, clamped to [0, 1]
+    #[must_use]
     pub fn new(rate: f64) -> Self {
         Self {
             rate: rate.clamp(0.0, 1.0),
@@ -34,21 +35,25 @@ impl ConstantRecovery {
     }
 
     /// ISDA standard recovery rate (40%).
+    #[must_use]
     pub fn isda_standard() -> Self {
         Self::new(0.40)
     }
 
     /// Senior secured recovery rate (55%).
+    #[must_use]
     pub fn senior_secured() -> Self {
         Self::new(0.55)
     }
 
     /// Subordinated debt recovery rate (25%).
+    #[must_use]
     pub fn subordinated() -> Self {
         Self::new(0.25)
     }
 
     /// Get the recovery rate.
+    #[must_use]
     pub fn rate(&self) -> f64 {
         self.rate
     }
