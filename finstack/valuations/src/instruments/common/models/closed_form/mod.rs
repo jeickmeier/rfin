@@ -146,6 +146,7 @@ pub mod greeks;
 pub mod heston;
 pub mod lookback;
 pub mod quanto;
+pub mod vanilla;
 
 // Re-export commonly used functions
 pub use asian::{
@@ -168,3 +169,4 @@ pub use lookback::{
 pub use quanto::{
     quanto_call, quanto_call_simple, quanto_drift_adjustment, quanto_put, quanto_put_simple,
 };
+pub use vanilla::{bs_greeks, bs_price, BsGreeks, ONE_PERCENT};

@@ -20,7 +20,6 @@ pub mod fx;
 /// Interest rate derivatives and money market instruments.
 pub mod rates;
 
-// === Backward-Compatible Module Re-exports ===
 // These allow existing code using `instruments::bond`, `instruments::irs`, etc. to continue working.
 
 // Fixed Income
@@ -89,17 +88,14 @@ pub use exotics::barrier_option;
 pub use exotics::basket;
 pub use exotics::lookback_option;
 
-// === Backward-Compatible Module Aliases for Renamed Modules ===
 pub use equity::dcf_equity as dcf;
 pub use equity::pe_fund as private_markets_fund;
 pub use fixed_income::cmo as agency_cmo;
 pub use fixed_income::mbs_passthrough as agency_mbs_passthrough;
 pub use fixed_income::tba as agency_tba;
-// Note: trs was split into equity_trs and fi_trs
-// For backward compatibility, alias trs to equity_trs (the more common case)
+
 pub use equity::equity_trs as trs;
 
-// Preserve public path for equity metrics after move
 pub use equity::equity_metrics;
 
 // === Core Instrument Types ===

@@ -3,7 +3,7 @@
 //! Contains the complex pricing logic separated from the instrument type,
 //! following the separation of concerns pattern.
 
-use crate::instruments::common::models::bs::{bs_greeks, bs_price};
+use crate::instruments::common::models::{bs_greeks, bs_price};
 use crate::instruments::common::parameters::OptionType;
 use crate::instruments::fx_option::FxOption;
 use finstack_core::dates::{Date, DayCount};
