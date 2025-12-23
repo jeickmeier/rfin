@@ -28,6 +28,10 @@
 //! - **Unit diagonal**: ρᵢᵢ = 1
 //! - **Positive semi-definite**: All eigenvalues ≥ 0 (verified via Cholesky)
 
+use finstack_core::math::linalg::{
+    cholesky_decomposition as core_cholesky_decomposition, CholeskyError,
+};
+
 /// Tolerance for correlation matrix validation.
 const CORRELATION_TOLERANCE: f64 = 1e-10;
 
@@ -166,38 +170,27 @@ pub fn validate_correlation_matrix(matrix: &[f64], n: usize) -> Result<(), Corre
 /// # Returns
 /// Lower triangular Cholesky factor L, or error if not PSD.
 pub fn cholesky_decompose(matrix: &[f64], n: usize) -> Result<Vec<f64>, CorrelationMatrixError> {
-    let mut l = vec![0.0; n * n];
-
-    for i in 0..n {
-        for j in 0..=i {
-            let mut sum = 0.0;
-
-            if j == i {
-                // Diagonal element
-                for k in 0..j {
-                    sum += l[j * n + k] * l[j * n + k];
-                }
-                let diag = matrix[j * n + j] - sum;
-                if diag < -CORRELATION_TOLERANCE {
-                    return Err(CorrelationMatrixError::NotPositiveSemiDefinite { row: j });
-                }
-                l[j * n + j] = diag.max(0.0).sqrt();
-            } else {
-                // Off-diagonal element
-                for k in 0..j {
-                    sum += l[i * n + k] * l[j * n + k];
-                }
-                let l_jj = l[j * n + j];
-                if l_jj.abs() < 1e-14 {
-                    l[i * n + j] = 0.0;
-                } else {
-                    l[i * n + j] = (matrix[i * n + j] - sum) / l_jj;
-                }
-            }
-        }
+    if matrix.len() != n * n {
+        return Err(CorrelationMatrixError::InvalidSize {
+            expected: n,
+            actual: matrix.len(),
+        });
     }
 
-    Ok(l)
+    match core_cholesky_decomposition(matrix, n) {
+        Ok(l) => Ok(l),
+        Err(CholeskyError::NotPositiveDefinite { row, .. }) => {
+            Err(CorrelationMatrixError::NotPositiveSemiDefinite { row })
+        }
+        Err(CholeskyError::Singular { row, .. }) => {
+            Err(CorrelationMatrixError::NotPositiveSemiDefinite { row })
+        }
+        Err(CholeskyError::DimensionMismatch { expected, actual }) => {
+            Err(CorrelationMatrixError::InvalidSize { expected, actual })
+        }
+        // CholeskyError is non-exhaustive; handle any future variants
+        Err(_) => Err(CorrelationMatrixError::NotPositiveSemiDefinite { row: 0 }),
+    }
 }
 
 /// Factor model for correlated behavior.

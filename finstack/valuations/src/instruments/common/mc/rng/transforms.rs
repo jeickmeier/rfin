@@ -12,39 +12,8 @@ pub use finstack_core::math::random::box_muller_transform;
 // Re-export inverse normal CDF from core/math (better tail handling)
 pub use finstack_core::math::special_functions::standard_normal_inv_cdf as inverse_normal_cdf;
 
-/// Moment matching: adjust samples to have exact mean and variance.
-///
-/// This variance reduction technique forces the sample to have
-/// exactly the theoretical moments.
-///
-/// # Arguments
-///
-/// * `samples` - Mutable slice of samples to adjust
-/// * `target_mean` - Target mean (default 0.0 for standard normal)
-/// * `target_std` - Target standard deviation (default 1.0 for standard normal)
-pub fn moment_match(samples: &mut [f64], target_mean: f64, target_std: f64) {
-    if samples.is_empty() {
-        return;
-    }
-
-    // Compute current mean and std dev
-    let n = samples.len() as f64;
-    let current_mean = samples.iter().sum::<f64>() / n;
-
-    let current_var = samples
-        .iter()
-        .map(|&x| (x - current_mean).powi(2))
-        .sum::<f64>()
-        / n;
-    let current_std = current_var.sqrt();
-
-    // Adjust samples
-    if current_std > 1e-10 {
-        for x in samples.iter_mut() {
-            *x = (*x - current_mean) * (target_std / current_std) + target_mean;
-        }
-    }
-}
+// Re-export moment matching from core/math (pure math utility)
+pub use finstack_core::math::stats::moment_match;
 
 #[cfg(test)]
 mod tests {

@@ -5,7 +5,9 @@ The `math` module in `finstack-core` provides **deterministic numerical building
 - **Root finding and optimization**: 1D and multi‑dimensional solvers for pricing and calibration
 - **Integration and interpolation**: Quadrature rules and curve interpolation for term structures
 - **Distributions and random numbers**: Probability functions and RNG traits for Monte Carlo
+- **Probability utilities**: Joint probabilities and bounds for correlated Bernoulli variables
 - **Linear algebra and statistics**: Correlation, Cholesky, and time‑series statistics
+- **Time grids**: Year‑fraction grids for simulation time stepping
 - **Special functions and numerically stable summation**: Normal distribution, error function, and robust summation utilities
 
 Everything is accessible via `finstack_core::math`, which re‑exports the most commonly used functions and types:
@@ -15,11 +17,13 @@ Everything is accessible via `finstack_core::math`, which re‑exports the most 
 - **Integration**: `GaussHermiteQuadrature`, `gauss_legendre_integrate`, `adaptive_simpson`, `trapezoidal_rule`, `simpson_rule`
 - **Interpolation**: `LinearDf`, `LogLinearDf`, `MonotoneConvex`, `CubicHermite`, `InterpFn`, `ExtrapolationPolicy`
 - **Linear algebra**: `cholesky_decomposition`, `apply_correlation`, `CholeskyError`
-- **Random numbers**: `RandomNumberGenerator`, `TestRng`, `box_muller_transform`
+- **Random numbers**: `RandomNumberGenerator`, `TestRng`, `box_muller_transform`, `SobolRng`, `BrownianBridge`, `poisson_inverse_cdf`, `pca_ordering`
 - **Distributions**: `binomial_distribution`, `binomial_probability`, `log_binomial_coefficient`, `log_factorial`, `sample_beta`
+- **Probability**: `joint_probabilities`, `correlation_bounds`, `CorrelatedBernoulli`
 - **Special functions**: `erf`, `norm_cdf`, `norm_pdf`, `standard_normal_inv_cdf`
-- **Statistics**: `mean`, `variance`, `mean_var`, `covariance`, `correlation`
+- **Statistics**: `mean`, `variance`, `mean_var`, `covariance`, `correlation`, `moment_match`, `OnlineStats`, `OnlineCovariance`, `required_samples`
 - **Summation**: `kahan_sum`, `pairwise_sum`, `stable_sum`
+- **Time grids**: `TimeGrid`, `TimeGridError`
 
 ---
 
@@ -97,6 +101,10 @@ Everything is accessible via `finstack_core::math`, which re‑exports the most 
   - Time‑series and cross‑sectional statistics:
     - `mean`, `variance`, `mean_var`: basic statistics with Kahan summation and Welford’s algorithm.
     - `covariance`, `correlation`: Chan/Welford style numerically stable covariance/correlation.
+    - `moment_match`: mean/variance matching for variance reduction.
+    - Online estimators:
+      - `OnlineStats`, `OnlineCovariance` with confidence intervals and merge support.
+      - `required_samples` for confidence‑targeted sample sizing.
     - Realized variance utilities:
       - `RealizedVarMethod` with variants like `CloseToClose`, `Parkinson`, `GarmanKlass`, `RogersSatchell`, `YangZhang`.
       - `log_returns`, `realized_variance`, `realized_variance_ohlc`.
@@ -115,6 +123,15 @@ Everything is accessible via `finstack_core::math`, which re‑exports the most 
     - `norm_pdf`: standard normal PDF φ.
     - `standard_normal_inv_cdf`: inverse standard normal CDF Φ⁻¹.
   - Thin wrappers around the `statrs` crate to provide accurate, deterministic implementations with good tail behavior.
+- **`probability.rs`**
+  - Joint probability helpers for correlated Bernoulli variables:
+    - `joint_probabilities` with Fréchet‑Hoeffding clamping.
+    - `correlation_bounds` for feasible correlation ranges.
+    - `CorrelatedBernoulli` distribution helper.
+- **`time_grid.rs`**
+  - Year‑fraction time grids for Monte Carlo and lattice time stepping:
+    - `TimeGrid::uniform`, `TimeGrid::from_times`, validation and accessors.
+    - Date/time mapping helpers: `map_date_to_step`, `map_dates_to_steps`, `map_exercise_dates_to_steps`.
 
 ---
 
@@ -387,11 +404,6 @@ The `math` module is **shared numerical infrastructure** across the workspace. W
   - You need domain‑specific semantics (cashflows, term structures, statements) on top of these numerical primitives.
 
 Keeping this separation clear helps ensure that `core::math` remains **small, deterministic, and reusable** across Rust, Python, and WASM bindings.
-
-
-
-
-
 
 
 

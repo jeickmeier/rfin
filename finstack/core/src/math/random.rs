@@ -8,6 +8,10 @@
 //! - [`RandomNumberGenerator`]: Trait for pluggable RNG implementations
 //! - [`TestRng`]: Linear congruential generator for **testing only** (NOT for production)
 //! - [`box_muller_transform`]: Normal variate generation
+//! - [`sobol::SobolRng`]: Sobol low-discrepancy sequence with Owen scrambling
+//! - [`brownian_bridge::BrownianBridge`]: Brownian bridge construction order
+//! - [`poisson::poisson_inverse_cdf`]: Poisson sampling utilities
+//! - [`sobol_pca::pca_ordering`]: PCA ordering for Sobol dimensions
 //!
 //! # Production Use
 //!
@@ -62,6 +66,15 @@
 //!     Statistically Good Algorithms for Random Number Generation."
 //!   - L'Ecuyer, P. (2017). "Random Number Generation." In *Handbook of
 //!     Computational Statistics* (2nd ed.). Springer.
+
+pub mod brownian_bridge;
+pub mod poisson;
+pub mod sobol;
+pub mod sobol_pca;
+
+pub use brownian_bridge::BrownianBridge;
+pub use poisson::{poisson_from_normal, poisson_inverse_cdf};
+pub use sobol_pca::{effective_dimension, pca_ordering, transform_pca_to_assets};
 
 /// Random number generator trait for statistical sampling.
 ///

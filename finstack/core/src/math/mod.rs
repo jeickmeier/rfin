@@ -59,12 +59,14 @@ pub mod distributions;
 pub mod integration;
 pub mod interp;
 pub mod linalg;
+pub mod probability;
 pub mod random;
 pub mod solver;
 pub mod solver_multi;
 pub mod special_functions;
 pub mod stats;
 pub mod summation;
+pub mod time_grid;
 pub mod volatility;
 
 // Re-exports for ergonomic access
@@ -83,14 +85,22 @@ pub use linalg::{
     apply_correlation, build_correlation_matrix, cholesky_decomposition,
     validate_correlation_matrix, CholeskyError,
 };
+pub use probability::{correlation_bounds, joint_probabilities, CorrelatedBernoulli};
 pub use random::{box_muller_transform, RandomNumberGenerator, TestRng};
+pub use random::sobol::{SobolRng, MAX_SOBOL_DIMENSION};
 // Raw root finding functions are no longer exported - use trait-based solvers instead
 pub use solver::{BrentSolver, NewtonSolver, Solver};
 pub use solver_multi::{AnalyticalDerivatives, LevenbergMarquardtSolver, MultiSolver};
 pub use special_functions::{
     erf, norm_cdf, norm_pdf, standard_normal_inv_cdf, student_t_cdf, student_t_inv_cdf,
 };
-pub use stats::{correlation, covariance, mean, mean_var, variance};
+pub use stats::{
+    correlation, covariance, mean, mean_var, moment_match, required_samples, variance,
+    OnlineCovariance, OnlineStats,
+};
 pub use summation::{
     kahan_sum, neumaier_sum, pairwise_sum, stable_sum, KahanAccumulator, NeumaierAccumulator,
+};
+pub use time_grid::{
+    map_date_to_step, map_dates_to_steps, map_exercise_dates_to_steps, TimeGrid, TimeGridError,
 };

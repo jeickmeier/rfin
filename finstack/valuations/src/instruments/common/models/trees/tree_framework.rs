@@ -29,9 +29,12 @@
 //! See `docs/TREE_PARAMS_SERIALIZATION_AUDIT.md` for audit results and extension pattern.
 
 use finstack_core::collections::HashMap;
-use finstack_core::dates::{Date, DayCount, DayCountCtx};
 use finstack_core::market_data::context::MarketContext;
 use finstack_core::Result;
+
+pub use finstack_core::math::time_grid::{
+    map_date_to_step, map_dates_to_steps, map_exercise_dates_to_steps,
+};
 
 /// Standard state variable keys for consistency
 pub mod state_keys {
@@ -1044,66 +1047,6 @@ pub fn price_recombining_tree<V: TreeValuator>(inputs: RecombiningInputs<'_, V>)
             Ok(values[0][0])
         }
     }
-}
-
-/// Map Bermudan exercise dates (as year fractions relative to maturity) to tree step indices
-pub fn map_exercise_dates_to_steps(
-    exercise_dates: &[f64],
-    total_time: f64,
-    steps: usize,
-) -> Vec<usize> {
-    let mut out = Vec::new();
-    if total_time <= 0.0 || steps == 0 {
-        return out;
-    }
-    for &ex_time in exercise_dates {
-        let ratio = if total_time != 0.0 {
-            ex_time / total_time
-        } else {
-            0.0
-        };
-        let step = (ratio * steps as f64).round() as usize;
-        if step <= steps {
-            out.push(step);
-        }
-    }
-    out
-}
-
-/// Map a calendar date to a tree step using a given day count convention.
-pub fn map_date_to_step(
-    base_date: Date,
-    event_date: Date,
-    maturity_date: Date,
-    steps: usize,
-    dc: DayCount,
-) -> usize {
-    let ttm = dc
-        .year_fraction(base_date, maturity_date, DayCountCtx::default())
-        .unwrap_or(0.0);
-    if ttm <= 0.0 || steps == 0 {
-        return 0;
-    }
-    let t_event = dc
-        .year_fraction(base_date, event_date, DayCountCtx::default())
-        .unwrap_or(0.0)
-        .clamp(0.0, ttm);
-    let step_index = ((t_event / ttm) * steps as f64).round() as usize;
-    step_index.min(steps)
-}
-
-/// Map multiple calendar dates to steps.
-pub fn map_dates_to_steps(
-    base_date: Date,
-    dates: &[Date],
-    maturity_date: Date,
-    steps: usize,
-    dc: DayCount,
-) -> Vec<usize> {
-    dates
-        .iter()
-        .map(|&d| map_date_to_step(base_date, d, maturity_date, steps, dc))
-        .collect()
 }
 
 /// Helper function to create initial state variables for single-factor equity model

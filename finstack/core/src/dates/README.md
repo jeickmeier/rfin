@@ -8,6 +8,7 @@ The `dates` module in `finstack-core` provides **time and calendar primitives** 
 - **Schedule generation** for coupons, cashflows, and CDS IMM ladders
 - **Tenors and period systems** (quarterly/monthly/weekly/fiscal)
 - **IMM and option expiry helpers**
+- **FX settlement helpers** (joint calendars and spot rolls)
 - **Rate conversion utilities** between simple / periodic / continuous compounding
 
 Everything is accessible via `finstack_core::dates`, and is designed to be:
@@ -32,6 +33,7 @@ Everything is accessible via `finstack_core::dates`, and is designed to be:
       - `CompositeCalendar`, `CalendarRegistry`
     - Schedule types: `Tenor`, `Schedule`, `ScheduleBuilder`, `ScheduleSpec`, `StubKind`
     - Tenor and IMM helpers: `Tenor`, `TenorUnit`, `next_imm`, `next_cds_date`, `third_wednesday`, etc.
+    - FX helpers: joint-calendar adjustments and spot roll helpers (`fx::*`)
     - Period system: `Period`, `PeriodId`, `PeriodKind`, `PeriodPlan`, `FiscalConfig`,
       `build_periods`, `build_fiscal_periods`
     - Safe constructor `create_date(year, month, day) -> Result<Date>`
@@ -490,6 +492,5 @@ The `dates` module is **core infrastructure** shared by curves, cashflows, state
   - You are building full instrument pricing, scenario generation, or portfolio aggregation.
 
 Keeping this separation clean ensures the `core` crate remains **small, deterministic, and reusable** across Rust, Python, and WASM bindings.
-
 
 

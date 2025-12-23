@@ -5,7 +5,7 @@
 //!
 //! - [`RevolvingCreditPricer`]: Unified pricer that automatically selects method
 //! - [`unified`]: Core implementation of single-path and MC pricing
-//! - [`path_generator`]: 3-factor Monte Carlo path generation
+//! - [`path_generator`]: 3-factor Monte Carlo path generation (requires `mc` feature)
 //!
 //! # Usage
 //!
@@ -25,14 +25,20 @@
 //!
 //! // Explicit deterministic pricing
 //! let pv_det = pricer::RevolvingCreditPricer::price_deterministic(&facility, &market, as_of)?;
+//! # let _ = (pv, pv_det);
+//! # Ok(())
+//! # }
+//! ```
 //!
+//! # Monte Carlo Pricing (requires `mc` feature)
+//!
+//! With the `mc` feature enabled, you can use full path capture for distribution analysis:
+//!
+//! ```rust,ignore
 //! // MC pricing with full path capture
 //! let enhanced_result = pricer::RevolvingCreditPricer::price_with_paths(&facility, &market, as_of)?;
 //! let pv_mc = enhanced_result.mc_result.estimate.mean;
 //! let path_pvs = enhanced_result.path_results; // Full distribution for analysis
-//! # let _ = (pv, pv_det, pv_mc, path_pvs);
-//! # Ok(())
-//! # }
 //! ```
 
 pub mod components;
