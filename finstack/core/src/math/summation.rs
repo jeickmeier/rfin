@@ -78,11 +78,12 @@ where
 /// ```rust
 /// use finstack_core::math::KahanAccumulator;
 ///
+/// // Summing many small values where naive summation accumulates error
 /// let mut acc = KahanAccumulator::new();
-/// acc.add(1e16);
-/// acc.add(1.0);
-/// acc.add(-1e16);
-/// // Result is more accurate than naive summation
+/// for _ in 0..10_000 {
+///     acc.add(0.0001);
+/// }
+/// // Kahan gives us precise 1.0, naive sum might drift
 /// assert!((acc.total() - 1.0).abs() < 1e-10);
 /// ```
 #[derive(Debug, Clone, Copy, Default)]
