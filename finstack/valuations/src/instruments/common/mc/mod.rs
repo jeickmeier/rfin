@@ -253,7 +253,7 @@ pub mod traits;
 pub mod prelude {
     // Generic path data
     pub use super::estimate::Estimate;
-    pub use super::online_stats::OnlineStats;
+    pub use super::online_stats::{OnlineCovariance, OnlineStats};
     pub use super::paths::{
         CashflowType, PathDataset, PathPoint, PathSamplingMethod, ProcessParams, SimulatedPath,
     };

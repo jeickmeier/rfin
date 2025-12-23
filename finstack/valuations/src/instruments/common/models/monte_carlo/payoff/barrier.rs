@@ -160,8 +160,9 @@ impl Payoff for BarrierOptionPayoff {
 
         // Check barrier hit using bridge correction
         if !self.barrier_hit {
-            // Generate pseudo-random for bridge check (use spot as seed - not ideal but simple)
-            let pseudo_random = ((current_spot * 12345.0).fract()).abs();
+            // Use independent uniform random from PathState for bridge sampling
+            // This ensures proper statistical properties for barrier hit probability
+            let uniform_random = state.uniform_random();
 
             let effective_barrier = self.effective_barrier();
 
@@ -172,7 +173,7 @@ impl Payoff for BarrierOptionPayoff {
                 self.barrier_type.direction(),
                 self.sigma,
                 self.dt,
-                pseudo_random,
+                uniform_random,
             );
 
             if hit {

@@ -2,16 +2,33 @@
 //!
 //! Forces sample moments to match theoretical values exactly,
 //! reducing variance for well-behaved payoffs.
+//!
+//! # Mathematical Note
+//!
+//! This implementation matches the *theoretical moments* of the standard normal:
+//! - E[Z] = 0 (first moment)
+//! - E[Z²] = 1 (second raw moment, which equals variance for zero-mean)
+//!
+//! We use n (not n-1) in the variance calculation because we're matching
+//! the theoretical second moment, not computing an unbiased variance estimate.
+//! After transformation, the samples satisfy: (1/n) Σz_i² = 1.
 
 /// Apply moment matching to standard normal samples.
 ///
-/// Adjusts samples so that:
-/// - Sample mean = 0
-/// - Sample variance = 1
+/// Adjusts samples so that the empirical moments match the theoretical
+/// moments of a standard normal distribution:
+/// - Sample mean: (1/n) Σz_i = 0
+/// - Sample second moment: (1/n) Σz_i² = 1
+///
+/// # Note on Variance Formula
+///
+/// Uses n (not n-1) denominator to match the theoretical second moment E[Z²] = 1.
+/// This is standard practice for Monte Carlo moment matching - we want the
+/// sample to have the exact theoretical properties, not an unbiased estimate.
 ///
 /// # Arguments
 ///
-/// * `samples` - Mutable slice of samples to adjust
+/// * `samples` - Mutable slice of samples to adjust in-place
 pub fn match_standard_normal_moments(samples: &mut [f64]) {
     if samples.is_empty() {
         return;
@@ -19,14 +36,16 @@ pub fn match_standard_normal_moments(samples: &mut [f64]) {
 
     let n = samples.len() as f64;
 
-    // Compute current mean
+    // Compute current mean (first moment)
     let mean = samples.iter().sum::<f64>() / n;
 
-    // Compute current variance
+    // Compute current variance (second central moment, using n not n-1)
+    // We use n to match theoretical E[Z²] = 1, not for unbiased estimation
     let var = samples.iter().map(|&x| (x - mean).powi(2)).sum::<f64>() / n;
     let std = var.sqrt();
 
     // Adjust to have mean=0, std=1
+    // After transformation: (1/n) Σz'² = 1 (matching E[Z²] = 1)
     if std > 1e-10 {
         for x in samples {
             *x = (*x - mean) / std;

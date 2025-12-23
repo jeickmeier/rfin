@@ -96,6 +96,9 @@ pub struct PathState {
     /// Typed cashflows generated at this timestep (time, amount, type) tuples
     /// Payoffs can add cashflows here which will be transferred to PathPoint during capture
     cashflows: Vec<(f64, f64, CashflowType)>,
+    /// Uniform random value in [0, 1) for use by payoffs (e.g., barrier bridge sampling).
+    /// Set by the MC engine before each on_event call to ensure independent randomness.
+    uniform_random: f64,
 }
 
 impl PathState {
@@ -106,6 +109,7 @@ impl PathState {
             time,
             vars: StateVariables::default(),
             cashflows: Vec::new(),
+            uniform_random: 0.0,
         }
     }
 
@@ -116,7 +120,25 @@ impl PathState {
             time,
             vars,
             cashflows: Vec::new(),
+            uniform_random: 0.0,
         }
+    }
+
+    /// Set the uniform random value for this timestep.
+    ///
+    /// This should be called by the MC engine before each `on_event` call
+    /// to provide independent randomness for payoffs that need it
+    /// (e.g., barrier options using Brownian bridge correction).
+    pub fn set_uniform_random(&mut self, u: f64) {
+        self.uniform_random = u;
+    }
+
+    /// Get the uniform random value for this timestep.
+    ///
+    /// Returns a value in [0, 1) that is independent for each timestep.
+    /// Used by payoffs for barrier bridge sampling and other applications.
+    pub fn uniform_random(&self) -> f64 {
+        self.uniform_random
     }
 
     /// Get a state variable by key.

@@ -7,11 +7,30 @@
 //! - Min: Worst-of (minimum value)
 //!
 //! Uses existing `MultiGbmProcess` for correlated multi-asset simulation.
+//!
+//! # Performance Note
+//!
+//! State keys are pre-computed and cached at construction time to avoid
+//! allocation overhead on the hot path. This is critical for performance
+//! when simulating millions of paths.
 
 use crate::instruments::common::mc::traits::PathState;
 use crate::instruments::common::models::monte_carlo::traits::Payoff;
 use finstack_core::currency::Currency;
 use finstack_core::money::Money;
+
+/// Pre-computed state keys for basket assets.
+///
+/// Caches the "spot_0", "spot_1", etc. keys to avoid allocation on hot path.
+/// Uses leaked static strings for zero-cost lookups.
+fn make_spot_keys(num_assets: usize) -> Vec<&'static str> {
+    (0..num_assets)
+        .map(|i| {
+            let key: &'static str = Box::leak(format!("spot_{}", i).into_boxed_str());
+            key
+        })
+        .collect()
+}
 
 /// Type of basket aggregation for multi-asset payoffs.
 #[derive(Clone, Copy, Debug, PartialEq)]
@@ -46,6 +65,8 @@ pub struct BasketCall {
     pub maturity_step: usize,
     /// Currency for the payoff
     pub currency: Currency,
+    /// Pre-computed state keys for asset lookup (avoids allocation on hot path)
+    spot_keys: Vec<&'static str>,
 
     // State tracking (public for testing)
     /// Terminal basket value at maturity (public for testing)
@@ -78,6 +99,7 @@ impl BasketCall {
             num_assets,
             maturity_step,
             currency,
+            spot_keys: make_spot_keys(num_assets),
             terminal_basket_value: 0.0,
         }
     }
@@ -102,7 +124,7 @@ impl BasketCall {
 impl Payoff for BasketCall {
     /// Process a path event at maturity.
     ///
-    /// Extracts asset values from path state using keys "spot_0", "spot_1", etc.
+    /// Extracts asset values from path state using pre-cached keys.
     /// If an asset value is not found in the path state, it defaults to 0.0.
     /// This default ensures that missing assets contribute zero to the basket value,
     /// which may be appropriate for basket options where some assets might not be
@@ -110,12 +132,10 @@ impl Payoff for BasketCall {
     fn on_event(&mut self, state: &mut PathState) {
         // Update terminal value if at maturity
         if state.step == self.maturity_step {
-            // Extract asset values from path state
-            // For multi-asset, we use keys "spot_0", "spot_1", etc.
+            // Extract asset values using pre-cached keys (zero allocation)
             let mut asset_values = Vec::with_capacity(self.num_assets);
-            for i in 0..self.num_assets {
-                let key = format!("spot_{}", i);
-                let value = state.get(&key).unwrap_or(0.0);
+            for &key in &self.spot_keys {
+                let value = state.get(key).unwrap_or(0.0);
                 asset_values.push(value);
             }
 
@@ -151,6 +171,8 @@ pub struct BasketPut {
     pub maturity_step: usize,
     /// Currency for the payoff
     pub currency: Currency,
+    /// Pre-computed state keys for asset lookup (avoids allocation on hot path)
+    spot_keys: Vec<&'static str>,
 
     // State tracking (public for testing)
     /// Terminal basket value at maturity (public for testing)
@@ -174,6 +196,7 @@ impl BasketPut {
             num_assets,
             maturity_step,
             currency,
+            spot_keys: make_spot_keys(num_assets),
             terminal_basket_value: 0.0,
         }
     }
@@ -198,16 +221,15 @@ impl BasketPut {
 impl Payoff for BasketPut {
     /// Process a path event at maturity.
     ///
-    /// Extracts asset values from path state using keys "spot_0", "spot_1", etc.
+    /// Extracts asset values from path state using pre-cached keys.
     /// If an asset value is not found in the path state, it defaults to 0.0.
     /// This default ensures that missing assets contribute zero to the basket value.
     fn on_event(&mut self, state: &mut PathState) {
         if state.step == self.maturity_step {
-            // Extract asset values from path state
+            // Extract asset values using pre-cached keys (zero allocation)
             let mut asset_values = Vec::with_capacity(self.num_assets);
-            for i in 0..self.num_assets {
-                let key = format!("spot_{}", i);
-                let value = state.get(&key).unwrap_or(0.0);
+            for &key in &self.spot_keys {
+                let value = state.get(key).unwrap_or(0.0);
                 asset_values.push(value);
             }
 
@@ -242,6 +264,10 @@ pub struct ExchangeOption {
     pub maturity_step: usize,
     /// Currency for the payoff
     pub currency: Currency,
+    /// Pre-computed state key for asset 1 (avoids allocation on hot path)
+    key1: &'static str,
+    /// Pre-computed state key for asset 2 (avoids allocation on hot path)
+    key2: &'static str,
 
     // State tracking
     terminal_s1: f64,
@@ -271,6 +297,8 @@ impl ExchangeOption {
             notional,
             maturity_step,
             currency,
+            key1: Box::leak(format!("spot_{}", asset1_idx).into_boxed_str()),
+            key2: Box::leak(format!("spot_{}", asset2_idx).into_boxed_str()),
             terminal_s1: 0.0,
             terminal_s2: 0.0,
         }
@@ -280,17 +308,14 @@ impl ExchangeOption {
 impl Payoff for ExchangeOption {
     /// Process a path event at maturity.
     ///
-    /// Extracts terminal values for both assets from path state. If an asset value
-    /// is not found in the path state, it defaults to 0.0. For exchange options,
-    /// defaults result in a payoff of max(0 - 0, 0) = 0 (zero payoff when both
-    /// assets are missing).
+    /// Extracts terminal values for both assets from path state using pre-cached keys.
+    /// If an asset value is not found in the path state, it defaults to 0.0. For
+    /// exchange options, defaults result in a payoff of max(0 - 0, 0) = 0 (zero
+    /// payoff when both assets are missing).
     fn on_event(&mut self, state: &mut PathState) {
         if state.step == self.maturity_step {
-            let key1 = format!("spot_{}", self.asset1_idx);
-            let key2 = format!("spot_{}", self.asset2_idx);
-
-            self.terminal_s1 = state.get(&key1).unwrap_or(0.0);
-            self.terminal_s2 = state.get(&key2).unwrap_or(0.0);
+            self.terminal_s1 = state.get(self.key1).unwrap_or(0.0);
+            self.terminal_s2 = state.get(self.key2).unwrap_or(0.0);
         }
     }
 

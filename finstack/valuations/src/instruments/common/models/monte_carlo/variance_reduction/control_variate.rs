@@ -9,6 +9,29 @@
 //! ```
 //! where Y is the control (BS price), E[Y] is known analytically,
 //! and β is the optimal coefficient.
+//!
+//! # Online Covariance
+//!
+//! For large-scale simulations where storing all samples is impractical,
+//! use [`OnlineCovariance`](crate::instruments::common::mc::online_stats::OnlineCovariance)
+//! to compute covariance incrementally:
+//!
+//! ```rust
+//! use finstack_valuations::instruments::common::mc::online_stats::OnlineCovariance;
+//!
+//! let mut cov = OnlineCovariance::new();
+//! // Update incrementally during simulation
+//! for _ in 0..10000 {
+//!     let mc_value = 10.0; // simulated payoff
+//!     let control_value = 9.8; // BS control value
+//!     cov.update(mc_value, control_value);
+//! }
+//!
+//! // Get optimal beta and statistics for control variate adjustment
+//! let beta = cov.optimal_beta();
+//! let mc_mean = cov.mean_x();
+//! let control_mean = cov.mean_y();
+//! ```
 
 use crate::instruments::common::mc::estimate::Estimate;
 use finstack_core::math::special_functions::norm_cdf;

@@ -68,7 +68,13 @@ pub fn pathwise_delta_put(
 
 /// Compute pathwise vega for European option under GBM.
 ///
-/// Vega involves differentiating the Brownian motion with respect to σ.
+/// For GBM dynamics: S_T = S_0 * exp((r - q - σ²/2)T + σW_T)
+///
+/// The pathwise derivative is:
+///
+/// ∂S_T/∂σ = S_T * (W_T - σT)
+///
+/// Then: Vega = e^(-rT) * E[1_{ITM} * ∂S_T/∂σ]
 ///
 /// Returns Vega scaled by 0.01 (sensitivity per 1% volatility change).
 ///
@@ -77,11 +83,15 @@ pub fn pathwise_delta_put(
 /// * `terminal_spots` - Terminal spot prices
 /// * `initial_spot` - Initial spot price
 /// * `strike` - Strike price  
-/// * `time_to_maturity` - Time to maturity
-/// * `volatility` - Current volatility
-/// * `discount_factor` - Discount factor
-/// * `wiener_increments` - Sum of Brownian increments for each path
+/// * `time_to_maturity` - Time to maturity T
+/// * `volatility` - Current volatility σ
+/// * `discount_factor` - Discount factor e^(-rT)
+/// * `wiener_increments` - Total Brownian increment W_T for each path
 /// * `is_call` - true for call, false for put
+///
+/// # References
+///
+/// Glasserman (2003) - "Monte Carlo Methods in Financial Engineering", Chapter 7
 #[allow(clippy::too_many_arguments)]
 pub fn pathwise_vega(
     terminal_spots: &[f64],
@@ -94,15 +104,15 @@ pub fn pathwise_vega(
     is_call: bool,
 ) -> (f64, f64) {
     let mut stats = OnlineStats::new();
-    let sqrt_t = time_to_maturity.sqrt();
 
     for (i, &s_t) in terminal_spots.iter().enumerate() {
         let in_money = if is_call { s_t > strike } else { s_t < strike };
 
         if in_money {
-            let w = wiener_increments[i];
-            // ∂S_T/∂σ = S_T * (W_T - σT) / σ
-            let ds_dsigma = s_t * (w / sqrt_t - volatility * sqrt_t) / volatility;
+            let w_t = wiener_increments[i];
+            // Correct formula: ∂S_T/∂σ = S_T * (W_T - σT)
+            // where W_T is the total Brownian increment at time T
+            let ds_dsigma = s_t * (w_t - volatility * time_to_maturity);
 
             let vega_contribution = discount_factor * ds_dsigma;
             // Scale by 0.01 to represent sensitivity per 1% vol change

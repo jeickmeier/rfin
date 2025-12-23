@@ -25,6 +25,9 @@ pub enum AveragingMethod {
 /// Payoff: max(Avg - K, 0) × N
 ///
 /// where Avg is computed using the specified averaging method.
+///
+/// Uses Kahan summation for arithmetic averaging to maintain numerical
+/// stability when there are many fixing dates (e.g., daily monitoring).
 #[derive(Clone, Debug)]
 pub struct AsianCall {
     /// Strike price
@@ -38,11 +41,13 @@ pub struct AsianCall {
 
     // State
     sum_spots: f64,     // For arithmetic
+    kahan_comp: f64,    // Kahan summation compensation for arithmetic
     product_spots: f64, // For geometric (stored as log-product)
     num_fixings_seen: usize,
 
     // History
     initial_sum_spots: f64,
+    initial_kahan_comp: f64,
     initial_product_spots: f64,
     initial_count: usize,
 }
@@ -68,9 +73,11 @@ impl AsianCall {
             averaging,
             fixing_steps,
             sum_spots: 0.0,
+            kahan_comp: 0.0,
             product_spots: 0.0, // Will store log-sum for geometric
             num_fixings_seen: 0,
             initial_sum_spots: 0.0,
+            initial_kahan_comp: 0.0,
             initial_product_spots: 0.0,
             initial_count: 0,
         }
@@ -92,9 +99,11 @@ impl AsianCall {
             averaging,
             fixing_steps,
             sum_spots: initial_sum,
+            kahan_comp: 0.0, // No compensation history available
             product_spots: initial_product_log,
             num_fixings_seen: initial_count,
             initial_sum_spots: initial_sum,
+            initial_kahan_comp: 0.0,
             initial_product_spots: initial_product_log,
             initial_count,
         }
@@ -114,6 +123,19 @@ impl AsianCall {
             }
         }
     }
+
+    /// Add a value using Kahan compensated summation.
+    ///
+    /// Kahan summation reduces floating-point error from O(n*ε) to O(ε)
+    /// where ε is machine epsilon. This is critical for options with
+    /// many fixing dates (e.g., 252 daily fixings).
+    #[inline]
+    fn kahan_add(&mut self, value: f64) {
+        let y = value - self.kahan_comp;
+        let t = self.sum_spots + y;
+        self.kahan_comp = (t - self.sum_spots) - y;
+        self.sum_spots = t;
+    }
 }
 
 impl Payoff for AsianCall {
@@ -123,7 +145,8 @@ impl Payoff for AsianCall {
             if let Some(spot) = state.spot() {
                 match self.averaging {
                     AveragingMethod::Arithmetic => {
-                        self.sum_spots += spot;
+                        // Use Kahan summation for numerical stability
+                        self.kahan_add(spot);
                     }
                     AveragingMethod::Geometric => {
                         // Store as log-sum for numerical stability
@@ -143,6 +166,7 @@ impl Payoff for AsianCall {
 
     fn reset(&mut self) {
         self.sum_spots = self.initial_sum_spots;
+        self.kahan_comp = self.initial_kahan_comp;
         self.product_spots = self.initial_product_spots;
         self.num_fixings_seen = self.initial_count;
     }
@@ -151,6 +175,9 @@ impl Payoff for AsianCall {
 /// Asian put option.
 ///
 /// Payoff: max(K - Avg, 0) × N
+///
+/// Uses Kahan summation for arithmetic averaging to maintain numerical
+/// stability when there are many fixing dates (e.g., daily monitoring).
 #[derive(Clone, Debug)]
 pub struct AsianPut {
     /// Strike price
@@ -163,11 +190,13 @@ pub struct AsianPut {
     pub fixing_steps: Vec<usize>,
 
     sum_spots: f64,
+    kahan_comp: f64, // Kahan summation compensation for arithmetic
     product_spots: f64,
     num_fixings_seen: usize,
 
     // History
     initial_sum_spots: f64,
+    initial_kahan_comp: f64,
     initial_product_spots: f64,
     initial_count: usize,
 }
@@ -186,9 +215,11 @@ impl AsianPut {
             averaging,
             fixing_steps,
             sum_spots: 0.0,
+            kahan_comp: 0.0,
             product_spots: 0.0,
             num_fixings_seen: 0,
             initial_sum_spots: 0.0,
+            initial_kahan_comp: 0.0,
             initial_product_spots: 0.0,
             initial_count: 0,
         }
@@ -210,9 +241,11 @@ impl AsianPut {
             averaging,
             fixing_steps,
             sum_spots: initial_sum,
+            kahan_comp: 0.0, // No compensation history available
             product_spots: initial_product_log,
             num_fixings_seen: initial_count,
             initial_sum_spots: initial_sum,
+            initial_kahan_comp: 0.0,
             initial_product_spots: initial_product_log,
             initial_count,
         }
@@ -228,6 +261,15 @@ impl AsianPut {
             AveragingMethod::Geometric => (self.product_spots / self.num_fixings_seen as f64).exp(),
         }
     }
+
+    /// Add a value using Kahan compensated summation.
+    #[inline]
+    fn kahan_add(&mut self, value: f64) {
+        let y = value - self.kahan_comp;
+        let t = self.sum_spots + y;
+        self.kahan_comp = (t - self.sum_spots) - y;
+        self.sum_spots = t;
+    }
 }
 
 impl Payoff for AsianPut {
@@ -236,7 +278,8 @@ impl Payoff for AsianPut {
             if let Some(spot) = state.spot() {
                 match self.averaging {
                     AveragingMethod::Arithmetic => {
-                        self.sum_spots += spot;
+                        // Use Kahan summation for numerical stability
+                        self.kahan_add(spot);
                     }
                     AveragingMethod::Geometric => {
                         self.product_spots += spot.ln();
@@ -255,6 +298,7 @@ impl Payoff for AsianPut {
 
     fn reset(&mut self) {
         self.sum_spots = self.initial_sum_spots;
+        self.kahan_comp = self.initial_kahan_comp;
         self.product_spots = self.initial_product_spots;
         self.num_fixings_seen = self.initial_count;
     }

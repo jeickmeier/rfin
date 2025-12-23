@@ -1149,6 +1149,8 @@ impl McEngine {
                 path_state.set("credit_spread", val);
             }
         }
+        // Set initial uniform random for potential barrier checks
+        path_state.set_uniform_random(rng.next_u01());
         payoff.on_event(&mut path_state);
 
         // Simulate path through time steps
@@ -1177,6 +1179,9 @@ impl McEngine {
                     path_state.set("credit_spread", val);
                 }
             }
+
+            // Set independent uniform random for this timestep (for barrier bridge sampling)
+            path_state.set_uniform_random(rng.next_u01());
 
             // Process payoff event
             payoff.on_event(&mut path_state);
@@ -1246,6 +1251,8 @@ impl McEngine {
                 path_state.set("credit_spread", val);
             }
         }
+        // Set initial uniform random for potential barrier checks
+        path_state.set_uniform_random(rng.next_u01());
         payoff.on_event(&mut path_state);
 
         // Simulate path through time steps
@@ -1272,6 +1279,9 @@ impl McEngine {
                     path_state.set("credit_spread", val);
                 }
             }
+
+            // Set independent uniform random for this timestep (for barrier bridge sampling)
+            path_state.set_uniform_random(rng.next_u01());
 
             // Process payoff event (payoff may add cashflows to path_state)
             payoff.on_event(&mut path_state);
@@ -1350,6 +1360,9 @@ impl McEngine {
                 path_state_p.set("credit_spread", val);
             }
         }
+        // Set initial uniform random for potential barrier checks
+        let u_init = rng.next_u01();
+        path_state_p.set_uniform_random(u_init);
         payoff_p.on_event(&mut path_state_p);
 
         // Antithetic path state and payoff
@@ -1368,6 +1381,8 @@ impl McEngine {
                 path_state_a.set("credit_spread", val);
             }
         }
+        // Use same uniform random for antithetic path to maintain correlation
+        path_state_a.set_uniform_random(u_init);
         payoff_a.on_event(&mut path_state_a);
 
         // Shared buffers
@@ -1389,6 +1404,9 @@ impl McEngine {
             disc.step(process, t, dt, &mut state_p, &z, &mut work);
             disc.step(process, t, dt, &mut state_a, &z_anti, &mut work);
 
+            // Draw uniform random for this timestep (shared by both paths for correlation)
+            let u_step = rng.next_u01();
+
             // Update path states and notify payoffs
             path_state_p.step = step + 1;
             path_state_p.time = t + dt;
@@ -1402,6 +1420,7 @@ impl McEngine {
                     path_state_p.set("credit_spread", val);
                 }
             }
+            path_state_p.set_uniform_random(u_step);
             payoff_p.on_event(&mut path_state_p);
 
             path_state_a.step = step + 1;
@@ -1416,6 +1435,7 @@ impl McEngine {
                     path_state_a.set("credit_spread", val);
                 }
             }
+            path_state_a.set_uniform_random(u_step);
             payoff_a.on_event(&mut path_state_a);
         }
 

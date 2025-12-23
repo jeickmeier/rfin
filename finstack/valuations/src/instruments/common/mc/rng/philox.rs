@@ -37,6 +37,7 @@ const PHILOX_W1: u32 = 0xBB67AE85;
 
 impl PhiloxRng {
     /// Create a new Philox RNG with the given seed.
+    #[inline]
     pub fn new(seed: u64) -> Self {
         let mut rng = Self {
             key: seed,
@@ -50,6 +51,7 @@ impl PhiloxRng {
     }
 
     /// Create with explicit stream ID (for splitting).
+    #[inline]
     pub fn with_stream(seed: u64, stream_id: u64) -> Self {
         let mut rng = Self {
             key: seed,
@@ -63,6 +65,10 @@ impl PhiloxRng {
     }
 
     /// Generate a new block of random values.
+    ///
+    /// This is a hot path method called frequently during simulation.
+    /// The loop is unrolled by the compiler for optimal performance.
+    #[inline]
     fn generate_block(&mut self) {
         // Combine stream_id and counter to form the full counter
         let ctr0 = (self.counter & 0xFFFFFFFF) as u32;
@@ -99,6 +105,9 @@ impl PhiloxRng {
     }
 
     /// Get next u32 value.
+    ///
+    /// Hot path method - called very frequently during simulation.
+    #[inline]
     fn next_u32(&mut self) -> u32 {
         if self.idx >= 4 {
             self.generate_block();
@@ -109,6 +118,9 @@ impl PhiloxRng {
     }
 
     /// Get next u64 value (combines two u32s).
+    ///
+    /// Hot path method - used for generating uniforms.
+    #[inline]
     fn next_u64(&mut self) -> u64 {
         let lo = self.next_u32() as u64;
         let hi = self.next_u32() as u64;
@@ -117,12 +129,17 @@ impl PhiloxRng {
 }
 
 impl RandomStream for PhiloxRng {
+    #[inline]
     fn split(&self, stream_id: u64) -> Self {
         // Create a new stream with a different stream_id
         // This ensures independence between streams
         PhiloxRng::with_stream(self.key, stream_id)
     }
 
+    /// Fill buffer with uniform random numbers in [0, 1).
+    ///
+    /// Hot path method - called on every timestep of every path.
+    #[inline]
     fn fill_u01(&mut self, out: &mut [f64]) {
         for x in out {
             // Convert u64 to [0, 1) using upper 53 bits
@@ -131,6 +148,11 @@ impl RandomStream for PhiloxRng {
         }
     }
 
+    /// Fill buffer with standard normal random numbers.
+    ///
+    /// Hot path method - called on every timestep of every path.
+    /// Uses Box-Muller transform in pairs for efficiency.
+    #[inline]
     fn fill_std_normals(&mut self, out: &mut [f64]) {
         // Use Box-Muller transform in pairs
         let mut i = 0;
