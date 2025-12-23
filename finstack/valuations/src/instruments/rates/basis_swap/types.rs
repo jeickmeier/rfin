@@ -2,6 +2,12 @@
 //!
 //! A basis swap exchanges two floating rate payments with different tenors,
 //! capturing the basis spread between them (e.g., 3M vs 6M).
+//!
+//! # Shared Infrastructure
+//!
+//! This module delegates to the shared swap leg pricing infrastructure in
+//! [`crate::instruments::common::pricing::swap_legs`] for robust discounting
+//! and numerical stability.
 
 #[allow(unused_imports)] // Used in doc examples and tests
 use finstack_core::dates::{BusinessDayConvention, DayCount, Tenor};
@@ -11,11 +17,13 @@ use finstack_core::{
         Schedule, ScheduleBuilder, StubKind,
     },
     market_data::context::MarketContext,
-    math::summation::NeumaierAccumulator,
     money::Money,
     types::{CurveId, InstrumentId},
     Result,
 };
+
+// Import shared swap leg pricing utilities
+use crate::instruments::common::pricing::swap_legs::{FloatingLegParams, LegPeriod};
 
 // Re-export from common parameters
 pub use crate::instruments::common::parameters::legs::BasisSwapLeg;
@@ -227,6 +235,9 @@ impl BasisSwap {
 
     /// Calculates the present value of a floating rate leg.
     ///
+    /// This method uses the shared swap leg pricing infrastructure for
+    /// robust discounting and numerical stability (Kahan summation).
+    ///
     /// # Arguments
     /// * `leg` — The leg specification
     /// * `schedule` — Period schedule for the leg
@@ -259,11 +270,11 @@ impl BasisSwap {
         let fwd = context.get_forward_ref(&leg.forward_curve_id)?;
         let cal = self.resolve_calendar()?;
 
-        let mut pv = NeumaierAccumulator::new();
         let currency = self.notional.currency();
         let dc_ctx = DayCountCtx::default();
 
-        // Iterate periods
+        // Build periods from schedule
+        let mut periods = Vec::with_capacity(schedule.dates.len() - 1);
         for i in 1..schedule.dates.len() {
             let period_start = schedule.dates[i - 1];
             let period_end = schedule.dates[i];
@@ -281,36 +292,59 @@ impl BasisSwap {
                 continue;
             }
 
-            // Forward rate for the accrual period using the forward curve's own time basis
-            let fwd_dc = fwd.day_count();
-            let fwd_base = fwd.base_date();
-            let t_start = fwd_dc.year_fraction(fwd_base, period_start, dc_ctx)?;
-            let t_end = fwd_dc.year_fraction(fwd_base, period_end, dc_ctx)?;
-            let forward_rate = fwd.rate_period(t_start, t_end);
+            // Calculate reset date
+            let reset_date = if leg.reset_lag_days == 0 {
+                period_start
+            } else if let Some(cal) = cal {
+                period_start.add_business_days(-leg.reset_lag_days, cal)?
+            } else {
+                period_start - time::Duration::days(leg.reset_lag_days as i64)
+            };
 
-            // Total rate (add spread)
-            let total_rate = forward_rate + leg.spread;
-
-            // Accrual year fraction
+            // Year fraction for accrual
             let year_frac = leg
                 .day_count
                 .year_fraction(period_start, period_end, dc_ctx)?;
 
-            // Payment
-            let payment = self.notional.amount() * total_rate * year_frac;
-
-            // Discount from valuation_date for correct theta
-            let df = disc.try_df_between_dates(valuation_date, payment_date)?;
-            pv.add(payment * df);
+            periods.push(LegPeriod {
+                accrual_start: period_start,
+                accrual_end: period_end,
+                reset_date: Some(reset_date),
+                year_fraction: year_frac,
+            });
         }
 
-        Ok(Money::new(pv.total(), currency))
+        // Build floating leg params - spread is in decimal form for BasisSwap
+        let params = FloatingLegParams {
+            spread_bp: leg.spread * 10000.0, // Convert decimal to bp for shared function
+            gearing: 1.0,
+            gearing_includes_spread: true,
+            payment_delay_days: leg.payment_lag_days,
+            calendar_id: self.calendar_id.clone(),
+            index_floor_bp: None,
+            index_cap_bp: None,
+            all_in_floor_bp: None,
+            all_in_cap_bp: None,
+        };
+
+        // Use shared pricing function
+        let pv = crate::instruments::common::pricing::swap_legs::pv_floating_leg(
+            periods.into_iter(),
+            self.notional.amount(),
+            &params,
+            disc,
+            fwd,
+            valuation_date,
+        )?;
+
+        Ok(Money::new(pv, currency))
     }
 
     /// Calculates the discounted accrual sum (annuity) for a leg.
     ///
     /// This method computes the sum of discounted year fractions for a leg,
     /// which is useful for DV01 calculations and par spread computations.
+    /// Uses the shared swap leg pricing infrastructure for robust discounting.
     ///
     /// # Arguments
     /// * `leg` — The leg specification
@@ -340,33 +374,35 @@ impl BasisSwap {
         }
 
         let disc = curves.get_discount_ref(&self.discount_curve_id)?;
-        let mut annuity = 0.0;
+
+        // Build periods from schedule
+        let mut periods = Vec::with_capacity(schedule.dates.len() - 1);
         let mut prev = schedule.dates[0];
-        let cal = self.resolve_calendar()?;
 
         for &d in &schedule.dates[1..] {
-            let payment_date = if leg.payment_lag_days == 0 {
-                d
-            } else if let Some(cal) = cal {
-                d.add_business_days(leg.payment_lag_days, cal)?
-            } else {
-                d + time::Duration::days(leg.payment_lag_days as i64)
-            };
-
             // Calculate year fraction for the period
             let yf = leg
                 .day_count
                 .year_fraction(prev, d, DayCountCtx::default())?;
 
-            // Only include future payments
-            if payment_date > as_of {
-                let df = disc.try_df_between_dates(as_of, payment_date)?;
-                annuity += yf * df;
-            }
+            periods.push(LegPeriod {
+                accrual_start: prev,
+                accrual_end: d,
+                reset_date: None,
+                year_fraction: yf,
+            });
 
             prev = d;
         }
-        Ok(annuity)
+
+        // Use shared annuity function with robust discounting
+        crate::instruments::common::pricing::swap_legs::leg_annuity(
+            periods.into_iter(),
+            disc,
+            as_of,
+            leg.payment_lag_days,
+            self.calendar_id.as_deref(),
+        )
     }
 
     /// Compute the net present value (NPV) of the basis swap.

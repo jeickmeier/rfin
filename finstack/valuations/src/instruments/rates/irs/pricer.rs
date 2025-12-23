@@ -9,6 +9,13 @@
 //! rounding errors, which is critical for long-dated swaps (30Y+) with many
 //! periods. This ensures deterministic, accurate results across platforms.
 //!
+//! # Shared Infrastructure
+//!
+//! This module delegates to the shared swap leg pricing infrastructure in
+//! [`crate::instruments::common::pricing::swap_legs`] for the core pricing logic.
+//! The shared module provides Bloomberg-validated discount factor calculations
+//! and Kahan summation.
+//!
 //! # References
 //!
 //! - Hull, J. C. (2018). *Options, Futures, and Other Derivatives*. Chapter 7.
@@ -16,6 +23,14 @@
 
 // Using generic pricer implementation to eliminate boilerplate
 pub use crate::instruments::common::GenericDiscountingPricer;
+
+// Re-export shared swap leg pricing utilities for internal use and backward compatibility
+use crate::instruments::common::pricing::swap_legs::{
+    add_payment_delay, robust_relative_df, FloatingLegParams, LegPeriod, BP_TO_DECIMAL,
+};
+
+// Re-export for backward compatibility with IRS metrics modules
+pub(crate) use crate::instruments::common::pricing::swap_legs::robust_relative_df as relative_df;
 
 use crate::instruments::irs::InterestRateSwap;
 use finstack_core::dates::Date;
@@ -25,113 +40,11 @@ use finstack_core::math::kahan_sum;
 use finstack_core::money::Money;
 use finstack_core::Result;
 
-use crate::instruments::irs::dates::add_payment_delay;
 use crate::instruments::irs::FloatingLegCompounding;
 use finstack_core::dates::calendar::registry::CalendarRegistry;
 use finstack_core::dates::{DateExt, DayCountCtx};
 use finstack_core::market_data::term_structures::discount_curve::DiscountCurve;
 use finstack_core::market_data::term_structures::forward_curve::ForwardCurve;
-
-/// Minimum threshold for discount factor values to avoid numerical instability.
-///
-/// Set to 1e-10 to protect against division by near-zero discount factors
-/// that can arise from extreme rate scenarios or very long time horizons.
-/// This aligns with ISDA stress testing requirements for rates ranging
-/// from -10% to +50%.
-const DF_EPSILON: f64 = 1e-10;
-
-/// Basis points to decimal conversion factor.
-const BP_TO_DECIMAL: f64 = 1e-4;
-
-/// Compute discount factor at `target` relative to `as_of`, with numerical stability guard.
-///
-/// This helper centralizes the pattern of:
-/// 1. Computing year fractions from base_date to as_of and target
-/// 2. Getting absolute discount factors
-/// 3. Validating as_of DF against DF_EPSILON
-/// 4. Returning relative DF = DF(target) / DF(as_of)
-///
-/// # Arguments
-///
-/// * `disc` - Discount curve for pricing
-/// * `as_of` - Valuation date (denominator for relative discounting)
-/// * `target` - Target payment date (numerator for relative discounting)
-///
-/// # Returns
-///
-/// Discount factor from `as_of` to `target` (DF(target) / DF(as_of)).
-/// For seasoned instruments this represents the proper discount factor for
-/// cashflows occurring after the valuation date.
-///
-/// # Errors
-///
-/// Returns a validation error if:
-/// - Year fraction calculation fails
-/// - The as_of discount factor is below DF_EPSILON threshold (1e-10),
-///   which can occur in extreme rate scenarios or very long time horizons
-///
-/// # Examples
-///
-/// ```rust,no_run
-/// use finstack_core::dates::Date;
-/// use finstack_core::market_data::term_structures::discount_curve::DiscountCurve;
-/// use time::Month;
-///
-/// # fn main() -> finstack_core::Result<()> {
-/// // `relative_df` is an internal helper; externally, you can compute the same
-/// // quantity using public `DiscountCurve` APIs.
-/// let curve = DiscountCurve::builder("USD-OIS")
-///     .base_date(Date::from_calendar_date(2024, Month::January, 1).expect("valid date"))
-///     .knots([(0.0, 1.0), (1.0, 0.95), (5.0, 0.80)])
-///     .build()
-///     .expect("curve should build");
-///
-/// let as_of = Date::from_calendar_date(2024, Month::January, 1).unwrap();
-/// let target = Date::from_calendar_date(2025, Month::January, 1).unwrap();
-///
-/// let df_as_of = curve.try_df_on_date_curve(as_of)?;
-/// let df = curve.try_df_between_dates(as_of, target)?;
-/// assert!(df_as_of > 0.0 && df_as_of <= 1.0);
-/// assert!(df > 0.0 && df <= 1.0);
-/// # Ok(())
-/// # }
-/// ```
-pub(in crate::instruments::rates::irs) fn relative_df(
-    disc: &finstack_core::market_data::term_structures::discount_curve::DiscountCurve,
-    as_of: Date,
-    target: Date,
-) -> Result<f64> {
-    let df_as_of = disc.try_df_on_date_curve(as_of)?;
-
-    // Guard against invalid/near-zero discount factors for numerical stability and no-arb.
-    if !df_as_of.is_finite() {
-        return Err(finstack_core::error::Error::Validation(
-            "Valuation date discount factor is not finite.".into(),
-        ));
-    }
-    // Discount factors must be strictly positive under standard discounting assumptions.
-    if df_as_of <= DF_EPSILON {
-        return Err(finstack_core::error::Error::Validation(format!(
-            "Valuation date discount factor ({:.2e}) is below numerical stability threshold ({:.2e}). \
-             This may indicate extreme rate scenarios or very long time horizons.",
-            df_as_of, DF_EPSILON
-        )));
-    }
-
-    let df = disc.try_df_between_dates(as_of, target)?;
-    if !df.is_finite() {
-        return Err(finstack_core::error::Error::Validation(
-            "Discount factor between dates is not finite.".into(),
-        ));
-    }
-    if df <= 0.0 {
-        return Err(finstack_core::error::Error::Validation(format!(
-            "Discount factor between dates is non-positive (df={:.3e}) which is non-physical.",
-            df
-        )));
-    }
-    Ok(df)
-}
 
 impl InterestRateSwap {
     /// Returns true if this swap is configured as *single-curve* compounded RFR:
@@ -238,11 +151,11 @@ impl InterestRateSwap {
             let compound_factor = if proj.is_none() && total_shift == 0 {
                 // Single-curve discount-only fast path when no observation shifting:
                 // Product of (1 + r_i * dcf_i) is exactly DF(S)/DF(E).
-                1.0 / relative_df(disc, accrual_start, accrual_end)?
+                1.0 / robust_relative_df(disc, accrual_start, accrual_end)?
             } else if proj.is_some() && disc.id() == proj.expect("checked").id() && total_shift == 0
             {
                 // Fast path for single-curve OIS without lookback/shift:
-                1.0 / relative_df(disc, accrual_start, accrual_end)?
+                1.0 / robust_relative_df(disc, accrual_start, accrual_end)?
             } else {
                 let mut acc = 1.0;
                 let mut d = accrual_start;
@@ -346,9 +259,9 @@ impl InterestRateSwap {
             let spread_contrib =
                 self.notional.amount() * (self.float.spread_bp * BP_TO_DECIMAL) * cf.accrual_factor;
 
-            // Discount to payment date (holiday-aware)
+            // Discount to payment date (holiday-aware) using shared helper
             let payment_date = add_payment_delay(accrual_end, payment_delay, calendar_id);
-            let df = relative_df(disc, as_of, payment_date)?;
+            let df = robust_relative_df(disc, as_of, payment_date)?;
 
             terms.push((interest + spread_contrib) * df);
             accrual_start = accrual_end;
@@ -376,6 +289,7 @@ impl InterestRateSwap {
     ///
     /// Uses Kahan compensated summation for accurate PV calculation on
     /// long-dated swaps with many periods (30Y+ = 60+ semi-annual payments).
+    /// Delegates to the shared swap leg pricing infrastructure.
     ///
     /// # Errors
     ///
@@ -388,35 +302,37 @@ impl InterestRateSwap {
     ) -> finstack_core::Result<f64> {
         let sched = crate::instruments::irs::cashflow::fixed_leg_schedule(self)?;
 
-        // Payment delay in business days (typically 2 for Bloomberg OIS swaps)
-        let payment_delay = self.fixed.payment_delay_days;
+        // Convert cashflow schedule to LegPeriod iterator for shared pricing
+        let periods = sched
+            .flows
+            .iter()
+            .filter(|cf| {
+                cf.kind == crate::cashflow::primitives::CFKind::Fixed
+                    || cf.kind == crate::cashflow::primitives::CFKind::Stub
+            })
+            .map(|cf| LegPeriod {
+                accrual_start: cf.date, // For fixed leg, we use the payment date
+                accrual_end: cf.date,
+                reset_date: None,
+                year_fraction: cf.accrual_factor,
+            });
 
-        // Collect discounted flows for Kahan summation
-        let mut terms = Vec::with_capacity(sched.flows.len());
+        // Build fixed leg params
+        let params = crate::instruments::common::pricing::swap_legs::FixedLegParams {
+            rate: self.fixed.rate,
+            day_count: self.fixed.dc,
+            payment_delay_days: self.fixed.payment_delay_days,
+            calendar_id: self.fixed.calendar_id.clone(),
+        };
 
-        for cf in &sched.flows {
-            if cf.kind == crate::cashflow::primitives::CFKind::Fixed
-                || cf.kind == crate::cashflow::primitives::CFKind::Stub
-            {
-                // Only include future cashflows
-                if cf.date <= as_of {
-                    continue;
-                }
-
-                // Apply payment delay: actual payment occurs payment_delay_days after period end.
-                // Use holiday-aware business days when a calendar is available.
-                let payment_date =
-                    add_payment_delay(cf.date, payment_delay, self.fixed.calendar_id.as_deref());
-
-                // Discount from as_of for correct theta
-                let df = relative_df(disc, as_of, payment_date)?;
-                terms.push(cf.amount.amount() * df);
-            }
-        }
-
-        // Use Kahan compensated summation for numerical stability
-        let total = kahan_sum(terms);
-        Ok(total)
+        // Use shared pricing function
+        crate::instruments::common::pricing::swap_legs::pv_fixed_leg(
+            periods,
+            self.notional.amount(),
+            &params,
+            disc,
+            as_of,
+        )
     }
 
     /// Compute PV of floating leg (helper for value calculation).
@@ -448,6 +364,7 @@ impl InterestRateSwap {
     ///
     /// Uses Kahan compensated summation for accurate PV calculation on
     /// long-dated swaps with many periods (30Y+ = 120+ quarterly payments).
+    /// Delegates to the shared swap leg pricing infrastructure.
     ///
     /// # Errors
     ///
@@ -463,63 +380,48 @@ impl InterestRateSwap {
         // lags, calendars, and stub handling stay centralized.
         let schedule = crate::instruments::irs::cashflow::float_leg_schedule(self)?;
 
-        // IRS legs here do not expose caps/floors; keep parameters centralized.
-        let rate_params = crate::cashflow::builder::rate_helpers::FloatingRateParams {
+        // Track accrual start for period construction
+        let mut accrual_start = self.float.start;
+
+        // Convert cashflow schedule to LegPeriod iterator for shared pricing
+        let periods: Vec<LegPeriod> = schedule
+            .flows
+            .iter()
+            .filter(|cf| cf.kind == crate::cashflow::primitives::CFKind::FloatReset)
+            .map(|cf| {
+                let period = LegPeriod {
+                    accrual_start,
+                    accrual_end: cf.date,
+                    reset_date: cf.reset_date,
+                    year_fraction: cf.accrual_factor,
+                };
+                accrual_start = cf.date; // Update for next iteration
+                period
+            })
+            .collect();
+
+        // Build floating leg params using shared type
+        let params = FloatingLegParams {
             spread_bp: self.float.spread_bp,
             gearing: 1.0,
             gearing_includes_spread: true,
+            payment_delay_days: self.float.payment_delay_days,
+            calendar_id: self.float.calendar_id.clone(),
             index_floor_bp: None,
             index_cap_bp: None,
             all_in_floor_bp: None,
             all_in_cap_bp: None,
         };
 
-        let mut terms = Vec::with_capacity(schedule.flows.len());
-        let mut accrual_start = self.float.start;
-
-        for cf in schedule
-            .flows
-            .iter()
-            .filter(|cf| cf.kind == crate::cashflow::primitives::CFKind::FloatReset)
-        {
-            let accrual_end = cf.date;
-
-            // Skip settled cashflows
-            if accrual_end <= as_of {
-                accrual_start = accrual_end;
-                continue;
-            }
-
-            let reset_date = cf.reset_date.unwrap_or(accrual_start);
-
-            let forward_rate = crate::cashflow::builder::rate_helpers::project_floating_rate(
-                reset_date,
-                accrual_end,
-                fwd,
-                &rate_params,
-            )?;
-
-            // Use the builder's accrual factor (floating leg day count + stub rules).
-            let yf = cf.accrual_factor;
-            let coupon_amount = self.notional.amount() * forward_rate * yf;
-
-            // Apply payment delay: actual payment occurs payment_delay_days after period end.
-            // Use holiday-aware business days when a calendar is available.
-            let payment_date = add_payment_delay(
-                accrual_end,
-                self.float.payment_delay_days,
-                self.float.calendar_id.as_deref(),
-            );
-
-            // Discount from as_of for correct theta
-            let df = relative_df(disc, as_of, payment_date)?;
-            terms.push(coupon_amount * df);
-
-            accrual_start = accrual_end;
-        }
-
-        let total = kahan_sum(terms);
-        Ok(total)
+        // Use shared pricing function
+        crate::instruments::common::pricing::swap_legs::pv_floating_leg(
+            periods.into_iter(),
+            self.notional.amount(),
+            &params,
+            disc,
+            fwd,
+            as_of,
+        )
     }
 }
 
