@@ -77,7 +77,7 @@ pub mod constants;
 // Re-exports: Configuration
 pub use config::{
     CalibrationConfig, CalibrationMethod as CalibrationSolveMethod, DiscountCurveSolveConfig,
-    MultiCurveConfig, ResidualWeightingScheme, CALIBRATION_CONFIG_KEY,
+    ResidualWeightingScheme, CALIBRATION_CONFIG_KEY,
 };
 
 // Re-exports: SABR derivatives (from instruments module)
@@ -88,8 +88,7 @@ pub use crate::instruments::common::models::volatility::sabr_derivatives::{
 // Re-exports: Reports
 pub use report::CalibrationReport;
 pub use solver::{
-    create_simple_solver, solve_1d, BracketDiagnostics, SolverConfig, OBJECTIVE_VALID_ABS_MAX,
-    PENALTY, RESIDUAL_PENALTY_ABS_MIN,
+    SolverConfig, OBJECTIVE_VALID_ABS_MAX, PENALTY, RESIDUAL_PENALTY_ABS_MIN,
 };
 
 // Re-exports: Validation

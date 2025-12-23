@@ -11,10 +11,9 @@
 //!
 //! # Quick Example
 //! ```rust
-//! # use finstack_valuations::calibration::{create_simple_solver, CalibrationConfig};
-//! // Create a simple 1D Brent solver with default tolerances
-//! let config = CalibrationConfig::default();
-//! let solver = create_simple_solver(&config);
+//! # use finstack_valuations::calibration::SolverConfig;
+//! // Create a Brent solver config with default tolerances
+//! let solver = SolverConfig::brent_default();
 //! ```
 //!
 //! # See Also
@@ -34,7 +33,6 @@ pub use crate::calibration::constants::{
 };
 pub use config::SolverConfig;
 pub(crate) use helpers::bracket_solve_1d_with_diagnostics;
-pub use helpers::{create_simple_solver, solve_1d, BracketDiagnostics};
 
 pub use bootstrap::SequentialBootstrapper;
 pub use global::GlobalFitOptimizer;

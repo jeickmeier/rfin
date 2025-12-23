@@ -11,7 +11,6 @@
 
 // Calibration configuration types
 export type { CalibrationConfig } from './CalibrationConfig';
-export type { MultiCurveConfig } from './MultiCurveConfig';
 export type { RateBounds } from './RateBounds';
 export type { SolverKind } from './SolverKind';
 export type { ValidationMode } from './ValidationMode';

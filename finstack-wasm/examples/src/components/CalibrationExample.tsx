@@ -44,7 +44,7 @@ import {
 
 /** Create default calibration configuration - must be called after WASM init */
 const createDefaultConfig = () =>
-  CalibrationConfig.multiCurve()
+  new CalibrationConfig()
     .withSolverKind(SolverKind.Brent())
     .withMaxIterations(40)
     .withVerbose(false);

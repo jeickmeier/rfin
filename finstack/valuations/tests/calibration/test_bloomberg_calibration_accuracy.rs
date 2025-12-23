@@ -5,7 +5,7 @@
 
 use finstack_core::config::FinstackConfig;
 use finstack_core::currency::Currency;
-use finstack_core::dates::{BusinessDayConvention, Date, DayCount, DayCountCtx};
+use finstack_core::dates::{Date, DayCount, DayCountCtx};
 use finstack_core::market_data::context::MarketContext;
 use finstack_core::math::interp::InterpStyle;
 use finstack_valuations::calibration::api::schema::{
@@ -372,14 +372,6 @@ fn test_bloomberg_usd_ois_calibration_accuracy() {
         pricing_forward_id: None,
         conventions: finstack_valuations::calibration::api::schema::RatesStepConventions {
             curve_day_count: Some(DayCount::Act365F),
-            settlement_days: Some(2),
-            calendar_id: Some("usny".to_string()),
-            business_day_convention: Some(BusinessDayConvention::ModifiedFollowing),
-            allow_calendar_fallback: Some(false),
-            use_settlement_start: Some(true),
-            default_payment_delay_days: Some(2),
-            default_reset_lag_days: Some(0),
-            strict_pricing: Some(false),
             ..Default::default()
         },
     };

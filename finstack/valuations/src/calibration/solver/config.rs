@@ -63,18 +63,6 @@ pub enum SolverConfig {
         solver: BrentSolver,
     },
 
-    /// Global Newton-style solve (with optional LM damping for robustness).
-    ///
-    /// Used in simultaneous fitting where multi-dimensional convergence
-    /// is required across all knots.
-    GlobalNewton {
-        /// Convergence tolerance (L2 norm of residuals).
-        tolerance: f64,
-        /// Maximum iterations.
-        max_iterations: usize,
-        /// Apply LM-style damping to improve robustness in ill-conditioned regions.
-        use_lm_damping: bool,
-    },
 }
 
 impl SolverConfig {
@@ -89,16 +77,6 @@ impl SolverConfig {
     pub fn brent_default() -> Self {
         Self::Brent {
             solver: BrentSolver::default(),
-        }
-    }
-
-    /// Create a Global Newton config with Newton defaults and LM damping enabled.
-    pub fn global_newton_default() -> Self {
-        let solver = NewtonSolver::default();
-        Self::GlobalNewton {
-            tolerance: solver.tolerance,
-            max_iterations: solver.max_iterations,
-            use_lm_damping: true,
         }
     }
 
@@ -121,7 +99,6 @@ impl SolverConfig {
         match self {
             Self::Newton { solver } => solver.tolerance,
             Self::Brent { solver } => solver.tolerance,
-            Self::GlobalNewton { tolerance, .. } => *tolerance,
         }
     }
 
@@ -130,7 +107,6 @@ impl SolverConfig {
         match self {
             Self::Newton { solver } => solver.max_iterations,
             Self::Brent { solver } => solver.max_iterations,
-            Self::GlobalNewton { max_iterations, .. } => *max_iterations,
         }
     }
 
@@ -139,7 +115,6 @@ impl SolverConfig {
         match &mut self {
             Self::Newton { solver } => solver.tolerance = tolerance,
             Self::Brent { solver } => solver.tolerance = tolerance,
-            Self::GlobalNewton { tolerance: t, .. } => *t = tolerance,
         }
         self
     }
@@ -149,9 +124,6 @@ impl SolverConfig {
         match &mut self {
             Self::Newton { solver } => solver.max_iterations = max_iterations,
             Self::Brent { solver } => solver.max_iterations = max_iterations,
-            Self::GlobalNewton {
-                max_iterations: m, ..
-            } => *m = max_iterations,
         }
         self
     }

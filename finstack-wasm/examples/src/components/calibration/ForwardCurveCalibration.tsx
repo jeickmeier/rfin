@@ -55,7 +55,7 @@ const mapFrequency = (freq: FrequencyType): ReturnType<typeof Frequency.annual> 
 
 /** Convert JSON config to WASM CalibrationConfig */
 const buildWasmConfig = (config: CalibrationConfigJson): CalibrationConfig => {
-  let wasmConfig = CalibrationConfig.multiCurve();
+  let wasmConfig = new CalibrationConfig();
   switch (config.solverKind) {
     case 'Brent':
       wasmConfig = wasmConfig.withSolverKind(SolverKind.Brent());

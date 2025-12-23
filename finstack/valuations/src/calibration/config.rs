@@ -2,18 +2,15 @@
 //!
 //! This module provides unified configuration for calibration processes including:
 //! - Solver selection and numerical parameters
-//! - Multi-curve framework configuration (post-2008 standard)
-//! - Entity seniority mappings for credit calibration
 //! - Rate bounds for market-regime-aware calibration
+//! - Validation and explainability settings
 
 use crate::calibration::solver::SolverConfig;
 use crate::calibration::validation::{RateBounds, RateBoundsPolicy, ValidationMode};
 use finstack_core::config::FinstackConfig;
 use finstack_core::currency::Currency;
 use finstack_core::explain::ExplainOpts;
-use finstack_core::market_data::term_structures::Seniority;
 
-use finstack_core::collections::HashMap;
 use finstack_core::math::interp::{ExtrapolationPolicy, InterpStyle};
 use serde::{Deserialize, Serialize};
 use serde_json;
@@ -124,15 +121,10 @@ pub struct DiscountCurveSolveConfig {
     pub extrapolation_policy: ExtrapolationPolicy,
     /// Whether to use a sequential bootstrap to seed a global solve.
     pub bootstrap_seed_global_solve: bool,
-    /// Allow falling back to a seed value if solving fails.
-    pub allow_seed_fallback: bool,
     /// Override final-curve monotonicity enforcement (None = policy-driven).
     #[serde(default)]
     #[cfg_attr(feature = "ts_export", ts(type = "boolean | null"))]
     pub allow_non_monotonic_final: Option<bool>,
-    /// Enforce strict pricing (all conventions must be explicit).
-    #[serde(default)]
-    pub strict_pricing: bool,
     /// Weighting scheme for global solve residuals.
     #[serde(default)]
     pub weighting_scheme: ResidualWeightingScheme,
@@ -155,9 +147,7 @@ impl Default for DiscountCurveSolveConfig {
             df_hard_max: 1e6,
             min_t_spot: 1e-6,
             bootstrap_seed_global_solve: true,
-            allow_seed_fallback: false,
             allow_non_monotonic_final: None,
-            strict_pricing: false,
             weighting_scheme: ResidualWeightingScheme::default(),
             // `jacobian_step_size` is used as a *relative* bump size (h = max(eps, |p|*eps)).
             // For typical discount-curve zero rates (~1-5%), `1e-8` can make PV differences
@@ -166,37 +156,6 @@ impl Default for DiscountCurveSolveConfig {
             // Validation success tolerance for residuals (per notional).
             validation_tolerance: 1e-8,
         }
-    }
-}
-
-/// Multi-curve calibration framework configuration (post-2008 standard).
-///
-/// Controls how the calibrator handles the separation of discounting
-/// and forwarding curves, which became standard industry practice after 2008.
-#[cfg_attr(feature = "ts_export", derive(TS))]
-#[cfg_attr(feature = "ts_export", ts(export))]
-#[derive(Clone, Debug, Serialize, Deserialize)]
-pub struct MultiCurveConfig {
-    /// Whether to calibrate basis spreads between different indices (e.g., Libor vs OIS).
-    pub calibrate_basis: bool,
-
-    /// Whether to enforce strict separation (fail if trying to derive forward from discount).
-    pub enforce_separation: bool,
-}
-
-impl Default for MultiCurveConfig {
-    fn default() -> Self {
-        Self {
-            calibrate_basis: true,
-            enforce_separation: true,
-        }
-    }
-}
-
-impl MultiCurveConfig {
-    /// Create a multi-curve configuration (post-2008 standard)
-    pub fn new() -> Self {
-        Self::default()
     }
 }
 
@@ -224,17 +183,8 @@ pub struct CalibrationConfig {
     pub solver: SolverConfig,
     /// Use parallel processing when available (e.g., for independent curves).
     pub use_parallel: bool,
-    /// Random seed for reproducible results in stochastic solvers (if any).
-    pub random_seed: Option<u64>,
     /// Enable verbose logging of the calibration process.
     pub verbose: bool,
-    /// Entity-specific seniority mappings for credit calibration.
-    #[cfg_attr(feature = "ts_export", ts(type = "Record<string, string>"))]
-    pub entity_seniority: HashMap<String, Seniority>,
-    /// Multi-curve framework configuration (discounting vs forwarding).
-    pub multi_curve: MultiCurveConfig,
-    /// Use finite-difference gradients for SABR calibration instead of analytical approximations.
-    pub use_fd_sabr_gradients: bool,
     /// Explanation options (opt-in detailed trace for debugging).
     #[serde(skip)]
     #[cfg_attr(feature = "ts_export", ts(skip))]
@@ -268,11 +218,7 @@ impl Default for CalibrationConfig {
         Self {
             solver: SolverConfig::default(),
             use_parallel: false, // Deterministic by default
-            random_seed: Some(42),
             verbose: false,
-            entity_seniority: HashMap::default(),
-            multi_curve: MultiCurveConfig::default(),
-            use_fd_sabr_gradients: false, // Use fast analytical approximations by default
             explain: ExplainOpts::default(), // Disabled by default (zero overhead)
             validation_mode: ValidationMode::Error,
             validation: crate::calibration::validation::ValidationConfig::default(),
@@ -337,19 +283,6 @@ impl CalibrationConfig {
             RateBoundsPolicy::AutoCurrency => RateBounds::for_currency(currency),
             RateBoundsPolicy::Explicit => self.rate_bounds.clone(),
         }
-    }
-
-    /// Set multi-curve framework configuration.
-    /// This is a convenience method for backward compatibility.
-    #[must_use]
-    pub fn with_multi_curve_config(mut self, multi_curve_config: MultiCurveConfig) -> Self {
-        self.multi_curve = multi_curve_config;
-        self
-    }
-
-    /// Create a configuration for multi-curve mode (standard).
-    pub fn multi_curve() -> Self {
-        Self::default()
     }
 
     /// Enable explanation tracing with default settings.
@@ -461,11 +394,7 @@ impl CalibrationConfig {
                 .with_tolerance(1e-12)
                 .with_max_iterations(100),
             use_parallel: false, // Deterministic
-            random_seed: Some(42),
             verbose: false,
-            entity_seniority: HashMap::default(),
-            multi_curve: MultiCurveConfig::default(),
-            use_fd_sabr_gradients: true, // Use more accurate FD gradients for conservative mode
             explain: ExplainOpts::default(),
             validation_mode: ValidationMode::Error,
             validation: crate::calibration::validation::ValidationConfig::default(),
@@ -506,11 +435,7 @@ impl CalibrationConfig {
                 .with_tolerance(1e-6)
                 .with_max_iterations(1000),
             use_parallel: false, // Keep deterministic by default
-            random_seed: Some(42),
             verbose: false,
-            entity_seniority: HashMap::default(),
-            multi_curve: MultiCurveConfig::default(),
-            use_fd_sabr_gradients: false, // Use fast analytical approximations for speed
             explain: ExplainOpts::default(),
             validation_mode: ValidationMode::Warn,
             validation: crate::calibration::validation::ValidationConfig::default(),
@@ -548,11 +473,7 @@ impl CalibrationConfig {
                 .with_tolerance(1e-4)
                 .with_max_iterations(50),
             use_parallel: false,
-            random_seed: Some(42),
             verbose: false,
-            entity_seniority: HashMap::default(),
-            multi_curve: MultiCurveConfig::default(),
-            use_fd_sabr_gradients: false, // Use fast analytical approximations
             explain: ExplainOpts::default(),
             validation_mode: ValidationMode::Warn,
             validation: crate::calibration::validation::ValidationConfig::default(),
@@ -576,10 +497,6 @@ impl CalibrationConfig {
             .with_max_iterations(self.solver.max_iterations())
     }
 
-    /// Check if configured for multi-dimensional solving
-    pub fn is_multi_dimensional(&self) -> bool {
-        matches!(self.solver, SolverConfig::GlobalNewton { .. })
-    }
 }
 
 /// Step-level conventions for rates calibration (discount and forward curves).
@@ -595,54 +512,4 @@ pub struct RatesStepConventions {
     #[serde(default)]
     #[cfg_attr(feature = "ts_export", ts(type = "string | null"))]
     pub curve_day_count: Option<finstack_core::dates::DayCount>,
-
-    /// Optional pricer-level settlement lag override (business days).
-    #[serde(default)]
-    pub settlement_days: Option<i32>,
-
-    /// Optional pricer-level calendar identifier override.
-    #[serde(default)]
-    pub calendar_id: Option<String>,
-
-    /// Optional pricer-level business day convention override.
-    #[serde(default)]
-    #[cfg_attr(feature = "ts_export", ts(type = "string | null"))]
-    pub business_day_convention: Option<finstack_core::dates::BusinessDayConvention>,
-
-    /// Allow calendar-day fallback when the requested calendar is missing.
-    #[serde(default)]
-    pub allow_calendar_fallback: Option<bool>,
-
-    /// Whether instruments start at settlement (true for discount curves).
-    #[serde(default)]
-    pub use_settlement_start: Option<bool>,
-
-    /// Enable vendor-style strict pricing in this step.
-    ///
-    /// When enabled, calibration will fail fast if required pricing conventions are
-    /// not explicitly provided. This avoids hidden currency-based defaults
-    /// and improves vendor-matching determinism.
-    #[serde(default)]
-    pub strict_pricing: Option<bool>,
-
-    /// Step-level default payment delay (business days) used when quotes do not specify one.
-    ///
-    /// In strict pricing mode, this must be explicitly provided unless the instrument's
-    /// conventions (e.g., overnight RFR index rules) supply a deterministic value.
-    #[serde(default)]
-    pub default_payment_delay_days: Option<i32>,
-
-    /// Step-level default reset lag (business days) used when quotes do not specify one.
-    ///
-    /// In strict pricing mode, this must be explicitly provided unless the instrument's
-    /// conventions (e.g., overnight RFR index rules) supply a deterministic value.
-    #[serde(default)]
-    pub default_reset_lag_days: Option<i32>,
-
-    /// Enforce discount-curve separation (reject non-OIS forward-dependent quotes).
-    ///
-    /// Default is `false` to preserve backwards compatibility; enable to match
-    /// vendor-style strict validation.
-    #[serde(default)]
-    pub enforce_discount_separation: Option<bool>,
 }

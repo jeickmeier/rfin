@@ -7,7 +7,6 @@ use crate::calibration::api::schema::CalibrationStep;
 use crate::calibration::api::schema::{CalibrationResult, CalibrationResultEnvelope, StepParams};
 use crate::calibration::targets::handlers::execute_step;
 use crate::calibration::targets::util::curve_day_count_from_quotes;
-// use crate::calibration::pricing::{CalibrationPricer, RatesQuoteUseCase}; // Removed
 use crate::calibration::CalibrationReport;
 use crate::market::quotes::market_quote::{ExtractQuotes, MarketQuote};
 use finstack_core::explain::{ExplanationTrace, TraceEntry};
@@ -131,9 +130,6 @@ fn preflight_step(
                     finstack_core::error::InputError::TooFewPoints,
                 ));
             }
-
-            // Legacy validation removed (CalibrationPricer)
-            // Legacy validation removed
 
             let _curve_dc = curve_day_count_from_quotes(&rates_quotes)?;
             Ok(())

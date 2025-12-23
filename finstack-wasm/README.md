@@ -361,7 +361,7 @@ async function run() {
   console.log('CDS PV:', cdsResult.presentValue.format());
 
   // Example: Calibrate a discount curve from market quotes
-  const calibrationConfig = CalibrationConfig.multiCurve()
+  const calibrationConfig = new CalibrationConfig()
     .withSolverKind(SolverKind.Hybrid())
     .withMaxIterations(40);
 

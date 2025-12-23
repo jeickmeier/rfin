@@ -19,7 +19,6 @@ fn calibration_config_applies_extension_overrides() {
                 "max_iterations": 250
             },
             "use_parallel": true,
-            "random_seed": null,
             "rate_bounds_policy": "explicit",
             "rate_bounds": { "min_rate": -0.01, "max_rate": 0.10 },
             "calibration_method": { "GlobalSolve": { "use_analytical_jacobian": true } }
@@ -31,7 +30,6 @@ fn calibration_config_applies_extension_overrides() {
     assert_eq!(cfg_out.solver.tolerance(), 1e-8);
     assert_eq!(cfg_out.solver.max_iterations(), 250);
     assert!(cfg_out.use_parallel);
-    assert_eq!(cfg_out.random_seed, None);
     assert!(matches!(cfg_out.solver, SolverConfig::Newton { .. }));
     assert_eq!(cfg_out.rate_bounds_policy, RateBoundsPolicy::Explicit);
     assert_eq!(
@@ -61,7 +59,6 @@ fn calibration_config_defaults_without_extension() {
         defaults.solver.max_iterations()
     );
     assert_eq!(cfg_out.use_parallel, defaults.use_parallel);
-    assert_eq!(cfg_out.random_seed, defaults.random_seed);
     assert_eq!(cfg_out.solver, defaults.solver);
     assert_eq!(cfg_out.rate_bounds_policy, defaults.rate_bounds_policy);
     assert_eq!(cfg_out.rate_bounds, defaults.rate_bounds);

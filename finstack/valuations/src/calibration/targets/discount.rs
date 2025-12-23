@@ -39,9 +39,7 @@ pub struct DiscountCurveTargetParams {
     /// Extrapolation policy.
     pub extrapolation: ExtrapolationPolicy,
     /// Calibration configuration.
-    /// Calibration configuration.
     pub config: CalibrationConfig,
-    // pub pricer: CalibrationPricer, // Removed
     /// Day count convention for mapping dates to year fractions on the curve.
     pub curve_day_count: DayCount,
     /// Optional spot knot (t_spot, 1.0) if enabled.
@@ -89,9 +87,7 @@ pub struct DiscountCurveTarget {
     /// Extrapolation policy.
     pub extrapolation: ExtrapolationPolicy,
     /// Calibration configuration.
-    /// Calibration configuration.
     pub config: CalibrationConfig,
-    // pub pricer: CalibrationPricer, // Removed
     /// Day count convention for the curve.
     pub curve_day_count: DayCount,
     /// Optional spot knot (t_spot, 1.0) if enabled.

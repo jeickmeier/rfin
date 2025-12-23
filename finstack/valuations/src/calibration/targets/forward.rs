@@ -1,8 +1,6 @@
 //! Forward curve calibration target.
 
 use crate::calibration::config::CalibrationConfig;
-
-// use crate::calibration::pricing::quote_factory::CALIBRATION_NOTIONAL; // Removed
 use crate::calibration::api::schema::ForwardCurveParams;
 use crate::calibration::config::CalibrationMethod;
 use crate::calibration::prepared::CalibrationQuote;
@@ -36,9 +34,6 @@ pub struct ForwardCurveTargetParams {
     pub solve_interp: InterpStyle,
     /// Global calibration settings (tolerances, rate bounds).
     pub config: CalibrationConfig,
-    /// Global calibration settings (tolerances, rate bounds).
-
-    // pub pricer: CalibrationPricer, // Removed
     /// Convention for converting dates to time axis (year fractions).
     pub time_day_count: DayCount,
     /// Context providing supporting market data (e.g. discount curves).
@@ -65,9 +60,6 @@ pub struct ForwardCurveTarget {
     pub solve_interp: InterpStyle,
     /// Calibration configuration.
     pub config: CalibrationConfig,
-    /// Calibration configuration.
-
-    // pub pricer: CalibrationPricer, // Removed
     /// Day count convention for time calculations.
     pub time_day_count: DayCount,
     /// Baseline market context.
@@ -92,7 +84,6 @@ impl ForwardCurveTarget {
             tenor_years: params.tenor_years,
             solve_interp: params.solve_interp,
             config: params.config,
-            // pricer: params.pricer, // Removed
             time_day_count: params.time_day_count,
             base_context: params.base_context,
             reuse_context,
@@ -420,7 +411,6 @@ mod tests {
                 tenor_years: 1.0,
                 solve_interp: InterpStyle::Linear,
                 config,
-                // pricer: pricer.clone(), // Removed
                 time_day_count: DayCount::Act365F,
                 base_context,
                 reuse_context,

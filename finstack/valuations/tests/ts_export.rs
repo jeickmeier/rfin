@@ -1,7 +1,7 @@
 #![cfg(feature = "ts_export")]
 
 use finstack_valuations::calibration::{
-    CalibrationConfig, MultiCurveConfig, RateBounds, SolverConfig, ValidationMode,
+    CalibrationConfig, RateBounds, SolverConfig, ValidationMode,
 };
 use finstack_valuations::market::quotes::cds::CdsQuote;
 use finstack_valuations::market::quotes::cds_tranche::CdsTrancheQuote;
@@ -23,7 +23,6 @@ fn export_calibration_types() {
 
     CalibrationConfig::export().expect("export CalibrationConfig");
     SolverConfig::export().expect("export SolverConfig");
-    MultiCurveConfig::export().expect("export MultiCurveConfig");
     RateBounds::export().expect("export RateBounds");
     ValidationMode::export().expect("export ValidationMode");
 

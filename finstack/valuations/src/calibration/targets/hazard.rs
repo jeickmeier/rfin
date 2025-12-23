@@ -555,7 +555,6 @@ Global solve requires strictly increasing times.",
 #[cfg(test)]
 mod tests {
     use super::*;
-    // use crate::calibration::pricing::quote_factory; // Removed
     use crate::calibration::solver::BootstrapTarget;
     use finstack_core::dates::Date;
 
@@ -631,5 +630,4 @@ mod tests {
         assert!(s1 >= s5 && s5 >= s10);
     }
 
-    // Test removed (legacy types). Covered by parity tests.
 }

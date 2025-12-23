@@ -68,10 +68,10 @@ pub use core::volatility::{
 pub use valuations::calibration::{
     JsCalibrationConfig as CalibrationConfig, JsCalibrationReport as CalibrationReport,
     JsCreditQuote as CreditQuote, JsInflationQuote as InflationQuote, JsMarketQuote as MarketQuote,
-    JsMultiCurveConfig as MultiCurveConfig, JsRatesQuote as RatesQuote,
-    JsSABRCalibrationDerivatives as SABRCalibrationDerivatives, JsSABRMarketData as SABRMarketData,
-    JsSABRModelParams as SABRModelParams, JsSolverKind as SolverKind,
-    JsValidationConfig as ValidationConfig, JsVolQuote as VolQuote,
+    JsRatesQuote as RatesQuote, JsSABRCalibrationDerivatives as SABRCalibrationDerivatives,
+    JsSABRMarketData as SABRMarketData, JsSABRModelParams as SABRModelParams,
+    JsSolverKind as SolverKind, JsValidationConfig as ValidationConfig,
+    JsVolQuote as VolQuote,
 };
 // Validation functions
 pub use valuations::calibration::validation::{

@@ -64,7 +64,7 @@ impl JsDiscountCurveCalibrator {
     ///
     /// @example
     /// ```javascript
-    /// const config = CalibrationConfig.multiCurve()
+    /// const config = new CalibrationConfig()
     ///   .withSolverKind(SolverKind.Hybrid())
     ///   .withMaxIterations(40);
     ///
@@ -487,7 +487,7 @@ impl JsBaseCorrelationCalibrator {
     ///
     /// @example
     /// ```javascript
-    /// const config = CalibrationConfig.multiCurve()
+    /// const config = new CalibrationConfig()
     ///   .withMaxIterations(50);
     ///
     /// const calibrator = new BaseCorrelationCalibrator("CDX.NA.IG.42", 42, 5.0, baseDate)

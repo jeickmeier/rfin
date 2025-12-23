@@ -1,7 +1,7 @@
 //! Calibration configuration types for WASM bindings.
 
 use crate::utils::json::{from_js_value, to_js_value};
-use finstack_valuations::calibration::{CalibrationConfig, MultiCurveConfig, SolverConfig};
+use finstack_valuations::calibration::{CalibrationConfig, SolverConfig};
 use wasm_bindgen::prelude::*;
 
 /// Solver strategy enumeration for calibration routines.
@@ -39,14 +39,6 @@ impl JsSolverKind {
         }
     }
 
-    /// Global Newton optimizer.
-    #[wasm_bindgen(js_name = GlobalNewton)]
-    pub fn global_newton() -> Self {
-        Self {
-            inner: SolverConfig::global_newton_default(),
-        }
-    }
-
     /// Parse from string name.
     #[wasm_bindgen(js_name = fromName)]
     pub fn from_name(name: &str) -> Result<JsSolverKind, JsValue> {
@@ -54,7 +46,6 @@ impl JsSolverKind {
         let kind = match normalized.as_str() {
             "newton" => SolverConfig::newton_default(),
             "brent" => SolverConfig::brent_default(),
-            "global_newton" | "levenberg_marquardt" => SolverConfig::global_newton_default(),
             _ => return Err(JsValue::from_str(&format!("Unknown solver kind: {}", name))),
         };
         Ok(Self { inner: kind })
@@ -66,86 +57,7 @@ impl JsSolverKind {
         match self.inner {
             SolverConfig::Newton { .. } => "newton".to_string(),
             SolverConfig::Brent { .. } => "brent".to_string(),
-            SolverConfig::GlobalNewton { .. } => "global_newton".to_string(),
         }
-    }
-}
-
-/// Multi-curve calibration configuration.
-#[wasm_bindgen(js_name = MultiCurveConfig)]
-#[derive(Clone, Debug)]
-pub struct JsMultiCurveConfig {
-    inner: MultiCurveConfig,
-}
-
-impl JsMultiCurveConfig {
-    pub(crate) fn from_inner(inner: MultiCurveConfig) -> Self {
-        Self { inner }
-    }
-
-    pub(crate) fn inner(&self) -> MultiCurveConfig {
-        self.inner.clone()
-    }
-}
-
-#[wasm_bindgen(js_class = MultiCurveConfig)]
-impl JsMultiCurveConfig {
-    /// Create a new multi-curve configuration.
-    #[wasm_bindgen(constructor)]
-    pub fn new(calibrate_basis: bool, enforce_separation: bool) -> Self {
-        let config = MultiCurveConfig {
-            calibrate_basis,
-            enforce_separation,
-        };
-        Self { inner: config }
-    }
-
-    /// Standard multi-curve configuration.
-    #[wasm_bindgen(js_name = standard)]
-    pub fn standard() -> Self {
-        Self {
-            inner: MultiCurveConfig::default(),
-        }
-    }
-
-    /// Whether to calibrate basis swaps.
-    #[wasm_bindgen(getter, js_name = calibrateBasis)]
-    pub fn calibrate_basis(&self) -> bool {
-        self.inner.calibrate_basis
-    }
-
-    /// Whether to enforce curve separation.
-    #[wasm_bindgen(getter, js_name = enforceSeparation)]
-    pub fn enforce_separation(&self) -> bool {
-        self.inner.enforce_separation
-    }
-
-    /// Set calibrate basis flag.
-    #[wasm_bindgen(js_name = withCalibrateBasis)]
-    pub fn with_calibrate_basis(&self, value: bool) -> JsMultiCurveConfig {
-        let mut next = self.inner.clone();
-        next.calibrate_basis = value;
-        Self::from_inner(next)
-    }
-
-    /// Set enforce separation flag.
-    #[wasm_bindgen(js_name = withEnforceSeparation)]
-    pub fn with_enforce_separation(&self, value: bool) -> JsMultiCurveConfig {
-        let mut next = self.inner.clone();
-        next.enforce_separation = value;
-        Self::from_inner(next)
-    }
-
-    /// Create from JSON representation.
-    #[wasm_bindgen(js_name = fromJSON)]
-    pub fn from_json(value: JsValue) -> Result<JsMultiCurveConfig, JsValue> {
-        from_js_value(value).map(JsMultiCurveConfig::from_inner)
-    }
-
-    /// Convert to JSON representation.
-    #[wasm_bindgen(js_name = toJSON)]
-    pub fn to_json(&self) -> Result<JsValue, JsValue> {
-        to_js_value(&self.inner)
     }
 }
 
@@ -174,14 +86,6 @@ impl JsCalibrationConfig {
     pub fn new() -> Self {
         Self {
             inner: CalibrationConfig::default(),
-        }
-    }
-
-    /// Multi-curve preset configuration.
-    #[wasm_bindgen(js_name = multiCurve)]
-    pub fn multi_curve() -> Self {
-        Self {
-            inner: CalibrationConfig::multi_curve(),
         }
     }
 
@@ -252,14 +156,6 @@ impl JsCalibrationConfig {
     pub fn with_solver_kind(&self, kind: &JsSolverKind) -> JsCalibrationConfig {
         let mut next = self.inner.clone();
         next.solver = kind.inner();
-        Self::from_inner(next)
-    }
-
-    /// Set multi-curve configuration.
-    #[wasm_bindgen(js_name = withMultiCurveConfig)]
-    pub fn with_multi_curve_config(&self, config: &JsMultiCurveConfig) -> JsCalibrationConfig {
-        let mut next = self.inner.clone();
-        next.multi_curve = config.inner();
         Self::from_inner(next)
     }
 

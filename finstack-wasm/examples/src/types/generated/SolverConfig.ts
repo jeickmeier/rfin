@@ -29,19 +29,4 @@
  */
 export type SolverConfig =
   | { method: 'newton' }
-  | { method: 'brent' }
-  | {
-      method: 'global_newton';
-      /**
-       * Convergence tolerance (L2 norm of residuals).
-       */
-      tolerance: number;
-      /**
-       * Maximum iterations.
-       */
-      max_iterations: number;
-      /**
-       * Apply LM-style damping to improve robustness in ill-conditioned regions.
-       */
-      use_lm_damping: boolean;
-    };
+  | { method: 'brent' };

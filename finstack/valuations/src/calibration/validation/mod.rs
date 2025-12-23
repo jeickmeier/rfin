@@ -9,12 +9,10 @@
 //! - [`config`]: Configuration for validation thresholds and strictness modes.
 //! - [`curves`]: Runtime validators for term structures (Yield, Hazard, Inflation).
 //! - [`surfaces`]: Runtime validators for volatility and correlation surfaces.
-//! - [`quotes`]: Logic for validating market quotes against settlement rules.
 
 mod config;
 mod curves;
 mod points;
-mod quotes;
 mod surfaces;
 
 pub use config::{

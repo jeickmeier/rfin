@@ -9,33 +9,20 @@ use crate::calibration::constants::OBJECTIVE_VALID_ABS_MAX;
 #[cfg(test)]
 use crate::calibration::constants::PENALTY;
 use crate::calibration::solver::SolverConfig;
-use crate::calibration::CalibrationConfig;
 
 /// Solve a 1D root-finding problem using the configured solver kind.
 ///
 /// This replaces the former `with_solver!` macro with a plain helper function
-/// to make control flow explicit and IDE-friendly. Dispatches to Newton,
-/// Brent, or a Brent-fallback for the 1D case of global config.
+/// to make control flow explicit and IDE-friendly. Dispatches to Newton or Brent.
 pub fn solve_1d<Fun>(solver: &SolverConfig, f: Fun, init: f64) -> Result<f64>
 where
     Fun: Fn(f64) -> f64,
 {
-    use finstack_core::math::{BrentSolver, Solver};
+    use finstack_core::math::Solver;
 
     match solver {
         SolverConfig::Newton { solver } => solver.solve(f, init),
         SolverConfig::Brent { solver } => solver.solve(f, init),
-        // For multi-dimensional kinds, fall back to Brent for 1D problems
-        SolverConfig::GlobalNewton {
-            tolerance,
-            max_iterations,
-            ..
-        } => {
-            let solver = BrentSolver::new()
-                .with_tolerance(*tolerance)
-                .with_max_iterations(*max_iterations);
-            solver.solve(f, init)
-        }
     }
 }
 
@@ -270,26 +257,6 @@ pub(crate) fn bracket_solve_1d_with_diagnostics(
 
     diag.bracket_found = true;
     Ok((Some(root_brent), diag))
-}
-
-/// Create a simple solver wrapper for calibration methods using `solve_1d` internally.
-pub fn create_simple_solver(config: &CalibrationConfig) -> impl finstack_core::math::Solver {
-    struct SimpleSolver {
-        solver: SolverConfig,
-    }
-
-    impl finstack_core::math::Solver for SimpleSolver {
-        fn solve<Fun>(&self, f: Fun, initial_guess: f64) -> finstack_core::Result<f64>
-        where
-            Fun: Fn(f64) -> f64,
-        {
-            solve_1d(&self.solver, f, initial_guess)
-        }
-    }
-
-    SimpleSolver {
-        solver: config.solver.clone(),
-    }
 }
 
 #[cfg(test)]

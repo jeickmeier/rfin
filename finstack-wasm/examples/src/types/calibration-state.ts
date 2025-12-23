@@ -21,7 +21,6 @@
 export type {
   // Config types
   CalibrationConfig,
-  MultiCurveConfig,
   RateBounds,
   SolverKind,
   ValidationMode,
