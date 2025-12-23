@@ -613,7 +613,16 @@ impl ShortRateTree {
                 }
             }
 
-            // 2. Solve for theta
+            // 2. Solve for theta (drift adjustment to match discount curve)
+            //
+            // Ho-Lee calibration: r_next[j] = r_base[j] + θ
+            // Discount factor: exp(-r_next[j] * dt) = exp(-(r_base[j] + θ) * dt)
+            //                = exp(-r_base[j]*dt) * exp(-θ*dt)
+            // Model price: P_model = Σ Q_next[j] * exp(-r_next[j] * dt)
+            //            = exp(-θ*dt) * Σ Q_next[j] * exp(-r_base[j]*dt)
+            //            = exp(-θ*dt) * P_model_base
+            // Target: P_target = exp(-θ*dt) * P_model_base
+            // ⇒ θ = -ln(P_target / P_model_base) / dt
             let theta = if next_next_time > 0.0 {
                 let p_target = discount_curve.df(next_next_time);
                 let mut p_model_base = 0.0;
@@ -624,14 +633,7 @@ impl ShortRateTree {
                 }
 
                 if p_model_base > 0.0 && p_target > 0.0 {
-                    // P_target = P_model_base * exp(-theta * dt * dt) ?
-                    // No, r_final = r_base + theta * dt.
-                    // exp(-(r_base + theta*dt)*dt) = exp(-r_base*dt) * exp(-theta*dt^2)
-                    // sum(Q * exp(-r_final*dt)) = sum(Q * exp(-r_base*dt)) * exp(-theta*dt^2)
-                    // P_target = P_model_base * exp(-theta * dt^2)
-                    // ln(P_target/P_model_base) = -theta * dt^2
-                    // theta = -ln(P_target/P_model_base) / dt^2
-                    -(p_target / p_model_base).ln() / (dt * dt)
+                    -(p_target / p_model_base).ln() / dt
                 } else {
                     0.0
                 }
@@ -639,10 +641,10 @@ impl ShortRateTree {
                 0.0
             };
 
-            // 3. Apply theta to get final rates
+            // 3. Apply theta directly to get final rates (θ is the rate adjustment)
             let mut next_rates = vec![0.0; next_nodes];
             for j in 0..next_nodes {
-                next_rates[j] = next_rates_base[j] + theta * dt;
+                next_rates[j] = next_rates_base[j] + theta;
             }
 
             rates[step + 1] = next_rates;
@@ -656,6 +658,11 @@ impl ShortRateTree {
     ///
     /// Implements proper BDT calibration that matches the discount curve at each step
     /// by solving for the drift parameter using state-price recursion and root finding.
+    ///
+    /// # Convergence Monitoring
+    ///
+    /// This method tracks calibration error at each step. If the error exceeds 1bp,
+    /// a warning is logged. The calibration will continue but results may be less accurate.
     fn calibrate_bdt(
         &mut self,
         rates: &mut [Vec<f64>],
@@ -671,6 +678,10 @@ impl ShortRateTree {
         let u = (sigma * dt.sqrt()).exp(); // Up multiplier
         let p = 0.5; // Risk-neutral probability
 
+        // Bounds for alpha solver (reasonable rate range: 0bp to 5000bp = 50%)
+        let alpha_lb = 1e-6;
+        let alpha_ub = 0.50;
+
         // Initialize first step with initial short rate
         let r0 = if self.time_steps[1] > 0.0 {
             // Use initial forward rate from discount curve
@@ -679,7 +690,7 @@ impl ShortRateTree {
             0.03 // Fallback rate
         };
 
-        rates[0] = vec![r0.max(1e-6)]; // Ensure positive for lognormal
+        rates[0] = vec![r0.clamp(alpha_lb, alpha_ub)]; // Ensure within bounds
         let mut state_prices = vec![vec![1.0]]; // Q[0] = [1.0]
 
         // Set transition probabilities (constant for BDT)
@@ -687,13 +698,20 @@ impl ShortRateTree {
             self.probs[i] = (p, 1.0 - p);
         }
 
+        // Track maximum calibration error for diagnostics
+        let mut max_error_bps = 0.0_f64;
+        let mut max_error_step = 0_usize;
+
         // Build tree forward, calibrating drift at each step
         for step in 0..self.config.steps {
             let current_time = self.time_steps[step + 1];
             let target_df = discount_curve.df(current_time);
 
             if target_df <= 0.0 {
-                return Err(Error::Internal);
+                return Err(Error::Validation(format!(
+                    "BDT calibration: non-positive discount factor {} at time {}",
+                    target_df, current_time
+                )));
             }
 
             let num_nodes = step + 1;
@@ -707,7 +725,7 @@ impl ShortRateTree {
 
                 for (j, &state_price) in current_state_prices.iter().enumerate().take(num_nodes) {
                     let rate = alpha * u.powf(num_nodes as f64 - 1.0 - 2.0 * j as f64);
-                    let rate_clamped = rate.max(1e-6); // Ensure positive
+                    let rate_clamped = rate.clamp(alpha_lb, alpha_ub);
                     let discount_factor = (-rate_clamped * dt).exp();
                     model_price += state_price * discount_factor;
                 }
@@ -717,27 +735,57 @@ impl ShortRateTree {
 
             // Initial guess for alpha based on previous step or forward rate
             let initial_alpha = if step == 0 {
-                r0
+                r0.clamp(alpha_lb, alpha_ub)
             } else {
                 // Use geometric mean of previous step rates as initial guess
                 let mean_rate =
                     current_rates.iter().map(|&r| r.ln()).sum::<f64>() / current_rates.len() as f64;
-                mean_rate.exp()
+                mean_rate.exp().clamp(alpha_lb, alpha_ub)
             };
 
-            // Solve for alpha
-            let alpha = match solver.solve(objective, initial_alpha) {
-                Ok(a) => a.max(1e-6), // Ensure positive
+            // Solve for alpha with convergence tracking
+            let (alpha, used_fallback) = match solver.solve(objective, initial_alpha) {
+                Ok(a) => (a.clamp(alpha_lb, alpha_ub), false),
                 Err(_) => {
-                    // If solver fails, use fallback based on market rate
+                    // Solver failed - use fallback based on market rate
                     let market_rate = if current_time > 0.0 {
                         -target_df.ln() / current_time
                     } else {
                         0.03
                     };
-                    market_rate.max(1e-6)
+                    (market_rate.clamp(alpha_lb, alpha_ub), true)
                 }
             };
+
+            // Calculate and track calibration error
+            let model_df = {
+                let mut model_price = 0.0;
+                for (j, &state_price) in current_state_prices.iter().enumerate().take(num_nodes) {
+                    let rate = alpha * u.powf(num_nodes as f64 - 1.0 - 2.0 * j as f64);
+                    let rate_clamped = rate.clamp(alpha_lb, alpha_ub);
+                    let discount_factor = (-rate_clamped * dt).exp();
+                    model_price += state_price * discount_factor;
+                }
+                model_price
+            };
+            let error_bps = ((model_df - target_df) / target_df).abs() * 10000.0;
+
+            if error_bps > max_error_bps {
+                max_error_bps = error_bps;
+                max_error_step = step;
+            }
+
+            // Log warning if calibration error is significant (>1bp) or fallback was used
+            if error_bps > 1.0 || used_fallback {
+                tracing::warn!(
+                    "BDT calibration step {}: error={:.2}bp, target_df={:.6}, model_df={:.6}{}",
+                    step,
+                    error_bps,
+                    target_df,
+                    model_df,
+                    if used_fallback { " (FALLBACK USED)" } else { "" }
+                );
+            }
 
             // Build next step rates using calibrated alpha
             let next_nodes = num_nodes + 1;
@@ -746,27 +794,42 @@ impl ShortRateTree {
 
             for (j, &state_price) in current_state_prices.iter().enumerate().take(num_nodes) {
                 let current_rate = alpha * u.powf(num_nodes as f64 - 1.0 - 2.0 * j as f64);
-                let rate_clamped = current_rate.max(1e-6);
+                let rate_clamped = current_rate.clamp(alpha_lb, alpha_ub);
                 let discount_factor = (-rate_clamped * dt).exp();
                 let state_price_contribution = state_price * discount_factor;
 
                 // Up move: j -> j+1
                 if j + 1 < next_nodes {
                     let up_rate = alpha * u.powf(next_nodes as f64 - 1.0 - 2.0 * (j + 1) as f64);
-                    next_rates[j + 1] = up_rate.max(1e-6);
+                    next_rates[j + 1] = up_rate.clamp(alpha_lb, alpha_ub);
                     next_state_prices[j + 1] += state_price_contribution * p;
                 }
 
                 // Down move: j -> j
                 if j < next_nodes {
                     let down_rate = alpha * u.powf(next_nodes as f64 - 1.0 - 2.0 * j as f64);
-                    next_rates[j] = down_rate.max(1e-6);
+                    next_rates[j] = down_rate.clamp(alpha_lb, alpha_ub);
                     next_state_prices[j] += state_price_contribution * (1.0 - p);
                 }
             }
 
             rates[step + 1] = next_rates;
             state_prices.push(next_state_prices);
+        }
+
+        // Log calibration summary
+        if max_error_bps > 1.0 {
+            tracing::warn!(
+                "BDT calibration completed: max error={:.2}bp at step {} (target: <1bp)",
+                max_error_bps,
+                max_error_step
+            );
+        } else {
+            tracing::debug!(
+                "BDT calibration completed: max error={:.4}bp at step {}",
+                max_error_bps,
+                max_error_step
+            );
         }
 
         Ok(())
@@ -887,7 +950,7 @@ impl TreeModel for ShortRateTree {
         time_to_maturity: f64,
         market_context: &MarketContext,
         valuator: &V,
-        _bump_size: Option<f64>,
+        bump_size: Option<f64>,
     ) -> Result<TreeGreeks> {
         // Base price
         let base_price = self.price(
@@ -906,23 +969,58 @@ impl TreeModel for ShortRateTree {
             rho: 0.0,   // Interest rate sensitivity
         };
 
-        // Calculate Vega (volatility sensitivity)
-        // This requires rebuilding the tree with bumped volatility
-        let mut bumped_config = self.config.clone();
-        bumped_config.volatility += 0.01; // 1% vol bump
+        let vol_bump = bump_size.unwrap_or(0.01); // Default 1% vol bump (100bp for normal, 1% for lognormal)
 
-        // For now, approximate vega as 0 since rebuilding tree is expensive
-        // In practice, would cache multiple trees or use analytical approximations
-        greeks.vega = 0.0;
+        // Calculate Vega (volatility sensitivity) using central difference
+        // This requires rebuilding trees with bumped volatility
+        // Try to get the discount curve from market context for recalibration
+        if let Ok(discount_curve) = market_context.get_discount(&self.calibration_curve_id) {
+            // Build tree with vol + bump
+            let mut config_up = self.config.clone();
+            config_up.volatility += vol_bump;
+            let mut tree_up = ShortRateTree::new(config_up);
+            if tree_up.calibrate(discount_curve.as_ref(), time_to_maturity).is_ok() {
+                let price_up = tree_up.price(
+                    initial_vars.clone(),
+                    time_to_maturity,
+                    market_context,
+                    valuator,
+                )?;
+
+                // Build tree with vol - bump
+                let mut config_down = self.config.clone();
+                config_down.volatility = (config_down.volatility - vol_bump).max(1e-6);
+                let mut tree_down = ShortRateTree::new(config_down);
+                if tree_down.calibrate(discount_curve.as_ref(), time_to_maturity).is_ok() {
+                    let price_down = tree_down.price(
+                        initial_vars.clone(),
+                        time_to_maturity,
+                        market_context,
+                        valuator,
+                    )?;
+
+                    // Central difference vega per 1% vol
+                    greeks.vega = (price_up - price_down) / 2.0;
+                } else {
+                    // Fallback to one-sided difference
+                    greeks.vega = price_up - base_price;
+                }
+            }
+        } else {
+            // No discount curve available - vega cannot be computed accurately
+            tracing::debug!(
+                "ShortRateTree::calculate_greeks: discount curve '{}' not found, vega set to 0",
+                self.calibration_curve_id.as_str()
+            );
+        }
 
         // Calculate Rho (interest rate sensitivity)
-        // Approximate using finite differences on OAS
+        // Approximate using finite differences on OAS (per 1bp)
         let mut bumped_vars = initial_vars.clone();
         let base_oas = initial_vars.get("oas").copied().unwrap_or(0.0);
         bumped_vars.insert("oas", base_oas + 1.0); // 1bp bump
 
         let bumped_price = self.price(bumped_vars, time_to_maturity, market_context, valuator)?;
-
         greeks.rho = bumped_price - base_price;
 
         // Calculate Theta (time decay) - 1 day bump

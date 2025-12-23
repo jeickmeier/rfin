@@ -136,7 +136,7 @@ pub fn validate_correlation_matrix(matrix: &[f64], n: usize) -> Result<(), Corre
             let rho_ji = matrix[j * n + i];
 
             // Check bounds
-            if rho_ij < -1.0 - CORRELATION_TOLERANCE || rho_ij > 1.0 + CORRELATION_TOLERANCE {
+            if !(-1.0 - CORRELATION_TOLERANCE..=1.0 + CORRELATION_TOLERANCE).contains(&rho_ij) {
                 return Err(CorrelationMatrixError::OutOfBounds { i, j, value: rho_ij });
             }
 
@@ -672,6 +672,8 @@ impl MultiFactorModel {
         let mut result = vec![0.0; n];
 
         // Apply Cholesky: correlated_z = L · z
+        // Loop index `i` is needed for both result indexing and inner loop bound
+        #[allow(clippy::needless_range_loop)]
         for i in 0..n {
             let mut sum = 0.0;
             for j in 0..=i {
@@ -861,7 +863,7 @@ mod tests {
     #[test]
     fn test_cholesky_identity() {
         let identity = vec![1.0, 0.0, 0.0, 1.0];
-        let l = cholesky_decompose(&identity, 2).unwrap();
+        let l = cholesky_decompose(&identity, 2).expect("identity matrix should decompose");
 
         // Identity is its own Cholesky factor
         assert!((l[0] - 1.0).abs() < 1e-10);
@@ -874,7 +876,7 @@ mod tests {
     fn test_cholesky_2x2() {
         // [[1, 0.6], [0.6, 1]]
         let corr = vec![1.0, 0.6, 0.6, 1.0];
-        let l = cholesky_decompose(&corr, 2).unwrap();
+        let l = cholesky_decompose(&corr, 2).expect("2x2 correlation matrix should decompose");
 
         // L should be [[1, 0], [0.6, 0.8]]
         assert!((l[0] - 1.0).abs() < 1e-10);
@@ -890,7 +892,7 @@ mod tests {
             0.5, 1.0, 0.4,
             0.3, 0.4, 1.0,
         ];
-        let l = cholesky_decompose(&corr, 3).unwrap();
+        let l = cholesky_decompose(&corr, 3).expect("3x3 correlation matrix should decompose");
 
         // Verify L * L^T = original
         let n = 3;
@@ -915,7 +917,8 @@ mod tests {
     fn test_multi_factor_valid_matrix() {
         let corr = vec![1.0, 0.5, 0.5, 1.0];
         let vols = vec![0.2, 0.3];
-        let model = MultiFactorModel::try_new(2, vols, corr).unwrap();
+        let model = MultiFactorModel::try_new(2, vols, corr)
+            .expect("valid 2x2 correlation matrix should create model");
 
         assert_eq!(model.num_factors(), 2);
         assert!(model.cholesky_factor().len() == 4);
@@ -956,7 +959,8 @@ mod tests {
     fn test_generate_correlated_factors() {
         let corr = vec![1.0, 0.6, 0.6, 1.0];
         let vols = vec![1.0, 1.0]; // Unit volatilities for easy verification
-        let model = MultiFactorModel::try_new(2, vols, corr).unwrap();
+        let model = MultiFactorModel::try_new(2, vols, corr)
+            .expect("correlated model should create successfully");
 
         // Generate with independent z = [1.0, 0.0]
         let factors = model.generate_correlated_factors(&[1.0, 0.0]);
@@ -971,7 +975,8 @@ mod tests {
     fn test_generate_correlated_factors_with_volatility() {
         let corr = vec![1.0, 0.0, 0.0, 1.0]; // Identity
         let vols = vec![0.2, 0.3];
-        let model = MultiFactorModel::try_new(2, vols, corr).unwrap();
+        let model = MultiFactorModel::try_new(2, vols, corr)
+            .expect("identity correlation model should create successfully");
 
         let factors = model.generate_correlated_factors(&[1.0, 1.0]);
 

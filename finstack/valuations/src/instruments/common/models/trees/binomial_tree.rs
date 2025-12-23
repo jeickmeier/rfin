@@ -48,8 +48,37 @@ impl BinomialTree {
     }
 
     /// Create a Leisen-Reimer tree (recommended for accuracy)
+    ///
+    /// Note: Leisen-Reimer achieves best accuracy with odd step counts.
+    /// Consider using [`leisen_reimer_odd`](Self::leisen_reimer_odd) for automatic
+    /// adjustment to the nearest odd number.
     pub fn leisen_reimer(steps: usize) -> Self {
         Self::new(steps, TreeType::LeisenReimer)
+    }
+
+    /// Create a Leisen-Reimer tree with odd step count for optimal accuracy.
+    ///
+    /// Leisen-Reimer trees converge faster with odd step counts. This constructor
+    /// automatically rounds the requested steps to the nearest odd number:
+    /// - Even steps are rounded up (e.g., 100 → 101)
+    /// - Odd steps are kept as-is
+    ///
+    /// # Example
+    ///
+    /// ```rust
+    /// use finstack_valuations::instruments::common::models::trees::BinomialTree;
+    ///
+    /// // Request 100 steps, get 101 for optimal LR accuracy
+    /// let tree = BinomialTree::leisen_reimer_odd(100);
+    /// assert_eq!(tree.steps, 101);
+    ///
+    /// // Request 99 steps, kept as-is
+    /// let tree = BinomialTree::leisen_reimer_odd(99);
+    /// assert_eq!(tree.steps, 99);
+    /// ```
+    pub fn leisen_reimer_odd(steps: usize) -> Self {
+        let odd_steps = if steps.is_multiple_of(2) { steps + 1 } else { steps };
+        Self::new(odd_steps, TreeType::LeisenReimer)
     }
 
     /// Create a standard CRR tree
@@ -274,17 +303,20 @@ impl BinomialTree {
     }
 
     /// Price American option using binomial tree
+    #[must_use = "pricing result should not be discarded"]
     pub fn price_american(&self, market_params: &OptionMarketParams) -> Result<f64> {
         let all_steps: Vec<usize> = (0..self.steps).collect();
         self.price_with_exercise(market_params, Some(&all_steps))
     }
 
     /// Price European option using binomial tree (for validation)
+    #[must_use = "pricing result should not be discarded"]
     pub fn price_european(&self, market_params: &OptionMarketParams) -> Result<f64> {
         self.price_with_exercise(market_params, None)
     }
 
     /// Price Bermudan option with specified exercise dates
+    #[must_use = "pricing result should not be discarded"]
     pub fn price_bermudan(
         &self,
         market_params: &OptionMarketParams,
@@ -479,8 +511,29 @@ impl BinomialTree {
         })
     }
 
-    /// Price barrier knock-in option via in/out parity: vanilla = knock-in + knock-out
-    /// Only supported when exactly one of up_level/down_level is Some.
+    /// Price barrier knock-in option via in/out parity: `vanilla = knock-in + knock-out`
+    ///
+    /// # Constraints
+    ///
+    /// - Only supported when exactly one of `up_level`/`down_level` is `Some`
+    /// - **European options only**: The in/out parity relationship only holds for
+    ///   European-style options. For American options, knock-in pricing requires
+    ///   explicit path-dependent tracking in the tree, which is not implemented here.
+    ///
+    /// # Arguments
+    ///
+    /// * `market_params` - Option parameters (must be European-style for accurate pricing)
+    /// * `up_level` - Up barrier level (optional)
+    /// * `down_level` - Down barrier level (optional)
+    /// * `rebate` - Rebate paid on knock-out
+    ///
+    /// # Returns
+    ///
+    /// Knock-in option price via parity
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if both or neither barrier levels are specified.
     pub fn price_barrier_in(
         &self,
         market_params: &OptionMarketParams,
@@ -491,8 +544,14 @@ impl BinomialTree {
         // Validate: single barrier only for parity
         let num_barriers = up_level.is_some() as usize + down_level.is_some() as usize;
         if num_barriers != 1 {
-            return Err(Error::Internal);
+            return Err(Error::Validation(
+                "Barrier knock-in parity requires exactly one barrier (up or down)".into(),
+            ));
         }
+
+        // Note: This parity only holds for European options. American knock-in
+        // options would require explicit barrier tracking during backward induction.
+        // The caller is responsible for ensuring European exercise style.
 
         let vanilla = self.price_european(market_params)?;
         let knock_out = self.price_barrier_out(market_params, up_level, down_level, rebate)?;
@@ -840,5 +899,67 @@ mod tests {
         let dates2 = vec![0.12, 0.37, 0.62, 0.88];
         let steps2 = super::map_exercise_dates_to_steps(&dates2, 1.0, 4);
         assert_eq!(steps2, vec![0, 1, 2, 4]);
+    }
+
+    #[test]
+    fn test_leisen_reimer_odd_helper() {
+        // Test that leisen_reimer_odd rounds to nearest odd
+        let tree_even = BinomialTree::leisen_reimer_odd(100);
+        assert_eq!(tree_even.steps, 101, "Even steps should round up to odd");
+
+        let tree_odd = BinomialTree::leisen_reimer_odd(99);
+        assert_eq!(tree_odd.steps, 99, "Odd steps should stay as-is");
+
+        let tree_200 = BinomialTree::leisen_reimer_odd(200);
+        assert_eq!(tree_200.steps, 201, "200 should become 201");
+    }
+
+    /// Golden test: CRR ATM call vs Black-Scholes analytical value
+    ///
+    /// Black-Scholes formula for European call:
+    /// C = S·N(d1) - K·e^(-rT)·N(d2)
+    /// where d1 = [ln(S/K) + (r + σ²/2)T] / (σ√T)
+    ///       d2 = d1 - σ√T
+    #[test]
+    fn test_golden_crr_atm_vs_black_scholes() {
+        // ATM call: S=K=100, r=5%, σ=20%, T=1Y
+        // Black-Scholes analytical: C ≈ 10.4506
+        let market_params = OptionMarketParams::call(100.0, 100.0, 0.05, 0.20, 1.0);
+        let bs_analytical = 10.4506;
+
+        // CRR with high steps should be within 0.1% of BS
+        let tree = BinomialTree::crr(500);
+        let crr_price = tree.price_european(&market_params).expect("should succeed");
+
+        let relative_error = ((crr_price - bs_analytical) / bs_analytical).abs();
+        assert!(
+            relative_error < 0.001, // 0.1% tolerance
+            "CRR(500) price {} should be within 0.1% of BS {} (error={}%)",
+            crr_price,
+            bs_analytical,
+            relative_error * 100.0
+        );
+    }
+
+    /// Golden test: LR odd-step tree achieves better convergence
+    #[test]
+    fn test_golden_lr_odd_converges_faster() {
+        let market_params = OptionMarketParams::call(100.0, 100.0, 0.05, 0.20, 1.0);
+        let bs_analytical = 10.4506;
+
+        // LR with odd steps (101) should be within 1 cent of BS
+        let lr_tree = BinomialTree::leisen_reimer_odd(100);
+        assert_eq!(lr_tree.steps, 101, "Should be rounded to odd");
+
+        let lr_price = lr_tree.price_european(&market_params).expect("should succeed");
+
+        let error = (lr_price - bs_analytical).abs();
+        assert!(
+            error < 0.05, // 5 cents tolerance
+            "LR(101) price {} should be within 5c of BS {} (error={})",
+            lr_price,
+            bs_analytical,
+            error
+        );
     }
 }

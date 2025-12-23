@@ -62,7 +62,7 @@ use finstack_core::types::{CurveId, InstrumentId};
 /// use finstack_valuations::instruments::vol_index_option::VolatilityIndexOption;
 /// use finstack_valuations::instruments::OptionType;
 /// use finstack_core::currency::Currency;
-/// use finstack_core::dates::Date;
+/// use finstack_core::dates::{Date, DayCount};
 /// use finstack_core::money::Money;
 /// use finstack_core::types::{CurveId, InstrumentId};
 /// use time::Month;
@@ -73,6 +73,7 @@ use finstack_core::types::{CurveId, InstrumentId};
 ///     .strike(20.0)
 ///     .option_type(OptionType::Call)
 ///     .expiry(Date::from_calendar_date(2025, Month::March, 19).unwrap())
+///     .day_count(DayCount::Act365F)
 ///     .discount_curve_id(CurveId::new("USD-OIS"))
 ///     .vol_index_curve_id(CurveId::new("VIX"))
 ///     .vol_of_vol_surface_id(CurveId::new("VIX-VOLVOL"))

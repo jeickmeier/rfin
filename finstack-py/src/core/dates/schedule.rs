@@ -494,6 +494,7 @@ impl PyScheduleSpec {
                 business_day_convention: business_day_convention.map(|c| c.inner),
                 calendar_id,
                 end_of_month,
+                imm_mode: false,
                 cds_imm_mode,
                 graceful,
                 allow_missing_calendar: false,

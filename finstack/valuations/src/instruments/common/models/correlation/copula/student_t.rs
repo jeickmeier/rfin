@@ -292,7 +292,7 @@ mod tests {
     #[test]
     #[should_panic(expected = "Student-t df must be > 2")]
     fn test_student_t_invalid_df() {
-        StudentTCopula::new(2.0);
+        let _ = StudentTCopula::new(2.0);
     }
 
     #[test]
@@ -384,7 +384,7 @@ mod tests {
 
             // Tail dependence must be in [0, 1]
             assert!(
-                lambda >= 0.0 && lambda <= 1.0,
+                (0.0..=1.0).contains(&lambda),
                 "Tail dependence for df={}, ρ={}: got {}, expected in [0,1]",
                 df,
                 rho,

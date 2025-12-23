@@ -146,13 +146,19 @@ impl TreeModel for TwoFactorBinomialTree {
 
         let (p_uu, p_ud, p_du, p_dd) = self.joint_probabilities(p_s, p_r);
 
-        // Terminal payoff grid: (steps+1) x (steps+1)
-        let mut values: Vec<Vec<f64>> = vec![vec![0.0; steps + 1]; steps + 1];
+        // Pre-allocate double buffers for backward induction (zero allocations in loop)
+        let max_nodes = steps + 1;
+        let mut curr_values: Vec<Vec<f64>> = vec![vec![0.0; max_nodes]; max_nodes];
+        let mut next_values: Vec<Vec<f64>> = vec![vec![0.0; max_nodes]; max_nodes];
         let mut vars = initial_vars.clone();
 
-        for (i, row) in values.iter_mut().enumerate() {
+        // Initialize terminal values in curr_values
+        // Loop indices are needed for spot/rate calculation and child node access
+        #[allow(clippy::needless_range_loop)]
+        for i in 0..=steps {
             let s_t = spot0 * u_s.powi(i as i32) * d_s.powi((steps - i) as i32);
-            for (j, cell) in row.iter_mut().enumerate() {
+            #[allow(clippy::needless_range_loop)]
+            for j in 0..=steps {
                 let r_t = r0 * u_r.powi(j as i32) * d_r.powi((steps - j) as i32);
                 vars.insert(state_keys::SPOT, s_t);
                 vars.insert(state_keys::INTEREST_RATE, r_t.max(1e-8));
@@ -162,13 +168,12 @@ impl TreeModel for TwoFactorBinomialTree {
                 vars.insert("time", time_to_maturity);
 
                 let state = NodeState::new(steps, time_to_maturity, &vars, market_context);
-                *cell = valuator.value_at_maturity(&state)?;
+                curr_values[i][j] = valuator.value_at_maturity(&state)?;
             }
         }
 
-        // Backward induction over steps
+        // Backward induction with double-buffering (no allocations in loop)
         for k in (0..steps).rev() {
-            let mut new_values: Vec<Vec<f64>> = vec![vec![0.0; k + 1]; k + 1];
             for i in 0..=k {
                 // Equity spot at node (k,i)
                 let s_t = spot0 * u_s.powi(i as i32) * d_s.powi((k - i) as i32);
@@ -177,11 +182,11 @@ impl TreeModel for TwoFactorBinomialTree {
                     let r_t = r0 * u_r.powi(j as i32) * d_r.powi((k - j) as i32);
                     let df = (-r_t.max(1e-8) * dt).exp();
 
-                    // Children indices at step k+1
-                    let v_uu = values[i + 1][j + 1];
-                    let v_ud = values[i + 1][j];
-                    let v_du = values[i][j + 1];
-                    let v_dd = values[i][j];
+                    // Children indices at step k+1 (reading from curr_values)
+                    let v_uu = curr_values[i + 1][j + 1];
+                    let v_ud = curr_values[i + 1][j];
+                    let v_du = curr_values[i][j + 1];
+                    let v_dd = curr_values[i][j];
                     let cont = df * (p_uu * v_uu + p_ud * v_ud + p_du * v_du + p_dd * v_dd);
 
                     vars.insert(state_keys::SPOT, s_t);
@@ -192,13 +197,15 @@ impl TreeModel for TwoFactorBinomialTree {
                     vars.insert("time", k as f64 * dt);
 
                     let state = NodeState::new(k, k as f64 * dt, &vars, market_context);
-                    new_values[i][j] = valuator.value_at_node(&state, cont, dt)?;
+                    next_values[i][j] = valuator.value_at_node(&state, cont, dt)?;
                 }
             }
-            values = new_values;
+            // Swap buffers (O(1) pointer swap, no data copy)
+            std::mem::swap(&mut curr_values, &mut next_values);
         }
 
-        Ok(values[0][0])
+        // After final swap, result is in curr_values[0][0]
+        Ok(curr_values[0][0])
     }
 }
 

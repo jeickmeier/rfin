@@ -159,36 +159,43 @@ impl<'a> NodeState<'a> {
     }
 
     /// Get a state variable by key
+    #[inline]
     pub fn get_var(&self, key: &str) -> Option<f64> {
         self.vars.get(key).copied()
     }
 
     /// Get a state variable by key with a default value
+    #[inline]
     pub fn get_var_or(&self, key: &str, default: f64) -> f64 {
         self.vars.get(key).copied().unwrap_or(default)
     }
 
     /// Get spot price (convenience method, uses cached value)
+    #[inline]
     pub fn spot(&self) -> Option<f64> {
         self.spot
     }
 
     /// Get interest rate (convenience method, uses cached value)
+    #[inline]
     pub fn interest_rate(&self) -> Option<f64> {
         self.interest_rate
     }
 
     /// Get credit spread (convenience method)
+    #[inline]
     pub fn credit_spread(&self) -> Option<f64> {
         self.get_var(state_keys::CREDIT_SPREAD)
     }
 
     /// Get hazard rate (convenience method, uses cached value)
+    #[inline]
     pub fn hazard_rate(&self) -> Option<f64> {
         self.hazard_rate
     }
 
     /// Get discount factor (convenience method, uses cached value)
+    #[inline]
     pub fn discount_factor(&self) -> Option<f64> {
         self.df
     }
@@ -283,6 +290,7 @@ pub trait TreeModel {
     /// * `time_to_maturity` - Total time to maturity in years
     /// * `market_context` - Market data context
     /// * `valuator` - Instrument-specific valuation logic
+    #[must_use = "pricing result should not be discarded"]
     fn price<V: TreeValuator>(
         &self,
         initial_vars: StateVariables,
@@ -344,28 +352,46 @@ pub trait TreeModel {
             greeks.gamma = (price_up - 2.0 * base_price + price_down) / (h * h);
         }
 
-        // Calculate Vega (volatility sensitivity)
+        // Calculate Vega (volatility sensitivity) using central difference
+        // This reduces first-order error compared to one-sided bumps
         if let Some(&vol) = initial_vars.get(state_keys::VOLATILITY) {
             let h = 0.01; // 1% vol bump
 
+            // Vol up
             let mut vars_vol_up = initial_vars.clone();
             vars_vol_up.insert(state_keys::VOLATILITY, vol + h);
             let price_vol_up =
                 self.price(vars_vol_up, time_to_maturity, market_context, valuator)?;
 
-            greeks.vega = price_vol_up - base_price;
+            // Vol down (ensure positive volatility)
+            let vol_down = (vol - h).max(1e-6);
+            let mut vars_vol_down = initial_vars.clone();
+            vars_vol_down.insert(state_keys::VOLATILITY, vol_down);
+            let price_vol_down =
+                self.price(vars_vol_down, time_to_maturity, market_context, valuator)?;
+
+            // Central difference vega (per 1% vol move)
+            greeks.vega = (price_vol_up - price_vol_down) / 2.0;
         }
 
-        // Calculate Rho (rate sensitivity)
+        // Calculate Rho (rate sensitivity) using central difference
         if let Some(&rate) = initial_vars.get(state_keys::INTEREST_RATE) {
             let h = 0.0001; // 1bp rate bump
 
+            // Rate up
             let mut vars_rate_up = initial_vars.clone();
             vars_rate_up.insert(state_keys::INTEREST_RATE, rate + h);
             let price_rate_up =
                 self.price(vars_rate_up, time_to_maturity, market_context, valuator)?;
 
-            greeks.rho = price_rate_up - base_price;
+            // Rate down
+            let mut vars_rate_down = initial_vars.clone();
+            vars_rate_down.insert(state_keys::INTEREST_RATE, rate - h);
+            let price_rate_down =
+                self.price(vars_rate_down, time_to_maturity, market_context, valuator)?;
+
+            // Central difference rho (per 1bp move)
+            greeks.rho = (price_rate_up - price_rate_down) / 2.0;
         }
 
         // Calculate Theta (time decay) - use 1 day bump
@@ -548,6 +574,15 @@ impl EvolutionParams {
         let drift = risk_free_rate - dividend_yield;
         let p = ((drift * dt).exp() - d) / (u - d);
 
+        // Debug assertions for probability bounds
+        debug_assert!(
+            (0.0..=1.0).contains(&p),
+            "CRR probability p={} out of bounds [0,1]. Check parameters: vol={}, r={}, q={}, dt={}",
+            p, volatility, risk_free_rate, dividend_yield, dt
+        );
+        debug_assert!(u > 0.0, "Up factor must be positive: u={}", u);
+        debug_assert!(d > 0.0, "Down factor must be positive: d={}", d);
+
         Self {
             volatility,
             drift,
@@ -579,6 +614,18 @@ impl EvolutionParams {
         let p_u = ((exp_drift_half - (-volatility * sqrt_dt_half).exp()) / denominator).powi(2);
         let p_d = (((volatility * sqrt_dt_half).exp() - exp_drift_half) / denominator).powi(2);
         let p_m = 1.0 - p_u - p_d;
+
+        // Debug assertions for probability bounds
+        debug_assert!(
+            p_u >= 0.0 && p_d >= 0.0 && p_m >= 0.0,
+            "Trinomial probabilities must be non-negative: p_u={}, p_d={}, p_m={}",
+            p_u, p_d, p_m
+        );
+        debug_assert!(
+            (p_u + p_d + p_m - 1.0).abs() < 1e-10,
+            "Trinomial probabilities must sum to 1: p_u + p_d + p_m = {}",
+            p_u + p_d + p_m
+        );
 
         Self {
             volatility,
@@ -734,10 +781,18 @@ pub fn price_recombining_tree<V: TreeValuator>(inputs: RecombiningInputs<'_, V>)
                     spot0 * inputs.up_factor.powi(ups) * inputs.down_factor.powi(downs)
                 }
                 TreeBranching::Trinomial => {
-                    let net_moves = node as i32 - step as i32;
-                    spot0
-                        * inputs.up_factor.powi(net_moves.max(0))
-                        * inputs.down_factor.powi((-net_moves).max(0))
+                    // Trinomial tree: at step n, nodes j ∈ [0, 2n] with center at j=n
+                    // j_centered = j - n ranges from -n to +n
+                    // S(n,j) = S₀ * u^j_centered (since d = 1/u in standard setup)
+                    //
+                    // For generality (when d ≠ 1/u), we use:
+                    // S(n,j) = S₀ * u^max(j_centered, 0) * d^max(-j_centered, 0)
+                    let j_centered = node as i32 - step as i32;
+                    if j_centered >= 0 {
+                        spot0 * inputs.up_factor.powi(j_centered)
+                    } else {
+                        spot0 * inputs.down_factor.powi(-j_centered)
+                    }
                 }
             }
         }
