@@ -1,5 +1,6 @@
 mod wrapper;
 
+mod agency_mbs;
 mod asian_option;
 mod autocallable;
 mod barrier_option;
@@ -42,6 +43,14 @@ mod vol_index_option;
 
 // Re-export wrapper trait for internal use
 pub(crate) use wrapper::InstrumentWrapper;
+
+// Agency MBS instruments: exported directly via wasm_bindgen
+#[allow(unused_imports)]
+pub use agency_mbs::{
+    JsAgencyCmo as AgencyCmo, JsAgencyMbsPassthrough as AgencyMbsPassthrough,
+    JsAgencyTba as AgencyTba, JsCmoTranche as CmoTranche, JsCmoWaterfall as CmoWaterfall,
+    JsDollarRoll as DollarRoll,
+};
 
 use finstack_valuations::instruments::common::traits::Instrument;
 use js_sys::Reflect;
@@ -127,6 +136,10 @@ pub(crate) fn extract_instrument(value: &JsValue) -> Result<Box<dyn Instrument>,
         }};
     }
 
+    try_extract!(agency_mbs::JsAgencyMbsPassthrough, "AgencyMbsPassthrough");
+    try_extract!(agency_mbs::JsAgencyTba, "AgencyTba");
+    try_extract!(agency_mbs::JsDollarRoll, "DollarRoll");
+    try_extract!(agency_mbs::JsAgencyCmo, "AgencyCmo");
     try_extract!(bond::JsBond, "Bond");
     try_extract!(deposit::JsDeposit, "Deposit");
     try_extract!(basis_swap::JsBasisSwap, "BasisSwap");

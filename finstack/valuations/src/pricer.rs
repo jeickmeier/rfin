@@ -121,6 +121,14 @@ pub enum InstrumentType {
     FxForward = 60,
     /// Non-deliverable forward (NDF) for restricted currencies.
     Ndf = 61,
+    /// Agency MBS passthrough (FNMA, FHLMC, GNMA pools).
+    AgencyMbsPassthrough = 62,
+    /// Agency TBA (To-Be-Announced) forward.
+    AgencyTba = 63,
+    /// Dollar roll (TBA financing trade).
+    DollarRoll = 64,
+    /// Agency CMO (Collateralized Mortgage Obligation).
+    AgencyCmo = 65,
 }
 
 impl InstrumentType {
@@ -181,6 +189,10 @@ impl InstrumentType {
             InstrumentType::EquityIndexFuture => "EquityIndexFuture",
             InstrumentType::FxForward => "FxForward",
             InstrumentType::Ndf => "Ndf",
+            InstrumentType::AgencyMbsPassthrough => "AgencyMbsPassthrough",
+            InstrumentType::AgencyTba => "AgencyTba",
+            InstrumentType::DollarRoll => "DollarRoll",
+            InstrumentType::AgencyCmo => "AgencyCmo",
         }
     }
 }
@@ -239,6 +251,10 @@ impl std::fmt::Display for InstrumentType {
             InstrumentType::EquityIndexFuture => "equity_index_future",
             InstrumentType::FxForward => "fx_forward",
             InstrumentType::Ndf => "ndf",
+            InstrumentType::AgencyMbsPassthrough => "agency_mbs_passthrough",
+            InstrumentType::AgencyTba => "agency_tba",
+            InstrumentType::DollarRoll => "dollar_roll",
+            InstrumentType::AgencyCmo => "agency_cmo",
         };
         write!(f, "{}", label)
     }
@@ -321,6 +337,12 @@ impl std::str::FromStr for InstrumentType {
             }
             "fx_forward" | "fxforward" | "outright_forward" => Ok(InstrumentType::FxForward),
             "ndf" | "non_deliverable_forward" => Ok(InstrumentType::Ndf),
+            "agency_mbs_passthrough" | "agency_mbs" | "mbs" | "passthrough" => {
+                Ok(InstrumentType::AgencyMbsPassthrough)
+            }
+            "agency_tba" | "tba" => Ok(InstrumentType::AgencyTba),
+            "dollar_roll" | "dollarroll" | "roll" => Ok(InstrumentType::DollarRoll),
+            "agency_cmo" | "cmo" => Ok(InstrumentType::AgencyCmo),
             other => Err(format!("Unknown instrument type: {}", other)),
         }
     }
@@ -1206,6 +1228,38 @@ fn register_all_pricers(registry: &mut PricerRegistry) {
         Ndf,
         Discounting,
         crate::instruments::ndf::NdfDiscountingPricer
+    );
+
+    // Agency MBS Passthrough
+    register_pricer!(
+        registry,
+        AgencyMbsPassthrough,
+        Discounting,
+        crate::instruments::agency_mbs_passthrough::AgencyMbsDiscountingPricer
+    );
+
+    // Agency TBA
+    register_pricer!(
+        registry,
+        AgencyTba,
+        Discounting,
+        crate::instruments::agency_tba::AgencyTbaDiscountingPricer
+    );
+
+    // Dollar Roll
+    register_pricer!(
+        registry,
+        DollarRoll,
+        Discounting,
+        crate::instruments::dollar_roll::DollarRollDiscountingPricer
+    );
+
+    // Agency CMO
+    register_pricer!(
+        registry,
+        AgencyCmo,
+        Discounting,
+        crate::instruments::agency_cmo::AgencyCmoDiscountingPricer
     );
 }
 

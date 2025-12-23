@@ -5,6 +5,12 @@
 pub mod common;
 
 // Flattened instrument modules
+/// agency cmo module.
+pub mod agency_cmo;
+/// agency mbs passthrough module.
+pub mod agency_mbs_passthrough;
+/// agency tba module.
+pub mod agency_tba;
 /// asian option module.
 pub mod asian_option;
 /// autocallable module.
@@ -43,6 +49,8 @@ pub mod convertible;
 pub mod dcf;
 /// deposit module.
 pub mod deposit;
+/// dollar roll module.
+pub mod dollar_roll;
 /// equity module.
 pub mod equity;
 /// equity index future module.
@@ -108,6 +116,9 @@ pub mod xccy_swap;
 pub use equity::metrics as equity_metrics;
 
 // === Core Instrument Types ===
+pub use agency_cmo::{AgencyCmo, CmoTranche, CmoTrancheType, CmoWaterfall};
+pub use agency_mbs_passthrough::{AgencyMbsPassthrough, AgencyProgram, PoolType};
+pub use agency_tba::{AgencyTba, TbaTerm};
 pub use asian_option::{AsianOption, AveragingMethod};
 pub use autocallable::{Autocallable, FinalPayoffType};
 pub use barrier_option::{BarrierOption, BarrierType};
@@ -127,6 +138,7 @@ pub use commodity_swap::CommoditySwap;
 pub use convertible::ConvertibleBond;
 pub use dcf::{DiscountedCashFlow, TerminalValueSpec};
 pub use deposit::Deposit;
+pub use dollar_roll::DollarRoll;
 pub use equity::Equity;
 pub use equity_index_future::{EquityFutureSpecs, EquityIndexFuture};
 pub use equity_option::EquityOption;

@@ -1,3 +1,4 @@
+mod agency_mbs;
 mod asian_option;
 mod autocallable;
 mod barrier_option;
@@ -40,6 +41,7 @@ mod vol_index_future;
 mod vol_index_option;
 
 // Re-export only used wrappers to avoid unused import lints during clippy
+use agency_mbs::{PyAgencyCmo, PyAgencyMbsPassthrough, PyAgencyTba, PyDollarRoll};
 use asian_option::PyAsianOption;
 use autocallable::PyAutocallable;
 use barrier_option::PyBarrierOption;
@@ -107,6 +109,14 @@ macro_rules! try_extract {
 
 /// Downcast a Python instrument wrapper into a core instrument reference.
 pub(crate) fn extract_instrument<'py>(value: &Bound<'py, PyAny>) -> PyResult<InstrumentHandle> {
+    try_extract!(
+        value,
+        PyAgencyMbsPassthrough,
+        InstrumentType::AgencyMbsPassthrough
+    );
+    try_extract!(value, PyAgencyTba, InstrumentType::AgencyTba);
+    try_extract!(value, PyDollarRoll, InstrumentType::DollarRoll);
+    try_extract!(value, PyAgencyCmo, InstrumentType::AgencyCmo);
     try_extract!(value, PyBond, InstrumentType::Bond);
     try_extract!(value, PyDeposit, InstrumentType::Deposit);
     try_extract!(value, PyBasisSwap, InstrumentType::BasisSwap);
@@ -194,6 +204,9 @@ pub(crate) fn register<'py>(
     )?;
 
     let mut exports: Vec<&str> = Vec::new();
+
+    let agency_mbs_exports = agency_mbs::register(py, &module)?;
+    exports.extend(agency_mbs_exports.iter().copied());
 
     let bond_exports = bond::register(py, &module)?;
     exports.extend(bond_exports.iter().copied());
