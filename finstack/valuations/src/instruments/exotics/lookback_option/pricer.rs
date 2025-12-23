@@ -13,9 +13,8 @@ use finstack_core::money::Money;
 #[cfg(feature = "mc")]
 use crate::instruments::common::mc::process::gbm::{GbmParams, GbmProcess};
 #[cfg(feature = "mc")]
-#[allow(deprecated)]
 use crate::instruments::common::models::monte_carlo::payoff::lookback::{
-    FloatingStrikeLookbackCall, LookbackCall, LookbackDirection, LookbackPut,
+    FloatingStrikeLookbackCall, Lookback, LookbackDirection,
 };
 #[cfg(feature = "mc")]
 use crate::instruments::common::models::monte_carlo::pricer::path_dependent::{
@@ -132,8 +131,7 @@ impl LookbackOptionMcPricer {
                 )?
             }
             (LookbackType::FixedStrike, crate::instruments::OptionType::Call) => {
-                #[allow(deprecated)]
-                let payoff = LookbackCall::new(
+                let payoff = Lookback::new(
                     LookbackDirection::Call,
                     inst.strike
                         .as_ref()
@@ -153,8 +151,7 @@ impl LookbackOptionMcPricer {
                 )?
             }
             (LookbackType::FixedStrike, crate::instruments::OptionType::Put) => {
-                #[allow(deprecated)]
-                let payoff = LookbackPut::new(
+                let payoff = Lookback::new(
                     LookbackDirection::Put,
                     inst.strike
                         .as_ref()

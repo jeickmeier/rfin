@@ -19,4 +19,4 @@ pub use generic::{
 };
 
 // Re-export TRS types
-pub use trs::{TotalReturnLegParams, TrsEngine, TrsReturnModel, TRS_ANNUITY_EPSILON};
+pub use trs::{TotalReturnLegParams, TrsEngine, TrsReturnModel};

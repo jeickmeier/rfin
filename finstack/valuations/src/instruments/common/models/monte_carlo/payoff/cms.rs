@@ -210,12 +210,6 @@ impl Payoff for CmsPayoff {
     }
 }
 
-/// Backward compatibility aliases to ease migration for existing call sites.
-/// CMS cap payoff alias.
-pub type CmsCapPayoff = CmsPayoff;
-/// CMS floor payoff alias.
-pub type CmsFloorPayoff = CmsPayoff;
-
 #[cfg(test)]
 mod tests {
     use super::*;

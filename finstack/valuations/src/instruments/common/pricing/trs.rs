@@ -19,8 +19,6 @@ use finstack_core::dates::{Date, DayCountCtx};
 use finstack_core::market_data::context::MarketContext;
 use finstack_core::money::Money;
 
-// Re-export the shared annuity epsilon for backward compatibility
-pub use super::swap_legs::ANNUITY_EPSILON as TRS_ANNUITY_EPSILON;
 
 /// Parameters for total return leg calculation.
 #[derive(Debug, Clone)]
@@ -268,7 +266,8 @@ impl TrsEngine {
     ///
     /// # Errors
     ///
-    /// Returns an error if the computed annuity is below [`TRS_ANNUITY_EPSILON`] (1e-12),
+    /// Returns an error if the computed annuity is below
+    /// [`crate::instruments::common::pricing::swap_legs::ANNUITY_EPSILON`] (1e-12),
     /// which would cause divide-by-zero in downstream par spread calculations.
     /// This typically occurs when:
     /// - All periods have already expired (payment dates before as_of)
@@ -311,12 +310,13 @@ impl TrsEngine {
         let result = annuity * notional.amount();
 
         // Guard against zero/near-zero annuity to prevent divide-by-zero in par spread calculations
-        if result.abs() < TRS_ANNUITY_EPSILON {
+        if result.abs() < super::swap_legs::ANNUITY_EPSILON {
             return Err(finstack_core::error::Error::Validation(format!(
                 "Financing annuity ({:.2e}) is below minimum threshold ({:.2e}). \
                  This may indicate all periods have expired or extreme discounting scenarios. \
                  Cannot compute par spread with near-zero annuity.",
-                result, TRS_ANNUITY_EPSILON
+                result,
+                super::swap_legs::ANNUITY_EPSILON
             )));
         }
 
@@ -326,14 +326,14 @@ impl TrsEngine {
 
 #[cfg(test)]
 mod tests {
-    use super::*;
+    use crate::instruments::common::pricing::swap_legs;
 
     #[test]
     fn test_trs_annuity_epsilon_is_reasonable() {
         // Verify the threshold catches near-zero but allows reasonable values
-        let eps = TRS_ANNUITY_EPSILON;
-        assert!(eps > 0.0, "TRS_ANNUITY_EPSILON should be positive");
-        assert!(eps < 1e-10, "TRS_ANNUITY_EPSILON should be small");
+        let eps = swap_legs::ANNUITY_EPSILON;
+        assert!(eps > 0.0, "ANNUITY_EPSILON should be positive");
+        assert!(eps < 1e-10, "ANNUITY_EPSILON should be small");
 
         // A typical annuity for a 1-year quarterly swap with $1M notional would be
         // roughly 0.25 * 4 * 1M * 0.95 = 950,000, which is well above epsilon
@@ -344,4 +344,3 @@ mod tests {
         );
     }
 }
-

@@ -253,27 +253,6 @@ impl LocalVolBuilder {
         Ok(LocalVolSurface::new(base_date, Arc::new(surface)))
     }
 
-    /// Convenience method using current date (for backward compatibility).
-    ///
-    /// **Deprecated**: Use `from_implied_vol` with explicit `base_date` instead.
-    #[allow(non_snake_case)]
-    #[deprecated(since = "0.9.0", note = "Use from_implied_vol with explicit base_date")]
-    pub fn from_implied_vol_legacy<F>(
-        implied_vol: F,
-        S0: f64,
-        r: f64,
-        q: f64,
-        strikes: &[f64],
-        times: &[f64],
-    ) -> Result<LocalVolSurface>
-    where
-        F: Fn(f64, f64) -> Result<f64>,
-    {
-        // Use a default base date (not recommended for production)
-        let base_date =
-            Date::from_ordinal_date(2024, 1).expect("Invalid date: 2024-01-01 should be valid");
-        Self::from_implied_vol(implied_vol, base_date, S0, r, q, strikes, times)
-    }
 }
 
 /// Helper to price Call using Black-Scholes with implied vol

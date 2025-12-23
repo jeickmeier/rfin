@@ -9,8 +9,7 @@
 //! lookback options via the [`LookbackDirection`] enum. This eliminates code duplication
 //! while maintaining the same functionality.
 //!
-//! Legacy type aliases [`LookbackCall`] and [`LookbackPut`] are provided for backward
-//! compatibility but are deprecated in favor of the unified struct.
+//! The unified [`Lookback`] struct replaces legacy call/put-specific types.
 
 use crate::instruments::common::mc::traits::PathState;
 use crate::instruments::common::models::monte_carlo::traits::Payoff;
@@ -115,30 +114,6 @@ impl Payoff for Lookback {
         };
     }
 }
-
-/// Legacy type alias for lookback call option.
-///
-/// # Deprecated
-///
-/// Use [`Lookback::new(LookbackDirection::Call, ...)`] instead for new code.
-/// This alias is maintained for backward compatibility.
-#[deprecated(
-    since = "0.1.0",
-    note = "Use Lookback::new(LookbackDirection::Call, ...) instead"
-)]
-pub type LookbackCall = Lookback;
-
-/// Legacy type alias for lookback put option.
-///
-/// # Deprecated
-///
-/// Use [`Lookback::new(LookbackDirection::Put, ...)`] instead for new code.
-/// This alias is maintained for backward compatibility.
-#[deprecated(
-    since = "0.1.0",
-    note = "Use Lookback::new(LookbackDirection::Put, ...) instead"
-)]
-pub type LookbackPut = Lookback;
 
 /// Floating strike lookback call.
 ///
@@ -316,20 +291,4 @@ mod tests {
         assert_eq!(value.amount(), 20.0);
     }
 
-    #[test]
-    #[allow(deprecated)]
-    fn test_backward_compatibility_type_aliases() {
-        // Test that legacy type aliases still work
-        let mut call = LookbackCall::new(LookbackDirection::Call, 100.0, 1.0, 10);
-        let mut put = LookbackPut::new(LookbackDirection::Put, 100.0, 1.0, 10);
-
-        call.on_event(&mut create_state(0, 100.0));
-        call.on_event(&mut create_state(5, 120.0));
-
-        put.on_event(&mut create_state(0, 100.0));
-        put.on_event(&mut create_state(5, 80.0));
-
-        assert_eq!(call.value(Currency::USD).amount(), 20.0);
-        assert_eq!(put.value(Currency::USD).amount(), 20.0);
-    }
 }

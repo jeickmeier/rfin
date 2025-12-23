@@ -24,9 +24,7 @@ use finstack_core::market_data::term_structures::discount_curve::DiscountCurve;
 use finstack_core::market_data::term_structures::forward_curve::ForwardCurve;
 use finstack_core::math::KahanAccumulator;
 use finstack_core::Result;
-
-// Re-export FloatingRateParams for convenience and backward compatibility
-pub use crate::cashflow::builder::rate_helpers::FloatingRateParams;
+use crate::cashflow::builder::rate_helpers::FloatingRateParams;
 
 /// Minimum threshold for discount factor values to avoid numerical instability.
 ///

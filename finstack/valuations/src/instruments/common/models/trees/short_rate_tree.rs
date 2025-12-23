@@ -15,23 +15,33 @@
 //!
 //! ## Converting Between Conventions
 //!
-//! Use [`normal_to_lognormal_vol`] and [`lognormal_to_normal_vol`] to convert:
+//! Use `finstack_core::math::volatility::convert_atm_volatility` to convert:
 //!
 //! ```rust
-//! use finstack_valuations::instruments::common::models::trees::short_rate_tree::{
-//!     normal_to_lognormal_vol, lognormal_to_normal_vol
-//! };
+//! use finstack_core::math::volatility::{convert_atm_volatility, VolatilityConvention};
 //!
 //! // Given 100 bps normal vol at a 5% rate level
 //! let normal_vol = 0.01;  // 100 bps
 //! let rate_level = 0.05;  // 5%
 //!
 //! // Convert to lognormal (approximately normal_vol / rate_level ≈ 20%)
-//! let lognormal_vol = normal_to_lognormal_vol(normal_vol, rate_level)?;
+//! let lognormal_vol = convert_atm_volatility(
+//!     normal_vol,
+//!     VolatilityConvention::Normal,
+//!     VolatilityConvention::Lognormal,
+//!     rate_level,
+//!     1.0,
+//! )?;
 //! assert!(lognormal_vol > 0.15 && lognormal_vol < 0.25);
 //!
 //! // Round-trip conversion recovers original
-//! let back_to_normal = lognormal_to_normal_vol(lognormal_vol, rate_level)?;
+//! let back_to_normal = convert_atm_volatility(
+//!     lognormal_vol,
+//!     VolatilityConvention::Lognormal,
+//!     VolatilityConvention::Normal,
+//!     rate_level,
+//!     1.0,
+//! )?;
 //! assert!((back_to_normal - normal_vol).abs() < 1e-10);
 //! # Ok::<(), finstack_core::Error>(())
 //! ```
@@ -51,110 +61,6 @@ use super::tree_framework::{
     price_recombining_tree, state_keys, RecombiningInputs, StateGenerator, StateVariables,
     TreeBranching, TreeGreeks, TreeModel, TreeValuator,
 };
-
-// ============================================================================
-// Volatility Conversion Functions
-// ============================================================================
-
-/// Convert normal (absolute) volatility to lognormal (relative) volatility.
-///
-/// # Formula
-///
-/// σ_lognormal = σ_normal / rate_level
-///
-/// # Arguments
-///
-/// * `normal_vol` - Normal volatility in decimal (e.g., 0.01 = 100 bps/yr)
-/// * `rate_level` - Reference rate level for conversion (e.g., 0.05 = 5%)
-///
-/// # Returns
-///
-/// Lognormal volatility in decimal (e.g., 0.20 = 20%)
-///
-/// # Examples
-///
-/// ```rust
-/// use finstack_valuations::instruments::common::models::trees::short_rate_tree::{
-///     normal_to_lognormal_vol, lognormal_to_normal_vol
-/// };
-///
-/// // 100 bps normal vol at 5% rate → approximately 20% lognormal
-/// let lognormal = normal_to_lognormal_vol(0.01, 0.05)?;
-/// assert!(lognormal > 0.15 && lognormal < 0.25);
-///
-/// // Round-trip should recover original
-/// let recovered = lognormal_to_normal_vol(lognormal, 0.05)?;
-/// assert!((recovered - 0.01).abs() < 1e-10);
-/// # Ok::<(), finstack_core::Error>(())
-/// ```
-///
-/// # Errors
-///
-/// Returns an error if `rate_level` is zero or negative.
-#[deprecated(
-    since = "0.9.0",
-    note = "Use finstack_core::math::volatility::convert_atm_volatility with explicit time_to_expiry."
-)]
-#[inline]
-pub fn normal_to_lognormal_vol(normal_vol: f64, rate_level: f64) -> Result<f64> {
-    use finstack_core::math::volatility::{convert_atm_volatility, VolatilityConvention};
-
-    convert_atm_volatility(
-        normal_vol,
-        VolatilityConvention::Normal,
-        VolatilityConvention::Lognormal,
-        rate_level,
-        1.0,
-    )
-}
-
-/// Convert lognormal (relative) volatility to normal (absolute) volatility.
-///
-/// # Formula
-///
-/// σ_normal = σ_lognormal × rate_level
-///
-/// # Arguments
-///
-/// * `lognormal_vol` - Lognormal volatility in decimal (e.g., 0.20 = 20%)
-/// * `rate_level` - Reference rate level for conversion (e.g., 0.05 = 5%)
-///
-/// # Returns
-///
-/// Normal volatility in decimal (e.g., 0.01 = 100 bps/yr)
-///
-/// # Examples
-///
-/// ```rust
-/// use finstack_valuations::instruments::common::models::trees::short_rate_tree::{
-///     lognormal_to_normal_vol, normal_to_lognormal_vol
-/// };
-///
-/// // 20% lognormal at 5% rate → approximately 100 bps normal
-/// let normal = lognormal_to_normal_vol(0.20, 0.05)?;
-/// assert!(normal > 0.005 && normal < 0.015);
-///
-/// // Round-trip should recover original
-/// let recovered = normal_to_lognormal_vol(normal, 0.05)?;
-/// assert!((recovered - 0.20).abs() < 1e-10);
-/// # Ok::<(), finstack_core::Error>(())
-/// ```
-#[deprecated(
-    since = "0.9.0",
-    note = "Use finstack_core::math::volatility::convert_atm_volatility with explicit time_to_expiry."
-)]
-#[inline]
-pub fn lognormal_to_normal_vol(lognormal_vol: f64, rate_level: f64) -> Result<f64> {
-    use finstack_core::math::volatility::{convert_atm_volatility, VolatilityConvention};
-
-    convert_atm_volatility(
-        lognormal_vol,
-        VolatilityConvention::Lognormal,
-        VolatilityConvention::Normal,
-        rate_level,
-        1.0,
-    )
-}
 
 /// Default normal (absolute) volatility for Ho-Lee model.
 ///
@@ -243,8 +149,7 @@ pub enum ShortRateModel {
 /// | [`ShortRateModel::BlackDermanToy`] | Lognormal (relative) | 0.20 = 20%/yr |
 ///
 /// Use the helper constructors ([`ShortRateTreeConfig::ho_lee`], [`ShortRateTreeConfig::bdt`])
-/// or conversion functions ([`normal_to_lognormal_vol`], [`lognormal_to_normal_vol`])
-/// to avoid convention errors.
+/// or `finstack_core::math::volatility::convert_atm_volatility` to avoid convention errors.
 ///
 /// # Examples
 ///
@@ -568,7 +473,7 @@ impl ShortRateTree {
     ///
     /// ⚠️ The volatility parameter is **lognormal** (relative), not normal (absolute).
     /// A value of 0.20 means 20% annual rate volatility, not 20 bps.
-    /// Use [`lognormal_to_normal_vol`] to convert from normal if needed.
+    /// Use `finstack_core::math::volatility::convert_atm_volatility` to convert from normal if needed.
     pub fn black_derman_toy(steps: usize, lognormal_vol: f64, mean_reversion: f64) -> Self {
         Self::new(ShortRateTreeConfig::bdt(
             steps,
@@ -1145,6 +1050,7 @@ mod tests {
     use super::*;
     use finstack_core::market_data::term_structures::discount_curve::DiscountCurve;
     use finstack_core::math::interp::InterpStyle;
+    use finstack_core::math::volatility::{convert_atm_volatility, VolatilityConvention};
     use time::Month;
 
     fn create_test_curve() -> DiscountCurve {
@@ -1213,19 +1119,32 @@ mod tests {
     // ========================================================================
 
     #[test]
-    #[allow(deprecated)]
     fn test_normal_to_lognormal_vol_conversion() {
         // Test that conversion produces reasonable lognormal vol and round-trips correctly
         let normal_vol = 0.01; // 100 bps
         let rate_level = 0.05; // 5%
 
-        let lognormal = normal_to_lognormal_vol(normal_vol, rate_level).expect("valid conversion");
+        let lognormal = convert_atm_volatility(
+            normal_vol,
+            VolatilityConvention::Normal,
+            VolatilityConvention::Lognormal,
+            rate_level,
+            1.0,
+        )
+        .expect("valid conversion");
 
         // Lognormal vol should be in a reasonable range (roughly normal_vol / rate_level)
         assert!(lognormal > 0.15 && lognormal < 0.25, "lognormal vol {lognormal} out of range");
 
         // Round-trip should recover original
-        let recovered = lognormal_to_normal_vol(lognormal, rate_level).expect("valid conversion");
+        let recovered = convert_atm_volatility(
+            lognormal,
+            VolatilityConvention::Lognormal,
+            VolatilityConvention::Normal,
+            rate_level,
+            1.0,
+        )
+        .expect("valid conversion");
         assert!(
             (recovered - normal_vol).abs() < 1e-10,
             "Round-trip failed: got {recovered}, expected {normal_vol}"
@@ -1233,19 +1152,32 @@ mod tests {
     }
 
     #[test]
-    #[allow(deprecated)]
     fn test_lognormal_to_normal_vol_conversion() {
         // Test that conversion produces reasonable normal vol and round-trips correctly
         let lognormal_vol = 0.20; // 20%
         let rate_level = 0.05; // 5%
 
-        let normal = lognormal_to_normal_vol(lognormal_vol, rate_level).expect("valid conversion");
+        let normal = convert_atm_volatility(
+            lognormal_vol,
+            VolatilityConvention::Lognormal,
+            VolatilityConvention::Normal,
+            rate_level,
+            1.0,
+        )
+        .expect("valid conversion");
 
         // Normal vol should be in a reasonable range (roughly lognormal_vol * rate_level)
         assert!(normal > 0.005 && normal < 0.015, "normal vol {normal} out of range");
 
         // Round-trip should recover original
-        let recovered = normal_to_lognormal_vol(normal, rate_level).expect("valid conversion");
+        let recovered = convert_atm_volatility(
+            normal,
+            VolatilityConvention::Normal,
+            VolatilityConvention::Lognormal,
+            rate_level,
+            1.0,
+        )
+        .expect("valid conversion");
         assert!(
             (recovered - lognormal_vol).abs() < 1e-10,
             "Round-trip failed: got {recovered}, expected {lognormal_vol}"
@@ -1253,15 +1185,26 @@ mod tests {
     }
 
     #[test]
-    #[allow(deprecated)]
     fn test_vol_conversion_roundtrip() {
         let original_normal = 0.012; // 120 bps
         let rate_level = 0.045; // 4.5%
 
-        let lognormal =
-            normal_to_lognormal_vol(original_normal, rate_level).expect("valid conversion");
-        let back_to_normal =
-            lognormal_to_normal_vol(lognormal, rate_level).expect("valid conversion");
+        let lognormal = convert_atm_volatility(
+            original_normal,
+            VolatilityConvention::Normal,
+            VolatilityConvention::Lognormal,
+            rate_level,
+            1.0,
+        )
+        .expect("valid conversion");
+        let back_to_normal = convert_atm_volatility(
+            lognormal,
+            VolatilityConvention::Lognormal,
+            VolatilityConvention::Normal,
+            rate_level,
+            1.0,
+        )
+        .expect("valid conversion");
 
         assert!(
             (back_to_normal - original_normal).abs() < 1e-6,
@@ -1270,16 +1213,28 @@ mod tests {
     }
 
     #[test]
-    #[allow(deprecated)]
     fn test_normal_to_lognormal_errors_on_zero_rate() {
-        let err = normal_to_lognormal_vol(0.01, 0.0).expect_err("should error");
+        let err = convert_atm_volatility(
+            0.01,
+            VolatilityConvention::Normal,
+            VolatilityConvention::Lognormal,
+            0.0,
+            1.0,
+        )
+        .expect_err("should error");
         assert!(!err.to_string().is_empty());
     }
 
     #[test]
-    #[allow(deprecated)]
     fn test_normal_to_lognormal_errors_on_negative_rate() {
-        let err = normal_to_lognormal_vol(0.01, -0.01).expect_err("should error");
+        let err = convert_atm_volatility(
+            0.01,
+            VolatilityConvention::Normal,
+            VolatilityConvention::Lognormal,
+            -0.01,
+            1.0,
+        )
+        .expect_err("should error");
         assert!(!err.to_string().is_empty());
     }
 

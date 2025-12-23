@@ -609,8 +609,9 @@ mod tests {
     use crate::instruments::common::models::monte_carlo::payoff::asian::{
         AsianCall, AveragingMethod,
     };
-    #[allow(deprecated)]
-    use crate::instruments::common::models::monte_carlo::payoff::lookback::LookbackCall;
+    use crate::instruments::common::models::monte_carlo::payoff::lookback::{
+        Lookback, LookbackDirection,
+    };
 
     #[test]
     fn test_path_dependent_pricer_asian() {
@@ -642,9 +643,8 @@ mod tests {
         let pricer = PathDependentPricer::new(config);
 
         let gbm = GbmProcess::new(GbmParams::new(0.05, 0.0, 0.3));
-        #[allow(deprecated)]
-        let lookback = LookbackCall::new(
-            crate::instruments::common::models::monte_carlo::payoff::lookback::LookbackDirection::Call,
+        let lookback = Lookback::new(
+            LookbackDirection::Call,
             100.0,
             1.0,
             252,

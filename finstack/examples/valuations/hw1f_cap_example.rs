@@ -8,6 +8,9 @@
 
 use finstack_core::currency::Currency;
 use finstack_valuations::instruments::common::mc::prelude::*;
+use finstack_valuations::instruments::common::models::monte_carlo::payoff::rates::{
+    RatesPayoff, RatesPayoffType,
+};
 
 fn main() -> finstack_core::Result<()> {
     println!("=== Hull-White 1F Cap Pricing Example ===\n");
@@ -37,7 +40,8 @@ fn main() -> finstack_core::Result<()> {
         .map(|&t| (-0.04 * t).exp())
         .collect();
     
-    let cap_payoff = CapPayoff::new(
+    let cap_payoff = RatesPayoff::new(
+        RatesPayoffType::Cap,
         strike_rate,
         notional,
         fixing_dates.clone(),
@@ -89,4 +93,3 @@ fn main() -> finstack_core::Result<()> {
     
     Ok(())
 }
-

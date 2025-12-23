@@ -4,7 +4,6 @@
 //! and the pricing engine that build on top of the generic MC
 //! infrastructure under `instruments::common::mc`.
 
-pub mod analytical;
 pub mod barriers;
 pub mod discretization;
 pub mod engine;

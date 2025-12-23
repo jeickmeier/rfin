@@ -108,18 +108,28 @@ use finstack_core::money::Money;
 ///
 /// ## Converting Between Conventions
 ///
-/// Use the conversion functions in [`crate::instruments::common::models::trees::short_rate_tree`]:
+/// Use `finstack_core::math::volatility::convert_atm_volatility`:
 ///
 /// ```rust,no_run
-/// use finstack_valuations::instruments::common::models::trees::short_rate_tree::{
-///     normal_to_lognormal_vol, lognormal_to_normal_vol,
-/// };
+/// use finstack_core::math::volatility::{convert_atm_volatility, VolatilityConvention};
 ///
 /// // Normal vol (100 bps) at 5% rate → lognormal vol (20%)
-/// let lognormal = normal_to_lognormal_vol(0.01, 0.05)?;
+/// let lognormal = convert_atm_volatility(
+///     0.01,
+///     VolatilityConvention::Normal,
+///     VolatilityConvention::Lognormal,
+///     0.05,
+///     1.0,
+/// )?;
 ///
 /// // Lognormal vol (20%) at 5% rate → normal vol (100 bps)
-/// let normal = lognormal_to_normal_vol(0.20, 0.05)?;
+/// let normal = convert_atm_volatility(
+///     0.20,
+///     VolatilityConvention::Lognormal,
+///     VolatilityConvention::Normal,
+///     0.05,
+///     1.0,
+/// )?;
 /// # Ok::<(), finstack_core::Error>(())
 /// ```
 ///

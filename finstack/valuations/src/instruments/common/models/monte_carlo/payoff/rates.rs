@@ -342,67 +342,6 @@ impl Payoff for RatesPayoff {
     }
 }
 
-// ============================================================================
-// Backward Compatibility Type Aliases (Deprecated)
-// ============================================================================
-
-/// Legacy cap payoff type.
-///
-/// **Deprecated**: Use `RatesPayoff` with `RatesPayoffType::Cap` instead.
-///
-/// # Migration
-///
-/// ```rust,no_run
-/// use finstack_core::currency::Currency;
-/// use finstack_valuations::instruments::common::models::monte_carlo::payoff::rates::{
-///     RatesPayoff, RatesPayoffType,
-/// };
-///
-/// // Previously there was a dedicated `CapPayoff` type; use `RatesPayoff` instead:
-/// let strike = 0.03;
-/// let notional = 1_000_000.0;
-/// let dates = vec![0.5, 1.0];
-/// let accruals = vec![0.5, 0.5];
-/// let dfs = vec![0.99, 0.98];
-/// let ccy = Currency::USD;
-///
-/// let cap = RatesPayoff::new(RatesPayoffType::Cap, strike, notional, dates, accruals, dfs, ccy);
-/// # let _ = cap;
-/// ```
-#[deprecated(
-    since = "0.1.0",
-    note = "Use RatesPayoff with RatesPayoffType::Cap instead"
-)]
-pub type CapPayoff = RatesPayoff;
-
-/// Legacy floor payoff type.
-///
-/// **Deprecated**: Use `RatesPayoff` with `RatesPayoffType::Floor` instead.
-///
-/// # Migration
-///
-/// ```rust,no_run
-/// use finstack_core::currency::Currency;
-/// use finstack_valuations::instruments::common::models::monte_carlo::payoff::rates::{
-///     RatesPayoff, RatesPayoffType,
-/// };
-///
-/// let strike = 0.03;
-/// let notional = 1_000_000.0;
-/// let dates = vec![0.5, 1.0];
-/// let accruals = vec![0.5, 0.5];
-/// let dfs = vec![0.99, 0.98];
-/// let ccy = Currency::USD;
-///
-/// let floor = RatesPayoff::new(RatesPayoffType::Floor, strike, notional, dates, accruals, dfs, ccy);
-/// # let _ = floor;
-/// ```
-#[deprecated(
-    since = "0.1.0",
-    note = "Use RatesPayoff with RatesPayoffType::Floor instead"
-)]
-pub type FloorPayoff = RatesPayoff;
-
 /// Cap-floor parity relationship.
 ///
 /// Validates: Cap - Floor = Swap (fixed for floating)
@@ -575,37 +514,6 @@ mod tests {
         // Expected: (0.03 - 0.01) * 0.5 * 1M * 0.98 = 9,800
         let expected_pv = (0.03 - 0.01) * 0.5 * 1_000_000.0 * 0.98;
         assert!((floor.accumulated_pv - expected_pv).abs() < 1.0);
-    }
-
-    #[test]
-    fn test_backward_compatibility_aliases() {
-        // Test that deprecated type aliases still work
-        #[allow(deprecated)]
-        {
-            let fixing_dates = vec![0.5];
-            let accruals = vec![0.5];
-            let dfs = vec![0.98];
-
-            let _cap: CapPayoff = RatesPayoff::new(
-                RatesPayoffType::Cap,
-                0.03,
-                1_000_000.0,
-                fixing_dates.clone(),
-                accruals.clone(),
-                dfs.clone(),
-                Currency::USD,
-            );
-
-            let _floor: FloorPayoff = RatesPayoff::new(
-                RatesPayoffType::Floor,
-                0.03,
-                1_000_000.0,
-                fixing_dates,
-                accruals,
-                dfs,
-                Currency::USD,
-            );
-        }
     }
 
     #[test]

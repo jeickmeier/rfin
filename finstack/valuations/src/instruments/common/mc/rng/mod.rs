@@ -5,7 +5,6 @@
 
 pub mod brownian_bridge;
 pub mod philox;
-pub mod transforms;
 
 #[cfg(feature = "mc")]
 pub mod sobol;
@@ -18,4 +17,3 @@ pub mod poisson;
 
 pub use brownian_bridge::BrownianBridge;
 pub use philox::PhiloxRng;
-pub use transforms::*;
