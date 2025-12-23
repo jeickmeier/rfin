@@ -150,6 +150,7 @@ impl crate::instruments::common::traits::Instrument for CmsOption {
             as_of,
             base_value,
             metrics,
+            None,
         )
     }
 }

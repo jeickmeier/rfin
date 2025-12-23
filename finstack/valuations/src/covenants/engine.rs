@@ -957,6 +957,7 @@ mod tests {
                 as_of,
                 base_value,
                 metrics,
+                None,
             )
         }
     }

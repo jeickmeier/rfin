@@ -944,13 +944,13 @@ pub trait Instrument: Send + Sync {
     ) -> finstack_core::Result<crate::results::ValuationResult> {
         let base_value = self.value(market, as_of)?;
 
-        crate::instruments::common::helpers::build_with_metrics_dyn_with_config(
+        crate::instruments::common::helpers::build_with_metrics_dyn(
             std::sync::Arc::from(self.clone_box()),
             std::sync::Arc::new(market.clone()),
             as_of,
             base_value,
             metrics,
-            std::sync::Arc::new(cfg.clone()),
+            Some(std::sync::Arc::new(cfg.clone())),
         )
     }
 

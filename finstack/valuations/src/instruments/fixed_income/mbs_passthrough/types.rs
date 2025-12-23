@@ -330,6 +330,7 @@ impl crate::instruments::common::traits::Instrument for AgencyMbsPassthrough {
             as_of,
             base_value,
             metrics,
+            None,
         )
     }
 

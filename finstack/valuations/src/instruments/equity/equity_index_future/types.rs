@@ -571,6 +571,7 @@ impl crate::instruments::common::traits::Instrument for EquityIndexFuture {
             as_of,
             base_value,
             metrics,
+            None,
         )
     }
 

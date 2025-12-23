@@ -352,6 +352,7 @@ impl crate::instruments::common::traits::Instrument for ConvertibleBond {
             as_of,
             base_value,
             metrics,
+            None,
         )
     }
 }

@@ -39,14 +39,12 @@
 //! - Hull, J. C. (2018). *Options, Futures, and Other Derivatives*. Chapter 7.
 //! - Kahan, W. (1965). "Further Remarks on Reducing Truncation Errors."
 
+use crate::instruments::common::pricing::swap_legs::ANNUITY_EPSILON;
 use crate::instruments::irs::{FloatingLegCompounding, ParRateMethod};
 use crate::instruments::InterestRateSwap;
 use crate::metrics::{MetricCalculator, MetricContext, MetricId};
 use finstack_core::dates::Date;
 use finstack_core::market_data::term_structures::discount_curve::DiscountCurve;
-
-/// Minimum threshold for annuity values to avoid division by near-zero.
-const ANNUITY_EPSILON: f64 = 1e-12;
 
 /// Returns true if the DiscountRatio identity is valid for this IRS configuration.
 ///

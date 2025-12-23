@@ -236,6 +236,7 @@ impl PyPricerRegistry {
                 base.as_of,
                 base.value,
                 &metric_ids,
+                None,
             )
             .map_err(core_to_py)?;
 

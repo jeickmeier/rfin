@@ -200,6 +200,7 @@ impl crate::instruments::common::traits::Instrument for InterestRateOption {
             as_of,
             base_value,
             metrics,
+            None,
         )
     }
 }

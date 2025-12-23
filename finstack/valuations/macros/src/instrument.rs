@@ -101,6 +101,7 @@ pub fn derive_instrument_impl(input: TokenStream) -> TokenStream {
                     as_of,
                     base_value,
                     metrics,
+                    None,
                 )
             }
 

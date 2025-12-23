@@ -159,7 +159,7 @@ pub use barrier::{
 };
 pub use greeks::{
     bs_call_delta, bs_call_greeks, bs_call_rho, bs_call_theta, bs_gamma, bs_put_delta,
-    bs_put_greeks, bs_put_rho, bs_put_theta, bs_vega, CallGreeks, PutGreeks,
+    bs_put_greeks, bs_put_rho, bs_put_theta, bs_vega,
 };
 pub use heston::{heston_call_price_fourier, heston_put_price_fourier, HestonParams};
 pub use lookback::{

@@ -523,6 +523,7 @@ impl Instrument for Repo {
             as_of,
             base_value,
             metrics,
+            None,
         )
     }
 

@@ -142,6 +142,28 @@
 //!
 //! # Architecture
 //!
+//! ## Module Organization
+//!
+//! Monte Carlo functionality is split between two modules for separation of concerns:
+//!
+//! - **`mc/` (this module)**: Low-level primitives and mathematical building blocks
+//!   - `rng/`: Random number generation (Philox, Sobol sequences, Brownian bridges)
+//!   - `process/`: Stochastic process definitions (GBM, Heston, CIR, Bates, etc.)
+//!   - `discretization/`: Time-stepping schemes (Euler, Milstein, QE, exact)
+//!   - `traits`: Core abstractions (`RandomStream`, `StochasticProcess`, `Discretization`)
+//!
+//! - **`models/monte_carlo/`**: Domain-specific pricing and risk implementations
+//!   - `engine`: Simulation orchestration and path management
+//!   - `payoff/`: Payoff function definitions (vanilla, Asian, barrier, autocallable, etc.)
+//!   - `pricer/`: Pricing algorithms (European, LSMC for American/Bermudan)
+//!   - `greeks/`: Greeks computation (pathwise, likelihood ratio, finite differences)
+//!   - `variance_reduction/`: Variance reduction techniques
+//!
+//! This separation allows the `mc/` module to be used independently for custom
+//! simulation needs, while `models/monte_carlo/` provides ready-to-use pricing engines.
+//!
+//! ## Core Traits
+//!
 //! The framework is built around composable traits:
 //!
 //! - [`RandomStream`](traits::RandomStream): RNG abstraction (Philox, Sobol, etc.)

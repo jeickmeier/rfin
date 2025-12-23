@@ -61,7 +61,7 @@
 //!
 //! ```rust
 //! use finstack_valuations::instruments::common::models::closed_form::greeks::{
-//!     bs_call_greeks, CallGreeks
+//!     bs_call_greeks, BsGreeks
 //! };
 //!
 //! let spot = 100.0;
@@ -71,13 +71,13 @@
 //! let div_yield = 0.02;  // 2% dividend yield
 //! let vol = 0.20;        // 20% annual volatility
 //!
-//! let greeks: CallGreeks = bs_call_greeks(spot, strike, time, rate, div_yield, vol);
+//! let greeks: BsGreeks = bs_call_greeks(spot, strike, time, rate, div_yield, vol);
 //!
 //! println!("Delta: {:.4}", greeks.delta);
 //! println!("Gamma: {:.4}", greeks.gamma);
 //! println!("Vega: {:.4}", greeks.vega);
 //! println!("Theta: {:.4}", greeks.theta);
-//! println!("Rho: {:.4}", greeks.rho);
+//! println!("Rho: {:.4}", greeks.rho_r);
 //! ```
 //!
 //! ## Individual Greek Calculations
@@ -107,23 +107,8 @@
 //! assert!(vega > 0.0); // Always positive for both calls and puts
 //! ```
 
+use crate::instruments::common::models::volatility::black::{d1, d2};
 use finstack_core::math::special_functions::{norm_cdf, norm_pdf};
-// Reuse shared Black/BSM helpers to avoid duplication; wrap to preserve local signature ordering
-use crate::instruments::common::models::volatility::black::{d1 as d1_shared, d2 as d2_shared};
-
-/// Compute d₁ parameter for Black-Scholes-Merton formula.
-///
-/// Wrapper around shared helpers to preserve (spot, strike, time, rate, div_yield, vol)
-/// argument order expected by callers in this module.
-fn bs_d1(spot: f64, strike: f64, time: f64, rate: f64, div_yield: f64, vol: f64) -> f64 {
-    // shared signature: d1(spot, strike, r, sigma, t, q)
-    d1_shared(spot, strike, rate, vol, time, div_yield)
-}
-
-/// Compute d₂ parameter for Black-Scholes-Merton formula.
-fn bs_d2(spot: f64, strike: f64, time: f64, rate: f64, div_yield: f64, vol: f64) -> f64 {
-    d2_shared(spot, strike, rate, vol, time, div_yield)
-}
 
 /// Black-Scholes call option delta.
 ///
@@ -187,8 +172,8 @@ pub fn bs_call_delta(
         return if spot > strike { 1.0 } else { 0.0 };
     }
 
-    let d1 = bs_d1(spot, strike, time, rate, div_yield, vol);
-    (-div_yield * time).exp() * norm_cdf(d1)
+    let d1_val = d1(spot, strike, rate, vol, time, div_yield);
+    (-div_yield * time).exp() * norm_cdf(d1_val)
 }
 
 /// Black-Scholes put option delta.
@@ -243,8 +228,8 @@ pub fn bs_put_delta(spot: f64, strike: f64, time: f64, rate: f64, div_yield: f64
         return if spot < strike { -1.0 } else { 0.0 };
     }
 
-    let d1 = bs_d1(spot, strike, time, rate, div_yield, vol);
-    -(-div_yield * time).exp() * norm_cdf(-d1)
+    let d1_val = d1(spot, strike, rate, vol, time, div_yield);
+    -(-div_yield * time).exp() * norm_cdf(-d1_val)
 }
 
 /// Black-Scholes gamma (same for both calls and puts).
@@ -305,8 +290,8 @@ pub fn bs_gamma(spot: f64, strike: f64, time: f64, rate: f64, div_yield: f64, vo
         return 0.0;
     }
 
-    let d1 = bs_d1(spot, strike, time, rate, div_yield, vol);
-    (-div_yield * time).exp() * norm_pdf(d1) / (spot * vol * time.sqrt())
+    let d1_val = d1(spot, strike, rate, vol, time, div_yield);
+    (-div_yield * time).exp() * norm_pdf(d1_val) / (spot * vol * time.sqrt())
 }
 
 /// Black-Scholes vega (same for both calls and puts).
@@ -370,9 +355,9 @@ pub fn bs_vega(spot: f64, strike: f64, time: f64, rate: f64, div_yield: f64, vol
         return 0.0;
     }
 
-    let d1 = bs_d1(spot, strike, time, rate, div_yield, vol);
+    let d1_val = d1(spot, strike, rate, vol, time, div_yield);
     // Scale by 0.01 to represent sensitivity per 1% vol change
-    0.01 * spot * (-div_yield * time).exp() * time.sqrt() * norm_pdf(d1)
+    0.01 * spot * (-div_yield * time).exp() * time.sqrt() * norm_pdf(d1_val)
 }
 
 /// Black-Scholes call theta.
@@ -391,12 +376,12 @@ pub fn bs_call_theta(
         return 0.0;
     }
 
-    let d1 = bs_d1(spot, strike, time, rate, div_yield, vol);
-    let d2 = bs_d2(spot, strike, time, rate, div_yield, vol);
+    let d1_val = d1(spot, strike, rate, vol, time, div_yield);
+    let d2_val = d2(spot, strike, rate, vol, time, div_yield);
 
-    let term1 = -spot * norm_pdf(d1) * vol * (-div_yield * time).exp() / (2.0 * time.sqrt());
-    let term2 = -rate * strike * (-rate * time).exp() * norm_cdf(d2);
-    let term3 = div_yield * spot * (-div_yield * time).exp() * norm_cdf(d1);
+    let term1 = -spot * norm_pdf(d1_val) * vol * (-div_yield * time).exp() / (2.0 * time.sqrt());
+    let term2 = -rate * strike * (-rate * time).exp() * norm_cdf(d2_val);
+    let term3 = div_yield * spot * (-div_yield * time).exp() * norm_cdf(d1_val);
 
     term1 + term2 + term3
 }
@@ -410,12 +395,12 @@ pub fn bs_put_theta(spot: f64, strike: f64, time: f64, rate: f64, div_yield: f64
         return 0.0;
     }
 
-    let d1 = bs_d1(spot, strike, time, rate, div_yield, vol);
-    let d2 = bs_d2(spot, strike, time, rate, div_yield, vol);
+    let d1_val = d1(spot, strike, rate, vol, time, div_yield);
+    let d2_val = d2(spot, strike, rate, vol, time, div_yield);
 
-    let term1 = -spot * norm_pdf(d1) * vol * (-div_yield * time).exp() / (2.0 * time.sqrt());
-    let term2 = rate * strike * (-rate * time).exp() * norm_cdf(-d2);
-    let term3 = -div_yield * spot * (-div_yield * time).exp() * norm_cdf(-d1);
+    let term1 = -spot * norm_pdf(d1_val) * vol * (-div_yield * time).exp() / (2.0 * time.sqrt());
+    let term2 = rate * strike * (-rate * time).exp() * norm_cdf(-d2_val);
+    let term3 = -div_yield * spot * (-div_yield * time).exp() * norm_cdf(-d1_val);
 
     term1 + term2 + term3
 }
@@ -429,8 +414,8 @@ pub fn bs_call_rho(spot: f64, strike: f64, time: f64, rate: f64, div_yield: f64,
         return 0.0;
     }
 
-    let d2 = bs_d2(spot, strike, time, rate, div_yield, vol);
-    strike * time * (-rate * time).exp() * norm_cdf(d2)
+    let d2_val = d2(spot, strike, rate, vol, time, div_yield);
+    strike * time * (-rate * time).exp() * norm_cdf(d2_val)
 }
 
 /// Black-Scholes put rho.
@@ -442,39 +427,17 @@ pub fn bs_put_rho(spot: f64, strike: f64, time: f64, rate: f64, div_yield: f64, 
         return 0.0;
     }
 
-    let d2 = bs_d2(spot, strike, time, rate, div_yield, vol);
-    -strike * time * (-rate * time).exp() * norm_cdf(-d2)
+    let d2_val = d2(spot, strike, rate, vol, time, div_yield);
+    -strike * time * (-rate * time).exp() * norm_cdf(-d2_val)
 }
 
-/// Convenience wrapper for all call Greeks.
-pub struct CallGreeks {
-    /// Delta: sensitivity to underlying price (∂C/∂S)
-    pub delta: f64,
-    /// Gamma: rate of change of delta (∂²C/∂S²)
-    pub gamma: f64,
-    /// Vega: sensitivity to volatility (∂C/∂σ), per 1% vol
-    pub vega: f64,
-    /// Theta: time decay (∂C/∂t), per day
-    pub theta: f64,
-    /// Rho: sensitivity to interest rate (∂C/∂r), per 1% rate
-    pub rho: f64,
-}
-
-/// Convenience wrapper for all put Greeks.
-pub struct PutGreeks {
-    /// Delta: sensitivity to underlying price (∂P/∂S)
-    pub delta: f64,
-    /// Gamma: rate of change of delta (∂²P/∂S²)
-    pub gamma: f64,
-    /// Vega: sensitivity to volatility (∂P/∂σ), per 1% vol
-    pub vega: f64,
-    /// Theta: time decay (∂P/∂t), per day
-    pub theta: f64,
-    /// Rho: sensitivity to interest rate (∂P/∂r), per 1% rate
-    pub rho: f64,
-}
+// Re-export the canonical BsGreeks struct from vanilla module
+pub use super::vanilla::BsGreeks;
 
 /// Compute all call Greeks at once.
+///
+/// Returns [`BsGreeks`] with `rho_r` set to the domestic rate sensitivity
+/// and `rho_q` set to the dividend yield sensitivity.
 #[must_use]
 pub fn bs_call_greeks(
     spot: f64,
@@ -483,17 +446,37 @@ pub fn bs_call_greeks(
     rate: f64,
     div_yield: f64,
     vol: f64,
-) -> CallGreeks {
-    CallGreeks {
-        delta: bs_call_delta(spot, strike, time, rate, div_yield, vol),
-        gamma: bs_gamma(spot, strike, time, rate, div_yield, vol),
-        vega: bs_vega(spot, strike, time, rate, div_yield, vol),
-        theta: bs_call_theta(spot, strike, time, rate, div_yield, vol),
-        rho: bs_call_rho(spot, strike, time, rate, div_yield, vol),
+) -> BsGreeks {
+    // Compute individual Greeks
+    let delta = bs_call_delta(spot, strike, time, rate, div_yield, vol);
+    let gamma = bs_gamma(spot, strike, time, rate, div_yield, vol);
+    let vega = bs_vega(spot, strike, time, rate, div_yield, vol);
+    let theta = bs_call_theta(spot, strike, time, rate, div_yield, vol);
+    let rho_r = bs_call_rho(spot, strike, time, rate, div_yield, vol);
+
+    // Compute dividend yield sensitivity (rho_q)
+    // For calls: ∂C/∂q = -S * T * e^(-qT) * N(d1)
+    let rho_q = if time <= 0.0 {
+        0.0
+    } else {
+        let d1_val = d1(spot, strike, rate, vol, time, div_yield);
+        -spot * time * (-div_yield * time).exp() * norm_cdf(d1_val) * 0.01
+    };
+
+    BsGreeks {
+        delta,
+        gamma,
+        vega,
+        theta,
+        rho_r,
+        rho_q,
     }
 }
 
 /// Compute all put Greeks at once.
+///
+/// Returns [`BsGreeks`] with `rho_r` set to the domestic rate sensitivity
+/// and `rho_q` set to the dividend yield sensitivity.
 #[must_use]
 pub fn bs_put_greeks(
     spot: f64,
@@ -502,13 +485,30 @@ pub fn bs_put_greeks(
     rate: f64,
     div_yield: f64,
     vol: f64,
-) -> PutGreeks {
-    PutGreeks {
-        delta: bs_put_delta(spot, strike, time, rate, div_yield, vol),
-        gamma: bs_gamma(spot, strike, time, rate, div_yield, vol),
-        vega: bs_vega(spot, strike, time, rate, div_yield, vol),
-        theta: bs_put_theta(spot, strike, time, rate, div_yield, vol),
-        rho: bs_put_rho(spot, strike, time, rate, div_yield, vol),
+) -> BsGreeks {
+    // Compute individual Greeks
+    let delta = bs_put_delta(spot, strike, time, rate, div_yield, vol);
+    let gamma = bs_gamma(spot, strike, time, rate, div_yield, vol);
+    let vega = bs_vega(spot, strike, time, rate, div_yield, vol);
+    let theta = bs_put_theta(spot, strike, time, rate, div_yield, vol);
+    let rho_r = bs_put_rho(spot, strike, time, rate, div_yield, vol);
+
+    // Compute dividend yield sensitivity (rho_q)
+    // For puts: ∂P/∂q = S * T * e^(-qT) * N(-d1)
+    let rho_q = if time <= 0.0 {
+        0.0
+    } else {
+        let d1_val = d1(spot, strike, rate, vol, time, div_yield);
+        spot * time * (-div_yield * time).exp() * norm_cdf(-d1_val) * 0.01
+    };
+
+    BsGreeks {
+        delta,
+        gamma,
+        vega,
+        theta,
+        rho_r,
+        rho_q,
     }
 }
 

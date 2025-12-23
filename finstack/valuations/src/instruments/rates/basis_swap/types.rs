@@ -477,6 +477,7 @@ impl crate::instruments::common::traits::Instrument for BasisSwap {
             as_of,
             base_value,
             metrics,
+            None,
         )
     }
 }

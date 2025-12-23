@@ -176,6 +176,7 @@ impl crate::instruments::common::traits::Instrument for LookbackOption {
             as_of,
             base_value,
             metrics,
+            None,
         )
     }
 }

@@ -75,6 +75,7 @@ fn price_with_optional_metrics(
             base.as_of,
             base.value,
             &metric_ids,
+            None,
         )
         .map(JsValuationResult::new)
         .map_err(core_error_to_js);

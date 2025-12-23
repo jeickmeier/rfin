@@ -87,6 +87,16 @@ where
 /// This function uses trait objects to avoid generic monomorphization across
 /// compilation units, which can cause coverage metadata mismatches.
 ///
+/// # Arguments
+///
+/// * `instrument` - The instrument to price (wrapped in Arc for efficiency)
+/// * `curves` - Market data context (wrapped in Arc for efficiency)
+/// * `as_of` - Valuation date
+/// * `base_value` - Pre-computed base value (NPV)
+/// * `metrics` - List of metrics to compute
+/// * `cfg` - Optional FinstackConfig for user-tunable metric defaults (e.g., bump sizes).
+///   When `None`, uses global defaults.
+///
 /// # Performance
 ///
 /// Accepts Arc-wrapped arguments to avoid cloning on every call. Callers should
@@ -97,8 +107,14 @@ pub fn build_with_metrics_dyn(
     as_of: Date,
     base_value: Money,
     metrics: &[crate::metrics::MetricId],
+    cfg: Option<Arc<FinstackConfig>>,
 ) -> finstack_core::Result<crate::results::ValuationResult> {
-    let mut context = MetricContext::new(instrument.clone(), curves, as_of, base_value);
+    let mut context = match cfg {
+        Some(c) => {
+            MetricContext::new_with_finstack_config(instrument.clone(), curves, as_of, base_value, c)
+        }
+        None => MetricContext::new(instrument.clone(), curves, as_of, base_value),
+    };
     // Preserve per-instrument pricing overrides (e.g., bump sizes, scenario shocks) for metrics.
     context.pricing_overrides = instrument.scenario_overrides().cloned();
 
@@ -143,60 +159,6 @@ pub fn build_with_metrics_dyn(
         crate::results::ValuationResult::stamped(context.instrument.id(), as_of, base_value);
     result.measures = measures;
 
-    Ok(result)
-}
-
-/// Shared helper to build a ValuationResult with a set of metrics using an explicit config.
-///
-/// This is the config-aware sibling of [`build_with_metrics_dyn`]. It allows callers to
-/// supply a `FinstackConfig` (including extensions like `valuations.sensitivities.v1`) so
-/// metric defaults are user-tunable and reproducible.
-pub fn build_with_metrics_dyn_with_config(
-    instrument: Arc<dyn crate::instruments::common::traits::Instrument>,
-    curves: Arc<MarketContext>,
-    as_of: Date,
-    base_value: Money,
-    metrics: &[crate::metrics::MetricId],
-    cfg: Arc<FinstackConfig>,
-) -> finstack_core::Result<crate::results::ValuationResult> {
-    let mut context =
-        MetricContext::new_with_finstack_config(instrument.clone(), curves, as_of, base_value, cfg);
-    context.pricing_overrides = instrument.scenario_overrides().cloned();
-
-    let registry = standard_registry();
-    let metric_measures = registry.compute(metrics, &mut context)?;
-
-    // Pre-allocate capacity to avoid reallocations during insertion.
-    let mut measures: IndexMap<String, f64> = IndexMap::with_capacity(metrics.len() + 4);
-
-    // Deterministic insertion order: follow the requested metrics slice order
-    for metric_id in metrics {
-        if let Some(value) = metric_measures.get(metric_id) {
-            measures.insert(metric_id.as_str().into(), *value);
-        }
-    }
-
-    // Same policy as `build_with_metrics_dyn`: only include custom/composite keys and insert in a
-    // stable sorted order to guarantee determinism.
-    let mut extras: Vec<(&crate::metrics::MetricId, f64)> = context
-        .computed
-        .iter()
-        .filter_map(|(metric_id, value)| {
-            if metric_id.is_custom() && !measures.contains_key(metric_id.as_str()) {
-                Some((metric_id, *value))
-            } else {
-                None
-            }
-        })
-        .collect();
-    extras.sort_by(|(a, _), (b, _)| a.as_str().cmp(b.as_str()));
-    for (metric_id, value) in extras {
-        measures.insert(metric_id.as_str().into(), value);
-    }
-
-    let mut result =
-        crate::results::ValuationResult::stamped(context.instrument.id(), as_of, base_value);
-    result.measures = measures;
     Ok(result)
 }
 

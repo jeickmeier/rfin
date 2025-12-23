@@ -282,49 +282,6 @@ impl FloatingLegParams {
     pub fn validate(&self) -> Result<()> {
         self.rate_params.validate()
     }
-
-    // Convenience accessors for backward compatibility
-    /// Spread in basis points added to the forward rate.
-    #[inline]
-    pub fn spread_bp(&self) -> f64 {
-        self.rate_params.spread_bp
-    }
-
-    /// Gearing multiplier.
-    #[inline]
-    pub fn gearing(&self) -> f64 {
-        self.rate_params.gearing
-    }
-
-    /// Whether gearing includes spread.
-    #[inline]
-    pub fn gearing_includes_spread(&self) -> bool {
-        self.rate_params.gearing_includes_spread
-    }
-
-    /// Optional index floor in basis points.
-    #[inline]
-    pub fn index_floor_bp(&self) -> Option<f64> {
-        self.rate_params.index_floor_bp
-    }
-
-    /// Optional index cap in basis points.
-    #[inline]
-    pub fn index_cap_bp(&self) -> Option<f64> {
-        self.rate_params.index_cap_bp
-    }
-
-    /// Optional all-in floor in basis points.
-    #[inline]
-    pub fn all_in_floor_bp(&self) -> Option<f64> {
-        self.rate_params.all_in_floor_bp
-    }
-
-    /// Optional all-in cap in basis points.
-    #[inline]
-    pub fn all_in_cap_bp(&self) -> Option<f64> {
-        self.rate_params.all_in_cap_bp
-    }
 }
 
 /// A period in a swap leg schedule.
@@ -928,8 +885,8 @@ mod tests {
         let rate_params = FloatingRateParams::with_spread_and_floor(200.0, 100.0);
         let leg_params = FloatingLegParams::from_rate_params(rate_params, 2);
 
-        assert_eq!(leg_params.spread_bp(), 200.0);
-        assert_eq!(leg_params.index_floor_bp(), Some(100.0));
+        assert_eq!(leg_params.rate_params.spread_bp, 200.0);
+        assert_eq!(leg_params.rate_params.index_floor_bp, Some(100.0));
         assert_eq!(leg_params.payment_delay_days, 2);
     }
 }

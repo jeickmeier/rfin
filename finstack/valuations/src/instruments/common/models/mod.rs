@@ -28,8 +28,7 @@ pub use closed_form::{
     floating_strike_lookback_call, floating_strike_lookback_put, geometric_asian_call,
     geometric_asian_put, heston_call_price_fourier, heston_put_price_fourier, quanto_call,
     quanto_call_simple, quanto_drift_adjustment, quanto_put, quanto_put_simple, up_in_call,
-    up_out_call, AsianGreeks, AsianPriceResult, BarrierType, BsGreeks, CallGreeks, HestonParams,
-    PutGreeks, ONE_PERCENT,
+    up_out_call, AsianGreeks, AsianPriceResult, BarrierType, BsGreeks, HestonParams, ONE_PERCENT,
 };
 pub use correlation::{
     joint_probabilities, ConstantRecovery, Copula, CopulaSpec, CorrelatedBernoulli,

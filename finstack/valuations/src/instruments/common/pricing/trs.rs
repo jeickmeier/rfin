@@ -19,11 +19,8 @@ use finstack_core::dates::{Date, DayCountCtx};
 use finstack_core::market_data::context::MarketContext;
 use finstack_core::money::Money;
 
-/// Minimum threshold for annuity values to avoid divide-by-zero in par spread calculations.
-///
-/// Set to 1e-12 to catch scenarios where all periods have expired or the annuity
-/// is effectively zero due to extreme discounting.
-pub const TRS_ANNUITY_EPSILON: f64 = 1e-12;
+// Re-export the shared annuity epsilon for backward compatibility
+pub use super::swap_legs::ANNUITY_EPSILON as TRS_ANNUITY_EPSILON;
 
 /// Parameters for total return leg calculation.
 #[derive(Debug, Clone)]

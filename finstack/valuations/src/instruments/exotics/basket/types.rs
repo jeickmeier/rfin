@@ -359,6 +359,7 @@ impl Instrument for Basket {
             as_of,
             base_value,
             metrics,
+            None,
         )
     }
 }

@@ -170,6 +170,7 @@ impl crate::instruments::common::traits::Instrument for BarrierOption {
             as_of,
             base_value,
             metrics,
+            None,
         )
     }
 }

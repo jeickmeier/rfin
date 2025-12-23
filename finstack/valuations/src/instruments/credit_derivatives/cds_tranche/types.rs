@@ -366,6 +366,7 @@ impl Instrument for CdsTranche {
             as_of,
             base_value,
             metrics,
+            None,
         )
     }
 }

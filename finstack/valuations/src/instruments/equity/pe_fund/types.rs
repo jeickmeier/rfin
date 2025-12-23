@@ -173,6 +173,7 @@ impl Instrument for PrivateMarketsFund {
             as_of,
             base_value,
             metrics,
+            None,
         )
     }
 
