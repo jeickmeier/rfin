@@ -1,165 +1,29 @@
-//! Common pricing patterns and shared infrastructure.
+//! Total Return Swap (TRS) pricing engine.
 //!
-//! This module provides generic pricer implementations and shared pricing utilities
-//! to eliminate duplication across instrument pricing modules.
-
-use crate::instruments::common::traits::Instrument;
-use crate::pricer::{InstrumentType, ModelKey, Pricer, PricerKey, PricingError};
-use crate::results::ValuationResult;
-use finstack_core::market_data::context::MarketContext;
-use finstack_core::types::CurveId;
-use std::marker::PhantomData;
-
-/// Generic pricer for any instrument that implements the Instrument trait.
-///
-/// This eliminates the need for instrument-specific pricer implementations that just
-/// forward to the instrument's `value()` method.
-pub struct GenericInstrumentPricer<I> {
-    instrument_type: InstrumentType,
-    model_key: ModelKey,
-    _phantom: PhantomData<I>,
-}
-
-impl<I> GenericInstrumentPricer<I>
-where
-    I: Instrument + HasDiscountCurve + 'static,
-{
-    /// Create a new generic pricer for the specified instrument and model type.
-    pub fn new(instrument_type: InstrumentType, model_key: ModelKey) -> Self {
-        Self {
-            instrument_type,
-            model_key,
-            _phantom: PhantomData,
-        }
-    }
-}
-
-impl<I> Pricer for GenericInstrumentPricer<I>
-where
-    I: Instrument + HasDiscountCurve + 'static,
-{
-    fn key(&self) -> PricerKey {
-        PricerKey::new(self.instrument_type, self.model_key)
-    }
-
-    fn price_dyn(
-        &self,
-        instrument: &dyn Instrument,
-        market: &MarketContext,
-        as_of: finstack_core::dates::Date,
-    ) -> Result<ValuationResult, PricingError> {
-        // Type-safe downcasting
-        let typed_instrument = instrument
-            .as_any()
-            .downcast_ref::<I>()
-            .ok_or_else(|| PricingError::type_mismatch(self.instrument_type, instrument.key()))?;
-
-        // Compute present value using the instrument's unified value method
-        let pv = typed_instrument
-            .value(market, as_of)
-            .map_err(|e| PricingError::model_failure(e.to_string()))?;
-
-        // Return stamped result
-        Ok(ValuationResult::stamped(typed_instrument.id(), as_of, pv))
-    }
-}
-
-// Removed USD/EUR heuristic helper; as_of is derived from instrument's own curve
-
-/// Trait for instruments with a primary discount curve.
-///
-/// This trait is used by generic pricers and metric calculators to extract
-/// discount curve IDs. All instruments with a discount curve should implement this.
-///
-/// **Note**: This is primarily an internal helper trait. End-users typically
-/// don't need to interact with it directly.
-pub trait HasDiscountCurve {
-    /// Get the instrument's primary discount curve ID.
-    fn discount_curve_id(&self) -> &CurveId;
-}
-
-/// Trait for instruments that reference forward/projection curves.
-///
-/// This trait is used by generic DV01 calculators to identify all forward curves
-/// that should be bumped alongside the discount curve for parallel rate shifts.
-/// Instruments with floating rate legs (FRAs, swaps, floating bonds, etc.) should
-/// implement this trait.
-pub trait HasForwardCurves {
-    /// Get all forward curve IDs referenced by this instrument.
-    fn forward_curve_ids(&self) -> Vec<CurveId>;
-}
-
-/// Generic discounting pricer for instruments that can be valued via simple discounting.
-///
-/// This pricer derives the valuation date from the instrument's discount curve
-/// and delegates PV calculation to the instrument's `value()` method.
-/// It eliminates boilerplate across instrument pricers.
-pub struct GenericDiscountingPricer<I> {
-    instrument_type: InstrumentType,
-    _phantom: PhantomData<I>,
-}
-
-impl<I> GenericDiscountingPricer<I>
-where
-    I: Instrument + HasDiscountCurve + 'static,
-{
-    /// Create a new generic discounting pricer for the specified instrument type.
-    pub fn new(instrument_type: InstrumentType) -> Self {
-        Self {
-            instrument_type,
-            _phantom: PhantomData,
-        }
-    }
-}
-
-impl<I> Pricer for GenericDiscountingPricer<I>
-where
-    I: Instrument + HasDiscountCurve + 'static,
-{
-    fn key(&self) -> PricerKey {
-        PricerKey::new(self.instrument_type, ModelKey::Discounting)
-    }
-
-    fn price_dyn(
-        &self,
-        instrument: &dyn Instrument,
-        market: &MarketContext,
-        as_of: finstack_core::dates::Date,
-    ) -> Result<ValuationResult, PricingError> {
-        // Type-safe downcasting
-        let typed_instrument = instrument
-            .as_any()
-            .downcast_ref::<I>()
-            .ok_or_else(|| PricingError::type_mismatch(self.instrument_type, instrument.key()))?;
-
-        // Compute present value using the instrument's unified value method
-        let pv = typed_instrument
-            .value(market, as_of)
-            .map_err(|e| PricingError::model_failure(e.to_string()))?;
-
-        // Return stamped result
-        Ok(ValuationResult::stamped(typed_instrument.id(), as_of, pv))
-    }
-}
-
-// Removed per-instrument constructors; use GenericDiscountingPricer::<I>::new()
-
-// Special case for CDS which uses HazardRate model
-impl GenericInstrumentPricer<crate::instruments::CreditDefaultSwap> {
-    /// Create a CDS hazard rate pricer.
-    pub fn cds() -> Self {
-        Self::new(InstrumentType::CDS, ModelKey::HazardRate)
-    }
-}
-
-// ============================================================================
-// TRS Pricing Engine
-// ============================================================================
+//! This module provides shared pricing infrastructure for equity and fixed income
+//! total return swaps. It separates the common period iteration and discounting
+//! logic from underlying-specific return calculations.
+//!
+//! # Architecture
+//!
+//! The TRS pricing engine uses a trait-based approach:
+//! - [`TrsReturnModel`]: Trait for underlying-specific return calculations
+//! - [`TrsEngine`]: Shared pricing logic for all TRS types
+//!
+//! This allows equity TRS and fixed income TRS to share the common infrastructure
+//! while implementing their own return calculation logic.
 
 use crate::instruments::common::parameters::legs::FinancingLegSpec;
 use crate::instruments::common::parameters::trs_common::TrsScheduleSpec;
 use finstack_core::dates::{Date, DayCountCtx};
+use finstack_core::market_data::context::MarketContext;
 use finstack_core::money::Money;
+
+/// Minimum threshold for annuity values to avoid divide-by-zero in par spread calculations.
+///
+/// Set to 1e-12 to catch scenarios where all periods have expired or the annuity
+/// is effectively zero due to extreme discounting.
+pub const TRS_ANNUITY_EPSILON: f64 = 1e-12;
 
 /// Parameters for total return leg calculation.
 #[derive(Debug, Clone)]
@@ -180,6 +44,42 @@ pub struct TotalReturnLegParams<'a> {
 ///
 /// Implementations of this trait provide the logic for calculating
 /// total returns over a period for different underlying types (equity vs fixed income).
+///
+/// # Return Value Contract
+///
+/// Implementations **must** return:
+/// - **Finite values**: Returns must be finite (`is_finite() == true`). NaN or Inf values
+///   will propagate through PV calculations and break determinism guarantees.
+/// - **Reasonable bounds**: While there's no hard limit, returns outside [-1.0, 10.0] per period
+///   are unusual and may indicate a bug. Returns below -1.0 imply more than 100% loss.
+///
+/// # Example Implementation
+///
+/// ```rust,ignore
+/// impl TrsReturnModel for EquityReturn {
+///     fn period_return(
+///         &self,
+///         period_start: Date,
+///         period_end: Date,
+///         t_start: f64,
+///         t_end: f64,
+///         initial_level: f64,
+///         context: &MarketContext,
+///     ) -> finstack_core::Result<f64> {
+///         let start_price = context.get_equity_spot(self.ticker, t_start)?;
+///         let end_price = context.get_equity_spot(self.ticker, t_end)?;
+///         
+///         // Return as decimal (e.g., 0.05 for 5% return)
+///         let ret = (end_price - start_price) / initial_level;
+///         
+///         // Validate return is reasonable
+///         if !ret.is_finite() {
+///             return Err(Error::Validation("Non-finite return".into()));
+///         }
+///         Ok(ret)
+///     }
+/// }
+/// ```
 pub trait TrsReturnModel {
     /// Computes total return over a period given times from as_of and initial level.
     ///
@@ -192,7 +92,14 @@ pub trait TrsReturnModel {
     /// * `context` — Market context for data access
     ///
     /// # Returns
+    ///
     /// Total return as a decimal (e.g., 0.05 for 5% return).
+    ///
+    /// # Contract
+    ///
+    /// - Return value **must** be finite
+    /// - Return value **should** be in a reasonable range (typically -1.0 to 10.0 per period)
+    /// - Implementations should return an error rather than returning NaN/Inf
     fn period_return(
         &self,
         period_start: Date,
@@ -266,6 +173,14 @@ impl TrsEngine {
                 params.initial_level.unwrap_or(1.0),
                 context,
             )?;
+
+            // Validate return is finite (defensive check on model output)
+            if !total_return.is_finite() {
+                return Err(finstack_core::error::Error::Validation(format!(
+                    "TRS return model produced non-finite return ({}) for period {} to {}",
+                    total_return, period_start, period_end
+                )));
+            }
 
             // Payment amount
             let payment = params.notional.amount() * total_return * params.contract_size;
@@ -353,6 +268,14 @@ impl TrsEngine {
     ///
     /// # Returns
     /// Financing annuity (sum of discounted year fractions × notional).
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if the computed annuity is below [`TRS_ANNUITY_EPSILON`] (1e-12),
+    /// which would cause divide-by-zero in downstream par spread calculations.
+    /// This typically occurs when:
+    /// - All periods have already expired (payment dates before as_of)
+    /// - Extreme discounting scenarios with very high rates
     pub fn financing_annuity(
         financing: &FinancingLegSpec,
         schedule: &TrsScheduleSpec,
@@ -388,7 +311,19 @@ impl TrsEngine {
             annuity += df * yf;
         }
 
-        Ok(annuity * notional.amount())
+        let result = annuity * notional.amount();
+
+        // Guard against zero/near-zero annuity to prevent divide-by-zero in par spread calculations
+        if result.abs() < TRS_ANNUITY_EPSILON {
+            return Err(finstack_core::error::Error::Validation(format!(
+                "Financing annuity ({:.2e}) is below minimum threshold ({:.2e}). \
+                 This may indicate all periods have expired or extreme discounting scenarios. \
+                 Cannot compute par spread with near-zero annuity.",
+                result, TRS_ANNUITY_EPSILON
+            )));
+        }
+
+        Ok(result)
     }
 }
 
@@ -397,19 +332,19 @@ mod tests {
     use super::*;
 
     #[test]
-    fn test_generic_pricer_keys() {
-        let bond_pricer =
-            GenericDiscountingPricer::<crate::instruments::Bond>::new(InstrumentType::Bond);
-        assert_eq!(
-            bond_pricer.key(),
-            PricerKey::new(InstrumentType::Bond, ModelKey::Discounting)
-        );
+    fn test_trs_annuity_epsilon_is_reasonable() {
+        // Verify the threshold catches near-zero but allows reasonable values
+        let eps = TRS_ANNUITY_EPSILON;
+        assert!(eps > 0.0, "TRS_ANNUITY_EPSILON should be positive");
+        assert!(eps < 1e-10, "TRS_ANNUITY_EPSILON should be small");
 
-        let deposit_pricer =
-            GenericDiscountingPricer::<crate::instruments::Deposit>::new(InstrumentType::Deposit);
-        assert_eq!(
-            deposit_pricer.key(),
-            PricerKey::new(InstrumentType::Deposit, ModelKey::Discounting)
+        // A typical annuity for a 1-year quarterly swap with $1M notional would be
+        // roughly 0.25 * 4 * 1M * 0.95 = 950,000, which is well above epsilon
+        let typical_annuity = 950_000.0;
+        assert!(
+            typical_annuity > eps,
+            "Typical annuity should be above threshold"
         );
     }
 }
+

@@ -401,17 +401,17 @@ impl InterestRateSwap {
             .collect();
 
         // Build floating leg params using shared type
-        let params = FloatingLegParams {
-            spread_bp: self.float.spread_bp,
-            gearing: 1.0,
-            gearing_includes_spread: true,
-            payment_delay_days: self.float.payment_delay_days,
-            calendar_id: self.float.calendar_id.clone(),
-            index_floor_bp: None,
-            index_cap_bp: None,
-            all_in_floor_bp: None,
-            all_in_cap_bp: None,
-        };
+        let params = FloatingLegParams::full(
+            self.float.spread_bp,
+            1.0,   // gearing
+            true,  // gearing_includes_spread
+            None,  // index_floor_bp
+            None,  // index_cap_bp
+            None,  // all_in_floor_bp
+            None,  // all_in_cap_bp
+            self.float.payment_delay_days,
+            self.float.calendar_id.clone(),
+        );
 
         // Use shared pricing function
         crate::instruments::common::pricing::swap_legs::pv_floating_leg(

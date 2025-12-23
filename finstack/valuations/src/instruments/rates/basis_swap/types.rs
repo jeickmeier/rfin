@@ -315,17 +315,17 @@ impl BasisSwap {
         }
 
         // Build floating leg params - spread is in decimal form for BasisSwap
-        let params = FloatingLegParams {
-            spread_bp: leg.spread * 10000.0, // Convert decimal to bp for shared function
-            gearing: 1.0,
-            gearing_includes_spread: true,
-            payment_delay_days: leg.payment_lag_days,
-            calendar_id: self.calendar_id.clone(),
-            index_floor_bp: None,
-            index_cap_bp: None,
-            all_in_floor_bp: None,
-            all_in_cap_bp: None,
-        };
+        let params = FloatingLegParams::full(
+            leg.spread * 10000.0, // spread_bp - convert decimal to bp for shared function
+            1.0,                  // gearing
+            true,                 // gearing_includes_spread
+            None,                 // index_floor_bp
+            None,                 // index_cap_bp
+            None,                 // all_in_floor_bp
+            None,                 // all_in_cap_bp
+            leg.payment_lag_days, // payment_delay_days
+            self.calendar_id.clone(),
+        );
 
         // Use shared pricing function
         let pv = crate::instruments::common::pricing::swap_legs::pv_floating_leg(

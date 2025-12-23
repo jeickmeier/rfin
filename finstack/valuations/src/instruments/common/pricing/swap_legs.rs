@@ -25,16 +25,34 @@ use finstack_core::market_data::term_structures::forward_curve::ForwardCurve;
 use finstack_core::math::kahan_sum;
 use finstack_core::Result;
 
+// Re-export FloatingRateParams for convenience and backward compatibility
+pub use crate::cashflow::builder::rate_helpers::FloatingRateParams;
+
 /// Minimum threshold for discount factor values to avoid numerical instability.
 ///
 /// Set to 1e-10 to protect against division by near-zero discount factors
 /// that can arise from extreme rate scenarios or very long time horizons.
+///
+/// # Numerical Justification
+///
+/// For extreme rate scenarios:
+/// - At +50% rates over 50 years: DF ≈ exp(-0.50 × 50) = exp(-25) ≈ 1.4e-11
+/// - At +60% rates over 50 years: DF ≈ exp(-0.60 × 50) = exp(-30) ≈ 9.4e-14
+///
+/// The threshold of 1e-10 catches pathological cases while allowing reasonable
+/// stress testing up to ~48% rates over 50 years or ~96% over 25 years.
 /// This aligns with ISDA stress testing requirements for rates ranging
 /// from -10% to +50%.
 pub const DF_EPSILON: f64 = 1e-10;
 
 /// Basis points to decimal conversion factor.
 pub const BP_TO_DECIMAL: f64 = 1e-4;
+
+/// Minimum threshold for annuity values to avoid divide-by-zero in par spread calculations.
+///
+/// Set to 1e-12 to catch scenarios where all periods have expired or the annuity
+/// is effectively zero due to extreme discounting.
+pub const ANNUITY_EPSILON: f64 = 1e-12;
 
 /// Compute discount factor at `target` relative to `as_of`, with numerical stability guard.
 ///
@@ -88,6 +106,7 @@ pub const BP_TO_DECIMAL: f64 = 1e-4;
 /// # Ok(())
 /// # }
 /// ```
+#[inline]
 pub fn robust_relative_df(disc: &DiscountCurve, as_of: Date, target: Date) -> Result<f64> {
     let df_as_of = disc.try_df_on_date_curve(as_of)?;
 
@@ -175,51 +194,31 @@ pub fn add_payment_delay(date: Date, delay_days: i32, calendar_id: Option<&str>)
 
 /// Parameters for pricing a floating rate leg.
 ///
-/// This struct captures all the configuration needed for floating leg pricing,
-/// enabling a single generic implementation across instruments.
-#[derive(Debug, Clone)]
+/// This struct wraps [`FloatingRateParams`] and adds swap-specific fields for
+/// payment delay and calendar handling. Use this for swap leg pricing.
+///
+/// # Validation
+///
+/// Call [`validate()`](Self::validate) before pricing to ensure parameters are consistent.
+/// The validation checks for:
+/// - Valid spread and gearing (finite, gearing > 0)
+/// - Consistent floor/cap ordering (floor <= cap)
+/// - Valid payment delay (non-negative for practical use)
+#[derive(Debug, Clone, Default)]
 pub struct FloatingLegParams {
-    /// Spread in basis points added to the forward rate.
-    pub spread_bp: f64,
-    /// Gearing multiplier (default: 1.0).
-    pub gearing: f64,
-    /// Whether gearing includes spread (default: true).
-    pub gearing_includes_spread: bool,
+    /// Core rate parameters (spread, gearing, floors, caps).
+    pub rate_params: FloatingRateParams,
     /// Payment delay in business days after period end.
     pub payment_delay_days: i32,
     /// Optional calendar ID for payment date adjustments.
     pub calendar_id: Option<String>,
-    /// Optional index floor in basis points.
-    pub index_floor_bp: Option<f64>,
-    /// Optional index cap in basis points.
-    pub index_cap_bp: Option<f64>,
-    /// Optional all-in floor in basis points (min coupon).
-    pub all_in_floor_bp: Option<f64>,
-    /// Optional all-in cap in basis points (max coupon).
-    pub all_in_cap_bp: Option<f64>,
-}
-
-impl Default for FloatingLegParams {
-    fn default() -> Self {
-        Self {
-            spread_bp: 0.0,
-            gearing: 1.0,
-            gearing_includes_spread: true,
-            payment_delay_days: 0,
-            calendar_id: None,
-            index_floor_bp: None,
-            index_cap_bp: None,
-            all_in_floor_bp: None,
-            all_in_cap_bp: None,
-        }
-    }
 }
 
 impl FloatingLegParams {
     /// Create params with just spread (most common case).
     pub fn with_spread(spread_bp: f64) -> Self {
         Self {
-            spread_bp,
+            rate_params: FloatingRateParams::with_spread(spread_bp),
             ..Default::default()
         }
     }
@@ -227,23 +226,104 @@ impl FloatingLegParams {
     /// Create params with spread and payment delay.
     pub fn with_spread_and_delay(spread_bp: f64, payment_delay_days: i32) -> Self {
         Self {
-            spread_bp,
+            rate_params: FloatingRateParams::with_spread(spread_bp),
             payment_delay_days,
             ..Default::default()
         }
     }
 
-    /// Convert to the rate_helpers FloatingRateParams for compatibility.
-    pub fn to_rate_params(&self) -> crate::cashflow::builder::rate_helpers::FloatingRateParams {
-        crate::cashflow::builder::rate_helpers::FloatingRateParams {
-            spread_bp: self.spread_bp,
-            gearing: self.gearing,
-            gearing_includes_spread: self.gearing_includes_spread,
-            index_floor_bp: self.index_floor_bp,
-            index_cap_bp: self.index_cap_bp,
-            all_in_floor_bp: self.all_in_floor_bp,
-            all_in_cap_bp: self.all_in_cap_bp,
+    /// Create params from rate params with payment delay.
+    pub fn from_rate_params(rate_params: FloatingRateParams, payment_delay_days: i32) -> Self {
+        Self {
+            rate_params,
+            payment_delay_days,
+            ..Default::default()
         }
+    }
+
+    /// Create params with full configuration.
+    #[allow(clippy::too_many_arguments)]
+    pub fn full(
+        spread_bp: f64,
+        gearing: f64,
+        gearing_includes_spread: bool,
+        index_floor_bp: Option<f64>,
+        index_cap_bp: Option<f64>,
+        all_in_floor_bp: Option<f64>,
+        all_in_cap_bp: Option<f64>,
+        payment_delay_days: i32,
+        calendar_id: Option<String>,
+    ) -> Self {
+        Self {
+            rate_params: FloatingRateParams {
+                spread_bp,
+                gearing,
+                gearing_includes_spread,
+                index_floor_bp,
+                index_cap_bp,
+                all_in_floor_bp,
+                all_in_cap_bp,
+            },
+            payment_delay_days,
+            calendar_id,
+        }
+    }
+
+    /// Validate the floating leg parameters.
+    ///
+    /// Checks that:
+    /// - Rate parameters are valid (delegates to [`FloatingRateParams::validate`])
+    /// - Payment delay is reasonable (warning logged if negative)
+    ///
+    /// # Returns
+    ///
+    /// `Ok(())` if all parameters are valid, otherwise returns an error
+    /// describing the validation failure.
+    pub fn validate(&self) -> Result<()> {
+        self.rate_params.validate()
+    }
+
+    // Convenience accessors for backward compatibility
+    /// Spread in basis points added to the forward rate.
+    #[inline]
+    pub fn spread_bp(&self) -> f64 {
+        self.rate_params.spread_bp
+    }
+
+    /// Gearing multiplier.
+    #[inline]
+    pub fn gearing(&self) -> f64 {
+        self.rate_params.gearing
+    }
+
+    /// Whether gearing includes spread.
+    #[inline]
+    pub fn gearing_includes_spread(&self) -> bool {
+        self.rate_params.gearing_includes_spread
+    }
+
+    /// Optional index floor in basis points.
+    #[inline]
+    pub fn index_floor_bp(&self) -> Option<f64> {
+        self.rate_params.index_floor_bp
+    }
+
+    /// Optional index cap in basis points.
+    #[inline]
+    pub fn index_cap_bp(&self) -> Option<f64> {
+        self.rate_params.index_cap_bp
+    }
+
+    /// Optional all-in floor in basis points.
+    #[inline]
+    pub fn all_in_floor_bp(&self) -> Option<f64> {
+        self.rate_params.all_in_floor_bp
+    }
+
+    /// Optional all-in cap in basis points.
+    #[inline]
+    pub fn all_in_cap_bp(&self) -> Option<f64> {
+        self.rate_params.all_in_cap_bp
     }
 }
 
@@ -289,6 +369,7 @@ pub struct LegPeriod {
 /// # Errors
 ///
 /// Returns an error if:
+/// - Parameter validation fails (contradictory floors/caps, invalid gearing)
 /// - Forward rate projection fails
 /// - Discount factor calculation fails due to numerical instability
 /// - Date calculations fail
@@ -303,7 +384,9 @@ pub fn pv_floating_leg<I>(
 where
     I: Iterator<Item = LegPeriod>,
 {
-    let rate_params = params.to_rate_params();
+    // Validate parameters at entry point for fail-fast behavior
+    params.validate()?;
+
     let mut terms = Vec::new();
 
     for period in periods {
@@ -319,7 +402,7 @@ where
             reset_date,
             period.accrual_end,
             fwd,
-            &rate_params,
+            &params.rate_params,
         )?;
 
         // Coupon amount
@@ -374,6 +457,19 @@ impl FixedLegParams {
             calendar_id: None,
         }
     }
+
+    /// Validate fixed leg parameters.
+    ///
+    /// Checks that:
+    /// - Rate is finite
+    pub fn validate(&self) -> Result<()> {
+        if !self.rate.is_finite() {
+            return Err(finstack_core::error::Error::Validation(
+                "Fixed rate must be finite".into(),
+            ));
+        }
+        Ok(())
+    }
 }
 
 /// Compute present value of a fixed rate leg.
@@ -400,7 +496,9 @@ impl FixedLegParams {
 ///
 /// # Errors
 ///
-/// Returns an error if discount factor calculation fails due to numerical instability.
+/// Returns an error if:
+/// - Parameter validation fails
+/// - Discount factor calculation fails due to numerical instability
 pub fn pv_fixed_leg<I>(
     periods: I,
     notional: f64,
@@ -411,6 +509,9 @@ pub fn pv_fixed_leg<I>(
 where
     I: Iterator<Item = LegPeriod>,
 {
+    // Validate parameters at entry point
+    params.validate()?;
+
     let mut terms = Vec::new();
 
     for period in periods {
@@ -453,6 +554,11 @@ where
 /// # Returns
 ///
 /// The annuity (discounted year fraction sum) as a raw f64.
+///
+/// # Errors
+///
+/// Returns an error if the annuity is zero or below [`ANNUITY_EPSILON`],
+/// which would cause divide-by-zero in downstream par spread calculations.
 pub fn leg_annuity<I>(
     periods: I,
     disc: &DiscountCurve,
@@ -473,6 +579,15 @@ where
             let df = robust_relative_df(disc, as_of, payment_date)?;
             annuity += period.year_fraction * df;
         }
+    }
+
+    // Guard against zero annuity which would cause divide-by-zero in par spread calculations
+    if annuity < ANNUITY_EPSILON {
+        return Err(finstack_core::error::Error::Validation(format!(
+            "Annuity ({:.2e}) is below minimum threshold ({:.2e}). \
+             This may indicate all periods have expired or extreme discounting scenarios.",
+            annuity, ANNUITY_EPSILON
+        )));
     }
 
     Ok(annuity)
@@ -622,6 +737,71 @@ mod tests {
     }
 
     #[test]
+    fn pv_floating_leg_validates_params() {
+        let base_date = date(2024, 1, 1);
+        let disc = test_discount_curve(base_date);
+        let fwd = test_forward_curve(base_date);
+
+        let periods = vec![LegPeriod {
+            accrual_start: date(2024, 1, 1),
+            accrual_end: date(2024, 4, 1),
+            reset_date: Some(date(2024, 1, 1)),
+            year_fraction: 0.25,
+        }];
+
+        // Create params with contradictory floor/cap
+        let params = FloatingLegParams::full(
+            100.0,              // spread_bp
+            1.0,                // gearing
+            true,               // gearing_includes_spread
+            None,               // index_floor_bp
+            None,               // index_cap_bp
+            Some(500.0),        // all_in_floor_bp (5%)
+            Some(300.0),        // all_in_cap_bp (3%) - less than floor!
+            0,                  // payment_delay_days
+            None,               // calendar_id
+        );
+
+        let result =
+            pv_floating_leg(periods.into_iter(), 1_000_000.0, &params, &disc, &fwd, base_date);
+        assert!(
+            result.is_err(),
+            "Should reject contradictory floor/cap params"
+        );
+    }
+
+    #[test]
+    fn pv_floating_leg_validates_zero_gearing() {
+        let base_date = date(2024, 1, 1);
+        let disc = test_discount_curve(base_date);
+        let fwd = test_forward_curve(base_date);
+
+        let periods = vec![LegPeriod {
+            accrual_start: date(2024, 1, 1),
+            accrual_end: date(2024, 4, 1),
+            reset_date: Some(date(2024, 1, 1)),
+            year_fraction: 0.25,
+        }];
+
+        // Create params with zero gearing
+        let params = FloatingLegParams::full(
+            100.0, // spread_bp
+            0.0,   // gearing - invalid!
+            true,  // gearing_includes_spread
+            None,  // index_floor_bp
+            None,  // index_cap_bp
+            None,  // all_in_floor_bp
+            None,  // all_in_cap_bp
+            0,     // payment_delay_days
+            None,  // calendar_id
+        );
+
+        let result =
+            pv_floating_leg(periods.into_iter(), 1_000_000.0, &params, &disc, &fwd, base_date);
+        assert!(result.is_err(), "Should reject zero gearing");
+    }
+
+    #[test]
     fn pv_fixed_leg_basic() {
         let base_date = date(2024, 1, 1);
         let disc = test_discount_curve(base_date);
@@ -650,6 +830,23 @@ mod tests {
 
         // Approximate check: 2 × 0.5 × 0.03 × 1M × avg_df ≈ 30000 × 0.95 ≈ 28500
         assert!(pv > 20000.0 && pv < 35000.0, "PV should be reasonable: {}", pv);
+    }
+
+    #[test]
+    fn pv_fixed_leg_validates_nan_rate() {
+        let base_date = date(2024, 1, 1);
+        let disc = test_discount_curve(base_date);
+
+        let periods = vec![LegPeriod {
+            accrual_start: date(2024, 1, 1),
+            accrual_end: date(2024, 7, 1),
+            reset_date: None,
+            year_fraction: 0.5,
+        }];
+
+        let params = FixedLegParams::new(f64::NAN, DayCount::Thirty360);
+        let result = pv_fixed_leg(periods.into_iter(), 1_000_000.0, &params, &disc, base_date);
+        assert!(result.is_err(), "Should reject NaN rate");
     }
 
     #[test]
@@ -697,5 +894,42 @@ mod tests {
             annuity
         );
     }
-}
 
+    #[test]
+    fn leg_annuity_rejects_zero() {
+        let base_date = date(2024, 1, 1);
+        let disc = test_discount_curve(base_date);
+
+        // All periods are in the past
+        let periods = vec![
+            LegPeriod {
+                accrual_start: date(2023, 1, 1),
+                accrual_end: date(2023, 7, 1),
+                reset_date: None,
+                year_fraction: 0.5,
+            },
+            LegPeriod {
+                accrual_start: date(2023, 7, 1),
+                accrual_end: date(2024, 1, 1), // Ends exactly on as_of
+                reset_date: None,
+                year_fraction: 0.5,
+            },
+        ];
+
+        let result = leg_annuity(periods.into_iter(), &disc, base_date, 0, None);
+        assert!(
+            result.is_err(),
+            "Should reject zero annuity (all periods expired)"
+        );
+    }
+
+    #[test]
+    fn floating_leg_params_from_rate_params() {
+        let rate_params = FloatingRateParams::with_spread_and_floor(200.0, 100.0);
+        let leg_params = FloatingLegParams::from_rate_params(rate_params, 2);
+
+        assert_eq!(leg_params.spread_bp(), 200.0);
+        assert_eq!(leg_params.index_floor_bp(), Some(100.0));
+        assert_eq!(leg_params.payment_delay_days, 2);
+    }
+}

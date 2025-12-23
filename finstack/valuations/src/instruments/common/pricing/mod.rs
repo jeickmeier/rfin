@@ -5,12 +5,18 @@
 //!
 //! ## Sub-modules
 //!
-//! - [`core`]: Generic pricers and TRS pricing engine
+//! - [`generic`]: Generic pricers for instruments implementing the Instrument trait
+//! - [`trs`]: Total Return Swap pricing engine
 //! - [`swap_legs`]: Shared floating/fixed leg pricing for swaps
 
-mod core;
+mod generic;
 pub mod swap_legs;
+mod trs;
 
-// Re-export everything from core for backward compatibility
-pub use self::core::*;
+// Re-export generic pricer types
+pub use generic::{
+    GenericDiscountingPricer, GenericInstrumentPricer, HasDiscountCurve, HasForwardCurves,
+};
 
+// Re-export TRS types
+pub use trs::{TotalReturnLegParams, TrsEngine, TrsReturnModel, TRS_ANNUITY_EPSILON};
