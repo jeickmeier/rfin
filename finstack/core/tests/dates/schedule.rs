@@ -438,8 +438,9 @@ fn test_cds_imm_schedule_basic() {
 #[test]
 fn test_imm_vs_cds_imm_difference() {
     // Verify that IMM and CDS IMM produce different dates
+    // Use end date on a CDS roll date to avoid short back stub
     let start = make_date(2025, 1, 15);
-    let end = make_date(2025, 6, 30);
+    let end = make_date(2025, 6, 20); // Exactly on CDS roll date
 
     let imm_dates: Vec<_> = ScheduleBuilder::new(start, end)
         .imm()

@@ -461,6 +461,42 @@ fn is_imm_roll_date(date: Date) -> bool {
     crate::dates::imm::is_imm_date(date)
 }
 
+/// Generate IMM dates (third Wednesday of Mar/Jun/Sep/Dec) within the given range.
+///
+/// Unlike regular schedule generation which adds fixed intervals, this function
+/// computes the actual third Wednesday of each quarterly month to handle the
+/// variable day-of-month correctly.
+fn generate_imm_dates(start: Date, end: Date) -> Vec<Date> {
+    let mut dates = Vec::new();
+
+    // Find the first IMM date on or after start
+    let first_imm = if is_imm_roll_date(start) {
+        start
+    } else {
+        next_imm(start)
+    };
+
+    // If first IMM is already past end, return empty
+    if first_imm > end {
+        return dates;
+    }
+
+    dates.push(first_imm);
+
+    // Keep adding IMM dates until we exceed end
+    let mut current = first_imm;
+    loop {
+        let next = next_imm(current);
+        if next > end {
+            break;
+        }
+        dates.push(next);
+        current = next;
+    }
+
+    dates
+}
+
 /// Fluent builder for constructing date schedules with full configurability.
 ///
 /// Provides a type-safe, fluent API for generating payment/coupon schedules
@@ -473,7 +509,8 @@ fn is_imm_roll_date(date: Date) -> bool {
 /// - **Stub handling**: Short/long stubs at front or back
 /// - **Business day adjustment**: Following, Modified Following, Preceding
 /// - **End-of-month**: Snap to last day of month for month-based frequencies
-/// - **CDS IMM mode**: Standard CDS quarterly schedule (auto-adjusts start)
+/// - **IMM mode**: Standard IMM quarterly schedule (third Wednesday of Mar/Jun/Sep/Dec)
+/// - **CDS IMM mode**: CDS quarterly schedule (20th of Mar/Jun/Sep/Dec)
 ///
 /// # Construction Flow
 ///
@@ -518,7 +555,7 @@ fn is_imm_roll_date(date: Date) -> bool {
 /// # }
 /// ```
 ///
-/// CDS IMM schedule:
+/// CDS IMM schedule (credit default swaps):
 /// ```rust
 /// use finstack_core::dates::ScheduleBuilder;
 /// use time::{Date, Month};
@@ -529,6 +566,21 @@ fn is_imm_roll_date(date: Date) -> bool {
 /// let schedule = ScheduleBuilder::new(start, end)
 ///     .cds_imm()  // Quarterly on 20-Mar/Jun/Sep/Dec
 ///     .build()?;
+/// # Ok::<(), Box<dyn std::error::Error>>(())
+/// ```
+///
+/// Standard IMM schedule (futures):
+/// ```rust
+/// use finstack_core::dates::ScheduleBuilder;
+/// use time::{Date, Month};
+///
+/// let start = Date::from_calendar_date(2025, Month::January, 15)?;
+/// let end = Date::from_calendar_date(2025, Month::December, 31)?;
+///
+/// let schedule = ScheduleBuilder::new(start, end)
+///     .imm()  // Quarterly on third Wednesday of Mar/Jun/Sep/Dec
+///     .build()?;
+/// // Generates: Mar-19, Jun-18, Sep-17, Dec-17 (2025 third Wednesdays)
 /// # Ok::<(), Box<dyn std::error::Error>>(())
 /// ```
 ///
@@ -882,15 +934,10 @@ impl<'a> ScheduleBuilder<'a> {
                 self.cal
             };
 
-        // Apply IMM or CDS IMM start adjustment if requested
-        let (start, end) = if self.imm_mode {
-            // Standard IMM: third Wednesday of quarterly months
-            let adj_start = if is_imm_roll_date(self.start) {
-                self.start
-            } else {
-                next_imm(self.start)
-            };
-            (adj_start, self.end)
+        // Generate dates based on mode
+        let mut dates = if self.imm_mode {
+            // Standard IMM: generate dates using next_imm to get proper third Wednesdays
+            generate_imm_dates(self.start, self.end)
         } else if self.cds_imm_mode {
             // CDS IMM: 20th of quarterly months
             let adj_start = if is_cds_roll_date(self.start) {
@@ -898,20 +945,25 @@ impl<'a> ScheduleBuilder<'a> {
             } else {
                 next_cds_date(self.start)
             };
-            (adj_start, self.end)
+
+            let builder = BuilderInternal {
+                start: adj_start,
+                end: self.end,
+                freq: self.freq,
+                stub: self.stub,
+                eom: self.eom,
+            };
+            builder.generate()
         } else {
-            (self.start, self.end)
+            let builder = BuilderInternal {
+                start: self.start,
+                end: self.end,
+                freq: self.freq,
+                stub: self.stub,
+                eom: self.eom,
+            };
+            builder.generate()
         };
-
-        let builder = BuilderInternal {
-            start,
-            end,
-            freq: self.freq,
-            stub: self.stub,
-            eom: self.eom,
-        };
-
-        let mut dates = builder.generate();
 
         // Enforce monotonicity and remove duplicates produced by EOM/stub handling
         enforce_monotonic_and_dedup(&mut dates);
