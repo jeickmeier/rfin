@@ -6,7 +6,11 @@ use finstack_core::money::Money;
 use finstack_core::types::CurveId;
 use finstack_valuations::cashflow::primitives::CFKind;
 use finstack_valuations::cashflow::traits::CashflowProvider;
-use finstack_valuations::instruments::term_loan::{self, DdtlSpec, DrawEvent, OidPolicy, TermLoan};
+use finstack_valuations::instruments::common::traits::Instrument;
+use finstack_valuations::instruments::term_loan::{
+    self, CommitmentStepDown, DdtlSpec, DrawEvent, OidEirSpec, OidPolicy, TermLoan,
+};
+use finstack_valuations::metrics::MetricId;
 use finstack_valuations::pricer::Pricer;
 
 fn mc() -> MarketContext {
@@ -83,6 +87,197 @@ fn term_loan_fixed_with_draws_and_fees() {
         assert!(cf.date >= last);
         last = cf.date;
     }
+}
+
+#[test]
+fn term_loan_commitment_fee_step_downs() {
+    let issue = Date::from_calendar_date(2025, time::Month::January, 1).unwrap();
+    let step_down = Date::from_calendar_date(2025, time::Month::July, 1).unwrap();
+    let availability_end = Date::from_calendar_date(2026, time::Month::January, 1).unwrap();
+    let maturity = Date::from_calendar_date(2027, time::Month::January, 1).unwrap();
+
+    let loan = TermLoan::builder()
+        .id("TL-STEPDOWN".into())
+        .currency(Currency::USD)
+        .notional_limit(Money::new(10_000_000.0, Currency::USD))
+        .issue(issue)
+        .maturity(maturity)
+        .rate(term_loan::types::RateSpec::Fixed { rate_bp: 700 })
+        .pay_freq(Tenor::quarterly())
+        .day_count(DayCount::Act360)
+        .bdc(finstack_core::dates::BusinessDayConvention::ModifiedFollowing)
+        .calendar_id_opt(None)
+        .stub(finstack_core::dates::StubKind::None)
+        .discount_curve_id(CurveId::from("USD-OIS"))
+        .amortization(term_loan::AmortizationSpec::None)
+        .coupon_type(finstack_valuations::cashflow::builder::specs::CouponType::Cash)
+        .upfront_fee_opt(None)
+        .ddtl_opt(Some(DdtlSpec {
+            commitment_limit: Money::new(10_000_000.0, Currency::USD),
+            availability_start: issue,
+            availability_end,
+            draws: vec![],
+            commitment_step_downs: vec![CommitmentStepDown {
+                date: step_down,
+                new_limit: Money::new(5_000_000.0, Currency::USD),
+            }],
+            usage_fee_bp: 0,
+            commitment_fee_bp: 100,
+            fee_base: term_loan::CommitmentFeeBase::Undrawn,
+            oid_policy: None,
+        }))
+        .covenants_opt(None)
+        .pricing_overrides(Default::default())
+        .attributes(Default::default())
+        .build()
+        .unwrap();
+
+    let sched = loan.build_full_schedule(&mc(), issue).unwrap();
+    let fees: Vec<_> = sched.flows.iter().filter(|cf| cf.kind == CFKind::Fee).collect();
+    assert!(!fees.is_empty());
+
+    let before = fees
+        .iter()
+        .filter(|cf| cf.date < step_down)
+        .map(|cf| cf.amount.amount())
+        .next()
+        .expect("fee before step-down");
+    let after = fees
+        .iter()
+        .filter(|cf| cf.date > step_down)
+        .map(|cf| cf.amount.amount())
+        .next()
+        .expect("fee after step-down");
+
+    let ratio = after / before;
+    assert!(ratio > 0.4 && ratio < 0.6, "fee ratio: {}", ratio);
+}
+
+#[test]
+fn term_loan_commitment_fee_windowed_to_availability() {
+    let issue = Date::from_calendar_date(2025, time::Month::January, 1).unwrap();
+    let availability_end = Date::from_calendar_date(2025, time::Month::July, 1).unwrap();
+    let maturity = Date::from_calendar_date(2026, time::Month::January, 1).unwrap();
+
+    let loan = TermLoan::builder()
+        .id("TL-WINDOW".into())
+        .currency(Currency::USD)
+        .notional_limit(Money::new(10_000_000.0, Currency::USD))
+        .issue(issue)
+        .maturity(maturity)
+        .rate(term_loan::types::RateSpec::Fixed { rate_bp: 650 })
+        .pay_freq(Tenor::quarterly())
+        .day_count(DayCount::Act360)
+        .bdc(finstack_core::dates::BusinessDayConvention::ModifiedFollowing)
+        .calendar_id_opt(None)
+        .stub(finstack_core::dates::StubKind::None)
+        .discount_curve_id(CurveId::from("USD-OIS"))
+        .amortization(term_loan::AmortizationSpec::None)
+        .coupon_type(finstack_valuations::cashflow::builder::specs::CouponType::Cash)
+        .upfront_fee_opt(None)
+        .ddtl_opt(Some(DdtlSpec {
+            commitment_limit: Money::new(10_000_000.0, Currency::USD),
+            availability_start: issue,
+            availability_end,
+            draws: vec![],
+            commitment_step_downs: vec![],
+            usage_fee_bp: 0,
+            commitment_fee_bp: 50,
+            fee_base: term_loan::CommitmentFeeBase::Undrawn,
+            oid_policy: None,
+        }))
+        .covenants_opt(None)
+        .pricing_overrides(Default::default())
+        .attributes(Default::default())
+        .build()
+        .unwrap();
+
+    let sched = loan.build_full_schedule(&mc(), issue).unwrap();
+    let fee_dates: Vec<_> = sched
+        .flows
+        .iter()
+        .filter(|cf| cf.kind == CFKind::Fee)
+        .map(|cf| cf.date)
+        .collect();
+    assert!(!fee_dates.is_empty());
+
+    let max_fee_date = fee_dates.iter().max().copied().unwrap();
+    assert!(
+        max_fee_date <= availability_end,
+        "fee after availability window: {} > {}",
+        max_fee_date,
+        availability_end
+    );
+}
+
+#[test]
+fn term_loan_oid_eir_amortization_schedule() {
+    let issue = Date::from_calendar_date(2025, time::Month::January, 1).unwrap();
+    let maturity = Date::from_calendar_date(2027, time::Month::January, 1).unwrap();
+
+    let loan = TermLoan::builder()
+        .id("TL-OID-EIR".into())
+        .currency(Currency::USD)
+        .notional_limit(Money::new(1_000_000.0, Currency::USD))
+        .issue(issue)
+        .maturity(maturity)
+        .rate(term_loan::types::RateSpec::Fixed { rate_bp: 500 })
+        .pay_freq(Tenor::quarterly())
+        .day_count(DayCount::Act360)
+        .bdc(finstack_core::dates::BusinessDayConvention::ModifiedFollowing)
+        .calendar_id_opt(None)
+        .stub(finstack_core::dates::StubKind::None)
+        .discount_curve_id(CurveId::from("USD-OIS"))
+        .amortization(term_loan::AmortizationSpec::None)
+        .coupon_type(finstack_valuations::cashflow::builder::specs::CouponType::Cash)
+        .upfront_fee_opt(None)
+        .ddtl_opt(Some(DdtlSpec {
+            commitment_limit: Money::new(1_000_000.0, Currency::USD),
+            availability_start: issue,
+            availability_end: issue,
+            draws: vec![DrawEvent {
+                date: issue,
+                amount: Money::new(1_000_000.0, Currency::USD),
+            }],
+            commitment_step_downs: vec![],
+            usage_fee_bp: 0,
+            commitment_fee_bp: 0,
+            fee_base: term_loan::CommitmentFeeBase::Undrawn,
+            oid_policy: Some(OidPolicy::WithheldPct(200)),
+        }))
+        .covenants_opt(None)
+        .pricing_overrides(Default::default())
+        .oid_eir_opt(Some(OidEirSpec::default()))
+        .attributes(Default::default())
+        .build()
+        .unwrap();
+
+    let market = mc();
+    let result = loan
+        .price_with_metrics(
+            &market,
+            issue,
+            &[MetricId::custom("oid_eir_amortization")],
+        )
+        .unwrap();
+
+    let eir = *result
+        .measures
+        .get("oid_eir_rate")
+        .expect("EIR rate should be reported");
+    assert!(eir > 0.05);
+
+    let total_amort = *result
+        .measures
+        .get("oid_eir_amortization")
+        .expect("amortization total should be reported");
+    assert!(total_amort > 0.0);
+
+    let has_series = result
+        .measures
+        .keys()
+        .any(|k| k.starts_with("oid_eir_amortization::"));
+    assert!(has_series);
 }
 
 #[test]

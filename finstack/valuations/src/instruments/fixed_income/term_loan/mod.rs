@@ -34,7 +34,7 @@
 //! use finstack_core::dates::*;
 //! use finstack_core::types::{InstrumentId, CurveId};
 //! use time::Month;
-//! // Note: `TermLoanSpec -> TermLoan` conversion is not implemented; use the builder or `TermLoan::example()`.
+//! // Convert `TermLoanSpec` to `TermLoan` via `try_into()` when needed.
 //!
 //! # fn example() -> Result<(), Box<dyn std::error::Error>> {
 //! // Fixed-rate bullet term loan
@@ -42,6 +42,7 @@
 //!     id: InstrumentId::new("TL-BULLET-5Y"),
 //!     discount_curve_id: CurveId::new("USD-CREDIT"),
 //!     currency: Currency::USD,
+//!     notional_limit: Some(Money::new(10_000_000.0, Currency::USD)),
 //!     issue: create_date(2025, Month::January, 15)?,
 //!     maturity: create_date(2030, Month::January, 15)?,
 //!     rate: RateSpec::Fixed { rate_bp: 600 },  // 6% fixed
@@ -57,11 +58,12 @@
 //!     covenants: None,
 //!     credit_curve_id: None,
 //!     pricing_overrides: PricingOverrides::default(),
+//!     oid_eir: None,
 //!     call_schedule: None,
 //! };
 //!
-//! let loan = TermLoan::example();
-//! # let _ = (spec, loan);
+//! let loan: TermLoan = spec.try_into()?;
+//! # let _ = loan;
 //! # Ok(())
 //! # }
 //! ```
@@ -83,6 +85,7 @@ pub mod types;
 // Re-export main type
 pub use spec::{
     AmortizationSpec, CashSweepEvent, CommitmentFeeBase, CommitmentStepDown, CovenantSpec,
-    DdtlSpec, DrawEvent, LoanCall, LoanCallSchedule, OidPolicy, PikToggle, TermLoanSpec,
+    DdtlSpec, DrawEvent, LoanCall, LoanCallSchedule, OidEirSpec, OidPolicy, PikToggle,
+    TermLoanSpec,
 };
 pub use types::{RateSpec, TermLoan};

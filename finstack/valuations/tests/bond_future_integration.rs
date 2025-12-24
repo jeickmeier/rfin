@@ -13,7 +13,8 @@ use finstack_core::types::{CurveId, InstrumentId};
 use finstack_valuations::instruments::bond::Bond;
 use finstack_valuations::instruments::bond_future::pricer::BondFuturePricer;
 use finstack_valuations::instruments::bond_future::{BondFuture, DeliverableBond, Position};
-use finstack_valuations::pricer::InstrumentType;
+use finstack_valuations::pricer::{create_standard_registry, InstrumentType, ModelKey};
+use std::sync::Arc;
 use time::macros::date;
 
 // ========================================================================================
@@ -319,6 +320,74 @@ fn test_realistic_ust_10y_future_full_workflow() {
     println!("3.75% bond CF: {:.4}", bond_3_75_cf);
     println!("4.50% bond CF: {:.4}", bond_4_50_cf);
     println!("Standard coupon: 6.00%");
+}
+
+#[test]
+fn test_bond_future_pricer_registry_ctd_npv() {
+    let as_of = date!(2025 - 01 - 15);
+    let expiry = date!(2025 - 03 - 20);
+    let delivery_start = date!(2025 - 03 - 21);
+    let delivery_end = date!(2025 - 03 - 31);
+
+    let ctd_bond = create_ust_bond(
+        "US912828XG33",
+        100_000.0,
+        0.05,
+        date!(2017 - 03 - 15),
+        date!(2033 - 03 - 15),
+    );
+
+    let market = create_realistic_market()
+        .insert_instrument("US912828XG33", Arc::new(ctd_bond.clone()));
+
+    let conversion_factor = BondFuturePricer::calculate_conversion_factor(
+        &ctd_bond,
+        0.06,
+        10.0,
+        &market,
+        delivery_start,
+    )
+    .expect("Failed to calculate conversion factor");
+
+    let basket = vec![DeliverableBond {
+        bond_id: InstrumentId::new("US912828XG33"),
+        conversion_factor,
+    }];
+
+    let future = BondFuture::ust_10y(
+        InstrumentId::new("TYH5"),
+        Money::new(1_000_000.0, Currency::USD),
+        expiry,
+        delivery_start,
+        delivery_end,
+        125.50,
+        Position::Long,
+        basket,
+        InstrumentId::new("US912828XG33"),
+        CurveId::new("USD-TREASURY"),
+    )
+    .expect("Failed to create bond future");
+
+    let registry = create_standard_registry();
+    let result = registry
+        .price_with_registry(&future, ModelKey::Discounting, &market, as_of)
+        .expect("Registry pricing should succeed");
+
+    let expected = BondFuturePricer::calculate_npv(
+        &future,
+        &ctd_bond,
+        conversion_factor,
+        &market,
+        as_of,
+    )
+    .expect("Expected NPV should be computed");
+
+    let diff = (result.value.amount() - expected.amount()).abs();
+    assert!(
+        diff < 1e-8,
+        "Registry pricing should match CTD NPV, diff={}",
+        diff
+    );
 }
 
 #[test]
@@ -1099,12 +1168,8 @@ fn test_bucketed_dv01_registration() {
     // Verify that BucketedDv01 metric is correctly registered for BondFuture
     //
     // NOTE: This test only verifies metric registration, not end-to-end calculation.
-    // Full bucketed DV01 calculation requires BondFuture::value() to work, which in turn
-    // requires an instrument registry in MarketContext to fetch the CTD bond. This is
-    // a known limitation documented in pricer.rs:329.
-    //
-    // The metric implementation itself (UnifiedDv01Calculator with key_rate config) is
-    // correct and will work once the instrument registry is added.
+    // Full bucketed DV01 calculation requires BondFuture::value() to resolve the CTD
+    // bond from the MarketContext instrument registry.
 
     use finstack_valuations::metrics::{standard_registry, MetricId};
 
@@ -1132,7 +1197,4 @@ fn test_bucketed_dv01_registration() {
     println!("  - Uses UnifiedDv01Calculator with key_rate() configuration");
     println!("  - Provides standard IR buckets: 3M, 6M, 1Y, 2Y, 3Y, 5Y, 7Y, 10Y, 15Y, 20Y, 30Y");
     println!("  - Conversion factor scaling is automatic via pricing formula");
-    println!();
-    println!("NOTE: End-to-end calculation requires instrument registry (future enhancement)");
-    println!("      See pricer.rs:329 for details");
 }

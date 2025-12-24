@@ -11,20 +11,18 @@
 //!
 //! Results are stored as a series with labels derived from constituent IDs or tickers.
 //!
-//! # Known Limitations
+//! # Notes
 //!
-//! Currently, `constituent_delta` only fully supports `ConstituentReference::MarketData`.
-//! For `ConstituentReference::Instrument`, returns 0.0 as a placeholder.
-//!
-//! **Workaround**: Convert instrument references to synthetic market data prices
-//! or use the instrument's own greeks directly if available.
-//!
-//! **Future Enhancement**: Will add `price_override` field to `BasketConstituent`
-//! for full support of instrument-based constituents.
+//! Instrument-based constituents are handled by replacing the target constituent
+//! with a synthetic market data price for the bump scenario. This mirrors a direct
+//! price shock without requiring instrument-specific overrides.
 
 use crate::instruments::basket::{Basket, BasketConstituent};
+use crate::instruments::basket::types::{AssetType, ConstituentReference};
 use crate::instruments::common::traits::Instrument;
 use crate::metrics::{MetricCalculator, MetricContext};
+use finstack_core::money::Money;
+use finstack_core::types::{CurveId, PriceId};
 use finstack_core::Result;
 
 /// Standard price bump: 1% (0.01)
@@ -49,13 +47,8 @@ impl MetricCalculator for ConstituentDeltaCalculator {
                 .clone()
                 .unwrap_or_else(|| constituent.id.clone());
 
-            // Get current constituent price
-            let current_price = get_constituent_price_value(basket, constituent, context)?;
-
-            // Bump price up by 1%
-            let bumped_price = current_price * (1.0 + PRICE_BUMP_PCT);
             let delta =
-                bump_and_measure_delta(basket, constituent, bumped_price, context, as_of, base_pv)?;
+                bump_and_measure_delta(basket, constituent, context, as_of, base_pv)?;
 
             series.push((label, delta));
             total_delta += delta;
@@ -71,29 +64,26 @@ impl MetricCalculator for ConstituentDeltaCalculator {
     }
 }
 
-/// Helper to get the price value (amount) of a constituent.
-fn get_constituent_price_value(
-    _basket: &Basket,
+/// Helper to get the price (as Money) of a constituent.
+fn get_constituent_price_money(
+    basket: &Basket,
     constituent: &BasketConstituent,
     context: &MetricContext,
-) -> Result<f64> {
+    as_of: finstack_core::dates::Date,
+) -> Result<Money> {
     match &constituent.reference {
         #[cfg(feature = "serde")]
-        crate::instruments::basket::types::ConstituentReference::Instrument(instr_json) => {
-            // Convert InstrumentJson to boxed instrument and price it
-            let boxed = instr_json.as_ref().clone().into_boxed()?;
-            let price = boxed.value(context.curves.as_ref(), context.as_of)?;
-            Ok(price.amount())
+        ConstituentReference::Instrument(instr_json) => {
+            let price = instrument_price_and_type(instr_json, context, as_of)?.0;
+            Ok(price)
         }
-        crate::instruments::basket::types::ConstituentReference::MarketData {
-            price_id, ..
-        } => {
+        ConstituentReference::MarketData { price_id, .. } => {
             let scalar = context.curves.price(price_id.as_ref())?;
             match scalar {
-                finstack_core::market_data::scalars::MarketScalar::Price(money) => {
-                    Ok(money.amount())
+                finstack_core::market_data::scalars::MarketScalar::Price(money) => Ok(*money),
+                finstack_core::market_data::scalars::MarketScalar::Unitless(v) => {
+                    Ok(Money::new(*v, basket.currency))
                 }
-                finstack_core::market_data::scalars::MarketScalar::Unitless(v) => Ok(*v),
             }
         }
     }
@@ -103,32 +93,35 @@ fn get_constituent_price_value(
 fn bump_and_measure_delta(
     basket: &Basket,
     constituent: &BasketConstituent,
-    bumped_price: f64,
     context: &MetricContext,
     as_of: finstack_core::dates::Date,
     base_pv: f64,
 ) -> Result<f64> {
-    use finstack_core::types::CurveId;
-
-    // Create bumped market context
     let mut bumped_ctx = context.curves.as_ref().clone();
 
-    match &constituent.reference {
-        crate::instruments::basket::types::ConstituentReference::Instrument(_) => {
-            // For instruments, we can't easily bump their internal prices
-            // For now, return 0 - this would require instrument cloning and price override
-            // which is complex. In practice, constituent_delta for instrument references
-            // might need special handling or the instrument itself should expose delta.
-            tracing::warn!(
-                constituent_id = %constituent.id,
-                "Basket ConstituentDelta: Instrument-based constituents not yet supported, returning 0.0"
+    let (current_price, pv_bumped) = match &constituent.reference {
+        #[cfg(feature = "serde")]
+        ConstituentReference::Instrument(instr_json) => {
+            let (price, asset_type) = instrument_price_and_type(instr_json, context, as_of)?;
+            let bumped_price = price.amount() * (1.0 + PRICE_BUMP_PCT);
+            let synthetic_id = synthetic_price_id(basket, constituent);
+
+            bumped_ctx.prices.insert(
+                CurveId::from(synthetic_id.as_ref()),
+                finstack_core::market_data::scalars::MarketScalar::Price(Money::new(
+                    bumped_price,
+                    price.currency(),
+                )),
             );
-            return Ok(0.0);
+
+            let bumped_basket =
+                basket_with_price_reference(basket, constituent, synthetic_id, asset_type);
+            let pv_bumped = bumped_basket.value(&bumped_ctx, as_of)?.amount();
+            (price.amount(), pv_bumped)
         }
-        crate::instruments::basket::types::ConstituentReference::MarketData {
-            price_id, ..
-        } => {
-            // Bump the price scalar
+        ConstituentReference::MarketData { price_id, .. } => {
+            let current_price = get_constituent_price_money(basket, constituent, context, as_of)?;
+            let bumped_price = current_price.amount() * (1.0 + PRICE_BUMP_PCT);
             let current_scalar = bumped_ctx.price(price_id.as_ref())?;
             let new_scalar = match current_scalar {
                 finstack_core::market_data::scalars::MarketScalar::Price(m) => {
@@ -143,16 +136,15 @@ fn bump_and_measure_delta(
             bumped_ctx
                 .prices
                 .insert(CurveId::from(price_id.as_ref()), new_scalar);
-        }
-    }
 
-    // Reprice basket with bumped constituent
-    let pv_bumped = basket.value(&bumped_ctx, as_of)?.amount();
+            let pv_bumped = basket.value(&bumped_ctx, as_of)?.amount();
+            (current_price.amount(), pv_bumped)
+        }
+    };
 
     // Delta = (PV_bumped - PV_base) / bump_size
     // bump_size is the absolute change in price, so we divide by (bumped_price - current_price)
-    let current_price = get_constituent_price_value(basket, constituent, context)?;
-    let bump_size = bumped_price - current_price;
+    let bump_size = current_price * PRICE_BUMP_PCT;
     let delta = if bump_size.abs() > 1e-10 {
         (pv_bumped - base_pv) / bump_size * current_price // Scale to per 1% of price
     } else {
@@ -160,4 +152,124 @@ fn bump_and_measure_delta(
     };
 
     Ok(delta)
+}
+
+#[cfg(feature = "serde")]
+fn instrument_price_and_type(
+    instr_json: &crate::instruments::json_loader::InstrumentJson,
+    context: &MetricContext,
+    as_of: finstack_core::dates::Date,
+) -> Result<(Money, AssetType)> {
+    let boxed = instr_json.clone().into_boxed()?;
+    let price = boxed.value(context.curves.as_ref(), as_of)?;
+    let asset_type = asset_type_for_instrument_key(boxed.key());
+    Ok((price, asset_type))
+}
+
+#[cfg(feature = "serde")]
+fn asset_type_for_instrument_key(key: crate::pricer::InstrumentType) -> AssetType {
+    use crate::pricer::InstrumentType;
+
+    match key {
+        InstrumentType::Equity
+        | InstrumentType::EquityOption
+        | InstrumentType::EquityIndexFuture
+        | InstrumentType::EquityTotalReturnSwap => AssetType::Equity,
+        InstrumentType::Bond
+        | InstrumentType::BondFuture
+        | InstrumentType::InflationLinkedBond
+        | InstrumentType::AgencyMbsPassthrough
+        | InstrumentType::AgencyTba
+        | InstrumentType::AgencyCmo
+        | InstrumentType::Loan
+        | InstrumentType::TermLoan
+        | InstrumentType::RevolvingCredit
+        | InstrumentType::Deposit
+        | InstrumentType::Repo => AssetType::Bond,
+        InstrumentType::CommodityForward | InstrumentType::CommoditySwap => AssetType::Commodity,
+        _ => AssetType::Derivative,
+    }
+}
+
+fn synthetic_price_id(basket: &Basket, constituent: &BasketConstituent) -> PriceId {
+    PriceId::from(format!(
+        "BASKET::{}::{}",
+        basket.id.as_str(),
+        constituent.id
+    ))
+}
+
+fn basket_with_price_reference(
+    basket: &Basket,
+    target: &BasketConstituent,
+    price_id: PriceId,
+    asset_type: AssetType,
+) -> Basket {
+    let mut bumped_basket = basket.clone();
+    if let Some(constituent) = bumped_basket
+        .constituents
+        .iter_mut()
+        .find(|c| c.id == target.id)
+    {
+        constituent.reference = ConstituentReference::MarketData {
+            price_id,
+            asset_type,
+        };
+    }
+    bumped_basket
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::metrics::MetricId;
+    use crate::test_utils::flat_discount;
+    use finstack_core::currency::Currency;
+    use finstack_core::market_data::context::MarketContext;
+    use finstack_core::market_data::scalars::MarketScalar;
+    use finstack_core::money::Money;
+    use std::sync::Arc;
+
+    #[cfg(feature = "serde")]
+    #[test]
+    fn test_constituent_delta_mixed_references() {
+        let as_of = crate::test_utils::date(2024, 1, 2);
+        let market = MarketContext::new()
+            .insert_discount(flat_discount("USD-OIS", as_of, 0.02))
+            .insert_price(
+                "AAPL-SPOT",
+                MarketScalar::Price(Money::new(150.0, Currency::USD)),
+            );
+
+        let basket = Basket::example_with_instruments();
+        let base_value = basket
+            .value(&market, as_of)
+            .expect("base basket value should succeed");
+        let mut context = MetricContext::new(
+            Arc::new(basket),
+            Arc::new(market),
+            as_of,
+            base_value,
+        );
+
+        let calculator = ConstituentDeltaCalculator;
+        let total_delta = calculator
+            .calculate(&mut context)
+            .expect("constituent delta should compute");
+
+        let series = context
+            .computed_series
+            .get(&MetricId::custom("constituent_delta"))
+            .expect("bucketed series should be stored");
+
+        assert_eq!(series.len(), 2);
+        assert!(series.iter().any(|(label, _)| label == "AAPL"));
+        let corp_delta = series
+            .iter()
+            .find(|(label, _)| label == "CORP")
+            .map(|(_, value)| *value)
+            .expect("instrument-based delta should be present");
+        assert!(corp_delta.abs() > 1e-6);
+        assert!(total_delta.abs() >= corp_delta.abs());
+    }
 }

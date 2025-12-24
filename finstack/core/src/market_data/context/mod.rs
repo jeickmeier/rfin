@@ -105,6 +105,9 @@ pub struct MarketContext {
     ///
     /// This enables workflows that need to look up referenced instruments (e.g. CTD bonds in
     /// futures) without the core crate depending on valuation-layer instrument types.
+    ///
+    /// Note: This registry is not serialized in `MarketContextState` because instruments are
+    /// type-erased. Re-register instruments after deserialization.
     pub(super) instruments: HashMap<InstrumentId, Arc<dyn std::any::Any + Send + Sync>>,
 
     /// Historical market scenarios for VaR calculation

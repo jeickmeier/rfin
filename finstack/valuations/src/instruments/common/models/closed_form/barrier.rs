@@ -79,7 +79,7 @@
 //!
 //! - Formulas are numerically stable for typical parameter ranges
 //! - Edge cases handled: zero time, barrier already crossed, extreme strikes
-//! - Rebates (cash paid at barrier crossing) not implemented here
+//! - Rebates paid at expiry are supported via `barrier_rebate_continuous`
 //! - For discrete monitoring in production, apply Broadie-Glasserman-Kou correction
 //!
 //! # Examples
@@ -472,7 +472,107 @@ pub fn barrier_call_continuous(
     }
 }
 
-/// Generic barrier put price (using put-call transformation).
+/// Price a continuous down-and-in put.
+pub fn down_in_put(
+    spot: f64,
+    strike: f64,
+    barrier: f64,
+    time: f64,
+    rate: f64,
+    div_yield: f64,
+    vol: f64,
+) -> f64 {
+    if spot <= barrier {
+        // Already knocked in, price as vanilla put
+        let d1 = ((spot / strike).ln() + (rate - div_yield + 0.5 * vol * vol) * time)
+            / (vol * time.sqrt());
+        let d2 = d1 - vol * time.sqrt();
+        return strike * (-rate * time).exp() * norm_cdf(-d2)
+            - spot * (-div_yield * time).exp() * norm_cdf(-d1);
+    }
+
+    barrier_helper(spot, strike, barrier, time, rate, div_yield, vol, -1.0, -1.0)
+}
+
+/// Price a continuous down-and-out put.
+pub fn down_out_put(
+    spot: f64,
+    strike: f64,
+    barrier: f64,
+    time: f64,
+    rate: f64,
+    div_yield: f64,
+    vol: f64,
+) -> f64 {
+    if spot <= barrier {
+        return 0.0; // Already knocked out
+    }
+
+    // Vanilla put
+    let vanilla = {
+        let d1 = ((spot / strike).ln() + (rate - div_yield + 0.5 * vol * vol) * time)
+            / (vol * time.sqrt());
+        let d2 = d1 - vol * time.sqrt();
+        strike * (-rate * time).exp() * norm_cdf(-d2)
+            - spot * (-div_yield * time).exp() * norm_cdf(-d1)
+    };
+
+    let down_in = barrier_helper(spot, strike, barrier, time, rate, div_yield, vol, -1.0, -1.0);
+
+    vanilla - down_in
+}
+
+/// Price a continuous up-and-in put.
+pub fn up_in_put(
+    spot: f64,
+    strike: f64,
+    barrier: f64,
+    time: f64,
+    rate: f64,
+    div_yield: f64,
+    vol: f64,
+) -> f64 {
+    if spot >= barrier {
+        // Already knocked in, price as vanilla put
+        let d1 = ((spot / strike).ln() + (rate - div_yield + 0.5 * vol * vol) * time)
+            / (vol * time.sqrt());
+        let d2 = d1 - vol * time.sqrt();
+        return strike * (-rate * time).exp() * norm_cdf(-d2)
+            - spot * (-div_yield * time).exp() * norm_cdf(-d1);
+    }
+
+    barrier_helper(spot, strike, barrier, time, rate, div_yield, vol, -1.0, 1.0)
+}
+
+/// Price a continuous up-and-out put.
+pub fn up_out_put(
+    spot: f64,
+    strike: f64,
+    barrier: f64,
+    time: f64,
+    rate: f64,
+    div_yield: f64,
+    vol: f64,
+) -> f64 {
+    if spot >= barrier {
+        return 0.0; // Already knocked out
+    }
+
+    // Vanilla put
+    let vanilla = {
+        let d1 = ((spot / strike).ln() + (rate - div_yield + 0.5 * vol * vol) * time)
+            / (vol * time.sqrt());
+        let d2 = d1 - vol * time.sqrt();
+        strike * (-rate * time).exp() * norm_cdf(-d2)
+            - spot * (-div_yield * time).exp() * norm_cdf(-d1)
+    };
+
+    let up_in = barrier_helper(spot, strike, barrier, time, rate, div_yield, vol, -1.0, 1.0);
+
+    vanilla - up_in
+}
+
+/// Generic barrier put price dispatcher.
 #[allow(clippy::too_many_arguments)]
 pub fn barrier_put_continuous(
     spot: f64,
@@ -481,29 +581,15 @@ pub fn barrier_put_continuous(
     time: f64,
     rate: f64,
     div_yield: f64,
-    _vol: f64,
+    vol: f64,
     barrier_type: BarrierType,
 ) -> f64 {
-    // Put pricing using similar formulas with eta = -1
-    barrier_helper(
-        spot,
-        strike,
-        barrier,
-        time,
-        rate,
-        rate,      // BUG? No, div_yield should be div_yield
-        div_yield, // Wait, argument order in helper is (spot, strike, barrier, time, rate, div_yield, vol, eta, phi)
-        // Let's check.
-        // helper args: (spot, strike, barrier, time, rate, div_yield, vol, eta, phi)
-        // call here: (..., rate, div_yield, vol, -1.0, ...)
-        // So passed args should be rate, div_yield, vol.
-        -1.0,
-        if matches!(barrier_type, BarrierType::UpIn | BarrierType::UpOut) {
-            1.0
-        } else {
-            -1.0
-        },
-    )
+    match barrier_type {
+        BarrierType::UpIn => up_in_put(spot, strike, barrier, time, rate, div_yield, vol),
+        BarrierType::UpOut => up_out_put(spot, strike, barrier, time, rate, div_yield, vol),
+        BarrierType::DownIn => down_in_put(spot, strike, barrier, time, rate, div_yield, vol),
+        BarrierType::DownOut => down_out_put(spot, strike, barrier, time, rate, div_yield, vol),
+    }
 }
 
 #[cfg(test)]
@@ -531,6 +617,53 @@ mod tests {
             - strike * (-rate * time).exp() * norm_cdf(d2);
 
         let sum = up_in + up_out;
+
+        assert!(
+            (sum - vanilla).abs() < 0.01,
+            "Barrier parity failed: {} vs {}",
+            sum,
+            vanilla
+        );
+    }
+
+    #[test]
+    fn test_barrier_put_in_plus_out_equals_vanilla() {
+        let spot = 100.0;
+        let strike = 100.0;
+        let barrier = 80.0;
+        let time = 1.0;
+        let rate = 0.05;
+        let div_yield = 0.02;
+        let vol = 0.2;
+
+        let down_in = barrier_put_continuous(
+            spot,
+            strike,
+            barrier,
+            time,
+            rate,
+            div_yield,
+            vol,
+            BarrierType::DownIn,
+        );
+        let down_out = barrier_put_continuous(
+            spot,
+            strike,
+            barrier,
+            time,
+            rate,
+            div_yield,
+            vol,
+            BarrierType::DownOut,
+        );
+
+        let d1 = ((spot / strike).ln() + (rate - div_yield + 0.5 * vol * vol) * time)
+            / (vol * time.sqrt());
+        let d2 = d1 - vol * time.sqrt();
+        let vanilla = strike * (-rate * time).exp() * norm_cdf(-d2)
+            - spot * (-div_yield * time).exp() * norm_cdf(-d1);
+
+        let sum = down_in + down_out;
 
         assert!(
             (sum - vanilla).abs() < 0.01,

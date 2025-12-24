@@ -14,6 +14,7 @@
 //! - **YTW** (Yield-to-Worst): Minimum yield across all call dates and maturity
 //! - **YT2Y/3Y/4Y**: IRR to fixed 2/3/4-year horizons
 //! - **All-In Rate**: Effective borrower cost including fees
+//! - **OID EIR Amortization**: Effective interest rate amortization schedule
 //!
 //! ## Spread Metrics
 //!
@@ -64,6 +65,7 @@
 mod all_in_rate;
 mod discount_margin;
 mod irr_helpers;
+mod oid_eir;
 mod ytc;
 mod ytm;
 mod ytn;
@@ -71,6 +73,7 @@ mod ytw;
 
 pub use all_in_rate::AllInRateCalculator;
 pub use discount_margin::DiscountMarginCalculator;
+pub use oid_eir::OidEirAmortizationCalculator;
 pub use ytc::YtcCalculator;
 pub use ytm::YtmCalculator;
 pub use ytn::{Yt2yCalculator, Yt3yCalculator, Yt4yCalculator};
@@ -86,7 +89,8 @@ use crate::metrics::MetricRegistry;
 /// # Registered Metrics
 ///
 /// - Standard: YTM, Discount Margin, DV01, BucketedDV01, CS01, BucketedCS01, Theta
-/// - Custom: YTW (`"ytw"`), YTC (`"ytc"`), YT2Y/3Y/4Y, All-In Rate (`"all_in_rate"`)
+/// - Custom: YTW (`"ytw"`), YTC (`"ytc"`), YT2Y/3Y/4Y, All-In Rate (`"all_in_rate"`),
+///   OID EIR amortization (`"oid_eir_amortization"`)
 ///
 /// # Examples
 ///
@@ -130,6 +134,11 @@ pub fn register_term_loan_metrics(registry: &mut MetricRegistry) {
     registry.register_metric(
         MetricId::custom("all_in_rate"),
         Arc::new(AllInRateCalculator),
+        &[InstrumentType::TermLoan],
+    );
+    registry.register_metric(
+        MetricId::custom("oid_eir_amortization"),
+        Arc::new(OidEirAmortizationCalculator),
         &[InstrumentType::TermLoan],
     );
     registry.register_metric(

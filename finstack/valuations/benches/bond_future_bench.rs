@@ -20,6 +20,7 @@ use finstack_valuations::instruments::bond_future::{
 use finstack_valuations::instruments::common::traits::Instrument;
 use finstack_valuations::metrics::MetricId;
 use std::hint::black_box;
+use std::sync::Arc;
 use time::Month;
 
 /// Create a realistic UST 10Y bond future with deliverable basket
@@ -106,7 +107,12 @@ fn create_market() -> MarketContext {
         .build()
         .unwrap();
 
-    MarketContext::new().insert_discount(disc)
+    let ctd_bond = create_ctd_bond();
+    let ctd_id = ctd_bond.id.as_str().to_string();
+
+    MarketContext::new()
+        .insert_discount(disc)
+        .insert_instrument(ctd_id, Arc::new(ctd_bond))
 }
 
 /// Benchmark conversion factor calculation
@@ -201,8 +207,6 @@ fn bench_instrument_value(c: &mut Criterion) {
 
     group.bench_function("ust_10y", |b| {
         b.iter(|| {
-            // Note: This will fail without instrument registry, but measures the overhead
-            // of the trait dispatch and error handling
             let _ = future.value(black_box(&market), black_box(as_of));
         });
     });
@@ -219,8 +223,6 @@ fn bench_dv01(c: &mut Criterion) {
     let market = create_market();
     let as_of = Date::from_calendar_date(2025, Month::January, 15).unwrap();
 
-    // Note: This will fail without instrument registry in MarketContext
-    // But it benchmarks the metric calculator overhead
     group.bench_function("ust_10y", |b| {
         b.iter(|| {
             let metrics = vec![MetricId::Dv01];
@@ -244,8 +246,6 @@ fn bench_bucketed_dv01(c: &mut Criterion) {
     let market = create_market();
     let as_of = Date::from_calendar_date(2025, Month::January, 15).unwrap();
 
-    // Note: This will fail without instrument registry in MarketContext
-    // But it benchmarks the bucketed calculator overhead
     group.bench_function("ust_10y", |b| {
         b.iter(|| {
             let metrics = vec![MetricId::BucketedDv01];
@@ -293,8 +293,6 @@ fn bench_full_metrics(c: &mut Criterion) {
 
     let metrics = vec![MetricId::Dv01, MetricId::BucketedDv01, MetricId::Theta];
 
-    // Note: This will fail without instrument registry in MarketContext
-    // But it benchmarks the combined overhead of all metrics
     group.bench_function("ust_10y_all", |b| {
         b.iter(|| {
             let _ = future.price_with_metrics(

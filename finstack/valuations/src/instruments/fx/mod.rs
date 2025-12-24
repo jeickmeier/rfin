@@ -10,6 +10,8 @@ pub mod fx_option;
 pub mod fx_spot;
 /// FX swap module - FX swaps with near/far legs.
 pub mod fx_swap;
+/// FX variance swap module.
+pub mod fx_variance_swap;
 /// NDF module - Non-deliverable forwards.
 pub mod ndf;
 /// Quanto option module - Cross-currency quanto options.
@@ -21,5 +23,6 @@ pub use fx_forward::FxForward;
 pub use fx_option::FxOption;
 pub use fx_spot::FxSpot;
 pub use fx_swap::FxSwap;
+pub use fx_variance_swap::FxVarianceSwap;
 pub use ndf::Ndf;
 pub use quanto_option::QuantoOption;

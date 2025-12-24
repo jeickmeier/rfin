@@ -100,7 +100,7 @@ impl InterestRateSwap {
     /// # Errors
     ///
     /// Returns a validation error if:
-    /// - The valuation date falls inside an accrual period (seasoned swaps not yet supported for compounding)
+    /// - Historical fixings are required but missing for observation dates before `as_of`
     /// - Calendar or date calculations fail
     /// - Numerical stability thresholds are breached
     pub(crate) fn pv_compounded_in_arrears_float_leg(
@@ -148,12 +148,16 @@ impl InterestRateSwap {
             }
 
             // Daily compounding logic
-            let compound_factor = if proj.is_none() && total_shift == 0 {
+            let allow_fast_path = as_of <= accrual_start
+                && total_shift == 0
+                && (proj.is_none()
+                    || disc.id() == proj.expect("checked").id());
+
+            let compound_factor = if allow_fast_path && proj.is_none() {
                 // Single-curve discount-only fast path when no observation shifting:
                 // Product of (1 + r_i * dcf_i) is exactly DF(S)/DF(E).
                 1.0 / robust_relative_df(disc, accrual_start, accrual_end)?
-            } else if proj.is_some() && disc.id() == proj.expect("checked").id() && total_shift == 0
-            {
+            } else if allow_fast_path {
                 // Fast path for single-curve OIS without lookback/shift:
                 1.0 / robust_relative_df(disc, accrual_start, accrual_end)?
             } else {
@@ -520,8 +524,11 @@ mod tests {
     use super::*;
     use crate::instruments::common::traits::Instrument;
     use finstack_core::currency::Currency;
+    use finstack_core::dates::DayCountCtx;
     use finstack_core::market_data::context::MarketContext;
+    use finstack_core::market_data::scalars::ScalarTimeSeries;
     use finstack_core::market_data::term_structures::discount_curve::DiscountCurve;
+    use finstack_core::market_data::term_structures::forward_curve::ForwardCurve;
     use finstack_core::money::Money;
     use finstack_core::types::{CurveId, InstrumentId};
     use time::Month;
@@ -550,6 +557,116 @@ mod tests {
     fn date(y: i32, m: u8, d: u8) -> Date {
         Date::from_calendar_date(y, Month::try_from(m).expect("valid month"), d)
             .expect("valid date")
+    }
+
+    #[test]
+    fn compounded_ois_seasoned_uses_fixings_and_projection() {
+        use finstack_core::dates::{BusinessDayConvention, DateExt, DayCount, Tenor};
+
+        let as_of = date(2024, 1, 10);
+        let start = date(2024, 1, 2);
+        let end = date(2024, 2, 2);
+
+        let disc_id = CurveId::new("USD-OIS");
+        let fwd_id = CurveId::new("USD-OIS-FWD");
+        let disc_rate: f64 = 0.02;
+        let df_1y = (-disc_rate).exp();
+        let disc = DiscountCurve::builder(disc_id.clone())
+            .base_date(as_of)
+            .knots(vec![(0.0, 1.0), (1.0, df_1y)])
+            .build()
+            .expect("discount curve");
+
+        let fwd_rate = 0.03;
+        let fwd = ForwardCurve::builder(fwd_id.clone(), 1.0 / 12.0)
+            .base_date(as_of)
+            .day_count(DayCount::Act360)
+            .knots(vec![(0.0, fwd_rate), (1.0, fwd_rate)])
+            .build()
+            .expect("forward curve");
+
+        let fixing_rate = 0.05;
+        let mut obs = Vec::new();
+        let mut d = start;
+        while d < as_of {
+            obs.push((d, fixing_rate));
+            d = d.add_weekdays(1);
+        }
+        let fixings = ScalarTimeSeries::new(
+            format!("FIXING:{}", fwd_id.as_str()),
+            obs,
+            None,
+        )
+        .expect("fixings series");
+
+        let ctx = MarketContext::new()
+            .insert_discount(disc.clone())
+            .insert_forward(fwd)
+            .insert_series(fixings);
+
+        let swap = InterestRateSwap::builder()
+            .id(InstrumentId::new("OIS-SEASONED"))
+            .notional(Money::new(1_000_000.0, Currency::USD))
+            .side(crate::instruments::irs::PayReceive::PayFixed)
+            .fixed(crate::instruments::common::parameters::legs::FixedLegSpec {
+                discount_curve_id: disc_id.clone(),
+                rate: 0.0,
+                freq: Tenor::monthly(),
+                dc: DayCount::Act360,
+                bdc: BusinessDayConvention::ModifiedFollowing,
+                calendar_id: None,
+                stub: finstack_core::dates::StubKind::None,
+                start,
+                end,
+                par_method: None,
+                compounding_simple: true,
+                payment_delay_days: 0,
+            })
+            .float(crate::instruments::common::parameters::legs::FloatLegSpec {
+                discount_curve_id: disc_id.clone(),
+                forward_curve_id: fwd_id.clone(),
+                spread_bp: 0.0,
+                freq: Tenor::monthly(),
+                dc: DayCount::Act360,
+                bdc: BusinessDayConvention::ModifiedFollowing,
+                calendar_id: None,
+                stub: finstack_core::dates::StubKind::None,
+                reset_lag_days: 0,
+                fixing_calendar_id: None,
+                start,
+                end,
+                compounding: FloatingLegCompounding::fedfunds(),
+                payment_delay_days: 0,
+            })
+            .build()
+            .expect("swap");
+
+        let pv = swap.value(&ctx, as_of).expect("seasoned OIS PV");
+
+        let mut acc = 1.0;
+        let mut day = start;
+        while day < end {
+            let next = day.add_weekdays(1);
+            let step_end = if next > end { end } else { next };
+            let dcf = DayCount::Act360
+                .year_fraction(day, step_end, DayCountCtx::default())
+                .expect("dcf");
+            let r = if day < as_of { fixing_rate } else { fwd_rate };
+            acc *= 1.0 + r * dcf;
+            day = step_end;
+        }
+
+        let payment_date = add_payment_delay(end, 0, None);
+        let df = robust_relative_df(&disc, as_of, payment_date).expect("df");
+        let expected = 1_000_000.0 * (acc - 1.0) * df;
+
+        let diff = (pv.amount() - expected).abs();
+        // Allow small tolerance for day count/business day handling differences
+        assert!(
+            diff < 0.01,
+            "Seasoned OIS PV should match fixing/projection compounding, diff={}",
+            diff
+        );
     }
 
     #[test]

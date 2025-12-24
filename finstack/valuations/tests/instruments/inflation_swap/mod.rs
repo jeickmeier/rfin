@@ -10,7 +10,7 @@
 
 mod construction;
 mod edge_cases;
-mod fixtures;
+pub mod fixtures;
 mod integration;
 mod metrics;
 mod pricing;

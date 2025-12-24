@@ -19,6 +19,7 @@
 //! - [`AmortizationSpec`]: Principal repayment schedules
 //! - [`LoanCallSchedule`]: Borrower prepayment options
 //! - [`OidPolicy`]: Original issue discount handling
+//! - [`OidEirSpec`]: Effective interest rate amortization settings
 //!
 //! # Quick Example
 //!
@@ -38,6 +39,7 @@
 //!     id: InstrumentId::new("TL-001"),
 //!     discount_curve_id: CurveId::new("USD-CREDIT"),
 //!     currency: Currency::USD,
+//!     notional_limit: Some(Money::new(10_000_000.0, Currency::USD)),
 //!     issue: create_date(2025, Month::January, 1)?,
 //!     maturity: create_date(2030, Month::January, 1)?,
 //!     rate: RateSpec::Fixed { rate_bp: 600 },
@@ -53,6 +55,7 @@
 //!     covenants: None,
 //!     credit_curve_id: None,
 //!     pricing_overrides: PricingOverrides::default(),
+//!     oid_eir: None,
 //!     call_schedule: None,
 //! };
 //! # Ok(())
@@ -93,8 +96,7 @@ use super::types::RateSpec;
 /// - **Withheld**: Reduces initial cash proceeds, increases effective yield
 /// - **Separate**: May be accounted as upfront fee or amortized discount
 ///
-/// For full effective interest rate (EIR) amortization, see the experimental
-/// [`OidEirSpec`] (not yet implemented).
+/// For effective interest rate (EIR) amortization schedules, see [`OidEirSpec`].
 ///
 /// # Variants
 ///
@@ -128,6 +130,26 @@ pub enum OidPolicy {
     SeparatePct(i32),
     /// Fixed discount amount tracked separately for amortization
     SeparateAmount(Money),
+}
+
+/// Optional configuration for effective interest rate (EIR) amortization schedules.
+///
+/// When enabled, EIR amortization schedules are computed for reporting using
+/// the loan's full cashflow schedule (including OID effects).
+#[derive(Clone, Debug)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+#[cfg_attr(feature = "serde", serde(deny_unknown_fields, default))]
+pub struct OidEirSpec {
+    /// Include fee cashflows (upfront, commitment, usage) in the EIR schedule.
+    ///
+    /// Defaults to true because these fees are typically part of the effective yield.
+    pub include_fees: bool,
+}
+
+impl Default for OidEirSpec {
+    fn default() -> Self {
+        Self { include_fees: true }
+    }
 }
 
 /// Draw event for delayed-draw term loans (DDTL).
@@ -344,7 +366,7 @@ pub enum AmortizationSpec {
 /// # Examples
 ///
 /// ```rust,no_run
-/// # // Note: TryFrom implementation may not be available
+/// # // Convert to runtime instrument via `try_into()` when needed.
 /// use finstack_valuations::instruments::term_loan::spec::*;
 /// use finstack_valuations::instruments::term_loan::types::RateSpec;
 /// use finstack_valuations::instruments::pricing_overrides::PricingOverrides;
@@ -379,6 +401,7 @@ pub enum AmortizationSpec {
 ///     id: InstrumentId::new("TL-001"),
 ///     discount_curve_id: CurveId::new("USD-CREDIT"),
 ///     currency: Currency::USD,
+///     notional_limit: Some(Money::new(25_000_000.0, Currency::USD)),
 ///     issue: create_date(2025, Month::January, 15)?,
 ///     maturity: create_date(2030, Month::January, 15)?,
 ///     rate: RateSpec::Floating(floating_spec),
@@ -394,6 +417,7 @@ pub enum AmortizationSpec {
 ///     covenants: None,
 ///     credit_curve_id: None,
 ///     pricing_overrides: PricingOverrides::default(),
+///     oid_eir: None,
 ///     call_schedule: None,
 /// };
 /// # Ok(())
@@ -413,6 +437,11 @@ pub struct TermLoanSpec {
     pub credit_curve_id: Option<CurveId>,
     /// Loan currency
     pub currency: Currency,
+    /// Maximum commitment / notional limit.
+    ///
+    /// If omitted and `ddtl` is provided, the commitment limit is used.
+    /// Required for non-DDTL term loans.
+    pub notional_limit: Option<Money>,
     /// Loan issue/origination date
     pub issue: Date,
     /// Final maturity date
@@ -445,6 +474,9 @@ pub struct TermLoanSpec {
     pub covenants: Option<CovenantSpec>,
     /// Pricing overrides (yield, price, etc.)
     pub pricing_overrides: PricingOverrides,
+    /// Optional EIR amortization settings for reporting schedules
+    #[cfg_attr(feature = "serde", serde(default))]
+    pub oid_eir: Option<OidEirSpec>,
     /// Optional call schedule (borrower callability)
     pub call_schedule: Option<LoanCallSchedule>,
 }

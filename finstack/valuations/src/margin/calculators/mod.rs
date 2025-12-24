@@ -10,6 +10,7 @@
 //! - [`SimmCalculator`]: ISDA SIMM for OTC derivatives
 //! - [`ScheduleImCalculator`]: BCBS-IOSCO regulatory schedule
 //! - [`ClearingHouseImCalculator`]: CCP-specific IM calculation
+//! - [`InternalModelImCalculator`]: Internal model IM calculation
 
 pub mod im;
 mod traits;
@@ -17,7 +18,8 @@ mod vm;
 
 // Re-export main types
 pub use im::{
-    ClearingHouseImCalculator, HaircutImCalculator, ScheduleImCalculator, SimmCalculator,
+    CcpMarginInputSource, CcpMethodology, ClearingHouseImCalculator, HaircutImCalculator,
+    InternalModelImCalculator, InternalModelInputSource, ScheduleImCalculator, SimmCalculator,
 };
 pub use traits::{ImCalculator, ImResult};
 pub use vm::{VmCalculator, VmResult};

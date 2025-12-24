@@ -3,11 +3,19 @@
 //! Implements Historical Value-at-Risk using historical simulation methodology.
 //! Supports both full revaluation and Taylor approximation (Greeks-based) approaches.
 
+use crate::instruments::common::helpers::instrument_to_arc;
 use crate::instruments::common::traits::Instrument;
+use crate::metrics::sensitivities::dv01::format_bucket_label;
+use crate::metrics::{standard_registry, MetricContext, MetricId};
 use crate::metrics::risk::MarketHistory;
 use finstack_core::dates::Date;
+use finstack_core::market_data::scalars::MarketScalar;
 use finstack_core::market_data::context::MarketContext;
+use finstack_core::money::Money;
+use finstack_core::types::CurveId;
+use finstack_core::collections::HashMap;
 use finstack_core::Result;
+use std::sync::Arc;
 
 /// VaR calculation method.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -24,8 +32,6 @@ pub enum VarMethod {
     /// Faster method - approximates P&L using pre-computed sensitivities.
     /// Good for linear instruments and large portfolios, but may be
     /// inaccurate for highly non-linear instruments (deep OTM options).
-    ///
-    /// **Note**: Not yet implemented. Selecting this method returns a validation error.
     TaylorApproximation,
 }
 
@@ -203,10 +209,9 @@ where
             calculate_var_full_revaluation(instrument, base_market, history, as_of, config)
         }
         VarMethod::TaylorApproximation => {
-            // TODO: Implement Taylor approximation
-            Err(finstack_core::Error::Validation(
-                "Taylor approximation VaR not yet implemented".to_string(),
-            ))
+            // Use clone_box to get a sized type for Taylor approximation
+            let boxed = instrument.clone_box();
+            calculate_var_taylor_approximation(&*boxed, base_market, history, as_of, config)
         }
     }
 }
@@ -253,6 +258,255 @@ where
 
     // Calculate VaR and ES from P&L distribution
     VarResult::from_distribution(pnls, config.confidence_level)
+}
+
+// =============================================================================
+// Taylor Approximation
+// =============================================================================
+
+#[derive(Default)]
+struct BucketedSeries {
+    per_curve: HashMap<String, HashMap<String, f64>>,
+    fallback: HashMap<String, f64>,
+}
+
+impl BucketedSeries {
+    fn get(&self, curve_id: &str, bucket: &str) -> Option<f64> {
+        if let Some(curve) = self.per_curve.get(curve_id) {
+            if let Some(value) = curve.get(bucket) {
+                return Some(*value);
+            }
+        }
+        self.fallback.get(bucket).copied()
+    }
+
+}
+
+#[derive(Default)]
+struct TaylorSensitivities {
+    dv01: BucketedSeries,
+    cs01: BucketedSeries,
+    parallel_dv01: f64,
+    parallel_cs01: f64,
+    equity_delta: f64,
+    equity_gamma: f64,
+    vega_rel: f64,
+}
+
+fn calculate_var_taylor_approximation(
+    instrument: &dyn Instrument,
+    base_market: &MarketContext,
+    history: &MarketHistory,
+    as_of: Date,
+    config: &VarConfig,
+) -> Result<VarResult> {
+    let base_value = instrument.value(base_market, as_of)?;
+    let sensitivities = compute_taylor_sensitivities(instrument, base_market, as_of, base_value)?;
+
+    let mut spot_cache: HashMap<String, f64> = HashMap::default();
+    let mut vol_cache: HashMap<String, f64> = HashMap::default();
+    let mut pnls = Vec::with_capacity(history.len());
+
+    for scenario in history.iter() {
+        let pnl = taylor_pnl_for_scenario(
+            &sensitivities,
+            base_market,
+            scenario,
+            &mut spot_cache,
+            &mut vol_cache,
+        );
+        pnls.push(pnl);
+    }
+
+    VarResult::from_distribution(pnls, config.confidence_level)
+}
+
+fn compute_taylor_sensitivities(
+    instrument: &dyn Instrument,
+    base_market: &MarketContext,
+    as_of: Date,
+    base_value: Money,
+) -> Result<TaylorSensitivities> {
+    let instrument_type = instrument.key();
+    let registry = standard_registry();
+    let instrument_arc = instrument_to_arc(instrument);
+    let mut context = MetricContext::new(
+        instrument_arc,
+        Arc::new(base_market.clone()),
+        as_of,
+        base_value,
+    );
+    context.pricing_overrides = instrument.scenario_overrides().cloned();
+
+    let metrics = [
+        MetricId::BucketedDv01,
+        MetricId::Dv01,
+        MetricId::BucketedCs01,
+        MetricId::Cs01,
+        MetricId::Delta,
+        MetricId::Gamma,
+        MetricId::IndexDelta,
+        MetricId::EquityShares,
+        MetricId::Vega,
+    ];
+
+    let computed = registry.compute_best_effort(&metrics, &mut context)?;
+
+    let dv01 = collect_bucketed_series(&context.computed_series, MetricId::BucketedDv01.as_str());
+    let cs01 = collect_bucketed_series(&context.computed_series, MetricId::BucketedCs01.as_str());
+
+    let parallel_dv01 = computed.get(&MetricId::Dv01).copied().unwrap_or(0.0);
+    let parallel_cs01 = computed.get(&MetricId::Cs01).copied().unwrap_or(0.0);
+
+    let has_delta = registry.is_applicable(&MetricId::Delta, instrument_type);
+    let has_gamma = registry.is_applicable(&MetricId::Gamma, instrument_type);
+    let has_index_delta = registry.is_applicable(&MetricId::IndexDelta, instrument_type);
+    let has_equity_shares = registry.is_applicable(&MetricId::EquityShares, instrument_type);
+    let has_vega = registry.is_applicable(&MetricId::Vega, instrument_type);
+
+    let delta = if has_delta {
+        computed.get(&MetricId::Delta).copied().unwrap_or(0.0)
+    } else if has_index_delta {
+        computed.get(&MetricId::IndexDelta).copied().unwrap_or(0.0)
+    } else if has_equity_shares {
+        computed.get(&MetricId::EquityShares).copied().unwrap_or(0.0)
+    } else {
+        0.0
+    };
+
+    let gamma = if has_gamma {
+        computed.get(&MetricId::Gamma).copied().unwrap_or(0.0)
+    } else {
+        0.0
+    };
+
+    let vega_rel = if has_vega {
+        computed.get(&MetricId::Vega).copied().unwrap_or(0.0)
+    } else {
+        0.0
+    };
+
+    Ok(TaylorSensitivities {
+        dv01,
+        cs01,
+        parallel_dv01,
+        parallel_cs01,
+        equity_delta: delta,
+        equity_gamma: gamma,
+        vega_rel,
+    })
+}
+
+fn taylor_pnl_for_scenario(
+    sensitivities: &TaylorSensitivities,
+    base_market: &MarketContext,
+    scenario: &crate::metrics::risk::MarketScenario,
+    spot_cache: &mut HashMap<String, f64>,
+    vol_cache: &mut HashMap<String, f64>,
+) -> f64 {
+    let mut pnl = 0.0;
+    for shift in &scenario.shifts {
+        match &shift.factor {
+            crate::metrics::risk::RiskFactorType::DiscountRate { curve_id, tenor_years }
+            | crate::metrics::risk::RiskFactorType::ForwardRate { curve_id, tenor_years } => {
+                let bucket = format_bucket_label(*tenor_years);
+                let dv01 = sensitivities
+                    .dv01
+                    .get(curve_id.as_str(), bucket.as_str())
+                    .unwrap_or(sensitivities.parallel_dv01);
+                pnl += dv01 * shift.shift * 10_000.0;
+            }
+            crate::metrics::risk::RiskFactorType::CreditSpread { curve_id, tenor_years } => {
+                let bucket = format_bucket_label(*tenor_years);
+                let cs01 = sensitivities
+                    .cs01
+                    .get(curve_id.as_str(), bucket.as_str())
+                    .unwrap_or(sensitivities.parallel_cs01);
+                pnl += cs01 * shift.shift * 10_000.0;
+            }
+            crate::metrics::risk::RiskFactorType::EquitySpot { ticker } => {
+                if sensitivities.equity_delta.abs() > 0.0 || sensitivities.equity_gamma.abs() > 0.0 {
+                    let spot = *spot_cache.entry(ticker.clone()).or_insert_with(|| {
+                        spot_from_market(base_market, ticker).unwrap_or(0.0)
+                    });
+                    if spot > 0.0 {
+                        let d_spot = spot * shift.shift;
+                        pnl += sensitivities.equity_delta * d_spot
+                            + 0.5 * sensitivities.equity_gamma * d_spot * d_spot;
+                    }
+                }
+            }
+            crate::metrics::risk::RiskFactorType::ImpliedVol {
+                surface_id,
+                expiry_years,
+                strike,
+            } => {
+                if sensitivities.vega_rel.abs() > 0.0 {
+                    // Use string key because f64 doesn't implement Hash
+                    let key = format!("{}:{}:{}", surface_id, expiry_years, strike);
+                    let base_vol = *vol_cache.entry(key).or_insert_with(|| {
+                        base_vol_for_factor(base_market, surface_id, *expiry_years, *strike)
+                            .unwrap_or(0.0)
+                    });
+                    if base_vol > 0.0 {
+                        let vega_abs = sensitivities.vega_rel / base_vol;
+                        pnl += vega_abs * shift.shift;
+                    }
+                }
+            }
+        }
+    }
+    pnl
+}
+
+fn collect_bucketed_series(
+    series_map: &HashMap<MetricId, Vec<(String, f64)>>,
+    base_id: &str,
+) -> BucketedSeries {
+    let mut result = BucketedSeries::default();
+
+    for (metric_id, series) in series_map {
+        let id_str = metric_id.as_str();
+        if id_str == base_id {
+            result.fallback = series.iter().cloned().collect();
+        } else if let Some(curve_id) = id_str.strip_prefix(&format!("{base_id}::")) {
+            let entry = result
+                .per_curve
+                .entry(curve_id.to_string())
+                .or_insert_with(HashMap::default);
+            for (bucket, value) in series {
+                entry.insert(bucket.clone(), *value);
+            }
+        }
+    }
+
+    if result.fallback.is_empty() && !result.per_curve.is_empty() {
+        for series in result.per_curve.values() {
+            for (bucket, value) in series {
+                *result.fallback.entry(bucket.clone()).or_insert(0.0) += *value;
+            }
+        }
+    }
+
+    result
+}
+
+fn spot_from_market(market: &MarketContext, ticker: &str) -> Option<f64> {
+    match market.price(ticker) {
+        Ok(MarketScalar::Unitless(v)) => Some(*v),
+        Ok(MarketScalar::Price(m)) => Some(m.amount()),
+        _ => None,
+    }
+}
+
+fn base_vol_for_factor(
+    market: &MarketContext,
+    surface_id: &CurveId,
+    expiry_years: f64,
+    strike: f64,
+) -> Option<f64> {
+    let surface = market.surface_ref(surface_id.as_str()).ok()?;
+    Some(surface.value_clamped(expiry_years, strike))
 }
 
 // =============================================================================
@@ -316,6 +570,13 @@ pub fn calculate_portfolio_var<I>(
 where
     I: Instrument + ?Sized,
 {
+    if config.method == VarMethod::TaylorApproximation {
+        // Clone instruments to get sized types for Taylor approximation
+        let boxed: Vec<Box<dyn Instrument>> = instruments.iter().map(|i| (*i).clone_box()).collect();
+        let refs: Vec<&dyn Instrument> = boxed.iter().map(|b| b.as_ref()).collect();
+        return calculate_portfolio_var_taylor(&refs, base_market, history, as_of, config);
+    }
+
     if instruments.is_empty() {
         return Ok(VarResult {
             var: 0.0,
@@ -346,6 +607,55 @@ where
     VarResult::from_distribution(portfolio_pnls, config.confidence_level)
 }
 
+fn calculate_portfolio_var_taylor(
+    instruments: &[&dyn Instrument],
+    base_market: &MarketContext,
+    history: &MarketHistory,
+    as_of: Date,
+    config: &VarConfig,
+) -> Result<VarResult> {
+    if instruments.is_empty() {
+        return Ok(VarResult {
+            var: 0.0,
+            expected_shortfall: 0.0,
+            pnl_distribution: vec![],
+            confidence_level: config.confidence_level,
+            num_scenarios: 0,
+        });
+    }
+
+    let mut sensitivities: Vec<TaylorSensitivities> = Vec::with_capacity(instruments.len());
+    for instrument in instruments {
+        let base_value = instrument.value(base_market, as_of)?;
+        sensitivities.push(compute_taylor_sensitivities(
+            *instrument,
+            base_market,
+            as_of,
+            base_value,
+        )?);
+    }
+
+    let mut spot_cache: HashMap<String, f64> = HashMap::default();
+    let mut vol_cache: HashMap<String, f64> = HashMap::default();
+    let mut pnls = Vec::with_capacity(history.len());
+
+    for scenario in history.iter() {
+        let mut total = 0.0;
+        for sens in &sensitivities {
+            total += taylor_pnl_for_scenario(
+                sens,
+                base_market,
+                scenario,
+                &mut spot_cache,
+                &mut vol_cache,
+            );
+        }
+        pnls.push(total);
+    }
+
+    VarResult::from_distribution(pnls, config.confidence_level)
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -369,24 +679,32 @@ mod tests {
     }
 
     #[test]
-    fn test_taylor_method_returns_error() -> Result<()> {
+    fn test_taylor_method_matches_full_revaluation_small_shifts() -> Result<()> {
         let as_of = sample_as_of();
         let bond = standard_bond("TEST-BOND", as_of, date!(2029 - 01 - 01));
         let base_market = usd_ois_market(as_of)?;
-        let history = history_from_scenarios(as_of, 0, vec![]);
-        let config = VarConfig::var_95().with_method(VarMethod::TaylorApproximation);
+        let history = history_from_rate_shifts(
+            as_of,
+            &[
+                (date!(2023 - 12 - 31), 0.0005),
+                (date!(2023 - 12 - 30), -0.0003),
+                (date!(2023 - 12 - 29), 0.0002),
+            ],
+        );
+        let full_config = VarConfig::var_95();
+        let taylor_config = VarConfig::var_95().with_method(VarMethod::TaylorApproximation);
 
-        let err = calculate_var(&bond, &base_market, &history, as_of, &config)
-            .expect_err("Taylor approximation should not be implemented yet");
-        match err {
-            finstack_core::error::Error::Validation(msg) => {
-                assert!(
-                    msg.contains("not yet implemented"),
-                    "error message should mention lack of implementation"
-                );
-            }
-            other => panic!("unexpected error variant: {other:?}"),
-        }
+        let full = calculate_var(&bond, &base_market, &history, as_of, &full_config)?;
+        let taylor = calculate_var(&bond, &base_market, &history, as_of, &taylor_config)?;
+
+        assert!(taylor.var > 0.0, "Taylor VaR should be positive");
+        let diff = (taylor.var - full.var).abs();
+        let rel = diff / full.var.max(1.0);
+        assert!(
+            rel < 0.15,
+            "Taylor VaR should be close to full revaluation (diff: {:.4}%)",
+            rel * 100.0
+        );
 
         Ok(())
     }

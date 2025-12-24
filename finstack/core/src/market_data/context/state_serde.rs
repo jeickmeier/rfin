@@ -135,6 +135,9 @@ pub struct CreditIndexState {
 ///
 /// Provides a stable, versioned snapshot of all market data that can be
 /// persisted to JSON and reconstructed deterministically.
+///
+/// Note: The instrument registry and market history are not serialized because
+/// they are type-erased; re-register them after deserialization if needed.
 #[derive(Clone, Debug, serde::Serialize, serde::Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct MarketContextState {

@@ -63,10 +63,14 @@ pub enum InstrumentType {
     InflationSwap = 20,
     /// Year-on-year inflation swap.
     YoYInflationSwap = 53,
+    /// Inflation cap/floor (YoY inflation options).
+    InflationCapFloor = 66,
     /// Interest rate futures contract.
     InterestRateFuture = 21,
     /// Variance swap (volatility exposure).
     VarianceSwap = 22,
+    /// FX variance swap (volatility exposure on FX).
+    FxVarianceSwap = 67,
     /// Equity spot position (shares in single stock or fund).
     Equity = 23,
     /// Repurchase agreement (repo or reverse repo).
@@ -101,6 +105,8 @@ pub enum InstrumentType {
     TermLoan = 41,
     /// Discounted Cash Flow (corporate valuation)
     DCF = 42,
+    /// Real estate asset valuation (DCF or direct cap).
+    RealEstateAsset = 69,
     /// Equity Total Return Swap.
     EquityTotalReturnSwap = 50,
     /// Fixed Income Index Total Return Swap.
@@ -111,6 +117,8 @@ pub enum InstrumentType {
     CommodityForward = 55,
     /// Commodity swap (fixed-for-floating commodity price exchange).
     CommoditySwap = 56,
+    /// Commodity option (option on commodity forward or spot).
+    CommodityOption = 68,
     /// Volatility index future (VIX, VXN, VSTOXX).
     VolatilityIndexFuture = 57,
     /// Volatility index option (options on VIX, etc.).
@@ -160,8 +168,10 @@ impl InstrumentType {
             InstrumentType::InflationLinkedBond => "InflationLinkedBond",
             InstrumentType::InflationSwap => "InflationSwap",
             InstrumentType::YoYInflationSwap => "YoYInflationSwap",
+            InstrumentType::InflationCapFloor => "InflationCapFloor",
             InstrumentType::InterestRateFuture => "InterestRateFuture",
             InstrumentType::VarianceSwap => "VarianceSwap",
+            InstrumentType::FxVarianceSwap => "FxVarianceSwap",
             InstrumentType::Equity => "Equity",
             InstrumentType::Repo => "Repo",
             InstrumentType::FRA => "FRA",
@@ -179,11 +189,13 @@ impl InstrumentType {
             InstrumentType::FxBarrierOption => "FxBarrierOption",
             InstrumentType::TermLoan => "TermLoan",
             InstrumentType::DCF => "DCF",
+            InstrumentType::RealEstateAsset => "RealEstateAsset",
             InstrumentType::EquityTotalReturnSwap => "EquityTotalReturnSwap",
             InstrumentType::FIIndexTotalReturnSwap => "FIIndexTotalReturnSwap",
             InstrumentType::BondFuture => "BondFuture",
             InstrumentType::CommodityForward => "CommodityForward",
             InstrumentType::CommoditySwap => "CommoditySwap",
+            InstrumentType::CommodityOption => "CommodityOption",
             InstrumentType::VolatilityIndexFuture => "VolatilityIndexFuture",
             InstrumentType::VolatilityIndexOption => "VolatilityIndexOption",
             InstrumentType::EquityIndexFuture => "EquityIndexFuture",
@@ -222,8 +234,10 @@ impl std::fmt::Display for InstrumentType {
             InstrumentType::InflationLinkedBond => "inflation_linked_bond",
             InstrumentType::InflationSwap => "inflation_swap",
             InstrumentType::YoYInflationSwap => "yoy_inflation_swap",
+            InstrumentType::InflationCapFloor => "inflation_cap_floor",
             InstrumentType::InterestRateFuture => "interest_rate_future",
             InstrumentType::VarianceSwap => "variance_swap",
+            InstrumentType::FxVarianceSwap => "fx_variance_swap",
             InstrumentType::Equity => "equity",
             InstrumentType::Repo => "repo",
             InstrumentType::FRA => "fra",
@@ -241,11 +255,13 @@ impl std::fmt::Display for InstrumentType {
             InstrumentType::FxBarrierOption => "fx_barrier_option",
             InstrumentType::TermLoan => "term_loan",
             InstrumentType::DCF => "dcf",
+            InstrumentType::RealEstateAsset => "real_estate_asset",
             InstrumentType::EquityTotalReturnSwap => "equity_total_return_swap",
             InstrumentType::FIIndexTotalReturnSwap => "fi_index_total_return_swap",
             InstrumentType::BondFuture => "bond_future",
             InstrumentType::CommodityForward => "commodity_forward",
             InstrumentType::CommoditySwap => "commodity_swap",
+            InstrumentType::CommodityOption => "commodity_option",
             InstrumentType::VolatilityIndexFuture => "volatility_index_future",
             InstrumentType::VolatilityIndexOption => "volatility_index_option",
             InstrumentType::EquityIndexFuture => "equity_index_future",
@@ -292,10 +308,14 @@ impl std::str::FromStr for InstrumentType {
             "yoy_inflation_swap" | "yo_y_inflation_swap" | "inflation_yoy_swap" | "yoy_swap" => {
                 Ok(InstrumentType::YoYInflationSwap)
             }
+            "inflation_cap_floor" | "inflation_cap" | "inflation_floor" => {
+                Ok(InstrumentType::InflationCapFloor)
+            }
             "interest_rate_future" | "ir_future" | "irfuture" => {
                 Ok(InstrumentType::InterestRateFuture)
             }
             "variance_swap" | "varianceswap" => Ok(InstrumentType::VarianceSwap),
+            "fx_variance_swap" | "fxvarianceswap" => Ok(InstrumentType::FxVarianceSwap),
             "equity" => Ok(InstrumentType::Equity),
             "repo" => Ok(InstrumentType::Repo),
             "fra" => Ok(InstrumentType::FRA),
@@ -315,6 +335,9 @@ impl std::str::FromStr for InstrumentType {
             "fx_barrier_option" | "fx_barrier" => Ok(InstrumentType::FxBarrierOption),
             "term_loan" | "termloan" | "loan_term" => Ok(InstrumentType::TermLoan),
             "dcf" | "discounted_cash_flow" => Ok(InstrumentType::DCF),
+            "real_estate_asset" | "real_estate" | "realestate" | "realestate_asset" => {
+                Ok(InstrumentType::RealEstateAsset)
+            }
             "equity_total_return_swap" | "equity_trs" | "equitytrs" => {
                 Ok(InstrumentType::EquityTotalReturnSwap)
             }
@@ -326,6 +349,7 @@ impl std::str::FromStr for InstrumentType {
                 Ok(InstrumentType::CommodityForward)
             }
             "commodity_swap" | "commodityswap" => Ok(InstrumentType::CommoditySwap),
+            "commodity_option" | "commodityoption" => Ok(InstrumentType::CommodityOption),
             "volatility_index_future" | "vol_index_future" | "vix_future" | "vixfuture" => {
                 Ok(InstrumentType::VolatilityIndexFuture)
             }
@@ -362,6 +386,8 @@ pub enum ModelKey {
     HullWhite1F = 4,
     /// Hazard Rate variant.
     HazardRate = 5,
+    /// Normal (Bachelier) model variant.
+    Normal = 6,
     /// Monte Carlo with GBM process
     MonteCarloGBM = 10,
     /// Monte Carlo with Heston stochastic volatility
@@ -392,6 +418,7 @@ impl std::fmt::Display for ModelKey {
             ModelKey::Black76 => "black76",
             ModelKey::HullWhite1F => "hull_white_1f",
             ModelKey::HazardRate => "hazard_rate",
+            ModelKey::Normal => "normal",
             ModelKey::MonteCarloGBM => "monte_carlo_gbm",
             ModelKey::MonteCarloHeston => "monte_carlo_heston",
             ModelKey::MonteCarloHullWhite1F => "monte_carlo_hull_white_1f",
@@ -418,6 +445,7 @@ impl std::str::FromStr for ModelKey {
             "black76" | "black" | "black_76" => Ok(ModelKey::Black76),
             "hull_white_1f" | "hullwhite1f" | "hw1f" => Ok(ModelKey::HullWhite1F),
             "hazard_rate" | "hazard" => Ok(ModelKey::HazardRate),
+            "normal" | "bachelier" => Ok(ModelKey::Normal),
             "monte_carlo_gbm" | "mc_gbm" | "montecarlo_gbm" => Ok(ModelKey::MonteCarloGBM),
             "monte_carlo_heston" | "mc_heston" | "montecarlo_heston" => {
                 Ok(ModelKey::MonteCarloHeston)
@@ -982,6 +1010,22 @@ fn register_all_pricers(registry: &mut PricerRegistry) {
         >::new(InstrumentType::YoYInflationSwap)
     );
 
+    // Inflation Cap/Floor
+    register_pricer!(
+        registry,
+        InflationCapFloor,
+        Black76,
+        crate::instruments::inflation_cap_floor::pricer::SimpleInflationCapFloorPricer::default()
+    );
+    register_pricer!(
+        registry,
+        InflationCapFloor,
+        Normal,
+        crate::instruments::inflation_cap_floor::pricer::SimpleInflationCapFloorPricer::with_model(
+            ModelKey::Normal
+        )
+    );
+
     // Inflation Linked Bond
     register_pricer!(
         registry,
@@ -996,6 +1040,14 @@ fn register_all_pricers(registry: &mut PricerRegistry) {
         VarianceSwap,
         Discounting,
         crate::instruments::variance_swap::pricer::SimpleVarianceSwapDiscountingPricer::default()
+    );
+
+    // FX Variance Swap
+    register_pricer!(
+        registry,
+        FxVarianceSwap,
+        Discounting,
+        crate::instruments::fx_variance_swap::pricer::SimpleFxVarianceSwapDiscountingPricer::default()
     );
 
     // Repo
@@ -1190,6 +1242,14 @@ fn register_all_pricers(registry: &mut PricerRegistry) {
         crate::instruments::dcf::pricer::DcfPricer
     );
 
+    // Real Estate Asset
+    register_pricer!(
+        registry,
+        RealEstateAsset,
+        Discounting,
+        crate::instruments::equity::real_estate::pricer::RealEstateAssetDiscountingPricer
+    );
+
     // Commodity Forward
     register_pricer!(
         registry,
@@ -1204,6 +1264,22 @@ fn register_all_pricers(registry: &mut PricerRegistry) {
         CommoditySwap,
         Discounting,
         crate::instruments::commodity_swap::CommoditySwapDiscountingPricer
+    );
+
+    // Commodity Option
+    register_pricer!(
+        registry,
+        CommodityOption,
+        Black76,
+        crate::instruments::commodity_option::pricer::CommodityOptionBlackPricer::default()
+    );
+    register_pricer!(
+        registry,
+        CommodityOption,
+        Discounting,
+        crate::instruments::commodity_option::pricer::CommodityOptionBlackPricer::with_model(
+            ModelKey::Discounting
+        )
     );
 
     // Equity Index Future
@@ -1561,6 +1637,24 @@ mod tests {
         assert!(
             registry
                 .get_pricer(PricerKey::new(
+                    InstrumentType::InflationCapFloor,
+                    ModelKey::Black76
+                ))
+                .is_some(),
+            "InflationCapFloor Black76 pricer should be registered"
+        );
+        assert!(
+            registry
+                .get_pricer(PricerKey::new(
+                    InstrumentType::InflationCapFloor,
+                    ModelKey::Normal
+                ))
+                .is_some(),
+            "InflationCapFloor Normal pricer should be registered"
+        );
+        assert!(
+            registry
+                .get_pricer(PricerKey::new(
                     InstrumentType::InflationLinkedBond,
                     ModelKey::Discounting
                 ))
@@ -1577,6 +1671,33 @@ mod tests {
                 ))
                 .is_some(),
             "VarianceSwap Discounting pricer should be registered"
+        );
+        assert!(
+            registry
+                .get_pricer(PricerKey::new(
+                    InstrumentType::FxVarianceSwap,
+                    ModelKey::Discounting
+                ))
+                .is_some(),
+            "FxVarianceSwap Discounting pricer should be registered"
+        );
+        assert!(
+            registry
+                .get_pricer(PricerKey::new(
+                    InstrumentType::RealEstateAsset,
+                    ModelKey::Discounting
+                ))
+                .is_some(),
+            "RealEstateAsset Discounting pricer should be registered"
+        );
+        assert!(
+            registry
+                .get_pricer(PricerKey::new(
+                    InstrumentType::CommodityOption,
+                    ModelKey::Black76
+                ))
+                .is_some(),
+            "CommodityOption Black76 pricer should be registered"
         );
         assert!(
             registry

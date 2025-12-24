@@ -6,6 +6,8 @@ pub mod autocallable;
 pub mod cliquet_option;
 /// DCF equity module - Discounted cash flow for equity (renamed from dcf).
 pub mod dcf_equity;
+/// Real estate module - Real estate asset valuation.
+pub mod real_estate;
 /// Equity index future module.
 pub mod equity_index_future;
 /// Equity option module - Vanilla equity options.
@@ -27,6 +29,7 @@ pub mod vol_index_option;
 pub use autocallable::{Autocallable, FinalPayoffType};
 pub use cliquet_option::CliquetOption;
 pub use dcf_equity::{DiscountedCashFlow, TerminalValueSpec};
+pub use real_estate::{RealEstateAsset, RealEstateValuationMethod};
 pub use equity_index_future::{EquityFutureSpecs, EquityIndexFuture};
 pub use equity_option::EquityOption;
 pub use equity_trs::EquityTotalReturnSwap;

@@ -1610,14 +1610,20 @@ impl crate::instruments::common::traits::Instrument for BondFuture {
                 })
             })?;
 
-        // Calculate conversion factor
-        let conversion_factor = super::pricer::BondFuturePricer::calculate_conversion_factor(
-            ctd_bond,
-            self.contract_specs.standard_coupon,
-            self.contract_specs.standard_maturity_years,
-            market,
-            as_of,
-        )?;
+        // Use the exchange-provided conversion factor from the deliverable basket.
+        let conversion_factor = self
+            .deliverable_basket
+            .iter()
+            .find(|bond| bond.bond_id == self.ctd_bond_id)
+            .ok_or_else(|| {
+                finstack_core::Error::Input(finstack_core::error::InputError::NotFound {
+                    id: format!(
+                        "CTD bond {} not found in deliverable basket",
+                        self.ctd_bond_id.as_str()
+                    ),
+                })
+            })?
+            .conversion_factor;
 
         // Calculate and return NPV
         super::pricer::BondFuturePricer::calculate_npv(
@@ -1635,8 +1641,7 @@ impl crate::instruments::common::traits::Instrument for BondFuture {
         as_of: finstack_core::dates::Date,
         metrics: &[crate::metrics::MetricId],
     ) -> finstack_core::Result<crate::results::ValuationResult> {
-        // Similar to value(), bond futures need CTD bond and conversion factor
-        // This will be properly implemented when we add the pricing registry integration
+        // Similar to value(), bond futures need CTD bond and conversion factor.
         let base_value = self.value(market, as_of)?;
         crate::instruments::common::helpers::build_with_metrics_dyn(
             std::sync::Arc::new(self.clone()),

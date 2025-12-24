@@ -469,17 +469,22 @@ The USD standard uses different day-count conventions for different purposes:
 
 This day-count mismatch between accrual and discounting is **market-standard** and reflects the different conventions used in bond vs money markets. The impact on par rates is typically < 0.5bp for USD swaps.
 
-### Compounded-in-Arrears Approximation
+### Compounded-in-Arrears Pricing
 
-For overnight-indexed swaps (OIS) with `CompoundedInArrears` compounding, the current implementation uses the **discount curve identity**:
+For overnight-indexed swaps (OIS) with `CompoundedInArrears` compounding, pricing uses **daily compounding** with lookback/observation shift support:
 
 ```text
-PV_float = N × (DF(start) - DF(end)) + spread_annuity
+Coupon = N × [∏(1 + r_i × dcf_i) - 1] + spread × accrual
 ```
 
-This identity is **exact** when the forward curve matches the discount curve (i.e., single-curve OIS pricing). For multi-curve scenarios with basis spreads, this is an approximation that may differ from true daily compounding by a few basis points.
+Implementation notes:
 
-The `lookback_days` and `observation_shift` parameters are stored for documentation and future implementation but do not currently affect the pricing calculation when using the discount curve identity.
+- **Unseasoned single-curve OIS** (no lookback/shift, `as_of <= accrual_start`) uses the
+  discount curve identity as a fast path: `∏(1 + r_i × dcf_i) = DF(start)/DF(end)`.
+- **Multi-curve** swaps project daily rates from the forward curve.
+- **Seasoned swaps** (`as_of` inside an accrual period) require fixings for observation dates
+  before `as_of`. Provide a `ScalarTimeSeries` with id `FIXING:{index_id}` containing
+  business-day observations. Remaining days are projected off the forward (or discount) curve.
 
 ---
 

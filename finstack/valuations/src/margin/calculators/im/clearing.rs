@@ -7,11 +7,13 @@
 use crate::instruments::common::traits::Instrument;
 use crate::margin::calculators::traits::{ImCalculator, ImResult};
 use crate::margin::types::ImMethodology;
+use crate::pricer::InstrumentType;
 use finstack_core::collections::HashMap;
 use finstack_core::dates::Date;
 use finstack_core::market_data::context::MarketContext;
 use finstack_core::money::Money;
 use finstack_core::Result;
+use std::sync::Arc;
 
 /// CCP methodology type.
 #[derive(Debug, Clone, PartialEq)]
@@ -90,6 +92,55 @@ impl CcpMethodology {
             CcpMethodology::GenericVaR { .. } => 0.05,
         }
     }
+
+    /// Choose a CCP methodology based on a CCP name and instrument type.
+    #[must_use]
+    pub fn from_ccp_name(ccp: &str, instrument_type: InstrumentType) -> Self {
+        let normalized = ccp.trim().to_ascii_lowercase();
+        let is_credit = is_credit_instrument(instrument_type);
+
+        if normalized.contains("lch") {
+            if is_credit || normalized.contains("cds") {
+                CcpMethodology::LchCdsClear
+            } else {
+                CcpMethodology::LchSwapClear
+            }
+        } else if normalized.contains("ice") {
+            if is_credit || normalized.contains("credit") || normalized.contains("cds") {
+                CcpMethodology::IceClearCredit
+            } else {
+                CcpMethodology::IceClearUs
+            }
+        } else if normalized.contains("cme") {
+            CcpMethodology::Cme
+        } else if normalized.contains("jscc") {
+            CcpMethodology::Jscc
+        } else if normalized.contains("eurex") {
+            CcpMethodology::Eurex
+        } else {
+            CcpMethodology::GenericVaR {
+                confidence: 0.99,
+                lookback_days: 250,
+            }
+        }
+    }
+}
+
+/// CCP margin input source for external VaR/SPAN results.
+pub trait CcpMarginInputSource: Send + Sync {
+    /// Return a CCP-supplied IM amount when available.
+    fn initial_margin(
+        &self,
+        instrument: &dyn Instrument,
+        context: &MarketContext,
+        as_of: Date,
+        methodology: &CcpMethodology,
+    ) -> Option<Money>;
+
+    /// Optional MPOR override supplied by the CCP.
+    fn mpor_days(&self, _methodology: &CcpMethodology) -> Option<u32> {
+        None
+    }
 }
 
 /// Clearing house IM calculator.
@@ -123,17 +174,37 @@ impl CcpMethodology {
 /// # Ok(())
 /// # }
 /// ```
-#[derive(Debug, Clone)]
+#[derive(Clone)]
 pub struct ClearingHouseImCalculator {
     /// CCP methodology
     pub methodology: CcpMethodology,
+    /// Optional external CCP margin input source
+    pub input_source: Option<Arc<dyn CcpMarginInputSource>>,
+}
+
+impl std::fmt::Debug for ClearingHouseImCalculator {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("ClearingHouseImCalculator")
+            .field("methodology", &self.methodology)
+            .field("input_source", &self.input_source.as_ref().map(|_| "<dyn CcpMarginInputSource>"))
+            .finish()
+    }
 }
 
 impl ClearingHouseImCalculator {
     /// Create a new calculator for a specific CCP.
     #[must_use]
     pub fn new(methodology: CcpMethodology) -> Self {
-        Self { methodology }
+        Self {
+            methodology,
+            input_source: None,
+        }
+    }
+
+    /// Create a calculator from a CCP name and instrument type.
+    #[must_use]
+    pub fn for_ccp(ccp: &str, instrument_type: InstrumentType) -> Self {
+        Self::new(CcpMethodology::from_ccp_name(ccp, instrument_type))
     }
 
     /// Create calculator for LCH SwapClear (IRS).
@@ -163,6 +234,13 @@ impl ClearingHouseImCalculator {
         })
     }
 
+    /// Attach a CCP input source (VaR/SPAN outputs).
+    #[must_use]
+    pub fn with_input_source(mut self, source: Arc<dyn CcpMarginInputSource>) -> Self {
+        self.input_source = Some(source);
+        self
+    }
+
     /// Calculate IM using conservative estimate.
     ///
     /// This is a simplified calculation. Real CCP margins use VaR/ES
@@ -185,8 +263,17 @@ impl ImCalculator for ClearingHouseImCalculator {
         let currency = pv.currency();
         let notional = Money::new(pv.amount().abs(), currency);
 
-        let rate = self.methodology.conservative_rate();
-        let im_amount = notional * rate;
+        let mut im_amount = self.calculate_conservative(notional);
+        let mut mpor_days = self.methodology.mpor_days();
+        if let Some(source) = &self.input_source {
+            if let Some(amount) = source.initial_margin(instrument, context, as_of, &self.methodology)
+            {
+                im_amount = amount;
+            }
+            if let Some(override_mpor) = source.mpor_days(&self.methodology) {
+                mpor_days = override_mpor;
+            }
+        }
 
         let mut breakdown = HashMap::default();
         breakdown.insert(self.methodology.to_string(), im_amount);
@@ -195,7 +282,7 @@ impl ImCalculator for ClearingHouseImCalculator {
             im_amount,
             ImMethodology::ClearingHouse,
             as_of,
-            self.methodology.mpor_days(),
+            mpor_days,
             breakdown,
         ))
     }
@@ -205,10 +292,80 @@ impl ImCalculator for ClearingHouseImCalculator {
     }
 }
 
+fn is_credit_instrument(instrument_type: InstrumentType) -> bool {
+    matches!(
+        instrument_type,
+        InstrumentType::CDS | InstrumentType::CDSIndex | InstrumentType::CDSTranche
+            | InstrumentType::CDSOption | InstrumentType::StructuredCredit
+    )
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
     use finstack_core::currency::Currency;
+    use finstack_core::market_data::context::MarketContext;
+    use std::sync::Arc;
+
+    #[derive(Clone)]
+    struct TestInstrument {
+        id: String,
+        value: Money,
+        attributes: crate::instruments::common::traits::Attributes,
+    }
+
+    impl TestInstrument {
+        fn new(value: Money) -> Self {
+            Self {
+                id: "TEST-INST".to_string(),
+                value,
+                attributes: crate::instruments::common::traits::Attributes::default(),
+            }
+        }
+    }
+
+    impl Instrument for TestInstrument {
+        fn id(&self) -> &str {
+            &self.id
+        }
+
+        fn key(&self) -> InstrumentType {
+            InstrumentType::IRS
+        }
+
+        fn as_any(&self) -> &dyn std::any::Any {
+            self
+        }
+
+        fn attributes(&self) -> &crate::instruments::common::traits::Attributes {
+            &self.attributes
+        }
+
+        fn attributes_mut(&mut self) -> &mut crate::instruments::common::traits::Attributes {
+            &mut self.attributes
+        }
+
+        fn clone_box(&self) -> Box<dyn Instrument> {
+            Box::new(self.clone())
+        }
+
+        fn value(&self, _market: &MarketContext, _as_of: Date) -> Result<Money> {
+            Ok(self.value)
+        }
+
+        fn price_with_metrics(
+            &self,
+            _market: &MarketContext,
+            as_of: Date,
+            _metrics: &[crate::metrics::MetricId],
+        ) -> Result<crate::results::ValuationResult> {
+            Ok(crate::results::ValuationResult::stamped(
+                &self.id,
+                as_of,
+                self.value,
+            ))
+        }
+    }
 
     #[test]
     fn ccp_methodology_display() {
@@ -249,5 +406,65 @@ mod tests {
 
         // ICE Clear Credit ~10%
         assert_eq!(im.amount(), 5_000_000.0);
+    }
+
+    #[test]
+    fn ccp_name_mapping() {
+        assert_eq!(
+            CcpMethodology::from_ccp_name("LCH", InstrumentType::IRS),
+            CcpMethodology::LchSwapClear
+        );
+        assert_eq!(
+            CcpMethodology::from_ccp_name("LCH CDSClear", InstrumentType::CDS),
+            CcpMethodology::LchCdsClear
+        );
+        assert_eq!(
+            CcpMethodology::from_ccp_name("ICE", InstrumentType::CDSIndex),
+            CcpMethodology::IceClearCredit
+        );
+    }
+
+    #[derive(Debug)]
+    struct TestInputSource {
+        amount: Money,
+        mpor_days: u32,
+    }
+
+    impl CcpMarginInputSource for TestInputSource {
+        fn initial_margin(
+            &self,
+            _instrument: &dyn Instrument,
+            _context: &MarketContext,
+            _as_of: Date,
+            _methodology: &CcpMethodology,
+        ) -> Option<Money> {
+            Some(self.amount)
+        }
+
+        fn mpor_days(&self, _methodology: &CcpMethodology) -> Option<u32> {
+            Some(self.mpor_days)
+        }
+    }
+
+    #[test]
+    fn uses_ccp_input_source_when_available() {
+        let calc = ClearingHouseImCalculator::lch_swapclear().with_input_source(Arc::new(
+            TestInputSource {
+                amount: Money::new(3_000_000.0, Currency::USD),
+                mpor_days: 7,
+            },
+        ));
+        let notional = Money::new(100_000_000.0, Currency::USD);
+        let fallback = calc.calculate_conservative(notional);
+
+        let fake_inst = TestInstrument::new(notional);
+        let market = MarketContext::new();
+        let as_of = Date::from_calendar_date(2024, time::Month::January, 1)
+            .expect("valid date");
+        let im = calc.calculate(&fake_inst, &market, as_of).expect("im");
+
+        assert_eq!(fallback.amount(), 2_000_000.0);
+        assert_eq!(im.amount.amount(), 3_000_000.0);
+        assert_eq!(im.mpor_days, 7);
     }
 }

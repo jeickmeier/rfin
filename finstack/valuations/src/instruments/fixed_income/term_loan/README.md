@@ -701,7 +701,7 @@ cargo tarpaulin --packages finstack-valuations --exclude-files "**/tests/*"
 - **Day count conventions**: Act/360, Act/365, 30/360 (ISDA standard)
 - **Business day adjustments**: Following, Modified Following, Preceding (ISDA)
 - **Floating rate conventions**: SOFR, historical LIBOR, custom indices
-- **OID accounting**: GAAP/IFRS effective interest rate method (not yet implemented; use `DdtlSpec::oid_policy` for current support)
+- **OID accounting**: GAAP/IFRS effective interest rate method (via `OidEirSpec` reporting schedules)
 - **PIK capitalization**: Industry-standard treatment (capitalized interest excluded from PV) TODO: Is this correct?
 
 ---
@@ -709,7 +709,7 @@ cargo tarpaulin --packages finstack-valuations --exclude-files "**/tests/*"
 ## Limitations / Known Issues
 
 - Deterministic cashflow engine only; no stochastic credit or rate simulation within this module.
-- GAAP/IFRS effective interest rate amortization is not implemented (see planned `OidEirSpec`).
+- EIR amortization schedules are reporting-only (do not change PV/metrics).
 - Covenant modeling is limited to the provided toggles/step-ups/sweeps; bespoke legal triggers require extensions.
 - Pricing excludes funding-side adjustments (FVA/CVA/DVA) and assumes single-currency loans.
 
@@ -719,11 +719,10 @@ cargo tarpaulin --packages finstack-valuations --exclude-files "**/tests/*"
 
 Planned features (currently experimental or not implemented):
 
-1. **OID with EIR amortization**: Full effective interest rate method (`OidEirSpec`)
-2. **Advanced PIK schedules**: Time-varying PIK fractions (`PikSpec`)
-3. **Revolver integration**: Combining DDTL with revolving credit features
-4. **CECL support**: Expected credit loss provisioning hooks
-5. **GAAP/IFRS reporting**: Standardized disclosures and amortization tables
+1. **Advanced PIK schedules**: Time-varying PIK fractions (`PikSpec`)
+2. **Revolver integration**: Combining DDTL with revolving credit features
+3. **CECL support**: Expected credit loss provisioning hooks
+4. **GAAP/IFRS reporting**: Standardized disclosures and amortization tables
 
 ---
 
@@ -734,5 +733,6 @@ Planned features (currently experimental or not implemented):
 
 ## Metrics
 - Core metrics: PV, YTM/YTC/YTW/Yn-year, discount margin, all-in rate, DV01/bucketed DV01, CS01/bucketed CS01, theta.
+- Accounting outputs: OID EIR amortization (`oid_eir_amortization`) and carrying value (`oid_eir_carrying_value`) series.
 - Loan-specific outputs: outstanding balance path, amortization/call cashflow breakdowns, covenant-triggered event reporting.
 - Supports custom metrics via registry; IRR helpers for yield solving shared in `metrics/irr_helpers.rs`.

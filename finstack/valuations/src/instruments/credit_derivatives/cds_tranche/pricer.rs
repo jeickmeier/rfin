@@ -2544,6 +2544,42 @@ mod tests {
     }
 
     #[test]
+    fn test_payment_schedule_imm_vs_non_imm() {
+        let model = CDSTranchePricer::new();
+        let as_of = Date::from_calendar_date(2025, Month::January, 1).expect("Valid test date");
+
+        let mut imm_tranche = sample_tranche();
+        imm_tranche.standard_imm_dates = true;
+        imm_tranche.effective_date =
+            Some(Date::from_calendar_date(2025, Month::March, 20).expect("cds date"));
+        imm_tranche.maturity =
+            Date::from_calendar_date(2030, Month::March, 20).expect("cds date");
+        let imm_dates = model
+            .generate_payment_schedule(&imm_tranche, as_of)
+            .expect("IMM schedule should succeed");
+        assert!(!imm_dates.is_empty());
+        assert!(
+            imm_dates.iter().all(|d| finstack_core::dates::is_cds_date(*d)),
+            "IMM schedule should use CDS roll dates"
+        );
+
+        let mut non_imm_tranche = sample_tranche();
+        non_imm_tranche.standard_imm_dates = false;
+        non_imm_tranche.effective_date =
+            Some(Date::from_calendar_date(2025, Month::January, 15).expect("valid date"));
+        non_imm_tranche.maturity =
+            Date::from_calendar_date(2026, Month::January, 15).expect("valid date");
+        let non_imm_dates = model
+            .generate_payment_schedule(&non_imm_tranche, as_of)
+            .expect("non-IMM schedule should succeed");
+        assert!(!non_imm_dates.is_empty());
+        assert!(
+            non_imm_dates.iter().any(|d| !finstack_core::dates::is_cds_date(*d)),
+            "Non-IMM schedule should include non-CDS dates"
+        );
+    }
+
+    #[test]
     fn test_el_curve_monotonicity() {
         let model = CDSTranchePricer::new();
         let tranche = sample_tranche();

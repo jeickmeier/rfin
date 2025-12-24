@@ -116,10 +116,21 @@ impl MetricCalculator for AllInRateCalculator {
                 // Calculate cumulative draws to match cashflows logic
                 let mut cumulative_drawn_amt = 0.0;
                 // Draw stop logic also applies
-                let draw_stop = loan
+                let cov_stop = loan
                     .covenants
                     .as_ref()
                     .and_then(|c| c.draw_stop_dates.iter().min().copied());
+                let override_stop = loan
+                    .pricing_overrides
+                    .term_loan
+                    .as_ref()
+                    .and_then(|ov| ov.draw_stop_date);
+                let draw_stop = match (cov_stop, override_stop) {
+                    (Some(a), Some(b)) => Some(a.min(b)),
+                    (Some(a), None) => Some(a),
+                    (None, Some(b)) => Some(b),
+                    (None, None) => None,
+                };
 
                 for ev in &ddtl.draws {
                     if ev.date < ddtl.availability_start || ev.date > ddtl.availability_end {

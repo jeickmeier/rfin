@@ -961,3 +961,20 @@ fn market_context_instrument_registry_works() {
     let any2 = ctx.instrument("X").expect("instrument should exist");
     assert!(any2.downcast_ref::<i32>().is_some());
 }
+
+#[test]
+fn market_context_instrument_registry_clone_thread_safe() {
+    let ctx = MarketContext::new().insert_instrument("X", Arc::new(123_i32));
+    let cloned = ctx.clone();
+
+    let handle = std::thread::spawn(move || {
+        let any = cloned.get_instrument("X").expect("instrument should exist");
+        *any.downcast_ref::<i32>().expect("instrument should downcast")
+    });
+
+    let value = handle.join().expect("thread should join");
+    assert_eq!(value, 123);
+
+    let any = ctx.get_instrument("X").expect("instrument should exist");
+    assert_eq!(*any.downcast_ref::<i32>().unwrap(), 123);
+}

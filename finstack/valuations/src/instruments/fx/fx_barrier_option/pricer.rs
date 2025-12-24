@@ -119,6 +119,7 @@ impl FxBarrierOptionMcPricer {
             inst.domestic_currency,
             inst.foreign_currency,
             quanto_adjustment,
+            inst.rebate.map(|m| m.amount()),
         );
 
         // Derive deterministic seed from instrument ID and scenario
@@ -206,7 +207,8 @@ pub fn npv(
 // ========================= ANALYTICAL PRICER =========================
 
 use crate::instruments::common::models::closed_form::barrier::{
-    barrier_call_continuous, barrier_put_continuous, BarrierType as AnalyticalBarrierType,
+    barrier_call_continuous, barrier_put_continuous, barrier_rebate_continuous,
+    BarrierType as AnalyticalBarrierType,
 };
 
 /// Helper to collect inputs for FX barrier option pricing.
@@ -318,8 +320,23 @@ impl Pricer for FxBarrierOptionAnalyticalPricer {
             ),
         };
 
+        let rebate_val = if let Some(rebate) = fx_barrier.rebate {
+            barrier_rebate_continuous(
+                fx_spot,
+                fx_barrier.barrier.amount(),
+                rebate.amount(),
+                t,
+                r_dom,
+                r_for,
+                sigma,
+                analytical_barrier_type,
+            )
+        } else {
+            0.0
+        };
+
         let pv = Money::new(
-            price * fx_barrier.notional.amount(),
+            (price + rebate_val) * fx_barrier.notional.amount(),
             fx_barrier.domestic_currency,
         );
         Ok(ValuationResult::stamped(fx_barrier.id(), as_of, pv))

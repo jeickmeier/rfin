@@ -54,6 +54,7 @@ impl FxBarrierCall {
     /// * `domestic_currency` - Settlement currency
     /// * `foreign_currency` - Underlying currency
     /// * `quanto_adjustment` - Quanto adjustment factor (0.0 if not quanto)
+    /// * `rebate` - Optional rebate paid at maturity if barrier condition met
     #[allow(clippy::too_many_arguments)]
     pub fn new(
         strike: f64,
@@ -67,13 +68,14 @@ impl FxBarrierCall {
         domestic_currency: Currency,
         foreign_currency: Currency,
         quanto_adjustment: f64,
+        rebate: Option<f64>,
     ) -> Self {
         let inner = BarrierOptionPayoff::new(
             strike,
             barrier,
             barrier_type,
             crate::instruments::OptionType::Call,
-            None,
+            rebate,
             notional,
             maturity_step,
             sigma,
@@ -114,6 +116,7 @@ impl FxBarrierCall {
             domestic_currency,
             foreign_currency,
             0.0, // No quanto adjustment
+            None,
         )
     }
 
@@ -147,6 +150,7 @@ impl FxBarrierCall {
             domestic_currency,
             foreign_currency,
             quanto_adjustment,
+            None,
         )
     }
 }

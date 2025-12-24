@@ -20,6 +20,8 @@ pub struct FxBarrierOption {
     pub strike: Money,
     /// Barrier level (exchange rate that triggers knock-in/out)
     pub barrier: Money,
+    /// Optional rebate amount (paid at expiry if barrier condition met)
+    pub rebate: Option<Money>,
     /// Option type (call or put on foreign currency)
     pub option_type: OptionType,
     /// Barrier type (up/down, in/out)

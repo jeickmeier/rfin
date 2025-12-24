@@ -42,6 +42,7 @@ pub use rates::cap_floor;
 pub use rates::cms_option;
 pub use rates::deposit;
 pub use rates::fra;
+pub use rates::inflation_cap_floor;
 pub use rates::inflation_swap;
 pub use rates::ir_future;
 pub use rates::irs;
@@ -64,6 +65,7 @@ pub use equity::equity_index_future;
 pub use equity::equity_option;
 pub use equity::equity_trs;
 pub use equity::pe_fund;
+pub use equity::real_estate;
 pub use equity::spot as equity_spot;
 pub use equity::variance_swap;
 pub use equity::vol_index_future;
@@ -75,12 +77,15 @@ pub use fx::fx_forward;
 pub use fx::fx_option;
 pub use fx::fx_spot;
 pub use fx::fx_swap;
+pub use fx::fx_variance_swap;
 pub use fx::ndf;
 pub use fx::quanto_option;
 
 // Commodity
 pub use commodity::commodity_forward;
+pub use commodity::commodity_option;
 pub use commodity::commodity_swap;
+
 
 // Exotics
 pub use exotics::asian_option;
@@ -110,8 +115,9 @@ pub use fixed_income::{
 // Rates
 pub use rates::{
     BasisSwap, CmsOption, CollateralSpec, CollateralType, Deposit, ForwardRateAgreement,
-    InflationSwap, InterestRateFuture, InterestRateSwap, RangeAccrual, RateOptionType, Repo,
-    RepoType, Swaption, XccySwap, YoYInflationSwap,
+    InflationCapFloor, InflationCapFloorType, InflationSwap, InterestRateFuture,
+    InterestRateSwap, RangeAccrual, RateOptionType, Repo, RepoType, Swaption, XccySwap,
+    YoYInflationSwap,
 };
 
 // Credit Derivatives
@@ -120,16 +126,17 @@ pub use credit_derivatives::{CDSIndex, CdsOption, CdsTranche, CreditDefaultSwap}
 // Equity
 pub use equity::{
     Autocallable, CliquetOption, DiscountedCashFlow, Equity, EquityFutureSpecs, EquityIndexFuture,
-    EquityOption, EquityTotalReturnSwap, FinalPayoffType, PrivateMarketsFund, TerminalValueSpec,
-    VarianceSwap, VolIndexContractSpecs, VolIndexOptionSpecs, VolatilityIndexFuture,
-    VolatilityIndexOption,
+    EquityOption, EquityTotalReturnSwap, FinalPayoffType, PrivateMarketsFund, RealEstateAsset,
+    RealEstateValuationMethod, TerminalValueSpec, VarianceSwap, VolIndexContractSpecs,
+    VolIndexOptionSpecs, VolatilityIndexFuture, VolatilityIndexOption,
 };
 
 // FX
 pub use fx::{FxBarrierOption, FxForward, FxOption, FxSpot, FxSwap, Ndf, QuantoOption};
+pub use fx::FxVarianceSwap;
 
 // Commodity
-pub use commodity::{CommodityForward, CommoditySwap};
+pub use commodity::{CommodityForward, CommodityOption, CommoditySwap};
 
 // Exotics
 pub use exotics::{

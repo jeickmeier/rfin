@@ -6,11 +6,12 @@ use finstack_core::money::Money;
 /// Calculates convexity for bonds.
 ///
 /// Convexity measures the curvature of the price/yield relationship and is
-/// computed using a numerical second derivative approximation:
+/// computed using the closed-form second derivative of price with respect to yield:
 /// ```text
-/// Convexity = (P+ + P- - 2*P0) / (P0 * dy²)
+/// Convexity = (1 / P) * d²P/dy²
 /// ```
-/// where `P+` and `P-` are prices computed with yield bumped up and down by `dy`.
+/// where `P` is the yield-implied price and `y` uses the bond's yield compounding
+/// convention (street/periodic by default).
 ///
 /// # Dependencies
 ///
@@ -55,51 +56,111 @@ impl MetricCalculator for ConvexityCalculator {
             })
         })?;
 
-        // Bump size: configurable via context overrides, default 20 bp
-        //
-        // Market standard note: Industry practice typically uses 10-25bp for convexity
-        // calculations (larger than duration bumps) to reduce numerical noise in the
-        // second derivative approximation. The default of 20bp balances precision and
-        // stability for most instruments.
-        // Market standard: 20bp bump for convexity calculation
-        // This balances numerical stability with accuracy for the second derivative
-        let dy = context
-            .pricing_overrides
-            .as_ref()
-            .and_then(|po| po.ytm_bump_decimal)
-            .unwrap_or(20e-4); // 20 bps
+        let bond: &Bond = context.instrument_as()?;
+        let comp = crate::instruments::bond::pricing::quote_engine::YieldCompounding::Street;
+        let freq = bond.cashflow_spec.frequency();
 
-        // Calculate prices with yield bumps for numerical convexity
-        let (p0, p_up, p_dn) = {
-            let bond: &Bond = context.instrument_as()?;
-            let p0 = crate::instruments::bond::pricing::quote_engine::price_from_ytm(
-                bond,
-                flows,
-                context.as_of,
-                ytm,
-            )?;
-            let p_up = crate::instruments::bond::pricing::quote_engine::price_from_ytm(
-                bond,
-                flows,
-                context.as_of,
-                ytm + dy,
-            )?;
-            let p_dn = crate::instruments::bond::pricing::quote_engine::price_from_ytm(
-                bond,
-                flows,
-                context.as_of,
-                ytm - dy,
-            )?;
-            (p0, p_up, p_dn)
-        };
-
-        if p0 == 0.0 || dy == 0.0 {
+        let price = crate::instruments::bond::pricing::quote_engine::price_from_ytm(
+            bond,
+            flows,
+            context.as_of,
+            ytm,
+        )?;
+        if price == 0.0 {
             return Ok(0.0);
         }
 
-        // Convexity = (P+ + P- - 2*P0) / (P0 * dy^2)
-        let convexity = (p_up + p_dn - 2.0 * p0) / (p0 * dy * dy);
+        let mut d2_price = 0.0;
+        for &(date, amount) in flows {
+            if date <= context.as_of {
+                continue;
+            }
+            let t = bond
+                .cashflow_spec
+                .day_count()
+                .year_fraction(
+                    context.as_of,
+                    date,
+                    finstack_core::dates::DayCountCtx::default(),
+                )?
+                .max(0.0);
+            let df_second = df_second_derivative(ytm, t, comp, freq)?;
+            d2_price += amount.amount() * df_second;
+        }
 
-        Ok(convexity)
+        Ok(d2_price / price)
     }
+}
+
+fn df_second_derivative(
+    ytm: f64,
+    t: f64,
+    comp: crate::instruments::bond::pricing::quote_engine::YieldCompounding,
+    freq: finstack_core::dates::Tenor,
+) -> finstack_core::Result<f64> {
+    use crate::instruments::bond::pricing::quote_engine::{
+        df_from_yield, periods_per_year, YieldCompounding,
+    };
+
+    if t <= 0.0 {
+        return Ok(0.0);
+    }
+
+    let df = df_from_yield(ytm, t, comp, freq)?;
+    Ok(match comp {
+        YieldCompounding::Simple => {
+            let denom = 1.0 + ytm * t;
+            2.0 * t * t / (denom * denom * denom)
+        }
+        YieldCompounding::Annual => {
+            let denom = 1.0 + ytm;
+            t * (t + 1.0) / (denom * denom) * df
+        }
+        YieldCompounding::Periodic(m) => {
+            let m = m as f64;
+            let c = m * t;
+            let denom = m + ytm;
+            c * (c + 1.0) / (denom * denom) * df
+        }
+        YieldCompounding::Continuous => t * t * df,
+        YieldCompounding::Street => {
+            let m = periods_per_year(freq)?.max(1.0);
+            let c = m * t;
+            let denom = m + ytm;
+            c * (c + 1.0) / (denom * denom) * df
+        }
+        YieldCompounding::TreasuryActual => {
+            let m = periods_per_year(freq)?.max(1.0);
+            let period_length = 1.0 / m;
+
+            if t <= period_length {
+                let denom = 1.0 + ytm * t;
+                2.0 * t * t / (denom * denom * denom)
+            } else {
+                let n_full = (t * m).floor();
+                let stub_time = t - n_full / m;
+                if stub_time <= 1e-10 {
+                    let c = m * t;
+                    let denom = m + ytm;
+                    c * (c + 1.0) / (denom * denom) * df
+                } else {
+                    let df_stub = 1.0 / (1.0 + ytm * stub_time);
+                    let df_periodic = (1.0 + ytm / m).powf(-n_full);
+
+                    let df_stub_prime = -stub_time / (1.0 + ytm * stub_time).powi(2);
+                    let df_stub_second =
+                        2.0 * stub_time * stub_time / (1.0 + ytm * stub_time).powi(3);
+
+                    let denom = m + ytm;
+                    let df_periodic_prime = -(n_full / denom) * df_periodic;
+                    let df_periodic_second =
+                        n_full * (n_full + 1.0) / (denom * denom) * df_periodic;
+
+                    df_stub_second * df_periodic
+                        + 2.0 * df_stub_prime * df_periodic_prime
+                        + df_stub * df_periodic_second
+                }
+            }
+        }
+    })
 }

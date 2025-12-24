@@ -168,3 +168,74 @@ fn test_disabled_path_capture() {
     // But should still have valid estimate
     assert!(result.estimate.mean.amount() > 0.0);
 }
+
+#[test]
+fn test_path_capture_determinism_philox() {
+    let config = PathDependentPricerConfig::new(50)
+        .with_seed(7)
+        .with_parallel(false)
+        .capture_all_paths();
+
+    let pricer = PathDependentPricer::new(config);
+    let gbm = GbmProcess::with_params(0.05, 0.02, 0.2);
+    let call = EuropeanCall::new(100.0, 1.0, 12);
+
+    let first = pricer
+        .price_with_paths(&gbm, 100.0, 1.0, 12, &call, Currency::USD, 0.95)
+        .unwrap();
+    let second = pricer
+        .price_with_paths(&gbm, 100.0, 1.0, 12, &call, Currency::USD, 0.95)
+        .unwrap();
+
+    let paths_first = first.paths().unwrap();
+    let paths_second = second.paths().unwrap();
+    assert_eq!(paths_first.num_captured(), paths_second.num_captured());
+
+    let path_a = paths_first.path(0).unwrap();
+    let path_b = paths_second.path(0).unwrap();
+    assert_eq!(path_a.points.len(), path_b.points.len());
+    assert!((path_a.final_value - path_b.final_value).abs() < 1e-12);
+
+    for (pt_a, pt_b) in path_a.points.iter().zip(path_b.points.iter()) {
+        let spot_a = pt_a.spot().unwrap_or(0.0);
+        let spot_b = pt_b.spot().unwrap_or(0.0);
+        assert!((spot_a - spot_b).abs() < 1e-12);
+    }
+}
+
+#[cfg(feature = "mc")]
+#[test]
+fn test_path_capture_determinism_sobol() {
+    let config = PathDependentPricerConfig::new(50)
+        .with_seed(7)
+        .with_parallel(false)
+        .with_sobol(true)
+        .with_brownian_bridge(false)
+        .capture_all_paths();
+
+    let pricer = PathDependentPricer::new(config);
+    let gbm = GbmProcess::with_params(0.05, 0.02, 0.2);
+    let call = EuropeanCall::new(100.0, 1.0, 12);
+
+    let first = pricer
+        .price_with_paths(&gbm, 100.0, 1.0, 12, &call, Currency::USD, 0.95)
+        .unwrap();
+    let second = pricer
+        .price_with_paths(&gbm, 100.0, 1.0, 12, &call, Currency::USD, 0.95)
+        .unwrap();
+
+    let paths_first = first.paths().unwrap();
+    let paths_second = second.paths().unwrap();
+    assert_eq!(paths_first.num_captured(), paths_second.num_captured());
+
+    let path_a = paths_first.path(0).unwrap();
+    let path_b = paths_second.path(0).unwrap();
+    assert_eq!(path_a.points.len(), path_b.points.len());
+    assert!((path_a.final_value - path_b.final_value).abs() < 1e-12);
+
+    for (pt_a, pt_b) in path_a.points.iter().zip(path_b.points.iter()) {
+        let spot_a = pt_a.spot().unwrap_or(0.0);
+        let spot_b = pt_b.spot().unwrap_or(0.0);
+        assert!((spot_a - spot_b).abs() < 1e-12);
+    }
+}

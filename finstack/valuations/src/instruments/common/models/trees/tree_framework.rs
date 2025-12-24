@@ -726,7 +726,7 @@ impl EvolutionParams {
 pub enum BarrierStyle {
     /// Knock-out barrier: option becomes void upon breach (rebate may apply)
     KnockOut,
-    /// Knock-in barrier: priced via parity in model-specific APIs (engine ignores directly)
+    /// Knock-in barrier: engine tracks barrier hit state for path-dependent pricing
     KnockIn,
 }
 
@@ -740,7 +740,7 @@ pub struct BarrierSpec {
     pub up_level: Option<f64>,
     /// Down barrier level (S <= down triggers a touch)
     pub down_level: Option<f64>,
-    /// Rebate amount paid immediately upon knock-out
+    /// Rebate amount paid on knock-out (or at expiry if knock-in never triggers)
     pub rebate: f64,
     /// Barrier style (engine only enforces KnockOut directly)
     pub style: BarrierStyle,
@@ -869,6 +869,11 @@ pub fn price_recombining_tree<V: TreeValuator>(inputs: RecombiningInputs<'_, V>)
         }
     };
 
+    let barrier_is_knock_in = inputs
+        .barrier
+        .as_ref()
+        .is_some_and(|spec| matches!(spec.style, BarrierStyle::KnockIn));
+
     match inputs.branching {
         TreeBranching::Binomial => {
             // Initialize terminal values
@@ -878,8 +883,147 @@ pub fn price_recombining_tree<V: TreeValuator>(inputs: RecombiningInputs<'_, V>)
                 .or_else(|| inputs.initial_vars.get(state_keys::INTEREST_RATE))
                 .ok_or(finstack_core::Error::Internal)?;
 
-            let mut values = Vec::with_capacity(inputs.steps + 1);
             let mut node_vars = inputs.initial_vars.clone(); // Clone once outside loops
+
+            if barrier_is_knock_in {
+                let spec = inputs
+                    .barrier
+                    .as_ref()
+                    .ok_or(finstack_core::Error::Internal)?;
+                let num_barriers =
+                    spec.up_level.is_some() as usize + spec.down_level.is_some() as usize;
+                if num_barriers != 1 {
+                    return Err(finstack_core::Error::Validation(
+                        "Knock-in tree pricing requires exactly one barrier (up or down)".into(),
+                    ));
+                }
+
+                let (barrier_level, barrier_type) = if let Some(up) = spec.up_level {
+                    (up, BarrierType::UpAndIn)
+                } else if let Some(down) = spec.down_level {
+                    (down, BarrierType::DownAndIn)
+                } else {
+                    return Err(finstack_core::Error::Internal);
+                };
+                let hit_state = BarrierState {
+                    barrier_hit: true,
+                    barrier_level,
+                    barrier_type,
+                };
+
+                let mut hit_values = Vec::with_capacity(inputs.steps + 1);
+                let mut not_hit_values = Vec::with_capacity(inputs.steps + 1);
+
+                // Initialize terminal values with hit/not-hit states
+                for i in 0..=inputs.steps {
+                    let time_t = inputs.time_to_maturity;
+                    let terminal_spot = get_state(inputs.steps, i, spot0);
+
+                    if inputs.initial_vars.contains_key(state_keys::SPOT) {
+                        node_vars.insert(state_keys::SPOT, terminal_spot);
+                    } else {
+                        node_vars.insert(state_keys::INTEREST_RATE, terminal_spot);
+                    }
+
+                    let (t_up, t_dn, _breached, rebate) = barrier_touch(terminal_spot);
+                    let touched = t_up || t_dn;
+                    node_vars.insert(state_keys::BARRIER_TOUCHED_UP, if t_up { 1.0 } else { 0.0 });
+                    node_vars.insert(
+                        state_keys::BARRIER_TOUCHED_DOWN,
+                        if t_dn { 1.0 } else { 0.0 },
+                    );
+
+                    let terminal_state = NodeState::new_with_barrier(
+                        inputs.steps,
+                        time_t,
+                        &node_vars,
+                        inputs.market_context,
+                        hit_state.clone(),
+                    );
+                    let payoff_hit = inputs.valuator.value_at_maturity(&terminal_state)?;
+                    let payoff_not_hit = if touched { payoff_hit } else { rebate };
+
+                    hit_values.push(payoff_hit);
+                    not_hit_values.push(payoff_not_hit);
+                }
+
+                // Backward induction with path-dependent barrier state
+                for step in (0..inputs.steps).rev() {
+                    let mut next_hit = Vec::with_capacity(step + 1);
+                    let mut next_not_hit = Vec::with_capacity(step + 1);
+                    for i in 0..=step {
+                        let spot_t = get_state(step, i, spot0);
+                        let time_t = step as f64 * dt;
+                        let df_node = get_df(step, i);
+
+                        if inputs.initial_vars.contains_key(state_keys::SPOT) {
+                            node_vars.insert(state_keys::SPOT, spot_t);
+                        } else {
+                            node_vars.insert(state_keys::INTEREST_RATE, spot_t);
+                        }
+
+                        let (t_up, t_dn, _breached, _rebate) = barrier_touch(spot_t);
+                        let touched = t_up || t_dn;
+                        node_vars.insert(
+                            state_keys::BARRIER_TOUCHED_UP,
+                            if t_up { 1.0 } else { 0.0 },
+                        );
+                        node_vars.insert(
+                            state_keys::BARRIER_TOUCHED_DOWN,
+                            if t_dn { 1.0 } else { 0.0 },
+                        );
+
+                        let continuation_hit =
+                            df_node * (inputs.prob_up * hit_values[i + 1]
+                                + inputs.prob_down * hit_values[i]);
+                        let node_state_hit = NodeState::new_with_barrier(
+                            step,
+                            time_t,
+                            &node_vars,
+                            inputs.market_context,
+                            hit_state.clone(),
+                        );
+                        let value_hit =
+                            inputs
+                                .valuator
+                                .value_at_node(&node_state_hit, continuation_hit, dt)?;
+
+                        let value_not_hit = if touched {
+                            value_hit
+                        } else {
+                            let spot_up = get_state(step + 1, i + 1, spot0);
+                            let spot_down = get_state(step + 1, i, spot0);
+                            let (up_t_up, up_t_dn, _up_breached, _up_rebate) =
+                                barrier_touch(spot_up);
+                            let (dn_t_up, dn_t_dn, _dn_breached, _dn_rebate) =
+                                barrier_touch(spot_down);
+                            let child_up_touched = up_t_up || up_t_dn;
+                            let child_down_touched = dn_t_up || dn_t_dn;
+
+                            let next_up = if child_up_touched {
+                                hit_values[i + 1]
+                            } else {
+                                not_hit_values[i + 1]
+                            };
+                            let next_down = if child_down_touched {
+                                hit_values[i]
+                            } else {
+                                not_hit_values[i]
+                            };
+                            df_node * (inputs.prob_up * next_up + inputs.prob_down * next_down)
+                        };
+
+                        next_hit.push(value_hit);
+                        next_not_hit.push(value_not_hit);
+                    }
+                    hit_values = next_hit;
+                    not_hit_values = next_not_hit;
+                }
+
+                return Ok(not_hit_values[0]);
+            }
+
+            let mut values = Vec::with_capacity(inputs.steps + 1);
 
             // Initialize terminal values using custom state generator if provided
             for i in 0..=inputs.steps {
@@ -966,8 +1110,169 @@ pub fn price_recombining_tree<V: TreeValuator>(inputs: RecombiningInputs<'_, V>)
             let p_m = inputs.prob_middle.unwrap_or(0.0);
 
             let max_nodes = 2 * inputs.steps + 1;
-            let mut values = vec![vec![0.0; max_nodes]; inputs.steps + 1];
             let mut node_vars = inputs.initial_vars.clone(); // Clone once
+
+            if barrier_is_knock_in {
+                let spec = inputs
+                    .barrier
+                    .as_ref()
+                    .ok_or(finstack_core::Error::Internal)?;
+                let num_barriers =
+                    spec.up_level.is_some() as usize + spec.down_level.is_some() as usize;
+                if num_barriers != 1 {
+                    return Err(finstack_core::Error::Validation(
+                        "Knock-in tree pricing requires exactly one barrier (up or down)".into(),
+                    ));
+                }
+
+                let (barrier_level, barrier_type) = if let Some(up) = spec.up_level {
+                    (up, BarrierType::UpAndIn)
+                } else if let Some(down) = spec.down_level {
+                    (down, BarrierType::DownAndIn)
+                } else {
+                    return Err(finstack_core::Error::Internal);
+                };
+                let hit_state = BarrierState {
+                    barrier_hit: true,
+                    barrier_level,
+                    barrier_type,
+                };
+
+                let mut hit_values = vec![vec![0.0; max_nodes]; inputs.steps + 1];
+                let mut not_hit_values = vec![vec![0.0; max_nodes]; inputs.steps + 1];
+
+                // Terminal values
+                for j in 0..max_nodes {
+                    if j <= 2 * inputs.steps {
+                        let spot_t = get_state(inputs.steps, j, spot0);
+                        let time_t = inputs.time_to_maturity;
+
+                        if inputs.initial_vars.contains_key(state_keys::SPOT) {
+                            node_vars.insert(state_keys::SPOT, spot_t);
+                        } else {
+                            node_vars.insert(state_keys::INTEREST_RATE, spot_t);
+                        }
+
+                        let (t_up, t_dn, _breached, rebate) = barrier_touch(spot_t);
+                        let touched = t_up || t_dn;
+                        node_vars.insert(
+                            state_keys::BARRIER_TOUCHED_UP,
+                            if t_up { 1.0 } else { 0.0 },
+                        );
+                        node_vars.insert(
+                            state_keys::BARRIER_TOUCHED_DOWN,
+                            if t_dn { 1.0 } else { 0.0 },
+                        );
+
+                        let terminal_state = NodeState::new_with_barrier(
+                            inputs.steps,
+                            time_t,
+                            &node_vars,
+                            inputs.market_context,
+                            hit_state.clone(),
+                        );
+                        let payoff_hit = inputs.valuator.value_at_maturity(&terminal_state)?;
+                        let payoff_not_hit = if touched { payoff_hit } else { rebate };
+
+                        hit_values[inputs.steps][j] = payoff_hit;
+                        not_hit_values[inputs.steps][j] = payoff_not_hit;
+                    }
+                }
+
+                // Backward induction
+                for step in (0..inputs.steps).rev() {
+                    let nodes_at_step = 2 * step + 1;
+                    for j in 0..nodes_at_step {
+                        let spot_t = get_state(step, j, spot0);
+                        let time_t = step as f64 * dt;
+                        let df_node = get_df(step, j);
+
+                        // Child indices: up=j+2, mid=j+1, down=j
+                        let up_idx = j + 2;
+                        let mid_idx = j + 1;
+                        let down_idx = j;
+
+                        if inputs.initial_vars.contains_key(state_keys::SPOT) {
+                            node_vars.insert(state_keys::SPOT, spot_t);
+                        } else {
+                            node_vars.insert(state_keys::INTEREST_RATE, spot_t);
+                        }
+
+                        let (t_up, t_dn, _breached, _rebate) = barrier_touch(spot_t);
+                        let touched = t_up || t_dn;
+                        node_vars.insert(
+                            state_keys::BARRIER_TOUCHED_UP,
+                            if t_up { 1.0 } else { 0.0 },
+                        );
+                        node_vars.insert(
+                            state_keys::BARRIER_TOUCHED_DOWN,
+                            if t_dn { 1.0 } else { 0.0 },
+                        );
+
+                        let continuation_hit = df_node
+                            * (inputs.prob_up * hit_values[step + 1][up_idx]
+                                + p_m * hit_values[step + 1][mid_idx]
+                                + inputs.prob_down * hit_values[step + 1][down_idx]);
+                        let node_state_hit = NodeState::new_with_barrier(
+                            step,
+                            time_t,
+                            &node_vars,
+                            inputs.market_context,
+                            hit_state.clone(),
+                        );
+                        let value_hit =
+                            inputs
+                                .valuator
+                                .value_at_node(&node_state_hit, continuation_hit, dt)?;
+
+                        let value_not_hit = if touched {
+                            value_hit
+                        } else {
+                            let spot_up = get_state(step + 1, up_idx, spot0);
+                            let spot_mid = get_state(step + 1, mid_idx, spot0);
+                            let spot_down = get_state(step + 1, down_idx, spot0);
+
+                            let (up_t_up, up_t_dn, _up_breached, _up_rebate) =
+                                barrier_touch(spot_up);
+                            let (mid_t_up, mid_t_dn, _mid_breached, _mid_rebate) =
+                                barrier_touch(spot_mid);
+                            let (dn_t_up, dn_t_dn, _dn_breached, _dn_rebate) =
+                                barrier_touch(spot_down);
+                            let child_up_touched = up_t_up || up_t_dn;
+                            let child_mid_touched = mid_t_up || mid_t_dn;
+                            let child_down_touched = dn_t_up || dn_t_dn;
+
+                            let next_up = if child_up_touched {
+                                hit_values[step + 1][up_idx]
+                            } else {
+                                not_hit_values[step + 1][up_idx]
+                            };
+                            let next_mid = if child_mid_touched {
+                                hit_values[step + 1][mid_idx]
+                            } else {
+                                not_hit_values[step + 1][mid_idx]
+                            };
+                            let next_down = if child_down_touched {
+                                hit_values[step + 1][down_idx]
+                            } else {
+                                not_hit_values[step + 1][down_idx]
+                            };
+
+                            df_node
+                                * (inputs.prob_up * next_up
+                                    + p_m * next_mid
+                                    + inputs.prob_down * next_down)
+                        };
+
+                        hit_values[step][j] = value_hit;
+                        not_hit_values[step][j] = value_not_hit;
+                    }
+                }
+
+                return Ok(not_hit_values[0][0]);
+            }
+
+            let mut values = vec![vec![0.0; max_nodes]; inputs.steps + 1];
 
             // Terminal values
             for (j, terminal_value) in values[inputs.steps].iter_mut().enumerate().take(max_nodes) {

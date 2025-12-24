@@ -79,8 +79,9 @@ pub mod types;
 
 // Re-export main types for convenience
 pub use calculators::{
-    ClearingHouseImCalculator, HaircutImCalculator, ImCalculator, ImResult, ScheduleImCalculator,
-    SimmCalculator, VmCalculator, VmResult,
+    CcpMarginInputSource, CcpMethodology, ClearingHouseImCalculator, HaircutImCalculator,
+    ImCalculator, ImResult, InternalModelImCalculator, InternalModelInputSource,
+    ScheduleImCalculator, SimmCalculator, VmCalculator, VmResult,
 };
 pub use traits::{
     InstrumentMarginResult, Marginable, NettingSetId, SimmRiskClass, SimmSensitivities,

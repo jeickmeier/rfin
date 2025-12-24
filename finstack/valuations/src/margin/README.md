@@ -209,10 +209,9 @@ sens.add_credit_delta("CDX.NA.IG", true, "5Y", 50_000.0);
 let (total_im, breakdown) = calc.calculate_from_sensitivities(&sens, Currency::USD);
 ```
 
-> **Implementation note:** The current `calculate_from_sensitivities` helper
-> sums the per-risk-class contributions (delta-only) and does not apply the
-> full SIMM correlation matrix. Use custom aggregation logic if you need the
-> official cross-bucket correlations.
+> **Implementation note:** `calculate_from_sensitivities` applies the SIMM
+> risk-class correlation matrix (delta-only). Bucket/tenor correlations,
+> vega, and curvature aggregation are still simplified.
 
 ##### SIMM Risk Classes
 
@@ -291,6 +290,41 @@ let cme = ClearingHouseImCalculator::cme();
 
 // Generic VaR-based
 let var_calc = ClearingHouseImCalculator::generic_var(0.99, 250);
+```
+
+Provide external VaR/SPAN outputs via a `CcpMarginInputSource`:
+
+```rust
+use finstack_valuations::margin::{CcpMarginInputSource, ClearingHouseImCalculator};
+use finstack_core::money::Money;
+use std::sync::Arc;
+
+struct MyCcpInputs;
+
+impl CcpMarginInputSource for MyCcpInputs {
+    fn initial_margin(
+        &self,
+        _instrument: &dyn finstack_valuations::instruments::Instrument,
+        _context: &finstack_core::market_data::context::MarketContext,
+        _as_of: finstack_core::dates::Date,
+        _methodology: &finstack_valuations::margin::CcpMethodology,
+    ) -> Option<Money> {
+        Some(Money::new(2_500_000.0, finstack_core::currency::Currency::USD))
+    }
+}
+
+let calc = ClearingHouseImCalculator::lch_swapclear()
+    .with_input_source(Arc::new(MyCcpInputs));
+```
+
+#### Internal Model Calculator
+
+Internal model (VaR/ES) stub with conservative fallback:
+
+```rust
+use finstack_valuations::margin::InternalModelImCalculator;
+
+let calc = InternalModelImCalculator::new().with_conservative_rate(0.05);
 ```
 
 ## Implementing Marginable for Instruments
@@ -501,8 +535,8 @@ impl ClearingHouseImCalculator {
 
 ### Current Limitations
 
-1. **SIMM Implementation**: Simplified aggregation without full correlation matrix
-2. **CCP Calculators**: Use conservative estimates rather than actual CCP methodologies
+1. **SIMM Implementation**: Risk-class correlations implemented; bucket/tenor correlations, vega, and curvature remain simplified
+2. **CCP Calculators**: Use conservative estimates unless external VaR/SPAN inputs are supplied
 3. **Calendar Integration**: Settlement dates use simple day addition instead of business day calendars
 4. **Wrong-Way Risk**: Not currently modeled in IM calculations
 5. **Dynamic IM**: No real-time VaR-based IM calculation
@@ -510,7 +544,7 @@ impl ClearingHouseImCalculator {
 
 ### Planned Enhancements
 
-1. **Full SIMM Correlation Matrix**: Complete ISDA SIMM implementation with cross-bucket correlations
+1. **Full SIMM Bucket Correlations**: Complete ISDA SIMM implementation with bucket/tenor correlations, vega, and curvature
 2. **CCP API Integration**: Interface with LCH SMART, CME CORE for actual margin calculations
 3. **MVA (Margin Valuation Adjustment)**: Calculate funding cost of future margin requirements
 4. **Dynamic IM**: Historical simulation and Monte Carlo for VaR/ES-based IM

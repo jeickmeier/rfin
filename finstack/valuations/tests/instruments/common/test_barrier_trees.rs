@@ -25,3 +25,19 @@ fn test_in_out_parity_single_barrier() {
     let parity_diff = (vanilla - (down_and_out + down_and_in)).abs();
     assert!(parity_diff < 1e-6);
 }
+
+#[test]
+fn test_american_knock_in_put_ge_european() {
+    let market = OptionMarketParams::put(100.0, 105.0, 0.03, 0.25, 1.0);
+    let tree = BinomialTree::crr(200);
+
+    let european = tree.price_down_and_in(&market, 95.0, 0.0).unwrap();
+    let american = tree
+        .price_down_and_in_american(&market, 95.0, 0.0)
+        .unwrap();
+
+    assert!(
+        american + 1e-8 >= european,
+        "American knock-in should not be less than European"
+    );
+}

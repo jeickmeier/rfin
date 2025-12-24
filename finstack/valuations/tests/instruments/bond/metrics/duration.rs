@@ -2,6 +2,7 @@
 
 use finstack_core::currency::Currency;
 use finstack_core::money::Money;
+use finstack_valuations::cashflow::traits::CashflowProvider;
 use finstack_valuations::instruments::bond::Bond;
 use finstack_valuations::instruments::common::traits::Instrument;
 use finstack_valuations::metrics::MetricId;
@@ -79,14 +80,13 @@ fn test_modified_duration_matches_macaulay_over_yield() {
 }
 
 #[test]
-fn test_convexity_bump_configurable() {
-    // Convexity should honor pricing_overrides.ytm_bump_decimal if set
+fn test_convexity_matches_numerical_second_derivative() {
+    // Closed-form convexity should align with a numerical second derivative.
     use finstack_core::market_data::term_structures::DiscountCurve;
-    use finstack_valuations::instruments::PricingOverrides;
 
     let as_of = date!(2025 - 01 - 01);
     let maturity = date!(2030 - 01 - 01);
-    let mut bond = Bond::fixed(
+    let bond = Bond::fixed(
         "CONV1",
         Money::new(100.0, Currency::USD),
         0.05,
@@ -102,20 +102,37 @@ fn test_convexity_bump_configurable() {
         .unwrap();
     let market = finstack_core::market_data::context::MarketContext::new().insert_discount(curve);
 
-    // First compute with default bump (1 bp)
-    let res_default = bond
-        .price_with_metrics(&market, as_of, &[MetricId::Convexity])
+    let res = bond
+        .price_with_metrics(&market, as_of, &[MetricId::Ytm, MetricId::Convexity])
         .unwrap();
-    let conv_default = *res_default.measures.get("convexity").unwrap();
+    let ytm = *res.measures.get("ytm").unwrap();
+    let conv_closed = *res.measures.get("convexity").unwrap();
 
-    // Now set a larger bump and expect convexity magnitude to change
-    bond.pricing_overrides = PricingOverrides::default().with_ytm_bump_decimal(2e-4); // 2 bp
-    let res_bumped = bond
-        .price_with_metrics(&market, as_of, &[MetricId::Convexity])
-        .unwrap();
-    let conv_bumped = *res_bumped.measures.get("convexity").unwrap();
+    let flows = bond.build_schedule(&market, as_of).unwrap();
+    let dy = 1e-4;
+    let p0 = finstack_valuations::instruments::bond::pricing::quote_engine::price_from_ytm(
+        &bond,
+        &flows,
+        as_of,
+        ytm,
+    )
+    .unwrap();
+    let p_up = finstack_valuations::instruments::bond::pricing::quote_engine::price_from_ytm(
+        &bond,
+        &flows,
+        as_of,
+        ytm + dy,
+    )
+    .unwrap();
+    let p_dn = finstack_valuations::instruments::bond::pricing::quote_engine::price_from_ytm(
+        &bond,
+        &flows,
+        as_of,
+        ytm - dy,
+    )
+    .unwrap();
+    let conv_numeric = (p_up + p_dn - 2.0 * p0) / (p0 * dy * dy);
 
-    // Numerical convexity should be stable to small bump size changes; allow small relative diff
-    let rel = ((conv_bumped - conv_default).abs()) / conv_default.abs().max(1e-9);
-    assert!(rel < 0.25);
+    let rel = (conv_closed - conv_numeric).abs() / conv_numeric.abs().max(1e-9);
+    assert!(rel < 1e-3, "convexity rel diff {}", rel);
 }

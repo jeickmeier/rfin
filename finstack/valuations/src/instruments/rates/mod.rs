@@ -10,6 +10,8 @@ pub mod cms_option;
 pub mod deposit;
 /// FRA module - Forward rate agreements.
 pub mod fra;
+/// Inflation cap/floor module.
+pub mod inflation_cap_floor;
 /// Inflation swap module.
 pub mod inflation_swap;
 /// IR future module - Interest rate futures.
@@ -31,6 +33,7 @@ pub use cap_floor::RateOptionType;
 pub use cms_option::CmsOption;
 pub use deposit::Deposit;
 pub use fra::ForwardRateAgreement;
+pub use inflation_cap_floor::{InflationCapFloor, InflationCapFloorType};
 pub use inflation_swap::{InflationSwap, YoYInflationSwap};
 pub use ir_future::InterestRateFuture;
 pub use irs::InterestRateSwap;

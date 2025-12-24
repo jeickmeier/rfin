@@ -11,6 +11,7 @@ use finstack_core::money::Money;
 use finstack_core::Result;
 
 use crate::cashflow::traits::CashflowProvider;
+use crate::instruments::common::traits::Instrument;
 use crate::instruments::bond::Bond;
 use crate::instruments::ir_future::Position;
 
@@ -190,7 +191,6 @@ impl BondFuturePricer {
     ) -> Result<f64> {
         use crate::instruments::bond::metrics::accrued::AccruedInterestCalculator;
         use crate::instruments::bond::metrics::price_yield_spread::CleanPriceCalculator;
-        use crate::instruments::common::traits::Instrument;
         use crate::metrics::{MetricCalculator, MetricContext, MetricId};
         use std::sync::Arc;
 
@@ -382,8 +382,8 @@ impl crate::pricer::Pricer for BondFuturePricer {
     fn price_dyn(
         &self,
         instrument: &dyn crate::instruments::common::traits::Instrument,
-        _market: &MarketContext,
-        _as_of: finstack_core::dates::Date,
+        market: &MarketContext,
+        as_of: finstack_core::dates::Date,
     ) -> crate::pricer::PricingResult<crate::results::ValuationResult> {
         // Type-safe downcast to BondFuture
         let future = instrument
@@ -396,40 +396,14 @@ impl crate::pricer::Pricer for BondFuturePricer {
                 )
             })?;
 
-        // TODO: Instrument registry not yet implemented in MarketContext
-        // Once implemented (see finstack/core/src/market_data/context.rs),
-        // this will lookup the CTD bond from the registry:
-        // let ctd_bond_any = market.instrument(future.ctd_bond_id.as_str())?;
-        // let ctd_bond = ctd_bond_any.downcast_ref::<Bond>()?;
+        // Delegate to BondFuture::value(), which resolves the CTD bond and computes NPV.
+        let npv = future.value(market, as_of)?;
 
-        Err(crate::pricer::PricingError::ModelFailure(format!(
-            "BondFuture pricing requires instrument registry in MarketContext (not yet implemented). \
-             CTD bond ID: {}. \
-             This is a known limitation that will be resolved when MarketContext gains instrument registry support.",
-            future.ctd_bond_id.as_str()
-        )))
-
-        // Unreachable code below (will be enabled once instrument registry is implemented):
-        /*
-        // Calculate conversion factor
-        let conversion_factor = Self::calculate_conversion_factor(
-            ctd_bond,
-            future.contract_specs.standard_coupon,
-            future.contract_specs.standard_maturity_years,
-            market,
-            as_of,
-        )?;
-
-        // Calculate NPV
-        let npv = Self::calculate_npv(future, ctd_bond, conversion_factor, market, as_of)?;
-
-        // Return valuation result
         Ok(crate::results::ValuationResult::stamped(
             future.id.as_str(),
             as_of,
             npv,
         ))
-        */
     }
 }
 
@@ -449,6 +423,7 @@ mod tests {
     use finstack_core::math::interp::InterpStyle;
     use finstack_core::money::Money;
     use finstack_core::types::{CurveId, InstrumentId};
+    use std::sync::Arc;
     use time::macros::date;
 
     use crate::instruments::bond::Bond;
@@ -1019,60 +994,97 @@ mod tests {
     }
 
     #[test]
-    fn test_pricer_error_message() {
-        // Test that calling price_dyn returns an informative error message
+    fn test_pricer_price_dyn_uses_ctd_bond() {
         use crate::pricer::Pricer;
+        use crate::instruments::bond_future::{BondFutureBuilder, BondFutureSpecs, DeliverableBond};
 
-        let deliverable = super::super::DeliverableBond {
-            bond_id: InstrumentId::new("US912828XG33"),
-            conversion_factor: 0.8234,
-        };
+        let as_of = date!(2025 - 01 - 15);
+        let expiry = date!(2025 - 03 - 20);
+        let delivery_start = date!(2025 - 03 - 21);
+        let delivery_end = date!(2025 - 03 - 31);
 
-        let future = super::super::BondFutureBuilder::new()
+        let bond_a = Bond::fixed(
+            "BOND-A",
+            Money::new(100_000.0, Currency::USD),
+            0.04,
+            date!(2020 - 01 - 15),
+            date!(2030 - 01 - 15),
+            "USD-TREASURY",
+        );
+        let bond_b = Bond::fixed(
+            "BOND-B",
+            Money::new(100_000.0, Currency::USD),
+            0.06,
+            date!(2020 - 01 - 15),
+            date!(2030 - 01 - 15),
+            "USD-TREASURY",
+        );
+
+        let market = create_test_market(0.05)
+            .insert_instrument("BOND-A", Arc::new(bond_a.clone()))
+            .insert_instrument("BOND-B", Arc::new(bond_b.clone()));
+
+        let cf_a = BondFuturePricer::calculate_conversion_factor(
+            &bond_a,
+            0.06,
+            10.0,
+            &market,
+            delivery_start,
+        )
+        .expect("Failed to calculate conversion factor for bond A");
+        let cf_b = BondFuturePricer::calculate_conversion_factor(
+            &bond_b,
+            0.06,
+            10.0,
+            &market,
+            delivery_start,
+        )
+        .expect("Failed to calculate conversion factor for bond B");
+
+        let future = BondFutureBuilder::new()
             .id(InstrumentId::new("TYH5"))
             .notional(Money::new(1_000_000.0, Currency::USD))
-            .expiry_date(date!(2025 - 03 - 20))
-            .delivery_start(date!(2025 - 03 - 21))
-            .delivery_end(date!(2025 - 03 - 31))
+            .expiry_date(expiry)
+            .delivery_start(delivery_start)
+            .delivery_end(delivery_end)
             .quoted_price(125.50)
             .position(Position::Long)
-            .contract_specs(super::super::BondFutureSpecs::default())
-            .deliverable_basket(vec![deliverable])
-            .ctd_bond_id(InstrumentId::new("US912828XG33"))
+            .contract_specs(BondFutureSpecs::default())
+            .deliverable_basket(vec![
+                DeliverableBond {
+                    bond_id: InstrumentId::new("BOND-A"),
+                    conversion_factor: cf_a,
+                },
+                DeliverableBond {
+                    bond_id: InstrumentId::new("BOND-B"),
+                    conversion_factor: cf_b,
+                },
+            ])
+            .ctd_bond_id(InstrumentId::new("BOND-B"))
             .discount_curve_id(CurveId::new("USD-TREASURY"))
             .attributes(crate::instruments::common::traits::Attributes::new())
             .build()
             .expect("Valid bond future");
 
         let pricer = BondFuturePricer;
-        let market = create_test_market(0.06);
-        let as_of = date!(2025 - 01 - 15);
+        let result = pricer
+            .price_dyn(&future, &market, as_of)
+            .expect("price_dyn should succeed for bond futures");
 
-        // Call price_dyn - should return an error with helpful message
-        let result = pricer.price_dyn(&future, &market, as_of);
+        let expected = BondFuturePricer::calculate_npv(&future, &bond_b, cf_b, &market, as_of)
+            .expect("Failed to calculate expected NPV for CTD bond");
+        let alt = BondFuturePricer::calculate_npv(&future, &bond_a, cf_a, &market, as_of)
+            .expect("Failed to calculate alternate NPV for non-CTD bond");
 
+        let diff = (result.value.amount() - expected.amount()).abs();
         assert!(
-            result.is_err(),
-            "price_dyn should return an error for bond futures"
-        );
-
-        // Verify the error message is helpful
-        let err = result.expect_err("Should have error for price_dyn on bond future");
-        let err_msg = err.to_string();
-        assert!(
-            err_msg.contains("CTD bond"),
-            "Error message should mention CTD bond, got: {}",
-            err_msg
+            diff < 1e-8,
+            "Pricer NPV should match CTD bond NPV, diff={}",
+            diff
         );
         assert!(
-            err_msg.contains("US912828XG33"),
-            "Error message should include CTD bond ID, got: {}",
-            err_msg
-        );
-        assert!(
-            err_msg.contains("instrument registry"),
-            "Error message should mention instrument registry, got: {}",
-            err_msg
+            (expected.amount() - alt.amount()).abs() > 1e-6,
+            "CTD and non-CTD NPVs should differ"
         );
     }
 }

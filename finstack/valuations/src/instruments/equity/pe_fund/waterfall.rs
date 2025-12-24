@@ -13,7 +13,9 @@ use finstack_core::money::Money;
 use finstack_core::collections::HashMap;
 use indexmap::IndexMap;
 use smallvec::SmallVec;
+use std::cmp::Ordering;
 use std::sync::Arc;
+use time::Duration;
 
 #[cfg(feature = "serde")]
 use serde::{Deserialize, Serialize};
@@ -976,31 +978,10 @@ impl<'a> EquityWaterfallEngine<'a> {
         ledger_rows: &mut Vec<AllocationRow>,
         clawback_spec: &ClawbackSpec,
     ) -> finstack_core::Result<()> {
-        // Periodic clawback not supported in this PR
-        if matches!(clawback_spec.settle_on, ClawbackSettle::Periodic) {
-            return Err(finstack_core::error::InputError::Invalid.into());
-        }
-
-        let last = match ledger_rows.last() {
-            Some(r) => r.clone(),
+        let last_event_date = match events.iter().map(|e| e.date).max() {
+            Some(date) => date,
             None => return Ok(()),
         };
-
-        let currency = last.to_gp.currency();
-        let settlement_date = events.iter().map(|e| e.date).max().unwrap_or(last.date);
-
-        // Compute total contributions and distributions from events (fund-level)
-        let total_contributions: f64 = events
-            .iter()
-            .filter(|e| e.kind == FundEventKind::Contribution)
-            .map(|e| e.amount.amount())
-            .sum();
-        let total_distributions: f64 = events
-            .iter()
-            .filter(|e| e.kind == FundEventKind::Distribution || e.kind == FundEventKind::Proceeds)
-            .map(|e| e.amount.amount())
-            .sum();
-        let profit_total = (total_distributions - total_contributions).max(0.0);
 
         // Determine target GP share from first promote tier if present
         let target_gp_share: f64 = self
@@ -1013,20 +994,128 @@ impl<'a> EquityWaterfallEngine<'a> {
             })
             .unwrap_or(0.0);
 
-        // Allowed GP carry based on final fund profit
-        let allowed_gp_total = (profit_total * target_gp_share).max(0.0);
+        let totals_as_of = |as_of: Date| -> (f64, f64, f64) {
+            let total_contributions: f64 = events
+                .iter()
+                .filter(|e| e.kind == FundEventKind::Contribution && e.date <= as_of)
+                .map(|e| e.amount.amount())
+                .sum();
+            let total_distributions: f64 = events
+                .iter()
+                .filter(|e| {
+                    (e.kind == FundEventKind::Distribution || e.kind == FundEventKind::Proceeds)
+                        && e.date <= as_of
+                })
+                .map(|e| e.amount.amount())
+                .sum();
+            let profit_total = (total_distributions - total_contributions).max(0.0);
+            let allowed_gp_total = (profit_total * target_gp_share).max(0.0);
+            let paid_gp_total: f64 = ledger_rows
+                .iter()
+                .filter(|r| r.date <= as_of)
+                .map(|r| r.to_gp.amount())
+                .sum();
+            (allowed_gp_total, paid_gp_total, profit_total)
+        };
 
-        // Paid GP to date (net of holdback)
-        let paid_gp_total: f64 = ledger_rows.iter().map(|r| r.to_gp.amount()).sum();
+        if matches!(clawback_spec.settle_on, ClawbackSettle::Periodic) {
+            let periods = self
+                .periods
+                .as_ref()
+                .ok_or(finstack_core::error::InputError::Invalid)?;
 
-        // Difference => settlement amount for GP (positive => pay GP; negative => GP returns)
+            for period in periods {
+                let settlement_date = period.end - Duration::days(1);
+                // Skip periods that start after the last event
+                if period.start > last_event_date {
+                    continue;
+                }
+
+                // Skip if no events have occurred by the settlement date
+                if events.iter().all(|e| e.date > settlement_date) {
+                    continue;
+                }
+
+                // Compute totals inline to avoid borrow conflict with the closure
+                let total_contributions: f64 = events
+                    .iter()
+                    .filter(|e| e.kind == FundEventKind::Contribution && e.date <= settlement_date)
+                    .map(|e| e.amount.amount())
+                    .sum();
+                let total_distributions: f64 = events
+                    .iter()
+                    .filter(|e| {
+                        (e.kind == FundEventKind::Distribution || e.kind == FundEventKind::Proceeds)
+                            && e.date <= settlement_date
+                    })
+                    .map(|e| e.amount.amount())
+                    .sum();
+                let profit_total = (total_distributions - total_contributions).max(0.0);
+                let allowed_gp_total = (profit_total * target_gp_share).max(0.0);
+                let paid_gp_total: f64 = ledger_rows
+                    .iter()
+                    .filter(|r| r.date <= settlement_date)
+                    .map(|r| r.to_gp.amount())
+                    .sum();
+
+                let delta_gp: f64 = allowed_gp_total - paid_gp_total;
+                if delta_gp.abs() <= 1e-9 {
+                    continue;
+                }
+
+                let last_row = ledger_rows
+                    .iter()
+                    .enumerate()
+                    .filter(|(_, r)| r.date <= settlement_date)
+                    .max_by(|(idx_a, a), (idx_b, b)| {
+                        match a.date.cmp(&b.date) {
+                            Ordering::Equal => idx_a.cmp(idx_b),
+                            other => other,
+                        }
+                    })
+                    .map(|(_, row)| row.clone());
+
+                let Some(last_row) = last_row else {
+                    continue;
+                };
+
+                let currency = last_row.to_gp.currency();
+                let to_gp = Money::new(delta_gp, currency);
+                let to_lp = Money::new((-delta_gp).max(0.0), currency);
+
+                let settlement_row = AllocationRow {
+                    date: settlement_date,
+                    period_key: self.period_key_for(settlement_date).map(Arc::from),
+                    deal_id: None,
+                    tranche: Arc::from("Clawback Settlement (periodic)"),
+                    to_lp,
+                    to_gp,
+                    lp_unreturned: last_row.lp_unreturned,
+                    gp_carry_cum: Money::new(allowed_gp_total, currency),
+                    lp_irr_to_date: self.calculate_lp_irr_to_date(events, settlement_date),
+                    note: Some(Arc::from("Clawback settlement and holdback release")),
+                };
+
+                ledger_rows.push(settlement_row);
+            }
+
+            return Ok(());
+        }
+
+        let last_row = match ledger_rows.last() {
+            Some(r) => r.clone(),
+            None => return Ok(()),
+        };
+
+        let settlement_date = last_event_date;
+        let (allowed_gp_total, paid_gp_total, _) = totals_as_of(settlement_date);
         let delta_gp: f64 = allowed_gp_total - paid_gp_total;
 
         if delta_gp.abs() <= 1e-9 {
-            return Ok(()); // Nothing to settle
+            return Ok(());
         }
 
-        // Prepare settlement row
+        let currency = last_row.to_gp.currency();
         let to_gp = Money::new(delta_gp, currency);
         let to_lp = Money::new((-delta_gp).max(0.0), currency);
 
@@ -1037,7 +1126,7 @@ impl<'a> EquityWaterfallEngine<'a> {
             tranche: Arc::from("Clawback Settlement (fund_end)"),
             to_lp,
             to_gp,
-            lp_unreturned: last.lp_unreturned, // unchanged
+            lp_unreturned: last_row.lp_unreturned,
             gp_carry_cum: Money::new(allowed_gp_total, currency),
             lp_irr_to_date: self.calculate_lp_irr_to_date(events, settlement_date),
             note: Some(Arc::from("Clawback settlement and holdback release")),
@@ -1370,6 +1459,45 @@ mod tests {
 
         // Settlement date is the last event date (2025-06-15), which is in Q2
         assert_eq!(clawback_row.period_key, Some(Arc::from("2025Q2")));
+    }
+
+    #[test]
+    fn periodic_clawback_overdistribution() {
+        let claw = ClawbackSpec {
+            enable: true,
+            holdback_pct: None,
+            settle_on: ClawbackSettle::Periodic,
+        };
+
+        let spec = WaterfallSpec::builder()
+            .style(WaterfallStyle::European)
+            .return_of_capital()
+            .promote_tier(0.0, 0.8, 0.2)
+            .clawback(claw)
+            .build()
+            .expect("Operation succeeded");
+
+        let events = vec![
+            FundEvent::contribution(test_date(2024, 1, 1), Money::new(100.0, test_currency())),
+            FundEvent::distribution(test_date(2024, 4, 15), Money::new(150.0, test_currency())),
+            FundEvent::contribution(test_date(2024, 5, 15), Money::new(90.0, test_currency())),
+        ];
+
+        let engine = EquityWaterfallEngine::new(&spec)
+            .with_period_range("2024Q1..Q3", None)
+            .expect("Operation succeeded");
+
+        let ledger = engine.run(&events).expect("Operation succeeded");
+
+        let clawback_row = ledger
+            .rows
+            .iter()
+            .find(|r| r.tranche.contains("Clawback Settlement (periodic)"))
+            .expect("Should have periodic clawback settlement");
+
+        assert_eq!(clawback_row.period_key, Some(Arc::from("2024Q2")));
+        assert!(clawback_row.to_gp.amount() < 0.0);
+        assert!((clawback_row.to_gp.amount() + 10.0).abs() < 1e-6);
     }
 
     #[test]

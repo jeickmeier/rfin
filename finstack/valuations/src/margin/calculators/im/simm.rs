@@ -21,11 +21,9 @@
 //!
 //! Where K_i is the risk-weighted sensitivity for bucket i.
 //!
-//! > **Implementation note:** `calculate_from_sensitivities` currently sums the
-//! > per-risk-class contributions (delta-only) without applying the full SIMM
-//! > correlation matrix. The `aggregate_risk_classes` helper provides a simple
-//! > sqrt-of-sum-of-squares approximation that is used only by the heuristic
-//! > [`ImCalculator`] implementation near the bottom of this file.
+//! > **Implementation note:** `calculate_from_sensitivities` applies the SIMM
+//! > risk-class correlation matrix (delta-only) but does not implement the
+//! > full SIMM bucket/tenor correlations, vega, or curvature aggregation.
 
 use crate::instruments::common::traits::Instrument;
 use crate::margin::calculators::traits::{ImCalculator, ImResult};
@@ -266,6 +264,16 @@ impl SimmCalculator {
         (fx_delta * self.risk_weights.fx_delta_weight).abs()
     }
 
+    /// Calculate commodity delta margin using SIMM bucket risk weights.
+    pub fn calculate_commodity_delta(&self, delta_by_bucket: &HashMap<String, f64>) -> f64 {
+        let mut weighted_sum = 0.0;
+        for (bucket, delta) in delta_by_bucket {
+            let weight = commodity_bucket_weight(bucket);
+            weighted_sum += (delta * weight).abs();
+        }
+        weighted_sum
+    }
+
     /// Calculate SIMM margin from pre-computed sensitivities.
     ///
     /// This is the primary entry point for SIMM calculation when you have
@@ -284,8 +292,8 @@ impl SimmCalculator {
         sensitivities: &SimmSensitivities,
         currency: Currency,
     ) -> (f64, HashMap<String, Money>) {
-        let mut total_im = 0.0;
         let mut breakdown = HashMap::default();
+        let mut risk_class_margins = HashMap::default();
 
         // IR Delta
         if !sensitivities.ir_delta.is_empty() {
@@ -296,31 +304,40 @@ impl SimmCalculator {
                 .collect();
             let ir_margin = self.calculate_ir_delta(&ir_delta_map);
             if ir_margin > 0.0 {
-                total_im += ir_margin;
                 breakdown.insert("IR_Delta".to_string(), Money::new(ir_margin, currency));
+                risk_class_margins.insert(SimmRiskClass::InterestRate, ir_margin);
             }
         }
 
-        // Credit Delta
-        let total_credit = sensitivities.total_credit_delta();
-        if total_credit.abs() > 0.0 {
-            let qualifying = sensitivities
-                .credit_qualifying_delta
-                .values()
-                .sum::<f64>()
-                .abs()
-                >= sensitivities
-                    .credit_non_qualifying_delta
-                    .values()
-                    .sum::<f64>()
-                    .abs();
-            let credit_margin = self.calculate_credit_delta(total_credit, qualifying);
+        // Credit Delta (Qualifying)
+        let qualifying_total = sensitivities
+            .credit_qualifying_delta
+            .values()
+            .sum::<f64>();
+        if qualifying_total.abs() > 0.0 {
+            let credit_margin = self.calculate_credit_delta(qualifying_total, true);
             if credit_margin > 0.0 {
-                total_im += credit_margin;
                 breakdown.insert(
-                    "Credit_Delta".to_string(),
+                    "Credit_Qualifying_Delta".to_string(),
                     Money::new(credit_margin, currency),
                 );
+                risk_class_margins.insert(SimmRiskClass::CreditQualifying, credit_margin);
+            }
+        }
+
+        // Credit Delta (Non-Qualifying)
+        let non_qual_total = sensitivities
+            .credit_non_qualifying_delta
+            .values()
+            .sum::<f64>();
+        if non_qual_total.abs() > 0.0 {
+            let credit_margin = self.calculate_credit_delta(non_qual_total, false);
+            if credit_margin > 0.0 {
+                breakdown.insert(
+                    "Credit_NonQualifying_Delta".to_string(),
+                    Money::new(credit_margin, currency),
+                );
+                risk_class_margins.insert(SimmRiskClass::CreditNonQualifying, credit_margin);
             }
         }
 
@@ -329,13 +346,41 @@ impl SimmCalculator {
         if total_equity.abs() > 0.0 {
             let equity_margin = self.calculate_equity_delta(total_equity);
             if equity_margin > 0.0 {
-                total_im += equity_margin;
                 breakdown.insert(
                     "Equity_Delta".to_string(),
                     Money::new(equity_margin, currency),
                 );
+                risk_class_margins.insert(SimmRiskClass::Equity, equity_margin);
             }
         }
+
+        // FX Delta
+        let total_fx = sensitivities.fx_delta.values().sum::<f64>();
+        if total_fx.abs() > 0.0 {
+            let fx_margin = self.calculate_fx_delta(total_fx);
+            if fx_margin > 0.0 {
+                breakdown.insert("FX_Delta".to_string(), Money::new(fx_margin, currency));
+                risk_class_margins.insert(SimmRiskClass::Fx, fx_margin);
+            }
+        }
+
+        // Commodity Delta
+        if !sensitivities.commodity_delta.is_empty() {
+            let commodity_margin = self.calculate_commodity_delta(&sensitivities.commodity_delta);
+            if commodity_margin > 0.0 {
+                breakdown.insert(
+                    "Commodity_Delta".to_string(),
+                    Money::new(commodity_margin, currency),
+                );
+                risk_class_margins.insert(SimmRiskClass::Commodity, commodity_margin);
+            }
+        }
+
+        let total_im = if risk_class_margins.is_empty() {
+            0.0
+        } else {
+            self.aggregate_risk_classes(&risk_class_margins)
+        };
 
         (total_im, breakdown)
     }
@@ -348,9 +393,112 @@ impl SimmCalculator {
     /// `calculate_from_sensitivities` path keeps a simple sum to preserve
     /// backwards-compatible behavior.
     pub fn aggregate_risk_classes(&self, risk_class_margins: &HashMap<SimmRiskClass, f64>) -> f64 {
-        // Simplified aggregation (full SIMM uses correlation matrix)
-        let sum_of_squares: f64 = risk_class_margins.values().map(|x| x.powi(2)).sum();
-        sum_of_squares.sqrt()
+        let mut sum = 0.0;
+        for (risk_i, margin_i) in risk_class_margins {
+            for (risk_j, margin_j) in risk_class_margins {
+                let rho = risk_class_correlation(*risk_i, *risk_j);
+                sum += rho * margin_i * margin_j;
+            }
+        }
+        sum.max(0.0).sqrt()
+    }
+}
+
+// ISDA SIMM v2.8+2506 risk-class correlations (applies to v2.5/v2.6 here).
+fn risk_class_correlation(a: SimmRiskClass, b: SimmRiskClass) -> f64 {
+    if a == b {
+        return 1.0;
+    }
+    match (a, b) {
+        (SimmRiskClass::InterestRate, SimmRiskClass::CreditQualifying)
+        | (SimmRiskClass::CreditQualifying, SimmRiskClass::InterestRate) => 0.10,
+        (SimmRiskClass::InterestRate, SimmRiskClass::CreditNonQualifying)
+        | (SimmRiskClass::CreditNonQualifying, SimmRiskClass::InterestRate) => 0.14,
+        (SimmRiskClass::InterestRate, SimmRiskClass::Equity)
+        | (SimmRiskClass::Equity, SimmRiskClass::InterestRate) => 0.12,
+        (SimmRiskClass::InterestRate, SimmRiskClass::Commodity)
+        | (SimmRiskClass::Commodity, SimmRiskClass::InterestRate) => 0.30,
+        (SimmRiskClass::InterestRate, SimmRiskClass::Fx)
+        | (SimmRiskClass::Fx, SimmRiskClass::InterestRate) => 0.10,
+        (SimmRiskClass::CreditQualifying, SimmRiskClass::CreditNonQualifying)
+        | (SimmRiskClass::CreditNonQualifying, SimmRiskClass::CreditQualifying) => 0.60,
+        (SimmRiskClass::CreditQualifying, SimmRiskClass::Equity)
+        | (SimmRiskClass::Equity, SimmRiskClass::CreditQualifying) => 0.66,
+        (SimmRiskClass::CreditQualifying, SimmRiskClass::Commodity)
+        | (SimmRiskClass::Commodity, SimmRiskClass::CreditQualifying) => 0.25,
+        (SimmRiskClass::CreditQualifying, SimmRiskClass::Fx)
+        | (SimmRiskClass::Fx, SimmRiskClass::CreditQualifying) => 0.22,
+        (SimmRiskClass::CreditNonQualifying, SimmRiskClass::Equity)
+        | (SimmRiskClass::Equity, SimmRiskClass::CreditNonQualifying) => 0.52,
+        (SimmRiskClass::CreditNonQualifying, SimmRiskClass::Commodity)
+        | (SimmRiskClass::Commodity, SimmRiskClass::CreditNonQualifying) => 0.27,
+        (SimmRiskClass::CreditNonQualifying, SimmRiskClass::Fx)
+        | (SimmRiskClass::Fx, SimmRiskClass::CreditNonQualifying) => 0.15,
+        (SimmRiskClass::Equity, SimmRiskClass::Commodity)
+        | (SimmRiskClass::Commodity, SimmRiskClass::Equity) => 0.33,
+        (SimmRiskClass::Equity, SimmRiskClass::Fx)
+        | (SimmRiskClass::Fx, SimmRiskClass::Equity) => 0.24,
+        (SimmRiskClass::Commodity, SimmRiskClass::Fx)
+        | (SimmRiskClass::Fx, SimmRiskClass::Commodity) => 0.23,
+        // Same class case is handled above with a == b check
+        _ => 1.0,
+    }
+}
+
+// Commodity delta risk weights by bucket (ISDA SIMM v2.8+2506).
+fn commodity_bucket_weight(bucket: &str) -> f64 {
+    let bucket_id = bucket_id_from_label(bucket).unwrap_or(16);
+    match bucket_id {
+        1 => 25.0,
+        2 => 21.0,
+        3 => 23.0,
+        4 => 19.0,
+        5 => 24.0,
+        6 => 27.0,
+        7 => 33.0,
+        8 => 37.0,
+        9 => 64.0,
+        10 => 43.0,
+        11 => 21.0,
+        12 => 19.0,
+        13 => 14.0,
+        14 => 17.0,
+        15 => 11.0,
+        16 => 64.0,
+        17 => 16.0,
+        _ => 64.0,
+    }
+}
+
+fn bucket_id_from_label(bucket: &str) -> Option<u8> {
+    let trimmed = bucket.trim();
+    if let Ok(value) = trimmed.parse::<u8>() {
+        return Some(value);
+    }
+    let normalized: String = trimmed
+        .chars()
+        .filter(|c| c.is_ascii_alphanumeric())
+        .collect::<String>()
+        .to_ascii_lowercase();
+    match normalized.as_str() {
+        "coal" => Some(1),
+        "crude" => Some(2),
+        "lightends" => Some(3),
+        "middledistillates" => Some(4),
+        "heavydistillates" => Some(5),
+        "northamericannaturalgas" => Some(6),
+        "europeannaturalgas" => Some(7),
+        "northamericanpowerandcarbon" => Some(8),
+        "europeanpowerandcarbon" => Some(9),
+        "freight" => Some(10),
+        "basemetals" => Some(11),
+        "preciousmetals" => Some(12),
+        "grainsandoilseed" => Some(13),
+        "softsandotheragriculturals" => Some(14),
+        "livestockanddairy" => Some(15),
+        "other" => Some(16),
+        "indexes" | "indices" => Some(17),
+        _ => None,
     }
 }
 
@@ -459,7 +607,32 @@ mod tests {
 
         let total = calc.aggregate_risk_classes(&risk_class_margins);
 
-        // sqrt(1M^2 + 0.5M^2) ≈ 1.118M
-        assert!((total - 1_118_033.99).abs() < 1.0);
+        // sqrt(1M^2 + 0.5M^2 + 2*0.10*1M*0.5M) ≈ 1.162M
+        assert!((total - 1_161_895.0).abs() < 1.0);
+    }
+
+    #[test]
+    fn calculate_from_sensitivities_uses_risk_class_correlation() {
+        let calc = SimmCalculator::new(SimmVersion::V2_6);
+
+        let mut sens = SimmSensitivities::new(Currency::USD);
+        sens.add_ir_delta(Currency::USD, "5y", 100_000.0);
+        sens.add_equity_delta("AAPL", 100_000.0);
+
+        let (total_im, breakdown) = calc.calculate_from_sensitivities(&sens, Currency::USD);
+
+        let ir_margin = breakdown
+            .get("IR_Delta")
+            .expect("IR margin present")
+            .amount();
+        let eq_margin = breakdown
+            .get("Equity_Delta")
+            .expect("Equity margin present")
+            .amount();
+
+        let expected = (ir_margin * ir_margin + eq_margin * eq_margin
+            + 2.0 * 0.12 * ir_margin * eq_margin)
+            .sqrt();
+        assert!((total_im - expected).abs() < 1.0);
     }
 }

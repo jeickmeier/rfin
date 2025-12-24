@@ -37,8 +37,8 @@
 //! ```
 
 use crate::margin::calculators::{
-    HaircutImCalculator, ImCalculator, ImResult, ScheduleImCalculator, SimmCalculator,
-    VmCalculator, VmResult,
+    ClearingHouseImCalculator, HaircutImCalculator, ImCalculator, ImResult,
+    InternalModelImCalculator, ScheduleImCalculator, SimmCalculator, VmCalculator, VmResult,
 };
 use crate::margin::traits::{InstrumentMarginResult, Marginable, SimmSensitivities};
 use crate::margin::types::{ClearingStatus, ImMethodology, OtcMarginSpec};
@@ -59,6 +59,10 @@ pub struct InitialMarginMetric {
     simm_calculator: Option<SimmCalculator>,
     /// Override schedule calculator (uses BCBS standard if None)
     schedule_calculator: Option<ScheduleImCalculator>,
+    /// Override CCP calculator (uses CCP lookup if None)
+    clearing_calculator: Option<ClearingHouseImCalculator>,
+    /// Override internal model calculator (uses default if None)
+    internal_model_calculator: Option<InternalModelImCalculator>,
 }
 
 impl InitialMarginMetric {
@@ -79,6 +83,20 @@ impl InitialMarginMetric {
     #[must_use]
     pub fn with_schedule(mut self, schedule: ScheduleImCalculator) -> Self {
         self.schedule_calculator = Some(schedule);
+        self
+    }
+
+    /// Create with custom clearing house calculator.
+    #[must_use]
+    pub fn with_clearing_house(mut self, clearing: ClearingHouseImCalculator) -> Self {
+        self.clearing_calculator = Some(clearing);
+        self
+    }
+
+    /// Create with custom internal model calculator.
+    #[must_use]
+    pub fn with_internal_model(mut self, internal: InternalModelImCalculator) -> Self {
+        self.internal_model_calculator = Some(internal);
         self
     }
 
@@ -148,15 +166,21 @@ impl InitialMarginMetric {
                 haircut_calc.calculate(instrument, market, as_of)
             }
             ImMethodology::ClearingHouse => {
-                // For cleared trades, we'd call the CCP calculator
-                // For now, fall back to schedule
-                let schedule = ScheduleImCalculator::bcbs_standard();
-                schedule.calculate(instrument, market, as_of)
+                let calc = self.clearing_calculator.clone().unwrap_or_else(|| {
+                    spec.ccp()
+                        .map(|ccp| {
+                            ClearingHouseImCalculator::for_ccp(ccp, instrument.key())
+                        })
+                        .unwrap_or_else(|| ClearingHouseImCalculator::generic_var(0.99, 250))
+                });
+                calc.calculate(instrument, market, as_of)
             }
             ImMethodology::InternalModel => {
-                // Internal model not implemented - fall back to schedule
-                let schedule = ScheduleImCalculator::bcbs_standard();
-                schedule.calculate(instrument, market, as_of)
+                let calc = self
+                    .internal_model_calculator
+                    .clone()
+                    .unwrap_or_default();
+                calc.calculate(instrument, market, as_of)
             }
         }
     }
@@ -358,6 +382,8 @@ mod tests {
         let metric = InitialMarginMetric::new();
         assert!(metric.simm_calculator.is_none());
         assert!(metric.schedule_calculator.is_none());
+        assert!(metric.clearing_calculator.is_none());
+        assert!(metric.internal_model_calculator.is_none());
     }
 
     #[test]
@@ -378,5 +404,120 @@ mod tests {
         let posted = Money::new(1_000_000.0, Currency::USD);
         let metric = VariationMarginMetric::new().with_posted(posted);
         assert_eq!(metric.posted_collateral, Some(posted));
+    }
+
+    #[derive(Clone)]
+    struct TestInstrument {
+        id: String,
+        value: Money,
+        margin_spec: Option<OtcMarginSpec>,
+        attributes: crate::instruments::common::traits::Attributes,
+    }
+
+    impl TestInstrument {
+        fn new(value: Money, margin_spec: Option<OtcMarginSpec>) -> Self {
+            Self {
+                id: "TEST-INST".to_string(),
+                value,
+                margin_spec,
+                attributes: crate::instruments::common::traits::Attributes::default(),
+            }
+        }
+    }
+
+    impl crate::instruments::common::traits::Instrument for TestInstrument {
+        fn id(&self) -> &str {
+            &self.id
+        }
+
+        fn key(&self) -> crate::pricer::InstrumentType {
+            crate::pricer::InstrumentType::IRS
+        }
+
+        fn as_any(&self) -> &dyn std::any::Any {
+            self
+        }
+
+        fn attributes(&self) -> &crate::instruments::common::traits::Attributes {
+            &self.attributes
+        }
+
+        fn attributes_mut(&mut self) -> &mut crate::instruments::common::traits::Attributes {
+            &mut self.attributes
+        }
+
+        fn clone_box(&self) -> Box<dyn crate::instruments::common::traits::Instrument> {
+            Box::new(self.clone())
+        }
+
+        fn value(&self, _market: &MarketContext, _as_of: Date) -> Result<Money> {
+            Ok(self.value)
+        }
+
+        fn price_with_metrics(
+            &self,
+            _market: &MarketContext,
+            as_of: Date,
+            _metrics: &[crate::metrics::MetricId],
+        ) -> Result<crate::results::ValuationResult> {
+            Ok(crate::results::ValuationResult::stamped(
+                &self.id,
+                as_of,
+                self.value,
+            ))
+        }
+    }
+
+    impl Marginable for TestInstrument {
+        fn margin_spec(&self) -> Option<&OtcMarginSpec> {
+            self.margin_spec.as_ref()
+        }
+
+        fn netting_set_id(&self) -> Option<crate::margin::traits::NettingSetId> {
+            None
+        }
+
+        fn simm_sensitivities(
+            &self,
+            _market: &MarketContext,
+            _as_of: Date,
+        ) -> Result<SimmSensitivities> {
+            Ok(SimmSensitivities::new(self.value.currency()))
+        }
+
+        fn mtm_for_vm(&self, _market: &MarketContext, _as_of: Date) -> Result<Money> {
+            Ok(self.value)
+        }
+    }
+
+    #[test]
+    fn uses_clearing_house_calculator_for_cleared_spec() {
+        let spec = OtcMarginSpec::cleared("LCH", Currency::USD);
+        let instrument =
+            TestInstrument::new(Money::new(100_000_000.0, Currency::USD), Some(spec));
+        let metric = InitialMarginMetric::new();
+        let market = MarketContext::new();
+        let as_of = Date::from_calendar_date(2024, time::Month::January, 1)
+            .expect("valid date");
+
+        let im = metric.calculate(&instrument, &market, as_of).expect("im");
+        assert_eq!(im.methodology, ImMethodology::ClearingHouse);
+        assert_eq!(im.amount.amount(), 2_000_000.0);
+    }
+
+    #[test]
+    fn uses_internal_model_for_internal_model_spec() {
+        let mut spec = OtcMarginSpec::usd_bilateral();
+        spec.im_methodology = ImMethodology::InternalModel;
+        let instrument =
+            TestInstrument::new(Money::new(20_000_000.0, Currency::USD), Some(spec));
+        let metric = InitialMarginMetric::new();
+        let market = MarketContext::new();
+        let as_of = Date::from_calendar_date(2024, time::Month::January, 1)
+            .expect("valid date");
+
+        let im = metric.calculate(&instrument, &market, as_of).expect("im");
+        assert_eq!(im.methodology, ImMethodology::InternalModel);
+        assert_eq!(im.amount.amount(), 1_000_000.0);
     }
 }

@@ -287,7 +287,7 @@ pub mod pricer;
 pub mod results;
 pub mod schema;
 
-#[cfg(test)]
+/// Test utilities - available for integration tests and examples.
 pub mod test_utils;
 
 // Export macros before instruments module

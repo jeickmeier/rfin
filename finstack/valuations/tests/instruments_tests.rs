@@ -59,6 +59,10 @@ mod ir_future;
 #[path = "instruments/inflation_swap/mod.rs"]
 mod inflation_swap;
 
+/// Inflation cap/floor tests - YoY inflation caps/floors
+#[path = "instruments/inflation_cap_floor/mod.rs"]
+mod inflation_cap_floor;
+
 /// Interest Rate Swap (IRS) tests - Fixed-for-floating swaps
 #[path = "instruments/irs/mod.rs"]
 mod irs;
@@ -135,6 +139,10 @@ mod fx_forward;
 #[path = "instruments/fx_option/mod.rs"]
 mod fx_option;
 
+/// FX barrier option tests - Barrier options on FX rates
+#[path = "instruments/fx_barrier_option/mod.rs"]
+mod fx_barrier_option;
+
 /// FX spot tests - Spot foreign exchange transactions
 #[path = "instruments/fx_spot/mod.rs"]
 mod fx_spot;
@@ -143,6 +151,10 @@ mod fx_spot;
 #[path = "instruments/fx_swap/mod.rs"]
 mod fx_swap;
 
+/// FX variance swap tests - Volatility exposure on FX
+#[path = "instruments/fx_variance_swap/mod.rs"]
+mod fx_variance_swap;
+
 /// NDF tests - Non-deliverable forwards for restricted currencies
 #[path = "instruments/ndf/mod.rs"]
 mod ndf;
@@ -150,6 +162,22 @@ mod ndf;
 /// XCCY swap tests - Cross-currency swaps (multi-currency floating legs)
 #[path = "instruments/xccy_swap/mod.rs"]
 mod xccy_swap;
+
+// ============================================================================
+// Commodity Derivatives
+// ============================================================================
+
+/// Commodity option tests
+#[path = "instruments/commodity_option/mod.rs"]
+mod commodity_option;
+
+// ============================================================================
+// Real Estate
+// ============================================================================
+
+/// Real estate asset tests
+#[path = "instruments/equity/real_estate/mod.rs"]
+mod real_estate;
 
 // ============================================================================
 // Structured Products

@@ -524,25 +524,113 @@ impl BinomialTree {
         })
     }
 
-    /// Price barrier knock-in option via in/out parity: `vanilla = knock-in + knock-out`
+    fn price_barrier_in_with_exercise(
+        &self,
+        market_params: &OptionMarketParams,
+        up_level: Option<f64>,
+        down_level: Option<f64>,
+        rebate: f64,
+        exercise_steps: Option<&[usize]>,
+    ) -> Result<f64> {
+        let (u, d, p) = self.calculate_parameters(
+            market_params.spot,
+            market_params.strike,
+            market_params.rate,
+            market_params.volatility,
+            market_params.time_to_expiry,
+            market_params.dividend_yield,
+        )?;
+
+        let exercise_set = exercise_steps.map(|steps| steps.iter().copied().collect::<HashSet<_>>());
+
+        struct OptionValuator {
+            strike: f64,
+            option_type: OptionType,
+            exercise_steps: Option<HashSet<usize>>,
+        }
+
+        impl TreeValuator for OptionValuator {
+            fn value_at_maturity(&self, state: &NodeState) -> Result<f64> {
+                let s = state.spot().ok_or(Error::Internal)?;
+                Ok(match self.option_type {
+                    OptionType::Call => (s - self.strike).max(0.0),
+                    OptionType::Put => (self.strike - s).max(0.0),
+                })
+            }
+
+            fn value_at_node(
+                &self,
+                state: &NodeState,
+                continuation_value: f64,
+                _dt: f64,
+            ) -> Result<f64> {
+                if let Some(steps) = &self.exercise_steps {
+                    if steps.contains(&state.step) {
+                        let s = state.spot().ok_or(Error::Internal)?;
+                        let exercise = match self.option_type {
+                            OptionType::Call => (s - self.strike).max(0.0),
+                            OptionType::Put => (self.strike - s).max(0.0),
+                        };
+                        return Ok(continuation_value.max(exercise));
+                    }
+                }
+                Ok(continuation_value)
+            }
+        }
+
+        let valuator = OptionValuator {
+            strike: market_params.strike,
+            option_type: market_params.option_type,
+            exercise_steps: exercise_set,
+        };
+
+        let initial_vars = single_factor_equity_state(
+            market_params.spot,
+            market_params.rate,
+            market_params.dividend_yield,
+            market_params.volatility,
+        );
+
+        let barrier = Some(BarrierSpec {
+            up_level,
+            down_level,
+            rebate,
+            style: BarrierStyle::KnockIn,
+        });
+
+        price_recombining_tree(RecombiningInputs {
+            branching: TreeBranching::Binomial,
+            steps: self.steps,
+            initial_vars,
+            time_to_maturity: market_params.time_to_expiry,
+            market_context: &MarketContext::new(),
+            valuator: &valuator,
+            up_factor: u,
+            down_factor: d,
+            middle_factor: None,
+            prob_up: p,
+            prob_down: 1.0 - p,
+            prob_middle: None,
+            interest_rate: market_params.rate,
+            barrier,
+            custom_state_generator: None,
+            custom_rate_generator: None,
+        })
+    }
+
+    /// Price barrier knock-in option (discrete monitoring) using path-dependent tracking.
     ///
     /// # Constraints
     ///
     /// - Only supported when exactly one of `up_level`/`down_level` is `Some`
-    /// - **European options only**: The in/out parity relationship only holds for
-    ///   European-style options. For American options, knock-in pricing requires
-    ///   explicit path-dependent tracking in the tree, which is not implemented here.
+    /// - Uses European exercise by default (no early exercise)
     ///
     /// # Arguments
     ///
-    /// * `market_params` - Option parameters (must be European-style for accurate pricing)
+    /// * `market_params` - Option parameters
     /// * `up_level` - Up barrier level (optional)
     /// * `down_level` - Down barrier level (optional)
-    /// * `rebate` - Rebate paid on knock-out
-    ///
-    /// # Returns
-    ///
-    /// Knock-in option price via parity
+    /// * `rebate` - Rebate paid at expiry if barrier never triggers
     ///
     /// # Errors
     ///
@@ -554,21 +642,67 @@ impl BinomialTree {
         down_level: Option<f64>,
         rebate: f64,
     ) -> Result<f64> {
-        // Validate: single barrier only for parity
-        let num_barriers = up_level.is_some() as usize + down_level.is_some() as usize;
-        if num_barriers != 1 {
-            return Err(Error::Validation(
-                "Barrier knock-in parity requires exactly one barrier (up or down)".into(),
-            ));
-        }
+        self.price_barrier_in_with_exercise(market_params, up_level, down_level, rebate, None)
+    }
 
-        // Note: This parity only holds for European options. American knock-in
-        // options would require explicit barrier tracking during backward induction.
-        // The caller is responsible for ensuring European exercise style.
+    /// Price barrier knock-in option with American exercise.
+    pub fn price_barrier_in_american(
+        &self,
+        market_params: &OptionMarketParams,
+        up_level: Option<f64>,
+        down_level: Option<f64>,
+        rebate: f64,
+    ) -> Result<f64> {
+        let all_steps: Vec<usize> = (0..self.steps).collect();
+        self.price_barrier_in_with_exercise(
+            market_params,
+            up_level,
+            down_level,
+            rebate,
+            Some(&all_steps),
+        )
+    }
 
-        let vanilla = self.price_european(market_params)?;
-        let knock_out = self.price_barrier_out(market_params, up_level, down_level, rebate)?;
-        Ok((vanilla - knock_out).max(0.0))
+    /// Price barrier knock-in option with Bermudan exercise dates.
+    pub fn price_barrier_in_bermudan(
+        &self,
+        market_params: &OptionMarketParams,
+        up_level: Option<f64>,
+        down_level: Option<f64>,
+        rebate: f64,
+        exercise_dates: &[f64],
+    ) -> Result<f64> {
+        let mut steps =
+            map_exercise_dates_to_steps(exercise_dates, market_params.time_to_expiry, self.steps);
+        steps.sort();
+        steps.dedup();
+        self.price_barrier_in_with_exercise(
+            market_params,
+            up_level,
+            down_level,
+            rebate,
+            Some(&steps),
+        )
+    }
+
+    /// Price an up-and-in barrier option with American exercise.
+    pub fn price_up_and_in_american(
+        &self,
+        market_params: &OptionMarketParams,
+        barrier: f64,
+        rebate: f64,
+    ) -> Result<f64> {
+        self.price_barrier_in_american(market_params, Some(barrier), None, rebate)
+    }
+
+    /// Price a down-and-in barrier option with American exercise.
+    pub fn price_down_and_in_american(
+        &self,
+        market_params: &OptionMarketParams,
+        barrier: f64,
+        rebate: f64,
+    ) -> Result<f64> {
+        self.price_barrier_in_american(market_params, None, Some(barrier), rebate)
     }
 
     /// Generic pricing engine for arbitrary instruments

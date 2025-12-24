@@ -221,8 +221,6 @@ impl PathDependentPricer {
         // If path capture is enabled, use price_with_capture
         if engine_config.path_capture.enabled {
             let engine = McEngine::new(engine_config);
-            // Path capture path uses Philox for determinism; Sobol + capture not yet supported
-            let rng = PhiloxRng::new(self.config.seed);
             let disc = ExactGbm::new();
             let initial_state = vec![initial_spot];
 
@@ -230,19 +228,51 @@ impl PathDependentPricer {
             let process_params = process.metadata();
 
             // Price with path capture
-            let result = engine.price_with_capture(
-                &rng,
-                process,
-                &disc,
-                &initial_state,
-                payoff,
-                currency,
-                discount_factor,
-                process_params,
-            )?;
-
-            // Return just the estimate (paths are dropped)
-            Ok(result.estimate)
+            if self.config.use_sobol {
+                #[cfg(feature = "mc")]
+                {
+                    let rng = SobolRng::new(process.num_factors(), self.config.seed);
+                    let result = engine.price_with_capture(
+                        &rng,
+                        process,
+                        &disc,
+                        &initial_state,
+                        payoff,
+                        currency,
+                        discount_factor,
+                        process_params,
+                    )?;
+                    Ok(result.estimate)
+                }
+                #[cfg(not(feature = "mc"))]
+                {
+                    let rng = PhiloxRng::new(self.config.seed);
+                    let result = engine.price_with_capture(
+                        &rng,
+                        process,
+                        &disc,
+                        &initial_state,
+                        payoff,
+                        currency,
+                        discount_factor,
+                        process_params,
+                    )?;
+                    Ok(result.estimate)
+                }
+            } else {
+                let rng = PhiloxRng::new(self.config.seed);
+                let result = engine.price_with_capture(
+                    &rng,
+                    process,
+                    &disc,
+                    &initial_state,
+                    payoff,
+                    currency,
+                    discount_factor,
+                    process_params,
+                )?;
+                Ok(result.estimate)
+            }
         } else {
             // Use regular pricing without path capture
             let engine = McEngine::new(engine_config); // engine takes ownership of time_grid from config
@@ -463,27 +493,52 @@ impl PathDependentPricer {
         };
         let engine = McEngine::new(engine_config);
 
-        // Create RNG and discretization
-        let rng = PhiloxRng::new(self.config.seed);
         let disc = ExactGbm::new();
-
-        // Initial state
         let initial_state = vec![initial_spot];
-
-        // Get process metadata
         let process_params = process.metadata();
 
-        // Price with path capture support
-        engine.price_with_capture(
-            &rng,
-            process,
-            &disc,
-            &initial_state,
-            payoff,
-            currency,
-            discount_factor,
-            process_params,
-        )
+        if self.config.use_sobol {
+            #[cfg(feature = "mc")]
+            {
+                let rng = SobolRng::new(process.num_factors(), self.config.seed);
+                engine.price_with_capture(
+                    &rng,
+                    process,
+                    &disc,
+                    &initial_state,
+                    payoff,
+                    currency,
+                    discount_factor,
+                    process_params,
+                )
+            }
+            #[cfg(not(feature = "mc"))]
+            {
+                let rng = PhiloxRng::new(self.config.seed);
+                engine.price_with_capture(
+                    &rng,
+                    process,
+                    &disc,
+                    &initial_state,
+                    payoff,
+                    currency,
+                    discount_factor,
+                    process_params,
+                )
+            }
+        } else {
+            let rng = PhiloxRng::new(self.config.seed);
+            engine.price_with_capture(
+                &rng,
+                process,
+                &disc,
+                &initial_state,
+                payoff,
+                currency,
+                discount_factor,
+                process_params,
+            )
+        }
     }
 
     /// Price and compute LRM Greeks (delta, vega) for GBM using captured paths.

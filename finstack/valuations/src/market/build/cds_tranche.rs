@@ -253,18 +253,18 @@ pub fn build_cds_tranche_instrument(
         )
     });
 
-    if !overrides.use_imm_dates {
-        return Err(Error::Validation(
-            "Non-IMM CDS tranche schedules are not supported in strict market mode".to_string(),
-        ));
-    }
-
-    // CDS-style effective date (prior IMM) and IMM-aligned maturity.
-    let roll_anchor = spot.add_months(-3);
-    let effective_date = next_cds_date(roll_anchor);
-    let maturity_imm = {
-        let adjusted = adjust(maturity, conv.business_day_convention, cal)?;
-        next_cds_date(adjusted - time::Duration::days(1))
+    let (effective_date, maturity_date, standard_imm_dates) = if overrides.use_imm_dates {
+        // CDS-style effective date (prior IMM) and IMM-aligned maturity.
+        let roll_anchor = spot.add_months(-3);
+        let effective_date = next_cds_date(roll_anchor);
+        let maturity_imm = {
+            let adjusted = adjust(maturity, conv.business_day_convention, cal)?;
+            next_cds_date(adjusted - time::Duration::days(1))
+        };
+        (effective_date, maturity_imm, true)
+    } else {
+        let maturity_adj = adjust(maturity, conv.business_day_convention, cal)?;
+        (spot, maturity_adj, false)
     };
 
     // Construct Params
@@ -274,7 +274,7 @@ pub fn build_cds_tranche_instrument(
         attach_pct: attachment * 100.0, // Params expect percent
         detach_pct: detachment * 100.0, // Params expect percent
         notional: Money::new(notional_amt, convention_key.currency),
-        maturity: maturity_imm,
+        maturity: maturity_date,
         running_coupon_bp: running_spread_bp,
         accumulated_loss: 0.0,
     };
@@ -306,7 +306,7 @@ pub fn build_cds_tranche_instrument(
         CurveId::new(credit_id),
         side,
     );
-    instrument.standard_imm_dates = true;
+    instrument.standard_imm_dates = standard_imm_dates;
     instrument.effective_date = Some(effective_date);
     instrument.upfront = upfront_payment;
 
@@ -314,3 +314,67 @@ pub fn build_cds_tranche_instrument(
 }
 
 // Helpers moved to build::helpers
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::market::conventions::ids::{CdsConventionKey, CdsDocClause};
+    use crate::market::quotes::cds_tranche::CdsTrancheQuote;
+    use crate::market::quotes::ids::QuoteId;
+    use finstack_core::collections::HashMap;
+    use finstack_core::currency::Currency;
+    use finstack_core::dates::{adjust, Date};
+    use time::Month;
+
+    #[test]
+    fn build_non_imm_tranche_allows_custom_schedule() {
+        let as_of = Date::from_calendar_date(2024, Month::January, 2).expect("valid date");
+        let ctx = BuildCtx::new(as_of, 1_000_000.0, HashMap::default());
+
+        let convention_key = CdsConventionKey {
+            currency: Currency::USD,
+            doc_clause: CdsDocClause::IsdaNa,
+        };
+        let maturity = Date::from_calendar_date(2029, Month::January, 15).expect("valid date");
+
+        let quote = CdsTrancheQuote::CDSTranche {
+            id: QuoteId::new("CDX-IG-3-7"),
+            index: "CDX.NA.IG".to_string(),
+            attachment: 0.03,
+            detachment: 0.07,
+            maturity,
+            upfront_pct: -2.5,
+            running_spread_bp: 500.0,
+            convention: convention_key.clone(),
+        };
+
+        let mut overrides = CdsTrancheBuildOverrides::new(42);
+        overrides.use_imm_dates = false;
+
+        let instrument = build_cds_tranche_instrument(&quote, &ctx, &overrides)
+            .expect("non-IMM tranche build should succeed");
+        let tranche = instrument
+            .as_any()
+            .downcast_ref::<CdsTranche>()
+            .expect("should be CdsTranche");
+
+        assert!(!tranche.standard_imm_dates);
+
+        let conv = ConventionRegistry::global()
+            .require_cds(&convention_key)
+            .expect("convention should exist");
+        let spot = resolve_spot_date(
+            as_of,
+            &conv.calendar_id,
+            conv.settlement_days,
+            conv.business_day_convention,
+        )
+        .expect("spot date");
+        let cal = resolve_calendar(&conv.calendar_id).expect("calendar");
+        let maturity_adj = adjust(maturity, conv.business_day_convention, cal)
+            .expect("maturity adjustment");
+
+        assert_eq!(tranche.effective_date, Some(spot));
+        assert_eq!(tranche.maturity, maturity_adj);
+    }
+}

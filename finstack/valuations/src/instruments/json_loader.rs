@@ -71,6 +71,8 @@ pub enum InstrumentJson {
     InflationSwap(InflationSwap),
     /// Year-on-year inflation swap
     YoYInflationSwap(YoYInflationSwap),
+    /// Inflation cap/floor
+    InflationCapFloor(InflationCapFloor),
     /// Forward rate agreement (FRA)
     ForwardRateAgreement(ForwardRateAgreement),
     /// Swaption (option on swap)
@@ -118,8 +120,14 @@ pub enum InstrumentJson {
     FxOption(FxOption),
     /// FX barrier option
     FxBarrierOption(FxBarrierOption),
+    /// FX variance swap
+    FxVarianceSwap(FxVarianceSwap),
     /// Quanto option (cross-currency)
     QuantoOption(QuantoOption),
+
+    // Commodity
+    /// Commodity option
+    CommodityOption(CommodityOption),
 
     // Exotic Options
     /// Autocallable note
@@ -144,6 +152,8 @@ pub enum InstrumentJson {
     Basket(Basket),
     /// Private markets fund
     PrivateMarketsFund(PrivateMarketsFund),
+    /// Real estate asset
+    RealEstateAsset(RealEstateAsset),
 }
 
 impl InstrumentJson {
@@ -169,6 +179,7 @@ impl InstrumentJson {
             InstrumentJson::BasisSwap(i) => Ok(Box::new(i)),
             InstrumentJson::InflationSwap(i) => Ok(Box::new(i)),
             InstrumentJson::YoYInflationSwap(i) => Ok(Box::new(i)),
+            InstrumentJson::InflationCapFloor(i) => Ok(Box::new(i)),
             InstrumentJson::FxSwap(i) => Ok(Box::new(i)),
             InstrumentJson::VarianceSwap(i) => Ok(Box::new(i)),
 
@@ -195,7 +206,11 @@ impl InstrumentJson {
             InstrumentJson::FxSpot(i) => Ok(Box::new(i)),
             InstrumentJson::FxOption(i) => Ok(Box::new(i)),
             InstrumentJson::FxBarrierOption(i) => Ok(Box::new(i)),
+            InstrumentJson::FxVarianceSwap(i) => Ok(Box::new(i)),
             InstrumentJson::QuantoOption(i) => Ok(Box::new(i)),
+
+            // Commodity
+            InstrumentJson::CommodityOption(i) => Ok(Box::new(i)),
 
             // Exotic Options
             InstrumentJson::Autocallable(i) => Ok(Box::new(i)),
@@ -214,6 +229,7 @@ impl InstrumentJson {
             InstrumentJson::Deposit(i) => Ok(Box::new(i)),
             InstrumentJson::Repo(i) => Ok(Box::new(i)),
             InstrumentJson::PrivateMarketsFund(i) => Ok(Box::new(i)),
+            InstrumentJson::RealEstateAsset(i) => Ok(Box::new(i)),
             InstrumentJson::RevolvingCredit(i) => Ok(Box::new(i)),
         }
     }
@@ -271,6 +287,9 @@ impl<'de> Deserialize<'de> for InstrumentJson {
                 .map_err(D::Error::custom),
             "yoy_inflation_swap" | "yo_y_inflation_swap" => serde_json::from_str(&spec_str)
                 .map(Self::YoYInflationSwap)
+                .map_err(D::Error::custom),
+            "inflation_cap_floor" => serde_json::from_str(&spec_str)
+                .map(Self::InflationCapFloor)
                 .map_err(D::Error::custom),
             "fx_swap" => serde_json::from_str(&spec_str)
                 .map(Self::FxSwap)
@@ -334,8 +353,16 @@ impl<'de> Deserialize<'de> for InstrumentJson {
             "fx_barrier_option" => serde_json::from_str(&spec_str)
                 .map(Self::FxBarrierOption)
                 .map_err(D::Error::custom),
+            "fx_variance_swap" => serde_json::from_str(&spec_str)
+                .map(Self::FxVarianceSwap)
+                .map_err(D::Error::custom),
             "quanto_option" => serde_json::from_str(&spec_str)
                 .map(Self::QuantoOption)
+                .map_err(D::Error::custom),
+
+            // Commodity
+            "commodity_option" => serde_json::from_str(&spec_str)
+                .map(Self::CommodityOption)
                 .map_err(D::Error::custom),
 
             // Exotic Options
@@ -377,6 +404,9 @@ impl<'de> Deserialize<'de> for InstrumentJson {
             "private_markets_fund" => serde_json::from_str(&spec_str)
                 .map(Self::PrivateMarketsFund)
                 .map_err(D::Error::custom),
+            "real_estate_asset" => serde_json::from_str(&spec_str)
+                .map(Self::RealEstateAsset)
+                .map_err(D::Error::custom),
             "revolving_credit" => serde_json::from_str(&spec_str)
                 .map(Self::RevolvingCredit)
                 .map_err(D::Error::custom),
@@ -393,6 +423,7 @@ impl<'de> Deserialize<'de> for InstrumentJson {
                     "inflation_swap",
                     "yoy_inflation_swap",
                     "yo_y_inflation_swap",
+                    "inflation_cap_floor",
                     "fx_swap",
                     "variance_swap",
                     "forward_rate_agreement",
@@ -411,7 +442,9 @@ impl<'de> Deserialize<'de> for InstrumentJson {
                     "fx_spot",
                     "fx_option",
                     "fx_barrier_option",
+                    "fx_variance_swap",
                     "quanto_option",
+                    "commodity_option",
                     "autocallable",
                     "cliquet_option",
                     "range_accrual",
@@ -422,6 +455,7 @@ impl<'de> Deserialize<'de> for InstrumentJson {
                     "deposit",
                     "repo",
                     "private_markets_fund",
+                    "real_estate_asset",
                     "revolving_credit",
                 ],
             )),
