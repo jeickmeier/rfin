@@ -76,7 +76,12 @@ pub fn joint_probabilities(p1: f64, p2: f64, correlation: f64) -> (f64, f64, f64
     if var1 < 1e-14 || var2 < 1e-14 {
         // Degenerate case: at least one probability is 0 or 1
         // Return independent joint probabilities (correlation is meaningless)
-        return (p1 * p2, p1 * (1.0 - p2), (1.0 - p1) * p2, (1.0 - p1) * (1.0 - p2));
+        return (
+            p1 * p2,
+            p1 * (1.0 - p2),
+            (1.0 - p1) * p2,
+            (1.0 - p1) * (1.0 - p2),
+        );
     }
 
     // Clamp correlation to Fréchet-Hoeffding bounds to ensure valid probabilities

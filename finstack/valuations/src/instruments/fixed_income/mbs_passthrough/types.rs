@@ -8,12 +8,12 @@ use crate::cashflow::builder::specs::PrepaymentModelSpec;
 use crate::instruments::common::pricing::HasDiscountCurve;
 use crate::instruments::common::traits::{Attributes, CurveIdVec};
 use crate::instruments::PricingOverrides;
-use smallvec::smallvec;
 use finstack_core::currency::Currency;
 use finstack_core::dates::{Date, DayCount};
 use finstack_core::money::Money;
 use finstack_core::types::{CurveId, InstrumentId};
 use finstack_core::Result;
+use smallvec::smallvec;
 
 /// Agency program enumeration.
 ///

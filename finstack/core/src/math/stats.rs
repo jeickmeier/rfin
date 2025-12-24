@@ -499,9 +499,9 @@ pub struct OnlineCovariance {
     count: usize,
     mean_x: f64,
     mean_y: f64,
-    m2_x: f64,  // Sum of squared differences for x
-    m2_y: f64,  // Sum of squared differences for y
-    c: f64,     // Co-moment sum: Σ(x_i - mean_x)(y_i - mean_y)
+    m2_x: f64, // Sum of squared differences for x
+    m2_y: f64, // Sum of squared differences for y
+    c: f64,    // Co-moment sum: Σ(x_i - mean_x)(y_i - mean_y)
 }
 
 impl OnlineCovariance {
@@ -543,12 +543,12 @@ impl OnlineCovariance {
         let delta_x = other.mean_x - self.mean_x;
         let delta_y = other.mean_y - self.mean_y;
 
-        self.c += other.c + delta_x * delta_y * (self.count as f64) * (other.count as f64)
-            / (total_count as f64);
-        self.m2_x += other.m2_x + delta_x * delta_x * (self.count as f64) * (other.count as f64)
-            / (total_count as f64);
-        self.m2_y += other.m2_y + delta_y * delta_y * (self.count as f64) * (other.count as f64)
-            / (total_count as f64);
+        self.c += other.c
+            + delta_x * delta_y * (self.count as f64) * (other.count as f64) / (total_count as f64);
+        self.m2_x += other.m2_x
+            + delta_x * delta_x * (self.count as f64) * (other.count as f64) / (total_count as f64);
+        self.m2_y += other.m2_y
+            + delta_y * delta_y * (self.count as f64) * (other.count as f64) / (total_count as f64);
         self.mean_x = (self.count as f64 * self.mean_x + other.count as f64 * other.mean_x)
             / (total_count as f64);
         self.mean_y = (self.count as f64 * self.mean_y + other.count as f64 * other.mean_y)
@@ -759,13 +759,8 @@ mod tests {
 
     #[test]
     fn test_online_covariance_matches_batch() {
-        let data: Vec<(f64, f64)> = vec![
-            (1.0, 2.1),
-            (2.0, 3.9),
-            (3.0, 6.2),
-            (4.0, 7.8),
-            (5.0, 10.1),
-        ];
+        let data: Vec<(f64, f64)> =
+            vec![(1.0, 2.1), (2.0, 3.9), (3.0, 6.2), (4.0, 7.8), (5.0, 10.1)];
 
         let mut online = OnlineCovariance::new();
         for &(x, y) in &data {

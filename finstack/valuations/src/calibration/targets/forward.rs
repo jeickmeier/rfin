@@ -1,7 +1,7 @@
 //! Forward curve calibration target.
 
-use crate::calibration::config::CalibrationConfig;
 use crate::calibration::api::schema::ForwardCurveParams;
+use crate::calibration::config::CalibrationConfig;
 use crate::calibration::config::CalibrationMethod;
 use crate::calibration::prepared::CalibrationQuote;
 use crate::calibration::solver::{BootstrapTarget, SequentialBootstrapper};

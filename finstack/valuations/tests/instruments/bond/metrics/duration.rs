@@ -111,10 +111,7 @@ fn test_convexity_matches_numerical_second_derivative() {
     let flows = bond.build_schedule(&market, as_of).unwrap();
     let dy = 1e-4;
     let p0 = finstack_valuations::instruments::bond::pricing::quote_engine::price_from_ytm(
-        &bond,
-        &flows,
-        as_of,
-        ytm,
+        &bond, &flows, as_of, ytm,
     )
     .unwrap();
     let p_up = finstack_valuations::instruments::bond::pricing::quote_engine::price_from_ytm(

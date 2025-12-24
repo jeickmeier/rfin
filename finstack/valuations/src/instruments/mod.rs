@@ -86,7 +86,6 @@ pub use commodity::commodity_forward;
 pub use commodity::commodity_option;
 pub use commodity::commodity_swap;
 
-
 // Exotics
 pub use exotics::asian_option;
 pub use exotics::barrier_option;
@@ -115,9 +114,8 @@ pub use fixed_income::{
 // Rates
 pub use rates::{
     BasisSwap, CmsOption, CollateralSpec, CollateralType, Deposit, ForwardRateAgreement,
-    InflationCapFloor, InflationCapFloorType, InflationSwap, InterestRateFuture,
-    InterestRateSwap, RangeAccrual, RateOptionType, Repo, RepoType, Swaption, XccySwap,
-    YoYInflationSwap,
+    InflationCapFloor, InflationCapFloorType, InflationSwap, InterestRateFuture, InterestRateSwap,
+    RangeAccrual, RateOptionType, Repo, RepoType, Swaption, XccySwap, YoYInflationSwap,
 };
 
 // Credit Derivatives
@@ -132,8 +130,8 @@ pub use equity::{
 };
 
 // FX
-pub use fx::{FxBarrierOption, FxForward, FxOption, FxSpot, FxSwap, Ndf, QuantoOption};
 pub use fx::FxVarianceSwap;
+pub use fx::{FxBarrierOption, FxForward, FxOption, FxSpot, FxSwap, Ndf, QuantoOption};
 
 // Commodity
 pub use commodity::{CommodityForward, CommodityOption, CommoditySwap};

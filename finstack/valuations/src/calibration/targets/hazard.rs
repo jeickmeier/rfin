@@ -629,5 +629,4 @@ mod tests {
         assert!((0.0..=1.0).contains(&s10));
         assert!(s1 >= s5 && s5 >= s10);
     }
-
 }

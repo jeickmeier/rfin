@@ -70,8 +70,7 @@ pub use valuations::calibration::{
     JsCreditQuote as CreditQuote, JsInflationQuote as InflationQuote, JsMarketQuote as MarketQuote,
     JsRatesQuote as RatesQuote, JsSABRCalibrationDerivatives as SABRCalibrationDerivatives,
     JsSABRMarketData as SABRMarketData, JsSABRModelParams as SABRModelParams,
-    JsSolverKind as SolverKind, JsValidationConfig as ValidationConfig,
-    JsVolQuote as VolQuote,
+    JsSolverKind as SolverKind, JsValidationConfig as ValidationConfig, JsVolQuote as VolQuote,
 };
 // Validation functions
 pub use valuations::calibration::validation::{

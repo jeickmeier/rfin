@@ -766,7 +766,11 @@ impl ShortRateTree {
                     error_bps,
                     target_df,
                     model_df,
-                    if used_fallback { " (FALLBACK USED)" } else { "" }
+                    if used_fallback {
+                        " (FALLBACK USED)"
+                    } else {
+                        ""
+                    }
                 );
             }
 
@@ -971,7 +975,10 @@ impl TreeModel for ShortRateTree {
             let mut config_up = self.config.clone();
             config_up.volatility += vol_bump;
             let mut tree_up = ShortRateTree::new(config_up);
-            if tree_up.calibrate(discount_curve.as_ref(), time_to_maturity).is_ok() {
+            if tree_up
+                .calibrate(discount_curve.as_ref(), time_to_maturity)
+                .is_ok()
+            {
                 let price_up = tree_up.price(
                     initial_vars.clone(),
                     time_to_maturity,
@@ -983,7 +990,10 @@ impl TreeModel for ShortRateTree {
                 let mut config_down = self.config.clone();
                 config_down.volatility = (config_down.volatility - vol_bump).max(1e-6);
                 let mut tree_down = ShortRateTree::new(config_down);
-                if tree_down.calibrate(discount_curve.as_ref(), time_to_maturity).is_ok() {
+                if tree_down
+                    .calibrate(discount_curve.as_ref(), time_to_maturity)
+                    .is_ok()
+                {
                     let price_down = tree_down.price(
                         initial_vars.clone(),
                         time_to_maturity,
@@ -1134,7 +1144,10 @@ mod tests {
         .expect("valid conversion");
 
         // Lognormal vol should be in a reasonable range (roughly normal_vol / rate_level)
-        assert!(lognormal > 0.15 && lognormal < 0.25, "lognormal vol {lognormal} out of range");
+        assert!(
+            lognormal > 0.15 && lognormal < 0.25,
+            "lognormal vol {lognormal} out of range"
+        );
 
         // Round-trip should recover original
         let recovered = convert_atm_volatility(
@@ -1167,7 +1180,10 @@ mod tests {
         .expect("valid conversion");
 
         // Normal vol should be in a reasonable range (roughly lognormal_vol * rate_level)
-        assert!(normal > 0.005 && normal < 0.015, "normal vol {normal} out of range");
+        assert!(
+            normal > 0.005 && normal < 0.015,
+            "normal vol {normal} out of range"
+        );
 
         // Round-trip should recover original
         let recovered = convert_atm_volatility(

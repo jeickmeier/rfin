@@ -27,6 +27,4 @@
  * let json = serde_json::to_string(&config)?;
  * ```
  */
-export type SolverConfig =
-  | { method: 'newton' }
-  | { method: 'brent' };
+export type SolverConfig = { method: 'newton' } | { method: 'brent' };

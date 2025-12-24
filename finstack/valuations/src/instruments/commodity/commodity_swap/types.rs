@@ -7,7 +7,6 @@
 use crate::instruments::common::pricing::HasDiscountCurve;
 use crate::instruments::common::traits::{Attributes, CurveIdVec};
 use finstack_core::currency::Currency;
-use smallvec::smallvec;
 use finstack_core::dates::{
     BusinessDayConvention, CalendarRegistry, Date, DayCount, DayCountCtx, ScheduleBuilder, Tenor,
 };
@@ -15,6 +14,7 @@ use finstack_core::market_data::context::MarketContext;
 use finstack_core::money::Money;
 use finstack_core::types::{CurveId, InstrumentId};
 use finstack_core::Result;
+use smallvec::smallvec;
 
 /// Commodity swap (fixed-for-floating commodity price exchange).
 ///

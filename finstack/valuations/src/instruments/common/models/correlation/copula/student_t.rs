@@ -467,7 +467,11 @@ mod tests {
             // All nodes must be positive
             for &(x, w) in points {
                 assert!(x > 0.0, "Quadrature node must be positive, got {}", x);
-                assert!(w >= 0.0, "Quadrature weight must be non-negative, got {}", w);
+                assert!(
+                    w >= 0.0,
+                    "Quadrature weight must be non-negative, got {}",
+                    w
+                );
             }
 
             // Weights should sum to approximately 1

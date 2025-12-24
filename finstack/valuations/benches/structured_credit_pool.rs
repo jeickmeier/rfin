@@ -39,15 +39,9 @@ fn benchmark_pool_flows(c: &mut Criterion) {
     )
     .unwrap();
     let tranches = TrancheStructure::new(vec![tranche]).unwrap();
-    let instrument = StructuredCredit::new_rmbs(
-        "BENCH_DEAL",
-        pool,
-        tranches,
-        as_of,
-        maturity,
-        "USD-OIS",
-    )
-    .with_payment_calendar("nyse");
+    let instrument =
+        StructuredCredit::new_rmbs("BENCH_DEAL", pool, tranches, as_of, maturity, "USD-OIS")
+            .with_payment_calendar("nyse");
 
     let context = MarketContext::new();
 

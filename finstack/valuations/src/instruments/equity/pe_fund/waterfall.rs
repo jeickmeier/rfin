@@ -1067,11 +1067,9 @@ impl<'a> EquityWaterfallEngine<'a> {
                     .iter()
                     .enumerate()
                     .filter(|(_, r)| r.date <= settlement_date)
-                    .max_by(|(idx_a, a), (idx_b, b)| {
-                        match a.date.cmp(&b.date) {
-                            Ordering::Equal => idx_a.cmp(idx_b),
-                            other => other,
-                        }
+                    .max_by(|(idx_a, a), (idx_b, b)| match a.date.cmp(&b.date) {
+                        Ordering::Equal => idx_a.cmp(idx_b),
+                        other => other,
                     })
                     .map(|(_, row)| row.clone());
 

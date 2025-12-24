@@ -337,8 +337,8 @@ fn test_bond_future_pricer_registry_ctd_npv() {
         date!(2033 - 03 - 15),
     );
 
-    let market = create_realistic_market()
-        .insert_instrument("US912828XG33", Arc::new(ctd_bond.clone()));
+    let market =
+        create_realistic_market().insert_instrument("US912828XG33", Arc::new(ctd_bond.clone()));
 
     let conversion_factor = BondFuturePricer::calculate_conversion_factor(
         &ctd_bond,
@@ -373,14 +373,9 @@ fn test_bond_future_pricer_registry_ctd_npv() {
         .price_with_registry(&future, ModelKey::Discounting, &market, as_of)
         .expect("Registry pricing should succeed");
 
-    let expected = BondFuturePricer::calculate_npv(
-        &future,
-        &ctd_bond,
-        conversion_factor,
-        &market,
-        as_of,
-    )
-    .expect("Expected NPV should be computed");
+    let expected =
+        BondFuturePricer::calculate_npv(&future, &ctd_bond, conversion_factor, &market, as_of)
+            .expect("Expected NPV should be computed");
 
     let diff = (result.value.amount() - expected.amount()).abs();
     assert!(

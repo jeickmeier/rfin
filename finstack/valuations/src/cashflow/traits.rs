@@ -131,7 +131,6 @@ pub trait CashflowProvider: Send + Sync {
             meta: Default::default(),
         })
     }
-
 }
 
 #[cfg(test)]

@@ -2552,14 +2552,15 @@ mod tests {
         imm_tranche.standard_imm_dates = true;
         imm_tranche.effective_date =
             Some(Date::from_calendar_date(2025, Month::March, 20).expect("cds date"));
-        imm_tranche.maturity =
-            Date::from_calendar_date(2030, Month::March, 20).expect("cds date");
+        imm_tranche.maturity = Date::from_calendar_date(2030, Month::March, 20).expect("cds date");
         let imm_dates = model
             .generate_payment_schedule(&imm_tranche, as_of)
             .expect("IMM schedule should succeed");
         assert!(!imm_dates.is_empty());
         assert!(
-            imm_dates.iter().all(|d| finstack_core::dates::is_cds_date(*d)),
+            imm_dates
+                .iter()
+                .all(|d| finstack_core::dates::is_cds_date(*d)),
             "IMM schedule should use CDS roll dates"
         );
 
@@ -2574,7 +2575,9 @@ mod tests {
             .expect("non-IMM schedule should succeed");
         assert!(!non_imm_dates.is_empty());
         assert!(
-            non_imm_dates.iter().any(|d| !finstack_core::dates::is_cds_date(*d)),
+            non_imm_dates
+                .iter()
+                .any(|d| !finstack_core::dates::is_cds_date(*d)),
             "Non-IMM schedule should include non-CDS dates"
         );
     }

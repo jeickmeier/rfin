@@ -11,8 +11,8 @@ use finstack_core::money::Money;
 use finstack_core::Result;
 
 use crate::cashflow::traits::CashflowProvider;
-use crate::instruments::common::traits::Instrument;
 use crate::instruments::bond::Bond;
+use crate::instruments::common::traits::Instrument;
 use crate::instruments::ir_future::Position;
 
 /// Bond future pricer.
@@ -995,8 +995,10 @@ mod tests {
 
     #[test]
     fn test_pricer_price_dyn_uses_ctd_bond() {
+        use crate::instruments::bond_future::{
+            BondFutureBuilder, BondFutureSpecs, DeliverableBond,
+        };
         use crate::pricer::Pricer;
-        use crate::instruments::bond_future::{BondFutureBuilder, BondFutureSpecs, DeliverableBond};
 
         let as_of = date!(2025 - 01 - 15);
         let expiry = date!(2025 - 03 - 20);

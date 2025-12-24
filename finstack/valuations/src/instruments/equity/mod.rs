@@ -6,8 +6,6 @@ pub mod autocallable;
 pub mod cliquet_option;
 /// DCF equity module - Discounted cash flow for equity (renamed from dcf).
 pub mod dcf_equity;
-/// Real estate module - Real estate asset valuation.
-pub mod real_estate;
 /// Equity index future module.
 pub mod equity_index_future;
 /// Equity option module - Vanilla equity options.
@@ -16,6 +14,8 @@ pub mod equity_option;
 pub mod equity_trs;
 /// PE fund module - Private equity/markets funds (renamed from private_markets_fund).
 pub mod pe_fund;
+/// Real estate module - Real estate asset valuation.
+pub mod real_estate;
 /// Equity spot module - Equity spot positions.
 pub mod spot;
 /// Variance swap module - Variance and volatility swaps.
@@ -29,11 +29,11 @@ pub mod vol_index_option;
 pub use autocallable::{Autocallable, FinalPayoffType};
 pub use cliquet_option::CliquetOption;
 pub use dcf_equity::{DiscountedCashFlow, TerminalValueSpec};
-pub use real_estate::{RealEstateAsset, RealEstateValuationMethod};
 pub use equity_index_future::{EquityFutureSpecs, EquityIndexFuture};
 pub use equity_option::EquityOption;
 pub use equity_trs::EquityTotalReturnSwap;
 pub use pe_fund::PrivateMarketsFund;
+pub use real_estate::{RealEstateAsset, RealEstateValuationMethod};
 pub use spot::Equity;
 pub use variance_swap::VarianceSwap;
 pub use vol_index_future::{VolIndexContractSpecs, VolatilityIndexFuture};

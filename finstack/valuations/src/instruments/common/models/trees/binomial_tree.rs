@@ -90,7 +90,11 @@ impl BinomialTree {
     /// assert_eq!(tree.steps, 99);
     /// ```
     pub fn leisen_reimer_odd(steps: usize) -> Self {
-        let odd_steps = if steps.is_multiple_of(2) { steps + 1 } else { steps };
+        let odd_steps = if steps.is_multiple_of(2) {
+            steps + 1
+        } else {
+            steps
+        };
         Self::new(odd_steps, TreeType::LeisenReimer)
     }
 
@@ -541,7 +545,8 @@ impl BinomialTree {
             market_params.dividend_yield,
         )?;
 
-        let exercise_set = exercise_steps.map(|steps| steps.iter().copied().collect::<HashSet<_>>());
+        let exercise_set =
+            exercise_steps.map(|steps| steps.iter().copied().collect::<HashSet<_>>());
 
         struct OptionValuator {
             strike: f64,
@@ -1130,7 +1135,9 @@ mod tests {
         let lr_tree = BinomialTree::leisen_reimer_odd(100);
         assert_eq!(lr_tree.steps, 101, "Should be rounded to odd");
 
-        let lr_price = lr_tree.price_european(&market_params).expect("should succeed");
+        let lr_price = lr_tree
+            .price_european(&market_params)
+            .expect("should succeed");
 
         let error = (lr_price - bs_analytical).abs();
         assert!(

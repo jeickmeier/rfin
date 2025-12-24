@@ -101,7 +101,6 @@ pub struct YtmSolverConfig {
     /// This typically reduces iterations by 30-50% compared to a naive
     /// starting point (e.g., coupon rate).
     pub use_smart_guess: bool,
-
 }
 
 impl Default for YtmSolverConfig {
@@ -190,7 +189,7 @@ impl YtmSolver {
     ///     tolerance: 1e-10,      // Faster convergence
     ///     max_iterations: 100,
     ///     use_smart_guess: true,
-/// };
+    /// };
     /// let solver = YtmSolver::with_config(config);
     /// ```
     pub fn with_config(config: YtmSolverConfig) -> Self {

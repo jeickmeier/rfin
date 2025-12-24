@@ -1,13 +1,13 @@
 //! FX variance swap type definitions and pricing logic.
 
 use crate::cashflow::traits::{CashflowProvider, DatedFlows};
-use crate::instruments::common::traits::Attributes;
-use crate::instruments::common::traits::InstrumentCurves;
-use crate::instruments::common::traits::Instrument as InstrumentTrait;
-use crate::instruments::common::traits::CurveDependencies;
-use crate::instruments::common::pricing::HasDiscountCurve;
-use crate::instruments::common::parameters::OptionType;
 use crate::instruments::common::models::bs_price;
+use crate::instruments::common::parameters::OptionType;
+use crate::instruments::common::pricing::HasDiscountCurve;
+use crate::instruments::common::traits::Attributes;
+use crate::instruments::common::traits::CurveDependencies;
+use crate::instruments::common::traits::Instrument as InstrumentTrait;
+use crate::instruments::common::traits::InstrumentCurves;
 use finstack_core::currency::Currency;
 use finstack_core::dates::{Date, DateExt, DayCount, DayCountCtx, Tenor};
 use finstack_core::market_data::context::MarketContext;
@@ -112,12 +112,10 @@ impl FxVarianceSwap {
             .notional(Money::new(1_000_000.0, Currency::USD))
             .strike_variance(0.04)
             .start_date(
-                Date::from_calendar_date(2024, Month::January, 2)
-                    .expect("Valid example date"),
+                Date::from_calendar_date(2024, Month::January, 2).expect("Valid example date"),
             )
             .maturity(
-                Date::from_calendar_date(2025, Month::January, 2)
-                    .expect("Valid example date"),
+                Date::from_calendar_date(2025, Month::January, 2).expect("Valid example date"),
             )
             .observation_freq(Tenor::daily())
             .realized_var_method(RealizedVarMethod::CloseToClose)
@@ -343,10 +341,13 @@ impl FxVarianceSwap {
 
         let dom = context.get_discount_ref(self.domestic_discount_curve_id.as_str())?;
         let for_curve = context.get_discount_ref(self.foreign_discount_curve_id.as_str())?;
-        let t_dom = dom.day_count().year_fraction(as_of, self.maturity, DayCountCtx::default())?;
-        let t_for = for_curve
+        let t_dom = dom
             .day_count()
             .year_fraction(as_of, self.maturity, DayCountCtx::default())?;
+        let t_for =
+            for_curve
+                .day_count()
+                .year_fraction(as_of, self.maturity, DayCountCtx::default())?;
         let df_dom = dom.df(t_dom.max(0.0));
         let df_for = for_curve.df(t_for.max(0.0));
 
@@ -392,8 +393,8 @@ impl FxVarianceSwap {
                 sum += (dk / (k * k)) * qk;
             }
 
-            let variance = (2.0 * (r_d * t).exp() / t) * sum
-                - (1.0 / t) * ((fwd / k0 - 1.0).powi(2));
+            let variance =
+                (2.0 * (r_d * t).exp() / t) * sum - (1.0 / t) * ((fwd / k0 - 1.0).powi(2));
             if variance.is_finite() && variance > 0.0 {
                 return Ok(variance);
             }
@@ -479,6 +480,9 @@ impl CashflowProvider for FxVarianceSwap {
     }
 
     fn build_schedule(&self, _context: &MarketContext, _as_of: Date) -> Result<DatedFlows> {
-        Ok(vec![(self.maturity, Money::new(0.0, self.notional.currency()))])
+        Ok(vec![(
+            self.maturity,
+            Money::new(0.0, self.notional.currency()),
+        )])
     }
 }

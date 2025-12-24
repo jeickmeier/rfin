@@ -34,12 +34,7 @@ pub fn flat_discount_with_tenor(
 }
 
 /// Build a flat forward curve with two knots and a constant rate.
-pub fn flat_forward_with_tenor(
-    id: &str,
-    as_of: Date,
-    rate: f64,
-    tenor_years: f64,
-) -> ForwardCurve {
+pub fn flat_forward_with_tenor(id: &str, as_of: Date, rate: f64, tenor_years: f64) -> ForwardCurve {
     ForwardCurve::builder(id, tenor_years)
         .base_date(as_of)
         .knots([(0.0, rate), (tenor_years, rate)])

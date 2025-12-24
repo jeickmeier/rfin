@@ -16,7 +16,6 @@ use crate::market::quotes::market_quote::MarketQuote;
 use finstack_core::market_data::context::MarketContext;
 use finstack_core::Result;
 
-
 /// Execute a single calibration step.
 ///
 /// This is the main entry point for the calibration engine to process a

@@ -62,7 +62,6 @@ pub enum SolverConfig {
         #[cfg_attr(feature = "ts_export", ts(skip))]
         solver: BrentSolver,
     },
-
 }
 
 impl SolverConfig {

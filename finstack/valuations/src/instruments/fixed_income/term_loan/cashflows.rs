@@ -342,10 +342,8 @@ pub fn generate_cashflows(
                     match a.date.cmp(&b.date) {
                         Ordering::Less => Ordering::Less,
                         Ordering::Greater => Ordering::Greater,
-                        Ordering::Equal => {
-                            crate::cashflow::builder::schedule::kind_rank(a.kind)
-                                .cmp(&crate::cashflow::builder::schedule::kind_rank(b.kind))
-                        }
+                        Ordering::Equal => crate::cashflow::builder::schedule::kind_rank(a.kind)
+                            .cmp(&crate::cashflow::builder::schedule::kind_rank(b.kind)),
                     }
                 });
             }
@@ -398,10 +396,9 @@ fn build_commitment_fee_flows(
         return Ok(Vec::new());
     }
 
-    let mut schedule_builder =
-        finstack_core::dates::ScheduleBuilder::new(fee_start, fee_end)
-            .frequency(loan.pay_freq)
-            .stub_rule(loan.stub);
+    let mut schedule_builder = finstack_core::dates::ScheduleBuilder::new(fee_start, fee_end)
+        .frequency(loan.pay_freq)
+        .stub_rule(loan.stub);
     if let Some(ref cal_id) = loan.calendar_id {
         schedule_builder = schedule_builder.adjust_with_id(loan.bdc, cal_id);
     }
@@ -578,9 +575,7 @@ pub fn build_oid_eir_schedule(
         .filter(|(_, amt)| amt.abs() > 0.0)
         .collect();
 
-    let effective_rate = flows
-        .as_slice()
-        .irr_with_daycount(loan.day_count, None)?;
+    let effective_rate = flows.as_slice().irr_with_daycount(loan.day_count, None)?;
 
     let mut periods = Vec::new();
     let mut iter = buckets.iter();

@@ -18,13 +18,13 @@
 //! checks used in IRS pricing that have been validated against Bloomberg SWPM
 //! for discount factor calibration.
 
+use crate::cashflow::builder::rate_helpers::FloatingRateParams;
 use finstack_core::dates::calendar::registry::CalendarRegistry;
 use finstack_core::dates::{Date, DateExt, DayCount, DayCountCtx, Schedule};
 use finstack_core::market_data::term_structures::discount_curve::DiscountCurve;
 use finstack_core::market_data::term_structures::forward_curve::ForwardCurve;
 use finstack_core::math::KahanAccumulator;
 use finstack_core::Result;
-use crate::cashflow::builder::rate_helpers::FloatingRateParams;
 
 /// Minimum threshold for discount factor values to avoid numerical instability.
 ///
@@ -684,8 +684,15 @@ mod tests {
         ];
 
         let params = FloatingLegParams::with_spread(100.0); // 100 bps
-        let pv = pv_floating_leg(periods.into_iter(), 1_000_000.0, &params, &disc, &fwd, base_date)
-            .expect("should price");
+        let pv = pv_floating_leg(
+            periods.into_iter(),
+            1_000_000.0,
+            &params,
+            &disc,
+            &fwd,
+            base_date,
+        )
+        .expect("should price");
 
         // Should be positive (receiving floating)
         assert!(pv > 0.0, "PV should be positive: {}", pv);
@@ -706,19 +713,25 @@ mod tests {
 
         // Create params with contradictory floor/cap
         let params = FloatingLegParams::full(
-            100.0,              // spread_bp
-            1.0,                // gearing
-            true,               // gearing_includes_spread
-            None,               // index_floor_bp
-            None,               // index_cap_bp
-            Some(500.0),        // all_in_floor_bp (5%)
-            Some(300.0),        // all_in_cap_bp (3%) - less than floor!
-            0,                  // payment_delay_days
-            None,               // calendar_id
+            100.0,       // spread_bp
+            1.0,         // gearing
+            true,        // gearing_includes_spread
+            None,        // index_floor_bp
+            None,        // index_cap_bp
+            Some(500.0), // all_in_floor_bp (5%)
+            Some(300.0), // all_in_cap_bp (3%) - less than floor!
+            0,           // payment_delay_days
+            None,        // calendar_id
         );
 
-        let result =
-            pv_floating_leg(periods.into_iter(), 1_000_000.0, &params, &disc, &fwd, base_date);
+        let result = pv_floating_leg(
+            periods.into_iter(),
+            1_000_000.0,
+            &params,
+            &disc,
+            &fwd,
+            base_date,
+        );
         assert!(
             result.is_err(),
             "Should reject contradictory floor/cap params"
@@ -751,8 +764,14 @@ mod tests {
             None,  // calendar_id
         );
 
-        let result =
-            pv_floating_leg(periods.into_iter(), 1_000_000.0, &params, &disc, &fwd, base_date);
+        let result = pv_floating_leg(
+            periods.into_iter(),
+            1_000_000.0,
+            &params,
+            &disc,
+            &fwd,
+            base_date,
+        );
         assert!(result.is_err(), "Should reject zero gearing");
     }
 
@@ -784,7 +803,11 @@ mod tests {
         assert!(pv > 0.0, "PV should be positive: {}", pv);
 
         // Approximate check: 2 × 0.5 × 0.03 × 1M × avg_df ≈ 30000 × 0.95 ≈ 28500
-        assert!(pv > 20000.0 && pv < 35000.0, "PV should be reasonable: {}", pv);
+        assert!(
+            pv > 20000.0 && pv < 35000.0,
+            "PV should be reasonable: {}",
+            pv
+        );
     }
 
     #[test]

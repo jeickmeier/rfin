@@ -6,8 +6,10 @@ use finstack_core::market_data::scalars::MarketScalar;
 use finstack_core::types::{CurveId, InstrumentId};
 use finstack_valuations::instruments::commodity_option::CommodityOption;
 use finstack_valuations::instruments::common::traits::Attributes;
-use finstack_valuations::instruments::{ExerciseStyle, OptionType, PricingOverrides, SettlementType};
 use finstack_valuations::instruments::Instrument;
+use finstack_valuations::instruments::{
+    ExerciseStyle, OptionType, PricingOverrides, SettlementType,
+};
 use finstack_valuations::metrics::{standard_registry, MetricContext, MetricId};
 use finstack_valuations::test_utils::{
     date, flat_discount_with_tenor, flat_forward_with_tenor, flat_vol_surface,
@@ -55,7 +57,10 @@ fn test_commodity_option_core_greeks_registered() -> finstack_core::Result<()> {
     let pv = option.value(&market, as_of)?;
     let mut ctx = MetricContext::new(Arc::new(option), Arc::new(market), as_of, pv);
     let registry = standard_registry();
-    let res = registry.compute(&[MetricId::Gamma, MetricId::Vanna, MetricId::Volga], &mut ctx)?;
+    let res = registry.compute(
+        &[MetricId::Gamma, MetricId::Vanna, MetricId::Volga],
+        &mut ctx,
+    )?;
 
     let gamma = *res.get(&MetricId::Gamma).expect("gamma");
     let vanna = *res.get(&MetricId::Vanna).expect("vanna");

@@ -496,7 +496,6 @@ impl CalibrationConfig {
             .with_tolerance(self.solver.tolerance())
             .with_max_iterations(self.solver.max_iterations())
     }
-
 }
 
 /// Step-level conventions for rates calibration (discount and forward curves).

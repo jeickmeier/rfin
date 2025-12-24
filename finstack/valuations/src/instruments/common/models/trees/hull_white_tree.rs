@@ -370,7 +370,13 @@ impl HullWhiteTree {
         }
 
         // Ensure probabilities are valid (handle numerical edge cases)
-        if p_up < 0.0 || p_mid < 0.0 || p_down < 0.0 || !p_up.is_finite() || !p_mid.is_finite() || !p_down.is_finite() {
+        if p_up < 0.0
+            || p_mid < 0.0
+            || p_down < 0.0
+            || !p_up.is_finite()
+            || !p_mid.is_finite()
+            || !p_down.is_finite()
+        {
             // Fallback to uniform for degenerate cases
             tracing::warn!(
                 "Hull-White: invalid probabilities at j={}, falling back to uniform",
@@ -925,4 +931,3 @@ mod tests {
         );
     }
 }
-

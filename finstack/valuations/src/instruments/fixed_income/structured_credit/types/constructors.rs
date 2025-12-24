@@ -146,15 +146,8 @@ impl StructuredCredit {
         let closing =
             Date::from_calendar_date(2024, Month::January, 1).expect("Valid example date");
         let legal = Date::from_calendar_date(2034, Month::January, 1).expect("Valid example date");
-        StructuredCredit::new_clo(
-            "CLO-EXAMPLE",
-            pool,
-            tranches,
-            closing,
-            legal,
-            "USD-OIS",
-        )
-        .with_payment_calendar("nyse")
+        StructuredCredit::new_clo("CLO-EXAMPLE", pool, tranches, closing, legal, "USD-OIS")
+            .with_payment_calendar("nyse")
     }
 
     /// Internal helper to create structured credit with common fields

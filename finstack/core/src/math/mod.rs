@@ -86,8 +86,8 @@ pub use linalg::{
     validate_correlation_matrix, CholeskyError,
 };
 pub use probability::{correlation_bounds, joint_probabilities, CorrelatedBernoulli};
-pub use random::{box_muller_transform, RandomNumberGenerator, TestRng};
 pub use random::sobol::{SobolRng, MAX_SOBOL_DIMENSION};
+pub use random::{box_muller_transform, RandomNumberGenerator, TestRng};
 // Raw root finding functions are no longer exported - use trait-based solvers instead
 pub use solver::{BrentSolver, NewtonSolver, Solver};
 pub use solver_multi::{AnalyticalDerivatives, LevenbergMarquardtSolver, MultiSolver};

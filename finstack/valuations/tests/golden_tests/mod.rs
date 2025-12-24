@@ -26,12 +26,18 @@
 pub mod loader;
 
 pub use loader::{
-    // European options
-    load_golden_tests, GoldenTestCase, OptionType,
-    // Barrier options
-    load_barrier_tests, BarrierTestCase, BarrierType,
-    // Asian options
-    load_asian_tests, AsianTestCase, AveragingType,
     // Utilities
     golden_data_dir,
+    // Asian options
+    load_asian_tests,
+    // Barrier options
+    load_barrier_tests,
+    // European options
+    load_golden_tests,
+    AsianTestCase,
+    AveragingType,
+    BarrierTestCase,
+    BarrierType,
+    GoldenTestCase,
+    OptionType,
 };

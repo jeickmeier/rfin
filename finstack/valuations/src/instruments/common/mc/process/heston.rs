@@ -198,7 +198,8 @@ impl HestonProcess {
     pub fn new(params: HestonParams) -> Self {
         // Warn when Feller condition is violated (variance may hit zero)
         if !params.satisfies_feller() {
-            let feller_ratio = 2.0 * params.kappa * params.theta / (params.sigma_v * params.sigma_v);
+            let feller_ratio =
+                2.0 * params.kappa * params.theta / (params.sigma_v * params.sigma_v);
             tracing::warn!(
                 kappa = params.kappa,
                 theta = params.theta,

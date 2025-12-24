@@ -17,8 +17,8 @@
 //! with a synthetic market data price for the bump scenario. This mirrors a direct
 //! price shock without requiring instrument-specific overrides.
 
-use crate::instruments::basket::{Basket, BasketConstituent};
 use crate::instruments::basket::types::{AssetType, ConstituentReference};
+use crate::instruments::basket::{Basket, BasketConstituent};
 use crate::instruments::common::traits::Instrument;
 use crate::metrics::{MetricCalculator, MetricContext};
 use finstack_core::money::Money;
@@ -47,8 +47,7 @@ impl MetricCalculator for ConstituentDeltaCalculator {
                 .clone()
                 .unwrap_or_else(|| constituent.id.clone());
 
-            let delta =
-                bump_and_measure_delta(basket, constituent, context, as_of, base_pv)?;
+            let delta = bump_and_measure_delta(basket, constituent, context, as_of, base_pv)?;
 
             series.push((label, delta));
             total_delta += delta;
@@ -245,12 +244,7 @@ mod tests {
         let base_value = basket
             .value(&market, as_of)
             .expect("base basket value should succeed");
-        let mut context = MetricContext::new(
-            Arc::new(basket),
-            Arc::new(market),
-            as_of,
-            base_value,
-        );
+        let mut context = MetricContext::new(Arc::new(basket), Arc::new(market), as_of, base_value);
 
         let calculator = ConstituentDeltaCalculator;
         let total_delta = calculator

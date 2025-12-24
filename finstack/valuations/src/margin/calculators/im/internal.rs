@@ -49,7 +49,13 @@ impl std::fmt::Debug for InternalModelImCalculator {
         f.debug_struct("InternalModelImCalculator")
             .field("mpor_days", &self.mpor_days)
             .field("conservative_rate", &self.conservative_rate)
-            .field("input_source", &self.input_source.as_ref().map(|_| "<dyn InternalModelInputSource>"))
+            .field(
+                "input_source",
+                &self
+                    .input_source
+                    .as_ref()
+                    .map(|_| "<dyn InternalModelInputSource>"),
+            )
             .finish()
     }
 }
@@ -203,9 +209,7 @@ mod tests {
             _metrics: &[crate::metrics::MetricId],
         ) -> Result<crate::results::ValuationResult> {
             Ok(crate::results::ValuationResult::stamped(
-                &self.id,
-                as_of,
-                self.value,
+                &self.id, as_of, self.value,
             ))
         }
     }
@@ -240,15 +244,13 @@ mod tests {
 
     #[test]
     fn input_source_overrides_amount() {
-        let calc = InternalModelImCalculator::default().with_input_source(Arc::new(
-            TestInputSource {
+        let calc =
+            InternalModelImCalculator::default().with_input_source(Arc::new(TestInputSource {
                 amount: Money::new(2_500_000.0, Currency::USD),
-            },
-        ));
+            }));
         let instrument = TestInstrument::new(Money::new(10_000_000.0, Currency::USD));
         let market = MarketContext::new();
-        let as_of = Date::from_calendar_date(2024, time::Month::January, 1)
-            .expect("valid date");
+        let as_of = Date::from_calendar_date(2024, time::Month::January, 1).expect("valid date");
         let result = calc.calculate(&instrument, &market, as_of).expect("im");
 
         assert_eq!(result.amount.amount(), 2_500_000.0);

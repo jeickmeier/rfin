@@ -81,16 +81,30 @@ impl std::fmt::Display for CorrelationMatrixError {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
             Self::InvalidSize { expected, actual } => {
-                write!(f, "Invalid matrix size: expected {0}×{0}={1}, got {actual}", expected, expected * expected)
+                write!(
+                    f,
+                    "Invalid matrix size: expected {0}×{0}={1}, got {actual}",
+                    expected,
+                    expected * expected
+                )
             }
             Self::DiagonalNotOne { index, value } => {
-                write!(f, "Diagonal element [{index},{index}] = {value}, expected 1.0")
+                write!(
+                    f,
+                    "Diagonal element [{index},{index}] = {value}, expected 1.0"
+                )
             }
             Self::NotSymmetric { i, j, diff } => {
-                write!(f, "Matrix not symmetric: |ρ[{i},{j}] - ρ[{j},{i}]| = {diff}")
+                write!(
+                    f,
+                    "Matrix not symmetric: |ρ[{i},{j}] - ρ[{j},{i}]| = {diff}"
+                )
             }
             Self::NotPositiveSemiDefinite { row } => {
-                write!(f, "Matrix not positive semi-definite: Cholesky failed at row {row}")
+                write!(
+                    f,
+                    "Matrix not positive semi-definite: Cholesky failed at row {row}"
+                )
             }
             Self::OutOfBounds { i, j, value } => {
                 write!(f, "Correlation ρ[{i},{j}] = {value} out of bounds [-1, 1]")
@@ -129,7 +143,10 @@ pub fn validate_correlation_matrix(matrix: &[f64], n: usize) -> Result<(), Corre
     for i in 0..n {
         let diag = matrix[i * n + i];
         if (diag - 1.0).abs() > CORRELATION_TOLERANCE {
-            return Err(CorrelationMatrixError::DiagonalNotOne { index: i, value: diag });
+            return Err(CorrelationMatrixError::DiagonalNotOne {
+                index: i,
+                value: diag,
+            });
         }
     }
 
@@ -141,7 +158,11 @@ pub fn validate_correlation_matrix(matrix: &[f64], n: usize) -> Result<(), Corre
 
             // Check bounds
             if !(-1.0 - CORRELATION_TOLERANCE..=1.0 + CORRELATION_TOLERANCE).contains(&rho_ij) {
-                return Err(CorrelationMatrixError::OutOfBounds { i, j, value: rho_ij });
+                return Err(CorrelationMatrixError::OutOfBounds {
+                    i,
+                    j,
+                    value: rho_ij,
+                });
             }
 
             // Check symmetry
@@ -670,7 +691,8 @@ impl MultiFactorModel {
         for i in 0..n {
             let mut sum = 0.0;
             for j in 0..=i {
-                sum += self.cholesky_factor[i * n + j] * independent_z.get(j).copied().unwrap_or(0.0);
+                sum +=
+                    self.cholesky_factor[i * n + j] * independent_z.get(j).copied().unwrap_or(0.0);
             }
             // Scale by volatility
             result[i] = sum * self.volatilities[i];
@@ -803,11 +825,7 @@ mod tests {
     #[test]
     fn test_validate_valid_correlation_matrix() {
         // Valid 3x3 correlation matrix
-        let corr = vec![
-            1.0, 0.5, 0.3,
-            0.5, 1.0, 0.4,
-            0.3, 0.4, 1.0,
-        ];
+        let corr = vec![1.0, 0.5, 0.3, 0.5, 1.0, 0.4, 0.3, 0.4, 1.0];
         assert!(validate_correlation_matrix(&corr, 3).is_ok());
     }
 
@@ -815,40 +833,51 @@ mod tests {
     fn test_validate_invalid_size() {
         let corr = vec![1.0, 0.5, 0.5, 1.0];
         let result = validate_correlation_matrix(&corr, 3);
-        assert!(matches!(result, Err(CorrelationMatrixError::InvalidSize { .. })));
+        assert!(matches!(
+            result,
+            Err(CorrelationMatrixError::InvalidSize { .. })
+        ));
     }
 
     #[test]
     fn test_validate_diagonal_not_one() {
         let corr = vec![0.9, 0.5, 0.5, 1.0];
         let result = validate_correlation_matrix(&corr, 2);
-        assert!(matches!(result, Err(CorrelationMatrixError::DiagonalNotOne { index: 0, .. })));
+        assert!(matches!(
+            result,
+            Err(CorrelationMatrixError::DiagonalNotOne { index: 0, .. })
+        ));
     }
 
     #[test]
     fn test_validate_not_symmetric() {
         let corr = vec![1.0, 0.5, 0.3, 1.0]; // Off-diagonals don't match
         let result = validate_correlation_matrix(&corr, 2);
-        assert!(matches!(result, Err(CorrelationMatrixError::NotSymmetric { .. })));
+        assert!(matches!(
+            result,
+            Err(CorrelationMatrixError::NotSymmetric { .. })
+        ));
     }
 
     #[test]
     fn test_validate_not_psd() {
         // Non-PSD matrix: high correlations that violate PSD constraint
-        let corr = vec![
-            1.0, 0.9, 0.9,
-            0.9, 1.0, -0.5,
-            0.9, -0.5, 1.0,
-        ];
+        let corr = vec![1.0, 0.9, 0.9, 0.9, 1.0, -0.5, 0.9, -0.5, 1.0];
         let result = validate_correlation_matrix(&corr, 3);
-        assert!(matches!(result, Err(CorrelationMatrixError::NotPositiveSemiDefinite { .. })));
+        assert!(matches!(
+            result,
+            Err(CorrelationMatrixError::NotPositiveSemiDefinite { .. })
+        ));
     }
 
     #[test]
     fn test_validate_out_of_bounds() {
         let corr = vec![1.0, 1.5, 1.5, 1.0];
         let result = validate_correlation_matrix(&corr, 2);
-        assert!(matches!(result, Err(CorrelationMatrixError::OutOfBounds { .. })));
+        assert!(matches!(
+            result,
+            Err(CorrelationMatrixError::OutOfBounds { .. })
+        ));
     }
 
     // ========== Cholesky Decomposition Tests ==========
@@ -880,11 +909,7 @@ mod tests {
 
     #[test]
     fn test_cholesky_reconstructs_original() {
-        let corr = vec![
-            1.0, 0.5, 0.3,
-            0.5, 1.0, 0.4,
-            0.3, 0.4, 1.0,
-        ];
+        let corr = vec![1.0, 0.5, 0.3, 0.5, 1.0, 0.4, 0.3, 0.4, 1.0];
         let l = cholesky_decompose(&corr, 3).expect("3x3 correlation matrix should decompose");
 
         // Verify L * L^T = original
@@ -898,7 +923,10 @@ mod tests {
                 assert!(
                     (sum - corr[i * n + j]).abs() < 1e-10,
                     "LLᵀ[{},{}] = {} but expected {}",
-                    i, j, sum, corr[i * n + j]
+                    i,
+                    j,
+                    sum,
+                    corr[i * n + j]
                 );
             }
         }

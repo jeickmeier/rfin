@@ -1600,11 +1600,8 @@ mod tests {
             .insert_hazard(hazard2);
 
         // Restore inflation curves
-        let restored = MarketSnapshot::restore_market(
-            &target_market,
-            &snapshot,
-            CurveRestoreFlags::INFLATION,
-        );
+        let restored =
+            MarketSnapshot::restore_market(&target_market, &snapshot, CurveRestoreFlags::INFLATION);
 
         // Verify: should have inflation curves from snapshot
         assert!(restored.get_inflation("US-CPI").is_ok());
@@ -1897,14 +1894,8 @@ mod tests {
         let direct = RatesCurvesSnapshot::extract(&market);
         let generic: RatesCurvesSnapshot = extract(&market);
 
-        assert_eq!(
-            direct.discount_curves.len(),
-            generic.discount_curves.len()
-        );
-        assert_eq!(
-            direct.forward_curves.len(),
-            generic.forward_curves.len()
-        );
+        assert_eq!(direct.discount_curves.len(), generic.discount_curves.len());
+        assert_eq!(direct.forward_curves.len(), generic.forward_curves.len());
 
         // Verify curve IDs match
         for id in direct.discount_curves.keys() {

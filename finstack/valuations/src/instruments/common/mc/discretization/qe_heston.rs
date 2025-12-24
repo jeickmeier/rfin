@@ -207,14 +207,7 @@ impl QeHeston {
     /// - Broadie, M. & Kaya, Ö. (2006). "Exact Simulation of Stochastic
     ///   Volatility and Other Affine Jump Diffusion Processes."
     #[inline]
-    fn integrated_variance(
-        &self,
-        v_t: f64,
-        v_next: f64,
-        dt: f64,
-        kappa: f64,
-        theta: f64,
-    ) -> f64 {
+    fn integrated_variance(&self, v_t: f64, v_next: f64, dt: f64, kappa: f64, theta: f64) -> f64 {
         match self.int_var_method {
             IntegratedVarianceMethod::Trapezoidal => (v_t + v_next) / 2.0 * dt,
             IntegratedVarianceMethod::Exact => {

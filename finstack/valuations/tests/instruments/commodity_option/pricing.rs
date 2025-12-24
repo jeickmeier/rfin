@@ -8,7 +8,9 @@ use finstack_core::types::{CurveId, InstrumentId};
 use finstack_valuations::instruments::commodity_option::CommodityOption;
 use finstack_valuations::instruments::common::models::bs_price;
 use finstack_valuations::instruments::common::traits::Attributes;
-use finstack_valuations::instruments::{ExerciseStyle, OptionType, PricingOverrides, SettlementType};
+use finstack_valuations::instruments::{
+    ExerciseStyle, OptionType, PricingOverrides, SettlementType,
+};
 use finstack_valuations::test_utils::{
     date, flat_discount_with_tenor, flat_forward_with_tenor, flat_vol_surface,
 };

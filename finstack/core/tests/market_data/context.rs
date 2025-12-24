@@ -969,7 +969,8 @@ fn market_context_instrument_registry_clone_thread_safe() {
 
     let handle = std::thread::spawn(move || {
         let any = cloned.get_instrument("X").expect("instrument should exist");
-        *any.downcast_ref::<i32>().expect("instrument should downcast")
+        *any.downcast_ref::<i32>()
+            .expect("instrument should downcast")
     });
 
     let value = handle.join().expect("thread should join");

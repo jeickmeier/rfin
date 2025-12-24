@@ -150,8 +150,7 @@ impl InterestRateSwap {
             // Daily compounding logic
             let allow_fast_path = as_of <= accrual_start
                 && total_shift == 0
-                && (proj.is_none()
-                    || disc.id() == proj.expect("checked").id());
+                && (proj.is_none() || disc.id() == proj.expect("checked").id());
 
             let compound_factor = if allow_fast_path && proj.is_none() {
                 // Single-curve discount-only fast path when no observation shifting:
@@ -407,12 +406,12 @@ impl InterestRateSwap {
         // Build floating leg params using shared type
         let params = FloatingLegParams::full(
             self.float.spread_bp,
-            1.0,   // gearing
-            true,  // gearing_includes_spread
-            None,  // index_floor_bp
-            None,  // index_cap_bp
-            None,  // all_in_floor_bp
-            None,  // all_in_cap_bp
+            1.0,  // gearing
+            true, // gearing_includes_spread
+            None, // index_floor_bp
+            None, // index_cap_bp
+            None, // all_in_floor_bp
+            None, // all_in_cap_bp
             self.float.payment_delay_days,
             self.float.calendar_id.clone(),
         );
@@ -592,12 +591,8 @@ mod tests {
             obs.push((d, fixing_rate));
             d = d.add_weekdays(1);
         }
-        let fixings = ScalarTimeSeries::new(
-            format!("FIXING:{}", fwd_id.as_str()),
-            obs,
-            None,
-        )
-        .expect("fixings series");
+        let fixings = ScalarTimeSeries::new(format!("FIXING:{}", fwd_id.as_str()), obs, None)
+            .expect("fixings series");
 
         let ctx = MarketContext::new()
             .insert_discount(disc.clone())

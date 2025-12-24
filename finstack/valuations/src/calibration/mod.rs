@@ -87,9 +87,7 @@ pub use crate::instruments::common::models::volatility::sabr_derivatives::{
 
 // Re-exports: Reports
 pub use report::CalibrationReport;
-pub use solver::{
-    SolverConfig, OBJECTIVE_VALID_ABS_MAX, PENALTY, RESIDUAL_PENALTY_ABS_MIN,
-};
+pub use solver::{SolverConfig, OBJECTIVE_VALID_ABS_MAX, PENALTY, RESIDUAL_PENALTY_ABS_MIN};
 
 // Re-exports: Validation
 pub use validation::{

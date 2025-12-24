@@ -120,9 +120,13 @@ pub fn build_with_metrics_dyn(
     cfg: Option<Arc<FinstackConfig>>,
 ) -> finstack_core::Result<crate::results::ValuationResult> {
     let mut context = match cfg {
-        Some(c) => {
-            MetricContext::new_with_finstack_config(instrument.clone(), curves, as_of, base_value, c)
-        }
+        Some(c) => MetricContext::new_with_finstack_config(
+            instrument.clone(),
+            curves,
+            as_of,
+            base_value,
+            c,
+        ),
         None => MetricContext::new(instrument.clone(), curves, as_of, base_value),
     };
     // Preserve per-instrument pricing overrides (e.g., bump sizes, scenario shocks) for metrics.

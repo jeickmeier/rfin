@@ -186,7 +186,13 @@ impl std::fmt::Debug for ClearingHouseImCalculator {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         f.debug_struct("ClearingHouseImCalculator")
             .field("methodology", &self.methodology)
-            .field("input_source", &self.input_source.as_ref().map(|_| "<dyn CcpMarginInputSource>"))
+            .field(
+                "input_source",
+                &self
+                    .input_source
+                    .as_ref()
+                    .map(|_| "<dyn CcpMarginInputSource>"),
+            )
             .finish()
     }
 }
@@ -266,7 +272,8 @@ impl ImCalculator for ClearingHouseImCalculator {
         let mut im_amount = self.calculate_conservative(notional);
         let mut mpor_days = self.methodology.mpor_days();
         if let Some(source) = &self.input_source {
-            if let Some(amount) = source.initial_margin(instrument, context, as_of, &self.methodology)
+            if let Some(amount) =
+                source.initial_margin(instrument, context, as_of, &self.methodology)
             {
                 im_amount = amount;
             }
@@ -295,8 +302,11 @@ impl ImCalculator for ClearingHouseImCalculator {
 fn is_credit_instrument(instrument_type: InstrumentType) -> bool {
     matches!(
         instrument_type,
-        InstrumentType::CDS | InstrumentType::CDSIndex | InstrumentType::CDSTranche
-            | InstrumentType::CDSOption | InstrumentType::StructuredCredit
+        InstrumentType::CDS
+            | InstrumentType::CDSIndex
+            | InstrumentType::CDSTranche
+            | InstrumentType::CDSOption
+            | InstrumentType::StructuredCredit
     )
 }
 
@@ -360,9 +370,7 @@ mod tests {
             _metrics: &[crate::metrics::MetricId],
         ) -> Result<crate::results::ValuationResult> {
             Ok(crate::results::ValuationResult::stamped(
-                &self.id,
-                as_of,
-                self.value,
+                &self.id, as_of, self.value,
             ))
         }
     }
@@ -459,8 +467,7 @@ mod tests {
 
         let fake_inst = TestInstrument::new(notional);
         let market = MarketContext::new();
-        let as_of = Date::from_calendar_date(2024, time::Month::January, 1)
-            .expect("valid date");
+        let as_of = Date::from_calendar_date(2024, time::Month::January, 1).expect("valid date");
         let im = calc.calculate(&fake_inst, &market, as_of).expect("im");
 
         assert_eq!(fallback.amount(), 2_000_000.0);

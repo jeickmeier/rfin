@@ -415,8 +415,8 @@ mod tests {
         assert_eq!(po.vol_surface_extrapolation, VolSurfaceExtrapolation::Error);
 
         // Can set to Clamp
-        let po = PricingOverrides::none()
-            .with_vol_surface_extrapolation(VolSurfaceExtrapolation::Clamp);
+        let po =
+            PricingOverrides::none().with_vol_surface_extrapolation(VolSurfaceExtrapolation::Clamp);
         assert_eq!(po.vol_surface_extrapolation, VolSurfaceExtrapolation::Clamp);
 
         // Can set to LinearInVariance via dedicated method

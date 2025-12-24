@@ -245,7 +245,8 @@ impl HestonModel {
                 - sigma * sigma * (2.0 * u * phi * i_complex - phi * phi);
             let d = d_sq.sqrt();
 
-            let g = (b - rho * sigma * phi * i_complex + d) / (b - rho * sigma * phi * i_complex - d);
+            let g =
+                (b - rho * sigma * phi * i_complex + d) / (b - rho * sigma * phi * i_complex - d);
 
             let c = (r - q) * phi * i_complex * T
                 + (a / sigma.powi(2))
@@ -260,7 +261,7 @@ impl HestonModel {
             // Integrand: Re[ (e^{-i * phi * ln(K)} * psi) / (i * phi) ]
             let log_k = K.ln();
             let term = (-i_complex * phi * log_k).exp() * psi / (i_complex * phi);
-            
+
             // Return real part, handling potential NaN/Inf
             let result = term.re;
             if result.is_finite() {

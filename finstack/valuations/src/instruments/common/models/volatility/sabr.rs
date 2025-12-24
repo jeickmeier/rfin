@@ -2047,8 +2047,7 @@ mod tests {
     #[test]
     fn test_sabr_arbitrage_validation_clean_smile() {
         // Well-behaved SABR parameters should produce arbitrage-free smile
-        let params = SABRParameters::new(0.2, 0.5, 0.3, -0.2)
-            .expect("Valid SABR parameters");
+        let params = SABRParameters::new(0.2, 0.5, 0.3, -0.2).expect("Valid SABR parameters");
         let model = SABRModel::new(params);
         let smile = SABRSmile::new(model, 100.0, 1.0);
 
@@ -2072,8 +2071,7 @@ mod tests {
     #[test]
     fn test_sabr_arbitrage_check_api() {
         // Test the simplified check API
-        let params = SABRParameters::new(0.2, 0.5, 0.3, -0.2)
-            .expect("Valid SABR parameters");
+        let params = SABRParameters::new(0.2, 0.5, 0.3, -0.2).expect("Valid SABR parameters");
         let model = SABRModel::new(params);
         let smile = SABRSmile::new(model, 100.0, 1.0);
 
@@ -2117,8 +2115,7 @@ mod tests {
     #[test]
     fn test_sabr_arbitrage_too_few_strikes() {
         // With fewer than 3 strikes, validation should return empty result
-        let params = SABRParameters::new(0.2, 0.5, 0.3, -0.2)
-            .expect("Valid SABR parameters");
+        let params = SABRParameters::new(0.2, 0.5, 0.3, -0.2).expect("Valid SABR parameters");
         let model = SABRModel::new(params);
         let smile = SABRSmile::new(model, 100.0, 1.0);
 
@@ -2138,8 +2135,7 @@ mod tests {
     fn test_sabr_arbitrage_extreme_params_may_have_violations() {
         // Extreme parameters might produce arbitrage (this tests detection, not prevention)
         // High vol-of-vol with extreme rho can sometimes produce problematic smiles
-        let params = SABRParameters::new(0.5, 0.9, 1.5, 0.8)
-            .expect("Valid SABR parameters");
+        let params = SABRParameters::new(0.5, 0.9, 1.5, 0.8).expect("Valid SABR parameters");
         let model = SABRModel::new(params);
         let smile = SABRSmile::new(model, 100.0, 0.1); // Short expiry
 

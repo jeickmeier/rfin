@@ -59,9 +59,7 @@ fn test_fx_barrier_rebate_added_to_closed_form_price() {
     rebate_option.rebate = Some(rebate);
 
     let base_pv = base_option.npv(&market, as_of).expect("Base PV");
-    let rebate_pv = rebate_option
-        .npv(&market, as_of)
-        .expect("Rebate PV");
+    let rebate_pv = rebate_option.npv(&market, as_of).expect("Rebate PV");
 
     let t = DayCount::Act365F
         .year_fraction(as_of, expiry, DayCountCtx::default())

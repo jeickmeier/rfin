@@ -328,7 +328,9 @@ mod tests {
     #[test]
     fn test_bs_price_expired() {
         // ITM call at expiration
-        assert!((bs_price(110.0, 100.0, 0.05, 0.0, 0.2, 0.0, OptionType::Call) - 10.0).abs() < 1e-10);
+        assert!(
+            (bs_price(110.0, 100.0, 0.05, 0.0, 0.2, 0.0, OptionType::Call) - 10.0).abs() < 1e-10
+        );
         // OTM call at expiration
         assert!(bs_price(90.0, 100.0, 0.05, 0.0, 0.2, 0.0, OptionType::Call).abs() < 1e-10);
         // ITM put at expiration
@@ -339,7 +341,11 @@ mod tests {
     fn test_bs_greeks_call() {
         let greeks = bs_greeks(100.0, 100.0, 0.05, 0.02, 0.20, 1.0, OptionType::Call, 365.0);
         // ATM call delta should be around 0.5-0.6
-        assert!(greeks.delta > 0.4 && greeks.delta < 0.7, "delta = {}", greeks.delta);
+        assert!(
+            greeks.delta > 0.4 && greeks.delta < 0.7,
+            "delta = {}",
+            greeks.delta
+        );
         // Gamma always positive
         assert!(greeks.gamma > 0.0);
         // Vega always positive
@@ -350,7 +356,11 @@ mod tests {
     fn test_bs_greeks_put() {
         let greeks = bs_greeks(100.0, 100.0, 0.05, 0.02, 0.20, 1.0, OptionType::Put, 365.0);
         // ATM put delta should be negative, around -0.4 to -0.5
-        assert!(greeks.delta < 0.0 && greeks.delta > -0.7, "delta = {}", greeks.delta);
+        assert!(
+            greeks.delta < 0.0 && greeks.delta > -0.7,
+            "delta = {}",
+            greeks.delta
+        );
         // Gamma same for calls and puts
         let call_greeks = bs_greeks(100.0, 100.0, 0.05, 0.02, 0.20, 1.0, OptionType::Call, 365.0);
         assert!((greeks.gamma - call_greeks.gamma).abs() < 1e-10);
@@ -376,7 +386,16 @@ mod tests {
         assert!(put_greeks.is_valid(), "ATM put Greeks should be valid");
 
         // Deep ITM call should still be valid
-        let deep_itm = bs_greeks(200.0, 100.0, 0.05, 0.02, 0.20, 0.01, OptionType::Call, 365.0);
+        let deep_itm = bs_greeks(
+            200.0,
+            100.0,
+            0.05,
+            0.02,
+            0.20,
+            0.01,
+            OptionType::Call,
+            365.0,
+        );
         assert!(deep_itm.is_valid(), "Deep ITM call Greeks should be valid");
 
         // Deep OTM put should still be valid
@@ -388,9 +407,9 @@ mod tests {
     fn test_bs_greeks_clamped() {
         // Create Greeks with slightly out-of-bounds values (simulating numerical noise)
         let greeks = BsGreeks {
-            delta: 1.0000001, // Slightly above 1.0
+            delta: 1.0000001,  // Slightly above 1.0
             gamma: -0.0000001, // Slightly negative
-            vega: -0.0000001, // Slightly negative
+            vega: -0.0000001,  // Slightly negative
             theta: -0.05,
             rho_r: 0.5,
             rho_q: -0.3,
@@ -434,4 +453,3 @@ mod tests {
         }
     }
 }
-

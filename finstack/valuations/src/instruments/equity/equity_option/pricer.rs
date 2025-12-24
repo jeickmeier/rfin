@@ -6,8 +6,8 @@
 //! structure used by `fx_option` and keeps pricing logic separate from
 //! instrument definitions.
 
-use crate::instruments::common::models::{bs_greeks, bs_price, BsGreeks};
 use crate::instruments::common::models::trees::binomial_tree::BinomialTree;
+use crate::instruments::common::models::{bs_greeks, bs_price, BsGreeks};
 use crate::instruments::common::parameters::{OptionMarketParams, OptionType};
 use crate::instruments::equity_option::types::EquityOption;
 use crate::instruments::ExerciseStyle;

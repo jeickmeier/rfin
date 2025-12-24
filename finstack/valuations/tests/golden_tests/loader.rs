@@ -178,15 +178,15 @@ pub fn load_golden_tests<P: AsRef<Path>>(path: P) -> Result<Vec<GoldenTestCase>,
     let mut cases = Vec::new();
 
     for (idx, result) in reader.records().enumerate() {
-        let record = result
-            .map_err(|e| format!("Failed to parse row {}: {}", idx + 2, e))?;
+        let record = result.map_err(|e| format!("Failed to parse row {}: {}", idx + 2, e))?;
 
         // Skip empty rows
         if record.iter().all(|f| f.trim().is_empty()) {
             continue;
         }
 
-        let name = record.get(0)
+        let name = record
+            .get(0)
             .ok_or_else(|| format!("Row {}: missing 'name' column", idx + 2))?
             .to_string();
 
@@ -195,52 +195,62 @@ pub fn load_golden_tests<P: AsRef<Path>>(path: P) -> Result<Vec<GoldenTestCase>,
             continue;
         }
 
-        let spot: f64 = record.get(1)
+        let spot: f64 = record
+            .get(1)
             .ok_or_else(|| format!("Row {}: missing 'spot' column", idx + 2))?
             .parse()
             .map_err(|e| format!("Row {}: invalid 'spot': {}", idx + 2, e))?;
 
-        let strike: f64 = record.get(2)
+        let strike: f64 = record
+            .get(2)
             .ok_or_else(|| format!("Row {}: missing 'strike' column", idx + 2))?
             .parse()
             .map_err(|e| format!("Row {}: invalid 'strike': {}", idx + 2, e))?;
 
-        let time: f64 = record.get(3)
+        let time: f64 = record
+            .get(3)
             .ok_or_else(|| format!("Row {}: missing 'time' column", idx + 2))?
             .parse()
             .map_err(|e| format!("Row {}: invalid 'time': {}", idx + 2, e))?;
 
-        let rate: f64 = record.get(4)
+        let rate: f64 = record
+            .get(4)
             .ok_or_else(|| format!("Row {}: missing 'rate' column", idx + 2))?
             .parse()
             .map_err(|e| format!("Row {}: invalid 'rate': {}", idx + 2, e))?;
 
-        let div_yield: f64 = record.get(5)
+        let div_yield: f64 = record
+            .get(5)
             .ok_or_else(|| format!("Row {}: missing 'div_yield' column", idx + 2))?
             .parse()
             .map_err(|e| format!("Row {}: invalid 'div_yield': {}", idx + 2, e))?;
 
-        let volatility: f64 = record.get(6)
+        let volatility: f64 = record
+            .get(6)
             .ok_or_else(|| format!("Row {}: missing 'volatility' column", idx + 2))?
             .parse()
             .map_err(|e| format!("Row {}: invalid 'volatility': {}", idx + 2, e))?;
 
-        let expected_price: f64 = record.get(7)
+        let expected_price: f64 = record
+            .get(7)
             .ok_or_else(|| format!("Row {}: missing 'expected_price' column", idx + 2))?
             .parse()
             .map_err(|e| format!("Row {}: invalid 'expected_price': {}", idx + 2, e))?;
 
-        let abs_tolerance: f64 = record.get(8)
+        let abs_tolerance: f64 = record
+            .get(8)
             .ok_or_else(|| format!("Row {}: missing 'abs_tol' column", idx + 2))?
             .parse()
             .map_err(|e| format!("Row {}: invalid 'abs_tol': {}", idx + 2, e))?;
 
-        let rel_tolerance: f64 = record.get(9)
+        let rel_tolerance: f64 = record
+            .get(9)
             .ok_or_else(|| format!("Row {}: missing 'rel_tol' column", idx + 2))?
             .parse()
             .map_err(|e| format!("Row {}: invalid 'rel_tol': {}", idx + 2, e))?;
 
-        let option_type: OptionType = record.get(10)
+        let option_type: OptionType = record
+            .get(10)
             .ok_or_else(|| format!("Row {}: missing 'option_type' column", idx + 2))?
             .parse()
             .map_err(|e| format!("Row {}: invalid 'option_type': {}", idx + 2, e))?;
@@ -276,15 +286,15 @@ pub fn load_barrier_tests<P: AsRef<Path>>(path: P) -> Result<Vec<BarrierTestCase
     let mut cases = Vec::new();
 
     for (idx, result) in reader.records().enumerate() {
-        let record = result
-            .map_err(|e| format!("Failed to parse row {}: {}", idx + 2, e))?;
+        let record = result.map_err(|e| format!("Failed to parse row {}: {}", idx + 2, e))?;
 
         // Skip empty rows
         if record.iter().all(|f| f.trim().is_empty()) {
             continue;
         }
 
-        let name = record.get(0)
+        let name = record
+            .get(0)
             .ok_or_else(|| format!("Row {}: missing 'name' column", idx + 2))?
             .to_string();
 
@@ -292,57 +302,68 @@ pub fn load_barrier_tests<P: AsRef<Path>>(path: P) -> Result<Vec<BarrierTestCase
             continue;
         }
 
-        let spot: f64 = record.get(1)
+        let spot: f64 = record
+            .get(1)
             .ok_or_else(|| format!("Row {}: missing 'spot' column", idx + 2))?
             .parse()
             .map_err(|e| format!("Row {}: invalid 'spot': {}", idx + 2, e))?;
 
-        let strike: f64 = record.get(2)
+        let strike: f64 = record
+            .get(2)
             .ok_or_else(|| format!("Row {}: missing 'strike' column", idx + 2))?
             .parse()
             .map_err(|e| format!("Row {}: invalid 'strike': {}", idx + 2, e))?;
 
-        let barrier: f64 = record.get(3)
+        let barrier: f64 = record
+            .get(3)
             .ok_or_else(|| format!("Row {}: missing 'barrier' column", idx + 2))?
             .parse()
             .map_err(|e| format!("Row {}: invalid 'barrier': {}", idx + 2, e))?;
 
-        let time: f64 = record.get(4)
+        let time: f64 = record
+            .get(4)
             .ok_or_else(|| format!("Row {}: missing 'time' column", idx + 2))?
             .parse()
             .map_err(|e| format!("Row {}: invalid 'time': {}", idx + 2, e))?;
 
-        let rate: f64 = record.get(5)
+        let rate: f64 = record
+            .get(5)
             .ok_or_else(|| format!("Row {}: missing 'rate' column", idx + 2))?
             .parse()
             .map_err(|e| format!("Row {}: invalid 'rate': {}", idx + 2, e))?;
 
-        let div_yield: f64 = record.get(6)
+        let div_yield: f64 = record
+            .get(6)
             .ok_or_else(|| format!("Row {}: missing 'div_yield' column", idx + 2))?
             .parse()
             .map_err(|e| format!("Row {}: invalid 'div_yield': {}", idx + 2, e))?;
 
-        let volatility: f64 = record.get(7)
+        let volatility: f64 = record
+            .get(7)
             .ok_or_else(|| format!("Row {}: missing 'volatility' column", idx + 2))?
             .parse()
             .map_err(|e| format!("Row {}: invalid 'volatility': {}", idx + 2, e))?;
 
-        let barrier_type: BarrierType = record.get(8)
+        let barrier_type: BarrierType = record
+            .get(8)
             .ok_or_else(|| format!("Row {}: missing 'barrier_type' column", idx + 2))?
             .parse()
             .map_err(|e| format!("Row {}: invalid 'barrier_type': {}", idx + 2, e))?;
 
-        let expected_price: f64 = record.get(9)
+        let expected_price: f64 = record
+            .get(9)
             .ok_or_else(|| format!("Row {}: missing 'expected_price' column", idx + 2))?
             .parse()
             .map_err(|e| format!("Row {}: invalid 'expected_price': {}", idx + 2, e))?;
 
-        let abs_tolerance: f64 = record.get(10)
+        let abs_tolerance: f64 = record
+            .get(10)
             .ok_or_else(|| format!("Row {}: missing 'abs_tol' column", idx + 2))?
             .parse()
             .map_err(|e| format!("Row {}: invalid 'abs_tol': {}", idx + 2, e))?;
 
-        let rel_tolerance: f64 = record.get(11)
+        let rel_tolerance: f64 = record
+            .get(11)
             .ok_or_else(|| format!("Row {}: missing 'rel_tol' column", idx + 2))?
             .parse()
             .map_err(|e| format!("Row {}: invalid 'rel_tol': {}", idx + 2, e))?;
@@ -379,15 +400,15 @@ pub fn load_asian_tests<P: AsRef<Path>>(path: P) -> Result<Vec<AsianTestCase>, S
     let mut cases = Vec::new();
 
     for (idx, result) in reader.records().enumerate() {
-        let record = result
-            .map_err(|e| format!("Failed to parse row {}: {}", idx + 2, e))?;
+        let record = result.map_err(|e| format!("Failed to parse row {}: {}", idx + 2, e))?;
 
         // Skip empty rows
         if record.iter().all(|f| f.trim().is_empty()) {
             continue;
         }
 
-        let name = record.get(0)
+        let name = record
+            .get(0)
             .ok_or_else(|| format!("Row {}: missing 'name' column", idx + 2))?
             .to_string();
 
@@ -395,57 +416,68 @@ pub fn load_asian_tests<P: AsRef<Path>>(path: P) -> Result<Vec<AsianTestCase>, S
             continue;
         }
 
-        let spot: f64 = record.get(1)
+        let spot: f64 = record
+            .get(1)
             .ok_or_else(|| format!("Row {}: missing 'spot' column", idx + 2))?
             .parse()
             .map_err(|e| format!("Row {}: invalid 'spot': {}", idx + 2, e))?;
 
-        let strike: f64 = record.get(2)
+        let strike: f64 = record
+            .get(2)
             .ok_or_else(|| format!("Row {}: missing 'strike' column", idx + 2))?
             .parse()
             .map_err(|e| format!("Row {}: invalid 'strike': {}", idx + 2, e))?;
 
-        let time: f64 = record.get(3)
+        let time: f64 = record
+            .get(3)
             .ok_or_else(|| format!("Row {}: missing 'time' column", idx + 2))?
             .parse()
             .map_err(|e| format!("Row {}: invalid 'time': {}", idx + 2, e))?;
 
-        let rate: f64 = record.get(4)
+        let rate: f64 = record
+            .get(4)
             .ok_or_else(|| format!("Row {}: missing 'rate' column", idx + 2))?
             .parse()
             .map_err(|e| format!("Row {}: invalid 'rate': {}", idx + 2, e))?;
 
-        let div_yield: f64 = record.get(5)
+        let div_yield: f64 = record
+            .get(5)
             .ok_or_else(|| format!("Row {}: missing 'div_yield' column", idx + 2))?
             .parse()
             .map_err(|e| format!("Row {}: invalid 'div_yield': {}", idx + 2, e))?;
 
-        let volatility: f64 = record.get(6)
+        let volatility: f64 = record
+            .get(6)
             .ok_or_else(|| format!("Row {}: missing 'volatility' column", idx + 2))?
             .parse()
             .map_err(|e| format!("Row {}: invalid 'volatility': {}", idx + 2, e))?;
 
-        let num_fixings: usize = record.get(7)
+        let num_fixings: usize = record
+            .get(7)
             .ok_or_else(|| format!("Row {}: missing 'num_fixings' column", idx + 2))?
             .parse()
             .map_err(|e| format!("Row {}: invalid 'num_fixings': {}", idx + 2, e))?;
 
-        let averaging: AveragingType = record.get(8)
+        let averaging: AveragingType = record
+            .get(8)
             .ok_or_else(|| format!("Row {}: missing 'averaging' column", idx + 2))?
             .parse()
             .map_err(|e| format!("Row {}: invalid 'averaging': {}", idx + 2, e))?;
 
-        let expected_price: f64 = record.get(9)
+        let expected_price: f64 = record
+            .get(9)
             .ok_or_else(|| format!("Row {}: missing 'expected_price' column", idx + 2))?
             .parse()
             .map_err(|e| format!("Row {}: invalid 'expected_price': {}", idx + 2, e))?;
 
-        let abs_tolerance: f64 = record.get(10)
+        let abs_tolerance: f64 = record
+            .get(10)
             .ok_or_else(|| format!("Row {}: missing 'abs_tol' column", idx + 2))?
             .parse()
             .map_err(|e| format!("Row {}: invalid 'abs_tol': {}", idx + 2, e))?;
 
-        let rel_tolerance: f64 = record.get(11)
+        let rel_tolerance: f64 = record
+            .get(11)
             .ok_or_else(|| format!("Row {}: missing 'rel_tol' column", idx + 2))?
             .parse()
             .map_err(|e| format!("Row {}: invalid 'rel_tol': {}", idx + 2, e))?;
@@ -478,11 +510,7 @@ pub fn load_asian_tests<P: AsRef<Path>>(path: P) -> Result<Vec<AsianTestCase>, S
 /// * `test_case` - The golden test case with expected values and tolerances
 /// * `mc_price` - The calculated price (from MC or analytical)
 /// * `mc_stderr` - Standard error (for MC results; use 0.0 for analytical)
-pub fn assert_within_tolerance(
-    test_case: &GoldenTestCase,
-    mc_price: f64,
-    mc_stderr: f64,
-) {
+pub fn assert_within_tolerance(test_case: &GoldenTestCase, mc_price: f64, mc_stderr: f64) {
     let diff = (mc_price - test_case.expected_price).abs();
     let rel_diff = if test_case.expected_price.abs() > 1e-10 {
         diff / test_case.expected_price.abs()
@@ -594,8 +622,12 @@ mod tests {
         assert_eq!(first.averaging, AveragingType::Geometric);
 
         // Check we have both averaging types
-        let has_geom = cases.iter().any(|c| c.averaging == AveragingType::Geometric);
-        let has_arith = cases.iter().any(|c| c.averaging == AveragingType::Arithmetic);
+        let has_geom = cases
+            .iter()
+            .any(|c| c.averaging == AveragingType::Geometric);
+        let has_arith = cases
+            .iter()
+            .any(|c| c.averaging == AveragingType::Arithmetic);
         assert!(has_geom, "Should have geometric averaging");
         assert!(has_arith, "Should have arithmetic averaging");
     }
@@ -658,16 +690,31 @@ mod tests {
     fn test_barrier_type_parsing() {
         assert_eq!("up_out".parse::<BarrierType>().unwrap(), BarrierType::UpOut);
         assert_eq!("upout".parse::<BarrierType>().unwrap(), BarrierType::UpOut);
-        assert_eq!("down_in".parse::<BarrierType>().unwrap(), BarrierType::DownIn);
+        assert_eq!(
+            "down_in".parse::<BarrierType>().unwrap(),
+            BarrierType::DownIn
+        );
         assert!("unknown".parse::<BarrierType>().is_err());
     }
 
     #[test]
     fn test_averaging_type_parsing() {
-        assert_eq!("geometric".parse::<AveragingType>().unwrap(), AveragingType::Geometric);
-        assert_eq!("geom".parse::<AveragingType>().unwrap(), AveragingType::Geometric);
-        assert_eq!("arithmetic".parse::<AveragingType>().unwrap(), AveragingType::Arithmetic);
-        assert_eq!("arith".parse::<AveragingType>().unwrap(), AveragingType::Arithmetic);
+        assert_eq!(
+            "geometric".parse::<AveragingType>().unwrap(),
+            AveragingType::Geometric
+        );
+        assert_eq!(
+            "geom".parse::<AveragingType>().unwrap(),
+            AveragingType::Geometric
+        );
+        assert_eq!(
+            "arithmetic".parse::<AveragingType>().unwrap(),
+            AveragingType::Arithmetic
+        );
+        assert_eq!(
+            "arith".parse::<AveragingType>().unwrap(),
+            AveragingType::Arithmetic
+        );
         assert!("unknown".parse::<AveragingType>().is_err());
     }
 }

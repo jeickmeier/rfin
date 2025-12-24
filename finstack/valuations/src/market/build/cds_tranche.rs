@@ -371,8 +371,8 @@ mod tests {
         )
         .expect("spot date");
         let cal = resolve_calendar(&conv.calendar_id).expect("calendar");
-        let maturity_adj = adjust(maturity, conv.business_day_convention, cal)
-            .expect("maturity adjustment");
+        let maturity_adj =
+            adjust(maturity, conv.business_day_convention, cal).expect("maturity adjustment");
 
         assert_eq!(tranche.effective_date, Some(spot));
         assert_eq!(tranche.maturity, maturity_adj);

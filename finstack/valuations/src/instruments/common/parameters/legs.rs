@@ -14,16 +14,10 @@ use serde::{Deserialize, Serialize};
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
 pub enum PayReceive {
     /// Pay the primary leg (fixed rate in IRS, protection premium in CDS)
-    #[cfg_attr(
-        feature = "serde",
-        serde(rename = "pay_fixed")
-    )]
+    #[cfg_attr(feature = "serde", serde(rename = "pay_fixed"))]
     PayFixed,
     /// Receive the primary leg (fixed rate in IRS, protection premium in CDS)
-    #[cfg_attr(
-        feature = "serde",
-        serde(rename = "receive_fixed")
-    )]
+    #[cfg_attr(feature = "serde", serde(rename = "receive_fixed"))]
     ReceiveFixed,
 }
 

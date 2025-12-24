@@ -261,9 +261,7 @@ fn test_accrued_interest_metric() {
     let mut mctx = create_metric_context(repo.clone(), context, mid_date);
 
     let registry = standard_registry();
-    let results = registry
-        .compute(&[MetricId::Accrued], &mut mctx)
-        .unwrap();
+    let results = registry.compute(&[MetricId::Accrued], &mut mctx).unwrap();
 
     let accrued = results.get(&MetricId::Accrued).unwrap();
 
@@ -285,9 +283,7 @@ fn test_accrued_interest_before_start() {
     let mut mctx = create_metric_context(repo, context, before_start);
 
     let registry = standard_registry();
-    let results = registry
-        .compute(&[MetricId::Accrued], &mut mctx)
-        .unwrap();
+    let results = registry.compute(&[MetricId::Accrued], &mut mctx).unwrap();
 
     let accrued = results.get(&MetricId::Accrued).unwrap();
 
@@ -304,9 +300,7 @@ fn test_accrued_interest_at_maturity() {
     let mut mctx = create_metric_context(repo.clone(), context, maturity);
 
     let registry = standard_registry();
-    let results = registry
-        .compute(&[MetricId::Accrued], &mut mctx)
-        .unwrap();
+    let results = registry.compute(&[MetricId::Accrued], &mut mctx).unwrap();
 
     let accrued = results.get(&MetricId::Accrued).unwrap();
     let total_interest = repo.interest_amount().unwrap().amount();

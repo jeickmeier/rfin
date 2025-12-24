@@ -349,14 +349,8 @@ fn build_full_feature_structured_credit() -> StructuredCredit {
 
     let tranches = TrancheStructure::new(vec![equity, senior]).unwrap();
 
-    let mut deal = StructuredCredit::new_clo(
-        "FULL-CLO",
-        pool,
-        tranches,
-        closing,
-        legal,
-        "USD-SOFR-DISC",
-    );
+    let mut deal =
+        StructuredCredit::new_clo("FULL-CLO", pool, tranches, closing, legal, "USD-SOFR-DISC");
 
     deal.first_payment_date = first_payment;
     deal.reinvestment_end_date = Some(reinvestment_end);

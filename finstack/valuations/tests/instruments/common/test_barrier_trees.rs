@@ -32,9 +32,7 @@ fn test_american_knock_in_put_ge_european() {
     let tree = BinomialTree::crr(200);
 
     let european = tree.price_down_and_in(&market, 95.0, 0.0).unwrap();
-    let american = tree
-        .price_down_and_in_american(&market, 95.0, 0.0)
-        .unwrap();
+    let american = tree.price_down_and_in_american(&market, 95.0, 0.0).unwrap();
 
     assert!(
         american + 1e-8 >= european,

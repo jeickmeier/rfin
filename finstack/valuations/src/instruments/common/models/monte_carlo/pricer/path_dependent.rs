@@ -13,8 +13,8 @@ use crate::instruments::common::mc::rng::philox::PhiloxRng;
 #[cfg(feature = "mc")]
 use crate::instruments::common::mc::rng::sobol::SobolRng;
 use crate::instruments::common::mc::time_grid::TimeGrid;
-use crate::instruments::common::mc::traits::StochasticProcess;
 use crate::instruments::common::mc::traits::Discretization;
+use crate::instruments::common::mc::traits::StochasticProcess;
 use finstack_core::currency::Currency;
 use finstack_core::Result;
 
@@ -698,12 +698,7 @@ mod tests {
         let pricer = PathDependentPricer::new(config);
 
         let gbm = GbmProcess::new(GbmParams::new(0.05, 0.0, 0.3));
-        let lookback = Lookback::new(
-            LookbackDirection::Call,
-            100.0,
-            1.0,
-            252,
-        );
+        let lookback = Lookback::new(LookbackDirection::Call, 100.0, 1.0, 252);
 
         let result = pricer
             .price(&gbm, 100.0, 1.0, 252, &lookback, Currency::USD, 1.0)

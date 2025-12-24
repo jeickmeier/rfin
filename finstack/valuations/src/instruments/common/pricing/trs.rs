@@ -19,7 +19,6 @@ use finstack_core::dates::{Date, DayCountCtx};
 use finstack_core::market_data::context::MarketContext;
 use finstack_core::money::Money;
 
-
 /// Parameters for total return leg calculation.
 #[derive(Debug, Clone)]
 pub struct TotalReturnLegParams<'a> {

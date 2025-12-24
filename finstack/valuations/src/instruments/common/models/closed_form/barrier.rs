@@ -491,7 +491,9 @@ pub fn down_in_put(
             - spot * (-div_yield * time).exp() * norm_cdf(-d1);
     }
 
-    barrier_helper(spot, strike, barrier, time, rate, div_yield, vol, -1.0, -1.0)
+    barrier_helper(
+        spot, strike, barrier, time, rate, div_yield, vol, -1.0, -1.0,
+    )
 }
 
 /// Price a continuous down-and-out put.
@@ -517,7 +519,9 @@ pub fn down_out_put(
             - spot * (-div_yield * time).exp() * norm_cdf(-d1)
     };
 
-    let down_in = barrier_helper(spot, strike, barrier, time, rate, div_yield, vol, -1.0, -1.0);
+    let down_in = barrier_helper(
+        spot, strike, barrier, time, rate, div_yield, vol, -1.0, -1.0,
+    );
 
     vanilla - down_in
 }

@@ -168,18 +168,13 @@ impl InitialMarginMetric {
             ImMethodology::ClearingHouse => {
                 let calc = self.clearing_calculator.clone().unwrap_or_else(|| {
                     spec.ccp()
-                        .map(|ccp| {
-                            ClearingHouseImCalculator::for_ccp(ccp, instrument.key())
-                        })
+                        .map(|ccp| ClearingHouseImCalculator::for_ccp(ccp, instrument.key()))
                         .unwrap_or_else(|| ClearingHouseImCalculator::generic_var(0.99, 250))
                 });
                 calc.calculate(instrument, market, as_of)
             }
             ImMethodology::InternalModel => {
-                let calc = self
-                    .internal_model_calculator
-                    .clone()
-                    .unwrap_or_default();
+                let calc = self.internal_model_calculator.clone().unwrap_or_default();
                 calc.calculate(instrument, market, as_of)
             }
         }
@@ -461,9 +456,7 @@ mod tests {
             _metrics: &[crate::metrics::MetricId],
         ) -> Result<crate::results::ValuationResult> {
             Ok(crate::results::ValuationResult::stamped(
-                &self.id,
-                as_of,
-                self.value,
+                &self.id, as_of, self.value,
             ))
         }
     }
@@ -493,12 +486,10 @@ mod tests {
     #[test]
     fn uses_clearing_house_calculator_for_cleared_spec() {
         let spec = OtcMarginSpec::cleared("LCH", Currency::USD);
-        let instrument =
-            TestInstrument::new(Money::new(100_000_000.0, Currency::USD), Some(spec));
+        let instrument = TestInstrument::new(Money::new(100_000_000.0, Currency::USD), Some(spec));
         let metric = InitialMarginMetric::new();
         let market = MarketContext::new();
-        let as_of = Date::from_calendar_date(2024, time::Month::January, 1)
-            .expect("valid date");
+        let as_of = Date::from_calendar_date(2024, time::Month::January, 1).expect("valid date");
 
         let im = metric.calculate(&instrument, &market, as_of).expect("im");
         assert_eq!(im.methodology, ImMethodology::ClearingHouse);
@@ -509,12 +500,10 @@ mod tests {
     fn uses_internal_model_for_internal_model_spec() {
         let mut spec = OtcMarginSpec::usd_bilateral();
         spec.im_methodology = ImMethodology::InternalModel;
-        let instrument =
-            TestInstrument::new(Money::new(20_000_000.0, Currency::USD), Some(spec));
+        let instrument = TestInstrument::new(Money::new(20_000_000.0, Currency::USD), Some(spec));
         let metric = InitialMarginMetric::new();
         let market = MarketContext::new();
-        let as_of = Date::from_calendar_date(2024, time::Month::January, 1)
-            .expect("valid date");
+        let as_of = Date::from_calendar_date(2024, time::Month::January, 1).expect("valid date");
 
         let im = metric.calculate(&instrument, &market, as_of).expect("im");
         assert_eq!(im.methodology, ImMethodology::InternalModel);

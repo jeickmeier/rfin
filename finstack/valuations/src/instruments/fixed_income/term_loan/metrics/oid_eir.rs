@@ -24,19 +24,14 @@ impl MetricCalculator for OidEirAmortizationCalculator {
                 .periods
                 .iter()
                 .map(|p| (p.date.to_string(), p.oid_amortization.amount()));
-            context.store_bucketed_series(
-                MetricId::custom("oid_eir_amortization"),
-                amort_series,
-            );
+            context.store_bucketed_series(MetricId::custom("oid_eir_amortization"), amort_series);
 
             let carrying_series = schedule
                 .periods
                 .iter()
                 .map(|p| (p.date.to_string(), p.closing_balance.amount()));
-            context.store_bucketed_series(
-                MetricId::custom("oid_eir_carrying_value"),
-                carrying_series,
-            );
+            context
+                .store_bucketed_series(MetricId::custom("oid_eir_carrying_value"), carrying_series);
         }
 
         let total = schedule

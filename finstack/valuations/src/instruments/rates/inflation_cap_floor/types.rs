@@ -34,7 +34,10 @@ pub enum InflationCapFloorType {
 
 impl InflationCapFloorType {
     fn is_cap(self) -> bool {
-        matches!(self, InflationCapFloorType::Cap | InflationCapFloorType::Caplet)
+        matches!(
+            self,
+            InflationCapFloorType::Cap | InflationCapFloorType::Caplet
+        )
     }
 
     fn option_type(self) -> OptionType {
@@ -260,9 +263,9 @@ impl InflationCapFloor {
 
             let forward_rate = (cpi_end / cpi_start - 1.0) / accrual;
             let fixing_date = Self::apply_lag(end, lag);
-            let t_fix = self
-                .day_count
-                .signed_year_fraction(as_of, fixing_date, DayCountCtx::default())?;
+            let t_fix =
+                self.day_count
+                    .signed_year_fraction(as_of, fixing_date, DayCountCtx::default())?;
 
             let t_pay = disc
                 .day_count()
@@ -322,11 +325,7 @@ impl InflationCapFloor {
     }
 
     /// Default NPV using Black-76 (lognormal) model.
-    pub fn npv(
-        &self,
-        curves: &MarketContext,
-        as_of: Date,
-    ) -> finstack_core::Result<Money> {
+    pub fn npv(&self, curves: &MarketContext, as_of: Date) -> finstack_core::Result<Money> {
         self.npv_with_model(curves, as_of, ModelKey::Black76)
     }
 }
@@ -356,11 +355,7 @@ impl crate::instruments::common::traits::Instrument for InflationCapFloor {
         Box::new(self.clone())
     }
 
-    fn value(
-        &self,
-        curves: &MarketContext,
-        as_of: Date,
-    ) -> finstack_core::Result<Money> {
+    fn value(&self, curves: &MarketContext, as_of: Date) -> finstack_core::Result<Money> {
         self.npv(curves, as_of)
     }
 

@@ -5,15 +5,15 @@
 
 use crate::instruments::common::helpers::instrument_to_arc;
 use crate::instruments::common::traits::Instrument;
+use crate::metrics::risk::MarketHistory;
 use crate::metrics::sensitivities::dv01::format_bucket_label;
 use crate::metrics::{standard_registry, MetricContext, MetricId};
-use crate::metrics::risk::MarketHistory;
+use finstack_core::collections::HashMap;
 use finstack_core::dates::Date;
-use finstack_core::market_data::scalars::MarketScalar;
 use finstack_core::market_data::context::MarketContext;
+use finstack_core::market_data::scalars::MarketScalar;
 use finstack_core::money::Money;
 use finstack_core::types::CurveId;
-use finstack_core::collections::HashMap;
 use finstack_core::Result;
 use std::sync::Arc;
 
@@ -279,7 +279,6 @@ impl BucketedSeries {
         }
         self.fallback.get(bucket).copied()
     }
-
 }
 
 #[derive(Default)]
@@ -369,7 +368,10 @@ fn compute_taylor_sensitivities(
     } else if has_index_delta {
         computed.get(&MetricId::IndexDelta).copied().unwrap_or(0.0)
     } else if has_equity_shares {
-        computed.get(&MetricId::EquityShares).copied().unwrap_or(0.0)
+        computed
+            .get(&MetricId::EquityShares)
+            .copied()
+            .unwrap_or(0.0)
     } else {
         0.0
     };
@@ -407,8 +409,14 @@ fn taylor_pnl_for_scenario(
     let mut pnl = 0.0;
     for shift in &scenario.shifts {
         match &shift.factor {
-            crate::metrics::risk::RiskFactorType::DiscountRate { curve_id, tenor_years }
-            | crate::metrics::risk::RiskFactorType::ForwardRate { curve_id, tenor_years } => {
+            crate::metrics::risk::RiskFactorType::DiscountRate {
+                curve_id,
+                tenor_years,
+            }
+            | crate::metrics::risk::RiskFactorType::ForwardRate {
+                curve_id,
+                tenor_years,
+            } => {
                 let bucket = format_bucket_label(*tenor_years);
                 let dv01 = sensitivities
                     .dv01
@@ -416,7 +424,10 @@ fn taylor_pnl_for_scenario(
                     .unwrap_or(sensitivities.parallel_dv01);
                 pnl += dv01 * shift.shift * 10_000.0;
             }
-            crate::metrics::risk::RiskFactorType::CreditSpread { curve_id, tenor_years } => {
+            crate::metrics::risk::RiskFactorType::CreditSpread {
+                curve_id,
+                tenor_years,
+            } => {
                 let bucket = format_bucket_label(*tenor_years);
                 let cs01 = sensitivities
                     .cs01
@@ -425,10 +436,11 @@ fn taylor_pnl_for_scenario(
                 pnl += cs01 * shift.shift * 10_000.0;
             }
             crate::metrics::risk::RiskFactorType::EquitySpot { ticker } => {
-                if sensitivities.equity_delta.abs() > 0.0 || sensitivities.equity_gamma.abs() > 0.0 {
-                    let spot = *spot_cache.entry(ticker.clone()).or_insert_with(|| {
-                        spot_from_market(base_market, ticker).unwrap_or(0.0)
-                    });
+                if sensitivities.equity_delta.abs() > 0.0 || sensitivities.equity_gamma.abs() > 0.0
+                {
+                    let spot = *spot_cache
+                        .entry(ticker.clone())
+                        .or_insert_with(|| spot_from_market(base_market, ticker).unwrap_or(0.0));
                     if spot > 0.0 {
                         let d_spot = spot * shift.shift;
                         pnl += sensitivities.equity_delta * d_spot
@@ -572,7 +584,8 @@ where
 {
     if config.method == VarMethod::TaylorApproximation {
         // Clone instruments to get sized types for Taylor approximation
-        let boxed: Vec<Box<dyn Instrument>> = instruments.iter().map(|i| (*i).clone_box()).collect();
+        let boxed: Vec<Box<dyn Instrument>> =
+            instruments.iter().map(|i| (*i).clone_box()).collect();
         let refs: Vec<&dyn Instrument> = boxed.iter().map(|b| b.as_ref()).collect();
         return calculate_portfolio_var_taylor(&refs, base_market, history, as_of, config);
     }

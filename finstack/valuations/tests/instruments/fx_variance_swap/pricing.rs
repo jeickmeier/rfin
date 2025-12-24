@@ -2,14 +2,14 @@
 
 use finstack_core::currency::Currency;
 use finstack_core::dates::{DayCount, Tenor};
+use finstack_core::market_data::context::MarketContext;
 use finstack_core::money::fx::{providers::SimpleFxProvider, FxMatrix};
 use finstack_core::money::Money;
 use finstack_core::types::{CurveId, InstrumentId};
 use finstack_valuations::instruments::common::traits::Attributes;
 use finstack_valuations::instruments::fx_variance_swap::{FxVarianceSwapBuilder, PayReceive};
-use finstack_valuations::test_utils::{date, flat_discount_with_tenor, flat_vol_surface};
 use finstack_valuations::instruments::variance_swap::RealizedVarMethod;
-use finstack_core::market_data::context::MarketContext;
+use finstack_valuations::test_utils::{date, flat_discount_with_tenor, flat_vol_surface};
 use std::sync::Arc;
 
 #[test]
@@ -56,7 +56,11 @@ fn test_forward_variance_flat_surface() {
         .unwrap();
 
     let fwd_var = swap.remaining_forward_variance(&ctx, as_of).unwrap();
-    assert!((fwd_var - vol * vol).abs() < 5e-3, "forward variance {}", fwd_var);
+    assert!(
+        (fwd_var - vol * vol).abs() < 5e-3,
+        "forward variance {}",
+        fwd_var
+    );
 
     let fair_swap = FxVarianceSwapBuilder::new()
         .id(InstrumentId::new("FXVAR-EURUSD-FAIR"))

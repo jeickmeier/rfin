@@ -9,13 +9,13 @@ use crate::instruments::common::traits::{
     Attributes, CurveDependencies, CurveIdVec, Instrument, InstrumentCurves,
 };
 use crate::pricer::InstrumentType;
-use smallvec::smallvec;
 use finstack_core::currency::Currency;
 use finstack_core::dates::Date;
 use finstack_core::error::Error as CoreError;
 use finstack_core::market_data::context::MarketContext;
 use finstack_core::money::Money;
 use finstack_core::types::{CurveId, InstrumentId};
+use smallvec::smallvec;
 use std::any::Any;
 
 /// Terminal value calculation method for DCF.

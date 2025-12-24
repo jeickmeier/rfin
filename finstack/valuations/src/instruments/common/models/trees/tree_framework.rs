@@ -522,9 +522,9 @@ pub struct GreeksBumpConfig {
 impl Default for GreeksBumpConfig {
     fn default() -> Self {
         Self {
-            spot_bump_fraction: 0.01, // 1% of spot
-            vol_bump_absolute: 0.01,  // 1% vol (absolute, e.g., 20% → 21%)
-            rate_bump_absolute: 0.0001, // 1bp
+            spot_bump_fraction: 0.01,      // 1% of spot
+            vol_bump_absolute: 0.01,       // 1% vol (absolute, e.g., 20% → 21%)
+            rate_bump_absolute: 0.0001,    // 1bp
             time_bump_years: 1.0 / 365.25, // 1 day
             adaptive: false,
         }
@@ -636,7 +636,11 @@ impl EvolutionParams {
         debug_assert!(
             (0.0..=1.0).contains(&p),
             "CRR probability p={} out of bounds [0,1]. Check parameters: vol={}, r={}, q={}, dt={}",
-            p, volatility, risk_free_rate, dividend_yield, dt
+            p,
+            volatility,
+            risk_free_rate,
+            dividend_yield,
+            dt
         );
         debug_assert!(u > 0.0, "Up factor must be positive: u={}", u);
         debug_assert!(d > 0.0, "Down factor must be positive: d={}", d);
@@ -677,7 +681,9 @@ impl EvolutionParams {
         debug_assert!(
             p_u >= 0.0 && p_d >= 0.0 && p_m >= 0.0,
             "Trinomial probabilities must be non-negative: p_u={}, p_d={}, p_m={}",
-            p_u, p_d, p_m
+            p_u,
+            p_d,
+            p_m
         );
         debug_assert!(
             (p_u + p_d + p_m - 1.0).abs() < 1e-10,
@@ -964,17 +970,15 @@ pub fn price_recombining_tree<V: TreeValuator>(inputs: RecombiningInputs<'_, V>)
 
                         let (t_up, t_dn, _breached, _rebate) = barrier_touch(spot_t);
                         let touched = t_up || t_dn;
-                        node_vars.insert(
-                            state_keys::BARRIER_TOUCHED_UP,
-                            if t_up { 1.0 } else { 0.0 },
-                        );
+                        node_vars
+                            .insert(state_keys::BARRIER_TOUCHED_UP, if t_up { 1.0 } else { 0.0 });
                         node_vars.insert(
                             state_keys::BARRIER_TOUCHED_DOWN,
                             if t_dn { 1.0 } else { 0.0 },
                         );
 
-                        let continuation_hit =
-                            df_node * (inputs.prob_up * hit_values[i + 1]
+                        let continuation_hit = df_node
+                            * (inputs.prob_up * hit_values[i + 1]
                                 + inputs.prob_down * hit_values[i]);
                         let node_state_hit = NodeState::new_with_barrier(
                             step,
@@ -1155,10 +1159,8 @@ pub fn price_recombining_tree<V: TreeValuator>(inputs: RecombiningInputs<'_, V>)
 
                         let (t_up, t_dn, _breached, rebate) = barrier_touch(spot_t);
                         let touched = t_up || t_dn;
-                        node_vars.insert(
-                            state_keys::BARRIER_TOUCHED_UP,
-                            if t_up { 1.0 } else { 0.0 },
-                        );
+                        node_vars
+                            .insert(state_keys::BARRIER_TOUCHED_UP, if t_up { 1.0 } else { 0.0 });
                         node_vars.insert(
                             state_keys::BARRIER_TOUCHED_DOWN,
                             if t_dn { 1.0 } else { 0.0 },
@@ -1200,10 +1202,8 @@ pub fn price_recombining_tree<V: TreeValuator>(inputs: RecombiningInputs<'_, V>)
 
                         let (t_up, t_dn, _breached, _rebate) = barrier_touch(spot_t);
                         let touched = t_up || t_dn;
-                        node_vars.insert(
-                            state_keys::BARRIER_TOUCHED_UP,
-                            if t_up { 1.0 } else { 0.0 },
-                        );
+                        node_vars
+                            .insert(state_keys::BARRIER_TOUCHED_UP, if t_up { 1.0 } else { 0.0 });
                         node_vars.insert(
                             state_keys::BARRIER_TOUCHED_DOWN,
                             if t_dn { 1.0 } else { 0.0 },

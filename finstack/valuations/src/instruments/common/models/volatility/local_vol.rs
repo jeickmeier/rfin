@@ -252,7 +252,6 @@ impl LocalVolBuilder {
 
         Ok(LocalVolSurface::new(base_date, Arc::new(surface)))
     }
-
 }
 
 /// Helper to price Call using Black-Scholes with implied vol

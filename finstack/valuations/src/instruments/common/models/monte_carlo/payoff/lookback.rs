@@ -290,5 +290,4 @@ mod tests {
         // 110 - 90 = 20
         assert_eq!(value.amount(), 20.0);
     }
-
 }

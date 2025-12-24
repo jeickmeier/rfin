@@ -89,8 +89,7 @@ impl CommodityOption {
             .option_type(OptionType::Call)
             .exercise_style(ExerciseStyle::European)
             .expiry(
-                Date::from_calendar_date(2025, time::Month::June, 15)
-                    .expect("valid example date"),
+                Date::from_calendar_date(2025, time::Month::June, 15).expect("valid example date"),
             )
             .quantity(1000.0)
             .unit("BBL".to_string())
@@ -281,8 +280,9 @@ fn black76_unit_price(
     let d2 = crate::instruments::common::models::d2_black76(forward, strike, sigma, t);
 
     let price = match option_type {
-        OptionType::Call => forward * finstack_core::math::norm_cdf(d1)
-            - strike * finstack_core::math::norm_cdf(d2),
+        OptionType::Call => {
+            forward * finstack_core::math::norm_cdf(d1) - strike * finstack_core::math::norm_cdf(d2)
+        }
         OptionType::Put => {
             strike * finstack_core::math::norm_cdf(-d2)
                 - forward * finstack_core::math::norm_cdf(-d1)

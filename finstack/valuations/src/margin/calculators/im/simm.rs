@@ -310,10 +310,7 @@ impl SimmCalculator {
         }
 
         // Credit Delta (Qualifying)
-        let qualifying_total = sensitivities
-            .credit_qualifying_delta
-            .values()
-            .sum::<f64>();
+        let qualifying_total = sensitivities.credit_qualifying_delta.values().sum::<f64>();
         if qualifying_total.abs() > 0.0 {
             let credit_margin = self.calculate_credit_delta(qualifying_total, true);
             if credit_margin > 0.0 {
@@ -436,8 +433,9 @@ fn risk_class_correlation(a: SimmRiskClass, b: SimmRiskClass) -> f64 {
         | (SimmRiskClass::Fx, SimmRiskClass::CreditNonQualifying) => 0.15,
         (SimmRiskClass::Equity, SimmRiskClass::Commodity)
         | (SimmRiskClass::Commodity, SimmRiskClass::Equity) => 0.33,
-        (SimmRiskClass::Equity, SimmRiskClass::Fx)
-        | (SimmRiskClass::Fx, SimmRiskClass::Equity) => 0.24,
+        (SimmRiskClass::Equity, SimmRiskClass::Fx) | (SimmRiskClass::Fx, SimmRiskClass::Equity) => {
+            0.24
+        }
         (SimmRiskClass::Commodity, SimmRiskClass::Fx)
         | (SimmRiskClass::Fx, SimmRiskClass::Commodity) => 0.23,
         // Same class case is handled above with a == b check
@@ -630,9 +628,9 @@ mod tests {
             .expect("Equity margin present")
             .amount();
 
-        let expected = (ir_margin * ir_margin + eq_margin * eq_margin
-            + 2.0 * 0.12 * ir_margin * eq_margin)
-            .sqrt();
+        let expected =
+            (ir_margin * ir_margin + eq_margin * eq_margin + 2.0 * 0.12 * ir_margin * eq_margin)
+                .sqrt();
         assert!((total_im - expected).abs() < 1.0);
     }
 }

@@ -7,11 +7,11 @@ use crate::instruments::agency_mbs_passthrough::AgencyProgram;
 use crate::instruments::agency_tba::{AgencyTba, TbaTerm};
 use crate::instruments::common::traits::{Attributes, CurveIdVec};
 use crate::instruments::PricingOverrides;
-use smallvec::smallvec;
 use finstack_core::currency::Currency;
 use finstack_core::dates::Date;
 use finstack_core::money::Money;
 use finstack_core::types::{CurveId, InstrumentId};
+use smallvec::smallvec;
 
 /// Dollar roll - simultaneous sale and purchase of TBAs for different months.
 ///

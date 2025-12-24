@@ -151,9 +151,7 @@ impl RealEstateAsset {
             .cap_rate
             .ok_or_else(|| CoreError::Validation("Missing cap_rate for direct cap".into()))?;
         if cap_rate <= 0.0 {
-            return Err(CoreError::Validation(
-                "cap_rate must be positive".into(),
-            ));
+            return Err(CoreError::Validation("cap_rate must be positive".into()));
         }
 
         let noi = if let Some(noi) = self.stabilized_noi {

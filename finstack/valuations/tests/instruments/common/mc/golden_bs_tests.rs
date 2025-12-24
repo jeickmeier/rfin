@@ -82,13 +82,29 @@ mod golden_tests {
         let mc_price = if is_call {
             let payoff = EuropeanCall::new(strike, 1.0, maturity_step);
             let result = engine
-                .price(&rng, &gbm, &disc, &initial_state, &payoff, Currency::USD, discount_factor)
+                .price(
+                    &rng,
+                    &gbm,
+                    &disc,
+                    &initial_state,
+                    &payoff,
+                    Currency::USD,
+                    discount_factor,
+                )
                 .expect("MC pricing failed");
             result.mean.amount()
         } else {
             let payoff = EuropeanPut::new(strike, 1.0, maturity_step);
             let result = engine
-                .price(&rng, &gbm, &disc, &initial_state, &payoff, Currency::USD, discount_factor)
+                .price(
+                    &rng,
+                    &gbm,
+                    &disc,
+                    &initial_state,
+                    &payoff,
+                    Currency::USD,
+                    discount_factor,
+                )
                 .expect("MC pricing failed");
             result.mean.amount()
         };
@@ -148,23 +164,17 @@ mod golden_tests {
 
     #[test]
     fn test_atm_put_1y() {
-        test_european_option(
-            100.0, 100.0, 0.05, 0.0, 0.20, 1.0, false, 0.02, 100_000,
-        );
+        test_european_option(100.0, 100.0, 0.05, 0.0, 0.20, 1.0, false, 0.02, 100_000);
     }
 
     #[test]
     fn test_atm_call_with_dividend() {
-        test_european_option(
-            100.0, 100.0, 0.05, 0.02, 0.20, 1.0, true, 0.02, 100_000,
-        );
+        test_european_option(100.0, 100.0, 0.05, 0.02, 0.20, 1.0, true, 0.02, 100_000);
     }
 
     #[test]
     fn test_atm_put_with_dividend() {
-        test_european_option(
-            100.0, 100.0, 0.05, 0.02, 0.20, 1.0, false, 0.02, 100_000,
-        );
+        test_european_option(100.0, 100.0, 0.05, 0.02, 0.20, 1.0, false, 0.02, 100_000);
     }
 
     // ============================================================================
@@ -204,7 +214,8 @@ mod golden_tests {
         test_european_option(
             80.0,  // spot
             100.0, // strike (OTM call)
-            0.05, 0.0, 0.20, 1.0, true, 0.05, // Higher tolerance for OTM (higher relative error)
+            0.05, 0.0, 0.20, 1.0, true,
+            0.05, // Higher tolerance for OTM (higher relative error)
             100_000,
         );
     }
@@ -392,4 +403,3 @@ mod golden_tests {
         );
     }
 }
-

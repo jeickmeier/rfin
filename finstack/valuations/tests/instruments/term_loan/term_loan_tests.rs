@@ -133,7 +133,11 @@ fn term_loan_commitment_fee_step_downs() {
         .unwrap();
 
     let sched = loan.build_full_schedule(&mc(), issue).unwrap();
-    let fees: Vec<_> = sched.flows.iter().filter(|cf| cf.kind == CFKind::Fee).collect();
+    let fees: Vec<_> = sched
+        .flows
+        .iter()
+        .filter(|cf| cf.kind == CFKind::Fee)
+        .collect();
     assert!(!fees.is_empty());
 
     let before = fees
@@ -254,11 +258,7 @@ fn term_loan_oid_eir_amortization_schedule() {
 
     let market = mc();
     let result = loan
-        .price_with_metrics(
-            &market,
-            issue,
-            &[MetricId::custom("oid_eir_amortization")],
-        )
+        .price_with_metrics(&market, issue, &[MetricId::custom("oid_eir_amortization")])
         .unwrap();
 
     let eir = *result

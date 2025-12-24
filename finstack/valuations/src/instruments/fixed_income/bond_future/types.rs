@@ -5,9 +5,9 @@
 
 use crate::instruments::common::traits::{Attributes, CurveIdVec};
 use finstack_core::dates::Date;
-use smallvec::smallvec;
 use finstack_core::money::Money;
 use finstack_core::types::{CurveId, InstrumentId};
+use smallvec::smallvec;
 
 // Re-export Position from ir_future module
 pub use crate::instruments::ir_future::Position;
