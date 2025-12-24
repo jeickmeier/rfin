@@ -11,7 +11,7 @@ use finstack_core::types::CurveId;
 
 // TODO: Equity price scalar attribution
 //
-// The required infrastructure (extract_scalars, restore_scalars) is in place,
+// The required infrastructure (ScalarsSnapshot::extract, restore_scalars) is in place,
 // but equity instruments need to use price_id consistently for attribution
 // to detect spot price changes automatically.
 //
@@ -20,9 +20,10 @@ use finstack_core::types::CurveId;
 // using MarketContext.price(equity_id) for spot price lookup during pricing.
 
 #[test]
-#[allow(deprecated)] // TODO: Migrate to ScalarsSnapshot::extract()
 fn test_scalars_snapshot_extraction() {
-    use finstack_valuations::attribution::factors::{extract_scalars, restore_scalars};
+    use finstack_valuations::attribution::factors::{
+        restore_scalars, MarketExtractable, ScalarsSnapshot,
+    };
 
     // Create market with various scalars
     let mut market = MarketContext::new();
@@ -36,7 +37,7 @@ fn test_scalars_snapshot_extraction() {
     );
 
     // Extract scalars snapshot
-    let snapshot = extract_scalars(&market);
+    let snapshot = ScalarsSnapshot::extract(&market);
 
     // Verify extraction
     assert_eq!(snapshot.prices.len(), 2);
@@ -57,9 +58,10 @@ fn test_scalars_snapshot_extraction() {
 }
 
 #[test]
-#[allow(deprecated)] // TODO: Migrate to ScalarsSnapshot::extract()
 fn test_market_scalar_freeze_restore() {
-    use finstack_valuations::attribution::factors::{extract_scalars, restore_scalars};
+    use finstack_valuations::attribution::factors::{
+        restore_scalars, MarketExtractable, ScalarsSnapshot,
+    };
 
     // Market at T₀ with lower prices
     let mut market_t0 = MarketContext::new();
@@ -76,7 +78,7 @@ fn test_market_scalar_freeze_restore() {
     );
 
     // Extract T₀ scalars
-    let scalars_t0 = extract_scalars(&market_t0);
+    let scalars_t0 = ScalarsSnapshot::extract(&market_t0);
 
     // Restore T₀ scalars to T₁ market
     let hybrid_market = restore_scalars(&market_t1, &scalars_t0);

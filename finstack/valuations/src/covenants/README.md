@@ -371,7 +371,6 @@ let config = CovenantForecastConfig {
     volatility: Some(0.20), // 20% volatility
     random_seed: Some(42),
     mc: Some(McConfig {
-        seed: 0, // deprecated; random_seed controls RNG seeding
         antithetic: true, // variance reduction
     }),
 };
@@ -736,4 +735,3 @@ Custom evaluators and metric calculators use `Arc<dyn Fn + Send + Sync>` for thr
 - **Headroom analytics**: Credit risk early warning systems
 
 For further details, see individual module documentation and test suites.
-

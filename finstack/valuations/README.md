@@ -30,12 +30,12 @@ The `finstack-valuations` crate provides a comprehensive valuation engine for fi
 - 🔴 **Metrics now use strict mode by default** - Errors instead of `0.0` for unknown/failed metrics
 - 🔴 **FX settlement dates corrected** - Now uses joint business day logic (ISDA-compliant)
 - 🟠 **Calendar errors no longer silent** - Unknown calendar IDs return errors
-- 🟡 **Deprecated constructors** - Use `try_new()` instead of panicking `new()` methods
+- 🟡 **Panicking constructors removed** - Use `try_new()` instead of `new()` methods
 
 **Quick Start Migration**:
 1. Add error handling for `compute()` calls OR use `compute_best_effort()` for gradual migration
 2. Update FX-related tests if using multi-currency instruments
-3. Replace deprecated `new()` constructors with `try_new()` variants
+3. Replace removed `new()` constructors with `try_new()` variants
 
 See examples below for updated API usage patterns.
 

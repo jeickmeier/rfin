@@ -4,7 +4,7 @@ use finstack_core::dates::{Date, DayCount};
 use finstack_core::market_data::context::MarketContext;
 use finstack_core::money::Money;
 use finstack_valuations::instruments::structured_credit::types::{
-    Tranche, TrancheCoupon, TrancheSeniority, TrancheStructure, Waterfall,
+    Tranche, TrancheCoupon, TrancheSeniority, TrancheStructure,
 };
 use finstack_valuations::instruments::structured_credit::{
     DealType, Pool, PoolAsset, StructuredCredit,
@@ -39,13 +39,10 @@ fn benchmark_pool_flows(c: &mut Criterion) {
     )
     .unwrap();
     let tranches = TrancheStructure::new(vec![tranche]).unwrap();
-    let waterfall = Waterfall::new(Currency::USD);
-
     let instrument = StructuredCredit::new_rmbs(
         "BENCH_DEAL",
         pool,
         tranches,
-        waterfall,
         as_of,
         maturity,
         "USD-OIS",

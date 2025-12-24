@@ -53,6 +53,169 @@
             }
           ]
         },
+        "core.types": {
+          "path": "core/types.rs",
+          "classes": [
+            {
+              "name": "Rate",
+              "js_name": "Rate",
+              "methods": [],
+              "properties": []
+            },
+            {
+              "name": "Bps",
+              "js_name": "Bps",
+              "methods": [],
+              "properties": []
+            },
+            {
+              "name": "Percentage",
+              "js_name": "Percentage",
+              "methods": [],
+              "properties": []
+            },
+            {
+              "name": "NotchedRating",
+              "js_name": "NotchedRating",
+              "methods": [],
+              "properties": []
+            }
+          ],
+          "functions": [
+            {
+              "name": "new",
+              "js_name": "new"
+            },
+            {
+              "name": "new",
+              "js_name": "new"
+            },
+            {
+              "name": "value",
+              "js_name": "value"
+            },
+            {
+              "name": "to_string",
+              "js_name": "toString"
+            },
+            {
+              "name": "from_decimal",
+              "js_name": "from_decimal"
+            },
+            {
+              "name": "from_decimal",
+              "js_name": "fromDecimal"
+            },
+            {
+              "name": "from_percent",
+              "js_name": "fromPercent"
+            },
+            {
+              "name": "from_bps",
+              "js_name": "fromBps"
+            },
+            {
+              "name": "decimal",
+              "js_name": "decimal"
+            },
+            {
+              "name": "percent",
+              "js_name": "percent"
+            },
+            {
+              "name": "bps",
+              "js_name": "bps"
+            },
+            {
+              "name": "to_string",
+              "js_name": "toString"
+            },
+            {
+              "name": "new",
+              "js_name": "new"
+            },
+            {
+              "name": "new",
+              "js_name": "new"
+            },
+            {
+              "name": "value",
+              "js_name": "value"
+            },
+            {
+              "name": "as_decimal",
+              "js_name": "asDecimal"
+            },
+            {
+              "name": "as_percent",
+              "js_name": "asPercent"
+            },
+            {
+              "name": "as_rate",
+              "js_name": "asRate"
+            },
+            {
+              "name": "to_string",
+              "js_name": "toString"
+            },
+            {
+              "name": "new",
+              "js_name": "new"
+            },
+            {
+              "name": "new",
+              "js_name": "new"
+            },
+            {
+              "name": "percent",
+              "js_name": "percent"
+            },
+            {
+              "name": "as_decimal",
+              "js_name": "asDecimal"
+            },
+            {
+              "name": "as_rate",
+              "js_name": "asRate"
+            },
+            {
+              "name": "as_bps",
+              "js_name": "asBps"
+            },
+            {
+              "name": "to_string",
+              "js_name": "toString"
+            },
+            {
+              "name": "new",
+              "js_name": "new"
+            },
+            {
+              "name": "new",
+              "js_name": "new"
+            },
+            {
+              "name": "from_label",
+              "js_name": "fromLabel"
+            },
+            {
+              "name": "symbol",
+              "js_name": "symbol"
+            },
+            {
+              "name": "base",
+              "js_name": "base"
+            },
+            {
+              "name": "notch",
+              "js_name": "notch"
+            },
+            {
+              "name": "to_string",
+              "js_name": "toString"
+            }
+          ]
+        },
         "core.error": {
           "path": "core/error.rs",
           "classes": [],
@@ -108,6 +271,10 @@
             {
               "name": "set_output_scale",
               "js_name": "setOutputScale"
+            },
+            {
+              "name": "set_extension",
+              "js_name": "setExtension"
             }
           ]
         },
@@ -223,6 +390,192 @@
             }
           ]
         },
+        "core.volatility": {
+          "path": "core/volatility.rs",
+          "classes": [
+            {
+              "name": "VolatilityConvention",
+              "js_name": "VolatilityConvention",
+              "methods": [],
+              "properties": []
+            }
+          ],
+          "functions": [
+            {
+              "name": "normal",
+              "js_name": "normal"
+            },
+            {
+              "name": "normal",
+              "js_name": "normal"
+            },
+            {
+              "name": "lognormal",
+              "js_name": "lognormal"
+            },
+            {
+              "name": "shifted_lognormal",
+              "js_name": "shiftedLognormal"
+            },
+            {
+              "name": "convert_atm_volatility_js",
+              "js_name": "convertAtmVolatility"
+            },
+            {
+              "name": "convert_volatility_js",
+              "js_name": "convertVolatility"
+            }
+          ]
+        },
+        "core.expr": {
+          "path": "core/expr.rs",
+          "classes": [
+            {
+              "name": "Expr",
+              "js_name": "Expr",
+              "methods": [],
+              "properties": []
+            },
+            {
+              "name": "ExecutionPlan",
+              "js_name": "ExecutionPlan",
+              "methods": [],
+              "properties": []
+            },
+            {
+              "name": "EvalOpts",
+              "js_name": "EvalOpts",
+              "methods": [],
+              "properties": []
+            },
+            {
+              "name": "EvaluationResult",
+              "js_name": "EvaluationResult",
+              "methods": [],
+              "properties": []
+            },
+            {
+              "name": "CompiledExpr",
+              "js_name": "CompiledExpr",
+              "methods": [],
+              "properties": []
+            }
+          ],
+          "functions": [
+            {
+              "name": "column",
+              "js_name": "column"
+            },
+            {
+              "name": "column",
+              "js_name": "column"
+            },
+            {
+              "name": "literal",
+              "js_name": "literal"
+            },
+            {
+              "name": "call",
+              "js_name": "call"
+            },
+            {
+              "name": "bin_op",
+              "js_name": "binOp"
+            },
+            {
+              "name": "unary_op",
+              "js_name": "unaryOp"
+            },
+            {
+              "name": "if_then_else",
+              "js_name": "ifThenElse"
+            },
+            {
+              "name": "with_id",
+              "js_name": "withId"
+            },
+            {
+              "name": "to_json",
+              "js_name": "toJson"
+            },
+            {
+              "name": "from_json",
+              "js_name": "fromJson"
+            },
+            {
+              "name": "to_string",
+              "js_name": "toString"
+            },
+            {
+              "name": "roots",
+              "js_name": "roots"
+            },
+            {
+              "name": "roots",
+              "js_name": "roots"
+            },
+            {
+              "name": "node_count",
+              "js_name": "nodeCount"
+            },
+            {
+              "name": "metadata",
+              "js_name": "metadata"
+            },
+            {
+              "name": "new",
+              "js_name": "new"
+            },
+            {
+              "name": "new",
+              "js_name": "new"
+            },
+            {
+              "name": "with_plan",
+              "js_name": "withPlan"
+            },
+            {
+              "name": "with_cache_budget_mb",
+              "js_name": "withCacheBudgetMb"
+            },
+            {
+              "name": "values",
+              "js_name": "values"
+            },
+            {
+              "name": "values",
+              "js_name": "values"
+            },
+            {
+              "name": "metadata",
+              "js_name": "metadata"
+            },
+            {
+              "name": "new",
+              "js_name": "new"
+            },
+            {
+              "name": "new",
+              "js_name": "new"
+            },
+            {
+              "name": "with_planning",
+              "js_name": "withPlanning"
+            },
+            {
+              "name": "with_cache",
+              "js_name": "withCache"
+            },
+            {
+              "name": "plan",
+              "js_name": "plan"
+            },
+            {
+              "name": "eval",
+              "js_name": "eval"
+            }
+          ]
+        },
         "core.currency": {
           "path": "core/currency.rs",
           "classes": [
@@ -273,8 +626,8 @@
           "path": "core/dates/daycount.rs",
           "classes": [
             {
-              "name": "Frequency",
-              "js_name": "Frequency",
+              "name": "Tenor",
+              "js_name": "Tenor",
               "methods": [],
               "properties": []
             },
@@ -384,11 +737,11 @@
             },
             {
               "name": "set_frequency",
-              "js_name": "setFrequency"
+              "js_name": "setTenor"
             },
             {
               "name": "clear_frequency",
-              "js_name": "clearFrequency"
+              "js_name": "clearTenor"
             },
             {
               "name": "set_bus_basis",
@@ -1046,6 +1399,10 @@
             {
               "name": "value_clamped",
               "js_name": "valueClamped"
+            },
+            {
+              "name": "value_unchecked",
+              "js_name": "valueUnchecked"
             }
           ]
         },
@@ -1469,6 +1826,14 @@
               "js_name": "clone"
             },
             {
+              "name": "to_state",
+              "js_name": "toState"
+            },
+            {
+              "name": "from_state",
+              "js_name": "fromState"
+            },
+            {
               "name": "insert_discount",
               "js_name": "insertDiscount"
             },
@@ -1628,6 +1993,12 @@
               "js_name": "CreditIndexData",
               "methods": [],
               "properties": []
+            },
+            {
+              "name": "VolatilityIndexCurve",
+              "js_name": "VolatilityIndexCurve",
+              "methods": [],
+              "properties": []
             }
           ],
           "functions": [
@@ -1782,6 +2153,34 @@
             {
               "name": "issuer_curve",
               "js_name": "issuerCurve"
+            },
+            {
+              "name": "new",
+              "js_name": "new"
+            },
+            {
+              "name": "id",
+              "js_name": "id"
+            },
+            {
+              "name": "base_date_js",
+              "js_name": "baseDate"
+            },
+            {
+              "name": "day_count_name",
+              "js_name": "dayCount"
+            },
+            {
+              "name": "spot_level",
+              "js_name": "spotLevel"
+            },
+            {
+              "name": "forward_level",
+              "js_name": "forwardLevel"
+            },
+            {
+              "name": "points",
+              "js_name": "points"
             }
           ]
         },
@@ -1841,6 +2240,22 @@
             {
               "name": "to_string",
               "js_name": "toString"
+            },
+            {
+              "name": "fixed",
+              "js_name": "fixed"
+            },
+            {
+              "name": "floating",
+              "js_name": "floating"
+            },
+            {
+              "name": "fee",
+              "js_name": "fee"
+            },
+            {
+              "name": "principal_exchange",
+              "js_name": "principalExchange"
             },
             {
               "name": "validate",
@@ -2083,10 +2498,20 @@
       },
       "classes": [
         "Money",
+        "Rate",
+        "Bps",
+        "Percentage",
+        "NotchedRating",
         "FinstackConfig",
         "WasmExplanationTrace",
+        "VolatilityConvention",
+        "Expr",
+        "ExecutionPlan",
+        "EvalOpts",
+        "EvaluationResult",
+        "CompiledExpr",
         "Currency",
-        "Frequency",
+        "Tenor",
         "DayCountContext",
         "DayCountContextState",
         "DayCount",
@@ -2120,6 +2545,7 @@
         "InflationCurve",
         "BaseCorrelationCurve",
         "CreditIndexData",
+        "VolatilityIndexCurve",
         "CFKind",
         "CashFlow",
         "NewtonSolver",
@@ -2138,6 +2564,39 @@
         "fromCode",
         "new",
         "new",
+        "value",
+        "toString",
+        "from_decimal",
+        "fromDecimal",
+        "fromPercent",
+        "fromBps",
+        "decimal",
+        "percent",
+        "bps",
+        "toString",
+        "new",
+        "new",
+        "value",
+        "asDecimal",
+        "asPercent",
+        "asRate",
+        "toString",
+        "new",
+        "new",
+        "percent",
+        "asDecimal",
+        "asRate",
+        "asBps",
+        "toString",
+        "new",
+        "new",
+        "fromLabel",
+        "symbol",
+        "base",
+        "notch",
+        "toString",
+        "new",
+        "new",
         "copy",
         "roundingMode",
         "setRoundingMode",
@@ -2146,12 +2605,47 @@
         "setIngestScale",
         "outputScale",
         "setOutputScale",
+        "setExtension",
         "trace_type",
         "traceType",
         "entryCount",
         "isTruncated",
         "toJson",
         "toJsonString",
+        "normal",
+        "normal",
+        "lognormal",
+        "shiftedLognormal",
+        "convertAtmVolatility",
+        "convertVolatility",
+        "column",
+        "column",
+        "literal",
+        "call",
+        "binOp",
+        "unaryOp",
+        "ifThenElse",
+        "withId",
+        "toJson",
+        "fromJson",
+        "toString",
+        "roots",
+        "roots",
+        "nodeCount",
+        "metadata",
+        "new",
+        "new",
+        "withPlan",
+        "withCacheBudgetMb",
+        "values",
+        "values",
+        "metadata",
+        "new",
+        "new",
+        "withPlanning",
+        "withCache",
+        "plan",
+        "eval",
         "new",
         "fromNumeric",
         "code",
@@ -2180,8 +2674,8 @@
         "setCalendar",
         "setCalendarCode",
         "clearCalendar",
-        "setFrequency",
-        "clearFrequency",
+        "setTenor",
+        "clearTenor",
         "setBusBasis",
         "clearBusBasis",
         "calendarCode",
@@ -2318,12 +2812,13 @@
         "value",
         "valueChecked",
         "valueClamped",
+        "valueUnchecked",
         "linear",
         "Linear",
         "LogLinear",
         "MonotoneConvex",
         "CubicHermite",
-        "LogLinear",
+        "FlatForward",
         "fromName",
         "flat_zero",
         "FlatZero",
@@ -2395,6 +2890,8 @@
         "new",
         "new",
         "clone",
+        "toState",
+        "fromState",
         "insertDiscount",
         "insertForward",
         "insertHazard",
@@ -2463,6 +2960,13 @@
         "hasIssuerCurves",
         "issuerIds",
         "issuerCurve",
+        "new",
+        "id",
+        "baseDate",
+        "dayCount",
+        "spotLevel",
+        "forwardLevel",
+        "points",
         "Fixed",
         "FloatReset",
         "Notional",
@@ -2473,6 +2977,10 @@
         "fromName",
         "name",
         "toString",
+        "fixed",
+        "floating",
+        "fee",
+        "principalExchange",
         "validate",
         "kind",
         "date",
@@ -3412,8 +3920,203 @@
         },
         "valuations.risk": {
           "path": "valuations/risk.rs",
-          "classes": [],
+          "classes": [
+            {
+              "name": "VarMethod",
+              "js_name": "VarMethod",
+              "methods": [],
+              "properties": []
+            },
+            {
+              "name": "VarConfig",
+              "js_name": "VarConfig",
+              "methods": [],
+              "properties": []
+            },
+            {
+              "name": "VarResult",
+              "js_name": "VarResult",
+              "methods": [],
+              "properties": []
+            },
+            {
+              "name": "RiskFactorType",
+              "js_name": "RiskFactorType",
+              "methods": [],
+              "properties": []
+            },
+            {
+              "name": "RiskFactorShift",
+              "js_name": "RiskFactorShift",
+              "methods": [],
+              "properties": []
+            },
+            {
+              "name": "MarketScenario",
+              "js_name": "MarketScenario",
+              "methods": [],
+              "properties": []
+            },
+            {
+              "name": "MarketHistory",
+              "js_name": "MarketHistory",
+              "methods": [],
+              "properties": []
+            }
+          ],
           "functions": [
+            {
+              "name": "full_revaluation",
+              "js_name": "full_revaluation"
+            },
+            {
+              "name": "full_revaluation",
+              "js_name": "full_revaluation"
+            },
+            {
+              "name": "taylor_approximation",
+              "js_name": "taylorApproximation"
+            },
+            {
+              "name": "to_string_js",
+              "js_name": "toString"
+            },
+            {
+              "name": "new",
+              "js_name": "new"
+            },
+            {
+              "name": "new",
+              "js_name": "new"
+            },
+            {
+              "name": "var_95",
+              "js_name": "var95"
+            },
+            {
+              "name": "var_99",
+              "js_name": "var99"
+            },
+            {
+              "name": "confidence_level",
+              "js_name": "confidenceLevel"
+            },
+            {
+              "name": "method",
+              "js_name": "method"
+            },
+            {
+              "name": "to_string_js",
+              "js_name": "toString"
+            },
+            {
+              "name": "var",
+              "js_name": "var"
+            },
+            {
+              "name": "var",
+              "js_name": "var"
+            },
+            {
+              "name": "expected_shortfall",
+              "js_name": "expectedShortfall"
+            },
+            {
+              "name": "pnl_distribution",
+              "js_name": "pnlDistribution"
+            },
+            {
+              "name": "confidence_level",
+              "js_name": "confidenceLevel"
+            },
+            {
+              "name": "num_scenarios",
+              "js_name": "numScenarios"
+            },
+            {
+              "name": "discount_rate",
+              "js_name": "discount_rate"
+            },
+            {
+              "name": "discount_rate",
+              "js_name": "discountRate"
+            },
+            {
+              "name": "forward_rate",
+              "js_name": "forwardRate"
+            },
+            {
+              "name": "credit_spread",
+              "js_name": "creditSpread"
+            },
+            {
+              "name": "to_string_js",
+              "js_name": "toString"
+            },
+            {
+              "name": "new",
+              "js_name": "new"
+            },
+            {
+              "name": "new",
+              "js_name": "new"
+            },
+            {
+              "name": "shift",
+              "js_name": "shift"
+            },
+            {
+              "name": "factor",
+              "js_name": "factor"
+            },
+            {
+              "name": "new",
+              "js_name": "new"
+            },
+            {
+              "name": "new",
+              "js_name": "new"
+            },
+            {
+              "name": "date",
+              "js_name": "date"
+            },
+            {
+              "name": "shifts",
+              "js_name": "shifts"
+            },
+            {
+              "name": "new",
+              "js_name": "new"
+            },
+            {
+              "name": "new",
+              "js_name": "new"
+            },
+            {
+              "name": "base_date",
+              "js_name": "baseDate"
+            },
+            {
+              "name": "window_days",
+              "js_name": "windowDays"
+            },
+            {
+              "name": "scenarios",
+              "js_name": "scenarios"
+            },
+            {
+              "name": "num_scenarios",
+              "js_name": "numScenarios"
+            },
+            {
+              "name": "calculate_var_js",
+              "js_name": "calculateVar"
+            },
+            {
+              "name": "calculate_portfolio_var_js",
+              "js_name": "calculatePortfolioVar"
+            },
             {
               "name": "krd_dv01_ladder",
               "js_name": "krdDv01Ladder"
@@ -3448,18 +4151,6 @@
             {
               "name": "WasmModelParamsAttribution",
               "js_name": "ModelParamsAttribution",
-              "methods": [],
-              "properties": []
-            },
-            {
-              "name": "WasmPnlAttribution",
-              "js_name": "PnlAttribution",
-              "methods": [],
-              "properties": []
-            },
-            {
-              "name": "WasmPortfolioAttribution",
-              "js_name": "PortfolioAttribution",
               "methods": [],
               "properties": []
             }
@@ -3552,150 +4243,6 @@
             {
               "name": "conversion_ratio",
               "js_name": "conversionRatio"
-            },
-            {
-              "name": "total_pnl",
-              "js_name": "total_pnl"
-            },
-            {
-              "name": "total_pnl",
-              "js_name": "totalPnl"
-            },
-            {
-              "name": "carry",
-              "js_name": "carry"
-            },
-            {
-              "name": "rates_curves_pnl",
-              "js_name": "ratesCurvesPnl"
-            },
-            {
-              "name": "credit_curves_pnl",
-              "js_name": "creditCurvesPnl"
-            },
-            {
-              "name": "inflation_curves_pnl",
-              "js_name": "inflationCurvesPnl"
-            },
-            {
-              "name": "correlations_pnl",
-              "js_name": "correlationsPnl"
-            },
-            {
-              "name": "fx_pnl",
-              "js_name": "fxPnl"
-            },
-            {
-              "name": "vol_pnl",
-              "js_name": "volPnl"
-            },
-            {
-              "name": "model_params_pnl",
-              "js_name": "modelParamsPnl"
-            },
-            {
-              "name": "market_scalars_pnl",
-              "js_name": "marketScalarsPnl"
-            },
-            {
-              "name": "residual",
-              "js_name": "residual"
-            },
-            {
-              "name": "meta",
-              "js_name": "meta"
-            },
-            {
-              "name": "rates_detail",
-              "js_name": "ratesDetail"
-            },
-            {
-              "name": "model_params_detail",
-              "js_name": "modelParamsDetail"
-            },
-            {
-              "name": "to_csv",
-              "js_name": "toCsv"
-            },
-            {
-              "name": "to_json",
-              "js_name": "toJson"
-            },
-            {
-              "name": "rates_detail_to_csv",
-              "js_name": "ratesDetailToCsv"
-            },
-            {
-              "name": "explain",
-              "js_name": "explain"
-            },
-            {
-              "name": "residual_within_tolerance",
-              "js_name": "residualWithinTolerance"
-            },
-            {
-              "name": "total_pnl",
-              "js_name": "total_pnl"
-            },
-            {
-              "name": "total_pnl",
-              "js_name": "totalPnl"
-            },
-            {
-              "name": "carry",
-              "js_name": "carry"
-            },
-            {
-              "name": "rates_curves_pnl",
-              "js_name": "ratesCurvesPnl"
-            },
-            {
-              "name": "credit_curves_pnl",
-              "js_name": "creditCurvesPnl"
-            },
-            {
-              "name": "inflation_curves_pnl",
-              "js_name": "inflationCurvesPnl"
-            },
-            {
-              "name": "correlations_pnl",
-              "js_name": "correlationsPnl"
-            },
-            {
-              "name": "fx_pnl",
-              "js_name": "fxPnl"
-            },
-            {
-              "name": "vol_pnl",
-              "js_name": "volPnl"
-            },
-            {
-              "name": "model_params_pnl",
-              "js_name": "modelParamsPnl"
-            },
-            {
-              "name": "market_scalars_pnl",
-              "js_name": "marketScalarsPnl"
-            },
-            {
-              "name": "residual",
-              "js_name": "residual"
-            },
-            {
-              "name": "by_position_to_json",
-              "js_name": "byPositionToJson"
-            },
-            {
-              "name": "to_csv",
-              "js_name": "toCsv"
-            },
-            {
-              "name": "position_detail_to_csv",
-              "js_name": "positionDetailToCsv"
-            },
-            {
-              "name": "explain",
-              "js_name": "explain"
             }
           ]
         },
@@ -3744,6 +4291,10 @@
               "js_name": "fromName"
             },
             {
+              "name": "parse_strict",
+              "js_name": "parseStrict"
+            },
+            {
               "name": "name",
               "js_name": "name"
             },
@@ -3772,8 +4323,8 @@
               "js_name": "Convexity"
             },
             {
-              "name": "accrued_interest",
-              "js_name": "AccruedInterest"
+              "name": "accrued",
+              "js_name": "Accrued"
             },
             {
               "name": "clean_price",
@@ -4034,12 +4585,6 @@
           "path": "valuations/calibration/quote.rs",
           "classes": [
             {
-              "name": "FutureSpecs",
-              "js_name": "FutureSpecs",
-              "methods": [],
-              "properties": []
-            },
-            {
               "name": "RatesQuote",
               "js_name": "RatesQuote",
               "methods": [],
@@ -4072,18 +4617,6 @@
           ],
           "functions": [
             {
-              "name": "new",
-              "js_name": "new"
-            },
-            {
-              "name": "new",
-              "js_name": "new"
-            },
-            {
-              "name": "with_convexity_adjustment",
-              "js_name": "withConvexityAdjustment"
-            },
-            {
               "name": "deposit",
               "js_name": "deposit"
             },
@@ -4100,28 +4633,44 @@
               "js_name": "swap"
             },
             {
-              "name": "to_market_quote",
-              "js_name": "toMarketQuote"
-            },
-            {
-              "name": "cds",
-              "js_name": "cds"
-            },
-            {
-              "name": "cds",
-              "js_name": "cds"
+              "name": "swap_with_spread",
+              "js_name": "swapWithSpread"
             },
             {
               "name": "to_market_quote",
               "js_name": "toMarketQuote"
             },
             {
-              "name": "option_vol",
-              "js_name": "option_vol"
+              "name": "from_json",
+              "js_name": "fromJSON"
             },
             {
-              "name": "option_vol",
-              "js_name": "optionVol"
+              "name": "to_json",
+              "js_name": "toJSON"
+            },
+            {
+              "name": "cds_par_spread",
+              "js_name": "cds_par_spread"
+            },
+            {
+              "name": "cds_par_spread",
+              "js_name": "cdsParSpread"
+            },
+            {
+              "name": "to_market_quote",
+              "js_name": "toMarketQuote"
+            },
+            {
+              "name": "from_json",
+              "js_name": "fromJSON"
+            },
+            {
+              "name": "to_json",
+              "js_name": "toJSON"
+            },
+            {
+              "name": "swaption_vol",
+              "js_name": "swaption_vol"
             },
             {
               "name": "swaption_vol",
@@ -4130,6 +4679,14 @@
             {
               "name": "to_market_quote",
               "js_name": "toMarketQuote"
+            },
+            {
+              "name": "from_json",
+              "js_name": "fromJSON"
+            },
+            {
+              "name": "to_json",
+              "js_name": "toJSON"
             },
             {
               "name": "inflation_swap",
@@ -4144,12 +4701,28 @@
               "js_name": "toMarketQuote"
             },
             {
+              "name": "from_json",
+              "js_name": "fromJSON"
+            },
+            {
+              "name": "to_json",
+              "js_name": "toJSON"
+            },
+            {
               "name": "kind",
               "js_name": "kind"
             },
             {
               "name": "kind",
               "js_name": "kind"
+            },
+            {
+              "name": "from_json",
+              "js_name": "fromJSON"
+            },
+            {
+              "name": "to_json",
+              "js_name": "toJSON"
             }
           ]
         },
@@ -4159,12 +4732,6 @@
             {
               "name": "SolverKind",
               "js_name": "SolverKind",
-              "methods": [],
-              "properties": []
-            },
-            {
-              "name": "MultiCurveConfig",
-              "js_name": "MultiCurveConfig",
               "methods": [],
               "properties": []
             },
@@ -4189,10 +4756,6 @@
               "js_name": "Brent"
             },
             {
-              "name": "levenberg_marquardt",
-              "js_name": "LevenbergMarquardt"
-            },
-            {
               "name": "from_name",
               "js_name": "fromName"
             },
@@ -4207,38 +4770,6 @@
             {
               "name": "new",
               "js_name": "new"
-            },
-            {
-              "name": "standard",
-              "js_name": "standard"
-            },
-            {
-              "name": "calibrate_basis",
-              "js_name": "calibrateBasis"
-            },
-            {
-              "name": "enforce_separation",
-              "js_name": "enforceSeparation"
-            },
-            {
-              "name": "with_calibrate_basis",
-              "js_name": "withCalibrateBasis"
-            },
-            {
-              "name": "with_enforce_separation",
-              "js_name": "withEnforceSeparation"
-            },
-            {
-              "name": "new",
-              "js_name": "new"
-            },
-            {
-              "name": "new",
-              "js_name": "new"
-            },
-            {
-              "name": "multi_curve",
-              "js_name": "multiCurve"
             },
             {
               "name": "tolerance",
@@ -4281,8 +4812,12 @@
               "js_name": "withSolverKind"
             },
             {
-              "name": "with_multi_curve_config",
-              "js_name": "withMultiCurveConfig"
+              "name": "from_json",
+              "js_name": "fromJSON"
+            },
+            {
+              "name": "to_json",
+              "js_name": "toJSON"
             }
           ]
         },
@@ -4332,8 +4867,8 @@
               "js_name": "new"
             },
             {
-              "name": "with_config",
-              "js_name": "withConfig"
+              "name": "with_finstack_config",
+              "js_name": "withFinstackConfig"
             },
             {
               "name": "calibrate",
@@ -4348,8 +4883,8 @@
               "js_name": "new"
             },
             {
-              "name": "with_config",
-              "js_name": "withConfig"
+              "name": "with_finstack_config",
+              "js_name": "withFinstackConfig"
             },
             {
               "name": "calibrate",
@@ -4364,8 +4899,8 @@
               "js_name": "new"
             },
             {
-              "name": "with_config",
-              "js_name": "withConfig"
+              "name": "with_finstack_config",
+              "js_name": "withFinstackConfig"
             },
             {
               "name": "calibrate",
@@ -4380,8 +4915,8 @@
               "js_name": "new"
             },
             {
-              "name": "with_config",
-              "js_name": "withConfig"
+              "name": "with_finstack_config",
+              "js_name": "withFinstackConfig"
             },
             {
               "name": "calibrate",
@@ -4400,8 +4935,8 @@
               "js_name": "withBaseDate"
             },
             {
-              "name": "with_config",
-              "js_name": "withConfig"
+              "name": "with_finstack_config",
+              "js_name": "withFinstackConfig"
             },
             {
               "name": "with_discount_id",
@@ -4416,8 +4951,8 @@
               "js_name": "new"
             },
             {
-              "name": "with_config",
-              "js_name": "withConfig"
+              "name": "with_finstack_config",
+              "js_name": "withFinstackConfig"
             },
             {
               "name": "with_discount_curve_id",
@@ -4481,6 +5016,10 @@
               "js_name": "explainJson"
             },
             {
+              "name": "from_json",
+              "js_name": "fromJSON"
+            },
+            {
               "name": "to_json",
               "js_name": "toJson"
             },
@@ -4498,12 +5037,6 @@
           "path": "valuations/calibration/validation.rs",
           "classes": [
             {
-              "name": "ValidationError",
-              "js_name": "ValidationError",
-              "methods": [],
-              "properties": []
-            },
-            {
               "name": "ValidationConfig",
               "js_name": "ValidationConfig",
               "methods": [],
@@ -4511,34 +5044,6 @@
             }
           ],
           "functions": [
-            {
-              "name": "constraint",
-              "js_name": "constraint"
-            },
-            {
-              "name": "constraint",
-              "js_name": "constraint"
-            },
-            {
-              "name": "location",
-              "js_name": "location"
-            },
-            {
-              "name": "details",
-              "js_name": "details"
-            },
-            {
-              "name": "values",
-              "js_name": "values"
-            },
-            {
-              "name": "to_json",
-              "js_name": "toJson"
-            },
-            {
-              "name": "to_string_js",
-              "js_name": "toString"
-            },
             {
               "name": "new",
               "js_name": "new"
@@ -4600,6 +5105,14 @@
               "js_name": "tolerance"
             },
             {
+              "name": "from_json",
+              "js_name": "fromJSON"
+            },
+            {
+              "name": "to_json",
+              "js_name": "toJSON"
+            },
+            {
               "name": "validate_discount_curve",
               "js_name": "validateDiscountCurve"
             },
@@ -4622,6 +5135,16 @@
             {
               "name": "validate_market_context",
               "js_name": "validateMarketContext"
+            }
+          ]
+        },
+        "valuations.calibration.v2": {
+          "path": "valuations/calibration/v2.rs",
+          "classes": [],
+          "functions": [
+            {
+              "name": "execute_calibration_v2",
+              "js_name": "executeCalibrationV2"
             }
           ]
         },
@@ -5466,6 +5989,16 @@
             }
           ]
         },
+        "valuations.instruments.dcf": {
+          "path": "valuations/instruments/dcf.rs",
+          "classes": [],
+          "functions": [
+            {
+              "name": "evaluate_dcf_wasm",
+              "js_name": "evaluateDcf"
+            }
+          ]
+        },
         "valuations.instruments.term_loan": {
           "path": "valuations/instruments/term_loan.rs",
           "classes": [
@@ -5770,6 +6303,83 @@
             {
               "name": "shares",
               "js_name": "shares"
+            },
+            {
+              "name": "instrument_type",
+              "js_name": "instrumentType"
+            },
+            {
+              "name": "to_string_js",
+              "js_name": "toString"
+            },
+            {
+              "name": "clone_js",
+              "js_name": "clone"
+            }
+          ]
+        },
+        "valuations.instruments.commodity_swap": {
+          "path": "valuations/instruments/commodity_swap.rs",
+          "classes": [
+            {
+              "name": "CommoditySwap",
+              "js_name": "CommoditySwap",
+              "methods": [],
+              "properties": []
+            }
+          ],
+          "functions": [
+            {
+              "name": "new",
+              "js_name": "new"
+            },
+            {
+              "name": "instrument_id",
+              "js_name": "instrumentId"
+            },
+            {
+              "name": "commodity_type",
+              "js_name": "commodityType"
+            },
+            {
+              "name": "ticker",
+              "js_name": "ticker"
+            },
+            {
+              "name": "unit",
+              "js_name": "unit"
+            },
+            {
+              "name": "currency",
+              "js_name": "currency"
+            },
+            {
+              "name": "notional_quantity",
+              "js_name": "notionalQuantity"
+            },
+            {
+              "name": "fixed_price",
+              "js_name": "fixedPrice"
+            },
+            {
+              "name": "pay_fixed",
+              "js_name": "payFixed"
+            },
+            {
+              "name": "start_date",
+              "js_name": "startDate"
+            },
+            {
+              "name": "end_date",
+              "js_name": "endDate"
+            },
+            {
+              "name": "floating_index_id",
+              "js_name": "floatingIndexId"
+            },
+            {
+              "name": "discount_curve_id",
+              "js_name": "discountCurveId"
             },
             {
               "name": "instrument_type",
@@ -6105,6 +6715,322 @@
             }
           ]
         },
+        "valuations.instruments.vol_index_future": {
+          "path": "valuations/instruments/vol_index_future.rs",
+          "classes": [
+            {
+              "name": "VolatilityIndexFuture",
+              "js_name": "VolatilityIndexFuture",
+              "methods": [],
+              "properties": []
+            }
+          ],
+          "functions": [
+            {
+              "name": "new",
+              "js_name": "new"
+            },
+            {
+              "name": "instrument_id",
+              "js_name": "instrumentId"
+            },
+            {
+              "name": "notional",
+              "js_name": "notional"
+            },
+            {
+              "name": "quoted_price",
+              "js_name": "quotedPrice"
+            },
+            {
+              "name": "instrument_type",
+              "js_name": "instrumentType"
+            },
+            {
+              "name": "to_string_js",
+              "js_name": "toString"
+            },
+            {
+              "name": "clone_js",
+              "js_name": "clone"
+            }
+          ]
+        },
+        "valuations.instruments.agency_mbs": {
+          "path": "valuations/instruments/agency_mbs.rs",
+          "classes": [
+            {
+              "name": "AgencyMbsPassthrough",
+              "js_name": "AgencyMbsPassthrough",
+              "methods": [],
+              "properties": []
+            },
+            {
+              "name": "AgencyTba",
+              "js_name": "AgencyTba",
+              "methods": [],
+              "properties": []
+            },
+            {
+              "name": "DollarRoll",
+              "js_name": "DollarRoll",
+              "methods": [],
+              "properties": []
+            },
+            {
+              "name": "CmoTranche",
+              "js_name": "CmoTranche",
+              "methods": [],
+              "properties": []
+            },
+            {
+              "name": "CmoWaterfall",
+              "js_name": "CmoWaterfall",
+              "methods": [],
+              "properties": []
+            },
+            {
+              "name": "AgencyCmo",
+              "js_name": "AgencyCmo",
+              "methods": [],
+              "properties": []
+            }
+          ],
+          "functions": [
+            {
+              "name": "new",
+              "js_name": "new"
+            },
+            {
+              "name": "example",
+              "js_name": "example"
+            },
+            {
+              "name": "instrument_id",
+              "js_name": "instrumentId"
+            },
+            {
+              "name": "pool_id",
+              "js_name": "poolId"
+            },
+            {
+              "name": "agency",
+              "js_name": "agency"
+            },
+            {
+              "name": "original_face",
+              "js_name": "originalFace"
+            },
+            {
+              "name": "current_face",
+              "js_name": "currentFace"
+            },
+            {
+              "name": "current_factor",
+              "js_name": "currentFactor"
+            },
+            {
+              "name": "wac",
+              "js_name": "wac"
+            },
+            {
+              "name": "pass_through_rate",
+              "js_name": "passThroughRate"
+            },
+            {
+              "name": "wam",
+              "js_name": "wam"
+            },
+            {
+              "name": "issue_date",
+              "js_name": "issueDate"
+            },
+            {
+              "name": "maturity_date",
+              "js_name": "maturityDate"
+            },
+            {
+              "name": "discount_curve_id",
+              "js_name": "discountCurveId"
+            },
+            {
+              "name": "new",
+              "js_name": "new"
+            },
+            {
+              "name": "example",
+              "js_name": "example"
+            },
+            {
+              "name": "instrument_id",
+              "js_name": "instrumentId"
+            },
+            {
+              "name": "agency",
+              "js_name": "agency"
+            },
+            {
+              "name": "coupon",
+              "js_name": "coupon"
+            },
+            {
+              "name": "term",
+              "js_name": "term"
+            },
+            {
+              "name": "settlement_year",
+              "js_name": "settlementYear"
+            },
+            {
+              "name": "settlement_month",
+              "js_name": "settlementMonth"
+            },
+            {
+              "name": "notional",
+              "js_name": "notional"
+            },
+            {
+              "name": "trade_price",
+              "js_name": "tradePrice"
+            },
+            {
+              "name": "discount_curve_id",
+              "js_name": "discountCurveId"
+            },
+            {
+              "name": "new",
+              "js_name": "new"
+            },
+            {
+              "name": "example",
+              "js_name": "example"
+            },
+            {
+              "name": "instrument_id",
+              "js_name": "instrumentId"
+            },
+            {
+              "name": "agency",
+              "js_name": "agency"
+            },
+            {
+              "name": "coupon",
+              "js_name": "coupon"
+            },
+            {
+              "name": "front_price",
+              "js_name": "frontPrice"
+            },
+            {
+              "name": "back_price",
+              "js_name": "backPrice"
+            },
+            {
+              "name": "drop_value",
+              "js_name": "dropValue"
+            },
+            {
+              "name": "drop_32nds",
+              "js_name": "drop32nds"
+            },
+            {
+              "name": "discount_curve_id",
+              "js_name": "discountCurveId"
+            },
+            {
+              "name": "sequential",
+              "js_name": "sequential"
+            },
+            {
+              "name": "sequential",
+              "js_name": "sequential"
+            },
+            {
+              "name": "pac",
+              "js_name": "pac"
+            },
+            {
+              "name": "support",
+              "js_name": "support"
+            },
+            {
+              "name": "io_strip",
+              "js_name": "ioStrip"
+            },
+            {
+              "name": "po_strip",
+              "js_name": "poStrip"
+            },
+            {
+              "name": "id",
+              "js_name": "id"
+            },
+            {
+              "name": "tranche_type",
+              "js_name": "trancheType"
+            },
+            {
+              "name": "original_face",
+              "js_name": "originalFace"
+            },
+            {
+              "name": "current_face",
+              "js_name": "currentFace"
+            },
+            {
+              "name": "coupon",
+              "js_name": "coupon"
+            },
+            {
+              "name": "priority",
+              "js_name": "priority"
+            },
+            {
+              "name": "new",
+              "js_name": "new"
+            },
+            {
+              "name": "new",
+              "js_name": "new"
+            },
+            {
+              "name": "total_current_face",
+              "js_name": "totalCurrentFace"
+            },
+            {
+              "name": "new",
+              "js_name": "new"
+            },
+            {
+              "name": "example",
+              "js_name": "example"
+            },
+            {
+              "name": "instrument_id",
+              "js_name": "instrumentId"
+            },
+            {
+              "name": "deal_name",
+              "js_name": "dealName"
+            },
+            {
+              "name": "agency",
+              "js_name": "agency"
+            },
+            {
+              "name": "issue_date",
+              "js_name": "issueDate"
+            },
+            {
+              "name": "reference_tranche_id",
+              "js_name": "referenceTrancheId"
+            },
+            {
+              "name": "discount_curve_id",
+              "js_name": "discountCurveId"
+            }
+          ]
+        },
         "valuations.instruments.convertible": {
           "path": "valuations/instruments/convertible.rs",
           "classes": [
@@ -6175,6 +7101,51 @@
             {
               "name": "conversion_price",
               "js_name": "conversionPrice"
+            },
+            {
+              "name": "instrument_type",
+              "js_name": "instrumentType"
+            },
+            {
+              "name": "to_string_js",
+              "js_name": "toString"
+            },
+            {
+              "name": "clone_js",
+              "js_name": "clone"
+            }
+          ]
+        },
+        "valuations.instruments.vol_index_option": {
+          "path": "valuations/instruments/vol_index_option.rs",
+          "classes": [
+            {
+              "name": "VolatilityIndexOption",
+              "js_name": "VolatilityIndexOption",
+              "methods": [],
+              "properties": []
+            }
+          ],
+          "functions": [
+            {
+              "name": "new",
+              "js_name": "new"
+            },
+            {
+              "name": "instrument_id",
+              "js_name": "instrumentId"
+            },
+            {
+              "name": "notional",
+              "js_name": "notional"
+            },
+            {
+              "name": "strike",
+              "js_name": "strike"
+            },
+            {
+              "name": "option_type",
+              "js_name": "optionType"
             },
             {
               "name": "instrument_type",
@@ -7211,6 +8182,87 @@
             }
           ]
         },
+        "valuations.instruments.commodity_forward": {
+          "path": "valuations/instruments/commodity_forward.rs",
+          "classes": [
+            {
+              "name": "CommodityForward",
+              "js_name": "CommodityForward",
+              "methods": [],
+              "properties": []
+            }
+          ],
+          "functions": [
+            {
+              "name": "new",
+              "js_name": "new"
+            },
+            {
+              "name": "instrument_id",
+              "js_name": "instrumentId"
+            },
+            {
+              "name": "commodity_type",
+              "js_name": "commodityType"
+            },
+            {
+              "name": "ticker",
+              "js_name": "ticker"
+            },
+            {
+              "name": "quantity",
+              "js_name": "quantity"
+            },
+            {
+              "name": "unit",
+              "js_name": "unit"
+            },
+            {
+              "name": "multiplier",
+              "js_name": "multiplier"
+            },
+            {
+              "name": "settlement_date",
+              "js_name": "settlementDate"
+            },
+            {
+              "name": "currency",
+              "js_name": "currency"
+            },
+            {
+              "name": "quoted_price",
+              "js_name": "quotedPrice"
+            },
+            {
+              "name": "forward_curve_id",
+              "js_name": "forwardCurveId"
+            },
+            {
+              "name": "discount_curve_id",
+              "js_name": "discountCurveId"
+            },
+            {
+              "name": "exchange",
+              "js_name": "exchange"
+            },
+            {
+              "name": "contract_month",
+              "js_name": "contractMonth"
+            },
+            {
+              "name": "instrument_type",
+              "js_name": "instrumentType"
+            },
+            {
+              "name": "to_string_js",
+              "js_name": "toString"
+            },
+            {
+              "name": "clone_js",
+              "js_name": "clone"
+            }
+          ]
+        },
         "valuations.instruments.cds_option": {
           "path": "valuations/instruments/cds_option.rs",
           "classes": [
@@ -7272,6 +8324,30 @@
               "js_name": "WaterfallTier",
               "methods": [],
               "properties": []
+            },
+            {
+              "name": "Waterfall",
+              "js_name": "WaterfallEngine",
+              "methods": [],
+              "properties": []
+            },
+            {
+              "name": "CoverageTrigger",
+              "js_name": "CoverageTrigger",
+              "methods": [],
+              "properties": []
+            },
+            {
+              "name": "CoverageTestRules",
+              "js_name": "CoverageTestRules",
+              "methods": [],
+              "properties": []
+            },
+            {
+              "name": "WaterfallDistribution",
+              "js_name": "WaterfallDistribution",
+              "methods": [],
+              "properties": []
             }
           ],
           "functions": [
@@ -7310,6 +8386,86 @@
             {
               "name": "divertible",
               "js_name": "divertible"
+            },
+            {
+              "name": "add_recipient",
+              "js_name": "addRecipient"
+            },
+            {
+              "name": "add_fixed_fee",
+              "js_name": "addFixedFee"
+            },
+            {
+              "name": "add_tranche_interest",
+              "js_name": "addTrancheInterest"
+            },
+            {
+              "name": "add_tranche_principal",
+              "js_name": "addTranchePrincipal"
+            },
+            {
+              "name": "set_allocation_mode",
+              "js_name": "setAllocationMode"
+            },
+            {
+              "name": "set_divertible",
+              "js_name": "setDivertible"
+            },
+            {
+              "name": "from_json",
+              "js_name": "from_json"
+            },
+            {
+              "name": "from_json",
+              "js_name": "fromJson"
+            },
+            {
+              "name": "to_json",
+              "js_name": "toJson"
+            },
+            {
+              "name": "add_tier",
+              "js_name": "addTier"
+            },
+            {
+              "name": "from_json",
+              "js_name": "from_json"
+            },
+            {
+              "name": "from_json",
+              "js_name": "fromJson"
+            },
+            {
+              "name": "to_json",
+              "js_name": "toJson"
+            },
+            {
+              "name": "from_json",
+              "js_name": "from_json"
+            },
+            {
+              "name": "from_json",
+              "js_name": "fromJson"
+            },
+            {
+              "name": "to_json",
+              "js_name": "toJson"
+            },
+            {
+              "name": "to_json",
+              "js_name": "to_json"
+            },
+            {
+              "name": "to_json",
+              "js_name": "toJson"
+            },
+            {
+              "name": "tier_allocations",
+              "js_name": "tierAllocations"
+            },
+            {
+              "name": "execute_waterfall_js",
+              "js_name": "executeWaterfall"
             }
           ]
         }
@@ -7324,25 +8480,28 @@
         "ValuationResult",
         "PricingRequest",
         "PricerRegistry",
+        "VarMethod",
+        "VarConfig",
+        "VarResult",
+        "RiskFactorType",
+        "RiskFactorShift",
+        "MarketScenario",
+        "MarketHistory",
         "AttributionMethod",
         "AttributionMeta",
         "RatesCurvesAttribution",
         "ModelParamsAttribution",
-        "PnlAttribution",
-        "PortfolioAttribution",
         "MetricRegistry",
         "MetricId",
         "SABRModelParams",
         "SABRMarketData",
         "SABRCalibrationDerivatives",
-        "FutureSpecs",
         "RatesQuote",
         "CreditQuote",
         "VolQuote",
         "InflationQuote",
         "MarketQuote",
         "SolverKind",
-        "MultiCurveConfig",
         "CalibrationConfig",
         "DiscountCurveCalibrator",
         "ForwardCurveCalibrator",
@@ -7351,7 +8510,6 @@
         "VolSurfaceCalibrator",
         "BaseCorrelationCalibrator",
         "CalibrationReport",
-        "ValidationError",
         "ValidationConfig",
         "AmortizationSpec",
         "CouponType",
@@ -7387,6 +8545,7 @@
         "VarianceSwap",
         "RangeAccrual",
         "Equity",
+        "CommoditySwap",
         "CliquetOption",
         "LookbackOption",
         "BasisSwapLeg",
@@ -7394,9 +8553,17 @@
         "Swaption",
         "Deposit",
         "CmsOption",
+        "VolatilityIndexFuture",
+        "AgencyMbsPassthrough",
+        "AgencyTba",
+        "DollarRoll",
+        "CmoTranche",
+        "CmoWaterfall",
+        "AgencyCmo",
         "ConversionPolicy",
         "ConversionSpec",
         "ConvertibleBond",
+        "VolatilityIndexOption",
         "QuantoOption",
         "InterestRateSwap",
         "Bond",
@@ -7415,8 +8582,13 @@
         "FxBarrierOption",
         "PrivateMarketsFund",
         "CreditDefaultSwap",
+        "CommodityForward",
         "CdsOption",
-        "WaterfallTier"
+        "WaterfallTier",
+        "WaterfallEngine",
+        "CoverageTrigger",
+        "CoverageTestRules",
+        "WaterfallDistribution"
       ],
       "functions": [
         "max_debt_to_ebitda",
@@ -7502,6 +8674,44 @@
         "xirr",
         "calculateNpv",
         "irrPeriodic",
+        "full_revaluation",
+        "full_revaluation",
+        "taylorApproximation",
+        "toString",
+        "new",
+        "new",
+        "var95",
+        "var99",
+        "confidenceLevel",
+        "method",
+        "toString",
+        "var",
+        "var",
+        "expectedShortfall",
+        "pnlDistribution",
+        "confidenceLevel",
+        "numScenarios",
+        "discount_rate",
+        "discountRate",
+        "forwardRate",
+        "creditSpread",
+        "toString",
+        "new",
+        "new",
+        "shift",
+        "factor",
+        "new",
+        "new",
+        "date",
+        "shifts",
+        "new",
+        "new",
+        "baseDate",
+        "windowDays",
+        "scenarios",
+        "numScenarios",
+        "calculateVar",
+        "calculatePortfolioVar",
         "krdDv01Ladder",
         "cs01Ladder",
         "parallel",
@@ -7526,47 +8736,12 @@
         "defaultRate",
         "recoveryRate",
         "conversionRatio",
-        "total_pnl",
-        "totalPnl",
-        "carry",
-        "ratesCurvesPnl",
-        "creditCurvesPnl",
-        "inflationCurvesPnl",
-        "correlationsPnl",
-        "fxPnl",
-        "volPnl",
-        "modelParamsPnl",
-        "marketScalarsPnl",
-        "residual",
-        "meta",
-        "ratesDetail",
-        "modelParamsDetail",
-        "toCsv",
-        "toJson",
-        "ratesDetailToCsv",
-        "explain",
-        "residualWithinTolerance",
-        "total_pnl",
-        "totalPnl",
-        "carry",
-        "ratesCurvesPnl",
-        "creditCurvesPnl",
-        "inflationCurvesPnl",
-        "correlationsPnl",
-        "fxPnl",
-        "volPnl",
-        "modelParamsPnl",
-        "marketScalarsPnl",
-        "residual",
-        "byPositionToJson",
-        "toCsv",
-        "positionDetailToCsv",
-        "explain",
         "new",
         "standard",
         "hasMetric",
         "availableMetrics",
         "fromName",
+        "parseStrict",
         "name",
         "standardNames",
         "YTM",
@@ -7574,7 +8749,7 @@
         "DurationModified",
         "DurationMacaulay",
         "Convexity",
-        "AccruedInterest",
+        "Accrued",
         "CleanPrice",
         "DirtyPrice",
         "ZSpread",
@@ -7632,42 +8807,40 @@
         "beta",
         "toString",
         "new",
-        "new",
-        "new",
-        "withConvexityAdjustment",
         "deposit",
         "deposit",
         "fra",
         "swap",
+        "swapWithSpread",
         "toMarketQuote",
-        "cds",
-        "cds",
+        "fromJSON",
+        "toJSON",
+        "cds_par_spread",
+        "cdsParSpread",
         "toMarketQuote",
-        "option_vol",
-        "optionVol",
+        "fromJSON",
+        "toJSON",
+        "swaption_vol",
         "swaptionVol",
         "toMarketQuote",
+        "fromJSON",
+        "toJSON",
         "inflation_swap",
         "inflationSwap",
         "toMarketQuote",
+        "fromJSON",
+        "toJSON",
         "kind",
         "kind",
+        "fromJSON",
+        "toJSON",
         "newton",
         "Newton",
         "Brent",
-        "LevenbergMarquardt",
         "fromName",
         "name",
         "new",
         "new",
-        "standard",
-        "calibrateBasis",
-        "enforceSeparation",
-        "withCalibrateBasis",
-        "withEnforceSeparation",
-        "new",
-        "new",
-        "multiCurve",
         "tolerance",
         "maxIterations",
         "useParallel",
@@ -7678,30 +8851,31 @@
         "withParallel",
         "withVerbose",
         "withSolverKind",
-        "withMultiCurveConfig",
+        "fromJSON",
+        "toJSON",
         "new",
-        "withConfig",
+        "withFinstackConfig",
         "calibrate",
         "new",
         "new",
-        "withConfig",
+        "withFinstackConfig",
         "calibrate",
         "new",
         "new",
-        "withConfig",
+        "withFinstackConfig",
         "calibrate",
         "new",
         "new",
-        "withConfig",
+        "withFinstackConfig",
         "calibrate",
         "new",
         "new",
         "withBaseDate",
-        "withConfig",
+        "withFinstackConfig",
         "withDiscountId",
         "calibrate",
         "new",
-        "withConfig",
+        "withFinstackConfig",
         "withDiscountCurveId",
         "withDetachmentPoints",
         "calibrate",
@@ -7714,16 +8888,10 @@
         "convergenceReason",
         "explanation",
         "explainJson",
+        "fromJSON",
         "toJson",
         "getResidual",
         "getMetadata",
-        "constraint",
-        "constraint",
-        "location",
-        "details",
-        "values",
-        "toJson",
-        "toString",
         "new",
         "new",
         "standard",
@@ -7739,12 +8907,15 @@
         "checkMonotonicity",
         "checkArbitrage",
         "tolerance",
+        "fromJSON",
+        "toJSON",
         "validateDiscountCurve",
         "validateForwardCurve",
         "validateHazardCurve",
         "validateInflationCurve",
         "validateVolSurface",
         "validateMarketContext",
+        "executeCalibrationV2",
         "none",
         "linearTo",
         "stepRemaining",
@@ -7897,6 +9068,7 @@
         "instrumentType",
         "toString",
         "clone",
+        "evaluateDcf",
         "fromJson",
         "toJson",
         "instrumentId",
@@ -7950,6 +9122,22 @@
         "ticker",
         "currency",
         "shares",
+        "instrumentType",
+        "toString",
+        "clone",
+        "new",
+        "instrumentId",
+        "commodityType",
+        "ticker",
+        "unit",
+        "currency",
+        "notionalQuantity",
+        "fixedPrice",
+        "payFixed",
+        "startDate",
+        "endDate",
+        "floatingIndexId",
+        "discountCurveId",
         "instrumentType",
         "toString",
         "clone",
@@ -8012,6 +9200,71 @@
         "instrumentType",
         "toString",
         "clone",
+        "new",
+        "instrumentId",
+        "notional",
+        "quotedPrice",
+        "instrumentType",
+        "toString",
+        "clone",
+        "new",
+        "example",
+        "instrumentId",
+        "poolId",
+        "agency",
+        "originalFace",
+        "currentFace",
+        "currentFactor",
+        "wac",
+        "passThroughRate",
+        "wam",
+        "issueDate",
+        "maturityDate",
+        "discountCurveId",
+        "new",
+        "example",
+        "instrumentId",
+        "agency",
+        "coupon",
+        "term",
+        "settlementYear",
+        "settlementMonth",
+        "notional",
+        "tradePrice",
+        "discountCurveId",
+        "new",
+        "example",
+        "instrumentId",
+        "agency",
+        "coupon",
+        "frontPrice",
+        "backPrice",
+        "dropValue",
+        "drop32nds",
+        "discountCurveId",
+        "sequential",
+        "sequential",
+        "pac",
+        "support",
+        "ioStrip",
+        "poStrip",
+        "id",
+        "trancheType",
+        "originalFace",
+        "currentFace",
+        "coupon",
+        "priority",
+        "new",
+        "new",
+        "totalCurrentFace",
+        "new",
+        "example",
+        "instrumentId",
+        "dealName",
+        "agency",
+        "issueDate",
+        "referenceTrancheId",
+        "discountCurveId",
         "voluntary",
         "voluntary",
         "mandatoryOn",
@@ -8024,6 +9277,14 @@
         "notional",
         "conversionRatio",
         "conversionPrice",
+        "instrumentType",
+        "toString",
+        "clone",
+        "new",
+        "instrumentId",
+        "notional",
+        "strike",
+        "optionType",
         "instrumentType",
         "toString",
         "clone",
@@ -8230,6 +9491,23 @@
         "toString",
         "clone",
         "new",
+        "instrumentId",
+        "commodityType",
+        "ticker",
+        "quantity",
+        "unit",
+        "multiplier",
+        "settlementDate",
+        "currency",
+        "quotedPrice",
+        "forwardCurveId",
+        "discountCurveId",
+        "exchange",
+        "contractMonth",
+        "instrumentType",
+        "toString",
+        "clone",
+        "new",
         "new",
         "instrumentId",
         "notional",
@@ -8247,7 +9525,27 @@
         "recipientCount",
         "paymentType",
         "allocationMode",
-        "divertible"
+        "divertible",
+        "addRecipient",
+        "addFixedFee",
+        "addTrancheInterest",
+        "addTranchePrincipal",
+        "setAllocationMode",
+        "setDivertible",
+        "from_json",
+        "fromJson",
+        "toJson",
+        "addTier",
+        "from_json",
+        "fromJson",
+        "toJson",
+        "from_json",
+        "fromJson",
+        "toJson",
+        "to_json",
+        "toJson",
+        "tierAllocations",
+        "executeWaterfall"
       ]
     },
     "statements": {
@@ -10952,6 +12250,12 @@
           "path": "scenarios/spec.rs",
           "classes": [
             {
+              "name": "RateBindingSpec",
+              "js_name": "RateBindingSpec",
+              "methods": [],
+              "properties": []
+            },
+            {
               "name": "OperationSpec",
               "js_name": "OperationSpec",
               "methods": [
@@ -11180,6 +12484,62 @@
                   "js_name": "instrument_spread_bp_by_type"
                 },
                 {
+                  "name": "asset_correlation_pts",
+                  "is_static": true,
+                  "is_constructor": false,
+                  "is_getter": false,
+                  "js_name": "assetCorrelationPts"
+                },
+                {
+                  "name": "asset_correlation_pts",
+                  "is_static": false,
+                  "is_constructor": false,
+                  "is_getter": false,
+                  "js_name": "asset_correlation_pts"
+                },
+                {
+                  "name": "prepay_default_correlation_pts",
+                  "is_static": true,
+                  "is_constructor": false,
+                  "is_getter": false,
+                  "js_name": "prepayDefaultCorrelationPts"
+                },
+                {
+                  "name": "prepay_default_correlation_pts",
+                  "is_static": false,
+                  "is_constructor": false,
+                  "is_getter": false,
+                  "js_name": "prepay_default_correlation_pts"
+                },
+                {
+                  "name": "recovery_correlation_pts",
+                  "is_static": true,
+                  "is_constructor": false,
+                  "is_getter": false,
+                  "js_name": "recoveryCorrelationPts"
+                },
+                {
+                  "name": "recovery_correlation_pts",
+                  "is_static": false,
+                  "is_constructor": false,
+                  "is_getter": false,
+                  "js_name": "recovery_correlation_pts"
+                },
+                {
+                  "name": "prepay_factor_loading_pts",
+                  "is_static": true,
+                  "is_constructor": false,
+                  "is_getter": false,
+                  "js_name": "prepayFactorLoadingPts"
+                },
+                {
+                  "name": "prepay_factor_loading_pts",
+                  "is_static": false,
+                  "is_constructor": false,
+                  "is_getter": false,
+                  "js_name": "prepay_factor_loading_pts"
+                },
+                {
                   "name": "time_roll_forward",
                   "is_static": true,
                   "is_constructor": false,
@@ -11379,6 +12739,46 @@
           ],
           "functions": [
             {
+              "name": "new",
+              "js_name": "new"
+            },
+            {
+              "name": "new",
+              "js_name": "new"
+            },
+            {
+              "name": "from_legacy",
+              "js_name": "fromLegacy"
+            },
+            {
+              "name": "to_json",
+              "js_name": "toJSON"
+            },
+            {
+              "name": "from_json",
+              "js_name": "fromJSON"
+            },
+            {
+              "name": "node_id",
+              "js_name": "nodeId"
+            },
+            {
+              "name": "curve_id",
+              "js_name": "curveId"
+            },
+            {
+              "name": "tenor",
+              "js_name": "tenor"
+            },
+            {
+              "name": "compounding",
+              "js_name": "compounding"
+            },
+            {
+              "name": "day_count",
+              "js_name": "dayCount"
+            },
+            {
               "name": "from_json",
               "js_name": "fromJSON"
             },
@@ -11441,6 +12841,22 @@
             {
               "name": "instrument_spread_bp_by_type",
               "js_name": "instrumentSpreadBpByType"
+            },
+            {
+              "name": "asset_correlation_pts",
+              "js_name": "assetCorrelationPts"
+            },
+            {
+              "name": "prepay_default_correlation_pts",
+              "js_name": "prepayDefaultCorrelationPts"
+            },
+            {
+              "name": "recovery_correlation_pts",
+              "js_name": "recoveryCorrelationPts"
+            },
+            {
+              "name": "prepay_factor_loading_pts",
+              "js_name": "prepayFactorLoadingPts"
             },
             {
               "name": "time_roll_forward",
@@ -11532,18 +12948,18 @@
                   "js_name": "FORECAST"
                 },
                 {
-                  "name": "HAZARD",
+                  "name": "PAR_CDS",
                   "is_static": false,
                   "is_constructor": false,
                   "is_getter": true,
-                  "js_name": "HAZARD"
+                  "js_name": "PAR_CDS"
                 },
                 {
-                  "name": "HAZARD",
+                  "name": "PAR_CDS",
                   "is_static": false,
                   "is_constructor": false,
                   "is_getter": false,
-                  "js_name": "HAZARD"
+                  "js_name": "PAR_CDS"
                 },
                 {
                   "name": "INFLATION",
@@ -11577,7 +12993,7 @@
               "properties": [
                 "DISCOUNT",
                 "FORECAST",
-                "HAZARD",
+                "PAR_CDS",
                 "INFLATION"
               ]
             },
@@ -11699,6 +13115,185 @@
                 "EXACT",
                 "INTERPOLATE"
               ]
+            },
+            {
+              "name": "TimeRollMode",
+              "js_name": "TimeRollMode",
+              "methods": [
+                {
+                  "name": "BUSINESS_DAYS",
+                  "is_static": false,
+                  "is_constructor": false,
+                  "is_getter": true,
+                  "js_name": "BUSINESS_DAYS"
+                },
+                {
+                  "name": "BUSINESS_DAYS",
+                  "is_static": false,
+                  "is_constructor": false,
+                  "is_getter": false,
+                  "js_name": "BUSINESS_DAYS"
+                },
+                {
+                  "name": "CALENDAR_DAYS",
+                  "is_static": false,
+                  "is_constructor": false,
+                  "is_getter": true,
+                  "js_name": "CALENDAR_DAYS"
+                },
+                {
+                  "name": "CALENDAR_DAYS",
+                  "is_static": false,
+                  "is_constructor": false,
+                  "is_getter": false,
+                  "js_name": "CALENDAR_DAYS"
+                },
+                {
+                  "name": "APPROXIMATE",
+                  "is_static": false,
+                  "is_constructor": false,
+                  "is_getter": true,
+                  "js_name": "APPROXIMATE"
+                },
+                {
+                  "name": "APPROXIMATE",
+                  "is_static": false,
+                  "is_constructor": false,
+                  "is_getter": false,
+                  "js_name": "APPROXIMATE"
+                },
+                {
+                  "name": "to_string_js",
+                  "is_static": true,
+                  "is_constructor": false,
+                  "is_getter": false,
+                  "js_name": "toString"
+                },
+                {
+                  "name": "to_string_js",
+                  "is_static": false,
+                  "is_constructor": false,
+                  "is_getter": false,
+                  "js_name": "to_string_js"
+                }
+              ],
+              "properties": [
+                "BUSINESS_DAYS",
+                "CALENDAR_DAYS",
+                "APPROXIMATE"
+              ]
+            },
+            {
+              "name": "Compounding",
+              "js_name": "Compounding",
+              "methods": [
+                {
+                  "name": "SIMPLE",
+                  "is_static": false,
+                  "is_constructor": false,
+                  "is_getter": true,
+                  "js_name": "SIMPLE"
+                },
+                {
+                  "name": "SIMPLE",
+                  "is_static": false,
+                  "is_constructor": false,
+                  "is_getter": false,
+                  "js_name": "SIMPLE"
+                },
+                {
+                  "name": "CONTINUOUS",
+                  "is_static": false,
+                  "is_constructor": false,
+                  "is_getter": true,
+                  "js_name": "CONTINUOUS"
+                },
+                {
+                  "name": "CONTINUOUS",
+                  "is_static": false,
+                  "is_constructor": false,
+                  "is_getter": false,
+                  "js_name": "CONTINUOUS"
+                },
+                {
+                  "name": "ANNUAL",
+                  "is_static": false,
+                  "is_constructor": false,
+                  "is_getter": true,
+                  "js_name": "ANNUAL"
+                },
+                {
+                  "name": "ANNUAL",
+                  "is_static": false,
+                  "is_constructor": false,
+                  "is_getter": false,
+                  "js_name": "ANNUAL"
+                },
+                {
+                  "name": "SEMI_ANNUAL",
+                  "is_static": false,
+                  "is_constructor": false,
+                  "is_getter": true,
+                  "js_name": "SEMI_ANNUAL"
+                },
+                {
+                  "name": "SEMI_ANNUAL",
+                  "is_static": false,
+                  "is_constructor": false,
+                  "is_getter": false,
+                  "js_name": "SEMI_ANNUAL"
+                },
+                {
+                  "name": "QUARTERLY",
+                  "is_static": false,
+                  "is_constructor": false,
+                  "is_getter": true,
+                  "js_name": "QUARTERLY"
+                },
+                {
+                  "name": "QUARTERLY",
+                  "is_static": false,
+                  "is_constructor": false,
+                  "is_getter": false,
+                  "js_name": "QUARTERLY"
+                },
+                {
+                  "name": "MONTHLY",
+                  "is_static": false,
+                  "is_constructor": false,
+                  "is_getter": true,
+                  "js_name": "MONTHLY"
+                },
+                {
+                  "name": "MONTHLY",
+                  "is_static": false,
+                  "is_constructor": false,
+                  "is_getter": false,
+                  "js_name": "MONTHLY"
+                },
+                {
+                  "name": "to_string_js",
+                  "is_static": true,
+                  "is_constructor": false,
+                  "is_getter": false,
+                  "js_name": "toString"
+                },
+                {
+                  "name": "to_string_js",
+                  "is_static": false,
+                  "is_constructor": false,
+                  "is_getter": false,
+                  "js_name": "to_string_js"
+                }
+              ],
+              "properties": [
+                "SIMPLE",
+                "CONTINUOUS",
+                "ANNUAL",
+                "SEMI_ANNUAL",
+                "QUARTERLY",
+                "MONTHLY"
+              ]
             }
           ],
           "functions": [
@@ -11711,8 +13306,8 @@
               "js_name": "FORECAST"
             },
             {
-              "name": "HAZARD",
-              "js_name": "HAZARD"
+              "name": "PAR_CDS",
+              "js_name": "PAR_CDS"
             },
             {
               "name": "INFLATION",
@@ -11745,6 +13340,54 @@
             {
               "name": "INTERPOLATE",
               "js_name": "INTERPOLATE"
+            },
+            {
+              "name": "to_string_js",
+              "js_name": "toString"
+            },
+            {
+              "name": "BUSINESS_DAYS",
+              "js_name": "BUSINESS_DAYS"
+            },
+            {
+              "name": "CALENDAR_DAYS",
+              "js_name": "CALENDAR_DAYS"
+            },
+            {
+              "name": "APPROXIMATE",
+              "js_name": "APPROXIMATE"
+            },
+            {
+              "name": "to_string_js",
+              "js_name": "toString"
+            },
+            {
+              "name": "SIMPLE",
+              "js_name": "SIMPLE"
+            },
+            {
+              "name": "SIMPLE",
+              "js_name": "SIMPLE"
+            },
+            {
+              "name": "CONTINUOUS",
+              "js_name": "CONTINUOUS"
+            },
+            {
+              "name": "ANNUAL",
+              "js_name": "ANNUAL"
+            },
+            {
+              "name": "SEMI_ANNUAL",
+              "js_name": "SEMI_ANNUAL"
+            },
+            {
+              "name": "QUARTERLY",
+              "js_name": "QUARTERLY"
+            },
+            {
+              "name": "MONTHLY",
+              "js_name": "MONTHLY"
             },
             {
               "name": "to_string_js",
@@ -12098,12 +13741,99 @@
                   "is_constructor": false,
                   "is_getter": false,
                   "js_name": "model"
+                },
+                {
+                  "name": "instruments",
+                  "is_static": false,
+                  "is_constructor": false,
+                  "is_getter": true,
+                  "js_name": "instruments"
+                },
+                {
+                  "name": "instruments",
+                  "is_static": false,
+                  "is_constructor": false,
+                  "is_getter": false,
+                  "js_name": "instruments"
+                },
+                {
+                  "name": "set_instruments",
+                  "is_static": false,
+                  "is_constructor": false,
+                  "is_getter": false,
+                  "js_name": "set_instruments"
+                },
+                {
+                  "name": "set_instruments",
+                  "is_static": false,
+                  "is_constructor": false,
+                  "is_getter": false,
+                  "js_name": "set_instruments"
+                },
+                {
+                  "name": "rate_bindings",
+                  "is_static": false,
+                  "is_constructor": false,
+                  "is_getter": true,
+                  "js_name": "rateBindings"
+                },
+                {
+                  "name": "rate_bindings",
+                  "is_static": false,
+                  "is_constructor": false,
+                  "is_getter": false,
+                  "js_name": "rate_bindings"
+                },
+                {
+                  "name": "set_rate_bindings",
+                  "is_static": false,
+                  "is_constructor": false,
+                  "is_getter": false,
+                  "js_name": "rateBindings"
+                },
+                {
+                  "name": "set_rate_bindings",
+                  "is_static": false,
+                  "is_constructor": false,
+                  "is_getter": false,
+                  "js_name": "set_rate_bindings"
+                },
+                {
+                  "name": "calendar",
+                  "is_static": false,
+                  "is_constructor": false,
+                  "is_getter": true,
+                  "js_name": "calendar"
+                },
+                {
+                  "name": "calendar",
+                  "is_static": false,
+                  "is_constructor": false,
+                  "is_getter": false,
+                  "js_name": "calendar"
+                },
+                {
+                  "name": "set_calendar",
+                  "is_static": false,
+                  "is_constructor": false,
+                  "is_getter": false,
+                  "js_name": "set_calendar"
+                },
+                {
+                  "name": "set_calendar",
+                  "is_static": false,
+                  "is_constructor": false,
+                  "is_getter": false,
+                  "js_name": "set_calendar"
                 }
               ],
               "properties": [
                 "as_of",
                 "market",
-                "model"
+                "model",
+                "instruments",
+                "rate_bindings",
+                "calendar"
               ]
             }
           ],
@@ -12119,6 +13849,10 @@
             {
               "name": "apply",
               "js_name": "apply"
+            },
+            {
+              "name": "convert_instruments",
+              "js_name": "convert_instruments"
             },
             {
               "name": "new",
@@ -12139,22 +13873,59 @@
             {
               "name": "model",
               "js_name": "model"
+            },
+            {
+              "name": "instruments",
+              "js_name": "instruments"
+            },
+            {
+              "name": "set_instruments",
+              "js_name": "set_instruments"
+            },
+            {
+              "name": "rate_bindings",
+              "js_name": "rateBindings"
+            },
+            {
+              "name": "set_rate_bindings",
+              "js_name": "rateBindings"
+            },
+            {
+              "name": "calendar",
+              "js_name": "calendar"
+            },
+            {
+              "name": "set_calendar",
+              "js_name": "set_calendar"
             }
           ]
         }
       },
       "classes": [
+        "RateBindingSpec",
         "OperationSpec",
         "ScenarioSpec",
         "CurveKind",
         "VolSurfaceKind",
         "TenorMatchMode",
+        "TimeRollMode",
+        "Compounding",
         "ApplicationReport",
         "RollForwardReport",
         "ScenarioEngine",
         "ExecutionContext"
       ],
       "functions": [
+        "new",
+        "new",
+        "fromLegacy",
+        "toJSON",
+        "fromJSON",
+        "nodeId",
+        "curveId",
+        "tenor",
+        "compounding",
+        "dayCount",
         "fromJSON",
         "toJSON",
         "marketFxPct",
@@ -12171,6 +13942,10 @@
         "instrumentSpreadBpByAttr",
         "instrumentPricePctByType",
         "instrumentSpreadBpByType",
+        "assetCorrelationPts",
+        "prepayDefaultCorrelationPts",
+        "recoveryCorrelationPts",
+        "prepayFactorLoadingPts",
         "timeRollForward",
         "new",
         "fromJSON",
@@ -12186,7 +13961,7 @@
         "operationCount",
         "DISCOUNT",
         "FORECAST",
-        "HAZARD",
+        "PAR_CDS",
         "INFLATION",
         "toString",
         "EQUITY",
@@ -12195,6 +13970,18 @@
         "toString",
         "EXACT",
         "INTERPOLATE",
+        "toString",
+        "BUSINESS_DAYS",
+        "CALENDAR_DAYS",
+        "APPROXIMATE",
+        "toString",
+        "SIMPLE",
+        "SIMPLE",
+        "CONTINUOUS",
+        "ANNUAL",
+        "SEMI_ANNUAL",
+        "QUARTERLY",
+        "MONTHLY",
         "toString",
         "operations_applied",
         "operationsApplied",
@@ -12211,15 +13998,251 @@
         "new",
         "compose",
         "apply",
+        "convert_instruments",
         "new",
         "asOf",
         "asOf",
         "market",
-        "model"
+        "model",
+        "instruments",
+        "set_instruments",
+        "rateBindings",
+        "rateBindings",
+        "calendar",
+        "set_calendar"
       ]
     },
     "portfolio": {
       "modules": {
+        "portfolio.optimization": {
+          "path": "portfolio/optimization.rs",
+          "classes": [],
+          "functions": [
+            {
+              "name": "js_optimize_max_yield_with_ccc_limit",
+              "js_name": "optimizeMaxYieldWithCccLimit"
+            }
+          ]
+        },
+        "portfolio.margin": {
+          "path": "portfolio/margin.rs",
+          "classes": [
+            {
+              "name": "NettingSetId",
+              "js_name": "NettingSetId",
+              "methods": [],
+              "properties": []
+            },
+            {
+              "name": "NettingSet",
+              "js_name": "NettingSet",
+              "methods": [],
+              "properties": []
+            },
+            {
+              "name": "NettingSetManager",
+              "js_name": "NettingSetManager",
+              "methods": [],
+              "properties": []
+            },
+            {
+              "name": "NettingSetMargin",
+              "js_name": "NettingSetMargin",
+              "methods": [],
+              "properties": []
+            },
+            {
+              "name": "PortfolioMarginResult",
+              "js_name": "PortfolioMarginResult",
+              "methods": [],
+              "properties": []
+            },
+            {
+              "name": "PortfolioMarginAggregator",
+              "js_name": "PortfolioMarginAggregator",
+              "methods": [],
+              "properties": []
+            }
+          ],
+          "functions": [
+            {
+              "name": "bilateral",
+              "js_name": "bilateral"
+            },
+            {
+              "name": "bilateral",
+              "js_name": "bilateral"
+            },
+            {
+              "name": "cleared",
+              "js_name": "cleared"
+            },
+            {
+              "name": "counterparty_id",
+              "js_name": "counterpartyId"
+            },
+            {
+              "name": "csa_id",
+              "js_name": "csaId"
+            },
+            {
+              "name": "ccp_id",
+              "js_name": "ccpId"
+            },
+            {
+              "name": "is_cleared",
+              "js_name": "isCleared"
+            },
+            {
+              "name": "to_string_js",
+              "js_name": "toString"
+            },
+            {
+              "name": "new",
+              "js_name": "new"
+            },
+            {
+              "name": "new",
+              "js_name": "new"
+            },
+            {
+              "name": "id",
+              "js_name": "id"
+            },
+            {
+              "name": "add_position",
+              "js_name": "addPosition"
+            },
+            {
+              "name": "position_count",
+              "js_name": "positionCount"
+            },
+            {
+              "name": "is_cleared",
+              "js_name": "isCleared"
+            },
+            {
+              "name": "merge_sensitivities",
+              "js_name": "mergeSensitivities"
+            },
+            {
+              "name": "new",
+              "js_name": "new"
+            },
+            {
+              "name": "new",
+              "js_name": "new"
+            },
+            {
+              "name": "with_default_set",
+              "js_name": "withDefaultSet"
+            },
+            {
+              "name": "add_position",
+              "js_name": "addPosition"
+            },
+            {
+              "name": "netting_set_id",
+              "js_name": "netting_set_id"
+            },
+            {
+              "name": "netting_set_id",
+              "js_name": "nettingSetId"
+            },
+            {
+              "name": "as_of",
+              "js_name": "asOf"
+            },
+            {
+              "name": "initial_margin",
+              "js_name": "initialMargin"
+            },
+            {
+              "name": "variation_margin",
+              "js_name": "variationMargin"
+            },
+            {
+              "name": "total_margin",
+              "js_name": "totalMargin"
+            },
+            {
+              "name": "position_count",
+              "js_name": "positionCount"
+            },
+            {
+              "name": "im_methodology",
+              "js_name": "imMethodology"
+            },
+            {
+              "name": "sensitivities",
+              "js_name": "sensitivities"
+            },
+            {
+              "name": "im_breakdown",
+              "js_name": "imBreakdown"
+            },
+            {
+              "name": "is_cleared",
+              "js_name": "isCleared"
+            },
+            {
+              "name": "as_of",
+              "js_name": "as_of"
+            },
+            {
+              "name": "as_of",
+              "js_name": "asOf"
+            },
+            {
+              "name": "base_currency",
+              "js_name": "baseCurrency"
+            },
+            {
+              "name": "total_initial_margin",
+              "js_name": "totalInitialMargin"
+            },
+            {
+              "name": "total_variation_margin",
+              "js_name": "totalVariationMargin"
+            },
+            {
+              "name": "total_margin",
+              "js_name": "totalMargin"
+            },
+            {
+              "name": "by_netting_set",
+              "js_name": "byNettingSet"
+            },
+            {
+              "name": "total_positions",
+              "js_name": "totalPositions"
+            },
+            {
+              "name": "positions_without_margin",
+              "js_name": "positionsWithoutMargin"
+            },
+            {
+              "name": "cleared_bilateral_split",
+              "js_name": "clearedBilateralSplit"
+            },
+            {
+              "name": "new",
+              "js_name": "new"
+            },
+            {
+              "name": "new",
+              "js_name": "new"
+            },
+            {
+              "name": "from_portfolio",
+              "js_name": "fromPortfolio"
+            },
+            {
+              "name": "add_position",
+              "js_name": "addPosition"
+            }
+          ]
+        },
         "portfolio.types": {
           "path": "portfolio/types.rs",
           "classes": [
@@ -12840,6 +14863,102 @@
             }
           ]
         },
+        "portfolio.cashflows": {
+          "path": "portfolio/cashflows.rs",
+          "classes": [
+            {
+              "name": "PortfolioCashflows",
+              "js_name": "PortfolioCashflows",
+              "methods": [
+                {
+                  "name": "by_date",
+                  "is_static": false,
+                  "is_constructor": false,
+                  "is_getter": true,
+                  "js_name": "byDate"
+                },
+                {
+                  "name": "by_date",
+                  "is_static": false,
+                  "is_constructor": false,
+                  "is_getter": false,
+                  "js_name": "by_date"
+                },
+                {
+                  "name": "by_position",
+                  "is_static": false,
+                  "is_constructor": false,
+                  "is_getter": true,
+                  "js_name": "byPosition"
+                },
+                {
+                  "name": "by_position",
+                  "is_static": false,
+                  "is_constructor": false,
+                  "is_getter": false,
+                  "js_name": "by_position"
+                }
+              ],
+              "properties": [
+                "by_date",
+                "by_position"
+              ]
+            },
+            {
+              "name": "PortfolioCashflowBuckets",
+              "js_name": "PortfolioCashflowBuckets",
+              "methods": [
+                {
+                  "name": "by_period",
+                  "is_static": false,
+                  "is_constructor": false,
+                  "is_getter": true,
+                  "js_name": "byPeriod"
+                },
+                {
+                  "name": "by_period",
+                  "is_static": false,
+                  "is_constructor": false,
+                  "is_getter": false,
+                  "js_name": "by_period"
+                }
+              ],
+              "properties": [
+                "by_period"
+              ]
+            }
+          ],
+          "functions": [
+            {
+              "name": "by_date",
+              "js_name": "byDate"
+            },
+            {
+              "name": "by_position",
+              "js_name": "byPosition"
+            },
+            {
+              "name": "by_period",
+              "js_name": "by_period"
+            },
+            {
+              "name": "by_period",
+              "js_name": "byPeriod"
+            },
+            {
+              "name": "js_aggregate_cashflows",
+              "js_name": "aggregateCashflows"
+            },
+            {
+              "name": "js_collapse_cashflows_to_base_by_date",
+              "js_name": "collapseCashflowsToBaseByDate"
+            },
+            {
+              "name": "js_cashflows_to_base_by_period",
+              "js_name": "cashflowsToBaseByPeriod"
+            }
+          ]
+        },
         "portfolio.results": {
           "path": "portfolio/results.rs",
           "classes": [
@@ -13261,6 +15380,10 @@
             {
               "name": "js_aggregate_metrics",
               "js_name": "aggregateMetrics"
+            },
+            {
+              "name": "js_is_summable",
+              "js_name": "isSummable"
             }
           ]
         },
@@ -13772,6 +15895,12 @@
           "path": "portfolio/valuation.rs",
           "classes": [
             {
+              "name": "PortfolioValuationOptions",
+              "js_name": "PortfolioValuationOptions",
+              "methods": [],
+              "properties": []
+            },
+            {
               "name": "PositionValue",
               "js_name": "PositionValue",
               "methods": [
@@ -13994,6 +16123,18 @@
           ],
           "functions": [
             {
+              "name": "new",
+              "js_name": "new"
+            },
+            {
+              "name": "new",
+              "js_name": "new"
+            },
+            {
+              "name": "strict_risk",
+              "js_name": "strictRisk"
+            },
+            {
               "name": "position_id",
               "js_name": "positionId"
             },
@@ -14052,23 +16193,206 @@
             {
               "name": "js_value_portfolio",
               "js_name": "valuePortfolio"
+            },
+            {
+              "name": "js_value_portfolio_with_options",
+              "js_name": "valuePortfolioWithOptions"
+            }
+          ]
+        },
+        "portfolio.attribution": {
+          "path": "portfolio/attribution.rs",
+          "classes": [
+            {
+              "name": "PnlAttribution",
+              "js_name": "PnlAttribution",
+              "methods": [],
+              "properties": []
+            },
+            {
+              "name": "PortfolioAttribution",
+              "js_name": "PortfolioAttribution",
+              "methods": [],
+              "properties": []
+            }
+          ],
+          "functions": [
+            {
+              "name": "total_pnl",
+              "js_name": "total_pnl"
+            },
+            {
+              "name": "total_pnl",
+              "js_name": "totalPnl"
+            },
+            {
+              "name": "carry",
+              "js_name": "carry"
+            },
+            {
+              "name": "rates_curves_pnl",
+              "js_name": "ratesCurvesPnl"
+            },
+            {
+              "name": "credit_curves_pnl",
+              "js_name": "creditCurvesPnl"
+            },
+            {
+              "name": "inflation_curves_pnl",
+              "js_name": "inflationCurvesPnl"
+            },
+            {
+              "name": "correlations_pnl",
+              "js_name": "correlationsPnl"
+            },
+            {
+              "name": "fx_pnl",
+              "js_name": "fxPnl"
+            },
+            {
+              "name": "vol_pnl",
+              "js_name": "volPnl"
+            },
+            {
+              "name": "model_params_pnl",
+              "js_name": "modelParamsPnl"
+            },
+            {
+              "name": "market_scalars_pnl",
+              "js_name": "marketScalarsPnl"
+            },
+            {
+              "name": "residual",
+              "js_name": "residual"
+            },
+            {
+              "name": "rates_detail",
+              "js_name": "ratesDetail"
+            },
+            {
+              "name": "credit_detail",
+              "js_name": "creditDetail"
+            },
+            {
+              "name": "inflation_detail",
+              "js_name": "inflationDetail"
+            },
+            {
+              "name": "correlations_detail",
+              "js_name": "correlationsDetail"
+            },
+            {
+              "name": "fx_detail",
+              "js_name": "fxDetail"
+            },
+            {
+              "name": "vol_detail",
+              "js_name": "volDetail"
+            },
+            {
+              "name": "scalars_detail",
+              "js_name": "scalarsDetail"
+            },
+            {
+              "name": "to_csv",
+              "js_name": "toCsv"
+            },
+            {
+              "name": "explain",
+              "js_name": "explain"
+            },
+            {
+              "name": "fx_translation_pnl",
+              "js_name": "fx_translation_pnl"
+            },
+            {
+              "name": "fx_translation_pnl",
+              "js_name": "fxTranslationPnl"
+            },
+            {
+              "name": "by_position",
+              "js_name": "byPosition"
+            },
+            {
+              "name": "position_detail_to_csv",
+              "js_name": "positionDetailToCsv"
+            },
+            {
+              "name": "js_attribute_portfolio_pnl",
+              "js_name": "attributePortfolioPnl"
             }
           ]
         }
       },
       "classes": [
+        "NettingSetId",
+        "NettingSet",
+        "NettingSetManager",
+        "NettingSetMargin",
+        "PortfolioMarginResult",
+        "PortfolioMarginAggregator",
         "Entity",
         "PositionUnit",
         "Position",
+        "PortfolioCashflows",
+        "PortfolioCashflowBuckets",
         "PortfolioResults",
         "AggregatedMetric",
         "PortfolioMetrics",
         "Portfolio",
         "PortfolioBuilder",
+        "PortfolioValuationOptions",
         "PositionValue",
-        "PortfolioValuation"
+        "PortfolioValuation",
+        "PnlAttribution",
+        "PortfolioAttribution"
       ],
       "functions": [
+        "optimizeMaxYieldWithCccLimit",
+        "bilateral",
+        "bilateral",
+        "cleared",
+        "counterpartyId",
+        "csaId",
+        "ccpId",
+        "isCleared",
+        "toString",
+        "new",
+        "new",
+        "id",
+        "addPosition",
+        "positionCount",
+        "isCleared",
+        "mergeSensitivities",
+        "new",
+        "new",
+        "withDefaultSet",
+        "addPosition",
+        "netting_set_id",
+        "nettingSetId",
+        "asOf",
+        "initialMargin",
+        "variationMargin",
+        "totalMargin",
+        "positionCount",
+        "imMethodology",
+        "sensitivities",
+        "imBreakdown",
+        "isCleared",
+        "as_of",
+        "asOf",
+        "baseCurrency",
+        "totalInitialMargin",
+        "totalVariationMargin",
+        "totalMargin",
+        "byNettingSet",
+        "totalPositions",
+        "positionsWithoutMargin",
+        "clearedBilateralSplit",
+        "new",
+        "new",
+        "fromPortfolio",
+        "addPosition",
         "new",
         "withName",
         "withTag",
@@ -14099,6 +16423,13 @@
         "createPositionFromBond",
         "groupByAttribute",
         "aggregateByAttribute",
+        "byDate",
+        "byPosition",
+        "by_period",
+        "byPeriod",
+        "aggregateCashflows",
+        "collapseCashflowsToBaseByDate",
+        "cashflowsToBaseByPeriod",
         "new",
         "valuation",
         "metrics",
@@ -14122,6 +16453,7 @@
         "fromJSON",
         "toJSON",
         "aggregateMetrics",
+        "isSummable",
         "new",
         "id",
         "name",
@@ -14148,6 +16480,9 @@
         "tag",
         "meta",
         "build",
+        "new",
+        "new",
+        "strictRisk",
         "positionId",
         "entityId",
         "valueNative",
@@ -14162,7 +16497,34 @@
         "getEntityValue",
         "fromJSON",
         "toJSON",
-        "valuePortfolio"
+        "valuePortfolio",
+        "valuePortfolioWithOptions",
+        "total_pnl",
+        "totalPnl",
+        "carry",
+        "ratesCurvesPnl",
+        "creditCurvesPnl",
+        "inflationCurvesPnl",
+        "correlationsPnl",
+        "fxPnl",
+        "volPnl",
+        "modelParamsPnl",
+        "marketScalarsPnl",
+        "residual",
+        "ratesDetail",
+        "creditDetail",
+        "inflationDetail",
+        "correlationsDetail",
+        "fxDetail",
+        "volDetail",
+        "scalarsDetail",
+        "toCsv",
+        "explain",
+        "fx_translation_pnl",
+        "fxTranslationPnl",
+        "byPosition",
+        "positionDetailToCsv",
+        "attributePortfolioPnl"
       ]
     }
   },
@@ -14174,8 +16536,6 @@
       "RoundingMode",
       "MetricId",
       "MetricRegistry",
-      "cs01Ladder",
-      "krdDv01Ladder",
       "applyAndRevalue",
       "applyScenario"
     ],

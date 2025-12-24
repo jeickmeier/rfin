@@ -9,7 +9,7 @@ use finstack_valuations::instruments::structured_credit::prelude::*;
 
 // Create a CLO
 let clo = StructuredCredit::new_clo(
-    "MY_CLO", pool, tranches, waterfall,
+    "MY_CLO", pool, tranches,
     closing_date, legal_maturity, "USD-OIS",
 );
 
@@ -134,7 +134,7 @@ Pool Cashflows → Fees → Senior Interest → Subordinate Interest → Princip
 use finstack_valuations::instruments::structured_credit::prelude::*;
 
 // With defaults
-let clo = StructuredCredit::new_clo(id, pool, tranches, waterfall, close, maturity, curve);
+let clo = StructuredCredit::new_clo(id, pool, tranches, close, maturity, curve);
 let abs = StructuredCredit::new_abs(...);
 let cmbs = StructuredCredit::new_cmbs(...);
 let rmbs = StructuredCredit::new_rmbs(...);

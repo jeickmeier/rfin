@@ -7,7 +7,7 @@ use finstack_core::dates::{Date, Tenor};
 use finstack_core::money::Money;
 use finstack_valuations::instruments::structured_credit::{
     DealType, Pool, PoolAsset, PrepaymentCurve, Seniority, StructuredCredit, Tranche,
-    TrancheCoupon, TrancheStructure, Waterfall,
+    TrancheCoupon, TrancheStructure,
 };
 use time::Month;
 
@@ -41,10 +41,6 @@ fn create_minimal_tranches() -> TrancheStructure {
     TrancheStructure::new(vec![tranche]).unwrap()
 }
 
-fn create_minimal_waterfall() -> Waterfall {
-    Waterfall::new(Currency::USD)
-}
-
 // ============================================================================
 // CLO-specific Tests
 // ============================================================================
@@ -56,7 +52,6 @@ fn test_clo_default_payment_frequency() {
         "TEST_CLO",
         create_minimal_pool(DealType::CLO),
         create_minimal_tranches(),
-        create_minimal_waterfall(),
         Date::from_calendar_date(2024, Month::January, 1).unwrap(),
         maturity_date(),
         "USD-OIS",
@@ -73,7 +68,6 @@ fn test_clo_default_prepayment_model() {
         "TEST_CLO",
         create_minimal_pool(DealType::CLO),
         create_minimal_tranches(),
-        create_minimal_waterfall(),
         Date::from_calendar_date(2024, Month::January, 1).unwrap(),
         maturity_date(),
         "USD-OIS",
@@ -94,7 +88,6 @@ fn test_clo_default_assumptions() {
         "TEST_CLO",
         create_minimal_pool(DealType::CLO),
         create_minimal_tranches(),
-        create_minimal_waterfall(),
         Date::from_calendar_date(2024, Month::January, 1).unwrap(),
         maturity_date(),
         "USD-OIS",
@@ -117,7 +110,6 @@ fn test_abs_default_payment_frequency() {
         "TEST_ABS",
         create_minimal_pool(DealType::ABS),
         create_minimal_tranches(),
-        create_minimal_waterfall(),
         Date::from_calendar_date(2024, Month::January, 1).unwrap(),
         maturity_date(),
         "USD-OIS",
@@ -134,7 +126,6 @@ fn test_abs_default_assumptions() {
         "TEST_ABS",
         create_minimal_pool(DealType::ABS),
         create_minimal_tranches(),
-        create_minimal_waterfall(),
         Date::from_calendar_date(2024, Month::January, 1).unwrap(),
         maturity_date(),
         "USD-OIS",
@@ -157,7 +148,6 @@ fn test_rmbs_default_payment_frequency() {
         "TEST_RMBS",
         create_minimal_pool(DealType::RMBS),
         create_minimal_tranches(),
-        create_minimal_waterfall(),
         Date::from_calendar_date(2024, Month::January, 1).unwrap(),
         maturity_date(),
         "USD-OIS",
@@ -174,7 +164,6 @@ fn test_rmbs_default_prepayment_model() {
         "TEST_RMBS",
         create_minimal_pool(DealType::RMBS),
         create_minimal_tranches(),
-        create_minimal_waterfall(),
         Date::from_calendar_date(2024, Month::January, 1).unwrap(),
         maturity_date(),
         "USD-OIS",
@@ -197,7 +186,6 @@ fn test_rmbs_default_assumptions() {
         "TEST_RMBS",
         create_minimal_pool(DealType::RMBS),
         create_minimal_tranches(),
-        create_minimal_waterfall(),
         Date::from_calendar_date(2024, Month::January, 1).unwrap(),
         maturity_date(),
         "USD-OIS",
@@ -217,7 +205,6 @@ fn test_rmbs_default_credit_factors() {
         "TEST_RMBS",
         create_minimal_pool(DealType::RMBS),
         create_minimal_tranches(),
-        create_minimal_waterfall(),
         Date::from_calendar_date(2024, Month::January, 1).unwrap(),
         maturity_date(),
         "USD-OIS",
@@ -238,7 +225,6 @@ fn test_cmbs_default_payment_frequency() {
         "TEST_CMBS",
         create_minimal_pool(DealType::CMBS),
         create_minimal_tranches(),
-        create_minimal_waterfall(),
         Date::from_calendar_date(2024, Month::January, 1).unwrap(),
         maturity_date(),
         "USD-OIS",
@@ -255,7 +241,6 @@ fn test_cmbs_default_assumptions() {
         "TEST_CMBS",
         create_minimal_pool(DealType::CMBS),
         create_minimal_tranches(),
-        create_minimal_waterfall(),
         Date::from_calendar_date(2024, Month::January, 1).unwrap(),
         maturity_date(),
         "USD-OIS",
@@ -278,7 +263,6 @@ fn test_all_deal_types_have_correct_classification() {
         "CLO",
         create_minimal_pool(DealType::CLO),
         create_minimal_tranches(),
-        create_minimal_waterfall(),
         Date::from_calendar_date(2024, Month::January, 1).unwrap(),
         maturity_date(),
         "USD-OIS",
@@ -288,7 +272,6 @@ fn test_all_deal_types_have_correct_classification() {
         "ABS",
         create_minimal_pool(DealType::ABS),
         create_minimal_tranches(),
-        create_minimal_waterfall(),
         Date::from_calendar_date(2024, Month::January, 1).unwrap(),
         maturity_date(),
         "USD-OIS",
@@ -298,7 +281,6 @@ fn test_all_deal_types_have_correct_classification() {
         "RMBS",
         create_minimal_pool(DealType::RMBS),
         create_minimal_tranches(),
-        create_minimal_waterfall(),
         Date::from_calendar_date(2024, Month::January, 1).unwrap(),
         maturity_date(),
         "USD-OIS",
@@ -308,7 +290,6 @@ fn test_all_deal_types_have_correct_classification() {
         "CMBS",
         create_minimal_pool(DealType::CMBS),
         create_minimal_tranches(),
-        create_minimal_waterfall(),
         Date::from_calendar_date(2024, Month::January, 1).unwrap(),
         maturity_date(),
         "USD-OIS",

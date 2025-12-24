@@ -372,7 +372,6 @@ fn test_bloomberg_usd_ois_calibration_accuracy() {
         pricing_forward_id: None,
         conventions: finstack_valuations::calibration::api::schema::RatesStepConventions {
             curve_day_count: Some(DayCount::Act365F),
-            ..Default::default()
         },
     };
     let step = StepParams::Discount(params);

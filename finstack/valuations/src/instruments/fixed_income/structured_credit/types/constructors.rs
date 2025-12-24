@@ -4,10 +4,9 @@
 //! appropriate defaults for ABS, CLO, CMBS, and RMBS instruments.
 
 use super::{
-    AllocationMode, AssetPool, BehaviorOverrides, CreditFactors, DealMetadata, DealType,
-    DefaultModelSpec, MarketConditions, PaymentType, PrepaymentModelSpec, Recipient,
-    RecoveryModelSpec, StructuredCredit, Tranche, TrancheCoupon, TrancheSeniority,
-    TrancheStructure, Waterfall, WaterfallTier,
+    AssetPool, CreditFactors, DealType, DefaultModelSpec, MarketConditions, Metadata, Overrides,
+    PrepaymentModelSpec, RecoveryModelSpec, StructuredCredit, Tranche, TrancheCoupon,
+    TrancheSeniority, TrancheStructure,
 };
 use crate::instruments::structured_credit::types::setup::DefaultAssumptions;
 use finstack_core::dates::{Date, Tenor};
@@ -24,8 +23,8 @@ pub(super) struct DealConfig {
     pub default_spec: DefaultModelSpec,
     pub recovery_spec: RecoveryModelSpec,
     pub credit_factors: CreditFactors,
-    pub deal_metadata: DealMetadata,
-    pub behavior_overrides: BehaviorOverrides,
+    pub deal_metadata: Metadata,
+    pub behavior_overrides: Overrides,
 }
 
 /// Core instrument parameters shared across constructors
@@ -55,7 +54,6 @@ impl StructuredCredit {
     ///     DealType::CLO,
     ///     base.pool.clone(),
     ///     base.tranches.clone(),
-    ///     base.create_waterfall(),
     ///     base.closing_date,
     ///     base.legal_maturity,
     ///     base.discount_curve_id.as_str(),
@@ -70,7 +68,6 @@ impl StructuredCredit {
         deal_type: DealType,
         pool: AssetPool,
         tranches: TrancheStructure,
-        waterfall: Waterfall,
         closing_date: Date,
         legal_maturity: Date,
         discount_curve_id: impl Into<String>,
@@ -80,7 +77,6 @@ impl StructuredCredit {
                 id,
                 pool,
                 tranches,
-                waterfall,
                 closing_date,
                 legal_maturity,
                 discount_curve_id,
@@ -89,7 +85,6 @@ impl StructuredCredit {
                 id,
                 pool,
                 tranches,
-                waterfall,
                 closing_date,
                 legal_maturity,
                 discount_curve_id,
@@ -98,7 +93,6 @@ impl StructuredCredit {
                 id,
                 pool,
                 tranches,
-                waterfall,
                 closing_date,
                 legal_maturity,
                 discount_curve_id,
@@ -107,7 +101,6 @@ impl StructuredCredit {
                 id,
                 pool,
                 tranches,
-                waterfall,
                 closing_date,
                 legal_maturity,
                 discount_curve_id,
@@ -116,7 +109,6 @@ impl StructuredCredit {
                 id,
                 pool,
                 tranches,
-                waterfall,
                 closing_date,
                 legal_maturity,
                 discount_curve_id,
@@ -151,18 +143,6 @@ impl StructuredCredit {
         )
         .expect("Tranche build should not fail");
         let tranches = TrancheStructure::new(vec![tranche]).expect("TrancheStructure should build");
-        // Build a simple 2-tier waterfall: pay interest then principal to the tranche
-        let waterfall = Waterfall::new(Currency::USD)
-            .add_tier(
-                WaterfallTier::new("Tier1-Interest", 1, PaymentType::Interest)
-                    .allocation_mode(AllocationMode::Sequential)
-                    .add_recipient(Recipient::tranche_interest("A-INT", "CLONOTES-A")),
-            )
-            .add_tier(
-                WaterfallTier::new("Tier2-Principal", 2, PaymentType::Principal)
-                    .allocation_mode(AllocationMode::Sequential)
-                    .add_recipient(Recipient::tranche_principal("A-PRIN", "CLONOTES-A", None)),
-            );
         let closing =
             Date::from_calendar_date(2024, Month::January, 1).expect("Valid example date");
         let legal = Date::from_calendar_date(2034, Month::January, 1).expect("Valid example date");
@@ -170,7 +150,6 @@ impl StructuredCredit {
             "CLO-EXAMPLE",
             pool,
             tranches,
-            waterfall,
             closing,
             legal,
             "USD-OIS",
@@ -220,14 +199,10 @@ impl StructuredCredit {
 
     /// Create a new ABS instrument from its building blocks.
     ///
-    /// Note: The waterfall parameter is accepted for backward compatibility but ignored.
-    /// Waterfall is now created dynamically based on deal type.
-    #[allow(unused_variables)]
     pub fn new_abs(
         id: impl Into<String>,
         pool: AssetPool,
         tranches: TrancheStructure,
-        waterfall: Waterfall,
         closing_date: Date,
         legal_maturity: Date,
         discount_curve_id: impl Into<String>,
@@ -250,8 +225,8 @@ impl StructuredCredit {
                 default_spec: DefaultModelSpec::constant_cdr(0.015),      // Consumer standard
                 recovery_spec: RecoveryModelSpec::with_lag(0.70, 12),     // Collateral-backed
                 credit_factors: CreditFactors::default(),
-                deal_metadata: DealMetadata::default(),
-                behavior_overrides: BehaviorOverrides::default(),
+                deal_metadata: Metadata::default(),
+                behavior_overrides: Overrides::default(),
             },
             closing_date,
         );
@@ -261,14 +236,10 @@ impl StructuredCredit {
 
     /// Create a new CLO instrument from its building blocks.
     ///
-    /// Note: The waterfall parameter is accepted for backward compatibility but ignored.
-    /// Waterfall is now created dynamically based on deal type.
-    #[allow(unused_variables)]
     pub fn new_clo(
         id: impl Into<String>,
         pool: AssetPool,
         tranches: TrancheStructure,
-        waterfall: Waterfall,
         closing_date: Date,
         legal_maturity: Date,
         discount_curve_id: impl Into<String>,
@@ -291,8 +262,8 @@ impl StructuredCredit {
                 default_spec: DefaultModelSpec::constant_cdr(0.025), // Corporate standard
                 recovery_spec: RecoveryModelSpec::with_lag(0.40, 18), // Corporate unsecured
                 credit_factors: CreditFactors::default(),
-                deal_metadata: DealMetadata::default(),
-                behavior_overrides: BehaviorOverrides::default(),
+                deal_metadata: Metadata::default(),
+                behavior_overrides: Overrides::default(),
             },
             closing_date,
         );
@@ -302,14 +273,10 @@ impl StructuredCredit {
 
     /// Create a new CMBS instrument from its building blocks.
     ///
-    /// Note: The waterfall parameter is accepted for backward compatibility but ignored.
-    /// Waterfall is now created dynamically based on deal type.
-    #[allow(unused_variables)]
     pub fn new_cmbs(
         id: impl Into<String>,
         pool: AssetPool,
         tranches: TrancheStructure,
-        waterfall: Waterfall,
         closing_date: Date,
         legal_maturity: Date,
         discount_curve_id: impl Into<String>,
@@ -332,8 +299,8 @@ impl StructuredCredit {
                 default_spec: DefaultModelSpec::constant_cdr(0.01),       // Commercial real estate
                 recovery_spec: RecoveryModelSpec::with_lag(0.60, 24),     // Commercial collateral
                 credit_factors: CreditFactors::default(),
-                deal_metadata: DealMetadata::default(),
-                behavior_overrides: BehaviorOverrides::default(),
+                deal_metadata: Metadata::default(),
+                behavior_overrides: Overrides::default(),
             },
             closing_date,
         );
@@ -343,14 +310,10 @@ impl StructuredCredit {
 
     /// Create a new RMBS instrument from its building blocks.
     ///
-    /// Note: The waterfall parameter is accepted for backward compatibility but ignored.
-    /// Waterfall is now created dynamically based on deal type.
-    #[allow(unused_variables)]
     pub fn new_rmbs(
         id: impl Into<String>,
         pool: AssetPool,
         tranches: TrancheStructure,
-        waterfall: Waterfall,
         closing_date: Date,
         legal_maturity: Date,
         discount_curve_id: impl Into<String>,
@@ -376,8 +339,8 @@ impl StructuredCredit {
                     ltv: Some(0.80),
                     ..Default::default()
                 },
-                deal_metadata: DealMetadata::default(),
-                behavior_overrides: BehaviorOverrides::default(),
+                deal_metadata: Metadata::default(),
+                behavior_overrides: Overrides::default(),
             },
             closing_date,
         );

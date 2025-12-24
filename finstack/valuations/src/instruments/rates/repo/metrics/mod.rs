@@ -36,14 +36,8 @@ pub fn register_repo_metrics(registry: &mut MetricRegistry) {
     use crate::pricer::InstrumentType;
     use std::sync::Arc;
 
-    // Shared calculator for AccruedInterest and Accrued aliases
     let accrued_calc: Arc<dyn MetricCalculator> =
         Arc::new(accrued_interest::AccruedInterestCalculator);
-    registry.register_metric(
-        MetricId::AccruedInterest,
-        Arc::clone(&accrued_calc),
-        &[InstrumentType::Repo],
-    );
     registry.register_metric(MetricId::Accrued, accrued_calc, &[InstrumentType::Repo]);
 
     // Repo-specific risk metrics (custom metrics)

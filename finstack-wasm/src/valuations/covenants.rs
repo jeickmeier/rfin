@@ -119,10 +119,7 @@ impl JsCovenantForecastConfig {
         seed: Option<u64>,
         antithetic: bool,
     ) -> JsCovenantForecastConfig {
-        let mc = antithetic.then_some(ValMcConfig {
-            seed: 0,
-            antithetic: true,
-        });
+        let mc = antithetic.then_some(ValMcConfig { antithetic: true });
         let cfg = ValCovForecastConfig {
             stochastic,
             num_paths,

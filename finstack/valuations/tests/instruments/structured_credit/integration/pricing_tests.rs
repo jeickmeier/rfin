@@ -10,8 +10,8 @@ use finstack_core::money::Money;
 use finstack_valuations::cashflow::traits::CashflowProvider;
 use finstack_valuations::instruments::common::traits::Instrument;
 use finstack_valuations::instruments::structured_credit::{
-    DealType, PaymentCalculation, Pool, PoolAsset, Recipient, RecipientType, Seniority,
-    StructuredCredit, Tranche, TrancheCoupon, TrancheStructure, TrancheValuationExt, Waterfall,
+    DealType, Pool, PoolAsset, Seniority, StructuredCredit, Tranche, TrancheCoupon,
+    TrancheStructure, TrancheValuationExt,
 };
 use finstack_valuations::metrics::MetricId;
 use time::Month;
@@ -57,20 +57,6 @@ fn create_simple_tranches() -> TrancheStructure {
     TrancheStructure::new(vec![senior]).unwrap()
 }
 
-fn create_simple_waterfall() -> Waterfall {
-    let fees = vec![Recipient::new(
-        "trustee",
-        RecipientType::ServiceProvider("Trustee".to_string()),
-        PaymentCalculation::FixedAmount {
-            rounding: None,
-            amount: Money::new(10_000.0, Currency::USD),
-        },
-    )];
-
-    let tranches = create_simple_tranches();
-    Waterfall::standard_sequential(Currency::USD, &tranches, fees)
-}
-
 fn flat_discount_curve(rate: f64, base: Date) -> DiscountCurve {
     DiscountCurve::builder("USD-OIS")
         .base_date(base)
@@ -94,7 +80,6 @@ fn test_structured_credit_value_computation() {
         "TEST_ABS",
         create_simple_pool(),
         create_simple_tranches(),
-        create_simple_waterfall(),
         Date::from_calendar_date(2024, Month::January, 1).unwrap(),
         maturity_date(),
         "USD-OIS",
@@ -119,7 +104,6 @@ fn test_structured_credit_dirty_price() {
         "TEST_ABS",
         create_simple_pool(),
         create_simple_tranches(),
-        create_simple_waterfall(),
         Date::from_calendar_date(2024, Month::January, 1).unwrap(),
         maturity_date(),
         "USD-OIS",
@@ -150,7 +134,6 @@ fn test_structured_credit_clean_price() {
         "TEST_ABS",
         create_simple_pool(),
         create_simple_tranches(),
-        create_simple_waterfall(),
         Date::from_calendar_date(2024, Month::January, 1).unwrap(),
         maturity_date(),
         "USD-OIS",
@@ -192,7 +175,6 @@ fn test_structured_credit_tranche_cashflows_generated() {
         "TEST_ABS",
         create_simple_pool(),
         create_simple_tranches(),
-        create_simple_waterfall(),
         Date::from_calendar_date(2024, Month::January, 1).unwrap(),
         maturity_date(),
         "USD-OIS",
@@ -214,7 +196,6 @@ fn test_structured_credit_tranche_value_computation() {
         "TEST_ABS",
         create_simple_pool(),
         create_simple_tranches(),
-        create_simple_waterfall(),
         Date::from_calendar_date(2024, Month::January, 1).unwrap(),
         maturity_date(),
         "USD-OIS",
@@ -241,7 +222,6 @@ fn test_structured_credit_full_metric_suite() {
         "TEST_CLO",
         create_simple_pool(),
         create_simple_tranches(),
-        create_simple_waterfall(),
         Date::from_calendar_date(2024, Month::January, 1).unwrap(),
         maturity_date(),
         "USD-OIS",
@@ -294,7 +274,6 @@ fn test_structured_credit_empty_metrics_request() {
         "TEST_CLO",
         create_simple_pool(),
         create_simple_tranches(),
-        create_simple_waterfall(),
         Date::from_calendar_date(2024, Month::January, 1).unwrap(),
         maturity_date(),
         "USD-OIS",
@@ -319,7 +298,6 @@ fn test_structured_credit_metric_dependency_resolution() {
         "TEST_ABS",
         create_simple_pool(),
         create_simple_tranches(),
-        create_simple_waterfall(),
         Date::from_calendar_date(2024, Month::January, 1).unwrap(),
         maturity_date(),
         "USD-OIS",
@@ -354,13 +332,10 @@ fn test_structured_credit_pool_balance_cleanup() {
     ));
 
     let tranches = create_simple_tranches();
-    let waterfall = create_simple_waterfall();
-
     let sc = StructuredCredit::new_abs(
         "SMALL_ABS",
         pool,
         tranches,
-        waterfall,
         Date::from_calendar_date(2024, Month::January, 1).unwrap(),
         maturity_date(),
         "USD-OIS",

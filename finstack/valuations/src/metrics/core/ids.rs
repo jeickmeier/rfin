@@ -181,9 +181,6 @@ impl MetricId {
     /// Accrued interest since last coupon payment
     pub const Accrued: Self = Self(Cow::Borrowed("accrued"));
 
-    /// Accrued interest (alias of `accrued` for compatibility) - TODO: Remove this
-    pub const AccruedInterest: Self = Self(Cow::Borrowed("accrued_interest"));
-
     /// Yield to maturity
     pub const Ytm: Self = Self(Cow::Borrowed("ytm"));
 
@@ -726,7 +723,6 @@ impl MetricId {
         MetricId::DirtyPrice,
         MetricId::CleanPrice,
         MetricId::Accrued,
-        MetricId::AccruedInterest,
         MetricId::Ytm,
         MetricId::Ytw,
         MetricId::DurationMac,

@@ -1,16 +1,13 @@
 use super::validation::PyValidationConfig;
 use crate::core::common::{labels::normalize_label, pycmp::richcmp_eq_ne};
-use crate::errors::core_to_py;
 use finstack_core::explain::ExplainOpts;
-use finstack_core::market_data::term_structures::Seniority;
 use finstack_valuations::calibration::{
-    CalibrationConfig, CalibrationSolveMethod, MultiCurveConfig, RateBounds, SolverConfig,
-    ValidationMode,
+    CalibrationConfig, CalibrationSolveMethod, RateBounds, SolverConfig, ValidationMode,
 };
 use pyo3::basic::CompareOp;
-use pyo3::exceptions::{PyKeyError, PyValueError};
+use pyo3::exceptions::PyKeyError;
 use pyo3::prelude::*;
-use pyo3::types::{PyDict, PyModule, PyType};
+use pyo3::types::{PyModule, PyType};
 use pyo3::Bound;
 
 #[pyclass(
@@ -32,7 +29,6 @@ impl PySolverKind {
         match self.inner {
             SolverConfig::Newton { .. } => 0,
             SolverConfig::Brent { .. } => 1,
-            SolverConfig::GlobalNewton { .. } => 2,
         }
     }
 }
@@ -49,11 +45,6 @@ impl PySolverKind {
     fn brent_attr() -> Self {
         Self::new(SolverConfig::brent_default())
     }
-    #[classattr]
-    #[pyo3(name = "GLOBAL_NEWTON")]
-    fn global_newton_attr() -> Self {
-        Self::new(SolverConfig::global_newton_default())
-    }
 
     #[classmethod]
     #[pyo3(text_signature = "(cls, name)")]
@@ -61,9 +52,6 @@ impl PySolverKind {
         match normalize_label(name).as_str() {
             "newton" => Ok(Self::new(SolverConfig::newton_default())),
             "brent" => Ok(Self::new(SolverConfig::brent_default())),
-            "global_newton" | "levenberg_marquardt" | "levenbergmarquardt" => {
-                Ok(Self::new(SolverConfig::global_newton_default()))
-            }
             other => Err(PyKeyError::new_err(format!("Unknown solver kind: {other}"))),
         }
     }
@@ -73,7 +61,6 @@ impl PySolverKind {
         match self.inner {
             SolverConfig::Newton { .. } => "newton",
             SolverConfig::Brent { .. } => "brent",
-            SolverConfig::GlobalNewton { .. } => "global_newton",
         }
     }
 
@@ -323,6 +310,7 @@ impl PyRateBounds {
     #[new]
     #[pyo3(text_signature = "(min_rate=-0.02, max_rate=0.50)")]
     fn ctor(min_rate: Option<f64>, max_rate: Option<f64>) -> PyResult<Self> {
+        use crate::errors::core_to_py;
         let mut inner = RateBounds::default();
         if let Some(v) = min_rate {
             inner.min_rate = v;
@@ -372,73 +360,6 @@ impl PyRateBounds {
 
 #[pyclass(
     module = "finstack.valuations.calibration",
-    name = "MultiCurveConfig",
-    frozen
-)]
-#[derive(Clone, Debug)]
-pub struct PyMultiCurveConfig {
-    pub(crate) inner: MultiCurveConfig,
-}
-
-impl PyMultiCurveConfig {
-    pub(crate) fn new(inner: MultiCurveConfig) -> Self {
-        Self { inner }
-    }
-}
-
-#[pymethods]
-impl PyMultiCurveConfig {
-    #[new]
-    #[pyo3(text_signature = "(calibrate_basis=True, enforce_separation=True)")]
-    fn ctor(calibrate_basis: Option<bool>, enforce_separation: Option<bool>) -> Self {
-        let mut inner = MultiCurveConfig::default();
-        if let Some(value) = calibrate_basis {
-            inner.calibrate_basis = value;
-        }
-        if let Some(value) = enforce_separation {
-            inner.enforce_separation = value;
-        }
-        Self::new(inner)
-    }
-
-    #[classmethod]
-    #[pyo3(text_signature = "(cls)")]
-    fn new_standard(_cls: &Bound<'_, PyType>) -> Self {
-        Self::new(MultiCurveConfig::default())
-    }
-
-    #[getter]
-    fn calibrate_basis(&self) -> bool {
-        self.inner.calibrate_basis
-    }
-
-    #[getter]
-    fn enforce_separation(&self) -> bool {
-        self.inner.enforce_separation
-    }
-
-    fn with_calibrate_basis(&self, value: bool) -> Self {
-        let mut next = self.inner.clone();
-        next.calibrate_basis = value;
-        Self::new(next)
-    }
-
-    fn with_enforce_separation(&self, value: bool) -> Self {
-        let mut next = self.inner.clone();
-        next.enforce_separation = value;
-        Self::new(next)
-    }
-
-    fn __repr__(&self) -> String {
-        format!(
-            "MultiCurveConfig(calibrate_basis={}, enforce_separation={})",
-            self.inner.calibrate_basis, self.inner.enforce_separation
-        )
-    }
-}
-
-#[pyclass(
-    module = "finstack.valuations.calibration",
     name = "CalibrationConfig",
     frozen
 )]
@@ -451,21 +372,6 @@ impl PyCalibrationConfig {
     pub(crate) fn new(inner: CalibrationConfig) -> Self {
         Self { inner }
     }
-
-    fn map_seniority(dict: Option<Bound<'_, PyDict>>) -> PyResult<Vec<(String, Seniority)>> {
-        let mut entries = Vec::new();
-        if let Some(items) = dict {
-            for (key, value) in items.iter() {
-                let entity = key.extract::<String>()?;
-                let seniority = value.extract::<String>()?;
-                let sen = seniority
-                    .parse()
-                    .map_err(|e: String| PyValueError::new_err(e))?;
-                entries.push((entity, sen));
-            }
-        }
-        Ok(entries)
-    }
 }
 
 #[pymethods]
@@ -476,31 +382,23 @@ impl PyCalibrationConfig {
             tolerance=None,
             max_iterations=None,
             use_parallel=None,
-            random_seed=42,
             verbose=None,
             solver_kind=None,
-            multi_curve=None,
-            entity_seniority=None,
             calibration_method=None,
-            use_fd_sabr_gradients=None,
             validation_mode=None,
             validation=None,
             rate_bounds=None,
             explain=None
         ),
-        text_signature = "(tolerance=None, max_iterations=None, use_parallel=None, random_seed=42, verbose=None, solver_kind=None, multi_curve=None, entity_seniority=None, calibration_method=None, use_fd_sabr_gradients=None, validation_mode=None, validation=None, rate_bounds=None, explain=None)"
+        text_signature = "(tolerance=None, max_iterations=None, use_parallel=None, verbose=None, solver_kind=None, calibration_method=None, validation_mode=None, validation=None, rate_bounds=None, explain=None)"
     )]
     fn ctor(
         tolerance: Option<f64>,
         max_iterations: Option<usize>,
         use_parallel: Option<bool>,
-        random_seed: Option<u64>,
         verbose: Option<bool>,
         solver_kind: Option<PyRef<PySolverKind>>,
-        multi_curve: Option<PyRef<PyMultiCurveConfig>>,
-        entity_seniority: Option<Bound<'_, PyDict>>,
         calibration_method: Option<PyRef<PyCalibrationMethod>>,
-        use_fd_sabr_gradients: Option<bool>,
         validation_mode: Option<PyRef<PyValidationMode>>,
         validation: Option<PyRef<PyValidationConfig>>,
         rate_bounds: Option<PyRef<PyRateBounds>>,
@@ -523,25 +421,11 @@ impl PyCalibrationConfig {
         if let Some(flag) = use_parallel {
             inner.use_parallel = flag;
         }
-        // IMPORTANT:
-        // - Omitted in Python => uses default (random_seed=42) which arrives as Some(42)
-        // - Explicit None in Python => should clear the seed (None), not silently keep default
-        inner.random_seed = random_seed;
         if let Some(flag) = verbose {
             inner.verbose = flag;
         }
-        if let Some(cfg) = multi_curve {
-            inner.multi_curve = cfg.inner.clone();
-        }
-        inner.entity_seniority.clear();
-        for (entity, seniority) in Self::map_seniority(entity_seniority)? {
-            inner.entity_seniority.insert(entity, seniority);
-        }
         if let Some(method) = calibration_method {
             inner.calibration_method = method.inner.clone();
-        }
-        if let Some(flag) = use_fd_sabr_gradients {
-            inner.use_fd_sabr_gradients = flag;
         }
         if let Some(mode) = validation_mode {
             inner.validation_mode = mode.inner.clone();
@@ -556,12 +440,6 @@ impl PyCalibrationConfig {
             inner.explain = ExplainOpts::enabled();
         }
         Ok(Self::new(inner))
-    }
-
-    #[classmethod]
-    #[pyo3(text_signature = "(cls)")]
-    fn multi_curve(_cls: &Bound<'_, PyType>) -> Self {
-        Self::new(CalibrationConfig::multi_curve())
     }
 
     #[getter]
@@ -580,11 +458,6 @@ impl PyCalibrationConfig {
     }
 
     #[getter]
-    fn random_seed(&self) -> Option<u64> {
-        self.inner.random_seed
-    }
-
-    #[getter]
     fn verbose(&self) -> bool {
         self.inner.verbose
     }
@@ -597,16 +470,6 @@ impl PyCalibrationConfig {
     #[getter]
     fn calibration_method(&self) -> PyCalibrationMethod {
         PyCalibrationMethod::new(self.inner.calibration_method.clone())
-    }
-
-    #[getter]
-    fn multi_curve_config(&self) -> PyMultiCurveConfig {
-        PyMultiCurveConfig::new(self.inner.multi_curve.clone())
-    }
-
-    #[getter]
-    fn use_fd_sabr_gradients(&self) -> bool {
-        self.inner.use_fd_sabr_gradients
     }
 
     #[getter]
@@ -629,15 +492,6 @@ impl PyCalibrationConfig {
         self.inner.explain.enabled
     }
 
-    #[getter]
-    fn entity_seniority<'py>(&self, py: Python<'py>) -> PyResult<Bound<'py, PyDict>> {
-        let dict = PyDict::new(py);
-        for (entity, seniority) in self.inner.entity_seniority.iter() {
-            dict.set_item(entity, seniority.to_string())?;
-        }
-        Ok(dict)
-    }
-
     fn with_tolerance(&self, tolerance: f64) -> Self {
         let mut next = self.inner.clone();
         next.solver = next.solver.with_tolerance(tolerance);
@@ -653,12 +507,6 @@ impl PyCalibrationConfig {
     fn with_parallel(&self, flag: bool) -> Self {
         let mut next = self.inner.clone();
         next.use_parallel = flag;
-        Self::new(next)
-    }
-
-    fn with_random_seed(&self, seed: Option<u64>) -> Self {
-        let mut next = self.inner.clone();
-        next.random_seed = seed;
         Self::new(next)
     }
 
@@ -687,18 +535,6 @@ impl PyCalibrationConfig {
         Self::new(next)
     }
 
-    fn with_multi_curve_config(&self, config: PyRef<PyMultiCurveConfig>) -> Self {
-        let mut next = self.inner.clone();
-        next.multi_curve = config.inner.clone();
-        Self::new(next)
-    }
-
-    fn with_use_fd_sabr_gradients(&self, flag: bool) -> Self {
-        let mut next = self.inner.clone();
-        next.use_fd_sabr_gradients = flag;
-        Self::new(next)
-    }
-
     fn with_validation_mode(&self, mode: PyRef<PyValidationMode>) -> Self {
         let mut next = self.inner.clone();
         next.validation_mode = mode.inner.clone();
@@ -723,17 +559,8 @@ impl PyCalibrationConfig {
         Self::new(next)
     }
 
-    fn with_entity_seniority(&self, mapping: Bound<'_, PyDict>) -> PyResult<Self> {
-        let mut next = self.inner.clone();
-        next.entity_seniority.clear();
-        for (entity, seniority) in Self::map_seniority(Some(mapping))? {
-            next.entity_seniority.insert(entity, seniority);
-        }
-        Ok(Self::new(next))
-    }
-
     fn __repr__(&self) -> PyResult<String> {
-        let mut parts = vec![
+        let parts = vec![
             format!("tolerance={}", self.inner.solver.tolerance()),
             format!("max_iterations={}", self.inner.solver.max_iterations()),
             format!("use_parallel={}", self.inner.use_parallel),
@@ -746,7 +573,6 @@ impl PyCalibrationConfig {
                 "calibration_method='{}'",
                 PyCalibrationMethod::new(self.inner.calibration_method.clone()).name()
             ),
-            format!("use_fd_sabr_gradients={}", self.inner.use_fd_sabr_gradients),
             format!(
                 "validation_mode='{}'",
                 PyValidationMode::new(self.inner.validation_mode.clone()).name()
@@ -757,14 +583,6 @@ impl PyCalibrationConfig {
             ),
             format!("explain={}", self.inner.explain.enabled),
         ];
-        match self.inner.random_seed {
-            Some(seed) => parts.push(format!("random_seed={}", seed)),
-            None => parts.push("random_seed=None".to_string()),
-        }
-        parts.push(format!(
-            "multi_curve=MultiCurveConfig(calibrate_basis={}, enforce_separation={})",
-            self.inner.multi_curve.calibrate_basis, self.inner.multi_curve.enforce_separation
-        ));
         Ok(format!("CalibrationConfig({})", parts.join(", ")))
     }
 }
@@ -777,14 +595,12 @@ pub(crate) fn register<'py>(
     module.add_class::<PyCalibrationMethod>()?;
     module.add_class::<PyValidationMode>()?;
     module.add_class::<PyRateBounds>()?;
-    module.add_class::<PyMultiCurveConfig>()?;
     module.add_class::<PyCalibrationConfig>()?;
     Ok(vec![
         "SolverKind",
         "CalibrationMethod",
         "ValidationMode",
         "RateBounds",
-        "MultiCurveConfig",
         "CalibrationConfig",
     ])
 }

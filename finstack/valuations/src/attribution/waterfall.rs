@@ -32,10 +32,6 @@
 //! - Residual is minimal by construction (should be within numeric precision)
 //! - Recommended for risk reporting where sum must equal total
 
-// TODO: Migrate to trait-based extraction (RatesCurvesSnapshot::extract, etc.)
-// instead of deprecated extract_*_curves functions
-#![allow(deprecated)]
-
 use crate::attribution::factors::*;
 use crate::attribution::helpers::*;
 use crate::attribution::types::*;
@@ -376,31 +372,49 @@ impl<'a> WaterfallContext<'a> {
         let market = match factor {
             AttributionFactor::Carry => self.current_market.clone(),
             AttributionFactor::RatesCurves => {
-                let rates_t1 = extract_rates_curves(self.market_t1);
-                restore_rates_curves(&self.current_market, &rates_t1)
+                let rates_t1 = MarketSnapshot::extract(self.market_t1, CurveRestoreFlags::RATES);
+                MarketSnapshot::restore_market(
+                    &self.current_market,
+                    &rates_t1,
+                    CurveRestoreFlags::RATES,
+                )
             }
             AttributionFactor::CreditCurves => {
-                let credit_t1 = extract_credit_curves(self.market_t1);
-                restore_credit_curves(&self.current_market, &credit_t1)
+                let credit_t1 = MarketSnapshot::extract(self.market_t1, CurveRestoreFlags::CREDIT);
+                MarketSnapshot::restore_market(
+                    &self.current_market,
+                    &credit_t1,
+                    CurveRestoreFlags::CREDIT,
+                )
             }
             AttributionFactor::InflationCurves => {
-                let inflation_t1 = extract_inflation_curves(self.market_t1);
-                restore_inflation_curves(&self.current_market, &inflation_t1)
+                let inflation_t1 =
+                    MarketSnapshot::extract(self.market_t1, CurveRestoreFlags::INFLATION);
+                MarketSnapshot::restore_market(
+                    &self.current_market,
+                    &inflation_t1,
+                    CurveRestoreFlags::INFLATION,
+                )
             }
             AttributionFactor::Correlations => {
-                let corr_t1 = extract_correlations(self.market_t1);
-                restore_correlations(&self.current_market, &corr_t1)
+                let corr_t1 =
+                    MarketSnapshot::extract(self.market_t1, CurveRestoreFlags::CORRELATION);
+                MarketSnapshot::restore_market(
+                    &self.current_market,
+                    &corr_t1,
+                    CurveRestoreFlags::CORRELATION,
+                )
             }
             AttributionFactor::Fx => {
                 let fx_t1 = extract_fx(self.market_t1);
                 restore_fx(&self.current_market, fx_t1)
             }
             AttributionFactor::Volatility => {
-                let vol_t1 = extract_volatility(self.market_t1);
+                let vol_t1 = VolatilitySnapshot::extract(self.market_t1);
                 restore_volatility(&self.current_market, &vol_t1)
             }
             AttributionFactor::MarketScalars => {
-                let scalars_t1 = extract_scalars(self.market_t1);
+                let scalars_t1 = ScalarsSnapshot::extract(self.market_t1);
                 restore_scalars(&self.current_market, &scalars_t1)
             }
             AttributionFactor::ModelParameters => unreachable!(),

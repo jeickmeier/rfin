@@ -92,7 +92,6 @@ pub fn register_bond_metrics(registry: &mut crate::metrics::MetricRegistry) {
         instrument: InstrumentType::Bond,
         metrics: [
             (Accrued, AccruedInterestCalculator),
-            (AccruedInterest, AccruedInterestCalculator),
             (DirtyPrice, DirtyPriceCalculator),
             (CleanPrice, CleanPriceCalculator),
             (Ytm, YtmCalculator),

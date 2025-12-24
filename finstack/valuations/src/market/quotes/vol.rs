@@ -82,7 +82,6 @@ pub enum VolQuote {
         expiry: Date,
         /// Underlying swap maturity date
         #[cfg_attr(feature = "ts_export", ts(type = "string"))]
-        #[serde(alias = "tenor")]
         maturity: Date,
         /// Strike rate
         strike: f64,

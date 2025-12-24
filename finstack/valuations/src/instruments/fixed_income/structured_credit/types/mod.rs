@@ -209,11 +209,6 @@ pub struct Overrides {
     pub reinvestment_price: Option<f64>,
 }
 
-/// Legacy type alias for `Metadata` (backward compatibility).
-pub type DealMetadata = Metadata;
-/// Legacy type alias for `Overrides` (backward compatibility).
-pub type BehaviorOverrides = Overrides;
-
 // ============================================================================
 // STRUCTURED CREDIT INSTRUMENT
 // ============================================================================

@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Breaking
+
+- Removed legacy attribution curve helpers and deprecated CDS option constructors.
+- Removed structured credit constructor `waterfall` parameter and `MetricId::AccruedInterest` alias.
+- Removed legacy JSON aliases for swap spreads (`spread`) and swaption maturity (`tenor`).
+
 ### Planned for 0.9.0
 - Reduction of `expect()` and `panic!()` usage across all crates
 - Additional market convention validations
@@ -75,7 +81,7 @@ Major release addressing critical safety issues and market convention compliance
 - Results export uses correct `MetricId` constants (duration, DV01, etc.)
 
 **Deprecated**:
-- `CdsOption::new()` and related panicking constructors (removal in 1.0.0)
+- `CdsOption::new()` and related panicking constructors (removed in 0.8.x)
 - Use `try_new()` variants instead for proper error handling
 
 #### finstack-py (0.8.0)
@@ -106,7 +112,7 @@ Major release addressing critical safety issues and market convention compliance
 **Updated**:
 - All changed APIs include `# Examples` and `# Errors` sections
 - Cross-links between related APIs
-- Migration paths documented in deprecation warnings
+- Migration paths documented in the migration guide and API docs
 
 ### Testing
 
@@ -222,9 +228,7 @@ Starting with 0.8.0, the Finstack workspace follows strict semantic versioning:
 
 1. **Phase 1** (Required): Update metrics to strict mode or opt-in to best-effort
 2. **Phase 2** (Recommended): Fix FX settlement if using multi-currency
-3. **Phase 3** (Optional): Update deprecated constructors (warnings only until 1.0.0)
-
-**Timeline**: Deprecated APIs will be removed in 1.0.0 (Q2 2025)
+3. **Phase 3** (If applicable): Update removed constructors to `try_*` variants
 
 ---
 

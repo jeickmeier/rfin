@@ -16,8 +16,8 @@
 //! 2. **[`MarketSnapshot`]** - Unified container for all curve types
 //! 3. **[`MarketSnapshot::restore_market`]** - Generic restore function that works with any flag combination
 //!
-//! The original `restore_*_curves()` functions are maintained as thin wrappers for
-//! backward compatibility, but internally they delegate to the unified implementation.
+//! The unified API replaces older per-curve restore helpers with a single
+//! `MarketSnapshot::restore_market` entry point.
 //!
 //! # Benefits of the Unified Approach
 //!
@@ -31,21 +31,19 @@
 //! ## Basic: Restore individual curve families
 //!
 //! ```rust
-//! use finstack_valuations::attribution::factors::{
-//!     extract_rates_curves, restore_rates_curves, CurveRestoreFlags, MarketSnapshot
-//! };
+//! use finstack_valuations::attribution::factors::{CurveRestoreFlags, MarketSnapshot};
 //! use finstack_core::market_data::context::MarketContext;
 //!
-//! // Original API (backward compatible)
 //! let market_t0 = MarketContext::new();
 //! // ... populate market_t0 with curves
 //!
-//! let rates_snapshot = extract_rates_curves(&market_t0);
 //! let market_t1 = MarketContext::new(); // market with moved curves
 //! // ... populate market_t1 with shocked curves
 //!
 //! // Restore t0 rates while keeping t1 credit/inflation/correlation curves
-//! let mixed_market = restore_rates_curves(&market_t1, &rates_snapshot);
+//! let rates_snapshot = MarketSnapshot::extract(&market_t0, CurveRestoreFlags::RATES);
+//! let mixed_market =
+//!     MarketSnapshot::restore_market(&market_t1, &rates_snapshot, CurveRestoreFlags::RATES);
 //! ```
 //!
 //! ## Advanced: Restore arbitrary combinations with unified API
@@ -86,9 +84,7 @@
 //! ## P&L Attribution Workflow
 //!
 //! ```rust
-//! use finstack_valuations::attribution::factors::{
-//!     CurveRestoreFlags, MarketSnapshot, extract_rates_curves, extract_credit_curves
-//! };
+//! use finstack_valuations::attribution::factors::{CurveRestoreFlags, MarketSnapshot};
 //! use finstack_core::market_data::context::MarketContext;
 //!
 //! // Start with markets at t0 and t1
@@ -97,26 +93,19 @@
 //! // ... populate both markets
 //!
 //! // Attribute P&L to rates move
-//! let rates_snapshot = extract_rates_curves(&market_t0);
+//! let rates_snapshot = MarketSnapshot::extract(&market_t0, CurveRestoreFlags::RATES);
 //! let market_only_rates_moved = MarketSnapshot::restore_market(
 //!     &market_t1,
-//!     &MarketSnapshot {
-//!         discount_curves: rates_snapshot.discount_curves,
-//!         forward_curves: rates_snapshot.forward_curves,
-//!         ..Default::default()
-//!     },
+//!     &rates_snapshot,
 //!     CurveRestoreFlags::RATES
 //! );
 //! // Price with market_only_rates_moved to isolate rates P&L
 //!
 //! // Attribute P&L to credit move
-//! let credit_snapshot = extract_credit_curves(&market_t0);
+//! let credit_snapshot = MarketSnapshot::extract(&market_t0, CurveRestoreFlags::CREDIT);
 //! let market_only_credit_moved = MarketSnapshot::restore_market(
 //!     &market_t1,
-//!     &MarketSnapshot {
-//!         hazard_curves: credit_snapshot.hazard_curves,
-//!         ..Default::default()
-//!     },
+//!     &credit_snapshot,
 //!     CurveRestoreFlags::CREDIT
 //! );
 //! // Price with market_only_credit_moved to isolate credit P&L
@@ -152,7 +141,7 @@
 //! let rates: RatesCurvesSnapshot = extract(&market);
 //! ```
 //!
-//! The old `extract_*_curves()` functions are deprecated in favor of this trait-based
+//! Legacy `extract_*_curves()` helpers have been removed in favor of this trait-based
 //! approach, which provides better type inference and reduces the module's public API
 //! surface.
 //!
@@ -757,162 +746,6 @@ impl MarketExtractable for ScalarsSnapshot {
     }
 }
 
-/// Extract all discount and forward curves from a market context.
-///
-/// This function is now a thin wrapper around the `MarketExtractable` trait.
-/// Consider using `RatesCurvesSnapshot::extract(market)` or `extract::<RatesCurvesSnapshot>(market)` instead.
-///
-/// # Arguments
-///
-/// * `market` - Market context to extract from
-///
-/// # Returns
-///
-/// Snapshot containing all rates curves.
-///
-/// # Migration
-///
-/// Use the trait-based approach instead:
-/// ```rust,no_run
-/// use finstack_core::market_data::context::MarketContext;
-/// use finstack_valuations::attribution::factors::{
-///     extract, extract_rates_curves, MarketExtractable, RatesCurvesSnapshot,
-/// };
-///
-/// let market = MarketContext::new();
-///
-/// // Old way (deprecated)
-/// let _snapshot = extract_rates_curves(&market);
-///
-/// // New way (recommended)
-/// let _snapshot = RatesCurvesSnapshot::extract(&market);
-/// let _snapshot = extract::<RatesCurvesSnapshot>(&market);
-/// ```
-#[deprecated(
-    since = "0.1.0",
-    note = "Use RatesCurvesSnapshot::extract() or extract::<RatesCurvesSnapshot>() instead"
-)]
-pub fn extract_rates_curves(market: &MarketContext) -> RatesCurvesSnapshot {
-    RatesCurvesSnapshot::extract(market)
-}
-
-/// Extract all credit hazard curves from a market context.
-///
-/// This function is now a thin wrapper around the `MarketExtractable` trait.
-/// Consider using `CreditCurvesSnapshot::extract(market)` or `extract::<CreditCurvesSnapshot>(market)` instead.
-///
-/// # Arguments
-///
-/// * `market` - Market context to extract from
-///
-/// # Returns
-///
-/// Snapshot containing all hazard curves.
-///
-/// # Migration
-///
-/// Use the trait-based approach instead:
-/// ```rust,no_run
-/// use finstack_core::market_data::context::MarketContext;
-/// use finstack_valuations::attribution::factors::{
-///     extract, extract_credit_curves, CreditCurvesSnapshot, MarketExtractable,
-/// };
-///
-/// let market = MarketContext::new();
-///
-/// // Old way (deprecated)
-/// let _snapshot = extract_credit_curves(&market);
-///
-/// // New way (recommended)
-/// let _snapshot = CreditCurvesSnapshot::extract(&market);
-/// let _snapshot = extract::<CreditCurvesSnapshot>(&market);
-/// ```
-#[deprecated(
-    since = "0.1.0",
-    note = "Use CreditCurvesSnapshot::extract() or extract::<CreditCurvesSnapshot>() instead"
-)]
-pub fn extract_credit_curves(market: &MarketContext) -> CreditCurvesSnapshot {
-    CreditCurvesSnapshot::extract(market)
-}
-
-/// Extract all inflation curves from a market context.
-///
-/// This function is now a thin wrapper around the `MarketExtractable` trait.
-/// Consider using `InflationCurvesSnapshot::extract(market)` or `extract::<InflationCurvesSnapshot>(market)` instead.
-///
-/// # Arguments
-///
-/// * `market` - Market context to extract from
-///
-/// # Returns
-///
-/// Snapshot containing all inflation curves.
-///
-/// # Migration
-///
-/// Use the trait-based approach instead:
-/// ```rust,no_run
-/// use finstack_core::market_data::context::MarketContext;
-/// use finstack_valuations::attribution::factors::{
-///     extract, extract_inflation_curves, InflationCurvesSnapshot, MarketExtractable,
-/// };
-///
-/// let market = MarketContext::new();
-///
-/// // Old way (deprecated)
-/// let _snapshot = extract_inflation_curves(&market);
-///
-/// // New way (recommended)
-/// let _snapshot = InflationCurvesSnapshot::extract(&market);
-/// let _snapshot = extract::<InflationCurvesSnapshot>(&market);
-/// ```
-#[deprecated(
-    since = "0.1.0",
-    note = "Use InflationCurvesSnapshot::extract() or extract::<InflationCurvesSnapshot>() instead"
-)]
-pub fn extract_inflation_curves(market: &MarketContext) -> InflationCurvesSnapshot {
-    InflationCurvesSnapshot::extract(market)
-}
-
-/// Extract all base correlation curves from a market context.
-///
-/// This function is now a thin wrapper around the `MarketExtractable` trait.
-/// Consider using `CorrelationsSnapshot::extract(market)` or `extract::<CorrelationsSnapshot>(market)` instead.
-///
-/// # Arguments
-///
-/// * `market` - Market context to extract from
-///
-/// # Returns
-///
-/// Snapshot containing all correlation curves.
-///
-/// # Migration
-///
-/// Use the trait-based approach instead:
-/// ```rust,no_run
-/// use finstack_core::market_data::context::MarketContext;
-/// use finstack_valuations::attribution::factors::{
-///     extract, extract_correlations, CorrelationsSnapshot, MarketExtractable,
-/// };
-///
-/// let market = MarketContext::new();
-///
-/// // Old way (deprecated)
-/// let _snapshot = extract_correlations(&market);
-///
-/// // New way (recommended)
-/// let _snapshot = CorrelationsSnapshot::extract(&market);
-/// let _snapshot = extract::<CorrelationsSnapshot>(&market);
-/// ```
-#[deprecated(
-    since = "0.1.0",
-    note = "Use CorrelationsSnapshot::extract() or extract::<CorrelationsSnapshot>() instead"
-)]
-pub fn extract_correlations(market: &MarketContext) -> CorrelationsSnapshot {
-    CorrelationsSnapshot::extract(market)
-}
-
 /// Extract FX matrix from a market context.
 ///
 /// # Arguments
@@ -924,84 +757,6 @@ pub fn extract_correlations(market: &MarketContext) -> CorrelationsSnapshot {
 /// Optional FX matrix (None if not present).
 pub fn extract_fx(market: &MarketContext) -> Option<Arc<FxMatrix>> {
     market.fx.clone()
-}
-
-/// Extract volatility surfaces from a market context.
-///
-/// This function is now a thin wrapper around the `MarketExtractable` trait.
-/// Consider using `VolatilitySnapshot::extract(market)` or `extract::<VolatilitySnapshot>(market)` instead.
-///
-/// # Arguments
-///
-/// * `market` - Market context to extract from
-///
-/// # Returns
-///
-/// Snapshot containing all volatility surfaces.
-///
-/// # Migration
-///
-/// Use the trait-based approach instead:
-/// ```rust,no_run
-/// use finstack_core::market_data::context::MarketContext;
-/// use finstack_valuations::attribution::factors::{
-///     extract, extract_volatility, MarketExtractable, VolatilitySnapshot,
-/// };
-///
-/// let market = MarketContext::new();
-///
-/// // Old way (deprecated)
-/// let _snapshot = extract_volatility(&market);
-///
-/// // New way (recommended)
-/// let _snapshot = VolatilitySnapshot::extract(&market);
-/// let _snapshot = extract::<VolatilitySnapshot>(&market);
-/// ```
-#[deprecated(
-    since = "0.1.0",
-    note = "Use VolatilitySnapshot::extract() or extract::<VolatilitySnapshot>() instead"
-)]
-pub fn extract_volatility(market: &MarketContext) -> VolatilitySnapshot {
-    VolatilitySnapshot::extract(market)
-}
-
-/// Extract market scalars from a market context.
-///
-/// This function is now a thin wrapper around the `MarketExtractable` trait.
-/// Consider using `ScalarsSnapshot::extract(market)` or `extract::<ScalarsSnapshot>(market)` instead.
-///
-/// # Arguments
-///
-/// * `market` - Market context to extract from
-///
-/// # Returns
-///
-/// Snapshot containing all market scalars.
-///
-/// # Migration
-///
-/// Use the trait-based approach instead:
-/// ```rust,no_run
-/// use finstack_core::market_data::context::MarketContext;
-/// use finstack_valuations::attribution::factors::{
-///     extract, extract_scalars, MarketExtractable, ScalarsSnapshot,
-/// };
-///
-/// let market = MarketContext::new();
-///
-/// // Old way (deprecated)
-/// let _snapshot = extract_scalars(&market);
-///
-/// // New way (recommended)
-/// let _snapshot = ScalarsSnapshot::extract(&market);
-/// let _snapshot = extract::<ScalarsSnapshot>(&market);
-/// ```
-#[deprecated(
-    since = "0.1.0",
-    note = "Use ScalarsSnapshot::extract() or extract::<ScalarsSnapshot>() instead"
-)]
-pub fn extract_scalars(market: &MarketContext) -> ScalarsSnapshot {
-    ScalarsSnapshot::extract(market)
 }
 
 fn copy_scalars(from: &MarketContext, to: &mut MarketContext) {
@@ -1017,115 +772,6 @@ fn copy_scalars(from: &MarketContext, to: &mut MarketContext) {
     for (_id, schedule) in from.dividends_iter() {
         to.set_dividends_mut(Arc::clone(schedule));
     }
-}
-
-/// Replace rates curves in a market context with curves from a snapshot.
-///
-/// This is a thin wrapper around [`MarketSnapshot::restore_market`] that maintains
-/// backward compatibility with the original API.
-///
-/// # Arguments
-///
-/// * `market` - Market context to modify
-/// * `snapshot` - Snapshot of rates curves to restore
-///
-/// # Returns
-///
-/// New market context with replaced rates curves while preserving all other data.
-pub fn restore_rates_curves(
-    market: &MarketContext,
-    snapshot: &RatesCurvesSnapshot,
-) -> MarketContext {
-    // Convert specific snapshot to unified snapshot
-    let unified = MarketSnapshot {
-        discount_curves: snapshot.discount_curves.clone(),
-        forward_curves: snapshot.forward_curves.clone(),
-        ..Default::default()
-    };
-
-    // Use unified restore function with RATES flag
-    MarketSnapshot::restore_market(market, &unified, CurveRestoreFlags::RATES)
-}
-
-/// Replace credit curves in a market context with curves from a snapshot.
-///
-/// This is a thin wrapper around [`MarketSnapshot::restore_market`] that maintains
-/// backward compatibility with the original API.
-///
-/// # Arguments
-///
-/// * `market` - Market context to modify
-/// * `snapshot` - Snapshot of credit curves to restore
-///
-/// # Returns
-///
-/// New market context with replaced credit curves while preserving all other data.
-pub fn restore_credit_curves(
-    market: &MarketContext,
-    snapshot: &CreditCurvesSnapshot,
-) -> MarketContext {
-    // Convert specific snapshot to unified snapshot
-    let unified = MarketSnapshot {
-        hazard_curves: snapshot.hazard_curves.clone(),
-        ..Default::default()
-    };
-
-    // Use unified restore function with CREDIT flag
-    MarketSnapshot::restore_market(market, &unified, CurveRestoreFlags::CREDIT)
-}
-
-/// Replace inflation curves in a market context with curves from a snapshot.
-///
-/// This is a thin wrapper around [`MarketSnapshot::restore_market`] that maintains
-/// backward compatibility with the original API.
-///
-/// # Arguments
-///
-/// * `market` - Market context to modify
-/// * `snapshot` - Snapshot of inflation curves to restore
-///
-/// # Returns
-///
-/// New market context with replaced inflation curves while preserving all other data.
-pub fn restore_inflation_curves(
-    market: &MarketContext,
-    snapshot: &InflationCurvesSnapshot,
-) -> MarketContext {
-    // Convert specific snapshot to unified snapshot
-    let unified = MarketSnapshot {
-        inflation_curves: snapshot.inflation_curves.clone(),
-        ..Default::default()
-    };
-
-    // Use unified restore function with INFLATION flag
-    MarketSnapshot::restore_market(market, &unified, CurveRestoreFlags::INFLATION)
-}
-
-/// Replace correlation curves in a market context with curves from a snapshot.
-///
-/// This is a thin wrapper around [`MarketSnapshot::restore_market`] that maintains
-/// backward compatibility with the original API.
-///
-/// # Arguments
-///
-/// * `market` - Market context to modify
-/// * `snapshot` - Snapshot of correlation curves to restore
-///
-/// # Returns
-///
-/// New market context with replaced correlation curves while preserving all other data.
-pub fn restore_correlations(
-    market: &MarketContext,
-    snapshot: &CorrelationsSnapshot,
-) -> MarketContext {
-    // Convert specific snapshot to unified snapshot
-    let unified = MarketSnapshot {
-        base_correlation_curves: snapshot.base_correlation_curves.clone(),
-        ..Default::default()
-    };
-
-    // Use unified restore function with CORRELATION flag
-    MarketSnapshot::restore_market(market, &unified, CurveRestoreFlags::CORRELATION)
 }
 
 /// Replace FX matrix in a market context.
@@ -1218,7 +864,6 @@ pub fn restore_scalars(market: &MarketContext, snapshot: &ScalarsSnapshot) -> Ma
 }
 
 #[cfg(test)]
-#[allow(deprecated)] // TODO: Migrate tests to use trait-based extraction
 mod tests {
     use super::*;
     use finstack_core::dates::Date;
@@ -1245,12 +890,13 @@ mod tests {
             .insert_discount(curve2);
 
         // Extract snapshot
-        let snapshot = extract_rates_curves(&market);
+        let snapshot = MarketSnapshot::extract(&market, CurveRestoreFlags::RATES);
         assert_eq!(snapshot.discount_curves.len(), 2);
 
         // Create empty market and restore
         let empty_market = MarketContext::new();
-        let restored = restore_rates_curves(&empty_market, &snapshot);
+        let restored =
+            MarketSnapshot::restore_market(&empty_market, &snapshot, CurveRestoreFlags::RATES);
 
         assert!(restored.get_discount("USD-OIS").is_ok());
         assert!(restored.get_discount("EUR-OIS").is_ok());
@@ -1827,135 +1473,6 @@ mod tests {
         assert!(restored.get_forward("USD-SOFR").is_ok());
     }
 
-    // ============================================================================
-    // Equivalence Tests: Verify new unified implementation produces identical
-    // results to the old implementation behavior
-    // ============================================================================
-
-    /// Helper function to assert two market contexts have equivalent curve structure.
-    ///
-    /// This compares:
-    /// - Curve counts by type
-    /// - Curve IDs present
-    /// - Discount factor values at sample dates (for discount curves)
-    /// - FX provider presence
-    fn assert_market_contexts_equal(ctx1: &MarketContext, ctx2: &MarketContext, label: &str) {
-        // Count curves by type
-        let count_discount_1: usize = ctx1
-            .curve_ids()
-            .filter(|id| ctx1.get_discount(id).is_ok())
-            .count();
-        let count_discount_2: usize = ctx2
-            .curve_ids()
-            .filter(|id| ctx2.get_discount(id).is_ok())
-            .count();
-        assert_eq!(
-            count_discount_1, count_discount_2,
-            "{}: discount curve counts differ",
-            label
-        );
-
-        let count_forward_1: usize = ctx1
-            .curve_ids()
-            .filter(|id| ctx1.get_forward(id).is_ok())
-            .count();
-        let count_forward_2: usize = ctx2
-            .curve_ids()
-            .filter(|id| ctx2.get_forward(id).is_ok())
-            .count();
-        assert_eq!(
-            count_forward_1, count_forward_2,
-            "{}: forward curve counts differ",
-            label
-        );
-
-        let count_hazard_1: usize = ctx1
-            .curve_ids()
-            .filter(|id| ctx1.get_hazard(id).is_ok())
-            .count();
-        let count_hazard_2: usize = ctx2
-            .curve_ids()
-            .filter(|id| ctx2.get_hazard(id).is_ok())
-            .count();
-        assert_eq!(
-            count_hazard_1, count_hazard_2,
-            "{}: hazard curve counts differ",
-            label
-        );
-
-        let count_inflation_1: usize = ctx1
-            .curve_ids()
-            .filter(|id| ctx1.get_inflation(id).is_ok())
-            .count();
-        let count_inflation_2: usize = ctx2
-            .curve_ids()
-            .filter(|id| ctx2.get_inflation(id).is_ok())
-            .count();
-        assert_eq!(
-            count_inflation_1, count_inflation_2,
-            "{}: inflation curve counts differ",
-            label
-        );
-
-        let count_corr_1: usize = ctx1
-            .curve_ids()
-            .filter(|id| ctx1.get_base_correlation(id).is_ok())
-            .count();
-        let count_corr_2: usize = ctx2
-            .curve_ids()
-            .filter(|id| ctx2.get_base_correlation(id).is_ok())
-            .count();
-        assert_eq!(
-            count_corr_1, count_corr_2,
-            "{}: base correlation curve counts differ",
-            label
-        );
-
-        // Compare curve IDs
-        let mut ids1: Vec<_> = ctx1.curve_ids().map(|id| id.to_string()).collect();
-        let mut ids2: Vec<_> = ctx2.curve_ids().map(|id| id.to_string()).collect();
-        ids1.sort();
-        ids2.sort();
-        assert_eq!(ids1, ids2, "{}: curve IDs differ", label);
-
-        // Compare discount factor values at sample dates for discount curves
-        let sample_dates = vec![
-            date!(2025 - 01 - 15),
-            date!(2025 - 06 - 15),
-            date!(2026 - 01 - 15),
-            date!(2030 - 01 - 15),
-        ];
-
-        for curve_id in ctx1.curve_ids() {
-            if let (Ok(curve1), Ok(curve2)) =
-                (ctx1.get_discount(curve_id), ctx2.get_discount(curve_id))
-            {
-                for &sample_date in &sample_dates {
-                    // Use try_df_on_date_curve which uses the curve's own day count
-                    let df1 = curve1.try_df_on_date_curve(sample_date).unwrap_or(1.0);
-                    let df2 = curve2.try_df_on_date_curve(sample_date).unwrap_or(1.0);
-                    assert!(
-                        (df1 - df2).abs() < 1e-10,
-                        "{}: discount factor mismatch for curve {} at {:?}: {} vs {}",
-                        label,
-                        curve_id,
-                        sample_date,
-                        df1,
-                        df2
-                    );
-                }
-            }
-        }
-
-        // Compare FX provider presence
-        assert_eq!(
-            ctx1.fx.is_some(),
-            ctx2.fx.is_some(),
-            "{}: FX provider presence differs",
-            label
-        );
-    }
-
     #[test]
     fn test_restore_rates_curves_equivalence() {
         let base_date = date!(2025 - 01 - 15);
@@ -1977,7 +1494,7 @@ mod tests {
             .insert_inflation(inflation1);
 
         // Extract rates snapshot
-        let snapshot = extract_rates_curves(&market);
+        let snapshot = MarketSnapshot::extract(&market, CurveRestoreFlags::RATES);
 
         // Create a different market to restore into
         let hazard2 = create_test_hazard_curve("CORP-B", base_date);
@@ -1986,8 +1503,9 @@ mod tests {
             .insert_hazard(hazard2)
             .insert_inflation(inflation2);
 
-        // Restore using wrapper function
-        let restored = restore_rates_curves(&target_market, &snapshot);
+        // Restore rates curves
+        let restored =
+            MarketSnapshot::restore_market(&target_market, &snapshot, CurveRestoreFlags::RATES);
 
         // Verify: should have rates curves from snapshot
         assert!(restored.get_discount("USD-OIS").is_ok());
@@ -2003,19 +1521,8 @@ mod tests {
         assert!(restored.get_hazard("CORP-A").is_err());
         assert!(restored.get_inflation("US-CPI").is_err());
 
-        // Create expected result using unified approach for comparison
-        let unified_snapshot = MarketSnapshot {
-            discount_curves: snapshot.discount_curves.clone(),
-            forward_curves: snapshot.forward_curves.clone(),
-            ..Default::default()
-        };
-        let expected = MarketSnapshot::restore_market(
-            &target_market,
-            &unified_snapshot,
-            CurveRestoreFlags::RATES,
-        );
-
-        assert_market_contexts_equal(&restored, &expected, "restore_rates_curves equivalence");
+        // Sanity check: restored market should match expectations
+        assert!(restored.get_discount("USD-OIS").is_ok());
     }
 
     #[test]
@@ -2037,7 +1544,7 @@ mod tests {
             .insert_inflation(inflation1);
 
         // Extract credit snapshot
-        let snapshot = extract_credit_curves(&market);
+        let snapshot = MarketSnapshot::extract(&market, CurveRestoreFlags::CREDIT);
 
         // Create a different market to restore into
         let discount2 = create_test_discount_curve("EUR-OIS", base_date);
@@ -2046,8 +1553,9 @@ mod tests {
             .insert_discount(discount2)
             .insert_forward(forward2);
 
-        // Restore using wrapper function
-        let restored = restore_credit_curves(&target_market, &snapshot);
+        // Restore credit curves
+        let restored =
+            MarketSnapshot::restore_market(&target_market, &snapshot, CurveRestoreFlags::CREDIT);
 
         // Verify: should have hazard curves from snapshot
         assert!(restored.get_hazard("CORP-A").is_ok());
@@ -2061,18 +1569,8 @@ mod tests {
         assert!(restored.get_discount("USD-OIS").is_err());
         assert!(restored.get_forward("USD-SOFR").is_err());
 
-        // Create expected result using unified approach for comparison
-        let unified_snapshot = MarketSnapshot {
-            hazard_curves: snapshot.hazard_curves.clone(),
-            ..Default::default()
-        };
-        let expected = MarketSnapshot::restore_market(
-            &target_market,
-            &unified_snapshot,
-            CurveRestoreFlags::CREDIT,
-        );
-
-        assert_market_contexts_equal(&restored, &expected, "restore_credit_curves equivalence");
+        // Sanity check: restored market should match expectations
+        assert!(restored.get_hazard("CORP-A").is_ok());
     }
 
     #[test]
@@ -2092,7 +1590,7 @@ mod tests {
             .insert_inflation(inflation2);
 
         // Extract inflation snapshot
-        let snapshot = extract_inflation_curves(&market);
+        let snapshot = MarketSnapshot::extract(&market, CurveRestoreFlags::INFLATION);
 
         // Create a different market to restore into
         let discount2 = create_test_discount_curve("EUR-OIS", base_date);
@@ -2101,8 +1599,12 @@ mod tests {
             .insert_discount(discount2)
             .insert_hazard(hazard2);
 
-        // Restore using wrapper function
-        let restored = restore_inflation_curves(&target_market, &snapshot);
+        // Restore inflation curves
+        let restored = MarketSnapshot::restore_market(
+            &target_market,
+            &snapshot,
+            CurveRestoreFlags::INFLATION,
+        );
 
         // Verify: should have inflation curves from snapshot
         assert!(restored.get_inflation("US-CPI").is_ok());
@@ -2116,18 +1618,8 @@ mod tests {
         assert!(restored.get_discount("USD-OIS").is_err());
         assert!(restored.get_hazard("CORP-A").is_err());
 
-        // Create expected result using unified approach for comparison
-        let unified_snapshot = MarketSnapshot {
-            inflation_curves: snapshot.inflation_curves.clone(),
-            ..Default::default()
-        };
-        let expected = MarketSnapshot::restore_market(
-            &target_market,
-            &unified_snapshot,
-            CurveRestoreFlags::INFLATION,
-        );
-
-        assert_market_contexts_equal(&restored, &expected, "restore_inflation_curves equivalence");
+        // Sanity check: restored market should match expectations
+        assert!(restored.get_inflation("US-CPI").is_ok());
     }
 
     #[test]
@@ -2147,7 +1639,7 @@ mod tests {
             .insert_base_correlation(corr2);
 
         // Extract correlation snapshot
-        let snapshot = extract_correlations(&market);
+        let snapshot = MarketSnapshot::extract(&market, CurveRestoreFlags::CORRELATION);
 
         // Create a different market to restore into
         let discount2 = create_test_discount_curve("EUR-OIS", base_date);
@@ -2156,8 +1648,12 @@ mod tests {
             .insert_discount(discount2)
             .insert_hazard(hazard2);
 
-        // Restore using wrapper function
-        let restored = restore_correlations(&target_market, &snapshot);
+        // Restore correlation curves
+        let restored = MarketSnapshot::restore_market(
+            &target_market,
+            &snapshot,
+            CurveRestoreFlags::CORRELATION,
+        );
 
         // Verify: should have correlation curves from snapshot
         assert!(restored.get_base_correlation("CDX-IG").is_ok());
@@ -2171,18 +1667,8 @@ mod tests {
         assert!(restored.get_discount("USD-OIS").is_err());
         assert!(restored.get_hazard("CORP-A").is_err());
 
-        // Create expected result using unified approach for comparison
-        let unified_snapshot = MarketSnapshot {
-            base_correlation_curves: snapshot.base_correlation_curves.clone(),
-            ..Default::default()
-        };
-        let expected = MarketSnapshot::restore_market(
-            &target_market,
-            &unified_snapshot,
-            CurveRestoreFlags::CORRELATION,
-        );
-
-        assert_market_contexts_equal(&restored, &expected, "restore_correlations equivalence");
+        // Sanity check: restored market should match expectations
+        assert!(restored.get_base_correlation("CDX-IG").is_ok());
     }
 
     #[test]
@@ -2191,11 +1677,11 @@ mod tests {
 
         // Test with empty source market
         let empty_market = MarketContext::new();
-        let snapshot = extract_rates_curves(&empty_market);
+        let snapshot = MarketSnapshot::extract(&empty_market, CurveRestoreFlags::RATES);
         let target =
             MarketContext::new().insert_discount(create_test_discount_curve("USD-OIS", base_date));
 
-        let restored = restore_rates_curves(&target, &snapshot);
+        let restored = MarketSnapshot::restore_market(&target, &snapshot, CurveRestoreFlags::RATES);
 
         // Should have removed all rates curves (snapshot was empty)
         assert!(restored.get_discount("USD-OIS").is_err());
@@ -2203,10 +1689,11 @@ mod tests {
         // Test with empty target market
         let source =
             MarketContext::new().insert_discount(create_test_discount_curve("USD-OIS", base_date));
-        let snapshot2 = extract_rates_curves(&source);
+        let snapshot2 = MarketSnapshot::extract(&source, CurveRestoreFlags::RATES);
         let empty_target = MarketContext::new();
 
-        let restored2 = restore_rates_curves(&empty_target, &snapshot2);
+        let restored2 =
+            MarketSnapshot::restore_market(&empty_target, &snapshot2, CurveRestoreFlags::RATES);
 
         // Should have rates curves from snapshot
         assert!(restored2.get_discount("USD-OIS").is_ok());
@@ -2233,10 +1720,10 @@ mod tests {
             .insert_base_correlation(corr1);
 
         // Extract each type of snapshot
-        let rates_snap = extract_rates_curves(&market);
-        let credit_snap = extract_credit_curves(&market);
-        let inflation_snap = extract_inflation_curves(&market);
-        let corr_snap = extract_correlations(&market);
+        let rates_snap = MarketSnapshot::extract(&market, CurveRestoreFlags::RATES);
+        let credit_snap = MarketSnapshot::extract(&market, CurveRestoreFlags::CREDIT);
+        let inflation_snap = MarketSnapshot::extract(&market, CurveRestoreFlags::INFLATION);
+        let corr_snap = MarketSnapshot::extract(&market, CurveRestoreFlags::CORRELATION);
 
         // Build a different target market
         let target_discount = create_test_discount_curve("GBP-OIS", base_date);
@@ -2246,7 +1733,8 @@ mod tests {
             .insert_hazard(target_hazard);
 
         // Restore rates curves
-        let after_rates = restore_rates_curves(&target, &rates_snap);
+        let after_rates =
+            MarketSnapshot::restore_market(&target, &rates_snap, CurveRestoreFlags::RATES);
         assert_eq!(
             after_rates
                 .curve_ids()
@@ -2264,7 +1752,8 @@ mod tests {
         assert!(after_rates.get_hazard("CORP-B").is_ok()); // preserved
 
         // Restore credit curves on top of rates
-        let after_credit = restore_credit_curves(&after_rates, &credit_snap);
+        let after_credit =
+            MarketSnapshot::restore_market(&after_rates, &credit_snap, CurveRestoreFlags::CREDIT);
         assert!(after_credit.get_discount("USD-OIS").is_ok()); // preserved from rates
         assert!(after_credit.get_discount("EUR-OIS").is_ok()); // preserved from rates
         assert!(after_credit.get_forward("USD-SOFR").is_ok()); // preserved from rates
@@ -2272,11 +1761,19 @@ mod tests {
         assert!(after_credit.get_hazard("CORP-B").is_err()); // replaced
 
         // Restore inflation curves
-        let after_inflation = restore_inflation_curves(&after_credit, &inflation_snap);
+        let after_inflation = MarketSnapshot::restore_market(
+            &after_credit,
+            &inflation_snap,
+            CurveRestoreFlags::INFLATION,
+        );
         assert!(after_inflation.get_inflation("US-CPI").is_ok()); // restored
 
         // Restore correlation curves
-        let final_market = restore_correlations(&after_inflation, &corr_snap);
+        let final_market = MarketSnapshot::restore_market(
+            &after_inflation,
+            &corr_snap,
+            CurveRestoreFlags::CORRELATION,
+        );
         assert!(final_market.get_base_correlation("CDX-IG").is_ok()); // restored
 
         // Verify final state has all original curves except CORP-B
@@ -2391,28 +1888,27 @@ mod tests {
     }
 
     #[test]
-    fn test_trait_vs_function_equivalence() {
-        // Verify that trait-based extraction produces identical results to function calls
+    fn test_trait_vs_generic_extract_equivalence() {
+        // Verify that trait-based extraction matches the generic helper
         let base_date = date!(2025 - 01 - 15);
         let discount = create_test_discount_curve("USD-OIS", base_date);
         let market = MarketContext::new().insert_discount(discount);
 
-        // Compare old function vs trait method
-        let function_result = extract_rates_curves(&market);
-        let trait_result = RatesCurvesSnapshot::extract(&market);
+        let direct = RatesCurvesSnapshot::extract(&market);
+        let generic: RatesCurvesSnapshot = extract(&market);
 
         assert_eq!(
-            function_result.discount_curves.len(),
-            trait_result.discount_curves.len()
+            direct.discount_curves.len(),
+            generic.discount_curves.len()
         );
         assert_eq!(
-            function_result.forward_curves.len(),
-            trait_result.forward_curves.len()
+            direct.forward_curves.len(),
+            generic.forward_curves.len()
         );
 
         // Verify curve IDs match
-        for id in function_result.discount_curves.keys() {
-            assert!(trait_result.discount_curves.contains_key(id));
+        for id in direct.discount_curves.keys() {
+            assert!(generic.discount_curves.contains_key(id));
         }
     }
 

@@ -47,7 +47,7 @@ use finstack_valuations::instruments::inflation_swap::{InflationSwap, PayReceive
 use finstack_valuations::instruments::irs::*;
 use finstack_valuations::instruments::structured_credit::StructuredCredit;
 use finstack_valuations::instruments::structured_credit::{
-    DealType, Pool, Seniority, TrancheBuilder, TrancheCoupon, TrancheStructure, WaterfallBuilder,
+    DealType, Pool, Seniority, TrancheBuilder, TrancheCoupon, TrancheStructure,
 };
 use finstack_valuations::instruments::swaption::{parameters::*, Swaption};
 use std::sync::Arc;
@@ -1130,71 +1130,11 @@ fn build_sample_portfolio(as_of: Date) -> finstack_portfolio::Result<Portfolio> 
     let tranches =
         TrancheStructure::new(vec![senior_tranche, mezz_tranche, equity_tranche]).unwrap();
 
-    // Create waterfall: fees -> interest -> principal -> equity
-    use finstack_valuations::instruments::structured_credit::{
-        AllocationMode, ManagementFeeType, PaymentCalculation, PaymentType, Recipient,
-        RecipientType, WaterfallTier,
-    };
-
-    let waterfall = WaterfallBuilder::new(Currency::USD)
-        .add_tier(
-            WaterfallTier::new("fees", 1, PaymentType::Fee)
-                .allocation_mode(AllocationMode::Sequential)
-                .add_recipient(Recipient::new(
-                    "trustee",
-                    RecipientType::ServiceProvider("Trustee".into()),
-                    PaymentCalculation::FixedAmount {
-                        amount: Money::new(35_714.29, Currency::USD),
-                        rounding: None,
-                    },
-                ))
-                .add_recipient(Recipient::new(
-                    "senior_mgmt",
-                    RecipientType::ManagerFee(ManagementFeeType::Senior),
-                    PaymentCalculation::PercentageOfCollateral {
-                        rate: 0.002,
-                        annualized: true,
-                        day_count: None,
-                        rounding: None,
-                    },
-                )),
-        )
-        .add_tier(
-            WaterfallTier::new("interest", 2, PaymentType::Interest)
-                .allocation_mode(AllocationMode::Sequential)
-                .add_recipient(Recipient::tranche_interest("senior_int", "SENIOR_A"))
-                .add_recipient(Recipient::tranche_interest("mezz_int", "MEZZANINE_B")),
-        )
-        .add_tier(
-            WaterfallTier::new("principal", 3, PaymentType::Principal)
-                .allocation_mode(AllocationMode::Sequential)
-                .divertible(true)
-                .add_recipient(Recipient::tranche_principal(
-                    "senior_prin",
-                    "SENIOR_A",
-                    None,
-                ))
-                .add_recipient(Recipient::tranche_principal(
-                    "mezz_prin",
-                    "MEZZANINE_B",
-                    None,
-                )),
-        )
-        .add_tier(
-            WaterfallTier::new("equity", 4, PaymentType::Residual).add_recipient(Recipient::new(
-                "equity_dist",
-                RecipientType::Equity,
-                PaymentCalculation::ResidualCash,
-            )),
-        )
-        .build();
-
     // Create the CLO instrument
     let clo_instrument = StructuredCredit::new_clo(
         "CLO_2024_001",
         clo_pool,
         tranches,
-        waterfall,
         date!(2024 - 01 - 15), // Closing date
         date!(2031 - 01 - 15), // Legal maturity
         "USD",

@@ -191,7 +191,6 @@ pub fn bump_discount_curve_synthetic(
         pricing_forward_id: None,
         conventions: RatesStepConventions {
             curve_day_count: Some(DayCount::Act365F),
-            ..Default::default()
         },
     };
 

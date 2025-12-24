@@ -15,7 +15,7 @@ use finstack_core::types::ratings::CreditRating;
 use finstack_core::types::CurveId;
 use finstack_valuations::instruments::structured_credit::{
     DealType, Pool, PoolAsset, Seniority, StructuredCredit, Tranche, TrancheCoupon,
-    TrancheStructure, TrancheValuationExt, WaterfallBuilder,
+    TrancheStructure, TrancheValuationExt,
 };
 use finstack_valuations::metrics::MetricId;
 use std::error::Error;
@@ -227,44 +227,6 @@ fn create_sample_clo() -> Result<StructuredCredit, Box<dyn Error>> {
 
     let tranches = TrancheStructure::new(vec![aaa_tranche, aa_tranche, equity_tranche])?;
 
-    // Create waterfall with pro-rata principal distribution
-    use finstack_valuations::instruments::structured_credit::{
-        AllocationMode, PaymentCalculation, PaymentType, Recipient, RecipientType, WaterfallTier,
-    };
-
-    let waterfall = WaterfallBuilder::new(base_currency)
-        .add_tier(
-            WaterfallTier::new("fees", 1, PaymentType::Fee).add_recipient(Recipient::new(
-                "trustee",
-                RecipientType::ServiceProvider("Trustee".into()),
-                PaymentCalculation::FixedAmount {
-                    amount: Money::new(100_000.0, base_currency),
-                    rounding: None,
-                },
-            )),
-        )
-        .add_tier(
-            WaterfallTier::new("interest", 2, PaymentType::Interest)
-                .allocation_mode(AllocationMode::Sequential)
-                .add_recipient(Recipient::tranche_interest("aaa_int", "AAA"))
-                .add_recipient(Recipient::tranche_interest("aa_int", "AA"))
-                .add_recipient(Recipient::tranche_interest("equity_int", "Equity")),
-        )
-        .add_tier(
-            WaterfallTier::new("principal", 3, PaymentType::Principal)
-                .allocation_mode(AllocationMode::Sequential)
-                .add_recipient(Recipient::tranche_principal("aaa_prin", "AAA", None))
-                .add_recipient(Recipient::tranche_principal("aa_prin", "AA", None)),
-        )
-        .add_tier(
-            WaterfallTier::new("equity", 4, PaymentType::Residual).add_recipient(Recipient::new(
-                "equity_dist",
-                RecipientType::Equity,
-                PaymentCalculation::ResidualCash,
-            )),
-        )
-        .build();
-
     // Create CLO with realistic assumptions for investment-grade tranches
     use finstack_valuations::instruments::structured_credit::{
         DefaultModelSpec, PrepaymentModelSpec, RecoveryModelSpec,
@@ -274,7 +236,6 @@ fn create_sample_clo() -> Result<StructuredCredit, Box<dyn Error>> {
         "CLO_2024_01",
         pool,
         tranches,
-        waterfall,
         date!(2024 - 01 - 01),
         date!(2034 - 01 - 01),
         "USD_DISC",

@@ -219,9 +219,9 @@ fn test_bond_accrued_determinism() {
     let accrueds: Vec<f64> = (0..100)
         .map(|_| {
             let result = bond
-                .price_with_metrics(&market, as_of, &[MetricId::AccruedInterest])
+                .price_with_metrics(&market, as_of, &[MetricId::Accrued])
                 .unwrap();
-            result.measures[MetricId::AccruedInterest.as_str()]
+            result.measures[MetricId::Accrued.as_str()]
         })
         .collect();
 
@@ -244,7 +244,7 @@ fn test_bond_multiple_metrics_determinism() {
     let metrics = vec![
         MetricId::CleanPrice,
         MetricId::DirtyPrice,
-        MetricId::AccruedInterest,
+        MetricId::Accrued,
         MetricId::Ytm,
         MetricId::DurationMod,
         MetricId::Convexity,

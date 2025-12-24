@@ -32,7 +32,7 @@ Finstack 0.8.0 delivers **critical safety fixes** and **market convention compli
 
 ### Should Upgrade (Recommended)
 - All finstack users for improved safety and correctness
-- Anyone using `CdsOption` or other instruments with deprecated constructors
+- Anyone using `CdsOption` or other instruments with removed panicking constructors
 - Teams prioritizing deterministic, auditable financial calculations
 
 ### Can Defer Upgrade
@@ -441,11 +441,11 @@ Error: CircularDependency {
 
 ---
 
-## 📦 Deprecations
+## 📦 Removed APIs
 
-### Panicking Constructors (Removal in 1.0.0)
+### Panicking Constructors
 
-**Deprecated** (since 0.8.0):
+**Removed**:
 - `CdsOption::new()` → Use `CdsOption::try_new()`
 - `CdsOptionParams::new()` → Use `CdsOptionParams::try_new()`
 - `CdsOptionParams::call()` → Use `CdsOptionParams::try_call()`
@@ -455,14 +455,12 @@ Error: CircularDependency {
 
 **Migration**:
 ```rust
-// BEFORE (0.7.x, still works but deprecated)
+// BEFORE (0.7.x)
 let option = CdsOption::new(/* params */);  // Panics on invalid input
 
 // AFTER (0.8.0+)
 let option = CdsOption::try_new(/* params */)?;  // Returns Result
 ```
-
-**Timeline**: Deprecation warnings in 0.8.0, removal in 1.0.0 (Q2 2025)
 
 ---
 
@@ -496,8 +494,8 @@ let option = CdsOption::try_new(/* params */)?;  // Returns Result
    - Update test expectations with correct spot dates
    - Compare against golden reference files
 
-6. **Update Deprecated APIs** (optional, removal in 1.0.0):
-   - Replace `new()` with `try_new()` where deprecated
+6. **Update Removed APIs** (if applicable):
+   - Replace `new()` with `try_new()` for CDS option constructors
 
 ### Gradual Migration (For Large Codebases)
 
@@ -509,10 +507,8 @@ let option = CdsOption::try_new(/* params */)?;  // Returns Result
 - Fix FX settlement if using multi-currency instruments
 - Update calendar error handling
 
-**Phase 3** (Optional, warnings only):
-- Update deprecated constructors (gradual, no rush until 1.0.0)
-
-**Timeline**: Deprecated APIs removed in 1.0.0 (Q2 2025)
+**Phase 3** (Required if affected):
+- Update removed constructors to `try_*` variants
 
 ---
 
@@ -581,7 +577,7 @@ Special thanks to:
 - [ ] Add error handling for metrics computation
 - [ ] Update FX settlement tests if using multi-currency
 - [ ] Fix calendar ID references
-- [ ] Update deprecated constructors (optional)
+- [ ] Update removed constructors to `try_*` variants (if applicable)
 - [ ] Verify all tests pass
 - [ ] Review API docs for new features
 - [ ] Deploy to staging/test environment

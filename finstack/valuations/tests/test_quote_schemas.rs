@@ -155,7 +155,7 @@ fn vol_quote_bump_and_swaption_maturity_alias() {
         _ => panic!("wrong variant"),
     }
 
-    // Ensure serde alias "tenor" works for the swaption maturity field (historical payloads).
+    // Swaption maturity must use "maturity" (legacy "tenor" is rejected).
     let json_with_tenor = r#"
     {
       "swaption_vol": {
@@ -168,7 +168,22 @@ fn vol_quote_bump_and_swaption_maturity_alias() {
       }
     }"#;
 
-    let parsed: VolQuote = serde_json::from_str(json_with_tenor).expect("should parse");
+    let parsed: Result<VolQuote, _> = serde_json::from_str(json_with_tenor);
+    assert!(parsed.is_err(), "legacy 'tenor' field should be rejected");
+
+    let json_with_maturity = r#"
+    {
+      "swaption_vol": {
+        "expiry": "2025-06-20",
+        "maturity": "2030-06-20",
+        "strike": 0.045,
+        "vol": 0.15,
+        "quote_type": "Normal",
+        "convention": "USD"
+      }
+    }"#;
+
+    let parsed: VolQuote = serde_json::from_str(json_with_maturity).expect("should parse");
     match parsed {
         VolQuote::SwaptionVol { maturity, .. } => {
             assert_eq!(maturity, d(2030, time::Month::June, 20))

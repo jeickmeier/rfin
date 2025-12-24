@@ -1,7 +1,7 @@
 //! Enhanced YTM solver.
 //!
-//! Provides a robust yield-to-maturity solver using Newton-Raphson with
-//! intelligent initial guesses and automatic fallback to Brent's method.
+//! Provides a robust yield-to-maturity solver using Brent's method with
+//! intelligent initial guesses.
 
 use finstack_core::dates::Tenor;
 use finstack_core::dates::{Date, DayCount};
@@ -65,7 +65,7 @@ pub struct YtmPricingSpec {
 /// # Solver Algorithm
 ///
 /// The solver uses Brent's method, which provides:
-/// - Guaranteed convergence (unlike pure Newton)
+/// - Guaranteed convergence for bracketed roots
 /// - Superlinear convergence rate (faster than bisection)
 /// - Robustness to pathological cashflow structures
 ///
@@ -102,10 +102,6 @@ pub struct YtmSolverConfig {
     /// starting point (e.g., coupon rate).
     pub use_smart_guess: bool,
 
-    /// Use Newton-Raphson with Brent fallback (hybrid solver).
-    ///
-    /// Currently unused (Brent-only), reserved for future optimization.
-    pub use_newton: bool,
 }
 
 impl Default for YtmSolverConfig {
@@ -114,15 +110,14 @@ impl Default for YtmSolverConfig {
             tolerance: 1e-12,      // Sub-penny precision per $1000 face
             max_iterations: 50,    // Sufficient for pathological cases
             use_smart_guess: true, // Improves convergence speed 2-3x
-            use_newton: true,      // Hybrid Newton+Brent for robustness
         }
     }
 }
 
-/// Yield-to-maturity solver using hybrid Newton-Brent method.
+/// Yield-to-maturity solver using Brent's method.
 ///
-/// Provides robust YTM calculation with intelligent initial guesses and automatic
-/// fallback to Brent's method if Newton-Raphson fails. Configured via `YtmSolverConfig`.
+/// Provides robust YTM calculation with intelligent initial guesses. Configured via
+/// `YtmSolverConfig`.
 ///
 /// # Examples
 ///
@@ -161,7 +156,7 @@ impl YtmSolver {
     ///
     /// # Returns
     ///
-    /// A `YtmSolver` with default configuration (sub-penny precision, hybrid Newton-Brent).
+    /// A `YtmSolver` with default configuration (sub-penny precision, Brent solver).
     ///
     /// # Examples
     ///
@@ -195,8 +190,7 @@ impl YtmSolver {
     ///     tolerance: 1e-10,      // Faster convergence
     ///     max_iterations: 100,
     ///     use_smart_guess: true,
-    ///     use_newton: true,
-    /// };
+/// };
     /// let solver = YtmSolver::with_config(config);
     /// ```
     pub fn with_config(config: YtmSolverConfig) -> Self {
@@ -205,7 +199,7 @@ impl YtmSolver {
 
     /// Solve for yield-to-maturity given cashflows and target price.
     ///
-    /// Uses hybrid Newton-Brent solver with intelligent initial guess based on
+    /// Uses Brent solver with intelligent initial guess based on
     /// current yield and pull-to-par effect.
     ///
     /// # Arguments

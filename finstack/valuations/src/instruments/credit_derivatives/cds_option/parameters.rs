@@ -25,7 +25,7 @@ pub const MAX_STRIKE_SPREAD_BP: f64 = 10000.0;
 /// Ownership clarifications to avoid duplication with `CreditParams`:
 /// - This struct holds strike (bp), expiry, underlying CDS maturity, notional, option type.
 /// - Reference entity, recovery rate, and hazard `credit_id` live in `CreditParams`.
-/// - Discount `discount_curve_id` and vol `vol_surface_id` are instrument-level market IDs passed to `CdsOption::new`.
+/// - Discount `discount_curve_id` and vol `vol_surface_id` are instrument-level market IDs passed to `CdsOption::try_new`.
 ///
 /// # Validation
 ///
@@ -123,66 +123,6 @@ impl CdsOptionParams {
         Ok(params)
     }
 
-    /// Create new credit option parameters (panics on invalid input).
-    ///
-    /// For production code, prefer [`try_new`](Self::try_new) which returns a Result.
-    ///
-    /// # Deprecation
-    ///
-    /// This method will panic on invalid parameters. Use [`try_new`](Self::try_new) instead for
-    /// explicit error handling. This method will be removed in version 1.0.0.
-    #[deprecated(
-        since = "0.8.0",
-        note = "Use `try_new()` instead to handle errors explicitly. \
-                This method will panic on invalid parameters and will be \
-                removed in version 1.0.0"
-    )]
-    #[must_use]
-    pub fn new(
-        strike_spread_bp: f64,
-        expiry: Date,
-        cds_maturity: Date,
-        notional: Money,
-        option_type: OptionType,
-    ) -> Self {
-        Self::try_new(
-            strike_spread_bp,
-            expiry,
-            cds_maturity,
-            notional,
-            option_type,
-        )
-        .expect("Invalid CdsOptionParams")
-    }
-
-    /// Create credit call option parameters (option to buy protection).
-    ///
-    /// # Panics
-    ///
-    /// Panics if inputs are invalid. For fallible construction, use [`try_call`](Self::try_call).
-    ///
-    /// # Deprecation
-    ///
-    /// This method will panic on invalid parameters. Use [`try_call`](Self::try_call) instead for
-    /// explicit error handling. This method will be removed in version 1.0.0.
-    #[deprecated(
-        since = "0.8.0",
-        note = "Use `try_call()` instead to handle errors explicitly. \
-                This method will panic on invalid parameters and will be \
-                removed in version 1.0.0"
-    )]
-    #[must_use]
-    #[allow(deprecated)]
-    pub fn call(strike_spread_bp: f64, expiry: Date, cds_maturity: Date, notional: Money) -> Self {
-        Self::new(
-            strike_spread_bp,
-            expiry,
-            cds_maturity,
-            notional,
-            OptionType::Call,
-        )
-    }
-
     /// Create credit call option parameters with validation.
     pub fn try_call(
         strike_spread_bp: f64,
@@ -196,34 +136,6 @@ impl CdsOptionParams {
             cds_maturity,
             notional,
             OptionType::Call,
-        )
-    }
-
-    /// Create credit put option parameters (option to sell protection).
-    ///
-    /// # Panics
-    ///
-    /// Panics if inputs are invalid. For fallible construction, use [`try_put`](Self::try_put).
-    ///
-    /// # Deprecation
-    ///
-    /// This method will panic on invalid parameters. Use [`try_put`](Self::try_put) instead for
-    /// explicit error handling. This method will be removed in version 1.0.0.
-    #[deprecated(
-        since = "0.8.0",
-        note = "Use `try_put()` instead to handle errors explicitly. \
-                This method will panic on invalid parameters and will be \
-                removed in version 1.0.0"
-    )]
-    #[must_use]
-    #[allow(deprecated)]
-    pub fn put(strike_spread_bp: f64, expiry: Date, cds_maturity: Date, notional: Money) -> Self {
-        Self::new(
-            strike_spread_bp,
-            expiry,
-            cds_maturity,
-            notional,
-            OptionType::Put,
         )
     }
 

@@ -262,10 +262,10 @@ fn test_accrued_interest_metric() {
 
     let registry = standard_registry();
     let results = registry
-        .compute(&[MetricId::AccruedInterest], &mut mctx)
+        .compute(&[MetricId::Accrued], &mut mctx)
         .unwrap();
 
-    let accrued = results.get(&MetricId::AccruedInterest).unwrap();
+    let accrued = results.get(&MetricId::Accrued).unwrap();
 
     // Should have accrued some interest by mid-term
     assert!(*accrued > 0.0);
@@ -286,10 +286,10 @@ fn test_accrued_interest_before_start() {
 
     let registry = standard_registry();
     let results = registry
-        .compute(&[MetricId::AccruedInterest], &mut mctx)
+        .compute(&[MetricId::Accrued], &mut mctx)
         .unwrap();
 
-    let accrued = results.get(&MetricId::AccruedInterest).unwrap();
+    let accrued = results.get(&MetricId::Accrued).unwrap();
 
     // No accrual before start
     assert_approx_eq(*accrued, 0.0, 1e-6);
@@ -305,10 +305,10 @@ fn test_accrued_interest_at_maturity() {
 
     let registry = standard_registry();
     let results = registry
-        .compute(&[MetricId::AccruedInterest], &mut mctx)
+        .compute(&[MetricId::Accrued], &mut mctx)
         .unwrap();
 
-    let accrued = results.get(&MetricId::AccruedInterest).unwrap();
+    let accrued = results.get(&MetricId::Accrued).unwrap();
     let total_interest = repo.interest_amount().unwrap().amount();
 
     // At maturity, accrued should equal total interest
@@ -420,7 +420,7 @@ fn test_metrics_registry_has_repo_metrics() {
     assert!(registry.has_metric(MetricId::TimeToMaturity));
     assert!(registry.has_metric(MetricId::ImpliedCollateralReturn));
     assert!(registry.has_metric(MetricId::Theta));
-    assert!(registry.has_metric(MetricId::AccruedInterest));
+    assert!(registry.has_metric(MetricId::Accrued));
     assert!(registry.has_metric(MetricId::BucketedDv01));
 }
 

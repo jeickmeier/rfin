@@ -229,48 +229,6 @@ impl CdsOption {
         Ok(option)
     }
 
-    /// Create a new credit option using parameter structs.
-    ///
-    /// # Panics
-    ///
-    /// Panics if inputs are invalid. For fallible construction, use [`try_new`](Self::try_new).
-    ///
-    /// # Arguments
-    ///
-    /// - `id`: Unique instrument identifier
-    /// - `option_params`: deal-level fields (strike in bp, expiry, CDS maturity, notional, option type)
-    /// - `credit_params`: reference entity, recovery rate, and the hazard `credit_id`
-    /// - `discount_curve_id`: discount curve identifier for discounting cashflows
-    /// - `vol_surface_id`: volatility surface identifier for the CDS option
-    ///
-    /// # Deprecation
-    ///
-    /// This method will panic on invalid parameters. Use [`try_new`](Self::try_new) instead for
-    /// explicit error handling. This method will be removed in version 1.0.0.
-    #[deprecated(
-        since = "0.8.0",
-        note = "Use `try_new()` instead to handle errors explicitly. \
-                This method will panic on invalid parameters and will be \
-                removed in version 1.0.0"
-    )]
-    #[must_use]
-    pub fn new(
-        id: impl Into<InstrumentId>,
-        option_params: &CdsOptionParams,
-        credit_params: &CreditParams,
-        discount_curve_id: impl Into<finstack_core::types::CurveId>,
-        vol_surface_id: impl Into<finstack_core::types::CurveId>,
-    ) -> Self {
-        Self::try_new(
-            id,
-            option_params,
-            credit_params,
-            discount_curve_id,
-            vol_surface_id,
-        )
-        .expect("Invalid CdsOption parameters")
-    }
-
     /// Set implied volatility override with validation.
     ///
     /// # Arguments

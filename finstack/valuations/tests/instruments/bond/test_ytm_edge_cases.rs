@@ -453,7 +453,7 @@ fn test_near_maturity_bond_ytm() {
     let bond_with_quote = bond;
 
     let result = bond_with_quote
-        .price_with_metrics(&market, as_of, &[MetricId::Ytm, MetricId::AccruedInterest])
+        .price_with_metrics(&market, as_of, &[MetricId::Ytm, MetricId::Accrued])
         .unwrap();
 
     let ytm = result.measures[MetricId::Ytm.as_str()];

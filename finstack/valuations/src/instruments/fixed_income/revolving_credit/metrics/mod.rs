@@ -13,11 +13,6 @@ pub use irr::calculate_path_irr;
 pub use utilization_rate::UtilizationRateCalculator;
 pub use weighted_average_cost::ApproxWeightedAverageCostCalculator;
 
-/// Backward compatibility alias for weighted average cost calculator.
-///
-/// Prefer using `ApproxWeightedAverageCostCalculator` directly for new code.
-pub type WeightedAverageCostCalculator = ApproxWeightedAverageCostCalculator;
-
 use crate::metrics::MetricRegistry;
 
 /// Register all revolving credit metrics with the registry.

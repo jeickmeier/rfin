@@ -7,8 +7,8 @@ use finstack_core::market_data::term_structures::DiscountCurve;
 use finstack_core::money::Money;
 use finstack_valuations::instruments::common::traits::Instrument;
 use finstack_valuations::instruments::structured_credit::{
-    DealType, PaymentCalculation, Pool, PoolAsset, Recipient, RecipientType, Seniority,
-    StructuredCredit, Tranche, TrancheCoupon, TrancheStructure, Waterfall,
+    DealType, Pool, PoolAsset, Seniority, StructuredCredit, Tranche, TrancheCoupon,
+    TrancheStructure,
 };
 use finstack_valuations::metrics::MetricId;
 use time::Month;
@@ -54,20 +54,6 @@ fn create_simple_tranches() -> TrancheStructure {
     TrancheStructure::new(vec![senior]).unwrap()
 }
 
-fn create_simple_waterfall() -> Waterfall {
-    let fees = vec![Recipient::new(
-        "trustee",
-        RecipientType::ServiceProvider("Trustee".to_string()),
-        PaymentCalculation::FixedAmount {
-            amount: Money::new(10_000.0, Currency::USD),
-            rounding: None,
-        },
-    )];
-
-    let tranches = create_simple_tranches();
-    Waterfall::standard_sequential(Currency::USD, &tranches, fees)
-}
-
 #[test]
 fn test_structured_credit_bucketed_dv01_computed() {
     let as_of = Date::from_calendar_date(2025, Month::January, 1).unwrap();
@@ -77,7 +63,6 @@ fn test_structured_credit_bucketed_dv01_computed() {
         "TEST_ABS",
         create_simple_pool(),
         create_simple_tranches(),
-        create_simple_waterfall(),
         Date::from_calendar_date(2024, Month::January, 1).unwrap(),
         maturity,
         "USD-OIS",

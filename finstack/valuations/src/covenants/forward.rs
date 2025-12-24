@@ -39,8 +39,6 @@ impl From<BoundKind> for Comparator {
 /// MC configuration (subset; integrates with instruments/common/mc RNG).
 #[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
 pub struct McConfig {
-    /// **Deprecated**: Field is ignored. Use `CovenantForecastConfig::random_seed` instead.
-    pub seed: u64,
     /// When true, uses antithetic variates (simple variance reduction).
     pub antithetic: bool,
 }
@@ -502,10 +500,7 @@ mod tests {
             num_paths: 10_000,
             volatility: Some(0.25),
             random_seed: Some(42),
-            mc: Some(McConfig {
-                seed: 0,
-                antithetic: true,
-            }),
+            mc: Some(McConfig { antithetic: true }),
         };
         let fc = forecast_covenant_generic(&spec, &mts, &periods, cfg)
             .expect("Forecast covenant should succeed in test");

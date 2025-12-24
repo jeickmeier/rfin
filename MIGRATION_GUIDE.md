@@ -15,7 +15,7 @@
 3. [Breaking Changes by Phase](#breaking-changes-by-phase)
    - [Phase 1: Critical Safety Fixes](#phase-1-critical-safety-fixes)
    - [Phase 2: Market Convention Alignment](#phase-2-market-convention-alignment)
-   - [Phase 3: API Safety & Constructor Deprecations](#phase-3-api-safety--constructor-deprecations)
+   - [Phase 3: API Safety & Constructor Removal](#phase-3-api-safety--constructor-removal)
 4. [Migration Strategies](#migration-strategies)
 5. [Code Examples: Before & After](#code-examples-before--after)
 6. [Error Handling Updates](#error-handling-updates)
@@ -66,8 +66,8 @@ Do you price FX instruments or use multi-currency portfolios?
 └── NO → Skip Phase 2
 
 Do you use CdsOption or other instruments with panicking constructors?
-├── YES → Go to Phase 3 (Deprecation warnings)
-│   └── Update to try_new() variants (gradual, removal in 1.0.0)
+├── YES → Go to Phase 3 (Breaking)
+│   └── Update to try_new() variants (constructors removed)
 └── NO → Skip Phase 3
 
 Do you use calibration heavily?
@@ -105,16 +105,16 @@ Do you use calibration heavily?
 
 **Severity**: 🟠 Major - Incorrect settlement dates and unit confusion
 
-### Phase 3: API Safety & Constructor Deprecations
+### Phase 3: API Safety & Constructor Removal
 
-**Status**: ✅ Completed (Gradual migration, removal in 1.0.0)
+**Status**: ✅ Completed (Breaking)
 
 | Component | Change | Impact | Migration Path |
 |-----------|--------|--------|----------------|
-| **CdsOption constructors** | Deprecated (panicking) | Compiler warnings | Use `try_new()` instead of `new()` |
+| **CdsOption constructors** | Removed (panicking) | Compile errors | Use `try_new()` instead of `new()` |
 | **Clippy safety lints** | Enabled at crate level | Prevents new panic/expect in code | No user impact; internal only |
 
-**Severity**: 🟡 Moderate - Deprecation warnings only; removal in 1.0.0
+**Severity**: 🟠 Major - Removed APIs; migration required
 
 ---
 
@@ -180,7 +180,7 @@ Do you use calibration heavily?
 1. **Phase 1 (Critical)**: Immediate strict mode for risk-critical paths
 2. **Phase 1 (Non-critical)**: Best effort for reporting/analytics
 3. **Phase 2**: Update FX settlement (verify behavior change is correct)
-4. **Phase 3**: Suppress deprecation warnings temporarily
+4. **Phase 3**: Update removed constructors to `try_*` variants
 
 **Pros**:
 - ✅ Balances safety and pragmatism
@@ -453,9 +453,9 @@ let swap_quote = RateQuote::Swap {
 // Field name documents the contract: input is decimal
 ```
 
-**Migration Note**: Old JSON field `"spread"` still works via serde alias for backwards compatibility. New code should use `"spread_decimal"` for clarity.
+**Migration Note**: Legacy `"spread"` is no longer accepted. Use `"spread_decimal"` for clarity.
 
-### Example 6: Constructor Deprecation (Phase 3)
+### Example 6: Constructor Removal (Phase 3)
 
 #### Before (0.7.x) - Panicking Constructor
 
@@ -500,10 +500,6 @@ let option = CdsOption::try_new(
     "USD-OIS",
     "VOL-SURFACE",
 )?;  // ✅ Errors can be handled
-
-// Old constructors still work but are deprecated:
-#[allow(deprecated)]
-let option_old = CdsOption::new(...);  // Compiler warning
 ```
 
 ---
@@ -719,14 +715,14 @@ fn test_constructor_error_handling() {
 **A**: It depends on your risk tolerance:
 - **Phase 1 (Metrics)**: Strongly recommended for all production systems. Silent failures in risk calculations are unacceptable.
 - **Phase 2 (FX)**: Required if you price FX instruments or use multi-currency portfolios. The behavior change fixes incorrect settlement dates.
-- **Phase 3 (Constructors)**: Optional for now (deprecation warnings only). Required before 1.0.0 release.
+- **Phase 3 (Constructors)**: Required if you used panicking constructors (now removed).
 
 #### Q: Will this break my existing code?
 
 **A**: Yes, Phase 1 and Phase 2 include breaking changes:
 - **Phase 1**: `compute()` may return errors where it previously returned `0.0`
 - **Phase 2**: FX spot dates may be different near holidays (correct behavior)
-- **Phase 3**: Compiler warnings only (no breakage)
+- **Phase 3**: Compile errors if removed constructors are still in use
 
 Use the gradual migration strategy if you need time to adapt.
 
@@ -878,7 +874,7 @@ Better: Update your tests and verify the new behavior is correct against vendor 
 
 ### Phase 3: Constructors
 
-#### Q: Why deprecate `new()` constructors?
+#### Q: Why remove `new()` constructors?
 
 **A**: Panicking constructors are unsafe for library APIs because:
 1. **Panics can't be caught**: No way to handle errors gracefully in calling code
@@ -886,58 +882,15 @@ Better: Update your tests and verify the new behavior is correct against vendor 
 3. **FFI safety**: Panics across FFI boundaries (Python, WASM) are undefined behavior
 4. **Production risk**: Crashes in pricing engines instead of recoverable errors
 
-#### Q: When will deprecated constructors be removed?
-
-**A**: Timeline:
-- **Version 0.8.0** (now): Deprecated with compiler warnings
-- **Version 0.9.0**: Continue deprecation warnings
-- **Version 1.0.0**: Removed entirely
-
-You have until 1.0.0 to migrate (estimated Q2 2025).
-
-#### Q: How do I suppress warnings temporarily?
-
-**A**: Use `#[allow(deprecated)]`:
-
-```rust
-// For specific usage:
-#[allow(deprecated)]
-let option = CdsOption::new(...);
-
-// For entire module (tests only!):
-#[cfg(test)]
-#[allow(deprecated)]
-mod tests {
-    // ... test code
-}
-```
-
-**Warning**: This should be temporary. Update to `try_new()` as soon as possible.
-
 #### Q: Do I need to update test code?
 
-**A**: Yes, but you have two options:
-
-**Option A** (recommended): Use `try_new()` with `expect()`:
+**A**: Yes. Use `try_new()` with `expect()`:
 ```rust
 #[test]
 fn test_pricing() {
     let option = CdsOption::try_new(...)
         .expect("Valid test parameters");
     // ... test code
-}
-```
-
-**Option B** (temporary): Suppress warnings:
-```rust
-#[cfg(test)]
-#[allow(deprecated)]
-mod tests {
-    #[test]
-    fn test_pricing() {
-        let option = CdsOption::new(...);
-        // ... test code
-    }
 }
 ```
 
@@ -1036,7 +989,7 @@ If you find issues with the migration guide or have suggestions:
 | **FX joint business days** | ❌ Calendar days | ✅ Joint business days | ✅ Joint business days | ✅ Joint business days |
 | **Calendar error handling** | ❌ Silent fallback | ✅ Explicit error | ✅ Explicit error | ✅ Explicit error |
 | **Swap spread field** | `spread` (ambiguous) | `spread_decimal` (clear) | `spread_decimal` | `spread_decimal` |
-| **Panicking constructors** | ✅ Available | ⚠️ Deprecated | ⚠️ Deprecated | ❌ Removed |
+| **Panicking constructors** | ✅ Available | ❌ Removed | ❌ Removed | ❌ Removed |
 | **Calibration residuals** | ❌ Not normalized | ✅ Normalized | ✅ Normalized | ✅ Normalized |
 | **Safety lints** | ❌ Not enforced | ⚠️ Enforced (allowed internally) | ✅ Enforced (violations reduced) | ✅ Fully enforced |
 

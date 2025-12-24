@@ -60,8 +60,8 @@ use finstack_valuations::instruments::inflation_swap::{InflationSwap, PayReceive
 use finstack_valuations::instruments::irs::InterestRateSwap;
 use finstack_valuations::instruments::repo::{CollateralSpec, CollateralType, Repo};
 use finstack_valuations::instruments::structured_credit::{
-    DealType, PaymentCalculation, Pool, PoolAsset, Recipient, RecipientType, Seniority,
-    StructuredCredit, Tranche, TrancheCoupon, TrancheStructure, Waterfall,
+    DealType, Pool, PoolAsset, Seniority, StructuredCredit, Tranche, TrancheCoupon,
+    TrancheStructure,
 };
 use finstack_valuations::instruments::swaption::parameters::SwaptionParams;
 use finstack_valuations::instruments::swaption::Swaption;
@@ -875,22 +875,10 @@ fn create_institutional_portfolio(num_positions: usize) -> finstack_portfolio::P
         .unwrap();
         let tranches = TrancheStructure::new(vec![senior]).unwrap();
 
-        // Create waterfall
-        let fees = vec![Recipient::new(
-            "trustee",
-            RecipientType::ServiceProvider("Trustee".to_string()),
-            PaymentCalculation::FixedAmount {
-                amount: Money::new(10_000.0, Currency::USD),
-                rounding: None,
-            },
-        )];
-        let waterfall = Waterfall::standard_sequential(Currency::USD, &tranches, fees);
-
         let sc = StructuredCredit::new_clo(
             sc_id.clone(),
             pool,
             tranches,
-            waterfall,
             base,
             maturity_5y(),
             "USD-OIS",

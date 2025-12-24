@@ -175,9 +175,9 @@ impl JsMetricId {
     }
 
     /// Accrued interest metric.
-    #[wasm_bindgen(js_name = AccruedInterest)]
-    pub fn accrued_interest() -> JsMetricId {
-        JsMetricId::from_inner(MetricId::AccruedInterest)
+    #[wasm_bindgen(js_name = Accrued)]
+    pub fn accrued() -> JsMetricId {
+        JsMetricId::from_inner(MetricId::Accrued)
     }
 
     /// Clean price metric.

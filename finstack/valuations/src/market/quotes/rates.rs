@@ -120,7 +120,7 @@ pub enum RateQuote {
         ///
         /// This spread is added to the floating leg rate. The value is in decimal format
         /// and will be converted to basis points internally (multiplied by 10,000).
-        #[serde(default, alias = "spread")]
+        #[serde(default)]
         spread_decimal: Option<f64>,
     },
 }
@@ -334,9 +334,9 @@ mod tests {
         }
     }
 
-    /// Test backwards compatibility: old "spread" field still works via alias
+    /// Old "spread" field should be rejected (use "spread_decimal")
     #[test]
-    fn test_swap_spread_serde_backwards_compat() {
+    fn test_swap_spread_serde_rejects_legacy_field() {
         let json = r#"{
             "type": "swap",
             "id": "TEST-SWAP-5Y",
@@ -346,19 +346,8 @@ mod tests {
             "spread": 0.0010
         }"#;
 
-        let quote: RateQuote =
-            serde_json::from_str(json).expect("Failed to deserialize with old 'spread' field");
-
-        match quote {
-            RateQuote::Swap { spread_decimal, .. } => {
-                assert_eq!(
-                    spread_decimal,
-                    Some(0.0010),
-                    "Old 'spread' field should map to spread_decimal"
-                );
-            }
-            _ => panic!("Expected Swap variant"),
-        }
+        let result: Result<RateQuote, _> = serde_json::from_str(json);
+        assert!(result.is_err(), "Legacy 'spread' field should be rejected");
     }
 
     /// Test that spread_decimal serializes using new field name

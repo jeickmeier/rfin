@@ -14,7 +14,7 @@ This guide helps you migrate code to use the new **strict metrics mode**, **API 
 2. [Breaking Changes Summary](#breaking-changes-summary)
 3. [Metrics Framework Changes (Phase 1)](#metrics-framework-changes)
 4. [Calibration Improvements (Phase 1)](#calibration-improvements)
-5. [Constructor Deprecations (Phase 3)](#constructor-deprecations)
+5. [Constructor Removals (Phase 3)](#constructor-removals)
 6. [Error Handling Updates](#error-handling-updates)
 7. [Migration Checklist](#migration-checklist)
 8. [FAQ](#faq)
@@ -176,8 +176,6 @@ where
     MetricId::parse_strict(&s)
         .map_err(|e| D::Error::custom(format!("Invalid metric ID: {}", e)))
 }
-```
-
 ---
 
 ## Calibration Improvements
@@ -216,21 +214,17 @@ let target_1 = DiscountCurveTarget::new_from_instruments(
 
 ---
 
-## Constructor Deprecations
+## Constructor Removals
 
-### Panicking Constructors Deprecated (Phase 3)
+### Panicking Constructors Removed (Phase 3)
 
-**What Changed**: Panicking constructors (those using `.expect()` internally) are now deprecated. These will be removed in version 1.0.0.
+**What Changed**: Panicking constructors (those using `.expect()` internally) have been removed. Use the fallible `try_*` APIs instead.
 
-**Affected APIs**:
+**Removed APIs**:
 - `CdsOption::new()` → Use `CdsOption::try_new()?` instead
 - `CdsOptionParams::new()` → Use `CdsOptionParams::try_new()?` instead
 - `CdsOptionParams::call()` → Use `CdsOptionParams::try_call()?` instead
 - `CdsOptionParams::put()` → Use `CdsOptionParams::try_put()?` instead
-
-**Migration Timeline**:
-- **Version 0.8.0**: Constructors deprecated with compiler warnings
-- **Version 1.0.0**: Deprecated constructors will be removed
 
 ### Why This Change?
 
@@ -358,43 +352,21 @@ match options {
 }
 ```
 
-### Deprecation Warnings
+### Compile Errors
 
-You'll see compiler warnings like this:
+If you still call removed constructors, you'll see errors like this:
 
 ```
-warning: use of deprecated method `CdsOption::new`:
-  Use `try_new()` instead to handle errors explicitly.
-  This method will panic on invalid parameters and will be
-  removed in version 1.0.0
-   --> src/main.rs:42:18
-    |
-42  |     let option = CdsOption::new(...);
-    |                  ^^^^^^^^^^^^^^
+error[E0599]: no function or associated item named `new` found for struct `CdsOption` in the current scope
+  --> src/main.rs:42:18
+   |
+42 |     let option = CdsOption::new(...);
+   |                  ^^^^^^^^^^^^^^
 ```
-
-### Suppressing Warnings (Temporary)
-
-If you need to suppress warnings during gradual migration:
-
-```rust
-// Option 1: Suppress for specific usage
-#[allow(deprecated)]
-let option = CdsOption::new(...);
-
-// Option 2: Suppress for entire module (tests only!)
-#[cfg(test)]
-#[allow(deprecated)]
-mod tests {
-    // ... test code using deprecated constructors
-}
-```
-
-**Warning**: Only suppress warnings as a temporary migration step. Update to `try_new()` variants as soon as possible.
 
 ### Test Code Migration
 
-For test code using deprecated constructors:
+For test code using removed constructors:
 
 **Before (0.7.x)**:
 ```rust
@@ -422,20 +394,6 @@ fn test_option_pricing() {
 }
 ```
 
-**After (0.8.0)** - **Option B: Suppress warnings temporarily**:
-```rust
-#[cfg(test)]
-#[allow(deprecated)]
-mod tests {
-    #[test]
-    fn test_option_pricing() {
-        let params = CdsOptionParams::call(100.0, expiry, maturity, notional);
-        let option = CdsOption::new("TEST", &params, &credit, disc, vol);
-        
-        let pv = option.npv(&market, as_of).unwrap();
-        assert!(pv.amount() > 0.0);
-    }
-}
 ```
 
 ---
@@ -628,12 +586,14 @@ let metrics = match registry.compute(&all_metrics, &mut context) {
 
 **A**: Phase 1 makes one intentional breaking change (strict mode default) to fix critical safety issues. Future phases focus on:
 - **Phase 2**: Market convention fixes (FX settlement, quote units) - may require config updates but not code changes
-- **Phase 3**: API safety (remove panicking constructors) - gradual via deprecation warnings
+- **Phase 3**: API safety (panicking constructors removed) - compile errors enforce migration
 
-All future breaking changes will follow a deprecation cycle:
+Most future breaking changes will follow a deprecation cycle:
 1. Deprecate old API in minor release (0.x)
 2. Document migration path
-3. Remove in next major release (1.0)
+3. Remove in the next major release (1.0)
+
+Safety-related removals may be accelerated if they reduce panic/FFI risk.
 
 ---
 
@@ -705,8 +665,8 @@ pub fn calculate_risk(value: f64) -> Result<f64> {
 
 Most violations are in:
 1. **Instrument constructors** (~50 violations)
-   - Many already deprecated in Step 3.1
-   - Will be removed in 1.0.0
+   - Many removed as part of the panicking constructor cleanup
+   - Remaining internal constructors are being refactored to use `Result`
 2. **Internal calibration helpers** (~70 violations)
    - Documented invariants (e.g., "params non-empty, checked above")
    - Being refactored to use Result propagation

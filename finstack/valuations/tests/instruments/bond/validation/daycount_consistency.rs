@@ -216,11 +216,11 @@ fn test_accrued_interest_uses_bond_daycount() {
     let market = MarketContext::new().insert_discount(disc);
 
     let result_act365 = bond_act365
-        .price_with_metrics(&market, as_of, &[MetricId::AccruedInterest])
+        .price_with_metrics(&market, as_of, &[MetricId::Accrued])
         .unwrap();
 
     let result_30360 = bond_30360
-        .price_with_metrics(&market, as_of, &[MetricId::AccruedInterest])
+        .price_with_metrics(&market, as_of, &[MetricId::Accrued])
         .unwrap();
 
     let accrued_act365 = *result_act365.measures.get("accrued_interest").unwrap();
@@ -270,7 +270,7 @@ fn test_dirty_clean_price_consistency() {
                 &[
                     MetricId::CleanPrice,
                     MetricId::DirtyPrice,
-                    MetricId::AccruedInterest,
+                    MetricId::Accrued,
                 ],
             )
             .unwrap();

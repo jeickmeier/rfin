@@ -108,7 +108,6 @@ pub use types::{
     // Enums
     AssetType,
     // Metadata
-    BehaviorOverrides,
     ConcentrationCheckResult,
     ConcentrationViolation,
     // Stochastic specs
@@ -122,7 +121,6 @@ pub use types::{
     DealConfig,
     DealDates,
     DealFees,
-    DealMetadata,
     DealType,
     DefaultAssumptions,
     ManagementFeeType,

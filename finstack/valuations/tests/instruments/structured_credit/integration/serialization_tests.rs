@@ -9,11 +9,10 @@ use finstack_core::money::Money;
 use finstack_valuations::instruments::common::traits::Attributes;
 use finstack_valuations::instruments::structured_credit::types::pool::RepLine;
 use finstack_valuations::instruments::structured_credit::{
-    BehaviorOverrides, CorrelationStructure, CoverageTrigger, DealType, DefaultAssumptions,
-    DefaultModelSpec, Pool, PoolAsset, PrepaymentModelSpec, RecoveryModelSpec,
-    ReinvestmentCriteria, ReinvestmentPeriod, Seniority, StochasticDefaultSpec,
-    StochasticPrepaySpec, StructuredCredit, Tranche, TrancheCoupon, TrancheStructure,
-    TriggerConsequence, Waterfall,
+    CorrelationStructure, CoverageTrigger, DealType, DefaultAssumptions, DefaultModelSpec,
+    Overrides, Pool, PoolAsset, PrepaymentModelSpec, RecoveryModelSpec, ReinvestmentCriteria,
+    ReinvestmentPeriod, Seniority, StochasticDefaultSpec, StochasticPrepaySpec, StructuredCredit,
+    Tranche, TrancheCoupon, TrancheStructure, TriggerConsequence,
 };
 use finstack_valuations::instruments::{irs::InterestRateSwap, json_loader::InstrumentJson};
 use finstack_valuations::instruments::{irs::PayReceive, json_loader::InstrumentEnvelope};
@@ -106,13 +105,10 @@ fn test_clo_json_roundtrip() {
     .unwrap();
 
     let tranches = TrancheStructure::new(vec![tranche]).unwrap();
-    let waterfall = Waterfall::new(Currency::USD);
-
     let original = StructuredCredit::new_clo(
         "TEST_CLO",
         pool,
         tranches,
-        waterfall,
         Date::from_calendar_date(2024, Month::January, 1).unwrap(),
         maturity_date(),
         "USD-OIS",
@@ -148,13 +144,10 @@ fn test_rmbs_with_overrides_serialization() {
     .unwrap();
 
     let tranches = TrancheStructure::new(vec![tranche]).unwrap();
-    let waterfall = Waterfall::new(Currency::USD);
-
     let mut rmbs = StructuredCredit::new_rmbs(
         "TEST_RMBS",
         pool,
         tranches,
-        waterfall,
         Date::from_calendar_date(2024, Month::January, 1).unwrap(),
         maturity_date(),
         "USD-OIS",
@@ -360,7 +353,6 @@ fn build_full_feature_structured_credit() -> StructuredCredit {
         "FULL-CLO",
         pool,
         tranches,
-        Waterfall::new(Currency::USD),
         closing,
         legal,
         "USD-SOFR-DISC",
@@ -404,7 +396,7 @@ fn build_full_feature_structured_credit() -> StructuredCredit {
         trustee_id: Some("Trustee-T".to_string()),
     };
 
-    deal.behavior_overrides = BehaviorOverrides {
+    deal.behavior_overrides = Overrides {
         cpr_annual: Some(0.18),
         abs_speed: Some(0.012),
         psa_speed_multiplier: Some(1.3),

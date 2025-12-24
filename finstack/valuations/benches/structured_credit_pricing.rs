@@ -20,8 +20,8 @@ use finstack_core::types::ratings::CreditRating;
 use finstack_valuations::cashflow::traits::CashflowProvider;
 use finstack_valuations::instruments::common::traits::Instrument;
 use finstack_valuations::instruments::structured_credit::{
-    DealType, PaymentCalculation, Pool, PoolAsset, Recipient, RecipientType, Seniority,
-    StructuredCredit, Tranche, TrancheCoupon, TrancheStructure, Waterfall,
+    DealType, Pool, PoolAsset, Seniority, StructuredCredit, Tranche, TrancheCoupon,
+    TrancheStructure,
 };
 use finstack_valuations::metrics::MetricId;
 use std::hint::black_box;
@@ -97,31 +97,6 @@ fn create_tranches(total_balance: f64) -> TrancheStructure {
     TrancheStructure::new(vec![senior, mezz, equity]).unwrap()
 }
 
-fn create_waterfall(tranches: &TrancheStructure) -> Waterfall {
-    let fees = vec![
-        Recipient::new(
-            "trustee",
-            RecipientType::ServiceProvider("Trustee".to_string()),
-            PaymentCalculation::FixedAmount {
-                amount: Money::new(10_000.0, Currency::USD),
-                rounding: None,
-            },
-        ),
-        Recipient::new(
-            "manager",
-            RecipientType::ServiceProvider("Manager".to_string()),
-            PaymentCalculation::PercentageOfCollateral {
-                rate: 0.001, // 0.1% fee
-                annualized: true,
-                day_count: None,
-                rounding: None,
-            },
-        ),
-    ];
-
-    Waterfall::standard_sequential(Currency::USD, tranches, fees)
-}
-
 fn create_market() -> MarketContext {
     let base = test_date();
     let disc = DiscountCurve::builder("USD-OIS")
@@ -142,14 +117,12 @@ fn create_market() -> MarketContext {
 fn create_deal(deal_type: DealType, num_assets: usize) -> StructuredCredit {
     let pool = create_pool(deal_type, num_assets);
     let tranches = create_tranches(10_000_000.0);
-    let waterfall = create_waterfall(&tranches);
 
     StructuredCredit::apply_deal_defaults(
         format!("{:?}-BENCHMARK", deal_type),
         deal_type,
         pool,
         tranches,
-        waterfall,
         closing_date(),
         maturity_date(),
         "USD-OIS",

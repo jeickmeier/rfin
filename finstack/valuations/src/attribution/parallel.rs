@@ -22,10 +22,6 @@
 //! - Factors are isolated independently, so cross-effects appear in residual
 //! - Model parameters attribution requires instrument-specific support (see model_params.rs)
 
-// TODO: Migrate to trait-based extraction (RatesCurvesSnapshot::extract, etc.)
-// instead of deprecated extract_*_curves functions
-#![allow(deprecated)]
-
 use crate::attribution::factors::*;
 use crate::attribution::helpers::*;
 use crate::attribution::types::*;
@@ -196,8 +192,9 @@ fn attribute_pnl_parallel_impl(input: &AttributionInput) -> Result<PnlAttributio
     attribution.carry = compute_pnl(val_t0, val_carry, val_t1.currency(), market_t1, as_of_t1)?;
 
     // Step 3: Rates curves attribution (discount + forward)
-    let rates_snapshot = extract_rates_curves(market_t0);
-    let market_with_t0_rates = restore_rates_curves(market_t1, &rates_snapshot);
+    let rates_snapshot = MarketSnapshot::extract(market_t0, CurveRestoreFlags::RATES);
+    let market_with_t0_rates =
+        MarketSnapshot::restore_market(market_t1, &rates_snapshot, CurveRestoreFlags::RATES);
     let val_with_t0_rates = reprice_instrument(instrument, &market_with_t0_rates, as_of_t1)?;
     num_repricings += 1;
 
@@ -212,9 +209,10 @@ fn attribute_pnl_parallel_impl(input: &AttributionInput) -> Result<PnlAttributio
     )?;
 
     // Step 4: Credit curves attribution (hazard curves)
-    let credit_snapshot = extract_credit_curves(market_t0);
+    let credit_snapshot = MarketSnapshot::extract(market_t0, CurveRestoreFlags::CREDIT);
     if !credit_snapshot.hazard_curves.is_empty() {
-        let market_with_t0_credit = restore_credit_curves(market_t1, &credit_snapshot);
+        let market_with_t0_credit =
+            MarketSnapshot::restore_market(market_t1, &credit_snapshot, CurveRestoreFlags::CREDIT);
         let val_with_t0_credit = reprice_instrument(instrument, &market_with_t0_credit, as_of_t1)?;
         num_repricings += 1;
 
@@ -228,9 +226,13 @@ fn attribute_pnl_parallel_impl(input: &AttributionInput) -> Result<PnlAttributio
     }
 
     // Step 5: Inflation curves attribution
-    let inflation_snapshot = extract_inflation_curves(market_t0);
+    let inflation_snapshot = MarketSnapshot::extract(market_t0, CurveRestoreFlags::INFLATION);
     if !inflation_snapshot.inflation_curves.is_empty() {
-        let market_with_t0_inflation = restore_inflation_curves(market_t1, &inflation_snapshot);
+        let market_with_t0_inflation = MarketSnapshot::restore_market(
+            market_t1,
+            &inflation_snapshot,
+            CurveRestoreFlags::INFLATION,
+        );
         let val_with_t0_inflation =
             reprice_instrument(instrument, &market_with_t0_inflation, as_of_t1)?;
         num_repricings += 1;
@@ -245,9 +247,13 @@ fn attribute_pnl_parallel_impl(input: &AttributionInput) -> Result<PnlAttributio
     }
 
     // Step 6: Correlations attribution (base correlation curves)
-    let correlations_snapshot = extract_correlations(market_t0);
+    let correlations_snapshot = MarketSnapshot::extract(market_t0, CurveRestoreFlags::CORRELATION);
     if !correlations_snapshot.base_correlation_curves.is_empty() {
-        let market_with_t0_corr = restore_correlations(market_t1, &correlations_snapshot);
+        let market_with_t0_corr = MarketSnapshot::restore_market(
+            market_t1,
+            &correlations_snapshot,
+            CurveRestoreFlags::CORRELATION,
+        );
         let val_with_t0_corr = reprice_instrument(instrument, &market_with_t0_corr, as_of_t1)?;
         num_repricings += 1;
 
@@ -293,7 +299,7 @@ fn attribute_pnl_parallel_impl(input: &AttributionInput) -> Result<PnlAttributio
     }
 
     // Step 8: Volatility attribution
-    let vol_snapshot = extract_volatility(market_t0);
+    let vol_snapshot = VolatilitySnapshot::extract(market_t0);
     if !vol_snapshot.surfaces.is_empty() {
         let market_with_t0_vol = restore_volatility(market_t1, &vol_snapshot);
         let val_with_t0_vol = reprice_instrument(instrument, &market_with_t0_vol, as_of_t1)?;
@@ -350,7 +356,7 @@ fn attribute_pnl_parallel_impl(input: &AttributionInput) -> Result<PnlAttributio
     }
 
     // Step 10: Market scalars attribution
-    let scalars_snapshot = extract_scalars(market_t0);
+    let scalars_snapshot = ScalarsSnapshot::extract(market_t0);
     let has_scalars = !scalars_snapshot.prices.is_empty()
         || !scalars_snapshot.series.is_empty()
         || !scalars_snapshot.inflation_indices.is_empty()
@@ -456,10 +462,11 @@ mod tests {
         let market_t1 = MarketContext::new().insert_discount(curve_t1);
 
         // Extract and verify snapshots work
-        let rates_snapshot = extract_rates_curves(&market_t0);
+        let rates_snapshot = MarketSnapshot::extract(&market_t0, CurveRestoreFlags::RATES);
         assert_eq!(rates_snapshot.discount_curves.len(), 1);
 
-        let restored = restore_rates_curves(&market_t1, &rates_snapshot);
+        let restored =
+            MarketSnapshot::restore_market(&market_t1, &rates_snapshot, CurveRestoreFlags::RATES);
         assert!(restored.get_discount("USD-OIS").is_ok());
     }
 }

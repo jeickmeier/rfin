@@ -272,10 +272,7 @@ impl PyCovenantForecastConfig {
         cfg.volatility = volatility;
         cfg.random_seed = seed;
         if antithetic.unwrap_or(false) {
-            cfg.mc = Some(ValMcConfig {
-                seed: cfg.random_seed.unwrap_or(0),
-                antithetic: true,
-            });
+            cfg.mc = Some(ValMcConfig { antithetic: true });
         }
         Self { inner: cfg }
     }

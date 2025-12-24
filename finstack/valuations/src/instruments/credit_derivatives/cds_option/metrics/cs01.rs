@@ -93,7 +93,6 @@ fn rebuild_hazard_with_id(
 }
 
 #[cfg(test)]
-#[allow(deprecated)]
 mod tests {
     use super::*;
     use crate::instruments::cds_option::parameters::CdsOptionParams;
@@ -140,20 +139,22 @@ mod tests {
         let as_of = date!(2024 - 01 - 01);
         let market = test_market(as_of);
 
-        let option_params = CdsOptionParams::call(
+        let option_params = CdsOptionParams::try_call(
             100.0,
             date!(2025 - 01 - 01),
             date!(2029 - 01 - 01),
             Money::new(10_000_000.0, Currency::USD),
-        );
+        )
+        .expect("Valid CDS option parameters");
         let credit_params = CreditParams::corporate_standard("CORP", "CORP_HAZARD");
-        let mut option = CdsOption::new(
+        let mut option = CdsOption::try_new(
             "TEST_CDSOPT",
             &option_params,
             &credit_params,
             "USD_OIS",
             "CDS_VOL",
-        );
+        )
+        .expect("Valid CDS option");
         // Set implied vol override since we don't have a vol surface
         option.pricing_overrides.implied_volatility = Some(0.30);
 

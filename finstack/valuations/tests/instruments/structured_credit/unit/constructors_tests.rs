@@ -11,7 +11,6 @@ use finstack_valuations::instruments::structured_credit::types::constants::{
 use finstack_valuations::instruments::structured_credit::utils::rates::{cdr_to_mdr, cpr_to_smm};
 use finstack_valuations::instruments::structured_credit::{
     DealType, Pool, PoolAsset, StructuredCredit, Tranche, TrancheCoupon, TrancheStructure,
-    Waterfall,
 };
 use time::Month;
 
@@ -51,15 +50,10 @@ fn create_single_tranche() -> TrancheStructure {
     TrancheStructure::new(vec![tranche]).unwrap()
 }
 
-fn create_waterfall(tranches: &TrancheStructure) -> Waterfall {
-    Waterfall::standard_sequential(Currency::USD, tranches, vec![])
-}
-
 #[test]
 fn test_apply_deal_defaults_sets_expected_assumptions() {
     let pool = create_pool_with_balance(1_000_000.0);
     let tranches = create_single_tranche();
-    let waterfall = create_waterfall(&tranches);
     let closing = Date::from_calendar_date(2024, Month::January, 1).unwrap();
     let legal = maturity_date();
 
@@ -76,7 +70,6 @@ fn test_apply_deal_defaults_sets_expected_assumptions() {
             deal_type,
             pool.clone(),
             tranches.clone(),
-            waterfall.clone(),
             closing,
             legal,
             "USD-OIS",
@@ -102,12 +95,10 @@ fn test_example_has_expected_defaults() {
 fn test_prepayment_overrides_use_expected_priority() {
     let pool = create_pool_with_balance(1_000_000.0);
     let tranches = create_single_tranche();
-    let waterfall = create_waterfall(&tranches);
     let mut sc = StructuredCredit::new_abs(
         "TEST-ABS",
         pool,
         tranches,
-        waterfall,
         Date::from_calendar_date(2024, Month::January, 1).unwrap(),
         maturity_date(),
         "USD-OIS",
@@ -135,12 +126,10 @@ fn test_prepayment_overrides_use_expected_priority() {
 fn test_default_overrides_use_expected_priority() {
     let pool = create_pool_with_balance(1_000_000.0);
     let tranches = create_single_tranche();
-    let waterfall = create_waterfall(&tranches);
     let mut sc = StructuredCredit::new_abs(
         "TEST-ABS",
         pool,
         tranches,
-        waterfall,
         Date::from_calendar_date(2024, Month::January, 1).unwrap(),
         maturity_date(),
         "USD-OIS",
@@ -167,12 +156,10 @@ fn test_default_overrides_use_expected_priority() {
 fn test_current_loss_percentage_handles_zero_balance_and_offsets() {
     let empty_pool = create_pool_with_balance(0.0);
     let tranches = create_single_tranche();
-    let waterfall = create_waterfall(&tranches);
     let sc_zero = StructuredCredit::new_abs(
         "TEST-ZERO",
         empty_pool,
         tranches.clone(),
-        waterfall.clone(),
         Date::from_calendar_date(2024, Month::January, 1).unwrap(),
         maturity_date(),
         "USD-OIS",
@@ -186,7 +173,6 @@ fn test_current_loss_percentage_handles_zero_balance_and_offsets() {
         "TEST-LOSS",
         pool,
         tranches,
-        waterfall,
         Date::from_calendar_date(2024, Month::January, 1).unwrap(),
         maturity_date(),
         "USD-OIS",

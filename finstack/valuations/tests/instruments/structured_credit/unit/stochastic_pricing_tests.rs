@@ -8,7 +8,6 @@ use finstack_core::money::Money;
 use finstack_valuations::instruments::structured_credit::pricing::stochastic::pricer::PricingMode;
 use finstack_valuations::instruments::structured_credit::{
     DealType, Pool, PoolAsset, StructuredCredit, Tranche, TrancheCoupon, TrancheStructure,
-    Waterfall,
 };
 use time::Month;
 
@@ -48,10 +47,6 @@ fn single_tranche_structure(balance: f64) -> TrancheStructure {
     TrancheStructure::new(vec![tranche]).unwrap()
 }
 
-fn standard_waterfall(tranches: &TrancheStructure) -> Waterfall {
-    Waterfall::standard_sequential(Currency::USD, tranches, vec![])
-}
-
 fn discount_curve(base_date: Date) -> DiscountCurve {
     DiscountCurve::builder("USD-OIS")
         .base_date(base_date)
@@ -63,12 +58,10 @@ fn discount_curve(base_date: Date) -> DiscountCurve {
 fn build_sc(id: &str, pool_balance: f64) -> StructuredCredit {
     let pool = simple_pool(pool_balance);
     let tranches = single_tranche_structure(pool_balance);
-    let waterfall = standard_waterfall(&tranches);
     StructuredCredit::new_abs(
         id,
         pool,
         tranches,
-        waterfall,
         closing_date(),
         legal_maturity(),
         "USD-OIS",

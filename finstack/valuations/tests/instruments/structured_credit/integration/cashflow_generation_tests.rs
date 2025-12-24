@@ -13,8 +13,8 @@ use finstack_core::types::ratings::CreditRating;
 use finstack_core::types::InstrumentId;
 use finstack_valuations::cashflow::traits::CashflowProvider;
 use finstack_valuations::instruments::structured_credit::{
-    AssetType, DealType, ManagementFeeType, PaymentCalculation, Pool, Recipient, RecipientType,
-    Seniority, StructuredCredit, Tranche, TrancheCoupon, TrancheStructure, Waterfall,
+    AssetType, DealType, Pool, Seniority, StructuredCredit, Tranche, TrancheCoupon,
+    TrancheStructure,
 };
 use time::Month;
 
@@ -106,32 +106,6 @@ fn create_test_tranches() -> TrancheStructure {
     TrancheStructure::new(vec![equity, senior]).expect("Failed to create tranche structure")
 }
 
-fn create_test_waterfall() -> Waterfall {
-    let fees = vec![
-        Recipient::new(
-            "trustee_fees",
-            RecipientType::ServiceProvider("Trustee".to_string()),
-            PaymentCalculation::FixedAmount {
-                rounding: None,
-                amount: Money::new(12_500.0, Currency::USD),
-            },
-        ),
-        Recipient::new(
-            "senior_mgmt_fee",
-            RecipientType::ManagerFee(ManagementFeeType::Senior),
-            PaymentCalculation::PercentageOfCollateral {
-                rounding: None,
-                rate: 0.0040,
-                annualized: true,
-                day_count: None,
-            },
-        ),
-    ];
-
-    let tranches = create_test_tranches();
-    Waterfall::standard_sequential(Currency::USD, &tranches, fees)
-}
-
 fn create_test_market() -> MarketContext {
     let discount_curve = DiscountCurve::builder("USD_OIS")
         .base_date(test_date())
@@ -163,7 +137,6 @@ fn test_clo_generates_cashflows() {
         "TEST_CLO",
         create_test_pool(),
         create_test_tranches(),
-        create_test_waterfall(),
         closing_date(),
         maturity_date(),
         "USD_OIS",
@@ -198,7 +171,6 @@ fn test_abs_generates_cashflows() {
         "TEST_ABS",
         create_test_pool(),
         create_test_tranches(),
-        create_test_waterfall(),
         closing_date(),
         maturity_date(),
         "USD_OIS",
@@ -223,7 +195,6 @@ fn test_rmbs_generates_cashflows() {
         "TEST_RMBS",
         create_test_pool(),
         create_test_tranches(),
-        create_test_waterfall(),
         closing_date(),
         maturity_date(),
         "USD_OIS",
@@ -248,7 +219,6 @@ fn test_cmbs_generates_cashflows() {
         "TEST_CMBS",
         create_test_pool(),
         create_test_tranches(),
-        create_test_waterfall(),
         closing_date(),
         maturity_date(),
         "USD_OIS",
@@ -273,7 +243,6 @@ fn test_cashflow_dates_respect_payment_frequency() {
         "TEST_CLO",
         create_test_pool(),
         create_test_tranches(),
-        create_test_waterfall(),
         closing_date(),
         maturity_date(),
         "USD_OIS",
@@ -306,7 +275,6 @@ fn test_cashflow_amounts_are_positive() {
         "TEST_CLO",
         create_test_pool(),
         create_test_tranches(),
-        create_test_waterfall(),
         closing_date(),
         maturity_date(),
         "USD_OIS",

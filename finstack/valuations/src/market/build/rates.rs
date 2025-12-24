@@ -382,13 +382,6 @@ pub fn build_rate_instrument(quote: &RateQuote, ctx: &BuildCtx) -> Result<Box<dy
 
 // Helpers
 
-// Kept for other date adjustments if needed, but not used directly for Tenor anymore
-#[allow(dead_code)]
-fn adjust_date(date: Date, conv: &RateIndexConventions) -> Result<Date> {
-    let cal = resolve_calendar(&conv.market_calendar_id)?;
-    adjust(date, conv.market_business_day_convention, cal)
-}
-
 fn resolve_fixing_date(start: Date, conv: &RateIndexConventions) -> Result<Date> {
     let cal = resolve_calendar(&conv.market_calendar_id)?;
     let lag = conv.default_reset_lag_days;

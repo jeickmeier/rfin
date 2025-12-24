@@ -329,10 +329,7 @@ fn comparator_roundtrip() {
 
 #[test]
 fn mc_config_roundtrip() {
-    let config = McConfig {
-        seed: 0,
-        antithetic: true,
-    };
+    let config = McConfig { antithetic: true };
 
     let rt = roundtrip(&config);
     assert_eq!(config, rt);
@@ -345,10 +342,7 @@ fn covenant_forecast_config_roundtrip() {
         num_paths: 10_000,
         volatility: Some(0.25),
         random_seed: Some(42),
-        mc: Some(McConfig {
-            seed: 0,
-            antithetic: true,
-        }),
+        mc: Some(McConfig { antithetic: true }),
     };
 
     let rt = roundtrip(&config);

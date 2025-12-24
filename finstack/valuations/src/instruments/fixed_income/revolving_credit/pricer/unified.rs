@@ -117,7 +117,6 @@ impl RevolvingCreditPricer {
             Self::compute_dynamic_survival_at_dates(
                 &path_data.credit_spread_path,
                 &path_data.time_points,
-                &path_data.payment_dates,
                 &cashflow_dates,
                 facility.recovery_rate,
                 facility.commitment_date,
@@ -172,7 +171,6 @@ impl RevolvingCreditPricer {
                     Self::compute_dynamic_survival_at_dates(
                         &path_data.credit_spread_path,
                         &path_data.time_points,
-                        &path_data.payment_dates,
                         &future_grid,
                         facility.recovery_rate,
                         facility.commitment_date,
@@ -220,7 +218,6 @@ impl RevolvingCreditPricer {
                     Self::compute_dynamic_survival_at_dates(
                         &path_data.credit_spread_path,
                         &path_data.time_points,
-                        &path_data.payment_dates,
                         &[as_of],
                         facility.recovery_rate,
                         facility.commitment_date,
@@ -520,7 +517,6 @@ impl RevolvingCreditPricer {
     ///
     /// * `credit_spreads` - Credit spread values at each time point
     /// * `time_points` - Time grid in years from commitment date
-    /// * `_payment_dates` - Payment dates (unused but kept for API compatibility)
     /// * `cashflow_dates` - Dates at which to compute survival probabilities
     /// * `recovery_rate` - Recovery rate for hazard-to-spread mapping
     /// * `commitment_date` - Facility commitment date
@@ -528,7 +524,6 @@ impl RevolvingCreditPricer {
     fn compute_dynamic_survival_at_dates(
         credit_spreads: &[f64],
         time_points: &[f64],
-        _payment_dates: &[Date],
         cashflow_dates: &[Date],
         recovery_rate: f64,
         commitment_date: Date,
@@ -643,18 +638,16 @@ mod tests {
         let times = vec![0.0, 0.25, 0.5, 0.75];
         let recovery = 0.4;
         let start = Date::from_calendar_date(2025, Month::January, 1).expect("valid date");
-        let payment_dates = vec![
+        let cashflow_dates = vec![
             start,
             Date::from_calendar_date(2025, Month::April, 1).expect("valid date"),
             Date::from_calendar_date(2025, Month::July, 1).expect("valid date"),
             Date::from_calendar_date(2025, Month::October, 1).expect("valid date"),
         ];
-        let cashflow_dates = payment_dates.clone();
 
         let survivals = RevolvingCreditPricer::compute_dynamic_survival_at_dates(
             &spreads,
             &times,
-            &payment_dates,
             &cashflow_dates,
             recovery,
             start,
@@ -690,13 +683,11 @@ mod tests {
 
         // We want to look up survival at 'end' date
         let cashflow_dates = vec![end];
-        let payment_dates = vec![start, end]; // Dummy
 
         // 1. Correct: Pass Act360
         let survivals_correct = RevolvingCreditPricer::compute_dynamic_survival_at_dates(
             &spreads,
             &time_points,
-            &payment_dates,
             &cashflow_dates,
             recovery,
             start,
@@ -719,7 +710,6 @@ mod tests {
         let survivals_mismatch = RevolvingCreditPricer::compute_dynamic_survival_at_dates(
             &spreads,
             &time_points,
-            &payment_dates,
             &cashflow_dates,
             recovery,
             start,
