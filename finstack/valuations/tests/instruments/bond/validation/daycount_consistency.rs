@@ -223,8 +223,8 @@ fn test_accrued_interest_uses_bond_daycount() {
         .price_with_metrics(&market, as_of, &[MetricId::Accrued])
         .unwrap();
 
-    let accrued_act365 = *result_act365.measures.get("accrued_interest").unwrap();
-    let accrued_30360 = *result_30360.measures.get("accrued_interest").unwrap();
+    let accrued_act365 = *result_act365.measures.get("accrued").unwrap();
+    let accrued_30360 = *result_30360.measures.get("accrued").unwrap();
 
     // Both should be positive (mid-period)
     assert!(
@@ -277,7 +277,7 @@ fn test_dirty_clean_price_consistency() {
 
         let clean = *result.measures.get("clean_price").unwrap();
         let dirty = *result.measures.get("dirty_price").unwrap();
-        let accrued = *result.measures.get("accrued_interest").unwrap();
+        let accrued = *result.measures.get("accrued").unwrap();
 
         // Dirty = Clean + Accrued (all in currency units)
         let expected_dirty = clean + accrued;
