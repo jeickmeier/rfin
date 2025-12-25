@@ -209,9 +209,10 @@ mod credit_emission_tests {
         let flows = emit_default_on(d, &[event], &mut outstanding, Currency::USD)
             .expect("should emit default");
 
-        // Net loss: 400K × (1 - 0.40) = 240K
-        // Outstanding: 1M - 400K + 160K = 760K
-        assert_eq!(outstanding, 760_000.0);
+        // Outstanding is reduced by the full defaulted amount.
+        // Recovery is a future cash inflow, not an immediate outstanding increase.
+        // This ensures interest between default and recovery uses the correct base.
+        assert_eq!(outstanding, 600_000.0);
         assert_eq!(flows.len(), 2);
 
         // First flow: default
@@ -219,7 +220,7 @@ mod credit_emission_tests {
         assert_eq!(flows[0].amount.amount(), 400_000.0);
         assert_eq!(flows[0].date, d);
 
-        // Second flow: recovery
+        // Second flow: recovery (future cash inflow)
         assert_eq!(flows[1].kind, CFKind::Recovery);
         assert_eq!(flows[1].amount.amount(), 160_000.0);
         let expected_recovery_date = d.add_months(12);
@@ -281,7 +282,7 @@ mod credit_emission_tests {
         )
         .expect("should emit default");
 
-        // Outstanding now 760K (1M - 400K + 160K recovery)
+        // Outstanding now 600K (1M - 400K). Recovery is future inflow, not outstanding increase.
         outstanding_after.insert(default_date, outstanding);
 
         // Generate coupon on Oct 1 using reduced outstanding
@@ -305,10 +306,10 @@ mod credit_emission_tests {
         assert_eq!(pik, 0.0);
         assert_eq!(coupons.len(), 1);
 
-        // Coupon should be on 760K, not 1M
+        // Coupon should be on 600K (not 1M, not the old 760K)
         // Year fraction for Jul 1 - Oct 1 = 92 days
         let yf = 92.0 / 360.0;
-        let expected_coupon = 760_000.0 * 0.05 * yf;
+        let expected_coupon = 600_000.0 * 0.05 * yf;
 
         assert!(
             (coupons[0].amount.amount() - expected_coupon).abs() < 1.0,
@@ -380,8 +381,9 @@ mod credit_emission_tests {
         let flows = emit_default_on(d, &[event], &mut outstanding, Currency::USD)
             .expect("should emit default");
 
-        // Net loss is zero
-        assert_eq!(outstanding, 1_000_000.0);
+        // Outstanding is reduced by full defaulted amount at default time.
+        // Recovery (100K) is a future cash inflow, not an immediate balance change.
+        assert_eq!(outstanding, 900_000.0);
         assert_eq!(flows.len(), 2); // Default + full recovery
     }
 
@@ -411,11 +413,9 @@ mod credit_emission_tests {
         let flows = emit_default_on(d, &events, &mut outstanding, Currency::USD)
             .expect("should emit multiple defaults");
 
-        // Net loss: 50K × 0.6 + 30K × 0.5 = 30K + 15K = 45K
-        assert_eq!(
-            outstanding,
-            1_000_000.0 - 50_000.0 + 20_000.0 - 30_000.0 + 15_000.0
-        );
+        // Outstanding is reduced by total defaulted amounts: 50K + 30K = 80K
+        // Recoveries are future cash inflows, not immediate balance changes.
+        assert_eq!(outstanding, 1_000_000.0 - 50_000.0 - 30_000.0);
         assert_eq!(flows.len(), 4); // 2 defaults + 2 recoveries
     }
 

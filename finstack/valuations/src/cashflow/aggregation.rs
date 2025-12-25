@@ -108,8 +108,21 @@ fn aggregate_by_period_sorted(
         for &(_d, m) in flows_in_period {
             let ccy = m.currency();
             let entry = per_ccy.entry(ccy).or_insert_with(|| Money::new(0.0, ccy));
-            // Safe: currency match guaranteed by grouping on ccy key
-            *entry = entry.checked_add(m).unwrap_or(*entry);
+            // Currency match guaranteed by grouping on ccy key.
+            // Debug assertion catches arithmetic failures (NaN/Inf) in dev builds.
+            match entry.checked_add(m) {
+                Ok(sum) => *entry = sum,
+                Err(e) => {
+                    debug_assert!(
+                        false,
+                        "aggregation checked_add failed for period {:?}, ccy {:?}: {:?}",
+                        p.id, ccy, e
+                    );
+                    // In release builds, silently keep the existing entry value
+                    // to avoid panicking in production. The debug_assert above
+                    // will catch this during development/testing.
+                }
+            }
         }
         out.insert(p.id, per_ccy);
     }
@@ -201,8 +214,9 @@ where
             let pv = value_fn(flow, df, sp);
             let ccy = pv.currency();
             let entry = per_ccy.entry(ccy).or_insert_with(|| Money::new(0.0, ccy));
-            // Safe: currency match guaranteed by grouping on ccy key
-            *entry = entry.checked_add(pv).unwrap_or(*entry);
+            // Currency match guaranteed by grouping on ccy key.
+            // Propagate arithmetic failures instead of swallowing them.
+            *entry = entry.checked_add(pv)?;
         }
         out.insert(p.id, per_ccy);
     }

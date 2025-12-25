@@ -171,7 +171,7 @@ pub(in crate::cashflow::builder) fn emit_fees_on(
                     reset_date: None,
                     amount: Money::new(fee_amt, ccy),
                     kind: CFKind::Fee,
-                    accrual_factor: 0.0,
+                    accrual_factor: yf,
                     rate: Some(pf.bps * 1e-4),
                 });
             }
@@ -185,6 +185,7 @@ pub(in crate::cashflow::builder) fn emit_fees_on(
                 reset_date: None,
                 amount: *amt,
                 kind: CFKind::Fee,
+                // Fixed fees don't have an accrual period - use 0.0
                 accrual_factor: 0.0,
                 rate: None,
             });

@@ -13,10 +13,13 @@ use super::super::specs::DefaultEvent;
 /// Emit default and recovery cashflows on a specific date.
 ///
 /// For each default event on date `d`:
-/// 1. Emit DefaultedNotional cashflow (reduces outstanding)
-/// 2. Emit Recovery cashflow on future date (increases outstanding)
+/// 1. Emit DefaultedNotional cashflow (reduces outstanding by full defaulted amount)
+/// 2. Emit Recovery cashflow on future date (does NOT affect outstanding until that date)
 ///
-/// Net outstanding change = -defaulted_amount × (1 - recovery_rate)
+/// The recovery cashflow is emitted at a future date based on `recovery_lag`, but the
+/// outstanding balance is only reduced by the full defaulted amount at default time.
+/// This ensures interest calculations between default and recovery dates use the
+/// correct (reduced) outstanding balance.
 ///
 /// # Arguments
 ///
@@ -50,8 +53,8 @@ use super::super::specs::DefaultEvent;
 /// let mut outstanding = 1_000_000.0;
 /// let flows = emit_default_on(d, &[event], &mut outstanding, Currency::USD).expect("should succeed");
 ///
-/// // Outstanding should be reduced by net loss (60% of defaulted amount)
-/// assert_eq!(outstanding, 1_000_000.0 - 100_000.0 + 40_000.0); // 940K
+/// // Outstanding is reduced by full defaulted amount (recovery is future cash inflow only)
+/// assert_eq!(outstanding, 900_000.0);
 /// assert_eq!(flows.len(), 2); // Default + Recovery cashflows
 /// ```
 pub fn emit_default_on(
@@ -112,7 +115,11 @@ pub fn emit_default_on(
                 accrual_factor: 0.0,
                 rate: None,
             });
-            *outstanding += recovery_amt;
+            // Note: We do NOT add recovery back to outstanding here.
+            // Recovery is a future cash inflow that doesn't restore the
+            // principal base for interest calculations. The outstanding
+            // balance should only be updated when processing flows as-of
+            // their actual dates (e.g., via outstanding_by_date()).
         }
     }
 

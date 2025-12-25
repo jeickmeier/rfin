@@ -349,6 +349,11 @@ impl CashFlowSchedule {
     ///
     /// Like [`Self::pre_period_pv_with_market`], but accepts `DayCountCtx` for full control.
     ///
+    /// When a hazard curve is provided, this function applies credit adjustment with
+    /// recovery-of-par semantics: principal-like flows (Amortization, Notional) get
+    /// `PV = Amount * DF * (SP + R * (1 - SP))` while interest/fee flows get
+    /// `PV = Amount * DF * SP` (zero recovery).
+    ///
     /// # Arguments
     /// * `periods` - Period definitions with start/end boundaries
     /// * `market` - Market context containing discount and optional hazard curves
@@ -376,17 +381,25 @@ impl CashFlowSchedule {
         dc: DayCount,
         dc_ctx: DayCountCtx,
     ) -> finstack_core::Result<IndexMap<PeriodId, IndexMap<Currency, Money>>> {
-        let flows: Vec<(Date, Money)> = self.flows.iter().map(|cf| (cf.date, cf.amount)).collect();
-
         let curves = resolve_credit_curves(market, disc_curve_id, hazard_curve_id)?;
         let disc: &dyn Discounting = curves.discounting();
         let hazard = curves.hazard_survival();
 
         if hazard.is_some() {
-            crate::cashflow::aggregation::pv_by_period_credit_adjusted_with_ctx(
-                &flows, periods, disc, hazard, base, dc, dc_ctx,
+            // Use the detailed function that preserves CFKind and applies recovery
+            // to principal flows (Amortization, Notional) but not interest/fees.
+            let date_ctx = crate::cashflow::aggregation::DateContext::new(base, dc, dc_ctx);
+            crate::cashflow::aggregation::pv_by_period_credit_adjusted_detailed(
+                &self.flows,
+                periods,
+                disc,
+                hazard,
+                curves.recovery_rate(),
+                date_ctx,
             )
         } else {
+            let flows: Vec<(Date, Money)> =
+                self.flows.iter().map(|cf| (cf.date, cf.amount)).collect();
             crate::cashflow::aggregation::pv_by_period_with_ctx(
                 &flows, periods, disc, base, dc, dc_ctx,
             )

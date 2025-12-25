@@ -299,6 +299,12 @@ fn build_coupon_periods(schedule: &CashFlowSchedule, include_pik: bool) -> Vec<P
 
 /// Build period inputs (including notional at start-of-period) from coupon periods
 /// and the outstanding path.
+///
+/// # Notional Lookup
+///
+/// For each period, we find the outstanding balance at the period start date.
+/// This is the correct base for compounded accrual calculations since it
+/// represents the principal on which interest accrues during the period.
 fn build_period_inputs(
     schedule: &CashFlowSchedule,
     periods: &[Period],
@@ -306,18 +312,18 @@ fn build_period_inputs(
 ) -> finstack_core::Result<Vec<PeriodInputs>> {
     let mut result = Vec::with_capacity(periods.len());
 
-    // Pointer into outstanding_path (sorted by date).
-    let mut path_idx = 0usize;
-    let mut last_outstanding_before: f64 = schedule.notional.initial.amount();
-
     for p in periods {
-        // Advance outstanding pointer up to (but not including) the period end date.
-        while path_idx < outstanding_path.len() && outstanding_path[path_idx].0 < p.end {
-            last_outstanding_before = outstanding_path[path_idx].1.amount();
-            path_idx += 1;
-        }
+        // Find the outstanding at period start by looking for the latest entry
+        // on or before p.start. If no entry exists, use initial notional.
+        // Use rev().find() instead of filter().last() to avoid iterating the
+        // entire collection when we only need the last matching element.
+        let notional_start = outstanding_path
+            .iter()
+            .rev()
+            .find(|(d, _)| *d <= p.start)
+            .map(|(_, m)| m.amount())
+            .unwrap_or_else(|| schedule.notional.initial.amount());
 
-        let notional_start = last_outstanding_before;
         let coupon_total = p.bucket.cash_amount + p.bucket.pik_amount;
 
         if coupon_total == 0.0 {
