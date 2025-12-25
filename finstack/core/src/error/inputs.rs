@@ -95,6 +95,15 @@ pub enum InputError {
         max_days: i32,
     },
 
+    /// Date falls outside the allowed range (e.g., principal event after maturity).
+    #[error("Date {date} is outside the allowed range [{} to {}]", .range.0, .range.1)]
+    DateOutOfRange {
+        /// The date that is out of range.
+        date: Date,
+        /// The allowed range (inclusive).
+        range: (Date, Date),
+    },
+
     /// Unknown or unsupported calendar identifier.
     ///
     /// This error occurs when attempting to look up a calendar by ID that doesn't

@@ -19,6 +19,15 @@ use finstack_core::dates::{Date, DayCount, DayCountCtx, Period};
 use finstack_core::market_data::context::MarketContext;
 use finstack_core::money::Money;
 
+/// Compare two amounts using relative epsilon for floating-point tolerance.
+///
+/// Uses a relative tolerance scaled by the magnitude of the values, with a
+/// minimum absolute tolerance of 1e-9 for values near zero.
+fn amounts_approx_equal(a: f64, b: f64) -> bool {
+    let max_abs = a.abs().max(b.abs()).max(1.0);
+    (a - b).abs() < max_abs * 1e-9
+}
+
 /// Options for period-aligned DataFrame exports.
 ///
 /// Controls which optional columns are computed and provides configuration
@@ -272,6 +281,9 @@ impl CashFlowSchedule {
         // Track outstanding drawn balance for Notional column
         let mut outstanding = self.notional.initial;
 
+        // Identify the first date in the schedule (issue date) for initial funding detection
+        let first_date = self.flows.first().map(|cf| cf.date);
+
         for cf in &self.flows {
             // Find containing period (inclusive end)
             let period_opt = periods
@@ -283,6 +295,14 @@ impl CashFlowSchedule {
 
             // Outstanding before this cashflow
             let outstanding_pre = outstanding;
+
+            // Detect initial funding notional flow (negative, equal to -notional.initial on first date)
+            // This is already accounted for in notional.initial, so we skip it to avoid double-counting.
+            let is_initial_funding = cf.kind == CFKind::Notional
+                && first_date == Some(cf.date)
+                && cf.amount.amount() < 0.0
+                && amounts_approx_equal(cf.amount.amount().abs(), self.notional.initial.amount());
+
             match cf.kind {
                 CFKind::Amortization => {
                     outstanding = outstanding.checked_sub(cf.amount)?;
@@ -290,7 +310,7 @@ impl CashFlowSchedule {
                 CFKind::PIK => {
                     outstanding = outstanding.checked_add(cf.amount)?;
                 }
-                CFKind::Notional => {
+                CFKind::Notional if !is_initial_funding => {
                     // Draws are negative, repays are positive from lender perspective
                     outstanding = outstanding.checked_sub(cf.amount)?;
                 }
@@ -552,5 +572,89 @@ mod tests {
         assert_eq!(df.pvs.len(), 2);
         assert!((df.pvs[0] - 0.0).abs() < 1e-12);
         assert!((df.pvs[1] - 200.0 * df.discount_factors[1]).abs() < 1e-12);
+    }
+
+    #[test]
+    fn dataframe_does_not_double_count_initial_funding() {
+        // Build a schedule that includes the initial funding notional flow
+        // (like what CashFlowBuilder produces).
+        // The initial funding is a NEGATIVE Notional flow on the first date.
+        let issue = d(2025, 1, 15);
+        let initial_amount = 1_000_000.0;
+        let flows = vec![
+            // Initial funding (negative from lender perspective - money out)
+            CashFlow {
+                date: issue,
+                reset_date: None,
+                amount: Money::new(-initial_amount, Currency::USD),
+                kind: CFKind::Notional,
+                accrual_factor: 0.0,
+                rate: None,
+            },
+            // First coupon
+            CashFlow {
+                date: d(2025, 4, 15),
+                reset_date: None,
+                amount: Money::new(12_500.0, Currency::USD), // 5% quarterly
+                kind: CFKind::Fixed,
+                accrual_factor: 0.25,
+                rate: Some(0.05),
+            },
+        ];
+        let schedule = CashFlowSchedule {
+            flows,
+            notional: Notional::par(initial_amount, Currency::USD),
+            day_count: DayCount::Act365F,
+            meta: CashFlowMeta::default(),
+        };
+
+        // Market context
+        let curve = DiscountCurve::builder("USD-OIS")
+            .base_date(issue)
+            .knots([(0.0, 1.0), (1.0, 0.95)])
+            .set_interp(InterpStyle::Linear)
+            .build()
+            .expect("DiscountCurve builder should succeed");
+        let market = MarketContext::new().insert_discount(curve);
+
+        let periods = vec![
+            Period {
+                id: PeriodId::quarter(2025, 1),
+                start: d(2025, 1, 1),
+                end: d(2025, 4, 1),
+                is_actual: true,
+            },
+            Period {
+                id: PeriodId::quarter(2025, 2),
+                start: d(2025, 4, 1),
+                end: d(2025, 7, 1),
+                is_actual: false,
+            },
+        ];
+        let options = PeriodDataFrameOptions {
+            as_of: Some(issue),
+            day_count: Some(DayCount::Act365F),
+            ..Default::default()
+        };
+
+        let df = schedule
+            .to_period_dataframe(&periods, &market, "USD-OIS", options)
+            .expect("PeriodDataFrame creation should succeed");
+
+        // The coupon flow's notional should be the original notional (1M),
+        // NOT double-counted (2M) due to the initial funding flow.
+        // The coupon is the second row (index 1).
+        assert_eq!(df.cf_types.len(), 2);
+        assert_eq!(df.cf_types[0], CFKind::Notional);
+        assert_eq!(df.cf_types[1], CFKind::Fixed);
+
+        // The notional for the coupon row should be 1M, not 2M
+        let coupon_notional = df.notionals[1].expect("Coupon should have notional");
+        assert!(
+            (coupon_notional - initial_amount).abs() < 1e-6,
+            "Expected notional {} but got {} (double-counting bug if ~2M)",
+            initial_amount,
+            coupon_notional
+        );
     }
 }

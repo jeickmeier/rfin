@@ -551,4 +551,75 @@ mod credit_emission_tests {
         let result = emit_default_on(d, &[event], &mut outstanding, Currency::USD);
         assert!(result.is_err(), "Should reject negative defaulted_amount");
     }
+
+    #[test]
+    fn test_default_amount_clamped_to_outstanding() {
+        // If defaulted_amount exceeds outstanding, it should be clamped
+        // to prevent negative outstanding balances.
+        let d = Date::from_calendar_date(2025, Month::March, 1).expect("valid date");
+        let event = DefaultEvent {
+            default_date: d,
+            defaulted_amount: 1_500_000.0, // More than outstanding
+            recovery_rate: 0.40,
+            recovery_lag: 12,
+            recovery_bdc: None,
+            recovery_calendar_id: None,
+        };
+
+        let mut outstanding = 1_000_000.0;
+        let flows = emit_default_on(d, &[event], &mut outstanding, Currency::USD)
+            .expect("should emit clamped default");
+
+        // Outstanding should be 0 (clamped to not go negative)
+        assert!(
+            outstanding.abs() < 1e-9,
+            "Outstanding should be 0 after clamped default, got {}",
+            outstanding
+        );
+
+        // Default cashflow should be clamped to original outstanding
+        assert_eq!(flows.len(), 2); // Default + Recovery
+        assert_eq!(flows[0].kind, CFKind::DefaultedNotional);
+        assert!(
+            (flows[0].amount.amount() - 1_000_000.0).abs() < 1e-9,
+            "Default amount should be clamped to outstanding (1M), got {}",
+            flows[0].amount.amount()
+        );
+
+        // Recovery should also be based on clamped amount
+        assert_eq!(flows[1].kind, CFKind::Recovery);
+        assert!(
+            (flows[1].amount.amount() - 400_000.0).abs() < 1e-9,
+            "Recovery should be 40% of clamped default (400K), got {}",
+            flows[1].amount.amount()
+        );
+    }
+
+    #[test]
+    fn test_default_skipped_when_outstanding_zero() {
+        // If outstanding is already 0, default should be skipped entirely
+        let d = Date::from_calendar_date(2025, Month::March, 1).expect("valid date");
+        let event = DefaultEvent {
+            default_date: d,
+            defaulted_amount: 100_000.0,
+            recovery_rate: 0.40,
+            recovery_lag: 12,
+            recovery_bdc: None,
+            recovery_calendar_id: None,
+        };
+
+        let mut outstanding = 0.0;
+        let flows = emit_default_on(d, &[event], &mut outstanding, Currency::USD)
+            .expect("should succeed but emit no flows");
+
+        // No flows should be emitted when nothing to default
+        assert!(
+            flows.is_empty(),
+            "Should emit no flows when outstanding is 0"
+        );
+        assert!(
+            outstanding.abs() < 1e-9,
+            "Outstanding should remain 0"
+        );
+    }
 }

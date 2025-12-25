@@ -73,19 +73,26 @@ pub fn emit_default_on(
             continue;
         }
 
+        // Clamp defaulted amount to outstanding to prevent negative balances.
+        // Similar to how prepayments clamp to outstanding.
+        let defaulted = event.defaulted_amount.min(*outstanding).max(0.0);
+        if defaulted <= 0.0 {
+            continue;
+        }
+
         // Default cashflow
         flows.push(CashFlow {
             date: d,
             reset_date: None,
-            amount: Money::new(event.defaulted_amount, ccy),
+            amount: Money::new(defaulted, ccy),
             kind: CFKind::DefaultedNotional,
             accrual_factor: 0.0,
             rate: None,
         });
-        *outstanding -= event.defaulted_amount;
+        *outstanding -= defaulted;
 
         // Recovery cashflow (on future date)
-        let recovery_amt = event.defaulted_amount * event.recovery_rate;
+        let recovery_amt = defaulted * event.recovery_rate;
         if recovery_amt > 0.0 {
             let base_recovery_date = d.add_months(event.recovery_lag as i32);
 

@@ -407,28 +407,16 @@ fn find_active_period_and_elapsed<'a>(
     Ok(None)
 }
 
-/// Threshold for using Taylor expansion in compounded accrual.
-///
-/// When the elapsed fraction is below this threshold, we use a Taylor series
-/// approximation instead of `powf()` to avoid floating-point precision loss
-/// for small exponents.
-///
-/// # Mathematical Justification
-///
-/// At f=0.05 (5% of period) with a 10% period rate, the third-order Taylor
-/// remainder is O(f⁴ × r⁴) ≈ 6.25e-9, well within acceptable tolerance.
-/// For typical coupon rates (2-15%) and small fractions, error < 1e-10.
-const TAYLOR_EXPANSION_THRESHOLD: f64 = 0.05;
-
 /// Apply the chosen accrual method to a single period.
 ///
-/// # Compounded Accrual Precision
+/// # Compounded Accrual
 ///
-/// For small elapsed fractions (< 5% of period), uses Taylor series expansion:
-/// `(1 + r)^f ≈ 1 + f*r + f*(f-1)*r²/2 + f*(f-1)*(f-2)*r³/6`
+/// Uses the numerically stable formula: `(1+r)^f - 1 = expm1(f * ln1p(r))`
 ///
-/// This provides better numerical stability than `powf()` for very small
-/// exponents, which is important for same-day or next-day accrual calculations.
+/// This approach:
+/// - Avoids precision loss for small `r` via `ln1p` (log(1+r) accurate near 0)
+/// - Avoids precision loss for small results via `expm1` (exp(x)-1 accurate near 0)
+/// - Works correctly across all fraction values without threshold switching
 fn accrue_in_period(
     inputs: &PeriodInputs,
     elapsed_yf: f64,
@@ -454,25 +442,11 @@ fn accrue_in_period(
 
             let fraction = elapsed_yf / inputs.total_yf;
 
-            // For small fractions, use Taylor expansion for better precision
-            // (1 + r)^f ≈ 1 + f*r + f*(f-1)*r²/2 + f*(f-1)*(f-2)*r³/6
-            let compound_factor = if fraction < TAYLOR_EXPANSION_THRESHOLD {
-                let r = period_rate;
-                let f = fraction;
-                let r2 = r * r;
-                let r3 = r2 * r;
+            // Numerically stable computation: (1+r)^f - 1 = expm1(f * ln1p(r))
+            // This avoids precision loss for both small rates and small fractions.
+            let compound_growth = (fraction * period_rate.ln_1p()).exp_m1();
 
-                // Taylor series terms
-                let term1 = f * r;
-                let term2 = f * (f - 1.0) * r2 / 2.0;
-                let term3 = f * (f - 1.0) * (f - 2.0) * r3 / 6.0;
-
-                1.0 + term1 + term2 + term3
-            } else {
-                (1.0 + period_rate).powf(fraction)
-            };
-
-            Ok(notional * (compound_factor - 1.0))
+            Ok(notional * compound_growth)
         }
     }
 }

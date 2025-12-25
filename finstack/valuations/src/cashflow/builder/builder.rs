@@ -1223,9 +1223,19 @@ impl CashFlowBuilder {
             fixed_fees,
         ) = compile_schedules_and_fees(self, issue, maturity, self.schedule_strict)?;
 
-        // 2b) Normalize principal events (sorted)
+        // 2b) Normalize principal events (sorted) and validate date bounds
         let mut principal_events = self.principal_events.clone();
         principal_events.sort_by_key(|ev| ev.date);
+
+        // Reject principal events after maturity (would create post-maturity flows
+        // after outstanding has been zeroed out, leading to undefined behavior).
+        if let Some(ev) = principal_events.iter().find(|ev| ev.date > maturity) {
+            return Err(InputError::DateOutOfRange {
+                date: ev.date,
+                range: (issue, maturity),
+            }
+            .into());
+        }
 
         // 3) Collect all relevant dates
         let date_inputs = DateCollectionInputs {
