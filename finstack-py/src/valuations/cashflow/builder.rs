@@ -303,7 +303,7 @@ impl PyCashflowBuilder {
         let issue_date = py_to_date(&issue).expect("valid date");
         let maturity_date = py_to_date(&maturity).expect("valid date");
         let money = Money::new(amount, currency.inner);
-        self.inner.principal(money, issue_date, maturity_date);
+        let _ = self.inner.principal(money, issue_date, maturity_date);
         Self {
             inner: self.inner.clone(),
         }
@@ -312,7 +312,7 @@ impl PyCashflowBuilder {
     #[pyo3(text_signature = "(self, amortization)")]
     fn amortization(&mut self, amortization: Option<super::specs::PyAmortizationSpec>) -> Self {
         if let Some(spec) = amortization {
-            self.inner.amortization(spec.inner);
+            let _ = self.inner.amortization(spec.inner);
         }
         Self {
             inner: self.inner.clone(),
@@ -321,7 +321,7 @@ impl PyCashflowBuilder {
 
     #[pyo3(text_signature = "(self, spec)")]
     fn fixed_cf(&mut self, spec: &PyFixedCouponSpec) -> Self {
-        self.inner.fixed_cf(spec.inner.clone());
+        let _ = self.inner.fixed_cf(spec.inner.clone());
         Self {
             inner: self.inner.clone(),
         }
@@ -329,7 +329,7 @@ impl PyCashflowBuilder {
 
     #[pyo3(text_signature = "(self, spec)")]
     fn floating_cf(&mut self, spec: PyFloatingCouponSpec) -> Self {
-        self.inner.floating_cf(spec.inner);
+        let _ = self.inner.floating_cf(spec.inner);
         Self {
             inner: self.inner.clone(),
         }
@@ -347,7 +347,8 @@ impl PyCashflowBuilder {
         for (d, r) in steps {
             rust_steps.push((py_to_date(&d).expect("valid date"), r));
         }
-        self.inner
+        let _ = self
+            .inner
             .fixed_stepup(&rust_steps, schedule.inner.clone(), default_split.inner);
         Self {
             inner: self.inner.clone(),
@@ -362,7 +363,7 @@ impl PyCashflowBuilder {
         for (d, split) in steps {
             rust_steps.push((py_to_date(&d).expect("valid date"), split.inner));
         }
-        self.inner.payment_split_program(&rust_steps);
+        let _ = self.inner.payment_split_program(&rust_steps);
         Self {
             inner: self.inner.clone(),
         }

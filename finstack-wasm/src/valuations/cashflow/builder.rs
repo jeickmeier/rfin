@@ -296,7 +296,8 @@ impl JsCashflowBuilder {
         issue: &JsDate,
         maturity: &JsDate,
     ) -> JsCashflowBuilder {
-        self.inner
+        let _ = self
+            .inner
             .principal(notional.inner(), issue.inner(), maturity.inner());
         self
     }
@@ -307,7 +308,7 @@ impl JsCashflowBuilder {
     /// * `spec` - Amortization specification (linear, step, etc.)
     #[wasm_bindgen]
     pub fn amortization(mut self, spec: &JsAmortizationSpec) -> JsCashflowBuilder {
-        self.inner.amortization(spec.inner());
+        let _ = self.inner.amortization(spec.inner());
         self
     }
 
@@ -317,7 +318,7 @@ impl JsCashflowBuilder {
     /// * `spec` - Fixed coupon specification (rate, schedule, payment type)
     #[wasm_bindgen(js_name = fixedCf)]
     pub fn fixed_cf(mut self, spec: &JsFixedCouponSpec) -> JsCashflowBuilder {
-        self.inner.fixed_cf(spec.inner.clone());
+        let _ = self.inner.fixed_cf(spec.inner.clone());
         self
     }
 
@@ -327,7 +328,7 @@ impl JsCashflowBuilder {
     /// * `spec` - Floating coupon specification (index, margin, schedule, payment type)
     #[wasm_bindgen(js_name = floatingCf)]
     pub fn floating_cf(mut self, spec: &JsFloatingCouponSpec) -> JsCashflowBuilder {
-        self.inner.floating_cf(spec.inner.clone());
+        let _ = self.inner.floating_cf(spec.inner.clone());
         self
     }
 
@@ -368,7 +369,8 @@ impl JsCashflowBuilder {
             parsed_steps.push((date, rate));
         }
 
-        self.inner
+        let _ = self
+            .inner
             .fixed_stepup(&parsed_steps, schedule.inner(), default_split.inner());
         Ok(self)
     }
@@ -433,7 +435,7 @@ impl JsCashflowBuilder {
             parsed_steps.push((date, coupon_type));
         }
 
-        self.inner.payment_split_program(&parsed_steps);
+        let _ = self.inner.payment_split_program(&parsed_steps);
         Ok(self)
     }
 

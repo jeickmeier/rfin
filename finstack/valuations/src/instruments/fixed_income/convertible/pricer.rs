@@ -818,12 +818,12 @@ pub fn calculate_convertible_greeks(
 /// Build the convertible bond cashflow schedule using common builder flow.
 fn build_convertible_schedule(bond: &ConvertibleBond) -> Result<CashFlowSchedule> {
     let mut builder = CashFlowSchedule::builder();
-    builder.principal(bond.notional, bond.issue, bond.maturity);
+    let _ = builder.principal(bond.notional, bond.issue, bond.maturity);
     if let Some(fixed_spec) = &bond.fixed_coupon {
-        builder.fixed_cf(fixed_spec.clone());
+        let _ = builder.fixed_cf(fixed_spec.clone());
     }
     if let Some(floating_spec) = &bond.floating_coupon {
-        builder.floating_cf(floating_spec.clone());
+        let _ = builder.floating_cf(floating_spec.clone());
     }
     builder.build()
 }

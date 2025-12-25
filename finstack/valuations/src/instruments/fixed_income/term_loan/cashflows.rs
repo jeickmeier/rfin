@@ -225,7 +225,7 @@ pub fn generate_cashflows(
 
     // Build coupon program via unified builder
     let mut builder = CashFlowBuilder::new();
-    builder
+    let _ = builder
         .principal(Money::new(0.0, loan.currency), loan.issue, loan.maturity)
         .amortization(crate::cashflow::builder::AmortizationSpec::None)
         .principal_events(&principal_events)
@@ -242,7 +242,7 @@ pub fn generate_cashflows(
                 calendar_id: loan.calendar_id.clone(),
                 stub: loan.stub,
             };
-            builder.fixed_cf(spec);
+            let _ = builder.fixed_cf(spec);
         }
         super::types::RateSpec::Floating(spec) => {
             // Build cumulative margin steps (base + step-ups + overrides)
@@ -286,7 +286,7 @@ pub fn generate_cashflows(
                 calendar_id: loan.calendar_id.clone(),
                 stub: loan.stub,
             };
-            builder.float_margin_stepup(&steps, base_params, sched_params, loan.coupon_type);
+            let _ = builder.float_margin_stepup(&steps, base_params, sched_params, loan.coupon_type);
         }
     }
 
@@ -308,16 +308,16 @@ pub fn generate_cashflows(
     }
     payment_steps.sort_by_key(|(d, _)| *d);
     if !payment_steps.is_empty() {
-        builder.payment_split_program(&payment_steps);
+        let _ = builder.payment_split_program(&payment_steps);
     }
 
     // Add upfront/OID fees
     for fee in fees {
-        builder.fee(fee);
+        let _ = builder.fee(fee);
     }
     if let Some(ddtl) = &loan.ddtl {
         if ddtl.usage_fee_bp != 0 {
-            builder.fee(FeeSpec::PeriodicBps {
+            let _ = builder.fee(FeeSpec::PeriodicBps {
                 base: FeeBase::Drawn,
                 bps: ddtl.usage_fee_bp as f64,
                 freq: loan.pay_freq,

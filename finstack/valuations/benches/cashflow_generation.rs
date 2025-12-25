@@ -141,7 +141,7 @@ fn bench_schedule_builder_fixed(c: &mut Criterion) {
             |b, _| {
                 b.iter(|| {
                     let mut builder = CashFlowSchedule::builder();
-                    builder
+                    let _ = builder
                         .principal(black_box(init), black_box(issue), black_box(maturity))
                         .fixed_cf(black_box(fixed_spec.clone()));
                     builder.build()

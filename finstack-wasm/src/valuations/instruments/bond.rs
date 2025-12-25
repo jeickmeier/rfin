@@ -433,10 +433,10 @@ impl JsBond {
 
         // Build cashflow schedule with fixed then floating windows
         let mut b = CashFlowSchedule::builder();
-        b.principal(notional.inner(), issue.inner(), maturity.inner());
+        let _ = b.principal(notional.inner(), issue.inner(), maturity.inner());
 
         // Fixed window: issue to switch date
-        b.add_fixed_coupon_window(
+        let _ = b.add_fixed_coupon_window(
             issue.inner(),
             switch_date.inner(),
             fixed_rate,
@@ -451,7 +451,7 @@ impl JsBond {
         );
 
         // Floating window: switch date to maturity
-        b.add_float_coupon_window(
+        let _ = b.add_float_coupon_window(
             switch_date.inner(),
             maturity.inner(),
             FloatCouponParams {

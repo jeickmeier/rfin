@@ -38,7 +38,8 @@ fn linear_vs_step_parity() {
 
     // Linear
     let mut b1 = CashFlowSchedule::builder();
-    b1.principal(init, issue, maturity)
+    let _ = b1
+        .principal(init, issue, maturity)
         .amortization(AmortizationSpec::LinearTo {
             final_notional: Money::new(0.0, Currency::USD),
         })
@@ -61,7 +62,8 @@ fn linear_vs_step_parity() {
     }
 
     let mut b2 = CashFlowSchedule::builder();
-    b2.principal(init, issue, maturity)
+    let _ = b2
+        .principal(init, issue, maturity)
         .amortization(AmortizationSpec::StepRemaining { schedule: pairs })
         .fixed_cf(fixed.clone());
     let s2 = b2.build().unwrap();
@@ -96,7 +98,7 @@ fn pik_capitalization_increases_outstanding() {
     };
 
     let mut b = CashFlowSchedule::builder();
-    b.principal(init, issue, maturity).fixed_cf(fixed.clone());
+    let _ = b.principal(init, issue, maturity).fixed_cf(fixed.clone());
     let s = b.build().unwrap();
     let path = s.outstanding_path().unwrap();
     // Find last outstanding before redemption
@@ -130,7 +132,8 @@ fn ordering_invariants_within_date() {
 
     // Percent-per-period amortization to force amort on coupon dates
     let mut b = CashFlowSchedule::builder();
-    b.principal(init, issue, maturity)
+    let _ = b
+        .principal(init, issue, maturity)
         .amortization(AmortizationSpec::PercentPerPeriod { pct: 0.25 })
         .fixed_cf(fixed.clone());
     let s = b.build().unwrap();
@@ -174,7 +177,7 @@ fn fixed_schedule_npv_equals_sum_cashflows() {
     let init = Money::new(1_000_000.0, Currency::USD);
 
     let mut b = CashFlowSchedule::builder();
-    b.principal(init, issue, maturity).fixed_cf(fixed.clone());
+    let _ = b.principal(init, issue, maturity).fixed_cf(fixed.clone());
     let schedule = b.build().unwrap();
 
     // Use a flat DF=1.0 curve for this test (testing NPV = sum when no discounting)
@@ -222,7 +225,7 @@ fn detects_stub_periods() {
     let init = Money::new(1_000_000.0, Currency::USD);
 
     let mut b = CashFlowSchedule::builder();
-    b.principal(init, issue, maturity).fixed_cf(fixed.clone());
+    let _ = b.principal(init, issue, maturity).fixed_cf(fixed.clone());
     let schedule = b.build().unwrap();
 
     // Find coupon flows (not notional)
@@ -261,7 +264,8 @@ fn outstanding_by_date_dedup_and_values() {
     };
 
     let mut b = CashFlowSchedule::builder();
-    b.principal(init, issue, maturity)
+    let _ = b
+        .principal(init, issue, maturity)
         .amortization(AmortizationSpec::PercentPerPeriod { pct: 0.25 })
         .fixed_cf(fixed.clone());
     let s = b.build().unwrap();
@@ -337,7 +341,7 @@ fn strict_schedule_mode_errors_on_unknown_calendar() {
 
     // Strict mode should error
     let mut builder_strict = CashFlowSchedule::builder();
-    builder_strict
+    let _ = builder_strict
         .principal(Money::new(1_000_000.0, Currency::USD), issue, maturity)
         .strict_schedules(true)
         .fixed_cf(fixed.clone());
@@ -350,7 +354,7 @@ fn strict_schedule_mode_errors_on_unknown_calendar() {
 
     // Graceful mode (default) should succeed with fallback
     let mut builder_graceful = CashFlowSchedule::builder();
-    builder_graceful
+    let _ = builder_graceful
         .principal(Money::new(1_000_000.0, Currency::USD), issue, maturity)
         .strict_schedules(false)
         .fixed_cf(fixed);
@@ -391,7 +395,7 @@ fn try_builder_methods_error_before_principal() {
     // After setting principal, should succeed
     let issue = Date::from_calendar_date(2025, Month::January, 15).unwrap();
     let maturity = Date::from_calendar_date(2026, Month::January, 15).unwrap();
-    builder.principal(Money::new(1_000_000.0, Currency::USD), issue, maturity);
+    let _ = builder.principal(Money::new(1_000_000.0, Currency::USD), issue, maturity);
 
     let result = builder.try_fixed_cf(fixed);
     assert!(
@@ -424,7 +428,7 @@ fn stub_period_thirty360_produces_proportional_accrual() {
     let init = Money::new(1_000_000.0, Currency::USD);
 
     let mut b = CashFlowSchedule::builder();
-    b.principal(init, issue, maturity).fixed_cf(fixed.clone());
+    let _ = b.principal(init, issue, maturity).fixed_cf(fixed.clone());
     let schedule = b.build().unwrap();
 
     // Find coupon flows only

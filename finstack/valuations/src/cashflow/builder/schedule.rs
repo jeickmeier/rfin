@@ -428,3 +428,25 @@ pub(crate) fn resolve_credit_curves(
     };
     Ok(CreditCurveHandles { discount, hazard })
 }
+
+// =============================================================================
+// IntoIterator implementations for ergonomic for-loops
+// =============================================================================
+
+impl IntoIterator for CashFlowSchedule {
+    type Item = CashFlow;
+    type IntoIter = std::vec::IntoIter<CashFlow>;
+
+    fn into_iter(self) -> Self::IntoIter {
+        self.flows.into_iter()
+    }
+}
+
+impl<'a> IntoIterator for &'a CashFlowSchedule {
+    type Item = &'a CashFlow;
+    type IntoIter = std::slice::Iter<'a, CashFlow>;
+
+    fn into_iter(self) -> Self::IntoIter {
+        self.flows.iter()
+    }
+}

@@ -53,7 +53,7 @@ use crate::instruments::irs::{InterestRateSwap, PayReceive};
 /// ```
 pub fn fixed_leg_schedule(irs: &InterestRateSwap) -> Result<CashFlowSchedule> {
     let mut fixed_b = CashFlowSchedule::builder();
-    fixed_b
+    let _ = fixed_b
         .principal(irs.notional, irs.fixed.start, irs.fixed.end)
         .fixed_cf(FixedCouponSpec {
             coupon_type: crate::cashflow::builder::CouponType::Cash,
@@ -130,7 +130,7 @@ pub fn float_leg_schedule_with_curves(
     curves: Option<&finstack_core::market_data::context::MarketContext>,
 ) -> Result<CashFlowSchedule> {
     let mut float_b = CashFlowSchedule::builder();
-    float_b
+    let _ = float_b
         .principal(irs.notional, irs.float.start, irs.float.end)
         .floating_cf(FloatingCouponSpec {
             rate_spec: FloatingRateSpec {

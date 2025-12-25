@@ -130,16 +130,21 @@ struct DateCollectionInputs<'a> {
 }
 
 fn validate_core_inputs(b: &CashFlowBuilder) -> finstack_core::Result<(Notional, Date, Date)> {
-    let notional = b
-        .notional
-        .clone()
-        .ok_or_else(|| finstack_core::Error::from(InputError::Invalid))?;
-    let issue = b
-        .issue
-        .ok_or_else(|| finstack_core::Error::from(InputError::Invalid))?;
-    let maturity = b
-        .maturity
-        .ok_or_else(|| finstack_core::Error::from(InputError::Invalid))?;
+    let notional = b.notional.clone().ok_or_else(|| {
+        InputError::NotFound {
+            id: "notional (call principal() first)".into(),
+        }
+    })?;
+    let issue = b.issue.ok_or_else(|| {
+        InputError::NotFound {
+            id: "issue date (call principal() first)".into(),
+        }
+    })?;
+    let maturity = b.maturity.ok_or_else(|| {
+        InputError::NotFound {
+            id: "maturity date (call principal() first)".into(),
+        }
+    })?;
     Ok((notional, issue, maturity))
 }
 
@@ -245,7 +250,7 @@ fn initialize_build_state(
     let mut flows: Vec<CashFlow> = Vec::with_capacity(estimated_flows);
 
     // Only emit initial notional flow if non-zero.
-    // Note: Money constructed from 0.0 produces exact zero; no tolerance needed.
+    // Safety: Money::new(0.0, _) produces exact zero via Decimal; direct comparison is safe.
     if notional.initial.amount() != 0.0 {
         flows.push(CashFlow {
             date: issue,
@@ -263,6 +268,7 @@ fn initialize_build_state(
     // Process principal events at or before issue date to set up initial outstanding.
     // This is critical when initial notional is 0 and principal events define the draws.
     for ev in principal_events.iter().filter(|ev| ev.date <= issue) {
+        // Safety: Money amounts from builder are exact Decimal values; direct comparison is safe.
         if ev.delta.amount() != 0.0 || ev.cash.amount() != 0.0 {
             // Sign convention depends on flow kind:
             // - Notional (draws): cash is inflow to borrower, flow is negative (funding outflow from lender)
@@ -386,6 +392,7 @@ fn process_one_date(
     // Note: Events at or before issue date are processed in initialize_build_state,
     // and we skip(1) in the fold, so d is always > issue and no double-processing occurs.
     for ev in ctx.principal_events.iter().filter(|ev| ev.date == d) {
+        // Safety: Money amounts from builder are exact Decimal values; direct comparison is safe.
         if ev.delta.amount() != 0.0 || ev.cash.amount() != 0.0 {
             // Sign convention depends on flow kind:
             // - Notional (draws): cash is inflow to borrower, flow is negative (funding outflow from lender)
@@ -439,6 +446,8 @@ pub struct CashFlowBuilder {
     notional: Option<Notional>,
     issue: Option<Date>,
     maturity: Option<Date>,
+    /// Fee specifications. SmallVec<4> avoids heap allocation for typical instruments
+    /// with ≤4 fee specs (commitment fee, facility fee, usage fee, admin fee).
     fees: SmallVec<[FeeSpec; 4]>,
     principal_events: Vec<PrincipalEvent>,
     // Segmented programs (optional): coupon program and payment/PIK program
@@ -505,6 +514,7 @@ impl CashFlowBuilder {
         }
     }
     /// Sets principal details and instrument horizon.
+    #[must_use = "builder methods should be chained or terminated with .build()"]
     pub fn principal(&mut self, initial: Money, issue_date: Date, maturity: Date) -> &mut Self {
         self.pending_error = None;
         self.notional = Some(Notional {
@@ -517,6 +527,7 @@ impl CashFlowBuilder {
     }
 
     /// Convenience helper to set principal by amount and currency.
+    #[must_use = "builder methods should be chained or terminated with .build()"]
     pub fn principal_amount(
         &mut self,
         amount: f64,
@@ -528,6 +539,7 @@ impl CashFlowBuilder {
     }
 
     /// Configures amortization on the current notional.
+    #[must_use = "builder methods should be chained or terminated with .build()"]
     pub fn amortization(&mut self, spec: AmortizationSpec) -> &mut Self {
         if let Some(n) = &mut self.notional {
             n.amort = spec;
@@ -575,12 +587,14 @@ impl CashFlowBuilder {
     /// # Ok(())
     /// # }
     /// ```
+    #[must_use = "builder methods should be chained or terminated with .build()"]
     pub fn strict_schedules(&mut self, strict: bool) -> &mut Self {
         self.schedule_strict = strict;
         self
     }
 
     /// Adds a fixed coupon specification.
+    #[must_use = "builder methods should be chained or terminated with .build()"]
     pub fn fixed_cf(&mut self, spec: FixedCouponSpec) -> &mut Self {
         let Some((issue, maturity)) = self.issue_maturity_or_record_error("fixed_cf") else {
             return self;
@@ -618,6 +632,7 @@ impl CashFlowBuilder {
     }
 
     /// Adds a floating coupon specification.
+    #[must_use = "builder methods should be chained or terminated with .build()"]
     pub fn floating_cf(&mut self, spec: FloatingCouponSpec) -> &mut Self {
         let Some((issue, maturity)) = self.issue_maturity_or_record_error("floating_cf") else {
             return self;
@@ -663,6 +678,7 @@ impl CashFlowBuilder {
     }
 
     /// Adds a fee specification.
+    #[must_use = "builder methods should be chained or terminated with .build()"]
     pub fn fee(&mut self, spec: FeeSpec) -> &mut Self {
         self.fees.push(spec);
         self
@@ -677,6 +693,7 @@ impl CashFlowBuilder {
     ///
     /// Records a pending error if any event has mismatched currencies between
     /// `delta` and `cash`. The error will be returned when `build()` is called.
+    #[must_use = "builder methods should be chained or terminated with .build()"]
     pub fn principal_events(&mut self, events: &[PrincipalEvent]) -> &mut Self {
         if self.pending_error.is_some() {
             return self;
@@ -700,6 +717,7 @@ impl CashFlowBuilder {
     ///
     /// Records a pending error if `cash` is provided with a different currency
     /// than `delta`. The error will be returned when `build()` is called.
+    #[must_use = "builder methods should be chained or terminated with .build()"]
     pub fn add_principal_event(
         &mut self,
         date: Date,
@@ -728,6 +746,7 @@ impl CashFlowBuilder {
     }
 
     /// Adds a fixed coupon window with its own schedule and payment split (cash/PIK/split).
+    #[must_use = "builder methods should be chained or terminated with .build()"]
     pub fn add_fixed_coupon_window(
         &mut self,
         start: Date,
@@ -749,6 +768,7 @@ impl CashFlowBuilder {
     }
 
     /// Adds a floating coupon window with its own schedule and payment split.
+    #[must_use = "builder methods should be chained or terminated with .build()"]
     pub fn add_float_coupon_window(
         &mut self,
         start: Date,
@@ -775,6 +795,7 @@ impl CashFlowBuilder {
     }
 
     /// Adds/overrides a payment split (cash/PIK/split) over a window (PIK toggle support).
+    #[must_use = "builder methods should be chained or terminated with .build()"]
     pub fn add_payment_window(&mut self, start: Date, end: Date, split: CouponType) -> &mut Self {
         self.payment_program.push(PaymentProgramPiece {
             window: DateWindow { start, end },
@@ -847,6 +868,7 @@ impl CashFlowBuilder {
     /// - Steps must be ordered by end date
     /// - If the last step doesn't reach maturity, the last rate is extended
     /// - All windows use the same schedule parameters
+    #[must_use = "builder methods should be chained or terminated with .build()"]
     pub fn fixed_stepup(
         &mut self,
         steps: &[(Date, f64)],
@@ -858,13 +880,13 @@ impl CashFlowBuilder {
         };
         let mut prev = issue;
         for &(end, rate) in steps {
-            self.add_fixed_coupon_window(prev, end, rate, schedule.clone(), default_split);
+            let _ = self.add_fixed_coupon_window(prev, end, rate, schedule.clone(), default_split);
             prev = end;
         }
         if prev != maturity {
             // If the last step didn't reach maturity, extend using last rate
             if let Some(&(_, rate)) = steps.last() {
-                self.add_fixed_coupon_window(prev, maturity, rate, schedule, default_split);
+                let _ = self.add_fixed_coupon_window(prev, maturity, rate, schedule, default_split);
             }
         }
         self
@@ -941,6 +963,7 @@ impl CashFlowBuilder {
     /// # Ok(())
     /// # }
     /// ```
+    #[must_use = "builder methods should be chained or terminated with .build()"]
     pub fn float_margin_stepup(
         &mut self,
         steps: &[(Date, f64)],
@@ -956,7 +979,7 @@ impl CashFlowBuilder {
         for &(end, margin_bp) in steps {
             let mut params = base_params.clone();
             params.margin_bp = margin_bp;
-            self.add_float_coupon_window(
+            let _ = self.add_float_coupon_window(
                 prev,
                 end,
                 params.clone(),
@@ -970,7 +993,7 @@ impl CashFlowBuilder {
             if let Some(&(_, margin_bp)) = steps.last() {
                 params.margin_bp = margin_bp;
             }
-            self.add_float_coupon_window(prev, maturity, params, schedule, default_split);
+            let _ = self.add_float_coupon_window(prev, maturity, params, schedule, default_split);
         }
         self
     }
@@ -1045,6 +1068,7 @@ impl CashFlowBuilder {
     /// # Ok(())
     /// # }
     /// ```
+    #[must_use = "builder methods should be chained or terminated with .build()"]
     pub fn fixed_to_float(
         &mut self,
         switch: Date,
@@ -1055,14 +1079,14 @@ impl CashFlowBuilder {
         let Some((issue, maturity)) = self.issue_maturity_or_record_error("fixed_to_float") else {
             return self;
         };
-        self.add_fixed_coupon_window(
+        let _ = self.add_fixed_coupon_window(
             issue,
             switch,
             fixed_win.rate,
             fixed_win.schedule,
             default_split,
         );
-        self.add_float_coupon_window(
+        let _ = self.add_float_coupon_window(
             switch,
             maturity,
             float_win.params,
@@ -1146,6 +1170,7 @@ impl CashFlowBuilder {
     /// - Periods not covered by steps default to `Cash`
     /// - Steps must be ordered by end date
     /// - Works with both fixed and floating coupons
+    #[must_use = "builder methods should be chained or terminated with .build()"]
     pub fn payment_split_program(&mut self, steps: &[(Date, CouponType)]) -> &mut Self {
         let Some((issue, maturity)) = self.issue_maturity_or_record_error("payment_split_program")
         else {
@@ -1154,12 +1179,12 @@ impl CashFlowBuilder {
         let mut prev = issue;
         for &(end, split) in steps {
             if prev < end {
-                self.add_payment_window(prev, end, split);
+                let _ = self.add_payment_window(prev, end, split);
             }
             prev = end;
         }
         if prev < maturity {
-            self.add_payment_window(prev, maturity, CouponType::Cash);
+            let _ = self.add_payment_window(prev, maturity, CouponType::Cash);
         }
         self
     }

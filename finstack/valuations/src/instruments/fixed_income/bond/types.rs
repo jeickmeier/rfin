@@ -661,24 +661,24 @@ impl Bond {
 
         // Build the schedule using the cashflow builder and cashflow_spec
         let mut b = CashFlowSchedule::builder();
-        b.principal(self.notional, self.issue, self.maturity);
+        let _ = b.principal(self.notional, self.issue, self.maturity);
 
         // Match on the cashflow spec variant
         match &self.cashflow_spec {
             CashflowSpec::Fixed(spec) => {
-                b.fixed_cf(spec.clone());
+                let _ = b.fixed_cf(spec.clone());
             }
             CashflowSpec::Floating(spec) => {
-                b.floating_cf(spec.clone());
+                let _ = b.floating_cf(spec.clone());
             }
             CashflowSpec::Amortizing { base, schedule } => {
-                b.amortization(schedule.clone());
+                let _ = b.amortization(schedule.clone());
                 match &**base {
                     CashflowSpec::Fixed(spec) => {
-                        b.fixed_cf(spec.clone());
+                        let _ = b.fixed_cf(spec.clone());
                     }
                     CashflowSpec::Floating(spec) => {
-                        b.floating_cf(spec.clone());
+                        let _ = b.floating_cf(spec.clone());
                     }
                     CashflowSpec::Amortizing { .. } => {
                         return Err(finstack_core::error::InputError::Invalid.into());

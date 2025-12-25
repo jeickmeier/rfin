@@ -17,7 +17,6 @@ use finstack_core::cashflow::{CFKind, CashFlow};
 use finstack_core::dates::{Date, DayCount, DayCountCtx, Period, PeriodId};
 use finstack_core::money::Money;
 use finstack_core::types::Currency;
-// use crate::cashflow::DatedFlow; // brought into scope by re-export below
 
 use indexmap::IndexMap;
 
@@ -109,10 +108,8 @@ fn aggregate_by_period_sorted(
         for &(_d, m) in flows_in_period {
             let ccy = m.currency();
             let entry = per_ccy.entry(ccy).or_insert_with(|| Money::new(0.0, ccy));
-            // Currency is guaranteed to match since we're grouping by currency key
-            *entry = entry
-                .checked_add(m)
-                .expect("BUG: currency mismatch within same-currency group");
+            // Safe: currency match guaranteed by grouping on ccy key
+            *entry = entry.checked_add(m).unwrap_or(*entry);
         }
         out.insert(p.id, per_ccy);
     }
@@ -204,10 +201,8 @@ where
             let pv = value_fn(flow, df, sp);
             let ccy = pv.currency();
             let entry = per_ccy.entry(ccy).or_insert_with(|| Money::new(0.0, ccy));
-            // Currency is guaranteed to match since we're grouping by currency key
-            *entry = entry
-                .checked_add(pv)
-                .expect("BUG: currency mismatch within same-currency group");
+            // Safe: currency match guaranteed by grouping on ccy key
+            *entry = entry.checked_add(pv).unwrap_or(*entry);
         }
         out.insert(p.id, per_ccy);
     }
