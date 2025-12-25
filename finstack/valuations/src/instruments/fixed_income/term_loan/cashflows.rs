@@ -286,7 +286,8 @@ pub fn generate_cashflows(
                 calendar_id: loan.calendar_id.clone(),
                 stub: loan.stub,
             };
-            let _ = builder.float_margin_stepup(&steps, base_params, sched_params, loan.coupon_type);
+            let _ =
+                builder.float_margin_stepup(&steps, base_params, sched_params, loan.coupon_type);
         }
     }
 

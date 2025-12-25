@@ -255,7 +255,7 @@ pub(crate) fn bracket_solve_1d_with_diagnostics(
         }
     }
 
-    diag.bracket_found = true;
+    // Note: bracket_found remains false - we're returning a fallback solution, not a bracketed root
     Ok((Some(root_brent), diag))
 }
 

@@ -130,20 +130,14 @@ struct DateCollectionInputs<'a> {
 }
 
 fn validate_core_inputs(b: &CashFlowBuilder) -> finstack_core::Result<(Notional, Date, Date)> {
-    let notional = b.notional.clone().ok_or_else(|| {
-        InputError::NotFound {
-            id: "notional (call principal() first)".into(),
-        }
+    let notional = b.notional.clone().ok_or_else(|| InputError::NotFound {
+        id: "notional (call principal() first)".into(),
     })?;
-    let issue = b.issue.ok_or_else(|| {
-        InputError::NotFound {
-            id: "issue date (call principal() first)".into(),
-        }
+    let issue = b.issue.ok_or_else(|| InputError::NotFound {
+        id: "issue date (call principal() first)".into(),
     })?;
-    let maturity = b.maturity.ok_or_else(|| {
-        InputError::NotFound {
-            id: "maturity date (call principal() first)".into(),
-        }
+    let maturity = b.maturity.ok_or_else(|| InputError::NotFound {
+        id: "maturity date (call principal() first)".into(),
     })?;
     Ok((notional, issue, maturity))
 }

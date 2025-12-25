@@ -499,7 +499,11 @@ impl VolatilityIndexOption {
     /// # Arguments
     /// * `context` - Market context with vol index curves
     /// * `as_of` - Valuation date for time to expiry calculation
-    pub fn intrinsic_value(&self, context: &MarketContext, as_of: Date) -> finstack_core::Result<f64> {
+    pub fn intrinsic_value(
+        &self,
+        context: &MarketContext,
+        as_of: Date,
+    ) -> finstack_core::Result<f64> {
         let forward = self.forward_vol(context, as_of)?;
         let intrinsic = match self.option_type {
             OptionType::Call => (forward - self.strike).max(0.0),

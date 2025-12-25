@@ -69,8 +69,7 @@ impl MetricCalculator for Fx01Calculator {
         };
 
         let n_base = ndf.notional.amount();
-        let settlement_amount =
-            n_base * (1.0 / ndf.contract_rate - 1.0 / effective_forward);
+        let settlement_amount = n_base * (1.0 / ndf.contract_rate - 1.0 / effective_forward);
         let bumped_pv = settlement_amount * df_settlement;
 
         Ok(bumped_pv - base_pv.amount())

@@ -271,4 +271,3 @@ fn test_at_the_money_future() {
     // At-the-money should have zero PV
     assert!(npv.amount().abs() < 0.01);
 }
-

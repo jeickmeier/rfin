@@ -1363,12 +1363,12 @@ impl EquityInstrumentDepsBuilder {
 #[cfg(test)]
 mod trait_coverage_tests {
     use crate::instruments::cap_floor::InterestRateOption;
+    use crate::instruments::common::pricing::HasForwardCurves;
     use crate::instruments::swaption::BermudanSwaption;
     use crate::instruments::{
         Bond, CmsOption, CommodityForward, CommodityOption, CommoditySwap, ConvertibleBond,
         InflationCapFloor, InflationSwap, Swaption, YoYInflationSwap,
     };
-    use crate::instruments::common::pricing::HasForwardCurves;
     use crate::metrics::HasCreditCurve;
 
     fn assert_has_forward<T: HasForwardCurves>() {}

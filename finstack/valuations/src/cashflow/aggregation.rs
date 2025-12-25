@@ -63,7 +63,9 @@ fn iter_by_period<'a, T: HasDate>(
     periods: &'a [Period],
 ) -> impl Iterator<Item = (&'a Period, &'a [T])> + 'a {
     debug_assert!(
-        flows.windows(2).all(|w| w[0].flow_date() <= w[1].flow_date()),
+        flows
+            .windows(2)
+            .all(|w| w[0].flow_date() <= w[1].flow_date()),
         "iter_by_period requires flows to be sorted by date"
     );
 

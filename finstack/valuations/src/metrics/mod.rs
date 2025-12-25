@@ -428,9 +428,7 @@ pub fn standard_registry() -> MetricRegistry {
     // FX instruments
     crate::instruments::fx_forward::metrics::register_fx_forward_metrics(&mut registry);
     crate::instruments::ndf::metrics::register_ndf_metrics(&mut registry);
-    crate::instruments::fx_variance_swap::metrics::register_fx_variance_swap_metrics(
-        &mut registry,
-    );
+    crate::instruments::fx_variance_swap::metrics::register_fx_variance_swap_metrics(&mut registry);
     // Exotic options
     #[cfg(feature = "mc")]
     {

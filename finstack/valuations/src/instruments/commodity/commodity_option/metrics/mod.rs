@@ -40,14 +40,18 @@ pub fn register_commodity_option_metrics(registry: &mut MetricRegistry) {
         MetricId::Dv01,
         Arc::new(crate::metrics::UnifiedDv01Calculator::<
             crate::instruments::CommodityOption,
-        >::new(crate::metrics::Dv01CalculatorConfig::parallel_combined())),
+        >::new(
+            crate::metrics::Dv01CalculatorConfig::parallel_combined()
+        )),
         &[InstrumentType::CommodityOption],
     );
     registry.register_metric(
         MetricId::BucketedDv01,
         Arc::new(crate::metrics::UnifiedDv01Calculator::<
             crate::instruments::CommodityOption,
-        >::new(crate::metrics::Dv01CalculatorConfig::key_rate())),
+        >::new(
+            crate::metrics::Dv01CalculatorConfig::key_rate()
+        )),
         &[InstrumentType::CommodityOption],
     );
 }

@@ -10,8 +10,8 @@
 //! - dividend yield  
 //! - forward price
 
-mod dividend_yield;
 mod delta;
+mod dividend_yield;
 mod forward_price;
 mod price_per_share;
 mod shares;

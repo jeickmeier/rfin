@@ -226,4 +226,3 @@ mod term_loan_contract {
         verify_provider_contract(&loan, &minimal_market(), as_of);
     }
 }
-

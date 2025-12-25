@@ -96,7 +96,7 @@ impl SequentialBootstrapper {
                     category: "bootstrapping".to_string(),
                 });
             }
-            if (time - last_time).abs() <= 1e-12 {
+            if (time - last_time).abs() <= crate::calibration::constants::TOLERANCE_DUP_KNOTS {
                 return Err(finstack_core::Error::Calibration {
                     message: format!(
                         "Bootstrap rejects duplicate quote times: t={:.12} appears more than once (quote index {})",

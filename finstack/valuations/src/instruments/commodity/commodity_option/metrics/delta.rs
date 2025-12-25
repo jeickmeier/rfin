@@ -22,10 +22,18 @@ impl MetricCalculator for DeltaCalculator {
             let forward = option.forward_price(&context.curves, as_of)?;
             let intrinsic = match option.option_type {
                 crate::instruments::OptionType::Call => {
-                    if forward > option.strike { 1.0 } else { 0.0 }
+                    if forward > option.strike {
+                        1.0
+                    } else {
+                        0.0
+                    }
                 }
                 crate::instruments::OptionType::Put => {
-                    if forward < option.strike { -1.0 } else { 0.0 }
+                    if forward < option.strike {
+                        -1.0
+                    } else {
+                        0.0
+                    }
                 }
             };
             return Ok(intrinsic * option.quantity * option.multiplier);
@@ -47,12 +55,7 @@ impl MetricCalculator for DeltaCalculator {
             .get_discount_ref(option.discount_curve_id.as_str())?;
         let df = disc.try_df_between_dates(as_of, option.expiry)?;
 
-        let d1 = crate::instruments::common::models::d1_black76(
-            forward,
-            option.strike,
-            sigma,
-            t,
-        );
+        let d1 = crate::instruments::common::models::d1_black76(forward, option.strike, sigma, t);
         let nd1 = norm_cdf(d1);
         let unit_delta = match option.option_type {
             crate::instruments::OptionType::Call => df * nd1,

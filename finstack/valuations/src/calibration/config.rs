@@ -13,7 +13,6 @@ use finstack_core::explain::ExplainOpts;
 
 use finstack_core::math::interp::{ExtrapolationPolicy, InterpStyle};
 use serde::{Deserialize, Serialize};
-use serde_json;
 #[cfg(feature = "ts_export")]
 use ts_rs::TS;
 

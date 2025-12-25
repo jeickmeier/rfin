@@ -13,8 +13,8 @@
 //! Note: Quote amount (PV in quote currency) is available in `ValuationResult.value`.
 
 pub mod base_amount;
-pub mod fx_delta;
 pub mod fx01;
+pub mod fx_delta;
 pub mod inverse_rate;
 pub mod spot_rate;
 

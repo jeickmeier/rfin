@@ -617,9 +617,6 @@ mod credit_emission_tests {
             flows.is_empty(),
             "Should emit no flows when outstanding is 0"
         );
-        assert!(
-            outstanding.abs() < 1e-9,
-            "Outstanding should remain 0"
-        );
+        assert!(outstanding.abs() < 1e-9, "Outstanding should remain 0");
     }
 }
