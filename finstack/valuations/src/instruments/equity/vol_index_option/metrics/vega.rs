@@ -29,5 +29,5 @@ define_metric_calculator!(
     /// Vega calculator for volatility index options.
     VegaCalculator,
     instrument = VolatilityIndexOption,
-    calc = |option, ctx| option.vega(&ctx.curves)
+    calc = |option, ctx| option.vega(&ctx.curves, ctx.as_of)
 );

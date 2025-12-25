@@ -114,8 +114,9 @@ pub use fixed_income::{
 // Rates
 pub use rates::{
     BasisSwap, CmsOption, CollateralSpec, CollateralType, Deposit, ForwardRateAgreement,
-    InflationCapFloor, InflationCapFloorType, InflationSwap, InterestRateFuture, InterestRateSwap,
-    RangeAccrual, RateOptionType, Repo, RepoType, Swaption, XccySwap, YoYInflationSwap,
+    InflationCapFloor, InflationCapFloorType, InflationSwap, InterestRateFuture,
+    InterestRateOption, InterestRateSwap, RangeAccrual, RateOptionType, Repo, RepoType, Swaption,
+    XccySwap, YoYInflationSwap,
 };
 
 // Credit Derivatives

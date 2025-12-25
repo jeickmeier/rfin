@@ -29,7 +29,7 @@ pub mod xccy_swap;
 
 // Re-export primary types
 pub use basis_swap::BasisSwap;
-pub use cap_floor::RateOptionType;
+pub use cap_floor::{InterestRateOption, RateOptionType};
 pub use cms_option::CmsOption;
 pub use deposit::Deposit;
 pub use fra::ForwardRateAgreement;

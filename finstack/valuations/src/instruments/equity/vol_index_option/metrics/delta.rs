@@ -29,5 +29,5 @@ define_metric_calculator!(
     /// Delta calculator for volatility index options.
     DeltaCalculator,
     instrument = VolatilityIndexOption,
-    calc = |option, ctx| option.delta(&ctx.curves)
+    calc = |option, ctx| option.delta(&ctx.curves, ctx.as_of)
 );

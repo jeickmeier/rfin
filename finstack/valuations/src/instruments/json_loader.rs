@@ -61,12 +61,24 @@ pub enum InstrumentJson {
     TermLoan(TermLoan),
     /// Revolving credit facility
     RevolvingCredit(RevolvingCredit),
+    /// Bond future
+    BondFuture(BondFuture),
+    /// Agency MBS passthrough
+    AgencyMbsPassthrough(AgencyMbsPassthrough),
+    /// Agency TBA forward
+    AgencyTba(AgencyTba),
+    /// Agency CMO tranche
+    AgencyCmo(AgencyCmo),
+    /// Dollar roll
+    DollarRoll(DollarRoll),
 
     // Rates
     /// Interest rate swap
     InterestRateSwap(InterestRateSwap),
     /// Basis swap
     BasisSwap(BasisSwap),
+    /// Cross-currency swap
+    XccySwap(XccySwap),
     /// Inflation swap
     InflationSwap(InflationSwap),
     /// Year-on-year inflation swap
@@ -79,6 +91,8 @@ pub enum InstrumentJson {
     Swaption(Swaption),
     /// Interest rate future
     InterestRateFuture(InterestRateFuture),
+    /// Interest rate option (cap/floor)
+    InterestRateOption(InterestRateOption),
     /// Constant maturity swap (CMS) option
     CmsOption(CmsOption),
     /// Money market deposit
@@ -110,12 +124,22 @@ pub enum InstrumentJson {
     LookbackOption(LookbackOption),
     /// Variance swap
     VarianceSwap(VarianceSwap),
+    /// Equity index future
+    EquityIndexFuture(EquityIndexFuture),
+    /// Volatility index future
+    VolatilityIndexFuture(VolatilityIndexFuture),
+    /// Volatility index option
+    VolatilityIndexOption(VolatilityIndexOption),
 
     // FX
     /// FX spot position
     FxSpot(FxSpot),
     /// FX swap (forward)
     FxSwap(FxSwap),
+    /// FX forward (outright)
+    FxForward(FxForward),
+    /// Non-deliverable forward
+    Ndf(Ndf),
     /// Vanilla FX option
     FxOption(FxOption),
     /// FX barrier option
@@ -128,6 +152,10 @@ pub enum InstrumentJson {
     // Commodity
     /// Commodity option
     CommodityOption(CommodityOption),
+    /// Commodity forward
+    CommodityForward(CommodityForward),
+    /// Commodity swap
+    CommoditySwap(CommoditySwap),
 
     // Exotic Options
     /// Autocallable note
@@ -173,10 +201,16 @@ impl InstrumentJson {
             InstrumentJson::ConvertibleBond(i) => Ok(Box::new(i)),
             InstrumentJson::InflationLinkedBond(i) => Ok(Box::new(i)),
             InstrumentJson::TermLoan(i) => Ok(Box::new(i)),
+            InstrumentJson::BondFuture(i) => Ok(Box::new(i)),
+            InstrumentJson::AgencyMbsPassthrough(i) => Ok(Box::new(i)),
+            InstrumentJson::AgencyTba(i) => Ok(Box::new(i)),
+            InstrumentJson::AgencyCmo(i) => Ok(Box::new(i)),
+            InstrumentJson::DollarRoll(i) => Ok(Box::new(i)),
 
             // Swaps
             InstrumentJson::InterestRateSwap(i) => Ok(Box::new(i)),
             InstrumentJson::BasisSwap(i) => Ok(Box::new(i)),
+            InstrumentJson::XccySwap(i) => Ok(Box::new(i)),
             InstrumentJson::InflationSwap(i) => Ok(Box::new(i)),
             InstrumentJson::YoYInflationSwap(i) => Ok(Box::new(i)),
             InstrumentJson::InflationCapFloor(i) => Ok(Box::new(i)),
@@ -187,6 +221,7 @@ impl InstrumentJson {
             InstrumentJson::ForwardRateAgreement(i) => Ok(Box::new(i)),
             InstrumentJson::Swaption(i) => Ok(Box::new(i)),
             InstrumentJson::InterestRateFuture(i) => Ok(Box::new(i)),
+            InstrumentJson::InterestRateOption(i) => Ok(Box::new(i)),
             InstrumentJson::CmsOption(i) => Ok(Box::new(i)),
 
             // Credit
@@ -201,9 +236,14 @@ impl InstrumentJson {
             InstrumentJson::AsianOption(i) => Ok(Box::new(i)),
             InstrumentJson::BarrierOption(i) => Ok(Box::new(i)),
             InstrumentJson::LookbackOption(i) => Ok(Box::new(i)),
+            InstrumentJson::EquityIndexFuture(i) => Ok(Box::new(i)),
+            InstrumentJson::VolatilityIndexFuture(i) => Ok(Box::new(i)),
+            InstrumentJson::VolatilityIndexOption(i) => Ok(Box::new(i)),
 
             // FX
             InstrumentJson::FxSpot(i) => Ok(Box::new(i)),
+            InstrumentJson::FxForward(i) => Ok(Box::new(i)),
+            InstrumentJson::Ndf(i) => Ok(Box::new(i)),
             InstrumentJson::FxOption(i) => Ok(Box::new(i)),
             InstrumentJson::FxBarrierOption(i) => Ok(Box::new(i)),
             InstrumentJson::FxVarianceSwap(i) => Ok(Box::new(i)),
@@ -211,6 +251,8 @@ impl InstrumentJson {
 
             // Commodity
             InstrumentJson::CommodityOption(i) => Ok(Box::new(i)),
+            InstrumentJson::CommodityForward(i) => Ok(Box::new(i)),
+            InstrumentJson::CommoditySwap(i) => Ok(Box::new(i)),
 
             // Exotic Options
             InstrumentJson::Autocallable(i) => Ok(Box::new(i)),
@@ -274,6 +316,21 @@ impl<'de> Deserialize<'de> for InstrumentJson {
             "term_loan" => serde_json::from_str(&spec_str)
                 .map(Self::TermLoan)
                 .map_err(D::Error::custom),
+            "bond_future" => serde_json::from_str(&spec_str)
+                .map(Self::BondFuture)
+                .map_err(D::Error::custom),
+            "agency_mbs_passthrough" => serde_json::from_str(&spec_str)
+                .map(Self::AgencyMbsPassthrough)
+                .map_err(D::Error::custom),
+            "agency_tba" => serde_json::from_str(&spec_str)
+                .map(Self::AgencyTba)
+                .map_err(D::Error::custom),
+            "agency_cmo" => serde_json::from_str(&spec_str)
+                .map(Self::AgencyCmo)
+                .map_err(D::Error::custom),
+            "dollar_roll" => serde_json::from_str(&spec_str)
+                .map(Self::DollarRoll)
+                .map_err(D::Error::custom),
 
             // Swaps
             "interest_rate_swap" => serde_json::from_str(&spec_str)
@@ -281,6 +338,9 @@ impl<'de> Deserialize<'de> for InstrumentJson {
                 .map_err(D::Error::custom),
             "basis_swap" => serde_json::from_str(&spec_str)
                 .map(Self::BasisSwap)
+                .map_err(D::Error::custom),
+            "xccy_swap" => serde_json::from_str(&spec_str)
+                .map(Self::XccySwap)
                 .map_err(D::Error::custom),
             "inflation_swap" => serde_json::from_str(&spec_str)
                 .map(Self::InflationSwap)
@@ -307,6 +367,9 @@ impl<'de> Deserialize<'de> for InstrumentJson {
                 .map_err(D::Error::custom),
             "interest_rate_future" => serde_json::from_str(&spec_str)
                 .map(Self::InterestRateFuture)
+                .map_err(D::Error::custom),
+            "interest_rate_option" => serde_json::from_str(&spec_str)
+                .map(Self::InterestRateOption)
                 .map_err(D::Error::custom),
             "cms_option" => serde_json::from_str(&spec_str)
                 .map(Self::CmsOption)
@@ -342,10 +405,25 @@ impl<'de> Deserialize<'de> for InstrumentJson {
             "lookback_option" => serde_json::from_str(&spec_str)
                 .map(Self::LookbackOption)
                 .map_err(D::Error::custom),
+            "equity_index_future" => serde_json::from_str(&spec_str)
+                .map(Self::EquityIndexFuture)
+                .map_err(D::Error::custom),
+            "volatility_index_future" => serde_json::from_str(&spec_str)
+                .map(Self::VolatilityIndexFuture)
+                .map_err(D::Error::custom),
+            "volatility_index_option" => serde_json::from_str(&spec_str)
+                .map(Self::VolatilityIndexOption)
+                .map_err(D::Error::custom),
 
             // FX
             "fx_spot" => serde_json::from_str(&spec_str)
                 .map(Self::FxSpot)
+                .map_err(D::Error::custom),
+            "fx_forward" => serde_json::from_str(&spec_str)
+                .map(Self::FxForward)
+                .map_err(D::Error::custom),
+            "ndf" => serde_json::from_str(&spec_str)
+                .map(Self::Ndf)
                 .map_err(D::Error::custom),
             "fx_option" => serde_json::from_str(&spec_str)
                 .map(Self::FxOption)
@@ -363,6 +441,12 @@ impl<'de> Deserialize<'de> for InstrumentJson {
             // Commodity
             "commodity_option" => serde_json::from_str(&spec_str)
                 .map(Self::CommodityOption)
+                .map_err(D::Error::custom),
+            "commodity_forward" => serde_json::from_str(&spec_str)
+                .map(Self::CommodityForward)
+                .map_err(D::Error::custom),
+            "commodity_swap" => serde_json::from_str(&spec_str)
+                .map(Self::CommoditySwap)
                 .map_err(D::Error::custom),
 
             // Exotic Options
@@ -414,43 +498,68 @@ impl<'de> Deserialize<'de> for InstrumentJson {
             other => Err(D::Error::unknown_variant(
                 other,
                 &[
+                    // Fixed Income
                     "bond",
                     "convertible_bond",
                     "inflation_linked_bond",
                     "term_loan",
+                    "bond_future",
+                    "agency_mbs_passthrough",
+                    "agency_tba",
+                    "agency_cmo",
+                    "dollar_roll",
+                    // Swaps
                     "interest_rate_swap",
                     "basis_swap",
+                    "xccy_swap",
                     "inflation_swap",
                     "yoy_inflation_swap",
                     "yo_y_inflation_swap",
                     "inflation_cap_floor",
                     "fx_swap",
                     "variance_swap",
+                    // Rates Derivatives
                     "forward_rate_agreement",
                     "swaption",
                     "interest_rate_future",
+                    "interest_rate_option",
                     "cms_option",
+                    // Credit
                     "credit_default_swap",
                     "cds_index",
                     "cds_tranche",
                     "cds_option",
+                    // Equity
                     "equity",
                     "equity_option",
                     "asian_option",
                     "barrier_option",
                     "lookback_option",
+                    "equity_index_future",
+                    "volatility_index_future",
+                    "volatility_index_option",
+                    // FX
                     "fx_spot",
+                    "fx_forward",
+                    "ndf",
                     "fx_option",
                     "fx_barrier_option",
                     "fx_variance_swap",
                     "quanto_option",
+                    // Commodity
                     "commodity_option",
+                    "commodity_forward",
+                    "commodity_swap",
+                    // Exotics
                     "autocallable",
                     "cliquet_option",
                     "range_accrual",
+                    // TRS
                     "trs_equity",
                     "trs_fixed_income_index",
+                    // Structured
                     "structured_credit",
+                    // Other
                     "basket",
                     "deposit",
                     "repo",
