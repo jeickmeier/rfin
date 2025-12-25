@@ -179,12 +179,14 @@ impl CalibrationReport {
     }
 
     /// Attach an explanation trace to this report.
+    #[must_use]
     pub fn with_explanation(mut self, trace: ExplanationTrace) -> Self {
         self.explanation = Some(trace);
         self
     }
 
     /// Attach custom results metadata to this report.
+    #[must_use]
     pub fn with_results_meta(mut self, meta: ResultsMeta) -> Self {
         self.results_meta = meta;
         self
@@ -196,6 +198,7 @@ impl CalibrationReport {
     }
 
     /// Add metadata key-value pair to the report (builder pattern).
+    #[must_use]
     pub fn with_metadata(mut self, key: impl Into<String>, value: impl Into<String>) -> Self {
         self.metadata.insert(key.into(), value.into());
         self
@@ -207,12 +210,14 @@ impl CalibrationReport {
     }
 
     /// Set solver configuration (builder pattern).
+    #[must_use]
     pub fn with_solver_config(mut self, config: SolverConfig) -> Self {
         self.solver_config = config;
         self
     }
 
     /// Attach validation outcome. If validation fails, the report is marked unsuccessful.
+    #[must_use]
     pub fn with_validation_result(mut self, passed: bool, error: Option<String>) -> Self {
         self.validation_passed = passed;
         self.validation_error = error;

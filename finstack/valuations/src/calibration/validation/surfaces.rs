@@ -155,7 +155,9 @@ impl SurfaceValidator for VolSurface {
                     1.0
                 };
 
-                if w2 > w2_interpolated * 1.5 || w2 < w2_interpolated * 0.5 {
+                if w2 > w2_interpolated * config.butterfly_upper_ratio
+                    || w2 < w2_interpolated * config.butterfly_lower_ratio
+                {
                     violations.push((expiry, k2, w2, w2_interpolated, ratio));
 
                     if config.lenient_arbitrage {

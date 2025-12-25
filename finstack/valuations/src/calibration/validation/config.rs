@@ -224,6 +224,24 @@ pub struct ValidationConfig {
     /// Set to true only for exploratory analysis or when arbitrage-free fitting is not required.
     #[serde(default)]
     pub lenient_arbitrage: bool,
+    /// Butterfly spread convexity tolerance ratio (upper bound).
+    /// Actual variance must be <= interpolated * this ratio to pass.
+    /// Default 1.25 (25% tolerance); use values closer to 1.0 for stricter checking.
+    #[serde(default = "default_butterfly_upper_ratio")]
+    pub butterfly_upper_ratio: f64,
+    /// Butterfly spread convexity tolerance ratio (lower bound).
+    /// Actual variance must be >= interpolated * this ratio to pass.
+    /// Default 0.75 (25% tolerance); use values closer to 1.0 for stricter checking.
+    #[serde(default = "default_butterfly_lower_ratio")]
+    pub butterfly_lower_ratio: f64,
+}
+
+fn default_butterfly_upper_ratio() -> f64 {
+    1.25 // Variance must be at most 25% above linear interpolation
+}
+
+fn default_butterfly_lower_ratio() -> f64 {
+    0.75 // Variance must be at least 25% below linear interpolation
 }
 
 impl Default for ValidationConfig {
@@ -247,6 +265,8 @@ impl Default for ValidationConfig {
             // Default to strict mode: arbitrage violations fail validation.
             // Set to true only for exploratory analysis.
             lenient_arbitrage: false,
+            butterfly_upper_ratio: default_butterfly_upper_ratio(),
+            butterfly_lower_ratio: default_butterfly_lower_ratio(),
         }
     }
 }
