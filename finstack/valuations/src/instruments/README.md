@@ -13,6 +13,17 @@ The instruments module is the core of Finstack's valuation capabilities, providi
 - **Currency Safety**: Explicit currency handling with no implicit conversions
 - **Determinism**: Decimal-based numerics ensure reproducible results
 
+## Curve Trait Coverage
+
+Curve-driven instruments expose their market data requirements through common traits:
+
+- **HasDiscountCurve**: Primary discount curve used for PV and DV01.
+- **HasForwardCurves**: Projection curves for floating legs, inflation indices, and commodity forwards.
+- **HasCreditCurve**: Hazard/credit curve for CS01 and default risk.
+- **CurveDependencies**: Aggregated discount/forward/credit curves for risk calculators.
+
+Instruments with optional discounting (e.g., private markets funds) still price without curves but won’t participate in curve-based sensitivities until a curve is supplied.
+
 ## Directory Structure
 
 ```
@@ -835,4 +846,3 @@ Add comprehensive rustdoc:
 - [Pricing Models Documentation](./common/models/)
 - [Monte Carlo Engine](./common/mc/)
 - [Cashflow Builder](../cashflow/)
-

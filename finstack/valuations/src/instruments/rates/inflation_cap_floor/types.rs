@@ -383,6 +383,12 @@ impl crate::instruments::common::pricing::HasDiscountCurve for InflationCapFloor
     }
 }
 
+impl crate::instruments::common::pricing::HasForwardCurves for InflationCapFloor {
+    fn forward_curve_ids(&self) -> Vec<CurveId> {
+        vec![self.inflation_index_id.clone()]
+    }
+}
+
 impl crate::instruments::common::traits::CurveDependencies for InflationCapFloor {
     fn curve_dependencies(&self) -> crate::instruments::common::traits::InstrumentCurves {
         crate::instruments::common::traits::InstrumentCurves::builder()

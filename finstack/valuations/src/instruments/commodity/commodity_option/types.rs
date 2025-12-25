@@ -364,3 +364,9 @@ impl HasDiscountCurve for CommodityOption {
         &self.discount_curve_id
     }
 }
+
+impl crate::instruments::common::pricing::HasForwardCurves for CommodityOption {
+    fn forward_curve_ids(&self) -> Vec<CurveId> {
+        vec![self.forward_curve_id.clone()]
+    }
+}

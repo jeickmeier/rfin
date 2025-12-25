@@ -8,6 +8,8 @@
 //! This module is intended to be used both for standalone pricing and as the
 //! underlying instrument for XCCY basis calibration.
 
+/// XCCY swap metrics.
+pub mod metrics;
 /// XCCY swap pricer implementation
 pub mod pricer;
 mod types;

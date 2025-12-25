@@ -1,26 +1,25 @@
-//! Agency TBA risk metrics.
+//! XCCY swap metrics module.
 //!
-//! TBA-specific metrics inherit from MBS metrics but use assumed pool
-//! characteristics for calculation.
+//! Registers standard rate risk metrics for cross-currency swaps.
 
 use crate::metrics::MetricRegistry;
 
-/// Register TBA metrics with the registry.
-pub fn register_tba_metrics(registry: &mut MetricRegistry) {
+/// Register XCCY swap metrics with the registry.
+pub fn register_xccy_swap_metrics(registry: &mut MetricRegistry) {
     use crate::pricer::InstrumentType;
     crate::register_metrics! {
         registry: registry,
-        instrument: InstrumentType::AgencyTba,
+        instrument: InstrumentType::XccySwap,
         metrics: [
             (Dv01, crate::metrics::UnifiedDv01Calculator::<
-                crate::instruments::AgencyTba,
+                crate::instruments::XccySwap,
             >::new(crate::metrics::Dv01CalculatorConfig::parallel_combined())),
             (BucketedDv01, crate::metrics::UnifiedDv01Calculator::<
-                crate::instruments::AgencyTba,
+                crate::instruments::XccySwap,
             >::new(crate::metrics::Dv01CalculatorConfig::key_rate())),
             (Theta, crate::metrics::GenericTheta::<
-                crate::instruments::AgencyTba,
+                crate::instruments::XccySwap,
             >::default()),
         ]
-    }
+    };
 }

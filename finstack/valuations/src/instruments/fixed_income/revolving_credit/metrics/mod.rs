@@ -31,6 +31,9 @@ pub fn register_revolving_credit_metrics(registry: &mut MetricRegistry) {
             (Cs01, crate::metrics::GenericParallelCs01::<
                 crate::instruments::RevolvingCredit,
             >::default()),
+            (BucketedCs01, crate::metrics::GenericBucketedCs01::<
+                crate::instruments::RevolvingCredit,
+            >::default()),
             // Theta is now registered universally in metrics::standard_registry()
             (BucketedDv01, crate::metrics::UnifiedDv01Calculator::<
                 crate::instruments::RevolvingCredit,

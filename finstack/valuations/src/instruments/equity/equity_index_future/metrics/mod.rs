@@ -9,6 +9,8 @@
 //! - Bucketed DV01 (key rate sensitivity)
 //! - Theta (time decay)
 
+mod delta;
+
 use crate::metrics::MetricRegistry;
 
 /// Register all EquityIndexFuture metrics with the registry.
@@ -18,6 +20,7 @@ pub fn register_equity_index_future_metrics(registry: &mut MetricRegistry) {
         registry: registry,
         instrument: InstrumentType::EquityIndexFuture,
         metrics: [
+            (Delta, delta::DeltaCalculator),
             (Dv01, crate::metrics::UnifiedDv01Calculator::<
                 crate::instruments::equity_index_future::EquityIndexFuture,
             >::new(crate::metrics::Dv01CalculatorConfig::parallel_combined())),

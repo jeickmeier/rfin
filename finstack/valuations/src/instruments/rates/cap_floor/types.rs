@@ -361,3 +361,9 @@ impl crate::instruments::common::pricing::HasDiscountCurve for InterestRateOptio
         &self.discount_curve_id
     }
 }
+
+impl crate::instruments::common::pricing::HasForwardCurves for InterestRateOption {
+    fn forward_curve_ids(&self) -> Vec<finstack_core::types::CurveId> {
+        vec![self.forward_id.clone()]
+    }
+}

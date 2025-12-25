@@ -1,26 +1,25 @@
-//! Agency TBA risk metrics.
+//! Real estate asset metrics module.
 //!
-//! TBA-specific metrics inherit from MBS metrics but use assumed pool
-//! characteristics for calculation.
+//! Provides standard rate risk metrics for real estate valuations.
 
 use crate::metrics::MetricRegistry;
 
-/// Register TBA metrics with the registry.
-pub fn register_tba_metrics(registry: &mut MetricRegistry) {
+/// Register real estate asset metrics with the registry.
+pub fn register_real_estate_metrics(registry: &mut MetricRegistry) {
     use crate::pricer::InstrumentType;
     crate::register_metrics! {
         registry: registry,
-        instrument: InstrumentType::AgencyTba,
+        instrument: InstrumentType::RealEstateAsset,
         metrics: [
             (Dv01, crate::metrics::UnifiedDv01Calculator::<
-                crate::instruments::AgencyTba,
+                crate::instruments::RealEstateAsset,
             >::new(crate::metrics::Dv01CalculatorConfig::parallel_combined())),
             (BucketedDv01, crate::metrics::UnifiedDv01Calculator::<
-                crate::instruments::AgencyTba,
+                crate::instruments::RealEstateAsset,
             >::new(crate::metrics::Dv01CalculatorConfig::key_rate())),
             (Theta, crate::metrics::GenericTheta::<
-                crate::instruments::AgencyTba,
+                crate::instruments::RealEstateAsset,
             >::default()),
         ]
-    }
+    };
 }

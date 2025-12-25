@@ -56,6 +56,16 @@ pub fn register_bermudan_swaption_metrics(registry: &mut MetricRegistry) {
             (Delta, BermudanDeltaCalculator::new()),
             (Gamma, BermudanGammaCalculator::new()),
             (Vega, BermudanVegaCalculator::new()),
+            (Dv01, crate::metrics::UnifiedDv01Calculator::<
+                crate::instruments::swaption::BermudanSwaption,
+            >::new(crate::metrics::Dv01CalculatorConfig::parallel_combined())),
+            (BucketedDv01, crate::metrics::UnifiedDv01Calculator::<
+                crate::instruments::swaption::BermudanSwaption,
+            >::new(crate::metrics::Dv01CalculatorConfig::key_rate())),
+            (Rho, crate::metrics::GenericRho::<
+                crate::instruments::swaption::BermudanSwaption,
+            >::default()),
+            // Theta is now registered universally in metrics::standard_registry()
         ]
     }
     // Register custom ExerciseProbability metric separately

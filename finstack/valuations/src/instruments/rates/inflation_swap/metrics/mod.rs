@@ -17,6 +17,7 @@ mod inflation01;
 mod inflation_convexity;
 mod inflation_leg_pv;
 mod par_rate;
+mod yoy_inflation01;
 // risk_bucketed_dv01, dv01, and theta now using generic implementations
 
 use crate::metrics::MetricRegistry;
@@ -64,6 +65,12 @@ pub fn register_inflation_swap_metrics(registry: &mut MetricRegistry) {
             &[InstrumentType::InflationSwap],
         );
 
+    registry.register_metric(
+        MetricId::Inflation01,
+        Arc::new(yoy_inflation01::YoYInflation01Calculator),
+        &[InstrumentType::YoYInflationSwap],
+    );
+
     // Standard metrics using macro
     crate::register_metrics! {
         registry: registry,
@@ -78,6 +85,22 @@ pub fn register_inflation_swap_metrics(registry: &mut MetricRegistry) {
             >::default()),
             (BucketedDv01, crate::metrics::UnifiedDv01Calculator::<
                 crate::instruments::InflationSwap,
+            >::new(crate::metrics::Dv01CalculatorConfig::key_rate())),
+        ]
+    }
+
+    crate::register_metrics! {
+        registry: registry,
+        instrument: InstrumentType::YoYInflationSwap,
+        metrics: [
+            (Dv01, crate::metrics::UnifiedDv01Calculator::<
+                crate::instruments::YoYInflationSwap,
+            >::new(crate::metrics::Dv01CalculatorConfig::parallel_combined())),
+            (Theta, crate::metrics::GenericTheta::<
+                crate::instruments::YoYInflationSwap,
+            >::default()),
+            (BucketedDv01, crate::metrics::UnifiedDv01Calculator::<
+                crate::instruments::YoYInflationSwap,
             >::new(crate::metrics::Dv01CalculatorConfig::key_rate())),
         ]
     }

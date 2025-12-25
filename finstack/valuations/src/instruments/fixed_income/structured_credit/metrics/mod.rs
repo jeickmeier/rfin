@@ -65,6 +65,8 @@ pub fn register_structured_credit_metrics(registry: &mut crate::metrics::MetricR
             (Ytm, risk::YtmCalculator),
             (ZSpread, risk::ZSpreadCalculator),
             (Cs01, risk::Cs01Calculator),
+            // Note: BucketedCs01 not registered - StructuredCredit uses pool-based credit models
+            // (CDR/default rates) rather than a credit curve
             (SpreadDuration, risk::SpreadDurationCalculator),
             // Pool metrics
             (WAM, pool::WamCalculator),

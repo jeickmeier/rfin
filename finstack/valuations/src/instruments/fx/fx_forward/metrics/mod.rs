@@ -8,11 +8,21 @@
 //! - DV01 (interest rate sensitivity for domestic and foreign curves)
 //! - Theta (time decay)
 
+mod fx01;
+
 use crate::metrics::MetricRegistry;
 
 /// Register all FxForward metrics with the registry.
 pub fn register_fx_forward_metrics(registry: &mut MetricRegistry) {
     use crate::pricer::InstrumentType;
+    use crate::metrics::MetricId;
+    use std::sync::Arc;
+
+    registry.register_metric(
+        MetricId::Fx01,
+        Arc::new(fx01::Fx01Calculator),
+        &[InstrumentType::FxForward],
+    );
     crate::register_metrics! {
         registry: registry,
         instrument: InstrumentType::FxForward,

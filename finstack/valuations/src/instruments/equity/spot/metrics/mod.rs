@@ -11,6 +11,7 @@
 //! - forward price
 
 mod dividend_yield;
+mod delta;
 mod forward_price;
 mod price_per_share;
 mod shares;
@@ -28,6 +29,7 @@ pub fn register_equity_metrics(registry: &mut MetricRegistry) {
             (EquityShares, shares::SharesCalculator),
             (EquityDividendYield, dividend_yield::DividendYieldCalculator),
             (EquityForwardPrice, forward_price::ForwardPricePerShareCalculator),
+            (Delta, delta::DeltaCalculator),
             (Dv01, crate::metrics::UnifiedDv01Calculator::<
                 crate::instruments::Equity,
             >::new(crate::metrics::Dv01CalculatorConfig::parallel_combined())),

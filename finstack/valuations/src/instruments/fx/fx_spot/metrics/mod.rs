@@ -14,6 +14,7 @@
 
 pub mod base_amount;
 pub mod fx_delta;
+pub mod fx01;
 pub mod inverse_rate;
 pub mod spot_rate;
 
@@ -29,6 +30,11 @@ pub fn register_fx_spot_metrics(registry: &mut MetricRegistry) {
     registry.register_metric(
         MetricId::custom("fx_delta"),
         Arc::new(fx_delta::FxDeltaCalculator),
+        &[InstrumentType::FxSpot],
+    );
+    registry.register_metric(
+        MetricId::Fx01,
+        Arc::new(fx01::Fx01Calculator),
         &[InstrumentType::FxSpot],
     );
 

@@ -820,6 +820,12 @@ impl crate::instruments::common::pricing::HasDiscountCurve for Swaption {
     }
 }
 
+impl crate::instruments::common::pricing::HasForwardCurves for Swaption {
+    fn forward_curve_ids(&self) -> Vec<finstack_core::types::CurveId> {
+        vec![self.forward_id.clone()]
+    }
+}
+
 // Implement CurveDependencies for DV01 calculator
 impl crate::instruments::common::traits::CurveDependencies for Swaption {
     fn curve_dependencies(&self) -> crate::instruments::common::traits::InstrumentCurves {
@@ -1251,6 +1257,12 @@ impl crate::instruments::common::traits::Instrument for BermudanSwaption {
 impl crate::instruments::common::pricing::HasDiscountCurve for BermudanSwaption {
     fn discount_curve_id(&self) -> &finstack_core::types::CurveId {
         &self.discount_curve_id
+    }
+}
+
+impl crate::instruments::common::pricing::HasForwardCurves for BermudanSwaption {
+    fn forward_curve_ids(&self) -> Vec<finstack_core::types::CurveId> {
+        vec![self.forward_id.clone()]
     }
 }
 

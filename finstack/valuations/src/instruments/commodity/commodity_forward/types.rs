@@ -312,6 +312,12 @@ impl HasDiscountCurve for CommodityForward {
     }
 }
 
+impl crate::instruments::common::pricing::HasForwardCurves for CommodityForward {
+    fn forward_curve_ids(&self) -> Vec<CurveId> {
+        vec![self.forward_curve_id.clone()]
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

@@ -859,6 +859,24 @@ impl crate::instruments::common::pricing::HasDiscountCurve for Bond {
     }
 }
 
+impl crate::instruments::common::pricing::HasForwardCurves for Bond {
+    fn forward_curve_ids(&self) -> Vec<finstack_core::types::CurveId> {
+        let mut curves = Vec::new();
+        match &self.cashflow_spec {
+            CashflowSpec::Floating(floating_spec) => {
+                curves.push(floating_spec.rate_spec.index_id.clone());
+            }
+            CashflowSpec::Amortizing { base, .. } => {
+                if let CashflowSpec::Floating(floating_spec) = base.as_ref() {
+                    curves.push(floating_spec.rate_spec.index_id.clone());
+                }
+            }
+            _ => {}
+        }
+        curves
+    }
+}
+
 // Implement HasCreditCurve for generic CS01 calculator
 // Returns credit_curve_id if present, otherwise falls back to discount_curve_id
 // (CS01 will fail at runtime if no hazard curve exists, which is acceptable)

@@ -1359,3 +1359,38 @@ impl EquityInstrumentDepsBuilder {
         self.deps
     }
 }
+
+#[cfg(test)]
+mod trait_coverage_tests {
+    use crate::instruments::cap_floor::InterestRateOption;
+    use crate::instruments::swaption::BermudanSwaption;
+    use crate::instruments::{
+        Bond, CmsOption, CommodityForward, CommodityOption, CommoditySwap, ConvertibleBond,
+        InflationCapFloor, InflationSwap, Swaption, YoYInflationSwap,
+    };
+    use crate::instruments::common::pricing::HasForwardCurves;
+    use crate::metrics::HasCreditCurve;
+
+    fn assert_has_forward<T: HasForwardCurves>() {}
+    fn assert_has_credit<T: HasCreditCurve>() {}
+
+    #[test]
+    fn forward_curve_impls_present() {
+        assert_has_forward::<Bond>();
+        assert_has_forward::<CmsOption>();
+        assert_has_forward::<CommodityForward>();
+        assert_has_forward::<CommodityOption>();
+        assert_has_forward::<CommoditySwap>();
+        assert_has_forward::<InflationCapFloor>();
+        assert_has_forward::<InflationSwap>();
+        assert_has_forward::<InterestRateOption>();
+        assert_has_forward::<Swaption>();
+        assert_has_forward::<BermudanSwaption>();
+        assert_has_forward::<YoYInflationSwap>();
+    }
+
+    #[test]
+    fn credit_curve_impls_present() {
+        assert_has_credit::<ConvertibleBond>();
+    }
+}

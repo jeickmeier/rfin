@@ -387,15 +387,25 @@ pub fn standard_registry() -> MetricRegistry {
     crate::instruments::cds_index::metrics::register_cds_index_metrics(&mut registry);
     crate::instruments::cds_tranche::metrics::register_cds_tranche_metrics(&mut registry);
     crate::instruments::convertible::metrics::register_convertible_metrics(&mut registry);
+    crate::instruments::agency_mbs_passthrough::metrics::register_mbs_passthrough_metrics(
+        &mut registry,
+    );
+    crate::instruments::agency_tba::metrics::register_tba_metrics(&mut registry);
+    crate::instruments::dollar_roll::metrics::register_dollar_roll_metrics(&mut registry);
+    crate::instruments::agency_cmo::metrics::register_cmo_metrics(&mut registry);
     crate::instruments::inflation_linked_bond::metrics::register_ilb_metrics(&mut registry);
     crate::instruments::fx_spot::metrics::register_fx_spot_metrics(&mut registry);
     crate::instruments::fx_swap::metrics::register_fx_swap_metrics(&mut registry);
     crate::instruments::inflation_swap::metrics::register_inflation_swap_metrics(&mut registry);
+    crate::instruments::inflation_cap_floor::metrics::register_inflation_cap_floor_metrics(
+        &mut registry,
+    );
     crate::instruments::equity_option::metrics::register_equity_option_metrics(&mut registry);
     crate::instruments::fx_option::metrics::register_fx_option_metrics(&mut registry);
     crate::instruments::cap_floor::metrics::register_interest_rate_option_metrics(&mut registry);
     crate::instruments::cds_option::metrics::register_cds_option_metrics(&mut registry);
     crate::instruments::swaption::metrics::register_swaption_metrics(&mut registry);
+    crate::instruments::xccy_swap::metrics::register_xccy_swap_metrics(&mut registry);
 
     // Structured credit metrics (unified)
     crate::instruments::structured_credit::metrics::register_structured_credit_metrics(
@@ -418,6 +428,9 @@ pub fn standard_registry() -> MetricRegistry {
     // FX instruments
     crate::instruments::fx_forward::metrics::register_fx_forward_metrics(&mut registry);
     crate::instruments::ndf::metrics::register_ndf_metrics(&mut registry);
+    crate::instruments::fx_variance_swap::metrics::register_fx_variance_swap_metrics(
+        &mut registry,
+    );
     // Exotic options
     #[cfg(feature = "mc")]
     {
@@ -441,5 +454,6 @@ pub fn standard_registry() -> MetricRegistry {
     crate::instruments::equity_index_future::metrics::register_equity_index_future_metrics(
         &mut registry,
     );
+    crate::instruments::real_estate::metrics::register_real_estate_metrics(&mut registry);
     registry
 }
