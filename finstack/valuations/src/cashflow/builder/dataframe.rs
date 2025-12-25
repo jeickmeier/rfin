@@ -166,13 +166,11 @@ impl CashFlowSchedule {
         discount_curve_id: &str,
         options: PeriodDataFrameOptions<'_>,
     ) -> finstack_core::Result<PeriodDataFrame> {
-        if self.flows.is_empty() {
-            return Ok(PeriodDataFrame::empty());
-        }
-
-        // Create single period spanning all flows
-        let first = self.flows.first().expect("Flows should not be empty").date;
-        let last = self.flows.last().expect("Flows should not be empty").date;
+        // Early return for empty flows; otherwise extract bounds
+        let (first, last) = match (self.flows.first(), self.flows.last()) {
+            (Some(f), Some(l)) => (f.date, l.date),
+            _ => return Ok(PeriodDataFrame::empty()),
+        };
         let period = Period {
             id: finstack_core::dates::PeriodId::annual(first.year()),
             start: first,

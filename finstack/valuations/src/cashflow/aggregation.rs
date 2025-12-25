@@ -63,6 +63,11 @@ fn iter_by_period<'a, T: HasDate>(
     flows: &'a [T],
     periods: &'a [Period],
 ) -> impl Iterator<Item = (&'a Period, &'a [T])> + 'a {
+    debug_assert!(
+        flows.windows(2).all(|w| w[0].flow_date() <= w[1].flow_date()),
+        "iter_by_period requires flows to be sorted by date"
+    );
+
     let mut flow_idx = 0;
     let n = flows.len();
 
@@ -104,7 +109,10 @@ fn aggregate_by_period_sorted(
         for &(_d, m) in flows_in_period {
             let ccy = m.currency();
             let entry = per_ccy.entry(ccy).or_insert_with(|| Money::new(0.0, ccy));
-            *entry = entry.checked_add(m).expect("currency must match per key");
+            // Currency is guaranteed to match since we're grouping by currency key
+            *entry = entry
+                .checked_add(m)
+                .expect("BUG: currency mismatch within same-currency group");
         }
         out.insert(p.id, per_ccy);
     }
@@ -196,7 +204,10 @@ where
             let pv = value_fn(flow, df, sp);
             let ccy = pv.currency();
             let entry = per_ccy.entry(ccy).or_insert_with(|| Money::new(0.0, ccy));
-            *entry = entry.checked_add(pv).expect("currency must match per key");
+            // Currency is guaranteed to match since we're grouping by currency key
+            *entry = entry
+                .checked_add(pv)
+                .expect("BUG: currency mismatch within same-currency group");
         }
         out.insert(p.id, per_ccy);
     }
@@ -298,6 +309,11 @@ pub fn pv_by_period_credit_adjusted_with_ctx(
 }
 
 /// Parameters for date and day-count calculations.
+///
+/// This is primarily an internal helper type used by PV aggregation functions.
+/// Most users should use the higher-level aggregation functions which
+/// construct this internally. Exposed for advanced use cases requiring
+/// direct control over day-count context.
 pub struct DateContext<'a> {
     /// Base date for time calculations.
     pub base: Date,

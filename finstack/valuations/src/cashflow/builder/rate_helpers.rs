@@ -149,6 +149,21 @@ impl FloatingRateParams {
             return Err(finstack_core::Error::Input(InputError::Invalid));
         }
 
+        // Check optional floor/cap values are finite if present
+        for v in [
+            self.index_floor_bp,
+            self.index_cap_bp,
+            self.all_in_floor_bp,
+            self.all_in_cap_bp,
+        ]
+        .into_iter()
+        .flatten()
+        {
+            if !v.is_finite() {
+                return Err(finstack_core::Error::Input(InputError::Invalid));
+            }
+        }
+
         // Check index floor <= index cap if both specified
         if let (Some(floor), Some(cap)) = (self.index_floor_bp, self.index_cap_bp) {
             if floor > cap {

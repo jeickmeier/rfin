@@ -500,4 +500,55 @@ mod credit_emission_tests {
         assert!(peak > late, "Peak should be greater than late");
         assert!(early > 0.0, "Early should be positive");
     }
+
+    #[test]
+    fn test_invalid_recovery_rate_too_high() {
+        let d = Date::from_calendar_date(2025, Month::March, 1).expect("valid date");
+        let event = DefaultEvent {
+            default_date: d,
+            defaulted_amount: 100_000.0,
+            recovery_rate: 1.5, // Invalid: > 1.0
+            recovery_lag: 12,
+            recovery_bdc: None,
+            recovery_calendar_id: None,
+        };
+
+        let mut outstanding = 1_000_000.0;
+        let result = emit_default_on(d, &[event], &mut outstanding, Currency::USD);
+        assert!(result.is_err(), "Should reject recovery_rate > 1.0");
+    }
+
+    #[test]
+    fn test_invalid_recovery_rate_negative() {
+        let d = Date::from_calendar_date(2025, Month::March, 1).expect("valid date");
+        let event = DefaultEvent {
+            default_date: d,
+            defaulted_amount: 100_000.0,
+            recovery_rate: -0.1, // Invalid: < 0.0
+            recovery_lag: 12,
+            recovery_bdc: None,
+            recovery_calendar_id: None,
+        };
+
+        let mut outstanding = 1_000_000.0;
+        let result = emit_default_on(d, &[event], &mut outstanding, Currency::USD);
+        assert!(result.is_err(), "Should reject recovery_rate < 0.0");
+    }
+
+    #[test]
+    fn test_invalid_defaulted_amount_negative() {
+        let d = Date::from_calendar_date(2025, Month::March, 1).expect("valid date");
+        let event = DefaultEvent {
+            default_date: d,
+            defaulted_amount: -100_000.0, // Invalid: negative
+            recovery_rate: 0.4,
+            recovery_lag: 12,
+            recovery_bdc: None,
+            recovery_calendar_id: None,
+        };
+
+        let mut outstanding = 1_000_000.0;
+        let result = emit_default_on(d, &[event], &mut outstanding, Currency::USD);
+        assert!(result.is_err(), "Should reject negative defaulted_amount");
+    }
 }

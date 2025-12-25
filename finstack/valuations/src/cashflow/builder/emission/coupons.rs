@@ -184,11 +184,10 @@ pub(in crate::cashflow::builder) fn emit_float_coupons_on(
             let cash_amt = coupon_total * cash_pct;
             let pik_amt = coupon_total * pik_pct;
 
-            // Always emit floating coupon flows, even if amount is 0.
-            // This is important because pricers (like IRS) use the schedule structure
-            // (dates, accrual factors, reset dates) and recalculate amounts using the
-            // forward curve. Without emitting zero-amount flows, schedules built without
-            // market context would be empty.
+            // Emit cash portion of floating coupon if any.
+            // Note: PIK portion is emitted separately via add_pik_flow_if_nonzero.
+            // For 100% PIK coupons, only the PIK flow is emitted, which is intentional
+            // since the schedule structure (dates, accrual factors) is preserved in PIK flows.
             if cash_pct > 0.0 {
                 out_flows.push(CashFlow {
                     date: d,

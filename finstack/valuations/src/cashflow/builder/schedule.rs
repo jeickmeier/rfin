@@ -142,10 +142,21 @@ impl CashFlowSchedule {
         self.flows.iter().map(|cf| cf.date).collect()
     }
 
-    /// Outstanding principal path computed from principal/PIK/amortization flows.
+    /// Outstanding principal path tracking Amortization and PIK flows only.
+    ///
+    /// This method provides a simplified balance view suitable for coupon calculations
+    /// where the accrual base tracks principal reductions (Amortization) and PIK
+    /// capitalizations, but **excludes** ad-hoc notional draws/repays.
     ///
     /// Returns one entry per cashflow, tracking the outstanding balance after
     /// each flow is processed. Useful for debugging and detailed analysis.
+    ///
+    /// # When to Use Each Method
+    ///
+    /// - **`outstanding_path()`**: Use for coupon accrual calculations on fixed
+    ///   amortization schedules (bonds, term loans with scheduled amortization).
+    /// - **[`Self::outstanding_by_date()`]**: Use for full balance tracking including
+    ///   notional events (revolving credit facilities, delayed draws, prepayments).
     ///
     /// Note: Amortization amounts in the schedule are stored as POSITIVE values
     /// (the builder internally manages the reduction of outstanding balance).
@@ -200,18 +211,24 @@ impl CashFlowSchedule {
             .filter(|cf| cf.kind == CFKind::Fixed || cf.kind == CFKind::Stub)
     }
 
-    /// End-of-date outstanding path: one entry per unique date after applying
-    /// Amortization, PIK, and Notional flows on that date.
+    /// Full outstanding path including Amortization, PIK, and Notional draws/repays.
     ///
-    /// Applies Amortization (reduces), PIK (increases), and Notional
-    /// (draws negative, repays positive) to compute outstanding after
-    /// all flows on each date have been processed.
+    /// Returns one entry per unique date after applying all balance-affecting flows
+    /// on that date. This is the **canonical method** for tracking outstanding balance
+    /// in instruments with dynamic draws/repays (RCFs, delayed-draw term loans).
     ///
-    /// This is more compact than [`Self::outstanding_path()`] as it groups by date,
-    /// and is the canonical method for tracking outstanding balance including
-    /// notional draws/repays for instruments like revolving credit facilities.
+    /// # When to Use Each Method
     ///
-    /// Note: Amortization amounts in the schedule are stored as POSITIVE values.
+    /// - **[`Self::outstanding_path()`]**: Simplified view for scheduled amortization
+    ///   (excludes Notional draws/repays).
+    /// - **`outstanding_by_date()`**: Full balance tracking including all notional events.
+    ///
+    /// # Balance Changes
+    ///
+    /// - **Amortization**: Reduces outstanding (stored as positive amounts)
+    /// - **PIK**: Increases outstanding (capitalizes into principal)
+    /// - **Notional**: Draws are negative (increase outstanding), repays are positive
+    ///
     /// Note: The initial notional flow (funding at issue) is skipped as it's already
     /// accounted for in `notional.initial`. Only subsequent draws/repays are tracked.
     ///
@@ -241,8 +258,10 @@ impl CashFlowSchedule {
                 // This is already accounted for in notional.initial
                 let is_initial_funding = first_date == Some(d)
                     && self.flows[j].amount.amount() < 0.0
-                    && (self.flows[j].amount.amount().abs() - self.notional.initial.amount()).abs()
-                        < 1e-10;
+                    && amounts_approx_equal(
+                        self.flows[j].amount.amount().abs(),
+                        self.notional.initial.amount(),
+                    );
 
                 // `outstanding_by_date` is the canonical balance tracker, including
                 // subsequent notional draws/repays as well as Amortization and PIK.
@@ -260,6 +279,15 @@ impl CashFlowSchedule {
 
         Ok(result)
     }
+}
+
+/// Compare two amounts using relative epsilon for floating-point tolerance.
+///
+/// Uses a relative tolerance scaled by the magnitude of the values, with a
+/// minimum absolute tolerance of 1e-12 for values near zero.
+fn amounts_approx_equal(a: f64, b: f64) -> bool {
+    let max_abs = a.abs().max(b.abs()).max(1.0);
+    (a - b).abs() < max_abs * 1e-9
 }
 
 fn apply_flow_to_outstanding(

@@ -6,10 +6,12 @@
 //! - Amortization specification validation
 //! - JSON schema roundtrip serialization
 //! - Day count convention golden values
+//! - CashflowProvider trait contract compliance
 
 mod aggregation_tests;
 mod amortization_spec;
 mod builder_tests;
 mod cashflow_schemas_examples;
 mod day_count_golden_tests;
+mod provider_contract;
 pub mod test_helpers;

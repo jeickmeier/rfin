@@ -237,3 +237,4 @@ fn test_serde_roundtrip() {
     assert_eq!(future.entry_price, recovered.entry_price);
     assert_eq!(future.quoted_price, recovered.quoted_price);
 }
+

@@ -104,3 +104,24 @@ pub struct DefaultEvent {
     )]
     pub recovery_calendar_id: Option<String>,
 }
+
+impl DefaultEvent {
+    /// Validate the default event parameters.
+    ///
+    /// # Errors
+    ///
+    /// Returns `InputError::Invalid` if:
+    /// - `recovery_rate` is not in `[0.0, 1.0]`
+    /// - `defaulted_amount` is negative
+    pub fn validate(&self) -> finstack_core::Result<()> {
+        use finstack_core::error::InputError;
+
+        if !(0.0..=1.0).contains(&self.recovery_rate) {
+            return Err(finstack_core::Error::Input(InputError::Invalid));
+        }
+        if self.defaulted_amount < 0.0 {
+            return Err(finstack_core::Error::Input(InputError::Invalid));
+        }
+        Ok(())
+    }
+}

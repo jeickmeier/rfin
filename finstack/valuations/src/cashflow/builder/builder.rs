@@ -244,7 +244,8 @@ fn initialize_build_state(
     let estimated_flows = estimated_dates * 3;
     let mut flows: Vec<CashFlow> = Vec::with_capacity(estimated_flows);
 
-    // Only emit initial notional flow if non-zero
+    // Only emit initial notional flow if non-zero.
+    // Note: Money constructed from 0.0 produces exact zero; no tolerance needed.
     if notional.initial.amount() != 0.0 {
         flows.push(CashFlow {
             date: issue,
@@ -405,7 +406,8 @@ fn process_one_date(
         }
     }
 
-    // Redemption at maturity
+    // Redemption at maturity: emit final principal repayment if outstanding > 0.
+    // Near-zero amounts (e.g., from f64 drift) are harmless; exact zero is skipped.
     if d == ctx.maturity && state.outstanding > 0.0 {
         state.flows.push(CashFlow {
             date: d,
@@ -670,19 +672,34 @@ impl CashFlowBuilder {
     ///
     /// `delta` increases outstanding when positive and decreases when negative.
     /// `cash` is the actual cash leg (e.g., net of OID); if omitted, cash = delta.
+    ///
+    /// # Errors
+    ///
+    /// Records a pending error if any event has mismatched currencies between
+    /// `delta` and `cash`. The error will be returned when `build()` is called.
     pub fn principal_events(&mut self, events: &[PrincipalEvent]) -> &mut Self {
-        self.principal_events
-            .extend(events.iter().cloned().map(|mut ev| {
-                if ev.cash.currency() != ev.delta.currency() {
-                    // Align currencies conservatively
-                    ev.cash = ev.delta;
-                }
-                ev
-            }));
+        if self.pending_error.is_some() {
+            return self;
+        }
+        for ev in events {
+            if ev.cash.currency() != ev.delta.currency() {
+                self.pending_error = Some(finstack_core::Error::CurrencyMismatch {
+                    expected: ev.delta.currency(),
+                    actual: ev.cash.currency(),
+                });
+                return self;
+            }
+        }
+        self.principal_events.extend(events.iter().cloned());
         self
     }
 
     /// Adds a single principal event.
+    ///
+    /// # Errors
+    ///
+    /// Records a pending error if `cash` is provided with a different currency
+    /// than `delta`. The error will be returned when `build()` is called.
     pub fn add_principal_event(
         &mut self,
         date: Date,
@@ -690,7 +707,17 @@ impl CashFlowBuilder {
         cash: Option<Money>,
         kind: CFKind,
     ) -> &mut Self {
+        if self.pending_error.is_some() {
+            return self;
+        }
         let cash_leg = cash.unwrap_or(delta);
+        if cash_leg.currency() != delta.currency() {
+            self.pending_error = Some(finstack_core::Error::CurrencyMismatch {
+                expected: delta.currency(),
+                actual: cash_leg.currency(),
+            });
+            return self;
+        }
         self.principal_events.push(PrincipalEvent {
             date,
             delta,

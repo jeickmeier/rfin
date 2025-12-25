@@ -92,9 +92,14 @@ pub trait CashflowProvider: Send + Sync {
         let flows = self.build_schedule(curves, as_of)?;
 
         if flows.is_empty() {
+            // Use currency from notional if available, otherwise fallback to USD
+            let ccy = self
+                .notional()
+                .map(|n| n.currency())
+                .unwrap_or(finstack_core::currency::Currency::USD);
             return Ok(CashFlowSchedule {
                 flows: vec![],
-                notional: Notional::par(0.0, finstack_core::currency::Currency::USD),
+                notional: Notional::par(0.0, ccy),
                 day_count: DayCount::Act365F,
                 meta: Default::default(),
             });

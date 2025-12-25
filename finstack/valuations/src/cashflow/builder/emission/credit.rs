@@ -63,6 +63,9 @@ pub fn emit_default_on(
     let mut flows = Vec::new();
 
     for event in default_events.iter().filter(|e| e.default_date == d) {
+        // Validate event parameters (recovery_rate in [0,1], defaulted_amount >= 0)
+        event.validate()?;
+
         if event.defaulted_amount <= 0.0 {
             continue;
         }
