@@ -1,14 +1,777 @@
 {
-  "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "finstack.calibration/2",
-  "title": "CalibrationEnvelopeV2",
+  "$id": "https://finstack.dev/schemas/calibration/2/calibration.schema.json",
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "CalibrationEnvelope",
+  "description": "Top-level envelope for plan-driven calibration requests. Contains the calibration plan with quote sets and steps, plus optional initial market state.",
   "type": "object",
-  "description": "Plan-driven calibration request envelope (v2).",
-  "additionalProperties": true,
+  "additionalProperties": false,
+  "required": ["schema", "plan"],
   "properties": {
-    "schema": { "const": "finstack.calibration/2" }
+    "schema": {
+      "const": "finstack.calibration/2",
+      "description": "Schema version identifier"
+    },
+    "plan": {
+      "$ref": "#/$defs/CalibrationPlan"
+    },
+    "initial_market": {
+      "description": "Optional initial market context with existing curves",
+      "type": ["object", "null"]
+    }
   },
-  "required": ["schema"]
+  "examples": [
+    {
+      "schema": "finstack.calibration/2",
+      "plan": {
+        "id": "usd-ois-curve",
+        "description": "USD OIS discount curve from deposits and swaps",
+        "quote_sets": {
+          "ois_quotes": [
+            { "Rates": { "type": "deposit", "id": "DEP-1M", "index": "USD-SOFR", "pillar": "1M", "rate": 0.05 }},
+            { "Rates": { "type": "deposit", "id": "DEP-3M", "index": "USD-SOFR", "pillar": "3M", "rate": 0.051 }},
+            { "Rates": { "type": "swap", "id": "SWP-1Y", "index": "USD-SOFR-OIS", "pillar": "1Y", "rate": 0.052 }}
+          ]
+        },
+        "steps": [
+          {
+            "id": "USD-OIS",
+            "quote_set": "ois_quotes",
+            "kind": "discount",
+            "curve_id": "USD-OIS",
+            "currency": "USD",
+            "base_date": "2025-01-15",
+            "method": "bootstrap",
+            "interpolation": "linear"
+          }
+        ],
+        "settings": {}
+      }
+    }
+  ],
+  "$defs": {
+    "CalibrationPlan": {
+      "type": "object",
+      "description": "A calibration plan containing quote sets and execution steps",
+      "additionalProperties": false,
+      "required": ["id", "quote_sets", "steps"],
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Unique identifier for the plan"
+        },
+        "description": {
+          "type": ["string", "null"],
+          "description": "Optional human-readable description"
+        },
+        "quote_sets": {
+          "type": "object",
+          "description": "Market data organized by set name",
+          "additionalProperties": {
+            "type": "array",
+            "items": {
+              "$ref": "#/$defs/MarketQuote"
+            }
+          }
+        },
+        "steps": {
+          "type": "array",
+          "description": "Sequence of calibration steps to execute",
+          "items": {
+            "$ref": "#/$defs/CalibrationStep"
+          }
+        },
+        "settings": {
+          "$ref": "#/$defs/CalibrationConfig"
+        }
+      }
+    },
+    "CalibrationStep": {
+      "type": "object",
+      "description": "A single calibration step targeting one curve or surface",
+      "required": ["id", "quote_set", "kind"],
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Unique identifier for the step"
+        },
+        "quote_set": {
+          "type": "string",
+          "description": "Reference to a named quote set in the parent plan"
+        },
+        "kind": {
+          "type": "string",
+          "enum": ["discount", "forward", "hazard", "inflation", "vol_surface", "swaption_vol", "base_correlation"],
+          "description": "Type of calibration step"
+        }
+      },
+      "allOf": [
+        {
+          "if": { "properties": { "kind": { "const": "discount" } }, "required": ["kind"] },
+          "then": { "$ref": "#/$defs/DiscountCurveParams" }
+        },
+        {
+          "if": { "properties": { "kind": { "const": "forward" } }, "required": ["kind"] },
+          "then": { "$ref": "#/$defs/ForwardCurveParams" }
+        },
+        {
+          "if": { "properties": { "kind": { "const": "hazard" } }, "required": ["kind"] },
+          "then": { "$ref": "#/$defs/HazardCurveParams" }
+        },
+        {
+          "if": { "properties": { "kind": { "const": "inflation" } }, "required": ["kind"] },
+          "then": { "$ref": "#/$defs/InflationCurveParams" }
+        },
+        {
+          "if": { "properties": { "kind": { "const": "vol_surface" } }, "required": ["kind"] },
+          "then": { "$ref": "#/$defs/VolSurfaceParams" }
+        },
+        {
+          "if": { "properties": { "kind": { "const": "swaption_vol" } }, "required": ["kind"] },
+          "then": { "$ref": "#/$defs/SwaptionVolParams" }
+        },
+        {
+          "if": { "properties": { "kind": { "const": "base_correlation" } }, "required": ["kind"] },
+          "then": { "$ref": "#/$defs/BaseCorrelationParams" }
+        }
+      ]
+    },
+    "DiscountCurveParams": {
+      "type": "object",
+      "description": "Parameters for discount curve calibration",
+      "required": ["curve_id", "currency", "base_date"],
+      "properties": {
+        "curve_id": {
+          "type": "string",
+          "description": "Identifier for the discount curve being built"
+        },
+        "currency": {
+          "type": "string",
+          "pattern": "^[A-Z]{3}$",
+          "description": "ISO 4217 currency code"
+        },
+        "base_date": {
+          "type": "string",
+          "format": "date",
+          "description": "Base date for the curve (YYYY-MM-DD)"
+        },
+        "method": {
+          "$ref": "#/$defs/CalibrationMethod",
+          "default": "bootstrap"
+        },
+        "interpolation": {
+          "$ref": "#/$defs/InterpStyle",
+          "default": "linear"
+        },
+        "extrapolation": {
+          "$ref": "#/$defs/ExtrapolationPolicy",
+          "default": "flat_forward"
+        },
+        "pricing_discount_id": {
+          "type": ["string", "null"],
+          "description": "Optional separate ID for pricing logic"
+        },
+        "pricing_forward_id": {
+          "type": ["string", "null"],
+          "description": "Optional forward curve ID for pricing"
+        },
+        "conventions": {
+          "$ref": "#/$defs/RatesStepConventions"
+        }
+      }
+    },
+    "ForwardCurveParams": {
+      "type": "object",
+      "description": "Parameters for forward curve calibration",
+      "required": ["curve_id", "currency", "base_date", "tenor_years", "discount_curve_id"],
+      "properties": {
+        "curve_id": {
+          "type": "string",
+          "description": "Identifier for the forward curve being built"
+        },
+        "currency": {
+          "type": "string",
+          "pattern": "^[A-Z]{3}$"
+        },
+        "base_date": {
+          "type": "string",
+          "format": "date"
+        },
+        "tenor_years": {
+          "type": "number",
+          "minimum": 0,
+          "description": "Tenor in years for the forward curve"
+        },
+        "discount_curve_id": {
+          "type": "string",
+          "description": "Identifier for the discount curve to use"
+        },
+        "method": {
+          "$ref": "#/$defs/CalibrationMethod",
+          "default": "bootstrap"
+        },
+        "interpolation": {
+          "$ref": "#/$defs/InterpStyle",
+          "default": "linear"
+        },
+        "conventions": {
+          "$ref": "#/$defs/RatesStepConventions"
+        }
+      }
+    },
+    "HazardCurveParams": {
+      "type": "object",
+      "description": "Parameters for hazard curve calibration from CDS quotes",
+      "required": ["curve_id", "entity", "seniority", "currency", "base_date", "discount_curve_id"],
+      "properties": {
+        "curve_id": {
+          "type": "string",
+          "description": "Identifier for the hazard curve being built"
+        },
+        "entity": {
+          "type": "string",
+          "description": "Entity name (e.g., issuer ticker)"
+        },
+        "seniority": {
+          "type": "string",
+          "enum": ["senior_unsecured", "subordinated", "secured"],
+          "description": "Seniority of the debt"
+        },
+        "currency": {
+          "type": "string",
+          "pattern": "^[A-Z]{3}$"
+        },
+        "base_date": {
+          "type": "string",
+          "format": "date"
+        },
+        "discount_curve_id": {
+          "type": "string",
+          "description": "Identifier for the discount curve to use"
+        },
+        "recovery_rate": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 1,
+          "default": 0.4,
+          "description": "Recovery rate assumption"
+        },
+        "notional": {
+          "type": "number",
+          "minimum": 0,
+          "default": 1.0,
+          "description": "Notional for synthetic CDS pricing"
+        },
+        "method": {
+          "$ref": "#/$defs/CalibrationMethod",
+          "default": "bootstrap"
+        },
+        "interpolation": {
+          "$ref": "#/$defs/InterpStyle",
+          "default": "linear"
+        },
+        "par_interp": {
+          "type": "string",
+          "enum": ["linear", "flat"],
+          "default": "linear",
+          "description": "Interpolation method for par spreads"
+        },
+        "doc_clause": {
+          "type": ["string", "null"],
+          "description": "Optional CDS doc clause / market convention identifier"
+        }
+      }
+    },
+    "InflationCurveParams": {
+      "type": "object",
+      "description": "Parameters for inflation curve calibration from ZC inflation swap quotes",
+      "required": ["curve_id", "currency", "base_date", "discount_curve_id", "index", "observation_lag", "base_cpi"],
+      "properties": {
+        "curve_id": {
+          "type": "string",
+          "description": "Identifier for the inflation curve being built"
+        },
+        "currency": {
+          "type": "string",
+          "pattern": "^[A-Z]{3}$"
+        },
+        "base_date": {
+          "type": "string",
+          "format": "date"
+        },
+        "discount_curve_id": {
+          "type": "string",
+          "description": "Identifier for the discount curve to use"
+        },
+        "index": {
+          "type": "string",
+          "description": "Reference index (e.g., USA-CPI-U)"
+        },
+        "observation_lag": {
+          "type": "string",
+          "pattern": "^(NONE|0|\\d+[MD])$",
+          "description": "Observation lag (e.g., 3M, 90D)"
+        },
+        "base_cpi": {
+          "type": "number",
+          "minimum": 0,
+          "description": "Base CPI level at t=0"
+        },
+        "notional": {
+          "type": "number",
+          "minimum": 0,
+          "default": 1.0,
+          "description": "Notional for synthetic inflation swap pricing"
+        },
+        "method": {
+          "$ref": "#/$defs/CalibrationMethod",
+          "default": "bootstrap"
+        },
+        "interpolation": {
+          "$ref": "#/$defs/InterpStyle",
+          "default": "linear"
+        }
+      }
+    },
+    "VolSurfaceParams": {
+      "type": "object",
+      "description": "Parameters for equity/FX volatility surface calibration",
+      "required": ["surface_id", "base_date", "underlying_id", "model"],
+      "properties": {
+        "surface_id": {
+          "type": "string",
+          "description": "Identifier for the volatility surface"
+        },
+        "base_date": {
+          "type": "string",
+          "format": "date"
+        },
+        "underlying_id": {
+          "type": "string",
+          "description": "Identifier for the underlying instrument"
+        },
+        "model": {
+          "type": "string",
+          "enum": ["sabr", "SABR"],
+          "description": "Model type (currently SABR only)"
+        },
+        "discount_curve_id": {
+          "type": ["string", "null"],
+          "description": "Discount curve ID"
+        },
+        "beta": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 1,
+          "default": 0.5,
+          "description": "SABR beta parameter"
+        },
+        "target_expiries": {
+          "type": "array",
+          "items": { "type": "number" },
+          "description": "Target expiry times in years"
+        },
+        "target_strikes": {
+          "type": "array",
+          "items": { "type": "number" },
+          "description": "Target strikes for calibration"
+        },
+        "spot_override": {
+          "type": ["number", "null"],
+          "description": "Optional spot price override"
+        },
+        "dividend_yield_override": {
+          "type": ["number", "null"],
+          "description": "Optional dividend yield override"
+        },
+        "expiry_extrapolation": {
+          "$ref": "#/$defs/SurfaceExtrapolationPolicy",
+          "default": "error"
+        }
+      }
+    },
+    "SwaptionVolParams": {
+      "type": "object",
+      "description": "Parameters for swaption volatility surface calibration",
+      "required": ["surface_id", "base_date", "discount_curve_id", "currency"],
+      "properties": {
+        "surface_id": {
+          "type": "string",
+          "description": "Identifier for the volatility surface"
+        },
+        "base_date": {
+          "type": "string",
+          "format": "date"
+        },
+        "discount_curve_id": {
+          "type": "string",
+          "description": "Discount curve identifier for pricing"
+        },
+        "forward_id": {
+          "type": ["string", "null"],
+          "description": "Optional forward curve identifier"
+        },
+        "currency": {
+          "type": "string",
+          "pattern": "^[A-Z]{3}$"
+        },
+        "vol_convention": {
+          "$ref": "#/$defs/SwaptionVolConvention",
+          "default": "lognormal"
+        },
+        "atm_convention": {
+          "type": "string",
+          "enum": ["swap_rate", "par_rate"],
+          "default": "swap_rate",
+          "description": "ATM strike convention"
+        },
+        "sabr_beta": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 1,
+          "default": 0.5,
+          "description": "SABR beta parameter"
+        },
+        "target_expiries": {
+          "type": "array",
+          "items": { "type": "number" },
+          "description": "Target expiry times in years"
+        },
+        "target_tenors": {
+          "type": "array",
+          "items": { "type": "number" },
+          "description": "Target tenor times in years"
+        },
+        "sabr_interpolation": {
+          "type": "string",
+          "enum": ["bilinear"],
+          "default": "bilinear",
+          "description": "SABR parameter interpolation method"
+        },
+        "calendar_id": {
+          "type": ["string", "null"],
+          "description": "Optional calendar identifier"
+        },
+        "fixed_day_count": {
+          "type": ["string", "null"],
+          "description": "Optional day count for fixed leg"
+        },
+        "swap_index": {
+          "type": ["string", "null"],
+          "description": "Optional floating index identifier"
+        },
+        "vol_tolerance": {
+          "type": ["number", "null"],
+          "description": "Reporting tolerance for calibration success"
+        },
+        "sabr_tolerance": {
+          "type": ["number", "null"],
+          "description": "Solver tolerance for SABR calibration"
+        },
+        "sabr_extrapolation": {
+          "$ref": "#/$defs/SurfaceExtrapolationPolicy",
+          "default": "error"
+        },
+        "allow_sabr_missing_bucket_fallback": {
+          "type": "boolean",
+          "default": false,
+          "description": "Allow fallbacks when SABR grid corners are missing"
+        }
+      }
+    },
+    "BaseCorrelationParams": {
+      "type": "object",
+      "description": "Parameters for base correlation curve calibration from tranche quotes",
+      "required": ["index_id", "series", "maturity_years", "base_date", "discount_curve_id", "currency"],
+      "properties": {
+        "index_id": {
+          "type": "string",
+          "description": "Credit index identifier (e.g., CDX, iTraxx)"
+        },
+        "series": {
+          "type": "integer",
+          "minimum": 1,
+          "description": "Series number of the credit index"
+        },
+        "maturity_years": {
+          "type": "number",
+          "minimum": 0,
+          "description": "Maturity of the tranches in years"
+        },
+        "base_date": {
+          "type": "string",
+          "format": "date"
+        },
+        "discount_curve_id": {
+          "type": "string",
+          "description": "Discount curve identifier for pricing"
+        },
+        "currency": {
+          "type": "string",
+          "pattern": "^[A-Z]{3}$"
+        },
+        "notional": {
+          "type": "number",
+          "minimum": 0,
+          "default": 1.0,
+          "description": "Notional for synthetic tranche pricing"
+        },
+        "payment_frequency": {
+          "type": ["string", "null"],
+          "description": "Payment frequency (e.g., 3M)"
+        },
+        "day_count": {
+          "type": ["string", "null"],
+          "description": "Day count convention"
+        },
+        "business_day_convention": {
+          "type": ["string", "null"],
+          "description": "Business day convention"
+        },
+        "calendar_id": {
+          "type": ["string", "null"],
+          "description": "Calendar identifier"
+        },
+        "detachment_points": {
+          "type": "array",
+          "items": { "type": "number" },
+          "description": "Detachment points as percentages"
+        },
+        "use_imm_dates": {
+          "type": "boolean",
+          "default": false,
+          "description": "Whether to use IMM dates for coupon schedules"
+        }
+      }
+    },
+    "CalibrationConfig": {
+      "type": "object",
+      "description": "Global settings for the calibration process",
+      "additionalProperties": true,
+      "properties": {
+        "use_parallel": {
+          "type": "boolean",
+          "default": false,
+          "description": "Enable parallel step execution where possible"
+        },
+        "calibration_method": {
+          "$ref": "#/$defs/CalibrationMethod"
+        },
+        "solver": {
+          "$ref": "#/$defs/SolverConfig"
+        },
+        "rate_bounds": {
+          "$ref": "#/$defs/RateBounds"
+        },
+        "rate_bounds_policy": {
+          "type": "string",
+          "enum": ["explicit", "auto_currency"],
+          "default": "auto_currency"
+        },
+        "explain": {
+          "type": "object",
+          "description": "Explanation/tracing options"
+        }
+      }
+    },
+    "CalibrationMethod": {
+      "oneOf": [
+        {
+          "const": "bootstrap",
+          "description": "Sequential bootstrapping"
+        },
+        {
+          "type": "object",
+          "required": ["global_solve"],
+          "properties": {
+            "global_solve": {
+              "type": "object",
+              "properties": {
+                "use_analytical_jacobian": {
+                  "type": "boolean",
+                  "default": true
+                }
+              }
+            }
+          }
+        }
+      ]
+    },
+    "SolverConfig": {
+      "type": "object",
+      "description": "Solver configuration",
+      "properties": {
+        "type": {
+          "type": "string",
+          "enum": ["newton", "brent"],
+          "default": "brent"
+        },
+        "tolerance": {
+          "type": "number",
+          "minimum": 0,
+          "default": 1e-12,
+          "description": "Convergence tolerance"
+        },
+        "max_iterations": {
+          "type": "integer",
+          "minimum": 1,
+          "default": 100,
+          "description": "Maximum iterations"
+        }
+      }
+    },
+    "RateBounds": {
+      "type": "object",
+      "description": "Rate bounds for calibration",
+      "properties": {
+        "min_rate": {
+          "type": "number",
+          "default": -0.02,
+          "description": "Minimum allowed rate"
+        },
+        "max_rate": {
+          "type": "number",
+          "default": 0.50,
+          "description": "Maximum allowed rate"
+        }
+      }
+    },
+    "RatesStepConventions": {
+      "type": "object",
+      "description": "Conventions for rates calibration steps",
+      "properties": {
+        "curve_day_count": {
+          "type": ["string", "null"],
+          "description": "Day count for curve time axis (e.g., Act365F)"
+        }
+      }
+    },
+    "InterpStyle": {
+      "type": "string",
+      "enum": ["linear", "log_linear", "monotone_convex", "cubic_hermite", "piecewise_quadratic_forward"],
+      "description": "Interpolation style for curves"
+    },
+    "ExtrapolationPolicy": {
+      "type": "string",
+      "enum": ["flat_zero", "flat_forward"],
+      "description": "Extrapolation policy for curves"
+    },
+    "SurfaceExtrapolationPolicy": {
+      "type": "string",
+      "enum": ["error", "clamp"],
+      "description": "Extrapolation policy for surfaces"
+    },
+    "SwaptionVolConvention": {
+      "oneOf": [
+        {
+          "const": "normal",
+          "description": "Normal volatility in basis points"
+        },
+        {
+          "const": "lognormal",
+          "description": "Lognormal volatility in percentage"
+        },
+        {
+          "type": "object",
+          "required": ["shifted_lognormal"],
+          "properties": {
+            "shifted_lognormal": {
+              "type": "object",
+              "required": ["shift"],
+              "properties": {
+                "shift": {
+                  "type": "number",
+                  "description": "Shift amount for negative rate handling"
+                }
+              }
+            }
+          }
+        }
+      ]
+    },
+    "MarketQuote": {
+      "type": "object",
+      "description": "Market quote wrapper",
+      "oneOf": [
+        {
+          "type": "object",
+          "required": ["Rates"],
+          "properties": {
+            "Rates": {
+              "$ref": "#/$defs/RateQuote"
+            }
+          }
+        },
+        {
+          "type": "object",
+          "required": ["Cds"],
+          "properties": {
+            "Cds": {
+              "type": "object",
+              "description": "CDS quote"
+            }
+          }
+        },
+        {
+          "type": "object",
+          "required": ["CdsTranche"],
+          "properties": {
+            "CdsTranche": {
+              "type": "object",
+              "description": "CDS tranche quote"
+            }
+          }
+        },
+        {
+          "type": "object",
+          "required": ["Vol"],
+          "properties": {
+            "Vol": {
+              "type": "object",
+              "description": "Volatility quote"
+            }
+          }
+        },
+        {
+          "type": "object",
+          "required": ["Inflation"],
+          "properties": {
+            "Inflation": {
+              "type": "object",
+              "description": "Inflation quote"
+            }
+          }
+        }
+      ]
+    },
+    "RateQuote": {
+      "type": "object",
+      "required": ["type"],
+      "properties": {
+        "type": {
+          "type": "string",
+          "enum": ["deposit", "fra", "futures", "swap"]
+        },
+        "id": {
+          "type": "string",
+          "description": "Unique identifier for the quote"
+        },
+        "index": {
+          "type": "string",
+          "description": "Rate index identifier"
+        },
+        "pillar": {
+          "type": "string",
+          "description": "Maturity pillar (tenor like 1Y or date)"
+        },
+        "rate": {
+          "type": "number",
+          "description": "Rate value (decimal)"
+        },
+        "price": {
+          "type": "number",
+          "description": "Price for futures quotes"
+        }
+      }
+    }
+  }
 }
-
-

@@ -9,10 +9,12 @@
 //! - [`config`]: Configuration for validation thresholds and strictness modes.
 //! - [`curves`]: Runtime validators for term structures (Yield, Hazard, Inflation).
 //! - [`surfaces`]: Runtime validators for volatility and correlation surfaces.
+//! - [`preflight`]: Pre-execution validation for calibration steps.
 
 mod config;
 mod curves;
 mod points;
+mod preflight;
 mod surfaces;
 
 pub use config::{
@@ -20,4 +22,5 @@ pub use config::{
     ValidationMode,
 };
 pub use curves::CurveValidator;
+pub use preflight::preflight_step;
 pub use surfaces::SurfaceValidator;

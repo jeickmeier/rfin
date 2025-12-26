@@ -308,41 +308,6 @@ impl TreePricerConfig {
         Self::production_bdt(0.20)
     }
 
-    // ========================================================================
-    // Legacy/Generic Factory Methods
-    // ========================================================================
-
-    /// Create a production configuration with calibrated volatility.
-    ///
-    /// ⚠️ **Deprecated**: Prefer [`production_ho_lee`] or [`production_bdt`]
-    /// for explicit volatility convention.
-    ///
-    /// Uses 100 tree steps which provides ~1 bp OAS accuracy for most bonds.
-    /// Suitable for trading and daily risk reporting.
-    ///
-    /// # Arguments
-    ///
-    /// * `calibrated_vol` - Annualized short rate volatility from market calibration
-    ///   (interpretation depends on the tree model being used)
-    ///
-    /// # Examples
-    ///
-    /// ```rust
-    /// use finstack_valuations::instruments::bond::pricing::tree_engine::TreePricerConfig;
-    ///
-    /// // Use volatility calibrated from 5Y swaption market
-    /// let config = TreePricerConfig::production(0.012);
-    /// ```
-    pub fn production(calibrated_vol: f64) -> Self {
-        Self {
-            tree_steps: 100,
-            volatility: calibrated_vol,
-            tolerance: 1e-6,
-            max_iterations: 50,
-            initial_bracket_size_bp: Some(1000.0),
-        }
-    }
-
     /// Create a high-precision configuration for regulatory/audit purposes.
     ///
     /// Uses 200 tree steps for < 0.5 bp OAS accuracy and tighter convergence
