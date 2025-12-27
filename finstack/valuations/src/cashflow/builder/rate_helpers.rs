@@ -87,6 +87,30 @@ impl FloatingRateParams {
         }
     }
 
+    /// Create standard (gearing includes spread) parameters: `(Index + Spread) * Gearing`.
+    ///
+    /// This is the default market standard for most leveraged floaters.
+    pub fn new_standard(spread_bp: f64, gearing: f64) -> Self {
+        Self {
+            spread_bp,
+            gearing,
+            gearing_includes_spread: true,
+            ..Default::default()
+        }
+    }
+
+    /// Create affine (gearing excludes spread) parameters: `(Index * Gearing) + Spread`.
+    ///
+    /// Use this for models where the spread is additive to the leveraged index.
+    pub fn new_affine(spread_bp: f64, gearing: f64) -> Self {
+        Self {
+            spread_bp,
+            gearing,
+            gearing_includes_spread: false,
+            ..Default::default()
+        }
+    }
+
     /// Create params with spread and index floor.
     ///
     /// # Example
@@ -590,6 +614,59 @@ mod tests {
     fn test_params_validate_default_succeeds() {
         let params = FloatingRateParams::default();
         assert!(params.validate().is_ok());
+    }
+
+    #[test]
+    fn test_new_standard_applies_gearing_to_spread() {
+        // Standard: (Index + Spread) * Gearing
+        let params = FloatingRateParams::new_standard(100.0, 2.0); // 100 bps spread, 2x gearing
+        assert!(params.gearing_includes_spread);
+        assert_eq!(params.spread_bp, 100.0);
+        assert_eq!(params.gearing, 2.0);
+
+        // 3% index + 1% spread = 4%, then * 2 = 8%
+        let rate = calculate_floating_rate(0.03, &params);
+        assert!(
+            (rate - 0.08).abs() < 0.0001,
+            "Standard: (3% + 1%) * 2 = 8%, got {}",
+            rate
+        );
+    }
+
+    #[test]
+    fn test_new_affine_applies_gearing_only_to_index() {
+        // Affine: (Index * Gearing) + Spread
+        let params = FloatingRateParams::new_affine(100.0, 2.0); // 100 bps spread, 2x gearing
+        assert!(!params.gearing_includes_spread);
+        assert_eq!(params.spread_bp, 100.0);
+        assert_eq!(params.gearing, 2.0);
+
+        // (3% * 2) + 1% = 6% + 1% = 7%
+        let rate = calculate_floating_rate(0.03, &params);
+        assert!(
+            (rate - 0.07).abs() < 0.0001,
+            "Affine: (3% * 2) + 1% = 7%, got {}",
+            rate
+        );
+    }
+
+    #[test]
+    fn test_standard_vs_affine_difference() {
+        // The difference between standard and affine is: Spread * (Gearing - 1)
+        // With 100 bps spread and 2x gearing: 100 * (2 - 1) = 100 bps = 1%
+        let standard = FloatingRateParams::new_standard(100.0, 2.0);
+        let affine = FloatingRateParams::new_affine(100.0, 2.0);
+
+        let rate_standard = calculate_floating_rate(0.03, &standard);
+        let rate_affine = calculate_floating_rate(0.03, &affine);
+
+        // Standard is higher by exactly Spread * (Gearing - 1) = 1%
+        let diff = rate_standard - rate_affine;
+        assert!(
+            (diff - 0.01).abs() < 0.0001,
+            "Difference should be 1%, got {}",
+            diff
+        );
     }
 
     #[test]

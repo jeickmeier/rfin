@@ -380,13 +380,12 @@ fn find_active_period_and_elapsed<'a>(
             // Apply ex-coupon convention if present.
             if let Some(ref ex) = cfg.ex_coupon {
                 let ex_date = if let Some(cal_id) = &ex.calendar_id {
-                    if let Some(cal) = calendar_by_id(cal_id) {
-                        advance_business_days(cal, inputs.end, -(ex.days_before_coupon as i32))
-                    } else {
-                        // Calendar not found: fallback to calendar days
-                        // Note: If tracing is needed, add "tracing" feature to Cargo.toml
-                        inputs.end - Duration::days(ex.days_before_coupon as i64)
-                    }
+                    let cal = calendar_by_id(cal_id).ok_or_else(|| {
+                        finstack_core::Error::Input(finstack_core::error::InputError::NotFound {
+                            id: cal_id.clone(),
+                        })
+                    })?;
+                    advance_business_days(cal, inputs.end, -(ex.days_before_coupon as i32))
                 } else {
                     inputs.end - Duration::days(ex.days_before_coupon as i64)
                 };

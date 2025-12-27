@@ -44,7 +44,15 @@ pub(in crate::cashflow::builder) fn emit_fixed_coupons_on(
 ) -> finstack_core::Result<f64> {
     let mut pik_to_add = 0.0;
 
-    for (spec, _dates, prev_map, first_last) in fixed_schedules {
+    for (spec, dates, prev_map, first_last) in fixed_schedules {
+        // Early exit: skip schedules where `d` is outside the date range.
+        // This reduces iteration from O(N × M) to O(N + M) for multi-window instruments.
+        if let (Some(&first), Some(&last)) = (dates.first(), dates.last()) {
+            if d < first || d > last {
+                continue;
+            }
+        }
+
         if let Some(prev) = prev_map.get(&d).copied() {
             let base_out = *outstanding_after
                 .get(&prev)
@@ -110,9 +118,17 @@ pub(in crate::cashflow::builder) fn emit_float_coupons_on(
 ) -> finstack_core::Result<f64> {
     let mut pik_to_add = 0.0;
 
-    for ((spec, _dates, prev_map), resolved_curve) in
+    for ((spec, dates, prev_map), resolved_curve) in
         float_schedules.iter().zip(resolved_curves.iter())
     {
+        // Early exit: skip schedules where `d` is outside the date range.
+        // This reduces iteration from O(N × M) to O(N + M) for multi-window instruments.
+        if let (Some(&first), Some(&last)) = (dates.first(), dates.last()) {
+            if d < first || d > last {
+                continue;
+            }
+        }
+
         if let Some(prev) = prev_map.get(&d).copied() {
             let base_out = *outstanding_after
                 .get(&prev)
