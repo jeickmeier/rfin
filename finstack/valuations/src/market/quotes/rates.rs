@@ -3,6 +3,7 @@
 use super::ids::{Pillar, QuoteId};
 use crate::market::conventions::ids::{IndexId, IrFutureContractId};
 use finstack_core::dates::Date;
+use finstack_core::types::CurveId;
 use serde::{Deserialize, Serialize};
 #[cfg(feature = "ts_export")]
 use ts_rs::TS;
@@ -100,8 +101,19 @@ pub enum RateQuote {
         /// Price of the future (e.g. 98.50).
         price: f64,
         /// Optional convexity adjustment (rate, decimal).
+        ///
+        /// If provided, this fixed value is used. Otherwise, the calibration
+        /// engine will compute the adjustment dynamically using `volatility_id`.
         #[serde(default)]
         convexity_adjustment: Option<f64>,
+        /// Optional volatility surface identifier for dynamic convexity adjustment.
+        ///
+        /// If provided (and `convexity_adjustment` is `None`), the calibration engine
+        /// will look up this volatility surface to calculate the convexity adjustment
+        /// dynamically based on the model forward rate and time to expiry.
+        #[serde(default)]
+        #[cfg_attr(feature = "ts_export", ts(type = "string | null"))]
+        volatility_id: Option<CurveId>,
     },
     /// Interest Rate Swap (par rate).
     Swap {
@@ -262,12 +274,14 @@ impl RateQuote {
                 expiry,
                 price,
                 convexity_adjustment,
+                volatility_id,
             } => RateQuote::Futures {
                 id: id.clone(),
                 contract: contract.clone(),
                 expiry: *expiry,
                 price: price + bump,
                 convexity_adjustment: *convexity_adjustment,
+                volatility_id: volatility_id.clone(),
             },
             RateQuote::Swap {
                 id,

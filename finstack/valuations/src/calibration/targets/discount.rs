@@ -898,6 +898,27 @@ Ensure quotes map to strictly increasing year fractions.",
         Ok(())
     }
 
+    /// Compute the Jacobian matrix using an optimized finite-difference scheme.
+    ///
+    /// # Implementation Notes
+    ///
+    /// While this method is part of the "Analytical Jacobian" interface, the implementation
+    /// uses **efficient row-wise finite differences** rather than closed-form derivatives.
+    /// This approach is significantly faster and more accurate than the solver's default
+    /// "blind" finite-difference approximation because:
+    ///
+    /// 1. **Sparsity Exploitation**: Bootstrapped curves have a triangular structure—
+    ///    instruments at time `t` are insensitive to knots at times `> t`. We exploit
+    ///    this by skipping derivatives that are effectively zero.
+    ///
+    /// 2. **Configurable Step Size**: Uses `jacobian_step_size` from config rather than
+    ///    a generic epsilon, allowing tuning for numerical stability.
+    ///
+    /// 3. **Curve Caching**: Reuses the base context and avoids redundant curve rebuilds.
+    ///
+    /// A true analytical Jacobian would require closed-form sensitivities of all instrument
+    /// pricing formulas with respect to zero rates, which is not tractable for the full
+    /// instrument universe (swaps, futures, FRAs with varying conventions).
     fn jacobian(
         &self,
         params: &[f64],
@@ -987,6 +1008,12 @@ Ensure quotes map to strictly increasing year fractions.",
         Ok(())
     }
 
+    /// Returns `true` to indicate an efficient Jacobian is available.
+    ///
+    /// Note: The term "analytical" here refers to the solver interface—it means
+    /// "a Jacobian is provided by the target" (vs. the solver computing one blindly).
+    /// The actual implementation uses optimized finite differences with sparsity
+    /// exploitation. See [`jacobian`](Self::jacobian) for details.
     fn supports_analytical_jacobian(&self) -> bool {
         true
     }

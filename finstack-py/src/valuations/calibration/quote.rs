@@ -3,7 +3,7 @@ use crate::core::dates::schedule::PyFrequency;
 use crate::core::dates::utils::{date_to_py, py_to_date};
 use crate::core::dates::PyTenor;
 use finstack_core::dates::Tenor;
-use finstack_core::types::UnderlyingId;
+use finstack_core::types::{CurveId, UnderlyingId};
 use finstack_valuations::market::conventions::ids::{
     CdsConventionKey, CdsDocClause, IndexId, InflationSwapConventionId, IrFutureContractId,
     OptionConventionId, SwaptionConventionId,
@@ -65,8 +65,8 @@ impl PyRatesQuote {
 impl PyRatesQuote {
     #[classmethod]
     #[pyo3(
-        signature = (id, expiry, price, *, contract=None, convexity_adjustment=None),
-        text_signature = "(cls, id, expiry, price, *, contract=None, convexity_adjustment=None)"
+        signature = (id, expiry, price, *, contract=None, convexity_adjustment=None, volatility_id=None),
+        text_signature = "(cls, id, expiry, price, *, contract=None, convexity_adjustment=None, volatility_id=None)"
     )]
     fn future(
         _cls: &Bound<'_, PyType>,
@@ -75,6 +75,7 @@ impl PyRatesQuote {
         price: f64,
         contract: Option<&str>,
         convexity_adjustment: Option<f64>,
+        volatility_id: Option<&str>,
     ) -> PyResult<Self> {
         let expiry_date = py_to_date(&expiry)?;
         let contract_id = IrFutureContractId::new(contract.unwrap_or("UNKNOWN"));
@@ -84,6 +85,7 @@ impl PyRatesQuote {
             expiry: expiry_date,
             price,
             convexity_adjustment,
+            volatility_id: volatility_id.map(CurveId::new),
         }))
     }
 
