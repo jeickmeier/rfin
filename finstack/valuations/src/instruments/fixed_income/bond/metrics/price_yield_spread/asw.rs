@@ -8,6 +8,7 @@ use crate::instruments::Bond;
 use crate::metrics::{MetricCalculator, MetricContext, MetricId};
 use finstack_core::dates::{BusinessDayConvention, Date, DayCount, StubKind, Tenor};
 use finstack_core::market_data::term_structures::discount_curve::DiscountCurve;
+use rust_decimal::prelude::ToPrimitive;
 
 /// Configuration for fixed-leg conventions used in ASW par/market metrics.
 ///
@@ -254,9 +255,9 @@ pub fn asw_par_with_forward_config(
         let pv_coupon = pv_coupon_from_custom_schedule(disc, custom, as_of)?;
         pv_coupon / (bond.notional.amount() * ann)
     } else {
-        // Extract fixed coupon rate from cashflow_spec
+        // Extract fixed coupon rate from cashflow_spec (converting Decimal to f64)
         match &bond.cashflow_spec {
-            CashflowSpec::Fixed(spec) => spec.rate,
+            CashflowSpec::Fixed(spec) => spec.rate.to_f64().unwrap_or(0.0),
             _ => return Err(finstack_core::error::InputError::Invalid.into()),
         }
     };
@@ -364,7 +365,7 @@ impl MetricCalculator for AssetSwapParCalculator {
                         &context.curves,
                         context.as_of,
                         spec.rate_spec.index_id.as_str(),
-                        spec.rate_spec.spread_bp,
+                        spec.rate_spec.spread_bp.to_f64().unwrap_or(0.0),
                     );
                 }
                 _ => {
@@ -440,7 +441,7 @@ impl MetricCalculator for AssetSwapParCalculator {
         }
         // Use stated coupon for non-custom bonds; for custom bonds, this branch is not reached
         let coupon = match &bond.cashflow_spec {
-            CashflowSpec::Fixed(spec) => spec.rate,
+            CashflowSpec::Fixed(spec) => spec.rate.to_f64().unwrap_or(0.0),
             _ => return Err(finstack_core::error::InputError::Invalid.into()),
         };
         Ok(coupon - par_rate)
@@ -456,7 +457,7 @@ impl MetricCalculator for AssetSwapMarketCalculator {
         let (discount_curve_id, maturity, dc, notional_amt, quoted_clean, is_custom, coupon) = {
             let b: &Bond = context.instrument_as()?;
             let coupon_rate = match &b.cashflow_spec {
-                CashflowSpec::Fixed(spec) => spec.rate,
+                CashflowSpec::Fixed(spec) => spec.rate.to_f64().unwrap_or(0.0),
                 _ => 0.0, // Will be handled later if needed
             };
             (
@@ -498,7 +499,7 @@ impl MetricCalculator for AssetSwapMarketCalculator {
                         &context.curves,
                         context.as_of,
                         spec.rate_spec.index_id.as_str(),
-                        spec.rate_spec.spread_bp,
+                        spec.rate_spec.spread_bp.to_f64().unwrap_or(0.0),
                         Some(dirty_ccy),
                     );
                 }
@@ -615,7 +616,7 @@ impl MetricCalculator for AssetSwapParFwdCalculator {
                 &context.curves,
                 as_of,
                 spec.rate_spec.index_id.as_str(),
-                spec.rate_spec.spread_bp,
+                spec.rate_spec.spread_bp.to_f64().unwrap_or(0.0),
             ),
             _ => Err(finstack_core::error::InputError::NotFound {
                 id: "bond.cashflow_spec.floating".to_string(),
@@ -650,7 +651,7 @@ impl MetricCalculator for AssetSwapMarketFwdCalculator {
                     &context.curves,
                     as_of,
                     spec.rate_spec.index_id.as_str(),
-                    spec.rate_spec.spread_bp,
+                    spec.rate_spec.spread_bp.to_f64().unwrap_or(0.0),
                     dirty,
                 )
             }

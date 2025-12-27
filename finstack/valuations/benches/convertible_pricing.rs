@@ -88,7 +88,7 @@ fn create_standard_convertible() -> ConvertibleBond {
 
     let fixed_coupon = FixedCouponSpec {
         coupon_type: CouponType::Cash,
-        rate: COUPON_RATE,
+        rate: rust_decimal::Decimal::from_f64_retain(COUPON_RATE).unwrap_or_default(),
         freq: Tenor::semi_annual(),
         dc: DayCount::Act365F,
         bdc: BusinessDayConvention::Following,

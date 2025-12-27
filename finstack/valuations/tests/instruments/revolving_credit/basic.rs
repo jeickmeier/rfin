@@ -385,10 +385,10 @@ fn test_term_forward_with_floor() {
         .base_rate_spec(BaseRateSpec::Floating(
             finstack_valuations::cashflow::builder::FloatingRateSpec {
                 index_id: "USD-SOFR-3M".into(),
-                spread_bp: 500.0, // +500 bps margin = +5%
-                gearing: 1.0,
+                spread_bp: rust_decimal::Decimal::try_from(500.0).expect("valid"), // +500 bps margin = +5%
+                gearing: rust_decimal::Decimal::try_from(1.0).expect("valid"),
                 gearing_includes_spread: true,
-                floor_bp: Some(100.0), // 1% floor on base rate (floors 1bp to 1%)
+                floor_bp: Some(rust_decimal::Decimal::try_from(100.0).expect("valid")), // 1% floor on base rate (floors 1bp to 1%)
                 all_in_floor_bp: None,
                 cap_bp: None,
                 index_cap_bp: None,
@@ -418,8 +418,8 @@ fn test_term_forward_with_floor() {
         .base_rate_spec(BaseRateSpec::Floating(
             finstack_valuations::cashflow::builder::FloatingRateSpec {
                 index_id: "USD-SOFR-3M".into(),
-                spread_bp: 500.0, // +500 bps margin = +5%
-                gearing: 1.0,
+                spread_bp: rust_decimal::Decimal::try_from(500.0).expect("valid"), // +500 bps margin = +5%
+                gearing: rust_decimal::Decimal::try_from(1.0).expect("valid"),
                 gearing_includes_spread: true,
                 floor_bp: None, // No floor, so 1bp base passes through
                 all_in_floor_bp: None,

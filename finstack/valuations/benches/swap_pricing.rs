@@ -17,6 +17,7 @@
 //! Market Standards Review (Week 5)
 
 use criterion::{criterion_group, criterion_main, BenchmarkId, Criterion};
+use rust_decimal_macros::dec;
 use finstack_core::currency::Currency;
 use finstack_core::dates::{Date, Tenor, TenorUnit};
 use finstack_core::market_data::context::MarketContext;
@@ -63,7 +64,7 @@ fn create_monthly_swap(tenor_years: i32) -> InterestRateSwap {
         .side(PayReceive::PayFixed)
         .fixed(FixedLegSpec {
             discount_curve_id: disc_id.clone(),
-            rate: 0.04,
+            rate: dec!(0.04),
             freq: Tenor::new(1, TenorUnit::Months), // Monthly fixed
             dc: finstack_core::dates::DayCount::Act360,
             bdc: finstack_core::dates::BusinessDayConvention::ModifiedFollowing,
@@ -78,7 +79,7 @@ fn create_monthly_swap(tenor_years: i32) -> InterestRateSwap {
         .float(FloatLegSpec {
             discount_curve_id: disc_id,
             forward_curve_id: fwd_id,
-            spread_bp: 0.0,
+            spread_bp: dec!(0.0),
             freq: Tenor::new(1, TenorUnit::Months), // Monthly float
             dc: finstack_core::dates::DayCount::Act360,
             bdc: finstack_core::dates::BusinessDayConvention::ModifiedFollowing,
@@ -109,7 +110,7 @@ fn create_ois_swap(tenor_years: i32) -> InterestRateSwap {
         .side(PayReceive::PayFixed)
         .fixed(FixedLegSpec {
             discount_curve_id: disc_id.clone(),
-            rate: 0.04,
+            rate: dec!(0.04),
             freq: Tenor::new(1, TenorUnit::Years), // Annual fixed
             dc: finstack_core::dates::DayCount::Act360,
             bdc: finstack_core::dates::BusinessDayConvention::ModifiedFollowing,
@@ -124,7 +125,7 @@ fn create_ois_swap(tenor_years: i32) -> InterestRateSwap {
         .float(FloatLegSpec {
             discount_curve_id: disc_id.clone(),
             forward_curve_id: disc_id, // Single-curve OIS
-            spread_bp: 0.0,
+            spread_bp: dec!(0.0),
             freq: Tenor::new(1, TenorUnit::Years), // Annual payment with daily compounding
             dc: finstack_core::dates::DayCount::Act360,
             bdc: finstack_core::dates::BusinessDayConvention::ModifiedFollowing,

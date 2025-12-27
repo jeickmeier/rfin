@@ -11,6 +11,7 @@ mod accrual_context_tests {
     use finstack_core::dates::{BusinessDayConvention, Date, DayCount, StubKind};
     use finstack_core::market_data::term_structures::ForwardCurve;
     use finstack_core::types::CurveId;
+    use rust_decimal::Decimal;
     use time::Month;
 
     #[test]
@@ -21,7 +22,7 @@ mod accrual_context_tests {
 
         let spec = FixedCouponSpec {
             coupon_type: CouponType::Cash,
-            rate: 0.05,
+            rate: Decimal::try_from(0.05).expect("valid rate"),
             freq: finstack_core::dates::Tenor::new(6, finstack_core::dates::TenorUnit::Months), // Semi-annual
             dc: DayCount::ActActIsma,
             bdc: BusinessDayConvention::Following,
@@ -72,8 +73,8 @@ mod accrual_context_tests {
         let spec = FloatingCouponSpec {
             rate_spec: FloatingRateSpec {
                 index_id: CurveId::new("USD-SOFR-3M"),
-                spread_bp: 200.0,
-                gearing: 1.0,
+                spread_bp: Decimal::try_from(200.0).expect("valid spread"),
+                gearing: Decimal::ONE,
                 gearing_includes_spread: true,
                 floor_bp: None,
                 cap_bp: None,
@@ -139,7 +140,7 @@ mod accrual_context_tests {
 
         let spec = FixedCouponSpec {
             coupon_type: CouponType::Cash,
-            rate: 0.05,
+            rate: Decimal::try_from(0.05).expect("valid rate"),
             freq: finstack_core::dates::Tenor::new(7, finstack_core::dates::TenorUnit::Days),
             dc: DayCount::Bus252,
             bdc: BusinessDayConvention::Following,
@@ -242,7 +243,7 @@ mod credit_emission_tests {
         // Setup: 1M notional, 5% coupon, quarterly payments
         let spec = FixedCouponSpec {
             coupon_type: CouponType::Cash,
-            rate: 0.05,
+            rate: rust_decimal::Decimal::try_from(0.05).expect("valid rate"),
             freq: Tenor::quarterly(),
             dc: DayCount::Act360,
             bdc: BusinessDayConvention::Following,

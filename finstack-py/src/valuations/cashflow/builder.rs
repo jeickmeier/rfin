@@ -45,7 +45,10 @@ impl PyCouponType {
     #[pyo3(text_signature = "(cls, cash_pct, pik_pct)")]
     /// Create a split coupon type with percentage weights summing to ~1.0.
     fn split(_cls: &Bound<'_, PyType>, cash_pct: f64, pik_pct: f64) -> Self {
-        Self::new(val_builder::CouponType::Split { cash_pct, pik_pct })
+        Self::new(val_builder::CouponType::Split { 
+            cash_pct: rust_decimal::Decimal::from_f64_retain(cash_pct).unwrap_or_default(),
+            pik_pct: rust_decimal::Decimal::from_f64_retain(pik_pct).unwrap_or_default(),
+        })
     }
 }
 
@@ -179,7 +182,7 @@ impl PyFixedCouponSpec {
                 coupon_type: coupon_type
                     .map(|c| c.inner)
                     .unwrap_or(val_builder::CouponType::Cash),
-                rate,
+                rate: rust_decimal::Decimal::from_f64_retain(rate).unwrap_or_default(),
                 freq: schedule.inner.freq,
                 dc: schedule.inner.dc,
                 bdc: schedule.inner.bdc,
@@ -215,8 +218,8 @@ impl PyFloatCouponParams {
         Self {
             inner: val_builder::FloatCouponParams {
                 index_id: finstack_core::types::CurveId::new(index_id),
-                margin_bp,
-                gearing: gearing.unwrap_or(1.0),
+                margin_bp: rust_decimal::Decimal::from_f64_retain(margin_bp).unwrap_or_default(),
+                gearing: rust_decimal::Decimal::from_f64_retain(gearing.unwrap_or(1.0)).unwrap_or(rust_decimal::Decimal::ONE),
                 reset_lag_days: reset_lag_days.unwrap_or(2),
             },
         }
@@ -889,7 +892,7 @@ impl PyFeeSpec {
         Ok(Self::new(
             finstack_valuations::cashflow::builder::FeeSpec::PeriodicBps {
                 base: base.inner.clone(),
-                bps,
+                bps: rust_decimal::Decimal::from_f64_retain(bps).unwrap_or_default(),
                 freq: schedule.inner.freq,
                 dc: schedule.inner.dc,
                 bdc: schedule.inner.bdc,
@@ -950,14 +953,15 @@ impl PyFixedWindow {
     ///     FixedWindow: Window specification
     fn ctor(rate: f64, schedule: &PyScheduleParams) -> Self {
         Self::new(finstack_valuations::cashflow::builder::FixedWindow {
-            rate,
+            rate: rust_decimal::Decimal::from_f64_retain(rate).unwrap_or_default(),
             schedule: schedule.inner.clone(),
         })
     }
 
     #[getter]
     fn rate(&self) -> f64 {
-        self.inner.rate
+        use rust_decimal::prelude::ToPrimitive;
+        self.inner.rate.to_f64().unwrap_or(0.0)
     }
 
     fn __repr__(&self) -> String {

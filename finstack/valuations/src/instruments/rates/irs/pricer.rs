@@ -38,6 +38,7 @@ use finstack_core::market_data::context::MarketContext;
 use finstack_core::market_data::scalars::ScalarTimeSeries;
 use finstack_core::math::kahan_sum;
 use finstack_core::money::Money;
+use rust_decimal::prelude::ToPrimitive;
 use finstack_core::Result;
 
 use crate::instruments::irs::FloatingLegCompounding;
@@ -259,8 +260,9 @@ impl InterestRateSwap {
             // Coupon amount: N * [(compound_factor - 1) + spread * total_dcf]
             // Note: alpha_total is cf.accrual_factor from builder
             let interest = self.notional.amount() * (compound_factor - 1.0);
+            let spread_bp_f64 = self.float.spread_bp.to_f64().unwrap_or(0.0);
             let spread_contrib =
-                self.notional.amount() * (self.float.spread_bp * BP_TO_DECIMAL) * cf.accrual_factor;
+                self.notional.amount() * (spread_bp_f64 * BP_TO_DECIMAL) * cf.accrual_factor;
 
             // Discount to payment date (holiday-aware) using shared helper
             let payment_date = add_payment_delay(accrual_end, payment_delay, calendar_id);
@@ -322,7 +324,7 @@ impl InterestRateSwap {
 
         // Build fixed leg params
         let params = crate::instruments::common::pricing::swap_legs::FixedLegParams {
-            rate: self.fixed.rate,
+            rate: self.fixed.rate.to_f64().unwrap_or(0.0),
             day_count: self.fixed.dc,
             payment_delay_days: self.fixed.payment_delay_days,
             calendar_id: self.fixed.calendar_id.clone(),
@@ -405,7 +407,7 @@ impl InterestRateSwap {
 
         // Build floating leg params using shared type
         let params = FloatingLegParams::full(
-            self.float.spread_bp,
+            self.float.spread_bp.to_f64().unwrap_or(0.0),
             1.0,  // gearing
             true, // gearing_includes_spread
             None, // index_floor_bp
@@ -605,7 +607,7 @@ mod tests {
             .side(crate::instruments::irs::PayReceive::PayFixed)
             .fixed(crate::instruments::common::parameters::legs::FixedLegSpec {
                 discount_curve_id: disc_id.clone(),
-                rate: 0.0,
+                rate: rust_decimal::Decimal::ZERO,
                 freq: Tenor::monthly(),
                 dc: DayCount::Act360,
                 bdc: BusinessDayConvention::ModifiedFollowing,
@@ -620,7 +622,7 @@ mod tests {
             .float(crate::instruments::common::parameters::legs::FloatLegSpec {
                 discount_curve_id: disc_id.clone(),
                 forward_curve_id: fwd_id.clone(),
-                spread_bp: 0.0,
+                spread_bp: rust_decimal::Decimal::ZERO,
                 freq: Tenor::monthly(),
                 dc: DayCount::Act360,
                 bdc: BusinessDayConvention::ModifiedFollowing,
@@ -687,7 +689,7 @@ mod tests {
             .side(crate::instruments::irs::PayReceive::PayFixed)
             .fixed(crate::instruments::common::parameters::legs::FixedLegSpec {
                 discount_curve_id: disc_id.clone(),
-                rate: 0.03,
+                rate: rust_decimal::Decimal::try_from(0.03).expect("valid"),
                 freq: finstack_core::dates::Tenor::quarterly(),
                 dc: finstack_core::dates::DayCount::Act360,
                 bdc: finstack_core::dates::BusinessDayConvention::ModifiedFollowing,
@@ -702,7 +704,7 @@ mod tests {
             .float(crate::instruments::common::parameters::legs::FloatLegSpec {
                 discount_curve_id: disc_id.clone(),
                 forward_curve_id: disc_id.clone(), // single-curve: same id as discount
-                spread_bp: 0.0,
+                spread_bp: rust_decimal::Decimal::ZERO,
                 freq: finstack_core::dates::Tenor::quarterly(),
                 dc: finstack_core::dates::DayCount::Act360,
                 bdc: finstack_core::dates::BusinessDayConvention::ModifiedFollowing,

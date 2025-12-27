@@ -2,7 +2,7 @@
   "schema": "finstack.cashflow/1",
   "fixed_coupon_spec": {
     "coupon_type": "Cash",
-    "rate": 0.0425,
+    "rate": "0.0425",
     "freq": {
       "count": 6,
       "unit": "months"

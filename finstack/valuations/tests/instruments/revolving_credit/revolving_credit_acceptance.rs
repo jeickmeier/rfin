@@ -167,8 +167,8 @@ fn test_floating_vs_margin_only() {
         .base_rate_spec(BaseRateSpec::Floating(
             finstack_valuations::cashflow::builder::FloatingRateSpec {
                 index_id: "USD-SOFR-3M".into(),
-                spread_bp: 100.0, // 100 bps margin
-                gearing: 1.0,
+                spread_bp: rust_decimal::Decimal::try_from(100.0).expect("valid"), // 100 bps margin
+                gearing: rust_decimal::Decimal::try_from(1.0).expect("valid"),
                 gearing_includes_spread: true,
                 floor_bp: None,
                 all_in_floor_bp: None,
@@ -245,8 +245,8 @@ fn test_reset_frequency_mismatch() {
         .base_rate_spec(BaseRateSpec::Floating(
             finstack_valuations::cashflow::builder::FloatingRateSpec {
                 index_id: "USD-SOFR-1M".into(),
-                spread_bp: 0.0, // No margin to isolate reset effect
-                gearing: 1.0,
+                spread_bp: rust_decimal::Decimal::try_from(0.0).expect("valid"), // No margin to isolate reset effect
+                gearing: rust_decimal::Decimal::try_from(1.0).expect("valid"),
                 gearing_includes_spread: true,
                 floor_bp: None,
                 all_in_floor_bp: None,
@@ -319,12 +319,12 @@ fn test_utilization_tier() {
     use finstack_valuations::cashflow::builder::FeeTier;
     let usage_tiers = vec![
         FeeTier {
-            threshold: 0.0,
-            bps: 10.0,
+            threshold: rust_decimal::Decimal::try_from(0.0).expect("valid"),
+            bps: rust_decimal::Decimal::try_from(10.0).expect("valid"),
         },
         FeeTier {
-            threshold: 0.5,
-            bps: 20.0,
+            threshold: rust_decimal::Decimal::try_from(0.5).expect("valid"),
+            bps: rust_decimal::Decimal::try_from(20.0).expect("valid"),
         },
     ];
 

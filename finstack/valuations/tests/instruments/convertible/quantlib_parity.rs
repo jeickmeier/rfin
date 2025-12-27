@@ -87,7 +87,7 @@ fn create_quantlib_convertible(
 
     let fixed_coupon = FixedCouponSpec {
         coupon_type: CouponType::Cash,
-        rate: coupon_rate,
+        rate: rust_decimal::Decimal::from_f64_retain(coupon_rate).unwrap_or_default(),
         freq: Tenor::semi_annual(),
         dc: DayCount::Act365F,
         bdc: BusinessDayConvention::Following,
@@ -882,7 +882,7 @@ fn quantlib_parity_mandatory_conversion() {
 
     let fixed_coupon = FixedCouponSpec {
         coupon_type: CouponType::Cash,
-        rate: 0.05,
+        rate: rust_decimal::Decimal::try_from(0.05).expect("valid"),
         freq: Tenor::semi_annual(),
         dc: DayCount::Act365F,
         bdc: BusinessDayConvention::Following,
@@ -954,7 +954,7 @@ fn quantlib_parity_window_conversion() {
 
     let fixed_coupon = FixedCouponSpec {
         coupon_type: CouponType::Cash,
-        rate: 0.05,
+        rate: rust_decimal::Decimal::try_from(0.05).expect("valid"),
         freq: Tenor::semi_annual(),
         dc: DayCount::Act365F,
         bdc: BusinessDayConvention::Following,

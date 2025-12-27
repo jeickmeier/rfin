@@ -2,6 +2,7 @@
 
 use finstack_core::dates::{BusinessDayConvention, DayCount, StubKind, Tenor};
 use finstack_core::types::CurveId;
+use rust_decimal::Decimal;
 
 /// Schedule Params structure.
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
@@ -104,10 +105,10 @@ impl ScheduleParams {
 pub struct FloatCouponParams {
     /// index id.
     pub index_id: CurveId,
-    /// margin bp.
-    pub margin_bp: f64,
-    /// gearing.
-    pub gearing: f64,
+    /// Margin over index in basis points. Uses Decimal for exact representation.
+    pub margin_bp: Decimal,
+    /// Gearing/leverage multiplier. Uses Decimal for exact representation.
+    pub gearing: Decimal,
     /// reset lag days.
     pub reset_lag_days: i32,
 }
@@ -115,8 +116,8 @@ pub struct FloatCouponParams {
 /// Fixed Window structure.
 #[derive(Debug, Clone)]
 pub struct FixedWindow {
-    /// rate.
-    pub rate: f64,
+    /// Coupon rate as a decimal (e.g., 0.05 for 5%). Uses Decimal for exact representation.
+    pub rate: Decimal,
     /// schedule.
     pub schedule: ScheduleParams,
 }

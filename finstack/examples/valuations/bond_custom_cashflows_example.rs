@@ -3,6 +3,7 @@
 //! This example shows how to create bonds with complex cashflow patterns
 //! using the cashflow builder and pass them to bond instruments for pricing.
 
+use rust_decimal_macros::dec;
 use finstack_core::currency::Currency;
 use finstack_core::dates::{BusinessDayConvention, Date, DayCount, StubKind, Tenor};
 use finstack_core::market_data::context::MarketContext;
@@ -174,7 +175,7 @@ fn example_amortizing_bond_with_fees() -> finstack_core::Result<()> {
         })
         .fixed_cf(FixedCouponSpec {
             coupon_type: CouponType::Cash,
-            rate: 0.045,
+            rate: dec!(0.045),
             freq: Tenor::semi_annual(),
             dc: DayCount::Act360,
             bdc: BusinessDayConvention::ModifiedFollowing,
@@ -247,7 +248,7 @@ fn example_comparison_regular_vs_custom() -> finstack_core::Result<()> {
         .principal(Money::new(1_000_000.0, Currency::USD), issue, maturity)
         .fixed_cf(FixedCouponSpec {
             coupon_type: CouponType::Cash,
-            rate: 0.05,
+            rate: dec!(0.05),
             freq: Tenor::semi_annual(), // Higher frequency than regular bond
             dc: DayCount::Act365F,
             bdc: BusinessDayConvention::Following,

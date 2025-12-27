@@ -248,7 +248,7 @@ fn test_pik_cashflows() {
         .principal(Money::new(1000.0, Currency::USD), issue, maturity)
         .fixed_cf(FixedCouponSpec {
             coupon_type: CouponType::PIK,
-            rate: 0.08,
+            rate: rust_decimal::Decimal::try_from(0.08).expect("valid"),
             freq: Tenor::semi_annual(),
             dc: DayCount::Act365F,
             bdc: BusinessDayConvention::Following,
@@ -309,7 +309,7 @@ fn test_cashflows_with_short_front_stub() {
         .maturity(maturity)
         .cashflow_spec(CashflowSpec::Fixed(FixedCouponSpec {
             coupon_type: CouponType::Cash,
-            rate: 0.05,
+            rate: rust_decimal::Decimal::try_from(0.05).expect("valid"),
             freq: Tenor::semi_annual(),
             dc: DayCount::Act365F,
             bdc: BusinessDayConvention::Following,
@@ -517,7 +517,7 @@ fn test_actact_isma_daycount_context() {
         .maturity(maturity)
         .cashflow_spec(CashflowSpec::Fixed(FixedCouponSpec {
             coupon_type: CouponType::Cash,
-            rate: 0.06, // 6% coupon
+            rate: rust_decimal::Decimal::try_from(0.06).expect("valid"), // 6% coupon
             freq: Tenor::semi_annual(),
             dc: DayCount::ActActIsma, // ISMA convention requires frequency context
             bdc: BusinessDayConvention::Following,
@@ -597,7 +597,7 @@ fn test_bus252_daycount_with_calendar() {
         .maturity(maturity)
         .cashflow_spec(CashflowSpec::Fixed(FixedCouponSpec {
             coupon_type: CouponType::Cash,
-            rate: 0.05, // 5% coupon
+            rate: rust_decimal::Decimal::try_from(0.05).expect("valid"), // 5% coupon
             freq: Tenor::quarterly(),
             dc: DayCount::Bus252, // Requires calendar context
             bdc: BusinessDayConvention::Following,

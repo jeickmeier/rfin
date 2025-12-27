@@ -3,8 +3,8 @@
   "floating_coupon_spec": {
     "rate_spec": {
       "index_id": "EUR-EURIBOR-6M",
-      "spread_bp": 150.0,
-      "gearing": 1.0,
+      "spread_bp": "150.0",
+      "gearing": "1.0",
       "gearing_includes_spread": true,
       "floor_bp": null,
       "all_in_floor_bp": null,

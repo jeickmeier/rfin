@@ -101,6 +101,7 @@ mod tests {
     use finstack_core::dates::{BusinessDayConvention, DayCount, StubKind, Tenor};
     use finstack_core::money::Money;
     use finstack_core::types::CurveId;
+    use rust_decimal::Decimal;
     use time::macros::date;
 
     #[test]
@@ -286,7 +287,7 @@ mod tests {
 
         // Zero coupon bond
         if let CashflowSpec::Fixed(spec) = &bond.cashflow_spec {
-            assert_eq!(spec.rate, 0.0);
+            assert_eq!(spec.rate, Decimal::ZERO);
         } else {
             panic!("Expected Fixed cashflow spec");
         }
@@ -319,7 +320,7 @@ mod tests {
 
         let spec = FixedCouponSpec {
             coupon_type: CouponType::Cash,
-            rate: 0.05,
+            rate: Decimal::try_from(0.05).expect("valid"),
             freq: Tenor::semi_annual(),
             dc: DayCount::Act365F,
             bdc: BusinessDayConvention::ModifiedFollowing,
@@ -354,7 +355,7 @@ mod tests {
         // Short front stub
         let spec_short = FixedCouponSpec {
             coupon_type: CouponType::Cash,
-            rate: 0.05,
+            rate: Decimal::try_from(0.05).expect("valid"),
             freq: Tenor::semi_annual(),
             dc: DayCount::Act365F,
             bdc: BusinessDayConvention::Following,
@@ -381,7 +382,7 @@ mod tests {
         // Long back stub
         let spec_long = FixedCouponSpec {
             coupon_type: CouponType::Cash,
-            rate: 0.05,
+            rate: Decimal::try_from(0.05).expect("valid"),
             freq: Tenor::semi_annual(),
             dc: DayCount::Act365F,
             bdc: BusinessDayConvention::Following,

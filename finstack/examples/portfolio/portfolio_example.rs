@@ -50,6 +50,7 @@ use finstack_valuations::instruments::structured_credit::{
     DealType, Pool, Seniority, TrancheBuilder, TrancheCoupon, TrancheStructure,
 };
 use finstack_valuations::instruments::swaption::{parameters::*, Swaption};
+use rust_decimal_macros::dec;
 use std::sync::Arc;
 use time::macros::date;
 
@@ -616,7 +617,7 @@ fn build_sample_portfolio(as_of: Date) -> finstack_portfolio::Result<Portfolio> 
         .side(PayReceive::PayFixed)
         .fixed(FixedLegSpec {
             discount_curve_id: "USD".into(),
-            rate: 0.04,
+            rate: dec!(0.04),
             freq: finstack_core::dates::Tenor::semi_annual(),
             dc: DayCount::Thirty360,
             bdc: BusinessDayConvention::ModifiedFollowing,
@@ -631,7 +632,7 @@ fn build_sample_portfolio(as_of: Date) -> finstack_portfolio::Result<Portfolio> 
         .float(FloatLegSpec {
             discount_curve_id: "USD".into(),
             forward_curve_id: "USD_SOFR_3M".into(),
-            spread_bp: 25.0,
+            spread_bp: dec!(25.0),
             freq: finstack_core::dates::Tenor::quarterly(),
             dc: DayCount::Act360,
             bdc: BusinessDayConvention::ModifiedFollowing,

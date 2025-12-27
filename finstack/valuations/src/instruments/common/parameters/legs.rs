@@ -2,6 +2,7 @@
 
 use finstack_core::dates::{BusinessDayConvention, Date, DayCount, StubKind, Tenor};
 use finstack_core::types::CurveId;
+use rust_decimal::Decimal;
 
 #[cfg(feature = "serde")]
 use serde::{Deserialize, Serialize};
@@ -75,7 +76,7 @@ pub struct FixedLegSpec {
     /// Discount curve identifier for pricing
     pub discount_curve_id: CurveId,
     /// Fixed rate (e.g., 0.05 for 5%)
-    pub rate: f64,
+    pub rate: Decimal,
     /// Payment frequency
     pub freq: Tenor,
     /// Day count convention for accrual
@@ -112,7 +113,7 @@ pub struct FloatLegSpec {
     /// Forward curve identifier for rate projections
     pub forward_curve_id: CurveId,
     /// Spread in basis points added to the forward rate
-    pub spread_bp: f64,
+    pub spread_bp: Decimal,
     /// Payment frequency
     pub freq: Tenor,
     /// Day count convention for accrual

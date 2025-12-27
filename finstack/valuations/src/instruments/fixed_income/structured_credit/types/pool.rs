@@ -5,6 +5,7 @@ use finstack_core::currency::Currency;
 use finstack_core::dates::{Date, DateExt, DayCount};
 use finstack_core::money::Money;
 use finstack_core::types::InstrumentId;
+use rust_decimal::prelude::ToPrimitive;
 
 use finstack_core::collections::HashMap;
 
@@ -68,7 +69,7 @@ impl PoolAsset {
             },
             balance: bond.notional,
             rate: match &bond.cashflow_spec {
-                crate::instruments::bond::CashflowSpec::Fixed(spec) => spec.rate,
+                crate::instruments::bond::CashflowSpec::Fixed(spec) => spec.rate.to_f64().unwrap_or(0.0),
                 _ => 0.0,
             },
             spread_bps: None, // Bond doesn't track spread separately

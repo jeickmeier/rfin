@@ -93,7 +93,7 @@ proptest! {
             .side(PayReceive::ReceiveFixed)
             .fixed(FixedLegSpec {
                 discount_curve_id: CurveId::new("USD-OIS"),
-                rate: rate_low,
+                rate: rust_decimal::Decimal::from_f64_retain(rate_low).unwrap_or_default(),
                 freq: Tenor::semi_annual(),
                 dc: DayCount::Thirty360,
                 bdc: BusinessDayConvention::ModifiedFollowing,
@@ -108,7 +108,7 @@ proptest! {
             .float(FloatLegSpec {
                 discount_curve_id: CurveId::new("USD-OIS"),
                 forward_curve_id: CurveId::new("USD-SOFR-3M"),
-                spread_bp: 0.0,
+                spread_bp: rust_decimal::Decimal::try_from(0.0).expect("valid"),
                 freq: Tenor::quarterly(),
                 dc: DayCount::Act360,
                 bdc: BusinessDayConvention::ModifiedFollowing,
@@ -129,7 +129,7 @@ proptest! {
             .side(PayReceive::ReceiveFixed)
             .fixed(FixedLegSpec {
                 discount_curve_id: CurveId::new("USD-OIS"),
-                rate: rate_high,
+                rate: rust_decimal::Decimal::from_f64_retain(rate_high).unwrap_or_default(),
                 freq: Tenor::semi_annual(),
                 dc: DayCount::Thirty360,
                 bdc: BusinessDayConvention::ModifiedFollowing,
@@ -144,7 +144,7 @@ proptest! {
             .float(FloatLegSpec {
                 discount_curve_id: CurveId::new("USD-OIS"),
                 forward_curve_id: CurveId::new("USD-SOFR-3M"),
-                spread_bp: 0.0,
+                spread_bp: rust_decimal::Decimal::try_from(0.0).expect("valid"),
                 freq: Tenor::quarterly(),
                 dc: DayCount::Act360,
                 bdc: BusinessDayConvention::ModifiedFollowing,
@@ -197,7 +197,7 @@ proptest! {
             .side(PayReceive::PayFixed)
             .fixed(FixedLegSpec {
                 discount_curve_id: CurveId::new("USD-OIS"),
-                rate: fixed_rate,
+                rate: rust_decimal::Decimal::from_f64_retain(fixed_rate).unwrap_or_default(),
                 freq: Tenor::semi_annual(),
                 dc: DayCount::Thirty360,
                 bdc: BusinessDayConvention::ModifiedFollowing,
@@ -212,7 +212,7 @@ proptest! {
             .float(FloatLegSpec {
                 discount_curve_id: CurveId::new("USD-OIS"),
                 forward_curve_id: CurveId::new("USD-SOFR-3M"),
-                spread_bp: 0.0,
+                spread_bp: rust_decimal::Decimal::try_from(0.0).expect("valid"),
                 freq: Tenor::quarterly(),
                 dc: DayCount::Act360,
                 bdc: BusinessDayConvention::ModifiedFollowing,
@@ -233,7 +233,7 @@ proptest! {
             .side(PayReceive::ReceiveFixed)
             .fixed(FixedLegSpec {
                 discount_curve_id: CurveId::new("USD-OIS"),
-                rate: fixed_rate,
+                rate: rust_decimal::Decimal::from_f64_retain(fixed_rate).unwrap_or_default(),
                 freq: Tenor::semi_annual(),
                 dc: DayCount::Thirty360,
                 bdc: BusinessDayConvention::ModifiedFollowing,
@@ -248,7 +248,7 @@ proptest! {
             .float(FloatLegSpec {
                 discount_curve_id: CurveId::new("USD-OIS"),
                 forward_curve_id: CurveId::new("USD-SOFR-3M"),
-                spread_bp: 0.0,
+                spread_bp: rust_decimal::Decimal::try_from(0.0).expect("valid"),
                 freq: Tenor::quarterly(),
                 dc: DayCount::Act360,
                 bdc: BusinessDayConvention::ModifiedFollowing,
@@ -328,7 +328,7 @@ proptest! {
             .side(PayReceive::PayFixed)
             .fixed(FixedLegSpec {
                 discount_curve_id: CurveId::new("USD-OIS"),
-                rate: fixed_rate,
+                rate: rust_decimal::Decimal::from_f64_retain(fixed_rate).unwrap_or_default(),
                 freq: Tenor::semi_annual(),
                 dc: DayCount::Thirty360,
                 bdc: BusinessDayConvention::ModifiedFollowing,
@@ -343,7 +343,7 @@ proptest! {
             .float(FloatLegSpec {
                 discount_curve_id: CurveId::new("USD-OIS"),
                 forward_curve_id: CurveId::new("USD-SOFR-3M"),
-                spread_bp: 0.0,
+                spread_bp: rust_decimal::Decimal::try_from(0.0).expect("valid"),
                 freq: Tenor::quarterly(),
                 dc: DayCount::Act360,
                 bdc: BusinessDayConvention::ModifiedFollowing,

@@ -9,6 +9,7 @@
 //! Market Standards Review (Week 5)
 
 use criterion::{criterion_group, criterion_main, BenchmarkId, Criterion};
+use rust_decimal_macros::dec;
 use finstack_core::currency::Currency;
 use finstack_core::dates::{BusinessDayConvention, Date, DayCount, StubKind, Tenor};
 use finstack_core::market_data::context::MarketContext;
@@ -125,7 +126,7 @@ fn bench_schedule_builder_fixed(c: &mut Criterion) {
 
         let fixed_spec = FixedCouponSpec {
             coupon_type: CouponType::Cash,
-            rate: 0.05,
+            rate: dec!(0.05),
             freq: Tenor::semi_annual(),
             dc: DayCount::Thirty360,
             bdc: BusinessDayConvention::Following,

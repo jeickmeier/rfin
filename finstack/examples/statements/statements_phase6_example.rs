@@ -176,12 +176,13 @@ fn main() -> Result<()> {
             match instr {
                 finstack_statements::types::DebtInstrumentSpec::Bond { id, spec } => {
                     use finstack_valuations::instruments::bond::CashflowSpec;
+                    use rust_decimal::prelude::ToPrimitive;
                     if let Ok(bond) = serde_json::from_value::<Bond>(spec.clone()) {
                         let coupon_rate = match &bond.cashflow_spec {
-                            CashflowSpec::Fixed(spec) => spec.rate,
+                            CashflowSpec::Fixed(spec) => spec.rate.to_f64().unwrap_or(0.0),
                             CashflowSpec::Floating(_) => 0.0, // Floating bonds don't have a fixed coupon
                             CashflowSpec::Amortizing { base, .. } => match base.as_ref() {
-                                CashflowSpec::Fixed(spec) => spec.rate,
+                                CashflowSpec::Fixed(spec) => spec.rate.to_f64().unwrap_or(0.0),
                                 _ => 0.0,
                             },
                         };
@@ -194,12 +195,13 @@ fn main() -> Result<()> {
                     }
                 }
                 finstack_statements::types::DebtInstrumentSpec::Swap { id, spec } => {
+                    use rust_decimal::prelude::ToPrimitive;
                     if let Ok(swap) = serde_json::from_value::<InterestRateSwap>(spec.clone()) {
                         println!(
                             "   • Swap {}: ${:.0}M notional @ {:.1}% fixed",
                             id,
                             swap.notional.amount() / 1_000_000.0,
-                            swap.fixed.rate * 100.0
+                            swap.fixed.rate.to_f64().unwrap_or(0.0) * 100.0
                         );
                     }
                 }
@@ -222,15 +224,16 @@ fn main() -> Result<()> {
 
         println!("   Stored Instruments:");
         use finstack_valuations::instruments::bond::CashflowSpec;
+        use rust_decimal::prelude::ToPrimitive;
         for instr in &cs.debt_instruments {
             match instr {
                 DebtInstrumentSpec::Bond { id, spec } => {
                     if let Ok(bond) = serde_json::from_value::<Bond>(spec.clone()) {
                         let coupon_rate = match &bond.cashflow_spec {
-                            CashflowSpec::Fixed(spec) => spec.rate,
+                            CashflowSpec::Fixed(spec) => spec.rate.to_f64().unwrap_or(0.0),
                             CashflowSpec::Floating(_) => 0.0,
                             CashflowSpec::Amortizing { base, .. } => match base.as_ref() {
-                                CashflowSpec::Fixed(spec) => spec.rate,
+                                CashflowSpec::Fixed(spec) => spec.rate.to_f64().unwrap_or(0.0),
                                 _ => 0.0,
                             },
                         };
@@ -250,7 +253,7 @@ fn main() -> Result<()> {
                             "   • Swap {}: ${:.0}M notional @ {:.1}% fixed",
                             id,
                             swap.notional.amount() / 1_000_000.0,
-                            swap.fixed.rate * 100.0
+                            swap.fixed.rate.to_f64().unwrap_or(0.0) * 100.0
                         );
                     }
                 }

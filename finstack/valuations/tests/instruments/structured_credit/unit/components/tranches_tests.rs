@@ -18,6 +18,7 @@ use finstack_valuations::instruments::structured_credit::{
     TriggerConsequence,
 };
 use time::Month;
+use rust_decimal_macros::dec;
 
 fn maturity_date() -> Date {
     Date::from_calendar_date(2030, Month::December, 31).unwrap()
@@ -133,10 +134,10 @@ fn test_tranche_floating_coupon() {
         Money::new(90_000_000.0, Currency::USD),
         TrancheCoupon::Floating(finstack_valuations::cashflow::builder::FloatingRateSpec {
             index_id: CurveId::new("SOFR-3M".to_string()),
-            spread_bp: 150.0,
-            gearing: 1.0,
+            spread_bp: rust_decimal::Decimal::try_from(150.0).expect("valid"),
+            gearing: rust_decimal::Decimal::try_from(1.0).expect("valid"),
             gearing_includes_spread: true,
-            floor_bp: Some(0.0), // 0 bps floor
+            floor_bp: Some(rust_decimal::Decimal::try_from(0.0).expect("valid")), // 0 bps floor
             cap_bp: None,
             all_in_floor_bp: None,
             index_cap_bp: None,
@@ -154,8 +155,8 @@ fn test_tranche_floating_coupon() {
     // Assert
     match &tranche.coupon {
         TrancheCoupon::Floating(spec) => {
-            assert_eq!(spec.spread_bp, 150.0);
-            assert_eq!(spec.floor_bp, Some(0.0));
+            assert_eq!(spec.spread_bp, dec!(150.0));
+            assert_eq!(spec.floor_bp, Some(dec!(0.0)));
             assert_eq!(spec.cap_bp, None);
         }
         _ => panic!("Expected floating coupon"),

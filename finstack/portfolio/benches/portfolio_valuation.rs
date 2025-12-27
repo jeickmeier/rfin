@@ -17,6 +17,7 @@
 //! Market Standards Review (Week 5)
 
 use criterion::{criterion_group, criterion_main, BenchmarkId, Criterion};
+use rust_decimal_macros::dec;
 use finstack_core::config::FinstackConfig;
 use finstack_core::currency::Currency;
 use finstack_core::dates::{BusinessDayConvention, Date, DayCount, StubKind, Tenor};
@@ -912,7 +913,7 @@ fn create_institutional_portfolio(num_positions: usize) -> finstack_portfolio::P
 
         let fixed_coupon = FixedCouponSpec {
             coupon_type: CouponType::Cash,
-            rate: 0.03,
+            rate: dec!(0.03),
             freq: Tenor::semi_annual(),
             dc: DayCount::Act365F,
             bdc: BusinessDayConvention::Following,

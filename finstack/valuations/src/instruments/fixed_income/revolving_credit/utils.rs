@@ -362,8 +362,8 @@ mod tests {
             Tenor::quarterly(),
             BaseRateSpec::Floating(crate::cashflow::builder::FloatingRateSpec {
                 index_id: "USD-SOFR-3M".into(),
-                spread_bp: 200.0,
-                gearing: 1.0,
+                spread_bp: rust_decimal::Decimal::try_from(200.0).expect("valid"),
+                gearing: rust_decimal::Decimal::ONE,
                 gearing_includes_spread: true,
                 floor_bp: None,
                 cap_bp: None,

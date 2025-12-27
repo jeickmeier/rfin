@@ -68,7 +68,10 @@ impl JsCouponType {
     #[wasm_bindgen(js_name = split)]
     pub fn split(cash_pct: f64, pik_pct: f64) -> JsCouponType {
         JsCouponType {
-            inner: CoreCouponType::Split { cash_pct, pik_pct },
+            inner: CoreCouponType::Split { 
+                cash_pct: rust_decimal::Decimal::from_f64_retain(cash_pct).unwrap_or_default(),
+                pik_pct: rust_decimal::Decimal::from_f64_retain(pik_pct).unwrap_or_default(),
+            },
         }
     }
 }
@@ -160,7 +163,7 @@ impl JsFixedCouponSpec {
         JsFixedCouponSpec {
             inner: CoreFixedCouponSpec {
                 coupon_type: coupon_type.inner(),
-                rate,
+                rate: rust_decimal::Decimal::from_f64_retain(rate).unwrap_or_default(),
                 freq: sched.freq,
                 dc: sched.dc,
                 bdc: sched.bdc,
@@ -197,8 +200,8 @@ impl JsFloatCouponParams {
         JsFloatCouponParams {
             inner: CoreFloatCouponParams {
                 index_id: curve_id_from_str(index_id),
-                margin_bp,
-                gearing: gearing.unwrap_or(1.0),
+                margin_bp: rust_decimal::Decimal::from_f64_retain(margin_bp).unwrap_or_default(),
+                gearing: rust_decimal::Decimal::from_f64_retain(gearing.unwrap_or(1.0)).unwrap_or(rust_decimal::Decimal::ONE),
                 reset_lag_days: reset_lag_days.unwrap_or(2),
             },
         }
@@ -424,7 +427,10 @@ impl JsCashflowBuilder {
                 let pik_pct: f64 = parts[2]
                     .parse()
                     .map_err(|_| js_error("Invalid PIK percentage in split"))?;
-                CoreCouponType::Split { cash_pct, pik_pct }
+                CoreCouponType::Split { 
+                    cash_pct: rust_decimal::Decimal::from_f64_retain(cash_pct).unwrap_or_default(),
+                    pik_pct: rust_decimal::Decimal::from_f64_retain(pik_pct).unwrap_or_default(),
+                }
             } else {
                 return Err(js_error(
                     "Coupon type must be 'cash', 'pik', or 'split:X:Y'",

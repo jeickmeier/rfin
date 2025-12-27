@@ -40,6 +40,7 @@ use crate::cashflow::builder::specs::{
 use crate::cashflow::builder::AmortizationSpec;
 use finstack_core::dates::{BusinessDayConvention, DayCount, StubKind, Tenor};
 use finstack_core::types::CurveId;
+use rust_decimal::Decimal;
 
 /// Thin facade over canonical builder coupon specs for bond cashflows.
 ///
@@ -100,9 +101,11 @@ impl CashflowSpec {
     /// For full control (PIK, custom calendars, stubs), construct `FixedCouponSpec` directly
     /// and wrap in `CashflowSpec::Fixed(...)`.
     pub fn fixed(coupon: f64, freq: Tenor, dc: DayCount) -> Self {
+        // Convert f64 to Decimal for exact representation
+        let rate = Decimal::try_from(coupon).unwrap_or(Decimal::ZERO);
         Self::Fixed(FixedCouponSpec {
             coupon_type: CouponType::Cash,
-            rate: coupon,
+            rate,
             freq,
             dc,
             bdc: BusinessDayConvention::Following,
@@ -227,11 +230,13 @@ impl CashflowSpec {
         dc: DayCount,
         reset_lag_days: i32,
     ) -> Self {
+        // Convert f64 to Decimal for exact representation
+        let spread_bp = Decimal::try_from(margin_bp).unwrap_or(Decimal::ZERO);
         Self::Floating(FloatingCouponSpec {
             rate_spec: FloatingRateSpec {
                 index_id,
-                spread_bp: margin_bp,
-                gearing: 1.0,
+                spread_bp,
+                gearing: Decimal::ONE,
                 gearing_includes_spread: true,
                 floor_bp: None,
                 cap_bp: None,

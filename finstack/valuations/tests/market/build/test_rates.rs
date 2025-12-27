@@ -5,6 +5,7 @@ use finstack_valuations::instruments::fra::ForwardRateAgreement;
 use finstack_valuations::instruments::irs::InterestRateSwap;
 use finstack_valuations::market::build::context::BuildCtx;
 use finstack_valuations::market::build::rates::build_rate_instrument;
+use rust_decimal::Decimal;
 
 use finstack_valuations::market::quotes::ids::Pillar;
 use finstack_valuations::market::quotes::rates::RateQuote; // Used in code if needed, or string into
@@ -93,7 +94,7 @@ fn test_build_swap() {
 
     if let Some(swap) = instrument.as_any().downcast_ref::<InterestRateSwap>() {
         assert_eq!(swap.notional.currency(), Currency::USD);
-        assert_eq!(swap.fixed.rate, 0.030);
+        assert_eq!(swap.fixed.rate, Decimal::try_from(0.030).expect("valid"));
     } else {
         panic!("Expected InterestRateSwap");
     }

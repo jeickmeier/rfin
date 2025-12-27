@@ -72,7 +72,7 @@ impl JsInterestRateSwap {
         let stub = stub_kind.map(|s| s.inner()).unwrap_or(StubKind::None);
         let fixed = FixedLegSpec {
             discount_curve_id: curve_id_from_str(discount_curve),
-            rate: fixed_rate,
+            rate: rust_decimal::Decimal::from_f64_retain(fixed_rate).unwrap_or_default(),
             freq: fixed_freq,
             dc: fixed_dc,
             bdc,
@@ -87,7 +87,7 @@ impl JsInterestRateSwap {
         let float = FloatLegSpec {
             discount_curve_id: curve_id_from_str(discount_curve),
             forward_curve_id: curve_id_from_str(forward_curve),
-            spread_bp: 0.0,
+            spread_bp: rust_decimal::Decimal::ZERO,
             freq: float_freq,
             dc: float_dc,
             bdc,
@@ -123,12 +123,14 @@ impl JsInterestRateSwap {
 
     #[wasm_bindgen(getter, js_name = fixedRate)]
     pub fn fixed_rate(&self) -> f64 {
-        self.inner.fixed.rate
+        use rust_decimal::prelude::ToPrimitive;
+        self.inner.fixed.rate.to_f64().unwrap_or(0.0)
     }
 
     #[wasm_bindgen(getter, js_name = floatSpreadBp)]
     pub fn float_spread_bp(&self) -> f64 {
-        self.inner.float.spread_bp
+        use rust_decimal::prelude::ToPrimitive;
+        self.inner.float.spread_bp.to_f64().unwrap_or(0.0)
     }
 
     #[wasm_bindgen(getter)]

@@ -601,7 +601,8 @@ mod tests {
         // Check coupon from cashflow_spec
         use finstack_valuations::instruments::bond::CashflowSpec;
         if let CashflowSpec::Fixed(spec) = &deserialized_bond.cashflow_spec {
-            assert_eq!(spec.rate, 0.05);
+            // Compare as string since rate is Decimal
+            assert_eq!(spec.rate.to_string(), "0.05");
         } else {
             panic!("Expected fixed cashflow spec");
         }

@@ -2,6 +2,8 @@
 
 use finstack_core::dates::{BusinessDayConvention, Date, DayCount, StubKind, Tenor};
 use finstack_core::money::Money;
+use rust_decimal::Decimal;
+use rust_decimal::prelude::ToPrimitive;
 
 /// Fee specification.
 #[derive(Debug, Clone)]
@@ -18,8 +20,8 @@ pub enum FeeSpec {
     PeriodicBps {
         /// Base.
         base: FeeBase,
-        /// Bps.
-        bps: f64,
+        /// Fee rate in basis points. Uses Decimal for exact representation.
+        bps: Decimal,
         /// Freq.
         freq: Tenor,
         /// Dc.
@@ -54,9 +56,9 @@ pub enum FeeBase {
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub struct FeeTier {
     /// Utilization threshold (0.0 to 1.0). Fee applies when utilization >= this threshold.
-    pub threshold: f64,
+    pub threshold: Decimal,
     /// Fee rate in basis points for this tier.
-    pub bps: f64,
+    pub bps: Decimal,
 }
 
 /// Evaluate fee tiers to find the applicable rate for a given utilization.
@@ -67,16 +69,26 @@ pub struct FeeTier {
 /// # Arguments
 ///
 /// * `tiers` - Slice of fee tiers, should be sorted by threshold ascending
-/// * `utilization` - Current utilization rate (0.0 to 1.0)
+/// * `utilization` - Current utilization rate (0.0 to 1.0) as Decimal
 ///
 /// # Returns
 ///
 /// The fee rate in basis points for the applicable tier, or 0.0 if no tier matches
-pub fn evaluate_fee_tiers(tiers: &[FeeTier], utilization: f64) -> f64 {
+pub fn evaluate_fee_tiers(tiers: &[FeeTier], utilization: Decimal) -> Decimal {
     tiers
         .iter()
         .rev()
         .find(|tier| utilization >= tier.threshold)
         .map(|tier| tier.bps)
+        .unwrap_or(Decimal::ZERO)
+}
+
+/// Evaluate fee tiers with f64 utilization for convenience.
+///
+/// Converts the utilization to Decimal, evaluates, and returns f64.
+pub fn evaluate_fee_tiers_f64(tiers: &[FeeTier], utilization: f64) -> f64 {
+    let util_dec = Decimal::try_from(utilization).unwrap_or(Decimal::ZERO);
+    evaluate_fee_tiers(tiers, util_dec)
+        .to_f64()
         .unwrap_or(0.0)
 }

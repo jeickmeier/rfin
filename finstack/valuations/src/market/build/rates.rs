@@ -373,7 +373,8 @@ pub fn build_rate_instrument(quote: &RateQuote, ctx: &BuildCtx) -> Result<Box<dy
             // spread_decimal is in decimal format (e.g., 0.0010 for 10bp)
             // Convert to basis points by multiplying by 10000
             if let Some(spread_decimal) = spread_decimal {
-                swap.float.spread_bp = *spread_decimal * 10000.0;
+                swap.float.spread_bp = rust_decimal::Decimal::try_from(*spread_decimal * 10000.0)
+                    .unwrap_or(rust_decimal::Decimal::ZERO);
             }
 
             Ok(Box::new(swap))
@@ -430,7 +431,7 @@ mod tests {
 
         // Verify spread_decimal (0.0010) was converted to spread_bp (10.0)
         assert_eq!(
-            swap.float.spread_bp, 10.0,
+            swap.float.spread_bp, rust_decimal::Decimal::try_from(10.0).expect("valid"),
             "Expected spread_decimal of 0.0010 to convert to 10.0 basis points"
         );
 
@@ -468,7 +469,7 @@ mod tests {
 
         // Default spread_bp should be 0.0
         assert_eq!(
-            swap.float.spread_bp, 0.0,
+            swap.float.spread_bp, rust_decimal::Decimal::ZERO,
             "Expected default spread_bp to be 0.0"
         );
 
@@ -513,7 +514,7 @@ mod tests {
                 .expect("Expected InterestRateSwap");
 
             assert_eq!(
-                swap.float.spread_bp, expected_bp,
+                swap.float.spread_bp, rust_decimal::Decimal::try_from(expected_bp).expect("valid"),
                 "spread_decimal {} should convert to {} basis points",
                 spread_decimal, expected_bp
             );

@@ -31,7 +31,7 @@ fn test_pik_bond() {
         .principal(Money::new(1000.0, Currency::USD), issue, maturity)
         .fixed_cf(FixedCouponSpec {
             coupon_type: CouponType::PIK,
-            rate: 0.08,
+            rate: rust_decimal::Decimal::try_from(0.08).expect("valid"),
             freq: Tenor::semi_annual(),
             dc: DayCount::Act365F,
             bdc: BusinessDayConvention::Following,

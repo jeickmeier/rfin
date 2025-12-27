@@ -16,6 +16,7 @@ use finstack_core::money::Money;
 use finstack_valuations::instruments::common::traits::Instrument;
 use finstack_valuations::instruments::irs::{InterestRateSwap, PayReceive};
 use time::macros::date;
+use rust_decimal_macros::dec;
 
 fn build_flat_discount_curve(rate: f64, base_date: Date, curve_id: &str) -> DiscountCurve {
     let mut builder = DiscountCurve::builder(curve_id)
@@ -65,7 +66,7 @@ fn test_irs_at_par_npv_zero() {
         side: PayReceive::ReceiveFixed,
         fixed: finstack_valuations::instruments::common::parameters::legs::FixedLegSpec {
             discount_curve_id: "USD-OIS".into(),
-            rate: 0.05,
+            rate: rust_decimal::Decimal::try_from(0.05).expect("valid"),
             freq: Tenor::quarterly(),
             dc: DayCount::Act360,
             bdc: BusinessDayConvention::ModifiedFollowing,
@@ -80,7 +81,7 @@ fn test_irs_at_par_npv_zero() {
         float: finstack_valuations::instruments::common::parameters::legs::FloatLegSpec {
             discount_curve_id: "USD-OIS".into(),
             forward_curve_id: "USD-SOFR-3M".into(),
-            spread_bp: 0.0,
+            spread_bp: rust_decimal::Decimal::try_from(0.0).expect("valid"),
             freq: Tenor::quarterly(),
             dc: DayCount::Act360,
             bdc: BusinessDayConvention::ModifiedFollowing,
@@ -126,7 +127,7 @@ fn test_irs_receive_fixed_below_market() {
         side: PayReceive::ReceiveFixed,
         fixed: finstack_valuations::instruments::common::parameters::legs::FixedLegSpec {
             discount_curve_id: "USD-OIS".into(),
-            rate: 0.03, // Below market
+            rate: rust_decimal::Decimal::try_from(0.03).expect("valid"), // Below market
             freq: Tenor::quarterly(),
             dc: DayCount::Act360,
             bdc: BusinessDayConvention::ModifiedFollowing,
@@ -141,7 +142,7 @@ fn test_irs_receive_fixed_below_market() {
         float: finstack_valuations::instruments::common::parameters::legs::FloatLegSpec {
             discount_curve_id: "USD-OIS".into(),
             forward_curve_id: "USD-SOFR-3M".into(),
-            spread_bp: 0.0,
+            spread_bp: rust_decimal::Decimal::try_from(0.0).expect("valid"),
             freq: Tenor::quarterly(),
             dc: DayCount::Act360,
             bdc: BusinessDayConvention::ModifiedFollowing,
@@ -186,7 +187,7 @@ fn test_irs_receive_fixed_above_market() {
         side: PayReceive::ReceiveFixed,
         fixed: finstack_valuations::instruments::common::parameters::legs::FixedLegSpec {
             discount_curve_id: "USD-OIS".into(),
-            rate: 0.07, // Above market
+            rate: rust_decimal::Decimal::try_from(0.07).expect("valid"), // Above market
             freq: Tenor::quarterly(),
             dc: DayCount::Act360,
             bdc: BusinessDayConvention::ModifiedFollowing,
@@ -201,7 +202,7 @@ fn test_irs_receive_fixed_above_market() {
         float: finstack_valuations::instruments::common::parameters::legs::FloatLegSpec {
             discount_curve_id: "USD-OIS".into(),
             forward_curve_id: "USD-SOFR-3M".into(),
-            spread_bp: 0.0,
+            spread_bp: rust_decimal::Decimal::try_from(0.0).expect("valid"),
             freq: Tenor::quarterly(),
             dc: DayCount::Act360,
             bdc: BusinessDayConvention::ModifiedFollowing,
@@ -242,7 +243,7 @@ fn test_irs_pay_vs_receive_opposite_signs() {
 
     let fixed_leg = finstack_valuations::instruments::common::parameters::legs::FixedLegSpec {
         discount_curve_id: "USD-OIS".into(),
-        rate: 0.05,
+        rate: rust_decimal::Decimal::try_from(0.05).expect("valid"),
         freq: Tenor::quarterly(),
         dc: DayCount::Act360,
         bdc: BusinessDayConvention::ModifiedFollowing,
@@ -258,7 +259,7 @@ fn test_irs_pay_vs_receive_opposite_signs() {
     let float_leg = finstack_valuations::instruments::common::parameters::legs::FloatLegSpec {
         discount_curve_id: "USD-OIS".into(),
         forward_curve_id: "USD-SOFR-3M".into(),
-        spread_bp: 0.0,
+        spread_bp: rust_decimal::Decimal::try_from(0.0).expect("valid"),
         freq: Tenor::quarterly(),
         dc: DayCount::Act360,
         bdc: BusinessDayConvention::ModifiedFollowing,
@@ -421,7 +422,7 @@ fn test_irs_with_spread() {
         PayReceive::ReceiveFixed,
     )
     .unwrap();
-    swap.float.spread_bp = 50.0;
+    swap.float.spread_bp = dec!(50.0);
 
     let npv = swap.value(&market, as_of).unwrap();
 

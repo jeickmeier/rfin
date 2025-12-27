@@ -53,7 +53,7 @@ fn create_standard_swap(as_of: Date, end: Date, side: PayReceive) -> InterestRat
         side,
         fixed: finstack_valuations::instruments::common::parameters::legs::FixedLegSpec {
             discount_curve_id: "USD_OIS".into(),
-            rate: 0.05,
+            rate: rust_decimal::Decimal::try_from(0.05).expect("valid"),
             freq: Tenor::quarterly(),
             dc: DayCount::Act360,
             bdc: BusinessDayConvention::ModifiedFollowing,
@@ -68,7 +68,7 @@ fn create_standard_swap(as_of: Date, end: Date, side: PayReceive) -> InterestRat
         float: finstack_valuations::instruments::common::parameters::legs::FloatLegSpec {
             discount_curve_id: "USD_OIS".into(),
             forward_curve_id: "USD_LIBOR_3M".into(),
-            spread_bp: 0.0,
+            spread_bp: rust_decimal::Decimal::try_from(0.0).expect("valid"),
             freq: Tenor::quarterly(),
             dc: DayCount::Act360,
             bdc: BusinessDayConvention::ModifiedFollowing,

@@ -190,8 +190,9 @@ fn test_asw_par_tracks_coupon_minus_par_rate() {
         )
         .expect("par rate");
 
+    let rate_f64 = rust_decimal::prelude::ToPrimitive::to_f64(&spec.rate).unwrap_or(0.0);
     assert!(
-        (asw_par - (spec.rate - par_rate)).abs() < 1e-10,
+        (asw_par - (rate_f64 - par_rate)).abs() < 1e-10,
         "ASW par should align with coupon - par rate; got asw_par={asw_par}, coupon={}, par_rate={par_rate}",
         spec.rate
     );

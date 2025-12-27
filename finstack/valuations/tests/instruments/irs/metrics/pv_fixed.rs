@@ -9,6 +9,7 @@ use finstack_valuations::instruments::common::traits::Instrument;
 use finstack_valuations::instruments::irs::{InterestRateSwap, PayReceive};
 use finstack_valuations::metrics::MetricId;
 use time::macros::date;
+use rust_decimal_macros::dec;
 
 fn build_flat_discount_curve(rate: f64, base_date: Date) -> DiscountCurve {
     let mut builder = DiscountCurve::builder("USD_OIS")
@@ -43,7 +44,7 @@ fn build_market(rate: f64, base_date: Date) -> MarketContext {
         .insert_forward(fwd_curve)
 }
 
-fn create_swap(as_of: Date, end: Date, fixed_rate: f64) -> InterestRateSwap {
+fn create_swap(as_of: Date, end: Date, fixed_rate: rust_decimal::Decimal) -> InterestRateSwap {
     InterestRateSwap {
         id: "IRS_PV_FIXED_TEST".into(),
         notional: Money::new(1_000_000.0, Currency::USD),
@@ -65,7 +66,7 @@ fn create_swap(as_of: Date, end: Date, fixed_rate: f64) -> InterestRateSwap {
         float: finstack_valuations::instruments::common::parameters::legs::FloatLegSpec {
             discount_curve_id: "USD_OIS".into(),
             forward_curve_id: "USD_LIBOR_3M".into(),
-            spread_bp: 0.0,
+            spread_bp: rust_decimal::Decimal::try_from(0.0).expect("valid"),
             freq: Tenor::quarterly(),
             dc: DayCount::Act360,
             bdc: BusinessDayConvention::ModifiedFollowing,
@@ -88,7 +89,7 @@ fn test_pv_fixed_positive() {
     let as_of = date!(2024 - 01 - 01);
     let end = date!(2029 - 01 - 01);
 
-    let swap = create_swap(as_of, end, 0.05);
+    let swap = create_swap(as_of, end, dec!(0.05));
     let market = build_market(0.05, as_of);
 
     let result = swap
@@ -106,8 +107,8 @@ fn test_pv_fixed_scales_with_rate() {
     let end = date!(2029 - 01 - 01);
     let market = build_market(0.05, as_of);
 
-    let swap_3pct = create_swap(as_of, end, 0.03);
-    let swap_6pct = create_swap(as_of, end, 0.06);
+    let swap_3pct = create_swap(as_of, end, dec!(0.03));
+    let swap_6pct = create_swap(as_of, end, dec!(0.06));
 
     let pv_fixed_3pct = *swap_3pct
         .price_with_metrics(&market, as_of, &[MetricId::PvFixed])
@@ -138,9 +139,9 @@ fn test_pv_fixed_scales_with_notional() {
     let end = date!(2029 - 01 - 01);
     let market = build_market(0.05, as_of);
 
-    let swap_1m = create_swap(as_of, end, 0.05);
+    let swap_1m = create_swap(as_of, end, dec!(0.05));
 
-    let mut swap_5m = create_swap(as_of, end, 0.05);
+    let mut swap_5m = create_swap(as_of, end, dec!(0.05));
     swap_5m.notional = Money::new(5_000_000.0, Currency::USD);
 
     let pv_fixed_1m = *swap_1m
@@ -171,7 +172,7 @@ fn test_pv_fixed_reasonable_magnitude() {
     let as_of = date!(2024 - 01 - 01);
     let end = date!(2029 - 01 - 01);
 
-    let swap = create_swap(as_of, end, 0.05);
+    let swap = create_swap(as_of, end, dec!(0.05));
     let market = build_market(0.05, as_of);
 
     let result = swap
@@ -194,10 +195,10 @@ fn test_pv_fixed_independent_of_side() {
     let end = date!(2029 - 01 - 01);
     let market = build_market(0.05, as_of);
 
-    let mut swap_receive = create_swap(as_of, end, 0.05);
+    let mut swap_receive = create_swap(as_of, end, dec!(0.05));
     swap_receive.side = PayReceive::ReceiveFixed;
 
-    let mut swap_pay = create_swap(as_of, end, 0.05);
+    let mut swap_pay = create_swap(as_of, end, dec!(0.05));
     swap_pay.side = PayReceive::PayFixed;
 
     let pv_fixed_receive = *swap_receive

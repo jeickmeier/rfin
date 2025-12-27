@@ -168,10 +168,10 @@ mod tests {
             .base_rate_spec(BaseRateSpec::Floating(
                 finstack_valuations::cashflow::builder::FloatingRateSpec {
                     index_id: "USD-SOFR-3M".into(),
-                    spread_bp: 200.0,
-                    gearing: 1.0,
+                    spread_bp: rust_decimal::Decimal::try_from(200.0).expect("valid"),
+                    gearing: rust_decimal::Decimal::try_from(1.0).expect("valid"),
                     gearing_includes_spread: true,
-                    floor_bp: Some(100.0),
+                    floor_bp: Some(rust_decimal::Decimal::try_from(100.0).expect("valid")),
                     all_in_floor_bp: None,
                     cap_bp: None,
                     index_cap_bp: None,
@@ -201,10 +201,10 @@ mod tests {
             .base_rate_spec(BaseRateSpec::Floating(
                 finstack_valuations::cashflow::builder::FloatingRateSpec {
                     index_id: "USD-SOFR-3M".into(),
-                    spread_bp: 200.0,
-                    gearing: 1.0,
+                    spread_bp: rust_decimal::Decimal::try_from(200.0).expect("valid"),
+                    gearing: rust_decimal::Decimal::try_from(1.0).expect("valid"),
                     gearing_includes_spread: true,
-                    floor_bp: Some(100.0),
+                    floor_bp: Some(rust_decimal::Decimal::try_from(100.0).expect("valid")),
                     all_in_floor_bp: None,
                     cap_bp: None,
                     index_cap_bp: None,
@@ -324,34 +324,34 @@ mod tests {
             upfront_fee: Some(Money::new(50_000.0, Currency::USD)),
             commitment_fee_tiers: vec![
                 FeeTier {
-                    threshold: 0.0,
-                    bps: 50.0,
+                    threshold: rust_decimal::Decimal::try_from(0.0).expect("valid"),
+                    bps: rust_decimal::Decimal::try_from(50.0).expect("valid"),
                 },
                 FeeTier {
-                    threshold: 0.25,
-                    bps: 40.0,
+                    threshold: rust_decimal::Decimal::try_from(0.25).expect("valid"),
+                    bps: rust_decimal::Decimal::try_from(40.0).expect("valid"),
                 },
                 FeeTier {
-                    threshold: 0.5,
-                    bps: 30.0,
+                    threshold: rust_decimal::Decimal::try_from(0.5).expect("valid"),
+                    bps: rust_decimal::Decimal::try_from(30.0).expect("valid"),
                 },
                 FeeTier {
-                    threshold: 0.75,
-                    bps: 20.0,
+                    threshold: rust_decimal::Decimal::try_from(0.75).expect("valid"),
+                    bps: rust_decimal::Decimal::try_from(20.0).expect("valid"),
                 },
             ],
             usage_fee_tiers: vec![
                 FeeTier {
-                    threshold: 0.0,
-                    bps: 10.0,
+                    threshold: rust_decimal::Decimal::try_from(0.0).expect("valid"),
+                    bps: rust_decimal::Decimal::try_from(10.0).expect("valid"),
                 },
                 FeeTier {
-                    threshold: 0.5,
-                    bps: 15.0,
+                    threshold: rust_decimal::Decimal::try_from(0.5).expect("valid"),
+                    bps: rust_decimal::Decimal::try_from(15.0).expect("valid"),
                 },
                 FeeTier {
-                    threshold: 0.75,
-                    bps: 20.0,
+                    threshold: rust_decimal::Decimal::try_from(0.75).expect("valid"),
+                    bps: rust_decimal::Decimal::try_from(20.0).expect("valid"),
                 },
             ],
             facility_fee_bp: 5.0,

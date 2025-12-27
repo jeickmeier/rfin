@@ -2,10 +2,10 @@
   "schema": "finstack.cashflow/1",
   "floating_rate_spec": {
     "index_id": "USD-SOFR-3M",
-    "spread_bp": 200.0,
-    "gearing": 1.0,
+    "spread_bp": "200.0",
+    "gearing": "1.0",
     "gearing_includes_spread": true,
-    "floor_bp": 0.0,
+    "floor_bp": "0.0",
     "all_in_floor_bp": null,
     "cap_bp": null,
     "index_cap_bp": null,

@@ -85,11 +85,13 @@ impl MetricCalculator for AllInRateCalculator {
                     // Compute period end from year fraction (approximate)
                     let period_end = prev + time::Duration::days((yf * 365.25) as i64);
 
+                    // Convert Decimal to f64 for projection (market curves are f64)
+                    use rust_decimal::prelude::ToPrimitive;
                     let params = crate::cashflow::builder::FloatingRateParams::with_full(
-                        total_spread,
-                        spec.gearing,
-                        spec.floor_bp,
-                        spec.cap_bp,
+                        total_spread.to_f64().unwrap_or(0.0),
+                        spec.gearing.to_f64().unwrap_or(1.0),
+                        spec.floor_bp.and_then(|d| d.to_f64()),
+                        spec.cap_bp.and_then(|d| d.to_f64()),
                     );
                     crate::cashflow::builder::project_floating_rate_from_market(
                         prev,

@@ -4,6 +4,7 @@
 use crate::instruments::common::traits::Attributes;
 use finstack_core::dates::{Date, DayCount, Tenor};
 use finstack_core::money::Money;
+use rust_decimal::prelude::ToPrimitive;
 #[cfg(test)]
 use finstack_core::types::CurveId;
 use finstack_core::types::InstrumentId;
@@ -127,7 +128,7 @@ impl TrancheCoupon {
     pub fn current_rate(&self, _date: Date) -> f64 {
         match self {
             TrancheCoupon::Fixed { rate } => *rate,
-            TrancheCoupon::Floating(spec) => spec.spread_bp / 10_000.0,
+            TrancheCoupon::Floating(spec) => spec.spread_bp.to_f64().unwrap_or(0.0) / 10_000.0,
         }
     }
 
@@ -144,10 +145,17 @@ impl TrancheCoupon {
         match self {
             TrancheCoupon::Fixed { rate } => *rate,
             TrancheCoupon::Floating(spec) => {
+                // Convert Decimal values to f64 for calculations
+                let spread_bp_f64 = spec.spread_bp.to_f64().unwrap_or(0.0);
+                let gearing_f64 = spec.gearing.to_f64().unwrap_or(1.0);
+                let floor_bp_f64 = spec.floor_bp.and_then(|d| d.to_f64());
+                let cap_bp_f64 = spec.cap_bp.and_then(|d| d.to_f64());
+                let fallback_rate = spread_bp_f64 / 10_000.0;
+
                 // Use centralized projection
                 let fwd = match context.get_forward_ref(spec.index_id.as_str()) {
                     Ok(f) => f,
-                    Err(_) => return spec.spread_bp / 10_000.0, // Fallback to spread only
+                    Err(_) => return fallback_rate, // Fallback to spread only
                 };
 
                 let tenor = fwd.tenor();
@@ -159,13 +167,13 @@ impl TrancheCoupon {
                     );
 
                 let params = crate::cashflow::builder::FloatingRateParams::with_full(
-                    spec.spread_bp,
-                    spec.gearing,
-                    spec.floor_bp,
-                    spec.cap_bp,
+                    spread_bp_f64,
+                    gearing_f64,
+                    floor_bp_f64,
+                    cap_bp_f64,
                 );
                 crate::cashflow::builder::project_floating_rate(date, period_end, fwd, &params)
-                    .unwrap_or(spec.spread_bp / 10_000.0)
+                    .unwrap_or(fallback_rate)
             }
         }
     }
@@ -721,8 +729,8 @@ mod tests {
             .coupon(TrancheCoupon::Floating(
                 crate::cashflow::builder::FloatingRateSpec {
                     index_id: CurveId::new("SOFR-3M".to_string()),
-                    spread_bp: 150.0,
-                    gearing: 1.0,
+                    spread_bp: rust_decimal::Decimal::try_from(150.0).expect("valid"),
+                    gearing: rust_decimal::Decimal::ONE,
                     gearing_includes_spread: true,
                     floor_bp: None,
                     cap_bp: None,

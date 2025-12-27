@@ -63,7 +63,7 @@ fn discount_ratio_allowed(irs: &InterestRateSwap, as_of: Date) -> bool {
     if !matches!(irs.float.compounding, FloatingLegCompounding::Simple) {
         return false;
     }
-    if irs.float.spread_bp.abs() > f64::EPSILON {
+    if !irs.float.spread_bp.is_zero() {
         return false;
     }
     if irs.fixed.payment_delay_days != 0 || irs.float.payment_delay_days != 0 {
@@ -143,7 +143,7 @@ impl MetricCalculator for ParRateCalculator {
 
                 // Note: DiscountRatio usually assumes zero spread on the floating leg.
                 // If there's a spread, we must use the PV-based method.
-                if irs.float.spread_bp.abs() > f64::EPSILON {
+                if !irs.float.spread_bp.is_zero() {
                     return par_rate_pv_based(irs, context, &disc);
                 }
 
@@ -222,7 +222,7 @@ mod tests {
             .side(crate::instruments::irs::PayReceive::PayFixed)
             .fixed(crate::instruments::common::parameters::legs::FixedLegSpec {
                 discount_curve_id: disc.clone(),
-                rate: 0.03,
+                rate: rust_decimal::Decimal::try_from(0.03).expect("valid"),
                 freq: Tenor::semi_annual(),
                 dc: DayCount::Thirty360,
                 bdc: BusinessDayConvention::ModifiedFollowing,
@@ -237,7 +237,7 @@ mod tests {
             .float(crate::instruments::common::parameters::legs::FloatLegSpec {
                 discount_curve_id: disc.clone(),
                 forward_curve_id: fwd.clone(), // multi-curve
-                spread_bp: 0.0,
+                spread_bp: rust_decimal::Decimal::ZERO,
                 freq: Tenor::quarterly(),
                 dc: DayCount::Act360,
                 bdc: BusinessDayConvention::ModifiedFollowing,
@@ -262,11 +262,11 @@ mod tests {
         irs2.float.forward_curve_id = disc.clone();
         assert!(discount_ratio_allowed(&irs2, as_of), "single-curve allowed");
 
-        irs2.float.spread_bp = 5.0;
+        irs2.float.spread_bp = rust_decimal::Decimal::try_from(5.0).expect("valid");
         assert!(!discount_ratio_allowed(&irs2, as_of), "spread disallowed");
 
         let mut irs3 = irs2.clone();
-        irs3.float.spread_bp = 0.0;
+        irs3.float.spread_bp = rust_decimal::Decimal::ZERO;
         irs3.float.payment_delay_days = 2;
         assert!(
             !discount_ratio_allowed(&irs3, as_of),

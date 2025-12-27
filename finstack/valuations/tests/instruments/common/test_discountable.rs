@@ -10,6 +10,7 @@ use finstack_valuations::cashflow::builder::{
 };
 use finstack_valuations::instruments::common::Discountable;
 use time::Month;
+use rust_decimal_macros::dec;
 
 use crate::common::test_helpers::*;
 
@@ -53,7 +54,7 @@ fn test_schedule_discountable_simple() {
     };
     let fixed = FixedCouponSpec {
         coupon_type: CouponType::Cash,
-        rate: 0.05,
+        rate: dec!(0.05),
         freq: params.freq,
         dc: params.dc,
         bdc: params.bdc,
@@ -104,7 +105,7 @@ fn test_npv_zero_rate() {
     };
     let fixed = FixedCouponSpec {
         coupon_type: CouponType::Cash,
-        rate: 0.05,
+        rate: dec!(0.05),
         freq: params.freq,
         dc: params.dc,
         bdc: params.bdc,

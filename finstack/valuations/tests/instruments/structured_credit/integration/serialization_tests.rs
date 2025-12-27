@@ -318,12 +318,12 @@ fn build_full_feature_structured_credit() -> StructuredCredit {
 
     let floating_coupon = finstack_valuations::cashflow::builder::FloatingRateSpec {
         index_id: CurveId::new("SOFR-3M"),
-        spread_bp: 150.0,
-        gearing: 1.0,
+        spread_bp: rust_decimal::Decimal::try_from(150.0).expect("valid"),
+        gearing: rust_decimal::Decimal::try_from(1.0).expect("valid"),
         gearing_includes_spread: true,
-        floor_bp: Some(0.0),
-        all_in_floor_bp: Some(25.0),
-        cap_bp: Some(1200.0),
+        floor_bp: Some(rust_decimal::Decimal::try_from(0.0).expect("valid")),
+        all_in_floor_bp: Some(rust_decimal::Decimal::try_from(25.0).expect("valid")),
+        cap_bp: Some(rust_decimal::Decimal::try_from(1200.0).expect("valid")),
         index_cap_bp: None,
         reset_freq: Tenor::quarterly(),
         reset_lag_days: 2,

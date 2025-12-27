@@ -165,8 +165,8 @@ impl JsBond {
             CashflowSpec::Floating(FloatingCouponSpec {
                 rate_spec: FloatingRateSpec {
                     index_id: curve_id_from_str(curve),
-                    spread_bp: float_margin_bp.unwrap_or(0.0),
-                    gearing: float_gearing.unwrap_or(1.0),
+                    spread_bp: rust_decimal::Decimal::from_f64_retain(float_margin_bp.unwrap_or(0.0)).unwrap_or_default(),
+                    gearing: rust_decimal::Decimal::from_f64_retain(float_gearing.unwrap_or(1.0)).unwrap_or(rust_decimal::Decimal::ONE),
                     gearing_includes_spread: true,
                     floor_bp: None,
                     all_in_floor_bp: None,
@@ -197,7 +197,7 @@ impl JsBond {
             // Fixed rate bond
             CashflowSpec::Fixed(FixedCouponSpec {
                 coupon_type: CouponType::Cash,
-                rate: coupon_rate.unwrap_or(0.0),
+                rate: rust_decimal::Decimal::from_f64_retain(coupon_rate.unwrap_or(0.0)).unwrap_or_default(),
                 freq: frequency
                     .map(|f| f.inner())
                     .unwrap_or_else(finstack_core::dates::Tenor::semi_annual),
@@ -388,8 +388,11 @@ impl JsBond {
         let custom_schedule = CashFlowSchedule::builder()
             .principal(notional.inner(), issue.inner(), maturity.inner())
             .fixed_cf(FixedCouponSpec {
-                coupon_type: CouponType::Split { cash_pct, pik_pct },
-                rate: coupon_rate,
+                coupon_type: CouponType::Split { 
+                    cash_pct: rust_decimal::Decimal::from_f64_retain(cash_pct).unwrap_or_default(),
+                    pik_pct: rust_decimal::Decimal::from_f64_retain(pik_pct).unwrap_or_default(),
+                },
+                rate: rust_decimal::Decimal::from_f64_retain(coupon_rate).unwrap_or_default(),
                 freq: Tenor::semi_annual(),
                 dc: DayCount::Thirty360,
                 bdc: BusinessDayConvention::Following,
@@ -456,8 +459,8 @@ impl JsBond {
             maturity.inner(),
             FloatCouponParams {
                 index_id: curve_id_from_str(forward_curve),
-                margin_bp,
-                gearing: 1.0,
+                margin_bp: rust_decimal::Decimal::from_f64_retain(margin_bp).unwrap_or_default(),
+                gearing: rust_decimal::Decimal::ONE,
                 reset_lag_days: 2,
             },
             ScheduleParams {
@@ -496,11 +499,12 @@ impl JsBond {
 
     #[wasm_bindgen(getter)]
     pub fn coupon(&self) -> f64 {
+        use rust_decimal::prelude::ToPrimitive;
         // Extract coupon from cashflow_spec - return 0 for floating or amortizing
         match &self.inner.cashflow_spec {
-            CashflowSpec::Fixed(spec) => spec.rate,
+            CashflowSpec::Fixed(spec) => spec.rate.to_f64().unwrap_or(0.0),
             CashflowSpec::Amortizing { base, .. } => match base.as_ref() {
-                CashflowSpec::Fixed(spec) => spec.rate,
+                CashflowSpec::Fixed(spec) => spec.rate.to_f64().unwrap_or(0.0),
                 _ => 0.0,
             },
             _ => 0.0,

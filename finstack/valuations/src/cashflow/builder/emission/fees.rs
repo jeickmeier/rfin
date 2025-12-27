@@ -5,6 +5,8 @@ use finstack_core::currency::Currency;
 use finstack_core::dates::Date;
 use finstack_core::error::InputError;
 use finstack_core::money::Money;
+use rust_decimal::Decimal;
+use rust_decimal::prelude::ToPrimitive;
 
 use super::super::compiler::PeriodicFee;
 use super::super::specs::FeeBase;
@@ -150,6 +152,9 @@ pub(in crate::cashflow::builder) fn emit_fees_on(
     ccy: Currency,
     new_flows: &mut Vec<CashFlow>,
 ) -> finstack_core::Result<()> {
+    // Conversion factor from basis points to rate (1 bp = 0.0001)
+    let bp_to_rate = Decimal::new(1, 4); // 0.0001
+
     for pf in periodic_fees {
         if let Some(&prev) = pf.prev.get(&d) {
             let yf = pf
@@ -164,7 +169,17 @@ pub(in crate::cashflow::builder) fn emit_fees_on(
                     (facility_limit.amount() - outstanding).max(0.0)
                 }
             };
-            let fee_amt = base_amt * (pf.bps * 1e-4 * yf);
+
+            // Use Decimal for fee calculation
+            let base_amt_dec = Decimal::try_from(base_amt).unwrap_or(Decimal::ZERO);
+            let yf_dec = Decimal::try_from(yf).unwrap_or(Decimal::ZERO);
+            let fee_amt_dec = base_amt_dec * pf.bps * bp_to_rate * yf_dec;
+            let fee_amt = fee_amt_dec.to_f64().unwrap_or(0.0);
+
+            // Convert rate from bps to decimal for storage
+            let rate_dec = pf.bps * bp_to_rate;
+            let rate = rate_dec.to_f64().unwrap_or(0.0);
+
             if fee_amt > 0.0 {
                 new_flows.push(CashFlow {
                     date: d,
@@ -172,7 +187,7 @@ pub(in crate::cashflow::builder) fn emit_fees_on(
                     amount: Money::new(fee_amt, ccy),
                     kind: CFKind::Fee,
                     accrual_factor: yf,
-                    rate: Some(pf.bps * 1e-4),
+                    rate: Some(rate),
                 });
             }
         }

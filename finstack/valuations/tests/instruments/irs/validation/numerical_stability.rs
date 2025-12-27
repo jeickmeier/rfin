@@ -292,7 +292,7 @@ fn test_expired_swap_handling() {
         side: PayReceive::ReceiveFixed,
         fixed: FixedLegSpec {
             discount_curve_id: "USD-OIS".into(),
-            rate: 0.05,
+            rate: rust_decimal::Decimal::try_from(0.05).expect("valid"),
             freq: Tenor::quarterly(),
             dc: DayCount::Act360,
             bdc: BusinessDayConvention::ModifiedFollowing,
@@ -307,7 +307,7 @@ fn test_expired_swap_handling() {
         float: FloatLegSpec {
             discount_curve_id: "USD-OIS".into(),
             forward_curve_id: "USD-SOFR-3M".into(),
-            spread_bp: 0.0,
+            spread_bp: rust_decimal::Decimal::try_from(0.0).expect("valid"),
             freq: Tenor::quarterly(),
             dc: DayCount::Act360,
             bdc: BusinessDayConvention::ModifiedFollowing,
@@ -365,7 +365,7 @@ fn test_very_short_swap_1_month() {
         side: PayReceive::ReceiveFixed,
         fixed: FixedLegSpec {
             discount_curve_id: "USD-OIS".into(),
-            rate: 0.05,
+            rate: rust_decimal::Decimal::try_from(0.05).expect("valid"),
             freq: Tenor::monthly(),
             dc: DayCount::Act360,
             bdc: BusinessDayConvention::ModifiedFollowing,
@@ -380,7 +380,7 @@ fn test_very_short_swap_1_month() {
         float: FloatLegSpec {
             discount_curve_id: "USD-OIS".into(),
             forward_curve_id: "USD-SOFR-3M".into(),
-            spread_bp: 0.0,
+            spread_bp: rust_decimal::Decimal::try_from(0.0).expect("valid"),
             freq: Tenor::monthly(),
             dc: DayCount::Act360,
             bdc: BusinessDayConvention::ModifiedFollowing,

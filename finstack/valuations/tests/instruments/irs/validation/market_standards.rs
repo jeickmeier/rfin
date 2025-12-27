@@ -317,7 +317,7 @@ fn test_irs_receive_vs_pay_fixed() {
 
     let fixed_leg = FixedLegSpec {
         discount_curve_id: "USD-OIS".into(),
-        rate: 0.05,
+        rate: rust_decimal::Decimal::try_from(0.05).expect("valid"),
         freq: Tenor::quarterly(),
         dc: DayCount::Act360,
         bdc: BusinessDayConvention::ModifiedFollowing,
@@ -333,7 +333,7 @@ fn test_irs_receive_vs_pay_fixed() {
     let float_leg = FloatLegSpec {
         discount_curve_id: "USD-OIS".into(),
         forward_curve_id: "USD-SOFR-3M".into(),
-        spread_bp: 0.0,
+        spread_bp: rust_decimal::Decimal::try_from(0.0).expect("valid"),
         freq: Tenor::quarterly(),
         dc: DayCount::Act360,
         bdc: BusinessDayConvention::ModifiedFollowing,
@@ -402,7 +402,7 @@ fn test_irs_rate_sensitivity() {
 
     let fixed_leg = FixedLegSpec {
         discount_curve_id: "USD-OIS".into(),
-        rate: 0.05,
+        rate: rust_decimal::Decimal::try_from(0.05).expect("valid"),
         freq: Tenor::quarterly(),
         dc: DayCount::Act360,
         bdc: BusinessDayConvention::ModifiedFollowing,
@@ -418,7 +418,7 @@ fn test_irs_rate_sensitivity() {
     let float_leg = FloatLegSpec {
         discount_curve_id: "USD-OIS".into(),
         forward_curve_id: "USD-SOFR-3M".into(),
-        spread_bp: 0.0,
+        spread_bp: rust_decimal::Decimal::try_from(0.0).expect("valid"),
         freq: Tenor::quarterly(),
         dc: DayCount::Act360,
         bdc: BusinessDayConvention::ModifiedFollowing,
@@ -501,7 +501,7 @@ fn test_irs_leg_pvs_consistency() {
         side: PayReceive::ReceiveFixed,
         fixed: FixedLegSpec {
             discount_curve_id: "USD-OIS".into(),
-            rate: 0.05,
+            rate: rust_decimal::Decimal::try_from(0.05).expect("valid"),
             freq: Tenor::quarterly(),
             dc: DayCount::Act360,
             bdc: BusinessDayConvention::ModifiedFollowing,
@@ -516,7 +516,7 @@ fn test_irs_leg_pvs_consistency() {
         float: FloatLegSpec {
             discount_curve_id: "USD-OIS".into(),
             forward_curve_id: "USD-SOFR-3M".into(),
-            spread_bp: 0.0,
+            spread_bp: rust_decimal::Decimal::try_from(0.0).expect("valid"),
             freq: Tenor::quarterly(),
             dc: DayCount::Act360,
             bdc: BusinessDayConvention::ModifiedFollowing,
@@ -571,7 +571,7 @@ fn test_daycount_convention_impact_on_annuity() {
         .side(PayReceive::ReceiveFixed)
         .fixed(FixedLegSpec {
             discount_curve_id: "USD-OIS".into(),
-            rate: 0.05,
+            rate: rust_decimal::Decimal::try_from(0.05).expect("valid"),
             freq: Tenor::quarterly(),
             dc: DayCount::Act360,
             bdc: BusinessDayConvention::ModifiedFollowing,
@@ -586,7 +586,7 @@ fn test_daycount_convention_impact_on_annuity() {
         .float(FloatLegSpec {
             discount_curve_id: "USD-OIS".into(),
             forward_curve_id: "USD-SOFR-3M".into(),
-            spread_bp: 0.0,
+            spread_bp: rust_decimal::Decimal::try_from(0.0).expect("valid"),
             freq: Tenor::quarterly(),
             dc: DayCount::Act360,
             bdc: BusinessDayConvention::ModifiedFollowing,
@@ -609,7 +609,7 @@ fn test_daycount_convention_impact_on_annuity() {
         .side(PayReceive::ReceiveFixed)
         .fixed(FixedLegSpec {
             discount_curve_id: "USD-OIS".into(),
-            rate: 0.05,
+            rate: rust_decimal::Decimal::try_from(0.05).expect("valid"),
             freq: Tenor::quarterly(),
             dc: DayCount::Thirty360,
             bdc: BusinessDayConvention::ModifiedFollowing,
@@ -624,7 +624,7 @@ fn test_daycount_convention_impact_on_annuity() {
         .float(FloatLegSpec {
             discount_curve_id: "USD-OIS".into(),
             forward_curve_id: "USD-SOFR-3M".into(),
-            spread_bp: 0.0,
+            spread_bp: rust_decimal::Decimal::try_from(0.0).expect("valid"),
             freq: Tenor::quarterly(),
             dc: DayCount::Act360,
             bdc: BusinessDayConvention::ModifiedFollowing,
@@ -725,7 +725,7 @@ fn test_irs_t_minus_2_fixing_calendar_isda_standard() {
         .side(PayReceive::PayFixed)
         .fixed(FixedLegSpec {
             discount_curve_id: "USD-OIS".into(),
-            rate: 0.05, // 5% fixed rate
+            rate: rust_decimal::Decimal::try_from(0.05).expect("valid"), // 5% fixed rate
             freq: Tenor::semi_annual(),
             dc: DayCount::Thirty360, // USD fixed leg: 30/360
             bdc: BusinessDayConvention::ModifiedFollowing,
@@ -740,7 +740,7 @@ fn test_irs_t_minus_2_fixing_calendar_isda_standard() {
         .float(FloatLegSpec {
             discount_curve_id: "USD-OIS".into(),
             forward_curve_id: "USD-SOFR-3M".into(),
-            spread_bp: 0.0,
+            spread_bp: rust_decimal::Decimal::try_from(0.0).expect("valid"),
             freq: Tenor::quarterly(),
             dc: DayCount::Act360, // USD float leg: ACT/360
             bdc: BusinessDayConvention::ModifiedFollowing,
@@ -901,7 +901,7 @@ fn test_irs_forward_curve_daycount_used_for_projection() {
         .side(PayReceive::PayFixed)
         .fixed(FixedLegSpec {
             discount_curve_id: "USD-OIS".into(),
-            rate: 0.04, // Below average forward to create positive NPV
+            rate: rust_decimal::Decimal::try_from(0.04).expect("valid"), // Below average forward to create positive NPV
             freq: Tenor::quarterly(),
             dc: DayCount::Act360,
             bdc: BusinessDayConvention::ModifiedFollowing,
@@ -916,7 +916,7 @@ fn test_irs_forward_curve_daycount_used_for_projection() {
         .float(FloatLegSpec {
             discount_curve_id: "USD-OIS".into(),
             forward_curve_id: "USD-SOFR-365".into(),
-            spread_bp: 0.0,
+            spread_bp: rust_decimal::Decimal::try_from(0.0).expect("valid"),
             freq: Tenor::quarterly(),
             dc: DayCount::Act360, // Float leg uses ACT/360 for accrual
             bdc: BusinessDayConvention::ModifiedFollowing,
@@ -938,7 +938,7 @@ fn test_irs_forward_curve_daycount_used_for_projection() {
         .side(PayReceive::PayFixed)
         .fixed(FixedLegSpec {
             discount_curve_id: "USD-OIS".into(),
-            rate: 0.04, // Below average forward to create positive NPV
+            rate: rust_decimal::Decimal::try_from(0.04).expect("valid"), // Below average forward to create positive NPV
             freq: Tenor::quarterly(),
             dc: DayCount::Act360,
             bdc: BusinessDayConvention::ModifiedFollowing,
@@ -953,7 +953,7 @@ fn test_irs_forward_curve_daycount_used_for_projection() {
         .float(FloatLegSpec {
             discount_curve_id: "USD-OIS".into(),
             forward_curve_id: "USD-SOFR-360".into(),
-            spread_bp: 0.0,
+            spread_bp: rust_decimal::Decimal::try_from(0.0).expect("valid"),
             freq: Tenor::quarterly(),
             dc: DayCount::Act360, // Float leg uses ACT/360 for accrual
             bdc: BusinessDayConvention::ModifiedFollowing,

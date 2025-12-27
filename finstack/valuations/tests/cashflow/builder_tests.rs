@@ -17,6 +17,7 @@ use finstack_core::money::Money;
 use finstack_valuations::cashflow::builder::specs::{CouponType, FixedCouponSpec};
 use finstack_valuations::cashflow::builder::{AmortizationSpec, CashFlowSchedule};
 use finstack_valuations::instruments::common::discountable::Discountable;
+use rust_decimal::Decimal;
 use time::Month;
 
 #[test]
@@ -26,7 +27,7 @@ fn linear_vs_step_parity() {
 
     let fixed = FixedCouponSpec {
         coupon_type: CouponType::Cash,
-        rate: 0.05,
+        rate: Decimal::try_from(0.05).expect("valid"),
         freq: Tenor::quarterly(),
         dc: DayCount::Act365F,
         bdc: BusinessDayConvention::Following,
@@ -89,7 +90,7 @@ fn pik_capitalization_increases_outstanding() {
 
     let fixed = FixedCouponSpec {
         coupon_type: CouponType::PIK,
-        rate: 0.10,
+        rate: Decimal::try_from(0.10).expect("valid"),
         freq: Tenor::semi_annual(),
         dc: DayCount::Act365F,
         bdc: BusinessDayConvention::Following,
@@ -119,10 +120,10 @@ fn ordering_invariants_within_date() {
     let init = Money::new(1_000.0, Currency::USD);
     let fixed = FixedCouponSpec {
         coupon_type: CouponType::Split {
-            cash_pct: 0.5,
-            pik_pct: 0.5,
+            cash_pct: Decimal::try_from(0.5).expect("valid"),
+            pik_pct: Decimal::try_from(0.5).expect("valid"),
         },
-        rate: 0.10,
+        rate: Decimal::try_from(0.10).expect("valid"),
         freq: Tenor::quarterly(),
         dc: DayCount::Act365F,
         bdc: BusinessDayConvention::Following,
@@ -166,7 +167,7 @@ fn fixed_schedule_npv_equals_sum_cashflows() {
 
     let fixed = FixedCouponSpec {
         coupon_type: CouponType::Cash,
-        rate: 0.05,
+        rate: Decimal::try_from(0.05).expect("valid"),
         freq: Tenor::semi_annual(),
         dc: DayCount::Act365F,
         bdc: BusinessDayConvention::Following,
@@ -214,7 +215,7 @@ fn detects_stub_periods() {
 
     let fixed = FixedCouponSpec {
         coupon_type: CouponType::Cash,
-        rate: 0.04,
+        rate: Decimal::try_from(0.04).expect("valid"),
         freq: Tenor::semi_annual(),
         dc: DayCount::Act365F,
         bdc: BusinessDayConvention::Following,
@@ -252,10 +253,10 @@ fn outstanding_by_date_dedup_and_values() {
     // Force multiple flows per date: split coupon (cash + PIK) and amortization on coupon dates
     let fixed = FixedCouponSpec {
         coupon_type: CouponType::Split {
-            cash_pct: 0.5,
-            pik_pct: 0.5,
+            cash_pct: Decimal::try_from(0.5).expect("valid"),
+            pik_pct: Decimal::try_from(0.5).expect("valid"),
         },
-        rate: 0.12,
+        rate: Decimal::try_from(0.12).expect("valid"),
         freq: Tenor::quarterly(),
         dc: DayCount::Act365F,
         bdc: BusinessDayConvention::Following,
@@ -331,7 +332,7 @@ fn strict_schedule_mode_errors_on_unknown_calendar() {
 
     let fixed = FixedCouponSpec {
         coupon_type: CouponType::Cash,
-        rate: 0.05,
+        rate: Decimal::try_from(0.05).expect("valid"),
         freq: Tenor::semi_annual(),
         dc: DayCount::Act365F,
         bdc: BusinessDayConvention::Following,
@@ -377,7 +378,7 @@ fn try_builder_methods_error_before_principal() {
 
     let fixed = FixedCouponSpec {
         coupon_type: CouponType::Cash,
-        rate: 0.05,
+        rate: Decimal::try_from(0.05).expect("valid"),
         freq: Tenor::semi_annual(),
         dc: DayCount::Act365F,
         bdc: BusinessDayConvention::Following,
@@ -417,7 +418,7 @@ fn stub_period_thirty360_produces_proportional_accrual() {
 
     let fixed = FixedCouponSpec {
         coupon_type: CouponType::Cash,
-        rate: 0.06, // 6% annual rate
+        rate: Decimal::try_from(0.06).expect("valid"), // 6% annual rate
         freq: Tenor::semi_annual(),
         dc: DayCount::Thirty360, // Market standard for corporate bonds
         bdc: BusinessDayConvention::Following,

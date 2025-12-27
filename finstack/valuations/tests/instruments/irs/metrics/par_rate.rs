@@ -11,6 +11,7 @@ use finstack_valuations::instruments::common::traits::Instrument;
 use finstack_valuations::instruments::irs::{InterestRateSwap, PayReceive};
 use finstack_valuations::metrics::MetricId;
 use time::macros::date;
+use rust_decimal_macros::dec;
 
 fn build_flat_curves(rate: f64, base_date: Date) -> MarketContext {
     let disc_curve = DiscountCurve::builder("USD_OIS")
@@ -37,7 +38,7 @@ fn build_flat_curves(rate: f64, base_date: Date) -> MarketContext {
         .insert_forward(fwd_curve)
 }
 
-fn create_standard_swap(as_of: Date, end: Date, fixed_rate: f64) -> InterestRateSwap {
+fn create_standard_swap(as_of: Date, end: Date, fixed_rate: rust_decimal::Decimal) -> InterestRateSwap {
     InterestRateSwap {
         id: "IRS_PAR_TEST".into(),
         notional: Money::new(1_000_000.0, Currency::USD),
@@ -59,7 +60,7 @@ fn create_standard_swap(as_of: Date, end: Date, fixed_rate: f64) -> InterestRate
         float: finstack_valuations::instruments::common::parameters::legs::FloatLegSpec {
             discount_curve_id: "USD_OIS".into(),
             forward_curve_id: "USD_LIBOR_3M".into(),
-            spread_bp: 0.0,
+            spread_bp: rust_decimal::Decimal::try_from(0.0).expect("valid"),
             freq: Tenor::quarterly(),
             dc: DayCount::Act360,
             bdc: BusinessDayConvention::ModifiedFollowing,
@@ -83,7 +84,7 @@ fn test_par_rate_flat_curve() {
     let as_of = date!(2024 - 01 - 01);
     let end = date!(2029 - 01 - 01);
 
-    let swap = create_standard_swap(as_of, end, 0.05);
+    let swap = create_standard_swap(as_of, end, dec!(0.05));
     let market = build_flat_curves(0.05, as_of);
 
     let result = swap
@@ -105,7 +106,7 @@ fn test_par_rate_makes_npv_zero() {
     let as_of = date!(2024 - 01 - 01);
     let end = date!(2029 - 01 - 01);
 
-    let swap = create_standard_swap(as_of, end, 0.05);
+    let swap = create_standard_swap(as_of, end, dec!(0.05));
     let market = build_flat_curves(0.05, as_of);
 
     let result = swap
@@ -115,7 +116,7 @@ fn test_par_rate_makes_npv_zero() {
     let par_rate = *result.measures.get("par_rate").unwrap();
 
     // Create swap at par rate
-    let swap_at_par = create_standard_swap(as_of, end, par_rate);
+    let swap_at_par = create_standard_swap(as_of, end, rust_decimal::Decimal::from_f64_retain(par_rate).unwrap_or_default());
     let npv = swap_at_par.value(&market, as_of).unwrap();
 
     assert!(
@@ -130,7 +131,7 @@ fn test_par_rate_positive() {
     let as_of = date!(2024 - 01 - 01);
     let end = date!(2029 - 01 - 01);
 
-    let swap = create_standard_swap(as_of, end, 0.05);
+    let swap = create_standard_swap(as_of, end, dec!(0.05));
     let market = build_flat_curves(0.05, as_of);
 
     let result = swap
@@ -149,8 +150,8 @@ fn test_par_rate_independent_of_fixed_rate() {
     let end = date!(2029 - 01 - 01);
     let market = build_flat_curves(0.05, as_of);
 
-    let swap_3pct = create_standard_swap(as_of, end, 0.03);
-    let swap_7pct = create_standard_swap(as_of, end, 0.07);
+    let swap_3pct = create_standard_swap(as_of, end, dec!(0.03));
+    let swap_7pct = create_standard_swap(as_of, end, dec!(0.07));
 
     let par_rate_3pct = *swap_3pct
         .price_with_metrics(&market, as_of, &[MetricId::ParRate])
@@ -181,10 +182,10 @@ fn test_par_rate_independent_of_side() {
     let end = date!(2029 - 01 - 01);
     let market = build_flat_curves(0.05, as_of);
 
-    let mut swap_receive = create_standard_swap(as_of, end, 0.05);
+    let mut swap_receive = create_standard_swap(as_of, end, dec!(0.05));
     swap_receive.side = PayReceive::ReceiveFixed;
 
-    let mut swap_pay = create_standard_swap(as_of, end, 0.05);
+    let mut swap_pay = create_standard_swap(as_of, end, dec!(0.05));
     swap_pay.side = PayReceive::PayFixed;
 
     let par_rate_receive = *swap_receive
@@ -213,7 +214,7 @@ fn test_par_rate_increases_with_forward_curve() {
     let as_of = date!(2024 - 01 - 01);
     let end = date!(2029 - 01 - 01);
 
-    let swap = create_standard_swap(as_of, end, 0.05);
+    let swap = create_standard_swap(as_of, end, dec!(0.05));
 
     let market_3pct = build_flat_curves(0.03, as_of);
     let market_7pct = build_flat_curves(0.07, as_of);
@@ -247,10 +248,10 @@ fn test_par_rate_with_spread() {
     let end = date!(2029 - 01 - 01);
     let market = build_flat_curves(0.05, as_of);
 
-    let swap_no_spread = create_standard_swap(as_of, end, 0.05);
+    let swap_no_spread = create_standard_swap(as_of, end, dec!(0.05));
 
-    let mut swap_with_spread = create_standard_swap(as_of, end, 0.05);
-    swap_with_spread.float.spread_bp = 50.0;
+    let mut swap_with_spread = create_standard_swap(as_of, end, dec!(0.05));
+    swap_with_spread.float.spread_bp = dec!(50.0);
 
     let par_rate_no_spread = *swap_no_spread
         .price_with_metrics(&market, as_of, &[MetricId::ParRate])
@@ -280,8 +281,8 @@ fn test_par_rate_short_vs_long() {
     let as_of = date!(2024 - 01 - 01);
     let market = build_flat_curves(0.05, as_of);
 
-    let swap_2y = create_standard_swap(as_of, date!(2026 - 01 - 01), 0.05);
-    let swap_10y = create_standard_swap(as_of, date!(2034 - 01 - 01), 0.05);
+    let swap_2y = create_standard_swap(as_of, date!(2026 - 01 - 01), dec!(0.05));
+    let swap_10y = create_standard_swap(as_of, date!(2034 - 01 - 01), dec!(0.05));
 
     let par_rate_2y = *swap_2y
         .price_with_metrics(&market, as_of, &[MetricId::ParRate])

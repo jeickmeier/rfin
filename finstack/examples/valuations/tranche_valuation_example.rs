@@ -18,6 +18,7 @@ use finstack_valuations::instruments::structured_credit::{
     TrancheStructure, TrancheValuationExt,
 };
 use finstack_valuations::metrics::MetricId;
+use rust_decimal_macros::dec;
 use std::error::Error;
 use time::macros::date;
 
@@ -171,10 +172,10 @@ fn create_sample_clo() -> Result<StructuredCredit, Box<dyn Error>> {
         Money::new(400_000_000.0, base_currency),
         TrancheCoupon::Floating(finstack_valuations::cashflow::builder::FloatingRateSpec {
             index_id: CurveId::new("SOFR-3M".to_string()),
-            spread_bp: 150.0,
-            gearing: 1.0,
+            spread_bp: dec!(150.0),
+            gearing: dec!(1.0),
             gearing_includes_spread: true,
-            floor_bp: Some(0.0), // 0 bps floor
+            floor_bp: Some(dec!(0.0)), // 0 bps floor
             all_in_floor_bp: None,
             cap_bp: None,
             index_cap_bp: None,
@@ -196,10 +197,10 @@ fn create_sample_clo() -> Result<StructuredCredit, Box<dyn Error>> {
         Money::new(50_000_000.0, base_currency),
         TrancheCoupon::Floating(finstack_valuations::cashflow::builder::FloatingRateSpec {
             index_id: CurveId::new("SOFR-3M".to_string()),
-            spread_bp: 300.0,
-            gearing: 1.0,
+            spread_bp: dec!(300.0),
+            gearing: dec!(1.0),
             gearing_includes_spread: true,
-            floor_bp: Some(0.0), // 0 bps floor
+            floor_bp: Some(dec!(0.0)), // 0 bps floor
             all_in_floor_bp: None,
             cap_bp: None,
             index_cap_bp: None,

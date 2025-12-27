@@ -146,7 +146,7 @@ fn test_odd_first_coupon_ytm() {
         .notional(Money::new(1_000.0, Currency::USD))
         .cashflow_spec(CashflowSpec::Fixed(FixedCouponSpec {
             coupon_type: CouponType::Cash,
-            rate: 0.05,
+            rate: rust_decimal::Decimal::try_from(0.05).expect("valid"),
             freq: Tenor::semi_annual(),
             dc: DayCount::Thirty360,
             bdc: BusinessDayConvention::Following,
@@ -254,7 +254,7 @@ fn test_long_first_coupon_ytm() {
         .notional(Money::new(1_000.0, Currency::USD))
         .cashflow_spec(CashflowSpec::Fixed(FixedCouponSpec {
             coupon_type: CouponType::Cash,
-            rate: 0.06,
+            rate: rust_decimal::Decimal::try_from(0.06).expect("valid"),
             freq: Tenor::semi_annual(),
             dc: DayCount::Act365F,
             bdc: BusinessDayConvention::ModifiedFollowing,

@@ -17,13 +17,15 @@ use finstack_core::dates::Date;
 use finstack_core::dates::DayCountCtx;
 use finstack_core::market_data::context::MarketContext;
 use finstack_core::money::Money;
+use rust_decimal::Decimal;
+use rust_decimal::prelude::ToPrimitive;
 use std::collections::BTreeMap;
 
 /// Compute total margin (base spread + covenant step-ups + pricing overrides) at a given date.
 pub(super) fn margin_bp_at(loan: &TermLoan, d: Date) -> f64 {
     let base_margin = match &loan.rate {
         super::types::RateSpec::Fixed { .. } => 0.0,
-        super::types::RateSpec::Floating(spec) => spec.spread_bp,
+        super::types::RateSpec::Floating(spec) => spec.spread_bp.to_f64().unwrap_or(0.0),
     };
     let step = loan
         .covenants
@@ -233,9 +235,11 @@ pub fn generate_cashflows(
 
     match &loan.rate {
         super::types::RateSpec::Fixed { rate_bp } => {
+            // Convert rate from basis points to decimal, then to Decimal
+            let rate_decimal = Decimal::try_from((*rate_bp as f64) * 1e-4).unwrap_or(Decimal::ZERO);
             let spec = FixedCouponSpec {
                 coupon_type: loan.coupon_type,
-                rate: (*rate_bp as f64) * 1e-4,
+                rate: rate_decimal,
                 freq: loan.pay_freq,
                 dc: loan.day_count,
                 bdc: loan.bdc,
@@ -245,8 +249,10 @@ pub fn generate_cashflows(
             let _ = builder.fixed_cf(spec);
         }
         super::types::RateSpec::Floating(spec) => {
+            // Convert Decimal spread_bp to f64 for calculations
+            let spread_bp_f64 = spec.spread_bp.to_f64().unwrap_or(0.0);
             // Build cumulative margin steps (base + step-ups + overrides)
-            let mut margin_events: Vec<(Date, f64)> = vec![(loan.issue, spec.spread_bp)];
+            let mut margin_events: Vec<(Date, f64)> = vec![(loan.issue, spread_bp_f64)];
             if let Some(cov) = &loan.covenants {
                 for step in &cov.margin_stepups {
                     margin_events.push((step.date, step.delta_bp as f64));
@@ -269,14 +275,15 @@ pub fn generate_cashflows(
                 .map(|(d, _)| *d != loan.maturity)
                 .unwrap_or(true)
             {
-                let last = steps.last().map(|(_, m)| *m).unwrap_or(spec.spread_bp);
+                let last = steps.last().map(|(_, m)| *m).unwrap_or(spread_bp_f64);
                 steps.push((loan.maturity, last));
             }
 
+            let gearing_f64 = spec.gearing.to_f64().unwrap_or(1.0);
             let base_params = FloatCouponParams {
                 index_id: spec.index_id.clone(),
-                margin_bp: 0.0,
-                gearing: spec.gearing,
+                margin_bp: Decimal::ZERO,
+                gearing: Decimal::try_from(gearing_f64).unwrap_or(Decimal::ONE),
                 reset_lag_days: spec.reset_lag_days,
             };
             let sched_params = ScheduleParams {
@@ -320,7 +327,7 @@ pub fn generate_cashflows(
         if ddtl.usage_fee_bp != 0 {
             let _ = builder.fee(FeeSpec::PeriodicBps {
                 base: FeeBase::Drawn,
-                bps: ddtl.usage_fee_bp as f64,
+                bps: Decimal::try_from(ddtl.usage_fee_bp as f64).unwrap_or(Decimal::ZERO),
                 freq: loan.pay_freq,
                 dc: loan.day_count,
                 bdc: loan.bdc,

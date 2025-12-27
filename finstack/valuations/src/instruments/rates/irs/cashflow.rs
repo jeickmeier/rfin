@@ -11,6 +11,7 @@
 use finstack_core::dates::Date;
 use finstack_core::money::Money;
 use finstack_core::Result;
+use rust_decimal::Decimal;
 
 use crate::cashflow::builder::{
     CashFlowSchedule, FixedCouponSpec, FloatingCouponSpec, FloatingRateSpec, Notional,
@@ -136,7 +137,7 @@ pub fn float_leg_schedule_with_curves(
             rate_spec: FloatingRateSpec {
                 index_id: irs.float.forward_curve_id.to_owned(),
                 spread_bp: irs.float.spread_bp,
-                gearing: 1.0,
+                gearing: Decimal::ONE,
                 gearing_includes_spread: true,
                 floor_bp: None,
                 cap_bp: None,

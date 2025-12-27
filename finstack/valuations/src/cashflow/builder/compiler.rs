@@ -24,6 +24,7 @@ use crate::cashflow::builder::{AmortizationSpec, Notional};
 use finstack_core::dates::{BusinessDayConvention, Date, DayCount, StubKind, Tenor};
 use finstack_core::error::InputError;
 use finstack_core::money::Money;
+use rust_decimal::Decimal;
 
 use super::date_generation::{build_dates, build_dates_checked};
 use super::specs::{
@@ -79,14 +80,14 @@ pub(super) type FloatSchedule = (
 ///
 /// Fields:
 /// - `base` (`FeeBase`): Notional/cash‑based fee base.
-/// - `bps` (`f64`): Annualized basis points applied to the base.
+/// - `bps` (`Decimal`): Annualized basis points applied to the base. Uses Decimal for exact representation.
 /// - `dc` (`DayCount`): Day‑count convention for accrual.
 /// - `dates` (`Vec<Date>`): Inclusive/exclusive boundary dates for accrual periods.
 /// - `prev` (`HashMap<Date, Date>`): Mapping of each period end to its start.
 #[derive(Debug, Clone)]
 pub(super) struct PeriodicFee {
     pub(super) base: FeeBase,
-    pub(super) bps: f64,
+    pub(super) bps: Decimal,
     pub(super) dc: DayCount,
     pub(super) dates: Vec<Date>,
     pub(super) prev: finstack_core::collections::HashMap<Date, Date>,
@@ -191,12 +192,12 @@ pub(super) struct DateWindow {
 #[derive(Debug, Clone)]
 pub(super) enum CouponSpec {
     Fixed {
-        rate: f64,
+        rate: Decimal,
     },
     Float {
         index_id: finstack_core::types::CurveId,
-        margin_bp: f64,
-        gearing: f64,
+        margin_bp: Decimal,
+        gearing: Decimal,
         reset_lag_days: i32,
     },
 }

@@ -44,7 +44,8 @@ impl DiscountMarginCalculator {
         match &mut loan_with_dm.rate {
             RateSpec::Floating(spec) => {
                 // Add DM (in bp) to base spread
-                spec.spread_bp += dm_bp;
+                use rust_decimal::Decimal;
+                spec.spread_bp += Decimal::try_from(dm_bp).unwrap_or(Decimal::ZERO);
             }
             RateSpec::Fixed { .. } => {
                 // Should not happen (caller checks), but return zero if called on fixed rate

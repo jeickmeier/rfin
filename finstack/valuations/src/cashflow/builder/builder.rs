@@ -51,6 +51,8 @@ use finstack_core::dates::Date;
 use finstack_core::error::InputError;
 use finstack_core::market_data::term_structures::ForwardCurve;
 use finstack_core::money::Money;
+use rust_decimal::Decimal;
+use rust_decimal::prelude::ToPrimitive;
 
 use super::compiler::{
     build_fee_schedules, collect_dates, compute_coupon_schedules, CompiledSchedules,
@@ -749,10 +751,12 @@ impl CashFlowBuilder {
         schedule: ScheduleParams,
         split: CouponType,
     ) -> &mut Self {
+        // Convert f64 rate to Decimal for exact representation
+        let rate_decimal = Decimal::try_from(rate).unwrap_or(Decimal::ZERO);
         self.coupon_program.push(CouponProgramPiece {
             window: DateWindow { start, end },
             schedule,
-            coupon: CouponSpec::Fixed { rate },
+            coupon: CouponSpec::Fixed { rate: rate_decimal },
         });
         self.payment_program.push(PaymentProgramPiece {
             window: DateWindow { start, end },
@@ -972,7 +976,8 @@ impl CashFlowBuilder {
         let mut prev = issue;
         for &(end, margin_bp) in steps {
             let mut params = base_params.clone();
-            params.margin_bp = margin_bp;
+            // Convert f64 margin_bp to Decimal
+            params.margin_bp = Decimal::try_from(margin_bp).unwrap_or(Decimal::ZERO);
             let _ = self.add_float_coupon_window(
                 prev,
                 end,
@@ -985,7 +990,8 @@ impl CashFlowBuilder {
         if prev != maturity {
             let mut params = base_params.clone();
             if let Some(&(_, margin_bp)) = steps.last() {
-                params.margin_bp = margin_bp;
+                // Convert f64 margin_bp to Decimal
+                params.margin_bp = Decimal::try_from(margin_bp).unwrap_or(Decimal::ZERO);
             }
             let _ = self.add_float_coupon_window(prev, maturity, params, schedule, default_split);
         }
@@ -1073,10 +1079,12 @@ impl CashFlowBuilder {
         let Some((issue, maturity)) = self.issue_maturity_or_record_error("fixed_to_float") else {
             return self;
         };
+        // Convert Decimal rate to f64 for add_fixed_coupon_window
+        let rate_f64 = fixed_win.rate.to_f64().unwrap_or(0.0);
         let _ = self.add_fixed_coupon_window(
             issue,
             switch,
-            fixed_win.rate,
+            rate_f64,
             fixed_win.schedule,
             default_split,
         );

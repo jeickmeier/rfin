@@ -18,6 +18,7 @@
 
 use finstack_core::config::{RoundingContext, ZeroKind};
 use finstack_core::dates::{Date, DayCount, DayCountCtx};
+use rust_decimal::prelude::ToPrimitive;
 use finstack_core::market_data::context::MarketContext;
 use finstack_core::money::Money;
 use finstack_core::Result;
@@ -303,14 +304,17 @@ impl<'a> CashflowEngine<'a> {
                         *rate
                     }
                     BaseRateSpec::Floating(spec) => {
-                        let mut coupon_rate = spec.spread_bp * 1e-4;
+                        // Convert Decimal spread to f64 for rate calculations
+                        let spread_bp_f64 = spec.spread_bp.to_f64().unwrap_or(0.0);
+                        let floor_bp_f64 = spec.floor_bp.and_then(|d| d.to_f64());
+                        let mut coupon_rate = spread_bp_f64 * 1e-4;
                         if let Some(fwd) = fwd_curve {
                             if let Some(reset_d) = sub_reset_date {
                                 if let Ok(rate) = super::utils::project_floating_rate_with_curve(
                                     reset_d,
                                     &spec.reset_freq,
-                                    spec.spread_bp,
-                                    spec.floor_bp,
+                                    spread_bp_f64,
+                                    floor_bp_f64,
                                     fwd,
                                     &self.facility.attributes,
                                 ) {
@@ -572,9 +576,12 @@ impl<'a> CashflowEngine<'a> {
             let interest_rate = match &self.facility.base_rate_spec {
                 BaseRateSpec::Fixed { rate } => *rate,
                 BaseRateSpec::Floating(spec) => {
-                    let mut rate = short_rate + (spec.spread_bp * 1e-4);
+                    // Convert Decimal spread to f64 for rate calculations
+                    let spread_bp_f64 = spec.spread_bp.to_f64().unwrap_or(0.0);
+                    let mut rate = short_rate + (spread_bp_f64 * 1e-4);
                     if let Some(floor) = spec.floor_bp {
-                        rate = rate.max(floor * 1e-4);
+                        let floor_f64 = floor.to_f64().unwrap_or(0.0);
+                        rate = rate.max(floor_f64 * 1e-4);
                     }
                     rate
                 }

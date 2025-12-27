@@ -91,7 +91,7 @@ mod tests {
         };
         let fixed = FixedCouponSpec {
             coupon_type: CouponType::Cash,
-            rate: 0.05,
+            rate: rust_decimal::Decimal::try_from(0.05).expect("valid rate"),
             freq: params.freq,
             dc: params.dc,
             bdc: params.bdc,

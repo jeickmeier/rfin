@@ -928,6 +928,7 @@ mod tests {
     use finstack_core::market_data::context::MarketContext;
     use finstack_core::market_data::term_structures::discount_curve::DiscountCurve;
     use finstack_core::market_data::term_structures::forward_curve::ForwardCurve;
+    use rust_decimal::Decimal;
     use finstack_core::math::interp::InterpStyle;
     use time::Month;
 
@@ -1017,10 +1018,10 @@ mod tests {
             .principal(Money::new(1_000_000.0, Currency::USD), issue, maturity)
             .fixed_cf(FixedCouponSpec {
                 coupon_type: CouponType::Split {
-                    cash_pct: 0.5,
-                    pik_pct: 0.5,
+                    cash_pct: Decimal::try_from(0.5).expect("valid"),
+                    pik_pct: Decimal::try_from(0.5).expect("valid"),
                 },
-                rate: 0.06,
+                rate: Decimal::try_from(0.06).expect("valid"),
                 freq: Tenor::quarterly(),
                 dc: DayCount::Thirty360,
                 bdc: BusinessDayConvention::Following,
@@ -1084,7 +1085,7 @@ mod tests {
             .principal(Money::new(1_000_000.0, Currency::USD), issue, maturity)
             .fixed_cf(FixedCouponSpec {
                 coupon_type: CouponType::Cash,
-                rate: 0.055, // Different from default spec
+                rate: Decimal::try_from(0.055).expect("valid"), // Different from default spec
                 freq: Tenor::quarterly(),
                 dc: DayCount::Act365F,
                 bdc: BusinessDayConvention::Following,
@@ -1134,8 +1135,8 @@ mod tests {
             .principal(Money::new(1_000_000.0, Currency::USD), issue, maturity)
             .fixed_cf(FixedCouponSpec {
                 coupon_type: CouponType::Cash,
-                rate: 0.05,                 // Different rate
-                freq: Tenor::semi_annual(), // Different frequency
+                rate: Decimal::try_from(0.05).expect("valid"), // Different rate
+                freq: Tenor::semi_annual(),                    // Different frequency
                 dc: DayCount::Act365F,
                 bdc: BusinessDayConvention::Following,
                 calendar_id: None,

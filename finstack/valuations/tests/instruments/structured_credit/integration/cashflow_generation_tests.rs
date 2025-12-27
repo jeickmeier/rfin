@@ -85,8 +85,8 @@ fn create_test_tranches() -> TrancheStructure {
         Money::new(135_000_000.0, Currency::USD),
         TrancheCoupon::Floating(finstack_valuations::cashflow::builder::FloatingRateSpec {
             index_id: finstack_core::types::CurveId::new("SOFR-3M".to_string()),
-            spread_bp: 200.0,
-            gearing: 1.0,
+            spread_bp: rust_decimal::Decimal::try_from(200.0).expect("valid"),
+            gearing: rust_decimal::Decimal::try_from(1.0).expect("valid"),
             gearing_includes_spread: true,
             floor_bp: None,
             cap_bp: None,

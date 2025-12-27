@@ -514,7 +514,7 @@ impl PyInterestRateSwapBuilder {
 
         let fixed_leg = FixedLegSpec {
             discount_curve_id: discount.clone(),
-            rate: fixed_rate,
+            rate: rust_decimal::Decimal::from_f64_retain(fixed_rate).unwrap_or_default(),
             freq: slf.fixed_frequency,
             dc: slf.fixed_day_count,
             bdc: slf.bdc,
@@ -530,7 +530,7 @@ impl PyInterestRateSwapBuilder {
         let float_leg = FloatLegSpec {
             discount_curve_id: discount,
             forward_curve_id: forward,
-            spread_bp: slf.float_spread_bp,
+            spread_bp: rust_decimal::Decimal::from_f64_retain(slf.float_spread_bp).unwrap_or_default(),
             freq: slf.float_frequency,
             dc: slf.float_day_count,
             bdc: slf.bdc,
@@ -805,7 +805,7 @@ impl PyInterestRateSwap {
 
         let fixed_leg = FixedLegSpec {
             discount_curve_id: discount_curve_id.clone(),
-            rate: fixed_rate,
+            rate: rust_decimal::Decimal::from_f64_retain(fixed_rate).unwrap_or_default(),
             freq: fixed_freq,
             dc: fixed_dc,
             bdc,
@@ -821,7 +821,7 @@ impl PyInterestRateSwap {
         let float_leg = FloatLegSpec {
             discount_curve_id: discount_curve_id.clone(),
             forward_curve_id,
-            spread_bp: float_spread_bp.unwrap_or(0.0),
+            spread_bp: rust_decimal::Decimal::from_f64_retain(float_spread_bp.unwrap_or(0.0)).unwrap_or_default(),
             freq: float_freq,
             dc: float_dc,
             bdc,
@@ -891,7 +891,8 @@ impl PyInterestRateSwap {
     ///     Any: Fixed leg coupon rate.
     #[getter]
     fn fixed_rate(&self) -> f64 {
-        self.inner.fixed.rate
+        use rust_decimal::prelude::ToPrimitive;
+        self.inner.fixed.rate.to_f64().unwrap_or(0.0)
     }
 
     /// Floating leg spread in basis points.
@@ -900,7 +901,8 @@ impl PyInterestRateSwap {
     ///     Any: Floating leg spread in basis points.
     #[getter]
     fn float_spread_bp(&self) -> f64 {
-        self.inner.float.spread_bp
+        use rust_decimal::prelude::ToPrimitive;
+        self.inner.float.spread_bp.to_f64().unwrap_or(0.0)
     }
 
     /// Effective start date (from fixed leg spec).

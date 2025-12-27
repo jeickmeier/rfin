@@ -3,6 +3,7 @@ use crate::instruments::bond::CashflowSpec;
 use crate::instruments::Bond;
 use crate::metrics::{MetricCalculator, MetricContext, MetricId};
 use finstack_core::money::Money;
+use rust_decimal::prelude::ToPrimitive;
 
 /// Calculates yield to maturity (YTM) for bonds.
 ///
@@ -61,7 +62,7 @@ impl MetricCalculator for YtmCalculator {
                 bond.cashflow_spec.day_count(),
                 bond.discount_curve_id.to_owned(),
                 match &bond.cashflow_spec {
-                    CashflowSpec::Fixed(spec) => spec.rate,
+                    CashflowSpec::Fixed(spec) => spec.rate.to_f64().unwrap_or(0.0),
                     _ => 0.0,
                 },
                 bond.cashflow_spec.frequency(),

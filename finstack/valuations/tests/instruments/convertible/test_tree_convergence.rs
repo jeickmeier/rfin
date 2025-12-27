@@ -49,7 +49,7 @@ fn create_test_convertible() -> ConvertibleBond {
 
     let fixed_coupon = FixedCouponSpec {
         coupon_type: CouponType::Cash,
-        rate: 0.05, // 5% coupon
+        rate: rust_decimal::Decimal::try_from(0.05).expect("valid"), // 5% coupon
         freq: Tenor::semi_annual(),
         dc: DayCount::Act365F,
         bdc: BusinessDayConvention::Following,

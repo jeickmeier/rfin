@@ -195,7 +195,7 @@ fn test_time_mapping_with_quarterly_coupons() {
 
     let fixed_coupon = FixedCouponSpec {
         coupon_type: CouponType::Cash,
-        rate: 0.06,
+        rate: rust_decimal::Decimal::try_from(0.06).expect("valid"),
         freq: Tenor::quarterly(),
         dc: DayCount::Act365F,
         bdc: BusinessDayConvention::Following,

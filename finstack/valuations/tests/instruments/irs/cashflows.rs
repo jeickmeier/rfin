@@ -97,7 +97,7 @@ fn test_irs_fixed_leg_quarterly_schedule() {
         .fixed(
             finstack_valuations::instruments::common::parameters::legs::FixedLegSpec {
                 discount_curve_id: "USD_OIS".into(),
-                rate: 0.05,
+                rate: rust_decimal::Decimal::try_from(0.05).expect("valid"),
                 freq: Tenor::quarterly(),
                 dc: DayCount::Act360,
                 bdc: BusinessDayConvention::ModifiedFollowing,
@@ -114,7 +114,7 @@ fn test_irs_fixed_leg_quarterly_schedule() {
             finstack_valuations::instruments::common::parameters::legs::FloatLegSpec {
                 discount_curve_id: "USD_OIS".into(),
                 forward_curve_id: "USD_LIBOR_3M".into(),
-                spread_bp: 0.0,
+                spread_bp: rust_decimal::Decimal::ZERO,
                 freq: Tenor::quarterly(),
                 dc: DayCount::Act360,
                 bdc: BusinessDayConvention::ModifiedFollowing,
@@ -153,7 +153,7 @@ fn test_irs_fixed_leg_semiannual_schedule() {
         .fixed(
             finstack_valuations::instruments::common::parameters::legs::FixedLegSpec {
                 discount_curve_id: "USD_OIS".into(),
-                rate: 0.05,
+                rate: rust_decimal::Decimal::try_from(0.05).expect("valid"),
                 freq: Tenor::semi_annual(),
                 dc: DayCount::Thirty360,
                 bdc: BusinessDayConvention::ModifiedFollowing,
@@ -170,7 +170,7 @@ fn test_irs_fixed_leg_semiannual_schedule() {
             finstack_valuations::instruments::common::parameters::legs::FloatLegSpec {
                 discount_curve_id: "USD_OIS".into(),
                 forward_curve_id: "USD_LIBOR_3M".into(),
-                spread_bp: 0.0,
+                spread_bp: rust_decimal::Decimal::try_from(0.0).expect("valid"),
                 freq: Tenor::quarterly(),
                 dc: DayCount::Act360,
                 bdc: BusinessDayConvention::ModifiedFollowing,
@@ -230,7 +230,7 @@ fn test_irs_stub_front() {
         .fixed(
             finstack_valuations::instruments::common::parameters::legs::FixedLegSpec {
                 discount_curve_id: "USD_OIS".into(),
-                rate: 0.05,
+                rate: rust_decimal::Decimal::try_from(0.05).expect("valid"),
                 freq: Tenor::semi_annual(),
                 dc: DayCount::Thirty360,
                 bdc: BusinessDayConvention::ModifiedFollowing,
@@ -247,7 +247,7 @@ fn test_irs_stub_front() {
             finstack_valuations::instruments::common::parameters::legs::FloatLegSpec {
                 discount_curve_id: "USD_OIS".into(),
                 forward_curve_id: "USD_LIBOR_3M".into(),
-                spread_bp: 0.0,
+                spread_bp: rust_decimal::Decimal::try_from(0.0).expect("valid"),
                 freq: Tenor::quarterly(),
                 dc: DayCount::Act360,
                 bdc: BusinessDayConvention::ModifiedFollowing,
@@ -282,7 +282,7 @@ fn test_irs_stub_back() {
         .fixed(
             finstack_valuations::instruments::common::parameters::legs::FixedLegSpec {
                 discount_curve_id: "USD_OIS".into(),
-                rate: 0.05,
+                rate: rust_decimal::Decimal::try_from(0.05).expect("valid"),
                 freq: Tenor::semi_annual(),
                 dc: DayCount::Thirty360,
                 bdc: BusinessDayConvention::ModifiedFollowing,
@@ -299,7 +299,7 @@ fn test_irs_stub_back() {
             finstack_valuations::instruments::common::parameters::legs::FloatLegSpec {
                 discount_curve_id: "USD_OIS".into(),
                 forward_curve_id: "USD_LIBOR_3M".into(),
-                spread_bp: 0.0,
+                spread_bp: rust_decimal::Decimal::try_from(0.0).expect("valid"),
                 freq: Tenor::quarterly(),
                 dc: DayCount::Act360,
                 bdc: BusinessDayConvention::ModifiedFollowing,
@@ -416,7 +416,7 @@ fn test_irs_different_frequencies() {
         .fixed(
             finstack_valuations::instruments::common::parameters::legs::FixedLegSpec {
                 discount_curve_id: "USD_OIS".into(),
-                rate: 0.05,
+                rate: rust_decimal::Decimal::try_from(0.05).expect("valid"),
                 freq: Tenor::semi_annual(),
                 dc: DayCount::Thirty360,
                 bdc: BusinessDayConvention::ModifiedFollowing,
@@ -433,7 +433,7 @@ fn test_irs_different_frequencies() {
             finstack_valuations::instruments::common::parameters::legs::FloatLegSpec {
                 discount_curve_id: "USD_OIS".into(),
                 forward_curve_id: "USD_LIBOR_3M".into(),
-                spread_bp: 0.0,
+                spread_bp: rust_decimal::Decimal::try_from(0.0).expect("valid"),
                 freq: Tenor::quarterly(),
                 dc: DayCount::Act360,
                 bdc: BusinessDayConvention::ModifiedFollowing,
@@ -469,7 +469,7 @@ fn test_irs_calendar_adjustments() {
         .fixed(
             finstack_valuations::instruments::common::parameters::legs::FixedLegSpec {
                 discount_curve_id: "USD_OIS".into(),
-                rate: 0.05,
+                rate: rust_decimal::Decimal::try_from(0.05).expect("valid"),
                 freq: Tenor::semi_annual(),
                 dc: DayCount::Thirty360,
                 bdc: BusinessDayConvention::ModifiedFollowing,
@@ -486,7 +486,7 @@ fn test_irs_calendar_adjustments() {
             finstack_valuations::instruments::common::parameters::legs::FloatLegSpec {
                 discount_curve_id: "USD_OIS".into(),
                 forward_curve_id: "USD_LIBOR_3M".into(),
-                spread_bp: 0.0,
+                spread_bp: rust_decimal::Decimal::try_from(0.0).expect("valid"),
                 freq: Tenor::quarterly(),
                 dc: DayCount::Act360,
                 bdc: BusinessDayConvention::ModifiedFollowing,

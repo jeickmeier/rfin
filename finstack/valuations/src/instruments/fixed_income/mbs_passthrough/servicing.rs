@@ -9,6 +9,7 @@
 //! Net coupon = WAC - servicing_fee - guarantee_fee
 
 use finstack_core::dates::{BusinessDayConvention, DayCount, StubKind, Tenor};
+use rust_decimal::Decimal;
 
 /// Fee specification for MBS servicing or guarantee fees.
 ///
@@ -100,7 +101,8 @@ pub fn to_cashflow_fee_spec(mbs_fee: &MbsFeeSpec) -> crate::cashflow::builder::F
 
     FeeSpec::PeriodicBps {
         base: FeeBase::Drawn,
-        bps: mbs_fee.annual_rate_bps,
+        // Convert f64 bps to Decimal for exact representation
+        bps: Decimal::try_from(mbs_fee.annual_rate_bps).unwrap_or(Decimal::ZERO),
         freq: mbs_fee.frequency,
         dc: mbs_fee.day_count,
         bdc: BusinessDayConvention::Following,

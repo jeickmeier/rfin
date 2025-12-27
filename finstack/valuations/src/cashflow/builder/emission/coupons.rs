@@ -5,6 +5,8 @@ use finstack_core::currency::Currency;
 use finstack_core::dates::{Date, DateExt, Tenor};
 use finstack_core::market_data::term_structures::ForwardCurve;
 use finstack_core::money::Money;
+use rust_decimal::Decimal;
+use rust_decimal::prelude::ToPrimitive;
 
 use super::super::compiler::{FixedSchedule, FloatSchedule};
 use super::helpers::{add_pik_flow_if_nonzero, compute_reset_date, resolve_calendar};
@@ -70,11 +72,21 @@ pub(in crate::cashflow::builder) fn emit_fixed_coupons_on(
                 },
             )?;
 
-            let coupon_total = base_out * (spec.rate * yf);
-            let (cash_pct, pik_pct) = spec.coupon_type.split_parts()?;
+            // Convert Decimal rate to f64 for year fraction computation, then use Decimal for coupon calc
+            let base_out_dec = Decimal::try_from(base_out).unwrap_or(Decimal::ZERO);
+            let yf_dec = Decimal::try_from(yf).unwrap_or(Decimal::ZERO);
+            let coupon_total_dec = base_out_dec * spec.rate * yf_dec;
+            let coupon_total = coupon_total_dec.to_f64().unwrap_or(0.0);
 
-            let cash_amt = coupon_total * cash_pct;
-            let pik_amt = coupon_total * pik_pct;
+            let (cash_pct, pik_pct) = spec.coupon_type.split_parts()?;
+            let cash_pct_f64 = cash_pct.to_f64().unwrap_or(0.0);
+            let pik_pct_f64 = pik_pct.to_f64().unwrap_or(0.0);
+
+            let cash_amt = coupon_total * cash_pct_f64;
+            let pik_amt = coupon_total * pik_pct_f64;
+
+            // Convert rate to f64 for CashFlow storage
+            let rate_f64 = spec.rate.to_f64().unwrap_or(0.0);
 
             if cash_amt > 0.0 {
                 let kind = if first_last.contains(&d) {
@@ -88,7 +100,7 @@ pub(in crate::cashflow::builder) fn emit_fixed_coupons_on(
                     amount: Money::new(cash_amt, ccy),
                     kind,
                     accrual_factor: yf,
-                    rate: Some(spec.rate),
+                    rate: Some(rate_f64),
                 });
             }
 
@@ -167,15 +179,15 @@ pub(in crate::cashflow::builder) fn emit_float_coupons_on(
             // regardless of when the payment actually occurs.
             let index_maturity = compute_index_maturity(reset_date, spec.rate_spec.reset_freq);
 
-            // Construct params for detailed projection
+            // Construct params for detailed projection (converting Decimal to f64 for rate_helpers)
             let params = crate::cashflow::builder::rate_helpers::FloatingRateParams {
-                spread_bp: spec.rate_spec.spread_bp,
-                gearing: spec.rate_spec.gearing,
+                spread_bp: spec.rate_spec.spread_bp.to_f64().unwrap_or(0.0),
+                gearing: spec.rate_spec.gearing.to_f64().unwrap_or(1.0),
                 gearing_includes_spread: spec.rate_spec.gearing_includes_spread,
-                index_floor_bp: spec.rate_spec.floor_bp,
-                index_cap_bp: spec.rate_spec.index_cap_bp,
-                all_in_floor_bp: spec.rate_spec.all_in_floor_bp,
-                all_in_cap_bp: spec.rate_spec.cap_bp,
+                index_floor_bp: spec.rate_spec.floor_bp.and_then(|d| d.to_f64()),
+                index_cap_bp: spec.rate_spec.index_cap_bp.and_then(|d| d.to_f64()),
+                all_in_floor_bp: spec.rate_spec.all_in_floor_bp.and_then(|d| d.to_f64()),
+                all_in_cap_bp: spec.rate_spec.cap_bp.and_then(|d| d.to_f64()),
             };
 
             // Compute total rate using centralized projection with floor/cap support
@@ -194,17 +206,24 @@ pub(in crate::cashflow::builder) fn emit_float_coupons_on(
                 super::super::rate_helpers::project_fallback_rate(&params)
             };
 
-            let coupon_total = base_out * (total_rate * yf);
+            // Use Decimal for coupon calculation
+            let base_out_dec = Decimal::try_from(base_out).unwrap_or(Decimal::ZERO);
+            let total_rate_dec = Decimal::try_from(total_rate).unwrap_or(Decimal::ZERO);
+            let yf_dec = Decimal::try_from(yf).unwrap_or(Decimal::ZERO);
+            let coupon_total_dec = base_out_dec * total_rate_dec * yf_dec;
+            let coupon_total = coupon_total_dec.to_f64().unwrap_or(0.0);
 
             let (cash_pct, pik_pct) = spec.coupon_type.split_parts()?;
-            let cash_amt = coupon_total * cash_pct;
-            let pik_amt = coupon_total * pik_pct;
+            let cash_pct_f64 = cash_pct.to_f64().unwrap_or(0.0);
+            let pik_pct_f64 = pik_pct.to_f64().unwrap_or(0.0);
+            let cash_amt = coupon_total * cash_pct_f64;
+            let pik_amt = coupon_total * pik_pct_f64;
 
             // Emit cash portion of floating coupon if any.
             // Note: PIK portion is emitted separately via add_pik_flow_if_nonzero.
             // For 100% PIK coupons, only the PIK flow is emitted, which is intentional
             // since the schedule structure (dates, accrual factors) is preserved in PIK flows.
-            if cash_pct > 0.0 {
+            if cash_pct_f64 > 0.0 {
                 out_flows.push(CashFlow {
                     date: d,
                     reset_date: Some(reset_date),

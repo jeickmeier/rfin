@@ -56,7 +56,7 @@ fn create_swap(as_of: Date, end: Date, fixed_rate: f64, side: PayReceive) -> Int
         side,
         fixed: finstack_valuations::instruments::common::parameters::legs::FixedLegSpec {
             discount_curve_id: "USD-OIS".into(),
-            rate: fixed_rate,
+            rate: rust_decimal::Decimal::try_from(fixed_rate).expect("valid"),
             freq: Tenor::quarterly(),
             dc: DayCount::Act360,
             bdc: BusinessDayConvention::ModifiedFollowing,
@@ -71,7 +71,7 @@ fn create_swap(as_of: Date, end: Date, fixed_rate: f64, side: PayReceive) -> Int
         float: finstack_valuations::instruments::common::parameters::legs::FloatLegSpec {
             discount_curve_id: "USD-OIS".into(),
             forward_curve_id: "USD-SOFR-3M".into(),
-            spread_bp: 0.0,
+            spread_bp: rust_decimal::Decimal::ZERO,
             freq: Tenor::quarterly(),
             dc: DayCount::Act360,
             bdc: BusinessDayConvention::ModifiedFollowing,
@@ -194,7 +194,7 @@ fn test_forward_starting_swap() {
         side: PayReceive::ReceiveFixed,
         fixed: finstack_valuations::instruments::common::parameters::legs::FixedLegSpec {
             discount_curve_id: "USD-OIS".into(),
-            rate: 0.05,
+            rate: rust_decimal::Decimal::try_from(0.05).expect("valid"),
             freq: Tenor::quarterly(),
             dc: DayCount::Act360,
             bdc: BusinessDayConvention::ModifiedFollowing,
@@ -209,7 +209,7 @@ fn test_forward_starting_swap() {
         float: finstack_valuations::instruments::common::parameters::legs::FloatLegSpec {
             discount_curve_id: "USD-OIS".into(),
             forward_curve_id: "USD-SOFR-3M".into(),
-            spread_bp: 0.0,
+            spread_bp: rust_decimal::Decimal::try_from(0.0).expect("valid"),
             freq: Tenor::quarterly(),
             dc: DayCount::Act360,
             bdc: BusinessDayConvention::ModifiedFollowing,
@@ -268,7 +268,7 @@ fn test_swap_with_large_spread() {
     let end = date!(2029 - 01 - 01);
 
     let mut swap = create_swap(as_of, end, 0.05, PayReceive::ReceiveFixed);
-    swap.float.spread_bp = 200.0; // 200bp spread
+    swap.float.spread_bp = rust_decimal::Decimal::try_from(200.0).expect("valid"); // 200bp spread
 
     let market = build_flat_curves(0.05, 0.05, as_of);
 
@@ -317,7 +317,7 @@ fn test_swap_seasoned() {
         side: PayReceive::ReceiveFixed,
         fixed: finstack_valuations::instruments::common::parameters::legs::FixedLegSpec {
             discount_curve_id: "USD-OIS".into(),
-            rate: 0.04, // Old rate from 2023
+            rate: rust_decimal::Decimal::try_from(0.04).expect("valid"), // Old rate from 2023
             freq: Tenor::quarterly(),
             dc: DayCount::Act360,
             bdc: BusinessDayConvention::ModifiedFollowing,
@@ -332,7 +332,7 @@ fn test_swap_seasoned() {
         float: finstack_valuations::instruments::common::parameters::legs::FloatLegSpec {
             discount_curve_id: "USD-OIS".into(),
             forward_curve_id: "USD-SOFR-3M".into(),
-            spread_bp: 0.0,
+            spread_bp: rust_decimal::Decimal::try_from(0.0).expect("valid"),
             freq: Tenor::quarterly(),
             dc: DayCount::Act360,
             bdc: BusinessDayConvention::ModifiedFollowing,

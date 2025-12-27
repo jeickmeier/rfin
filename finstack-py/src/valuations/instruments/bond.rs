@@ -107,8 +107,8 @@ impl PyBondBuilder {
             CashflowSpec::Floating(FloatingCouponSpec {
                 rate_spec: FloatingRateSpec {
                     index_id: fwd.clone(),
-                    spread_bp: self.float_margin_bp,
-                    gearing: self.float_gearing,
+                    spread_bp: rust_decimal::Decimal::from_f64_retain(self.float_margin_bp).unwrap_or_default(),
+                    gearing: rust_decimal::Decimal::from_f64_retain(self.float_gearing).unwrap_or(rust_decimal::Decimal::ONE),
                     gearing_includes_spread: true,
                     floor_bp: None,
                     all_in_floor_bp: None,
@@ -128,7 +128,7 @@ impl PyBondBuilder {
         } else {
             let base = CashflowSpec::Fixed(FixedCouponSpec {
                 coupon_type: CouponType::Cash,
-                rate: self.coupon_rate,
+                rate: rust_decimal::Decimal::from_f64_retain(self.coupon_rate).unwrap_or_default(),
                 freq: self.frequency,
                 dc: self.day_count,
                 bdc: self.bdc,
@@ -793,8 +793,8 @@ impl PyBond {
             CashflowSpec::Floating(FloatingCouponSpec {
                 rate_spec: FloatingRateSpec {
                     index_id: forward_curve_id,
-                    spread_bp: float_margin_bp.unwrap_or(0.0),
-                    gearing: float_gearing.unwrap_or(1.0),
+                    spread_bp: rust_decimal::Decimal::from_f64_retain(float_margin_bp.unwrap_or(0.0)).unwrap_or_default(),
+                    gearing: rust_decimal::Decimal::from_f64_retain(float_gearing.unwrap_or(1.0)).unwrap_or(rust_decimal::Decimal::ONE),
                     gearing_includes_spread: true,
                     floor_bp: None,
                     all_in_floor_bp: None,
@@ -812,7 +812,7 @@ impl PyBond {
                 stub: stub_val,
             })
         } else {
-            let rate = coupon_rate.unwrap_or(0.0);
+            let rate = rust_decimal::Decimal::from_f64_retain(coupon_rate.unwrap_or(0.0)).unwrap_or_default();
             if let Some(am) = amortization.as_ref() {
                 CashflowSpec::amortizing(
                     CashflowSpec::Fixed(FixedCouponSpec {
@@ -929,8 +929,8 @@ impl PyBond {
             bond.cashflow_spec = CashflowSpec::Floating(FloatingCouponSpec {
                 rate_spec: FloatingRateSpec {
                     index_id: forward_curve_id,
-                    spread_bp: float_margin_bp.unwrap_or(0.0),
-                    gearing: float_gearing.unwrap_or(1.0),
+                    spread_bp: rust_decimal::Decimal::from_f64_retain(float_margin_bp.unwrap_or(0.0)).unwrap_or_default(),
+                    gearing: rust_decimal::Decimal::from_f64_retain(float_gearing.unwrap_or(1.0)).unwrap_or(rust_decimal::Decimal::ONE),
                     gearing_includes_spread: true,
                     floor_bp: None,
                     all_in_floor_bp: None,
@@ -1021,10 +1021,11 @@ impl PyBond {
     ///     float: Annual coupon rate, or 0.0 for non-fixed bonds.
     #[getter]
     fn coupon(&self) -> f64 {
+        use rust_decimal::prelude::ToPrimitive;
         match &self.inner.cashflow_spec {
-            CashflowSpec::Fixed(spec) => spec.rate,
+            CashflowSpec::Fixed(spec) => spec.rate.to_f64().unwrap_or(0.0),
             CashflowSpec::Amortizing { base, .. } => match &**base {
-                CashflowSpec::Fixed(spec) => spec.rate,
+                CashflowSpec::Fixed(spec) => spec.rate.to_f64().unwrap_or(0.0),
                 _ => 0.0,
             },
             _ => 0.0,
@@ -1080,8 +1081,9 @@ impl PyBond {
     }
 
     fn __repr__(&self) -> PyResult<String> {
+        use rust_decimal::prelude::ToPrimitive;
         let coupon_rate = match &self.inner.cashflow_spec {
-            CashflowSpec::Fixed(spec) => spec.rate,
+            CashflowSpec::Fixed(spec) => spec.rate.to_f64().unwrap_or(0.0),
             _ => 0.0,
         };
         Ok(format!(
@@ -1093,8 +1095,9 @@ impl PyBond {
 
 impl fmt::Display for PyBond {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        use rust_decimal::prelude::ToPrimitive;
         let coupon_rate = match &self.inner.cashflow_spec {
-            CashflowSpec::Fixed(spec) => spec.rate,
+            CashflowSpec::Fixed(spec) => spec.rate.to_f64().unwrap_or(0.0),
             _ => 0.0,
         };
         write!(f, "Bond({}, coupon={:.4})", self.inner.id, coupon_rate)

@@ -5,6 +5,7 @@
 
 use finstack_core::dates::{Date, DayCount, DayCountCtx};
 use finstack_core::market_data::context::MarketContext;
+use rust_decimal::prelude::ToPrimitive;
 
 use crate::instruments::structured_credit::types::TrancheCoupon;
 
@@ -41,19 +42,26 @@ pub fn tranche_all_in_rate(coupon: &TrancheCoupon, date: Date, market: &MarketCo
     match coupon {
         TrancheCoupon::Fixed { rate } => *rate,
         TrancheCoupon::Floating(spec) => {
+            // Convert Decimal values to f64 for calculations
+            let spread_bp_f64 = spec.spread_bp.to_f64().unwrap_or(0.0);
+            let gearing_f64 = spec.gearing.to_f64().unwrap_or(1.0);
+            let floor_bp_f64 = spec.floor_bp.and_then(|d| d.to_f64());
+            let cap_bp_f64 = spec.cap_bp.and_then(|d| d.to_f64());
+            let fallback_rate = spread_bp_f64 / 10_000.0;
+
             let fwd = match market.get_forward_ref(spec.index_id.as_str()) {
                 Ok(c) => c,
-                Err(_) => return spec.spread_bp / 10_000.0,
+                Err(_) => return fallback_rate,
             };
 
             let tenor = fwd.tenor();
             let period_end = tenor_to_period_end(date, tenor, fwd.day_count());
 
             let params = crate::cashflow::builder::FloatingRateParams::with_full(
-                spec.spread_bp,
-                spec.gearing,
-                spec.floor_bp,
-                spec.cap_bp,
+                spread_bp_f64,
+                gearing_f64,
+                floor_bp_f64,
+                cap_bp_f64,
             );
             crate::cashflow::builder::project_floating_rate_from_market(
                 date,
@@ -62,7 +70,7 @@ pub fn tranche_all_in_rate(coupon: &TrancheCoupon, date: Date, market: &MarketCo
                 &params,
                 market,
             )
-            .unwrap_or(spec.spread_bp / 10_000.0)
+            .unwrap_or(fallback_rate)
         }
     }
 }

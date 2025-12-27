@@ -6,6 +6,8 @@
 use finstack_core::currency::Currency;
 use finstack_core::dates::Date;
 use finstack_core::money::Money;
+use num_traits::ToPrimitive;
+use rust_decimal_macros::dec;
 use time::Month;
 
 use finstack_valuations::instruments::common::parameters::underlying::EquityUnderlyingParams;
@@ -52,7 +54,7 @@ fn main() -> finstack_core::Result<()> {
     );
     use finstack_valuations::instruments::bond::CashflowSpec;
     let coupon = match &bond.cashflow_spec {
-        CashflowSpec::Fixed(spec) => spec.rate,
+        CashflowSpec::Fixed(spec) => spec.rate.to_f64().unwrap_or(0.0),
         _ => 0.0,
     };
     println!("✓ Bond created: {} coupon", coupon);
@@ -97,7 +99,7 @@ fn main() -> finstack_core::Result<()> {
         .side(PayReceive::ReceiveFixed)
         .fixed(finstack_valuations::instruments::irs::FixedLegSpec {
             discount_curve_id: "USD-OIS".into(),
-            rate: 0.0425,
+            rate: dec!(0.0425),
             freq: finstack_core::dates::Tenor::semi_annual(),
             dc: finstack_core::dates::DayCount::Thirty360,
             bdc: finstack_core::dates::BusinessDayConvention::ModifiedFollowing,
@@ -112,7 +114,7 @@ fn main() -> finstack_core::Result<()> {
         .float(finstack_valuations::instruments::irs::FloatLegSpec {
             discount_curve_id: "USD-OIS".into(),
             forward_curve_id: "USD-SOFR-3M".into(),
-            spread_bp: 25.0,
+            spread_bp: dec!(25.0),
             freq: finstack_core::dates::Tenor::quarterly(),
             dc: finstack_core::dates::DayCount::Act360,
             bdc: finstack_core::dates::BusinessDayConvention::ModifiedFollowing,

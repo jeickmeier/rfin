@@ -7,8 +7,9 @@
 use finstack_core::dates::{Date, DayCount, StubKind, Tenor};
 use finstack_core::money::Money;
 use finstack_core::types::{CurveId, InstrumentId};
+use rust_decimal::Decimal;
 
-use crate::cashflow::builder::{evaluate_fee_tiers, FeeTier, FloatingRateSpec};
+use crate::cashflow::builder::{evaluate_fee_tiers_f64, FeeTier, FloatingRateSpec};
 use crate::instruments::common::traits::Attributes;
 
 /// Revolving credit facility instrument.
@@ -106,10 +107,10 @@ impl RevolvingCredit {
         let end = Date::from_calendar_date(2027, Month::January, 1).expect("Valid example date");
         let base_rate = BaseRateSpec::Floating(FloatingRateSpec {
             index_id: CurveId::new("USD-SOFR-3M"),
-            spread_bp: 250.0,
-            gearing: 1.0,
+            spread_bp: Decimal::try_from(250.0).expect("valid spread literal"),
+            gearing: Decimal::ONE,
             gearing_includes_spread: true,
-            floor_bp: Some(0.0),
+            floor_bp: Some(Decimal::ZERO),
             cap_bp: None,
             all_in_floor_bp: None,
             index_cap_bp: None,
@@ -223,8 +224,8 @@ impl RevolvingCreditFees {
         let make_tier = |bps: f64| -> Vec<FeeTier> {
             if bps > 0.0 {
                 vec![FeeTier {
-                    threshold: 0.0,
-                    bps,
+                    threshold: Decimal::ZERO,
+                    bps: Decimal::try_from(bps).unwrap_or(Decimal::ZERO),
                 }]
             } else {
                 Vec::new()
@@ -245,7 +246,7 @@ impl RevolvingCreditFees {
     /// Tiers should be sorted by threshold ascending.
     /// If no tiers match or tiers are empty, returns 0.0.
     pub fn commitment_fee_bps(&self, utilization: f64) -> f64 {
-        evaluate_fee_tiers(&self.commitment_fee_tiers, utilization)
+        evaluate_fee_tiers_f64(&self.commitment_fee_tiers, utilization)
     }
 
     /// Get usage fee bps for given utilization (evaluates tiers).
@@ -254,7 +255,7 @@ impl RevolvingCreditFees {
     /// Tiers should be sorted by threshold ascending.
     /// If no tiers match or tiers are empty, returns 0.0.
     pub fn usage_fee_bps(&self, utilization: f64) -> f64 {
-        evaluate_fee_tiers(&self.usage_fee_tiers, utilization)
+        evaluate_fee_tiers_f64(&self.usage_fee_tiers, utilization)
     }
 }
 

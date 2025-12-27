@@ -67,7 +67,7 @@ fn test_compounding_lookback_sensitivity() {
         .side(PayReceive::ReceiveFixed)
         .fixed(FixedLegSpec {
             discount_curve_id: "DISC".into(),
-            rate: 0.05,
+            rate: rust_decimal::Decimal::try_from(0.05).expect("valid"),
             freq: Tenor::annual(),
             dc: DayCount::Act360,
             bdc: BusinessDayConvention::Following,
@@ -93,7 +93,7 @@ fn test_compounding_lookback_sensitivity() {
                 observation_shift: None,
             },
             payment_delay_days: 0,
-            spread_bp: 0.0,
+            spread_bp: rust_decimal::Decimal::try_from(0.0).expect("valid"),
             fixing_calendar_id: None,
             stub: finstack_core::dates::StubKind::None,
             reset_lag_days: 0,
@@ -194,7 +194,7 @@ fn test_seasoned_compounded_swap_requires_fixings() {
         .side(PayReceive::ReceiveFixed)
         .fixed(FixedLegSpec {
             discount_curve_id: "DISC".into(),
-            rate: 0.05,
+            rate: rust_decimal::Decimal::try_from(0.05).expect("valid"),
             freq: Tenor::annual(),
             dc: DayCount::Act360,
             bdc: BusinessDayConvention::Following,
@@ -220,7 +220,7 @@ fn test_seasoned_compounded_swap_requires_fixings() {
                 observation_shift: None,
             },
             payment_delay_days: 0,
-            spread_bp: 0.0,
+            spread_bp: rust_decimal::Decimal::try_from(0.0).expect("valid"),
             fixing_calendar_id: Some("USNY".into()),
             stub: finstack_core::dates::StubKind::None,
             reset_lag_days: 0,
@@ -280,7 +280,7 @@ fn test_seasoned_compounded_swap_with_fixings_prices() {
         .side(PayReceive::ReceiveFixed)
         .fixed(FixedLegSpec {
             discount_curve_id: "DISC".into(),
-            rate: 0.05,
+            rate: rust_decimal::Decimal::try_from(0.05).expect("valid"),
             freq: Tenor::annual(),
             dc: DayCount::Act360,
             bdc: BusinessDayConvention::Following,
@@ -306,7 +306,7 @@ fn test_seasoned_compounded_swap_with_fixings_prices() {
                 observation_shift: None,
             },
             payment_delay_days: 0,
-            spread_bp: 0.0,
+            spread_bp: rust_decimal::Decimal::try_from(0.0).expect("valid"),
             fixing_calendar_id: Some("USNY".into()),
             stub: finstack_core::dates::StubKind::None,
             reset_lag_days: 0,

@@ -3,7 +3,7 @@
   "fee_spec": {
     "PeriodicBps": {
       "base": "Drawn",
-      "bps": 50.0,
+      "bps": "50.0",
       "freq": {
         "count": 3,
         "unit": "months"

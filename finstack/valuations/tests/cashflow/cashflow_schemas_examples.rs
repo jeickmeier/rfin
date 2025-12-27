@@ -12,6 +12,7 @@ use finstack_valuations::cashflow::builder::specs::{
     FixedCouponSpec, FloatingCouponSpec, FloatingRateSpec, Notional, PrepaymentCurve,
     PrepaymentModelSpec, RecoveryModelSpec, ScheduleParams,
 };
+use rust_decimal::prelude::ToPrimitive;
 use serde::{Deserialize, Serialize};
 
 /// Generic envelope for cashflow specs with schema version.
@@ -158,7 +159,7 @@ fn test_fixed_coupon_spec() {
 
     // Rate should be 4.25% (expressed as 0.0425)
     assert!(
-        (spec.rate - 0.0425).abs() < 1e-10,
+        (spec.rate.to_f64().unwrap_or(0.0) - 0.0425).abs() < 1e-10,
         "Fixed coupon rate should be 4.25%, got {}",
         spec.rate
     );
@@ -203,7 +204,7 @@ fn test_floating_coupon_spec() {
 
     // Spread should be 150 bps
     assert!(
-        (spec.rate_spec.spread_bp - 150.0).abs() < 1e-10,
+        (spec.rate_spec.spread_bp.to_f64().unwrap_or(0.0) - 150.0).abs() < 1e-10,
         "Floating rate spread should be 150 bps, got {}",
         spec.rate_spec.spread_bp
     );
@@ -223,7 +224,7 @@ fn test_floating_coupon_spec() {
 
     // Gearing should be 1.0 (no leverage)
     assert!(
-        (spec.rate_spec.gearing - 1.0).abs() < 1e-10,
+        (spec.rate_spec.gearing.to_f64().unwrap_or(0.0) - 1.0).abs() < 1e-10,
         "Gearing should be 1.0"
     );
 

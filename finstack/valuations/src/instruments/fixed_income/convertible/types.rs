@@ -7,6 +7,7 @@ use finstack_core::currency::Currency;
 use finstack_core::dates::Date;
 use finstack_core::money::Money;
 use finstack_core::types::{CurveId, InstrumentId};
+use rust_decimal::Decimal;
 
 use crate::cashflow::builder::specs::{FixedCouponSpec, FloatingCouponSpec};
 use crate::instruments::bond::CallPutSchedule;
@@ -164,7 +165,7 @@ impl ConvertibleBond {
             .call_put_opt(None)
             .fixed_coupon_opt(Some(FixedCouponSpec {
                 coupon_type: CouponType::Cash,
-                rate: 0.02,
+                rate: Decimal::try_from(0.02).expect("valid rate literal"),
                 freq: Tenor::semi_annual(),
                 dc: DayCount::Thirty360,
                 bdc: BusinessDayConvention::Following,

@@ -9,6 +9,7 @@ use finstack_valuations::instruments::common::traits::Instrument;
 use finstack_valuations::instruments::irs::{InterestRateSwap, PayReceive};
 use finstack_valuations::metrics::MetricId;
 use time::macros::date;
+use rust_decimal_macros::dec;
 
 fn build_curves(disc_rate: f64, fwd_rate: f64, base_date: Date) -> MarketContext {
     let disc_curve_ois = DiscountCurve::builder("USD_OIS")
@@ -49,7 +50,7 @@ fn build_curves(disc_rate: f64, fwd_rate: f64, base_date: Date) -> MarketContext
         .insert_forward(fwd_curve)
 }
 
-fn create_swap(as_of: Date, end: Date, fixed_rate: f64) -> InterestRateSwap {
+fn create_swap(as_of: Date, end: Date, fixed_rate: rust_decimal::Decimal) -> InterestRateSwap {
     InterestRateSwap {
         id: "IRS_PV_FLOAT_TEST".into(),
         notional: Money::new(1_000_000.0, Currency::USD),
@@ -71,7 +72,7 @@ fn create_swap(as_of: Date, end: Date, fixed_rate: f64) -> InterestRateSwap {
         float: finstack_valuations::instruments::common::parameters::legs::FloatLegSpec {
             discount_curve_id: "USD_LIBOR_DISC".into(), // Use different discount curve for non-OIS swap
             forward_curve_id: "USD_LIBOR_3M".into(),
-            spread_bp: 0.0,
+            spread_bp: rust_decimal::Decimal::try_from(0.0).expect("valid"),
             freq: Tenor::quarterly(),
             dc: DayCount::Act360,
             bdc: BusinessDayConvention::ModifiedFollowing,
@@ -94,7 +95,7 @@ fn test_pv_float_positive() {
     let as_of = date!(2024 - 01 - 01);
     let end = date!(2029 - 01 - 01);
 
-    let swap = create_swap(as_of, end, 0.05);
+    let swap = create_swap(as_of, end, dec!(0.05));
     let market = build_curves(0.05, 0.05, as_of);
 
     let result = swap
@@ -111,7 +112,7 @@ fn test_pv_float_scales_with_forward_rate() {
     let as_of = date!(2024 - 01 - 01);
     let end = date!(2029 - 01 - 01);
 
-    let swap = create_swap(as_of, end, 0.05);
+    let swap = create_swap(as_of, end, dec!(0.05));
 
     let market_3pct = build_curves(0.05, 0.03, as_of);
     let market_6pct = build_curves(0.05, 0.06, as_of);
@@ -144,10 +145,10 @@ fn test_pv_float_with_spread() {
     let end = date!(2029 - 01 - 01);
     let market = build_curves(0.05, 0.05, as_of);
 
-    let swap_no_spread = create_swap(as_of, end, 0.05);
+    let swap_no_spread = create_swap(as_of, end, dec!(0.05));
 
-    let mut swap_with_spread = create_swap(as_of, end, 0.05);
-    swap_with_spread.float.spread_bp = 50.0;
+    let mut swap_with_spread = create_swap(as_of, end, dec!(0.05));
+    swap_with_spread.float.spread_bp = dec!(50.0);
 
     let pv_float_no_spread = *swap_no_spread
         .price_with_metrics(&market, as_of, &[MetricId::PvFloat])
@@ -175,7 +176,7 @@ fn test_pv_float_equals_fixed_at_par() {
     let as_of = date!(2024 - 01 - 01);
     let end = date!(2029 - 01 - 01);
 
-    let swap = create_swap(as_of, end, 0.05);
+    let swap = create_swap(as_of, end, dec!(0.05));
     let market = build_curves(0.05, 0.05, as_of);
 
     let result = swap
@@ -198,7 +199,7 @@ fn test_swap_npv_matches_leg_pvs() {
     let as_of = date!(2024 - 01 - 01);
     let end = date!(2029 - 01 - 01);
 
-    let swap = create_swap(as_of, end, 0.05);
+    let swap = create_swap(as_of, end, dec!(0.05));
     let market = build_curves(0.05, 0.05, as_of);
 
     // Base NPV from the instrument pricer
@@ -234,10 +235,10 @@ fn test_pv_float_independent_of_side() {
     let end = date!(2029 - 01 - 01);
     let market = build_curves(0.05, 0.05, as_of);
 
-    let mut swap_receive = create_swap(as_of, end, 0.05);
+    let mut swap_receive = create_swap(as_of, end, dec!(0.05));
     swap_receive.side = PayReceive::ReceiveFixed;
 
-    let mut swap_pay = create_swap(as_of, end, 0.05);
+    let mut swap_pay = create_swap(as_of, end, dec!(0.05));
     swap_pay.side = PayReceive::PayFixed;
 
     let pv_float_receive = *swap_receive

@@ -161,7 +161,7 @@ pub fn create_convertible_with_policy(policy: ConversionPolicy) -> ConvertibleBo
 
     let fixed_coupon = FixedCouponSpec {
         coupon_type: CouponType::Cash,
-        rate: bond_params::COUPON_RATE,
+        rate: rust_decimal::Decimal::from_f64_retain(bond_params::COUPON_RATE).unwrap_or_default(),
         freq: Tenor::semi_annual(),
         dc: DayCount::Act365F,
         bdc: BusinessDayConvention::Following,
@@ -200,7 +200,7 @@ pub fn create_convertible_with_conversion_price() -> ConvertibleBond {
 
     let fixed_coupon = FixedCouponSpec {
         coupon_type: CouponType::Cash,
-        rate: bond_params::COUPON_RATE,
+        rate: rust_decimal::Decimal::from_f64_retain(bond_params::COUPON_RATE).unwrap_or_default(),
         freq: Tenor::semi_annual(),
         dc: DayCount::Act365F,
         bdc: BusinessDayConvention::Following,
@@ -240,8 +240,8 @@ pub fn create_floating_convertible() -> ConvertibleBond {
     let floating = FloatingCouponSpec {
         rate_spec: FloatingRateSpec {
             index_id: "USD-SOFR-3M".into(),
-            spread_bp: 0.0,
-            gearing: 1.0,
+            spread_bp: rust_decimal::Decimal::try_from(0.0).expect("valid"),
+            gearing: rust_decimal::Decimal::try_from(1.0).expect("valid"),
             gearing_includes_spread: true,
             floor_bp: None,
             cap_bp: None,

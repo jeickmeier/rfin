@@ -48,7 +48,7 @@ fn create_bond_with_daycount(
         .maturity(maturity)
         .cashflow_spec(CashflowSpec::Fixed(FixedCouponSpec {
             coupon_type: CouponType::Cash,
-            rate: coupon,
+            rate: rust_decimal::Decimal::try_from(coupon).expect("valid coupon"),
             freq: Tenor::semi_annual(),
             dc: day_count,
             bdc: finstack_core::dates::BusinessDayConvention::ModifiedFollowing,
