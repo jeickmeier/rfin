@@ -56,7 +56,7 @@ impl JsFxSpot {
         }
         if let Some(money) = notional {
             inst = inst
-                .try_with_notional(money.inner())
+                .with_notional(money.inner())
                 .map_err(|e| js_error(e.to_string()))?;
         }
 

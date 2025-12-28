@@ -161,9 +161,16 @@ impl SABRParameters {
     ///
     /// These are reasonable defaults for calibration initialization but
     /// should always be calibrated to market data for production use.
-    #[allow(clippy::expect_used)] // Hardcoded values are always valid
-    pub fn equity_default() -> Self {
-        Self::new(0.20, 1.0, 0.30, -0.20).expect("default equity parameters are valid")
+    #[must_use]
+    pub const fn equity_default() -> Self {
+        // Direct construction - values are hardcoded and known-valid
+        Self {
+            alpha: 0.20,
+            beta: 1.0,
+            nu: 0.30,
+            rho: -0.20,
+            shift: None,
+        }
     }
 
     /// Create default rates-standard SABR parameters.
@@ -176,9 +183,16 @@ impl SABRParameters {
     ///
     /// These are reasonable defaults for calibration initialization but
     /// should always be calibrated to market data for production use.
-    #[allow(clippy::expect_used)] // Hardcoded values are always valid
-    pub fn rates_default() -> Self {
-        Self::new(0.02, 0.5, 0.30, 0.0).expect("default rates parameters are valid")
+    #[must_use]
+    pub const fn rates_default() -> Self {
+        // Direct construction - values are hardcoded and known-valid
+        Self {
+            alpha: 0.02,
+            beta: 0.5,
+            nu: 0.30,
+            rho: 0.0,
+            shift: None,
+        }
     }
 
     /// Get the shift parameter

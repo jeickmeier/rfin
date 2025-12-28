@@ -976,7 +976,7 @@ mod tests {
     #[test]
     fn test_fx_spot_roundtrip() {
         let fx_spot = FxSpot::new(InstrumentId::new("EURUSD"), Currency::EUR, Currency::USD)
-            .try_with_notional(Money::new(1_000_000.0, Currency::EUR))
+            .with_notional(Money::new(1_000_000.0, Currency::EUR))
             .expect("FxSpot notional should be valid")
             .with_rate(1.10)
             .with_settlement(

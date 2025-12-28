@@ -56,7 +56,7 @@ fn test_spot_rate_default_notional() {
 #[test]
 fn test_spot_rate_zero_notional_returns_zero() {
     let fx = sample_eurusd()
-        .try_with_notional(Money::new(0.0, Currency::EUR))
+        .with_notional(Money::new(0.0, Currency::EUR))
         .unwrap()
         .with_rate(1.20);
     let mut ctx = create_context(fx, test_date());
@@ -91,7 +91,7 @@ fn test_spot_rate_various_currencies() {
 
     // GBPUSD = 1.40
     let gbp_fx = sample_gbpusd()
-        .try_with_notional(Money::new(500_000.0, Currency::GBP))
+        .with_notional(Money::new(500_000.0, Currency::GBP))
         .unwrap()
         .with_rate(1.40);
     let mut gbp_ctx = create_context(gbp_fx, test_date());
@@ -104,7 +104,7 @@ fn test_spot_rate_various_currencies() {
 
     // USDJPY = 110.0
     let jpy_fx = sample_usdjpy()
-        .try_with_notional(Money::new(100_000.0, Currency::USD))
+        .with_notional(Money::new(100_000.0, Currency::USD))
         .unwrap()
         .with_rate(110.0);
     let mut jpy_ctx = create_context(jpy_fx, test_date());

@@ -69,7 +69,7 @@ pub fn sample_eurusd() -> FxSpot {
 /// Create EURUSD with explicit notional and rate
 pub fn eurusd_with_notional(notional: f64, rate: f64) -> FxSpot {
     sample_eurusd()
-        .try_with_notional(Money::new(notional, Currency::EUR))
+        .with_notional(Money::new(notional, Currency::EUR))
         .unwrap()
         .with_rate(rate)
 }

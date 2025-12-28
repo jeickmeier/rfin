@@ -132,7 +132,9 @@ impl PyCdsOption {
         .map_err(|e| PyValueError::new_err(e.to_string()))?;
         if underlying_is_index.unwrap_or(false) {
             let factor = index_factor.unwrap_or(1.0);
-            option_params = option_params.as_index(factor);
+            option_params = option_params
+                .as_index(factor)
+                .map_err(|e| PyValueError::new_err(e.to_string()))?;
         }
         if let Some(adj) = forward_adjust_bp {
             option_params = option_params.with_forward_spread_adjust_bp(adj);

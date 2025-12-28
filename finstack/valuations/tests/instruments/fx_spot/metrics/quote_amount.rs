@@ -67,7 +67,7 @@ fn test_quote_amount_various_currencies() {
 
     // GBPUSD
     let gbp_fx = sample_gbpusd()
-        .try_with_notional(Money::new(500_000.0, Currency::GBP))
+        .with_notional(Money::new(500_000.0, Currency::GBP))
         .unwrap()
         .with_rate(1.40);
     let gbp_result = gbp_fx
@@ -82,7 +82,7 @@ fn test_quote_amount_various_currencies() {
 
     // USDJPY
     let jpy_fx = sample_usdjpy()
-        .try_with_notional(Money::new(100_000.0, Currency::USD))
+        .with_notional(Money::new(100_000.0, Currency::USD))
         .unwrap()
         .with_rate(110.0);
     let jpy_result = jpy_fx
@@ -99,7 +99,7 @@ fn test_quote_amount_various_currencies() {
 #[test]
 fn test_quote_amount_zero_notional() {
     let fx = sample_eurusd()
-        .try_with_notional(Money::new(0.0, Currency::EUR))
+        .with_notional(Money::new(0.0, Currency::EUR))
         .unwrap()
         .with_rate(1.20);
     let market = MarketContext::new();

@@ -56,7 +56,7 @@ fn test_base_amount_various_currencies() {
 
     // GBP base
     let gbp_fx = sample_gbpusd()
-        .try_with_notional(Money::new(2_500_000.0, Currency::GBP))
+        .with_notional(Money::new(2_500_000.0, Currency::GBP))
         .unwrap()
         .with_rate(1.40);
     let mut gbp_ctx = create_context(gbp_fx, test_date());
@@ -71,7 +71,7 @@ fn test_base_amount_various_currencies() {
 #[test]
 fn test_base_amount_zero_notional() {
     let fx = sample_eurusd()
-        .try_with_notional(Money::new(0.0, Currency::EUR))
+        .with_notional(Money::new(0.0, Currency::EUR))
         .unwrap()
         .with_rate(1.20);
     let mut ctx = create_context(fx, test_date());

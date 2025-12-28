@@ -40,13 +40,13 @@ fn test_pricer_with_various_instruments() {
         Box::new(eurusd_with_notional(1_000_000.0, 1.20)),
         Box::new(
             sample_gbpusd()
-                .try_with_notional(Money::new(500_000.0, Currency::GBP))
+                .with_notional(Money::new(500_000.0, Currency::GBP))
                 .unwrap()
                 .with_rate(1.40),
         ),
         Box::new(
             sample_usdjpy()
-                .try_with_notional(Money::new(100_000.0, Currency::USD))
+                .with_notional(Money::new(100_000.0, Currency::USD))
                 .unwrap()
                 .with_rate(110.0),
         ),
@@ -104,7 +104,7 @@ fn test_pricer_consistent_with_instrument_value() {
 #[test]
 fn test_pricer_with_fx_matrix() {
     let fx = sample_eurusd()
-        .try_with_notional(Money::new(1_000_000.0, Currency::EUR))
+        .with_notional(Money::new(1_000_000.0, Currency::EUR))
         .unwrap();
     let pricer = FxSpotPricer::new();
     let market = market_with_fx_matrix(); // EUR/USD = 1.20

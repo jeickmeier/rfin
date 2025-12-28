@@ -161,20 +161,10 @@ impl CdsOptionParams {
     ///
     /// * `index_factor` - Scale factor in (0, 1]. E.g., 0.85 means 85% of original index notional.
     ///
-    /// # Panics
+    /// # Errors
     ///
-    /// Panics if `index_factor` is not in (0, 1].
-    #[must_use]
-    #[allow(clippy::expect_used)] // Builder with valid inputs should not fail
-    pub fn as_index(mut self, index_factor: f64) -> Self {
-        self.underlying_is_index = true;
-        self.index_factor = Some(index_factor);
-        self.validate().expect("Invalid index_factor");
-        self
-    }
-
-    /// Mark this option as referencing a CDS index with validation.
-    pub fn try_as_index(mut self, index_factor: f64) -> finstack_core::Result<Self> {
+    /// Returns an error if `index_factor` is not in (0, 1].
+    pub fn as_index(mut self, index_factor: f64) -> finstack_core::Result<Self> {
         self.underlying_is_index = true;
         self.index_factor = Some(index_factor);
         self.validate()?;
@@ -268,7 +258,7 @@ mod tests {
         .expect("Valid CDS option params");
 
         // Index factor > 1 is invalid
-        let result = params.try_as_index(1.5);
+        let result = params.as_index(1.5);
         assert!(result.is_err());
     }
 
@@ -282,7 +272,7 @@ mod tests {
         )
         .expect("Valid CDS option params");
 
-        let result = params.try_as_index(0.85);
+        let result = params.as_index(0.85);
         assert!(result.is_ok());
         let indexed = result.expect("Valid index conversion");
         assert!(indexed.underlying_is_index);

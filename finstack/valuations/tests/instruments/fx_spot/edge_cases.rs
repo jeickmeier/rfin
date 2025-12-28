@@ -15,7 +15,7 @@ use finstack_valuations::{
 fn test_same_currency_pair() {
     // Edge case: base and quote are the same currency
     let fx = FxSpot::new(InstrumentId::new("USDUSD"), Currency::USD, Currency::USD)
-        .try_with_notional(Money::new(1_000_000.0, Currency::USD))
+        .with_notional(Money::new(1_000_000.0, Currency::USD))
         .unwrap()
         .with_rate(1.0);
 
@@ -66,7 +66,7 @@ fn test_extremely_small_rate() {
 fn test_negative_notional() {
     // Negative notional (short position)
     let fx = FxSpot::new(InstrumentId::new("EURUSD"), Currency::EUR, Currency::USD)
-        .try_with_notional(Money::new(-1_000_000.0, Currency::EUR))
+        .with_notional(Money::new(-1_000_000.0, Currency::EUR))
         .unwrap()
         .with_rate(1.20);
 
@@ -217,7 +217,7 @@ fn test_concurrent_pricing() {
 #[test]
 fn test_missing_fx_matrix_error_message() {
     let fx = sample_eurusd()
-        .try_with_notional(Money::new(1_000_000.0, Currency::EUR))
+        .with_notional(Money::new(1_000_000.0, Currency::EUR))
         .unwrap();
     let market = MarketContext::new(); // No FX matrix
 
@@ -281,7 +281,7 @@ fn test_extreme_settlement_lag() {
     // Test with very far future settlement instead of lag
     let far_future = d(2050, 1, 15);
     let fx = FxSpot::new(InstrumentId::new("EURUSD"), Currency::EUR, Currency::USD)
-        .try_with_notional(Money::new(1_000_000.0, Currency::EUR))
+        .with_notional(Money::new(1_000_000.0, Currency::EUR))
         .unwrap()
         .with_rate(1.20)
         .with_settlement(far_future);

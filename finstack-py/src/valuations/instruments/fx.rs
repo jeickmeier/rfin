@@ -103,7 +103,7 @@ impl PyFxSpot {
         }
         if let Some(notional_obj) = notional {
             let money = extract_money(&notional_obj).context("notional")?;
-            inst = inst.try_with_notional(money).map_err(core_to_py)?;
+            inst = inst.with_notional(money).map_err(core_to_py)?;
         }
         if let Some(bdc_obj) = bdc {
             let BusinessDayConventionArg(conv) = bdc_obj.extract().context("bdc")?;

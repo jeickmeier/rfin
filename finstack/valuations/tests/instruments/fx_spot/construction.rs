@@ -29,7 +29,7 @@ fn test_construction_with_rate() {
 #[test]
 fn test_construction_with_notional() {
     let fx = sample_eurusd()
-        .try_with_notional(Money::new(1_000_000.0, Currency::EUR))
+        .with_notional(Money::new(1_000_000.0, Currency::EUR))
         .unwrap();
 
     assert_eq!(fx.notional.unwrap().amount(), 1_000_000.0);
@@ -38,7 +38,7 @@ fn test_construction_with_notional() {
 
 #[test]
 fn test_construction_with_mismatched_currency_fails() {
-    let result = sample_eurusd().try_with_notional(Money::new(1_000_000.0, Currency::USD));
+    let result = sample_eurusd().with_notional(Money::new(1_000_000.0, Currency::USD));
 
     assert!(result.is_err());
     assert!(matches!(
@@ -72,7 +72,7 @@ fn test_construction_with_calendar() {
 #[test]
 fn test_construction_full_builder() {
     let fx = FxSpot::new(InstrumentId::new("GBPUSD"), Currency::GBP, Currency::USD)
-        .try_with_notional(Money::new(5_000_000.0, Currency::GBP))
+        .with_notional(Money::new(5_000_000.0, Currency::GBP))
         .unwrap()
         .with_rate(1.32)
         .with_settlement(d(2025, 1, 17))
@@ -101,7 +101,7 @@ fn test_effective_notional_default() {
 #[test]
 fn test_effective_notional_with_explicit_value() {
     let fx = sample_eurusd()
-        .try_with_notional(Money::new(2_500_000.0, Currency::EUR))
+        .with_notional(Money::new(2_500_000.0, Currency::EUR))
         .unwrap();
     let notional = fx.effective_notional();
 
@@ -142,7 +142,7 @@ fn test_construction_with_various_currencies() {
 #[test]
 fn test_construction_with_large_notional() {
     let fx = sample_eurusd()
-        .try_with_notional(Money::new(1_000_000_000.0, Currency::EUR))
+        .with_notional(Money::new(1_000_000_000.0, Currency::EUR))
         .unwrap();
 
     assert_eq!(fx.effective_notional().amount(), 1_000_000_000.0);
@@ -151,7 +151,7 @@ fn test_construction_with_large_notional() {
 #[test]
 fn test_construction_with_small_notional() {
     let fx = sample_eurusd()
-        .try_with_notional(Money::new(0.01, Currency::EUR))
+        .with_notional(Money::new(0.01, Currency::EUR))
         .unwrap();
 
     assert_approx_eq(
@@ -165,7 +165,7 @@ fn test_construction_with_small_notional() {
 #[test]
 fn test_clone_preserves_all_fields() {
     let fx = FxSpot::new(InstrumentId::new("EURUSD"), Currency::EUR, Currency::USD)
-        .try_with_notional(Money::new(1_000_000.0, Currency::EUR))
+        .with_notional(Money::new(1_000_000.0, Currency::EUR))
         .unwrap()
         .with_rate(1.18)
         .with_settlement(d(2025, 1, 17));
@@ -191,9 +191,9 @@ fn test_debug_representation() {
 }
 
 #[test]
-fn test_with_notional_checked_alias() {
+fn test_with_notional_valid_currency() {
     let fx = sample_eurusd()
-        .with_notional_checked(Money::new(1_000_000.0, Currency::EUR))
+        .with_notional(Money::new(1_000_000.0, Currency::EUR))
         .unwrap();
 
     assert_eq!(fx.effective_notional().amount(), 1_000_000.0);

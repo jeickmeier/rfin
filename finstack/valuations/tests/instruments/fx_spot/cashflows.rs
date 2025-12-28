@@ -70,7 +70,7 @@ fn test_settlement_on_valuation_date() {
 #[test]
 fn test_settlement_from_fx_matrix() {
     let fx = sample_eurusd()
-        .try_with_notional(Money::new(1_000_000.0, Currency::EUR))
+        .with_notional(Money::new(1_000_000.0, Currency::EUR))
         .unwrap()
         .with_settlement(d(2025, 1, 17));
     let market = market_with_fx_matrix();
@@ -107,7 +107,7 @@ fn test_settlement_explicit_rate_overrides_matrix() {
 #[test]
 fn test_settlement_lag_custom() {
     let fx = FxSpot::new(InstrumentId::new("EURUSD"), Currency::EUR, Currency::USD)
-        .try_with_notional(Money::new(1_000_000.0, Currency::EUR))
+        .with_notional(Money::new(1_000_000.0, Currency::EUR))
         .unwrap()
         .with_rate(1.20)
         .with_settlement(d(2025, 1, 16)); // T+1
@@ -159,7 +159,7 @@ fn test_settlement_with_business_day_convention() {
 #[test]
 fn test_settlement_zero_notional() {
     let fx = sample_eurusd()
-        .try_with_notional(Money::new(0.0, Currency::EUR))
+        .with_notional(Money::new(0.0, Currency::EUR))
         .unwrap()
         .with_rate(1.20)
         .with_settlement(d(2025, 1, 17));
@@ -198,7 +198,7 @@ fn test_multiple_instruments_independent_settlement() {
 #[test]
 fn test_settlement_without_rate_or_matrix_fails() {
     let fx = sample_eurusd()
-        .try_with_notional(Money::new(1_000_000.0, Currency::EUR))
+        .with_notional(Money::new(1_000_000.0, Currency::EUR))
         .unwrap()
         .with_settlement(d(2025, 1, 17));
     let market = MarketContext::new(); // No FX matrix
@@ -211,7 +211,7 @@ fn test_settlement_without_rate_or_matrix_fails() {
 fn test_settlement_lag_negative() {
     // Test backward-looking settlement (unusual but valid)
     let fx = FxSpot::new(InstrumentId::new("EURUSD"), Currency::EUR, Currency::USD)
-        .try_with_notional(Money::new(1_000_000.0, Currency::EUR))
+        .with_notional(Money::new(1_000_000.0, Currency::EUR))
         .unwrap()
         .with_rate(1.20)
         .with_settlement(d(2025, 1, 15)); // Past date
@@ -228,7 +228,7 @@ fn test_settlement_lag_negative() {
 #[test]
 fn test_calendar_aware_settlement_lag() {
     let fx = FxSpot::new(InstrumentId::new("EURUSD"), Currency::EUR, Currency::USD)
-        .try_with_notional(Money::new(1_000_000.0, Currency::EUR))
+        .with_notional(Money::new(1_000_000.0, Currency::EUR))
         .unwrap()
         .with_rate(1.20)
         .with_calendar_id("NewYork")

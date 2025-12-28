@@ -190,9 +190,20 @@ impl FxSpot {
         self
     }
 
-    /// Set the notional amount (fallible version - preferred)
-    pub fn with_notional_checked(self, notional: Money) -> finstack_core::Result<Self> {
-        self.try_with_notional(notional)
+    /// Set the notional amount with currency validation.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if the notional currency doesn't match the base currency.
+    pub fn with_notional(mut self, notional: Money) -> finstack_core::Result<Self> {
+        if notional.currency() != self.base {
+            return Err(finstack_core::Error::CurrencyMismatch {
+                expected: self.base,
+                actual: notional.currency(),
+            });
+        }
+        self.notional = Some(notional);
+        Ok(self)
     }
 
     /// Set the business day convention
@@ -211,18 +222,6 @@ impl FxSpot {
     pub fn with_settlement_lag_days(mut self, lag_days: i32) -> Self {
         self.settlement_lag_days = Some(lag_days);
         self
-    }
-
-    /// Fallible setter for notional that validates currency matches base
-    pub fn try_with_notional(mut self, notional: Money) -> finstack_core::Result<Self> {
-        if notional.currency() != self.base {
-            return Err(finstack_core::Error::CurrencyMismatch {
-                expected: self.base,
-                actual: notional.currency(),
-            });
-        }
-        self.notional = Some(notional);
-        Ok(self)
     }
 
     /// Get the effective notional (defaults to 1 unit of base currency)

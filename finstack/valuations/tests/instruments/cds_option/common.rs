@@ -3,7 +3,7 @@
 //! Provides reusable market setups, option builders, and assertion helpers
 //! to maintain DRY principles across the test suite.
 
-#![allow(clippy::unwrap_used)]
+#![allow(clippy::unwrap_used, clippy::expect_used)]
 
 use finstack_core::currency::Currency;
 use finstack_core::dates::Date;
@@ -156,6 +156,7 @@ impl CdsOptionBuilder {
         if self.is_index {
             option_params = option_params
                 .as_index(self.index_factor.unwrap_or(1.0))
+                .expect("valid index factor")
                 .with_forward_spread_adjust_bp(self.forward_adjust_bp);
         }
 

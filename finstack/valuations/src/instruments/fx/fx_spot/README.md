@@ -17,7 +17,7 @@ use finstack_core::{currency::Currency, dates::Date, money::Money, types::Instru
 use time::Month;
 
 let trade = FxSpot::new(InstrumentId::new("EURUSD-SPOT"), Currency::EUR, Currency::USD)
-    .with_notional_checked(Money::new(1_000_000.0, Currency::EUR))?
+    .with_notional(Money::new(1_000_000.0, Currency::EUR))?
     .with_settlement_lag_days(2);
 
 let as_of = Date::from_calendar_date(2024, Month::January, 3)?;

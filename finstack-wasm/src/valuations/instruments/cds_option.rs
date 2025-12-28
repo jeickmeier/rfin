@@ -64,7 +64,9 @@ impl JsCdsOption {
 
         if underlying_is_index.unwrap_or(false) {
             let factor = index_factor.unwrap_or(1.0);
-            option_params = option_params.as_index(factor);
+            option_params = option_params
+                .as_index(factor)
+                .map_err(|e| js_error(e.to_string()))?;
         }
 
         let credit = curve_id_from_str(credit_curve);

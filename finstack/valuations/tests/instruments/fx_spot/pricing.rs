@@ -29,7 +29,7 @@ fn test_npv_with_default_notional() {
 #[test]
 fn test_npv_from_fx_matrix() {
     let fx = sample_eurusd()
-        .try_with_notional(Money::new(1_000_000.0, Currency::EUR))
+        .with_notional(Money::new(1_000_000.0, Currency::EUR))
         .unwrap();
     let market = market_with_fx_matrix();
     let pv = fx.npv(&market, test_date()).unwrap();
@@ -62,7 +62,7 @@ fn test_npv_explicit_rate_overrides_matrix() {
 #[test]
 fn test_npv_without_rate_or_matrix_fails() {
     let fx = sample_eurusd()
-        .try_with_notional(Money::new(1_000_000.0, Currency::EUR))
+        .with_notional(Money::new(1_000_000.0, Currency::EUR))
         .unwrap();
     let market = MarketContext::new(); // No FX matrix
 
@@ -83,7 +83,7 @@ fn test_value_method() {
 #[test]
 fn test_gbpusd_pricing() {
     let fx = sample_gbpusd()
-        .try_with_notional(Money::new(500_000.0, Currency::GBP))
+        .with_notional(Money::new(500_000.0, Currency::GBP))
         .unwrap();
     let market = market_with_fx_matrix(); // Has GBP/USD = 1.40
     let pv = fx.npv(&market, test_date()).unwrap();
@@ -95,7 +95,7 @@ fn test_gbpusd_pricing() {
 #[test]
 fn test_usdjpy_pricing() {
     let fx = sample_usdjpy()
-        .try_with_notional(Money::new(100_000.0, Currency::USD))
+        .with_notional(Money::new(100_000.0, Currency::USD))
         .unwrap();
     let market = market_with_fx_matrix(); // Has USD/JPY = 110.0
     let pv = fx.npv(&market, test_date()).unwrap();
@@ -107,7 +107,7 @@ fn test_usdjpy_pricing() {
 #[test]
 fn test_zero_notional() {
     let fx = sample_eurusd()
-        .try_with_notional(Money::new(0.0, Currency::EUR))
+        .with_notional(Money::new(0.0, Currency::EUR))
         .unwrap()
         .with_rate(1.20);
     let market = MarketContext::new();
@@ -185,7 +185,7 @@ fn test_pricing_consistency_across_dates() {
 fn test_triangulated_rate() {
     // EUR/GBP should be EUR/USD / GBP/USD = 1.20 / 1.40
     let fx = FxSpot::new(InstrumentId::new("EURGBP"), Currency::EUR, Currency::GBP)
-        .try_with_notional(Money::new(1_000_000.0, Currency::EUR))
+        .with_notional(Money::new(1_000_000.0, Currency::EUR))
         .unwrap();
 
     let market = market_with_fx_matrix();
@@ -200,7 +200,7 @@ fn test_triangulated_rate() {
 fn test_inverse_pair() {
     // Test USD/EUR (inverse of EUR/USD)
     let fx = FxSpot::new(InstrumentId::new("USDEUR"), Currency::USD, Currency::EUR)
-        .try_with_notional(Money::new(1_000_000.0, Currency::USD))
+        .with_notional(Money::new(1_000_000.0, Currency::USD))
         .unwrap();
 
     let market = market_with_fx_matrix(); // Has EUR/USD = 1.20
@@ -215,7 +215,7 @@ fn test_inverse_pair() {
 fn test_multiple_currencies_independence() {
     let eurusd = eurusd_with_notional(1_000_000.0, 1.20);
     let gbpusd = sample_gbpusd()
-        .try_with_notional(Money::new(500_000.0, Currency::GBP))
+        .with_notional(Money::new(500_000.0, Currency::GBP))
         .unwrap()
         .with_rate(1.40);
 

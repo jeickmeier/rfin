@@ -43,7 +43,7 @@ fn test_standard_major_currency_pairs() {
 
     for (base, quote, name, expected_rate) in pairs {
         let fx = FxSpot::new(InstrumentId::new(name), base, quote)
-            .try_with_notional(Money::new(1_000_000.0, base))
+            .with_notional(Money::new(1_000_000.0, base))
             .unwrap();
 
         let pv = fx.npv(&market, as_of).unwrap();
@@ -93,10 +93,10 @@ fn test_cross_rate_consistency() {
     let as_of = test_date();
 
     let eur_usd = sample_eurusd()
-        .try_with_notional(Money::new(1.0, Currency::EUR))
+        .with_notional(Money::new(1.0, Currency::EUR))
         .unwrap();
     let gbp_usd = sample_gbpusd()
-        .try_with_notional(Money::new(1.0, Currency::GBP))
+        .with_notional(Money::new(1.0, Currency::GBP))
         .unwrap();
 
     let eur_usd_rate = eur_usd.npv(&market, as_of).unwrap().amount(); // 1.20
@@ -105,7 +105,7 @@ fn test_cross_rate_consistency() {
     let expected_eur_gbp = eur_usd_rate / gbp_usd_rate; // 1.20 / 1.40
 
     let eur_gbp = FxSpot::new(InstrumentId::new("EURGBP"), Currency::EUR, Currency::GBP)
-        .try_with_notional(Money::new(1.0, Currency::EUR))
+        .with_notional(Money::new(1.0, Currency::EUR))
         .unwrap();
 
     let eur_gbp_rate = eur_gbp.npv(&market, as_of).unwrap().amount();
@@ -125,10 +125,10 @@ fn test_inverse_pair_consistency() {
     let as_of = test_date();
 
     let eur_usd = sample_eurusd()
-        .try_with_notional(Money::new(1.0, Currency::EUR))
+        .with_notional(Money::new(1.0, Currency::EUR))
         .unwrap();
     let usd_eur = FxSpot::new(InstrumentId::new("USDEUR"), Currency::USD, Currency::EUR)
-        .try_with_notional(Money::new(1.0, Currency::USD))
+        .with_notional(Money::new(1.0, Currency::USD))
         .unwrap();
 
     let eur_usd_rate = eur_usd.npv(&market, as_of).unwrap().amount();
@@ -189,14 +189,14 @@ fn test_triangular_arbitrage_absence() {
     let as_of = test_date();
 
     let eur_usd = sample_eurusd()
-        .try_with_notional(Money::new(1.0, Currency::EUR))
+        .with_notional(Money::new(1.0, Currency::EUR))
         .unwrap()
         .npv(&market, as_of)
         .unwrap()
         .amount();
 
     let usd_jpy = sample_usdjpy()
-        .try_with_notional(Money::new(1.0, Currency::USD))
+        .with_notional(Money::new(1.0, Currency::USD))
         .unwrap()
         .npv(&market, as_of)
         .unwrap()
@@ -205,7 +205,7 @@ fn test_triangular_arbitrage_absence() {
     let eur_jpy_implied = eur_usd * usd_jpy;
 
     let eur_jpy = FxSpot::new(InstrumentId::new("EURJPY"), Currency::EUR, Currency::JPY)
-        .try_with_notional(Money::new(1.0, Currency::EUR))
+        .with_notional(Money::new(1.0, Currency::EUR))
         .unwrap()
         .npv(&market, as_of)
         .unwrap()

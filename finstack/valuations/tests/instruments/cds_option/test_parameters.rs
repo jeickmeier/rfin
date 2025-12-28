@@ -1,6 +1,6 @@
 //! Unit tests for CdsOptionParams builder and validation.
 
-#![allow(clippy::unwrap_used)]
+#![allow(clippy::unwrap_used, clippy::expect_used)]
 
 use finstack_core::currency::Currency;
 use finstack_core::money::Money;
@@ -50,7 +50,8 @@ fn test_index_option_builder() {
 
     let params = CdsOptionParams::try_call(100.0, expiry, maturity, notional)
         .expect("valid call params")
-        .as_index(0.85);
+        .as_index(0.85)
+        .expect("valid index factor");
 
     assert!(params.underlying_is_index);
     assert_eq!(params.index_factor, Some(0.85));
@@ -65,6 +66,7 @@ fn test_forward_spread_adjustment() {
     let params = CdsOptionParams::try_call(100.0, expiry, maturity, notional)
         .expect("valid call params")
         .as_index(0.90)
+        .expect("valid index factor")
         .with_forward_spread_adjust_bp(25.0);
 
     assert_eq!(params.forward_spread_adjust_bp, 25.0);
@@ -80,6 +82,7 @@ fn test_chained_builders() {
     let params = CdsOptionParams::try_put(200.0, expiry, maturity, notional)
         .expect("valid put params")
         .as_index(0.75)
+        .expect("valid index factor")
         .with_forward_spread_adjust_bp(-10.0);
 
     assert!(matches!(params.option_type, OptionType::Put));

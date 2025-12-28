@@ -66,7 +66,7 @@ fn test_inverse_rate_various_rates() {
 #[test]
 fn test_inverse_rate_zero_notional_returns_zero() {
     let fx = sample_eurusd()
-        .try_with_notional(Money::new(0.0, Currency::EUR))
+        .with_notional(Money::new(0.0, Currency::EUR))
         .unwrap()
         .with_rate(1.20);
     let mut ctx = create_context(fx, test_date());
@@ -113,7 +113,7 @@ fn test_inverse_rate_symmetry() {
 fn test_inverse_rate_large_rate() {
     // USD/JPY = 110.0, so JPY/USD = 1/110 ≈ 0.009091
     let fx = sample_usdjpy()
-        .try_with_notional(Money::new(100_000.0, Currency::USD))
+        .with_notional(Money::new(100_000.0, Currency::USD))
         .unwrap()
         .with_rate(110.0);
     let mut ctx = create_context(fx, test_date());

@@ -128,13 +128,13 @@ fn test_dv01_custom_settlement_lag() {
     let calc = UnifiedDv01Calculator::<FxSpot>::new(Dv01CalculatorConfig::parallel_combined());
 
     let fx1 = FxSpot::new(InstrumentId::new("EURUSD"), Currency::EUR, Currency::USD)
-        .try_with_notional(Money::new(1_000_000.0, Currency::EUR))
+        .with_notional(Money::new(1_000_000.0, Currency::EUR))
         .unwrap()
         .with_rate(1.20)
         .with_settlement(d(2025, 1, 16)); // T+1
 
     let fx2 = FxSpot::new(InstrumentId::new("EURUSD"), Currency::EUR, Currency::USD)
-        .try_with_notional(Money::new(1_000_000.0, Currency::EUR))
+        .with_notional(Money::new(1_000_000.0, Currency::EUR))
         .unwrap()
         .with_rate(1.20)
         .with_settlement(d(2025, 1, 20)); // T+5
@@ -158,7 +158,7 @@ fn test_dv01_various_currencies() {
     // All with same notional and settlement
     let eur_fx = eurusd_with_notional(1_000_000.0, 1.20).with_settlement(settlement);
     let gbp_fx = sample_gbpusd()
-        .try_with_notional(Money::new(1_000_000.0, Currency::GBP))
+        .with_notional(Money::new(1_000_000.0, Currency::GBP))
         .unwrap()
         .with_rate(1.40)
         .with_settlement(settlement);
@@ -176,7 +176,7 @@ fn test_dv01_various_currencies() {
 #[test]
 fn test_dv01_zero_notional() {
     let fx = sample_eurusd()
-        .try_with_notional(Money::new(0.0, Currency::EUR))
+        .with_notional(Money::new(0.0, Currency::EUR))
         .unwrap()
         .with_rate(1.20)
         .with_settlement(d(2025, 1, 17));
