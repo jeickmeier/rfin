@@ -385,6 +385,7 @@ pub const fn available_calendars() -> &'static [&'static str] {
 }
 
 #[cfg(all(test, feature = "serde"))]
+#[allow(clippy::expect_used, clippy::panic, clippy::indexing_slicing)]
 mod serde_tests {
     use super::*;
 

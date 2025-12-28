@@ -363,6 +363,7 @@ pub fn adjust_joint_calendar_with_calendars(
 }
 
 #[cfg(test)]
+#[allow(clippy::expect_used, clippy::panic, clippy::indexing_slicing)]
 #[allow(clippy::unwrap_used)]
 mod tests {
     use super::*;

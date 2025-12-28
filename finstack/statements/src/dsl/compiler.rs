@@ -284,6 +284,7 @@ fn compile_if_then_else(
 }
 
 #[cfg(test)]
+#[allow(clippy::expect_used, clippy::panic)]
 mod tests {
     use super::*;
     use crate::dsl::parse_formula;

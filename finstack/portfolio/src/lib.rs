@@ -1,6 +1,13 @@
 #![deny(unsafe_code)]
 #![warn(missing_docs)]
 #![deny(clippy::unwrap_used)]
+// Safety lints: Enforced - no expect() or panic!() allowed in production code.
+// Use proper error propagation with Result<T, E> instead.
+// Test modules and doc tests have explicit #[allow(...)] where needed.
+#![deny(clippy::expect_used)]
+#![deny(clippy::panic)]
+// Allow expect() in doc tests (they are test code)
+#![doc(test(attr(allow(clippy::expect_used))))]
 
 //! Portfolio management and aggregation for finstack.
 //!
@@ -75,6 +82,7 @@ pub mod valuation;
 pub mod cashflows;
 
 #[cfg(test)]
+#[allow(clippy::expect_used)]
 mod test_utils;
 
 #[cfg(feature = "scenarios")]

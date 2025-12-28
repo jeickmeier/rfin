@@ -188,6 +188,7 @@ impl VolatilityIndexCurve {
     ///
     /// **Defaults:** Linear interpolation with Flat extrapolation maintains
     /// stable tail levels consistent with mean reversion expectations.
+    #[allow(clippy::expect_used)] // Epoch date 1970-01-01 is always valid
     pub fn builder(id: impl Into<CurveId>) -> VolatilityIndexCurveBuilder {
         VolatilityIndexCurveBuilder {
             id: id.into(),
@@ -526,6 +527,7 @@ impl TermStructure for VolatilityIndexCurve {
 // Tests
 // -----------------------------------------------------------------------------
 #[cfg(test)]
+#[allow(clippy::expect_used, clippy::panic, clippy::indexing_slicing)]
 mod tests {
     use super::*;
 

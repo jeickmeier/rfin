@@ -20,7 +20,7 @@ use polars::prelude::*;
 ///
 /// # Example
 ///
-/// ```rust,no_run
+/// ```text
 /// let df = to_polars_long(&results)?;
 /// // Output:
 /// // ┌─────────────┬───────────┬────────────┬──────────────┬──────────┬────────────┐
@@ -89,7 +89,7 @@ pub fn to_polars_long(results: &Results) -> Result<DataFrame> {
 ///
 /// # Example
 ///
-/// ```rust,no_run
+/// ```text
 /// let df = to_polars_long_filtered(&results, &["revenue", "cogs"])?;
 /// ```
 #[cfg(feature = "dataframes")]
@@ -153,7 +153,7 @@ pub fn to_polars_long_filtered(results: &Results, node_filter: &[&str]) -> Resul
 ///
 /// # Example
 ///
-/// ```rust,no_run
+/// ```text
 /// let df = to_polars_wide(&results)?;
 /// // Output:
 /// // ┌───────────┬────────────┬──────────┐
@@ -207,6 +207,7 @@ pub fn to_polars_wide(results: &Results) -> Result<DataFrame> {
 }
 
 #[cfg(all(test, feature = "dataframes"))]
+#[allow(clippy::expect_used)]
 mod tests {
     use super::super::ResultsMeta;
     use super::*;

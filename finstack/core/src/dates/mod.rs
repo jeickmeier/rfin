@@ -116,6 +116,7 @@ pub fn create_date(year: i32, month: time::Month, day: u8) -> crate::Result<Date
 }
 
 #[cfg(test)]
+#[allow(clippy::expect_used, clippy::panic, clippy::indexing_slicing)]
 mod tests {
     use super::*;
     use time::Month;

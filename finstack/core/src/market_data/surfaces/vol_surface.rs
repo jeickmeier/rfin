@@ -169,6 +169,7 @@ impl VolSurface {
     ///
     /// - Use [`value_checked`](Self::value_checked) for explicit error handling (recommended).
     /// - Use [`value_clamped`](Self::value_clamped) for flat extrapolation to edge values.
+    #[allow(clippy::expect_used)] // Documented panicking convenience method
     pub fn value_unchecked(&self, expiry: f64, strike: f64) -> f64 {
         self.value_checked(expiry, strike)
             .expect("expiry or strike out of bounds")
@@ -210,6 +211,7 @@ impl VolSurface {
     /// Provides flat extrapolation by clamping coordinates to the grid bounds
     /// before interpolation. This method never panics and is suitable for
     /// pricing scenarios where out-of-bounds coordinates should use edge values.
+    #[allow(clippy::expect_used)] // Type invariant: VolSurface always has at least one expiry/strike
     pub fn value_clamped(&self, mut expiry: f64, mut strike: f64) -> f64 {
         if expiry < self.expiries[0] {
             expiry = self.expiries[0];
@@ -304,6 +306,7 @@ impl VolSurface {
     /// # Ok(())
     /// # }
     /// ```
+    #[allow(clippy::expect_used)] // VolSurface invariant: always has at least one expiry and strike
     pub fn bump_point(&self, expiry: f64, strike: f64, bump_pct: f64) -> crate::Result<Self> {
         // Clamp to grid bounds
         let clamped_expiry = expiry.max(self.expiries[0]).min(
@@ -609,6 +612,7 @@ fn validate_axis(axis: &[f64]) -> crate::Result<()> {
 // Tests
 // -----------------------------------------------------------------------------
 #[cfg(test)]
+#[allow(clippy::expect_used, clippy::panic, clippy::indexing_slicing)]
 mod tests {
     use super::*;
 

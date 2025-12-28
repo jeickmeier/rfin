@@ -78,6 +78,7 @@ impl ScenarioAdapter for BaseCorrAdapter {
 }
 
 #[cfg(test)]
+#[allow(clippy::expect_used)]
 mod tests {
     use super::*;
 

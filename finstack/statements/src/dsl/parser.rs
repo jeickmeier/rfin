@@ -241,6 +241,7 @@ fn parenthesized(input: &str) -> IResult<&str, StmtExpr> {
 }
 
 #[cfg(test)]
+#[allow(clippy::expect_used, clippy::panic)]
 mod tests {
     use super::*;
 

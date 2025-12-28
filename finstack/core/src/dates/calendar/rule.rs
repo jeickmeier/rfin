@@ -481,6 +481,7 @@ fn buddhas_birthday_date(year: i32) -> Option<Date> {
 ///
 /// # Reference
 /// Japan National Astronomical Observatory (国立天文台)
+#[allow(clippy::expect_used)] // March 21 is always a valid date
 fn vernal_equinox_jp(year: i32) -> Date {
     const VERNAL_EPOCH: i32 = 1980;
     const VERNAL_BASE: f64 = 20.8431;
@@ -511,6 +512,7 @@ fn vernal_equinox_jp(year: i32) -> Date {
 ///
 /// # Reference
 /// Japan National Astronomical Observatory (国立天文台)
+#[allow(clippy::expect_used)] // September 23 is always a valid date
 fn autumnal_equinox_jp(year: i32) -> Date {
     const AUTUMNAL_EPOCH: i32 = 1980;
     const AUTUMNAL_BASE: f64 = 23.2488;
@@ -591,6 +593,7 @@ fn push_span_range<A: smallvec::Array<Item = Date>>(
 impl Rule {
     /// Returns `true` when the rule marks `date` a holiday.
     #[inline]
+    #[allow(clippy::expect_used)] // Fallback dates like 1900-01-01 are always valid
     pub fn applies(&self, date: Date) -> bool {
         match self {
             Rule::Fixed {
@@ -670,6 +673,7 @@ impl Rule {
 impl Rule {
     /// Append all dates in `year` that this rule marks as a holiday into `out`.
     /// No deduplication is performed.
+    #[allow(clippy::expect_used)] // Fallback dates like 1900-01-01 are always valid
     pub fn materialize_year<A: smallvec::Array<Item = Date>>(
         &self,
         year: i32,

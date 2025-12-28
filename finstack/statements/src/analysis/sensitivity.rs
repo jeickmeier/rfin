@@ -138,6 +138,7 @@ impl<'a> SensitivityAnalyzer<'a> {
 }
 
 #[cfg(test)]
+#[allow(clippy::expect_used)]
 mod tests {
     use super::*;
     use crate::analysis::types::ParameterSpec;

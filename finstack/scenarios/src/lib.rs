@@ -1,6 +1,11 @@
 #![deny(unsafe_code)]
 #![warn(missing_docs)]
 #![deny(clippy::unwrap_used)]
+// Safety lints: Enforced - no expect() or panic!() allowed in production code.
+// Use proper error propagation with Result<T, E> instead.
+// Test modules have explicit #[allow(...)] where needed.
+#![deny(clippy::expect_used)]
+#![deny(clippy::panic)]
 
 //! Finstack Scenarios — Lightweight deterministic scenario capability.
 //!

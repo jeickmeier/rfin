@@ -134,6 +134,7 @@ pub fn aggregate_by_multiple_attributes(
 }
 
 #[cfg(test)]
+#[allow(clippy::expect_used)]
 mod tests {
     use super::*;
     use crate::builder::PortfolioBuilder;

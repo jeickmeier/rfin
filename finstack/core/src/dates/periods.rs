@@ -404,6 +404,9 @@ fn make_period_with_calendar<C: PeriodCalendar>(
     })
 }
 
+// Period bounds helpers use expect() for well-known dates (1st of month)
+// that are always valid. Compile-time guarantees these won't fail.
+#[allow(clippy::expect_used)]
 fn quarter_bounds(year: i32, q: u8) -> (Date, Date) {
     let (sm, em) = match q {
         1 => (Month::January, Month::April),
@@ -417,6 +420,7 @@ fn quarter_bounds(year: i32, q: u8) -> (Date, Date) {
     (start, end)
 }
 
+#[allow(clippy::expect_used)]
 fn month_bounds(year: i32, m: u8) -> (Date, Date) {
     let sm = Month::try_from(m).unwrap_or(Month::January);
     let start = Date::from_calendar_date(year, sm, 1).unwrap_or_else(|_| {
@@ -439,6 +443,7 @@ fn month_bounds(year: i32, m: u8) -> (Date, Date) {
 /// and may include days from the previous/next year. This implementation simply
 /// divides the year into 7-day blocks starting from January 1st, regardless of
 /// which day of the week that falls on.
+#[allow(clippy::expect_used)]
 fn week_bounds(year: i32, w: u8) -> (Date, Date) {
     use time::Duration;
     let start_of_year = Date::from_calendar_date(year, Month::January, 1)
@@ -448,6 +453,7 @@ fn week_bounds(year: i32, w: u8) -> (Date, Date) {
     (start, end)
 }
 
+#[allow(clippy::expect_used)]
 fn half_bounds(year: i32, h: u8) -> (Date, Date) {
     match h {
         1 => (
@@ -463,6 +469,7 @@ fn half_bounds(year: i32, h: u8) -> (Date, Date) {
     }
 }
 
+#[allow(clippy::expect_used)]
 fn annual_bounds(year: i32) -> (Date, Date) {
     (
         Date::from_calendar_date(year, Month::January, 1)
@@ -538,6 +545,7 @@ fn fiscal_annual_bounds(fiscal_year: i32, config: FiscalConfig) -> (Date, Date) 
 }
 
 /// Calculate the start date of a fiscal year
+#[allow(clippy::expect_used)] // Last day of month is always a valid date
 fn fiscal_year_start(fiscal_year: i32, config: FiscalConfig) -> Date {
     // For fiscal years that start in months other than January,
     // we need to determine the correct calendar year
@@ -893,6 +901,7 @@ impl TryFrom<String> for PeriodId {
 }
 
 #[cfg(test)]
+#[allow(clippy::expect_used, clippy::panic, clippy::indexing_slicing)]
 mod tests {
     use super::*;
     #[test]

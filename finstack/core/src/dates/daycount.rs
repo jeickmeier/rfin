@@ -703,6 +703,7 @@ fn is_last_day_of_february(date: Date) -> bool {
 // -------------------------------------------------------------------------------------------------
 // ACT/ACT (ISDA) helper
 // -------------------------------------------------------------------------------------------------
+#[allow(clippy::expect_used)] // January 1 is always a valid date
 fn year_fraction_act_act_isda(start: Date, end: Date) -> f64 {
     if start == end {
         return 0.0;
@@ -891,6 +892,7 @@ const fn days_in_year(year: i32) -> i32 {
 // Tests
 // -------------------------------------------------------------------------------------------------
 #[cfg(test)]
+#[allow(clippy::expect_used, clippy::panic, clippy::indexing_slicing)]
 mod tests {
     use super::*;
     use time::Duration;

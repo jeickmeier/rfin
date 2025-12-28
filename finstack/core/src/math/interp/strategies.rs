@@ -33,6 +33,7 @@ impl InterpolationStrategy for LinearStrategy {
         Ok(Self)
     }
 
+    #[allow(clippy::expect_used)] // Values slice is guaranteed non-empty by construction
     fn interp(
         &self,
         x: f64,
@@ -173,6 +174,7 @@ impl InterpolationStrategy for LogLinearStrategy {
         })
     }
 
+    #[allow(clippy::expect_used)] // Log values slice is guaranteed non-empty by construction
     fn interp(
         &self,
         x: f64,
@@ -563,6 +565,7 @@ impl InterpolationStrategy for CubicHermiteStrategy {
         Ok(Self { ms })
     }
 
+    #[allow(clippy::expect_used)] // Values slice is guaranteed non-empty by construction
     fn interp(
         &self,
         x: f64,
@@ -834,6 +837,7 @@ impl InterpolationStrategy for MonotoneConvexStrategy {
         Self::build_hagan_west(knots, values, epsilon)
     }
 
+    #[allow(clippy::expect_used)] // Values slice is guaranteed non-empty by construction
     fn interp(
         &self,
         x: f64,

@@ -230,6 +230,7 @@ fn update_cumulative_metrics(
 }
 
 #[cfg(test)]
+#[allow(clippy::expect_used)]
 mod tests {
     use super::*;
     use crate::capital_structure::types::{

@@ -424,6 +424,7 @@ fn sample_gamma(rng: &mut dyn RandomNumberGenerator, shape: f64) -> f64 {
 }
 
 #[cfg(test)]
+#[allow(clippy::expect_used, clippy::panic, clippy::indexing_slicing)]
 mod tests {
     use super::*;
 

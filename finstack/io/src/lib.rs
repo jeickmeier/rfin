@@ -6,6 +6,11 @@
 
 #![deny(unsafe_code)]
 #![warn(missing_docs)]
+#![deny(clippy::unwrap_used)]
+// Safety lints: Enforced - no expect() or panic!() allowed in this crate.
+// Use proper error propagation with Result<T, E> instead.
+#![deny(clippy::expect_used)]
+#![deny(clippy::panic)]
 
 /// Placeholder function for the I/O crate.
 ///

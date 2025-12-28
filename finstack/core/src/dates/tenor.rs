@@ -232,6 +232,7 @@ impl Tenor {
     /// assert!(Tenor::parse("").is_err());
     /// assert!(Tenor::parse("XY").is_err());
     /// ```
+    #[allow(clippy::expect_used)] // String length was checked to be 1 before char access
     pub fn parse(s: &str) -> crate::Result<Self> {
         let s = s.trim();
 
@@ -573,6 +574,7 @@ impl std::str::FromStr for Tenor {
 }
 
 #[cfg(test)]
+#[allow(clippy::expect_used, clippy::panic, clippy::indexing_slicing)]
 mod tests {
     use super::*;
     use time::Month;

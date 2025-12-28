@@ -257,6 +257,7 @@ pub fn correlation_bounds(p1: f64, p2: f64) -> (f64, f64) {
 }
 
 #[cfg(test)]
+#[allow(clippy::expect_used, clippy::panic, clippy::indexing_slicing)]
 mod tests {
     use super::*;
 

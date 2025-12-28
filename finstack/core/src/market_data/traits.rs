@@ -109,6 +109,7 @@ pub trait Discounting: TermStructure {
     /// Panics if day-count conversion fails or if either discount factor is invalid.
     /// Prefer [`try_df_between_dates`](Self::try_df_between_dates) for error handling.
     #[inline]
+    #[allow(clippy::expect_used)] // Documented panicking convenience method; use try_* for error handling
     fn df_between_dates(&self, from: Date, to: Date) -> f64 {
         self.try_df_between_dates(from, to)
             .expect("df_between_dates failed; use try_df_between_dates for error handling")
@@ -149,6 +150,7 @@ pub trait Discounting: TermStructure {
     /// Panics if either discount factor is invalid. Prefer
     /// [`try_df_between_times`](Self::try_df_between_times) for error handling.
     #[inline]
+    #[allow(clippy::expect_used)] // Documented panicking convenience method; use try_* for error handling
     fn df_between_times(&self, from_t: f64, to_t: f64) -> f64 {
         self.try_df_between_times(from_t, to_t)
             .expect("df_between_times failed; use try_df_between_times for error handling")
@@ -201,6 +203,7 @@ pub trait TermStructure {
 // Tests
 // -----------------------------------------------------------------------------
 #[cfg(test)]
+#[allow(clippy::expect_used, clippy::panic, clippy::indexing_slicing)]
 mod tests {
     use super::*;
     use crate::types::CurveId;

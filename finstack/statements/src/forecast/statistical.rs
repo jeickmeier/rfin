@@ -189,6 +189,7 @@ pub fn lognormal_forecast(
 }
 
 #[cfg(test)]
+#[allow(clippy::expect_used)]
 mod tests {
     use super::*;
     use finstack_core::dates::PeriodId;

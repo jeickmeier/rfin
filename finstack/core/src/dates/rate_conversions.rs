@@ -431,6 +431,7 @@ pub fn continuous_to_simple(continuous_rate: f64, year_fraction: f64) -> Result<
 }
 
 #[cfg(test)]
+#[allow(clippy::expect_used, clippy::panic, clippy::indexing_slicing)]
 mod tests {
     use super::*;
 

@@ -253,6 +253,7 @@ impl TryFrom<RawHazardCurve> for HazardCurve {
 
 impl HazardCurve {
     /// Start building a hazard curve with identifier `id`.
+    #[allow(clippy::expect_used)] // Epoch date 1970-01-01 is always valid
     pub fn builder(id: impl Into<CurveId>) -> HazardCurveBuilder {
         HazardCurveBuilder {
             id: id.into(),
@@ -650,6 +651,7 @@ impl HazardCurveBuilder {
     /// - Hazard rates > 10.0 trigger a warning (implies >99.995% 1Y default prob)
     /// - Recovery rate must be in [0, 1]
     /// - Knot times must be strictly increasing
+    #[allow(clippy::expect_used)] // Epoch date 1970-01-01 is always valid
     pub fn build(self) -> crate::Result<HazardCurve> {
         // Require explicit base_date to avoid accidentally anchoring to 1970-01-01
         if self.base
@@ -760,6 +762,7 @@ impl HazardCurveBuilder {
 // Tests
 // -----------------------------------------------------------------------------
 #[cfg(test)]
+#[allow(clippy::expect_used, clippy::panic, clippy::indexing_slicing)]
 mod tests {
     use super::*;
     use time::Month;

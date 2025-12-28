@@ -59,17 +59,15 @@ impl DependencyGraph {
                     extract_dependencies(formula, &model.nodes.keys().cloned().collect());
 
                 for dep in &node_deps {
-                    // Add to this node's dependencies
-                    dependencies
-                        .get_mut(node_id)
-                        .expect("node_id must exist as it was initialized in the previous loop")
-                        .insert(dep.clone());
+                    // Add to this node's dependencies (node was initialized in previous loop)
+                    if let Some(deps) = dependencies.get_mut(node_id) {
+                        deps.insert(dep.clone());
+                    }
 
-                    // Add this node to the dependent's dependents list
-                    dependents
-                        .get_mut(dep)
-                        .expect("dependency must exist as it was validated by validate_formula_references")
-                        .insert(node_id.clone());
+                    // Add this node to the dependent's dependents list (validated by validate_formula_references)
+                    if let Some(dep_set) = dependents.get_mut(dep) {
+                        dep_set.insert(node_id.clone());
+                    }
                 }
             }
         }
@@ -183,11 +181,7 @@ impl DependencyGraph {
         path: &mut Vec<String>,
     ) -> Option<Vec<String>> {
         // If we've seen this node in the current path, we have a cycle
-        if path.contains(&node.to_string()) {
-            let cycle_start = path
-                .iter()
-                .position(|n| n == node)
-                .expect("node should be in path since contains returned true");
+        if let Some(cycle_start) = path.iter().position(|n| n == node) {
             let mut cycle = path[cycle_start..].to_vec();
             cycle.push(node.to_string());
             return Some(cycle);
@@ -313,6 +307,7 @@ fn levenshtein_distance(s1: &str, s2: &str) -> usize {
 }
 
 #[cfg(test)]
+#[allow(clippy::expect_used)]
 mod tests {
     use super::*;
     use crate::builder::ModelBuilder;

@@ -235,8 +235,9 @@ pub fn aggregate_instrument_cashflows(
                             if let (Some(map), Some(money)) =
                                 (reporting_totals.as_mut(), converted_abs)
                             {
-                                let total = map.get_mut(&period_id).expect("period initialized");
-                                total.interest_expense_cash += money;
+                                if let Some(total) = map.get_mut(&period_id) {
+                                    total.interest_expense_cash += money;
+                                }
                             }
                         }
                         CFKind::Amortization => {
@@ -245,8 +246,9 @@ pub fn aggregate_instrument_cashflows(
                             if let (Some(map), Some(money)) =
                                 (reporting_totals.as_mut(), converted_abs)
                             {
-                                let total = map.get_mut(&period_id).expect("period initialized");
-                                total.principal_payment += money;
+                                if let Some(total) = map.get_mut(&period_id) {
+                                    total.principal_payment += money;
+                                }
                             }
                         }
                         CFKind::Notional if cf.amount.amount() > 0.0 => {
@@ -255,8 +257,9 @@ pub fn aggregate_instrument_cashflows(
                             if let (Some(map), Some(money)) =
                                 (reporting_totals.as_mut(), converted_abs)
                             {
-                                let total = map.get_mut(&period_id).expect("period initialized");
-                                total.principal_payment += money;
+                                if let Some(total) = map.get_mut(&period_id) {
+                                    total.principal_payment += money;
+                                }
                             }
                         }
                         CFKind::Fee => {
@@ -265,8 +268,9 @@ pub fn aggregate_instrument_cashflows(
                             if let (Some(map), Some(money)) =
                                 (reporting_totals.as_mut(), converted_abs)
                             {
-                                let total = map.get_mut(&period_id).expect("period initialized");
-                                total.fees += money;
+                                if let Some(total) = map.get_mut(&period_id) {
+                                    total.fees += money;
+                                }
                             }
                         }
                         CFKind::PIK => {
@@ -276,8 +280,9 @@ pub fn aggregate_instrument_cashflows(
                             if let (Some(map), Some(money)) =
                                 (reporting_totals.as_mut(), converted_abs)
                             {
-                                let total = map.get_mut(&period_id).expect("period initialized");
-                                total.interest_expense_pik += money;
+                                if let Some(total) = map.get_mut(&period_id) {
+                                    total.interest_expense_pik += money;
+                                }
                             }
                         }
                         CFKind::Notional if cf.amount.amount() <= 0.0 => {
@@ -294,8 +299,9 @@ pub fn aggregate_instrument_cashflows(
                             if let (Some(map), Some(money)) =
                                 (reporting_totals.as_mut(), converted_abs)
                             {
-                                let total = map.get_mut(&period_id).expect("period initialized");
-                                total.interest_expense_cash += money;
+                                if let Some(total) = map.get_mut(&period_id) {
+                                    total.interest_expense_cash += money;
+                                }
                             }
                         }
                     }
@@ -333,8 +339,9 @@ pub fn aggregate_instrument_cashflows(
                             fx_policy,
                         )?,
                     ) {
-                        let total = map.get_mut(&period_id).expect("period initialized");
-                        total.debt_balance = money;
+                        if let Some(total) = map.get_mut(&period_id) {
+                            total.debt_balance = money;
+                        }
                     }
                 }
             }
@@ -348,14 +355,13 @@ pub fn aggregate_instrument_cashflows(
         // Aggregate into totals (handling Money addition which returns Result)
         if let Some(currency_totals) = totals_by_currency.get_mut(&currency) {
             for (period_id, breakdown) in &instrument_periods {
-                let total = currency_totals
-                    .get_mut(period_id)
-                    .expect("period should exist in currency totals");
-                total.interest_expense_cash += breakdown.interest_expense_cash;
-                total.interest_expense_pik += breakdown.interest_expense_pik;
-                total.principal_payment += breakdown.principal_payment;
-                total.debt_balance += breakdown.debt_balance;
-                total.fees += breakdown.fees;
+                if let Some(total) = currency_totals.get_mut(period_id) {
+                    total.interest_expense_cash += breakdown.interest_expense_cash;
+                    total.interest_expense_pik += breakdown.interest_expense_pik;
+                    total.principal_payment += breakdown.principal_payment;
+                    total.debt_balance += breakdown.debt_balance;
+                    total.fees += breakdown.fees;
+                }
             }
         }
     }
@@ -565,6 +571,7 @@ pub fn build_any_instrument_from_spec(
 }
 
 #[cfg(test)]
+#[allow(clippy::expect_used, clippy::panic)]
 mod tests {
     use super::*;
     use finstack_core::currency::Currency;

@@ -65,6 +65,7 @@ pub fn validate_metric_definition(metric: &MetricDefinition, namespace: &str) ->
 }
 
 #[cfg(test)]
+#[allow(clippy::expect_used)]
 mod tests {
     use super::*;
     use indexmap::IndexMap;

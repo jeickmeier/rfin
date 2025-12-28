@@ -386,6 +386,7 @@ pub fn student_t_inv_cdf(p: f64, df: f64) -> f64 {
 }
 
 #[cfg(test)]
+#[allow(clippy::expect_used, clippy::panic, clippy::indexing_slicing)]
 mod tests {
     use super::*;
 

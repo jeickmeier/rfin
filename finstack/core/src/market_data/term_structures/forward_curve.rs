@@ -198,6 +198,7 @@ impl ForwardCurve {
     ///
     /// **Defaults:** Linear interpolation with FlatForward extrapolation maintains
     /// stable tail forward rates consistent with market practice.
+    #[allow(clippy::expect_used)] // Epoch date 1970-01-01 is always valid
     pub fn builder(id: impl Into<CurveId>, tenor_years: f64) -> ForwardCurveBuilder {
         ForwardCurveBuilder {
             id: id.into(),
@@ -369,6 +370,7 @@ impl ForwardCurve {
     ///
     /// Panics if `t` is invalid. Prefer [`try_df`](Self::try_df) for error handling.
     #[inline]
+    #[allow(clippy::expect_used)] // Documented panicking convenience method; use try_df for error handling
     pub fn df(&self, t: f64) -> f64 {
         self.try_df(t)
             .expect("ForwardCurve df(t) failed; use try_df for error handling")
@@ -689,6 +691,7 @@ impl TermStructure for ForwardCurve {
 // Tests
 // -----------------------------------------------------------------------------
 #[cfg(test)]
+#[allow(clippy::expect_used, clippy::panic, clippy::indexing_slicing)]
 mod tests {
     use super::*;
 

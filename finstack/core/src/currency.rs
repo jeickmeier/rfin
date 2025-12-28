@@ -96,6 +96,7 @@
 include!(concat!(env!("OUT_DIR"), "/currency_generated.rs"));
 
 #[cfg(test)]
+#[allow(clippy::expect_used, clippy::panic, clippy::indexing_slicing)]
 mod tests {
     use super::*;
     use core::mem;

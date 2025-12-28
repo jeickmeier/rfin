@@ -288,6 +288,7 @@ fn aggregate_metrics_parallel(valuation: &PortfolioValuation) -> Result<Portfoli
 }
 
 #[cfg(test)]
+#[allow(clippy::expect_used)]
 mod tests {
     use super::*;
     use crate::builder::PortfolioBuilder;

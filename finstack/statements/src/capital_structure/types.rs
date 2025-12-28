@@ -125,6 +125,7 @@ impl CashflowBreakdown {
     /// };
     /// assert_eq!(cf.interest_expense_total().amount(), 12_500.0);
     /// ```
+    #[allow(clippy::expect_used)] // Type invariant: all Money fields have same currency
     pub fn interest_expense_total(&self) -> Money {
         // SAFETY: Both values in a CashflowBreakdown have the same currency by construction
         (self.interest_expense_cash + self.interest_expense_pik)
@@ -318,6 +319,7 @@ impl CapitalStructureCashflows {
 }
 
 #[cfg(test)]
+#[allow(clippy::expect_used)]
 mod tests {
     use super::*;
 

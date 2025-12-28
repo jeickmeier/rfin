@@ -214,6 +214,7 @@ impl CashFlow {
 // Compile-time size assertion (≤ 56 bytes)
 // -------------------------------------------------------------------------
 #[cfg(test)]
+#[allow(clippy::expect_used, clippy::panic, clippy::indexing_slicing)]
 mod tests {
     use super::*;
     use crate::currency::Currency;

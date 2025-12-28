@@ -204,6 +204,7 @@ pub fn cashflows_to_base_by_period(
 }
 
 #[cfg(test)]
+#[allow(clippy::expect_used)]
 mod tests {
     use super::*;
     use crate::builder::PortfolioBuilder;

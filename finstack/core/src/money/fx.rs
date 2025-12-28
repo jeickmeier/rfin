@@ -347,6 +347,7 @@ impl FxMatrix {
     /// let matrix = FxMatrix::with_config(Arc::new(StaticFx), cfg);
     /// assert_eq!(matrix.cache_stats(), 0);
     /// ```
+    #[allow(clippy::expect_used)] // Capacity is set to at least 1 above, so always non-zero
     pub fn with_config(provider: Arc<dyn FxProvider>, config: FxConfig) -> Self {
         let capacity = if config.cache_capacity == 0 {
             1
@@ -779,6 +780,7 @@ impl FxMatrix {
 }
 
 #[cfg(test)]
+#[allow(clippy::expect_used, clippy::panic, clippy::indexing_slicing)]
 mod tests {
     use super::*;
     use crate::collections::HashMap;

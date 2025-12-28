@@ -25,6 +25,7 @@ pub(crate) type AmountRepr = Decimal;
 ///
 /// Use [`try_amount_from_repr`] for fallible conversion when error handling is needed.
 #[inline]
+#[allow(clippy::expect_used)] // Monetary amounts should always fit in f64; use try_amount_from_repr for fallible conversion
 pub(crate) fn amount_from_repr(x: AmountRepr) -> f64 {
     use rust_decimal::prelude::ToPrimitive;
     x.to_f64().expect(
@@ -55,6 +56,7 @@ pub(crate) fn repr_sub(a: AmountRepr, b: AmountRepr) -> AmountRepr {
 }
 
 #[inline]
+#[allow(clippy::panic, clippy::expect_used)] // Panics are documented; finite f64 always converts to Decimal
 pub(crate) fn repr_mul_f64(a: AmountRepr, rhs: f64) -> AmountRepr {
     assert!(
         rhs.is_finite(),
@@ -66,6 +68,7 @@ pub(crate) fn repr_mul_f64(a: AmountRepr, rhs: f64) -> AmountRepr {
 }
 
 #[inline]
+#[allow(clippy::panic, clippy::expect_used)] // Panics are documented; finite non-zero f64 always converts to Decimal
 pub(crate) fn repr_div_f64(a: AmountRepr, rhs: f64) -> AmountRepr {
     assert!(
         rhs.is_finite(),
@@ -81,6 +84,7 @@ pub(crate) fn repr_div_f64(a: AmountRepr, rhs: f64) -> AmountRepr {
 /// Round `x` to `dp` decimal places using the supplied [`RoundingMode`].
 /// Converts f64 input to Decimal for proper rounding.
 #[inline]
+#[allow(clippy::panic, clippy::expect_used)] // Panics are documented; finite f64 always converts to Decimal
 pub(crate) fn round_f64(x: f64, dp: i32, mode: RoundingMode) -> Decimal {
     assert!(
         x.is_finite(),
@@ -113,6 +117,7 @@ pub(crate) fn round_decimal(x: Decimal, dp: i32, mode: RoundingMode) -> Decimal 
 }
 
 #[cfg(test)]
+#[allow(clippy::expect_used, clippy::panic, clippy::indexing_slicing)]
 mod tests {
     use super::*;
     use std::str::FromStr;

@@ -288,6 +288,7 @@ pub fn enable_stochastic_pricing(instruments: &mut [StructuredCredit]) -> Result
 }
 
 #[cfg(test)]
+#[allow(clippy::expect_used)]
 mod tests {
     use super::*;
 

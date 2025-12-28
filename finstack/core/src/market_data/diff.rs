@@ -489,6 +489,7 @@ pub fn measure_vol_surface_shift(
 /// # Ok(())
 /// # }
 /// ```
+#[allow(clippy::expect_used)] // Reference date 2025-01-01 is always valid
 pub fn measure_fx_shift(
     base_ccy: Currency,
     quote_ccy: Currency,
@@ -572,6 +573,7 @@ pub fn measure_scalar_shift(
 }
 
 #[cfg(test)]
+#[allow(clippy::expect_used, clippy::panic, clippy::indexing_slicing)]
 mod tests {
     use super::*;
     use crate::dates::Date;

@@ -23,6 +23,7 @@ pub type YearBits = [u64; BITSET_WORDS];
 
 #[inline]
 #[allow(missing_docs)]
+#[allow(clippy::expect_used)] // January 1st is always a valid date
 pub fn day_of_year_0_based(date: Date) -> u16 {
     let jan1 = Date::from_calendar_date(date.year(), Month::January, 1)
         .expect("January 1 should always be a valid date");
@@ -42,6 +43,7 @@ pub fn bit_test(bits: &YearBits, idx: u16) -> bool {
 
 /// Helper to compute nth weekday of month.
 #[inline]
+#[allow(clippy::expect_used)] // First day of any month is always valid
 pub fn nth_weekday_of_month(year: i32, month: Month, weekday: Weekday, n: i8) -> Date {
     if n > 0 {
         let mut d = Date::from_calendar_date(year, month, 1)

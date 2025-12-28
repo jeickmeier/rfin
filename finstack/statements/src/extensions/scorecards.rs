@@ -104,6 +104,7 @@ static SP_SCALE: OnceLock<RatingScale> = OnceLock::new();
 static MOODYS_SCALE: OnceLock<RatingScale> = OnceLock::new();
 
 /// Get the S&P rating scale (loads from embedded JSON on first access).
+#[allow(clippy::expect_used)] // Embedded JSON validated at compile time; parse failure is a build bug
 fn get_sp_scale() -> &'static RatingScale {
     SP_SCALE.get_or_init(|| {
         let json = include_str!("../../data/rating_scales/sp.json");
@@ -112,6 +113,7 @@ fn get_sp_scale() -> &'static RatingScale {
 }
 
 /// Get the Moody's rating scale (loads from embedded JSON on first access).
+#[allow(clippy::expect_used)] // Embedded JSON validated at compile time; parse failure is a build bug
 fn get_moodys_scale() -> &'static RatingScale {
     MOODYS_SCALE.get_or_init(|| {
         let json = include_str!("../../data/rating_scales/moodys.json");
@@ -552,6 +554,7 @@ impl Extension for CreditScorecardExtension {
 }
 
 #[cfg(test)]
+#[allow(clippy::expect_used)]
 mod tests {
     use super::*;
 

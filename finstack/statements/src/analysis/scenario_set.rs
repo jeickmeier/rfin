@@ -249,13 +249,11 @@ impl ScenarioSet {
 
         // Merge from oldest ancestor → target scenario so that later overrides win.
         while let Some(scenario_name) = stack.pop() {
-            let def = self
-                .scenarios
-                .get(scenario_name)
-                .expect("scenario should exist while resolving overrides");
-
-            for (node_id, value) in &def.overrides {
-                merged.insert(node_id.clone(), *value);
+            // Scenario was verified to exist when pushed onto the stack
+            if let Some(def) = self.scenarios.get(scenario_name) {
+                for (node_id, value) in &def.overrides {
+                    merged.insert(node_id.clone(), *value);
+                }
             }
         }
 
@@ -349,35 +347,33 @@ impl ScenarioResults {
                 let baseline_value = baseline_results.get(metric, &period);
 
                 for (idx, scenario_name) in scenario_names.iter().enumerate() {
-                    let results = self
-                        .scenarios
-                        .get(*scenario_name)
-                        .expect("scenario should exist while building comparison DataFrame");
-
-                    let value = results.get(metric, &period);
-                    scenario_values[idx].push(value);
+                    if let Some(results) = self.scenarios.get(*scenario_name) {
+                        let value = results.get(metric, &period);
+                        scenario_values[idx].push(value);
+                    } else {
+                        scenario_values[idx].push(None);
+                    }
                 }
 
                 for (pct_idx, scenario_name) in non_baseline_names.iter().enumerate() {
-                    let results = self
-                        .scenarios
-                        .get(*scenario_name)
-                        .expect("scenario should exist while building comparison DataFrame");
+                    if let Some(results) = self.scenarios.get(*scenario_name) {
+                        let value = results.get(metric, &period);
 
-                    let value = results.get(metric, &period);
-
-                    let pct = match (baseline_value, value) {
-                        (Some(base), Some(v)) => {
-                            if base.abs() < 1e-10 {
-                                Some(0.0)
-                            } else {
-                                Some((v - base) / base)
+                        let pct = match (baseline_value, value) {
+                            (Some(base), Some(v)) => {
+                                if base.abs() < 1e-10 {
+                                    Some(0.0)
+                                } else {
+                                    Some((v - base) / base)
+                                }
                             }
-                        }
-                        _ => None,
-                    };
+                            _ => None,
+                        };
 
-                    pct_values[pct_idx].push(pct);
+                        pct_values[pct_idx].push(pct);
+                    } else {
+                        pct_values[pct_idx].push(None);
+                    }
                 }
             }
         }
@@ -449,6 +445,7 @@ fn apply_overrides(
 }
 
 #[cfg(test)]
+#[allow(clippy::expect_used)]
 mod tests {
     use super::*;
     use crate::builder::ModelBuilder;

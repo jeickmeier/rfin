@@ -409,6 +409,7 @@ pub struct EvaluationResult {
 // ResultMetadata removed in favor of unified config::ResultsMeta
 
 #[cfg(test)]
+#[allow(clippy::expect_used, clippy::panic, clippy::indexing_slicing)]
 mod tests {
     use super::*;
     use std::collections::hash_map::DefaultHasher;

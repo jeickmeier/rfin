@@ -175,6 +175,7 @@ fn render_tree_with_values(
 }
 
 #[cfg(test)]
+#[allow(clippy::expect_used)]
 mod tests {
     use super::*;
     use crate::analysis::DependencyTracer;

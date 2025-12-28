@@ -191,26 +191,18 @@ fn convert_continuous_rate(
     comp: Compounding,
     year_fraction: f64,
 ) -> Result<f64> {
-    let freq = match comp {
-        Compounding::Annual => Some(1),
-        Compounding::SemiAnnual => Some(2),
-        Compounding::Quarterly => Some(4),
-        Compounding::Monthly => Some(12),
-        _ => None,
-    };
-
     let converted = match comp {
         Compounding::Continuous => continuous_rate,
         Compounding::Simple => continuous_to_simple(continuous_rate, year_fraction)
             .map_err(|e| Error::Validation(e.to_string()))?,
-        Compounding::Annual
-        | Compounding::SemiAnnual
-        | Compounding::Quarterly
-        | Compounding::Monthly => continuous_to_periodic(
-            continuous_rate,
-            freq.expect("frequency only used for periodic variants"),
-        )
-        .map_err(|e| Error::Validation(e.to_string()))?,
+        Compounding::Annual => continuous_to_periodic(continuous_rate, 1)
+            .map_err(|e| Error::Validation(e.to_string()))?,
+        Compounding::SemiAnnual => continuous_to_periodic(continuous_rate, 2)
+            .map_err(|e| Error::Validation(e.to_string()))?,
+        Compounding::Quarterly => continuous_to_periodic(continuous_rate, 4)
+            .map_err(|e| Error::Validation(e.to_string()))?,
+        Compounding::Monthly => continuous_to_periodic(continuous_rate, 12)
+            .map_err(|e| Error::Validation(e.to_string()))?,
     };
 
     Ok(converted)

@@ -421,6 +421,7 @@ impl DiscountCurve {
     /// is invalid. Prefer [`try_df_between_dates`](Self::try_df_between_dates) for
     /// error handling.
     #[inline]
+    #[allow(clippy::expect_used)] // Documented panicking convenience method
     pub fn df_between_dates(&self, from: Date, to: Date) -> f64 {
         self.try_df_between_dates(from, to)
             .expect("df_between_dates failed; use try_df_between_dates for error handling")
@@ -431,6 +432,7 @@ impl DiscountCurve {
     /// This is equivalent to `curve.zero(t)` where `t` is the year fraction from
     /// base date to `date` using the curve's day-count convention.
     #[inline]
+    #[allow(clippy::expect_used)] // Documented panicking convenience method
     pub fn zero_on_date(&self, date: Date) -> f64 {
         self.try_zero_on_date(date)
             .expect("zero_on_date failed; use try_zero_on_date for error handling")
@@ -443,6 +445,7 @@ impl DiscountCurve {
     ///
     /// This convention is commonly used by Bloomberg for displaying zero rates.
     #[inline]
+    #[allow(clippy::expect_used)] // Documented panicking convenience method
     pub fn zero_annual_on_date(&self, date: Date) -> f64 {
         self.try_zero_annual_on_date(date)
             .expect("zero_annual_on_date failed; use try_zero_annual_on_date for error handling")
@@ -453,6 +456,7 @@ impl DiscountCurve {
     /// This is equivalent to `curve.zero_periodic(t, n)` where `t` is the year fraction
     /// from base date to `date` using the curve's day-count convention.
     #[inline]
+    #[allow(clippy::expect_used)] // Documented panicking convenience method
     pub fn zero_periodic_on_date(&self, date: Date, n: u32) -> f64 {
         self.try_zero_periodic_on_date(date, n).expect(
             "zero_periodic_on_date failed; use try_zero_periodic_on_date for error handling",
@@ -467,6 +471,7 @@ impl DiscountCurve {
     /// This convention is commonly used for money market instruments with
     /// tenors less than one year.
     #[inline]
+    #[allow(clippy::expect_used)] // Documented panicking convenience method
     pub fn zero_simple_on_date(&self, date: Date) -> f64 {
         self.try_zero_simple_on_date(date)
             .expect("zero_simple_on_date failed; use try_zero_simple_on_date for error handling")
@@ -481,6 +486,7 @@ impl DiscountCurve {
     ///
     /// Debug-asserts that `d2 > d1`.
     #[inline]
+    #[allow(clippy::expect_used)] // Documented panicking convenience method
     pub fn forward_on_dates(&self, d1: Date, d2: Date) -> f64 {
         self.try_forward_on_dates(d1, d2)
             .expect("forward_on_dates failed; use try_forward_on_dates for error handling")
@@ -755,6 +761,7 @@ impl DiscountCurve {
     ///
     /// **Defaults:** MonotoneConvex interpolation with FlatForward extrapolation follow
     /// market-standard practices for no-arbitrage discount curves.
+    #[allow(clippy::expect_used)] // Epoch date 1970-01-01 is always valid
     pub fn builder(id: impl Into<CurveId>) -> DiscountCurveBuilder {
         DiscountCurveBuilder {
             id: id.into(),
@@ -1260,6 +1267,7 @@ impl TermStructure for DiscountCurve {
 // Tests
 // -----------------------------------------------------------------------------
 #[cfg(test)]
+#[allow(clippy::expect_used, clippy::panic, clippy::indexing_slicing)]
 mod tests {
     use super::*;
 

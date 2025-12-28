@@ -166,6 +166,7 @@ pub fn is_imm_date(date: Date) -> bool {
 /// Return the **next CDS roll date** (20-Mar/20-Jun/20-Sep/20-Dec) **strictly
 /// after** `date`.
 #[must_use]
+#[allow(clippy::expect_used)] // Day 20 exists in every month
 pub fn next_cds_date(date: Date) -> Date {
     next_date_from_months(date, &QUARTERLY_MONTHS, |m, year| {
         // Safe unwrap: 20th exists in every month.
@@ -237,6 +238,7 @@ pub fn next_equity_option_expiry(date: Date) -> Date {
 // Tests
 // -------------------------------------------------------------------------------------------------
 #[cfg(test)]
+#[allow(clippy::expect_used, clippy::panic, clippy::indexing_slicing)]
 mod tests {
     use super::*;
 

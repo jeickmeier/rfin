@@ -588,6 +588,7 @@ impl From<Percentage> for Bps {
 }
 
 #[cfg(test)]
+#[allow(clippy::expect_used, clippy::panic, clippy::indexing_slicing)]
 mod tests {
     use super::*;
 

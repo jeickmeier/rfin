@@ -1196,6 +1196,7 @@ fn enforce_monotonic_and_dedup(dates: &mut Vec<Date>) {
 }
 
 #[cfg(test)]
+#[allow(clippy::expect_used, clippy::panic, clippy::indexing_slicing)]
 mod tests {
     use super::*;
     use time::Month;
@@ -1482,6 +1483,7 @@ mod tests {
 }
 
 #[cfg(all(test, feature = "serde"))]
+#[allow(clippy::expect_used, clippy::panic, clippy::indexing_slicing)]
 mod serde_tests {
     use super::*;
     use time::Month;

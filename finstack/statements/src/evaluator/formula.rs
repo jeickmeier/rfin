@@ -1261,6 +1261,7 @@ fn evaluate_function(
 }
 
 #[cfg(test)]
+#[allow(clippy::expect_used)]
 mod tests {
     use super::*;
     use finstack_core::expr::{Expr, Function};

@@ -705,6 +705,7 @@ impl AddAssign for Money {
     /// assert_eq!(total.amount(), 150.0);
     /// ```
     #[track_caller]
+    #[allow(clippy::panic)] // Documented panic for operator trait that can't return Result
     fn add_assign(&mut self, rhs: Self) {
         if self.currency != rhs.currency {
             panic!(
@@ -735,6 +736,7 @@ impl SubAssign for Money {
     /// assert_eq!(total.amount(), 70.0);
     /// ```
     #[track_caller]
+    #[allow(clippy::panic)] // Documented panic for operator trait that can't return Result
     fn sub_assign(&mut self, rhs: Self) {
         if self.currency != rhs.currency {
             panic!(
@@ -774,6 +776,7 @@ fn ensure_same_currency(lhs: &Money, rhs: &Money) -> Result<(), Error> {
 // Tests (basic – exhaustive suite lives in `tests/` folder)
 // -------------------------------------------------------------------------
 #[cfg(test)]
+#[allow(clippy::expect_used, clippy::panic, clippy::indexing_slicing)]
 mod tests {
     use super::*;
 

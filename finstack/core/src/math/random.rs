@@ -242,6 +242,7 @@ pub fn box_muller_transform(u1: f64, u2: f64) -> (f64, f64) {
 }
 
 #[cfg(test)]
+#[allow(clippy::expect_used, clippy::panic, clippy::indexing_slicing)]
 mod tests {
     use super::*;
 

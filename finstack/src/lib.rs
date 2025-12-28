@@ -1,4 +1,7 @@
 #![deny(unsafe_code)]
+#![deny(clippy::unwrap_used)]
+#![deny(clippy::expect_used)]
+#![deny(clippy::panic)]
 
 #[cfg(feature = "core")]
 pub use finstack_core as core;

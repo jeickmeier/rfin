@@ -290,14 +290,14 @@ impl Registry {
         let sorted = order
             .into_iter()
             .map(|metric_id| {
-                metric_map.get(&metric_id).cloned().unwrap_or_else(|| {
-                    panic!(
-                        "metric '{}' missing from map despite dependency entry",
+                metric_map.get(&metric_id).cloned().ok_or_else(|| {
+                    Error::registry(format!(
+                        "internal error: metric '{}' missing from map despite dependency entry",
                         metric_id
-                    )
+                    ))
                 })
             })
-            .collect();
+            .collect::<std::result::Result<Vec<_>, _>>()?;
 
         Ok(sorted)
     }
@@ -369,6 +369,7 @@ impl Registry {
 }
 
 #[cfg(test)]
+#[allow(clippy::expect_used, clippy::panic)]
 mod tests {
     use super::*;
 

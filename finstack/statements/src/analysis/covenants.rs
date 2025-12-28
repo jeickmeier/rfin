@@ -64,10 +64,15 @@ impl<'a> ModelTimeSeries for StatementsAdapter<'a> {
             _ => 30,
         };
 
-        Date::from_calendar_date(period.year, month, day).unwrap_or(
-            Date::from_calendar_date(period.year, Month::December, 31)
-                .expect("December 31 should always be a valid date"),
-        )
+        // Try the target date, fallback to Dec 31 which is always valid for any year
+        Date::from_calendar_date(period.year, month, day)
+            .or_else(|_| Date::from_calendar_date(period.year, Month::December, 31))
+            .unwrap_or_else(|_| {
+                // This fallback should never be reached since Dec 31 is always valid,
+                // but we need a value for the type system. Use epoch as ultimate fallback.
+                Date::from_calendar_date(1970, Month::January, 1)
+                    .unwrap_or(time::Date::MIN)
+            })
     }
 }
 
@@ -170,6 +175,11 @@ fn extract_sigma_and_seed(model: &FinancialModelSpec, node_id: &str) -> Option<(
 
 #[cfg(feature = "dataframes")]
 /// Convert a covenant forecast into a Polars DataFrame for downstream analysis.
+///
+/// # Panics
+/// Panics if the DataFrame construction fails, which should never happen
+/// with well-formed forecast data (all vectors have the same length).
+#[allow(clippy::expect_used)] // DataFrame build from aligned vectors should never fail
 pub fn to_polars(forecast: &CovenantForecast) -> polars::prelude::DataFrame {
     use polars::prelude::*;
     let dates = forecast
@@ -188,6 +198,7 @@ pub fn to_polars(forecast: &CovenantForecast) -> polars::prelude::DataFrame {
 }
 
 #[cfg(test)]
+#[allow(clippy::expect_used)]
 mod tests {
     use super::*;
     use crate::evaluator::{Results, ResultsMeta};

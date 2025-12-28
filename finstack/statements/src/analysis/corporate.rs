@@ -332,6 +332,7 @@ fn calculate_net_debt_from_model(
 }
 
 #[cfg(test)]
+#[allow(clippy::expect_used)]
 mod tests {
     use super::*;
     use crate::builder::ModelBuilder;

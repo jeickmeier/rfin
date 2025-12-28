@@ -58,6 +58,7 @@ pub fn validate_knots(knots: &[f64]) -> crate::Result<()> {
 
 /// Locate segment index `i` such that `xs[i] <= x <= xs[i+1]`.
 #[inline(always)]
+#[allow(clippy::expect_used)] // xs is checked non-empty above
 pub fn locate_segment(xs: &[f64], x: f64) -> Result<usize, Error> {
     if xs.is_empty() {
         return Err(InputError::TooFewPoints.into());

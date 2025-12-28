@@ -99,6 +99,7 @@ impl ExpressionCache {
     }
 
     /// Create a new expression cache with custom memory budget and capacity.
+    #[allow(clippy::expect_used)] // capacity.max(1) guarantees non-zero value
     pub fn with_budget_and_capacity(max_memory_mb: usize, capacity: usize) -> Self {
         let capacity = capacity.max(1); // Ensure at least 1
         Self {
@@ -112,6 +113,7 @@ impl ExpressionCache {
     }
 
     /// Create cache optimized for the given execution plan.
+    #[allow(clippy::expect_used)] // max(64) guarantees non-zero value
     pub fn for_plan(plan: &ExecutionPlan, budget_mb: usize) -> Self {
         // Use the estimated entries from the plan as the initial capacity
         let estimated_entries = plan.cache_strategy.cache_nodes.len().max(64);
@@ -309,6 +311,7 @@ impl CacheManager {
 }
 
 #[cfg(test)]
+#[allow(clippy::expect_used, clippy::panic, clippy::indexing_slicing)]
 mod tests {
     use super::*;
 

@@ -117,6 +117,7 @@ impl CalendarRegistry<'_> {
 // Tests
 // ----------------------------------------------------------------------------------------------
 #[cfg(test)]
+#[allow(clippy::expect_used, clippy::panic, clippy::indexing_slicing)]
 mod tests {
     use super::*;
     use crate::dates::calendar::{GBLO, TARGET2};

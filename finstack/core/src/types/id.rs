@@ -328,6 +328,7 @@ pub type PriceId = Id<PriceTag>;
 pub type UnderlyingId = Id<UnderlyingTag>;
 
 #[cfg(test)]
+#[allow(clippy::expect_used, clippy::panic, clippy::indexing_slicing)]
 mod tests {
     use super::*;
 

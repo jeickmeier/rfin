@@ -408,11 +408,13 @@ impl ScalarTimeSeries {
     }
 }
 
+#[allow(clippy::expect_used)] // Epoch date 1970-01-01 is always valid
 fn to_days(date: Date) -> i32 {
     let epoch = Date::from_calendar_date(1970, time::Month::January, 1).expect("Epoch valid");
     (date - epoch).whole_days() as i32
 }
 
+#[allow(clippy::expect_used)] // Epoch date 1970-01-01 is always valid
 fn from_days(days: i32) -> Date {
     let epoch = Date::from_calendar_date(1970, time::Month::January, 1).expect("Epoch valid");
     epoch + time::Duration::days(days as i64)
@@ -458,6 +460,7 @@ impl TryFrom<RawScalarTimeSeries> for ScalarTimeSeries {
 }
 
 #[cfg(test)]
+#[allow(clippy::expect_used, clippy::panic, clippy::indexing_slicing)]
 mod tests {
     use super::*;
 

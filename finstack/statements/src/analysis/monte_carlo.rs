@@ -378,6 +378,7 @@ pub(crate) fn aggregate_monte_carlo_paths(
 }
 
 #[cfg(test)]
+#[allow(clippy::expect_used)]
 mod tests {
     use super::*;
     use crate::builder::ModelBuilder;

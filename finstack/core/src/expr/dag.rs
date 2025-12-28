@@ -26,6 +26,7 @@ pub struct DagNode {
 }
 
 #[cfg(test)]
+#[allow(clippy::expect_used, clippy::panic, clippy::indexing_slicing)]
 mod tests {
     use super::*;
     use crate::config::ResultsMeta;
@@ -299,6 +300,7 @@ impl DagBuilder {
     }
 
     /// Build topological ordering of nodes.
+    #[allow(clippy::panic)] // Panic on cycle detection is a programming error, not runtime error
     fn topological_sort(&self, root_ids: &[u64]) -> Vec<DagNode> {
         let mut visited = HashSet::default();
         let mut result = Vec::new();
@@ -316,6 +318,7 @@ impl DagBuilder {
             }
             if visiting.contains(&node_id) {
                 // Cycle detected - shouldn't happen in expression DAGs
+                // Programming error: DAGs should be acyclic by construction
                 panic!("Cycle detected in expression DAG at node {}", node_id);
             }
 

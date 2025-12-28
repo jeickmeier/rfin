@@ -178,6 +178,7 @@ impl TimeGrid {
     }
 
     /// Total time span.
+    #[allow(clippy::expect_used)] // TimeGrid invariant: always has at least one time point
     pub fn t_max(&self) -> f64 {
         *self
             .times
@@ -277,6 +278,7 @@ pub fn map_dates_to_steps(
 }
 
 #[cfg(test)]
+#[allow(clippy::expect_used, clippy::panic, clippy::indexing_slicing)]
 mod tests {
     use super::*;
 

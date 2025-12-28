@@ -433,6 +433,7 @@ fn decompose_series(data: &[f64], season_length: usize) -> (Vec<f64>, Vec<f64>, 
 }
 
 #[cfg(test)]
+#[allow(clippy::expect_used)]
 mod tests {
     use super::*;
     use indexmap::indexmap;

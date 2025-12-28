@@ -131,6 +131,7 @@ impl TableBuilder {
     /// Build ASCII table.
     ///
     /// Returns a formatted ASCII table with box-drawing characters.
+    #[allow(clippy::expect_used)] // write! to String is infallible
     pub fn build(&self) -> String {
         if self.headers.is_empty() {
             return String::new();
@@ -185,6 +186,7 @@ impl TableBuilder {
     /// Build Markdown table.
     ///
     /// Returns a formatted Markdown table.
+    #[allow(clippy::expect_used)] // write! to String is infallible
     pub fn build_markdown(&self) -> String {
         if self.headers.is_empty() {
             return String::new();
@@ -467,6 +469,7 @@ impl Report for CreditAssessmentReport<'_> {
 // ============================================================================
 
 #[cfg(test)]
+#[allow(clippy::expect_used)]
 mod tests {
     use super::*;
 

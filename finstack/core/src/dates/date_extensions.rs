@@ -169,6 +169,7 @@ impl DateExt for Date {
         }
     }
 
+    #[allow(clippy::expect_used)] // Month index and date components are mathematically valid
     fn add_months(self, months: i32) -> Self {
         let (year, month, _) = self.to_calendar_date();
         let total_months = year * 12 + (month as i32 - 1) + months;
@@ -185,6 +186,7 @@ impl DateExt for Date {
             .expect("Date components guaranteed valid by logic")
     }
 
+    #[allow(clippy::expect_used)] // End of month is always a valid date
     fn end_of_month(self) -> Self {
         let days = self.month().length(self.year());
         Date::from_calendar_date(self.year(), self.month(), days)
@@ -411,6 +413,7 @@ impl<C: crate::dates::HolidayCalendar + ?Sized> Iterator for BusinessDayIter<'_,
 // Tests
 // -------------------------------------------------------------------------------------------------
 #[cfg(test)]
+#[allow(clippy::expect_used, clippy::panic, clippy::indexing_slicing)]
 mod tests {
     use super::*;
     use time::Date;

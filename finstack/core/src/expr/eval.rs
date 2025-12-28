@@ -126,6 +126,7 @@ impl Clone for CompiledExpr {
     }
 }
 
+#[allow(clippy::expect_used, clippy::panic)] // Internal mutex locks and f64 sorts; panic for unsupported functions
 impl CompiledExpr {
     /// Construct a new compiled expression from an AST.
     pub fn new(ast: Expr) -> Self {
@@ -1185,6 +1186,7 @@ impl CompiledExpr {
             Function::Abs => self.eval_abs(arg_results),
             Function::Sign => self.eval_sign(arg_results),
             // Custom financial functions (should be evaluated at the statements layer)
+            // Programming error: these should never reach core evaluator
             Function::Sum
             | Function::Mean
             | Function::Ttm
@@ -1218,6 +1220,7 @@ impl CompiledExpr {
     }
 }
 #[cfg(test)]
+#[allow(clippy::expect_used, clippy::panic, clippy::indexing_slicing)]
 mod tests {
     use super::*;
     use crate::config::FinstackConfig;

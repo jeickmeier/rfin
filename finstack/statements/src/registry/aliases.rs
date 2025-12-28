@@ -369,8 +369,8 @@ fn calculate_scores(input: &str, candidates: &IndexSet<String>) -> Vec<(f64, Str
         .collect();
 
     scores.sort_by(|a, b| {
-        b.0.partial_cmp(&a.0)
-            .expect("Jaro-Winkler scores should be comparable (no NaN)")
+        // Jaro-Winkler scores are always in [0, 1] and never NaN
+        b.0.partial_cmp(&a.0).unwrap_or(std::cmp::Ordering::Equal)
     });
     scores
 }
@@ -481,6 +481,7 @@ fn jaro_similarity(s1: &str, s2: &str) -> f64 {
 }
 
 #[cfg(test)]
+#[allow(clippy::expect_used)]
 mod tests {
     use super::*;
 
