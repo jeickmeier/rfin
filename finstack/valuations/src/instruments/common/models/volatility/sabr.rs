@@ -538,14 +538,8 @@ impl SABRModel {
                     forward, strike
                 )));
             }
-        } else {
+        } else if let Some(shift) = self.params.shift {
             // Shifted SABR allows negative rates but shifted values must be positive
-            // SAFETY: We're in the else branch where shift.is_some() is guaranteed
-            #[allow(clippy::expect_used)]
-            let shift = self
-                .params
-                .shift
-                .expect("Shift should be Some when using shifted SABR");
             if forward + shift <= 0.0 || strike + shift <= 0.0 {
                 return Err(Error::Validation(format!(
                     "Shifted SABR: effective rates must be positive. \

@@ -104,7 +104,6 @@ impl InterestRateSwap {
     /// - Historical fixings are required but missing for observation dates before `as_of`
     /// - Calendar or date calculations fail
     /// - Numerical stability thresholds are breached
-    #[allow(clippy::expect_used)] // proj.expect() is infallible: checked is_some() in condition
     pub(crate) fn pv_compounded_in_arrears_float_leg(
         &self,
         disc: &DiscountCurve,
@@ -152,7 +151,7 @@ impl InterestRateSwap {
             // Daily compounding logic
             let allow_fast_path = as_of <= accrual_start
                 && total_shift == 0
-                && (proj.is_none() || disc.id() == proj.expect("checked").id());
+                && proj.is_none_or(|p| disc.id() == p.id());
 
             let compound_factor = if allow_fast_path && proj.is_none() {
                 // Single-curve discount-only fast path when no observation shifting:

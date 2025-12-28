@@ -159,7 +159,6 @@ impl DiversionEngine {
     }
 
     /// Detect circular dependencies in diversion rules using DFS.
-    #[allow(clippy::expect_used)] // position() is infallible: neighbor is in path when Color::Gray
     fn detect_cycles(&self) -> Result<()> {
         let mut graph: HashMap<&str, Vec<&str>> = HashMap::default();
         let mut all_nodes: HashSet<&str> = HashSet::default();
@@ -201,19 +200,18 @@ impl DiversionEngine {
                             dfs_visit(neighbor, graph, colors, path)?;
                         }
                         Some(Color::Gray) => {
-                            let cycle_start = path
-                                .iter()
-                                .position(|&n| n == neighbor)
-                                .expect("Neighbor should exist in path when cycle detected");
-                            let cycle: Vec<_> = path[cycle_start..]
-                                .iter()
-                                .chain(std::iter::once(&neighbor))
-                                .map(|s| s.to_string())
-                                .collect();
-                            return Err(finstack_core::Error::Validation(format!(
-                                "Circular diversion detected: {}",
-                                cycle.join(" → ")
-                            )));
+                            // When neighbor is Gray, it must be in the current path
+                            if let Some(cycle_start) = path.iter().position(|&n| n == neighbor) {
+                                let cycle: Vec<_> = path[cycle_start..]
+                                    .iter()
+                                    .chain(std::iter::once(&neighbor))
+                                    .map(|s| s.to_string())
+                                    .collect();
+                                return Err(finstack_core::Error::Validation(format!(
+                                    "Circular diversion detected: {}",
+                                    cycle.join(" → ")
+                                )));
+                            }
                         }
                         Some(Color::Black) => {}
                         None => {}

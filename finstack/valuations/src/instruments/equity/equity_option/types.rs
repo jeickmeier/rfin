@@ -86,12 +86,16 @@ impl EquityOption {
             Money::new(100_000.0, Currency::USD),
             100.0,
         )
+        .expect("Example equity option should build successfully")
     }
 
     /// Create a European call option with standard conventions.
     ///
     /// This convenience constructor eliminates the builder for the most common case.
-    #[allow(clippy::expect_used)] // Builder with valid inputs should not fail
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if the builder fails validation.
     pub fn european_call(
         id: impl Into<String>,
         ticker: impl Into<String>,
@@ -99,7 +103,7 @@ impl EquityOption {
         expiry: Date,
         notional: Money,
         contract_size: f64,
-    ) -> Self {
+    ) -> finstack_core::Result<Self> {
         let underlying = EquityUnderlyingParams::new(ticker, "EQUITY-SPOT", Currency::USD)
             .with_dividend_yield("EQUITY-DIVYIELD")
             .with_contract_size(contract_size);
@@ -122,11 +126,13 @@ impl EquityOption {
             .pricing_overrides(PricingOverrides::default())
             .attributes(Attributes::new())
             .build()
-            .expect("European call construction should not fail")
     }
 
     /// Create a European put option with standard conventions.
-    #[allow(clippy::expect_used)] // Builder with valid inputs should not fail
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if the builder fails validation.
     pub fn european_put(
         id: impl Into<String>,
         ticker: impl Into<String>,
@@ -134,7 +140,7 @@ impl EquityOption {
         expiry: Date,
         notional: Money,
         contract_size: f64,
-    ) -> Self {
+    ) -> finstack_core::Result<Self> {
         let underlying = EquityUnderlyingParams::new(ticker, "EQUITY-SPOT", Currency::USD)
             .with_dividend_yield("EQUITY-DIVYIELD")
             .with_contract_size(contract_size);
@@ -156,11 +162,13 @@ impl EquityOption {
             .pricing_overrides(PricingOverrides::default())
             .attributes(Attributes::new())
             .build()
-            .expect("European put construction should not fail")
     }
 
     /// Create an American call option with standard conventions.
-    #[allow(clippy::expect_used)] // Builder with valid inputs should not fail
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if the builder fails validation.
     pub fn american_call(
         id: impl Into<String>,
         ticker: impl Into<String>,
@@ -168,7 +176,7 @@ impl EquityOption {
         expiry: Date,
         notional: Money,
         contract_size: f64,
-    ) -> Self {
+    ) -> finstack_core::Result<Self> {
         let underlying = EquityUnderlyingParams::new(ticker, "EQUITY-SPOT", Currency::USD)
             .with_dividend_yield("EQUITY-DIVYIELD")
             .with_contract_size(contract_size);
@@ -190,7 +198,6 @@ impl EquityOption {
             .pricing_overrides(PricingOverrides::default())
             .attributes(Attributes::new())
             .build()
-            .expect("American call construction should not fail")
     }
 
     /// Create a new equity option using parameter structs
@@ -468,19 +475,19 @@ mod tests {
     fn convenience_constructors_apply_standard_conventions() {
         let expiry = date(2025, 12, 31);
         let notional = Money::new(1_000_000.0, Currency::USD);
-        let call = EquityOption::european_call("SPX-CALL", "SPX", 100.0, expiry, notional, 100.0);
+        let call = EquityOption::european_call("SPX-CALL", "SPX", 100.0, expiry, notional, 100.0).unwrap();
         assert_eq!(call.exercise_style, ExerciseStyle::European);
         assert_eq!(call.option_type, OptionType::Call);
         assert_eq!(call.discount_curve_id, CurveId::new(DISC_ID));
         assert_eq!(call.spot_id, "EQUITY-SPOT");
         assert_eq!(call.vol_surface_id, CurveId::new("EQUITY-VOL"));
 
-        let put = EquityOption::european_put("SPX-PUT", "SPX", 90.0, expiry, notional, 50.0);
+        let put = EquityOption::european_put("SPX-PUT", "SPX", 90.0, expiry, notional, 50.0).unwrap();
         assert_eq!(put.option_type, OptionType::Put);
         assert_eq!(put.contract_size, 50.0);
 
         let american =
-            EquityOption::american_call("SPX-AMER", "SPX", 105.0, expiry, notional, 75.0);
+            EquityOption::american_call("SPX-AMER", "SPX", 105.0, expiry, notional, 75.0).unwrap();
         assert_eq!(american.exercise_style, ExerciseStyle::American);
         assert_eq!(american.contract_size, 75.0);
     }

@@ -80,7 +80,6 @@ impl MetricCalculator for ParRateCalculator {
         &[MetricId::Annuity]
     }
 
-    #[allow(clippy::expect_used)] // dates.last() is infallible: len >= 2 checked above
     fn calculate(&self, context: &mut MetricContext) -> finstack_core::Result<f64> {
         let irs: &InterestRateSwap = context.instrument_as()?;
         let disc = context.curves.get_discount(&irs.fixed.discount_curve_id)?;
@@ -124,10 +123,11 @@ impl MetricCalculator for ParRateCalculator {
                 }
 
                 let p0 = crate::instruments::irs::pricer::relative_df(&disc, as_of, dates[0])?;
+                // Safe: we checked dates.len() >= 2 above
                 let pn = crate::instruments::irs::pricer::relative_df(
                     &disc,
                     as_of,
-                    *dates.last().expect("Dates should not be empty"),
+                    dates[dates.len() - 1],
                 )?;
                 let num = p0 - pn;
 

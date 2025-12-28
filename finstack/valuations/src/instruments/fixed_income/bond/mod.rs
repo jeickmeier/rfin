@@ -138,7 +138,8 @@ mod tests {
             date!(2025 - 01 - 01),
             date!(2030 - 01 - 01),
             "USD-TREASURY",
-        );
+        )
+        .unwrap();
 
         assert_eq!(bond.id.as_str(), "BOND_FIXED");
         assert_eq!(bond.cashflow_spec.frequency(), Tenor::semi_annual());
@@ -156,7 +157,8 @@ mod tests {
             date!(2035 - 01 - 01),
             BondConvention::USTreasury,
             "USD-TREASURY",
-        );
+        )
+        .unwrap();
 
         assert_eq!(bond.id.as_str(), "UST-10Y");
         assert_eq!(
@@ -179,7 +181,8 @@ mod tests {
             date!(2035 - 01 - 01),
             BondConvention::UKGilt,
             "GBP-GILTS",
-        );
+        )
+        .unwrap();
 
         assert_eq!(
             bond.cashflow_spec.frequency(),
@@ -448,7 +451,8 @@ mod tests {
             date!(2025 - 01 - 01),
             date!(2030 - 01 - 01),
             "USD-OIS",
-        );
+        )
+        .unwrap();
 
         let inst: &dyn Instrument = &bond;
         assert_eq!(inst.id(), "TRAIT_TEST");
@@ -465,7 +469,8 @@ mod tests {
             date!(2025 - 01 - 01),
             date!(2030 - 01 - 01),
             "USD-OIS",
-        );
+        )
+        .unwrap();
 
         let bond2 = bond1.clone();
 
@@ -486,7 +491,8 @@ mod tests {
             issue,
             maturity,
             "USD-OIS",
-        );
+        )
+        .unwrap();
 
         assert!(bond.maturity > bond.issue);
         let days_to_maturity = (bond.maturity - bond.issue).whole_days();
@@ -505,7 +511,8 @@ mod tests {
             issue,
             maturity,
             "USD-OIS",
-        );
+        )
+        .unwrap();
 
         let years_to_maturity = (bond.maturity - bond.issue).whole_days() / 365;
         assert!(years_to_maturity >= 30);

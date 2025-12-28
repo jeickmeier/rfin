@@ -30,6 +30,7 @@ fn create_test_call() -> EquityOption {
         Money::new(100.0, Currency::USD),
         100.0, // contract size
     )
+    .expect("Test option creation should succeed")
 }
 
 fn create_test_market(base_date: Date) -> MarketContext {
@@ -262,7 +263,7 @@ fn test_option_put_determinism() {
         expiry,
         Money::new(100.0, Currency::USD),
         100.0,
-    );
+    ).unwrap();
 
     let as_of = Date::from_calendar_date(2025, Month::January, 15).unwrap();
     let market = create_test_market(as_of);
@@ -299,7 +300,7 @@ fn test_option_different_moneyness_determinism() {
             expiry,
             Money::new(100.0, Currency::USD),
             1.0,
-        );
+        ).unwrap();
 
         let prices: Vec<f64> = (0..30)
             .map(|_| call.value(&market, as_of).unwrap().amount())
@@ -328,7 +329,7 @@ fn test_option_put_call_parity_determinism() {
         expiry,
         Money::new(100.0, Currency::USD),
         1.0,
-    );
+    ).unwrap();
     let put = EquityOption::european_put(
         "PARITY-PUT",
         "AAPL",
@@ -336,7 +337,7 @@ fn test_option_put_call_parity_determinism() {
         expiry,
         Money::new(100.0, Currency::USD),
         1.0,
-    );
+    ).unwrap();
 
     // Price multiple times for determinism
     let parities: Vec<f64> = (0..30)

@@ -83,7 +83,7 @@ fn test_callable_bond_tree_pricing_reasonable() {
         as_of,
         maturity,
         "USD-OIS",
-    );
+    ).unwrap();
 
     // Create callable bond
     let mut callable_bond = Bond::fixed(
@@ -93,7 +93,7 @@ fn test_callable_bond_tree_pricing_reasonable() {
         as_of,
         maturity,
         "USD-OIS",
-    );
+    ).unwrap();
 
     let mut call_schedule = finstack_valuations::instruments::bond::CallPutSchedule::default();
     call_schedule
@@ -157,7 +157,7 @@ fn test_tree_convergence_with_steps() {
         as_of,
         maturity,
         "USD-OIS",
-    );
+    ).unwrap();
 
     let mut call_schedule = finstack_valuations::instruments::bond::CallPutSchedule::default();
     call_schedule
@@ -202,7 +202,7 @@ fn test_putable_bond_tree_pricing_reasonable() {
         as_of,
         maturity,
         "USD-OIS",
-    );
+    ).unwrap();
 
     let mut putable_bond = Bond::fixed(
         "PUTABLE",
@@ -211,7 +211,7 @@ fn test_putable_bond_tree_pricing_reasonable() {
         as_of,
         maturity,
         "USD-OIS",
-    );
+    ).unwrap();
 
     let mut put_schedule = finstack_valuations::instruments::bond::CallPutSchedule::default();
     put_schedule

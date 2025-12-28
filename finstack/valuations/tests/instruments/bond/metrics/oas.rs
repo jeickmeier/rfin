@@ -18,7 +18,7 @@ fn test_oas_behavior_without_quoted_price() {
         as_of,
         date!(2030 - 01 - 01),
         "USD-OIS",
-    );
+    ).unwrap();
 
     let curve = finstack_core::market_data::term_structures::DiscountCurve::builder("USD-OIS")
         .base_date(as_of)
@@ -51,7 +51,7 @@ fn test_oas_with_quoted_price() {
         as_of,
         date!(2030 - 01 - 01),
         "USD-OIS",
-    );
+    ).unwrap();
     bond.pricing_overrides = PricingOverrides::default().with_clean_price(98.0);
 
     let curve = finstack_core::market_data::term_structures::DiscountCurve::builder("USD-OIS")

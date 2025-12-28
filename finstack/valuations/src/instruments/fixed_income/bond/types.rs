@@ -167,6 +167,7 @@ impl Bond {
             Date::from_calendar_date(2034, time::Month::January, 15).expect("Valid example date"),
             "USD-TREASURY",
         )
+        .expect("Example bond should build successfully")
     }
 
     /// Create a standard fixed-rate bond (most common use case).
@@ -229,10 +230,12 @@ impl Bond {
     /// let notional = Money::new(1_000_000.0, Currency::USD);
     /// let issue = date!(2025-01-15);
     /// let maturity = date!(2030-01-15);
-    /// let us_bond = Bond::fixed("US-001", notional, 0.05, issue, maturity, "USD-OIS");
+    /// let us_bond = Bond::fixed("US-001", notional, 0.05, issue, maturity, "USD-OIS").unwrap();
     /// # let _ = us_bond;
     /// ```
-    #[allow(clippy::expect_used)] // Builder with valid inputs should not fail
+    /// # Errors
+    ///
+    /// Returns an error if the builder fails validation.
     pub fn fixed(
         id: impl Into<InstrumentId>,
         notional: Money,
@@ -240,7 +243,7 @@ impl Bond {
         issue: Date,
         maturity: Date,
         discount_curve_id: impl Into<CurveId>,
-    ) -> Self {
+    ) -> finstack_core::Result<Self> {
         Self::builder()
             .id(id.into())
             .notional(notional)
@@ -257,7 +260,6 @@ impl Bond {
             .attributes(Attributes::new())
             .ex_coupon_calendar_id_opt(None)
             .build()
-            .expect("Standard bond construction should not fail")
     }
 
     /// Create a bond with standard market conventions.
@@ -305,7 +307,9 @@ impl Bond {
     /// );
     /// # let _ = treasury;
     /// ```
-    #[allow(clippy::expect_used)] // Builder with valid inputs should not fail
+    /// # Errors
+    ///
+    /// Returns an error if the builder fails validation.
     pub fn with_convention(
         id: impl Into<InstrumentId>,
         notional: Money,
@@ -314,7 +318,7 @@ impl Bond {
         maturity: Date,
         convention: crate::instruments::common::parameters::BondConvention,
         discount_curve_id: impl Into<CurveId>,
-    ) -> Self {
+    ) -> finstack_core::Result<Self> {
         Self::builder()
             .id(id.into())
             .notional(notional)
@@ -331,7 +335,6 @@ impl Bond {
             .attributes(Attributes::new())
             .ex_coupon_calendar_id_opt(None)
             .build()
-            .expect("Bond with convention construction should not fail")
     }
 
     /// Create a floating-rate bond (FRN).
@@ -384,8 +387,10 @@ impl Bond {
     /// );
     /// # let _ = frn;
     /// ```
+    /// # Errors
+    ///
+    /// Returns an error if the builder fails validation.
     #[allow(clippy::too_many_arguments)]
-    #[allow(clippy::expect_used)] // Builder with valid inputs should not fail
     pub fn floating(
         id: impl Into<InstrumentId>,
         notional: Money,
@@ -396,7 +401,7 @@ impl Bond {
         freq: finstack_core::dates::Tenor,
         dc: DayCount,
         discount_curve_id: impl Into<CurveId>,
-    ) -> Self {
+    ) -> finstack_core::Result<Self> {
         Self::builder()
             .id(id.into())
             .notional(notional)
@@ -409,7 +414,6 @@ impl Bond {
             .attributes(Attributes::new())
             .ex_coupon_calendar_id_opt(None)
             .build()
-            .expect("FRN construction should not fail")
     }
 
     /// Create a bond from a pre-built cashflow schedule.
@@ -1209,7 +1213,8 @@ mod tests {
             Tenor::quarterly(),
             DayCount::Act360,
             "USD-OIS",
-        );
+        )
+        .unwrap();
 
         // Price should be finite and positive under positive forwards
         let pv = bond
@@ -1255,7 +1260,8 @@ mod tests {
             Tenor::quarterly(),
             DayCount::Act360,
             "USD-OIS",
-        );
+        )
+        .unwrap();
         // Apply an ex-coupon convention of 5 days
         bond.ex_coupon_days = Some(5);
 
@@ -1421,7 +1427,8 @@ mod tests {
             Tenor::quarterly(),
             DayCount::Act360,
             "USD-OIS",
-        );
+        )
+        .unwrap();
 
         // Create market with forward curve
         let disc_curve = DiscountCurve::builder("USD-OIS")
@@ -1674,7 +1681,8 @@ mod tests {
             Tenor::quarterly(),
             DayCount::Act365F,
             "USD-OIS",
-        );
+        )
+        .unwrap();
 
         let disc = DiscountCurve::builder("USD-OIS")
             .base_date(issue)

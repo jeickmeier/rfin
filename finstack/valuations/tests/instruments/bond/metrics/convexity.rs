@@ -23,7 +23,7 @@ fn test_convexity_positive() {
         as_of,
         date!(2030 - 01 - 01),
         "USD-OIS",
-    );
+    ).unwrap();
     bond.pricing_overrides =
         finstack_valuations::instruments::PricingOverrides::default().with_clean_price(100.0);
 

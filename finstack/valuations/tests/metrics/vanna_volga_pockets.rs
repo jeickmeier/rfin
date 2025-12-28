@@ -218,7 +218,7 @@ fn fx_vanna_and_volga_match_reference_fd() -> finstack_core::Result<()> {
         expiry,
         Money::new(1_000_000.0, Currency::EUR),
         "EURUSD-VOL",
-    );
+    ).unwrap();
 
     let market = fx_market(as_of, spot, vol, r_d, r_f);
     let pv = opt.value(&market, as_of)?;
@@ -275,7 +275,7 @@ fn fx_volga_returns_zero_when_surface_vol_is_zero() -> finstack_core::Result<()>
         expiry,
         Money::new(1_000_000.0, Currency::EUR),
         "EURUSD-VOL",
-    );
+    ).unwrap();
 
     let market = fx_market(as_of, 1.10, 0.0, 0.02, 0.01);
     let pv = opt.value(&market, as_of)?;

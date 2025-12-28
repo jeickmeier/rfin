@@ -1149,7 +1149,6 @@ impl CDSBootstrapper {
     }
 
     #[allow(clippy::too_many_arguments)]
-    #[allow(clippy::expect_used)] // Temp curve creation is infallible with valid inputs
     fn solve_for_hazard_rate(
         &self,
         cds: &CreditDefaultSwap,
@@ -1163,15 +1162,16 @@ impl CDSBootstrapper {
         // Objective function: ParSpread(h) - TargetSpread = 0
         let objective = |h: f64| -> f64 {
             // Create temp hazard curve with existing knots + trial point
-            let surv = self
-                .create_temp_hazard_curve(
-                    existing_knots,
-                    current_tenor,
-                    h,
-                    base_date,
-                    cds.protection.recovery_rate,
-                )
-                .expect("Hazard curve creation failed");
+            let surv = match self.create_temp_hazard_curve(
+                existing_knots,
+                current_tenor,
+                h,
+                base_date,
+                cds.protection.recovery_rate,
+            ) {
+                Ok(curve) => curve,
+                Err(_) => return f64::NAN, // Signal invalid region to solver
+            };
             match pricer.par_spread(cds, disc, &surv, disc.base_date()) {
                 Ok(spread) => spread - target_spread_bps,
                 Err(_) => f64::NAN, // Signal invalid region to solver

@@ -148,7 +148,6 @@ impl HazardBondEngine {
     /// let pv = HazardBondEngine::price(&bond, &market, as_of)?;
     /// # Ok::<(), Box<dyn std::error::Error>>(())
     /// ```
-    #[allow(clippy::expect_used)] // binary_search is infallible: dates come from same grid
     pub fn price(bond: &Bond, market: &MarketContext, as_of: Date) -> Result<Money> {
         if as_of >= bond.maturity {
             return Ok(Money::new(0.0, bond.notional.currency()));
@@ -216,13 +215,13 @@ impl HazardBondEngine {
         let pv_values: Vec<f64> = flows
             .iter()
             .filter(|(d, amt)| *d > settle_date && amt.amount() != 0.0)
-            .map(|(d, amt)| {
-                let idx = dates
-                    .binary_search(d)
-                    .expect("Cashflow date should be on hazard pricing grid");
-                let df = dfs[idx];
-                let s = surv[idx];
-                amt.amount() * df * s
+            .filter_map(|(d, amt)| {
+                // Dates come from the same grid we built, so binary_search should succeed
+                dates.binary_search(d).ok().map(|idx| {
+                    let df = dfs[idx];
+                    let s = surv[idx];
+                    amt.amount() * df * s
+                })
             })
             .collect();
         let pv_cf = Money::new(kahan_sum(pv_values), ccy);

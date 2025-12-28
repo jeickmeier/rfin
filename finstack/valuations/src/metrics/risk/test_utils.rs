@@ -38,6 +38,7 @@ pub fn standard_bond(id: &str, as_of: Date, maturity: Date) -> Bond {
         maturity,
         "USD-OIS",
     )
+    .expect("standard_bond should build successfully")
 }
 
 /// Single-factor USD-OIS rate scenario used in VaR tests.

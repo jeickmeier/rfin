@@ -201,7 +201,6 @@ impl SwaptionLsmcConfig {
     /// * `exercise_times` - Exercise times in years (sorted)
     /// * `maturity` - Final maturity time
     /// * `min_steps_between` - Minimum steps between grid points (default: 1)
-    #[allow(clippy::expect_used)] // times is initialized with vec![0.0], so .last() is infallible
     pub fn build_exercise_aligned_grid(
         exercise_times: &[f64],
         maturity: f64,
@@ -216,7 +215,8 @@ impl SwaptionLsmcConfig {
             }
 
             // Add refinement points between last time and this exercise date
-            let last_time = *times.last().expect("times vector should never be empty");
+            // times is initialized with vec![0.0] and only grows, so last() always succeeds
+            let last_time = times[times.len() - 1];
             if min_steps_between > 0 && ex_time > last_time + 1e-10 {
                 let dt = (ex_time - last_time) / (min_steps_between + 1) as f64;
                 for i in 1..=min_steps_between {
@@ -228,7 +228,7 @@ impl SwaptionLsmcConfig {
             }
 
             // Add the exercise date exactly
-            let current_last = *times.last().expect("times vector should never be empty");
+            let current_last = times[times.len() - 1];
             if (ex_time - current_last).abs() > 1e-10 {
                 times.push(ex_time);
             }
@@ -236,7 +236,7 @@ impl SwaptionLsmcConfig {
         }
 
         // Add maturity if not already present
-        let final_last = *times.last().expect("times vector should never be empty");
+        let final_last = times[times.len() - 1];
         if (final_last - maturity).abs() > 1e-10 {
             times.push(maturity);
         }

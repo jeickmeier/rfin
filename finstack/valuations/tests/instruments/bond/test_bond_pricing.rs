@@ -28,6 +28,7 @@ fn create_test_bond() -> Bond {
         maturity,
         "USD-OIS",
     )
+    .expect("Test bond creation should succeed")
 }
 
 fn create_test_market(base_date: Date) -> MarketContext {

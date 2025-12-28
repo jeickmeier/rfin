@@ -36,7 +36,6 @@ pub struct TrancheCashflow {
 ///
 /// Projects collateral cashflows and runs them through the waterfall
 /// to determine the reference tranche's cashflows.
-#[allow(clippy::expect_used)] // Tranche existence checked at function start
 pub fn generate_tranche_cashflows(
     cmo: &AgencyCmo,
     as_of: Date,
@@ -75,16 +74,18 @@ pub fn generate_tranche_cashflows(
         if is_io {
             // IO gets interest based on collateral factor
             let factor = cf.ending_balance / original_collateral;
-            let io_tranche = waterfall.get_tranche(ref_id).expect("IO tranche not found");
-            let io_payment = allocate_io_cashflow(io_tranche, factor);
+            // We validated ref_id exists at function start, so this should always succeed
+            if let Some(io_tranche) = waterfall.get_tranche(ref_id) {
+                let io_payment = allocate_io_cashflow(io_tranche, factor);
 
-            tranche_cfs.push(TrancheCashflow {
-                payment_date: cf.payment_date,
-                principal: 0.0,
-                interest: io_payment,
-                total: io_payment,
-                ending_balance: io_tranche.current_face.amount() * factor,
-            });
+                tranche_cfs.push(TrancheCashflow {
+                    payment_date: cf.payment_date,
+                    principal: 0.0,
+                    interest: io_payment,
+                    total: io_payment,
+                    ending_balance: io_tranche.current_face.amount() * factor,
+                });
+            }
         } else {
             // Regular waterfall execution
             let result = execute_waterfall(&mut waterfall, total_principal, total_interest);

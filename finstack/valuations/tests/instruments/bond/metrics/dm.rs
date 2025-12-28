@@ -20,7 +20,7 @@ fn test_dm_fixed_bond_is_rejected_in_strict_mode() {
         as_of,
         date!(2030 - 01 - 01),
         "USD-OIS",
-    );
+    ).unwrap();
 
     let curve = finstack_core::market_data::term_structures::DiscountCurve::builder("USD-OIS")
         .base_date(as_of)
@@ -58,7 +58,7 @@ fn test_dm_missing_forward_curve_returns_error() {
         finstack_core::dates::Tenor::quarterly(),
         finstack_core::dates::DayCount::Act360,
         "USD-OIS",
-    );
+    ).unwrap();
 
     // Market with NO discount curves – any attempt to price from DM should fail
     let market = finstack_core::market_data::context::MarketContext::new();
@@ -137,7 +137,7 @@ fn test_dm_solver_convergence_across_spread_regimes() {
         Tenor::quarterly(),
         DayCount::Act360,
         "USD-OIS",
-    );
+    ).unwrap();
     let frn_hy = Bond::floating(
         "DM-CONV-HY",
         notional,
@@ -148,7 +148,7 @@ fn test_dm_solver_convergence_across_spread_regimes() {
         Tenor::quarterly(),
         DayCount::Act360,
         "USD-OIS",
-    );
+    ).unwrap();
     let frn_distressed = Bond::floating(
         "DM-CONV-DIST",
         notional,
@@ -159,7 +159,7 @@ fn test_dm_solver_convergence_across_spread_regimes() {
         Tenor::quarterly(),
         DayCount::Act360,
         "USD-OIS",
-    );
+    ).unwrap();
 
     // (target DM, bond) pairs covering IG, HY, and distressed regimes.
     let scenarios: Vec<(f64, Bond)> = vec![
@@ -233,7 +233,7 @@ fn test_dm_requires_accrued_when_clean_price_present() {
         as_of,
         date!(2030 - 01 - 01),
         "USD-OIS",
-    );
+    ).unwrap();
 
     let disc = DiscountCurve::builder("USD-OIS")
         .base_date(as_of)

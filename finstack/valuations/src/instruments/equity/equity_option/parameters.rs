@@ -37,13 +37,11 @@ impl EquityOptionParams {
     }
 
     /// Create European call option parameters
-    #[allow(clippy::expect_used)] // Builder with valid inputs should not fail
     pub fn european_call(strike: Money, expiry: Date, contract_size: f64) -> Self {
         Self::new(strike, expiry, OptionType::Call, contract_size)
     }
 
     /// Create European put option parameters  
-    #[allow(clippy::expect_used)] // Builder with valid inputs should not fail
     pub fn european_put(strike: Money, expiry: Date, contract_size: f64) -> Self {
         Self::new(strike, expiry, OptionType::Put, contract_size)
     }

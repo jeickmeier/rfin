@@ -192,7 +192,7 @@ fn test_bond_dv01_negative() {
         as_of,
         date!(2030 - 01 - 01),
         "USD-OIS",
-    );
+    ).unwrap();
 
     let disc_curve = DiscountCurve::builder("USD-OIS")
         .base_date(as_of)

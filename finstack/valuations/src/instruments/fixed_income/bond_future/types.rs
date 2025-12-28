@@ -904,7 +904,7 @@ impl BondFuture {
     ///     CurveId::new("USD-TREASURY"),
     /// )?;
     /// let ctd_bond = Bond::fixed(
-    ///     ctd_bond_id.as_str(),
+    ///     ctd_bond_id.as_str().unwrap(),
     ///     Money::new(100_000.0, Currency::USD),
     ///     0.05,
     ///     date!(2020-01-15),

@@ -37,6 +37,7 @@ fn simple_fixed_bond(as_of: time::Date) -> Bond {
         date!(2030 - 01 - 01),
         "USD-OIS",
     )
+    .expect("Test bond creation should succeed")
 }
 
 fn simple_forward_curve(id: &str, as_of: time::Date) -> ForwardCurve {
@@ -59,6 +60,7 @@ fn simple_floating_bond(as_of: time::Date) -> Bond {
         DayCount::Act360,
         "USD-OIS",
     )
+    .expect("Test FRN creation should succeed")
 }
 
 #[test]

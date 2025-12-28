@@ -54,6 +54,7 @@ fn create_test_bond(as_of: Date) -> Bond {
         maturity_date,
         "USD-OIS",
     )
+    .expect("Test bond creation should succeed")
 }
 
 #[test]

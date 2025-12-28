@@ -54,7 +54,8 @@ fn test_european_call_convenience_constructor() {
         date!(2025 - 01 - 01),
         Money::new(1_000_000.0, Currency::EUR),
         CurveId::new("EURUSD-VOL"),
-    );
+    )
+    .unwrap();
 
     // Assert
     assert_eq!(call.id.as_str(), "EUR_USD_CALL");
@@ -77,7 +78,8 @@ fn test_european_put_convenience_constructor() {
         date!(2025 - 01 - 01),
         Money::new(1_000_000.0, Currency::EUR),
         CurveId::new("EURUSD-VOL"),
-    );
+    )
+    .unwrap();
 
     // Assert
     assert_eq!(put.id.as_str(), "EUR_USD_PUT");

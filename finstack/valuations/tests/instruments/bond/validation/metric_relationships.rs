@@ -58,7 +58,7 @@ fn test_modified_macaulay_duration_relationship() {
         as_of,
         date!(2030 - 01 - 01),
         "USD-OIS",
-    );
+    ).unwrap();
 
     let curve = create_flat_curve(0.06, as_of, "USD-OIS");
     let market = MarketContext::new().insert_discount(curve);

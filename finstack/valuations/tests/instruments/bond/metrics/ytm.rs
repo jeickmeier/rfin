@@ -23,7 +23,7 @@ fn test_ytm_par_bond() {
         as_of,
         date!(2030 - 01 - 01),
         "USD-OIS",
-    );
+    ).unwrap();
     bond.pricing_overrides = PricingOverrides::default().with_clean_price(100.0);
 
     let curve = finstack_core::market_data::term_structures::DiscountCurve::builder("USD-OIS")
@@ -93,7 +93,7 @@ fn test_ytm_floating_bond_is_finite_from_price() {
         Tenor::quarterly(),
         DayCount::Act360,
         "USD-OIS",
-    );
+    ).unwrap();
 
     // Use the model PV to infer a clean price quote (assuming valuation on a
     // coupon date so that accrued is approximately zero).

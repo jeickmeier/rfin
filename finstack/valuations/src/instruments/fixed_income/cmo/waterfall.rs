@@ -51,7 +51,6 @@ pub struct WaterfallPeriodResult {
 /// # Returns
 ///
 /// Waterfall execution result with allocations by tranche
-#[allow(clippy::expect_used)] // Priority groups are built from tranches, so get() is infallible
 pub fn execute_waterfall(
     waterfall: &mut CmoWaterfall,
     available_principal: f64,
@@ -103,20 +102,19 @@ pub fn execute_waterfall(
             break;
         }
 
-        let tranches = priority_groups
-            .get(&priority)
-            .expect("Priority group not found");
+        // Priority groups are built from tranches above, so get() always succeeds
+        if let Some(tranches) = priority_groups.get(&priority) {
+            // Determine allocation mode for this priority group
+            let allocation = allocate_principal_to_group(
+                tranches,
+                remaining_principal,
+                waterfall.pro_rata_same_priority,
+            );
 
-        // Determine allocation mode for this priority group
-        let allocation = allocate_principal_to_group(
-            tranches,
-            remaining_principal,
-            waterfall.pro_rata_same_priority,
-        );
-
-        for (id, amount) in allocation {
-            remaining_principal -= amount;
-            principal_allocations.insert(id, amount);
+            for (id, amount) in allocation {
+                remaining_principal -= amount;
+                principal_allocations.insert(id, amount);
+            }
         }
     }
 

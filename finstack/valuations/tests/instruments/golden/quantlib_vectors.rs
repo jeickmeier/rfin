@@ -173,7 +173,7 @@ fn test_zero_coupon_bond_quantlib_parity() {
         as_of,
         maturity,
         "USD-OIS",
-    );
+    ).unwrap();
 
     let disc = build_flat_discount_curve(bond_vectors::zero_coupon::ZERO_RATE, as_of, "USD-OIS");
     let market = MarketContext::new().insert_discount(disc);
@@ -203,7 +203,7 @@ fn test_fixed_rate_bond_at_par_quantlib_parity() {
         as_of,
         maturity,
         "USD-OIS",
-    );
+    ).unwrap();
 
     let disc = build_flat_discount_curve(bond_vectors::fixed_rate::ZERO_RATE, as_of, "USD-OIS");
     let market = MarketContext::new().insert_discount(disc);
@@ -235,7 +235,7 @@ fn test_ytm_at_par_equals_coupon() {
         as_of,
         maturity,
         "USD-OIS",
-    );
+    ).unwrap();
 
     let disc = build_flat_discount_curve(0.05, as_of, "USD-OIS");
     let market = MarketContext::new().insert_discount(disc);

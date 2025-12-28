@@ -284,7 +284,7 @@ impl BondFuturePricer {
     ///     CurveId::new("USD-TREASURY"),
     /// )?;
     /// let ctd_bond = Bond::fixed(
-    ///     ctd_bond_id.as_str(),
+    ///     ctd_bond_id.as_str().unwrap(),
     ///     Money::new(100_000.0, Currency::USD),
     ///     0.05,
     ///     date!(2020-01-15),
@@ -468,6 +468,7 @@ mod tests {
             maturity,
             "USD-TREASURY",
         )
+        .expect("Test bond creation should succeed")
     }
 
     #[test]
@@ -1013,7 +1014,8 @@ mod tests {
             date!(2020 - 01 - 15),
             date!(2030 - 01 - 15),
             "USD-TREASURY",
-        );
+        )
+        .unwrap();
         let bond_b = Bond::fixed(
             "BOND-B",
             Money::new(100_000.0, Currency::USD),
@@ -1021,7 +1023,8 @@ mod tests {
             date!(2020 - 01 - 15),
             date!(2030 - 01 - 15),
             "USD-TREASURY",
-        );
+        )
+        .unwrap();
 
         let market = create_test_market(0.05)
             .insert_instrument("BOND-A", Arc::new(bond_a.clone()))

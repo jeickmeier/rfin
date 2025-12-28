@@ -303,7 +303,8 @@ mod tests {
             create_date(2024, Month::January, 1).expect("Valid test date"),
             create_date(2034, Month::January, 1).expect("Valid test date"),
             "USD-OIS",
-        );
+        )
+        .unwrap();
 
         let spec = AttributionSpec {
             instrument: InstrumentJson::Bond(bond),
@@ -376,7 +377,8 @@ mod tests {
             create_date(2024, Month::January, 1).expect("Valid test date"),
             create_date(2034, Month::January, 1).expect("Valid test date"),
             "USD-OIS",
-        );
+        )
+        .unwrap();
 
         let spec = AttributionSpec {
             instrument: InstrumentJson::Bond(bond),

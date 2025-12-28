@@ -29,7 +29,7 @@ fn test_callable_bond_basic() {
         as_of,
         date!(2030 - 01 - 01),
         "USD-OIS",
-    );
+    ).unwrap();
 
     let mut schedule = CallPutSchedule::default();
     schedule.calls.push(CallPut {
@@ -55,7 +55,7 @@ fn test_putable_bond_basic() {
         as_of,
         date!(2030 - 01 - 01),
         "USD-OIS",
-    );
+    ).unwrap();
 
     let mut schedule = CallPutSchedule::default();
     schedule.puts.push(CallPut {

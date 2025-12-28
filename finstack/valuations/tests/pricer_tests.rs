@@ -452,7 +452,7 @@ fn test_registry_price_with_unknown_pricer() {
         date!(2024 - 01 - 01),
         date!(2029 - 01 - 01),
         "USD-TREASURY",
-    );
+    ).unwrap();
 
     // Try to price with an unregistered model
     let as_of =
@@ -738,7 +738,7 @@ fn test_expect_inst_type_mismatch() {
         date!(2024 - 01 - 01),
         date!(2029 - 01 - 01),
         "USD-TREASURY",
-    );
+    ).unwrap();
 
     let instrument: &dyn Instrument = &bond;
 
@@ -764,7 +764,7 @@ fn test_expect_inst_success() {
         date!(2024 - 01 - 01),
         date!(2029 - 01 - 01),
         "USD-TREASURY",
-    );
+    ).unwrap();
 
     let instrument: &dyn Instrument = &bond;
 

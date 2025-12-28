@@ -163,7 +163,7 @@ fn test_bucketed_dv01_sums_to_parallel() {
         as_of,
         date!(2035 - 01 - 01), // 10 year bond
         "USD-OIS",
-    );
+    ).unwrap();
 
     // Create curve with dense knots (semi-annual) to properly capture cashflow sensitivity.
     let rate: f64 = 0.05;

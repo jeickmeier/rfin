@@ -110,7 +110,10 @@ impl FxOption {
     }
 
     /// Create a European call option on an FX pair with standard conventions.
-    #[allow(clippy::expect_used)] // Builder with valid inputs should not fail
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if the builder fails validation.
     pub fn european_call(
         id: impl Into<InstrumentId>,
         base_currency: Currency,
@@ -119,7 +122,7 @@ impl FxOption {
         expiry: Date,
         notional: Money,
         vol_surface_id: impl Into<CurveId>,
-    ) -> Self {
+    ) -> finstack_core::Result<Self> {
         let fx_underlying = if quote_currency == Currency::USD && base_currency == Currency::EUR {
             FxUnderlyingParams::usd_eur()
         } else if quote_currency == Currency::USD && base_currency == Currency::GBP {
@@ -144,11 +147,13 @@ impl FxOption {
             .pricing_overrides(PricingOverrides::default())
             .attributes(Attributes::new())
             .build()
-            .expect("FX European call construction should not fail")
     }
 
     /// Create a European put option on an FX pair with standard conventions.
-    #[allow(clippy::expect_used)] // Builder with valid inputs should not fail
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if the builder fails validation.
     pub fn european_put(
         id: impl Into<InstrumentId>,
         base_currency: Currency,
@@ -157,7 +162,7 @@ impl FxOption {
         expiry: Date,
         notional: Money,
         vol_surface_id: impl Into<CurveId>,
-    ) -> Self {
+    ) -> finstack_core::Result<Self> {
         let fx_underlying = if quote_currency == Currency::USD && base_currency == Currency::EUR {
             FxUnderlyingParams::usd_eur()
         } else if quote_currency == Currency::USD && base_currency == Currency::GBP {
@@ -182,7 +187,6 @@ impl FxOption {
             .pricing_overrides(PricingOverrides::default())
             .attributes(Attributes::new())
             .build()
-            .expect("FX European put construction should not fail")
     }
 
     /// Create a European option from trade date using joint calendar spot roll and tenor.
@@ -190,7 +194,6 @@ impl FxOption {
     /// `spot_lag_days` defaults to T+2 in most markets. The expiry is rolled on the
     /// joint base/quote calendars using the provided business day convention.
     #[allow(clippy::too_many_arguments)]
-    #[allow(clippy::expect_used)] // Builder with valid inputs should not fail
     pub fn european_from_trade_date(
         id: impl Into<InstrumentId>,
         base_currency: Currency,
@@ -229,7 +232,7 @@ impl FxOption {
             super::types::default_fx_underlying(base_currency, quote_currency)
         };
 
-        Ok(Self::builder()
+        Self::builder()
             .id(id.into())
             .base_currency(fx_underlying.base_currency)
             .quote_currency(fx_underlying.quote_currency)
@@ -246,7 +249,6 @@ impl FxOption {
             .pricing_overrides(PricingOverrides::default())
             .attributes(Attributes::new())
             .build()
-            .expect("FX option construction should not fail"))
     }
 
     /// Create a new FX option using parameter structs

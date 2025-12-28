@@ -16,7 +16,6 @@ use super::irr_helpers::solve_irr_to_exercise;
 pub struct YtcCalculator;
 
 impl MetricCalculator for YtcCalculator {
-    #[allow(clippy::expect_used)] // Infallible: is_none() check ensures Some
     fn calculate(&self, context: &mut MetricContext) -> finstack_core::Result<f64> {
         let loan: &TermLoan = context.instrument_as()?;
         let as_of = context.as_of;
@@ -32,11 +31,10 @@ impl MetricCalculator for YtcCalculator {
             None => None,
         };
 
-        if first_call.is_none() {
+        let Some(call) = first_call else {
             // use YTM calculator already registered
             return crate::instruments::term_loan::metrics::ytm::YtmCalculator.calculate(context);
-        }
-        let call = first_call.expect("First call should exist when YTC calculation is requested");
+        };
 
         // Build full schedule to get outstanding path including notional draws/repays
         let schedule = crate::instruments::term_loan::cashflows::generate_cashflows(

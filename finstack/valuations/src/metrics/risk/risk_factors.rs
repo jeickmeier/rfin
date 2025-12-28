@@ -335,7 +335,7 @@ mod tests {
             as_of,
             date!(2029 - 01 - 01),
             "USD-OIS",
-        );
+        )?;
 
         // Create market with discount curve
         let curve = DiscountCurve::builder("USD-OIS")
@@ -398,7 +398,7 @@ mod tests {
             as_of,
             date!(2029 - 01 - 01),
             "USD-OIS",
-        );
+        )?;
 
         // Empty market - curve exists in instrument but not in market
         let market = MarketContext::new();
@@ -426,7 +426,7 @@ mod tests {
             expiry,
             Money::new(10_000.0, Currency::USD),
             100.0,
-        );
+        )?;
 
         let base_date = date!(2024 - 01 - 01);
         let curve = DiscountCurve::builder("USD-OIS")

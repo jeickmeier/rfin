@@ -58,7 +58,7 @@ fn quantlib_parity_callable_less_than_straight() {
         as_of,
         maturity,
         "USD-OIS",
-    );
+    ).unwrap();
 
     // Callable bond with call at 102% in 5 years
     let mut callable_bond = Bond::fixed(
@@ -68,7 +68,7 @@ fn quantlib_parity_callable_less_than_straight() {
         as_of,
         maturity,
         "USD-OIS",
-    );
+    ).unwrap();
 
     let mut call_schedule = CallPutSchedule::default();
     call_schedule.calls.push(CallPut {
@@ -121,7 +121,7 @@ fn quantlib_parity_putable_more_than_straight() {
         as_of,
         maturity,
         "USD-OIS",
-    );
+    ).unwrap();
 
     // Putable bond with put at 98% in 5 years
     let mut putable_bond = Bond::fixed(
@@ -131,7 +131,7 @@ fn quantlib_parity_putable_more_than_straight() {
         as_of,
         maturity,
         "USD-OIS",
-    );
+    ).unwrap();
 
     let mut put_schedule = CallPutSchedule::default();
     put_schedule.puts.push(CallPut {
@@ -183,7 +183,7 @@ fn quantlib_parity_call_value_rate_sensitivity() {
         as_of,
         maturity,
         "USD-OIS",
-    );
+    ).unwrap();
 
     let mut callable_bond = Bond::fixed(
         "CALLABLE_RATE",
@@ -192,7 +192,7 @@ fn quantlib_parity_call_value_rate_sensitivity() {
         as_of,
         maturity,
         "USD-OIS",
-    );
+    ).unwrap();
 
     let mut call_schedule = CallPutSchedule::default();
     call_schedule.calls.push(CallPut {
@@ -242,7 +242,7 @@ fn quantlib_parity_put_value_rate_sensitivity() {
         as_of,
         maturity,
         "USD-OIS",
-    );
+    ).unwrap();
 
     let mut putable_bond = Bond::fixed(
         "PUTABLE_PUT",
@@ -251,7 +251,7 @@ fn quantlib_parity_put_value_rate_sensitivity() {
         as_of,
         maturity,
         "USD-OIS",
-    );
+    ).unwrap();
 
     let mut put_schedule = CallPutSchedule::default();
     put_schedule.puts.push(CallPut {
@@ -301,7 +301,7 @@ fn quantlib_parity_multiple_call_dates() {
         as_of,
         maturity,
         "USD-OIS",
-    );
+    ).unwrap();
 
     // Bond callable at multiple dates with declining call prices
     let mut callable_bond = Bond::fixed(
@@ -311,7 +311,7 @@ fn quantlib_parity_multiple_call_dates() {
         as_of,
         maturity,
         "USD-OIS",
-    );
+    ).unwrap();
 
     let mut call_schedule = CallPutSchedule::default();
     call_schedule.calls.push(CallPut {
@@ -371,7 +371,7 @@ fn quantlib_parity_callable_near_call_date() {
         issue_date,
         maturity,
         "USD-OIS",
-    );
+    ).unwrap();
 
     let mut call_schedule = CallPutSchedule::default();
     call_schedule.calls.push(CallPut {
@@ -419,7 +419,7 @@ fn quantlib_parity_putable_provides_floor() {
         as_of,
         maturity,
         "USD-OIS",
-    );
+    ).unwrap();
 
     let mut put_schedule = CallPutSchedule::default();
     put_schedule.puts.push(CallPut {
@@ -464,7 +464,7 @@ fn quantlib_parity_make_whole_call() {
         as_of,
         maturity,
         "USD-OIS",
-    );
+    ).unwrap();
 
     // Callable with high make-whole premium (reduces call optionality)
     let mut callable_bond = Bond::fixed(
@@ -474,7 +474,7 @@ fn quantlib_parity_make_whole_call() {
         as_of,
         maturity,
         "USD-OIS",
-    );
+    ).unwrap();
 
     let mut call_schedule = CallPutSchedule::default();
     // Can call immediately but at high premium
@@ -523,7 +523,7 @@ fn quantlib_parity_bermudan_callable() {
         as_of,
         maturity,
         "USD-OIS",
-    );
+    ).unwrap();
 
     // Bermudan: callable on specific dates (e.g., every 2 years)
     let mut bermudan_bond = Bond::fixed(
@@ -533,7 +533,7 @@ fn quantlib_parity_bermudan_callable() {
         as_of,
         maturity,
         "USD-OIS",
-    );
+    ).unwrap();
 
     let mut call_schedule = CallPutSchedule::default();
     for year in (5..=15).step_by(2) {
@@ -582,7 +582,7 @@ fn quantlib_parity_callable_and_putable() {
         as_of,
         maturity,
         "USD-OIS",
-    );
+    ).unwrap();
 
     // Bond with both call and put options
     let mut combo_bond = Bond::fixed(
@@ -592,7 +592,7 @@ fn quantlib_parity_callable_and_putable() {
         as_of,
         maturity,
         "USD-OIS",
-    );
+    ).unwrap();
 
     let mut schedule = CallPutSchedule::default();
     // Investor can put at 98 in year 3
@@ -643,7 +643,7 @@ fn quantlib_parity_call_protection_period() {
         as_of,
         maturity,
         "USD-OIS",
-    );
+    ).unwrap();
 
     let mut call_schedule = CallPutSchedule::default();
     call_schedule.calls.push(CallPut {
@@ -660,7 +660,7 @@ fn quantlib_parity_call_protection_period() {
         as_of,
         maturity,
         "USD-OIS",
-    );
+    ).unwrap();
 
     let mut immediate_schedule = CallPutSchedule::default();
     immediate_schedule.calls.push(CallPut {
@@ -704,7 +704,7 @@ fn quantlib_parity_otm_call_option() {
         as_of,
         maturity,
         "USD-OIS",
-    );
+    ).unwrap();
 
     let mut callable_bond = Bond::fixed(
         "CALLABLE_OTM",
@@ -713,7 +713,7 @@ fn quantlib_parity_otm_call_option() {
         as_of,
         maturity,
         "USD-OIS",
-    );
+    ).unwrap();
 
     let mut call_schedule = CallPutSchedule::default();
     call_schedule.calls.push(CallPut {
@@ -759,7 +759,7 @@ fn quantlib_parity_itm_put_option() {
         as_of,
         maturity,
         "USD-OIS",
-    );
+    ).unwrap();
 
     let mut putable_bond = Bond::fixed(
         "PUTABLE_ITM",
@@ -768,7 +768,7 @@ fn quantlib_parity_itm_put_option() {
         as_of,
         maturity,
         "USD-OIS",
-    );
+    ).unwrap();
 
     let mut put_schedule = CallPutSchedule::default();
     put_schedule.puts.push(CallPut {
@@ -814,7 +814,7 @@ fn quantlib_parity_tree_pricing_convergence() {
         as_of,
         maturity,
         "USD-OIS",
-    );
+    ).unwrap();
 
     let market = create_market(as_of, 0.05);
 
@@ -866,7 +866,7 @@ fn quantlib_parity_oas_calculation() {
         as_of,
         maturity,
         "USD-OIS",
-    );
+    ).unwrap();
 
     // Add call schedule
     let mut call_schedule = finstack_valuations::instruments::bond::CallPutSchedule::default();
@@ -917,7 +917,7 @@ fn quantlib_parity_oas_price_sensitivity() {
         as_of,
         maturity,
         "USD-OIS",
-    );
+    ).unwrap();
 
     let mut call_schedule = finstack_valuations::instruments::bond::CallPutSchedule::default();
     call_schedule
@@ -974,7 +974,7 @@ fn quantlib_parity_effective_duration() {
         as_of,
         maturity,
         "USD-OIS",
-    );
+    ).unwrap();
 
     // Callable bond
     let mut callable_bond = Bond::fixed(
@@ -984,7 +984,7 @@ fn quantlib_parity_effective_duration() {
         as_of,
         maturity,
         "USD-OIS",
-    );
+    ).unwrap();
 
     let mut call_schedule = finstack_valuations::instruments::bond::CallPutSchedule::default();
     call_schedule
@@ -1051,7 +1051,7 @@ fn quantlib_parity_negative_convexity() {
         as_of,
         maturity,
         "USD-OIS",
-    );
+    ).unwrap();
 
     let mut call_schedule = finstack_valuations::instruments::bond::CallPutSchedule::default();
     call_schedule
@@ -1090,7 +1090,7 @@ fn quantlib_parity_negative_convexity() {
         as_of,
         maturity,
         "USD-OIS",
-    );
+    ).unwrap();
 
     let straight_base = straight_bond.value(&market_base, as_of).unwrap();
     let straight_up = straight_bond.value(&market_up, as_of).unwrap();
@@ -1140,7 +1140,7 @@ fn quantlib_parity_tree_step_convergence() {
         as_of,
         maturity,
         "USD-OIS",
-    );
+    ).unwrap();
 
     let mut call_schedule = finstack_valuations::instruments::bond::CallPutSchedule::default();
     call_schedule

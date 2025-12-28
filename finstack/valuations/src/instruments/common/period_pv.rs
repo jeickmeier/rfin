@@ -39,7 +39,7 @@
 //!     issue,
 //!     maturity,
 //!     "USD-OIS",
-//! );
+//! )?;
 //!
 //! // Set up market with discount curve
 //! let disc_curve = DiscountCurve::builder("USD-OIS")
@@ -148,7 +148,7 @@ pub trait PeriodizedPvExt: CashflowProvider + HasDiscountCurve {
     ///     date!(2025-01-15),
     ///     date!(2030-01-15),
     ///     "USD-OIS",
-    /// );
+    /// )?;
     ///
     /// let pv_map = bond.periodized_pv(&quarters, &market, base, DayCount::Act365F)?;
     /// # let _ = pv_map;
@@ -232,7 +232,7 @@ pub trait PeriodizedPvExt: CashflowProvider + HasDiscountCurve {
     ///     date!(2025-01-15),
     ///     date!(2030-01-15),
     ///     "USD-OIS",
-    /// );
+    /// )?;
     ///
     /// let pv_map = bond.periodized_pv_credit_adjusted(
     ///     &quarters,
@@ -313,6 +313,7 @@ mod tests {
             maturity,
             "USD-OIS",
         )
+        .expect("Test bond creation should succeed")
     }
 
     fn create_test_market(base: Date) -> MarketContext {
@@ -418,7 +419,8 @@ mod tests {
             Tenor::quarterly(),
             DayCount::Act365F,
             "USD-OIS",
-        );
+        )
+        .unwrap();
 
         // Create market with discount and forward curves
         let disc_curve = DiscountCurve::builder("USD-OIS")

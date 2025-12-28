@@ -95,6 +95,7 @@ fn create_ust_bond(
         maturity,
         "USD-TREASURY",
     )
+    .expect("Test bond creation should succeed")
 }
 
 /// Create a realistic deliverable basket for UST 10-year futures.

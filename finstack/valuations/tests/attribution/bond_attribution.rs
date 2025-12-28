@@ -32,7 +32,7 @@ fn test_bond_attribution_parallel() {
         issue,
         maturity,
         "USD-OIS",
-    );
+    ).unwrap();
 
     // Create discount curve at T₀ (flat 4%)
     let curve_t0 = DiscountCurve::builder("USD-OIS")
@@ -121,7 +121,7 @@ fn test_bond_attribution_structure() {
         issue,
         maturity,
         "USD-OIS",
-    );
+    ).unwrap();
 
     let curve = DiscountCurve::builder("USD-OIS")
         .base_date(as_of_t0)

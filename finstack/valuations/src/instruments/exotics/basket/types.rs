@@ -244,7 +244,8 @@ impl Basket {
             Date::from_calendar_date(2024, Month::January, 1).expect("Valid example date"),
             Date::from_calendar_date(2034, Month::January, 1).expect("Valid example date"),
             "USD-OIS",
-        );
+        )
+        .expect("Example bond should build successfully");
 
         let constituents = vec![
             BasketConstituent {

@@ -83,7 +83,7 @@ proptest! {
             expiry,
             Money::new(strike, Currency::USD),
             1.0,
-        );
+        ).unwrap();
 
         let market = create_option_market(base_date, spot, vol, rate, div_yield);
         let call_price = call.value(&market, base_date).unwrap().amount();
@@ -130,7 +130,7 @@ proptest! {
             expiry,
             Money::new(strike, Currency::USD),
             1.0,
-        );
+        ).unwrap();
 
         let market = create_option_market(base_date, spot, vol, rate, div_yield);
         let put_price = put.value(&market, base_date).unwrap().amount();
@@ -175,7 +175,7 @@ proptest! {
             expiry,
             Money::new(strike, Currency::USD),
             1.0,
-        );
+        ).unwrap();
 
         let market = create_option_market(base_date, spot, vol, 0.05, 0.02);
         let call_price = call.value(&market, base_date).unwrap().amount();
@@ -205,7 +205,7 @@ proptest! {
             expiry,
             Money::new(strike, Currency::USD),
             1.0,
-        );
+        ).unwrap();
 
         let market = create_option_market(base_date, 100.0, vol, rate, 0.02);
         let put_price = put.value(&market, base_date).unwrap().amount();
@@ -237,7 +237,7 @@ proptest! {
             expiry,
             Money::new(strike, Currency::USD),
             1.0,
-        );
+        ).unwrap();
 
         // Price with low vol
         let market_low = create_option_market(base_date, spot, 0.15, 0.05, 0.02);

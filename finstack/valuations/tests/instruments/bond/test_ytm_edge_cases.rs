@@ -55,7 +55,7 @@ fn test_deep_discount_bond_ytm() {
         issue,
         maturity,
         "USD-OIS",
-    );
+    ).unwrap();
 
     let market = create_test_market(issue);
 
@@ -307,7 +307,7 @@ fn test_premium_bond_ytm_solver_convergence() {
         issue,
         maturity,
         "USD-OIS",
-    );
+    ).unwrap();
 
     let market = create_test_market(issue);
 
@@ -349,7 +349,7 @@ fn test_ytm_price_roundtrip() {
         issue,
         maturity,
         "USD-OIS",
-    );
+    ).unwrap();
 
     let market = create_test_market(issue);
 
@@ -402,7 +402,7 @@ fn test_very_long_maturity_bond() {
         issue,
         maturity,
         "USD-OIS",
-    );
+    ).unwrap();
 
     let market = create_test_market(issue);
 
@@ -445,7 +445,7 @@ fn test_near_maturity_bond_ytm() {
         issue,
         maturity,
         "USD-OIS",
-    );
+    ).unwrap();
 
     let market = create_test_market(as_of);
 
@@ -485,7 +485,7 @@ fn test_negative_ytm_extreme_premium() {
         issue,
         maturity,
         "USD-OIS",
-    );
+    ).unwrap();
 
     let market = create_test_market(issue);
 

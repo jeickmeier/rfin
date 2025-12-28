@@ -37,7 +37,6 @@ impl LookbackOptionMcPricer {
     }
 
     /// Price a lookback option using Monte Carlo.
-    #[allow(clippy::expect_used)] // strike.expect() is infallible for FixedStrike lookback types
     fn price_internal(
         &self,
         inst: &LookbackOption,
@@ -132,12 +131,14 @@ impl LookbackOptionMcPricer {
                 )?
             }
             (LookbackType::FixedStrike, crate::instruments::OptionType::Call) => {
+                let strike = inst.strike.as_ref().ok_or_else(|| {
+                    finstack_core::error::Error::Validation(
+                        "FixedStrike lookback requires a strike".into(),
+                    )
+                })?;
                 let payoff = Lookback::new(
                     LookbackDirection::Call,
-                    inst.strike
-                        .as_ref()
-                        .expect("Strike should be Some for FixedStrike lookback")
-                        .amount(),
+                    strike.amount(),
                     inst.notional.amount(),
                     maturity_step,
                 );
@@ -152,12 +153,14 @@ impl LookbackOptionMcPricer {
                 )?
             }
             (LookbackType::FixedStrike, crate::instruments::OptionType::Put) => {
+                let strike = inst.strike.as_ref().ok_or_else(|| {
+                    finstack_core::error::Error::Validation(
+                        "FixedStrike lookback requires a strike".into(),
+                    )
+                })?;
                 let payoff = Lookback::new(
                     LookbackDirection::Put,
-                    inst.strike
-                        .as_ref()
-                        .expect("Strike should be Some for FixedStrike lookback")
-                        .amount(),
+                    strike.amount(),
                     inst.notional.amount(),
                     maturity_step,
                 );
@@ -291,7 +294,6 @@ impl Pricer for LookbackOptionAnalyticalPricer {
         )
     }
 
-    #[allow(clippy::expect_used)] // strike.expect() is infallible for FixedStrike lookback types
     fn price_dyn(
         &self,
         instrument: &dyn Instrument,
@@ -373,17 +375,15 @@ impl Pricer for LookbackOptionAnalyticalPricer {
 
         let price = match lookback.lookback_type {
             LookbackType::FixedStrike => {
-                let strike = lookback
-                    .strike
-                    .as_ref()
-                    .expect("Strike should be Some for FixedStrike lookback")
-                    .amount();
+                let strike = lookback.strike.as_ref().ok_or_else(|| {
+                    PricingError::model_failure("FixedStrike lookback requires a strike")
+                })?;
                 match lookback.option_type {
                     crate::instruments::OptionType::Call => {
-                        fixed_strike_lookback_call(spot, strike, t, r, q, sigma, spot_extremum)
+                        fixed_strike_lookback_call(spot, strike.amount(), t, r, q, sigma, spot_extremum)
                     }
                     crate::instruments::OptionType::Put => {
-                        fixed_strike_lookback_put(spot, strike, t, r, q, sigma, spot_extremum)
+                        fixed_strike_lookback_put(spot, strike.amount(), t, r, q, sigma, spot_extremum)
                     }
                 }
             }

@@ -50,7 +50,6 @@ impl AsianOptionMcPricer {
     }
 
     /// Price an Asian option using Monte Carlo.
-    #[allow(clippy::expect_used)] // paths.expect() is infallible when path_capture is enabled
     fn price_internal(
         &self,
         inst: &AsianOption,
@@ -236,10 +235,15 @@ impl AsianOptionMcPricer {
                 )?;
 
                 // Extract per-path discounted payoffs
+                // paths should be Some when path_capture is enabled in price_with_paths
                 let xs: Vec<f64> = arith_full
                     .paths
                     .as_ref()
-                    .expect("paths captured")
+                    .ok_or_else(|| {
+                        finstack_core::error::Error::Validation(
+                            "Path capture enabled but paths not captured".into(),
+                        )
+                    })?
                     .paths
                     .iter()
                     .map(|p| p.final_value)
@@ -247,7 +251,11 @@ impl AsianOptionMcPricer {
                 let ys: Vec<f64> = geom_full
                     .paths
                     .as_ref()
-                    .expect("paths captured")
+                    .ok_or_else(|| {
+                        finstack_core::error::Error::Validation(
+                            "Path capture enabled but paths not captured".into(),
+                        )
+                    })?
                     .paths
                     .iter()
                     .map(|p| p.final_value)
@@ -368,10 +376,15 @@ impl AsianOptionMcPricer {
                     discount_factor,
                 )?;
 
+                // paths should be Some when path_capture is enabled in price_with_paths
                 let xs: Vec<f64> = arith_full
                     .paths
                     .as_ref()
-                    .expect("paths captured")
+                    .ok_or_else(|| {
+                        finstack_core::error::Error::Validation(
+                            "Path capture enabled but paths not captured".into(),
+                        )
+                    })?
                     .paths
                     .iter()
                     .map(|p| p.final_value)
@@ -379,7 +392,11 @@ impl AsianOptionMcPricer {
                 let ys: Vec<f64> = geom_full
                     .paths
                     .as_ref()
-                    .expect("paths captured")
+                    .ok_or_else(|| {
+                        finstack_core::error::Error::Validation(
+                            "Path capture enabled but paths not captured".into(),
+                        )
+                    })?
                     .paths
                     .iter()
                     .map(|p| p.final_value)

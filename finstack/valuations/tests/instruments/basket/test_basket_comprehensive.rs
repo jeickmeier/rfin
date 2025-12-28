@@ -750,7 +750,7 @@ fn test_constituent_reference_with_bond_instrument() {
         base_date,
         maturity,
         "USD-OIS",
-    );
+    ).unwrap();
 
     let basket = Basket {
         id: "BOND_BASKET".into(),
@@ -1351,7 +1351,7 @@ fn test_basket_with_mixed_constituents_serialization() {
         date(2025, 1, 1),
         date(2030, 1, 1),
         "USD-OIS",
-    );
+    ).unwrap();
 
     let basket = Basket {
         id: "MIXED_BASKET".into(),
@@ -1447,7 +1447,7 @@ fn test_constituent_reference_instrument_roundtrip() {
         date(2025, 1, 1),
         date(2030, 1, 1),
         "USD-OIS",
-    );
+    ).unwrap();
     let reference = ConstituentReference::Instrument(Box::new(InstrumentJson::Bond(bond)));
 
     // Act
@@ -1479,7 +1479,7 @@ fn test_basket_envelope_roundtrip_with_instruments() {
         date(2025, 1, 1),
         date(2030, 1, 1),
         "USD-OIS",
-    );
+    ).unwrap();
 
     let basket = Basket {
         id: "ENVELOPE_BASKET".into(),

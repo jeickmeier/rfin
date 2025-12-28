@@ -111,8 +111,8 @@ impl MetricCalculator for ISpreadCalculator {
 
         // Par rate approx: (P(0,T0) - P(0,Tn)) / Sum alpha_i P(0,Ti)
         let p0 = disc.df_on_date_curve(dates[0])?;
-        #[allow(clippy::expect_used)] // Infallible: checked len >= 2 above
-        let pn = disc.df_on_date_curve(*dates.last().expect("Dates should not be empty"))?;
+        // Safe: we checked dates.len() >= 2 above
+        let pn = disc.df_on_date_curve(dates[dates.len() - 1])?;
         let num = p0 - pn;
         let mut den = 0.0;
         for w in dates.windows(2) {
