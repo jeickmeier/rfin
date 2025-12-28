@@ -176,8 +176,7 @@ impl DateExt for Date {
         let new_month_idx = total_months.rem_euclid(12);
 
         // Month index 0-11 + 1 = 1-12, always valid - unwrap_or for defensive fallback
-        let new_month =
-            Month::try_from((new_month_idx + 1) as u8).unwrap_or(Month::January);
+        let new_month = Month::try_from((new_month_idx + 1) as u8).unwrap_or(Month::January);
 
         let days_in_new_month = new_month.length(new_year);
         let new_day = self.day().min(days_in_new_month);

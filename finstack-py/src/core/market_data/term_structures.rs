@@ -420,10 +420,7 @@ impl PyDiscountCurve {
     #[pyo3(text_signature = "(self, date, n)")]
     fn zero_periodic_on_date(&self, date: Bound<'_, PyAny>, n: u32) -> PyResult<f64> {
         let d = py_to_date(&date).context("date")?;
-        Ok(self
-            .inner
-            .zero_periodic_on_date(d, n)
-            .map_err(core_to_py)?)
+        Ok(self.inner.zero_periodic_on_date(d, n).map_err(core_to_py)?)
     }
 
     /// Forward rate between two calendar dates.

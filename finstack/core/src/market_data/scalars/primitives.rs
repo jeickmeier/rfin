@@ -410,15 +410,13 @@ impl ScalarTimeSeries {
 
 fn to_days(date: Date) -> i32 {
     // Epoch date - unwrap_or provides defensive fallback for infallible operation
-    let epoch = Date::from_calendar_date(1970, time::Month::January, 1)
-        .unwrap_or(time::Date::MIN);
+    let epoch = Date::from_calendar_date(1970, time::Month::January, 1).unwrap_or(time::Date::MIN);
     (date - epoch).whole_days() as i32
 }
 
 fn from_days(days: i32) -> Date {
     // Epoch date - unwrap_or provides defensive fallback for infallible operation
-    let epoch = Date::from_calendar_date(1970, time::Month::January, 1)
-        .unwrap_or(time::Date::MIN);
+    let epoch = Date::from_calendar_date(1970, time::Month::January, 1).unwrap_or(time::Date::MIN);
     epoch + time::Duration::days(days as i64)
 }
 

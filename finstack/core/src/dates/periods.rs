@@ -452,7 +452,8 @@ fn half_bounds(year: i32, h: u8) -> (Date, Date) {
     // First of month dates - unwrap_or provides defensive fallback
     let jan1 = Date::from_calendar_date(year, Month::January, 1).unwrap_or(time::Date::MIN);
     let jul1 = Date::from_calendar_date(year, Month::July, 1).unwrap_or(time::Date::MIN);
-    let jan1_next = Date::from_calendar_date(year + 1, Month::January, 1).unwrap_or(time::Date::MIN);
+    let jan1_next =
+        Date::from_calendar_date(year + 1, Month::January, 1).unwrap_or(time::Date::MIN);
     match h {
         1 => (jan1, jul1),
         _ => (jul1, jan1_next),

@@ -331,9 +331,7 @@ pub fn calculate_tranche_z_spread(
                 .year_fraction(as_of, *date, DayCountCtx::default())
                 .unwrap_or(0.0);
 
-            let df = discount_curve
-                .df_between_dates(as_of, *date)
-                .unwrap_or(1.0);
+            let df = discount_curve.df_between_dates(as_of, *date).unwrap_or(1.0);
             let df_z = df * (-z * t_from_as_of).exp();
 
             pv.add(amount.amount() * df_z);
@@ -389,9 +387,7 @@ pub fn calculate_tranche_cs01(
             .year_fraction(as_of, *date, DayCountCtx::default())
             .unwrap_or(0.0);
 
-        let df = discount_curve
-            .df_between_dates(as_of, *date)
-            .unwrap_or(1.0);
+        let df = discount_curve.df_between_dates(as_of, *date).unwrap_or(1.0);
 
         // Base PV
         let df_base = df * (-z_spread * t_from_as_of).exp();

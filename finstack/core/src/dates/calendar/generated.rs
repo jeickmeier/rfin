@@ -25,8 +25,7 @@ pub type YearBits = [u64; BITSET_WORDS];
 #[allow(missing_docs)]
 pub fn day_of_year_0_based(date: Date) -> u16 {
     // January 1 - unwrap_or provides defensive fallback for infallible operation
-    let jan1 = Date::from_calendar_date(date.year(), Month::January, 1)
-        .unwrap_or(time::Date::MIN);
+    let jan1 = Date::from_calendar_date(date.year(), Month::January, 1).unwrap_or(time::Date::MIN);
     (date - jan1).whole_days() as u16
 }
 

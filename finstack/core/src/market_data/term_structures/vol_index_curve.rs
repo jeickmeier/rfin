@@ -190,8 +190,8 @@ impl VolatilityIndexCurve {
     /// stable tail levels consistent with mean reversion expectations.
     pub fn builder(id: impl Into<CurveId>) -> VolatilityIndexCurveBuilder {
         // Epoch date - unwrap_or provides defensive fallback for infallible operation
-        let base = Date::from_calendar_date(1970, time::Month::January, 1)
-            .unwrap_or(time::Date::MIN);
+        let base =
+            Date::from_calendar_date(1970, time::Month::January, 1).unwrap_or(time::Date::MIN);
         VolatilityIndexCurveBuilder {
             id: id.into(),
             base,

@@ -716,8 +716,8 @@ fn year_fraction_act_act_isda(start: Date, end: Date) -> f64 {
 
     // Days from start to 31-Dec of start year (inclusive of start, exclusive of next year 1-Jan).
     // January 1 - unwrap_or provides defensive fallback for infallible operation
-    let start_year_end = Date::from_calendar_date(start.year() + 1, Month::January, 1)
-        .unwrap_or(time::Date::MIN);
+    let start_year_end =
+        Date::from_calendar_date(start.year() + 1, Month::January, 1).unwrap_or(time::Date::MIN);
     let days_start_year = (start_year_end - start).whole_days() as f64;
     let mut frac = days_start_year / days_in_year(start.year()) as f64;
 
@@ -728,8 +728,8 @@ fn year_fraction_act_act_isda(start: Date, end: Date) -> f64 {
 
     // Days from 1-Jan of end year to end date
     // January 1 - unwrap_or provides defensive fallback for infallible operation
-    let start_of_end_year = Date::from_calendar_date(end.year(), Month::January, 1)
-        .unwrap_or(time::Date::MIN);
+    let start_of_end_year =
+        Date::from_calendar_date(end.year(), Month::January, 1).unwrap_or(time::Date::MIN);
     let days_end_year = (end - start_of_end_year).whole_days() as f64;
     frac += days_end_year / days_in_year(end.year()) as f64;
 

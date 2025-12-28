@@ -113,11 +113,7 @@ impl TimeGrid {
             dts.push(dt);
         }
 
-        Ok(Self {
-            t_max,
-            times,
-            dts,
-        })
+        Ok(Self { t_max, times, dts })
     }
 
     /// Create a custom time grid from explicit time points.

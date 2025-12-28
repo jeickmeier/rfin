@@ -255,8 +255,8 @@ impl HazardCurve {
     /// Start building a hazard curve with identifier `id`.
     pub fn builder(id: impl Into<CurveId>) -> HazardCurveBuilder {
         // Epoch date - unwrap_or provides defensive fallback for infallible operation
-        let base = Date::from_calendar_date(1970, time::Month::January, 1)
-            .unwrap_or(time::Date::MIN);
+        let base =
+            Date::from_calendar_date(1970, time::Month::January, 1).unwrap_or(time::Date::MIN);
         HazardCurveBuilder {
             id: id.into(),
             base,
@@ -655,8 +655,8 @@ impl HazardCurveBuilder {
     pub fn build(self) -> crate::Result<HazardCurve> {
         // Require explicit base_date to avoid accidentally anchoring to 1970-01-01
         // unwrap_or provides defensive fallback - comparison still works correctly
-        let default_base = Date::from_calendar_date(1970, time::Month::January, 1)
-            .unwrap_or(time::Date::MIN);
+        let default_base =
+            Date::from_calendar_date(1970, time::Month::January, 1).unwrap_or(time::Date::MIN);
         if self.base == default_base {
             return Err(InputError::Invalid.into());
         }

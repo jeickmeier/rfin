@@ -118,7 +118,9 @@ fn bench_discount_curve_forward(c: &mut Criterion) {
 
     c.bench_function("curve_discount_forward_single", |b| {
         b.iter(|| {
-            let fwd = black_box(&curve).forward(black_box(1.0), black_box(2.0)).unwrap();
+            let fwd = black_box(&curve)
+                .forward(black_box(1.0), black_box(2.0))
+                .unwrap();
             black_box(fwd);
         })
     });

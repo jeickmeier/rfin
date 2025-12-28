@@ -200,8 +200,8 @@ impl ForwardCurve {
     /// stable tail forward rates consistent with market practice.
     pub fn builder(id: impl Into<CurveId>, tenor_years: f64) -> ForwardCurveBuilder {
         // Epoch date - unwrap_or provides defensive fallback for infallible operation
-        let base = Date::from_calendar_date(1970, time::Month::January, 1)
-            .unwrap_or(time::Date::MIN);
+        let base =
+            Date::from_calendar_date(1970, time::Month::January, 1).unwrap_or(time::Date::MIN);
         ForwardCurveBuilder {
             id: id.into(),
             base,

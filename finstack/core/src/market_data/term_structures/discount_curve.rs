@@ -721,8 +721,8 @@ impl DiscountCurve {
     /// market-standard practices for no-arbitrage discount curves.
     pub fn builder(id: impl Into<CurveId>) -> DiscountCurveBuilder {
         // Epoch date - unwrap_or provides defensive fallback for infallible operation
-        let base = Date::from_calendar_date(1970, time::Month::January, 1)
-            .unwrap_or(time::Date::MIN);
+        let base =
+            Date::from_calendar_date(1970, time::Month::January, 1).unwrap_or(time::Date::MIN);
         DiscountCurveBuilder {
             id: id.into(),
             base,
@@ -1295,9 +1295,7 @@ mod tests {
         let df_from = yc
             .df_on_date_curve(from)
             .expect("df(from) should be defined");
-        let df_to = yc
-            .df_on_date_curve(to)
-            .expect("df(to) should be defined");
+        let df_to = yc.df_on_date_curve(to).expect("df(to) should be defined");
         let expected = df_to / df_from;
 
         let actual = yc
@@ -1365,8 +1363,12 @@ mod tests {
         );
 
         // Calculate forward rates in tail - should be stable with FlatForward
-        let fwd_10_15 = curve.forward(10.0, 15.0).expect("forward(10,15) should succeed");
-        let fwd_15_20 = curve.forward(15.0, 20.0).expect("forward(15,20) should succeed");
+        let fwd_10_15 = curve
+            .forward(10.0, 15.0)
+            .expect("forward(10,15) should succeed");
+        let fwd_15_20 = curve
+            .forward(15.0, 20.0)
+            .expect("forward(15,20) should succeed");
 
         // Forward rates should be continuous (within reasonable tolerance for finite differences)
         let fwd_diff = (fwd_15_20 - fwd_10_15).abs();

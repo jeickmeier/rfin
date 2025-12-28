@@ -521,7 +521,7 @@ fn autumnal_equinox_jp(year: i32) -> Date {
     let day = (AUTUMNAL_BASE + AUTUMNAL_SLOPE * y - (y / 4.0).floor()).floor() as u8;
     // Clamp to valid range and use fallback if needed
     let day = day.clamp(1, 30); // September has 30 days
-    // September 23 - unwrap_or chain provides defensive fallbacks
+                                // September 23 - unwrap_or chain provides defensive fallbacks
     Date::from_calendar_date(year, Month::September, day)
         .or_else(|_| Date::from_calendar_date(year, Month::September, 23))
         .unwrap_or(time::Date::MIN)
@@ -601,8 +601,7 @@ impl Rule {
             } => {
                 // If invalid date, return a date far in the past so it never matches
                 let base = apply_observed(
-                    Date::from_calendar_date(date.year(), *month, *day)
-                        .unwrap_or(time::Date::MIN),
+                    Date::from_calendar_date(date.year(), *month, *day).unwrap_or(time::Date::MIN),
                     *observed,
                 );
                 base == date
@@ -623,8 +622,8 @@ impl Rule {
                 dir,
             } => {
                 // If invalid date, return a date far in the past so it never matches
-                let base = Date::from_calendar_date(date.year(), *month, *day)
-                    .unwrap_or(time::Date::MIN);
+                let base =
+                    Date::from_calendar_date(date.year(), *month, *day).unwrap_or(time::Date::MIN);
                 let d = shift_to_weekday(base, *weekday, *dir);
                 d == date
             }

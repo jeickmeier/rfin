@@ -695,9 +695,7 @@ impl CompiledExpr {
             tmp.truncate(0);
             tmp.extend_from_slice(data);
             // NaN values compare as Equal to maintain stable sort
-            tmp.sort_unstable_by(|a, b| {
-                a.partial_cmp(b).unwrap_or(std::cmp::Ordering::Equal)
-            });
+            tmp.sort_unstable_by(|a, b| a.partial_cmp(b).unwrap_or(std::cmp::Ordering::Equal));
             let n = tmp.len();
             let median = if n % 2 == 1 {
                 tmp[n / 2]
@@ -769,9 +767,7 @@ impl CompiledExpr {
                 wbuf.truncate(0);
                 wbuf.extend_from_slice(slice);
                 // NaN values compare as Equal to maintain stable sort
-                wbuf.sort_unstable_by(|a, b| {
-                    a.partial_cmp(b).unwrap_or(std::cmp::Ordering::Equal)
-                });
+                wbuf.sort_unstable_by(|a, b| a.partial_cmp(b).unwrap_or(std::cmp::Ordering::Equal));
                 let k = wbuf.len();
                 out[i] = if k % 2 == 1 {
                     wbuf[k / 2]
@@ -873,9 +869,8 @@ impl CompiledExpr {
             let mut out = vec![0.0; len];
             if !valid_values.is_empty() {
                 // NaN values filtered above, but use unwrap_or for safety
-                valid_values.sort_unstable_by(|a, b| {
-                    a.partial_cmp(b).unwrap_or(std::cmp::Ordering::Equal)
-                });
+                valid_values
+                    .sort_unstable_by(|a, b| a.partial_cmp(b).unwrap_or(std::cmp::Ordering::Equal));
                 let index = q * (valid_values.len() - 1) as f64;
                 let lower = index.floor() as usize;
                 let upper = index.ceil() as usize;

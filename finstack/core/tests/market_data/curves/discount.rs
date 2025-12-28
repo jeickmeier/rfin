@@ -602,7 +602,9 @@ fn forward_rate_analytical_verification() {
 
     // f(1,2) = ln(DF(1)/DF(2)) / (t2-t1) = ln(0.98/0.95) / 1.0
     let expected = (0.98_f64 / 0.95).ln();
-    let actual = curve.forward(1.0, 2.0).expect("forward(1,2) should succeed");
+    let actual = curve
+        .forward(1.0, 2.0)
+        .expect("forward(1,2) should succeed");
     assert!(
         (actual - expected).abs() < 1e-12,
         "forward rate: got {}, expected {}",
@@ -612,7 +614,9 @@ fn forward_rate_analytical_verification() {
 
     // f(0,1) = ln(1.0/0.98) / 1.0
     let expected_01 = (1.0_f64 / 0.98).ln();
-    let actual_01 = curve.forward(0.0, 1.0).expect("forward(0,1) should succeed");
+    let actual_01 = curve
+        .forward(0.0, 1.0)
+        .expect("forward(0,1) should succeed");
     assert!(
         (actual_01 - expected_01).abs() < 1e-12,
         "forward rate 0-1: got {}, expected {}",
