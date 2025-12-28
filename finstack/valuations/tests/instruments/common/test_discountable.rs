@@ -9,8 +9,8 @@ use finstack_valuations::cashflow::builder::{
     CashFlowSchedule, CouponType, FixedCouponSpec, ScheduleParams,
 };
 use finstack_valuations::instruments::common::Discountable;
-use time::Month;
 use rust_decimal_macros::dec;
+use time::Month;
 
 use crate::common::test_helpers::*;
 

@@ -69,7 +69,9 @@ impl PoolAsset {
             },
             balance: bond.notional,
             rate: match &bond.cashflow_spec {
-                crate::instruments::bond::CashflowSpec::Fixed(spec) => spec.rate.to_f64().unwrap_or(0.0),
+                crate::instruments::bond::CashflowSpec::Fixed(spec) => {
+                    spec.rate.to_f64().unwrap_or(0.0)
+                }
                 _ => 0.0,
             },
             spread_bps: None, // Bond doesn't track spread separately

@@ -2,8 +2,8 @@
 
 use finstack_core::dates::{BusinessDayConvention, Date, DayCount, StubKind, Tenor};
 use finstack_core::money::Money;
-use rust_decimal::Decimal;
 use rust_decimal::prelude::ToPrimitive;
+use rust_decimal::Decimal;
 
 /// Fee specification.
 #[derive(Debug, Clone)]
@@ -88,7 +88,5 @@ pub fn evaluate_fee_tiers(tiers: &[FeeTier], utilization: Decimal) -> Decimal {
 /// Converts the utilization to Decimal, evaluates, and returns f64.
 pub fn evaluate_fee_tiers_f64(tiers: &[FeeTier], utilization: f64) -> f64 {
     let util_dec = Decimal::try_from(utilization).unwrap_or(Decimal::ZERO);
-    evaluate_fee_tiers(tiers, util_dec)
-        .to_f64()
-        .unwrap_or(0.0)
+    evaluate_fee_tiers(tiers, util_dec).to_f64().unwrap_or(0.0)
 }

@@ -38,8 +38,8 @@ use finstack_core::market_data::context::MarketContext;
 use finstack_core::market_data::scalars::ScalarTimeSeries;
 use finstack_core::math::kahan_sum;
 use finstack_core::money::Money;
-use rust_decimal::prelude::ToPrimitive;
 use finstack_core::Result;
+use rust_decimal::prelude::ToPrimitive;
 
 use crate::instruments::irs::FloatingLegCompounding;
 use finstack_core::dates::calendar::registry::CalendarRegistry;

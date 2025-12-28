@@ -530,7 +530,8 @@ impl PyInterestRateSwapBuilder {
         let float_leg = FloatLegSpec {
             discount_curve_id: discount,
             forward_curve_id: forward,
-            spread_bp: rust_decimal::Decimal::from_f64_retain(slf.float_spread_bp).unwrap_or_default(),
+            spread_bp: rust_decimal::Decimal::from_f64_retain(slf.float_spread_bp)
+                .unwrap_or_default(),
             freq: slf.float_frequency,
             dc: slf.float_day_count,
             bdc: slf.bdc,
@@ -821,7 +822,8 @@ impl PyInterestRateSwap {
         let float_leg = FloatLegSpec {
             discount_curve_id: discount_curve_id.clone(),
             forward_curve_id,
-            spread_bp: rust_decimal::Decimal::from_f64_retain(float_spread_bp.unwrap_or(0.0)).unwrap_or_default(),
+            spread_bp: rust_decimal::Decimal::from_f64_retain(float_spread_bp.unwrap_or(0.0))
+                .unwrap_or_default(),
             freq: float_freq,
             dc: float_dc,
             bdc,

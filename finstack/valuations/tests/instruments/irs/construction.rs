@@ -27,7 +27,10 @@ fn test_irs_standard_construction() {
 
     assert_eq!(swap.id.as_str(), "IRS-5Y");
     assert_eq!(swap.notional.amount(), 1_000_000.0);
-    assert_eq!(swap.fixed.rate, rust_decimal::Decimal::try_from(0.05).expect("valid"));
+    assert_eq!(
+        swap.fixed.rate,
+        rust_decimal::Decimal::try_from(0.05).expect("valid")
+    );
     assert_eq!(swap.side, PayReceive::PayFixed);
     assert_eq!(swap.fixed.discount_curve_id.as_ref(), "USD-OIS");
     assert_eq!(swap.float.forward_curve_id.as_ref(), "USD-SOFR-3M");
@@ -80,8 +83,14 @@ fn test_irs_builder_pattern() {
 
     assert_eq!(swap.id.as_str(), "IRS-CUSTOM");
     assert_eq!(swap.notional.amount(), 5_000_000.0);
-    assert_eq!(swap.fixed.rate, rust_decimal::Decimal::try_from(0.0325).expect("valid"));
-    assert_eq!(swap.float.spread_bp, rust_decimal::Decimal::try_from(25.0).expect("valid"));
+    assert_eq!(
+        swap.fixed.rate,
+        rust_decimal::Decimal::try_from(0.0325).expect("valid")
+    );
+    assert_eq!(
+        swap.float.spread_bp,
+        rust_decimal::Decimal::try_from(25.0).expect("valid")
+    );
     assert_eq!(swap.fixed.freq, Tenor::semi_annual());
     assert_eq!(swap.float.freq, Tenor::quarterly());
 }
@@ -184,7 +193,10 @@ fn test_irs_with_spread() {
 
     swap.float.spread_bp = rust_decimal::Decimal::try_from(50.0).expect("valid");
 
-    assert_eq!(swap.float.spread_bp, rust_decimal::Decimal::try_from(50.0).expect("valid"));
+    assert_eq!(
+        swap.float.spread_bp,
+        rust_decimal::Decimal::try_from(50.0).expect("valid")
+    );
 }
 
 #[test]

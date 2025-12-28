@@ -10,8 +10,8 @@ use finstack_core::money::Money;
 use finstack_valuations::instruments::common::traits::Instrument;
 use finstack_valuations::instruments::irs::{InterestRateSwap, PayReceive};
 use finstack_valuations::metrics::MetricId;
-use time::macros::date;
 use rust_decimal_macros::dec;
+use time::macros::date;
 
 fn build_flat_curves(rate: f64, base_date: Date) -> MarketContext {
     let disc_curve = DiscountCurve::builder("USD_OIS")
@@ -38,7 +38,11 @@ fn build_flat_curves(rate: f64, base_date: Date) -> MarketContext {
         .insert_forward(fwd_curve)
 }
 
-fn create_standard_swap(as_of: Date, end: Date, fixed_rate: rust_decimal::Decimal) -> InterestRateSwap {
+fn create_standard_swap(
+    as_of: Date,
+    end: Date,
+    fixed_rate: rust_decimal::Decimal,
+) -> InterestRateSwap {
     InterestRateSwap {
         id: "IRS_PAR_TEST".into(),
         notional: Money::new(1_000_000.0, Currency::USD),
@@ -116,7 +120,11 @@ fn test_par_rate_makes_npv_zero() {
     let par_rate = *result.measures.get("par_rate").unwrap();
 
     // Create swap at par rate
-    let swap_at_par = create_standard_swap(as_of, end, rust_decimal::Decimal::from_f64_retain(par_rate).unwrap_or_default());
+    let swap_at_par = create_standard_swap(
+        as_of,
+        end,
+        rust_decimal::Decimal::from_f64_retain(par_rate).unwrap_or_default(),
+    );
     let npv = swap_at_par.value(&market, as_of).unwrap();
 
     assert!(

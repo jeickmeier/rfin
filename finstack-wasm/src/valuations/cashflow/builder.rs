@@ -68,7 +68,7 @@ impl JsCouponType {
     #[wasm_bindgen(js_name = split)]
     pub fn split(cash_pct: f64, pik_pct: f64) -> JsCouponType {
         JsCouponType {
-            inner: CoreCouponType::Split { 
+            inner: CoreCouponType::Split {
                 cash_pct: rust_decimal::Decimal::from_f64_retain(cash_pct).unwrap_or_default(),
                 pik_pct: rust_decimal::Decimal::from_f64_retain(pik_pct).unwrap_or_default(),
             },
@@ -201,7 +201,8 @@ impl JsFloatCouponParams {
             inner: CoreFloatCouponParams {
                 index_id: curve_id_from_str(index_id),
                 margin_bp: rust_decimal::Decimal::from_f64_retain(margin_bp).unwrap_or_default(),
-                gearing: rust_decimal::Decimal::from_f64_retain(gearing.unwrap_or(1.0)).unwrap_or(rust_decimal::Decimal::ONE),
+                gearing: rust_decimal::Decimal::from_f64_retain(gearing.unwrap_or(1.0))
+                    .unwrap_or(rust_decimal::Decimal::ONE),
                 reset_lag_days: reset_lag_days.unwrap_or(2),
             },
         }
@@ -427,7 +428,7 @@ impl JsCashflowBuilder {
                 let pik_pct: f64 = parts[2]
                     .parse()
                     .map_err(|_| js_error("Invalid PIK percentage in split"))?;
-                CoreCouponType::Split { 
+                CoreCouponType::Split {
                     cash_pct: rust_decimal::Decimal::from_f64_retain(cash_pct).unwrap_or_default(),
                     pik_pct: rust_decimal::Decimal::from_f64_retain(pik_pct).unwrap_or_default(),
                 }

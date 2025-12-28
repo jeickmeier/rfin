@@ -33,7 +33,7 @@ impl MetricCalculator for ApproxWeightedAverageCostCalculator {
                 // Use forward curve to get current rate
                 let fwd = context.curves.get_forward_ref(spec.index_id.as_str())?;
                 let index_rate = fwd.rate(0.25); // Use 3M as representative
-                // Convert Decimal spread to f64 for rate calculations
+                                                 // Convert Decimal spread to f64 for rate calculations
                 let spread_bp_f64 = spec.spread_bp.to_f64().unwrap_or(0.0);
                 index_rate + (spread_bp_f64 * 1e-4)
             }

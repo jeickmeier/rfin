@@ -18,8 +18,8 @@ use finstack_core::dates::DayCountCtx;
 use finstack_core::market_data::context::MarketContext;
 use finstack_core::money::Money;
 use finstack_core::Result;
-use rust_decimal::Decimal;
 use rust_decimal::prelude::ToPrimitive;
+use rust_decimal::Decimal;
 use std::sync::Arc;
 
 /// Convert payment frequency to approximate periods per year.
@@ -519,7 +519,9 @@ pub(crate) fn solve_ytw_from_flows(
 
         // Solve yield that matches target dirty price
         let coupon_rate = match &bond.cashflow_spec {
-            crate::instruments::bond::CashflowSpec::Fixed(spec) => spec.rate.to_f64().unwrap_or(0.0),
+            crate::instruments::bond::CashflowSpec::Fixed(spec) => {
+                spec.rate.to_f64().unwrap_or(0.0)
+            }
             _ => 0.0,
         };
         let y = crate::instruments::bond::pricing::ytm_solver::solve_ytm(

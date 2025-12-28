@@ -8,8 +8,8 @@ use finstack_core::money::Money;
 use finstack_valuations::instruments::common::traits::Instrument;
 use finstack_valuations::instruments::irs::{InterestRateSwap, PayReceive};
 use finstack_valuations::metrics::MetricId;
-use time::macros::date;
 use rust_decimal_macros::dec;
+use time::macros::date;
 
 fn build_flat_discount_curve(rate: f64, base_date: Date) -> DiscountCurve {
     let mut builder = DiscountCurve::builder("USD_OIS")

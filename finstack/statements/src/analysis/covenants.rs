@@ -70,8 +70,7 @@ impl<'a> ModelTimeSeries for StatementsAdapter<'a> {
             .unwrap_or_else(|_| {
                 // This fallback should never be reached since Dec 31 is always valid,
                 // but we need a value for the type system. Use epoch as ultimate fallback.
-                Date::from_calendar_date(1970, Month::January, 1)
-                    .unwrap_or(time::Date::MIN)
+                Date::from_calendar_date(1970, Month::January, 1).unwrap_or(time::Date::MIN)
             })
     }
 }

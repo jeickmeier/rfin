@@ -59,7 +59,6 @@ impl CouponType {
             }
         }
     }
-
 }
 
 /// Fixed coupon specification.

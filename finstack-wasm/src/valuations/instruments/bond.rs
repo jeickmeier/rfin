@@ -165,8 +165,12 @@ impl JsBond {
             CashflowSpec::Floating(FloatingCouponSpec {
                 rate_spec: FloatingRateSpec {
                     index_id: curve_id_from_str(curve),
-                    spread_bp: rust_decimal::Decimal::from_f64_retain(float_margin_bp.unwrap_or(0.0)).unwrap_or_default(),
-                    gearing: rust_decimal::Decimal::from_f64_retain(float_gearing.unwrap_or(1.0)).unwrap_or(rust_decimal::Decimal::ONE),
+                    spread_bp: rust_decimal::Decimal::from_f64_retain(
+                        float_margin_bp.unwrap_or(0.0),
+                    )
+                    .unwrap_or_default(),
+                    gearing: rust_decimal::Decimal::from_f64_retain(float_gearing.unwrap_or(1.0))
+                        .unwrap_or(rust_decimal::Decimal::ONE),
                     gearing_includes_spread: true,
                     floor_bp: None,
                     all_in_floor_bp: None,
@@ -197,7 +201,8 @@ impl JsBond {
             // Fixed rate bond
             CashflowSpec::Fixed(FixedCouponSpec {
                 coupon_type: CouponType::Cash,
-                rate: rust_decimal::Decimal::from_f64_retain(coupon_rate.unwrap_or(0.0)).unwrap_or_default(),
+                rate: rust_decimal::Decimal::from_f64_retain(coupon_rate.unwrap_or(0.0))
+                    .unwrap_or_default(),
                 freq: frequency
                     .map(|f| f.inner())
                     .unwrap_or_else(finstack_core::dates::Tenor::semi_annual),
@@ -388,7 +393,7 @@ impl JsBond {
         let custom_schedule = CashFlowSchedule::builder()
             .principal(notional.inner(), issue.inner(), maturity.inner())
             .fixed_cf(FixedCouponSpec {
-                coupon_type: CouponType::Split { 
+                coupon_type: CouponType::Split {
                     cash_pct: rust_decimal::Decimal::from_f64_retain(cash_pct).unwrap_or_default(),
                     pik_pct: rust_decimal::Decimal::from_f64_retain(pik_pct).unwrap_or_default(),
                 },

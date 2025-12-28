@@ -3,13 +3,13 @@
 //! This example shows how to create bonds with complex cashflow patterns
 //! using the cashflow builder and pass them to bond instruments for pricing.
 
-use rust_decimal_macros::dec;
 use finstack_core::currency::Currency;
 use finstack_core::dates::{BusinessDayConvention, Date, DayCount, StubKind, Tenor};
 use finstack_core::market_data::context::MarketContext;
 use finstack_core::market_data::term_structures::discount_curve::DiscountCurve;
 use finstack_core::math::interp::InterpStyle;
 use finstack_core::money::Money;
+use rust_decimal_macros::dec;
 
 use finstack_valuations::cashflow::builder::AmortizationSpec;
 use finstack_valuations::cashflow::builder::{

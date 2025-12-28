@@ -4,10 +4,10 @@
 use crate::instruments::common::traits::Attributes;
 use finstack_core::dates::{Date, DayCount, Tenor};
 use finstack_core::money::Money;
-use rust_decimal::prelude::ToPrimitive;
 #[cfg(test)]
 use finstack_core::types::CurveId;
 use finstack_core::types::InstrumentId;
+use rust_decimal::prelude::ToPrimitive;
 
 #[cfg(feature = "serde")]
 use serde::{Deserialize, Serialize};

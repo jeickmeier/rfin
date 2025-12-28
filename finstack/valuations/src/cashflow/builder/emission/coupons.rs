@@ -5,8 +5,8 @@ use finstack_core::currency::Currency;
 use finstack_core::dates::{Date, DateExt, Tenor};
 use finstack_core::market_data::term_structures::ForwardCurve;
 use finstack_core::money::Money;
-use rust_decimal::Decimal;
 use rust_decimal::prelude::ToPrimitive;
+use rust_decimal::Decimal;
 
 use super::super::compiler::{FixedSchedule, FloatSchedule};
 use super::helpers::{add_pik_flow_if_nonzero, compute_reset_date, resolve_calendar};

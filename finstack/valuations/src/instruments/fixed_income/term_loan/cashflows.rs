@@ -17,8 +17,8 @@ use finstack_core::dates::Date;
 use finstack_core::dates::DayCountCtx;
 use finstack_core::market_data::context::MarketContext;
 use finstack_core::money::Money;
-use rust_decimal::Decimal;
 use rust_decimal::prelude::ToPrimitive;
+use rust_decimal::Decimal;
 use std::collections::BTreeMap;
 
 /// Compute total margin (base spread + covenant step-ups + pricing overrides) at a given date.

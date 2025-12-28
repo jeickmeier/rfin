@@ -15,8 +15,8 @@ use finstack_core::market_data::term_structures::{DiscountCurve, ForwardCurve};
 use finstack_core::money::Money;
 use finstack_valuations::instruments::common::traits::Instrument;
 use finstack_valuations::instruments::irs::{InterestRateSwap, PayReceive};
-use time::macros::date;
 use rust_decimal_macros::dec;
+use time::macros::date;
 
 fn build_flat_discount_curve(rate: f64, base_date: Date, curve_id: &str) -> DiscountCurve {
     let mut builder = DiscountCurve::builder(curve_id)

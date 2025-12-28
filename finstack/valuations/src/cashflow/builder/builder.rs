@@ -51,8 +51,8 @@ use finstack_core::dates::Date;
 use finstack_core::error::InputError;
 use finstack_core::market_data::term_structures::ForwardCurve;
 use finstack_core::money::Money;
-use rust_decimal::Decimal;
 use rust_decimal::prelude::ToPrimitive;
+use rust_decimal::Decimal;
 
 use super::compiler::{
     build_fee_schedules, collect_dates, compute_coupon_schedules, CompiledSchedules,

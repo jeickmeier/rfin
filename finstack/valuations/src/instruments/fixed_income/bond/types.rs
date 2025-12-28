@@ -928,8 +928,8 @@ mod tests {
     use finstack_core::market_data::context::MarketContext;
     use finstack_core::market_data::term_structures::discount_curve::DiscountCurve;
     use finstack_core::market_data::term_structures::forward_curve::ForwardCurve;
-    use rust_decimal::Decimal;
     use finstack_core::math::interp::InterpStyle;
+    use rust_decimal::Decimal;
     use time::Month;
 
     #[test]

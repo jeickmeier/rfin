@@ -17,8 +17,8 @@ use finstack_valuations::instruments::structured_credit::{
     CoverageTrigger, Seniority, Tranche, TrancheBuilder, TrancheCoupon, TrancheStructure,
     TriggerConsequence,
 };
-use time::Month;
 use rust_decimal_macros::dec;
+use time::Month;
 
 fn maturity_date() -> Date {
     Date::from_calendar_date(2030, Month::December, 31).unwrap()

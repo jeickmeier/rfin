@@ -45,7 +45,7 @@ impl PyCouponType {
     #[pyo3(text_signature = "(cls, cash_pct, pik_pct)")]
     /// Create a split coupon type with percentage weights summing to ~1.0.
     fn split(_cls: &Bound<'_, PyType>, cash_pct: f64, pik_pct: f64) -> Self {
-        Self::new(val_builder::CouponType::Split { 
+        Self::new(val_builder::CouponType::Split {
             cash_pct: rust_decimal::Decimal::from_f64_retain(cash_pct).unwrap_or_default(),
             pik_pct: rust_decimal::Decimal::from_f64_retain(pik_pct).unwrap_or_default(),
         })
@@ -219,7 +219,8 @@ impl PyFloatCouponParams {
             inner: val_builder::FloatCouponParams {
                 index_id: finstack_core::types::CurveId::new(index_id),
                 margin_bp: rust_decimal::Decimal::from_f64_retain(margin_bp).unwrap_or_default(),
-                gearing: rust_decimal::Decimal::from_f64_retain(gearing.unwrap_or(1.0)).unwrap_or(rust_decimal::Decimal::ONE),
+                gearing: rust_decimal::Decimal::from_f64_retain(gearing.unwrap_or(1.0))
+                    .unwrap_or(rust_decimal::Decimal::ONE),
                 reset_lag_days: reset_lag_days.unwrap_or(2),
             },
         }

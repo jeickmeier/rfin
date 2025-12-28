@@ -107,8 +107,10 @@ impl PyBondBuilder {
             CashflowSpec::Floating(FloatingCouponSpec {
                 rate_spec: FloatingRateSpec {
                     index_id: fwd.clone(),
-                    spread_bp: rust_decimal::Decimal::from_f64_retain(self.float_margin_bp).unwrap_or_default(),
-                    gearing: rust_decimal::Decimal::from_f64_retain(self.float_gearing).unwrap_or(rust_decimal::Decimal::ONE),
+                    spread_bp: rust_decimal::Decimal::from_f64_retain(self.float_margin_bp)
+                        .unwrap_or_default(),
+                    gearing: rust_decimal::Decimal::from_f64_retain(self.float_gearing)
+                        .unwrap_or(rust_decimal::Decimal::ONE),
                     gearing_includes_spread: true,
                     floor_bp: None,
                     all_in_floor_bp: None,
@@ -793,8 +795,12 @@ impl PyBond {
             CashflowSpec::Floating(FloatingCouponSpec {
                 rate_spec: FloatingRateSpec {
                     index_id: forward_curve_id,
-                    spread_bp: rust_decimal::Decimal::from_f64_retain(float_margin_bp.unwrap_or(0.0)).unwrap_or_default(),
-                    gearing: rust_decimal::Decimal::from_f64_retain(float_gearing.unwrap_or(1.0)).unwrap_or(rust_decimal::Decimal::ONE),
+                    spread_bp: rust_decimal::Decimal::from_f64_retain(
+                        float_margin_bp.unwrap_or(0.0),
+                    )
+                    .unwrap_or_default(),
+                    gearing: rust_decimal::Decimal::from_f64_retain(float_gearing.unwrap_or(1.0))
+                        .unwrap_or(rust_decimal::Decimal::ONE),
                     gearing_includes_spread: true,
                     floor_bp: None,
                     all_in_floor_bp: None,
@@ -812,7 +818,8 @@ impl PyBond {
                 stub: stub_val,
             })
         } else {
-            let rate = rust_decimal::Decimal::from_f64_retain(coupon_rate.unwrap_or(0.0)).unwrap_or_default();
+            let rate = rust_decimal::Decimal::from_f64_retain(coupon_rate.unwrap_or(0.0))
+                .unwrap_or_default();
             if let Some(am) = amortization.as_ref() {
                 CashflowSpec::amortizing(
                     CashflowSpec::Fixed(FixedCouponSpec {
@@ -929,8 +936,12 @@ impl PyBond {
             bond.cashflow_spec = CashflowSpec::Floating(FloatingCouponSpec {
                 rate_spec: FloatingRateSpec {
                     index_id: forward_curve_id,
-                    spread_bp: rust_decimal::Decimal::from_f64_retain(float_margin_bp.unwrap_or(0.0)).unwrap_or_default(),
-                    gearing: rust_decimal::Decimal::from_f64_retain(float_gearing.unwrap_or(1.0)).unwrap_or(rust_decimal::Decimal::ONE),
+                    spread_bp: rust_decimal::Decimal::from_f64_retain(
+                        float_margin_bp.unwrap_or(0.0),
+                    )
+                    .unwrap_or_default(),
+                    gearing: rust_decimal::Decimal::from_f64_retain(float_gearing.unwrap_or(1.0))
+                        .unwrap_or(rust_decimal::Decimal::ONE),
                     gearing_includes_spread: true,
                     floor_bp: None,
                     all_in_floor_bp: None,
