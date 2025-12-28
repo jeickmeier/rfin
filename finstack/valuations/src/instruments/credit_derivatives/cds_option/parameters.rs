@@ -101,7 +101,7 @@ impl CdsOptionParams {
     /// Returns an error if:
     /// - `strike_spread_bp` is not positive or exceeds 10000bp
     /// - `expiry` is not before `cds_maturity`
-    pub fn try_new(
+    pub fn new(
         strike_spread_bp: f64,
         expiry: Date,
         cds_maturity: Date,
@@ -124,13 +124,13 @@ impl CdsOptionParams {
     }
 
     /// Create credit call option parameters with validation.
-    pub fn try_call(
+    pub fn call(
         strike_spread_bp: f64,
         expiry: Date,
         cds_maturity: Date,
         notional: Money,
     ) -> finstack_core::Result<Self> {
-        Self::try_new(
+        Self::new(
             strike_spread_bp,
             expiry,
             cds_maturity,
@@ -140,13 +140,13 @@ impl CdsOptionParams {
     }
 
     /// Create credit put option parameters with validation.
-    pub fn try_put(
+    pub fn put(
         strike_spread_bp: f64,
         expiry: Date,
         cds_maturity: Date,
         notional: Money,
     ) -> finstack_core::Result<Self> {
-        Self::try_new(
+        Self::new(
             strike_spread_bp,
             expiry,
             cds_maturity,
@@ -197,7 +197,7 @@ mod tests {
 
     #[test]
     fn test_valid_params_creation() {
-        let result = CdsOptionParams::try_call(
+        let result = CdsOptionParams::call(
             100.0,
             date!(2025 - 06 - 20),
             date!(2030 - 06 - 20),
@@ -208,7 +208,7 @@ mod tests {
 
     #[test]
     fn test_invalid_strike_zero() {
-        let result = CdsOptionParams::try_call(
+        let result = CdsOptionParams::call(
             0.0,
             date!(2025 - 06 - 20),
             date!(2030 - 06 - 20),
@@ -223,7 +223,7 @@ mod tests {
 
     #[test]
     fn test_invalid_strike_negative() {
-        let result = CdsOptionParams::try_call(
+        let result = CdsOptionParams::call(
             -50.0,
             date!(2025 - 06 - 20),
             date!(2030 - 06 - 20),
@@ -234,7 +234,7 @@ mod tests {
 
     #[test]
     fn test_invalid_expiry_after_maturity() {
-        let result = CdsOptionParams::try_call(
+        let result = CdsOptionParams::call(
             100.0,
             date!(2030 - 06 - 21), // After maturity
             date!(2030 - 06 - 20),
@@ -249,7 +249,7 @@ mod tests {
 
     #[test]
     fn test_invalid_index_factor() {
-        let params = CdsOptionParams::try_call(
+        let params = CdsOptionParams::call(
             100.0,
             date!(2025 - 06 - 20),
             date!(2030 - 06 - 20),
@@ -264,7 +264,7 @@ mod tests {
 
     #[test]
     fn test_valid_index_factor() {
-        let params = CdsOptionParams::try_call(
+        let params = CdsOptionParams::call(
             100.0,
             date!(2025 - 06 - 20),
             date!(2030 - 06 - 20),

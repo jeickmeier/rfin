@@ -750,7 +750,7 @@ fn build_sample_portfolio(as_of: Date) -> finstack_portfolio::Result<Portfolio> 
     .with_tag("sector", "Credit");
 
     // 10. CDS Option (option on CDS spread) - standalone
-    let option_params = CdsOptionParams::try_call(
+    let option_params = CdsOptionParams::call(
         120.0,                                   // Strike at 120bp
         date!(2024 - 07 - 01),                   // 6M expiry
         date!(2029 - 01 - 01),                   // 5Y CDS maturity
@@ -758,7 +758,7 @@ fn build_sample_portfolio(as_of: Date) -> finstack_portfolio::Result<Portfolio> 
     )
     .expect("valid CDS option params");
 
-    let cds_option = CdsOption::try_new(
+    let cds_option = CdsOption::new(
         "CDS_OPTION_6M",
         &option_params,
         &credit_params,

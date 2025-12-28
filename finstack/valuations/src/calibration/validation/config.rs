@@ -72,7 +72,7 @@ impl RateBounds {
     /// # Errors
     ///
     /// Returns an error if `min_rate > max_rate`.
-    pub fn try_new(min_rate: f64, max_rate: f64) -> Result<Self> {
+    pub fn new(min_rate: f64, max_rate: f64) -> Result<Self> {
         let bounds = Self { min_rate, max_rate };
         bounds.validate()?;
         Ok(bounds)

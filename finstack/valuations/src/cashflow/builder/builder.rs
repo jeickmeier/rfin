@@ -619,14 +619,6 @@ impl CashFlowBuilder {
         self
     }
 
-    /// Non-panicking variant of `fixed_cf`. Returns error if principal not set.
-    ///
-    /// Preferred for library code to avoid panics in production.
-    pub fn try_fixed_cf(&mut self, spec: FixedCouponSpec) -> finstack_core::Result<&mut Self> {
-        self.issue_maturity_or_error("fixed_cf")?;
-        Ok(self.fixed_cf(spec))
-    }
-
     /// Adds a floating coupon specification.
     #[must_use = "builder methods should be chained or terminated with .build()"]
     pub fn floating_cf(&mut self, spec: FloatingCouponSpec) -> &mut Self {
@@ -660,17 +652,6 @@ impl CashFlowBuilder {
             split: spec.coupon_type,
         });
         self
-    }
-
-    /// Non-panicking variant of `floating_cf`. Returns error if principal not set.
-    ///
-    /// Preferred for library code to avoid panics in production.
-    pub fn try_floating_cf(
-        &mut self,
-        spec: FloatingCouponSpec,
-    ) -> finstack_core::Result<&mut Self> {
-        self.issue_maturity_or_error("floating_cf")?;
-        Ok(self.floating_cf(spec))
     }
 
     /// Adds a fee specification.
@@ -802,19 +783,6 @@ impl CashFlowBuilder {
         self
     }
 
-    /// Non-panicking variant of `fixed_stepup`. Returns error if principal not set.
-    ///
-    /// Preferred for library code to avoid panics in production.
-    pub fn try_fixed_stepup(
-        &mut self,
-        steps: &[(Date, f64)],
-        schedule: ScheduleParams,
-        default_split: CouponType,
-    ) -> finstack_core::Result<&mut Self> {
-        self.issue_maturity_or_error("fixed_stepup")?;
-        Ok(self.fixed_stepup(steps, schedule, default_split))
-    }
-
     /// Convenience: fixed step-up program using boundary dates.
     ///
     /// Creates a series of fixed-rate coupon windows where the rate changes at
@@ -888,20 +856,6 @@ impl CashFlowBuilder {
             }
         }
         self
-    }
-
-    /// Non-panicking variant of `float_margin_stepup`. Returns error if principal not set.
-    ///
-    /// Preferred for library code to avoid panics in production.
-    pub fn try_float_margin_stepup(
-        &mut self,
-        steps: &[(Date, f64)],
-        base_params: FloatCouponParams,
-        schedule: ScheduleParams,
-        default_split: CouponType,
-    ) -> finstack_core::Result<&mut Self> {
-        self.issue_maturity_or_error("float_margin_stepup")?;
-        Ok(self.float_margin_stepup(steps, base_params, schedule, default_split))
     }
 
     /// Convenience: floating margin step-up program.
@@ -998,20 +952,6 @@ impl CashFlowBuilder {
         self
     }
 
-    /// Non-panicking variant of `fixed_to_float`. Returns error if principal not set.
-    ///
-    /// Preferred for library code to avoid panics in production.
-    pub fn try_fixed_to_float(
-        &mut self,
-        switch: Date,
-        fixed_win: FixedWindow,
-        float_win: FloatWindow,
-        default_split: CouponType,
-    ) -> finstack_core::Result<&mut Self> {
-        self.issue_maturity_or_error("fixed_to_float")?;
-        Ok(self.fixed_to_float(switch, fixed_win, float_win, default_split))
-    }
-
     /// Convenience: fixed-to-float switch at `switch` date.
     ///
     /// Creates a hybrid instrument that pays fixed coupons until a switch date,
@@ -1096,17 +1036,6 @@ impl CashFlowBuilder {
             default_split,
         );
         self
-    }
-
-    /// Non-panicking variant of `payment_split_program`. Returns error if principal not set.
-    ///
-    /// Preferred for library code to avoid panics in production.
-    pub fn try_payment_split_program(
-        &mut self,
-        steps: &[(Date, CouponType)],
-    ) -> finstack_core::Result<&mut Self> {
-        self.issue_maturity_or_error("payment_split_program")?;
-        Ok(self.payment_split_program(steps))
     }
 
     /// Convenience: payment split program with boundary dates (PIK toggle windows).

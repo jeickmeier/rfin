@@ -29,7 +29,7 @@ fn calibration_config_effective_rate_bounds_respects_policy() {
 
 #[test]
 fn rate_bounds_rejects_invalid_range() {
-    let err = RateBounds::try_new(0.05, -0.01).expect_err("min > max should fail");
+    let err = RateBounds::new(0.05, -0.01).expect_err("min > max should fail");
     assert!(err.to_string().contains("min_rate"));
 }
 

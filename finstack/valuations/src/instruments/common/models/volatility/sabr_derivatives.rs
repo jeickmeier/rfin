@@ -40,7 +40,7 @@ impl SABRMarketData {
     /// # Errors
     ///
     /// Returns an error if inputs are inconsistent (e.g. mismatched lengths) or out of range.
-    pub fn try_new(
+    pub fn new(
         forward: f64,
         time_to_expiry: f64,
         strikes: Vec<f64>,
@@ -88,12 +88,12 @@ impl SABRMarketData {
         })
     }
 
-    /// Same as `try_new` but allows setting an explicit shift.
+    /// Same as `new` but allows setting an explicit shift.
     ///
     /// # Errors
     ///
     /// Returns an error if inputs are invalid, or if `shift` is not positive.
-    pub fn try_new_with_shift(
+    pub fn new_with_shift(
         forward: f64,
         time_to_expiry: f64,
         strikes: Vec<f64>,
@@ -107,7 +107,7 @@ impl SABRMarketData {
                 shift
             )));
         }
-        let mut md = Self::try_new(forward, time_to_expiry, strikes, market_vols, beta)?;
+        let mut md = Self::new(forward, time_to_expiry, strikes, market_vols, beta)?;
         md.shift = Some(shift);
         Ok(md)
     }

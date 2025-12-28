@@ -53,7 +53,7 @@ impl JsCdsOption {
             ));
         }
 
-        let mut option_params = CdsOptionParams::try_new(
+        let mut option_params = CdsOptionParams::new(
             strike_spread_bp,
             expiry.inner(),
             cds_maturity.inner(),
@@ -77,7 +77,7 @@ impl JsCdsOption {
         let vol_str = optional_static_str(Some(vol_surface.to_string()))
             .ok_or_else(|| js_error("vol surface required".to_string()))?;
 
-        let option = CdsOption::try_new(
+        let option = CdsOption::new(
             instrument_id_from_str(instrument_id),
             &option_params,
             &credit_params,

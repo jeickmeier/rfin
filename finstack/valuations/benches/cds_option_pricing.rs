@@ -48,7 +48,7 @@ fn create_cds_option(
         credit_curve_id: "ACME-HAZARD".into(),
     };
 
-    CdsOption::try_new(
+    CdsOption::new(
         format!("CDS_OPT_{}M_{}Y", expiry_months, cds_tenor_years),
         &option_params,
         &credit_params,

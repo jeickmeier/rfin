@@ -122,7 +122,7 @@ impl PyCdsOption {
             ));
         }
 
-        let mut option_params = CdsOptionParams::try_new(
+        let mut option_params = CdsOptionParams::new(
             strike_spread_bp,
             expiry_date,
             cds_maturity_date,
@@ -141,7 +141,7 @@ impl PyCdsOption {
         }
 
         let credit_params = CreditParams::new("CDS_OPTION", recovery, credit);
-        let option = CdsOption::try_new(id, &option_params, &credit_params, discount, vol_surface)
+        let option = CdsOption::new(id, &option_params, &credit_params, discount, vol_surface)
             .map_err(|e| PyValueError::new_err(e.to_string()))?;
         Ok(Self::new(option))
     }

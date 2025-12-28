@@ -17,7 +17,7 @@ fn test_cds_option_construction() {
     let expiry = date!(2026 - 01 - 01);
     let maturity = date!(2031 - 01 - 01);
 
-    let option_params = CdsOptionParams::try_call(
+    let option_params = CdsOptionParams::call(
         100.0,
         expiry,
         maturity,
@@ -26,7 +26,7 @@ fn test_cds_option_construction() {
     .expect("valid call params");
     let credit_params = CreditParams::corporate_standard("CORP", "HZ-CORP");
 
-    let option = CdsOption::try_new(
+    let option = CdsOption::new(
         "TEST-CDSOPT",
         &option_params,
         &credit_params,

@@ -534,7 +534,7 @@ impl BondFuture {
             .ctd_bond_id(ctd_bond_id)
             .discount_curve_id(discount_curve_id)
             .attributes(Attributes::new())
-            .try_build()
+            .build_validated()
     }
 
     /// Create a UST 5-year futures contract.
@@ -611,7 +611,7 @@ impl BondFuture {
             .ctd_bond_id(ctd_bond_id)
             .discount_curve_id(discount_curve_id)
             .attributes(Attributes::new())
-            .try_build()
+            .build_validated()
     }
 
     /// Create a UST 2-year futures contract.
@@ -690,7 +690,7 @@ impl BondFuture {
             .ctd_bond_id(ctd_bond_id)
             .discount_curve_id(discount_curve_id)
             .attributes(Attributes::new())
-            .try_build()
+            .build_validated()
     }
 
     /// Create a German Bund futures contract.
@@ -767,7 +767,7 @@ impl BondFuture {
             .ctd_bond_id(ctd_bond_id)
             .discount_curve_id(discount_curve_id)
             .attributes(Attributes::new())
-            .try_build()
+            .build_validated()
     }
 
     /// Create a UK Gilt futures contract.
@@ -846,7 +846,7 @@ impl BondFuture {
             .ctd_bond_id(ctd_bond_id)
             .discount_curve_id(discount_curve_id)
             .attributes(Attributes::new())
-            .try_build()
+            .build_validated()
     }
 
     /// Calculate the invoice price for settlement of the bond future.
@@ -1024,12 +1024,12 @@ impl BondFutureBuilder {
     ///     }])
     ///     .ctd_bond_id(ctd_bond_id)
     ///     .discount_curve_id(CurveId::new("USD-TREASURY"))
-    ///     .try_build()?; // Validates after construction
+    ///     .build_validated()?; // Validates after construction
     /// # let _ = future;
     /// # Ok(())
     /// # }
     /// ```
-    pub fn try_build(self) -> finstack_core::Result<BondFuture> {
+    pub fn build_validated(self) -> finstack_core::Result<BondFuture> {
         let bond_future = self.build().map_err(|e| {
             finstack_core::Error::Validation(format!("BondFuture construction failed: {}", e))
         })?;
@@ -1185,7 +1185,7 @@ mod tests {
             .ctd_bond_id(InstrumentId::new("US912828XG33"))
             .discount_curve_id(CurveId::new("USD-TREASURY"))
             .attributes(Attributes::new())
-            .try_build();
+            .build_validated();
 
         assert!(result.is_err());
         let err_msg = format!("{}", result.expect_err("Should have validation error"));
@@ -1213,7 +1213,7 @@ mod tests {
             .ctd_bond_id(InstrumentId::new("US912828XG33"))
             .discount_curve_id(CurveId::new("USD-TREASURY"))
             .attributes(Attributes::new())
-            .try_build();
+            .build_validated();
 
         assert!(result.is_err());
         let err_msg = format!("{}", result.expect_err("Should have validation error"));
@@ -1236,7 +1236,7 @@ mod tests {
             .ctd_bond_id(InstrumentId::new("US912828XG33"))
             .discount_curve_id(CurveId::new("USD-TREASURY"))
             .attributes(Attributes::new())
-            .try_build();
+            .build_validated();
 
         assert!(result.is_err());
         let err_msg = format!("{}", result.expect_err("Should have validation error"));
@@ -1264,7 +1264,7 @@ mod tests {
             .ctd_bond_id(InstrumentId::new("UNKNOWN_BOND_ID")) // Invalid: not in basket
             .discount_curve_id(CurveId::new("USD-TREASURY"))
             .attributes(Attributes::new())
-            .try_build();
+            .build_validated();
 
         assert!(result.is_err());
         let err_msg = format!("{}", result.expect_err("Should have validation error"));
@@ -1296,7 +1296,7 @@ mod tests {
             .ctd_bond_id(InstrumentId::new("US912828XG33"))
             .discount_curve_id(CurveId::new("USD-TREASURY"))
             .attributes(Attributes::new())
-            .try_build();
+            .build_validated();
 
         assert!(result.is_err());
         let err_msg = format!("{}", result.expect_err("Should have validation error"));
@@ -1324,7 +1324,7 @@ mod tests {
             .ctd_bond_id(InstrumentId::new("US912828XG33"))
             .discount_curve_id(CurveId::new("USD-TREASURY"))
             .attributes(Attributes::new())
-            .try_build();
+            .build_validated();
 
         assert!(result.is_err());
         let err_msg = format!("{}", result.expect_err("Should have validation error"));
@@ -1352,7 +1352,7 @@ mod tests {
             .ctd_bond_id(InstrumentId::new("US912828XG33"))
             .discount_curve_id(CurveId::new("USD-TREASURY"))
             .attributes(Attributes::new())
-            .try_build();
+            .build_validated();
 
         assert!(result.is_ok());
         let future = result.expect("Should build valid BondFuture");

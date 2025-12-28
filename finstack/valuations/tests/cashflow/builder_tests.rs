@@ -371,40 +371,6 @@ fn strict_schedule_mode_errors_on_unknown_calendar() {
     assert!(!schedule.flows.is_empty());
 }
 
-#[test]
-fn try_builder_methods_error_before_principal() {
-    // Test that try_* builder methods return errors instead of panicking
-    let mut builder = CashFlowSchedule::builder();
-
-    let fixed = FixedCouponSpec {
-        coupon_type: CouponType::Cash,
-        rate: Decimal::try_from(0.05).expect("valid"),
-        freq: Tenor::semi_annual(),
-        dc: DayCount::Act365F,
-        bdc: BusinessDayConvention::Following,
-        calendar_id: None,
-        stub: StubKind::None,
-    };
-
-    // Should error when principal not set
-    let result = builder.try_fixed_cf(fixed.clone());
-    assert!(
-        result.is_err(),
-        "try_fixed_cf should error when principal not set"
-    );
-
-    // After setting principal, should succeed
-    let issue = Date::from_calendar_date(2025, Month::January, 15).unwrap();
-    let maturity = Date::from_calendar_date(2026, Month::January, 15).unwrap();
-    let _ = builder.principal(Money::new(1_000_000.0, Currency::USD), issue, maturity);
-
-    let result = builder.try_fixed_cf(fixed);
-    assert!(
-        result.is_ok(),
-        "try_fixed_cf should succeed when principal set"
-    );
-}
-
 // =============================================================================
 // Market Standards Review - Additional Day Count Convention Tests
 // =============================================================================

@@ -144,7 +144,7 @@ impl CdsOptionBuilder {
         let expiry = as_of.add_months(self.expiry_months);
         let cds_maturity = as_of.add_months(self.cds_maturity_months);
 
-        let mut option_params = CdsOptionParams::try_new(
+        let mut option_params = CdsOptionParams::new(
             self.strike_bp,
             expiry,
             cds_maturity,
@@ -161,7 +161,7 @@ impl CdsOptionBuilder {
         }
 
         let credit_params = CreditParams::corporate_standard("SN", "HZ-SN");
-        let mut option = CdsOption::try_new(
+        let mut option = CdsOption::new(
             self.id,
             &option_params,
             &credit_params,

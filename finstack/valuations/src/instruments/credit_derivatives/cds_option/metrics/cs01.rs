@@ -140,7 +140,7 @@ mod tests {
         let as_of = date!(2024 - 01 - 01);
         let market = test_market(as_of);
 
-        let option_params = CdsOptionParams::try_call(
+        let option_params = CdsOptionParams::call(
             100.0,
             date!(2025 - 01 - 01),
             date!(2029 - 01 - 01),
@@ -148,7 +148,7 @@ mod tests {
         )
         .expect("Valid CDS option parameters");
         let credit_params = CreditParams::corporate_standard("CORP", "CORP_HAZARD");
-        let mut option = CdsOption::try_new(
+        let mut option = CdsOption::new(
             "TEST_CDSOPT",
             &option_params,
             &credit_params,

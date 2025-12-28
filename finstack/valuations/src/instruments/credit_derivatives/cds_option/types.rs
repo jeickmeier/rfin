@@ -164,7 +164,7 @@ impl CdsOption {
     pub fn example() -> Self {
         use finstack_core::currency::Currency;
         use time::Month;
-        let option_params = CdsOptionParams::try_call(
+        let option_params = CdsOptionParams::call(
             100.0,
             Date::from_calendar_date(2025, Month::June, 20).expect("Valid example date"),
             Date::from_calendar_date(2030, Month::June, 20).expect("Valid example date"),
@@ -176,7 +176,7 @@ impl CdsOption {
                 "CORP",
                 "CORP-HAZARD",
             );
-        CdsOption::try_new(
+        CdsOption::new(
             InstrumentId::new("CDSOPT-CALL-CORP-5Y"),
             &option_params,
             &credit_params,
@@ -199,7 +199,7 @@ impl CdsOption {
     /// # Errors
     ///
     /// Returns an error if any validation fails. See [`CdsOptionParams`] for parameter constraints.
-    pub fn try_new(
+    pub fn new(
         id: impl Into<InstrumentId>,
         option_params: &CdsOptionParams,
         credit_params: &CreditParams,

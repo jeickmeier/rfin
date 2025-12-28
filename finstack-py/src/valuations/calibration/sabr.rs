@@ -205,7 +205,7 @@ impl PySABRMarketData {
         market_vols: Vec<f64>,
         beta: f64,
     ) -> PyResult<Self> {
-        SABRMarketData::try_new(forward, time_to_expiry, strikes, market_vols, beta)
+        SABRMarketData::new(forward, time_to_expiry, strikes, market_vols, beta)
             .map(Self::new)
             .map_err(core_to_py)
     }

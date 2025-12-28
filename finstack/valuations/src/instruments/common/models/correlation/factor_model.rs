@@ -556,7 +556,7 @@ impl FactorModel for TwoFactorModel {
 /// - Positive semi-definite: All eigenvalues ≥ 0
 ///
 /// Invalid matrices will be replaced with the identity matrix.
-/// Use [`MultiFactorModel::try_new`] for explicit validation.
+/// Use [`MultiFactorModel::validated`] for explicit validation.
 #[derive(Clone, Debug)]
 pub struct MultiFactorModel {
     num_factors: usize,
@@ -581,7 +581,7 @@ impl MultiFactorModel {
     #[must_use]
     pub fn new(num_factors: usize, volatilities: Vec<f64>, correlations: Vec<f64>) -> Self {
         // Try validated construction first, fall back to identity on error
-        Self::try_new(num_factors, volatilities.clone(), correlations)
+        Self::validated(num_factors, volatilities.clone(), correlations)
             .unwrap_or_else(|_| Self::uncorrelated(num_factors, volatilities))
     }
 
@@ -596,7 +596,7 @@ impl MultiFactorModel {
     ///
     /// # Errors
     /// Returns [`CorrelationMatrixError`] if the matrix is invalid.
-    pub fn try_new(
+    pub fn validated(
         num_factors: usize,
         volatilities: Vec<f64>,
         correlations: Vec<f64>,
@@ -939,7 +939,7 @@ mod tests {
     fn test_multi_factor_valid_matrix() {
         let corr = vec![1.0, 0.5, 0.5, 1.0];
         let vols = vec![0.2, 0.3];
-        let model = MultiFactorModel::try_new(2, vols, corr)
+        let model = MultiFactorModel::validated(2, vols, corr)
             .expect("valid 2x2 correlation matrix should create model");
 
         assert_eq!(model.num_factors(), 2);
@@ -981,7 +981,7 @@ mod tests {
     fn test_generate_correlated_factors() {
         let corr = vec![1.0, 0.6, 0.6, 1.0];
         let vols = vec![1.0, 1.0]; // Unit volatilities for easy verification
-        let model = MultiFactorModel::try_new(2, vols, corr)
+        let model = MultiFactorModel::validated(2, vols, corr)
             .expect("correlated model should create successfully");
 
         // Generate with independent z = [1.0, 0.0]
@@ -997,7 +997,7 @@ mod tests {
     fn test_generate_correlated_factors_with_volatility() {
         let corr = vec![1.0, 0.0, 0.0, 1.0]; // Identity
         let vols = vec![0.2, 0.3];
-        let model = MultiFactorModel::try_new(2, vols, corr)
+        let model = MultiFactorModel::validated(2, vols, corr)
             .expect("identity correlation model should create successfully");
 
         let factors = model.generate_correlated_factors(&[1.0, 1.0]);
