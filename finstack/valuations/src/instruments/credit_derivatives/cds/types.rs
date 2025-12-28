@@ -5,6 +5,7 @@ use crate::instruments::PricingOverrides;
 use crate::margin::types::OtcMarginSpec;
 use finstack_core::currency::Currency;
 use finstack_core::dates::{BusinessDayConvention, Date, DayCount, StubKind, Tenor};
+use time::macros::date;
 use finstack_core::market_data::context::MarketContext;
 use finstack_core::market_data::traits::Discounting;
 use finstack_core::market_data::traits::Survival;
@@ -230,7 +231,14 @@ fn normalize_cds_key(id: &str) -> String {
     id.trim().to_string()
 }
 
-#[allow(clippy::expect_used)] // Panic on corrupted embedded data is intentional
+/// Returns the global CDS conventions registry, lazily initialized from embedded JSON.
+///
+/// # Panics
+///
+/// Panics if the embedded `cds_conventions.json` file is corrupted or malformed.
+/// This is intentional: corrupted embedded data represents a build/packaging error
+/// that cannot be recovered at runtime and should fail fast during startup.
+#[allow(clippy::expect_used)]
 fn cds_conventions_registry(
 ) -> &'static finstack_core::collections::HashMap<String, CdsConventionResolved> {
     static REGISTRY: OnceLock<finstack_core::collections::HashMap<String, CdsConventionResolved>> =
@@ -360,14 +368,13 @@ impl CreditDefaultSwap {
     /// Create a canonical example CDS for testing and documentation.
     ///
     /// Returns a 5-year investment-grade CDS with standard ISDA conventions.
-    #[allow(clippy::expect_used)] // Example uses hardcoded valid values
     pub fn example() -> Self {
         Self::buy_protection(
             "CDS-CORP-5Y",
             Money::new(10_000_000.0, Currency::USD),
             100.0, // 100 bps spread
-            Date::from_calendar_date(2024, time::Month::March, 20).expect("Valid example date"),
-            Date::from_calendar_date(2029, time::Month::March, 20).expect("Valid example date"),
+            date!(2024 - 03 - 20),
+            date!(2029 - 03 - 20),
             "USD-OIS",
             "CORP-HAZARD",
         )
@@ -375,7 +382,7 @@ impl CreditDefaultSwap {
 
     /// Create a standard CDS with ISDA conventions (buy protection).
     #[allow(clippy::too_many_arguments)]
-    #[allow(clippy::expect_used)] // Builder with valid inputs should not fail
+    #[allow(clippy::expect_used)] // Builder with valid ISDA conventions should not fail
     pub fn buy_protection(
         id: impl Into<InstrumentId>,
         notional: Money,
@@ -415,12 +422,12 @@ impl CreditDefaultSwap {
             .pricing_overrides(PricingOverrides::default())
             .attributes(Attributes::new())
             .build()
-            .expect("CDS buy protection construction should not fail")
+            .expect("CDS buy protection with valid ISDA conventions should not fail")
     }
 
     /// Create a standard CDS with ISDA conventions (sell protection).
     #[allow(clippy::too_many_arguments)]
-    #[allow(clippy::expect_used)] // Builder with valid inputs should not fail
+    #[allow(clippy::expect_used)] // Builder with valid ISDA conventions should not fail
     pub fn sell_protection(
         id: impl Into<InstrumentId>,
         notional: Money,
@@ -460,7 +467,7 @@ impl CreditDefaultSwap {
             .pricing_overrides(PricingOverrides::default())
             .attributes(Attributes::new())
             .build()
-            .expect("CDS sell protection construction should not fail")
+            .expect("CDS sell protection with valid ISDA conventions should not fail")
     }
 
     /// Create a new CDS with standard ISDA conventions using explicit inputs.

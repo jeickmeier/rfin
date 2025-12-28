@@ -116,7 +116,9 @@ impl Discretization<RevolvingCreditProcess> for RevolvingCreditDiscretization {
 
                 // Create temporary HW1F process for stepping
                 // We need to call the exact discretization
-                #[allow(clippy::expect_used)] // hw_disc is always Some from constructor
+                // INVARIANT: hw_disc is always Some when rate_spec is Floating, enforced by
+                // RevolvingCreditDiscretization::new() constructor validation.
+                #[allow(clippy::expect_used)]
                 let _hw_disc = self
                     .hw_disc
                     .as_ref()

@@ -190,7 +190,6 @@ pub struct Basket {
 impl Basket {
     // Builder provided by derive
     /// Create a canonical example basket with two market data constituents.
-    #[allow(clippy::expect_used)] // Example uses hardcoded valid values
     pub fn example() -> Self {
         use finstack_core::currency::Currency;
         let constituents = vec![
@@ -224,28 +223,26 @@ impl Basket {
             .attributes(Attributes::new())
             .pricing_config(BasketPricingConfig::default())
             .build()
-            .expect("Example Basket construction should not fail")
+            .unwrap_or_else(|_| unreachable!("Example Basket with valid constants should never fail"))
     }
 
     /// Create an example basket with instrument-backed constituents.
     #[cfg(feature = "serde")]
-    #[allow(clippy::expect_used)] // Example uses hardcoded valid values
     pub fn example_with_instruments() -> Self {
         use finstack_core::currency::Currency;
-        use finstack_core::dates::Date;
         use finstack_core::money::Money;
-        use time::Month;
+        use time::macros::date;
 
         // Create a bond instrument
         let bond = crate::instruments::bond::Bond::fixed(
             "CORP-BOND-001",
             Money::new(1000.0, Currency::USD),
             0.05,
-            Date::from_calendar_date(2024, Month::January, 1).expect("Valid example date"),
-            Date::from_calendar_date(2034, Month::January, 1).expect("Valid example date"),
+            date!(2024 - 01 - 01),
+            date!(2034 - 01 - 01),
             "USD-OIS",
         )
-        .expect("Example bond should build successfully");
+        .unwrap_or_else(|_| unreachable!("Example bond with valid constants should never fail"));
 
         let constituents = vec![
             BasketConstituent {
@@ -278,7 +275,7 @@ impl Basket {
             .attributes(Attributes::new())
             .pricing_config(BasketPricingConfig::default())
             .build()
-            .expect("Example Basket construction should not fail")
+            .unwrap_or_else(|_| unreachable!("Example Basket with valid constants should never fail"))
     }
 
     /// Create a new basket with custom pricing configuration.

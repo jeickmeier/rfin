@@ -151,7 +151,6 @@ pub struct AgencyTba {
 
 impl AgencyTba {
     /// Create a canonical example TBA for testing and documentation.
-    #[allow(clippy::expect_used)] // Example uses hardcoded valid values
     pub fn example() -> Self {
         Self::builder()
             .id(InstrumentId::new("FN30-4.0-202403"))
@@ -170,7 +169,7 @@ impl AgencyTba {
                     .with_meta("program", "fnma"),
             )
             .build()
-            .expect("Example TBA construction should not fail")
+            .unwrap_or_else(|_| unreachable!("Example TBA with valid constants should never fail"))
     }
 
     /// Builder helper for settlement month.

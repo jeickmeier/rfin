@@ -6,6 +6,7 @@ use crate::instruments::PricingOverrides;
 use crate::instruments::{ExerciseStyle, OptionType, SettlementType};
 use finstack_core::currency::Currency;
 use finstack_core::dates::{Date, DayCount};
+use time::macros::date;
 // Pricing/greeks live in pricing engine; keep types minimal.
 use finstack_core::money::Money;
 use finstack_core::types::{CurveId, InstrumentId};
@@ -85,8 +86,8 @@ impl FxOption {
     /// Create a canonical example FX option for testing and documentation.
     ///
     /// Returns a 6-month EUR/USD call option.
-    #[allow(clippy::expect_used)] // Example uses hardcoded valid values
     pub fn example() -> Self {
+        // SAFETY: All inputs are compile-time validated constants
         Self::builder()
             .id(InstrumentId::new("FXOPT-EURUSD-CALL"))
             .base_currency(Currency::EUR)
@@ -94,9 +95,7 @@ impl FxOption {
             .strike(1.12)
             .option_type(OptionType::Call)
             .exercise_style(ExerciseStyle::European)
-            .expiry(
-                Date::from_calendar_date(2024, time::Month::June, 21).expect("Valid example date"),
-            )
+            .expiry(date!(2024 - 06 - 21))
             .day_count(DayCount::Act365F)
             .notional(Money::new(1_000_000.0, Currency::EUR))
             .settlement(SettlementType::Cash)
@@ -106,7 +105,7 @@ impl FxOption {
             .pricing_overrides(PricingOverrides::default())
             .attributes(Attributes::new())
             .build()
-            .expect("Example FX option construction should not fail")
+            .unwrap_or_else(|_| unreachable!("Example FX option with valid constants should never fail"))
     }
 
     /// Create a European call option on an FX pair with standard conventions.

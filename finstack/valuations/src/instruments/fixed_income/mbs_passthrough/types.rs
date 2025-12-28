@@ -191,8 +191,8 @@ impl AgencyMbsPassthrough {
     /// Create a canonical example MBS for testing and documentation.
     ///
     /// Returns a FNMA 30-year pool with realistic parameters.
-    #[allow(clippy::expect_used)] // Example uses hardcoded valid values
     pub fn example() -> Self {
+        use time::macros::date;
         Self::builder()
             .id(InstrumentId::new("FN-MA1234"))
             .pool_id("MA1234".to_string())
@@ -206,14 +206,8 @@ impl AgencyMbsPassthrough {
             .servicing_fee_rate(0.0025)
             .guarantee_fee_rate(0.0025)
             .wam(348)
-            .issue_date(
-                Date::from_calendar_date(2022, time::Month::January, 1)
-                    .expect("Valid example date"),
-            )
-            .maturity_date(
-                Date::from_calendar_date(2052, time::Month::January, 1)
-                    .expect("Valid example date"),
-            )
+            .issue_date(date!(2022 - 01 - 01))
+            .maturity_date(date!(2052 - 01 - 01))
             .prepayment_model(PrepaymentModelSpec::psa(1.0))
             .discount_curve_id(CurveId::new("USD-OIS"))
             .day_count(DayCount::Thirty360)
@@ -225,7 +219,7 @@ impl AgencyMbsPassthrough {
                     .with_meta("program", "fnma"),
             )
             .build()
-            .expect("Example MBS construction should not fail")
+            .unwrap_or_else(|_| unreachable!("Example MBS with valid constants should never fail"))
     }
 
     /// Get the effective payment delay in days.

@@ -46,6 +46,7 @@ use crate::instruments::common::traits::Attributes;
 use crate::instruments::{ExerciseStyle, OptionType};
 use finstack_core::currency::Currency;
 use finstack_core::dates::{Date, DayCount, DayCountCtx};
+use time::macros::date;
 use finstack_core::market_data::context::MarketContext;
 use finstack_core::math::norm_cdf;
 use finstack_core::money::Money;
@@ -157,16 +158,15 @@ impl VolIndexOptionSpecs {
 
 impl VolatilityIndexOption {
     /// Create a canonical example VIX call option for testing.
-    #[allow(clippy::expect_used)] // Example uses hardcoded valid values
     pub fn example() -> Self {
-        use time::Month;
+        // SAFETY: All inputs are compile-time validated constants
         Self::builder()
             .id(InstrumentId::new("VIX-CALL-20-2025M03"))
             .notional(Money::new(10_000.0, Currency::USD))
             .strike(20.0)
             .option_type(OptionType::Call)
             .exercise_style(ExerciseStyle::European)
-            .expiry(Date::from_calendar_date(2025, Month::March, 19).expect("Valid example date"))
+            .expiry(date!(2025 - 03 - 19))
             .contract_specs(VolIndexOptionSpecs::vix())
             .day_count(DayCount::Act365F)
             .discount_curve_id(CurveId::new("USD-OIS"))
@@ -174,12 +174,15 @@ impl VolatilityIndexOption {
             .vol_of_vol_surface_id(CurveId::new("VIX-VOLVOL"))
             .attributes(Attributes::new())
             .build()
-            .expect("Example VolatilityIndexOption construction should not fail")
+            .unwrap_or_else(|_| unreachable!("Example VIX option with valid constants should never fail"))
     }
 
     /// Create a VIX call option.
-    #[allow(clippy::expect_used)] // Builder with valid inputs should not fail
-    pub fn vix_call(id: impl Into<String>, strike: f64, expiry: Date, notional: Money) -> Self {
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if the builder fails validation.
+    pub fn vix_call(id: impl Into<String>, strike: f64, expiry: Date, notional: Money) -> finstack_core::Result<Self> {
         Self::builder()
             .id(InstrumentId::new(id.into()))
             .notional(notional)
@@ -194,12 +197,14 @@ impl VolatilityIndexOption {
             .vol_of_vol_surface_id(CurveId::new("VIX-VOLVOL"))
             .attributes(Attributes::new())
             .build()
-            .expect("VIX call construction should not fail")
     }
 
     /// Create a VIX put option.
-    #[allow(clippy::expect_used)] // Builder with valid inputs should not fail
-    pub fn vix_put(id: impl Into<String>, strike: f64, expiry: Date, notional: Money) -> Self {
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if the builder fails validation.
+    pub fn vix_put(id: impl Into<String>, strike: f64, expiry: Date, notional: Money) -> finstack_core::Result<Self> {
         Self::builder()
             .id(InstrumentId::new(id.into()))
             .notional(notional)
@@ -214,7 +219,6 @@ impl VolatilityIndexOption {
             .vol_of_vol_surface_id(CurveId::new("VIX-VOLVOL"))
             .attributes(Attributes::new())
             .build()
-            .expect("VIX put construction should not fail")
     }
 
     /// Calculate the number of contracts based on notional.

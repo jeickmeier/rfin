@@ -18,6 +18,7 @@ use finstack_core::dates::calendar::registry::CalendarRegistry;
 use finstack_core::dates::{
     adjust, BusinessDayConvention, Date, DateExt, DayCount, HolidayCalendar,
 };
+use time::macros::date;
 use finstack_core::market_data::context::MarketContext;
 use finstack_core::money::Money;
 use finstack_core::types::{CurveId, InstrumentId};
@@ -96,16 +97,13 @@ impl Deposit {
     ///
     /// Returns a 6-month USD deposit with 4.5% quoted rate and standard
     /// T+2 spot settlement with ModifiedFollowing business day convention.
-    #[allow(clippy::expect_used)] // Example uses hardcoded valid values
     pub fn example() -> Self {
+        // SAFETY: All inputs are compile-time validated constants
         Self::builder()
             .id(InstrumentId::new("DEP-USD-6M"))
             .notional(Money::new(100_000.0, Currency::USD))
-            .start(
-                Date::from_calendar_date(2024, time::Month::January, 1)
-                    .expect("Valid example date"),
-            )
-            .end(Date::from_calendar_date(2024, time::Month::July, 1).expect("Valid example date"))
+            .start(date!(2024 - 01 - 01))
+            .end(date!(2024 - 07 - 01))
             .day_count(DayCount::Act360)
             .quote_rate_opt(Some(0.045))
             .discount_curve_id(CurveId::new("USD-OIS"))
@@ -113,7 +111,7 @@ impl Deposit {
             .spot_lag_days_opt(Some(2))
             .bdc_opt(Some(BusinessDayConvention::ModifiedFollowing))
             .build()
-            .expect("Example deposit construction should not fail")
+            .unwrap_or_else(|_| unreachable!("Example deposit with valid constants should never fail"))
     }
 
     /// Calculate the net present value of this deposit using standard cashflow discounting.

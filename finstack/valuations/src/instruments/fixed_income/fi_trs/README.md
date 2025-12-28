@@ -94,7 +94,7 @@ let lqd_trs = FIIndexTotalReturnSwap::replicate_etf(
     schedule_spec,                                  // Payment schedule
     Some("LQD-YIELD"),                              // Optional yield curve ID
     Some("LQD-DURATION"),                           // Optional duration curve ID
-);
+)?;
 ```
 
 ## Margining

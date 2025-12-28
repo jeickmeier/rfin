@@ -102,16 +102,15 @@ impl crate::metrics::HasCreditCurve for CdsTranche {
 
 impl CdsTranche {
     /// Create a canonical example CDS tranche (CDX.NA.IG 0-3% equity tranche).
-    #[allow(clippy::expect_used)] // Example uses hardcoded valid values
     pub fn example() -> Self {
         use crate::cashflow::builder::ScheduleParams;
         use finstack_core::currency::Currency;
-        use time::Month;
+        use time::macros::date;
         let params = super::parameters::CDSTrancheParams::equity_tranche(
             "CDX.NA.IG",
             42,
             Money::new(10_000_000.0, Currency::USD),
-            Date::from_calendar_date(2029, Month::December, 20).expect("Valid example date"),
+            date!(2029 - 12 - 20),
             100.0,
         );
         let sched = ScheduleParams {

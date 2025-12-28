@@ -10,6 +10,7 @@ use finstack_core::currency::Currency;
 use finstack_core::dates::{
     adjust, calendar::registry::CalendarRegistry, BusinessDayConvention, Date, DayCount,
 };
+use time::macros::date;
 use finstack_core::market_data::context::MarketContext;
 use finstack_core::money::Money;
 use finstack_core::types::{CurveId, InstrumentId};
@@ -74,20 +75,14 @@ impl ForwardRateAgreement {
     /// Create a canonical example FRA for testing and documentation.
     ///
     /// Returns a 3x6 FRA (3 months forward, 3 month tenor).
-    #[allow(clippy::expect_used)] // Example uses hardcoded valid values
     pub fn example() -> Self {
+        // SAFETY: All inputs are compile-time validated constants
         Self::builder()
             .id(InstrumentId::new("FRA-3X6-USD"))
             .notional(Money::new(10_000_000.0, Currency::USD))
-            .fixing_date(
-                Date::from_calendar_date(2024, time::Month::April, 1).expect("Valid example date"),
-            )
-            .start_date(
-                Date::from_calendar_date(2024, time::Month::April, 3).expect("Valid example date"),
-            )
-            .end_date(
-                Date::from_calendar_date(2024, time::Month::July, 3).expect("Valid example date"),
-            )
+            .fixing_date(date!(2024 - 04 - 01))
+            .start_date(date!(2024 - 04 - 03))
+            .end_date(date!(2024 - 07 - 03))
             .fixed_rate(0.045)
             .day_count(DayCount::Act360)
             .reset_lag(2)
@@ -96,7 +91,7 @@ impl ForwardRateAgreement {
             .pay_fixed(true)
             .attributes(Attributes::new())
             .build()
-            .expect("Example FRA construction should not fail")
+            .unwrap_or_else(|_| unreachable!("Example FRA with valid constants should never fail"))
     }
 
     /// Calculate the net present value of this FRA

@@ -66,11 +66,10 @@ pub struct BarrierOption {
 
 impl BarrierOption {
     /// Create a canonical example barrier option (up-and-out call).
-    #[allow(clippy::expect_used)] // Example uses hardcoded valid values
     pub fn example() -> Self {
         use finstack_core::currency::Currency;
         use finstack_core::dates::DayCount;
-        use time::Month;
+        use time::macros::date;
         BarrierOptionBuilder::new()
             .id(InstrumentId::new("BAR-SPX-UO-CALL"))
             .underlying_ticker("SPX".to_string())
@@ -79,9 +78,7 @@ impl BarrierOption {
             .rebate(Money::new(50.0, Currency::USD))
             .option_type(crate::instruments::OptionType::Call)
             .barrier_type(BarrierType::UpAndOut)
-            .expiry(
-                Date::from_calendar_date(2024, Month::December, 20).expect("Valid example date"),
-            )
+            .expiry(date!(2024 - 12 - 20))
             .notional(Money::new(100_000.0, Currency::USD))
             .day_count(DayCount::Act365F)
             .use_gobet_miri(false)
@@ -92,7 +89,7 @@ impl BarrierOption {
             .pricing_overrides(PricingOverrides::default())
             .attributes(Attributes::new())
             .build()
-            .expect("Example BarrierOption construction should not fail")
+            .unwrap_or_else(|_| unreachable!("Example BarrierOption with valid constants should never fail"))
     }
 
     /// Calculate the net present value using Monte Carlo.

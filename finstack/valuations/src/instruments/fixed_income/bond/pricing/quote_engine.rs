@@ -218,7 +218,9 @@ pub fn par_rate_and_annuity_from_discount(
     }
 
     let p0 = disc.df_on_date_curve(schedule[0])?;
-    #[allow(clippy::expect_used)] // Infallible: function requires non-empty schedule
+    // INVARIANT: schedule is non-empty, enforced by fixed_leg_annuity returning early
+    // with annuity=0 for empty schedules. The [0] access above also relies on this.
+    #[allow(clippy::expect_used)]
     let pn = disc.df_on_date_curve(*schedule.last().expect("Schedule should not be empty"))?;
     let num = p0 - pn;
     Ok((num / ann, ann))

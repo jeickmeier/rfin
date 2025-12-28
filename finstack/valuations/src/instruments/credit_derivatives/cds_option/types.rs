@@ -155,22 +155,17 @@ impl CdsOption {
     }
 
     /// Create a canonical example CDS option (call on CDS spread).
-    ///
-    /// # Panics
-    ///
-    /// Panics if the example parameters are invalid (should never happen).
     #[must_use]
-    #[allow(clippy::expect_used)] // Example uses hardcoded valid values
     pub fn example() -> Self {
         use finstack_core::currency::Currency;
-        use time::Month;
+        use time::macros::date;
         let option_params = CdsOptionParams::call(
             100.0,
-            Date::from_calendar_date(2025, Month::June, 20).expect("Valid example date"),
-            Date::from_calendar_date(2030, Month::June, 20).expect("Valid example date"),
+            date!(2025 - 06 - 20),
+            date!(2030 - 06 - 20),
             Money::new(10_000_000.0, Currency::USD),
         )
-        .expect("Valid example parameters");
+        .unwrap_or_else(|_| unreachable!("Example CdsOptionParams with valid constants should never fail"));
         let credit_params =
             crate::instruments::common::parameters::CreditParams::corporate_standard(
                 "CORP",
@@ -183,7 +178,7 @@ impl CdsOption {
             "USD-OIS",
             "CDSOPT-VOL",
         )
-        .expect("Valid example parameters")
+        .unwrap_or_else(|_| unreachable!("Example CdsOption with valid constants should never fail"))
     }
 
     /// Create a new credit option using parameter structs with validation.

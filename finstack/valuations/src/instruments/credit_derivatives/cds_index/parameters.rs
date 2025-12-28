@@ -125,7 +125,6 @@ impl CDSIndexConstructionParams {
     }
 
     /// Create standard protection buyer parameters
-    #[allow(clippy::expect_used)] // Builder with valid inputs should not fail
     pub fn buy_protection(notional: Money) -> Self {
         Self::new(notional, PayReceive::PayFixed, CDSConvention::IsdaNa)
     }

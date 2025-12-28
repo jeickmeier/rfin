@@ -289,7 +289,7 @@ pub trait PeriodizedPvExt: CashflowProvider + HasDiscountCurve {
 impl<T> PeriodizedPvExt for T where T: CashflowProvider + HasDiscountCurve {}
 
 #[cfg(test)]
-#[allow(clippy::expect_used, clippy::panic)]
+#[allow(clippy::expect_used, clippy::unwrap_used, clippy::panic)]
 mod tests {
     use super::*;
     use crate::cashflow::aggregation::{pv_by_period_credit_adjusted_detailed, DateContext};

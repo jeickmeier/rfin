@@ -29,6 +29,7 @@ pub fn usd_ois_market(as_of: Date) -> Result<MarketContext> {
 }
 
 /// Convenience helper for constructing fixed-rate USD bonds for tests.
+#[allow(clippy::expect_used)] // Test utility function with known valid inputs
 pub fn standard_bond(id: &str, as_of: Date, maturity: Date) -> Bond {
     Bond::fixed(
         id,

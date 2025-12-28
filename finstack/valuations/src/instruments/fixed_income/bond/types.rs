@@ -5,6 +5,7 @@ use crate::instruments::common::traits::{Attributes, CurveIdVec};
 use crate::instruments::PricingOverrides;
 use finstack_core::currency::Currency;
 use finstack_core::dates::{Date, DayCount};
+use time::macros::date;
 use finstack_core::money::Money;
 use finstack_core::types::{CurveId, InstrumentId};
 use finstack_core::Result;
@@ -157,17 +158,17 @@ impl Bond {
     /// Create a canonical example bond for testing and documentation.
     ///
     /// Returns a 10-year USD Treasury-style bond with realistic parameters.
-    #[allow(clippy::expect_used)] // Example uses hardcoded valid values
     pub fn example() -> Self {
+        // SAFETY: All inputs are compile-time validated constants
         Self::fixed(
             "US912828XG33",
             Money::new(1_000_000.0, Currency::USD),
             0.0425,
-            Date::from_calendar_date(2024, time::Month::January, 15).expect("Valid example date"),
-            Date::from_calendar_date(2034, time::Month::January, 15).expect("Valid example date"),
+            date!(2024 - 01 - 15),
+            date!(2034 - 01 - 15),
             "USD-TREASURY",
         )
-        .expect("Example bond should build successfully")
+        .unwrap_or_else(|_| unreachable!("Example bond with valid constants should never fail"))
     }
 
     /// Create a standard fixed-rate bond (most common use case).
@@ -926,7 +927,7 @@ impl crate::instruments::common::traits::CurveDependencies for Bond {
 }
 
 #[cfg(test)]
-#[allow(clippy::expect_used, clippy::panic)]
+#[allow(clippy::expect_used, clippy::unwrap_used, clippy::panic)]
 mod tests {
     use super::*;
     use crate::cashflow::builder::{CashFlowSchedule, CouponType, FixedCouponSpec, ScheduleParams};

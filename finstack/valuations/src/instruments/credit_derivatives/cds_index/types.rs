@@ -12,8 +12,8 @@ use crate::instruments::common::traits::Attributes;
 use crate::instruments::PricingOverrides;
 use crate::margin::types::OtcMarginSpec;
 use finstack_core::currency::Currency;
-use finstack_core::dates::Date;
 use finstack_core::money::Money;
+use time::macros::date;
 use finstack_core::types::{CurveId, InstrumentId};
 
 // Reuse CDS components for conventions and legs
@@ -99,7 +99,6 @@ impl CDSIndex {
     /// Create a canonical example CDS Index for testing and documentation.
     ///
     /// Returns a CDX.NA.IG series 42 index with standard conventions.
-    #[allow(clippy::expect_used)] // Example uses hardcoded valid values
     pub fn example() -> Self {
         let convention = CDSConvention::IsdaNa;
         let dc = convention.day_count();
@@ -117,10 +116,8 @@ impl CDSIndex {
             side: PayReceive::PayFixed,
             convention,
             premium: PremiumLegSpec {
-                start: Date::from_calendar_date(2024, time::Month::March, 20)
-                    .expect("Valid example date"),
-                end: Date::from_calendar_date(2029, time::Month::December, 20)
-                    .expect("Valid example date"),
+                start: date!(2024 - 03 - 20),
+                end: date!(2029 - 12 - 20),
                 freq,
                 stub,
                 bdc,

@@ -63,18 +63,17 @@ pub struct AsianOption {
 
 impl AsianOption {
     /// Create a canonical example Asian option (arithmetic average).
-    #[allow(clippy::expect_used)] // Example uses hardcoded valid values
     pub fn example() -> Self {
         use finstack_core::currency::Currency;
         use finstack_core::dates::DayCount;
-        use time::Month;
+        use time::macros::date;
         let fixing_dates = vec![
-            Date::from_calendar_date(2024, Month::January, 31).expect("Valid example date"),
-            Date::from_calendar_date(2024, Month::February, 29).expect("Valid example date"),
-            Date::from_calendar_date(2024, Month::March, 31).expect("Valid example date"),
-            Date::from_calendar_date(2024, Month::April, 30).expect("Valid example date"),
-            Date::from_calendar_date(2024, Month::May, 31).expect("Valid example date"),
-            Date::from_calendar_date(2024, Month::June, 30).expect("Valid example date"),
+            date!(2024 - 01 - 31),
+            date!(2024 - 02 - 29),
+            date!(2024 - 03 - 31),
+            date!(2024 - 04 - 30),
+            date!(2024 - 05 - 31),
+            date!(2024 - 06 - 30),
         ];
         AsianOptionBuilder::new()
             .id(InstrumentId::new("ASIAN-SPX-ARITH-6M"))
@@ -82,7 +81,7 @@ impl AsianOption {
             .strike(Money::new(4500.0, Currency::USD))
             .option_type(crate::instruments::OptionType::Call)
             .averaging_method(AveragingMethod::Arithmetic)
-            .expiry(Date::from_calendar_date(2024, Month::June, 30).expect("Valid example date"))
+            .expiry(date!(2024 - 06 - 30))
             .fixing_dates(fixing_dates)
             .notional(Money::new(100_000.0, Currency::USD))
             .day_count(DayCount::Act365F)
@@ -93,7 +92,7 @@ impl AsianOption {
             .pricing_overrides(PricingOverrides::default())
             .attributes(Attributes::new())
             .build()
-            .expect("Example AsianOption construction should not fail")
+            .unwrap_or_else(|_| unreachable!("Example AsianOption with valid constants should never fail"))
     }
 
     /// Calculate the net present value of this Asian option using Monte Carlo.

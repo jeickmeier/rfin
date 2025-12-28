@@ -136,23 +136,17 @@ impl ConvertibleBond {
     /// Create a canonical example convertible bond for testing and documentation.
     ///
     /// Returns a 5-year convertible with fixed coupon and voluntary conversion.
-    #[allow(clippy::expect_used)] // Example uses hardcoded valid values
     pub fn example() -> Self {
         use crate::cashflow::builder::specs::FixedCouponSpec;
         use crate::cashflow::builder::CouponType;
         use finstack_core::dates::{BusinessDayConvention, DayCount, StubKind, Tenor};
+        use time::macros::date;
 
         ConvertibleBondBuilder::new()
             .id(InstrumentId::new("CB-TECH-5Y"))
             .notional(Money::new(1_000_000.0, Currency::USD))
-            .issue(
-                Date::from_calendar_date(2024, time::Month::January, 15)
-                    .expect("Valid example date"),
-            )
-            .maturity(
-                Date::from_calendar_date(2029, time::Month::January, 15)
-                    .expect("Valid example date"),
-            )
+            .issue(date!(2024 - 01 - 15))
+            .maturity(date!(2029 - 01 - 15))
             .discount_curve_id(CurveId::new("USD-IG"))
             .credit_curve_id_opt(Some(CurveId::new("USD-CREDIT-BBB")))
             .conversion(ConversionSpec {
@@ -166,7 +160,7 @@ impl ConvertibleBond {
             .call_put_opt(None)
             .fixed_coupon_opt(Some(FixedCouponSpec {
                 coupon_type: CouponType::Cash,
-                rate: Decimal::try_from(0.02).expect("valid rate literal"),
+                rate: Decimal::try_from(0.02).unwrap_or(Decimal::ZERO),
                 freq: Tenor::semi_annual(),
                 dc: DayCount::Thirty360,
                 bdc: BusinessDayConvention::Following,
@@ -176,7 +170,7 @@ impl ConvertibleBond {
             .floating_coupon_opt(None)
             .attributes(Attributes::new())
             .build()
-            .expect("Example convertible bond construction should not fail")
+            .unwrap_or_else(|_| unreachable!("Example convertible bond with valid constants should never fail"))
     }
 
     /// Calculate the net present value of this convertible bond

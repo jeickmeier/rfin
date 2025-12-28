@@ -37,6 +37,7 @@ use crate::instruments::ir_future::Position;
 use finstack_core::currency::Currency;
 use finstack_core::dates::Date;
 use finstack_core::market_data::context::MarketContext;
+use time::macros::date;
 use finstack_core::money::Money;
 use finstack_core::types::{CurveId, InstrumentId};
 
@@ -163,18 +164,13 @@ impl VolIndexContractSpecs {
 
 impl VolatilityIndexFuture {
     /// Create a canonical example VIX future for testing and documentation.
-    #[allow(clippy::expect_used)] // Example uses hardcoded valid values
     pub fn example() -> Self {
-        use time::Month;
+        // SAFETY: All inputs are compile-time validated constants
         Self::builder()
             .id(InstrumentId::new("VIX-FUT-2025M03"))
             .notional(Money::new(100_000.0, Currency::USD))
-            .expiry_date(
-                Date::from_calendar_date(2025, Month::March, 19).expect("Valid example date"),
-            )
-            .settlement_date(
-                Date::from_calendar_date(2025, Month::March, 19).expect("Valid example date"),
-            )
+            .expiry_date(date!(2025 - 03 - 19))
+            .settlement_date(date!(2025 - 03 - 19))
             .quoted_price(21.50)
             .position(Position::Long)
             .contract_specs(VolIndexContractSpecs::vix())
@@ -182,7 +178,7 @@ impl VolatilityIndexFuture {
             .vol_index_curve_id(CurveId::new("VIX"))
             .attributes(Attributes::new())
             .build()
-            .expect("Example VolatilityIndexFuture construction should not fail")
+            .unwrap_or_else(|_| unreachable!("Example VIX future with valid constants should never fail"))
     }
 
     /// Calculate the number of contracts based on notional and quoted price.

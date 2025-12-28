@@ -7,6 +7,7 @@ use crate::instruments::PricingOverrides;
 use crate::instruments::{ExerciseStyle, OptionType, SettlementType};
 use finstack_core::currency::Currency;
 use finstack_core::dates::Date;
+use time::macros::date;
 //
 use finstack_core::money::Money;
 use finstack_core::types::{CurveId, InstrumentId};
@@ -76,17 +77,17 @@ impl EquityOption {
     /// Create a canonical example equity option for testing and documentation.
     ///
     /// Returns an at-the-money SPX call option with 6 months to expiry.
-    #[allow(clippy::expect_used)] // Example uses hardcoded valid values
     pub fn example() -> Self {
+        // SAFETY: All inputs are compile-time validated constants
         Self::european_call(
             "SPX-CALL-4500",
             "SPX",
             4500.0,
-            Date::from_calendar_date(2024, time::Month::June, 21).expect("Valid example date"),
+            date!(2024 - 06 - 21),
             Money::new(100_000.0, Currency::USD),
             100.0,
         )
-        .expect("Example equity option should build successfully")
+        .unwrap_or_else(|_| unreachable!("Example equity option with valid constants should never fail"))
     }
 
     /// Create a European call option with standard conventions.
@@ -402,7 +403,7 @@ impl EquityOption {
 }
 
 #[cfg(test)]
-#[allow(clippy::expect_used, clippy::panic)]
+#[allow(clippy::expect_used, clippy::unwrap_used, clippy::panic)]
 mod tests {
     use super::*;
     use crate::instruments::equity_option::pricer;

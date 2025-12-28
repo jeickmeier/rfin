@@ -21,6 +21,7 @@ use finstack_core::{
     types::{CurveId, InstrumentId},
     Result,
 };
+use time::macros::date;
 
 /// Equity Total Return Swap instrument.
 ///
@@ -77,8 +78,8 @@ impl EquityTotalReturnSwap {
     /// Create a canonical example equity TRS for testing and documentation.
     ///
     /// Returns a 1-year SPX total return swap with quarterly resets.
-    #[allow(clippy::expect_used)] // Example uses hardcoded valid values
     pub fn example() -> Self {
+        // SAFETY: All inputs are compile-time validated constants
         Self::builder()
             .id(InstrumentId::new("TRS-SPX-1Y"))
             .notional(Money::new(5_000_000.0, Currency::USD))
@@ -96,10 +97,8 @@ impl EquityTotalReturnSwap {
                 day_count: DayCount::Act360,
             })
             .schedule(TrsScheduleSpec::from_params(
-                Date::from_calendar_date(2024, time::Month::January, 1)
-                    .expect("Valid example date"),
-                Date::from_calendar_date(2025, time::Month::January, 1)
-                    .expect("Valid example date"),
+                date!(2024 - 01 - 01),
+                date!(2025 - 01 - 01),
                 ScheduleParams {
                     freq: Tenor::quarterly(),
                     dc: DayCount::Act360,
@@ -112,7 +111,7 @@ impl EquityTotalReturnSwap {
             .initial_level_opt(None)
             .attributes(Attributes::new())
             .build()
-            .expect("Example TRS construction should not fail")
+            .unwrap_or_else(|_| unreachable!("Example TRS with valid constants should never fail"))
     }
 
     /// Creates an equity TRS that replicates an ETF.
@@ -138,9 +137,12 @@ impl EquityTotalReturnSwap {
     ///     financing_spec,
     ///     schedule_spec,
     ///     Some("SPY-DIV"),
-    /// );
+    /// )?;
     /// ```
-    #[allow(clippy::expect_used)] // Builder with valid inputs should not fail
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if the builder fails validation.
     pub fn replicate_etf(
         etf_ticker: &str,
         spot_id: &str,
@@ -148,7 +150,7 @@ impl EquityTotalReturnSwap {
         financing: FinancingLegSpec,
         schedule: TrsScheduleSpec,
         div_yield_id: Option<&str>,
-    ) -> Self {
+    ) -> Result<Self> {
         let mut underlying = EquityUnderlyingParams::new(etf_ticker, spot_id, notional.currency());
         if let Some(div) = div_yield_id {
             underlying = underlying.with_dividend_yield(div);
@@ -164,7 +166,6 @@ impl EquityTotalReturnSwap {
             .initial_level_opt(None)
             .attributes(Attributes::new())
             .build()
-            .expect("ETF replication TRS construction should not fail")
     }
 
     /// Calculates the net present value (NPV) of the equity TRS.

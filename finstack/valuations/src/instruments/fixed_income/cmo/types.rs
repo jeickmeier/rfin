@@ -62,7 +62,6 @@ impl PacCollar {
     }
 
     /// Standard 100-300 PSA collar.
-    #[allow(clippy::expect_used)] // Builder with valid inputs should not fail
     pub fn standard() -> Self {
         Self::new(1.0, 3.0)
     }
@@ -273,8 +272,8 @@ pub struct AgencyCmo {
 
 impl AgencyCmo {
     /// Create a canonical example CMO for testing.
-    #[allow(clippy::expect_used)] // Example uses hardcoded valid values
     pub fn example() -> Self {
+        use time::macros::date;
         // Create sequential structure: A (front), B (middle), Z (last)
         let tranches = vec![
             CmoTranche::sequential("A", Money::new(40_000_000.0, Currency::USD), 0.04, 1),
@@ -286,10 +285,7 @@ impl AgencyCmo {
             .id(InstrumentId::new("FNR-2024-1-A"))
             .deal_name("FNR 2024-1".to_string())
             .agency(AgencyProgram::Fnma)
-            .issue_date(
-                Date::from_calendar_date(2024, time::Month::January, 1)
-                    .expect("Valid example date"),
-            )
+            .issue_date(date!(2024 - 01 - 01))
             .waterfall(CmoWaterfall::new(tranches))
             .reference_tranche_id("A".to_string())
             .collateral_wac(0.045)
@@ -302,12 +298,12 @@ impl AgencyCmo {
                     .with_meta("deal", "fnr-2024-1"),
             )
             .build()
-            .expect("Example CMO construction should not fail")
+            .unwrap_or_else(|_| unreachable!("Example CMO with valid constants should never fail"))
     }
 
     /// Create an example PAC/Support structure.
-    #[allow(clippy::expect_used)] // Example uses hardcoded valid values
     pub fn example_pac_support() -> Self {
+        use time::macros::date;
         let tranches = vec![
             CmoTranche::pac(
                 "PAC",
@@ -323,22 +319,19 @@ impl AgencyCmo {
             .id(InstrumentId::new("FNR-2024-2-PAC"))
             .deal_name("FNR 2024-2".to_string())
             .agency(AgencyProgram::Fnma)
-            .issue_date(
-                Date::from_calendar_date(2024, time::Month::January, 1)
-                    .expect("Valid example date"),
-            )
+            .issue_date(date!(2024 - 01 - 01))
             .waterfall(CmoWaterfall::new(tranches))
             .reference_tranche_id("PAC".to_string())
             .collateral_wac(0.045)
             .collateral_wam(360)
             .discount_curve_id(CurveId::new("USD-OIS"))
             .build()
-            .expect("Example PAC/Support CMO construction should not fail")
+            .unwrap_or_else(|_| unreachable!("Example PAC/Support CMO with valid constants should never fail"))
     }
 
     /// Create an example IO/PO strip structure.
-    #[allow(clippy::expect_used)] // Example uses hardcoded valid values
     pub fn example_io_po() -> Self {
+        use time::macros::date;
         let tranches = vec![
             CmoTranche::io_strip("IO", Money::new(100_000_000.0, Currency::USD), 0.04),
             CmoTranche::po_strip("PO", Money::new(100_000_000.0, Currency::USD)),
@@ -348,17 +341,14 @@ impl AgencyCmo {
             .id(InstrumentId::new("FNS-2024-1-IO"))
             .deal_name("FNS 2024-1".to_string())
             .agency(AgencyProgram::Fnma)
-            .issue_date(
-                Date::from_calendar_date(2024, time::Month::January, 1)
-                    .expect("Valid example date"),
-            )
+            .issue_date(date!(2024 - 01 - 01))
             .waterfall(CmoWaterfall::new(tranches))
             .reference_tranche_id("IO".to_string())
             .collateral_wac(0.04)
             .collateral_wam(360)
             .discount_curve_id(CurveId::new("USD-OIS"))
             .build()
-            .expect("Example IO/PO CMO construction should not fail")
+            .unwrap_or_else(|_| unreachable!("Example IO/PO CMO with valid constants should never fail"))
     }
 
     /// Get the reference tranche being valued.

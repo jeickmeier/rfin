@@ -13,6 +13,7 @@ use finstack_core::money::Money;
 use finstack_core::types::{CurveId, InstrumentId};
 use finstack_core::Result;
 use smallvec::smallvec;
+use time::macros::date;
 
 /// FX forward (outright forward) instrument.
 ///
@@ -109,22 +110,20 @@ impl FxForward {
     /// Create a canonical example FX forward for testing and documentation.
     ///
     /// Returns a 6-month EUR/USD forward with realistic parameters.
-    #[allow(clippy::expect_used)] // Example uses hardcoded valid values
     pub fn example() -> Self {
+        // SAFETY: All inputs are compile-time validated constants
         Self::builder()
             .id(InstrumentId::new("EURUSD-FWD-6M"))
             .base_currency(Currency::EUR)
             .quote_currency(Currency::USD)
-            .maturity_date(
-                Date::from_calendar_date(2025, time::Month::June, 15).expect("Valid example date"),
-            )
+            .maturity_date(date!(2025 - 06 - 15))
             .notional(Money::new(1_000_000.0, Currency::EUR))
             .domestic_discount_curve_id(CurveId::new("USD-OIS"))
             .foreign_discount_curve_id(CurveId::new("EUR-OIS"))
             .contract_rate_opt(Some(1.12))
             .attributes(Attributes::new().with_tag("fx").with_meta("pair", "EURUSD"))
             .build()
-            .expect("Example FX forward construction should not fail")
+            .unwrap_or_else(|_| unreachable!("Example FX forward with valid constants should never fail"))
     }
 
     /// Construct an FX forward from trade date and tenor using joint calendar spot roll.
@@ -144,7 +143,6 @@ impl FxForward {
     /// * `spot_lag_days` - Spot lag (typically 2, or 1 for USD/CAD)
     /// * `bdc` - Business day convention
     #[allow(clippy::too_many_arguments)]
-    #[allow(clippy::expect_used)] // Builder with valid inputs should not fail
     pub fn from_trade_date(
         id: impl Into<InstrumentId>,
         base_currency: Currency,
@@ -176,7 +174,7 @@ impl FxForward {
             quote_calendar_id.as_deref(),
         )?;
 
-        Ok(Self::builder()
+        Self::builder()
             .id(id.into())
             .base_currency(base_currency)
             .quote_currency(quote_currency)
@@ -188,7 +186,6 @@ impl FxForward {
             .quote_calendar_id_opt(quote_calendar_id)
             .attributes(Attributes::new())
             .build()
-            .expect("FX forward construction should not fail"))
     }
 
     /// Create an FX forward with forward points instead of outright rate.

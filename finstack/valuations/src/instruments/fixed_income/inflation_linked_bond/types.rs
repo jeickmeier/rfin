@@ -190,21 +190,18 @@ impl InflationLinkedBond {
     /// Create a canonical example US TIPS inflation-linked bond.
     ///
     /// Returns a 10-year TIPS with semi-annual coupons and standard 3-month lag.
-    #[allow(clippy::expect_used)] // Example uses hardcoded valid values
     pub fn example() -> Self {
+        use time::macros::date;
         Self {
             id: InstrumentId::new("TIPS-10Y"),
             notional: Money::new(1_000_000.0, Currency::USD),
             real_coupon: 0.025,
             freq: Tenor::semi_annual(),
             dc: DayCount::Act365F,
-            issue: Date::from_calendar_date(2024, time::Month::January, 15)
-                .expect("Valid example date"),
-            maturity: Date::from_calendar_date(2034, time::Month::January, 15)
-                .expect("Valid example date"),
+            issue: date!(2024 - 01 - 15),
+            maturity: date!(2034 - 01 - 15),
             base_index: 100.0,
-            base_date: Date::from_calendar_date(2024, time::Month::January, 15)
-                .expect("Valid example date"),
+            base_date: date!(2024 - 01 - 15),
             indexation_method: IndexationMethod::TIPS,
             lag: IndexationMethod::TIPS.standard_lag(),
             deflation_protection: DeflationProtection::MaturityOnly,

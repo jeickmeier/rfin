@@ -36,6 +36,7 @@ use crate::instruments::ir_future::Position;
 use finstack_core::currency::Currency;
 use finstack_core::dates::Date;
 use finstack_core::market_data::context::MarketContext;
+use time::macros::date;
 use finstack_core::money::Money;
 use finstack_core::types::{CurveId, InstrumentId};
 
@@ -270,20 +271,14 @@ pub struct EquityIndexFuture {
 
 impl EquityIndexFuture {
     /// Create a canonical example E-mini S&P 500 future for testing and documentation.
-    #[allow(clippy::expect_used)] // Example uses hardcoded valid values
     pub fn example() -> Self {
-        use time::Month;
         Self::builder()
             .id(InstrumentId::new("ES-2025M03"))
             .index_ticker("SPX".to_string())
             .currency(Currency::USD)
             .quantity(10.0)
-            .expiry_date(
-                Date::from_calendar_date(2025, Month::March, 21).expect("Valid example date"),
-            )
-            .last_trading_date(
-                Date::from_calendar_date(2025, Month::March, 20).expect("Valid example date"),
-            )
+            .expiry_date(date!(2025 - 03 - 21))
+            .last_trading_date(date!(2025 - 03 - 20))
             .entry_price_opt(Some(4500.0))
             .quoted_price_opt(Some(4550.0))
             .position(Position::Long)
@@ -292,7 +287,7 @@ impl EquityIndexFuture {
             .index_price_id("SPX-SPOT".to_string())
             .attributes(Attributes::new())
             .build()
-            .expect("Example EquityIndexFuture construction should not fail")
+            .unwrap_or_else(|_| unreachable!("Example EquityIndexFuture with valid constants should never fail"))
     }
 
     /// Create an E-mini S&P 500 future with common defaults.

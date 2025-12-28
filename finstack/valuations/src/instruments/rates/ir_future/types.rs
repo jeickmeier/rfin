@@ -5,6 +5,7 @@ use crate::constants::PERCENT_TO_DECIMAL;
 use crate::instruments::common::traits::Attributes;
 use finstack_core::dates::{Date, DayCount};
 use finstack_core::market_data::context::MarketContext;
+use time::macros::date;
 use finstack_core::money::Money;
 use finstack_core::types::{CurveId, InstrumentId};
 
@@ -111,25 +112,16 @@ impl InterestRateFuture {
     // Note: use the builder (FinancialBuilder) for construction.
 
     /// Create a canonical example 3M Eurodollar-style interest rate future.
-    #[allow(clippy::expect_used)] // Example uses hardcoded valid values
     pub fn example() -> Self {
         use finstack_core::currency::Currency;
-        use time::Month;
+        // SAFETY: All inputs are compile-time validated constants
         InterestRateFutureBuilder::new()
             .id(InstrumentId::new("IRF-ED-3M-MAR25"))
             .notional(Money::new(1_000_000.0, Currency::USD))
-            .expiry_date(
-                Date::from_calendar_date(2025, Month::March, 17).expect("Valid example date"),
-            )
-            .fixing_date(
-                Date::from_calendar_date(2025, Month::March, 17).expect("Valid example date"),
-            )
-            .period_start(
-                Date::from_calendar_date(2025, Month::March, 19).expect("Valid example date"),
-            )
-            .period_end(
-                Date::from_calendar_date(2025, Month::June, 18).expect("Valid example date"),
-            )
+            .expiry_date(date!(2025 - 03 - 17))
+            .fixing_date(date!(2025 - 03 - 17))
+            .period_start(date!(2025 - 03 - 19))
+            .period_end(date!(2025 - 06 - 18))
             .quoted_price(95.50)
             .day_count(finstack_core::dates::DayCount::Act360)
             .position(Position::Long)
@@ -141,7 +133,7 @@ impl InterestRateFuture {
             .forward_id(CurveId::new("USD-SOFR-3M"))
             .attributes(Attributes::new())
             .build()
-            .expect("Example InterestRateFuture construction should not fail")
+            .unwrap_or_else(|_| unreachable!("Example InterestRateFuture with valid constants should never fail"))
     }
 
     /// Set contract specifications.

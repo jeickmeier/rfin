@@ -1002,7 +1002,10 @@ impl McEngine {
 
                 // Store paths from this chunk
                 if !chunk_paths.is_empty() {
-                    #[allow(clippy::expect_used)] // Poisoned mutex means prior panic
+                    // SAFETY: A poisoned mutex indicates a prior panic in another thread.
+                    // Re-panicking here propagates that failure rather than silently continuing
+                    // with potentially corrupted state.
+                    #[allow(clippy::expect_used)]
                     captured_paths
                         .lock()
                         .expect("Mutex should not be poisoned")
@@ -1034,7 +1037,10 @@ impl McEngine {
         let paths = if capture_enabled {
             let mut dataset =
                 PathDataset::new(self.config.num_paths, sampling_method, process_params);
-            #[allow(clippy::expect_used)] // Poisoned mutex means prior panic
+            // SAFETY: A poisoned mutex indicates a prior panic in another thread.
+            // Re-panicking here propagates that failure rather than silently continuing
+            // with potentially corrupted state.
+            #[allow(clippy::expect_used)]
             let collected_paths = captured_paths
                 .into_inner()
                 .expect("Mutex should not be poisoned");

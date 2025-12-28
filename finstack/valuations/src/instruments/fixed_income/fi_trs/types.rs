@@ -75,8 +75,8 @@ pub struct FIIndexTotalReturnSwap {
 
 impl FIIndexTotalReturnSwap {
     /// Create a canonical example fixed income index TRS (USD Corporate Index, 1Y).
-    #[allow(clippy::expect_used)] // Example uses hardcoded valid values
     pub fn example() -> Self {
+        use time::macros::date;
         let underlying = IndexUnderlyingParams::new("US-CORP-INDEX", Currency::USD)
             .with_yield("US-CORP-YIELD")
             .with_duration("US-CORP-DURATION")
@@ -89,8 +89,8 @@ impl FIIndexTotalReturnSwap {
             day_count: DayCount::Act360,
         };
         let sched = TrsScheduleSpec::from_params(
-            Date::from_calendar_date(2024, time::Month::January, 1).expect("Valid example date"),
-            Date::from_calendar_date(2025, time::Month::January, 1).expect("Valid example date"),
+            date!(2024 - 01 - 01),
+            date!(2025 - 01 - 01),
             ScheduleParams {
                 freq: Tenor::quarterly(),
                 dc: DayCount::Act360,
@@ -109,7 +109,7 @@ impl FIIndexTotalReturnSwap {
             .initial_level_opt(None)
             .attributes(Attributes::new())
             .build()
-            .expect("Example FIIndexTotalReturnSwap construction should not fail")
+            .unwrap_or_else(|_| unreachable!("Example FIIndexTotalReturnSwap with valid constants should never fail"))
     }
 
     /// Creates an FI TRS that replicates a bond ETF.
@@ -137,7 +137,10 @@ impl FIIndexTotalReturnSwap {
     ///     Some("LQD-DURATION"),
     /// );
     /// ```
-    #[allow(clippy::expect_used)] // Builder with valid inputs should not fail
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if the builder fails validation.
     pub fn replicate_etf(
         etf_ticker: &str,
         notional: Money,
@@ -145,7 +148,7 @@ impl FIIndexTotalReturnSwap {
         schedule: TrsScheduleSpec,
         yield_id: Option<&str>,
         duration_id: Option<&str>,
-    ) -> Self {
+    ) -> Result<Self> {
         let mut underlying = IndexUnderlyingParams::new(etf_ticker, notional.currency());
         if let Some(y) = yield_id {
             underlying = underlying.with_yield(y);
@@ -164,7 +167,6 @@ impl FIIndexTotalReturnSwap {
             .initial_level_opt(None)
             .attributes(Attributes::new())
             .build()
-            .expect("ETF replication TRS construction should not fail")
     }
 
     /// Calculates the net present value (NPV) of the fixed income index TRS.

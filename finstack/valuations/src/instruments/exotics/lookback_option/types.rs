@@ -74,20 +74,17 @@ impl crate::instruments::common::traits::CurveDependencies for LookbackOption {
 
 impl LookbackOption {
     /// Create a canonical example lookback option (fixed strike call).
-    #[allow(clippy::expect_used)] // Example uses hardcoded valid values
     pub fn example() -> Self {
         use finstack_core::currency::Currency;
         use finstack_core::dates::DayCount;
-        use time::Month;
+        use time::macros::date;
         LookbackOptionBuilder::new()
             .id(InstrumentId::new("LOOKBACK-SPX-FIXED-CALL"))
             .underlying_ticker("SPX".to_string())
             .strike_opt(Some(Money::new(4500.0, Currency::USD)))
             .option_type(crate::instruments::OptionType::Call)
             .lookback_type(LookbackType::FixedStrike)
-            .expiry(
-                Date::from_calendar_date(2024, Month::December, 20).expect("Valid example date"),
-            )
+            .expiry(date!(2024 - 12 - 20))
             .notional(Money::new(100_000.0, Currency::USD))
             .day_count(DayCount::Act365F)
             .discount_curve_id(CurveId::new("USD-OIS"))
@@ -99,7 +96,7 @@ impl LookbackOption {
             .observed_max_opt(None)
             .attributes(Attributes::new())
             .build()
-            .expect("Example LookbackOption construction should not fail")
+            .unwrap_or_else(|_| unreachable!("Example LookbackOption with valid constants should never fail"))
     }
     /// Calculate the net present value using Monte Carlo.
     #[cfg(feature = "mc")]

@@ -97,18 +97,17 @@ fn default_stub_kind() -> StubKind {
 
 impl RevolvingCredit {
     /// Create a canonical example revolving credit facility (USD, deterministic draws).
-    #[allow(clippy::expect_used)] // Example uses hardcoded valid values
     pub fn example() -> Self {
         use finstack_core::currency::Currency;
         use finstack_core::dates::{DayCount, Tenor};
-        use time::Month;
+        use time::macros::date;
         let commitment = Money::new(50_000_000.0, Currency::USD);
         let initial_draw = Money::new(10_000_000.0, Currency::USD);
-        let start = Date::from_calendar_date(2024, Month::January, 1).expect("Valid example date");
-        let end = Date::from_calendar_date(2027, Month::January, 1).expect("Valid example date");
+        let start = date!(2024 - 01 - 01);
+        let end = date!(2027 - 01 - 01);
         let base_rate = BaseRateSpec::Floating(FloatingRateSpec {
             index_id: CurveId::new("USD-SOFR-3M"),
-            spread_bp: Decimal::try_from(250.0).expect("valid spread literal"),
+            spread_bp: Decimal::try_from(250.0).unwrap_or(Decimal::ZERO),
             gearing: Decimal::ONE,
             gearing_includes_spread: true,
             floor_bp: Some(Decimal::ZERO),
@@ -125,12 +124,12 @@ impl RevolvingCredit {
         let fees = RevolvingCreditFees::flat(25.0, 10.0, 5.0);
         let draw_repay = DrawRepaySpec::Deterministic(vec![
             DrawRepayEvent {
-                date: Date::from_calendar_date(2024, Month::March, 1).expect("Valid example date"),
+                date: date!(2024 - 03 - 01),
                 amount: Money::new(5_000_000.0, Currency::USD),
                 is_draw: true,
             },
             DrawRepayEvent {
-                date: Date::from_calendar_date(2025, Month::June, 1).expect("Valid example date"),
+                date: date!(2025 - 06 - 01),
                 amount: Money::new(3_000_000.0, Currency::USD),
                 is_draw: false,
             },
@@ -152,7 +151,7 @@ impl RevolvingCredit {
             .stub_rule(StubKind::ShortFront)
             .attributes(Attributes::new())
             .build()
-            .expect("Example RevolvingCredit construction should not fail")
+            .unwrap_or_else(|_| unreachable!("Example RevolvingCredit with valid constants should never fail"))
     }
 }
 

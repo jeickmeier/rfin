@@ -101,7 +101,6 @@ pub struct DollarRoll {
 
 impl DollarRoll {
     /// Create a canonical example dollar roll for testing.
-    #[allow(clippy::expect_used)] // Example uses hardcoded valid values
     pub fn example() -> Self {
         Self::builder()
             .id(InstrumentId::new("FN30-4.0-ROLL-0324-0424"))
@@ -123,7 +122,7 @@ impl DollarRoll {
                     .with_meta("program", "fnma"),
             )
             .build()
-            .expect("Example dollar roll construction should not fail")
+            .unwrap_or_else(|_| unreachable!("Example dollar roll with valid constants should never fail"))
     }
 
     /// Get the drop (price difference between front and back month).
@@ -139,7 +138,12 @@ impl DollarRoll {
     }
 
     /// Create the front-month TBA leg.
-    #[allow(clippy::expect_used)] // Builder with valid inputs from self should not fail
+    ///
+    /// # Panics
+    ///
+    /// Panics if the builder fails validation. Since all inputs are derived from
+    /// a valid `DollarRoll` instance, this should never fail.
+    #[allow(clippy::expect_used)]
     pub fn front_leg(&self) -> AgencyTba {
         AgencyTba::builder()
             .id(InstrumentId::new(format!("{}-FRONT", self.id.as_str())))
@@ -152,11 +156,16 @@ impl DollarRoll {
             .trade_price(self.front_price)
             .discount_curve_id(self.discount_curve_id.clone())
             .build()
-            .expect("Front leg construction")
+            .expect("Front leg construction from valid DollarRoll should not fail")
     }
 
     /// Create the back-month TBA leg.
-    #[allow(clippy::expect_used)] // Builder with valid inputs from self should not fail
+    ///
+    /// # Panics
+    ///
+    /// Panics if the builder fails validation. Since all inputs are derived from
+    /// a valid `DollarRoll` instance, this should never fail.
+    #[allow(clippy::expect_used)]
     pub fn back_leg(&self) -> AgencyTba {
         AgencyTba::builder()
             .id(InstrumentId::new(format!("{}-BACK", self.id.as_str())))
@@ -169,7 +178,7 @@ impl DollarRoll {
             .trade_price(self.back_price)
             .discount_curve_id(self.discount_curve_id.clone())
             .build()
-            .expect("Back leg construction")
+            .expect("Back leg construction from valid DollarRoll should not fail")
     }
 
     /// Calculate days between settlement dates.

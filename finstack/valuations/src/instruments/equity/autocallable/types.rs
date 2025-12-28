@@ -3,6 +3,7 @@
 use crate::instruments::common::traits::Attributes;
 use crate::instruments::PricingOverrides;
 use finstack_core::dates::Date;
+use time::macros::date;
 use finstack_core::money::Money;
 use finstack_core::types::{CurveId, InstrumentId};
 
@@ -70,16 +71,14 @@ pub struct Autocallable {
 
 impl Autocallable {
     /// Create a canonical example autocallable (quarterly observations, simple barriers/coupons).
-    #[allow(clippy::expect_used)] // Example uses hardcoded valid values
     pub fn example() -> Self {
         use finstack_core::currency::Currency;
         use finstack_core::dates::DayCount;
-        use time::Month;
         let observation_dates = vec![
-            Date::from_calendar_date(2024, Month::March, 29).expect("Valid example date"),
-            Date::from_calendar_date(2024, Month::June, 28).expect("Valid example date"),
-            Date::from_calendar_date(2024, Month::September, 30).expect("Valid example date"),
-            Date::from_calendar_date(2024, Month::December, 31).expect("Valid example date"),
+            date!(2024 - 03 - 29),
+            date!(2024 - 06 - 28),
+            date!(2024 - 09 - 30),
+            date!(2024 - 12 - 31),
         ];
         let autocall_barriers = vec![1.0, 1.0, 1.0, 1.0]; // 100% of initial
         let coupons = vec![0.02, 0.02, 0.02, 0.02]; // 2% per observation if called
@@ -102,7 +101,7 @@ impl Autocallable {
             .pricing_overrides(PricingOverrides::default())
             .attributes(Attributes::new())
             .build()
-            .expect("Example Autocallable construction should not fail")
+            .unwrap_or_else(|_| unreachable!("Example Autocallable with valid constants should never fail"))
     }
     /// Calculate the net present value of this autocallable.
     #[cfg(feature = "mc")]

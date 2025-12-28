@@ -3,6 +3,7 @@
 use crate::instruments::common::traits::Attributes;
 use crate::instruments::PricingOverrides;
 use finstack_core::dates::Date;
+use time::macros::date;
 use finstack_core::money::Money;
 use finstack_core::types::{CurveId, InstrumentId};
 
@@ -75,16 +76,14 @@ impl crate::instruments::common::traits::CurveDependencies for CliquetOption {
 
 impl CliquetOption {
     /// Create a canonical example cliquet option (quarterly resets with local/global caps).
-    #[allow(clippy::expect_used)] // Example uses hardcoded valid values
     pub fn example() -> Self {
         use finstack_core::currency::Currency;
         use finstack_core::dates::DayCount;
-        use time::Month;
         let reset_dates = vec![
-            Date::from_calendar_date(2024, Month::March, 29).expect("Valid example date"),
-            Date::from_calendar_date(2024, Month::June, 28).expect("Valid example date"),
-            Date::from_calendar_date(2024, Month::September, 30).expect("Valid example date"),
-            Date::from_calendar_date(2024, Month::December, 31).expect("Valid example date"),
+            date!(2024 - 03 - 29),
+            date!(2024 - 06 - 28),
+            date!(2024 - 09 - 30),
+            date!(2024 - 12 - 31),
         ];
         CliquetOptionBuilder::new()
             .id(InstrumentId::new("CLIQ-SPX-QTR"))
@@ -103,7 +102,7 @@ impl CliquetOption {
             .pricing_overrides(PricingOverrides::default())
             .attributes(Attributes::new())
             .build()
-            .expect("Example CliquetOption construction should not fail")
+            .unwrap_or_else(|_| unreachable!("Example CliquetOption with valid constants should never fail"))
     }
     /// Calculate the net present value of this cliquet option.
     #[cfg(feature = "mc")]

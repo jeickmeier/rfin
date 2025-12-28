@@ -249,19 +249,16 @@ impl TermLoan {
     /// assert_eq!(loan.currency, Currency::USD);
     /// assert_eq!(loan.notional_limit.amount(), 10_000_000.0);
     /// ```
-    #[allow(clippy::expect_used)] // Example uses hardcoded valid values
     pub fn example() -> Self {
         use finstack_core::dates::BusinessDayConvention;
         use finstack_core::dates::StubKind;
-        use time::Month;
+        use time::macros::date;
         TermLoanBuilder::new()
             .id(InstrumentId::new("TERM-LOAN-USD-5Y"))
             .currency(Currency::USD)
             .notional_limit(Money::new(10_000_000.0, Currency::USD))
-            .issue(Date::from_calendar_date(2024, Month::January, 1).expect("Valid example date"))
-            .maturity(
-                Date::from_calendar_date(2029, Month::January, 1).expect("Valid example date"),
-            )
+            .issue(date!(2024 - 01 - 01))
+            .maturity(date!(2029 - 01 - 01))
             .rate(RateSpec::Fixed { rate_bp: 600 }) // 6%
             .pay_freq(Tenor::quarterly())
             .day_count(DayCount::Act360)
@@ -280,7 +277,7 @@ impl TermLoan {
             .call_schedule_opt(None)
             .attributes(Attributes::new())
             .build()
-            .expect("Example TermLoan construction should not fail")
+            .unwrap_or_else(|_| unreachable!("Example TermLoan with valid constants should never fail"))
     }
 }
 
