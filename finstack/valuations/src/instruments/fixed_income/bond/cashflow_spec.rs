@@ -100,6 +100,7 @@ impl CashflowSpec {
     ///
     /// For full control (PIK, custom calendars, stubs), construct `FixedCouponSpec` directly
     /// and wrap in `CashflowSpec::Fixed(...)`.
+    #[allow(clippy::expect_used)] // Builder with valid inputs should not fail
     pub fn fixed(coupon: f64, freq: Tenor, dc: DayCount) -> Self {
         // Convert f64 to Decimal for exact representation
         let rate = Decimal::try_from(coupon).unwrap_or(Decimal::ZERO);
@@ -170,6 +171,7 @@ impl CashflowSpec {
     /// - `floating_with_reset_lag()` for custom reset lag
     /// - For full control (floors/caps/gearing), construct `FloatingCouponSpec` directly
     ///   and wrap in `CashflowSpec::Floating(...)`.
+    #[allow(clippy::expect_used)] // Builder with valid inputs should not fail
     pub fn floating(index_id: CurveId, margin_bp: f64, freq: Tenor, dc: DayCount) -> Self {
         Self::floating_with_reset_lag(index_id, margin_bp, freq, dc, 2)
     }

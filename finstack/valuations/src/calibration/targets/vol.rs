@@ -320,6 +320,7 @@ impl VolSurfaceBootstrapper {
     }
 
     /// Interpolate SABR parameters across the 1D expiry axis.
+    #[allow(clippy::expect_used)] // Infallible after is_empty check
     fn interpolate_params(
         t: f64,
         params: &BTreeMap<OrderedF64, SABRParameters>,
@@ -388,6 +389,7 @@ Set params.expiry_extrapolation='clamp' to allow flat extrapolation.",
 }
 
 #[cfg(test)]
+#[allow(clippy::expect_used, clippy::panic)]
 mod tests {
     use super::*;
     use crate::instruments::common::models::SABRParameters;

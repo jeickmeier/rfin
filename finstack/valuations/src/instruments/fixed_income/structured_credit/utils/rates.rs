@@ -250,6 +250,7 @@ pub fn frequency_periods_per_year(freq: finstack_core::dates::Tenor) -> f64 {
 }
 
 #[cfg(test)]
+#[allow(clippy::expect_used, clippy::panic)]
 mod tests {
     use super::*;
 

@@ -28,6 +28,7 @@ macro_rules! register_metrics {
 }
 
 #[cfg(test)]
+#[allow(clippy::expect_used, clippy::panic)]
 mod tests {
     use crate::metrics::{MetricCalculator, MetricContext, MetricId, MetricRegistry};
     use crate::pricer::InstrumentType;

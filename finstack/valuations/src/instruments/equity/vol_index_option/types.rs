@@ -157,6 +157,7 @@ impl VolIndexOptionSpecs {
 
 impl VolatilityIndexOption {
     /// Create a canonical example VIX call option for testing.
+    #[allow(clippy::expect_used)] // Example uses hardcoded valid values
     pub fn example() -> Self {
         use time::Month;
         Self::builder()
@@ -177,6 +178,7 @@ impl VolatilityIndexOption {
     }
 
     /// Create a VIX call option.
+    #[allow(clippy::expect_used)] // Builder with valid inputs should not fail
     pub fn vix_call(id: impl Into<String>, strike: f64, expiry: Date, notional: Money) -> Self {
         Self::builder()
             .id(InstrumentId::new(id.into()))
@@ -196,6 +198,7 @@ impl VolatilityIndexOption {
     }
 
     /// Create a VIX put option.
+    #[allow(clippy::expect_used)] // Builder with valid inputs should not fail
     pub fn vix_put(id: impl Into<String>, strike: f64, expiry: Date, notional: Money) -> Self {
         Self::builder()
             .id(InstrumentId::new(id.into()))
@@ -617,6 +620,7 @@ impl crate::instruments::common::traits::CurveDependencies for VolatilityIndexOp
 // =============================================================================
 
 #[cfg(test)]
+#[allow(clippy::expect_used, clippy::panic)]
 mod tests {
     use super::*;
     use finstack_core::market_data::surfaces::vol_surface::VolSurface;

@@ -364,6 +364,7 @@ fn black_scholes_call(spot: f64, strike: f64, time: f64, r: f64, q: f64, vol: f6
 }
 
 #[cfg(test)]
+#[allow(clippy::expect_used, clippy::panic)]
 mod tests {
     use super::*;
 

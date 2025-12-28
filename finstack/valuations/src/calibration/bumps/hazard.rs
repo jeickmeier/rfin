@@ -202,6 +202,7 @@ fn with_key_rate_hazard_bump(
     // If the requested bucket is beyond the curve's supported maturity, treat as "no-op".
     // This avoids double-counting in bucketed CS01 when requesting standard buckets
     // beyond the last calibrated hazard knot.
+    #[allow(clippy::expect_used)] // Infallible after len>=2 check above
     let last_knot = *knots.last().expect("len>=2");
     if t_years > last_knot + 1e-6 {
         return Ok(hazard.clone());

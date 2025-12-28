@@ -190,6 +190,7 @@ pub fn delay_discount_factor(delay_days: u32, rate: f64) -> f64 {
 }
 
 #[cfg(test)]
+#[allow(clippy::expect_used, clippy::panic)]
 mod tests {
     use super::*;
     use time::Month;

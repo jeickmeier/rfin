@@ -23,6 +23,8 @@
 //! discount ratios used inst.day_count, causing mixed time bases that distort
 //! knock-in/out timing and coupon PVs.
 
+#![allow(clippy::unwrap_used, clippy::expect_used, clippy::panic)]
+
 use super::helpers::*;
 use finstack_core::dates::DayCount;
 use finstack_valuations::instruments::common::traits::Instrument;

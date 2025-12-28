@@ -187,6 +187,7 @@ fn bump_discount_curve(
 }
 
 #[cfg(test)]
+#[allow(clippy::expect_used, clippy::panic)]
 mod tests {
     use super::*;
     use crate::cashflow::builder::specs::PrepaymentModelSpec;

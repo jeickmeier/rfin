@@ -316,6 +316,7 @@ pub trait Discretization<P: StochasticProcess + ?Sized>: Send + Sync {
 // Payoff and PathObserver are moved to `instruments::common::models::monte_carlo::traits`.
 
 #[cfg(test)]
+#[allow(clippy::expect_used, clippy::panic)]
 mod tests {
     use super::*;
 

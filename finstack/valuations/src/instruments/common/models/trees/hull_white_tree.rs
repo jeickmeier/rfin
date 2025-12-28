@@ -804,6 +804,7 @@ impl HullWhiteTree {
 }
 
 #[cfg(test)]
+#[allow(clippy::expect_used, clippy::panic)]
 mod tests {
     use super::*;
     use finstack_core::market_data::term_structures::discount_curve::DiscountCurve;

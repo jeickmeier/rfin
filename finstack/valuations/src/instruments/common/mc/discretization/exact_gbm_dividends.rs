@@ -123,6 +123,7 @@ impl Discretization<GbmWithDividends> for ExactGbmWithDividends {
 }
 
 #[cfg(test)]
+#[allow(clippy::expect_used, clippy::panic)]
 mod tests {
     use super::super::super::process::gbm::GbmParams;
     use super::super::super::process::gbm_dividends::Dividend;

@@ -484,6 +484,7 @@ impl InterestRateSwap {
     /// # Errors
     ///
     /// Returns an error if example construction fails (e.g., invalid dates).
+    #[allow(clippy::expect_used)] // Example uses hardcoded valid values
     pub fn example() -> finstack_core::Result<Self> {
         use finstack_core::dates::{BusinessDayConvention, DayCount, StubKind, Tenor};
 
@@ -721,6 +722,7 @@ impl crate::instruments::common::traits::CurveDependencies for InterestRateSwap 
 }
 
 #[cfg(test)]
+#[allow(clippy::expect_used, clippy::panic)]
 mod tests {
     use super::*;
 

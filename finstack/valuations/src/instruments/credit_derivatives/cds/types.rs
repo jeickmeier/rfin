@@ -230,6 +230,7 @@ fn normalize_cds_key(id: &str) -> String {
     id.trim().to_string()
 }
 
+#[allow(clippy::expect_used)] // Panic on corrupted embedded data is intentional
 fn cds_conventions_registry(
 ) -> &'static finstack_core::collections::HashMap<String, CdsConventionResolved> {
     static REGISTRY: OnceLock<finstack_core::collections::HashMap<String, CdsConventionResolved>> =
@@ -359,6 +360,7 @@ impl CreditDefaultSwap {
     /// Create a canonical example CDS for testing and documentation.
     ///
     /// Returns a 5-year investment-grade CDS with standard ISDA conventions.
+    #[allow(clippy::expect_used)] // Example uses hardcoded valid values
     pub fn example() -> Self {
         Self::buy_protection(
             "CDS-CORP-5Y",
@@ -373,6 +375,7 @@ impl CreditDefaultSwap {
 
     /// Create a standard CDS with ISDA conventions (buy protection).
     #[allow(clippy::too_many_arguments)]
+    #[allow(clippy::expect_used)] // Builder with valid inputs should not fail
     pub fn buy_protection(
         id: impl Into<InstrumentId>,
         notional: Money,
@@ -417,6 +420,7 @@ impl CreditDefaultSwap {
 
     /// Create a standard CDS with ISDA conventions (sell protection).
     #[allow(clippy::too_many_arguments)]
+    #[allow(clippy::expect_used)] // Builder with valid inputs should not fail
     pub fn sell_protection(
         id: impl Into<InstrumentId>,
         notional: Money,

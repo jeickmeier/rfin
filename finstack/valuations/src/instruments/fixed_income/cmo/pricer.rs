@@ -36,6 +36,7 @@ pub struct TrancheCashflow {
 ///
 /// Projects collateral cashflows and runs them through the waterfall
 /// to determine the reference tranche's cashflows.
+#[allow(clippy::expect_used)] // Tranche existence checked at function start
 pub fn generate_tranche_cashflows(
     cmo: &AgencyCmo,
     as_of: Date,
@@ -189,6 +190,7 @@ impl Pricer for AgencyCmoDiscountingPricer {
 }
 
 #[cfg(test)]
+#[allow(clippy::expect_used, clippy::panic)]
 mod tests {
     use super::*;
     use finstack_core::market_data::term_structures::discount_curve::DiscountCurve;

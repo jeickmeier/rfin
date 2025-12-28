@@ -283,6 +283,7 @@ impl Swaption {
     /// Create a canonical example swaption for testing and documentation.
     ///
     /// Returns a 1Y x 5Y payer swaption (1 year to expiry, 5 year swap tenor).
+    #[allow(clippy::expect_used)] // Example uses hardcoded valid values
     pub fn example() -> Self {
         Self {
             id: InstrumentId::new("SWPN-1Yx5Y-USD"),
@@ -912,6 +913,7 @@ impl BermudanSwaption {
     /// Create a canonical example Bermudan swaption for testing.
     ///
     /// Returns a 10NC2 payer swaption (10-year swap, callable quarterly after 2 years).
+    #[allow(clippy::expect_used)] // Example uses hardcoded valid values
     pub fn example() -> Self {
         let swap_start =
             Date::from_calendar_date(2025, time::Month::January, 17).expect("Valid example date");

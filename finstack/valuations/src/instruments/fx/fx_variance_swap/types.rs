@@ -102,6 +102,7 @@ pub struct FxVarianceSwap {
 
 impl FxVarianceSwap {
     /// Create a canonical example FX variance swap (EUR/USD, 1Y).
+    #[allow(clippy::expect_used)] // Example uses hardcoded valid values
     pub fn example() -> Self {
         use time::Month;
         FxVarianceSwapBuilder::new()

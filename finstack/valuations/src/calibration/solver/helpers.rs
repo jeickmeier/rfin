@@ -260,6 +260,7 @@ pub(crate) fn bracket_solve_1d_with_diagnostics(
 }
 
 #[cfg(test)]
+#[allow(clippy::expect_used, clippy::panic)]
 mod tests {
     use super::*;
 

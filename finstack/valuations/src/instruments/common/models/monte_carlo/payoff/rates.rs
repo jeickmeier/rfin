@@ -376,6 +376,7 @@ pub fn cap_floor_parity_swap_value(
 }
 
 #[cfg(test)]
+#[allow(clippy::expect_used, clippy::panic)]
 mod tests {
     use super::*;
 

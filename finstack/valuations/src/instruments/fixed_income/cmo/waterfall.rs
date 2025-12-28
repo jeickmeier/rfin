@@ -51,6 +51,7 @@ pub struct WaterfallPeriodResult {
 /// # Returns
 ///
 /// Waterfall execution result with allocations by tranche
+#[allow(clippy::expect_used)] // Priority groups are built from tranches, so get() is infallible
 pub fn execute_waterfall(
     waterfall: &mut CmoWaterfall,
     available_principal: f64,
@@ -243,6 +244,7 @@ pub fn allocate_po_cashflow(_po_tranche: &CmoTranche, total_principal: f64) -> f
 }
 
 #[cfg(test)]
+#[allow(clippy::expect_used, clippy::panic)]
 mod tests {
     use super::*;
     use crate::instruments::agency_cmo::types::CmoTranche;

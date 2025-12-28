@@ -320,10 +320,7 @@ impl BootstrapTarget for InflationBootstrapper {
             .filter(|(t, _)| t.abs() > 1e-8)
             .collect();
         full_knots.push((0.0, base_cpi));
-        full_knots.sort_by(|a, b| {
-            a.0.partial_cmp(&b.0)
-                .expect("Time values should be comparable")
-        });
+        full_knots.sort_by(|a, b| a.0.total_cmp(&b.0));
 
         InflationCurve::builder(self.params.curve_id.to_string())
             .base_cpi(base_cpi)

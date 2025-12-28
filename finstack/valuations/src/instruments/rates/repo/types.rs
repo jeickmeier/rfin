@@ -181,6 +181,7 @@ impl Repo {
     /// Create a canonical example term repo for testing and documentation.
     ///
     /// Returns a 7-day general collateral USD repo.
+    #[allow(clippy::expect_used)] // Example uses hardcoded valid values
     pub fn example() -> Self {
         let collateral = CollateralSpec::new("UST-10Y", 10_000.0, "UST_10Y_PRICE");
         let start =
@@ -258,6 +259,7 @@ impl Repo {
     }
 
     /// Create a term repo with specified maturity.
+    #[allow(clippy::expect_used)] // Builder with valid inputs should not fail
     pub fn term(
         id: impl Into<String>,
         cash_amount: Money,
@@ -288,6 +290,7 @@ impl Repo {
     }
 
     /// Create an open repo with an initial maturity (can be rolled/terminated later).
+    #[allow(clippy::expect_used)] // Builder with valid inputs should not fail
     pub fn open(
         id: impl Into<String>,
         cash_amount: Money,
@@ -576,6 +579,7 @@ impl crate::instruments::common::traits::CurveDependencies for Repo {
 }
 
 #[cfg(test)]
+#[allow(clippy::expect_used, clippy::panic)]
 mod tests {
     use super::*;
     use finstack_core::currency::Currency;

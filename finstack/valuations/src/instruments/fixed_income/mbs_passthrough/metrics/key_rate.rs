@@ -202,6 +202,7 @@ fn triangular_weight(t: f64, target: f64) -> f64 {
 }
 
 #[cfg(test)]
+#[allow(clippy::expect_used, clippy::panic)]
 mod tests {
     use super::*;
     use crate::cashflow::builder::specs::PrepaymentModelSpec;

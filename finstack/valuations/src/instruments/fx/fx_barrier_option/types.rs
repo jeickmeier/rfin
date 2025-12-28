@@ -70,6 +70,7 @@ impl crate::instruments::common::traits::CurveDependencies for FxBarrierOption {
 
 impl FxBarrierOption {
     /// Create a canonical example FX barrier option (EURUSD up-and-out call).
+    #[allow(clippy::expect_used)] // Example uses hardcoded valid values
     pub fn example() -> Self {
         use finstack_core::dates::DayCount;
         use time::Month;

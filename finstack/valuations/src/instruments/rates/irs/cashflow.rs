@@ -385,6 +385,7 @@ pub fn full_signed_schedule_with_curves(
 }
 
 #[cfg(test)]
+#[allow(clippy::expect_used, clippy::panic)]
 mod tests {
     use super::*;
     use finstack_core::cashflow::primitives::CFKind;

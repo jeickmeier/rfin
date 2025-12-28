@@ -1002,6 +1002,7 @@ impl McEngine {
 
                 // Store paths from this chunk
                 if !chunk_paths.is_empty() {
+                    #[allow(clippy::expect_used)] // Poisoned mutex means prior panic
                     captured_paths
                         .lock()
                         .expect("Mutex should not be poisoned")
@@ -1033,6 +1034,7 @@ impl McEngine {
         let paths = if capture_enabled {
             let mut dataset =
                 PathDataset::new(self.config.num_paths, sampling_method, process_params);
+            #[allow(clippy::expect_used)] // Poisoned mutex means prior panic
             let collected_paths = captured_paths
                 .into_inner()
                 .expect("Mutex should not be poisoned");
@@ -1446,6 +1448,7 @@ impl McEngine {
 }
 
 #[cfg(test)]
+#[allow(clippy::expect_used, clippy::panic)]
 mod tests {
     use super::*;
     use finstack_core::money::Money;

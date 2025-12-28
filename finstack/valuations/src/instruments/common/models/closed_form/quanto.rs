@@ -212,6 +212,7 @@ pub fn quanto_put_simple(
 }
 
 #[cfg(test)]
+#[allow(clippy::expect_used, clippy::panic)]
 mod tests {
     use super::*;
 

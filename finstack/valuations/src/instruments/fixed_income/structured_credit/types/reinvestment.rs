@@ -88,6 +88,7 @@ impl ReinvestmentManager {
 }
 
 #[cfg(test)]
+#[allow(clippy::expect_used, clippy::panic)]
 mod tests {
     use super::*;
     use crate::instruments::structured_credit::types::{AssetType, DealType};

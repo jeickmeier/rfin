@@ -99,6 +99,7 @@ impl CDSIndex {
     /// Create a canonical example CDS Index for testing and documentation.
     ///
     /// Returns a CDX.NA.IG series 42 index with standard conventions.
+    #[allow(clippy::expect_used)] // Example uses hardcoded valid values
     pub fn example() -> Self {
         let convention = CDSConvention::IsdaNa;
         let dc = convention.day_count();

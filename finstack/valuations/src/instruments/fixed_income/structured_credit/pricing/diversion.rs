@@ -159,6 +159,7 @@ impl DiversionEngine {
     }
 
     /// Detect circular dependencies in diversion rules using DFS.
+    #[allow(clippy::expect_used)] // position() is infallible: neighbor is in path when Color::Gray
     fn detect_cycles(&self) -> Result<()> {
         let mut graph: HashMap<&str, Vec<&str>> = HashMap::default();
         let mut all_nodes: HashSet<&str> = HashSet::default();
@@ -258,6 +259,7 @@ impl Default for DiversionEngine {
 }
 
 #[cfg(test)]
+#[allow(clippy::expect_used, clippy::panic)]
 mod tests {
     use super::*;
 

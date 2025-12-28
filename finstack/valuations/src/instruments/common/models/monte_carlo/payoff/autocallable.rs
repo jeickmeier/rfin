@@ -244,6 +244,7 @@ impl Payoff for AutocallablePayoff {
 }
 
 #[cfg(test)]
+#[allow(clippy::expect_used, clippy::panic)]
 mod tests {
     use super::*;
     use crate::instruments::common::mc::traits::state_keys;

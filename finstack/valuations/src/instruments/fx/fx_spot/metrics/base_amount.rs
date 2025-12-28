@@ -21,6 +21,7 @@ impl MetricCalculator for BaseAmountCalculator {
 }
 
 #[cfg(test)]
+#[allow(clippy::expect_used, clippy::panic)]
 mod tests {
     use super::{base_amount, BaseAmountCalculator};
     use crate::instruments::fx_spot::FxSpot;

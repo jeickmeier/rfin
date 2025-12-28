@@ -70,6 +70,7 @@ pub struct Autocallable {
 
 impl Autocallable {
     /// Create a canonical example autocallable (quarterly observations, simple barriers/coupons).
+    #[allow(clippy::expect_used)] // Example uses hardcoded valid values
     pub fn example() -> Self {
         use finstack_core::currency::Currency;
         use finstack_core::dates::DayCount;

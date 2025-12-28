@@ -24,6 +24,7 @@ pub mod types;
 pub use types::{BondFuture, BondFutureBuilder, BondFutureSpecs, DeliverableBond, Position};
 
 #[cfg(test)]
+#[allow(clippy::expect_used, clippy::panic)]
 mod tests {
     #[test]
     fn test_module_compiles() {

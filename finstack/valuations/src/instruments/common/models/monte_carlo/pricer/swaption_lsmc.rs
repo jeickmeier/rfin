@@ -201,6 +201,7 @@ impl SwaptionLsmcConfig {
     /// * `exercise_times` - Exercise times in years (sorted)
     /// * `maturity` - Final maturity time
     /// * `min_steps_between` - Minimum steps between grid points (default: 1)
+    #[allow(clippy::expect_used)] // times is initialized with vec![0.0], so .last() is infallible
     pub fn build_exercise_aligned_grid(
         exercise_times: &[f64],
         maturity: f64,
@@ -827,6 +828,7 @@ impl SwaptionLsmcPricer {
 }
 
 #[cfg(test)]
+#[allow(clippy::expect_used, clippy::panic)]
 mod tests {
     // Tests for swap rate utilities are now in swap_rate_utils.rs
     // This module focuses on testing the LSMC swaption pricer itself

@@ -11,6 +11,7 @@ pub use finstack_core::math::linalg::{
 
 // Tests are now in core/math/linalg - no need to duplicate here
 #[cfg(test)]
+#[allow(clippy::expect_used, clippy::panic)]
 mod tests {
     use super::*;
 

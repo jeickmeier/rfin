@@ -57,6 +57,7 @@ impl Default for BranchingSpec {
 
 impl BranchingSpec {
     /// Create fixed branching specification.
+    #[allow(clippy::expect_used)] // Builder with valid inputs should not fail
     pub fn fixed(branches: usize) -> Self {
         BranchingSpec::Fixed {
             branches: branches.max(2),
@@ -302,6 +303,7 @@ fn saturating_pow(base: usize, exp: usize) -> usize {
 }
 
 #[cfg(test)]
+#[allow(clippy::expect_used, clippy::panic)]
 mod tests {
     use super::*;
 

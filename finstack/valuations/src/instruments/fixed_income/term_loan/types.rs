@@ -249,6 +249,7 @@ impl TermLoan {
     /// assert_eq!(loan.currency, Currency::USD);
     /// assert_eq!(loan.notional_limit.amount(), 10_000_000.0);
     /// ```
+    #[allow(clippy::expect_used)] // Example uses hardcoded valid values
     pub fn example() -> Self {
         use finstack_core::dates::BusinessDayConvention;
         use finstack_core::dates::StubKind;
@@ -539,6 +540,7 @@ impl crate::instruments::common::traits::CurveDependencies for TermLoan {
 }
 
 #[cfg(test)]
+#[allow(clippy::expect_used, clippy::panic)]
 mod tests {
     use super::*;
     use crate::cashflow::builder::specs::CouponType;

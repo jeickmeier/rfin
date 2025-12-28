@@ -150,6 +150,7 @@ impl ImCalculator for InternalModelImCalculator {
 }
 
 #[cfg(test)]
+#[allow(clippy::expect_used, clippy::panic)]
 mod tests {
     use super::*;
     use finstack_core::currency::Currency;

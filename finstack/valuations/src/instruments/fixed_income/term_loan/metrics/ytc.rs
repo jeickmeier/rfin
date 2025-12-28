@@ -16,6 +16,7 @@ use super::irr_helpers::solve_irr_to_exercise;
 pub struct YtcCalculator;
 
 impl MetricCalculator for YtcCalculator {
+    #[allow(clippy::expect_used)] // Infallible: is_none() check ensures Some
     fn calculate(&self, context: &mut MetricContext) -> finstack_core::Result<f64> {
         let loan: &TermLoan = context.instrument_as()?;
         let as_of = context.as_of;

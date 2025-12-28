@@ -209,6 +209,7 @@ pub fn theoretical_po_value(face: f64, wam: u32, discount_rate: f64, psa: f64) -
 }
 
 #[cfg(test)]
+#[allow(clippy::expect_used, clippy::panic)]
 mod tests {
     use super::*;
     use crate::instruments::agency_cmo::types::CmoTranche;

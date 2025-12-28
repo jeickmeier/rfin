@@ -1,6 +1,7 @@
 //! Tests for emission functions.
 
 #[cfg(test)]
+#[allow(clippy::expect_used, clippy::panic)]
 mod accrual_context_tests {
     use super::super::super::compiler::{FixedSchedule, FloatSchedule};
     use super::super::super::specs::{
@@ -185,6 +186,7 @@ mod accrual_context_tests {
 }
 
 #[cfg(test)]
+#[allow(clippy::expect_used, clippy::panic)]
 mod credit_emission_tests {
     use super::super::super::specs::DefaultEvent;
     use super::super::credit::{emit_default_on, emit_prepayment_on};

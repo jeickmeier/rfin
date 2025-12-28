@@ -63,6 +63,7 @@ pub struct AsianOption {
 
 impl AsianOption {
     /// Create a canonical example Asian option (arithmetic average).
+    #[allow(clippy::expect_used)] // Example uses hardcoded valid values
     pub fn example() -> Self {
         use finstack_core::currency::Currency;
         use finstack_core::dates::DayCount;
@@ -209,6 +210,7 @@ impl crate::instruments::common::traits::Instrument for AsianOption {
 }
 
 #[cfg(test)]
+#[allow(clippy::expect_used, clippy::panic)]
 mod tests {
     use super::*;
     use finstack_core::dates::Date;

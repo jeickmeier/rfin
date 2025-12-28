@@ -102,6 +102,7 @@ impl crate::metrics::HasCreditCurve for CdsTranche {
 
 impl CdsTranche {
     /// Create a canonical example CDS tranche (CDX.NA.IG 0-3% equity tranche).
+    #[allow(clippy::expect_used)] // Example uses hardcoded valid values
     pub fn example() -> Self {
         use crate::cashflow::builder::ScheduleParams;
         use finstack_core::currency::Currency;

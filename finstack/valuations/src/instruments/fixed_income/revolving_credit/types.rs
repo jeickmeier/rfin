@@ -97,6 +97,7 @@ fn default_stub_kind() -> StubKind {
 
 impl RevolvingCredit {
     /// Create a canonical example revolving credit facility (USD, deterministic draws).
+    #[allow(clippy::expect_used)] // Example uses hardcoded valid values
     pub fn example() -> Self {
         use finstack_core::currency::Currency;
         use finstack_core::dates::{DayCount, Tenor};

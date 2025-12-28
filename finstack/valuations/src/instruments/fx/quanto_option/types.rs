@@ -75,6 +75,7 @@ impl crate::instruments::common::traits::CurveDependencies for QuantoOption {
 
 impl QuantoOption {
     /// Create a canonical example quanto equity option (Nikkei in USD).
+    #[allow(clippy::expect_used)] // Example uses hardcoded valid values
     pub fn example() -> Self {
         use finstack_core::dates::DayCount;
         use time::Month;

@@ -144,7 +144,7 @@ pub trait ModelTimeSeries {
 }
 
 /// Forecast a covenant using a generic time-series model adapter.
-#[allow(unused_variables)]
+#[cfg_attr(not(feature = "mc"), allow(unused_variables))]
 pub fn forecast_covenant_generic<MTS: ModelTimeSeries>(
     covenant: &CovenantSpec,
     model: &MTS,
@@ -407,6 +407,7 @@ fn springing_condition_active<MTS: ModelTimeSeries>(
 // dependency cycle between `valuations` and `statements`.
 
 #[cfg(test)]
+#[allow(clippy::expect_used, clippy::panic)]
 mod tests {
     use super::*;
     use finstack_core::dates::{Date, PeriodId};

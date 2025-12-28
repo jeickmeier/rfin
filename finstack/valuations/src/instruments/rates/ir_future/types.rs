@@ -111,6 +111,7 @@ impl InterestRateFuture {
     // Note: use the builder (FinancialBuilder) for construction.
 
     /// Create a canonical example 3M Eurodollar-style interest rate future.
+    #[allow(clippy::expect_used)] // Example uses hardcoded valid values
     pub fn example() -> Self {
         use finstack_core::currency::Currency;
         use time::Month;

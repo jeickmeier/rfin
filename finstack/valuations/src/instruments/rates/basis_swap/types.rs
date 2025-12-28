@@ -508,6 +508,7 @@ impl crate::instruments::common::traits::CurveDependencies for BasisSwap {
 }
 
 #[cfg(test)]
+#[allow(clippy::expect_used, clippy::panic)]
 mod tests {
     use super::*;
     use crate::instruments::common::traits::Instrument;

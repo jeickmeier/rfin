@@ -215,6 +215,7 @@ fn mulhilo(a: u32, b: u32) -> (u32, u32) {
 }
 
 #[cfg(test)]
+#[allow(clippy::expect_used, clippy::panic)]
 mod tests {
     use super::*;
 

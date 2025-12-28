@@ -62,6 +62,7 @@ impl PacCollar {
     }
 
     /// Standard 100-300 PSA collar.
+    #[allow(clippy::expect_used)] // Builder with valid inputs should not fail
     pub fn standard() -> Self {
         Self::new(1.0, 3.0)
     }
@@ -272,6 +273,7 @@ pub struct AgencyCmo {
 
 impl AgencyCmo {
     /// Create a canonical example CMO for testing.
+    #[allow(clippy::expect_used)] // Example uses hardcoded valid values
     pub fn example() -> Self {
         // Create sequential structure: A (front), B (middle), Z (last)
         let tranches = vec![
@@ -304,6 +306,7 @@ impl AgencyCmo {
     }
 
     /// Create an example PAC/Support structure.
+    #[allow(clippy::expect_used)] // Example uses hardcoded valid values
     pub fn example_pac_support() -> Self {
         let tranches = vec![
             CmoTranche::pac(
@@ -334,6 +337,7 @@ impl AgencyCmo {
     }
 
     /// Create an example IO/PO strip structure.
+    #[allow(clippy::expect_used)] // Example uses hardcoded valid values
     pub fn example_io_po() -> Self {
         let tranches = vec![
             CmoTranche::io_strip("IO", Money::new(100_000_000.0, Currency::USD), 0.04),
@@ -445,6 +449,7 @@ impl crate::instruments::common::pricing::HasDiscountCurve for AgencyCmo {
 }
 
 #[cfg(test)]
+#[allow(clippy::expect_used, clippy::panic)]
 mod tests {
     use super::*;
 

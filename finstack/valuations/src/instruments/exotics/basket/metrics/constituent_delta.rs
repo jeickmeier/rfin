@@ -219,6 +219,7 @@ fn basket_with_price_reference(
 }
 
 #[cfg(test)]
+#[allow(clippy::expect_used, clippy::panic)]
 mod tests {
     use super::*;
     use crate::metrics::MetricId;

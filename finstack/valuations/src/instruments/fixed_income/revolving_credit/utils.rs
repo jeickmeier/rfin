@@ -231,6 +231,7 @@ pub(super) fn compute_reset_period_end(
 }
 
 #[cfg(test)]
+#[allow(clippy::expect_used, clippy::panic)]
 mod tests {
     use super::*;
     use crate::instruments::common::traits::Attributes;

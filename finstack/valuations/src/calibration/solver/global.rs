@@ -468,6 +468,7 @@ fn param_range(params: &[f64]) -> (f64, f64) {
 }
 
 #[cfg(test)]
+#[allow(clippy::expect_used, clippy::panic)]
 mod tests {
     use super::*;
     use crate::calibration::CalibrationConfig;

@@ -157,6 +157,7 @@ impl Bond {
     /// Create a canonical example bond for testing and documentation.
     ///
     /// Returns a 10-year USD Treasury-style bond with realistic parameters.
+    #[allow(clippy::expect_used)] // Example uses hardcoded valid values
     pub fn example() -> Self {
         Self::fixed(
             "US912828XG33",
@@ -231,6 +232,7 @@ impl Bond {
     /// let us_bond = Bond::fixed("US-001", notional, 0.05, issue, maturity, "USD-OIS");
     /// # let _ = us_bond;
     /// ```
+    #[allow(clippy::expect_used)] // Builder with valid inputs should not fail
     pub fn fixed(
         id: impl Into<InstrumentId>,
         notional: Money,
@@ -303,6 +305,7 @@ impl Bond {
     /// );
     /// # let _ = treasury;
     /// ```
+    #[allow(clippy::expect_used)] // Builder with valid inputs should not fail
     pub fn with_convention(
         id: impl Into<InstrumentId>,
         notional: Money,
@@ -382,6 +385,7 @@ impl Bond {
     /// # let _ = frn;
     /// ```
     #[allow(clippy::too_many_arguments)]
+    #[allow(clippy::expect_used)] // Builder with valid inputs should not fail
     pub fn floating(
         id: impl Into<InstrumentId>,
         notional: Money,
@@ -918,6 +922,7 @@ impl crate::instruments::common::traits::CurveDependencies for Bond {
 }
 
 #[cfg(test)]
+#[allow(clippy::expect_used, clippy::panic)]
 mod tests {
     use super::*;
     use crate::cashflow::builder::{CashFlowSchedule, CouponType, FixedCouponSpec, ScheduleParams};

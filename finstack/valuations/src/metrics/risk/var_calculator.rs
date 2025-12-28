@@ -670,6 +670,7 @@ fn calculate_portfolio_var_taylor(
 }
 
 #[cfg(test)]
+#[allow(clippy::expect_used, clippy::panic)]
 mod tests {
     use super::*;
     use crate::instruments::common::traits::Instrument;

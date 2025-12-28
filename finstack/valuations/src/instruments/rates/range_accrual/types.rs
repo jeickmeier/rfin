@@ -49,6 +49,7 @@ pub struct RangeAccrual {
 
 impl RangeAccrual {
     /// Create a canonical example range accrual (monthly observations).
+    #[allow(clippy::expect_used)] // Example uses hardcoded valid values
     pub fn example() -> Self {
         use finstack_core::currency::Currency;
         use finstack_core::dates::DayCount;

@@ -76,6 +76,7 @@ impl EquityOption {
     /// Create a canonical example equity option for testing and documentation.
     ///
     /// Returns an at-the-money SPX call option with 6 months to expiry.
+    #[allow(clippy::expect_used)] // Example uses hardcoded valid values
     pub fn example() -> Self {
         Self::european_call(
             "SPX-CALL-4500",
@@ -90,6 +91,7 @@ impl EquityOption {
     /// Create a European call option with standard conventions.
     ///
     /// This convenience constructor eliminates the builder for the most common case.
+    #[allow(clippy::expect_used)] // Builder with valid inputs should not fail
     pub fn european_call(
         id: impl Into<String>,
         ticker: impl Into<String>,
@@ -124,6 +126,7 @@ impl EquityOption {
     }
 
     /// Create a European put option with standard conventions.
+    #[allow(clippy::expect_used)] // Builder with valid inputs should not fail
     pub fn european_put(
         id: impl Into<String>,
         ticker: impl Into<String>,
@@ -157,6 +160,7 @@ impl EquityOption {
     }
 
     /// Create an American call option with standard conventions.
+    #[allow(clippy::expect_used)] // Builder with valid inputs should not fail
     pub fn american_call(
         id: impl Into<String>,
         ticker: impl Into<String>,
@@ -391,6 +395,7 @@ impl EquityOption {
 }
 
 #[cfg(test)]
+#[allow(clippy::expect_used, clippy::panic)]
 mod tests {
     use super::*;
     use crate::instruments::equity_option::pricer;

@@ -109,6 +109,7 @@ impl ConventionRegistry {
     /// let registry = ConventionRegistry::global();
     /// // Registry is now initialized and ready to use
     /// ```
+    #[allow(clippy::expect_used)] // Panic on corrupted embedded data is intentional
     pub fn global() -> &'static Self {
         static REGISTRY: OnceLock<ConventionRegistry> = OnceLock::new();
         REGISTRY.get_or_init(|| ConventionRegistry {

@@ -101,6 +101,7 @@ pub struct DollarRoll {
 
 impl DollarRoll {
     /// Create a canonical example dollar roll for testing.
+    #[allow(clippy::expect_used)] // Example uses hardcoded valid values
     pub fn example() -> Self {
         Self::builder()
             .id(InstrumentId::new("FN30-4.0-ROLL-0324-0424"))
@@ -138,6 +139,7 @@ impl DollarRoll {
     }
 
     /// Create the front-month TBA leg.
+    #[allow(clippy::expect_used)] // Builder with valid inputs from self should not fail
     pub fn front_leg(&self) -> AgencyTba {
         AgencyTba::builder()
             .id(InstrumentId::new(format!("{}-FRONT", self.id.as_str())))
@@ -154,6 +156,7 @@ impl DollarRoll {
     }
 
     /// Create the back-month TBA leg.
+    #[allow(clippy::expect_used)] // Builder with valid inputs from self should not fail
     pub fn back_leg(&self) -> AgencyTba {
         AgencyTba::builder()
             .id(InstrumentId::new(format!("{}-BACK", self.id.as_str())))
@@ -259,6 +262,7 @@ impl crate::instruments::common::pricing::HasDiscountCurve for DollarRoll {
 }
 
 #[cfg(test)]
+#[allow(clippy::expect_used, clippy::panic)]
 mod tests {
     use super::*;
 

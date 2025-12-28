@@ -151,6 +151,7 @@ pub struct AgencyTba {
 
 impl AgencyTba {
     /// Create a canonical example TBA for testing and documentation.
+    #[allow(clippy::expect_used)] // Example uses hardcoded valid values
     pub fn example() -> Self {
         Self::builder()
             .id(InstrumentId::new("FN30-4.0-202403"))
@@ -319,6 +320,7 @@ impl crate::instruments::common::pricing::HasDiscountCurve for AgencyTba {
 }
 
 #[cfg(test)]
+#[allow(clippy::expect_used, clippy::panic)]
 mod tests {
     use super::*;
     use time::Month;

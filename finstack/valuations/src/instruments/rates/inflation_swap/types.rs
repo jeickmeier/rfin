@@ -105,6 +105,7 @@ impl InflationSwap {
     /// Create a canonical example zero-coupon inflation swap (US CPI, 5Y).
     ///
     /// Returns a 5-year USD inflation swap with standard 3-month CPI lag.
+    #[allow(clippy::expect_used)] // Example uses hardcoded valid values
     pub fn example() -> Self {
         use finstack_core::currency::Currency;
         use time::Month;

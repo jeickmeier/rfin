@@ -144,6 +144,7 @@ impl<P: StochasticProcess> Discretization<P> for LogMilstein {
 }
 
 #[cfg(test)]
+#[allow(clippy::expect_used, clippy::panic)]
 mod tests {
     use super::super::super::process::gbm::{GbmParams, GbmProcess};
     use super::super::euler::EulerMaruyama;

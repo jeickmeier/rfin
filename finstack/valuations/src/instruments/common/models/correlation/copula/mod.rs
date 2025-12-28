@@ -234,6 +234,7 @@ pub(crate) fn select_quadrature(order: u8) -> GaussHermiteQuadrature {
 }
 
 #[cfg(test)]
+#[allow(clippy::expect_used, clippy::panic)]
 mod tests {
     use super::*;
 

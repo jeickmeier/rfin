@@ -1149,6 +1149,7 @@ impl CDSBootstrapper {
     }
 
     #[allow(clippy::too_many_arguments)]
+    #[allow(clippy::expect_used)] // Temp curve creation is infallible with valid inputs
     fn solve_for_hazard_rate(
         &self,
         cds: &CreditDefaultSwap,
@@ -1217,6 +1218,7 @@ impl CDSBootstrapper {
 }
 
 #[cfg(test)]
+#[allow(clippy::expect_used, clippy::panic)]
 mod tests {
     use super::*;
     use finstack_core::dates::DateExt;

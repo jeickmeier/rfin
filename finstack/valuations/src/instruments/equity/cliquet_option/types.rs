@@ -75,6 +75,7 @@ impl crate::instruments::common::traits::CurveDependencies for CliquetOption {
 
 impl CliquetOption {
     /// Create a canonical example cliquet option (quarterly resets with local/global caps).
+    #[allow(clippy::expect_used)] // Example uses hardcoded valid values
     pub fn example() -> Self {
         use finstack_core::currency::Currency;
         use finstack_core::dates::DayCount;

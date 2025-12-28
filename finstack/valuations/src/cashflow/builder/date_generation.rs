@@ -198,6 +198,7 @@ pub fn build_dates_checked(
 }
 
 #[cfg(test)]
+#[allow(clippy::expect_used, clippy::panic)]
 mod tests {
     use super::*;
     use time::Month;

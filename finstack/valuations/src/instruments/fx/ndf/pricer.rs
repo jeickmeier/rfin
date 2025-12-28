@@ -68,6 +68,7 @@ impl Pricer for NdfDiscountingPricer {
 }
 
 #[cfg(test)]
+#[allow(clippy::expect_used, clippy::panic)]
 mod tests {
     use super::*;
     use crate::pricer::Pricer;

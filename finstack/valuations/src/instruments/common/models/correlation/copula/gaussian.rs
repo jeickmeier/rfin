@@ -171,6 +171,7 @@ impl Copula for GaussianCopula {
 }
 
 #[cfg(test)]
+#[allow(clippy::expect_used, clippy::panic)]
 mod tests {
     use super::*;
     use finstack_core::math::standard_normal_inv_cdf;

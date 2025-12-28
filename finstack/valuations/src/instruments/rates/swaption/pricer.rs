@@ -57,7 +57,6 @@ impl Pricer for SimpleSwaptionBlackPricer {
         PricerKey::new(InstrumentType::Swaption, self.model)
     }
 
-    #[allow(unused_variables)]
     fn price_dyn(
         &self,
         instrument: &dyn Instrument,

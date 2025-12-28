@@ -35,6 +35,7 @@ mod credit;
 mod fees;
 mod helpers;
 #[cfg(test)]
+#[allow(clippy::expect_used, clippy::panic)]
 mod tests;
 
 // Re-export coupon emission (internal to builder module)

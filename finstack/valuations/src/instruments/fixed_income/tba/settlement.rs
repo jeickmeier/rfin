@@ -114,6 +114,7 @@ pub fn get_roll_date(front_year: i32, front_month: u8) -> Result<Date> {
 }
 
 #[cfg(test)]
+#[allow(clippy::expect_used, clippy::panic)]
 mod tests {
     use super::*;
 

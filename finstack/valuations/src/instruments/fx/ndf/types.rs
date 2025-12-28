@@ -127,6 +127,7 @@ impl Ndf {
     /// Create a canonical example NDF for testing and documentation.
     ///
     /// Returns a 3-month USD/CNY NDF with realistic parameters.
+    #[allow(clippy::expect_used)] // Example uses hardcoded valid values
     pub fn example() -> Self {
         Self::builder()
             .id(InstrumentId::new("USDCNY-NDF-3M"))
@@ -169,6 +170,7 @@ impl Ndf {
     /// * `fixing_offset_days` - Days before maturity for fixing (typically 2)
     /// * `bdc` - Business day convention
     #[allow(clippy::too_many_arguments)]
+    #[allow(clippy::expect_used)] // Builder with valid inputs should not fail
     pub fn from_trade_date(
         id: impl Into<InstrumentId>,
         base_currency: Currency,
@@ -425,6 +427,7 @@ impl HasDiscountCurve for Ndf {
 }
 
 #[cfg(test)]
+#[allow(clippy::expect_used, clippy::panic)]
 mod tests {
     use super::*;
     use time::Month;

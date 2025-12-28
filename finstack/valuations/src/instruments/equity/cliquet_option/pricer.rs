@@ -210,10 +210,7 @@ impl CliquetOptionMcPricer {
             })
             .filter(|&t| t > 0.0)
             .collect();
-        check_points.sort_by(|a, b| {
-            a.partial_cmp(b)
-                .expect("Time fractions should be comparable (no NaN)")
-        });
+        check_points.sort_by(|a, b| a.total_cmp(b));
         check_points.dedup();
 
         // Ensure we cover up to t if not in reset dates

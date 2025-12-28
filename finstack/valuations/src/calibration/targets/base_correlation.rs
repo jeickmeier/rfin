@@ -312,10 +312,7 @@ impl BootstrapTarget for BaseCorrelationBootstrapper {
             }
         }
 
-        sorted_knots.sort_by(|a, b| {
-            a.0.partial_cmp(&b.0)
-                .expect("f64 comparison should always be comparable")
-        });
+        sorted_knots.sort_by(|a, b| a.0.total_cmp(&b.0));
         sorted_knots.dedup_by(|a, b| (a.0 - b.0).abs() <= 1e-12);
 
         if sorted_knots.len() < 2 {

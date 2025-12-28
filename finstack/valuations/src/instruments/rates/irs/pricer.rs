@@ -104,6 +104,7 @@ impl InterestRateSwap {
     /// - Historical fixings are required but missing for observation dates before `as_of`
     /// - Calendar or date calculations fail
     /// - Numerical stability thresholds are breached
+    #[allow(clippy::expect_used)] // proj.expect() is infallible: checked is_some() in condition
     pub(crate) fn pv_compounded_in_arrears_float_leg(
         &self,
         disc: &DiscountCurve,
@@ -521,6 +522,7 @@ pub fn npv_raw(irs: &InterestRateSwap, context: &MarketContext, as_of: Date) -> 
 }
 
 #[cfg(test)]
+#[allow(clippy::expect_used, clippy::panic)]
 mod tests {
     use super::*;
     use crate::instruments::common::traits::Instrument;

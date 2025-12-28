@@ -163,6 +163,7 @@ impl VolIndexContractSpecs {
 
 impl VolatilityIndexFuture {
     /// Create a canonical example VIX future for testing and documentation.
+    #[allow(clippy::expect_used)] // Example uses hardcoded valid values
     pub fn example() -> Self {
         use time::Month;
         Self::builder()
@@ -383,6 +384,7 @@ impl crate::instruments::common::traits::CurveDependencies for VolatilityIndexFu
 // =============================================================================
 
 #[cfg(test)]
+#[allow(clippy::expect_used, clippy::panic)]
 mod tests {
     use super::*;
     use finstack_core::market_data::term_structures::discount_curve::DiscountCurve;

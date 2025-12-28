@@ -30,6 +30,7 @@ pub fn valuation_result_schema() -> &'static Value {
 }
 
 #[cfg(test)]
+#[allow(clippy::expect_used, clippy::panic)]
 mod tests {
     use super::*;
 

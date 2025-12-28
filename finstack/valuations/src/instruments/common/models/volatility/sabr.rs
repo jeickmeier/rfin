@@ -161,8 +161,8 @@ impl SABRParameters {
     ///
     /// These are reasonable defaults for calibration initialization but
     /// should always be calibrated to market data for production use.
+    #[allow(clippy::expect_used)] // Hardcoded values are always valid
     pub fn equity_default() -> Self {
-        // These values are always valid, so unwrap is safe
         Self::new(0.20, 1.0, 0.30, -0.20).expect("default equity parameters are valid")
     }
 
@@ -176,8 +176,8 @@ impl SABRParameters {
     ///
     /// These are reasonable defaults for calibration initialization but
     /// should always be calibrated to market data for production use.
+    #[allow(clippy::expect_used)] // Hardcoded values are always valid
     pub fn rates_default() -> Self {
-        // These values are always valid, so unwrap is safe
         Self::new(0.02, 0.5, 0.30, 0.0).expect("default rates parameters are valid")
     }
 
@@ -526,6 +526,8 @@ impl SABRModel {
             }
         } else {
             // Shifted SABR allows negative rates but shifted values must be positive
+            // SAFETY: We're in the else branch where shift.is_some() is guaranteed
+            #[allow(clippy::expect_used)]
             let shift = self
                 .params
                 .shift
@@ -598,12 +600,11 @@ impl SABRCalibrator {
         beta: f64,
     ) -> Result<SABRParameters> {
         // Check if we need shift for negative rates
-        let min_rate = forward.min(
-            *strikes
-                .iter()
-                .min_by(|a, b| a.total_cmp(b))
-                .expect("Strikes should not be empty"),
-        );
+        let min_strike = strikes
+            .iter()
+            .min_by(|a, b| a.total_cmp(b))
+            .ok_or_else(|| Error::Validation("Strikes should not be empty".to_string()))?;
+        let min_rate = forward.min(*min_strike);
 
         if min_rate < 0.0 {
             // Use shifted SABR
@@ -625,12 +626,11 @@ impl SABRCalibrator {
         beta: f64,
     ) -> Result<SABRParameters> {
         // Check if we need shift for negative rates
-        let min_rate = forward.min(
-            *strikes
-                .iter()
-                .min_by(|a, b| a.total_cmp(b))
-                .expect("Strikes should not be empty"),
-        );
+        let min_strike = strikes
+            .iter()
+            .min_by(|a, b| a.total_cmp(b))
+            .ok_or_else(|| Error::Validation("Strikes should not be empty".to_string()))?;
+        let min_rate = forward.min(*min_strike);
 
         if min_rate < 0.0 {
             // Use shifted SABR with derivatives
@@ -1549,6 +1549,7 @@ fn normal_inverse_cdf(p: f64) -> f64 {
 }
 
 #[cfg(test)]
+#[allow(clippy::expect_used, clippy::panic)]
 mod tests {
     use super::*;
 

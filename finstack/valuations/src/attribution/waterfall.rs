@@ -188,9 +188,9 @@ fn attribute_pnl_waterfall_impl(
     let as_of_t0 = input.as_of_t0;
     let as_of_t1 = input.as_of_t1;
     let model_params_t0 = input.model_params_t0;
-    let _config = input
-        .config
-        .expect("config required for waterfall attribution");
+    let _config = input.config.ok_or_else(|| {
+        finstack_core::Error::Validation("config required for waterfall attribution".to_string())
+    })?;
     let strict_validation = input.strict_validation;
 
     // Step 1: Price at T₀
@@ -432,6 +432,7 @@ impl<'a> WaterfallContext<'a> {
 }
 
 #[cfg(test)]
+#[allow(clippy::expect_used, clippy::panic)]
 mod tests {
     use super::*;
     use crate::attribution::test_utils::TestInstrument;

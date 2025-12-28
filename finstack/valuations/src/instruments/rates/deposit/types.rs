@@ -96,6 +96,7 @@ impl Deposit {
     ///
     /// Returns a 6-month USD deposit with 4.5% quoted rate and standard
     /// T+2 spot settlement with ModifiedFollowing business day convention.
+    #[allow(clippy::expect_used)] // Example uses hardcoded valid values
     pub fn example() -> Self {
         Self::builder()
             .id(InstrumentId::new("DEP-USD-6M"))

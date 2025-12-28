@@ -311,6 +311,7 @@ fn is_credit_instrument(instrument_type: InstrumentType) -> bool {
 }
 
 #[cfg(test)]
+#[allow(clippy::expect_used, clippy::panic)]
 mod tests {
     use super::*;
     use finstack_core::currency::Currency;

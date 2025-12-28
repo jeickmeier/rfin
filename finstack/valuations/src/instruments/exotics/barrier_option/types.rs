@@ -66,6 +66,7 @@ pub struct BarrierOption {
 
 impl BarrierOption {
     /// Create a canonical example barrier option (up-and-out call).
+    #[allow(clippy::expect_used)] // Example uses hardcoded valid values
     pub fn example() -> Self {
         use finstack_core::currency::Currency;
         use finstack_core::dates::DayCount;

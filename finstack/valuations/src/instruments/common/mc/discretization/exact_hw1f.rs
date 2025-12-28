@@ -94,6 +94,7 @@ impl Discretization<HullWhite1FProcess> for ExactHullWhite1F {
 }
 
 #[cfg(test)]
+#[allow(clippy::expect_used, clippy::panic)]
 mod tests {
     use super::super::super::process::ou::{HullWhite1FParams, HullWhite1FProcess};
     use super::*;

@@ -160,6 +160,7 @@ impl CdsOption {
     ///
     /// Panics if the example parameters are invalid (should never happen).
     #[must_use]
+    #[allow(clippy::expect_used)] // Example uses hardcoded valid values
     pub fn example() -> Self {
         use finstack_core::currency::Currency;
         use time::Month;

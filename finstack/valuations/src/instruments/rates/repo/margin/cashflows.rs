@@ -150,6 +150,7 @@ pub fn margin_calls_to_cashflows(calls: &[MarginCall]) -> Vec<CashFlow> {
 }
 
 #[cfg(test)]
+#[allow(clippy::expect_used, clippy::panic)]
 mod tests {
     use super::*;
     use finstack_core::currency::Currency;

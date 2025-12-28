@@ -26,6 +26,7 @@ use crate::instruments::structured_credit::types::TrancheCoupon;
 /// - End-of-month dates should roll to end-of-month
 /// - Holiday adjustments (modified following) would be applied downstream
 #[inline]
+#[allow(clippy::expect_used)] // Date arithmetic with valid inputs should not fail
 pub fn tenor_to_period_end(start: Date, tenor_years: f64, day_count: DayCount) -> Date {
     use finstack_core::dates::{BusinessDayConvention, Tenor};
     let tenor = Tenor::from_years(tenor_years, day_count);

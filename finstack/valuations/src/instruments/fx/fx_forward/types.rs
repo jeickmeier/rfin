@@ -109,6 +109,7 @@ impl FxForward {
     /// Create a canonical example FX forward for testing and documentation.
     ///
     /// Returns a 6-month EUR/USD forward with realistic parameters.
+    #[allow(clippy::expect_used)] // Example uses hardcoded valid values
     pub fn example() -> Self {
         Self::builder()
             .id(InstrumentId::new("EURUSD-FWD-6M"))
@@ -143,6 +144,7 @@ impl FxForward {
     /// * `spot_lag_days` - Spot lag (typically 2, or 1 for USD/CAD)
     /// * `bdc` - Business day convention
     #[allow(clippy::too_many_arguments)]
+    #[allow(clippy::expect_used)] // Builder with valid inputs should not fail
     pub fn from_trade_date(
         id: impl Into<InstrumentId>,
         base_currency: Currency,
@@ -363,6 +365,7 @@ impl HasDiscountCurve for FxForward {
 }
 
 #[cfg(test)]
+#[allow(clippy::expect_used, clippy::panic)]
 mod tests {
     use super::*;
     use time::Month;

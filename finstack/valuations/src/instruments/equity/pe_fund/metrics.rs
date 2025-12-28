@@ -297,6 +297,7 @@ impl MetricCalculator for ThetaCalculator {
 }
 
 #[cfg(test)]
+#[allow(clippy::expect_used, clippy::panic)]
 mod tests {
     use super::*;
     use crate::instruments::private_markets_fund::{FundEvent, WaterfallSpec};

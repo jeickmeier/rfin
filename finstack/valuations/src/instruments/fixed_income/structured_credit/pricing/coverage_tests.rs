@@ -303,6 +303,7 @@ fn collateral_balance_with_haircuts(
 }
 
 #[cfg(test)]
+#[allow(clippy::expect_used, clippy::panic)]
 mod tests {
     use super::*;
     use crate::instruments::structured_credit::types::{

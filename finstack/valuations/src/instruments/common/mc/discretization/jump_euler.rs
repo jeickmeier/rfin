@@ -112,6 +112,7 @@ impl Discretization<MertonJumpProcess> for JumpEuler {
 }
 
 #[cfg(test)]
+#[allow(clippy::expect_used, clippy::panic)]
 mod tests {
     use super::super::super::process::jump_diffusion::{MertonJumpParams, MertonJumpProcess};
     use super::*;

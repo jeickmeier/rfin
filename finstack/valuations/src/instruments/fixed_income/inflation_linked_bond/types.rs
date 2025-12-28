@@ -190,6 +190,7 @@ impl InflationLinkedBond {
     /// Create a canonical example US TIPS inflation-linked bond.
     ///
     /// Returns a 10-year TIPS with semi-annual coupons and standard 3-month lag.
+    #[allow(clippy::expect_used)] // Example uses hardcoded valid values
     pub fn example() -> Self {
         Self {
             id: InstrumentId::new("TIPS-10Y"),

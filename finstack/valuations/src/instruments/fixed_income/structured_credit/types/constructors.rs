@@ -126,6 +126,7 @@ impl StructuredCredit {
     /// Panics if the hard-coded example dates (2024-01-01, 2034-01-01) are invalid.
     /// This should never happen barring library bugs in the `time` crate.
     #[must_use]
+    #[allow(clippy::expect_used)] // Example uses hardcoded valid values
     pub fn example() -> Self {
         use finstack_core::currency::Currency;
         use time::Month;
@@ -192,6 +193,7 @@ impl StructuredCredit {
 
     /// Create a new ABS instrument from its building blocks.
     ///
+    #[allow(clippy::expect_used)] // Builder with valid default dates
     pub fn new_abs(
         id: impl Into<String>,
         pool: AssetPool,
@@ -229,6 +231,7 @@ impl StructuredCredit {
 
     /// Create a new CLO instrument from its building blocks.
     ///
+    #[allow(clippy::expect_used)] // Builder with valid default dates
     pub fn new_clo(
         id: impl Into<String>,
         pool: AssetPool,
@@ -266,6 +269,7 @@ impl StructuredCredit {
 
     /// Create a new CMBS instrument from its building blocks.
     ///
+    #[allow(clippy::expect_used)] // Builder with valid default dates
     pub fn new_cmbs(
         id: impl Into<String>,
         pool: AssetPool,
@@ -303,6 +307,7 @@ impl StructuredCredit {
 
     /// Create a new RMBS instrument from its building blocks.
     ///
+    #[allow(clippy::expect_used)] // Builder with valid default dates
     pub fn new_rmbs(
         id: impl Into<String>,
         pool: AssetPool,

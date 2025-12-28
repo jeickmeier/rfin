@@ -60,6 +60,7 @@ pub fn register_fx_spot_metrics(registry: &mut MetricRegistry) {
 }
 
 #[cfg(test)]
+#[allow(clippy::expect_used, clippy::panic)]
 mod tests {
     use super::base_amount::BaseAmountCalculator;
     use crate::instruments::{common::traits::Instrument, fx_spot::FxSpot};

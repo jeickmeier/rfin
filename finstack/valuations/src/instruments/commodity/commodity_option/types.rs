@@ -80,6 +80,7 @@ impl CommodityOption {
     /// Create a canonical example commodity option for testing and documentation.
     ///
     /// Returns a WTI European call option.
+    #[allow(clippy::expect_used)] // Example uses hardcoded valid values
     pub fn example() -> Self {
         Self::builder()
             .id(InstrumentId::new("WTI-OPT-2025M06"))

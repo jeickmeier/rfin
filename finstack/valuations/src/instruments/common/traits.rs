@@ -1361,6 +1361,7 @@ impl EquityInstrumentDepsBuilder {
 }
 
 #[cfg(test)]
+#[allow(clippy::expect_used, clippy::panic)]
 mod trait_coverage_tests {
     use crate::instruments::cap_floor::InterestRateOption;
     use crate::instruments::common::pricing::HasForwardCurves;

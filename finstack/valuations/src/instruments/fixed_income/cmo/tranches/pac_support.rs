@@ -148,6 +148,7 @@ pub fn is_collar_broken(support_balance: f64) -> bool {
 }
 
 #[cfg(test)]
+#[allow(clippy::expect_used, clippy::panic)]
 mod tests {
     use super::*;
 

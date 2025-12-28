@@ -104,6 +104,7 @@ impl MetricCalculator for GenericHVar {
 }
 
 #[cfg(test)]
+#[allow(clippy::expect_used, clippy::panic)]
 mod tests {
     use super::*;
     use crate::instruments::common::traits::Instrument;

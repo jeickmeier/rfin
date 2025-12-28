@@ -115,6 +115,7 @@ impl CommoditySwap {
     /// Create a canonical example commodity swap for testing and documentation.
     ///
     /// Returns a natural gas swap with monthly settlements.
+    #[allow(clippy::expect_used)] // Example uses hardcoded valid values
     pub fn example() -> Self {
         Self::builder()
             .id(InstrumentId::new("NG-SWAP-2025"))
@@ -354,6 +355,7 @@ impl crate::instruments::common::pricing::HasForwardCurves for CommoditySwap {
 }
 
 #[cfg(test)]
+#[allow(clippy::expect_used, clippy::panic)]
 mod tests {
     use super::*;
     use time::Month;

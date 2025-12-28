@@ -818,6 +818,7 @@ pub struct ConcentrationViolation {
 }
 
 #[cfg(test)]
+#[allow(clippy::expect_used, clippy::panic)]
 mod tests {
     use super::*;
     use finstack_core::currency::Currency;
@@ -878,6 +879,7 @@ mod tests {
 }
 
 #[cfg(test)]
+#[allow(clippy::expect_used, clippy::panic)]
 mod market_standards_tests {
     use super::*;
     use finstack_core::dates::DayCount;

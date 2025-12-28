@@ -77,6 +77,7 @@ impl EquityTotalReturnSwap {
     /// Create a canonical example equity TRS for testing and documentation.
     ///
     /// Returns a 1-year SPX total return swap with quarterly resets.
+    #[allow(clippy::expect_used)] // Example uses hardcoded valid values
     pub fn example() -> Self {
         Self::builder()
             .id(InstrumentId::new("TRS-SPX-1Y"))
@@ -139,6 +140,7 @@ impl EquityTotalReturnSwap {
     ///     Some("SPY-DIV"),
     /// );
     /// ```
+    #[allow(clippy::expect_used)] // Builder with valid inputs should not fail
     pub fn replicate_etf(
         etf_ticker: &str,
         spot_id: &str,

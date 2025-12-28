@@ -54,6 +54,7 @@ impl Equity {
     /// Create a canonical example equity for testing and documentation.
     ///
     /// Returns a 100-share position in AAPL with realistic market data IDs.
+    #[allow(clippy::expect_used)] // Example uses hardcoded valid values
     pub fn example() -> Self {
         Self::new("EQUITY-AAPL", "AAPL", Currency::USD)
             .with_shares(100.0)
@@ -403,6 +404,7 @@ impl CashflowProvider for Equity {
 }
 
 #[cfg(test)]
+#[allow(clippy::expect_used, clippy::panic)]
 mod tests {
     use super::*;
     use time::Month;

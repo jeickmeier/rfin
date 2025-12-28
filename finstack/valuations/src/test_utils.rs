@@ -1,4 +1,5 @@
 //! Shared helpers for unit tests to reduce boilerplate market setup.
+#![allow(clippy::expect_used)]
 use finstack_core::{
     dates::Date,
     market_data::{

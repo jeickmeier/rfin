@@ -136,6 +136,7 @@ impl ConvertibleBond {
     /// Create a canonical example convertible bond for testing and documentation.
     ///
     /// Returns a 5-year convertible with fixed coupon and voluntary conversion.
+    #[allow(clippy::expect_used)] // Example uses hardcoded valid values
     pub fn example() -> Self {
         use crate::cashflow::builder::specs::FixedCouponSpec;
         use crate::cashflow::builder::CouponType;

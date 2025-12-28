@@ -242,6 +242,7 @@ impl StochasticPrepayment for RichardRollPrepay {
 }
 
 #[cfg(test)]
+#[allow(clippy::expect_used, clippy::panic)]
 mod tests {
     use super::*;
 

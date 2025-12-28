@@ -183,6 +183,7 @@ fn simulate_path<R, P, D, F>(
 }
 
 #[cfg(test)]
+#[allow(clippy::expect_used, clippy::panic)]
 mod tests {
     use super::*;
     use crate::instruments::common::mc::discretization::exact::ExactGbm;

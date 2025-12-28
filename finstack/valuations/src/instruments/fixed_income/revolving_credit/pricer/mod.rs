@@ -53,6 +53,7 @@ pub use unified::EnhancedMonteCarloResult;
 pub use unified::{PathResult, RevolvingCreditPricer};
 
 #[cfg(test)]
+#[allow(clippy::expect_used, clippy::panic)]
 mod tests {
     use super::*;
     use crate::pricer::{InstrumentType, ModelKey, Pricer, PricerKey};

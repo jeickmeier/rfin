@@ -278,6 +278,7 @@ pub fn floating_strike_lookback_put(
 }
 
 #[cfg(test)]
+#[allow(clippy::expect_used, clippy::panic)]
 mod tests {
     use super::*;
 

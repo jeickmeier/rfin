@@ -417,6 +417,7 @@ pub fn project_floating_rate_from_market(
 }
 
 #[cfg(test)]
+#[allow(clippy::expect_used, clippy::panic)]
 mod tests {
     use super::*;
     use finstack_core::dates::{Date, DayCount};

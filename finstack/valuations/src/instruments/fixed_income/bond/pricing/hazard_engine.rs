@@ -148,6 +148,7 @@ impl HazardBondEngine {
     /// let pv = HazardBondEngine::price(&bond, &market, as_of)?;
     /// # Ok::<(), Box<dyn std::error::Error>>(())
     /// ```
+    #[allow(clippy::expect_used)] // binary_search is infallible: dates come from same grid
     pub fn price(bond: &Bond, market: &MarketContext, as_of: Date) -> Result<Money> {
         if as_of >= bond.maturity {
             return Ok(Money::new(0.0, bond.notional.currency()));
@@ -277,6 +278,7 @@ impl HazardBondEngine {
 }
 
 #[cfg(test)]
+#[allow(clippy::expect_used, clippy::panic)]
 mod tests {
     use super::*;
     use crate::instruments::bond::pricing::quote_engine::{compute_quotes, BondQuoteInput};

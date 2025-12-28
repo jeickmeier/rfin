@@ -74,6 +74,7 @@ impl ForwardRateAgreement {
     /// Create a canonical example FRA for testing and documentation.
     ///
     /// Returns a 3x6 FRA (3 months forward, 3 month tenor).
+    #[allow(clippy::expect_used)] // Example uses hardcoded valid values
     pub fn example() -> Self {
         Self::builder()
             .id(InstrumentId::new("FRA-3X6-USD"))
@@ -329,6 +330,7 @@ impl CashflowProvider for ForwardRateAgreement {
 }
 
 #[cfg(test)]
+#[allow(clippy::expect_used, clippy::panic)]
 mod tests {
     #[cfg(feature = "slow")]
     use super::*;

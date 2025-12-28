@@ -80,6 +80,7 @@ impl MetricCalculator for ParRateCalculator {
         &[MetricId::Annuity]
     }
 
+    #[allow(clippy::expect_used)] // dates.last() is infallible: len >= 2 checked above
     fn calculate(&self, context: &mut MetricContext) -> finstack_core::Result<f64> {
         let irs: &InterestRateSwap = context.instrument_as()?;
         let disc = context.curves.get_discount(&irs.fixed.discount_curve_id)?;
@@ -195,6 +196,7 @@ fn par_rate_pv_based(
 }
 
 #[cfg(test)]
+#[allow(clippy::expect_used, clippy::panic)]
 mod tests {
     use super::*;
     use finstack_core::currency::Currency;

@@ -324,6 +324,7 @@ impl TrsEngine {
 }
 
 #[cfg(test)]
+#[allow(clippy::expect_used, clippy::panic)]
 mod tests {
     use crate::instruments::common::pricing::swap_legs;
 

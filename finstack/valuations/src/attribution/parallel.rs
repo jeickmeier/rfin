@@ -144,9 +144,9 @@ fn attribute_pnl_parallel_impl(input: &AttributionInput) -> Result<PnlAttributio
     let as_of_t0 = input.as_of_t0;
     let as_of_t1 = input.as_of_t1;
     let model_params_t0 = input.model_params_t0;
-    let _config = input
-        .config
-        .expect("config required for parallel attribution");
+    let _config = input.config.ok_or_else(|| {
+        finstack_core::Error::Validation("config required for parallel attribution".to_string())
+    })?;
 
     let mut num_repricings = 0;
 
@@ -391,6 +391,7 @@ fn attribute_pnl_parallel_impl(input: &AttributionInput) -> Result<PnlAttributio
 }
 
 #[cfg(test)]
+#[allow(clippy::expect_used, clippy::panic)]
 mod tests {
     use super::*;
     use crate::attribution::test_utils::TestInstrument;

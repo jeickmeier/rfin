@@ -190,6 +190,7 @@ pub struct Basket {
 impl Basket {
     // Builder provided by derive
     /// Create a canonical example basket with two market data constituents.
+    #[allow(clippy::expect_used)] // Example uses hardcoded valid values
     pub fn example() -> Self {
         use finstack_core::currency::Currency;
         let constituents = vec![
@@ -228,6 +229,7 @@ impl Basket {
 
     /// Create an example basket with instrument-backed constituents.
     #[cfg(feature = "serde")]
+    #[allow(clippy::expect_used)] // Example uses hardcoded valid values
     pub fn example_with_instruments() -> Self {
         use finstack_core::currency::Currency;
         use finstack_core::dates::Date;
@@ -381,6 +383,7 @@ impl crate::instruments::common::traits::CurveDependencies for Basket {
 }
 
 #[cfg(test)]
+#[allow(clippy::expect_used, clippy::panic)]
 mod tests {
     use super::*;
 

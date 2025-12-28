@@ -51,10 +51,7 @@ impl BilinearInterp {
 impl Interp2D for BilinearInterp {
     fn interpolate(&self, x: f64, y: f64) -> Result<f64> {
         // Find indices
-        let i = match self.xs.binary_search_by(|v| {
-            v.partial_cmp(&x)
-                .expect("NaN or infinite values not allowed in interpolation")
-        }) {
+        let i = match self.xs.binary_search_by(|v| v.total_cmp(&x)) {
             Ok(idx) => idx,
             Err(idx) => {
                 if idx == 0 {
@@ -66,10 +63,7 @@ impl Interp2D for BilinearInterp {
                 }
             }
         };
-        let j = match self.ys.binary_search_by(|v| {
-            v.partial_cmp(&y)
-                .expect("NaN or infinite values not allowed in interpolation")
-        }) {
+        let j = match self.ys.binary_search_by(|v| v.total_cmp(&y)) {
             Ok(idx) => idx,
             Err(idx) => {
                 if idx == 0 {
@@ -277,6 +271,7 @@ where
 }
 
 #[cfg(test)]
+#[allow(clippy::expect_used, clippy::panic)]
 mod tests {
     use super::*;
 

@@ -91,6 +91,7 @@ pub use types::CallPut;
 pub use types::CallPutSchedule;
 
 #[cfg(test)]
+#[allow(clippy::expect_used, clippy::panic)]
 mod tests {
     use crate::instruments::bond::{Bond, CashflowSpec};
     use crate::instruments::common::parameters::BondConvention;

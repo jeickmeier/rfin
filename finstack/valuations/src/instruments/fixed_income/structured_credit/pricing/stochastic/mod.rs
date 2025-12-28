@@ -26,6 +26,7 @@ pub mod pricer;
 pub mod tree;
 
 #[cfg(test)]
+#[allow(clippy::expect_used, clippy::panic)]
 mod tests;
 
 // Re-export main types

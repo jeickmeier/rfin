@@ -66,6 +66,7 @@ impl FxSwap {
     /// Create a canonical example FX swap for testing and documentation.
     ///
     /// Returns a 6-month EUR/USD swap with realistic forward points.
+    #[allow(clippy::expect_used)] // Example uses hardcoded valid values
     pub fn example() -> Self {
         Self::builder()
             .id(InstrumentId::new("FXSWAP-EURUSD-6M"))
@@ -93,6 +94,7 @@ impl FxSwap {
     /// `spot_lag_days` defaults to 2 in most markets; supply calendar IDs to enforce
     /// base/quote business-day adjustment.
     #[allow(clippy::too_many_arguments)]
+    #[allow(clippy::expect_used)] // Builder with valid inputs should not fail
     pub fn from_trade_date(
         id: impl Into<InstrumentId>,
         base_currency: Currency,

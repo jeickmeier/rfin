@@ -85,6 +85,7 @@ impl FxOption {
     /// Create a canonical example FX option for testing and documentation.
     ///
     /// Returns a 6-month EUR/USD call option.
+    #[allow(clippy::expect_used)] // Example uses hardcoded valid values
     pub fn example() -> Self {
         Self::builder()
             .id(InstrumentId::new("FXOPT-EURUSD-CALL"))
@@ -109,6 +110,7 @@ impl FxOption {
     }
 
     /// Create a European call option on an FX pair with standard conventions.
+    #[allow(clippy::expect_used)] // Builder with valid inputs should not fail
     pub fn european_call(
         id: impl Into<InstrumentId>,
         base_currency: Currency,
@@ -146,6 +148,7 @@ impl FxOption {
     }
 
     /// Create a European put option on an FX pair with standard conventions.
+    #[allow(clippy::expect_used)] // Builder with valid inputs should not fail
     pub fn european_put(
         id: impl Into<InstrumentId>,
         base_currency: Currency,
@@ -187,6 +190,7 @@ impl FxOption {
     /// `spot_lag_days` defaults to T+2 in most markets. The expiry is rolled on the
     /// joint base/quote calendars using the provided business day convention.
     #[allow(clippy::too_many_arguments)]
+    #[allow(clippy::expect_used)] // Builder with valid inputs should not fail
     pub fn european_from_trade_date(
         id: impl Into<InstrumentId>,
         base_currency: Currency,

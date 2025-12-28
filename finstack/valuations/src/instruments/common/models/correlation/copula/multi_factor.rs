@@ -242,6 +242,7 @@ impl Copula for MultiFactorCopula {
 }
 
 #[cfg(test)]
+#[allow(clippy::expect_used, clippy::panic)]
 mod tests {
     use super::super::GaussianCopula;
     use super::*;

@@ -140,11 +140,13 @@ impl EquityOptionParams {
     }
 
     /// Create European call parameters
+    #[allow(clippy::expect_used)] // Builder with valid inputs should not fail
     pub fn european_call(strike: f64, expiry: Date, notional: Money) -> Self {
         Self::new(strike, expiry, OptionType::Call, notional)
     }
 
     /// Create European put parameters
+    #[allow(clippy::expect_used)] // Builder with valid inputs should not fail
     pub fn european_put(strike: f64, expiry: Date, notional: Money) -> Self {
         Self::new(strike, expiry, OptionType::Put, notional)
     }
@@ -194,11 +196,13 @@ impl FxOptionParams {
     }
 
     /// Create European call option parameters
+    #[allow(clippy::expect_used)] // Builder with valid inputs should not fail
     pub fn european_call(strike: f64, expiry: Date, notional: Money) -> Self {
         Self::new(strike, expiry, OptionType::Call, notional)
     }
 
     /// Create European put option parameters  
+    #[allow(clippy::expect_used)] // Builder with valid inputs should not fail
     pub fn european_put(strike: f64, expiry: Date, notional: Money) -> Self {
         Self::new(strike, expiry, OptionType::Put, notional)
     }

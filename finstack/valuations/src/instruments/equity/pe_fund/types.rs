@@ -50,6 +50,7 @@ impl PrivateMarketsFund {
     }
 
     /// Create a canonical example private markets fund with a simple waterfall and events.
+    #[allow(clippy::expect_used)] // Example uses hardcoded valid values
     pub fn example() -> Self {
         use super::waterfall::{WaterfallSpec, WaterfallStyle};
         use finstack_core::currency::Currency;

@@ -1048,6 +1048,7 @@ fn add_factor(sum: Money, value: Money, label: &str, notes: &mut Vec<String>) ->
 }
 
 #[cfg(test)]
+#[allow(clippy::expect_used, clippy::panic)]
 mod tests {
     use super::*;
     use time::macros::date;
@@ -1478,6 +1479,7 @@ pub trait JsonEnvelope: Sized + Serialize + serde::de::DeserializeOwned {
 }
 
 #[cfg(all(test, feature = "serde"))]
+#[allow(clippy::expect_used, clippy::panic)]
 mod json_envelope_tests {
     use super::*;
 

@@ -50,6 +50,7 @@ impl AsianOptionMcPricer {
     }
 
     /// Price an Asian option using Monte Carlo.
+    #[allow(clippy::expect_used)] // paths.expect() is infallible when path_capture is enabled
     fn price_internal(
         &self,
         inst: &AsianOption,

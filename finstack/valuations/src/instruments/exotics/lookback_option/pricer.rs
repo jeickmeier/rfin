@@ -37,6 +37,7 @@ impl LookbackOptionMcPricer {
     }
 
     /// Price a lookback option using Monte Carlo.
+    #[allow(clippy::expect_used)] // strike.expect() is infallible for FixedStrike lookback types
     fn price_internal(
         &self,
         inst: &LookbackOption,
@@ -290,6 +291,7 @@ impl Pricer for LookbackOptionAnalyticalPricer {
         )
     }
 
+    #[allow(clippy::expect_used)] // strike.expect() is infallible for FixedStrike lookback types
     fn price_dyn(
         &self,
         instrument: &dyn Instrument,

@@ -75,6 +75,7 @@ pub struct FIIndexTotalReturnSwap {
 
 impl FIIndexTotalReturnSwap {
     /// Create a canonical example fixed income index TRS (USD Corporate Index, 1Y).
+    #[allow(clippy::expect_used)] // Example uses hardcoded valid values
     pub fn example() -> Self {
         let underlying = IndexUnderlyingParams::new("US-CORP-INDEX", Currency::USD)
             .with_yield("US-CORP-YIELD")
@@ -136,6 +137,7 @@ impl FIIndexTotalReturnSwap {
     ///     Some("LQD-DURATION"),
     /// );
     /// ```
+    #[allow(clippy::expect_used)] // Builder with valid inputs should not fail
     pub fn replicate_etf(
         etf_ticker: &str,
         notional: Money,

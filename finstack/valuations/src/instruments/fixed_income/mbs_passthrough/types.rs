@@ -191,6 +191,7 @@ impl AgencyMbsPassthrough {
     /// Create a canonical example MBS for testing and documentation.
     ///
     /// Returns a FNMA 30-year pool with realistic parameters.
+    #[allow(clippy::expect_used)] // Example uses hardcoded valid values
     pub fn example() -> Self {
         Self::builder()
             .id(InstrumentId::new("FN-MA1234"))
@@ -358,6 +359,7 @@ impl HasDiscountCurve for AgencyMbsPassthrough {
 }
 
 #[cfg(test)]
+#[allow(clippy::expect_used, clippy::panic)]
 mod tests {
     use super::*;
     use time::Month;

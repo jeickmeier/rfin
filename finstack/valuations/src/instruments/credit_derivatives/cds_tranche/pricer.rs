@@ -2153,6 +2153,7 @@ impl crate::pricer::Pricer for SimpleCdsTrancheHazardPricer {
 }
 
 #[cfg(test)]
+#[allow(clippy::expect_used, clippy::panic)]
 mod tests {
     use super::*;
     use crate::instruments::cds_tranche::parameters::CDSTrancheParams;

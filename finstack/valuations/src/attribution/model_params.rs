@@ -307,6 +307,7 @@ pub fn measure_conversion_shift(
 }
 
 #[cfg(test)]
+#[allow(clippy::expect_used, clippy::panic)]
 mod tests {
     use super::*;
 

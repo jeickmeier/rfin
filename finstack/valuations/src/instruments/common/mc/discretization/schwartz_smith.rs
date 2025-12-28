@@ -106,6 +106,7 @@ impl Discretization<SchwartzSmithProcess> for ExactSchwartzSmith {
 }
 
 #[cfg(test)]
+#[allow(clippy::expect_used, clippy::panic)]
 mod tests {
     use super::super::super::process::schwartz_smith::{SchwartzSmithParams, SchwartzSmithProcess};
     use super::*;

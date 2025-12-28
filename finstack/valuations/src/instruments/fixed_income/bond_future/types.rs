@@ -1039,6 +1039,7 @@ impl BondFutureBuilder {
 }
 
 #[cfg(test)]
+#[allow(clippy::expect_used, clippy::panic)]
 mod tests {
     use super::*;
     use finstack_core::currency::Currency;
@@ -1675,6 +1676,7 @@ impl crate::instruments::common::traits::CurveDependencies for BondFuture {
 }
 
 #[cfg(test)]
+#[allow(clippy::expect_used, clippy::panic)]
 mod instrument_trait_tests {
     use super::*;
     use finstack_core::currency::Currency;

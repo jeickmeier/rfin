@@ -127,6 +127,7 @@ impl CommodityForward {
     /// Create a canonical example commodity forward for testing and documentation.
     ///
     /// Returns a WTI crude oil forward with realistic parameters.
+    #[allow(clippy::expect_used)] // Example uses hardcoded valid values
     pub fn example() -> Self {
         Self::builder()
             .id(InstrumentId::new("WTI-FWD-2025M03"))
@@ -319,6 +320,7 @@ impl crate::instruments::common::pricing::HasForwardCurves for CommodityForward 
 }
 
 #[cfg(test)]
+#[allow(clippy::expect_used, clippy::panic)]
 mod tests {
     use super::*;
     use time::Month;

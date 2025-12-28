@@ -369,6 +369,7 @@ pub fn calculate_instrument_margins<'a, I: Marginable + 'a>(
 }
 
 #[cfg(test)]
+#[allow(clippy::expect_used, clippy::panic)]
 mod tests {
     use super::*;
 
