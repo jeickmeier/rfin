@@ -719,12 +719,13 @@ impl DiscountCurve {
     ///
     /// **Defaults:** MonotoneConvex interpolation with FlatForward extrapolation follow
     /// market-standard practices for no-arbitrage discount curves.
-    #[allow(clippy::expect_used)] // Epoch date 1970-01-01 is always valid
     pub fn builder(id: impl Into<CurveId>) -> DiscountCurveBuilder {
+        // Epoch date - unwrap_or provides defensive fallback for infallible operation
+        let base = Date::from_calendar_date(1970, time::Month::January, 1)
+            .unwrap_or(time::Date::MIN);
         DiscountCurveBuilder {
             id: id.into(),
-            base: Date::from_calendar_date(1970, time::Month::January, 1)
-                .expect("January 1, 1970 should always be valid"),
+            base,
             day_count: DayCount::Act365F,
             points: Vec::new(),
             style: InterpStyle::MonotoneConvex,

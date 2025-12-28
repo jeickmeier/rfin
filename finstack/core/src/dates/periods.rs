@@ -404,9 +404,8 @@ fn make_period_with_calendar<C: PeriodCalendar>(
     })
 }
 
-// Period bounds helpers use expect() for well-known dates (1st of month)
-// that are always valid. Compile-time guarantees these won't fail.
-#[allow(clippy::expect_used)]
+// Period bounds helpers use unwrap_or for well-known dates (1st of month)
+// that are always valid. Defensive fallback to Date::MIN for infallible operations.
 fn quarter_bounds(year: i32, q: u8) -> (Date, Date) {
     let (sm, em) = match q {
         1 => (Month::January, Month::April),
@@ -414,26 +413,22 @@ fn quarter_bounds(year: i32, q: u8) -> (Date, Date) {
         3 => (Month::July, Month::October),
         _ => (Month::October, Month::January),
     };
-    let start = Date::from_calendar_date(year, sm, 1).expect("Quarter start date should be valid");
+    let start = Date::from_calendar_date(year, sm, 1).unwrap_or(time::Date::MIN);
     let end_year = if q == 4 { year + 1 } else { year };
-    let end = Date::from_calendar_date(end_year, em, 1).expect("Quarter end date should be valid");
+    let end = Date::from_calendar_date(end_year, em, 1).unwrap_or(time::Date::MIN);
     (start, end)
 }
 
-#[allow(clippy::expect_used)]
 fn month_bounds(year: i32, m: u8) -> (Date, Date) {
     let sm = Month::try_from(m).unwrap_or(Month::January);
-    let start = Date::from_calendar_date(year, sm, 1).unwrap_or_else(|_| {
-        Date::from_calendar_date(year, Month::January, 1).expect("January 1 should always be valid")
-    });
+    // First of month - unwrap_or provides defensive fallback
+    let start = Date::from_calendar_date(year, sm, 1).unwrap_or(time::Date::MIN);
     let (ey, em) = if m == 12 {
         (year + 1, Month::January)
     } else {
         (year, Month::try_from(m + 1).unwrap_or(Month::January))
     };
-    let end = Date::from_calendar_date(ey, em, 1).unwrap_or_else(|_| {
-        Date::from_calendar_date(ey, Month::January, 1).expect("January 1 should always be valid")
-    });
+    let end = Date::from_calendar_date(ey, em, 1).unwrap_or(time::Date::MIN);
     (start, end)
 }
 
@@ -443,40 +438,32 @@ fn month_bounds(year: i32, m: u8) -> (Date, Date) {
 /// and may include days from the previous/next year. This implementation simply
 /// divides the year into 7-day blocks starting from January 1st, regardless of
 /// which day of the week that falls on.
-#[allow(clippy::expect_used)]
 fn week_bounds(year: i32, w: u8) -> (Date, Date) {
     use time::Duration;
-    let start_of_year = Date::from_calendar_date(year, Month::January, 1)
-        .expect("January 1 should always be valid");
+    // January 1 - unwrap_or provides defensive fallback
+    let start_of_year =
+        Date::from_calendar_date(year, Month::January, 1).unwrap_or(time::Date::MIN);
     let start = start_of_year + Duration::days(((w - 1) as i64) * 7);
     let end = start + Duration::days(7);
     (start, end)
 }
 
-#[allow(clippy::expect_used)]
 fn half_bounds(year: i32, h: u8) -> (Date, Date) {
+    // First of month dates - unwrap_or provides defensive fallback
+    let jan1 = Date::from_calendar_date(year, Month::January, 1).unwrap_or(time::Date::MIN);
+    let jul1 = Date::from_calendar_date(year, Month::July, 1).unwrap_or(time::Date::MIN);
+    let jan1_next = Date::from_calendar_date(year + 1, Month::January, 1).unwrap_or(time::Date::MIN);
     match h {
-        1 => (
-            Date::from_calendar_date(year, Month::January, 1)
-                .expect("January 1 should always be valid"),
-            Date::from_calendar_date(year, Month::July, 1).expect("July 1 should always be valid"),
-        ),
-        _ => (
-            Date::from_calendar_date(year, Month::July, 1).expect("July 1 should always be valid"),
-            Date::from_calendar_date(year + 1, Month::January, 1)
-                .expect("January 1 should always be valid"),
-        ),
+        1 => (jan1, jul1),
+        _ => (jul1, jan1_next),
     }
 }
 
-#[allow(clippy::expect_used)]
 fn annual_bounds(year: i32) -> (Date, Date) {
-    (
-        Date::from_calendar_date(year, Month::January, 1)
-            .expect("January 1 should always be valid"),
-        Date::from_calendar_date(year + 1, Month::January, 1)
-            .expect("January 1 should always be valid"),
-    )
+    // January 1 - unwrap_or provides defensive fallback
+    let start = Date::from_calendar_date(year, Month::January, 1).unwrap_or(time::Date::MIN);
+    let end = Date::from_calendar_date(year + 1, Month::January, 1).unwrap_or(time::Date::MIN);
+    (start, end)
 }
 
 // Fiscal year bounds functions
@@ -545,7 +532,6 @@ fn fiscal_annual_bounds(fiscal_year: i32, config: FiscalConfig) -> (Date, Date) 
 }
 
 /// Calculate the start date of a fiscal year
-#[allow(clippy::expect_used)] // Last day of month is always a valid date
 fn fiscal_year_start(fiscal_year: i32, config: FiscalConfig) -> Date {
     // For fiscal years that start in months other than January,
     // we need to determine the correct calendar year
@@ -562,8 +548,8 @@ fn fiscal_year_start(fiscal_year: i32, config: FiscalConfig) -> Date {
     Date::from_calendar_date(calendar_year, month, config.start_day).unwrap_or_else(|_| {
         // If the day doesn't exist (e.g., Feb 30), use the last day of the month
         let last_day = month.length(calendar_year);
-        Date::from_calendar_date(calendar_year, month, last_day)
-            .expect("Last day of month should be valid")
+        // Last day of month is always valid - unwrap_or provides defensive fallback
+        Date::from_calendar_date(calendar_year, month, last_day).unwrap_or(time::Date::MIN)
     })
 }
 

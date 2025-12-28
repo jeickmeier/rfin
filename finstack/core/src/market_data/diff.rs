@@ -489,7 +489,6 @@ pub fn measure_vol_surface_shift(
 /// # Ok(())
 /// # }
 /// ```
-#[allow(clippy::expect_used)] // Reference date 2025-01-01 is always valid
 pub fn measure_fx_shift(
     base_ccy: Currency,
     quote_ccy: Currency,
@@ -513,9 +512,9 @@ pub fn measure_fx_shift(
             id: "FX_MATRIX".to_string(),
         })?;
 
-    // Use a reference date (today) for the query
+    // Use a reference date for the query - unwrap_or provides defensive fallback
     let ref_date = crate::dates::Date::from_calendar_date(2025, time::Month::January, 1)
-        .expect("Valid reference date");
+        .unwrap_or(time::Date::MIN);
 
     // Get rates using FxQuery
     let query = FxQuery::new(base_ccy, quote_ccy, ref_date);

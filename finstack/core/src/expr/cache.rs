@@ -99,13 +99,11 @@ impl ExpressionCache {
     }
 
     /// Create a new expression cache with custom memory budget and capacity.
-    #[allow(clippy::expect_used)] // capacity.max(1) guarantees non-zero value
     pub fn with_budget_and_capacity(max_memory_mb: usize, capacity: usize) -> Self {
-        let capacity = capacity.max(1); // Ensure at least 1
+        // Use NonZeroUsize::MIN (1) as fallback if capacity is 0
+        let capacity = NonZeroUsize::new(capacity).unwrap_or(NonZeroUsize::MIN);
         Self {
-            cache: LruCache::new(
-                NonZeroUsize::new(capacity).expect("capacity should be at least 1"),
-            ),
+            cache: LruCache::new(capacity),
             max_memory: max_memory_mb * 1024 * 1024, // Convert MB to bytes
             current_memory: 0,
             stats: CacheStats::default(),
@@ -113,12 +111,11 @@ impl ExpressionCache {
     }
 
     /// Create cache optimized for the given execution plan.
-    #[allow(clippy::expect_used)] // max(64) guarantees non-zero value
     pub fn for_plan(plan: &ExecutionPlan, budget_mb: usize) -> Self {
-        // Use the estimated entries from the plan as the initial capacity
+        // Use the estimated entries from the plan as the initial capacity (at least 64)
         let estimated_entries = plan.cache_strategy.cache_nodes.len().max(64);
-        let capacity = NonZeroUsize::new(estimated_entries)
-            .expect("estimated_entries should be at least 64, which is non-zero");
+        // SAFETY: max(64) guarantees non-zero, but use MIN as defensive fallback
+        let capacity = NonZeroUsize::new(estimated_entries).unwrap_or(NonZeroUsize::MIN);
         Self {
             cache: LruCache::new(capacity),
             max_memory: budget_mb * 1024 * 1024, // Convert MB to bytes

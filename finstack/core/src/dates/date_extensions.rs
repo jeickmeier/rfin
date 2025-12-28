@@ -169,28 +169,27 @@ impl DateExt for Date {
         }
     }
 
-    #[allow(clippy::expect_used)] // Month index and date components are mathematically valid
     fn add_months(self, months: i32) -> Self {
         let (year, month, _) = self.to_calendar_date();
         let total_months = year * 12 + (month as i32 - 1) + months;
         let new_year = total_months.div_euclid(12);
         let new_month_idx = total_months.rem_euclid(12);
 
+        // Month index 0-11 + 1 = 1-12, always valid - unwrap_or for defensive fallback
         let new_month =
-            Month::try_from((new_month_idx + 1) as u8).expect("Month index 0-11 + 1 fits in u8");
+            Month::try_from((new_month_idx + 1) as u8).unwrap_or(Month::January);
 
         let days_in_new_month = new_month.length(new_year);
         let new_day = self.day().min(days_in_new_month);
 
-        Date::from_calendar_date(new_year, new_month, new_day)
-            .expect("Date components guaranteed valid by logic")
+        // Day is clamped to valid range - unwrap_or for defensive fallback
+        Date::from_calendar_date(new_year, new_month, new_day).unwrap_or(time::Date::MIN)
     }
 
-    #[allow(clippy::expect_used)] // End of month is always a valid date
     fn end_of_month(self) -> Self {
         let days = self.month().length(self.year());
-        Date::from_calendar_date(self.year(), self.month(), days)
-            .expect("End of month date always valid")
+        // End of month is always valid - unwrap_or for defensive fallback
+        Date::from_calendar_date(self.year(), self.month(), days).unwrap_or(self)
     }
 
     fn add_weekdays(self, mut n: i32) -> Self {

@@ -481,7 +481,6 @@ fn buddhas_birthday_date(year: i32) -> Option<Date> {
 ///
 /// # Reference
 /// Japan National Astronomical Observatory (国立天文台)
-#[allow(clippy::expect_used)] // March 21 is always a valid date
 fn vernal_equinox_jp(year: i32) -> Date {
     const VERNAL_EPOCH: i32 = 1980;
     const VERNAL_BASE: f64 = 20.8431;
@@ -491,9 +490,10 @@ fn vernal_equinox_jp(year: i32) -> Date {
     let day = (VERNAL_BASE + VERNAL_SLOPE * y - (y / 4.0).floor()).floor() as u8;
     // Clamp to valid range and use fallback if needed
     let day = day.clamp(1, 31);
-    Date::from_calendar_date(year, Month::March, day).unwrap_or_else(|_| {
-        Date::from_calendar_date(year, Month::March, 21).expect("March 21 should always be valid")
-    })
+    // March 21 - unwrap_or chain provides defensive fallbacks
+    Date::from_calendar_date(year, Month::March, day)
+        .or_else(|_| Date::from_calendar_date(year, Month::March, 21))
+        .unwrap_or(time::Date::MIN)
 }
 
 /// Calculate Autumnal Equinox Day for Japan.
@@ -512,7 +512,6 @@ fn vernal_equinox_jp(year: i32) -> Date {
 ///
 /// # Reference
 /// Japan National Astronomical Observatory (国立天文台)
-#[allow(clippy::expect_used)] // September 23 is always a valid date
 fn autumnal_equinox_jp(year: i32) -> Date {
     const AUTUMNAL_EPOCH: i32 = 1980;
     const AUTUMNAL_BASE: f64 = 23.2488;
@@ -522,10 +521,10 @@ fn autumnal_equinox_jp(year: i32) -> Date {
     let day = (AUTUMNAL_BASE + AUTUMNAL_SLOPE * y - (y / 4.0).floor()).floor() as u8;
     // Clamp to valid range and use fallback if needed
     let day = day.clamp(1, 30); // September has 30 days
-    Date::from_calendar_date(year, Month::September, day).unwrap_or_else(|_| {
-        Date::from_calendar_date(year, Month::September, 23)
-            .expect("September 23 should always be valid")
-    })
+    // September 23 - unwrap_or chain provides defensive fallbacks
+    Date::from_calendar_date(year, Month::September, day)
+        .or_else(|_| Date::from_calendar_date(year, Month::September, 23))
+        .unwrap_or(time::Date::MIN)
 }
 
 #[inline]
@@ -593,7 +592,6 @@ fn push_span_range<A: smallvec::Array<Item = Date>>(
 impl Rule {
     /// Returns `true` when the rule marks `date` a holiday.
     #[inline]
-    #[allow(clippy::expect_used)] // Fallback dates like 1900-01-01 are always valid
     pub fn applies(&self, date: Date) -> bool {
         match self {
             Rule::Fixed {
@@ -601,12 +599,10 @@ impl Rule {
                 day,
                 observed,
             } => {
+                // If invalid date, return a date far in the past so it never matches
                 let base = apply_observed(
-                    Date::from_calendar_date(date.year(), *month, *day).unwrap_or_else(|_| {
-                        // If invalid date, return a date far in the past so it never matches
-                        Date::from_calendar_date(1900, Month::January, 1)
-                            .expect("1900-01-01 should always be valid")
-                    }),
+                    Date::from_calendar_date(date.year(), *month, *day)
+                        .unwrap_or(time::Date::MIN),
                     *observed,
                 );
                 base == date
@@ -626,12 +622,9 @@ impl Rule {
                 day,
                 dir,
             } => {
-                let base =
-                    Date::from_calendar_date(date.year(), *month, *day).unwrap_or_else(|_| {
-                        // If invalid date, return a date far in the past so it never matches
-                        Date::from_calendar_date(1900, Month::January, 1)
-                            .expect("1900-01-01 should always be valid")
-                    });
+                // If invalid date, return a date far in the past so it never matches
+                let base = Date::from_calendar_date(date.year(), *month, *day)
+                    .unwrap_or(time::Date::MIN);
                 let d = shift_to_weekday(base, *weekday, *dir);
                 d == date
             }
@@ -673,7 +666,6 @@ impl Rule {
 impl Rule {
     /// Append all dates in `year` that this rule marks as a holiday into `out`.
     /// No deduplication is performed.
-    #[allow(clippy::expect_used)] // Fallback dates like 1900-01-01 are always valid
     pub fn materialize_year<A: smallvec::Array<Item = Date>>(
         &self,
         year: i32,
@@ -685,16 +677,13 @@ impl Rule {
                 day,
                 observed,
             } => {
+                // If invalid date, use MIN which will be filtered out below
                 let base = apply_observed(
-                    Date::from_calendar_date(year, *month, *day).unwrap_or_else(|_| {
-                        // If invalid date, skip this holiday by not pushing anything
-                        Date::from_calendar_date(1900, Month::January, 1)
-                            .expect("1900-01-01 should always be valid")
-                    }),
+                    Date::from_calendar_date(year, *month, *day).unwrap_or(time::Date::MIN),
                     *observed,
                 );
                 // Only push if it's a valid date (not our fallback)
-                if base.year() != 1900 {
+                if base != time::Date::MIN {
                     out.push(base);
                 }
             }
@@ -710,13 +699,10 @@ impl Rule {
                 day,
                 dir,
             } => {
-                let base = Date::from_calendar_date(year, *month, *day).unwrap_or_else(|_| {
-                    // If invalid date, skip this holiday
-                    Date::from_calendar_date(1900, Month::January, 1)
-                        .expect("1900-01-01 should always be valid")
-                });
+                // If invalid date, use MIN which will be filtered out below
+                let base = Date::from_calendar_date(year, *month, *day).unwrap_or(time::Date::MIN);
                 // Only push if it's a valid date (not our fallback)
-                if base.year() != 1900 {
+                if base != time::Date::MIN {
                     out.push(shift_to_weekday(base, *weekday, *dir));
                 }
             }
@@ -739,19 +725,12 @@ impl Rule {
                 }
             }
             Rule::QingMing => {
-                out.push(
-                    Date::from_calendar_date(year, Month::April, qing_ming_day(year))
-                        .unwrap_or_else(|_| {
-                            // If invalid date, skip this holiday
-                            Date::from_calendar_date(1900, Month::January, 1)
-                                .expect("1900-01-01 should always be valid")
-                        }),
-                );
-                // Remove the invalid date if it was added
-                if let Some(last) = out.last() {
-                    if last.year() == 1900 {
-                        out.pop();
-                    }
+                // If invalid date, use MIN which will be filtered out below
+                let d = Date::from_calendar_date(year, Month::April, qing_ming_day(year))
+                    .unwrap_or(time::Date::MIN);
+                // Only push if it's a valid date (not our fallback)
+                if d != time::Date::MIN {
+                    out.push(d);
                 }
             }
             Rule::BuddhasBirthday => {

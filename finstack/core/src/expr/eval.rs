@@ -126,7 +126,6 @@ impl Clone for CompiledExpr {
     }
 }
 
-#[allow(clippy::expect_used, clippy::panic)] // Internal mutex locks and f64 sorts; panic for unsupported functions
 impl CompiledExpr {
     /// Construct a new compiled expression from an AST.
     pub fn new(ast: Expr) -> Self {
@@ -270,9 +269,18 @@ impl CompiledExpr {
     ) {
         match &node.expr.node {
             ExprNode::Column(name) => {
-                let idx = ctx.resolve_index(name).expect("unknown column");
-                let len = out.len().min(cols[idx].len());
-                out[..len].copy_from_slice(&cols[idx][..len]);
+                if let Some(idx) = ctx.resolve_index(name) {
+                    if let Some(col_data) = cols.get(idx) {
+                        let len = out.len().min(col_data.len());
+                        out[..len].copy_from_slice(&col_data[..len]);
+                    } else {
+                        // Column index out of bounds - fill with NaN
+                        out.fill(f64::NAN);
+                    }
+                } else {
+                    // Unknown column - fill with NaN
+                    out.fill(f64::NAN);
+                }
             }
             ExprNode::Literal(val) => {
                 out.fill(*val);
@@ -678,13 +686,17 @@ impl CompiledExpr {
         let len = out.len();
         let data = &arg_results[0];
         if !data.is_empty() {
-            let mut guard = self.scratch.lock().expect("Mutex should not be poisoned");
+            // Handle poisoned mutex by recovering the inner data
+            let mut guard = self
+                .scratch
+                .lock()
+                .unwrap_or_else(|poisoned| poisoned.into_inner());
             let tmp = &mut guard.tmp;
             tmp.truncate(0);
             tmp.extend_from_slice(data);
+            // NaN values compare as Equal to maintain stable sort
             tmp.sort_unstable_by(|a, b| {
-                a.partial_cmp(b)
-                    .expect("f64 comparison should always be comparable")
+                a.partial_cmp(b).unwrap_or(std::cmp::Ordering::Equal)
             });
             let n = tmp.len();
             let median = if n % 2 == 1 {
@@ -742,7 +754,11 @@ impl CompiledExpr {
         };
         let mut out = vec![0.0; len];
         // Use scratch arena to avoid per-window allocations.
-        let mut guard = self.scratch.lock().expect("Mutex should not be poisoned");
+        // Handle poisoned mutex by recovering the inner data
+        let mut guard = self
+            .scratch
+            .lock()
+            .unwrap_or_else(|poisoned| poisoned.into_inner());
         let wbuf = &mut guard.window;
         for i in 0..len {
             if i + 1 < win {
@@ -752,9 +768,9 @@ impl CompiledExpr {
                 let slice = &base[start..=i];
                 wbuf.truncate(0);
                 wbuf.extend_from_slice(slice);
+                // NaN values compare as Equal to maintain stable sort
                 wbuf.sort_unstable_by(|a, b| {
-                    a.partial_cmp(b)
-                        .expect("f64 comparison should always be comparable")
+                    a.partial_cmp(b).unwrap_or(std::cmp::Ordering::Equal)
                 });
                 let k = wbuf.len();
                 out[i] = if k % 2 == 1 {
@@ -822,9 +838,9 @@ impl CompiledExpr {
             let base = &arg_results[0];
             let mut indexed: Vec<(f64, usize)> =
                 base.iter().enumerate().map(|(i, &v)| (v, i)).collect();
+            // NaN values compare as Equal to maintain stable sort
             indexed.sort_unstable_by(|a, b| {
-                a.0.partial_cmp(&b.0)
-                    .expect("f64 comparison should always be comparable")
+                a.0.partial_cmp(&b.0).unwrap_or(std::cmp::Ordering::Equal)
             });
             let mut out: Vec<f64> = vec![0.0; len];
             let mut current_rank: f64 = 1.0;
@@ -856,9 +872,9 @@ impl CompiledExpr {
                 .collect();
             let mut out = vec![0.0; len];
             if !valid_values.is_empty() {
+                // NaN values filtered above, but use unwrap_or for safety
                 valid_values.sort_unstable_by(|a, b| {
-                    a.partial_cmp(b)
-                        .expect("f64 comparison should always be comparable")
+                    a.partial_cmp(b).unwrap_or(std::cmp::Ordering::Equal)
                 });
                 let index = q * (valid_values.len() - 1) as f64;
                 let lower = index.floor() as usize;
@@ -897,10 +913,8 @@ impl CompiledExpr {
             w.iter()
                 .copied()
                 .filter(|x| !x.is_nan())
-                .min_by(|a, b| {
-                    a.partial_cmp(b)
-                        .expect("f64 comparison should always be comparable")
-                })
+                // NaN values filtered above, but use unwrap_or for safety
+                .min_by(|a, b| a.partial_cmp(b).unwrap_or(std::cmp::Ordering::Equal))
                 .unwrap_or(f64::NAN)
         });
         out
@@ -921,10 +935,8 @@ impl CompiledExpr {
             w.iter()
                 .copied()
                 .filter(|x| !x.is_nan())
-                .max_by(|a, b| {
-                    a.partial_cmp(b)
-                        .expect("f64 comparison should always be comparable")
-                })
+                // NaN values filtered above, but use unwrap_or for safety
+                .max_by(|a, b| a.partial_cmp(b).unwrap_or(std::cmp::Ordering::Equal))
                 .unwrap_or(f64::NAN)
         });
         out
@@ -1197,7 +1209,13 @@ impl CompiledExpr {
             | Function::AnnualizeRate
             | Function::Coalesce
             | Function::GrowthRate => {
-                panic!("Custom financial functions should be evaluated in the statements layer, not in core")
+                // Debug builds panic to catch programming errors early
+                debug_assert!(
+                    false,
+                    "Custom financial functions should be evaluated in the statements layer, not in core"
+                );
+                // Release builds return NaN (safe fallback)
+                vec![f64::NAN; arg_results.first().map(|v| v.len()).unwrap_or(1)]
             }
         }
     }

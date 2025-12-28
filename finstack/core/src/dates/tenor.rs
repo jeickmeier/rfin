@@ -232,7 +232,6 @@ impl Tenor {
     /// assert!(Tenor::parse("").is_err());
     /// assert!(Tenor::parse("XY").is_err());
     /// ```
-    #[allow(clippy::expect_used)] // String length was checked to be 1 before char access
     pub fn parse(s: &str) -> crate::Result<Self> {
         let s = s.trim();
 
@@ -291,7 +290,14 @@ impl Tenor {
             .into());
         }
 
-        let unit_char = unit_str.chars().next().expect("checked length above");
+        // Length was checked to be 1 above, so first char exists
+        let Some(unit_char) = unit_str.chars().next() else {
+            return Err(InputError::InvalidTenor {
+                tenor: s.to_string(),
+                reason: "unit string unexpectedly empty".to_string(),
+            }
+            .into());
+        };
         let unit = TenorUnit::from_char(unit_char)?;
 
         Ok(Self { count, unit })

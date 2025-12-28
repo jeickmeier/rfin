@@ -188,12 +188,13 @@ impl VolatilityIndexCurve {
     ///
     /// **Defaults:** Linear interpolation with Flat extrapolation maintains
     /// stable tail levels consistent with mean reversion expectations.
-    #[allow(clippy::expect_used)] // Epoch date 1970-01-01 is always valid
     pub fn builder(id: impl Into<CurveId>) -> VolatilityIndexCurveBuilder {
+        // Epoch date - unwrap_or provides defensive fallback for infallible operation
+        let base = Date::from_calendar_date(1970, time::Month::January, 1)
+            .unwrap_or(time::Date::MIN);
         VolatilityIndexCurveBuilder {
             id: id.into(),
-            base: Date::from_calendar_date(1970, time::Month::January, 1)
-                .expect("January 1, 1970 should always be valid"),
+            base,
             day_count: DayCount::Act365F,
             spot_level: None,
             points: Vec::new(),

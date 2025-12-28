@@ -253,12 +253,13 @@ impl TryFrom<RawHazardCurve> for HazardCurve {
 
 impl HazardCurve {
     /// Start building a hazard curve with identifier `id`.
-    #[allow(clippy::expect_used)] // Epoch date 1970-01-01 is always valid
     pub fn builder(id: impl Into<CurveId>) -> HazardCurveBuilder {
+        // Epoch date - unwrap_or provides defensive fallback for infallible operation
+        let base = Date::from_calendar_date(1970, time::Month::January, 1)
+            .unwrap_or(time::Date::MIN);
         HazardCurveBuilder {
             id: id.into(),
-            base: Date::from_calendar_date(1970, time::Month::January, 1)
-                .expect("January 1, 1970 should always be valid"),
+            base,
             points: Vec::new(),
             recovery_rate: 0.4,
             issuer: None,
@@ -651,13 +652,12 @@ impl HazardCurveBuilder {
     /// - Hazard rates > 10.0 trigger a warning (implies >99.995% 1Y default prob)
     /// - Recovery rate must be in [0, 1]
     /// - Knot times must be strictly increasing
-    #[allow(clippy::expect_used)] // Epoch date 1970-01-01 is always valid
     pub fn build(self) -> crate::Result<HazardCurve> {
         // Require explicit base_date to avoid accidentally anchoring to 1970-01-01
-        if self.base
-            == Date::from_calendar_date(1970, time::Month::January, 1)
-                .expect("January 1, 1970 should always be valid")
-        {
+        // unwrap_or provides defensive fallback - comparison still works correctly
+        let default_base = Date::from_calendar_date(1970, time::Month::January, 1)
+            .unwrap_or(time::Date::MIN);
+        if self.base == default_base {
             return Err(InputError::Invalid.into());
         }
         if self.points.is_empty() {

@@ -408,15 +408,17 @@ impl ScalarTimeSeries {
     }
 }
 
-#[allow(clippy::expect_used)] // Epoch date 1970-01-01 is always valid
 fn to_days(date: Date) -> i32 {
-    let epoch = Date::from_calendar_date(1970, time::Month::January, 1).expect("Epoch valid");
+    // Epoch date - unwrap_or provides defensive fallback for infallible operation
+    let epoch = Date::from_calendar_date(1970, time::Month::January, 1)
+        .unwrap_or(time::Date::MIN);
     (date - epoch).whole_days() as i32
 }
 
-#[allow(clippy::expect_used)] // Epoch date 1970-01-01 is always valid
 fn from_days(days: i32) -> Date {
-    let epoch = Date::from_calendar_date(1970, time::Month::January, 1).expect("Epoch valid");
+    // Epoch date - unwrap_or provides defensive fallback for infallible operation
+    let epoch = Date::from_calendar_date(1970, time::Month::January, 1)
+        .unwrap_or(time::Date::MIN);
     epoch + time::Duration::days(days as i64)
 }
 

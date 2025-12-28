@@ -67,6 +67,8 @@ pub struct TimeGrid {
     times: Vec<f64>,
     /// Time steps (dt[i] = times[i+1] - times[i])
     dts: Vec<f64>,
+    /// Maximum time (cached from times.last())
+    t_max: f64,
 }
 
 /// Error type for time grid construction and validation
@@ -111,7 +113,11 @@ impl TimeGrid {
             dts.push(dt);
         }
 
-        Ok(Self { times, dts })
+        Ok(Self {
+            t_max,
+            times,
+            dts,
+        })
     }
 
     /// Create a custom time grid from explicit time points.
@@ -169,7 +175,9 @@ impl TimeGrid {
             }
         }
 
-        Ok(Self { times, dts })
+        // Store t_max from the last time point (guaranteed to exist after validation)
+        let t_max = times.last().copied().unwrap_or(0.0);
+        Ok(Self { times, dts, t_max })
     }
 
     /// Number of time steps.
@@ -178,12 +186,8 @@ impl TimeGrid {
     }
 
     /// Total time span.
-    #[allow(clippy::expect_used)] // TimeGrid invariant: always has at least one time point
     pub fn t_max(&self) -> f64 {
-        *self
-            .times
-            .last()
-            .expect("TimeGrid should have at least one time point")
+        self.t_max
     }
 
     /// Get time at step i.

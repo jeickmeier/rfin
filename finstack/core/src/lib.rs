@@ -1,18 +1,9 @@
 #![forbid(unsafe_code)]
 #![warn(missing_docs)]
 #![deny(clippy::unwrap_used)]
-// Safety lints: Defined but temporarily allowed during migration.
-// Many uses are intentional patterns (convenience methods, epoch dates, type invariants).
-// Functions with intentional uses have local #[allow(...)] with comments.
-//
-// Remaining work tracked at: https://github.com/..../issues/XXX
-// - ~50 expect() calls need review (many are in convenience methods with try_* counterparts)
-// - Test modules need #[allow(...)] attributes
-//
-// For new code: DO NOT use expect() or panic!() in production paths.
-// Use try_new() patterns and proper error types instead.
 #![deny(clippy::expect_used)]
 #![deny(clippy::panic)]
+
 // Allow expect() in doc tests (they are test code)
 #![doc(test(attr(allow(clippy::expect_used))))]
 

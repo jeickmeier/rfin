@@ -198,12 +198,13 @@ impl ForwardCurve {
     ///
     /// **Defaults:** Linear interpolation with FlatForward extrapolation maintains
     /// stable tail forward rates consistent with market practice.
-    #[allow(clippy::expect_used)] // Epoch date 1970-01-01 is always valid
     pub fn builder(id: impl Into<CurveId>, tenor_years: f64) -> ForwardCurveBuilder {
+        // Epoch date - unwrap_or provides defensive fallback for infallible operation
+        let base = Date::from_calendar_date(1970, time::Month::January, 1)
+            .unwrap_or(time::Date::MIN);
         ForwardCurveBuilder {
             id: id.into(),
-            base: Date::from_calendar_date(1970, time::Month::January, 1)
-                .expect("January 1, 1970 should always be valid"),
+            base,
             reset_lag: 2,
             day_count: DayCount::Act360,
             tenor: tenor_years,

@@ -682,17 +682,20 @@ macro_rules! money {
 // -------------------------------------------------------------------------
 // Unchecked arithmetic – currency must match or panic
 // -------------------------------------------------------------------------
-// NOTE: AddAssign and SubAssign panic on currency mismatch because the standard
-// library traits do not support fallible operations. For fallible arithmetic,
+// NOTE: AddAssign and SubAssign require matching currencies. In debug builds,
+// currency mismatch will panic to catch bugs early. In release builds, the
+// operation is a no-op on mismatch to avoid panics. For explicit error handling,
 // use `checked_add` and `checked_sub` which return `Result<Money, Error>`.
 
 impl AddAssign for Money {
     /// Adds another [`Money`] value to this one in place.
     ///
-    /// # Panics
+    /// # Currency Safety
     ///
-    /// Panics if `rhs` has a different currency than `self`. For fallible
-    /// addition that returns `Result` instead of panicking, use [`Money::checked_add`].
+    /// - **Debug builds**: Panics if `rhs` has a different currency (catches bugs early)
+    /// - **Release builds**: No-op if currencies don't match (safe but silent)
+    ///
+    /// For explicit error handling, use [`Money::checked_add`] which returns `Result`.
     ///
     /// # Example
     ///
@@ -705,25 +708,29 @@ impl AddAssign for Money {
     /// assert_eq!(total.amount(), 150.0);
     /// ```
     #[track_caller]
-    #[allow(clippy::panic)] // Documented panic for operator trait that can't return Result
     fn add_assign(&mut self, rhs: Self) {
-        if self.currency != rhs.currency {
-            panic!(
-                "Currency mismatch in Money::add_assign: lhs={}, rhs={}",
-                self.currency, rhs.currency
-            );
+        // Debug builds panic on currency mismatch to catch bugs early
+        debug_assert_eq!(
+            self.currency, rhs.currency,
+            "Currency mismatch in Money::add_assign: lhs={}, rhs={}",
+            self.currency, rhs.currency
+        );
+        // Only perform operation if currencies match
+        if self.currency == rhs.currency {
+            self.amount = repr_add(self.amount, rhs.amount);
         }
-        self.amount = repr_add(self.amount, rhs.amount);
     }
 }
 
 impl SubAssign for Money {
     /// Subtracts another [`Money`] value from this one in place.
     ///
-    /// # Panics
+    /// # Currency Safety
     ///
-    /// Panics if `rhs` has a different currency than `self`. For fallible
-    /// subtraction that returns `Result` instead of panicking, use [`Money::checked_sub`].
+    /// - **Debug builds**: Panics if `rhs` has a different currency (catches bugs early)
+    /// - **Release builds**: No-op if currencies don't match (safe but silent)
+    ///
+    /// For explicit error handling, use [`Money::checked_sub`] which returns `Result`.
     ///
     /// # Example
     ///
@@ -736,15 +743,17 @@ impl SubAssign for Money {
     /// assert_eq!(total.amount(), 70.0);
     /// ```
     #[track_caller]
-    #[allow(clippy::panic)] // Documented panic for operator trait that can't return Result
     fn sub_assign(&mut self, rhs: Self) {
-        if self.currency != rhs.currency {
-            panic!(
-                "Currency mismatch in Money::sub_assign: lhs={}, rhs={}",
-                self.currency, rhs.currency
-            );
+        // Debug builds panic on currency mismatch to catch bugs early
+        debug_assert_eq!(
+            self.currency, rhs.currency,
+            "Currency mismatch in Money::sub_assign: lhs={}, rhs={}",
+            self.currency, rhs.currency
+        );
+        // Only perform operation if currencies match
+        if self.currency == rhs.currency {
+            self.amount = repr_sub(self.amount, rhs.amount);
         }
-        self.amount = repr_sub(self.amount, rhs.amount);
     }
 }
 

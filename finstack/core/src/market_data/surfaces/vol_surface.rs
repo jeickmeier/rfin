@@ -163,16 +163,14 @@ impl VolSurface {
     ///
     /// # Panics
     ///
-    /// Panics if `expiry` or `strike` is outside the grid bounds.
+    /// Returns `NaN` if `expiry` or `strike` is outside the grid bounds.
     ///
     /// # Alternatives
     ///
     /// - Use [`value_checked`](Self::value_checked) for explicit error handling (recommended).
     /// - Use [`value_clamped`](Self::value_clamped) for flat extrapolation to edge values.
-    #[allow(clippy::expect_used)] // Documented panicking convenience method
     pub fn value_unchecked(&self, expiry: f64, strike: f64) -> f64 {
-        self.value_checked(expiry, strike)
-            .expect("expiry or strike out of bounds")
+        self.value_checked(expiry, strike).unwrap_or(f64::NAN)
     }
 
     /// Safe evaluation: returns `Err` if either coordinate is out of bounds.
@@ -211,36 +209,23 @@ impl VolSurface {
     /// Provides flat extrapolation by clamping coordinates to the grid bounds
     /// before interpolation. This method never panics and is suitable for
     /// pricing scenarios where out-of-bounds coordinates should use edge values.
-    #[allow(clippy::expect_used)] // Type invariant: VolSurface always has at least one expiry/strike
-    pub fn value_clamped(&self, mut expiry: f64, mut strike: f64) -> f64 {
-        if expiry < self.expiries[0] {
-            expiry = self.expiries[0];
-        } else if expiry
-            > *self
-                .expiries
-                .last()
-                .expect("VolSurface should have at least one expiry")
-        {
-            expiry = *self
-                .expiries
-                .last()
-                .expect("VolSurface should have at least one expiry");
-        }
-        if strike < self.strikes[0] {
-            strike = self.strikes[0];
-        } else if strike
-            > *self
-                .strikes
-                .last()
-                .expect("VolSurface should have at least one strike")
-        {
-            strike = *self
-                .strikes
-                .last()
-                .expect("VolSurface should have at least one strike");
-        }
+    pub fn value_clamped(&self, expiry: f64, strike: f64) -> f64 {
+        // Get bounds safely using first/last with defensive fallbacks
+        let (exp_min, exp_max) = match (self.expiries.first(), self.expiries.last()) {
+            (Some(&min), Some(&max)) => (min, max),
+            _ => return f64::NAN, // Empty surface - return NaN
+        };
+        let (str_min, str_max) = match (self.strikes.first(), self.strikes.last()) {
+            (Some(&min), Some(&max)) => (min, max),
+            _ => return f64::NAN, // Empty surface - return NaN
+        };
+
+        // Clamp coordinates to grid bounds
+        let expiry = expiry.clamp(exp_min, exp_max);
+        let strike = strike.clamp(str_min, str_max);
+
         // After clamping, coordinates are guaranteed in bounds
-        self.value_unchecked(expiry, strike)
+        self.value_checked(expiry, strike).unwrap_or(f64::NAN)
     }
 
     #[inline]
@@ -306,18 +291,20 @@ impl VolSurface {
     /// # Ok(())
     /// # }
     /// ```
-    #[allow(clippy::expect_used)] // VolSurface invariant: always has at least one expiry and strike
     pub fn bump_point(&self, expiry: f64, strike: f64, bump_pct: f64) -> crate::Result<Self> {
+        // Get bounds safely using first/last
+        let (exp_min, exp_max) = match (self.expiries.first(), self.expiries.last()) {
+            (Some(&min), Some(&max)) => (min, max),
+            _ => return Err(crate::error::InputError::TooFewPoints.into()),
+        };
+        let (str_min, str_max) = match (self.strikes.first(), self.strikes.last()) {
+            (Some(&min), Some(&max)) => (min, max),
+            _ => return Err(crate::error::InputError::TooFewPoints.into()),
+        };
+
         // Clamp to grid bounds
-        let clamped_expiry = expiry.max(self.expiries[0]).min(
-            *self
-                .expiries
-                .last()
-                .expect("VolSurface should have expiries"),
-        );
-        let clamped_strike = strike
-            .max(self.strikes[0])
-            .min(*self.strikes.last().expect("VolSurface should have strikes"));
+        let clamped_expiry = expiry.clamp(exp_min, exp_max);
+        let clamped_strike = strike.clamp(str_min, str_max);
 
         // Find the closest grid indices
         let expiry_idx = find_closest_grid_index(self.expiries.as_ref(), clamped_expiry);

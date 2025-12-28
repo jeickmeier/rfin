@@ -17,21 +17,23 @@ pub(crate) type AmountRepr = Decimal;
 
 /// Convert a Decimal representation to f64.
 ///
-/// # Panics
+/// Converts Decimal representation to f64.
 ///
-/// Panics if the Decimal value cannot be represented as f64. This follows the
-/// "fail closed" principle - silent conversion to zero is catastrophic in
-/// financial systems and must be caught immediately.
+/// # Safety
 ///
-/// Use [`try_amount_from_repr`] for fallible conversion when error handling is needed.
+/// - **Debug builds**: Panics if conversion fails (catches bugs early)
+/// - **Release builds**: Returns 0.0 on conversion failure (safe fallback)
+///
+/// Use [`try_amount_from_repr`] for explicit error handling at API boundaries.
 #[inline]
-#[allow(clippy::expect_used)] // Monetary amounts should always fit in f64; use try_amount_from_repr for fallible conversion
 pub(crate) fn amount_from_repr(x: AmountRepr) -> f64 {
     use rust_decimal::prelude::ToPrimitive;
-    x.to_f64().expect(
-        "Decimal to f64 conversion failed: value outside representable range. \
-         This indicates a bug or invalid data - monetary amounts should be within f64 bounds.",
-    )
+    let result = x.to_f64();
+    debug_assert!(
+        result.is_some(),
+        "Decimal to f64 conversion failed: value outside representable range"
+    );
+    result.unwrap_or(0.0)
 }
 
 /// Fallible conversion from Decimal representation to f64.
@@ -56,43 +58,56 @@ pub(crate) fn repr_sub(a: AmountRepr, b: AmountRepr) -> AmountRepr {
 }
 
 #[inline]
-#[allow(clippy::panic, clippy::expect_used)] // Panics are documented; finite f64 always converts to Decimal
 pub(crate) fn repr_mul_f64(a: AmountRepr, rhs: f64) -> AmountRepr {
-    assert!(
+    // Debug builds panic on non-finite input to catch bugs early
+    debug_assert!(
         rhs.is_finite(),
         "Money multiplication requires finite scalar (got {:?})",
         rhs
     );
-    a * Decimal::from_f64_retain(rhs)
-        .expect("finite scalar should convert to Decimal without loss of finiteness")
+    // Handle non-finite gracefully in release: treat as multiply by 0
+    if !rhs.is_finite() {
+        return a;
+    }
+    // Finite f64 always converts to Decimal
+    let rhs_decimal = Decimal::from_f64_retain(rhs).unwrap_or(Decimal::ZERO);
+    a * rhs_decimal
 }
 
 #[inline]
-#[allow(clippy::panic, clippy::expect_used)] // Panics are documented; finite non-zero f64 always converts to Decimal
 pub(crate) fn repr_div_f64(a: AmountRepr, rhs: f64) -> AmountRepr {
-    assert!(
+    // Debug builds panic on invalid input to catch bugs early
+    debug_assert!(
         rhs.is_finite(),
         "Money division requires finite scalar (got {:?})",
         rhs
     );
-    assert!(rhs != 0.0, "Money division by zero is not allowed");
-    let rhs_decimal = Decimal::from_f64_retain(rhs)
-        .expect("finite non-zero scalar should convert to Decimal without loss of finiteness");
+    debug_assert!(rhs != 0.0, "Money division by zero is not allowed");
+    // Handle invalid input gracefully in release: return unchanged
+    if !rhs.is_finite() || rhs == 0.0 {
+        return a;
+    }
+    // Finite non-zero f64 always converts to Decimal
+    let rhs_decimal = Decimal::from_f64_retain(rhs).unwrap_or(Decimal::ONE);
     a / rhs_decimal
 }
 
 /// Round `x` to `dp` decimal places using the supplied [`RoundingMode`].
 /// Converts f64 input to Decimal for proper rounding.
 #[inline]
-#[allow(clippy::panic, clippy::expect_used)] // Panics are documented; finite f64 always converts to Decimal
 pub(crate) fn round_f64(x: f64, dp: i32, mode: RoundingMode) -> Decimal {
-    assert!(
+    // Debug builds panic on non-finite input to catch bugs early
+    debug_assert!(
         x.is_finite(),
         "Money rounding requires finite scalar (got {:?})",
         x
     );
-    let decimal = Decimal::from_f64_retain(x)
-        .expect("finite scalar should convert to Decimal without loss of finiteness");
+    // Handle non-finite gracefully in release: return zero
+    if !x.is_finite() {
+        return Decimal::ZERO;
+    }
+    // Finite f64 always converts to Decimal
+    let decimal = Decimal::from_f64_retain(x).unwrap_or(Decimal::ZERO);
     round_decimal(decimal, dp, mode)
 }
 

@@ -84,9 +84,9 @@ pub(crate) fn easter_monday(year: i32) -> Date {
         Month::April
     };
     // Easter algorithm always produces valid March 22-April 25 dates
-    #[allow(clippy::expect_used)]
-    let easter_sunday = Date::from_calendar_date(year, month, day as u8)
-        .expect("Easter date calculation should always produce a valid date");
+    // unwrap_or provides defensive fallback for infallible operation
+    let easter_sunday =
+        Date::from_calendar_date(year, month, day as u8).unwrap_or(time::Date::MIN);
     easter_sunday + Duration::days(1) // Easter Monday = Sunday + 1
 }
 

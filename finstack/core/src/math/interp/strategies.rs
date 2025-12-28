@@ -33,7 +33,6 @@ impl InterpolationStrategy for LinearStrategy {
         Ok(Self)
     }
 
-    #[allow(clippy::expect_used)] // Values slice is guaranteed non-empty by construction
     fn interp(
         &self,
         x: f64,
@@ -48,25 +47,24 @@ impl InterpolationStrategy for LinearStrategy {
         }
 
         // Handle extrapolation based on policy
+        // Safe access with NaN fallback for empty slices (shouldn't happen by construction)
         if let Some(val) = check_extrapolation(
             x,
             knots,
             extrapolation,
             |policy| match policy {
-                ExtrapolationPolicy::FlatZero => values[0],
+                ExtrapolationPolicy::FlatZero => values.first().copied().unwrap_or(f64::NAN),
                 ExtrapolationPolicy::FlatForward => {
                     let slope = segment_slope(knots, values, 0, 1);
-                    values[0] + slope * (x - knots[0])
+                    values.first().copied().unwrap_or(f64::NAN) + slope * (x - knots[0])
                 }
             },
             |policy| match policy {
-                ExtrapolationPolicy::FlatZero => {
-                    *values.last().expect("values should not be empty")
-                }
+                ExtrapolationPolicy::FlatZero => values.last().copied().unwrap_or(f64::NAN),
                 ExtrapolationPolicy::FlatForward => {
                     let n = knots.len();
                     let slope = segment_slope(knots, values, n - 2, n - 1);
-                    values[n - 1] + slope * (x - knots[n - 1])
+                    values.last().copied().unwrap_or(f64::NAN) + slope * (x - knots[n - 1])
                 }
             },
         ) {
@@ -174,7 +172,6 @@ impl InterpolationStrategy for LogLinearStrategy {
         })
     }
 
-    #[allow(clippy::expect_used)] // Log values slice is guaranteed non-empty by construction
     fn interp(
         &self,
         x: f64,
@@ -189,28 +186,31 @@ impl InterpolationStrategy for LogLinearStrategy {
         }
 
         // Handle extrapolation based on policy
+        // Safe access with NaN fallback for empty slices (shouldn't happen by construction)
         if let Some(val) = check_extrapolation(
             x,
             knots,
             extrapolation,
             |policy| match policy {
-                ExtrapolationPolicy::FlatZero => self.log_values[0].exp(),
+                ExtrapolationPolicy::FlatZero => {
+                    self.log_values.first().copied().unwrap_or(f64::NAN).exp()
+                }
                 ExtrapolationPolicy::FlatForward => {
                     let slope = log_segment_slope(&self.log_values, knots, 0, 1);
-                    let extrapolated_log = self.log_values[0] + slope * (x - knots[0]);
+                    let first_log = self.log_values.first().copied().unwrap_or(f64::NAN);
+                    let extrapolated_log = first_log + slope * (x - knots[0]);
                     extrapolated_log.exp()
                 }
             },
             |policy| match policy {
-                ExtrapolationPolicy::FlatZero => (*self
-                    .log_values
-                    .last()
-                    .expect("log_values should not be empty"))
-                .exp(),
+                ExtrapolationPolicy::FlatZero => {
+                    self.log_values.last().copied().unwrap_or(f64::NAN).exp()
+                }
                 ExtrapolationPolicy::FlatForward => {
                     let n = knots.len();
                     let slope = log_segment_slope(&self.log_values, knots, n - 2, n - 1);
-                    let extrapolated_log = self.log_values[n - 1] + slope * (x - knots[n - 1]);
+                    let last_log = self.log_values.last().copied().unwrap_or(f64::NAN);
+                    let extrapolated_log = last_log + slope * (x - knots[n - 1]);
                     extrapolated_log.exp()
                 }
             },
@@ -565,7 +565,6 @@ impl InterpolationStrategy for CubicHermiteStrategy {
         Ok(Self { ms })
     }
 
-    #[allow(clippy::expect_used)] // Values slice is guaranteed non-empty by construction
     fn interp(
         &self,
         x: f64,
@@ -580,29 +579,27 @@ impl InterpolationStrategy for CubicHermiteStrategy {
         }
 
         // Handle extrapolation based on policy
+        // Safe access with NaN fallback for empty slices (shouldn't happen by construction)
         if let Some(val) = check_extrapolation(
             x,
             knots,
             extrapolation,
             |policy| match policy {
-                ExtrapolationPolicy::FlatZero => values[0],
+                ExtrapolationPolicy::FlatZero => values.first().copied().unwrap_or(f64::NAN),
                 ExtrapolationPolicy::FlatForward => {
                     let x0 = knots[0];
-                    let slope = self.ms[0];
+                    let slope = self.ms.first().copied().unwrap_or(0.0);
                     let dx = x - x0;
-                    values[0] + slope * dx
+                    values.first().copied().unwrap_or(f64::NAN) + slope * dx
                 }
             },
             |policy| match policy {
-                ExtrapolationPolicy::FlatZero => {
-                    *values.last().expect("values should not be empty")
-                }
+                ExtrapolationPolicy::FlatZero => values.last().copied().unwrap_or(f64::NAN),
                 ExtrapolationPolicy::FlatForward => {
-                    let n = knots.len();
-                    let x_last = knots[n - 1];
-                    let slope = self.ms[n - 1];
+                    let x_last = knots.last().copied().unwrap_or(0.0);
+                    let slope = self.ms.last().copied().unwrap_or(0.0);
                     let dx = x - x_last;
-                    values[n - 1] + slope * dx
+                    values.last().copied().unwrap_or(f64::NAN) + slope * dx
                 }
             },
         ) {
@@ -837,7 +834,6 @@ impl InterpolationStrategy for MonotoneConvexStrategy {
         Self::build_hagan_west(knots, values, epsilon)
     }
 
-    #[allow(clippy::expect_used)] // Values slice is guaranteed non-empty by construction
     fn interp(
         &self,
         x: f64,
@@ -852,29 +848,32 @@ impl InterpolationStrategy for MonotoneConvexStrategy {
         }
 
         // Handle extrapolation based on policy
+        // Safe access with NaN fallback for empty slices (shouldn't happen by construction)
         if let Some(val) = check_extrapolation(
             x,
             knots,
             extrapolation,
             |policy| match policy {
-                ExtrapolationPolicy::FlatZero => values[0],
+                ExtrapolationPolicy::FlatZero => values.first().copied().unwrap_or(f64::NAN),
                 ExtrapolationPolicy::FlatForward => {
                     // Extrapolate using f[0] as constant forward rate
                     let dt = x - knots[0];
-                    let extra_integral = self.f[0] * dt;
-                    (-(self.log_df[0] + extra_integral)).exp()
+                    let f0 = self.f.first().copied().unwrap_or(0.0);
+                    let log_df0 = self.log_df.first().copied().unwrap_or(0.0);
+                    let extra_integral = f0 * dt;
+                    (-(log_df0 + extra_integral)).exp()
                 }
             },
             |policy| match policy {
-                ExtrapolationPolicy::FlatZero => {
-                    *values.last().expect("values should not be empty")
-                }
+                ExtrapolationPolicy::FlatZero => values.last().copied().unwrap_or(f64::NAN),
                 ExtrapolationPolicy::FlatForward => {
                     // Extrapolate using f[n-1] as constant forward rate
-                    let n = knots.len();
-                    let dt = x - knots[n - 1];
-                    let extra_integral = self.f[n - 1] * dt;
-                    (-(self.log_df[n - 1] + extra_integral)).exp()
+                    let x_last = knots.last().copied().unwrap_or(0.0);
+                    let dt = x - x_last;
+                    let f_last = self.f.last().copied().unwrap_or(0.0);
+                    let log_df_last = self.log_df.last().copied().unwrap_or(0.0);
+                    let extra_integral = f_last * dt;
+                    (-(log_df_last + extra_integral)).exp()
                 }
             },
         ) {

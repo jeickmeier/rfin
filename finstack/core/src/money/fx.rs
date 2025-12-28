@@ -347,14 +347,10 @@ impl FxMatrix {
     /// let matrix = FxMatrix::with_config(Arc::new(StaticFx), cfg);
     /// assert_eq!(matrix.cache_stats(), 0);
     /// ```
-    #[allow(clippy::expect_used)] // Capacity is set to at least 1 above, so always non-zero
     pub fn with_config(provider: Arc<dyn FxProvider>, config: FxConfig) -> Self {
-        let capacity = if config.cache_capacity == 0 {
-            1
-        } else {
-            config.cache_capacity
-        };
-        let quotes = LruCache::new(NonZeroUsize::new(capacity).expect("non-zero capacity"));
+        // Use NonZeroUsize::MIN (1) as fallback if capacity is 0
+        let capacity = NonZeroUsize::new(config.cache_capacity).unwrap_or(NonZeroUsize::MIN);
+        let quotes = LruCache::new(capacity);
         Self {
             provider,
             quotes: Mutex::new(quotes),

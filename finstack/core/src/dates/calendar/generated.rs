@@ -23,10 +23,10 @@ pub type YearBits = [u64; BITSET_WORDS];
 
 #[inline]
 #[allow(missing_docs)]
-#[allow(clippy::expect_used)] // January 1st is always a valid date
 pub fn day_of_year_0_based(date: Date) -> u16 {
+    // January 1 - unwrap_or provides defensive fallback for infallible operation
     let jan1 = Date::from_calendar_date(date.year(), Month::January, 1)
-        .expect("January 1 should always be a valid date");
+        .unwrap_or(time::Date::MIN);
     (date - jan1).whole_days() as u16
 }
 
@@ -43,11 +43,10 @@ pub fn bit_test(bits: &YearBits, idx: u16) -> bool {
 
 /// Helper to compute nth weekday of month.
 #[inline]
-#[allow(clippy::expect_used)] // First day of any month is always valid
 pub fn nth_weekday_of_month(year: i32, month: Month, weekday: Weekday, n: i8) -> Date {
     if n > 0 {
-        let mut d = Date::from_calendar_date(year, month, 1)
-            .expect("First day of month should always be valid");
+        // First day of month - unwrap_or provides defensive fallback
+        let mut d = Date::from_calendar_date(year, month, 1).unwrap_or(time::Date::MIN);
         while d.weekday() != weekday {
             d += Duration::days(1);
         }
@@ -61,9 +60,9 @@ pub fn nth_weekday_of_month(year: i32, month: Month, weekday: Weekday, n: i8) ->
                 Month::try_from(month as u8 + 1).unwrap_or(Month::January),
             )
         };
-        let mut d = Date::from_calendar_date(ny, nm, 1)
-            .expect("First day of month should always be valid")
-            - Duration::days(1);
+        // First day of month - unwrap_or provides defensive fallback
+        let mut d =
+            Date::from_calendar_date(ny, nm, 1).unwrap_or(time::Date::MIN) - Duration::days(1);
         while d.weekday() != weekday {
             d -= Duration::days(1);
         }

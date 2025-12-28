@@ -166,11 +166,10 @@ pub fn is_imm_date(date: Date) -> bool {
 /// Return the **next CDS roll date** (20-Mar/20-Jun/20-Sep/20-Dec) **strictly
 /// after** `date`.
 #[must_use]
-#[allow(clippy::expect_used)] // Day 20 exists in every month
 pub fn next_cds_date(date: Date) -> Date {
     next_date_from_months(date, &QUARTERLY_MONTHS, |m, year| {
-        // Safe unwrap: 20th exists in every month.
-        Date::from_calendar_date(year, m, 20).expect("Day 20 should exist in every month")
+        // Day 20 exists in every month - unwrap_or provides defensive fallback
+        Date::from_calendar_date(year, m, 20).unwrap_or(time::Date::MIN)
     })
 }
 
