@@ -162,7 +162,7 @@ impl BondEngine {
             if *d <= settle_date {
                 continue;
             }
-            let df = disc.try_df_between_dates(settle_date, *d)?;
+            let df = disc.df_between_dates(settle_date, *d)?;
             let pv_cf = *amt * df;
             pv_values.push(pv_cf.amount());
 

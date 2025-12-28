@@ -40,7 +40,7 @@ pub fn npv_by_date(
         if *d <= as_of {
             continue;
         }
-        let df = disc.try_df_between_dates(as_of, *d)?;
+        let df = disc.df_between_dates(as_of, *d)?;
 
         total = (total + (*amt * df))?;
     }

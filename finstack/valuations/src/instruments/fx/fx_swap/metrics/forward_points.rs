@@ -22,10 +22,10 @@ impl MetricCalculator for ForwardPoints {
         let foreign_disc = curves.get_discount_ref(fx_swap.foreign_discount_curve_id.as_str())?;
 
         // Use curve-consistent discount factors on dates (relative to as_of)
-        let df_dom_near = domestic_disc.try_df_between_dates(as_of, fx_swap.near_date)?;
-        let df_dom_far = domestic_disc.try_df_between_dates(as_of, fx_swap.far_date)?;
-        let df_for_near = foreign_disc.try_df_between_dates(as_of, fx_swap.near_date)?;
-        let df_for_far = foreign_disc.try_df_between_dates(as_of, fx_swap.far_date)?;
+        let df_dom_near = domestic_disc.df_between_dates(as_of, fx_swap.near_date)?;
+        let df_dom_far = domestic_disc.df_between_dates(as_of, fx_swap.far_date)?;
+        let df_for_near = foreign_disc.df_between_dates(as_of, fx_swap.near_date)?;
+        let df_for_far = foreign_disc.df_between_dates(as_of, fx_swap.far_date)?;
 
         // Resolve near spot rate
         let near_rate = match fx_swap.near_rate {

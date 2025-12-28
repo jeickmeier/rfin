@@ -53,7 +53,7 @@ impl MetricCalculator for DeltaCalculator {
         let disc = context
             .curves
             .get_discount_ref(option.discount_curve_id.as_str())?;
-        let df = disc.try_df_between_dates(as_of, option.expiry)?;
+        let df = disc.df_between_dates(as_of, option.expiry)?;
 
         let d1 = crate::instruments::common::models::d1_black76(forward, option.strike, sigma, t);
         let nd1 = norm_cdf(d1);

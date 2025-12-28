@@ -222,8 +222,8 @@ impl FxForward {
         let foreign_disc = market.get_discount_ref(self.foreign_discount_curve_id.as_str())?;
 
         // Discount factors from as_of to maturity
-        let df_domestic = domestic_disc.try_df_between_dates(as_of, self.maturity_date)?;
-        let df_foreign = foreign_disc.try_df_between_dates(as_of, self.maturity_date)?;
+        let df_domestic = domestic_disc.df_between_dates(as_of, self.maturity_date)?;
+        let df_foreign = foreign_disc.df_between_dates(as_of, self.maturity_date)?;
 
         // Resolve spot rate
         let spot = if let Some(rate) = self.spot_rate_override {
@@ -268,8 +268,8 @@ impl FxForward {
         let domestic_disc = market.get_discount_ref(self.domestic_discount_curve_id.as_str())?;
         let foreign_disc = market.get_discount_ref(self.foreign_discount_curve_id.as_str())?;
 
-        let df_domestic = domestic_disc.try_df_between_dates(as_of, self.maturity_date)?;
-        let df_foreign = foreign_disc.try_df_between_dates(as_of, self.maturity_date)?;
+        let df_domestic = domestic_disc.df_between_dates(as_of, self.maturity_date)?;
+        let df_foreign = foreign_disc.df_between_dates(as_of, self.maturity_date)?;
 
         let spot = if let Some(rate) = self.spot_rate_override {
             rate

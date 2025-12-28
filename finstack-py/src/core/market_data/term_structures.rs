@@ -274,8 +274,8 @@ impl PyDiscountCurve {
     /// float
     ///     Forward rate for the interval ``(t1, t2)``.
     #[pyo3(text_signature = "(self, t1, t2)")]
-    fn forward(&self, t1: f64, t2: f64) -> f64 {
-        self.inner.forward(t1, t2)
+    fn forward(&self, t1: f64, t2: f64) -> PyResult<f64> {
+        self.inner.forward(t1, t2).map_err(core_to_py)
     }
 
     /// Annually compounded zero rate for maturity ``t`` (years).
@@ -352,7 +352,7 @@ impl PyDiscountCurve {
     #[pyo3(text_signature = "(self, date)")]
     fn df_on_date(&self, _py: Python<'_>, date: Bound<'_, PyAny>) -> PyResult<f64> {
         let d = py_to_date(&date).context("date")?;
-        Ok(self.inner.try_df_on_date_curve(d).map_err(core_to_py)?)
+        Ok(self.inner.df_on_date_curve(d).map_err(core_to_py)?)
     }
 
     /// Continuously compounded zero rate on a calendar date.
@@ -372,7 +372,7 @@ impl PyDiscountCurve {
     #[pyo3(text_signature = "(self, date)")]
     fn zero_on_date(&self, date: Bound<'_, PyAny>) -> PyResult<f64> {
         let d = py_to_date(&date).context("date")?;
-        Ok(self.inner.try_zero_on_date(d).map_err(core_to_py)?)
+        Ok(self.inner.zero_on_date(d).map_err(core_to_py)?)
     }
 
     /// Annually compounded zero rate on a calendar date.
@@ -399,7 +399,7 @@ impl PyDiscountCurve {
     #[pyo3(text_signature = "(self, date)")]
     fn zero_annual_on_date(&self, date: Bound<'_, PyAny>) -> PyResult<f64> {
         let d = py_to_date(&date).context("date")?;
-        Ok(self.inner.try_zero_annual_on_date(d).map_err(core_to_py)?)
+        Ok(self.inner.zero_annual_on_date(d).map_err(core_to_py)?)
     }
 
     /// Periodically compounded zero rate on a calendar date.
@@ -422,7 +422,7 @@ impl PyDiscountCurve {
         let d = py_to_date(&date).context("date")?;
         Ok(self
             .inner
-            .try_zero_periodic_on_date(d, n)
+            .zero_periodic_on_date(d, n)
             .map_err(core_to_py)?)
     }
 
@@ -452,7 +452,9 @@ impl PyDiscountCurve {
     fn forward_on_dates(&self, d1: Bound<'_, PyAny>, d2: Bound<'_, PyAny>) -> PyResult<f64> {
         let date1 = py_to_date(&d1).context("d1")?;
         let date2 = py_to_date(&d2).context("d2")?;
-        Ok(self.inner.forward_on_dates(date1, date2))
+        self.inner
+            .forward_on_dates(date1, date2)
+            .map_err(core_to_py)
     }
 
     #[pyo3(text_signature = "(self, cash_flows, day_count=None)")]
@@ -688,14 +690,14 @@ impl PyForwardCurve {
     /// curve table comparisons.
     #[pyo3(text_signature = "(self, t)")]
     fn df(&self, t: f64) -> PyResult<f64> {
-        Ok(self.inner.try_df(t).map_err(core_to_py)?)
+        Ok(self.inner.df(t).map_err(core_to_py)?)
     }
 
     /// Implied projection discount factor on a calendar date using the curve's day-count.
     #[pyo3(text_signature = "(self, date)")]
     fn df_on_date(&self, date: Bound<'_, PyAny>) -> PyResult<f64> {
         let d = py_to_date(&date).context("date")?;
-        Ok(self.inner.try_df_on_date_curve(d).map_err(core_to_py)?)
+        Ok(self.inner.df_on_date_curve(d).map_err(core_to_py)?)
     }
 }
 

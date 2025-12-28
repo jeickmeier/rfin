@@ -174,7 +174,7 @@ impl CommodityForward {
 
         // Get discount factor
         let disc = market.get_discount_ref(self.discount_curve_id.as_str())?;
-        let df = disc.try_df_between_dates(as_of, self.settlement_date)?;
+        let df = disc.df_between_dates(as_of, self.settlement_date)?;
 
         // NPV = Forward × Quantity × Multiplier × DF
         // For a standard forward, we're long the commodity at the forward price

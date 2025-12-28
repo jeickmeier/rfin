@@ -591,7 +591,7 @@ impl StructuredCredit {
                     continue;
                 }
 
-                let df_base = match discount_curve.try_df_on_date_curve(*date) {
+                let df_base = match discount_curve.df_on_date_curve(*date) {
                     Ok(df) => df,
                     Err(_) => return f64::NAN,
                 };
@@ -810,7 +810,7 @@ impl TrancheValuationExt for StructuredCredit {
         let mut pv = Money::new(0.0, self.pool.base_currency());
         for (date, amount) in &cashflows.cashflows {
             if *date > as_of {
-                let df = disc.try_df_between_dates(as_of, *date)?;
+                let df = disc.df_between_dates(as_of, *date)?;
                 let flow_pv = Money::new(amount.amount() * df, amount.currency());
                 pv = pv.checked_add(flow_pv)?;
             }

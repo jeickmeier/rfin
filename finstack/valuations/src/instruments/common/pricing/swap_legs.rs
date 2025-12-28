@@ -106,7 +106,7 @@ pub const ANNUITY_EPSILON: f64 = 1e-12;
 /// ```
 #[inline]
 pub fn robust_relative_df(disc: &DiscountCurve, as_of: Date, target: Date) -> Result<f64> {
-    let df_as_of = disc.try_df_on_date_curve(as_of)?;
+    let df_as_of = disc.df_on_date_curve(as_of)?;
 
     // Guard against invalid/near-zero discount factors for numerical stability and no-arb.
     if !df_as_of.is_finite() {
@@ -123,7 +123,7 @@ pub fn robust_relative_df(disc: &DiscountCurve, as_of: Date, target: Date) -> Re
         )));
     }
 
-    let df = disc.try_df_between_dates(as_of, target)?;
+    let df = disc.df_between_dates(as_of, target)?;
     if !df.is_finite() {
         return Err(finstack_core::error::Error::Validation(
             "Discount factor between dates is not finite.".into(),

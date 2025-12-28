@@ -36,7 +36,7 @@ impl MetricCalculator for VegaCalculator {
         let disc = context
             .curves
             .get_discount_ref(option.discount_curve_id.as_str())?;
-        let df = disc.try_df_between_dates(as_of, option.expiry)?;
+        let df = disc.df_between_dates(as_of, option.expiry)?;
 
         let d1 = crate::instruments::common::models::d1_black76(forward, option.strike, sigma, t);
         let vega_abs = df * forward * norm_pdf(d1) * t.sqrt();

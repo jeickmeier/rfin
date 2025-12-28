@@ -230,7 +230,7 @@ impl MetricCalculator for ZSpreadCalculator {
             .filter(|(d, _)| *d > as_of)
             .map(|(d, amt)| -> finstack_core::Result<(f64, f64, f64)> {
                 let t = dc.year_fraction(as_of, *d, DayCountCtx::default())?;
-                let df_base = disc.try_df_between_dates(as_of, *d)?;
+                let df_base = disc.df_between_dates(as_of, *d)?;
                 Ok((t, df_base, amt.amount()))
             })
             .collect::<finstack_core::Result<Vec<_>>>()?;

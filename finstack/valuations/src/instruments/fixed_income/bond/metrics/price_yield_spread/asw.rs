@@ -172,7 +172,7 @@ fn pv_coupon_from_custom_schedule(
         }
         match cf.kind {
             CFKind::Fixed | CFKind::Stub => {
-                let df = disc.try_df_on_date_curve(cf.date)?;
+                let df = disc.df_on_date_curve(cf.date)?;
                 pv.add(cf.amount.amount() * df);
             }
             _ => {}
@@ -244,7 +244,7 @@ pub fn asw_par_with_forward_config(
         let yf = f_dc.year_fraction(prev, d, finstack_core::dates::DayCountCtx::default())?;
         let rate = fwd.rate_period(t1, t2) + spread;
         let coupon_flt = bond.notional.amount() * rate * yf;
-        let df = disc.try_df_on_date_curve(d)?;
+        let df = disc.df_on_date_curve(d)?;
         pv_float += coupon_flt * df;
         prev = d;
     }

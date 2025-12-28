@@ -45,7 +45,7 @@ impl DiscountFactors {
                 factors.push(1.0);
             } else {
                 // Future date - discount relative to as_of
-                factors.push(curve.try_df_between_dates(as_of, date).unwrap_or(1.0));
+                factors.push(curve.df_between_dates(as_of, date).unwrap_or(1.0));
             }
         }
 
@@ -76,7 +76,7 @@ impl DiscountFactors {
         let mut factors = Vec::with_capacity(time_points.len());
         for &t_rel in time_points {
             let t_abs = start_time + t_rel;
-            factors.push(curve.try_df_between_times(t_as_of, t_abs).unwrap_or(1.0));
+            factors.push(curve.df_between_times(t_as_of, t_abs).unwrap_or(1.0));
         }
 
         Ok(Self { factors })
@@ -365,7 +365,7 @@ pub fn compute_upfront_fee_pv(
     if commitment_date > as_of {
         // Discount from commitment date to as_of
         let df = disc_curve
-            .try_df_between_dates(as_of, commitment_date)
+            .df_between_dates(as_of, commitment_date)
             .unwrap_or(1.0);
 
         Ok(upfront_fee.amount() * df)

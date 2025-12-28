@@ -109,7 +109,7 @@ proptest! {
 
         // Continuous compounding: f = (z2·t2 - z1·t1) / τ
         let fwd_from_zero = (z2 * t2 - z1 * t1) / tau;
-        let fwd_from_curve = curve.forward(t1, t2);
+        let fwd_from_curve = curve.forward(t1, t2).expect("forward should succeed");
 
         let rel_error = if fwd_from_zero.abs() > 1e-10 {
             (fwd_from_zero - fwd_from_curve).abs() / fwd_from_zero.abs()

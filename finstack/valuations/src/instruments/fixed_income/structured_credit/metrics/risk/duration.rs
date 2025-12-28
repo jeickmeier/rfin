@@ -66,7 +66,7 @@ impl MetricCalculator for MacaulayDurationCalculator {
             let years = day_count.year_fraction(context.as_of, *date, DayCountCtx::default())?;
 
             // Get discount factor
-            let df = disc.try_df_on_date_curve(*date)?;
+            let df = disc.df_on_date_curve(*date)?;
 
             // Calculate present value
             let pv = amount.amount() * df;
@@ -156,7 +156,7 @@ impl MetricCalculator for ModifiedDurationCalculator {
             let t = day_count.year_fraction(base_date, *date, DayCountCtx::default())?;
 
             // Get base discount factor
-            let df = disc.try_df_on_date_curve(*date)?;
+            let df = disc.df_on_date_curve(*date)?;
 
             // Apply yield shift: df_shifted = df * exp(-shift * t)
             let df_shifted = df * (-yield_shift * t).exp();
@@ -211,7 +211,7 @@ pub fn calculate_tranche_duration(
             .unwrap_or(0.0);
 
         let df = discount_curve
-            .try_df_between_dates(as_of, *date)
+            .df_between_dates(as_of, *date)
             .unwrap_or(1.0);
         let flow_pv = amount.amount() * df;
 

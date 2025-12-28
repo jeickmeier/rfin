@@ -55,7 +55,7 @@ impl QuantoOptionMcPricer {
 
         let disc_curve = curves.get_discount_ref(inst.discount_curve_id.as_str())?;
         let _r_dom = disc_curve.zero(t);
-        let discount_factor = disc_curve.try_df_between_dates(as_of, inst.expiry)?;
+        let discount_factor = disc_curve.df_between_dates(as_of, inst.expiry)?;
 
         // Get foreign rate
         let for_curve = curves.get_discount_ref(inst.foreign_discount_curve_id.as_str())?;

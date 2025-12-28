@@ -75,7 +75,7 @@ impl FxBarrierOptionMcPricer {
         // Domestic curve (discounting)
         let disc_curve = curves.get_discount_ref(inst.domestic_discount_curve_id.as_str())?;
         let r_dom = disc_curve.zero(t);
-        let discount_factor = disc_curve.try_df_between_dates(as_of, inst.expiry)?;
+        let discount_factor = disc_curve.df_between_dates(as_of, inst.expiry)?;
 
         // Foreign curve (risk-free rate for drift)
         let for_curve = curves.get_discount_ref(inst.foreign_discount_curve_id.as_str())?;

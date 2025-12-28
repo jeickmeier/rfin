@@ -66,7 +66,7 @@ impl RangeAccrualMcPricer {
         let disc_curve = curves.get_discount_ref(inst.discount_curve_id.as_str())?;
         let r = disc_curve.zero(t);
         let discount_factor = disc_curve
-            .try_df_between_dates(as_of, final_date)
+            .df_between_dates(as_of, final_date)
             .unwrap_or(1.0);
 
         let mut q = if let Some(div_id) = &inst.div_yield_id {
@@ -238,7 +238,7 @@ pub fn npv_analytic(inst: &RangeAccrual, curves: &MarketContext, as_of: Date) ->
 
     let disc_curve = curves.get_discount_ref(inst.discount_curve_id.as_str())?;
     let discount_factor = disc_curve
-        .try_df_between_dates(as_of, final_date)
+        .df_between_dates(as_of, final_date)
         .unwrap_or(1.0);
 
     let q_yield = if let Some(div_id) = &inst.div_yield_id {

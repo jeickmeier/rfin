@@ -395,14 +395,14 @@ impl Repo {
         // Total repayment at maturity (principal + interest) - uses adjusted dates
         let total_repayment = self.total_repayment()?;
 
-        let df_maturity = disc_curve.try_df_between_dates(as_of, adj_maturity)?;
+        let df_maturity = disc_curve.df_between_dates(as_of, adj_maturity)?;
 
         // PV of inflow at maturity
         let pv_in = total_repayment * df_maturity;
 
         // If start date is in the future (or today), subtract initial outflow
         if as_of <= adj_start {
-            let df_start = disc_curve.try_df_between_dates(as_of, adj_start)?;
+            let df_start = disc_curve.df_between_dates(as_of, adj_start)?;
             let pv_out = self.cash_amount * df_start;
             return pv_in.checked_sub(pv_out);
         }

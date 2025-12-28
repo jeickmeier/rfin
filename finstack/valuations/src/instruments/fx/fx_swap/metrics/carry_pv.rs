@@ -21,10 +21,10 @@ impl MetricCalculator for CarryPv {
         let domestic_disc = curves.get_discount_ref(fx_swap.domestic_discount_curve_id.as_str())?;
         let foreign_disc = curves.get_discount_ref(fx_swap.foreign_discount_curve_id.as_str())?;
 
-        let df_dom_near = domestic_disc.try_df_between_dates(as_of, fx_swap.near_date)?;
-        let df_dom_far = domestic_disc.try_df_between_dates(as_of, fx_swap.far_date)?;
-        let df_for_near = foreign_disc.try_df_between_dates(as_of, fx_swap.near_date)?;
-        let df_for_far = foreign_disc.try_df_between_dates(as_of, fx_swap.far_date)?;
+        let df_dom_near = domestic_disc.df_between_dates(as_of, fx_swap.near_date)?;
+        let df_dom_far = domestic_disc.df_between_dates(as_of, fx_swap.far_date)?;
+        let df_for_near = foreign_disc.df_between_dates(as_of, fx_swap.near_date)?;
+        let df_for_far = foreign_disc.df_between_dates(as_of, fx_swap.far_date)?;
 
         let include_near = fx_swap.near_date >= as_of;
         let include_far = fx_swap.far_date >= as_of;

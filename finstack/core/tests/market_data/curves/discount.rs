@@ -602,7 +602,7 @@ fn forward_rate_analytical_verification() {
 
     // f(1,2) = ln(DF(1)/DF(2)) / (t2-t1) = ln(0.98/0.95) / 1.0
     let expected = (0.98_f64 / 0.95).ln();
-    let actual = curve.forward(1.0, 2.0);
+    let actual = curve.forward(1.0, 2.0).expect("forward(1,2) should succeed");
     assert!(
         (actual - expected).abs() < 1e-12,
         "forward rate: got {}, expected {}",
@@ -612,7 +612,7 @@ fn forward_rate_analytical_verification() {
 
     // f(0,1) = ln(1.0/0.98) / 1.0
     let expected_01 = (1.0_f64 / 0.98).ln();
-    let actual_01 = curve.forward(0.0, 1.0);
+    let actual_01 = curve.forward(0.0, 1.0).expect("forward(0,1) should succeed");
     assert!(
         (actual_01 - expected_01).abs() < 1e-12,
         "forward rate 0-1: got {}, expected {}",
@@ -626,7 +626,7 @@ fn forward_and_df_on_date() {
     let curve = sample_discount_curve("USD-OIS");
     let t1 = 0.5;
     let t2 = 1.0;
-    let fwd = curve.forward(t1, t2);
+    let fwd = curve.forward(t1, t2).expect("forward should succeed");
     let zero_1 = curve.zero(t1);
     let zero_2 = curve.zero(t2);
 
@@ -643,10 +643,10 @@ fn forward_and_df_on_date() {
     let base = curve.base_date();
     let date = Date::from_calendar_date(base.year(), Month::December, 31).unwrap();
     let df_curve = curve
-        .try_df_on_date_curve(date)
+        .df_on_date_curve(date)
         .expect("df_on_date_curve should succeed");
     let df_static = curve
-        .try_df_on_date(date, curve.day_count())
+        .df_on_date(date, curve.day_count())
         .expect("df_on_date should succeed");
     assert!((df_curve - df_static).abs() < 1e-12);
 }
@@ -673,10 +673,10 @@ fn df_on_date_day_count_sensitivity() {
         .unwrap();
 
     let df_360 = curve_360
-        .try_df_on_date(target, DayCount::Act360)
+        .df_on_date(target, DayCount::Act360)
         .expect("df_on_date should succeed");
     let df_365 = curve_365
-        .try_df_on_date(target, DayCount::Act365F)
+        .df_on_date(target, DayCount::Act365F)
         .expect("df_on_date should succeed");
 
     // Different day counts = different time fractions = different DFs

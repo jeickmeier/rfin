@@ -84,7 +84,7 @@ impl MetricCalculator for ZSpreadCalculator {
             .filter(|(date, _)| *date > context.as_of)
             .map(|(date, amount)| -> finstack_core::Result<(f64, f64, f64)> {
                 let t = day_count.year_fraction(base_date, *date, DayCountCtx::default())?;
-                let df = disc.try_df_on_date_curve(*date)?;
+                let df = disc.df_on_date_curve(*date)?;
                 Ok((t, df, amount.amount()))
             })
             .collect::<finstack_core::Result<Vec<_>>>()?;
@@ -219,7 +219,7 @@ impl MetricCalculator for Cs01Calculator {
 
             let t = day_count.year_fraction(base_date, *date, DayCountCtx::default())?;
 
-            let df = disc.try_df_on_date_curve(*date)?;
+            let df = disc.df_on_date_curve(*date)?;
             let df_bumped = df * (-bumped_spread * t).exp();
 
             bumped_npv += amount.amount() * df_bumped;
@@ -332,7 +332,7 @@ pub fn calculate_tranche_z_spread(
                 .unwrap_or(0.0);
 
             let df = discount_curve
-                .try_df_between_dates(as_of, *date)
+                .df_between_dates(as_of, *date)
                 .unwrap_or(1.0);
             let df_z = df * (-z * t_from_as_of).exp();
 
@@ -390,7 +390,7 @@ pub fn calculate_tranche_cs01(
             .unwrap_or(0.0);
 
         let df = discount_curve
-            .try_df_between_dates(as_of, *date)
+            .df_between_dates(as_of, *date)
             .unwrap_or(1.0);
 
         // Base PV

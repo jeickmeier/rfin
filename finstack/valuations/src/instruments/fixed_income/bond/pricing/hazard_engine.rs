@@ -188,8 +188,8 @@ impl HazardBondEngine {
         let mut dfs = Vec::with_capacity(dates.len());
         for d in &dates {
             let df_rel = disc
-                .try_df_between_dates(settle_date, *d)
-                .or_else(|_| disc.try_df_between_dates(as_of, *d))?;
+                .df_between_dates(settle_date, *d)
+                .or_else(|_| disc.df_between_dates(as_of, *d))?;
             dfs.push(df_rel);
         }
 

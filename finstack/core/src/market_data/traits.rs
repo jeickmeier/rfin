@@ -70,14 +70,20 @@ pub trait Discounting: TermStructure {
         DayCount::Act365F
     }
 
-    /// Fallible: discount factor from `from` to `to` using the curve's day-count.
+    /// Discount factor from `from` to `to` using the curve's day-count.
     ///
     /// Canonical helper for the common "relative DF" pattern:
     /// `DF(from→to) = DF(0→to) / DF(0→from)`.
     ///
-    /// Returns `1.0` when `from == to`.
+    /// Returns `Ok(1.0)` when `from == to`.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if:
+    /// - Day-count year fraction calculation fails
+    /// - Either discount factor is non-finite or non-positive
     #[inline]
-    fn try_df_between_dates(&self, from: Date, to: Date) -> crate::Result<f64> {
+    fn df_between_dates(&self, from: Date, to: Date) -> crate::Result<f64> {
         if from == to {
             return Ok(1.0);
         }
@@ -104,25 +110,18 @@ pub trait Discounting: TermStructure {
         Ok(df_to / df_from)
     }
 
-    /// Discount factor from `from` to `to` using the curve's day-count.
-    ///
-    /// Panics if day-count conversion fails or if either discount factor is invalid.
-    /// Prefer [`try_df_between_dates`](Self::try_df_between_dates) for error handling.
-    #[inline]
-    #[allow(clippy::expect_used)] // Documented panicking convenience method; use try_* for error handling
-    fn df_between_dates(&self, from: Date, to: Date) -> f64 {
-        self.try_df_between_dates(from, to)
-            .expect("df_between_dates failed; use try_df_between_dates for error handling")
-    }
-
-    /// Fallible: discount factor from `from_t` to `to_t` where `t` is year-fraction
+    /// Discount factor from `from_t` to `to_t` where `t` is year-fraction
     /// from the curve base date.
     ///
     /// Canonical helper for `DF(from_t→to_t) = DF(0→to_t) / DF(0→from_t)`.
     ///
-    /// Returns `1.0` when `from_t == to_t`.
+    /// Returns `Ok(1.0)` when `from_t == to_t`.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if either discount factor is non-finite or non-positive.
     #[inline]
-    fn try_df_between_times(&self, from_t: f64, to_t: f64) -> crate::Result<f64> {
+    fn df_between_times(&self, from_t: f64, to_t: f64) -> crate::Result<f64> {
         if from_t == to_t {
             return Ok(1.0);
         }
@@ -142,18 +141,6 @@ pub trait Discounting: TermStructure {
         }
 
         Ok(df_to / df_from)
-    }
-
-    /// Discount factor from `from_t` to `to_t` where `t` is year-fraction
-    /// from the curve base date.
-    ///
-    /// Panics if either discount factor is invalid. Prefer
-    /// [`try_df_between_times`](Self::try_df_between_times) for error handling.
-    #[inline]
-    #[allow(clippy::expect_used)] // Documented panicking convenience method; use try_* for error handling
-    fn df_between_times(&self, from_t: f64, to_t: f64) -> f64 {
-        self.try_df_between_times(from_t, to_t)
-            .expect("df_between_times failed; use try_df_between_times for error handling")
     }
 }
 
@@ -245,19 +232,19 @@ mod tests {
     }
 
     #[test]
-    fn discounting_try_df_between_dates_constant_curve_is_one() {
+    fn discounting_df_between_dates_constant_curve_is_one() {
         let c = FlatCurve::new("TEST", 0.9);
         let as_of = c.base_date();
         let to = as_of + time::Duration::days(365);
         let df = c
-            .try_df_between_dates(as_of, to)
+            .df_between_dates(as_of, to)
             .expect("constant curve should produce valid DFs");
         assert_eq!(df, 1.0);
     }
 
     #[test]
-    fn discounting_try_df_between_times_validates_denominator() {
+    fn discounting_df_between_times_validates_denominator() {
         let c = FlatCurve::new("TEST", 0.0);
-        assert!(c.try_df_between_times(0.0, 1.0).is_err());
+        assert!(c.df_between_times(0.0, 1.0).is_err());
     }
 }

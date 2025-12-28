@@ -81,7 +81,7 @@ impl AutocallableMcPricer {
         }
 
         let r = disc_curve.zero(t);
-        let discount_factor = disc_curve.try_df_between_dates(as_of, final_date)?;
+        let discount_factor = disc_curve.df_between_dates(as_of, final_date)?;
 
         let q = if let Some(div_id) = &inst.div_yield_id {
             match curves.price(div_id.as_str()) {

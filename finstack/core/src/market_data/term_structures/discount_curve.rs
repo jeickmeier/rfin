@@ -337,23 +337,17 @@ impl DiscountCurve {
     }
 
     /// Simple forward rate between `t1` and `t2`.
+    /// Continuously-compounded forward rate between `t1` and `t2`.
     ///
     /// The forward rate `f(t1, t2)` satisfies: `DF(t2) = DF(t1) * exp(-f * (t2-t1))`
     /// Therefore: `f = ln(DF(t1)/DF(t2)) / (t2-t1) = (z2*t2 - z1*t1) / (t2-t1)`
     /// where `z*t = -ln(DF)`.
-    #[inline]
-    pub fn forward(&self, t1: f64, t2: f64) -> f64 {
-        debug_assert!(t2 > t1, "forward requires t2 > t1");
-        let z1 = self.zero(t1) * t1;
-        let z2 = self.zero(t2) * t2;
-        (z2 - z1) / (t2 - t1)
-    }
-
-    /// Fallible forward rate between `t1` and `t2`.
     ///
-    /// This avoids producing NaNs when `t2 <= t1`.
+    /// # Errors
+    ///
+    /// Returns an error if `t1` or `t2` is non-finite, or if `t2 <= t1`.
     #[inline]
-    pub fn try_forward(&self, t1: f64, t2: f64) -> crate::Result<f64> {
+    pub fn forward(&self, t1: f64, t2: f64) -> crate::Result<f64> {
         if !t1.is_finite() || !t2.is_finite() || t2 <= t1 {
             return Err(crate::error::InputError::Invalid.into());
         }
@@ -370,7 +364,7 @@ impl DiscountCurve {
 
     /// Fallible: discount factor on a specific date `date` using explicit day-count `dc`.
     #[inline]
-    pub fn try_df_on_date(&self, date: Date, dc: crate::dates::DayCount) -> crate::Result<f64> {
+    pub fn df_on_date(&self, date: Date, dc: crate::dates::DayCount) -> crate::Result<f64> {
         let t = if date == self.base {
             0.0
         } else {
@@ -381,8 +375,8 @@ impl DiscountCurve {
 
     /// Fallible: discount factor on a specific date `date` using the curve's day-count.
     #[inline]
-    pub fn try_df_on_date_curve(&self, date: Date) -> crate::Result<f64> {
-        let t = self.try_year_fraction_to(date)?;
+    pub fn df_on_date_curve(&self, date: Date) -> crate::Result<f64> {
+        let t = self.year_fraction_to(date)?;
         Ok(self.df(t))
     }
 
@@ -394,19 +388,19 @@ impl DiscountCurve {
     /// Works for both forward and backward date order. Returns `1.0` when
     /// `from == to`.
     #[inline]
-    pub fn try_df_between_dates(&self, from: Date, to: Date) -> crate::Result<f64> {
+    pub fn df_between_dates(&self, from: Date, to: Date) -> crate::Result<f64> {
         if from == to {
             return Ok(1.0);
         }
 
-        let df_from = self.try_df_on_date_curve(from)?;
+        let df_from = self.df_on_date_curve(from)?;
         if !df_from.is_finite() || df_from <= 0.0 {
             return Err(crate::Error::Validation(format!(
                 "Invalid discount factor on 'from' date ({from}): {df_from}"
             )));
         }
 
-        let df_to = self.try_df_on_date_curve(to)?;
+        let df_to = self.df_on_date_curve(to)?;
         if !df_to.is_finite() || df_to <= 0.0 {
             return Err(crate::Error::Validation(format!(
                 "Invalid discount factor on 'to' date ({to}): {df_to}"
@@ -415,27 +409,18 @@ impl DiscountCurve {
         Ok(df_to / df_from)
     }
 
-    /// Discount factor from `from` to `to` using the curve's day-count.
-    ///
-    /// Panics if day-count conversion fails or if the discount factor at `from`
-    /// is invalid. Prefer [`try_df_between_dates`](Self::try_df_between_dates) for
-    /// error handling.
-    #[inline]
-    #[allow(clippy::expect_used)] // Documented panicking convenience method
-    pub fn df_between_dates(&self, from: Date, to: Date) -> f64 {
-        self.try_df_between_dates(from, to)
-            .expect("df_between_dates failed; use try_df_between_dates for error handling")
-    }
-
     /// Continuously-compounded zero rate on a specific date using the curve's day-count.
     ///
     /// This is equivalent to `curve.zero(t)` where `t` is the year fraction from
     /// base date to `date` using the curve's day-count convention.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if year fraction calculation fails.
     #[inline]
-    #[allow(clippy::expect_used)] // Documented panicking convenience method
-    pub fn zero_on_date(&self, date: Date) -> f64 {
-        self.try_zero_on_date(date)
-            .expect("zero_on_date failed; use try_zero_on_date for error handling")
+    pub fn zero_on_date(&self, date: Date) -> crate::Result<f64> {
+        let t = self.year_fraction_to(date)?;
+        Ok(self.zero(t))
     }
 
     /// Annually-compounded zero rate on a specific date using the curve's day-count.
@@ -444,23 +429,28 @@ impl DiscountCurve {
     /// from base date to `date` using the curve's day-count convention.
     ///
     /// This convention is commonly used by Bloomberg for displaying zero rates.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if year fraction calculation fails.
     #[inline]
-    #[allow(clippy::expect_used)] // Documented panicking convenience method
-    pub fn zero_annual_on_date(&self, date: Date) -> f64 {
-        self.try_zero_annual_on_date(date)
-            .expect("zero_annual_on_date failed; use try_zero_annual_on_date for error handling")
+    pub fn zero_annual_on_date(&self, date: Date) -> crate::Result<f64> {
+        let t = self.year_fraction_to(date)?;
+        Ok(self.zero_annual(t))
     }
 
     /// Periodically-compounded zero rate on a specific date using the curve's day-count.
     ///
     /// This is equivalent to `curve.zero_periodic(t, n)` where `t` is the year fraction
     /// from base date to `date` using the curve's day-count convention.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if year fraction calculation fails.
     #[inline]
-    #[allow(clippy::expect_used)] // Documented panicking convenience method
-    pub fn zero_periodic_on_date(&self, date: Date, n: u32) -> f64 {
-        self.try_zero_periodic_on_date(date, n).expect(
-            "zero_periodic_on_date failed; use try_zero_periodic_on_date for error handling",
-        )
+    pub fn zero_periodic_on_date(&self, date: Date, n: u32) -> crate::Result<f64> {
+        let t = self.year_fraction_to(date)?;
+        Ok(self.zero_periodic(t, n))
     }
 
     /// Simple interest zero rate on a specific date using the curve's day-count.
@@ -470,11 +460,14 @@ impl DiscountCurve {
     ///
     /// This convention is commonly used for money market instruments with
     /// tenors less than one year.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if year fraction calculation fails.
     #[inline]
-    #[allow(clippy::expect_used)] // Documented panicking convenience method
-    pub fn zero_simple_on_date(&self, date: Date) -> f64 {
-        self.try_zero_simple_on_date(date)
-            .expect("zero_simple_on_date failed; use try_zero_simple_on_date for error handling")
+    pub fn zero_simple_on_date(&self, date: Date) -> crate::Result<f64> {
+        let t = self.year_fraction_to(date)?;
+        Ok(self.zero_simple(t))
     }
 
     /// Simple forward rate between two dates using the curve's day-count.
@@ -482,55 +475,20 @@ impl DiscountCurve {
     /// This is equivalent to `curve.forward(t1, t2)` where `t1` and `t2` are
     /// year fractions from base date using the curve's day-count convention.
     ///
-    /// # Panics
+    /// # Errors
     ///
-    /// Debug-asserts that `d2 > d1`.
+    /// Returns an error if year fraction calculation fails or if the forward
+    /// rate calculation fails.
     #[inline]
-    #[allow(clippy::expect_used)] // Documented panicking convenience method
-    pub fn forward_on_dates(&self, d1: Date, d2: Date) -> f64 {
-        self.try_forward_on_dates(d1, d2)
-            .expect("forward_on_dates failed; use try_forward_on_dates for error handling")
-    }
-
-    /// Fallible: continuously-compounded zero rate on `date` using curve's day-count.
-    #[inline]
-    pub fn try_zero_on_date(&self, date: Date) -> crate::Result<f64> {
-        let t = self.try_year_fraction_to(date)?;
-        Ok(self.zero(t))
-    }
-
-    /// Fallible: annually-compounded zero rate on `date` using curve's day-count.
-    #[inline]
-    pub fn try_zero_annual_on_date(&self, date: Date) -> crate::Result<f64> {
-        let t = self.try_year_fraction_to(date)?;
-        Ok(self.zero_annual(t))
-    }
-
-    /// Fallible: periodically-compounded zero rate on `date` using curve's day-count.
-    #[inline]
-    pub fn try_zero_periodic_on_date(&self, date: Date, n: u32) -> crate::Result<f64> {
-        let t = self.try_year_fraction_to(date)?;
-        Ok(self.zero_periodic(t, n))
-    }
-
-    /// Fallible: simple-interest zero rate on `date` using curve's day-count.
-    #[inline]
-    pub fn try_zero_simple_on_date(&self, date: Date) -> crate::Result<f64> {
-        let t = self.try_year_fraction_to(date)?;
-        Ok(self.zero_simple(t))
-    }
-
-    /// Fallible: forward rate between two dates using curve's day-count.
-    #[inline]
-    pub fn try_forward_on_dates(&self, d1: Date, d2: Date) -> crate::Result<f64> {
-        let t1 = self.try_year_fraction_to(d1)?;
-        let t2 = self.try_year_fraction_to(d2)?;
-        self.try_forward(t1, t2)
+    pub fn forward_on_dates(&self, d1: Date, d2: Date) -> crate::Result<f64> {
+        let t1 = self.year_fraction_to(d1)?;
+        let t2 = self.year_fraction_to(d2)?;
+        self.forward(t1, t2)
     }
 
     /// Helper: compute year fraction from base date to target date using curve's day-count.
     #[inline]
-    fn try_year_fraction_to(&self, date: Date) -> crate::Result<f64> {
+    fn year_fraction_to(&self, date: Date) -> crate::Result<f64> {
         if date == self.base {
             Ok(0.0)
         } else {
@@ -1321,7 +1279,7 @@ mod tests {
         let yc = sample_curve_linear();
         let d = yc.base_date();
         let df = yc
-            .try_df_between_dates(d, d)
+            .df_between_dates(d, d)
             .expect("df_between_dates should be defined for equal dates");
         assert_eq!(df, 1.0);
     }
@@ -1334,15 +1292,15 @@ mod tests {
         let to = base + time::Duration::days(540);
 
         let df_from = yc
-            .try_df_on_date_curve(from)
+            .df_on_date_curve(from)
             .expect("df(from) should be defined");
         let df_to = yc
-            .try_df_on_date_curve(to)
+            .df_on_date_curve(to)
             .expect("df(to) should be defined");
         let expected = df_to / df_from;
 
         let actual = yc
-            .try_df_between_dates(from, to)
+            .df_between_dates(from, to)
             .expect("df_between_dates should be defined");
         assert!(
             (actual - expected).abs() < 1e-12,
@@ -1363,8 +1321,8 @@ mod tests {
         let from = base + time::Duration::days(365);
         let to = base + time::Duration::days(730);
 
-        assert!(yc.try_df_between_dates(base, from).is_err());
-        assert!(yc.try_df_between_dates(from, to).is_err());
+        assert!(yc.df_between_dates(base, from).is_err());
+        assert!(yc.df_between_dates(from, to).is_err());
     }
 
     #[test]
@@ -1406,8 +1364,8 @@ mod tests {
         );
 
         // Calculate forward rates in tail - should be stable with FlatForward
-        let fwd_10_15 = curve.forward(10.0, 15.0);
-        let fwd_15_20 = curve.forward(15.0, 20.0);
+        let fwd_10_15 = curve.forward(10.0, 15.0).expect("forward(10,15) should succeed");
+        let fwd_15_20 = curve.forward(15.0, 20.0).expect("forward(15,20) should succeed");
 
         // Forward rates should be continuous (within reasonable tolerance for finite differences)
         let fwd_diff = (fwd_15_20 - fwd_10_15).abs();

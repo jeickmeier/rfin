@@ -107,7 +107,7 @@ impl BarrierOptionMcPricer {
 
         // Risk-free rate using discount curve's time basis
         let r = disc_curve.zero(t_disc);
-        let discount_factor = disc_curve.try_df_between_dates(as_of, inst.expiry)?;
+        let discount_factor = disc_curve.df_between_dates(as_of, inst.expiry)?;
 
         // Get spot
         let spot_scalar = curves.price(&inst.spot_id)?;
@@ -232,7 +232,7 @@ impl BarrierOptionMcPricer {
 
         // Risk-free rate using discount curve's time basis
         let r = disc_curve.zero(t_disc);
-        let discount_factor = disc_curve.try_df_between_dates(as_of, inst.expiry)?;
+        let discount_factor = disc_curve.df_between_dates(as_of, inst.expiry)?;
 
         // Spot and dividend yield
         let spot_scalar = curves.price(&inst.spot_id)?;

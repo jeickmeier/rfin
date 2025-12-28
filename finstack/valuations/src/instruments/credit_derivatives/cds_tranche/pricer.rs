@@ -512,7 +512,7 @@ impl CDSTranchePricer {
         // Apply upfront if present. Positive amount is paid by protection buyer.
         if let Some((dt, amount)) = tranche.upfront {
             if dt >= as_of {
-                let df = discount_curve.try_df_between_dates(as_of, dt)?;
+                let df = discount_curve.df_between_dates(as_of, dt)?;
                 let upfront_pv = amount.amount() * df;
                 match tranche.side {
                     TrancheSide::BuyProtection => net_pv -= upfront_pv,

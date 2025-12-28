@@ -157,7 +157,7 @@ pub fn fixed_leg_annuity(
     let mut prev = schedule[0];
     for &d in &schedule[1..] {
         let alpha = dc.year_fraction(prev, d, DayCountCtx::default())?;
-        let p = disc.try_df_on_date_curve(d)?;
+        let p = disc.df_on_date_curve(d)?;
         ann += alpha * p;
         prev = d;
     }
@@ -217,8 +217,8 @@ pub fn par_rate_and_annuity_from_discount(
         return Ok((0.0, 0.0));
     }
 
-    let p0 = disc.try_df_on_date_curve(schedule[0])?;
-    let pn = disc.try_df_on_date_curve(*schedule.last().expect("Schedule should not be empty"))?;
+    let p0 = disc.df_on_date_curve(schedule[0])?;
+    let pn = disc.df_on_date_curve(*schedule.last().expect("Schedule should not be empty"))?;
     let num = p0 - pn;
     Ok((num / ann, ann))
 }
@@ -593,7 +593,7 @@ pub fn price_from_z_spread(
             .day_count()
             .year_fraction(as_of, *d, DayCountCtx::default())?;
 
-        let df = disc.try_df_between_dates(as_of, *d)?;
+        let df = disc.df_between_dates(as_of, *d)?;
         let df_z = df * (-z * t_from_as_of).exp();
         pv.add(a.amount() * df_z);
     }
@@ -899,14 +899,14 @@ fn par_swap_rate_from_discount(bond: &Bond, curves: &MarketContext, as_of: Date)
         return Ok(0.0);
     }
 
-    let p0 = disc.try_df_on_date_curve(dates[0])?;
-    let pn = disc.try_df_on_date_curve(*dates.last().expect("Dates should not be empty"))?;
+    let p0 = disc.df_on_date_curve(dates[0])?;
+    let pn = disc.df_on_date_curve(*dates.last().expect("Dates should not be empty"))?;
     let num = p0 - pn;
     let mut den = 0.0;
     for w in dates.windows(2) {
         let (a, b) = (w[0], w[1]);
         let alpha = DayCount::ActAct.year_fraction(a, b, DayCountCtx::default())?;
-        let p = disc.try_df_on_date_curve(b)?;
+        let p = disc.df_on_date_curve(b)?;
         den += alpha * p;
     }
     if den == 0.0 {

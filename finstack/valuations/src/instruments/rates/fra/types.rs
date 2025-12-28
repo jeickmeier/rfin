@@ -204,7 +204,7 @@ impl ForwardRateAgreement {
         };
 
         // Discount from as_of date for correct theta calculation.
-        let df_settlement = disc.try_df_between_dates(as_of, self.start_date)?;
+        let df_settlement = disc.df_between_dates(as_of, self.start_date)?;
 
         // Market-standard FRA settlement at period start includes the
         // settlement discounting adjustment 1 / (1 + F * tau).

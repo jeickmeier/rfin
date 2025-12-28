@@ -15,6 +15,6 @@ impl MetricCalculator for DfEndCalculator {
             .curves
             .get_discount_ref(&deposit.discount_curve_id)?;
         // Use the curve's own time basis for discounting
-        disc.try_df_on_date_curve(deposit.end)
+        disc.df_on_date_curve(deposit.end)
     }
 }

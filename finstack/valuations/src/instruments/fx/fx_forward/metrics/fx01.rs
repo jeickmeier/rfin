@@ -21,8 +21,8 @@ impl MetricCalculator for Fx01Calculator {
         let domestic_disc = curves.get_discount_ref(fwd.domestic_discount_curve_id.as_str())?;
         let foreign_disc = curves.get_discount_ref(fwd.foreign_discount_curve_id.as_str())?;
 
-        let df_domestic = domestic_disc.try_df_between_dates(as_of, fwd.maturity_date)?;
-        let df_foreign = foreign_disc.try_df_between_dates(as_of, fwd.maturity_date)?;
+        let df_domestic = domestic_disc.df_between_dates(as_of, fwd.maturity_date)?;
+        let df_foreign = foreign_disc.df_between_dates(as_of, fwd.maturity_date)?;
 
         let spot = if let Some(rate) = fwd.spot_rate_override {
             rate

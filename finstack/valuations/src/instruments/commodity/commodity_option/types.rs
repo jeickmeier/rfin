@@ -183,7 +183,7 @@ impl CommodityOption {
         };
 
         let forward = self.forward_price(market, as_of)?;
-        let df = disc.try_df_between_dates(as_of, self.expiry)?;
+        let df = disc.df_between_dates(as_of, self.expiry)?;
 
         let spot = if let Some(spot) = self.spot_price(market)? {
             spot
@@ -233,7 +233,7 @@ impl CommodityOption {
             return Ok(spot * (rate * t).exp());
         }
 
-        let df = curve.df(t);
+        let df = curve.df(t)?;
         if df.abs() > 1e-12 {
             Ok(100.0 / df)
         } else {

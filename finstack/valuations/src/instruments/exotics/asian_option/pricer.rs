@@ -101,7 +101,7 @@ impl AsianOptionMcPricer {
             .last()
             .copied()
             .unwrap_or(inst.fixing_dates[0]);
-        let discount_factor = disc_curve.try_df_between_dates(as_of, maturity_date)?;
+        let discount_factor = disc_curve.df_between_dates(as_of, maturity_date)?;
 
         // Get spot
         let spot_scalar = curves.price(&inst.spot_id)?;
@@ -549,7 +549,7 @@ impl AsianOptionMcPricer {
             .last()
             .copied()
             .unwrap_or(inst.fixing_dates[0]);
-        let discount_factor = disc_curve.try_df_between_dates(as_of, maturity_date)?;
+        let discount_factor = disc_curve.df_between_dates(as_of, maturity_date)?;
 
         let spot_scalar = curves.price(&inst.spot_id)?;
         let spot = match spot_scalar {

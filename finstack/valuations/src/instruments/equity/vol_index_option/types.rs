@@ -286,7 +286,7 @@ impl VolatilityIndexOption {
         let vol_of_vol = vol_surface.value_clamped(t, self.strike);
 
         // Get discount factor from as_of to expiry
-        let df = disc.try_df_between_dates(as_of, self.expiry)?;
+        let df = disc.df_between_dates(as_of, self.expiry)?;
 
         // Black model price (undiscounted)
         let black_price = self.black_price(forward, vol_of_vol, t);
@@ -368,7 +368,7 @@ impl VolatilityIndexOption {
 
         let forward = vol_curve.forward_level(t);
         let sigma = vol_surface.value_clamped(t, self.strike);
-        let df = disc.try_df_between_dates(as_of, self.expiry)?;
+        let df = disc.df_between_dates(as_of, self.expiry)?;
 
         let d1 = d1_black76(forward, self.strike, sigma, t);
 
@@ -403,7 +403,7 @@ impl VolatilityIndexOption {
 
         let forward = vol_curve.forward_level(t);
         let sigma = vol_surface.value_clamped(t, self.strike);
-        let df = disc.try_df_between_dates(as_of, self.expiry)?;
+        let df = disc.df_between_dates(as_of, self.expiry)?;
 
         let d1 = d1_black76(forward, self.strike, sigma, t);
         let n_prime_d1 = (-0.5 * d1 * d1).exp() / (2.0 * std::f64::consts::PI).sqrt();
@@ -438,7 +438,7 @@ impl VolatilityIndexOption {
 
         let forward = vol_curve.forward_level(t);
         let sigma = vol_surface.value_clamped(t, self.strike);
-        let df = disc.try_df_between_dates(as_of, self.expiry)?;
+        let df = disc.df_between_dates(as_of, self.expiry)?;
 
         let d1 = d1_black76(forward, self.strike, sigma, t);
         let n_prime_d1 = (-0.5 * d1 * d1).exp() / (2.0 * std::f64::consts::PI).sqrt();
@@ -476,7 +476,7 @@ impl VolatilityIndexOption {
 
         let forward = vol_curve.forward_level(t);
         let sigma = vol_surface.value_clamped(t, self.strike);
-        let df = disc.try_df_between_dates(as_of, self.expiry)?;
+        let df = disc.df_between_dates(as_of, self.expiry)?;
         let r = -df.ln() / t; // Implied rate
 
         let d1 = d1_black76(forward, self.strike, sigma, t);
@@ -721,7 +721,7 @@ mod tests {
         // Get DF for put-call parity
         let disc = market.get_discount_ref("USD-OIS").expect("discount curve");
         let df = disc
-            .try_df_between_dates(as_of, expiry)
+            .df_between_dates(as_of, expiry)
             .expect("discount factor");
 
         let contracts = call.num_contracts();

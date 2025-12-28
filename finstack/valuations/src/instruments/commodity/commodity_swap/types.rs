@@ -172,7 +172,7 @@ impl CommoditySwap {
             if payment_date < as_of {
                 continue; // Skip past payments
             }
-            let df = disc.try_df_between_dates(as_of, payment_date)?;
+            let df = disc.df_between_dates(as_of, payment_date)?;
             let period_value = self.notional_quantity * self.fixed_price;
             pv += period_value * df;
         }
@@ -209,7 +209,7 @@ impl CommoditySwap {
                 self.fixed_price
             };
 
-            let df = disc.try_df_between_dates(as_of, payment_date)?;
+            let df = disc.df_between_dates(as_of, payment_date)?;
             let period_value = self.notional_quantity * forward_price;
             pv += period_value * df;
         }

@@ -235,7 +235,7 @@ impl InterestRateSwap {
                     } else {
                         // Single-curve discount-only projection: derive the implied
                         // simple rate for [obs_start, obs_end] from discount factors.
-                        let df_between = disc.try_df_between_dates(obs_start, obs_end)?;
+                        let df_between = disc.df_between_dates(obs_start, obs_end)?;
                         if !df_between.is_finite() || df_between <= 0.0 {
                             return Err(finstack_core::error::Error::Validation(format!(
                                 "Invalid discount factor between observation dates ({} -> {}): df={:.3e}",

@@ -371,7 +371,7 @@ impl CliquetOptionMcPricer {
             .last()
             .copied()
             .unwrap_or(inst.reset_dates[0]);
-        let discount_factor = disc_curve.try_df_between_dates(as_of, maturity_date)?;
+        let discount_factor = disc_curve.df_between_dates(as_of, maturity_date)?;
 
         let result = engine.price(
             &rng,

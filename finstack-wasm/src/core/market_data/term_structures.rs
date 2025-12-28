@@ -200,8 +200,10 @@ impl JsDiscountCurve {
         self.inner.zero(time)
     }
 
-    pub fn forward(&self, t1: f64, t2: f64) -> f64 {
-        self.inner.forward(t1, t2)
+    pub fn forward(&self, t1: f64, t2: f64) -> Result<f64, JsValue> {
+        self.inner
+            .forward(t1, t2)
+            .map_err(|e| js_error(e.to_string()))
     }
 
     #[wasm_bindgen(js_name = dfOnDate)]

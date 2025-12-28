@@ -57,7 +57,7 @@ impl LookbackOptionMcPricer {
 
         let disc_curve = curves.get_discount_ref(inst.discount_curve_id.as_str())?;
         let r = disc_curve.zero(t);
-        let discount_factor = disc_curve.try_df_between_dates(as_of, inst.expiry)?;
+        let discount_factor = disc_curve.df_between_dates(as_of, inst.expiry)?;
 
         let spot_scalar = curves.price(&inst.spot_id)?;
         let spot = match spot_scalar {

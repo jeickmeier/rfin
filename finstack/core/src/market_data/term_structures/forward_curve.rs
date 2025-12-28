@@ -295,7 +295,7 @@ impl ForwardCurve {
         integral / dt
     }
 
-    /// Fallible: implied **projection discount factor** from `0` to `t` (years).
+    /// Implied **projection discount factor** from `0` to `t` (years).
     ///
     /// This is a convenience for Bloomberg-style curve inspection where a projection curve
     /// is displayed with both forward rates and an implied discount factor curve.
@@ -316,7 +316,7 @@ impl ForwardCurve {
     /// -----
     /// - This is **not** a discount curve used for PV discounting; it is an *implied projection DF*.
     /// - The stepping size uses the curve’s `tenor_years` with a final fractional step when needed.
-    pub fn try_df(&self, t: f64) -> crate::Result<f64> {
+    pub fn df(&self, t: f64) -> crate::Result<f64> {
         if !t.is_finite() {
             return Err(InputError::Invalid.into());
         }
@@ -366,26 +366,20 @@ impl ForwardCurve {
         Ok(df)
     }
 
-    /// Implied projection discount factor from `0` to `t` (years).
+    /// Implied projection discount factor on a calendar date using the curve's day-count.
     ///
-    /// Panics if `t` is invalid. Prefer [`try_df`](Self::try_df) for error handling.
+    /// # Errors
+    ///
+    /// Returns an error if year fraction or discount factor calculation fails.
     #[inline]
-    #[allow(clippy::expect_used)] // Documented panicking convenience method; use try_df for error handling
-    pub fn df(&self, t: f64) -> f64 {
-        self.try_df(t)
-            .expect("ForwardCurve df(t) failed; use try_df for error handling")
-    }
-
-    /// Fallible: implied projection discount factor on a calendar date using the curve's day-count.
-    #[inline]
-    pub fn try_df_on_date_curve(&self, date: Date) -> crate::Result<f64> {
+    pub fn df_on_date_curve(&self, date: Date) -> crate::Result<f64> {
         let t = if date == self.base {
             0.0
         } else {
             self.day_count
                 .year_fraction(self.base, date, DayCountCtx::default())?
         };
-        self.try_df(t)
+        self.df(t)
     }
 
     /// Create a new curve with a key-rate bump applied at a target time `t` (in years) (fallible).

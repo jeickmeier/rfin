@@ -186,10 +186,10 @@ impl FxSwap {
         let foreign_disc = curves.get_discount_ref(self.foreign_discount_curve_id.as_str())?;
 
         // Discount factors from as_of for correct theta (curve-consistent date mapping).
-        let df_dom_near = domestic_disc.try_df_between_dates(as_of, self.near_date)?;
-        let df_dom_far = domestic_disc.try_df_between_dates(as_of, self.far_date)?;
-        let df_for_near = foreign_disc.try_df_between_dates(as_of, self.near_date)?;
-        let df_for_far = foreign_disc.try_df_between_dates(as_of, self.far_date)?;
+        let df_dom_near = domestic_disc.df_between_dates(as_of, self.near_date)?;
+        let df_dom_far = domestic_disc.df_between_dates(as_of, self.far_date)?;
+        let df_for_near = foreign_disc.df_between_dates(as_of, self.near_date)?;
+        let df_for_far = foreign_disc.df_between_dates(as_of, self.far_date)?;
 
         // Settlement checks
         let include_near = self.near_date >= as_of;

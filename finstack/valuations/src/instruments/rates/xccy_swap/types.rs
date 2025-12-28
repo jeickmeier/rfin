@@ -282,7 +282,7 @@ impl XccySwap {
         if matches!(self.notional_exchange, NotionalExchange::InitialAndFinal)
             && self.start_date > as_of
         {
-            let df = disc.try_df_between_dates(as_of, self.start_date)?;
+            let df = disc.df_between_dates(as_of, self.start_date)?;
             pv.add(leg.side.initial_principal_sign() * leg.notional.amount() * df);
         }
 
@@ -291,7 +291,7 @@ impl XccySwap {
             NotionalExchange::Final | NotionalExchange::InitialAndFinal
         ) && self.maturity_date > as_of
         {
-            let df = disc.try_df_between_dates(as_of, self.maturity_date)?;
+            let df = disc.df_between_dates(as_of, self.maturity_date)?;
             pv.add(leg.side.final_principal_sign() * leg.notional.amount() * df);
         }
 
@@ -330,7 +330,7 @@ impl XccySwap {
                 .year_fraction(period_start, period_end, dc_ctx)?;
             let coupon = leg.side.coupon_sign() * leg.notional.amount() * total_rate * year_frac;
 
-            let df = disc.try_df_between_dates(as_of, payment_date)?;
+            let df = disc.df_between_dates(as_of, payment_date)?;
             pv.add(coupon * df);
         }
 

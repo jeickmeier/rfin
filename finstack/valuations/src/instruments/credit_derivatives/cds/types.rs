@@ -637,7 +637,7 @@ impl CreditDefaultSwap {
         // Calculate Upfront PV
         let upfront_pv = if let Some((dt, amount)) = self.upfront {
             if dt >= as_of {
-                let df = disc.try_df_between_dates(as_of, dt)?;
+                let df = disc.df_between_dates(as_of, dt)?;
                 amount.amount() * df
             } else {
                 0.0 // Past cashflow
