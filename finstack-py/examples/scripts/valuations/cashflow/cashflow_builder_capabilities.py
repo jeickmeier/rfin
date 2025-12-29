@@ -114,7 +114,7 @@ def example_1_simple_fixed_coupon():
     builder.principal(amount=notional.amount, currency=USD, issue=issue, maturity=maturity)
     builder.fixed_cf(fixed_spec)
 
-    schedule = builder.build()
+    schedule = builder.build_with_curves(None)
 
     print(f"Notional: {schedule.notional.format()}")
     print(f"Day Count: {schedule.day_count.name}")
@@ -154,7 +154,7 @@ def example_2_floating_coupon():
     builder.principal(amount=notional.amount, currency=USD, issue=issue, maturity=maturity)
     builder.floating_cf(float_spec)
 
-    cf_schedule = builder.build()
+    cf_schedule = builder.build_with_curves(None)
 
     print(f"Notional: {cf_schedule.notional.format()}")
     print(f"Index: USD-SOFR-3M with +150 bps margin")
@@ -185,7 +185,7 @@ def example_3_pik_toggle():
     builder.principal(amount=notional.amount, currency=EUR, issue=issue, maturity=maturity)
     builder.fixed_cf(fixed_spec)
 
-    cf_schedule = builder.build()
+    cf_schedule = builder.build_with_curves(None)
 
     print(f"Notional: {cf_schedule.notional.format()}")
     print(f"Coupon: 8% (70% cash, 30% PIK)")
@@ -228,7 +228,7 @@ def example_4_amortizing_loan():
     builder.amortization(amort_spec)
     builder.fixed_cf(fixed_spec)
 
-    cf_schedule = builder.build()
+    cf_schedule = builder.build_with_curves(None)
 
     print(f"Initial Notional: {notional.format()}")
     print(f"Final Notional: {final_notional.format()}")
@@ -268,7 +268,7 @@ def example_5_step_amortization():
     builder.amortization(amort_spec)
     builder.fixed_cf(fixed_spec)
 
-    cf_schedule = builder.build()
+    cf_schedule = builder.build_with_curves(None)
 
     print(f"Initial Notional: {notional.format()}")
     print(f"Amortization steps at: 2027, 2028, 2029")
@@ -306,7 +306,7 @@ def example_6_step_up_coupon():
         default_split=CouponType.CASH,
     )
 
-    cf_schedule = builder.build()
+    cf_schedule = builder.build_with_curves(None)
 
     print(f"Notional: {cf_schedule.notional.format()}")
     print("Step-up schedule:")
@@ -351,7 +351,7 @@ def example_7_payment_split_program():
     builder.fixed_cf(fixed_spec)
     builder.payment_split_program(split_program)
 
-    cf_schedule = builder.build()
+    cf_schedule = builder.build_with_curves(None)
 
     print(f"Notional: {cf_schedule.notional.format()}")
     print("Payment program:")
@@ -390,7 +390,7 @@ def example_8_complex_structure():
     builder.amortization(amort_spec)
     builder.fixed_stepup(steps=step_program, schedule=schedule, default_split=CouponType.CASH)
 
-    cf_schedule = builder.build()
+    cf_schedule = builder.build_with_curves(None)
 
     print(f"Initial Notional: {notional.format()}")
     print(f"Final Notional: {final_notional.format()}")

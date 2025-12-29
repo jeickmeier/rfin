@@ -65,9 +65,7 @@ let result = bond.price_with_metrics(&market, as_of, &metrics)?;
 let result = bond.price_with_metrics(&market, as_of, &metrics)?;
 // Unknown metrics return Err(UnknownMetric)
 
-// GRADUAL MIGRATION: Use best-effort mode
-let result = bond.price_with_metrics_best_effort(&market, as_of, &metrics)?;
-// Unknown metrics return 0.0 with warnings (opt-in legacy behavior)
+// Best-effort mode has been removed; handle errors explicitly.
 ```
 
 **Recommendation**: Add proper error handling and use `MetricId::parse_strict()` for user-provided metric names.
@@ -199,30 +197,13 @@ let metric: MetricId = "custom_metric".parse()?;  // Ok(MetricId::Custom)
 
 ---
 
-### 2. Best-Effort Metrics Mode
+### 2. Best-Effort Metrics Mode (Removed)
 
-**API**: `MetricRegistry::compute_best_effort(&self, ids: &[MetricId], ctx: &mut MetricContext) -> Result<HashMap<MetricId, f64>>`
+**Status**: Removed. The legacy best-effort API is no longer available.
 
-**Purpose**: Opt-in to legacy behavior (0.7.x) for gradual migration.
-
-**Benefits**:
-- Insert `0.0` for unknown/failed metrics (with warnings)
-- Allows gradual migration to strict mode
-- Useful for large codebases with complex metric dependencies
-
-**Usage**:
-```rust
-use finstack_valuations::metrics::{MetricRegistry, StrictMode};
-
-// Strict mode (default, errors on failures)
-let results = registry.compute(&metric_ids, &mut context)?;
-
-// Best-effort mode (opt-in, legacy behavior)
-let results = registry.compute_best_effort(&metric_ids, &mut context)?;
-// Logs warnings for unknown/failed metrics, inserts 0.0
-```
-
-**Recommendation**: Use best-effort mode temporarily during migration, migrate to strict mode for production.
+**Replacement**:
+- `MetricRegistry::compute()` with explicit error handling
+- `Instrument::price_with_metrics()` for combined pricing and metrics
 
 ---
 
@@ -341,7 +322,7 @@ Error: CircularDependency {
 ### Test Coverage
 
 **Integration Tests Added** (19 total):
-- `metrics_strict_mode.rs` - 7 tests covering strict/best-effort modes, error handling, end-to-end workflows
+- `metrics_strict_mode.rs` - 7 tests covering strict mode, error handling, end-to-end workflows
 - `fx_settlement.rs` - 12 tests covering joint business day logic, calendar errors, edge cases
 
 **Unit Tests Added** (50+):
@@ -409,12 +390,11 @@ Error: CircularDependency {
 | Operation | Before (0.7.x) | After (0.8.0) | Change |
 |-----------|---------------|---------------|--------|
 | Metrics strict mode | - | Baseline | - |
-| Metrics best-effort | Baseline | +0.8% | <1% (noise) |
 | Calibration (200 quotes) | Baseline | +0.05% | <0.1% (noise) |
 | FX settlement (10K dates) | Baseline | +5.2% | Expected (correct logic) |
 
 **Notes**:
-- Metrics strict mode overhead: <1% vs best-effort (within measurement noise)
+- Metrics strict mode overhead: <1% (within measurement noise)
 - Calibration: <0.1% difference after residual normalization fix (pure correctness fix)
 - FX settlement: ~5% slower but now correct (joint business day iteration vs calendar day math)
 
@@ -488,7 +468,7 @@ let option = CdsOption::try_new(/* params */)?;  // Returns Result
 
 4. **Handle New Errors**:
    - Add error handling for `compute()` calls
-   - OR use `compute_best_effort()` for gradual migration
+   - Use `price_with_metrics()` where you need metrics and pricing together
 
 5. **Verify FX Dates** (if using multi-currency):
    - Update test expectations with correct spot dates
@@ -500,7 +480,7 @@ let option = CdsOption::try_new(/* params */)?;  // Returns Result
 ### Gradual Migration (For Large Codebases)
 
 **Phase 1** (Required, 1-2 hours):
-- Update metrics to strict mode OR opt-in to best-effort mode
+- Update metrics to strict mode
 - Add error handling for new error variants
 
 **Phase 2** (Recommended, 1-2 hours):

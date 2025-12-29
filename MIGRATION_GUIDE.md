@@ -16,12 +16,13 @@
    - [Phase 1: Critical Safety Fixes](#phase-1-critical-safety-fixes)
    - [Phase 2: Market Convention Alignment](#phase-2-market-convention-alignment)
    - [Phase 3: API Safety & Constructor Removal](#phase-3-api-safety--constructor-removal)
-4. [Migration Strategies](#migration-strategies)
-5. [Code Examples: Before & After](#code-examples-before--after)
-6. [Error Handling Updates](#error-handling-updates)
-7. [Testing Recommendations](#testing-recommendations)
-8. [FAQ](#faq)
-9. [Support & Resources](#support--resources)
+4. [Deprecations (0.4.1)](#deprecations-041)
+5. [Migration Strategies](#migration-strategies)
+6. [Code Examples: Before & After](#code-examples-before--after)
+7. [Error Handling Updates](#error-handling-updates)
+8. [Testing Recommendations](#testing-recommendations)
+9. [FAQ](#faq)
+10. [Support & Resources](#support--resources)
 
 ---
 
@@ -56,7 +57,7 @@ START: Do you use metrics computation (DV01, CS01, Greeks)?
 │   ├── Do you parse metric names from config/CLI?
 │   │   ├── YES → Update to MetricId::parse_strict()
 │   │   └── NO → Just handle new error types
-│   └── Choose strict mode or best-effort fallback
+│   └── Choose a strict-mode error handling strategy
 └── NO → Skip Phase 1
 
 Do you price FX instruments or use multi-currency portfolios?
@@ -86,7 +87,7 @@ Do you use calibration heavily?
 
 | Component | Change | Impact | Migration Path |
 |-----------|--------|--------|----------------|
-| **MetricRegistry::compute()** | Defaults to strict mode | Errors instead of `0.0` for unknown metrics | Add error handling OR use `compute_best_effort()` |
+| **MetricRegistry::compute()** | Defaults to strict mode | Errors instead of `0.0` for unknown metrics | Add error handling or use `Instrument::price_with_metrics()` |
 | **MetricId::parse_strict()** | New strict parser | Rejects unknown metric names | Replace `from_str()` with `parse_strict()` for user inputs |
 | **Dependency resolution** | Errors propagated | Circular dependencies detected | Fix circular metric deps in custom calculators |
 | **Calibration residuals** | Normalized by notional | Better solver scaling (non-breaking) | No code changes required |
@@ -117,6 +118,17 @@ Do you use calibration heavily?
 **Severity**: 🟠 Major - Removed APIs; migration required
 
 ---
+
+## Removed APIs (0.4.1)
+
+The following APIs were removed in **0.4.1**. Use the replacements listed below:
+
+- `CashFlowBuilder::build()` → use `build_with_curves(None)` or `build_with_curves(Some(..))`
+- Python `CashFlowBuilder.build()` → use `build_with_curves(None)` or `build_with_curves(market)`
+- JS/WASM `CashFlowBuilder.build()` → use `buildWithCurves()` with an optional market context
+- `MetricRegistry::compute_best_effort()` → use `compute()` (strict) or `Instrument::price_with_metrics()`
+- `Instrument::matches_selector/has_tag/get_meta` → use `instrument.attributes().matches_selector/has_tag/get_meta`
+- Binomial tree barrier wrappers (`price_up_and_out`, `price_down_and_out`, `price_up_and_in`, `price_down_and_in`, `price_*_american`) → use `price_barrier_out/in` variants
 
 ## Migration Strategies
 
@@ -152,7 +164,7 @@ Do you use calibration heavily?
 
 **Week 1 (Version 0.8.0)**:
 1. Update to 0.8.0
-2. Switch to `compute_best_effort()` everywhere (preserves old behavior)
+2. Add error handling around `compute()` and migrate callers to strict results
 3. Add calendar fallback handling where needed
 4. Deploy and monitor
 
@@ -252,7 +264,7 @@ let metrics = match registry.compute(&metric_ids, &mut context) {
 let dv01 = metrics[&MetricId::Dv01];
 ```
 
-#### After (0.8.0) - Best Effort (Gradual Migration)
+#### After (0.8.0) - Strict Mode
 
 ```rust
 use finstack_valuations::metrics::{standard_registry, MetricContext, MetricId};
@@ -262,11 +274,9 @@ let metric_ids = vec![MetricId::Dv01, MetricId::Ytm, MetricId::DurationMod];
 
 let mut context = MetricContext::new(instrument, market, as_of, pv);
 
-// Best effort mode: logs warnings and returns 0.0 for failures
-let metrics = registry.compute_best_effort(&metric_ids, &mut context)?;
-
-// Note: This should be temporary! Migrate to strict mode for production risk calculations.
-let dv01 = metrics.get(&MetricId::Dv01).copied().unwrap_or(0.0);
+// Strict mode: handle errors explicitly
+let metrics = registry.compute(&metric_ids, &mut context)?;
+let dv01 = metrics[&MetricId::Dv01];
 ```
 
 ### Example 2: Metric Parsing from Config (Phase 1)
@@ -574,16 +584,6 @@ fn test_strict_mode_unknown_metric() {
     ));
 }
 
-#[test]
-fn test_best_effort_fallback() {
-    let registry = standard_registry();
-    let invalid = vec![MetricId::custom("unknown_metric")];
-    let mut ctx = MetricContext::new(/*...*/);
-    
-    // Should return 0.0 in best effort mode
-    let result = registry.compute_best_effort(&invalid, &mut ctx)?;
-    assert_eq!(result.get(&invalid[0]), Some(&0.0));
-}
 ```
 
 **Integration Tests**:
@@ -729,7 +729,7 @@ Use the gradual migration strategy if you need time to adapt.
 #### Q: How do I roll back if I encounter issues?
 
 **A**: 
-- **Recommended**: Use `compute_best_effort()` to restore old metrics behavior while you investigate
+- **Recommended**: Add error handling to `compute()` and use `Instrument::price_with_metrics()` for strict pricing + metrics
 - **Emergency**: Pin to version 0.7.x in Cargo.toml temporarily
 - **Best practice**: Run migrations in a feature branch with comprehensive testing before merging
 
@@ -742,22 +742,11 @@ Use the gradual migration strategy if you need time to adapt.
 - Wrong risk reports (missing DV01 reported as zero exposure)
 - Compliance violations (incomplete risk disclosures)
 
-Best-effort mode is still available via `compute_best_effort()` for gradual migration, but strict error handling should be the goal.
+Best-effort mode has been removed; strict error handling should be the goal.
 
 #### Q: Can I get the old behavior back?
 
-**A**: Yes, use `compute_best_effort()`:
-
-```rust
-let metrics = registry.compute_best_effort(&metric_ids, &mut context)?;
-```
-
-This will:
-- Insert `0.0` for unknown/failed metrics
-- Log warnings (visible with `RUST_LOG=warn`)
-- Return `Ok` instead of `Err`
-
-**Warning**: This should be temporary. Migrate to proper error handling for production risk systems.
+**A**: No. Use explicit error handling with `compute()` or `Instrument::price_with_metrics()` and decide how to handle missing/failed metrics in your application logic.
 
 #### Q: How do I know which metrics are available?
 
@@ -900,45 +889,32 @@ fn test_pricing() {
 
 **A**: Recommended 3-phase approach:
 
-**Phase 1**: Switch to best-effort mode everywhere (preserve old behavior):
+**Phase 1**: Add error handling on critical paths and switch those call sites to strict compute:
 ```rust
-// Replace all compute() calls with:
-let metrics = registry.compute_best_effort(&metric_ids, &mut context)?;
-```
-
-**Phase 2**: Add error handling incrementally (module by module):
-```rust
-// Critical risk paths first:
 mod risk_reporting {
     fn compute_dv01(...) -> Result<f64> {
         let metrics = registry.compute(&[MetricId::Dv01], &mut ctx)?;
         Ok(metrics[&MetricId::Dv01])
     }
 }
+```
 
-// Non-critical later:
+**Phase 2**: Migrate non-critical paths module by module:
+```rust
 mod analytics {
     fn compute_metrics(...) -> Result<HashMap<MetricId, f64>> {
-        registry.compute_best_effort(&metric_ids, &mut ctx)  // Temporary
+        registry.compute(&metric_ids, &mut ctx)
     }
 }
 ```
 
-**Phase 3**: Remove all `compute_best_effort()` calls:
-```rust
-// Final state: all paths use strict mode
-let metrics = registry.compute(&metric_ids, &mut context)?;
-```
+**Phase 3**: Clean up fallback logic and ensure errors are surfaced or handled explicitly.
 
 **Timeline**: Aim for 4-8 weeks total migration time.
 
-#### Q: Can I mix strict and best-effort modes?
+#### Q: Can I opt out of strict mode?
 
-**A**: Yes, and this is actually recommended during migration:
-- **Strict mode**: Risk-critical paths (DV01, CS01, VaR, margin calculations)
-- **Best effort**: Non-critical analytics and reporting
-
-Just document which paths use which mode and plan to eventually migrate all to strict.
+**A**: No. Best-effort mode was removed. Use `compute()` with explicit error handling or `Instrument::price_with_metrics()` for combined pricing and metrics.
 
 ---
 

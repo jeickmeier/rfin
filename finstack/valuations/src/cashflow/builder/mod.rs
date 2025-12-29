@@ -51,7 +51,7 @@
 //! let schedule = CashFlowSchedule::builder()
 //!     .principal(Money::new(1_000_000.0, Currency::USD), issue, maturity)
 //!     .fixed_cf(fixed_spec)
-//!     .build()
+//!     .build_with_curves(None)
 //!     .expect("should succeed");
 //!
 //! assert!(schedule.flows.len() > 0);

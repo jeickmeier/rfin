@@ -37,7 +37,7 @@
 //!      calendar_id: None,
 //!      stub: StubKind::None,
 //!  });
-//! let schedule = b.build()
+//! let schedule = b.build_with_curves(None)
 //!     .map_err(|e| format!("Failed to build cashflow schedule: {}", e))?;
 //! assert!(!schedule.flows.is_empty());
 //! # Ok(())
@@ -511,7 +511,7 @@ impl CashFlowBuilder {
         }
     }
     /// Sets principal details and instrument horizon.
-    #[must_use = "builder methods should be chained or terminated with .build()"]
+    #[must_use = "builder methods should be chained or terminated with .build_with_curves(...)"]
     pub fn principal(&mut self, initial: Money, issue_date: Date, maturity: Date) -> &mut Self {
         self.pending_error = None;
         self.notional = Some(Notional {
@@ -524,7 +524,7 @@ impl CashFlowBuilder {
     }
 
     /// Convenience helper to set principal by amount and currency.
-    #[must_use = "builder methods should be chained or terminated with .build()"]
+    #[must_use = "builder methods should be chained or terminated with .build_with_curves(...)"]
     pub fn principal_amount(
         &mut self,
         amount: f64,
@@ -536,7 +536,7 @@ impl CashFlowBuilder {
     }
 
     /// Configures amortization on the current notional.
-    #[must_use = "builder methods should be chained or terminated with .build()"]
+    #[must_use = "builder methods should be chained or terminated with .build_with_curves(...)"]
     pub fn amortization(&mut self, spec: AmortizationSpec) -> &mut Self {
         if let Some(n) = &mut self.notional {
             n.amort = spec;
@@ -580,19 +580,19 @@ impl CashFlowBuilder {
 ///     .principal(Money::new(1_000_000.0, Currency::USD), issue, maturity)
     ///     .strict_schedules(false) // Allow calendar/schedule fallbacks
     ///     .fixed_cf(spec)
-    ///     .build()?;
+    ///     .build_with_curves(None)?;
     /// # let _ = schedule;
     /// # Ok(())
     /// # }
     /// ```
-    #[must_use = "builder methods should be chained or terminated with .build()"]
+    #[must_use = "builder methods should be chained or terminated with .build_with_curves(...)"]
     pub fn strict_schedules(&mut self, strict: bool) -> &mut Self {
         self.schedule_strict = strict;
         self
     }
 
     /// Adds a fixed coupon specification.
-    #[must_use = "builder methods should be chained or terminated with .build()"]
+    #[must_use = "builder methods should be chained or terminated with .build_with_curves(...)"]
     pub fn fixed_cf(&mut self, spec: FixedCouponSpec) -> &mut Self {
         let Some((issue, maturity)) = self.issue_maturity_or_record_error("fixed_cf") else {
             return self;
@@ -622,7 +622,7 @@ impl CashFlowBuilder {
     }
 
     /// Adds a floating coupon specification.
-    #[must_use = "builder methods should be chained or terminated with .build()"]
+    #[must_use = "builder methods should be chained or terminated with .build_with_curves(...)"]
     pub fn floating_cf(&mut self, spec: FloatingCouponSpec) -> &mut Self {
         let Some((issue, maturity)) = self.issue_maturity_or_record_error("floating_cf") else {
             return self;
@@ -657,7 +657,7 @@ impl CashFlowBuilder {
     }
 
     /// Adds a fee specification.
-    #[must_use = "builder methods should be chained or terminated with .build()"]
+    #[must_use = "builder methods should be chained or terminated with .build_with_curves(...)"]
     pub fn fee(&mut self, spec: FeeSpec) -> &mut Self {
         self.fees.push(spec);
         self
@@ -671,8 +671,8 @@ impl CashFlowBuilder {
     /// # Errors
     ///
     /// Records a pending error if any event has mismatched currencies between
-    /// `delta` and `cash`. The error will be returned when `build()` is called.
-    #[must_use = "builder methods should be chained or terminated with .build()"]
+    /// `delta` and `cash`. The error will be returned when `build_with_curves(...)` is called.
+    #[must_use = "builder methods should be chained or terminated with .build_with_curves(...)"]
     pub fn principal_events(&mut self, events: &[PrincipalEvent]) -> &mut Self {
         if self.pending_error.is_some() {
             return self;
@@ -695,8 +695,8 @@ impl CashFlowBuilder {
     /// # Errors
     ///
     /// Records a pending error if `cash` is provided with a different currency
-    /// than `delta`. The error will be returned when `build()` is called.
-    #[must_use = "builder methods should be chained or terminated with .build()"]
+    /// than `delta`. The error will be returned when `build_with_curves(...)` is called.
+    #[must_use = "builder methods should be chained or terminated with .build_with_curves(...)"]
     pub fn add_principal_event(
         &mut self,
         date: Date,
@@ -725,7 +725,7 @@ impl CashFlowBuilder {
     }
 
     /// Adds a fixed coupon window with its own schedule and payment split (cash/PIK/split).
-    #[must_use = "builder methods should be chained or terminated with .build()"]
+    #[must_use = "builder methods should be chained or terminated with .build_with_curves(...)"]
     pub fn add_fixed_coupon_window(
         &mut self,
         start: Date,
@@ -749,7 +749,7 @@ impl CashFlowBuilder {
     }
 
     /// Adds a floating coupon window with its own schedule and payment split.
-    #[must_use = "builder methods should be chained or terminated with .build()"]
+    #[must_use = "builder methods should be chained or terminated with .build_with_curves(...)"]
     pub fn add_float_coupon_window(
         &mut self,
         start: Date,
@@ -776,7 +776,7 @@ impl CashFlowBuilder {
     }
 
     /// Adds/overrides a payment split (cash/PIK/split) over a window (PIK toggle support).
-    #[must_use = "builder methods should be chained or terminated with .build()"]
+    #[must_use = "builder methods should be chained or terminated with .build_with_curves(...)"]
     pub fn add_payment_window(&mut self, start: Date, end: Date, split: CouponType) -> &mut Self {
         self.payment_program.push(PaymentProgramPiece {
             window: DateWindow { start, end },
@@ -824,7 +824,7 @@ impl CashFlowBuilder {
     ///         ScheduleParams::quarterly_act360(),
     ///         CouponType::Cash,
     ///     )
-    ///     .build()?;
+    ///     .build_with_curves(None)?;
     ///
     /// assert!(schedule.flows.len() > 0);
     /// # Ok(())
@@ -836,7 +836,7 @@ impl CashFlowBuilder {
     /// - Steps must be ordered by end date
     /// - If the last step doesn't reach maturity, the last rate is extended
     /// - All windows use the same schedule parameters
-    #[must_use = "builder methods should be chained or terminated with .build()"]
+    #[must_use = "builder methods should be chained or terminated with .build_with_curves(...)"]
     pub fn fixed_stepup(
         &mut self,
         steps: &[(Date, f64)],
@@ -912,13 +912,13 @@ impl CashFlowBuilder {
     ///         ScheduleParams::quarterly_act360(),
     ///         CouponType::Cash,
     ///     )
-    ///     .build()?;
+    ///     .build_with_curves(None)?;
     ///
     /// assert!(schedule.flows.len() > 0);
     /// # Ok(())
     /// # }
     /// ```
-    #[must_use = "builder methods should be chained or terminated with .build()"]
+    #[must_use = "builder methods should be chained or terminated with .build_with_curves(...)"]
     pub fn float_margin_stepup(
         &mut self,
         steps: &[(Date, f64)],
@@ -1006,13 +1006,13 @@ impl CashFlowBuilder {
     /// let schedule = CashFlowSchedule::builder()
 ///     .principal(Money::new(10_000_000.0, Currency::USD), issue, maturity)
     ///     .fixed_to_float(switch, fixed_win, float_win, CouponType::Cash)
-    ///     .build()?;
+    ///     .build_with_curves(None)?;
     ///
     /// assert!(schedule.flows.len() > 0);
     /// # Ok(())
     /// # }
     /// ```
-    #[must_use = "builder methods should be chained or terminated with .build()"]
+    #[must_use = "builder methods should be chained or terminated with .build_with_curves(...)"]
     pub fn fixed_to_float(
         &mut self,
         switch: Date,
@@ -1092,7 +1092,7 @@ impl CashFlowBuilder {
 ///     .principal(Money::new(25_000_000.0, Currency::USD), issue, maturity)
     ///     .fixed_cf(fixed_spec)
     ///     .payment_split_program(&payment_steps)
-    ///     .build()?;
+    ///     .build_with_curves(None)?;
     ///
     /// // Check that PIK flows increase outstanding balance
     /// let outstanding_path = schedule.outstanding_path()?;
@@ -1106,7 +1106,7 @@ impl CashFlowBuilder {
     /// - Periods not covered by steps default to `Cash`
     /// - Steps must be ordered by end date
     /// - Works with both fixed and floating coupons
-    #[must_use = "builder methods should be chained or terminated with .build()"]
+    #[must_use = "builder methods should be chained or terminated with .build_with_curves(...)"]
     pub fn payment_split_program(&mut self, steps: &[(Date, CouponType)]) -> &mut Self {
         let Some((issue, maturity)) = self.issue_maturity_or_record_error("payment_split_program")
         else {
@@ -1123,11 +1123,6 @@ impl CashFlowBuilder {
             let _ = self.add_payment_window(prev, maturity, CouponType::Cash);
         }
         self
-    }
-
-    /// Builds the complete cashflow schedule.
-    pub fn build(&self) -> finstack_core::Result<CashFlowSchedule> {
-        self.build_with_curves(None)
     }
 
     /// Build the cashflow schedule with optional market curves for floating rate computation.

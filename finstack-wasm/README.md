@@ -311,7 +311,7 @@ async function run() {
   const cashflowSchedule = new CashflowBuilder()
     .principal(notional, issue, maturity)
     .fixedCf(fixedSpec)
-    .build();
+    .buildWithCurves();
 
   console.log('Total flows:', cashflowSchedule.length);
   console.log('Notional:', cashflowSchedule.notional.format());

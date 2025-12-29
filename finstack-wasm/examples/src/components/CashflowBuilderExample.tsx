@@ -180,7 +180,7 @@ export const CashflowBuilderExample: React.FC<CashflowBuilderProps> = (props) =>
 
             cfSchedule = builder.buildWithCurves(market);
           } else {
-            cfSchedule = builder.build();
+            cfSchedule = builder.buildWithCurves();
           }
 
           const flows = cfSchedule.flows();
@@ -363,12 +363,13 @@ export const CashflowBuilderExample: React.FC<CashflowBuilderProps> = (props) =>
             <h4 className="font-semibold mb-2">Floating Rate Calculation</h4>
             <div className="space-y-1 text-sm text-muted-foreground font-mono">
               <p>
-                <span className="text-foreground font-medium">build():</span> coupon = outstanding ×
-                (margin_bp × 0.0001 × gearing) × year_fraction
+                <span className="text-foreground font-medium">buildWithCurves():</span> coupon =
+                outstanding × (margin_bp × 0.0001 × gearing) × year_fraction
               </p>
               <p>
-                <span className="text-foreground font-medium">buildWithCurves():</span> coupon =
-                outstanding × (forward_rate × gearing + margin_bp × 0.0001) × year_fraction
+                <span className="text-foreground font-medium">buildWithCurves(market):</span>{' '}
+                coupon = outstanding × (forward_rate × gearing + margin_bp × 0.0001) ×
+                year_fraction
               </p>
             </div>
           </div>

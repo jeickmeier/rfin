@@ -38,7 +38,7 @@ fn test_pik_bond() {
             calendar_id: None,
             stub: StubKind::None,
         })
-        .build()
+        .build_with_curves(None)
         .unwrap();
 
     let bond = Bond::from_cashflows("PIK", schedule, "USD-OIS", None).unwrap();
@@ -70,7 +70,7 @@ fn test_step_up_bond() {
             params,
             CouponType::Cash,
         )
-        .build()
+        .build_with_curves(None)
         .unwrap();
 
     let bond = Bond::from_cashflows("STEPUP", schedule, "USD-OIS", None).unwrap();

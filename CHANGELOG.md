@@ -12,6 +12,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Removed legacy attribution curve helpers and deprecated CDS option constructors.
 - Removed structured credit constructor `waterfall` parameter and `MetricId::AccruedInterest` alias.
 - Removed legacy JSON aliases for swap spreads (`spread`) and swaption maturity (`tenor`).
+- Removed `CashFlowBuilder::build()` (Rust/Python/JS/WASM); use `build_with_curves(None)` or the optional-market `buildWithCurves()`.
+- Removed `MetricRegistry::compute_best_effort()`; use `compute()` (strict) or `Instrument::price_with_metrics()`.
+- Removed `Instrument::matches_selector/has_tag/get_meta`; use `instrument.attributes().matches_selector/has_tag/get_meta`.
+- Removed binomial tree barrier wrappers (`price_up_and_out`, `price_down_and_out`, `price_up_and_in`, `price_down_and_in`, `price_*_american`); use `price_barrier_out/in` variants.
 
 ### Planned for 0.9.0
 - Reduction of `expect()` and `panic!()` usage across all crates
@@ -70,7 +74,7 @@ Major release addressing critical safety issues and market convention compliance
 - **Quote Units**: `RateQuote::Swap { spread }` → `{ spread_decimal }` for clarity
 
 **Added**:
-- `MetricRegistry::compute_best_effort()` - Opt-in legacy behavior
+- `MetricRegistry::compute_best_effort()` - Opt-in legacy behavior (removed in 0.4.1)
 - `MetricId::parse_strict()` - Strict metric name validation for user inputs
 - `add_joint_business_days()` - Proper FX settlement date calculation
 - `CalendarWrapper` - Better error messages for calendar resolution
@@ -117,7 +121,7 @@ Major release addressing critical safety issues and market convention compliance
 ### Testing
 
 **Integration Tests Added** (19 total):
-- `metrics_strict_mode.rs` - 7 tests covering strict/best-effort modes
+- `metrics_strict_mode.rs` - 7 tests covering strict mode
 - `fx_settlement.rs` - 12 tests covering joint business day logic
 
 **Unit Tests Added** (50+):
@@ -132,7 +136,7 @@ Major release addressing critical safety issues and market convention compliance
 ### Performance
 
 **Benchmarks** (no significant regressions):
-- Metrics strict mode: <1% overhead vs best-effort
+- Metrics strict mode: <1% overhead (within measurement noise)
 - Calibration: <0.1% difference after residual fix
 - FX settlement: ~5% slower (expected; now correct)
 
@@ -144,7 +148,7 @@ Major release addressing critical safety issues and market convention compliance
 
 For comparison with 0.8.0 changes:
 
-- Metrics computation used best-effort mode (silent failures)
+- Metrics computation used legacy best-effort mode (silent failures)
 - FX spot dates used calendar days + adjustment (incorrect per ISDA)
 - Calendar resolution fell back to `weekends_only` for unknown IDs
 - Swap spread field ambiguous (decimal vs basis points)
@@ -226,7 +230,7 @@ Starting with 0.8.0, the Finstack workspace follows strict semantic versioning:
 
 ### Gradual Migration (For Large Codebases)
 
-1. **Phase 1** (Required): Update metrics to strict mode or opt-in to best-effort
+1. **Phase 1** (Required): Update metrics to strict mode with explicit error handling
 2. **Phase 2** (Recommended): Fix FX settlement if using multi-currency
 3. **Phase 3** (If applicable): Update removed constructors to `try_*` variants
 

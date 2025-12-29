@@ -46,7 +46,7 @@ fn example_stepup_bond() -> finstack_core::Result<()> {
             schedule_params,
             CouponType::Cash,
         )
-        .build()?;
+        .build_with_curves(None)?;
 
     // Create bond from custom cashflows
     let bond = Bond::from_cashflows(
@@ -126,7 +126,7 @@ fn example_pik_toggle_bond() -> finstack_core::Result<()> {
             schedule_params,
             CouponType::Cash,
         )
-        .build()?;
+        .build_with_curves(None)?;
 
     // Create bond using builder pattern
     let bond = Bond::builder()
@@ -182,7 +182,7 @@ fn example_amortizing_bond_with_fees() -> finstack_core::Result<()> {
             calendar_id: Some("eur".to_string()),
             stub: StubKind::ShortFront,
         })
-        .build()?;
+        .build_with_curves(None)?;
 
     // Create bond from cashflows
     let bond = Bond::from_cashflows("AMORT_BOND_2030", custom_schedule.clone(), "EUR-OIS", None)?;
@@ -255,7 +255,7 @@ fn example_comparison_regular_vs_custom() -> finstack_core::Result<()> {
             calendar_id: None,
             stub: StubKind::None,
         })
-        .build()?;
+        .build_with_curves(None)?;
 
     let custom_bond = Bond::builder()
         .id("CUSTOM_BOND".into())

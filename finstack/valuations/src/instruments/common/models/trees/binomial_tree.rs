@@ -346,46 +346,6 @@ impl BinomialTree {
         self.price_with_exercise(market_params, Some(&steps))
     }
 
-    /// Convenience wrappers for standard barrier types
-    pub fn price_up_and_out(
-        &self,
-        market_params: &OptionMarketParams,
-        barrier: f64,
-        rebate: f64,
-    ) -> Result<f64> {
-        self.price_barrier_out(market_params, Some(barrier), None, rebate)
-    }
-
-    /// Price a down-and-out barrier option using binomial tree.
-    pub fn price_down_and_out(
-        &self,
-        market_params: &OptionMarketParams,
-        barrier: f64,
-        rebate: f64,
-    ) -> Result<f64> {
-        self.price_barrier_out(market_params, None, Some(barrier), rebate)
-    }
-
-    /// Price an up-and-in barrier option using binomial tree.
-    pub fn price_up_and_in(
-        &self,
-        market_params: &OptionMarketParams,
-        barrier: f64,
-        rebate: f64,
-    ) -> Result<f64> {
-        self.price_barrier_in(market_params, Some(barrier), None, rebate)
-    }
-
-    /// Price a down-and-in barrier option using binomial tree.
-    pub fn price_down_and_in(
-        &self,
-        market_params: &OptionMarketParams,
-        barrier: f64,
-        rebate: f64,
-    ) -> Result<f64> {
-        self.price_barrier_in(market_params, None, Some(barrier), rebate)
-    }
-
     /// Calculate Greeks using binomial tree
     pub fn calculate_greeks(
         &self,
@@ -688,26 +648,6 @@ impl BinomialTree {
             rebate,
             Some(&steps),
         )
-    }
-
-    /// Price an up-and-in barrier option with American exercise.
-    pub fn price_up_and_in_american(
-        &self,
-        market_params: &OptionMarketParams,
-        barrier: f64,
-        rebate: f64,
-    ) -> Result<f64> {
-        self.price_barrier_in_american(market_params, Some(barrier), None, rebate)
-    }
-
-    /// Price a down-and-in barrier option with American exercise.
-    pub fn price_down_and_in_american(
-        &self,
-        market_params: &OptionMarketParams,
-        barrier: f64,
-        rebate: f64,
-    ) -> Result<f64> {
-        self.price_barrier_in_american(market_params, None, Some(barrier), rebate)
     }
 
     /// Generic pricing engine for arbitrary instruments

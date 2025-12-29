@@ -825,7 +825,7 @@ fn build_convertible_schedule(bond: &ConvertibleBond) -> Result<CashFlowSchedule
     if let Some(floating_spec) = &bond.floating_coupon {
         let _ = builder.floating_cf(floating_spec.clone());
     }
-    builder.build()
+    builder.build_with_curves(None)
 }
 
 /// Calculate convertible bond parity

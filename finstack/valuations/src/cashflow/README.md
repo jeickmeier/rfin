@@ -218,7 +218,7 @@ let fixed_spec = FixedCouponSpec {
 let schedule = CashFlowSchedule::builder()
     .principal(Money::new(1_000_000.0, Currency::USD), issue, maturity)
     .fixed_cf(fixed_spec)
-    .build()?;
+    .build_with_curves(None)?;
 
 // Access flows
 for cf in &schedule.flows {
@@ -237,7 +237,7 @@ let schedule = CashFlowSchedule::builder()
         final_notional: Money::new(0.0, Currency::USD),
     })
     .fixed_cf(fixed_spec)
-    .build()?;
+    .build_with_curves(None)?;
 
 // Track outstanding balance
 let outstanding = schedule.outstanding_by_date()?;
@@ -277,7 +277,7 @@ let float_spec = FloatingCouponSpec {
 let schedule = CashFlowSchedule::builder()
     .principal(Money::new(1_000_000.0, Currency::USD), issue, maturity)
     .floating_cf(float_spec)
-    .build()?;
+    .build_with_curves(None)?;
 ```
 
 ### Accrued Interest Calculation
@@ -336,7 +336,7 @@ builder.amortization(spec: AmortizationSpec)
 builder.fee(spec: FeeSpec)
 
 // Build final schedule
-let schedule: CashFlowSchedule = builder.build()?;
+let schedule: CashFlowSchedule = builder.build_with_curves(None)?;
 ```
 
 #### Amortization Styles
@@ -576,7 +576,7 @@ impl CashflowProvider for MyInstrument {
         CashFlowSchedule::builder()
             .principal(/* ... */)
             .fixed_cf(/* ... */)
-            .build()
+            .build_with_curves(Some(curves))
     }
 
 }
@@ -718,7 +718,7 @@ let schedule = CashFlowSchedule::builder()
     .amortization(amort)
     .fee(fee)
     .fixed_cf(coupon)
-    .build()?;
+    .build_with_curves(None)?;
 
 // Print all flows grouped by date
 for (date, balance) in schedule.outstanding_by_date()? {
@@ -767,7 +767,7 @@ let schedule = CashFlowSchedule::builder()
     .principal(init, issue, maturity)
     .fixed_cf_window(pik_spec, issue, pik_end)   // PIK period
     .fixed_cf_window(cash_spec, pik_end, maturity) // Cash period
-    .build()?;
+    .build_with_curves(None)?;
 
 // Outstanding grows during PIK period
 let outstanding = schedule.outstanding_by_date()?;
@@ -881,7 +881,7 @@ let schedule = CashFlowSchedule::builder()
         calendar_id: None,
         stub: StubKind::None,
     })
-    .build()?;
+    .build_with_curves(None)?;
 
 // Configure accrual with ex-coupon rule
 let config = AccrualConfig {
@@ -984,7 +984,7 @@ fn test_accelerating_amortization() {
         .amortization(AmortizationSpec::Accelerating {
             acceleration_rate: 0.05,
         })
-        .build()
+        .build_with_curves(None)
         .unwrap();
     
     let amorts: Vec<_> = schedule
@@ -1195,7 +1195,7 @@ fn test_fixed_coupon_schedule() {
     let schedule = CashFlowSchedule::builder()
         .principal(init, issue, maturity)
         .fixed_cf(spec)
-        .build()
+        .build_with_curves(None)
         .unwrap();
     
     // Assertions
@@ -1220,7 +1220,7 @@ proptest! {
             .amortization(AmortizationSpec::LinearTo {
                 final_notional: Money::new(0.0, Currency::USD),
             })
-            .build()
+            .build_with_curves(None)
             .unwrap();
         
         let total_amort: f64 = schedule

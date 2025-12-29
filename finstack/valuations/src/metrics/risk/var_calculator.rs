@@ -7,7 +7,7 @@ use crate::instruments::common::helpers::instrument_to_arc;
 use crate::instruments::common::traits::Instrument;
 use crate::metrics::risk::MarketHistory;
 use crate::metrics::sensitivities::dv01::format_bucket_label;
-use crate::metrics::{standard_registry, MetricContext, MetricId};
+use crate::metrics::{standard_registry, MetricContext, MetricId, StrictMode};
 use finstack_core::collections::HashMap;
 use finstack_core::dates::Date;
 use finstack_core::market_data::context::MarketContext;
@@ -349,7 +349,7 @@ fn compute_taylor_sensitivities(
         MetricId::Vega,
     ];
 
-    let computed = registry.compute_best_effort(&metrics, &mut context)?;
+    let computed = registry.compute_with_mode(&metrics, &mut context, StrictMode::BestEffort)?;
 
     let dv01 = collect_bucketed_series(&context.computed_series, MetricId::BucketedDv01.as_str());
     let cs01 = collect_bucketed_series(&context.computed_series, MetricId::BucketedCs01.as_str());

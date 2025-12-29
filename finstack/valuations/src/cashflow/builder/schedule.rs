@@ -129,7 +129,7 @@ impl CashFlowSchedule {
     /// let schedule = CashFlowSchedule::builder()
     ///     .principal(notional, issue, maturity)
     ///     .fixed_cf(spec)
-    ///     .build()?;
+    ///     .build_with_curves(None)?;
     /// # let _ = schedule;
     /// # Ok(())
     /// # }

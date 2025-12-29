@@ -57,7 +57,7 @@ def build_custom_schedule(issue: date, maturity: date, notional: Money):
         .principal(amount=notional.amount, currency=USD, issue=issue, maturity=maturity)
         .fixed_cf(fixed_5pct)
     )
-    return cfb.build()
+    return cfb.build_with_curves(None)
 
 
 def main():
@@ -151,7 +151,7 @@ def main():
             (maturity, CouponType.CASH),  # remainder: cash
         ])
     )
-    sched2 = cfb2.build()
+    sched2 = cfb2.build_with_curves(None)
     bond_split = Bond.from_cashflows(
         instrument_id="BOND-SPLIT-PIK-CASH",
         schedule=sched2,

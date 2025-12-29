@@ -569,7 +569,7 @@ impl Bond {
     /// let schedule = CashFlowSchedule::builder()
     ///     .principal(Money::new(1_000_000.0, Currency::USD), issue, maturity)
     ///     .fixed_cf(fixed_spec)
-    ///     .build()?;
+    ///     .build_with_curves(None)?;
     ///
     /// let bond = Bond::from_cashflows("PIK-001", schedule, "USD-HY", Some(95.0))?;
     /// # let _ = bond;
@@ -685,7 +685,7 @@ impl Bond {
     /// # let bond = Bond::example();
     /// # let schedule = CashFlowSchedule::builder()
     /// #     .principal(Money::new(1_000_000.0, Currency::USD), Date::from_calendar_date(2024, time::Month::January, 1).unwrap(), Date::from_calendar_date(2034, time::Month::January, 1).unwrap())
-    /// #     .build().unwrap();
+    /// #     .build_with_curves(None).unwrap();
     /// let bond_with_custom = bond.with_cashflows(schedule);
     /// ```
     pub fn with_cashflows(mut self, schedule: CashFlowSchedule) -> Self {
@@ -1140,7 +1140,7 @@ mod tests {
                 schedule_params,
                 CouponType::Cash,
             )
-            .build()
+            .build_with_curves(None)
             .expect("CashFlowSchedule builder should succeed with valid test data");
 
         // Create bond from custom cashflows
@@ -1211,7 +1211,7 @@ mod tests {
                 calendar_id: None,
                 stub: StubKind::None,
             })
-            .build()
+            .build_with_curves(None)
             .expect("CashFlowSchedule builder should succeed with valid test data");
 
         // Use builder pattern (default cashflow_spec since custom_cashflows overrides)
@@ -1275,7 +1275,7 @@ mod tests {
                 calendar_id: None,
                 stub: StubKind::None,
             })
-            .build()
+            .build_with_curves(None)
             .expect("CashFlowSchedule builder should succeed with valid test data");
 
         // Apply custom cashflows
@@ -1325,7 +1325,7 @@ mod tests {
                 calendar_id: None,
                 stub: StubKind::None,
             })
-            .build()
+            .build_with_curves(None)
             .expect("CashFlowSchedule builder should succeed with valid test data");
 
         let custom_bond = regular_bond.clone().with_cashflows(custom_schedule);

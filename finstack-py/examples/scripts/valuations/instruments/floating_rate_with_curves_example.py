@@ -1,10 +1,10 @@
 #!/usr/bin/env python3
 """Demonstrate floating rate cashflow calculation with and without market curves.
 
-This example shows how build() vs build_with_curves() produces different cashflow amounts
+This example shows how build_with_curves(None) vs build_with_curves(market) produces different cashflow amounts
 for floating rate instruments:
-- build(): Uses only the margin (spread)
-- build_with_curves(): Uses forward_rate * gearing + margin from market curves
+- build_with_curves(None): Uses only the margin (spread)
+- build_with_curves(market): Uses forward_rate * gearing + margin from market curves
 
 Run after installing the extension:
     uv run maturin develop
@@ -62,9 +62,9 @@ def main() -> None:
 
     # Example 1: Build WITHOUT curves (margin only)
     print("-" * 80)
-    print("Example 1: build() - Margin Only (No Forward Rates)")
+    print("Example 1: build_with_curves(None) - Margin Only (No Forward Rates)")
     print("-" * 80)
-    sched_no_curves = builder.build()
+    sched_no_curves = builder.build_with_curves(None)
     flows_no_curves = sched_no_curves.flows()
 
     print(f"\nCalculation: coupon = outstanding * (margin_bp * 1e-4 * gearing) * year_fraction")
@@ -77,7 +77,7 @@ def main() -> None:
 
     # Example 2: Build WITH curves (forward rate + margin)
     print("\n" + "-" * 80)
-    print("Example 2: build_with_curves() - Forward Rates from Market")
+    print("Example 2: build_with_curves(market) - Forward Rates from Market")
     print("-" * 80)
 
     # Create market context with forward curve
@@ -121,7 +121,7 @@ def main() -> None:
 
     # Example 3: Comparison
     print("\n" + "=" * 80)
-    print("COMPARISON: build() vs build_with_curves()")
+    print("COMPARISON: build_with_curves(None) vs build_with_curves(market)")
     print("=" * 80)
     print(f"\n{'Date':<12} {'Without Curves':>18} {'With Curves':>18} {'Difference':>18}")
     print("-" * 72)
@@ -138,12 +138,12 @@ def main() -> None:
     print("KEY INSIGHTS")
     print("=" * 80)
     print("""
-1. build() - Margin Only:
+1. build_with_curves(None) - Margin Only:
    - Uses fixed margin regardless of market conditions
    - Appropriate for initial modeling without market data
    - Formula: outstanding * (margin_bp * 0.0001 * gearing) * year_fraction
 
-2. build_with_curves() - Market-Based:
+2. build_with_curves(market) - Market-Based:
    - Incorporates forward rates from ForwardCurve
    - Reflects actual market expectations for floating rates
    - Formula: outstanding * (forward_rate * gearing + margin_bp * 0.0001) * year_fraction

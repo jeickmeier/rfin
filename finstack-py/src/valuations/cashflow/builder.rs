@@ -373,30 +373,23 @@ impl PyCashflowBuilder {
         }
     }
 
-    #[pyo3(text_signature = "(self)")]
-    fn build(&self) -> PyResult<PyCashFlowSchedule> {
-        self.inner
-            .build()
-            .map(PyCashFlowSchedule::new)
-            .map_err(core_to_py)
-    }
-
-    #[pyo3(text_signature = "(self, market)")]
-    /// Build the cashflow schedule with market curves for floating rate computation.
+    #[pyo3(text_signature = "(self, market=None)")]
+    /// Build the cashflow schedule with optional market curves for floating rate computation.
     ///
     /// When a market context is provided, floating rate coupons include the forward rate
     /// from the curve: `coupon = outstanding * (forward_rate * gearing + margin_bp * 1e-4) * year_fraction`
     ///
-    /// Without curves (or using `build()`), only the margin is used:
+    /// Without curves (or using `build_with_curves(None)`), only the margin is used:
     /// `coupon = outstanding * (margin_bp * 1e-4 * gearing) * year_fraction`
     fn build_with_curves(
         &self,
-        market: crate::core::market_data::PyMarketContext,
+        market: Option<PyRef<PyMarketContext>>,
     ) -> PyResult<PyCashFlowSchedule> {
-        self.inner
-            .build_with_curves(Some(&market.inner))
-            .map(PyCashFlowSchedule::new)
-            .map_err(core_to_py)
+        let schedule = match market {
+            Some(market) => self.inner.build_with_curves(Some(&market.inner)),
+            None => self.inner.build_with_curves(None),
+        };
+        schedule.map(PyCashFlowSchedule::new).map_err(core_to_py)
     }
 }
 

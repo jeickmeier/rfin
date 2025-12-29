@@ -209,8 +209,8 @@ impl MetricRegistry {
     ///
     /// **This method defaults to strict mode** (breaking change from v0.7.0).
     /// Any missing metric, non-applicable metric, or calculation failure will
-    /// immediately return an error. For backward-compatible behavior, use
-    /// [`compute_best_effort()`](Self::compute_best_effort).
+    /// immediately return an error. For backward-compatible behavior, handle
+    /// errors explicitly or use `Instrument::price_with_metrics`.
     ///
     /// # Arguments
     /// * `metric_ids` - Vector of metric IDs to compute
@@ -247,49 +247,8 @@ impl MetricRegistry {
         self.compute_with_mode(metric_ids, context, StrictMode::Strict)
     }
 
-    /// Computes specific metrics in best-effort mode (backward compatible).
-    ///
-    /// This method provides backward-compatible behavior from v0.7.0 where
-    /// missing metrics, non-applicable metrics, and calculation failures
-    /// are logged as warnings and assigned a value of 0.0.
-    ///
-    /// **Warning**: This mode can produce silently incorrect results. Use only
-    /// when you explicitly need partial results or backward compatibility.
-    /// Prefer [`compute()`](Self::compute) for production use.
-    ///
-    /// # Arguments
-    /// * `metric_ids` - Vector of metric IDs to compute
-    /// * `context` - Metric context containing instrument and market data
-    ///
-    /// # Returns
-    /// HashMap mapping metric IDs to computed values. Failed metrics will have value 0.0.
-    ///
-    /// # Errors
-    /// Returns an error only if circular dependencies are detected.
-    ///
-    /// # Examples
-    ///
-    /// ```no_run
-    /// use finstack_valuations::metrics::{MetricContext, MetricId, MetricRegistry};
-    /// # fn example(registry: &MetricRegistry, mut context: MetricContext) -> finstack_core::Result<()> {
-    /// // Best-effort mode: continues on errors
-    /// let metrics = vec![MetricId::Dv01, MetricId::Convexity];
-    /// let results = registry.compute_best_effort(&metrics, &mut context)?;
-    /// # Ok(())
-    /// # }
-    /// ```
-    ///
-    /// See unit tests and `examples/` for usage.
-    pub fn compute_best_effort(
-        &self,
-        metric_ids: &[MetricId],
-        context: &mut MetricContext,
-    ) -> finstack_core::Result<HashMap<MetricId, f64>> {
-        self.compute_with_mode(metric_ids, context, StrictMode::BestEffort)
-    }
-
     /// Internal method to compute metrics with explicit mode control.
-    fn compute_with_mode(
+    pub(crate) fn compute_with_mode(
         &self,
         metric_ids: &[MetricId],
         context: &mut MetricContext,
@@ -734,9 +693,10 @@ mod tests {
         let mut context = create_test_context();
 
         // Request both metrics in best-effort mode
-        let result = registry.compute_best_effort(
+        let result = registry.compute_with_mode(
             &[MetricId::Dv01, MetricId::Convexity, MetricId::Ytm], // Ytm is unknown
             &mut context,
+            StrictMode::BestEffort,
         );
 
         assert!(result.is_ok());
@@ -885,7 +845,7 @@ mod tests {
         let mut context = create_test_context();
 
         // Compute should resolve dependencies correctly
-        let result = registry.compute_best_effort(&[metric_a], &mut context);
+        let result = registry.compute_with_mode(&[metric_a], &mut context, StrictMode::BestEffort);
 
         assert!(result.is_ok());
         // If we got here, dependencies were resolved in correct order
@@ -917,9 +877,10 @@ mod tests {
         let mut context = create_test_context();
 
         // Best-effort should compute successful metrics and fallback for failed ones
-        let result = registry.compute_best_effort(
+        let result = registry.compute_with_mode(
             &[MetricId::Dv01, MetricId::Convexity, MetricId::Theta],
             &mut context,
+            StrictMode::BestEffort,
         );
 
         assert!(result.is_ok());

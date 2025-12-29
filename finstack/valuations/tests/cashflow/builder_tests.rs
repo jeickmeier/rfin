@@ -45,7 +45,7 @@ fn linear_vs_step_parity() {
             final_notional: Money::new(0.0, Currency::USD),
         })
         .fixed_cf(fixed.clone());
-    let s1 = b1.build().unwrap();
+    let s1 = b1.build_with_curves(None).unwrap();
 
     // Step schedule equivalent
     let sched: Vec<Date> = ScheduleBuilder::new(issue, maturity)
@@ -67,7 +67,7 @@ fn linear_vs_step_parity() {
         .principal(init, issue, maturity)
         .amortization(AmortizationSpec::StepRemaining { schedule: pairs })
         .fixed_cf(fixed.clone());
-    let s2 = b2.build().unwrap();
+    let s2 = b2.build_with_curves(None).unwrap();
 
     assert_eq!(s1.flows.len(), s2.flows.len());
     for (a, b) in s1.flows.iter().zip(s2.flows.iter()) {
@@ -100,7 +100,7 @@ fn pik_capitalization_increases_outstanding() {
 
     let mut b = CashFlowSchedule::builder();
     let _ = b.principal(init, issue, maturity).fixed_cf(fixed.clone());
-    let s = b.build().unwrap();
+    let s = b.build_with_curves(None).unwrap();
     let path = s.outstanding_path().unwrap();
     // Find last outstanding before redemption
     let last_before = path
@@ -137,7 +137,7 @@ fn ordering_invariants_within_date() {
         .principal(init, issue, maturity)
         .amortization(AmortizationSpec::PercentPerPeriod { pct: 0.25 })
         .fixed_cf(fixed.clone());
-    let s = b.build().unwrap();
+    let s = b.build_with_curves(None).unwrap();
 
     // On coupon dates where multiple flows exist, enforce order: Fixed/Stub -> Amortization -> PIK -> Notional
     let mut by_date: finstack_core::collections::HashMap<Date, Vec<CFKind>> =
@@ -179,7 +179,7 @@ fn fixed_schedule_npv_equals_sum_cashflows() {
 
     let mut b = CashFlowSchedule::builder();
     let _ = b.principal(init, issue, maturity).fixed_cf(fixed.clone());
-    let schedule = b.build().unwrap();
+    let schedule = b.build_with_curves(None).unwrap();
 
     // Use a flat DF=1.0 curve for this test (testing NPV = sum when no discounting)
     // NOTE: Flat curves are not monotonically decreasing, so must allow_non_monotonic()
@@ -227,7 +227,7 @@ fn detects_stub_periods() {
 
     let mut b = CashFlowSchedule::builder();
     let _ = b.principal(init, issue, maturity).fixed_cf(fixed.clone());
-    let schedule = b.build().unwrap();
+    let schedule = b.build_with_curves(None).unwrap();
 
     // Find coupon flows (not notional)
     let coupon_flows: Vec<&CashFlow> = schedule
@@ -269,7 +269,7 @@ fn outstanding_by_date_dedup_and_values() {
         .principal(init, issue, maturity)
         .amortization(AmortizationSpec::PercentPerPeriod { pct: 0.25 })
         .fixed_cf(fixed.clone());
-    let s = b.build().unwrap();
+    let s = b.build_with_curves(None).unwrap();
 
     let end_by_date = s.outstanding_by_date().unwrap();
 
@@ -347,7 +347,7 @@ fn strict_schedule_mode_errors_on_unknown_calendar() {
         .strict_schedules(true)
         .fixed_cf(fixed.clone());
 
-    let result_strict = builder_strict.build();
+    let result_strict = builder_strict.build_with_curves(None);
     assert!(
         result_strict.is_err(),
         "Strict mode should error on unknown calendar"
@@ -360,7 +360,7 @@ fn strict_schedule_mode_errors_on_unknown_calendar() {
         .strict_schedules(false)
         .fixed_cf(fixed);
 
-    let result_graceful = builder_graceful.build();
+    let result_graceful = builder_graceful.build_with_curves(None);
     assert!(
         result_graceful.is_ok(),
         "Graceful mode should succeed with fallback"
@@ -396,7 +396,7 @@ fn stub_period_thirty360_produces_proportional_accrual() {
 
     let mut b = CashFlowSchedule::builder();
     let _ = b.principal(init, issue, maturity).fixed_cf(fixed.clone());
-    let schedule = b.build().unwrap();
+    let schedule = b.build_with_curves(None).unwrap();
 
     // Find coupon flows only
     let coupon_flows: Vec<&CashFlow> = schedule
@@ -828,7 +828,7 @@ fn principal_events_after_maturity_rejected() {
         .principal(init, issue, maturity)
         .principal_events(&[event]);
 
-    let result = builder.build();
+    let result = builder.build_with_curves(None);
     assert!(
         result.is_err(),
         "Build should fail when principal event is after maturity"
@@ -867,7 +867,7 @@ fn principal_events_at_maturity_accepted() {
         .principal(init, issue, maturity)
         .principal_events(&[event]);
 
-    let result = builder.build();
+    let result = builder.build_with_curves(None);
     assert!(
         result.is_ok(),
         "Build should succeed when principal event is exactly at maturity"

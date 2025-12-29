@@ -228,7 +228,7 @@ fn test_custom_cashflows_from_schedule() {
     let custom_schedule = CashFlowSchedule::builder()
         .principal(Money::new(1000.0, Currency::USD), issue, maturity)
         .fixed_stepup(&[(step1, 0.04), (maturity, 0.06)], params, CouponType::Cash)
-        .build()
+        .build_with_curves(None)
         .unwrap();
 
     let bond = Bond::from_cashflows("CUSTOM", custom_schedule, "USD-OIS", Some(98.0)).unwrap();
@@ -257,7 +257,7 @@ fn test_pik_cashflows() {
             calendar_id: None,
             stub: StubKind::None,
         })
-        .build()
+        .build_with_curves(None)
         .unwrap();
 
     let bond = Bond::from_cashflows("PIK", custom_schedule, "USD-OIS", None).unwrap();

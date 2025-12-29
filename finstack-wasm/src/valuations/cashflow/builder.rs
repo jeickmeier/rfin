@@ -446,37 +446,26 @@ impl JsCashflowBuilder {
         Ok(self)
     }
 
-    /// Build the complete cashflow schedule without market curves.
-    ///
-    /// For floating rate coupons, only the margin is used in the calculation.
-    /// To incorporate forward rates from market curves, use `buildWithCurves()` instead.
-    ///
-    /// Returns a CashFlowSchedule containing all generated cashflows.
-    #[wasm_bindgen]
-    pub fn build(self) -> Result<JsCashFlowSchedule, JsValue> {
-        let schedule = self.inner.build().map_err(|e| js_error(e.to_string()))?;
-        Ok(JsCashFlowSchedule::new(schedule))
-    }
-
     /// Build the cashflow schedule with market curves for floating rate computation.
     ///
     /// When a market context is provided, floating rate coupons include the forward rate:
     /// `coupon = outstanding * (forward_rate * gearing + margin_bp * 1e-4) * year_fraction`
     ///
-    /// Without curves (or using `build()`), only the margin is used:
+    /// Without curves (or using `buildWithCurves()` without a market), only the margin is used:
     /// `coupon = outstanding * (margin_bp * 1e-4 * gearing) * year_fraction`
     ///
     /// # Arguments
-    /// * `market` - Market context containing forward curves
+    /// * `market` - Optional market context containing forward curves
     #[wasm_bindgen(js_name = buildWithCurves)]
     pub fn build_with_curves(
         self,
-        market: &crate::core::market_data::context::JsMarketContext,
+        market: Option<crate::core::market_data::context::JsMarketContext>,
     ) -> Result<JsCashFlowSchedule, JsValue> {
-        let schedule = self
-            .inner
-            .build_with_curves(Some(market.inner()))
-            .map_err(|e| js_error(e.to_string()))?;
+        let schedule = match market {
+            Some(market) => self.inner.build_with_curves(Some(market.inner())),
+            None => self.inner.build_with_curves(None),
+        }
+        .map_err(|e| js_error(e.to_string()))?;
         Ok(JsCashFlowSchedule::new(schedule))
     }
 }

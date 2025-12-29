@@ -1,14 +1,13 @@
 //! Integration tests for Phase 1 metrics strict mode functionality.
 //!
-//! These tests verify end-to-end workflows with the new strict/best-effort
-//! metrics computation modes introduced in Phase 1 of market convention refactors.
+//! These tests verify end-to-end workflows with strict metrics computation
+//! introduced in Phase 1 of market convention refactors.
 //!
 //! Test scenarios:
 //! 1. Multi-metric request with all metrics succeeding
 //! 2. Multi-metric request with one failure (strict mode → all fail)
-//! 3. Multi-metric request with one failure (best effort → partial success)
-//! 4. Circular dependency detection
-//! 5. Unknown metric handling in strict vs permissive parsing
+//! 3. Circular dependency detection
+//! 4. Unknown metric handling in strict vs permissive parsing
 
 use finstack_core::currency::Currency;
 use finstack_core::dates::{Date, DayCount};
@@ -187,52 +186,6 @@ fn test_unknown_metric_fails_strict_mode() {
 }
 
 #[test]
-fn test_best_effort_mode_partial_success() {
-    // Scenario: Request metrics with one unknown → best effort mode returns partial results
-
-    let as_of = date!(2024 - 01 - 15);
-    let market = create_bond_market(as_of);
-    let bond = create_test_bond(as_of);
-    let pv = bond.value(&market, as_of).unwrap();
-
-    let mut context = MetricContext::new(Arc::new(bond), Arc::new(market), as_of, pv);
-
-    // Mix valid and invalid metrics
-    let metric_ids = vec![
-        MetricId::CleanPrice,
-        MetricId::custom("nonexistent_metric"), // This should fallback to 0.0
-        MetricId::Ytm,
-    ];
-
-    let registry = standard_registry();
-
-    // Compute with best effort mode
-    let result = registry.compute_best_effort(&metric_ids, &mut context);
-
-    // Should succeed with partial results
-    assert!(
-        result.is_ok(),
-        "Best effort mode should succeed even with unknown metrics"
-    );
-
-    let metrics = result.unwrap();
-
-    // Known metrics should have real values
-    assert!(
-        metrics[&MetricId::CleanPrice] > 0.0,
-        "CleanPrice should be computed"
-    );
-    assert!(metrics[&MetricId::Ytm] > 0.0, "YTM should be computed");
-
-    // Unknown metric should be present with fallback value (0.0)
-    let unknown_key = MetricId::custom("nonexistent_metric");
-    assert_eq!(
-        metrics[&unknown_key], 0.0,
-        "Unknown metric should fallback to 0.0 in best effort mode"
-    );
-}
-
-#[test]
 fn test_strict_is_default() {
     // Scenario: Verify that compute() defaults to strict mode
 
@@ -250,26 +203,10 @@ fn test_strict_is_default() {
     // compute() should behave same as strict mode
     let default_result = registry.compute(&metric_ids, &mut context);
 
-    // Both default compute() and best_effort should behave differently
-    let market2 = create_bond_market(as_of);
-    let mut context_be = MetricContext::new(
-        Arc::new(create_test_bond(as_of)),
-        Arc::new(market2),
-        as_of,
-        pv,
-    );
-    let best_effort_result = registry.compute_best_effort(&metric_ids, &mut context_be);
-
     // Default compute() should fail (strict mode)
     assert!(
         default_result.is_err(),
         "Default compute() should fail on unknown metric"
-    );
-
-    // Best effort should succeed
-    assert!(
-        best_effort_result.is_ok(),
-        "Best effort mode should succeed on unknown metric"
     );
 
     // Verify default compute() returns appropriate error

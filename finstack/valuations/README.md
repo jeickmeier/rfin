@@ -33,7 +33,7 @@ The `finstack-valuations` crate provides a comprehensive valuation engine for fi
 - 🟡 **Panicking constructors removed** - Use `try_new()` instead of `new()` methods
 
 **Quick Start Migration**:
-1. Add error handling for `compute()` calls OR use `compute_best_effort()` for gradual migration
+1. Add error handling for `compute()` calls and prefer `Instrument::price_with_metrics()` for strict pricing + metrics
 2. Update FX-related tests if using multi-currency instruments
 3. Replace removed `new()` constructors with `try_new()` variants
 
@@ -353,8 +353,7 @@ println!("YTM: {:.2}%", result.metric("ytm").unwrap() * 100.0);
 println!("Modified Duration: {:.2}", result.metric("duration_mod").unwrap());
 println!("DV01: ${:.2}", result.metric("dv01").unwrap());
 
-// For gradual migration, use best-effort mode (0.8.0+):
-// let result = bond.price_with_metrics_best_effort(&market, as_of, &metrics)?;
+// Handle errors explicitly or use smaller metric sets if needed.
 ```
 
 ### Curve Calibration
@@ -404,7 +403,7 @@ let schedule = CashFlowSchedule::builder()
         calendar_id: None,
         stub: StubKind::None,
     })
-    .build()?;
+    .build_with_curves(None)?;
 
 // Compute periodized PV
 let periods = vec![/* quarterly periods */];

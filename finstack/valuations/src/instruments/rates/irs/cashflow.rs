@@ -65,7 +65,7 @@ pub fn fixed_leg_schedule(irs: &InterestRateSwap) -> Result<CashFlowSchedule> {
             calendar_id: irs.fixed.calendar_id.as_deref().map(String::from),
             stub: irs.fixed.stub,
         });
-    let mut sched = fixed_b.build()?;
+    let mut sched = fixed_b.build_with_curves(None)?;
     // IRS do not exchange notionals; return coupon-only schedule as documented.
     sched.flows.retain(|cf| {
         cf.kind == crate::cashflow::primitives::CFKind::Fixed

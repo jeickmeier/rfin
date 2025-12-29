@@ -102,7 +102,7 @@ mod tests {
         CashFlowSchedule::builder()
             .principal(Money::new(1_000.0, Currency::USD), issue, maturity)
             .fixed_cf(fixed)
-            .build()
+            .build_with_curves(None)
             .expect("should build schedule")
     }
 

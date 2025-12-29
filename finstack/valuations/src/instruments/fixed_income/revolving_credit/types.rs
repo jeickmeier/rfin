@@ -641,7 +641,7 @@ impl crate::instruments::common::traits::Instrument for RevolvingCredit {
         as_of: finstack_core::dates::Date,
     ) -> finstack_core::Result<finstack_core::money::Money> {
         // Optional model override via attributes metadata (e.g., meta["pricing_model"] = "monte_carlo_gbm")
-        if let Some(model_str) = self.get_meta("pricing_model") {
+        if let Some(model_str) = self.attributes().get_meta("pricing_model") {
             if let Ok(model) = <crate::pricer::ModelKey as ::std::str::FromStr>::from_str(model_str)
             {
                 let registry = crate::pricer::create_standard_registry();

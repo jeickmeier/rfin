@@ -668,52 +668,6 @@ pub trait Instrument: Send + Sync {
         None
     }
 
-    /// Check if the instrument matches a selector pattern.
-    ///
-    /// Convenience method that delegates to `Attributes::matches_selector()`.
-    /// See [`Attributes::matches_selector()`] for supported selector patterns.
-    ///
-    /// # Arguments
-    ///
-    /// * `selector` - Selector pattern (e.g., "tag:corporate", "meta:sector=tech")
-    ///
-    /// # Returns
-    ///
-    /// `true` if selector matches, `false` otherwise
-    fn matches_selector(&self, selector: &str) -> bool {
-        self.attributes().matches_selector(selector)
-    }
-
-    /// Check if the instrument has a specific tag.
-    ///
-    /// Convenience method that delegates to `Attributes::has_tag()`.
-    ///
-    /// # Arguments
-    ///
-    /// * `tag` - Tag to check for
-    ///
-    /// # Returns
-    ///
-    /// `true` if tag exists, `false` otherwise
-    fn has_tag(&self, tag: &str) -> bool {
-        self.attributes().has_tag(tag)
-    }
-
-    /// Get a metadata value by key.
-    ///
-    /// Convenience method that delegates to `Attributes::get_meta()`.
-    ///
-    /// # Arguments
-    ///
-    /// * `key` - Metadata key to look up
-    ///
-    /// # Returns
-    ///
-    /// `Some(value)` if key exists, `None` otherwise
-    fn get_meta(&self, key: &str) -> Option<&str> {
-        self.attributes().get_meta(key)
-    }
-
     /// Clone this instrument as a boxed trait object.
     ///
     /// Enables cloning instruments behind trait objects. Required because
