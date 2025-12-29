@@ -14,7 +14,7 @@ use super::term_structures::{
     PyInflationCurve,
 };
 use crate::errors::core_to_py;
-use finstack_core::collections::HashMap;
+use finstack_core::HashMap;
 use finstack_core::market_data::context::{ContextStats, MarketContext};
 use finstack_core::types::CurveId;
 use pyo3::exceptions::PyTypeError;

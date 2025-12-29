@@ -6,7 +6,7 @@
 
 use crate::instruments::common::traits::{CurveDependencies, Instrument};
 use crate::metrics::sensitivities::dv01::standard_ir_dv01_buckets;
-use finstack_core::collections::HashSet;
+use finstack_core::HashSet;
 use finstack_core::market_data::context::MarketContext;
 use finstack_core::types::CurveId;
 use finstack_core::Result;
@@ -295,7 +295,7 @@ mod tests {
     use super::*;
     use finstack_core::dates::DayCount;
     use finstack_core::market_data::scalars::MarketScalar;
-    use finstack_core::market_data::term_structures::discount_curve::DiscountCurve;
+    use finstack_core::market_data::term_structures::DiscountCurve;
     use finstack_core::money::Money;
     use finstack_core::types::Currency;
     use time::macros::date;
@@ -439,7 +439,7 @@ mod tests {
             .insert_discount(curve)
             .insert_price(&option.spot_id, MarketScalar::Unitless(150.0))
             .insert_surface(
-                finstack_core::market_data::surfaces::vol_surface::VolSurface::builder(
+                finstack_core::market_data::surfaces::VolSurface::builder(
                     option.vol_surface_id.clone(),
                 )
                 .expiries(&[0.5, 1.0])

@@ -8,12 +8,12 @@
 //! The public surface remains stable:
 //! - `FxProvider` trait for on-demand quotes
 //! - `FxMatrix` offering `FxMatrix::rate` for consumers and `MarketContext`
-//! - `providers` module with standard provider implementations
+//! - standard provider implementations (e.g. [`SimpleFxProvider`])
 //!
 //! # Examples
 //! ```rust
 //! use finstack_core::money::fx::{FxConversionPolicy, FxMatrix, FxProvider, FxQuery};
-//! use finstack_core::money::fx::providers::SimpleFxProvider;
+//! use finstack_core::money::fx::SimpleFxProvider;
 //! use finstack_core::currency::Currency;
 //! use finstack_core::dates::Date;
 //! use std::sync::Arc;
@@ -28,8 +28,10 @@
 //! assert_eq!(res.rate, 1.1);
 //! ```
 
+mod providers;
+
 /// Standard FX provider implementations.
-pub mod providers;
+pub use providers::{BumpedFxProvider, SimpleFxProvider};
 
 use crate::currency::Currency;
 use crate::dates::Date;

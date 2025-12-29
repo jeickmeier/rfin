@@ -199,7 +199,7 @@ impl CDSIndexPricer {
         curves: &MarketContext,
         as_of: Date,
     ) -> Result<f64> {
-        use finstack_core::collections::HashMap;
+        use finstack_core::HashMap;
         use finstack_core::market_data::bumps::BumpSpec;
 
         let credit_id = &cds.protection.credit_curve_id;
@@ -258,24 +258,24 @@ impl CDSIndexPricer {
 
     fn constituent_cdss(&self, index: &CDSIndex) -> Result<Vec<CreditDefaultSwap>> {
         if index.constituents.is_empty() {
-            return Err(finstack_core::error::InputError::TooFewPoints.into());
+            return Err(finstack_core::InputError::TooFewPoints.into());
         }
         // Validate weights and prepare effective weights (optionally renormalized)
         let sum_w: f64 = index.constituents.iter().map(|c| c.weight).sum();
         if index.constituents.iter().any(|c| c.weight < 0.0) {
-            return Err(finstack_core::error::InputError::Invalid.into());
+            return Err(finstack_core::InputError::Invalid.into());
         }
         if (sum_w - 1.0).abs() > self.config.weight_sum_tol {
             if self.config.normalize_weights && sum_w > 0.0 {
                 // renormalize on the fly
             } else {
-                return Err(finstack_core::error::InputError::Invalid.into());
+                return Err(finstack_core::InputError::Invalid.into());
             }
         }
         // Validate recoveries in [0,1] and suggest family-consistent values; enforce range only
         for c in &index.constituents {
             if !(0.0..=1.0).contains(&c.credit.recovery_rate) {
-                return Err(finstack_core::error::InputError::Invalid.into());
+                return Err(finstack_core::InputError::Invalid.into());
             }
         }
         let norm = if self.config.normalize_weights && sum_w > 0.0 {

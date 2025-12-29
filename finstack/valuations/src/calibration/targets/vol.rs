@@ -7,7 +7,7 @@ use crate::market::quotes::market_quote::MarketQuote;
 use crate::market::quotes::vol::VolQuote;
 use finstack_core::market_data::context::MarketContext;
 use finstack_core::market_data::scalars::MarketScalar;
-use finstack_core::market_data::surfaces::vol_surface::VolSurface;
+use finstack_core::market_data::surfaces::VolSurface;
 use finstack_core::Result;
 use std::collections::BTreeMap;
 
@@ -106,7 +106,7 @@ impl VolSurfaceBootstrapper {
 
         if vol_quotes.is_empty() {
             return Err(finstack_core::Error::Input(
-                finstack_core::error::InputError::TooFewPoints,
+                finstack_core::InputError::TooFewPoints,
             ));
         }
 
@@ -134,7 +134,7 @@ impl VolSurfaceBootstrapper {
             s
         } else {
             let scalar = context.price(&params.underlying_id).map_err(|_| {
-                finstack_core::Error::Input(finstack_core::error::InputError::NotFound {
+                finstack_core::Error::Input(finstack_core::InputError::NotFound {
                     id: params.underlying_id.clone(),
                 })
             })?;
@@ -149,7 +149,7 @@ impl VolSurfaceBootstrapper {
             .discount_curve_id
             .clone()
             .ok_or(finstack_core::Error::Input(
-                finstack_core::error::InputError::Invalid, // Should specify discount curve
+                finstack_core::InputError::Invalid, // Should specify discount curve
             ))?;
         let discount = context.get_discount_ref(&disc_id)?;
 
@@ -396,7 +396,7 @@ mod tests {
     use crate::market::conventions::ids::OptionConventionId;
     use finstack_core::dates::{Date, DateExt};
     use finstack_core::market_data::context::MarketContext;
-    use finstack_core::market_data::term_structures::discount_curve::DiscountCurve;
+    use finstack_core::market_data::term_structures::DiscountCurve;
     use time::Month;
 
     fn params(alpha: f64, beta: f64, nu: f64, rho: f64, shift: f64) -> SABRParameters {

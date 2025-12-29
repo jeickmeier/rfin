@@ -588,13 +588,13 @@ impl Bond {
         // Find issue and maturity from the cashflow dates
         let dates = schedule.dates();
         if dates.len() < 2 {
-            return Err(finstack_core::error::InputError::TooFewPoints.into());
+            return Err(finstack_core::InputError::TooFewPoints.into());
         }
         let issue = dates[0];
         let maturity = dates
             .last()
             .copied()
-            .ok_or(finstack_core::error::InputError::TooFewPoints)?;
+            .ok_or(finstack_core::InputError::TooFewPoints)?;
 
         // Infer a representative coupon frequency from the schedule's coupon dates.
         //
@@ -793,7 +793,7 @@ impl Bond {
                         let _ = b.floating_cf(spec.clone());
                     }
                     CashflowSpec::Amortizing { .. } => {
-                        return Err(finstack_core::error::InputError::Invalid.into());
+                        return Err(finstack_core::InputError::Invalid.into());
                     }
                 }
             }
@@ -1109,8 +1109,8 @@ mod tests {
     use finstack_core::currency::Currency;
     use finstack_core::dates::{BusinessDayConvention, DayCount, StubKind, Tenor};
     use finstack_core::market_data::context::MarketContext;
-    use finstack_core::market_data::term_structures::discount_curve::DiscountCurve;
-    use finstack_core::market_data::term_structures::forward_curve::ForwardCurve;
+    use finstack_core::market_data::term_structures::DiscountCurve;
+    use finstack_core::market_data::term_structures::ForwardCurve;
     use finstack_core::math::interp::InterpStyle;
     use rust_decimal::Decimal;
     use time::Month;

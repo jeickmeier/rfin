@@ -3,11 +3,11 @@
 //! Provides reusable market data setups, mock providers, and utility functions
 //! to maintain DRY principles across the test suite.
 
-use finstack_core::collections::HashMap;
+use finstack_core::HashMap;
 use finstack_core::currency::Currency;
 use finstack_core::dates::Date;
 use finstack_core::market_data::context::MarketContext;
-use finstack_core::market_data::term_structures::discount_curve::DiscountCurve;
+use finstack_core::market_data::term_structures::DiscountCurve;
 use finstack_core::math::interp::InterpStyle;
 use finstack_core::money::fx::{FxConversionPolicy, FxMatrix, FxProvider, FxRate};
 use finstack_core::money::Money;

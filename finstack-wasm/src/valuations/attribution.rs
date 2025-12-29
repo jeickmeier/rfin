@@ -153,7 +153,7 @@ impl WasmRatesCurvesAttribution {
     /// Get curve breakdown as JSON object
     #[wasm_bindgen(js_name = byCurveToJson)]
     pub fn by_curve_to_json(&self) -> Result<String, JsValue> {
-        let map: finstack_core::collections::HashMap<String, f64> = self
+        let map: finstack_core::HashMap<String, f64> = self
             .inner
             .by_curve
             .iter()
@@ -352,7 +352,7 @@ impl WasmPortfolioAttribution {
 
     /// Get position breakdown as JSON
     pub fn by_position_to_json(&self) -> Result<String, JsValue> {
-        let map: finstack_core::collections::HashMap<String, f64> = self
+        let map: finstack_core::HashMap<String, f64> = self
             .inner
             .by_position
             .iter()

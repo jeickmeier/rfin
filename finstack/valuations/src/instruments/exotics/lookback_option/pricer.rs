@@ -132,7 +132,7 @@ impl LookbackOptionMcPricer {
             }
             (LookbackType::FixedStrike, crate::instruments::OptionType::Call) => {
                 let strike = inst.strike.as_ref().ok_or_else(|| {
-                    finstack_core::error::Error::Validation(
+                    finstack_core::Error::Validation(
                         "FixedStrike lookback requires a strike".into(),
                     )
                 })?;
@@ -154,7 +154,7 @@ impl LookbackOptionMcPricer {
             }
             (LookbackType::FixedStrike, crate::instruments::OptionType::Put) => {
                 let strike = inst.strike.as_ref().ok_or_else(|| {
-                    finstack_core::error::Error::Validation(
+                    finstack_core::Error::Validation(
                         "FixedStrike lookback requires a strike".into(),
                     )
                 })?;

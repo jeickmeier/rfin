@@ -1,7 +1,7 @@
 //! Underlying parameter types for different asset classes.
 
 use finstack_core::currency::Currency;
-use finstack_core::types::id::IndexId;
+use finstack_core::types::IndexId;
 use finstack_core::types::CurveId;
 
 #[cfg(feature = "serde")]

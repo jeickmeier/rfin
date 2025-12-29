@@ -32,12 +32,12 @@ mod accrual_context_tests {
         };
 
         let dates = vec![start, end];
-        let mut prev_map = finstack_core::collections::HashMap::default();
+        let mut prev_map = finstack_core::HashMap::default();
         prev_map.insert(end, start);
-        let first_last = finstack_core::collections::HashSet::default();
+        let first_last = finstack_core::HashSet::default();
 
         let schedule: FixedSchedule = (spec, dates, prev_map, first_last);
-        let outstanding_after = finstack_core::collections::HashMap::default();
+        let outstanding_after = finstack_core::HashMap::default();
         let outstanding_fallback = 1_000_000.0;
 
         let mut flows = Vec::new();
@@ -97,11 +97,11 @@ mod accrual_context_tests {
         };
 
         let dates = vec![start, end];
-        let mut prev_map = finstack_core::collections::HashMap::default();
+        let mut prev_map = finstack_core::HashMap::default();
         prev_map.insert(end, start);
 
         let schedule: FloatSchedule = (spec, dates, prev_map);
-        let outstanding_after = finstack_core::collections::HashMap::default();
+        let outstanding_after = finstack_core::HashMap::default();
         let outstanding_fallback = 1_000_000.0;
 
         let mut flows = Vec::new();
@@ -150,12 +150,12 @@ mod accrual_context_tests {
         };
 
         let dates = vec![start, end];
-        let mut prev_map = finstack_core::collections::HashMap::default();
+        let mut prev_map = finstack_core::HashMap::default();
         prev_map.insert(end, start);
-        let first_last = finstack_core::collections::HashSet::default();
+        let first_last = finstack_core::HashSet::default();
 
         let schedule: FixedSchedule = (spec, dates, prev_map, first_last);
-        let outstanding_after = finstack_core::collections::HashMap::default();
+        let outstanding_after = finstack_core::HashMap::default();
         let outstanding_fallback = 1_000_000.0;
 
         let mut flows = Vec::new();
@@ -263,7 +263,7 @@ mod credit_emission_tests {
             spec.calendar_id.as_deref(),
         );
 
-        let mut outstanding_after = finstack_core::collections::HashMap::default();
+        let mut outstanding_after = finstack_core::HashMap::default();
         outstanding_after.insert(issue, 1_000_000.0);
 
         // Apply default on July 1: 400K defaults, 40% recovery

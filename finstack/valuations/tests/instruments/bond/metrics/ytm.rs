@@ -55,8 +55,8 @@ fn test_ytm_floating_bond_is_finite_from_price() {
     use finstack_core::currency::Currency;
     use finstack_core::dates::{DayCount, Tenor};
     use finstack_core::market_data::context::MarketContext;
-    use finstack_core::market_data::term_structures::discount_curve::DiscountCurve;
-    use finstack_core::market_data::term_structures::forward_curve::ForwardCurve;
+    use finstack_core::market_data::term_structures::DiscountCurve;
+    use finstack_core::market_data::term_structures::ForwardCurve;
     use finstack_core::math::interp::InterpStyle;
     use finstack_core::money::Money;
     use finstack_valuations::instruments::bond::Bond;
@@ -121,7 +121,7 @@ fn test_ytm_amortizing_bond_is_finite_from_price() {
     use finstack_core::currency::Currency;
     use finstack_core::dates::{DayCount, Tenor};
     use finstack_core::market_data::context::MarketContext;
-    use finstack_core::market_data::term_structures::discount_curve::DiscountCurve;
+    use finstack_core::market_data::term_structures::DiscountCurve;
     use finstack_core::math::interp::InterpStyle;
     use finstack_core::money::Money;
     use finstack_core::types::CurveId;

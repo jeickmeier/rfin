@@ -108,7 +108,7 @@ pub fn pv_total_return_leg(
     let initial = trs.initial_level.unwrap_or(spot);
 
     if !initial.is_finite() || initial <= 0.0 {
-        return Err(finstack_core::error::InputError::Invalid.into());
+        return Err(finstack_core::InputError::Invalid.into());
     }
 
     let params = TotalReturnLegParams {

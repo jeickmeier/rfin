@@ -42,7 +42,7 @@ impl MetricCalculator for TailDependenceCalculator {
             .as_any()
             .downcast_ref::<CdsTranche>()
             .ok_or(finstack_core::Error::Input(
-                finstack_core::error::InputError::Invalid,
+                finstack_core::InputError::Invalid,
             ))?;
 
         // Get the credit index data to determine correlation

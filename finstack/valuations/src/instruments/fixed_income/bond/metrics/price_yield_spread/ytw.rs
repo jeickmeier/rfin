@@ -70,7 +70,7 @@ impl MetricCalculator for YtwCalculator {
             context.discount_curve_id = Some(discount_curve_id);
             context.day_count = Some(dc);
             context.cashflows.as_ref().ok_or_else(|| {
-                finstack_core::Error::from(finstack_core::error::InputError::NotFound {
+                finstack_core::Error::from(finstack_core::InputError::NotFound {
                     id: "cashflows".to_string(),
                 })
             })?
@@ -82,7 +82,7 @@ impl MetricCalculator for YtwCalculator {
         // defined relative to the same market price, not the model PV.
         let bond: &Bond = context.instrument_as()?;
         let clean_px = bond.pricing_overrides.quoted_clean_price.ok_or_else(|| {
-            finstack_core::Error::from(finstack_core::error::InputError::NotFound {
+            finstack_core::Error::from(finstack_core::InputError::NotFound {
                 id: "bond.pricing_overrides.quoted_clean_price".to_string(),
             })
         })?;
@@ -93,7 +93,7 @@ impl MetricCalculator for YtwCalculator {
             .get(&MetricId::Accrued)
             .copied()
             .ok_or_else(|| {
-                finstack_core::Error::from(finstack_core::error::InputError::NotFound {
+                finstack_core::Error::from(finstack_core::InputError::NotFound {
                     id: "metric:Accrued".to_string(),
                 })
             })?;

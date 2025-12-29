@@ -4,7 +4,7 @@
 //! paths for visualization, debugging, and price explanation. Paths can be captured
 //! in full or sampled for efficiency.
 
-use finstack_core::collections::HashMap;
+use finstack_core::HashMap;
 use serde::{Deserialize, Serialize};
 use smallvec::SmallVec;
 

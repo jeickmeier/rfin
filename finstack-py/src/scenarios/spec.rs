@@ -3,7 +3,7 @@
 use crate::core::currency::PyCurrency;
 use crate::scenarios::enums::{PyCurveKind, PyTenorMatchMode, PyVolSurfaceKind};
 use crate::valuations::common::PyInstrumentType;
-use finstack_core::collections::HashMap;
+use finstack_core::HashMap;
 use finstack_scenarios::{Compounding, OperationSpec, RateBindingSpec, ScenarioSpec, TimeRollMode};
 use indexmap::IndexMap;
 use pyo3::basic::CompareOp;

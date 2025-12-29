@@ -1,5 +1,5 @@
 use crate::core::config::PyResultsMeta;
-use finstack_core::expr::dag::ExecutionPlan;
+use finstack_core::expr::ExecutionPlan;
 use finstack_core::expr::{
     BinOp, CompiledExpr as CoreCompiledExpr, EvalOpts, EvaluationResult, Expr as CoreExpr,
     Function, SimpleContext, UnaryOp,

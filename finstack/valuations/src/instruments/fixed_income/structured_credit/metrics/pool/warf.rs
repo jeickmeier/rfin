@@ -1,7 +1,7 @@
 //! Weighted Average Rating Factor calculator for CLO
 
 use crate::metrics::MetricContext;
-use finstack_core::types::ratings::moodys_warf_factor;
+use finstack_core::types::moodys_warf_factor;
 
 /// CLO WARF calculator - Moody's methodology
 pub struct CloWarfCalculator;
@@ -12,7 +12,7 @@ impl crate::metrics::MetricCalculator for CloWarfCalculator {
             .instrument
             .as_any()
             .downcast_ref::<crate::instruments::structured_credit::StructuredCredit>()
-            .ok_or(finstack_core::error::InputError::Invalid)?;
+            .ok_or(finstack_core::InputError::Invalid)?;
 
         let mut weighted_sum = 0.0;
         let mut total_balance = 0.0;

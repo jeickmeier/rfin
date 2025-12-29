@@ -21,9 +21,7 @@ use crate::valuations::instruments::{
     Swaption as JsSwaption, VarianceSwap as JsVarianceSwap,
 };
 use crate::valuations::results::JsValuationResult;
-use finstack_valuations::instruments::build_with_metrics_dyn;
-use finstack_valuations::instruments::common::helpers::instrument_to_arc;
-use finstack_valuations::instruments::common::traits::Instrument;
+use finstack_valuations::instruments::{build_with_metrics_dyn, instrument_to_arc, Instrument};
 use finstack_valuations::metrics::MetricId;
 use finstack_valuations::pricer::{create_standard_registry, ModelKey, PricerRegistry};
 use std::str::FromStr;

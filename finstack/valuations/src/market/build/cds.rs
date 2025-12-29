@@ -51,7 +51,7 @@ use rust_decimal::Decimal;
 /// use finstack_valuations::market::conventions::ids::{CdsConventionKey, CdsDocClause};
 /// use finstack_core::dates::Date;
 /// use finstack_core::currency::Currency;
-/// use finstack_core::collections::HashMap;
+/// use finstack_core::HashMap;
 ///
 /// # fn example() -> finstack_core::Result<()> {
 /// let ctx = BuildCtx::new(
@@ -86,7 +86,7 @@ use rust_decimal::Decimal;
 /// use finstack_valuations::market::conventions::ids::{CdsConventionKey, CdsDocClause};
 /// use finstack_core::dates::Date;
 /// use finstack_core::currency::Currency;
-/// use finstack_core::collections::HashMap;
+/// use finstack_core::HashMap;
 ///
 /// # fn example() -> finstack_core::Result<()> {
 /// let ctx = BuildCtx::new(

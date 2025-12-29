@@ -988,7 +988,7 @@ pub trait Pricer: Send + Sync {
 
 // ========================= REGISTRY =========================
 
-use finstack_core::collections::HashMap;
+use finstack_core::HashMap;
 
 /// Registry mapping (instrument type, model) pairs to pricer implementations.
 ///

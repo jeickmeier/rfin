@@ -14,7 +14,7 @@ fn build_flat_discount_curve(
     rate: f64,
     base_date: Date,
     curve_id: &str,
-) -> finstack_core::market_data::term_structures::discount_curve::DiscountCurve {
+) -> finstack_core::market_data::term_structures::DiscountCurve {
     flat_discount_curve(rate, base_date, curve_id)
 }
 

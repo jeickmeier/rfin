@@ -39,7 +39,7 @@ use crate::core::common::args::DayCountArg;
 use crate::core::dates::utils::py_to_date;
 use crate::core::dates::PyDayCount;
 use crate::errors::{core_to_py, PyContext};
-use finstack_core::cashflow::xirr::InternalRateOfReturn;
+use finstack_core::cashflow::InternalRateOfReturn;
 use pyo3::exceptions::PyTypeError;
 use pyo3::prelude::*;
 use pyo3::types::PyModule;
@@ -162,7 +162,7 @@ pub fn py_npv(
         None => finstack_core::dates::DayCount::Act365F,
     };
 
-    finstack_core::cashflow::discounting::npv_constant(&money_flows, discount_rate, base, dc)
+    finstack_core::cashflow::npv_constant(&money_flows, discount_rate, base, dc)
         .map(|m| m.amount())
         .map_err(core_to_py)
 }

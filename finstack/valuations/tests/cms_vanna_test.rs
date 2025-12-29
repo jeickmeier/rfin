@@ -91,7 +91,7 @@ mod cms_vanna_test {
 }
 use finstack_core::dates::{BusinessDayConvention, Date, DayCount, StubKind, Tenor};
 use finstack_core::market_data::context::MarketContext;
-use finstack_core::market_data::term_structures::discount_curve::DiscountCurve;
+use finstack_core::market_data::term_structures::DiscountCurve;
 use finstack_core::money::Money;
 use finstack_core::types::{Currency, CurveId, InstrumentId};
 use finstack_valuations::instruments::cms_option::types::CmsOption;
@@ -139,7 +139,7 @@ fn test_cms_option_vanna() -> finstack_core::Result<()> {
         .knots(vec![(0.0, 1.0), (100.0, (-0.03 * 100.0f64).exp())])
         .build()?;
 
-    use finstack_core::market_data::term_structures::forward_curve::ForwardCurve;
+    use finstack_core::market_data::term_structures::ForwardCurve;
     let forward_curve = ForwardCurve::builder("USD-LIBOR-3M", 0.25)
         .base_date(as_of)
         .day_count(DayCount::Act365F)
@@ -147,7 +147,7 @@ fn test_cms_option_vanna() -> finstack_core::Result<()> {
         .build()?;
 
     // Flat 20% volatility
-    use finstack_core::market_data::surfaces::vol_surface::VolSurface;
+    use finstack_core::market_data::surfaces::VolSurface;
     let vol_surface = VolSurface::builder("USD-SWPN-VOL")
         .expiries(&[0.0, 100.0])
         .strikes(&[0.0, 1.0])

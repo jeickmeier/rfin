@@ -157,8 +157,8 @@ impl CdsOptionPricer {
     fn forward_spread_from_pricer(
         &self,
         option: &CdsOption,
-        disc: &finstack_core::market_data::term_structures::discount_curve::DiscountCurve,
-        surv: &finstack_core::market_data::term_structures::hazard_curve::HazardCurve,
+        disc: &finstack_core::market_data::term_structures::DiscountCurve,
+        surv: &finstack_core::market_data::term_structures::HazardCurve,
         as_of: finstack_core::dates::Date,
     ) -> Result<f64> {
         let cds = synthetic_underlying_cds(option)?;
@@ -440,8 +440,8 @@ impl CdsOptionPricer {
     fn risky_annuity_from_pricer(
         &self,
         option: &CdsOption,
-        disc: &finstack_core::market_data::term_structures::discount_curve::DiscountCurve,
-        surv: &finstack_core::market_data::term_structures::hazard_curve::HazardCurve,
+        disc: &finstack_core::market_data::term_structures::DiscountCurve,
+        surv: &finstack_core::market_data::term_structures::HazardCurve,
         _curves: &MarketContext,
         as_of: finstack_core::dates::Date,
     ) -> Result<f64> {

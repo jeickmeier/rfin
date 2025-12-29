@@ -7,14 +7,14 @@ use finstack_core::money::Money;
 use finstack_core::types::{Bps, InstrumentId, Percentage, Rate};
 use rust_decimal::prelude::ToPrimitive;
 
-use finstack_core::collections::HashMap;
+use finstack_core::HashMap;
 
 #[cfg(feature = "serde")]
 use serde::{Deserialize, Serialize};
 
 use super::enums::{AssetType, DealType};
 use crate::instruments::structured_credit::types::constants::BASIS_POINTS_DIVISOR;
-use finstack_core::types::ratings::CreditRating;
+use finstack_core::types::CreditRating;
 
 /// Individual asset in the structured credit pool
 #[derive(Debug, Clone)]
@@ -794,8 +794,8 @@ impl AssetPool {
 /// This ensures statistics are always up-to-date and eliminates cache invalidation bugs.
 pub fn calculate_pool_stats(pool: &AssetPool, as_of: Date) -> PoolStats {
     // Count unique obligors and industries
-    let mut obligors = finstack_core::collections::HashSet::default();
-    let mut industries = finstack_core::collections::HashSet::default();
+    let mut obligors = finstack_core::HashSet::default();
+    let mut industries = finstack_core::HashSet::default();
 
     for asset in &pool.assets {
         if let Some(ref obligor) = asset.obligor_id {

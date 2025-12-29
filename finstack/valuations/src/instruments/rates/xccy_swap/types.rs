@@ -11,7 +11,7 @@
 //!   separately; the forward rate is taken directly from the forward curve for the accrual period.
 
 use finstack_core::currency::Currency;
-use finstack_core::dates::calendar::registry::CalendarRegistry;
+use finstack_core::dates::CalendarRegistry;
 use finstack_core::dates::{
     BusinessDayConvention, Date, DateExt, DayCount, DayCountCtx, HolidayCalendar, Schedule,
     ScheduleBuilder, StubKind, Tenor,
@@ -133,7 +133,7 @@ impl XccySwapLeg {
                     Ok(None)
                 } else {
                     Err(finstack_core::Error::Input(
-                        finstack_core::error::InputError::NotFound {
+                        finstack_core::InputError::NotFound {
                             id: format!("calendar '{}'", id),
                         },
                     ))
@@ -148,7 +148,7 @@ impl XccySwapLeg {
                     Ok(None)
                 } else {
                     Err(finstack_core::Error::Input(
-                        finstack_core::error::InputError::NotFound {
+                        finstack_core::InputError::NotFound {
                             id: "XccySwap leg calendar_id".to_string(),
                         },
                     ))
@@ -348,7 +348,7 @@ impl XccySwap {
             return Ok(amount);
         }
         let fx = market.fx.as_ref().ok_or_else(|| {
-            finstack_core::Error::from(finstack_core::error::InputError::NotFound {
+            finstack_core::Error::from(finstack_core::InputError::NotFound {
                 id: "fx_matrix".to_string(),
             })
         })?;

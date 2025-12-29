@@ -114,7 +114,7 @@ impl DefaultEvent {
     /// - `recovery_rate` is not in `[0.0, 1.0]`
     /// - `defaulted_amount` is negative
     pub fn validate(&self) -> finstack_core::Result<()> {
-        use finstack_core::error::InputError;
+        use finstack_core::InputError;
 
         if !(0.0..=1.0).contains(&self.recovery_rate) {
             return Err(finstack_core::Error::Input(InputError::Invalid));

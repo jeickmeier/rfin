@@ -13,7 +13,7 @@
 //! - **Standardized sensitivity metrics**: Dividend01, Inflation01, Prepayment01, Default01, Severity01, Conversion01, CollateralHaircut01, CollateralPrice01, Nav01, Carry01, Hurdle01, Dv01Domestic, Dv01Foreign, Fx01, Npv01, SpreadDv01, Correlation01, FxVega, ConvexityAdjustmentRisk
 //! - **Custom metrics**: User-defined metrics with dynamic identifiers
 
-use finstack_core::collections::HashMap;
+use finstack_core::HashMap;
 use serde::{Deserialize, Serialize};
 use std::borrow::Cow;
 use std::fmt;

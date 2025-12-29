@@ -25,7 +25,7 @@ impl MetricCalculator for DfEndFromQuoteCalculator {
         let deposit: &Deposit = context.instrument_as()?;
 
         let r = deposit.quote_rate.ok_or_else(|| {
-            finstack_core::Error::from(finstack_core::error::InputError::NotFound {
+            finstack_core::Error::from(finstack_core::InputError::NotFound {
                 id: "QuoteRate (required for implied DF calculation)".to_string(),
             })
         })?;
@@ -35,7 +35,7 @@ impl MetricCalculator for DfEndFromQuoteCalculator {
             .get(&MetricId::DfStart)
             .copied()
             .ok_or_else(|| {
-                finstack_core::Error::from(finstack_core::error::InputError::NotFound {
+                finstack_core::Error::from(finstack_core::InputError::NotFound {
                     id: "DfStart (required for implied DF calculation)".to_string(),
                 })
             })?;
@@ -44,7 +44,7 @@ impl MetricCalculator for DfEndFromQuoteCalculator {
             .get(&MetricId::Yf)
             .copied()
             .ok_or_else(|| {
-                finstack_core::Error::from(finstack_core::error::InputError::NotFound {
+                finstack_core::Error::from(finstack_core::InputError::NotFound {
                     id: "Yf (required for implied DF calculation)".to_string(),
                 })
             })?;

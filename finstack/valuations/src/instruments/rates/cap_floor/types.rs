@@ -326,7 +326,7 @@ impl InterestRateOption {
             } else if let Some(vol_surf) = &vol_surface {
                 vol_surf.value_clamped(t_fix.max(0.0), self.strike_rate)
             } else {
-                return Err(finstack_core::error::InputError::NotFound {
+                return Err(finstack_core::InputError::NotFound {
                     id: "cap_floor_vol_surface".to_string(),
                 }
                 .into());
@@ -393,7 +393,7 @@ impl InterestRateOption {
                 } else if let Some(vol_surf) = &vol_surface {
                     vol_surf.value_clamped(t_fix, self.strike_rate)
                 } else {
-                    return Err(finstack_core::error::InputError::NotFound {
+                    return Err(finstack_core::InputError::NotFound {
                         id: "cap_floor_vol_surface".to_string(),
                     }
                     .into());

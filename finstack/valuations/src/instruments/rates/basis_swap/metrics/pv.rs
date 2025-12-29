@@ -31,7 +31,7 @@ impl MetricCalculator for PvCalculator {
         let swap = instrument
             .as_any()
             .downcast_ref::<BasisSwap>()
-            .ok_or(Error::Input(finstack_core::error::InputError::Invalid))?;
+            .ok_or(Error::Input(finstack_core::InputError::Invalid))?;
         let curves = context.curves.clone();
         let as_of = context.as_of;
 

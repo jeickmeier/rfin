@@ -10,7 +10,7 @@ impl MetricCalculator for RealYieldCalculator {
     fn calculate(&self, context: &mut MetricContext) -> finstack_core::Result<f64> {
         let ilb: &InflationLinkedBond = context.instrument_as()?;
         let clean_price = ilb.quoted_clean.ok_or_else(|| {
-            finstack_core::Error::from(finstack_core::error::InputError::NotFound {
+            finstack_core::Error::from(finstack_core::InputError::NotFound {
                 id: "inflation_linked_bond_quote".to_string(),
             })
         })?;

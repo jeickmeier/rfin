@@ -290,7 +290,7 @@ Global solve requires strictly increasing times.",
 
         if rates_quotes.is_empty() {
             return Err(finstack_core::Error::Input(
-                finstack_core::error::InputError::TooFewPoints,
+                finstack_core::InputError::TooFewPoints,
             ));
         }
 
@@ -310,7 +310,7 @@ Global solve requires strictly increasing times.",
             .unwrap_or(finstack_core::dates::DayCount::Act365F);
         let settlement = params.base_date;
 
-        let mut curve_ids = finstack_core::collections::HashMap::default();
+        let mut curve_ids = finstack_core::HashMap::default();
         let discount_id = params
             .pricing_discount_id
             .as_ref()
@@ -328,7 +328,7 @@ Global solve requires strictly increasing times.",
             as_of: params.base_date,
             notional: 1_000_000.0,
             curve_ids,
-            attributes: finstack_core::collections::HashMap::default(),
+            attributes: finstack_core::HashMap::default(),
         };
 
         let mut prepared_quotes: Vec<CalibrationQuote> = Vec::with_capacity(rates_quotes.len());

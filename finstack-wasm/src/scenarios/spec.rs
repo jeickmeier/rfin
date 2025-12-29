@@ -4,7 +4,7 @@ use crate::core::currency::JsCurrency;
 use crate::scenarios::enums::{
     JsCompounding, JsCurveKind, JsTenorMatchMode, JsTimeRollMode, JsVolSurfaceKind,
 };
-use finstack_core::collections::HashMap;
+use finstack_core::HashMap;
 use finstack_scenarios::spec::RateBindingSpec;
 use finstack_scenarios::{InstrumentType, OperationSpec, ScenarioSpec};
 use wasm_bindgen::prelude::*;

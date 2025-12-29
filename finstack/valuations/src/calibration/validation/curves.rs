@@ -7,8 +7,7 @@ use crate::calibration::validation::points::{
 };
 use crate::calibration::validation::ValidationConfig;
 use finstack_core::market_data::term_structures::{
-    discount_curve::DiscountCurve, forward_curve::ForwardCurve, hazard_curve::HazardCurve,
-    inflation::InflationCurve, BaseCorrelationCurve,
+    BaseCorrelationCurve, DiscountCurve, ForwardCurve, HazardCurve, InflationCurve,
 };
 use finstack_core::{Error, Result};
 

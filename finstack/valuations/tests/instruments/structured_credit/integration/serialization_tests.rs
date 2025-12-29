@@ -222,7 +222,7 @@ fn test_recovery_spec_json_format() {
 fn build_full_feature_structured_credit() -> StructuredCredit {
     use finstack_core::currency::Currency;
     use finstack_core::dates::{BusinessDayConvention, Date, DayCount, Tenor};
-    use finstack_core::types::ratings::CreditRating;
+    use finstack_core::types::CreditRating;
     use finstack_core::types::{CurveId, InstrumentId};
 
     let closing = Date::from_calendar_date(2024, Month::January, 1).unwrap();

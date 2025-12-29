@@ -129,7 +129,7 @@ trait CurveShiftMetric {
     fn points(&self) -> &[f64];
 }
 
-impl CurveShiftMetric for crate::market_data::term_structures::discount_curve::DiscountCurve {
+impl CurveShiftMetric for crate::market_data::term_structures::DiscountCurve {
     fn value_at(&self, t: f64) -> f64 {
         self.zero(t)
     }
@@ -141,7 +141,7 @@ impl CurveShiftMetric for crate::market_data::term_structures::discount_curve::D
     }
 }
 
-impl CurveShiftMetric for crate::market_data::term_structures::hazard_curve::HazardCurve {
+impl CurveShiftMetric for crate::market_data::term_structures::HazardCurve {
     fn value_at(&self, t: f64) -> f64 {
         self.hazard_rate(t)
     }
@@ -179,7 +179,7 @@ impl CurveShiftMetric for crate::market_data::term_structures::hazard_curve::Haz
     }
 }
 
-impl CurveShiftMetric for crate::market_data::term_structures::inflation::InflationCurve {
+impl CurveShiftMetric for crate::market_data::term_structures::InflationCurve {
     fn value_at(&self, t: f64) -> f64 {
         let ratio = self.cpi(t) / self.base_cpi();
         if t == 0.0 {
@@ -197,7 +197,7 @@ impl CurveShiftMetric for crate::market_data::term_structures::inflation::Inflat
 }
 
 impl CurveShiftMetric
-    for crate::market_data::term_structures::base_correlation::BaseCorrelationCurve
+    for crate::market_data::term_structures::BaseCorrelationCurve
 {
     fn value_at(&self, t: f64) -> f64 {
         self.correlation(t)
@@ -574,8 +574,7 @@ pub fn measure_scalar_shift(
 mod tests {
     use super::*;
     use crate::dates::Date;
-    use crate::market_data::term_structures::discount_curve::DiscountCurve;
-    use crate::market_data::term_structures::hazard_curve::HazardCurve;
+    use crate::market_data::term_structures::{DiscountCurve, HazardCurve};
     use crate::math::interp::InterpStyle;
     use time::Month;
 

@@ -1,7 +1,7 @@
 //! Z-spread and I-spread calculator tests.
 
 use finstack_core::currency::Currency;
-use finstack_core::error::{Error, InputError};
+use finstack_core::{Error, InputError};
 use finstack_core::money::Money;
 use finstack_valuations::instruments::bond::metrics::ZSpreadCalculator;
 use finstack_valuations::instruments::bond::Bond;
@@ -94,7 +94,7 @@ fn test_z_spread_missing_discount_curve_returns_error() {
 #[test]
 fn test_z_spread_solver_convergence_across_spread_regimes() {
     use finstack_core::market_data::context::MarketContext;
-    use finstack_core::market_data::term_structures::discount_curve::DiscountCurve;
+    use finstack_core::market_data::term_structures::DiscountCurve;
     use finstack_core::math::interp::InterpStyle;
     use finstack_valuations::instruments::PricingOverrides;
 

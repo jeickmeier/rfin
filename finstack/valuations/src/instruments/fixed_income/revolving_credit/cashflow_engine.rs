@@ -25,7 +25,7 @@ use rust_decimal::prelude::ToPrimitive;
 
 use crate::cashflow::builder::CashFlowSchedule;
 use crate::cashflow::builder::Notional;
-use finstack_core::cashflow::primitives::{CFKind, CashFlow};
+use finstack_core::cashflow::{CFKind, CashFlow};
 
 use super::types::{BaseRateSpec, DrawRepaySpec, RevolvingCredit};
 

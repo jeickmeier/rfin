@@ -45,7 +45,7 @@ impl MetricCalculator for DirtyPriceCalculator {
                 .get(&MetricId::Accrued)
                 .copied()
                 .ok_or_else(|| {
-                    finstack_core::Error::from(finstack_core::error::InputError::NotFound {
+                    finstack_core::Error::from(finstack_core::InputError::NotFound {
                         id: "metric:Accrued".to_string(),
                     })
                 })?;
@@ -105,7 +105,7 @@ impl MetricCalculator for CleanPriceCalculator {
             .get(&MetricId::Accrued)
             .copied()
             .ok_or_else(|| {
-                finstack_core::Error::from(finstack_core::error::InputError::NotFound {
+                finstack_core::Error::from(finstack_core::InputError::NotFound {
                     id: "metric:Accrued".to_string(),
                 })
             })?;

@@ -2,7 +2,7 @@ use crate::core::common::parse::ParseFromString;
 use crate::core::dates::date::JsDate;
 use crate::core::error::js_error;
 use crate::core::money::JsMoney;
-use finstack_core::cashflow::primitives::{CFKind, CashFlow};
+use finstack_core::cashflow::{CFKind, CashFlow};
 use wasm_bindgen::prelude::*;
 use wasm_bindgen::JsValue;
 

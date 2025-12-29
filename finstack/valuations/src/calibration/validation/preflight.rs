@@ -62,7 +62,7 @@ fn validate_discount_step(quotes: &[MarketQuote]) -> Result<()> {
     let rates_quotes: Vec<crate::market::quotes::rates::RateQuote> = quotes.extract_quotes();
     if rates_quotes.is_empty() {
         return Err(finstack_core::Error::Input(
-            finstack_core::error::InputError::TooFewPoints,
+            finstack_core::InputError::TooFewPoints,
         ));
     }
     let _curve_dc = curve_day_count_from_quotes(&rates_quotes)?;
@@ -74,7 +74,7 @@ fn validate_forward_step(quotes: &[MarketQuote]) -> Result<()> {
     let rates_quotes: Vec<crate::market::quotes::rates::RateQuote> = quotes.extract_quotes();
     if rates_quotes.is_empty() {
         return Err(finstack_core::Error::Input(
-            finstack_core::error::InputError::TooFewPoints,
+            finstack_core::InputError::TooFewPoints,
         ));
     }
     let _curve_dc = curve_day_count_from_quotes(&rates_quotes)?;
@@ -100,7 +100,7 @@ fn validate_hazard_step(
     let cds_quotes: Vec<crate::market::quotes::cds::CdsQuote> = quotes.extract_quotes();
     if cds_quotes.is_empty() {
         return Err(finstack_core::Error::Input(
-            finstack_core::error::InputError::TooFewPoints,
+            finstack_core::InputError::TooFewPoints,
         ));
     }
 
@@ -235,7 +235,7 @@ fn validate_inflation_step(
         let parsed_lag = {
             let upper = p.observation_lag.trim().to_ascii_uppercase();
             if upper == "NONE" || upper == "0" || upper == "0M" || upper == "0D" {
-                finstack_core::market_data::scalars::inflation_index::InflationLag::None
+                finstack_core::market_data::scalars::InflationLag::None
             } else if let Some(num) = upper.strip_suffix('M') {
                 let months: u8 = num.trim().parse().map_err(|_| {
                     finstack_core::Error::Validation(format!(
@@ -243,7 +243,7 @@ fn validate_inflation_step(
                         p.observation_lag
                     ))
                 })?;
-                finstack_core::market_data::scalars::inflation_index::InflationLag::Months(months)
+                finstack_core::market_data::scalars::InflationLag::Months(months)
             } else if let Some(num) = upper.strip_suffix('D') {
                 let days: u16 = num.trim().parse().map_err(|_| {
                     finstack_core::Error::Validation(format!(
@@ -251,7 +251,7 @@ fn validate_inflation_step(
                         p.observation_lag
                     ))
                 })?;
-                finstack_core::market_data::scalars::inflation_index::InflationLag::Days(days)
+                finstack_core::market_data::scalars::InflationLag::Days(days)
             } else {
                 return Err(finstack_core::Error::Validation(format!(
                     "Invalid observation_lag '{}': expected like '3M' or '90D'",
@@ -345,7 +345,7 @@ fn validate_base_correlation_step(
         quotes.extract_quotes();
     if tranche_quotes.is_empty() {
         return Err(finstack_core::Error::Input(
-            finstack_core::error::InputError::TooFewPoints,
+            finstack_core::InputError::TooFewPoints,
         ));
     }
     let tranche_recovery: Option<f64> = None;

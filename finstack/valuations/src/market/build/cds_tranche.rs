@@ -11,7 +11,7 @@ use crate::market::quotes::cds_tranche::CdsTrancheQuote;
 use finstack_core::dates::{
     adjust, next_cds_date, BusinessDayConvention, DateExt, DayCount, StubKind, Tenor,
 };
-use finstack_core::error::Error;
+use finstack_core::Error;
 use finstack_core::money::Money;
 use finstack_core::types::{CurveId, InstrumentId};
 use finstack_core::Result;
@@ -140,7 +140,7 @@ impl CdsTrancheBuildOverrides {
 /// use finstack_valuations::market::conventions::ids::{CdsConventionKey, CdsDocClause};
 /// use finstack_core::dates::Date;
 /// use finstack_core::currency::Currency;
-/// use finstack_core::collections::HashMap;
+/// use finstack_core::HashMap;
 ///
 /// # fn example() -> finstack_core::Result<()> {
 /// let ctx = BuildCtx::new(
@@ -322,7 +322,7 @@ mod tests {
     use crate::market::conventions::ids::{CdsConventionKey, CdsDocClause};
     use crate::market::quotes::cds_tranche::CdsTrancheQuote;
     use crate::market::quotes::ids::QuoteId;
-    use finstack_core::collections::HashMap;
+    use finstack_core::HashMap;
     use finstack_core::currency::Currency;
     use finstack_core::dates::{adjust, Date};
     use time::Month;

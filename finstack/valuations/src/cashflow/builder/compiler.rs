@@ -22,7 +22,7 @@
 
 use crate::cashflow::builder::{AmortizationSpec, Notional};
 use finstack_core::dates::{BusinessDayConvention, Date, DayCount, StubKind, Tenor};
-use finstack_core::error::InputError;
+use finstack_core::InputError;
 use finstack_core::money::Money;
 use rust_decimal::Decimal;
 
@@ -35,8 +35,8 @@ use super::specs::{
 /// Result type for schedule building with metadata.
 type ScheduleWithMeta = (
     Vec<Date>,
-    finstack_core::collections::HashMap<Date, Date>,
-    finstack_core::collections::HashSet<Date>,
+    finstack_core::HashMap<Date, Date>,
+    finstack_core::HashSet<Date>,
 );
 
 /// Build dates and metadata using the date_generation module.
@@ -64,13 +64,13 @@ fn build_dates_with_meta(
 pub(super) type FixedSchedule = (
     FixedCouponSpec,
     Vec<Date>,
-    finstack_core::collections::HashMap<Date, Date>,
-    finstack_core::collections::HashSet<Date>,
+    finstack_core::HashMap<Date, Date>,
+    finstack_core::HashSet<Date>,
 );
 pub(super) type FloatSchedule = (
     FloatingCouponSpec,
     Vec<Date>,
-    finstack_core::collections::HashMap<Date, Date>,
+    finstack_core::HashMap<Date, Date>,
 );
 
 /// Periodic fee schedule prepared from fee specs.
@@ -90,7 +90,7 @@ pub(super) struct PeriodicFee {
     pub(super) bps: Decimal,
     pub(super) dc: DayCount,
     pub(super) dates: Vec<Date>,
-    pub(super) prev: finstack_core::collections::HashMap<Date, Date>,
+    pub(super) prev: finstack_core::HashMap<Date, Date>,
 }
 
 pub(super) type PeriodicFees = Vec<PeriodicFee>;

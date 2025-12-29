@@ -10,9 +10,9 @@ use crate::instruments::structured_credit::types::{
 };
 use crate::instruments::structured_credit::utils::simulation::RecoveryQueue;
 use finstack_core::cashflow::{CFKind, CashFlow};
-use finstack_core::collections::HashMap;
+use finstack_core::HashMap;
 use finstack_core::currency::Currency;
-use finstack_core::dates::calendar::registry::CalendarRegistry;
+use finstack_core::dates::CalendarRegistry;
 use finstack_core::dates::HolidayCalendar;
 use finstack_core::dates::{
     adjust, BusinessDayConvention, Date, DateExt, DayCount, DayCountCtx, ScheduleBuilder,
@@ -68,7 +68,7 @@ pub fn run_simulation(
         Some(cal_id) => CalendarRegistry::global()
             .resolve_str(cal_id)
             .ok_or_else(|| {
-                finstack_core::Error::from(finstack_core::error::InputError::NotFound {
+                finstack_core::Error::from(finstack_core::InputError::NotFound {
                     id: format!(
                         "payment_calendar_id:{} (available: {})",
                         cal_id,
@@ -170,7 +170,7 @@ pub fn generate_tranche_cashflows(
     let mut full_results = run_simulation(instrument, context, as_of)?;
 
     full_results.remove(tranche_id).ok_or_else(|| {
-        finstack_core::Error::from(finstack_core::error::InputError::NotFound {
+        finstack_core::Error::from(finstack_core::InputError::NotFound {
             id: format!("tranche:{}", tranche_id),
         })
     })

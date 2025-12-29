@@ -362,7 +362,7 @@ impl PricingOverrides {
 impl PricingOverrides {
     /// Validate override values for finiteness and non-negativity; basic `theta_period` sanity.
     pub fn validate(&self) -> finstack_core::Result<()> {
-        use finstack_core::error::InputError;
+        use finstack_core::InputError;
         let nonneg = |v: f64| v.is_finite() && v >= 0.0;
         if let Some(v) = self.quoted_clean_price {
             if !v.is_finite() {
@@ -458,7 +458,7 @@ mod tests {
         let po = PricingOverrides::default().with_vol_bump(-0.01);
         let err = po.validate().expect_err("should fail");
         match err {
-            finstack_core::error::Error::Input(finstack_core::error::InputError::NegativeValue) => {
+            finstack_core::Error::Input(finstack_core::InputError::NegativeValue) => {
             }
             e => panic!("unexpected error: {e:?}"),
         }

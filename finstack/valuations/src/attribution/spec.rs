@@ -4,8 +4,8 @@
 //! with stable schemas and deterministic round-trip serialization.
 
 use super::{
-    attribute_pnl_metrics_based, attribute_pnl_parallel, attribute_pnl_waterfall,
-    types::JsonEnvelope, AttributionMethod, PnlAttribution,
+    attribute_pnl_metrics_based, attribute_pnl_parallel, attribute_pnl_waterfall, AttributionMethod,
+    JsonEnvelope, ModelParamsSnapshot, PnlAttribution,
 };
 use crate::instruments::json_loader::InstrumentJson;
 use crate::metrics::MetricId;
@@ -87,7 +87,7 @@ pub struct AttributionSpec {
     pub method: AttributionMethod,
     /// Optional model parameters at T₀ (for attributing parameter changes)
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub model_params_t0: Option<crate::attribution::model_params::ModelParamsSnapshot>,
+    pub model_params_t0: Option<ModelParamsSnapshot>,
     /// Optional configuration overrides (defaults to FinstackConfig::default())
     #[serde(skip_serializing_if = "Option::is_none")]
     pub config: Option<AttributionConfig>,

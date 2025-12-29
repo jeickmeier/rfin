@@ -2,12 +2,11 @@
 
 use crate::core::dates::utils::{date_to_py, py_to_date};
 use crate::errors::map_error;
-use finstack_core::collections::HashMap;
+use finstack_core::HashMap;
 use finstack_core::config::FinstackConfig;
-use finstack_valuations::attribution::types::JsonEnvelope;
 use finstack_valuations::attribution::{
     attribute_pnl_metrics_based, attribute_pnl_parallel, attribute_pnl_waterfall,
-    AttributionFactor, AttributionMeta, AttributionMethod, CreditCurvesAttribution,
+    AttributionFactor, AttributionMeta, AttributionMethod, CreditCurvesAttribution, JsonEnvelope,
     ModelParamsAttribution, ModelParamsSnapshot, PnlAttribution, RatesCurvesAttribution,
 };
 use finstack_valuations::metrics::MetricId;

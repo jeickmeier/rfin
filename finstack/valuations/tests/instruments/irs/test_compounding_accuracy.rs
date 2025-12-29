@@ -1,9 +1,9 @@
-use finstack_core::dates::calendar::registry::CalendarRegistry;
+use finstack_core::dates::CalendarRegistry;
 use finstack_core::dates::{BusinessDayConvention, Date, DateExt, DayCount, Tenor};
 use finstack_core::market_data::context::MarketContext;
 use finstack_core::market_data::scalars::ScalarTimeSeries;
-use finstack_core::market_data::term_structures::discount_curve::DiscountCurve;
-use finstack_core::market_data::term_structures::forward_curve::ForwardCurve;
+use finstack_core::market_data::term_structures::DiscountCurve;
+use finstack_core::market_data::term_structures::ForwardCurve;
 use finstack_core::math::interp::InterpStyle;
 use finstack_core::money::Money;
 use finstack_core::types::Currency;

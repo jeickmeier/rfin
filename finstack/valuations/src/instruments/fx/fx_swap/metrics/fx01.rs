@@ -32,7 +32,7 @@ impl MetricCalculator for FX01 {
         let include_far = fx_swap.far_date >= as_of;
 
         let fx_matrix = curves.fx.as_ref().ok_or_else(|| {
-            finstack_core::Error::from(finstack_core::error::InputError::NotFound {
+            finstack_core::Error::from(finstack_core::InputError::NotFound {
                 id: "fx_matrix".to_string(),
             })
         })?;

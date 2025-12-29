@@ -176,40 +176,66 @@ mod core;
 pub mod risk;
 mod sensitivities;
 
-// Re-export all public items at the root level for backward compatibility
-pub use crate::instruments::common::pricing::HasDiscountCurve;
-pub use core::finite_difference::{
-    bump_discount_curve_parallel, bump_scalar_price, bump_sizes, scale_surface,
-};
+// Core surface (supported)
 pub use core::ids::MetricId;
 pub use core::registry::{MetricRegistry, StrictMode};
 pub use core::traits::{MetricCalculator, MetricContext, Structured2D, Structured3D};
-pub use sensitivities::cs01::{
-    compute_key_rate_cs01_series_with_context, compute_parallel_cs01_with_context,
-    standard_credit_cs01_buckets, GenericBucketedCs01, GenericParallelCs01, HasCreditCurve,
-};
-pub use sensitivities::dv01::{
-    format_bucket_label, standard_ir_dv01_buckets, CurveSelection, Dv01CalculatorConfig,
-    Dv01ComputationMode, ParRateContext, UnifiedDv01Calculator,
-};
-pub use sensitivities::fd_greeks::{
-    GenericFdDelta, GenericFdGamma, GenericFdVanna, GenericFdVega, GenericFdVolga, HasDayCount,
-    HasExpiry, HasPricingOverrides,
-};
-pub use sensitivities::rho::GenericRho;
-pub use sensitivities::theta::{
-    calculate_theta_date, generic_theta_calculator, parse_period_days, GenericTheta,
-    GenericThetaAny,
-};
-pub use sensitivities::vega::{
-    standard_equity_expiry_buckets, standard_strike_ratios, BucketSelector, KeyRateVega,
-    ParallelVega,
-};
 
 // Risk metrics
 pub use risk::{
     calculate_portfolio_var, calculate_var, extract_risk_factors, GenericHVar, MarketHistory,
     MarketScenario, RiskFactorShift, RiskFactorType, VarConfig, VarMethod, VarResult,
+};
+
+// Backward compatibility (deprecated; will be removed in a future release)
+#[deprecated(
+    note = "Pricing helper traits and finite difference utilities are internal; use MetricRegistry + MetricContext instead."
+)]
+pub use crate::instruments::common::pricing::HasDiscountCurve;
+#[deprecated(
+    note = "Finite difference helpers are internal; use MetricRegistry + MetricContext. These exports will be removed in a future release."
+)]
+pub use core::finite_difference::{
+    bump_discount_curve_parallel, bump_scalar_price, bump_sizes, scale_surface,
+};
+#[deprecated(
+    note = "Sensitivity calculator types are internal; request metrics via MetricRegistry. These exports will be removed in a future release."
+)]
+pub use sensitivities::cs01::{
+    compute_key_rate_cs01_series_with_context, compute_parallel_cs01_with_context,
+    standard_credit_cs01_buckets, GenericBucketedCs01, GenericParallelCs01, HasCreditCurve,
+};
+#[deprecated(
+    note = "Sensitivity calculator types are internal; request metrics via MetricRegistry. These exports will be removed in a future release."
+)]
+pub use sensitivities::dv01::{
+    format_bucket_label, standard_ir_dv01_buckets, CurveSelection, Dv01CalculatorConfig,
+    Dv01ComputationMode, ParRateContext, UnifiedDv01Calculator,
+};
+#[deprecated(
+    note = "Finite-difference greeks are internal; request metrics via MetricRegistry. These exports will be removed in a future release."
+)]
+pub use sensitivities::fd_greeks::{
+    GenericFdDelta, GenericFdGamma, GenericFdVanna, GenericFdVega, GenericFdVolga, HasDayCount,
+    HasExpiry, HasPricingOverrides,
+};
+#[deprecated(
+    note = "Sensitivity calculator types are internal; request metrics via MetricRegistry. These exports will be removed in a future release."
+)]
+pub use sensitivities::rho::GenericRho;
+#[deprecated(
+    note = "Sensitivity calculator types are internal; request metrics via MetricRegistry. These exports will be removed in a future release."
+)]
+pub use sensitivities::theta::{
+    calculate_theta_date, generic_theta_calculator, parse_period_days, GenericTheta,
+    GenericThetaAny,
+};
+#[deprecated(
+    note = "Sensitivity calculator types are internal; request metrics via MetricRegistry. These exports will be removed in a future release."
+)]
+pub use sensitivities::vega::{
+    standard_equity_expiry_buckets, standard_strike_ratios, BucketSelector, KeyRateVega,
+    ParallelVega,
 };
 
 // -----------------------------------------------------------------------------
@@ -260,7 +286,7 @@ macro_rules! define_metric_calculator {
 /// ```rust,no_run
 /// use finstack_valuations::metrics::{metric_not_found, MetricId};
 /// use finstack_core::Result;
-/// use finstack_core::collections::HashMap;
+/// use finstack_core::HashMap;
 ///
 /// fn get_metric(id: MetricId, results: &HashMap<MetricId, f64>) -> Result<f64> {
 ///     results.get(&id).copied().ok_or_else(|| metric_not_found(id))
@@ -268,7 +294,7 @@ macro_rules! define_metric_calculator {
 /// ```
 #[inline]
 pub fn metric_not_found(metric: MetricId) -> finstack_core::Error {
-    finstack_core::error::InputError::NotFound {
+    finstack_core::InputError::NotFound {
         id: format!("metric:{metric:?}"),
     }
     .into()
@@ -303,7 +329,7 @@ pub fn metric_not_found(metric: MetricId) -> finstack_core::Error {
 /// ```
 #[inline]
 pub fn context_not_found(field: &str) -> finstack_core::Error {
-    finstack_core::error::InputError::NotFound {
+    finstack_core::InputError::NotFound {
         id: format!("context.{field}"),
     }
     .into()

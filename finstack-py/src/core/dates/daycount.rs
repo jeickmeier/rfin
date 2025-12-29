@@ -3,7 +3,7 @@ use super::schedule::PyFrequency;
 use crate::core::common::labels::normalize_label;
 use crate::core::dates::utils::py_to_date;
 use crate::errors::{calendar_not_found, core_to_py, PyContext};
-use finstack_core::dates::calendar::registry::CalendarRegistry;
+use finstack_core::dates::CalendarRegistry;
 use finstack_core::dates::{DayCount, DayCountCtx, DayCountCtxState, Tenor, Thirty360Convention};
 use pyo3::prelude::*;
 use pyo3::types::{PyList, PyModule, PyType};

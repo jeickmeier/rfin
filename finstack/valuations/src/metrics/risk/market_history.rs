@@ -5,7 +5,7 @@
 //! rather than absolute levels, enabling efficient scenario application.
 
 use crate::metrics::risk::RiskFactorType;
-use finstack_core::collections::HashMap;
+use finstack_core::HashMap;
 use finstack_core::dates::Date;
 use finstack_core::market_data::bumps::{BumpMode, BumpSpec, BumpType, BumpUnits};
 use finstack_core::market_data::context::MarketContext;
@@ -162,7 +162,7 @@ mod tests {
     use super::*;
     use finstack_core::dates::DayCount;
     use finstack_core::market_data::context::MarketContext;
-    use finstack_core::market_data::term_structures::discount_curve::DiscountCurve;
+    use finstack_core::market_data::term_structures::DiscountCurve;
     use time::macros::date;
 
     #[test]
@@ -336,7 +336,7 @@ mod tests {
 
     #[test]
     fn test_implied_vol_shift_applied() -> Result<()> {
-        use finstack_core::market_data::surfaces::vol_surface::VolSurface;
+        use finstack_core::market_data::surfaces::VolSurface;
 
         let surface = VolSurface::builder("EQ-VOL")
             .expiries(&[0.5, 1.0])

@@ -32,7 +32,7 @@
 //! use finstack_valuations::market::conventions::ids::IndexId;
 //! use finstack_valuations::market::conventions::registry::ConventionRegistry;
 //! use finstack_core::dates::Date;
-//! use finstack_core::collections::HashMap;
+//! use finstack_core::HashMap;
 //!
 //! # fn example() -> finstack_core::Result<()> {
 //! // Ensure conventions are loaded

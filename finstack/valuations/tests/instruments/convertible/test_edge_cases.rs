@@ -25,7 +25,7 @@ fn test_currency_safety_mismatch() {
     let base_date = dates::base_date();
 
     // Create market with EUR instead of USD for equity
-    use finstack_core::market_data::term_structures::discount_curve::DiscountCurve;
+    use finstack_core::market_data::term_structures::DiscountCurve;
     use finstack_core::math::interp::InterpStyle;
 
     let discount_curve = DiscountCurve::builder("USD-OIS")
@@ -467,7 +467,7 @@ fn test_missing_underlying_equity() {
 fn test_missing_volatility_data() {
     let bond = create_standard_convertible();
 
-    use finstack_core::market_data::term_structures::discount_curve::DiscountCurve;
+    use finstack_core::market_data::term_structures::DiscountCurve;
     use finstack_core::math::interp::InterpStyle;
 
     let base_date = dates::base_date();

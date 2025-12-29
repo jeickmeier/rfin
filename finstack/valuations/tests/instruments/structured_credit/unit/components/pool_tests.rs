@@ -10,7 +10,7 @@
 use finstack_core::currency::Currency;
 use finstack_core::dates::{Date, DayCount};
 use finstack_core::money::Money;
-use finstack_core::types::ratings::CreditRating;
+use finstack_core::types::CreditRating;
 use finstack_valuations::instruments::structured_credit::{
     calculate_pool_stats, AssetType, DealType, Pool, PoolAsset,
 };

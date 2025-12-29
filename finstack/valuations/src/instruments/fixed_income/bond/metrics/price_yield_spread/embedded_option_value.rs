@@ -219,7 +219,7 @@ impl MetricCalculator for EmbeddedOptionValueCalculator {
         // We determine direction based on which options exist
         // Safety: has_options check at top ensures call_put is Some
         let call_put = bond.call_put.as_ref().ok_or_else(|| {
-            finstack_core::Error::from(finstack_core::error::InputError::NotFound {
+            finstack_core::Error::from(finstack_core::InputError::NotFound {
                 id: "call_put schedule".to_string(),
             })
         })?;
@@ -261,7 +261,7 @@ mod tests {
     use crate::instruments::PricingOverrides;
     use finstack_core::dates::Date;
     use finstack_core::market_data::context::MarketContext;
-    use finstack_core::market_data::term_structures::discount_curve::DiscountCurve;
+    use finstack_core::market_data::term_structures::DiscountCurve;
     use finstack_core::math::interp::InterpStyle;
     use finstack_core::money::Money;
     use std::sync::Arc;

@@ -89,7 +89,7 @@
 //! use finstack_core::currency::Currency;
 //! use finstack_core::money::Money;
 //! use finstack_core::market_data::context::MarketContext;
-//! use finstack_core::market_data::term_structures::discount_curve::DiscountCurve;
+//! use finstack_core::market_data::term_structures::DiscountCurve;
 //! use time::Month;
 //!
 //! # fn main() -> Result<(), Box<dyn std::error::Error>> {
@@ -148,7 +148,7 @@
 
 /// Cash-flow primitives (`CashFlow`, `CFKind`, etc.).
 pub mod primitives {
-    pub use finstack_core::cashflow::primitives::*;
+    pub use finstack_core::cashflow::*;
 }
 
 /// Currency-preserving aggregation utilities for cashflows.

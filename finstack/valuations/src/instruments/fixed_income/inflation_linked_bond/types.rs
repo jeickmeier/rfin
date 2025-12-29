@@ -8,10 +8,10 @@ use finstack_core::dates::{
     BusinessDayConvention, Date, DateExt, DayCount, DayCountCtx, StubKind, Tenor,
 };
 use finstack_core::market_data::context::MarketContext;
-use finstack_core::market_data::scalars::inflation_index::{
+use finstack_core::market_data::scalars::{
     InflationIndex, InflationInterpolation, InflationLag,
 };
-use finstack_core::market_data::term_structures::inflation::InflationCurve;
+use finstack_core::market_data::term_structures::InflationCurve;
 use finstack_core::money::Money;
 use finstack_core::types::CurveId;
 use finstack_core::types::InstrumentId;
@@ -294,13 +294,13 @@ impl InflationLinkedBond {
             IndexationMethod::TIPS | IndexationMethod::Canadian | IndexationMethod::French => {
                 // TIPS, Canadian RRBs, and French OAT€i/OATi use daily linear interpolation
                 if inflation_index.interpolation() != InflationInterpolation::Linear {
-                    return Err(finstack_core::error::InputError::Invalid.into());
+                    return Err(finstack_core::InputError::Invalid.into());
                 }
             }
             IndexationMethod::UK | IndexationMethod::Japanese => {
                 // UK Index-Linked Gilts and Japanese JGBi use step (monthly) interpolation
                 if inflation_index.interpolation() != InflationInterpolation::Step {
-                    return Err(finstack_core::error::InputError::Invalid.into());
+                    return Err(finstack_core::InputError::Invalid.into());
                 }
             }
         }
@@ -318,7 +318,7 @@ impl InflationLinkedBond {
 
         // Ratio vs base
         if self.base_index <= 0.0 {
-            return Err(finstack_core::error::InputError::NonPositiveValue.into());
+            return Err(finstack_core::InputError::NonPositiveValue.into());
         }
         let ratio = current_index / self.base_index;
 
@@ -361,7 +361,7 @@ impl InflationLinkedBond {
         };
 
         if self.base_index <= 0.0 {
-            return Err(finstack_core::error::InputError::NonPositiveValue.into());
+            return Err(finstack_core::InputError::NonPositiveValue.into());
         }
         let ratio = current_index / self.base_index;
 
@@ -531,13 +531,13 @@ impl InflationLinkedBond {
         use crate::instruments::bond::pricing::ytm_solver::{solve_ytm, YtmPricingSpec};
 
         if !clean_price.is_finite() || clean_price <= 0.0 {
-            return Err(finstack_core::error::InputError::Invalid.into());
+            return Err(finstack_core::InputError::Invalid.into());
         }
 
         // 1. Build real cashflows (unadjusted for inflation)
         let flows = self.build_real_schedule(as_of)?;
         if flows.is_empty() {
-            return Err(finstack_core::error::InputError::TooFewPoints.into());
+            return Err(finstack_core::InputError::TooFewPoints.into());
         }
 
         // 2. Calculate Real Accrued Interest
@@ -586,7 +586,7 @@ impl InflationLinkedBond {
         // Guard against division by zero for extreme negative real yields
         let denominator = 1.0 + real_yield;
         if denominator <= 0.0 {
-            return Err(finstack_core::error::InputError::NonPositiveValue.into());
+            return Err(finstack_core::InputError::NonPositiveValue.into());
         }
         Ok((1.0 + nominal_bond_yield) / denominator - 1.0)
     }

@@ -7,8 +7,7 @@ use crate::core::dates::utils::py_to_date;
 use crate::core::market_data::PyMarketContext;
 use crate::valuations::instruments::{extract_instrument, InstrumentHandle};
 use finstack_core::dates::Date;
-use finstack_valuations::instruments::common::helpers::instrument_to_arc;
-use finstack_valuations::instruments::common::traits::Instrument;
+use finstack_valuations::instruments::{instrument_to_arc, Instrument};
 use finstack_valuations::metrics::risk::{
     calculate_portfolio_var, calculate_var, MarketHistory, MarketScenario, RiskFactorShift,
     RiskFactorType, VarConfig, VarMethod, VarResult,

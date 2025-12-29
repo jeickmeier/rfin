@@ -40,7 +40,7 @@
 //! # Examples
 //!
 //! ```rust
-//! use finstack_core::market_data::term_structures::hazard_curve::HazardCurve;
+//! use finstack_core::market_data::term_structures::HazardCurve;
 //! use finstack_core::dates::Date;
 //! use time::Month;
 //!

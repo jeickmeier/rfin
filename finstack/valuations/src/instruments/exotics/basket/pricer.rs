@@ -195,11 +195,11 @@ impl BasketCalculator {
                     self.to_basket_currency(basket, raw_value, basket.currency, context, as_of)?;
                 if let Some(units) = constituent.units {
                     let s = shares.ok_or(finstack_core::Error::Input(
-                        finstack_core::error::InputError::Invalid,
+                        finstack_core::InputError::Invalid,
                     ))?;
                     if s <= 0.0 {
                         return Err(finstack_core::Error::Input(
-                            finstack_core::error::InputError::Invalid,
+                            finstack_core::InputError::Invalid,
                         ));
                     }
                     (base_value * units) / s
@@ -236,7 +236,7 @@ impl BasketCalculator {
                     base_value * constituent.weight * s
                 } else {
                     return Err(finstack_core::Error::Input(
-                        finstack_core::error::InputError::Invalid,
+                        finstack_core::InputError::Invalid,
                     ));
                 }
             }
@@ -299,7 +299,7 @@ impl BasketCalculator {
         }
 
         let fx = context.fx.as_ref().ok_or(finstack_core::Error::Input(
-            finstack_core::error::InputError::NotFound {
+            finstack_core::InputError::NotFound {
                 id: "fx".to_string(),
             },
         ))?;

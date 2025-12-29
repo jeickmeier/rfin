@@ -155,7 +155,7 @@ fn test_missing_inflation_data() {
     let as_of = d(2025, 1, 2);
 
     // Context with discount but no inflation
-    let disc = finstack_core::market_data::term_structures::discount_curve::DiscountCurve::builder(
+    let disc = finstack_core::market_data::term_structures::DiscountCurve::builder(
         "USD-REAL",
     )
     .base_date(as_of)
@@ -210,14 +210,14 @@ fn test_extreme_deflation() {
 
     // Extreme deflation scenario
     let observations = vec![(d(2024, 12, 1), 100.0)]; // 67% deflation
-    let index = finstack_core::market_data::scalars::inflation_index::InflationIndex::new(
+    let index = finstack_core::market_data::scalars::InflationIndex::new(
         "US-CPI-U",
         observations,
         Currency::USD,
     )
     .unwrap()
     .with_interpolation(
-        finstack_core::market_data::scalars::inflation_index::InflationInterpolation::Linear,
+        finstack_core::market_data::scalars::InflationInterpolation::Linear,
     );
     ctx = ctx.insert_inflation_index("US-CPI-U", index);
 
@@ -241,14 +241,14 @@ fn test_extreme_inflation() {
 
     // Extreme inflation scenario
     let observations = vec![(d(2024, 12, 1), 1000.0)]; // 900% inflation
-    let index = finstack_core::market_data::scalars::inflation_index::InflationIndex::new(
+    let index = finstack_core::market_data::scalars::InflationIndex::new(
         "US-CPI-U",
         observations,
         Currency::USD,
     )
     .unwrap()
     .with_interpolation(
-        finstack_core::market_data::scalars::inflation_index::InflationInterpolation::Linear,
+        finstack_core::market_data::scalars::InflationInterpolation::Linear,
     );
     ctx = ctx.insert_inflation_index("US-CPI-U", index);
 
@@ -364,7 +364,7 @@ fn test_currency_mismatch_detection() {
     let (mut ctx_gbp, _) = uk_market_context(); // GBP market
 
     // Insert USD discount curve into GBP context
-    let disc = finstack_core::market_data::term_structures::discount_curve::DiscountCurve::builder(
+    let disc = finstack_core::market_data::term_structures::DiscountCurve::builder(
         "USD-REAL",
     )
     .base_date(d(2025, 1, 2))
@@ -387,7 +387,7 @@ fn test_negative_inflation_lag_days() {
     // Arrange
     let mut ilb = sample_tips();
     // Technically invalid but testing robustness
-    ilb.lag = finstack_core::market_data::scalars::inflation_index::InflationLag::Days(0);
+    ilb.lag = finstack_core::market_data::scalars::InflationLag::Days(0);
 
     let (ctx, _) = market_context_with_index();
     let as_of = d(2025, 1, 2);

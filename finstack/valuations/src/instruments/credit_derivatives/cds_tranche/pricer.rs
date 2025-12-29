@@ -61,7 +61,7 @@ use finstack_core::types::Percentage;
 use finstack_core::Result;
 
 // Calendar imports for business day settlement
-use finstack_core::dates::calendar::registry::CalendarRegistry;
+use finstack_core::dates::CalendarRegistry;
 use finstack_core::dates::HolidayCalendar;
 
 // Recovery model import for optional stochastic recovery
@@ -2187,11 +2187,9 @@ mod tests {
     use super::*;
     use crate::instruments::cds_tranche::parameters::CDSTrancheParams;
     use finstack_core::currency::Currency;
-    use finstack_core::market_data::term_structures::discount_curve::DiscountCurve;
+    use finstack_core::market_data::term_structures::DiscountCurve;
     use finstack_core::market_data::term_structures::CreditIndexData;
-    use finstack_core::market_data::term_structures::{
-        hazard_curve::HazardCurve, BaseCorrelationCurve,
-    };
+    use finstack_core::market_data::term_structures::{BaseCorrelationCurve, HazardCurve};
     use finstack_core::money::Money;
     use std::sync::Arc;
     use time::Month;
@@ -2275,7 +2273,7 @@ mod tests {
             .build()
             .expect("Curve builder should succeed with valid test data");
 
-        let mut issuer_curves = finstack_core::collections::HashMap::default();
+        let mut issuer_curves = finstack_core::HashMap::default();
         for i in 0..n {
             let id = format!("ISSUER-{:03}", i + 1);
             let bump = (i as f64) * 0.001;
@@ -2420,7 +2418,7 @@ mod tests {
         let index_data = ctx_base
             .credit_index("CDX.NA.IG.42")
             .expect("Credit index should exist in test context");
-        let mut issuer_curves = finstack_core::collections::HashMap::default();
+        let mut issuer_curves = finstack_core::HashMap::default();
         for i in 0..10 {
             let id = format!("ISSUER-{:03}", i + 1);
             issuer_curves.insert(id, index_data.index_credit_curve.clone());

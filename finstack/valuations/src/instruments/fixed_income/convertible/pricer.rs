@@ -12,9 +12,9 @@
 //! - `calculate_parity`: Equity parity ratio
 //! - `calculate_conversion_premium`: Conversion premium versus equity value
 
-use finstack_core::collections::HashMap;
+use finstack_core::HashMap;
 use finstack_core::dates::Date;
-use finstack_core::error::InputError;
+use finstack_core::InputError;
 use finstack_core::market_data::context::MarketContext;
 use finstack_core::money::Money;
 use finstack_core::{Error, Result};
@@ -930,7 +930,7 @@ mod tests {
     use finstack_core::currency::Currency;
     use finstack_core::dates::{BusinessDayConvention, Date, DayCount, StubKind, Tenor};
     use finstack_core::market_data::scalars::MarketScalar;
-    use finstack_core::market_data::term_structures::discount_curve::DiscountCurve;
+    use finstack_core::market_data::term_structures::DiscountCurve;
     use time::Month;
 
     fn create_test_bond() -> ConvertibleBond {

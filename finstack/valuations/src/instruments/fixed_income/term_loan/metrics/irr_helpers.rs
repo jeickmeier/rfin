@@ -6,7 +6,7 @@
 #![allow(dead_code)]
 
 use crate::instruments::TermLoan;
-use finstack_core::cashflow::xirr::InternalRateOfReturn;
+use finstack_core::cashflow::InternalRateOfReturn;
 use finstack_core::dates::Date;
 use finstack_core::money::Money;
 

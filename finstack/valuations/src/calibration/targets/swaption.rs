@@ -12,7 +12,7 @@ use finstack_core::dates::{
     BusinessDayConvention, DateExt, DayCount, DayCountCtx, StubKind, Tenor,
 };
 use finstack_core::market_data::context::MarketContext;
-use finstack_core::market_data::surfaces::vol_surface::VolSurface;
+use finstack_core::market_data::surfaces::VolSurface;
 use finstack_core::Result;
 use std::collections::BTreeMap;
 
@@ -140,7 +140,7 @@ impl SwaptionVolBootstrapper {
 
         if grouped_quotes.is_empty() {
             return Err(finstack_core::Error::Input(
-                finstack_core::error::InputError::TooFewPoints,
+                finstack_core::InputError::TooFewPoints,
             ));
         }
 
@@ -166,7 +166,7 @@ impl SwaptionVolBootstrapper {
                     .first()
                     .copied()
                     .ok_or(finstack_core::Error::Input(
-                        finstack_core::error::InputError::TooFewPoints,
+                        finstack_core::InputError::TooFewPoints,
                     ))?;
             let leg_conv = Self::resolve_leg_conventions(params, representative)?;
 
@@ -543,7 +543,7 @@ Set params.sabr_extrapolation='clamp' to allow flat extrapolation.",
         let pv01 = Self::calculate_pv01_proper(swap_start, swap_end, leg_conv, disc)?;
         if !pv01.is_finite() || pv01 <= 1e-16 {
             return Err(finstack_core::Error::Input(
-                finstack_core::error::InputError::Invalid,
+                finstack_core::InputError::Invalid,
             ));
         }
 
@@ -561,7 +561,7 @@ Set params.sabr_extrapolation='clamp' to allow flat extrapolation.",
             )?;
             if float_sched.dates.len() < 2 {
                 return Err(finstack_core::Error::Input(
-                    finstack_core::error::InputError::Invalid,
+                    finstack_core::InputError::Invalid,
                 ));
             }
 
@@ -610,7 +610,7 @@ Set params.sabr_extrapolation='clamp' to allow flat extrapolation.",
             )?;
             if t_start < 0.0 || t_end <= t_start {
                 return Err(finstack_core::Error::Input(
-                    finstack_core::error::InputError::InvalidDateRange,
+                    finstack_core::InputError::InvalidDateRange,
                 ));
             }
             let df_start = disc.df(t_start);
@@ -635,7 +635,7 @@ Set params.sabr_extrapolation='clamp' to allow flat extrapolation.",
         )?;
         if sched.dates.len() < 2 {
             return Err(finstack_core::Error::Input(
-                finstack_core::error::InputError::Invalid,
+                finstack_core::InputError::Invalid,
             ));
         }
 
@@ -889,7 +889,7 @@ mod tests {
     use super::*;
     use finstack_core::dates::Date;
     use finstack_core::market_data::context::MarketContext;
-    use finstack_core::market_data::term_structures::discount_curve::DiscountCurve;
+    use finstack_core::market_data::term_structures::DiscountCurve;
     use finstack_core::types::{Currency, CurveId};
     use time::Month;
 
@@ -1118,7 +1118,7 @@ mod tests {
             .build()
             .expect("discount curve");
         let fwd_curve =
-            finstack_core::market_data::term_structures::forward_curve::ForwardCurve::builder(
+            finstack_core::market_data::term_structures::ForwardCurve::builder(
                 "USD-FWD", 0.25,
             )
             .base_date(base_date)

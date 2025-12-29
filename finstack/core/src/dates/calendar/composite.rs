@@ -23,7 +23,7 @@
 //! ```
 //! use finstack_core::dates::{CompositeCalendar, HolidayCalendar, create_date};
 //! use finstack_core::dates::calendar::{TARGET2, GBLO};
-//! use finstack_core::dates::calendar::composite::CompositeMode;
+//! use finstack_core::dates::CompositeMode;
 //! # fn main() -> Result<(), Box<dyn std::error::Error>> {
 //!
 //! let t2 = TARGET2;
@@ -44,7 +44,7 @@
 //! # }
 //! ```
 
-use crate::dates::calendar::business_days::HolidayCalendar;
+use crate::dates::calendar::HolidayCalendar;
 use time::Date;
 
 /// A lightweight view combining several holiday calendars.

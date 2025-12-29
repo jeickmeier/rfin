@@ -22,7 +22,7 @@ impl crate::metrics::MetricCalculator for CmbsLtvCalculator {
             .instrument
             .as_any()
             .downcast_ref::<StructuredCredit>()
-            .ok_or(finstack_core::error::InputError::Invalid)?;
+            .ok_or(finstack_core::InputError::Invalid)?;
 
         // Use credit factors LTV or default
         if let Some(ltv) = cmbs.credit_factors.ltv {
@@ -51,7 +51,7 @@ impl crate::metrics::MetricCalculator for CmbsDscrCalculator {
             .instrument
             .as_any()
             .downcast_ref::<StructuredCredit>()
-            .ok_or(finstack_core::error::InputError::Invalid)?;
+            .ok_or(finstack_core::InputError::Invalid)?;
 
         // DSCR = Net Operating Income / Debt Service
         // Assume NOI is a multiple of the pool interest

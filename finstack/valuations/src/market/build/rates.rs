@@ -45,7 +45,7 @@ use finstack_core::Result;
 /// use finstack_valuations::market::quotes::rates::RateQuote;
 /// use finstack_valuations::market::conventions::ids::IndexId;
 /// use finstack_core::dates::Date;
-/// use finstack_core::collections::HashMap;
+/// use finstack_core::HashMap;
 ///
 /// # fn example() -> finstack_core::Result<()> {
 /// let ctx = BuildCtx::new(
@@ -74,7 +74,7 @@ use finstack_core::Result;
 /// use finstack_valuations::market::quotes::rates::RateQuote;
 /// use finstack_valuations::market::conventions::ids::IndexId;
 /// use finstack_core::dates::Date;
-/// use finstack_core::collections::HashMap;
+/// use finstack_core::HashMap;
 ///
 /// # fn example() -> finstack_core::Result<()> {
 /// let ctx = BuildCtx::new(
@@ -397,7 +397,7 @@ mod tests {
     use super::*;
     use crate::market::conventions::ids::IndexId;
     use crate::market::quotes::ids::{Pillar, QuoteId};
-    use finstack_core::collections::HashMap;
+    use finstack_core::HashMap;
 
     /// Test that spread_decimal is correctly converted to basis points
     #[test]

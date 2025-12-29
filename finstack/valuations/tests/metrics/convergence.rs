@@ -254,7 +254,7 @@ fn test_bucketed_cs01_sums_to_total() {
     // Bucketed CS01 should approximately sum to total CS01
     let as_of = date!(2025 - 01 - 01);
 
-    use finstack_core::market_data::term_structures::hazard_curve::HazardCurve;
+    use finstack_core::market_data::term_structures::HazardCurve;
     use finstack_valuations::instruments::cds::CreditDefaultSwap;
 
     let cds = CreditDefaultSwap::buy_protection(

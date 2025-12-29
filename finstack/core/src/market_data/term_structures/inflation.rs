@@ -43,7 +43,7 @@
 //! # Examples
 //!
 //! ```rust
-//! use finstack_core::market_data::term_structures::inflation::InflationCurve;
+//! use finstack_core::market_data::term_structures::InflationCurve;
 //! # use finstack_core::math::interp::InterpStyle;
 //! let ic = InflationCurve::builder("US-CPI")
 //!     .base_cpi(300.0)
@@ -173,7 +173,7 @@ impl InflationCurve {
     ///
     /// # Examples
     /// ```rust
-    /// use finstack_core::market_data::term_structures::inflation::InflationCurve;
+    /// use finstack_core::market_data::term_structures::InflationCurve;
     /// use finstack_core::math::interp::InterpStyle;
     ///
     /// let curve = InflationCurve::builder("US-CPI")

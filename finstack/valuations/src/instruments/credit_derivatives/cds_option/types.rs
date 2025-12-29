@@ -304,7 +304,7 @@ impl CdsOption {
             .day_count
             .year_fraction(as_of, self.cds_maturity, ctx)?;
         let fwd_bp = if current_tenor > 0.0 {
-            use finstack_core::market_data::term_structures::hazard_curve::ParInterp;
+            use finstack_core::market_data::term_structures::ParInterp;
             hazard_curve.quoted_spread_bp(current_tenor, ParInterp::Linear)
         } else {
             self.strike_spread_bp

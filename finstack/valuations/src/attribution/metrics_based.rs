@@ -41,12 +41,12 @@
 //! - Still approximate (third-order+ effects ignored)
 //! - Less accurate than parallel/waterfall methods for extreme moves
 
-use crate::attribution::helpers::*;
-use crate::attribution::types::*;
+use super::helpers::*;
+use super::types::*;
 use crate::instruments::common::traits::Instrument;
 use crate::metrics::MetricId;
 use crate::results::ValuationResult;
-use finstack_core::collections::HashMap;
+use finstack_core::HashMap;
 use finstack_core::config::{RoundingContext, ZeroKind};
 use finstack_core::dates::Date;
 use finstack_core::market_data::context::MarketContext;
@@ -55,7 +55,7 @@ use finstack_core::market_data::diff::{
     measure_scalar_shift, measure_vol_surface_shift, TenorSamplingMethod,
 };
 #[cfg(test)]
-use finstack_core::market_data::term_structures::discount_curve::DiscountCurve;
+use finstack_core::market_data::term_structures::DiscountCurve;
 #[cfg(test)]
 use finstack_core::math::interp::InterpStyle;
 use finstack_core::money::Money;

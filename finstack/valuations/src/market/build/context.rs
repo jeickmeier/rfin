@@ -1,6 +1,6 @@
 //! Build context for quote-to-instrument construction.
 
-use finstack_core::collections::HashMap;
+use finstack_core::HashMap;
 use finstack_core::dates::Date;
 
 /// Context for building instruments from market quotes.
@@ -21,7 +21,7 @@ use finstack_core::dates::Date;
 /// ```rust
 /// use finstack_valuations::market::build::context::BuildCtx;
 /// use finstack_core::dates::Date;
-/// use finstack_core::collections::HashMap;
+/// use finstack_core::HashMap;
 ///
 /// let as_of = Date::from_calendar_date(2024, time::Month::January, 2).unwrap();
 /// let mut curve_ids = HashMap::default();
@@ -36,7 +36,7 @@ use finstack_core::dates::Date;
 /// ```rust
 /// use finstack_valuations::market::build::context::BuildCtx;
 /// use finstack_core::dates::Date;
-/// use finstack_core::collections::HashMap;
+/// use finstack_core::HashMap;
 ///
 /// let ctx = BuildCtx::new(
 ///     Date::from_calendar_date(2024, time::Month::January, 2).unwrap(),
@@ -91,7 +91,7 @@ impl BuildCtx {
     /// ```rust
     /// use finstack_valuations::market::build::context::BuildCtx;
     /// use finstack_core::dates::Date;
-    /// use finstack_core::collections::HashMap;
+    /// use finstack_core::HashMap;
     ///
     /// let ctx = BuildCtx::new(
     ///     Date::from_calendar_date(2024, time::Month::January, 2).unwrap(),
@@ -123,7 +123,7 @@ impl BuildCtx {
     /// ```rust
     /// use finstack_valuations::market::build::context::BuildCtx;
     /// use finstack_core::dates::Date;
-    /// use finstack_core::collections::HashMap;
+    /// use finstack_core::HashMap;
     ///
     /// let mut curve_ids = HashMap::default();
     /// curve_ids.insert("discount".to_string(), "USD-OIS".to_string());

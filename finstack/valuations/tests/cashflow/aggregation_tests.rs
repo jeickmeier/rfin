@@ -14,7 +14,7 @@
 use crate::cashflow_tests::test_helpers::{
     d, financial_tolerance, FlatHazardRateCurve, FlatRateCurve, FACTOR_TOLERANCE,
 };
-use finstack_core::cashflow::primitives::{CFKind, CashFlow};
+use finstack_core::cashflow::{CFKind, CashFlow};
 use finstack_core::currency::Currency;
 use finstack_core::dates::{Date, DayCount, DayCountCtx, Period, PeriodId, Tenor};
 use finstack_core::market_data::traits::{Discounting, Survival};
@@ -148,7 +148,7 @@ fn checked_currency_mismatch_errors() {
     let err = aggregate_cashflows_precise_checked(&flows, Currency::USD)
         .expect_err("should fail with currency mismatch");
     match err {
-        finstack_core::error::Error::CurrencyMismatch { .. } => {}
+        finstack_core::Error::CurrencyMismatch { .. } => {}
         _ => panic!("expected CurrencyMismatch"),
     }
 }
@@ -204,7 +204,7 @@ fn pv_with_ctx_sum_matches_direct_calculation() {
         .sum();
 
     // Standalone NPV using default context (Act365F doesn't require special ctx)
-    use finstack_core::cashflow::discounting::npv;
+    use finstack_core::cashflow::npv;
     let total_npv = npv(&curve, base, DayCount::Act365F, &flows)
         .expect("NPV calculation should succeed in test");
 
@@ -335,7 +335,7 @@ fn pv_by_period_sum_matches_npv() {
     );
 
     // Sum should equal total NPV (within financial tolerance for ~$300 total)
-    use finstack_core::cashflow::discounting::npv;
+    use finstack_core::cashflow::npv;
     let total_npv = npv(&curve, base, DayCount::Act365F, &flows)
         .expect("NPV calculation should succeed in test");
     let sum_pv = q1_pv + q2_pv;
@@ -745,7 +745,7 @@ fn pv_of_cashflow_at_base_date() {
     let curve = FlatRateCurve::new("USD-OIS", base, 0.05);
 
     // Cashflow at t=0 should have PV = notional (DF=1.0)
-    use finstack_core::cashflow::discounting::npv;
+    use finstack_core::cashflow::npv;
     let pv = npv(&curve, base, DayCount::Act365F, &flows).unwrap();
     assert!(
         (pv.amount() - 100.0).abs() < financial_tolerance(100.0),
@@ -772,7 +772,7 @@ fn long_dated_cashflow_stability() {
     let expected_df = (-0.05_f64 * t).exp();
     let expected_pv = 1_000_000.0 * expected_df;
 
-    use finstack_core::cashflow::discounting::npv;
+    use finstack_core::cashflow::npv;
     let pv = npv(&curve, base, DayCount::Act365F, &flows).unwrap();
 
     // Industry standard tolerance: scale to PV magnitude, not notional
@@ -802,7 +802,7 @@ fn negative_time_handling() {
 
     // FlatRateCurve returns DF = 1.0 for t <= 0 (past cashflows)
     // This is a conservative approach that treats past cashflows at par
-    use finstack_core::cashflow::discounting::npv;
+    use finstack_core::cashflow::npv;
     let result = npv(&curve, base, DayCount::Act365F, &flows);
 
     // Should succeed

@@ -31,7 +31,7 @@ impl MetricCalculator for AnnuityCalculator {
         let swap = instrument
             .as_any()
             .downcast_ref::<BasisSwap>()
-            .ok_or(Error::Input(finstack_core::error::InputError::Invalid))?;
+            .ok_or(Error::Input(finstack_core::InputError::Invalid))?;
         let curves = context.curves.clone();
 
         let leg = if self.is_primary {

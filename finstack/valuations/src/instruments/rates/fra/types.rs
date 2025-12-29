@@ -8,7 +8,7 @@ use crate::cashflow::traits::{CashflowProvider, DatedFlows};
 use crate::instruments::common::traits::Attributes;
 use finstack_core::currency::Currency;
 use finstack_core::dates::{
-    adjust, calendar::registry::CalendarRegistry, BusinessDayConvention, Date, DayCount,
+    adjust, BusinessDayConvention, CalendarRegistry, Date, DayCount,
 };
 use finstack_core::market_data::context::MarketContext;
 use finstack_core::money::Money;
@@ -350,9 +350,9 @@ mod tests {
     #[cfg(feature = "slow")]
     use finstack_core::dates::Date;
     #[cfg(feature = "slow")]
-    use finstack_core::market_data::term_structures::discount_curve::DiscountCurve;
+    use finstack_core::market_data::term_structures::DiscountCurve;
     #[cfg(feature = "slow")]
-    use finstack_core::market_data::term_structures::forward_curve::ForwardCurve;
+    use finstack_core::market_data::term_structures::ForwardCurve;
     #[cfg(feature = "slow")]
     use finstack_core::math::interp::InterpStyle;
     #[cfg(feature = "slow")]

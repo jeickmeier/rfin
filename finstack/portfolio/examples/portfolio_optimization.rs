@@ -31,7 +31,7 @@ use std::sync::Arc;
 use time::Month;
 
 fn build_market(as_of: Date) -> MarketContext {
-    use finstack_core::market_data::term_structures::discount_curve::DiscountCurve;
+    use finstack_core::market_data::term_structures::DiscountCurve;
 
     let curve = DiscountCurve::builder("USD")
         .base_date(as_of)

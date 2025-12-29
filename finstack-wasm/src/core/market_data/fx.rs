@@ -2,7 +2,7 @@ use crate::core::currency::JsCurrency;
 use crate::core::dates::date::JsDate;
 use crate::core::error::js_error;
 use finstack_core::currency::Currency;
-use finstack_core::money::fx::providers::SimpleFxProvider;
+use finstack_core::money::fx::SimpleFxProvider;
 use finstack_core::money::fx::{FxConfig, FxConversionPolicy, FxMatrix, FxQuery, FxRateResult};
 use std::str::FromStr;
 use std::sync::Arc;

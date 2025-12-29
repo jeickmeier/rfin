@@ -95,10 +95,9 @@ impl ScenarioAdapter for CurveAdapter {
         op: &OperationSpec,
         ctx: &ExecutionContext,
     ) -> Result<Option<Vec<ScenarioEffect>>> {
-        use finstack_valuations::calibration::bumps::hazard::bump_hazard_spreads;
-        use finstack_valuations::calibration::bumps::inflation::bump_inflation_rates;
-        use finstack_valuations::calibration::bumps::rates::bump_discount_curve_synthetic;
-        use finstack_valuations::calibration::bumps::BumpRequest;
+        use finstack_valuations::calibration::{
+            bump_discount_curve_synthetic, bump_hazard_spreads, bump_inflation_rates, BumpRequest,
+        };
 
         match op {
             OperationSpec::CurveParallelBp {
@@ -129,7 +128,7 @@ impl ScenarioAdapter for CurveAdapter {
                         // However, `finstack_core` implementations are usually `InterpolatedDiscountCurve`.
                         // AND `DiscountCurve` trait doesn't easily allow cloning to concrete.
                         // BUT: `bump_discount_curve_synthetic` takes `&dyn DiscountCurve`?
-                        // Checking rates.rs signature: `curve: &finstack_core::market_data::term_structures::discount_curve::DiscountCurve`.
+                        // Checking rates.rs signature: `curve: &finstack_core::market_data::term_structures::DiscountCurve`.
                         // That is the STRUCT `DiscountCurve` (if defined as struct in core/term_structures/discount_curve.rs).
                         // Wait, `DiscountCurve` in core is usually a TRAIT?
                         // I need to check if `DiscountCurve` is a Struct or Trait.
@@ -402,7 +401,7 @@ impl ScenarioAdapter for CurveAdapter {
                         let bumped_points: Vec<(f64, f64)> =
                             knots.into_iter().zip(forwards).collect();
                         let new_curve =
-                            finstack_core::market_data::term_structures::forward_curve::ForwardCurve::builder(
+                            finstack_core::market_data::term_structures::ForwardCurve::builder(
                                 base_curve.id().as_str(),
                                 base_curve.tenor(),
                             )
@@ -570,7 +569,7 @@ impl ScenarioAdapter for CurveAdapter {
                         let bumped_points: Vec<(f64, f64)> =
                             knots.into_iter().zip(levels).collect();
                         let new_curve =
-                            finstack_core::market_data::term_structures::vol_index_curve::VolatilityIndexCurve::builder(
+                            finstack_core::market_data::term_structures::VolatilityIndexCurve::builder(
                                 base_curve.id().as_str(),
                             )
                             .base_date(base_curve.base_date())

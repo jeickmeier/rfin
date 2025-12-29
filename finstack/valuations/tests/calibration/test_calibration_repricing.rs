@@ -3,7 +3,7 @@
 //! The goal is to ensure that curves produced by v2 calibration steps can reprice
 //! instruments constructed *outside* the solver to reasonable tolerances.
 
-use finstack_core::collections::HashMap;
+use finstack_core::HashMap;
 use finstack_core::dates::Date;
 use finstack_core::market_data::context::MarketContext;
 use finstack_core::math::interp::ExtrapolationPolicy;

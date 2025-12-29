@@ -141,7 +141,7 @@ impl BondEngine {
         let flows = bond.build_schedule(context, as_of)?;
         let disc = context.get_discount(bond.discount_curve_id.as_str())?;
         if flows.is_empty() {
-            return Err(finstack_core::error::InputError::TooFewPoints.into());
+            return Err(finstack_core::InputError::TooFewPoints.into());
         }
         let ccy = flows[0].1.currency();
 

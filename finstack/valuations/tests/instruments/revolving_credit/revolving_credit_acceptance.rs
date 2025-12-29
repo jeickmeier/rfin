@@ -11,8 +11,8 @@
 use finstack_core::currency::Currency;
 use finstack_core::dates::{Date, DayCount, Tenor};
 use finstack_core::market_data::context::MarketContext;
-use finstack_core::market_data::term_structures::discount_curve::DiscountCurve;
-use finstack_core::market_data::term_structures::forward_curve::ForwardCurve;
+use finstack_core::market_data::term_structures::DiscountCurve;
+use finstack_core::market_data::term_structures::ForwardCurve;
 use finstack_core::money::Money;
 use finstack_valuations::instruments::revolving_credit::pricer::RevolvingCreditPricer;
 use finstack_valuations::instruments::revolving_credit::{
@@ -121,7 +121,7 @@ fn test_mid_period_draw_accrual() {
         .flows
         .iter()
         .find(|cf| {
-            cf.date == end && matches!(cf.kind, finstack_core::cashflow::primitives::CFKind::Fixed)
+            cf.date == end && matches!(cf.kind, finstack_core::cashflow::CFKind::Fixed)
         })
         .expect("Should have interest flow at period end");
 
@@ -290,7 +290,7 @@ fn test_reset_frequency_mismatch() {
             cf.date == end
                 && matches!(
                     cf.kind,
-                    finstack_core::cashflow::primitives::CFKind::FloatReset
+                    finstack_core::cashflow::CFKind::FloatReset
                 )
         })
         .expect("Should have floating interest flow");
@@ -388,7 +388,7 @@ fn test_utilization_tier() {
         .filter(|cf| {
             matches!(
                 cf.kind,
-                finstack_core::cashflow::primitives::CFKind::UsageFee
+                finstack_core::cashflow::CFKind::UsageFee
             )
         })
         .map(|cf| cf.amount.amount())
@@ -400,7 +400,7 @@ fn test_utilization_tier() {
         .filter(|cf| {
             matches!(
                 cf.kind,
-                finstack_core::cashflow::primitives::CFKind::UsageFee
+                finstack_core::cashflow::CFKind::UsageFee
             )
         })
         .map(|cf| cf.amount.amount())
@@ -457,9 +457,9 @@ fn test_as_of_filtering() {
         .filter(|cf| {
             matches!(
                 cf.kind,
-                finstack_core::cashflow::primitives::CFKind::Fixed
-                    | finstack_core::cashflow::primitives::CFKind::FloatReset
-                    | finstack_core::cashflow::primitives::CFKind::Fee
+                finstack_core::cashflow::CFKind::Fixed
+                    | finstack_core::cashflow::CFKind::FloatReset
+                    | finstack_core::cashflow::CFKind::Fee
             )
         })
         .collect();

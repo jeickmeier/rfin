@@ -4,7 +4,7 @@ use crate::core::market_data::context::PyMarketContext;
 use crate::core::market_data::term_structures::PyDiscountCurve;
 use crate::core::money::PyMoney;
 use crate::errors::core_to_py;
-use finstack_core::collections::HashMap;
+use finstack_core::HashMap;
 use finstack_core::dates::Period;
 use finstack_core::money::Money;
 use finstack_core::types::CurveId;

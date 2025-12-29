@@ -235,7 +235,7 @@ impl FxForward {
                 .rate
         } else {
             return Err(finstack_core::Error::from(
-                finstack_core::error::InputError::NotFound {
+                finstack_core::InputError::NotFound {
                     id: "fx_matrix".to_string(),
                 },
             ));
@@ -250,7 +250,7 @@ impl FxForward {
         // Validate notional currency
         if self.notional.currency() != self.base_currency {
             return Err(finstack_core::Error::from(
-                finstack_core::error::InputError::Invalid,
+                finstack_core::InputError::Invalid,
             ));
         }
         let n_base = self.notional.amount();
@@ -280,7 +280,7 @@ impl FxForward {
                 .rate
         } else {
             return Err(finstack_core::Error::from(
-                finstack_core::error::InputError::NotFound {
+                finstack_core::InputError::NotFound {
                     id: "fx_matrix".to_string(),
                 },
             ));

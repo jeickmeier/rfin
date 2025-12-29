@@ -148,7 +148,7 @@ impl FxSpot {
         }
 
         let matrix = market.fx.as_ref().ok_or_else(|| {
-            finstack_core::Error::from(finstack_core::error::InputError::NotFound {
+            finstack_core::Error::from(finstack_core::InputError::NotFound {
                 id: "fx_matrix".to_string(),
             })
         })?;
@@ -352,7 +352,7 @@ impl CashflowProvider for FxSpot {
             } else {
                 // Try market context FX matrix
                 let matrix = _curves.fx.as_ref().ok_or_else(|| {
-                    finstack_core::Error::from(finstack_core::error::InputError::NotFound {
+                    finstack_core::Error::from(finstack_core::InputError::NotFound {
                         id: "fx_matrix".to_string(),
                     })
                 })?;

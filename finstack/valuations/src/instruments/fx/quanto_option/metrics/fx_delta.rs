@@ -34,7 +34,7 @@ impl MetricCalculator for FxDeltaCalculator {
 
         // Get FX rate ID (if provided)
         let fx_rate_id = option.fx_rate_id.as_ref().ok_or_else(|| {
-            finstack_core::Error::from(finstack_core::error::InputError::NotFound {
+            finstack_core::Error::from(finstack_core::InputError::NotFound {
                 id: "fx_rate_id not provided for quanto option".to_string(),
             })
         })?;

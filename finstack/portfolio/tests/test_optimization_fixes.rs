@@ -16,7 +16,7 @@ use time::Month;
 // Mock market context builder (simplified)
 fn build_mock_market() -> finstack_core::market_data::context::MarketContext {
     use finstack_core::market_data::context::MarketContext;
-    use finstack_core::market_data::term_structures::discount_curve::DiscountCurve;
+    use finstack_core::market_data::term_structures::DiscountCurve;
 
     let as_of = create_date(2024, Month::January, 1).unwrap();
     // Build a flat 5% yield curve using knots

@@ -4,7 +4,7 @@
 //! Error objects. This mirrors the Python bindings' error handling approach
 //! and ensures consistent error messages across both binding layers.
 
-use finstack_core::error::{Error, InputError};
+use finstack_core::{Error, InputError};
 use wasm_bindgen::JsValue;
 
 /// Convert a finstack-core Error into a JavaScript Error value.

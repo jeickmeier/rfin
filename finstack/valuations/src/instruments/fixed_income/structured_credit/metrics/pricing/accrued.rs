@@ -30,7 +30,7 @@ impl MetricCalculator for AccruedCalculator {
 
         // Get cached cashflows to determine payment schedule
         let flows = context.cashflows.as_ref().ok_or_else(|| {
-            finstack_core::Error::from(finstack_core::error::InputError::NotFound {
+            finstack_core::Error::from(finstack_core::InputError::NotFound {
                 id: "context.cashflows".to_string(),
             })
         })?;
@@ -96,7 +96,7 @@ fn find_surrounding_dates(flows: &[(Date, Money)], as_of: Date) -> Result<(Date,
     match (last, next) {
         (Some(l), Some(n)) => Ok((l, n)),
         _ => Err(finstack_core::Error::from(
-            finstack_core::error::InputError::NotFound {
+            finstack_core::InputError::NotFound {
                 id: "accrual_period".to_string(),
             },
         )),

@@ -6,7 +6,7 @@
 use finstack_core::currency::Currency;
 use finstack_core::dates::{Date, DayCount};
 use finstack_core::market_data::context::MarketContext;
-use finstack_core::market_data::term_structures::discount_curve::DiscountCurve;
+use finstack_core::market_data::term_structures::DiscountCurve;
 use finstack_core::money::Money;
 use finstack_core::types::{CurveId, InstrumentId};
 use finstack_valuations::instruments::deposit::Deposit;
@@ -212,7 +212,7 @@ pub fn compute_metrics(
     ctx: &MarketContext,
     base: Date,
     metric_ids: &[MetricId],
-) -> finstack_core::collections::HashMap<MetricId, f64> {
+) -> finstack_core::HashMap<MetricId, f64> {
     let mut registry = MetricRegistry::new();
     finstack_valuations::instruments::deposit::metrics::register_deposit_metrics(&mut registry);
 

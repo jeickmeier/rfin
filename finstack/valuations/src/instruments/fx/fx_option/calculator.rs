@@ -117,7 +117,7 @@ impl FxOptionCalculator {
 
         // Spot from FX matrix
         let fx_matrix = curves.fx.as_ref().ok_or(finstack_core::Error::from(
-            finstack_core::error::InputError::NotFound {
+            finstack_core::InputError::NotFound {
                 id: "fx_matrix".to_string(),
             },
         ))?;
@@ -144,7 +144,7 @@ impl FxOptionCalculator {
         as_of: Date,
     ) -> Result<(f64, f64, f64, f64, f64)> {
         let fx_matrix = curves.fx.as_ref().ok_or(finstack_core::Error::from(
-            finstack_core::error::InputError::NotFound {
+            finstack_core::InputError::NotFound {
                 id: "fx_matrix".to_string(),
             },
         ))?;
@@ -169,7 +169,7 @@ impl FxOptionCalculator {
         // Handle expired options
         if as_of >= inst.expiry {
             let fx_matrix = curves.fx.as_ref().ok_or(finstack_core::Error::from(
-                finstack_core::error::InputError::NotFound {
+                finstack_core::InputError::NotFound {
                     id: "fx_matrix".to_string(),
                 },
             ))?;
@@ -198,7 +198,7 @@ impl FxOptionCalculator {
         let r_f = if t_vol > 0.0 { -df_f.ln() / t_vol } else { 0.0 };
 
         let fx_matrix = curves.fx.as_ref().ok_or(finstack_core::Error::from(
-            finstack_core::error::InputError::NotFound {
+            finstack_core::InputError::NotFound {
                 id: "fx_matrix".to_string(),
             },
         ))?;
@@ -351,7 +351,7 @@ impl FxOptionCalculator {
     fn validate_currency(&self, inst: &FxOption) -> Result<()> {
         if inst.notional.currency() as i32 != inst.base_currency as i32 {
             return Err(finstack_core::Error::from(
-                finstack_core::error::InputError::Invalid,
+                finstack_core::InputError::Invalid,
             ));
         }
         Ok(())
@@ -403,7 +403,7 @@ mod tests {
         dates::{Date, DayCount},
         market_data::{
             context::MarketContext, scalars::MarketScalar,
-            term_structures::discount_curve::DiscountCurve,
+            term_structures::DiscountCurve,
         },
         money::{
             fx::{FxConversionPolicy, FxMatrix, FxProvider},

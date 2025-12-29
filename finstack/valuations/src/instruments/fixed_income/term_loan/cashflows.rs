@@ -12,7 +12,7 @@ use crate::cashflow::builder::{
 use crate::cashflow::primitives::{CFKind, CashFlow};
 use crate::cashflow::traits::DatedFlows;
 use crate::instruments::term_loan::types::TermLoan;
-use finstack_core::cashflow::xirr::InternalRateOfReturn;
+use finstack_core::cashflow::InternalRateOfReturn;
 use finstack_core::dates::Date;
 use finstack_core::dates::DayCountCtx;
 use finstack_core::market_data::context::MarketContext;
@@ -447,7 +447,7 @@ fn build_commitment_fee_flows(
             .year_fraction(prev, d, DayCountCtx::default())?;
         let limit = commitment_limit_at(ddtl, d);
         if limit.currency() != loan.currency {
-            return Err(finstack_core::error::InputError::Invalid.into());
+            return Err(finstack_core::InputError::Invalid.into());
         }
 
         let base = match ddtl.fee_base {
@@ -589,7 +589,7 @@ pub fn build_oid_eir_schedule(
     let mut iter = buckets.iter();
     let (start_date, start_bucket) = iter
         .next()
-        .ok_or(finstack_core::error::InputError::TooFewPoints)?;
+        .ok_or(finstack_core::InputError::TooFewPoints)?;
     let mut opening_balance = -start_bucket.total;
     let mut prev = *start_date;
 

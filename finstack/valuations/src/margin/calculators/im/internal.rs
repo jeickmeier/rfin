@@ -5,7 +5,7 @@
 use crate::instruments::common::traits::Instrument;
 use crate::margin::calculators::traits::{ImCalculator, ImResult};
 use crate::margin::types::ImMethodology;
-use finstack_core::collections::HashMap;
+use finstack_core::HashMap;
 use finstack_core::dates::Date;
 use finstack_core::market_data::context::MarketContext;
 use finstack_core::money::Money;

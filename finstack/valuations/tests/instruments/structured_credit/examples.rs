@@ -12,7 +12,7 @@ mod tests {
         currency::Currency,
         dates::{Date, Tenor},
         money::Money,
-        types::ratings::{moodys_warf_factor, CreditRating},
+        types::{moodys_warf_factor, CreditRating},
     };
     use finstack_valuations::instruments::structured_credit::{
         config::{DealConfig, DealDates, DefaultAssumptions},

@@ -19,10 +19,10 @@
 //! for discount factor calibration.
 
 use crate::cashflow::builder::rate_helpers::FloatingRateParams;
-use finstack_core::dates::calendar::registry::CalendarRegistry;
+use finstack_core::dates::CalendarRegistry;
 use finstack_core::dates::{Date, DateExt, DayCount, DayCountCtx, Schedule};
-use finstack_core::market_data::term_structures::discount_curve::DiscountCurve;
-use finstack_core::market_data::term_structures::forward_curve::ForwardCurve;
+use finstack_core::market_data::term_structures::DiscountCurve;
+use finstack_core::market_data::term_structures::ForwardCurve;
 use finstack_core::math::KahanAccumulator;
 use finstack_core::types::{Bps, Rate};
 use finstack_core::Result;
@@ -86,7 +86,7 @@ pub const ANNUITY_EPSILON: f64 = 1e-12;
 ///
 /// ```rust,no_run
 /// use finstack_core::dates::Date;
-/// use finstack_core::market_data::term_structures::discount_curve::DiscountCurve;
+/// use finstack_core::market_data::term_structures::DiscountCurve;
 /// use finstack_valuations::instruments::common::pricing::swap_legs::robust_relative_df;
 /// use time::Month;
 ///
@@ -111,13 +111,13 @@ pub fn robust_relative_df(disc: &DiscountCurve, as_of: Date, target: Date) -> Re
 
     // Guard against invalid/near-zero discount factors for numerical stability and no-arb.
     if !df_as_of.is_finite() {
-        return Err(finstack_core::error::Error::Validation(
+        return Err(finstack_core::Error::Validation(
             "Valuation date discount factor is not finite.".into(),
         ));
     }
     // Discount factors must be strictly positive under standard discounting assumptions.
     if df_as_of <= DF_EPSILON {
-        return Err(finstack_core::error::Error::Validation(format!(
+        return Err(finstack_core::Error::Validation(format!(
             "Valuation date discount factor ({:.2e}) is below numerical stability threshold ({:.2e}). \
              This may indicate extreme rate scenarios or very long time horizons.",
             df_as_of, DF_EPSILON
@@ -126,12 +126,12 @@ pub fn robust_relative_df(disc: &DiscountCurve, as_of: Date, target: Date) -> Re
 
     let df = disc.df_between_dates(as_of, target)?;
     if !df.is_finite() {
-        return Err(finstack_core::error::Error::Validation(
+        return Err(finstack_core::Error::Validation(
             "Discount factor between dates is not finite.".into(),
         ));
     }
     if df <= 0.0 {
-        return Err(finstack_core::error::Error::Validation(format!(
+        return Err(finstack_core::Error::Validation(format!(
             "Discount factor between dates is non-positive (df={:.3e}) which is non-physical.",
             df
         )));
@@ -481,7 +481,7 @@ impl FixedLegParams {
     /// - Rate is finite
     pub fn validate(&self) -> Result<()> {
         if !self.rate.is_finite() {
-            return Err(finstack_core::error::Error::Validation(
+            return Err(finstack_core::Error::Validation(
                 "Fixed rate must be finite".into(),
             ));
         }
@@ -600,7 +600,7 @@ where
 
     // Guard against zero annuity which would cause divide-by-zero in par spread calculations
     if annuity < ANNUITY_EPSILON {
-        return Err(finstack_core::error::Error::Validation(format!(
+        return Err(finstack_core::Error::Validation(format!(
             "Annuity ({:.2e}) is below minimum threshold ({:.2e}). \
              This may indicate all periods have expired or extreme discounting scenarios.",
             annuity, ANNUITY_EPSILON
@@ -676,7 +676,7 @@ pub fn schedule_to_periods(
 #[allow(clippy::expect_used, clippy::panic)]
 mod tests {
     use super::*;
-    use finstack_core::market_data::term_structures::forward_curve::ForwardCurve;
+    use finstack_core::market_data::term_structures::ForwardCurve;
     use finstack_core::types::CurveId;
     use time::Month;
 

@@ -14,9 +14,7 @@
 use crate::error::{Error, Result};
 use crate::spec::RateBindingSpec;
 use finstack_core::dates::{BusinessDayConvention, Date, DayCount, HolidayCalendar, Tenor};
-use finstack_core::market_data::term_structures::{
-    discount_curve::DiscountCurve, forward_curve::ForwardCurve,
-};
+use finstack_core::market_data::term_structures::{DiscountCurve, ForwardCurve};
 
 /// Parse a tenor string to a fractional number of years using simple approximations.
 ///

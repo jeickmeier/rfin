@@ -3,7 +3,7 @@
 use crate::cashflow::primitives::{CFKind, CashFlow};
 use finstack_core::currency::Currency;
 use finstack_core::dates::Date;
-use finstack_core::error::InputError;
+use finstack_core::InputError;
 use finstack_core::money::Money;
 use rust_decimal::prelude::ToPrimitive;
 use rust_decimal::Decimal;

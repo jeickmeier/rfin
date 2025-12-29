@@ -8,7 +8,7 @@ use crate::instruments::agency_mbs_passthrough::pricer::price_mbs;
 use crate::instruments::agency_mbs_passthrough::AgencyMbsPassthrough;
 use finstack_core::dates::Date;
 use finstack_core::market_data::context::MarketContext;
-use finstack_core::market_data::term_structures::discount_curve::DiscountCurve;
+use finstack_core::market_data::term_structures::DiscountCurve;
 use finstack_core::Result;
 
 /// Duration and convexity result.

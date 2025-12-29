@@ -59,7 +59,7 @@ use finstack_core::currency::Currency;
 use finstack_core::dates::DateExt;
 use finstack_core::dates::{adjust, next_cds_date, Date, DayCount};
 use finstack_core::market_data::context::MarketContext;
-use finstack_core::market_data::term_structures::hazard_curve::HazardCurve;
+use finstack_core::market_data::term_structures::HazardCurve;
 use finstack_core::market_data::traits::{Discounting, Survival};
 use finstack_core::math::solver::{BrentSolver, Solver};
 use finstack_core::math::{adaptive_simpson, gauss_legendre_integrate};
@@ -1346,7 +1346,7 @@ impl CDSBootstrapper {
 mod tests {
     use super::*;
     use finstack_core::dates::DateExt;
-    use finstack_core::market_data::term_structures::discount_curve::DiscountCurve;
+    use finstack_core::market_data::term_structures::DiscountCurve;
 
     fn create_test_cds(
         id: impl Into<String>,

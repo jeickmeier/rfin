@@ -167,7 +167,7 @@ Lookup is done via `CalendarRegistry`:
 
 ```rust
 use finstack_core::dates::{Date, BusinessDayConvention, adjust};
-use finstack_core::dates::calendar::registry::CalendarRegistry;
+use finstack_core::dates::CalendarRegistry;
 use time::Month;
 
 let base = Date::from_calendar_date(2025, Month::December, 25)?;
@@ -214,7 +214,7 @@ Schedules are built via `ScheduleBuilder`:
 
 ```rust
 use finstack_core::dates::{ScheduleBuilder, Tenor, BusinessDayConvention};
-use finstack_core::dates::calendar::registry::CalendarRegistry;
+use finstack_core::dates::CalendarRegistry;
 use time::{Date, Month};
 
 let start = Date::from_calendar_date(2025, Month::January, 15)?;

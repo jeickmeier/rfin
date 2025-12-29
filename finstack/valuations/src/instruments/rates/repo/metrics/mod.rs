@@ -89,7 +89,7 @@ mod tests {
     use finstack_core::dates::Date;
     use finstack_core::market_data::context::MarketContext;
     use finstack_core::market_data::scalars::MarketScalar;
-    use finstack_core::market_data::term_structures::discount_curve::DiscountCurve;
+    use finstack_core::market_data::term_structures::DiscountCurve;
     use finstack_core::money::Money;
     use time::Month;
 
@@ -117,7 +117,7 @@ mod tests {
         // Use a near-zero rate curve (0.01% = 1bp) for testing
         // DF(10) = exp(-0.0001 * 10) ≈ 0.999
         let disc =
-            finstack_core::market_data::term_structures::discount_curve::DiscountCurve::builder(
+            finstack_core::market_data::term_structures::DiscountCurve::builder(
                 "USD-OIS",
             )
             .base_date(as_of)

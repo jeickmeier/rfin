@@ -40,7 +40,7 @@ impl MetricCalculator for CarryPv {
         } else if let Some(rate) = fx_swap.near_rate {
             rate
         } else {
-            return Err(finstack_core::error::InputError::NotFound {
+            return Err(finstack_core::InputError::NotFound {
                 id: "fx_matrix".to_string(),
             }
             .into());

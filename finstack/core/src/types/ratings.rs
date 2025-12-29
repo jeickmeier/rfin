@@ -17,7 +17,7 @@
 //! # Examples
 //!
 //! ```rust
-//! use finstack_core::types::ratings::{CreditRating, moodys_warf_factor};
+//! use finstack_core::types::{CreditRating, moodys_warf_factor};
 //!
 //! // Check investment grade status
 //! assert!(CreditRating::BBB.is_investment_grade());
@@ -61,7 +61,7 @@ use serde::{Deserialize, Serialize};
 /// Ratings of `BBB` and above are considered "investment grade":
 ///
 /// ```rust
-/// use finstack_core::types::ratings::CreditRating;
+/// use finstack_core::types::CreditRating;
 ///
 /// assert!(CreditRating::A.is_investment_grade());
 /// assert!(!CreditRating::BB.is_investment_grade());
@@ -100,7 +100,7 @@ impl CreditRating {
     ///
     /// # Example
     /// ```rust
-    /// use finstack_core::types::ratings::CreditRating;
+    /// use finstack_core::types::CreditRating;
     ///
     /// assert!(CreditRating::BBB.is_investment_grade());
     /// assert!(!CreditRating::BB.is_investment_grade());
@@ -115,7 +115,7 @@ impl CreditRating {
     ///
     /// # Example
     /// ```rust
-    /// use finstack_core::types::ratings::CreditRating;
+    /// use finstack_core::types::CreditRating;
     ///
     /// assert!(CreditRating::BB.is_speculative_grade());
     /// assert!(!CreditRating::A.is_speculative_grade());
@@ -128,7 +128,7 @@ impl CreditRating {
     ///
     /// # Example
     /// ```rust
-    /// use finstack_core::types::ratings::CreditRating;
+    /// use finstack_core::types::CreditRating;
     ///
     /// assert!(CreditRating::D.is_default());
     /// assert!(!CreditRating::CCC.is_default());
@@ -472,7 +472,7 @@ fn parse_notched_rating(value: &str) -> Result<NotchedRating, crate::Error> {
 /// # Example
 ///
 /// ```rust
-/// use finstack_core::types::ratings::{CreditRating, RatingFactorTable};
+/// use finstack_core::types::{CreditRating, RatingFactorTable};
 ///
 /// let table = RatingFactorTable::moodys_standard();
 /// let factor = table.get_factor(CreditRating::B);
@@ -501,7 +501,7 @@ impl RatingFactorTable {
     ///
     /// # Example
     /// ```rust
-    /// use finstack_core::types::ratings::{CreditRating, RatingFactorTable};
+    /// use finstack_core::types::{CreditRating, RatingFactorTable};
     ///
     /// let table = RatingFactorTable::moodys_standard();
     /// assert_eq!(table.get_factor(CreditRating::AAA), 1.0);
@@ -597,7 +597,7 @@ static MOODYS_WARF_TABLE: OnceLock<RatingFactorTable> = OnceLock::new();
 ///
 /// # Example
 /// ```rust
-/// use finstack_core::types::ratings::{CreditRating, RatingNotch, moodys_warf_factor};
+/// use finstack_core::types::{CreditRating, RatingNotch, moodys_warf_factor};
 ///
 /// assert_eq!(moodys_warf_factor(CreditRating::AAA), 1.0);
 /// assert_eq!(moodys_warf_factor(CreditRating::B), 2720.0);

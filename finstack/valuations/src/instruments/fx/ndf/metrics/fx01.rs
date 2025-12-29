@@ -47,7 +47,7 @@ impl MetricCalculator for Fx01Calculator {
             }
         } else {
             return Err(finstack_core::Error::from(
-                finstack_core::error::InputError::NotFound {
+                finstack_core::InputError::NotFound {
                     id: "fx_matrix".to_string(),
                 },
             ));

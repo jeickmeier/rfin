@@ -276,7 +276,7 @@ assert!(rate > 1.2);
 Example using `SimpleFxProvider` directly:
 
 ```rust
-use finstack_core::money::fx::providers::SimpleFxProvider;
+use finstack_core::money::fx::SimpleFxProvider;
 use finstack_core::money::fx::{FxProvider, FxConversionPolicy};
 use finstack_core::currency::Currency;
 use finstack_core::dates::Date;

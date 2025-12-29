@@ -43,7 +43,7 @@ impl MetricCalculator for YtmCalculator {
             flows.iter().map(|(d, m)| (*d, m.amount())).collect();
 
         // Solve IRR using the loan's day-count convention
-        use finstack_core::cashflow::xirr::InternalRateOfReturn;
+        use finstack_core::cashflow::InternalRateOfReturn;
         flows_f64.irr_with_daycount(loan.day_count, None)
     }
 }

@@ -42,7 +42,7 @@
 //! # Examples
 //!
 //! ```rust
-//! use finstack_core::market_data::term_structures::forward_curve::ForwardCurve;
+//! use finstack_core::market_data::term_structures::ForwardCurve;
 //! use finstack_core::math::interp::InterpStyle;
 //! use finstack_core::dates::Date;
 //! use time::Month;
@@ -415,7 +415,7 @@ impl ForwardCurve {
     ///
     /// # Examples
     /// ```rust,no_run
-    /// use finstack_core::market_data::term_structures::forward_curve::ForwardCurve;
+    /// use finstack_core::market_data::term_structures::ForwardCurve;
     /// use time::macros::date;
     /// # fn main() -> finstack_core::Result<()> {
     ///
@@ -517,7 +517,7 @@ impl ForwardCurve {
     ///
     /// # Examples
     /// ```rust,no_run
-    /// use finstack_core::market_data::term_structures::forward_curve::ForwardCurve;
+    /// use finstack_core::market_data::term_structures::ForwardCurve;
     /// use time::macros::date;
     /// # fn main() -> finstack_core::Result<()> {
     ///

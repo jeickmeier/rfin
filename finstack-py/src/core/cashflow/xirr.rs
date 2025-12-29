@@ -37,7 +37,7 @@
 
 use crate::core::dates::utils::py_to_date;
 use crate::errors::{core_to_py, PyContext};
-use finstack_core::cashflow::xirr::InternalRateOfReturn;
+use finstack_core::cashflow::InternalRateOfReturn;
 use pyo3::prelude::*;
 use pyo3::types::PyModule;
 use pyo3::Bound;

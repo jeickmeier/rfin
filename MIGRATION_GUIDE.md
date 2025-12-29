@@ -77,6 +77,17 @@ Do you use calibration heavily?
 └── NO → Done
 ```
 
+## New deprecations: valuations public API surface
+
+- **Canonical imports** (use these going forward):
+  - `finstack_valuations::instruments::{Instrument, Attributes, instrument_to_arc, build_with_metrics_dyn, Bond, InterestRateSwap, ...}`
+  - `finstack_valuations::pricer::{PricerRegistry, ModelKey, InstrumentType, create_standard_registry}`
+  - `finstack_valuations::metrics::{MetricId, MetricRegistry, MetricContext, standard_registry}` (plus VaR via `metrics::risk`)
+  - `finstack_valuations::covenants::{Covenant, CovenantType, CovenantEngine, CovenantForecast, CovenantForecastConfig}`
+  - `finstack_valuations::attribution::{AttributionMethod, AttributionEnvelope, attribute_pnl_parallel, attribute_pnl_waterfall, attribute_pnl_metrics_based, JsonEnvelope}`
+  - `finstack_valuations::calibration::{api::*, SolverConfig, CalibrationConfig, ValidationConfig}` and bump helpers `calibration::bumps::{bump_discount_curve_synthetic, bump_hazard_spreads, bump_inflation_rates, BumpRequest}`
+- **Deprecated paths** (still available for one release, will be removed): deep module imports such as `instruments::common::models`, `calibration::bumps::rates`/`hazard`/`inflation`, `covenants::engine`/`forward`, `attribution::types`/`spec`/`metrics_based`. Update imports to the canonical paths above.
+
 ---
 
 ## Breaking Changes by Phase

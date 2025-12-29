@@ -254,7 +254,7 @@ impl InterestRateFuture {
             surface.value_checked(t_fixing, forward_rate)?
         } else {
             return Err(finstack_core::Error::Input(
-                finstack_core::error::InputError::NotFound {
+                finstack_core::InputError::NotFound {
                     id: format!(
                         "IR Future {}: Missing volatility_id or fixed convexity_adjustment",
                         self.id

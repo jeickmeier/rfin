@@ -219,7 +219,7 @@ impl FloatingRateParams {
     /// `Ok(())` if all parameters are valid, otherwise returns an error
     /// describing the validation failure.
     pub fn validate(&self) -> Result<()> {
-        use finstack_core::error::InputError;
+        use finstack_core::InputError;
 
         // Check spread is finite
         if !self.spread_bp.is_finite() {

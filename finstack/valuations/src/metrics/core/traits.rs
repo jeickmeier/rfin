@@ -151,22 +151,22 @@ pub struct MetricContext {
     pub base_value: Money,
 
     /// Previously computed metrics (by ID).
-    pub computed: finstack_core::collections::HashMap<MetricId, f64>,
+    pub computed: finstack_core::HashMap<MetricId, f64>,
 
     /// Previously computed 1D bucketed metrics (by ID).
     ///
     /// Example: `MetricId::BucketedDv01` -> [("1m", v1), ("3m", v2), ...]
-    pub computed_series: finstack_core::collections::HashMap<MetricId, Vec<(String, f64)>>,
+    pub computed_series: finstack_core::HashMap<MetricId, Vec<(String, f64)>>,
 
     /// Previously computed 2D structured metrics (by ID).
     ///
     /// Example: vega surface with rows=expiries, cols=strikes
-    pub computed_matrix: finstack_core::collections::HashMap<MetricId, Structured2D>,
+    pub computed_matrix: finstack_core::HashMap<MetricId, Structured2D>,
 
     /// Previously computed 3D structured metrics (by ID).
     ///
     /// Example: 3D bucketed vegas (e.g., expiry x tenor x strike)
-    pub computed_tensor3: finstack_core::collections::HashMap<MetricId, Structured3D>,
+    pub computed_tensor3: finstack_core::HashMap<MetricId, Structured3D>,
 
     /// Cached cashflows for the instrument.
     pub cashflows: Option<Vec<(Date, Money)>>,
@@ -223,10 +223,10 @@ impl MetricContext {
             curves,
             as_of,
             base_value,
-            computed: finstack_core::collections::HashMap::default(),
-            computed_series: finstack_core::collections::HashMap::default(),
-            computed_matrix: finstack_core::collections::HashMap::default(),
-            computed_tensor3: finstack_core::collections::HashMap::default(),
+            computed: finstack_core::HashMap::default(),
+            computed_series: finstack_core::HashMap::default(),
+            computed_matrix: finstack_core::HashMap::default(),
+            computed_tensor3: finstack_core::HashMap::default(),
             cashflows: None,
             detailed_tranche_cashflows: None,
             discount_curve_id: None,
@@ -281,7 +281,7 @@ impl MetricContext {
         self.instrument
             .as_any()
             .downcast_ref::<T>()
-            .ok_or_else(|| finstack_core::error::InputError::Invalid.into())
+            .ok_or_else(|| finstack_core::InputError::Invalid.into())
     }
 
     /// Store a 1D bucketed series under `base_metric_id` and optionally
@@ -329,7 +329,7 @@ impl MetricContext {
         let cols: Vec<String> = cols.into_iter().map(Into::into).collect();
         let matrix = Structured2D { rows, cols, values };
         if !matrix.validate_shape() {
-            return Err(finstack_core::error::InputError::Invalid.into());
+            return Err(finstack_core::InputError::Invalid.into());
         }
         for (r_idx, r_label) in matrix.rows.iter().enumerate() {
             for (c_idx, c_label) in matrix.cols.iter().enumerate() {
@@ -370,7 +370,7 @@ impl MetricContext {
             values,
         };
         if !tensor.validate_shape() {
-            return Err(finstack_core::error::InputError::Invalid.into());
+            return Err(finstack_core::InputError::Invalid.into());
         }
         for (i, a_label) in tensor.a.iter().enumerate() {
             for (j, b_label) in tensor.b.iter().enumerate() {

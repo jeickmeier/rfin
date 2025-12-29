@@ -206,7 +206,7 @@ pub struct AttributionInput<'a> {
     ///
     /// If provided, T₀ valuation will use these model parameters.
     /// Set to `None` for metrics-based attribution or when using current model parameters.
-    pub model_params_t0: Option<&'a crate::attribution::model_params::ModelParamsSnapshot>,
+    pub model_params_t0: Option<&'a crate::attribution::ModelParamsSnapshot>,
 
     /// Pre-computed valuation at T₀ (used by metrics-based).
     ///

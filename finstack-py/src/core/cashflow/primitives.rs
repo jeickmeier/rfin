@@ -37,7 +37,7 @@ use crate::core::common::{labels::normalize_label, pycmp::richcmp_eq_ne};
 use crate::core::dates::utils::{date_to_py, py_to_date};
 use crate::core::money::{extract_money, PyMoney};
 use crate::errors::{core_to_py, PyContext};
-use finstack_core::cashflow::primitives::{CFKind, CashFlow};
+use finstack_core::cashflow::{CFKind, CashFlow};
 use pyo3::basic::CompareOp;
 use pyo3::exceptions::{PyTypeError, PyValueError};
 use pyo3::prelude::*;

@@ -1,7 +1,6 @@
 //! Tests for calendar registry functionality
 
-use finstack_core::dates::calendar::composite::CompositeMode;
-use finstack_core::dates::calendar::registry::{CalendarId, CalendarRegistry};
+use finstack_core::dates::{CalendarId, CalendarRegistry, CompositeMode};
 use finstack_core::dates::calendar::{GBLO, NYSE, TARGET2};
 use finstack_core::dates::{Date, HolidayCalendar};
 use time::Month;

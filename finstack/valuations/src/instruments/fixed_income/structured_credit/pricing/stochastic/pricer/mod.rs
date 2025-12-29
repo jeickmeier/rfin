@@ -20,7 +20,7 @@
 //! ```rust,no_run
 //! use finstack_core::currency::Currency;
 //! use finstack_core::dates::Date;
-//! use finstack_core::market_data::term_structures::discount_curve::DiscountCurve;
+//! use finstack_core::market_data::term_structures::DiscountCurve;
 //! use finstack_valuations::instruments::structured_credit::pricing::stochastic::pricer::{
 //!     StochasticPricer, StochasticPricerConfig,
 //! };

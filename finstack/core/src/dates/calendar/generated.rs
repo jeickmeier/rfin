@@ -12,9 +12,6 @@ use time::{Date, Duration, Month, Weekday};
 // Include generated constants directly from src/generated for IDE discoverability.
 include!("../../generated/holiday_generated.rs");
 
-/// Number of years covered.
-pub const YEARS: usize = (END_YEAR - BASE_YEAR + 1) as usize;
-
 /// Words needed to cover 366 bits.
 pub const BITSET_WORDS: usize = 366_usize.div_ceil(64); // 6 u64 words
 

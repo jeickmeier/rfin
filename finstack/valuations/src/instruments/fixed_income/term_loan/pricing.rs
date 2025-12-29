@@ -160,7 +160,7 @@ impl TermLoanDiscountingPricer {
         market: &MarketContext,
         as_of: finstack_core::dates::Date,
     ) -> finstack_core::Result<Money> {
-        use finstack_core::cashflow::primitives::CFKind;
+        use finstack_core::cashflow::CFKind;
 
         // Build full cashflow schedule
         let schedule = generate_cashflows(loan, market, as_of)?;

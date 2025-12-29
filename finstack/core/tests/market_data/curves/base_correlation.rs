@@ -4,7 +4,7 @@
 //! - Builder validation and construction
 //! - Serialization roundtrips
 
-use finstack_core::market_data::term_structures::base_correlation::BaseCorrelationCurve;
+use finstack_core::market_data::term_structures::BaseCorrelationCurve;
 use time::{Date, Month};
 
 fn _test_date() -> Date {

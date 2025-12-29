@@ -2,7 +2,7 @@
 
 use finstack_core::currency::Currency;
 use finstack_core::dates::Date;
-use finstack_core::money::fx::providers::SimpleFxProvider;
+use finstack_core::money::fx::SimpleFxProvider;
 use finstack_core::money::fx::{FxConversionPolicy, FxProvider};
 use time::Month;
 

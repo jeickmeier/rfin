@@ -10,7 +10,7 @@
 
 use super::common::*;
 use finstack_core::dates::DateExt;
-use finstack_core::market_data::scalars::inflation_index::{InflationInterpolation, InflationLag};
+use finstack_core::market_data::scalars::{InflationInterpolation, InflationLag};
 use finstack_valuations::instruments::inflation_linked_bond::{
     DeflationProtection, IndexationMethod,
 };
@@ -45,7 +45,7 @@ fn test_index_ratio_with_3month_lag() {
         (d(2024, 12, 1), 300.0), // Reference for Jan 1 (3mo lag)
         (d(2025, 1, 1), 301.0),  // Reference for Apr 1 (3mo lag)
     ];
-    let index = finstack_core::market_data::scalars::inflation_index::InflationIndex::new(
+    let index = finstack_core::market_data::scalars::InflationIndex::new(
         "US-CPI-U",
         observations,
         finstack_core::currency::Currency::USD,
@@ -73,7 +73,7 @@ fn test_index_ratio_with_8month_lag_uk() {
         (d(2024, 6, 1), 320.0), // Reference for Feb 1 (8mo lag)
         (d(2025, 2, 1), 326.4), // Reference for Oct 1 (8mo lag)
     ];
-    let index = finstack_core::market_data::scalars::inflation_index::InflationIndex::new(
+    let index = finstack_core::market_data::scalars::InflationIndex::new(
         "UK-RPI",
         observations,
         finstack_core::currency::Currency::GBP,
@@ -100,7 +100,7 @@ fn test_index_ratio_no_deflation_protection() {
         (d(2024, 10, 1), 295.0), // Deflation scenario
         (d(2025, 1, 1), 295.0),
     ];
-    let index = finstack_core::market_data::scalars::inflation_index::InflationIndex::new(
+    let index = finstack_core::market_data::scalars::InflationIndex::new(
         "US-CPI-U",
         observations,
         finstack_core::currency::Currency::USD,
@@ -130,7 +130,7 @@ fn test_index_ratio_maturity_only_deflation_protection() {
         (d(2025, 1, 1), 295.0),
         (d(2025, 1, 15), 295.0),
     ];
-    let index = finstack_core::market_data::scalars::inflation_index::InflationIndex::new(
+    let index = finstack_core::market_data::scalars::InflationIndex::new(
         "US-CPI-U",
         observations,
         finstack_core::currency::Currency::USD,
@@ -163,7 +163,7 @@ fn test_index_ratio_all_payments_deflation_protection() {
         (d(2024, 10, 1), 295.0), // Deflation
         (d(2025, 1, 1), 295.0),
     ];
-    let index = finstack_core::market_data::scalars::inflation_index::InflationIndex::new(
+    let index = finstack_core::market_data::scalars::InflationIndex::new(
         "US-CPI-U",
         observations,
         finstack_core::currency::Currency::USD,
@@ -276,7 +276,7 @@ fn test_index_ratio_tips_requires_linear_interpolation() {
     // Arrange
     let ilb = sample_tips();
     let observations = vec![(d(2024, 12, 1), 300.0)];
-    let index = finstack_core::market_data::scalars::inflation_index::InflationIndex::new(
+    let index = finstack_core::market_data::scalars::InflationIndex::new(
         "US-CPI-U",
         observations,
         finstack_core::currency::Currency::USD,
@@ -296,7 +296,7 @@ fn test_index_ratio_uk_requires_step_interpolation() {
     ilb.indexation_method = IndexationMethod::UK;
 
     let observations = vec![(d(2024, 6, 1), 320.0)];
-    let index = finstack_core::market_data::scalars::inflation_index::InflationIndex::new(
+    let index = finstack_core::market_data::scalars::InflationIndex::new(
         "UK-RPI",
         observations,
         finstack_core::currency::Currency::GBP,
@@ -316,7 +316,7 @@ fn test_index_ratio_canadian_requires_linear_interpolation() {
     ilb.indexation_method = IndexationMethod::Canadian;
 
     let observations = vec![(d(2024, 9, 1), 140.0)];
-    let index = finstack_core::market_data::scalars::inflation_index::InflationIndex::new(
+    let index = finstack_core::market_data::scalars::InflationIndex::new(
         "CA-CPI",
         observations,
         finstack_core::currency::Currency::CAD,
@@ -366,7 +366,7 @@ fn test_index_ratio_extreme_inflation() {
         (d(2024, 10, 1), 500.0), // 400% inflation
         (d(2025, 1, 1), 500.0),
     ];
-    let index = finstack_core::market_data::scalars::inflation_index::InflationIndex::new(
+    let index = finstack_core::market_data::scalars::InflationIndex::new(
         "US-CPI-U",
         observations,
         finstack_core::currency::Currency::USD,
@@ -396,7 +396,7 @@ fn test_index_ratio_time_series() {
         let value = 300.0 * (1.005_f64).powi(i);
         observations.push((month_date, value));
     }
-    let index = finstack_core::market_data::scalars::inflation_index::InflationIndex::new(
+    let index = finstack_core::market_data::scalars::InflationIndex::new(
         "US-CPI-U",
         observations,
         finstack_core::currency::Currency::USD,

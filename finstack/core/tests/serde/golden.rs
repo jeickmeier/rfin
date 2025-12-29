@@ -3,7 +3,7 @@
 //! These tests ensure that our wire format remains stable across versions.
 //! If any of these tests fail, it indicates a breaking change to the serialization format.
 
-use finstack_core::cashflow::primitives::CFKind;
+use finstack_core::cashflow::CFKind;
 use finstack_core::currency::Currency;
 use finstack_core::dates::{BusinessDayConvention, Date, DayCount, StubKind, Tenor};
 use finstack_core::types::{CurveId, InstrumentId};

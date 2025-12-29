@@ -9,7 +9,7 @@ use crate::market::conventions::ids::InflationSwapConventionId;
 use crate::market::quotes::inflation::InflationQuote;
 use crate::market::quotes::market_quote::MarketQuote;
 use finstack_core::market_data::context::MarketContext;
-use finstack_core::market_data::term_structures::inflation::InflationCurve;
+use finstack_core::market_data::term_structures::InflationCurve;
 use finstack_core::types::Currency;
 
 use finstack_core::dates::Date;

@@ -1,5 +1,5 @@
 use finstack_core::market_data::bumps::{BumpMode, BumpSpec, BumpType, BumpUnits, Bumpable};
-use finstack_core::market_data::surfaces::vol_surface::VolSurface;
+use finstack_core::market_data::surfaces::VolSurface;
 
 #[test]
 fn test_vol_surface_builder_basic() {

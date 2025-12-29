@@ -35,7 +35,7 @@ impl MarketContext {
     /// # Examples
     /// ```rust,no_run
     /// use finstack_core::market_data::context::MarketContext;
-    /// use finstack_core::market_data::term_structures::discount_curve::DiscountCurve;
+    /// use finstack_core::market_data::term_structures::DiscountCurve;
     /// use time::macros::date;
     /// # fn main() -> finstack_core::Result<()> {
     ///

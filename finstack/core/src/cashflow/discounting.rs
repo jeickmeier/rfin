@@ -24,7 +24,7 @@
 //! # Examples
 //!
 //! ```rust
-//! use finstack_core::cashflow::discounting::npv;
+//! use finstack_core::cashflow::npv;
 //! use finstack_core::market_data::term_structures::DiscountCurve;
 //! use finstack_core::dates::{Date, DayCount};
 //! use finstack_core::money::Money;
@@ -121,7 +121,7 @@ pub fn npv<D: Discounting + ?Sized>(
 /// # Example
 ///
 /// ```rust
-/// use finstack_core::cashflow::discounting::npv_using_curve_dc;
+/// use finstack_core::cashflow::npv_using_curve_dc;
 /// use finstack_core::market_data::term_structures::DiscountCurve;
 /// use finstack_core::dates::{Date, DayCount};
 /// use finstack_core::money::Money;
@@ -167,7 +167,7 @@ pub fn npv_using_curve_dc<D: Discounting + ?Sized>(
 /// # Example
 ///
 /// ```rust
-/// use finstack_core::cashflow::discounting::npv_constant;
+/// use finstack_core::cashflow::npv_constant;
 /// use finstack_core::dates::{Date, DayCount};
 /// use finstack_core::money::Money;
 /// use finstack_core::currency::Currency;

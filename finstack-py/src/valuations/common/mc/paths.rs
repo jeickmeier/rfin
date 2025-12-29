@@ -1,6 +1,6 @@
 //! Python bindings for Monte Carlo path data structures.
 
-use finstack_core::collections::HashMap;
+use finstack_core::HashMap;
 use finstack_valuations::instruments::common::mc::paths::{
     CashflowType, PathDataset, PathPoint, SimulatedPath,
 };

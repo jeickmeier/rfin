@@ -74,7 +74,7 @@ impl GlobalFitOptimizer {
 
         if n_residuals == 0 {
             return Err(finstack_core::Error::Input(
-                finstack_core::error::InputError::TooFewPoints,
+                finstack_core::InputError::TooFewPoints,
             ));
         }
 

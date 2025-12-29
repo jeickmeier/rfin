@@ -3,7 +3,7 @@
 use crate::inflation_swap::fixtures::*;
 use finstack_core::currency::Currency;
 use finstack_core::dates::{Date, DayCount};
-use finstack_core::market_data::scalars::inflation_index::InflationLag;
+use finstack_core::market_data::scalars::InflationLag;
 use finstack_core::money::Money;
 use finstack_valuations::instruments::common::traits::Attributes;
 use finstack_valuations::instruments::inflation_swap::{

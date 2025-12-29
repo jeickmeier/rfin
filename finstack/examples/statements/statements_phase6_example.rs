@@ -11,7 +11,7 @@ use finstack_core::{
     dates::Date,
     market_data::{
         context::MarketContext,
-        term_structures::{discount_curve::DiscountCurve, forward_curve::ForwardCurve},
+        term_structures::{DiscountCurve, ForwardCurve},
     },
     math::interp::InterpStyle,
     money::Money,

@@ -15,7 +15,7 @@
 use finstack_core::currency::Currency;
 use finstack_core::dates::Date;
 use finstack_core::money::Money;
-use finstack_core::types::ratings::{moodys_warf_factor, CreditRating, RatingNotch};
+use finstack_core::types::{moodys_warf_factor, CreditRating, RatingNotch};
 use finstack_valuations::instruments::structured_credit::{
     cdr_to_mdr, cpr_to_smm, mdr_to_cdr, psa_to_cpr, DealType, Pool, PoolAsset,
 };

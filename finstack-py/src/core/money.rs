@@ -262,7 +262,7 @@ impl PyMoney {
             .rate(self.inner.currency(), target, date, fx_policy)
             .map_err(core_to_py)?;
         if !rate.is_finite() {
-            return Err(core_to_py(finstack_core::error::InputError::Invalid.into()));
+            return Err(core_to_py(finstack_core::InputError::Invalid.into()));
         }
         let converted =
             finstack_core::money::Money::new((self.inner.amount() * rate).into(), target);

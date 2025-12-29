@@ -206,7 +206,7 @@ impl MetricCalculator for CarryAccruedCalculator {
 /// Helper function to calculate IRR using robust root finding.
 pub fn calculate_irr(flows: &[(Date, Money)], day_count: DayCount) -> finstack_core::Result<f64> {
     if flows.len() < 2 {
-        return Err(finstack_core::error::InputError::TooFewPoints.into());
+        return Err(finstack_core::InputError::TooFewPoints.into());
     }
 
     let base_date = flows[0].0;
@@ -238,7 +238,7 @@ pub fn calculate_irr(flows: &[(Date, Money)], day_count: DayCount) -> finstack_c
 
     solver
         .solve(npv_function, 0.15) // Start with 15% initial guess for PE returns
-        .map_err(|_| finstack_core::error::InputError::Invalid.into())
+        .map_err(|_| finstack_core::InputError::Invalid.into())
 }
 
 mod carry01;

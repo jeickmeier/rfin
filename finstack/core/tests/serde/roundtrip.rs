@@ -8,7 +8,7 @@ use finstack_core::dates::{
     BusinessDayConvention, CalendarRegistry, DayCount, DayCountCtxState, ScheduleBuilder,
     ScheduleSpec, StubKind, Tenor, TenorUnit,
 };
-use finstack_core::error::{Error, InputError};
+use finstack_core::{Error, InputError};
 use finstack_core::explain::ExplainOpts;
 use time::{Date, Month};
 

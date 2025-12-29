@@ -140,7 +140,7 @@ fn test_indexation_method_from_str() {
 #[test]
 fn test_indexation_method_standard_lags() {
     // Arrange & Act
-    use finstack_core::market_data::scalars::inflation_index::InflationLag;
+    use finstack_core::market_data::scalars::InflationLag;
 
     // Assert
     assert_eq!(

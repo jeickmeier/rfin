@@ -42,10 +42,10 @@ use finstack_core::Result;
 use rust_decimal::prelude::ToPrimitive;
 
 use crate::instruments::irs::FloatingLegCompounding;
-use finstack_core::dates::calendar::registry::CalendarRegistry;
+use finstack_core::dates::CalendarRegistry;
 use finstack_core::dates::{DateExt, DayCountCtx};
-use finstack_core::market_data::term_structures::discount_curve::DiscountCurve;
-use finstack_core::market_data::term_structures::forward_curve::ForwardCurve;
+use finstack_core::market_data::term_structures::DiscountCurve;
+use finstack_core::market_data::term_structures::ForwardCurve;
 
 impl InterestRateSwap {
     /// Returns true if this swap is configured as *single-curve* compounded RFR:
@@ -201,7 +201,7 @@ impl InterestRateSwap {
                     // require explicit fixings (do not silently extrapolate).
                     let r = if obs_start < as_of {
                         let series = fixings.ok_or_else(|| {
-                            finstack_core::error::Error::Validation(format!(
+                            finstack_core::Error::Validation(format!(
                                 "Seasoned compounded swap requires RFR fixings for dates before as_of (missing series). \
                                  Provide ScalarTimeSeries id='FIXING:{}' with business-day observations.",
                                 self.float.forward_curve_id.as_str()
@@ -237,14 +237,14 @@ impl InterestRateSwap {
                         // simple rate for [obs_start, obs_end] from discount factors.
                         let df_between = disc.df_between_dates(obs_start, obs_end)?;
                         if !df_between.is_finite() || df_between <= 0.0 {
-                            return Err(finstack_core::error::Error::Validation(format!(
+                            return Err(finstack_core::Error::Validation(format!(
                                 "Invalid discount factor between observation dates ({} -> {}): df={:.3e}",
                                 obs_start, obs_end, df_between
                             )));
                         }
                         let comp = 1.0 / df_between; // DF(obs_start)/DF(obs_end)
                         if dcf <= 0.0 {
-                            return Err(finstack_core::error::Error::Validation(
+                            return Err(finstack_core::Error::Validation(
                                 "Non-positive day-count fraction encountered in compounding step."
                                     .into(),
                             ));
@@ -302,7 +302,7 @@ impl InterestRateSwap {
     /// the numerical stability threshold (DF_EPSILON = 1e-10).
     pub(crate) fn pv_fixed_leg(
         &self,
-        disc: &finstack_core::market_data::term_structures::discount_curve::DiscountCurve,
+        disc: &finstack_core::market_data::term_structures::DiscountCurve,
         as_of: Date,
     ) -> finstack_core::Result<f64> {
         let sched = crate::instruments::irs::cashflow::fixed_leg_schedule(self)?;
@@ -377,8 +377,8 @@ impl InterestRateSwap {
     /// the numerical stability threshold (DF_EPSILON = 1e-10).
     pub(crate) fn pv_float_leg(
         &self,
-        disc: &finstack_core::market_data::term_structures::discount_curve::DiscountCurve,
-        fwd: &finstack_core::market_data::term_structures::forward_curve::ForwardCurve,
+        disc: &finstack_core::market_data::term_structures::DiscountCurve,
+        fwd: &finstack_core::market_data::term_structures::ForwardCurve,
         as_of: Date,
     ) -> finstack_core::Result<f64> {
         // Build the floating-leg schedule via the shared cashflow builder so reset
@@ -472,7 +472,7 @@ impl InterestRateSwap {
 /// // ... add USD-OIS and USD-SOFR-3M curves ...
 ///
 /// let as_of = Date::from_calendar_date(2024, Month::January, 1)
-///     .map_err(|e| finstack_core::error::Error::Validation(format!("{}", e)))?;
+///     .map_err(|e| finstack_core::Error::Validation(format!("{}", e)))?;
 ///
 /// let npv = pricer::npv(&irs, &context, as_of)?;
 /// println!("Swap NPV: {}", npv);
@@ -529,8 +529,8 @@ mod tests {
     use finstack_core::dates::DayCountCtx;
     use finstack_core::market_data::context::MarketContext;
     use finstack_core::market_data::scalars::ScalarTimeSeries;
-    use finstack_core::market_data::term_structures::discount_curve::DiscountCurve;
-    use finstack_core::market_data::term_structures::forward_curve::ForwardCurve;
+    use finstack_core::market_data::term_structures::DiscountCurve;
+    use finstack_core::market_data::term_structures::ForwardCurve;
     use finstack_core::money::Money;
     use finstack_core::types::{CurveId, InstrumentId};
     use time::Month;

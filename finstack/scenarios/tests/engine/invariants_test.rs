@@ -8,9 +8,9 @@
 //! - Vol surfaces: all grid values ≥ 0
 
 use finstack_core::market_data::context::MarketContext;
-use finstack_core::market_data::term_structures::base_correlation::BaseCorrelationCurve;
-use finstack_core::market_data::term_structures::discount_curve::DiscountCurve;
-use finstack_core::market_data::term_structures::forward_curve::ForwardCurve;
+use finstack_core::market_data::term_structures::BaseCorrelationCurve;
+use finstack_core::market_data::term_structures::DiscountCurve;
+use finstack_core::market_data::term_structures::ForwardCurve;
 use finstack_scenarios::{
     CurveKind, ExecutionContext, OperationSpec, ScenarioEngine, ScenarioSpec,
 };
@@ -404,7 +404,7 @@ fn test_vol_surface_non_negative_after_parallel_shock() {
     let mut market = MarketContext::new();
 
     // Build a sample vol surface
-    let surface = finstack_core::market_data::surfaces::vol_surface::VolSurface::builder("SPX_VOL")
+    let surface = finstack_core::market_data::surfaces::VolSurface::builder("SPX_VOL")
         .expiries(&[0.25, 0.5, 1.0, 2.0])
         .strikes(&[90.0, 95.0, 100.0, 105.0, 110.0])
         .row(&[0.25, 0.22, 0.20, 0.22, 0.25])
@@ -468,7 +468,7 @@ fn test_vol_surface_non_negative_after_bucket_shock() {
     let mut market = MarketContext::new();
 
     // Build a sample vol surface
-    let surface = finstack_core::market_data::surfaces::vol_surface::VolSurface::builder("SPX_VOL")
+    let surface = finstack_core::market_data::surfaces::VolSurface::builder("SPX_VOL")
         .expiries(&[0.25, 0.5, 1.0, 2.0])
         .strikes(&[90.0, 95.0, 100.0, 105.0, 110.0])
         .row(&[0.25, 0.22, 0.20, 0.22, 0.25])

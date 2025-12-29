@@ -32,9 +32,10 @@
 //! - Residual is minimal by construction (should be within numeric precision)
 //! - Recommended for risk reporting where sum must equal total
 
-use crate::attribution::factors::*;
-use crate::attribution::helpers::*;
-use crate::attribution::types::*;
+use super::factors::*;
+use super::helpers::*;
+use super::model_params;
+use super::types::*;
 use crate::instruments::common::traits::Instrument;
 use finstack_core::config::FinstackConfig;
 use finstack_core::currency::Currency;
@@ -151,7 +152,7 @@ pub fn attribute_pnl_waterfall(
     _config: &FinstackConfig,
     factor_order: Vec<AttributionFactor>,
     strict_validation: bool,
-    model_params_t0: Option<&crate::attribution::model_params::ModelParamsSnapshot>,
+    model_params_t0: Option<&model_params::ModelParamsSnapshot>,
 ) -> Result<PnlAttribution> {
     let input = AttributionInput {
         instrument,
@@ -196,7 +197,7 @@ fn attribute_pnl_waterfall_impl(
     // Step 1: Price at T₀
     // Use T₀ model parameters for T₀ valuation if available
     let instrument_t0 = if let Some(params) = model_params_t0 {
-        crate::attribution::model_params::with_model_params(instrument, params)?
+        model_params::with_model_params(instrument, params)?
     } else {
         Arc::clone(instrument)
     };

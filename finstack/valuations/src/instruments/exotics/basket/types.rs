@@ -9,7 +9,7 @@ use finstack_core::currency::Currency;
 use finstack_core::dates::Date;
 use finstack_core::market_data::context::MarketContext;
 use finstack_core::money::{fx::FxConversionPolicy, Money};
-use finstack_core::types::{id::PriceId, InstrumentId};
+use finstack_core::types::{InstrumentId, PriceId};
 use finstack_core::{Error, Result};
 
 #[cfg(feature = "serde")]
@@ -311,7 +311,7 @@ impl Basket {
         // Check weight sum
         let total_weight: f64 = self.constituents.iter().map(|c| c.weight).sum();
         if (total_weight - 1.0).abs() > 0.01 {
-            return Err(Error::Input(finstack_core::error::InputError::Invalid));
+            return Err(Error::Input(finstack_core::InputError::Invalid));
         }
 
         // Validate each constituent's currency compatibility would happen

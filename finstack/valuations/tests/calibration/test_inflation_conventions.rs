@@ -1,12 +1,12 @@
 //! Integration tests for inflation calibration conventions (v2).
 
-use finstack_core::collections::HashMap;
+use finstack_core::HashMap;
 use finstack_core::dates::{Date, DateExt, DayCount, DayCountCtx};
 use finstack_core::market_data::context::MarketContext;
-use finstack_core::market_data::scalars::inflation_index::{
+use finstack_core::market_data::scalars::{
     InflationIndex, InflationInterpolation, InflationLag,
 };
-use finstack_core::market_data::term_structures::discount_curve::DiscountCurve;
+use finstack_core::market_data::term_structures::DiscountCurve;
 use finstack_core::types::Currency;
 use finstack_valuations::calibration::api::engine;
 use finstack_valuations::calibration::api::schema::{

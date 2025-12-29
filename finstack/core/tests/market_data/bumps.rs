@@ -3,7 +3,7 @@ use super::test_helpers::{
     sample_hazard_curve, sample_inflation_curve,
 };
 use finstack_core::market_data::bumps::{BumpMode, BumpSpec, BumpType, BumpUnits, Bumpable};
-use finstack_core::market_data::term_structures::hazard_curve::HazardCurve;
+use finstack_core::market_data::term_structures::HazardCurve;
 use finstack_core::market_data::term_structures::ForwardCurve;
 
 #[test]

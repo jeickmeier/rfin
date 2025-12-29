@@ -225,7 +225,7 @@ pub fn parse_period_days(period: &str) -> Result<i64> {
 
     if period.is_empty() {
         return Err(finstack_core::Error::from(
-            finstack_core::error::InputError::Invalid,
+            finstack_core::InputError::Invalid,
         ));
     }
 
@@ -234,13 +234,13 @@ pub fn parse_period_days(period: &str) -> Result<i64> {
         (&period[..pos], &period[pos..])
     } else {
         return Err(finstack_core::Error::from(
-            finstack_core::error::InputError::Invalid,
+            finstack_core::InputError::Invalid,
         ));
     };
 
     let num: i64 = num_str
         .parse()
-        .map_err(|_| finstack_core::Error::from(finstack_core::error::InputError::Invalid))?;
+        .map_err(|_| finstack_core::Error::from(finstack_core::InputError::Invalid))?;
 
     let days = match unit {
         "D" => num,
@@ -249,7 +249,7 @@ pub fn parse_period_days(period: &str) -> Result<i64> {
         "Y" => num * 365,
         _ => {
             return Err(finstack_core::Error::from(
-                finstack_core::error::InputError::Invalid,
+                finstack_core::InputError::Invalid,
             ))
         }
     };
@@ -314,7 +314,7 @@ where
         .instrument
         .as_any()
         .downcast_ref::<I>()
-        .ok_or_else(|| finstack_core::Error::from(finstack_core::error::InputError::Invalid))?;
+        .ok_or_else(|| finstack_core::Error::from(finstack_core::InputError::Invalid))?;
 
     // Get theta period from pricing overrides, default to "1D"
     let period_str = context

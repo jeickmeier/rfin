@@ -432,7 +432,7 @@ mod tests {
         BranchingSpec, ScenarioTreeConfig,
     };
     use finstack_core::dates::Date;
-    use finstack_core::market_data::term_structures::discount_curve::DiscountCurve;
+    use finstack_core::market_data::term_structures::DiscountCurve;
     use finstack_core::math::interp::InterpStyle;
     use std::sync::Arc;
     use time::Month;

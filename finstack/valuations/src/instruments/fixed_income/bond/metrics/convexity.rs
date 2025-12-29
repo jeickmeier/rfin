@@ -44,14 +44,14 @@ impl MetricCalculator for ConvexityCalculator {
             .get(&MetricId::Ytm)
             .copied()
             .ok_or_else(|| {
-                finstack_core::Error::from(finstack_core::error::InputError::NotFound {
+                finstack_core::Error::from(finstack_core::InputError::NotFound {
                     id: "metric:Ytm".to_string(),
                 })
             })?;
 
         // YTM dependency ensures cashflows are already built and cached
         let flows: &Vec<(Date, Money)> = context.cashflows.as_ref().ok_or_else(|| {
-            finstack_core::Error::from(finstack_core::error::InputError::NotFound {
+            finstack_core::Error::from(finstack_core::InputError::NotFound {
                 id: "context.cashflows".to_string(),
             })
         })?;

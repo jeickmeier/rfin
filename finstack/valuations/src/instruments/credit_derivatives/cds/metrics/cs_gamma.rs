@@ -8,7 +8,7 @@
 use crate::instruments::cds::CreditDefaultSwap;
 use crate::instruments::common::traits::Instrument;
 use crate::metrics::{MetricCalculator, MetricContext, MetricId};
-use finstack_core::collections::HashMap;
+use finstack_core::HashMap;
 use finstack_core::market_data::bumps::BumpSpec;
 
 /// Calculates CS-Gamma for credit default swaps.

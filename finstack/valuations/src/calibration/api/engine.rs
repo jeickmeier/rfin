@@ -12,7 +12,7 @@ use crate::market::quotes::market_quote::MarketQuote;
 use finstack_core::explain::{ExplanationTrace, TraceEntry};
 use finstack_core::market_data::context::{CurveStorage, MarketContext};
 use finstack_core::market_data::surfaces::VolSurface;
-use finstack_core::market_data::term_structures::credit_index::CreditIndexData;
+use finstack_core::market_data::term_structures::CreditIndexData;
 use finstack_core::types::CurveId;
 use finstack_core::Result;
 use rayon::prelude::*;
@@ -218,13 +218,13 @@ pub fn execute(envelope: &CalibrationEnvelope) -> Result<CalibrationResultEnvelo
         let mut index = 0;
         while index < plan.steps.len() {
             let mut batch = Vec::new();
-            let mut curve_outputs: finstack_core::collections::HashSet<_> = HashSet::default();
-            let mut surface_outputs: finstack_core::collections::HashSet<_> = HashSet::default();
+            let mut curve_outputs: finstack_core::HashSet<_> = HashSet::default();
+            let mut surface_outputs: finstack_core::HashSet<_> = HashSet::default();
 
             while index < plan.steps.len() {
                 let step = &plan.steps[index];
                 let quotes = plan.quote_sets.get(&step.quote_set).ok_or_else(|| {
-                    finstack_core::Error::Input(finstack_core::error::InputError::NotFound {
+                    finstack_core::Error::Input(finstack_core::InputError::NotFound {
                         id: format!("Quote set '{}' not found", step.quote_set),
                     })
                 })?;
@@ -299,7 +299,7 @@ pub fn execute(envelope: &CalibrationEnvelope) -> Result<CalibrationResultEnvelo
     } else {
         for step in &plan.steps {
             let quotes = plan.quote_sets.get(&step.quote_set).ok_or_else(|| {
-                finstack_core::Error::Input(finstack_core::error::InputError::NotFound {
+                finstack_core::Error::Input(finstack_core::InputError::NotFound {
                     id: format!("Quote set '{}' not found", step.quote_set),
                 })
             })?;

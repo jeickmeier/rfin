@@ -76,7 +76,7 @@ pub fn xirr_wasm(cash_flows: Array, guess: Option<f64>) -> Result<f64, JsValue> 
     }
 
     // Call the core XIRR function
-    use finstack_core::cashflow::xirr::InternalRateOfReturn;
+    use finstack_core::cashflow::InternalRateOfReturn;
     flows
         .irr(guess)
         .map_err(|e| JsValue::from_str(&format!("XIRR calculation failed: {}", e)))
@@ -163,7 +163,7 @@ pub fn calculate_npv_wasm(cash_flows: Array, discount_rate: f64) -> Result<f64, 
     let dc = finstack_core::dates::DayCount::Act365F;
 
     // Use the core NPV function
-    finstack_core::cashflow::discounting::npv_constant(&money_flows, discount_rate, base_date, dc)
+    finstack_core::cashflow::npv_constant(&money_flows, discount_rate, base_date, dc)
         .map(|m| m.amount())
         .map_err(|e| JsValue::from_str(&format!("NPV calculation failed: {}", e)))
 }
@@ -189,7 +189,7 @@ pub fn calculate_npv_wasm(cash_flows: Array, discount_rate: f64) -> Result<f64, 
 #[wasm_bindgen(js_name = irrPeriodic)]
 pub fn irr_periodic_wasm(amounts: Vec<f64>, guess: Option<f64>) -> Result<f64, JsValue> {
     // Use the core IRR periodic function
-    use finstack_core::cashflow::xirr::InternalRateOfReturn;
+    use finstack_core::cashflow::InternalRateOfReturn;
     amounts
         .irr(guess)
         .map_err(|e| JsValue::from_str(&format!("IRR calculation failed: {}", e)))

@@ -2,7 +2,7 @@
 
 use super::spec::RepoMarginSpec;
 use crate::margin::types::MarginCall;
-use finstack_core::cashflow::primitives::{CFKind, CashFlow};
+use finstack_core::cashflow::{CFKind, CashFlow};
 use finstack_core::dates::Date;
 use finstack_core::money::Money;
 

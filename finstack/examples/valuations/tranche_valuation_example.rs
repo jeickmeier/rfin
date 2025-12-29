@@ -11,7 +11,7 @@ use finstack_core::dates::{BusinessDayConvention, Date, DayCount, Tenor};
 use finstack_core::market_data::context::MarketContext;
 use finstack_core::market_data::term_structures::DiscountCurve;
 use finstack_core::money::Money;
-use finstack_core::types::ratings::CreditRating;
+use finstack_core::types::CreditRating;
 use finstack_core::types::CurveId;
 use finstack_valuations::instruments::structured_credit::{
     DealType, Pool, PoolAsset, Seniority, StructuredCredit, Tranche, TrancheCoupon,

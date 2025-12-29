@@ -10,19 +10,19 @@ use finstack_core::config::FinstackConfig;
 use finstack_core::currency::Currency;
 use finstack_core::dates::{BusinessDayConvention, Date, DayCount, StubKind};
 use finstack_core::market_data::context::MarketContext;
-use finstack_core::market_data::scalars::inflation_index::{
+use finstack_core::market_data::scalars::{
     InflationIndex, InflationInterpolation, InflationLag,
 };
 use finstack_core::market_data::scalars::MarketScalar;
-use finstack_core::market_data::surfaces::vol_surface::VolSurface;
-use finstack_core::market_data::term_structures::base_correlation::BaseCorrelationCurve;
-use finstack_core::market_data::term_structures::credit_index::CreditIndexData;
-use finstack_core::market_data::term_structures::discount_curve::DiscountCurve;
-use finstack_core::market_data::term_structures::forward_curve::ForwardCurve;
-use finstack_core::market_data::term_structures::hazard_curve::HazardCurve;
-use finstack_core::market_data::term_structures::inflation::InflationCurve;
+use finstack_core::market_data::surfaces::VolSurface;
+use finstack_core::market_data::term_structures::BaseCorrelationCurve;
+use finstack_core::market_data::term_structures::CreditIndexData;
+use finstack_core::market_data::term_structures::DiscountCurve;
+use finstack_core::market_data::term_structures::ForwardCurve;
+use finstack_core::market_data::term_structures::HazardCurve;
+use finstack_core::market_data::term_structures::InflationCurve;
 use finstack_core::math::interp::InterpStyle;
-use finstack_core::money::fx::providers::SimpleFxProvider;
+use finstack_core::money::fx::SimpleFxProvider;
 use finstack_core::money::fx::FxMatrix;
 use finstack_core::money::Money;
 use finstack_portfolio::{self, *};
@@ -965,7 +965,7 @@ fn build_sample_portfolio(as_of: Date) -> finstack_portfolio::Result<Portfolio> 
         .base_index(tips_params.base_index)
         .base_date(tips_params.issue)
         .indexation_method(finstack_valuations::instruments::inflation_linked_bond::IndexationMethod::TIPS)
-        .lag(finstack_core::market_data::scalars::inflation_index::InflationLag::Months(3))
+        .lag(finstack_core::market_data::scalars::InflationLag::Months(3))
         .deflation_protection(finstack_valuations::instruments::inflation_linked_bond::DeflationProtection::MaturityOnly)
         .bdc(finstack_core::dates::BusinessDayConvention::ModifiedFollowing)
         .stub(finstack_core::dates::StubKind::None)
@@ -998,7 +998,7 @@ fn build_sample_portfolio(as_of: Date) -> finstack_portfolio::Result<Portfolio> 
         .discount_curve_id("USD".into())
         .dc(finstack_core::dates::DayCount::Act365F)
         .side(PayReceiveInflation::ReceiveFixed) // Receive fixed, pay inflation
-        .lag_override(finstack_core::market_data::scalars::inflation_index::InflationLag::Months(3))
+        .lag_override(finstack_core::market_data::scalars::InflationLag::Months(3))
         .build()
         .unwrap();
 

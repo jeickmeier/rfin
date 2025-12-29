@@ -9,7 +9,7 @@ use crate::market::quotes::cds::CdsQuote;
 use crate::market::quotes::market_quote::MarketQuote;
 use finstack_core::dates::{Tenor, TenorUnit};
 use finstack_core::market_data::context::MarketContext;
-use finstack_core::market_data::term_structures::hazard_curve::HazardCurve;
+use finstack_core::market_data::term_structures::HazardCurve;
 use finstack_core::market_data::term_structures::ParInterp;
 use finstack_core::market_data::term_structures::Seniority;
 use finstack_core::types::Currency;
@@ -259,5 +259,5 @@ fn with_key_rate_hazard_bump(
 
     builder
         .build()
-        .map_err(|_e| finstack_core::Error::from(finstack_core::error::InputError::Invalid))
+        .map_err(|_e| finstack_core::Error::from(finstack_core::InputError::Invalid))
 }

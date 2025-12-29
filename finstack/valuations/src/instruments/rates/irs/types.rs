@@ -240,7 +240,7 @@ impl InterestRateSwap {
         conventions: IrsLegConventions,
     ) -> finstack_core::Result<Self> {
         if matches!(ois_compounding, FloatingLegCompounding::Simple) {
-            return Err(finstack_core::error::Error::Validation(
+            return Err(finstack_core::Error::Validation(
                 "OIS swap requires compounded-in-arrears floating compounding (got Simple)"
                     .to_string(),
             ));
@@ -396,7 +396,7 @@ impl InterestRateSwap {
     pub fn validate(&self) -> finstack_core::Result<()> {
         // Validate finiteness early to avoid NaN poisoning and panics in downstream code.
         if !self.notional.amount().is_finite() {
-            return Err(finstack_core::error::Error::Validation(
+            return Err(finstack_core::Error::Validation(
                 "Invalid notional: amount must be finite.".into(),
             ));
         }
@@ -407,13 +407,13 @@ impl InterestRateSwap {
         // the reset/fixing date. Market convention for "T-2" is commonly represented as -2.
         // Guard only against absurd magnitudes that indicate unit mistakes.
         if self.float.reset_lag_days.abs() > 31 {
-            return Err(finstack_core::error::Error::Validation(
+            return Err(finstack_core::Error::Validation(
                 "Invalid floating reset lag: absolute value too large (expected a small number of business days)."
                     .into(),
             ));
         }
         if self.fixed.payment_delay_days < 0 || self.float.payment_delay_days < 0 {
-            return Err(finstack_core::error::Error::Validation(
+            return Err(finstack_core::Error::Validation(
                 "Invalid payment delay: must be non-negative (business days).".into(),
             ));
         }
@@ -423,7 +423,7 @@ impl InterestRateSwap {
         } = self.float.compounding
         {
             if lookback_days < 0 {
-                return Err(finstack_core::error::Error::Validation(
+                return Err(finstack_core::Error::Validation(
                     "Invalid RFR lookback: must be non-negative (business days).".into(),
                 ));
             }
@@ -431,7 +431,7 @@ impl InterestRateSwap {
                 // Observation shift can be negative, but must be within a sane bound to avoid
                 // accidental unit mistakes (e.g., passing years as days).
                 if shift.abs() > 31 {
-                    return Err(finstack_core::error::Error::Validation(
+                    return Err(finstack_core::Error::Validation(
                         "Invalid observation shift: absolute value too large (expected a small number of business days)."
                             .into(),
                     ));
@@ -441,7 +441,7 @@ impl InterestRateSwap {
 
         // Validate fixed leg date range
         if self.fixed.end <= self.fixed.start {
-            return Err(finstack_core::error::Error::Validation(format!(
+            return Err(finstack_core::Error::Validation(format!(
                 "Invalid fixed leg date range: end ({}) must be after start ({})",
                 self.fixed.end, self.fixed.start
             )));
@@ -449,7 +449,7 @@ impl InterestRateSwap {
 
         // Validate floating leg date range
         if self.float.end <= self.float.start {
-            return Err(finstack_core::error::Error::Validation(format!(
+            return Err(finstack_core::Error::Validation(format!(
                 "Invalid floating leg date range: end ({}) must be after start ({})",
                 self.float.end, self.float.start
             )));
@@ -457,7 +457,7 @@ impl InterestRateSwap {
 
         // Validate notional is positive
         if self.notional.amount() <= NOTIONAL_EPSILON {
-            return Err(finstack_core::error::Error::Validation(format!(
+            return Err(finstack_core::Error::Validation(format!(
                 "Invalid notional: {} must be positive (> {:.0e}). \
                  Negative notional is semantically ambiguous; use PayReceive to control direction.",
                 self.notional.amount(),
@@ -468,7 +468,7 @@ impl InterestRateSwap {
         // Validate fixed rate is within reasonable bounds
         let rate_f64 = self.fixed.rate.to_f64().unwrap_or(0.0);
         if rate_f64.abs() > MAX_RATE_MAGNITUDE {
-            return Err(finstack_core::error::Error::Validation(format!(
+            return Err(finstack_core::Error::Validation(format!(
                 "Invalid fixed rate: {:.2}% exceeds maximum allowed magnitude ({:.0}%). \
                  This may indicate a units error (rate should be decimal, e.g., 0.05 for 5%).",
                 rate_f64 * 100.0,
@@ -567,13 +567,13 @@ impl InterestRateSwap {
                 calendar_id: None,
                 stub: StubKind::None,
                 start: Date::from_calendar_date(2024, time::Month::January, 1).map_err(|e| {
-                    finstack_core::error::Error::Validation(format!(
+                    finstack_core::Error::Validation(format!(
                         "Invalid example start date: {}",
                         e
                     ))
                 })?,
                 end: Date::from_calendar_date(2029, time::Month::January, 1).map_err(|e| {
-                    finstack_core::error::Error::Validation(format!(
+                    finstack_core::Error::Validation(format!(
                         "Invalid example end date: {}",
                         e
                     ))
@@ -593,13 +593,13 @@ impl InterestRateSwap {
                 stub: StubKind::None,
                 reset_lag_days: 2,
                 start: Date::from_calendar_date(2024, time::Month::January, 1).map_err(|e| {
-                    finstack_core::error::Error::Validation(format!(
+                    finstack_core::Error::Validation(format!(
                         "Invalid example start date: {}",
                         e
                     ))
                 })?,
                 end: Date::from_calendar_date(2029, time::Month::January, 1).map_err(|e| {
-                    finstack_core::error::Error::Validation(format!(
+                    finstack_core::Error::Validation(format!(
                         "Invalid example end date: {}",
                         e
                     ))

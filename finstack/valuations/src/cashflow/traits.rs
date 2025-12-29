@@ -84,7 +84,7 @@ pub trait CashflowProvider: Send + Sync {
     ) -> finstack_core::Result<crate::cashflow::builder::CashFlowSchedule> {
         use crate::cashflow::builder::schedule::CashFlowSchedule;
         use crate::cashflow::builder::Notional;
-        use finstack_core::cashflow::primitives::{CFKind, CashFlow};
+        use finstack_core::cashflow::{CFKind, CashFlow};
         use finstack_core::dates::DayCount;
 
         // Default implementation: convert simple flows to basic schedule

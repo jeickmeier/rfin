@@ -250,7 +250,7 @@ fn test_npv_at_maturity_without_prices_is_zero() {
     // Arrange
     let swap = sample_swap(PayReceive::Receive);
     let ctx = MarketContext::new().insert_discount(
-        finstack_core::market_data::term_structures::discount_curve::DiscountCurve::builder(
+        finstack_core::market_data::term_structures::DiscountCurve::builder(
             DISC_ID,
         )
         .base_date(swap.start_date)

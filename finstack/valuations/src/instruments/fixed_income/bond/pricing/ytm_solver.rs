@@ -251,12 +251,12 @@ impl YtmSolver {
         let target = target_price.amount();
         if target <= 0.0 {
             return Err(finstack_core::Error::from(
-                finstack_core::error::InputError::Invalid,
+                finstack_core::InputError::Invalid,
             ));
         }
         if cashflows.is_empty() {
             return Err(finstack_core::Error::from(
-                finstack_core::error::InputError::TooFewPoints,
+                finstack_core::InputError::TooFewPoints,
             ));
         }
 
@@ -315,7 +315,7 @@ impl YtmSolver {
         let maturity = cashflows
             .last()
             .map(|(date, _)| *date)
-            .ok_or(finstack_core::error::InputError::TooFewPoints)?;
+            .ok_or(finstack_core::InputError::TooFewPoints)?;
         let years_to_maturity = day_count.year_fraction(
             as_of,
             maturity,

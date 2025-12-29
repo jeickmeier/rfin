@@ -12,17 +12,17 @@ use finstack_core::dates::Date;
 use finstack_core::market_data::context::MarketContext;
 use finstack_core::market_data::context::MarketContextState;
 use finstack_core::market_data::dividends::DividendSchedule;
-use finstack_core::market_data::scalars::inflation_index::{
+use finstack_core::market_data::scalars::{
     InflationIndex, InflationInterpolation, InflationLag,
 };
 use finstack_core::market_data::scalars::{ScalarTimeSeries, SeriesInterpolation};
-use finstack_core::market_data::surfaces::vol_surface::VolSurface;
-use finstack_core::market_data::term_structures::base_correlation::BaseCorrelationCurve;
-use finstack_core::market_data::term_structures::credit_index::CreditIndexData;
-use finstack_core::market_data::term_structures::discount_curve::DiscountCurve;
-use finstack_core::market_data::term_structures::forward_curve::ForwardCurve;
-use finstack_core::market_data::term_structures::hazard_curve::HazardCurve;
-use finstack_core::money::fx::{providers::SimpleFxProvider, FxConfig, FxMatrix};
+use finstack_core::market_data::surfaces::VolSurface;
+use finstack_core::market_data::term_structures::BaseCorrelationCurve;
+use finstack_core::market_data::term_structures::CreditIndexData;
+use finstack_core::market_data::term_structures::DiscountCurve;
+use finstack_core::market_data::term_structures::ForwardCurve;
+use finstack_core::market_data::term_structures::HazardCurve;
+use finstack_core::money::fx::{FxConfig, FxMatrix, SimpleFxProvider};
 use finstack_core::money::Money;
 use finstack_core::types::CurveId;
 use std::sync::Arc;
@@ -177,7 +177,7 @@ fn market_context_state_is_deterministically_sorted_and_roundtrips_full_snapshot
         .unwrap();
 
     // Add issuer curves/weights/recoveries to cover optional-map serde paths.
-    let mut issuer_curves = finstack_core::collections::HashMap::default();
+    let mut issuer_curves = finstack_core::HashMap::default();
     issuer_curves.insert("ISSUER1".to_string(), std::sync::Arc::new(hazard.clone()));
     let issuer2_haz = HazardCurve::builder("ISSUER2-HAZ")
         .base_date(d)
@@ -188,9 +188,9 @@ fn market_context_state_is_deterministically_sorted_and_roundtrips_full_snapshot
         "ISSUER2".to_string(),
         std::sync::Arc::new(issuer2_haz.clone()),
     );
-    let mut issuer_recovery = finstack_core::collections::HashMap::default();
+    let mut issuer_recovery = finstack_core::HashMap::default();
     issuer_recovery.insert("ISSUER1".to_string(), 0.35);
-    let mut issuer_weights = finstack_core::collections::HashMap::default();
+    let mut issuer_weights = finstack_core::HashMap::default();
     issuer_weights.insert("ISSUER1".to_string(), 0.6);
     issuer_weights.insert("ISSUER2".to_string(), 0.4);
 
@@ -324,8 +324,7 @@ fn curve_storage_roundtrip_and_market_context_state_error_branch() {
 fn curve_state_and_storage_roundtrip_all_variants() {
     use finstack_core::market_data::context::{CurveState, CurveStorage};
     use finstack_core::market_data::term_structures::{
-        base_correlation::BaseCorrelationCurve, discount_curve::DiscountCurve,
-        forward_curve::ForwardCurve, hazard_curve::HazardCurve, inflation::InflationCurve,
+        BaseCorrelationCurve, DiscountCurve, ForwardCurve, HazardCurve, InflationCurve,
     };
 
     let d = test_date();
@@ -386,9 +385,8 @@ fn market_context_rejects_market_history_serialization() {
 fn market_context_state_roundtrip_hits_more_state_serde_lines() {
     use finstack_core::market_data::scalars::MarketScalar;
     use finstack_core::market_data::term_structures::{
-        base_correlation::BaseCorrelationCurve, credit_index::CreditIndexData,
-        discount_curve::DiscountCurve, forward_curve::ForwardCurve, hazard_curve::HazardCurve,
-        inflation::InflationCurve,
+        BaseCorrelationCurve, CreditIndexData, DiscountCurve, ForwardCurve, HazardCurve,
+        InflationCurve,
     };
     use finstack_core::money::Money;
     use std::sync::Arc;
@@ -426,7 +424,7 @@ fn market_context_state_roundtrip_hits_more_state_serde_lines() {
         .build()
         .unwrap();
 
-    let mut issuer_curves = finstack_core::collections::HashMap::default();
+    let mut issuer_curves = finstack_core::HashMap::default();
     issuer_curves.insert("ISSUER".to_string(), Arc::new(issuer_haz.clone()));
 
     let credit_index = CreditIndexData::builder()

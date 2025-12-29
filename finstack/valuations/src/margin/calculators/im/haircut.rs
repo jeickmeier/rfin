@@ -152,7 +152,7 @@ impl ImCalculator for HaircutImCalculator {
             self.apply_fx_addon,
         )?;
 
-        let mut breakdown = finstack_core::collections::HashMap::default();
+        let mut breakdown = finstack_core::HashMap::default();
         breakdown.insert(self.default_asset_class.to_string(), im_amount);
 
         Ok(ImResult::with_breakdown(

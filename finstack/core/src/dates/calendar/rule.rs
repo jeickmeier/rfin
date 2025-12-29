@@ -24,7 +24,7 @@
 //! # Quick Example
 //!
 //! ```rust
-//! use finstack_core::dates::calendar::rule::{Rule, Observed};
+//! use finstack_core::dates::{Rule, Observed};
 //! use time::{Date, Month};
 //!
 //! // Fixed date: July 4th (US Independence Day)
@@ -75,7 +75,7 @@ use time::{Date, Duration, Month, Weekday};
 /// # Examples
 ///
 /// ```rust
-/// use finstack_core::dates::calendar::rule::{Rule, Observed};
+/// use finstack_core::dates::{Rule, Observed};
 /// use time::{Date, Month};
 ///
 /// // US Independence Day: if weekend, observe Fri (Sat) or Mon (Sun)
@@ -133,7 +133,7 @@ pub enum Observed {
 /// # Examples
 ///
 /// ```rust
-/// use finstack_core::dates::calendar::rule::{Rule, Direction};
+/// use finstack_core::dates::{Rule, Direction};
 /// use time::{Date, Month, Weekday};
 ///
 /// // US Election Day: Tuesday on or after November 2
@@ -204,7 +204,7 @@ pub enum Direction {
 ///
 /// Fixed date with weekend observation:
 /// ```rust
-/// use finstack_core::dates::calendar::rule::{Rule, Observed};
+/// use finstack_core::dates::{Rule, Observed};
 /// use time::{Date, Month};
 ///
 /// let new_years = Rule::fixed_next_monday(Month::January, 1);
@@ -219,7 +219,7 @@ pub enum Direction {
 ///
 /// Nth weekday of month:
 /// ```rust
-/// use finstack_core::dates::calendar::rule::Rule;
+/// use finstack_core::dates::Rule;
 /// use time::{Date, Month, Weekday};
 ///
 /// // US Thanksgiving: 4th Thursday of November
@@ -236,7 +236,7 @@ pub enum Direction {
 ///
 /// Easter offset:
 /// ```rust
-/// use finstack_core::dates::calendar::rule::Rule;
+/// use finstack_core::dates::Rule;
 /// use time::{Date, Month};
 ///
 /// // Good Friday = Easter Monday - 3 days

@@ -4,7 +4,7 @@
 //! and compares different solver strategies (Newton, Brent, Hybrid).
 
 use criterion::{criterion_group, criterion_main, BenchmarkId, Criterion};
-use finstack_core::cashflow::xirr::InternalRateOfReturn;
+use finstack_core::cashflow::InternalRateOfReturn;
 use finstack_core::dates::{Date, DayCount};
 use finstack_core::math::solver::{BrentSolver, NewtonSolver, Solver};
 use finstack_core::math::solver_multi::LevenbergMarquardtSolver;
@@ -217,7 +217,7 @@ fn benchmark_solver_comparison(c: &mut Criterion) {
 }
 
 fn benchmark_irr_periodic(c: &mut Criterion) {
-    use finstack_core::cashflow::xirr::InternalRateOfReturn;
+    use finstack_core::cashflow::InternalRateOfReturn;
 
     let mut group = c.benchmark_group("irr_periodic");
 

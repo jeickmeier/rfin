@@ -18,7 +18,7 @@ pub use schedule::{PyFrequency, PySchedule, PyScheduleBuilder, PyStubKind};
 #[allow(unused_imports)]
 pub use tenor::{PyTenor, PyTenorUnit};
 
-use finstack_core::collections::HashSet;
+use finstack_core::HashSet;
 use pyo3::prelude::*;
 use pyo3::types::{PyList, PyModule};
 

@@ -54,7 +54,7 @@ use crate::instruments::common::models::{
 };
 #[cfg(test)]
 use crate::instruments::PricingOverrides;
-use finstack_core::collections::HashMap;
+use finstack_core::HashMap;
 use finstack_core::dates::Date;
 use finstack_core::market_data::context::MarketContext;
 use finstack_core::math::solver::{BrentSolver, Solver};
@@ -1003,7 +1003,7 @@ mod tests {
     fn create_test_market_context() -> MarketContext {
         let base_date = Date::from_calendar_date(2025, Month::January, 1).expect("Valid test date");
         let discount_curve =
-            finstack_core::market_data::term_structures::discount_curve::DiscountCurve::builder(
+            finstack_core::market_data::term_structures::DiscountCurve::builder(
                 "USD-OIS",
             )
             .base_date(base_date)
@@ -1067,14 +1067,14 @@ mod tests {
         use crate::instruments::common::models::trees::two_factor_rates_credit::{
             RatesCreditConfig, RatesCreditTree,
         };
-        use finstack_core::market_data::term_structures::hazard_curve::HazardCurve;
+        use finstack_core::market_data::term_structures::HazardCurve;
 
         let bond = create_test_bond();
         let base_date = Date::from_calendar_date(2025, Month::January, 1).expect("Valid test date");
 
         // Curves: discount + two hazard scenarios
         let discount_curve =
-            finstack_core::market_data::term_structures::discount_curve::DiscountCurve::builder(
+            finstack_core::market_data::term_structures::DiscountCurve::builder(
                 "USD-OIS",
             )
             .base_date(base_date)
@@ -1101,7 +1101,7 @@ mod tests {
             .insert_hazard(low_hazard);
         // Recreate for high scenario to avoid cloning requirements
         let discount_curve2 =
-            finstack_core::market_data::term_structures::discount_curve::DiscountCurve::builder(
+            finstack_core::market_data::term_structures::DiscountCurve::builder(
                 "USD-OIS",
             )
             .base_date(base_date)
@@ -1110,7 +1110,7 @@ mod tests {
             .build()
             .expect("Curve builder should succeed with valid test data");
         let high_hazard2 =
-            finstack_core::market_data::term_structures::hazard_curve::HazardCurve::builder(
+            finstack_core::market_data::term_structures::HazardCurve::builder(
                 "HAZ-HIGH",
             )
             .base_date(base_date)

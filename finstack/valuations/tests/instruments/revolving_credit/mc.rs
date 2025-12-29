@@ -3,7 +3,7 @@
 use finstack_core::currency::Currency;
 use finstack_core::dates::{Date, DayCount, Tenor};
 use finstack_core::market_data::context::MarketContext;
-use finstack_core::market_data::term_structures::hazard_curve::HazardCurve;
+use finstack_core::market_data::term_structures::HazardCurve;
 use finstack_core::money::Money;
 use finstack_valuations::instruments::common::traits::Instrument;
 use finstack_valuations::instruments::revolving_credit::{
@@ -18,7 +18,7 @@ fn build_flat_discount_curve(
     rate: f64,
     base_date: Date,
     curve_id: &str,
-) -> finstack_core::market_data::term_structures::discount_curve::DiscountCurve {
+) -> finstack_core::market_data::term_structures::DiscountCurve {
     flat_discount_curve(rate, base_date, curve_id)
 }
 

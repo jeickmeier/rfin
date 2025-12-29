@@ -248,23 +248,24 @@
 //! # }
 //! ```
 
-pub mod dataframe;
-pub mod factors;
-pub mod helpers;
-pub mod metrics_based;
-pub mod model_params;
-pub mod parallel;
-pub mod spec;
+pub(crate) mod dataframe;
+pub(crate) mod factors;
+pub(crate) mod helpers;
+pub(crate) mod metrics_based;
+pub(crate) mod model_params;
+pub(crate) mod parallel;
+pub(crate) mod spec;
 #[cfg(test)]
 pub(crate) mod test_utils;
-pub mod types;
-pub mod waterfall;
+pub(crate) mod types;
+pub(crate) mod waterfall;
 
 // Re-export core types
 pub use types::{
     AttributionFactor, AttributionMeta, AttributionMethod, CorrelationsAttribution,
-    CreditCurvesAttribution, FxAttribution, InflationCurvesAttribution, ModelParamsAttribution,
-    PnlAttribution, RatesCurvesAttribution, ScalarsAttribution, VolAttribution,
+    CreditCurvesAttribution, FxAttribution, InflationCurvesAttribution, JsonEnvelope,
+    ModelParamsAttribution, PnlAttribution, RatesCurvesAttribution, ScalarsAttribution,
+    VolAttribution,
 };
 
 // Re-export attribution functions
@@ -279,3 +280,8 @@ pub use spec::{
     AttributionResultEnvelope, AttributionSpec, ATTRIBUTION_SCHEMA_V1,
 };
 pub use waterfall::{attribute_pnl_waterfall, default_waterfall_order};
+// Market snapshot helpers (kept internal module, public façade here)
+pub use factors::{
+    restore_scalars, CurveRestoreFlags, CreditCurvesSnapshot, InflationCurvesSnapshot,
+    MarketExtractable, MarketSnapshot, RatesCurvesSnapshot, ScalarsSnapshot,
+};

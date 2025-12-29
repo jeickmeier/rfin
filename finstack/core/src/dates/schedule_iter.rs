@@ -73,7 +73,7 @@
 //! With business day adjustment:
 //! ```rust
 //! use finstack_core::dates::{ScheduleBuilder, Tenor, BusinessDayConvention};
-//! use finstack_core::dates::calendar::registry::CalendarRegistry;
+//! use finstack_core::dates::CalendarRegistry;
 //! use time::{Date, Month};
 //! # fn main() -> Result<(), Box<dyn std::error::Error>> {
 //!
@@ -531,7 +531,7 @@ fn generate_imm_dates(start: Date, end: Date) -> Vec<Date> {
 /// With business day adjustment:
 /// ```rust
 /// use finstack_core::dates::{ScheduleBuilder, Tenor, BusinessDayConvention};
-/// use finstack_core::dates::calendar::registry::CalendarRegistry;
+/// use finstack_core::dates::CalendarRegistry;
 /// use time::{Date, Month};
 /// # fn main() -> Result<(), Box<dyn std::error::Error>> {
 ///

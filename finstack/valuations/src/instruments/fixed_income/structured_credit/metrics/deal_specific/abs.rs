@@ -32,12 +32,12 @@ impl crate::metrics::MetricCalculator for AbsSpeedCalculator {
             .instrument
             .as_any()
             .downcast_ref::<StructuredCredit>()
-            .ok_or(finstack_core::error::InputError::Invalid)?;
+            .ok_or(finstack_core::InputError::Invalid)?;
 
         // Only applicable to ABS deals
         if sc.deal_type != DealType::ABS {
             return Err(finstack_core::Error::from(
-                finstack_core::error::InputError::Invalid,
+                finstack_core::InputError::Invalid,
             ));
         }
 
@@ -74,7 +74,7 @@ impl crate::metrics::MetricCalculator for AbsDelinquencyCalculator {
             .instrument
             .as_any()
             .downcast_ref::<StructuredCredit>()
-            .ok_or(finstack_core::error::InputError::Invalid)?;
+            .ok_or(finstack_core::InputError::Invalid)?;
 
         // Calculate delinquency rate from pool
         // Using credit factors delinquency_days as proxy
@@ -105,7 +105,7 @@ impl crate::metrics::MetricCalculator for AbsChargeOffCalculator {
             .instrument
             .as_any()
             .downcast_ref::<StructuredCredit>()
-            .ok_or(finstack_core::error::InputError::Invalid)?;
+            .ok_or(finstack_core::InputError::Invalid)?;
 
         // Calculate charge-off rate
         let total_balance = abs.pool.total_balance()?;
@@ -142,7 +142,7 @@ impl crate::metrics::MetricCalculator for AbsExcessSpreadCalculator {
             .instrument
             .as_any()
             .downcast_ref::<StructuredCredit>()
-            .ok_or(finstack_core::error::InputError::Invalid)?;
+            .ok_or(finstack_core::InputError::Invalid)?;
 
         // Excess Spread = WAC - WAC of tranches - servicing fees
         let pool_wac = abs.pool.weighted_avg_coupon();
@@ -178,7 +178,7 @@ impl crate::metrics::MetricCalculator for AbsCreditEnhancementCalculator {
             .instrument
             .as_any()
             .downcast_ref::<StructuredCredit>()
-            .ok_or(finstack_core::error::InputError::Invalid)?;
+            .ok_or(finstack_core::InputError::Invalid)?;
 
         // Credit Enhancement = Subordination + OC + Excess Spread
         // Simplified: subordination for most senior tranche

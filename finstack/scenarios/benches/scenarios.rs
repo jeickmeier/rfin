@@ -13,11 +13,11 @@ use finstack_core::currency::Currency;
 use finstack_core::dates::build_periods;
 use finstack_core::market_data::context::MarketContext;
 use finstack_core::market_data::scalars::MarketScalar;
-use finstack_core::market_data::surfaces::vol_surface::VolSurface;
-use finstack_core::market_data::term_structures::base_correlation::BaseCorrelationCurve;
+use finstack_core::market_data::surfaces::VolSurface;
+use finstack_core::market_data::term_structures::BaseCorrelationCurve;
 use finstack_core::market_data::term_structures::{DiscountCurve, HazardCurve};
 use finstack_core::math::interp::InterpStyle;
-use finstack_core::money::fx::providers::SimpleFxProvider;
+use finstack_core::money::fx::SimpleFxProvider;
 use finstack_core::money::fx::FxMatrix;
 use finstack_core::money::Money;
 use finstack_scenarios::{

@@ -6,7 +6,7 @@
 //! Note: Full Polars DataFrame integration pending. Current implementation
 //! provides JSON-based exports.
 
-use crate::attribution::types::*;
+use super::types::*;
 
 impl PnlAttribution {
     /// Export attribution summary as JSON.

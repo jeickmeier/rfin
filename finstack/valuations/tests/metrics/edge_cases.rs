@@ -122,7 +122,7 @@ fn test_zero_recovery_cds() {
         .build()
         .unwrap();
 
-    use finstack_core::market_data::term_structures::hazard_curve::HazardCurve;
+    use finstack_core::market_data::term_structures::HazardCurve;
     let hazard_curve = HazardCurve::builder("HAZARD")
         .base_date(as_of)
         .day_count(DayCount::Act365F)

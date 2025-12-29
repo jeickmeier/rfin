@@ -64,7 +64,7 @@ fn closure_check_matrix() {
                 (Currency::USD, Currency::EUR) => Ok(0.9),
                 (Currency::USD, Currency::GBP) => Ok(0.75),
                 (Currency::GBP, Currency::USD) => Ok(1.0 / 0.75),
-                _ => Err(finstack_core::error::InputError::NotFound {
+                _ => Err(finstack_core::InputError::NotFound {
                     id: format!("FX:{from}->{to}"),
                 }
                 .into()),

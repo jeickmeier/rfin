@@ -385,8 +385,8 @@ impl crate::instruments::common::traits::CurveDependencies for VolatilityIndexFu
 #[allow(clippy::expect_used, clippy::panic)]
 mod tests {
     use super::*;
-    use finstack_core::market_data::term_structures::discount_curve::DiscountCurve;
-    use finstack_core::market_data::term_structures::vol_index_curve::VolatilityIndexCurve;
+    use finstack_core::market_data::term_structures::DiscountCurve;
+    use finstack_core::market_data::term_structures::VolatilityIndexCurve;
     use time::Month;
 
     fn setup_market() -> MarketContext {

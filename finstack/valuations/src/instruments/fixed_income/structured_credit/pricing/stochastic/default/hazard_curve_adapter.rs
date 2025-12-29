@@ -29,7 +29,7 @@
 //! - O'Kane, D. (2008). *Modelling Single-name and Multi-name Credit Derivatives*.
 
 use super::traits::{MacroCreditFactors, StochasticDefault};
-use finstack_core::market_data::term_structures::hazard_curve::HazardCurve;
+use finstack_core::market_data::term_structures::HazardCurve;
 use finstack_core::math::distributions::binomial_distribution;
 
 /// Adapter that wraps a HazardCurve to provide a [`StochasticDefault`] interface.
@@ -41,7 +41,7 @@ use finstack_core::math::distributions::binomial_distribution;
 ///
 /// ```rust,no_run
 /// use finstack_valuations::instruments::structured_credit::pricing::stochastic::default::HazardCurveDefault;
-/// use finstack_core::market_data::term_structures::hazard_curve::HazardCurve;
+/// use finstack_core::market_data::term_structures::HazardCurve;
 /// use finstack_core::dates::Date;
 /// use time::Month;
 ///

@@ -36,14 +36,14 @@ impl MetricCalculator for MacaulayDurationCalculator {
     fn calculate(&self, context: &mut MetricContext) -> Result<f64> {
         // Get cashflows
         let flows = context.cashflows.as_ref().ok_or_else(|| {
-            finstack_core::Error::from(finstack_core::error::InputError::NotFound {
+            finstack_core::Error::from(finstack_core::InputError::NotFound {
                 id: "context.cashflows".to_string(),
             })
         })?;
 
         // Get discount curve
         let disc_curve_id = context.discount_curve_id.as_ref().ok_or_else(|| {
-            finstack_core::Error::from(finstack_core::error::InputError::NotFound {
+            finstack_core::Error::from(finstack_core::InputError::NotFound {
                 id: "discount_curve_id".to_string(),
             })
         })?;
@@ -122,14 +122,14 @@ impl MetricCalculator for ModifiedDurationCalculator {
 
         // Get cashflows
         let flows = context.cashflows.as_ref().ok_or_else(|| {
-            finstack_core::Error::from(finstack_core::error::InputError::NotFound {
+            finstack_core::Error::from(finstack_core::InputError::NotFound {
                 id: "context.cashflows".to_string(),
             })
         })?;
 
         // Get discount curve
         let disc_curve_id = context.discount_curve_id.as_ref().ok_or_else(|| {
-            finstack_core::Error::from(finstack_core::error::InputError::NotFound {
+            finstack_core::Error::from(finstack_core::InputError::NotFound {
                 id: "discount_curve_id".to_string(),
             })
         })?;

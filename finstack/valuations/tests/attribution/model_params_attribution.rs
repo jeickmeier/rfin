@@ -3,7 +3,7 @@
 //! Tests attribution of P&L from changes in model-specific parameters like
 //! prepayment speeds, default rates, recovery rates, and conversion ratios.
 
-use finstack_valuations::attribution::model_params::{
+use finstack_valuations::attribution::{
     measure_conversion_shift, measure_default_shift, measure_prepayment_shift,
     measure_recovery_shift, ModelParamsSnapshot,
 };
@@ -128,7 +128,7 @@ fn test_model_params_none_for_plain_instruments() {
     use finstack_core::currency::Currency;
     use finstack_core::dates::create_date;
     use finstack_core::money::Money;
-    use finstack_valuations::attribution::model_params::extract_model_params;
+    use finstack_valuations::attribution::extract_model_params;
     use finstack_valuations::instruments::bond::Bond;
     use finstack_valuations::instruments::Instrument;
     use std::sync::Arc;

@@ -10,7 +10,7 @@ fn test_discount_curve_validation() {
 
     // Valid curve - monotonically decreasing DFs
     let valid_curve =
-        finstack_core::market_data::term_structures::discount_curve::DiscountCurve::builder(
+        finstack_core::market_data::term_structures::DiscountCurve::builder(
             "TEST-VALID",
         )
         .base_date(base_date)
@@ -31,7 +31,7 @@ fn test_discount_curve_validation() {
     // Invalid curve - increasing discount factors
     // NOTE: Must use allow_non_monotonic() since monotonicity is now enforced by default
     let invalid_curve =
-        finstack_core::market_data::term_structures::discount_curve::DiscountCurve::builder(
+        finstack_core::market_data::term_structures::DiscountCurve::builder(
             "TEST-INVALID",
         )
         .base_date(base_date)
@@ -53,7 +53,7 @@ fn test_discount_curve_validation() {
 
 #[test]
 fn test_hazard_curve_validation() {
-    use finstack_core::market_data::term_structures::hazard_curve::{HazardCurve, Seniority};
+    use finstack_core::market_data::term_structures::{HazardCurve, Seniority};
 
     let base_date = Date::from_calendar_date(2025, Month::January, 1).expect("valid date");
     let config = ValidationConfig::default();
@@ -75,7 +75,7 @@ fn test_hazard_curve_validation() {
 
 #[test]
 fn test_forward_curve_validation() {
-    use finstack_core::market_data::term_structures::forward_curve::ForwardCurve;
+    use finstack_core::market_data::term_structures::ForwardCurve;
 
     let base_date = Date::from_calendar_date(2025, Month::January, 1).expect("valid date");
     let config = ValidationConfig::default();
@@ -147,7 +147,7 @@ fn test_base_correlation_validation() {
 
 #[test]
 fn test_non_monotone_positive_rate_curve_rejected() {
-    use finstack_core::market_data::term_structures::discount_curve::DiscountCurve;
+    use finstack_core::market_data::term_structures::DiscountCurve;
 
     let base_date = Date::from_calendar_date(2025, Month::January, 1).expect("valid date");
 
@@ -182,7 +182,7 @@ fn test_non_monotone_positive_rate_curve_rejected() {
 
 #[test]
 fn test_negative_rate_environment_opt_in() {
-    use finstack_core::market_data::term_structures::discount_curve::DiscountCurve;
+    use finstack_core::market_data::term_structures::DiscountCurve;
 
     let base_date = Date::from_calendar_date(2025, Month::January, 1).expect("valid date");
 
@@ -243,7 +243,7 @@ fn test_validation_config_constructors() {
 
 #[test]
 fn test_butterfly_arbitrage_detected_and_fails() {
-    use finstack_core::market_data::surfaces::vol_surface::VolSurface;
+    use finstack_core::market_data::surfaces::VolSurface;
 
     let expiries = vec![0.25, 0.5, 1.0];
     let strikes = vec![90.0, 100.0, 110.0];
@@ -271,7 +271,7 @@ fn test_butterfly_arbitrage_detected_and_fails() {
 
 #[test]
 fn test_calendar_arbitrage_detected_and_fails() {
-    use finstack_core::market_data::surfaces::vol_surface::VolSurface;
+    use finstack_core::market_data::surfaces::VolSurface;
 
     let expiries = vec![0.25, 0.5, 1.0];
     let strikes = vec![95.0, 100.0, 105.0];
@@ -299,7 +299,7 @@ fn test_calendar_arbitrage_detected_and_fails() {
 
 #[test]
 fn test_valid_surface_passes_arbitrage_checks() {
-    use finstack_core::market_data::surfaces::vol_surface::VolSurface;
+    use finstack_core::market_data::surfaces::VolSurface;
 
     let expiries = vec![0.25, 0.5, 1.0];
     let strikes = vec![90.0, 100.0, 110.0];
@@ -322,7 +322,7 @@ fn test_valid_surface_passes_arbitrage_checks() {
 
 #[test]
 fn test_discount_curve_bounds_rejects_excessive_df() {
-    use finstack_core::market_data::term_structures::discount_curve::DiscountCurve;
+    use finstack_core::market_data::term_structures::DiscountCurve;
 
     let base_date = Date::from_calendar_date(2025, Month::January, 1).expect("valid date");
     let config = ValidationConfig::default();
@@ -343,7 +343,7 @@ fn test_discount_curve_bounds_rejects_excessive_df() {
 
 #[test]
 fn test_forward_curve_bounds_rejects_excessive_rate() {
-    use finstack_core::market_data::term_structures::forward_curve::ForwardCurve;
+    use finstack_core::market_data::term_structures::ForwardCurve;
 
     let base_date = Date::from_calendar_date(2025, Month::January, 1).expect("valid date");
     let config = ValidationConfig::default();
@@ -362,7 +362,7 @@ fn test_forward_curve_bounds_rejects_excessive_rate() {
 
 #[test]
 fn test_inflation_curve_hyperinflation_rejected() {
-    use finstack_core::market_data::term_structures::inflation::InflationCurve;
+    use finstack_core::market_data::term_structures::InflationCurve;
 
     let config = ValidationConfig::default();
 

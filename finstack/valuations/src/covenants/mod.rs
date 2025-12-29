@@ -8,9 +8,13 @@ pub mod mod_types;
 pub mod schedule;
 
 pub use engine::{
-    ConsequenceApplication, CovenantBreach, CovenantEngine, CovenantSpec, CovenantTestSpec,
-    CovenantWindow, InstrumentMutator,
+    ConsequenceApplication, Covenant, CovenantBreach, CovenantConsequence, CovenantEngine,
+    CovenantScope, CovenantSpec, CovenantTestSpec, CovenantType, CovenantWindow, InstrumentMutator,
+    SpringingCondition, ThresholdTest,
 };
-pub use forward::{CovenantForecast as GenericCovenantForecast, CovenantForecastConfig};
+pub use forward::{
+    forecast_breaches_generic, forecast_covenant_generic, CovenantForecast as GenericCovenantForecast,
+    CovenantForecastConfig, FutureBreach, McConfig, ModelTimeSeries,
+};
 pub use mod_types::CovenantReport;
 pub use schedule::{threshold_for_date, ThresholdSchedule};

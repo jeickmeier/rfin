@@ -1,7 +1,7 @@
 //! Amortization cashflow emission.
 
 use crate::cashflow::builder::{AmortizationSpec, Notional};
-use finstack_core::cashflow::primitives::{CFKind, CashFlow};
+use finstack_core::cashflow::{CFKind, CashFlow};
 use finstack_core::currency::Currency;
 use finstack_core::dates::Date;
 use finstack_core::money::Money;
@@ -13,11 +13,11 @@ use finstack_core::money::Money;
 #[derive(Debug, Clone)]
 pub(in crate::cashflow::builder) struct AmortizationParams<'a> {
     pub(in crate::cashflow::builder) ccy: Currency,
-    pub(in crate::cashflow::builder) amort_dates: &'a finstack_core::collections::HashSet<Date>,
+    pub(in crate::cashflow::builder) amort_dates: &'a finstack_core::HashSet<Date>,
     pub(in crate::cashflow::builder) linear_delta: Option<f64>,
     pub(in crate::cashflow::builder) percent_per: Option<f64>,
     pub(in crate::cashflow::builder) step_remaining_map:
-        &'a Option<finstack_core::collections::HashMap<Date, Money>>,
+        &'a Option<finstack_core::HashMap<Date, Money>>,
 }
 
 fn emit_principal_repayment(

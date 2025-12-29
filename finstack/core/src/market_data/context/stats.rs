@@ -8,7 +8,7 @@ use super::MarketContext;
 
 use crate::market_data::{
     dividends::DividendSchedule,
-    scalars::inflation_index::InflationIndex,
+    scalars::InflationIndex,
     scalars::{MarketScalar, ScalarTimeSeries},
 };
 
@@ -35,7 +35,7 @@ impl MarketContext {
     /// # Examples
     /// ```rust
     /// # use finstack_core::market_data::context::MarketContext;
-    /// # use finstack_core::market_data::term_structures::discount_curve::DiscountCurve;
+    /// # use finstack_core::market_data::term_structures::DiscountCurve;
     /// # use finstack_core::dates::Date;
     /// # use time::Month;
     /// # let curve = DiscountCurve::builder("USD-OIS")
@@ -61,7 +61,7 @@ impl MarketContext {
     /// # Examples
     /// ```rust
     /// # use finstack_core::market_data::context::MarketContext;
-    /// # use finstack_core::market_data::term_structures::discount_curve::DiscountCurve;
+    /// # use finstack_core::market_data::term_structures::DiscountCurve;
     /// # use finstack_core::dates::Date;
     /// # use time::Month;
     /// # let curve = DiscountCurve::builder("USD-OIS")

@@ -2,7 +2,7 @@ use criterion::{criterion_group, criterion_main, Criterion};
 use finstack_core::currency::Currency;
 use finstack_core::dates::Date;
 use finstack_core::market_data::context::MarketContext;
-use finstack_core::market_data::term_structures::discount_curve::DiscountCurve;
+use finstack_core::market_data::term_structures::DiscountCurve;
 use finstack_valuations::calibration::api::schema::{
     CalibrationMethod, ForwardCurveParams, StepParams,
 };

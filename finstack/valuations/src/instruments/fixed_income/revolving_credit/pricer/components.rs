@@ -401,7 +401,7 @@ pub fn compute_upfront_fee_pv(
 mod tests {
     use super::*;
     use finstack_core::dates::DayCount;
-    use finstack_core::market_data::term_structures::discount_curve::DiscountCurve;
+    use finstack_core::market_data::term_structures::DiscountCurve;
     use time::Month;
 
     #[test]

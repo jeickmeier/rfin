@@ -25,9 +25,9 @@
 //! in the two-factor rates+credit tree (`BondValuator`).
 
 use finstack_core::dates::Date;
-use finstack_core::error::InputError;
+use finstack_core::InputError;
 use finstack_core::market_data::context::MarketContext;
-use finstack_core::market_data::term_structures::hazard_curve::HazardCurve;
+use finstack_core::market_data::term_structures::HazardCurve;
 use finstack_core::math::summation::kahan_sum;
 use finstack_core::money::Money;
 use finstack_core::Result;
@@ -289,7 +289,7 @@ mod tests {
     };
     use finstack_core::currency::Currency;
     use finstack_core::dates::{DayCount, Tenor};
-    use finstack_core::market_data::term_structures::discount_curve::DiscountCurve;
+    use finstack_core::market_data::term_structures::DiscountCurve;
     use finstack_core::math::interp::InterpStyle;
     use finstack_core::types::CurveId;
     use finstack_core::{dates::Date, money::Money};

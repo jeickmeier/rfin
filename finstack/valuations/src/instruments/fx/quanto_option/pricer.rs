@@ -88,7 +88,7 @@ impl QuantoOptionMcPricer {
             fx_vol_surface.value_clamped(t, 1.0) // Use spot FX rate of 1.0 as reference
         } else {
             return Err(finstack_core::Error::from(
-                finstack_core::error::InputError::NotFound {
+                finstack_core::InputError::NotFound {
                     id: "fx_vol_id".to_string(),
                 },
             ));
@@ -248,7 +248,7 @@ fn collect_quanto_inputs(
         fx_vol_surface.value_clamped(t, 1.0)
     } else {
         return Err(finstack_core::Error::from(
-            finstack_core::error::InputError::NotFound {
+            finstack_core::InputError::NotFound {
                 id: "fx_vol_id".to_string(),
             },
         ));

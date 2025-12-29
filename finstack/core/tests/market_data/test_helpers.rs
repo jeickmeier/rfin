@@ -1,10 +1,10 @@
 use finstack_core::dates::{Date, DayCount};
-use finstack_core::market_data::surfaces::vol_surface::VolSurface;
-use finstack_core::market_data::term_structures::base_correlation::BaseCorrelationCurve;
-use finstack_core::market_data::term_structures::discount_curve::DiscountCurve;
-use finstack_core::market_data::term_structures::forward_curve::ForwardCurve;
-use finstack_core::market_data::term_structures::hazard_curve::HazardCurve;
-use finstack_core::market_data::term_structures::inflation::InflationCurve;
+use finstack_core::market_data::surfaces::VolSurface;
+use finstack_core::market_data::term_structures::BaseCorrelationCurve;
+use finstack_core::market_data::term_structures::DiscountCurve;
+use finstack_core::market_data::term_structures::ForwardCurve;
+use finstack_core::market_data::term_structures::HazardCurve;
+use finstack_core::market_data::term_structures::InflationCurve;
 use finstack_core::math::interp::InterpStyle;
 use time::Month;
 

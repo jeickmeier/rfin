@@ -5,7 +5,7 @@
 //! - `StepParams` for discount/forward/hazard/inflation/vol/swaption/base-correlation
 //! - Domain quotes (`MarketQuote` + concrete quote enums)
 
-use finstack_core::collections::HashMap;
+use finstack_core::HashMap;
 use finstack_core::dates::Date;
 use finstack_core::dates::{BusinessDayConvention, DayCount, Tenor};
 use finstack_core::market_data::term_structures::Seniority;

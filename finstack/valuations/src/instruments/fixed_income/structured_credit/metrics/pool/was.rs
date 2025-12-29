@@ -15,7 +15,7 @@ impl crate::metrics::MetricCalculator for CloWasCalculator {
             .instrument
             .as_any()
             .downcast_ref::<crate::instruments::structured_credit::StructuredCredit>()
-            .ok_or(finstack_core::error::InputError::Invalid)?;
+            .ok_or(finstack_core::InputError::Invalid)?;
 
         Ok(clo.pool.weighted_avg_spread())
     }

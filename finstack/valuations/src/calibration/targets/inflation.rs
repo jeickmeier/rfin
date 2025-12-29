@@ -13,7 +13,7 @@ use crate::market::conventions::registry::ConventionRegistry;
 use finstack_core::dates::DateExt;
 use finstack_core::dates::{DayCount, DayCountCtx};
 use finstack_core::market_data::context::MarketContext;
-use finstack_core::market_data::scalars::inflation_index::InflationLag;
+use finstack_core::market_data::scalars::InflationLag;
 use finstack_core::market_data::term_structures::InflationCurve;
 use finstack_core::money::Money;
 use finstack_core::Result;
@@ -270,7 +270,7 @@ impl InflationBootstrapper {
 
         if inflation_quotes.is_empty() {
             return Err(finstack_core::Error::Input(
-                finstack_core::error::InputError::TooFewPoints,
+                finstack_core::InputError::TooFewPoints,
             ));
         }
 
@@ -291,7 +291,7 @@ impl InflationBootstrapper {
             }
             CalibrationMethod::GlobalSolve { .. } => {
                 return Err(finstack_core::Error::Input(
-                    finstack_core::error::InputError::Invalid,
+                    finstack_core::InputError::Invalid,
                 ));
             }
         };

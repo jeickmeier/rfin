@@ -1,8 +1,8 @@
-use finstack_core::collections::HashMap;
+use finstack_core::HashMap;
 use std::sync::Arc;
 
 use super::test_helpers::{sample_base_correlation_curve, sample_hazard_curve};
-use finstack_core::market_data::term_structures::credit_index::{
+use finstack_core::market_data::term_structures::{
     CreditIndexData, CreditIndexDataBuilder,
 };
 

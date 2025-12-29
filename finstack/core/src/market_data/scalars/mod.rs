@@ -39,10 +39,10 @@
 mod storage;
 
 /// Generic market primitives: scalars and ad-hoc time series.
-pub mod primitives;
+mod primitives;
 
 /// Inflation index data (CPI/RPI) with lagging and seasonality support.
-pub mod inflation_index;
+mod inflation_index;
 
 // Re-export for ergonomic access
 pub use inflation_index::*;

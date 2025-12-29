@@ -198,7 +198,7 @@ impl MetricCalculator for DiscountMarginCalculator {
                 .get(&MetricId::Accrued)
                 .copied()
                 .ok_or_else(|| {
-                    finstack_core::Error::from(finstack_core::error::InputError::NotFound {
+                    finstack_core::Error::from(finstack_core::InputError::NotFound {
                         id: "metric:Accrued".to_string(),
                     })
                 })?;
@@ -211,7 +211,7 @@ impl MetricCalculator for DiscountMarginCalculator {
         // Callers should use YTM, Z-spread, or asset-swap spreads for fixed-rate instruments.
         if !matches!(&bond.cashflow_spec, CashflowSpec::Floating(_)) {
             return Err(finstack_core::Error::from(
-                finstack_core::error::InputError::Invalid,
+                finstack_core::InputError::Invalid,
             ));
         }
 

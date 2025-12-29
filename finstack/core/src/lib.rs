@@ -49,10 +49,14 @@
 //! _Released under the MIT license.  Contributions welcome!_
 
 // Core modules
-pub mod collections;
+//
+// API note: `collections` is intentionally kept as an internal module to avoid
+// committing to a public submodule layout. Downstream crates should import the
+// aliases directly from the crate root (`finstack_core::HashMap`).
+pub(crate) mod collections;
 pub mod config;
 pub mod currency;
-pub mod error;
+pub(crate) mod error;
 /// Market data term‐structure framework (former `curves` module)
 pub mod market_data;
 pub mod money;
@@ -75,7 +79,16 @@ pub mod types;
 /// Foundational cashflow primitives and discounting helpers.
 pub mod cashflow;
 
-// Re-export main error type for convenience
-pub use error::Error;
+/// Hash map type alias used across Finstack.
+///
+/// Uses `rustc_hash::FxHashMap` for fast deterministic hashing.
+pub use collections::HashMap;
+/// Hash set type alias used across Finstack.
+///
+/// Uses `rustc_hash::FxHashSet` for fast deterministic hashing.
+pub use collections::HashSet;
+
+// Re-export main error types for convenience.
+pub use error::{Error, InputError};
 /// Convenient alias carrying the crate's unified [`Error`].
 pub type Result<T> = core::result::Result<T, Error>;

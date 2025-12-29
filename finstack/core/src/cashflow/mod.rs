@@ -34,7 +34,7 @@
 //! ## NPV Calculation
 //!
 //! ```rust
-//! use finstack_core::cashflow::discounting::npv_constant;
+//! use finstack_core::cashflow::npv_constant;
 //! use finstack_core::dates::DayCount;
 //! use finstack_core::money::Money;
 //! use finstack_core::currency::Currency;
@@ -52,7 +52,7 @@
 //! ## IRR Calculation
 //!
 //! ```rust
-//! use finstack_core::cashflow::xirr::InternalRateOfReturn;
+//! use finstack_core::cashflow::InternalRateOfReturn;
 //!
 //! // Initial investment followed by 4 quarterly returns (20% total return)
 //! let cash_flows = vec![-10000.0, 3000.0, 3000.0, 3000.0, 3000.0];
@@ -73,10 +73,11 @@
 //!   - Lin, S. A. (1976). "The Modified Internal Rate of Return and Investment Criterion."
 //!     *The Engineering Economist*, 21(4), 237-247.
 
-pub mod discounting;
-pub mod primitives;
-pub mod xirr;
+mod discounting;
+mod primitives;
+mod xirr;
 
 pub use discounting::{npv, npv_constant, Discountable};
+pub use discounting::npv_using_curve_dc;
 pub use primitives::{CFKind, CashFlow};
 pub use xirr::InternalRateOfReturn;

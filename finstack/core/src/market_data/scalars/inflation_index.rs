@@ -41,7 +41,7 @@
 //!
 //! # Examples
 //! ```rust
-//! use finstack_core::market_data::scalars::inflation_index::{
+//! use finstack_core::market_data::scalars::{
 //!     InflationIndex, InflationInterpolation, InflationLag,
 //! };
 //! use finstack_core::currency::Currency;
@@ -83,7 +83,7 @@ use serde::{Deserialize, Serialize};
 /// # Examples
 ///
 /// ```rust
-/// use finstack_core::market_data::scalars::inflation_index::InflationInterpolation;
+/// use finstack_core::market_data::scalars::InflationInterpolation;
 ///
 /// let linear = InflationInterpolation::Linear; // TIPS standard
 /// let step = InflationInterpolation::Step;     // Conservative approach
@@ -149,7 +149,7 @@ impl core::str::FromStr for InflationInterpolation {
 /// # Examples
 ///
 /// ```rust
-/// use finstack_core::market_data::scalars::inflation_index::InflationLag;
+/// use finstack_core::market_data::scalars::InflationLag;
 ///
 /// let tips_lag = InflationLag::Months(3);  // US TIPS standard
 /// let gilt_lag = InflationLag::Months(3);  // UK modern gilts
@@ -207,7 +207,7 @@ pub enum InflationLag {
 /// # Examples
 ///
 /// ```rust
-/// use finstack_core::market_data::scalars::inflation_index::{
+/// use finstack_core::market_data::scalars::{
 ///     InflationIndex, InflationInterpolation, InflationLag,
 /// };
 /// use finstack_core::currency::Currency;

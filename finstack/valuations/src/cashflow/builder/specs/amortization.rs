@@ -97,14 +97,14 @@ impl Notional {
             AmortizationSpec::None => Ok(()),
             AmortizationSpec::LinearTo { final_notional } => {
                 if final_notional.currency() != currency {
-                    return Err(finstack_core::error::Error::Validation(format!(
+                    return Err(finstack_core::Error::Validation(format!(
                         "LinearTo final_notional currency ({}) must match initial currency ({})",
                         final_notional.currency(),
                         currency
                     )));
                 }
                 if final_notional.amount() > self.initial.amount() {
-                    return Err(finstack_core::error::Error::Validation(format!(
+                    return Err(finstack_core::Error::Validation(format!(
                         "LinearTo final_notional ({}) cannot exceed initial notional ({})",
                         final_notional.amount(),
                         self.initial.amount()
@@ -120,7 +120,7 @@ impl Notional {
                 for (date, remaining) in schedule {
                     // Currency check
                     if remaining.currency() != currency {
-                        return Err(finstack_core::error::Error::Validation(format!(
+                        return Err(finstack_core::Error::Validation(format!(
                             "StepRemaining currency ({}) must match initial currency ({})",
                             remaining.currency(),
                             currency
@@ -130,7 +130,7 @@ impl Notional {
                     // Date ordering check (must be strictly increasing)
                     if let Some(pd) = prev_date {
                         if *date <= pd {
-                            return Err(finstack_core::error::Error::Validation(format!(
+                            return Err(finstack_core::Error::Validation(format!(
                                 "StepRemaining dates must be strictly increasing; found {} after {}",
                                 date, pd
                             )));
@@ -140,7 +140,7 @@ impl Notional {
                     // Amount ordering check (must be non-increasing)
                     if let Some(pa) = prev_amount {
                         if remaining.amount() > pa {
-                            return Err(finstack_core::error::Error::Validation(format!(
+                            return Err(finstack_core::Error::Validation(format!(
                                 "StepRemaining amounts must be non-increasing; found {} after {}",
                                 remaining.amount(),
                                 pa
@@ -155,13 +155,13 @@ impl Notional {
             }
             AmortizationSpec::PercentPerPeriod { pct } => {
                 if !pct.is_finite() {
-                    return Err(finstack_core::error::Error::Validation(format!(
+                    return Err(finstack_core::Error::Validation(format!(
                         "PercentPerPeriod pct must be finite; got {}",
                         pct
                     )));
                 }
                 if *pct < 0.0 || *pct > 1.0 {
-                    return Err(finstack_core::error::Error::Validation(format!(
+                    return Err(finstack_core::Error::Validation(format!(
                         "PercentPerPeriod pct must be in [0.0, 1.0]; got {}",
                         pct
                     )));
@@ -171,7 +171,7 @@ impl Notional {
             AmortizationSpec::CustomPrincipal { items } => {
                 for (_date, amount) in items {
                     if amount.currency() != currency {
-                        return Err(finstack_core::error::Error::Validation(format!(
+                        return Err(finstack_core::Error::Validation(format!(
                             "CustomPrincipal currency ({}) must match initial currency ({})",
                             amount.currency(),
                             currency

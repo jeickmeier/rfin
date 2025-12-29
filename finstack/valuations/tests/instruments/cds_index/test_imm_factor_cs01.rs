@@ -17,7 +17,7 @@ use crate::common::test_helpers::flat_discount_curve;
 fn flat_discount(
     id: &'static str,
     base: Date,
-) -> finstack_core::market_data::term_structures::discount_curve::DiscountCurve {
+) -> finstack_core::market_data::term_structures::DiscountCurve {
     // Use a very small rate to create a nearly flat but valid (decreasing) curve
     flat_discount_curve(0.0001, base, id)
 }
@@ -27,8 +27,8 @@ fn flat_hazard(
     base: Date,
     rec: f64,
     hz: f64,
-) -> finstack_core::market_data::term_structures::hazard_curve::HazardCurve {
-    use finstack_core::market_data::term_structures::hazard_curve::HazardCurve;
+) -> finstack_core::market_data::term_structures::HazardCurve {
+    use finstack_core::market_data::term_structures::HazardCurve;
     HazardCurve::builder(id)
         .base_date(base)
         .recovery_rate(rec)

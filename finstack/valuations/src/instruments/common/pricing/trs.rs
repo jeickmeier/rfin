@@ -171,7 +171,7 @@ impl TrsEngine {
 
             // Validate return is finite (defensive check on model output)
             if !total_return.is_finite() {
-                return Err(finstack_core::error::Error::Validation(format!(
+                return Err(finstack_core::Error::Validation(format!(
                     "TRS return model produced non-finite return ({}) for period {} to {}",
                     total_return, period_start, period_end
                 )));
@@ -312,7 +312,7 @@ impl TrsEngine {
 
         // Guard against zero/near-zero annuity to prevent divide-by-zero in par spread calculations
         if result.abs() < super::swap_legs::ANNUITY_EPSILON {
-            return Err(finstack_core::error::Error::Validation(format!(
+            return Err(finstack_core::Error::Validation(format!(
                 "Financing annuity ({:.2e}) is below minimum threshold ({:.2e}). \
                  This may indicate all periods have expired or extreme discounting scenarios. \
                  Cannot compute par spread with near-zero annuity.",

@@ -7,8 +7,8 @@ use crate::cashflow::builder::Notional;
 use crate::cashflow::primitives::{CFKind, CashFlow};
 use finstack_core::dates::{Date, DayCount, DayCountCtx, Period, PeriodId};
 use finstack_core::market_data::context::MarketContext;
-use finstack_core::market_data::term_structures::discount_curve::DiscountCurve;
-use finstack_core::market_data::term_structures::hazard_curve::HazardCurve;
+use finstack_core::market_data::term_structures::DiscountCurve;
+use finstack_core::market_data::term_structures::HazardCurve;
 use finstack_core::market_data::traits::{Discounting, Survival};
 use finstack_core::money::Money;
 use finstack_core::types::{Currency, CurveId};
@@ -176,7 +176,7 @@ impl CashFlowSchedule {
     /// use finstack_core::currency::Currency;
     /// use finstack_core::money::Money;
     /// use finstack_valuations::cashflow::builder::schedule::{CashFlowMeta, CashFlowSchedule};
-    /// use finstack_core::cashflow::primitives::{CashFlow, CFKind};
+    /// use finstack_core::cashflow::{CashFlow, CFKind};
     /// use finstack_valuations::cashflow::builder::Notional;
     /// use time::Month;
     ///

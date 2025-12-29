@@ -6,7 +6,7 @@ use finstack_core::dates::{
     BusinessDayConvention, Date, DayCount, DayCountCtx, StubKind, Tenor, TenorUnit,
 };
 use finstack_core::market_data::context::MarketContext;
-use finstack_core::market_data::scalars::inflation_index::InflationLag;
+use finstack_core::market_data::scalars::InflationLag;
 use finstack_core::money::Money;
 use finstack_core::types::CurveId;
 use finstack_valuations::instruments::common::traits::Attributes;

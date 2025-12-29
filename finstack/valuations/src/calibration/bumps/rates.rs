@@ -11,7 +11,7 @@ use crate::market::quotes::market_quote::MarketQuote;
 use crate::market::quotes::rates::RateQuote;
 use finstack_core::dates::{Date, DayCount, DayCountCtx};
 use finstack_core::market_data::context::MarketContext;
-use finstack_core::market_data::term_structures::discount_curve::DiscountCurve;
+use finstack_core::market_data::term_structures::DiscountCurve;
 use finstack_core::math::interp::ExtrapolationPolicy;
 use finstack_core::types::Currency;
 
@@ -115,7 +115,7 @@ pub fn find_closest_quote(quotes: &[RateQuote], target_years: f64, as_of: Date) 
 /// Used when original quotes are unavailable. It implies par rates from
 /// the current curve discount factors, applies shocks, and re-bootstraps.
 pub fn bump_discount_curve_synthetic(
-    curve: &finstack_core::market_data::term_structures::discount_curve::DiscountCurve,
+    curve: &finstack_core::market_data::term_structures::DiscountCurve,
     context: &MarketContext,
     bump: &BumpRequest,
     as_of: Date,

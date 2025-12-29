@@ -4,7 +4,7 @@
 //! revolving credit cashflows. For general IRR calculations, use the functions
 //! from `finstack_core::cashflow`:
 //!
-//! - [`finstack_core::cashflow::xirr::InternalRateOfReturn`] - IRR/XIRR trait
+//! - [`finstack_core::cashflow::InternalRateOfReturn`] - IRR/XIRR trait
 //!
 //! # Facility-Specific Function
 //!
@@ -16,7 +16,7 @@
 //!
 //! ```rust,no_run
 //! use finstack_valuations::instruments::revolving_credit::metrics::irr::calculate_path_irr;
-//! use finstack_core::cashflow::xirr::InternalRateOfReturn;
+//! use finstack_core::cashflow::InternalRateOfReturn;
 //! use finstack_core::dates::{Date, DayCount};
 //! use time::Month;
 //!
@@ -33,19 +33,19 @@
 //! let irr = calculate_path_irr(&path_cashflows, base_date, DayCount::Act365F);
 //! ```
 
-use finstack_core::cashflow::xirr::InternalRateOfReturn;
+use finstack_core::cashflow::InternalRateOfReturn;
 use finstack_core::dates::{Date, DayCount};
 
 /// Calculate IRR from Monte Carlo path cashflows (time fractions).
 ///
 /// Convenience function that converts time-fraction cashflows to dates and
-/// computes XIRR using `finstack_core::cashflow::xirr::InternalRateOfReturn`.
+/// computes XIRR using `finstack_core::cashflow::InternalRateOfReturn`.
 ///
 /// This is primarily useful for revolving credit Monte Carlo simulations where
 /// cashflows are generated as `(time_in_years, amount)` tuples relative to
 /// a base date.
 ///
-/// For dated cashflows, use `finstack_core::cashflow::xirr::InternalRateOfReturn` directly.
+/// For dated cashflows, use `finstack_core::cashflow::InternalRateOfReturn` directly.
 ///
 /// # Arguments
 ///

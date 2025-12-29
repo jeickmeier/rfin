@@ -32,7 +32,7 @@ impl MetricCalculator for DepositParRateCalculator {
             .get(&MetricId::DfStart)
             .copied()
             .ok_or_else(|| {
-                finstack_core::Error::from(finstack_core::error::InputError::NotFound {
+                finstack_core::Error::from(finstack_core::InputError::NotFound {
                     id: "DfStart (required for par rate calculation)".to_string(),
                 })
             })?;
@@ -41,7 +41,7 @@ impl MetricCalculator for DepositParRateCalculator {
             .get(&MetricId::DfEnd)
             .copied()
             .ok_or_else(|| {
-                finstack_core::Error::from(finstack_core::error::InputError::NotFound {
+                finstack_core::Error::from(finstack_core::InputError::NotFound {
                     id: "DfEnd (required for par rate calculation)".to_string(),
                 })
             })?;
@@ -50,7 +50,7 @@ impl MetricCalculator for DepositParRateCalculator {
             .get(&MetricId::Yf)
             .copied()
             .ok_or_else(|| {
-                finstack_core::Error::from(finstack_core::error::InputError::NotFound {
+                finstack_core::Error::from(finstack_core::InputError::NotFound {
                     id: "Yf (required for par rate calculation)".to_string(),
                 })
             })?;

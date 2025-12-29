@@ -1059,7 +1059,7 @@ pub mod short_rate_keys {
 #[allow(clippy::expect_used, clippy::panic)]
 mod tests {
     use super::*;
-    use finstack_core::market_data::term_structures::discount_curve::DiscountCurve;
+    use finstack_core::market_data::term_structures::DiscountCurve;
     use finstack_core::math::interp::InterpStyle;
     use finstack_core::math::volatility::{convert_atm_volatility, VolatilityConvention};
     use time::Month;

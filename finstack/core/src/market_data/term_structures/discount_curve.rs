@@ -40,7 +40,7 @@
 //!
 //! ## Example
 //! ```rust
-//! use finstack_core::market_data::term_structures::discount_curve::DiscountCurve;
+//! use finstack_core::market_data::term_structures::DiscountCurve;
 //! use finstack_core::dates::Date;
 //! use time::Month;
 //! # use finstack_core::math::interp::InterpStyle;
@@ -229,7 +229,7 @@ impl DiscountCurve {
     /// # Example
     ///
     /// ```
-    /// use finstack_core::market_data::term_structures::discount_curve::DiscountCurve;
+    /// use finstack_core::market_data::term_structures::DiscountCurve;
     /// use finstack_core::dates::Date;
     /// use time::Month;
     ///
@@ -264,7 +264,7 @@ impl DiscountCurve {
     /// # Example
     ///
     /// ```
-    /// use finstack_core::market_data::term_structures::discount_curve::DiscountCurve;
+    /// use finstack_core::market_data::term_structures::DiscountCurve;
     /// use finstack_core::dates::Date;
     /// use time::Month;
     ///
@@ -306,7 +306,7 @@ impl DiscountCurve {
     /// # Example
     ///
     /// ```
-    /// use finstack_core::market_data::term_structures::discount_curve::DiscountCurve;
+    /// use finstack_core::market_data::term_structures::DiscountCurve;
     /// use finstack_core::dates::Date;
     /// use time::Month;
     ///
@@ -559,7 +559,7 @@ impl DiscountCurve {
     ///
     /// # Examples
     /// ```rust,no_run
-    /// use finstack_core::market_data::term_structures::discount_curve::DiscountCurve;
+    /// use finstack_core::market_data::term_structures::DiscountCurve;
     /// use time::macros::date;
     /// # fn main() -> finstack_core::Result<()> {
     ///
@@ -647,7 +647,7 @@ impl DiscountCurve {
     ///
     /// # Examples
     /// ```rust,no_run
-    /// use finstack_core::market_data::term_structures::discount_curve::DiscountCurve;
+    /// use finstack_core::market_data::term_structures::DiscountCurve;
     /// use time::macros::date;
     /// # fn main() -> finstack_core::Result<()> {
     ///
@@ -885,7 +885,7 @@ impl DiscountCurve {
 ///
 /// # Examples
 /// ```rust
-/// use finstack_core::market_data::term_structures::discount_curve::DiscountCurve;
+/// use finstack_core::market_data::term_structures::DiscountCurve;
 /// use finstack_core::math::interp::InterpStyle;
 /// use finstack_core::dates::Date;
 /// use time::Month;
@@ -950,7 +950,7 @@ impl DiscountCurveBuilder {
     ///
     /// # Example
     /// ```
-    /// use finstack_core::market_data::term_structures::discount_curve::DiscountCurve;
+    /// use finstack_core::market_data::term_structures::DiscountCurve;
     /// use finstack_core::dates::Date;
     /// use time::Month;
     ///
@@ -975,7 +975,7 @@ impl DiscountCurveBuilder {
     ///
     /// # Example
     /// ```
-    /// use finstack_core::market_data::term_structures::discount_curve::DiscountCurve;
+    /// use finstack_core::market_data::term_structures::DiscountCurve;
     /// use finstack_core::dates::Date;
     /// use time::Month;
     ///

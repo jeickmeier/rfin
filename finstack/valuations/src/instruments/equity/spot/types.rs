@@ -178,7 +178,7 @@ impl Equity {
         }
 
         let matrix = market.fx.as_ref().ok_or_else(|| {
-            finstack_core::Error::from(finstack_core::error::InputError::NotFound {
+            finstack_core::Error::from(finstack_core::InputError::NotFound {
                 id: "fx_matrix".to_string(),
             })
         })?;
@@ -250,7 +250,7 @@ impl Equity {
                     return self.money_from_scalar(scalar, curves, as_of);
                 }
                 Err(err) => match err {
-                    finstack_core::Error::Input(finstack_core::error::InputError::NotFound {
+                    finstack_core::Error::Input(finstack_core::InputError::NotFound {
                         ..
                     }) => {
                         continue;
@@ -260,7 +260,7 @@ impl Equity {
             }
         }
 
-        Err(finstack_core::error::InputError::NotFound {
+        Err(finstack_core::InputError::NotFound {
             id: format!("equity price (candidates: {})", candidates.join(", ")),
         }
         .into())
@@ -274,7 +274,7 @@ impl Equity {
                 Ok(MarketScalar::Unitless(v)) => return Ok(*v),
                 Ok(MarketScalar::Price(_)) => continue,
                 Err(err) => match err {
-                    finstack_core::Error::Input(finstack_core::error::InputError::NotFound {
+                    finstack_core::Error::Input(finstack_core::InputError::NotFound {
                         ..
                     }) => continue,
                     _ => return Err(err),

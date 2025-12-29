@@ -9,7 +9,7 @@
 //!
 //! - ISDA 2006 Definitions (cashflow semantics)
 
-use finstack_core::cashflow::primitives::{CFKind, CashFlow};
+use finstack_core::cashflow::{CFKind, CashFlow};
 use finstack_core::currency::Currency;
 use finstack_core::dates::Date;
 use finstack_core::money::Money;

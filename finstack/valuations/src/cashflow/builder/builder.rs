@@ -49,7 +49,7 @@ use crate::cashflow::builder::{AmortizationSpec, Notional};
 use crate::cashflow::primitives::{CFKind, CashFlow};
 use finstack_core::currency::Currency;
 use finstack_core::dates::Date;
-use finstack_core::error::InputError;
+use finstack_core::InputError;
 use finstack_core::market_data::term_structures::ForwardCurve;
 use finstack_core::money::Money;
 use rust_decimal::prelude::ToPrimitive;
@@ -77,7 +77,7 @@ use smallvec::SmallVec;
 #[derive(Debug, Clone)]
 struct BuildState {
     flows: Vec<CashFlow>,
-    outstanding_after: finstack_core::collections::HashMap<Date, f64>,
+    outstanding_after: finstack_core::HashMap<Date, f64>,
     outstanding: f64,
 }
 
@@ -101,8 +101,8 @@ pub struct PrincipalEvent {
 
 #[derive(Debug, Clone)]
 struct AmortizationSetup {
-    amort_dates: finstack_core::collections::HashSet<Date>,
-    step_remaining_map: Option<finstack_core::collections::HashMap<Date, Money>>, // for StepRemaining
+    amort_dates: finstack_core::HashSet<Date>,
+    step_remaining_map: Option<finstack_core::HashMap<Date, Money>>, // for StepRemaining
     linear_delta: Option<f64>,                                                    // for LinearTo
     percent_per: Option<f64>, // for PercentPerPeriod
 }
@@ -192,10 +192,10 @@ fn derive_amortization_setup(
     }
 
     // Precompute helpers depending on amort spec
-    let step_remaining_map: Option<finstack_core::collections::HashMap<Date, Money>> =
+    let step_remaining_map: Option<finstack_core::HashMap<Date, Money>> =
         match &notional.amort {
             AmortizationSpec::StepRemaining { schedule } => {
-                let mut m = finstack_core::collections::HashMap::default();
+                let mut m = finstack_core::HashMap::default();
                 m.reserve(schedule.len());
                 for (d, mny) in schedule {
                     m.insert(*d, *mny);
@@ -208,7 +208,7 @@ fn derive_amortization_setup(
     let (linear_delta, percent_per) = match &notional.amort {
         AmortizationSpec::LinearTo { final_notional } => {
             let base = amort_base.ok_or_else(|| {
-                finstack_core::Error::from(finstack_core::error::InputError::NotFound {
+                finstack_core::Error::from(finstack_core::InputError::NotFound {
                     id: "amortization_base_schedule".to_string(),
                 })
             })?;
@@ -224,7 +224,7 @@ fn derive_amortization_setup(
         _ => (None, None),
     };
 
-    let amort_dates: finstack_core::collections::HashSet<Date> = amort_base
+    let amort_dates: finstack_core::HashSet<Date> = amort_base
         .map(|v| v.iter().copied().skip(1).collect())
         .unwrap_or_default();
 
@@ -287,8 +287,8 @@ fn initialize_build_state(
     }
 
     // Pre-allocate outstanding_after based on number of dates
-    let mut outstanding_after: finstack_core::collections::HashMap<Date, f64> =
-        finstack_core::collections::HashMap::default();
+    let mut outstanding_after: finstack_core::HashMap<Date, f64> =
+        finstack_core::HashMap::default();
     outstanding_after.reserve(estimated_dates);
     outstanding_after.insert(issue, outstanding);
 

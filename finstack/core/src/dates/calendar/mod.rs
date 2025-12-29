@@ -39,7 +39,7 @@
 //!
 //! ```rust
 //! use finstack_core::dates::{adjust, BusinessDayConvention, HolidayCalendar};
-//! use finstack_core::dates::calendar::registry::CalendarRegistry;
+//! use finstack_core::dates::CalendarRegistry;
 //! use time::{Date, Month};
 //! # fn main() -> Result<(), Box<dyn std::error::Error>> {
 //!
@@ -82,12 +82,29 @@
 //! - `CompositeCalendar` for combining calendars
 
 pub(crate) mod algo;
-pub mod business_days;
-pub mod composite;
-pub mod generated;
-pub mod registry;
-pub mod rule;
-pub mod types;
+pub(crate) mod business_days;
+pub(crate) mod composite;
+pub(crate) mod generated;
+pub(crate) mod registry;
+pub(crate) mod rule;
+pub(crate) mod types;
 
-// Include generated calendar implementations
-include!(concat!(env!("OUT_DIR"), "/calendars.rs"));
+// -----------------------------------------------------------------------------
+// Public re-exports (facade)
+// -----------------------------------------------------------------------------
+
+pub use business_days::{adjust, available_calendars, BusinessDayConvention, HolidayCalendar};
+pub use composite::{CompositeCalendar, CompositeMode};
+pub use registry::{CalendarId, CalendarRegistry};
+pub use rule::{Direction, Observed, Rule};
+pub use types::Calendar;
+
+// Include generated calendar implementations.
+//
+// Important: wrap the include so its internal `use ...` imports don't collide
+// with our public re-export facade above.
+mod calendars_generated {
+    include!(concat!(env!("OUT_DIR"), "/calendars.rs"));
+}
+
+pub use calendars_generated::*;

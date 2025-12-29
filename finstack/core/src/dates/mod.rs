@@ -56,7 +56,7 @@ pub use daycount::{DayCount, DayCountCtx, DayCountCtxState, Thirty360Convention}
 pub mod rate_conversions;
 
 // Re-export new holiday calendars at the top level for convenience
-pub use calendar::business_days::{adjust, BusinessDayConvention, HolidayCalendar};
+pub use calendar::business_days::{adjust, BusinessDayConvention, CalendarMetadata, HolidayCalendar};
 
 // The canonical public discovery helper
 pub use calendar::business_days::available_calendars;
@@ -65,7 +65,7 @@ mod schedule_iter;
 
 pub use schedule_iter::{Schedule, ScheduleBuilder, ScheduleSpec, ScheduleWarning, StubKind};
 
-pub use calendar::composite::CompositeCalendar;
+pub use calendar::composite::{CompositeCalendar, CompositeMode};
 
 mod imm;
 mod tenor;
@@ -81,7 +81,13 @@ pub use imm::{
 };
 
 pub mod calendar;
-pub use calendar::registry::CalendarRegistry;
+pub use calendar::registry::{CalendarId, CalendarRegistry};
+
+// Calendar rule system is intentionally public, but only via the `dates` facade.
+pub use calendar::rule::{Direction, Observed, Rule};
+
+// Concrete calendar type (used by generated calendars and optional custom calendars).
+pub use calendar::types::Calendar;
 
 mod periods;
 pub use periods::{

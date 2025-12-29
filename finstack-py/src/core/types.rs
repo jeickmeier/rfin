@@ -8,7 +8,7 @@
 use crate::core::common::pycmp::richcmp_eq_ne;
 use crate::errors::core_to_py;
 use finstack_core::types::moodys_warf_factor;
-use finstack_core::types::ratings::{
+use finstack_core::types::{
     CreditRating, NotchedRating, RatingFactorTable, RatingLabel, RatingNotch,
 };
 use finstack_core::types::{Bps, CurveId, IndexId, InstrumentId, PriceId, Rate, UnderlyingId};

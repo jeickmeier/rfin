@@ -136,7 +136,7 @@ impl CashFlow {
     ///
     /// # Example
     /// ```rust
-    /// use finstack_core::cashflow::primitives::{CashFlow, CFKind};
+    /// use finstack_core::cashflow::{CashFlow, CFKind};
     /// use finstack_core::currency::Currency;
     /// use finstack_core::dates::Date;
     /// use finstack_core::money::Money;

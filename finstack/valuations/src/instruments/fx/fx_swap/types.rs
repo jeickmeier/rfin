@@ -204,7 +204,7 @@ impl FxSwap {
             rate
         } else {
             return Err(finstack_core::Error::from(
-                finstack_core::error::InputError::NotFound {
+                finstack_core::InputError::NotFound {
                     id: "fx_matrix".to_string(),
                 },
             ));
@@ -233,7 +233,7 @@ impl FxSwap {
         // Currency safety
         if self.base_notional.currency() != self.base_currency {
             return Err(finstack_core::Error::from(
-                finstack_core::error::InputError::Invalid,
+                finstack_core::InputError::Invalid,
             ));
         }
         let n_base = self.base_notional.amount();

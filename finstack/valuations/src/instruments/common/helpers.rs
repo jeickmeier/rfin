@@ -34,7 +34,7 @@ pub fn schedule_pv_using_curve_dc<S>(
 where
     S: crate::cashflow::traits::CashflowProvider,
 {
-    use finstack_core::cashflow::discounting::npv_using_curve_dc;
+    use finstack_core::cashflow::npv_using_curve_dc;
 
     let flows = S::build_schedule(instrument, curves, as_of)?;
     let disc = curves.get_discount_ref(discount_curve_id.as_str())?;

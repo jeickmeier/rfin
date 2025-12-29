@@ -21,7 +21,7 @@ impl crate::metrics::MetricCalculator for RmbsLtvCalculator {
             .instrument
             .as_any()
             .downcast_ref::<StructuredCredit>()
-            .ok_or(finstack_core::error::InputError::Invalid)?;
+            .ok_or(finstack_core::InputError::Invalid)?;
 
         // Use credit factors LTV or calculate from pool
         if let Some(ltv) = rmbs.credit_factors.ltv {
@@ -50,7 +50,7 @@ impl crate::metrics::MetricCalculator for RmbsFicoCalculator {
             .instrument
             .as_any()
             .downcast_ref::<StructuredCredit>()
-            .ok_or(finstack_core::error::InputError::Invalid)?;
+            .ok_or(finstack_core::InputError::Invalid)?;
 
         // Use credit factors credit score or default
         if let Some(fico) = rmbs.credit_factors.credit_score {
@@ -70,7 +70,7 @@ impl crate::metrics::MetricCalculator for RmbsWalCalculator {
             .instrument
             .as_any()
             .downcast_ref::<StructuredCredit>()
-            .ok_or(finstack_core::error::InputError::Invalid)?;
+            .ok_or(finstack_core::InputError::Invalid)?;
 
         // Use the pool's WAM calculation (approximation), adjusted for PSA speed
         let base_wal = rmbs.pool.weighted_avg_maturity(context.as_of);

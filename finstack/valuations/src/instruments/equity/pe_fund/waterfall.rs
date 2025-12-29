@@ -10,7 +10,7 @@ use finstack_core::dates::{Date, DayCount};
 use finstack_core::math::solver::{BrentSolver, Solver};
 use finstack_core::money::Money;
 
-use finstack_core::collections::HashMap;
+use finstack_core::HashMap;
 use indexmap::IndexMap;
 use smallvec::SmallVec;
 use std::cmp::Ordering;
@@ -152,7 +152,7 @@ impl WaterfallSpec {
     /// Validate the waterfall specification.
     pub fn validate(&self) -> finstack_core::Result<()> {
         if self.tranches.is_empty() {
-            return Err(finstack_core::error::InputError::TooFewPoints.into());
+            return Err(finstack_core::InputError::TooFewPoints.into());
         }
 
         // Validate promote tier splits sum to 1.0
@@ -163,13 +163,13 @@ impl WaterfallSpec {
             {
                 let sum = lp_share + gp_share;
                 if (sum - 1.0).abs() > 1e-6 {
-                    return Err(finstack_core::error::InputError::Invalid.into());
+                    return Err(finstack_core::InputError::Invalid.into());
                 }
                 if !lp_share.is_finite() || !gp_share.is_finite() {
-                    return Err(finstack_core::error::InputError::Invalid.into());
+                    return Err(finstack_core::InputError::Invalid.into());
                 }
                 if *lp_share < 0.0 || *gp_share < 0.0 {
-                    return Err(finstack_core::error::InputError::NegativeValue.into());
+                    return Err(finstack_core::InputError::NegativeValue.into());
                 }
             }
         }
@@ -576,7 +576,7 @@ impl<'a> EquityWaterfallEngine<'a> {
         let mut gp_carry_cum = 0.0;
         let currency = events
             .first()
-            .ok_or(finstack_core::error::InputError::TooFewPoints)?
+            .ok_or(finstack_core::InputError::TooFewPoints)?
             .amount
             .currency();
 
@@ -643,7 +643,7 @@ impl<'a> EquityWaterfallEngine<'a> {
         let mut total_gp_carry = 0.0;
         let currency = events
             .first()
-            .ok_or(finstack_core::error::InputError::TooFewPoints)?
+            .ok_or(finstack_core::InputError::TooFewPoints)?
             .amount
             .currency();
 
@@ -920,7 +920,7 @@ impl<'a> EquityWaterfallEngine<'a> {
         base_date: Date,
     ) -> finstack_core::Result<f64> {
         if flows.len() < 2 {
-            return Err(finstack_core::error::InputError::TooFewPoints.into());
+            return Err(finstack_core::InputError::TooFewPoints.into());
         }
 
         let npv_function = |rate: f64| -> f64 {
@@ -952,7 +952,7 @@ impl<'a> EquityWaterfallEngine<'a> {
 
         solver
             .solve(npv_function, 0.1)
-            .map_err(|_| finstack_core::error::InputError::Invalid.into())
+            .map_err(|_| finstack_core::InputError::Invalid.into())
     }
 
     /// Calculate LP IRR to date.
@@ -1022,7 +1022,7 @@ impl<'a> EquityWaterfallEngine<'a> {
             let periods = self
                 .periods
                 .as_ref()
-                .ok_or(finstack_core::error::InputError::Invalid)?;
+                .ok_or(finstack_core::InputError::Invalid)?;
 
             for period in periods {
                 let settlement_date = period.end - Duration::days(1);

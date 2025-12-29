@@ -1,6 +1,6 @@
 //! Tests for composite calendar functionality
 
-use finstack_core::dates::calendar::composite::{CompositeCalendar, CompositeMode};
+use finstack_core::dates::{CompositeCalendar, CompositeMode};
 use finstack_core::dates::calendar::{GBLO, NYSE, TARGET2, USNY};
 use finstack_core::dates::{Date, HolidayCalendar};
 use time::Month;

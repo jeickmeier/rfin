@@ -40,7 +40,7 @@ impl MetricCalculator for OasCalculator {
 
         // Require quoted clean price
         let clean_price = bond.pricing_overrides.quoted_clean_price.ok_or_else(|| {
-            finstack_core::Error::from(finstack_core::error::InputError::NotFound {
+            finstack_core::Error::from(finstack_core::InputError::NotFound {
                 id: "bond.pricing_overrides.quoted_clean_price".to_string(),
             })
         })?;

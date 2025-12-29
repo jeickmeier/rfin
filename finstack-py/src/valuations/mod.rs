@@ -11,7 +11,7 @@ pub(crate) mod pricer;
 pub(crate) mod results;
 pub(crate) mod risk;
 
-use finstack_core::collections::HashSet;
+use finstack_core::HashSet;
 use pyo3::prelude::*;
 use pyo3::types::{PyList, PyModule};
 use pyo3::Bound;

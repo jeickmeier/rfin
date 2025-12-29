@@ -1,10 +1,10 @@
 //! Shared fixtures and utilities for FX Spot tests.
 
-use finstack_core::collections::HashMap;
+use finstack_core::HashMap;
 use finstack_core::{
     currency::Currency,
     dates::Date,
-    market_data::{context::MarketContext, term_structures::discount_curve::DiscountCurve},
+    market_data::{context::MarketContext, term_structures::DiscountCurve},
     math::interp::InterpStyle,
     money::fx::{FxConversionPolicy, FxMatrix, FxProvider, FxRate},
     money::Money,

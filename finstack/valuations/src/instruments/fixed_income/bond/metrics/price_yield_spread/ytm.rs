@@ -83,7 +83,7 @@ impl MetricCalculator for YtmCalculator {
                 .get(&MetricId::Accrued)
                 .copied()
                 .ok_or_else(|| {
-                    finstack_core::Error::from(finstack_core::error::InputError::NotFound {
+                    finstack_core::Error::from(finstack_core::InputError::NotFound {
                         id: "metric:Accrued".to_string(),
                     })
                 })?;
@@ -107,7 +107,7 @@ impl MetricCalculator for YtmCalculator {
             context.day_count = Some(dc);
         }
         let flows = context.cashflows.as_ref().ok_or_else(|| {
-            finstack_core::Error::from(finstack_core::error::InputError::NotFound {
+            finstack_core::Error::from(finstack_core::InputError::NotFound {
                 id: "cashflows".to_string(),
             })
         })?;

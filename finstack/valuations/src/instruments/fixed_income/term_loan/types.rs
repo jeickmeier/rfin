@@ -40,7 +40,7 @@
 
 use finstack_core::currency::Currency;
 use finstack_core::dates::{BusinessDayConvention, Date, DayCount, StubKind, Tenor};
-use finstack_core::error::InputError;
+use finstack_core::InputError;
 use finstack_core::money::Money;
 use finstack_core::types::{Bps, CurveId, InstrumentId, Rate};
 
@@ -478,7 +478,7 @@ impl crate::cashflow::traits::CashflowProvider for TermLoan {
         curves: &finstack_core::market_data::context::MarketContext,
         as_of: finstack_core::dates::Date,
     ) -> finstack_core::Result<crate::cashflow::DatedFlows> {
-        use finstack_core::cashflow::primitives::CFKind;
+        use finstack_core::cashflow::CFKind;
 
         // Get full internal schedule
         let schedule =
@@ -676,7 +676,7 @@ mod tests {
 
         let err = TermLoan::try_from(spec).expect_err("missing notional should fail");
         match err {
-            finstack_core::error::Error::Input(InputError::NotFound { .. }) => {}
+            finstack_core::Error::Input(InputError::NotFound { .. }) => {}
             _ => panic!("unexpected error: {err:?}"),
         }
     }

@@ -22,9 +22,10 @@
 //! - Factors are isolated independently, so cross-effects appear in residual
 //! - Model parameters attribution requires instrument-specific support (see model_params.rs)
 
-use crate::attribution::factors::*;
-use crate::attribution::helpers::*;
-use crate::attribution::types::*;
+use super::factors::*;
+use super::helpers::*;
+use super::model_params;
+use super::types::*;
 use crate::instruments::common::traits::Instrument;
 use finstack_core::config::FinstackConfig;
 use finstack_core::dates::Date;
@@ -116,7 +117,7 @@ pub fn attribute_pnl_parallel(
     as_of_t0: Date,
     as_of_t1: Date,
     _config: &FinstackConfig,
-    model_params_t0: Option<&crate::attribution::model_params::ModelParamsSnapshot>,
+    model_params_t0: Option<&model_params::ModelParamsSnapshot>,
 ) -> Result<PnlAttribution> {
     let input = AttributionInput {
         instrument,
@@ -153,7 +154,7 @@ fn attribute_pnl_parallel_impl(input: &AttributionInput) -> Result<PnlAttributio
     // Step 1: Price at T₀ and T₁
     // Use T₀ model parameters for T₀ valuation if available
     let instrument_t0 = if let Some(params) = model_params_t0 {
-        crate::attribution::model_params::with_model_params(instrument, params)?
+        model_params::with_model_params(instrument, params)?
     } else {
         Arc::clone(instrument)
     };
@@ -317,13 +318,13 @@ fn attribute_pnl_parallel_impl(input: &AttributionInput) -> Result<PnlAttributio
     // Step 9: Model parameters attribution
     let params_t0 = model_params_t0
         .cloned()
-        .unwrap_or_else(|| crate::attribution::model_params::extract_model_params(instrument));
+        .unwrap_or_else(|| model_params::extract_model_params(instrument));
     if !matches!(
         params_t0,
-        crate::attribution::model_params::ModelParamsSnapshot::None
+        model_params::ModelParamsSnapshot::None
     ) {
         // Create instrument with T₀ parameters
-        match crate::attribution::model_params::with_model_params(instrument, &params_t0) {
+        match model_params::with_model_params(instrument, &params_t0) {
             Ok(instrument_with_t0_params) => {
                 // Reprice with T₁ market
                 match reprice_instrument(&instrument_with_t0_params, market_t1, as_of_t1) {
@@ -396,7 +397,7 @@ mod tests {
     use super::*;
     use crate::attribution::test_utils::TestInstrument;
     use finstack_core::currency::Currency;
-    use finstack_core::market_data::term_structures::discount_curve::DiscountCurve;
+    use finstack_core::market_data::term_structures::DiscountCurve;
     use finstack_core::math::interp::InterpStyle;
     use finstack_core::money::Money;
     use time::macros::date;

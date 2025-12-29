@@ -7,7 +7,7 @@ use crate::instruments::bond::CashflowSpec;
 use crate::instruments::Bond;
 use crate::metrics::{MetricCalculator, MetricContext, MetricId};
 use finstack_core::dates::{BusinessDayConvention, Date, DayCount, StubKind, Tenor};
-use finstack_core::market_data::term_structures::discount_curve::DiscountCurve;
+use finstack_core::market_data::term_structures::DiscountCurve;
 use rust_decimal::prelude::ToPrimitive;
 
 /// Configuration for fixed-leg conventions used in ASW par/market metrics.
@@ -258,7 +258,7 @@ pub fn asw_par_with_forward_config(
         // Extract fixed coupon rate from cashflow_spec (converting Decimal to f64)
         match &bond.cashflow_spec {
             CashflowSpec::Fixed(spec) => spec.rate.to_f64().unwrap_or(0.0),
-            _ => return Err(finstack_core::error::InputError::Invalid.into()),
+            _ => return Err(finstack_core::InputError::Invalid.into()),
         }
     };
     Ok(eq_coupon - par_rate)
@@ -336,7 +336,7 @@ pub fn asw_market_with_forward_config(
     let dirty = match dirty_price_ccy {
         Some(v) => v,
         None => {
-            return Err(finstack_core::error::InputError::NotFound {
+            return Err(finstack_core::InputError::NotFound {
                 id: "dirty_price_ccy".to_string(),
             }
             .into());
@@ -369,7 +369,7 @@ impl MetricCalculator for AssetSwapParCalculator {
                     );
                 }
                 _ => {
-                    return Err(finstack_core::error::InputError::NotFound {
+                    return Err(finstack_core::InputError::NotFound {
                         id: "bond.cashflow_spec.floating".to_string(),
                     }
                     .into());
@@ -404,7 +404,7 @@ impl MetricCalculator for AssetSwapParCalculator {
                     spec.rate_spec.calendar_id.as_deref(),
                     spec.stub,
                 ),
-                _ => return Err(finstack_core::error::InputError::Invalid.into()),
+                _ => return Err(finstack_core::InputError::Invalid.into()),
             },
         };
 
@@ -442,7 +442,7 @@ impl MetricCalculator for AssetSwapParCalculator {
         // Use stated coupon for non-custom bonds; for custom bonds, this branch is not reached
         let coupon = match &bond.cashflow_spec {
             CashflowSpec::Fixed(spec) => spec.rate.to_f64().unwrap_or(0.0),
-            _ => return Err(finstack_core::error::InputError::Invalid.into()),
+            _ => return Err(finstack_core::InputError::Invalid.into()),
         };
         Ok(coupon - par_rate)
     }
@@ -479,7 +479,7 @@ impl MetricCalculator for AssetSwapMarketCalculator {
                 .get(&MetricId::Accrued)
                 .copied()
                 .ok_or_else(|| {
-                    finstack_core::Error::from(finstack_core::error::InputError::NotFound {
+                    finstack_core::Error::from(finstack_core::InputError::NotFound {
                         id: "metric:Accrued".to_string(),
                     })
                 })?;
@@ -504,7 +504,7 @@ impl MetricCalculator for AssetSwapMarketCalculator {
                     );
                 }
                 _ => {
-                    return Err(finstack_core::error::InputError::NotFound {
+                    return Err(finstack_core::InputError::NotFound {
                         id: "bond.cashflow_spec.floating".to_string(),
                     }
                     .into());
@@ -527,7 +527,7 @@ impl MetricCalculator for AssetSwapMarketCalculator {
             context.day_count = Some(dc_capture);
         }
         let _flows = context.cashflows.as_ref().ok_or_else(|| {
-            finstack_core::Error::from(finstack_core::error::InputError::NotFound {
+            finstack_core::Error::from(finstack_core::InputError::NotFound {
                 id: "cashflows".to_string(),
             })
         })?;
@@ -560,7 +560,7 @@ impl MetricCalculator for AssetSwapMarketCalculator {
                     spec.rate_spec.bdc,
                     spec.rate_spec.calendar_id.as_deref(),
                 ),
-                _ => return Err(finstack_core::error::InputError::Invalid.into()),
+                _ => return Err(finstack_core::InputError::Invalid.into()),
             },
         };
         let freq = self.config.fixed_leg_frequency.unwrap_or(bond_freq);
@@ -618,7 +618,7 @@ impl MetricCalculator for AssetSwapParFwdCalculator {
                 spec.rate_spec.index_id.as_str(),
                 spec.rate_spec.spread_bp.to_f64().unwrap_or(0.0),
             ),
-            _ => Err(finstack_core::error::InputError::NotFound {
+            _ => Err(finstack_core::InputError::NotFound {
                 id: "bond.cashflow_spec.floating".to_string(),
             }
             .into()),
@@ -638,7 +638,7 @@ impl MetricCalculator for AssetSwapMarketFwdCalculator {
             CashflowSpec::Floating(spec) => {
                 let dirty = if let Some(clean) = bond.pricing_overrides.quoted_clean_price {
                     let accrued = *context.computed.get(&MetricId::Accrued).ok_or_else(|| {
-                        finstack_core::Error::from(finstack_core::error::InputError::NotFound {
+                        finstack_core::Error::from(finstack_core::InputError::NotFound {
                             id: "metric:Accrued".to_string(),
                         })
                     })?;
@@ -655,7 +655,7 @@ impl MetricCalculator for AssetSwapMarketFwdCalculator {
                     dirty,
                 )
             }
-            _ => Err(finstack_core::error::InputError::NotFound {
+            _ => Err(finstack_core::InputError::NotFound {
                 id: "bond.cashflow_spec.floating".to_string(),
             }
             .into()),

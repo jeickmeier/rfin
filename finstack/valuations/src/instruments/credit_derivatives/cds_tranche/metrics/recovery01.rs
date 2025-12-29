@@ -26,7 +26,7 @@ impl MetricCalculator for Recovery01Calculator {
         let base_recovery = original_index.recovery_rate;
 
         // Create bumped credit index (up)
-        use finstack_core::market_data::term_structures::credit_index::CreditIndexData;
+        use finstack_core::market_data::term_structures::CreditIndexData;
         let bumped_recovery_up = (base_recovery + RECOVERY_BUMP).clamp(0.0, 1.0);
         let bumped_index_up = CreditIndexData::builder()
             .num_constituents(original_index.num_constituents)

@@ -1,6 +1,6 @@
 //! Date and business day utilities for interest rate swaps.
 
-use finstack_core::dates::calendar::registry::CalendarRegistry;
+use finstack_core::dates::CalendarRegistry;
 use finstack_core::dates::{Date, DateExt};
 
 /// Apply a payment-delay in business days using an optional holiday calendar.

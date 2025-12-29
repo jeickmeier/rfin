@@ -161,7 +161,7 @@ impl FxVarianceSwap {
         }
         let spot_id = self.series_id();
         let scalar = context.price(&spot_id).map_err(|_| {
-            finstack_core::Error::Input(finstack_core::error::InputError::NotFound { id: spot_id })
+            finstack_core::Error::Input(finstack_core::InputError::NotFound { id: spot_id })
         })?;
         let spot = match scalar {
             finstack_core::market_data::scalars::MarketScalar::Unitless(v) => *v,

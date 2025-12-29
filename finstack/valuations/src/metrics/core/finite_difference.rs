@@ -159,7 +159,7 @@ pub fn bump_discount_curve_parallel(
     curve_id: &finstack_core::types::CurveId,
     bump_bp: f64,
 ) -> finstack_core::Result<finstack_core::market_data::context::MarketContext> {
-    use finstack_core::collections::HashMap;
+    use finstack_core::HashMap;
     use finstack_core::market_data::bumps::BumpSpec;
 
     let mut bumps = HashMap::default();
@@ -241,10 +241,10 @@ where
 {
     // Guard against invalid bump sizes
     if !h_abs.is_finite() || h_abs <= 0.0 {
-        return Err(finstack_core::error::InputError::NonPositiveValue.into());
+        return Err(finstack_core::InputError::NonPositiveValue.into());
     }
     if !k_abs.is_finite() || k_abs <= 0.0 {
-        return Err(finstack_core::error::InputError::NonPositiveValue.into());
+        return Err(finstack_core::InputError::NonPositiveValue.into());
     }
     let v_pp = eval_pp()?.into();
     let v_pm = eval_pm()?.into();
@@ -270,8 +270,8 @@ mod tests {
         )
         .expect_err("should fail with non-positive h or k");
         match err_h {
-            finstack_core::error::Error::Input(
-                finstack_core::error::InputError::NonPositiveValue,
+            finstack_core::Error::Input(
+                finstack_core::InputError::NonPositiveValue,
             ) => {}
             e => panic!("unexpected error: {e:?}"),
         }
@@ -285,8 +285,8 @@ mod tests {
         )
         .expect_err("should fail with non-positive h or k");
         match err_k {
-            finstack_core::error::Error::Input(
-                finstack_core::error::InputError::NonPositiveValue,
+            finstack_core::Error::Input(
+                finstack_core::InputError::NonPositiveValue,
             ) => {}
             e => panic!("unexpected error: {e:?}"),
         }

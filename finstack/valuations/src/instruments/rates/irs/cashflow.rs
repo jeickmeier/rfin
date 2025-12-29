@@ -301,7 +301,7 @@ pub fn full_signed_schedule_with_curves(
     irs: &InterestRateSwap,
     curves: Option<&finstack_core::market_data::context::MarketContext>,
 ) -> Result<CashFlowSchedule> {
-    use finstack_core::cashflow::primitives::{CFKind, CashFlow};
+    use finstack_core::cashflow::{CFKind, CashFlow};
 
     let fixed_sched = fixed_leg_schedule(irs)?;
     let float_sched = float_leg_schedule_with_curves(irs, curves)?;
@@ -388,7 +388,7 @@ pub fn full_signed_schedule_with_curves(
 #[allow(clippy::expect_used, clippy::panic)]
 mod tests {
     use super::*;
-    use finstack_core::cashflow::primitives::CFKind;
+    use finstack_core::cashflow::CFKind;
 
     #[test]
     fn irs_leg_schedules_do_not_emit_notional_flows() {

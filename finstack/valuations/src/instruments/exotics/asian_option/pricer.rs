@@ -240,7 +240,7 @@ impl AsianOptionMcPricer {
                     .paths
                     .as_ref()
                     .ok_or_else(|| {
-                        finstack_core::error::Error::Validation(
+                        finstack_core::Error::Validation(
                             "Path capture enabled but paths not captured".into(),
                         )
                     })?
@@ -252,7 +252,7 @@ impl AsianOptionMcPricer {
                     .paths
                     .as_ref()
                     .ok_or_else(|| {
-                        finstack_core::error::Error::Validation(
+                        finstack_core::Error::Validation(
                             "Path capture enabled but paths not captured".into(),
                         )
                     })?
@@ -381,7 +381,7 @@ impl AsianOptionMcPricer {
                     .paths
                     .as_ref()
                     .ok_or_else(|| {
-                        finstack_core::error::Error::Validation(
+                        finstack_core::Error::Validation(
                             "Path capture enabled but paths not captured".into(),
                         )
                     })?
@@ -393,7 +393,7 @@ impl AsianOptionMcPricer {
                     .paths
                     .as_ref()
                     .ok_or_else(|| {
-                        finstack_core::error::Error::Validation(
+                        finstack_core::Error::Validation(
                             "Path capture enabled but paths not captured".into(),
                         )
                     })?

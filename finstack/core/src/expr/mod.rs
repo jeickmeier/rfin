@@ -51,13 +51,19 @@
 mod ast;
 pub(crate) mod cache;
 mod context;
-#[doc(hidden)]
-pub mod dag;
+mod dag;
 mod eval;
 
 // Public API - simplified surface for end users
 pub use ast::{BinOp, EvaluationResult, Expr, ExprNode, Function, UnaryOp};
 pub use context::{ExpressionContext, SimpleContext};
 pub use eval::{CompiledExpr, EvalOpts};
+
+/// DAG planning types are considered internal to the expression engine.
+///
+/// They remain public for bindings/tests that need them, but are hidden from
+/// the primary docs and are not a stable surface.
+#[doc(hidden)]
+pub use dag::{BoundaryType, CacheStrategy, DagBuilder, DagNode, ExecutionPlan, PushdownAnalyzer};
 
 // Polars Series no longer part of public API surface here

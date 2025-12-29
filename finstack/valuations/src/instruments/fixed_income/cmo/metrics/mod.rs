@@ -17,7 +17,7 @@ impl MetricCalculator for OasCalculator {
     fn calculate(&self, context: &mut MetricContext) -> finstack_core::Result<f64> {
         let cmo: &AgencyCmo = context.instrument_as()?;
         let market_price = cmo.pricing_overrides.quoted_clean_price.ok_or_else(|| {
-            finstack_core::Error::from(finstack_core::error::InputError::NotFound {
+            finstack_core::Error::from(finstack_core::InputError::NotFound {
                 id: "cmo.pricing_overrides.quoted_clean_price".to_string(),
             })
         })?;

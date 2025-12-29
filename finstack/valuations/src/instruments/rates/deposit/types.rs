@@ -14,7 +14,7 @@
 //! to properly compute settlement dates when building cashflow schedules.
 
 use finstack_core::currency::Currency;
-use finstack_core::dates::calendar::registry::CalendarRegistry;
+use finstack_core::dates::CalendarRegistry;
 use finstack_core::dates::{
     adjust, BusinessDayConvention, Date, DateExt, DayCount, HolidayCalendar,
 };
@@ -380,7 +380,7 @@ impl CashflowProvider for Deposit {
         )?;
 
         let r = self.quote_rate.ok_or_else(|| {
-            finstack_core::Error::Input(finstack_core::error::InputError::NotFound {
+            finstack_core::Error::Input(finstack_core::InputError::NotFound {
                 id: "deposit quote_rate".to_string(),
             })
         })?;

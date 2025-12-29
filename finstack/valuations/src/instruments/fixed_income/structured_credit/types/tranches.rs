@@ -13,7 +13,7 @@ use rust_decimal::prelude::ToPrimitive;
 use serde::{Deserialize, Serialize};
 
 use super::enums::{TrancheSeniority, TriggerConsequence};
-use finstack_core::types::ratings::CreditRating;
+use finstack_core::types::CreditRating;
 
 /// Tranche behavioral types (simplified to standard only)
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -255,10 +255,10 @@ impl Tranche {
     ) -> finstack_core::Result<Self> {
         // Validate attachment/detachment points
         if attachment_point < 0.0 || detachment_point <= attachment_point {
-            return Err(finstack_core::error::InputError::Invalid.into());
+            return Err(finstack_core::InputError::Invalid.into());
         }
         if detachment_point > 100.0 {
-            return Err(finstack_core::error::InputError::Invalid.into());
+            return Err(finstack_core::InputError::Invalid.into());
         }
 
         Ok(Self {
@@ -470,31 +470,31 @@ impl TrancheBuilder {
 
     /// Build the tranche with validation
     pub fn build(self) -> finstack_core::Result<Tranche> {
-        let id = self.id.ok_or(finstack_core::error::InputError::Invalid)?;
+        let id = self.id.ok_or(finstack_core::InputError::Invalid)?;
         let attachment_point = self
             .attachment_point
-            .ok_or(finstack_core::error::InputError::Invalid)?;
+            .ok_or(finstack_core::InputError::Invalid)?;
         let detachment_point = self
             .detachment_point
-            .ok_or(finstack_core::error::InputError::Invalid)?;
+            .ok_or(finstack_core::InputError::Invalid)?;
         let seniority = self
             .seniority
-            .ok_or(finstack_core::error::InputError::Invalid)?;
+            .ok_or(finstack_core::InputError::Invalid)?;
         let original_balance = self
             .original_balance
-            .ok_or(finstack_core::error::InputError::Invalid)?;
+            .ok_or(finstack_core::InputError::Invalid)?;
 
         // Validate original_balance is positive
         if original_balance.amount() <= 0.0 {
-            return Err(finstack_core::error::InputError::Invalid.into());
+            return Err(finstack_core::InputError::Invalid.into());
         }
 
         let coupon = self
             .coupon
-            .ok_or(finstack_core::error::InputError::Invalid)?;
+            .ok_or(finstack_core::InputError::Invalid)?;
         let legal_maturity = self
             .legal_maturity
-            .ok_or(finstack_core::error::InputError::Invalid)?;
+            .ok_or(finstack_core::InputError::Invalid)?;
 
         let mut tranche = Tranche::new(
             id,
@@ -537,7 +537,7 @@ impl TrancheStructure {
     /// Create new tranche structure
     pub fn new(tranches: Vec<Tranche>) -> finstack_core::Result<Self> {
         if tranches.is_empty() {
-            return Err(finstack_core::error::InputError::TooFewPoints.into());
+            return Err(finstack_core::InputError::TooFewPoints.into());
         }
 
         // Validate structure
@@ -560,7 +560,7 @@ impl TrancheStructure {
         // Validate attachment points are finite before sorting
         for tranche in tranches {
             if !tranche.attachment_point.is_finite() || !tranche.detachment_point.is_finite() {
-                return Err(finstack_core::error::InputError::Invalid.into());
+                return Err(finstack_core::InputError::Invalid.into());
             }
         }
 
@@ -574,17 +574,17 @@ impl TrancheStructure {
 
         for tranche in &sorted_tranches {
             if (tranche.attachment_point - expected_attachment).abs() > TOLERANCE {
-                return Err(finstack_core::error::InputError::Invalid.into());
+                return Err(finstack_core::InputError::Invalid.into());
             }
             if tranche.detachment_point <= tranche.attachment_point {
-                return Err(finstack_core::error::InputError::Invalid.into());
+                return Err(finstack_core::InputError::Invalid.into());
             }
             expected_attachment = tranche.detachment_point;
         }
 
         // Should reach 100%
         if (expected_attachment - 100.0).abs() > TOLERANCE {
-            return Err(finstack_core::error::InputError::Invalid.into());
+            return Err(finstack_core::InputError::Invalid.into());
         }
 
         // Check currency consistency

@@ -22,7 +22,7 @@ impl MetricCalculator for UpfrontCalculator {
             tranche.upfront(&context.curves, context.as_of)
         } else {
             Err(finstack_core::Error::Input(
-                finstack_core::error::InputError::NotFound {
+                finstack_core::InputError::NotFound {
                     id: format!("credit_index:{}", tranche.credit_index_id),
                 },
             ))

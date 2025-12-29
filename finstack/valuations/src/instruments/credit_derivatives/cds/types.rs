@@ -336,8 +336,8 @@ fn normalize_cds_key(id: &str) -> String {
 /// that cannot be recovered at runtime and should fail fast during startup.
 #[allow(clippy::expect_used)]
 fn cds_conventions_registry(
-) -> &'static finstack_core::collections::HashMap<String, CdsConventionResolved> {
-    static REGISTRY: OnceLock<finstack_core::collections::HashMap<String, CdsConventionResolved>> =
+) -> &'static finstack_core::HashMap<String, CdsConventionResolved> {
+    static REGISTRY: OnceLock<finstack_core::HashMap<String, CdsConventionResolved>> =
         OnceLock::new();
     REGISTRY.get_or_init(|| {
         let json = include_str!("../../../../data/conventions/cds_conventions.json");
@@ -346,7 +346,7 @@ fn cds_conventions_registry(
                 .expect("Failed to parse embedded CDS conventions registry JSON");
 
         // Build the registry, converting each record to resolved form
-        let mut map = finstack_core::collections::HashMap::default();
+        let mut map = finstack_core::HashMap::default();
         for entry in file.entries {
             // Each entry can have multiple alias IDs
             match entry.record.clone().try_into_resolved() {

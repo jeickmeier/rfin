@@ -33,7 +33,7 @@
 use crate::instruments::common::models::trees::HullWhiteTree;
 use crate::instruments::common::parameters::OptionType;
 use crate::instruments::swaption::BermudanSwaption;
-use finstack_core::collections::HashSet;
+use finstack_core::HashSet;
 use finstack_core::dates::Date;
 use finstack_core::market_data::traits::Discounting;
 use finstack_core::Result;
@@ -294,7 +294,7 @@ mod tests {
     };
     use finstack_core::currency::Currency;
     use finstack_core::dates::{DayCount, Tenor};
-    use finstack_core::market_data::term_structures::discount_curve::DiscountCurve;
+    use finstack_core::market_data::term_structures::DiscountCurve;
     use finstack_core::math::interp::InterpStyle;
     use finstack_core::money::Money;
     use finstack_core::types::{CurveId, InstrumentId};

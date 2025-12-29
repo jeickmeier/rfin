@@ -51,7 +51,7 @@ impl MetricCalculator for ZSpreadCalculator {
             .get(&MetricId::DirtyPrice)
             .copied()
             .ok_or_else(|| {
-                finstack_core::Error::from(finstack_core::error::InputError::NotFound {
+                finstack_core::Error::from(finstack_core::InputError::NotFound {
                     id: "metric:DirtyPrice".to_string(),
                 })
             })?;
@@ -62,14 +62,14 @@ impl MetricCalculator for ZSpreadCalculator {
 
         // Get cashflows
         let flows = context.cashflows.as_ref().ok_or_else(|| {
-            finstack_core::Error::from(finstack_core::error::InputError::NotFound {
+            finstack_core::Error::from(finstack_core::InputError::NotFound {
                 id: "context.cashflows".to_string(),
             })
         })?;
 
         // Get discount curve
         let disc_curve_id = context.discount_curve_id.as_ref().ok_or_else(|| {
-            finstack_core::Error::from(finstack_core::error::InputError::NotFound {
+            finstack_core::Error::from(finstack_core::InputError::NotFound {
                 id: "discount_curve_id".to_string(),
             })
         })?;
@@ -184,7 +184,7 @@ impl MetricCalculator for Cs01Calculator {
             .get(&MetricId::ZSpread)
             .copied()
             .ok_or_else(|| {
-                finstack_core::Error::from(finstack_core::error::InputError::NotFound {
+                finstack_core::Error::from(finstack_core::InputError::NotFound {
                     id: "metric:ZSpread".to_string(),
                 })
             })?;
@@ -194,14 +194,14 @@ impl MetricCalculator for Cs01Calculator {
 
         // Get cashflows
         let flows = context.cashflows.as_ref().ok_or_else(|| {
-            finstack_core::Error::from(finstack_core::error::InputError::NotFound {
+            finstack_core::Error::from(finstack_core::InputError::NotFound {
                 id: "context.cashflows".to_string(),
             })
         })?;
 
         // Get discount curve
         let disc_curve_id = context.discount_curve_id.as_ref().ok_or_else(|| {
-            finstack_core::Error::from(finstack_core::error::InputError::NotFound {
+            finstack_core::Error::from(finstack_core::InputError::NotFound {
                 id: "discount_curve_id".to_string(),
             })
         })?;
@@ -270,7 +270,7 @@ impl MetricCalculator for SpreadDurationCalculator {
             .get(&MetricId::Cs01)
             .copied()
             .ok_or_else(|| {
-                finstack_core::Error::from(finstack_core::error::InputError::NotFound {
+                finstack_core::Error::from(finstack_core::InputError::NotFound {
                     id: "metric:Cs01".to_string(),
                 })
             })?;

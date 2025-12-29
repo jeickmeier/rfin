@@ -1,7 +1,7 @@
 //! Tests for calendar rule serde support
 
 mod serde_tests {
-    use finstack_core::dates::calendar::rule::{Direction, Observed, Rule};
+    use finstack_core::dates::{Direction, Observed, Rule};
     use time::{Month, Weekday};
 
     #[test]

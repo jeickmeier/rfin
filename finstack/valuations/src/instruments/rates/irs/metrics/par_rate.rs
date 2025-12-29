@@ -44,7 +44,7 @@ use crate::instruments::irs::{FloatingLegCompounding, ParRateMethod};
 use crate::instruments::InterestRateSwap;
 use crate::metrics::{MetricCalculator, MetricContext, MetricId};
 use finstack_core::dates::Date;
-use finstack_core::market_data::term_structures::discount_curve::DiscountCurve;
+use finstack_core::market_data::term_structures::DiscountCurve;
 
 /// Returns true if the DiscountRatio identity is valid for this IRS configuration.
 ///
@@ -113,7 +113,7 @@ impl MetricCalculator for ParRateCalculator {
                 );
                 let dates: Vec<Date> = sched.dates;
                 if dates.len() < 2 {
-                    return Err(finstack_core::error::Error::Validation(
+                    return Err(finstack_core::Error::Validation(
                         "Par rate calculation failed: swap schedule has fewer than 2 dates.".into(),
                     ));
                 }
@@ -137,7 +137,7 @@ impl MetricCalculator for ParRateCalculator {
                     .copied()
                     .unwrap_or(0.0);
                 if annuity.abs() < ANNUITY_EPSILON {
-                    return Err(finstack_core::error::Error::Validation(
+                    return Err(finstack_core::Error::Validation(
                         "Annuity near zero".into(),
                     ));
                 }
@@ -166,7 +166,7 @@ fn par_rate_pv_based(
     let annuity = ctx.computed.get(&MetricId::Annuity).copied().unwrap_or(0.0);
 
     if annuity.abs() < ANNUITY_EPSILON {
-        return Err(finstack_core::error::Error::Validation(format!(
+        return Err(finstack_core::Error::Validation(format!(
             "Par rate calculation failed: annuity ({:.2e}) is below numerical stability \
              threshold ({:.2e}).",
             annuity, ANNUITY_EPSILON

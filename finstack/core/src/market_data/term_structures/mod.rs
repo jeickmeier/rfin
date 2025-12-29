@@ -58,9 +58,7 @@
 //! ## Example – assembling curves inside a `MarketContext`
 //! ```rust
 //! use finstack_core::market_data::term_structures::{
-//!     discount_curve::DiscountCurve,
-//!     forward_curve::ForwardCurve,
-//!     hazard_curve::HazardCurve,
+//!     DiscountCurve, ForwardCurve, HazardCurve,
 //! };
 //! use finstack_core::market_data::context::MarketContext;
 //! use finstack_core::math::interp::InterpStyle;
@@ -94,23 +92,23 @@
 //! ```
 
 /// Base correlation curves for CDS tranche pricing.
-pub mod base_correlation;
+mod base_correlation;
 /// Internal shared helpers for 1D curves (not exported publicly).
 pub(crate) mod common;
 /// Credit index aggregates for CDS tranche pricing and credit derivatives.
-pub mod credit_index;
+mod credit_index;
 /// Discount factor curves.
-pub mod discount_curve;
+mod discount_curve;
 /// Flat forward/discount curves.
-pub mod flat;
+mod flat;
 /// Forward‐rate curves.
-pub mod forward_curve;
+mod forward_curve;
 /// Credit hazard curves.
-pub mod hazard_curve;
+mod hazard_curve;
 /// Real/Breakeven inflation curves.
-pub mod inflation;
+mod inflation;
 /// Volatility index forward curves (VIX, VXN, VSTOXX).
-pub mod vol_index_curve;
+mod vol_index_curve;
 
 // Re-export for ergonomic access
 pub use base_correlation::*;
@@ -122,4 +120,4 @@ pub use hazard_curve::*;
 pub use inflation::*;
 pub use vol_index_curve::*;
 // Re-export the relocated volatility surface
-pub use crate::market_data::surfaces::vol_surface::*;
+pub use crate::market_data::surfaces::{VolSurface, VolSurfaceBuilder};

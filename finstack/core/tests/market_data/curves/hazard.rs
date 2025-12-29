@@ -8,7 +8,7 @@
 //! - Analytical verification
 
 use finstack_core::currency::Currency;
-use finstack_core::market_data::term_structures::hazard_curve::{
+use finstack_core::market_data::term_structures::{
     HazardCurve, ParInterp, Seniority,
 };
 use time::{Date, Month};

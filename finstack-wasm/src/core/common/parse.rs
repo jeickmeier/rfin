@@ -5,7 +5,7 @@
 
 use super::labels::normalize_label;
 use crate::core::error::js_error;
-use finstack_core::cashflow::primitives::CFKind;
+use finstack_core::cashflow::CFKind;
 use finstack_core::config::RoundingMode;
 use finstack_core::dates::{BusinessDayConvention, DayCount, StubKind, Tenor};
 use finstack_core::math::interp::{ExtrapolationPolicy, InterpStyle};

@@ -177,7 +177,7 @@ fn test_pricing_with_near_zero_default_probability() {
 
     // Create hazard curve with very low hazard rates
     let low_hazard_curve =
-        finstack_core::market_data::term_structures::hazard_curve::HazardCurve::builder(
+        finstack_core::market_data::term_structures::HazardCurve::builder(
             "LOW_HAZARD",
         )
         .base_date(base_date())

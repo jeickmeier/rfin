@@ -1,7 +1,7 @@
 //! CS01 calculator tests.
 
 use finstack_core::currency::Currency;
-use finstack_core::market_data::term_structures::hazard_curve::HazardCurve;
+use finstack_core::market_data::term_structures::HazardCurve;
 use finstack_core::money::Money;
 use finstack_core::types::CurveId;
 use finstack_valuations::instruments::bond::Bond;

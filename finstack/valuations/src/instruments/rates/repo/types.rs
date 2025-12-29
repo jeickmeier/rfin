@@ -144,7 +144,7 @@ impl CollateralSpec {
         let currency = match price_scalar {
             finstack_core::market_data::scalars::MarketScalar::Price(money) => money.currency(),
             finstack_core::market_data::scalars::MarketScalar::Unitless(_) => {
-                return Err(Error::Input(finstack_core::error::InputError::Invalid));
+                return Err(Error::Input(finstack_core::InputError::Invalid));
             }
         };
 
@@ -249,7 +249,7 @@ impl Repo {
 
         let cal_id = calendar_id.into();
         let calendar = calendar_by_id(&cal_id).ok_or_else(|| {
-            Error::Input(finstack_core::error::InputError::NotFound {
+            Error::Input(finstack_core::InputError::NotFound {
                 id: format!("calendar:{}", cal_id),
             })
         })?;
@@ -292,7 +292,7 @@ impl Repo {
 
         let cal_id = calendar_id.into();
         let calendar = calendar_by_id(&cal_id).ok_or_else(|| {
-            Error::Input(finstack_core::error::InputError::NotFound {
+            Error::Input(finstack_core::InputError::NotFound {
                 id: format!("calendar:{}", cal_id),
             })
         })?;
@@ -458,11 +458,11 @@ impl Repo {
     /// Therefore: `Collateral_value = Cash_lent / (1 - Haircut)`
     pub fn required_collateral_value(&self) -> Result<Money> {
         if self.haircut >= 1.0 {
-            return Err(Error::Input(finstack_core::error::InputError::Invalid));
+            return Err(Error::Input(finstack_core::InputError::Invalid));
         }
         let factor = 1.0 - self.haircut;
         if factor <= 0.0 {
-            return Err(Error::Input(finstack_core::error::InputError::Invalid));
+            return Err(Error::Input(finstack_core::InputError::Invalid));
         }
         Ok(self.cash_amount / factor)
     }
@@ -572,7 +572,7 @@ impl Repo {
     /// - `calendar_id` references an unknown calendar
     pub fn adjusted_dates(&self) -> Result<(Date, Date)> {
         use finstack_core::dates::calendar::calendar_by_id;
-        use finstack_core::dates::calendar::registry::CalendarRegistry;
+        use finstack_core::dates::CalendarRegistry;
 
         let cal_id = self.calendar_id.as_ref().ok_or_else(|| {
             Error::Validation(
@@ -584,7 +584,7 @@ impl Repo {
         })?;
 
         let calendar = calendar_by_id(cal_id).ok_or_else(|| {
-            Error::Input(finstack_core::error::InputError::NotFound {
+            Error::Input(finstack_core::InputError::NotFound {
                 id: format!(
                     "calendar_id:{} (available: {})",
                     cal_id,
@@ -945,7 +945,7 @@ mod tests {
     /// - Interest calculations are deterministic and correct
     #[test]
     fn term_repo_weekend_pv_stability_target2() {
-        use finstack_core::market_data::term_structures::discount_curve::DiscountCurve;
+        use finstack_core::market_data::term_structures::DiscountCurve;
 
         // Saturday Jan 4, 2025 -> Monday Jan 6
         let start_saturday = date(2025, 1, 4);

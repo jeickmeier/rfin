@@ -282,7 +282,7 @@ impl PortfolioMarginAggregator {
     fn calculate_simm_breakdown(
         &self,
         sensitivities: &SimmSensitivities,
-    ) -> finstack_core::collections::HashMap<String, Money> {
+    ) -> finstack_core::HashMap<String, Money> {
         let (_, breakdown) = self.calculate_simm_with_breakdown(sensitivities);
         breakdown
     }
@@ -293,7 +293,7 @@ impl PortfolioMarginAggregator {
     fn calculate_simm_with_breakdown(
         &self,
         sensitivities: &SimmSensitivities,
-    ) -> (Money, finstack_core::collections::HashMap<String, Money>) {
+    ) -> (Money, finstack_core::HashMap<String, Money>) {
         let (total_im, breakdown) = self
             .simm_calculator
             .calculate_from_sensitivities(sensitivities, self.base_currency);

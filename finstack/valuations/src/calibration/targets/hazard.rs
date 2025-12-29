@@ -11,7 +11,7 @@ use crate::instruments::cds::CdsConventionResolved;
 use crate::market::build::context::BuildCtx;
 use crate::market::build::prepared::PreparedQuote;
 use crate::market::quotes::market_quote::{ExtractQuotes, MarketQuote};
-use finstack_core::collections::HashMap;
+use finstack_core::HashMap;
 use finstack_core::dates::DayCountCtx;
 use finstack_core::market_data::context::MarketContext;
 use finstack_core::market_data::term_structures::HazardCurve;
@@ -105,7 +105,7 @@ impl HazardBootstrapper {
 
         if cds_quotes.is_empty() {
             return Err(finstack_core::Error::Input(
-                finstack_core::error::InputError::TooFewPoints,
+                finstack_core::InputError::TooFewPoints,
             ));
         }
 
@@ -246,7 +246,7 @@ impl BootstrapTarget for HazardBootstrapper {
         match quote {
             crate::calibration::prepared::CalibrationQuote::Cds(pq, _) => Ok(pq.pillar_time),
             _ => Err(finstack_core::Error::Input(
-                finstack_core::error::InputError::Invalid,
+                finstack_core::InputError::Invalid,
             )),
         }
     }
@@ -272,7 +272,7 @@ impl BootstrapTarget for HazardBootstrapper {
             crate::calibration::prepared::CalibrationQuote::Cds(pq, _) => pq,
             _ => {
                 return Err(finstack_core::Error::Input(
-                    finstack_core::error::InputError::Invalid,
+                    finstack_core::InputError::Invalid,
                 ))
             }
         };
@@ -508,7 +508,7 @@ Global solve requires strictly increasing times.",
                     CalibrationQuote::Cds(pq, _) => pq,
                     _ => {
                         return Err(finstack_core::Error::Input(
-                            finstack_core::error::InputError::Invalid,
+                            finstack_core::InputError::Invalid,
                         ))
                     }
                 };

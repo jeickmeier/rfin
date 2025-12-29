@@ -7,10 +7,9 @@ use finstack_core::currency::Currency;
 use finstack_core::dates::create_date;
 use finstack_core::market_data::context::MarketContextState;
 use finstack_core::money::Money;
-use finstack_valuations::attribution::types::JsonEnvelope;
 use finstack_valuations::attribution::{
     AttributionConfig, AttributionEnvelope, AttributionFactor, AttributionMethod, AttributionSpec,
-    ModelParamsSnapshot,
+    JsonEnvelope, ModelParamsSnapshot,
 };
 use finstack_valuations::cashflow::builder::{
     DefaultModelSpec, PrepaymentModelSpec, RecoveryModelSpec,

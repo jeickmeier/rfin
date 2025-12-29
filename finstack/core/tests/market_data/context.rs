@@ -2,17 +2,16 @@ use super::test_helpers::{
     sample_base_correlation_curve, sample_base_date, sample_discount_curve, sample_forward_curve,
     sample_hazard_curve, sample_inflation_curve, sample_vol_surface,
 };
-use finstack_core::collections::HashMap;
+use finstack_core::HashMap;
 use finstack_core::currency::Currency;
 use finstack_core::dates::Date;
 use finstack_core::market_data::bumps::BumpType;
 use finstack_core::market_data::context::{BumpSpec, CurveStorage, MarketContext};
 use finstack_core::market_data::dividends::DividendSchedule;
 use finstack_core::market_data::scalars::{
-    inflation_index::{InflationIndex, InflationInterpolation},
-    MarketScalar, ScalarTimeSeries, SeriesInterpolation,
+    InflationIndex, InflationInterpolation, MarketScalar, ScalarTimeSeries, SeriesInterpolation,
 };
-use finstack_core::market_data::term_structures::credit_index::CreditIndexData;
+use finstack_core::market_data::term_structures::CreditIndexData;
 use finstack_core::money::fx::{FxConversionPolicy, FxMatrix, FxProvider};
 use finstack_core::money::Money;
 use finstack_core::types::CurveId;
@@ -668,7 +667,7 @@ fn market_context_insert_and_stats_setters_cover_remaining_paths() {
     let date = sample_base_date();
 
     let surface_by_value =
-        finstack_core::market_data::surfaces::vol_surface::VolSurface::builder("IR-VOL")
+        finstack_core::market_data::surfaces::VolSurface::builder("IR-VOL")
             .expiries(&[1.0, 2.0])
             .strikes(&[90.0, 100.0])
             .row(&[0.2, 0.2])

@@ -23,7 +23,7 @@
 //! };
 //! use finstack_valuations::market::quotes::rates::RateQuote;
 //! use finstack_valuations::market::quotes::market_quote::MarketQuote;
-//! use finstack_core::collections::HashMap;
+//! use finstack_core::HashMap;
 //!
 //! # fn example() -> finstack_core::Result<()> {
 //! let quote_sets: HashMap<String, Vec<MarketQuote>> = HashMap::default();
@@ -80,17 +80,24 @@ pub use config::{
     ResidualWeightingScheme, CALIBRATION_CONFIG_KEY,
 };
 
-// Re-exports: SABR derivatives (from instruments module)
-pub use crate::instruments::common::models::volatility::sabr_derivatives::{
-    SABRCalibrationDerivatives, SABRMarketData,
-};
-
 // Re-exports: Reports
 pub use report::CalibrationReport;
-pub use solver::{SolverConfig, OBJECTIVE_VALID_ABS_MAX, PENALTY, RESIDUAL_PENALTY_ABS_MIN};
+pub use solver::SolverConfig;
 
 // Re-exports: Validation
 pub use validation::{
     CurveValidator, RateBounds, RateBoundsPolicy, SurfaceValidator, ValidationConfig,
     ValidationMode,
 };
+
+// Bump helpers (stable façade)
+pub use bumps::{
+    hazard::bump_hazard_spreads, inflation::bump_inflation_rates, rates::bump_discount_curve,
+    rates::bump_discount_curve_synthetic, BumpRequest,
+};
+
+// Backward compatibility (deprecated)
+pub use crate::instruments::common::models::volatility::sabr_derivatives::{
+    SABRCalibrationDerivatives, SABRMarketData,
+};
+pub use solver::{OBJECTIVE_VALID_ABS_MAX, PENALTY, RESIDUAL_PENALTY_ABS_MIN};

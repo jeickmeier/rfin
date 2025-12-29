@@ -9,7 +9,7 @@
 //! - `PathState`: State information at a point along a path
 
 use super::paths::CashflowType;
-use finstack_core::collections::HashMap;
+use finstack_core::HashMap;
 
 /// Random stream trait for generating random numbers.
 ///

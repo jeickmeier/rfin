@@ -7,11 +7,11 @@
 //! - `financial_tolerance(notional)`: For money amounts
 
 use crate::cashflow_tests::test_helpers::{financial_tolerance, FACTOR_TOLERANCE, RATE_TOLERANCE};
-use finstack_core::cashflow::primitives::{CFKind, CashFlow};
+use finstack_core::cashflow::{CFKind, CashFlow};
 use finstack_core::currency::Currency;
 use finstack_core::dates::{BusinessDayConvention, DayCount, StubKind, Tenor};
 use finstack_core::dates::{Date, ScheduleBuilder};
-use finstack_core::market_data::term_structures::discount_curve::DiscountCurve as CoreDiscCurve;
+use finstack_core::market_data::term_structures::DiscountCurve as CoreDiscCurve;
 use finstack_core::math::interp::InterpStyle;
 use finstack_core::money::Money;
 use finstack_valuations::cashflow::builder::specs::{CouponType, FixedCouponSpec};
@@ -140,8 +140,8 @@ fn ordering_invariants_within_date() {
     let s = b.build_with_curves(None).unwrap();
 
     // On coupon dates where multiple flows exist, enforce order: Fixed/Stub -> Amortization -> PIK -> Notional
-    let mut by_date: finstack_core::collections::HashMap<Date, Vec<CFKind>> =
-        finstack_core::collections::HashMap::default();
+    let mut by_date: finstack_core::HashMap<Date, Vec<CFKind>> =
+        finstack_core::HashMap::default();
     for cf in &s.flows {
         by_date.entry(cf.date).or_default().push(cf.kind);
     }

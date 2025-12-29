@@ -40,7 +40,7 @@
 //! # Examples
 //!
 //! ```rust
-//! use finstack_core::market_data::term_structures::vol_index_curve::VolatilityIndexCurve;
+//! use finstack_core::market_data::term_structures::VolatilityIndexCurve;
 //! use finstack_core::math::interp::InterpStyle;
 //! use finstack_core::dates::Date;
 //! use time::Month;

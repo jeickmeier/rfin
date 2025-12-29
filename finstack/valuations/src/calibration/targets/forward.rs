@@ -122,13 +122,13 @@ impl ForwardCurveTarget {
 
         if rates_quotes.is_empty() {
             return Err(finstack_core::Error::Input(
-                finstack_core::error::InputError::TooFewPoints,
+                finstack_core::InputError::TooFewPoints,
             ));
         }
 
         let curve_dc = curve_day_count_from_quotes(&rates_quotes)?;
 
-        let mut curve_ids = finstack_core::collections::HashMap::default();
+        let mut curve_ids = finstack_core::HashMap::default();
         curve_ids.insert("discount".to_string(), params.discount_curve_id.to_string());
         curve_ids.insert("forward".to_string(), params.curve_id.to_string());
 
@@ -136,7 +136,7 @@ impl ForwardCurveTarget {
             as_of: params.base_date,
             notional: 1.0,
             curve_ids,
-            attributes: finstack_core::collections::HashMap::default(),
+            attributes: finstack_core::HashMap::default(),
         };
 
         let mut prepared_quotes: Vec<CalibrationQuote> = Vec::with_capacity(rates_quotes.len());
@@ -210,7 +210,7 @@ impl ForwardCurveTarget {
             }
             CalibrationMethod::GlobalSolve { .. } => {
                 return Err(finstack_core::Error::Input(
-                    finstack_core::error::InputError::Invalid,
+                    finstack_core::InputError::Invalid,
                 ));
             }
         };
@@ -229,7 +229,7 @@ impl BootstrapTarget for ForwardCurveTarget {
         match quote {
             crate::calibration::prepared::CalibrationQuote::Rates(pq) => Ok(pq.pillar_time),
             _ => Err(finstack_core::Error::Input(
-                finstack_core::error::InputError::Invalid,
+                finstack_core::InputError::Invalid,
             )),
         }
     }
@@ -272,7 +272,7 @@ impl BootstrapTarget for ForwardCurveTarget {
             crate::calibration::prepared::CalibrationQuote::Rates(pq) => pq,
             _ => {
                 return Err(finstack_core::Error::Input(
-                    finstack_core::error::InputError::Invalid,
+                    finstack_core::InputError::Invalid,
                 ))
             }
         };
@@ -287,7 +287,7 @@ impl BootstrapTarget for ForwardCurveTarget {
             crate::calibration::prepared::CalibrationQuote::Rates(pq) => pq,
             _ => {
                 return Err(finstack_core::Error::Input(
-                    finstack_core::error::InputError::Invalid,
+                    finstack_core::InputError::Invalid,
                 ))
             }
         };

@@ -75,7 +75,7 @@ use crate::metrics::sensitivities::config as sens_config;
 use crate::metrics::MetricCalculator;
 use crate::metrics::{MetricContext, MetricId};
 
-use finstack_core::collections::HashMap;
+use finstack_core::HashMap;
 use finstack_core::market_data::bumps::BumpSpec;
 use finstack_core::market_data::context::MarketContext;
 use finstack_core::types::CurveId;
@@ -624,7 +624,7 @@ where
         bump_bp: f64,
     ) -> finstack_core::Result<f64> {
         let par_context = self.config.par_rate_context.as_ref().ok_or_else(|| {
-            finstack_core::Error::Input(finstack_core::error::InputError::NotFound {
+            finstack_core::Error::Input(finstack_core::InputError::NotFound {
                 id: "ParRateContext required for par-rate DV01. Use Dv01CalculatorConfig::par_rate_key_rate()".to_string(),
             })
         })?;

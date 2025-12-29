@@ -8,10 +8,10 @@ use super::MarketContext;
 
 use crate::market_data::{
     dividends::DividendSchedule,
-    scalars::{inflation_index::InflationIndex, MarketScalar, ScalarTimeSeries},
-    surfaces::vol_surface::VolSurface,
+    scalars::{InflationIndex, MarketScalar, ScalarTimeSeries},
+    surfaces::VolSurface,
 };
-use crate::money::fx::{providers::SimpleFxProvider, FxMatrix, FxMatrixState, FxProvider};
+use crate::money::fx::{FxMatrix, FxMatrixState, FxProvider, SimpleFxProvider};
 
 // -----------------------------------------------------------------------------
 // Serde: CurveState and (De)Serialize impls
@@ -25,17 +25,17 @@ use crate::money::fx::{providers::SimpleFxProvider, FxMatrix, FxMatrixState, FxP
 /// market data snapshots.
 pub enum CurveState {
     /// Discount curve state
-    Discount(crate::market_data::term_structures::discount_curve::DiscountCurve),
+    Discount(crate::market_data::term_structures::DiscountCurve),
     /// Forward curve state
-    Forward(crate::market_data::term_structures::forward_curve::ForwardCurve),
+    Forward(crate::market_data::term_structures::ForwardCurve),
     /// Hazard curve state
-    Hazard(crate::market_data::term_structures::hazard_curve::HazardCurve),
+    Hazard(crate::market_data::term_structures::HazardCurve),
     /// Inflation curve state
-    Inflation(crate::market_data::term_structures::inflation::InflationCurve),
+    Inflation(crate::market_data::term_structures::InflationCurve),
     /// Base correlation curve state
-    BaseCorrelation(crate::market_data::term_structures::base_correlation::BaseCorrelationCurve),
+    BaseCorrelation(crate::market_data::term_structures::BaseCorrelationCurve),
     /// Volatility index curve state (VIX, VXN, VSTOXX)
-    VolIndex(crate::market_data::term_structures::vol_index_curve::VolatilityIndexCurve),
+    VolIndex(crate::market_data::term_structures::VolatilityIndexCurve),
 }
 
 fn curve_state_id(s: &CurveState) -> &CurveId {
@@ -344,7 +344,7 @@ impl TryFrom<MarketContextState> for MarketContext {
                 None
             };
 
-            let data = crate::market_data::term_structures::credit_index::CreditIndexData {
+            let data = crate::market_data::term_structures::CreditIndexData {
                 num_constituents: credit_state.num_constituents,
                 recovery_rate: credit_state.recovery_rate,
                 index_credit_curve: index_curve,

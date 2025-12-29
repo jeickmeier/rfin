@@ -16,13 +16,15 @@
 //! assert_eq!(pct.as_percent(), 25.0);
 //! ```
 
-pub mod id;
-pub mod rates;
-pub mod ratings;
+mod id;
+mod rates;
+mod ratings;
 
 pub use id::{CurveId, Id, IndexId, InstrumentId, PriceId, TypeTag, UnderlyingId};
 pub use rates::{Bps, Percentage, Rate};
-pub use ratings::{moodys_warf_factor, CreditRating, RatingFactorTable};
+pub use ratings::{
+    moodys_warf_factor, CreditRating, NotchedRating, RatingFactorTable, RatingLabel, RatingNotch,
+};
 
 // Re-export commonly used types from other modules for convenience
 pub use crate::currency::Currency;

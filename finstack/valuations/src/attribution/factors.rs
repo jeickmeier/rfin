@@ -150,17 +150,17 @@
 //! - [`crate::attribution::parallel`] - Parallel attribution using this module
 //! - [`crate::attribution::waterfall`] - Waterfall attribution using this module
 
-use finstack_core::collections::HashMap;
+use finstack_core::HashMap;
 use finstack_core::market_data::context::MarketContext;
 use finstack_core::market_data::dividends::DividendSchedule;
-use finstack_core::market_data::scalars::inflation_index::InflationIndex;
+use finstack_core::market_data::scalars::InflationIndex;
 use finstack_core::market_data::scalars::{MarketScalar, ScalarTimeSeries};
-use finstack_core::market_data::surfaces::vol_surface::VolSurface;
-use finstack_core::market_data::term_structures::base_correlation::BaseCorrelationCurve;
-use finstack_core::market_data::term_structures::discount_curve::DiscountCurve;
-use finstack_core::market_data::term_structures::forward_curve::ForwardCurve;
-use finstack_core::market_data::term_structures::hazard_curve::HazardCurve;
-use finstack_core::market_data::term_structures::inflation::InflationCurve;
+use finstack_core::market_data::surfaces::VolSurface;
+use finstack_core::market_data::term_structures::BaseCorrelationCurve;
+use finstack_core::market_data::term_structures::DiscountCurve;
+use finstack_core::market_data::term_structures::ForwardCurve;
+use finstack_core::market_data::term_structures::HazardCurve;
+use finstack_core::market_data::term_structures::InflationCurve;
 use finstack_core::money::fx::FxMatrix;
 use finstack_core::types::CurveId;
 use std::sync::Arc;
@@ -283,6 +283,7 @@ impl CurveRestoreFlags {
 
     /// Returns flags with no curve types enabled.
     #[inline]
+    #[allow(dead_code)]
     pub const fn empty() -> Self {
         Self {
             discount: false,
@@ -350,6 +351,7 @@ impl std::ops::Not for CurveRestoreFlags {
 }
 
 /// Snapshot of all discount and forward curves from a market context.
+#[allow(dead_code)]
 #[derive(Clone, Debug)]
 pub struct RatesCurvesSnapshot {
     /// Discount curves indexed by curve ID
@@ -359,6 +361,7 @@ pub struct RatesCurvesSnapshot {
 }
 
 /// Snapshot of all credit hazard curves from a market context.
+#[allow(dead_code)]
 #[derive(Clone, Debug)]
 pub struct CreditCurvesSnapshot {
     /// Hazard curves indexed by curve ID
@@ -366,6 +369,7 @@ pub struct CreditCurvesSnapshot {
 }
 
 /// Snapshot of all inflation curves from a market context.
+#[allow(dead_code)]
 #[derive(Clone, Debug)]
 pub struct InflationCurvesSnapshot {
     /// Inflation curves indexed by curve ID
@@ -373,6 +377,7 @@ pub struct InflationCurvesSnapshot {
 }
 
 /// Snapshot of all base correlation curves from a market context.
+#[allow(dead_code)]
 #[derive(Clone, Debug)]
 pub struct CorrelationsSnapshot {
     /// Base correlation curves indexed by curve ID
@@ -642,6 +647,7 @@ pub trait MarketExtractable: Sized {
 /// Generic helper function to extract a snapshot from a market context.
 ///
 /// Uses type inference to determine which snapshot type to extract.
+#[allow(dead_code)]
 pub fn extract<T: MarketExtractable>(market: &MarketContext) -> T {
     T::extract(market)
 }

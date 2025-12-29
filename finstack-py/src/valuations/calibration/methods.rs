@@ -11,8 +11,8 @@ use crate::core::market_data::term_structures::{
 };
 use crate::errors::core_to_py;
 use finstack_core::market_data::context::MarketContext as CoreMarketContext;
-use finstack_core::market_data::scalars::inflation_index::{InflationInterpolation, InflationLag};
-use finstack_core::market_data::term_structures::hazard_curve::Seniority;
+use finstack_core::market_data::scalars::{InflationInterpolation, InflationLag};
+use finstack_core::market_data::term_structures::Seniority;
 use finstack_core::types::CurveId;
 use finstack_valuations::calibration::methods::{
     BaseCorrelationCalibrator, DiscountCurveCalibrator, ForwardCurveCalibrator,
@@ -364,10 +364,10 @@ impl PyHazardCurveCalibrator {
     fn with_par_interp(&self, interpolation: &str) -> PyResult<Self> {
         let interp = match interpolation.to_ascii_lowercase().as_str() {
             "linear" => {
-                finstack_core::market_data::term_structures::hazard_curve::ParInterp::Linear
+                finstack_core::market_data::term_structures::ParInterp::Linear
             }
             "log_linear" | "loglinear" => {
-                finstack_core::market_data::term_structures::hazard_curve::ParInterp::LogLinear
+                finstack_core::market_data::term_structures::ParInterp::LogLinear
             }
             other => {
                 return Err(pyo3::exceptions::PyValueError::new_err(format!(

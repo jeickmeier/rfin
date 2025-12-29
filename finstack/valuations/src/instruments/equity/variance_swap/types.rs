@@ -5,7 +5,7 @@ use finstack_core::{
     market_data::context::MarketContext,
     math::stats::{realized_variance, RealizedVarMethod},
     money::Money,
-    types::id::{CurveId, InstrumentId},
+    types::{CurveId, InstrumentId},
     Result,
 };
 use time::macros::date;

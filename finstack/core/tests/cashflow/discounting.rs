@@ -12,7 +12,7 @@
 //!
 //! Test curves use **continuous compounding**: `DF(t) = exp(-rate * t)`
 
-use finstack_core::cashflow::discounting::npv;
+use finstack_core::cashflow::npv;
 use finstack_core::currency::Currency;
 use finstack_core::dates::{Date, DayCount, DayCountCtx};
 use finstack_core::market_data::traits::{Discounting, TermStructure};

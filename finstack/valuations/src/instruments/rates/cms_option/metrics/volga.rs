@@ -32,7 +32,7 @@ impl MetricCalculator for VolgaCalculator {
             Some(id) => id,
             None => {
                 return Err(finstack_core::Error::from(
-                    finstack_core::error::InputError::NotFound {
+                    finstack_core::InputError::NotFound {
                         id: "vol_surface_id not provided for CMS option".to_string(),
                     },
                 ));

@@ -33,7 +33,7 @@
 //! ## Handling common input errors
 //!
 //! ```rust
-//! use finstack_core::error::{Error, InputError};
+//! use finstack_core::{Error, InputError};
 //!
 //! fn parse_knots(data: &[(f64, f64)]) -> Result<(), Error> {
 //!     if data.len() < 2 {
@@ -57,7 +57,7 @@
 //! ## Currency mismatch detection
 //!
 //! ```rust
-//! use finstack_core::error::Error;
+//! use finstack_core::Error;
 //! use finstack_core::money::Money;
 //! use finstack_core::currency::Currency;
 //!
@@ -80,7 +80,7 @@
 //! ## Using error suggestions for missing curves
 //!
 //! ```rust
-//! use finstack_core::error::Error;
+//! use finstack_core::Error;
 //!
 //! let available = vec![
 //!     "USD_OIS".to_string(),
@@ -141,7 +141,7 @@ use thiserror::Error;
 /// # Examples
 ///
 /// ```rust
-/// use finstack_core::error::{Error, InputError};
+/// use finstack_core::{Error, InputError};
 ///
 /// // Convert InputError to Error
 /// let input_err: Error = InputError::TooFewPoints.into();
@@ -259,7 +259,7 @@ impl Error {
     /// # Example
     ///
     /// ```
-    /// use finstack_core::error::Error;
+    /// use finstack_core::Error;
     ///
     /// let available = vec!["USD_OIS".to_string(), "EUR_OIS".to_string(), "GBP_OIS".to_string()];
     /// let err = Error::missing_curve_with_suggestions("USD_OS", &available);
@@ -286,7 +286,7 @@ impl Error {
     /// # Example
     ///
     /// ```
-    /// use finstack_core::error::Error;
+    /// use finstack_core::Error;
     ///
     /// let available = &["nyse", "target2", "gblo"];
     /// let err = Error::calendar_not_found_with_suggestions("nyes", available);
@@ -311,7 +311,7 @@ impl Error {
     /// # Example
     ///
     /// ```
-    /// use finstack_core::error::Error;
+    /// use finstack_core::Error;
     ///
     /// let available = vec!["dv01".to_string(), "duration_mod".to_string(), "ytm".to_string()];
     /// let err = Error::unknown_metric("dv1", available);
@@ -331,7 +331,7 @@ impl Error {
     /// # Example
     ///
     /// ```
-    /// use finstack_core::error::Error;
+    /// use finstack_core::Error;
     ///
     /// let err = Error::metric_not_applicable("ytm", "Swap");
     ///
@@ -354,7 +354,7 @@ impl Error {
     /// # Example
     ///
     /// ```
-    /// use finstack_core::error::{Error, InputError};
+    /// use finstack_core::{Error, InputError};
     ///
     /// let cause = Error::Input(InputError::NotFound { id: "curve".to_string() });
     /// let err = Error::metric_calculation_failed("dv01", cause);
@@ -375,7 +375,7 @@ impl Error {
     /// # Example
     ///
     /// ```
-    /// use finstack_core::error::Error;
+    /// use finstack_core::Error;
     ///
     /// let path = vec!["metric_a".to_string(), "metric_b".to_string(), "metric_a".to_string()];
     /// let err = Error::circular_dependency(path);

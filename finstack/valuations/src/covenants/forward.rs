@@ -9,8 +9,8 @@ use crate::covenants::engine::{
     headroom_for, BoundKind, CovenantSpec, CovenantType, SpringingCondition, ThresholdTest,
 };
 use finstack_core::dates::{Date, PeriodId};
-use finstack_core::error::Error;
-use finstack_core::error::InputError;
+use finstack_core::Error;
+use finstack_core::InputError;
 use finstack_core::Result;
 use serde::{Deserialize, Serialize};
 
@@ -183,7 +183,7 @@ pub fn forecast_covenant_generic<MTS: ModelTimeSeries>(
         activation_flags.push(is_active);
 
         let v = metric_value_for_spec(covenant, model, pid).ok_or_else(|| {
-            Error::from(finstack_core::error::InputError::NotFound {
+            Error::from(finstack_core::InputError::NotFound {
                 id: "metric_value".to_string(),
             })
         })?;
@@ -414,13 +414,13 @@ mod tests {
     use time::Month;
 
     struct MockTs {
-        map: finstack_core::collections::HashMap<(String, String), f64>,
+        map: finstack_core::HashMap<(String, String), f64>,
     }
 
     impl MockTs {
         fn new() -> Self {
             Self {
-                map: finstack_core::collections::HashMap::default(),
+                map: finstack_core::HashMap::default(),
             }
         }
         fn with(mut self, node: &str, period: PeriodId, v: f64) -> Self {

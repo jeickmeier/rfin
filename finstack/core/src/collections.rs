@@ -20,7 +20,7 @@
 //! # Example
 //!
 //! ```
-//! use finstack_core::collections::{HashMap, HashSet};
+//! use finstack_core::{HashMap, HashSet};
 //!
 //! let mut prices: HashMap<&str, f64> = HashMap::default();
 //! prices.insert("AAPL", 150.0);

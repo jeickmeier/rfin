@@ -4,9 +4,8 @@
 //! their standard codes (e.g., "target2", "nyse", "gblo"). Supports both
 //! string-based and typed ID resolution.
 
-use crate::dates::calendar::business_days::HolidayCalendar;
 use crate::dates::calendar::calendar_by_id;
-use crate::dates::calendar::composite::{CompositeCalendar, CompositeMode};
+use crate::dates::calendar::{CompositeCalendar, CompositeMode, HolidayCalendar};
 use core::marker::PhantomData;
 use std::sync::OnceLock;
 
@@ -48,8 +47,7 @@ impl CalendarRegistry<'_> {
     ///
     /// Usage:
     /// ```
-    /// # use finstack_core::dates::calendar::registry::{CalendarId, CalendarRegistry};
-    /// # use finstack_core::dates::calendar::composite::{CompositeCalendar, CompositeMode};
+    /// # use finstack_core::dates::{CalendarId, CalendarRegistry, CompositeCalendar, CompositeMode};
     /// # use finstack_core::dates::calendar::{GBLO, TARGET2};
     /// # use finstack_core::dates::HolidayCalendar;
     /// let ids = [CalendarId(TARGET2.id()), CalendarId(GBLO.id())];
@@ -81,8 +79,7 @@ impl CalendarRegistry<'_> {
     /// `CompositeCalendar` by borrowing the returned `Vec` as a slice:
     ///
     /// ```
-    /// # use finstack_core::dates::calendar::registry::{CalendarId, CalendarRegistry};
-    /// # use finstack_core::dates::calendar::composite::{CompositeCalendar, CompositeMode};
+    /// # use finstack_core::dates::{CalendarId, CalendarRegistry, CompositeCalendar, CompositeMode};
     /// # use finstack_core::dates::calendar::{TARGET2, GBLO};
     /// # use finstack_core::dates::HolidayCalendar;
     /// let ids = [

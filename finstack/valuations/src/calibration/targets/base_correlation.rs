@@ -12,7 +12,7 @@ use crate::market::build::prepared::PreparedQuote;
 use crate::market::conventions::registry::ConventionRegistry;
 use crate::market::quotes::cds_tranche::CdsTrancheQuote;
 use crate::market::quotes::market_quote::{ExtractQuotes, MarketQuote};
-use finstack_core::collections::HashMap;
+use finstack_core::HashMap;
 use finstack_core::dates::{DateExt, DayCountCtx};
 use finstack_core::market_data::context::MarketContext;
 use finstack_core::market_data::term_structures::BaseCorrelationCurve;
@@ -48,19 +48,19 @@ impl BaseCorrelationBootstrapper {
     fn validate_monotone_and_bounds(knots: &[(f64, f64)]) -> Result<()> {
         if knots.windows(2).any(|w| w[1].0 <= w[0].0) {
             return Err(finstack_core::Error::Input(
-                finstack_core::error::InputError::Invalid,
+                finstack_core::InputError::Invalid,
             ));
         }
 
         for (detachment, corr) in knots {
             if !detachment.is_finite() || *detachment <= 0.0 || *detachment > 100.0 {
                 return Err(finstack_core::Error::Input(
-                    finstack_core::error::InputError::Invalid,
+                    finstack_core::InputError::Invalid,
                 ));
             }
             if !corr.is_finite() || *corr < 0.0 || *corr > 1.0 {
                 return Err(finstack_core::Error::Input(
-                    finstack_core::error::InputError::Invalid,
+                    finstack_core::InputError::Invalid,
                 ));
             }
         }
@@ -248,7 +248,7 @@ impl BaseCorrelationBootstrapper {
         let tranche_quotes: Vec<CdsTrancheQuote> = quotes.extract_quotes();
         if tranche_quotes.is_empty() {
             return Err(finstack_core::Error::Input(
-                finstack_core::error::InputError::TooFewPoints,
+                finstack_core::InputError::TooFewPoints,
             ));
         }
 
@@ -284,7 +284,7 @@ impl BootstrapTarget for BaseCorrelationBootstrapper {
         match quote {
             CalibrationQuote::CdsTranche(pq) => Ok(pq.detachment_pct),
             _ => Err(finstack_core::Error::Input(
-                finstack_core::error::InputError::Invalid,
+                finstack_core::InputError::Invalid,
             )),
         }
     }
@@ -293,7 +293,7 @@ impl BootstrapTarget for BaseCorrelationBootstrapper {
         let mut sorted_knots = knots.to_vec();
         if sorted_knots.iter().any(|(d, _)| !d.is_finite()) {
             return Err(finstack_core::Error::Input(
-                finstack_core::error::InputError::Invalid,
+                finstack_core::InputError::Invalid,
             ));
         }
 
@@ -317,7 +317,7 @@ impl BootstrapTarget for BaseCorrelationBootstrapper {
 
         if sorted_knots.len() < 2 {
             return Err(finstack_core::Error::Input(
-                finstack_core::error::InputError::TooFewPoints,
+                finstack_core::InputError::TooFewPoints,
             ));
         }
 
@@ -345,7 +345,7 @@ impl BootstrapTarget for BaseCorrelationBootstrapper {
             CalibrationQuote::CdsTranche(pq) => (&pq.prepared, &pq.upfront),
             _ => {
                 return Err(finstack_core::Error::Input(
-                    finstack_core::error::InputError::Invalid,
+                    finstack_core::InputError::Invalid,
                 ))
             }
         };

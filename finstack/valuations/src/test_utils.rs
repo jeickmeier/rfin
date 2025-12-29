@@ -3,8 +3,8 @@
 use finstack_core::{
     dates::Date,
     market_data::{
-        surfaces::vol_surface::VolSurface,
-        term_structures::{discount_curve::DiscountCurve, forward_curve::ForwardCurve},
+        surfaces::VolSurface,
+        term_structures::{DiscountCurve, ForwardCurve},
     },
 };
 use time::Month;

@@ -593,7 +593,7 @@ impl JsBond {
     ) -> Result<Array, JsValue> {
         use crate::core::dates::date::JsDate;
         use crate::core::money::JsMoney;
-        use finstack_core::cashflow::primitives::CFKind;
+        use finstack_core::cashflow::CFKind;
 
         // Use the Bond's get_full_schedule method with market curves
         let sched = self

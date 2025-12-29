@@ -43,7 +43,7 @@
 //! }
 //! ```
 
-use finstack_core::error::{Error as CoreError, InputError};
+use finstack_core::{Error as CoreError, InputError};
 use pyo3::create_exception;
 use pyo3::exceptions::PyException;
 use pyo3::prelude::*;

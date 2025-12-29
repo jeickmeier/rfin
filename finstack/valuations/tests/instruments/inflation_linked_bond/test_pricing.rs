@@ -79,7 +79,7 @@ fn test_npv_increases_with_inflation() {
     // Context with low inflation
     let ctx_low = {
         let disc =
-            finstack_core::market_data::term_structures::discount_curve::DiscountCurve::builder(
+            finstack_core::market_data::term_structures::DiscountCurve::builder(
                 "USD-REAL",
             )
             .base_date(as_of)
@@ -88,7 +88,7 @@ fn test_npv_increases_with_inflation() {
             .unwrap();
 
         let curve =
-            finstack_core::market_data::term_structures::inflation::InflationCurve::builder(
+            finstack_core::market_data::term_structures::InflationCurve::builder(
                 "US-CPI-U",
             )
             .base_cpi(300.0)
@@ -107,7 +107,7 @@ fn test_npv_increases_with_inflation() {
     // Context with high inflation
     let ctx_high = {
         let disc =
-            finstack_core::market_data::term_structures::discount_curve::DiscountCurve::builder(
+            finstack_core::market_data::term_structures::DiscountCurve::builder(
                 "USD-REAL",
             )
             .base_date(as_of)
@@ -116,7 +116,7 @@ fn test_npv_increases_with_inflation() {
             .unwrap();
 
         let curve =
-            finstack_core::market_data::term_structures::inflation::InflationCurve::builder(
+            finstack_core::market_data::term_structures::InflationCurve::builder(
                 "US-CPI-U",
             )
             .base_cpi(300.0)
@@ -148,7 +148,7 @@ fn test_npv_decreases_with_higher_discount_rate() {
 
     // Same inflation, different discount curves
     let inflation_curve =
-        finstack_core::market_data::term_structures::inflation::InflationCurve::builder("US-CPI-U")
+        finstack_core::market_data::term_structures::InflationCurve::builder("US-CPI-U")
             .base_cpi(300.0)
             .knots([(0.0, 300.0), (5.0, 315.0)])
             .build()
@@ -156,7 +156,7 @@ fn test_npv_decreases_with_higher_discount_rate() {
 
     // Low discount rate
     let disc_low =
-        finstack_core::market_data::term_structures::discount_curve::DiscountCurve::builder(
+        finstack_core::market_data::term_structures::DiscountCurve::builder(
             "USD-REAL",
         )
         .base_date(as_of)
@@ -166,7 +166,7 @@ fn test_npv_decreases_with_higher_discount_rate() {
 
     // High discount rate
     let disc_high =
-        finstack_core::market_data::term_structures::discount_curve::DiscountCurve::builder(
+        finstack_core::market_data::term_structures::DiscountCurve::builder(
             "USD-REAL",
         )
         .base_date(as_of)
@@ -180,7 +180,7 @@ fn test_npv_decreases_with_higher_discount_rate() {
 
     // Rebuild inflation curve for second context
     let inflation_curve2 =
-        finstack_core::market_data::term_structures::inflation::InflationCurve::builder("US-CPI-U")
+        finstack_core::market_data::term_structures::InflationCurve::builder("US-CPI-U")
             .base_cpi(300.0)
             .knots([(0.0, 300.0), (5.0, 315.0)])
             .build()
@@ -244,7 +244,7 @@ fn test_npv_with_deflation_protection() {
     let as_of = d(2025, 1, 2);
 
     // Context with deflation
-    let disc = finstack_core::market_data::term_structures::discount_curve::DiscountCurve::builder(
+    let disc = finstack_core::market_data::term_structures::DiscountCurve::builder(
         "USD-REAL",
     )
     .base_date(as_of)
@@ -253,14 +253,14 @@ fn test_npv_with_deflation_protection() {
     .unwrap();
 
     let observations = vec![(d(2024, 12, 1), 290.0)]; // Deflation vs base of 300
-    let index = finstack_core::market_data::scalars::inflation_index::InflationIndex::new(
+    let index = finstack_core::market_data::scalars::InflationIndex::new(
         "US-CPI-U",
         observations,
         Currency::USD,
     )
     .unwrap()
     .with_interpolation(
-        finstack_core::market_data::scalars::inflation_index::InflationInterpolation::Linear,
+        finstack_core::market_data::scalars::InflationInterpolation::Linear,
     );
 
     let ctx = finstack_core::market_data::context::MarketContext::new()
@@ -289,7 +289,7 @@ fn test_npv_consistency_with_schedule() {
     let disc = ctx
         .get_discount_ref(ilb.discount_curve_id.as_str())
         .unwrap();
-    let expected_pv = finstack_core::cashflow::discounting::npv(
+    let expected_pv = finstack_core::cashflow::npv(
         disc as &dyn finstack_core::market_data::traits::Discounting,
         disc.base_date(),
         disc.day_count(),

@@ -41,7 +41,7 @@
 //! # Examples
 //!
 //! ```rust
-//! use finstack_core::market_data::term_structures::base_correlation::BaseCorrelationCurve;
+//! use finstack_core::market_data::term_structures::BaseCorrelationCurve;
 //!
 //! let curve = BaseCorrelationCurve::builder("CDX.NA.IG.42_5Y")
 //!     .knots(vec![(3.0, 0.25), (7.0, 0.45), (10.0, 0.60)])
@@ -420,7 +420,7 @@ impl BaseCorrelationCurve {
     /// # Example
     ///
     /// ```rust
-    /// use finstack_core::market_data::term_structures::base_correlation::BaseCorrelationCurve;
+    /// use finstack_core::market_data::term_structures::BaseCorrelationCurve;
     ///
     /// let curve = BaseCorrelationCurve::builder("CDX")
     ///     .knots(vec![(3.0, 0.25), (7.0, 0.45), (10.0, 0.60)])
@@ -505,7 +505,7 @@ impl BaseCorrelationCurve {
     /// # Example
     ///
     /// ```rust
-    /// use finstack_core::market_data::term_structures::base_correlation::{
+    /// use finstack_core::market_data::term_structures::{
     ///     BaseCorrelationCurve, SmoothingMethod
     /// };
     ///
@@ -696,7 +696,7 @@ impl BaseCorrelationCurve {
 ///
 /// # Examples
 /// ```rust
-/// use finstack_core::market_data::term_structures::base_correlation::BaseCorrelationCurve;
+/// use finstack_core::market_data::term_structures::BaseCorrelationCurve;
 ///
 /// let curve = BaseCorrelationCurve::builder("CDX")
 ///     .knots([(3.0, 0.25), (7.0, 0.45)])

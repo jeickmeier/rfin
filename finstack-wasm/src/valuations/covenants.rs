@@ -1,10 +1,9 @@
 use crate::statements::evaluator::JsResults;
 use crate::statements::types::JsFinancialModelSpec;
 use finstack_core::dates::{Date, PeriodId};
-use finstack_valuations::covenants::engine::{Covenant, CovenantSpec, CovenantType, ThresholdTest};
-use finstack_valuations::covenants::forward::{
-    CovenantForecast as ValCovForecast, CovenantForecastConfig as ValCovForecastConfig,
-    McConfig as ValMcConfig, ModelTimeSeries,
+use finstack_valuations::covenants::{
+    forward::CovenantForecast as ValCovForecast, Covenant, CovenantForecastConfig as ValCovForecastConfig,
+    CovenantSpec, CovenantType, McConfig as ValMcConfig, ModelTimeSeries, ThresholdTest,
 };
 use std::str::FromStr;
 use wasm_bindgen::prelude::*;

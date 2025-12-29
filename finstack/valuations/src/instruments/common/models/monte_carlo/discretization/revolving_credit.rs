@@ -46,12 +46,12 @@ impl RevolvingCreditDiscretization {
             let corr_vec: Vec<f64> = corr.iter().flat_map(|row| row.iter().copied()).collect();
             Some(cholesky_decomposition(&corr_vec, 3).map_err(|e| match e {
                 CholeskyError::NotPositiveDefinite { .. } | CholeskyError::Singular { .. } => {
-                    finstack_core::Error::Input(finstack_core::error::InputError::Invalid)
+                    finstack_core::Error::Input(finstack_core::InputError::Invalid)
                 }
                 CholeskyError::DimensionMismatch { .. } => {
-                    finstack_core::Error::Input(finstack_core::error::InputError::DimensionMismatch)
+                    finstack_core::Error::Input(finstack_core::InputError::DimensionMismatch)
                 }
-                _ => finstack_core::Error::Input(finstack_core::error::InputError::Invalid),
+                _ => finstack_core::Error::Input(finstack_core::InputError::Invalid),
             })?)
         } else {
             None

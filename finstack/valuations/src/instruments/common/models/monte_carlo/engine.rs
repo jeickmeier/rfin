@@ -310,7 +310,7 @@ impl McEngineBuilder {
     pub fn build(self) -> Result<McEngine> {
         let time_grid = self
             .time_grid
-            .ok_or(finstack_core::error::InputError::Invalid)?;
+            .ok_or(finstack_core::InputError::Invalid)?;
 
         let config = McEngineConfig {
             num_paths: self.num_paths,
@@ -1326,7 +1326,7 @@ impl McEngine {
             let cashflow_amounts: Vec<f64> = all_cashflows.iter().map(|(_, amt)| *amt).collect();
 
             // Use finstack_core IRR calculation
-            use finstack_core::cashflow::xirr::InternalRateOfReturn;
+            use finstack_core::cashflow::InternalRateOfReturn;
             if let Ok(irr) = cashflow_amounts.irr(None) {
                 simulated_path.set_irr(irr);
             }

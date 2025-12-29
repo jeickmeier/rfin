@@ -108,7 +108,7 @@ For business‑day conventions and holiday calendars, see the examples in `dates
 
 ```rust
 use finstack_core::dates::create_date;
-use finstack_core::market_data::term_structures::discount_curve::DiscountCurve;
+use finstack_core::market_data::term_structures::DiscountCurve;
 use finstack_core::math::interp::InterpStyle;
 use time::Month;
 

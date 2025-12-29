@@ -1,10 +1,10 @@
 //! Compatibility layer for discounting instrument cashflow schedules.
 
-pub use finstack_core::cashflow::discounting::{npv, Discountable};
+pub use finstack_core::cashflow::{npv, Discountable};
 
 use crate::cashflow::builder::CashFlowSchedule;
 use finstack_core::dates::{Date, DayCount};
-use finstack_core::market_data::term_structures::discount_curve::DiscountCurve;
+use finstack_core::market_data::term_structures::DiscountCurve;
 use finstack_core::market_data::traits::Discounting;
 use finstack_core::money::Money;
 
@@ -18,7 +18,7 @@ impl Discountable for CashFlowSchedule {
         dc: DayCount,
     ) -> finstack_core::Result<Money> {
         let flows: Vec<(Date, Money)> = self.flows.iter().map(|cf| (cf.date, cf.amount)).collect();
-        finstack_core::cashflow::discounting::npv(disc, base, dc, &flows)
+        finstack_core::cashflow::npv(disc, base, dc, &flows)
     }
 }
 
@@ -30,7 +30,7 @@ pub fn npv_by_date(
     flows: &[(Date, Money)],
 ) -> finstack_core::Result<Money> {
     if flows.is_empty() {
-        return Err(finstack_core::error::InputError::TooFewPoints.into());
+        return Err(finstack_core::InputError::TooFewPoints.into());
     }
 
     let ccy = flows[0].1.currency();

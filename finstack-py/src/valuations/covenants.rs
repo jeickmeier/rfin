@@ -3,12 +3,10 @@ use crate::core::dates::utils::date_to_py;
 use crate::statements::evaluator::PyResults;
 use crate::statements::types::model::PyFinancialModelSpec;
 use finstack_core::dates::{Date, PeriodId};
-use finstack_valuations::covenants::engine::{
-    Covenant, CovenantScope, CovenantSpec, CovenantType, SpringingCondition, ThresholdTest,
-};
-use finstack_valuations::covenants::forward::{
-    CovenantForecast as ValCovForecast, CovenantForecastConfig as ValCovForecastConfig,
-    McConfig as ValMcConfig, ModelTimeSeries,
+use finstack_valuations::covenants::{
+    forward::CovenantForecast as ValCovForecast, Covenant, CovenantForecastConfig as ValCovForecastConfig,
+    CovenantScope, CovenantSpec, CovenantType, McConfig as ValMcConfig, ModelTimeSeries,
+    SpringingCondition, ThresholdTest,
 };
 use pyo3::prelude::*;
 use pyo3::types::{PyList, PyModule};

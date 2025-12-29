@@ -382,7 +382,7 @@ fn test_cds_cs01_protection_buyer_positive() {
     // This is the market-standard directional sign convention.
     let as_of = date!(2025 - 01 - 01);
 
-    use finstack_core::market_data::term_structures::hazard_curve::HazardCurve;
+    use finstack_core::market_data::term_structures::HazardCurve;
     use finstack_valuations::instruments::cds::CreditDefaultSwap;
 
     let cds = CreditDefaultSwap::buy_protection(
@@ -451,7 +451,7 @@ fn test_cds_cs01_protection_seller_negative() {
     // This validates that CS01 sign correctly reflects position direction.
     let as_of = date!(2025 - 01 - 01);
 
-    use finstack_core::market_data::term_structures::hazard_curve::HazardCurve;
+    use finstack_core::market_data::term_structures::HazardCurve;
     use finstack_valuations::instruments::cds::CreditDefaultSwap;
 
     let cds = CreditDefaultSwap::sell_protection(
@@ -519,7 +519,7 @@ fn test_cds_cs01_opposite_signs() {
     // This is a fundamental property: they are opposite positions.
     let as_of = date!(2025 - 01 - 01);
 
-    use finstack_core::market_data::term_structures::hazard_curve::HazardCurve;
+    use finstack_core::market_data::term_structures::HazardCurve;
     use finstack_valuations::instruments::cds::CreditDefaultSwap;
 
     let cds_buy = CreditDefaultSwap::buy_protection(

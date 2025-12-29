@@ -11,7 +11,7 @@ impl crate::metrics::MetricCalculator for CloWalCalculator {
             .instrument
             .as_any()
             .downcast_ref::<crate::instruments::structured_credit::StructuredCredit>()
-            .ok_or(finstack_core::error::InputError::Invalid)?;
+            .ok_or(finstack_core::InputError::Invalid)?;
 
         // Use the pool's WAM calculation (approximation for WAL)
         Ok(clo.pool.weighted_avg_maturity(context.as_of))

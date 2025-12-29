@@ -116,7 +116,7 @@ where
 
         let vol_surface_id = instrument
             .vol_surface_id()
-            .ok_or_else(|| finstack_core::Error::from(finstack_core::error::InputError::Invalid))?;
+            .ok_or_else(|| finstack_core::Error::from(finstack_core::InputError::Invalid))?;
 
         let base_pv = context.base_value;
         let base_ctx = context.curves.as_ref();
@@ -235,7 +235,7 @@ where
 
         let vol_surface_id = instrument
             .vol_surface_id()
-            .ok_or_else(|| finstack_core::Error::from(finstack_core::error::InputError::Invalid))?;
+            .ok_or_else(|| finstack_core::Error::from(finstack_core::InputError::Invalid))?;
 
         let base_pv = context.base_value;
         let base_ctx = context.curves.as_ref();
@@ -270,7 +270,7 @@ where
                     MarketScalar::Unitless(v) => *v,
                 })
                 .ok_or_else(|| {
-                    finstack_core::Error::from(finstack_core::error::InputError::Invalid)
+                    finstack_core::Error::from(finstack_core::InputError::Invalid)
                 })?;
 
             self.strikes.iter().map(|k| k * spot).collect()

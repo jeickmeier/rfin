@@ -28,23 +28,25 @@
 //!   *Wilmott Magazine*, May 2008.
 
 /// Generic interpolator container with strategy pattern.
-pub mod generic;
+mod generic;
 /// Concrete strategy implementations.
-pub mod strategies;
+pub(crate) mod strategies;
 /// Traits for interpolation.
-pub mod traits;
+mod traits;
 /// Types and factory for interpolation.
-pub mod types;
+pub(crate) mod types;
 /// Shared helpers (validation and search).
-pub mod utils;
+pub(crate) mod utils;
 /// Public wrapper types for interpolators.
-pub mod wrappers;
+mod wrappers;
 
 // Re-exports for ergonomic access
 pub use generic::Interpolator;
 pub use strategies::DEFAULT_MONOTONE_CONVEX_EPSILON;
 pub use traits::{InterpFn, InterpolationStrategy};
 pub use types::{ExtrapolationPolicy, InterpStyle, DERIVATIVE_EPSILON};
+/// Validate knot ordering and finiteness (internal helper used by curve builders).
+pub use utils::validate_knots;
 pub use wrappers::{
     CubicHermite, LinearDf, LogLinearDf, MonotoneConvex, PiecewiseQuadraticForward,
 };

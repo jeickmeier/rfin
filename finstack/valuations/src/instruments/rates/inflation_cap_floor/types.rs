@@ -13,7 +13,7 @@ use finstack_core::dates::{
     BusinessDayConvention, Date, DateExt, DayCount, DayCountCtx, StubKind, Tenor,
 };
 use finstack_core::market_data::context::MarketContext;
-use finstack_core::market_data::scalars::inflation_index::InflationLag;
+use finstack_core::market_data::scalars::InflationLag;
 use finstack_core::money::Money;
 use finstack_core::types::{CurveId, InstrumentId, Rate};
 use time::Duration;
@@ -121,13 +121,13 @@ impl InflationCapFloor {
     /// Validate structural invariants.
     pub fn validate(&self) -> finstack_core::Result<()> {
         if self.start_date >= self.end_date {
-            return Err(finstack_core::error::InputError::InvalidDateRange.into());
+            return Err(finstack_core::InputError::InvalidDateRange.into());
         }
         if self.notional.amount() <= 0.0 {
-            return Err(finstack_core::error::InputError::NonPositiveValue.into());
+            return Err(finstack_core::InputError::NonPositiveValue.into());
         }
         if self.frequency.count == 0 {
-            return Err(finstack_core::error::InputError::Invalid.into());
+            return Err(finstack_core::InputError::Invalid.into());
         }
         Ok(())
     }
@@ -165,7 +165,7 @@ impl InflationCapFloor {
 
     fn adjusted_payment_date(&self, date: Date) -> Date {
         if let Some(ref cal_id) = self.calendar_id {
-            use finstack_core::dates::calendar::registry::CalendarRegistry;
+            use finstack_core::dates::CalendarRegistry;
             if let Some(cal) = CalendarRegistry::global().resolve_str(cal_id) {
                 return finstack_core::dates::adjust(date, self.bdc, cal).unwrap_or(date);
             }
@@ -212,7 +212,7 @@ impl InflationCapFloor {
 
         if schedule.dates.len() < 2 {
             return Err(finstack_core::Error::Input(
-                finstack_core::error::InputError::Invalid,
+                finstack_core::InputError::Invalid,
             ));
         }
 
@@ -258,7 +258,7 @@ impl InflationCapFloor {
             let cpi_start = self.cpi_value(curves, as_of, start)?;
             let cpi_end = self.cpi_value(curves, as_of, end)?;
             if cpi_start <= 0.0 || cpi_end <= 0.0 {
-                return Err(finstack_core::error::InputError::NonPositiveValue.into());
+                return Err(finstack_core::InputError::NonPositiveValue.into());
             }
 
             let forward_rate = (cpi_end / cpi_start - 1.0) / accrual;
@@ -278,7 +278,7 @@ impl InflationCapFloor {
                 } else if let Some(vol) = &vol_surface {
                     vol.value_clamped(t_fix, self.strike_rate)
                 } else {
-                    return Err(finstack_core::error::InputError::NotFound {
+                    return Err(finstack_core::InputError::NotFound {
                         id: "inflation_cap_floor_vol_surface".to_string(),
                     }
                     .into());
@@ -302,7 +302,7 @@ impl InflationCapFloor {
                 }
                 _ => {
                     if t_fix > 0.0 && (forward_rate <= 0.0 || self.strike_rate <= 0.0) {
-                        return Err(finstack_core::error::InputError::Invalid.into());
+                        return Err(finstack_core::InputError::Invalid.into());
                     }
                     black_ir::price_caplet_floorlet(black_ir::CapletFloorletInputs {
                         is_cap: self.option_type.is_cap(),

@@ -2,7 +2,7 @@
 
 use crate::cashflow::primitives::{CFKind, CashFlow};
 use finstack_core::currency::Currency;
-use finstack_core::dates::calendar::registry::CalendarRegistry;
+use finstack_core::dates::CalendarRegistry;
 use finstack_core::dates::DateExt;
 use finstack_core::dates::{adjust, Date};
 use finstack_core::money::Money;

@@ -19,7 +19,7 @@
 
 use crate::cashflow::builder::schedule::CashFlowSchedule;
 use crate::cashflow::primitives::CFKind;
-use finstack_core::dates::calendar::business_days::HolidayCalendar;
+use finstack_core::dates::HolidayCalendar;
 use finstack_core::dates::calendar::calendar_by_id;
 use finstack_core::dates::{Date, DayCount, DayCountCtx};
 use finstack_core::money::Money;
@@ -381,7 +381,7 @@ fn find_active_period_and_elapsed<'a>(
             if let Some(ref ex) = cfg.ex_coupon {
                 let ex_date = if let Some(cal_id) = &ex.calendar_id {
                     let cal = calendar_by_id(cal_id).ok_or_else(|| {
-                        finstack_core::Error::Input(finstack_core::error::InputError::NotFound {
+                        finstack_core::Error::Input(finstack_core::InputError::NotFound {
                             id: cal_id.clone(),
                         })
                     })?;

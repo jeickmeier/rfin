@@ -13,7 +13,7 @@ impl MetricCalculator for QuoteRateCalculator {
     fn calculate(&self, context: &mut MetricContext) -> finstack_core::Result<f64> {
         let deposit: &Deposit = context.instrument_as()?;
         deposit.quote_rate.ok_or_else(|| {
-            finstack_core::Error::from(finstack_core::error::InputError::NotFound {
+            finstack_core::Error::from(finstack_core::InputError::NotFound {
                 id: "QuoteRate (deposit has no quoted rate set)".to_string(),
             })
         })

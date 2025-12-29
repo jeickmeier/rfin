@@ -21,9 +21,7 @@ use finstack_core::types::CurveId;
 
 #[test]
 fn test_scalars_snapshot_extraction() {
-    use finstack_valuations::attribution::factors::{
-        restore_scalars, MarketExtractable, ScalarsSnapshot,
-    };
+    use finstack_valuations::attribution::{restore_scalars, MarketExtractable, ScalarsSnapshot};
 
     // Create market with various scalars
     let mut market = MarketContext::new();
@@ -59,9 +57,7 @@ fn test_scalars_snapshot_extraction() {
 
 #[test]
 fn test_market_scalar_freeze_restore() {
-    use finstack_valuations::attribution::factors::{
-        restore_scalars, MarketExtractable, ScalarsSnapshot,
-    };
+    use finstack_valuations::attribution::{restore_scalars, MarketExtractable, ScalarsSnapshot};
 
     // Market at T₀ with lower prices
     let mut market_t0 = MarketContext::new();

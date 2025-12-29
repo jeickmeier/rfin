@@ -134,12 +134,12 @@ impl ExactMultiGbmCorrelated {
         let cholesky_factor =
             cholesky_decomposition(correlation_matrix, dim).map_err(|e| match e {
                 CholeskyError::NotPositiveDefinite { .. } | CholeskyError::Singular { .. } => {
-                    finstack_core::Error::Input(finstack_core::error::InputError::Invalid)
+                    finstack_core::Error::Input(finstack_core::InputError::Invalid)
                 }
                 CholeskyError::DimensionMismatch { .. } => {
-                    finstack_core::Error::Input(finstack_core::error::InputError::DimensionMismatch)
+                    finstack_core::Error::Input(finstack_core::InputError::DimensionMismatch)
                 }
-                _ => finstack_core::Error::Input(finstack_core::error::InputError::Invalid),
+                _ => finstack_core::Error::Input(finstack_core::InputError::Invalid),
             })?;
         Ok(Self {
             cholesky_factor,

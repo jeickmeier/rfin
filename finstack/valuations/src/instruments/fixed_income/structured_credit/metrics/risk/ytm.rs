@@ -41,14 +41,14 @@ impl MetricCalculator for YtmCalculator {
             .get(&MetricId::DirtyPrice)
             .copied()
             .ok_or_else(|| {
-                finstack_core::Error::from(finstack_core::error::InputError::NotFound {
+                finstack_core::Error::from(finstack_core::InputError::NotFound {
                     id: "metric:DirtyPrice".to_string(),
                 })
             })?;
 
         // Get cashflows
         let flows = context.cashflows.as_ref().ok_or_else(|| {
-            finstack_core::Error::from(finstack_core::error::InputError::NotFound {
+            finstack_core::Error::from(finstack_core::InputError::NotFound {
                 id: "context.cashflows".to_string(),
             })
         })?;

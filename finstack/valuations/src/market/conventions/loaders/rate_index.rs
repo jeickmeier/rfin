@@ -4,7 +4,7 @@ use super::json::{build_lookup_map_mapped, RegistryFile};
 use crate::instruments::irs::FloatingLegCompounding;
 use crate::market::conventions::defs::{RateIndexConventions, RateIndexKind};
 use crate::market::conventions::ids::IndexId; // Used for normalization if needed, or string
-use finstack_core::collections::HashMap;
+use finstack_core::HashMap;
 use finstack_core::dates::{BusinessDayConvention, DayCount, Tenor};
 use finstack_core::types::Currency;
 use finstack_core::Error;

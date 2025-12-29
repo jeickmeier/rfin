@@ -25,7 +25,7 @@ impl MetricCalculator for DividendRiskCalculator {
 
         // Resolve dividend yield ID using same logic as pricer
         let underlying_id = convertible.underlying_equity_id.as_ref().ok_or_else(|| {
-            finstack_core::Error::from(finstack_core::error::InputError::NotFound {
+            finstack_core::Error::from(finstack_core::InputError::NotFound {
                 id: "underlying_equity_id".to_string(),
             })
         })?;

@@ -1,6 +1,6 @@
 use crate::core::error::js_error;
 use crate::core::utils::js_array_from_iter;
-use finstack_core::market_data::surfaces::vol_surface::VolSurface;
+use finstack_core::market_data::surfaces::VolSurface;
 use std::sync::Arc;
 use wasm_bindgen::prelude::*;
 use wasm_bindgen::JsValue;

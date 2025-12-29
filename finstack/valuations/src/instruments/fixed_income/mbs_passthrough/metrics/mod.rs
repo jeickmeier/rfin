@@ -46,7 +46,7 @@ impl MetricCalculator for OasCalculator {
     fn calculate(&self, context: &mut MetricContext) -> finstack_core::Result<f64> {
         let mbs: &AgencyMbsPassthrough = context.instrument_as()?;
         let market_price = mbs.pricing_overrides.quoted_clean_price.ok_or_else(|| {
-            finstack_core::Error::from(finstack_core::error::InputError::NotFound {
+            finstack_core::Error::from(finstack_core::InputError::NotFound {
                 id: "mbs.pricing_overrides.quoted_clean_price".to_string(),
             })
         })?;

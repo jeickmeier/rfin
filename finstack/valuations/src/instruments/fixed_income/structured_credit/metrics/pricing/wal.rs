@@ -107,7 +107,7 @@ impl MetricCalculator for WalCalculator {
         }
 
         Err(finstack_core::Error::from(
-            finstack_core::error::InputError::NotFound {
+            finstack_core::InputError::NotFound {
                 id: "detailed_tranche_cashflows".to_string(),
             },
         ))

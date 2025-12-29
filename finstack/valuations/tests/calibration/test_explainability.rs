@@ -2,11 +2,11 @@
 //!
 //! v2 captures explainability traces at the per-step report level.
 
-use finstack_core::collections::HashMap;
+use finstack_core::HashMap;
 use finstack_core::dates::create_date;
 use finstack_core::explain::ExplainOpts;
 use finstack_core::market_data::context::MarketContext;
-use finstack_core::market_data::term_structures::discount_curve::DiscountCurve;
+use finstack_core::market_data::term_structures::DiscountCurve;
 use finstack_core::math::interp::InterpStyle;
 use finstack_core::types::{Currency, CurveId};
 use finstack_valuations::calibration::api::engine;

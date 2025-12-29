@@ -96,7 +96,7 @@ fn test_missing_fx_matrix() {
     // Create market without FX matrix
     let as_of = dates.as_of;
     let usd_curve =
-        finstack_core::market_data::term_structures::discount_curve::DiscountCurve::builder(
+        finstack_core::market_data::term_structures::DiscountCurve::builder(
             "USD-OIS",
         )
         .base_date(as_of)
@@ -106,7 +106,7 @@ fn test_missing_fx_matrix() {
         .unwrap();
 
     let eur_curve =
-        finstack_core::market_data::term_structures::discount_curve::DiscountCurve::builder(
+        finstack_core::market_data::term_structures::DiscountCurve::builder(
             "EUR-OIS",
         )
         .base_date(as_of)
@@ -140,7 +140,7 @@ fn test_missing_fx_matrix_with_contract_rates() {
     // Create market without FX matrix
     let as_of = dates.as_of;
     let usd_curve =
-        finstack_core::market_data::term_structures::discount_curve::DiscountCurve::builder(
+        finstack_core::market_data::term_structures::DiscountCurve::builder(
             "USD-OIS",
         )
         .base_date(as_of)
@@ -150,7 +150,7 @@ fn test_missing_fx_matrix_with_contract_rates() {
         .unwrap();
 
     let eur_curve =
-        finstack_core::market_data::term_structures::discount_curve::DiscountCurve::builder(
+        finstack_core::market_data::term_structures::DiscountCurve::builder(
             "EUR-OIS",
         )
         .base_date(as_of)

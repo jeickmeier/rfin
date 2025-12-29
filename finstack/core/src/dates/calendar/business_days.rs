@@ -90,7 +90,7 @@ pub(crate) fn seek_business_day<C: HolidayCalendar + ?Sized>(
 /// # Examples
 ///
 /// ```rust
-/// use finstack_core::dates::calendar::business_days::HolidayCalendar;
+/// use finstack_core::dates::HolidayCalendar;
 /// use time::Date;
 ///
 /// struct CustomCalendar;
@@ -371,7 +371,7 @@ pub fn adjust_with_limit<C: HolidayCalendar + ?Sized>(
 ///
 /// Example using the registry:
 /// ```
-/// use finstack_core::dates::calendar::registry::{CalendarId, CalendarRegistry};
+/// use finstack_core::dates::{CalendarId, CalendarRegistry};
 /// let regs = CalendarRegistry::global();
 /// let ids = regs.available_ids();
 /// let maybe = regs.resolve(CalendarId(ids[0]));

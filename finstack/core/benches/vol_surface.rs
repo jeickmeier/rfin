@@ -8,7 +8,7 @@
 
 use criterion::{criterion_group, criterion_main, BenchmarkId, Criterion};
 use finstack_core::market_data::bumps::{BumpSpec, Bumpable};
-use finstack_core::market_data::surfaces::vol_surface::VolSurface;
+use finstack_core::market_data::surfaces::VolSurface;
 use std::hint::black_box;
 
 fn create_vol_surface(n_expiries: usize, n_strikes: usize) -> VolSurface {

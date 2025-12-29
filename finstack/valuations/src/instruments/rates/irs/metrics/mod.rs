@@ -34,7 +34,7 @@
 //! // ... add USD-OIS and USD-SOFR-3M curves ...
 //!
 //! let as_of = Date::from_calendar_date(2024, Month::January, 1)
-//!     .map_err(|e| finstack_core::error::Error::Validation(format!("{}", e)))?;
+//!     .map_err(|e| finstack_core::Error::Validation(format!("{}", e)))?;
 //!
 //! // Compute par rate and DV01
 //! let metrics = vec![MetricId::ParRate, MetricId::Dv01];

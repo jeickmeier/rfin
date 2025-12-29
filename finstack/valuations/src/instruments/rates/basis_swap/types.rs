@@ -13,8 +13,8 @@
 use finstack_core::dates::{BusinessDayConvention, DayCount, Tenor};
 use finstack_core::{
     dates::{
-        calendar::registry::CalendarRegistry, Date, DateExt, DayCountCtx, HolidayCalendar,
-        Schedule, ScheduleBuilder, StubKind,
+        CalendarRegistry, Date, DateExt, DayCountCtx, HolidayCalendar, Schedule, ScheduleBuilder,
+        StubKind,
     },
     market_data::context::MarketContext,
     money::Money,
@@ -188,7 +188,7 @@ impl BasisSwap {
                     Ok(None)
                 } else {
                     Err(finstack_core::Error::Input(
-                        finstack_core::error::InputError::NotFound {
+                        finstack_core::InputError::NotFound {
                             id: format!("calendar '{}'", id),
                         },
                     ))
@@ -203,7 +203,7 @@ impl BasisSwap {
                     Ok(None)
                 } else {
                     Err(finstack_core::Error::Input(
-                        finstack_core::error::InputError::NotFound {
+                        finstack_core::InputError::NotFound {
                             id: "BasisSwap calendar_id".to_string(),
                         },
                     ))
@@ -514,9 +514,7 @@ mod tests {
     use crate::instruments::common::traits::Instrument;
     use finstack_core::currency::Currency;
     use finstack_core::market_data::context::MarketContext;
-    use finstack_core::market_data::term_structures::{
-        discount_curve::DiscountCurve, forward_curve::ForwardCurve,
-    };
+    use finstack_core::market_data::term_structures::{DiscountCurve, ForwardCurve};
     use time::Month;
 
     // Helper function for tests

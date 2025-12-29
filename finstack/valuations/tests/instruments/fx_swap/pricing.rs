@@ -298,7 +298,7 @@ fn test_pv_with_only_far_rate() {
 #[test]
 fn test_cip_parity_forward_at_premium() {
     use finstack_core::dates::Date;
-    use finstack_core::market_data::term_structures::discount_curve::DiscountCurve;
+    use finstack_core::market_data::term_structures::DiscountCurve;
     use finstack_core::math::interp::InterpStyle;
     use finstack_core::money::fx::{FxConversionPolicy, FxMatrix, FxProvider, FxRate};
     use std::sync::Arc;

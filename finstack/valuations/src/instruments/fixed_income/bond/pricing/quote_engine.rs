@@ -76,13 +76,13 @@ pub fn periods_per_year(freq: finstack_core::dates::Tenor) -> finstack_core::Res
     match freq.unit {
         finstack_core::dates::TenorUnit::Months => {
             if freq.count == 0 {
-                return Err(finstack_core::error::InputError::Invalid.into());
+                return Err(finstack_core::InputError::Invalid.into());
             }
             Ok(12.0 / (freq.count as f64))
         }
         finstack_core::dates::TenorUnit::Days => {
             if freq.count == 0 {
-                return Err(finstack_core::error::InputError::Invalid.into());
+                return Err(finstack_core::InputError::Invalid.into());
             }
             // Use 365 as approximate annual basis for frequency calculations
             // Note: This is NOT a day count convention - actual day count is handled
@@ -91,13 +91,13 @@ pub fn periods_per_year(freq: finstack_core::dates::Tenor) -> finstack_core::Res
         }
         finstack_core::dates::TenorUnit::Years => {
             if freq.count == 0 {
-                return Err(finstack_core::error::InputError::Invalid.into());
+                return Err(finstack_core::InputError::Invalid.into());
             }
             Ok(1.0 / (freq.count as f64))
         }
         finstack_core::dates::TenorUnit::Weeks => {
             if freq.count == 0 {
-                return Err(finstack_core::error::InputError::Invalid.into());
+                return Err(finstack_core::InputError::Invalid.into());
             }
             Ok(52.0 / (freq.count as f64))
         }
@@ -134,7 +134,7 @@ pub fn periods_per_year(freq: finstack_core::dates::Tenor) -> finstack_core::Res
 ///
 /// ```rust,no_run
 /// use finstack_valuations::instruments::bond::pricing::quote_engine::fixed_leg_annuity;
-/// use finstack_core::market_data::term_structures::discount_curve::DiscountCurve;
+/// use finstack_core::market_data::term_structures::DiscountCurve;
 /// use finstack_core::dates::{DayCount, Date};
 ///
 /// # let disc = DiscountCurve::builder("USD-OIS").base_date(Date::from_calendar_date(2024, time::Month::January, 1).unwrap()).knots([(0.0, 1.0)]).build().unwrap();
@@ -143,7 +143,7 @@ pub fn periods_per_year(freq: finstack_core::dates::Tenor) -> finstack_core::Res
 /// # Ok::<(), Box<dyn std::error::Error>>(())
 /// ```
 pub fn fixed_leg_annuity(
-    disc: &finstack_core::market_data::term_structures::discount_curve::DiscountCurve,
+    disc: &finstack_core::market_data::term_structures::DiscountCurve,
     dc: finstack_core::dates::DayCount,
     schedule: &[Date],
 ) -> finstack_core::Result<f64> {
@@ -195,7 +195,7 @@ pub fn fixed_leg_annuity(
 ///
 /// ```rust,no_run
 /// use finstack_valuations::instruments::bond::pricing::quote_engine::par_rate_and_annuity_from_discount;
-/// use finstack_core::market_data::term_structures::discount_curve::DiscountCurve;
+/// use finstack_core::market_data::term_structures::DiscountCurve;
 /// use finstack_core::dates::{DayCount, Date};
 ///
 /// # let disc = DiscountCurve::builder("USD-OIS").base_date(Date::from_calendar_date(2024, time::Month::January, 1).unwrap()).knots([(0.0, 1.0)]).build().unwrap();
@@ -204,7 +204,7 @@ pub fn fixed_leg_annuity(
 /// # Ok::<(), Box<dyn std::error::Error>>(())
 /// ```
 pub fn par_rate_and_annuity_from_discount(
-    disc: &finstack_core::market_data::term_structures::discount_curve::DiscountCurve,
+    disc: &finstack_core::market_data::term_structures::DiscountCurve,
     dc: finstack_core::dates::DayCount,
     schedule: &[Date],
 ) -> finstack_core::Result<(f64, f64)> {
@@ -940,7 +940,7 @@ fn price_from_asw_market(
 
     // Only well-defined for fixed-rate, non-custom bonds in this helper.
     if bond.custom_cashflows.is_some() {
-        return Err(finstack_core::error::InputError::Invalid.into());
+        return Err(finstack_core::InputError::Invalid.into());
     }
     let (coupon, freq, stub, bdc, calendar_id) = match &bond.cashflow_spec {
         CashflowSpec::Fixed(spec) => (
@@ -950,7 +950,7 @@ fn price_from_asw_market(
             spec.bdc,
             spec.calendar_id.as_deref(),
         ),
-        _ => return Err(finstack_core::error::InputError::Invalid.into()),
+        _ => return Err(finstack_core::InputError::Invalid.into()),
     };
 
     let disc = curves.get_discount_ref(&bond.discount_curve_id)?;

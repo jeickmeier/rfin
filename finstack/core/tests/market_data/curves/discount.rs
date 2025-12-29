@@ -11,7 +11,7 @@
 
 use super::super::test_helpers::{sample_base_date, sample_discount_curve};
 use finstack_core::dates::{Date, DayCount};
-use finstack_core::market_data::term_structures::discount_curve::DiscountCurve;
+use finstack_core::market_data::term_structures::DiscountCurve;
 use finstack_core::math::interp::{ExtrapolationPolicy, InterpStyle};
 use time::Month;
 

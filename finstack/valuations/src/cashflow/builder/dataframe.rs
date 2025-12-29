@@ -560,11 +560,11 @@ mod tests {
     use super::*;
     use crate::cashflow::builder::schedule::{CashFlowMeta, CashFlowSchedule};
     use crate::cashflow::builder::Notional;
-    use finstack_core::cashflow::primitives::CashFlow;
+    use finstack_core::cashflow::CashFlow;
     use finstack_core::currency::Currency;
     use finstack_core::dates::{DayCount, Period, PeriodId};
     use finstack_core::market_data::context::MarketContext;
-    use finstack_core::market_data::term_structures::discount_curve::DiscountCurve;
+    use finstack_core::market_data::term_structures::DiscountCurve;
     use finstack_core::math::interp::InterpStyle;
     use time::Month;
 

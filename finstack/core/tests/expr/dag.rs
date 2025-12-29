@@ -10,7 +10,7 @@
 use finstack_core::config::{
     NumericMode, ResultsMeta, RoundingContext, RoundingMode, ToleranceConfig,
 };
-use finstack_core::expr::dag::{DagBuilder, PushdownAnalyzer};
+use finstack_core::expr::{DagBuilder, PushdownAnalyzer};
 use finstack_core::expr::{Expr, ExprNode, Function};
 
 #[test]

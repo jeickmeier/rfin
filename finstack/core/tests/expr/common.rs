@@ -1,4 +1,4 @@
-use finstack_core::collections::HashMap;
+use finstack_core::HashMap;
 use finstack_core::expr::ExpressionContext;
 
 /// Lightweight expression context used across evaluator tests.

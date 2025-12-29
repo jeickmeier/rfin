@@ -176,7 +176,7 @@ pub fn aggregate_cashflows_precise_checked(
     let mut acc = Money::new(0.0, target);
     for &(_d, m) in flows {
         if m.currency() != target {
-            return Err(finstack_core::error::Error::CurrencyMismatch {
+            return Err(finstack_core::Error::CurrencyMismatch {
                 expected: target,
                 actual: m.currency(),
             });
@@ -312,7 +312,7 @@ pub fn pv_by_period_credit_adjusted_with_ctx(
     dc_ctx: DayCountCtx<'_>,
 ) -> finstack_core::Result<IndexMap<PeriodId, IndexMap<Currency, Money>>> {
     let hazard = hazard.ok_or_else(|| {
-        finstack_core::Error::Input(finstack_core::error::InputError::NotFound {
+        finstack_core::Error::Input(finstack_core::InputError::NotFound {
             id: "hazard curve".to_string(),
         })
     })?;
@@ -388,7 +388,7 @@ pub fn pv_by_period_credit_adjusted_detailed(
     date_ctx: DateContext<'_>,
 ) -> finstack_core::Result<IndexMap<PeriodId, IndexMap<Currency, Money>>> {
     let hazard = hazard.ok_or_else(|| {
-        finstack_core::Error::Input(finstack_core::error::InputError::NotFound {
+        finstack_core::Error::Input(finstack_core::InputError::NotFound {
             id: "hazard curve".to_string(),
         })
     })?;

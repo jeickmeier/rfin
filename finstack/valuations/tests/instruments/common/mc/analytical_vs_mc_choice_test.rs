@@ -5,7 +5,7 @@ mod choice_tests {
     use finstack_core::currency::Currency;
     use finstack_core::dates::{Date, DayCount};
     use finstack_core::money::Money;
-    use finstack_core::types::id::{CurveId, InstrumentId};
+    use finstack_core::types::{CurveId, InstrumentId};
     use finstack_valuations::instruments::asian_option::types::{AsianOption, AveragingMethod};
     use finstack_valuations::instruments::OptionType;
     use finstack_valuations::pricer::{

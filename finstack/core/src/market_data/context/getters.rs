@@ -9,13 +9,12 @@ use super::MarketContext;
 
 use crate::market_data::{
     dividends::DividendSchedule,
-    scalars::inflation_index::InflationIndex,
+    scalars::InflationIndex,
     scalars::{MarketScalar, ScalarTimeSeries},
-    surfaces::vol_surface::VolSurface,
+    surfaces::VolSurface,
     term_structures::{
-        base_correlation::BaseCorrelationCurve, credit_index::CreditIndexData,
-        discount_curve::DiscountCurve, forward_curve::ForwardCurve, hazard_curve::HazardCurve,
-        inflation::InflationCurve, vol_index_curve::VolatilityIndexCurve,
+        BaseCorrelationCurve, CreditIndexData, DiscountCurve, ForwardCurve, HazardCurve,
+        InflationCurve, VolatilityIndexCurve,
     },
 };
 
@@ -191,7 +190,7 @@ impl MarketContext {
     /// # Examples
     /// ```rust
     /// # use finstack_core::market_data::context::MarketContext;
-    /// # use finstack_core::market_data::surfaces::vol_surface::VolSurface;
+    /// # use finstack_core::market_data::surfaces::VolSurface;
     /// # let surface = VolSurface::builder("IR-Swaption")
     /// #     .expiries(&[1.0, 2.0])
     /// #     .strikes(&[90.0, 100.0])
@@ -218,7 +217,7 @@ impl MarketContext {
     /// # Examples
     /// ```rust
     /// # use finstack_core::market_data::context::MarketContext;
-    /// # use finstack_core::market_data::surfaces::vol_surface::VolSurface;
+    /// # use finstack_core::market_data::surfaces::VolSurface;
     /// # let surface = VolSurface::builder("IR-Swaption")
     /// #     .expiries(&[1.0, 2.0])
     /// #     .strikes(&[90.0, 100.0])
@@ -302,7 +301,7 @@ impl MarketContext {
     /// # Examples
     /// ```rust
     /// # use finstack_core::market_data::context::MarketContext;
-    /// # use finstack_core::market_data::scalars::inflation_index::{InflationIndex, InflationInterpolation};
+    /// # use finstack_core::market_data::scalars::{InflationIndex, InflationInterpolation};
     /// # use finstack_core::currency::Currency;
     /// # use finstack_core::dates::Date;
     /// # use time::Month;
@@ -326,7 +325,7 @@ impl MarketContext {
     /// # Examples
     /// ```rust
     /// # use finstack_core::market_data::context::MarketContext;
-    /// # use finstack_core::market_data::scalars::inflation_index::{InflationIndex, InflationInterpolation};
+    /// # use finstack_core::market_data::scalars::{InflationIndex, InflationInterpolation};
     /// # use finstack_core::currency::Currency;
     /// # use finstack_core::dates::Date;
     /// # use time::Month;
@@ -362,9 +361,7 @@ impl MarketContext {
     /// # Examples
     /// ```rust
     /// # use finstack_core::market_data::context::MarketContext;
-    /// # use finstack_core::market_data::term_structures::credit_index::CreditIndexData;
-    /// # use finstack_core::market_data::term_structures::hazard_curve::HazardCurve;
-    /// # use finstack_core::market_data::term_structures::base_correlation::BaseCorrelationCurve;
+    /// # use finstack_core::market_data::term_structures::{BaseCorrelationCurve, CreditIndexData, HazardCurve};
     /// # use finstack_core::dates::Date;
     /// # use std::sync::Arc;
     /// # use time::Month;
@@ -403,9 +400,7 @@ impl MarketContext {
     /// # Examples
     /// ```rust
     /// # use finstack_core::market_data::context::MarketContext;
-    /// # use finstack_core::market_data::term_structures::credit_index::CreditIndexData;
-    /// # use finstack_core::market_data::term_structures::hazard_curve::HazardCurve;
-    /// # use finstack_core::market_data::term_structures::base_correlation::BaseCorrelationCurve;
+    /// # use finstack_core::market_data::term_structures::{BaseCorrelationCurve, CreditIndexData, HazardCurve};
     /// # use finstack_core::dates::Date;
     /// # use std::sync::Arc;
     /// # use time::Month;
@@ -446,7 +441,7 @@ impl MarketContext {
     /// # Examples
     /// ```rust
     /// use finstack_core::market_data::context::MarketContext;
-    /// use finstack_core::market_data::term_structures::discount_curve::DiscountCurve;
+    /// use finstack_core::market_data::term_structures::DiscountCurve;
     /// use finstack_core::math::interp::InterpStyle;
     /// use finstack_core::dates::Date;
     /// use finstack_core::types::CurveId;
@@ -479,7 +474,7 @@ impl MarketContext {
     /// # Examples
     /// ```rust
     /// # use finstack_core::market_data::context::MarketContext;
-    /// # use finstack_core::market_data::term_structures::discount_curve::DiscountCurve;
+    /// # use finstack_core::market_data::term_structures::DiscountCurve;
     /// # use finstack_core::math::interp::InterpStyle;
     /// # use finstack_core::dates::Date;
     /// # use finstack_core::types::CurveId;

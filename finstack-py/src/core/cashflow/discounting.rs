@@ -34,7 +34,7 @@ use crate::core::dates::PyDayCount;
 use crate::core::market_data::term_structures::PyDiscountCurve;
 use crate::core::money::{extract_money, PyMoney};
 use crate::errors::{core_to_py, PyContext};
-use finstack_core::cashflow::discounting::{npv, npv_using_curve_dc};
+use finstack_core::cashflow::{npv, npv_using_curve_dc};
 use pyo3::prelude::*;
 use pyo3::types::{PyList, PyModule};
 use pyo3::Bound;

@@ -79,7 +79,7 @@ impl Evaluator {
     /// ```rust,no_run
     /// use finstack_statements::prelude::Evaluator;
     /// use finstack_core::market_data::context::MarketContext;
-    /// use finstack_core::market_data::term_structures::discount_curve::DiscountCurve;
+    /// use finstack_core::market_data::term_structures::DiscountCurve;
     /// use finstack_statements::types::FinancialModelSpec;
     /// use time::macros::date;
     ///

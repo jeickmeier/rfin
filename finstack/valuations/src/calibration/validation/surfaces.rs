@@ -1,7 +1,7 @@
 //! Surface validators (volatility surfaces).
 
 use crate::calibration::validation::ValidationConfig;
-use finstack_core::market_data::surfaces::vol_surface::VolSurface;
+use finstack_core::market_data::surfaces::VolSurface;
 use finstack_core::{Error, Result};
 
 /// Validation for volatility surfaces.

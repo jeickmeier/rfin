@@ -9,10 +9,10 @@ use crate::instruments::structured_credit::types::{
     RoundingConvention, TrancheStructure, Waterfall, WaterfallDistribution, WaterfallTier,
     WaterfallWorkspace,
 };
-use finstack_core::collections::HashMap;
+use finstack_core::HashMap;
 use finstack_core::currency::Currency;
 use finstack_core::dates::{Date, DayCount, DayCountCtx};
-use finstack_core::error::Error as CoreError;
+use finstack_core::Error as CoreError;
 use finstack_core::explain::{ExplainOpts, ExplanationTrace, TraceEntry};
 use finstack_core::market_data::context::MarketContext;
 use finstack_core::money::Money;
@@ -726,7 +726,7 @@ fn calculate_payment_amount(
             rounding,
         } => {
             let idx = *tranche_index.get(tranche_id.as_str()).ok_or_else(|| {
-                CoreError::from(finstack_core::error::InputError::NotFound {
+                CoreError::from(finstack_core::InputError::NotFound {
                     id: format!("tranche:{}", tranche_id),
                 })
             })?;
@@ -749,7 +749,7 @@ fn calculate_payment_amount(
             rounding,
         } => {
             let idx = *tranche_index.get(tranche_id.as_str()).ok_or_else(|| {
-                CoreError::from(finstack_core::error::InputError::NotFound {
+                CoreError::from(finstack_core::InputError::NotFound {
                     id: format!("tranche:{}", tranche_id),
                 })
             })?;

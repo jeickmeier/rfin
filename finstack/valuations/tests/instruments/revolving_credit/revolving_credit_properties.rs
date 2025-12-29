@@ -265,7 +265,7 @@ proptest! {
 
         // All fee cashflows should be non-negative (from lender perspective, fees are paid by borrower)
         for cf in &schedule.flows {
-            if cf.kind == finstack_core::cashflow::primitives::CFKind::Fee {
+            if cf.kind == finstack_core::cashflow::CFKind::Fee {
                 prop_assert!(cf.amount.amount() >= 0.0,
                     "Fee cashflows should be non-negative");
             }

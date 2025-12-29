@@ -18,7 +18,7 @@ impl MetricCalculator for ImpliedVolCalculator {
 
         // Need market price to solve for implied volatility
         let market_price = option.pricing_overrides.quoted_clean_price.ok_or_else(|| {
-            finstack_core::Error::Input(finstack_core::error::InputError::NotFound {
+            finstack_core::Error::Input(finstack_core::InputError::NotFound {
                 id: "Market price required for implied vol".to_string(),
             })
         })?;

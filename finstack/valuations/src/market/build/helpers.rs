@@ -3,7 +3,7 @@
 use finstack_core::dates::{
     adjust, BusinessDayConvention, CalendarRegistry, Date, DateExt, HolidayCalendar,
 };
-use finstack_core::error::Error;
+use finstack_core::Error;
 use finstack_core::Result;
 
 /// Resolve a holiday calendar by ID from the global registry.

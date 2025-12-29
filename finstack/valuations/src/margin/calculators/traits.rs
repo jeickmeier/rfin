@@ -30,7 +30,7 @@ pub struct ImResult {
     ///
     /// Keys are risk class names (e.g., "interest_rate", "credit", "equity")
     /// Values are IM amounts for that risk class
-    pub breakdown: finstack_core::collections::HashMap<String, Money>,
+    pub breakdown: finstack_core::HashMap<String, Money>,
 
     /// Any add-ons applied (e.g., jump-to-default for credit)
     pub addons: Vec<ImAddon>,
@@ -45,7 +45,7 @@ impl ImResult {
             methodology,
             as_of,
             mpor_days,
-            breakdown: finstack_core::collections::HashMap::default(),
+            breakdown: finstack_core::HashMap::default(),
             addons: vec![],
         }
     }
@@ -57,7 +57,7 @@ impl ImResult {
         methodology: ImMethodology,
         as_of: Date,
         mpor_days: u32,
-        breakdown: finstack_core::collections::HashMap<String, Money>,
+        breakdown: finstack_core::HashMap<String, Money>,
     ) -> Self {
         Self {
             amount,

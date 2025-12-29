@@ -163,6 +163,26 @@
 //! - [`covenants`]: Covenant checking for structured products
 //! - [`schema`]: JSON Schema generation for API contracts
 //!
+//! # Public API surface (supported)
+//!
+//! The crate intentionally exposes a small “front door” for downstream users and
+//! bindings. Supported entry points:
+//! - [`instruments`]: concrete instrument types, construction parameters, [`instruments::Instrument`], [`instruments::Attributes`]
+//! - [`pricer`]: [`pricer::PricerRegistry`], [`pricer::ModelKey`], [`pricer::InstrumentType`], [`pricer::PricingError`], [`pricer::create_standard_registry`]
+//! - [`results`]: [`results::ValuationResult`], [`finstack_core::config::ResultsMeta`]
+//! - [`metrics`]: [`metrics::MetricId`], [`metrics::MetricRegistry`], [`metrics::MetricCalculator`], [`metrics::MetricContext`], [`metrics::StrictMode`], [`metrics::standard_registry`], plus VaR/Risk entry points
+//! - [`market`]: quote schemas and conventions
+//! - [`calibration::api`]: plan schema and execution engine (contract-only surface)
+//! - [`attribution`]: attribution envelopes, methods, and execution functions
+//! - [`covenants`]: covenant specs, engine, and forecasting helpers
+//! - [`margin`]: core margin/netting types and top-level calculators used by portfolio
+//! - [`schema`]: JSON-Schema helpers for bindings/UI
+//!
+//! Everything else is considered implementation detail and may change. Some
+//! legacy paths remain temporarily available under `#[deprecated]` re-exports
+//! for one release to ease migration; new code should use the supported surface
+//! above.
+//!
 //! # Supported Instruments
 //!
 //! ## Fixed Income
@@ -279,6 +299,7 @@ pub mod results;
 pub mod schema;
 
 /// Test utilities - available for integration tests and examples.
+#[cfg(any(test, feature = "test-utils"))]
 pub mod test_utils;
 
 // Export macros before instruments module

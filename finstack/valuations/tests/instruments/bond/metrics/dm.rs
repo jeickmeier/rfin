@@ -1,7 +1,7 @@
 //! Discount margin calculator tests.
 
 use finstack_core::currency::Currency;
-use finstack_core::error::{Error, InputError};
+use finstack_core::{Error, InputError};
 use finstack_core::money::Money;
 use finstack_valuations::instruments::bond::metrics::DiscountMarginCalculator;
 use finstack_valuations::instruments::bond::Bond;
@@ -100,8 +100,8 @@ fn test_dm_missing_forward_curve_returns_error() {
 fn test_dm_solver_convergence_across_spread_regimes() {
     use finstack_core::dates::{DayCount, Tenor};
     use finstack_core::market_data::context::MarketContext;
-    use finstack_core::market_data::term_structures::discount_curve::DiscountCurve;
-    use finstack_core::market_data::term_structures::forward_curve::ForwardCurve;
+    use finstack_core::market_data::term_structures::DiscountCurve;
+    use finstack_core::market_data::term_structures::ForwardCurve;
     use finstack_core::math::interp::InterpStyle;
     use finstack_valuations::instruments::PricingOverrides;
 
@@ -226,7 +226,7 @@ fn test_dm_solver_convergence_across_spread_regimes() {
 fn test_dm_requires_accrued_when_clean_price_present() {
     use finstack_core::dates::DayCount;
     use finstack_core::market_data::context::MarketContext;
-    use finstack_core::market_data::term_structures::discount_curve::DiscountCurve;
+    use finstack_core::market_data::term_structures::DiscountCurve;
     use finstack_core::math::interp::InterpStyle;
     use finstack_valuations::instruments::PricingOverrides;
 

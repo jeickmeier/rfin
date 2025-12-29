@@ -4,7 +4,7 @@
 //! cashflows to CMO tranches according to their priority and type.
 
 use super::types::{CmoTranche, CmoTrancheType, CmoWaterfall};
-use finstack_core::collections::HashMap;
+use finstack_core::HashMap;
 use finstack_core::money::Money;
 
 /// Cashflow allocation for a single period.

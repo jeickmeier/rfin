@@ -26,7 +26,7 @@
 //! # }
 //! ```
 
-pub mod vol_surface;
+mod vol_surface;
 
 // Re-export for ergonomic access
 pub use vol_surface::*;

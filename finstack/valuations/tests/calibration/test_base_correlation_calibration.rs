@@ -2,7 +2,7 @@
 
 use finstack_core::dates::{BusinessDayConvention, Date, DayCount, Tenor};
 use finstack_core::market_data::context::MarketContext;
-use finstack_core::market_data::term_structures::discount_curve::DiscountCurve;
+use finstack_core::market_data::term_structures::DiscountCurve;
 use finstack_core::market_data::term_structures::{
     BaseCorrelationCurve, CreditIndexData, HazardCurve,
 };
@@ -18,7 +18,7 @@ use finstack_valuations::instruments::cds_tranche::{CdsTranche, TrancheSide};
 use finstack_valuations::instruments::common::traits::Attributes;
 use finstack_valuations::market::conventions::ids::{CdsConventionKey, CdsDocClause};
 
-use finstack_core::collections::HashMap;
+use finstack_core::HashMap;
 use finstack_valuations::market::quotes::cds_tranche::CdsTrancheQuote;
 use finstack_valuations::market::quotes::ids::QuoteId;
 use finstack_valuations::market::quotes::market_quote::MarketQuote;

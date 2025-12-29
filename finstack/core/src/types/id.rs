@@ -42,7 +42,7 @@
 //!
 //! ```rust
 //! use finstack_core::types::CurveId;
-//! use finstack_core::collections::HashMap;
+//! use finstack_core::HashMap;
 //!
 //! let mut curves = HashMap::default();
 //! curves.insert(CurveId::from("USD-OIS"), 0.045);

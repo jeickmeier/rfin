@@ -5,7 +5,7 @@
 //! checked values (error on out-of-bounds), or clamped values. Use this when
 //! pricing options or any model requiring a volatility surface.
 use crate::errors::core_to_py;
-use finstack_core::market_data::surfaces::vol_surface::VolSurface;
+use finstack_core::market_data::surfaces::VolSurface;
 use pyo3::exceptions::PyValueError;
 use pyo3::prelude::*;
 use pyo3::types::{PyList, PyModule};

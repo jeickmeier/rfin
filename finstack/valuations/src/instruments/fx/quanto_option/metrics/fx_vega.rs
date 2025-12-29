@@ -35,7 +35,7 @@ impl MetricCalculator for FxVegaCalculator {
 
         // Get FX volatility surface (if provided)
         let fx_vol_id = option.fx_vol_id.as_ref().ok_or_else(|| {
-            finstack_core::Error::from(finstack_core::error::InputError::NotFound {
+            finstack_core::Error::from(finstack_core::InputError::NotFound {
                 id: "fx_vol_id not provided for quanto option".to_string(),
             })
         })?;

@@ -1,6 +1,6 @@
 //! Parity tests for Calibration v2.
 
-use finstack_core::collections::HashMap;
+use finstack_core::HashMap;
 use finstack_core::dates::{Date, Tenor};
 use finstack_core::market_data::context::{MarketContext, MarketContextState};
 use finstack_core::math::interp::ExtrapolationPolicy;

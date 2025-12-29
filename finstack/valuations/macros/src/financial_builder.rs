@@ -200,7 +200,7 @@ pub fn derive_financial_builder_impl(input: TokenStream) -> TokenStream {
             let expr_clone = expr.clone();
             quote! { #id: self.#id.unwrap_or(#expr_clone) }
         } else {
-            quote! { #id: self.#id.ok_or(finstack_core::error::InputError::Invalid)? }
+            quote! { #id: self.#id.ok_or(finstack_core::InputError::Invalid)? }
         }
     });
 
@@ -239,7 +239,7 @@ pub fn derive_financial_builder_impl(input: TokenStream) -> TokenStream {
         };
         post_build_checks.extend(quote! {
             if __built.start_date >= #maturity_field {
-                return ::core::result::Result::Err(finstack_core::error::InputError::InvalidDateRange.into());
+                return ::core::result::Result::Err(finstack_core::InputError::InvalidDateRange.into());
             }
         });
     }
@@ -254,14 +254,14 @@ pub fn derive_financial_builder_impl(input: TokenStream) -> TokenStream {
         };
         post_build_checks.extend(quote! {
             if __built.issue >= #maturity_field {
-                return ::core::result::Result::Err(finstack_core::error::InputError::InvalidDateRange.into());
+                return ::core::result::Result::Err(finstack_core::InputError::InvalidDateRange.into());
             }
         });
     }
     if has_strike_variance {
         post_build_checks.extend(quote! {
             if __built.strike_variance < 0.0 {
-                return ::core::result::Result::Err(finstack_core::error::InputError::NegativeValue.into());
+                return ::core::result::Result::Err(finstack_core::InputError::NegativeValue.into());
             }
         });
     }

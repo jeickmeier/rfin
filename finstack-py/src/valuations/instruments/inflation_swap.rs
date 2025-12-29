@@ -151,7 +151,7 @@ impl PyInflationSwap {
         builder = builder.side(side_value);
         if let Some(lag) = lag_override {
             let normalized = crate::core::common::labels::normalize_label(lag);
-            use finstack_core::market_data::scalars::inflation_index::InflationLag;
+            use finstack_core::market_data::scalars::InflationLag;
             let lag_value = match normalized.as_str() {
                 "none" => InflationLag::None,
                 "3m" | "three_months" => InflationLag::Months(3),

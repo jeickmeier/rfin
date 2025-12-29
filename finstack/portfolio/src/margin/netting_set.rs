@@ -4,7 +4,7 @@
 //! other for margin calculation purposes, typically defined by a master
 //! agreement (CSA) or clearing membership.
 
-use finstack_core::collections::HashMap;
+use finstack_core::HashMap;
 use finstack_valuations::margin::{NettingSetId, OtcMarginSpec, SimmSensitivities};
 
 use crate::position::Position;

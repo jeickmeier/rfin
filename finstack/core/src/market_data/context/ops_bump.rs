@@ -11,8 +11,7 @@ use super::curve_storage::CurveStorage;
 use super::MarketContext;
 
 use crate::market_data::term_structures::{
-    base_correlation::BaseCorrelationCurve, discount_curve::DiscountCurve,
-    forward_curve::ForwardCurve, inflation::InflationCurve, vol_index_curve::VolatilityIndexCurve,
+    BaseCorrelationCurve, DiscountCurve, ForwardCurve, InflationCurve, VolatilityIndexCurve,
 };
 
 impl MarketContext {
@@ -87,9 +86,9 @@ impl MarketContext {
     ///
     /// # Example
     /// ```rust
-    /// # use finstack_core::collections::HashMap;
+    /// # use finstack_core::HashMap;
     /// # use finstack_core::market_data::context::{MarketContext, BumpSpec};
-    /// # use finstack_core::market_data::term_structures::discount_curve::DiscountCurve;
+    /// # use finstack_core::market_data::term_structures::DiscountCurve;
     /// # use finstack_core::dates::Date;
     /// # use finstack_core::types::CurveId;
     /// # let curve = DiscountCurve::builder("USD-OIS")

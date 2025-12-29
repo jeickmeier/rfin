@@ -4,7 +4,7 @@
 //! related to user-supplied data. This includes structural issues, value
 //! constraints, date/calendar problems, and missing references.
 
-use crate::dates::calendar::business_days::BusinessDayConvention;
+use crate::dates::BusinessDayConvention;
 use thiserror::Error;
 use time::Date;
 
@@ -25,7 +25,7 @@ use super::suggestions::format_suggestions;
 /// # Examples
 ///
 /// ```rust
-/// use finstack_core::error::InputError;
+/// use finstack_core::InputError;
 ///
 /// // Too few data points
 /// let err = InputError::TooFewPoints;

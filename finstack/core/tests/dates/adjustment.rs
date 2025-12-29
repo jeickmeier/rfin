@@ -10,11 +10,9 @@
 //! Also includes edge cases for consecutive holidays and infinite loop guards.
 
 use super::common::{make_date, TestCal};
-use finstack_core::dates::calendar::business_days::{
-    BusinessDayConvention, CalendarMetadata, HolidayCalendar,
-};
+use finstack_core::dates::{BusinessDayConvention, CalendarMetadata, HolidayCalendar};
 use finstack_core::dates::{adjust, available_calendars};
-use finstack_core::error::InputError;
+use finstack_core::InputError;
 use time::Date;
 
 // ============================================

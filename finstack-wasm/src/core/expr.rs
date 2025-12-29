@@ -9,7 +9,7 @@
 use crate::core::error::js_error;
 use crate::valuations::results::JsResultsMeta;
 use finstack_core::expr::{
-    dag::ExecutionPlan, BinOp, CompiledExpr as CoreCompiledExpr, EvalOpts, EvaluationResult,
+    BinOp, CompiledExpr as CoreCompiledExpr, EvalOpts, EvaluationResult, ExecutionPlan,
     Expr as CoreExpr, Function, SimpleContext, UnaryOp,
 };
 use js_sys::Array;

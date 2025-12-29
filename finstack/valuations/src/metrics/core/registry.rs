@@ -8,7 +8,7 @@ use super::ids::MetricId;
 use super::traits::{MetricCalculator, MetricContext};
 
 use crate::pricer::InstrumentType;
-use finstack_core::collections::HashMap;
+use finstack_core::HashMap;
 use std::sync::Arc;
 
 /// Metric computation mode.
@@ -393,9 +393,9 @@ impl MetricRegistry {
         metric_ids: &[MetricId],
         instrument_type: InstrumentType,
     ) -> finstack_core::Result<Vec<MetricId>> {
-        let mut visited = finstack_core::collections::HashSet::default();
+        let mut visited = finstack_core::HashSet::default();
         let mut order = Vec::new();
-        let mut temp_mark = finstack_core::collections::HashSet::default();
+        let mut temp_mark = finstack_core::HashSet::default();
         let mut path = Vec::new();
 
         for id in metric_ids {
@@ -421,8 +421,8 @@ impl MetricRegistry {
         &self,
         id: MetricId,
         instrument_type: InstrumentType,
-        visited: &mut finstack_core::collections::HashSet<MetricId>,
-        temp_mark: &mut finstack_core::collections::HashSet<MetricId>,
+        visited: &mut finstack_core::HashSet<MetricId>,
+        temp_mark: &mut finstack_core::HashSet<MetricId>,
         order: &mut Vec<MetricId>,
         path: &mut Vec<MetricId>,
     ) -> finstack_core::Result<()> {
@@ -566,7 +566,7 @@ mod tests {
     impl MetricCalculator for FailCalculator {
         fn calculate(&self, _ctx: &mut MetricContext) -> finstack_core::Result<f64> {
             Err(finstack_core::Error::Input(
-                finstack_core::error::InputError::Invalid,
+                finstack_core::InputError::Invalid,
             ))
         }
     }

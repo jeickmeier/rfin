@@ -3,9 +3,9 @@
 use finstack_core::currency::Currency;
 use finstack_core::dates::Date;
 use finstack_core::market_data::context::MarketContext;
-use finstack_core::market_data::term_structures::discount_curve::DiscountCurve;
+use finstack_core::market_data::term_structures::DiscountCurve;
 use finstack_core::market_data::term_structures::{
-    hazard_curve::HazardCurve, BaseCorrelationCurve, CreditIndexData,
+    BaseCorrelationCurve, CreditIndexData, HazardCurve,
 };
 use finstack_core::money::Money;
 use finstack_valuations::cashflow::builder::ScheduleParams;
@@ -103,7 +103,7 @@ pub fn market_context_with_issuers(n: usize) -> MarketContext {
 
     let base_corr_curve = standard_correlation_curve();
 
-    let mut issuer_curves = finstack_core::collections::HashMap::default();
+    let mut issuer_curves = finstack_core::HashMap::default();
     for i in 0..n {
         let id = format!("ISSUER-{:03}", i + 1);
         let bump = (i as f64) * 0.001;

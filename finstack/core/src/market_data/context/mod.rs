@@ -22,7 +22,7 @@
 //! # Examples
 //! ```rust
 //! use finstack_core::market_data::context::MarketContext;
-//! use finstack_core::market_data::term_structures::discount_curve::DiscountCurve;
+//! use finstack_core::market_data::term_structures::DiscountCurve;
 //! use finstack_core::math::interp::InterpStyle;
 //! use finstack_core::types::CurveId;
 //! use finstack_core::dates::Date;
@@ -66,10 +66,10 @@ use crate::types::{CurveId, InstrumentId};
 
 use super::{
     dividends::DividendSchedule,
-    scalars::inflation_index::InflationIndex,
+    scalars::InflationIndex,
     scalars::{MarketScalar, ScalarTimeSeries},
-    surfaces::vol_surface::VolSurface,
-    term_structures::credit_index::CreditIndexData,
+    surfaces::VolSurface,
+    term_structures::CreditIndexData,
 };
 
 /// Unified market data context with enum-based storage.

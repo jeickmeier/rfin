@@ -8,7 +8,7 @@ use crate::instruments::common::traits::Instrument;
 use crate::metrics::risk::MarketHistory;
 use crate::metrics::sensitivities::dv01::format_bucket_label;
 use crate::metrics::{standard_registry, MetricContext, MetricId, StrictMode};
-use finstack_core::collections::HashMap;
+use finstack_core::HashMap;
 use finstack_core::dates::Date;
 use finstack_core::market_data::context::MarketContext;
 use finstack_core::market_data::scalars::MarketScalar;
@@ -754,7 +754,7 @@ mod tests {
         let pnls = vec![10.0, f64::NAN, -5.0];
         let err = VarResult::from_distribution(pnls, 0.95).expect_err("should reject NaNs");
         match err {
-            finstack_core::error::Error::Validation(msg) => {
+            finstack_core::Error::Validation(msg) => {
                 assert!(
                     msg.contains("non-finite"),
                     "error message should mention non-finite values"

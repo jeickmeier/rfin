@@ -3,7 +3,7 @@
 use super::json::{build_lookup_map_mapped, RegistryFile};
 use crate::market::conventions::defs::IrFutureConventions;
 use crate::market::conventions::ids::{IndexId, IrFutureContractId};
-use finstack_core::collections::HashMap;
+use finstack_core::HashMap;
 use finstack_core::Error;
 
 #[derive(Clone, Debug, serde::Deserialize)]

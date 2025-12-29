@@ -72,7 +72,7 @@ pub(super) fn build_payment_dates(
     }
 
     if payment_dates.len() < 2 {
-        return Err(finstack_core::error::InputError::TooFewPoints.into());
+        return Err(finstack_core::InputError::TooFewPoints.into());
     }
 
     Ok(payment_dates)

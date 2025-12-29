@@ -375,7 +375,7 @@ mod tests {
             knots
                 .last()
                 .map(|(_, v)| *v)
-                .ok_or(Error::Input(finstack_core::error::InputError::TooFewPoints))
+                .ok_or(Error::Input(finstack_core::InputError::TooFewPoints))
         }
 
         fn build_curve_for_solver(&self, knots: &[(f64, f64)]) -> Result<Self::Curve> {
@@ -525,7 +525,7 @@ mod tests {
                 knots
                     .last()
                     .map(|(_, v)| *v)
-                    .ok_or(Error::Input(finstack_core::error::InputError::TooFewPoints))
+                    .ok_or(Error::Input(finstack_core::InputError::TooFewPoints))
             }
 
             fn calculate_residual(&self, curve: &Self::Curve, quote: &Self::Quote) -> Result<f64> {

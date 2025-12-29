@@ -33,7 +33,7 @@
 //!
 //! # Examples
 //! ```rust
-//! use finstack_core::market_data::surfaces::vol_surface::VolSurface;
+//! use finstack_core::market_data::surfaces::VolSurface;
 //! use finstack_core::types::CurveId;
 //!
 //! let surface = VolSurface::builder("EQ-FLAT")
@@ -123,7 +123,7 @@ impl VolSurface {
     ///
     /// # Examples
     /// ```rust
-    /// use finstack_core::market_data::surfaces::vol_surface::VolSurface;
+    /// use finstack_core::market_data::surfaces::VolSurface;
     /// # fn main() -> finstack_core::Result<()> {
     ///
     /// let surface = VolSurface::builder("IR-SWAPTION")
@@ -267,7 +267,7 @@ impl VolSurface {
     ///
     /// # Examples
     /// ```rust
-    /// use finstack_core::market_data::surfaces::vol_surface::VolSurface;
+    /// use finstack_core::market_data::surfaces::VolSurface;
     /// # fn main() -> Result<(), Box<dyn std::error::Error>> {
     ///
     /// let surface = VolSurface::builder("EQ-VOL")

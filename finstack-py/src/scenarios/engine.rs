@@ -8,7 +8,7 @@ use crate::scenarios::reports::PyApplicationReport;
 use crate::scenarios::spec::{PyRateBindingSpec, PyScenarioSpec};
 use crate::statements::types::model::PyFinancialModelSpec;
 use crate::valuations::instruments::extract_instrument;
-use finstack_core::collections::HashMap;
+use finstack_core::HashMap;
 use finstack_scenarios::engine::{ExecutionContext, ScenarioEngine};
 use finstack_scenarios::spec::RateBindingSpec;
 use finstack_scenarios::ScenarioSpec;

@@ -32,7 +32,7 @@ impl MetricCalculator for ForwardPoints {
             Some(rate) => rate,
             None => {
                 let fx_matrix = curves.fx.as_ref().ok_or_else(|| {
-                    finstack_core::Error::from(finstack_core::error::InputError::NotFound {
+                    finstack_core::Error::from(finstack_core::InputError::NotFound {
                         id: "fx_matrix".to_string(),
                     })
                 })?;

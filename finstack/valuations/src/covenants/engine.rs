@@ -286,7 +286,7 @@ pub enum CovenantConsequence {
 }
 use crate::metrics::{MetricContext, MetricId};
 
-use finstack_core::collections::HashMap;
+use finstack_core::HashMap;
 use indexmap::IndexMap;
 use std::sync::Arc;
 
@@ -550,7 +550,7 @@ impl CovenantEngine {
                 .find(|s| {
                     self.get_covenant_description(&s.covenant.covenant_type) == breach.covenant_type
                 })
-                .ok_or(finstack_core::error::InputError::NotFound {
+                .ok_or(finstack_core::InputError::NotFound {
                     id: format!("covenant_spec:{}", breach.covenant_type),
                 })?;
 
@@ -699,7 +699,7 @@ impl CovenantEngine {
             }
         }
 
-        Err(finstack_core::error::InputError::NotFound {
+        Err(finstack_core::InputError::NotFound {
             id: "covenant_description".to_string(),
         }
         .into())

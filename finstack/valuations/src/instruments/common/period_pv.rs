@@ -23,7 +23,7 @@
 //! use finstack_core::currency::Currency;
 //! use finstack_core::money::Money;
 //! use finstack_core::market_data::context::MarketContext;
-//! use finstack_core::market_data::term_structures::discount_curve::DiscountCurve;
+//! use finstack_core::market_data::term_structures::DiscountCurve;
 //! use time::Month;
 //!
 //! # fn main() -> Result<(), Box<dyn std::error::Error>> {
@@ -254,7 +254,7 @@ pub trait PeriodizedPvExt: CashflowProvider + HasDiscountCurve {
         dc: DayCount,
     ) -> finstack_core::Result<IndexMap<PeriodId, IndexMap<Currency, Money>>> {
         let hazard_curve_id = hazard_curve_id.ok_or_else(|| {
-            finstack_core::Error::Input(finstack_core::error::InputError::NotFound {
+            finstack_core::Error::Input(finstack_core::InputError::NotFound {
                 id: "hazard curve id".to_string(),
             })
         })?;
@@ -296,8 +296,8 @@ mod tests {
     use crate::instruments::Bond;
     use finstack_core::currency::Currency;
     use finstack_core::dates::DayCountCtx;
-    use finstack_core::market_data::term_structures::discount_curve::DiscountCurve;
-    use finstack_core::market_data::term_structures::hazard_curve::HazardCurve;
+    use finstack_core::market_data::term_structures::DiscountCurve;
+    use finstack_core::market_data::term_structures::HazardCurve;
     use finstack_core::math::interp::InterpStyle;
     use time::Month;
 
@@ -403,7 +403,7 @@ mod tests {
     #[test]
     fn test_periodized_pv_bond_floating_uses_builder_rates() {
         use finstack_core::dates::Tenor;
-        use finstack_core::market_data::term_structures::forward_curve::ForwardCurve;
+        use finstack_core::market_data::term_structures::ForwardCurve;
 
         let issue = Date::from_calendar_date(2025, Month::January, 1).expect("Valid test date");
         let maturity = Date::from_calendar_date(2026, Month::January, 1).expect("Valid test date");

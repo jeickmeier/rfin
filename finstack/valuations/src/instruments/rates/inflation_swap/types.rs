@@ -5,7 +5,7 @@ use finstack_core::dates::{
     BusinessDayConvention, Date, DateExt, DayCount, DayCountCtx, StubKind, Tenor,
 };
 use finstack_core::market_data::context::MarketContext;
-use finstack_core::market_data::scalars::inflation_index::InflationLag;
+use finstack_core::market_data::scalars::InflationLag;
 use finstack_core::money::Money;
 use finstack_core::types::{CurveId, InstrumentId, Rate};
 
@@ -138,14 +138,14 @@ impl InflationSwap {
     /// - `base_cpi` is provided but non-positive
     pub fn validate(&self) -> finstack_core::Result<()> {
         if self.start >= self.maturity {
-            return Err(finstack_core::error::InputError::InvalidDateRange.into());
+            return Err(finstack_core::InputError::InvalidDateRange.into());
         }
         if self.notional.amount() <= 0.0 {
-            return Err(finstack_core::error::InputError::NonPositiveValue.into());
+            return Err(finstack_core::InputError::NonPositiveValue.into());
         }
         if let Some(base) = self.base_cpi {
             if base <= 0.0 {
-                return Err(finstack_core::error::InputError::NonPositiveValue.into());
+                return Err(finstack_core::InputError::NonPositiveValue.into());
             }
         }
         Ok(())
@@ -220,7 +220,7 @@ impl InflationSwap {
         };
 
         if i_start <= 0.0 {
-            return Err(finstack_core::error::InputError::NonPositiveValue.into());
+            return Err(finstack_core::InputError::NonPositiveValue.into());
         }
 
         // For maturity projection, use curve-based lookup with lag applied
@@ -258,7 +258,7 @@ impl InflationSwap {
     fn adjusted_payment_date(&self, date: Date) -> Date {
         let bdc = self.bdc.unwrap_or(BusinessDayConvention::Following);
         if let Some(ref cal_id) = self.calendar_id {
-            use finstack_core::dates::calendar::registry::CalendarRegistry;
+            use finstack_core::dates::CalendarRegistry;
             if let Some(cal) = CalendarRegistry::global().resolve_str(cal_id) {
                 return finstack_core::dates::adjust(date, bdc, cal).unwrap_or(date);
             }
@@ -360,7 +360,7 @@ impl InflationSwap {
         let index_ratio = self.projected_index_ratio(curves, base)?;
 
         if index_ratio <= 0.0 {
-            return Err(finstack_core::error::InputError::NonPositiveValue.into());
+            return Err(finstack_core::InputError::NonPositiveValue.into());
         }
 
         let tau = self.dc.year_fraction(
@@ -525,13 +525,13 @@ impl YoYInflationSwap {
     /// Validate structural invariants of the YoY inflation swap.
     pub fn validate(&self) -> finstack_core::Result<()> {
         if self.start >= self.maturity {
-            return Err(finstack_core::error::InputError::InvalidDateRange.into());
+            return Err(finstack_core::InputError::InvalidDateRange.into());
         }
         if self.notional.amount() <= 0.0 {
-            return Err(finstack_core::error::InputError::NonPositiveValue.into());
+            return Err(finstack_core::InputError::NonPositiveValue.into());
         }
         if self.frequency.count == 0 {
-            return Err(finstack_core::error::InputError::Invalid.into());
+            return Err(finstack_core::InputError::Invalid.into());
         }
         Ok(())
     }
@@ -570,7 +570,7 @@ impl YoYInflationSwap {
     fn adjusted_payment_date(&self, date: Date) -> Date {
         let bdc = self.bdc.unwrap_or(BusinessDayConvention::Following);
         if let Some(ref cal_id) = self.calendar_id {
-            use finstack_core::dates::calendar::registry::CalendarRegistry;
+            use finstack_core::dates::CalendarRegistry;
             if let Some(cal) = CalendarRegistry::global().resolve_str(cal_id) {
                 return finstack_core::dates::adjust(date, bdc, cal).unwrap_or(date);
             }
@@ -610,7 +610,7 @@ impl YoYInflationSwap {
 
         if schedule.dates.len() < 2 {
             return Err(finstack_core::Error::Input(
-                finstack_core::error::InputError::Invalid,
+                finstack_core::InputError::Invalid,
             ));
         }
 
@@ -634,7 +634,7 @@ impl YoYInflationSwap {
 
             let cpi_start = self.cpi_value(curves, as_of, start)?;
             if cpi_start <= 0.0 {
-                return Err(finstack_core::error::InputError::NonPositiveValue.into());
+                return Err(finstack_core::InputError::NonPositiveValue.into());
             }
             let cpi_end = self.cpi_value(curves, as_of, end)?;
 

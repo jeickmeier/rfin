@@ -6,9 +6,8 @@
 
 use super::scalars::{MarketScalar, ScalarTimeSeries};
 use super::term_structures::{
-    base_correlation::BaseCorrelationCurve, discount_curve::DiscountCurve,
-    forward_curve::ForwardCurve, hazard_curve::HazardCurve, inflation::InflationCurve,
-    vol_index_curve::VolatilityIndexCurve,
+    BaseCorrelationCurve, DiscountCurve, ForwardCurve, HazardCurve, InflationCurve,
+    VolatilityIndexCurve,
 };
 use crate::currency::Currency;
 use crate::dates::Date;

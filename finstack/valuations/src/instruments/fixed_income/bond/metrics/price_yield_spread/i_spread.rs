@@ -86,7 +86,7 @@ impl MetricCalculator for ISpreadCalculator {
             .get(&MetricId::Ytm)
             .copied()
             .ok_or_else(|| {
-                finstack_core::Error::from(finstack_core::error::InputError::NotFound {
+                finstack_core::Error::from(finstack_core::InputError::NotFound {
                     id: "metric:Ytm".to_string(),
                 })
             })?;

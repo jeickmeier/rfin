@@ -65,7 +65,7 @@ impl PoolState {
 
         // Build unique curve index
         let mut unique_curves = Vec::new();
-        let mut curve_map = finstack_core::collections::HashMap::default();
+        let mut curve_map = finstack_core::HashMap::default();
         let mut curve_indices = Vec::with_capacity(n);
 
         for id_opt in &index_ids {

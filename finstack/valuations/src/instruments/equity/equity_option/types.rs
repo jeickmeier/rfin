@@ -417,8 +417,7 @@ mod tests {
         currency::Currency,
         dates::{Date, DayCount},
         market_data::{
-            context::MarketContext, scalars::MarketScalar,
-            term_structures::discount_curve::DiscountCurve,
+            context::MarketContext, scalars::MarketScalar, term_structures::DiscountCurve,
         },
         money::Money,
         types::{CurveId, InstrumentId},

@@ -934,7 +934,7 @@ impl BondFuture {
             .deliverable_basket
             .iter()
             .find(|db| db.bond_id == self.ctd_bond_id)
-            .ok_or_else(|| finstack_core::error::InputError::NotFound {
+            .ok_or_else(|| finstack_core::InputError::NotFound {
                 id: format!(
                     "CTD bond {} not found in deliverable basket",
                     self.ctd_bond_id.as_str()
@@ -1603,7 +1603,7 @@ impl crate::instruments::common::traits::Instrument for BondFuture {
         let ctd_bond = ctd_bond_any
             .downcast_ref::<crate::instruments::bond::Bond>()
             .ok_or_else(|| {
-                finstack_core::Error::Input(finstack_core::error::InputError::NotFound {
+                finstack_core::Error::Input(finstack_core::InputError::NotFound {
                     id: format!(
                         "CTD bond (ID: {}) is not a Bond type",
                         self.ctd_bond_id.as_str()
@@ -1617,7 +1617,7 @@ impl crate::instruments::common::traits::Instrument for BondFuture {
             .iter()
             .find(|bond| bond.bond_id == self.ctd_bond_id)
             .ok_or_else(|| {
-                finstack_core::Error::Input(finstack_core::error::InputError::NotFound {
+                finstack_core::Error::Input(finstack_core::InputError::NotFound {
                     id: format!(
                         "CTD bond {} not found in deliverable basket",
                         self.ctd_bond_id.as_str()

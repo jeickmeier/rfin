@@ -8,10 +8,9 @@ fn main() -> finstack_core::Result<()> {
         dates::Date,
         market_data::{
             context::MarketContext,
-            scalars::primitives::MarketScalar,
+            scalars::MarketScalar,
             term_structures::{
-                base_correlation::BaseCorrelationCurve, discount_curve::DiscountCurve,
-                forward_curve::ForwardCurve, hazard_curve::HazardCurve,
+                BaseCorrelationCurve, DiscountCurve, ForwardCurve, HazardCurve,
             },
         },
         math::interp::InterpStyle,

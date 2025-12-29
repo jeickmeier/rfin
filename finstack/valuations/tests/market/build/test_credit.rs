@@ -1,4 +1,4 @@
-use finstack_core::collections::HashMap;
+use finstack_core::HashMap;
 use finstack_core::currency::Currency;
 use finstack_core::dates::{Date, Tenor};
 use finstack_valuations::instruments::cds::CDSConvention;

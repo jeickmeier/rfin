@@ -406,7 +406,7 @@ impl McConfig {
     /// describing the validation failure.
     pub fn validate(&self) -> finstack_core::Result<()> {
         use super::MAX_RECOVERY_RATE;
-        use finstack_core::error::InputError;
+        use finstack_core::InputError;
 
         // Validate recovery rate: must be in [0, 1) to avoid division by zero
         // in hazard-to-spread mapping: λ = s / (1 - R)
@@ -647,7 +647,7 @@ impl crate::instruments::common::traits::Instrument for RevolvingCredit {
                 let registry = crate::pricer::create_standard_registry();
                 let result = registry
                     .price_with_registry(self, model, curves, as_of)
-                    .map_err(|e| finstack_core::error::Error::Validation(e.to_string()))?;
+                    .map_err(|e| finstack_core::Error::Validation(e.to_string()))?;
                 return Ok(result.value);
             }
         }
@@ -737,7 +737,7 @@ impl crate::cashflow::traits::CashflowProvider for RevolvingCredit {
     ) -> finstack_core::Result<crate::cashflow::DatedFlows> {
         // Only works for deterministic specs
         if !self.is_deterministic() {
-            return Err(finstack_core::error::InputError::Invalid.into());
+            return Err(finstack_core::InputError::Invalid.into());
         }
 
         use crate::instruments::revolving_credit::cashflow_engine::CashflowEngine;
@@ -759,7 +759,7 @@ impl crate::cashflow::traits::CashflowProvider for RevolvingCredit {
     ) -> finstack_core::Result<crate::cashflow::builder::CashFlowSchedule> {
         // Only works for deterministic specs
         if !self.is_deterministic() {
-            return Err(finstack_core::error::InputError::Invalid.into());
+            return Err(finstack_core::InputError::Invalid.into());
         }
 
         use crate::instruments::revolving_credit::cashflow_engine::CashflowEngine;
