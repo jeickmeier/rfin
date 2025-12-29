@@ -19,7 +19,8 @@ fn test_cs01_positive() {
         as_of,
         date!(2030 - 01 - 01),
         "USD-OIS",
-    ).unwrap();
+    )
+    .unwrap();
 
     // CS01 requires a hazard curve. If the bond has no explicit credit curve id,
     // the HasCreditCurve impl falls back to the discount curve id.

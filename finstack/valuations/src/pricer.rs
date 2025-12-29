@@ -546,8 +546,12 @@ impl PricingErrorContext {
     }
 
     /// Add multiple curve/surface IDs to the context.
-    pub fn with_curve_ids(mut self, curve_ids: impl IntoIterator<Item = impl Into<String>>) -> Self {
-        self.curve_ids.extend(curve_ids.into_iter().map(|s| s.into()));
+    pub fn with_curve_ids(
+        mut self,
+        curve_ids: impl IntoIterator<Item = impl Into<String>>,
+    ) -> Self {
+        self.curve_ids
+            .extend(curve_ids.into_iter().map(|s| s.into()));
         self
     }
 }
@@ -726,7 +730,10 @@ impl PricingError {
     ///         .with_instrument_type(InstrumentType::Bond),
     /// )
     /// ```
-    pub fn missing_market_data_ctx(missing_id: impl Into<String>, context: PricingErrorContext) -> Self {
+    pub fn missing_market_data_ctx(
+        missing_id: impl Into<String>,
+        context: PricingErrorContext,
+    ) -> Self {
         Self::MissingMarketData {
             missing_id: missing_id.into(),
             context,
@@ -740,7 +747,10 @@ impl PricingError {
         match self {
             Self::ModelFailure { message, .. } => Self::ModelFailure { message, context },
             Self::InvalidInput { message, .. } => Self::InvalidInput { message, context },
-            Self::MissingMarketData { missing_id, .. } => Self::MissingMarketData { missing_id, context },
+            Self::MissingMarketData { missing_id, .. } => Self::MissingMarketData {
+                missing_id,
+                context,
+            },
             // These variants already have context or don't need it
             other => other,
         }
@@ -750,17 +760,29 @@ impl PricingError {
     pub fn with_instrument_id(self, id: impl Into<String>) -> Self {
         let id = id.into();
         match self {
-            Self::ModelFailure { message, mut context } => {
+            Self::ModelFailure {
+                message,
+                mut context,
+            } => {
                 context.instrument_id = Some(id);
                 Self::ModelFailure { message, context }
             }
-            Self::InvalidInput { message, mut context } => {
+            Self::InvalidInput {
+                message,
+                mut context,
+            } => {
                 context.instrument_id = Some(id);
                 Self::InvalidInput { message, context }
             }
-            Self::MissingMarketData { missing_id, mut context } => {
+            Self::MissingMarketData {
+                missing_id,
+                mut context,
+            } => {
                 context.instrument_id = Some(id);
-                Self::MissingMarketData { missing_id, context }
+                Self::MissingMarketData {
+                    missing_id,
+                    context,
+                }
             }
             other => other,
         }
@@ -769,17 +791,29 @@ impl PricingError {
     /// Add instrument type to the error context.
     pub fn with_instrument_type(self, typ: InstrumentType) -> Self {
         match self {
-            Self::ModelFailure { message, mut context } => {
+            Self::ModelFailure {
+                message,
+                mut context,
+            } => {
                 context.instrument_type = Some(typ);
                 Self::ModelFailure { message, context }
             }
-            Self::InvalidInput { message, mut context } => {
+            Self::InvalidInput {
+                message,
+                mut context,
+            } => {
                 context.instrument_type = Some(typ);
                 Self::InvalidInput { message, context }
             }
-            Self::MissingMarketData { missing_id, mut context } => {
+            Self::MissingMarketData {
+                missing_id,
+                mut context,
+            } => {
                 context.instrument_type = Some(typ);
-                Self::MissingMarketData { missing_id, context }
+                Self::MissingMarketData {
+                    missing_id,
+                    context,
+                }
             }
             other => other,
         }
@@ -788,17 +822,29 @@ impl PricingError {
     /// Add model key to the error context.
     pub fn with_model(self, model: ModelKey) -> Self {
         match self {
-            Self::ModelFailure { message, mut context } => {
+            Self::ModelFailure {
+                message,
+                mut context,
+            } => {
                 context.model = Some(model);
                 Self::ModelFailure { message, context }
             }
-            Self::InvalidInput { message, mut context } => {
+            Self::InvalidInput {
+                message,
+                mut context,
+            } => {
                 context.model = Some(model);
                 Self::InvalidInput { message, context }
             }
-            Self::MissingMarketData { missing_id, mut context } => {
+            Self::MissingMarketData {
+                missing_id,
+                mut context,
+            } => {
                 context.model = Some(model);
-                Self::MissingMarketData { missing_id, context }
+                Self::MissingMarketData {
+                    missing_id,
+                    context,
+                }
             }
             other => other,
         }

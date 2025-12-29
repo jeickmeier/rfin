@@ -36,9 +36,9 @@ use crate::instruments::ir_future::Position;
 use finstack_core::currency::Currency;
 use finstack_core::dates::Date;
 use finstack_core::market_data::context::MarketContext;
-use time::macros::date;
 use finstack_core::money::Money;
 use finstack_core::types::{CurveId, InstrumentId};
+use time::macros::date;
 
 /// Contract specifications for equity index futures.
 ///
@@ -287,7 +287,9 @@ impl EquityIndexFuture {
             .index_price_id("SPX-SPOT".to_string())
             .attributes(Attributes::new())
             .build()
-            .unwrap_or_else(|_| unreachable!("Example EquityIndexFuture with valid constants should never fail"))
+            .unwrap_or_else(|_| {
+                unreachable!("Example EquityIndexFuture with valid constants should never fail")
+            })
     }
 
     /// Create an E-mini S&P 500 future with common defaults.

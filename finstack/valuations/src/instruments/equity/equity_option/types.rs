@@ -87,7 +87,9 @@ impl EquityOption {
             Money::new(100_000.0, Currency::USD),
             100.0,
         )
-        .unwrap_or_else(|_| unreachable!("Example equity option with valid constants should never fail"))
+        .unwrap_or_else(|_| {
+            unreachable!("Example equity option with valid constants should never fail")
+        })
     }
 
     /// Create a European call option with standard conventions.
@@ -476,14 +478,16 @@ mod tests {
     fn convenience_constructors_apply_standard_conventions() {
         let expiry = date(2025, 12, 31);
         let notional = Money::new(1_000_000.0, Currency::USD);
-        let call = EquityOption::european_call("SPX-CALL", "SPX", 100.0, expiry, notional, 100.0).unwrap();
+        let call =
+            EquityOption::european_call("SPX-CALL", "SPX", 100.0, expiry, notional, 100.0).unwrap();
         assert_eq!(call.exercise_style, ExerciseStyle::European);
         assert_eq!(call.option_type, OptionType::Call);
         assert_eq!(call.discount_curve_id, CurveId::new(DISC_ID));
         assert_eq!(call.spot_id, "EQUITY-SPOT");
         assert_eq!(call.vol_surface_id, CurveId::new("EQUITY-VOL"));
 
-        let put = EquityOption::european_put("SPX-PUT", "SPX", 90.0, expiry, notional, 50.0).unwrap();
+        let put =
+            EquityOption::european_put("SPX-PUT", "SPX", 90.0, expiry, notional, 50.0).unwrap();
         assert_eq!(put.option_type, OptionType::Put);
         assert_eq!(put.contract_size, 50.0);
 

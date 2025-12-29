@@ -10,10 +10,10 @@ use finstack_core::currency::Currency;
 use finstack_core::dates::{
     adjust, calendar::registry::CalendarRegistry, BusinessDayConvention, Date, DayCount,
 };
-use time::macros::date;
 use finstack_core::market_data::context::MarketContext;
 use finstack_core::money::Money;
 use finstack_core::types::{CurveId, InstrumentId};
+use time::macros::date;
 
 /// Forward Rate Agreement instrument.
 ///

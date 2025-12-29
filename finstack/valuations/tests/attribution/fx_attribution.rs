@@ -64,7 +64,8 @@ fn test_fx_attribution_parallel_internal_exposure() {
         issue,
         maturity,
         "USD-OIS",
-    ).unwrap();
+    )
+    .unwrap();
 
     // Create discount curves (unchanged)
     let curve_t0 = DiscountCurve::builder("USD-OIS")
@@ -138,7 +139,8 @@ fn test_waterfall_attribution_sum_equality() {
         issue,
         maturity,
         "USD-OIS",
-    ).unwrap();
+    )
+    .unwrap();
 
     // Create curves with a shift
     let curve_t0 = DiscountCurve::builder("USD-OIS")
@@ -218,7 +220,8 @@ fn test_waterfall_factor_ordering_sensitivity() {
         issue,
         maturity,
         "USD-OIS",
-    ).unwrap();
+    )
+    .unwrap();
 
     let curve_t0 = DiscountCurve::builder("USD-OIS")
         .base_date(as_of_t0)

@@ -34,7 +34,8 @@ fn test_accrued_at_issue() {
         as_of,
         date!(2030 - 01 - 01),
         "USD-OIS",
-    ).unwrap();
+    )
+    .unwrap();
     let market = create_curve(as_of);
     let result = bond
         .price_with_metrics(&market, as_of, &[MetricId::Accrued])
@@ -54,7 +55,8 @@ fn test_accrued_mid_period() {
         issue,
         date!(2030 - 01 - 01),
         "USD-OIS",
-    ).unwrap();
+    )
+    .unwrap();
     let market = create_curve(mid);
     let result = bond
         .price_with_metrics(&market, mid, &[MetricId::Accrued])
@@ -146,7 +148,8 @@ fn test_clean_dirty_ex_coupon_parity() {
         issue,
         date!(2026 - 01 - 01),
         "USD-OIS",
-    ).unwrap();
+    )
+    .unwrap();
 
     // Before coupon date: accrued > 0
     let res_before = bond

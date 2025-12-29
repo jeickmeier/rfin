@@ -7,7 +7,9 @@ use crate::instruments::bond::pricing::hazard_engine::HazardBondEngine;
 use crate::instruments::bond::pricing::tree_engine::TreePricer;
 use crate::instruments::bond::types::Bond;
 use crate::instruments::common::traits::Instrument;
-use crate::pricer::{InstrumentType, ModelKey, Pricer, PricerKey, PricingError, PricingErrorContext};
+use crate::pricer::{
+    InstrumentType, ModelKey, Pricer, PricerKey, PricingError, PricingErrorContext,
+};
 use crate::results::ValuationResult;
 use finstack_core::market_data::context::MarketContext;
 
@@ -138,10 +140,7 @@ impl Pricer for SimpleBondOasPricer {
 
         // OAS calculation requires quoted clean price
         let clean_pct = bond.pricing_overrides.quoted_clean_price.ok_or_else(|| {
-            PricingError::invalid_input_ctx(
-                "OAS requires quoted clean price",
-                ctx.clone(),
-            )
+            PricingError::invalid_input_ctx("OAS requires quoted clean price", ctx.clone())
         })?;
 
         // Calculate OAS using tree pricer

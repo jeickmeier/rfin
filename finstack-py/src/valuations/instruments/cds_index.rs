@@ -141,7 +141,9 @@ impl PyCdsIndex {
             disc_curve,
             credit_curve_id,
         );
-        Ok(Self::new(index.map_err(|e| PyValueError::new_err(e.to_string()))?))
+        Ok(Self::new(
+            index.map_err(|e| PyValueError::new_err(e.to_string()))?,
+        ))
     }
 
     /// Instrument identifier.

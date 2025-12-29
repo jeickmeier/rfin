@@ -31,7 +31,8 @@ fn test_attribution_envelope_json_roundtrip() {
         create_date(2024, Month::January, 1).unwrap(),
         create_date(2034, Month::January, 1).unwrap(),
         "USD-OIS",
-    ).unwrap();
+    )
+    .unwrap();
 
     let spec = AttributionSpec {
         instrument: InstrumentJson::Bond(bond),
@@ -97,7 +98,8 @@ fn test_attribution_envelope_waterfall_roundtrip() {
         create_date(2024, Month::January, 1).unwrap(),
         create_date(2034, Month::January, 1).unwrap(),
         "USD-OIS",
-    ).unwrap();
+    )
+    .unwrap();
 
     let spec = AttributionSpec {
         instrument: InstrumentJson::Bond(bond),
@@ -199,7 +201,8 @@ fn test_attribution_envelope_to_from_json_helpers() {
         create_date(2024, Month::January, 1).unwrap(),
         create_date(2034, Month::January, 1).unwrap(),
         "USD-OIS",
-    ).unwrap();
+    )
+    .unwrap();
 
     let spec = AttributionSpec {
         instrument: InstrumentJson::Bond(bond),

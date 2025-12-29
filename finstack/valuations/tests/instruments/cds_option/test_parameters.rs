@@ -34,8 +34,7 @@ fn test_put_constructor() {
     let maturity = date!(2030 - 12 - 31);
     let notional = Money::new(5_000_000.0, Currency::EUR);
 
-    let params =
-        CdsOptionParams::put(150.0, expiry, maturity, notional).expect("valid put params");
+    let params = CdsOptionParams::put(150.0, expiry, maturity, notional).expect("valid put params");
 
     assert_eq!(params.strike_spread_bp, 150.0);
     assert!(matches!(params.option_type, OptionType::Put));
@@ -99,8 +98,8 @@ fn test_various_strikes() {
     let notional = Money::new(10_000_000.0, Currency::USD);
 
     for strike in [25.0, 50.0, 100.0, 200.0, 500.0, 1000.0] {
-        let params = CdsOptionParams::call(strike, expiry, maturity, notional)
-            .expect("valid call params");
+        let params =
+            CdsOptionParams::call(strike, expiry, maturity, notional).expect("valid call params");
         assert_eq!(params.strike_spread_bp, strike);
     }
 }
@@ -112,8 +111,8 @@ fn test_various_currencies() {
 
     for currency in [Currency::USD, Currency::EUR, Currency::GBP, Currency::JPY] {
         let notional = Money::new(10_000_000.0, currency);
-        let params = CdsOptionParams::call(100.0, expiry, maturity, notional)
-            .expect("valid call params");
+        let params =
+            CdsOptionParams::call(100.0, expiry, maturity, notional).expect("valid call params");
         assert_eq!(params.notional.currency(), currency);
     }
 }

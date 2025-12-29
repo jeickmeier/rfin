@@ -223,7 +223,9 @@ impl Basket {
             .attributes(Attributes::new())
             .pricing_config(BasketPricingConfig::default())
             .build()
-            .unwrap_or_else(|_| unreachable!("Example Basket with valid constants should never fail"))
+            .unwrap_or_else(|_| {
+                unreachable!("Example Basket with valid constants should never fail")
+            })
     }
 
     /// Create an example basket with instrument-backed constituents.
@@ -275,7 +277,9 @@ impl Basket {
             .attributes(Attributes::new())
             .pricing_config(BasketPricingConfig::default())
             .build()
-            .unwrap_or_else(|_| unreachable!("Example Basket with valid constants should never fail"))
+            .unwrap_or_else(|_| {
+                unreachable!("Example Basket with valid constants should never fail")
+            })
     }
 
     /// Create a new basket with custom pricing configuration.

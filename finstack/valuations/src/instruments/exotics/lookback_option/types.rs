@@ -96,7 +96,9 @@ impl LookbackOption {
             .observed_max_opt(None)
             .attributes(Attributes::new())
             .build()
-            .unwrap_or_else(|_| unreachable!("Example LookbackOption with valid constants should never fail"))
+            .unwrap_or_else(|_| {
+                unreachable!("Example LookbackOption with valid constants should never fail")
+            })
     }
     /// Calculate the net present value using Monte Carlo.
     #[cfg(feature = "mc")]

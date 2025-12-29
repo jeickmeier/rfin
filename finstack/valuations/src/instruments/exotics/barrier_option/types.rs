@@ -89,7 +89,9 @@ impl BarrierOption {
             .pricing_overrides(PricingOverrides::default())
             .attributes(Attributes::new())
             .build()
-            .unwrap_or_else(|_| unreachable!("Example BarrierOption with valid constants should never fail"))
+            .unwrap_or_else(|_| {
+                unreachable!("Example BarrierOption with valid constants should never fail")
+            })
     }
 
     /// Calculate the net present value using Monte Carlo.

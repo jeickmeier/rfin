@@ -20,7 +20,8 @@ fn test_ytw_equals_ytm_for_non_callable_bond_from_price() {
         as_of,
         date!(2030 - 01 - 01),
         "USD-OIS",
-    ).unwrap();
+    )
+    .unwrap();
     // Market-quoted clean price (percent of par)
     bond.pricing_overrides = PricingOverrides::default().with_clean_price(99.5);
 
@@ -58,7 +59,8 @@ fn test_ytw_tracks_quoted_price_not_model_pv() {
         as_of,
         date!(2030 - 01 - 01),
         "USD-OIS",
-    ).unwrap();
+    )
+    .unwrap();
 
     let curve = finstack_core::market_data::term_structures::DiscountCurve::builder("USD-OIS")
         .base_date(as_of)
@@ -139,7 +141,8 @@ fn test_ytw_floating_bond_matches_ytm_from_price() {
         Tenor::quarterly(),
         DayCount::Act360,
         "USD-OIS",
-    ).unwrap();
+    )
+    .unwrap();
 
     // Use model PV to back out a clean price quote consistent with the curves.
     let pv = bond.value(&market, as_of).unwrap().amount();

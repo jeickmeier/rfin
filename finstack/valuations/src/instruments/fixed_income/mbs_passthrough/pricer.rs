@@ -285,8 +285,8 @@ impl Pricer for AgencyMbsDiscountingPricer {
             InstrumentType::AgencyMbsPassthrough,
         )?;
 
-        let pv =
-            price_mbs(mbs, market, as_of).map_err(|e| PricingError::model_failure(e.to_string()))?;
+        let pv = price_mbs(mbs, market, as_of)
+            .map_err(|e| PricingError::model_failure(e.to_string()))?;
 
         Ok(ValuationResult::stamped(mbs.id.as_str(), as_of, pv))
     }

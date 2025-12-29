@@ -277,7 +277,9 @@ impl TermLoan {
             .call_schedule_opt(None)
             .attributes(Attributes::new())
             .build()
-            .unwrap_or_else(|_| unreachable!("Example TermLoan with valid constants should never fail"))
+            .unwrap_or_else(|_| {
+                unreachable!("Example TermLoan with valid constants should never fail")
+            })
     }
 }
 

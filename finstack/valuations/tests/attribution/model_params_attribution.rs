@@ -142,7 +142,8 @@ fn test_model_params_none_for_plain_instruments() {
         create_date(2024, Month::January, 1).unwrap(),
         create_date(2029, Month::January, 1).unwrap(),
         "USD-OIS",
-    ).unwrap();
+    )
+    .unwrap();
 
     let bond_instrument: Arc<dyn Instrument> = Arc::new(bond);
     let params = extract_model_params(&bond_instrument);

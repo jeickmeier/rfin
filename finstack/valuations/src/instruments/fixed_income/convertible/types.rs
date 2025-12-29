@@ -170,7 +170,9 @@ impl ConvertibleBond {
             .floating_coupon_opt(None)
             .attributes(Attributes::new())
             .build()
-            .unwrap_or_else(|_| unreachable!("Example convertible bond with valid constants should never fail"))
+            .unwrap_or_else(|_| {
+                unreachable!("Example convertible bond with valid constants should never fail")
+            })
     }
 
     /// Calculate the net present value of this convertible bond

@@ -122,7 +122,9 @@ impl DollarRoll {
                     .with_meta("program", "fnma"),
             )
             .build()
-            .unwrap_or_else(|_| unreachable!("Example dollar roll with valid constants should never fail"))
+            .unwrap_or_else(|_| {
+                unreachable!("Example dollar roll with valid constants should never fail")
+            })
     }
 
     /// Get the drop (price difference between front and back month).

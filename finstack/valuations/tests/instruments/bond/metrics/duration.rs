@@ -19,7 +19,8 @@ fn test_duration_zero_coupon() {
         as_of,
         maturity,
         "USD-OIS",
-    ).unwrap();
+    )
+    .unwrap();
     bond.pricing_overrides =
         finstack_valuations::instruments::PricingOverrides::default().with_clean_price(70.0);
 
@@ -52,7 +53,8 @@ fn test_modified_duration_matches_macaulay_over_yield() {
         as_of,
         maturity,
         "USD-OIS",
-    ).unwrap();
+    )
+    .unwrap();
 
     // Flat 5% curve
     let curve = DiscountCurve::builder("USD-OIS")
@@ -93,7 +95,8 @@ fn test_convexity_matches_numerical_second_derivative() {
         as_of,
         maturity,
         "USD-OIS",
-    ).unwrap();
+    )
+    .unwrap();
 
     let curve = DiscountCurve::builder("USD-OIS")
         .base_date(as_of)

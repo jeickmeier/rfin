@@ -53,7 +53,8 @@ fn test_fixed_rate_cashflows() {
         as_of,
         maturity,
         "USD-OIS",
-    ).unwrap();
+    )
+    .unwrap();
 
     let curves = create_test_curves(as_of);
     let flows = bond.build_schedule(&curves, as_of).unwrap();
@@ -83,7 +84,8 @@ fn test_cashflow_dates_alignment() {
         as_of,
         maturity,
         "USD-OIS",
-    ).unwrap();
+    )
+    .unwrap();
 
     let curves = create_test_curves(as_of);
     let flows = bond.build_schedule(&curves, as_of).unwrap();
@@ -280,7 +282,8 @@ fn test_cashflows_for_matured_bond() {
         issue,
         maturity,
         "USD-OIS",
-    ).unwrap();
+    )
+    .unwrap();
 
     let curves = create_test_curves(as_of);
     let flows = bond.build_schedule(&curves, as_of).unwrap();
@@ -348,7 +351,8 @@ fn test_zero_coupon_cashflows() {
         as_of,
         maturity,
         "USD-OIS",
-    ).unwrap();
+    )
+    .unwrap();
 
     let curves = create_test_curves(as_of);
     let flows = bond.build_schedule(&curves, as_of).unwrap();
@@ -379,7 +383,8 @@ fn test_cashflows_notional_scaling() {
             as_of,
             maturity,
             "USD-OIS",
-        ).unwrap();
+        )
+        .unwrap();
 
         let curves = create_test_curves(as_of);
         let flows = bond.build_schedule(&curves, as_of).unwrap();
@@ -404,7 +409,8 @@ fn test_get_full_schedule_fixed() {
         as_of,
         maturity,
         "USD-OIS",
-    ).unwrap();
+    )
+    .unwrap();
 
     let curves = create_test_curves(as_of);
     let full_schedule = bond.get_full_schedule(&curves).unwrap();

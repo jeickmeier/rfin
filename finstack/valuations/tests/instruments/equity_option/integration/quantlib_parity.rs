@@ -141,7 +141,8 @@ fn quantlib_parity_atm_put_black_scholes() {
         expiry,
         Money::new(spot, Currency::USD),
         1.0,
-    ).unwrap();
+    )
+    .unwrap();
 
     let market = create_option_market(as_of, spot, vol, rate, div_yield);
     let pv = put.value(&market, as_of).unwrap();
@@ -180,7 +181,8 @@ fn quantlib_parity_put_call_parity() {
         expiry,
         Money::new(spot, Currency::USD),
         1.0,
-    ).unwrap();
+    )
+    .unwrap();
 
     let put = EquityOption::european_put(
         "PUT_PCP",
@@ -189,7 +191,8 @@ fn quantlib_parity_put_call_parity() {
         expiry,
         Money::new(spot, Currency::USD),
         1.0,
-    ).unwrap();
+    )
+    .unwrap();
 
     let market = create_option_market(as_of, spot, vol, rate, div_yield);
 
@@ -235,7 +238,8 @@ fn quantlib_parity_itm_call() {
         expiry,
         Money::new(spot, Currency::USD),
         1.0,
-    ).unwrap();
+    )
+    .unwrap();
 
     let market = create_option_market(as_of, spot, vol, rate, div_yield);
     let pv = call.value(&market, as_of).unwrap();
@@ -274,7 +278,8 @@ fn quantlib_parity_otm_put() {
         expiry,
         Money::new(spot, Currency::USD),
         1.0,
-    ).unwrap();
+    )
+    .unwrap();
 
     let market = create_option_market(as_of, spot, vol, rate, div_yield);
     let pv = put.value(&market, as_of).unwrap();
@@ -319,7 +324,8 @@ fn quantlib_parity_short_dated_option() {
         expiry,
         Money::new(spot, Currency::USD),
         1.0,
-    ).unwrap();
+    )
+    .unwrap();
 
     let market = create_option_market(as_of, spot, vol, rate, div_yield);
     let pv = call.value(&market, as_of).unwrap();
@@ -359,7 +365,8 @@ fn quantlib_parity_long_dated_option() {
         expiry,
         Money::new(spot, Currency::USD),
         1.0,
-    ).unwrap();
+    )
+    .unwrap();
 
     let market = create_option_market(as_of, spot, vol, rate, div_yield);
     let pv = call.value(&market, as_of).unwrap();
@@ -398,7 +405,8 @@ fn quantlib_parity_high_vol_option() {
         expiry,
         Money::new(spot, Currency::USD),
         1.0,
-    ).unwrap();
+    )
+    .unwrap();
 
     let market = create_option_market(as_of, spot, vol, rate, div_yield);
     let pv = call.value(&market, as_of).unwrap();
@@ -438,7 +446,8 @@ fn quantlib_parity_deep_itm_call() {
         expiry,
         Money::new(spot, Currency::USD),
         1.0,
-    ).unwrap();
+    )
+    .unwrap();
 
     let market = create_option_market(as_of, spot, vol, rate, div_yield);
     let pv = call.value(&market, as_of).unwrap();
@@ -480,7 +489,8 @@ fn quantlib_parity_deep_otm_put() {
         expiry,
         Money::new(spot, Currency::USD),
         1.0,
-    ).unwrap();
+    )
+    .unwrap();
 
     let market = create_option_market(as_of, spot, vol, rate, div_yield);
     let pv = put.value(&market, as_of).unwrap();

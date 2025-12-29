@@ -78,7 +78,8 @@ fn quantlib_parity_zero_coupon_bond() {
         base,
         maturity,
         "ZERO",
-    ).unwrap();
+    )
+    .unwrap();
 
     // Curve with explicit 5-year discount factor of 0.78
     let curve = create_curve_from_dfs(base, vec![(0.0, 1.0), (5.0, 0.78)], "ZERO");
@@ -171,7 +172,8 @@ fn quantlib_parity_premium_bond() {
         base,
         maturity,
         "PREM",
-    ).unwrap();
+    )
+    .unwrap();
 
     // 4% curve (lower than coupon) - approximate DFs
     let curve = create_curve_from_dfs(
@@ -209,7 +211,8 @@ fn quantlib_parity_discount_bond() {
         base,
         maturity,
         "DISC",
-    ).unwrap();
+    )
+    .unwrap();
 
     // 5% curve (higher than coupon) - approximate DFs
     let curve = create_curve_from_dfs(
@@ -250,7 +253,8 @@ fn quantlib_parity_accrued_interest() {
         issue_date,
         maturity,
         "USD-OIS",
-    ).unwrap();
+    )
+    .unwrap();
 
     let curve = create_flat_curve(as_of, 0.05, "USD-OIS");
     let market = create_market_with_curve(curve);
@@ -295,7 +299,8 @@ fn quantlib_parity_clean_dirty_price() {
         issue_date,
         maturity,
         "USD-OIS",
-    ).unwrap();
+    )
+    .unwrap();
 
     let curve = create_flat_curve(as_of, 0.05, "USD-OIS");
     let market = create_market_with_curve(curve);
@@ -339,7 +344,8 @@ fn quantlib_parity_ytm_below_par() {
         as_of,
         maturity,
         "USD-OIS",
-    ).unwrap();
+    )
+    .unwrap();
     // NOTE: Using pricing_overrides to force a clean price for YTM calculation testing.
     // This is the correct usage: YTM is calculated by reverse-engineering the yield
     // that produces the given market price. The override does NOT bypass the pricer;
@@ -383,7 +389,8 @@ fn quantlib_parity_macaulay_duration() {
         as_of,
         maturity,
         "USD-OIS",
-    ).unwrap();
+    )
+    .unwrap();
 
     let curve = create_flat_curve(as_of, 0.05, "USD-OIS");
     let market = create_market_with_curve(curve);
@@ -419,7 +426,8 @@ fn quantlib_parity_modified_duration() {
         as_of,
         maturity,
         "USD-OIS",
-    ).unwrap();
+    )
+    .unwrap();
 
     let curve = create_flat_curve(as_of, 0.05, "USD-OIS");
     let market = create_market_with_curve(curve);
@@ -455,7 +463,8 @@ fn quantlib_parity_convexity() {
         as_of,
         maturity,
         "USD-OIS",
-    ).unwrap();
+    )
+    .unwrap();
 
     let curve = create_flat_curve(as_of, 0.05, "USD-OIS");
     let market = create_market_with_curve(curve);
@@ -496,7 +505,8 @@ fn quantlib_parity_dv01() {
         as_of,
         maturity,
         "USD-OIS",
-    ).unwrap();
+    )
+    .unwrap();
 
     let curve = create_flat_curve(as_of, 0.05, "USD-OIS");
     let market = create_market_with_curve(curve);
@@ -540,7 +550,8 @@ fn quantlib_parity_z_spread() {
         as_of,
         maturity,
         "USD-OIS",
-    ).unwrap();
+    )
+    .unwrap();
     // NOTE: Using pricing_overrides to force a market price for Z-Spread calculation.
     // Similar to YTM, the Z-Spread metric solves for the constant spread over the
     // risk-free curve that reproduces the given market price.
@@ -585,7 +596,8 @@ fn quantlib_parity_callable_bond() {
         as_of,
         maturity,
         "USD-OIS",
-    ).unwrap();
+    )
+    .unwrap();
 
     // Callable bond
     let mut callable_bond = Bond::fixed(
@@ -595,7 +607,8 @@ fn quantlib_parity_callable_bond() {
         as_of,
         maturity,
         "USD-OIS",
-    ).unwrap();
+    )
+    .unwrap();
     let mut schedule = CallPutSchedule::default();
     schedule.calls.push(CallPut {
         date: date!(2025 - 01 - 01),
@@ -638,7 +651,8 @@ fn quantlib_parity_putable_bond() {
         as_of,
         maturity,
         "USD-OIS",
-    ).unwrap();
+    )
+    .unwrap();
 
     // Putable bond
     let mut putable_bond = Bond::fixed(
@@ -648,7 +662,8 @@ fn quantlib_parity_putable_bond() {
         as_of,
         maturity,
         "USD-OIS",
-    ).unwrap();
+    )
+    .unwrap();
     let mut schedule = CallPutSchedule::default();
     schedule.puts.push(CallPut {
         date: date!(2025 - 01 - 01),

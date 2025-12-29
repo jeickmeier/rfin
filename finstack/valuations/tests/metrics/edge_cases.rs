@@ -109,7 +109,8 @@ fn test_zero_recovery_cds() {
         maturity,
         "USD-OIS",
         "HAZARD",
-    ).expect("CDS construction should succeed");
+    )
+    .expect("CDS construction should succeed");
     // Manually set recovery rate to 0.0
     // Note: buy_protection uses default recovery, so we'd need builder for custom recovery
     // For this test, we'll accept the default and verify the metric still computes

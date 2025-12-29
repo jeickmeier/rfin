@@ -5,14 +5,14 @@ use crate::instruments::PricingOverrides;
 use crate::margin::types::OtcMarginSpec;
 use finstack_core::currency::Currency;
 use finstack_core::dates::{BusinessDayConvention, Date, DayCount, StubKind, Tenor};
-use time::macros::date;
 use finstack_core::market_data::context::MarketContext;
 use finstack_core::market_data::traits::Discounting;
 use finstack_core::market_data::traits::Survival;
 use finstack_core::money::Money;
 use finstack_core::types::InstrumentId;
-use rust_decimal::Decimal;
 use rust_decimal::prelude::ToPrimitive;
+use rust_decimal::Decimal;
+use time::macros::date;
 
 use crate::instruments::cds::pricer::CDSPricer;
 use std::sync::OnceLock;
@@ -630,17 +630,12 @@ impl CreditDefaultSwap {
         }
 
         // Convert spread_bp to f64 for calculation (bps to decimal: /10000)
-        let spread_decimal = self
-            .premium
-            .spread_bp
-            .to_f64()
-            .ok_or_else(|| {
-                finstack_core::Error::Validation(format!(
-                    "spread_bp {} cannot be converted to f64",
-                    self.premium.spread_bp
-                ))
-            })?
-            / 10000.0;
+        let spread_decimal = self.premium.spread_bp.to_f64().ok_or_else(|| {
+            finstack_core::Error::Validation(format!(
+                "spread_bp {} cannot be converted to f64",
+                self.premium.spread_bp
+            ))
+        })? / 10000.0;
 
         let mut flows = Vec::with_capacity(dates.len() - 1);
         let mut prev = dates[0];

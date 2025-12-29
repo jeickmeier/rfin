@@ -326,7 +326,9 @@ impl AgencyCmo {
             .collateral_wam(360)
             .discount_curve_id(CurveId::new("USD-OIS"))
             .build()
-            .unwrap_or_else(|_| unreachable!("Example PAC/Support CMO with valid constants should never fail"))
+            .unwrap_or_else(|_| {
+                unreachable!("Example PAC/Support CMO with valid constants should never fail")
+            })
     }
 
     /// Create an example IO/PO strip structure.
@@ -348,7 +350,9 @@ impl AgencyCmo {
             .collateral_wam(360)
             .discount_curve_id(CurveId::new("USD-OIS"))
             .build()
-            .unwrap_or_else(|_| unreachable!("Example IO/PO CMO with valid constants should never fail"))
+            .unwrap_or_else(|_| {
+                unreachable!("Example IO/PO CMO with valid constants should never fail")
+            })
     }
 
     /// Get the reference tranche being valued.

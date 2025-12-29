@@ -18,10 +18,10 @@ use finstack_core::dates::calendar::registry::CalendarRegistry;
 use finstack_core::dates::{
     adjust, BusinessDayConvention, Date, DateExt, DayCount, HolidayCalendar,
 };
-use time::macros::date;
 use finstack_core::market_data::context::MarketContext;
 use finstack_core::money::Money;
 use finstack_core::types::{CurveId, InstrumentId};
+use time::macros::date;
 
 use crate::cashflow::traits::{CashflowProvider, DatedFlows};
 use crate::instruments::common::traits::Attributes;
@@ -111,7 +111,9 @@ impl Deposit {
             .spot_lag_days_opt(Some(2))
             .bdc_opt(Some(BusinessDayConvention::ModifiedFollowing))
             .build()
-            .unwrap_or_else(|_| unreachable!("Example deposit with valid constants should never fail"))
+            .unwrap_or_else(|_| {
+                unreachable!("Example deposit with valid constants should never fail")
+            })
     }
 
     /// Calculate the net present value of this deposit using standard cashflow discounting.

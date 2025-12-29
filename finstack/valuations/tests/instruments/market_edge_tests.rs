@@ -41,7 +41,12 @@ mod cds_market_edge {
             .unwrap()
     }
 
-    fn build_hazard_curve(hazard_rate: f64, recovery: f64, base_date: Date, id: &str) -> HazardCurve {
+    fn build_hazard_curve(
+        hazard_rate: f64,
+        recovery: f64,
+        base_date: Date,
+        id: &str,
+    ) -> HazardCurve {
         HazardCurve::builder(id)
             .base_date(base_date)
             .recovery_rate(recovery)
@@ -80,7 +85,8 @@ mod cds_market_edge {
             end,
             "USD_OIS",
             "CORP",
-        ).expect("CDS construction should succeed");
+        )
+        .expect("CDS construction should succeed");
 
         let mut seller = CreditDefaultSwap::sell_protection(
             "SELLER",
@@ -90,7 +96,8 @@ mod cds_market_edge {
             end,
             "USD_OIS",
             "CORP",
-        ).expect("CDS construction should succeed");
+        )
+        .expect("CDS construction should succeed");
 
         // Base NPVs (opposite signs)
         let buyer_base = buyer.value_raw(&market, as_of).unwrap();
@@ -158,7 +165,8 @@ mod cds_market_edge {
                 end,
                 "USD_OIS",
                 "CORP",
-            ).expect("CDS construction should succeed");
+            )
+            .expect("CDS construction should succeed");
 
             let disc_ref = market.get_discount_ref("USD_OIS").unwrap();
             let hazard_ref = market.get_hazard_ref("CORP").unwrap();
@@ -209,12 +217,22 @@ mod cds_market_edge {
         let next_imm_date = next_imm(as_of);
 
         // Verify next IMM date is correct
-        let (_y, m, d) = (next_imm_date.year(), next_imm_date.month(), next_imm_date.day());
-        
+        let (_y, m, d) = (
+            next_imm_date.year(),
+            next_imm_date.month(),
+            next_imm_date.day(),
+        );
+
         // IMM dates are 3rd Wednesday of Mar, Jun, Sep, Dec
-        let is_imm_month = matches!(m, time::Month::March | time::Month::June | 
-                                        time::Month::September | time::Month::December);
-        assert!(is_imm_month, "IMM date {} should be in an IMM month", next_imm_date);
+        let is_imm_month = matches!(
+            m,
+            time::Month::March | time::Month::June | time::Month::September | time::Month::December
+        );
+        assert!(
+            is_imm_month,
+            "IMM date {} should be in an IMM month",
+            next_imm_date
+        );
 
         // 3rd Wednesday falls between 15th and 21st
         assert!(
@@ -224,7 +242,11 @@ mod cds_market_edge {
         );
 
         // Verify it's actually an IMM date
-        assert!(is_imm_date(next_imm_date), "{} should be a valid IMM date", next_imm_date);
+        assert!(
+            is_imm_date(next_imm_date),
+            "{} should be a valid IMM date",
+            next_imm_date
+        );
     }
 
     /// Test that IMM roll dates are generated correctly.
@@ -307,7 +329,11 @@ mod bond_market_edge {
             .notional(Money::new(1000.0, Currency::USD))
             .issue(issue)
             .maturity(maturity)
-            .cashflow_spec(CashflowSpec::fixed(0.06, Tenor::semi_annual(), DayCount::Thirty360))
+            .cashflow_spec(CashflowSpec::fixed(
+                0.06,
+                Tenor::semi_annual(),
+                DayCount::Thirty360,
+            ))
             .discount_curve_id("USD-OIS".into())
             .settlement_days_opt(Some(0))
             .build()
@@ -319,7 +345,11 @@ mod bond_market_edge {
             .notional(Money::new(1000.0, Currency::USD))
             .issue(issue)
             .maturity(maturity)
-            .cashflow_spec(CashflowSpec::fixed(0.06, Tenor::semi_annual(), DayCount::Thirty360))
+            .cashflow_spec(CashflowSpec::fixed(
+                0.06,
+                Tenor::semi_annual(),
+                DayCount::Thirty360,
+            ))
             .discount_curve_id("USD-OIS".into())
             .settlement_days_opt(Some(2))
             .build()
@@ -333,15 +363,14 @@ mod bond_market_edge {
             &sched_t0,
             as_of, // T+0: settlement = as_of
             &bond_t0.accrual_config(),
-        ).unwrap();
+        )
+        .unwrap();
 
         // For T+2, settlement is 2 business days later (approximately as_of + 2)
         let settle_t2 = as_of.saturating_add(time::Duration::days(2));
-        let accrued_t2 = accrual::accrued_interest_amount(
-            &sched_t2,
-            settle_t2,
-            &bond_t2.accrual_config(),
-        ).unwrap();
+        let accrued_t2 =
+            accrual::accrued_interest_amount(&sched_t2, settle_t2, &bond_t2.accrual_config())
+                .unwrap();
 
         // T+2 settlement means 2 more days of accrual
         // 6% annual / 2 = 3% semi-annual, 3% / 180 days ≈ 0.0167% per day
@@ -374,7 +403,8 @@ mod bond_market_edge {
             issue,
             maturity,
             "USD-OIS",
-        ).unwrap();
+        )
+        .unwrap();
         bond.ex_coupon_days = Some(7);
 
         let schedule = bond.get_full_schedule(&MarketContext::new()).unwrap();
@@ -382,7 +412,8 @@ mod bond_market_edge {
 
         // 8 days before coupon = just before ex-coupon window
         let before_ex = coupon_date - time::Duration::days(8);
-        let accrued_before = accrual::accrued_interest_amount(&schedule, before_ex, &config).unwrap();
+        let accrued_before =
+            accrual::accrued_interest_amount(&schedule, before_ex, &config).unwrap();
 
         // 7 days before coupon = exactly at ex-coupon boundary
         let at_ex = coupon_date - time::Duration::days(7);
@@ -390,7 +421,8 @@ mod bond_market_edge {
 
         // 5 days before coupon = within ex-coupon window
         let within_ex = coupon_date - time::Duration::days(5);
-        let accrued_within = accrual::accrued_interest_amount(&schedule, within_ex, &config).unwrap();
+        let accrued_within =
+            accrual::accrued_interest_amount(&schedule, within_ex, &config).unwrap();
 
         // Before ex-coupon: should have significant accrued (~2.9% of 3% = full period minus 8 days)
         assert!(
@@ -400,8 +432,14 @@ mod bond_market_edge {
         );
 
         // At and within ex-coupon: should be zero
-        assert_eq!(accrued_at, 0.0, "Accrued at ex-coupon boundary should be zero");
-        assert_eq!(accrued_within, 0.0, "Accrued within ex-coupon window should be zero");
+        assert_eq!(
+            accrued_at, 0.0,
+            "Accrued at ex-coupon boundary should be zero"
+        );
+        assert_eq!(
+            accrued_within, 0.0,
+            "Accrued within ex-coupon window should be zero"
+        );
     }
 
     /// Test short front stub period accrued interest.
@@ -411,7 +449,7 @@ mod bond_market_edge {
     #[test]
     fn test_short_front_stub_accrued() {
         // Issue date is 2 months after a would-be coupon date
-        let issue = date!(2025 - 03 - 01);  // 2 months after Jan 1
+        let issue = date!(2025 - 03 - 01); // 2 months after Jan 1
         let maturity = date!(2030 - 01 - 01);
 
         // First coupon is July 1, so stub period is Mar 1 - Jul 1 (4 months vs 6 months normal)
@@ -422,7 +460,8 @@ mod bond_market_edge {
             issue,
             maturity,
             "USD-OIS",
-        ).unwrap();
+        )
+        .unwrap();
 
         let schedule = bond.get_full_schedule(&MarketContext::new()).unwrap();
         let config = bond.accrual_config();
@@ -461,7 +500,11 @@ mod bond_market_edge {
             .notional(Money::new(1000.0, Currency::USD))
             .issue(issue)
             .maturity(maturity)
-            .cashflow_spec(CashflowSpec::fixed(0.06, Tenor::semi_annual(), DayCount::Thirty360))
+            .cashflow_spec(CashflowSpec::fixed(
+                0.06,
+                Tenor::semi_annual(),
+                DayCount::Thirty360,
+            ))
             .discount_curve_id("USD-OIS".into())
             .build()
             .unwrap();
@@ -472,13 +515,21 @@ mod bond_market_edge {
             .notional(Money::new(1000.0, Currency::USD))
             .issue(issue)
             .maturity(maturity)
-            .cashflow_spec(CashflowSpec::fixed(0.06, Tenor::semi_annual(), DayCount::Act365F))
+            .cashflow_spec(CashflowSpec::fixed(
+                0.06,
+                Tenor::semi_annual(),
+                DayCount::Act365F,
+            ))
             .discount_curve_id("USD-OIS".into())
             .build()
             .unwrap();
 
-        let sched_30_360 = bond_30_360.get_full_schedule(&MarketContext::new()).unwrap();
-        let sched_act_365 = bond_act_365.get_full_schedule(&MarketContext::new()).unwrap();
+        let sched_30_360 = bond_30_360
+            .get_full_schedule(&MarketContext::new())
+            .unwrap();
+        let sched_act_365 = bond_act_365
+            .get_full_schedule(&MarketContext::new())
+            .unwrap();
 
         // Feb 29 (leap day) - ~59 days into a 180-day period
         let leap_day = date!(2024 - 02 - 29);
@@ -487,13 +538,15 @@ mod bond_market_edge {
             &sched_30_360,
             leap_day,
             &bond_30_360.accrual_config(),
-        ).unwrap();
+        )
+        .unwrap();
 
         let accrued_act_365 = accrual::accrued_interest_amount(
             &sched_act_365,
             leap_day,
             &bond_act_365.accrual_config(),
-        ).unwrap();
+        )
+        .unwrap();
 
         // Expected accrued: ~59 days out of ~180 days period, 3% semi-annual coupon = $30
         // 59/180 * $30 ≈ $9.83
@@ -535,7 +588,8 @@ mod bond_market_edge {
             issue,
             maturity,
             "USD-OIS",
-        ).unwrap();
+        )
+        .unwrap();
 
         let disc = build_discount_curve(0.05, as_of, "USD-OIS");
         let market = MarketContext::new().insert_discount(disc);
@@ -546,14 +600,11 @@ mod bond_market_edge {
         // Get accrued via metrics
         let registry = standard_registry();
         let pv = bond.value(&market, as_of).unwrap();
-        let mut context = MetricContext::new(
-            Arc::new(bond.clone()),
-            Arc::new(market),
-            as_of,
-            pv,
-        );
+        let mut context = MetricContext::new(Arc::new(bond.clone()), Arc::new(market), as_of, pv);
 
-        let results = registry.compute(&[MetricId::Accrued], &mut context).unwrap();
+        let results = registry
+            .compute(&[MetricId::Accrued], &mut context)
+            .unwrap();
         let accrued = results.get(&MetricId::Accrued).copied().unwrap_or(0.0);
 
         // Clean = Dirty - Accrued

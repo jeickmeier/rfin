@@ -106,7 +106,8 @@ fn test_required_collateral_with_haircut() {
         date(2025, 1, 15),
         date(2025, 4, 15),
         "USD-OIS",
-    ).expect("Repo construction should succeed");
+    )
+    .expect("Repo construction should succeed");
 
     let required = repo.required_collateral_value();
 
@@ -198,7 +199,8 @@ fn test_adequately_collateralized() {
         date(2025, 1, 15),
         date(2025, 4, 15),
         "USD-OIS",
-    ).expect("Repo construction should succeed");
+    )
+    .expect("Repo construction should succeed");
 
     // Collateral value: 1,020,000
     // Required: 1,020,000
@@ -220,7 +222,8 @@ fn test_undercollateralized() {
         date(2025, 1, 15),
         date(2025, 4, 15),
         "USD-OIS",
-    ).expect("Repo construction should succeed");
+    )
+    .expect("Repo construction should succeed");
 
     // Collateral value: 850,000
     // Required: 1,020,000
@@ -244,7 +247,8 @@ fn test_overcollateralized() {
         date(2025, 1, 15),
         date(2025, 4, 15),
         "USD-OIS",
-    ).expect("Repo construction should succeed");
+    )
+    .expect("Repo construction should succeed");
 
     // Collateral value: 1,050,000
     // Required: 1,020,000
@@ -265,7 +269,8 @@ fn test_special_collateral_rate_adjustment_negative() {
         date(2025, 1, 15),
         date(2025, 4, 15),
         "USD-OIS",
-    ).expect("Repo construction should succeed");
+    )
+    .expect("Repo construction should succeed");
 
     let effective_rate = repo.effective_rate();
 
@@ -285,7 +290,8 @@ fn test_special_collateral_rate_adjustment_positive() {
         date(2025, 1, 15),
         date(2025, 4, 15),
         "USD-OIS",
-    ).expect("Repo construction should succeed");
+    )
+    .expect("Repo construction should succeed");
 
     let effective_rate = repo.effective_rate();
 
@@ -305,7 +311,8 @@ fn test_general_collateral_effective_rate() {
         date(2025, 1, 15),
         date(2025, 4, 15),
         "USD-OIS",
-    ).expect("Repo construction should succeed");
+    )
+    .expect("Repo construction should succeed");
 
     let effective_rate = repo.effective_rate();
 
@@ -333,7 +340,8 @@ fn test_collateral_currency_safety() {
         date(2025, 1, 15),
         date(2025, 4, 15),
         "USD-OIS",
-    ).expect("Repo construction should succeed");
+    )
+    .expect("Repo construction should succeed");
 
     // Should error due to currency mismatch
     let result = repo.is_adequately_collateralized(&context);

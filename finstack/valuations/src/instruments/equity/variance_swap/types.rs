@@ -111,7 +111,9 @@ impl VarianceSwap {
             .day_count(DayCount::Act365F)
             .attributes(Attributes::new())
             .build()
-            .unwrap_or_else(|_| unreachable!("Example VarianceSwap with valid constants should never fail"))
+            .unwrap_or_else(|_| {
+                unreachable!("Example VarianceSwap with valid constants should never fail")
+            })
     }
 
     /// Validate that as_of is compatible with the market context.

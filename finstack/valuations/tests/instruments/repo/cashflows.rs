@@ -19,7 +19,8 @@ fn test_cashflow_schedule_structure() {
         date(2025, 1, 15),
         date(2025, 4, 15),
         "USD-OIS",
-    ).expect("Repo construction should succeed");
+    )
+    .expect("Repo construction should succeed");
 
     let cashflows = repo.build_schedule(&context, date(2025, 1, 10)).unwrap();
 
@@ -40,7 +41,8 @@ fn test_initial_cashflow_negative() {
         date(2025, 1, 15),
         date(2025, 4, 15),
         "USD-OIS",
-    ).expect("Repo construction should succeed");
+    )
+    .expect("Repo construction should succeed");
 
     let cashflows = repo.build_schedule(&context, date(2025, 1, 10)).unwrap();
 
@@ -68,7 +70,8 @@ fn test_final_cashflow_includes_interest() {
         date(2025, 1, 15),
         date(2025, 4, 15),
         "USD-OIS",
-    ).expect("Repo construction should succeed");
+    )
+    .expect("Repo construction should succeed");
 
     let cashflows = repo.build_schedule(&context, date(2025, 1, 10)).unwrap();
 
@@ -104,7 +107,8 @@ fn test_cashflow_dates_match_repo_dates() {
         start,
         maturity,
         "USD-OIS",
-    ).expect("Repo construction should succeed");
+    )
+    .expect("Repo construction should succeed");
 
     // Get the expected adjusted dates
     let (adj_start, adj_maturity) = repo.adjusted_dates().unwrap();
@@ -134,7 +138,8 @@ fn test_cashflow_net_present_value() {
         date(2025, 1, 15),
         date(2025, 4, 15),
         "USD-OIS",
-    ).expect("Repo construction should succeed");
+    )
+    .expect("Repo construction should succeed");
 
     let cashflows = repo.build_schedule(&context, date(2025, 1, 10)).unwrap();
 
@@ -158,7 +163,8 @@ fn test_zero_rate_cashflows() {
         date(2025, 1, 15),
         date(2025, 4, 15),
         "USD-OIS",
-    ).expect("Repo construction should succeed");
+    )
+    .expect("Repo construction should succeed");
 
     let cashflows = repo.build_schedule(&context, date(2025, 1, 10)).unwrap();
 
@@ -207,7 +213,8 @@ fn test_cashflows_currency_consistency() {
         date(2025, 1, 15),
         date(2025, 4, 15),
         "USD-OIS",
-    ).expect("Repo construction should succeed");
+    )
+    .expect("Repo construction should succeed");
 
     let cashflows = repo.build_schedule(&context, date(2025, 1, 10)).unwrap();
 
@@ -229,7 +236,8 @@ fn test_large_notional_cashflows() {
         date(2025, 1, 15),
         date(2025, 4, 15),
         "USD-OIS",
-    ).expect("Repo construction should succeed");
+    )
+    .expect("Repo construction should succeed");
 
     let cashflows = repo.build_schedule(&context, date(2025, 1, 10)).unwrap();
 

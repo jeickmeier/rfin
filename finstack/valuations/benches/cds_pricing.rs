@@ -33,7 +33,8 @@ fn create_cds(tenor_years: i32) -> CreditDefaultSwap {
         maturity,
         "USD-OIS",
         "ACME-HAZARD",
-    ).unwrap()
+    )
+    .unwrap()
 }
 
 fn create_market() -> MarketContext {

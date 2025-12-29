@@ -30,7 +30,7 @@ fn create_test_cds() -> CreditDefaultSwap {
         "USD-OIS",     // discount_curve_id
         "ACME-HAZARD", // credit_id (hazard curve contains recovery rate)
     )
-.expect("CDS construction should succeed")
+    .expect("CDS construction should succeed")
 }
 
 fn create_test_market(base_date: Date) -> MarketContext {
@@ -254,7 +254,8 @@ fn test_cds_different_tenors_determinism() {
             maturity,
             "USD-OIS",     // discount_curve_id
             "ACME-HAZARD", // credit_id
-        ).expect("CDS construction should succeed");
+        )
+        .expect("CDS construction should succeed");
 
         let prices: Vec<f64> = (0..30)
             .map(|_| cds.value(&market, as_of).unwrap().amount())

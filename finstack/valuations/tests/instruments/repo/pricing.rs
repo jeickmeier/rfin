@@ -128,7 +128,8 @@ fn test_zero_rate_interest() {
         date(2025, 1, 15),
         date(2025, 4, 15),
         "USD-OIS",
-    ).expect("Repo construction should succeed");
+    )
+    .expect("Repo construction should succeed");
 
     let interest = repo.interest_amount().unwrap();
 
@@ -147,7 +148,8 @@ fn test_high_rate_interest() {
         date(2025, 1, 15),
         date(2025, 4, 15),
         "USD-OIS",
-    ).expect("Repo construction should succeed");
+    )
+    .expect("Repo construction should succeed");
 
     let interest = repo.interest_amount().unwrap();
 
@@ -168,7 +170,8 @@ fn test_total_repayment() {
         date(2025, 1, 15),
         date(2025, 4, 15),
         "USD-OIS",
-    ).expect("Repo construction should succeed");
+    )
+    .expect("Repo construction should succeed");
 
     let total = repo.total_repayment().unwrap();
     let interest = repo.interest_amount().unwrap();
@@ -194,7 +197,8 @@ fn test_pv_before_start() {
         date(2025, 1, 15),
         date(2025, 4, 15),
         "USD-OIS",
-    ).expect("Repo construction should succeed");
+    )
+    .expect("Repo construction should succeed");
 
     let valuation_date = date(2025, 1, 10); // Before start
     let pv = repo.value(&context, valuation_date).unwrap();
@@ -217,7 +221,8 @@ fn test_pv_at_start() {
         date(2025, 1, 15),
         date(2025, 4, 15),
         "USD-OIS",
-    ).expect("Repo construction should succeed");
+    )
+    .expect("Repo construction should succeed");
 
     let pv = repo.value(&context, date(2025, 1, 15)).unwrap();
 
@@ -238,7 +243,8 @@ fn test_pv_mid_term() {
         date(2025, 1, 15),
         date(2025, 4, 15),
         "USD-OIS",
-    ).expect("Repo construction should succeed");
+    )
+    .expect("Repo construction should succeed");
 
     let mid_date = date(2025, 3, 1); // Mid-term
     let pv = repo.value(&context, mid_date).unwrap();
@@ -261,7 +267,8 @@ fn test_pv_at_maturity() {
         date(2025, 1, 15),
         date(2025, 4, 15),
         "USD-OIS",
-    ).expect("Repo construction should succeed");
+    )
+    .expect("Repo construction should succeed");
 
     let pv = repo.value(&context, date(2025, 4, 15)).unwrap();
 
@@ -328,7 +335,8 @@ fn test_pv_currency_matches_cash_currency() {
         date(2025, 1, 15),
         date(2025, 4, 15),
         "USD-OIS", // Using USD curve for test simplicity
-    ).expect("Repo construction should succeed");
+    )
+    .expect("Repo construction should succeed");
 
     let pv = eur_repo.value(&context, date(2025, 1, 10)).unwrap();
 
@@ -350,7 +358,8 @@ fn test_special_collateral_affects_interest_not_pv_directly() {
         date(2025, 1, 15),
         date(2025, 4, 15),
         "USD-OIS",
-    ).expect("Repo construction should succeed");
+    )
+    .expect("Repo construction should succeed");
 
     let repo_special = Repo::term(
         "SPECIAL",
@@ -360,7 +369,8 @@ fn test_special_collateral_affects_interest_not_pv_directly() {
         date(2025, 1, 15),
         date(2025, 4, 15),
         "USD-OIS",
-    ).expect("Repo construction should succeed");
+    )
+    .expect("Repo construction should succeed");
 
     let interest_general = repo_general.interest_amount().unwrap();
     let interest_special = repo_special.interest_amount().unwrap();
@@ -416,7 +426,8 @@ fn test_long_term_repo_interest() {
         date(2025, 1, 1),
         date(2026, 1, 1), // 1 year (365 days)
         "USD-OIS",
-    ).expect("Repo construction should succeed");
+    )
+    .expect("Repo construction should succeed");
 
     let interest = repo.interest_amount().unwrap();
 

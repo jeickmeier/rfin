@@ -26,7 +26,8 @@ fn test_missing_metric_errors_in_strict_mode() {
         date!(2024 - 01 - 01),
         date!(2025 - 01 - 01),
         "USD_OIS",
-    ).unwrap();
+    )
+    .unwrap();
 
     // Create a market context (empty for this test)
     let market = MarketContext::new();
@@ -64,7 +65,8 @@ fn test_missing_metrics_return_zero_in_best_effort_mode() {
         date!(2024 - 01 - 01),
         date!(2025 - 01 - 01),
         "USD_OIS",
-    ).unwrap();
+    )
+    .unwrap();
 
     // Create a market context
     let market = MarketContext::new();
@@ -106,7 +108,8 @@ fn test_some_metrics_succeed_some_fail() {
         date!(2024 - 01 - 01),
         date!(2025 - 01 - 01),
         "USD_OIS",
-    ).unwrap();
+    )
+    .unwrap();
 
     // Create a minimal market context (might not have all curves needed)
     let market = MarketContext::new();

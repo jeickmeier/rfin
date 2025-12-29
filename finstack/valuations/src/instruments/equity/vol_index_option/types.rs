@@ -46,11 +46,11 @@ use crate::instruments::common::traits::Attributes;
 use crate::instruments::{ExerciseStyle, OptionType};
 use finstack_core::currency::Currency;
 use finstack_core::dates::{Date, DayCount, DayCountCtx};
-use time::macros::date;
 use finstack_core::market_data::context::MarketContext;
 use finstack_core::math::norm_cdf;
 use finstack_core::money::Money;
 use finstack_core::types::{CurveId, InstrumentId};
+use time::macros::date;
 
 /// Volatility Index Option instrument.
 ///
@@ -174,7 +174,9 @@ impl VolatilityIndexOption {
             .vol_of_vol_surface_id(CurveId::new("VIX-VOLVOL"))
             .attributes(Attributes::new())
             .build()
-            .unwrap_or_else(|_| unreachable!("Example VIX option with valid constants should never fail"))
+            .unwrap_or_else(|_| {
+                unreachable!("Example VIX option with valid constants should never fail")
+            })
     }
 
     /// Create a VIX call option.
@@ -182,7 +184,12 @@ impl VolatilityIndexOption {
     /// # Errors
     ///
     /// Returns an error if the builder fails validation.
-    pub fn vix_call(id: impl Into<String>, strike: f64, expiry: Date, notional: Money) -> finstack_core::Result<Self> {
+    pub fn vix_call(
+        id: impl Into<String>,
+        strike: f64,
+        expiry: Date,
+        notional: Money,
+    ) -> finstack_core::Result<Self> {
         Self::builder()
             .id(InstrumentId::new(id.into()))
             .notional(notional)
@@ -204,7 +211,12 @@ impl VolatilityIndexOption {
     /// # Errors
     ///
     /// Returns an error if the builder fails validation.
-    pub fn vix_put(id: impl Into<String>, strike: f64, expiry: Date, notional: Money) -> finstack_core::Result<Self> {
+    pub fn vix_put(
+        id: impl Into<String>,
+        strike: f64,
+        expiry: Date,
+        notional: Money,
+    ) -> finstack_core::Result<Self> {
         Self::builder()
             .id(InstrumentId::new(id.into()))
             .notional(notional)

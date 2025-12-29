@@ -151,7 +151,9 @@ impl RevolvingCredit {
             .stub_rule(StubKind::ShortFront)
             .attributes(Attributes::new())
             .build()
-            .unwrap_or_else(|_| unreachable!("Example RevolvingCredit with valid constants should never fail"))
+            .unwrap_or_else(|_| {
+                unreachable!("Example RevolvingCredit with valid constants should never fail")
+            })
     }
 }
 

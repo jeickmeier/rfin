@@ -163,7 +163,8 @@ fn test_bucketed_dv01_sums_to_parallel() {
         as_of,
         date!(2035 - 01 - 01), // 10 year bond
         "USD-OIS",
-    ).unwrap();
+    )
+    .unwrap();
 
     // Create curve with dense knots (semi-annual) to properly capture cashflow sensitivity.
     let rate: f64 = 0.05;
@@ -264,7 +265,8 @@ fn test_bucketed_cs01_sums_to_total() {
         date!(2030 - 01 - 01),
         "USD-OIS",
         "HAZARD",
-    ).expect("CDS construction should succeed");
+    )
+    .expect("CDS construction should succeed");
 
     let disc_curve = DiscountCurve::builder("USD-OIS")
         .base_date(as_of)

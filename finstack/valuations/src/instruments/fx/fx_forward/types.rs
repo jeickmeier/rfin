@@ -123,7 +123,9 @@ impl FxForward {
             .contract_rate_opt(Some(1.12))
             .attributes(Attributes::new().with_tag("fx").with_meta("pair", "EURUSD"))
             .build()
-            .unwrap_or_else(|_| unreachable!("Example FX forward with valid constants should never fail"))
+            .unwrap_or_else(|_| {
+                unreachable!("Example FX forward with valid constants should never fail")
+            })
     }
 
     /// Construct an FX forward from trade date and tenor using joint calendar spot roll.

@@ -299,8 +299,12 @@ mod mc_invariants {
             let market = create_mc_market(spot, vol, rate);
 
             // Price twice and verify identical
-            let pv1 = option.value(&market, as_of).expect("First pricing should succeed");
-            let pv2 = option.value(&market, as_of).expect("Second pricing should succeed");
+            let pv1 = option
+                .value(&market, as_of)
+                .expect("First pricing should succeed");
+            let pv2 = option
+                .value(&market, as_of)
+                .expect("Second pricing should succeed");
 
             assert_eq!(
                 pv1.amount(),
@@ -348,16 +352,16 @@ mod additional_invariants {
                 .expect("Bond construction should succeed");
 
             let metrics = vec![MetricId::Dv01, MetricId::BucketedDv01];
-            let pv = bond.value(&market, as_of).expect("Valuation should succeed");
+            let pv = bond
+                .value(&market, as_of)
+                .expect("Valuation should succeed");
 
-            let mut context = MetricContext::new(
-                Arc::new(bond),
-                Arc::new(market.clone()),
-                as_of,
-                pv,
-            );
+            let mut context =
+                MetricContext::new(Arc::new(bond), Arc::new(market.clone()), as_of, pv);
 
-            let results = registry.compute(&metrics, &mut context).expect("Metrics should compute");
+            let results = registry
+                .compute(&metrics, &mut context)
+                .expect("Metrics should compute");
             let parallel_dv01 = results.get(&MetricId::Dv01).copied().unwrap_or(0.0);
 
             if let Some(series) = context.computed_series.get(&MetricId::BucketedDv01) {

@@ -29,7 +29,8 @@ fn test_accrued_interest_linear_default() {
         make_date(2025, 1, 1),
         make_date(2030, 1, 1),
         "USD-OIS",
-    ).unwrap();
+    )
+    .unwrap();
 
     // Default accrual method should be Linear
     assert!(matches!(bond.accrual_method, AccrualMethod::Linear));
@@ -65,7 +66,8 @@ fn test_accrued_interest_compounded_vs_linear() {
         make_date(2025, 1, 1),
         make_date(2030, 1, 1),
         "USD-OIS",
-    ).unwrap();
+    )
+    .unwrap();
 
     // Compounded accrual bond
     let mut bond_compounded = Bond::fixed(
@@ -75,7 +77,8 @@ fn test_accrued_interest_compounded_vs_linear() {
         make_date(2025, 1, 1),
         make_date(2030, 1, 1),
         "USD-OIS",
-    ).unwrap();
+    )
+    .unwrap();
     bond_compounded.accrual_method = AccrualMethod::Compounded;
 
     // Accrual at quarter-point (90 days out of 180)
@@ -137,7 +140,8 @@ fn test_accrued_interest_compounded_zero_coupon() {
         make_date(2025, 1, 1),
         make_date(2030, 1, 1),
         "USD-OIS",
-    ).unwrap();
+    )
+    .unwrap();
     bond.accrual_method = AccrualMethod::Compounded;
 
     let as_of = make_date(2025, 4, 1);
@@ -161,7 +165,8 @@ fn test_accrued_interest_ex_coupon_period() {
         make_date(2025, 1, 1),
         make_date(2030, 1, 1),
         "USD-OIS",
-    ).unwrap();
+    )
+    .unwrap();
     bond.ex_coupon_days = Some(7); // Ex-coupon 7 days before payment
 
     // 5 days before coupon (within ex-coupon window)
@@ -184,7 +189,8 @@ fn test_accrued_interest_at_coupon_boundaries() {
         make_date(2025, 1, 1),
         make_date(2030, 1, 1),
         "USD-OIS",
-    ).unwrap();
+    )
+    .unwrap();
 
     // Midway through first coupon period (should have accrual)
     let midway = make_date(2025, 4, 1); // 90 days into first 180-day period
@@ -327,7 +333,8 @@ fn test_accrual_method_serialization() {
         make_date(2025, 1, 1),
         make_date(2035, 1, 1),
         "EUR-OIS",
-    ).unwrap();
+    )
+    .unwrap();
     bond.accrual_method = AccrualMethod::Compounded;
 
     let json = serde_json::to_string(&bond).expect("Serialization should succeed in test");

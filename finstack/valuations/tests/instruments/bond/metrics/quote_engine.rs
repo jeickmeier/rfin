@@ -40,7 +40,8 @@ fn test_quote_engine_roundtrip_ytm_and_zspread_fixed_bond() {
         as_of,
         date!(2030 - 01 - 01),
         "USD-OIS",
-    ).unwrap();
+    )
+    .unwrap();
 
     let disc = build_simple_discount_curve(as_of);
     let market = MarketContext::new().insert_discount(disc);
@@ -108,7 +109,8 @@ fn test_quote_engine_roundtrip_dm_for_frn() {
         Tenor::quarterly(),
         DayCount::Act360,
         "USD-OIS",
-    ).unwrap();
+    )
+    .unwrap();
 
     // Flat discount and forward curves.
     let disc = DiscountCurve::builder("USD-OIS")
@@ -165,7 +167,8 @@ fn test_quote_engine_roundtrip_oas_and_asw_market_fixed_bond() {
         as_of,
         date!(2030 - 01 - 01),
         "USD-OIS",
-    ).unwrap();
+    )
+    .unwrap();
 
     // OAS calculations use short-rate tree which needs a curve with more knots
     // for stable calibration
@@ -246,7 +249,8 @@ fn test_quote_engine_roundtrip_i_spread_fixed_bond() {
         as_of,
         date!(2030 - 01 - 01),
         "USD-OIS",
-    ).unwrap();
+    )
+    .unwrap();
 
     let disc = build_simple_discount_curve(as_of);
     let market = MarketContext::new().insert_discount(disc);

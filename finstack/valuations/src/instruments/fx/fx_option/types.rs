@@ -105,7 +105,9 @@ impl FxOption {
             .pricing_overrides(PricingOverrides::default())
             .attributes(Attributes::new())
             .build()
-            .unwrap_or_else(|_| unreachable!("Example FX option with valid constants should never fail"))
+            .unwrap_or_else(|_| {
+                unreachable!("Example FX option with valid constants should never fail")
+            })
     }
 
     /// Create a European call option on an FX pair with standard conventions.

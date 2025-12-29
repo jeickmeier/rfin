@@ -3,9 +3,9 @@
 use crate::instruments::common::traits::Attributes;
 use crate::instruments::PricingOverrides;
 use finstack_core::dates::Date;
-use time::macros::date;
 use finstack_core::money::Money;
 use finstack_core::types::{CurveId, InstrumentId};
+use time::macros::date;
 
 /// Final payoff type for autocallable products.
 #[derive(Clone, Copy, Debug, PartialEq)]
@@ -101,7 +101,9 @@ impl Autocallable {
             .pricing_overrides(PricingOverrides::default())
             .attributes(Attributes::new())
             .build()
-            .unwrap_or_else(|_| unreachable!("Example Autocallable with valid constants should never fail"))
+            .unwrap_or_else(|_| {
+                unreachable!("Example Autocallable with valid constants should never fail")
+            })
     }
     /// Calculate the net present value of this autocallable.
     #[cfg(feature = "mc")]

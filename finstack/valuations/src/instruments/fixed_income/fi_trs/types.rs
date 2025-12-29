@@ -110,7 +110,11 @@ impl FIIndexTotalReturnSwap {
             .initial_level_opt(None)
             .attributes(Attributes::new())
             .build()
-            .unwrap_or_else(|_| unreachable!("Example FIIndexTotalReturnSwap with valid constants should never fail"))
+            .unwrap_or_else(|_| {
+                unreachable!(
+                    "Example FIIndexTotalReturnSwap with valid constants should never fail"
+                )
+            })
     }
 
     /// Creates an FI TRS that replicates a bond ETF.

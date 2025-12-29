@@ -165,7 +165,9 @@ impl CdsOption {
             date!(2030 - 06 - 20),
             Money::new(10_000_000.0, Currency::USD),
         )
-        .unwrap_or_else(|_| unreachable!("Example CdsOptionParams with valid constants should never fail"));
+        .unwrap_or_else(|_| {
+            unreachable!("Example CdsOptionParams with valid constants should never fail")
+        });
         let credit_params =
             crate::instruments::common::parameters::CreditParams::corporate_standard(
                 "CORP",
@@ -178,7 +180,9 @@ impl CdsOption {
             "USD-OIS",
             "CDSOPT-VOL",
         )
-        .unwrap_or_else(|_| unreachable!("Example CdsOption with valid constants should never fail"))
+        .unwrap_or_else(|_| {
+            unreachable!("Example CdsOption with valid constants should never fail")
+        })
     }
 
     /// Create a new credit option using parameter structs with validation.

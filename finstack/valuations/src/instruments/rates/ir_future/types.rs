@@ -5,9 +5,9 @@ use crate::constants::PERCENT_TO_DECIMAL;
 use crate::instruments::common::traits::Attributes;
 use finstack_core::dates::{Date, DayCount};
 use finstack_core::market_data::context::MarketContext;
-use time::macros::date;
 use finstack_core::money::Money;
 use finstack_core::types::{CurveId, InstrumentId};
+use time::macros::date;
 
 /// Interest Rate Future instrument.
 #[derive(Clone, Debug, finstack_valuations_macros::FinancialBuilder)]
@@ -133,7 +133,9 @@ impl InterestRateFuture {
             .forward_id(CurveId::new("USD-SOFR-3M"))
             .attributes(Attributes::new())
             .build()
-            .unwrap_or_else(|_| unreachable!("Example InterestRateFuture with valid constants should never fail"))
+            .unwrap_or_else(|_| {
+                unreachable!("Example InterestRateFuture with valid constants should never fail")
+            })
     }
 
     /// Set contract specifications.

@@ -57,8 +57,7 @@ impl JsFinancingLegSpec {
         spread_bp: Option<f64>,
     ) -> JsFinancingLegSpec {
         // Convert f64 to Decimal; fallback to ZERO if conversion fails (shouldn't happen for valid bp values)
-        let spread_decimal =
-            Decimal::try_from(spread_bp.unwrap_or(0.0)).unwrap_or(Decimal::ZERO);
+        let spread_decimal = Decimal::try_from(spread_bp.unwrap_or(0.0)).unwrap_or(Decimal::ZERO);
         JsFinancingLegSpec {
             inner: FinancingLegSpec::new(
                 discount_curve.to_string(),

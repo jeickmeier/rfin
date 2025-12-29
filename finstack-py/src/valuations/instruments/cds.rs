@@ -405,26 +405,14 @@ fn construct_cds(
     let credit = credit_curve.extract::<&str>().context("credit_curve")?;
 
     let mut cds = match side {
-        PayReceive::PayFixed => CreditDefaultSwap::buy_protection(
-            id.clone(),
-            amt,
-            spread_bp,
-            start,
-            end,
-            disc,
-            credit,
-        )
-        .map_err(|e| pyo3::exceptions::PyValueError::new_err(e.to_string()))?,
-        PayReceive::ReceiveFixed => CreditDefaultSwap::sell_protection(
-            id.clone(),
-            amt,
-            spread_bp,
-            start,
-            end,
-            disc,
-            credit,
-        )
-        .map_err(|e| pyo3::exceptions::PyValueError::new_err(e.to_string()))?,
+        PayReceive::PayFixed => {
+            CreditDefaultSwap::buy_protection(id.clone(), amt, spread_bp, start, end, disc, credit)
+                .map_err(|e| pyo3::exceptions::PyValueError::new_err(e.to_string()))?
+        }
+        PayReceive::ReceiveFixed => {
+            CreditDefaultSwap::sell_protection(id.clone(), amt, spread_bp, start, end, disc, credit)
+                .map_err(|e| pyo3::exceptions::PyValueError::new_err(e.to_string()))?
+        }
     };
 
     if let Some(rr) = recovery_rate {

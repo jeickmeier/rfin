@@ -8,9 +8,9 @@ use crate::instruments::private_markets_fund::waterfall::{
 use finstack_core::currency::Currency;
 use finstack_core::dates::Date;
 use finstack_core::market_data::context::MarketContext;
-use time::macros::date;
 use finstack_core::money::Money;
 use finstack_core::types::{CurveId, InstrumentId};
+use time::macros::date;
 
 /// Private markets fund investment instrument.
 #[derive(Clone, Debug, finstack_valuations_macros::FinancialBuilder)]
@@ -62,7 +62,9 @@ impl PrivateMarketsFund {
             .catchup(0.5)
             .promote_tier(0.12, 0.8, 0.2)
             .build()
-            .unwrap_or_else(|_| unreachable!("WaterfallSpec with valid constants should never fail"));
+            .unwrap_or_else(|_| {
+                unreachable!("WaterfallSpec with valid constants should never fail")
+            });
         // Define a few cashflow events: contributions in year 1, proceeds in year 3, distribution in year 4
         let events = vec![
             super::waterfall::FundEvent::contribution(

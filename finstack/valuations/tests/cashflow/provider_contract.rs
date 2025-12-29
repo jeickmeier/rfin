@@ -133,7 +133,8 @@ mod bond_contract {
             issue,
             maturity,
             "USD-OIS",
-        ).unwrap();
+        )
+        .unwrap();
 
         verify_provider_contract(&bond, &minimal_market(), as_of);
     }
@@ -156,7 +157,8 @@ mod bond_contract {
             Tenor::quarterly(),
             DayCount::Act360,
             "USD-OIS",
-        ).unwrap();
+        )
+        .unwrap();
 
         verify_provider_contract(&bond, &minimal_market(), as_of);
     }

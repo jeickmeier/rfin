@@ -218,7 +218,8 @@ fn test_simple_equity_pricer_type_mismatch() {
         issue,
         maturity,
         "USD-TREASURY",
-    ).unwrap();
+    )
+    .unwrap();
 
     let market = MarketContext::new();
     let pricer = SimpleEquityDiscountingPricer::new();

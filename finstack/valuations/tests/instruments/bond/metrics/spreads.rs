@@ -21,7 +21,8 @@ fn test_z_spread_discount_bond() {
         as_of,
         date!(2030 - 01 - 01),
         "USD-OIS",
-    ).unwrap();
+    )
+    .unwrap();
     bond.pricing_overrides = PricingOverrides::default().with_clean_price(95.0);
 
     let curve = finstack_core::market_data::term_structures::DiscountCurve::builder("USD-OIS")
@@ -50,7 +51,8 @@ fn test_z_spread_missing_discount_curve_returns_error() {
         as_of,
         date!(2030 - 01 - 01),
         "USD-OIS",
-    ).unwrap();
+    )
+    .unwrap();
     bond.pricing_overrides = PricingOverrides::default().with_clean_price(95.0);
 
     // Market context with NO discount curves – any attempt to build a Z-spread PV should fail
@@ -118,7 +120,8 @@ fn test_z_spread_solver_convergence_across_spread_regimes() {
         as_of,
         maturity_ig,
         "USD-OIS",
-    ).unwrap();
+    )
+    .unwrap();
     let bond_hy = Bond::fixed(
         "ZSPR-CONV-HY",
         notional,
@@ -126,7 +129,8 @@ fn test_z_spread_solver_convergence_across_spread_regimes() {
         as_of,
         maturity_hy,
         "USD-OIS",
-    ).unwrap();
+    )
+    .unwrap();
     let bond_distressed = Bond::fixed(
         "ZSPR-CONV-DIST",
         notional,
@@ -134,7 +138,8 @@ fn test_z_spread_solver_convergence_across_spread_regimes() {
         as_of,
         maturity_distressed,
         "USD-OIS",
-    ).unwrap();
+    )
+    .unwrap();
 
     // (target z-spread, bond) scenarios from IG through distressed.
     let scenarios: Vec<(f64, Bond)> = vec![

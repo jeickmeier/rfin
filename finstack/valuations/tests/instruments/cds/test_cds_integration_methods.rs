@@ -41,7 +41,7 @@ fn create_test_cds(as_of: Date, end: Date) -> CreditDefaultSwap {
         "USD_OIS",
         "CORP",
     )
-.expect("CDS construction should succeed")
+    .expect("CDS construction should succeed")
 }
 
 #[test]

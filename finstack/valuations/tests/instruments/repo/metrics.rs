@@ -21,7 +21,7 @@ fn create_test_repo() -> Repo {
         date(2025, 4, 15),
         "USD-OIS",
     )
-.expect("Repo construction should succeed")
+    .expect("Repo construction should succeed")
 }
 
 fn create_metric_context(repo: Repo, context: MarketContext, as_of: Date) -> MetricContext {
@@ -95,7 +95,8 @@ fn test_collateral_coverage_overcollateralized() {
         date(2025, 1, 15),
         date(2025, 4, 15),
         "USD-OIS",
-    ).expect("Repo construction should succeed");
+    )
+    .expect("Repo construction should succeed");
 
     let context = create_standard_market_context();
     let mut mctx = create_metric_context(repo, context, date(2025, 1, 10));

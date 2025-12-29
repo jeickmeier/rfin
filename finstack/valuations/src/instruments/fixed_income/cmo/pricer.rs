@@ -183,8 +183,8 @@ impl Pricer for AgencyCmoDiscountingPricer {
     ) -> PricingResult<ValuationResult> {
         let cmo = crate::pricer::expect_inst::<AgencyCmo>(instrument, InstrumentType::AgencyCmo)?;
 
-        let pv =
-            price_cmo(cmo, market, as_of).map_err(|e| PricingError::model_failure(e.to_string()))?;
+        let pv = price_cmo(cmo, market, as_of)
+            .map_err(|e| PricingError::model_failure(e.to_string()))?;
 
         Ok(ValuationResult::stamped(cmo.id.as_str(), as_of, pv))
     }

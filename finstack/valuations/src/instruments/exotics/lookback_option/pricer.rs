@@ -379,12 +379,24 @@ impl Pricer for LookbackOptionAnalyticalPricer {
                     PricingError::model_failure("FixedStrike lookback requires a strike")
                 })?;
                 match lookback.option_type {
-                    crate::instruments::OptionType::Call => {
-                        fixed_strike_lookback_call(spot, strike.amount(), t, r, q, sigma, spot_extremum)
-                    }
-                    crate::instruments::OptionType::Put => {
-                        fixed_strike_lookback_put(spot, strike.amount(), t, r, q, sigma, spot_extremum)
-                    }
+                    crate::instruments::OptionType::Call => fixed_strike_lookback_call(
+                        spot,
+                        strike.amount(),
+                        t,
+                        r,
+                        q,
+                        sigma,
+                        spot_extremum,
+                    ),
+                    crate::instruments::OptionType::Put => fixed_strike_lookback_put(
+                        spot,
+                        strike.amount(),
+                        t,
+                        r,
+                        q,
+                        sigma,
+                        spot_extremum,
+                    ),
                 }
             }
             LookbackType::FloatingStrike => match lookback.option_type {

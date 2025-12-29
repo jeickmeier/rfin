@@ -63,8 +63,8 @@ use finstack_core::math::solver::{BrentSolver, Solver};
 use finstack_core::math::{adaptive_simpson, gauss_legendre_integrate};
 use finstack_core::money::Money;
 use finstack_core::{Error, Result};
-use rust_decimal::Decimal;
 use rust_decimal::prelude::ToPrimitive;
+use rust_decimal::Decimal;
 
 /// Numerical integration method for protection leg
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -381,17 +381,12 @@ impl CDSPricer {
         let schedule = self.generate_schedule(cds, as_of)?;
 
         let mut premium_pv = 0.0;
-        let spread = cds
-            .premium
-            .spread_bp
-            .to_f64()
-            .ok_or_else(|| {
-                Error::Validation(format!(
-                    "spread_bp {} cannot be converted to f64",
-                    cds.premium.spread_bp
-                ))
-            })?
-            * 1e-4;
+        let spread = cds.premium.spread_bp.to_f64().ok_or_else(|| {
+            Error::Validation(format!(
+                "spread_bp {} cannot be converted to f64",
+                cds.premium.spread_bp
+            ))
+        })? * 1e-4;
 
         for i in 0..schedule.len() - 1 {
             let start_date = schedule[i];

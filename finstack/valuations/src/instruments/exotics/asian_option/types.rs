@@ -92,7 +92,9 @@ impl AsianOption {
             .pricing_overrides(PricingOverrides::default())
             .attributes(Attributes::new())
             .build()
-            .unwrap_or_else(|_| unreachable!("Example AsianOption with valid constants should never fail"))
+            .unwrap_or_else(|_| {
+                unreachable!("Example AsianOption with valid constants should never fail")
+            })
     }
 
     /// Calculate the net present value of this Asian option using Monte Carlo.

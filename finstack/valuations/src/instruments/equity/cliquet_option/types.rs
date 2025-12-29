@@ -3,9 +3,9 @@
 use crate::instruments::common::traits::Attributes;
 use crate::instruments::PricingOverrides;
 use finstack_core::dates::Date;
-use time::macros::date;
 use finstack_core::money::Money;
 use finstack_core::types::{CurveId, InstrumentId};
+use time::macros::date;
 
 /// Cliquet option instrument.
 #[derive(Clone, Debug, finstack_valuations_macros::FinancialBuilder)]
@@ -102,7 +102,9 @@ impl CliquetOption {
             .pricing_overrides(PricingOverrides::default())
             .attributes(Attributes::new())
             .build()
-            .unwrap_or_else(|_| unreachable!("Example CliquetOption with valid constants should never fail"))
+            .unwrap_or_else(|_| {
+                unreachable!("Example CliquetOption with valid constants should never fail")
+            })
     }
     /// Calculate the net present value of this cliquet option.
     #[cfg(feature = "mc")]

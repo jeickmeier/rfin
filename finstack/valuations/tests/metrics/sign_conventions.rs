@@ -192,7 +192,8 @@ fn test_bond_dv01_negative() {
         as_of,
         date!(2030 - 01 - 01),
         "USD-OIS",
-    ).unwrap();
+    )
+    .unwrap();
 
     let disc_curve = DiscountCurve::builder("USD-OIS")
         .base_date(as_of)
@@ -392,7 +393,8 @@ fn test_cds_cs01_protection_buyer_positive() {
         date!(2030 - 01 - 01),
         "USD-OIS",
         "HAZARD",
-    ).expect("CDS construction should succeed");
+    )
+    .expect("CDS construction should succeed");
 
     let disc_curve = DiscountCurve::builder("USD-OIS")
         .base_date(as_of)
@@ -460,7 +462,8 @@ fn test_cds_cs01_protection_seller_negative() {
         date!(2030 - 01 - 01),
         "USD-OIS",
         "HAZARD",
-    ).expect("CDS construction should succeed");
+    )
+    .expect("CDS construction should succeed");
 
     let disc_curve = DiscountCurve::builder("USD-OIS")
         .base_date(as_of)
@@ -527,7 +530,8 @@ fn test_cds_cs01_opposite_signs() {
         date!(2030 - 01 - 01),
         "USD-OIS",
         "HAZARD",
-    ).expect("CDS construction should succeed");
+    )
+    .expect("CDS construction should succeed");
 
     let cds_sell = CreditDefaultSwap::sell_protection(
         "CS01_SELL",
@@ -537,7 +541,8 @@ fn test_cds_cs01_opposite_signs() {
         date!(2030 - 01 - 01),
         "USD-OIS",
         "HAZARD",
-    ).expect("CDS construction should succeed");
+    )
+    .expect("CDS construction should succeed");
 
     let disc_curve = DiscountCurve::builder("USD-OIS")
         .base_date(as_of)

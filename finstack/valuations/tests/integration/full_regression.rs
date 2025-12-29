@@ -102,7 +102,8 @@ fn build_bond_portfolio(as_of: Date) -> Vec<Bond> {
             as_of,
             maturity,
             "USD-OIS",
-        ).unwrap();
+        )
+        .unwrap();
 
         bonds.push(bond);
     }
@@ -122,7 +123,8 @@ fn build_bond_portfolio(as_of: Date) -> Vec<Bond> {
             as_of,
             maturity,
             "EUR-OIS",
-        ).unwrap();
+        )
+        .unwrap();
 
         bonds.push(bond);
     }
@@ -142,7 +144,8 @@ fn build_bond_portfolio(as_of: Date) -> Vec<Bond> {
             as_of,
             maturity,
             "GBP-OIS",
-        ).unwrap();
+        )
+        .unwrap();
 
         bonds.push(bond);
     }
@@ -341,7 +344,8 @@ fn test_metrics_strict_mode_no_silent_failures() {
         as_of,
         as_of + time::Duration::days(5 * 365),
         "USD-OIS",
-    ).unwrap();
+    )
+    .unwrap();
 
     // Get PV
     let pv = bond.value(&market, as_of).expect("PV should compute");
@@ -408,7 +412,8 @@ fn test_dataframe_export_metric_keys() {
         as_of,
         as_of + time::Duration::days(5 * 365),
         "USD-OIS",
-    ).unwrap();
+    )
+    .unwrap();
 
     // Compute metrics
     let metric_ids = vec![

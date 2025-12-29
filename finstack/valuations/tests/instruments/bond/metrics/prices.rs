@@ -18,7 +18,8 @@ fn test_clean_price_from_quoted() {
         as_of,
         date!(2030 - 01 - 01),
         "USD-OIS",
-    ).unwrap();
+    )
+    .unwrap();
     bond.pricing_overrides = PricingOverrides::default().with_clean_price(98.5);
 
     let curve = finstack_core::market_data::term_structures::DiscountCurve::builder("USD-OIS")

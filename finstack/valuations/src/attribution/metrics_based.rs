@@ -230,10 +230,14 @@ fn attribute_pnl_metrics_based_impl(input: &AttributionInput) -> Result<PnlAttri
     let as_of_t0 = input.as_of_t0;
     let as_of_t1 = input.as_of_t1;
     let val_t0 = input.val_t0.ok_or_else(|| {
-        finstack_core::Error::Validation("val_t0 required for metrics-based attribution".to_string())
+        finstack_core::Error::Validation(
+            "val_t0 required for metrics-based attribution".to_string(),
+        )
     })?;
     let val_t1 = input.val_t1.ok_or_else(|| {
-        finstack_core::Error::Validation("val_t1 required for metrics-based attribution".to_string())
+        finstack_core::Error::Validation(
+            "val_t1 required for metrics-based attribution".to_string(),
+        )
     })?;
 
     // Total P&L
