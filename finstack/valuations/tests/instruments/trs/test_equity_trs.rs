@@ -11,6 +11,7 @@ use finstack_core::money::Money;
 use finstack_valuations::cashflow::traits::CashflowProvider;
 use finstack_valuations::instruments::common::traits::Instrument;
 use finstack_valuations::instruments::TrsSide;
+use rust_decimal::Decimal;
 
 // ================================================================================================
 // Construction and Validation Tests
@@ -43,7 +44,7 @@ fn test_equity_trs_builder_custom_params() {
     // Assert
     assert_eq!(trs.id.as_str(), "CUSTOM-TRS-001");
     assert_eq!(trs.notional.amount(), 5_000_000.0);
-    assert_eq!(trs.financing.spread_bp, 50.0);
+    assert_eq!(trs.financing.spread_bp, Decimal::from(50));
     assert_eq!(trs.side, TrsSide::PayTotalReturn);
     assert_eq!(trs.initial_level, Some(5100.0));
 }

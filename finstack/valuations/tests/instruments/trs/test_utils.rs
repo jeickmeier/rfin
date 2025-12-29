@@ -19,6 +19,7 @@ use finstack_valuations::instruments::common::parameters::underlying::IndexUnder
 use finstack_valuations::instruments::equity_trs::EquityTotalReturnSwap;
 use finstack_valuations::instruments::fi_trs::FIIndexTotalReturnSwap;
 use finstack_valuations::instruments::{TrsScheduleSpec, TrsSide};
+use rust_decimal::Decimal;
 use time::Month;
 
 /// Creates a standard test date.
@@ -205,7 +206,7 @@ impl TestEquityTrsBuilder {
         let financing = FinancingLegSpec::new(
             self.discount_curve_id,
             self.forward_curve_id,
-            self.spread_bp,
+            Decimal::try_from(self.spread_bp).expect("valid spread_bp"),
             DayCount::Act360,
         );
 
@@ -322,7 +323,7 @@ impl TestFIIndexTrsBuilder {
         let financing = FinancingLegSpec::new(
             self.discount_curve_id,
             self.forward_curve_id,
-            self.spread_bp,
+            Decimal::try_from(self.spread_bp).expect("valid spread_bp"),
             DayCount::Act360,
         );
 

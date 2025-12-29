@@ -5,11 +5,12 @@ use crate::instruments::common::traits::{Attributes, CurveIdVec};
 use crate::instruments::PricingOverrides;
 use finstack_core::currency::Currency;
 use finstack_core::dates::{Date, DayCount};
-use time::macros::date;
 use finstack_core::money::Money;
 use finstack_core::types::{CurveId, InstrumentId};
 use finstack_core::Result;
+use rust_decimal::prelude::ToPrimitive;
 use smallvec::smallvec;
+use time::macros::date;
 
 // Re-export for compatibility in tests and external users referencing bond::AmortizationSpec
 pub use super::cashflow_spec::CashflowSpec;
@@ -245,7 +246,7 @@ impl Bond {
         maturity: Date,
         discount_curve_id: impl Into<CurveId>,
     ) -> finstack_core::Result<Self> {
-        Self::builder()
+        let bond = Self::builder()
             .id(id.into())
             .notional(notional)
             .issue(issue)
@@ -260,7 +261,11 @@ impl Bond {
             .pricing_overrides(PricingOverrides::default())
             .attributes(Attributes::new())
             .ex_coupon_calendar_id_opt(None)
-            .build()
+            .build()?;
+
+        // Validate all parameters before returning
+        bond.validate()?;
+        Ok(bond)
     }
 
     /// Create a bond with standard market conventions.
@@ -320,7 +325,7 @@ impl Bond {
         convention: crate::instruments::common::parameters::BondConvention,
         discount_curve_id: impl Into<CurveId>,
     ) -> finstack_core::Result<Self> {
-        Self::builder()
+        let bond = Self::builder()
             .id(id.into())
             .notional(notional)
             .issue(issue)
@@ -335,7 +340,11 @@ impl Bond {
             .pricing_overrides(PricingOverrides::default())
             .attributes(Attributes::new())
             .ex_coupon_calendar_id_opt(None)
-            .build()
+            .build()?;
+
+        // Validate all parameters before returning
+        bond.validate()?;
+        Ok(bond)
     }
 
     /// Create a floating-rate bond (FRN).
@@ -403,7 +412,7 @@ impl Bond {
         dc: DayCount,
         discount_curve_id: impl Into<CurveId>,
     ) -> finstack_core::Result<Self> {
-        Self::builder()
+        let bond = Self::builder()
             .id(id.into())
             .notional(notional)
             .issue(issue)
@@ -414,7 +423,11 @@ impl Bond {
             .pricing_overrides(PricingOverrides::default())
             .attributes(Attributes::new())
             .ex_coupon_calendar_id_opt(None)
-            .build()
+            .build()?;
+
+        // Validate all parameters before returning
+        bond.validate()?;
+        Ok(bond)
     }
 
     /// Create a bond from a pre-built cashflow schedule.
@@ -766,6 +779,76 @@ impl Bond {
         let price_amount = tree.price(vars, time_to_maturity, market, &valuator)?;
 
         Ok(Money::new(price_amount, self.notional.currency()))
+    }
+
+    /// Validate all bond parameters.
+    ///
+    /// Performs comprehensive validation of the bond instrument:
+    /// - Issue date must be before maturity date
+    /// - Notional must be positive
+    /// - Coupon rate must be non-negative (for fixed-rate bonds)
+    /// - Call/put prices must be positive
+    ///
+    /// # Errors
+    ///
+    /// Returns `Error::Validation` with a descriptive message if any validation fails.
+    ///
+    /// # Example
+    ///
+    /// ```ignore
+    /// let bond = Bond::fixed(...)?;
+    /// bond.validate()?; // Validates all parameters
+    /// ```
+    pub fn validate(&self) -> Result<()> {
+        // Validate date ordering
+        if self.issue >= self.maturity {
+            return Err(finstack_core::Error::Validation(format!(
+                "Bond issue date ({}) must be before maturity date ({})",
+                self.issue, self.maturity
+            )));
+        }
+
+        // Validate notional is positive
+        if self.notional.amount() <= 0.0 {
+            return Err(finstack_core::Error::Validation(format!(
+                "Bond notional must be positive, got {}",
+                self.notional.amount()
+            )));
+        }
+
+        // Validate coupon rate for fixed-rate bonds
+        if let CashflowSpec::Fixed(spec) = &self.cashflow_spec {
+            // Convert Decimal to f64 for comparison
+            let rate = spec.rate.to_f64().unwrap_or(0.0);
+            if rate < 0.0 {
+                return Err(finstack_core::Error::Validation(format!(
+                    "Bond fixed coupon rate must be non-negative, got {}",
+                    rate
+                )));
+            }
+        }
+
+        // Validate call/put prices
+        if let Some(ref call_put) = self.call_put {
+            for call in &call_put.calls {
+                if call.price_pct_of_par <= 0.0 {
+                    return Err(finstack_core::Error::Validation(format!(
+                        "Bond call price must be positive, got {} on {}",
+                        call.price_pct_of_par, call.date
+                    )));
+                }
+            }
+            for put in &call_put.puts {
+                if put.price_pct_of_par <= 0.0 {
+                    return Err(finstack_core::Error::Validation(format!(
+                        "Bond put price must be positive, got {} on {}",
+                        put.price_pct_of_par, put.date
+                    )));
+                }
+            }
+        }
+
+        Ok(())
     }
 }
 

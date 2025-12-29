@@ -196,8 +196,8 @@ pub struct PremiumLegSpec {
     pub calendar_id: Option<String>,
     /// Day count convention
     pub dc: DayCount,
-    /// Fixed spread in basis points
-    pub spread_bp: f64,
+    /// Fixed spread in basis points (e.g., 100 = 100bp = 1%)
+    pub spread_bp: Decimal,
     /// Discount curve identifier
     pub discount_curve_id: CurveId,
 }
@@ -265,8 +265,8 @@ pub struct FinancingLegSpec {
     pub discount_curve_id: CurveId,
     /// Forward curve identifier (e.g., USD-SOFR-3M)
     pub forward_curve_id: CurveId,
-    /// Spread in basis points over the floating rate
-    pub spread_bp: f64,
+    /// Spread in basis points over the floating rate (e.g., 50 = 50bp = 0.5%)
+    pub spread_bp: Decimal,
     /// Day count convention for accrual calculations
     pub day_count: DayCount,
 }
@@ -276,7 +276,7 @@ impl FinancingLegSpec {
     pub fn new(
         discount_curve_id: impl Into<String>,
         forward_curve_id: impl Into<String>,
-        spread_bp: f64,
+        spread_bp: Decimal,
         day_count: DayCount,
     ) -> Self {
         Self {

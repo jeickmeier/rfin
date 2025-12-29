@@ -222,3 +222,12 @@ mod term_loan;
 /// Golden test vectors from QuantLib and ISDA Standard Model
 #[path = "instruments/golden/mod.rs"]
 mod golden;
+
+// ============================================================================
+// Market Edge Case Tests
+// ============================================================================
+
+/// Market-edge tests for CDS and Bond instruments
+/// Tests for upfront conventions, accrual-on-default, ex-coupon, stub periods
+#[path = "instruments/market_edge_tests.rs"]
+mod market_edge_tests;

@@ -191,7 +191,8 @@ fn test_constituents_weights_dont_sum_to_one() {
         &CreditParams::corporate_standard("INDEX", "HZ-INDEX"),
         "USD-OIS",
         "HZ-INDEX",
-    );
+    )
+    .expect("valid test parameters");
 
     let ctx = multi_constituent_market_context(as_of, 3);
     let result = idx.value(&ctx, as_of);
@@ -228,7 +229,8 @@ fn test_negative_weights() {
         &CreditParams::corporate_standard("INDEX", "HZ-INDEX"),
         "USD-OIS",
         "HZ-INDEX",
-    );
+    )
+    .expect("valid test parameters");
 
     let ctx = multi_constituent_market_context(as_of, 2);
     let result = idx.value(&ctx, as_of);
@@ -253,7 +255,8 @@ fn test_recovery_rate_zero() {
         &credit,
         "USD-OIS",
         "HZ-INDEX",
-    );
+    )
+    .expect("valid test parameters");
 
     let ctx = standard_market_context(as_of);
     let result = idx.value(&ctx, as_of);
@@ -278,7 +281,8 @@ fn test_recovery_rate_one() {
         &credit,
         "USD-OIS",
         "HZ-INDEX",
-    );
+    )
+    .expect("valid test parameters");
 
     let ctx = standard_market_context(as_of);
     let result = idx.value(&ctx, as_of);
@@ -303,7 +307,8 @@ fn test_index_factor_zero() {
         &CreditParams::corporate_standard("INDEX", "HZ-INDEX"),
         "USD-OIS",
         "HZ-INDEX",
-    );
+    )
+    .expect("valid test parameters");
 
     let ctx = standard_market_context(as_of);
     let result = idx.value(&ctx, as_of);
@@ -334,7 +339,8 @@ fn test_index_factor_greater_than_one() {
         &CreditParams::corporate_standard("INDEX", "HZ-INDEX"),
         "USD-OIS",
         "HZ-INDEX",
-    );
+    )
+    .expect("valid test parameters");
 
     let ctx = standard_market_context(as_of);
     let result = idx.value(&ctx, as_of);
@@ -359,7 +365,8 @@ fn test_empty_constituents_list() {
         &CreditParams::corporate_standard("INDEX", "HZ-INDEX"),
         "USD-OIS",
         "HZ-INDEX",
-    );
+    )
+    .expect("valid test parameters");
 
     // Should be single-curve mode
     assert!(idx.constituents.is_empty());
@@ -387,7 +394,8 @@ fn test_missing_constituent_hazard_curve() {
         &CreditParams::corporate_standard("INDEX", "HZ-INDEX"),
         "USD-OIS",
         "HZ-INDEX",
-    );
+    )
+    .expect("valid test parameters");
 
     let ctx = standard_market_context(as_of);
     let result = idx.value(&ctx, as_of);

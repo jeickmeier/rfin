@@ -21,6 +21,7 @@ use finstack_core::{
     types::{CurveId, InstrumentId},
     Result,
 };
+use rust_decimal::Decimal;
 
 /// Fixed Income Index Total Return Swap instrument.
 ///
@@ -85,7 +86,7 @@ impl FIIndexTotalReturnSwap {
         let financing = FinancingLegSpec {
             discount_curve_id: CurveId::new("USD-OIS"),
             forward_curve_id: CurveId::new("USD-SOFR-3M"),
-            spread_bp: 100.0,
+            spread_bp: Decimal::from(100),
             day_count: DayCount::Act360,
         };
         let sched = TrsScheduleSpec::from_params(

@@ -124,7 +124,7 @@ impl Pricer for AgencyTbaDiscountingPricer {
         let tba = crate::pricer::expect_inst::<AgencyTba>(instrument, InstrumentType::AgencyTba)?;
 
         let pv =
-            price_tba(tba, market, as_of).map_err(|e| PricingError::ModelFailure(e.to_string()))?;
+            price_tba(tba, market, as_of).map_err(|e| PricingError::model_failure(e.to_string()))?;
 
         Ok(ValuationResult::stamped(tba.id.as_str(), as_of, pv))
     }

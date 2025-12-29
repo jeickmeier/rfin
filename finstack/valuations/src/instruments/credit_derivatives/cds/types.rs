@@ -11,6 +11,8 @@ use finstack_core::market_data::traits::Discounting;
 use finstack_core::market_data::traits::Survival;
 use finstack_core::money::Money;
 use finstack_core::types::InstrumentId;
+use rust_decimal::Decimal;
+use rust_decimal::prelude::ToPrimitive;
 
 use crate::instruments::cds::pricer::CDSPricer;
 use std::sync::OnceLock;
@@ -384,9 +386,13 @@ impl CreditDefaultSwap {
 
     /// Create a standard CDS with ISDA conventions (buy protection).
     ///
+    /// # Arguments
+    ///
+    /// * `spread_bp` - Spread in basis points (e.g., 100.0 = 100bp = 1%)
+    ///
     /// # Errors
     ///
-    /// Returns an error if the builder fails validation.
+    /// Returns an error if the builder fails validation or spread_bp cannot be represented as Decimal.
     #[allow(clippy::too_many_arguments)]
     pub fn buy_protection(
         id: impl Into<InstrumentId>,
@@ -403,7 +409,14 @@ impl CreditDefaultSwap {
         let bdc = convention.business_day_convention();
         let stub = convention.stub_convention();
 
-        CreditDefaultSwapBuilder::new()
+        let spread_bp_decimal = Decimal::try_from(spread_bp).map_err(|e| {
+            finstack_core::Error::Validation(format!(
+                "spread_bp {} cannot be represented as Decimal: {}",
+                spread_bp, e
+            ))
+        })?;
+
+        let cds = CreditDefaultSwapBuilder::new()
             .id(id.into())
             .notional(notional)
             .side(PayReceive::PayFixed)
@@ -416,7 +429,7 @@ impl CreditDefaultSwap {
                 bdc,
                 calendar_id: Some(convention.default_calendar().to_string()),
                 dc,
-                spread_bp,
+                spread_bp: spread_bp_decimal,
                 discount_curve_id: discount_curve_id.into(),
             })
             .protection(ProtectionLegSpec {
@@ -426,14 +439,22 @@ impl CreditDefaultSwap {
             })
             .pricing_overrides(PricingOverrides::default())
             .attributes(Attributes::new())
-            .build()
+            .build()?;
+
+        // Validate all parameters before returning
+        cds.validate()?;
+        Ok(cds)
     }
 
     /// Create a standard CDS with ISDA conventions (sell protection).
     ///
+    /// # Arguments
+    ///
+    /// * `spread_bp` - Spread in basis points (e.g., 100.0 = 100bp = 1%)
+    ///
     /// # Errors
     ///
-    /// Returns an error if the builder fails validation.
+    /// Returns an error if the builder fails validation or spread_bp cannot be represented as Decimal.
     #[allow(clippy::too_many_arguments)]
     pub fn sell_protection(
         id: impl Into<InstrumentId>,
@@ -450,7 +471,14 @@ impl CreditDefaultSwap {
         let bdc = convention.business_day_convention();
         let stub = convention.stub_convention();
 
-        CreditDefaultSwapBuilder::new()
+        let spread_bp_decimal = Decimal::try_from(spread_bp).map_err(|e| {
+            finstack_core::Error::Validation(format!(
+                "spread_bp {} cannot be represented as Decimal: {}",
+                spread_bp, e
+            ))
+        })?;
+
+        let cds = CreditDefaultSwapBuilder::new()
             .id(id.into())
             .notional(notional)
             .side(PayReceive::ReceiveFixed)
@@ -463,7 +491,7 @@ impl CreditDefaultSwap {
                 bdc,
                 calendar_id: Some(convention.default_calendar().to_string()),
                 dc,
-                spread_bp,
+                spread_bp: spread_bp_decimal,
                 discount_curve_id: discount_curve_id.into(),
             })
             .protection(ProtectionLegSpec {
@@ -473,7 +501,11 @@ impl CreditDefaultSwap {
             })
             .pricing_overrides(PricingOverrides::default())
             .attributes(Attributes::new())
-            .build()
+            .build()?;
+
+        // Validate all parameters before returning
+        cds.validate()?;
+        Ok(cds)
     }
 
     /// Create a new CDS with standard ISDA conventions using explicit inputs.
@@ -481,13 +513,17 @@ impl CreditDefaultSwap {
     /// This is an internal helper method used by synthetic CDS creation in
     /// cds_option and cds_index modules. For public API, use `buy_protection()`,
     /// `sell_protection()`, or `builder()`.
+    ///
+    /// # Arguments
+    ///
+    /// * `spread_bp` - Spread in basis points as Decimal
     #[allow(clippy::too_many_arguments)]
     pub(crate) fn new_isda(
         id: impl Into<InstrumentId>,
         notional: Money,
         side: PayReceive,
         convention: CDSConvention,
-        spread_bp: f64,
+        spread_bp: Decimal,
         start: finstack_core::dates::Date,
         end: finstack_core::dates::Date,
         recovery_rate: f64,
@@ -535,6 +571,44 @@ impl CreditDefaultSwap {
         ProtectionLegSpec::validate_recovery_rate(recovery_rate)
     }
 
+    /// Validate all CDS parameters.
+    ///
+    /// Performs comprehensive validation of the CDS instrument:
+    /// - Premium leg start date must be before end date
+    /// - Recovery rate must be in [0, 1]
+    ///
+    /// Note: Zero notional and negative spreads are allowed as they represent
+    /// valid edge cases (testing scenarios, unusual market conditions).
+    ///
+    /// # Errors
+    ///
+    /// Returns `Error::Validation` with a descriptive message if any validation fails.
+    ///
+    /// # Example
+    ///
+    /// ```ignore
+    /// let cds = CreditDefaultSwap::buy_protection(...)?;
+    /// cds.validate()?; // Validates all parameters
+    /// ```
+    pub fn validate(&self) -> finstack_core::Result<()> {
+        // Validate date ordering (start must not be after end)
+        // Note: start == end is allowed for "expired" CDS (valuation handles this edge case)
+        if self.premium.start > self.premium.end {
+            return Err(finstack_core::Error::Validation(format!(
+                "CDS premium start date ({}) must not be after end date ({})",
+                self.premium.start, self.premium.end
+            )));
+        }
+
+        // Validate recovery rate (must be in [0, 1])
+        Self::validate_recovery_rate(self.protection.recovery_rate)?;
+
+        // Note: Zero notional is allowed for testing scenarios
+        // Note: Negative spreads are allowed (theoretically possible in unusual market conditions)
+
+        Ok(())
+    }
+
     /// Build premium leg cashflows
     pub fn build_premium_schedule(
         &self,
@@ -555,6 +629,19 @@ impl CreditDefaultSwap {
             return Ok(vec![]);
         }
 
+        // Convert spread_bp to f64 for calculation (bps to decimal: /10000)
+        let spread_decimal = self
+            .premium
+            .spread_bp
+            .to_f64()
+            .ok_or_else(|| {
+                finstack_core::Error::Validation(format!(
+                    "spread_bp {} cannot be converted to f64",
+                    self.premium.spread_bp
+                ))
+            })?
+            / 10000.0;
+
         let mut flows = Vec::with_capacity(dates.len() - 1);
         let mut prev = dates[0];
         for &d in &dates[1..] {
@@ -563,7 +650,7 @@ impl CreditDefaultSwap {
                 d,
                 finstack_core::dates::DayCountCtx::default(),
             )?;
-            let amount = self.notional.amount() * (self.premium.spread_bp / 10000.0) * year_frac;
+            let amount = self.notional.amount() * spread_decimal * year_frac;
             flows.push((d, Money::new(amount, self.notional.currency())));
             prev = d;
         }

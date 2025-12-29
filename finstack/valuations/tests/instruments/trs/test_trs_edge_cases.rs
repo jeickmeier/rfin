@@ -17,6 +17,7 @@ use finstack_valuations::instruments::common::traits::Instrument;
 use finstack_valuations::instruments::equity_trs::EquityTotalReturnSwap;
 use finstack_valuations::instruments::fi_trs::FIIndexTotalReturnSwap;
 use finstack_valuations::instruments::{TrsScheduleSpec, TrsSide};
+use rust_decimal::Decimal;
 
 // ================================================================================================
 // Currency Mismatch Tests
@@ -35,7 +36,7 @@ fn test_fi_index_trs_currency_mismatch_validation() {
         .financing(FinancingLegSpec::new(
             "USD-OIS",
             "USD-SOFR-3M",
-            100.0,
+            Decimal::from(100),
             DayCount::Act360,
         ))
         .schedule(TrsScheduleSpec::from_params(
@@ -138,7 +139,7 @@ fn test_fi_index_trs_builder_validation() {
         .financing(FinancingLegSpec::new(
             "USD-OIS",
             "USD-SOFR-3M",
-            100.0,
+            Decimal::from(100),
             DayCount::Act360,
         ))
         .schedule(TrsScheduleSpec::from_params(
@@ -376,7 +377,7 @@ fn test_equity_trs_with_past_start_date() {
         .financing(FinancingLegSpec::new(
             "USD-OIS",
             "USD-SOFR-3M",
-            25.0,
+            Decimal::from(25),
             DayCount::Act360,
         ))
         .schedule(TrsScheduleSpec::from_params(
@@ -412,7 +413,7 @@ fn test_equity_trs_with_very_short_tenor_1_day() {
         .financing(FinancingLegSpec::new(
             "USD-OIS",
             "USD-SOFR-3M",
-            25.0,
+            Decimal::from(25),
             DayCount::Act360,
         ))
         .schedule(TrsScheduleSpec::from_params(
@@ -450,7 +451,7 @@ fn test_fi_index_trs_maturity_equals_valuation_date() {
         .financing(FinancingLegSpec::new(
             "USD-OIS",
             "USD-SOFR-3M",
-            100.0,
+            Decimal::from(100),
             DayCount::Act360,
         ))
         .schedule(TrsScheduleSpec::from_params(
@@ -533,7 +534,7 @@ fn test_equity_trs_with_zero_contract_size() {
         .financing(FinancingLegSpec::new(
             "USD-OIS",
             "USD-SOFR-3M",
-            25.0,
+            Decimal::from(25),
             DayCount::Act360,
         ))
         .schedule(TrsScheduleSpec::from_params(
@@ -576,7 +577,7 @@ fn test_equity_trs_with_fractional_contract_size() {
         .financing(FinancingLegSpec::new(
             "USD-OIS",
             "USD-SOFR-3M",
-            25.0,
+            Decimal::from(25),
             DayCount::Act360,
         ))
         .schedule(TrsScheduleSpec::from_params(

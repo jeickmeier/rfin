@@ -19,6 +19,7 @@ use finstack_core::market_data::term_structures::ParInterp;
 use finstack_core::math::solver::{BrentSolver, Solver};
 use finstack_core::money::Money;
 use finstack_core::Result;
+use rust_decimal::Decimal;
 
 /// Pricing engine for `CdsOption`.
 ///
@@ -131,19 +132,25 @@ impl CdsOptionPricer {
     }
 }
 
-fn synthetic_underlying_cds(option: &CdsOption) -> CreditDefaultSwap {
-    CreditDefaultSwap::new_isda(
+fn synthetic_underlying_cds(option: &CdsOption) -> Result<CreditDefaultSwap> {
+    let spread_bp = Decimal::try_from(option.strike_spread_bp).map_err(|e| {
+        finstack_core::Error::Validation(format!(
+            "strike_spread_bp {} cannot be represented as Decimal: {}",
+            option.strike_spread_bp, e
+        ))
+    })?;
+    Ok(CreditDefaultSwap::new_isda(
         option.id.to_owned(),
         Money::new(option.notional.amount(), option.notional.currency()),
         PayReceive::PayFixed,
         CDSConvention::IsdaNa,
-        option.strike_spread_bp,
+        spread_bp,
         option.expiry,
         option.cds_maturity,
         option.recovery_rate,
         option.discount_curve_id.to_owned(),
         option.credit_curve_id.to_owned(),
-    )
+    ))
 }
 
 impl CdsOptionPricer {
@@ -154,7 +161,7 @@ impl CdsOptionPricer {
         surv: &finstack_core::market_data::term_structures::hazard_curve::HazardCurve,
         as_of: finstack_core::dates::Date,
     ) -> Result<f64> {
-        let cds = synthetic_underlying_cds(option);
+        let cds = synthetic_underlying_cds(option)?;
         let pricer = CDSPricer::new();
         let mut forward_bp = pricer.par_spread(&cds, disc, surv, as_of)?;
         if option.underlying_is_index {
@@ -460,8 +467,8 @@ impl CdsOptionPricer {
         }
 
         // Market-standard: build a synthetic CDS from expiry to maturity and ask CDS pricer for RA
-        let mut cds = synthetic_underlying_cds(option);
-        cds.premium.spread_bp = 0.0;
+        let mut cds = synthetic_underlying_cds(option)?;
+        cds.premium.spread_bp = Decimal::ZERO;
         let cds_pricer = CDSPricer::new();
         cds_pricer.risky_annuity(&cds, disc, surv, as_of)
     }

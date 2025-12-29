@@ -20,6 +20,7 @@ use finstack_core::dates::Date;
 use finstack_core::market_data::context::MarketContext;
 use finstack_core::money::Money;
 use finstack_core::Result;
+use rust_decimal::prelude::ToPrimitive;
 
 // ============================================================================
 // Helper Functions
@@ -163,7 +164,8 @@ impl Marginable for CreditDefaultSwap {
         // Determine if qualifying (investment grade) or non-qualifying
         // In practice, this would be looked up from ratings data
         // For now, assume qualifying if spread < threshold
-        let qualifying = self.premium.spread_bp < INVESTMENT_GRADE_SPREAD_THRESHOLD_BP;
+        let spread_bp_f64 = self.premium.spread_bp.to_f64().unwrap_or(f64::MAX);
+        let qualifying = spread_bp_f64 < INVESTMENT_GRADE_SPREAD_THRESHOLD_BP;
 
         // Assign to 5Y bucket (most liquid CDS tenor)
         let signed_cs01 = match self.side {

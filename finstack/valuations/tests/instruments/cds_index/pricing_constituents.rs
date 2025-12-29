@@ -170,7 +170,8 @@ fn test_constituents_unequal_weights() {
         &CreditParams::corporate_standard("INDEX", "HZ-INDEX"),
         "USD-OIS",
         "HZ-INDEX",
-    );
+    )
+    .expect("valid test parameters");
 
     let ctx = multi_constituent_market_context(as_of, 3);
     let result = idx.value(&ctx, as_of);
@@ -200,7 +201,8 @@ fn test_constituents_index_factor_application() {
         &CreditParams::corporate_standard("INDEX", "HZ-INDEX"),
         "USD-OIS",
         "HZ-INDEX",
-    );
+    )
+    .expect("valid test parameters");
 
     assert_eq!(idx.index_factor, factor);
 

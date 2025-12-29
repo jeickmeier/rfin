@@ -61,6 +61,7 @@ fn create_cds_index_single_curve(tenor_years: i32) -> CDSIndex {
         "USD-OIS",
         "CDX-HAZARD",
     )
+    .expect("valid benchmark parameters")
 }
 
 fn create_cds_index_constituents(tenor_years: i32, num_names: usize) -> CDSIndex {

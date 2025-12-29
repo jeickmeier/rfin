@@ -98,6 +98,7 @@ pub fn standard_single_curve_index(id: &str, start: Date, end: Date, notional: f
         "USD-OIS",
         "HZ-INDEX",
     )
+    .expect("valid test parameters")
 }
 
 /// Create a standard constituents-based index
@@ -121,6 +122,7 @@ pub fn standard_constituents_index(
         "USD-OIS",
         "HZ-INDEX",
     )
+    .expect("valid test parameters")
 }
 
 /// Assert money values are approximately equal (within tolerance)

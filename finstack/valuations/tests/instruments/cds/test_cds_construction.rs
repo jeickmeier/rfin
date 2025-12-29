@@ -7,6 +7,7 @@ use finstack_core::currency::Currency;
 use finstack_core::dates::{Date, DayCount, Tenor};
 use finstack_core::money::Money;
 use finstack_valuations::instruments::cds::{CDSConvention, CreditDefaultSwap, PayReceive};
+use rust_decimal::Decimal;
 use time::Month;
 
 /// Helper to create standard test date
@@ -35,7 +36,7 @@ fn test_buy_protection_constructor() {
     assert_eq!(cds.notional.amount(), 10_000_000.0);
     assert_eq!(cds.notional.currency(), Currency::USD);
     assert_eq!(cds.side, PayReceive::PayFixed);
-    assert_eq!(cds.premium.spread_bp, 100.0);
+    assert_eq!(cds.premium.spread_bp, Decimal::from(100));
     assert_eq!(cds.convention, CDSConvention::IsdaNa);
 }
 
@@ -57,7 +58,7 @@ fn test_sell_protection_constructor() {
     .expect("CDS construction should succeed");
 
     assert_eq!(cds.side, PayReceive::ReceiveFixed);
-    assert_eq!(cds.premium.spread_bp, 150.0);
+    assert_eq!(cds.premium.spread_bp, Decimal::from(150));
     assert_eq!(cds.notional.currency(), Currency::EUR);
 }
 
@@ -117,7 +118,7 @@ fn test_builder_pattern() {
             bdc: convention.business_day_convention(),
             calendar_id: None,
             dc: convention.day_count(),
-            spread_bp: 200.0,
+            spread_bp: Decimal::from(200),
             discount_curve_id: "USD-OIS".into(),
         })
         .protection(ProtectionLegSpec {
@@ -131,7 +132,7 @@ fn test_builder_pattern() {
         .unwrap();
 
     assert_eq!(cds.id.as_str(), "BUILDER_TEST");
-    assert_eq!(cds.premium.spread_bp, 200.0);
+    assert_eq!(cds.premium.spread_bp, Decimal::from(200));
     assert_eq!(cds.protection.recovery_rate, 0.40);
 }
 
@@ -196,7 +197,7 @@ fn test_spread_can_be_negative() {
     )
     .expect("CDS construction should succeed");
 
-    assert_eq!(cds.premium.spread_bp, -50.0);
+    assert_eq!(cds.premium.spread_bp, Decimal::from(-50));
 }
 
 #[test]

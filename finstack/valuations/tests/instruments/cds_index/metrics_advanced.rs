@@ -51,7 +51,8 @@ fn test_jump_to_default_negative_for_protection_seller() {
         &CreditParams::corporate_standard("INDEX", "HZ-INDEX"),
         "USD-OIS",
         "HZ-INDEX",
-    );
+    )
+    .expect("valid test parameters");
 
     let ctx = standard_market_context(as_of);
 

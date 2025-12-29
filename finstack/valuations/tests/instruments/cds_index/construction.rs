@@ -54,7 +54,8 @@ fn test_construction_with_index_factor() {
         &CreditParams::corporate_standard("INDEX", "HZ-INDEX"),
         "USD-OIS",
         "HZ-INDEX",
-    );
+    )
+    .expect("valid test parameters");
 
     assert_eq!(idx.index_factor, factor);
 }
@@ -181,7 +182,8 @@ fn test_weight_sum_validation() {
         &CreditParams::corporate_standard("INDEX", "HZ-INDEX"),
         "USD-OIS",
         "HZ-INDEX",
-    );
+    )
+    .expect("valid test parameters");
 
     let weight_sum: f64 = idx.constituents.iter().map(|c| c.weight).sum();
     assert!(
@@ -339,7 +341,8 @@ fn test_multiple_index_types_construction() {
             &CreditParams::corporate_standard("INDEX", "HZ-INDEX"),
             "USD-OIS",
             "HZ-INDEX",
-        );
+        )
+        .expect("valid test parameters");
 
         assert_eq!(idx.index_name, name);
     }

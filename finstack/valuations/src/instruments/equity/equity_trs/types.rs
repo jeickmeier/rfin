@@ -21,6 +21,7 @@ use finstack_core::{
     types::{CurveId, InstrumentId},
     Result,
 };
+use rust_decimal::Decimal;
 use time::macros::date;
 
 /// Equity Total Return Swap instrument.
@@ -93,7 +94,7 @@ impl EquityTotalReturnSwap {
             .financing(FinancingLegSpec {
                 discount_curve_id: CurveId::new("USD-OIS"),
                 forward_curve_id: CurveId::new("USD-SOFR-3M"),
-                spread_bp: 75.0,
+                spread_bp: Decimal::from(75),
                 day_count: DayCount::Act360,
             })
             .schedule(TrsScheduleSpec::from_params(

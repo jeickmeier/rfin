@@ -412,8 +412,8 @@ fn test_pricing_error_display() {
     assert!(msg2.contains("bond"));
     assert!(msg2.contains("irs"));
 
-    let err3 = PricingError::ModelFailure("test error".to_string());
-    assert_eq!(err3.to_string(), "Model failure: test error");
+    let err3 = PricingError::model_failure("test error");
+    assert!(err3.to_string().contains("Model failure: test error"));
 }
 
 #[test]
@@ -423,8 +423,8 @@ fn test_pricing_error_from_core_error() {
     let pricing_err: PricingError = core_err.into();
 
     match pricing_err {
-        PricingError::ModelFailure(msg) => {
-            assert!(msg.contains("test"));
+        PricingError::ModelFailure { message, .. } => {
+            assert!(message.contains("test"));
         }
         _ => panic!("Expected ModelFailure"),
     }

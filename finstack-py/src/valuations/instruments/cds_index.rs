@@ -15,6 +15,7 @@ use pyo3::exceptions::PyValueError;
 use pyo3::prelude::*;
 use pyo3::types::{PyAny, PyModule, PyType};
 use pyo3::Bound;
+use rust_decimal::prelude::ToPrimitive;
 use std::fmt;
 
 /// CDS index instrument binding exposing a simplified constructor.
@@ -140,7 +141,7 @@ impl PyCdsIndex {
             disc_curve,
             credit_curve_id,
         );
-        Ok(Self::new(index))
+        Ok(Self::new(index.map_err(|e| PyValueError::new_err(e.to_string()))?))
     }
 
     /// Instrument identifier.
@@ -176,7 +177,7 @@ impl PyCdsIndex {
     ///     float: Coupon spread applied to premium leg.
     #[getter]
     fn fixed_coupon_bp(&self) -> f64 {
-        self.inner.premium.spread_bp
+        self.inner.premium.spread_bp.to_f64().unwrap_or(0.0)
     }
 
     /// Pay/receive direction for protection.

@@ -15,6 +15,7 @@ use finstack_core::currency::Currency;
 use finstack_core::money::Money;
 use time::macros::date;
 use finstack_core::types::{CurveId, InstrumentId};
+use rust_decimal::Decimal;
 
 // Reuse CDS components for conventions and legs
 use crate::instruments::cds::{
@@ -123,7 +124,7 @@ impl CDSIndex {
                 bdc,
                 calendar_id: None,
                 dc,
-                spread_bp: 60.0,
+                spread_bp: Decimal::from(60),
                 discount_curve_id: CurveId::new("USD-OIS"),
             },
             protection: ProtectionLegSpec {
@@ -139,7 +140,11 @@ impl CDSIndex {
         }
     }
 
-    /// Create a new CDS Index with standard ISDA conventions using parameter structs
+    /// Create a new CDS Index with standard ISDA conventions using parameter structs.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if `fixed_coupon_bp` cannot be represented as Decimal.
     #[allow(clippy::too_many_arguments)]
     pub fn new_standard(
         id: impl Into<InstrumentId>,
@@ -150,11 +155,18 @@ impl CDSIndex {
         credit_params: &CreditParams,
         discount_curve_id: impl Into<CurveId>,
         credit_id: impl Into<CurveId>,
-    ) -> Self {
+    ) -> finstack_core::Result<Self> {
         let dc = construction_params.convention.day_count();
         let freq = construction_params.convention.frequency();
         let bdc = construction_params.convention.business_day_convention();
         let stub = construction_params.convention.stub_convention();
+
+        let spread_bp_decimal = Decimal::try_from(index_params.fixed_coupon_bp).map_err(|e| {
+            finstack_core::Error::Validation(format!(
+                "fixed_coupon_bp {} cannot be represented as Decimal: {}",
+                index_params.fixed_coupon_bp, e
+            ))
+        })?;
 
         let mut s = Self {
             id: id.into(),
@@ -173,7 +185,7 @@ impl CDSIndex {
                 bdc,
                 calendar_id: None,
                 dc,
-                spread_bp: index_params.fixed_coupon_bp,
+                spread_bp: spread_bp_decimal,
                 discount_curve_id: discount_curve_id.into(),
             },
             protection: ProtectionLegSpec {
@@ -201,7 +213,7 @@ impl CDSIndex {
             }
         }
 
-        s
+        Ok(s)
     }
 
     /// Map this index to a synthetic single-name CDS for valuation reuse

@@ -737,7 +737,8 @@ fn build_sample_portfolio(as_of: Date) -> finstack_portfolio::Result<Portfolio> 
         &credit_params,
         "USD",
         "CORP_BB",
-    );
+    )
+    .expect("valid index parameters");
 
     let cds_index_position = Position::new(
         "POS_CDX_001",

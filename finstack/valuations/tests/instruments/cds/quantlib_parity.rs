@@ -25,6 +25,7 @@ use finstack_valuations::instruments::cds::pricer::{CDSPricer, CDSPricerConfig};
 use finstack_valuations::instruments::cds::CreditDefaultSwap;
 use finstack_valuations::instruments::common::traits::Instrument;
 use finstack_valuations::metrics::MetricId;
+use rust_decimal::Decimal;
 use time::macros::date;
 
 use crate::common::test_helpers::tolerances;
@@ -214,8 +215,8 @@ fn test_quantlib_fair_upfront_at_par() {
         )
         .unwrap();
 
-    // Set CDS to trade at par
-    cds.premium.spread_bp = par_spread;
+    // Set CDS to trade at par (convert f64 to Decimal)
+    cds.premium.spread_bp = Decimal::try_from(par_spread).expect("valid par_spread");
 
     // NPV should be near zero
     let npv = cds.value(&market, as_of).unwrap();
@@ -527,7 +528,7 @@ fn test_quantlib_spread_sensitivity() {
     // Manually bump spread and check NPV change
     let base_npv = cds.value(&market, as_of).unwrap().amount();
 
-    cds.premium.spread_bp += 1.0; // +1bp
+    cds.premium.spread_bp += Decimal::ONE; // +1bp
     let bumped_npv = cds.value(&market, as_of).unwrap().amount();
 
     let actual_change = bumped_npv - base_npv;

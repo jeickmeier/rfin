@@ -163,7 +163,8 @@ fn test_single_curve_buy_vs_sell_protection() {
         &finstack_valuations::instruments::CreditParams::corporate_standard("INDEX", "HZ-INDEX"),
         "USD-OIS",
         "HZ-INDEX",
-    );
+    )
+    .expect("valid test parameters");
 
     let ctx = standard_market_context(as_of);
 

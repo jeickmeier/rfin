@@ -4,6 +4,7 @@ use crate::valuations::common::{curve_id_from_str, instrument_id_from_str};
 use crate::valuations::instruments::InstrumentWrapper;
 use finstack_valuations::instruments::cds::CreditDefaultSwap;
 use finstack_valuations::pricer::InstrumentType;
+use rust_decimal::prelude::ToPrimitive;
 use wasm_bindgen::prelude::*;
 
 #[wasm_bindgen(js_name = CreditDefaultSwap)]
@@ -92,7 +93,7 @@ impl JsCreditDefaultSwap {
 
     #[wasm_bindgen(getter, js_name = spreadBp)]
     pub fn spread_bp(&self) -> f64 {
-        self.inner.premium.spread_bp
+        self.inner.premium.spread_bp.to_f64().unwrap_or(0.0)
     }
 
     #[wasm_bindgen(getter, js_name = recoveryRate)]

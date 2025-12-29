@@ -9,6 +9,7 @@
 //! - `convergence`: Analytical vs FD convergence, bucket summation
 //! - `determinism`: MC reproducibility (feature-gated)
 //! - `graceful_metrics_test`: Error handling
+//! - `invariants`: Property-based invariant tests (DV01 sum-to-parallel, MC determinism)
 
 #[path = "metrics/graceful_metrics_test.rs"]
 mod graceful_metrics_test;
@@ -27,6 +28,9 @@ mod edge_cases;
 
 #[path = "metrics/convergence.rs"]
 mod convergence;
+
+#[path = "metrics/invariants.rs"]
+mod invariants;
 
 // Note: tests/metrics/tests/ subdirectory contains internal unit tests that use
 // crate-internal APIs (finite_difference, bump helpers). These run as part of

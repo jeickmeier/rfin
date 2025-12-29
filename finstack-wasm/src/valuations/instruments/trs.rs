@@ -12,6 +12,7 @@ use finstack_valuations::instruments::equity_trs::EquityTotalReturnSwap;
 use finstack_valuations::instruments::fi_trs::FIIndexTotalReturnSwap;
 use finstack_valuations::instruments::{TrsScheduleSpec, TrsSide};
 use finstack_valuations::pricer::InstrumentType;
+use rust_decimal::Decimal;
 use wasm_bindgen::prelude::*;
 
 // Simplified TRS schedule spec for WASM
@@ -55,11 +56,14 @@ impl JsFinancingLegSpec {
         day_count: &crate::core::dates::daycount::JsDayCount,
         spread_bp: Option<f64>,
     ) -> JsFinancingLegSpec {
+        // Convert f64 to Decimal; fallback to ZERO if conversion fails (shouldn't happen for valid bp values)
+        let spread_decimal =
+            Decimal::try_from(spread_bp.unwrap_or(0.0)).unwrap_or(Decimal::ZERO);
         JsFinancingLegSpec {
             inner: FinancingLegSpec::new(
                 discount_curve.to_string(),
                 forward_curve.to_string(),
-                spread_bp.unwrap_or(0.0),
+                spread_decimal,
                 day_count.inner(),
             ),
         }

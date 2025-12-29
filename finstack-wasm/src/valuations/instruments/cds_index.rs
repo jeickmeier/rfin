@@ -12,6 +12,7 @@ use finstack_valuations::instruments::cds_index::parameters::{
 use finstack_valuations::instruments::cds_index::CDSIndex;
 use finstack_valuations::instruments::common::parameters::CreditParams;
 use finstack_valuations::pricer::InstrumentType;
+use rust_decimal::prelude::ToPrimitive;
 use wasm_bindgen::prelude::*;
 
 #[wasm_bindgen(js_name = CDSIndex)]
@@ -81,7 +82,8 @@ impl JsCDSIndex {
             &credit_params,
             disc_curve,
             credit_curve_id,
-        );
+        )
+        .map_err(js_error)?;
 
         Ok(JsCDSIndex::from_inner(index))
     }
@@ -103,7 +105,7 @@ impl JsCDSIndex {
 
     #[wasm_bindgen(getter, js_name = fixedCouponBp)]
     pub fn fixed_coupon_bp(&self) -> f64 {
-        self.inner.premium.spread_bp
+        self.inner.premium.spread_bp.to_f64().unwrap_or(0.0)
     }
 
     #[wasm_bindgen(getter)]

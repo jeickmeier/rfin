@@ -286,7 +286,7 @@ impl Pricer for AgencyMbsDiscountingPricer {
         )?;
 
         let pv =
-            price_mbs(mbs, market, as_of).map_err(|e| PricingError::ModelFailure(e.to_string()))?;
+            price_mbs(mbs, market, as_of).map_err(|e| PricingError::model_failure(e.to_string()))?;
 
         Ok(ValuationResult::stamped(mbs.id.as_str(), as_of, pv))
     }

@@ -19,6 +19,8 @@ use pyo3::exceptions::PyValueError;
 use pyo3::prelude::*;
 use pyo3::types::{PyAny, PyModule, PyType};
 use pyo3::Bound;
+use rust_decimal::prelude::ToPrimitive;
+use rust_decimal::Decimal;
 use std::fmt;
 
 fn parse_curve_id(label: &Bound<'_, PyAny>, context: &str) -> PyResult<String> {
@@ -102,7 +104,9 @@ impl PyFinancingLegSpec {
         use crate::errors::PyContext;
         let disc = parse_curve_id(&discount_curve, "discount curve").context("discount_curve")?;
         let fwd = parse_curve_id(&forward_curve, "forward curve").context("forward_curve")?;
-        let spec = FinancingLegSpec::new(disc, fwd, spread_bp.unwrap_or(0.0), day_count.inner);
+        let spread_decimal = Decimal::try_from(spread_bp.unwrap_or(0.0))
+            .map_err(|e| PyValueError::new_err(format!("Invalid spread_bp: {e}")))?;
+        let spec = FinancingLegSpec::new(disc, fwd, spread_decimal, day_count.inner);
         Ok(Self { inner: spec })
     }
 
@@ -118,7 +122,7 @@ impl PyFinancingLegSpec {
 
     #[getter]
     fn spread_bp(&self) -> f64 {
-        self.inner.spread_bp
+        self.inner.spread_bp.to_f64().unwrap_or(0.0)
     }
 
     #[getter]

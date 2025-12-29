@@ -18,6 +18,7 @@ use crate::instruments::common::parameters::trs_common::TrsScheduleSpec;
 use finstack_core::dates::{Date, DayCountCtx};
 use finstack_core::market_data::context::MarketContext;
 use finstack_core::money::Money;
+use rust_decimal::prelude::ToPrimitive;
 
 /// Parameters for total return leg calculation.
 #[derive(Debug, Clone)]
@@ -237,8 +238,9 @@ impl TrsEngine {
             let t_end = schedule.params.dc.year_fraction(as_of, period_end, ctx)?;
             let fwd_rate = fwd.rate_period(t_start, t_end);
 
-            // Add spread
-            let total_rate = fwd_rate + financing.spread_bp / 10000.0;
+            // Add spread (convert Decimal to f64 for calculation)
+            let spread_decimal = financing.spread_bp.to_f64().unwrap_or(0.0) / 10000.0;
+            let total_rate = fwd_rate + spread_decimal;
 
             // Payment amount
             let payment = notional.amount() * total_rate * yf;

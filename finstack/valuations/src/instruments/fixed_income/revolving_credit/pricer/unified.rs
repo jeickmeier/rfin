@@ -609,7 +609,7 @@ impl Pricer for RevolvingCreditPricer {
                 enhanced.mc_result.estimate.mean
             }
             _ => {
-                return Err(PricingError::ModelFailure(format!(
+                return Err(PricingError::model_failure(format!(
                     "Unsupported model for RevolvingCredit: {}",
                     self.model
                 )));

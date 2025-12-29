@@ -13,6 +13,7 @@ use finstack_core::dates::{adjust, next_cds_date, DateExt, StubKind};
 use finstack_core::money::Money;
 use finstack_core::types::{CurveId, InstrumentId};
 use finstack_core::Result;
+use rust_decimal::Decimal;
 
 /// Build a Credit Default Swap instrument from a [`CdsQuote`].
 ///
@@ -223,7 +224,12 @@ pub fn build_cds_instrument(quote: &CdsQuote, ctx: &BuildCtx) -> Result<Box<dyn 
             bdc: conv.business_day_convention,
             calendar_id: Some(conv.calendar_id.clone()),
             dc: conv.day_count,
-            spread_bp,
+            spread_bp: Decimal::try_from(spread_bp).map_err(|e| {
+                finstack_core::Error::Validation(format!(
+                    "spread_bp {} cannot be represented as Decimal: {}",
+                    spread_bp, e
+                ))
+            })?,
             discount_curve_id: CurveId::new(discount_id),
         },
         protection: ProtectionLegSpec {

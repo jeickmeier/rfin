@@ -53,7 +53,8 @@ fn imm_20th_schedule_for_index_synthetic() {
         &CreditParams::corporate_standard("INDEX", "HZ-IDX"),
         "USD-OIS",
         "HZ-IDX",
-    );
+    )
+    .expect("valid test parameters");
     let cds = idx.to_synthetic_cds();
     let pricer = CDSPricer::new();
     let schedule = pricer.generate_isda_schedule(&cds).unwrap();
@@ -110,7 +111,8 @@ fn index_factor_scales_pv() {
         &CreditParams::corporate_standard("INDEX", "HZ-IDX"),
         "USD-OIS",
         "HZ-IDX",
-    );
+    )
+    .expect("valid test parameters");
 
     let idx_scaled = CDSIndex::new_standard(
         "CDX-SCALED",
@@ -121,7 +123,8 @@ fn index_factor_scales_pv() {
         &CreditParams::corporate_standard("INDEX", "HZ-IDX"),
         "USD-OIS",
         "HZ-IDX",
-    );
+    )
+    .expect("valid test parameters");
 
     let pv_base = idx_base.npv(&ctx, as_of).unwrap().amount();
     let pv_scaled = idx_scaled.npv(&ctx, as_of).unwrap().amount();

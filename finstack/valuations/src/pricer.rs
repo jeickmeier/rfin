@@ -499,7 +499,86 @@ impl PricerKey {
 /// Standardized result type for pricing operations
 pub type PricingResult<T> = std::result::Result<T, PricingError>;
 
+/// Context for pricing operations, providing actionable debugging information.
+///
+/// This struct captures the instrument, model, and market data context
+/// when a pricing error occurs, enabling easier troubleshooting.
+#[derive(Debug, Clone, Default)]
+pub struct PricingErrorContext {
+    /// The instrument ID that was being priced (if known).
+    pub instrument_id: Option<String>,
+    /// The instrument type being priced.
+    pub instrument_type: Option<InstrumentType>,
+    /// The pricing model being used.
+    pub model: Option<ModelKey>,
+    /// Market data curve/surface IDs involved in the operation.
+    pub curve_ids: Vec<String>,
+}
+
+impl PricingErrorContext {
+    /// Create a new empty context.
+    pub fn new() -> Self {
+        Self::default()
+    }
+
+    /// Set the instrument ID.
+    pub fn with_instrument_id(mut self, id: impl Into<String>) -> Self {
+        self.instrument_id = Some(id.into());
+        self
+    }
+
+    /// Set the instrument type.
+    pub fn with_instrument_type(mut self, typ: InstrumentType) -> Self {
+        self.instrument_type = Some(typ);
+        self
+    }
+
+    /// Set the pricing model.
+    pub fn with_model(mut self, model: ModelKey) -> Self {
+        self.model = Some(model);
+        self
+    }
+
+    /// Add a curve/surface ID to the context.
+    pub fn with_curve_id(mut self, curve_id: impl Into<String>) -> Self {
+        self.curve_ids.push(curve_id.into());
+        self
+    }
+
+    /// Add multiple curve/surface IDs to the context.
+    pub fn with_curve_ids(mut self, curve_ids: impl IntoIterator<Item = impl Into<String>>) -> Self {
+        self.curve_ids.extend(curve_ids.into_iter().map(|s| s.into()));
+        self
+    }
+}
+
+impl std::fmt::Display for PricingErrorContext {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        let mut parts = Vec::new();
+        if let Some(ref id) = self.instrument_id {
+            parts.push(format!("instrument={}", id));
+        }
+        if let Some(typ) = self.instrument_type {
+            parts.push(format!("type={:?}", typ));
+        }
+        if let Some(model) = self.model {
+            parts.push(format!("model={:?}", model));
+        }
+        if !self.curve_ids.is_empty() {
+            parts.push(format!("curves=[{}]", self.curve_ids.join(", ")));
+        }
+        if parts.is_empty() {
+            write!(f, "<no context>")
+        } else {
+            write!(f, "{}", parts.join(", "))
+        }
+    }
+}
+
 /// Pricing-specific errors returned by pricer implementations.
+///
+/// Each variant captures the error condition along with optional context
+/// (instrument ID, type, model, and curve IDs) for actionable debugging.
 #[derive(Debug, thiserror::Error)]
 #[non_exhaustive]
 pub enum PricingError {
@@ -517,16 +596,48 @@ pub enum PricingError {
     },
 
     /// Pricing model computation failed.
-    #[error("Model failure: {0}")]
-    ModelFailure(String),
+    ///
+    /// The context provides actionable information about which instrument
+    /// and model were involved when the failure occurred.
+    #[error("Model failure: {message}{}", format_context(.context))]
+    ModelFailure {
+        /// Error message describing the failure.
+        message: String,
+        /// Context: instrument, model, and curves involved.
+        context: PricingErrorContext,
+    },
 
     /// Invalid input parameters provided.
-    #[error("Invalid input: {0}")]
-    InvalidInput(String),
+    ///
+    /// The context identifies which instrument had invalid inputs.
+    #[error("Invalid input: {message}{}", format_context(.context))]
+    InvalidInput {
+        /// Error message describing the invalid input.
+        message: String,
+        /// Context: instrument and relevant details.
+        context: PricingErrorContext,
+    },
 
     /// Missing market data required for pricing.
-    #[error("Missing market data: {0}")]
-    MissingMarketData(String),
+    ///
+    /// Identifies exactly which market data ID is missing and for which instrument.
+    #[error("Missing market data: {missing_id} required for pricing{}", format_context(.context))]
+    MissingMarketData {
+        /// The ID of the missing market data (curve, surface, or scalar).
+        missing_id: String,
+        /// Context: instrument requiring this data.
+        context: PricingErrorContext,
+    },
+}
+
+/// Helper to format context for error display.
+fn format_context(ctx: &PricingErrorContext) -> String {
+    let display = ctx.to_string();
+    if display == "<no context>" {
+        String::new()
+    } else {
+        format!(" [{}]", display)
+    }
 }
 
 impl From<PricingError> for finstack_core::Error {
@@ -537,29 +648,160 @@ impl From<PricingError> for finstack_core::Error {
 
 impl From<finstack_core::Error> for PricingError {
     fn from(err: finstack_core::Error) -> Self {
-        PricingError::ModelFailure(err.to_string())
+        PricingError::ModelFailure {
+            message: err.to_string(),
+            context: PricingErrorContext::default(),
+        }
     }
 }
 
 impl PricingError {
-    /// Create a type mismatch error with context
+    /// Create a type mismatch error.
     pub fn type_mismatch(expected: InstrumentType, got: InstrumentType) -> Self {
         Self::TypeMismatch { expected, got }
     }
 
-    /// Create a model failure error with context
+    /// Create a model failure error (backward compatible, no context).
     pub fn model_failure(msg: impl Into<String>) -> Self {
-        Self::ModelFailure(msg.into())
+        Self::ModelFailure {
+            message: msg.into(),
+            context: PricingErrorContext::default(),
+        }
     }
 
-    /// Create an invalid input error with context
+    /// Create a model failure error with full context.
+    ///
+    /// # Example
+    ///
+    /// ```ignore
+    /// PricingError::model_failure_ctx(
+    ///     "Discount factor calculation failed",
+    ///     PricingErrorContext::new()
+    ///         .with_instrument_id("BOND-001")
+    ///         .with_instrument_type(InstrumentType::Bond)
+    ///         .with_model(ModelKey::Discounting)
+    ///         .with_curve_id("USD-OIS"),
+    /// )
+    /// ```
+    pub fn model_failure_ctx(msg: impl Into<String>, context: PricingErrorContext) -> Self {
+        Self::ModelFailure {
+            message: msg.into(),
+            context,
+        }
+    }
+
+    /// Create an invalid input error (backward compatible, no context).
     pub fn invalid_input(msg: impl Into<String>) -> Self {
-        Self::InvalidInput(msg.into())
+        Self::InvalidInput {
+            message: msg.into(),
+            context: PricingErrorContext::default(),
+        }
     }
 
-    /// Create a missing market data error with context
+    /// Create an invalid input error with full context.
+    pub fn invalid_input_ctx(msg: impl Into<String>, context: PricingErrorContext) -> Self {
+        Self::InvalidInput {
+            message: msg.into(),
+            context,
+        }
+    }
+
+    /// Create a missing market data error (backward compatible, takes description).
     pub fn missing_market_data(msg: impl Into<String>) -> Self {
-        Self::MissingMarketData(msg.into())
+        Self::MissingMarketData {
+            missing_id: msg.into(),
+            context: PricingErrorContext::default(),
+        }
+    }
+
+    /// Create a missing market data error with the specific missing ID and context.
+    ///
+    /// # Example
+    ///
+    /// ```ignore
+    /// PricingError::missing_market_data_ctx(
+    ///     "USD-OIS",
+    ///     PricingErrorContext::new()
+    ///         .with_instrument_id("BOND-001")
+    ///         .with_instrument_type(InstrumentType::Bond),
+    /// )
+    /// ```
+    pub fn missing_market_data_ctx(missing_id: impl Into<String>, context: PricingErrorContext) -> Self {
+        Self::MissingMarketData {
+            missing_id: missing_id.into(),
+            context,
+        }
+    }
+
+    /// Add context to an existing error.
+    ///
+    /// This is useful for enriching errors as they propagate up the call stack.
+    pub fn with_context(self, context: PricingErrorContext) -> Self {
+        match self {
+            Self::ModelFailure { message, .. } => Self::ModelFailure { message, context },
+            Self::InvalidInput { message, .. } => Self::InvalidInput { message, context },
+            Self::MissingMarketData { missing_id, .. } => Self::MissingMarketData { missing_id, context },
+            // These variants already have context or don't need it
+            other => other,
+        }
+    }
+
+    /// Add instrument ID to the error context.
+    pub fn with_instrument_id(self, id: impl Into<String>) -> Self {
+        let id = id.into();
+        match self {
+            Self::ModelFailure { message, mut context } => {
+                context.instrument_id = Some(id);
+                Self::ModelFailure { message, context }
+            }
+            Self::InvalidInput { message, mut context } => {
+                context.instrument_id = Some(id);
+                Self::InvalidInput { message, context }
+            }
+            Self::MissingMarketData { missing_id, mut context } => {
+                context.instrument_id = Some(id);
+                Self::MissingMarketData { missing_id, context }
+            }
+            other => other,
+        }
+    }
+
+    /// Add instrument type to the error context.
+    pub fn with_instrument_type(self, typ: InstrumentType) -> Self {
+        match self {
+            Self::ModelFailure { message, mut context } => {
+                context.instrument_type = Some(typ);
+                Self::ModelFailure { message, context }
+            }
+            Self::InvalidInput { message, mut context } => {
+                context.instrument_type = Some(typ);
+                Self::InvalidInput { message, context }
+            }
+            Self::MissingMarketData { missing_id, mut context } => {
+                context.instrument_type = Some(typ);
+                Self::MissingMarketData { missing_id, context }
+            }
+            other => other,
+        }
+    }
+
+    /// Add model key to the error context.
+    pub fn with_model(self, model: ModelKey) -> Self {
+        match self {
+            Self::ModelFailure { message, mut context } => {
+                context.model = Some(model);
+                Self::ModelFailure { message, context }
+            }
+            Self::InvalidInput { message, mut context } => {
+                context.model = Some(model);
+                Self::InvalidInput { message, context }
+            }
+            Self::MissingMarketData { missing_id, mut context } => {
+                context.model = Some(model);
+                Self::MissingMarketData { missing_id, context }
+            }
+            other => other,
+        }
     }
 }
 

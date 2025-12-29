@@ -8,6 +8,7 @@ use pyo3::exceptions::PyValueError;
 use pyo3::prelude::*;
 use pyo3::types::{PyAny, PyModule, PyType};
 use pyo3::{Bound, Py, PyRef};
+use rust_decimal::prelude::ToPrimitive;
 use std::fmt;
 
 /// Pay/receive indicator for CDS premium leg.
@@ -295,7 +296,7 @@ impl PyCreditDefaultSwap {
     ///     float: Premium spread for the CDS.
     #[getter]
     fn spread_bp(&self) -> f64 {
-        self.inner.premium.spread_bp
+        self.inner.premium.spread_bp.to_f64().unwrap_or(0.0)
     }
 
     /// Discount curve identifier.

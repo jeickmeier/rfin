@@ -38,7 +38,8 @@ fn test_cdx_na_ig_standard_conventions() {
         &CreditParams::corporate_standard("INDEX", "HZ-INDEX"),
         "USD-OIS",
         "HZ-INDEX",
-    );
+    )
+    .expect("valid test parameters");
 
     assert_eq!(idx.convention, CDSConvention::IsdaNa);
     assert_eq!(idx.premium.freq, Tenor::quarterly());
@@ -63,7 +64,8 @@ fn test_cdx_na_hy_standard_conventions() {
         &CreditParams::corporate_standard("INDEX", "HZ-INDEX"),
         "USD-OIS",
         "HZ-INDEX",
-    );
+    )
+    .expect("valid test parameters");
 
     assert_eq!(idx.convention, CDSConvention::IsdaNa);
     assert_eq!(idx.premium.freq, Tenor::quarterly());
@@ -87,7 +89,8 @@ fn test_itraxx_europe_standard_conventions() {
         &CreditParams::corporate_standard("INDEX", "HZ-INDEX"),
         "EUR-OIS",
         "HZ-INDEX",
-    );
+    )
+    .expect("valid test parameters");
 
     assert_eq!(idx.convention, CDSConvention::IsdaNa);
     // Note: Would be CDSConvention::IsdaEu if that variant exists
@@ -201,7 +204,8 @@ fn test_index_factor_application() {
         &CreditParams::corporate_standard("INDEX", "HZ-INDEX"),
         "USD-OIS",
         "HZ-INDEX",
-    );
+    )
+    .expect("valid test parameters");
 
     assert_eq!(idx.index_factor, factor);
 }
@@ -290,7 +294,8 @@ fn test_pricing_with_standard_conventions() {
         &CreditParams::corporate_standard("INDEX", "HZ-INDEX"),
         "USD-OIS",
         "HZ-INDEX",
-    );
+    )
+    .expect("valid test parameters");
 
     let ctx = standard_market_context(as_of);
     let result = idx.value(&ctx, as_of);
@@ -333,7 +338,8 @@ fn test_fixed_coupon_in_premium_leg() {
         &CreditParams::corporate_standard("INDEX", "HZ-INDEX"),
         "USD-OIS",
         "HZ-INDEX",
-    );
+    )
+    .expect("valid test parameters");
 
-    assert_eq!(idx.premium.spread_bp, fixed_coupon);
+    assert_eq!(idx.premium.spread_bp, rust_decimal::Decimal::from(100));
 }

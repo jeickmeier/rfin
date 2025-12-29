@@ -7,7 +7,7 @@ use crate::instruments::bond::pricing::hazard_engine::HazardBondEngine;
 use crate::instruments::bond::pricing::tree_engine::TreePricer;
 use crate::instruments::bond::types::Bond;
 use crate::instruments::common::traits::Instrument;
-use crate::pricer::{InstrumentType, ModelKey, Pricer, PricerKey, PricingError};
+use crate::pricer::{InstrumentType, ModelKey, Pricer, PricerKey, PricingError, PricingErrorContext};
 use crate::results::ValuationResult;
 use finstack_core::market_data::context::MarketContext;
 
@@ -69,8 +69,15 @@ impl Pricer for SimpleBondHazardPricer {
             .downcast_ref::<Bond>()
             .ok_or_else(|| PricingError::type_mismatch(InstrumentType::Bond, instrument.key()))?;
 
+        // Build error context for better diagnostics
+        let ctx = PricingErrorContext::new()
+            .with_instrument_id(bond.id())
+            .with_instrument_type(InstrumentType::Bond)
+            .with_model(ModelKey::HazardRate)
+            .with_curve_id(bond.discount_curve_id.as_str());
+
         let pv = HazardBondEngine::price(bond, market, as_of)
-            .map_err(|e| PricingError::model_failure(e.to_string()))?;
+            .map_err(|e| PricingError::model_failure_ctx(e.to_string(), ctx.clone()))?;
 
         Ok(ValuationResult::stamped(bond.id(), as_of, pv))
     }
@@ -116,21 +123,31 @@ impl Pricer for SimpleBondOasPricer {
             .downcast_ref::<Bond>()
             .ok_or_else(|| PricingError::type_mismatch(InstrumentType::Bond, instrument.key()))?;
 
+        // Build error context for better diagnostics
+        let ctx = PricingErrorContext::new()
+            .with_instrument_id(bond.id())
+            .with_instrument_type(InstrumentType::Bond)
+            .with_model(ModelKey::Tree)
+            .with_curve_id(bond.discount_curve_id.as_str());
+
         // Use the provided as_of date for consistency
         // Base present value
         let pv = bond
             .value(market, as_of)
-            .map_err(|e| PricingError::model_failure(e.to_string()))?;
+            .map_err(|e| PricingError::model_failure_ctx(e.to_string(), ctx.clone()))?;
 
         // OAS calculation requires quoted clean price
         let clean_pct = bond.pricing_overrides.quoted_clean_price.ok_or_else(|| {
-            PricingError::model_failure("OAS requires quoted clean price".to_string())
+            PricingError::invalid_input_ctx(
+                "OAS requires quoted clean price",
+                ctx.clone(),
+            )
         })?;
 
         // Calculate OAS using tree pricer
         let oas_bp = TreePricer::new()
             .calculate_oas(bond, market, as_of, clean_pct)
-            .map_err(|e| PricingError::model_failure(e.to_string()))?;
+            .map_err(|e| PricingError::model_failure_ctx(e.to_string(), ctx))?;
 
         // Create result with OAS measure
         let mut measures = IndexMap::new();

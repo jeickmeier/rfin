@@ -8,6 +8,7 @@ use finstack_valuations::market::build::context::BuildCtx;
 use finstack_valuations::market::conventions::ids::{CdsConventionKey, CdsDocClause};
 use finstack_valuations::market::quotes::cds::CdsQuote;
 use finstack_valuations::market::quotes::ids::Pillar;
+use rust_decimal::Decimal;
 
 #[test]
 fn test_build_cds_par_spread() {
@@ -42,7 +43,7 @@ fn test_build_cds_par_spread() {
 
     if let Some(cds) = instrument.as_any().downcast_ref::<CreditDefaultSwap>() {
         assert_eq!(cds.notional.currency(), Currency::USD);
-        assert_eq!(cds.premium.spread_bp, 120.0);
+        assert_eq!(cds.premium.spread_bp, Decimal::from(120));
         assert_eq!(cds.protection.recovery_rate, 0.40);
         // Verify default convention was set to Custom
         assert_eq!(cds.convention, CDSConvention::Custom);
@@ -86,7 +87,7 @@ fn test_build_cds_upfront() {
     let instrument = build_cds_instrument(&quote, &ctx).expect("build cds upfront");
 
     if let Some(cds) = instrument.as_any().downcast_ref::<CreditDefaultSwap>() {
-        assert_eq!(cds.premium.spread_bp, 100.0); // Running
+        assert_eq!(cds.premium.spread_bp, Decimal::from(100)); // Running
         assert!(cds.upfront.is_some());
         if let Some((_dt, amount)) = cds.upfront {
             assert_eq!(amount.amount(), 20_000.0); // 2% of 1M

@@ -11,6 +11,7 @@ use finstack_core::money::Money;
 use finstack_valuations::instruments::cds::pricer::{CDSPricer, CDSPricerConfig};
 use finstack_valuations::instruments::cds::CreditDefaultSwap;
 use finstack_valuations::instruments::common::traits::Instrument;
+use rust_decimal::Decimal;
 use time::macros::date;
 
 /// Build flat discount curve for testing
@@ -388,8 +389,8 @@ fn test_par_spread_gives_zero_npv() {
         )
         .unwrap();
 
-    // Set spread to par
-    cds.premium.spread_bp = par_spread;
+    // Set spread to par (convert f64 to Decimal)
+    cds.premium.spread_bp = Decimal::try_from(par_spread).expect("valid par_spread");
 
     // NPV should be near zero
     let npv = cds.value(&market, as_of).unwrap();
