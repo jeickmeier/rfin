@@ -958,7 +958,7 @@ fn market_context_instrument_registry_works() {
     assert_eq!(*any.downcast_ref::<i32>().unwrap(), 123);
 
     // Alias method
-    let any2 = ctx.instrument("X").expect("instrument should exist");
+    let any2 = ctx.get_instrument("X").expect("instrument should exist");
     assert!(any2.downcast_ref::<i32>().is_some());
 }
 

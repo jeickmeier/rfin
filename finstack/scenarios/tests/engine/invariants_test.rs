@@ -287,7 +287,7 @@ fn test_base_correlation_bounds_after_parallel_shock() {
 
     // Build a sample base correlation curve
     let curve = BaseCorrelationCurve::builder("CDX_IG")
-        .points(vec![
+        .knots(vec![
             (0.03, 0.20),
             (0.07, 0.35),
             (0.10, 0.45),
@@ -345,7 +345,7 @@ fn test_base_correlation_bounds_after_bucket_shock() {
 
     // Build a sample base correlation curve
     let curve = BaseCorrelationCurve::builder("CDX_IG")
-        .points(vec![
+        .knots(vec![
             (0.03, 0.20),
             (0.07, 0.35),
             (0.10, 0.45),

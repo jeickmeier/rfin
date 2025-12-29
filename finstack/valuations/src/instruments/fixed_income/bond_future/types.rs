@@ -1597,7 +1597,7 @@ impl crate::instruments::common::traits::Instrument for BondFuture {
         as_of: finstack_core::dates::Date,
     ) -> finstack_core::Result<finstack_core::money::Money> {
         // Look up the CTD bond from the instrument registry
-        let ctd_bond_any = market.instrument(self.ctd_bond_id.as_str())?;
+        let ctd_bond_any = market.get_instrument(self.ctd_bond_id.as_str())?;
 
         // Downcast to Bond
         let ctd_bond = ctd_bond_any

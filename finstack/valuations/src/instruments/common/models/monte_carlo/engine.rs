@@ -576,7 +576,7 @@ impl McEngine {
         }
 
         Ok(
-            Estimate::new(stats.mean(), stats.stderr(), stats.ci_95(), stats.count())
+            Estimate::new(stats.mean(), stats.stderr(), stats.confidence_interval(0.05), stats.count())
                 .with_std_dev(stats.std_dev()),
         )
     }
@@ -681,7 +681,7 @@ impl McEngine {
         Ok(Estimate::new(
             combined.mean(),
             combined.stderr(),
-            combined.ci_95(),
+            combined.confidence_interval(0.05),
             combined.count(),
         )
         .with_std_dev(combined.std_dev()))
@@ -841,7 +841,7 @@ impl McEngine {
 
         // Compute median and percentiles if paths were captured
         let mut estimate =
-            Estimate::new(stats.mean(), stats.stderr(), stats.ci_95(), stats.count())
+            Estimate::new(stats.mean(), stats.stderr(), stats.confidence_interval(0.05), stats.count())
                 .with_std_dev(stats.std_dev());
 
         // If we have captured paths, calculate additional statistics
@@ -1029,7 +1029,7 @@ impl McEngine {
         let mut estimate = Estimate::new(
             combined.mean(),
             combined.stderr(),
-            combined.ci_95(),
+            combined.confidence_interval(0.05),
             combined.count(),
         )
         .with_std_dev(combined.std_dev());

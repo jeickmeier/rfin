@@ -622,7 +622,7 @@ Disable allow_non_monotonic_final or choose a compatible interpolation style."
 
     fn calculate_residual(&self, curve: &Self::Curve, quote: &Self::Quote) -> Result<f64> {
         self.with_temp_context(curve, |ctx| {
-            let pv = quote.instrument().value_raw(ctx, self.base_date)?;
+            let pv = quote.get_instrument().value_raw(ctx, self.base_date)?;
             if !self.residual_notional.is_finite() || self.residual_notional <= 0.0 {
                 return Err(finstack_core::Error::Validation(format!(
                     "Invalid residual_notional {}: expected finite positive value",
@@ -856,7 +856,7 @@ Ensure quotes map to strictly increasing year fractions.",
                 if i >= residuals.len() {
                     break;
                 }
-                let pv = quote.instrument().value_raw(ctx, self.base_date)?;
+                let pv = quote.get_instrument().value_raw(ctx, self.base_date)?;
                 residuals[i] = pv / self.residual_notional;
             }
             Ok(())
@@ -864,7 +864,7 @@ Ensure quotes map to strictly increasing year fractions.",
     }
 
     fn residual_key(&self, quote: &Self::Quote, idx: usize) -> String {
-        let q = quote.instrument();
+        let q = quote.get_instrument();
         format!("{}-{:03}", q.id(), idx)
     }
 
@@ -994,7 +994,7 @@ Ensure quotes map to strictly increasing year fractions.",
                     continue;
                 }
 
-                let pv = quote.instrument().value(ctx, self.base_date)?.amount();
+                let pv = quote.get_instrument().value(ctx, self.base_date)?.amount();
                 let val_plus = pv / self.residual_notional;
                 let val_base = base_residuals[i];
 

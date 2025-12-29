@@ -1086,7 +1086,7 @@ impl PyBaseCorrelationCurve {
         let curve = Python::attach(|py| {
             py.detach(|| {
                 BaseCorrelationCurve::builder(id)
-                    .points(points_vec)
+                    .knots(points_vec)
                     .build()
                     .map_err(core_to_py)
             })

@@ -442,19 +442,9 @@ impl OnlineStats {
         (self.mean - margin, self.mean + margin)
     }
 
-    /// 95% confidence interval (convenience method).
-    pub fn ci_95(&self) -> (f64, f64) {
-        self.confidence_interval(0.05)
-    }
-
-    /// 99% confidence interval (convenience method).
-    pub fn ci_99(&self) -> (f64, f64) {
-        self.confidence_interval(0.01)
-    }
-
     /// Half-width of the 95% confidence interval.
     pub fn ci_half_width(&self) -> f64 {
-        let (lower, upper) = self.ci_95();
+        let (lower, upper) = self.confidence_interval(0.05);
         (upper - lower) / 2.0
     }
 
@@ -670,7 +660,7 @@ mod tests {
             stats.update(i as f64);
         }
 
-        let (lower, upper) = stats.ci_95();
+        let (lower, upper) = stats.confidence_interval(0.05);
         assert!(lower < stats.mean());
         assert!(upper > stats.mean());
         assert!(lower < 50.5 && upper > 50.5);

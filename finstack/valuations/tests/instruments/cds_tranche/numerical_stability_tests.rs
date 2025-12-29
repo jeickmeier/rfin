@@ -25,7 +25,7 @@ fn test_extreme_low_correlation_pricing() {
     // Test with very low correlation
     let low_corr_curve =
         finstack_core::market_data::term_structures::BaseCorrelationCurve::builder("TEST_LOW_CORR")
-            .points(vec![(3.0, 0.001), (7.0, 0.001), (10.0, 0.001)])
+            .knots(vec![(3.0, 0.001), (7.0, 0.001), (10.0, 0.001)])
             .build()
             .unwrap();
 
@@ -65,7 +65,7 @@ fn test_extreme_high_correlation_pricing() {
         finstack_core::market_data::term_structures::BaseCorrelationCurve::builder(
             "TEST_HIGH_CORR",
         )
-        .points(vec![(3.0, 0.999), (7.0, 0.999), (10.0, 0.999)])
+        .knots(vec![(3.0, 0.999), (7.0, 0.999), (10.0, 0.999)])
         .build()
         .unwrap();
 

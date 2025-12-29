@@ -2,6 +2,8 @@
 
 use super::paths::PyPathDataset;
 use crate::core::money::PyMoney;
+use finstack_core::math::special_functions::standard_normal_inv_cdf;
+use finstack_core::money::Money;
 use finstack_valuations::instruments::common::models::monte_carlo::results::MonteCarloResult;
 use pyo3::prelude::*;
 
@@ -26,12 +28,15 @@ impl PyMonteCarloResult {
         self.inner.estimate.stderr
     }
 
-    /// Get the 95% confidence interval as a tuple (lower, upper).
-    #[getter]
-    fn ci_95(&self) -> (PyMoney, PyMoney) {
+    /// Get the confidence interval for the given significance level.
+    fn confidence_interval(&self, alpha: f64) -> (PyMoney, PyMoney) {
+        let z = standard_normal_inv_cdf(1.0 - alpha / 2.0);
+        let margin = z * self.inner.estimate.stderr;
+        let mean = self.inner.estimate.mean.amount();
+        let currency = self.inner.estimate.mean.currency();
         (
-            PyMoney::new(self.inner.estimate.ci_95.0),
-            PyMoney::new(self.inner.estimate.ci_95.1),
+            PyMoney::new(Money::new(mean - margin, currency)),
+            PyMoney::new(Money::new(mean + margin, currency)),
         )
     }
 

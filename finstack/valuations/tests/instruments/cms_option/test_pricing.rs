@@ -55,7 +55,7 @@ fn standard_market(as_of: Date) -> MarketContext {
         .strikes(&strikes);
 
     for _ in 0..expiries.len() {
-        builder = builder.data(&flat_row);
+        builder = builder.row(&flat_row);
     }
 
     let vol_surface = builder.build().unwrap();

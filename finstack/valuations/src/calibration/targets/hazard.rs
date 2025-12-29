@@ -520,7 +520,7 @@ Global solve requires strictly increasing times.",
     }
 
     fn residual_key(&self, quote: &Self::Quote, idx: usize) -> String {
-        let q = quote.instrument();
+        let q = quote.get_instrument();
         format!("{}-{:03}", q.id(), idx)
     }
 

@@ -514,7 +514,7 @@ impl JsBaseCorrelationCurve {
         }
 
         let curve = BaseCorrelationCurve::builder(id)
-            .points(detachment_points.into_iter().zip(correlations.into_iter()))
+            .knots(detachment_points.into_iter().zip(correlations.into_iter()))
             .build()
             .map_err(|e| js_error(e.to_string()))?;
         Ok(JsBaseCorrelationCurve {

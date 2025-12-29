@@ -328,7 +328,7 @@ impl PathDependentPricer {
                         let est = crate::instruments::common::mc::estimate::Estimate::new(
                             stats.mean(),
                             stats.stderr(),
-                            stats.ci_95(),
+                            stats.confidence_interval(0.05),
                             stats.count(),
                         );
                         Ok(MoneyEstimate::from_estimate(est, currency))
@@ -387,7 +387,7 @@ impl PathDependentPricer {
                         let est = crate::instruments::common::mc::estimate::Estimate::new(
                             stats.mean(),
                             stats.stderr(),
-                            stats.ci_95(),
+                            stats.confidence_interval(0.05),
                             stats.count(),
                         )
                         .with_std_dev(stats.std_dev());
@@ -440,7 +440,7 @@ impl PathDependentPricer {
                     let est = crate::instruments::common::mc::estimate::Estimate::new(
                         stats.mean(),
                         stats.stderr(),
-                        stats.ci_95(),
+                        stats.confidence_interval(0.05),
                         stats.count(),
                     );
                     Ok(MoneyEstimate::from_estimate(est, currency))

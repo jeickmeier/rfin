@@ -5686,8 +5686,8 @@
               "js_name": "stderr"
             },
             {
-              "name": "ci_95",
-              "js_name": "ci95"
+              "name": "confidence_interval",
+              "js_name": "confidenceInterval"
             },
             {
               "name": "num_paths",
@@ -9012,7 +9012,7 @@
         "estimate",
         "estimate",
         "stderr",
-        "ci95",
+        "confidenceInterval",
         "numPaths",
         "paths",
         "hasPaths",

@@ -619,11 +619,6 @@ impl ForwardCurveBuilder {
         self
     }
 
-    /// Convenience for requiring non-negative forwards.
-    pub fn require_non_negative_forwards(self) -> Self {
-        self.with_min_forward_rate(0.0)
-    }
-
     /// Validate input and build the [`ForwardCurve`].
     pub fn build(self) -> crate::Result<ForwardCurve> {
         if self.points.len() < 2 {

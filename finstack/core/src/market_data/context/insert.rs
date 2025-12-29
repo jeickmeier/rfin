@@ -285,7 +285,7 @@ impl MarketContext {
     ///     .build()
     ///     .expect("HazardCurve builder should succeed"));
     /// let base_corr = Arc::new(BaseCorrelationCurve::builder("CDX")
-    ///     .points([(3.0, 0.25), (10.0, 0.55)])
+    ///     .knots([(3.0, 0.25), (10.0, 0.55)])
     ///     .build()
     ///     .expect("BaseCorrelationCurve builder should succeed"));
     /// let data = CreditIndexData::builder()

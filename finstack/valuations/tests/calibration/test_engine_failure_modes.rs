@@ -227,7 +227,7 @@ fn base_correlation_preflight_rejects_invalid_attachment_detachment() {
     );
     let base_corr = Arc::new(
         BaseCorrelationCurve::builder("CDX-CORR")
-            .points(vec![(3.0, 0.25), (10.0, 0.55)])
+            .knots(vec![(3.0, 0.25), (10.0, 0.55)])
             .build()
             .expect("base correlation curve"),
     );
@@ -350,7 +350,7 @@ fn base_correlation_preflight_rejects_non_monotone_tranche_points() {
     );
     let base_corr = Arc::new(
         BaseCorrelationCurve::builder("CDX-CORR")
-            .points(vec![(3.0, 0.25), (10.0, 0.55)])
+            .knots(vec![(3.0, 0.25), (10.0, 0.55)])
             .build()
             .expect("base correlation curve"),
     );

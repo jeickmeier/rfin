@@ -1037,7 +1037,7 @@ mod tests {
 
     fn create_test_base_correlation_curve(id: &str, _base_date: Date) -> BaseCorrelationCurve {
         BaseCorrelationCurve::builder(id)
-            .points(vec![
+            .knots(vec![
                 (0.03, 0.30), // 3% detach
                 (0.07, 0.40), // 7% detach
                 (0.10, 0.50), // 10% detach

@@ -172,7 +172,7 @@ fn market_context_state_is_deterministically_sorted_and_roundtrips_full_snapshot
         .build()
         .unwrap();
     let base_corr = BaseCorrelationCurve::builder("CDX-BC")
-        .points([(3.0, 0.25), (7.0, 0.4)])
+        .knots([(3.0, 0.25), (7.0, 0.4)])
         .build()
         .unwrap();
 
@@ -351,7 +351,7 @@ fn curve_state_and_storage_roundtrip_all_variants() {
         .build()
         .unwrap();
     let bc = BaseCorrelationCurve::builder("BC")
-        .points([(3.0, 0.25), (7.0, 0.4)])
+        .knots([(3.0, 0.25), (7.0, 0.4)])
         .build()
         .unwrap();
 
@@ -422,7 +422,7 @@ fn market_context_state_roundtrip_hits_more_state_serde_lines() {
         .build()
         .unwrap();
     let bc = BaseCorrelationCurve::builder("CDX-BC")
-        .points([(3.0, 0.25), (7.0, 0.4)])
+        .knots([(3.0, 0.25), (7.0, 0.4)])
         .build()
         .unwrap();
 

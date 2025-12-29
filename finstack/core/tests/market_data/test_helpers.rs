@@ -72,7 +72,7 @@ pub(crate) fn sample_inflation_curve(id: &str) -> InflationCurve {
 
 pub(crate) fn sample_base_correlation_curve(id: &str) -> BaseCorrelationCurve {
     BaseCorrelationCurve::builder(id)
-        .points([(3.0, 0.25), (7.0, 0.4), (10.0, 0.55)])
+        .knots([(3.0, 0.25), (7.0, 0.4), (10.0, 0.55)])
         .build()
         .unwrap()
 }

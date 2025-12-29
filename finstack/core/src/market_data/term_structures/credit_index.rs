@@ -140,7 +140,7 @@ impl CreditIndexData {
 /// );
 /// let base_corr = Arc::new(
 ///     BaseCorrelationCurve::builder("CDX")
-///         .points([(3.0, 0.25), (10.0, 0.55)])
+///         .knots([(3.0, 0.25), (10.0, 0.55)])
 ///         .build()
 ///         .expect("BaseCorrelationCurve builder should succeed"),
 /// );

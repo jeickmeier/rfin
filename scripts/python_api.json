@@ -669,7 +669,7 @@
               "name": "ExplanationTrace",
               "methods": [
                 {
-                  "name": "trace_type",
+                  "name": "ctor",
                   "is_static": false,
                   "is_property": false,
                   "is_classmethod": false,
@@ -683,7 +683,7 @@
               "name": "ExplanationTrace",
               "methods": [
                 {
-                  "name": "trace_type",
+                  "name": "ctor",
                   "is_static": false,
                   "is_property": false,
                   "is_classmethod": false,
@@ -1722,6 +1722,20 @@
               ],
               "properties": [],
               "is_exported": true
+            },
+            {
+              "name": "VolatilityIndexCurve",
+              "methods": [
+                {
+                  "name": "ctor",
+                  "is_static": false,
+                  "is_property": false,
+                  "is_classmethod": false,
+                  "signature": ""
+                }
+              ],
+              "properties": [],
+              "is_exported": true
             }
           ],
           "functions": []
@@ -2168,6 +2182,7 @@
         "InflationCurve",
         "BaseCorrelationCurve",
         "CreditIndexData",
+        "VolatilityIndexCurve",
         "CFKind",
         "CFKind",
         "CashFlow",
@@ -2939,6 +2954,20 @@
               ],
               "properties": [],
               "is_exported": true
+            },
+            {
+              "name": "MetricId",
+              "methods": [
+                {
+                  "name": "from_name",
+                  "is_static": false,
+                  "is_property": false,
+                  "is_classmethod": false,
+                  "signature": ""
+                }
+              ],
+              "properties": [],
+              "is_exported": true
             }
           ],
           "functions": []
@@ -2995,24 +3024,10 @@
           "path": "valuations/calibration/quote.rs",
           "classes": [
             {
-              "name": "FutureSpecs",
-              "methods": [
-                {
-                  "name": "ctor",
-                  "is_static": false,
-                  "is_property": false,
-                  "is_classmethod": false,
-                  "signature": ""
-                }
-              ],
-              "properties": [],
-              "is_exported": true
-            },
-            {
               "name": "RatesQuote",
               "methods": [
                 {
-                  "name": "deposit",
+                  "name": "future",
                   "is_static": false,
                   "is_property": false,
                   "is_classmethod": false,
@@ -3026,7 +3041,7 @@
               "name": "CreditQuote",
               "methods": [
                 {
-                  "name": "cds",
+                  "name": "cds_par_spread",
                   "is_static": false,
                   "is_property": false,
                   "is_classmethod": false,
@@ -3102,6 +3117,20 @@
               "name": "SolverKind",
               "methods": [
                 {
+                  "name": "newton_attr",
+                  "is_static": false,
+                  "is_property": false,
+                  "is_classmethod": false,
+                  "signature": ""
+                }
+              ],
+              "properties": [],
+              "is_exported": true
+            },
+            {
+              "name": "CalibrationMethod",
+              "methods": [
+                {
                   "name": "from_name",
                   "is_static": false,
                   "is_property": false,
@@ -3113,7 +3142,21 @@
               "is_exported": true
             },
             {
-              "name": "MultiCurveConfig",
+              "name": "ValidationMode",
+              "methods": [
+                {
+                  "name": "from_name",
+                  "is_static": false,
+                  "is_property": false,
+                  "is_classmethod": false,
+                  "signature": ""
+                }
+              ],
+              "properties": [],
+              "is_exported": true
+            },
+            {
+              "name": "RateBounds",
               "methods": [
                 {
                   "name": "ctor",
@@ -3259,20 +3302,6 @@
           "path": "valuations/calibration/validation.rs",
           "classes": [
             {
-              "name": "ValidationError",
-              "methods": [
-                {
-                  "name": "ctor",
-                  "is_static": false,
-                  "is_property": false,
-                  "is_classmethod": false,
-                  "signature": ""
-                }
-              ],
-              "properties": [],
-              "is_exported": true
-            },
-            {
               "name": "ValidationConfig",
               "methods": [
                 {
@@ -3287,6 +3316,11 @@
               "is_exported": true
             }
           ],
+          "functions": []
+        },
+        "valuations.calibration.v2": {
+          "path": "valuations/calibration/v2.rs",
+          "classes": [],
           "functions": []
         },
         "valuations.cashflow.specs": {
@@ -4142,6 +4176,26 @@
           ],
           "functions": []
         },
+        "valuations.instruments.commodity_swap": {
+          "path": "valuations/instruments/commodity_swap.rs",
+          "classes": [
+            {
+              "name": "CommoditySwap",
+              "methods": [
+                {
+                  "name": "create",
+                  "is_static": false,
+                  "is_property": false,
+                  "is_classmethod": false,
+                  "signature": ""
+                }
+              ],
+              "properties": [],
+              "is_exported": true
+            }
+          ],
+          "functions": []
+        },
         "valuations.instruments.cliquet_option": {
           "path": "valuations/instruments/cliquet_option.rs",
           "classes": [
@@ -4346,6 +4400,172 @@
           ],
           "functions": []
         },
+        "valuations.instruments.vol_index_future": {
+          "path": "valuations/instruments/vol_index_future.rs",
+          "classes": [
+            {
+              "name": "VolatilityIndexFuture",
+              "methods": [
+                {
+                  "name": "create",
+                  "is_static": false,
+                  "is_property": false,
+                  "is_classmethod": false,
+                  "signature": ""
+                }
+              ],
+              "properties": [],
+              "is_exported": true
+            }
+          ],
+          "functions": []
+        },
+        "valuations.instruments.agency_mbs": {
+          "path": "valuations/instruments/agency_mbs.rs",
+          "classes": [
+            {
+              "name": "AgencyMbsPassthrough",
+              "methods": [
+                {
+                  "name": "create",
+                  "is_static": false,
+                  "is_property": false,
+                  "is_classmethod": false,
+                  "signature": ""
+                }
+              ],
+              "properties": [],
+              "is_exported": true
+            },
+            {
+              "name": "AgencyTba",
+              "methods": [
+                {
+                  "name": "create",
+                  "is_static": false,
+                  "is_property": false,
+                  "is_classmethod": false,
+                  "signature": ""
+                }
+              ],
+              "properties": [],
+              "is_exported": true
+            },
+            {
+              "name": "AgencyTba",
+              "methods": [
+                {
+                  "name": "create",
+                  "is_static": false,
+                  "is_property": false,
+                  "is_classmethod": false,
+                  "signature": ""
+                }
+              ],
+              "properties": [],
+              "is_exported": true
+            },
+            {
+              "name": "DollarRoll",
+              "methods": [
+                {
+                  "name": "create",
+                  "is_static": false,
+                  "is_property": false,
+                  "is_classmethod": false,
+                  "signature": ""
+                }
+              ],
+              "properties": [],
+              "is_exported": true
+            },
+            {
+              "name": "PacCollar",
+              "methods": [
+                {
+                  "name": "new_py",
+                  "is_static": false,
+                  "is_property": false,
+                  "is_classmethod": false,
+                  "signature": ""
+                }
+              ],
+              "properties": [],
+              "is_exported": true
+            },
+            {
+              "name": "PacCollar",
+              "methods": [
+                {
+                  "name": "new_py",
+                  "is_static": false,
+                  "is_property": false,
+                  "is_classmethod": false,
+                  "signature": ""
+                }
+              ],
+              "properties": [],
+              "is_exported": true
+            },
+            {
+              "name": "CmoTranche",
+              "methods": [
+                {
+                  "name": "sequential",
+                  "is_static": false,
+                  "is_property": false,
+                  "is_classmethod": false,
+                  "signature": ""
+                }
+              ],
+              "properties": [],
+              "is_exported": true
+            },
+            {
+              "name": "CmoWaterfall",
+              "methods": [
+                {
+                  "name": "new_py",
+                  "is_static": false,
+                  "is_property": false,
+                  "is_classmethod": false,
+                  "signature": ""
+                }
+              ],
+              "properties": [],
+              "is_exported": true
+            },
+            {
+              "name": "AgencyCmo",
+              "methods": [
+                {
+                  "name": "create",
+                  "is_static": false,
+                  "is_property": false,
+                  "is_classmethod": false,
+                  "signature": ""
+                }
+              ],
+              "properties": [],
+              "is_exported": true
+            },
+            {
+              "name": "AgencyCmo",
+              "methods": [
+                {
+                  "name": "create",
+                  "is_static": false,
+                  "is_property": false,
+                  "is_classmethod": false,
+                  "signature": ""
+                }
+              ],
+              "properties": [],
+              "is_exported": true
+            }
+          ],
+          "functions": []
+        },
         "valuations.instruments.convertible": {
           "path": "valuations/instruments/convertible.rs",
           "classes": [
@@ -4405,6 +4625,26 @@
             },
             {
               "name": "ConvertibleBond",
+              "methods": [
+                {
+                  "name": "create",
+                  "is_static": false,
+                  "is_property": false,
+                  "is_classmethod": false,
+                  "signature": ""
+                }
+              ],
+              "properties": [],
+              "is_exported": true
+            }
+          ],
+          "functions": []
+        },
+        "valuations.instruments.vol_index_option": {
+          "path": "valuations/instruments/vol_index_option.rs",
+          "classes": [
+            {
+              "name": "VolatilityIndexOption",
               "methods": [
                 {
                   "name": "create",
@@ -4964,6 +5204,26 @@
           ],
           "functions": []
         },
+        "valuations.instruments.commodity_forward": {
+          "path": "valuations/instruments/commodity_forward.rs",
+          "classes": [
+            {
+              "name": "CommodityForward",
+              "methods": [
+                {
+                  "name": "create",
+                  "is_static": false,
+                  "is_property": false,
+                  "is_classmethod": false,
+                  "signature": ""
+                }
+              ],
+              "properties": [],
+              "is_exported": true
+            }
+          ],
+          "functions": []
+        },
         "valuations.instruments.cds_option": {
           "path": "valuations/instruments/cds_option.rs",
           "classes": [
@@ -5079,10 +5339,10 @@
         "PortfolioAttribution",
         "MetricRegistry",
         "MetricId",
+        "MetricId",
         "SABRModelParams",
         "SABRMarketData",
         "SABRCalibrationDerivatives",
-        "FutureSpecs",
         "RatesQuote",
         "CreditQuote",
         "VolQuote",
@@ -5090,7 +5350,9 @@
         "InflationQuote",
         "MarketQuote",
         "SolverKind",
-        "MultiCurveConfig",
+        "CalibrationMethod",
+        "ValidationMode",
+        "RateBounds",
         "CalibrationConfig",
         "DiscountCurveCalibrator",
         "ForwardCurveCalibrator",
@@ -5099,7 +5361,6 @@
         "VolSurfaceCalibrator",
         "BaseCorrelationCalibrator",
         "CalibrationReport",
-        "ValidationError",
         "ValidationConfig",
         "AmortizationSpec",
         "CouponType",
@@ -5154,6 +5415,7 @@
         "RangeAccrual",
         "Equity",
         "Equity",
+        "CommoditySwap",
         "CliquetOption",
         "LookbackType",
         "LookbackOption",
@@ -5166,12 +5428,24 @@
         "Deposit",
         "CmsOption",
         "CmsOption",
+        "VolatilityIndexFuture",
+        "AgencyMbsPassthrough",
+        "AgencyTba",
+        "AgencyTba",
+        "DollarRoll",
+        "PacCollar",
+        "PacCollar",
+        "CmoTranche",
+        "CmoWaterfall",
+        "AgencyCmo",
+        "AgencyCmo",
         "ConversionEvent",
         "ConversionPolicy",
         "AntiDilutionPolicy",
         "DividendAdjustment",
         "ConversionSpec",
         "ConvertibleBond",
+        "VolatilityIndexOption",
         "QuantoOption",
         "PayReceive",
         "InterestRateSwap",
@@ -5204,6 +5478,7 @@
         "PrivateMarketsFund",
         "CdsPayReceive",
         "CreditDefaultSwap",
+        "CommodityForward",
         "CdsOption",
         "CdsOption",
         "WaterfallTier",
@@ -5396,7 +5671,7 @@
               "is_exported": true
             },
             {
-              "name": "NormalizationEngine",
+              "name": "NormalizationEngine;",
               "methods": [
                 {
                   "name": "normalize",
@@ -5768,6 +6043,152 @@
           ],
           "functions": []
         },
+        "statements.analysis.variance": {
+          "path": "statements/analysis/variance.rs",
+          "classes": [
+            {
+              "name": "VarianceConfig",
+              "methods": [
+                {
+                  "name": "new",
+                  "is_static": false,
+                  "is_property": false,
+                  "is_classmethod": false,
+                  "signature": ""
+                }
+              ],
+              "properties": [],
+              "is_exported": true
+            },
+            {
+              "name": "VarianceConfig",
+              "methods": [
+                {
+                  "name": "new",
+                  "is_static": false,
+                  "is_property": false,
+                  "is_classmethod": false,
+                  "signature": ""
+                }
+              ],
+              "properties": [],
+              "is_exported": true
+            },
+            {
+              "name": "VarianceRow",
+              "methods": [
+                {
+                  "name": "period",
+                  "is_static": false,
+                  "is_property": false,
+                  "is_classmethod": false,
+                  "signature": ""
+                }
+              ],
+              "properties": [],
+              "is_exported": true
+            },
+            {
+              "name": "VarianceRow",
+              "methods": [
+                {
+                  "name": "period",
+                  "is_static": false,
+                  "is_property": false,
+                  "is_classmethod": false,
+                  "signature": ""
+                }
+              ],
+              "properties": [],
+              "is_exported": true
+            },
+            {
+              "name": "VarianceReport",
+              "methods": [
+                {
+                  "name": "baseline_label",
+                  "is_static": false,
+                  "is_property": false,
+                  "is_classmethod": false,
+                  "signature": ""
+                }
+              ],
+              "properties": [],
+              "is_exported": true
+            },
+            {
+              "name": "BridgeStep",
+              "methods": [
+                {
+                  "name": "driver",
+                  "is_static": false,
+                  "is_property": false,
+                  "is_classmethod": false,
+                  "signature": ""
+                }
+              ],
+              "properties": [],
+              "is_exported": true
+            },
+            {
+              "name": "BridgeStep",
+              "methods": [
+                {
+                  "name": "driver",
+                  "is_static": false,
+                  "is_property": false,
+                  "is_classmethod": false,
+                  "signature": ""
+                }
+              ],
+              "properties": [],
+              "is_exported": true
+            },
+            {
+              "name": "BridgeChart",
+              "methods": [
+                {
+                  "name": "target_metric",
+                  "is_static": false,
+                  "is_property": false,
+                  "is_classmethod": false,
+                  "signature": ""
+                }
+              ],
+              "properties": [],
+              "is_exported": true
+            },
+            {
+              "name": "BridgeChart",
+              "methods": [
+                {
+                  "name": "target_metric",
+                  "is_static": false,
+                  "is_property": false,
+                  "is_classmethod": false,
+                  "signature": ""
+                }
+              ],
+              "properties": [],
+              "is_exported": true
+            },
+            {
+              "name": "VarianceAnalyzer",
+              "methods": [
+                {
+                  "name": "new",
+                  "is_static": false,
+                  "is_property": false,
+                  "is_classmethod": false,
+                  "signature": ""
+                }
+              ],
+              "properties": [],
+              "is_exported": true
+            }
+          ],
+          "functions": []
+        },
         "statements.analysis.explain": {
           "path": "statements/analysis/explain.rs",
           "classes": [
@@ -5859,6 +6280,88 @@
                 }
               ],
               "properties": [],
+              "is_exported": true
+            }
+          ],
+          "functions": []
+        },
+        "statements.analysis.scenario_set": {
+          "path": "statements/analysis/scenario_set.rs",
+          "classes": [
+            {
+              "name": "ScenarioDefinition",
+              "methods": [
+                {
+                  "name": "new",
+                  "is_static": false,
+                  "is_property": false,
+                  "is_classmethod": false,
+                  "signature": ""
+                }
+              ],
+              "properties": [],
+              "is_exported": true
+            },
+            {
+              "name": "ScenarioSet",
+              "methods": [
+                {
+                  "name": "new",
+                  "is_static": false,
+                  "is_property": false,
+                  "is_classmethod": false,
+                  "signature": ""
+                }
+              ],
+              "properties": [],
+              "is_exported": true
+            },
+            {
+              "name": "ScenarioResults",
+              "methods": [
+                {
+                  "name": "scenario_names",
+                  "is_static": false,
+                  "is_property": true,
+                  "is_classmethod": false,
+                  "signature": ""
+                }
+              ],
+              "properties": [
+                "scenario_names"
+              ],
+              "is_exported": true
+            },
+            {
+              "name": "ScenarioDiff",
+              "methods": [
+                {
+                  "name": "baseline",
+                  "is_static": false,
+                  "is_property": true,
+                  "is_classmethod": false,
+                  "signature": ""
+                }
+              ],
+              "properties": [
+                "baseline"
+              ],
+              "is_exported": true
+            },
+            {
+              "name": "ScenarioDiff",
+              "methods": [
+                {
+                  "name": "baseline",
+                  "is_static": false,
+                  "is_property": true,
+                  "is_classmethod": false,
+                  "signature": ""
+                }
+              ],
+              "properties": [
+                "baseline"
+              ],
               "is_exported": true
             }
           ],
@@ -6138,12 +6641,27 @@
         "DebtInstrumentSpec",
         "FinancialModelSpec",
         "FinancialModelSpec",
+        "VarianceConfig",
+        "VarianceConfig",
+        "VarianceRow",
+        "VarianceRow",
+        "VarianceReport",
+        "BridgeStep",
+        "BridgeStep",
+        "BridgeChart",
+        "BridgeChart",
+        "VarianceAnalyzer",
         "ExplanationStep",
         "Explanation",
         "Explanation",
         "FormulaExplainer",
         "DependencyTree",
         "DependencyTracer",
+        "ScenarioDefinition",
+        "ScenarioSet",
+        "ScenarioResults",
+        "ScenarioDiff",
+        "ScenarioDiff",
         "Alignment",
         "Alignment",
         "TableBuilder",
@@ -6174,7 +6692,7 @@
               "name": "Compounding",
               "methods": [
                 {
-                  "name": "Simple",
+                  "name": "BusinessDays",
                   "is_static": false,
                   "is_property": false,
                   "is_classmethod": false,
@@ -6188,7 +6706,35 @@
               "name": "Compounding",
               "methods": [
                 {
-                  "name": "Simple",
+                  "name": "BusinessDays",
+                  "is_static": false,
+                  "is_property": false,
+                  "is_classmethod": false,
+                  "signature": ""
+                }
+              ],
+              "properties": [],
+              "is_exported": true
+            },
+            {
+              "name": "TimeRollMode",
+              "methods": [
+                {
+                  "name": "BusinessDays",
+                  "is_static": false,
+                  "is_property": false,
+                  "is_classmethod": false,
+                  "signature": ""
+                }
+              ],
+              "properties": [],
+              "is_exported": true
+            },
+            {
+              "name": "TimeRollMode",
+              "methods": [
+                {
+                  "name": "BusinessDays",
                   "is_static": false,
                   "is_property": false,
                   "is_classmethod": false,
@@ -6508,6 +7054,8 @@
       "classes": [
         "Compounding",
         "Compounding",
+        "TimeRollMode",
+        "TimeRollMode",
         "RateBindingSpec",
         "RateBindingSpec",
         "OperationSpec",
@@ -6533,6 +7081,193 @@
     },
     "portfolio": {
       "modules": {
+        "portfolio.optimization": {
+          "path": "portfolio/optimization.rs",
+          "classes": [],
+          "functions": []
+        },
+        "portfolio.margin": {
+          "path": "portfolio/margin.rs",
+          "classes": [
+            {
+              "name": "NettingSetId",
+              "methods": [
+                {
+                  "name": "bilateral",
+                  "is_static": true,
+                  "is_property": false,
+                  "is_classmethod": false,
+                  "signature": ""
+                }
+              ],
+              "properties": [],
+              "is_exported": true
+            },
+            {
+              "name": "NettingSetId",
+              "methods": [
+                {
+                  "name": "bilateral",
+                  "is_static": true,
+                  "is_property": false,
+                  "is_classmethod": false,
+                  "signature": ""
+                }
+              ],
+              "properties": [],
+              "is_exported": true
+            },
+            {
+              "name": "NettingSetMargin",
+              "methods": [
+                {
+                  "name": "netting_set_id",
+                  "is_static": false,
+                  "is_property": true,
+                  "is_classmethod": false,
+                  "signature": ""
+                }
+              ],
+              "properties": [
+                "netting_set_id"
+              ],
+              "is_exported": true
+            },
+            {
+              "name": "NettingSetMargin",
+              "methods": [
+                {
+                  "name": "netting_set_id",
+                  "is_static": false,
+                  "is_property": true,
+                  "is_classmethod": false,
+                  "signature": ""
+                }
+              ],
+              "properties": [
+                "netting_set_id"
+              ],
+              "is_exported": true
+            },
+            {
+              "name": "PortfolioMarginResult",
+              "methods": [
+                {
+                  "name": "as_of",
+                  "is_static": false,
+                  "is_property": true,
+                  "is_classmethod": false,
+                  "signature": ""
+                }
+              ],
+              "properties": [
+                "as_of"
+              ],
+              "is_exported": true
+            },
+            {
+              "name": "PortfolioMarginResult",
+              "methods": [
+                {
+                  "name": "as_of",
+                  "is_static": false,
+                  "is_property": true,
+                  "is_classmethod": false,
+                  "signature": ""
+                }
+              ],
+              "properties": [
+                "as_of"
+              ],
+              "is_exported": true
+            },
+            {
+              "name": "NettingSetManager",
+              "methods": [
+                {
+                  "name": "new_py",
+                  "is_static": true,
+                  "is_property": false,
+                  "is_classmethod": false,
+                  "signature": ""
+                }
+              ],
+              "properties": [],
+              "is_exported": true
+            },
+            {
+              "name": "NettingSetManager",
+              "methods": [
+                {
+                  "name": "new_py",
+                  "is_static": true,
+                  "is_property": false,
+                  "is_classmethod": false,
+                  "signature": ""
+                }
+              ],
+              "properties": [],
+              "is_exported": true
+            },
+            {
+              "name": "NettingSet",
+              "methods": [
+                {
+                  "name": "new_py",
+                  "is_static": true,
+                  "is_property": false,
+                  "is_classmethod": false,
+                  "signature": ""
+                }
+              ],
+              "properties": [],
+              "is_exported": true
+            },
+            {
+              "name": "NettingSet",
+              "methods": [
+                {
+                  "name": "new_py",
+                  "is_static": true,
+                  "is_property": false,
+                  "is_classmethod": false,
+                  "signature": ""
+                }
+              ],
+              "properties": [],
+              "is_exported": true
+            },
+            {
+              "name": "PortfolioMarginAggregator",
+              "methods": [
+                {
+                  "name": "new_py",
+                  "is_static": true,
+                  "is_property": false,
+                  "is_classmethod": false,
+                  "signature": ""
+                }
+              ],
+              "properties": [],
+              "is_exported": true
+            },
+            {
+              "name": "PortfolioMarginAggregator",
+              "methods": [
+                {
+                  "name": "new_py",
+                  "is_static": true,
+                  "is_property": false,
+                  "is_classmethod": false,
+                  "signature": ""
+                }
+              ],
+              "properties": [],
+              "is_exported": true
+            }
+          ],
+          "functions": []
+        },
         "portfolio.types": {
           "path": "portfolio/types.rs",
           "classes": [
@@ -6881,6 +7616,34 @@
           "path": "portfolio/valuation.rs",
           "classes": [
             {
+              "name": "PortfolioValuationOptions",
+              "methods": [
+                {
+                  "name": "new_py",
+                  "is_static": false,
+                  "is_property": false,
+                  "is_classmethod": false,
+                  "signature": ""
+                }
+              ],
+              "properties": [],
+              "is_exported": true
+            },
+            {
+              "name": "PortfolioValuationOptions",
+              "methods": [
+                {
+                  "name": "new_py",
+                  "is_static": false,
+                  "is_property": false,
+                  "is_classmethod": false,
+                  "signature": ""
+                }
+              ],
+              "properties": [],
+              "is_exported": true
+            },
+            {
               "name": "PositionValue",
               "methods": [
                 {
@@ -6979,6 +7742,18 @@
         }
       },
       "classes": [
+        "NettingSetId",
+        "NettingSetId",
+        "NettingSetMargin",
+        "NettingSetMargin",
+        "PortfolioMarginResult",
+        "PortfolioMarginResult",
+        "NettingSetManager",
+        "NettingSetManager",
+        "NettingSet",
+        "NettingSet",
+        "PortfolioMarginAggregator",
+        "PortfolioMarginAggregator",
         "Entity",
         "Entity",
         "PositionUnit",
@@ -6999,6 +7774,8 @@
         "Portfolio",
         "PortfolioBuilder",
         "PortfolioBuilder",
+        "PortfolioValuationOptions",
+        "PortfolioValuationOptions",
         "PositionValue",
         "PositionValue",
         "PortfolioValuation",

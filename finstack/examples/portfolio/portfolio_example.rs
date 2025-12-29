@@ -368,7 +368,7 @@ fn build_market_data(as_of: Date) -> MarketContext {
 
     // Create base correlation curve for CDS tranches
     let base_correlation_curve = BaseCorrelationCurve::builder("CDX_NA_IG_42")
-        .points(vec![
+        .knots(vec![
             (3.0, 0.25),  // 0-3% tranche: 25% base correlation
             (7.0, 0.45),  // 0-7% tranche: 45% base correlation
             (10.0, 0.60), // 0-10% tranche: 60% base correlation

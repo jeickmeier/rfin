@@ -93,7 +93,7 @@ fn create_market() -> MarketContext {
 
     // Base correlation curve
     let base_corr_curve = BaseCorrelationCurve::builder("CDX.NA.IG.42_5Y")
-        .points(vec![
+        .knots(vec![
             (3.0, 0.25),  // 0-3% equity
             (7.0, 0.45),  // 0-7% junior mezzanine
             (10.0, 0.60), // 0-10% senior mezzanine
@@ -155,7 +155,7 @@ fn create_market_with_issuers(num_issuers: usize) -> MarketContext {
         .unwrap();
 
     let base_corr_curve = BaseCorrelationCurve::builder("CDX.NA.IG.42_5Y")
-        .points(vec![
+        .knots(vec![
             (3.0, 0.25),
             (7.0, 0.45),
             (10.0, 0.60),

@@ -333,7 +333,7 @@ impl BootstrapTarget for InflationBootstrapper {
         let base_date = self.params.base_date;
         // Context needs the curve being calibrated + discount curve
         self.with_temp_context(curve, |ctx| {
-            let pv = quote.instrument().value_raw(ctx, base_date)?;
+            let pv = quote.get_instrument().value_raw(ctx, base_date)?;
             Ok(pv / self.params.notional)
         })
     }

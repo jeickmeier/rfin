@@ -48,7 +48,7 @@ pub fn standard_hazard_curve() -> HazardCurve {
 /// Create a standard base correlation curve
 pub fn standard_correlation_curve() -> BaseCorrelationCurve {
     BaseCorrelationCurve::builder("CDX.NA.IG.42_5Y")
-        .points(vec![
+        .knots(vec![
             (3.0, 0.25),  // 0-3% equity
             (7.0, 0.45),  // 0-7% junior mezzanine
             (10.0, 0.60), // 0-10% senior mezzanine

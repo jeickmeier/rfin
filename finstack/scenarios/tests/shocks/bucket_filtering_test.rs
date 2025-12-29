@@ -144,7 +144,7 @@ fn test_vol_bucket_filtering_by_strike() {
 fn test_basecorr_bucket_filtering() {
     // Create base correlation curve
     let basecorr = BaseCorrelationCurve::builder("CDX_IG")
-        .points(vec![
+        .knots(vec![
             (0.03, 0.25), // 3% detachment
             (0.07, 0.45), // 7% detachment
             (0.10, 0.60), // 10% detachment

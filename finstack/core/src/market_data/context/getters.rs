@@ -370,7 +370,7 @@ impl MarketContext {
     /// #     .build()
     /// #     .expect("... creation should succeed"));
     /// # let base_corr = Arc::new(BaseCorrelationCurve::builder("CDX")
-    /// #     .points([(3.0, 0.25), (10.0, 0.55)])
+    /// #     .knots([(3.0, 0.25), (10.0, 0.55)])
     /// #     .build()
     /// #     .expect("... creation should succeed"));
     /// # let data = CreditIndexData::builder()
@@ -411,7 +411,7 @@ impl MarketContext {
     /// #     .build()
     /// #     .expect("... creation should succeed"));
     /// # let base_corr = Arc::new(BaseCorrelationCurve::builder("CDX")
-    /// #     .points([(3.0, 0.25), (10.0, 0.55)])
+    /// #     .knots([(3.0, 0.25), (10.0, 0.55)])
     /// #     .build()
     /// #     .expect("... creation should succeed"));
     /// # let data = CreditIndexData::builder()
@@ -558,10 +558,4 @@ impl MarketContext {
             })
     }
 
-    /// Alias for [`MarketContext::get_instrument`].
-    ///
-    /// Named to read naturally at call sites (`market.instrument("...")?`).
-    pub fn instrument(&self, id: impl AsRef<str>) -> Result<&dyn std::any::Any> {
-        self.get_instrument(id)
-    }
 }

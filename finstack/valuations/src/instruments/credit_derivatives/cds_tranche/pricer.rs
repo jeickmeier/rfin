@@ -1556,7 +1556,7 @@ impl CDSTranchePricer {
 
         // Create temporary ID for bumped curve
         BaseCorrelationCurve::builder("TEMP_BUMPED_CORR")
-            .points(bumped_points)
+            .knots(bumped_points)
             .build()
     }
 
@@ -2218,7 +2218,7 @@ mod tests {
 
         // Create base correlation curve
         let base_corr_curve = BaseCorrelationCurve::builder("CDX.NA.IG.42_5Y")
-            .points(vec![
+            .knots(vec![
                 (3.0, 0.25),  // 0-3% equity
                 (7.0, 0.45),  // 0-7% junior mezzanine
                 (10.0, 0.60), // 0-10% senior mezzanine
@@ -2265,7 +2265,7 @@ mod tests {
             .expect("Curve builder should succeed with valid test data");
 
         let base_corr_curve = BaseCorrelationCurve::builder("CDX.NA.IG.42_5Y")
-            .points(vec![
+            .knots(vec![
                 (3.0, 0.25),
                 (7.0, 0.45),
                 (10.0, 0.60),
@@ -2760,7 +2760,7 @@ mod tests {
                 finstack_core::market_data::term_structures::BaseCorrelationCurve::builder(
                     "TEST_EXTREME",
                 )
-                .points(vec![
+                .knots(vec![
                     (3.0, test_correlation),
                     (7.0, test_correlation),
                     (10.0, test_correlation),

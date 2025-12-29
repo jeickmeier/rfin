@@ -91,7 +91,7 @@ fn create_base_market() -> MarketContext {
 
     // Base correlation curve
     let base_corr = BaseCorrelationCurve::builder("CDX_IG")
-        .points(vec![(3.0, 0.30), (7.0, 0.50), (10.0, 0.60)])
+        .knots(vec![(3.0, 0.30), (7.0, 0.50), (10.0, 0.60)])
         .build()
         .unwrap();
 

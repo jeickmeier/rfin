@@ -477,13 +477,13 @@ fn test_inflation_curve_missing_error() {
 #[test]
 fn test_correlation_shift() {
     let curve_t0 = BaseCorrelationCurve::builder("CDXNA")
-        .points([(3.0, 0.25), (7.0, 0.35), (10.0, 0.40)])
+        .knots([(3.0, 0.25), (7.0, 0.35), (10.0, 0.40)])
         .build()
         .expect("Should build curve");
 
     // +5% correlation shift
     let curve_t1 = BaseCorrelationCurve::builder("CDXNA")
-        .points([(3.0, 0.30), (7.0, 0.40), (10.0, 0.45)])
+        .knots([(3.0, 0.30), (7.0, 0.40), (10.0, 0.45)])
         .build()
         .expect("Should build curve");
 

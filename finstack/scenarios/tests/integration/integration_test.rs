@@ -218,7 +218,7 @@ fn test_base_correlation_parallel_shock() {
 
     // Create base correlation curve
     let basecorr = BaseCorrelationCurve::builder("CDX_IG")
-        .points(vec![(3.0, 0.25), (7.0, 0.45), (10.0, 0.60)])
+        .knots(vec![(3.0, 0.25), (7.0, 0.45), (10.0, 0.60)])
         .build()
         .unwrap();
 

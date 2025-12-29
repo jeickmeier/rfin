@@ -2,6 +2,8 @@
 
 use super::paths::JsPathDataset;
 use crate::core::money::JsMoney;
+use finstack_core::math::special_functions::standard_normal_inv_cdf;
+use finstack_core::money::Money;
 use finstack_valuations::instruments::common::models::monte_carlo::results::MonteCarloResult;
 use wasm_bindgen::prelude::*;
 
@@ -24,11 +26,15 @@ impl JsMonteCarloResult {
         self.inner.estimate.stderr
     }
 
-    #[wasm_bindgen(getter, js_name = ci95)]
-    pub fn ci_95(&self) -> js_sys::Array {
+    #[wasm_bindgen(js_name = confidenceInterval)]
+    pub fn confidence_interval(&self, alpha: f64) -> js_sys::Array {
+        let z = standard_normal_inv_cdf(1.0 - alpha / 2.0);
+        let margin = z * self.inner.estimate.stderr;
+        let mean = self.inner.estimate.mean.amount();
+        let currency = self.inner.estimate.mean.currency();
         let arr = js_sys::Array::new();
-        arr.push(&JsMoney::from_inner(self.inner.estimate.ci_95.0).into());
-        arr.push(&JsMoney::from_inner(self.inner.estimate.ci_95.1).into());
+        arr.push(&JsMoney::from_inner(Money::new(mean - margin, currency)).into());
+        arr.push(&JsMoney::from_inner(Money::new(mean + margin, currency)).into());
         arr
     }
 

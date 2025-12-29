@@ -17,9 +17,8 @@ class MonteCarloResult:
         """Get the standard error."""
         ...
 
-    @property
-    def ci_95(self) -> Tuple[Money, Money]:
-        """Get the 95% confidence interval as a tuple (lower, upper)."""
+    def confidence_interval(self, alpha: float) -> Tuple[Money, Money]:
+        """Get the confidence interval for the given significance level."""
         ...
 
     @property

@@ -99,7 +99,7 @@ impl ExpressionCache {
     }
 
     /// Create a new expression cache with custom memory budget and capacity.
-    pub fn with_budget_and_capacity(max_memory_mb: usize, capacity: usize) -> Self {
+    pub(crate) fn with_budget_and_capacity(max_memory_mb: usize, capacity: usize) -> Self {
         // Use NonZeroUsize::MIN (1) as fallback if capacity is 0
         let capacity = NonZeroUsize::new(capacity).unwrap_or(NonZeroUsize::MIN);
         Self {

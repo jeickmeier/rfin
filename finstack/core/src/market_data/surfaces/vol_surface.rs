@@ -500,16 +500,12 @@ impl VolSurfaceBuilder {
         self.strikes.extend_from_slice(ks);
         self
     }
+
     /// Append a row of implied volatilities corresponding to the previously
     /// set strikes. Rows must be added in the **same order** as expiries.
-    pub fn data(mut self, row: &[f64]) -> Self {
+    pub fn row(mut self, row: &[f64]) -> Self {
         self.vols.push(row.to_vec());
         self
-    }
-
-    /// Alias for data(): clearer intent that each call appends a row.
-    pub fn row(self, row: &[f64]) -> Self {
-        self.data(row)
     }
 
     /// Finalise the surface and return an immutable [`VolSurface`] instance.

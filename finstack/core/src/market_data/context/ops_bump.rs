@@ -215,7 +215,7 @@ impl MarketContext {
                         let bumped = original.apply_bump(bump_spec)?;
                         let final_curve = if bumped.id() != original.id() {
                             BaseCorrelationCurve::builder(original.id().as_str())
-                                .points(
+                                .knots(
                                     bumped
                                         .detachment_points()
                                         .iter()

@@ -43,7 +43,7 @@ for step in 0..grid.num_steps() {
 // 5) Accumulate estimate with OnlineStats as needed
 let mut stats = OnlineStats::new();
 stats.update(x[0]);
-let est = Estimate::new(stats.mean(), stats.stderr(), stats.ci_95(), stats.count());
+let est = Estimate::new(stats.mean(), stats.stderr(), stats.confidence_interval(0.05), stats.count());
 println!("estimate: {}", est);
 # finstack_core::Result::Ok(())
 ```

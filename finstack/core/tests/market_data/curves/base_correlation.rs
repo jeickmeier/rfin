@@ -22,7 +22,7 @@ mod serde_tests {
     #[test]
     fn roundtrip() {
         let curve = BaseCorrelationCurve::builder("CDX")
-            .points([(3.0, 0.25), (7.0, 0.45), (10.0, 0.60)])
+            .knots([(3.0, 0.25), (7.0, 0.45), (10.0, 0.60)])
             .build()
             .unwrap();
 

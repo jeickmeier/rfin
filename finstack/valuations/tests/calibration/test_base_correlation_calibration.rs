@@ -116,7 +116,7 @@ fn base_correlation_step_builds_curve_and_updates_credit_index_data() {
     let hazard = create_hazard_curve(base_date);
     let target_corr = Arc::new(
         BaseCorrelationCurve::builder("TARGET")
-            .points([(3.0, 0.25), (7.0, 0.35)])
+            .knots([(3.0, 0.25), (7.0, 0.35)])
             .build()
             .expect("target base correlation"),
     );
@@ -154,7 +154,7 @@ fn base_correlation_step_builds_curve_and_updates_credit_index_data() {
     // Start calibration from a different seed curve to ensure the step updates the context.
     let seed_corr = Arc::new(
         BaseCorrelationCurve::builder("SEED")
-            .points([(3.0, 0.10), (7.0, 0.15)])
+            .knots([(3.0, 0.10), (7.0, 0.15)])
             .build()
             .expect("seed base correlation"),
     );

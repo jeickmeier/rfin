@@ -44,7 +44,7 @@
 //! use finstack_core::market_data::term_structures::base_correlation::BaseCorrelationCurve;
 //!
 //! let curve = BaseCorrelationCurve::builder("CDX.NA.IG.42_5Y")
-//!     .points(vec![(3.0, 0.25), (7.0, 0.45), (10.0, 0.60)])
+//!     .knots(vec![(3.0, 0.25), (7.0, 0.45), (10.0, 0.60)])
 //!     .build()
 //!     .expect("BaseCorrelationCurve builder should succeed");
 //! assert!(curve.correlation(5.0) > 0.25);
@@ -340,7 +340,7 @@ impl TryFrom<RawBaseCorrelationCurve> for BaseCorrelationCurve {
             .zip(raw.correlations.iter().copied())
             .collect();
 
-        BaseCorrelationCurve::builder(raw.id).points(points).build()
+        BaseCorrelationCurve::builder(raw.id).knots(points).build()
     }
 }
 
@@ -411,7 +411,7 @@ impl BaseCorrelationCurve {
             }
         }
         BaseCorrelationCurve::builder(self.id.clone())
-            .points(new_points)
+            .knots(new_points)
             .build()
             .ok()
     }
@@ -433,7 +433,7 @@ impl BaseCorrelationCurve {
     /// use finstack_core::market_data::term_structures::base_correlation::BaseCorrelationCurve;
     ///
     /// let curve = BaseCorrelationCurve::builder("CDX")
-    ///     .points(vec![(3.0, 0.25), (7.0, 0.45), (10.0, 0.60)])
+    ///     .knots(vec![(3.0, 0.25), (7.0, 0.45), (10.0, 0.60)])
     ///     .build()
     ///     .expect("Valid curve");
     ///
@@ -521,7 +521,7 @@ impl BaseCorrelationCurve {
     ///
     /// // Create a non-monotonic curve
     /// let raw = BaseCorrelationCurve::builder("TEST")
-    ///     .points(vec![(3.0, 0.50), (7.0, 0.40), (10.0, 0.60)])
+    ///     .knots(vec![(3.0, 0.50), (7.0, 0.40), (10.0, 0.60)])
     ///     .build()
     ///     .expect("Valid curve");
     ///
@@ -600,7 +600,7 @@ impl BaseCorrelationCurve {
             .collect();
 
         BaseCorrelationCurve::builder(self.id.clone())
-            .points(points)
+            .knots(points)
             .build()
     }
 
@@ -637,7 +637,7 @@ impl BaseCorrelationCurve {
             .collect();
 
         BaseCorrelationCurve::builder(self.id.clone())
-            .points(points)
+            .knots(points)
             .build()
     }
 
@@ -685,7 +685,7 @@ impl BaseCorrelationCurve {
             .collect();
 
         BaseCorrelationCurve::builder(self.id.clone())
-            .points(points)
+            .knots(points)
             .build()
     }
 
@@ -709,7 +709,7 @@ impl BaseCorrelationCurve {
 /// use finstack_core::market_data::term_structures::base_correlation::BaseCorrelationCurve;
 ///
 /// let curve = BaseCorrelationCurve::builder("CDX")
-///     .points([(3.0, 0.25), (7.0, 0.45)])
+///     .knots([(3.0, 0.25), (7.0, 0.45)])
 ///     .build()
 ///     .expect("BaseCorrelationCurve builder should succeed");
 /// assert!(curve.correlation(5.0) > 0.25);
@@ -734,22 +734,13 @@ impl BaseCorrelationCurveBuilder {
         self
     }
 
-    /// Set all points at once.
-    pub fn points<I>(mut self, points: I) -> Self
+    /// Set all knot points at once.
+    pub fn knots<I>(mut self, points: I) -> Self
     where
         I: IntoIterator<Item = (f64, f64)>,
     {
         self.points.extend(points);
         self
-    }
-
-    /// Alias for `points` to align naming with other 1D curve builders.
-    #[inline]
-    pub fn knots<I>(self, points: I) -> Self
-    where
-        I: IntoIterator<Item = (f64, f64)>,
-    {
-        self.points(points)
     }
 
     /// Build the base correlation curve.
@@ -797,7 +788,7 @@ mod tests {
 
     fn sample_curve() -> BaseCorrelationCurve {
         BaseCorrelationCurve::builder("CDX.NA.IG.42_5Y")
-            .points(vec![
+            .knots(vec![
                 (3.0, 0.25),  // 0-3% tranche has 25% base correlation
                 (7.0, 0.45),  // 0-7% tranche has 45% base correlation
                 (10.0, 0.60), // 0-10% tranche has 60% base correlation
@@ -809,7 +800,7 @@ mod tests {
 
     fn non_monotonic_curve() -> BaseCorrelationCurve {
         BaseCorrelationCurve::builder("NON_MONOTONIC")
-            .points(vec![
+            .knots(vec![
                 (3.0, 0.50), // Higher than next
                 (7.0, 0.40), // Violation: decreases
                 (10.0, 0.60),
@@ -848,19 +839,19 @@ mod tests {
     fn test_build_validation() {
         // Test rejection of correlation > 1.0
         let res = BaseCorrelationCurve::builder("TEST")
-            .points(vec![(3.0, 1.1)]) // correlation > 1.0
+            .knots(vec![(3.0, 1.1)]) // correlation > 1.0
             .build();
         assert!(res.is_err());
 
         // Test rejection of negative correlation
         let res = BaseCorrelationCurve::builder("TEST")
-            .points(vec![(3.0, -0.1)]) // negative correlation
+            .knots(vec![(3.0, -0.1)]) // negative correlation
             .build();
         assert!(res.is_err());
 
         // Test rejection of too few points
         let res = BaseCorrelationCurve::builder("TEST")
-            .points(vec![(3.0, 0.5)]) // only one point
+            .knots(vec![(3.0, 0.5)]) // only one point
             .build();
         assert!(res.is_err());
     }
@@ -869,7 +860,7 @@ mod tests {
     fn test_sorted_points() {
         // Test that points are automatically sorted by detachment
         let curve = BaseCorrelationCurve::builder("TEST")
-            .points(vec![(10.0, 0.60), (3.0, 0.25), (7.0, 0.45)]) // Unsorted input
+            .knots(vec![(10.0, 0.60), (3.0, 0.25), (7.0, 0.45)]) // Unsorted input
             .build()
             .expect("BaseCorrelationCurve builder should succeed with valid test data");
 
@@ -962,7 +953,7 @@ mod tests {
     fn test_isotonic_regression_multiple_violations() {
         // Multiple violations
         let curve = BaseCorrelationCurve::builder("MULTI_VIOLATION")
-            .points(vec![
+            .knots(vec![
                 (3.0, 0.60),  // High
                 (7.0, 0.40),  // Drops
                 (10.0, 0.50), // Rises but still below first
@@ -1035,7 +1026,7 @@ mod tests {
     fn test_isotonic_preserves_endpoints() {
         // PAVA should keep first and last values if they don't violate
         let curve = BaseCorrelationCurve::builder("ENDPOINTS")
-            .points(vec![
+            .knots(vec![
                 (3.0, 0.25),  // First - should be preserved
                 (7.0, 0.20),  // Violation
                 (10.0, 0.60), // Last - should be preserved
@@ -1055,7 +1046,7 @@ mod tests {
     #[test]
     fn test_boundary_warnings() {
         let curve = BaseCorrelationCurve::builder("BOUNDARY")
-            .points(vec![
+            .knots(vec![
                 (3.0, 0.01), // Very low - should warn
                 (7.0, 0.50),
                 (10.0, 0.99), // Very high - should warn

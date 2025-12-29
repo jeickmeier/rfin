@@ -39,8 +39,8 @@ pub enum CalibrationQuote {
 }
 
 impl CalibrationQuote {
-    /// Get reference to the underlying instrument
-    pub fn instrument(&self) -> &dyn Instrument {
+    /// Get reference to the underlying instrument.
+    pub fn get_instrument(&self) -> &dyn Instrument {
         match self {
             CalibrationQuote::Rates(q) => q.instrument.as_ref(),
             CalibrationQuote::Cds(q, _) => q.instrument.as_ref(),
