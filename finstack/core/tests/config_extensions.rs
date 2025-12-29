@@ -1,5 +1,3 @@
-#![cfg(feature = "serde")]
-
 use finstack_core::config::{
     rounding_context_from, FinstackConfig, RoundingMode, ToleranceConfig, ZeroKind,
 };

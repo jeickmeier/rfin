@@ -1,6 +1,5 @@
 //! Tests for calendar rule serde support
 
-#[cfg(feature = "serde")]
 mod serde_tests {
     use finstack_core::dates::calendar::rule::{Direction, Observed, Rule};
     use time::{Month, Weekday};
@@ -187,16 +186,3 @@ mod serde_tests {
     }
 }
 
-#[cfg(not(feature = "serde"))]
-mod no_serde_tests {
-    #[test]
-    fn test_serde_feature_required() {
-        // This test ensures that when serde feature is not enabled,
-        // the calendar rules can still be used without serialization
-        use finstack_core::dates::calendar::rule::Rule;
-        use time::Month;
-
-        let _rule = Rule::fixed(Month::January, 1);
-        // The rule can be created and used, just not serialized
-    }
-}

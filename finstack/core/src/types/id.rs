@@ -88,7 +88,6 @@ use std::marker::PhantomData;
 use std::ops::Deref;
 use std::sync::Arc;
 
-#[cfg(feature = "serde")]
 use serde::{Deserialize, Serialize};
 
 /// Marker trait for types that can be used as ID tags.
@@ -146,13 +145,12 @@ impl<T> TypeTag for T {}
 ///
 /// `Id<T>` is `Send + Sync` as it wraps an `Arc<str>`. Multiple threads can
 /// safely share and clone IDs with minimal synchronization overhead.
-#[derive(Clone, Debug)]
-#[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
-#[cfg_attr(feature = "serde", serde(transparent))]
-#[cfg_attr(feature = "serde", serde(deny_unknown_fields))]
+#[derive(Clone, Debug, Serialize, Deserialize)]
+#[serde(transparent)]
+#[serde(deny_unknown_fields)]
 pub struct Id<T: TypeTag> {
     value: Arc<str>,
-    #[cfg_attr(feature = "serde", serde(skip))]
+    #[serde(skip)]
     _marker: PhantomData<T>,
 }
 
@@ -416,7 +414,6 @@ mod tests {
         assert_eq!(price_id.as_str(), "AAPL");
     }
 
-    #[cfg(feature = "serde")]
     #[test]
     fn serde_round_trip() {
         let id = Id::<User>::new("user123");

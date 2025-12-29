@@ -91,7 +91,6 @@
 use std::fmt;
 use std::ops::{Add, Div, Mul, Neg, Sub};
 
-#[cfg(feature = "serde")]
 use serde::{Deserialize, Serialize};
 
 /// A financial rate (e.g., interest rate, discount rate).
@@ -135,9 +134,8 @@ use serde::{Deserialize, Serialize};
 ///
 /// `Rate` is `Copy` and contains only a single `f64`, making it trivially
 /// `Send + Sync`.
-#[derive(Clone, Copy, Debug, PartialEq, PartialOrd)]
-#[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
-#[cfg_attr(feature = "serde", serde(deny_unknown_fields))]
+#[derive(Clone, Copy, Debug, PartialEq, PartialOrd, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
 pub struct Rate(f64);
 
 impl Rate {
@@ -291,9 +289,8 @@ impl Neg for Rate {
 /// let annual_fee = aum * management_fee.as_decimal();
 /// assert_eq!(annual_fee, 500_000.0);
 /// ```
-#[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord)]
-#[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
-#[cfg_attr(feature = "serde", serde(deny_unknown_fields))]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
 pub struct Bps(i32);
 
 impl Bps {
@@ -436,9 +433,8 @@ impl Neg for Bps {
 /// // Display formatting
 /// assert_eq!(format!("{}", vol), "20.00%");
 /// ```
-#[derive(Clone, Copy, Debug, PartialEq, PartialOrd)]
-#[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
-#[cfg_attr(feature = "serde", serde(deny_unknown_fields))]
+#[derive(Clone, Copy, Debug, PartialEq, PartialOrd, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
 pub struct Percentage(f64);
 
 impl Percentage {
@@ -720,7 +716,6 @@ mod tests {
         assert_eq!(negative.abs(), positive);
     }
 
-    #[cfg(feature = "serde")]
     #[test]
     fn serde_round_trip() {
         let rate = Rate::from_percent(2.5);

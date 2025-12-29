@@ -31,7 +31,6 @@
 use crate::collections::HashMap;
 use std::sync::OnceLock;
 
-#[cfg(feature = "serde")]
 use serde::{Deserialize, Serialize};
 
 // ============================================================================
@@ -67,8 +66,7 @@ use serde::{Deserialize, Serialize};
 /// assert!(CreditRating::A.is_investment_grade());
 /// assert!(!CreditRating::BB.is_investment_grade());
 /// ```
-#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
-#[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize)]
 pub enum CreditRating {
     /// AAA - Highest quality, minimal credit risk
     AAA,
@@ -188,8 +186,7 @@ impl core::fmt::Display for CreditRating {
 /// - `Plus`: Best notch (e.g., `AA+`, `Aa1`, `B1`)
 /// - `Flat`: Middle notch (e.g., `AA`, `Aa2`, `B2`)
 /// - `Minus`: Lowest notch within the grade (e.g., `AA-`, `Aa3`, `B3`)
-#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
-#[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize)]
 pub enum RatingNotch {
     /// Best notch (AA+, Aa1, etc.)
     Plus,
@@ -215,8 +212,7 @@ impl RatingNotch {
 // ============================================================================
 
 /// A credit rating plus notch metadata.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
-#[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize)]
 pub struct NotchedRating {
     base: CreditRating,
     notch: RatingNotch,
@@ -321,8 +317,7 @@ impl core::fmt::Display for NotchedRating {
 // ============================================================================
 
 /// Stable label for referring to ratings (curve names, exports, etc.).
-#[derive(Debug, Clone, PartialEq, Eq, Hash)]
-#[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
+#[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
 pub struct RatingLabel(String);
 
 impl RatingLabel {
@@ -483,8 +478,7 @@ fn parse_notched_rating(value: &str) -> Result<NotchedRating, crate::Error> {
 /// let factor = table.get_factor(CreditRating::B);
 /// assert_eq!(factor, 2720.0);
 /// ```
-#[derive(Debug, Clone)]
-#[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct RatingFactorTable {
     /// Factors by notched rating
     factors: HashMap<NotchedRating, f64>,

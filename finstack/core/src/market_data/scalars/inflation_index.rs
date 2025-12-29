@@ -67,7 +67,6 @@ use crate::currency::Currency;
 use crate::dates::{Date, DateExt};
 use crate::{Error, Result};
 
-#[cfg(feature = "serde")]
 use serde::{Deserialize, Serialize};
 
 /// Interpolation method for CPI/RPI values between monthly observations.
@@ -89,9 +88,8 @@ use serde::{Deserialize, Serialize};
 /// let linear = InflationInterpolation::Linear; // TIPS standard
 /// let step = InflationInterpolation::Step;     // Conservative approach
 /// ```
-#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
-#[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
-#[cfg_attr(feature = "serde", serde(rename_all = "snake_case"))]
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
 #[non_exhaustive]
 pub enum InflationInterpolation {
     /// Last observation carried forward until next publication.
@@ -157,9 +155,8 @@ impl core::str::FromStr for InflationInterpolation {
 /// let gilt_lag = InflationLag::Months(3);  // UK modern gilts
 /// let no_lag = InflationLag::None;         // Inflation swaps (forecast-based)
 /// ```
-#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
-#[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
-#[cfg_attr(feature = "serde", serde(rename_all = "snake_case"))]
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
 #[non_exhaustive]
 pub enum InflationLag {
     /// Lag by specified number of months.
@@ -252,12 +249,8 @@ pub enum InflationLag {
 ///     Accounting*, 2(1), 1-19.
 ///   - Hurd, M., & Relleen, J. (2006). "Estimating the Inflation Risk Premium."
 ///     Bank of England Quarterly Bulletin, Q2 2006.
-#[derive(Clone, Debug)]
-#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
-#[cfg_attr(
-    feature = "serde",
-    serde(try_from = "RawInflationIndex", into = "RawInflationIndex")
-)]
+#[derive(Clone, Debug, serde::Serialize, serde::Deserialize)]
+#[serde(try_from = "RawInflationIndex", into = "RawInflationIndex")]
 pub struct InflationIndex {
     /// Unique identifier for this index (e.g., "US-CPI-U", "UK-RPI")
     pub id: String,
@@ -422,7 +415,6 @@ impl InflationIndex {
 }
 
 /// Raw serializable state of an InflationIndex
-#[cfg(feature = "serde")]
 #[derive(Debug, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 struct RawInflationIndex {
@@ -440,7 +432,6 @@ struct RawInflationIndex {
     pub seasonality: Option<[f64; 12]>,
 }
 
-#[cfg(feature = "serde")]
 impl From<InflationIndex> for RawInflationIndex {
     fn from(index: InflationIndex) -> Self {
         let observations = index.observations();
@@ -456,7 +447,6 @@ impl From<InflationIndex> for RawInflationIndex {
     }
 }
 
-#[cfg(feature = "serde")]
 impl TryFrom<RawInflationIndex> for InflationIndex {
     type Error = crate::Error;
 

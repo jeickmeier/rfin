@@ -70,12 +70,8 @@ use crate::{
 /// Volatility surface defined on expiry × strike grid.
 ///
 /// Internally stores volatilities in row-major order as `Vec<f64>`.
-#[derive(Clone, Debug)]
-#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
-#[cfg_attr(
-    feature = "serde",
-    serde(try_from = "RawVolSurface", into = "RawVolSurface")
-)]
+#[derive(Clone, Debug, serde::Serialize, serde::Deserialize)]
+#[serde(try_from = "RawVolSurface", into = "RawVolSurface")]
 pub struct VolSurface {
     id: CurveId,
     expiries: Box<[f64]>,
@@ -85,7 +81,6 @@ pub struct VolSurface {
 }
 
 /// Raw serializable state of a VolSurface
-#[cfg(feature = "serde")]
 #[derive(Debug, serde::Serialize, serde::Deserialize)]
 #[serde(deny_unknown_fields)]
 struct RawVolSurface {
@@ -99,7 +94,6 @@ struct RawVolSurface {
     pub vols_row_major: Vec<f64>,
 }
 
-#[cfg(feature = "serde")]
 impl From<VolSurface> for RawVolSurface {
     fn from(surface: VolSurface) -> Self {
         RawVolSurface {
@@ -111,7 +105,6 @@ impl From<VolSurface> for RawVolSurface {
     }
 }
 
-#[cfg(feature = "serde")]
 impl TryFrom<RawVolSurface> for VolSurface {
     type Error = crate::Error;
 

@@ -7,8 +7,7 @@ use crate::collections::HashMap;
 
 /// A simple context that resolves column names to series indices.
 /// Simple name→index context for column resolution.
-#[derive(Clone, Debug)]
-#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+#[derive(Clone, Debug, serde::Serialize, serde::Deserialize)]
 pub struct SimpleContext {
     /// Column name to index mapping for O(1) resolution.
     column_indices: HashMap<String, usize>,

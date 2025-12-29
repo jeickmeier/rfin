@@ -48,8 +48,7 @@ use crate::dates::calendar::business_days::HolidayCalendar;
 use time::Date;
 
 /// A lightweight view combining several holiday calendars.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
 #[non_exhaustive]
 pub enum CompositeMode {
     /// Holiday if any sub-calendar marks the date as holiday (set union).
@@ -145,7 +144,6 @@ mod tests {
         assert!(!cal_inter.is_holiday(d2));
     }
 
-    #[cfg(feature = "serde")]
     #[test]
     fn test_composite_mode_serde_roundtrip() {
         use serde_json;

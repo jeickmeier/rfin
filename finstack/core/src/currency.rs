@@ -241,7 +241,6 @@ mod tests {
         assert_eq!(format!("{}", error), "Invalid input data");
     }
 
-    #[cfg(feature = "serde")]
     #[test]
     fn test_currency_serde() {
         let currency = Currency::USD;

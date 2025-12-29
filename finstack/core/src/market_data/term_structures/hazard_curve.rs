@@ -106,12 +106,8 @@ use crate::{
 /// # Thread Safety
 ///
 /// Immutable after construction; safe to share via `Arc<HazardCurve>`.
-#[derive(Debug)]
-#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
-#[cfg_attr(
-    feature = "serde",
-    serde(try_from = "RawHazardCurve", into = "RawHazardCurve")
-)]
+#[derive(Debug, serde::Serialize, serde::Deserialize)]
+#[serde(try_from = "RawHazardCurve", into = "RawHazardCurve")]
 pub struct HazardCurve {
     id: CurveId,
     base: Date,
@@ -160,7 +156,6 @@ impl Clone for HazardCurve {
 }
 
 /// Raw serializable state of a HazardCurve
-#[cfg(feature = "serde")]
 #[derive(Debug, serde::Serialize, serde::Deserialize)]
 #[serde(deny_unknown_fields)]
 struct RawHazardCurve {
@@ -191,7 +186,6 @@ fn default_par_interp() -> ParInterp {
     ParInterp::Linear
 }
 
-#[cfg(feature = "serde")]
 impl From<HazardCurve> for RawHazardCurve {
     fn from(curve: HazardCurve) -> Self {
         let knot_points: Vec<(f64, f64)> = curve
@@ -224,7 +218,6 @@ impl From<HazardCurve> for RawHazardCurve {
     }
 }
 
-#[cfg(feature = "serde")]
 impl TryFrom<RawHazardCurve> for HazardCurve {
     type Error = crate::Error;
 
@@ -849,9 +842,8 @@ mod tests {
 // -----------------------------------------------------------------------------
 
 /// Seniority level for credit exposures.
-#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
-#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
-#[cfg_attr(feature = "serde", serde(rename_all = "snake_case"))]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, serde::Serialize, serde::Deserialize)]
+#[serde(rename_all = "snake_case")]
 pub enum Seniority {
     /// Senior secured debt
     SeniorSecured,
@@ -890,8 +882,7 @@ impl core::str::FromStr for Seniority {
 }
 
 /// Interpolation method for reporting par spreads stored on the curve.
-#[derive(Clone, Copy, Debug, PartialEq, Eq, Default)]
-#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Default, serde::Serialize, serde::Deserialize)]
 pub enum ParInterp {
     /// Linear interpolation in spread space
     #[default]

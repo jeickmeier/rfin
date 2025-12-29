@@ -239,7 +239,6 @@ mod newton {
 // Serialization Tests
 // ============================================================================
 
-#[cfg(feature = "serde")]
 mod serde_tests {
     use finstack_core::math::integration::GaussHermiteQuadrature;
     use finstack_core::math::random::{RandomNumberGenerator, TestRng};

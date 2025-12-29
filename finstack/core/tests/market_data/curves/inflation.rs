@@ -127,7 +127,6 @@ fn clone_works_with_extrapolation() {
 // Serialization Tests
 // =============================================================================
 
-#[cfg(feature = "serde")]
 mod serde_tests {
     use super::*;
 

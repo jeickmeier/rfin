@@ -98,9 +98,8 @@ use time::{Date, Duration, Month, Weekday};
 /// - **US markets**: FriIfSatMonIfSun (NYSE, NASDAQ, US Treasury)
 /// - **UK markets**: NextMonday (LSE, UK Bank Holidays)
 /// - **European markets**: Mixed; often NextMonday or None
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
-#[cfg_attr(feature = "serde", serde(rename_all = "snake_case"))]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+#[serde(rename_all = "snake_case")]
 #[non_exhaustive]
 pub enum Observed {
     /// No adjustment—holiday is observed **only** on the exact calendar date.
@@ -150,9 +149,8 @@ pub enum Observed {
 /// assert!(election_day.applies(date));
 /// # Ok::<(), Box<dyn std::error::Error>>(())
 /// ```
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
-#[cfg_attr(feature = "serde", serde(rename_all = "snake_case"))]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+#[serde(rename_all = "snake_case")]
 #[non_exhaustive]
 pub enum Direction {
     /// Find the nearest occurrence of the weekday **on or after** the reference date.
@@ -256,9 +254,8 @@ pub enum Direction {
 /// - [`HolidayCalendar`] for using rules in calendars
 ///
 /// [`HolidayCalendar`]: super::business_days::HolidayCalendar
-#[derive(Debug, Clone, Copy)]
-#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
-#[cfg_attr(feature = "serde", serde(rename_all = "snake_case"))]
+#[derive(Debug, Clone, Copy, serde::Serialize, serde::Deserialize)]
+#[serde(rename_all = "snake_case")]
 #[non_exhaustive]
 pub enum Rule {
     /// Fixed calendar date with optional weekend observation.
@@ -335,7 +332,7 @@ pub enum Rule {
     /// # Note
     /// This variant cannot be serialized (contains `&'static Rule`).
     /// Used only in compiled calendar definitions.
-    #[cfg_attr(feature = "serde", serde(skip))]
+    #[serde(skip)]
     Span {
         /// Rule defining the start date(s)
         start: &'static Rule,

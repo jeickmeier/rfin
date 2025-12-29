@@ -9,7 +9,7 @@ The `market_data` module in `finstack-core` provides the **core infrastructure f
 - **Scenario/risk utilities**: bumping APIs (`bumps.rs`) and shift measurement utilities (`diff.rs`).
 - **Dividends**: shared dividend schedules for equity and ETF valuations.
 
-The module is designed to be **deterministic**, **type-safe**, and **serde-stable** (under the `serde` feature), forming the backbone for the higher-level `valuations`, `scenarios`, and `portfolio` crates.
+The module is designed to be **deterministic**, **type-safe**, and **serde-stable** (serde is always on), forming the backbone for the higher-level `valuations`, `scenarios`, and `portfolio` crates.
 
 ---
 
@@ -32,10 +32,13 @@ The module is designed to be **deterministic**, **type-safe**, and **serde-stabl
     - `MarketContext::bump` and `MarketContext::apply_bumps` integrate with `BumpSpec` / `MarketBump` to build shocked contexts.
     - `MarketContext::roll_forward` implements constant-curve roll-down scenarios.
     - `MarketContext::bump_fx_spot` and `MarketContext::apply_bumps` provide FX bump support via `FxMatrix`.
-  - Serialization (behind `serde` feature):
+  - Serialization:
     - `CurveState`: tagged enum for serializing any curve type.
     - `CreditIndexState` and `MarketContextState`: canonical DTOs for persisting complete context snapshots.
     - `Serialize`/`Deserialize` implementations for `CurveStorage` and `MarketContext` round-trip through the `*State` DTOs.
+  - **API guidance**:
+    - Use `new`, `insert_*`, typed getters, scenario helpers (`bump`, `apply_bumps`, `roll_forward`, `bump_fx_spot`), stats, and serde state types as the stable surface.
+    - Treat internal storage details (HashMaps, instrument registry, `market_history`) as private; they may change.
 
 - **`term_structures/`**
   - `mod.rs`: documentation and re-exports for all curve types.

@@ -23,8 +23,7 @@ use core::hash::{Hash, Hasher};
 // DurationSpec removed: time-window API was unused in evaluation
 
 /// Expression AST with optional unique ID for DAG planning and caching.
-#[derive(Clone, Debug)]
-#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+#[derive(Clone, Debug, serde::Serialize, serde::Deserialize)]
 pub struct Expr {
     /// Unique identifier for this expression node (for caching and DAG planning).
     pub id: Option<u64>,
@@ -33,8 +32,7 @@ pub struct Expr {
 }
 
 /// The core expression node types.
-#[derive(Clone, Debug)]
-#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+#[derive(Clone, Debug, serde::Serialize, serde::Deserialize)]
 pub enum ExprNode {
     /// Reference a column by name.
     Column(String),
@@ -70,8 +68,7 @@ pub enum ExprNode {
 }
 
 /// Binary operators for expressions.
-#[derive(Clone, Debug, Copy, PartialEq, Eq, Hash)]
-#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+#[derive(Clone, Debug, Copy, PartialEq, Eq, Hash, serde::Serialize, serde::Deserialize)]
 pub enum BinOp {
     // Arithmetic
     /// Addition (+)
@@ -107,8 +104,7 @@ pub enum BinOp {
 }
 
 /// Unary operators for expressions.
-#[derive(Clone, Debug, Copy, PartialEq, Eq, Hash)]
-#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+#[derive(Clone, Debug, Copy, PartialEq, Eq, Hash, serde::Serialize, serde::Deserialize)]
 pub enum UnaryOp {
     /// Negation (-)
     Neg,
@@ -282,8 +278,7 @@ impl PartialEq for Expr {
 impl Eq for Expr {}
 
 /// Built-in function identifiers.
-#[derive(Clone, Debug, Copy, PartialEq, Eq, Hash)]
-#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+#[derive(Clone, Debug, Copy, PartialEq, Eq, Hash, serde::Serialize, serde::Deserialize)]
 pub enum Function {
     /// Previous N values (shift down).
     Lag,
@@ -397,8 +392,7 @@ pub enum Function {
 // ExecMeta removed in favor of unified config::ResultsMeta
 
 /// Result envelope that includes execution metadata.
-#[derive(Clone, Debug)]
-#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+#[derive(Clone, Debug, serde::Serialize, serde::Deserialize)]
 pub struct EvaluationResult {
     /// The computed values.
     pub values: Vec<f64>,

@@ -15,9 +15,8 @@ use super::wrappers::{
 pub const DERIVATIVE_EPSILON: f64 = 1e-6;
 
 /// Extrapolation policy for evaluation outside the knot range.
-#[derive(Copy, Clone, Debug, Default)]
-#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
-#[cfg_attr(feature = "serde", serde(rename_all = "snake_case"))]
+#[derive(Copy, Clone, Debug, Default, serde::Serialize, serde::Deserialize)]
+#[serde(rename_all = "snake_case")]
 #[non_exhaustive]
 pub enum ExtrapolationPolicy {
     /// Constant value extension.
@@ -28,9 +27,8 @@ pub enum ExtrapolationPolicy {
 }
 
 /// Enum of supported interpolation styles. The default is `Linear`.
-#[derive(Copy, Clone, Debug, Default, PartialEq, Eq)]
-#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
-#[cfg_attr(feature = "serde", serde(rename_all = "snake_case"))]
+#[derive(Copy, Clone, Debug, Default, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+#[serde(rename_all = "snake_case")]
 #[non_exhaustive]
 pub enum InterpStyle {
     /// Linear interpolation in values.
@@ -50,9 +48,8 @@ pub enum InterpStyle {
 ///
 /// Storing this enum (instead of `Box<dyn InterpFn>`) allows the compiler to
 /// inline calls to `interp` and `interp_prime` for each concrete variant.
-#[derive(Debug, Clone)]
-#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
-#[cfg_attr(feature = "serde", serde(rename_all = "snake_case"))]
+#[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
+#[serde(rename_all = "snake_case")]
 pub(crate) enum Interp {
     Linear(LinearDf),
     LogLinear(LogLinearDf),
@@ -74,7 +71,6 @@ impl Interp {
     }
 
     /// Get the interpolation style of this Interp
-    #[cfg(feature = "serde")]
     pub(crate) fn style(&self) -> InterpStyle {
         match self {
             Interp::Linear(_) => InterpStyle::Linear,
@@ -86,7 +82,6 @@ impl Interp {
     }
 
     /// Get the extrapolation policy of this Interp
-    #[cfg(feature = "serde")]
     pub fn extrapolation(&self) -> ExtrapolationPolicy {
         match self {
             Interp::Linear(i) => i.extrapolation(),
@@ -342,7 +337,6 @@ mod tests {
     }
 
     #[test]
-    #[cfg(feature = "serde")]
     fn style_method_returns_correct_type() {
         let linear = InterpStyle::Linear
             .build_enum(
@@ -364,7 +358,6 @@ mod tests {
     }
 
     #[test]
-    #[cfg(feature = "serde")]
     fn extrapolation_method_works() {
         let flat_zero = InterpStyle::Linear
             .build_enum(

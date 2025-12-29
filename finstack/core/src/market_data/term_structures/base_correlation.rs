@@ -81,8 +81,7 @@ use crate::Result;
 ///
 /// Contains detailed information about any violations found during validation,
 /// allowing calibration systems to diagnose and fix curve issues.
-#[derive(Clone, Debug)]
-#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+#[derive(Clone, Debug, serde::Serialize, serde::Deserialize)]
 pub struct ArbitrageCheckResult {
     /// Whether the curve passes all arbitrage checks.
     pub is_arbitrage_free: bool,
@@ -132,8 +131,7 @@ impl ArbitrageCheckResult {
 /// Specific arbitrage violation in a base correlation curve.
 ///
 /// Each violation type captures the relevant data points involved.
-#[derive(Clone, Debug)]
-#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+#[derive(Clone, Debug, serde::Serialize, serde::Deserialize)]
 pub enum ArbitrageViolation {
     /// Correlation decreases as detachment increases (violates monotonicity).
     ///
@@ -239,8 +237,7 @@ impl ArbitrageViolation {
 ///
 /// When calibration produces non-monotonic correlations, these methods
 /// can be used to create an arbitrage-free curve.
-#[derive(Clone, Copy, Debug, PartialEq, Eq, Default)]
-#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Default, serde::Serialize, serde::Deserialize)]
 pub enum SmoothingMethod {
     /// No smoothing - use raw calibrated values.
     #[default]
@@ -291,12 +288,8 @@ pub enum SmoothingMethod {
 /// - Detachment points are strictly increasing
 /// - Correlations ∈ [0, 1]
 /// - Base correlation typically increases with detachment (equity < mezzanine < senior)
-#[derive(Debug)]
-#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
-#[cfg_attr(
-    feature = "serde",
-    serde(try_from = "RawBaseCorrelationCurve", into = "RawBaseCorrelationCurve")
-)]
+#[derive(Debug, serde::Serialize, serde::Deserialize)]
+#[serde(try_from = "RawBaseCorrelationCurve", into = "RawBaseCorrelationCurve")]
 pub struct BaseCorrelationCurve {
     /// Curve identifier (typically index name + maturity)
     pub id: CurveId,
@@ -308,7 +301,6 @@ pub struct BaseCorrelationCurve {
     interp: Interp,
 }
 
-#[cfg(feature = "serde")]
 #[derive(serde::Serialize, serde::Deserialize)]
 #[serde(deny_unknown_fields)]
 struct RawBaseCorrelationCurve {
@@ -317,7 +309,6 @@ struct RawBaseCorrelationCurve {
     correlations: Vec<f64>,
 }
 
-#[cfg(feature = "serde")]
 impl From<BaseCorrelationCurve> for RawBaseCorrelationCurve {
     fn from(curve: BaseCorrelationCurve) -> Self {
         RawBaseCorrelationCurve {
@@ -328,7 +319,6 @@ impl From<BaseCorrelationCurve> for RawBaseCorrelationCurve {
     }
 }
 
-#[cfg(feature = "serde")]
 impl TryFrom<RawBaseCorrelationCurve> for BaseCorrelationCurve {
     type Error = crate::Error;
 

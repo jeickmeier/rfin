@@ -95,12 +95,8 @@ use crate::{
 /// - Inflation swap valuation (zero-coupon and year-on-year)
 /// - Real rate curve construction (nominal - breakeven = real)
 /// - Pension liability modeling with inflation indexation
-#[derive(Debug)]
-#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
-#[cfg_attr(
-    feature = "serde",
-    serde(try_from = "RawInflationCurve", into = "RawInflationCurve")
-)]
+#[derive(Debug, serde::Serialize, serde::Deserialize)]
+#[serde(try_from = "RawInflationCurve", into = "RawInflationCurve")]
 pub struct InflationCurve {
     id: CurveId,
     base_cpi: f64,
@@ -124,7 +120,6 @@ impl Clone for InflationCurve {
 }
 
 /// Raw serializable state of an InflationCurve
-#[cfg(feature = "serde")]
 #[derive(Debug, serde::Serialize, serde::Deserialize)]
 #[serde(deny_unknown_fields)]
 struct RawInflationCurve {
@@ -138,7 +133,6 @@ struct RawInflationCurve {
     interp: super::common::StateInterp,
 }
 
-#[cfg(feature = "serde")]
 impl From<InflationCurve> for RawInflationCurve {
     fn from(curve: InflationCurve) -> Self {
         let knot_points: Vec<(f64, f64)> = curve
@@ -162,7 +156,6 @@ impl From<InflationCurve> for RawInflationCurve {
     }
 }
 
-#[cfg(feature = "serde")]
 impl TryFrom<RawInflationCurve> for InflationCurve {
     type Error = crate::Error;
 

@@ -141,7 +141,6 @@ fn clone_works_for_all_extrapolation_policies() {
 // Serialization Tests
 // =============================================================================
 
-#[cfg(feature = "serde")]
 mod serde_tests {
     use super::*;
 
@@ -400,7 +399,6 @@ fn test_forward_curve_many_knots() {
     }
 }
 
-#[cfg(feature = "serde")]
 #[test]
 fn test_forward_curve_serde_all_fields() {
     // Test full serde round-trip with all fields

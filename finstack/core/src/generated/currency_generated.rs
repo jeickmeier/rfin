@@ -13,8 +13,9 @@ use strum_macros::{EnumIter, EnumString, Display};
     EnumString,
     EnumIter,
     Display,
+    serde::Serialize,
+    serde::Deserialize,
 )]
-#[cfg_attr(feature="serde", derive(serde::Serialize, serde::Deserialize))]
 /// ISO 4217 currency enumeration
 #[strum(ascii_case_insensitive)]
 #[repr(u16)]

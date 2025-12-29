@@ -39,10 +39,7 @@
 //! ```
 //!
 //! # Cargo features
-//! | Feature       | Purpose                                            |
-//! |-------------- |----------------------------------------------------|
-//! | `std`         | Required standard library support (always enabled)   |
-//! | `serde`       | `Serialize`/`Deserialize` for public types         |
+//! Serde support is always enabled in this crate; no feature flags are required.
 //!
 //! # Minimum Supported Rust Version (MSRV)
 //! This crate targets **Rust 1.90**.  It is tested in CI and follows the

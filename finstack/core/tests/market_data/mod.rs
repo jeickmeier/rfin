@@ -38,5 +38,4 @@ mod credit_index;
 mod surfaces;
 
 // Serialization tests
-#[cfg(feature = "serde")]
 mod serde;

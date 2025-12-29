@@ -1181,7 +1181,6 @@ mod traits {
 // Serialization Tests
 // ============================================================================
 
-#[cfg(feature = "serde")]
 mod serde_tests {
     use super::*;
 
@@ -1303,7 +1302,6 @@ mod extrapolation_policy_tests {
     }
 
     #[test]
-    #[cfg(feature = "serde")]
     fn extrapolation_policy_serialization() {
         // Test FlatZero
         let flat_zero = ExtrapolationPolicy::FlatZero;

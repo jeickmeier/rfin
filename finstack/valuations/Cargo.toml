@@ -33,7 +33,7 @@ rust_decimal_macros = "1.39"
 
 [features]
 default = ["serde", "parallel"]
-serde = ["dep:serde", "dep:serde_json", "finstack-core/serde"]
+serde = ["dep:serde", "dep:serde_json"]
 parallel = ["dep:rayon"]
 mc = ["dep:nalgebra"]
 slow = []  # Enable slow-running tests (200k+ MC paths, jump-diffusion, etc.)

@@ -92,12 +92,8 @@ use crate::{
 /// # Thread Safety
 ///
 /// Immutable after construction; safe to share via `Arc<ForwardCurve>`.
-#[derive(Debug)]
-#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
-#[cfg_attr(
-    feature = "serde",
-    serde(try_from = "RawForwardCurve", into = "RawForwardCurve")
-)]
+#[derive(Debug, serde::Serialize, serde::Deserialize)]
+#[serde(try_from = "RawForwardCurve", into = "RawForwardCurve")]
 pub struct ForwardCurve {
     id: CurveId,
     base: Date,
@@ -130,7 +126,6 @@ impl Clone for ForwardCurve {
 }
 
 /// Raw serializable state of ForwardCurve
-#[cfg(feature = "serde")]
 #[derive(Debug, serde::Serialize, serde::Deserialize)]
 #[serde(deny_unknown_fields)]
 struct RawForwardCurve {
@@ -150,7 +145,6 @@ struct RawForwardCurve {
     interp: super::common::StateInterp,
 }
 
-#[cfg(feature = "serde")]
 impl From<ForwardCurve> for RawForwardCurve {
     fn from(curve: ForwardCurve) -> Self {
         let knot_points: Vec<(f64, f64)> = curve
@@ -177,7 +171,6 @@ impl From<ForwardCurve> for RawForwardCurve {
     }
 }
 
-#[cfg(feature = "serde")]
 impl TryFrom<RawForwardCurve> for ForwardCurve {
     type Error = crate::Error;
 

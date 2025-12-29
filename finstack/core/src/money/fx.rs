@@ -39,7 +39,6 @@ use std::num::NonZeroUsize;
 use std::sync::Arc;
 // no duration needed in the simplified config
 
-#[cfg(feature = "serde")]
 use serde::{Deserialize, Serialize};
 
 /// Provider FX rate type alias - always f64.
@@ -80,9 +79,8 @@ pub(crate) fn reciprocal_rate_or_err(
 /// The policy tells a provider *how* the rate will be applied so it can decide
 /// between spot, forward, or averaged sources.
 ///
-#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
-#[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
-#[cfg_attr(feature = "serde", serde(rename_all = "snake_case"))]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
 #[non_exhaustive]
 pub enum FxConversionPolicy {
     /// Use spot/forward on the cashflow date.
@@ -99,9 +97,8 @@ pub enum FxConversionPolicy {
 ///
 /// Contains only the essential parameters for currency conversion.
 ///
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
-#[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
-#[cfg_attr(feature = "serde", serde(deny_unknown_fields))]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
 pub struct FxQuery {
     /// Source currency
     pub from: Currency,
@@ -110,11 +107,10 @@ pub struct FxQuery {
     /// Applicable date for the rate
     pub on: Date,
     /// Conversion policy (defaults to CashflowDate)
-    #[cfg_attr(feature = "serde", serde(default = "default_policy"))]
+    #[serde(default = "default_policy")]
     pub policy: FxConversionPolicy,
 }
 
-#[cfg(feature = "serde")]
 fn default_policy() -> FxConversionPolicy {
     FxConversionPolicy::CashflowDate
 }
@@ -146,9 +142,8 @@ impl FxQuery {
 /// Attach [`FxPolicyMeta`] to valuation results so auditors can understand how
 /// FX conversions were sourced.
 ///
-#[derive(Clone, Debug, PartialEq, Eq)]
-#[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
-#[cfg_attr(feature = "serde", serde(deny_unknown_fields))]
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
 pub struct FxPolicyMeta {
     /// Strategy applied for the conversion.
     pub strategy: FxConversionPolicy,
@@ -176,10 +171,9 @@ struct Pair(Currency, Currency);
 ///
 /// Controls triangulation and caching.
 ///
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
-#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
-#[cfg_attr(feature = "serde", serde(deny_unknown_fields))]
-#[cfg_attr(feature = "serde", serde(default))]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+#[serde(deny_unknown_fields)]
+#[serde(default)]
 pub struct FxConfig {
     /// Pivot currency for triangulation fallback (typically USD)
     pub pivot_currency: Currency,
@@ -201,9 +195,8 @@ impl Default for FxConfig {
 
 /// Result of an FX rate lookup with simple triangulation info.
 ///
-#[derive(Clone, Debug, PartialEq)]
-#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
-#[cfg_attr(feature = "serde", serde(deny_unknown_fields))]
+#[derive(Clone, Debug, PartialEq, serde::Serialize, serde::Deserialize)]
+#[serde(deny_unknown_fields)]
 pub struct FxRateResult {
     /// The final FX rate
     pub rate: FxRate,
@@ -272,7 +265,6 @@ pub struct FxMatrix {
 
 /// Serializable state of an FxMatrix.
 /// Contains the configuration and cached quotes that can be persisted and restored.
-#[cfg(feature = "serde")]
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct FxMatrixState {
     /// FX configuration
@@ -594,13 +586,9 @@ impl FxMatrix {
     /// #         -> finstack_core::Result<f64> { Ok(1.0) }
     /// # }
     /// let matrix = FxMatrix::new(Arc::new(StaticFx));
-    /// # #[cfg(feature = "serde")]
-    /// # {
     /// let state = matrix.get_serializable_state();
     /// assert!(state.quotes.is_empty());
-    /// # }
     /// ```
-    #[cfg(feature = "serde")]
     pub fn get_serializable_state(&self) -> FxMatrixState {
         let quotes = self.quotes.lock();
         let quote_vec: Vec<(Currency, Currency, FxRate)> = quotes
@@ -629,14 +617,10 @@ impl FxMatrix {
     /// #     fn rate(&self, _from: Currency, _to: Currency, _on: Date, _policy: FxConversionPolicy)
     /// #         -> finstack_core::Result<f64> { Ok(1.0) }
     /// # }
-    /// # #[cfg(feature = "serde")]
-    /// # {
     /// let matrix = FxMatrix::new(Arc::new(StaticFx));
     /// let state = FxMatrixState { config: matrix.get_serializable_state().config, quotes: vec![] };
     /// matrix.load_from_state(&state);
-    /// # }
     /// ```
-    #[cfg(feature = "serde")]
     pub fn load_from_state(&self, state: &FxMatrixState) {
         self.set_quotes(&state.quotes);
     }

@@ -215,8 +215,7 @@ pub trait MultiSolver: Send + Sync {
 ///   in Least Squares." *Quarterly of Applied Mathematics*, 2(2), 164-168.
 /// - Marquardt, D. W. (1963). "An Algorithm for Least-Squares Estimation of Nonlinear
 ///   Parameters." *SIAM Journal*, 11(2), 431-441.
-#[derive(Clone, Debug)]
-#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+#[derive(Clone, Debug, serde::Serialize, serde::Deserialize)]
 pub struct LevenbergMarquardtSolver {
     /// Convergence tolerance for gradient norm
     pub tolerance: f64,

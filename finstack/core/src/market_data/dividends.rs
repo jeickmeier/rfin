@@ -47,7 +47,6 @@ use crate::money::Money;
 use crate::types::CurveId;
 use crate::{Error, Result};
 
-#[cfg(feature = "serde")]
 use serde::{Deserialize, Serialize};
 
 /// Type of dividend event.
@@ -60,9 +59,8 @@ use serde::{Deserialize, Serialize};
 /// - **Cash**: Actual dividend payment (quarterly, semi-annual, etc.)
 /// - **Stock**: Share distribution (less common, complicates option pricing)
 /// - **Yield**: Continuous approximation for analytical models
-#[derive(Clone, Debug, PartialEq)]
-#[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
-#[cfg_attr(feature = "serde", serde(rename_all = "snake_case"))]
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
 pub enum DividendKind {
     /// Cash dividend payment.
     ///
@@ -86,8 +84,7 @@ pub enum DividendKind {
 }
 
 /// A dated dividend event.
-#[derive(Clone, Debug, PartialEq)]
-#[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 pub struct DividendEvent {
     /// Ex-dividend date.
     pub date: Date,
@@ -127,9 +124,8 @@ pub struct DividendEvent {
 ///
 /// assert_eq!(schedule.events.len(), 1);
 /// ```
-#[derive(Clone, Debug)]
-#[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
-#[cfg_attr(feature = "serde", serde(deny_unknown_fields))]
+#[derive(Clone, Debug, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
 pub struct DividendSchedule {
     /// Unique identifier of this schedule in the market context.
     pub id: CurveId,

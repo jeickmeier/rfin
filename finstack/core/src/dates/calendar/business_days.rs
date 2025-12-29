@@ -135,8 +135,7 @@ pub trait HolidayCalendar {
 }
 
 /// Basic metadata describing a holiday calendar.
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
-#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
 pub struct CalendarMetadata {
     /// Lowercase identifier (stable code).
     pub id: &'static str,
@@ -177,9 +176,8 @@ pub struct CalendarMetadata {
 /// assert_eq!(adj.day(), 3);
 /// # Ok::<(), finstack_core::Error>(())
 /// ```
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
-#[cfg_attr(feature = "serde", serde(rename_all = "snake_case"))]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+#[serde(rename_all = "snake_case")]
 #[non_exhaustive]
 pub enum BusinessDayConvention {
     /// No adjustment - date remains as specified.
@@ -384,7 +382,7 @@ pub const fn available_calendars() -> &'static [&'static str] {
     crate::dates::calendar::ALL_IDS
 }
 
-#[cfg(all(test, feature = "serde"))]
+#[cfg(test)]
 #[allow(clippy::expect_used, clippy::panic, clippy::indexing_slicing)]
 mod serde_tests {
     use super::*;

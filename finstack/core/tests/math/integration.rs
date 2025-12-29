@@ -431,7 +431,6 @@ fn test_convergence_behavior() {
     assert!(err1000 < err100);
 }
 
-#[cfg(feature = "serde")]
 #[test]
 fn test_gauss_hermite_serde() {
     let quad5 = GaussHermiteQuadrature::order_5();
@@ -455,7 +454,6 @@ fn test_gauss_hermite_serde() {
     assert!((quad10.integrate(f) - deser10.integrate(f)).abs() < 1e-12);
 }
 
-#[cfg(feature = "serde")]
 #[test]
 fn test_gauss_hermite_serde_invalid_order() {
     let json = r#"{"order":99}"#;

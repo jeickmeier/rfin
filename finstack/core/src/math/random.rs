@@ -123,8 +123,7 @@ pub trait RandomNumberGenerator {
 /// let u = rng.uniform();
 /// assert!((0.0..1.0).contains(&u));
 /// ```
-#[derive(Clone, Debug)]
-#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+#[derive(Clone, Debug, serde::Serialize, serde::Deserialize)]
 pub struct TestRng {
     state: u64,
     cached_normal: Option<f64>, // Instance-based cache for Box-Muller

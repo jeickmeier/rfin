@@ -215,8 +215,7 @@ pub use crate::dates::Tenor;
 /// # See Also
 ///
 /// - [`ScheduleBuilder::stub_rule`] to configure stub behavior
-#[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
-#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
 #[non_exhaustive]
 pub enum StubKind {
     /// No special stub handling.
@@ -313,8 +312,7 @@ fn push_if_new(buf: &mut Buffer, d: Date) {
 /// assert!(schedule.warnings.iter().any(|w| matches!(w, ScheduleWarning::GracefulFallback { .. })));
 /// # Ok::<(), Box<dyn std::error::Error>>(())
 /// ```
-#[derive(Clone, Debug, PartialEq, Eq)]
-#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+#[derive(Clone, Debug, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
 #[non_exhaustive]
 pub enum ScheduleWarning {
     /// Schedule generation failed but graceful fallback returned an empty schedule.
@@ -381,8 +379,7 @@ impl std::fmt::Display for ScheduleWarning {
 ///
 /// - [`ScheduleBuilder`] for constructing schedules
 /// - [`ScheduleWarning`] for warning types
-#[derive(Clone, Debug, PartialEq, Eq)]
-#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+#[derive(Clone, Debug, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
 pub struct Schedule {
     /// The generated sequence of dates, monotonically increasing.
     pub dates: Vec<Date>,
@@ -390,10 +387,7 @@ pub struct Schedule {
     ///
     /// Non-empty when graceful fallback mode suppressed an error or when
     /// other non-fatal issues occurred during generation.
-    #[cfg_attr(
-        feature = "serde",
-        serde(default, skip_serializing_if = "Vec::is_empty")
-    )]
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub warnings: Vec<ScheduleWarning>,
 }
 
@@ -986,7 +980,6 @@ impl<'a> ScheduleBuilder<'a> {
     }
 }
 
-#[cfg(feature = "serde")]
 #[derive(Clone, Debug, serde::Serialize, serde::Deserialize)]
 /// Serializable specification for building a schedule.
 ///
@@ -1021,7 +1014,6 @@ pub struct ScheduleSpec {
     pub allow_missing_calendar: bool,
 }
 
-#[cfg(feature = "serde")]
 impl ScheduleSpec {
     /// Reconstruct a [`Schedule`] using the persisted configuration.
     pub fn build(&self) -> crate::Result<Schedule> {
@@ -1482,7 +1474,7 @@ mod tests {
     }
 }
 
-#[cfg(all(test, feature = "serde"))]
+#[cfg(test)]
 #[allow(clippy::expect_used, clippy::panic, clippy::indexing_slicing)]
 mod serde_tests {
     use super::*;

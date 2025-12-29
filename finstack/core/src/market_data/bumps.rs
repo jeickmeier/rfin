@@ -19,9 +19,8 @@ use crate::types::CurveId;
 // -----------------------------------------------------------------------------
 
 /// Mode of applying a bump.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
-#[cfg_attr(feature = "serde", serde(rename_all = "snake_case"))]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+#[serde(rename_all = "snake_case")]
 #[non_exhaustive]
 pub enum BumpMode {
     /// Additive bump expressed in a normalized fractional form (e.g., 100bp = 0.01, 2% = 0.02).
@@ -31,9 +30,8 @@ pub enum BumpMode {
 }
 
 /// Type of bump to apply.
-#[derive(Debug, Clone, Copy, PartialEq, Default)]
-#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
-#[cfg_attr(feature = "serde", serde(rename_all = "snake_case"))]
+#[derive(Debug, Clone, Copy, PartialEq, Default, serde::Serialize, serde::Deserialize)]
+#[serde(rename_all = "snake_case")]
 pub enum BumpType {
     /// Parallel shift across all maturities.
     #[default]
@@ -69,9 +67,8 @@ pub enum BumpType {
 }
 
 /// Units for the bump magnitude. These control normalization to fraction or factor.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
-#[cfg_attr(feature = "serde", serde(rename_all = "snake_case"))]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+#[serde(rename_all = "snake_case")]
 #[non_exhaustive]
 pub enum BumpUnits {
     /// Basis points for rates/spreads (100bp = 0.01).
@@ -97,9 +94,8 @@ pub enum BumpUnits {
 /// let multiplicative = BumpSpec::multiplier(1.05);
 /// assert_eq!(multiplicative.mode, BumpMode::Multiplicative);
 /// ```
-#[derive(Debug, Clone, Copy)]
-#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
-#[cfg_attr(feature = "serde", serde(deny_unknown_fields))]
+#[derive(Debug, Clone, Copy, serde::Serialize, serde::Deserialize)]
+#[serde(deny_unknown_fields)]
 pub struct BumpSpec {
     /// How the bump should be applied (additive vs multiplicative).
     pub mode: BumpMode,
@@ -108,7 +104,7 @@ pub struct BumpSpec {
     /// Raw magnitude provided by the caller (interpreted using `units`).
     pub value: f64,
     /// Type of bump (parallel or key-rate).
-    #[cfg_attr(feature = "serde", serde(default))]
+    #[serde(default)]
     pub bump_type: BumpType,
 }
 
@@ -237,9 +233,8 @@ impl BumpSpec {
 }
 
 /// Unified bump description spanning curves, surfaces, FX, and scalar prices.
-#[derive(Debug, Clone)]
-#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
-#[cfg_attr(feature = "serde", serde(tag = "type", rename_all = "snake_case"))]
+#[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
+#[serde(tag = "type", rename_all = "snake_case")]
 pub enum MarketBump {
     /// Standard curve/surface/price bumps addressed by `CurveId`.
     Curve {

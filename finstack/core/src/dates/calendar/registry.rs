@@ -11,8 +11,7 @@ use core::marker::PhantomData;
 use std::sync::OnceLock;
 
 /// Strongly-typed calendar identifier to avoid stringly-typed lookups.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
-#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, serde::Serialize, serde::Deserialize)]
 pub struct CalendarId(pub &'static str);
 
 /// Global, immutable registry for resolving calendars by typed ID.

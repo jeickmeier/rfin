@@ -2,8 +2,7 @@ use crate::error::InputError;
 use crate::Result;
 
 /// Volatility quoting convention.
-#[derive(Clone, Copy, Debug, PartialEq)]
-#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+#[derive(Clone, Copy, Debug, PartialEq, serde::Serialize, serde::Deserialize)]
 pub enum VolatilityConvention {
     /// Normal (absolute) volatility in basis points
     Normal,

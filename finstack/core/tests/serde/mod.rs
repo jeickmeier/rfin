@@ -4,8 +4,8 @@
 //! - [`golden`]: Wire format stability tests (serde golden tests)
 //! - [`roundtrip`]: Roundtrip serialization tests for various types
 
-#[cfg(feature = "serde")]
+#[cfg(test)]
 mod golden;
 
-#[cfg(feature = "serde")]
+#[cfg(test)]
 mod roundtrip;

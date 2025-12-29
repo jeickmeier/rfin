@@ -50,8 +50,7 @@ use std::vec::Vec;
 /// let out = expr.eval(&ctx, &cols, opts);
 /// assert_eq!(out.values, vec![1.0, 2.0, 3.0]);
 /// ```
-#[derive(Clone, Debug, Default)]
-#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+#[derive(Clone, Debug, Default, serde::Serialize, serde::Deserialize)]
 pub struct EvalOpts {
     /// Optional pre-built execution plan to follow. If not provided, the
     /// evaluator will either use the internal plan (if present) or fallback to
@@ -85,22 +84,20 @@ pub struct EvalOpts {
 /// # Thread Safety
 ///
 /// Not `Sync` due to mutable scratch buffers. Clone to share across threads.
-#[derive(Debug)]
-#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+#[derive(Debug, serde::Serialize, serde::Deserialize)]
 pub struct CompiledExpr {
     /// Underlying expression AST.
     pub ast: Expr,
     /// Optional execution plan for complex expressions.
     pub plan: Option<ExecutionPlan>,
     /// Cache manager for intermediate results.
-    #[cfg_attr(feature = "serde", serde(skip))]
+    #[serde(skip)]
     pub cache: Option<CacheManager>,
     /// Small scratch arena to reuse temporary buffers within hot paths.
-    #[cfg_attr(feature = "serde", serde(skip, default = "default_scratch"))]
+    #[serde(skip, default = "default_scratch")]
     scratch: Mutex<ScratchArena>,
 }
 
-#[cfg(feature = "serde")]
 fn default_scratch() -> Mutex<ScratchArena> {
     Mutex::new(ScratchArena::default())
 }

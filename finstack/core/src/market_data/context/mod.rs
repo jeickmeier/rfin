@@ -11,6 +11,14 @@
 //! - **Builder pattern**: Fluent API for constructing contexts
 //! - **Scenario support**: Bump curves for risk sensitivities
 //!
+//! # API boundaries
+//!
+//! - **Public surface**: `new`, `insert_*`, typed getters (`get_discount`, `surface_ref`,
+//!   `price`, `series`, etc.), scenario helpers (`bump`, `apply_bumps`, `roll_forward`,
+//!   `bump_fx_spot`), stats (`stats`) and serde states (`CurveState`, `MarketContextState`).
+//! - **Internal details**: storage layout (HashMaps, instrument registry, `market_history`)
+//!   is not a stable API. Prefer the public methods above for all access and mutation.
+//!
 //! # Examples
 //! ```rust
 //! use finstack_core::market_data::context::MarketContext;
@@ -40,7 +48,6 @@ mod ops_bump;
 mod ops_roll;
 mod stats;
 
-#[cfg(feature = "serde")]
 mod state_serde;
 
 pub use curve_storage::CurveStorage;
@@ -49,7 +56,6 @@ pub use stats::ContextStats;
 // Re-export bump functionality at the same path as before.
 pub use super::bumps::{BumpMode, BumpSpec, BumpUnits};
 
-#[cfg(feature = "serde")]
 pub use state_serde::{CreditIndexState, CurveState, MarketContextState};
 
 use crate::collections::HashMap;

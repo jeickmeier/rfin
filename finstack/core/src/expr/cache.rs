@@ -14,8 +14,7 @@ use std::sync::Arc;
 pub const DEFAULT_CACHE_CAPACITY: usize = 1024;
 
 /// Cached result for an expression evaluation.
-#[derive(Debug, Clone)]
-#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+#[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
 pub enum CachedResult {
     /// Scalar result backed by Arc slice to avoid clones on conversion.
     Scalar(Arc<[f64]>),
@@ -77,8 +76,7 @@ pub struct ExpressionCache {
 }
 
 /// Cache performance statistics.
-#[derive(Debug, Clone, Default)]
-#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+#[derive(Debug, Clone, Default, serde::Serialize, serde::Deserialize)]
 pub struct CacheStats {
     /// Total cache hits.
     pub hits: usize,

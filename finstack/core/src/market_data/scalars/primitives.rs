@@ -39,9 +39,8 @@ use time::Duration as TimeDuration;
 /// let mid_date = Date::from_calendar_date(2024, Month::January, 15).expect("Valid date");
 /// assert_eq!(stepped.value_on(mid_date).expect("Value lookup should succeed"), 100.0);
 /// ```
-#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
-#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
-#[cfg_attr(feature = "serde", serde(rename_all = "snake_case"))]
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+#[serde(rename_all = "snake_case")]
 pub enum SeriesInterpolation {
     /// Last observation carried forward
     #[default]
@@ -82,9 +81,8 @@ pub enum SeriesInterpolation {
 ///     assert_eq!(m.currency(), Currency::USD);
 /// }
 /// ```
-#[derive(Clone, Debug)]
-#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
-#[cfg_attr(feature = "serde", serde(rename_all = "snake_case"))]
+#[derive(Clone, Debug, serde::Serialize, serde::Deserialize)]
+#[serde(rename_all = "snake_case")]
 pub enum MarketScalar {
     /// Unitless numeric (e.g., equity beta, recovery rate assumption)
     Unitless(f64),
@@ -139,12 +137,8 @@ pub enum MarketScalar {
 /// let interpolated = series.value_on(mid).expect("Value lookup should succeed");
 /// assert!(interpolated > 3.7 && interpolated < 3.9);
 /// ```
-#[derive(Clone, Debug)]
-#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
-#[cfg_attr(
-    feature = "serde",
-    serde(try_from = "RawScalarTimeSeries", into = "RawScalarTimeSeries")
-)]
+#[derive(Clone, Debug, serde::Serialize, serde::Deserialize)]
+#[serde(try_from = "RawScalarTimeSeries", into = "RawScalarTimeSeries")]
 pub struct ScalarTimeSeries {
     id: CurveId,
     currency: Option<Currency>,
@@ -421,7 +415,6 @@ fn from_days(days: i32) -> Date {
 }
 
 /// Raw serializable state of a ScalarTimeSeries
-#[cfg(feature = "serde")]
 #[derive(Debug, serde::Serialize, serde::Deserialize)]
 #[serde(deny_unknown_fields)]
 struct RawScalarTimeSeries {
@@ -435,7 +428,6 @@ struct RawScalarTimeSeries {
     pub interpolation: SeriesInterpolation,
 }
 
-#[cfg(feature = "serde")]
 impl From<ScalarTimeSeries> for RawScalarTimeSeries {
     fn from(series: ScalarTimeSeries) -> Self {
         let observations = series.observations();
@@ -449,7 +441,6 @@ impl From<ScalarTimeSeries> for RawScalarTimeSeries {
     }
 }
 
-#[cfg(feature = "serde")]
 impl TryFrom<RawScalarTimeSeries> for ScalarTimeSeries {
     type Error = crate::Error;
 

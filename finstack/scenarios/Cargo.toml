@@ -7,7 +7,7 @@ license.workspace = true
 repository.workspace = true
 
 [dependencies]
-finstack-core = { path = "../core", features = ["serde"] }
+finstack-core = { path = "../core" }
 finstack-statements = { path = "../statements" }
 finstack-valuations = { path = "../valuations" }
 indexmap = { version = "2.12", features = ["serde"] }

@@ -88,12 +88,8 @@ use crate::{
 /// # Thread Safety
 ///
 /// Immutable after construction; safe to share via `Arc<VolatilityIndexCurve>`.
-#[derive(Debug)]
-#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
-#[cfg_attr(
-    feature = "serde",
-    serde(try_from = "RawVolatilityIndexCurve", into = "RawVolatilityIndexCurve")
-)]
+#[derive(Debug, serde::Serialize, serde::Deserialize)]
+#[serde(try_from = "RawVolatilityIndexCurve", into = "RawVolatilityIndexCurve")]
 pub struct VolatilityIndexCurve {
     id: CurveId,
     base: Date,
@@ -123,7 +119,6 @@ impl Clone for VolatilityIndexCurve {
 }
 
 /// Raw serializable state of VolatilityIndexCurve
-#[cfg(feature = "serde")]
 #[derive(Debug, serde::Serialize, serde::Deserialize)]
 #[serde(deny_unknown_fields)]
 struct RawVolatilityIndexCurve {
@@ -141,7 +136,6 @@ struct RawVolatilityIndexCurve {
     interp: super::common::StateInterp,
 }
 
-#[cfg(feature = "serde")]
 impl From<VolatilityIndexCurve> for RawVolatilityIndexCurve {
     fn from(curve: VolatilityIndexCurve) -> Self {
         let knot_points: Vec<(f64, f64)> = curve
@@ -167,7 +161,6 @@ impl From<VolatilityIndexCurve> for RawVolatilityIndexCurve {
     }
 }
 
-#[cfg(feature = "serde")]
 impl TryFrom<RawVolatilityIndexCurve> for VolatilityIndexCurve {
     type Error = crate::Error;
 
@@ -593,7 +586,6 @@ mod tests {
         assert!(result.is_err());
     }
 
-    #[cfg(feature = "serde")]
     #[test]
     fn serde_round_trip() {
         let curve = sample_vix_curve();

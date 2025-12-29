@@ -19,8 +19,7 @@ use std::vec::Vec;
 /// Simple linear interpolation between knot points. Fast and straightforward
 /// but may produce negative forward rates (arbitrage) if discount factors
 /// aren't carefully spaced. Prefer LogLinear or MonotoneConvex for yield curves.
-#[derive(Debug, Clone)]
-#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+#[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
 pub struct LinearStrategy;
 
 impl InterpolationStrategy for LinearStrategy {
@@ -152,8 +151,7 @@ fn segment_slope(knots: &[f64], values: &[f64], left_index: usize, right_index: 
 /// Performs linear interpolation on ln(DF), equivalent to piecewise-constant
 /// zero rates. Guarantees positive forward rates and is commonly used for
 /// government bond curves and simple yield curve construction.
-#[derive(Debug, Clone)]
-#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+#[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
 pub struct LogLinearStrategy {
     /// Precomputed log(values) for efficient evaluation.
     log_values: Box<[f64]>,
@@ -324,8 +322,7 @@ fn log_segment_slope(
 /// Builds a natural cubic spline in log-discount space so that the resulting
 /// instantaneous forward curve is piecewise quadratic and C²-continuous.
 /// This matches the “smooth forward” construction commonly used by Bloomberg.
-#[derive(Debug, Clone)]
-#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+#[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
 pub struct PiecewiseQuadraticForwardStrategy {
     /// Knot locations (copied for boundary evaluation).
     knots: Box<[f64]>,
@@ -547,8 +544,7 @@ impl PiecewiseQuadraticForwardStrategy {
 /// Implements the Piecewise Cubic Hermite Interpolating Polynomial with
 /// Fritsch-Carlson slope selection. Preserves monotonicity of input data,
 /// ensuring no spurious oscillations. Requires monotone input discount factors.
-#[derive(Debug, Clone)]
-#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+#[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
 pub struct CubicHermiteStrategy {
     /// First-derivative values at each knot (PCHIP slopes).
     ms: Box<[f64]>,
@@ -805,8 +801,7 @@ pub const DEFAULT_MONOTONE_CONVEX_EPSILON: f64 = 1e-14;
 ///
 /// Hagan, P. S., & West, G. (2006). "Interpolation Methods for Curve Construction."
 /// *Applied Mathematical Finance*, 13(2), 89-129.
-#[derive(Debug, Clone)]
-#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+#[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
 pub struct MonotoneConvexStrategy {
     /// Discrete forward rates f^d_i for each segment (length n-1).
     fd: Box<[f64]>,

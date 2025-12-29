@@ -196,7 +196,6 @@ fn test_flat_curve_clone() {
     assert!((cloned.df(1.0) - curve.df(1.0)).abs() < 1e-12);
 }
 
-#[cfg(feature = "serde")]
 #[test]
 fn test_flat_curve_serde_not_implemented() {
     // FlatCurve doesn't implement Serialize/Deserialize

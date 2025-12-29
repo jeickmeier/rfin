@@ -312,7 +312,6 @@ fn test_hazard_curve_interpolation() {
     assert!(surv_3 < surv_1 && surv_3 > surv_5);
 }
 
-#[cfg(feature = "serde")]
 #[test]
 fn test_hazard_curve_serde_round_trip() {
     let original = HazardCurve::builder("SERDE-TEST")

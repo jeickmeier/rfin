@@ -21,7 +21,7 @@ use crate::market_data::{
 
 impl MarketContext {
     // -----------------------------------------------------------------------------
-    // Single generic typed getters for curves
+    // Internal helpers
     // -----------------------------------------------------------------------------
 
     fn missing_curve_error(&self, id: &str) -> crate::Error {
@@ -51,6 +51,10 @@ impl MarketContext {
             None => Err(self.missing_curve_error(id)),
         }
     }
+
+    // -----------------------------------------------------------------------------
+    // Public API: typed getters
+    // -----------------------------------------------------------------------------
 
     /// Get a discount curve by identifier.
     pub fn get_discount(&self, id: impl AsRef<str>) -> Result<Arc<DiscountCurve>> {
@@ -557,5 +561,4 @@ impl MarketContext {
                 .into()
             })
     }
-
 }

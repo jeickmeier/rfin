@@ -132,7 +132,6 @@ impl<'a> std::fmt::Debug for DayCountCtx<'a> {
     }
 }
 
-#[cfg(feature = "serde")]
 #[derive(Clone, Debug, serde::Serialize, serde::Deserialize)]
 /// Serializable snapshot of [`DayCountCtx`] state for persistence and interchange.
 ///
@@ -147,7 +146,6 @@ pub struct DayCountCtxState {
     pub bus_basis: Option<u16>,
 }
 
-#[cfg(feature = "serde")]
 impl DayCountCtxState {
     /// Build a runtime [`DayCountCtx`] using the provided calendar registry.
     pub fn to_ctx<'a>(&self, registry: &'a CalendarRegistry<'a>) -> DayCountCtx<'a> {
@@ -163,7 +161,6 @@ impl DayCountCtxState {
     }
 }
 
-#[cfg(feature = "serde")]
 impl<'a> From<DayCountCtx<'a>> for DayCountCtxState {
     fn from(value: DayCountCtx<'a>) -> Self {
         let calendar_id = value
@@ -207,9 +204,8 @@ impl<'a> From<DayCountCtx<'a>> for DayCountCtxState {
 ///
 /// assert!(yf_360 > yf_30360); // Act/360 has larger denominator
 /// ```
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
-#[cfg_attr(feature = "serde", serde(rename_all = "PascalCase"))]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+#[serde(rename_all = "PascalCase")]
 #[non_exhaustive]
 pub enum DayCount {
     /// Actual/360 day count convention.
@@ -242,7 +238,7 @@ pub enum DayCount {
     /// let yf = DayCount::Act360.year_fraction(start, end, DayCountCtx::default()).expect("Year fraction calculation should succeed");
     /// assert_eq!(yf, 90.0 / 360.0);
     /// ```
-    #[cfg_attr(feature = "serde", serde(alias = "act360"))]
+    #[serde(alias = "act360")]
     Act360,
 
     /// Actual/365 Fixed day count convention.
@@ -274,10 +270,7 @@ pub enum DayCount {
     /// let yf = DayCount::Act365F.year_fraction(start, end, DayCountCtx::default()).expect("Year fraction calculation should succeed");
     /// assert!((yf - 1.0).abs() < 1e-9); // 365 days / 365 = 1.0
     /// ```
-    #[cfg_attr(
-        feature = "serde",
-        serde(alias = "act_365f", alias = "act365f", alias = "act_365_fixed")
-    )]
+    #[serde(alias = "act_365f", alias = "act365f", alias = "act_365_fixed")]
     Act365F,
 
     /// Actual/365 Leap day count convention (Actual/365L or AFB).
@@ -310,7 +303,7 @@ pub enum DayCount {
     /// // 29 days / 366 (leap year denominator)
     /// assert_eq!(yf, 29.0 / 366.0);
     /// ```
-    #[cfg_attr(feature = "serde", serde(alias = "act365l", alias = "act_365l"))]
+    #[serde(alias = "act365l", alias = "act_365l")]
     Act365L,
 
     /// 30/360 US (Bond Basis) day count convention.
@@ -353,7 +346,7 @@ pub enum DayCount {
     /// // Treats Jan 31 as day 30, Feb 28 as day 28: 28 days / 360
     /// assert_eq!(yf, 28.0 / 360.0);
     /// ```
-    #[cfg_attr(feature = "serde", serde(alias = "thirty360"))]
+    #[serde(alias = "thirty360")]
     Thirty360,
 
     /// 30E/360 (Eurobond Basis) day count convention.
@@ -396,7 +389,7 @@ pub enum DayCount {
     /// // Treats both 31st as day 30: 60 days / 360
     /// assert_eq!(yf, 60.0 / 360.0);
     /// ```
-    #[cfg_attr(feature = "serde", serde(alias = "thirty_e360"))]
+    #[serde(alias = "thirty_e360")]
     ThirtyE360,
 
     /// Actual/Actual (ISDA) day count convention.
@@ -442,7 +435,7 @@ pub enum DayCount {
     /// # References
     ///
     /// - ISDA (2006). "2006 ISDA Definitions." Section 4.16(b).
-    #[cfg_attr(feature = "serde", serde(alias = "act_act"))]
+    #[serde(alias = "act_act")]
     ActAct,
 
     /// Actual/Actual (ICMA) day count convention.
@@ -497,7 +490,7 @@ pub enum DayCount {
     ///
     /// - ICMA (2010). "ICMA Rule Book." Rule 251.
     /// - ISMA (1999). "Recommendations for Accrued Interest Calculations."
-    #[cfg_attr(feature = "serde", serde(alias = "act_act_isma"))]
+    #[serde(alias = "act_act_isma")]
     ActActIsma,
 
     /// Business/252 day count convention.
@@ -533,7 +526,7 @@ pub enum DayCount {
     /// // 5 business days / 252
     /// assert!((yf * 252.0 - 5.0).abs() < 0.1);
     /// ```
-    #[cfg_attr(feature = "serde", serde(alias = "bus252"))]
+    #[serde(alias = "bus252")]
     Bus252,
 }
 
@@ -637,8 +630,7 @@ impl DayCount {
 // 30/360 generalized helper
 // -------------------------------------------------------------------------------------------------
 /// 30/360 day-count variants.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
 pub enum Thirty360Convention {
     /// 30U/360 (US Bond Basis).
     Us,

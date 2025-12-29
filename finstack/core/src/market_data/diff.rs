@@ -42,7 +42,6 @@ use super::context::MarketContext;
 use crate::currency::Currency;
 use crate::Result;
 
-#[cfg(feature = "serde")]
 use serde::{Deserialize, Serialize};
 
 // -----------------------------------------------------------------------------
@@ -70,9 +69,8 @@ pub const DEFAULT_VOL_EXPIRY: f64 = 1.0;
 ///
 /// Different sampling strategies trade off accuracy, performance, and
 /// robustness to curve structure.
-#[derive(Clone, Debug, Default, PartialEq)]
-#[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
-#[cfg_attr(feature = "serde", serde(rename_all = "snake_case"))]
+#[derive(Clone, Debug, Default, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
 pub enum TenorSamplingMethod {
     /// Standard swap market tenors (3M, 6M, 1Y, 2Y, 3Y, 5Y, 7Y, 10Y, 30Y).
     ///

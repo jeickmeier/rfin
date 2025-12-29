@@ -22,8 +22,7 @@ use crate::money::Money;
 /// (e.g. whether amortization appears as a positive or negative amount
 /// in their simplified cashflow schedules).
 #[non_exhaustive]
-#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
-#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, serde::Serialize, serde::Deserialize)]
 pub enum CFKind {
     /// Fixed-rate coupon cash-flow.
     Fixed,
@@ -105,8 +104,7 @@ pub enum CFKind {
 ///
 /// Represents a monetary flow at a specific date with metadata
 /// for proper classification and risk calculation.
-#[derive(Clone, Copy, Debug, PartialEq)]
-#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+#[derive(Clone, Copy, Debug, PartialEq, serde::Serialize, serde::Deserialize)]
 pub struct CashFlow {
     /// Payment date (or payment date for principal/fee, or reset date for `CFKind::FloatReset`).
     pub date: Date,
@@ -126,10 +124,7 @@ pub struct CashFlow {
     /// This is stored at cashflow creation time when available.
     /// For instruments with intra-period events (e.g., revolving credit with draws/repays),
     /// this may represent a time-weighted average rate across sub-periods.
-    #[cfg_attr(
-        feature = "serde",
-        serde(default, skip_serializing_if = "Option::is_none")
-    )]
+    #[serde(default, skip_serializing_if = "Option::is_none")]
     pub rate: Option<f64>,
 }
 

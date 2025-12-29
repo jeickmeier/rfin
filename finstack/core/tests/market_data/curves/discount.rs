@@ -788,7 +788,6 @@ fn minimal_two_point_curve() {
 // Serialization Tests
 // =============================================================================
 
-#[cfg(feature = "serde")]
 mod serde_tests {
     use super::*;
 

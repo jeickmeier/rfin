@@ -35,8 +35,7 @@ use super::suggestions::format_suggestions;
 /// let err = InputError::NonMonotonicKnots;
 /// assert_eq!(err.to_string(), "Times (knots) must be strictly increasing");
 /// ```
-#[derive(Debug, Clone, PartialEq, Error)]
-#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+#[derive(Debug, Clone, PartialEq, Error, serde::Serialize, serde::Deserialize)]
 #[non_exhaustive]
 pub enum InputError {
     // ─────────────────────────────────────────────────────────────────────────

@@ -28,8 +28,9 @@ use time::Month;
 /// Period frequency type.
 ///
 /// Defines the frequency of periods (quarterly, monthly, etc.).
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, PartialOrd, Ord)]
-#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+#[derive(
+    Debug, Clone, Copy, PartialEq, Eq, Hash, PartialOrd, Ord, serde::Serialize, serde::Deserialize,
+)]
 pub enum PeriodKind {
     /// Quarterly periods (4 per year)
     Quarterly,
@@ -64,12 +65,8 @@ impl PeriodKind {
 }
 
 /// Identifier for a period like 2025Q1 or 2025M03.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
-#[cfg_attr(
-    feature = "serde",
-    derive(serde::Serialize, serde::Deserialize),
-    serde(into = "String", try_from = "String")
-)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, serde::Serialize, serde::Deserialize)]
+#[serde(into = "String", try_from = "String")]
 pub struct PeriodId {
     /// Gregorian calendar year.
     pub year: i32,
@@ -195,8 +192,7 @@ impl PeriodId {
 }
 
 /// Configuration for fiscal year periods.
-#[derive(Debug, Clone, Copy)]
-#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+#[derive(Debug, Clone, Copy, serde::Serialize, serde::Deserialize)]
 pub struct FiscalConfig {
     /// The month when the fiscal year starts (1-12).
     pub start_month: u8,
@@ -285,8 +281,7 @@ impl FiscalConfig {
 }
 
 /// A concrete period with start/end dates and actual/forecast flag.
-#[derive(Debug, Clone, PartialEq, Eq)]
-#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
 pub struct Period {
     /// Identifier of this period.
     pub id: PeriodId,
@@ -299,8 +294,7 @@ pub struct Period {
 }
 
 /// Builder/plan for a contiguous sequence of periods and their actual/forecast split.
-#[derive(Debug, Clone)]
-#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+#[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
 pub struct PeriodPlan {
     pub periods: Vec<Period>,
 }
@@ -1223,7 +1217,6 @@ mod tests {
         assert_eq!(parsed, id);
     }
 
-    #[cfg(feature = "serde")]
     #[test]
     fn test_period_serde_roundtrip() {
         use serde_json;

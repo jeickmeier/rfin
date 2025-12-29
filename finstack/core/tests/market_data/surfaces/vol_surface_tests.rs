@@ -378,7 +378,6 @@ fn test_vol_surface_large_grid() {
     assert!((v - 0.25).abs() < 0.001);
 }
 
-#[cfg(feature = "serde")]
 #[test]
 fn test_vol_surface_serde() {
     let surface = VolSurface::builder("TEST")
@@ -404,7 +403,6 @@ fn test_vol_surface_serde() {
     );
 }
 
-#[cfg(feature = "serde")]
 #[test]
 fn test_vol_surface_serde_invalid() {
     // Mismatched dimensions

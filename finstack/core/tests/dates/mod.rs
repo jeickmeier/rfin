@@ -13,7 +13,6 @@ mod common;
 // Calendar Rules
 mod rules;
 mod rules_coverage;
-#[cfg(feature = "serde")]
 mod rules_serde;
 
 // Calendar Infrastructure

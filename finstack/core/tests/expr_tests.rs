@@ -26,6 +26,5 @@ mod eval;
 #[path = "expr/functions.rs"]
 mod functions;
 
-#[cfg(feature = "serde")]
 #[path = "expr/serde.rs"]
 mod expr_serde;

@@ -41,13 +41,9 @@ use crate::error::InputError;
 /// # Ok(())
 /// # }
 /// ```
-#[derive(Debug, Clone)]
-#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
-#[cfg_attr(feature = "serde", serde(bound(serialize = "S: serde::Serialize")))]
-#[cfg_attr(
-    feature = "serde",
-    serde(bound(deserialize = "S: serde::de::DeserializeOwned"))
-)]
+#[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
+#[serde(bound(serialize = "S: serde::Serialize"))]
+#[serde(bound(deserialize = "S: serde::de::DeserializeOwned"))]
 pub struct Interpolator<S: InterpolationStrategy> {
     /// Strictly increasing knot times.
     knots: Box<[f64]>,

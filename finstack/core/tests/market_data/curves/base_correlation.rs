@@ -15,7 +15,6 @@ fn _test_date() -> Date {
 // Serialization Tests
 // =============================================================================
 
-#[cfg(feature = "serde")]
 mod serde_tests {
     use super::*;
 

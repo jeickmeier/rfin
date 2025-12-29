@@ -35,9 +35,7 @@
 //! additional modes (e.g., alternative numeric strategies) or feature-gated switching; in that case
 //! the constant will remain stable and reflect the compile-time choice.
 
-#[cfg(feature = "serde")]
 use serde::{Deserialize, Serialize};
-#[cfg(feature = "serde")]
 use serde_json::Value as JsonValue;
 
 use std::collections::BTreeMap;
@@ -54,8 +52,7 @@ use std::collections::BTreeMap;
 /// cfg.rounding.mode = RoundingMode::TowardZero;
 /// assert!(matches!(cfg.rounding.mode, RoundingMode::TowardZero));
 /// ```
-#[derive(Clone, Copy, Debug, PartialEq, Eq, Default)]
-#[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Default, Serialize, Deserialize)]
 #[non_exhaustive]
 pub enum RoundingMode {
     /// Banker's rounding (ties to even).
@@ -89,36 +86,29 @@ pub enum RoundingMode {
 /// cfg.rounding.output_scale.overrides.insert(Currency::CHF, 2);
 /// assert_eq!(cfg.output_scale(Currency::CHF), 2);
 /// ```
-#[derive(Clone, Debug, Default)]
-#[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
+#[derive(Clone, Debug, Default, Serialize, Deserialize)]
 pub struct FinstackConfig {
     /// Detailed rounding policy (ingest/output scales by currency).
     pub rounding: RoundingPolicy,
     /// Numerical tolerance settings for floating-point comparisons.
-    #[cfg_attr(feature = "serde", serde(default))]
+    #[serde(default)]
     pub tolerances: ToleranceConfig,
     /// Optional module-specific configuration sections (versioned, namespaced keys).
     ///
     /// Keys follow `{crate}.{domain}.v{N}`, e.g., `valuations.calibration.v2`.
     /// Values are validated by the owning crate's strict serde schema.
-    #[cfg(feature = "serde")]
-    #[cfg_attr(
-        feature = "serde",
-        serde(default, skip_serializing_if = "ConfigExtensions::is_empty")
-    )]
+    #[serde(default, skip_serializing_if = "ConfigExtensions::is_empty")]
     pub extensions: ConfigExtensions,
 }
 // Default derived above
 
 /// Versioned, namespaced extension map carried alongside the core config.
-#[cfg(feature = "serde")]
 #[derive(Clone, Debug, Default, Serialize, Deserialize)]
 pub struct ConfigExtensions {
     #[serde(flatten)]
     pub(crate) inner: BTreeMap<String, JsonValue>,
 }
 
-#[cfg(feature = "serde")]
 impl ConfigExtensions {
     /// Returns true if no extension sections are present.
     #[inline]
@@ -156,16 +146,14 @@ impl ConfigExtensions {
 ///
 /// assert_eq!(cfg.output_scale(Currency::KWD), 3);
 /// ```
-#[derive(Clone, Debug, Default)]
-#[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
+#[derive(Clone, Debug, Default, Serialize, Deserialize)]
 pub struct CurrencyScalePolicy {
     /// Explicit currency overrides for scale.
     pub overrides: BTreeMap<crate::currency::Currency, u32>,
 }
 
 /// Full rounding policy used at IO boundaries and normalization steps.
-#[derive(Clone, Debug, Default)]
-#[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
+#[derive(Clone, Debug, Default, Serialize, Deserialize)]
 pub struct RoundingPolicy {
     /// Rounding behaviour to apply when mapping fractional values to a scale.
     pub mode: RoundingMode,
@@ -191,18 +179,17 @@ pub struct RoundingPolicy {
 /// // Customize for stricter rate comparisons
 /// tol.rate_epsilon = 1e-14;
 /// ```
-#[derive(Clone, Copy, Debug, PartialEq)]
-#[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
+#[derive(Clone, Copy, Debug, PartialEq, Serialize, Deserialize)]
 pub struct ToleranceConfig {
     /// Epsilon for rate comparisons (default: 1e-12).
     ///
     /// Used when comparing interest rates, yields, and other small ratios.
-    #[cfg_attr(feature = "serde", serde(default = "default_rate_epsilon"))]
+    #[serde(default = "default_rate_epsilon")]
     pub rate_epsilon: f64,
     /// Epsilon for generic floating-point comparisons (default: 1e-10).
     ///
     /// Used for general numerical comparisons where higher tolerance is acceptable.
-    #[cfg_attr(feature = "serde", serde(default = "default_generic_epsilon"))]
+    #[serde(default = "default_generic_epsilon")]
     pub generic_epsilon: f64,
 }
 
@@ -227,8 +214,7 @@ impl Default for ToleranceConfig {
 ///
 /// Instances are typically produced via [`rounding_context_from`] and persisted
 /// alongside valuation results.
-#[derive(Clone, Debug)]
-#[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
+#[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct RoundingContext {
     /// Active rounding mode.
     pub mode: RoundingMode,
@@ -237,15 +223,14 @@ pub struct RoundingContext {
     /// Output scale map snapshot by currency code.
     pub output_scale_by_ccy: BTreeMap<crate::currency::Currency, u32>,
     /// Tolerance settings snapshot for floating-point comparisons.
-    #[cfg_attr(feature = "serde", serde(default))]
+    #[serde(default)]
     pub tolerances: ToleranceConfig,
     /// Schema version for forward compatibility.
     pub version: u32,
 }
 
 /// Zero-kind classification for tolerance checks.
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
-#[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[non_exhaustive]
 pub enum ZeroKind {
     /// Money-like magnitudes (use currency scale).
@@ -303,8 +288,7 @@ impl RoundingContext {
 }
 
 /// Numeric engine mode compiled into the crate.
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
-#[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[non_exhaustive]
 pub enum NumericMode {
     /// Floating-point f64 engine.
@@ -324,32 +308,25 @@ pub enum NumericMode {
 /// assert_eq!(meta.numeric_mode, NumericMode::F64);
 /// assert!(meta.timestamp.is_some());
 /// ```
-#[derive(Clone, Debug)]
-#[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
+#[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct ResultsMeta {
     /// Numeric engine mode used to produce the results.
     pub numeric_mode: NumericMode,
     /// Rounding context snapshot applied to IO boundaries.
     pub rounding: RoundingContext,
     /// Optional FX policy applied by the computing layer (human-readable key).
-    #[cfg_attr(feature = "serde", serde(default))]
+    #[serde(default)]
     pub fx_policy_applied: Option<String>,
     /// Timestamp when result was computed (ISO 8601 format).
     /// Useful for audit trails and reproducibility.
-    #[cfg_attr(
-        feature = "serde",
-        serde(
-            skip_serializing_if = "Option::is_none",
-            default,
-            with = "time::serde::iso8601::option"
-        )
+    #[serde(
+        skip_serializing_if = "Option::is_none",
+        default,
+        with = "time::serde::iso8601::option"
     )]
     pub timestamp: Option<time::OffsetDateTime>,
     /// Finstack library version used to produce the result.
-    #[cfg_attr(
-        feature = "serde",
-        serde(skip_serializing_if = "Option::is_none", default)
-    )]
+    #[serde(skip_serializing_if = "Option::is_none", default)]
     pub version: Option<String>,
 }
 

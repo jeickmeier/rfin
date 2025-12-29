@@ -120,21 +120,18 @@ pub(crate) fn roll_knots(knots: &[f64], values: &[f64], dt: f64) -> Vec<(f64, f6
 // Shared serde state fragments to DRY curve state definitions
 // -----------------------------------------------------------------------------
 
-#[cfg(feature = "serde")]
 #[derive(Clone, Debug, serde::Serialize, serde::Deserialize)]
 pub(crate) struct StateId {
     /// Curve identifier
     pub id: String,
 }
 
-#[cfg(feature = "serde")]
 #[derive(Clone, Debug, serde::Serialize, serde::Deserialize)]
 pub(crate) struct StateKnotPoints {
     /// Time/value pairs used to construct the curve
     pub knot_points: Vec<(f64, f64)>,
 }
 
-#[cfg(feature = "serde")]
 #[derive(Clone, Debug, serde::Serialize, serde::Deserialize)]
 pub(crate) struct StateInterp {
     /// Interpolation style

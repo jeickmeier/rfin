@@ -82,12 +82,8 @@ use crate::{
 };
 
 /// Piece-wise discount factor curve supporting several interpolation styles.
-#[derive(Debug, Clone)]
-#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
-#[cfg_attr(
-    feature = "serde",
-    serde(try_from = "RawDiscountCurve", into = "RawDiscountCurve")
-)]
+#[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
+#[serde(try_from = "RawDiscountCurve", into = "RawDiscountCurve")]
 pub struct DiscountCurve {
     id: CurveId,
     base: Date,
@@ -105,7 +101,6 @@ pub struct DiscountCurve {
 }
 
 /// Raw serializable state of DiscountCurve
-#[cfg(feature = "serde")]
 #[derive(Debug, serde::Serialize, serde::Deserialize)]
 #[serde(deny_unknown_fields)]
 struct RawDiscountCurve {
@@ -128,7 +123,6 @@ struct RawDiscountCurve {
     pub allow_non_monotonic: bool,
 }
 
-#[cfg(feature = "serde")]
 impl From<DiscountCurve> for RawDiscountCurve {
     fn from(curve: DiscountCurve) -> Self {
         let knot_points: Vec<(f64, f64)> = curve
@@ -155,7 +149,6 @@ impl From<DiscountCurve> for RawDiscountCurve {
     }
 }
 
-#[cfg(feature = "serde")]
 impl TryFrom<RawDiscountCurve> for DiscountCurve {
     type Error = crate::Error;
 
@@ -180,7 +173,6 @@ impl TryFrom<RawDiscountCurve> for DiscountCurve {
     }
 }
 
-#[cfg(feature = "serde")]
 fn default_day_count() -> DayCount {
     DayCount::Act365F
 }

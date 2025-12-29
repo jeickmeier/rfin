@@ -1,5 +1,3 @@
-#![cfg(feature = "serde")]
-
 use finstack_core::config::{CurrencyScalePolicy, FinstackConfig, RoundingMode};
 use finstack_core::currency::Currency;
 use finstack_core::money::Money;
