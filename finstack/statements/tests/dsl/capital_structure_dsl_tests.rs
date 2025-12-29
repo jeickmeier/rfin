@@ -391,7 +391,8 @@ fn test_aggregate_instrument_cashflows() {
         issue,
         maturity,
         CurveId::new("USD-OIS"),
-    );
+    )
+    .expect("Bond::fixed should succeed with valid parameters");
 
     let mut instruments: indexmap::IndexMap<String, Arc<dyn CashflowProvider + Send + Sync>> =
         indexmap::IndexMap::new();
@@ -435,7 +436,8 @@ fn test_build_bond_from_spec() {
         issue,
         maturity,
         CurveId::new("USD-OIS"),
-    );
+    )
+    .expect("Bond::fixed should succeed with valid parameters");
 
     let spec_json = serde_json::to_value(&bond).unwrap();
     let spec = DebtInstrumentSpec::Bond {
@@ -503,7 +505,8 @@ fn test_build_any_instrument_from_generic_spec() {
         issue,
         maturity,
         CurveId::new("USD-OIS"),
-    );
+    )
+    .expect("Bond::fixed should succeed with valid parameters");
 
     let spec_json = serde_json::to_value(&bond).unwrap();
     let spec = DebtInstrumentSpec::Generic {
@@ -534,7 +537,8 @@ fn test_build_any_instrument_from_spec_bond_variant() {
         issue,
         maturity,
         CurveId::new("USD-OIS"),
-    );
+    )
+    .expect("Bond::fixed should succeed with valid parameters");
 
     let spec_json = serde_json::to_value(&bond).unwrap();
     let spec = DebtInstrumentSpec::Bond {

@@ -41,6 +41,7 @@ fn create_bond(tenor_years: i32) -> Bond {
         maturity,
         "USD-OIS",
     )
+    .expect("Bond::fixed should succeed with valid parameters")
 }
 
 fn create_swap(tenor_years: i32) -> InterestRateSwap {
@@ -71,6 +72,7 @@ fn create_cds(tenor_years: i32) -> CreditDefaultSwap {
         "USD-OIS",
         "CORP-HAZARD",
     )
+    .unwrap()
 }
 
 // ============================================================================

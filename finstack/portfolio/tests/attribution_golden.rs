@@ -27,7 +27,8 @@ fn test_attribution_parallel_rates_shift() {
         issue,
         maturity,
         "USD",
-    );
+    )
+    .expect("Bond::fixed should succeed with valid parameters");
 
     let position = Position::new(
         "POS_001",
@@ -37,7 +38,7 @@ fn test_attribution_parallel_rates_shift() {
         1.0,
         PositionUnit::FaceValue,
     )
-    .unwrap();
+    .expect("Position::new should succeed with valid parameters");
 
     let portfolio = PortfolioBuilder::new("TEST")
         .base_ccy(Currency::USD)
@@ -101,7 +102,8 @@ fn test_attribution_fx_translation() {
         issue,
         maturity,
         "EUR",
-    );
+    )
+    .expect("Bond::fixed should succeed with valid parameters");
 
     let position = Position::new(
         "POS_EUR",
@@ -111,7 +113,7 @@ fn test_attribution_fx_translation() {
         1.0,
         PositionUnit::FaceValue,
     )
-    .unwrap();
+    .expect("Position::new should succeed with valid parameters");
 
     let portfolio = PortfolioBuilder::new("TEST")
         .base_ccy(Currency::USD)
@@ -177,7 +179,8 @@ fn test_attribution_carry_theta() {
         issue,
         maturity,
         "USD",
-    );
+    )
+    .expect("Bond::fixed should succeed with valid parameters");
 
     let position = Position::new(
         "POS_CARRY",
@@ -187,7 +190,7 @@ fn test_attribution_carry_theta() {
         1.0,
         PositionUnit::FaceValue,
     )
-    .unwrap();
+    .expect("Position::new should succeed with valid parameters");
 
     let portfolio = PortfolioBuilder::new("TEST")
         .base_ccy(Currency::USD)

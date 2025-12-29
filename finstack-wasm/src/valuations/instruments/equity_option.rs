@@ -39,7 +39,8 @@ impl JsEquityOption {
             expiry.inner(),
             notional.inner(),
             contract_size.unwrap_or(1.0),
-        );
+        )
+        .expect("EquityOption::european_call should succeed with valid parameters");
         JsEquityOption::from_inner(option)
     }
 
@@ -59,7 +60,8 @@ impl JsEquityOption {
             expiry.inner(),
             notional.inner(),
             contract_size.unwrap_or(1.0),
-        );
+        )
+        .expect("EquityOption::european_put should succeed with valid parameters");
         JsEquityOption::from_inner(option)
     }
 

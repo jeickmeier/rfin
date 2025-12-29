@@ -27,6 +27,7 @@ fn create_test_repo() -> Repo {
         Date::from_calendar_date(2024, Month::April, 15).expect("valid date"),
         CurveId::new("USD-OIS"),
     )
+    .expect("Repo construction should succeed")
 }
 
 fn create_margined_repo() -> Repo {

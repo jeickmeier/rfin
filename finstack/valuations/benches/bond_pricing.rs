@@ -35,6 +35,7 @@ fn create_test_bond(maturity_years: i32) -> Bond {
         maturity,
         "USD-OIS",
     )
+    .expect("Bond::fixed should succeed with valid parameters")
 }
 
 fn create_market() -> MarketContext {
@@ -208,7 +209,8 @@ fn create_floating_note(maturity_years: i32) -> Bond {
         Tenor::quarterly(),
         DayCount::Act360,
         "USD-OIS",
-    );
+    )
+    .expect("Bond::floating should succeed with valid parameters");
     bond.pricing_overrides = PricingOverrides::default().with_clean_price(100.25);
     bond
 }

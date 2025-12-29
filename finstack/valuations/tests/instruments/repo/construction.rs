@@ -46,7 +46,7 @@ fn test_term_repo_factory() {
         start_date,
         maturity,
         "USD-OIS",
-    );
+    ).expect("Repo construction should succeed");
 
     assert_eq!(repo.id.as_str(), "REPO_TERM_001");
     assert_eq!(repo.repo_type, RepoType::Term);
@@ -70,7 +70,7 @@ fn test_open_repo_factory() {
         start_date,
         initial_maturity,
         "USD-OIS",
-    );
+    ).expect("Repo construction should succeed");
 
     assert_eq!(repo.repo_type, RepoType::Open);
     assert_eq!(repo.start_date, start_date);

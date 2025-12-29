@@ -1015,7 +1015,7 @@ mod tests {
             date!(2030 - 01 - 15),
             "USD-TREASURY",
         )
-        .unwrap();
+        .expect("Bond::fixed should succeed with valid parameters");
         let bond_b = Bond::fixed(
             "BOND-B",
             Money::new(100_000.0, Currency::USD),
@@ -1024,7 +1024,7 @@ mod tests {
             date!(2030 - 01 - 15),
             "USD-TREASURY",
         )
-        .unwrap();
+        .expect("Bond::fixed should succeed with valid parameters");
 
         let market = create_test_market(0.05)
             .insert_instrument("BOND-A", Arc::new(bond_a.clone()))

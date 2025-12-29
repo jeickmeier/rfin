@@ -35,7 +35,7 @@ impl JsCreditDefaultSwap {
         discount_curve: &str,
         credit_curve: &str,
         recovery_rate: Option<f64>,
-    ) -> JsCreditDefaultSwap {
+    ) -> Result<JsCreditDefaultSwap, JsValue> {
         let mut cds = CreditDefaultSwap::buy_protection(
             instrument_id_from_str(instrument_id),
             notional.inner(),
@@ -44,11 +44,12 @@ impl JsCreditDefaultSwap {
             maturity.inner(),
             curve_id_from_str(discount_curve),
             curve_id_from_str(credit_curve),
-        );
+        )
+        .map_err(|e| JsValue::from_str(&e.to_string()))?;
         if let Some(rr) = recovery_rate {
             cds.protection.recovery_rate = rr;
         }
-        JsCreditDefaultSwap::from_inner(cds)
+        Ok(JsCreditDefaultSwap::from_inner(cds))
     }
 
     #[wasm_bindgen(js_name = sellProtection)]
@@ -62,7 +63,7 @@ impl JsCreditDefaultSwap {
         discount_curve: &str,
         credit_curve: &str,
         recovery_rate: Option<f64>,
-    ) -> JsCreditDefaultSwap {
+    ) -> Result<JsCreditDefaultSwap, JsValue> {
         let mut cds = CreditDefaultSwap::sell_protection(
             instrument_id_from_str(instrument_id),
             notional.inner(),
@@ -71,11 +72,12 @@ impl JsCreditDefaultSwap {
             maturity.inner(),
             curve_id_from_str(discount_curve),
             curve_id_from_str(credit_curve),
-        );
+        )
+        .map_err(|e| JsValue::from_str(&e.to_string()))?;
         if let Some(rr) = recovery_rate {
             cds.protection.recovery_rate = rr;
         }
-        JsCreditDefaultSwap::from_inner(cds)
+        Ok(JsCreditDefaultSwap::from_inner(cds))
     }
 
     #[wasm_bindgen(getter, js_name = instrumentId)]

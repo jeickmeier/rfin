@@ -101,7 +101,7 @@ fn test_cds_par_spread_roundtrip_1y() {
         maturity,
         "USD-OIS",
         "ROUNDTRIP-TEST-senior",
-    );
+    ).expect("CDS construction should succeed");
 
     // Price the CDS with calibrated hazard curve
     let market_price = MarketContext::new()
@@ -201,7 +201,7 @@ fn test_cds_par_spread_roundtrip_multi_tenor() {
             *maturity,
             "USD-OIS",
             "MULTI-TENOR-TEST-senior",
-        );
+        ).expect("CDS construction should succeed");
 
         let npv = cds
             .value(&market_price, base)
@@ -280,7 +280,7 @@ fn test_cds_par_spread_calculation_consistency() {
         maturity,
         "USD-OIS",
         "PAR-CONSISTENCY-TEST-senior",
-    );
+    ).expect("CDS construction should succeed");
 
     // Calculate par spread metric
     let result = cds_test

@@ -150,7 +150,7 @@ fn test_quantlib_flat_hazard_par_spread() {
         maturity,
         "USD_DISC",
         "CREDIT",
-    );
+    ).expect("CDS construction should succeed");
     cds.protection.recovery_rate = recovery;
 
     let result = cds
@@ -202,7 +202,7 @@ fn test_quantlib_fair_upfront_at_par() {
         maturity,
         "USD_DISC",
         "CREDIT",
-    );
+    ).expect("CDS construction should succeed");
     cds.protection.recovery_rate = 0.40;
 
     // Calculate par spread
@@ -252,7 +252,7 @@ fn test_quantlib_protection_equivalence() {
         maturity,
         "USD_DISC",
         "CREDIT",
-    );
+    ).expect("CDS construction should succeed");
     buyer.protection.recovery_rate = 0.35;
 
     let mut seller = CreditDefaultSwap::sell_protection(
@@ -263,7 +263,7 @@ fn test_quantlib_protection_equivalence() {
         maturity,
         "USD_DISC",
         "CREDIT",
-    );
+    ).expect("CDS construction should succeed");
     seller.protection.recovery_rate = 0.35;
 
     let npv_buyer = buyer.value(&market, as_of).unwrap();
@@ -308,7 +308,7 @@ fn test_quantlib_isda_conventions() {
         maturity,
         "USD_DISC",
         "CREDIT",
-    );
+    ).expect("CDS construction should succeed");
     cds.protection.recovery_rate = 0.40;
 
     // Test with ISDA pricer config
@@ -373,7 +373,7 @@ fn test_quantlib_risky_annuity_calculation() {
         maturity,
         "USD_DISC",
         "CREDIT",
-    );
+    ).expect("CDS construction should succeed");
     cds.protection.recovery_rate = 0.40;
 
     let pricer = CDSPricer::new();
@@ -451,7 +451,7 @@ fn test_quantlib_recovery_rate_impact() {
             maturity,
             "USD_DISC",
             "CREDIT",
-        );
+        ).expect("CDS construction should succeed");
         cds.protection.recovery_rate = recovery;
 
         let pv = pricer
@@ -514,7 +514,7 @@ fn test_quantlib_spread_sensitivity() {
         maturity,
         "USD_DISC",
         "CREDIT",
-    );
+    ).expect("CDS construction should succeed");
     cds.protection.recovery_rate = 0.40;
 
     // Calculate risky PV01 (metric)
@@ -572,7 +572,7 @@ fn test_quantlib_hazard_rate_sensitivity() {
             maturity,
             "USD_DISC",
             "CREDIT",
-        );
+        ).expect("CDS construction should succeed");
         cds.protection.recovery_rate = 0.40;
 
         let pricer = CDSPricer::new();
@@ -625,7 +625,7 @@ fn test_quantlib_accrual_on_default() {
         maturity,
         "USD_DISC",
         "CREDIT",
-    );
+    ).expect("CDS construction should succeed");
     cds.protection.recovery_rate = 0.40;
 
     // With accrual
@@ -702,7 +702,7 @@ fn test_quantlib_settlement_delay() {
         maturity,
         "USD_DISC",
         "CREDIT",
-    );
+    ).expect("CDS construction should succeed");
     cds_no_delay.protection.recovery_rate = 0.40;
     cds_no_delay.protection.settlement_delay = 0;
 
@@ -780,7 +780,7 @@ fn test_quantlib_multiple_tenors() {
             maturity,
             "USD_DISC",
             "CREDIT",
-        );
+        ).expect("CDS construction should succeed");
         cds.protection.recovery_rate = 0.40;
 
         let result = cds
@@ -846,7 +846,7 @@ fn test_quantlib_expected_loss() {
         maturity,
         "USD_DISC",
         "CREDIT",
-    );
+    ).expect("CDS construction should succeed");
     cds.protection.recovery_rate = recovery;
 
     let result = cds
@@ -919,7 +919,7 @@ fn test_expected_loss_numerical_integration() {
         maturity,
         "USD_DISC",
         "CREDIT",
-    );
+    ).expect("CDS construction should succeed");
     cds.protection.recovery_rate = recovery;
 
     let result = cds
@@ -992,7 +992,7 @@ fn test_quantlib_jump_to_default() {
         maturity,
         "USD_DISC",
         "CREDIT",
-    );
+    ).expect("CDS construction should succeed");
     cds_buyer.protection.recovery_rate = recovery;
 
     let result = cds_buyer
@@ -1033,7 +1033,7 @@ fn test_quantlib_integration_methods_consistency() {
         maturity,
         "USD_DISC",
         "CREDIT",
-    );
+    ).expect("CDS construction should succeed");
     cds.protection.recovery_rate = 0.40;
 
     use finstack_valuations::instruments::cds::pricer::IntegrationMethod;
@@ -1105,7 +1105,7 @@ fn test_par_spread_vs_isda_reference() {
         maturity,
         "USD_DISC",
         "CREDIT",
-    );
+    ).expect("CDS construction should succeed");
     cds.protection.recovery_rate = isda_reference::RECOVERY;
 
     let result = cds
@@ -1150,7 +1150,7 @@ fn test_risky_annuity_vs_isda_reference() {
         maturity,
         "USD_DISC",
         "CREDIT",
-    );
+    ).expect("CDS construction should succeed");
     cds.protection.recovery_rate = isda_reference::RECOVERY;
 
     let result = cds
@@ -1193,7 +1193,7 @@ fn test_protection_leg_pv_vs_isda_reference() {
         maturity,
         "USD_DISC",
         "CREDIT",
-    );
+    ).expect("CDS construction should succeed");
     cds.protection.recovery_rate = isda_reference::RECOVERY;
 
     let pricer = CDSPricer::new();

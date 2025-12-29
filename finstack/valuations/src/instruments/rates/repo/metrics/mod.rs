@@ -109,6 +109,7 @@ mod tests {
             test_date(2025, 4, 15),
             finstack_core::types::CurveId::from("USD-OIS"),
         )
+        .expect("test repo construction")
     }
 
     fn create_test_context() -> MarketContext {

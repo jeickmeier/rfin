@@ -241,7 +241,7 @@ fn example_comparison_regular_vs_custom() -> finstack_core::Result<()> {
         issue,
         maturity,
         "USD-OIS",
-    );
+    )?;
 
     // Create custom bond with higher frequency
     let custom_schedule = CashFlowSchedule::builder()

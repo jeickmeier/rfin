@@ -58,6 +58,7 @@ fn create_benchmark_bond(base_date: Date) -> Bond {
         maturity_date,
         "USD-OIS",
     )
+    .expect("Bond::fixed should succeed with valid parameters")
 }
 
 /// Benchmark metric computation with standard bond metrics
@@ -180,6 +181,7 @@ fn bench_metrics_portfolio(c: &mut Criterion) {
                 maturity_date,
                 "USD-OIS",
             )
+            .expect("Bond::fixed should succeed with valid parameters")
         })
         .collect();
 

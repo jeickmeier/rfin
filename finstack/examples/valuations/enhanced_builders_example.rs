@@ -51,7 +51,8 @@ fn main() -> finstack_core::Result<()> {
         issue,
         maturity_5y,
         "USD-OIS",
-    );
+    )
+    .expect("Bond::fixed should succeed with valid parameters");
     use finstack_valuations::instruments::bond::CashflowSpec;
     let coupon = match &bond.cashflow_spec {
         CashflowSpec::Fixed(spec) => spec.rate.to_f64().unwrap_or(0.0),
@@ -70,7 +71,7 @@ fn main() -> finstack_core::Result<()> {
         maturity_5y,
         finstack_core::types::CurveId::new("USD-OIS"),
         finstack_core::types::CurveId::new("AAPL-CREDIT"),
-    );
+    )?;
     println!("✓ CDS created: {} spread bp", cds.premium.spread_bp);
 
     // European Call Option - ONE LINE!
@@ -81,7 +82,8 @@ fn main() -> finstack_core::Result<()> {
         expiry_1y,
         Money::new(100_000.0, Currency::USD), // $100k notional
         100.0,                                // 100 shares per contract
-    );
+    )
+    .expect("EquityOption::european_call should succeed with valid parameters");
     println!("✓ Equity option created: {} strike", option.strike.amount());
 
     println!();
@@ -186,7 +188,7 @@ fn main() -> finstack_core::Result<()> {
             maturity_5y,
             finstack_core::types::CurveId::new("USD-OIS"),
             finstack_core::types::CurveId::new("HY-CREDIT"),
-        );
+        )?;
         // Customize recovery for high-yield
         cds.protection.recovery_rate = 0.25;
         cds

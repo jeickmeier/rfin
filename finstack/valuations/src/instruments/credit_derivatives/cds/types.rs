@@ -368,6 +368,7 @@ impl CreditDefaultSwap {
     /// Create a canonical example CDS for testing and documentation.
     ///
     /// Returns a 5-year investment-grade CDS with standard ISDA conventions.
+    #[allow(clippy::expect_used)] // Example uses hardcoded valid values
     pub fn example() -> Self {
         Self::buy_protection(
             "CDS-CORP-5Y",
@@ -378,11 +379,15 @@ impl CreditDefaultSwap {
             "USD-OIS",
             "CORP-HAZARD",
         )
+        .expect("Example CDS construction should not fail")
     }
 
     /// Create a standard CDS with ISDA conventions (buy protection).
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if the builder fails validation.
     #[allow(clippy::too_many_arguments)]
-    #[allow(clippy::expect_used)] // Builder with valid ISDA conventions should not fail
     pub fn buy_protection(
         id: impl Into<InstrumentId>,
         notional: Money,
@@ -391,7 +396,7 @@ impl CreditDefaultSwap {
         maturity: Date,
         discount_curve_id: impl Into<finstack_core::types::CurveId>,
         credit_id: impl Into<finstack_core::types::CurveId>,
-    ) -> Self {
+    ) -> finstack_core::Result<Self> {
         let convention = CDSConvention::IsdaNa;
         let dc = convention.day_count();
         let freq = convention.frequency();
@@ -422,12 +427,14 @@ impl CreditDefaultSwap {
             .pricing_overrides(PricingOverrides::default())
             .attributes(Attributes::new())
             .build()
-            .expect("CDS buy protection with valid ISDA conventions should not fail")
     }
 
     /// Create a standard CDS with ISDA conventions (sell protection).
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if the builder fails validation.
     #[allow(clippy::too_many_arguments)]
-    #[allow(clippy::expect_used)] // Builder with valid ISDA conventions should not fail
     pub fn sell_protection(
         id: impl Into<InstrumentId>,
         notional: Money,
@@ -436,7 +443,7 @@ impl CreditDefaultSwap {
         maturity: Date,
         discount_curve_id: impl Into<finstack_core::types::CurveId>,
         credit_id: impl Into<finstack_core::types::CurveId>,
-    ) -> Self {
+    ) -> finstack_core::Result<Self> {
         let convention = CDSConvention::IsdaNa;
         let dc = convention.day_count();
         let freq = convention.frequency();
@@ -467,7 +474,6 @@ impl CreditDefaultSwap {
             .pricing_overrides(PricingOverrides::default())
             .attributes(Attributes::new())
             .build()
-            .expect("CDS sell protection with valid ISDA conventions should not fail")
     }
 
     /// Create a new CDS with standard ISDA conventions using explicit inputs.

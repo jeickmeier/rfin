@@ -139,7 +139,7 @@ mod tests {
             date!(2030 - 01 - 01),
             "USD-TREASURY",
         )
-        .unwrap();
+        .expect("Bond::fixed should succeed with valid parameters");
 
         assert_eq!(bond.id.as_str(), "BOND_FIXED");
         assert_eq!(bond.cashflow_spec.frequency(), Tenor::semi_annual());
@@ -158,7 +158,7 @@ mod tests {
             BondConvention::USTreasury,
             "USD-TREASURY",
         )
-        .unwrap();
+        .expect("Bond::with_convention should succeed for US Treasury");
 
         assert_eq!(bond.id.as_str(), "UST-10Y");
         assert_eq!(
@@ -182,7 +182,7 @@ mod tests {
             BondConvention::UKGilt,
             "GBP-GILTS",
         )
-        .unwrap();
+        .expect("Bond::with_convention should succeed for UK Gilt");
 
         assert_eq!(
             bond.cashflow_spec.frequency(),
@@ -452,7 +452,7 @@ mod tests {
             date!(2030 - 01 - 01),
             "USD-OIS",
         )
-        .unwrap();
+        .expect("Bond::fixed should succeed with valid parameters");
 
         let inst: &dyn Instrument = &bond;
         assert_eq!(inst.id(), "TRAIT_TEST");
@@ -470,7 +470,7 @@ mod tests {
             date!(2030 - 01 - 01),
             "USD-OIS",
         )
-        .unwrap();
+        .expect("Bond::fixed should succeed with valid parameters");
 
         let bond2 = bond1.clone();
 
@@ -492,7 +492,7 @@ mod tests {
             maturity,
             "USD-OIS",
         )
-        .unwrap();
+        .expect("Bond::fixed should succeed with valid parameters");
 
         assert!(bond.maturity > bond.issue);
         let days_to_maturity = (bond.maturity - bond.issue).whole_days();
@@ -512,7 +512,7 @@ mod tests {
             maturity,
             "USD-OIS",
         )
-        .unwrap();
+        .expect("Bond::fixed should succeed with valid parameters");
 
         let years_to_maturity = (bond.maturity - bond.issue).whole_days() / 365;
         assert!(years_to_maturity >= 30);

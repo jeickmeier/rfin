@@ -230,7 +230,8 @@ mod tests {
             issue,
             maturity,
             "USD-OIS",
-        );
+        )
+        .expect("Bond::fixed should succeed with valid parameters");
 
         let position = Position::new(
             "POS_001",
@@ -289,7 +290,8 @@ mod tests {
             issue,
             maturity,
             "USD-OIS",
-        );
+        )
+        .expect("Bond::fixed should succeed with valid parameters");
 
         let position = Position::new(
             "POS_001",

@@ -94,7 +94,6 @@ impl FxSwap {
     /// `spot_lag_days` defaults to 2 in most markets; supply calendar IDs to enforce
     /// base/quote business-day adjustment.
     #[allow(clippy::too_many_arguments)]
-    #[allow(clippy::expect_used)] // Builder with valid inputs should not fail
     pub fn from_trade_date(
         id: impl Into<InstrumentId>,
         base_currency: Currency,
@@ -125,7 +124,7 @@ impl FxSwap {
             quote_calendar_id.as_deref(),
         )?;
 
-        Ok(Self::builder()
+        Self::builder()
             .id(id.into())
             .base_currency(base_currency)
             .quote_currency(quote_currency)
@@ -138,7 +137,6 @@ impl FxSwap {
             .quote_calendar_id_opt(quote_calendar_id)
             .attributes(Attributes::new())
             .build()
-            .expect("FX swap construction should not fail"))
     }
 
     /// Create a new FX swap using parameter structs

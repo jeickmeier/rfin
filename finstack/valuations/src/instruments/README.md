@@ -440,7 +440,7 @@ let cds = CreditDefaultSwap::buy_protection(
     Date::from_ymd(2030, 1, 1)?,
     "USD-OIS",
     "CORP-HAZARD",
-);
+)?;
 ```
 
 ### Loading from JSON

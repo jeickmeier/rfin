@@ -379,7 +379,7 @@ mod tests {
             create_date(2034, Month::January, 1).expect("Valid test date"),
             "USD-OIS",
         )
-        .unwrap();
+        .expect("Bond::fixed should succeed with valid parameters");
 
         let spec = AttributionSpec {
             instrument: InstrumentJson::Bond(bond),

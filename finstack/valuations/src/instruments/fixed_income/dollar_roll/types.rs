@@ -139,12 +139,11 @@ impl DollarRoll {
 
     /// Create the front-month TBA leg.
     ///
-    /// # Panics
+    /// # Errors
     ///
-    /// Panics if the builder fails validation. Since all inputs are derived from
-    /// a valid `DollarRoll` instance, this should never fail.
-    #[allow(clippy::expect_used)]
-    pub fn front_leg(&self) -> AgencyTba {
+    /// Returns an error if the builder fails validation, which should not happen
+    /// for a valid `DollarRoll` instance.
+    pub fn front_leg(&self) -> finstack_core::Result<AgencyTba> {
         AgencyTba::builder()
             .id(InstrumentId::new(format!("{}-FRONT", self.id.as_str())))
             .agency(self.agency)
@@ -156,17 +155,15 @@ impl DollarRoll {
             .trade_price(self.front_price)
             .discount_curve_id(self.discount_curve_id.clone())
             .build()
-            .expect("Front leg construction from valid DollarRoll should not fail")
     }
 
     /// Create the back-month TBA leg.
     ///
-    /// # Panics
+    /// # Errors
     ///
-    /// Panics if the builder fails validation. Since all inputs are derived from
-    /// a valid `DollarRoll` instance, this should never fail.
-    #[allow(clippy::expect_used)]
-    pub fn back_leg(&self) -> AgencyTba {
+    /// Returns an error if the builder fails validation, which should not happen
+    /// for a valid `DollarRoll` instance.
+    pub fn back_leg(&self) -> finstack_core::Result<AgencyTba> {
         AgencyTba::builder()
             .id(InstrumentId::new(format!("{}-BACK", self.id.as_str())))
             .agency(self.agency)
@@ -178,13 +175,12 @@ impl DollarRoll {
             .trade_price(self.back_price)
             .discount_curve_id(self.discount_curve_id.clone())
             .build()
-            .expect("Back leg construction from valid DollarRoll should not fail")
     }
 
     /// Calculate days between settlement dates.
     pub fn settlement_days(&self) -> finstack_core::Result<i64> {
-        let front = self.front_leg().get_settlement_date()?;
-        let back = self.back_leg().get_settlement_date()?;
+        let front = self.front_leg()?.get_settlement_date()?;
+        let back = self.back_leg()?.get_settlement_date()?;
         Ok((back - front).whole_days())
     }
 }
@@ -299,8 +295,8 @@ mod tests {
     fn test_leg_creation() {
         let roll = DollarRoll::example();
 
-        let front = roll.front_leg();
-        let back = roll.back_leg();
+        let front = roll.front_leg().expect("front leg construction");
+        let back = roll.back_leg().expect("back leg construction");
 
         assert_eq!(front.agency, roll.agency);
         assert_eq!(back.agency, roll.agency);

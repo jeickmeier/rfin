@@ -264,7 +264,7 @@ fn test_bucketed_cs01_sums_to_total() {
         date!(2030 - 01 - 01),
         "USD-OIS",
         "HAZARD",
-    );
+    ).expect("CDS construction should succeed");
 
     let disc_curve = DiscountCurve::builder("USD-OIS")
         .base_date(as_of)

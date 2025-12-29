@@ -580,14 +580,10 @@ impl PyBond {
         let issue_date = py_to_date(&issue).context("issue")?;
         let maturity_date = py_to_date(&maturity).context("maturity")?;
         let disc = CurveId::new(discount_curve.extract::<&str>().context("discount_curve")?);
-        Ok(Self::new(Bond::fixed(
-            id,
-            amt,
-            coupon_rate,
-            issue_date,
-            maturity_date,
-            disc,
-        )))
+        Ok(Self::new(
+            Bond::fixed(id, amt, coupon_rate, issue_date, maturity_date, disc)
+                .map_err(|e| pyo3::exceptions::PyValueError::new_err(e.to_string()))?,
+        ))
     }
 
     #[classmethod]
@@ -624,15 +620,18 @@ impl PyBond {
         let issue_date = py_to_date(&issue).context("issue")?;
         let maturity_date = py_to_date(&maturity).context("maturity")?;
         use finstack_valuations::instruments::common::parameters::BondConvention;
-        Ok(Self::new(Bond::with_convention(
-            id,
-            amt,
-            coupon_rate,
-            issue_date,
-            maturity_date,
-            BondConvention::USTreasury,
-            "USD-TREASURY",
-        )))
+        Ok(Self::new(
+            Bond::with_convention(
+                id,
+                amt,
+                coupon_rate,
+                issue_date,
+                maturity_date,
+                BondConvention::USTreasury,
+                "USD-TREASURY",
+            )
+            .map_err(|e| pyo3::exceptions::PyValueError::new_err(e.to_string()))?,
+        ))
     }
 
     #[classmethod]
@@ -665,14 +664,17 @@ impl PyBond {
         let issue_date = py_to_date(&issue).context("issue")?;
         let maturity_date = py_to_date(&maturity).context("maturity")?;
         let disc = CurveId::new(discount_curve.extract::<&str>().context("discount_curve")?);
-        Ok(Self::new(Bond::fixed(
-            id,
-            amt,
-            0.0, // Zero coupon
-            issue_date,
-            maturity_date,
-            disc,
-        )))
+        Ok(Self::new(
+            Bond::fixed(
+                id,
+                amt,
+                0.0, // Zero coupon
+                issue_date,
+                maturity_date,
+                disc,
+            )
+            .map_err(|e| pyo3::exceptions::PyValueError::new_err(e.to_string()))?,
+        ))
     }
 
     #[classmethod]
@@ -998,7 +1000,8 @@ impl PyBond {
             Tenor::quarterly(),
             DayCount::Act360,
             disc,
-        );
+        )
+        .map_err(|e| pyo3::exceptions::PyValueError::new_err(e.to_string()))?;
 
         Ok(Self::new(bond))
     }

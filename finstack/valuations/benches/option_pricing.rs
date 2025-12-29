@@ -34,6 +34,7 @@ fn create_call_option(expiry_months: i64) -> EquityOption {
         Money::new(100.0, Currency::USD),
         100.0, // 100 shares
     )
+    .expect("EquityOption::european_call should succeed with valid parameters")
 }
 
 fn create_market() -> MarketContext {

@@ -74,7 +74,8 @@ fn bench_bond_cashflow_generation(c: &mut Criterion) {
             issue,
             maturity,
             "USD-OIS",
-        );
+        )
+        .expect("Bond::fixed should succeed with valid parameters");
 
         group.bench_with_input(
             BenchmarkId::from_parameter(format!("{}Y", tenor)),

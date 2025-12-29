@@ -72,14 +72,17 @@ impl PyEquityOption {
         let expiry_date = py_to_date(&expiry).context("expiry")?;
         let notional_money = extract_money(&notional).context("notional")?;
         let contract = contract_size.unwrap_or(1.0);
-        Ok(Self::new(EquityOption::european_call(
-            id.into_string(),
-            ticker,
-            strike,
-            expiry_date,
-            notional_money,
-            contract,
-        )))
+        Ok(Self::new(
+            EquityOption::european_call(
+                id.into_string(),
+                ticker,
+                strike,
+                expiry_date,
+                notional_money,
+                contract,
+            )
+            .map_err(|e| pyo3::exceptions::PyValueError::new_err(e.to_string()))?,
+        ))
     }
 
     #[classmethod]
@@ -115,14 +118,17 @@ impl PyEquityOption {
         let expiry_date = py_to_date(&expiry).context("expiry")?;
         let notional_money = extract_money(&notional).context("notional")?;
         let contract = contract_size.unwrap_or(1.0);
-        Ok(Self::new(EquityOption::european_put(
-            id.into_string(),
-            ticker,
-            strike,
-            expiry_date,
-            notional_money,
-            contract,
-        )))
+        Ok(Self::new(
+            EquityOption::european_put(
+                id.into_string(),
+                ticker,
+                strike,
+                expiry_date,
+                notional_money,
+                contract,
+            )
+            .map_err(|e| pyo3::exceptions::PyValueError::new_err(e.to_string()))?,
+        ))
     }
 
     #[classmethod]

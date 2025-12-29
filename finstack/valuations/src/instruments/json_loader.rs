@@ -647,7 +647,7 @@ mod tests {
             Date::from_calendar_date(2034, Month::January, 1).expect("Valid test date"),
             "USD-OIS",
         )
-        .unwrap();
+        .expect("Bond::fixed should succeed with valid parameters");
 
         let json = InstrumentJson::Bond(bond.clone());
         let serialized =
@@ -674,7 +674,7 @@ mod tests {
             Date::from_calendar_date(2034, Month::January, 1).expect("Valid test date"),
             "USD-OIS",
         )
-        .unwrap();
+        .expect("Bond::fixed should succeed with valid parameters");
 
         let envelope = InstrumentEnvelope {
             schema: "finstack.instrument/1".to_string(),
@@ -875,7 +875,8 @@ mod tests {
             Date::from_calendar_date(2029, Month::January, 1).expect("Valid test date"),
             "USD-OIS",
             "CORP-HAZARD",
-        );
+        )
+        .expect("CDS construction should succeed in test");
 
         let json = InstrumentJson::CreditDefaultSwap(cds.clone());
         let serialized =

@@ -52,6 +52,7 @@ fn create_test_cds(as_of: Date, maturity: Date) -> CreditDefaultSwap {
         "USD_OIS",
         "CORP",
     )
+.expect("CDS construction should succeed")
 }
 
 #[test]
@@ -290,7 +291,7 @@ fn test_jump_to_default_negative_for_seller() {
         maturity,
         "USD_OIS",
         "CORP",
-    );
+    ).expect("CDS construction should succeed");
 
     let market = create_test_market(as_of);
 
@@ -455,7 +456,7 @@ fn test_metrics_scale_with_notional() {
         maturity,
         "USD_OIS",
         "CORP",
-    );
+    ).expect("CDS construction should succeed");
 
     let cds_large = CreditDefaultSwap::buy_protection(
         "LARGE",
@@ -465,7 +466,7 @@ fn test_metrics_scale_with_notional() {
         maturity,
         "USD_OIS",
         "CORP",
-    );
+    ).expect("CDS construction should succeed");
 
     let market = create_test_market(as_of);
 

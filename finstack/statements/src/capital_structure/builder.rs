@@ -85,7 +85,10 @@ impl<State> ModelBuilder<State> {
             issue_date,
             maturity_date,
             CurveId::new(discount_curve_id),
-        );
+        )
+        .map_err(|e| {
+            crate::error::Error::build(format!("Failed to create bond '{}': {}", id_str, e))
+        })?;
 
         // Serialize to JSON
         let spec_json = serde_json::to_value(&bond).map_err(|e| {

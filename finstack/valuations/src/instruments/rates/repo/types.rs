@@ -197,6 +197,7 @@ impl Repo {
             maturity,
             "USD-OIS",
         )
+        .expect("Example repo construction should not fail")
     }
 
     /// Create a new repo builder (provided by derive).
@@ -259,7 +260,6 @@ impl Repo {
     }
 
     /// Create a term repo with specified maturity.
-    #[allow(clippy::expect_used)] // Builder with valid inputs should not fail
     pub fn term(
         id: impl Into<String>,
         cash_amount: Money,
@@ -268,7 +268,7 @@ impl Repo {
         start_date: Date,
         maturity: Date,
         discount_curve_id: impl Into<CurveId>,
-    ) -> Self {
+    ) -> Result<Self> {
         RepoBuilder::new()
             .id(id.into().into())
             .cash_amount(cash_amount)
@@ -286,11 +286,9 @@ impl Repo {
             .margin_spec_opt(None)
             .attributes(Attributes::default())
             .build()
-            .expect("term repo default construction should not fail")
     }
 
     /// Create an open repo with an initial maturity (can be rolled/terminated later).
-    #[allow(clippy::expect_used)] // Builder with valid inputs should not fail
     pub fn open(
         id: impl Into<String>,
         cash_amount: Money,
@@ -299,7 +297,7 @@ impl Repo {
         start_date: Date,
         initial_maturity: Date,
         discount_curve_id: impl Into<CurveId>,
-    ) -> Self {
+    ) -> Result<Self> {
         RepoBuilder::new()
             .id(id.into().into())
             .cash_amount(cash_amount)
@@ -317,7 +315,6 @@ impl Repo {
             .margin_spec_opt(None)
             .attributes(Attributes::default())
             .build()
-            .expect("open repo default construction should not fail")
     }
 
     /// Calculate the effective repo rate considering special collateral adjustments.
@@ -603,7 +600,8 @@ mod tests {
             date(2025, 1, 1),
             date(2025, 2, 1),
             "USD-OIS",
-        );
+        )
+        .expect("test repo construction");
         let req = repo
             .required_collateral_value()
             .expect("Required collateral value calculation should succeed in test");
@@ -626,7 +624,8 @@ mod tests {
             date(2025, 1, 6),
             date(2025, 4, 7),
             "USD-OIS",
-        );
+        )
+        .expect("test repo construction");
         let interest = repo
             .interest_amount()
             .expect("Interest amount calculation should succeed in test");
@@ -649,7 +648,8 @@ mod tests {
             date(2025, 1, 1),
             date(2025, 2, 1),
             "USD-OIS",
-        );
+        )
+        .expect("test repo construction");
         let ctx = MarketContext::new().insert_price(
             "BOND_PX",
             finstack_core::market_data::scalars::MarketScalar::Unitless(1.0),

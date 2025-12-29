@@ -279,7 +279,8 @@ impl JsBond {
             issue.inner(),
             maturity.inner(),
             curve_id_from_str(discount_curve),
-        );
+        )
+        .expect("Bond::fixed should succeed with valid parameters");
         if let Some(price) = quoted_clean_price {
             bond.pricing_overrides = PricingOverrides::default().with_clean_price(price);
         }
@@ -305,7 +306,8 @@ impl JsBond {
             maturity.inner(),
             BondConvention::USTreasury,
             discount_curve,
-        );
+        )
+        .expect("Bond::with_convention should succeed for US Treasury");
         if let Some(price) = quoted_clean_price {
             bond.pricing_overrides = PricingOverrides::default().with_clean_price(price);
         }
@@ -328,7 +330,8 @@ impl JsBond {
             issue.inner(),
             maturity.inner(),
             curve_id_from_str(discount_curve),
-        );
+        )
+        .expect("Bond::fixed should succeed with valid parameters");
         if let Some(price) = quoted_clean_price {
             bond.pricing_overrides = PricingOverrides::default().with_clean_price(price);
         }
@@ -365,7 +368,8 @@ impl JsBond {
             Tenor::quarterly(),
             DayCount::Act360,
             curve_id_from_str(discount_curve),
-        );
+        )
+        .map_err(|e| JsValue::from_str(&e.to_string()))?;
         bond.pricing_overrides = pricing_overrides;
         Ok(JsBond::from_inner(bond))
     }

@@ -51,7 +51,7 @@ fn test_zero_notional() {
         end,
         "USD_OIS",
         "CORP",
-    );
+    ).expect("CDS construction should succeed");
 
     let npv = cds.value(&market, as_of).unwrap();
     assert_eq!(npv.amount(), 0.0, "Zero notional should give zero NPV");
@@ -75,7 +75,7 @@ fn test_zero_spread() {
         end,
         "USD_OIS",
         "CORP",
-    );
+    ).expect("CDS construction should succeed");
 
     let npv = cds.value(&market, as_of).unwrap();
 
@@ -105,7 +105,7 @@ fn test_negative_spread() {
         end,
         "USD_OIS",
         "CORP",
-    );
+    ).expect("CDS construction should succeed");
 
     // Should not panic with negative spread
     let npv = cds.value(&market, as_of);
@@ -130,7 +130,7 @@ fn test_very_high_spread() {
         end,
         "USD_OIS",
         "CORP",
-    );
+    ).expect("CDS construction should succeed");
 
     let npv = cds.value(&market, as_of).unwrap();
     assert!(
@@ -170,7 +170,7 @@ fn test_zero_recovery_rate() {
         end,
         "USD_OIS",
         "CORP",
-    );
+    ).expect("CDS construction should succeed");
     cds.protection.recovery_rate = 0.0;
 
     let npv = cds.value(&market, as_of).unwrap();
@@ -208,7 +208,7 @@ fn test_full_recovery_rate() {
         end,
         "USD_OIS",
         "CORP",
-    );
+    ).expect("CDS construction should succeed");
     cds.protection.recovery_rate = 1.0;
 
     // With full recovery, protection leg should be worth zero
@@ -245,7 +245,7 @@ fn test_very_short_tenor() {
         end,
         "USD_OIS",
         "CORP",
-    );
+    ).expect("CDS construction should succeed");
 
     let npv = cds.value(&market, as_of);
     assert!(npv.is_ok(), "Very short tenor should be handled");
@@ -269,7 +269,7 @@ fn test_maturity_equals_valuation_date() {
         end,
         "USD_OIS",
         "CORP",
-    );
+    ).expect("CDS construction should succeed");
 
     let npv = cds.value(&market, as_of);
 
@@ -304,7 +304,7 @@ fn test_valuation_after_maturity() {
         end,
         "USD_OIS",
         "CORP",
-    );
+    ).expect("CDS construction should succeed");
 
     let npv = cds.value(&market, as_of);
 
@@ -354,7 +354,7 @@ fn test_very_high_hazard_rate() {
         end,
         "USD_OIS",
         "CORP",
-    );
+    ).expect("CDS construction should succeed");
 
     let npv = cds.value(&market, as_of).unwrap();
     assert!(
@@ -394,7 +394,7 @@ fn test_zero_hazard_rate() {
         end,
         "USD_OIS",
         "CORP",
-    );
+    ).expect("CDS construction should succeed");
 
     // With zero hazard rate, protection leg should be zero
     let protection_pv = cds
@@ -429,7 +429,7 @@ fn test_metrics_with_zero_notional() {
         end,
         "USD_OIS",
         "CORP",
-    );
+    ).expect("CDS construction should succeed");
 
     let result = cds
         .price_with_metrics(
@@ -466,7 +466,7 @@ fn test_par_spread_with_mismatched_curves() {
         end,
         "USD_OIS",
         "CORP",
-    );
+    ).expect("CDS construction should succeed");
 
     // Should handle par spread calculation even with different curve IDs
     let result = cds.price_with_metrics(&market, as_of, &[MetricId::ParSpread]);
@@ -492,7 +492,7 @@ fn test_numerical_stability_with_extreme_dates() {
         end,
         "USD_OIS",
         "CORP",
-    );
+    ).expect("CDS construction should succeed");
 
     let npv = cds.value(&market, as_of).unwrap();
     assert!(
@@ -516,7 +516,7 @@ fn test_integration_fallback_with_invalid_params() {
         end,
         "USD_OIS",
         "CORP",
-    );
+    ).expect("CDS construction should succeed");
 
     // Test with very small tolerance (might trigger fallback)
     let pricer = CDSPricer::with_config(CDSPricerConfig {
@@ -551,7 +551,7 @@ fn test_very_small_notional() {
         end,
         "USD_OIS",
         "CORP",
-    );
+    ).expect("CDS construction should succeed");
 
     let npv = cds.value(&market, as_of).unwrap();
     assert!(npv.amount().is_finite(), "Tiny notional should be handled");
@@ -579,7 +579,7 @@ fn test_very_large_notional() {
         end,
         "USD_OIS",
         "CORP",
-    );
+    ).expect("CDS construction should succeed");
 
     let npv = cds.value(&market, as_of).unwrap();
     assert!(npv.amount().is_finite(), "Large notional should be handled");
@@ -608,7 +608,7 @@ fn test_missing_discount_curve_error() {
         end,
         "USD_OIS", // This curve doesn't exist
         "CORP",
-    );
+    ).expect("CDS construction should succeed");
 
     let result = cds.value(&market, as_of);
     assert!(result.is_err(), "Should error with missing discount curve");
@@ -637,7 +637,7 @@ fn test_missing_hazard_curve_error() {
         end,
         "USD_OIS",
         "CORP", // This curve doesn't exist
-    );
+    ).expect("CDS construction should succeed");
 
     let result = cds.value(&market, as_of);
     assert!(result.is_err(), "Should error with missing hazard curve");
@@ -661,7 +661,7 @@ fn test_settlement_delay_zero_is_valid() {
         end,
         "USD_OIS",
         "CORP",
-    );
+    ).expect("CDS construction should succeed");
     cds.protection.settlement_delay = 0;
 
     let npv = cds.value(&market, as_of);
@@ -688,7 +688,7 @@ fn test_recovery_rate_bounds_not_enforced() {
         end,
         "USD_OIS",
         "CORP",
-    );
+    ).expect("CDS construction should succeed");
     cds.protection.recovery_rate = -0.2;
 
     let result = cds.value(&market, as_of);

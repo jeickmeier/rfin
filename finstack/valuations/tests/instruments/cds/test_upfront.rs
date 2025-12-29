@@ -62,7 +62,7 @@ fn test_upfront_payment_buyer_payfast() {
         end,
         "USD_OIS",
         "CORP",
-    );
+    ).expect("CDS construction should succeed");
 
     // Calculate base NPV (without upfront)
     let base_npv = cds.value_raw(&market, as_of).unwrap();
@@ -104,7 +104,7 @@ fn test_upfront_payment_seller_receivefast() {
         end,
         "USD_OIS",
         "CORP",
-    );
+    ).expect("CDS construction should succeed");
 
     // Calculate base NPV (without upfront)
     let base_npv = cds.value_raw(&market, as_of).unwrap();
@@ -148,7 +148,7 @@ fn test_upfront_payment_discounted() {
         end,
         "USD_OIS",
         "CORP",
-    );
+    ).expect("CDS construction should succeed");
 
     let base_npv = cds.value_raw(&market, as_of).unwrap();
 
@@ -193,7 +193,7 @@ fn test_upfront_payment_past_is_ignored() {
         end,
         "USD_OIS",
         "CORP",
-    );
+    ).expect("CDS construction should succeed");
 
     let base_npv = cds.value_raw(&market, as_of).unwrap();
 

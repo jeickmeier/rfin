@@ -170,7 +170,6 @@ impl Ndf {
     /// * `fixing_offset_days` - Days before maturity for fixing (typically 2)
     /// * `bdc` - Business day convention
     #[allow(clippy::too_many_arguments)]
-    #[allow(clippy::expect_used)] // Builder with valid inputs should not fail
     pub fn from_trade_date(
         id: impl Into<InstrumentId>,
         base_currency: Currency,
@@ -212,7 +211,7 @@ impl Ndf {
             settlement_calendar_id.as_deref(),
         )?;
 
-        Ok(Self::builder()
+        Self::builder()
             .id(id.into())
             .base_currency(base_currency)
             .settlement_currency(settlement_currency)
@@ -225,7 +224,6 @@ impl Ndf {
             .settlement_calendar_id_opt(settlement_calendar_id)
             .attributes(Attributes::new())
             .build()
-            .expect("NDF construction should not fail"))
     }
 
     /// Set the observed fixing rate (transitions NDF to post-fixing mode).

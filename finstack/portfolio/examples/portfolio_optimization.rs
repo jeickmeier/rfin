@@ -57,7 +57,8 @@ fn build_bond_portfolio(as_of: Date) -> finstack_portfolio::Portfolio {
         issue,
         maturity,
         "USD",
-    );
+    )
+    .expect("Bond::fixed should succeed with valid parameters");
 
     let mut bond_bbb = Bond::fixed(
         "BOND_BBB",
@@ -66,7 +67,8 @@ fn build_bond_portfolio(as_of: Date) -> finstack_portfolio::Portfolio {
         issue,
         maturity,
         "USD",
-    );
+    )
+    .expect("Bond::fixed should succeed with valid parameters");
 
     let mut bond_ccc = Bond::fixed(
         "BOND_CCC",
@@ -75,7 +77,8 @@ fn build_bond_portfolio(as_of: Date) -> finstack_portfolio::Portfolio {
         issue,
         maturity,
         "USD",
-    );
+    )
+    .expect("Bond::fixed should succeed with valid parameters");
 
     // Use explicit quoted clean prices so YTM is driven by market levels, not model PVs.
     bond_aaa.pricing_overrides = PricingOverrides::default().with_clean_price(100.0);

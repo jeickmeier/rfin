@@ -129,7 +129,8 @@ fn build_bond_portfolio() -> finstack_portfolio::Portfolio {
         issue,
         maturity,
         "USD",
-    );
+    )
+    .expect("Bond::fixed should succeed with valid parameters");
 
     let mut bond_bbb = Bond::fixed(
         "BOND_BBB",
@@ -138,7 +139,8 @@ fn build_bond_portfolio() -> finstack_portfolio::Portfolio {
         issue,
         maturity,
         "USD",
-    );
+    )
+    .expect("Bond::fixed should succeed with valid parameters");
 
     let mut bond_ccc = Bond::fixed(
         "BOND_CCC",
@@ -147,7 +149,8 @@ fn build_bond_portfolio() -> finstack_portfolio::Portfolio {
         issue,
         maturity,
         "USD",
-    );
+    )
+    .expect("Bond::fixed should succeed with valid parameters");
 
     // For yield-based optimization, require explicit quoted clean prices for all bonds.
     // Use par (100.0) for simplicity so coupon ordering drives YTM ordering.

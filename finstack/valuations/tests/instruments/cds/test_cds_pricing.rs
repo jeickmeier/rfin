@@ -59,7 +59,7 @@ fn test_protection_leg_positive_pv() {
         end,
         "USD_OIS",
         "CORP",
-    );
+    ).expect("CDS construction should succeed");
 
     let market = MarketContext::new()
         .insert_discount(disc)
@@ -95,7 +95,7 @@ fn test_premium_leg_positive_pv() {
         end,
         "USD_OIS",
         "CORP",
-    );
+    ).expect("CDS construction should succeed");
 
     let market = MarketContext::new()
         .insert_discount(disc)
@@ -135,7 +135,7 @@ fn test_npv_calculation_buyer() {
         end,
         "USD_OIS",
         "CORP",
-    );
+    ).expect("CDS construction should succeed");
 
     let npv = cds.value(&market, as_of).unwrap();
 
@@ -161,7 +161,7 @@ fn test_par_spread_full_premium_branch() {
         end,
         "USD_OIS",
         "CORP",
-    );
+    ).expect("CDS construction should succeed");
 
     let pricer_base = CDSPricer::new();
 
@@ -213,7 +213,7 @@ fn test_par_spread_errors_when_expired() {
         end,
         "USD_OIS",
         "CORP",
-    );
+    ).expect("CDS construction should succeed");
 
     let pricer = CDSPricer::new();
     let err = pricer
@@ -249,7 +249,7 @@ fn test_premium_leg_excludes_accrual_when_disabled() {
         end,
         "USD_OIS",
         "CORP",
-    );
+    ).expect("CDS construction should succeed");
 
     let pricer_default = CDSPricer::new(); // include_accrual = true
 
@@ -293,7 +293,7 @@ fn test_npv_buyer_seller_opposite() {
         end,
         "USD_OIS",
         "CORP",
-    );
+    ).expect("CDS construction should succeed");
 
     let seller = CreditDefaultSwap::sell_protection(
         "SELLER",
@@ -303,7 +303,7 @@ fn test_npv_buyer_seller_opposite() {
         end,
         "USD_OIS",
         "CORP",
-    );
+    ).expect("CDS construction should succeed");
 
     let npv_buyer = buyer.value(&market, as_of).unwrap();
     let npv_seller = seller.value(&market, as_of).unwrap();
@@ -340,7 +340,7 @@ fn test_par_spread_positive() {
         end,
         "USD_OIS",
         "CORP",
-    );
+    ).expect("CDS construction should succeed");
 
     let par_spread = cds
         .par_spread(
@@ -377,7 +377,7 @@ fn test_par_spread_gives_zero_npv() {
         end,
         "USD_OIS",
         "CORP",
-    );
+    ).expect("CDS construction should succeed");
 
     // Get par spread
     let par_spread = cds
@@ -420,7 +420,7 @@ fn test_risky_annuity_positive() {
         end,
         "USD_OIS",
         "CORP",
-    );
+    ).expect("CDS construction should succeed");
 
     let risky_annuity = cds
         .risky_annuity(
@@ -454,7 +454,7 @@ fn test_risky_pv01_scales_with_notional() {
         end,
         "USD_OIS",
         "CORP",
-    );
+    ).expect("CDS construction should succeed");
 
     let cds10 = CreditDefaultSwap::buy_protection(
         "PV01_10MM",
@@ -464,7 +464,7 @@ fn test_risky_pv01_scales_with_notional() {
         end,
         "USD_OIS",
         "CORP",
-    );
+    ).expect("CDS construction should succeed");
 
     let pv01_1 = cds1
         .risky_pv01(
@@ -504,7 +504,7 @@ fn test_schedule_generation_isda() {
         end,
         "USD_OIS",
         "CORP",
-    );
+    ).expect("CDS construction should succeed");
 
     let pricer = CDSPricer::new();
     let schedule = pricer.generate_isda_schedule(&cds).unwrap();
@@ -565,7 +565,7 @@ fn test_higher_hazard_increases_protection_value() {
             end,
             "USD_OIS",
             "CORP",
-        );
+        ).expect("CDS construction should succeed");
 
         let protection_pv = cds
             .pv_protection_leg(
@@ -609,7 +609,7 @@ fn test_higher_recovery_decreases_protection_value() {
             end,
             "USD_OIS",
             "CORP",
-        );
+        ).expect("CDS construction should succeed");
         cds.protection.recovery_rate = recovery;
 
         let protection_pv = cds
@@ -652,7 +652,7 @@ fn test_zero_spread_gives_negative_npv_for_buyer() {
         end,
         "USD_OIS",
         "CORP",
-    );
+    ).expect("CDS construction should succeed");
 
     let npv = cds.value(&market, as_of).unwrap();
 
@@ -684,7 +684,7 @@ fn test_accrual_on_default_increases_premium() {
         end,
         "USD_OIS",
         "CORP",
-    );
+    ).expect("CDS construction should succeed");
 
     let pricer_with_accrual = CDSPricer::new(); // Default includes accrual
     let pricer_without_accrual = CDSPricer::with_config(CDSPricerConfig {
@@ -738,7 +738,7 @@ fn test_settlement_delay_reduces_protection_pv() {
         end,
         "USD_OIS",
         "CORP",
-    );
+    ).expect("CDS construction should succeed");
     cds_no_delay.protection.settlement_delay = 0;
 
     let mut cds_with_delay = cds_no_delay.clone();

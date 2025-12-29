@@ -81,6 +81,7 @@ fn create_ctd_bond() -> Bond {
         maturity,
         CurveId::from("USD-TREASURY"),
     )
+    .expect("Bond::fixed should succeed with valid parameters")
 }
 
 /// Create a realistic market with USD Treasury curve

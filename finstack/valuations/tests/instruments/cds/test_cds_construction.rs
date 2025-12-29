@@ -28,7 +28,8 @@ fn test_buy_protection_constructor() {
         end,
         "USD-OIS",
         "CORP-SENIOR",
-    );
+    )
+    .expect("CDS construction should succeed");
 
     assert_eq!(cds.id.as_str(), "CDS_BUY_TEST");
     assert_eq!(cds.notional.amount(), 10_000_000.0);
@@ -52,7 +53,8 @@ fn test_sell_protection_constructor() {
         end,
         "EUR-ESTR",
         "CORP-SUB",
-    );
+    )
+    .expect("CDS construction should succeed");
 
     assert_eq!(cds.side, PayReceive::ReceiveFixed);
     assert_eq!(cds.premium.spread_bp, 150.0);
@@ -146,7 +148,8 @@ fn test_recovery_rate_applied() {
         end,
         "USD-OIS",
         "CORP",
-    );
+    )
+    .expect("CDS construction should succeed");
 
     // Default recovery for senior unsecured
     assert_eq!(cds.protection.recovery_rate, 0.40);
@@ -170,7 +173,8 @@ fn test_notional_zero_allowed() {
         end,
         "USD-OIS",
         "CORP",
-    );
+    )
+    .expect("CDS construction should succeed");
 
     assert_eq!(cds.notional.amount(), 0.0);
 }
@@ -189,7 +193,8 @@ fn test_spread_can_be_negative() {
         end,
         "USD-OIS",
         "CORP",
-    );
+    )
+    .expect("CDS construction should succeed");
 
     assert_eq!(cds.premium.spread_bp, -50.0);
 }
@@ -208,7 +213,8 @@ fn test_different_currencies() {
             end,
             "DISC",
             "CREDIT",
-        );
+        )
+        .expect("CDS construction should succeed");
 
         assert_eq!(cds.notional.currency(), currency);
     }
@@ -227,7 +233,8 @@ fn test_maturity_after_start() {
         end,
         "USD-OIS",
         "CORP",
-    );
+    )
+    .expect("CDS construction should succeed");
 
     assert!(cds.premium.end > cds.premium.start);
 }
@@ -246,7 +253,8 @@ fn test_short_tenor_cds() {
         end,
         "USD-OIS",
         "CORP",
-    );
+    )
+    .expect("CDS construction should succeed");
 
     assert_eq!(cds.premium.start, start);
     assert_eq!(cds.premium.end, end);
@@ -266,7 +274,8 @@ fn test_long_tenor_cds() {
         end,
         "USD-OIS",
         "CORP",
-    );
+    )
+    .expect("CDS construction should succeed");
 
     assert_eq!(cds.premium.end, end);
 }
@@ -284,7 +293,8 @@ fn test_premium_leg_spec_fields() {
         end,
         "USD-OIS",
         "CORP",
-    );
+    )
+    .expect("CDS construction should succeed");
 
     assert_eq!(cds.premium.start, start);
     assert_eq!(cds.premium.end, end);
@@ -306,7 +316,8 @@ fn test_protection_leg_spec_fields() {
         end,
         "USD-OIS",
         "CORP-CREDIT",
-    );
+    )
+    .expect("CDS construction should succeed");
 
     assert_eq!(cds.protection.credit_curve_id.as_str(), "CORP-CREDIT");
     assert_eq!(cds.protection.recovery_rate, 0.40);

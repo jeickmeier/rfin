@@ -101,7 +101,8 @@ fn quantlib_parity_atm_call_black_scholes() {
         expiry,
         Money::new(spot, Currency::USD),
         1.0, // contract size
-    );
+    )
+    .expect("EquityOption::european_call should succeed with valid parameters");
 
     let market = create_option_market(as_of, spot, vol, rate, div_yield);
     let pv = call.value(&market, as_of).unwrap();

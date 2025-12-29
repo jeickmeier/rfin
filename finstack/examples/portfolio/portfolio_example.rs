@@ -546,7 +546,8 @@ fn build_sample_portfolio(as_of: Date) -> finstack_portfolio::Result<Portfolio> 
         as_of,
         date!(2029 - 01 - 01),
         "USD",
-    );
+    )
+    .expect("Bond::fixed should succeed with valid parameters");
 
     let bond_fixed_position = Position::new(
         "POS_BOND_FIXED",
@@ -570,7 +571,8 @@ fn build_sample_portfolio(as_of: Date) -> finstack_portfolio::Result<Portfolio> 
         date!(2027 - 01 - 01),
         crate::instruments::common::parameters::BondConvention::Corporate,
         "USD",
-    );
+    )
+    .expect("Bond::with_convention should succeed for Corporate bonds");
 
     let bond_corporate_position = Position::new(
         "POS_BOND_CORPORATE",
@@ -595,7 +597,8 @@ fn build_sample_portfolio(as_of: Date) -> finstack_portfolio::Result<Portfolio> 
         as_of,
         date!(2027 - 01 - 01),
         "USD",
-    );
+    )
+    .expect("Bond::fixed should succeed with valid parameters");
 
     let bond_frn_position = Position::new(
         "POS_FRN",
@@ -696,7 +699,7 @@ fn build_sample_portfolio(as_of: Date) -> finstack_portfolio::Result<Portfolio> 
         date!(2029 - 01 - 01),
         "USD",     // Discount curve
         "CORP_BB", // Credit/hazard curve
-    );
+    )?;
 
     let cds_position = Position::new(
         "POS_CDS_001",
@@ -1083,7 +1086,8 @@ fn build_sample_portfolio(as_of: Date) -> finstack_portfolio::Result<Portfolio> 
         date!(2020 - 01 - 15),
         date!(2027 - 01 - 15),
         "USD",
-    );
+    )
+    .expect("Bond::fixed should succeed with valid parameters");
 
     let loan2 = finstack_valuations::instruments::bond::Bond::fixed(
         "LOAN_002",
@@ -1092,7 +1096,8 @@ fn build_sample_portfolio(as_of: Date) -> finstack_portfolio::Result<Portfolio> 
         date!(2020 - 03 - 15),
         date!(2026 - 03 - 15),
         "USD",
-    );
+    )
+    .expect("Bond::fixed should succeed with valid parameters");
 
     clo_pool.add_bond(&loan1, Some("Technology".to_string()));
     clo_pool.add_bond(&loan2, Some("Healthcare".to_string()));

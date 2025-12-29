@@ -590,7 +590,8 @@ mod tests {
             Date::from_calendar_date(2025, Month::January, 15).expect("valid date"),
             Date::from_calendar_date(2030, Month::January, 15).expect("valid date"),
             CurveId::new("USD-OIS"),
-        );
+        )
+        .expect("Bond::fixed should succeed with valid parameters");
 
         // Serialize to JSON
         let spec_json = serde_json::to_value(&bond).expect("bond should serialize");

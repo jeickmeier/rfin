@@ -320,15 +320,10 @@ impl PyFxOption {
         let expiry_date = py_to_date(&expiry).context("expiry")?;
         let amt = extract_money(&notional).context("notional")?;
         let vol_surface_id = vol_surface.extract::<&str>().context("vol_surface")?;
-        Ok(Self::new(FxOption::european_call(
-            id,
-            base,
-            quote,
-            strike,
-            expiry_date,
-            amt,
-            vol_surface_id,
-        )))
+        Ok(Self::new(
+            FxOption::european_call(id, base, quote, strike, expiry_date, amt, vol_surface_id)
+                .map_err(|e| pyo3::exceptions::PyValueError::new_err(e.to_string()))?,
+        ))
     }
 
     #[classmethod]
@@ -379,15 +374,10 @@ impl PyFxOption {
         let expiry_date = py_to_date(&expiry).context("expiry")?;
         let amt = extract_money(&notional).context("notional")?;
         let vol_surface_id = vol_surface.extract::<&str>().context("vol_surface")?;
-        Ok(Self::new(FxOption::european_put(
-            id,
-            base,
-            quote,
-            strike,
-            expiry_date,
-            amt,
-            vol_surface_id,
-        )))
+        Ok(Self::new(
+            FxOption::european_put(id, base, quote, strike, expiry_date, amt, vol_surface_id)
+                .map_err(|e| pyo3::exceptions::PyValueError::new_err(e.to_string()))?,
+        ))
     }
 
     #[classmethod]

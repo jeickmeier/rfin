@@ -375,7 +375,8 @@ fn create_institutional_portfolio(num_positions: usize) -> finstack_portfolio::P
             base,
             maturity_5y(),
             discount_curve_id,
-        );
+        )
+        .expect("Bond::fixed should succeed with valid parameters");
 
         let entity_id = format!("FUND_{}", (i % 5) + 1);
         builder = builder.position(
@@ -455,7 +456,8 @@ fn create_institutional_portfolio(num_positions: usize) -> finstack_portfolio::P
             maturity_2y(),
             Money::new(10_000.0, Currency::USD),
             100.0,
-        );
+        )
+        .expect("EquityOption::european_call should succeed with valid parameters");
 
         let entity_id = format!("FUND_{}", (i % 5) + 1);
         builder = builder.position(
@@ -572,7 +574,8 @@ fn create_institutional_portfolio(num_positions: usize) -> finstack_portfolio::P
             base,
             maturity_2y(),
             "USD-OIS",
-        );
+        )
+        .unwrap();
 
         let entity_id = format!("FUND_{}", (i % 5) + 1);
         builder = builder.position(

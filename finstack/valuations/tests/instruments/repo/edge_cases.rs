@@ -20,7 +20,7 @@ fn test_very_small_notional() {
         date(2025, 1, 15),
         date(2025, 4, 15),
         "USD-OIS",
-    );
+    ).expect("Repo construction should succeed");
 
     let interest = repo.interest_amount().unwrap();
     assert!(interest.amount() > 0.0);
@@ -39,7 +39,7 @@ fn test_very_large_notional() {
         date(2025, 1, 15),
         date(2025, 4, 15),
         "USD-OIS",
-    );
+    ).expect("Repo construction should succeed");
 
     let interest = repo.interest_amount().unwrap();
     assert!(interest.amount() > 1_000_000_000.0); // > $1B interest
@@ -109,7 +109,7 @@ fn test_very_long_term() {
         date(2025, 1, 1),
         date(2035, 1, 1),
         "USD-OIS",
-    );
+    ).expect("Repo construction should succeed");
 
     let interest = repo.interest_amount().unwrap();
 
@@ -130,7 +130,7 @@ fn test_zero_rate_repo() {
         date(2025, 1, 15),
         date(2025, 4, 15),
         "USD-OIS",
-    );
+    ).expect("Repo construction should succeed");
 
     let interest = repo.interest_amount().unwrap();
     let total = repo.total_repayment().unwrap();
@@ -152,7 +152,7 @@ fn test_extreme_rate() {
         date(2025, 1, 15),
         date(2025, 4, 15),
         "USD-OIS",
-    );
+    ).expect("Repo construction should succeed");
 
     let interest = repo.interest_amount().unwrap();
 
@@ -174,7 +174,7 @@ fn test_valuation_far_before_start() {
         date(2025, 6, 1),
         date(2025, 12, 1),
         "USD-OIS",
-    );
+    ).expect("Repo construction should succeed");
 
     // Value 6 months before start
     let pv = repo.value(&context, date(2025, 1, 1)).unwrap();
@@ -196,7 +196,7 @@ fn test_valuation_after_maturity() {
         date(2025, 1, 15),
         date(2025, 4, 15),
         "USD-OIS",
-    );
+    ).expect("Repo construction should succeed");
 
     // Value after maturity
     let pv = repo.value(&context, date(2025, 5, 1)).unwrap();
@@ -218,7 +218,7 @@ fn test_missing_discount_curve() {
         date(2025, 1, 15),
         date(2025, 4, 15),
         "NONEXISTENT-CURVE",
-    );
+    ).expect("Repo construction should succeed");
 
     let result = repo.value(&context, date(2025, 1, 10));
 
@@ -263,7 +263,7 @@ fn test_repo_with_multiple_currencies() {
         date(2025, 1, 15),
         date(2025, 4, 15),
         "USD-OIS",
-    );
+    ).expect("Repo construction should succeed");
 
     let interest = gbp_repo.interest_amount().unwrap();
     assert_eq!(interest.currency(), Currency::GBP);
@@ -337,7 +337,7 @@ fn test_special_collateral_without_rate_adjustment() {
         date(2025, 1, 15),
         date(2025, 4, 15),
         "USD-OIS",
-    );
+    ).expect("Repo construction should succeed");
 
     let effective_rate = repo.effective_rate();
 
@@ -405,7 +405,7 @@ fn test_leap_year_date_handling() {
         date(2024, 2, 29),
         date(2024, 5, 29),
         "USD-OIS",
-    );
+    ).expect("Repo construction should succeed");
 
     assert_eq!(repo.start_date, date(2024, 2, 29));
 
@@ -425,7 +425,7 @@ fn test_precision_with_small_amounts() {
         date(2025, 1, 15),
         date(2025, 4, 15),
         "USD-OIS",
-    );
+    ).expect("Repo construction should succeed");
 
     let interest = repo.interest_amount().unwrap();
 
