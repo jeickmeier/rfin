@@ -4,7 +4,7 @@ use crate::instruments::bond::Bond;
 use finstack_core::currency::Currency;
 use finstack_core::dates::{Date, DateExt, DayCount};
 use finstack_core::money::Money;
-use finstack_core::types::InstrumentId;
+use finstack_core::types::{Bps, InstrumentId, Rate};
 use rust_decimal::prelude::ToPrimitive;
 
 use finstack_core::collections::HashMap;
@@ -167,6 +167,25 @@ impl PoolAsset {
         }
     }
 
+    /// Create a floating rate loan asset using a typed spread in basis points.
+    pub fn floating_rate_loan_bps(
+        id: impl Into<InstrumentId>,
+        balance: Money,
+        index_id: impl Into<String>,
+        spread_bps: Bps,
+        maturity: Date,
+        day_count: DayCount,
+    ) -> Self {
+        Self::floating_rate_loan(
+            id,
+            balance,
+            index_id,
+            spread_bps.as_bps() as f64,
+            maturity,
+            day_count,
+        )
+    }
+
     /// Create a fixed rate bond asset
     ///
     /// For fixed rate assets, spread_bps is None (WAS falls back to rate).
@@ -196,6 +215,17 @@ impl PoolAsset {
             smm_override: None,
             mdr_override: None,
         }
+    }
+
+    /// Create a fixed rate bond asset using a typed rate.
+    pub fn fixed_rate_bond_rate(
+        id: impl Into<InstrumentId>,
+        balance: Money,
+        rate: Rate,
+        maturity: Date,
+        day_count: DayCount,
+    ) -> Self {
+        Self::fixed_rate_bond(id, balance, rate.as_decimal(), maturity, day_count)
     }
 
     /// Set credit quality

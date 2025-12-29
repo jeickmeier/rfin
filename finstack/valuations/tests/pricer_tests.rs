@@ -1,13 +1,40 @@
 //! Comprehensive tests for pricer registry and infrastructure
 
 use finstack_core::currency::Currency;
+use finstack_core::dates::Date;
 use finstack_core::market_data::context::MarketContext;
+use finstack_core::market_data::term_structures::discount_curve::DiscountCurve;
 use finstack_core::money::Money;
 use finstack_valuations::instruments::bond::Bond;
 use finstack_valuations::instruments::common::traits::Instrument;
+use finstack_valuations::instruments::deposit::Deposit;
 use finstack_valuations::pricer::*;
+use finstack_valuations::results::ValuationResult;
 use std::str::FromStr;
 use time::macros::date;
+
+fn test_market(as_of: Date) -> MarketContext {
+    let curve = DiscountCurve::builder("USD-OIS")
+        .base_date(as_of)
+        .knots([(0.0, 1.0), (1.0, 0.99), (5.0, 0.95)])
+        .build()
+        .expect("DiscountCurve builder should succeed with valid test data");
+    MarketContext::new().insert_discount(curve)
+}
+
+fn assert_pricing_result_eq(left: &PricingResult<ValuationResult>, right: &PricingResult<ValuationResult>) {
+    match (left, right) {
+        (Ok(left_val), Ok(right_val)) => {
+            assert_eq!(left_val.instrument_id, right_val.instrument_id);
+            assert_eq!(left_val.as_of, right_val.as_of);
+            assert_eq!(left_val.value, right_val.value);
+        }
+        (Err(left_err), Err(right_err)) => {
+            assert_eq!(left_err.to_string(), right_err.to_string());
+        }
+        _ => panic!("Expected matching PricingResult variants"),
+    }
+}
 
 #[test]
 fn test_instrument_type_from_str_all_variants() {
@@ -519,6 +546,84 @@ fn test_standard_registry_has_all_rates_pricers() {
             ModelKey::Discounting
         ))
         .is_some());
+}
+
+#[test]
+fn test_price_batch_preserves_order() {
+    let registry = create_standard_registry();
+    let as_of = date!(2024 - 01 - 01);
+    let market = test_market(as_of);
+
+    let bond_one = Bond::fixed(
+        "BOND-ORDER-1",
+        Money::new(1_000_000.0, Currency::USD),
+        0.05,
+        as_of,
+        date!(2026 - 01 - 01),
+        "USD-OIS",
+    )
+    .expect("Bond::fixed should succeed with valid parameters");
+    let deposit = Deposit::example();
+    let bond_two = Bond::fixed(
+        "BOND-ORDER-2",
+        Money::new(500_000.0, Currency::USD),
+        0.03,
+        as_of,
+        date!(2027 - 01 - 01),
+        "USD-OIS",
+    )
+    .expect("Bond::fixed should succeed with valid parameters");
+
+    let instruments: Vec<&dyn Instrument> = vec![&bond_one, &deposit, &bond_two];
+    let results = registry.price_batch(&instruments, ModelKey::Discounting, &market, as_of);
+
+    assert_eq!(results.len(), instruments.len());
+    let ids: Vec<&str> = results
+        .iter()
+        .map(|result| result.as_ref().expect("Pricing should succeed").instrument_id.as_str())
+        .collect();
+
+    assert_eq!(ids, vec![bond_one.id(), deposit.id(), bond_two.id()]);
+}
+
+#[cfg(feature = "parallel")]
+#[test]
+fn test_price_batch_matches_serial_results() {
+    let registry = create_standard_registry();
+    let as_of = date!(2024 - 01 - 01);
+    let market = test_market(as_of);
+
+    let bond_one = Bond::fixed(
+        "BOND-PAR-1",
+        Money::new(1_000_000.0, Currency::USD),
+        0.05,
+        as_of,
+        date!(2026 - 01 - 01),
+        "USD-OIS",
+    )
+    .expect("Bond::fixed should succeed with valid parameters");
+    let deposit = Deposit::example();
+    let bond_two = Bond::fixed(
+        "BOND-PAR-2",
+        Money::new(500_000.0, Currency::USD),
+        0.03,
+        as_of,
+        date!(2027 - 01 - 01),
+        "USD-OIS",
+    )
+    .expect("Bond::fixed should succeed with valid parameters");
+
+    let instruments: Vec<&dyn Instrument> = vec![&bond_one, &deposit, &bond_two];
+    let serial_results: Vec<_> = instruments
+        .iter()
+        .map(|&instrument| registry.price_with_registry(instrument, ModelKey::Discounting, &market, as_of))
+        .collect();
+    let batch_results = registry.price_batch(&instruments, ModelKey::Discounting, &market, as_of);
+
+    assert_eq!(batch_results.len(), serial_results.len());
+    for (serial, batch) in serial_results.iter().zip(batch_results.iter()) {
+        assert_pricing_result_eq(serial, batch);
+    }
 }
 
 #[test]

@@ -11,7 +11,7 @@ use finstack_core::currency::Currency;
 use finstack_core::dates::{BusinessDayConvention, Date, DayCount, StubKind, Tenor};
 use finstack_core::market_data::context::MarketContext;
 use finstack_core::money::Money;
-use finstack_core::types::{CurveId, InstrumentId};
+use finstack_core::types::{CurveId, InstrumentId, Rate};
 use rust_decimal::prelude::ToPrimitive;
 use rust_decimal::Decimal;
 
@@ -196,6 +196,32 @@ impl InterestRateSwap {
         Ok(swap)
     }
 
+    /// Create a term-rate swap using a typed fixed rate.
+    #[allow(clippy::too_many_arguments)]
+    pub fn create_term_swap_with_conventions_rate(
+        id: InstrumentId,
+        notional: Money,
+        fixed_rate: Rate,
+        start: Date,
+        end: Date,
+        side: PayReceive,
+        discount_curve_id: CurveId,
+        forward_curve_id: CurveId,
+        conventions: IrsLegConventions,
+    ) -> finstack_core::Result<Self> {
+        Self::create_term_swap_with_conventions(
+            id,
+            notional,
+            fixed_rate.as_decimal(),
+            start,
+            end,
+            side,
+            discount_curve_id,
+            forward_curve_id,
+            conventions,
+        )
+    }
+
     /// Create an **OIS / overnight RFR** swap with compounded-in-arrears floating compounding.
     ///
     /// This constructor enforces that the floating leg uses `CompoundedInArrears` compounding.
@@ -263,6 +289,34 @@ impl InterestRateSwap {
         };
         swap.validate()?;
         Ok(swap)
+    }
+
+    /// Create an OIS swap using a typed fixed rate.
+    #[allow(clippy::too_many_arguments)]
+    pub fn create_ois_swap_with_conventions_rate(
+        id: InstrumentId,
+        notional: Money,
+        fixed_rate: Rate,
+        start: Date,
+        end: Date,
+        side: PayReceive,
+        discount_curve_id: CurveId,
+        projection_curve_id: CurveId,
+        ois_compounding: FloatingLegCompounding,
+        conventions: IrsLegConventions,
+    ) -> finstack_core::Result<Self> {
+        Self::create_ois_swap_with_conventions(
+            id,
+            notional,
+            fixed_rate.as_decimal(),
+            start,
+            end,
+            side,
+            discount_curve_id,
+            projection_curve_id,
+            ois_compounding,
+            conventions,
+        )
     }
 }
 
@@ -471,6 +525,18 @@ impl InterestRateSwap {
         };
 
         Self::create_swap_with_config(id, notional, fixed_rate, start, end, side, config)
+    }
+
+    /// Create a standard USD OIS-discounted IRS using a typed fixed rate.
+    pub fn create_usd_swap_rate(
+        id: InstrumentId,
+        notional: Money,
+        fixed_rate: Rate,
+        start: Date,
+        end: Date,
+        side: PayReceive,
+    ) -> finstack_core::Result<Self> {
+        Self::create_usd_swap(id, notional, fixed_rate.as_decimal(), start, end, side)
     }
 
     /// Create a canonical example IRS for testing and documentation.

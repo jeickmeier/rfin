@@ -6,7 +6,7 @@ use crate::instruments::PricingOverrides;
 use finstack_core::currency::Currency;
 use finstack_core::dates::{Date, DayCount};
 use finstack_core::money::Money;
-use finstack_core::types::{CurveId, InstrumentId};
+use finstack_core::types::{CurveId, InstrumentId, Rate};
 use finstack_core::Result;
 use rust_decimal::prelude::ToPrimitive;
 use smallvec::smallvec;
@@ -268,7 +268,30 @@ impl Bond {
         Ok(bond)
     }
 
+    /// Create a bond with standard market conventions using a typed rate.
+    ///
+    /// Prefer this overload to avoid ambiguity between decimals and percent inputs.
+    pub fn fixed_rate(
+        id: impl Into<InstrumentId>,
+        notional: Money,
+        coupon_rate: Rate,
+        issue: Date,
+        maturity: Date,
+        discount_curve_id: impl Into<CurveId>,
+    ) -> finstack_core::Result<Self> {
+        Self::fixed(
+            id,
+            notional,
+            coupon_rate.as_decimal(),
+            issue,
+            maturity,
+            discount_curve_id,
+        )
+    }
+
     /// Create a bond with standard market conventions.
+    ///
+    /// Prefer [`Bond::fixed_rate`] when you already have a typed `Rate`.
     ///
     /// Applies region-specific conventions for day count, frequency, and
     /// calendar adjustments. For full customization, use `::builder()`.

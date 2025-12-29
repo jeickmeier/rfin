@@ -24,6 +24,7 @@ use finstack_core::dates::{Date, DateExt, DayCount, DayCountCtx, Schedule};
 use finstack_core::market_data::term_structures::discount_curve::DiscountCurve;
 use finstack_core::market_data::term_structures::forward_curve::ForwardCurve;
 use finstack_core::math::KahanAccumulator;
+use finstack_core::types::Rate;
 use finstack_core::Result;
 
 /// Minimum threshold for discount factor values to avoid numerical instability.
@@ -403,6 +404,11 @@ impl FixedLegParams {
         }
     }
 
+    /// Create params with a typed rate and day count.
+    pub fn new_rate(rate: Rate, day_count: DayCount) -> Self {
+        Self::new(rate.as_decimal(), day_count)
+    }
+
     /// Create params with rate, day count, and payment delay.
     pub fn with_delay(rate: f64, day_count: DayCount, payment_delay_days: i32) -> Self {
         Self {
@@ -411,6 +417,11 @@ impl FixedLegParams {
             payment_delay_days,
             calendar_id: None,
         }
+    }
+
+    /// Create params with a typed rate, day count, and payment delay.
+    pub fn with_delay_rate(rate: Rate, day_count: DayCount, payment_delay_days: i32) -> Self {
+        Self::with_delay(rate.as_decimal(), day_count, payment_delay_days)
     }
 
     /// Validate fixed leg parameters.

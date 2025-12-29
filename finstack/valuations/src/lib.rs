@@ -1,5 +1,7 @@
 #![forbid(unsafe_code)]
 #![warn(missing_docs)]
+#![warn(clippy::float_cmp)]
+#![cfg_attr(test, allow(clippy::float_cmp))]
 #![deny(clippy::unwrap_used)]
 #![deny(clippy::expect_used)]
 #![deny(clippy::panic)]
@@ -54,6 +56,7 @@
 //! use finstack_core::money::Money;
 //! use finstack_core::dates::create_date;
 //! use finstack_core::market_data::context::MarketContext;
+//! use finstack_core::types::Rate;
 //! use time::Month;
 //!
 //! # fn main() -> Result<(), Box<dyn std::error::Error>> {
@@ -63,10 +66,10 @@
 //! // Build a fixed-rate bond
 //! let issue = create_date(2025, Month::January, 15)?;
 //! let maturity = create_date(2030, Month::January, 15)?;
-//! let bond = Bond::fixed(
+//! let bond = Bond::fixed_rate(
 //!     "US-BOND-001",
 //!     Money::new(1_000_000.0, Currency::USD),
-//!     0.05,           // 5% coupon
+//!     Rate::from_percent(5.0),
 //!     issue,
 //!     maturity,
 //!     "USD-OIS"       // Discount curve ID
@@ -90,6 +93,7 @@
 //! use finstack_valuations::instruments::Bond;
 //! use finstack_valuations::metrics::{MetricId, standard_registry};
 //! use finstack_core::market_data::context::MarketContext;
+//! use finstack_core::types::Rate;
 //! # use finstack_core::currency::Currency;
 //! # use finstack_core::money::Money;
 //! # use finstack_core::dates::create_date;
@@ -98,8 +102,8 @@
 //! # fn main() -> Result<(), Box<dyn std::error::Error>> {
 //! # let issue = create_date(2025, Month::January, 15)?;
 //! # let maturity = create_date(2030, Month::January, 15)?;
-//! # let bond = Bond::fixed("US-BOND-001", Money::new(1_000_000.0, Currency::USD),
-//! #     0.05, issue, maturity, "USD-OIS");
+//! # let bond = Bond::fixed_rate("US-BOND-001", Money::new(1_000_000.0, Currency::USD),
+//! #     Rate::from_percent(5.0), issue, maturity, "USD-OIS");
 //! # let market = MarketContext::new();
 //! # let as_of = create_date(2025, Month::January, 1)?;
 //!

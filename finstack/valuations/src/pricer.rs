@@ -1084,6 +1084,34 @@ impl PricerRegistry {
             Err(PricingError::UnknownPricer(key))
         }
     }
+
+    /// Price a batch of instruments using the registry dispatch system.
+    ///
+    /// The output order matches the input order. When the `parallel` feature is
+    /// enabled, pricing is performed in parallel while preserving ordering.
+    pub fn price_batch(
+        &self,
+        instruments: &[&dyn Priceable],
+        model: ModelKey,
+        market: &Market,
+        as_of: finstack_core::dates::Date,
+    ) -> Vec<PricingResult<crate::results::ValuationResult>> {
+        #[cfg(feature = "parallel")]
+        {
+            use rayon::prelude::*;
+            instruments
+                .par_iter()
+                .map(|&instrument| self.price_with_registry(instrument, model, market, as_of))
+                .collect()
+        }
+        #[cfg(not(feature = "parallel"))]
+        {
+            instruments
+                .iter()
+                .map(|&instrument| self.price_with_registry(instrument, model, market, as_of))
+                .collect()
+        }
+    }
 }
 
 // ========================= REGISTRATION =========================

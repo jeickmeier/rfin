@@ -7,6 +7,7 @@ use super::types::RateOptionType;
 use finstack_core::{
     dates::{BusinessDayConvention, DayCount, StubKind, Tenor},
     money::Money,
+    types::Rate,
 };
 
 /// Interest rate option specific parameters.
@@ -47,6 +48,21 @@ impl InterestRateOptionParams {
         }
     }
 
+    /// Create cap parameters using a typed strike rate.
+    pub fn cap_rate(
+        notional: Money,
+        strike_rate: Rate,
+        frequency: Tenor,
+        day_count: DayCount,
+    ) -> Self {
+        Self::cap(
+            notional,
+            strike_rate.as_decimal(),
+            frequency,
+            day_count,
+        )
+    }
+
     /// Create floor parameters
     pub fn floor(notional: Money, strike_rate: f64, frequency: Tenor, day_count: DayCount) -> Self {
         Self {
@@ -59,5 +75,20 @@ impl InterestRateOptionParams {
             bdc: BusinessDayConvention::Following,
             calendar_id: None,
         }
+    }
+
+    /// Create floor parameters using a typed strike rate.
+    pub fn floor_rate(
+        notional: Money,
+        strike_rate: Rate,
+        frequency: Tenor,
+        day_count: DayCount,
+    ) -> Self {
+        Self::floor(
+            notional,
+            strike_rate.as_decimal(),
+            frequency,
+            day_count,
+        )
     }
 }

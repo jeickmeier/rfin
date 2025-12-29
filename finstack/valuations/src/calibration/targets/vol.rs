@@ -370,7 +370,7 @@ Set params.expiry_extrapolation='clamp' to allow flat extrapolation.",
         }
 
         match (before, after) {
-            (Some((t1, p1)), Some((t2, p2))) if t1 != t2 => {
+            (Some((t1, p1)), Some((t2, p2))) if (t2 - t1).abs() > 1e-12 => {
                 let w = (t - t1) / (t2 - t1);
                 // Linear interp of parameters
                 Ok(SABRParameters {

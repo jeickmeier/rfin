@@ -37,12 +37,12 @@ impl BatesParams {
     /// Create new Bates parameters.
     pub fn new(heston: HestonParams, jump: MertonJumpParams) -> Self {
         // Ensure consistency: r, q, and base sigma should align
-        assert_eq!(
-            heston.r, jump.gbm.r,
+        assert!(
+            (heston.r - jump.gbm.r).abs() < 1e-12,
             "Risk-free rate must match between Heston and jump params"
         );
-        assert_eq!(
-            heston.q, jump.gbm.q,
+        assert!(
+            (heston.q - jump.gbm.q).abs() < 1e-12,
             "Dividend yield must match between Heston and jump params"
         );
 

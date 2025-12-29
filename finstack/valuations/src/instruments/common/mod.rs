@@ -11,6 +11,9 @@
 // Core instrument traits and metadata
 pub mod traits;
 
+// Unified dependency representation
+pub mod dependencies;
+
 // NPV calculation interface
 pub mod discountable;
 
@@ -36,6 +39,7 @@ pub mod period_pv;
 
 // Re-export commonly used types for convenience
 pub use discountable::Discountable;
+pub use dependencies::{FxPair, InstrumentDependencies};
 pub use fx_dates::{
     add_joint_business_days_with_calendars, adjust_joint_calendar,
     adjust_joint_calendar_with_calendars, roll_spot_date, ResolvedCalendarPair,

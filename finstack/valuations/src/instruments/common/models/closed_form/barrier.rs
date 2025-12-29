@@ -240,10 +240,12 @@ fn barrier_helper(
             * (barrier / spot).powf(2.0 * mu)
             * norm_cdf(eta * (y1 - vol * time.sqrt()));
 
+    let is_call = eta > 0.0;
+
     // Combine based on barrier type
     if spot > barrier {
         // Up barrier
-        if eta == 1.0 {
+        if is_call {
             // Call
             a - b + c - d
         } else {
@@ -252,7 +254,7 @@ fn barrier_helper(
         }
     } else {
         // Down barrier
-        if eta == 1.0 {
+        if is_call {
             // Call
             b - c + d
         } else {

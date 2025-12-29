@@ -256,9 +256,12 @@ impl SABRModel {
             beta = 1.0;
         }
 
+        let beta_is_zero = beta.abs() < 1e-12;
+        let beta_is_one = (beta - 1.0).abs() < 1e-12;
+
         // Calculate intermediate values with numerical protection
         let f_mid = (effective_forward * effective_strike).sqrt();
-        let f_mid_beta = if beta == 0.0 {
+        let f_mid_beta = if beta_is_zero {
             1.0 // Special case for normal model
         } else {
             f_mid.powf(beta)
@@ -268,9 +271,9 @@ impl SABRModel {
         let z = if nu.abs() < 1e-14 {
             // Handle nu ≈ 0 case (pure CEV)
             return self.atm_volatility(effective_forward, time_to_expiry);
-        } else if beta == 1.0 {
+        } else if beta_is_one {
             (nu / alpha) * (effective_forward / effective_strike).ln()
-        } else if beta == 0.0 {
+        } else if beta_is_zero {
             (nu / alpha) * (effective_forward - effective_strike)
         } else {
             (nu / alpha) * (effective_forward.powf(1.0 - beta) - effective_strike.powf(1.0 - beta))
@@ -295,7 +298,7 @@ impl SABRModel {
         let factor1 = if f_mid_beta.abs() < 1e-14 {
             alpha // Handle degenerate case
         } else {
-            let correction_term = if beta == 0.0 {
+            let correction_term = if beta_is_zero {
                 1.0 // No correction for normal model
             } else {
                 1.0 + (1.0 - beta).powi(2) / 24.0 * log_moneyness.powi(2)
@@ -312,7 +315,7 @@ impl SABRModel {
         };
 
         // Third factor (time correction) with enhanced precision
-        let time_correction = if beta == 0.0 {
+        let time_correction = if beta_is_zero {
             // Normal SABR time correction
             (2.0 - 3.0 * rho.powi(2)) / 24.0 * nu.powi(2)
         } else {
@@ -344,6 +347,9 @@ impl SABRModel {
         let beta = self.params.beta;
         let nu = self.params.nu;
         let rho = self.params.rho;
+        let beta_is_zero = beta.abs() < 1e-12;
+        let beta_is_one = (beta - 1.0).abs() < 1e-12;
+        let beta_is_half = (beta - 0.5).abs() < 1e-12;
 
         // Handle degenerate cases
         if alpha.abs() < 1e-14 {
@@ -351,10 +357,10 @@ impl SABRModel {
         }
 
         // ATM volatility formula with numerical protection
-        let vol = if beta == 0.0 {
+        let vol = if beta_is_zero {
             // Normal SABR: vol = alpha * (1 + T * (2-3*rho²)/24 * nu²)
             alpha * (1.0 + time_to_expiry * (2.0 - 3.0 * rho.powi(2)) / 24.0 * nu.powi(2))
-        } else if beta == 1.0 {
+        } else if beta_is_one {
             // Lognormal SABR: vol = alpha/F * (1 + T * (alpha²/(24*F²) + rho*nu*alpha/(4*F) + (2-3*rho²)*nu²/24))
             let alpha_term = alpha.powi(2) / (24.0 * forward.powi(2));
             let rho_term = 0.25 * rho * nu * alpha / forward;
@@ -369,7 +375,7 @@ impl SABRModel {
                 forward.powf(beta)
             };
 
-            let alpha_term = if beta == 0.5 {
+            let alpha_term = if beta_is_half {
                 // Special handling for beta = 0.5 (sqrt case)
                 alpha.powi(2) / (24.0 * forward)
             } else {

@@ -410,7 +410,7 @@ impl<'a> TsiveriotisZhangEngine<'a> {
 
                         if final_total > val_if_called {
                             final_total = val_if_called;
-                            if final_total == conversion_val {
+                            if (final_total - conversion_val).abs() < 1e-12 {
                                 final_cash = 0.0;
                             } else {
                                 final_cash = final_total; // Redeemed in cash

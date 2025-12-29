@@ -5,7 +5,7 @@ use crate::instruments::PricingOverrides;
 use crate::instruments::{ExerciseStyle, SettlementType};
 use finstack_core::dates::{BusinessDayConvention, Date, DayCount, StubKind, Tenor};
 use finstack_core::money::Money;
-use finstack_core::types::{CurveId, InstrumentId};
+use finstack_core::types::{CurveId, InstrumentId, Rate};
 
 use super::parameters::InterestRateOptionParams;
 
@@ -126,6 +126,34 @@ impl InterestRateOption {
         )
     }
 
+    /// Create a cap instrument using a typed strike rate.
+    #[allow(clippy::too_many_arguments)]
+    pub fn new_cap_rate(
+        id: impl Into<InstrumentId>,
+        notional: Money,
+        strike_rate: Rate,
+        start_date: Date,
+        end_date: Date,
+        frequency: Tenor,
+        day_count: DayCount,
+        discount_curve_id: impl Into<CurveId>,
+        forward_id: impl Into<CurveId>,
+        vol_surface_id: impl Into<CurveId>,
+    ) -> Self {
+        Self::new_cap(
+            id,
+            notional,
+            strike_rate.as_decimal(),
+            start_date,
+            end_date,
+            frequency,
+            day_count,
+            discount_curve_id,
+            forward_id,
+            vol_surface_id,
+        )
+    }
+
     /// Create a floor instrument using parameter structs
     #[allow(clippy::too_many_arguments)]
     pub fn new_floor(
@@ -149,6 +177,34 @@ impl InterestRateOption {
             end_date,
             discount_curve_id.into(),
             forward_id.into(),
+            vol_surface_id,
+        )
+    }
+
+    /// Create a floor instrument using a typed strike rate.
+    #[allow(clippy::too_many_arguments)]
+    pub fn new_floor_rate(
+        id: impl Into<InstrumentId>,
+        notional: Money,
+        strike_rate: Rate,
+        start_date: Date,
+        end_date: Date,
+        frequency: Tenor,
+        day_count: DayCount,
+        discount_curve_id: impl Into<CurveId>,
+        forward_id: impl Into<CurveId>,
+        vol_surface_id: impl Into<CurveId>,
+    ) -> Self {
+        Self::new_floor(
+            id,
+            notional,
+            strike_rate.as_decimal(),
+            start_date,
+            end_date,
+            frequency,
+            day_count,
+            discount_curve_id,
+            forward_id,
             vol_surface_id,
         )
     }

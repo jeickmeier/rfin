@@ -127,30 +127,71 @@ pub struct PeriodDataFrame {
 }
 
 impl PeriodDataFrame {
-    /// Create an empty DataFrame.
-    fn empty() -> Self {
+    /// Create a DataFrame with preallocated capacity.
+    pub fn with_capacity(capacity: usize) -> Self {
         Self {
-            start_dates: Vec::new(),
-            end_dates: Vec::new(),
-            pay_dates: Vec::new(),
-            reset_dates: Vec::new(),
-            cf_types: Vec::new(),
-            currencies: Vec::new(),
-            notionals: Vec::new(),
+            start_dates: Vec::with_capacity(capacity),
+            end_dates: Vec::with_capacity(capacity),
+            pay_dates: Vec::with_capacity(capacity),
+            reset_dates: Vec::with_capacity(capacity),
+            cf_types: Vec::with_capacity(capacity),
+            currencies: Vec::with_capacity(capacity),
+            notionals: Vec::with_capacity(capacity),
             undrawn_notionals: None,
-            yr_fraqs: Vec::new(),
-            accrual_factors: Vec::new(),
-            days: Vec::new(),
-            amounts: Vec::new(),
-            rates: Vec::new(),
-            discount_factors: Vec::new(),
+            yr_fraqs: Vec::with_capacity(capacity),
+            accrual_factors: Vec::with_capacity(capacity),
+            days: Vec::with_capacity(capacity),
+            amounts: Vec::with_capacity(capacity),
+            rates: Vec::with_capacity(capacity),
+            discount_factors: Vec::with_capacity(capacity),
             survival_probs: None,
-            pvs: Vec::new(),
+            pvs: Vec::with_capacity(capacity),
             unfunded_amounts: None,
             commitment_amounts: None,
             base_rates: None,
             spreads: None,
         }
+    }
+
+    /// Clear all columns while preserving allocations.
+    pub fn clear(&mut self) {
+        self.start_dates.clear();
+        self.end_dates.clear();
+        self.pay_dates.clear();
+        self.reset_dates.clear();
+        self.cf_types.clear();
+        self.currencies.clear();
+        self.notionals.clear();
+        if let Some(undrawn) = self.undrawn_notionals.as_mut() {
+            undrawn.clear();
+        }
+        self.yr_fraqs.clear();
+        self.accrual_factors.clear();
+        self.days.clear();
+        self.amounts.clear();
+        self.rates.clear();
+        self.discount_factors.clear();
+        if let Some(survival) = self.survival_probs.as_mut() {
+            survival.clear();
+        }
+        self.pvs.clear();
+        if let Some(unfunded) = self.unfunded_amounts.as_mut() {
+            unfunded.clear();
+        }
+        if let Some(commitment) = self.commitment_amounts.as_mut() {
+            commitment.clear();
+        }
+        if let Some(base_rates) = self.base_rates.as_mut() {
+            base_rates.clear();
+        }
+        if let Some(spreads) = self.spreads.as_mut() {
+            spreads.clear();
+        }
+    }
+
+    /// Create an empty DataFrame.
+    fn empty() -> Self {
+        Self::with_capacity(0)
     }
 }
 
@@ -223,6 +264,23 @@ impl CashFlowSchedule {
         discount_curve_id: &str,
         options: PeriodDataFrameOptions<'_>,
     ) -> finstack_core::Result<PeriodDataFrame> {
+        let mut out = PeriodDataFrame::with_capacity(self.flows.len());
+        self.to_period_dataframe_into(periods, market, discount_curve_id, options, &mut out)?;
+        Ok(out)
+    }
+
+    /// Period-aligned DataFrame-like export into an existing buffer.
+    ///
+    /// This reuses allocations in `out` when possible and preserves the
+    /// input ordering of cashflows.
+    pub fn to_period_dataframe_into(
+        &self,
+        periods: &[Period],
+        market: &MarketContext,
+        discount_curve_id: &str,
+        options: PeriodDataFrameOptions<'_>,
+        out: &mut PeriodDataFrame,
+    ) -> finstack_core::Result<()> {
         let dc = options.day_count.unwrap_or(self.day_count);
 
         let disc_arc = market.get_discount(discount_curve_id)?;
@@ -244,36 +302,71 @@ impl CashFlowSchedule {
 
         // Prefer explicit facility_limit; fallback to schedule meta (e.g., RCF commitment)
         let facility_limit = options.facility_limit.or(self.meta.facility_limit);
+        let capacity = self.flows.len();
+        let include_floating = options.include_floating_decomposition;
+        let has_facility = facility_limit.is_some();
 
-        // Columns
-        let mut start_dates: Vec<Date> = Vec::new();
-        let mut end_dates: Vec<Date> = Vec::new();
-        let mut pay_dates: Vec<Date> = Vec::new();
-        let mut reset_dates: Vec<Option<Date>> = Vec::new();
-        let mut cf_types: Vec<CFKind> = Vec::new();
-        let mut currencies: Vec<Currency> = Vec::new();
-        let mut notionals: Vec<Option<f64>> = Vec::new();
-        let mut undrawn_notionals: Vec<Option<f64>> = Vec::new();
-        let mut yr_fraqs: Vec<f64> = Vec::new();
-        let mut accrual_factors: Vec<f64> = Vec::new();
-        let mut days: Vec<i64> = Vec::new();
-        let mut amounts: Vec<f64> = Vec::new();
-        let mut rates: Vec<f64> = Vec::new();
-        let mut discount_factors: Vec<f64> = Vec::new();
-        let mut survival_probs: Option<Vec<Option<f64>>> =
-            if has_hazard { Some(Vec::new()) } else { None };
-        let mut pvs: Vec<f64> = Vec::new();
-        let mut unfunded_amounts: Option<Vec<Option<f64>>> =
-            facility_limit.as_ref().map(|_| Vec::new());
-        let mut commitment_amounts: Option<Vec<Option<f64>>> =
-            facility_limit.as_ref().map(|_| Vec::new());
-        let mut base_rates: Option<Vec<Option<f64>>> = if options.include_floating_decomposition {
-            Some(Vec::new())
+        out.clear();
+        out.start_dates.reserve(capacity);
+        out.end_dates.reserve(capacity);
+        out.pay_dates.reserve(capacity);
+        out.reset_dates.reserve(capacity);
+        out.cf_types.reserve(capacity);
+        out.currencies.reserve(capacity);
+        out.notionals.reserve(capacity);
+        out.yr_fraqs.reserve(capacity);
+        out.accrual_factors.reserve(capacity);
+        out.days.reserve(capacity);
+        out.amounts.reserve(capacity);
+        out.rates.reserve(capacity);
+        out.discount_factors.reserve(capacity);
+        out.pvs.reserve(capacity);
+
+        out.undrawn_notionals = if has_facility {
+            let mut vec = out.undrawn_notionals.take().unwrap_or_default();
+            vec.clear();
+            vec.reserve(capacity);
+            Some(vec)
         } else {
             None
         };
-        let mut spreads: Option<Vec<Option<f64>>> = if options.include_floating_decomposition {
-            Some(Vec::new())
+        out.survival_probs = if has_hazard {
+            let mut vec = out.survival_probs.take().unwrap_or_default();
+            vec.clear();
+            vec.reserve(capacity);
+            Some(vec)
+        } else {
+            None
+        };
+        out.unfunded_amounts = if has_facility {
+            let mut vec = out.unfunded_amounts.take().unwrap_or_default();
+            vec.clear();
+            vec.reserve(capacity);
+            Some(vec)
+        } else {
+            None
+        };
+        out.commitment_amounts = if has_facility {
+            let mut vec = out.commitment_amounts.take().unwrap_or_default();
+            vec.clear();
+            vec.reserve(capacity);
+            Some(vec)
+        } else {
+            None
+        };
+        out.base_rates = if include_floating {
+            let mut vec = out.base_rates.take().unwrap_or_default();
+            vec.clear();
+            vec.reserve(capacity);
+            Some(vec)
+        } else {
+            None
+        };
+        out.spreads = if include_floating {
+            let mut vec = out.spreads.take().unwrap_or_default();
+            vec.clear();
+            vec.reserve(capacity);
+            Some(vec)
         } else {
             None
         };
@@ -318,15 +411,15 @@ impl CashFlowSchedule {
             }
 
             // Basic columns
-            start_dates.push(period.start);
-            end_dates.push(period.end);
-            pay_dates.push(cf.date);
-            reset_dates.push(cf.reset_date);
-            cf_types.push(cf.kind);
-            currencies.push(cf.amount.currency());
-            amounts.push(cf.amount.amount());
-            accrual_factors.push(cf.accrual_factor);
-            rates.push(cf.rate.unwrap_or(0.0));
+            out.start_dates.push(period.start);
+            out.end_dates.push(period.end);
+            out.pay_dates.push(cf.date);
+            out.reset_dates.push(cf.reset_date);
+            out.cf_types.push(cf.kind);
+            out.currencies.push(cf.amount.currency());
+            out.amounts.push(cf.amount.amount());
+            out.accrual_factors.push(cf.accrual_factor);
+            out.rates.push(cf.rate.unwrap_or(0.0));
 
             // Notional balances for interest/fee-like rows
             let (notional_drawn, notional_undrawn) = if matches!(
@@ -354,15 +447,17 @@ impl CashFlowSchedule {
             } else {
                 (None, None)
             };
-            notionals.push(notional_drawn);
-            undrawn_notionals.push(notional_undrawn);
+            out.notionals.push(notional_drawn);
+            if let Some(ref mut undrawn) = out.undrawn_notionals {
+                undrawn.push(notional_undrawn);
+            }
 
             // YrFraq and Days
             let yr_fraq = dc
                 .year_fraction(period.start, cf.date, DayCountCtx::default())
                 .unwrap_or(0.0);
-            yr_fraqs.push(yr_fraq);
-            days.push((cf.date - period.start).whole_days());
+            out.yr_fraqs.push(yr_fraq);
+            out.days.push((cf.date - period.start).whole_days());
 
             // Discount factor using configured discounting basis
             let dc_for_discounting = options.discount_day_count.unwrap_or(dc);
@@ -378,15 +473,15 @@ impl CashFlowSchedule {
                     .unwrap_or(0.0)
             };
             let df = disc_arc.df(t);
-            discount_factors.push(df);
+            out.discount_factors.push(df);
 
             // Survival probability
-            if let (Some(h), Some(spv)) = (hazard_arc_opt.as_ref(), survival_probs.as_mut()) {
+            if let (Some(h), Some(spv)) = (hazard_arc_opt.as_ref(), out.survival_probs.as_mut()) {
                 spv.push(Some(h.sp(t)));
             }
 
             // PV
-            let sp_mult = if let Some(ref spv) = survival_probs {
+            let sp_mult = if let Some(ref spv) = out.survival_probs {
                 spv.last().copied().flatten().unwrap_or(1.0)
             } else {
                 1.0
@@ -396,11 +491,11 @@ impl CashFlowSchedule {
             } else {
                 0.0
             };
-            pvs.push(pv_amt);
+            out.pvs.push(pv_amt);
 
             // Unfunded and commitment amounts
             if let Some(limit) = facility_limit.as_ref() {
-                if let Some(ref mut unfunded_vec) = unfunded_amounts {
+                if let Some(ref mut unfunded_vec) = out.unfunded_amounts {
                     if limit.currency() == cf.amount.currency() {
                         let val = (limit.amount() - outstanding_pre.amount()).max(0.0);
                         unfunded_vec.push(Some(val));
@@ -408,7 +503,7 @@ impl CashFlowSchedule {
                         unfunded_vec.push(None);
                     }
                 }
-                if let Some(ref mut commit_vec) = commitment_amounts {
+                if let Some(ref mut commit_vec) = out.commitment_amounts {
                     if limit.currency() == cf.amount.currency() {
                         commit_vec.push(Some(limit.amount()));
                     } else {
@@ -447,36 +542,15 @@ impl CashFlowSchedule {
                     }
                 }
             }
-            if let Some(ref mut br) = base_rates {
+            if let Some(ref mut br) = out.base_rates {
                 br.push(base_rate_opt);
             }
-            if let Some(ref mut sp) = spreads {
+            if let Some(ref mut sp) = out.spreads {
                 sp.push(spread_opt);
             }
         }
 
-        Ok(PeriodDataFrame {
-            start_dates,
-            end_dates,
-            pay_dates,
-            reset_dates,
-            cf_types,
-            currencies,
-            notionals,
-            undrawn_notionals: Some(undrawn_notionals),
-            yr_fraqs,
-            accrual_factors,
-            days,
-            amounts,
-            rates,
-            discount_factors,
-            survival_probs,
-            pvs,
-            unfunded_amounts,
-            commitment_amounts,
-            base_rates,
-            spreads,
-        })
+        Ok(())
     }
 }
 
@@ -657,5 +731,44 @@ mod tests {
             initial_amount,
             coupon_notional
         );
+    }
+
+    #[test]
+    fn dataframe_omits_undrawn_notionals_without_facility_limit() {
+        let base = d(2025, 4, 1);
+        let flows = vec![CashFlow {
+            date: d(2025, 5, 15),
+            reset_date: None,
+            amount: Money::new(200.0, Currency::USD),
+            kind: CFKind::Fixed,
+            accrual_factor: 0.25,
+            rate: None,
+        }];
+        let schedule = CashFlowSchedule {
+            flows,
+            notional: Notional::par(1_000.0, Currency::USD),
+            day_count: DayCount::Act365F,
+            meta: CashFlowMeta::default(),
+        };
+
+        let curve = DiscountCurve::builder("USD-OIS")
+            .base_date(base)
+            .knots([(0.0, 1.0), (30.0, 0.95)])
+            .set_interp(InterpStyle::Linear)
+            .build()
+            .expect("DiscountCurve builder should succeed with valid test data");
+        let market = MarketContext::new().insert_discount(curve);
+
+        let options = PeriodDataFrameOptions {
+            as_of: Some(base),
+            day_count: Some(DayCount::Act365F),
+            ..Default::default()
+        };
+
+        let df = schedule
+            .to_period_dataframe(&quarters_2025(), &market, "USD-OIS", options)
+            .expect("PeriodDataFrame creation should succeed in test");
+
+        assert!(df.undrawn_notionals.is_none());
     }
 }
