@@ -12,7 +12,7 @@ use finstack_core::dates::{
 };
 use finstack_core::market_data::context::MarketContext;
 use finstack_core::money::Money;
-use finstack_core::types::{CurveId, InstrumentId};
+use finstack_core::types::{CurveId, InstrumentId, Rate};
 use time::macros::date;
 
 /// Forward Rate Agreement instrument.
@@ -215,6 +215,20 @@ impl ForwardRateAgreement {
         };
         let signed_pv = if self.pay_fixed { -pv } else { pv };
         Ok(signed_pv)
+    }
+}
+
+impl ForwardRateAgreementBuilder {
+    /// Set the fixed rate using a typed rate.
+    pub fn fixed_rate_rate(mut self, rate: Rate) -> Self {
+        self.fixed_rate = Some(rate.as_decimal());
+        self
+    }
+
+    /// Set the observed fixing using a typed rate.
+    pub fn observed_fixing_rate(mut self, rate: Rate) -> Self {
+        self.observed_fixing = Some(rate.as_decimal());
+        self
     }
 }
 

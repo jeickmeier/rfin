@@ -20,7 +20,7 @@ use finstack_core::dates::{
 };
 use finstack_core::market_data::context::MarketContext;
 use finstack_core::money::Money;
-use finstack_core::types::{CurveId, InstrumentId};
+use finstack_core::types::{CurveId, InstrumentId, Rate};
 use time::macros::date;
 
 use crate::cashflow::traits::{CashflowProvider, DatedFlows};
@@ -149,6 +149,14 @@ impl Deposit {
             as_of,
             &self.discount_curve_id,
         )
+    }
+}
+
+impl DepositBuilder {
+    /// Set the quoted rate using a typed rate.
+    pub fn quote_rate_rate(mut self, rate: Rate) -> Self {
+        self.quote_rate = Some(rate.as_decimal());
+        self
     }
 }
 

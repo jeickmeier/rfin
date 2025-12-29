@@ -24,7 +24,7 @@ use finstack_core::dates::{Date, DateExt, DayCount, DayCountCtx, Schedule};
 use finstack_core::market_data::term_structures::discount_curve::DiscountCurve;
 use finstack_core::market_data::term_structures::forward_curve::ForwardCurve;
 use finstack_core::math::KahanAccumulator;
-use finstack_core::types::Rate;
+use finstack_core::types::{Bps, Rate};
 use finstack_core::Result;
 
 /// Minimum threshold for discount factor values to avoid numerical instability.
@@ -222,10 +222,33 @@ impl FloatingLegParams {
         }
     }
 
+    /// Create params with spread specified in basis points.
+    pub fn with_spread_bps(spread_bp: Bps) -> Self {
+        Self {
+            rate_params: FloatingRateParams {
+                spread_bp: spread_bp.as_bps() as f64,
+                ..Default::default()
+            },
+            ..Default::default()
+        }
+    }
+
     /// Create params with spread and payment delay.
     pub fn with_spread_and_delay(spread_bp: f64, payment_delay_days: i32) -> Self {
         Self {
             rate_params: FloatingRateParams::with_spread(spread_bp),
+            payment_delay_days,
+            ..Default::default()
+        }
+    }
+
+    /// Create params with spread in basis points and payment delay.
+    pub fn with_spread_and_delay_bps(spread_bp: Bps, payment_delay_days: i32) -> Self {
+        Self {
+            rate_params: FloatingRateParams {
+                spread_bp: spread_bp.as_bps() as f64,
+                ..Default::default()
+            },
             payment_delay_days,
             ..Default::default()
         }
@@ -262,6 +285,34 @@ impl FloatingLegParams {
                 index_cap_bp,
                 all_in_floor_bp,
                 all_in_cap_bp,
+            },
+            payment_delay_days,
+            calendar_id,
+        }
+    }
+
+    /// Create params with spread and floor/cap values specified in basis points.
+    #[allow(clippy::too_many_arguments)]
+    pub fn full_bps(
+        spread_bp: Bps,
+        gearing: f64,
+        gearing_includes_spread: bool,
+        index_floor_bp: Option<Bps>,
+        index_cap_bp: Option<Bps>,
+        all_in_floor_bp: Option<Bps>,
+        all_in_cap_bp: Option<Bps>,
+        payment_delay_days: i32,
+        calendar_id: Option<String>,
+    ) -> Self {
+        Self {
+            rate_params: FloatingRateParams {
+                spread_bp: spread_bp.as_bps() as f64,
+                gearing,
+                gearing_includes_spread,
+                index_floor_bp: index_floor_bp.map(|v| v.as_bps() as f64),
+                index_cap_bp: index_cap_bp.map(|v| v.as_bps() as f64),
+                all_in_floor_bp: all_in_floor_bp.map(|v| v.as_bps() as f64),
+                all_in_cap_bp: all_in_cap_bp.map(|v| v.as_bps() as f64),
             },
             payment_delay_days,
             calendar_id,

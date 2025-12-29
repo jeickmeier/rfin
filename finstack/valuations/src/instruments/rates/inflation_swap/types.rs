@@ -7,7 +7,7 @@ use finstack_core::dates::{
 use finstack_core::market_data::context::MarketContext;
 use finstack_core::market_data::scalars::inflation_index::InflationLag;
 use finstack_core::money::Money;
-use finstack_core::types::{CurveId, InstrumentId};
+use finstack_core::types::{CurveId, InstrumentId, Rate};
 
 /// Direction from the perspective of paying fixed real vs receiving inflation
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -400,6 +400,14 @@ impl InflationSwap {
     }
 }
 
+impl InflationSwapBuilder {
+    /// Set the fixed rate using a typed rate.
+    pub fn fixed_rate_rate(mut self, rate: Rate) -> Self {
+        self.fixed_rate = Some(rate.as_decimal());
+        self
+    }
+}
+
 impl crate::instruments::common::traits::Instrument for InflationSwap {
     fn id(&self) -> &str {
         self.id.as_str()
@@ -652,6 +660,14 @@ impl YoYInflationSwap {
     pub fn npv(&self, curves: &MarketContext, as_of: Date) -> finstack_core::Result<Money> {
         let pv = self.npv_raw(curves, as_of)?;
         Ok(Money::new(pv, self.notional.currency()))
+    }
+}
+
+impl YoYInflationSwapBuilder {
+    /// Set the fixed rate using a typed rate.
+    pub fn fixed_rate_rate(mut self, rate: Rate) -> Self {
+        self.fixed_rate = Some(rate.as_decimal());
+        self
     }
 }
 

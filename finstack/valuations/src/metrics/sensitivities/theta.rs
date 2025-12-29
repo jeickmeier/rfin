@@ -26,7 +26,7 @@
 //!     expiry,
 //!     finstack_core::money::Money::new(100_000.0, finstack_core::currency::Currency::USD),
 //!     100.0,
-//! );
+//! )?;
 //!
 //! // Setup market (abbreviated)
 //! # let market = MarketContext::new();
@@ -64,7 +64,7 @@
 //!     create_date(2024, Month::July, 1)?,
 //!     finstack_core::money::Money::new(100_000.0, finstack_core::currency::Currency::USD),
 //!     100.0,
-//! );
+//! )?;
 //!
 //! // Setup market
 //! # let market = MarketContext::new();
@@ -145,7 +145,7 @@
 //!     expiry,
 //!     finstack_core::money::Money::new(100_000.0, finstack_core::currency::Currency::USD),
 //!     100.0,
-//! );
+//! )?;
 //!
 //! // Setup market
 //! # let market = MarketContext::new();

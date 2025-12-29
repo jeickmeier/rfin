@@ -3,6 +3,7 @@
 use crate::instruments::cds::{CDSConvention, PayReceive};
 use crate::instruments::common::parameters::CreditParams;
 use finstack_core::money::Money;
+use finstack_core::types::Bps;
 
 /// Constituent definition for CDS Index parameters (credit + weight).
 #[derive(Clone, Debug)]
@@ -50,9 +51,31 @@ impl CDSIndexParams {
         }
     }
 
+    /// Create new CDS index parameters using typed basis points.
+    pub fn new_bps(
+        index_name: impl Into<String>,
+        series: u16,
+        version: u16,
+        fixed_coupon_bp: Bps,
+    ) -> Self {
+        Self {
+            index_name: index_name.into(),
+            series,
+            version,
+            fixed_coupon_bp: fixed_coupon_bp.as_bps() as f64,
+            constituents: None,
+            index_factor: None,
+        }
+    }
+
     /// Create CDX North America Investment Grade parameters
     pub fn cdx_na_ig(series: u16, version: u16, fixed_coupon_bp: f64) -> Self {
         Self::new("CDX.NA.IG", series, version, fixed_coupon_bp)
+    }
+
+    /// Create CDX North America Investment Grade parameters using typed basis points.
+    pub fn cdx_na_ig_bps(series: u16, version: u16, fixed_coupon_bp: Bps) -> Self {
+        Self::new_bps("CDX.NA.IG", series, version, fixed_coupon_bp)
     }
 
     /// Create CDX North America High Yield parameters
@@ -60,9 +83,19 @@ impl CDSIndexParams {
         Self::new("CDX.NA.HY", series, version, fixed_coupon_bp)
     }
 
+    /// Create CDX North America High Yield parameters using typed basis points.
+    pub fn cdx_na_hy_bps(series: u16, version: u16, fixed_coupon_bp: Bps) -> Self {
+        Self::new_bps("CDX.NA.HY", series, version, fixed_coupon_bp)
+    }
+
     /// Create iTraxx Europe parameters
     pub fn itraxx_europe(series: u16, version: u16, fixed_coupon_bp: f64) -> Self {
         Self::new("iTraxx Europe", series, version, fixed_coupon_bp)
+    }
+
+    /// Create iTraxx Europe parameters using typed basis points.
+    pub fn itraxx_europe_bps(series: u16, version: u16, fixed_coupon_bp: Bps) -> Self {
+        Self::new_bps("iTraxx Europe", series, version, fixed_coupon_bp)
     }
 
     /// Attach explicit constituents to these params.

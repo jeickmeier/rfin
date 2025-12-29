@@ -1,5 +1,7 @@
 //! Recovery model specifications for credit instruments.
 
+use finstack_core::types::Percentage;
+
 /// Recovery model specification.
 #[derive(Clone, Debug, PartialEq)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
@@ -14,5 +16,13 @@ impl RecoveryModelSpec {
     /// Standard recovery with lag.
     pub fn with_lag(rate: f64, recovery_lag: u32) -> Self {
         Self { rate, recovery_lag }
+    }
+
+    /// Standard recovery with lag using a typed percentage.
+    pub fn with_lag_pct(rate: Percentage, recovery_lag: u32) -> Self {
+        Self {
+            rate: rate.as_decimal(),
+            recovery_lag,
+        }
     }
 }

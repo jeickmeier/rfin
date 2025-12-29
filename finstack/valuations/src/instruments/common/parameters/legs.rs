@@ -1,7 +1,7 @@
 //! Common leg specification types for interest rate and credit instruments.
 
 use finstack_core::dates::{BusinessDayConvention, Date, DayCount, StubKind, Tenor};
-use finstack_core::types::CurveId;
+use finstack_core::types::{CurveId, Percentage};
 use rust_decimal::Decimal;
 
 #[cfg(feature = "serde")]
@@ -233,6 +233,29 @@ impl ProtectionLegSpec {
         Ok(Self {
             credit_curve_id: credit_curve_id.into(),
             recovery_rate,
+            settlement_delay,
+        })
+    }
+
+    /// Create a new protection leg specification using typed percentage recovery.
+    ///
+    /// # Arguments
+    /// * `credit_curve_id` - Identifier for the hazard/credit curve
+    /// * `recovery_rate` - Recovery rate as a percentage (e.g., 40.0 = 40%)
+    /// * `settlement_delay` - Settlement delay in business days
+    ///
+    /// # Errors
+    /// Returns an error if `recovery_rate` is outside [0.0, 1.0] in decimal terms.
+    pub fn new_pct(
+        credit_curve_id: impl Into<CurveId>,
+        recovery_rate: Percentage,
+        settlement_delay: u16,
+    ) -> finstack_core::Result<Self> {
+        let recovery_rate_decimal = recovery_rate.as_decimal();
+        Self::validate_recovery_rate(recovery_rate_decimal)?;
+        Ok(Self {
+            credit_curve_id: credit_curve_id.into(),
+            recovery_rate: recovery_rate_decimal,
             settlement_delay,
         })
     }

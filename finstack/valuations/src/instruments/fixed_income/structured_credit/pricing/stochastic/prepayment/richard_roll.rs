@@ -35,6 +35,7 @@
 
 use super::traits::StochasticPrepayment;
 use crate::instruments::structured_credit::utils::rates::cpr_to_smm;
+use finstack_core::types::{Percentage, Rate};
 
 /// Richard-Roll prepayment model for RMBS.
 ///
@@ -84,6 +85,26 @@ impl RichardRollPrepay {
         }
     }
 
+    /// Create a Richard-Roll prepayment model using typed rates.
+    pub fn new_typed(
+        base_cpr: Percentage,
+        refi_sensitivity: f64,
+        pool_coupon: Rate,
+        burnout_rate: Percentage,
+    ) -> Self {
+        Self {
+            base_cpr: base_cpr.as_decimal().clamp(0.0, 1.0),
+            refi_sensitivity: refi_sensitivity.clamp(0.0, 10.0),
+            refi_slope: 20.0,
+            pool_coupon: pool_coupon.as_decimal(),
+            burnout_rate: burnout_rate.as_decimal().clamp(0.0, 1.0),
+            seasonality_amplitude: 0.0,
+            factor_loading: 0.4,
+            cpr_volatility: 0.20,
+            ramp_months: 30,
+        }
+    }
+
     /// Create with full customization.
     #[allow(clippy::too_many_arguments)]
     pub fn with_all_params(
@@ -110,6 +131,32 @@ impl RichardRollPrepay {
         }
     }
 
+    /// Create with full customization using typed rates.
+    #[allow(clippy::too_many_arguments)]
+    pub fn with_all_params_typed(
+        base_cpr: Percentage,
+        refi_sensitivity: f64,
+        refi_slope: f64,
+        pool_coupon: Rate,
+        burnout_rate: Percentage,
+        seasonality_amplitude: Percentage,
+        factor_loading: f64,
+        cpr_volatility: Percentage,
+        ramp_months: u32,
+    ) -> Self {
+        Self {
+            base_cpr: base_cpr.as_decimal().clamp(0.0, 1.0),
+            refi_sensitivity: refi_sensitivity.clamp(0.0, 10.0),
+            refi_slope: refi_slope.clamp(1.0, 100.0),
+            pool_coupon: pool_coupon.as_decimal(),
+            burnout_rate: burnout_rate.as_decimal().clamp(0.0, 1.0),
+            seasonality_amplitude: seasonality_amplitude.as_decimal().clamp(0.0, 0.5),
+            factor_loading: factor_loading.clamp(-1.0, 1.0),
+            cpr_volatility: cpr_volatility.as_decimal().clamp(0.0, 1.0),
+            ramp_months: ramp_months.max(1),
+        }
+    }
+
     /// RMBS agency standard calibration.
     ///
     /// Typical parameters for conforming agency MBS:
@@ -120,9 +167,39 @@ impl RichardRollPrepay {
         Self::new(0.06, 2.0, pool_coupon, 0.10)
     }
 
+    /// RMBS agency standard calibration using a typed pool coupon.
+    pub fn agency_standard_rate(pool_coupon: Rate) -> Self {
+        Self {
+            base_cpr: 0.06,
+            refi_sensitivity: 2.0,
+            refi_slope: 20.0,
+            pool_coupon: pool_coupon.as_decimal(),
+            burnout_rate: 0.10,
+            seasonality_amplitude: 0.0,
+            factor_loading: 0.4,
+            cpr_volatility: 0.20,
+            ramp_months: 30,
+        }
+    }
+
     /// RMBS non-agency calibration (higher voluntary prepay).
     pub fn non_agency_standard(pool_coupon: f64) -> Self {
         Self::new(0.08, 2.5, pool_coupon, 0.15)
+    }
+
+    /// RMBS non-agency calibration using a typed pool coupon.
+    pub fn non_agency_standard_rate(pool_coupon: Rate) -> Self {
+        Self {
+            base_cpr: 0.08,
+            refi_sensitivity: 2.5,
+            refi_slope: 20.0,
+            pool_coupon: pool_coupon.as_decimal(),
+            burnout_rate: 0.15,
+            seasonality_amplitude: 0.0,
+            factor_loading: 0.4,
+            cpr_volatility: 0.20,
+            ramp_months: 30,
+        }
     }
 
     /// Get the base CPR.

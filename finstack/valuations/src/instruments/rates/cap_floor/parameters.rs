@@ -55,12 +55,16 @@ impl InterestRateOptionParams {
         frequency: Tenor,
         day_count: DayCount,
     ) -> Self {
-        Self::cap(
+        Self {
+            rate_option_type: RateOptionType::Cap,
             notional,
-            strike_rate.as_decimal(),
+            strike_rate: strike_rate.as_decimal(),
             frequency,
             day_count,
-        )
+            stub_kind: StubKind::None,
+            bdc: BusinessDayConvention::Following,
+            calendar_id: None,
+        }
     }
 
     /// Create floor parameters
@@ -84,11 +88,15 @@ impl InterestRateOptionParams {
         frequency: Tenor,
         day_count: DayCount,
     ) -> Self {
-        Self::floor(
+        Self {
+            rate_option_type: RateOptionType::Floor,
             notional,
-            strike_rate.as_decimal(),
+            strike_rate: strike_rate.as_decimal(),
             frequency,
             day_count,
-        )
+            stub_kind: StubKind::None,
+            bdc: BusinessDayConvention::Following,
+            calendar_id: None,
+        }
     }
 }

@@ -32,6 +32,7 @@
 //! use finstack_core::dates::{Date, Tenor, DayCount, BusinessDayConvention, StubKind};
 //! use finstack_core::money::Money;
 //! use finstack_valuations::cashflow::builder::{CashFlowSchedule, ScheduleParams, FixedCouponSpec, CouponType};
+//! use rust_decimal_macros::dec;
 //! use time::Month;
 //!
 //! let issue = Date::from_calendar_date(2025, Month::January, 15).expect("valid date");
@@ -39,7 +40,7 @@
 //!
 //! let fixed_spec = FixedCouponSpec {
 //!     coupon_type: CouponType::Cash,
-//!     rate: 0.05,
+//!     rate: dec!(0.05),
 //!     freq: Tenor::semi_annual(),
 //!     dc: DayCount::Act365F,
 //!     bdc: BusinessDayConvention::Following,

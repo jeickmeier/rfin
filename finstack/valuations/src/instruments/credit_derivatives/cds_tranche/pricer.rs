@@ -57,6 +57,7 @@ use finstack_core::market_data::{context::MarketContext, term_structures::Credit
 use finstack_core::math::binomial_probability;
 use finstack_core::math::{norm_cdf, norm_pdf, standard_normal_inv_cdf, GaussHermiteQuadrature};
 use finstack_core::money::Money;
+use finstack_core::types::Percentage;
 use finstack_core::Result;
 
 // Calendar imports for business day settlement
@@ -336,6 +337,13 @@ impl CDSTranchePricerConfig {
         self
     }
 
+    /// Create configuration with Random Factor Loading copula using typed volatility.
+    pub fn with_rfl_copula_pct(mut self, loading_vol: Percentage) -> Self {
+        self.copula_spec =
+            super::copula::CopulaSpec::random_factor_loading(loading_vol.as_decimal());
+        self
+    }
+
     /// Create configuration with multi-factor copula.
     ///
     /// # Arguments
@@ -367,9 +375,30 @@ impl CDSTranchePricerConfig {
         self
     }
 
+    /// Enable stochastic recovery with custom parameters using typed percentages.
+    pub fn with_custom_stochastic_recovery_pct(
+        mut self,
+        mean: Percentage,
+        vol: Percentage,
+        corr: f64,
+    ) -> Self {
+        self.recovery_spec = Some(super::recovery::RecoverySpec::market_correlated(
+            mean.as_decimal(),
+            vol.as_decimal(),
+            corr,
+        ));
+        self
+    }
+
     /// Set constant recovery rate (overriding index recovery).
     pub fn with_constant_recovery(mut self, rate: f64) -> Self {
         self.recovery_spec = Some(super::recovery::RecoverySpec::constant(rate));
+        self
+    }
+
+    /// Set constant recovery rate using a typed percentage.
+    pub fn with_constant_recovery_pct(mut self, rate: Percentage) -> Self {
+        self.recovery_spec = Some(super::recovery::RecoverySpec::constant(rate.as_decimal()));
         self
     }
 

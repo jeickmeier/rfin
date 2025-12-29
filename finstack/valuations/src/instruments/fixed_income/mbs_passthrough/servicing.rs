@@ -9,6 +9,7 @@
 //! Net coupon = WAC - servicing_fee - guarantee_fee
 
 use finstack_core::dates::{BusinessDayConvention, DayCount, StubKind, Tenor};
+use finstack_core::types::{Bps, Rate};
 use rust_decimal::Decimal;
 
 /// Fee specification for MBS servicing or guarantee fees.
@@ -47,6 +48,16 @@ impl MbsFeeSpec {
         }
     }
 
+    /// Create a servicing fee specification using a typed basis-point rate.
+    pub fn servicing_bps(annual_rate_bps: Bps) -> Self {
+        Self {
+            name: "servicing".to_string(),
+            annual_rate_bps: annual_rate_bps.as_bps() as f64,
+            day_count: DayCount::Thirty360,
+            frequency: Tenor::monthly(),
+        }
+    }
+
     /// Create a guarantee fee (g-fee) specification.
     ///
     /// # Arguments
@@ -60,6 +71,16 @@ impl MbsFeeSpec {
         Self {
             name: "guarantee_fee".to_string(),
             annual_rate_bps,
+            day_count: DayCount::Thirty360,
+            frequency: Tenor::monthly(),
+        }
+    }
+
+    /// Create a guarantee fee specification using a typed basis-point rate.
+    pub fn guarantee_bps(annual_rate_bps: Bps) -> Self {
+        Self {
+            name: "guarantee_fee".to_string(),
+            annual_rate_bps: annual_rate_bps.as_bps() as f64,
             day_count: DayCount::Thirty360,
             frequency: Tenor::monthly(),
         }
@@ -126,6 +147,13 @@ pub fn net_coupon(gross_wac: f64, servicing_rate: f64, guarantee_rate: f64) -> f
     gross_wac - servicing_rate - guarantee_rate
 }
 
+/// Calculate net coupon using typed rate inputs.
+pub fn net_coupon_rate(gross_wac: Rate, servicing_rate: Rate, guarantee_rate: Rate) -> Rate {
+    Rate::from_decimal(
+        gross_wac.as_decimal() - servicing_rate.as_decimal() - guarantee_rate.as_decimal(),
+    )
+}
+
 /// Calculate gross WAC from net coupon and fees.
 ///
 /// # Arguments
@@ -139,6 +167,13 @@ pub fn net_coupon(gross_wac: f64, servicing_rate: f64, guarantee_rate: f64) -> f
 /// Gross weighted average coupon
 pub fn gross_wac(net_rate: f64, servicing_rate: f64, guarantee_rate: f64) -> f64 {
     net_rate + servicing_rate + guarantee_rate
+}
+
+/// Calculate gross WAC using typed rate inputs.
+pub fn gross_wac_rate(net_rate: Rate, servicing_rate: Rate, guarantee_rate: Rate) -> Rate {
+    Rate::from_decimal(
+        net_rate.as_decimal() + servicing_rate.as_decimal() + guarantee_rate.as_decimal(),
+    )
 }
 
 /// Standard agency fee rates by program.

@@ -2,6 +2,7 @@
 
 use finstack_core::dates::Date;
 use finstack_core::money::Money;
+use finstack_core::types::{Bps, Percentage};
 
 /// Policy for evaluating volatility surfaces outside their calibrated grid.
 ///
@@ -148,6 +149,12 @@ impl PricingOverrides {
         self
     }
 
+    /// Set implied volatility using a typed percentage.
+    pub fn with_implied_vol_pct(mut self, vol: Percentage) -> Self {
+        self.implied_volatility = Some(vol.as_decimal());
+        self
+    }
+
     /// Set volatility surface extrapolation policy.
     pub fn with_vol_surface_extrapolation(mut self, policy: VolSurfaceExtrapolation) -> Self {
         self.vol_surface_extrapolation = policy;
@@ -177,6 +184,12 @@ impl PricingOverrides {
         self
     }
 
+    /// Set quoted spread using a typed basis-point value.
+    pub fn with_spread_bps(mut self, spread_bp: Bps) -> Self {
+        self.quoted_spread_bp = Some(spread_bp.as_bps() as f64);
+        self
+    }
+
     /// Set upfront payment
     pub fn with_upfront(mut self, upfront: Money) -> Self {
         self.upfront_payment = Some(upfront);
@@ -186,6 +199,12 @@ impl PricingOverrides {
     /// Set custom YTM bump size (decimal). For 1 bp, pass 1e-4.
     pub fn with_ytm_bump_decimal(mut self, bump: f64) -> Self {
         self.ytm_bump_decimal = Some(bump);
+        self
+    }
+
+    /// Set custom YTM bump size using basis points.
+    pub fn with_ytm_bump_bps(mut self, bump: Bps) -> Self {
+        self.ytm_bump_decimal = Some(bump.as_decimal());
         self
     }
 
@@ -221,11 +240,23 @@ impl PricingOverrides {
         self
     }
 
+    /// Set custom spot bump size using a typed percentage.
+    pub fn with_spot_bump_pct(mut self, bump_pct: Percentage) -> Self {
+        self.spot_bump_pct = Some(bump_pct.as_decimal());
+        self
+    }
+
     /// Set custom volatility bump size (as absolute vol, e.g., 0.01 for 1% vol).
     ///
     /// Overrides both standard and adaptive calculations when set.
     pub fn with_vol_bump(mut self, bump_pct: f64) -> Self {
         self.vol_bump_pct = Some(bump_pct);
+        self
+    }
+
+    /// Set custom volatility bump size using a typed percentage.
+    pub fn with_vol_bump_pct(mut self, bump_pct: Percentage) -> Self {
+        self.vol_bump_pct = Some(bump_pct.as_decimal());
         self
     }
 
@@ -237,9 +268,21 @@ impl PricingOverrides {
         self
     }
 
+    /// Set custom rate bump size using a typed basis-point value.
+    pub fn with_rate_bump_bps(mut self, bump_bp: Bps) -> Self {
+        self.rate_bump_bp = Some(bump_bp.as_bps() as f64);
+        self
+    }
+
     /// Set custom credit spread bump size (in basis points, e.g., 1.0 for 1bp).
     pub fn with_credit_spread_bump(mut self, bump_bp: f64) -> Self {
         self.credit_spread_bump_bp = Some(bump_bp);
+        self
+    }
+
+    /// Set custom credit spread bump size using a typed basis-point value.
+    pub fn with_credit_spread_bump_bps(mut self, bump_bp: Bps) -> Self {
+        self.credit_spread_bump_bp = Some(bump_bp.as_bps() as f64);
         self
     }
 
@@ -252,6 +295,12 @@ impl PricingOverrides {
     /// Set volatility for tree-based pricing.
     pub fn with_tree_volatility(mut self, vol: f64) -> Self {
         self.tree_volatility = Some(vol);
+        self
+    }
+
+    /// Set volatility for tree-based pricing using a typed percentage.
+    pub fn with_tree_volatility_pct(mut self, vol: Percentage) -> Self {
+        self.tree_volatility = Some(vol.as_decimal());
         self
     }
 
@@ -288,6 +337,12 @@ impl PricingOverrides {
     /// ```
     pub fn with_spread_shock_bp(mut self, shock_bp: f64) -> Self {
         self.scenario_spread_shock_bp = Some(shock_bp);
+        self
+    }
+
+    /// Apply a scenario spread shock using a typed basis-point value.
+    pub fn with_spread_shock_bps(mut self, shock_bp: Bps) -> Self {
+        self.scenario_spread_shock_bp = Some(shock_bp.as_bps() as f64);
         self
     }
 

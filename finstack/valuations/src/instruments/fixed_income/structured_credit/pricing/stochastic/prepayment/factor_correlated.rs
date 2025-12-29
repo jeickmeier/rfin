@@ -26,6 +26,7 @@
 use super::traits::StochasticPrepayment;
 use crate::cashflow::builder::specs::{PrepaymentCurve, PrepaymentModelSpec};
 use crate::instruments::structured_credit::utils::rates::cpr_to_smm;
+use finstack_core::types::Percentage;
 
 /// Factor-correlated prepayment model.
 ///
@@ -53,6 +54,19 @@ impl FactorCorrelatedPrepay {
             base_spec,
             factor_loading: factor_loading.clamp(-1.0, 1.0),
             cpr_volatility: cpr_volatility.clamp(0.0, 1.0),
+        }
+    }
+
+    /// Create a factor-correlated prepayment model with typed volatility.
+    pub fn new_typed(
+        base_spec: PrepaymentModelSpec,
+        factor_loading: f64,
+        cpr_volatility: Percentage,
+    ) -> Self {
+        Self {
+            base_spec,
+            factor_loading: factor_loading.clamp(-1.0, 1.0),
+            cpr_volatility: cpr_volatility.as_decimal().clamp(0.0, 1.0),
         }
     }
 

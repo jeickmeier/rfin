@@ -1,6 +1,7 @@
 //! Repo margin specification types.
 
 use crate::margin::types::{EligibleCollateralSchedule, MarginTenor};
+use finstack_core::types::Percentage;
 
 /// Repo margin type.
 ///
@@ -185,6 +186,22 @@ impl RepoMarginSpec {
         }
     }
 
+    /// Create a standard mark-to-market margin spec using typed percentages.
+    #[must_use]
+    pub fn mark_to_market_pct(margin_ratio: Percentage, threshold: Percentage) -> Self {
+        Self {
+            margin_type: RepoMarginType::MarkToMarket,
+            margin_ratio: margin_ratio.as_decimal(),
+            margin_call_threshold: threshold.as_decimal(),
+            call_frequency: MarginTenor::Daily,
+            settlement_lag: 1,
+            pays_margin_interest: true,
+            margin_interest_rate: None, // Set from market data
+            substitution_allowed: true,
+            eligible_substitutes: Some(EligibleCollateralSchedule::us_treasuries()),
+        }
+    }
+
     /// Create a tri-party repo margin spec.
     #[must_use]
     pub fn triparty(margin_ratio: f64) -> Self {
@@ -194,6 +211,22 @@ impl RepoMarginSpec {
             margin_call_threshold: 0.005, // Tighter threshold for tri-party
             call_frequency: MarginTenor::Daily,
             settlement_lag: 0, // Same-day for tri-party
+            pays_margin_interest: true,
+            margin_interest_rate: None,
+            substitution_allowed: true,
+            eligible_substitutes: Some(EligibleCollateralSchedule::bcbs_standard()),
+        }
+    }
+
+    /// Create a tri-party repo margin spec using a typed percentage.
+    #[must_use]
+    pub fn triparty_pct(margin_ratio: Percentage) -> Self {
+        Self {
+            margin_type: RepoMarginType::Triparty,
+            margin_ratio: margin_ratio.as_decimal(),
+            margin_call_threshold: 0.005,
+            call_frequency: MarginTenor::Daily,
+            settlement_lag: 0,
             pays_margin_interest: true,
             margin_interest_rate: None,
             substitution_allowed: true,

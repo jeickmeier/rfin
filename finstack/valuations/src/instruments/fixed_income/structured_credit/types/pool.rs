@@ -4,7 +4,7 @@ use crate::instruments::bond::Bond;
 use finstack_core::currency::Currency;
 use finstack_core::dates::{Date, DateExt, DayCount};
 use finstack_core::money::Money;
-use finstack_core::types::{Bps, InstrumentId, Rate};
+use finstack_core::types::{Bps, InstrumentId, Percentage, Rate};
 use rust_decimal::prelude::ToPrimitive;
 
 use finstack_core::collections::HashMap;
@@ -456,15 +456,33 @@ impl RepLine {
         self
     }
 
+    /// Set CPR override using a typed percentage.
+    pub fn with_cpr_pct(mut self, cpr: Percentage) -> Self {
+        self.cpr = Some(cpr.as_decimal());
+        self
+    }
+
     /// Set CDR override
     pub fn with_cdr(mut self, cdr: f64) -> Self {
         self.cdr = Some(cdr);
         self
     }
 
+    /// Set CDR override using a typed percentage.
+    pub fn with_cdr_pct(mut self, cdr: Percentage) -> Self {
+        self.cdr = Some(cdr.as_decimal());
+        self
+    }
+
     /// Set recovery rate override
     pub fn with_recovery_rate(mut self, recovery_rate: f64) -> Self {
         self.recovery_rate = Some(recovery_rate);
+        self
+    }
+
+    /// Set recovery rate override using a typed percentage.
+    pub fn with_recovery_rate_pct(mut self, recovery_rate: Percentage) -> Self {
+        self.recovery_rate = Some(recovery_rate.as_decimal());
         self
     }
 

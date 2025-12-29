@@ -1,5 +1,7 @@
 //! Prepayment model specifications for credit instruments.
 
+use finstack_core::types::Percentage;
+
 /// Prepayment curve shape.
 #[derive(Clone, Debug, PartialEq)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
@@ -51,6 +53,14 @@ impl PrepaymentModelSpec {
     /// Constant CPR (no curve).
     pub fn constant_cpr(cpr: f64) -> Self {
         Self { cpr, curve: None }
+    }
+
+    /// Constant CPR (no curve) using a typed percentage.
+    pub fn constant_cpr_pct(cpr: Percentage) -> Self {
+        Self {
+            cpr: cpr.as_decimal(),
+            curve: None,
+        }
     }
 
     /// PSA curve with multiplier (1.0 = 100% PSA).

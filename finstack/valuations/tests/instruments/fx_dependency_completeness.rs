@@ -1,48 +1,71 @@
 //! FX dependency completeness tests.
 //!
-//! Ensures FX instruments can be priced with only declared curves and FX pairs.
+//! Ensures FX instruments declare FX pair dependencies and that pricing
+//! succeeds when the FX matrix is provided.
 
-use finstack_core::dates::Date;
+use finstack_core::currency::Currency;
+use finstack_core::dates::{DateExt, DayCount};
 use finstack_core::market_data::context::MarketContext;
+use finstack_core::market_data::term_structures::DiscountCurve;
 use finstack_core::money::fx::{providers::SimpleFxProvider, FxMatrix};
-use finstack_valuations::instruments::common::dependencies::{FxPair, InstrumentDependencies};
+use finstack_core::money::Money;
+use finstack_core::types::{CurveId, InstrumentId};
+use finstack_valuations::instruments::common::{FxPair, InstrumentDependencies};
 use finstack_valuations::instruments::common::traits::Instrument;
-use finstack_valuations::instruments::fx_forward::FxForward;
-use finstack_valuations::instruments::json_loader::InstrumentJson;
-use finstack_valuations::test_utils::flat_discount_with_tenor;
+use finstack_valuations::instruments::{FxForward, InstrumentJson};
 use std::sync::Arc;
 use time::macros::date;
 
-fn build_fx_market(deps: &InstrumentDependencies, as_of: Date, fx_pair: FxPair) -> MarketContext {
-    let mut market = MarketContext::new();
+fn build_discount_curve(id: &str, rate: f64) -> DiscountCurve {
+    let as_of = date!(2025 - 01 - 01);
+    DiscountCurve::builder(id)
+        .base_date(as_of)
+        .day_count(DayCount::Act365F)
+        .knots([
+            (0.0f64, 1.0f64),
+            (1.0f64, (-rate).exp()),
+            (5.0f64, (-rate * 5.0).exp()),
+            (10.0f64, (-rate * 10.0).exp()),
+        ])
+        .build()
+        .expect("Discount curve construction should succeed")
+}
 
-    for curve_id in deps.curves.discount_curves.iter() {
-        market = market.insert_discount(flat_discount_with_tenor(curve_id.as_str(), as_of, 0.02, 5.0));
-    }
-
+fn build_fx_matrix(base: Currency, quote: Currency, rate: f64) -> FxMatrix {
     let provider = Arc::new(SimpleFxProvider::new());
-    provider.set_quote(fx_pair.base, fx_pair.quote, 1.1);
-    let fx_matrix = FxMatrix::new(provider);
-    market = market.insert_fx(fx_matrix);
-
-    market
+    provider.set_quote(base, quote, rate);
+    FxMatrix::new(provider)
 }
 
 #[test]
-fn test_fx_dependencies_complete() {
+fn test_fx_forward_dependencies_complete() {
     let as_of = date!(2025 - 01 - 01);
-    let fx_forward = FxForward::example();
+    let maturity = as_of.add_months(6);
 
-    let deps =
-        InstrumentDependencies::from_instrument_json(&InstrumentJson::FxForward(fx_forward.clone()));
-    let fx_pair = deps
-        .fx_pairs
-        .first()
-        .copied()
-        .expect("FX forward dependencies should include FX pair");
-    let market = build_fx_market(&deps, as_of, fx_pair);
+    let forward = FxForward::builder()
+        .id(InstrumentId::new("EURUSD-FWD-DEPS"))
+        .base_currency(Currency::EUR)
+        .quote_currency(Currency::USD)
+        .maturity_date(maturity)
+        .notional(Money::new(1_000_000.0, Currency::EUR))
+        .domestic_discount_curve_id(CurveId::new("USD-OIS"))
+        .foreign_discount_curve_id(CurveId::new("EUR-OIS"))
+        .build()
+        .expect("FX forward construction should succeed");
 
-    let result = fx_forward.value(&market, as_of);
+    let deps = InstrumentDependencies::from_instrument_json(&InstrumentJson::FxForward(forward.clone()));
+    assert!(
+        deps.fx_pairs.contains(&FxPair::new(Currency::EUR, Currency::USD)),
+        "FX forward should declare its FX pair dependency"
+    );
+
+    let mut market = MarketContext::new();
+    for id in deps.curves.discount_curves {
+        market = market.insert_discount(build_discount_curve(id.as_str(), 0.03));
+    }
+    market = market.insert_fx(build_fx_matrix(Currency::EUR, Currency::USD, 1.10));
+
+    let result = forward.value(&market, as_of);
     assert!(
         result.is_ok(),
         "FX forward pricing with minimal market should succeed, got: {:?}",
@@ -51,21 +74,30 @@ fn test_fx_dependencies_complete() {
 }
 
 #[test]
-fn test_missing_fx_dependency_fails() {
+fn test_missing_fx_matrix_fails() {
     let as_of = date!(2025 - 01 - 01);
-    let fx_forward = FxForward::example();
+    let maturity = as_of.add_months(6);
 
-    let deps =
-        InstrumentDependencies::from_instrument_json(&InstrumentJson::FxForward(fx_forward.clone()));
+    let forward = FxForward::builder()
+        .id(InstrumentId::new("EURUSD-FWD-MISSING-FX"))
+        .base_currency(Currency::EUR)
+        .quote_currency(Currency::USD)
+        .maturity_date(maturity)
+        .notional(Money::new(1_000_000.0, Currency::EUR))
+        .domestic_discount_curve_id(CurveId::new("USD-OIS"))
+        .foreign_discount_curve_id(CurveId::new("EUR-OIS"))
+        .build()
+        .expect("FX forward construction should succeed");
 
+    let deps = InstrumentDependencies::from_instrument_json(&InstrumentJson::FxForward(forward.clone()));
     let mut market = MarketContext::new();
-    for curve_id in deps.curves.discount_curves.iter() {
-        market = market.insert_discount(flat_discount_with_tenor(curve_id.as_str(), as_of, 0.02, 5.0));
+    for id in deps.curves.discount_curves {
+        market = market.insert_discount(build_discount_curve(id.as_str(), 0.03));
     }
 
-    let result = fx_forward.value(&market, as_of);
+    let result = forward.value(&market, as_of);
     assert!(
         result.is_err(),
-        "FX forward pricing should fail when FX matrix is missing"
+        "FX forward pricing should fail when the FX matrix is missing"
     );
 }

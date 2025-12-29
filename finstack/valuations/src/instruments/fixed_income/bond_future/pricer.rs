@@ -67,7 +67,7 @@ impl BondFuturePricer {
     ///     date!(2020-01-15),
     ///     date!(2030-01-15),
     ///     "USD-OIS",
-    /// );
+/// )?;
     /// let cf = BondFuturePricer::calculate_conversion_factor(
     ///     &bond,
     ///     0.06,  // 6% standard coupon
@@ -170,7 +170,7 @@ impl BondFuturePricer {
     ///     date!(2020-01-15),
     ///     date!(2030-01-15),
     ///     "USD-OIS",
-    /// );
+/// )?;
     /// let cf = 0.8234;
     /// let model_price = BondFuturePricer::calculate_model_price(
     ///     &ctd_bond,
@@ -284,13 +284,13 @@ impl BondFuturePricer {
     ///     CurveId::new("USD-TREASURY"),
     /// )?;
     /// let ctd_bond = Bond::fixed(
-    ///     ctd_bond_id.as_str().unwrap(),
+///     ctd_bond_id.as_str(),
     ///     Money::new(100_000.0, Currency::USD),
     ///     0.05,
     ///     date!(2020-01-15),
     ///     date!(2030-01-15),
     ///     "USD-OIS",
-    /// );
+/// )?;
     /// let cf = 0.8234;
     ///
     /// let npv = BondFuturePricer::calculate_npv(

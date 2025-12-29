@@ -16,14 +16,15 @@
 //! ```rust
 //! use finstack_valuations::instruments::bond::CashflowSpec;
 //! use finstack_core::dates::{Tenor, DayCount};
+//! use finstack_core::types::Bps;
 //!
 //! // Fixed-rate bond: 5% annual coupon, semi-annual payments
 //! let fixed = CashflowSpec::fixed(0.05, Tenor::semi_annual(), DayCount::Thirty360);
 //!
 //! // Floating-rate note: SOFR + 200bps, quarterly payments
-//! let floating = CashflowSpec::floating(
+//! let floating = CashflowSpec::floating_bps(
 //!     "USD-SOFR-3M".into(),
-//!     200.0,  // margin in basis points
+//!     Bps::new(200),  // margin in basis points
 //!     Tenor::quarterly(),
 //!     DayCount::Act360,
 //! );
@@ -39,7 +40,7 @@ use crate::cashflow::builder::specs::{
 };
 use crate::cashflow::builder::AmortizationSpec;
 use finstack_core::dates::{BusinessDayConvention, DayCount, StubKind, Tenor};
-use finstack_core::types::CurveId;
+use finstack_core::types::{Bps, CurveId, Rate};
 use rust_decimal::Decimal;
 
 /// Thin facade over canonical builder coupon specs for bond cashflows.
@@ -91,9 +92,14 @@ impl CashflowSpec {
     /// ```rust
     /// use finstack_valuations::instruments::bond::CashflowSpec;
     /// use finstack_core::dates::{Tenor, DayCount};
+    /// use finstack_core::types::Rate;
     ///
     /// // US Treasury-style: 4% coupon, semi-annual, 30/360
-    /// let spec = CashflowSpec::fixed(0.04, Tenor::semi_annual(), DayCount::Thirty360);
+    /// let spec = CashflowSpec::fixed_rate(
+    ///     Rate::from_percent(4.0),
+    ///     Tenor::semi_annual(),
+    ///     DayCount::Thirty360,
+    /// );
     /// ```
     ///
     /// # See Also
@@ -104,6 +110,20 @@ impl CashflowSpec {
     pub fn fixed(coupon: f64, freq: Tenor, dc: DayCount) -> Self {
         // Convert f64 to Decimal for exact representation
         let rate = Decimal::try_from(coupon).unwrap_or(Decimal::ZERO);
+        Self::Fixed(FixedCouponSpec {
+            coupon_type: CouponType::Cash,
+            rate,
+            freq,
+            dc,
+            bdc: BusinessDayConvention::Following,
+            calendar_id: None,
+            stub: StubKind::None,
+        })
+    }
+
+    /// Create a fixed-rate specification using a typed rate.
+    pub fn fixed_rate(coupon: Rate, freq: Tenor, dc: DayCount) -> Self {
+        let rate = Decimal::try_from(coupon.as_decimal()).unwrap_or(Decimal::ZERO);
         Self::Fixed(FixedCouponSpec {
             coupon_type: CouponType::Cash,
             rate,
@@ -176,6 +196,32 @@ impl CashflowSpec {
         Self::floating_with_reset_lag(index_id, margin_bp, freq, dc, 2)
     }
 
+    /// Create a floating-rate specification using a typed margin in basis points.
+    pub fn floating_bps(index_id: CurveId, margin_bp: Bps, freq: Tenor, dc: DayCount) -> Self {
+        let spread_bp = Decimal::try_from(margin_bp.as_bps() as f64).unwrap_or(Decimal::ZERO);
+        Self::Floating(FloatingCouponSpec {
+            rate_spec: FloatingRateSpec {
+                index_id,
+                spread_bp,
+                gearing: Decimal::ONE,
+                gearing_includes_spread: true,
+                floor_bp: None,
+                cap_bp: None,
+                all_in_floor_bp: None,
+                index_cap_bp: None,
+                reset_freq: freq,
+                reset_lag_days: 2,
+                dc,
+                bdc: BusinessDayConvention::Following,
+                calendar_id: None,
+                fixing_calendar_id: None,
+            },
+            coupon_type: CouponType::Cash,
+            freq,
+            stub: StubKind::None,
+        })
+    }
+
     /// Create a floating-rate specification with explicit reset lag.
     ///
     /// # Arguments
@@ -234,6 +280,38 @@ impl CashflowSpec {
     ) -> Self {
         // Convert f64 to Decimal for exact representation
         let spread_bp = Decimal::try_from(margin_bp).unwrap_or(Decimal::ZERO);
+        Self::Floating(FloatingCouponSpec {
+            rate_spec: FloatingRateSpec {
+                index_id,
+                spread_bp,
+                gearing: Decimal::ONE,
+                gearing_includes_spread: true,
+                floor_bp: None,
+                cap_bp: None,
+                all_in_floor_bp: None,
+                index_cap_bp: None,
+                reset_freq: freq,
+                reset_lag_days,
+                dc,
+                bdc: BusinessDayConvention::Following,
+                calendar_id: None,
+                fixing_calendar_id: None,
+            },
+            coupon_type: CouponType::Cash,
+            freq,
+            stub: StubKind::None,
+        })
+    }
+
+    /// Create a floating-rate specification with explicit reset lag using a typed margin.
+    pub fn floating_with_reset_lag_bps(
+        index_id: CurveId,
+        margin_bp: Bps,
+        freq: Tenor,
+        dc: DayCount,
+        reset_lag_days: i32,
+    ) -> Self {
+        let spread_bp = Decimal::try_from(margin_bp.as_bps() as f64).unwrap_or(Decimal::ZERO);
         Self::Floating(FloatingCouponSpec {
             rate_spec: FloatingRateSpec {
                 index_id,

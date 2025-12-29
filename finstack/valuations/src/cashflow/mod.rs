@@ -103,7 +103,7 @@
 //!     issue,
 //!     maturity,
 //!     "USD-OIS",
-//! );
+//! )?;
 //!
 //! let disc_curve = DiscountCurve::builder("USD-OIS")
 //!     .base_date(issue)

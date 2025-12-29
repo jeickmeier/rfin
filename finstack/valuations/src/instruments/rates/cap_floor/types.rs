@@ -140,18 +140,26 @@ impl InterestRateOption {
         forward_id: impl Into<CurveId>,
         vol_surface_id: impl Into<CurveId>,
     ) -> Self {
-        Self::new_cap(
-            id,
+        Self {
+            id: id.into(),
+            rate_option_type: RateOptionType::Cap,
             notional,
-            strike_rate.as_decimal(),
+            strike_rate: strike_rate.as_decimal(),
             start_date,
             end_date,
             frequency,
             day_count,
-            discount_curve_id,
-            forward_id,
-            vol_surface_id,
-        )
+            stub_kind: StubKind::None,
+            bdc: BusinessDayConvention::Following,
+            calendar_id: None,
+            exercise_style: ExerciseStyle::European,
+            settlement: SettlementType::Cash,
+            discount_curve_id: discount_curve_id.into(),
+            forward_id: forward_id.into(),
+            vol_surface_id: vol_surface_id.into(),
+            pricing_overrides: PricingOverrides::default(),
+            attributes: Attributes::new(),
+        }
     }
 
     /// Create a floor instrument using parameter structs
@@ -195,18 +203,26 @@ impl InterestRateOption {
         forward_id: impl Into<CurveId>,
         vol_surface_id: impl Into<CurveId>,
     ) -> Self {
-        Self::new_floor(
-            id,
+        Self {
+            id: id.into(),
+            rate_option_type: RateOptionType::Floor,
             notional,
-            strike_rate.as_decimal(),
+            strike_rate: strike_rate.as_decimal(),
             start_date,
             end_date,
             frequency,
             day_count,
-            discount_curve_id,
-            forward_id,
-            vol_surface_id,
-        )
+            stub_kind: StubKind::None,
+            bdc: BusinessDayConvention::Following,
+            calendar_id: None,
+            exercise_style: ExerciseStyle::European,
+            settlement: SettlementType::Cash,
+            discount_curve_id: discount_curve_id.into(),
+            forward_id: forward_id.into(),
+            vol_surface_id: vol_surface_id.into(),
+            pricing_overrides: PricingOverrides::default(),
+            attributes: Attributes::new(),
+        }
     }
 }
 

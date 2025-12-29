@@ -46,7 +46,7 @@ use finstack_core::market_data::context::MarketContext;
 use finstack_core::market_data::traits::Discounting;
 use finstack_core::market_data::traits::Survival;
 use finstack_core::money::Money;
-use finstack_core::types::InstrumentId;
+use finstack_core::types::{Bps, InstrumentId};
 use rust_decimal::prelude::ToPrimitive;
 use rust_decimal::Decimal;
 use time::macros::date;
@@ -540,6 +540,68 @@ impl CreditDefaultSwap {
         Ok(cds)
     }
 
+    /// Create a standard CDS with ISDA conventions (buy protection) using typed basis points.
+    ///
+    /// # Arguments
+    ///
+    /// * `spread_bp` - Spread in basis points (e.g., Bps::new(100) = 100bp = 1%)
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if the builder fails validation or spread_bp cannot be represented as Decimal.
+    #[allow(clippy::too_many_arguments)]
+    pub fn buy_protection_bps(
+        id: impl Into<InstrumentId>,
+        notional: Money,
+        spread_bp: Bps,
+        start: Date,
+        maturity: Date,
+        discount_curve_id: impl Into<finstack_core::types::CurveId>,
+        credit_id: impl Into<finstack_core::types::CurveId>,
+    ) -> finstack_core::Result<Self> {
+        let convention = CDSConvention::IsdaNa;
+        let dc = convention.day_count();
+        let freq = convention.frequency();
+        let bdc = convention.business_day_convention();
+        let stub = convention.stub_convention();
+
+        let spread_bp_f64 = spread_bp.as_bps() as f64;
+        let spread_bp_decimal = Decimal::try_from(spread_bp_f64).map_err(|e| {
+            finstack_core::Error::Validation(format!(
+                "spread_bp {} cannot be represented as Decimal: {}",
+                spread_bp_f64, e
+            ))
+        })?;
+
+        let cds = CreditDefaultSwapBuilder::new()
+            .id(id.into())
+            .notional(notional)
+            .side(PayReceive::PayFixed)
+            .convention(convention)
+            .premium(PremiumLegSpec {
+                start,
+                end: maturity,
+                freq,
+                stub,
+                bdc,
+                calendar_id: Some(convention.default_calendar().to_string()),
+                dc,
+                spread_bp: spread_bp_decimal,
+                discount_curve_id: discount_curve_id.into(),
+            })
+            .protection(ProtectionLegSpec {
+                credit_curve_id: credit_id.into(),
+                recovery_rate: crate::instruments::cds::parameters::RECOVERY_SENIOR_UNSECURED,
+                settlement_delay: convention.settlement_delay(),
+            })
+            .pricing_overrides(PricingOverrides::default())
+            .attributes(Attributes::new())
+            .build()?;
+
+        cds.validate()?;
+        Ok(cds)
+    }
+
     /// Create a standard CDS with ISDA conventions (sell protection).
     ///
     /// # Arguments
@@ -598,6 +660,68 @@ impl CreditDefaultSwap {
             .build()?;
 
         // Validate all parameters before returning
+        cds.validate()?;
+        Ok(cds)
+    }
+
+    /// Create a standard CDS with ISDA conventions (sell protection) using typed basis points.
+    ///
+    /// # Arguments
+    ///
+    /// * `spread_bp` - Spread in basis points (e.g., Bps::new(100) = 100bp = 1%)
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if the builder fails validation or spread_bp cannot be represented as Decimal.
+    #[allow(clippy::too_many_arguments)]
+    pub fn sell_protection_bps(
+        id: impl Into<InstrumentId>,
+        notional: Money,
+        spread_bp: Bps,
+        start: Date,
+        maturity: Date,
+        discount_curve_id: impl Into<finstack_core::types::CurveId>,
+        credit_id: impl Into<finstack_core::types::CurveId>,
+    ) -> finstack_core::Result<Self> {
+        let convention = CDSConvention::IsdaNa;
+        let dc = convention.day_count();
+        let freq = convention.frequency();
+        let bdc = convention.business_day_convention();
+        let stub = convention.stub_convention();
+
+        let spread_bp_f64 = spread_bp.as_bps() as f64;
+        let spread_bp_decimal = Decimal::try_from(spread_bp_f64).map_err(|e| {
+            finstack_core::Error::Validation(format!(
+                "spread_bp {} cannot be represented as Decimal: {}",
+                spread_bp_f64, e
+            ))
+        })?;
+
+        let cds = CreditDefaultSwapBuilder::new()
+            .id(id.into())
+            .notional(notional)
+            .side(PayReceive::ReceiveFixed)
+            .convention(convention)
+            .premium(PremiumLegSpec {
+                start,
+                end: maturity,
+                freq,
+                stub,
+                bdc,
+                calendar_id: Some(convention.default_calendar().to_string()),
+                dc,
+                spread_bp: spread_bp_decimal,
+                discount_curve_id: discount_curve_id.into(),
+            })
+            .protection(ProtectionLegSpec {
+                credit_curve_id: credit_id.into(),
+                recovery_rate: crate::instruments::cds::parameters::RECOVERY_SENIOR_UNSECURED,
+                settlement_delay: convention.settlement_delay(),
+            })
+            .pricing_overrides(PricingOverrides::default())
+            .attributes(Attributes::new())
+            .build()?;
+
         cds.validate()?;
         Ok(cds)
     }

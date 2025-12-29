@@ -6,7 +6,7 @@
 
 use finstack_core::dates::{Date, DayCount, StubKind, Tenor};
 use finstack_core::money::Money;
-use finstack_core::types::{CurveId, InstrumentId};
+use finstack_core::types::{Bps, CurveId, InstrumentId, Rate};
 use rust_decimal::Decimal;
 
 use crate::cashflow::builder::{evaluate_fee_tiers_f64, FeeTier, FloatingRateSpec};
@@ -177,6 +177,15 @@ pub enum BaseRateSpec {
     Floating(FloatingRateSpec),
 }
 
+impl BaseRateSpec {
+    /// Create a fixed base rate using a typed rate.
+    pub fn fixed_rate(rate: Rate) -> Self {
+        Self::Fixed {
+            rate: rate.as_decimal(),
+        }
+    }
+}
+
 /// Fee structure for a revolving credit facility.
 ///
 /// Contains the various fees charged on the facility:
@@ -239,6 +248,27 @@ impl RevolvingCreditFees {
             commitment_fee_tiers: make_tier(commitment_fee_bp),
             usage_fee_tiers: make_tier(usage_fee_bp),
             facility_fee_bp,
+        }
+    }
+
+    /// Create fees with flat (non-tiered) commitment and usage fees using typed bps.
+    pub fn flat_bps(commitment_fee_bp: Bps, usage_fee_bp: Bps, facility_fee_bp: Bps) -> Self {
+        let make_tier = |bps: Bps| -> Vec<FeeTier> {
+            if !bps.is_zero() {
+                vec![FeeTier {
+                    threshold: Decimal::ZERO,
+                    bps: Decimal::from(bps.as_bps()),
+                }]
+            } else {
+                Vec::new()
+            }
+        };
+
+        Self {
+            upfront_fee: None,
+            commitment_fee_tiers: make_tier(commitment_fee_bp),
+            usage_fee_tiers: make_tier(usage_fee_bp),
+            facility_fee_bp: facility_fee_bp.as_bps() as f64,
         }
     }
 

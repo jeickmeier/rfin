@@ -3,6 +3,7 @@
 use crate::constants::DECIMAL_TO_PERCENT;
 use crate::instruments::structured_credit::StructuredCredit;
 use crate::metrics::MetricContext;
+use finstack_core::types::{Percentage, Rate};
 
 use crate::instruments::structured_credit::DealType;
 
@@ -15,6 +16,13 @@ impl AbsSpeedCalculator {
     /// Create a new ABS speed calculator with specified default speed (as percentage)
     pub fn new(default_abs_speed: f64) -> Self {
         Self { default_abs_speed }
+    }
+
+    /// Create a new ABS speed calculator with a typed default speed (percentage).
+    pub fn new_pct(default_abs_speed: Percentage) -> Self {
+        Self {
+            default_abs_speed: default_abs_speed.as_percent(),
+        }
     }
 }
 
@@ -50,6 +58,13 @@ impl AbsDelinquencyCalculator {
     /// Create a new delinquency calculator with specified rate
     pub fn new(delinquency_rate: f64) -> Self {
         Self { delinquency_rate }
+    }
+
+    /// Create a new delinquency calculator with a typed rate.
+    pub fn new_pct(delinquency_rate: Percentage) -> Self {
+        Self {
+            delinquency_rate: delinquency_rate.as_decimal(),
+        }
     }
 }
 
@@ -111,6 +126,13 @@ impl AbsExcessSpreadCalculator {
     /// Create a new excess spread calculator with specified servicing fee rate
     pub fn new(servicing_fee_rate: f64) -> Self {
         Self { servicing_fee_rate }
+    }
+
+    /// Create a new excess spread calculator with a typed servicing fee rate.
+    pub fn new_rate(servicing_fee_rate: Rate) -> Self {
+        Self {
+            servicing_fee_rate: servicing_fee_rate.as_decimal(),
+        }
     }
 }
 

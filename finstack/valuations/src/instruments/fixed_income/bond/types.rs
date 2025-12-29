@@ -6,7 +6,7 @@ use crate::instruments::PricingOverrides;
 use finstack_core::currency::Currency;
 use finstack_core::dates::{Date, DayCount};
 use finstack_core::money::Money;
-use finstack_core::types::{CurveId, InstrumentId, Rate};
+use finstack_core::types::{Bps, CurveId, InstrumentId, Rate};
 use finstack_core::Result;
 use rust_decimal::prelude::ToPrimitive;
 use smallvec::smallvec;
@@ -370,6 +370,37 @@ impl Bond {
         Ok(bond)
     }
 
+    /// Create a bond with standard market conventions using a typed rate.
+    pub fn with_convention_rate(
+        id: impl Into<InstrumentId>,
+        notional: Money,
+        coupon_rate: Rate,
+        issue: Date,
+        maturity: Date,
+        convention: crate::instruments::common::parameters::BondConvention,
+        discount_curve_id: impl Into<CurveId>,
+    ) -> finstack_core::Result<Self> {
+        let bond = Self::builder()
+            .id(id.into())
+            .notional(notional)
+            .issue(issue)
+            .maturity(maturity)
+            .cashflow_spec(CashflowSpec::fixed_rate(
+                coupon_rate,
+                convention.frequency(),
+                convention.day_count(),
+            ))
+            .discount_curve_id(discount_curve_id.into())
+            .credit_curve_id_opt(None)
+            .pricing_overrides(PricingOverrides::default())
+            .attributes(Attributes::new())
+            .ex_coupon_calendar_id_opt(None)
+            .build()?;
+
+        bond.validate()?;
+        Ok(bond)
+    }
+
     /// Create a floating-rate bond (FRN).
     ///
     /// Creates a bond with floating-rate coupons linked to a forward index
@@ -453,6 +484,41 @@ impl Bond {
         Ok(bond)
     }
 
+    /// Create a floating-rate bond (FRN) using typed basis points.
+    #[allow(clippy::too_many_arguments)]
+    pub fn floating_bps(
+        id: impl Into<InstrumentId>,
+        notional: Money,
+        index_id: impl Into<CurveId>,
+        margin_bp: Bps,
+        issue: Date,
+        maturity: Date,
+        freq: finstack_core::dates::Tenor,
+        dc: DayCount,
+        discount_curve_id: impl Into<CurveId>,
+    ) -> finstack_core::Result<Self> {
+        let bond = Self::builder()
+            .id(id.into())
+            .notional(notional)
+            .issue(issue)
+            .maturity(maturity)
+            .cashflow_spec(CashflowSpec::floating_bps(
+                index_id.into(),
+                margin_bp,
+                freq,
+                dc,
+            ))
+            .discount_curve_id(discount_curve_id.into())
+            .credit_curve_id_opt(None)
+            .pricing_overrides(PricingOverrides::default())
+            .attributes(Attributes::new())
+            .ex_coupon_calendar_id_opt(None)
+            .build()?;
+
+        bond.validate()?;
+        Ok(bond)
+    }
+
     /// Create a bond from a pre-built cashflow schedule.
     ///
     /// This extracts key bond parameters from the cashflow schedule and creates
@@ -484,6 +550,7 @@ impl Bond {
     /// use finstack_core::money::Money;
     /// use finstack_valuations::cashflow::builder::{CashFlowSchedule, CouponType, FixedCouponSpec};
     /// use finstack_valuations::instruments::Bond;
+/// use rust_decimal_macros::dec;
     /// use time::macros::date;
     ///
     /// # fn main() -> finstack_core::Result<()> {
@@ -492,7 +559,7 @@ impl Bond {
     /// let maturity = date!(2027-01-15);
     /// let fixed_spec = FixedCouponSpec {
     ///     coupon_type: CouponType::Cash,
-    ///     rate: 0.06,
+///     rate: dec!(0.06),
     ///     freq: Tenor::semi_annual(),
     ///     dc: DayCount::Act365F,
     ///     bdc: BusinessDayConvention::Following,

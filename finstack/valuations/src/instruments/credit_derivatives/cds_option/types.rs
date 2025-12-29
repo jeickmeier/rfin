@@ -24,7 +24,7 @@ use crate::instruments::PricingOverrides;
 use crate::instruments::{ExerciseStyle, OptionType, SettlementType};
 use finstack_core::dates::{Date, DayCount, DayCountCtx};
 use finstack_core::money::Money;
-use finstack_core::types::InstrumentId;
+use finstack_core::types::{InstrumentId, Percentage};
 
 use super::parameters::CdsOptionParams;
 
@@ -246,6 +246,23 @@ impl CdsOption {
             )));
         }
         self.pricing_overrides.implied_volatility = Some(vol);
+        Ok(self)
+    }
+
+    /// Set implied volatility override using a typed percentage.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if volatility is not positive.
+    pub fn with_implied_vol_pct(mut self, vol: Percentage) -> finstack_core::Result<Self> {
+        let vol_decimal = vol.as_decimal();
+        if vol_decimal <= MIN_IMPLIED_VOL {
+            return Err(finstack_core::Error::Validation(format!(
+                "implied_volatility must be positive, got {}",
+                vol_decimal
+            )));
+        }
+        self.pricing_overrides.implied_volatility = Some(vol_decimal);
         Ok(self)
     }
 

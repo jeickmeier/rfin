@@ -17,7 +17,7 @@ use finstack_core::dates::{BusinessDayConvention, Date, DayCount, StubKind, Teno
 use finstack_core::market_data::context::MarketContext;
 use finstack_core::market_data::traits::Discounting;
 use finstack_core::money::Money;
-use finstack_core::types::{CurveId, InstrumentId};
+use finstack_core::types::{CurveId, InstrumentId, Rate};
 use finstack_core::{Error, Result};
 
 use super::parameters::SwaptionParams;
@@ -981,6 +981,40 @@ impl BermudanSwaption {
         }
     }
 
+    /// Create a new Bermudan payer swaption using a typed strike rate.
+    #[allow(clippy::too_many_arguments)]
+    pub fn new_payer_rate(
+        id: impl Into<InstrumentId>,
+        notional: Money,
+        strike_rate: Rate,
+        swap_start: Date,
+        swap_end: Date,
+        bermudan_schedule: BermudanSchedule,
+        discount_curve_id: impl Into<CurveId>,
+        forward_id: impl Into<CurveId>,
+        vol_surface_id: impl Into<CurveId>,
+    ) -> Self {
+        Self {
+            id: id.into(),
+            option_type: OptionType::Call,
+            notional,
+            strike_rate: strike_rate.as_decimal(),
+            swap_start,
+            swap_end,
+            fixed_freq: Tenor::semi_annual(),
+            float_freq: Tenor::quarterly(),
+            day_count: DayCount::Thirty360,
+            settlement: SwaptionSettlement::Physical,
+            discount_curve_id: discount_curve_id.into(),
+            forward_id: forward_id.into(),
+            vol_surface_id: vol_surface_id.into(),
+            bermudan_schedule,
+            bermudan_type: BermudanType::CoTerminal,
+            pricing_overrides: PricingOverrides::default(),
+            attributes: Attributes::default(),
+        }
+    }
+
     /// Create a new Bermudan receiver swaption (right to receive fixed).
     #[allow(clippy::too_many_arguments)]
     pub fn new_receiver(
@@ -999,6 +1033,40 @@ impl BermudanSwaption {
             option_type: OptionType::Put,
             notional,
             strike_rate,
+            swap_start,
+            swap_end,
+            fixed_freq: Tenor::semi_annual(),
+            float_freq: Tenor::quarterly(),
+            day_count: DayCount::Thirty360,
+            settlement: SwaptionSettlement::Physical,
+            discount_curve_id: discount_curve_id.into(),
+            forward_id: forward_id.into(),
+            vol_surface_id: vol_surface_id.into(),
+            bermudan_schedule,
+            bermudan_type: BermudanType::CoTerminal,
+            pricing_overrides: PricingOverrides::default(),
+            attributes: Attributes::default(),
+        }
+    }
+
+    /// Create a new Bermudan receiver swaption using a typed strike rate.
+    #[allow(clippy::too_many_arguments)]
+    pub fn new_receiver_rate(
+        id: impl Into<InstrumentId>,
+        notional: Money,
+        strike_rate: Rate,
+        swap_start: Date,
+        swap_end: Date,
+        bermudan_schedule: BermudanSchedule,
+        discount_curve_id: impl Into<CurveId>,
+        forward_id: impl Into<CurveId>,
+        vol_surface_id: impl Into<CurveId>,
+    ) -> Self {
+        Self {
+            id: id.into(),
+            option_type: OptionType::Put,
+            notional,
+            strike_rate: strike_rate.as_decimal(),
             swap_start,
             swap_end,
             fixed_freq: Tenor::semi_annual(),

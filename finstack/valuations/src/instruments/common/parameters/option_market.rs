@@ -1,6 +1,7 @@
 //! Option market parameters used by pricing models.
 
 use super::market::OptionType;
+use finstack_core::types::{Percentage, Rate};
 
 /// Option market parameters for pricing models.
 ///
@@ -45,6 +46,27 @@ impl OptionMarketParams {
         }
     }
 
+    /// Create option market parameters using typed rates/volatility.
+    pub fn new_typed(
+        spot: f64,
+        strike: f64,
+        rate: Rate,
+        volatility: Percentage,
+        time_to_expiry: f64,
+        dividend_yield: Percentage,
+        option_type: OptionType,
+    ) -> Self {
+        Self {
+            spot,
+            strike,
+            rate: rate.as_decimal(),
+            volatility: volatility.as_decimal(),
+            time_to_expiry,
+            dividend_yield: dividend_yield.as_decimal(),
+            option_type,
+        }
+    }
+
     /// Create call option market parameters
     pub fn call(spot: f64, strike: f64, rate: f64, volatility: f64, time_to_expiry: f64) -> Self {
         Self::new(
@@ -56,6 +78,25 @@ impl OptionMarketParams {
             0.0,
             OptionType::Call,
         )
+    }
+
+    /// Create call option market parameters using typed rates/volatility.
+    pub fn call_typed(
+        spot: f64,
+        strike: f64,
+        rate: Rate,
+        volatility: Percentage,
+        time_to_expiry: f64,
+    ) -> Self {
+        Self {
+            spot,
+            strike,
+            rate: rate.as_decimal(),
+            volatility: volatility.as_decimal(),
+            time_to_expiry,
+            dividend_yield: Percentage::ZERO.as_decimal(),
+            option_type: OptionType::Call,
+        }
     }
 
     /// Create put option market parameters
@@ -71,9 +112,34 @@ impl OptionMarketParams {
         )
     }
 
+    /// Create put option market parameters using typed rates/volatility.
+    pub fn put_typed(
+        spot: f64,
+        strike: f64,
+        rate: Rate,
+        volatility: Percentage,
+        time_to_expiry: f64,
+    ) -> Self {
+        Self {
+            spot,
+            strike,
+            rate: rate.as_decimal(),
+            volatility: volatility.as_decimal(),
+            time_to_expiry,
+            dividend_yield: Percentage::ZERO.as_decimal(),
+            option_type: OptionType::Put,
+        }
+    }
+
     /// Set dividend yield
     pub fn with_dividend_yield(mut self, dividend_yield: f64) -> Self {
         self.dividend_yield = dividend_yield;
+        self
+    }
+
+    /// Set dividend yield using a typed percentage.
+    pub fn with_dividend_yield_pct(mut self, dividend_yield: Percentage) -> Self {
+        self.dividend_yield = dividend_yield.as_decimal();
         self
     }
 }

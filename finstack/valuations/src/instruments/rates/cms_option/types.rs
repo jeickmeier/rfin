@@ -5,7 +5,7 @@ use crate::instruments::OptionType;
 use crate::instruments::PricingOverrides;
 use finstack_core::dates::Date;
 use finstack_core::money::Money;
-use finstack_core::types::{CurveId, InstrumentId};
+use finstack_core::types::{CurveId, InstrumentId, Rate};
 
 /// CMS option instrument (cap/floor on CMS rates).
 #[derive(Clone, Debug, finstack_valuations_macros::FinancialBuilder)]
@@ -102,6 +102,14 @@ impl CmsOption {
     ) -> finstack_core::Result<finstack_core::money::Money> {
         use crate::instruments::cms_option::pricer;
         pricer::npv(self, curves, as_of)
+    }
+}
+
+impl CmsOptionBuilder {
+    /// Set the strike rate using a typed rate.
+    pub fn strike_rate_rate(mut self, rate: Rate) -> Self {
+        self.strike_rate = Some(rate.as_decimal());
+        self
     }
 }
 

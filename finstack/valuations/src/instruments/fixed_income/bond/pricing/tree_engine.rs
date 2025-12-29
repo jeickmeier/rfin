@@ -59,6 +59,7 @@ use finstack_core::dates::Date;
 use finstack_core::market_data::context::MarketContext;
 use finstack_core::math::solver::{BrentSolver, Solver};
 use finstack_core::Result;
+use finstack_core::types::Percentage;
 
 #[cfg(test)]
 use finstack_core::money::Money;
@@ -266,6 +267,17 @@ impl TreePricerConfig {
         }
     }
 
+    /// Create a production configuration for Ho-Lee model with typed volatility.
+    pub fn production_ho_lee_pct(normal_vol: Percentage) -> Self {
+        Self {
+            tree_steps: 100,
+            volatility: normal_vol.as_decimal(),
+            tolerance: 1e-6,
+            max_iterations: 50,
+            initial_bracket_size_bp: Some(1000.0),
+        }
+    }
+
     /// Create a production configuration for BDT model with lognormal volatility.
     ///
     /// Uses 100 tree steps which provides ~1 bp OAS accuracy for most bonds.
@@ -295,6 +307,17 @@ impl TreePricerConfig {
         Self {
             tree_steps: 100,
             volatility: lognormal_vol,
+            tolerance: 1e-6,
+            max_iterations: 50,
+            initial_bracket_size_bp: Some(1000.0),
+        }
+    }
+
+    /// Create a production configuration for BDT model with typed volatility.
+    pub fn production_bdt_pct(lognormal_vol: Percentage) -> Self {
+        Self {
+            tree_steps: 100,
+            volatility: lognormal_vol.as_decimal(),
             tolerance: 1e-6,
             max_iterations: 50,
             initial_bracket_size_bp: Some(1000.0),
@@ -335,6 +358,17 @@ impl TreePricerConfig {
         }
     }
 
+    /// Create a high-precision configuration using typed volatility.
+    pub fn high_precision_pct(calibrated_vol: Percentage) -> Self {
+        Self {
+            tree_steps: 200,
+            volatility: calibrated_vol.as_decimal(),
+            tolerance: 1e-8,
+            max_iterations: 100,
+            initial_bracket_size_bp: Some(1500.0),
+        }
+    }
+
     /// Create a fast configuration for screening large portfolios.
     ///
     /// Uses 50 tree steps for ~2-5 bp accuracy. Approximately 4x faster
@@ -357,6 +391,17 @@ impl TreePricerConfig {
         Self {
             tree_steps: 50,
             volatility: calibrated_vol,
+            tolerance: 1e-4,
+            max_iterations: 30,
+            initial_bracket_size_bp: Some(1000.0),
+        }
+    }
+
+    /// Create a fast configuration using typed volatility.
+    pub fn fast_pct(calibrated_vol: Percentage) -> Self {
+        Self {
+            tree_steps: 50,
+            volatility: calibrated_vol.as_decimal(),
             tolerance: 1e-4,
             max_iterations: 30,
             initial_bracket_size_bp: Some(1000.0),

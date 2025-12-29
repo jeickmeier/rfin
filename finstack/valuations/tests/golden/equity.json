@@ -1,0 +1,12 @@
+{
+  "description": "Market compliance golden fixtures for equity instruments",
+  "version": "0.1.0",
+  "status": "pending_reference_values",
+  "source": {
+    "engine": null,
+    "version": null,
+    "as_of": null,
+    "notes": "Populate with reference engine outputs for equity options and variance swaps."
+  },
+  "test_cases": {}
+}

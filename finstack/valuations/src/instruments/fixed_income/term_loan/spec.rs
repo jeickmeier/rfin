@@ -72,7 +72,7 @@ use crate::instruments::pricing_overrides::PricingOverrides;
 use finstack_core::currency::Currency;
 use finstack_core::dates::{BusinessDayConvention, Date, DayCount, StubKind, Tenor};
 use finstack_core::money::Money;
-use finstack_core::types::{CurveId, InstrumentId};
+use finstack_core::types::{Bps, CurveId, InstrumentId};
 
 use super::types::RateSpec;
 
@@ -130,6 +130,18 @@ pub enum OidPolicy {
     SeparatePct(i32),
     /// Fixed discount amount tracked separately for amortization
     SeparateAmount(Money),
+}
+
+impl OidPolicy {
+    /// Create a withheld OID percentage using typed basis points.
+    pub fn withheld_pct_bps(bps: Bps) -> Self {
+        Self::WithheldPct(bps.as_bps())
+    }
+
+    /// Create a separate OID percentage using typed basis points.
+    pub fn separate_pct_bps(bps: Bps) -> Self {
+        Self::SeparatePct(bps.as_bps())
+    }
 }
 
 /// Optional configuration for effective interest rate (EIR) amortization schedules.
@@ -266,6 +278,20 @@ pub struct DdtlSpec {
     pub oid_policy: Option<OidPolicy>,
 }
 
+impl DdtlSpec {
+    /// Set usage fee using typed basis points.
+    pub fn with_usage_fee_bps(mut self, usage_fee_bp: Bps) -> Self {
+        self.usage_fee_bp = usage_fee_bp.as_bps();
+        self
+    }
+
+    /// Set commitment fee using typed basis points.
+    pub fn with_commitment_fee_bps(mut self, commitment_fee_bp: Bps) -> Self {
+        self.commitment_fee_bp = commitment_fee_bp.as_bps();
+        self
+    }
+}
+
 /// Margin step-up event (covenant penalty or scheduled increase).
 ///
 /// Increases the interest margin by a fixed amount at a specified date,
@@ -278,6 +304,16 @@ pub struct MarginStepUp {
     pub date: Date,
     /// Increase in margin (basis points)
     pub delta_bp: i32,
+}
+
+impl MarginStepUp {
+    /// Create a margin step-up using typed basis points.
+    pub fn new_bps(date: Date, delta_bp: Bps) -> Self {
+        Self {
+            date,
+            delta_bp: delta_bp.as_bps(),
+        }
+    }
 }
 
 /// Payment-in-kind (PIK) toggle event.
@@ -353,6 +389,13 @@ pub enum AmortizationSpec {
     Custom(Vec<(Date, Money)>),
 }
 
+impl AmortizationSpec {
+    /// Create a per-period amortization schedule using typed basis points.
+    pub fn percent_per_period_bps(bp: Bps) -> Self {
+        Self::PercentPerPeriod { bp: bp.as_bps() }
+    }
+}
+
 /// Complete term loan specification with covenant and DDTL features.
 ///
 /// Comprehensive specification for institutional term loans including:
@@ -376,16 +419,17 @@ pub enum AmortizationSpec {
 /// use finstack_core::currency::Currency;
 /// use finstack_core::dates::*;
 /// use finstack_core::types::{InstrumentId, CurveId};
+/// use rust_decimal_macros::dec;
 /// use time::Month;
 ///
 /// # fn example() -> Result<(), Box<dyn std::error::Error>> {
 /// // Example: Floating-rate term loan with SOFR + 300 bps
 /// let floating_spec = FloatingRateSpec {
 ///     index_id: CurveId::new("USD-SOFR-3M"),
-///     spread_bp: 300.0,
-///     gearing: 1.0,
+///     spread_bp: dec!(300),
+///     gearing: dec!(1),
 ///     gearing_includes_spread: true,
-///     floor_bp: Some(0.0),  // 0% floor
+///     floor_bp: Some(dec!(0)),  // 0% floor
 ///     all_in_floor_bp: None,
 ///     cap_bp: None,
 ///     index_cap_bp: None,

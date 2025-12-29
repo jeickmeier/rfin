@@ -2,6 +2,7 @@
 
 use finstack_core::dates::{BusinessDayConvention, Date, DayCount, StubKind, Tenor};
 use finstack_core::money::Money;
+use finstack_core::types::Bps;
 use rust_decimal::prelude::ToPrimitive;
 use rust_decimal::Decimal;
 
@@ -59,6 +60,16 @@ pub struct FeeTier {
     pub threshold: Decimal,
     /// Fee rate in basis points for this tier.
     pub bps: Decimal,
+}
+
+impl FeeTier {
+    /// Create a fee tier using typed basis points.
+    pub fn from_bps(threshold: f64, bps: Bps) -> Self {
+        Self {
+            threshold: Decimal::try_from(threshold).unwrap_or(Decimal::ZERO),
+            bps: Decimal::from(bps.as_bps()),
+        }
+    }
 }
 
 /// Evaluate fee tiers to find the applicable rate for a given utilization.

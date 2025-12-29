@@ -6,6 +6,7 @@
 use finstack_core::dates::{Date, DayCount, DayCountCtx};
 use finstack_core::market_data::traits::{Discounting, Forward, Survival};
 use finstack_core::money::Money;
+use finstack_core::types::{Bps, Rate};
 use finstack_core::Result;
 use std::sync::Arc;
 
@@ -206,6 +207,13 @@ impl FixedRateProjector {
     pub fn new(rate: f64) -> Self {
         Self { rate }
     }
+
+    /// Create a new fixed rate projector using a typed rate.
+    pub fn new_rate(rate: Rate) -> Self {
+        Self {
+            rate: rate.as_decimal(),
+        }
+    }
 }
 
 impl RateProjector for FixedRateProjector {
@@ -242,6 +250,19 @@ impl FloatingRateProjector {
             forward_curve,
             margin_bp,
             floor_bp,
+        }
+    }
+
+    /// Create a new floating rate projector using typed basis points.
+    pub fn new_bps(
+        forward_curve: Arc<dyn Forward + Send + Sync>,
+        margin_bp: Bps,
+        floor_bp: Option<Bps>,
+    ) -> Self {
+        Self {
+            forward_curve,
+            margin_bp: margin_bp.as_bps() as f64,
+            floor_bp: floor_bp.map(|bps| bps.as_bps() as f64),
         }
     }
 

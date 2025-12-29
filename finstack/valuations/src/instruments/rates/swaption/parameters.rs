@@ -4,6 +4,7 @@ use crate::instruments::irs::PayReceive;
 use finstack_core::dates::Date;
 use finstack_core::dates::{DayCount, Tenor};
 use finstack_core::money::Money;
+use finstack_core::types::Rate;
 
 /// Swaption-specific parameters.
 ///
@@ -55,6 +56,28 @@ impl SwaptionParams {
         }
     }
 
+    /// Create payer swaption parameters using a typed strike rate.
+    pub fn payer_rate(
+        notional: Money,
+        strike_rate: Rate,
+        expiry: Date,
+        swap_start: Date,
+        swap_end: Date,
+    ) -> Self {
+        Self {
+            notional,
+            strike_rate: strike_rate.as_decimal(),
+            expiry,
+            swap_start,
+            swap_end,
+            side: PayReceive::PayFixed,
+            fixed_freq: None,
+            float_freq: None,
+            day_count: None,
+            vol_model: None,
+        }
+    }
+
     /// Create receiver swaption parameters
     pub fn receiver(
         notional: Money,
@@ -66,6 +89,28 @@ impl SwaptionParams {
         Self {
             notional,
             strike_rate,
+            expiry,
+            swap_start,
+            swap_end,
+            side: PayReceive::ReceiveFixed,
+            fixed_freq: None,
+            float_freq: None,
+            day_count: None,
+            vol_model: None,
+        }
+    }
+
+    /// Create receiver swaption parameters using a typed strike rate.
+    pub fn receiver_rate(
+        notional: Money,
+        strike_rate: Rate,
+        expiry: Date,
+        swap_start: Date,
+        swap_end: Date,
+    ) -> Self {
+        Self {
+            notional,
+            strike_rate: strike_rate.as_decimal(),
             expiry,
             swap_start,
             swap_end,

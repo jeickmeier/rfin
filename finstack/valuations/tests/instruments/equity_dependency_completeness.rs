@@ -1,105 +1,158 @@
 //! Equity dependency completeness tests.
 //!
-//! Ensures instruments declaring equity dependencies can be priced with
-//! only spot + vol + declared curves present.
+//! Ensures instruments that declare equity market data dependencies
+//! (spot + vol surface) can be priced with only those dependencies provided.
 
 use finstack_core::currency::Currency;
-use finstack_core::dates::Date;
+use finstack_core::dates::{DateExt, DayCount};
 use finstack_core::market_data::context::MarketContext;
 use finstack_core::market_data::scalars::MarketScalar;
+use finstack_core::market_data::surfaces::vol_surface::VolSurface;
+use finstack_core::market_data::term_structures::{DiscountCurve, ForwardCurve};
 use finstack_core::money::Money;
-use finstack_valuations::instruments::barrier_option::BarrierOption;
-use finstack_valuations::instruments::common::dependencies::InstrumentDependencies;
-use finstack_valuations::instruments::common::traits::Instrument;
-use finstack_valuations::test_utils::{flat_discount_with_tenor, flat_vol_surface};
+use finstack_core::types::{CurveId, InstrumentId};
+use finstack_valuations::instruments::commodity_option::CommodityOption;
+use finstack_valuations::instruments::common::traits::{
+    CurveDependencies, EquityDependencies, Instrument,
+};
+use finstack_valuations::instruments::{ExerciseStyle, OptionType, PricingOverrides, SettlementType};
 use time::macros::date;
 
-fn build_market_from_deps(
-    deps: &InstrumentDependencies,
-    as_of: Date,
-    spot_currency: Currency,
-) -> MarketContext {
-    let mut market = MarketContext::new();
+fn build_discount_curve(id: &str, rate: f64) -> DiscountCurve {
+    let as_of = date!(2025 - 01 - 01);
+    DiscountCurve::builder(id)
+        .base_date(as_of)
+        .day_count(DayCount::Act365F)
+        .knots([
+            (0.0f64, 1.0f64),
+            (1.0f64, (-rate).exp()),
+            (5.0f64, (-rate * 5.0).exp()),
+            (10.0f64, (-rate * 10.0).exp()),
+        ])
+        .build()
+        .expect("Discount curve construction should succeed")
+}
 
-    for curve_id in deps.curves.discount_curves.iter() {
-        market = market.insert_discount(flat_discount_with_tenor(curve_id.as_str(), as_of, 0.02, 5.0));
-    }
-    for surface_id in deps.vol_surface_ids.iter() {
-        market = market.insert_surface(flat_vol_surface(
-            surface_id.as_str(),
-            &[0.25, 0.5, 1.0],
-            &[80.0, 100.0, 120.0],
-            0.2,
-        ));
-    }
-    for spot_id in deps.spot_ids.iter() {
-        market = market.insert_price(
-            spot_id,
-            MarketScalar::Price(Money::new(100.0, spot_currency)),
-        );
-    }
+fn build_forward_curve(id: &str, tenor_years: f64, rate: f64) -> ForwardCurve {
+    let as_of = date!(2025 - 01 - 01);
+    ForwardCurve::builder(id, tenor_years)
+        .base_date(as_of)
+        .day_count(DayCount::Act365F)
+        .reset_lag(2)
+        .knots([(0.0, rate), (1.0, rate + 0.003), (5.0, rate + 0.006)])
+        .build()
+        .expect("Forward curve construction should succeed")
+}
 
-    market
+fn build_vol_surface(id: &str) -> VolSurface {
+    VolSurface::builder(id)
+        .expiries(&[0.25, 1.0])
+        .strikes(&[90.0, 100.0, 110.0])
+        .row(&[0.25, 0.24, 0.23])
+        .row(&[0.22, 0.21, 0.20])
+        .build()
+        .expect("Vol surface construction should succeed")
 }
 
 #[test]
-fn test_equity_dependencies_complete() {
-    let as_of = date!(2024 - 01 - 02);
-    let mut option = BarrierOption::example();
-    option.div_yield_id = None;
+fn test_commodity_option_equity_dependencies_complete() {
+    let as_of = date!(2025 - 01 - 01);
+    let expiry = as_of.add_months(6);
 
-    let deps = InstrumentDependencies::from_curves_and_equity(&option);
-    let market = build_market_from_deps(&deps, as_of, option.strike.currency());
+    let option = CommodityOption::builder()
+        .id(InstrumentId::new("WTI-OPT-DEPS"))
+        .commodity_type("Energy".to_string())
+        .ticker("CL".to_string())
+        .strike(100.0)
+        .option_type(OptionType::Call)
+        .exercise_style(ExerciseStyle::European)
+        .expiry(expiry)
+        .quantity(1_000.0)
+        .unit("BBL".to_string())
+        .multiplier(1.0)
+        .settlement(SettlementType::Cash)
+        .currency(Currency::USD)
+        .forward_curve_id(CurveId::new("WTI-FWD"))
+        .discount_curve_id(CurveId::new("USD-OIS"))
+        .vol_surface_id(CurveId::new("WTI-VOL"))
+        .spot_price_id("WTI-SPOT".to_string())
+        .day_count(DayCount::Act365F)
+        .pricing_overrides(PricingOverrides::default())
+        .build()
+        .expect("Commodity option construction should succeed");
+
+    let curve_deps = option.curve_dependencies();
+    let equity_deps = option.equity_dependencies();
+
+    let mut market = MarketContext::new();
+    for id in curve_deps.discount_curves {
+        market = market.insert_discount(build_discount_curve(id.as_str(), 0.03));
+    }
+    for id in curve_deps.forward_curves {
+        market = market.insert_forward(build_forward_curve(id.as_str(), 0.25, 0.04));
+    }
+    if let Some(vol_id) = equity_deps.vol_surface_id {
+        market = market.insert_surface(build_vol_surface(&vol_id));
+    }
+    if let Some(spot_id) = equity_deps.spot_id {
+        market = market.insert_price(
+            &spot_id,
+            MarketScalar::Price(Money::new(100.0, Currency::USD)),
+        );
+    }
 
     let result = option.value(&market, as_of);
     assert!(
         result.is_ok(),
-        "Barrier option pricing with minimal market should succeed, got: {:?}",
+        "Commodity option pricing with minimal market should succeed, got: {:?}",
         result.err()
     );
 }
 
 #[test]
-fn test_missing_equity_dependency_fails() {
-    let as_of = date!(2024 - 01 - 02);
-    let mut option = BarrierOption::example();
-    option.div_yield_id = None;
+fn test_missing_equity_spot_fails() {
+    let as_of = date!(2025 - 01 - 01);
+    let expiry = as_of.add_months(6);
 
-    let deps = InstrumentDependencies::from_curves_and_equity(&option);
+    let option = CommodityOption::builder()
+        .id(InstrumentId::new("WTI-OPT-SPOT-MISSING"))
+        .commodity_type("Energy".to_string())
+        .ticker("CL".to_string())
+        .strike(100.0)
+        .option_type(OptionType::Call)
+        .exercise_style(ExerciseStyle::European)
+        .expiry(expiry)
+        .quantity(1_000.0)
+        .unit("BBL".to_string())
+        .multiplier(1.0)
+        .settlement(SettlementType::Cash)
+        .currency(Currency::USD)
+        .forward_curve_id(CurveId::new("WTI-FWD"))
+        .discount_curve_id(CurveId::new("USD-OIS"))
+        .vol_surface_id(CurveId::new("WTI-VOL"))
+        .spot_price_id("WTI-SPOT".to_string())
+        .day_count(DayCount::Act365F)
+        .pricing_overrides(PricingOverrides::default())
+        .build()
+        .expect("Commodity option construction should succeed");
 
-    let mut no_vol_market = MarketContext::new();
-    for curve_id in deps.curves.discount_curves.iter() {
-        no_vol_market =
-            no_vol_market.insert_discount(flat_discount_with_tenor(curve_id.as_str(), as_of, 0.02, 5.0));
+    let curve_deps = option.curve_dependencies();
+    let equity_deps = option.equity_dependencies();
+
+    let mut market = MarketContext::new();
+    for id in curve_deps.discount_curves {
+        market = market.insert_discount(build_discount_curve(id.as_str(), 0.03));
     }
-    for spot_id in deps.spot_ids.iter() {
-        no_vol_market = no_vol_market.insert_price(
-            spot_id,
-            MarketScalar::Price(Money::new(100.0, option.strike.currency())),
-        );
+    for id in curve_deps.forward_curves {
+        market = market.insert_forward(build_forward_curve(id.as_str(), 0.25, 0.04));
     }
-    let result = option.value(&no_vol_market, as_of);
+    if let Some(vol_id) = equity_deps.vol_surface_id {
+        market = market.insert_surface(build_vol_surface(&vol_id));
+    }
+
+    let result = option.value(&market, as_of);
     assert!(
         result.is_err(),
-        "Barrier option pricing should fail when vol surface is missing"
-    );
-
-    let mut no_spot_market = MarketContext::new();
-    for curve_id in deps.curves.discount_curves.iter() {
-        no_spot_market =
-            no_spot_market.insert_discount(flat_discount_with_tenor(curve_id.as_str(), as_of, 0.02, 5.0));
-    }
-    for surface_id in deps.vol_surface_ids.iter() {
-        no_spot_market = no_spot_market.insert_surface(flat_vol_surface(
-            surface_id.as_str(),
-            &[0.25, 0.5, 1.0],
-            &[80.0, 100.0, 120.0],
-            0.2,
-        ));
-    }
-    let result = option.value(&no_spot_market, as_of);
-    assert!(
-        result.is_err(),
-        "Barrier option pricing should fail when spot is missing"
+        "Commodity option pricing should fail when the spot price is missing"
     );
 }

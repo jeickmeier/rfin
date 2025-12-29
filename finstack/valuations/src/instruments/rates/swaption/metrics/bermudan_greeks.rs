@@ -27,6 +27,7 @@ use crate::instruments::swaption::BermudanSwaption;
 use crate::metrics::{MetricCalculator, MetricContext};
 use finstack_core::dates::Date;
 use finstack_core::market_data::traits::Discounting;
+use finstack_core::types::{Bps, Percentage, Rate};
 use finstack_core::Result;
 
 /// Default bump size for parallel rate shift (1 basis point).
@@ -86,10 +87,23 @@ impl BermudanDeltaCalculator {
         self
     }
 
+    /// Set bump size using typed basis points.
+    pub fn with_bump_bps(mut self, bump_bp: Bps) -> Self {
+        self.bump_bp = bump_bp.as_bps() as f64;
+        self
+    }
+
     /// Set Hull-White parameters.
     pub fn with_hw_params(mut self, kappa: f64, sigma: f64) -> Self {
         self.kappa = kappa;
         self.sigma = sigma;
+        self
+    }
+
+    /// Set Hull-White parameters using typed values.
+    pub fn with_hw_params_rate(mut self, kappa: Rate, sigma: Percentage) -> Self {
+        self.kappa = kappa.as_decimal();
+        self.sigma = sigma.as_decimal();
         self
     }
 
@@ -176,10 +190,23 @@ impl BermudanVegaCalculator {
         Self::default()
     }
 
+    /// Set volatility bump using a typed percentage.
+    pub fn with_bump_pct(mut self, bump_pct: Percentage) -> Self {
+        self.bump_pct = bump_pct.as_decimal();
+        self
+    }
+
     /// Set Hull-White parameters.
     pub fn with_hw_params(mut self, kappa: f64, sigma: f64) -> Self {
         self.kappa = kappa;
         self.sigma = sigma;
+        self
+    }
+
+    /// Set Hull-White parameters using typed values.
+    pub fn with_hw_params_rate(mut self, kappa: Rate, sigma: Percentage) -> Self {
+        self.kappa = kappa.as_decimal();
+        self.sigma = sigma.as_decimal();
         self
     }
 
@@ -266,6 +293,19 @@ impl BermudanGammaCalculator {
     /// Create a new gamma calculator.
     pub fn new() -> Self {
         Self::default()
+    }
+
+    /// Set bump size using typed basis points.
+    pub fn with_bump_bps(mut self, bump_bp: Bps) -> Self {
+        self.bump_bp = bump_bp.as_bps() as f64;
+        self
+    }
+
+    /// Set Hull-White parameters using typed values.
+    pub fn with_hw_params_rate(mut self, kappa: Rate, sigma: Percentage) -> Self {
+        self.kappa = kappa.as_decimal();
+        self.sigma = sigma.as_decimal();
+        self
     }
 }
 

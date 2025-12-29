@@ -42,7 +42,7 @@ use finstack_core::currency::Currency;
 use finstack_core::dates::{BusinessDayConvention, Date, DayCount, StubKind, Tenor};
 use finstack_core::error::InputError;
 use finstack_core::money::Money;
-use finstack_core::types::{CurveId, InstrumentId};
+use finstack_core::types::{Bps, CurveId, InstrumentId, Rate};
 
 use super::spec::{
     AmortizationSpec, CovenantSpec, DdtlSpec, LoanCallSchedule, OidEirSpec, TermLoanSpec,
@@ -77,13 +77,14 @@ use crate::instruments::pricing_overrides::PricingOverrides;
 /// use finstack_valuations::cashflow::builder::FloatingRateSpec;
 /// use finstack_core::dates::{DayCount, BusinessDayConvention, Tenor};
 /// use finstack_core::types::CurveId;
+/// use rust_decimal_macros::dec;
 ///
 /// let floating = RateSpec::Floating(FloatingRateSpec {
 ///     index_id: CurveId::new("USD-SOFR-3M"),
-///     spread_bp: 300.0,     // +300 bps spread
-///     gearing: 1.0,
+///     spread_bp: dec!(300),     // +300 bps spread
+///     gearing: dec!(1),
 ///     gearing_includes_spread: true,
-///     floor_bp: Some(0.0),  // 0% floor
+///     floor_bp: Some(dec!(0)),  // 0% floor
 ///     all_in_floor_bp: None,
 ///     cap_bp: None,
 ///     index_cap_bp: None,
@@ -109,6 +110,22 @@ pub enum RateSpec {
     /// Uses the standard floating rate specification with full support
     /// for floors, caps, gearing, and reset conventions.
     Floating(FloatingRateSpec),
+}
+
+impl RateSpec {
+    /// Create a fixed-rate spec using typed basis points.
+    pub fn fixed_bps(rate: Bps) -> Self {
+        Self::Fixed {
+            rate_bp: rate.as_bps(),
+        }
+    }
+
+    /// Create a fixed-rate spec using a typed rate.
+    pub fn fixed_rate(rate: Rate) -> Self {
+        Self::Fixed {
+            rate_bp: rate.as_bps(),
+        }
+    }
 }
 
 /// Term loan instrument with covenant and DDTL support.

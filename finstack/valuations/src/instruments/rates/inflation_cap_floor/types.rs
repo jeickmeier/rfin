@@ -15,7 +15,7 @@ use finstack_core::dates::{
 use finstack_core::market_data::context::MarketContext;
 use finstack_core::market_data::scalars::inflation_index::InflationLag;
 use finstack_core::money::Money;
-use finstack_core::types::{CurveId, InstrumentId};
+use finstack_core::types::{CurveId, InstrumentId, Rate};
 use time::Duration;
 
 /// Inflation option type.
@@ -327,6 +327,14 @@ impl InflationCapFloor {
     /// Default NPV using Black-76 (lognormal) model.
     pub fn npv(&self, curves: &MarketContext, as_of: Date) -> finstack_core::Result<Money> {
         self.npv_with_model(curves, as_of, ModelKey::Black76)
+    }
+}
+
+impl InflationCapFloorBuilder {
+    /// Set the strike rate using a typed rate.
+    pub fn strike_rate_rate(mut self, rate: Rate) -> Self {
+        self.strike_rate = Some(rate.as_decimal());
+        self
     }
 }
 

@@ -10,6 +10,7 @@
 
 use crate::instruments::common::parameters::OptionType;
 use finstack_core::dates::DayCount;
+use finstack_core::types::Bps;
 use finstack_core::{dates::Date, money::Money};
 
 /// Minimum valid strike spread in basis points (exclusive lower bound).
@@ -123,6 +124,35 @@ impl CdsOptionParams {
         Ok(params)
     }
 
+    /// Create new credit option parameters using typed basis points.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if:
+    /// - `strike_spread_bp` is not positive or exceeds 10000bp
+    /// - `expiry` is not before `cds_maturity`
+    pub fn new_bps(
+        strike_spread_bp: Bps,
+        expiry: Date,
+        cds_maturity: Date,
+        notional: Money,
+        option_type: OptionType,
+    ) -> finstack_core::Result<Self> {
+        let params = Self {
+            strike_spread_bp: strike_spread_bp.as_bps() as f64,
+            expiry,
+            cds_maturity,
+            notional,
+            option_type,
+            underlying_is_index: false,
+            index_factor: None,
+            forward_spread_adjust_bp: 0.0,
+            day_count: DayCount::Act360,
+        };
+        params.validate()?;
+        Ok(params)
+    }
+
     /// Create credit call option parameters with validation.
     pub fn call(
         strike_spread_bp: f64,
@@ -139,6 +169,22 @@ impl CdsOptionParams {
         )
     }
 
+    /// Create credit call option parameters using typed basis points.
+    pub fn call_bps(
+        strike_spread_bp: Bps,
+        expiry: Date,
+        cds_maturity: Date,
+        notional: Money,
+    ) -> finstack_core::Result<Self> {
+        Self::new_bps(
+            strike_spread_bp,
+            expiry,
+            cds_maturity,
+            notional,
+            OptionType::Call,
+        )
+    }
+
     /// Create credit put option parameters with validation.
     pub fn put(
         strike_spread_bp: f64,
@@ -147,6 +193,22 @@ impl CdsOptionParams {
         notional: Money,
     ) -> finstack_core::Result<Self> {
         Self::new(
+            strike_spread_bp,
+            expiry,
+            cds_maturity,
+            notional,
+            OptionType::Put,
+        )
+    }
+
+    /// Create credit put option parameters using typed basis points.
+    pub fn put_bps(
+        strike_spread_bp: Bps,
+        expiry: Date,
+        cds_maturity: Date,
+        notional: Money,
+    ) -> finstack_core::Result<Self> {
+        Self::new_bps(
             strike_spread_bp,
             expiry,
             cds_maturity,
@@ -175,6 +237,13 @@ impl CdsOptionParams {
     #[must_use]
     pub fn with_forward_spread_adjust_bp(mut self, adjust_bp: f64) -> Self {
         self.forward_spread_adjust_bp = adjust_bp;
+        self
+    }
+
+    /// Apply a forward spread adjustment using typed basis points.
+    #[must_use]
+    pub fn with_forward_spread_adjust_bps(mut self, adjust_bp: Bps) -> Self {
+        self.forward_spread_adjust_bp = adjust_bp.as_bps() as f64;
         self
     }
 

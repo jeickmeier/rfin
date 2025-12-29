@@ -2,7 +2,7 @@
 
 use finstack_core::dates::{Date, DayCount};
 use finstack_core::money::Money;
-use finstack_core::types::CurveId;
+use finstack_core::types::{CurveId, Percentage, Rate};
 
 #[cfg(feature = "serde")]
 use serde::{Deserialize, Serialize};
@@ -242,6 +242,19 @@ impl CreditParams {
         }
     }
 
+    /// Create new credit parameters using typed percentage recovery.
+    pub fn new_pct(
+        reference_entity: impl Into<String>,
+        recovery_rate: Percentage,
+        credit_curve_id: impl Into<CurveId>,
+    ) -> Self {
+        Self {
+            reference_entity: reference_entity.into(),
+            recovery_rate: recovery_rate.as_decimal(),
+            credit_curve_id: credit_curve_id.into(),
+        }
+    }
+
     /// Standard corporate credit with 40% recovery
     pub fn corporate_standard(
         reference_entity: impl Into<String>,
@@ -288,6 +301,24 @@ impl InterestRateOptionParams {
     ) -> Self {
         Self {
             strike,
+            expiry,
+            option_type,
+            tenor: tenor.into(),
+            day_count: DayCount::Act360,
+            notional,
+        }
+    }
+
+    /// Create new IR option parameters using a typed strike rate.
+    pub fn new_rate(
+        strike: Rate,
+        expiry: Date,
+        option_type: OptionType,
+        tenor: impl Into<String>,
+        notional: Money,
+    ) -> Self {
+        Self {
+            strike: strike.as_decimal(),
             expiry,
             option_type,
             tenor: tenor.into(),
