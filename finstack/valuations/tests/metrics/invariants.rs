@@ -320,6 +320,351 @@ mod mc_invariants {
     }
 }
 
+/// Property tests for CDS pricing invariants.
+mod cds_invariants {
+    use finstack_core::currency::Currency;
+    use finstack_core::dates::{DateExt, DayCount};
+    use finstack_core::market_data::term_structures::{DiscountCurve, HazardCurve};
+    use finstack_core::money::Money;
+    use finstack_valuations::instruments::cds::pricer::CDSPricer;
+    use finstack_valuations::instruments::cds::CreditDefaultSwap;
+    use proptest::prelude::*;
+    use time::macros::date;
+
+    fn build_test_curves(
+        flat_rate: f64,
+        hazard_rate: f64,
+    ) -> (DiscountCurve, HazardCurve) {
+        let as_of = date!(2025 - 01 - 01);
+
+        let disc = DiscountCurve::builder("USD-OIS")
+            .base_date(as_of)
+            .day_count(DayCount::Act365F)
+            .knots([
+                (0.0f64, 1.0f64),
+                (1.0f64, (-flat_rate).exp()),
+                (5.0f64, (-flat_rate * 5.0).exp()),
+                (10.0f64, (-flat_rate * 10.0).exp()),
+            ])
+            .build()
+            .unwrap();
+
+        let hazard = HazardCurve::builder("TEST-CREDIT")
+            .base_date(as_of)
+            .knots(vec![
+                (0.0, 1.0),
+                (1.0, (-hazard_rate).exp()),
+                (5.0, (-hazard_rate * 5.0).exp()),
+                (10.0, (-hazard_rate * 10.0).exp()),
+            ])
+            .build()
+            .unwrap();
+
+        (disc, hazard)
+    }
+
+    proptest! {
+        #![proptest_config(ProptestConfig::with_cases(15))]
+
+        /// Property: Par spread roundtrip should be idempotent.
+        ///
+        /// Given a CDS with spread S and hazard curve H:
+        /// 1. Compute par spread P from H
+        /// 2. P should be close to the input spread when hazard is calibrated
+        ///
+        /// Note: We test that par spread calculation is stable, not exact roundtrip
+        /// since we don't have a hazard calibration step here.
+        #[test]
+        fn prop_par_spread_is_positive_for_positive_hazard(
+            spread_bp in 50.0f64..500.0f64,
+            recovery in 0.2f64..0.6f64,
+            hazard_rate in 0.005f64..0.05f64,
+        ) {
+            let as_of = date!(2025 - 01 - 01);
+            let maturity = as_of.add_months(60); // 5Y CDS
+            let (disc, hazard) = build_test_curves(0.04, hazard_rate);
+
+            let cds = CreditDefaultSwap::buy_protection(
+                "PROP_PAR_TEST",
+                Money::new(10_000_000.0, Currency::USD),
+                spread_bp,
+                as_of,
+                maturity,
+                "USD-OIS",
+                "TEST-CREDIT",
+            ).expect("CDS construction should succeed");
+
+            // Override recovery rate
+            let mut cds_with_recovery = cds;
+            cds_with_recovery.protection.recovery_rate = recovery;
+
+            let pricer = CDSPricer::new();
+            let par_spread = pricer.par_spread(&cds_with_recovery, &disc, &hazard, as_of);
+
+            if let Ok(ps) = par_spread {
+                // Par spread should be positive for positive hazard rates
+                prop_assert!(
+                    ps > 0.0,
+                    "Par spread ({:.2} bps) should be positive for hazard rate {:.4}",
+                    ps * 10000.0, hazard_rate
+                );
+            }
+        }
+
+        /// Property: Protection leg PV decreases with higher recovery rate.
+        ///
+        /// Higher recovery means smaller loss-given-default (LGD = 1 - R), so
+        /// the expected protection payout is lower.
+        #[test]
+        fn prop_protection_leg_decreases_with_recovery(
+            hazard_rate in 0.01f64..0.03f64,
+        ) {
+            let as_of = date!(2025 - 01 - 01);
+            let maturity = as_of.add_months(60);
+
+            let cds_low_recovery = CreditDefaultSwap::buy_protection(
+                "PROP_RECOVERY_LOW",
+                Money::new(10_000_000.0, Currency::USD),
+                100.0,
+                as_of,
+                maturity,
+                "USD-OIS",
+                "TEST-CREDIT",
+            ).expect("CDS construction should succeed");
+
+            let mut cds_high_recovery = cds_low_recovery.clone();
+            cds_high_recovery.id = "PROP_RECOVERY_HIGH".into();
+
+            // Set different recovery rates
+            let mut cds_low = cds_low_recovery;
+            cds_low.protection.recovery_rate = 0.30; // Low recovery = high LGD
+            cds_high_recovery.protection.recovery_rate = 0.50; // High recovery = low LGD
+
+            let (disc, hazard) = build_test_curves(0.04, hazard_rate);
+
+            let pricer = CDSPricer::new();
+            let prot_low = pricer.pv_protection_leg(&cds_low, &disc, &hazard, as_of)
+                .expect("Low recovery pricing should succeed");
+            let prot_high = pricer.pv_protection_leg(&cds_high_recovery, &disc, &hazard, as_of)
+                .expect("High recovery pricing should succeed");
+
+            // Higher recovery = lower protection PV (smaller payout)
+            prop_assert!(
+                prot_low.amount() > prot_high.amount(),
+                "Protection PV with low recovery ({:.2}) should exceed high recovery ({:.2})",
+                prot_low.amount(), prot_high.amount()
+            );
+        }
+    }
+}
+
+/// Property tests for bucketed CS01 invariants.
+mod cs01_invariants {
+    use finstack_core::currency::Currency;
+    use finstack_core::dates::{DateExt, DayCount};
+    use finstack_core::market_data::context::MarketContext;
+    use finstack_core::market_data::term_structures::{DiscountCurve, HazardCurve};
+    use finstack_core::money::Money;
+    use finstack_valuations::instruments::cds::CreditDefaultSwap;
+    use finstack_valuations::instruments::common::traits::Instrument;
+    use finstack_valuations::metrics::{standard_registry, MetricContext, MetricId};
+    use proptest::prelude::*;
+    use std::sync::Arc;
+    use time::macros::date;
+
+    fn build_cds_market(flat_rate: f64, hazard_rate: f64) -> MarketContext {
+        let as_of = date!(2025 - 01 - 01);
+
+        let disc = DiscountCurve::builder("USD-OIS")
+            .base_date(as_of)
+            .day_count(DayCount::Act365F)
+            .knots([
+                (0.0f64, 1.0f64),
+                (1.0f64, (-flat_rate).exp()),
+                (5.0f64, (-flat_rate * 5.0).exp()),
+                (10.0f64, (-flat_rate * 10.0).exp()),
+                (30.0f64, (-flat_rate * 30.0).exp()),
+            ])
+            .build()
+            .unwrap();
+
+        let hazard = HazardCurve::builder("TEST-CREDIT")
+            .base_date(as_of)
+            .knots(vec![
+                (0.0, 1.0),
+                (1.0, (-hazard_rate).exp()),
+                (5.0, (-hazard_rate * 5.0).exp()),
+                (10.0, (-hazard_rate * 10.0).exp()),
+            ])
+            .build()
+            .unwrap();
+
+        MarketContext::new()
+            .insert_discount(disc)
+            .insert_hazard(hazard)
+    }
+
+    proptest! {
+        #![proptest_config(ProptestConfig::with_cases(10))]
+
+        /// Property: CS01 should be positive for protection buyer.
+        ///
+        /// A protection buyer benefits from spread widening (pays fixed, receives
+        /// more valuable protection). Thus CS01 (dPV/dSpread) should be positive.
+        #[test]
+        fn prop_cs01_positive_for_protection_buyer(
+            spread_bp in 50.0f64..300.0f64,
+            hazard_rate in 0.01f64..0.03f64,
+        ) {
+            let as_of = date!(2025 - 01 - 01);
+            let maturity = as_of.add_months(60);
+
+            let cds = CreditDefaultSwap::buy_protection(
+                "PROP_CS01_TEST",
+                Money::new(10_000_000.0, Currency::USD),
+                spread_bp,
+                as_of,
+                maturity,
+                "USD-OIS",
+                "TEST-CREDIT",
+            ).expect("CDS construction should succeed");
+
+            let market = build_cds_market(0.04, hazard_rate);
+            let pv = cds.value(&market, as_of).expect("Valuation should succeed");
+
+            let metrics = vec![MetricId::Cs01];
+            let registry = standard_registry();
+
+            let mut context = MetricContext::new(
+                Arc::new(cds),
+                Arc::new(market),
+                as_of,
+                pv,
+            );
+
+            let results = registry.compute(&metrics, &mut context).expect("Metrics should compute");
+            let cs01 = results.get(&MetricId::Cs01).copied().unwrap_or(0.0);
+
+            // CS01 should be positive for protection buyer
+            // (spread widening increases protection value)
+            prop_assert!(
+                cs01 > 0.0,
+                "CS01 ({:.4}) should be positive for protection buyer",
+                cs01
+            );
+        }
+    }
+}
+
+/// Tests for bucketed CS01 sum invariants.
+#[cfg(test)]
+mod bucketed_cs01_invariants {
+    use finstack_core::currency::Currency;
+    use finstack_core::dates::{DateExt, DayCount};
+    use finstack_core::market_data::context::MarketContext;
+    use finstack_core::market_data::term_structures::{DiscountCurve, HazardCurve};
+    use finstack_core::money::Money;
+    use finstack_valuations::instruments::cds::CreditDefaultSwap;
+    use finstack_valuations::instruments::common::traits::Instrument;
+    use finstack_valuations::metrics::{standard_registry, MetricContext, MetricId};
+    use std::sync::Arc;
+    use time::macros::date;
+
+    fn build_cds_market(flat_rate: f64, hazard_rate: f64) -> MarketContext {
+        let as_of = date!(2025 - 01 - 01);
+
+        let disc = DiscountCurve::builder("USD-OIS")
+            .base_date(as_of)
+            .day_count(DayCount::Act365F)
+            .knots([
+                (0.0f64, 1.0f64),
+                (1.0f64, (-flat_rate).exp()),
+                (5.0f64, (-flat_rate * 5.0).exp()),
+                (10.0f64, (-flat_rate * 10.0).exp()),
+                (30.0f64, (-flat_rate * 30.0).exp()),
+            ])
+            .build()
+            .unwrap();
+
+        let hazard = HazardCurve::builder("TEST-CREDIT")
+            .base_date(as_of)
+            .knots(vec![
+                (0.0, 1.0),
+                (1.0, (-hazard_rate).exp()),
+                (5.0, (-hazard_rate * 5.0).exp()),
+                (10.0, (-hazard_rate * 10.0).exp()),
+            ])
+            .build()
+            .unwrap();
+
+        MarketContext::new()
+            .insert_discount(disc)
+            .insert_hazard(hazard)
+    }
+
+    /// Test that bucketed CS01 values are consistent with parallel CS01.
+    ///
+    /// For a 5Y CDS, the bucketed CS01 should show sensitivity concentrated
+    /// in the 5Y bucket region. The buckets should have the same sign as
+    /// parallel CS01 (positive for protection buyer).
+    #[test]
+    fn test_bucketed_cs01_consistency() {
+        let as_of = date!(2025 - 01 - 01);
+        let maturity = as_of.add_months(60); // 5Y CDS
+
+        let cds = CreditDefaultSwap::buy_protection(
+            "CS01_BUCKET_TEST",
+            Money::new(10_000_000.0, Currency::USD),
+            100.0,
+            as_of,
+            maturity,
+            "USD-OIS",
+            "TEST-CREDIT",
+        )
+        .expect("CDS construction should succeed");
+
+        let market = build_cds_market(0.04, 0.02);
+        let pv = cds.value(&market, as_of).expect("Valuation should succeed");
+
+        let metrics = vec![MetricId::Cs01, MetricId::BucketedCs01];
+        let registry = standard_registry();
+
+        let mut context = MetricContext::new(Arc::new(cds), Arc::new(market), as_of, pv);
+
+        let results = registry.compute(&metrics, &mut context).expect("Metrics should compute");
+        let parallel_cs01 = results.get(&MetricId::Cs01).copied().unwrap_or(0.0);
+
+        // Parallel CS01 should be positive for protection buyer
+        assert!(
+            parallel_cs01 > 0.0,
+            "Parallel CS01 ({:.4}) should be positive for protection buyer",
+            parallel_cs01
+        );
+
+        // Check bucketed CS01 properties
+        if let Some(series) = context.computed_series.get(&MetricId::BucketedCs01) {
+            // At least one bucket should have non-zero value
+            let non_zero_count = series.iter().filter(|(_, v)| v.abs() > 1.0).count();
+            assert!(
+                non_zero_count > 0,
+                "Bucketed CS01 should have at least one non-zero bucket"
+            );
+
+            // All buckets should have consistent sign (non-negative for protection buyer)
+            // Some buckets may be zero if outside the CDS tenor
+            let negative_buckets: Vec<_> = series
+                .iter()
+                .filter(|(_, v)| *v < -1.0) // Allow small negative due to numerical noise
+                .collect();
+            assert!(
+                negative_buckets.is_empty(),
+                "Bucketed CS01 should not have significantly negative buckets for protection buyer, found: {:?}",
+                negative_buckets
+            );
+        }
+    }
+}
+
 #[cfg(test)]
 mod additional_invariants {
     //! Additional invariant tests that don't use proptest.

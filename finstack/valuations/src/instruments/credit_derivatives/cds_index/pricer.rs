@@ -307,7 +307,7 @@ impl CDSIndexPricer {
                 con.credit.recovery_rate,
                 index.premium.discount_curve_id.to_owned(),
                 con.credit.credit_curve_id.to_owned(),
-            ));
+            )?);
         }
         Ok(out)
     }

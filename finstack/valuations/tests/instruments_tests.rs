@@ -231,3 +231,12 @@ mod golden;
 /// Tests for upfront conventions, accrual-on-default, ex-coupon, stub periods
 #[path = "instruments/market_edge_tests.rs"]
 mod market_edge_tests;
+
+// ============================================================================
+// Curve Dependency Completeness Tests
+// ============================================================================
+
+/// Curve dependency completeness tests
+/// Verifies that instruments correctly declare all their curve dependencies
+#[path = "instruments/curve_dependency_completeness.rs"]
+mod curve_dependency_completeness;

@@ -1,4 +1,41 @@
 //! Credit Default Swap (CDS) types and implementations.
+//!
+//! # Convention Defaults
+//!
+//! This module uses **ISDA North American (IsdaNa)** as the default convention
+//! when no explicit convention is specified. This choice aligns with:
+//!
+//! - The ISDA CDS Standard Model (2014) which was developed primarily for
+//!   US/Canadian CDS markets
+//! - Bloomberg and Markit pricing tools which default to NA conventions
+//! - The dominance of US credit markets in global CDS trading volume
+//!
+//! For European or Asian CDS, explicitly specify `CDSConvention::IsdaEu` or
+//! `CDSConvention::IsdaAs` respectively. Use [`CDSConvention::detect_from_currency`]
+//! for automatic detection based on currency.
+//!
+//! ## Regional Convention Summary
+//!
+//! | Region | Convention | Day Count | Payment Frequency | Calendar |
+//! |--------|-----------|-----------|-------------------|----------|
+//! | North America | `IsdaNa` | ACT/360 | Quarterly | NYC |
+//! | Europe | `IsdaEu` | ACT/360 | Quarterly | London |
+//! | Asia | `IsdaAs` | ACT/365F | Quarterly | Tokyo |
+//!
+//! ## Example: Explicit Convention Selection
+//!
+//! ```ignore
+//! // Detect from currency (recommended for cross-regional portfolios)
+//! let convention = CDSConvention::detect_from_currency(Currency::EUR);
+//! assert_eq!(convention, CDSConvention::IsdaEu);
+//!
+//! // Or specify explicitly
+//! let european_cds = CreditDefaultSwapBuilder::new()
+//!     .convention(CDSConvention::IsdaEu)
+//!     // ...
+//!     .build()?;
+//! ```
+
 use crate::cashflow::traits::DatedFlows;
 use crate::instruments::common::traits::Attributes;
 use crate::instruments::PricingOverrides;
@@ -133,6 +170,63 @@ impl CDSConvention {
         self.try_registry()
             .map(|r| r.default_calendar_id.as_str())
             .unwrap_or("nyse")
+    }
+
+    /// Detect the appropriate CDS convention based on currency.
+    ///
+    /// This helper automatically selects the regional convention based on the
+    /// currency of the CDS notional. Useful for cross-regional portfolios
+    /// where convention should match the underlying credit market.
+    ///
+    /// # Currency Mapping
+    ///
+    /// - **USD, CAD**: North American (`IsdaNa`) - T+3, ACT/360, NYC calendar
+    /// - **EUR, GBP, CHF**: European (`IsdaEu`) - T+3, ACT/360, TARGET2 calendar
+    /// - **JPY, AUD, HKD, SGD**: Asian (`IsdaAs`) - T+3, ACT/365F, Tokyo calendar
+    /// - **Other**: North American (default)
+    ///
+    /// # Example
+    ///
+    /// ```rust
+    /// use finstack_core::currency::Currency;
+    /// use finstack_valuations::instruments::cds::CDSConvention;
+    ///
+    /// let na = CDSConvention::detect_from_currency(Currency::USD);
+    /// assert_eq!(na, CDSConvention::IsdaNa);
+    ///
+    /// let eu = CDSConvention::detect_from_currency(Currency::EUR);
+    /// assert_eq!(eu, CDSConvention::IsdaEu);
+    ///
+    /// let asia = CDSConvention::detect_from_currency(Currency::JPY);
+    /// assert_eq!(asia, CDSConvention::IsdaAs);
+    /// ```
+    #[must_use]
+    pub fn detect_from_currency(currency: Currency) -> Self {
+        match currency {
+            // North American currencies
+            Currency::USD | Currency::CAD => Self::IsdaNa,
+            // European currencies
+            Currency::EUR | Currency::GBP | Currency::CHF => Self::IsdaEu,
+            // Asian/Pacific currencies
+            Currency::JPY | Currency::AUD | Currency::HKD | Currency::SGD => Self::IsdaAs,
+            // Default to North American for others (most liquid CDS market)
+            _ => Self::IsdaNa,
+        }
+    }
+}
+
+impl Default for CDSConvention {
+    /// Returns the default CDS convention.
+    ///
+    /// # Warning
+    ///
+    /// The default convention is **ISDA North American (IsdaNa)**. For non-US
+    /// credits, consider using [`CDSConvention::detect_from_currency`] or
+    /// explicitly specifying the convention.
+    ///
+    /// See module-level documentation for convention selection guidance.
+    fn default() -> Self {
+        Self::IsdaNa
     }
 }
 
@@ -517,6 +611,10 @@ impl CreditDefaultSwap {
     /// # Arguments
     ///
     /// * `spread_bp` - Spread in basis points as Decimal
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if validation fails (e.g., recovery rate out of bounds).
     #[allow(clippy::too_many_arguments)]
     pub(crate) fn new_isda(
         id: impl Into<InstrumentId>,
@@ -529,13 +627,13 @@ impl CreditDefaultSwap {
         recovery_rate: f64,
         discount_curve_id: impl Into<finstack_core::types::CurveId>,
         credit_id: impl Into<finstack_core::types::CurveId>,
-    ) -> Self {
+    ) -> finstack_core::Result<Self> {
         let dc = convention.day_count();
         let freq = convention.frequency();
         let bdc = convention.business_day_convention();
         let stub = convention.stub_convention();
 
-        Self {
+        let cds = Self {
             id: id.into(),
             notional,
             side,
@@ -560,7 +658,11 @@ impl CreditDefaultSwap {
             upfront: None,
             margin_spec: None,
             attributes: Attributes::new(),
-        }
+        };
+
+        // Validate all parameters including recovery rate
+        cds.validate()?;
+        Ok(cds)
     }
 
     /// Validate recovery rate is within valid bounds [0, 1].

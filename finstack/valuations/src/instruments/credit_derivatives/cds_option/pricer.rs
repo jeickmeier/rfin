@@ -139,7 +139,7 @@ fn synthetic_underlying_cds(option: &CdsOption) -> Result<CreditDefaultSwap> {
             option.strike_spread_bp, e
         ))
     })?;
-    Ok(CreditDefaultSwap::new_isda(
+    CreditDefaultSwap::new_isda(
         option.id.to_owned(),
         Money::new(option.notional.amount(), option.notional.currency()),
         PayReceive::PayFixed,
@@ -150,7 +150,7 @@ fn synthetic_underlying_cds(option: &CdsOption) -> Result<CreditDefaultSwap> {
         option.recovery_rate,
         option.discount_curve_id.to_owned(),
         option.credit_curve_id.to_owned(),
-    ))
+    )
 }
 
 impl CdsOptionPricer {

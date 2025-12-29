@@ -317,21 +317,25 @@ fn test_non_isda_schedule_respects_frequency() {
 }
 
 #[test]
-fn test_exact_daycount_vs_approximate() {
+#[allow(deprecated)]
+fn test_exact_daycount_config_flag_deprecated() {
+    // The exact_daycount flag is deprecated. Exact day count is now always used
+    // regardless of the flag value, ensuring correctness.
     let as_of = date!(2024 - 01 - 01);
     let end = date!(2029 - 01 - 01);
     let (disc, hazard) = build_curves(as_of);
 
     let cds = create_test_cds(as_of, end);
 
-    // Exact day count
+    // Exact day count (explicit true)
     let pricer_exact = CDSPricer::with_config(CDSPricerConfig {
         exact_daycount: true,
         ..Default::default()
     });
 
-    // Approximate day count
-    let pricer_approx = CDSPricer::with_config(CDSPricerConfig {
+    // Deprecated: setting exact_daycount=false now has no effect
+    // Both should produce identical results since exact daycount is always used
+    let pricer_with_false = CDSPricer::with_config(CDSPricerConfig {
         exact_daycount: false,
         ..Default::default()
     });
@@ -341,22 +345,22 @@ fn test_exact_daycount_vs_approximate() {
         .unwrap()
         .amount();
 
-    let pv_approx = pricer_approx
+    let pv_with_false = pricer_with_false
         .pv_premium_leg(&cds, &disc, &hazard, as_of)
         .unwrap()
         .amount();
 
-    // Results should be close but not identical
-    // Day count differences can be significant (Act/360 vs Act/365), allow up to 2.5%
-    let rel_diff = ((pv_exact - pv_approx) / pv_exact).abs();
+    // Results should be identical since exact daycount is always used
+    let rel_diff = ((pv_exact - pv_with_false) / pv_exact).abs();
     assert!(
-        rel_diff < 0.025,
-        "Daycount methods should be within 2.5%, got {:.2}%",
-        rel_diff * 100.0
+        rel_diff < 1e-10,
+        "Both configs should produce identical results since exact_daycount=false is ignored, got diff {:.2e}",
+        rel_diff
     );
 }
 
 #[test]
+#[allow(deprecated)]
 fn test_isda_standard_config() {
     let config = CDSPricerConfig::isda_standard();
 
@@ -365,7 +369,7 @@ fn test_isda_standard_config() {
         IntegrationMethod::IsdaStandardModel
     );
     assert!(config.include_accrual);
-    assert!(config.exact_daycount);
+    assert!(config.exact_daycount); // Always true for correctness
     assert!(config.use_isda_coupon_dates);
     assert_eq!(config.business_days_per_year, 252.0); // US market
 }
@@ -393,11 +397,13 @@ fn test_isda_asia_config() {
 }
 
 #[test]
+#[allow(deprecated)]
 fn test_simplified_config() {
     let config = CDSPricerConfig::simplified();
 
     assert_eq!(config.integration_method, IntegrationMethod::Midpoint);
-    assert!(!config.exact_daycount);
+    // exact_daycount is now always true for correctness (field is deprecated)
+    assert!(config.exact_daycount);
     assert!(!config.use_isda_coupon_dates);
 }
 

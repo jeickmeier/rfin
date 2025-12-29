@@ -40,7 +40,10 @@ pub use fx_dates::{
     add_joint_business_days_with_calendars, adjust_joint_calendar,
     adjust_joint_calendar_with_calendars, roll_spot_date, ResolvedCalendarPair,
 };
-pub use helpers::{build_with_metrics_dyn, instrument_to_arc, validate_currency_consistency};
+pub use helpers::{
+    build_with_metrics_dyn, instrument_to_arc, price_with_metrics_from_arcs,
+    validate_currency_consistency,
+};
 pub use models::{
     d1, d1_d2, d1_d2_black76, d2, norm_cdf, norm_pdf, short_rate_keys, single_factor_equity_state,
     state_keys, two_factor_equity_rates_state, BinomialTree, EvolutionParams, NodeState,

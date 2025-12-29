@@ -89,6 +89,64 @@ pub fn decimal_to_percent_dec() -> rust_decimal::Decimal {
 /// Tolerance for numerical calculations
 pub const NUMERICAL_TOLERANCE: f64 = 1e-10;
 
+/// Numerical constants for floating-point comparisons and integration.
+///
+/// These constants replace magic numbers scattered throughout the codebase,
+/// providing consistent tolerances and step sizes with documented rationale.
+pub mod numerical {
+    /// Tolerance for checking if a value is effectively zero.
+    ///
+    /// Used for comparisons like `if lambda.abs() > ZERO_TOLERANCE` to avoid
+    /// division by zero or special-case handling for near-zero values.
+    ///
+    /// Value: 1e-10 (chosen to be well above f64 machine epsilon ~2.2e-16
+    /// but small enough to catch actual zeros vs meaningful small values).
+    pub const ZERO_TOLERANCE: f64 = 1e-10;
+
+    /// Step size factor for numerical differentiation and integration.
+    ///
+    /// When computing finite differences or integration steps, multiply the
+    /// interval length by this factor: `h = (t_end - t_start) * INTEGRATION_STEP_FACTOR`.
+    ///
+    /// Value: 1e-4 (provides good balance between numerical stability and
+    /// truncation error for typical financial time horizons of 0.1-30 years).
+    pub const INTEGRATION_STEP_FACTOR: f64 = 1e-4;
+
+    /// Tolerance for iterative solver convergence (bootstrap, calibration).
+    ///
+    /// Used as the convergence criterion for root-finding algorithms like
+    /// Brent's method: stop when |f(x)| < SOLVER_TOLERANCE.
+    ///
+    /// Value: 1e-8 (tight enough for financial precision while avoiding
+    /// excessive iterations for well-conditioned problems).
+    pub const SOLVER_TOLERANCE: f64 = 1e-8;
+
+    /// Tolerance for comparing floating-point rates and spreads.
+    ///
+    /// Used when checking if two rates are "equal" for purposes like
+    /// detecting unchanged spreads or matching calibration targets.
+    ///
+    /// Value: 1e-12 (tighter than ZERO_TOLERANCE because rates are typically
+    /// O(0.01) to O(0.1), so relative precision matters more).
+    pub const RATE_COMPARISON_TOLERANCE: f64 = 1e-12;
+
+    /// Small epsilon to prevent division by zero.
+    ///
+    /// Add to denominators when there's risk of division by zero:
+    /// `result = numerator / (denominator + DIVISION_EPSILON)`.
+    ///
+    /// Value: 1e-15 (close to but above f64 machine epsilon to ensure
+    /// the addition is numerically meaningful).
+    pub const DIVISION_EPSILON: f64 = 1e-15;
+
+    /// Default relative tolerance for numerical comparisons.
+    ///
+    /// Used for relative error checks: `|a - b| / max(|a|, |b|) < RELATIVE_TOLERANCE`.
+    ///
+    /// Value: 1e-9 (provides ~9 significant digits of precision).
+    pub const RELATIVE_TOLERANCE: f64 = 1e-9;
+}
+
 /// ISDA 2014 standard constants used by the engine
 pub mod isda {
     /// Standard recovery rate for senior unsecured (40%)

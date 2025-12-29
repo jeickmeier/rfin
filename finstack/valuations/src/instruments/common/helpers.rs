@@ -176,6 +176,57 @@ pub fn build_with_metrics_dyn(
     Ok(result)
 }
 
+/// Price an instrument with metrics using pre-allocated Arc references.
+///
+/// This is an optimized version of the `Instrument::price_with_metrics` pattern
+/// that avoids cloning when the caller already holds Arc-wrapped references.
+///
+/// # Performance
+///
+/// Use this function in portfolio valuation loops or batch processing where
+/// the same instrument/market context is reused across multiple calculations.
+/// The Arc wrapping is done once at the loop boundary rather than per-call,
+/// avoiding the cost of `Arc::new(self.clone())` on every iteration.
+///
+/// # Arguments
+///
+/// * `instrument` - Arc-wrapped instrument (caller provides, avoids clone)
+/// * `market` - Arc-wrapped market context (caller provides, avoids clone)
+/// * `as_of` - Valuation date
+/// * `metrics` - List of metrics to compute
+/// * `cfg` - Optional FinstackConfig for metric defaults
+///
+/// # Example
+///
+/// ```ignore
+/// use std::sync::Arc;
+///
+/// // Wrap once at loop boundary
+/// let instrument_arc: Arc<dyn Instrument> = Arc::new(bond.clone());
+/// let market_arc = Arc::new(market.clone());
+///
+/// // Process multiple metrics without re-cloning
+/// for metric_set in &[vec![MetricId::Dv01], vec![MetricId::Ytm]] {
+///     let result = price_with_metrics_from_arcs(
+///         instrument_arc.clone(), // Arc clone is cheap (just ref count)
+///         market_arc.clone(),
+///         as_of,
+///         metric_set,
+///         None,
+///     )?;
+/// }
+/// ```
+pub fn price_with_metrics_from_arcs(
+    instrument: Arc<dyn crate::instruments::common::traits::Instrument>,
+    market: Arc<MarketContext>,
+    as_of: Date,
+    metrics: &[crate::metrics::MetricId],
+    cfg: Option<Arc<FinstackConfig>>,
+) -> finstack_core::Result<crate::results::ValuationResult> {
+    let base_value = instrument.value(&market, as_of)?;
+    build_with_metrics_dyn(instrument, market, as_of, base_value, metrics, cfg)
+}
+
 /// Convert a trait object reference to Arc-wrapped trait object.
 ///
 /// This helper clones the instrument via `clone_box()` and converts it to Arc.

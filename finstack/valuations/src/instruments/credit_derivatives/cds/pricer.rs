@@ -51,7 +51,9 @@
 //! - O'Kane, D. "Modelling Single-name and Multi-name Credit Derivatives" (2008), Chapter 5
 //! - Hull, J.C. & White, A. "Valuing Credit Default Swaps I: No Counterparty Default Risk"
 
-use crate::constants::{isda, time as time_constants, NUMERICAL_TOLERANCE};
+use crate::constants::{
+    isda, numerical, time as time_constants, NUMERICAL_TOLERANCE, ONE_BASIS_POINT,
+};
 use crate::instruments::cds::{CreditDefaultSwap, PayReceive};
 use finstack_core::currency::Currency;
 use finstack_core::dates::DateExt;
@@ -66,19 +68,112 @@ use finstack_core::{Error, Result};
 use rust_decimal::prelude::ToPrimitive;
 use rust_decimal::Decimal;
 
-/// Numerical integration method for protection leg
+/// Numerical integration method for protection leg.
+///
+/// Different integration methods trade off accuracy against speed. Use
+/// [`IntegrationMethod::recommended`] for guidance based on instrument characteristics.
+///
+/// # Method Comparison
+///
+/// | Method | Speed | Accuracy | Best For |
+/// |--------|-------|----------|----------|
+/// | `Midpoint` | ★★★★★ | ★★☆☆☆ | Screening, batch processing |
+/// | `GaussianQuadrature` | ★★★☆☆ | ★★★★☆ | Distressed credits, stability |
+/// | `AdaptiveSimpson` | ★★☆☆☆ | ★★★★★ | Long tenors, complex curves |
+/// | `IsdaExact` | ★★★★☆ | ★★★★☆ | Standard market quotes |
+/// | `IsdaStandardModel` | ★★★★★ | ★★★★★ | ISDA compliance, production |
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum IntegrationMethod {
-    /// Simple midpoint rule with fixed steps (non-ISDA)
+    /// Simple midpoint rule with fixed steps (non-ISDA).
+    ///
+    /// Fast but lower accuracy. Suitable for approximate valuations,
+    /// high-volume batch processing, or when exact ISDA compliance is not required.
     Midpoint,
-    /// Gaussian quadrature for higher accuracy
+    /// Gaussian quadrature for higher accuracy.
+    ///
+    /// Provides better stability for distressed credits where hazard rates
+    /// are high (>5%) and the integrand varies rapidly. Uses configurable
+    /// Gauss-Legendre order (2, 4, 8, or 16 points).
     GaussianQuadrature,
-    /// Adaptive Simpson's rule
+    /// Adaptive Simpson's rule.
+    ///
+    /// Automatically adjusts integration density based on curve shape.
+    /// Best for long tenors (>10Y) or complex hazard curves with steep
+    /// term structure. Slower but handles curve irregularities well.
     AdaptiveSimpson,
-    /// ISDA standard integration with exact points
+    /// ISDA standard integration with exact points.
+    ///
+    /// Uses ISDA-specified integration points for regulatory compliance.
+    /// Good balance of accuracy and speed for standard market instruments.
     IsdaExact,
-    /// ISDA Standard Model (analytical integration over piecewise constant rates)
+    /// ISDA Standard Model (analytical integration over piecewise constant rates).
+    ///
+    /// The recommended method for production CDS pricing. Uses analytical
+    /// formulas assuming piecewise-constant hazard rates between curve knots,
+    /// matching ISDA Standard Model v1.8.2 exactly.
     IsdaStandardModel,
+}
+
+impl IntegrationMethod {
+    /// Recommended integration method based on instrument characteristics.
+    ///
+    /// This helper provides guidance for selecting an appropriate integration
+    /// method based on the CDS tenor and credit quality.
+    ///
+    /// # Selection Logic
+    ///
+    /// - **Short tenors (< 2Y)**: `Midpoint` - Fast, sufficient accuracy for
+    ///   short-dated instruments where integration error is small.
+    ///
+    /// - **Standard tenors (2-10Y), investment grade**: `IsdaStandardModel` -
+    ///   ISDA-compliant, analytical, and fast. The default for production.
+    ///
+    /// - **Long tenors (> 10Y)**: `AdaptiveSimpson` - Better handles the
+    ///   complexity of long-dated protection legs with changing curve shapes.
+    ///
+    /// - **Distressed credits (any tenor)**: `GaussianQuadrature` - Provides
+    ///   numerical stability when hazard rates are high and survival probability
+    ///   decays rapidly.
+    ///
+    /// # Arguments
+    ///
+    /// * `tenor_years` - CDS tenor in years (e.g., 5.0 for a 5Y CDS)
+    /// * `is_distressed` - Whether the credit is distressed (hazard rate > 5%,
+    ///   or spread > 500bps typically)
+    ///
+    /// # Example
+    ///
+    /// ```rust
+    /// use finstack_valuations::instruments::cds::pricer::IntegrationMethod;
+    ///
+    /// // Standard 5Y investment grade CDS
+    /// let method = IntegrationMethod::recommended(5.0, false);
+    /// assert_eq!(method, IntegrationMethod::IsdaStandardModel);
+    ///
+    /// // Distressed 3Y CDS
+    /// let method = IntegrationMethod::recommended(3.0, true);
+    /// assert_eq!(method, IntegrationMethod::GaussianQuadrature);
+    ///
+    /// // Long-dated 15Y CDS
+    /// let method = IntegrationMethod::recommended(15.0, false);
+    /// assert_eq!(method, IntegrationMethod::AdaptiveSimpson);
+    /// ```
+    #[must_use]
+    pub fn recommended(tenor_years: f64, is_distressed: bool) -> Self {
+        if is_distressed {
+            // Distressed credits need stable integration regardless of tenor
+            Self::GaussianQuadrature
+        } else if tenor_years < 2.0 {
+            // Short tenors: speed matters, error is small
+            Self::Midpoint
+        } else if tenor_years > 10.0 {
+            // Long tenors: curve shape matters more
+            Self::AdaptiveSimpson
+        } else {
+            // Standard tenors: ISDA compliance and speed
+            Self::IsdaStandardModel
+        }
+    }
 }
 
 /// Configuration for CDS pricing.
@@ -98,7 +193,15 @@ pub struct CDSPricerConfig {
     pub adaptive_steps: bool,
     /// Include accrual on default in premium leg calculation
     pub include_accrual: bool,
-    /// Use exact day count fractions (true) or approximate Act/365F (false)
+    /// Use exact day count fractions.
+    ///
+    /// **Deprecated**: This field is deprecated and will be removed in a future version.
+    /// Exact day count is now always used for correctness. Setting this to `false`
+    /// will log a warning and still use exact day count.
+    #[deprecated(
+        since = "0.1.0",
+        note = "exact_daycount is deprecated; exact day count is now always used"
+    )]
     pub exact_daycount: bool,
     /// Tolerance for iterative calculations
     pub tolerance: f64,
@@ -146,6 +249,7 @@ impl CDSPricerConfig {
     /// - Accrual-on-default included
     /// - Risky annuity for par spread denominator
     #[must_use]
+    #[allow(deprecated)]
     pub fn isda_standard() -> Self {
         Self {
             steps_per_year: isda::STANDARD_INTEGRATION_POINTS,
@@ -161,7 +265,7 @@ impl CDSPricerConfig {
             adaptive_max_depth: 12,
             business_days_per_year: time_constants::BUSINESS_DAYS_PER_YEAR_US,
             bootstrap_max_iterations: 100,
-            bootstrap_tolerance: 1e-8,
+            bootstrap_tolerance: numerical::SOLVER_TOLERANCE,
         }
     }
 
@@ -188,13 +292,14 @@ impl CDSPricerConfig {
     /// Uses midpoint integration without adaptive steps. Suitable for
     /// approximate valuations or high-volume batch processing.
     #[must_use]
+    #[allow(deprecated)]
     pub fn simplified() -> Self {
         Self {
             steps_per_year: 365,
             min_steps_per_year: 52,
             adaptive_steps: false,
             include_accrual: true,
-            exact_daycount: false,
+            exact_daycount: true, // Always use exact day count for correctness
             tolerance: 1e-7,
             integration_method: IntegrationMethod::Midpoint,
             use_isda_coupon_dates: false,
@@ -203,7 +308,7 @@ impl CDSPricerConfig {
             adaptive_max_depth: 10,
             business_days_per_year: time_constants::BUSINESS_DAYS_PER_YEAR_US,
             bootstrap_max_iterations: 100,
-            bootstrap_tolerance: 1e-8,
+            bootstrap_tolerance: numerical::SOLVER_TOLERANCE,
         }
     }
 
@@ -291,6 +396,12 @@ impl CDSPricer {
     }
 
     /// Calculate PV of protection leg (raw f64)
+    ///
+    /// # Panics
+    ///
+    /// This method assumes the CDS has been validated at construction time.
+    /// Recovery rate is expected to be in [0, 1]. Invalid recovery rates will
+    /// produce incorrect results without error.
     pub fn pv_protection_leg_raw(
         &self,
         cds: &CreditDefaultSwap,
@@ -298,8 +409,8 @@ impl CDSPricer {
         surv: &dyn Survival,
         as_of: Date,
     ) -> Result<f64> {
-        // Validate recovery rate upfront for better error messages
-        CreditDefaultSwap::validate_recovery_rate(cds.protection.recovery_rate)?;
+        // Note: Recovery rate validation is performed at CDS construction time.
+        // All public constructors (buy_protection, sell_protection, new_isda) call validate().
 
         // Protection leg covers the period from premium start to premium end
         // But we only value protection from as_of onwards (can't protect against past defaults)
@@ -386,7 +497,7 @@ impl CDSPricer {
                 "spread_bp {} cannot be converted to f64",
                 cds.premium.spread_bp
             ))
-        })? * 1e-4;
+        })? * ONE_BASIS_POINT;
 
         for i in 0..schedule.len() - 1 {
             let start_date = schedule[i];
@@ -492,7 +603,7 @@ impl CDSPricer {
         if t_start >= t_end || spread < 0.0 {
             return Err(Error::Internal);
         }
-        let h = (t_end - t_start) * 1e-4;
+        let h = (t_end - t_start) * numerical::INTEGRATION_STEP_FACTOR;
         let integrand = |t: f64| {
             let density = approx_default_density(surv, t, h, t_start, t_end);
             let accrued_time = (t - t_start).max(0.0);
@@ -583,7 +694,7 @@ impl CDSPricer {
 
                 let lambda_plus_r = hazard_rate + interest_rate;
 
-                if lambda_plus_r.abs() > 1e-10 {
+                if lambda_plus_r.abs() > numerical::ZERO_TOLERANCE {
                     let exp_term = (-lambda_plus_r * dt).exp();
                     // I0 = [1 - exp(-k*dt)] / k
                     let i0 = (1.0 - exp_term) / lambda_plus_r;
@@ -646,7 +757,7 @@ impl CDSPricer {
             )));
         }
         // Recovery validation done at entry point (pv_protection_leg)
-        let h = (t_end - t_start) * 1e-4;
+        let h = (t_end - t_start) * numerical::INTEGRATION_STEP_FACTOR;
         let lgd = 1.0 - recovery;
         let integrand = |t: f64| {
             let density = approx_default_density(surv, t, h, t_start, t_end);
@@ -672,7 +783,7 @@ impl CDSPricer {
             )));
         }
         // Recovery validation done at entry point (pv_protection_leg)
-        let h = (t_end - t_start) * 1e-4;
+        let h = (t_end - t_start) * numerical::INTEGRATION_STEP_FACTOR;
         let lgd = 1.0 - recovery;
         let integrand = |t: f64| {
             let density = approx_default_density(surv, t, h, t_start, t_end);
@@ -718,7 +829,7 @@ impl CDSPricer {
                 let hazard_rate = -(sp2 / sp1).ln() / dt;
                 let avg_t = (t1 + t2) * 0.5;
                 let df_mid = disc.df(avg_t + delay_years);
-                if hazard_rate.abs() > 1e-10 {
+                if hazard_rate.abs() > numerical::ZERO_TOLERANCE {
                     integral += (sp1 - sp2) * df_mid;
                 } else {
                     let sp_mid = (sp1 + sp2) * 0.5;
@@ -777,7 +888,7 @@ impl CDSPricer {
                 // ∫[t1,t2] D(t) * (-dS(t)) dt = D(t1) * S(t1) * [λ/(λ+r)] * [1 - exp(-(λ+r)*Δt)]
                 let lambda_plus_r = hazard_rate + interest_rate;
 
-                if lambda_plus_r.abs() > 1e-10 {
+                if lambda_plus_r.abs() > numerical::ZERO_TOLERANCE {
                     let exp_term = (-lambda_plus_r * dt).exp();
                     integral += df1 * sp1 * (hazard_rate / lambda_plus_r) * (1.0 - exp_term);
                 } else {
@@ -948,11 +1059,10 @@ impl CDSPricer {
             let accrual = self.year_fraction(start_date, end_date, cds.premium.dc)?;
             let sp = surv.sp(t_end);
             let df = disc.df(t_end);
-            let per_bp = 1e-4;
-            per_bp_pv += per_bp * accrual * sp * df;
+            per_bp_pv += ONE_BASIS_POINT * accrual * sp * df;
             if self.config.include_accrual {
                 per_bp_pv +=
-                    self.calculate_accrual_on_default(per_bp, t_start, t_end, disc, surv)?;
+                    self.calculate_accrual_on_default(ONE_BASIS_POINT, t_start, t_end, disc, surv)?;
             }
         }
         Ok(per_bp_pv)
@@ -1046,18 +1156,19 @@ impl CDSPricer {
         self.npv_with_upfront(cds, disc, surv, as_of)
     }
 
-    /// Year fraction helper honoring exact day-count if configured
+    /// Year fraction helper using exact day count.
+    ///
+    /// Always uses the provided day count convention for correctness.
+    /// The `exact_daycount` config field is deprecated and ignored.
+    #[allow(deprecated)]
     fn year_fraction(&self, start: Date, end: Date, dc: DayCount) -> Result<f64> {
-        if self.config.exact_daycount {
-            dc.year_fraction(start, end, finstack_core::dates::DayCountCtx::default())
-        } else {
-            // Fallback: approximate using ACT/365F to avoid local constants
-            DayCount::Act365F.year_fraction(
-                start,
-                end,
-                finstack_core::dates::DayCountCtx::default(),
-            )
+        if !self.config.exact_daycount {
+            tracing::warn!(
+                "CDSPricerConfig.exact_daycount=false is deprecated and ignored; \
+                 exact day count is always used for correctness"
+            );
         }
+        dc.year_fraction(start, end, finstack_core::dates::DayCountCtx::default())
     }
 }
 
@@ -1066,7 +1177,7 @@ impl CDSPricer {
 fn approx_default_density(surv: &dyn Survival, t: f64, h: f64, t_start: f64, t_end: f64) -> f64 {
     // Finite-difference approximation of -dS/dt, clipped to [t_start, t_end]
     let hh = if h <= 0.0 {
-        (t_end - t_start) * 1e-4
+        (t_end - t_start) * numerical::INTEGRATION_STEP_FACTOR
     } else {
         h
     };
@@ -1147,7 +1258,7 @@ impl CDSBootstrapper {
                 spread_bps, e
             ))
         })?;
-        Ok(CreditDefaultSwap::new_isda(
+        CreditDefaultSwap::new_isda(
             finstack_core::types::InstrumentId::new(format!("SYNTHETIC_{:.1}Y", tenor_years)),
             Money::new(1_000_000.0, Currency::USD),
             PayReceive::PayFixed,
@@ -1158,7 +1269,7 @@ impl CDSBootstrapper {
             recovery_rate,
             finstack_core::types::CurveId::new("DISC"),
             finstack_core::types::CurveId::new("CREDIT"),
-        ))
+        )
     }
 
     #[allow(clippy::too_many_arguments)]
@@ -1256,6 +1367,7 @@ mod tests {
             finstack_core::types::CurveId::new("USD-OIS"),
             finstack_core::types::CurveId::new("TEST-CREDIT"),
         )
+        .expect("test CDS creation should succeed")
     }
 
     fn create_test_curves() -> (DiscountCurve, HazardCurve) {
