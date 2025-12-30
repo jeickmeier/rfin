@@ -197,6 +197,7 @@
 
 use crate::instruments::common::traits::Instrument;
 use crate::metrics::{MetricCalculator, MetricContext, MetricId};
+use finstack_core::currency::Currency;
 use finstack_core::dates::Date;
 use finstack_core::Result;
 use std::any::Any;
@@ -220,6 +221,7 @@ use std::marker::PhantomData;
 /// assert_eq!(parse_period_days("3M").expect("should succeed"), 90);
 /// assert_eq!(parse_period_days("1Y").expect("should succeed"), 365);
 /// ```
+#[allow(dead_code)]
 pub fn parse_period_days(period: &str) -> Result<i64> {
     let period = period.trim().to_uppercase();
 
@@ -257,10 +259,80 @@ pub fn parse_period_days(period: &str) -> Result<i64> {
     Ok(days)
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum ThetaPeriod {
+    Days(i64),
+    Months(i32),
+    Years(i32),
+}
+
+fn parse_theta_period(period: &str) -> Result<ThetaPeriod> {
+    let period = period.trim().to_uppercase();
+    if period.is_empty() {
+        return Err(finstack_core::Error::from(finstack_core::InputError::Invalid));
+    }
+
+    let (num_str, unit) = if let Some(pos) = period.find(|c: char| c.is_alphabetic()) {
+        (&period[..pos], &period[pos..])
+    } else {
+        return Err(finstack_core::Error::from(finstack_core::InputError::Invalid));
+    };
+
+    let num_i64: i64 = num_str
+        .parse()
+        .map_err(|_| finstack_core::Error::from(finstack_core::InputError::Invalid))?;
+
+    match unit {
+        // For fixed-day periods, reuse the public helper so it stays exercised in production.
+        "D" | "W" => Ok(ThetaPeriod::Days(parse_period_days(&period)?)),
+        "M" => Ok(ThetaPeriod::Months(
+            i32::try_from(num_i64)
+                .map_err(|_| finstack_core::Error::from(finstack_core::InputError::Invalid))?,
+        )),
+        "Y" => Ok(ThetaPeriod::Years(
+            i32::try_from(num_i64)
+                .map_err(|_| finstack_core::Error::from(finstack_core::InputError::Invalid))?,
+        )),
+        _ => Err(finstack_core::Error::from(finstack_core::InputError::Invalid)),
+    }
+}
+
+fn last_day_of_month(year: i32, month: time::Month) -> u8 {
+    // Conservative and simple: try from 31 down to 28.
+    for d in (28_u8..=31_u8).rev() {
+        if Date::from_calendar_date(year, month, d).is_ok() {
+            return d;
+        }
+    }
+    28
+}
+
+fn add_months_calendar(date: Date, months: i32) -> Result<Date> {
+    let (y, m, d) = date.to_calendar_date();
+    let m0: i32 = i32::from(m as u8) - 1;
+    let total = y * 12 + m0 + months;
+    let ny = total.div_euclid(12);
+    let nm0 = total.rem_euclid(12);
+    let nm = time::Month::try_from((nm0 + 1) as u8)
+        .map_err(|_| finstack_core::Error::from(finstack_core::InputError::Invalid))?;
+
+    let last_src = last_day_of_month(y, m);
+    let last_dst = last_day_of_month(ny, nm);
+    let is_eom = d == last_src;
+    let nd = if is_eom { last_dst } else { d.min(last_dst) };
+
+    Date::from_calendar_date(ny, nm, nd)
+        .map_err(|_| finstack_core::Error::from(finstack_core::InputError::Invalid))
+}
+
 /// Calculate the rolled forward date for theta calculation.
 ///
-/// Advances the base date by the specified period (in calendar days), but caps
-/// at the expiry date if the instrument expires before the period ends.
+/// Advances the base date by the specified period, but caps at the expiry date if the
+/// instrument expires before the period ends.
+///
+/// Notes:
+/// - `"D"` and `"W"` are treated as fixed day increments.
+/// - `"M"` and `"Y"` are treated as **calendar** month/year rolls (EOM-aware).
 ///
 /// # Arguments
 /// * `base_date` - Starting valuation date
@@ -274,8 +346,11 @@ pub fn calculate_theta_date(
     period_str: &str,
     expiry_date: Option<Date>,
 ) -> Result<Date> {
-    let days = parse_period_days(period_str)?;
-    let rolled_date = base_date + time::Duration::days(days);
+    let rolled_date = match parse_theta_period(period_str)? {
+        ThetaPeriod::Days(n) => base_date + time::Duration::days(n),
+        ThetaPeriod::Months(n) => add_months_calendar(base_date, n)?,
+        ThetaPeriod::Years(n) => add_months_calendar(base_date, n * 12)?,
+    };
 
     // Cap at expiry if instrument expires before the rolled date
     if let Some(expiry) = expiry_date {
@@ -342,14 +417,20 @@ where
 
     // Base PV from the pre-computed valuation
     let base_pv = context.base_value.amount();
+    let base_ccy = context.base_value.currency();
 
     // Reprice at rolled date with same market context
     let bumped_value = instrument.value(&context.curves, rolled_date)?.amount();
     let pv_change = bumped_value - base_pv;
 
     // Collect cashflows during the period (if instrument provides them)
-    let cashflows_during_period =
-        collect_cashflows_in_period(instrument, &context.curves, context.as_of, rolled_date)?;
+    let cashflows_during_period = collect_cashflows_in_period(
+        instrument as &dyn Instrument,
+        &context.curves,
+        context.as_of,
+        rolled_date,
+        base_ccy,
+    )?;
 
     // Theta = PV change + cashflows received
     Ok(pv_change + cashflows_during_period)
@@ -411,124 +492,34 @@ where
 ///
 /// # Returns
 /// Sum of cashflow amounts in the period (converted to base currency)
-fn collect_cashflows_in_period<I>(
-    instrument: &I,
+fn collect_cashflows_in_period(
+    instrument: &dyn Instrument,
     curves: &finstack_core::market_data::context::MarketContext,
     start_date: Date,
     end_date: Date,
+    base_currency: Currency,
 ) -> Result<f64>
-where
-    I: 'static,
 {
-    // Delegate to shared implementation
-    collect_cashflows_impl(instrument as &dyn Any, curves, start_date, end_date)
-}
+    let Some(cf) = instrument.as_cashflow_provider() else {
+        return Ok(0.0);
+    };
 
-/// Shared implementation for collecting cashflows from any instrument.
-///
-/// This is the single source of truth for cashflow collection logic,
-/// used by both `collect_cashflows_in_period` and `collect_cashflows_in_period_any`.
-fn collect_cashflows_impl(
-    any_ref: &dyn Any,
-    curves: &finstack_core::market_data::context::MarketContext,
-    start_date: Date,
-    end_date: Date,
-) -> Result<f64> {
-    use crate::cashflow::traits::CashflowProvider;
-    use crate::instruments::*;
-
-    // Try to downcast to known CashflowProvider implementors
-    let cashflows: Option<Vec<(Date, finstack_core::money::Money)>> =
-        // Bonds
-        if let Some(bond) = any_ref.downcast_ref::<Bond>() {
-            bond.build_schedule(curves, start_date).ok()
+    let flows = cf.build_schedule(curves, start_date)?;
+    let mut sum = 0.0;
+    for (d, m) in flows {
+        if d > start_date && d <= end_date {
+            if m.currency() != base_currency {
+                return Err(finstack_core::Error::Validation(format!(
+                    "Theta cashflow currency mismatch: base={} but saw cashflow currency={} (instrument_id={})",
+                    base_currency,
+                    m.currency(),
+                    instrument.id(),
+                )));
+            }
+            sum += m.amount();
         }
-        // Interest Rate Swaps
-        else if let Some(irs) = any_ref.downcast_ref::<InterestRateSwap>() {
-            irs.build_schedule(curves, start_date).ok()
-        }
-        // Deposits
-        else if let Some(deposit) = any_ref.downcast_ref::<deposit::Deposit>() {
-            deposit.build_schedule(curves, start_date).ok()
-        }
-        // FRAs
-        else if let Some(fra) = any_ref.downcast_ref::<fra::ForwardRateAgreement>() {
-            fra.build_schedule(curves, start_date).ok()
-        }
-        // IR Futures
-        else if let Some(ir_fut) = any_ref.downcast_ref::<ir_future::InterestRateFuture>() {
-            ir_fut.build_schedule(curves, start_date).ok()
-        }
-        // Equity
-        else if let Some(equity) = any_ref.downcast_ref::<equity::Equity>() {
-            equity.build_schedule(curves, start_date).ok()
-        }
-        // FX Spot
-        else if let Some(fx_spot) = any_ref.downcast_ref::<fx_spot::FxSpot>() {
-            fx_spot.build_schedule(curves, start_date).ok()
-        }
-        // Inflation-Linked Bonds
-        else if let Some(inf_bond) =
-            any_ref.downcast_ref::<inflation_linked_bond::InflationLinkedBond>()
-        {
-            inf_bond.build_schedule(curves, start_date).ok()
-        }
-        // Repos
-        else if let Some(repo) = any_ref.downcast_ref::<repo::Repo>() {
-            repo.build_schedule(curves, start_date).ok()
-        }
-        // Structured Credit
-        else if let Some(sc) = any_ref.downcast_ref::<structured_credit::StructuredCredit>() {
-            sc.build_schedule(curves, start_date).ok()
-        }
-        // TRS (both types)
-        else if let Some(eq_trs) = any_ref.downcast_ref::<equity_trs::EquityTotalReturnSwap>() {
-            eq_trs.build_schedule(curves, start_date).ok()
-        } else if let Some(fi_trs) =
-            any_ref.downcast_ref::<fi_trs::FIIndexTotalReturnSwap>()
-        {
-            fi_trs.build_schedule(curves, start_date).ok()
-        }
-        // Private Markets Fund
-        else if let Some(pmf) =
-            any_ref.downcast_ref::<private_markets_fund::PrivateMarketsFund>()
-        {
-            pmf.build_schedule(curves, start_date).ok()
-        }
-        // Variance Swap
-        else if let Some(var_swap) = any_ref.downcast_ref::<variance_swap::VarianceSwap>() {
-            var_swap.build_schedule(curves, start_date).ok()
-        }
-        // CDS - use premium schedule for cashflows
-        else if let Some(cds) = any_ref.downcast_ref::<cds::CreditDefaultSwap>() {
-            cds.build_premium_schedule(curves, start_date).ok()
-        }
-        // FX Swap - has explicit cashflows at near and far dates
-        else if let Some(_fx_swap) = any_ref.downcast_ref::<fx_swap::FxSwap>() {
-            // FX swaps don't have interim cashflows, only near/far settlement
-            // Theta comes purely from PV change, not cashflows
-            None
-        }
-        // Instruments without CashflowProvider implementation:
-        // - BasisSwap, CDSIndex, CdsTranche, ConvertibleBond, InflationSwap
-        // - Cap/Floor, Options, Basket
-        // These don't have interim cashflows or don't implement the trait
-        else {
-            None
-        };
-
-    // Sum cashflows in (start_date, end_date]
-    if let Some(flows) = cashflows {
-        let cashflow_sum: f64 = flows
-            .iter()
-            .filter(|(date, _)| *date > start_date && *date <= end_date)
-            .map(|(_, money)| money.amount())
-            .sum();
-        Ok(cashflow_sum)
-    } else {
-        // No cashflows for this instrument type
-        Ok(0.0)
     }
+    Ok(sum)
 }
 
 /// Helper to extract expiry date from an instrument (trait object).
@@ -650,6 +641,7 @@ impl crate::metrics::MetricCalculator for GenericThetaAny {
 
         // Base PV from the pre-computed valuation
         let base_pv = context.base_value.amount();
+        let base_ccy = context.base_value.currency();
 
         // Reprice at rolled date with same market context using the trait method directly
         let bumped_value = context
@@ -658,12 +650,13 @@ impl crate::metrics::MetricCalculator for GenericThetaAny {
             .amount();
         let pv_change = bumped_value - base_pv;
 
-        // Collect cashflows during the period (using helper that does downcasting internally)
-        let cashflows_during_period = collect_cashflows_in_period_any(
+        // Collect cashflows during the period (if available via Instrument::as_cashflow_provider()).
+        let cashflows_during_period = collect_cashflows_in_period(
             context.instrument.as_ref(),
             &context.curves,
             context.as_of,
             rolled_date,
+            base_ccy,
         )?;
 
         // Theta = PV change + cashflows received
@@ -673,19 +666,6 @@ impl crate::metrics::MetricCalculator for GenericThetaAny {
     fn dependencies(&self) -> &[crate::metrics::MetricId] {
         &[]
     }
-}
-
-/// Collect cashflows from any instrument during a time period.
-///
-/// This is a thin wrapper that delegates to `collect_cashflows_impl`.
-fn collect_cashflows_in_period_any(
-    instrument: &dyn crate::instruments::common::traits::Instrument,
-    curves: &finstack_core::market_data::context::MarketContext,
-    start_date: Date,
-    end_date: Date,
-) -> Result<f64> {
-    // Use as_any to get &dyn Any, then delegate to shared implementation
-    collect_cashflows_impl(instrument.as_any(), curves, start_date, end_date)
 }
 
 // ================================================================================================
@@ -785,7 +765,7 @@ mod tests {
     fn calculate_theta_date_one_month() {
         let base = test_date();
         let rolled = calculate_theta_date(base, "1M", None).expect("roll 1M");
-        let expected = Date::from_calendar_date(2025, Month::January, 31).expect("expected date");
+        let expected = Date::from_calendar_date(2025, Month::February, 1).expect("expected date");
         assert_eq!(rolled, expected);
     }
 
@@ -831,10 +811,16 @@ mod tests {
         let base = test_date();
 
         let rolled_3m = calculate_theta_date(base, "3M", None).expect("roll 3M");
-        assert_eq!(rolled_3m, base + time::Duration::days(90));
+        assert_eq!(
+            rolled_3m,
+            Date::from_calendar_date(2025, Month::April, 1).expect("expected date")
+        );
 
         let rolled_1y = calculate_theta_date(base, "1Y", None).expect("roll 1Y");
-        assert_eq!(rolled_1y, base + time::Duration::days(365));
+        assert_eq!(
+            rolled_1y,
+            Date::from_calendar_date(2026, Month::January, 1).expect("expected date")
+        );
     }
 
     #[test]

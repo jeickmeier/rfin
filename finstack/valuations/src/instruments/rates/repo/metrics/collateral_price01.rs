@@ -50,9 +50,7 @@ impl MetricCalculator for CollateralPrice01Calculator {
             )),
             MarketScalar::Unitless(_) => MarketScalar::Unitless(bumped_price_up),
         };
-        ctx_up
-            .prices
-            .insert(CurveId::from(market_value_id.as_str()), new_scalar_up);
+        ctx_up.set_price_mut(CurveId::from(market_value_id.as_str()), new_scalar_up);
         let pv_up = repo.value(&ctx_up, as_of)?.amount();
 
         // Bump collateral price down by 1%
@@ -65,9 +63,7 @@ impl MetricCalculator for CollateralPrice01Calculator {
             )),
             MarketScalar::Unitless(_) => MarketScalar::Unitless(bumped_price_down),
         };
-        ctx_down
-            .prices
-            .insert(CurveId::from(market_value_id.as_str()), new_scalar_down);
+        ctx_down.set_price_mut(CurveId::from(market_value_id.as_str()), new_scalar_down);
         let pv_down = repo.value(&ctx_down, as_of)?.amount();
 
         // CollateralPrice01 = (PV_up - PV_down) / (2 * bump_size)

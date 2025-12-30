@@ -45,12 +45,8 @@ impl MetricCalculator for FxVegaCalculator {
         // Bump FX volatility surface by scaling all values (no grid rebuild)
         let mut curves_bumped = context.curves.as_ref().clone();
         let scale_factor = 1.0 + bump_sizes::VOLATILITY;
-        use finstack_core::types::CurveId;
-        use std::sync::Arc;
         let bumped_surface = fx_vol_surface.scaled(scale_factor);
-        curves_bumped
-            .surfaces
-            .insert(CurveId::from(fx_vol_id.as_str()), Arc::new(bumped_surface));
+        curves_bumped.insert_surface_mut(bumped_surface);
 
         // Reprice with bumped FX vol
         let pv_bumped = option.npv(&curves_bumped, as_of)?.amount();

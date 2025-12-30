@@ -6,7 +6,7 @@
 
 use crate::instruments::cms_option::CmsOption;
 use crate::metrics::bump_sizes;
-use crate::metrics::scale_surface;
+use crate::metrics::bump_surface_vol_absolute;
 use crate::metrics::{MetricCalculator, MetricContext};
 use finstack_core::Result;
 
@@ -42,17 +42,14 @@ impl MetricCalculator for VegaCalculator {
             }
         };
 
-        // Bump volatility surface by scaling all values
-        let curves_bumped = scale_surface(
-            &context.curves,
-            vol_surface_id.as_str(),
-            1.0 + bump_sizes::VOLATILITY,
-        )?;
+        // Bump volatility surface by an absolute vol amount (vol points).
+        let curves_bumped =
+            bump_surface_vol_absolute(&context.curves, vol_surface_id.as_str(), bump_sizes::VOLATILITY)?;
 
         // Reprice with bumped vol
         let pv_bumped = option.npv(&curves_bumped, as_of)?.amount();
 
-        // Vega = (PV_bumped - PV_base) / bump_size (in vol units)
+        // Vega = (PV(σ+Δσ) - PV(σ)) / Δσ  (Δσ in absolute vol units).
         let vega = (pv_bumped - base_pv) / bump_sizes::VOLATILITY;
 
         Ok(vega)

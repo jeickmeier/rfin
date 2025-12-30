@@ -24,7 +24,7 @@
 use crate::config::{FinstackConfig, RoundingMode};
 use crate::currency::Currency;
 use crate::dates::Date;
-use crate::error::Error;
+use crate::error::{Error, InputError, NonFiniteKind};
 use core::fmt;
 use core::ops::{Add, AddAssign, Div, DivAssign, Mul, MulAssign, Sub, SubAssign};
 
@@ -224,15 +224,14 @@ impl Money {
     #[inline]
     pub fn try_new(amount: f64, currency: Currency) -> Result<Self, Error> {
         if !amount.is_finite() {
-            return Err(Error::Input(crate::error::InputError::NonFiniteValue {
-                kind: if amount.is_nan() {
-                    "NaN".to_string()
-                } else if amount.is_sign_positive() {
-                    "infinity".to_string()
-                } else {
-                    "-infinity".to_string()
-                },
-            }));
+            let kind = if amount.is_nan() {
+                NonFiniteKind::NaN
+            } else if amount.is_sign_positive() {
+                NonFiniteKind::PosInfinity
+            } else {
+                NonFiniteKind::NegInfinity
+            };
+            return Err(Error::Input(InputError::NonFiniteValue { kind }));
         }
         let dp = currency.decimals();
         let mode = RoundingMode::Bankers;
@@ -331,15 +330,14 @@ impl Money {
         cfg: &FinstackConfig,
     ) -> Result<Self, Error> {
         if !amount.is_finite() {
-            return Err(Error::Input(crate::error::InputError::NonFiniteValue {
-                kind: if amount.is_nan() {
-                    "NaN".to_string()
-                } else if amount.is_sign_positive() {
-                    "infinity".to_string()
-                } else {
-                    "-infinity".to_string()
-                },
-            }));
+            let kind = if amount.is_nan() {
+                NonFiniteKind::NaN
+            } else if amount.is_sign_positive() {
+                NonFiniteKind::PosInfinity
+            } else {
+                NonFiniteKind::NegInfinity
+            };
+            return Err(Error::Input(InputError::NonFiniteValue { kind }));
         }
         let dp = cfg.ingest_scale(currency);
         let mode = cfg.rounding.mode;
@@ -543,10 +541,15 @@ impl Money {
             return Ok(self);
         }
         let rate = provider.rate(self.currency, to, on, policy)?;
-        if !rate.is_finite() {
-            return Err(crate::error::InputError::Invalid.into());
+        if !rate.is_finite() || rate <= 0.0 {
+            return Err(crate::error::InputError::InvalidFxRate {
+                from: self.currency,
+                to,
+                rate,
+            }
+            .into());
         }
-        let new_amount = repr_mul_f64(self.amount, rate);
+        let new_amount = super::rounding::try_repr_mul_f64(self.amount, rate)?;
         Ok(Self {
             amount: new_amount,
             currency: to,
@@ -708,16 +711,14 @@ impl AddAssign for Money {
     /// ```
     #[track_caller]
     fn add_assign(&mut self, rhs: Self) {
-        // Debug builds panic on currency mismatch to catch bugs early
-        debug_assert_eq!(
-            self.currency, rhs.currency,
+        // Always fail loudly on currency mismatch; silent no-ops are correctness bugs.
+        assert!(
+            self.currency == rhs.currency,
             "Currency mismatch in Money::add_assign: lhs={}, rhs={}",
-            self.currency, rhs.currency
+            self.currency,
+            rhs.currency
         );
-        // Only perform operation if currencies match
-        if self.currency == rhs.currency {
-            self.amount = repr_add(self.amount, rhs.amount);
-        }
+        self.amount = repr_add(self.amount, rhs.amount);
     }
 }
 
@@ -743,16 +744,14 @@ impl SubAssign for Money {
     /// ```
     #[track_caller]
     fn sub_assign(&mut self, rhs: Self) {
-        // Debug builds panic on currency mismatch to catch bugs early
-        debug_assert_eq!(
-            self.currency, rhs.currency,
+        // Always fail loudly on currency mismatch; silent no-ops are correctness bugs.
+        assert!(
+            self.currency == rhs.currency,
             "Currency mismatch in Money::sub_assign: lhs={}, rhs={}",
-            self.currency, rhs.currency
+            self.currency,
+            rhs.currency
         );
-        // Only perform operation if currencies match
-        if self.currency == rhs.currency {
-            self.amount = repr_sub(self.amount, rhs.amount);
-        }
+        self.amount = repr_sub(self.amount, rhs.amount);
     }
 }
 
@@ -844,13 +843,13 @@ mod tests {
     }
 
     #[test]
-    #[should_panic(expected = "division by zero")]
+    #[should_panic(expected = "Money division requires finite, non-zero, representable scalar")]
     fn division_by_zero_panics() {
         let _ = Money::new(10.0, Currency::USD) / 0.0;
     }
 
     #[test]
-    #[should_panic(expected = "finite scalar")]
+    #[should_panic(expected = "Money multiplication requires finite, representable scalar")]
     fn multiply_by_nan_panics() {
         let _ = Money::new(10.0, Currency::USD) * f64::NAN;
     }
@@ -950,7 +949,7 @@ mod tests {
             result,
             Err(crate::error::Error::Input(
                 crate::error::InputError::NonFiniteValue { kind }
-            )) if kind == "NaN"
+            )) if kind == crate::error::NonFiniteKind::NaN
         ));
     }
 
@@ -962,7 +961,7 @@ mod tests {
             result,
             Err(crate::error::Error::Input(
                 crate::error::InputError::NonFiniteValue { kind }
-            )) if kind == "infinity"
+            )) if kind == crate::error::NonFiniteKind::PosInfinity
         ));
     }
 
@@ -974,7 +973,7 @@ mod tests {
             result,
             Err(crate::error::Error::Input(
                 crate::error::InputError::NonFiniteValue { kind }
-            )) if kind == "-infinity"
+            )) if kind == crate::error::NonFiniteKind::NegInfinity
         ));
     }
 

@@ -68,9 +68,7 @@ impl MetricCalculator for DividendRiskCalculator {
                 )
             }
         };
-        curves_up
-            .prices
-            .insert(CurveId::from(div_yield_id.clone()), new_value_up);
+        curves_up.set_price_mut(CurveId::from(div_yield_id.clone()), new_value_up);
         let pv_up = convertible.npv(&curves_up, as_of)?.amount();
 
         // Bump down
@@ -93,9 +91,7 @@ impl MetricCalculator for DividendRiskCalculator {
                 )
             }
         };
-        curves_down
-            .prices
-            .insert(CurveId::from(div_yield_id), new_value_down);
+        curves_down.set_price_mut(CurveId::from(div_yield_id), new_value_down);
         let pv_down = convertible.npv(&curves_down, as_of)?.amount();
 
         // Dividend01 = (PV_up - PV_down) / (2 * bump_size)

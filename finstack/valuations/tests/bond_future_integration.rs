@@ -14,7 +14,6 @@ use finstack_valuations::instruments::bond::Bond;
 use finstack_valuations::instruments::bond_future::pricer::BondFuturePricer;
 use finstack_valuations::instruments::bond_future::{BondFuture, DeliverableBond, Position};
 use finstack_valuations::pricer::{create_standard_registry, InstrumentType, ModelKey};
-use std::sync::Arc;
 use time::macros::date;
 
 // ========================================================================================
@@ -338,8 +337,7 @@ fn test_bond_future_pricer_registry_ctd_npv() {
         date!(2033 - 03 - 15),
     );
 
-    let market =
-        create_realistic_market().insert_instrument("US912828XG33", Arc::new(ctd_bond.clone()));
+    let market = create_realistic_market();
 
     let conversion_factor = BondFuturePricer::calculate_conversion_factor(
         &ctd_bond,
@@ -355,7 +353,7 @@ fn test_bond_future_pricer_registry_ctd_npv() {
         conversion_factor,
     }];
 
-    let future = BondFuture::ust_10y(
+    let future = BondFuture::ust_10y_with_ctd_bond(
         InstrumentId::new("TYH5"),
         Money::new(1_000_000.0, Currency::USD),
         expiry,
@@ -365,6 +363,7 @@ fn test_bond_future_pricer_registry_ctd_npv() {
         Position::Long,
         basket,
         InstrumentId::new("US912828XG33"),
+        Some(ctd_bond.clone()),
         CurveId::new("USD-TREASURY"),
     )
     .expect("Failed to create bond future");
@@ -800,9 +799,8 @@ fn test_bond_future_dv01_calculation() {
         date!(2033 - 03 - 15),
     );
 
-    // Create market context and register CTD bond for BondFuture::value()
-    let market =
-        create_realistic_market().insert_instrument("US912828XG33", Arc::new(ctd_bond.clone()));
+    // Create market context (CTD bond is embedded in the instrument itself)
+    let market = create_realistic_market();
 
     // Calculate conversion factor
     let conversion_factor = BondFuturePricer::calculate_conversion_factor(
@@ -823,7 +821,7 @@ fn test_bond_future_dv01_calculation() {
     }];
 
     // Create bond future (10 contracts = $1M notional)
-    let future = BondFuture::ust_10y(
+    let future = BondFuture::ust_10y_with_ctd_bond(
         InstrumentId::new("TYH5"),
         Money::new(1_000_000.0, Currency::USD),
         expiry,
@@ -833,6 +831,7 @@ fn test_bond_future_dv01_calculation() {
         Position::Long,
         basket,
         InstrumentId::new("US912828XG33"),
+        Some(ctd_bond.clone()),
         CurveId::new("USD-TREASURY"),
     )
     .expect("Failed to create bond future");
@@ -959,9 +958,8 @@ fn test_bond_future_dv01_sign_convention() {
         date!(2033 - 03 - 15),
     );
 
-    // Create market context and register CTD bond for BondFuture::value()
-    let market =
-        create_realistic_market().insert_instrument("US912828XG33", Arc::new(ctd_bond.clone()));
+    // Create market context (CTD bond is embedded in the instrument itself)
+    let market = create_realistic_market();
 
     let conversion_factor = BondFuturePricer::calculate_conversion_factor(
         &ctd_bond,
@@ -978,7 +976,7 @@ fn test_bond_future_dv01_sign_convention() {
     }];
 
     // Create long position
-    let future_long = BondFuture::ust_10y(
+    let future_long = BondFuture::ust_10y_with_ctd_bond(
         InstrumentId::new("TYH5_LONG"),
         Money::new(1_000_000.0, Currency::USD),
         expiry,
@@ -988,12 +986,13 @@ fn test_bond_future_dv01_sign_convention() {
         Position::Long,
         basket.clone(),
         InstrumentId::new("US912828XG33"),
+        Some(ctd_bond.clone()),
         CurveId::new("USD-TREASURY"),
     )
     .expect("Failed to create long bond future");
 
     // Create short position
-    let future_short = BondFuture::ust_10y(
+    let future_short = BondFuture::ust_10y_with_ctd_bond(
         InstrumentId::new("TYH5_SHORT"),
         Money::new(1_000_000.0, Currency::USD),
         expiry,
@@ -1003,6 +1002,7 @@ fn test_bond_future_dv01_sign_convention() {
         Position::Short,
         basket,
         InstrumentId::new("US912828XG33"),
+        Some(ctd_bond),
         CurveId::new("USD-TREASURY"),
     )
     .expect("Failed to create short bond future");

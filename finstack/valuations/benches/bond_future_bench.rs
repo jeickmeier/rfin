@@ -20,7 +20,6 @@ use finstack_valuations::instruments::bond_future::{
 use finstack_valuations::instruments::common::traits::Instrument;
 use finstack_valuations::metrics::MetricId;
 use std::hint::black_box;
-use std::sync::Arc;
 use time::Month;
 
 /// Create a realistic UST 10Y bond future with deliverable basket
@@ -108,12 +107,7 @@ fn create_market() -> MarketContext {
         .build()
         .unwrap();
 
-    let ctd_bond = create_ctd_bond();
-    let ctd_id = ctd_bond.id.as_str().to_string();
-
-    MarketContext::new()
-        .insert_discount(disc)
-        .insert_instrument(ctd_id, Arc::new(ctd_bond))
+    MarketContext::new().insert_discount(disc)
 }
 
 /// Benchmark conversion factor calculation

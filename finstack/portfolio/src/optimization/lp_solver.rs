@@ -7,7 +7,7 @@ use super::universe::{PositionFilter, TradeUniverse};
 use crate::error::{PortfolioError, Result};
 use crate::portfolio::Portfolio;
 use crate::types::PositionId;
-use finstack_core::config::{results_meta, FinstackConfig};
+use finstack_core::config::FinstackConfig;
 use finstack_core::market_data::context::MarketContext;
 use finstack_core::math::summation::neumaier_sum;
 use finstack_valuations::metrics::MetricId;
@@ -658,7 +658,7 @@ impl PortfolioOptimizer for DefaultLpOptimizer {
         let status = OptimizationStatus::Optimal;
 
         // Reuse results_meta from config.
-        let meta = results_meta(config);
+        let meta = finstack_core::config::results_meta_now(config);
 
         Ok(PortfolioOptimizationResult {
             problem: problem.clone(),

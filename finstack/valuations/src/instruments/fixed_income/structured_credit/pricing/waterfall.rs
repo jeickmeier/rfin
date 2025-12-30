@@ -731,7 +731,9 @@ fn calculate_payment_amount(
                 })
             })?;
             let tranche = &tranches.tranches[idx];
-            let rate = tranche.coupon.current_rate_with_index(payment_date, market);
+            let rate = tranche
+                .coupon
+                .try_current_rate_with_index(payment_date, market)?;
             let accrual_fraction = tranche.day_count.year_fraction(
                 period_start,
                 payment_date,

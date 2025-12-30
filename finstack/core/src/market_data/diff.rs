@@ -495,15 +495,13 @@ pub fn measure_fx_shift(
 
     // Get FX matrices
     let fx_t0 = market_t0
-        .fx
-        .as_ref()
+        .fx()
         .ok_or_else(|| crate::error::InputError::NotFound {
             id: "FX_MATRIX".to_string(),
         })?;
 
     let fx_t1 = market_t1
-        .fx
-        .as_ref()
+        .fx()
         .ok_or_else(|| crate::error::InputError::NotFound {
             id: "FX_MATRIX".to_string(),
         })?;

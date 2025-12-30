@@ -303,7 +303,7 @@ impl Ndf {
         // Try to get spot rate
         let spot = if let Some(rate) = self.spot_rate_override {
             rate
-        } else if let Some(fx) = market.fx.as_ref() {
+        } else if let Some(fx) = market.fx() {
             // Query for base/settlement rate (e.g., CNY/USD)
             match (**fx).rate(FxQuery::new(
                 self.base_currency,

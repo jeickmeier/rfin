@@ -131,16 +131,25 @@ pub struct CreditIndexState {
 // Market Context State (complete snapshot)
 // -----------------------------------------------------------------------------
 
+/// Current schema version for [`MarketContextState`].
+pub const MARKET_CONTEXT_STATE_VERSION: u32 = 1;
+
+fn default_market_context_state_version() -> u32 {
+    MARKET_CONTEXT_STATE_VERSION
+}
+
 /// Complete serializable state of a MarketContext.
 ///
 /// Provides a stable, versioned snapshot of all market data that can be
 /// persisted to JSON and reconstructed deterministically.
-///
-/// Note: The instrument registry and market history are not serialized because
-/// they are type-erased; re-register them after deserialization if needed.
 #[derive(Clone, Debug, serde::Serialize, serde::Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct MarketContextState {
+    /// Schema version for forward/backward compatibility.
+    ///
+    /// - **1**: initial stable snapshot format.
+    #[serde(default = "default_market_context_state_version")]
+    pub version: u32,
     /// All curves (discount, forward, hazard, inflation, base correlation)
     pub curves: Vec<CurveState>,
     /// FX matrix state (optional)
@@ -264,6 +273,7 @@ impl From<&MarketContext> for MarketContextState {
             .collect();
 
         MarketContextState {
+            version: MARKET_CONTEXT_STATE_VERSION,
             curves,
             fx,
             surfaces,
@@ -281,6 +291,12 @@ impl TryFrom<MarketContextState> for MarketContext {
     type Error = crate::Error;
 
     fn try_from(state: MarketContextState) -> crate::Result<Self> {
+        if state.version != MARKET_CONTEXT_STATE_VERSION {
+            return Err(crate::Error::Validation(format!(
+                "Unsupported MarketContextState version: {} (expected {})",
+                state.version, MARKET_CONTEXT_STATE_VERSION
+            )));
+        }
         let mut ctx = MarketContext::new();
 
         // Reconstruct all curves
@@ -380,11 +396,6 @@ impl serde::Serialize for MarketContext {
     where
         S: serde::Serializer,
     {
-        if self.market_history.is_some() {
-            return Err(serde::ser::Error::custom(
-                "market_history is runtime-only and cannot be serialized",
-            ));
-        }
         let state: MarketContextState = self.into();
         state.serialize(serializer)
     }

@@ -229,7 +229,7 @@ impl FxForward {
         // Resolve spot rate
         let spot = if let Some(rate) = self.spot_rate_override {
             rate
-        } else if let Some(fx) = market.fx.as_ref() {
+        } else if let Some(fx) = market.fx() {
             (**fx)
                 .rate(FxQuery::new(self.base_currency, self.quote_currency, as_of))?
                 .rate
@@ -274,7 +274,7 @@ impl FxForward {
 
         let spot = if let Some(rate) = self.spot_rate_override {
             rate
-        } else if let Some(fx) = market.fx.as_ref() {
+        } else if let Some(fx) = market.fx() {
             (**fx)
                 .rate(FxQuery::new(self.base_currency, self.quote_currency, as_of))?
                 .rate

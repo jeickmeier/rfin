@@ -119,7 +119,11 @@ pub fn adjust_joint_calendar(
         }
         d = adj_quote;
     }
-    Ok(d)
+    Err(Error::Input(crate::error::InputError::JointCalendarNonConvergent {
+        date,
+        convention: bdc,
+        max_iterations: JOINT_CALENDAR_MAX_ITERATIONS as u32,
+    }))
 }
 
 /// Add N business days on a joint calendar.
@@ -176,10 +180,10 @@ pub fn add_joint_business_days(
     let mut count = 0u32;
 
     // Iterate until we've found n_days that are business days on BOTH calendars
-    const MAX_ITERS: u32 = 1000; // Safety limit (n_days * 5 would be sufficient for most cases)
-    let mut iters = 0;
+    let max_iters: u32 = (n_days.saturating_mul(10).saturating_add(25)).max(1000);
+    let mut iters: u32 = 0;
 
-    while count < n_days && iters < MAX_ITERS {
+    while count < n_days && iters < max_iters {
         date += Duration::days(1);
 
         // Check if business day on both calendars
@@ -192,9 +196,12 @@ pub fn add_joint_business_days(
         iters += 1;
     }
 
-    if iters >= MAX_ITERS {
-        use crate::error::InputError;
-        return Err(Error::Input(InputError::InvalidDateRange));
+    if iters >= max_iters {
+        return Err(Error::Input(crate::error::InputError::JointCalendarIterationLimitExceeded {
+            start,
+            n_days,
+            max_iters,
+        }));
     }
 
     Ok(date)
@@ -270,7 +277,8 @@ pub fn roll_spot_date(
 /// // Use many times without registry lookup overhead
 /// for _ in 0..1000 {
 ///     let start = create_date(2024, Month::January, 15).unwrap();
-///     let result = add_joint_business_days_with_calendars(start, 2, &cals);
+///     let _result = add_joint_business_days_with_calendars(start, 2, &cals)
+///         .expect("valid joint calendar roll");
 /// }
 /// ```
 pub struct ResolvedCalendarPair {
@@ -318,18 +326,29 @@ pub fn add_joint_business_days_with_calendars(
     start: Date,
     n_days: u32,
     calendars: &ResolvedCalendarPair,
-) -> Date {
+) -> Result<Date> {
     let mut date = start;
     let mut count = 0u32;
+    let max_iters: u32 = (n_days.saturating_mul(10).saturating_add(25)).max(1000);
+    let mut iters: u32 = 0;
 
-    while count < n_days {
+    while count < n_days && iters < max_iters {
         date += Duration::days(1);
         if calendars.is_joint_business_day(date) {
             count += 1;
         }
+        iters += 1;
     }
 
-    date
+    if iters >= max_iters {
+        return Err(Error::Input(crate::error::InputError::JointCalendarIterationLimitExceeded {
+            start,
+            n_days,
+            max_iters,
+        }));
+    }
+
+    Ok(date)
 }
 
 /// Adjust a date using pre-resolved calendars.
@@ -359,7 +378,11 @@ pub fn adjust_joint_calendar_with_calendars(
         }
         d = adj_quote;
     }
-    Ok(d)
+    Err(Error::Input(crate::error::InputError::JointCalendarNonConvergent {
+        date,
+        convention: bdc,
+        max_iterations: JOINT_CALENDAR_MAX_ITERATIONS as u32,
+    }))
 }
 
 #[cfg(test)]

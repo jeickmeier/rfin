@@ -472,7 +472,7 @@ fn market_context_roll_forward_preserves_ids_and_clones_non_curves() {
     );
 
     // Non-curve data is preserved
-    assert!(rolled.fx.is_some());
+    assert!(rolled.fx().is_some());
     assert!(rolled.surface("EQ-VOL").is_ok());
     assert!(rolled.price("EQ-SPOT").is_ok());
     assert!(rolled.collateral("USD-CSA").is_ok());
@@ -494,8 +494,7 @@ fn market_context_bump_fx_spot_error_and_success_paths() {
     // Success path with a static provider
     let ctx = MarketContext::new().insert_fx(sample_fx_matrix());
     let before = ctx
-        .fx
-        .as_ref()
+        .fx()
         .unwrap()
         .rate(finstack_core::money::fx::FxQuery::new(
             Currency::USD,
@@ -509,8 +508,7 @@ fn market_context_bump_fx_spot_error_and_success_paths() {
         .bump_fx_spot(Currency::USD, Currency::EUR, 0.10, date)
         .unwrap();
     let after = bumped
-        .fx
-        .as_ref()
+        .fx()
         .unwrap()
         .rate(finstack_core::money::fx::FxQuery::new(
             Currency::USD,
@@ -560,8 +558,7 @@ fn market_context_apply_bumps_exercises_all_variants() {
 
     let df_before = ctx.get_discount_ref("USD-OIS").unwrap().df(2.0);
     let fx_before = ctx
-        .fx
-        .as_ref()
+        .fx()
         .unwrap()
         .rate(finstack_core::money::fx::FxQuery::new(
             Currency::USD,
@@ -617,8 +614,7 @@ fn market_context_apply_bumps_exercises_all_variants() {
 
     // FX bumped
     let fx_after = bumped
-        .fx
-        .as_ref()
+        .fx()
         .unwrap()
         .rate(finstack_core::money::fx::FxQuery::new(
             Currency::USD,
@@ -662,7 +658,7 @@ fn market_context_apply_bumps_exercises_all_variants() {
 #[test]
 fn market_context_insert_and_stats_setters_cover_remaining_paths() {
     // Cover insert_surface(by value), insert_dividends(by value), insert_fx/insert_fx_mut,
-    // insert_credit_index_mut, insert_market_history(_mut), map_collateral_mut and
+    // insert_credit_index_mut, map_collateral_mut and
     // the mutable setters/iterators in stats.rs.
     let date = sample_base_date();
 
@@ -695,14 +691,6 @@ fn market_context_insert_and_stats_setters_cover_remaining_paths() {
     // insert_credit_index_mut + insert_fx_mut
     ctx.insert_credit_index_mut("CDX", credit_index)
         .insert_fx_mut(sample_fx_matrix());
-
-    // market history insertion
-    let hist_1: Arc<dyn std::any::Any + Send + Sync> = Arc::new(123_i32);
-    let hist_2: Arc<dyn std::any::Any + Send + Sync> = Arc::new("history");
-    ctx = ctx.insert_market_history(hist_1);
-    assert!(ctx.market_history.is_some());
-    ctx.insert_market_history_mut(hist_2);
-    assert!(ctx.market_history.is_some());
 
     // map_collateral_mut
     ctx.map_collateral_mut("USD-CSA", CurveId::from("USD-OIS"));
@@ -950,30 +938,15 @@ fn market_context_apply_bumps_additional_branches_and_errors() {
 }
 
 #[test]
-fn market_context_instrument_registry_works() {
-    let ctx = MarketContext::new().insert_instrument("X", Arc::new(123_i32));
-    let any = ctx.get_instrument("X").expect("instrument should exist");
-    assert_eq!(*any.downcast_ref::<i32>().unwrap(), 123);
-
-    // Alias method
-    let any2 = ctx.get_instrument("X").expect("instrument should exist");
-    assert!(any2.downcast_ref::<i32>().is_some());
-}
-
-#[test]
-fn market_context_instrument_registry_clone_thread_safe() {
-    let ctx = MarketContext::new().insert_instrument("X", Arc::new(123_i32));
+fn market_context_clone_thread_safe_smoke() {
+    // MarketContext is cheap to clone and safe to use across threads when wrapped in Arc.
+    let ctx = MarketContext::new().insert_discount(sample_discount_curve("USD-OIS"));
     let cloned = ctx.clone();
 
     let handle = std::thread::spawn(move || {
-        let any = cloned.get_instrument("X").expect("instrument should exist");
-        *any.downcast_ref::<i32>()
-            .expect("instrument should downcast")
+        // basic lookup on another thread
+        cloned.get_discount_ref("USD-OIS").is_ok()
     });
 
-    let value = handle.join().expect("thread should join");
-    assert_eq!(value, 123);
-
-    let any = ctx.get_instrument("X").expect("instrument should exist");
-    assert_eq!(*any.downcast_ref::<i32>().unwrap(), 123);
+    assert!(handle.join().expect("thread should join"));
 }

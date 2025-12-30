@@ -1,7 +1,7 @@
 use std::sync::Arc;
 
 use crate::money::fx::FxMatrix;
-use crate::types::{CurveId, InstrumentId};
+use crate::types::CurveId;
 
 use super::CurveStorage;
 use super::MarketContext;
@@ -340,7 +340,7 @@ impl MarketContext {
     ///
     /// let fx = FxMatrix::new(Arc::new(StaticFx));
     /// let ctx = MarketContext::new().insert_fx(fx);
-    /// assert!(ctx.fx.is_some());
+    /// assert!(ctx.fx().is_some());
     /// ```
     pub fn insert_fx(mut self, fx: FxMatrix) -> Self {
         self.fx = Some(Arc::new(fx));
@@ -353,46 +353,21 @@ impl MarketContext {
         self
     }
 
-    /// Insert historical market scenarios for VaR calculation.
-    ///
-    /// # Parameters
-    /// - `history`: Historical market scenarios (type-erased)
-    pub fn insert_market_history(mut self, history: Arc<dyn std::any::Any + Send + Sync>) -> Self {
-        self.market_history = Some(history);
+    /// Insert an already-shared FX matrix.
+    pub fn insert_fx_arc(mut self, fx: Arc<FxMatrix>) -> Self {
+        self.fx = Some(fx);
         self
     }
 
-    /// In-place insert of historical market scenarios.
-    pub fn insert_market_history_mut(
-        &mut self,
-        history: Arc<dyn std::any::Any + Send + Sync>,
-    ) -> &mut Self {
-        self.market_history = Some(history);
+    /// In-place insert of an already-shared FX matrix.
+    pub fn insert_fx_arc_mut(&mut self, fx: Arc<FxMatrix>) -> &mut Self {
+        self.fx = Some(fx);
         self
     }
 
-    /// Insert a type-erased instrument into the context registry.
-    ///
-    /// This is used by higher-level pricing layers for instruments that reference other
-    /// instruments (e.g., bond futures referencing a CTD bond).
-    pub fn insert_instrument(
-        mut self,
-        id: impl AsRef<str>,
-        instrument: Arc<dyn std::any::Any + Send + Sync>,
-    ) -> Self {
-        self.instruments
-            .insert(InstrumentId::new(id.as_ref()), instrument);
-        self
-    }
-
-    /// In-place insert of an instrument into the registry.
-    pub fn insert_instrument_mut(
-        &mut self,
-        id: impl AsRef<str>,
-        instrument: Arc<dyn std::any::Any + Send + Sync>,
-    ) -> &mut Self {
-        self.instruments
-            .insert(InstrumentId::new(id.as_ref()), instrument);
+    /// Replace the FX matrix (mutable), allowing `None` to clear it.
+    pub fn set_fx_arc_option_mut(&mut self, fx: Option<Arc<FxMatrix>>) -> &mut Self {
+        self.fx = fx;
         self
     }
 

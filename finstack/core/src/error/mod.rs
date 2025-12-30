@@ -112,6 +112,8 @@ mod suggestions;
 
 // Re-export InputError for public API
 pub use inputs::InputError;
+/// Classification of a non-finite floating-point value.
+pub use inputs::NonFiniteKind;
 
 // Re-export suggestion utilities for internal use
 pub(crate) use suggestions::{format_suggestions, fuzzy_suggestions};
@@ -171,7 +173,7 @@ use thiserror::Error;
 pub enum Error {
     /// User input validation error.
     #[error(transparent)]
-    Input(#[from] InputError),
+    Input(InputError),
 
     /// Interpolator evaluation exceeded grid bounds.
     #[error("Interpolation input out of bounds")]
@@ -249,6 +251,13 @@ pub enum Error {
     /// Catch-all for unexpected internal failures.
     #[error("Internal system error")]
     Internal,
+}
+
+impl From<InputError> for Error {
+    #[inline]
+    fn from(value: InputError) -> Self {
+        Self::Input(value)
+    }
 }
 
 impl Error {

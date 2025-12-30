@@ -16,7 +16,7 @@
 //! - **Public surface**: `new`, `insert_*`, typed getters (`get_discount`, `surface_ref`,
 //!   `price`, `series`, etc.), scenario helpers (`bump`, `apply_bumps`, `roll_forward`,
 //!   `bump_fx_spot`), stats (`stats`) and serde states (`CurveState`, `MarketContextState`).
-//! - **Internal details**: storage layout (HashMaps, instrument registry, `market_history`)
+//! - **Internal details**: storage layout (HashMaps, caches)
 //!   is not a stable API. Prefer the public methods above for all access and mutation.
 //!
 //! # Examples
@@ -56,13 +56,13 @@ pub use stats::ContextStats;
 // Re-export bump functionality at the same path as before.
 pub use super::bumps::{BumpMode, BumpSpec, BumpUnits};
 
-pub use state_serde::{CreditIndexState, CurveState, MarketContextState};
+pub use state_serde::{CreditIndexState, CurveState, MarketContextState, MARKET_CONTEXT_STATE_VERSION};
 
 use crate::collections::HashMap;
 use std::sync::Arc;
 
 use crate::money::fx::FxMatrix;
-use crate::types::{CurveId, InstrumentId};
+use crate::types::CurveId;
 
 use super::{
     dividends::DividendSchedule,
@@ -81,52 +81,62 @@ use super::{
 #[derive(Clone, Default)]
 pub struct MarketContext {
     /// All curves stored in unified enum-based map
-    pub(super) curves: HashMap<CurveId, CurveStorage>,
+    curves: HashMap<CurveId, CurveStorage>,
 
     /// Foreign-exchange matrix
-    pub fx: Option<Arc<FxMatrix>>,
+    fx: Option<Arc<FxMatrix>>,
 
     /// Volatility surfaces
-    pub surfaces: HashMap<CurveId, Arc<VolSurface>>,
+    surfaces: HashMap<CurveId, Arc<VolSurface>>,
 
     /// Market scalars and prices
-    pub prices: HashMap<CurveId, MarketScalar>,
+    prices: HashMap<CurveId, MarketScalar>,
 
     /// Generic time series
-    pub series: HashMap<CurveId, ScalarTimeSeries>,
+    series: HashMap<CurveId, ScalarTimeSeries>,
 
     /// Inflation indices
-    pub(super) inflation_indices: HashMap<CurveId, Arc<InflationIndex>>,
+    inflation_indices: HashMap<CurveId, Arc<InflationIndex>>,
 
     /// Credit index aggregates
-    pub(super) credit_indices: HashMap<CurveId, Arc<CreditIndexData>>,
+    credit_indices: HashMap<CurveId, Arc<CreditIndexData>>,
 
     /// Shared dividend schedules keyed by `CurveId` (e.g., "AAPL-DIVS")
-    pub(super) dividends: HashMap<CurveId, Arc<DividendSchedule>>,
+    dividends: HashMap<CurveId, Arc<DividendSchedule>>,
 
     /// Collateral CSA code mappings
-    pub(super) collateral: HashMap<String, CurveId>,
-
-    /// Type-erased instrument registry (optional, used by higher-level pricing layers).
-    ///
-    /// This enables workflows that need to look up referenced instruments (e.g. CTD bonds in
-    /// futures) without the core crate depending on valuation-layer instrument types.
-    ///
-    /// Note: This registry is not serialized in `MarketContextState` because instruments are
-    /// type-erased. Re-register instruments after deserialization.
-    pub(super) instruments: HashMap<InstrumentId, Arc<dyn std::any::Any + Send + Sync>>,
-
-    /// Historical market scenarios for VaR calculation
-    ///
-    /// Stores time-series of historical market shifts used by Historical VaR
-    /// and other scenario-based risk metrics. When present, enables VaR
-    /// metric calculation.
-    pub market_history: Option<Arc<dyn std::any::Any + Send + Sync>>,
+    collateral: HashMap<String, CurveId>,
 }
 
 impl MarketContext {
     /// Create an empty market context.
     pub fn new() -> Self {
         Self::default()
+    }
+
+    /// Borrow the FX matrix if present.
+    #[inline]
+    pub fn fx(&self) -> Option<&Arc<FxMatrix>> {
+        self.fx.as_ref()
+    }
+
+    /// Snapshot (clone) all stored volatility surfaces.
+    ///
+    /// This clones the `Arc` handles (cheap) without exposing internal storage.
+    #[inline]
+    pub fn surfaces_snapshot(&self) -> HashMap<CurveId, Arc<VolSurface>> {
+        self.surfaces.clone()
+    }
+
+    /// Snapshot (clone) all stored market scalars/prices.
+    #[inline]
+    pub fn prices_snapshot(&self) -> HashMap<CurveId, MarketScalar> {
+        self.prices.clone()
+    }
+
+    /// Snapshot (clone) all stored scalar time series.
+    #[inline]
+    pub fn series_snapshot(&self) -> HashMap<CurveId, ScalarTimeSeries> {
+        self.series.clone()
     }
 }

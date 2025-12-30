@@ -324,6 +324,13 @@ pub enum ScheduleWarning {
         /// Human-readable description of the error that was suppressed.
         error_message: String,
     },
+
+    /// A calendar ID was provided, but resolution was skipped because
+    /// `allow_missing_calendar(true)` was enabled.
+    MissingCalendarId {
+        /// The calendar identifier that could not be resolved.
+        calendar_id: String,
+    },
 }
 
 impl std::fmt::Display for ScheduleWarning {
@@ -331,6 +338,9 @@ impl std::fmt::Display for ScheduleWarning {
         match self {
             Self::GracefulFallback { error_message } => {
                 write!(f, "graceful fallback triggered: {error_message}")
+            }
+            Self::MissingCalendarId { calendar_id } => {
+                write!(f, "calendar id '{calendar_id}' not found; adjustment skipped")
             }
         }
     }
@@ -625,11 +635,9 @@ impl<'a> ScheduleBuilder<'a> {
     /// Create a new builder with mandatory `start` and `end` dates.
     /// Defaults: frequency = Monthly, stub = None, no adjustment, no EOM.
     ///
-    /// # Panics
-    /// Panics if `start` > `end` when building the schedule.
-    ///
     /// # Notes
-    /// Inputs must satisfy `start` <= `end`.
+    /// Inputs should satisfy `start` <= `end`. If not, [`build`](Self::build) returns
+    /// `Err(InputError::InvalidDateRange)`.
     pub fn new(start: Date, end: Date) -> Self {
         Self {
             start,
@@ -813,7 +821,7 @@ impl<'a> ScheduleBuilder<'a> {
     ///     .build();
     /// assert!(result.is_err());
     ///
-    /// // With allow_missing_calendar: silently proceeds without adjustment
+    /// // With allow_missing_calendar: proceeds without adjustment and records a warning
     /// let schedule = ScheduleBuilder::new(start, end)
     ///     .frequency(Tenor::monthly())
     ///     .allow_missing_calendar(true)
@@ -906,6 +914,8 @@ impl<'a> ScheduleBuilder<'a> {
             return Err(crate::error::InputError::InvalidDateRange.into());
         }
 
+        let mut warnings: Vec<ScheduleWarning> = Vec::new();
+
         // Resolve pending calendar ID if present, otherwise use directly provided calendar
         let resolved_cal: Option<&dyn HolidayCalendar> =
             if let Some(ref calendar_id) = self.pending_calendar_id {
@@ -914,6 +924,9 @@ impl<'a> ScheduleBuilder<'a> {
                     None => {
                         if self.allow_missing_calendar {
                             // Silently skip adjustment
+                            warnings.push(ScheduleWarning::MissingCalendarId {
+                                calendar_id: calendar_id.clone(),
+                            });
                             None
                         } else {
                             // Strict mode: error on missing calendar
@@ -947,7 +960,7 @@ impl<'a> ScheduleBuilder<'a> {
                 stub: self.stub,
                 eom: self.eom,
             };
-            builder.generate()
+            builder.generate()?
         } else {
             let builder = BuilderInternal {
                 start: self.start,
@@ -956,7 +969,7 @@ impl<'a> ScheduleBuilder<'a> {
                 stub: self.stub,
                 eom: self.eom,
             };
-            builder.generate()
+            builder.generate()?
         };
 
         // Enforce monotonicity and remove duplicates produced by EOM/stub handling
@@ -973,10 +986,7 @@ impl<'a> ScheduleBuilder<'a> {
             enforce_monotonic_and_dedup(&mut dates);
         }
 
-        Ok(Schedule {
-            dates,
-            warnings: Vec::new(),
-        })
+        Ok(Schedule { dates, warnings })
     }
 }
 
@@ -1050,7 +1060,7 @@ struct BuilderInternal {
 }
 
 impl BuilderInternal {
-    fn generate(self) -> Vec<Date> {
+    fn generate(self) -> crate::Result<Vec<Date>> {
         match self.stub {
             StubKind::ShortFront => self.gen_short_front(),
             StubKind::LongFront => self.gen_long_front(),
@@ -1060,30 +1070,28 @@ impl BuilderInternal {
         }
     }
 
-    fn add_tenor(self, date: Date, count: i32) -> Date {
+    fn add_tenor(self, date: Date, count: i32) -> crate::Result<Date> {
         let tenor = self.freq;
         // Tenor doesn't support negative count directly in its struct, but we can handle it here
         // or use `add_to_date` with a multiplier if we want to add multiple periods.
         // For simple single-step additions scan:
         if count == 1 {
-            tenor
-                .add_to_date(date, None, BusinessDayConvention::Unadjusted)
-                .unwrap_or(date)
+            tenor.add_to_date(date, None, BusinessDayConvention::Unadjusted)
         } else if count == -1 {
             // Need to reverse the tenor operation
-            match tenor.unit {
+            Ok(match tenor.unit {
                 crate::dates::TenorUnit::Months => date.add_months(-(tenor.count as i32)),
                 crate::dates::TenorUnit::Years => date.add_months(-(tenor.count as i32) * 12),
                 crate::dates::TenorUnit::Weeks => date - Duration::weeks(tenor.count as i64),
                 crate::dates::TenorUnit::Days => date - Duration::days(tenor.count as i64),
-            }
+            })
         } else {
             // Should not happen in current logic but safe fallback
-            date
+            Ok(date)
         }
     }
 
-    fn gen_regular(self) -> Vec<Date> {
+    fn gen_regular(self) -> crate::Result<Vec<Date>> {
         let mut buf: Buffer = Buffer::new();
         let (mut dt, end) = (
             maybe_eom(self.eom, self.start),
@@ -1091,22 +1099,22 @@ impl BuilderInternal {
         );
         buf.push(dt);
         while dt < end {
-            let mut next = self.add_tenor(dt, 1);
+            let mut next = self.add_tenor(dt, 1)?;
             if next > end {
                 next = end;
             }
             dt = maybe_eom(self.eom, next);
             push_if_new(&mut buf, dt);
         }
-        buf.into_vec()
+        Ok(buf.into_vec())
     }
 
-    fn gen_short_back(self) -> Vec<Date> {
+    fn gen_short_back(self) -> crate::Result<Vec<Date>> {
         // Short back stub is naturally produced by forward generation that truncates the final step.
         self.gen_regular()
     }
 
-    fn gen_short_front(self) -> Vec<Date> {
+    fn gen_short_front(self) -> crate::Result<Vec<Date>> {
         // Build backwards from end, then reverse
         let mut buf: Buffer = Buffer::new();
         let mut dt = self.end;
@@ -1117,20 +1125,20 @@ impl BuilderInternal {
             if dt == target {
                 break;
             }
-            let prev = self.add_tenor(dt, -1);
+            let prev = self.add_tenor(dt, -1)?;
             dt = if prev < target { target } else { prev };
         }
         buf.as_mut_slice().reverse();
-        buf.into_vec()
+        Ok(buf.into_vec())
     }
 
-    fn gen_long_front(self) -> Vec<Date> {
+    fn gen_long_front(self) -> crate::Result<Vec<Date>> {
         let mut buf: Buffer = Buffer::new();
         let mut anchors = Vec::new();
         let mut dt = self.end;
         anchors.push(dt);
         while dt > self.start {
-            let prev = self.add_tenor(dt, -1);
+            let prev = self.add_tenor(dt, -1)?;
             if prev >= self.start {
                 dt = prev;
                 anchors.push(dt);
@@ -1143,16 +1151,16 @@ impl BuilderInternal {
             let d = maybe_eom(self.eom, a);
             push_if_new(&mut buf, d);
         }
-        buf.into_vec()
+        Ok(buf.into_vec())
     }
 
-    fn gen_long_back(self) -> Vec<Date> {
+    fn gen_long_back(self) -> crate::Result<Vec<Date>> {
         let mut buf: Buffer = Buffer::new();
         let mut dt = self.start;
         buf.push(maybe_eom(self.eom, dt));
         while dt < self.end {
-            let next = self.add_tenor(dt, 1);
-            let next_after = self.add_tenor(next, 1);
+            let next = self.add_tenor(dt, 1)?;
+            let next_after = self.add_tenor(next, 1)?;
             if next_after >= self.end {
                 let end_date = maybe_eom(self.eom, self.end);
                 push_if_new(&mut buf, end_date);
@@ -1163,7 +1171,7 @@ impl BuilderInternal {
                 dt = next;
             }
         }
-        buf.into_vec()
+        Ok(buf.into_vec())
     }
 }
 
@@ -1237,6 +1245,9 @@ mod tests {
                     error_message.contains("date") || error_message.contains("range"),
                     "Warning should describe the invalid date range: {error_message}"
                 );
+            }
+            ScheduleWarning::MissingCalendarId { .. } => {
+                panic!("Expected GracefulFallback warning, got MissingCalendarId")
             }
         }
     }
@@ -1342,12 +1353,14 @@ mod tests {
         // Should generate schedule (unadjusted)
         assert!(schedule.dates.len() >= 2);
 
-        // allow_missing_calendar does NOT use graceful_fallback, so no warnings
-        // (this is a different code path - explicit opt-in to skip calendar)
-        assert!(
-            !schedule.has_warnings(),
-            "allow_missing_calendar should not produce warnings"
-        );
+        // allow_missing_calendar does NOT use graceful_fallback, but it does record a warning
+        // so callers can detect that adjustment was skipped.
+        assert!(schedule.has_warnings(), "should record MissingCalendarId warning");
+        assert!(!schedule.used_graceful_fallback());
+        assert!(matches!(
+            schedule.warnings.as_slice(),
+            [ScheduleWarning::MissingCalendarId { calendar_id }] if calendar_id == "INVALID_CALENDAR"
+        ));
     }
 
     #[test]
@@ -1381,6 +1394,9 @@ mod tests {
                         || error_message.contains("INVALID_CALENDAR"),
                     "Warning should describe calendar error: {error_message}"
                 );
+            }
+            ScheduleWarning::MissingCalendarId { .. } => {
+                panic!("Expected GracefulFallback warning, got MissingCalendarId")
             }
         }
     }

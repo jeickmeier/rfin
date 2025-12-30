@@ -210,7 +210,7 @@ pub fn finite_diff_delta(
     bump: f64,
 ) -> finstack_core::Result<f64> {
     let spot = market
-        .fx
+        .fx()
         .as_ref()
         .unwrap()
         .rate(finstack_core::money::fx::FxQuery::new(
@@ -243,7 +243,7 @@ pub fn finite_diff_gamma(
     bump: f64,
 ) -> finstack_core::Result<f64> {
     let spot = market
-        .fx
+        .fx()
         .as_ref()
         .unwrap()
         .rate(finstack_core::money::fx::FxQuery::new(

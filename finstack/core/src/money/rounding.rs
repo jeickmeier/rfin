@@ -22,14 +22,14 @@ pub(crate) type AmountRepr = Decimal;
 /// # Safety
 ///
 /// - **Debug builds**: Panics if conversion fails (catches bugs early)
-/// - **Release builds**: Returns 0.0 on conversion failure (safe fallback)
+/// - **Release builds**: Panics if conversion fails (silent fallback is unsafe)
 ///
 /// Use [`try_amount_from_repr`] for explicit error handling at API boundaries.
 #[inline]
 pub(crate) fn amount_from_repr(x: AmountRepr) -> f64 {
     use rust_decimal::prelude::ToPrimitive;
     let result = x.to_f64();
-    debug_assert!(
+    assert!(
         result.is_some(),
         "Decimal to f64 conversion failed: value outside representable range"
     );
@@ -59,56 +59,97 @@ pub(crate) fn repr_sub(a: AmountRepr, b: AmountRepr) -> AmountRepr {
 
 #[inline]
 pub(crate) fn repr_mul_f64(a: AmountRepr, rhs: f64) -> AmountRepr {
-    // Debug builds panic on non-finite input to catch bugs early
-    debug_assert!(
-        rhs.is_finite(),
-        "Money multiplication requires finite scalar (got {:?})",
+    let res = try_repr_mul_f64(a, rhs);
+    assert!(
+        res.is_ok(),
+        "Money multiplication requires finite, representable scalar (got {:?})",
         rhs
     );
-    // Handle non-finite gracefully in release: treat as multiply by 0
-    if !rhs.is_finite() {
-        return a;
-    }
-    // Finite f64 always converts to Decimal
-    let rhs_decimal = Decimal::from_f64_retain(rhs).unwrap_or(Decimal::ZERO);
-    a * rhs_decimal
+    res.unwrap_or(Decimal::ZERO)
 }
 
 #[inline]
 pub(crate) fn repr_div_f64(a: AmountRepr, rhs: f64) -> AmountRepr {
-    // Debug builds panic on invalid input to catch bugs early
-    debug_assert!(
-        rhs.is_finite(),
-        "Money division requires finite scalar (got {:?})",
+    let res = try_repr_div_f64(a, rhs);
+    assert!(
+        res.is_ok(),
+        "Money division requires finite, non-zero, representable scalar (got {:?})",
         rhs
     );
-    debug_assert!(rhs != 0.0, "Money division by zero is not allowed");
-    // Handle invalid input gracefully in release: return unchanged
-    if !rhs.is_finite() || rhs == 0.0 {
-        return a;
-    }
-    // Finite non-zero f64 always converts to Decimal
-    let rhs_decimal = Decimal::from_f64_retain(rhs).unwrap_or(Decimal::ONE);
-    a / rhs_decimal
+    res.unwrap_or(a)
 }
 
 /// Round `x` to `dp` decimal places using the supplied [`RoundingMode`].
 /// Converts f64 input to Decimal for proper rounding.
 #[inline]
 pub(crate) fn round_f64(x: f64, dp: i32, mode: RoundingMode) -> Decimal {
-    // Debug builds panic on non-finite input to catch bugs early
-    debug_assert!(
-        x.is_finite(),
-        "Money rounding requires finite scalar (got {:?})",
+    let res = try_round_f64(x, dp, mode);
+    assert!(
+        res.is_ok(),
+        "Money rounding requires finite, representable scalar (got {:?})",
         x
     );
-    // Handle non-finite gracefully in release: return zero
-    if !x.is_finite() {
-        return Decimal::ZERO;
+    res.unwrap_or(Decimal::ZERO)
+}
+
+/// Fallible multiplication by an `f64` scalar (no silent substitution).
+#[inline]
+pub(crate) fn try_repr_mul_f64(a: AmountRepr, rhs: f64) -> Result<AmountRepr, Error> {
+    if !rhs.is_finite() {
+        let kind = if rhs.is_nan() {
+            crate::error::NonFiniteKind::NaN
+        } else if rhs.is_sign_positive() {
+            crate::error::NonFiniteKind::PosInfinity
+        } else {
+            crate::error::NonFiniteKind::NegInfinity
+        };
+        return Err(InputError::NonFiniteValue { kind }.into());
     }
-    // Finite f64 always converts to Decimal
-    let decimal = Decimal::from_f64_retain(x).unwrap_or(Decimal::ZERO);
-    round_decimal(decimal, dp, mode)
+    let Some(rhs_decimal) = Decimal::from_f64_retain(rhs) else {
+        return Err(InputError::ConversionOverflow.into());
+    };
+    Ok(a * rhs_decimal)
+}
+
+/// Fallible division by an `f64` scalar (no silent substitution).
+#[inline]
+pub(crate) fn try_repr_div_f64(a: AmountRepr, rhs: f64) -> Result<AmountRepr, Error> {
+    if !rhs.is_finite() {
+        let kind = if rhs.is_nan() {
+            crate::error::NonFiniteKind::NaN
+        } else if rhs.is_sign_positive() {
+            crate::error::NonFiniteKind::PosInfinity
+        } else {
+            crate::error::NonFiniteKind::NegInfinity
+        };
+        return Err(InputError::NonFiniteValue { kind }.into());
+    }
+    if rhs == 0.0 {
+        return Err(InputError::Invalid.into());
+    }
+    let Some(rhs_decimal) = Decimal::from_f64_retain(rhs) else {
+        return Err(InputError::ConversionOverflow.into());
+    };
+    Ok(a / rhs_decimal)
+}
+
+/// Fallible rounding of an `f64` into a Decimal (no silent substitution).
+#[inline]
+pub(crate) fn try_round_f64(x: f64, dp: i32, mode: RoundingMode) -> Result<Decimal, Error> {
+    if !x.is_finite() {
+        let kind = if x.is_nan() {
+            crate::error::NonFiniteKind::NaN
+        } else if x.is_sign_positive() {
+            crate::error::NonFiniteKind::PosInfinity
+        } else {
+            crate::error::NonFiniteKind::NegInfinity
+        };
+        return Err(InputError::NonFiniteValue { kind }.into());
+    }
+    let Some(decimal) = Decimal::from_f64_retain(x) else {
+        return Err(InputError::ConversionOverflow.into());
+    };
+    Ok(round_decimal(decimal, dp, mode))
 }
 
 /// Round a Decimal to `dp` decimal places using the supplied [`RoundingMode`].
@@ -259,17 +300,26 @@ mod tests {
     }
 
     #[test]
-    #[should_panic(expected = "Money multiplication requires finite scalar")]
+    #[should_panic(expected = "Money multiplication requires finite, representable scalar")]
     fn repr_mul_f64_panics_on_nan() {
         let a = Decimal::from_str("100.00").expect("valid decimal");
         repr_mul_f64(a, f64::NAN);
     }
 
     #[test]
-    #[should_panic(expected = "Money multiplication requires finite scalar")]
+    #[should_panic(expected = "Money multiplication requires finite, representable scalar")]
     fn repr_mul_f64_panics_on_infinity() {
         let a = Decimal::from_str("100.00").expect("valid decimal");
         repr_mul_f64(a, f64::INFINITY);
+    }
+
+    #[cfg(not(debug_assertions))]
+    #[test]
+    fn repr_mul_f64_non_finite_returns_zero_in_release_builds() {
+        let a = Decimal::from_str("100.00").expect("valid decimal");
+        assert_eq!(repr_mul_f64(a, f64::NAN), Decimal::ZERO);
+        assert_eq!(repr_mul_f64(a, f64::INFINITY), Decimal::ZERO);
+        assert_eq!(repr_mul_f64(a, f64::NEG_INFINITY), Decimal::ZERO);
     }
 
     // ========================================================================
@@ -298,21 +348,21 @@ mod tests {
     }
 
     #[test]
-    #[should_panic(expected = "Money division requires finite scalar")]
+    #[should_panic(expected = "Money division requires finite, non-zero, representable scalar")]
     fn repr_div_f64_panics_on_nan() {
         let a = Decimal::from_str("100.00").expect("valid decimal");
         repr_div_f64(a, f64::NAN);
     }
 
     #[test]
-    #[should_panic(expected = "Money division requires finite scalar")]
+    #[should_panic(expected = "Money division requires finite, non-zero, representable scalar")]
     fn repr_div_f64_panics_on_infinity() {
         let a = Decimal::from_str("100.00").expect("valid decimal");
         repr_div_f64(a, f64::INFINITY);
     }
 
     #[test]
-    #[should_panic(expected = "Money division by zero is not allowed")]
+    #[should_panic(expected = "Money division requires finite, non-zero, representable scalar")]
     fn repr_div_f64_panics_on_zero() {
         let a = Decimal::from_str("100.00").expect("valid decimal");
         repr_div_f64(a, 0.0);
@@ -382,7 +432,7 @@ mod tests {
     }
 
     #[test]
-    #[should_panic(expected = "Money rounding requires finite scalar")]
+    #[should_panic(expected = "Money rounding requires finite, representable scalar")]
     fn round_f64_panics_on_nan() {
         round_f64(f64::NAN, 2, RoundingMode::Bankers);
     }

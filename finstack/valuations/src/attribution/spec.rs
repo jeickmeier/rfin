@@ -310,6 +310,7 @@ mod tests {
         let spec = AttributionSpec {
             instrument: InstrumentJson::Bond(bond),
             market_t0: MarketContextState {
+                version: finstack_core::market_data::context::MARKET_CONTEXT_STATE_VERSION,
                 curves: vec![],
                 fx: None,
                 surfaces: vec![],
@@ -321,6 +322,7 @@ mod tests {
                 collateral: std::collections::BTreeMap::new(),
             },
             market_t1: MarketContextState {
+                version: finstack_core::market_data::context::MARKET_CONTEXT_STATE_VERSION,
                 curves: vec![],
                 fx: None,
                 surfaces: vec![],
@@ -384,6 +386,7 @@ mod tests {
         let spec = AttributionSpec {
             instrument: InstrumentJson::Bond(bond),
             market_t0: MarketContextState {
+                version: finstack_core::market_data::context::MARKET_CONTEXT_STATE_VERSION,
                 curves: vec![],
                 fx: None,
                 surfaces: vec![],
@@ -395,6 +398,7 @@ mod tests {
                 collateral: std::collections::BTreeMap::new(),
             },
             market_t1: MarketContextState {
+                version: finstack_core::market_data::context::MARKET_CONTEXT_STATE_VERSION,
                 curves: vec![],
                 fx: None,
                 surfaces: vec![],

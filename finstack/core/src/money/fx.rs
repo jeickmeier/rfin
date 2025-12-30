@@ -57,14 +57,14 @@ pub(crate) fn reciprocal_rate_or_err(
     to: Currency,
 ) -> crate::Result<f64> {
     if !rate.is_finite() {
-        return Err(crate::error::InputError::NonFiniteValue {
-            kind: if rate.is_nan() {
-                "NaN".to_string()
-            } else {
-                "infinity".to_string()
-            },
-        }
-        .into());
+        let kind = if rate.is_nan() {
+            crate::error::NonFiniteKind::NaN
+        } else if rate.is_sign_positive() {
+            crate::error::NonFiniteKind::PosInfinity
+        } else {
+            crate::error::NonFiniteKind::NegInfinity
+        };
+        return Err(crate::error::InputError::NonFiniteValue { kind }.into());
     }
     if rate != 0.0 {
         Ok(1.0 / rate)
@@ -74,6 +74,14 @@ pub(crate) fn reciprocal_rate_or_err(
         }
         .into())
     }
+}
+
+#[inline]
+fn validate_fx_rate(from: Currency, to: Currency, rate: f64) -> crate::Result<f64> {
+    if !rate.is_finite() || rate <= 0.0 {
+        return Err(crate::error::InputError::InvalidFxRate { from, to, rate }.into());
+    }
+    Ok(rate)
 }
 
 /// Standard FX conversion strategies used to hint FX providers.
@@ -342,7 +350,11 @@ impl FxMatrix {
     /// assert_eq!(matrix.cache_stats(), 0);
     /// ```
     pub fn with_config(provider: Arc<dyn FxProvider>, config: FxConfig) -> Self {
-        // Use NonZeroUsize::MIN (1) as fallback if capacity is 0
+        // Do not silently mask invalid configuration (0-capacity).
+        assert!(
+            config.cache_capacity > 0,
+            "FxConfig.cache_capacity must be > 0 (got 0); use a small positive value instead"
+        );
         let capacity = NonZeroUsize::new(config.cache_capacity).unwrap_or(NonZeroUsize::MIN);
         let quotes = LruCache::new(capacity);
         Self {
@@ -415,6 +427,7 @@ impl FxMatrix {
         let (direct_opt, reciprocal_opt) = self.read_cached_pair_bidir(from, to);
 
         if let Some(rate) = direct_opt {
+            let rate = validate_fx_rate(from, to, rate)?;
             return Ok(FxRateResult {
                 rate,
                 triangulated: false,
@@ -430,6 +443,7 @@ impl FxMatrix {
         // Try provider first
         match self.provider.rate(from, to, on, policy) {
             Ok(rate) => {
+                let rate = validate_fx_rate(from, to, rate)?;
                 self.insert_quote(from, to, rate);
                 Ok(FxRateResult {
                     rate,
@@ -489,6 +503,12 @@ impl FxMatrix {
     /// assert_eq!(res.rate, 1.3);
     /// ```
     pub fn set_quote(&self, from: Currency, to: Currency, rate: FxRate) {
+        // `set_quote` is an infallible API; treat invalid rates as programmer bugs.
+        let checked = validate_fx_rate(from, to, rate);
+        assert!(
+            checked.is_ok(),
+            "FxMatrix::set_quote requires finite, positive rate (got {from}->{to}={rate})"
+        );
         self.insert_quote(from, to, rate);
     }
 
@@ -499,6 +519,12 @@ impl FxMatrix {
     pub fn set_quotes(&self, quotes: &[(Currency, Currency, FxRate)]) {
         let mut map = self.quotes.lock();
         for &(from, to, rate) in quotes {
+            // Keep state clean: invalid quotes are always a bug at insertion time.
+            let checked = validate_fx_rate(from, to, rate);
+            assert!(
+                checked.is_ok(),
+                "FxMatrix::set_quotes requires finite, positive rates (got {from}->{to}={rate})"
+            );
             map.put(Pair(from, to), rate);
         }
     }
@@ -593,10 +619,12 @@ impl FxMatrix {
     /// ```
     pub fn get_serializable_state(&self) -> FxMatrixState {
         let quotes = self.quotes.lock();
-        let quote_vec: Vec<(Currency, Currency, FxRate)> = quotes
+        let mut quote_vec: Vec<(Currency, Currency, FxRate)> = quotes
             .iter()
             .map(|(pair, rate)| (pair.0, pair.1, *rate))
             .collect();
+        // Deterministic snapshots: sort by pair key, not by LRU order.
+        quote_vec.sort_by(|a, b| (a.0, a.1).cmp(&(b.0, b.1)));
         FxMatrixState {
             config: self.config,
             quotes: quote_vec,
@@ -703,6 +731,7 @@ impl FxMatrix {
         let a = self.get_or_fetch(from, pivot, on, policy)?;
         let b = self.get_or_fetch(pivot, to, on, policy)?;
         let rate = a * b;
+        let rate = validate_fx_rate(from, to, rate)?;
         // Cache derived cross to avoid repeated recomputation
         self.insert_quote(from, to, rate);
         Ok(rate)
@@ -710,6 +739,12 @@ impl FxMatrix {
 
     /// Insert an explicit provider quote
     fn insert_quote(&self, from: Currency, to: Currency, rate: FxRate) {
+        // Internal insertion should never persist invalid rates.
+        let checked = validate_fx_rate(from, to, rate);
+        assert!(
+            checked.is_ok(),
+            "FxMatrix internal quote must be finite, positive (got {from}->{to}={rate})"
+        );
         let mut quotes = self.quotes.lock();
         quotes.put(Pair(from, to), rate);
     }
@@ -729,10 +764,11 @@ impl FxMatrix {
         let (direct_opt, reciprocal_opt) = self.read_cached_pair_bidir(from, to);
         // 1) Explicit quote wins
         if let Some(r) = direct_opt {
-            return Ok(r);
+            return validate_fx_rate(from, to, r);
         }
         // 2) Try provider for direct
         if let Ok(r) = self.provider.rate(from, to, on, policy) {
+            let r = validate_fx_rate(from, to, r)?;
             self.insert_quote(from, to, r);
             return Ok(r);
         }
@@ -742,6 +778,7 @@ impl FxMatrix {
         }
         // 4) As last resort, propagate provider error
         let r = self.provider.rate(from, to, on, policy)?;
+        let r = validate_fx_rate(from, to, r)?;
         self.insert_quote(from, to, r);
         Ok(r)
     }
@@ -754,10 +791,27 @@ impl FxMatrix {
         to: Currency,
     ) -> (Option<FxRate>, Option<FxRate>) {
         let mut quotes = self.quotes.lock();
-        (
-            quotes.get(&Pair(from, to)).copied(),
-            quotes.get(&Pair(to, from)).copied(),
-        )
+        let direct_key = Pair(from, to);
+        let rev_key = Pair(to, from);
+
+        let direct = quotes.get(&direct_key).copied().and_then(|r| {
+            if r.is_finite() && r > 0.0 {
+                Some(r)
+            } else {
+                // Purge invalid cached value.
+                let _ = quotes.pop(&direct_key);
+                None
+            }
+        });
+        let rev = quotes.get(&rev_key).copied().and_then(|r| {
+            if r.is_finite() && r > 0.0 {
+                Some(r)
+            } else {
+                let _ = quotes.pop(&rev_key);
+                None
+            }
+        });
+        (direct, rev)
     }
 }
 

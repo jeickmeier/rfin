@@ -621,10 +621,10 @@ impl MarketSnapshot {
         }
 
         // Always preserve FX, surfaces, and scalars from current market
-        if let Some(fx) = &current_market.fx {
-            new_market.fx = Some(Arc::clone(fx));
+        if let Some(fx) = current_market.fx() {
+            new_market.insert_fx_arc_mut(Arc::clone(fx));
         }
-        new_market.surfaces = current_market.surfaces.clone();
+        new_market.replace_surfaces_mut(current_market.surfaces_snapshot());
         copy_scalars(current_market, &mut new_market);
 
         new_market
@@ -724,7 +724,7 @@ impl MarketExtractable for CorrelationsSnapshot {
 impl MarketExtractable for VolatilitySnapshot {
     fn extract(market: &MarketContext) -> Self {
         VolatilitySnapshot {
-            surfaces: market.surfaces.clone(),
+            surfaces: market.surfaces_snapshot(),
         }
     }
 }
@@ -762,7 +762,7 @@ impl MarketExtractable for ScalarsSnapshot {
 ///
 /// Optional FX matrix (None if not present).
 pub fn extract_fx(market: &MarketContext) -> Option<Arc<FxMatrix>> {
-    market.fx.clone()
+    market.fx().cloned()
 }
 
 fn copy_scalars(from: &MarketContext, to: &mut MarketContext) {
@@ -792,7 +792,7 @@ fn copy_scalars(from: &MarketContext, to: &mut MarketContext) {
 /// New market context with replaced FX matrix.
 pub fn restore_fx(market: &MarketContext, fx: Option<Arc<FxMatrix>>) -> MarketContext {
     let mut new_market = market.clone();
-    new_market.fx = fx;
+    new_market.set_fx_arc_option_mut(fx);
     new_market
 }
 
@@ -808,7 +808,7 @@ pub fn restore_fx(market: &MarketContext, fx: Option<Arc<FxMatrix>>) -> MarketCo
 /// New market context with replaced volatility surfaces.
 pub fn restore_volatility(market: &MarketContext, snapshot: &VolatilitySnapshot) -> MarketContext {
     let mut new_market = market.clone();
-    new_market.surfaces = snapshot.surfaces.clone();
+    new_market.replace_surfaces_mut(snapshot.surfaces.clone());
     new_market
 }
 
@@ -847,10 +847,10 @@ pub fn restore_scalars(market: &MarketContext, snapshot: &ScalarsSnapshot) -> Ma
     }
 
     // Copy FX and surfaces
-    if let Some(fx) = &market.fx {
-        new_market.fx = Some(Arc::clone(fx));
+    if let Some(fx) = market.fx() {
+        new_market.insert_fx_arc_mut(Arc::clone(fx));
     }
-    new_market.surfaces = market.surfaces.clone();
+    new_market.replace_surfaces_mut(market.surfaces_snapshot());
 
     // Restore scalars from snapshot (overwrites any existing)
     for (id, scalar) in &snapshot.prices {

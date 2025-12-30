@@ -401,13 +401,15 @@ fn simulate_period(
                     .get(tranche_id_str)
                     .copied()
                     .unwrap_or(Money::new(0.0, state.base_ccy));
-                let coupon_rate = tranche.coupon.current_rate_with_index(pay_date, context);
+                let coupon_rate = tranche
+                    .coupon
+                    .try_current_rate_with_index(pay_date, context)?;
 
                 // Use tranche's day-count convention for proper accrual calculation
                 let accrual_factor = tranche
                     .day_count
                     .year_fraction(period_start, pay_date, DayCountCtx::default())
-                    .unwrap_or(months_per_period / 12.0);
+                    ?;
 
                 let interest_portion = Money::new(
                     current_balance.amount() * coupon_rate * accrual_factor,

@@ -36,6 +36,7 @@ fn test_attribution_envelope_json_roundtrip() {
     let spec = AttributionSpec {
         instrument: InstrumentJson::Bond(bond),
         market_t0: MarketContextState {
+            version: finstack_core::market_data::context::MARKET_CONTEXT_STATE_VERSION,
             curves: vec![],
             fx: None,
             surfaces: vec![],
@@ -47,6 +48,7 @@ fn test_attribution_envelope_json_roundtrip() {
             collateral: std::collections::BTreeMap::new(),
         },
         market_t1: MarketContextState {
+            version: finstack_core::market_data::context::MARKET_CONTEXT_STATE_VERSION,
             curves: vec![],
             fx: None,
             surfaces: vec![],
@@ -103,6 +105,7 @@ fn test_attribution_envelope_waterfall_roundtrip() {
     let spec = AttributionSpec {
         instrument: InstrumentJson::Bond(bond),
         market_t0: MarketContextState {
+            version: finstack_core::market_data::context::MARKET_CONTEXT_STATE_VERSION,
             curves: vec![],
             fx: None,
             surfaces: vec![],
@@ -114,6 +117,7 @@ fn test_attribution_envelope_waterfall_roundtrip() {
             collateral: std::collections::BTreeMap::new(),
         },
         market_t1: MarketContextState {
+            version: finstack_core::market_data::context::MARKET_CONTEXT_STATE_VERSION,
             curves: vec![],
             fx: None,
             surfaces: vec![],
@@ -206,6 +210,7 @@ fn test_attribution_envelope_to_from_json_helpers() {
     let spec = AttributionSpec {
         instrument: InstrumentJson::Bond(bond),
         market_t0: MarketContextState {
+            version: finstack_core::market_data::context::MARKET_CONTEXT_STATE_VERSION,
             curves: vec![],
             fx: None,
             surfaces: vec![],
@@ -217,6 +222,7 @@ fn test_attribution_envelope_to_from_json_helpers() {
             collateral: std::collections::BTreeMap::new(),
         },
         market_t1: MarketContextState {
+            version: finstack_core::market_data::context::MARKET_CONTEXT_STATE_VERSION,
             curves: vec![],
             fx: None,
             surfaces: vec![],

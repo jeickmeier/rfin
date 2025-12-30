@@ -29,8 +29,9 @@ impl MetricCalculator for CarryPv {
         let include_near = fx_swap.near_date >= as_of;
         let include_far = fx_swap.far_date >= as_of;
 
-        let model_spot = if let Some(fx_matrix) = curves.fx.as_ref() {
-            (**fx_matrix)
+        let model_spot = if let Some(fx_matrix) = curves.fx() {
+            fx_matrix
+                .as_ref()
                 .rate(FxQuery::new(
                     fx_swap.base_currency,
                     fx_swap.quote_currency,

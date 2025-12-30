@@ -153,7 +153,7 @@ impl FxVarianceSwap {
     }
 
     fn spot_rate(&self, context: &MarketContext, as_of: Date) -> Result<f64> {
-        if let Some(fx) = context.fx.as_ref() {
+        if let Some(fx) = context.fx() {
             let rate = fx
                 .rate(FxQuery::new(self.base_currency, self.quote_currency, as_of))?
                 .rate;

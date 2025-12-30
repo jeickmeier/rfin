@@ -906,6 +906,50 @@ pub trait Instrument: Send + Sync {
         )
     }
 
+    /// Compute present value with specified risk metrics, using an attached [`MarketHistory`].
+    ///
+    /// This is primarily used for Historical VaR / Expected Shortfall metrics, which require
+    /// a lookback window of historical market scenarios.
+    fn price_with_metrics_with_market_history(
+        &self,
+        market: &MarketContext,
+        as_of: Date,
+        metrics: &[MetricId],
+        market_history: std::sync::Arc<crate::metrics::risk::MarketHistory>,
+    ) -> finstack_core::Result<crate::results::ValuationResult> {
+        let base_value = self.value(market, as_of)?;
+        crate::instruments::common::helpers::build_with_metrics_dyn_with_market_history(
+            std::sync::Arc::from(self.clone_box()),
+            std::sync::Arc::new(market.clone()),
+            as_of,
+            base_value,
+            metrics,
+            None,
+            market_history,
+        )
+    }
+
+    /// Config-aware variant of [`Instrument::price_with_metrics_with_market_history`].
+    fn price_with_metrics_with_market_history_with_config(
+        &self,
+        market: &MarketContext,
+        as_of: Date,
+        metrics: &[MetricId],
+        market_history: std::sync::Arc<crate::metrics::risk::MarketHistory>,
+        cfg: &finstack_core::config::FinstackConfig,
+    ) -> finstack_core::Result<crate::results::ValuationResult> {
+        let base_value = self.value(market, as_of)?;
+        crate::instruments::common::helpers::build_with_metrics_dyn_with_market_history(
+            std::sync::Arc::from(self.clone_box()),
+            std::sync::Arc::new(market.clone()),
+            as_of,
+            base_value,
+            metrics,
+            Some(std::sync::Arc::new(cfg.clone())),
+            market_history,
+        )
+    }
+
     // === Market Data Introspection (for Attribution) ===
 
     /// Discount curves required for pricing this instrument.

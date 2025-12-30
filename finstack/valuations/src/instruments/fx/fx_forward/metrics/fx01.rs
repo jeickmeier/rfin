@@ -26,7 +26,7 @@ impl MetricCalculator for Fx01Calculator {
 
         let spot = if let Some(rate) = fwd.spot_rate_override {
             rate
-        } else if let Some(fx) = curves.fx.as_ref() {
+        } else if let Some(fx) = curves.fx() {
             (**fx)
                 .rate(FxQuery::new(fwd.base_currency, fwd.quote_currency, as_of))?
                 .rate

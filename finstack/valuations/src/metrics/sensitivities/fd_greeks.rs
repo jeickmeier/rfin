@@ -11,7 +11,7 @@ use std::marker::PhantomData;
 use crate::instruments::common::traits::{EquityDependencies, Instrument};
 use crate::metrics::core::finite_difference::central_mixed;
 use crate::metrics::sensitivities::config as sens_config;
-use crate::metrics::{bump_scalar_price, scale_surface};
+use crate::metrics::{bump_scalar_price, bump_surface_vol_absolute};
 use crate::metrics::{MetricCalculator, MetricContext};
 use finstack_core::dates::{Date, DayCount};
 use finstack_core::Result;
@@ -45,6 +45,7 @@ use finstack_core::Result;
 ///     }
 /// }
 /// ```
+#[allow(dead_code)]
 pub trait HasExpiry {
     /// Returns the expiry date for this instrument.
     ///
@@ -58,6 +59,7 @@ pub trait HasExpiry {
     /// let expiry_date: Date = instrument.expiry();
     /// # let _ = expiry_date;
     /// ```
+    #[allow(dead_code)]
     fn expiry(&self) -> Date;
 }
 
@@ -86,6 +88,7 @@ pub trait HasExpiry {
 ///     }
 /// }
 /// ```
+#[allow(dead_code)]
 pub trait HasDayCount {
     /// Returns the day count convention for this instrument.
     ///
@@ -101,6 +104,7 @@ pub trait HasDayCount {
     /// let day_count: DayCount = instrument.day_count();
     /// # let _ = day_count;
     /// ```
+    #[allow(dead_code)]
     fn day_count(&self) -> DayCount;
 }
 
@@ -381,16 +385,19 @@ where
         };
 
         // Fixed bump size from `FinstackConfig` (user-facing, reproducible).
-        let bump_pct = defaults.vol_bump_pct;
+        // Interpreted as an **absolute** implied vol bump in decimal units (e.g., 0.01 = +1 vol point).
+        let bump_abs = defaults.vol_bump_pct;
 
         let mut inst_up = instrument.clone();
         inst_up.pricing_overrides_mut().mc_seed_scenario = Some("vega_up".to_string());
 
-        let curves_up = scale_surface(&context.curves, vol_surface_id.as_str(), 1.0 + bump_pct)?;
+        let curves_up =
+            bump_surface_vol_absolute(&context.curves, vol_surface_id.as_str(), bump_abs)?;
         let pv_up = inst_up.value_raw(&curves_up, as_of)?;
 
-        // Vega per 1% vol scaling
-        Ok((pv_up - base_pv) / bump_pct)
+        // Vega is ∂V/∂σ (per absolute vol unit). With the default bump of 0.01, this is the
+        // market-standard “per 1 vol point” sensitivity.
+        Ok((pv_up - base_pv) / bump_abs)
     }
 }
 
@@ -429,20 +436,23 @@ where
             return Ok(0.0);
         };
 
-        let bump_pct = defaults.vol_bump_pct;
+        // Absolute implied vol bump (vol points).
+        let bump_abs = defaults.vol_bump_pct;
 
         let mut inst_up = instrument.clone();
         inst_up.pricing_overrides_mut().mc_seed_scenario = Some("volga_up".to_string());
         let mut inst_down = instrument.clone();
         inst_down.pricing_overrides_mut().mc_seed_scenario = Some("volga_down".to_string());
 
-        let curves_up = scale_surface(&context.curves, vol_surface_id.as_str(), 1.0 + bump_pct)?;
-        let curves_down = scale_surface(&context.curves, vol_surface_id.as_str(), 1.0 - bump_pct)?;
+        let curves_up =
+            bump_surface_vol_absolute(&context.curves, vol_surface_id.as_str(), bump_abs)?;
+        let curves_down =
+            bump_surface_vol_absolute(&context.curves, vol_surface_id.as_str(), -bump_abs)?;
 
         let pv_up = inst_up.value_raw(&curves_up, as_of)?;
         let pv_down = inst_down.value_raw(&curves_down, as_of)?;
 
-        Ok((pv_up - 2.0 * base_pv + pv_down) / (bump_pct * bump_pct))
+        Ok((pv_up - 2.0 * base_pv + pv_down) / (bump_abs * bump_abs))
     }
 }
 
@@ -474,6 +484,16 @@ where
         let as_of = context.as_of;
         let defaults = sens_config::from_finstack_config_or_default(context.config())?;
 
+        // If expired, vanna is zero (avoid bumping / repricing beyond expiry).
+        let t = instrument.day_count().year_fraction(
+            as_of,
+            instrument.expiry(),
+            finstack_core::dates::DayCountCtx::default(),
+        )?;
+        if t <= 0.0 {
+            return Ok(0.0);
+        }
+
         // Get equity dependencies
         let eq_deps = instrument.equity_dependencies();
         let spot_id = eq_deps.spot_id.as_ref().ok_or_else(|| {
@@ -494,42 +514,20 @@ where
             finstack_core::market_data::scalars::MarketScalar::Price(m) => m.amount(),
         };
 
-        // Time to expiry and ATM vol for absolute denominators
-        let t = instrument
-            .day_count()
-            .year_fraction(
-                as_of,
-                instrument.expiry(),
-                finstack_core::dates::DayCountCtx::default(),
-            )
-            .ok()
-            .unwrap_or(0.0);
-
-        let atm_vol = if t > 0.0 {
-            context
-                .curves
-                .surface_ref(vol_surface_id.as_str())
-                .ok()
-                .map(|surf| surf.value_clamped(t, current_spot))
-                .unwrap_or(0.2)
-        } else {
-            0.2
-        };
-
         // Bump sizes
-        let (spot_bump_pct, vol_bump_pct) = (defaults.spot_bump_pct, defaults.vol_bump_pct);
+        let (spot_bump_pct, vol_bump_abs) = (defaults.spot_bump_pct, defaults.vol_bump_pct);
 
         let h_abs = current_spot * spot_bump_pct; // absolute spot change
-        let k_abs = (atm_vol * vol_bump_pct).abs().max(1e-12); // absolute vol change
+        let k_abs = vol_bump_abs; // absolute vol change (vol points)
 
         // Prepare evaluators for four combinations
         let su_vu = {
             let mut inst = instrument.clone();
             inst.pricing_overrides_mut().mc_seed_scenario = Some("vanna_su_vu".to_string());
-            let curves = scale_surface(
+            let curves = bump_surface_vol_absolute(
                 &bump_scalar_price(&context.curves, spot_id, spot_bump_pct)?,
                 vol_surface_id.as_str(),
-                1.0 + vol_bump_pct,
+                k_abs,
             )?;
             move || inst.value_raw(&curves, as_of)
         };
@@ -537,10 +535,10 @@ where
         let su_vd = {
             let mut inst = instrument.clone();
             inst.pricing_overrides_mut().mc_seed_scenario = Some("vanna_su_vd".to_string());
-            let curves = scale_surface(
+            let curves = bump_surface_vol_absolute(
                 &bump_scalar_price(&context.curves, spot_id, spot_bump_pct)?,
                 vol_surface_id.as_str(),
-                1.0 - vol_bump_pct,
+                -k_abs,
             )?;
             move || inst.value_raw(&curves, as_of)
         };
@@ -548,10 +546,10 @@ where
         let sd_vu = {
             let mut inst = instrument.clone();
             inst.pricing_overrides_mut().mc_seed_scenario = Some("vanna_sd_vu".to_string());
-            let curves = scale_surface(
+            let curves = bump_surface_vol_absolute(
                 &bump_scalar_price(&context.curves, spot_id, -spot_bump_pct)?,
                 vol_surface_id.as_str(),
-                1.0 + vol_bump_pct,
+                k_abs,
             )?;
             move || inst.value_raw(&curves, as_of)
         };
@@ -559,10 +557,10 @@ where
         let sd_vd = {
             let mut inst = instrument.clone();
             inst.pricing_overrides_mut().mc_seed_scenario = Some("vanna_sd_vd".to_string());
-            let curves = scale_surface(
+            let curves = bump_surface_vol_absolute(
                 &bump_scalar_price(&context.curves, spot_id, -spot_bump_pct)?,
                 vol_surface_id.as_str(),
-                1.0 - vol_bump_pct,
+                -k_abs,
             )?;
             move || inst.value_raw(&curves, as_of)
         };
@@ -576,7 +574,7 @@ where
 // ================================================================================================
 
 #[cfg(test)]
-#[allow(clippy::expect_used, clippy::panic)]
+#[allow(clippy::expect_used, clippy::panic, dead_code)]
 mod tests {
     use super::*;
 
@@ -593,6 +591,7 @@ mod tests {
     use std::sync::Arc;
     use time::macros::date;
 
+    #[allow(dead_code)]
     #[derive(Clone)]
     struct TestFdInstrument {
         id: String,
@@ -616,6 +615,7 @@ mod tests {
         }
     }
 
+    #[allow(dead_code)]
     #[derive(Clone)]
     struct RoundingSensitiveInstrument {
         id: String,

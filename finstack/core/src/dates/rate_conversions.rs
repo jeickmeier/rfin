@@ -80,7 +80,40 @@
 //! - ISDA Definitions (2006): Interest Rate and Currency Exchange Definitions
 //! - Tuckman & Serrat: "Fixed Income Securities" (Chapter 1: Prices, Discount Factors, and Arbitrage)
 
+use crate::error::{InputError, NonFiniteKind};
 use crate::{Error, Result};
+
+#[inline]
+fn non_finite(kind: NonFiniteKind) -> Error {
+    Error::Input(InputError::NonFiniteValue { kind })
+}
+
+#[inline]
+fn ensure_finite(function: &'static str, name: &'static str, x: f64) -> Result<()> {
+    if x.is_finite() {
+        return Ok(());
+    }
+    let kind = if x.is_nan() {
+        NonFiniteKind::NaN
+    } else if x.is_sign_positive() {
+        NonFiniteKind::PosInfinity
+    } else {
+        NonFiniteKind::NegInfinity
+    };
+    // Preserve which parameter was non-finite via a stable InputError category.
+    // (We keep these arguments to make callsites self-documenting and allow future
+    // expansion without an API change.)
+    let _ = (function, name);
+    Err(non_finite(kind))
+}
+
+#[inline]
+fn invalid_params(function: &'static str, reason: impl Into<String>) -> Error {
+    Error::Input(InputError::RateConversionInvalidParams {
+        function: function.to_string(),
+        reason: reason.into(),
+    })
+}
 
 /// Convert a simple (linear) interest rate to a periodically compounded rate.
 ///
@@ -134,15 +167,19 @@ pub fn simple_to_periodic(
     year_fraction: f64,
     periods_per_year: u32,
 ) -> Result<f64> {
+    ensure_finite("simple_to_periodic", "simple_rate", simple_rate)?;
+    ensure_finite("simple_to_periodic", "year_fraction", year_fraction)?;
     if periods_per_year == 0 {
-        return Err(Error::Validation(
-            "periods_per_year must be positive in simple_to_periodic".to_string(),
+        return Err(invalid_params(
+            "simple_to_periodic",
+            "periods_per_year must be positive",
         ));
     }
 
     if year_fraction < 0.0 {
-        return Err(Error::Validation(
-            "year_fraction must be non-negative in simple_to_periodic".to_string(),
+        return Err(invalid_params(
+            "simple_to_periodic",
+            "year_fraction must be non-negative",
         ));
     }
 
@@ -155,8 +192,9 @@ pub fn simple_to_periodic(
     let one_plus_simple = 1.0 + simple_rate * year_fraction;
 
     if one_plus_simple <= 0.0 {
-        return Err(Error::Validation(
-            "simple rate and year fraction combination results in negative discount factor in simple_to_periodic".to_string(),
+        return Err(invalid_params(
+            "simple_to_periodic",
+            "simple_rate and year_fraction produce non-positive discount factor",
         ));
     }
 
@@ -208,15 +246,19 @@ pub fn periodic_to_simple(
     year_fraction: f64,
     periods_per_year: u32,
 ) -> Result<f64> {
+    ensure_finite("periodic_to_simple", "periodic_rate", periodic_rate)?;
+    ensure_finite("periodic_to_simple", "year_fraction", year_fraction)?;
     if periods_per_year == 0 {
-        return Err(Error::Validation(
-            "periods_per_year must be positive in periodic_to_simple".to_string(),
+        return Err(invalid_params(
+            "periodic_to_simple",
+            "periods_per_year must be positive",
         ));
     }
 
     if year_fraction <= 0.0 {
-        return Err(Error::Validation(
-            "year_fraction must be positive for periodic_to_simple conversion".to_string(),
+        return Err(invalid_params(
+            "periodic_to_simple",
+            "year_fraction must be positive",
         ));
     }
 
@@ -224,8 +266,9 @@ pub fn periodic_to_simple(
     let one_plus_periodic = 1.0 + periodic_rate / n;
 
     if one_plus_periodic <= 0.0 {
-        return Err(Error::Validation(
-            "periodic rate results in negative discount factor in periodic_to_simple".to_string(),
+        return Err(invalid_params(
+            "periodic_to_simple",
+            "periodic_rate produces non-positive discount factor",
         ));
     }
 
@@ -283,9 +326,11 @@ pub fn periodic_to_simple(
 /// and derivatives pricing.
 #[inline]
 pub fn periodic_to_continuous(periodic_rate: f64, periods_per_year: u32) -> Result<f64> {
+    ensure_finite("periodic_to_continuous", "periodic_rate", periodic_rate)?;
     if periods_per_year == 0 {
-        return Err(Error::Validation(
-            "periods_per_year must be positive in periodic_to_continuous".to_string(),
+        return Err(invalid_params(
+            "periodic_to_continuous",
+            "periods_per_year must be positive",
         ));
     }
 
@@ -293,8 +338,9 @@ pub fn periodic_to_continuous(periodic_rate: f64, periods_per_year: u32) -> Resu
     let one_plus_periodic = 1.0 + periodic_rate / n;
 
     if one_plus_periodic <= 0.0 {
-        return Err(Error::Validation(
-            "periodic rate results in non-positive value for continuous conversion in periodic_to_continuous".to_string(),
+        return Err(invalid_params(
+            "periodic_to_continuous",
+            "periodic_rate produces non-positive value for ln",
         ));
     }
 
@@ -338,9 +384,11 @@ pub fn periodic_to_continuous(periodic_rate: f64, periods_per_year: u32) -> Resu
 /// ```
 #[inline]
 pub fn continuous_to_periodic(continuous_rate: f64, periods_per_year: u32) -> Result<f64> {
+    ensure_finite("continuous_to_periodic", "continuous_rate", continuous_rate)?;
     if periods_per_year == 0 {
-        return Err(Error::Validation(
-            "periods_per_year must be positive in continuous_to_periodic".to_string(),
+        return Err(invalid_params(
+            "continuous_to_periodic",
+            "periods_per_year must be positive",
         ));
     }
 
@@ -373,9 +421,12 @@ pub fn continuous_to_periodic(continuous_rate: f64, periods_per_year: u32) -> Re
 /// ```
 #[inline]
 pub fn simple_to_continuous(simple_rate: f64, year_fraction: f64) -> Result<f64> {
+    ensure_finite("simple_to_continuous", "simple_rate", simple_rate)?;
+    ensure_finite("simple_to_continuous", "year_fraction", year_fraction)?;
     if year_fraction < 0.0 {
-        return Err(Error::Validation(
-            "year_fraction must be non-negative in simple_to_continuous".to_string(),
+        return Err(invalid_params(
+            "simple_to_continuous",
+            "year_fraction must be non-negative",
         ));
     }
 
@@ -386,8 +437,9 @@ pub fn simple_to_continuous(simple_rate: f64, year_fraction: f64) -> Result<f64>
     let one_plus_simple = 1.0 + simple_rate * year_fraction;
 
     if one_plus_simple <= 0.0 {
-        return Err(Error::Validation(
-            "simple rate and year fraction combination results in negative discount factor in simple_to_continuous".to_string(),
+        return Err(invalid_params(
+            "simple_to_continuous",
+            "simple_rate and year_fraction produce non-positive discount factor",
         ));
     }
 
@@ -420,9 +472,12 @@ pub fn simple_to_continuous(simple_rate: f64, year_fraction: f64) -> Result<f64>
 /// ```
 #[inline]
 pub fn continuous_to_simple(continuous_rate: f64, year_fraction: f64) -> Result<f64> {
+    ensure_finite("continuous_to_simple", "continuous_rate", continuous_rate)?;
+    ensure_finite("continuous_to_simple", "year_fraction", year_fraction)?;
     if year_fraction <= 0.0 {
-        return Err(Error::Validation(
-            "year_fraction must be positive for continuous_to_simple conversion".to_string(),
+        return Err(invalid_params(
+            "continuous_to_simple",
+            "year_fraction must be positive",
         ));
     }
 

@@ -306,7 +306,7 @@ pub enum NumericMode {
 ///
 /// let meta = results_meta(&FinstackConfig::default());
 /// assert_eq!(meta.numeric_mode, NumericMode::F64);
-/// assert!(meta.timestamp.is_some());
+/// assert!(meta.timestamp.is_none()); // deterministic by default
 /// ```
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct ResultsMeta {
@@ -383,7 +383,7 @@ pub const NUMERIC_MODE: NumericMode = NumericMode::F64;
 /// Construct a [`ResultsMeta`] snapshot for stamping into result envelopes.
 ///
 /// Convenience wrapper that combines [`NUMERIC_MODE`] and
-/// [`rounding_context_from`], with automatic timestamping.
+/// [`rounding_context_from`], without a timestamp (deterministic).
 ///
 /// # Examples
 /// ```rust
@@ -392,13 +392,29 @@ pub const NUMERIC_MODE: NumericMode = NumericMode::F64;
 /// let cfg = FinstackConfig::default();
 /// let meta = results_meta(&cfg);
 /// assert_eq!(meta.numeric_mode, NumericMode::F64);
-/// assert!(meta.timestamp.is_some());
+/// assert!(meta.timestamp.is_none());
 /// ```
 pub fn results_meta(cfg: &FinstackConfig) -> ResultsMeta {
-    // Generate ISO 8601 timestamp
-    // With `wasm-bindgen` feature enabled in `time` crate, `now_utc()` works on WASM too.
-    let timestamp = Some(time::OffsetDateTime::now_utc());
+    results_meta_with_timestamp(cfg, None)
+}
 
+/// Construct a [`ResultsMeta`] snapshot and stamp a timestamp of "now".
+///
+/// Use this at user-facing IO boundaries and audit trails. For deterministic outputs
+/// (golden tests, reproducible snapshots), prefer [`results_meta`].
+pub fn results_meta_now(cfg: &FinstackConfig) -> ResultsMeta {
+    // With `wasm-bindgen` feature enabled in `time` crate, `now_utc()` works on WASM too.
+    results_meta_with_timestamp(cfg, Some(time::OffsetDateTime::now_utc()))
+}
+
+/// Construct a [`ResultsMeta`] snapshot with an explicitly provided timestamp.
+///
+/// This is useful for deterministic injection (tests) or when a higher-level layer
+/// controls timestamping.
+pub fn results_meta_with_timestamp(
+    cfg: &FinstackConfig,
+    timestamp: Option<time::OffsetDateTime>,
+) -> ResultsMeta {
     ResultsMeta {
         numeric_mode: NUMERIC_MODE,
         rounding: rounding_context_from(cfg),

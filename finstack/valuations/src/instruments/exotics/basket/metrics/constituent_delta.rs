@@ -105,8 +105,8 @@ fn bump_and_measure_delta(
             let bumped_price = price.amount() * (1.0 + PRICE_BUMP_PCT);
             let synthetic_id = synthetic_price_id(basket, constituent);
 
-            bumped_ctx.prices.insert(
-                CurveId::from(synthetic_id.as_ref()),
+            bumped_ctx.insert_price_mut(
+                synthetic_id.as_ref(),
                 finstack_core::market_data::scalars::MarketScalar::Price(Money::new(
                     bumped_price,
                     price.currency(),
@@ -132,9 +132,7 @@ fn bump_and_measure_delta(
                     finstack_core::market_data::scalars::MarketScalar::Unitless(bumped_price)
                 }
             };
-            bumped_ctx
-                .prices
-                .insert(CurveId::from(price_id.as_ref()), new_scalar);
+            bumped_ctx.set_price_mut(CurveId::from(price_id.as_ref()), new_scalar);
 
             let pv_bumped = basket.value(&bumped_ctx, as_of)?.amount();
             (current_price.amount(), pv_bumped)

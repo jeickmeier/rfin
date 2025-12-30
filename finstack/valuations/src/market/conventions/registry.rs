@@ -119,22 +119,38 @@ impl ConventionRegistry {
     /// Panics if any embedded conventions file is corrupted or malformed.
     /// This is intentional: corrupted embedded data represents a build/packaging error
     /// that cannot be recovered at runtime and should fail fast during startup.
+    ///
+    /// For callers that prefer structured error handling (e.g., bindings / services),
+    /// use [`try_global()`](Self::try_global).
     #[allow(clippy::expect_used)]
     pub fn global() -> &'static Self {
+        Self::try_global().expect("Failed to load embedded conventions registry")
+    }
+
+    /// Access the global singleton registry (fallible).
+    ///
+    /// This is the error-returning variant of [`global()`](Self::global). It is preferred in
+    /// library/binding contexts where panics are unacceptable.
+    pub fn try_global() -> Result<&'static Self> {
         static REGISTRY: OnceLock<ConventionRegistry> = OnceLock::new();
-        REGISTRY.get_or_init(|| ConventionRegistry {
-            rate_index: super::loaders::rate_index::load_registry()
-                .expect("Failed to load embedded rate index conventions registry"),
-            cds: super::loaders::cds::load_registry()
-                .expect("Failed to load embedded CDS conventions registry"),
-            swaption: super::loaders::swaption::load_registry()
-                .expect("Failed to load embedded swaption conventions registry"),
-            inflation_swap: super::loaders::inflation_swap::load_registry()
-                .expect("Failed to load embedded inflation swap conventions registry"),
-            option: super::loaders::option::load_registry()
-                .expect("Failed to load embedded option conventions registry"),
-            ir_future: super::loaders::ir_future::load_registry()
-                .expect("Failed to load embedded IR future conventions registry"),
+        if let Some(reg) = REGISTRY.get() {
+            return Ok(reg);
+        }
+
+        // Build outside the lock. If multiple threads race here, all but one `set` will lose and
+        // we will return the stored singleton.
+        let built = ConventionRegistry {
+            rate_index: super::loaders::rate_index::load_registry()?,
+            cds: super::loaders::cds::load_registry()?,
+            swaption: super::loaders::swaption::load_registry()?,
+            inflation_swap: super::loaders::inflation_swap::load_registry()?,
+            option: super::loaders::option::load_registry()?,
+            ir_future: super::loaders::ir_future::load_registry()?,
+        };
+        let _ = REGISTRY.set(built);
+
+        REGISTRY.get().ok_or_else(|| {
+            Error::Validation("ConventionRegistry::try_global failed to initialize".to_string())
         })
     }
 

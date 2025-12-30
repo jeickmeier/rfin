@@ -1,7 +1,7 @@
 use std::sync::Arc;
 
 use crate::market_data::traits::Discounting;
-use crate::types::{CurveId, InstrumentId};
+use crate::types::CurveId;
 use crate::Result;
 
 use super::curve_storage::CurveStorage;
@@ -40,12 +40,11 @@ impl MarketContext {
     {
         match self.curves.get(id) {
             Some(storage) => extractor(storage).ok_or_else(|| {
-                crate::error::Error::Validation(format!(
-                    "Type mismatch: curve '{}' is '{}', expected '{}'",
-                    id,
-                    storage.curve_type(),
-                    expected_type
-                ))
+                crate::error::Error::from(crate::error::InputError::WrongCurveType {
+                    id: id.to_string(),
+                    expected: expected_type.to_string(),
+                    actual: storage.curve_type().to_string(),
+                })
             }),
             None => Err(self.missing_curve_error(id)),
         }
@@ -106,11 +105,12 @@ impl MarketContext {
         let id_str = id.as_ref();
         match self.curves.get(id_str) {
             Some(CurveStorage::Discount(curve)) => Ok(curve.as_ref()),
-            Some(storage) => Err(crate::error::Error::Validation(format!(
-                "Type mismatch: curve '{}' is '{}', expected 'Discount'",
-                id_str,
-                storage.curve_type()
-            ))),
+            Some(storage) => Err(crate::error::InputError::WrongCurveType {
+                id: id_str.to_string(),
+                expected: "Discount".to_string(),
+                actual: storage.curve_type().to_string(),
+            }
+            .into()),
             None => Err(self.missing_curve_error(id_str)),
         }
     }
@@ -120,11 +120,12 @@ impl MarketContext {
         let id_str = id.as_ref();
         match self.curves.get(id_str) {
             Some(CurveStorage::Forward(curve)) => Ok(curve.as_ref()),
-            Some(storage) => Err(crate::error::Error::Validation(format!(
-                "Type mismatch: curve '{}' is '{}', expected 'Forward'",
-                id_str,
-                storage.curve_type()
-            ))),
+            Some(storage) => Err(crate::error::InputError::WrongCurveType {
+                id: id_str.to_string(),
+                expected: "Forward".to_string(),
+                actual: storage.curve_type().to_string(),
+            }
+            .into()),
             None => Err(self.missing_curve_error(id_str)),
         }
     }
@@ -134,11 +135,12 @@ impl MarketContext {
         let id_str = id.as_ref();
         match self.curves.get(id_str) {
             Some(CurveStorage::Hazard(curve)) => Ok(curve.as_ref()),
-            Some(storage) => Err(crate::error::Error::Validation(format!(
-                "Type mismatch: curve '{}' is '{}', expected 'Hazard'",
-                id_str,
-                storage.curve_type()
-            ))),
+            Some(storage) => Err(crate::error::InputError::WrongCurveType {
+                id: id_str.to_string(),
+                expected: "Hazard".to_string(),
+                actual: storage.curve_type().to_string(),
+            }
+            .into()),
             None => Err(self.missing_curve_error(id_str)),
         }
     }
@@ -148,11 +150,12 @@ impl MarketContext {
         let id_str = id.as_ref();
         match self.curves.get(id_str) {
             Some(CurveStorage::Inflation(curve)) => Ok(curve.as_ref()),
-            Some(storage) => Err(crate::error::Error::Validation(format!(
-                "Type mismatch: curve '{}' is '{}', expected 'Inflation'",
-                id_str,
-                storage.curve_type()
-            ))),
+            Some(storage) => Err(crate::error::InputError::WrongCurveType {
+                id: id_str.to_string(),
+                expected: "Inflation".to_string(),
+                actual: storage.curve_type().to_string(),
+            }
+            .into()),
             None => Err(self.missing_curve_error(id_str)),
         }
     }
@@ -162,11 +165,12 @@ impl MarketContext {
         let id_str = id.as_ref();
         match self.curves.get(id_str) {
             Some(CurveStorage::BaseCorrelation(curve)) => Ok(curve.as_ref()),
-            Some(storage) => Err(crate::error::Error::Validation(format!(
-                "Type mismatch: curve '{}' is '{}', expected 'BaseCorrelation'",
-                id_str,
-                storage.curve_type()
-            ))),
+            Some(storage) => Err(crate::error::InputError::WrongCurveType {
+                id: id_str.to_string(),
+                expected: "BaseCorrelation".to_string(),
+                actual: storage.curve_type().to_string(),
+            }
+            .into()),
             None => Err(self.missing_curve_error(id_str)),
         }
     }
@@ -176,11 +180,12 @@ impl MarketContext {
         let id_str = id.as_ref();
         match self.curves.get(id_str) {
             Some(CurveStorage::VolIndex(curve)) => Ok(curve.as_ref()),
-            Some(storage) => Err(crate::error::Error::Validation(format!(
-                "Type mismatch: curve '{}' is '{}', expected 'VolIndex'",
-                id_str,
-                storage.curve_type()
-            ))),
+            Some(storage) => Err(crate::error::InputError::WrongCurveType {
+                id: id_str.to_string(),
+                expected: "VolIndex".to_string(),
+                actual: storage.curve_type().to_string(),
+            }
+            .into()),
             None => Err(self.missing_curve_error(id_str)),
         }
     }
@@ -538,22 +543,4 @@ impl MarketContext {
         true
     }
 
-    // -----------------------------------------------------------------------------
-    // Instrument registry (type-erased)
-    // -----------------------------------------------------------------------------
-
-    /// Borrow a type-erased instrument from the registry.
-    pub fn get_instrument(&self, id: impl AsRef<str>) -> Result<&dyn std::any::Any> {
-        let key = id.as_ref();
-        let id = InstrumentId::from(key);
-        self.instruments
-            .get(&id)
-            .map(|arc| arc.as_ref() as &dyn std::any::Any)
-            .ok_or_else(|| {
-                crate::error::InputError::NotFound {
-                    id: key.to_string(),
-                }
-                .into()
-            })
-    }
 }

@@ -177,7 +177,7 @@ impl Equity {
             return Ok(price);
         }
 
-        let matrix = market.fx.as_ref().ok_or_else(|| {
+        let matrix = market.fx().ok_or_else(|| {
             finstack_core::Error::from(finstack_core::InputError::NotFound {
                 id: "fx_matrix".to_string(),
             })
@@ -201,7 +201,7 @@ impl Equity {
             }
         }
 
-        let provider = MatrixProvider { m: matrix };
+        let provider = MatrixProvider { m: matrix.as_ref() };
         price.convert(
             self.currency,
             as_of,

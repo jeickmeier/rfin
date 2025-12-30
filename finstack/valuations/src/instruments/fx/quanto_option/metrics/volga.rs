@@ -4,7 +4,7 @@
 
 use crate::instruments::quanto_option::QuantoOption;
 use crate::metrics::bump_sizes;
-use crate::metrics::scale_surface;
+use crate::metrics::bump_surface_vol_absolute;
 use crate::metrics::{MetricCalculator, MetricContext};
 use finstack_core::Result;
 
@@ -28,18 +28,12 @@ impl MetricCalculator for VolgaCalculator {
 
         let vol_bump = bump_sizes::VOLATILITY;
 
-        let curves_vol_up = scale_surface(
-            &context.curves,
-            option.vol_surface_id.as_str(),
-            1.0 + vol_bump,
-        )?;
+        let curves_vol_up =
+            bump_surface_vol_absolute(&context.curves, option.vol_surface_id.as_str(), vol_bump)?;
         let pv_vol_up = option.npv(&curves_vol_up, as_of)?.amount();
 
-        let curves_vol_down = scale_surface(
-            &context.curves,
-            option.vol_surface_id.as_str(),
-            1.0 - vol_bump,
-        )?;
+        let curves_vol_down =
+            bump_surface_vol_absolute(&context.curves, option.vol_surface_id.as_str(), -vol_bump)?;
         let pv_vol_down = option.npv(&curves_vol_down, as_of)?.amount();
 
         let volga = (pv_vol_up - 2.0 * base_pv + pv_vol_down) / (vol_bump * vol_bump);

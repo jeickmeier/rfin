@@ -59,23 +59,18 @@ pub mod currency;
 pub(crate) mod error;
 /// Market data term‐structure framework (former `curves` module)
 pub mod market_data;
+/// Currency-tagged monetary amounts with safe arithmetic
 pub mod money;
-
 /// Explainability infrastructure (opt-in tracing)
 pub mod explain;
-
 /// Date & calendar helpers (facade over the `time` crate)
 pub mod dates;
-
 /// Numerical helpers (root finding, summation, stats)
 pub mod math;
-
 /// Expression engine (AST, evaluator, Polars lowering)
 pub mod expr;
-
 /// Core type definitions (phantom-typed IDs, rates, etc.)
 pub mod types;
-
 /// Foundational cashflow primitives and discounting helpers.
 pub mod cashflow;
 

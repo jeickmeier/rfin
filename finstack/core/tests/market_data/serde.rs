@@ -143,7 +143,7 @@ fn market_context_roundtrip() {
     assert!(deserialized.get_forward("USD-SOFR").is_ok());
     assert!(deserialized.surface("VOL").is_ok());
     assert!(deserialized.dividend_schedule("AAPL-DIVS").is_some());
-    assert!(deserialized.fx.is_some());
+    assert!(deserialized.fx().is_some());
 }
 
 #[test]
@@ -296,6 +296,7 @@ fn curve_storage_roundtrip_and_market_context_state_error_branch() {
 
     // MarketContextState -> MarketContext error branch: credit index references missing curve IDs.
     let bad_state = MarketContextState {
+        version: finstack_core::market_data::context::MARKET_CONTEXT_STATE_VERSION,
         curves: vec![],
         fx: None,
         surfaces: vec![],
@@ -371,12 +372,6 @@ fn curve_state_and_storage_roundtrip_all_variants() {
         let back: CurveStorage = serde_json::from_str(&json).unwrap();
         assert_eq!(back.id().as_str(), s.id().as_str());
     }
-}
-
-#[test]
-fn market_context_rejects_market_history_serialization() {
-    let ctx = MarketContext::new().insert_market_history(Arc::new(123_u32));
-    assert!(serde_json::to_string(&ctx).is_err());
 }
 
 #[test]

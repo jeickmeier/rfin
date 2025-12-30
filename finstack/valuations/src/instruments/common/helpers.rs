@@ -4,7 +4,8 @@
 //! function to assemble a `ValuationResult` with computed metrics.
 
 use crate::metrics::{standard_registry, MetricContext, MetricId};
-use finstack_core::config::{results_meta, FinstackConfig};
+use crate::metrics::risk::MarketHistory;
+use finstack_core::config::{results_meta_now, FinstackConfig};
 use finstack_core::dates::{Date, DayCount, DayCountCtx};
 use finstack_core::market_data::{context::MarketContext, scalars::MarketScalar};
 use finstack_core::money::Money;
@@ -169,7 +170,72 @@ pub fn build_with_metrics_dyn(
         measures.insert(metric_id.clone(), value);
     }
 
-    let meta = results_meta(context.config());
+    let meta = results_meta_now(context.config());
+    let mut result = crate::results::ValuationResult::stamped_with_meta(
+        context.instrument.id(),
+        as_of,
+        base_value,
+        meta,
+    );
+    result.measures = measures;
+
+    Ok(result)
+}
+
+/// Variant of [`build_with_metrics_dyn`] that attaches a [`MarketHistory`] to the metric context.
+///
+/// This enables Historical VaR / Expected Shortfall metrics to run without storing
+/// type-erased runtime data inside `finstack_core::MarketContext`.
+pub fn build_with_metrics_dyn_with_market_history(
+    instrument: Arc<dyn crate::instruments::common::traits::Instrument>,
+    curves: Arc<MarketContext>,
+    as_of: Date,
+    base_value: Money,
+    metrics: &[crate::metrics::MetricId],
+    cfg: Option<Arc<FinstackConfig>>,
+    market_history: Arc<MarketHistory>,
+) -> finstack_core::Result<crate::results::ValuationResult> {
+    let mut context = match cfg {
+        Some(c) => MetricContext::new_with_finstack_config(
+            instrument.clone(),
+            curves,
+            as_of,
+            base_value,
+            c,
+        )
+        .with_market_history(Arc::clone(&market_history)),
+        None => MetricContext::new(instrument.clone(), curves, as_of, base_value)
+            .with_market_history(Arc::clone(&market_history)),
+    };
+    context.pricing_overrides = instrument.scenario_overrides().cloned();
+
+    let registry = standard_registry();
+    let metric_measures = registry.compute(metrics, &mut context)?;
+
+    let mut measures: IndexMap<MetricId, f64> = IndexMap::with_capacity(metrics.len() + 4);
+    for metric_id in metrics {
+        if let Some(value) = metric_measures.get(metric_id) {
+            measures.insert(metric_id.clone(), *value);
+        }
+    }
+
+    let mut extras: Vec<(&crate::metrics::MetricId, f64)> = context
+        .computed
+        .iter()
+        .filter_map(|(metric_id, value)| {
+            if metric_id.is_custom() && !measures.contains_key(metric_id) {
+                Some((metric_id, *value))
+            } else {
+                None
+            }
+        })
+        .collect();
+    extras.sort_by(|(a, _), (b, _)| a.as_str().cmp(b.as_str()));
+    for (metric_id, value) in extras {
+        measures.insert(metric_id.clone(), value);
+    }
+
+    let meta = results_meta_now(context.config());
     let mut result = crate::results::ValuationResult::stamped_with_meta(
         context.instrument.id(),
         as_of,

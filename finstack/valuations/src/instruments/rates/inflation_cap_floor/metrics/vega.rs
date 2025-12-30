@@ -5,7 +5,7 @@
 
 use crate::instruments::inflation_cap_floor::InflationCapFloor;
 use crate::metrics::bump_sizes;
-use crate::metrics::scale_surface;
+use crate::metrics::bump_surface_vol_absolute;
 use crate::metrics::{MetricCalculator, MetricContext};
 use finstack_core::Result;
 
@@ -22,11 +22,8 @@ impl MetricCalculator for VegaCalculator {
             return Ok(0.0);
         }
 
-        let curves_bumped = scale_surface(
-            &context.curves,
-            option.vol_surface_id.as_str(),
-            1.0 + bump_sizes::VOLATILITY,
-        )?;
+        let curves_bumped =
+            bump_surface_vol_absolute(&context.curves, option.vol_surface_id.as_str(), bump_sizes::VOLATILITY)?;
 
         let pv_bumped = option.npv(&curves_bumped, as_of)?.amount();
         Ok((pv_bumped - base_pv) / bump_sizes::VOLATILITY)

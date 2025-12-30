@@ -4,11 +4,34 @@
 //! related to user-supplied data. This includes structural issues, value
 //! constraints, date/calendar problems, and missing references.
 
+use crate::currency::Currency;
 use crate::dates::BusinessDayConvention;
 use thiserror::Error;
 use time::Date;
 
 use super::suggestions::format_suggestions;
+
+/// Classification of a non-finite floating-point value.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum NonFiniteKind {
+    /// Not-a-number.
+    NaN,
+    /// Positive infinity.
+    PosInfinity,
+    /// Negative infinity.
+    NegInfinity,
+}
+
+impl core::fmt::Display for NonFiniteKind {
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+        match self {
+            NonFiniteKind::NaN => write!(f, "NaN"),
+            NonFiniteKind::PosInfinity => write!(f, "infinity"),
+            NonFiniteKind::NegInfinity => write!(f, "-infinity"),
+        }
+    }
+}
 
 /// Detailed user input validation failures.
 ///
@@ -115,6 +138,21 @@ pub enum InputError {
         suggestions: Vec<String>,
     },
 
+    /// Day-count convention requires a holiday calendar but none was provided.
+    #[error("DayCount::Bus252 requires a holiday calendar in DayCountCtx")]
+    MissingCalendarForBus252,
+
+    /// Day-count convention requires a coupon frequency but none was provided.
+    #[error("DayCount::ActActIsma requires a coupon frequency in DayCountCtx")]
+    MissingFrequencyForActActIsma,
+
+    /// DayCount::ActActIsma only supports month/year coupon frequencies.
+    #[error("DayCount::ActActIsma requires a Months/Years frequency, got {frequency}")]
+    ActActIsmaUnsupportedFrequency {
+        /// String form of the provided frequency (e.g., "2W", "10D").
+        frequency: String,
+    },
+
     // ─────────────────────────────────────────────────────────────────────────
     // Market Data and Lookups
     // ─────────────────────────────────────────────────────────────────────────
@@ -132,6 +170,20 @@ pub enum InputError {
         requested: String,
         /// Similar curve IDs that might be what the user meant
         suggestions: Vec<String>,
+    },
+
+    /// Requested curve exists, but has a different curve type than expected.
+    ///
+    /// This is returned when callers use typed getters (e.g. `get_discount`) and the
+    /// stored curve under the same ID is of another kind (e.g. Hazard).
+    #[error("Curve type mismatch for '{id}': expected '{expected}', got '{actual}'")]
+    WrongCurveType {
+        /// Curve identifier that was requested.
+        id: String,
+        /// Expected curve type (human-readable).
+        expected: String,
+        /// Actual curve type encountered (human-readable).
+        actual: String,
     },
 
     /// Unknown or unsupported currency code supplied by the caller.
@@ -171,7 +223,38 @@ pub enum InputError {
     #[error("Non-finite value: expected finite number, got {kind}")]
     NonFiniteValue {
         /// Description of the non-finite value (e.g., "NaN", "infinity", "-infinity").
-        kind: String,
+        kind: NonFiniteKind,
+    },
+
+    // ─────────────────────────────────────────────────────────────────────────
+    // FX / Rates / Conversions
+    // ─────────────────────────────────────────────────────────────────────────
+
+    /// Invalid FX rate encountered (non-finite, non-positive, or otherwise unusable).
+    #[error("Invalid FX rate for {from}->{to}: {rate}")]
+    InvalidFxRate {
+        /// Source currency.
+        from: Currency,
+        /// Target currency.
+        to: Currency,
+        /// The invalid rate value.
+        rate: f64,
+    },
+
+    /// Invalid business-day basis for Bus/252 day-count (must be positive).
+    #[error("Invalid Bus/252 basis: expected positive, got {basis}")]
+    InvalidBusBasis {
+        /// Divisor used for Bus/252 (e.g., 252).
+        basis: u16,
+    },
+
+    /// Invalid parameter combination in a rate conversion helper.
+    #[error("Invalid rate conversion inputs for {function}: {reason}")]
+    RateConversionInvalidParams {
+        /// Function name (e.g., "simple_to_periodic").
+        function: String,
+        /// Human-readable reason.
+        reason: String,
     },
 
     // ─────────────────────────────────────────────────────────────────────────
@@ -240,6 +323,34 @@ pub enum InputError {
     UnsupportedBump {
         /// Description of why the bump is not supported.
         reason: String,
+    },
+
+    // ─────────────────────────────────────────────────────────────────────────
+    // Joint calendar FX date logic
+    // ─────────────────────────────────────────────────────────────────────────
+
+    /// Joint calendar date adjustment did not converge within a small fixed iteration budget.
+    #[error("Joint calendar adjustment did not converge within {max_iterations} iterations")]
+    JointCalendarNonConvergent {
+        /// Original date being adjusted.
+        date: Date,
+        /// Business day convention applied.
+        convention: BusinessDayConvention,
+        /// Maximum iterations attempted.
+        max_iterations: u32,
+    },
+
+    /// Joint calendar business-day counting exceeded a safety iteration limit.
+    #[error(
+        "Joint calendar business-day roll exceeded iteration limit: requested {n_days} days, hit {max_iters} iterations"
+    )]
+    JointCalendarIterationLimitExceeded {
+        /// Start date for the roll.
+        start: Date,
+        /// Requested joint business days to add.
+        n_days: u32,
+        /// Maximum iterations allowed.
+        max_iters: u32,
     },
 }
 

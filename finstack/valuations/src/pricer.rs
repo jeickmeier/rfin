@@ -6,7 +6,7 @@
 //! comparisons.
 
 use crate::instruments::common::traits::Instrument as Priceable;
-use finstack_core::config::{results_meta, FinstackConfig};
+use finstack_core::config::{results_meta_now, FinstackConfig};
 use finstack_core::market_data::context::MarketContext as Market;
 
 // ========================= KEYS =========================
@@ -1174,7 +1174,7 @@ impl PricerRegistry {
 /// Stamp result metadata from a config, preserving FX policy stamps if present.
 fn stamp_results_meta(cfg: &FinstackConfig, result: &mut crate::results::ValuationResult) {
     let prev_fx_policy = result.meta.fx_policy_applied.clone();
-    let mut meta = results_meta(cfg);
+    let mut meta = results_meta_now(cfg);
     meta.fx_policy_applied = prev_fx_policy;
     result.meta = meta;
 }

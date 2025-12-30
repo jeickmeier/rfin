@@ -61,10 +61,11 @@ pub fn convert_currency(
         return Ok(money);
     }
 
-    let fx_matrix = market
-        .fx
-        .as_ref()
-        .ok_or_else(|| Error::Validation("FX matrix not available".to_string()))?;
+    let fx_matrix = market.fx().ok_or_else(|| {
+        Error::from(finstack_core::InputError::NotFound {
+            id: "fx_matrix".to_string(),
+        })
+    })?;
 
     let query = FxQuery::new(money.currency(), target_ccy, as_of);
     let rate_result = fx_matrix.rate(query)?;

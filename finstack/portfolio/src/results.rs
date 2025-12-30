@@ -66,7 +66,7 @@ mod tests {
     use crate::test_utils::build_test_market;
     use crate::types::Entity;
     use crate::valuation::value_portfolio;
-    use finstack_core::config::{results_meta, FinstackConfig};
+    use finstack_core::config::{results_meta_now, FinstackConfig};
     use finstack_core::currency::Currency;
     use finstack_valuations::instruments::deposit::Deposit;
     use std::sync::Arc;
@@ -110,7 +110,7 @@ mod tests {
 
         let valuation = value_portfolio(&portfolio, &market, &config).expect("test should succeed");
         let metrics = aggregate_metrics(&valuation).expect("test should succeed");
-        let meta = results_meta(&config);
+        let meta = results_meta_now(&config);
 
         let results = PortfolioResults::new(valuation, metrics, meta);
 

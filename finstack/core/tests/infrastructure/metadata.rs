@@ -1,6 +1,6 @@
 //! Integration tests for ResultsMeta stamping.
 
-use finstack_core::config::{results_meta, FinstackConfig, NumericMode, ResultsMeta};
+use finstack_core::config::{results_meta, results_meta_now, FinstackConfig, NumericMode, ResultsMeta};
 
 #[test]
 fn test_results_meta_default_stamping() {
@@ -10,8 +10,8 @@ fn test_results_meta_default_stamping() {
     // Should have numeric mode
     assert_eq!(meta.numeric_mode, NumericMode::F64);
 
-    // Should have timestamp
-    assert!(meta.timestamp.is_some());
+    // Deterministic by default (timestamp is an opt-in at IO boundaries)
+    assert!(meta.timestamp.is_none());
 
     // Should have version
     assert!(meta.version.is_some());
@@ -69,7 +69,7 @@ fn test_results_meta_with_fx_policy() {
 
 #[test]
 fn test_results_meta_timestamp_format() {
-    let meta = results_meta(&FinstackConfig::default());
+    let meta = results_meta_now(&FinstackConfig::default());
     let timestamp = meta.timestamp.expect("Timestamp should be present");
     // Verify it's a valid recent timestamp
     assert!(timestamp.year() >= 2024);
@@ -79,7 +79,7 @@ fn test_results_meta_timestamp_format() {
 fn test_results_meta_default_impl() {
     let meta = ResultsMeta::default();
     assert_eq!(meta.numeric_mode, NumericMode::F64);
-    assert!(meta.timestamp.is_some());
+    assert!(meta.timestamp.is_none());
     assert!(meta.version.is_some());
 }
 
@@ -89,7 +89,7 @@ mod property_tests {
 
     #[test]
     fn property_timestamp_never_in_future() {
-        let meta = results_meta(&FinstackConfig::default());
+        let meta = results_meta_now(&FinstackConfig::default());
         if let Some(timestamp) = meta.timestamp {
             // Parse timestamp and verify it's not in the future
             // (basic sanity check - should be close to now)

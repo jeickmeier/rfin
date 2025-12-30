@@ -116,7 +116,7 @@ impl FxOptionCalculator {
         let r_f = if t_vol > 0.0 { -df_f.ln() / t_vol } else { 0.0 };
 
         // Spot from FX matrix
-        let fx_matrix = curves.fx.as_ref().ok_or(finstack_core::Error::from(
+        let fx_matrix = curves.fx().ok_or(finstack_core::Error::from(
             finstack_core::InputError::NotFound {
                 id: "fx_matrix".to_string(),
             },
@@ -143,7 +143,7 @@ impl FxOptionCalculator {
         curves: &MarketContext,
         as_of: Date,
     ) -> Result<(f64, f64, f64, f64, f64)> {
-        let fx_matrix = curves.fx.as_ref().ok_or(finstack_core::Error::from(
+        let fx_matrix = curves.fx().ok_or(finstack_core::Error::from(
             finstack_core::InputError::NotFound {
                 id: "fx_matrix".to_string(),
             },
@@ -168,7 +168,7 @@ impl FxOptionCalculator {
     ) -> Result<(f64, f64, f64, f64)> {
         // Handle expired options
         if as_of >= inst.expiry {
-            let fx_matrix = curves.fx.as_ref().ok_or(finstack_core::Error::from(
+            let fx_matrix = curves.fx().ok_or(finstack_core::Error::from(
                 finstack_core::InputError::NotFound {
                     id: "fx_matrix".to_string(),
                 },
@@ -197,7 +197,7 @@ impl FxOptionCalculator {
         let r_d = if t_vol > 0.0 { -df_d.ln() / t_vol } else { 0.0 };
         let r_f = if t_vol > 0.0 { -df_f.ln() / t_vol } else { 0.0 };
 
-        let fx_matrix = curves.fx.as_ref().ok_or(finstack_core::Error::from(
+        let fx_matrix = curves.fx().ok_or(finstack_core::Error::from(
             finstack_core::InputError::NotFound {
                 id: "fx_matrix".to_string(),
             },

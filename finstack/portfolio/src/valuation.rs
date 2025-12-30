@@ -383,7 +383,7 @@ fn value_single_position(
         scaled_native
     } else {
         // Get FX matrix
-        let fx_matrix = market.fx.as_ref().ok_or_else(|| {
+        let fx_matrix = market.fx().ok_or_else(|| {
             PortfolioError::MissingMarketData("FX matrix not available".to_string())
         })?;
 

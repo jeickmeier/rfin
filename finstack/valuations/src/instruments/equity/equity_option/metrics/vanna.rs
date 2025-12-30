@@ -8,7 +8,7 @@
 //! Where Delta(σ) is computed by bumping both spot and vol.
 
 use crate::instruments::equity_option::EquityOption;
-use crate::metrics::scale_surface;
+use crate::metrics::bump_surface_vol_absolute;
 use crate::metrics::{bump_scalar_price, bump_sizes};
 use crate::metrics::{MetricCalculator, MetricContext};
 use finstack_core::Result;
@@ -39,26 +39,11 @@ impl MetricCalculator for VannaCalculator {
         };
 
         let spot_bump = current_spot * bump_sizes::SPOT;
-        let vol_bump_pct = bump_sizes::VOLATILITY;
-
-        // Determine the effective (ATM-ish) volatility so we can convert the relative bump
-        // into an absolute Δσ and compute ∂Δ/∂σ (not ∂Δ/∂scale).
-        let sigma = context
-            .curves
-            .surface_ref(option.vol_surface_id.as_str())
-            .map(|surf| surf.value_clamped(t, option.strike.amount()))
-            .unwrap_or(0.0);
-        let vol_bump_abs = (sigma * vol_bump_pct).abs();
-        if vol_bump_abs < 1e-12 {
-            return Ok(0.0);
-        }
+        let vol_bump_abs = bump_sizes::VOLATILITY;
 
         // Compute delta at vol_up: bump both spot and vol, compute delta
-        let curves_vol_up = scale_surface(
-            &context.curves,
-            option.vol_surface_id.as_str(),
-            1.0 + vol_bump_pct,
-        )?;
+        let curves_vol_up =
+            bump_surface_vol_absolute(&context.curves, option.vol_surface_id.as_str(), vol_bump_abs)?;
 
         // Delta at vol_up: (PV(S+h, σ+h) - PV(S-h, σ+h)) / (2h_S)
         let curves_up_vol_up =
@@ -70,11 +55,8 @@ impl MetricCalculator for VannaCalculator {
         let delta_vol_up = (pv_up_vol_up - pv_down_vol_up) / (2.0 * spot_bump);
 
         // Compute delta at vol_down
-        let curves_vol_down = scale_surface(
-            &context.curves,
-            option.vol_surface_id.as_str(),
-            1.0 - vol_bump_pct,
-        )?;
+        let curves_vol_down =
+            bump_surface_vol_absolute(&context.curves, option.vol_surface_id.as_str(), -vol_bump_abs)?;
 
         // Delta at vol_down: (PV(S+h, σ-h) - PV(S-h, σ-h)) / (2h_S)
         let curves_up_vol_down =
@@ -87,8 +69,6 @@ impl MetricCalculator for VannaCalculator {
 
         // Vanna = ∂Δ/∂σ ≈ (Δ(σ+Δσ) - Δ(σ-Δσ)) / (2Δσ)
         //
-        // We bump the surface multiplicatively (relative) but divide by the corresponding
-        // absolute volatility change Δσ = σ × bump_pct to keep the definition standard.
         let vanna = (delta_vol_up - delta_vol_down) / (2.0 * vol_bump_abs);
 
         Ok(vanna)

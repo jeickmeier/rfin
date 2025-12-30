@@ -30,7 +30,7 @@ jobs:
       - name: Set up Rust toolchain
         uses: actions-rust-lang/setup-rust-toolchain@v1
         with:
-          toolchain: stable
+          toolchain: 1.90.0
           components: rustfmt, clippy
           cache: true
 
@@ -58,6 +58,41 @@ jobs:
       - name: Run tests (release mode for smaller binaries)
         run: cargo test --workspace --exclude finstack-py --features mc --lib --test '*'
 
+  semver-checks:
+    name: Semver Checks (finstack-core)
+    runs-on: ubuntu-latest
+    if: github.event_name == 'pull_request'
+
+    env:
+      CARGO_BUILD_JOBS: 1
+      CARGO_PROFILE_DEV_DEBUG: 0
+      RUSTFLAGS: "-C debuginfo=0 -C strip=symbols"
+
+    steps:
+      - name: Checkout repository (full history for baseline)
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Set up swap space
+        uses: pierotofy/set-swap-space@master
+        with:
+          swap-size-gb: 10
+
+      - name: Set up Rust toolchain
+        uses: actions-rust-lang/setup-rust-toolchain@v1
+        with:
+          toolchain: 1.90.0
+          cache: true
+
+      - name: Install cargo-semver-checks
+        run: cargo install cargo-semver-checks --locked
+
+      - name: Run semver checks against master
+        run: |
+          git fetch origin master --tags
+          cargo semver-checks check-release -p finstack-core --baseline-rev origin/master
+
   python-ci:
     name: Python Bindings Test
     runs-on: ubuntu-latest
@@ -80,7 +115,7 @@ jobs:
       - name: Set up Rust toolchain
         uses: actions-rust-lang/setup-rust-toolchain@v1
         with:
-          toolchain: stable
+          toolchain: 1.90.0
           cache: true
 
       - name: Set up Python
@@ -135,7 +170,7 @@ jobs:
       - name: Set up Rust toolchain
         uses: actions-rust-lang/setup-rust-toolchain@v1
         with:
-          toolchain: stable
+          toolchain: 1.90.0
           targets: wasm32-unknown-unknown
           cache: true
 
@@ -187,7 +222,7 @@ jobs:
       - name: Set up Rust toolchain
         uses: actions-rust-lang/setup-rust-toolchain@v1
         with:
-          toolchain: stable
+          toolchain: 1.90.0
           cache: true
 
       - name: Download previous benchmark baseline
@@ -236,7 +271,7 @@ jobs:
       - name: Set up Rust toolchain
         uses: actions-rust-lang/setup-rust-toolchain@v1
         with:
-          toolchain: stable
+          toolchain: 1.90.0
           cache: true
 
       - name: Restore benchmark baseline
@@ -256,7 +291,8 @@ jobs:
             
             # Check for significant regressions (>15% slower)
             if grep -E "Performance has regressed" benchmark-output.txt; then
-              echo "::warning::Performance regression detected! Review benchmark results."
+              echo "::error::Performance regression detected (>15% slower). Review benchmark results."
+              exit 1
             fi
           else
             echo "No baseline found, running benchmarks without comparison..."

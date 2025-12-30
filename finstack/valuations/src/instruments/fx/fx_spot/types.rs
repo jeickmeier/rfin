@@ -147,7 +147,7 @@ impl FxSpot {
             return Ok(Money::new(quote_amount, self.quote));
         }
 
-        let matrix = market.fx.as_ref().ok_or_else(|| {
+        let matrix = market.fx().ok_or_else(|| {
             finstack_core::Error::from(finstack_core::InputError::NotFound {
                 id: "fx_matrix".to_string(),
             })
@@ -172,7 +172,7 @@ impl FxSpot {
             }
         }
 
-        let provider = MatrixProvider { m: matrix };
+        let provider = MatrixProvider { m: matrix.as_ref() };
         let policy = finstack_core::money::fx::FxConversionPolicy::CashflowDate;
         self.effective_notional()
             .convert(self.quote, as_of, &provider, policy)
@@ -351,13 +351,13 @@ impl CashflowProvider for FxSpot {
                 rate
             } else {
                 // Try market context FX matrix
-                let matrix = _curves.fx.as_ref().ok_or_else(|| {
+                let matrix = _curves.fx().ok_or_else(|| {
                     finstack_core::Error::from(finstack_core::InputError::NotFound {
                         id: "fx_matrix".to_string(),
                     })
                 })?;
                 let q = finstack_core::money::fx::FxQuery::new(self.base, self.quote, settle_date);
-                (**matrix).rate(q)?.rate
+                matrix.as_ref().rate(q)?.rate
             };
             let value = Money::new(self.effective_notional().amount() * rate, self.quote);
             Ok(vec![(settle_date, value)])

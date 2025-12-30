@@ -81,6 +81,14 @@ pub fn validate_positive_series(values: &[f64]) -> crate::Result<()> {
     Ok(())
 }
 
+/// Validate that all values are finite (no NaN/Inf).
+pub fn validate_finite_series(values: &[f64]) -> crate::Result<()> {
+    if values.iter().any(|&v| !v.is_finite()) {
+        return Err(InputError::Invalid.into());
+    }
+    Ok(())
+}
+
 /// Validate sequence is non-increasing (monotone) in addition to positivity.
 pub fn validate_monotone_nonincreasing(values: &[f64]) -> crate::Result<()> {
     validate_positive_series(values)?;

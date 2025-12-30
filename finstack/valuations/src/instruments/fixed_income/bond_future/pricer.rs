@@ -424,7 +424,6 @@ mod tests {
     use finstack_core::math::interp::InterpStyle;
     use finstack_core::money::Money;
     use finstack_core::types::{CurveId, InstrumentId};
-    use std::sync::Arc;
     use time::macros::date;
 
     use crate::instruments::bond::Bond;
@@ -1026,9 +1025,7 @@ mod tests {
         )
         .expect("Bond::fixed should succeed with valid parameters");
 
-        let market = create_test_market(0.05)
-            .insert_instrument("BOND-A", Arc::new(bond_a.clone()))
-            .insert_instrument("BOND-B", Arc::new(bond_b.clone()));
+        let market = create_test_market(0.05);
 
         let cf_a = BondFuturePricer::calculate_conversion_factor(
             &bond_a,
@@ -1067,6 +1064,7 @@ mod tests {
                 },
             ])
             .ctd_bond_id(InstrumentId::new("BOND-B"))
+            .ctd_bond(bond_b.clone())
             .discount_curve_id(CurveId::new("USD-TREASURY"))
             .attributes(crate::instruments::common::traits::Attributes::new())
             .build()

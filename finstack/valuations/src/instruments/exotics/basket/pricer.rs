@@ -298,7 +298,7 @@ impl BasketCalculator {
             return Ok(money);
         }
 
-        let fx = context.fx.as_ref().ok_or(finstack_core::Error::Input(
+        let fx = context.fx().ok_or(finstack_core::Error::Input(
             finstack_core::InputError::NotFound {
                 id: "fx".to_string(),
             },

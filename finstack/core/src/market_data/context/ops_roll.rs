@@ -69,8 +69,6 @@ impl MarketContext {
             credit_indices: self.credit_indices.clone(),
             dividends: self.dividends.clone(),
             collateral: self.collateral.clone(),
-            instruments: self.instruments.clone(),
-            market_history: self.market_history.clone(),
         };
 
         // Roll each curve forward

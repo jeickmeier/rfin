@@ -310,7 +310,7 @@ pub fn attribute_portfolio_pnl(
             if money.currency() == base_ccy {
                 Ok(money)
             } else {
-                let fx_matrix = market_t1.fx.as_ref().ok_or_else(|| {
+                let fx_matrix = market_t1.fx().ok_or_else(|| {
                     PortfolioError::MissingMarketData("FX matrix not available".to_string())
                 })?;
                 let query = FxQuery::new(money.currency(), base_ccy, as_of_t1);
@@ -388,10 +388,10 @@ pub fn attribute_portfolio_pnl(
         if pos_attr.total_pnl.currency() != base_ccy {
             let inst_ccy = pos_attr.total_pnl.currency();
 
-            let fx_t0 = market_t0.fx.as_ref().ok_or_else(|| {
+            let fx_t0 = market_t0.fx().ok_or_else(|| {
                 PortfolioError::MissingMarketData("FX matrix at T0 not available".to_string())
             })?;
-            let fx_t1 = market_t1.fx.as_ref().ok_or_else(|| {
+            let fx_t1 = market_t1.fx().ok_or_else(|| {
                 PortfolioError::MissingMarketData("FX matrix at T1 not available".to_string())
             })?;
 

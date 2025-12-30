@@ -7,7 +7,7 @@
 use super::{
     traits::{InterpFn, InterpolationStrategy},
     types::ExtrapolationPolicy,
-    utils::{validate_knots, validate_positive_series},
+    utils::{validate_finite_series, validate_knots, validate_positive_series},
 };
 use crate::error::InputError;
 
@@ -81,6 +81,7 @@ impl<S: InterpolationStrategy> Interpolator<S> {
             return Err(InputError::TooFewPoints.into());
         }
         validate_knots(&knots)?;
+        validate_finite_series(&values)?;
         validate_positive_series(&values)?;
 
         // Build strategy-specific state
@@ -125,7 +126,8 @@ impl<S: InterpolationStrategy> Interpolator<S> {
             return Err(InputError::TooFewPoints.into());
         }
         validate_knots(&knots)?;
-        // Skip validate_positive_series for forward curves
+        // Skip validate_positive_series for forward curves, but still reject NaN/Inf.
+        validate_finite_series(&values)?;
 
         // Build strategy-specific state
         let strategy = S::from_raw(&knots, &values, extrapolation)?;

@@ -209,7 +209,7 @@ impl PyMarketContext {
     /// -------
     /// None
     fn insert_fx(&mut self, fx_matrix: &PyFxMatrix) -> PyResult<()> {
-        self.inner.fx = Some(fx_matrix.inner.clone());
+        self.inner.insert_fx_arc_mut(fx_matrix.inner.clone());
         Ok(())
     }
 
@@ -616,7 +616,7 @@ impl PyMarketContext {
     /// bool
     ///     ``True`` when :meth:`insert_fx` has been called with a matrix.
     fn has_fx(&self) -> bool {
-        self.inner.fx.is_some()
+        self.inner.fx().is_some()
     }
 
     fn __repr__(&self) -> String {

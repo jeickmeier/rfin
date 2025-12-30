@@ -1,6 +1,6 @@
 use crate::covenants::CovenantReport;
 use crate::metrics::MetricId;
-use finstack_core::config::{results_meta, FinstackConfig, ResultsMeta};
+use finstack_core::config::{results_meta_now, FinstackConfig, ResultsMeta};
 use finstack_core::dates::Date;
 use finstack_core::explain::ExplanationTrace;
 use finstack_core::money::Money;
@@ -225,7 +225,7 @@ impl ValuationResult {
         // Default stamping uses default configuration; callers needing custom
         // policy should construct core `ResultsMeta` and use
         // `stamped_with_meta` to avoid creating a fresh config here.
-        let meta = results_meta(&FinstackConfig::default());
+        let meta = results_meta_now(&FinstackConfig::default());
         Self::stamped_with_meta(instrument_id, as_of, value, meta)
     }
 
@@ -240,7 +240,7 @@ impl ValuationResult {
         value: Money,
         cfg: &FinstackConfig,
     ) -> Self {
-        let meta = results_meta(cfg);
+        let meta = results_meta_now(cfg);
         Self::stamped_with_meta(instrument_id, as_of, value, meta)
     }
 
@@ -268,7 +268,7 @@ impl ValuationResult {
     /// use finstack_core::currency::Currency;
     /// use finstack_core::money::Money;
     /// use finstack_core::dates::create_date;
-    /// use finstack_core::config::{FinstackConfig, results_meta};
+    /// use finstack_core::config::{FinstackConfig, results_meta_now};
     /// use time::Month;
     ///
     /// # fn main() -> Result<(), Box<dyn std::error::Error>> {
@@ -277,7 +277,7 @@ impl ValuationResult {
     ///
     /// // Pre-construct metadata once for batch pricing
     /// let config = FinstackConfig::default();
-    /// let meta = results_meta(&config);
+    /// let meta = results_meta_now(&config);
     ///
     /// let result = ValuationResult::stamped_with_meta("BOND-001", as_of, pv, meta);
     /// assert_eq!(result.instrument_id, "BOND-001");

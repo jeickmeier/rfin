@@ -1302,18 +1302,27 @@ mod tests {
     #[test]
     fn df_between_dates_validates_non_finite_and_non_positive() {
         let base = Date::from_calendar_date(2025, time::Month::June, 30).expect("Valid test date");
-        let yc = DiscountCurve::builder("USD-OIS")
+        // Builders should reject non-finite or non-positive discount factors at construction time.
+        let bad_nan = DiscountCurve::builder("USD-OIS")
             .base_date(base)
             .knots([(0.0, 1.0), (1.0, f64::NAN), (2.0, 0.95)])
             .set_interp(InterpStyle::Linear)
-            .build()
-            .expect("Builder allows NaN values; validation is deferred to helpers");
+            .build();
+        assert!(bad_nan.is_err());
 
-        let from = base + time::Duration::days(365);
-        let to = base + time::Duration::days(730);
+        let bad_zero = DiscountCurve::builder("USD-OIS")
+            .base_date(base)
+            .knots([(0.0, 1.0), (1.0, 0.0), (2.0, 0.95)])
+            .set_interp(InterpStyle::Linear)
+            .build();
+        assert!(bad_zero.is_err());
 
-        assert!(yc.df_between_dates(base, from).is_err());
-        assert!(yc.df_between_dates(from, to).is_err());
+        let bad_neg = DiscountCurve::builder("USD-OIS")
+            .base_date(base)
+            .knots([(0.0, 1.0), (1.0, -0.01), (2.0, 0.95)])
+            .set_interp(InterpStyle::Linear)
+            .build();
+        assert!(bad_neg.is_err());
     }
 
     #[test]

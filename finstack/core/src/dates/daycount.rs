@@ -587,18 +587,22 @@ impl DayCount {
                         let days = days_30_360(start, end, Thirty360Convention::European) as f64;
                         days / 360.0
                     }
-                    DayCount::ActAct => year_fraction_act_act_isda(start, end),
+                    DayCount::ActAct => year_fraction_act_act_isda(start, end)?,
                     DayCount::ActActIsma => match ctx.frequency {
                         Some(freq) => year_fraction_act_act_isma(start, end, freq)?,
-                        None => return Err(InputError::Invalid.into()),
+                        None => return Err(InputError::MissingFrequencyForActActIsma.into()),
                     },
                     DayCount::Bus252 => match ctx.calendar {
                         Some(cal) => {
                             let biz_days = count_business_days(start, end, cal) as f64;
-                            let basis = f64::from(ctx.bus_basis.unwrap_or(252));
+                            let basis_u16 = ctx.bus_basis.unwrap_or(252);
+                            if basis_u16 == 0 {
+                                return Err(InputError::InvalidBusBasis { basis: basis_u16 }.into());
+                            }
+                            let basis = f64::from(basis_u16);
                             biz_days / basis
                         }
-                        None => return Err(InputError::Invalid.into()),
+                        None => return Err(InputError::MissingCalendarForBus252.into()),
                     },
                 };
                 Ok(yf)
@@ -695,21 +699,19 @@ fn is_last_day_of_february(date: Date) -> bool {
 // -------------------------------------------------------------------------------------------------
 // ACT/ACT (ISDA) helper
 // -------------------------------------------------------------------------------------------------
-fn year_fraction_act_act_isda(start: Date, end: Date) -> f64 {
+fn year_fraction_act_act_isda(start: Date, end: Date) -> crate::Result<f64> {
     if start == end {
-        return 0.0;
+        return Ok(0.0);
     }
 
     if start.year() == end.year() {
         let denom = days_in_year(start.year()) as f64;
         let days = (end - start).whole_days() as f64;
-        return days / denom;
+        return Ok(days / denom);
     }
 
     // Days from start to 31-Dec of start year (inclusive of start, exclusive of next year 1-Jan).
-    // January 1 - unwrap_or provides defensive fallback for infallible operation
-    let start_year_end =
-        Date::from_calendar_date(start.year() + 1, Month::January, 1).unwrap_or(time::Date::MIN);
+    let start_year_end = crate::dates::create_date(start.year() + 1, Month::January, 1)?;
     let days_start_year = (start_year_end - start).whole_days() as f64;
     let mut frac = days_start_year / days_in_year(start.year()) as f64;
 
@@ -719,13 +721,11 @@ fn year_fraction_act_act_isda(start: Date, end: Date) -> f64 {
     }
 
     // Days from 1-Jan of end year to end date
-    // January 1 - unwrap_or provides defensive fallback for infallible operation
-    let start_of_end_year =
-        Date::from_calendar_date(end.year(), Month::January, 1).unwrap_or(time::Date::MIN);
+    let start_of_end_year = crate::dates::create_date(end.year(), Month::January, 1)?;
     let days_end_year = (end - start_of_end_year).whole_days() as f64;
     frac += days_end_year / days_in_year(end.year()) as f64;
 
-    frac
+    Ok(frac)
 }
 
 // -------------------------------------------------------------------------------------------------
@@ -737,12 +737,17 @@ fn year_fraction_act_act_isma(start: Date, end: Date, freq: Tenor) -> crate::Res
         return Ok(0.0);
     }
 
-    // Coupon length in years based on frequency (e.g., 0.5 for semi-annual, 0.25 for quarterly)
+    // Coupon length in years based on frequency (e.g., 0.5 for semi-annual, 0.25 for quarterly).
+    // ISMA/ICMA is defined for regular coupon periods; treat Week/Day frequencies as invalid.
     let coupon_length_years = match freq.unit {
         TenorUnit::Months => freq.count as f64 / 12.0,
         TenorUnit::Years => freq.count as f64,
-        TenorUnit::Weeks => freq.count as f64 / 52.0, // Approximation standard for ISMA? Usually ISMA implies periodic.
-        TenorUnit::Days => freq.count as f64 / 365.0, // Or 366? Usually ActAct ISMA is used with regular frequencies (Months/Years)
+        TenorUnit::Weeks | TenorUnit::Days => {
+            return Err(InputError::ActActIsmaUnsupportedFrequency {
+                frequency: freq.to_string(),
+            }
+            .into());
+        }
     };
 
     // For ISMA, we need to work with quasi-coupon periods
@@ -754,7 +759,7 @@ fn year_fraction_act_act_isma(start: Date, end: Date, freq: Tenor) -> crate::Res
     // Generate schedule to find quasi-coupon periods
     // We need to extend backward/forward to capture the full coupon periods
     let extended_start = extend_backward_for_coupon_period(start, freq);
-    let extended_end = extend_forward_for_coupon_period(end, freq);
+    let extended_end = extend_forward_for_coupon_period(end, freq)?;
 
     // Optimization: Manually generate dates to avoid heap allocation of ScheduleBuilder
     // Most ISMA calculations involve very few periods (often 1 or 2), so 16 is plenty.
@@ -811,13 +816,10 @@ fn extend_backward_for_coupon_period(date: Date, freq: Tenor) -> Date {
 }
 
 /// Extend end date forward to find the end of its coupon period.
-fn extend_forward_for_coupon_period(date: Date, freq: Tenor) -> Date {
-    // Just use generic add
-    // Note: We ignore bad business day conventions here because ISMA calculation
-    // usually works on unadjusted dates or the schedule is pre-adjusted?
-    // Standard abstract ISMA uses unadjusted periods.
+fn extend_forward_for_coupon_period(date: Date, freq: Tenor) -> crate::Result<Date> {
+    // ISMA uses unadjusted quasi-coupon periods. This call should be infallible for
+    // valid tenor inputs, but we keep it fallible to avoid silently degrading results.
     freq.add_to_date(date, None, BusinessDayConvention::Unadjusted)
-        .unwrap_or(date)
 }
 
 // -------------------------------------------------------------------------------------------------

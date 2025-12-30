@@ -175,20 +175,36 @@ impl DateExt for Date {
         let new_year = total_months.div_euclid(12);
         let new_month_idx = total_months.rem_euclid(12);
 
-        // Month index 0-11 + 1 = 1-12, always valid - unwrap_or for defensive fallback
+        // Month index 0-11 + 1 = 1-12, always valid.
         let new_month = Month::try_from((new_month_idx + 1) as u8).unwrap_or(Month::January);
 
         let days_in_new_month = new_month.length(new_year);
         let new_day = self.day().min(days_in_new_month);
 
-        // Day is clamped to valid range - unwrap_or for defensive fallback
-        Date::from_calendar_date(new_year, new_month, new_day).unwrap_or(time::Date::MIN)
+        // Day is clamped to a valid range. If we overflow the supported `time::Date`
+        // range, fail loudly (returning a sentinel date is unsafe).
+        let result = Date::from_calendar_date(new_year, new_month, new_day);
+        assert!(
+            result.is_ok(),
+            "DateExt::add_months overflowed supported date range"
+        );
+        match result {
+            Ok(d) => d,
+            Err(_) => self,
+        }
     }
 
     fn end_of_month(self) -> Self {
         let days = self.month().length(self.year());
-        // End of month is always valid - unwrap_or for defensive fallback
-        Date::from_calendar_date(self.year(), self.month(), days).unwrap_or(self)
+        let result = Date::from_calendar_date(self.year(), self.month(), days);
+        assert!(
+            result.is_ok(),
+            "DateExt::end_of_month overflowed supported date range"
+        );
+        match result {
+            Ok(d) => d,
+            Err(_) => self,
+        }
     }
 
     fn add_weekdays(self, mut n: i32) -> Self {

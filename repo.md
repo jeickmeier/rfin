@@ -93,6 +93,5 @@
 - Additional docs: `README.md`, `CHANGELOG.md`, `MIGRATION_GUIDE.md`, `docs/` (UI kit ADRs/design), `RELEASE_NOTES_0.8.0.md`.
 
 **Getting Help**
-- Issues and discussions: https://github.com/rustfin/rfin
 - For Python usage, see `finstack-py/README.md`; for WASM usage and examples, see `finstack-wasm/README.md`.
 

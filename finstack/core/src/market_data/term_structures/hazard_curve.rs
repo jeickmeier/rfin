@@ -276,7 +276,7 @@ impl HazardCurve {
     /// Default probability between `t1` and `t2`.
     #[must_use]
     pub fn default_prob(&self, t1: f64, t2: f64) -> f64 {
-        debug_assert!(t2 >= t1);
+        assert!(t2 >= t1, "default_prob requires t2 >= t1");
         let sp1 = self.sp(t1);
         let sp2 = self.sp(t2);
         sp1 - sp2
@@ -291,9 +291,14 @@ impl HazardCurve {
     /// * `t` - Time in years
     #[must_use]
     pub fn hazard_rate(&self, t: f64) -> f64 {
+        // A valid hazard curve always has at least one lambda.
+        assert!(
+            !self.lambdas.is_empty(),
+            "HazardCurve invariant violated: empty lambdas"
+        );
         if t <= 0.0 {
             // Return first hazard rate for t<=0
-            return self.lambdas.first().copied().unwrap_or(0.0);
+            return self.lambdas[0];
         }
 
         for (i, &k) in self.knots.iter().enumerate() {
@@ -303,7 +308,7 @@ impl HazardCurve {
         }
 
         // Extrapolate with last lambda
-        self.lambdas.last().copied().unwrap_or(0.0)
+        self.lambdas[self.lambdas.len() - 1]
     }
 
     /// Evaluate survival probabilities at the provided dates using this curve's time axis.

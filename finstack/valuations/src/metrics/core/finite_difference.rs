@@ -17,7 +17,10 @@
 pub mod bump_sizes {
     /// Spot/underlying price bump: 1% (0.01)
     pub const SPOT: f64 = 0.01;
-    /// Volatility bump: 1% (0.01)
+    /// Volatility bump: **absolute** 1 vol point (0.01).
+    ///
+    /// This represents an **absolute** change in implied volatility, e.g. 20% → 21%.
+    /// (Not a 1% relative scaling of the surface.)
     pub const VOLATILITY: f64 = 0.01;
     /// Correlation bump: 1% (0.01)
     pub const CORRELATION: f64 = 0.01;
@@ -89,7 +92,7 @@ pub fn bump_scalar_price(
         }
     };
 
-    bumped.prices.insert(CurveId::from(price_id), bumped_value);
+    bumped.set_price_mut(CurveId::from(price_id), bumped_value);
     Ok(bumped)
 }
 
@@ -157,54 +160,65 @@ pub fn bump_discount_curve_parallel(
     context.bump(bumps)
 }
 
-/// Helper to scale a volatility surface by a constant multiplicative factor.
+/// Scale a volatility surface by a multiplicative factor.
 ///
-/// Creates a new MarketContext with a scaled volatility surface. Used for parallel
-/// volatility bumps in vega calculations via finite differences.
-///
-/// # Arguments
-///
-/// * `context` - Original market context containing the volatility surface
-/// * `vol_surface_id` - ID of the volatility surface to scale
-/// * `scale` - Multiplicative scale factor (e.g., 1.01 for 1% increase)
-///
-/// # Returns
-///
-/// New MarketContext with the specified volatility surface scaled by the given factor.
-/// All other market data remains unchanged.
-///
-/// # Errors
-///
-/// Returns an error if:
-/// - The surface ID is not found in the market context
-/// - The surface data is invalid or corrupted
-///
-/// # Examples
-///
-/// ```rust
-/// use finstack_valuations::metrics::scale_surface;
-/// use finstack_core::market_data::context::MarketContext;
-/// use finstack_core::dates::create_date;
-/// use time::Month;
-///
-/// # fn example() -> finstack_core::Result<()> {
-/// let as_of = create_date(2024, Month::January, 1)?;
-/// let context = MarketContext::new();
-/// // Assume context has a volatility surface "AAPL-VOL"
-///
-/// // Scale the surface up by 1% (for vega calculation)
-/// let bumped = scale_surface(&context, "AAPL-VOL", 1.01)?;
-/// # Ok(())
-/// # }
-/// ```
+/// This is useful for finite-difference style vega calculations where the bump is expressed
+/// as a multiplicative shock (e.g., "vol up 1%"). For market-standard vega definitions
+/// (absolute bump in vol points), prefer [`bump_surface_vol_absolute`].
+#[allow(dead_code)]
 pub fn scale_surface(
     context: &finstack_core::market_data::context::MarketContext,
     vol_surface_id: &str,
     scale: f64,
 ) -> finstack_core::Result<finstack_core::market_data::context::MarketContext> {
+    if !scale.is_finite() {
+        return Err(finstack_core::InputError::Invalid.into());
+    }
+    if (scale - 1.0).abs() < 1e-15 {
+        return Ok(context.clone());
+    }
     let vol_surface = context.surface_ref(vol_surface_id)?;
     let bumped_surface = vol_surface.scaled(scale);
     Ok(context.clone().insert_surface(bumped_surface))
+}
+
+/// Helper to bump a volatility surface by an **absolute** volatility amount (vol points).
+///
+/// This applies an additive parallel bump to the surface:
+/// \[
+/// \sigma'(t, k) = \max(0, \sigma(t, k) + \Delta\sigma)
+/// \]
+///
+/// where `bump_abs` is expressed in *absolute* volatility units (e.g., `0.01` for +1 vol point).
+///
+/// Prefer this helper for market-standard vega/volga/vanna definitions (derivatives w.r.t. σ).
+pub fn bump_surface_vol_absolute(
+    context: &finstack_core::market_data::context::MarketContext,
+    vol_surface_id: &str,
+    bump_abs: f64,
+) -> finstack_core::Result<finstack_core::market_data::context::MarketContext> {
+    use finstack_core::market_data::bumps::{BumpMode, BumpSpec, BumpType, BumpUnits};
+    use finstack_core::types::CurveId;
+    use finstack_core::HashMap;
+
+    if !bump_abs.is_finite() {
+        return Err(finstack_core::InputError::Invalid.into());
+    }
+    if bump_abs == 0.0 {
+        return Ok(context.clone());
+    }
+
+    let mut bumps = HashMap::default();
+    bumps.insert(
+        CurveId::from(vol_surface_id),
+        BumpSpec {
+            mode: BumpMode::Additive,
+            units: BumpUnits::Fraction,
+            value: bump_abs,
+            bump_type: BumpType::Parallel,
+        },
+    );
+    context.bump(bumps)
 }
 
 /// Compute a mixed partial derivative using central differences for two

@@ -214,7 +214,7 @@ impl JsMarketContext {
 
     #[wasm_bindgen(js_name = insertFx)]
     pub fn insert_fx(&mut self, matrix: &JsFxMatrix) {
-        self.inner.fx = Some(matrix.inner());
+        self.inner.insert_fx_arc_mut(matrix.inner());
     }
 
     #[wasm_bindgen(js_name = mapCollateral)]
@@ -499,6 +499,6 @@ impl JsMarketContext {
 
     #[wasm_bindgen(js_name = hasFx)]
     pub fn has_fx(&self) -> bool {
-        self.inner.fx.is_some()
+        self.inner.fx().is_some()
     }
 }

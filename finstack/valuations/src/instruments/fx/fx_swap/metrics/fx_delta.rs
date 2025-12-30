@@ -33,13 +33,14 @@ impl MetricCalculator for FxDeltaCalculator {
         let include_far = fx_swap.far_date >= as_of;
 
         // Get current FX spot rate
-        let fx_matrix = context.curves.fx.as_ref().ok_or_else(|| {
+        let fx_matrix = context.curves.fx().ok_or_else(|| {
             finstack_core::Error::from(finstack_core::InputError::NotFound {
                 id: "fx_matrix".to_string(),
             })
         })?;
 
-        let current_rate = (**fx_matrix)
+        let current_rate = fx_matrix
+            .as_ref()
             .rate(FxQuery::new(
                 fx_swap.base_currency,
                 fx_swap.quote_currency,

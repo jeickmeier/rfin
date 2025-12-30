@@ -10,6 +10,7 @@ use crate::market_data::{
     dividends::DividendSchedule,
     scalars::InflationIndex,
     scalars::{MarketScalar, ScalarTimeSeries},
+    surfaces::VolSurface,
 };
 
 impl MarketContext {
@@ -113,7 +114,6 @@ impl MarketContext {
             && self.series.is_empty()
             && self.inflation_indices.is_empty()
             && self.credit_indices.is_empty()
-            && self.instruments.is_empty()
             && self.collateral.is_empty()
     }
 
@@ -125,7 +125,6 @@ impl MarketContext {
             + self.series.len()
             + self.inflation_indices.len()
             + self.credit_indices.len()
-            + self.instruments.len()
             + if self.fx.is_some() { 1 } else { 0 }
     }
 
@@ -239,6 +238,18 @@ impl MarketContext {
     pub fn set_dividends_mut(&mut self, schedule: Arc<DividendSchedule>) -> &mut Self {
         let id = schedule.id.to_owned();
         self.dividends.insert(id, schedule);
+        self
+    }
+
+    /// Replace all volatility surfaces (mutable).
+    ///
+    /// This is intended for snapshot restore workflows.
+    pub fn replace_surfaces_mut<I>(&mut self, surfaces: I) -> &mut Self
+    where
+        I: IntoIterator<Item = (CurveId, Arc<VolSurface>)>,
+    {
+        self.surfaces.clear();
+        self.surfaces.extend(surfaces);
         self
     }
 }

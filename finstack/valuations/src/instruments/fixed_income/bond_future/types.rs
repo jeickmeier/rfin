@@ -390,6 +390,18 @@ pub struct BondFuture {
     /// In production systems, this would be calculated automatically.
     pub ctd_bond_id: InstrumentId,
 
+    /// Optional embedded CTD bond definition.
+    ///
+    /// When present, the bond future can be priced without relying on any external
+    /// instrument registry. This keeps `finstack_core::market_data::MarketContext`
+    /// purely market-data focused (curves/surfaces/scalars) and fully serializable.
+    ///
+    /// If `None`, pricing will return a validation error instructing callers to
+    /// provide the CTD bond at the pricing boundary.
+    #[cfg_attr(feature = "serde", serde(default, skip_serializing_if = "Option::is_none"))]
+    #[builder(default)]
+    pub ctd_bond: Option<crate::instruments::bond::Bond>,
+
     /// Discount curve identifier for present value calculations
     pub discount_curve_id: CurveId,
 
@@ -441,6 +453,17 @@ impl BondFuture {
                 "ctd_bond_id ({}) not found in deliverable_basket",
                 self.ctd_bond_id.as_str()
             )));
+        }
+
+        // If an embedded CTD bond is provided, it must match the CTD id.
+        if let Some(bond) = &self.ctd_bond {
+            if bond.id != self.ctd_bond_id {
+                return Err(finstack_core::Error::Validation(format!(
+                    "ctd_bond.id ({}) must match ctd_bond_id ({})",
+                    bond.id.as_str(),
+                    self.ctd_bond_id.as_str()
+                )));
+            }
         }
 
         // Conversion factors validation
@@ -521,7 +544,40 @@ impl BondFuture {
         ctd_bond_id: InstrumentId,
         discount_curve_id: CurveId,
     ) -> finstack_core::Result<Self> {
-        BondFutureBuilder::new()
+        Self::ust_10y_with_ctd_bond(
+            id,
+            notional,
+            expiry_date,
+            delivery_start,
+            delivery_end,
+            quoted_price,
+            position,
+            deliverable_basket,
+            ctd_bond_id,
+            None,
+            discount_curve_id,
+        )
+    }
+
+    /// Create a UST 10-year futures contract, optionally embedding the CTD bond definition.
+    ///
+    /// When `ctd_bond` is provided, the future can be priced without relying on any
+    /// external instrument registry.
+    #[allow(clippy::too_many_arguments)]
+    pub fn ust_10y_with_ctd_bond(
+        id: InstrumentId,
+        notional: Money,
+        expiry_date: Date,
+        delivery_start: Date,
+        delivery_end: Date,
+        quoted_price: f64,
+        position: Position,
+        deliverable_basket: Vec<DeliverableBond>,
+        ctd_bond_id: InstrumentId,
+        ctd_bond: Option<crate::instruments::bond::Bond>,
+        discount_curve_id: CurveId,
+    ) -> finstack_core::Result<Self> {
+        let mut builder = BondFutureBuilder::new()
             .id(id)
             .notional(notional)
             .expiry_date(expiry_date)
@@ -531,7 +587,13 @@ impl BondFuture {
             .position(position)
             .contract_specs(BondFutureSpecs::ust_10y())
             .deliverable_basket(deliverable_basket)
-            .ctd_bond_id(ctd_bond_id)
+            .ctd_bond_id(ctd_bond_id);
+
+        if let Some(bond) = ctd_bond {
+            builder = builder.ctd_bond(bond);
+        }
+
+        builder
             .discount_curve_id(discount_curve_id)
             .attributes(Attributes::new())
             .build_validated()
@@ -1596,20 +1658,14 @@ impl crate::instruments::common::traits::Instrument for BondFuture {
         market: &finstack_core::market_data::context::MarketContext,
         as_of: finstack_core::dates::Date,
     ) -> finstack_core::Result<finstack_core::money::Money> {
-        // Look up the CTD bond from the instrument registry
-        let ctd_bond_any = market.get_instrument(self.ctd_bond_id.as_str())?;
-
-        // Downcast to Bond
-        let ctd_bond = ctd_bond_any
-            .downcast_ref::<crate::instruments::bond::Bond>()
-            .ok_or_else(|| {
-                finstack_core::Error::Input(finstack_core::InputError::NotFound {
-                    id: format!(
-                        "CTD bond (ID: {}) is not a Bond type",
-                        self.ctd_bond_id.as_str()
-                    ),
-                })
-            })?;
+        let ctd_bond = self.ctd_bond.as_ref().ok_or_else(|| {
+            finstack_core::Error::Validation(format!(
+                "BondFuture '{}' requires an embedded ctd_bond to price (ctd_bond_id={}). \
+Provide it at construction time via BondFutureBuilder::ctd_bond(...) or by using a constructor that embeds the CTD bond.",
+                self.id.as_str(),
+                self.ctd_bond_id.as_str()
+            ))
+        })?;
 
         // Use the exchange-provided conversion factor from the deliverable basket.
         let conversion_factor = self

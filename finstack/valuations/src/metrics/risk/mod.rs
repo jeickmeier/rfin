@@ -11,7 +11,7 @@ pub mod risk_factors;
 pub(crate) mod test_utils;
 pub mod var_calculator;
 
-pub use hvar::GenericHVar;
+pub use hvar::{GenericExpectedShortfall, GenericHVar};
 pub use market_history::{MarketHistory, MarketScenario, RiskFactorShift};
 pub use risk_factors::{extract_risk_factors, RiskFactorType};
 pub use var_calculator::{calculate_portfolio_var, calculate_var, VarConfig, VarMethod, VarResult};

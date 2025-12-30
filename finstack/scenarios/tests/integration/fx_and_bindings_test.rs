@@ -55,7 +55,7 @@ fn test_fx_shock() {
     assert_eq!(report.operations_applied, 1);
 
     // Verify shocked FX rate
-    let fx = market.fx.as_ref().unwrap();
+    let fx = market.fx().unwrap();
     let query = finstack_core::money::fx::FxQuery::new(Currency::EUR, Currency::USD, base_date);
     let rate = fx.rate(query).unwrap().rate;
 
@@ -103,7 +103,7 @@ fn test_fx_shock_preserves_other_quotes() {
 
     engine.apply(&scenario, &mut ctx).unwrap();
 
-    let fx = market.fx.as_ref().unwrap();
+    let fx = market.fx().unwrap();
     let gbp_query = finstack_core::money::fx::FxQuery::new(Currency::GBP, Currency::USD, base_date);
     let gbp_rate = fx.rate(gbp_query).unwrap().rate;
     assert!(

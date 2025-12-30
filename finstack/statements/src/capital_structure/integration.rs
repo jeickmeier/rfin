@@ -151,7 +151,7 @@ pub fn aggregate_instrument_cashflows(
     let mut result = CapitalStructureCashflows::new();
 
     // Determine reporting currency: explicit override > FX pivot > set later if single-currency
-    let fx_matrix = market_ctx.fx.as_ref();
+    let fx_matrix = market_ctx.fx();
     let mut reporting_currency = spec.reporting_currency;
     if reporting_currency.is_none() {
         reporting_currency = fx_matrix.map(|fx| fx.config().pivot_currency);

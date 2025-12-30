@@ -7,6 +7,7 @@
 use crate::instruments::common::traits::Instrument;
 use crate::instruments::structured_credit::TrancheCashflows;
 use crate::metrics::MetricId;
+use crate::metrics::risk::MarketHistory;
 use finstack_core::dates::{Date, DayCount};
 use finstack_core::money::Money;
 use finstack_core::types::CurveId;
@@ -144,6 +145,12 @@ pub struct MetricContext {
     /// Market curves for discounting and forwarding.
     pub curves: Arc<finstack_core::market_data::context::MarketContext>,
 
+    /// Optional market history for historical scenario revaluation (e.g., Historical VaR).
+    ///
+    /// This is intentionally **not** stored inside `finstack_core::MarketContext` to keep
+    /// the core market container strongly typed and fully serializable.
+    pub market_history: Option<Arc<MarketHistory>>,
+
     /// Valuation date.
     pub as_of: Date,
 
@@ -221,6 +228,7 @@ impl MetricContext {
         Self {
             instrument,
             curves,
+            market_history: None,
             as_of,
             base_value,
             computed: finstack_core::HashMap::default(),
@@ -256,6 +264,12 @@ impl MetricContext {
     #[inline]
     pub fn config(&self) -> &FinstackConfig {
         &self.finstack_config
+    }
+
+    /// Attach market history to this context (used by Historical VaR metrics).
+    pub fn with_market_history(mut self, history: Arc<MarketHistory>) -> Self {
+        self.market_history = Some(history);
+        self
     }
 
     /// Set a custom bucket key resolver.

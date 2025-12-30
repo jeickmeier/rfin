@@ -31,14 +31,15 @@ impl MetricCalculator for FX01 {
         let include_near = fx_swap.near_date >= as_of;
         let include_far = fx_swap.far_date >= as_of;
 
-        let fx_matrix = curves.fx.as_ref().ok_or_else(|| {
+        let fx_matrix = curves.fx().ok_or_else(|| {
             finstack_core::Error::from(finstack_core::InputError::NotFound {
                 id: "fx_matrix".to_string(),
             })
         })?;
 
         // Original spot
-        let original_spot = (**fx_matrix)
+        let original_spot = fx_matrix
+            .as_ref()
             .rate(FxQuery::new(
                 fx_swap.base_currency,
                 fx_swap.quote_currency,

@@ -142,29 +142,52 @@ impl TrancheCoupon {
         date: Date,
         context: &finstack_core::market_data::context::MarketContext,
     ) -> f64 {
+        // Backward-compatible wrapper that preserves historical behavior:
+        // - Missing market data falls back to spread-only
+        // - Projection failures fall back to spread-only
+        //
+        // For correctness-first valuation (no silent fallbacks), prefer
+        // `try_current_rate_with_index` and propagate the error.
+        self.try_current_rate_with_index(date, context)
+            .unwrap_or_else(|_| self.current_rate(date))
+    }
+
+    /// Compute current rate including index forward where applicable (fallible).
+    ///
+    /// This method returns an error if required market data is missing or if the
+    /// rate projection fails. Prefer this in pricing/valuation code paths to avoid
+    /// silent mispricing.
+    pub fn try_current_rate_with_index(
+        &self,
+        date: Date,
+        context: &finstack_core::market_data::context::MarketContext,
+    ) -> finstack_core::Result<f64> {
         match self {
-            TrancheCoupon::Fixed { rate } => *rate,
+            TrancheCoupon::Fixed { rate } => Ok(*rate),
             TrancheCoupon::Floating(spec) => {
                 // Convert Decimal values to f64 for calculations
-                let spread_bp_f64 = spec.spread_bp.to_f64().unwrap_or(0.0);
-                let gearing_f64 = spec.gearing.to_f64().unwrap_or(1.0);
-                let floor_bp_f64 = spec.floor_bp.and_then(|d| d.to_f64());
-                let cap_bp_f64 = spec.cap_bp.and_then(|d| d.to_f64());
-                let fallback_rate = spread_bp_f64 / 10_000.0;
+                let spread_bp_f64 = spec
+                    .spread_bp
+                    .to_f64()
+                    .ok_or(finstack_core::InputError::Invalid)?;
+                let gearing_f64 = spec
+                    .gearing
+                    .to_f64()
+                    .ok_or(finstack_core::InputError::Invalid)?;
+                let floor_bp_f64 = spec
+                    .floor_bp
+                    .map(|d| d.to_f64().ok_or(finstack_core::InputError::Invalid))
+                    .transpose()?;
+                let cap_bp_f64 = spec
+                    .cap_bp
+                    .map(|d| d.to_f64().ok_or(finstack_core::InputError::Invalid))
+                    .transpose()?;
 
                 // Use centralized projection
-                let fwd = match context.get_forward_ref(spec.index_id.as_str()) {
-                    Ok(f) => f,
-                    Err(_) => return fallback_rate, // Fallback to spread only
-                };
-
+                let fwd = context.get_forward_ref(spec.index_id.as_str())?;
                 let tenor = fwd.tenor();
-                let period_end =
-                    crate::instruments::structured_credit::utils::rate_helpers::tenor_to_period_end(
-                        date,
-                        tenor,
-                        fwd.day_count(),
-                    );
+                let period_end = crate::instruments::structured_credit::utils::rate_helpers::
+                    try_tenor_to_period_end(date, tenor, fwd.day_count())?;
 
                 let params = crate::cashflow::builder::FloatingRateParams::with_full(
                     spread_bp_f64,
@@ -173,7 +196,6 @@ impl TrancheCoupon {
                     cap_bp_f64,
                 );
                 crate::cashflow::builder::project_floating_rate(date, period_end, fwd, &params)
-                    .unwrap_or(fallback_rate)
             }
         }
     }

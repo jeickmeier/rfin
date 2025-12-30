@@ -196,7 +196,7 @@ impl FxSwap {
         let include_far = self.far_date >= as_of;
 
         // Resolve model spot from FX matrix if available; otherwise fall back to contract near rate
-        let model_spot = if let Some(fx) = curves.fx.as_ref() {
+        let model_spot = if let Some(fx) = curves.fx() {
             (**fx)
                 .rate(FxQuery::new(self.base_currency, self.quote_currency, as_of))?
                 .rate

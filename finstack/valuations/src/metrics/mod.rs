@@ -180,11 +180,14 @@ mod sensitivities;
 pub use core::ids::MetricId;
 pub use core::registry::{MetricRegistry, StrictMode};
 pub use core::traits::{MetricCalculator, MetricContext, Structured2D, Structured3D};
+/// Parse simple period strings (e.g., "1D", "2W") to day counts.
+pub use sensitivities::theta::parse_period_days;
 
 // Risk metrics
 pub use risk::{
-    calculate_portfolio_var, calculate_var, extract_risk_factors, GenericHVar, MarketHistory,
-    MarketScenario, RiskFactorShift, RiskFactorType, VarConfig, VarMethod, VarResult,
+    calculate_portfolio_var, calculate_var, extract_risk_factors, GenericExpectedShortfall,
+    GenericHVar, MarketHistory, MarketScenario, RiskFactorShift, RiskFactorType, VarConfig,
+    VarMethod, VarResult,
 };
 
 // -----------------------------------------------------------------------------
@@ -195,7 +198,7 @@ pub use risk::{
 // supported as a stable downstream API. Keep them `pub(crate)` so we can refactor module layout
 // without creating public breakage surface.
 pub(crate) use core::finite_difference::{
-    bump_discount_curve_parallel, bump_scalar_price, bump_sizes, scale_surface,
+    bump_discount_curve_parallel, bump_scalar_price, bump_sizes, bump_surface_vol_absolute,
 };
 pub(crate) use sensitivities::cs01::{GenericBucketedCs01, GenericParallelCs01, HasCreditCurve};
 pub(crate) use sensitivities::dv01::{Dv01CalculatorConfig, UnifiedDv01Calculator};
@@ -340,7 +343,7 @@ pub fn standard_registry() -> &'static MetricRegistry {
         );
         registry.register_metric(
             MetricId::EXPECTED_SHORTFALL,
-            std::sync::Arc::new(GenericHVar::var_95()),
+            std::sync::Arc::new(GenericExpectedShortfall::var_95()),
             &[], // Empty = applies to all instruments
         );
 
