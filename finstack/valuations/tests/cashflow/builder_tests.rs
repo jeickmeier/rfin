@@ -101,7 +101,7 @@ fn pik_capitalization_increases_outstanding() {
     let mut b = CashFlowSchedule::builder();
     let _ = b.principal(init, issue, maturity).fixed_cf(fixed.clone());
     let s = b.build_with_curves(None).unwrap();
-    let path = s.outstanding_path().unwrap();
+    let path = s.outstanding_path_per_flow().unwrap();
     // Find last outstanding before redemption
     let last_before = path
         .iter()

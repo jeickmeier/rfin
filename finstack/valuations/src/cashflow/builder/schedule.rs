@@ -187,7 +187,7 @@ impl CashFlowSchedule {
     ///
     /// # When to Use Each Method
     ///
-    /// - **`outstanding_path()`**: Use for coupon accrual calculations on fixed
+    /// - **`outstanding_path_per_flow()`**: Use for coupon accrual calculations on fixed
     ///   amortization schedules (bonds, term loans with scheduled amortization).
     /// - **[`Self::outstanding_by_date()`]**: Use for full balance tracking including
     ///   notional events (revolving credit facilities, delayed draws, prepayments).
@@ -220,16 +220,16 @@ impl CashFlowSchedule {
     ///   CashFlow { date: base, reset_date: None, amount: Money::new(5.0, Currency::USD), kind: CFKind::PIK, accrual_factor: 0.0, rate: None },
     /// ];
     /// let s = CashFlowSchedule { flows, notional, day_count: finstack_core::dates::DayCount::Act365F, meta: CashFlowMeta::default() };
-    /// let path = s.outstanding_path().expect("valid schedule");
+    /// let path = s.outstanding_path_per_flow().expect("valid schedule");
     /// assert_eq!(path.len(), 2);
     /// assert_eq!(path[0].1.amount(), 90.0);  // 100 - 10 = 90
     /// assert_eq!(path[1].1.amount(), 95.0);  // 90 + 5 = 95
     /// ```
-    pub fn outstanding_path(&self) -> finstack_core::Result<Vec<(Date, Money)>> {
+    pub fn outstanding_path_per_flow(&self) -> finstack_core::Result<Vec<(Date, Money)>> {
         let mut out = Vec::new();
         let mut outstanding = self.notional.initial;
         for cf in &self.flows {
-            // `outstanding_path` historically ignored notional draws/repays and
+            // `outstanding_path_per_flow` historically ignored notional draws/repays and
             // only tracked Amortization and PIK. Preserve that behavior by
             // passing `include_notional = false`.
             apply_flow_to_outstanding(&mut outstanding, cf, false, false)?;
@@ -253,7 +253,7 @@ impl CashFlowSchedule {
     ///
     /// # When to Use Each Method
     ///
-    /// - **[`Self::outstanding_path()`]**: Simplified view for scheduled amortization
+    /// - **[`Self::outstanding_path_per_flow()`]**: Simplified view for scheduled amortization
     ///   (excludes Notional draws/repays).
     /// - **`outstanding_by_date()`**: Full balance tracking including all notional events.
     ///
@@ -463,14 +463,9 @@ impl CashFlowSchedule {
         base: Date,
         dc: DayCount,
     ) -> finstack_core::Result<IndexMap<PeriodId, IndexMap<Currency, Money>>> {
-        let date_ctx = crate::cashflow::aggregation::DateContext::new(base, dc, DayCountCtx::default());
-        self.pv_by_period_with_survival_and_ctx(
-            periods,
-            disc,
-            hazard,
-            recovery_rate,
-            date_ctx,
-        )
+        let date_ctx =
+            crate::cashflow::aggregation::DateContext::new(base, dc, DayCountCtx::default());
+        self.pv_by_period_with_survival_and_ctx(periods, disc, hazard, recovery_rate, date_ctx)
     }
 }
 

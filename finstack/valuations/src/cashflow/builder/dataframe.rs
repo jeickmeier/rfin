@@ -188,7 +188,6 @@ impl PeriodDataFrame {
             spreads.clear();
         }
     }
-
 }
 
 impl CashFlowSchedule {
