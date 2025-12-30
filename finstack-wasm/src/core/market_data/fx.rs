@@ -269,9 +269,4 @@ impl JsFxMatrix {
     pub fn clear_cache(&self) {
         self.inner.clear_cache();
     }
-
-    #[wasm_bindgen(js_name = clearExpired)]
-    pub fn clear_expired(&self) {
-        self.inner.clear_expired();
-    }
 }

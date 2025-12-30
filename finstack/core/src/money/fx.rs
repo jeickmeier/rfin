@@ -529,31 +529,6 @@ impl FxMatrix {
         }
     }
 
-    /// Clear cached quotes considered "expired".
-    ///
-    /// Note: Quotes in this matrix are not timestamped, so we conservatively
-    /// clear the entire cache. Callers that need finer-grained control should
-    /// seed quotes explicitly via [`FxMatrix::set_quote`].
-    ///
-    /// # Examples
-    /// ```rust
-    /// # use finstack_core::money::fx::{FxConversionPolicy, FxMatrix, FxProvider};
-    /// # use finstack_core::currency::Currency;
-    /// # use finstack_core::dates::Date;
-    /// # use std::sync::Arc;
-    /// # use time::Month;
-    /// # struct StaticFx;
-    /// # impl FxProvider for StaticFx {
-    /// #     fn rate(&self, _from: Currency, _to: Currency, _on: Date, _policy: FxConversionPolicy)
-    /// #         -> finstack_core::Result<f64> { Ok(1.0) }
-    /// # }
-    /// let matrix = FxMatrix::new(Arc::new(StaticFx));
-    /// matrix.clear_expired();
-    /// ```
-    pub fn clear_expired(&self) {
-        self.clear_cache();
-    }
-
     /// Clear all stored quotes.
     ///
     /// # Examples
@@ -945,11 +920,11 @@ mod tests {
             .rate(FxQuery::new(Currency::USD, Currency::EUR, test_date()))
             .expect("FX rate query should succeed in test");
 
-        // Clear implied entries
-        matrix.clear_expired();
+        // Clear cache (all entries removed conservatively)
+        matrix.clear_cache();
 
         let remaining = matrix.cache_stats();
-        assert_eq!(remaining, 0); // Implied cleared
+        assert_eq!(remaining, 0); // Cache cleared
     }
 
     #[test]

@@ -20,12 +20,12 @@ use super::{
 /// # Example
 ///
 /// ```rust
-/// use finstack_core::math::interp::{LinearDf, ExtrapolationPolicy};
+/// use finstack_core::math::interp::{LinearDf, ExtrapolationPolicy, ValidationPolicy};
 ///
 /// # fn main() -> finstack_core::Result<()> {
 /// let knots = vec![0.0, 1.0, 2.0].into_boxed_slice();
 /// let dfs = vec![1.0, 0.95, 0.90].into_boxed_slice();
-/// let _interp = LinearDf::new(knots, dfs, ExtrapolationPolicy::FlatZero)?;
+/// let _interp = LinearDf::new(knots, dfs, ExtrapolationPolicy::FlatZero, ValidationPolicy::Strict)?;
 /// # Ok(())
 /// # }
 /// ```
@@ -40,12 +40,12 @@ pub type LinearDf = Interpolator<LinearStrategy>;
 /// # Example
 ///
 /// ```rust
-/// use finstack_core::math::interp::{LogLinearDf, ExtrapolationPolicy};
+/// use finstack_core::math::interp::{LogLinearDf, ExtrapolationPolicy, ValidationPolicy};
 ///
 /// # fn main() -> finstack_core::Result<()> {
 /// let knots = vec![0.0, 1.0, 2.0].into_boxed_slice();
 /// let dfs = vec![1.0, 0.95, 0.90].into_boxed_slice();
-/// let _interp = LogLinearDf::new(knots, dfs, ExtrapolationPolicy::FlatZero)?;
+/// let _interp = LogLinearDf::new(knots, dfs, ExtrapolationPolicy::FlatZero, ValidationPolicy::Strict)?;
 /// # Ok(())
 /// # }
 /// ```
@@ -72,12 +72,12 @@ pub type LogLinearDf = Interpolator<LogLinearStrategy>;
 /// # Example
 ///
 /// ```rust
-/// use finstack_core::math::interp::{CubicHermite, ExtrapolationPolicy};
+/// use finstack_core::math::interp::{CubicHermite, ExtrapolationPolicy, ValidationPolicy};
 ///
 /// # fn main() -> finstack_core::Result<()> {
 /// let knots = vec![0.0, 1.0, 2.0].into_boxed_slice();
 /// let dfs = vec![1.0, 0.95, 0.90].into_boxed_slice();
-/// let _interp = CubicHermite::new(knots, dfs, ExtrapolationPolicy::FlatZero)?;
+/// let _interp = CubicHermite::new(knots, dfs, ExtrapolationPolicy::FlatZero, ValidationPolicy::Strict)?;
 /// # Ok(())
 /// # }
 /// ```
@@ -115,12 +115,12 @@ pub type CubicHermite = Interpolator<CubicHermiteStrategy>;
 /// # Example
 ///
 /// ```rust
-/// use finstack_core::math::interp::{MonotoneConvex, ExtrapolationPolicy};
+/// use finstack_core::math::interp::{MonotoneConvex, ExtrapolationPolicy, ValidationPolicy};
 ///
 /// # fn main() -> finstack_core::Result<()> {
 /// let knots = vec![0.0, 1.0, 2.0].into_boxed_slice();
 /// let dfs = vec![1.0, 0.95, 0.90].into_boxed_slice();
-/// let _interp = MonotoneConvex::new(knots, dfs, ExtrapolationPolicy::FlatZero)?;
+/// let _interp = MonotoneConvex::new(knots, dfs, ExtrapolationPolicy::FlatZero, ValidationPolicy::Strict)?;
 /// # Ok(())
 /// # }
 /// ```

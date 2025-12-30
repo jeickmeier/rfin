@@ -11,31 +11,40 @@
 use super::common::{approx_eq, standard_dfs, standard_knots, two_point_dfs, two_point_knots};
 use finstack_core::math::interp::*;
 
+// Helper to create interpolator with default Strict validation policy
+macro_rules! new_strict {
+    ($ty:ty, $knots:expr, $dfs:expr, $extrap:expr) => {
+        <$ty>::new($knots, $dfs, $extrap, ValidationPolicy::Strict)
+    };
+}
+
 // ============================================================================
 // Basic Tests (macro-generated for all interpolator types)
 // ============================================================================
 
 macro_rules! interp_basic_tests {
-    ($mod_name:ident, $constructor:path) => {
+    ($mod_name:ident, $ty:ty) => {
         mod $mod_name {
             use super::*;
 
             #[test]
             fn construction_succeeds() {
-                let result = $constructor(
+                let result = new_strict!(
+                    $ty,
                     standard_knots(),
                     standard_dfs(),
-                    ExtrapolationPolicy::default(),
+                    ExtrapolationPolicy::default()
                 );
                 assert!(result.is_ok(), "Construction should succeed");
             }
 
             #[test]
             fn exact_knot_values_preserved() {
-                let interp = $constructor(
+                let interp = new_strict!(
+                    $ty,
                     standard_knots(),
                     standard_dfs(),
-                    ExtrapolationPolicy::default(),
+                    ExtrapolationPolicy::default()
                 )
                 .unwrap();
 
@@ -47,10 +56,11 @@ macro_rules! interp_basic_tests {
 
             #[test]
             fn interpolation_between_knots() {
-                let interp = $constructor(
+                let interp = new_strict!(
+                    $ty,
                     standard_knots(),
                     standard_dfs(),
-                    ExtrapolationPolicy::default(),
+                    ExtrapolationPolicy::default()
                 )
                 .unwrap();
 
@@ -72,25 +82,34 @@ macro_rules! interp_basic_tests {
             #[test]
             fn rejects_non_increasing_knots() {
                 let bad_knots = vec![1.0, 0.0, 2.0, 3.0].into_boxed_slice();
-                let result =
-                    $constructor(bad_knots, standard_dfs(), ExtrapolationPolicy::default());
+                let result = new_strict!(
+                    $ty,
+                    bad_knots,
+                    standard_dfs(),
+                    ExtrapolationPolicy::default()
+                );
                 assert!(result.is_err(), "Should reject non-increasing knots");
             }
 
             #[test]
             fn rejects_non_positive_dfs() {
                 let bad_dfs = vec![1.0, -0.95, 0.9, 0.85].into_boxed_slice();
-                let result =
-                    $constructor(standard_knots(), bad_dfs, ExtrapolationPolicy::default());
+                let result = new_strict!(
+                    $ty,
+                    standard_knots(),
+                    bad_dfs,
+                    ExtrapolationPolicy::default()
+                );
                 assert!(result.is_err(), "Should reject non-positive DFs");
             }
 
             #[test]
             fn two_point_case() {
-                let interp = $constructor(
+                let interp = new_strict!(
+                    $ty,
                     two_point_knots(),
                     two_point_dfs(),
-                    ExtrapolationPolicy::default(),
+                    ExtrapolationPolicy::default()
                 )
                 .unwrap();
 
@@ -105,10 +124,11 @@ macro_rules! interp_basic_tests {
 
             #[test]
             fn edge_values_are_finite() {
-                let interp = $constructor(
+                let interp = new_strict!(
+                    $ty,
                     standard_knots(),
                     standard_dfs(),
-                    ExtrapolationPolicy::default(),
+                    ExtrapolationPolicy::default()
                 )
                 .unwrap();
 
@@ -120,30 +140,33 @@ macro_rules! interp_basic_tests {
 
             #[test]
             fn rejects_empty_input() {
-                let result = $constructor(
+                let result = new_strict!(
+                    $ty,
                     vec![].into_boxed_slice(),
                     vec![].into_boxed_slice(),
-                    ExtrapolationPolicy::default(),
+                    ExtrapolationPolicy::default()
                 );
                 assert!(result.is_err(), "Should reject empty input");
             }
 
             #[test]
             fn rejects_mismatched_lengths() {
-                let result = $constructor(
+                let result = new_strict!(
+                    $ty,
                     vec![0.0, 1.0, 2.0].into_boxed_slice(),
                     vec![1.0, 0.95].into_boxed_slice(),
-                    ExtrapolationPolicy::default(),
+                    ExtrapolationPolicy::default()
                 );
                 assert!(result.is_err(), "Should reject mismatched lengths");
             }
 
             #[test]
             fn single_point_rejected() {
-                let result = $constructor(
+                let result = new_strict!(
+                    $ty,
                     vec![1.0].into_boxed_slice(),
                     vec![0.95].into_boxed_slice(),
-                    ExtrapolationPolicy::default(),
+                    ExtrapolationPolicy::default()
                 );
                 let _ = result; // Just verify it doesn't panic
             }
@@ -151,15 +174,12 @@ macro_rules! interp_basic_tests {
     };
 }
 
-interp_basic_tests!(linear_df_basic, LinearDf::new);
-interp_basic_tests!(log_linear_df_basic, LogLinearDf::new);
-interp_basic_tests!(flat_fwd_basic, LogLinearDf::new);
-interp_basic_tests!(cubic_hermite_basic, CubicHermite::new);
-interp_basic_tests!(monotone_convex_basic, MonotoneConvex::new);
-interp_basic_tests!(
-    piecewise_quadratic_forward_basic,
-    PiecewiseQuadraticForward::new
-);
+interp_basic_tests!(linear_df_basic, LinearDf);
+interp_basic_tests!(log_linear_df_basic, LogLinearDf);
+interp_basic_tests!(flat_fwd_basic, LogLinearDf);
+interp_basic_tests!(cubic_hermite_basic, CubicHermite);
+interp_basic_tests!(monotone_convex_basic, MonotoneConvex);
+interp_basic_tests!(piecewise_quadratic_forward_basic, PiecewiseQuadraticForward);
 
 // ============================================================================
 // InterpStyle::build Tests
@@ -175,6 +195,7 @@ mod interp_style_build {
                 standard_knots(),
                 standard_dfs(),
                 ExtrapolationPolicy::FlatZero,
+                ValidationPolicy::Strict,
             )
             .expect("Should build linear interpolator");
 
@@ -191,6 +212,7 @@ mod interp_style_build {
                 standard_knots(),
                 standard_dfs(),
                 ExtrapolationPolicy::FlatZero,
+                ValidationPolicy::Strict,
             )
             .expect("Should build log-linear interpolator");
 
@@ -205,6 +227,7 @@ mod interp_style_build {
                 standard_knots(),
                 standard_dfs(),
                 ExtrapolationPolicy::FlatZero,
+                ValidationPolicy::Strict,
             )
             .expect("Should build monotone convex interpolator");
 
@@ -219,6 +242,7 @@ mod interp_style_build {
                 standard_knots(),
                 standard_dfs(),
                 ExtrapolationPolicy::FlatZero,
+                ValidationPolicy::Strict,
             )
             .expect("Should build cubic hermite interpolator");
 
@@ -233,6 +257,7 @@ mod interp_style_build {
                 standard_knots(),
                 standard_dfs(),
                 ExtrapolationPolicy::FlatForward,
+                ValidationPolicy::Strict,
             )
             .expect("Should build piecewise quadratic forward interpolator");
 
@@ -247,6 +272,7 @@ mod interp_style_build {
                 standard_knots(),
                 standard_dfs(),
                 ExtrapolationPolicy::FlatZero,
+                ValidationPolicy::Strict,
             )
             .expect("Should build flat forward interpolator");
 
@@ -268,6 +294,7 @@ mod interp_style_build {
                     standard_knots(),
                     standard_dfs(),
                     ExtrapolationPolicy::FlatForward,
+                    ValidationPolicy::Strict,
                 )
                 .unwrap_or_else(|e| panic!("Should build {:?}: {:?}", style, e));
 
@@ -282,16 +309,17 @@ mod interp_style_build {
 // ============================================================================
 
 macro_rules! extrapolation_tests {
-    ($mod_name:ident, $constructor:path) => {
+    ($mod_name:ident, $ty:ty) => {
         mod $mod_name {
             use super::*;
 
             #[test]
             fn flat_zero_extrapolation_left() {
-                let interp = $constructor(
+                let interp = new_strict!(
+                    $ty,
                     standard_knots(),
                     standard_dfs(),
-                    ExtrapolationPolicy::FlatZero,
+                    ExtrapolationPolicy::FlatZero
                 )
                 .unwrap();
 
@@ -305,10 +333,11 @@ macro_rules! extrapolation_tests {
 
             #[test]
             fn flat_zero_extrapolation_right() {
-                let interp = $constructor(
+                let interp = new_strict!(
+                    $ty,
                     standard_knots(),
                     standard_dfs(),
-                    ExtrapolationPolicy::FlatZero,
+                    ExtrapolationPolicy::FlatZero
                 )
                 .unwrap();
 
@@ -322,10 +351,11 @@ macro_rules! extrapolation_tests {
 
             #[test]
             fn flat_forward_extrapolation_left() {
-                let interp = $constructor(
+                let interp = new_strict!(
+                    $ty,
                     standard_knots(),
                     standard_dfs(),
-                    ExtrapolationPolicy::FlatForward,
+                    ExtrapolationPolicy::FlatForward
                 )
                 .unwrap();
 
@@ -339,10 +369,11 @@ macro_rules! extrapolation_tests {
 
             #[test]
             fn flat_forward_extrapolation_right() {
-                let interp = $constructor(
+                let interp = new_strict!(
+                    $ty,
                     standard_knots(),
                     standard_dfs(),
-                    ExtrapolationPolicy::FlatForward,
+                    ExtrapolationPolicy::FlatForward
                 )
                 .unwrap();
 
@@ -356,10 +387,11 @@ macro_rules! extrapolation_tests {
 
             #[test]
             fn extrapolation_far_left() {
-                let interp = $constructor(
+                let interp = new_strict!(
+                    $ty,
                     standard_knots(),
                     standard_dfs(),
-                    ExtrapolationPolicy::FlatZero,
+                    ExtrapolationPolicy::FlatZero
                 )
                 .unwrap();
 
@@ -370,10 +402,11 @@ macro_rules! extrapolation_tests {
 
             #[test]
             fn extrapolation_far_right() {
-                let interp = $constructor(
+                let interp = new_strict!(
+                    $ty,
                     standard_knots(),
                     standard_dfs(),
-                    ExtrapolationPolicy::FlatZero,
+                    ExtrapolationPolicy::FlatZero
                 )
                 .unwrap();
 
@@ -385,27 +418,28 @@ macro_rules! extrapolation_tests {
     };
 }
 
-extrapolation_tests!(extrap_linear, LinearDf::new);
-extrapolation_tests!(extrap_log_linear, LogLinearDf::new);
-extrapolation_tests!(extrap_flat_fwd, LogLinearDf::new);
-extrapolation_tests!(extrap_cubic_hermite, CubicHermite::new);
-extrapolation_tests!(extrap_monotone_convex, MonotoneConvex::new);
+extrapolation_tests!(extrap_linear, LinearDf);
+extrapolation_tests!(extrap_log_linear, LogLinearDf);
+extrapolation_tests!(extrap_flat_fwd, LogLinearDf);
+extrapolation_tests!(extrap_cubic_hermite, CubicHermite);
+extrapolation_tests!(extrap_monotone_convex, MonotoneConvex);
 
 // ============================================================================
 // Derivative (interp_prime) Tests
 // ============================================================================
 
 macro_rules! derivative_tests {
-    ($mod_name:ident, $constructor:path) => {
+    ($mod_name:ident, $ty:ty) => {
         mod $mod_name {
             use super::*;
 
             #[test]
             fn derivative_is_finite_interior() {
-                let interp = $constructor(
+                let interp = new_strict!(
+                    $ty,
                     standard_knots(),
                     standard_dfs(),
-                    ExtrapolationPolicy::FlatZero,
+                    ExtrapolationPolicy::FlatZero
                 )
                 .unwrap();
 
@@ -422,10 +456,11 @@ macro_rules! derivative_tests {
 
             #[test]
             fn derivative_is_negative_for_decreasing_curve() {
-                let interp = $constructor(
+                let interp = new_strict!(
+                    $ty,
                     standard_knots(),
                     standard_dfs(),
-                    ExtrapolationPolicy::FlatZero,
+                    ExtrapolationPolicy::FlatZero
                 )
                 .unwrap();
 
@@ -442,10 +477,11 @@ macro_rules! derivative_tests {
 
             #[test]
             fn derivative_numerical_check() {
-                let interp = $constructor(
+                let interp = new_strict!(
+                    $ty,
                     standard_knots(),
                     standard_dfs(),
-                    ExtrapolationPolicy::FlatZero,
+                    ExtrapolationPolicy::FlatZero
                 )
                 .unwrap();
 
@@ -468,10 +504,11 @@ macro_rules! derivative_tests {
 
             #[test]
             fn derivative_at_knots() {
-                let interp = $constructor(
+                let interp = new_strict!(
+                    $ty,
                     standard_knots(),
                     standard_dfs(),
-                    ExtrapolationPolicy::FlatZero,
+                    ExtrapolationPolicy::FlatZero
                 )
                 .unwrap();
 
@@ -487,10 +524,11 @@ macro_rules! derivative_tests {
 
             #[test]
             fn derivative_flat_zero_extrapolation() {
-                let interp = $constructor(
+                let interp = new_strict!(
+                    $ty,
                     standard_knots(),
                     standard_dfs(),
-                    ExtrapolationPolicy::FlatZero,
+                    ExtrapolationPolicy::FlatZero
                 )
                 .unwrap();
 
@@ -511,10 +549,11 @@ macro_rules! derivative_tests {
 
             #[test]
             fn derivative_flat_forward_extrapolation() {
-                let interp = $constructor(
+                let interp = new_strict!(
+                    $ty,
                     standard_knots(),
                     standard_dfs(),
-                    ExtrapolationPolicy::FlatForward,
+                    ExtrapolationPolicy::FlatForward
                 )
                 .unwrap();
 
@@ -536,11 +575,11 @@ macro_rules! derivative_tests {
     };
 }
 
-derivative_tests!(deriv_linear, LinearDf::new);
-derivative_tests!(deriv_log_linear, LogLinearDf::new);
-derivative_tests!(deriv_flat_fwd, LogLinearDf::new);
-derivative_tests!(deriv_cubic_hermite, CubicHermite::new);
-derivative_tests!(deriv_monotone_convex, MonotoneConvex::new);
+derivative_tests!(deriv_linear, LinearDf);
+derivative_tests!(deriv_log_linear, LogLinearDf);
+derivative_tests!(deriv_flat_fwd, LogLinearDf);
+derivative_tests!(deriv_cubic_hermite, CubicHermite);
+derivative_tests!(deriv_monotone_convex, MonotoneConvex);
 
 // ============================================================================
 // Type-Specific Tests
@@ -560,8 +599,13 @@ mod linear_specific {
             .map(|&t| (-0.02f64 * t).exp())
             .collect::<Vec<_>>()
             .into_boxed_slice();
-        let interp =
-            LinearDf::new(knots.clone(), dfs.clone(), ExtrapolationPolicy::default()).unwrap();
+        let interp = new_strict!(
+            LinearDf,
+            knots.clone(),
+            dfs.clone(),
+            ExtrapolationPolicy::default()
+        )
+        .unwrap();
 
         for seg in 0..knots.len() - 1 {
             let t_mid = 0.5 * (knots[seg] + knots[seg + 1]);
@@ -572,10 +616,11 @@ mod linear_specific {
 
     #[test]
     fn derivative_at_segment_boundaries() {
-        let interp = LinearDf::new(
+        let interp = new_strict!(
+            LinearDf,
             standard_knots(),
             standard_dfs(),
-            ExtrapolationPolicy::FlatZero,
+            ExtrapolationPolicy::FlatZero
         )
         .unwrap();
 
@@ -603,8 +648,13 @@ mod log_linear_specific {
         let knots = knots.into_boxed_slice();
         let dfs = dfs.into_boxed_slice();
 
-        let interp =
-            LogLinearDf::new(knots.clone(), dfs.clone(), ExtrapolationPolicy::default()).unwrap();
+        let interp = new_strict!(
+            LogLinearDf,
+            knots.clone(),
+            dfs.clone(),
+            ExtrapolationPolicy::default()
+        )
+        .unwrap();
         for seg in 0..knots.len() - 1 {
             let t_mid = 0.5 * (knots[seg] + knots[seg + 1]);
             let expected = (dfs[seg].ln() * 0.5 + dfs[seg + 1].ln() * 0.5).exp();
@@ -614,10 +664,11 @@ mod log_linear_specific {
 
     #[test]
     fn derivative_formula_consistency() {
-        let interp = LogLinearDf::new(
+        let interp = new_strict!(
+            LogLinearDf,
             standard_knots(),
             standard_dfs(),
-            ExtrapolationPolicy::FlatZero,
+            ExtrapolationPolicy::FlatZero
         )
         .unwrap();
 
@@ -644,16 +695,18 @@ mod flat_fwd_specific {
 
     #[test]
     fn matches_log_linear_exactly() {
-        let flat = LogLinearDf::new(
+        let flat = new_strict!(
+            LogLinearDf,
             standard_knots(),
             standard_dfs(),
-            ExtrapolationPolicy::default(),
+            ExtrapolationPolicy::default()
         )
         .unwrap();
-        let log = LogLinearDf::new(
+        let log = new_strict!(
+            LogLinearDf,
             standard_knots(),
             standard_dfs(),
-            ExtrapolationPolicy::default(),
+            ExtrapolationPolicy::default()
         )
         .unwrap();
 
@@ -668,10 +721,11 @@ mod flat_fwd_specific {
 
     #[test]
     fn constant_forward_rate_property() {
-        let interp = LogLinearDf::new(
+        let interp = new_strict!(
+            LogLinearDf,
             standard_knots(),
             standard_dfs(),
-            ExtrapolationPolicy::default(),
+            ExtrapolationPolicy::default()
         )
         .unwrap();
 
@@ -697,10 +751,11 @@ mod cubic_hermite_specific {
 
     #[test]
     fn derivative_numerical_consistency() {
-        let interp = CubicHermite::new(
+        let interp = new_strict!(
+            CubicHermite,
             standard_knots(),
             standard_dfs(),
-            ExtrapolationPolicy::default(),
+            ExtrapolationPolicy::default()
         )
         .unwrap();
 
@@ -719,10 +774,11 @@ mod cubic_hermite_specific {
 
     #[test]
     fn derivative_monotonicity_preserved() {
-        let interp = CubicHermite::new(
+        let interp = new_strict!(
+            CubicHermite,
             standard_knots(),
             standard_dfs(),
-            ExtrapolationPolicy::default(),
+            ExtrapolationPolicy::default()
         )
         .unwrap();
 
@@ -740,10 +796,11 @@ mod cubic_hermite_specific {
 
     #[test]
     fn derivative_at_knots_returns_precomputed_slopes() {
-        let interp = CubicHermite::new(
+        let interp = new_strict!(
+            CubicHermite,
             standard_knots(),
             standard_dfs(),
-            ExtrapolationPolicy::default(),
+            ExtrapolationPolicy::default()
         )
         .unwrap();
 
@@ -762,10 +819,11 @@ mod cubic_hermite_specific {
 
     #[test]
     fn extrapolation_uses_boundary_slopes() {
-        let interp = CubicHermite::new(
+        let interp = new_strict!(
+            CubicHermite,
             standard_knots(),
             standard_dfs(),
-            ExtrapolationPolicy::FlatForward,
+            ExtrapolationPolicy::FlatForward
         )
         .unwrap();
 
@@ -786,10 +844,11 @@ mod cubic_hermite_specific {
 
     #[test]
     fn derivative_continuity_across_knots() {
-        let interp = CubicHermite::new(
+        let interp = new_strict!(
+            CubicHermite,
             standard_knots(),
             standard_dfs(),
-            ExtrapolationPolicy::FlatZero,
+            ExtrapolationPolicy::FlatZero
         )
         .unwrap();
 
@@ -819,10 +878,11 @@ mod monotone_convex_specific {
     #[test]
     fn rejects_increasing_dfs() {
         let increasing_dfs = vec![0.9, 0.95, 1.0, 1.05].into_boxed_slice();
-        let result = MonotoneConvex::new(
+        let result = new_strict!(
+            MonotoneConvex,
             standard_knots(),
             increasing_dfs,
-            ExtrapolationPolicy::default(),
+            ExtrapolationPolicy::default()
         );
         assert!(result.is_err(), "Should reject increasing DFs (arbitrage)");
     }
@@ -830,9 +890,13 @@ mod monotone_convex_specific {
     #[test]
     fn near_flat_curve_handled() {
         let near_flat = vec![1.0, 0.999999, 0.999998, 0.999997].into_boxed_slice();
-        let interp =
-            MonotoneConvex::new(standard_knots(), near_flat, ExtrapolationPolicy::default())
-                .unwrap();
+        let interp = new_strict!(
+            MonotoneConvex,
+            standard_knots(),
+            near_flat,
+            ExtrapolationPolicy::default()
+        )
+        .unwrap();
 
         let mid = interp.interp(0.5);
         assert!(mid.is_finite());
@@ -841,10 +905,11 @@ mod monotone_convex_specific {
 
     #[test]
     fn shape_preservation() {
-        let interp = MonotoneConvex::new(
+        let interp = new_strict!(
+            MonotoneConvex,
             standard_knots(),
             standard_dfs(),
-            ExtrapolationPolicy::default(),
+            ExtrapolationPolicy::default()
         )
         .unwrap();
 
@@ -877,10 +942,11 @@ mod monotone_convex_specific {
 
     #[test]
     fn derivative_at_all_knot_points() {
-        let interp = MonotoneConvex::new(
+        let interp = new_strict!(
+            MonotoneConvex,
             standard_knots(),
             standard_dfs(),
-            ExtrapolationPolicy::FlatZero,
+            ExtrapolationPolicy::FlatZero
         )
         .unwrap();
 
@@ -893,10 +959,11 @@ mod monotone_convex_specific {
 
     #[test]
     fn derivative_extrapolation_flat_forward_left() {
-        let interp = MonotoneConvex::new(
+        let interp = new_strict!(
+            MonotoneConvex,
             standard_knots(),
             standard_dfs(),
-            ExtrapolationPolicy::FlatForward,
+            ExtrapolationPolicy::FlatForward
         )
         .unwrap();
 
@@ -916,10 +983,11 @@ mod monotone_convex_specific {
 
     #[test]
     fn derivative_extrapolation_flat_forward_right() {
-        let interp = MonotoneConvex::new(
+        let interp = new_strict!(
+            MonotoneConvex,
             standard_knots(),
             standard_dfs(),
-            ExtrapolationPolicy::FlatForward,
+            ExtrapolationPolicy::FlatForward
         )
         .unwrap();
 
@@ -939,10 +1007,11 @@ mod monotone_convex_specific {
 
     #[test]
     fn interp_at_exact_knots_returns_exact_values() {
-        let interp = MonotoneConvex::new(
+        let interp = new_strict!(
+            MonotoneConvex,
             standard_knots(),
             standard_dfs(),
-            ExtrapolationPolicy::FlatZero,
+            ExtrapolationPolicy::FlatZero
         )
         .unwrap();
 
@@ -954,10 +1023,11 @@ mod monotone_convex_specific {
 
     #[test]
     fn extrapolation_flat_forward_values_left() {
-        let interp = MonotoneConvex::new(
+        let interp = new_strict!(
+            MonotoneConvex,
             standard_knots(),
             standard_dfs(),
-            ExtrapolationPolicy::FlatForward,
+            ExtrapolationPolicy::FlatForward
         )
         .unwrap();
 
@@ -968,10 +1038,11 @@ mod monotone_convex_specific {
 
     #[test]
     fn extrapolation_flat_forward_values_right() {
-        let interp = MonotoneConvex::new(
+        let interp = new_strict!(
+            MonotoneConvex,
             standard_knots(),
             standard_dfs(),
-            ExtrapolationPolicy::FlatForward,
+            ExtrapolationPolicy::FlatForward
         )
         .unwrap();
 
@@ -989,7 +1060,8 @@ mod monotone_convex_specific {
         let knots = vec![0.0, 1.0, 2.0, 3.0].into_boxed_slice();
         let steep_dfs = vec![1.0, 0.8, 0.6, 0.4].into_boxed_slice();
 
-        let interp = MonotoneConvex::new(knots, steep_dfs, ExtrapolationPolicy::FlatZero).unwrap();
+        let interp =
+            new_strict!(MonotoneConvex, knots, steep_dfs, ExtrapolationPolicy::FlatZero).unwrap();
 
         for x in (0..30).map(|i| i as f64 * 0.1) {
             let val = interp.interp(x);
@@ -1002,7 +1074,8 @@ mod monotone_convex_specific {
         let knots = vec![0.0, 1.0, 2.0, 3.0].into_boxed_slice();
         let near_flat = vec![1.0, 0.9999, 0.9998, 0.9997].into_boxed_slice();
 
-        let interp = MonotoneConvex::new(knots, near_flat, ExtrapolationPolicy::FlatZero).unwrap();
+        let interp =
+            new_strict!(MonotoneConvex, knots, near_flat, ExtrapolationPolicy::FlatZero).unwrap();
 
         for x in (0..30).map(|i| i as f64 * 0.1) {
             let val = interp.interp(x);
@@ -1020,7 +1093,8 @@ mod monotone_convex_specific {
         let knots = vec![0.0, 1.0, 2.0, 3.0, 4.0].into_boxed_slice();
         let non_monotone = vec![1.0, 0.9, 0.85, 0.86, 0.84].into_boxed_slice();
 
-        let result = MonotoneConvex::new(knots, non_monotone, ExtrapolationPolicy::FlatZero);
+        let result =
+            new_strict!(MonotoneConvex, knots, non_monotone, ExtrapolationPolicy::FlatZero);
         assert!(
             result.is_err(),
             "MonotoneConvex should reject non-monotone input"
@@ -1032,7 +1106,8 @@ mod monotone_convex_specific {
         let knots = vec![0.0, 1.0].into_boxed_slice();
         let dfs = vec![1.0, 0.95].into_boxed_slice();
 
-        let interp = MonotoneConvex::new(knots, dfs, ExtrapolationPolicy::FlatZero).unwrap();
+        let interp =
+            new_strict!(MonotoneConvex, knots, dfs, ExtrapolationPolicy::FlatZero).unwrap();
 
         assert!(approx_eq(interp.interp(0.0), 1.0, 1e-12));
         assert!(approx_eq(interp.interp(1.0), 0.95, 1e-12));
@@ -1046,7 +1121,8 @@ mod monotone_convex_specific {
         let knots = vec![0.0, 0.5, 1.0, 2.0, 3.0].into_boxed_slice();
         let dfs = vec![1.0, 0.98, 0.95, 0.9, 0.85].into_boxed_slice();
 
-        let interp = MonotoneConvex::new(knots, dfs, ExtrapolationPolicy::FlatZero).unwrap();
+        let interp =
+            new_strict!(MonotoneConvex, knots, dfs, ExtrapolationPolicy::FlatZero).unwrap();
 
         assert!(approx_eq(interp.interp(0.0), 1.0, 1e-12));
         assert!(approx_eq(interp.interp(0.5), 0.98, 1e-12));
@@ -1086,7 +1162,8 @@ mod traits {
     fn interp_fn_default_derivative_for_linear_function() {
         let knots = vec![0.0, 1.0, 2.0].into_boxed_slice();
         let values = vec![1.0, 0.5, 0.1].into_boxed_slice();
-        let interp = LinearDf::new(knots, values, ExtrapolationPolicy::FlatZero).unwrap();
+        let interp =
+            new_strict!(LinearDf, knots, values, ExtrapolationPolicy::FlatZero).unwrap();
 
         let deriv_0_5 = interp.interp_prime(0.5);
         let deriv_1_5 = interp.interp_prime(1.5);
@@ -1099,7 +1176,7 @@ mod traits {
     fn interp_fn_derivative_for_exponential_function() {
         let knots = vec![0.0, 1.0, 2.0].into_boxed_slice();
         let dfs = vec![1.0, 0.95, 0.9].into_boxed_slice();
-        let interp = LogLinearDf::new(knots, dfs, ExtrapolationPolicy::FlatZero).unwrap();
+        let interp = new_strict!(LogLinearDf, knots, dfs, ExtrapolationPolicy::FlatZero).unwrap();
 
         let deriv_0_5 = interp.interp_prime(0.5);
         let deriv_1_5 = interp.interp_prime(1.5);
@@ -1114,7 +1191,8 @@ mod traits {
     fn interp_fn_derivative_consistency() {
         let knots = vec![0.0, 1.0, 2.0, 3.0].into_boxed_slice();
         let values = vec![1.0, 0.8, 0.6, 0.4].into_boxed_slice();
-        let interp = LinearDf::new(knots, values, ExtrapolationPolicy::FlatZero).unwrap();
+        let interp =
+            new_strict!(LinearDf, knots, values, ExtrapolationPolicy::FlatZero).unwrap();
 
         let x = 1.5;
         let h = 6e-6;
@@ -1134,7 +1212,8 @@ mod traits {
     fn interp_fn_derivative_at_boundaries() {
         let knots = vec![0.0, 1.0, 2.0].into_boxed_slice();
         let values = vec![1.0, 0.5, 0.25].into_boxed_slice();
-        let interp = LinearDf::new(knots, values, ExtrapolationPolicy::FlatZero).unwrap();
+        let interp =
+            new_strict!(LinearDf, knots, values, ExtrapolationPolicy::FlatZero).unwrap();
 
         let deriv_0 = interp.interp_prime(0.0);
         let deriv_1 = interp.interp_prime(1.0);
@@ -1153,7 +1232,8 @@ mod traits {
     fn interp_fn_derivative_extrapolation_flat_zero() {
         let knots = vec![0.0, 1.0].into_boxed_slice();
         let values = vec![1.0, 0.5].into_boxed_slice();
-        let interp = LinearDf::new(knots, values, ExtrapolationPolicy::FlatZero).unwrap();
+        let interp =
+            new_strict!(LinearDf, knots, values, ExtrapolationPolicy::FlatZero).unwrap();
 
         let deriv_below = interp.interp_prime(-0.5);
         let deriv_above = interp.interp_prime(2.0);
@@ -1166,7 +1246,8 @@ mod traits {
     fn interp_fn_derivative_extrapolation_flat_forward() {
         let knots = vec![0.0, 1.0].into_boxed_slice();
         let values = vec![1.0, 0.5].into_boxed_slice();
-        let interp = LinearDf::new(knots, values, ExtrapolationPolicy::FlatForward).unwrap();
+        let interp =
+            new_strict!(LinearDf, knots, values, ExtrapolationPolicy::FlatForward).unwrap();
 
         let deriv_interior = interp.interp_prime(0.5);
         let deriv_below = interp.interp_prime(-0.5);
@@ -1188,9 +1269,8 @@ mod serde_tests {
     fn linear_df_roundtrip() {
         let knots = vec![0.0, 1.0, 2.0, 3.0, 5.0].into_boxed_slice();
         let dfs = vec![1.0, 0.98, 0.95, 0.92, 0.87].into_boxed_slice();
-        let extrapolation = ExtrapolationPolicy::FlatZero;
 
-        let linear = LinearDf::new(knots, dfs, extrapolation).unwrap();
+        let linear = new_strict!(LinearDf, knots, dfs, ExtrapolationPolicy::FlatZero).unwrap();
         let json = serde_json::to_string_pretty(&linear).unwrap();
         let deserialized: LinearDf = serde_json::from_str(&json).unwrap();
         assert_eq!(linear.interp(1.5), deserialized.interp(1.5));
@@ -1200,9 +1280,9 @@ mod serde_tests {
     fn log_linear_df_roundtrip() {
         let knots = vec![0.0, 1.0, 2.0, 3.0, 5.0].into_boxed_slice();
         let dfs = vec![1.0, 0.98, 0.95, 0.92, 0.87].into_boxed_slice();
-        let extrapolation = ExtrapolationPolicy::FlatZero;
 
-        let log_linear = LogLinearDf::new(knots, dfs, extrapolation).unwrap();
+        let log_linear =
+            new_strict!(LogLinearDf, knots, dfs, ExtrapolationPolicy::FlatZero).unwrap();
         let json = serde_json::to_string_pretty(&log_linear).unwrap();
         let deserialized: LogLinearDf = serde_json::from_str(&json).unwrap();
         assert!((log_linear.interp(1.5) - deserialized.interp(1.5)).abs() < 1e-10);
@@ -1212,9 +1292,9 @@ mod serde_tests {
     fn monotone_convex_roundtrip() {
         let knots = vec![0.0, 1.0, 2.0, 3.0, 5.0].into_boxed_slice();
         let dfs = vec![1.0, 0.98, 0.95, 0.92, 0.87].into_boxed_slice();
-        let extrapolation = ExtrapolationPolicy::FlatZero;
 
-        let monotone = MonotoneConvex::new(knots, dfs, extrapolation).unwrap();
+        let monotone =
+            new_strict!(MonotoneConvex, knots, dfs, ExtrapolationPolicy::FlatZero).unwrap();
         let json = serde_json::to_string_pretty(&monotone).unwrap();
         let deserialized: MonotoneConvex = serde_json::from_str(&json).unwrap();
         assert!((monotone.interp(1.5) - deserialized.interp(1.5)).abs() < 1e-10);
@@ -1224,9 +1304,9 @@ mod serde_tests {
     fn cubic_hermite_roundtrip() {
         let knots = vec![0.0, 1.0, 2.0, 3.0, 5.0].into_boxed_slice();
         let dfs = vec![1.0, 0.98, 0.95, 0.92, 0.87].into_boxed_slice();
-        let extrapolation = ExtrapolationPolicy::FlatZero;
 
-        let cubic = CubicHermite::new(knots, dfs, extrapolation).unwrap();
+        let cubic =
+            new_strict!(CubicHermite, knots, dfs, ExtrapolationPolicy::FlatZero).unwrap();
         let json = serde_json::to_string_pretty(&cubic).unwrap();
         let deserialized: CubicHermite = serde_json::from_str(&json).unwrap();
         assert!((cubic.interp(1.5) - deserialized.interp(1.5)).abs() < 1e-10);
@@ -1236,9 +1316,9 @@ mod serde_tests {
     fn flat_fwd_roundtrip() {
         let knots = vec![0.0, 1.0, 2.0, 3.0, 5.0].into_boxed_slice();
         let dfs = vec![1.0, 0.98, 0.95, 0.92, 0.87].into_boxed_slice();
-        let extrapolation = ExtrapolationPolicy::FlatZero;
 
-        let flat_fwd = LogLinearDf::new(knots, dfs, extrapolation).unwrap();
+        let flat_fwd =
+            new_strict!(LogLinearDf, knots, dfs, ExtrapolationPolicy::FlatZero).unwrap();
         let json = serde_json::to_string_pretty(&flat_fwd).unwrap();
         let deserialized: LogLinearDf = serde_json::from_str(&json).unwrap();
         assert!((flat_fwd.interp(1.5) - deserialized.interp(1.5)).abs() < 1e-10);
@@ -1270,6 +1350,7 @@ mod extrapolation_policy_tests {
                 standard_knots(),
                 standard_dfs(),
                 ExtrapolationPolicy::FlatZero,
+                ValidationPolicy::Strict,
             )
             .unwrap();
 
@@ -1292,6 +1373,7 @@ mod extrapolation_policy_tests {
                 standard_knots(),
                 standard_dfs(),
                 ExtrapolationPolicy::FlatForward,
+                ValidationPolicy::Strict,
             )
             .unwrap();
 

@@ -6,7 +6,7 @@
 
 use super::{
     traits::{InterpFn, InterpolationStrategy},
-    types::ExtrapolationPolicy,
+    types::{ExtrapolationPolicy, ValidationPolicy},
     utils::{validate_finite_series, validate_knots, validate_positive_series},
 };
 use crate::error::InputError;
@@ -27,13 +27,14 @@ use crate::error::InputError;
 /// # Example
 ///
 /// ```rust
-/// use finstack_core::math::interp::{ExtrapolationPolicy, InterpFn, LinearDf};
+/// use finstack_core::math::interp::{ExtrapolationPolicy, InterpFn, LinearDf, ValidationPolicy};
 ///
 /// # fn main() -> finstack_core::Result<()> {
 /// let interp = LinearDf::new(
 ///     vec![0.0, 1.0, 2.0].into_boxed_slice(),
 ///     vec![1.0, 0.95, 0.90].into_boxed_slice(),
 ///     ExtrapolationPolicy::FlatZero,
+///     ValidationPolicy::Strict,
 /// )?;
 /// let value = interp.interp(0.5);
 /// # let _ = value;
@@ -55,23 +56,50 @@ pub struct Interpolator<S: InterpolationStrategy> {
 }
 
 impl<S: InterpolationStrategy> Interpolator<S> {
-    /// Construct a new interpolator with the given strategy.
+    /// Construct a new interpolator with the given strategy and validation policy.
     ///
     /// # Arguments
     /// * `knots` – strictly ascending knot times.
     /// * `values` – corresponding values (semantics depend on strategy).
     /// * `extrapolation` – extrapolation policy.
+    /// * `validation` – validation policy controlling whether negative values are allowed.
     ///
     /// # Errors
     /// * `InputError::TooFewPoints` – fewer than two knots.
     /// * `InputError::NonMonotonicKnots` – knots not strictly increasing.
-    /// * `InputError::NonPositiveValue` – values not positive (if required by strategy).
+    /// * `InputError::NonPositiveValue` – values not positive (when `validation` is `Strict`).
     /// * Strategy-specific errors from `S::from_raw`.
+    ///
+    /// # Examples
+    ///
+    /// ```rust
+    /// use finstack_core::math::interp::{ExtrapolationPolicy, LinearDf, ValidationPolicy};
+    ///
+    /// # fn main() -> finstack_core::Result<()> {
+    /// // Strict validation (default) - requires positive values for discount factors
+    /// let df_interp = LinearDf::new(
+    ///     vec![0.0, 1.0, 2.0].into_boxed_slice(),
+    ///     vec![1.0, 0.95, 0.90].into_boxed_slice(),
+    ///     ExtrapolationPolicy::FlatZero,
+    ///     ValidationPolicy::Strict,
+    /// )?;
+    ///
+    /// // AllowNegative - permits negative values for forward rate curves
+    /// let fwd_interp = LinearDf::new(
+    ///     vec![0.0, 1.0, 2.0].into_boxed_slice(),
+    ///     vec![-0.01, 0.0, 0.01].into_boxed_slice(),
+    ///     ExtrapolationPolicy::FlatZero,
+    ///     ValidationPolicy::AllowNegative,
+    /// )?;
+    /// # Ok(())
+    /// # }
+    /// ```
     #[allow(clippy::boxed_local)]
     pub fn new(
         knots: Box<[f64]>,
         values: Box<[f64]>,
         extrapolation: ExtrapolationPolicy,
+        validation: ValidationPolicy,
     ) -> crate::Result<Self> {
         // Centralized validation
         if knots.len() != values.len() {
@@ -82,52 +110,11 @@ impl<S: InterpolationStrategy> Interpolator<S> {
         }
         validate_knots(&knots)?;
         validate_finite_series(&values)?;
-        validate_positive_series(&values)?;
 
-        // Build strategy-specific state
-        let strategy = S::from_raw(&knots, &values, extrapolation)?;
-
-        Ok(Self {
-            knots,
-            values,
-            strategy,
-            extrapolation,
-        })
-    }
-
-    /// Construct a new interpolator allowing any values (including negative).
-    ///
-    /// This is useful for forward rate curves where negative rates are allowed
-    /// (e.g., EUR, CHF, JPY markets since 2014).
-    ///
-    /// **Note:** LogLinear interpolation requires positive values (for log transform),
-    /// so this constructor will fail for LogLinear with negative values.
-    ///
-    /// # Arguments
-    /// * `knots` – strictly ascending knot times.
-    /// * `values` – corresponding values (can be negative for Linear/LogLinear).
-    /// * `extrapolation` – extrapolation policy.
-    ///
-    /// # Errors
-    /// * `InputError::TooFewPoints` – fewer than two knots.
-    /// * `InputError::NonMonotonicKnots` – knots not strictly increasing.
-    /// * Strategy-specific errors from `S::from_raw`.
-    #[allow(clippy::boxed_local)]
-    pub fn new_allow_any_values(
-        knots: Box<[f64]>,
-        values: Box<[f64]>,
-        extrapolation: ExtrapolationPolicy,
-    ) -> crate::Result<Self> {
-        // Validate knots but NOT values (allow negative rates)
-        if knots.len() != values.len() {
-            return Err(InputError::DimensionMismatch.into());
+        // Apply validation policy
+        if validation == ValidationPolicy::Strict {
+            validate_positive_series(&values)?;
         }
-        if knots.len() < 2 {
-            return Err(InputError::TooFewPoints.into());
-        }
-        validate_knots(&knots)?;
-        // Skip validate_positive_series for forward curves, but still reject NaN/Inf.
-        validate_finite_series(&values)?;
 
         // Build strategy-specific state
         let strategy = S::from_raw(&knots, &values, extrapolation)?;

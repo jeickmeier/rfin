@@ -10,6 +10,7 @@
 use criterion::{criterion_group, criterion_main, BenchmarkId, Criterion};
 use finstack_core::math::interp::{
     CubicHermite, ExtrapolationPolicy, InterpFn, LinearDf, LogLinearDf, MonotoneConvex,
+    ValidationPolicy,
 };
 use std::hint::black_box;
 
@@ -26,7 +27,8 @@ fn create_test_curve(num_points: usize) -> (Box<[f64]>, Box<[f64]>) {
 
 fn bench_linear_interp(c: &mut Criterion) {
     let (knots, dfs) = create_test_curve(20);
-    let interp = LinearDf::new(knots, dfs, ExtrapolationPolicy::FlatZero).unwrap();
+    let interp =
+        LinearDf::new(knots, dfs, ExtrapolationPolicy::FlatZero, ValidationPolicy::Strict).unwrap();
 
     c.bench_function("interp_linear_single", |b| {
         b.iter(|| {
@@ -50,7 +52,13 @@ fn bench_linear_interp(c: &mut Criterion) {
 
 fn bench_log_linear_interp(c: &mut Criterion) {
     let (knots, dfs) = create_test_curve(20);
-    let interp = LogLinearDf::new(knots, dfs, ExtrapolationPolicy::FlatZero).unwrap();
+    let interp = LogLinearDf::new(
+        knots,
+        dfs,
+        ExtrapolationPolicy::FlatZero,
+        ValidationPolicy::Strict,
+    )
+    .unwrap();
 
     c.bench_function("interp_log_linear_single", |b| {
         b.iter(|| {
@@ -74,7 +82,13 @@ fn bench_log_linear_interp(c: &mut Criterion) {
 
 fn bench_cubic_hermite_interp(c: &mut Criterion) {
     let (knots, dfs) = create_test_curve(20);
-    let interp = CubicHermite::new(knots, dfs, ExtrapolationPolicy::FlatZero).unwrap();
+    let interp = CubicHermite::new(
+        knots,
+        dfs,
+        ExtrapolationPolicy::FlatZero,
+        ValidationPolicy::Strict,
+    )
+    .unwrap();
 
     c.bench_function("interp_cubic_hermite_single", |b| {
         b.iter(|| {
@@ -98,7 +112,13 @@ fn bench_cubic_hermite_interp(c: &mut Criterion) {
 
 fn bench_monotone_convex_interp(c: &mut Criterion) {
     let (knots, dfs) = create_test_curve(20);
-    let interp = MonotoneConvex::new(knots, dfs, ExtrapolationPolicy::FlatZero).unwrap();
+    let interp = MonotoneConvex::new(
+        knots,
+        dfs,
+        ExtrapolationPolicy::FlatZero,
+        ValidationPolicy::Strict,
+    )
+    .unwrap();
 
     c.bench_function("interp_monotone_convex_single", |b| {
         b.iter(|| {
@@ -122,7 +142,13 @@ fn bench_monotone_convex_interp(c: &mut Criterion) {
 
 fn bench_log_linear_batch(c: &mut Criterion) {
     let (knots, dfs) = create_test_curve(20);
-    let interp = LogLinearDf::new(knots, dfs, ExtrapolationPolicy::FlatZero).unwrap();
+    let interp = LogLinearDf::new(
+        knots,
+        dfs,
+        ExtrapolationPolicy::FlatZero,
+        ValidationPolicy::Strict,
+    )
+    .unwrap();
 
     c.bench_function("interp_log_linear_single", |b| {
         b.iter(|| {
@@ -148,14 +174,41 @@ fn bench_interp_comparison(c: &mut Criterion) {
     let mut group = c.benchmark_group("interp_comparison");
     let (knots, dfs) = create_test_curve(50);
 
-    let linear = LinearDf::new(knots.clone(), dfs.clone(), ExtrapolationPolicy::FlatZero).unwrap();
-    let log_linear =
-        LogLinearDf::new(knots.clone(), dfs.clone(), ExtrapolationPolicy::FlatZero).unwrap();
-    let cubic_hermite =
-        CubicHermite::new(knots.clone(), dfs.clone(), ExtrapolationPolicy::FlatZero).unwrap();
-    let monotone_convex =
-        MonotoneConvex::new(knots.clone(), dfs.clone(), ExtrapolationPolicy::FlatZero).unwrap();
-    let flat_fwd = LogLinearDf::new(knots, dfs, ExtrapolationPolicy::FlatZero).unwrap();
+    let linear = LinearDf::new(
+        knots.clone(),
+        dfs.clone(),
+        ExtrapolationPolicy::FlatZero,
+        ValidationPolicy::Strict,
+    )
+    .unwrap();
+    let log_linear = LogLinearDf::new(
+        knots.clone(),
+        dfs.clone(),
+        ExtrapolationPolicy::FlatZero,
+        ValidationPolicy::Strict,
+    )
+    .unwrap();
+    let cubic_hermite = CubicHermite::new(
+        knots.clone(),
+        dfs.clone(),
+        ExtrapolationPolicy::FlatZero,
+        ValidationPolicy::Strict,
+    )
+    .unwrap();
+    let monotone_convex = MonotoneConvex::new(
+        knots.clone(),
+        dfs.clone(),
+        ExtrapolationPolicy::FlatZero,
+        ValidationPolicy::Strict,
+    )
+    .unwrap();
+    let flat_fwd = LogLinearDf::new(
+        knots,
+        dfs,
+        ExtrapolationPolicy::FlatZero,
+        ValidationPolicy::Strict,
+    )
+    .unwrap();
 
     let test_times: Vec<f64> = (0..100).map(|i| (i as f64) * 0.05).collect();
 
@@ -205,9 +258,20 @@ fn bench_interp_comparison(c: &mut Criterion) {
 
 fn bench_interp_extrapolation(c: &mut Criterion) {
     let (knots, dfs) = create_test_curve(10);
-    let interp_flat_zero =
-        LinearDf::new(knots.clone(), dfs.clone(), ExtrapolationPolicy::FlatZero).unwrap();
-    let interp_flat_fwd = LinearDf::new(knots, dfs, ExtrapolationPolicy::FlatForward).unwrap();
+    let interp_flat_zero = LinearDf::new(
+        knots.clone(),
+        dfs.clone(),
+        ExtrapolationPolicy::FlatZero,
+        ValidationPolicy::Strict,
+    )
+    .unwrap();
+    let interp_flat_fwd = LinearDf::new(
+        knots,
+        dfs,
+        ExtrapolationPolicy::FlatForward,
+        ValidationPolicy::Strict,
+    )
+    .unwrap();
 
     c.bench_function("interp_extrap_flat_zero_left", |b| {
         b.iter(|| {

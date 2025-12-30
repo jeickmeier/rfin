@@ -5,7 +5,7 @@
 //! rely on the interpolation engine and therefore only reuse the serde helpers.
 
 use crate::math::interp::types::Interp;
-use crate::math::interp::{ExtrapolationPolicy, InterpStyle};
+use crate::math::interp::{ExtrapolationPolicy, InterpStyle, ValidationPolicy};
 use crate::Result;
 
 /// Build an `Interp` with unified error mapping (crate::Result) for callers
@@ -19,7 +19,7 @@ pub(crate) fn build_interp(
     values: Box<[f64]>,
     extrapolation: ExtrapolationPolicy,
 ) -> Result<Interp> {
-    style.build_enum(knots, values, extrapolation)
+    style.build_enum(knots, values, extrapolation, ValidationPolicy::Strict)
 }
 
 /// Build an `Interp` allowing any values (including negative forward rates).
@@ -35,7 +35,7 @@ pub(crate) fn build_interp_allow_any_values(
     values: Box<[f64]>,
     extrapolation: ExtrapolationPolicy,
 ) -> Result<Interp> {
-    style.build_enum_allow_any_values(knots, values, extrapolation)
+    style.build_enum(knots, values, extrapolation, ValidationPolicy::AllowNegative)
 }
 
 /// Build an `Interp` mapping errors to `InputError` for discount curve builders.
@@ -48,13 +48,14 @@ pub(crate) fn build_interp_input_error(
     skip_validation: bool,
 ) -> crate::Result<Interp> {
     // Preserve the original interpolation error (usually an InputError).
-    if skip_validation {
+    let validation = if skip_validation {
         // Allow domain-specific builders (e.g., discount curves) to defer value validation
         // to downstream helpers while still validating knot shape upstream.
-        style.build_enum_allow_any_values(knots, values, extrapolation)
+        ValidationPolicy::AllowNegative
     } else {
-        style.build_enum(knots, values, extrapolation)
-    }
+        ValidationPolicy::Strict
+    };
+    style.build_enum(knots, values, extrapolation, validation)
 }
 
 /// Convenience to split points (t, v) into separate vectors.

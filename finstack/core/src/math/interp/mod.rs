@@ -44,7 +44,7 @@ mod wrappers;
 pub use generic::Interpolator;
 pub use strategies::DEFAULT_MONOTONE_CONVEX_EPSILON;
 pub use traits::{InterpFn, InterpolationStrategy};
-pub use types::{ExtrapolationPolicy, InterpStyle, DERIVATIVE_EPSILON};
+pub use types::{ExtrapolationPolicy, InterpStyle, ValidationPolicy, DERIVATIVE_EPSILON};
 /// Validate knot ordering and finiteness (internal helper used by curve builders).
 pub use utils::validate_knots;
 pub use wrappers::{
