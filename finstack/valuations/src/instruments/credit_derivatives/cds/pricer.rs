@@ -193,16 +193,6 @@ pub struct CDSPricerConfig {
     pub adaptive_steps: bool,
     /// Include accrual on default in premium leg calculation
     pub include_accrual: bool,
-    /// Use exact day count fractions.
-    ///
-    /// **Deprecated**: This field is deprecated and will be removed in a future version.
-    /// Exact day count is now always used for correctness. Setting this to `false`
-    /// will log a warning and still use exact day count.
-    #[deprecated(
-        since = "0.1.0",
-        note = "exact_daycount is deprecated; exact day count is now always used"
-    )]
-    pub exact_daycount: bool,
     /// Tolerance for iterative calculations
     pub tolerance: f64,
     /// Integration method for protection leg calculation
@@ -249,14 +239,12 @@ impl CDSPricerConfig {
     /// - Accrual-on-default included
     /// - Risky annuity for par spread denominator
     #[must_use]
-    #[allow(deprecated)]
     pub fn isda_standard() -> Self {
         Self {
             steps_per_year: isda::STANDARD_INTEGRATION_POINTS,
             min_steps_per_year: isda::STANDARD_INTEGRATION_POINTS,
             adaptive_steps: true,
             include_accrual: true,
-            exact_daycount: true,
             tolerance: NUMERICAL_TOLERANCE,
             integration_method: IntegrationMethod::IsdaStandardModel,
             use_isda_coupon_dates: true,
@@ -292,14 +280,12 @@ impl CDSPricerConfig {
     /// Uses midpoint integration without adaptive steps. Suitable for
     /// approximate valuations or high-volume batch processing.
     #[must_use]
-    #[allow(deprecated)]
     pub fn simplified() -> Self {
         Self {
             steps_per_year: 365,
             min_steps_per_year: 52,
             adaptive_steps: false,
             include_accrual: true,
-            exact_daycount: true, // Always use exact day count for correctness
             tolerance: 1e-7,
             integration_method: IntegrationMethod::Midpoint,
             use_isda_coupon_dates: false,
@@ -1156,18 +1142,8 @@ impl CDSPricer {
         self.npv_with_upfront(cds, disc, surv, as_of)
     }
 
-    /// Year fraction helper using exact day count.
-    ///
-    /// Always uses the provided day count convention for correctness.
-    /// The `exact_daycount` config field is deprecated and ignored.
-    #[allow(deprecated)]
+    /// Year fraction helper using the provided day count convention.
     fn year_fraction(&self, start: Date, end: Date, dc: DayCount) -> Result<f64> {
-        if !self.config.exact_daycount {
-            tracing::warn!(
-                "CDSPricerConfig.exact_daycount=false is deprecated and ignored; \
-                 exact day count is always used for correctness"
-            );
-        }
         dc.year_fraction(start, end, finstack_core::dates::DayCountCtx::default())
     }
 }

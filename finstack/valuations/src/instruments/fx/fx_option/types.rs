@@ -67,7 +67,7 @@ pub struct FxOption {
 
 // Implement HasDiscountCurve for GenericParallelDv01
 // Uses domestic curve as the primary discount curve
-impl crate::metrics::HasDiscountCurve for FxOption {
+impl crate::instruments::common::pricing::HasDiscountCurve for FxOption {
     fn discount_curve_id(&self) -> &finstack_core::types::CurveId {
         &self.domestic_discount_curve_id
     }

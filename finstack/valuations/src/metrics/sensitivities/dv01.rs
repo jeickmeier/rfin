@@ -4,7 +4,6 @@
 //! correct key-rate methods:
 //!
 //! 1. **Triangular Zero-Rate**: Fast, uses triangular weights on bucket grid
-//! 2. **Par-Rate Bumping**: Gold standard, re-bootstraps curve from bumped quotes
 //!
 //! Both methods ensure: **sum of bucketed DV01 ≈ parallel DV01**
 //!
@@ -37,40 +36,9 @@
 //! # Ok(())
 //! # }
 //! ```
-//!
-//! ## Example 2: Par-Rate DV01 (Exact Sum)
-//!
-//! ```rust,no_run
-//! use finstack_valuations::instruments::Bond;
-//! use finstack_valuations::metrics::{Dv01CalculatorConfig, MetricCalculator, MetricContext, ParRateContext, UnifiedDv01Calculator};
-//! use finstack_valuations::market::quotes::rates::RateQuote;
-//! use finstack_valuations::calibration::api::schema::DiscountCurveParams;
-//! use finstack_core::market_data::context::MarketContext;
-//!
-//! # fn main() -> finstack_core::Result<()> {
-//! # let quotes: Vec<RateQuote> = Vec::new();
-//! # let params: DiscountCurveParams = todo!("discount curve calibration params");
-//! let base_context = MarketContext::new();
-//! let par_context = ParRateContext::new(quotes, params, base_context);
-//! let calculator = UnifiedDv01Calculator::<Bond>::new(
-//!     Dv01CalculatorConfig::par_rate_key_rate(par_context)
-//! );
-//!
-//! # let mut context: MetricContext = todo!("construct MetricContext during pricing");
-//! let total_dv01 = calculator.calculate(&mut context)?;
-//! // Sum of bucketed DV01 will equal parallel DV01 within numerical precision
-//! # let _ = total_dv01;
-//! # Ok(())
-//! # }
-//! ```
 
-use crate::calibration::api::schema::DiscountCurveParams;
-use crate::calibration::bumps::rates::{bump_discount_curve, find_closest_quote};
-use crate::calibration::bumps::BumpRequest;
-use crate::calibration::CalibrationConfig;
 use crate::instruments::common::pricing::HasDiscountCurve;
 use crate::instruments::common::traits::{CurveDependencies, Instrument, RatesCurveKind};
-use crate::market::quotes::rates::RateQuote;
 use crate::metrics::sensitivities::config as sens_config;
 use crate::metrics::MetricCalculator;
 use crate::metrics::{MetricContext, MetricId};
@@ -80,7 +48,6 @@ use finstack_core::market_data::context::MarketContext;
 use finstack_core::types::CurveId;
 use finstack_core::HashMap;
 use std::marker::PhantomData;
-use std::sync::Arc;
 
 // =============================================================================
 // Standard Buckets
@@ -123,104 +90,6 @@ pub enum Dv01ComputationMode {
     ParallelPerCurve,
     /// Key-rate buckets per curve using triangular zero-rate bumps.
     KeyRateTriangular,
-    /// Key-rate buckets per curve using par-rate bumping with re-bootstrap.
-    KeyRateParRate,
-}
-
-/// Which curves to include in DV01 calculation.
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub enum CurveSelection {
-    /// Only primary discount curve.
-    DiscountOnly,
-    /// Discount + all forward curves.
-    DiscountAndForward,
-    /// All rate-sensitive curves (discount + forward + extra discount).
-    AllRateCurves,
-}
-
-/// Context for par-rate DV01 calculation.
-///
-/// Par-rate DV01 is the gold standard for interest rate risk. It bumps the
-/// par rate of calibration instruments and re-bootstraps the curve, ensuring
-/// exact sum-to-parallel behavior (within numerical precision).
-///
-/// # Example
-///
-/// ```rust,no_run
-/// use finstack_valuations::metrics::ParRateContext;
-/// use finstack_valuations::market::quotes::rates::RateQuote;
-/// use finstack_valuations::calibration::api::schema::DiscountCurveParams;
-/// use finstack_core::market_data::context::MarketContext;
-///
-/// # let quotes: Vec<RateQuote> = Vec::new();
-/// # let params: DiscountCurveParams = todo!("discount curve calibration params");
-/// let base_market = MarketContext::new();
-/// let context = ParRateContext::new(quotes, params, base_market);
-/// ```
-#[derive(Clone)]
-pub struct ParRateContext {
-    /// Calibration quotes sorted by maturity
-    pub quotes: Vec<RateQuote>,
-    /// Discount-curve step parameters describing how to rebuild the curve.
-    pub params: DiscountCurveParams,
-    /// Global calibration settings (tolerances, bounds).
-    pub settings: CalibrationConfig,
-    /// Base market context (without the curve being calibrated)
-    pub base_context: MarketContext,
-}
-
-impl ParRateContext {
-    /// Create a new par-rate context.
-    ///
-    /// Quotes are automatically sorted by maturity date.
-    pub fn new(
-        quotes: Vec<RateQuote>,
-        params: DiscountCurveParams,
-        base_context: MarketContext,
-    ) -> Self {
-        let mut sorted_quotes = quotes;
-        sorted_quotes.sort_by(|a, b| {
-            let ad = approx_quote_maturity_date(a);
-            let bd = approx_quote_maturity_date(b);
-            match (ad, bd) {
-                (Some(a), Some(b)) => a.cmp(&b),
-                (Some(_), None) => std::cmp::Ordering::Less,
-                (None, Some(_)) => std::cmp::Ordering::Greater,
-                (None, None) => a.id().as_str().cmp(b.id().as_str()),
-            }
-        });
-        Self {
-            quotes: sorted_quotes,
-            params,
-            settings: CalibrationConfig::default(),
-            base_context,
-        }
-    }
-
-    /// Override plan-level calibration settings (tolerances, bounds).
-    #[must_use]
-    pub fn with_settings(mut self, settings: CalibrationConfig) -> Self {
-        self.settings = settings;
-        self
-    }
-}
-
-/// Best-effort maturity date for sorting quotes (used for par-rate bumping).
-///
-/// This intentionally does **not** resolve tenors into dates (that requires a base date and
-/// conventions). Quotes without an absolute maturity are sorted after those with one.
-fn approx_quote_maturity_date(q: &RateQuote) -> Option<finstack_core::dates::Date> {
-    match q {
-        RateQuote::Deposit { pillar, .. } | RateQuote::Swap { pillar, .. } => match pillar {
-            crate::market::quotes::ids::Pillar::Date(d) => Some(*d),
-            crate::market::quotes::ids::Pillar::Tenor(_) => None,
-        },
-        RateQuote::Fra { end, .. } => match end {
-            crate::market::quotes::ids::Pillar::Date(d) => Some(*d),
-            crate::market::quotes::ids::Pillar::Tenor(_) => None,
-        },
-        RateQuote::Futures { expiry, .. } => Some(*expiry),
-    }
 }
 
 /// Configuration for DV01 calculations.
@@ -228,21 +97,15 @@ fn approx_quote_maturity_date(q: &RateQuote) -> Option<finstack_core::dates::Dat
 pub struct Dv01CalculatorConfig {
     /// Computation mode (parallel vs bucketed, triangular vs par-rate).
     pub mode: Dv01ComputationMode,
-    /// Which curves to bump.
-    pub curve_selection: CurveSelection,
     /// Bucket times for key-rate DV01 (in years).
     pub buckets: Vec<f64>,
-    /// Calibration context for par-rate method (required for KeyRateParRate mode).
-    pub par_rate_context: Option<Arc<ParRateContext>>,
 }
 
 impl std::fmt::Debug for Dv01CalculatorConfig {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         f.debug_struct("Dv01CalculatorConfig")
             .field("mode", &self.mode)
-            .field("curve_selection", &self.curve_selection)
             .field("buckets", &self.buckets)
-            .field("par_rate_context", &self.par_rate_context.is_some())
             .finish()
     }
 }
@@ -251,9 +114,7 @@ impl Default for Dv01CalculatorConfig {
     fn default() -> Self {
         Self {
             mode: Dv01ComputationMode::KeyRateTriangular,
-            curve_selection: CurveSelection::AllRateCurves,
             buckets: standard_ir_dv01_buckets(),
-            par_rate_context: None,
         }
     }
 }
@@ -263,9 +124,7 @@ impl Dv01CalculatorConfig {
     pub fn parallel_combined() -> Self {
         Self {
             mode: Dv01ComputationMode::ParallelCombined,
-            curve_selection: CurveSelection::AllRateCurves,
             buckets: vec![],
-            par_rate_context: None,
         }
     }
 
@@ -273,9 +132,7 @@ impl Dv01CalculatorConfig {
     pub fn parallel_per_curve() -> Self {
         Self {
             mode: Dv01ComputationMode::ParallelPerCurve,
-            curve_selection: CurveSelection::AllRateCurves,
             buckets: vec![],
-            par_rate_context: None,
         }
     }
 
@@ -293,34 +150,6 @@ impl Dv01CalculatorConfig {
     /// Create config for key-rate DV01 (alias for triangular_key_rate).
     pub fn key_rate() -> Self {
         Self::triangular_key_rate()
-    }
-
-    /// Create config for par-rate key-rate DV01.
-    ///
-    /// This is the gold standard for interest rate risk. Requires a `ParRateContext`
-    /// containing the calibration quotes used to build the curve.
-    ///
-    /// **Pros**: Exact sum = parallel (within numerical precision)
-    /// **Cons**: Slower, requires calibration context
-    pub fn par_rate_key_rate(context: ParRateContext) -> Self {
-        Self {
-            mode: Dv01ComputationMode::KeyRateParRate,
-            curve_selection: CurveSelection::AllRateCurves,
-            buckets: standard_ir_dv01_buckets(),
-            par_rate_context: Some(Arc::new(context)),
-        }
-    }
-
-    /// Set custom buckets.
-    pub fn with_buckets(mut self, buckets: Vec<f64>) -> Self {
-        self.buckets = buckets;
-        self
-    }
-
-    /// Set curve selection.
-    pub fn with_curve_selection(mut self, selection: CurveSelection) -> Self {
-        self.curve_selection = selection;
-        self
     }
 }
 
@@ -382,9 +211,6 @@ where
             Dv01ComputationMode::KeyRateTriangular => {
                 self.compute_key_rate_triangular(context, &curves, bump_bp)
             }
-            Dv01ComputationMode::KeyRateParRate => {
-                self.compute_key_rate_par_rate(context, &curves, bump_bp)
-            }
         }
     }
 }
@@ -401,43 +227,20 @@ where
     ) -> finstack_core::Result<Vec<(CurveId, RatesCurveKind)>> {
         let deps = instrument.curve_dependencies();
         let mut curves = Vec::new();
-
-        match self.config.curve_selection {
-            CurveSelection::DiscountOnly => {
-                let primary = instrument.discount_curve_id();
-                if market.get_discount_ref(primary.as_str()).is_ok() {
-                    curves.push((primary.clone(), RatesCurveKind::Discount));
-                }
-            }
-            CurveSelection::DiscountAndForward => {
-                for curve_id in &deps.discount_curves {
+        for (curve_id, kind) in deps.all_with_kind() {
+            match kind {
+                RatesCurveKind::Discount => {
                     if market.get_discount_ref(curve_id.as_str()).is_ok() {
-                        curves.push((curve_id.clone(), RatesCurveKind::Discount));
+                        curves.push((curve_id, kind));
                     }
                 }
-                for curve_id in &deps.forward_curves {
+                RatesCurveKind::Forward => {
                     if market.get_forward_ref(curve_id.as_str()).is_ok() {
-                        curves.push((curve_id.clone(), RatesCurveKind::Forward));
+                        curves.push((curve_id, kind));
                     }
                 }
-            }
-            CurveSelection::AllRateCurves => {
-                for (curve_id, kind) in deps.all_with_kind() {
-                    match kind {
-                        RatesCurveKind::Discount => {
-                            if market.get_discount_ref(curve_id.as_str()).is_ok() {
-                                curves.push((curve_id, kind));
-                            }
-                        }
-                        RatesCurveKind::Forward => {
-                            if market.get_forward_ref(curve_id.as_str()).is_ok() {
-                                curves.push((curve_id, kind));
-                            }
-                        }
-                        RatesCurveKind::Credit => {
-                            // Skip credit curves for DV01
-                        }
-                    }
+                RatesCurveKind::Credit => {
+                    // Skip credit curves for DV01
                 }
             }
         }
@@ -612,122 +415,6 @@ where
         let total: f64 = series.iter().map(|(_, v)| *v).sum();
         Ok(total)
     }
-
-    /// Compute key-rate DV01 using par-rate bumping with re-bootstrap.
-    ///
-    /// This is the gold standard for interest rate risk. Bumps the par rate of
-    /// calibration instruments and re-bootstraps the curve.
-    fn compute_key_rate_par_rate(
-        &self,
-        context: &mut MetricContext,
-        curves: &[(CurveId, RatesCurveKind)],
-        bump_bp: f64,
-    ) -> finstack_core::Result<f64> {
-        let par_context = self.config.par_rate_context.as_ref().ok_or_else(|| {
-            finstack_core::Error::Input(finstack_core::InputError::NotFound {
-                id: "ParRateContext required for par-rate DV01. Use Dv01CalculatorConfig::par_rate_key_rate()".to_string(),
-            })
-        })?;
-
-        if curves.is_empty() {
-            return Ok(0.0);
-        }
-
-        let mut total_dv01 = 0.0;
-
-        for (i, (curve_id, _kind)) in curves.iter().enumerate() {
-            let (metric_id, should_compute) = if curves.len() == 1 || i == 0 {
-                (MetricId::BucketedDv01, true)
-            } else {
-                (
-                    MetricId::custom(format!("bucketed_dv01::{}", curve_id.as_str())),
-                    true,
-                )
-            };
-
-            if should_compute {
-                let curve_total = self.compute_par_rate_for_curve(
-                    context,
-                    curve_id,
-                    metric_id.clone(),
-                    bump_bp,
-                    par_context,
-                )?;
-
-                total_dv01 += curve_total;
-
-                if i == 0 && curves.len() > 1 {
-                    let curve_specific_id =
-                        MetricId::custom(format!("bucketed_dv01::{}", curve_id.as_str()));
-                    if let Some(series) = context.get_series(&metric_id) {
-                        context.store_bucketed_series(curve_specific_id, series.clone());
-                    }
-                }
-            }
-        }
-
-        Ok(total_dv01)
-    }
-
-    /// Compute par-rate key-rate DV01 for a single curve.
-    fn compute_par_rate_for_curve(
-        &self,
-        context: &mut MetricContext,
-        _curve_id: &CurveId,
-        metric_id: MetricId,
-        bump_bp: f64,
-        par_context: &ParRateContext,
-    ) -> finstack_core::Result<f64> {
-        let base_ctx = context.curves.as_ref();
-        let as_of = context.as_of;
-        // Use value_raw for high-precision sensitivity calculations
-        let base_pv = context.instrument.value_raw(base_ctx, as_of)?;
-
-        let buckets = &self.config.buckets;
-        let mut series: Vec<(String, f64)> = Vec::new();
-
-        for &target_time in buckets {
-            let label = format_bucket_label(target_time);
-
-            // Find the quote closest to this bucket maturity
-            let quote_index = find_closest_quote(&par_context.quotes, target_time, as_of);
-
-            let dv01 = if quote_index.is_some() {
-                // Use shared bumping logic
-                let bump_request = BumpRequest::Tenors(vec![(target_time, bump_bp)]);
-
-                match bump_discount_curve(
-                    &par_context.quotes,
-                    &par_context.params,
-                    &par_context.base_context,
-                    &bump_request,
-                ) {
-                    Ok(bumped_curve) => {
-                        // Replace curve in context and reprice
-                        let bumped_ctx = base_ctx.clone().insert_discount(bumped_curve);
-                        let bumped_pv = context.instrument.value_raw(&bumped_ctx, as_of)?;
-                        calculate_dv01_raw(base_pv, bumped_pv, bump_bp)
-                    }
-                    Err(e) => {
-                        tracing::warn!(
-                            bucket = label,
-                            error = %e,
-                            "Par-rate calibration failed for bucket, using 0.0"
-                        );
-                        0.0
-                    }
-                }
-            } else {
-                0.0
-            };
-
-            series.push((label, dv01));
-        }
-
-        context.store_bucketed_series(metric_id, series.clone());
-        let total: f64 = series.iter().map(|(_, v)| *v).sum();
-        Ok(total)
-    }
 }
 
 // =============================================================================
@@ -763,5 +450,3 @@ pub fn format_bucket_label(years: f64) -> String {
 fn calculate_dv01_raw(base_pv: f64, bumped_pv: f64, bump_bp: f64) -> f64 {
     (bumped_pv - base_pv) / bump_bp
 }
-
-// Helpers moved to crate::calibration::bumps::rates

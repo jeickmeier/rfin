@@ -1,5 +1,7 @@
 use crate::errors::core_to_py;
-use finstack_valuations::calibration::{SABRCalibrationDerivatives, SABRMarketData};
+use finstack_valuations::instruments::common::models::volatility::{
+    SABRCalibrationDerivatives, SABRMarketData,
+};
 use finstack_valuations::instruments::common::models::volatility::SABRParameters;
 use pyo3::prelude::*;
 use pyo3::types::{PyList, PyModule, PyType};

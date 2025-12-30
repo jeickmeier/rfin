@@ -684,3 +684,179 @@ fn collect_cashflows_in_period_any(
     // Use as_any to get &dyn Any, then delegate to shared implementation
     collect_cashflows_impl(instrument.as_any(), curves, start_date, end_date)
 }
+
+// ================================================================================================
+// Unit tests (internal helpers)
+// ================================================================================================
+
+#[cfg(test)]
+#[allow(clippy::expect_used, clippy::panic)]
+mod tests {
+    use super::*;
+    use time::macros::date;
+    use time::Month;
+
+    fn test_date() -> Date {
+        date!(2025 - 01 - 01)
+    }
+
+    // -------------------------------------------------------------------------
+    // Period parsing
+    // -------------------------------------------------------------------------
+
+    #[test]
+    fn parse_period_days_standard() {
+        assert_eq!(parse_period_days("1D").expect("parse 1D"), 1);
+        assert_eq!(parse_period_days("7D").expect("parse 7D"), 7);
+        assert_eq!(parse_period_days("30D").expect("parse 30D"), 30);
+    }
+
+    #[test]
+    fn parse_period_days_weeks() {
+        assert_eq!(parse_period_days("1W").expect("parse 1W"), 7);
+        assert_eq!(parse_period_days("2W").expect("parse 2W"), 14);
+        assert_eq!(parse_period_days("4W").expect("parse 4W"), 28);
+    }
+
+    #[test]
+    fn parse_period_days_months() {
+        assert_eq!(parse_period_days("1M").expect("parse 1M"), 30);
+        assert_eq!(parse_period_days("3M").expect("parse 3M"), 90);
+        assert_eq!(parse_period_days("6M").expect("parse 6M"), 180);
+        assert_eq!(parse_period_days("12M").expect("parse 12M"), 360);
+    }
+
+    #[test]
+    fn parse_period_days_years() {
+        assert_eq!(parse_period_days("1Y").expect("parse 1Y"), 365);
+        assert_eq!(parse_period_days("2Y").expect("parse 2Y"), 730);
+        assert_eq!(parse_period_days("5Y").expect("parse 5Y"), 1825);
+    }
+
+    #[test]
+    fn parse_period_days_lowercase_and_whitespace() {
+        assert_eq!(parse_period_days("1d").expect("parse 1d"), 1);
+        assert_eq!(parse_period_days(" 1W ").expect("parse 1W"), 7);
+        assert_eq!(parse_period_days(" 3m ").expect("parse 3M"), 90);
+        assert_eq!(parse_period_days("  1y  ").expect("parse 1Y"), 365);
+    }
+
+    #[test]
+    fn parse_period_days_invalid_format_errors() {
+        assert!(parse_period_days("").is_err());
+        assert!(parse_period_days("1X").is_err());
+        assert!(parse_period_days("XYZ").is_err());
+        assert!(parse_period_days("D").is_err());
+        assert!(parse_period_days("1").is_err());
+        assert!(parse_period_days("abc").is_err());
+    }
+
+    #[test]
+    fn parse_period_days_edge_cases() {
+        assert_eq!(parse_period_days("0D").expect("parse 0D"), 0);
+        assert_eq!(parse_period_days("100D").expect("parse 100D"), 100);
+        assert_eq!(parse_period_days("10Y").expect("parse 10Y"), 3650);
+    }
+
+    // -------------------------------------------------------------------------
+    // Theta date calculation
+    // -------------------------------------------------------------------------
+
+    #[test]
+    fn calculate_theta_date_no_expiry() {
+        let base = test_date();
+        let rolled = calculate_theta_date(base, "1D", None).expect("roll 1D");
+        let expected =
+            Date::from_calendar_date(2025, Month::January, 2).expect("expected date");
+        assert_eq!(rolled, expected);
+    }
+
+    #[test]
+    fn calculate_theta_date_one_week() {
+        let base = test_date();
+        let rolled = calculate_theta_date(base, "1W", None).expect("roll 1W");
+        let expected =
+            Date::from_calendar_date(2025, Month::January, 8).expect("expected date");
+        assert_eq!(rolled, expected);
+    }
+
+    #[test]
+    fn calculate_theta_date_one_month() {
+        let base = test_date();
+        let rolled = calculate_theta_date(base, "1M", None).expect("roll 1M");
+        let expected =
+            Date::from_calendar_date(2025, Month::January, 31).expect("expected date");
+        assert_eq!(rolled, expected);
+    }
+
+    #[test]
+    fn calculate_theta_date_with_expiry_cap() {
+        let base = test_date();
+        let expiry =
+            Date::from_calendar_date(2025, Month::January, 5).expect("expiry date");
+
+        let rolled = calculate_theta_date(base, "1W", Some(expiry)).expect("roll 1W");
+        assert_eq!(rolled, expiry);
+    }
+
+    #[test]
+    fn calculate_theta_date_before_expiry() {
+        let base = test_date();
+        let expiry =
+            Date::from_calendar_date(2025, Month::February, 1).expect("expiry date");
+
+        let rolled = calculate_theta_date(base, "1D", Some(expiry)).expect("roll 1D");
+        let expected =
+            Date::from_calendar_date(2025, Month::January, 2).expect("expected date");
+        assert_eq!(rolled, expected);
+    }
+
+    #[test]
+    fn calculate_theta_date_exactly_at_expiry() {
+        let base = test_date();
+        let expiry =
+            Date::from_calendar_date(2025, Month::January, 31).expect("expiry date");
+
+        let rolled = calculate_theta_date(base, "30D", Some(expiry)).expect("roll 30D");
+        assert_eq!(rolled, expiry);
+    }
+
+    #[test]
+    fn calculate_theta_date_already_past_expiry() {
+        let base =
+            Date::from_calendar_date(2025, Month::February, 1).expect("base date");
+        let expiry = test_date();
+
+        let rolled = calculate_theta_date(base, "1D", Some(expiry)).expect("roll 1D");
+        assert_eq!(rolled, expiry);
+    }
+
+    #[test]
+    fn calculate_theta_date_various_periods() {
+        let base = test_date();
+
+        let rolled_3m = calculate_theta_date(base, "3M", None).expect("roll 3M");
+        assert_eq!(rolled_3m, base + time::Duration::days(90));
+
+        let rolled_1y = calculate_theta_date(base, "1Y", None).expect("roll 1Y");
+        assert_eq!(rolled_1y, base + time::Duration::days(365));
+    }
+
+    #[test]
+    fn theta_workflow_short_dated_expiry_capped() {
+        let base = test_date();
+        let expiry =
+            Date::from_calendar_date(2025, Month::January, 6).expect("expiry date");
+
+        let theta_date_1d =
+            calculate_theta_date(base, "1D", Some(expiry)).expect("roll 1D");
+        assert_eq!(
+            theta_date_1d,
+            Date::from_calendar_date(2025, Month::January, 2).expect("expected date")
+        );
+
+        let theta_date_1w =
+            calculate_theta_date(base, "1W", Some(expiry)).expect("roll 1W");
+        assert_eq!(theta_date_1w, expiry);
+    }
+}

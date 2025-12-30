@@ -187,56 +187,38 @@ pub use risk::{
     MarketScenario, RiskFactorShift, RiskFactorType, VarConfig, VarMethod, VarResult,
 };
 
-// Backward compatibility (deprecated; will be removed in a future release)
-#[deprecated(
-    note = "Pricing helper traits and finite difference utilities are internal; use MetricRegistry + MetricContext instead."
-)]
-pub use crate::instruments::common::pricing::HasDiscountCurve;
-#[deprecated(
-    note = "Finite difference helpers are internal; use MetricRegistry + MetricContext. These exports will be removed in a future release."
-)]
-pub use core::finite_difference::{
+// -----------------------------------------------------------------------------
+// Crate-internal re-exports (NOT part of the public API)
+// -----------------------------------------------------------------------------
+//
+// These are used across `finstack-valuations` (instrument metric registries, etc.) but are not
+// supported as a stable downstream API. Keep them `pub(crate)` so we can refactor module layout
+// without creating public breakage surface.
+pub(crate) use core::finite_difference::{
     bump_discount_curve_parallel, bump_scalar_price, bump_sizes, scale_surface,
 };
-#[deprecated(
-    note = "Sensitivity calculator types are internal; request metrics via MetricRegistry. These exports will be removed in a future release."
-)]
-pub use sensitivities::cs01::{
-    compute_key_rate_cs01_series_with_context, compute_parallel_cs01_with_context,
-    standard_credit_cs01_buckets, GenericBucketedCs01, GenericParallelCs01, HasCreditCurve,
+pub(crate) use sensitivities::cs01::{
+    GenericBucketedCs01, GenericParallelCs01, HasCreditCurve,
 };
-#[deprecated(
-    note = "Sensitivity calculator types are internal; request metrics via MetricRegistry. These exports will be removed in a future release."
-)]
-pub use sensitivities::dv01::{
-    format_bucket_label, standard_ir_dv01_buckets, CurveSelection, Dv01CalculatorConfig,
-    Dv01ComputationMode, ParRateContext, UnifiedDv01Calculator,
+pub(crate) use sensitivities::dv01::{
+    Dv01CalculatorConfig, UnifiedDv01Calculator,
 };
-#[deprecated(
-    note = "Finite-difference greeks are internal; request metrics via MetricRegistry. These exports will be removed in a future release."
-)]
-pub use sensitivities::fd_greeks::{
+pub(crate) use sensitivities::fd_greeks::{
     GenericFdDelta, GenericFdGamma, GenericFdVanna, GenericFdVega, GenericFdVolga, HasDayCount,
     HasExpiry, HasPricingOverrides,
 };
-#[deprecated(
-    note = "Sensitivity calculator types are internal; request metrics via MetricRegistry. These exports will be removed in a future release."
-)]
-pub use sensitivities::rho::GenericRho;
-#[deprecated(
-    note = "Sensitivity calculator types are internal; request metrics via MetricRegistry. These exports will be removed in a future release."
-)]
-pub use sensitivities::theta::{
-    calculate_theta_date, generic_theta_calculator, parse_period_days, GenericTheta,
+pub(crate) use sensitivities::rho::GenericRho;
+pub(crate) use sensitivities::theta::{
+    calculate_theta_date, generic_theta_calculator, GenericTheta,
     GenericThetaAny,
 };
-#[deprecated(
-    note = "Sensitivity calculator types are internal; request metrics via MetricRegistry. These exports will be removed in a future release."
-)]
-pub use sensitivities::vega::{
-    standard_equity_expiry_buckets, standard_strike_ratios, BucketSelector, KeyRateVega,
-    ParallelVega,
+pub(crate) use sensitivities::vega::{
+    KeyRateVega,
 };
+
+// Only used in unit tests (e.g. hazard engine sanity checks).
+#[cfg(test)]
+pub(crate) use sensitivities::cs01::standard_credit_cs01_buckets;
 
 // -----------------------------------------------------------------------------
 // Macros

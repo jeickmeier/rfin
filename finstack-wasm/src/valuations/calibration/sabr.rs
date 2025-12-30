@@ -3,7 +3,9 @@
 //! Provides SABR (Stochastic Alpha Beta Rho) model parameters and calibration
 //! support for implied volatility surface modeling.
 
-use finstack_valuations::calibration::{SABRCalibrationDerivatives, SABRMarketData};
+use finstack_valuations::instruments::common::models::volatility::{
+    SABRCalibrationDerivatives, SABRMarketData,
+};
 use wasm_bindgen::prelude::*;
 
 /// Internal SABR parameters for bindings.

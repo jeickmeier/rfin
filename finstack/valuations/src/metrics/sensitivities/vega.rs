@@ -10,27 +10,6 @@ use finstack_core::market_data::scalars::MarketScalar;
 use std::marker::PhantomData;
 use std::sync::Arc;
 
-/// Bucket selector for key-rate shocks.
-///
-/// Determines which time points to use when applying key-rate shocks.
-#[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
-pub enum BucketSelector {
-    /// Use standard buckets defined for the asset class.
-    /// - IR: [0.25, 0.5, 1, 2, 3, 5, 7, 10, 15, 20, 30] years
-    /// - Credit: [0.25, 0.5, 1, 2, 3, 5, 7, 10, 15, 20, 30] years
-    /// - Equity vol: [1m, 3m, 6m, 1y, 2y, 3y, 5y]
-    #[default]
-    Standard,
-
-    /// Derive buckets from the curve's knot points.
-    /// Uses the actual knot times from the discount/hazard curve.
-    CurveKnots,
-
-    /// Derive buckets from the volatility surface grid.
-    /// Uses the surface's expiry and strike grid points.
-    SurfaceGrid,
-}
-
 /// Standard expiry buckets in years for equity options.
 pub fn standard_equity_expiry_buckets() -> Vec<f64> {
     vec![
@@ -47,101 +26,6 @@ pub fn standard_equity_expiry_buckets() -> Vec<f64> {
 /// Standard strike buckets (relative to spot) for equity options.
 pub fn standard_strike_ratios() -> Vec<f64> {
     vec![0.5, 0.75, 0.9, 1.0, 1.1, 1.25, 1.5]
-}
-
-/// Parallel vega calculator: bumps entire volatility surface uniformly.
-///
-/// Calculates volatility sensitivity by scaling the entire volatility surface
-/// by a constant factor and measuring the present value change. This measures
-/// the P&L impact of a parallel 1% shift in implied volatility.
-///
-/// # Type Parameters
-///
-/// * `I` - Instrument type that implements [`Instrument`] and has a volatility surface
-///
-/// # Examples
-///
-/// ```rust,no_run
-/// use finstack_valuations::instruments::EquityOption;
-/// use finstack_valuations::metrics::{MetricId, MetricRegistry, ParallelVega};
-/// use finstack_valuations::pricer::InstrumentType;
-/// use std::sync::Arc;
-///
-/// // Create calculator for equity options
-/// let calculator = ParallelVega::<EquityOption>::new();
-///
-/// // Use in metric registry
-/// let mut registry = MetricRegistry::new();
-/// registry.register_metric(
-///     MetricId::Vega,
-///     Arc::new(calculator),
-///     &[InstrumentType::EquityOption],
-/// );
-/// ```
-pub struct ParallelVega<I> {
-    _phantom: PhantomData<I>,
-}
-
-impl<I> ParallelVega<I> {
-    /// Creates a new parallel vega calculator.
-    ///
-    /// # Examples
-    ///
-    /// ```rust
-    /// use finstack_valuations::metrics::ParallelVega;
-    /// use finstack_valuations::instruments::EquityOption;
-    ///
-    /// let calculator = ParallelVega::<EquityOption>::new();
-    /// ```
-    pub fn new() -> Self {
-        Self {
-            _phantom: PhantomData,
-        }
-    }
-}
-
-impl<I> Default for ParallelVega<I> {
-    fn default() -> Self {
-        Self::new()
-    }
-}
-
-impl<I> MetricCalculator for ParallelVega<I>
-where
-    I: Instrument + 'static,
-{
-    fn calculate(&self, context: &mut MetricContext) -> finstack_core::Result<f64> {
-        let instrument: &I = context.instrument_as()?;
-        let defaults = sens_config::from_finstack_config_or_default(context.config())?;
-
-        let vol_surface_id = instrument
-            .vol_surface_id()
-            .ok_or_else(|| finstack_core::Error::from(finstack_core::InputError::Invalid))?;
-
-        let base_pv = context.base_value;
-        let base_ctx = context.curves.as_ref();
-        let vol_surface = base_ctx.surface(vol_surface_id.as_str())?;
-
-        let bump_pct = defaults.vol_bump_pct;
-
-        // Parallel bump: scale entire surface by (1 + bump_pct)
-        let scale_factor = 1.0 + bump_pct;
-        let bumped_surface = vol_surface.scaled(scale_factor);
-        let temp_ctx = base_ctx.clone().insert_surface(bumped_surface);
-
-        let inst_arc = Arc::clone(&context.instrument);
-        let as_of = context.as_of;
-        let pv_bumped = inst_arc.value(&temp_ctx, as_of)?;
-
-        // Vega = (PV_bumped - PV_base) / bump_pct
-        let vega = (pv_bumped.amount() - base_pv.amount()) / bump_pct;
-
-        Ok(vega)
-    }
-
-    fn dependencies(&self) -> &[MetricId] {
-        &[]
-    }
 }
 
 /// Key-rate vega calculator: bumps individual (expiry, strike) points.

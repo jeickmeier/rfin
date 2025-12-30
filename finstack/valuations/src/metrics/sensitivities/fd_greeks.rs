@@ -315,50 +315,31 @@ where
 
         let bump_size = current_spot * bump_pct;
 
-        // Compute delta at spot + bump
+        // Use the 3-point central difference formula directly:
+        //
+        //   Γ ≈ (PV(S+h) - 2 PV(S) + PV(S-h)) / h²
+        //
+        // This avoids "bump-of-bump" scaling artifacts when bumps are applied multiplicatively
+        // (percentage bumps) and yields exact results for quadratic payoffs.
+        let base_pv = context.base_value.amount();
+
         let mut instrument_up = instrument.clone();
-        instrument_up.pricing_overrides_mut().mc_seed_scenario = Some("gamma_up_up".to_string());
-        let curves_up = bump_scalar_price(&context.curves, spot_id, bump_pct)?;
-
-        // Delta at spot_up: need two more bumps
-        let mut instrument_up_up = instrument_up.clone();
-        instrument_up_up.pricing_overrides_mut().mc_seed_scenario = Some("gamma_up_up".to_string());
-        let mut instrument_up_down = instrument_up.clone();
-        instrument_up_down.pricing_overrides_mut().mc_seed_scenario =
-            Some("gamma_up_down".to_string());
-
-        let pv_up_up = instrument_up_up
-            .value(&bump_scalar_price(&curves_up, spot_id, bump_pct)?, as_of)?
-            .amount();
-        let pv_up_down = instrument_up_down
-            .value(&bump_scalar_price(&curves_up, spot_id, -bump_pct)?, as_of)?
-            .amount();
-        let delta_up = (pv_up_up - pv_up_down) / (2.0 * bump_size);
-
-        // Compute delta at spot - bump
-        let mut instrument_down = instrument.clone();
-        instrument_down.pricing_overrides_mut().mc_seed_scenario =
-            Some("gamma_down_base".to_string());
-        let curves_down = bump_scalar_price(&context.curves, spot_id, -bump_pct)?;
-
-        let mut instrument_down_up = instrument_down.clone();
-        instrument_down_up.pricing_overrides_mut().mc_seed_scenario =
-            Some("gamma_down_up".to_string());
-        let mut instrument_down_down = instrument_down.clone();
-        instrument_down_down
+        instrument_up
             .pricing_overrides_mut()
-            .mc_seed_scenario = Some("gamma_down_down".to_string());
-
-        let pv_down_up = instrument_down_up
-            .value(&bump_scalar_price(&curves_down, spot_id, bump_pct)?, as_of)?
+            .mc_seed_scenario = Some("gamma_up".to_string());
+        let pv_up = instrument_up
+            .value(&bump_scalar_price(&context.curves, spot_id, bump_pct)?, as_of)?
             .amount();
-        let pv_down_down = instrument_down_down
-            .value(&bump_scalar_price(&curves_down, spot_id, -bump_pct)?, as_of)?
-            .amount();
-        let delta_down = (pv_down_up - pv_down_down) / (2.0 * bump_size);
 
-        // Gamma = (Delta_up - Delta_down) / (2 * bump_size)
-        let gamma = (delta_up - delta_down) / (2.0 * bump_size);
+        let mut instrument_down = instrument.clone();
+        instrument_down
+            .pricing_overrides_mut()
+            .mc_seed_scenario = Some("gamma_down".to_string());
+        let pv_down = instrument_down
+            .value(&bump_scalar_price(&context.curves, spot_id, -bump_pct)?, as_of)?
+            .amount();
+
+        let gamma = (pv_up - 2.0 * base_pv + pv_down) / (bump_size * bump_size);
 
         Ok(gamma)
     }
@@ -589,5 +570,231 @@ where
         };
 
         central_mixed(su_vu, su_vd, sd_vu, sd_vd, h_abs, k_abs)
+    }
+}
+
+// ================================================================================================
+// Unit tests (internal)
+// ================================================================================================
+
+#[cfg(test)]
+#[allow(clippy::expect_used, clippy::panic)]
+mod tests {
+    use super::*;
+
+    use crate::instruments::common::traits::{Attributes, EquityDependencies, EquityInstrumentDeps};
+    use crate::instruments::PricingOverrides;
+    use crate::metrics::{MetricContext, MetricId, MetricRegistry};
+    use crate::pricer::InstrumentType;
+    use finstack_core::currency::Currency;
+    use finstack_core::market_data::context::MarketContext;
+    use finstack_core::market_data::scalars::MarketScalar;
+    use finstack_core::money::Money;
+    use std::sync::Arc;
+    use time::macros::date;
+
+    #[derive(Clone)]
+    struct TestFdInstrument {
+        id: String,
+        expiry: Date,
+        day_count: DayCount,
+        spot_id: String,
+        overrides: PricingOverrides,
+        attributes: Attributes,
+    }
+
+    impl TestFdInstrument {
+        fn new(id: &str, expiry: Date, spot_id: &str) -> Self {
+            Self {
+                id: id.to_string(),
+                expiry,
+                day_count: DayCount::Act365F,
+                spot_id: spot_id.to_string(),
+                overrides: PricingOverrides::default(),
+                attributes: Attributes::new(),
+            }
+        }
+    }
+
+    impl EquityDependencies for TestFdInstrument {
+        fn equity_dependencies(&self) -> EquityInstrumentDeps {
+            EquityInstrumentDeps::builder()
+                .spot(self.spot_id.clone())
+                .build()
+        }
+    }
+
+    impl HasExpiry for TestFdInstrument {
+        fn expiry(&self) -> Date {
+            self.expiry
+        }
+    }
+
+    impl HasDayCount for TestFdInstrument {
+        fn day_count(&self) -> DayCount {
+            self.day_count
+        }
+    }
+
+    impl HasPricingOverrides for TestFdInstrument {
+        fn pricing_overrides_mut(&mut self) -> &mut PricingOverrides {
+            &mut self.overrides
+        }
+    }
+
+    impl crate::instruments::common::traits::Instrument for TestFdInstrument {
+        fn id(&self) -> &str {
+            &self.id
+        }
+
+        fn key(&self) -> InstrumentType {
+            InstrumentType::Equity
+        }
+
+        fn as_any(&self) -> &dyn std::any::Any {
+            self
+        }
+
+        fn clone_box(&self) -> Box<dyn crate::instruments::common::traits::Instrument> {
+            Box::new(self.clone())
+        }
+
+        fn attributes(&self) -> &Attributes {
+            &self.attributes
+        }
+
+        fn attributes_mut(&mut self) -> &mut Attributes {
+            &mut self.attributes
+        }
+
+        fn value(&self, market: &MarketContext, as_of: Date) -> finstack_core::Result<Money> {
+            if as_of >= self.expiry {
+                return Ok(Money::new(0.0, Currency::USD));
+            }
+            let spot_scalar = market.price(self.spot_id.as_str())?;
+            let spot = match spot_scalar {
+                MarketScalar::Price(m) => m.amount(),
+                MarketScalar::Unitless(v) => *v,
+            };
+            // Simple analytic PV = S^2 (currency USD)
+            Ok(Money::new(spot * spot, Currency::USD))
+        }
+
+        fn price_with_metrics(
+            &self,
+            market: &MarketContext,
+            as_of: Date,
+            metrics: &[MetricId],
+        ) -> finstack_core::Result<crate::results::ValuationResult> {
+            let base_value = self.value(market, as_of)?;
+            crate::instruments::common::helpers::build_with_metrics_dyn(
+                Arc::from(self.clone_box()),
+                Arc::new(market.clone()),
+                as_of,
+                base_value,
+                metrics,
+                None,
+            )
+        }
+    }
+
+    fn registry_for_test<I>() -> MetricRegistry
+    where
+        I: crate::instruments::common::traits::Instrument
+            + EquityDependencies
+            + HasExpiry
+            + HasDayCount
+            + HasPricingOverrides
+            + Clone
+            + 'static,
+    {
+        let mut registry = MetricRegistry::new();
+        registry.register_metric(
+            MetricId::Delta,
+            Arc::new(GenericFdDelta::<I>::default()),
+            &[InstrumentType::Equity],
+        );
+        registry.register_metric(
+            MetricId::Gamma,
+            Arc::new(GenericFdGamma::<I>::default()),
+            &[InstrumentType::Equity],
+        );
+        registry
+    }
+
+    fn market_with_spot(spot_id: &str, price: f64) -> MarketContext {
+        MarketContext::new()
+            .insert_price(
+                spot_id,
+                MarketScalar::Price(Money::new(price, Currency::USD)),
+            )
+    }
+
+    #[test]
+    fn fd_delta_matches_analytic_for_quadratic_pv() {
+        let as_of = date!(2025 - 01 - 01);
+        let spot = 100.0;
+        let inst = TestFdInstrument::new("FD-TEST", date!(2026 - 01 - 01), "SPOT");
+        let market = market_with_spot("SPOT", spot);
+
+        let base_value = inst.value(&market, as_of).expect("base pv");
+        let registry = registry_for_test::<TestFdInstrument>();
+        let mut ctx = MetricContext::new(Arc::new(inst), Arc::new(market), as_of, base_value);
+
+        let result = registry
+            .compute(&[MetricId::Delta], &mut ctx)
+            .expect("delta");
+        let delta = *result.get(&MetricId::Delta).expect("delta value");
+
+        // For PV = S^2, dPV/dS = 2S.
+        assert!((delta - 2.0 * spot).abs() < 1e-8, "delta mismatch");
+    }
+
+    #[test]
+    fn fd_gamma_matches_analytic_for_quadratic_pv() {
+        let as_of = date!(2025 - 01 - 01);
+        let spot = 80.0;
+        let inst = TestFdInstrument::new("FD-TEST", date!(2026 - 01 - 01), "SPOT");
+        let market = market_with_spot("SPOT", spot);
+
+        let base_value = inst.value(&market, as_of).expect("base pv");
+        let registry = registry_for_test::<TestFdInstrument>();
+        let mut ctx = MetricContext::new(Arc::new(inst), Arc::new(market), as_of, base_value);
+
+        let result = registry
+            .compute(&[MetricId::Gamma], &mut ctx)
+            .expect("gamma");
+        let gamma = *result.get(&MetricId::Gamma).expect("gamma value");
+
+        // For PV = S^2, d2PV/dS2 = 2.
+        assert!((gamma - 2.0).abs() < 1e-8, "gamma mismatch");
+    }
+
+    #[test]
+    fn fd_greeks_zero_when_expired() {
+        let as_of = date!(2027 - 01 - 02);
+        let spot = 50.0;
+        let inst = TestFdInstrument::new("FD-TEST", date!(2027 - 01 - 01), "SPOT");
+        let market = market_with_spot("SPOT", spot);
+
+        let base_value = inst.value(&market, as_of).expect("base pv");
+        assert_eq!(base_value.amount(), 0.0, "expired base pv should be zero");
+
+        let registry = registry_for_test::<TestFdInstrument>();
+        let mut ctx = MetricContext::new(Arc::new(inst), Arc::new(market), as_of, base_value);
+
+        let result = registry
+            .compute(&[MetricId::Delta, MetricId::Gamma], &mut ctx)
+            .expect("greeks");
+        assert_eq!(
+            *result.get(&MetricId::Delta).expect("delta"),
+            0.0,
+            "expired delta should be zero"
+        );
+        assert_eq!(
+            *result.get(&MetricId::Gamma).expect("gamma"),
+            0.0,
+            "expired gamma should be zero"
+        );
     }
 }

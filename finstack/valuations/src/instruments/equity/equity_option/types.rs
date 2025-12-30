@@ -58,7 +58,7 @@ pub struct EquityOption {
 }
 
 // Implement HasDiscountCurve for GenericParallelDv01
-impl crate::metrics::HasDiscountCurve for EquityOption {
+impl crate::instruments::common::pricing::HasDiscountCurve for EquityOption {
     fn discount_curve_id(&self) -> &finstack_core::types::CurveId {
         &self.discount_curve_id
     }

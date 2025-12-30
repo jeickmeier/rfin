@@ -208,7 +208,7 @@ fn bench_curve_interp_styles(c: &mut Criterion) {
         ("LogLinear", InterpStyle::LogLinear),
         ("CubicHermite", InterpStyle::CubicHermite),
         ("MonotoneConvex", InterpStyle::MonotoneConvex),
-        ("LogLinear", InterpStyle::LogLinear),
+        ("PiecewiseQuadraticForward", InterpStyle::PiecewiseQuadraticForward),
     ];
 
     let test_times: Vec<f64> = (0..100).map(|i| (i as f64) * 0.05).collect();

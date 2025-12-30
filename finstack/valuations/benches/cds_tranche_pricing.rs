@@ -21,7 +21,7 @@ use finstack_core::money::Money;
 use finstack_valuations::cashflow::builder::ScheduleParams;
 use finstack_valuations::instruments::cds_tranche::parameters::CDSTrancheParams;
 use finstack_valuations::instruments::cds_tranche::{CdsTranche, TrancheSide};
-use finstack_valuations::metrics::{GenericParallelCs01, MetricCalculator, MetricContext};
+use finstack_valuations::metrics::{standard_registry, MetricContext, MetricId};
 use std::hint::black_box;
 use std::sync::Arc;
 use time::Month;
@@ -225,6 +225,7 @@ fn bench_cds_tranche_cs01(c: &mut Criterion) {
     let mut group = c.benchmark_group("cds_tranche_cs01");
     let market = create_market();
     let as_of = Date::from_calendar_date(2025, Month::January, 1).unwrap();
+    let registry = standard_registry();
 
     let tranche = create_tranche(3.0, 7.0, 5);
 
@@ -238,9 +239,10 @@ fn bench_cds_tranche_cs01(c: &mut Criterion) {
                 as_of,
                 base_pv,
             );
-            GenericParallelCs01::<CdsTranche>::default()
-                .calculate(&mut context)
-                .unwrap()
+            let results = registry
+                .compute(&[MetricId::Cs01], &mut context)
+                .unwrap();
+            black_box(*results.get(&MetricId::Cs01).unwrap())
         });
     });
 
@@ -293,6 +295,7 @@ fn bench_cds_tranche_all_metrics(c: &mut Criterion) {
     let mut group = c.benchmark_group("cds_tranche_all_metrics");
     let market = create_market();
     let as_of = Date::from_calendar_date(2025, Month::January, 1).unwrap();
+    let registry = standard_registry();
 
     let tranche = create_tranche(3.0, 7.0, 5);
 
@@ -308,7 +311,7 @@ fn bench_cds_tranche_all_metrics(c: &mut Criterion) {
                 as_of,
                 _base_pv,
             );
-            let _cs01 = GenericParallelCs01::<CdsTranche>::default().calculate(&mut context);
+            let _ = registry.compute(&[MetricId::Cs01], &mut context);
 
             let _corr_delta = tranche.correlation_delta(black_box(&market), black_box(as_of));
             let _jtd = tranche.jump_to_default(black_box(&market), black_box(as_of));

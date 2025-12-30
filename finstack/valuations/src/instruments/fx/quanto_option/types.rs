@@ -57,7 +57,7 @@ pub struct QuantoOption {
 }
 
 // Implement HasDiscountCurve for GenericParallelDv01
-impl crate::metrics::HasDiscountCurve for QuantoOption {
+impl crate::instruments::common::pricing::HasDiscountCurve for QuantoOption {
     fn discount_curve_id(&self) -> &finstack_core::types::CurveId {
         &self.discount_curve_id
     }

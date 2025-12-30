@@ -19,16 +19,6 @@ pub mod bump_sizes {
     pub const SPOT: f64 = 0.01;
     /// Volatility bump: 1% (0.01)
     pub const VOLATILITY: f64 = 0.01;
-    /// Interest rate bump: 1bp, expressed in *basis points* (1.0 = 1bp).
-    ///
-    /// This matches `finstack_core::market_data::bumps::BumpSpec::parallel_bp(1.0)`.
-    pub const INTEREST_RATE_BP: f64 = 1.0;
-    /// Interest rate bump: 1bp, expressed in decimal (0.0001 = 1bp).
-    pub const INTEREST_RATE_DECIMAL: f64 = 0.0001;
-    /// Credit spread bump: 1bp, expressed in *basis points* (1.0 = 1bp).
-    pub const CREDIT_SPREAD_BP: f64 = 1.0;
-    /// Credit spread bump: 1bp, expressed in decimal (0.0001 = 1bp).
-    pub const CREDIT_SPREAD_DECIMAL: f64 = 0.0001;
     /// Correlation bump: 1% (0.01)
     pub const CORRELATION: f64 = 0.01;
 }

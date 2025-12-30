@@ -53,7 +53,7 @@ pub struct FxBarrierOption {
 }
 
 // Implement HasDiscountCurve for GenericParallelDv01
-impl crate::metrics::HasDiscountCurve for FxBarrierOption {
+impl crate::instruments::common::pricing::HasDiscountCurve for FxBarrierOption {
     fn discount_curve_id(&self) -> &finstack_core::types::CurveId {
         &self.domestic_discount_curve_id
     }

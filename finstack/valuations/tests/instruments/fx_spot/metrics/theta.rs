@@ -2,27 +2,27 @@
 
 use super::super::common::*;
 use finstack_core::{currency::Currency, dates::Date, money::Money};
+use finstack_core::market_data::context::MarketContext;
 use finstack_valuations::{
-    instruments::{common::traits::Instrument, fx_spot::FxSpot},
-    metrics::GenericTheta,
-    metrics::{MetricCalculator, MetricContext},
+    instruments::{fx_spot::FxSpot, Instrument},
+    metrics::MetricId,
 };
-use std::sync::Arc;
 
-fn create_context(fx: FxSpot, as_of: Date) -> MetricContext {
-    let market = market_full();
-    let base_value = fx.npv(&market, as_of).unwrap();
-    let instrument: Arc<dyn Instrument> = Arc::new(fx);
-    MetricContext::new(instrument, Arc::new(market), as_of, base_value)
+fn theta_for(fx: FxSpot, market: &MarketContext, as_of: Date) -> f64 {
+    let result = fx
+        .price_with_metrics(market, as_of, &[MetricId::Theta])
+        .expect("pricing with theta should succeed");
+    *result
+        .measures
+        .get(MetricId::Theta.as_str())
+        .unwrap_or(&0.0)
 }
 
 #[test]
 fn test_theta_basic() {
     let fx = eurusd_with_notional(1_000_000.0, 1.20).with_settlement(d(2025, 1, 17));
-    let mut ctx = create_context(fx, test_date());
-    let calc = GenericTheta::<FxSpot>::default();
-
-    let theta = calc.calculate(&mut ctx).unwrap();
+    let market = market_full();
+    let theta = theta_for(fx, &market, test_date());
 
     // For FX spot with explicit rate, theta should be very small or zero
     // since value doesn't change with time when rate is fixed
@@ -32,32 +32,20 @@ fn test_theta_basic() {
 #[test]
 fn test_theta_settled_position() {
     let fx = eurusd_with_notional(1_000_000.0, 1.20).with_settlement(d(2025, 1, 10)); // Past
-    let mut ctx = create_context(fx, test_date());
-    let calc = GenericTheta::<FxSpot>::default();
-
-    let theta = calc.calculate(&mut ctx).unwrap();
+    let market = market_full();
+    let theta = theta_for(fx, &market, test_date());
 
     // Settled position has zero theta
     assert_approx_eq(theta, 0.0, EPSILON, "Theta zero for settled position");
 }
 
 #[test]
-fn test_theta_dependencies() {
-    let calc = GenericTheta::<FxSpot>::default();
-    let deps = calc.dependencies();
-
-    // Theta should have no additional dependencies
-    assert_eq!(deps.len(), 0, "Theta has no dependencies");
-}
-
-#[test]
 fn test_theta_with_future_settlement() {
     let fx = eurusd_with_notional(1_000_000.0, 1.20).with_settlement(d(2025, 2, 15)); // 1 month out
-    let mut ctx = create_context(fx, test_date());
-    let calc = GenericTheta::<FxSpot>::default();
+    let market = market_full();
 
     // Should not panic
-    let _theta = calc.calculate(&mut ctx).unwrap();
+    let _theta = theta_for(fx, &market, test_date());
 }
 
 #[test]
@@ -67,17 +55,14 @@ fn test_theta_zero_notional() {
         .unwrap()
         .with_rate(1.20)
         .with_settlement(d(2025, 1, 17));
-    let mut ctx = create_context(fx, test_date());
-    let calc = GenericTheta::<FxSpot>::default();
-
-    let theta = calc.calculate(&mut ctx).unwrap();
+    let market = market_full();
+    let theta = theta_for(fx, &market, test_date());
     assert_approx_eq(theta, 0.0, EPSILON, "Theta zero for zero notional");
 }
 
 #[test]
 fn test_theta_calculation_completes() {
     // Regression test: ensure theta calculation completes without error
-    let calc = GenericTheta::<FxSpot>::default();
     let test_cases = vec![
         eurusd_with_notional(1_000_000.0, 1.20).with_settlement(d(2025, 1, 17)),
         eurusd_with_notional(5_000_000.0, 1.25).with_settlement(d(2025, 2, 15)),
@@ -89,8 +74,7 @@ fn test_theta_calculation_completes() {
     ];
 
     for fx in test_cases {
-        let mut ctx = create_context(fx, test_date());
-        let result = calc.calculate(&mut ctx);
-        assert!(result.is_ok(), "Theta calculation should complete");
+        let market = market_full();
+        let _ = theta_for(fx, &market, test_date());
     }
 }

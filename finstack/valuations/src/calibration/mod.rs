@@ -96,8 +96,4 @@ pub use bumps::{
     rates::bump_discount_curve_synthetic, BumpRequest,
 };
 
-// Backward compatibility (deprecated)
-pub use crate::instruments::common::models::volatility::sabr_derivatives::{
-    SABRCalibrationDerivatives, SABRMarketData,
-};
 pub use solver::{OBJECTIVE_VALID_ABS_MAX, PENALTY, RESIDUAL_PENALTY_ABS_MIN};
