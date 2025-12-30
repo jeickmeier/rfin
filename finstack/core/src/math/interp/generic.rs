@@ -27,11 +27,10 @@ use crate::error::InputError;
 /// # Example
 ///
 /// ```rust
-/// use finstack_core::math::interp::{ExtrapolationPolicy, InterpFn, Interpolator};
-/// use finstack_core::math::interp::strategies::LinearStrategy;
+/// use finstack_core::math::interp::{ExtrapolationPolicy, InterpFn, LinearDf};
 ///
 /// # fn main() -> finstack_core::Result<()> {
-/// let interp = Interpolator::<LinearStrategy>::new(
+/// let interp = LinearDf::new(
 ///     vec![0.0, 1.0, 2.0].into_boxed_slice(),
 ///     vec![1.0, 0.95, 0.90].into_boxed_slice(),
 ///     ExtrapolationPolicy::FlatZero,

@@ -262,7 +262,7 @@ pub(crate) mod waterfall;
 
 // Re-export core types
 pub use types::{
-    AttributionFactor, AttributionMeta, AttributionMethod, CorrelationsAttribution,
+    AttributionFactor, AttributionInput, AttributionMeta, AttributionMethod, CorrelationsAttribution,
     CreditCurvesAttribution, FxAttribution, InflationCurvesAttribution, JsonEnvelope,
     ModelParamsAttribution, PnlAttribution, RatesCurvesAttribution, ScalarsAttribution,
     VolAttribution,
@@ -283,5 +283,6 @@ pub use waterfall::{attribute_pnl_waterfall, default_waterfall_order};
 // Market snapshot helpers (kept internal module, public façade here)
 pub use factors::{
     restore_scalars, CurveRestoreFlags, CreditCurvesSnapshot, InflationCurvesSnapshot,
-    MarketExtractable, MarketSnapshot, RatesCurvesSnapshot, ScalarsSnapshot,
+    MarketExtractable, MarketSnapshot, RatesCurvesSnapshot, ScalarsSnapshot, extract,
 };
+pub use helpers::{compute_pnl, compute_pnl_with_fx, convert_currency, reprice_instrument};

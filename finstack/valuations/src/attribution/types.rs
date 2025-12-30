@@ -110,7 +110,7 @@ pub enum AttributionFactor {
 ///
 /// ```rust,no_run
 /// use finstack_valuations::attribution::AttributionMethod;
-/// use finstack_valuations::attribution::types::AttributionInput;
+/// use finstack_valuations::attribution::AttributionInput;
 /// use finstack_valuations::attribution::default_attribution_metrics;
 /// use finstack_valuations::instruments::deposit::Deposit;
 /// use finstack_core::config::FinstackConfig;
@@ -1201,7 +1201,7 @@ mod tests {
 /// # Examples
 ///
 /// ```rust,no_run
-/// use finstack_valuations::attribution::types::JsonEnvelope;
+/// use finstack_valuations::attribution::JsonEnvelope;
 /// use serde::{Deserialize, Serialize};
 ///
 /// # fn main() -> Result<(), Box<dyn std::error::Error>> {
@@ -1328,7 +1328,7 @@ pub trait JsonEnvelope: Sized + Serialize + serde::de::DeserializeOwned {
     /// # Examples
     ///
     /// ```rust,no_run
-    /// # use finstack_valuations::attribution::types::JsonEnvelope;
+    /// # use finstack_valuations::attribution::JsonEnvelope;
     /// # use serde::{Deserialize, Serialize};
     /// #
     /// # #[derive(Serialize, Deserialize)]
@@ -1384,7 +1384,7 @@ pub trait JsonEnvelope: Sized + Serialize + serde::de::DeserializeOwned {
     /// # Examples
     ///
     /// ```rust,no_run
-    /// # use finstack_valuations::attribution::types::JsonEnvelope;
+    /// # use finstack_valuations::attribution::JsonEnvelope;
     /// # use serde::{Deserialize, Serialize};
     /// #
     /// # #[derive(Serialize, Deserialize)]
@@ -1441,7 +1441,7 @@ pub trait JsonEnvelope: Sized + Serialize + serde::de::DeserializeOwned {
     /// # Examples
     ///
     /// ```rust,no_run
-    /// # use finstack_valuations::attribution::types::JsonEnvelope;
+    /// # use finstack_valuations::attribution::JsonEnvelope;
     /// # use serde::{Deserialize, Serialize};
     /// #
     /// # #[derive(Serialize, Deserialize)]

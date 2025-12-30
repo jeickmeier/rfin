@@ -31,7 +31,7 @@
 //! ## Basic: Restore individual curve families
 //!
 //! ```rust
-//! use finstack_valuations::attribution::factors::{CurveRestoreFlags, MarketSnapshot};
+//! use finstack_valuations::attribution::{CurveRestoreFlags, MarketSnapshot};
 //! use finstack_core::market_data::context::MarketContext;
 //!
 //! let market_t0 = MarketContext::new();
@@ -49,7 +49,7 @@
 //! ## Advanced: Restore arbitrary combinations with unified API
 //!
 //! ```rust
-//! use finstack_valuations::attribution::factors::{CurveRestoreFlags, MarketSnapshot};
+//! use finstack_valuations::attribution::{CurveRestoreFlags, MarketSnapshot};
 //! use finstack_core::market_data::context::MarketContext;
 //!
 //! let market_t0 = MarketContext::new();
@@ -84,7 +84,7 @@
 //! ## P&L Attribution Workflow
 //!
 //! ```rust
-//! use finstack_valuations::attribution::factors::{CurveRestoreFlags, MarketSnapshot};
+//! use finstack_valuations::attribution::{CurveRestoreFlags, MarketSnapshot};
 //! use finstack_core::market_data::context::MarketContext;
 //!
 //! // Start with markets at t0 and t1
@@ -124,7 +124,7 @@
 //! that offers better type safety and composability:
 //!
 //! ```rust
-//! use finstack_valuations::attribution::factors::{
+//! use finstack_valuations::attribution::{
 //!     MarketExtractable, RatesCurvesSnapshot, CreditCurvesSnapshot
 //! };
 //! use finstack_core::market_data::context::MarketContext;
@@ -137,7 +137,7 @@
 //! let credit = CreditCurvesSnapshot::extract(&market);
 //!
 //! // Or use the generic helper with type inference
-//! use finstack_valuations::attribution::factors::extract;
+//! use finstack_valuations::attribution::extract;
 //! let rates: RatesCurvesSnapshot = extract(&market);
 //! ```
 //!
@@ -174,7 +174,7 @@ use std::sync::Arc;
 /// # Examples
 ///
 /// ```
-/// use finstack_valuations::attribution::factors::CurveRestoreFlags;
+/// use finstack_valuations::attribution::CurveRestoreFlags;
 ///
 /// // Restore only discount curves
 /// let flags = CurveRestoreFlags::DISCOUNT;
@@ -413,7 +413,7 @@ pub struct ScalarsSnapshot {
 /// # Examples
 ///
 /// ```
-/// use finstack_valuations::attribution::factors::{MarketSnapshot, CurveRestoreFlags};
+/// use finstack_valuations::attribution::{MarketSnapshot, CurveRestoreFlags};
 /// use finstack_core::market_data::context::MarketContext;
 ///
 /// // Create a market context with some curves
@@ -464,7 +464,7 @@ impl MarketSnapshot {
     /// # Examples
     ///
     /// ```
-    /// use finstack_valuations::attribution::factors::{MarketSnapshot, CurveRestoreFlags};
+    /// use finstack_valuations::attribution::{MarketSnapshot, CurveRestoreFlags};
     /// use finstack_core::market_data::context::MarketContext;
     ///
     /// let market = MarketContext::new();
@@ -547,7 +547,7 @@ impl MarketSnapshot {
     /// # Examples
     ///
     /// ```
-    /// use finstack_valuations::attribution::factors::{MarketSnapshot, CurveRestoreFlags};
+    /// use finstack_valuations::attribution::{MarketSnapshot, CurveRestoreFlags};
     /// use finstack_core::market_data::context::MarketContext;
     ///
     /// let current_market = MarketContext::new();

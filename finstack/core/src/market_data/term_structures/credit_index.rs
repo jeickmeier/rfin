@@ -122,9 +122,7 @@ impl CreditIndexData {
 /// # Examples
 /// ```rust
 /// use finstack_core::market_data::term_structures::{
-///     credit_index::CreditIndexData,
-///     hazard_curve::HazardCurve,
-///     base_correlation::BaseCorrelationCurve,
+///     BaseCorrelationCurve, CreditIndexData, HazardCurve,
 /// };
 /// use finstack_core::dates::Date;
 /// use std::sync::Arc;

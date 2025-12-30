@@ -54,8 +54,8 @@ pub enum ModelParamsSnapshot {
 /// # Examples
 ///
 /// ```rust,no_run
-/// use finstack_valuations::attribution::model_params::extract_model_params;
-/// use finstack_valuations::attribution::model_params::ModelParamsSnapshot;
+/// use finstack_valuations::attribution::extract_model_params;
+/// use finstack_valuations::attribution::ModelParamsSnapshot;
 /// use finstack_valuations::instruments::structured_credit::StructuredCredit;
 /// use std::sync::Arc;
 ///
@@ -116,7 +116,7 @@ pub fn extract_model_params(instrument: &Arc<dyn Instrument>) -> ModelParamsSnap
 ///
 /// ```rust,no_run
 /// // Extract T₀ parameters
-/// use finstack_valuations::attribution::model_params::{extract_model_params, with_model_params};
+/// use finstack_valuations::attribution::{extract_model_params, with_model_params};
 /// use finstack_valuations::instruments::structured_credit::StructuredCredit;
 /// use std::sync::Arc;
 ///

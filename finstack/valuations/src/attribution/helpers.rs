@@ -133,7 +133,7 @@ pub fn compute_pnl(
 /// use finstack_core::currency::Currency;
 /// use finstack_core::market_data::context::MarketContext;
 /// use finstack_core::money::Money;
-/// use finstack_valuations::attribution::helpers::compute_pnl_with_fx;
+/// use finstack_valuations::attribution::compute_pnl_with_fx;
 /// use time::macros::date;
 ///
 /// # fn main() -> Result<(), Box<dyn std::error::Error>> {
