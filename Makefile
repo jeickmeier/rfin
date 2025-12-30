@@ -78,10 +78,10 @@ test:
 	make test-ui
 
 test-rust: install-nextest
-	CARGO_INCREMENTAL=1 cargo nextest run --workspace --exclude finstack-py --features mc --lib --test '*' --no-fail-fast
+	CARGO_INCREMENTAL=1 cargo nextest run --workspace --exclude finstack-py --features mc,test-utils --lib --test '*' --no-fail-fast
 
 test-rust-slow: install-nextest
-	CARGO_INCREMENTAL=1 cargo nextest run --workspace --exclude finstack-py --features mc,slow --lib --test '*'
+	CARGO_INCREMENTAL=1 cargo nextest run --workspace --exclude finstack-py --features mc,slow,test-utils --lib --test '*'
 
 check-no-doctest-ignore:
 	@set -e; \
@@ -92,7 +92,7 @@ check-no-doctest-ignore:
 	fi
 
 test-rust-doc: check-no-doctest-ignore
-	CARGO_INCREMENTAL=1 cargo test --workspace --exclude finstack-py --doc --features mc
+	CARGO_INCREMENTAL=1 cargo test --workspace --exclude finstack-py --doc --features mc,test-utils
 
 test-python:
 	@command -v uv >/dev/null 2>&1 || { echo "uv is required for Python tests (https://github.com/astral-sh/uv)."; exit 1; }

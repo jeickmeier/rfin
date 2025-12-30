@@ -44,6 +44,7 @@ pub mod metrics;
 pub mod pricer;
 pub mod pricing;
 pub mod types;
+#[doc(hidden)]
 pub mod utils;
 
 // ============================================================================

@@ -18,6 +18,7 @@ pub mod dependencies;
 pub mod discountable;
 
 // Shared utilities and helper functions
+#[doc(hidden)]
 pub mod helpers;
 
 // Common parameter types shared across instruments

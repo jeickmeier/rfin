@@ -298,8 +298,8 @@ pub mod pricer;
 pub mod results;
 pub mod schema;
 
-/// Test utilities - available for integration tests and examples.
-#[cfg(any(test, feature = "test-utils", feature = "mc"))]
+/// Test utilities - available only for tests or when explicitly enabled.
+#[cfg(any(test, feature = "test-utils"))]
 pub mod test_utils;
 
 // Export macros before instruments module

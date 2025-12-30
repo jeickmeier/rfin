@@ -59,6 +59,7 @@ pub mod adapters;
 pub mod engine;
 pub mod error;
 pub mod spec;
+#[doc(hidden)]
 pub mod utils;
 
 pub use engine::{ExecutionContext, ScenarioEngine};

@@ -516,7 +516,7 @@ impl AsianOptionMcPricer {
 
     /// Price with LRM Greeks (delta, vega) convenience.
     #[allow(clippy::too_many_lines)]
-    pub fn price_with_lrm_greeks_internal(
+    pub(crate) fn price_with_lrm_greeks_internal(
         &self,
         inst: &AsianOption,
         curves: &MarketContext,
