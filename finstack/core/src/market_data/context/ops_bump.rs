@@ -1,8 +1,4 @@
-use crate::collections::HashMap;
 use std::sync::Arc;
-
-use crate::currency::Currency;
-use crate::dates::Date;
 use crate::market_data::bumps::{BumpMode, BumpSpec, BumpType, BumpUnits, Bumpable, MarketBump};
 use crate::types::CurveId;
 use crate::Result;
@@ -15,100 +11,113 @@ use crate::market_data::term_structures::{
 };
 
 impl MarketContext {
-    /// Bump FX spot rate for a currency pair and return a new context.
+    /// Apply a heterogeneous list of market bumps (curves, surfaces, prices, FX).
     ///
-    /// Creates a new MarketContext with an FX matrix that has the specified
-    /// currency pair rate bumped by the given percentage. All other market data
-    /// is cloned unchanged.
-    ///
-    /// # Parameters
-    /// - `from`: Base currency
-    /// - `to`: Quote currency
-    /// - `bump_pct`: Relative bump size (e.g., 0.01 for 1% increase)
-    /// - `on`: Date for rate lookup (typically as_of date from valuation context)
-    ///
-    /// # Returns
-    /// New MarketContext with bumped FX rate
+    /// This is the **single canonical** entry point for market bumping. It supports:
+    /// - Curve/surface/scalar/series bumps addressed by [`CurveId`] (via [`MarketBump::Curve`])
+    /// - FX percentage shocks (via [`MarketBump::FxPct`])
+    /// - Volatility surface bucket bumps (via [`MarketBump::VolBucketPct`])
+    /// - Base correlation bucket bumps (via [`MarketBump::BaseCorrBucketPts`])
     ///
     /// # Errors
-    /// Returns error if FX matrix is missing or rate lookup fails
     ///
-    /// # Examples
-    /// ```rust
-    /// # use finstack_core::market_data::context::MarketContext;
-    /// # use finstack_core::money::fx::{FxMatrix, FxProvider, FxConversionPolicy};
-    /// # use finstack_core::currency::Currency;
-    /// # use finstack_core::dates::Date;
-    /// # use std::sync::Arc;
-    /// # use time::Month;
-    /// # fn main() -> Result<(), Box<dyn std::error::Error>> {
-    /// # struct StaticFx;
-    /// # impl FxProvider for StaticFx {
-    /// #     fn rate(&self, _from: Currency, _to: Currency, _on: Date, _policy: FxConversionPolicy)
-    /// #         -> finstack_core::Result<f64> { Ok(1.1) }
-    /// # }
-    /// # let fx = FxMatrix::new(Arc::new(StaticFx));
-    /// # let ctx = MarketContext::new().insert_fx(fx);
-    /// # let date = Date::from_calendar_date(2024, Month::January, 1).expect("Valid date");
-    /// let bumped_ctx = ctx.bump_fx_spot(Currency::EUR, Currency::USD, 0.01, date)?;
-    /// // EUR/USD rate is now 1.1 * 1.01 = 1.111
-    /// # Ok(())
-    /// # }
-    /// ```
-    pub fn bump_fx_spot(
-        &self,
-        from: Currency,
-        to: Currency,
-        bump_pct: f64,
-        on: Date,
-    ) -> Result<Self> {
-        let fx_matrix = self
-            .fx
-            .as_ref()
-            .ok_or_else(|| crate::error::InputError::NotFound {
-                id: "FX matrix".to_string(),
-            })?;
+    /// Returns an error if any bumped entry is missing, the bump type is unsupported,
+    /// or reconstruction fails.
+    pub fn bump<I>(&self, bumps: I) -> Result<Self>
+    where
+        I: IntoIterator<Item = MarketBump>,
+    {
+        use crate::collections::HashMap;
+        use crate::error::InputError;
 
-        // Create new FX matrix with bumped rate
-        let new_fx_matrix = fx_matrix.with_bumped_rate(from, to, bump_pct, on)?;
+        let mut ctx = self.clone();
+        let mut curve_bumps: HashMap<CurveId, BumpSpec> = HashMap::default();
 
-        // Create new context with bumped FX
-        let mut new_context = self.clone();
-        new_context.fx = Some(Arc::new(new_fx_matrix));
+        for bump in bumps {
+            match bump {
+                MarketBump::Curve { id, spec } => {
+                    curve_bumps.insert(id, spec);
+                }
+                MarketBump::FxPct {
+                    base,
+                    quote,
+                    pct,
+                    as_of,
+                } => {
+                    let fx = ctx.fx.as_ref().ok_or_else(|| InputError::NotFound {
+                        id: "FX matrix".to_string(),
+                    })?;
+                    let bumped = fx.with_bumped_rate(base, quote, pct / 100.0, as_of)?;
+                    ctx.fx = Some(Arc::new(bumped));
+                }
+                MarketBump::VolBucketPct {
+                    surface_id,
+                    expiries,
+                    strikes,
+                    pct,
+                } => {
+                    // Parallel fallback if no filters provided
+                    if expiries.is_none() && strikes.is_none() {
+                        curve_bumps.insert(
+                            surface_id,
+                            BumpSpec {
+                                mode: BumpMode::Additive,
+                                units: BumpUnits::Percent,
+                                value: pct,
+                                bump_type: BumpType::Parallel,
+                            },
+                        );
+                        continue;
+                    }
 
-        Ok(new_context)
+                    let surface =
+                        ctx.surface(surface_id.as_str())
+                            .map_err(|_| InputError::NotFound {
+                                id: surface_id.to_string(),
+                            })?;
+
+                    let bumped = surface
+                        .apply_bucket_bump(expiries.as_deref(), strikes.as_deref(), pct)
+                        .ok_or(InputError::DimensionMismatch)?;
+
+                    ctx = ctx.insert_surface(bumped);
+                }
+                MarketBump::BaseCorrBucketPts {
+                    surface_id,
+                    detachments,
+                    points,
+                } => {
+                    let curve = ctx.get_base_correlation(surface_id.as_str()).map_err(|_| {
+                        InputError::NotFound {
+                            id: surface_id.to_string(),
+                        }
+                    })?;
+
+                    let bumped = curve
+                        .apply_bucket_bump(detachments.as_deref(), points)
+                        .ok_or(InputError::DimensionMismatch)?;
+
+                    ctx.curves
+                        .insert(surface_id, CurveStorage::BaseCorrelation(Arc::new(bumped)));
+                }
+            }
+        }
+
+        if !curve_bumps.is_empty() {
+            ctx.apply_curve_bumps(curve_bumps)?;
+        }
+
+        Ok(ctx)
     }
 
-    /// Apply one or more bumps to the market context in a single call.
-    ///
-    /// This consolidated API supports discount/forward/hazard/inflation/base-correlation
-    /// curves, volatility surfaces, market scalars, and generic scalar time series.
-    ///
-    /// # Example
-    /// ```rust
-    /// # use finstack_core::HashMap;
-    /// # use finstack_core::market_data::context::{MarketContext, BumpSpec};
-    /// # use finstack_core::market_data::term_structures::DiscountCurve;
-    /// # use finstack_core::dates::Date;
-    /// # use finstack_core::types::CurveId;
-    /// # let curve = DiscountCurve::builder("USD-OIS")
-    /// #     .base_date(Date::from_calendar_date(2025, time::Month::January, 1).expect("Valid date"))
-    /// #     .knots([(0.0, 1.0), (5.0, 0.9)])
-    /// #     .build().expect("DiscountCurve builder should succeed");
-    /// # let context = MarketContext::new().insert_discount(curve);
-    /// let mut bumps = HashMap::default();
-    /// bumps.insert(CurveId::new("USD-OIS"), BumpSpec::parallel_bp(100.0));
-    /// let bumped = context.bump(bumps).expect("Bump operation should succeed");
-    /// // The bumped curve replaces the original under the same ID
-    /// assert!(bumped.get_discount("USD-OIS").is_ok());
-    /// ```
-    pub fn bump(&self, bumps: HashMap<CurveId, BumpSpec>) -> Result<Self> {
-        let mut new_context = self.clone();
-
+    fn apply_curve_bumps(
+        &mut self,
+        bumps: crate::collections::HashMap<CurveId, BumpSpec>,
+    ) -> Result<()> {
         for (curve_id, bump_spec) in bumps {
             let cid = curve_id.as_str();
 
-            if let Some(storage) = self.curves.get(cid) {
+            if let Some(storage) = self.curves.get(cid).cloned() {
                 let bumped_storage = match storage {
                     CurveStorage::Discount(original) => {
                         let bumped = original.apply_bump(bump_spec)?;
@@ -249,25 +258,23 @@ impl MarketContext {
                     }
                 };
 
-                new_context.curves.insert(curve_id.clone(), bumped_storage);
+                self.curves.insert(curve_id.clone(), bumped_storage);
                 continue;
             }
 
-            if let Some(original) = self.surfaces.get(cid) {
+            if let Some(original) = self.surfaces.get(cid).cloned() {
                 let bumped = original.apply_bump(bump_spec)?;
-                new_context
-                    .surfaces
-                    .insert(curve_id.clone(), Arc::new(bumped));
+                self.surfaces.insert(curve_id.clone(), Arc::new(bumped));
                 continue;
             }
-            if let Some(original) = self.prices.get(cid) {
+            if let Some(original) = self.prices.get(cid).cloned() {
                 let bumped = original.apply_bump(bump_spec)?;
-                new_context.prices.insert(curve_id.clone(), bumped);
+                self.prices.insert(curve_id.clone(), bumped);
                 continue;
             }
-            if let Some(original) = self.series.get(cid) {
+            if let Some(original) = self.series.get(cid).cloned() {
                 let bumped = original.apply_bump(bump_spec)?;
-                new_context.series.insert(curve_id.clone(), bumped);
+                self.series.insert(curve_id.clone(), bumped);
                 continue;
             }
 
@@ -277,99 +284,6 @@ impl MarketContext {
             .into());
         }
 
-        Ok(new_context)
-    }
-
-    /// Apply a heterogeneous list of market bumps (curves, surfaces, prices, FX).
-    ///
-    /// This is a thin wrapper around [`MarketContext::bump`] for all
-    /// `Curve`-addressable entries plus explicit handling for FX shocks using
-    /// [`crate::money::fx::FxMatrix::with_bumped_rate`]. It is intended for scenario engines and
-    /// risk utilities that want a single entry point for all market mutations.
-    pub fn apply_bumps(&self, bumps: &[MarketBump]) -> Result<Self> {
-        use crate::error::InputError;
-
-        let mut ctx = self.clone();
-        let mut curve_bumps: HashMap<CurveId, BumpSpec> = HashMap::default();
-
-        for bump in bumps {
-            match bump {
-                MarketBump::Curve { id, spec } => {
-                    curve_bumps.insert(id.clone(), *spec);
-                }
-                MarketBump::FxPct {
-                    base,
-                    quote,
-                    pct,
-                    as_of,
-                } => {
-                    let fx = ctx.fx.as_ref().ok_or_else(|| InputError::NotFound {
-                        id: "FX matrix".to_string(),
-                    })?;
-                    let bumped = fx.with_bumped_rate(*base, *quote, *pct / 100.0, *as_of)?;
-                    ctx.fx = Some(Arc::new(bumped));
-                }
-                MarketBump::VolBucketPct {
-                    surface_id,
-                    expiries,
-                    strikes,
-                    pct,
-                } => {
-                    let surface =
-                        ctx.surface_ref(surface_id.as_str())
-                            .map_err(|_| InputError::NotFound {
-                                id: surface_id.to_string(),
-                            })?;
-
-                    // Parallel fallback if no filters provided
-                    if expiries.is_none() && strikes.is_none() {
-                        let mut single = HashMap::default();
-                        single.insert(
-                            surface_id.clone(),
-                            BumpSpec {
-                                mode: BumpMode::Additive,
-                                units: BumpUnits::Percent,
-                                value: *pct,
-                                bump_type: BumpType::Parallel,
-                            },
-                        );
-                        ctx = ctx.bump(single)?;
-                        continue;
-                    }
-
-                    let bumped = surface
-                        .apply_bucket_bump(expiries.as_deref(), strikes.as_deref(), *pct)
-                        .ok_or(InputError::DimensionMismatch)?;
-
-                    ctx.insert_surface_mut(bumped);
-                }
-                MarketBump::BaseCorrBucketPts {
-                    surface_id,
-                    detachments,
-                    points,
-                } => {
-                    let curve =
-                        ctx.get_base_correlation_ref(surface_id.as_str())
-                            .map_err(|_| InputError::NotFound {
-                                id: surface_id.to_string(),
-                            })?;
-
-                    let bumped = curve
-                        .apply_bucket_bump(detachments.as_deref(), *points)
-                        .ok_or(InputError::DimensionMismatch)?;
-
-                    ctx.curves.insert(
-                        surface_id.clone(),
-                        CurveStorage::BaseCorrelation(Arc::new(bumped)),
-                    );
-                }
-            }
-        }
-
-        if !curve_bumps.is_empty() {
-            ctx = ctx.bump(curve_bumps)?;
-        }
-
-        Ok(ctx)
+        Ok(())
     }
 }

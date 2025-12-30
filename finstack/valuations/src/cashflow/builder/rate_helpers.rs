@@ -470,8 +470,8 @@ pub fn project_floating_rate_from_market(
     params: &FloatingRateParams,
     market: &MarketContext,
 ) -> Result<f64> {
-    let fwd = market.get_forward_ref(index_id)?;
-    project_floating_rate(reset_date, reset_period_end, fwd, params)
+    let fwd = market.get_forward(index_id)?;
+    project_floating_rate(reset_date, reset_period_end, fwd.as_ref(), params)
 }
 
 #[cfg(test)]

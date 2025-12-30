@@ -153,7 +153,7 @@ pub fn price_cmo(cmo: &AgencyCmo, market: &MarketContext, as_of: Date) -> Result
         return Ok(Money::new(0.0, Currency::USD));
     }
 
-    let discount_curve = market.get_discount_ref(&cmo.discount_curve_id)?;
+    let discount_curve = market.get_discount(&cmo.discount_curve_id)?;
     let day_count = DayCount::Thirty360;
 
     let mut pv = 0.0;

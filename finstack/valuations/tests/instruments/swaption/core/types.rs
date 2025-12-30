@@ -79,9 +79,9 @@ fn test_resolve_volatility_priority_and_greek_inputs_expired() {
     let mut swaption = create_standard_payer_swaption(expiry, swap_start, swap_end, 0.05);
     let market = create_flat_market(as_of, 0.03, 0.2);
     let disc = market
-        .get_discount_ref(swaption.discount_curve_id.as_ref())
+        .get_discount(swaption.discount_curve_id.as_ref())
         .unwrap();
-    let forward = swaption.forward_swap_rate(disc, as_of).unwrap();
+    let forward = swaption.forward_swap_rate(disc.as_ref(), as_of).unwrap();
     let t = swaption
         .year_fraction(as_of, swaption.expiry, swaption.day_count)
         .unwrap();
@@ -149,9 +149,13 @@ fn test_bermudan_swaption_schedule_and_conversion() {
     assert_eq!(euro.vol_model, VolatilityModel::Black);
 
     let market = create_flat_market(as_of, 0.03, 0.2);
-    let disc = market.get_discount_ref("USD_OIS").unwrap();
-    let annuity_early = swaption.remaining_annuity(disc, as_of, first_ex).unwrap();
+    let disc = market.get_discount("USD_OIS").unwrap();
+    let annuity_early = swaption
+        .remaining_annuity(disc.as_ref(), as_of, first_ex)
+        .unwrap();
     let later_ex = date!(2027 - 01 - 01);
-    let annuity_late = swaption.remaining_annuity(disc, as_of, later_ex).unwrap();
+    let annuity_late = swaption
+        .remaining_annuity(disc.as_ref(), as_of, later_ex)
+        .unwrap();
     assert!(annuity_early > annuity_late);
 }

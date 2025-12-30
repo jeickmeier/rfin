@@ -9,7 +9,7 @@
 
 use crate::instruments::cap_floor::InterestRateOption;
 use crate::metrics::{MetricCalculator, MetricContext, MetricId};
-use finstack_core::market_data::bumps::BumpSpec;
+use finstack_core::market_data::bumps::{BumpSpec, MarketBump};
 use finstack_core::Result;
 
 /// Rho calculator (per 1bp)
@@ -22,14 +22,10 @@ impl MetricCalculator for RhoCalculator {
         // Base PV
         let base = context.base_value.amount();
 
-        // Build bumps map: parallel +1bp on the discount curve only
-        let mut bumps = finstack_core::HashMap::default();
-        bumps.insert(
-            option.discount_curve_id.to_owned(),
-            BumpSpec::parallel_bp(1.0), // +1bp
-        );
-
-        let bumped_ctx = context.curves.bump(bumps)?;
+        let bumped_ctx = context.curves.bump([MarketBump::Curve {
+            id: option.discount_curve_id.to_owned(),
+            spec: BumpSpec::parallel_bp(1.0), // +1bp
+        }])?;
 
         // Reprice with bumped discount curve (vol held constant)
         let bumped = option.npv(&bumped_ctx, context.as_of)?;

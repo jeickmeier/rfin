@@ -154,7 +154,7 @@ impl MetricCalculator for EmbeddedOptionValueCalculator {
         let as_of = context.as_of;
 
         // Get discount curve and compute time to maturity
-        let discount_curve = market.get_discount_ref(&bond.discount_curve_id)?;
+        let discount_curve = market.get_discount(&bond.discount_curve_id)?;
         let dc = discount_curve.day_count();
         let time_to_maturity = dc.year_fraction(as_of, bond.maturity, DayCountCtx::default())?;
 
@@ -169,7 +169,7 @@ impl MetricCalculator for EmbeddedOptionValueCalculator {
             ..Default::default()
         };
         let mut tree = ShortRateTree::new(tree_config);
-        tree.calibrate(discount_curve, time_to_maturity)?;
+        tree.calibrate(discount_curve.as_ref(), time_to_maturity)?;
 
         // Price 1: Bond WITH embedded options (call/put constraints applied)
         let valuator_with_options = BondValuator::new(

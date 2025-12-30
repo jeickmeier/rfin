@@ -137,7 +137,7 @@ pub fn collect_inputs_extended(
     as_of: Date,
 ) -> Result<EquityOptionInputs> {
     // Discount curve lookup - use curve's own day count for rate time
-    let disc_curve = curves.get_discount_ref(inst.discount_curve_id.as_str())?;
+    let disc_curve = curves.get_discount(inst.discount_curve_id.as_str())?;
     let curve_dc = disc_curve.day_count();
     let t_rate = year_fraction(as_of, inst.expiry, curve_dc)?;
     let r = disc_curve.zero(t_rate);
@@ -170,7 +170,7 @@ pub fn collect_inputs_extended(
     let sigma = if let Some(impl_vol) = inst.pricing_overrides.implied_volatility {
         impl_vol
     } else {
-        let vol_surface = curves.surface_ref(inst.vol_surface_id.as_str())?;
+        let vol_surface = curves.surface(inst.vol_surface_id.as_str())?;
         vol_surface.value_clamped(t_vol, inst.strike.amount())
     };
 

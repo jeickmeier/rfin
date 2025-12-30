@@ -72,19 +72,22 @@ impl HazardBondEngine {
     /// 1. `credit_curve_id` if present.
     /// 2. `discount_curve_id`.
     /// 3. `discount_curve_id` with `-CREDIT` suffix.
-    fn resolve_hazard_curve<'a>(bond: &Bond, market: &'a MarketContext) -> Option<&'a HazardCurve> {
+    fn resolve_hazard_curve(
+        bond: &Bond,
+        market: &MarketContext,
+    ) -> Option<std::sync::Arc<HazardCurve>> {
         if let Some(ref credit_id) = bond.credit_curve_id {
-            if let Ok(hc) = market.get_hazard_ref(credit_id.as_str()) {
+            if let Ok(hc) = market.get_hazard(credit_id.as_str()) {
                 return Some(hc);
             }
         }
 
-        if let Ok(hc) = market.get_hazard_ref(bond.discount_curve_id.as_str()) {
+        if let Ok(hc) = market.get_hazard(bond.discount_curve_id.as_str()) {
             return Some(hc);
         }
 
-        if let Ok(hc) = market.get_hazard_ref(format!("{}-CREDIT", bond.discount_curve_id.as_str()))
-        {
+        let credit_id = format!("{}-CREDIT", bond.discount_curve_id.as_str());
+        if let Ok(hc) = market.get_hazard(credit_id.as_str()) {
             return Some(hc);
         }
 
@@ -154,7 +157,7 @@ impl HazardBondEngine {
         }
 
         // Resolve discount curve
-        let disc = market.get_discount_ref(&bond.discount_curve_id)?;
+        let disc = market.get_discount(&bond.discount_curve_id)?;
         // Compute settlement date (theta alignment).
         let settle_date = Self::compute_settlement_date(bond, as_of)?;
 

@@ -24,15 +24,15 @@ fn test_scalars_snapshot_extraction() {
     use finstack_valuations::attribution::{restore_scalars, MarketExtractable, ScalarsSnapshot};
 
     // Create market with various scalars
-    let mut market = MarketContext::new();
-    market.insert_price_mut(
-        "AAPL",
-        MarketScalar::Price(Money::new(180.0, Currency::USD)),
-    );
-    market.insert_price_mut(
-        "MSFT",
-        MarketScalar::Price(Money::new(400.0, Currency::USD)),
-    );
+    let market = MarketContext::new()
+        .insert_price(
+            "AAPL",
+            MarketScalar::Price(Money::new(180.0, Currency::USD)),
+        )
+        .insert_price(
+            "MSFT",
+            MarketScalar::Price(Money::new(400.0, Currency::USD)),
+        );
 
     // Extract scalars snapshot
     let snapshot = ScalarsSnapshot::extract(&market);
@@ -60,15 +60,13 @@ fn test_market_scalar_freeze_restore() {
     use finstack_valuations::attribution::{restore_scalars, MarketExtractable, ScalarsSnapshot};
 
     // Market at T₀ with lower prices
-    let mut market_t0 = MarketContext::new();
-    market_t0.insert_price_mut(
+    let market_t0 = MarketContext::new().insert_price(
         "AAPL",
         MarketScalar::Price(Money::new(180.0, Currency::USD)),
     );
 
     // Market at T₁ with higher prices
-    let mut market_t1 = MarketContext::new();
-    market_t1.insert_price_mut(
+    let market_t1 = MarketContext::new().insert_price(
         "AAPL",
         MarketScalar::Price(Money::new(185.0, Currency::USD)),
     );

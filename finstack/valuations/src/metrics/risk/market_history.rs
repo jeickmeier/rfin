@@ -6,10 +6,9 @@
 
 use crate::metrics::risk::RiskFactorType;
 use finstack_core::dates::Date;
-use finstack_core::market_data::bumps::{BumpMode, BumpSpec, BumpType, BumpUnits};
+use finstack_core::market_data::bumps::{BumpMode, BumpSpec, BumpType, BumpUnits, MarketBump};
 use finstack_core::market_data::context::MarketContext;
 use finstack_core::types::CurveId;
-use finstack_core::HashMap;
 use finstack_core::Result;
 
 /// Historical shift for a single risk factor on a single date.
@@ -90,9 +89,7 @@ impl MarketScenario {
             };
 
             if let Some((curve_id, spec)) = maybe_bump {
-                let mut single = HashMap::default();
-                single.insert(curve_id, spec);
-                bumped_market = bumped_market.bump(single)?;
+                bumped_market = bumped_market.bump([MarketBump::Curve { id: curve_id, spec }])?;
             }
         }
 
@@ -238,7 +235,7 @@ mod tests {
         );
 
         let bumped = scenario.apply(&base_market)?;
-        assert!(bumped.get_discount_ref("USD-OIS").is_ok());
+        assert!(bumped.get_discount("USD-OIS").is_ok());
 
         Ok(())
     }
@@ -272,7 +269,7 @@ mod tests {
         let bumped_market = scenario.apply(&base_market)?;
 
         // Verify bumped market has the curve
-        assert!(bumped_market.get_discount_ref("USD-OIS").is_ok());
+        assert!(bumped_market.get_discount("USD-OIS").is_ok());
 
         // The bumped market should be different from base
         // (We can't easily compare values without evaluating the curves,
@@ -360,7 +357,7 @@ mod tests {
         );
 
         let bumped = scenario.apply(&base_market)?;
-        let bumped_surface = bumped.surface_ref("EQ-VOL")?;
+        let bumped_surface = bumped.surface("EQ-VOL")?;
         let vol = bumped_surface
             .value_checked(1.0, 100.0)
             .expect("grid point lookup should succeed");

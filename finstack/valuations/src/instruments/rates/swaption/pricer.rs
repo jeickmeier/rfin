@@ -76,13 +76,13 @@ impl Pricer for SimpleSwaptionBlackPricer {
         let pv = match self.model {
             ModelKey::Black76 => {
                 let disc = market
-                    .get_discount_ref(swaption.discount_curve_id.as_ref())
+                    .get_discount(swaption.discount_curve_id.as_ref())
                     .map_err(|e| PricingError::model_failure(e.to_string()))?;
 
                 // Use SABR if available (implies Black vol in this library), otherwise look up surface
                 if swaption.sabr_params.is_some() {
                     swaption
-                        .price_sabr(disc, as_of)
+                        .price_sabr(disc.as_ref(), as_of)
                         .map_err(|e| PricingError::model_failure(e.to_string()))?
                 } else {
                     let time_to_expiry = swaption
@@ -90,7 +90,7 @@ impl Pricer for SimpleSwaptionBlackPricer {
                         .map_err(|e| PricingError::model_failure(e.to_string()))?;
 
                     let vol_surface = market
-                        .surface_ref(swaption.vol_surface_id.as_str())
+                        .surface(swaption.vol_surface_id.as_str())
                         .map_err(|e| PricingError::missing_market_data(e.to_string()))?;
 
                     let vol = if let Some(impl_vol) = swaption.pricing_overrides.implied_volatility
@@ -110,7 +110,7 @@ impl Pricer for SimpleSwaptionBlackPricer {
                     };
 
                     swaption
-                        .price_black(disc, vol, as_of)
+                        .price_black(disc.as_ref(), vol, as_of)
                         .map_err(|e| PricingError::model_failure(e.to_string()))?
                 }
             }
@@ -327,7 +327,7 @@ impl BermudanSwaptionPricer {
     ) -> Result<ValuationResult, PricingError> {
         // Get discount curve
         let disc = market
-            .get_discount_ref(swaption.discount_curve_id.as_str())
+            .get_discount(swaption.discount_curve_id.as_str())
             .map_err(|e| PricingError::missing_market_data(e.to_string()))?;
 
         // Calculate time to maturity
@@ -347,16 +347,17 @@ impl BermudanSwaptionPricer {
         // Use pre-calibrated model if available, otherwise calibrate a new one
         let (pv, used_cached_model) = if let Some(ref cached_tree) = self.pre_calibrated_model {
             // Use pre-calibrated model (O(1) per instrument)
-            let valuator = BermudanSwaptionTreeValuator::new(swaption, cached_tree, disc, as_of)
-                .map_err(|e| PricingError::model_failure(e.to_string()))?;
+            let valuator =
+                BermudanSwaptionTreeValuator::new(swaption, cached_tree, disc.as_ref(), as_of)
+                    .map_err(|e| PricingError::model_failure(e.to_string()))?;
             (valuator.price(), true)
         } else {
             // Calibrate new model (O(Steps × Time) per instrument)
             let tree_config = self.hw_params.to_tree_config(self.tree_steps);
-            let tree = HullWhiteTree::calibrate(tree_config, disc, ttm)
+            let tree = HullWhiteTree::calibrate(tree_config, disc.as_ref(), ttm)
                 .map_err(|e| PricingError::model_failure(e.to_string()))?;
 
-            let valuator = BermudanSwaptionTreeValuator::new(swaption, &tree, disc, as_of)
+            let valuator = BermudanSwaptionTreeValuator::new(swaption, &tree, disc.as_ref(), as_of)
                 .map_err(|e| PricingError::model_failure(e.to_string()))?;
             (valuator.price(), false)
         };
@@ -397,7 +398,7 @@ impl BermudanSwaptionPricer {
     ) -> Result<ValuationResult, PricingError> {
         // Get discount curve
         let disc = market
-            .get_discount_ref(swaption.discount_curve_id.as_str())
+            .get_discount(swaption.discount_curve_id.as_str())
             .map_err(|e| PricingError::missing_market_data(e.to_string()))?;
 
         // Calculate time to maturity

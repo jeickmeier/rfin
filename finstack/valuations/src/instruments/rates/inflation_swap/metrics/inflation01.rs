@@ -15,9 +15,7 @@ impl MetricCalculator for Inflation01Calculator {
     fn calculate(&self, context: &mut MetricContext) -> finstack_core::Result<f64> {
         let s: &InflationSwap = context.instrument_as()?;
 
-        let disc = context
-            .curves
-            .get_discount_ref(s.discount_curve_id.as_str())?;
+        let disc = context.curves.get_discount(s.discount_curve_id.as_str())?;
         let base = disc.base_date();
         let curve_dc = disc.day_count();
 
@@ -28,7 +26,7 @@ impl MetricCalculator for Inflation01Calculator {
         // Use the effective lag (instrument override or index default)
         let inflation_index = context
             .curves
-            .inflation_index_ref(s.inflation_index_id.as_str());
+            .inflation_index(s.inflation_index_id.as_str());
 
         let default_lag = s
             .lag_override

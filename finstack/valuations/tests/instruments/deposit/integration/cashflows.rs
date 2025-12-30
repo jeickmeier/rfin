@@ -90,7 +90,7 @@ fn test_cashflow_conservation_of_value() {
     let pv = dep.npv(&ctx, base).unwrap();
 
     // Manually discount flows
-    let disc = ctx.get_discount_ref("USD-OIS").unwrap();
+    let disc = ctx.get_discount("USD-OIS").unwrap();
     let mut manual_pv: f64 = 0.0;
     for (date, amount) in flows {
         let df = disc

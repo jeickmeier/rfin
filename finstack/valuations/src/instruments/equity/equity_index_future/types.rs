@@ -448,7 +448,7 @@ impl EquityIndexFuture {
         };
 
         // Get discount curve and calculate time to expiry
-        let disc = context.get_discount_ref(&self.discount_curve_id)?;
+        let disc = context.get_discount(&self.discount_curve_id)?;
         let t = DayCount::Act365F
             .year_fraction(as_of, self.expiry_date, DayCountCtx::default())?
             .max(0.0);
@@ -495,7 +495,7 @@ impl EquityIndexFuture {
         };
 
         // Get discount curve and calculate time to expiry
-        let disc = context.get_discount_ref(&self.discount_curve_id)?;
+        let disc = context.get_discount(&self.discount_curve_id)?;
         let t = DayCount::Act365F
             .year_fraction(as_of, self.expiry_date, DayCountCtx::default())?
             .max(0.0);

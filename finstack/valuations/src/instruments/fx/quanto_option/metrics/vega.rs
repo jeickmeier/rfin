@@ -30,8 +30,11 @@ impl MetricCalculator for VegaCalculator {
         }
 
         // Bump equity volatility surface by an absolute vol amount (vol points).
-        let curves_bumped =
-            bump_surface_vol_absolute(&context.curves, option.vol_surface_id.as_str(), bump_sizes::VOLATILITY)?;
+        let curves_bumped = bump_surface_vol_absolute(
+            &context.curves,
+            option.vol_surface_id.as_str(),
+            bump_sizes::VOLATILITY,
+        )?;
 
         // Reprice with bumped vol
         let pv_bumped = option.npv(&curves_bumped, as_of)?.amount();

@@ -8,8 +8,7 @@
 use crate::instruments::cds::CreditDefaultSwap;
 use crate::instruments::common::traits::Instrument;
 use crate::metrics::{MetricCalculator, MetricContext, MetricId};
-use finstack_core::market_data::bumps::BumpSpec;
-use finstack_core::HashMap;
+use finstack_core::market_data::bumps::{BumpSpec, MarketBump};
 
 /// Calculates CS-Gamma for credit default swaps.
 pub struct CsGammaCalculator;
@@ -38,21 +37,27 @@ impl MetricCalculator for CsGammaCalculator {
 
         // Create bumped curves (up)
         let bump_spec_up = BumpSpec::parallel_bp(bump_bp);
-        let mut bumps_up = HashMap::default();
-        for curve_id in &curve_ids {
-            bumps_up.insert(curve_id.clone(), bump_spec_up);
-        }
-
+        let bumps_up: Vec<MarketBump> = curve_ids
+            .iter()
+            .cloned()
+            .map(|id| MarketBump::Curve {
+                id,
+                spec: bump_spec_up,
+            })
+            .collect();
         let curves_up = context.curves.bump(bumps_up)?;
         let pv_up = cds.value(&curves_up, as_of)?.amount();
 
         // Create bumped curves (down)
         let bump_spec_down = BumpSpec::parallel_bp(-bump_bp);
-        let mut bumps_down = HashMap::default();
-        for curve_id in &curve_ids {
-            bumps_down.insert(curve_id.clone(), bump_spec_down);
-        }
-
+        let bumps_down: Vec<MarketBump> = curve_ids
+            .iter()
+            .cloned()
+            .map(|id| MarketBump::Curve {
+                id,
+                spec: bump_spec_down,
+            })
+            .collect();
         let curves_down = context.curves.bump(bumps_down)?;
         let pv_down = cds.value(&curves_down, as_of)?.amount();
 

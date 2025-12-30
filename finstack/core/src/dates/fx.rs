@@ -119,11 +119,13 @@ pub fn adjust_joint_calendar(
         }
         d = adj_quote;
     }
-    Err(Error::Input(crate::error::InputError::JointCalendarNonConvergent {
-        date,
-        convention: bdc,
-        max_iterations: JOINT_CALENDAR_MAX_ITERATIONS as u32,
-    }))
+    Err(Error::Input(
+        crate::error::InputError::JointCalendarNonConvergent {
+            date,
+            convention: bdc,
+            max_iterations: JOINT_CALENDAR_MAX_ITERATIONS as u32,
+        },
+    ))
 }
 
 /// Add N business days on a joint calendar.
@@ -197,11 +199,13 @@ pub fn add_joint_business_days(
     }
 
     if iters >= max_iters {
-        return Err(Error::Input(crate::error::InputError::JointCalendarIterationLimitExceeded {
-            start,
-            n_days,
-            max_iters,
-        }));
+        return Err(Error::Input(
+            crate::error::InputError::JointCalendarIterationLimitExceeded {
+                start,
+                n_days,
+                max_iters,
+            },
+        ));
     }
 
     Ok(date)
@@ -341,11 +345,13 @@ pub fn add_joint_business_days_with_calendars(
     }
 
     if iters >= max_iters {
-        return Err(Error::Input(crate::error::InputError::JointCalendarIterationLimitExceeded {
-            start,
-            n_days,
-            max_iters,
-        }));
+        return Err(Error::Input(
+            crate::error::InputError::JointCalendarIterationLimitExceeded {
+                start,
+                n_days,
+                max_iters,
+            },
+        ));
     }
 
     Ok(date)
@@ -378,11 +384,13 @@ pub fn adjust_joint_calendar_with_calendars(
         }
         d = adj_quote;
     }
-    Err(Error::Input(crate::error::InputError::JointCalendarNonConvergent {
-        date,
-        convention: bdc,
-        max_iterations: JOINT_CALENDAR_MAX_ITERATIONS as u32,
-    }))
+    Err(Error::Input(
+        crate::error::InputError::JointCalendarNonConvergent {
+            date,
+            convention: bdc,
+            max_iterations: JOINT_CALENDAR_MAX_ITERATIONS as u32,
+        },
+    ))
 }
 
 #[cfg(test)]

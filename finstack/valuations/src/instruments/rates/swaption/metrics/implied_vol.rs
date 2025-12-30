@@ -21,7 +21,7 @@ impl MetricCalculator for ImpliedVolCalculator {
         // Fetch discount curve
         let disc = context
             .curves
-            .get_discount_ref(option.discount_curve_id.as_ref())?;
+            .get_discount(option.discount_curve_id.as_ref())?;
 
         // Time to expiry from as_of
         let t = option.year_fraction(context.as_of, option.expiry, option.day_count)?;
@@ -37,14 +37,14 @@ impl MetricCalculator for ImpliedVolCalculator {
             let sigma = x.exp();
             // Use Black pricing along the same path as instrument pricing (not SABR)
             // since we are solving for the equivalent Black vol.
-            match option.price_black(disc, sigma, context.as_of) {
+            match option.price_black(disc.as_ref(), sigma, context.as_of) {
                 Ok(m) => m.amount() - target_pv,
                 Err(_) => 1.0e6, // steer solver away from invalid regions
             }
         };
 
         // Initial guess: overrides -> SABR ATM -> surface -> 20%
-        let forward = option.forward_swap_rate(disc, context.as_of)?;
+        let forward = option.forward_swap_rate(disc.as_ref(), context.as_of)?;
         let initial_sigma = if let Some(ov) = option.pricing_overrides.implied_volatility {
             ov
         } else if let Some(sabr) = &option.sabr_params {
@@ -55,7 +55,7 @@ impl MetricCalculator for ImpliedVolCalculator {
         } else {
             context
                 .curves
-                .surface_ref(option.vol_surface_id.as_str())
+                .surface(option.vol_surface_id.as_str())
                 .and_then(
                     |s| match option.pricing_overrides.vol_surface_extrapolation {
                         VolSurfaceExtrapolation::Clamp

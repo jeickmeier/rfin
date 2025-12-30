@@ -43,7 +43,7 @@ pub fn calculate_tranche_oas(
     // Price function with spread
     let price_at_spread = |spread: f64| -> Result<f64> {
         let tranche_cfs = generate_tranche_cashflows(cmo, as_of, None)?;
-        let discount_curve = market.get_discount_ref(&cmo.discount_curve_id)?;
+        let discount_curve = market.get_discount(&cmo.discount_curve_id)?;
         let day_count = DayCount::Thirty360;
 
         let mut pv = 0.0;
@@ -188,9 +188,7 @@ mod tests {
 
         // Get model price at zero spread to use as market price
         let tranche_cfs = generate_tranche_cashflows(&cmo, as_of, None).expect("cfs");
-        let disc = market
-            .get_discount_ref(&cmo.discount_curve_id)
-            .expect("curve");
+        let disc = market.get_discount(&cmo.discount_curve_id).expect("curve");
         let day_count = DayCount::Thirty360;
 
         let mut model_price = 0.0;

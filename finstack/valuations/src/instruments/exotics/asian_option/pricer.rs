@@ -94,7 +94,7 @@ impl AsianOptionMcPricer {
         }
 
         // Get discount curve
-        let disc_curve = curves.get_discount_ref(inst.discount_curve_id.as_str())?;
+        let disc_curve = curves.get_discount(inst.discount_curve_id.as_str())?;
         let r = disc_curve.zero(t);
         let maturity_date = inst
             .fixing_dates
@@ -124,7 +124,7 @@ impl AsianOptionMcPricer {
         };
 
         // Get volatility
-        let vol_surface = curves.surface_ref(inst.vol_surface_id.as_str())?;
+        let vol_surface = curves.surface(inst.vol_surface_id.as_str())?;
         let sigma = vol_surface.value_clamped(t, inst.strike.amount());
 
         // Create GBM process
@@ -560,7 +560,7 @@ impl AsianOptionMcPricer {
             ));
         }
 
-        let disc_curve = curves.get_discount_ref(inst.discount_curve_id.as_str())?;
+        let disc_curve = curves.get_discount(inst.discount_curve_id.as_str())?;
         let r = disc_curve.zero(t);
         let maturity_date = inst
             .fixing_dates
@@ -587,7 +587,7 @@ impl AsianOptionMcPricer {
             0.0
         };
 
-        let vol_surface = curves.surface_ref(inst.vol_surface_id.as_str())?;
+        let vol_surface = curves.surface(inst.vol_surface_id.as_str())?;
         let sigma = vol_surface.value_clamped(t, inst.strike.amount());
 
         let gbm_params = GbmParams::new(r, q, sigma);
@@ -935,7 +935,7 @@ impl Pricer for AsianOptionSemiAnalyticalTwPricer {
             };
             // Discount to present
             let disc_curve = market
-                .get_discount_ref(asian.discount_curve_id.as_str())
+                .get_discount(asian.discount_curve_id.as_str())
                 .map_err(|e| PricingError::model_failure(e.to_string()))?;
             let df = disc_curve.df(t); // approx discount using t (time to expiry)
             return Ok(ValuationResult::stamped(

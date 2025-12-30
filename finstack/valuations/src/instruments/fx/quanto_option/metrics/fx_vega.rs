@@ -40,13 +40,13 @@ impl MetricCalculator for FxVegaCalculator {
             })
         })?;
 
-        let fx_vol_surface = context.curves.surface_ref(fx_vol_id.as_str())?;
+        let fx_vol_surface = context.curves.surface(fx_vol_id.as_str())?;
 
         // Bump FX volatility surface by scaling all values (no grid rebuild)
         let mut curves_bumped = context.curves.as_ref().clone();
         let scale_factor = 1.0 + bump_sizes::VOLATILITY;
         let bumped_surface = fx_vol_surface.scaled(scale_factor);
-        curves_bumped.insert_surface_mut(bumped_surface);
+        curves_bumped = curves_bumped.insert_surface(bumped_surface);
 
         // Reprice with bumped FX vol
         let pv_bumped = option.npv(&curves_bumped, as_of)?.amount();

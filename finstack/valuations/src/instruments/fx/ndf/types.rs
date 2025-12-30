@@ -256,7 +256,7 @@ impl Ndf {
         }
 
         // Get settlement discount curve
-        let settlement_disc = market.get_discount_ref(self.settlement_curve_id.as_str())?;
+        let settlement_disc = market.get_discount(self.settlement_curve_id.as_str())?;
         let df_settlement = settlement_disc.df_between_dates(as_of, self.maturity_date)?;
 
         // Determine the forward rate to use
@@ -327,12 +327,12 @@ impl Ndf {
         };
 
         // Get settlement discount factor
-        let settlement_disc = market.get_discount_ref(self.settlement_curve_id.as_str())?;
+        let settlement_disc = market.get_discount(self.settlement_curve_id.as_str())?;
         let df_settlement = settlement_disc.df_between_dates(as_of, self.maturity_date)?;
 
         // If foreign curve available, use CIRP
         if let Some(ref foreign_curve_id) = self.foreign_curve_id {
-            if let Ok(foreign_disc) = market.get_discount_ref(foreign_curve_id.as_str()) {
+            if let Ok(foreign_disc) = market.get_discount(foreign_curve_id.as_str()) {
                 let df_foreign = foreign_disc.df_between_dates(as_of, self.maturity_date)?;
                 // F = S × DF_foreign / DF_settlement
                 return Ok(spot * df_foreign / df_settlement);

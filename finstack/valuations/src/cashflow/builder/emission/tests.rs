@@ -105,7 +105,7 @@ mod accrual_context_tests {
         let outstanding_fallback = 1_000_000.0;
 
         let mut flows = Vec::new();
-        let resolved: [Option<&ForwardCurve>; 1] = [None];
+        let resolved: [Option<std::sync::Arc<ForwardCurve>>; 1] = [None];
         let pik = emit_float_coupons_on(
             end,
             &[schedule],

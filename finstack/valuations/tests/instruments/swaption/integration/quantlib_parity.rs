@@ -593,8 +593,8 @@ fn test_quantlib_parity_deep_itm() {
     let delta = *result.measures.get("delta").unwrap();
 
     // Deep ITM delta should be high (close to max)
-    let disc = market.get_discount_ref("USD_OIS").unwrap();
-    let annuity = deep_itm.swap_annuity(disc, as_of).unwrap();
+    let disc = market.get_discount("USD_OIS").unwrap();
+    let annuity = deep_itm.swap_annuity(disc.as_ref(), as_of).unwrap();
     let max_delta = deep_itm.notional.amount() * annuity;
 
     assert!(

@@ -1,6 +1,8 @@
 //! Integration tests for ResultsMeta stamping.
 
-use finstack_core::config::{results_meta, results_meta_now, FinstackConfig, NumericMode, ResultsMeta};
+use finstack_core::config::{
+    results_meta, results_meta_now, FinstackConfig, NumericMode, ResultsMeta,
+};
 
 #[test]
 fn test_results_meta_default_stamping() {

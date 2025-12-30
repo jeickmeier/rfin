@@ -4,7 +4,7 @@ use super::test_helpers::{
 };
 use finstack_core::currency::Currency;
 use finstack_core::dates::Date;
-use finstack_core::market_data::bumps::BumpType;
+use finstack_core::market_data::bumps::{BumpType, MarketBump};
 use finstack_core::market_data::context::{BumpSpec, CurveStorage, MarketContext};
 use finstack_core::market_data::dividends::DividendSchedule;
 use finstack_core::market_data::scalars::{
@@ -14,7 +14,6 @@ use finstack_core::market_data::term_structures::CreditIndexData;
 use finstack_core::money::fx::{FxConversionPolicy, FxMatrix, FxProvider};
 use finstack_core::money::Money;
 use finstack_core::types::CurveId;
-use finstack_core::HashMap;
 use std::sync::Arc;
 use time::Month;
 
@@ -98,9 +97,9 @@ fn market_context_typed_mut_variants_store_curves() {
     let discount = sample_discount_curve("USD-OIS");
     let forward = sample_forward_curve("USD-LIBOR");
 
-    let mut ctx = MarketContext::new();
-    ctx.insert_discount_mut(discount)
-        .insert_forward_mut(forward);
+    let ctx = MarketContext::new()
+        .insert_discount(discount)
+        .insert_forward(forward);
 
     assert_eq!(
         ctx.get_discount("USD-OIS").unwrap().id().as_str(),
@@ -155,16 +154,15 @@ fn market_context_manages_fx_and_scalars() {
         .build()
         .unwrap();
 
-    let mut ctx = MarketContext::new()
+    let ctx = MarketContext::new()
         .insert_fx(sample_fx_matrix())
         .insert_discount(sample_discount_curve("USD-OIS"))
         .insert_series(series)
         .insert_inflation_index("US-CPI", index)
         .insert_dividends(dividends)
-        .insert_credit_index("CDX", credit_index);
-
-    ctx.insert_surface_mut(vol_surface.clone());
-    ctx.insert_price_mut("USD-PRIME", MarketScalar::Unitless(0.05));
+        .insert_credit_index("CDX", credit_index)
+        .insert_surface(vol_surface.clone())
+        .insert_price("USD-PRIME", MarketScalar::Unitless(0.05));
 
     assert!(ctx.surface(vol_surface.id()).is_ok());
     match ctx.price("USD-PRIME").unwrap() {
@@ -192,20 +190,19 @@ fn market_context_supports_curve_bumps() {
         .insert_discount(sample_discount_curve("USD-OIS"))
         .insert_forward(sample_forward_curve("USD-LIBOR"));
 
-    let mut bumps = HashMap::default();
-    bumps.insert(
-        CurveId::new("USD-OIS"),
-        finstack_core::market_data::context::BumpSpec::parallel_bp(50.0),
-    );
-
     // Get the original discount factor for verification
-    let orig_disc = ctx.get_discount_ref("USD-OIS").unwrap();
+    let orig_disc = ctx.get_discount("USD-OIS").unwrap();
     let orig_df_5y = orig_disc.df(5.0);
 
-    let bumped = ctx.bump(bumps).expect("bump should succeed");
+    let bumped = ctx
+        .bump([MarketBump::Curve {
+            id: CurveId::new("USD-OIS"),
+            spec: finstack_core::market_data::context::BumpSpec::parallel_bp(50.0),
+        }])
+        .expect("bump should succeed");
 
     // Original context is unchanged
-    let orig_disc_after = ctx.get_discount_ref("USD-OIS").unwrap();
+    let orig_disc_after = ctx.get_discount("USD-OIS").unwrap();
     assert_eq!(
         orig_disc_after.df(5.0),
         orig_df_5y,
@@ -213,7 +210,7 @@ fn market_context_supports_curve_bumps() {
     );
 
     // Bumped context has the curve under the same ID, but with bumped values
-    let bumped_disc = bumped.get_discount_ref("USD-OIS").unwrap();
+    let bumped_disc = bumped.get_discount("USD-OIS").unwrap();
     assert_ne!(
         bumped_disc.df(5.0),
         orig_df_5y,
@@ -257,28 +254,32 @@ fn market_context_bumps_surfaces_and_scalars() {
         .value_on(sample_base_date())
         .unwrap();
 
-    let mut bumps = HashMap::default();
-    bumps.insert(CurveId::from("EQ-VOL"), BumpSpec::multiplier(1.10));
-    bumps.insert(
-        CurveId::from("EQ-SPOT"),
-        BumpSpec {
-            mode: finstack_core::market_data::context::BumpMode::Multiplicative,
-            units: finstack_core::market_data::context::BumpUnits::Factor,
-            value: 1.05,
-            bump_type: BumpType::Parallel,
-        },
-    );
-    bumps.insert(
-        CurveId::from("TS"),
-        BumpSpec {
-            mode: finstack_core::market_data::context::BumpMode::Additive,
-            units: finstack_core::market_data::context::BumpUnits::Percent,
-            value: 10.0,
-            bump_type: BumpType::Parallel,
-        },
-    );
-
-    let bumped = ctx.bump(bumps).expect("bump should succeed");
+    let bumped = ctx
+        .bump([
+            MarketBump::Curve {
+                id: CurveId::from("EQ-VOL"),
+                spec: BumpSpec::multiplier(1.10),
+            },
+            MarketBump::Curve {
+                id: CurveId::from("EQ-SPOT"),
+                spec: BumpSpec {
+                    mode: finstack_core::market_data::context::BumpMode::Multiplicative,
+                    units: finstack_core::market_data::context::BumpUnits::Factor,
+                    value: 1.05,
+                    bump_type: BumpType::Parallel,
+                },
+            },
+            MarketBump::Curve {
+                id: CurveId::from("TS"),
+                spec: BumpSpec {
+                    mode: finstack_core::market_data::context::BumpMode::Additive,
+                    units: finstack_core::market_data::context::BumpUnits::Percent,
+                    value: 10.0,
+                    bump_type: BumpType::Parallel,
+                },
+            },
+        ])
+        .expect("bump should succeed");
 
     let bumped_vol = bumped
         .surface("EQ-VOL")
@@ -306,7 +307,7 @@ fn market_context_handles_additional_introspection() {
     let mut ctx = MarketContext::new();
     assert!(ctx.is_empty());
 
-    ctx.insert_discount_mut(sample_discount_curve("USD-OIS"));
+    ctx = ctx.insert_discount(sample_discount_curve("USD-OIS"));
     assert!(!ctx.is_empty());
     assert!(ctx.curve("USD-OIS").is_some());
 
@@ -341,9 +342,12 @@ fn market_context_update_and_bump_failures() {
     );
     assert!(!ctx.update_base_correlation_curve("UNKNOWN", new_curve));
 
-    let mut bumps = HashMap::default();
-    bumps.insert(CurveId::new("MISSING"), BumpSpec::parallel_bp(10.0));
-    assert!(ctx.bump(bumps).is_err());
+    assert!(ctx
+        .bump([MarketBump::Curve {
+            id: CurveId::new("MISSING"),
+            spec: BumpSpec::parallel_bp(10.0),
+        }])
+        .is_err());
 }
 
 #[test]
@@ -361,7 +365,7 @@ fn market_context_collateral_and_stats() {
 
     let collateral = ctx.collateral("USD-CSA").unwrap();
     assert!(collateral.df(0.5) < 1.0);
-    let collateral_ref = ctx.collateral_ref("USD-CSA").unwrap();
+    let collateral_ref = ctx.collateral("USD-CSA").unwrap();
     assert!(collateral_ref.df(1.0) < 1.0);
 }
 
@@ -381,30 +385,28 @@ fn market_context_getters_type_mismatch_and_not_found() {
     assert!(ctx.series("MISSING").is_err());
     assert!(ctx.credit_index("MISSING").is_err());
     assert!(ctx.inflation_index("MISSING").is_none());
-    assert!(ctx.inflation_index_ref("MISSING").is_none());
+    assert!(ctx.inflation_index("MISSING").is_none());
     assert!(ctx.dividend_schedule("MISSING").is_none());
-    assert!(ctx.dividend_schedule_ref("MISSING").is_none());
+    assert!(ctx.dividend_schedule("MISSING").is_none());
 
     // Type mismatch cases (ensure the "mismatch" branches are exercised)
     assert!(ctx.get_forward("USD-OIS").is_err());
     assert!(ctx.get_discount("USD-LIBOR").is_err());
-    assert!(ctx.get_forward_ref("USD-OIS").is_err());
-    assert!(ctx.get_discount_ref("USD-LIBOR").is_err());
+    assert!(ctx.get_forward("USD-OIS").is_err());
+    assert!(ctx.get_discount("USD-LIBOR").is_err());
 }
 
 #[test]
 fn market_context_surface_and_dividends_arc_variants_preserve_identity() {
-    let surface = sample_vol_surface();
-    let dividends = DividendSchedule::new("AAPL-DIVS")
-        .add_cash(sample_base_date(), Money::new(1.0, Currency::USD));
+    let surface = Arc::new(sample_vol_surface());
+    let dividends = Arc::new(
+        DividendSchedule::new("AAPL-DIVS")
+            .add_cash(sample_base_date(), Money::new(1.0, Currency::USD)),
+    );
 
-    let mut ctx = MarketContext::new()
-        .insert_surface(surface.clone())
-        .insert_dividends(dividends.clone());
-
-    // insert_*_mut variants should also work.
-    ctx.insert_surface_mut(surface.clone());
-    ctx.insert_dividends_mut(dividends.clone());
+    let ctx = MarketContext::new()
+        .insert_surface_arc(Arc::clone(&surface))
+        .insert_dividends_arc(Arc::clone(&dividends));
 
     let got_surface = ctx.surface("EQ-VOL").unwrap();
     assert_eq!(got_surface.id(), surface.id());
@@ -418,18 +420,18 @@ fn market_context_collateral_error_paths() {
     // Missing mapping
     let ctx = MarketContext::new().insert_discount(sample_discount_curve("USD-OIS"));
     assert!(ctx.collateral("MISSING-CSA").is_err());
-    assert!(ctx.collateral_ref("MISSING-CSA").is_err());
+    assert!(ctx.collateral("MISSING-CSA").is_err());
 
     // Mapping exists but curve is missing
     let ctx = MarketContext::new().map_collateral("USD-CSA", CurveId::from("USD-OIS"));
     assert!(ctx.collateral("USD-CSA").is_err());
-    assert!(ctx.collateral_ref("USD-CSA").is_err());
+    assert!(ctx.collateral("USD-CSA").is_err());
 }
 
 #[test]
 fn market_context_roll_forward_preserves_ids_and_clones_non_curves() {
     let surface = sample_vol_surface();
-    let mut ctx = MarketContext::new()
+    let ctx = MarketContext::new()
         .insert_discount(sample_discount_curve("USD-OIS"))
         .insert_forward(sample_forward_curve("USD-LIBOR"))
         .insert_hazard(sample_hazard_curve("CDX"))
@@ -437,37 +439,31 @@ fn market_context_roll_forward_preserves_ids_and_clones_non_curves() {
         .insert_base_correlation(sample_base_correlation_curve("CDX-BC"))
         .insert_surface(surface.clone())
         .insert_price("EQ-SPOT", MarketScalar::Unitless(1.0))
-        .map_collateral("USD-CSA", CurveId::from("USD-OIS"));
+        .map_collateral("USD-CSA", CurveId::from("USD-OIS"))
+        .insert_fx(sample_fx_matrix());
 
-    // Ensure we have an FX matrix too (roll should preserve it)
-    ctx = ctx.insert_fx(sample_fx_matrix());
-
-    let before_base = ctx.get_discount_ref("USD-OIS").unwrap().base_date();
+    let before_base = ctx.get_discount("USD-OIS").unwrap().base_date();
     let rolled = ctx.roll_forward(30).expect("roll_forward should succeed");
 
     // Original unchanged
     assert_eq!(
-        ctx.get_discount_ref("USD-OIS").unwrap().base_date(),
+        ctx.get_discount("USD-OIS").unwrap().base_date(),
         before_base
     );
 
     // IDs preserved and base date advanced in rolled context
     assert_eq!(
-        rolled.get_discount_ref("USD-OIS").unwrap().id().as_str(),
+        rolled.get_discount("USD-OIS").unwrap().id().as_str(),
         "USD-OIS"
     );
     assert_ne!(
-        rolled.get_discount_ref("USD-OIS").unwrap().base_date(),
+        rolled.get_discount("USD-OIS").unwrap().base_date(),
         before_base
     );
 
     // Base correlation curves are passed through without "rolling" logic (still available, same id)
     assert_eq!(
-        rolled
-            .get_base_correlation_ref("CDX-BC")
-            .unwrap()
-            .id()
-            .as_str(),
+        rolled.get_base_correlation("CDX-BC").unwrap().id().as_str(),
         "CDX-BC"
     );
 
@@ -488,7 +484,12 @@ fn market_context_bump_fx_spot_error_and_success_paths() {
     // Error when no FX matrix is present
     let ctx = MarketContext::new();
     assert!(ctx
-        .bump_fx_spot(Currency::USD, Currency::EUR, 0.01, date)
+        .bump([MarketBump::FxPct {
+            base: Currency::USD,
+            quote: Currency::EUR,
+            pct: 1.0,
+            as_of: date,
+        }])
         .is_err());
 
     // Success path with a static provider
@@ -505,7 +506,12 @@ fn market_context_bump_fx_spot_error_and_success_paths() {
         .rate;
 
     let bumped = ctx
-        .bump_fx_spot(Currency::USD, Currency::EUR, 0.10, date)
+        .bump([MarketBump::FxPct {
+            base: Currency::USD,
+            quote: Currency::EUR,
+            pct: 10.0,
+            as_of: date,
+        }])
         .unwrap();
     let after = bumped
         .fx()
@@ -525,17 +531,17 @@ fn market_context_bump_fx_spot_error_and_success_paths() {
 fn market_context_bumps_inflation_triangular_key_rate_branch() {
     let ctx = MarketContext::new().insert_inflation(sample_inflation_curve("USD-CPI"));
 
-    let orig = ctx.get_inflation_ref("USD-CPI").unwrap();
+    let orig = ctx.get_inflation("USD-CPI").unwrap();
     let orig_levels = orig.cpi_levels().to_vec();
 
-    let mut bumps = HashMap::default();
-    bumps.insert(
-        CurveId::from("USD-CPI"),
-        BumpSpec::triangular_key_rate_bp(0.0, 1.0, 2.0, 1.0), // 1bp => +0.0001 fraction
-    );
-
-    let bumped = ctx.bump(bumps).unwrap();
-    let bumped_levels = bumped.get_inflation_ref("USD-CPI").unwrap().cpi_levels();
+    let bumped = ctx
+        .bump([MarketBump::Curve {
+            id: CurveId::from("USD-CPI"),
+            spec: BumpSpec::triangular_key_rate_bp(0.0, 1.0, 2.0, 1.0), // 1bp => +0.0001 fraction
+        }])
+        .unwrap();
+    let bumped_inf = bumped.get_inflation("USD-CPI").unwrap();
+    let bumped_levels = bumped_inf.cpi_levels();
 
     // Closest knot to 1.0y should be bumped multiplicatively
     assert!((bumped_levels[1] - orig_levels[1] * 1.0001).abs() < 1e-9);
@@ -546,8 +552,6 @@ fn market_context_bumps_inflation_triangular_key_rate_branch() {
 
 #[test]
 fn market_context_apply_bumps_exercises_all_variants() {
-    use finstack_core::market_data::bumps::MarketBump;
-
     let date = sample_base_date();
 
     let ctx = MarketContext::new()
@@ -556,7 +560,7 @@ fn market_context_apply_bumps_exercises_all_variants() {
         .insert_surface(sample_vol_surface())
         .insert_fx(sample_fx_matrix());
 
-    let df_before = ctx.get_discount_ref("USD-OIS").unwrap().df(2.0);
+    let df_before = ctx.get_discount("USD-OIS").unwrap().df(2.0);
     let fx_before = ctx
         .fx()
         .unwrap()
@@ -569,14 +573,11 @@ fn market_context_apply_bumps_exercises_all_variants() {
         .rate;
 
     let vol_before = ctx
-        .surface_ref("EQ-VOL")
+        .surface("EQ-VOL")
         .unwrap()
         .value_checked(0.5, 1.0)
         .unwrap();
-    let bc_before = ctx
-        .get_base_correlation_ref("CDX-BC")
-        .unwrap()
-        .correlations()[0];
+    let bc_before = ctx.get_base_correlation("CDX-BC").unwrap().correlations()[0];
 
     let bumps = vec![
         // Curve bump
@@ -606,10 +607,10 @@ fn market_context_apply_bumps_exercises_all_variants() {
         },
     ];
 
-    let bumped = ctx.apply_bumps(&bumps).unwrap();
+    let bumped = ctx.bump(bumps).unwrap();
 
     // Curve bumped
-    let df_after = bumped.get_discount_ref("USD-OIS").unwrap().df(2.0);
+    let df_after = bumped.get_discount("USD-OIS").unwrap().df(2.0);
     assert_ne!(df_after, df_before);
 
     // FX bumped
@@ -627,18 +628,18 @@ fn market_context_apply_bumps_exercises_all_variants() {
 
     // Vol bucket bumped at (0.5, 1.0); non-bucket cells should remain unchanged.
     let vol_after = bumped
-        .surface_ref("EQ-VOL")
+        .surface("EQ-VOL")
         .unwrap()
         .value_checked(0.5, 1.0)
         .unwrap();
     assert!((vol_after - vol_before * 1.10).abs() < 1e-12);
     let vol_other_before = ctx
-        .surface_ref("EQ-VOL")
+        .surface("EQ-VOL")
         .unwrap()
         .value_checked(0.25, 0.9)
         .unwrap();
     let vol_other_after = bumped
-        .surface_ref("EQ-VOL")
+        .surface("EQ-VOL")
         .unwrap()
         .value_checked(0.25, 0.9)
         .unwrap();
@@ -646,7 +647,7 @@ fn market_context_apply_bumps_exercises_all_variants() {
 
     // Base correlation bumped (first point matches 3.0 detachment in test helper curve)
     let bc_after = bumped
-        .get_base_correlation_ref("CDX-BC")
+        .get_base_correlation("CDX-BC")
         .unwrap()
         .correlations()[0];
     assert!((bc_after - (bc_before + 0.02)).abs() < 1e-12);
@@ -688,16 +689,17 @@ fn market_context_insert_and_stats_setters_cover_remaining_paths() {
         .insert_dividends(dividends_by_value)
         .insert_fx(sample_fx_matrix());
 
-    // insert_credit_index_mut + insert_fx_mut
-    ctx.insert_credit_index_mut("CDX", credit_index)
-        .insert_fx_mut(sample_fx_matrix());
+    // insert_credit_index + insert_fx
+    ctx = ctx
+        .insert_credit_index("CDX", credit_index)
+        .insert_fx(sample_fx_matrix());
 
-    // map_collateral_mut
-    ctx.map_collateral_mut("USD-CSA", CurveId::from("USD-OIS"));
+    // map_collateral
+    ctx = ctx.map_collateral("USD-CSA", CurveId::from("USD-OIS"));
     assert!(ctx.collateral("USD-CSA").is_ok());
 
-    // stats setters + iterators
-    ctx.set_price_mut(CurveId::from("PX"), MarketScalar::Unitless(42.0));
+    // scalars / series / indices / dividends
+    ctx = ctx.insert_price("PX", MarketScalar::Unitless(42.0));
 
     let series = ScalarTimeSeries::new(
         "TS-2",
@@ -706,18 +708,18 @@ fn market_context_insert_and_stats_setters_cover_remaining_paths() {
     )
     .unwrap()
     .with_interpolation(SeriesInterpolation::Linear);
-    ctx.set_series_mut(series);
+    ctx = ctx.insert_series(series);
 
     let idx = Arc::new(
         InflationIndex::new("US-CPI", vec![(date, 100.0)], Currency::USD)
             .unwrap()
             .with_interpolation(InflationInterpolation::Linear),
     );
-    ctx.set_inflation_index_mut("US-CPI", idx);
+    ctx = ctx.insert_inflation_index_arc("US-CPI", idx);
 
     let divs =
         Arc::new(DividendSchedule::new("AAPL-DIVS").add_cash(date, Money::new(1.0, Currency::USD)));
-    ctx.set_dividends_mut(divs);
+    ctx = ctx.insert_dividends_arc(divs);
 
     assert_eq!(ctx.prices_iter().count(), 1);
     assert_eq!(ctx.series_iter().count(), 1);
@@ -742,58 +744,65 @@ fn market_context_bump_more_curve_types_and_error_paths() {
         .insert_base_correlation(sample_base_correlation_curve("CDX-BC"))
         .insert_surface(sample_vol_surface());
 
-    let df_before = ctx.get_discount_ref("USD-OIS").unwrap().df(2.0);
-    let fwd_before = ctx.get_forward_ref("USD-LIBOR").unwrap().rate(2.0);
-    let haz_before = ctx.get_hazard_ref("CDX").unwrap().hazard_rate(5.0);
-    let cpi_before = ctx.get_inflation_ref("USD-CPI").unwrap().cpi_levels()[1];
-    let bc_before = ctx
-        .get_base_correlation_ref("CDX-BC")
-        .unwrap()
-        .correlations()[0];
+    let df_before = ctx.get_discount("USD-OIS").unwrap().df(2.0);
+    let fwd_before = ctx.get_forward("USD-LIBOR").unwrap().rate(2.0);
+    let haz_before = ctx.get_hazard("CDX").unwrap().hazard_rate(5.0);
+    let cpi_before = ctx.get_inflation("USD-CPI").unwrap().cpi_levels()[1];
+    let bc_before = ctx.get_base_correlation("CDX-BC").unwrap().correlations()[0];
 
-    let mut bumps = HashMap::default();
-    bumps.insert(CurveId::from("USD-OIS"), BumpSpec::parallel_bp(10.0));
-    bumps.insert(CurveId::from("USD-LIBOR"), BumpSpec::multiplier(1.10));
-    bumps.insert(CurveId::from("CDX"), BumpSpec::parallel_bp(5.0));
-    bumps.insert(CurveId::from("USD-CPI"), BumpSpec::inflation_shift_pct(2.0));
-    bumps.insert(
-        CurveId::from("CDX-BC"),
-        BumpSpec::correlation_shift_pct(10.0),
-    );
+    let bumped = ctx
+        .bump([
+            MarketBump::Curve {
+                id: CurveId::from("USD-OIS"),
+                spec: BumpSpec::parallel_bp(10.0),
+            },
+            MarketBump::Curve {
+                id: CurveId::from("USD-LIBOR"),
+                spec: BumpSpec::multiplier(1.10),
+            },
+            MarketBump::Curve {
+                id: CurveId::from("CDX"),
+                spec: BumpSpec::parallel_bp(5.0),
+            },
+            MarketBump::Curve {
+                id: CurveId::from("USD-CPI"),
+                spec: BumpSpec::inflation_shift_pct(2.0),
+            },
+            MarketBump::Curve {
+                id: CurveId::from("CDX-BC"),
+                spec: BumpSpec::correlation_shift_pct(10.0),
+            },
+        ])
+        .unwrap();
 
-    let bumped = ctx.bump(bumps).unwrap();
-
+    assert_ne!(bumped.get_discount("USD-OIS").unwrap().df(2.0), df_before);
     assert_ne!(
-        bumped.get_discount_ref("USD-OIS").unwrap().df(2.0),
-        df_before
-    );
-    assert_ne!(
-        bumped.get_forward_ref("USD-LIBOR").unwrap().rate(2.0),
+        bumped.get_forward("USD-LIBOR").unwrap().rate(2.0),
         fwd_before
     );
     assert_ne!(
-        bumped.get_hazard_ref("CDX").unwrap().hazard_rate(5.0),
+        bumped.get_hazard("CDX").unwrap().hazard_rate(5.0),
         haz_before
     );
     assert_ne!(
-        bumped.get_inflation_ref("USD-CPI").unwrap().cpi_levels()[1],
+        bumped.get_inflation("USD-CPI").unwrap().cpi_levels()[1],
         cpi_before
     );
     assert_ne!(
         bumped
-            .get_base_correlation_ref("CDX-BC")
+            .get_base_correlation("CDX-BC")
             .unwrap()
             .correlations()[0],
         bc_before
     );
 
     // Error path: attempting to apply a key-rate bump to a VolSurface via ctx.bump should fail
-    let mut bad = HashMap::default();
-    bad.insert(
-        CurveId::from("EQ-VOL"),
-        BumpSpec::triangular_key_rate_bp(0.25, 0.5, 1.0, 1.0),
-    );
-    assert!(ctx.bump(bad).is_err());
+    assert!(ctx
+        .bump([MarketBump::Curve {
+            id: CurveId::from("EQ-VOL"),
+            spec: BumpSpec::triangular_key_rate_bp(0.25, 0.5, 1.0, 1.0),
+        }])
+        .is_err());
 }
 
 #[test]
@@ -861,14 +870,12 @@ fn curve_storage_arc_from_impls_and_curve_type_coverage() {
 
 #[test]
 fn market_context_apply_bumps_additional_branches_and_errors() {
-    use finstack_core::market_data::bumps::MarketBump;
-
     let date = sample_base_date();
 
     // FxPct error branch (missing FX)
     let ctx = MarketContext::new().insert_discount(sample_discount_curve("USD-OIS"));
     assert!(ctx
-        .apply_bumps(&[MarketBump::FxPct {
+        .bump([MarketBump::FxPct {
             base: Currency::USD,
             quote: Currency::EUR,
             pct: 1.0,
@@ -881,7 +888,7 @@ fn market_context_apply_bumps_additional_branches_and_errors() {
     let base_vol = surface.value_checked(0.5, 1.0).unwrap();
     let ctx = MarketContext::new().insert_surface(surface);
     let bumped = ctx
-        .apply_bumps(&[MarketBump::VolBucketPct {
+        .bump([MarketBump::VolBucketPct {
             surface_id: CurveId::from("EQ-VOL"),
             expiries: None,
             strikes: None,
@@ -889,7 +896,7 @@ fn market_context_apply_bumps_additional_branches_and_errors() {
         }])
         .unwrap();
     let bumped_vol = bumped
-        .surface_ref("EQ-VOL")
+        .surface("EQ-VOL")
         .unwrap()
         .value_checked(0.5, 1.0)
         .unwrap();
@@ -899,7 +906,7 @@ fn market_context_apply_bumps_additional_branches_and_errors() {
     // VolBucketPct missing surface error branch
     let ctx = MarketContext::new();
     assert!(ctx
-        .apply_bumps(&[MarketBump::VolBucketPct {
+        .bump([MarketBump::VolBucketPct {
             surface_id: CurveId::from("MISSING-VOL"),
             expiries: Some(vec![0.5]),
             strikes: Some(vec![1.0]),
@@ -909,19 +916,16 @@ fn market_context_apply_bumps_additional_branches_and_errors() {
 
     // BaseCorrBucketPts "all buckets" (detachments None) path
     let ctx = MarketContext::new().insert_base_correlation(sample_base_correlation_curve("CDX-BC"));
-    let before = ctx
-        .get_base_correlation_ref("CDX-BC")
-        .unwrap()
-        .correlations()[0];
+    let before = ctx.get_base_correlation("CDX-BC").unwrap().correlations()[0];
     let bumped = ctx
-        .apply_bumps(&[MarketBump::BaseCorrBucketPts {
+        .bump([MarketBump::BaseCorrBucketPts {
             surface_id: CurveId::from("CDX-BC"),
             detachments: None,
             points: 0.01,
         }])
         .unwrap();
     let after = bumped
-        .get_base_correlation_ref("CDX-BC")
+        .get_base_correlation("CDX-BC")
         .unwrap()
         .correlations()[0];
     assert!((after - (before + 0.01)).abs() < 1e-12);
@@ -929,7 +933,7 @@ fn market_context_apply_bumps_additional_branches_and_errors() {
     // BaseCorrBucketPts missing curve error branch
     let ctx = MarketContext::new();
     assert!(ctx
-        .apply_bumps(&[MarketBump::BaseCorrBucketPts {
+        .bump([MarketBump::BaseCorrBucketPts {
             surface_id: CurveId::from("MISSING-BC"),
             detachments: None,
             points: 0.01,
@@ -945,7 +949,7 @@ fn market_context_clone_thread_safe_smoke() {
 
     let handle = std::thread::spawn(move || {
         // basic lookup on another thread
-        cloned.get_discount_ref("USD-OIS").is_ok()
+        cloned.get_discount("USD-OIS").is_ok()
     });
 
     assert!(handle.join().expect("thread should join"));

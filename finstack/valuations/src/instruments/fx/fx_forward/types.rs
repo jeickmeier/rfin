@@ -219,8 +219,8 @@ impl FxForward {
         }
 
         // Get discount curves
-        let domestic_disc = market.get_discount_ref(self.domestic_discount_curve_id.as_str())?;
-        let foreign_disc = market.get_discount_ref(self.foreign_discount_curve_id.as_str())?;
+        let domestic_disc = market.get_discount(self.domestic_discount_curve_id.as_str())?;
+        let foreign_disc = market.get_discount(self.foreign_discount_curve_id.as_str())?;
 
         // Discount factors from as_of to maturity
         let df_domestic = domestic_disc.df_between_dates(as_of, self.maturity_date)?;
@@ -266,8 +266,8 @@ impl FxForward {
     pub fn market_forward_rate(&self, market: &MarketContext, as_of: Date) -> Result<f64> {
         use finstack_core::money::fx::FxQuery;
 
-        let domestic_disc = market.get_discount_ref(self.domestic_discount_curve_id.as_str())?;
-        let foreign_disc = market.get_discount_ref(self.foreign_discount_curve_id.as_str())?;
+        let domestic_disc = market.get_discount(self.domestic_discount_curve_id.as_str())?;
+        let foreign_disc = market.get_discount(self.foreign_discount_curve_id.as_str())?;
 
         let df_domestic = domestic_disc.df_between_dates(as_of, self.maturity_date)?;
         let df_foreign = foreign_disc.df_between_dates(as_of, self.maturity_date)?;

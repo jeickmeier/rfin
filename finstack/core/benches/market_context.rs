@@ -9,12 +9,12 @@
 use criterion::{criterion_group, criterion_main, BenchmarkId, Criterion};
 use finstack_core::dates::Date;
 use finstack_core::market_data::context::{BumpSpec, MarketContext};
+use finstack_core::market_data::bumps::MarketBump;
 use finstack_core::market_data::surfaces::VolSurface;
 use finstack_core::market_data::term_structures::DiscountCurve;
 use finstack_core::market_data::term_structures::ForwardCurve;
 use finstack_core::market_data::term_structures::HazardCurve;
 use finstack_core::types::CurveId;
-use finstack_core::HashMap;
 use std::hint::black_box;
 use time::Month;
 
@@ -182,7 +182,7 @@ fn bench_context_curve_lookup(c: &mut Criterion) {
     group.bench_function("discount_ref_lookup", |b| {
         b.iter(|| {
             let curve = black_box(&ctx_medium)
-                .get_discount_ref(black_box("DISC-25"))
+                .get_discount(black_box("DISC-25"))
                 .expect("Curve should exist");
             black_box(curve);
         })
@@ -198,8 +198,10 @@ fn bench_context_bump_operations(c: &mut Criterion) {
 
     // Single curve parallel bump
     group.bench_function("parallel_bump_single", |b| {
-        let mut bumps = HashMap::default();
-        bumps.insert(CurveId::new("DISC-5"), BumpSpec::parallel_bp(10.0));
+        let bumps = vec![MarketBump::Curve {
+            id: CurveId::new("DISC-5"),
+            spec: BumpSpec::parallel_bp(10.0),
+        }];
         b.iter(|| {
             let bumped = black_box(&ctx)
                 .bump(black_box(bumps.clone()))
@@ -210,13 +212,12 @@ fn bench_context_bump_operations(c: &mut Criterion) {
 
     // Multiple curves parallel bump
     group.bench_function("parallel_bump_multiple", |b| {
-        let mut bumps = HashMap::default();
-        for i in 0..5 {
-            bumps.insert(
-                CurveId::new(format!("DISC-{}", i)),
-                BumpSpec::parallel_bp(10.0),
-            );
-        }
+        let bumps: Vec<MarketBump> = (0..5)
+            .map(|i| MarketBump::Curve {
+                id: CurveId::new(format!("DISC-{}", i)),
+                spec: BumpSpec::parallel_bp(10.0),
+            })
+            .collect();
         b.iter(|| {
             let bumped = black_box(&ctx)
                 .bump(black_box(bumps.clone()))
@@ -227,13 +228,12 @@ fn bench_context_bump_operations(c: &mut Criterion) {
 
     // Bump all discount curves
     group.bench_function("parallel_bump_all_discount", |b| {
-        let mut bumps = HashMap::default();
-        for i in 0..20 {
-            bumps.insert(
-                CurveId::new(format!("DISC-{}", i)),
-                BumpSpec::parallel_bp(10.0),
-            );
-        }
+        let bumps: Vec<MarketBump> = (0..20)
+            .map(|i| MarketBump::Curve {
+                id: CurveId::new(format!("DISC-{}", i)),
+                spec: BumpSpec::parallel_bp(10.0),
+            })
+            .collect();
         b.iter(|| {
             let bumped = black_box(&ctx)
                 .bump(black_box(bumps.clone()))

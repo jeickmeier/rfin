@@ -52,7 +52,7 @@ fn test_forecast_curve_parallel_shock() {
     assert_eq!(report.operations_applied, 1);
 
     // Verify curve was bumped
-    let bumped_curve = market.get_forward_ref("USD_LIBOR_3M").unwrap();
+    let bumped_curve = market.get_forward("USD_LIBOR_3M").unwrap();
     let forwards = bumped_curve.forwards();
     assert!(forwards[0] > 0.05, "Forward rate should be bumped");
 }
@@ -98,7 +98,7 @@ fn test_par_cds_parallel_shock() {
     assert_eq!(report.operations_applied, 1);
 
     // Verify curve exists with original ID
-    let bumped_curve = market.get_hazard_ref("CORP_BBB").unwrap();
+    let bumped_curve = market.get_hazard("CORP_BBB").unwrap();
     assert_eq!(bumped_curve.id().as_str(), "CORP_BBB");
 }
 
@@ -155,7 +155,7 @@ fn test_inflation_curve_parallel_shock() {
     assert_eq!(report.operations_applied, 1);
 
     // Verify curve was bumped
-    let bumped_curve = market.get_inflation_ref("US_CPI").unwrap();
+    let bumped_curve = market.get_inflation("US_CPI").unwrap();
     let cpi_levels = bumped_curve.cpi_levels();
     assert!(cpi_levels[1] > 306.0, "CPI level should be bumped");
 }
@@ -353,7 +353,7 @@ fn test_discount_curve_id_preservation() {
     engine.apply(&scenario, &mut ctx).unwrap();
 
     // Verify original ID is preserved
-    let bumped = market.get_discount_ref("USD_SOFR").unwrap();
+    let bumped = market.get_discount("USD_SOFR").unwrap();
     assert_eq!(bumped.id().as_str(), "USD_SOFR");
 }
 
@@ -446,8 +446,8 @@ fn test_all_curve_types_in_one_scenario() {
     assert_eq!(report.operations_applied, 4);
 
     // Verify all curves still accessible with original IDs
-    assert!(market.get_discount_ref("USD_SOFR").is_ok());
-    assert!(market.get_forward_ref("USD_LIBOR_3M").is_ok());
-    assert!(market.get_hazard_ref("CORP_BBB").is_ok());
-    assert!(market.get_inflation_ref("US_CPI").is_ok());
+    assert!(market.get_discount("USD_SOFR").is_ok());
+    assert!(market.get_forward("USD_LIBOR_3M").is_ok());
+    assert!(market.get_hazard("CORP_BBB").is_ok());
+    assert!(market.get_inflation("US_CPI").is_ok());
 }

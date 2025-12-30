@@ -15,11 +15,9 @@ impl MetricCalculator for ProtectionLegPvCalculator {
         let cds: &CreditDefaultSwap = context.instrument_as()?;
         let disc = context
             .curves
-            .get_discount_ref(&cds.premium.discount_curve_id)?;
-        let surv = context
-            .curves
-            .get_hazard_ref(&cds.protection.credit_curve_id)?;
-        let pv = cds.pv_protection_leg(disc, surv, context.as_of)?;
+            .get_discount(&cds.premium.discount_curve_id)?;
+        let surv = context.curves.get_hazard(&cds.protection.credit_curve_id)?;
+        let pv = cds.pv_protection_leg(disc.as_ref(), surv.as_ref(), context.as_of)?;
         Ok(pv.amount())
     }
 }

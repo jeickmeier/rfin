@@ -53,12 +53,12 @@ impl QuantoOptionMcPricer {
             ));
         }
 
-        let disc_curve = curves.get_discount_ref(inst.discount_curve_id.as_str())?;
+        let disc_curve = curves.get_discount(inst.discount_curve_id.as_str())?;
         let _r_dom = disc_curve.zero(t);
         let discount_factor = disc_curve.df_between_dates(as_of, inst.expiry)?;
 
         // Get foreign rate
-        let for_curve = curves.get_discount_ref(inst.foreign_discount_curve_id.as_str())?;
+        let for_curve = curves.get_discount(inst.foreign_discount_curve_id.as_str())?;
         let r_for = for_curve.zero(t);
 
         let spot_scalar = curves.price(&inst.spot_id)?;
@@ -79,12 +79,12 @@ impl QuantoOptionMcPricer {
             0.0
         };
 
-        let vol_surface = curves.surface_ref(inst.vol_surface_id.as_str())?;
+        let vol_surface = curves.surface(inst.vol_surface_id.as_str())?;
         let sigma_equity = vol_surface.value_clamped(t, inst.equity_strike.amount());
 
         // Get FX volatility
         let sigma_fx = if let Some(fx_vol_id) = &inst.fx_vol_id {
-            let fx_vol_surface = curves.surface_ref(fx_vol_id.as_str())?;
+            let fx_vol_surface = curves.surface(fx_vol_id.as_str())?;
             fx_vol_surface.value_clamped(t, 1.0) // Use spot FX rate of 1.0 as reference
         } else {
             return Err(finstack_core::Error::from(
@@ -214,11 +214,11 @@ fn collect_quanto_inputs(
         .day_count
         .year_fraction(as_of, inst.expiry, DayCountCtx::default())?;
 
-    let disc_curve = curves.get_discount_ref(inst.discount_curve_id.as_str())?;
+    let disc_curve = curves.get_discount(inst.discount_curve_id.as_str())?;
     let r_dom = disc_curve.zero(t);
 
     // Get foreign rate
-    let for_curve = curves.get_discount_ref(inst.foreign_discount_curve_id.as_str())?;
+    let for_curve = curves.get_discount(inst.foreign_discount_curve_id.as_str())?;
     let r_for = for_curve.zero(t);
 
     let spot_scalar = curves.price(&inst.spot_id)?;
@@ -239,12 +239,12 @@ fn collect_quanto_inputs(
         0.0
     };
 
-    let vol_surface = curves.surface_ref(inst.vol_surface_id.as_str())?;
+    let vol_surface = curves.surface(inst.vol_surface_id.as_str())?;
     let sigma_equity = vol_surface.value_clamped(t, inst.equity_strike.amount());
 
     // Get FX volatility
     let sigma_fx = if let Some(fx_vol_id) = &inst.fx_vol_id {
-        let fx_vol_surface = curves.surface_ref(fx_vol_id.as_str())?;
+        let fx_vol_surface = curves.surface(fx_vol_id.as_str())?;
         fx_vol_surface.value_clamped(t, 1.0)
     } else {
         return Err(finstack_core::Error::from(

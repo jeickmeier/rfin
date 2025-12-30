@@ -950,13 +950,14 @@ impl CreditDefaultSwap {
         market: &MarketContext,
         as_of: finstack_core::dates::Date,
     ) -> finstack_core::Result<f64> {
-        let disc = market.get_discount_ref(&self.premium.discount_curve_id)?;
-        let surv = market.get_hazard_ref(&self.protection.credit_curve_id)?;
+        let disc = market.get_discount(&self.premium.discount_curve_id)?;
+        let surv = market.get_hazard(&self.protection.credit_curve_id)?;
         let pricer = CDSPricer::new();
 
         // Calculate NPV as protection leg PV - premium leg PV (from buyer's perspective)
-        let protection_pv = pricer.pv_protection_leg_raw(self, disc, surv, as_of)?;
-        let premium_pv = pricer.pv_premium_leg_raw(self, disc, surv, as_of)?;
+        let protection_pv =
+            pricer.pv_protection_leg_raw(self, disc.as_ref(), surv.as_ref(), as_of)?;
+        let premium_pv = pricer.pv_premium_leg_raw(self, disc.as_ref(), surv.as_ref(), as_of)?;
 
         // Calculate Upfront PV
         let upfront_pv = if let Some((dt, amount)) = self.upfront {

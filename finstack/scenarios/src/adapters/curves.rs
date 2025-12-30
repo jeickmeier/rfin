@@ -133,7 +133,7 @@ impl ScenarioAdapter for CurveAdapter {
 
                 match curve_kind {
                     CurveKind::Discount => {
-                        let base_curve = ctx.market.get_discount_ref(curve_id).map_err(|_| {
+                        let base_curve = ctx.market.get_discount(curve_id).map_err(|_| {
                             Error::MarketDataNotFound {
                                 id: curve_id.to_string(),
                             }
@@ -143,7 +143,7 @@ impl ScenarioAdapter for CurveAdapter {
                         // The context returns Arc<dyn DiscountCurve>.
                         // We need to downcast or clone to concrete.
                         // Ideally `ctx.market` returns concrete types if we use specialized methods,
-                        // but `get_discount_ref` returns `&Arc<dyn DiscountCurve>`.
+                        // but `get_discount` returns `&Arc<dyn DiscountCurve>`.
                         // However, `finstack_core` implementations are usually `InterpolatedDiscountCurve`.
                         // AND `DiscountCurve` trait doesn't easily allow cloning to concrete.
                         // BUT: `bump_discount_curve_synthetic` takes `&dyn DiscountCurve`?
@@ -157,7 +157,7 @@ impl ScenarioAdapter for CurveAdapter {
                         // If `DiscountCurve` is a trait, this is `&dyn DiscountCurve`? No, `&DiscountCurve` implies struct.
                         //
                         // Let's assume for now it is the struct `InterpolatedDiscountCurve` or `DiscountCurve` struct.
-                        // If `ctx.market.get_discount_ref` returns `Arc<dyn DiscountCurve>`, I might have trouble.
+                        // If `ctx.market.get_discount` returns `Arc<dyn DiscountCurve>`, I might have trouble.
                         //
                         // CHECK: `finstack_core::market_data::term_structures::discount_curve`.
                         // I suspect it's a TRAIT.
@@ -172,14 +172,18 @@ impl ScenarioAdapter for CurveAdapter {
                         //
                         // Let's try to assume it works or I'll fix the signature.
 
-                        // Wait, `get_discount_ref` usually returns `&DiscountCurve` (the struct).
+                        // Wait, `get_discount` usually returns `&DiscountCurve` (the struct).
                         // Let's proceed.
 
-                        let new_curve =
-                            bump_discount_curve_synthetic(base_curve, ctx.market, &bump_req, as_of)
-                                .map_err(|e| {
-                                    Error::Internal(format!("Failed to bump discount curve: {}", e))
-                                })?;
+                        let new_curve = bump_discount_curve_synthetic(
+                            &base_curve,
+                            ctx.market,
+                            &bump_req,
+                            as_of,
+                        )
+                        .map_err(|e| {
+                            Error::Internal(format!("Failed to bump discount curve: {}", e))
+                        })?;
 
                         Ok(Some(vec![ScenarioEffect::UpdateDiscountCurve {
                             id: curve_id.clone(),
@@ -214,7 +218,7 @@ impl ScenarioAdapter for CurveAdapter {
                         // I'll stick to the plan: Update `curves.rs`.
                         // I'll keep the old implementation for Forecast for now.
 
-                        let _base_curve = ctx.market.get_forward_ref(curve_id).map_err(|_| {
+                        let _base_curve = ctx.market.get_forward(curve_id).map_err(|_| {
                             Error::MarketDataNotFound {
                                 id: curve_id.to_string(),
                             }
@@ -230,20 +234,22 @@ impl ScenarioAdapter for CurveAdapter {
                         Ok(Some(vec![ScenarioEffect::MarketBump(bump)]))
                     }
                     CurveKind::ParCDS => {
-                        let base_curve = ctx.market.get_hazard_ref(curve_id).map_err(|_| {
+                        let base_curve = ctx.market.get_hazard(curve_id).map_err(|_| {
                             Error::MarketDataNotFound {
                                 id: curve_id.to_string(),
                             }
                         })?;
                         let discount_id = resolve_discount_curve_id(ctx.market);
                         let new_curve = bump_hazard_spreads(
-                            base_curve,
+                            &base_curve,
                             ctx.market,
                             &bump_req,
                             discount_id.as_ref(),
                         )
-                        .or_else(|_| bump_hazard_shift(base_curve, &bump_req))
-                        .map_err(|e| Error::Internal(format!("Failed to bump hazard curve: {}", e)))?;
+                        .or_else(|_| bump_hazard_shift(&base_curve, &bump_req))
+                        .map_err(|e| {
+                            Error::Internal(format!("Failed to bump hazard curve: {}", e))
+                        })?;
 
                         Ok(Some(vec![ScenarioEffect::UpdateHazardCurve {
                             id: curve_id.clone(),
@@ -251,7 +257,7 @@ impl ScenarioAdapter for CurveAdapter {
                         }]))
                     }
                     CurveKind::Inflation => {
-                        let base_curve = ctx.market.get_inflation_ref(curve_id).map_err(|_| {
+                        let base_curve = ctx.market.get_inflation(curve_id).map_err(|_| {
                             Error::MarketDataNotFound {
                                 id: curve_id.to_string(),
                             }
@@ -269,7 +275,7 @@ impl ScenarioAdapter for CurveAdapter {
                             .unwrap_or_else(|| finstack_core::types::CurveId::from("USD-OIS"));
 
                         let new_curve = bump_inflation_rates(
-                            base_curve,
+                            &base_curve,
                             ctx.market,
                             &bump_req,
                             &discount_id,
@@ -287,20 +293,24 @@ impl ScenarioAdapter for CurveAdapter {
                     CurveKind::Commodity => {
                         // Commodity curves are treated like discount curves for bump purposes
                         // They store forward prices, which we bump like rates
-                        let base_curve = ctx.market.get_discount_ref(curve_id).map_err(|_| {
+                        let base_curve = ctx.market.get_discount(curve_id).map_err(|_| {
                             Error::MarketDataNotFound {
                                 id: curve_id.to_string(),
                             }
                         })?;
 
-                        let new_curve =
-                            bump_discount_curve_synthetic(base_curve, ctx.market, &bump_req, as_of)
-                                .map_err(|e| {
-                                    Error::Internal(format!(
-                                        "Failed to bump commodity curve components: {}",
-                                        e
-                                    ))
-                                })?;
+                        let new_curve = bump_discount_curve_synthetic(
+                            &base_curve,
+                            ctx.market,
+                            &bump_req,
+                            as_of,
+                        )
+                        .map_err(|e| {
+                            Error::Internal(format!(
+                                "Failed to bump commodity curve components: {}",
+                                e
+                            ))
+                        })?;
 
                         Ok(Some(vec![ScenarioEffect::UpdateDiscountCurve {
                             id: curve_id.clone(),
@@ -310,7 +320,7 @@ impl ScenarioAdapter for CurveAdapter {
                     CurveKind::VolIndex => {
                         // Volatility index curves store forward volatility levels
                         // Apply parallel bump to index levels (bp interpreted as index points)
-                        let base_curve = ctx.market.get_vol_index_ref(curve_id).map_err(|_| {
+                        let base_curve = ctx.market.get_vol_index(curve_id).map_err(|_| {
                             Error::MarketDataNotFound {
                                 id: curve_id.to_string(),
                             }
@@ -346,7 +356,7 @@ impl ScenarioAdapter for CurveAdapter {
 
                 match curve_kind {
                     CurveKind::Discount => {
-                        let base_curve = ctx.market.get_discount_ref(curve_id).map_err(|_| {
+                        let base_curve = ctx.market.get_discount(curve_id).map_err(|_| {
                             Error::MarketDataNotFound {
                                 id: curve_id.to_string(),
                             }
@@ -362,14 +372,18 @@ impl ScenarioAdapter for CurveAdapter {
                         )?;
                         let bump_req = BumpRequest::Tenors(targets);
 
-                        let new_curve =
-                            bump_discount_curve_synthetic(base_curve, ctx.market, &bump_req, as_of)
-                                .map_err(|e| {
-                                    Error::Internal(format!(
-                                        "Failed to bump discount curve components: {}",
-                                        e
-                                    ))
-                                })?;
+                        let new_curve = bump_discount_curve_synthetic(
+                            &base_curve,
+                            ctx.market,
+                            &bump_req,
+                            as_of,
+                        )
+                        .map_err(|e| {
+                            Error::Internal(format!(
+                                "Failed to bump discount curve components: {}",
+                                e
+                            ))
+                        })?;
 
                         Ok(Some(vec![ScenarioEffect::UpdateDiscountCurve {
                             id: curve_id.clone(),
@@ -378,7 +392,7 @@ impl ScenarioAdapter for CurveAdapter {
                     }
                     CurveKind::Forecast => {
                         // Keep manual logic for Forecast until we have shared bumper
-                        let base_curve = ctx.market.get_forward_ref(curve_id).map_err(|_| {
+                        let base_curve = ctx.market.get_forward(curve_id).map_err(|_| {
                             Error::MarketDataNotFound {
                                 id: curve_id.to_string(),
                             }
@@ -430,7 +444,7 @@ impl ScenarioAdapter for CurveAdapter {
                         }]))
                     }
                     CurveKind::ParCDS => {
-                        let base_curve = ctx.market.get_hazard_ref(curve_id).map_err(|_| {
+                        let base_curve = ctx.market.get_hazard(curve_id).map_err(|_| {
                             Error::MarketDataNotFound {
                                 id: curve_id.to_string(),
                             }
@@ -449,12 +463,12 @@ impl ScenarioAdapter for CurveAdapter {
                         let discount_id = resolve_discount_curve_id(ctx.market);
 
                         let new_curve = bump_hazard_spreads(
-                            base_curve,
+                            &base_curve,
                             ctx.market,
                             &bump_req,
                             discount_id.as_ref(),
                         )
-                        .or_else(|_| bump_hazard_shift(base_curve, &bump_req))
+                        .or_else(|_| bump_hazard_shift(&base_curve, &bump_req))
                         .map_err(|e| {
                             Error::Internal(format!(
                                 "Failed to bump hazard curve components: {}",
@@ -468,7 +482,7 @@ impl ScenarioAdapter for CurveAdapter {
                         }]))
                     }
                     CurveKind::Inflation => {
-                        let base_curve = ctx.market.get_inflation_ref(curve_id).map_err(|_| {
+                        let base_curve = ctx.market.get_inflation(curve_id).map_err(|_| {
                             Error::MarketDataNotFound {
                                 id: curve_id.to_string(),
                             }
@@ -488,7 +502,7 @@ impl ScenarioAdapter for CurveAdapter {
                             .unwrap_or_else(|| finstack_core::types::CurveId::from("USD-OIS"));
 
                         let new_curve = bump_inflation_rates(
-                            base_curve,
+                            &base_curve,
                             ctx.market,
                             &bump_req,
                             &discount_id,
@@ -508,7 +522,7 @@ impl ScenarioAdapter for CurveAdapter {
                     }
                     CurveKind::Commodity => {
                         // Commodity curves treated like discount curves for bump purposes
-                        let base_curve = ctx.market.get_discount_ref(curve_id).map_err(|_| {
+                        let base_curve = ctx.market.get_discount(curve_id).map_err(|_| {
                             Error::MarketDataNotFound {
                                 id: curve_id.to_string(),
                             }
@@ -524,14 +538,18 @@ impl ScenarioAdapter for CurveAdapter {
                         )?;
                         let bump_req = BumpRequest::Tenors(targets);
 
-                        let new_curve =
-                            bump_discount_curve_synthetic(base_curve, ctx.market, &bump_req, as_of)
-                                .map_err(|e| {
-                                    Error::Internal(format!(
-                                        "Failed to bump commodity curve components: {}",
-                                        e
-                                    ))
-                                })?;
+                        let new_curve = bump_discount_curve_synthetic(
+                            &base_curve,
+                            ctx.market,
+                            &bump_req,
+                            as_of,
+                        )
+                        .map_err(|e| {
+                            Error::Internal(format!(
+                                "Failed to bump commodity curve components: {}",
+                                e
+                            ))
+                        })?;
 
                         Ok(Some(vec![ScenarioEffect::UpdateDiscountCurve {
                             id: curve_id.clone(),
@@ -540,7 +558,7 @@ impl ScenarioAdapter for CurveAdapter {
                     }
                     CurveKind::VolIndex => {
                         // Volatility index curves - apply node-specific bumps
-                        let base_curve = ctx.market.get_vol_index_ref(curve_id).map_err(|_| {
+                        let base_curve = ctx.market.get_vol_index(curve_id).map_err(|_| {
                             Error::MarketDataNotFound {
                                 id: curve_id.to_string(),
                             }

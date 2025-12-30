@@ -92,7 +92,7 @@ impl MetricCalculator for ISpreadCalculator {
             })?;
 
         // Use the bond's discount curve as proxy for swap discounting (OIS collateral)
-        let disc = context.curves.get_discount_ref(&bond.discount_curve_id)?;
+        let disc = context.curves.get_discount(&bond.discount_curve_id)?;
 
         // Build proxy fixed-leg schedule using configured frequency and standard
         // business-day / stub rules. This approximates a plain-vanilla par swap

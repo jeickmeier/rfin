@@ -405,15 +405,15 @@ impl Swaption {
 
     /// Compute instrument NPV dispatching to SABR, Black, or Normal as configured.
     pub fn npv(&self, curves: &MarketContext, as_of: Date) -> Result<Money> {
-        let disc = curves.get_discount_ref(self.discount_curve_id.as_ref())?;
+        let disc = curves.get_discount(self.discount_curve_id.as_ref())?;
 
         // 1. SABR model (if enabled) overrides basic model choice
         if self.sabr_params.is_some() {
-            return self.price_sabr(disc, as_of);
+            return self.price_sabr(disc.as_ref(), as_of);
         }
 
         let time_to_expiry = self.year_fraction(as_of, self.expiry, self.day_count)?;
-        let vol_surface = curves.surface_ref(self.vol_surface_id.as_str())?;
+        let vol_surface = curves.surface(self.vol_surface_id.as_str())?;
         let vol = if let Some(impl_vol) = self.pricing_overrides.implied_volatility {
             impl_vol
         } else {
@@ -429,8 +429,8 @@ impl Swaption {
         };
 
         match self.vol_model {
-            VolatilityModel::Black => self.price_black(disc, vol, as_of),
-            VolatilityModel::Normal => self.price_normal(disc, vol, as_of),
+            VolatilityModel::Black => self.price_black(disc.as_ref(), vol, as_of),
+            VolatilityModel::Normal => self.price_normal(disc.as_ref(), vol, as_of),
         }
     }
 
@@ -700,7 +700,7 @@ impl Swaption {
         }
 
         // 3. Volatility surface
-        let vol_surface = curves.surface_ref(self.vol_surface_id.as_str())?;
+        let vol_surface = curves.surface(self.vol_surface_id.as_str())?;
         match self.pricing_overrides.vol_surface_extrapolation {
             VolSurfaceExtrapolation::Clamp | VolSurfaceExtrapolation::LinearInVariance => {
                 // LinearInVariance falls back to Clamp until surface impl is ready
@@ -725,7 +725,7 @@ impl Swaption {
     /// `Some(GreekInputs)` containing forward, annuity, sigma, and time to expiry,
     /// or `None` if the option has expired.
     pub fn greek_inputs(&self, curves: &MarketContext, as_of: Date) -> Result<Option<GreekInputs>> {
-        let disc = curves.get_discount_ref(self.discount_curve_id.as_ref())?;
+        let disc = curves.get_discount(self.discount_curve_id.as_ref())?;
         if as_of >= self.expiry {
             return Ok(None);
         }
@@ -735,8 +735,8 @@ impl Swaption {
             return Ok(None);
         }
 
-        let forward = self.forward_swap_rate(disc, as_of)?;
-        let annuity = self.annuity(disc, as_of, forward)?;
+        let forward = self.forward_swap_rate(disc.as_ref(), as_of)?;
+        let annuity = self.annuity(disc.as_ref(), as_of, forward)?;
         let sigma = self.resolve_volatility(curves, forward, t)?;
 
         Ok(Some(GreekInputs {

@@ -266,8 +266,8 @@ impl BasisSwap {
         }
 
         // Get curves
-        let disc = context.get_discount_ref(&self.discount_curve_id)?;
-        let fwd = context.get_forward_ref(&leg.forward_curve_id)?;
+        let disc = context.get_discount(&self.discount_curve_id)?;
+        let fwd = context.get_forward(&leg.forward_curve_id)?;
         let cal = self.resolve_calendar()?;
 
         let currency = self.notional.currency();
@@ -332,8 +332,8 @@ impl BasisSwap {
             periods.into_iter(),
             self.notional.amount(),
             &params,
-            disc,
-            fwd,
+            disc.as_ref(),
+            fwd.as_ref(),
             valuation_date,
         )?;
 
@@ -373,7 +373,7 @@ impl BasisSwap {
             ));
         }
 
-        let disc = curves.get_discount_ref(&self.discount_curve_id)?;
+        let disc = curves.get_discount(&self.discount_curve_id)?;
 
         // Build periods from schedule
         let mut periods = Vec::with_capacity(schedule.dates.len() - 1);
@@ -398,7 +398,7 @@ impl BasisSwap {
         // Use shared annuity function with robust discounting
         crate::instruments::common::pricing::swap_legs::leg_annuity(
             periods.into_iter(),
-            disc,
+            disc.as_ref(),
             as_of,
             leg.payment_lag_days,
             self.calendar_id.as_deref(),

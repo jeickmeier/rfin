@@ -512,23 +512,27 @@ impl CDSTranchePricer {
         }
 
         // Get the credit index data
-        let index_data_arc = market_ctx.credit_index_ref(&tranche.credit_index_id)?;
+        let index_data_arc = market_ctx.credit_index(&tranche.credit_index_id)?;
 
         // Get the discount curve
-        let discount_curve = market_ctx.get_discount_ref(tranche.discount_curve_id.as_ref())?;
+        let discount_curve = market_ctx.get_discount(tranche.discount_curve_id.as_ref())?;
 
         // Determine effective valuation date using proper settlement lag
         let valuation_date = self.calculate_settlement_date(tranche, market_ctx, as_of)?;
 
         // Calculate present values of premium and protection legs
         // These now calculate the EL curve internally with proper time dependency
-        let pv_premium =
-            self.calculate_premium_leg_pv(tranche, index_data_arc, discount_curve, valuation_date)?;
+        let pv_premium = self.calculate_premium_leg_pv(
+            tranche,
+            index_data_arc.as_ref(),
+            discount_curve.as_ref(),
+            valuation_date,
+        )?;
 
         let pv_protection = self.calculate_protection_leg_pv(
             tranche,
-            index_data_arc,
-            discount_curve,
+            index_data_arc.as_ref(),
+            discount_curve.as_ref(),
             valuation_date,
         )?;
 
@@ -1692,8 +1696,8 @@ impl CDSTranchePricer {
         market_ctx: &MarketContext,
         as_of: Date,
     ) -> Result<f64> {
-        let discount_curve = market_ctx.get_discount_ref(&tranche.discount_curve_id)?;
-        let index_data = match market_ctx.credit_index_ref(&tranche.credit_index_id) {
+        let discount_curve = market_ctx.get_discount(&tranche.discount_curve_id)?;
+        let index_data = match market_ctx.credit_index(&tranche.credit_index_id) {
             Ok(data) => data,
             Err(_) => return Ok(0.0),
         };
@@ -1706,8 +1710,8 @@ impl CDSTranchePricer {
         unit_tranche.running_coupon_bp = 1.0;
         let premium_per_bp = self.calculate_premium_leg_pv(
             &unit_tranche,
-            index_data,
-            discount_curve,
+            index_data.as_ref(),
+            discount_curve.as_ref(),
             valuation_date,
         )?;
 
@@ -1715,8 +1719,12 @@ impl CDSTranchePricer {
             return Ok(0.0);
         }
 
-        let protection_pv =
-            self.calculate_protection_leg_pv(tranche, index_data, discount_curve, valuation_date)?;
+        let protection_pv = self.calculate_protection_leg_pv(
+            tranche,
+            index_data.as_ref(),
+            discount_curve.as_ref(),
+            valuation_date,
+        )?;
 
         // Initial guess from ratio method
         let mut spread = protection_pv / premium_per_bp;
@@ -1763,8 +1771,8 @@ impl CDSTranchePricer {
         tranche: &CdsTranche,
         market_ctx: &MarketContext,
     ) -> Result<f64> {
-        let index_data_arc = market_ctx.credit_index_ref(&tranche.credit_index_id)?;
-        self.calculate_expected_tranche_loss(tranche, index_data_arc, tranche.maturity)
+        let index_data_arc = market_ctx.credit_index(&tranche.credit_index_id)?;
+        self.calculate_expected_tranche_loss(tranche, index_data_arc.as_ref(), tranche.maturity)
     }
 
     /// Calculate CS01 (sensitivity to 1bp parallel shift in credit spreads) using central difference.
@@ -1775,7 +1783,7 @@ impl CDSTranchePricer {
         market_ctx: &MarketContext,
         as_of: Date,
     ) -> Result<f64> {
-        let original_index_arc = market_ctx.credit_index_ref(&tranche.credit_index_id)?;
+        let original_index_arc = market_ctx.credit_index(&tranche.credit_index_id)?;
 
         // Calculate the hazard rate bump based on configured units
         let delta_lambda = match self.params.cs01_bump_units {
@@ -1787,13 +1795,14 @@ impl CDSTranchePricer {
                 // Proxy: convert a spread bp to hazard bp via 1/(1-recovery)
                 // This is a common approximation for small bump sizes.
                 let rr = original_index_arc.recovery_rate;
-                (self.params.cs01_bump_size * 1e-4) / (1.0 - rr).max(1e-6)
+                (self.params.cs01_bump_size * 1e-4) / (1.0 - rr).max(1e-6_f64)
             }
         };
 
         // Central difference: (PV_up - PV_down) / 2 for O(h²) accuracy
-        let bumped_index_up = self.bump_index_hazard(original_index_arc, delta_lambda)?;
-        let bumped_index_down = self.bump_index_hazard(original_index_arc, -delta_lambda)?;
+        let bumped_index_up = self.bump_index_hazard(original_index_arc.as_ref(), delta_lambda)?;
+        let bumped_index_down =
+            self.bump_index_hazard(original_index_arc.as_ref(), -delta_lambda)?;
 
         let ctx_up = market_ctx
             .clone()
@@ -1818,7 +1827,7 @@ impl CDSTranchePricer {
         as_of: Date,
     ) -> Result<f64> {
         let bump_abs = self.params.corr_bump_abs;
-        let original_index_arc = market_ctx.credit_index_ref(&tranche.credit_index_id)?;
+        let original_index_arc = market_ctx.credit_index(&tranche.credit_index_id)?;
 
         // Central difference: (PV_up - PV_down) / (2 * bump) for O(h²) accuracy
         let bumped_corr_curve_up =
@@ -1893,7 +1902,7 @@ impl CDSTranchePricer {
         tranche: &CdsTranche,
         market_ctx: &MarketContext,
     ) -> Result<JumpToDefaultResult> {
-        let index_data = market_ctx.credit_index_ref(&tranche.credit_index_id)?;
+        let index_data = market_ctx.credit_index(&tranche.credit_index_id)?;
 
         let attach_frac = tranche.attach_pct / 100.0;
         let detach_frac = tranche.detach_pct / 100.0;
@@ -2008,7 +2017,7 @@ impl CDSTranchePricer {
         as_of: Date,
     ) -> Result<f64> {
         // Get credit index data for loss calculations
-        let index_data = match market_ctx.credit_index_ref(&tranche.credit_index_id) {
+        let index_data = match market_ctx.credit_index(&tranche.credit_index_id) {
             Ok(data) => data,
             Err(_) => return Ok(0.0), // No credit data, no accrued
         };
@@ -2078,9 +2087,9 @@ impl CDSTranchePricer {
         market_ctx: &MarketContext,
         as_of: Date,
     ) -> Result<Vec<(Date, f64)>> {
-        let index_data = market_ctx.credit_index_ref(&tranche.credit_index_id)?;
+        let index_data = market_ctx.credit_index(&tranche.credit_index_id)?;
         let payment_dates = self.generate_payment_schedule(tranche, as_of)?;
-        self.build_el_curve(tranche, index_data, &payment_dates)
+        self.build_el_curve(tranche, index_data.as_ref(), &payment_dates)
     }
 }
 

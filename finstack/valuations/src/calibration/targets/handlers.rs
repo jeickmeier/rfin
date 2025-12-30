@@ -2,8 +2,8 @@
 //!
 //! Maps API steps to domain logic execution.
 
-use crate::calibration::api::schema::StepParams;
 use crate::calibration::api::schema::CalibrationStep;
+use crate::calibration::api::schema::StepParams;
 use crate::calibration::config::CalibrationConfig;
 use crate::calibration::step_runtime;
 use crate::calibration::CalibrationReport;
@@ -36,6 +36,10 @@ pub(crate) fn execute_step(
     };
     let outcome = step_runtime::execute(&dummy_step, quotes, context, global_config)?;
     let mut new_context = context.clone();
-    step_runtime::apply_output(&mut new_context, outcome.output, outcome.credit_index_update);
+    step_runtime::apply_output(
+        &mut new_context,
+        outcome.output,
+        outcome.credit_index_update,
+    );
     Ok((new_context, outcome.report))
 }

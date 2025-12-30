@@ -209,7 +209,13 @@ mod tests {
         let market = Arc::new(usd_ois_market(as_of)?);
 
         // Compute a reference result directly from the VaR engine.
-        let expected = calculate_var(&bond, market.as_ref(), history.as_ref(), as_of, &VarConfig::var_95())?;
+        let expected = calculate_var(
+            &bond,
+            market.as_ref(),
+            history.as_ref(),
+            as_of,
+            &VarConfig::var_95(),
+        )?;
 
         // Calculate VaR + ES via metrics framework
         let result_ordered = bond.price_with_metrics_with_market_history(

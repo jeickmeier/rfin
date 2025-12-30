@@ -3,8 +3,8 @@
 //! Contains helpers shared across instrument implementations, notably the
 //! function to assemble a `ValuationResult` with computed metrics.
 
-use crate::metrics::{standard_registry, MetricContext, MetricId};
 use crate::metrics::risk::MarketHistory;
+use crate::metrics::{standard_registry, MetricContext, MetricId};
 use finstack_core::config::{results_meta_now, FinstackConfig};
 use finstack_core::dates::{Date, DayCount, DayCountCtx};
 use finstack_core::market_data::{context::MarketContext, scalars::MarketScalar};
@@ -38,9 +38,9 @@ where
     use finstack_core::cashflow::npv_using_curve_dc;
 
     let flows = S::build_schedule(instrument, curves, as_of)?;
-    let disc = curves.get_discount_ref(discount_curve_id.as_str())?;
+    let disc = curves.get_discount(discount_curve_id.as_str())?;
     // Use the curve's day count for consistent pricing with metrics
-    npv_using_curve_dc(disc, as_of, &flows)
+    npv_using_curve_dc(disc.as_ref(), as_of, &flows)
 }
 
 /// Schedule → PV helper that uses the curve's own day count convention (raw f64).
@@ -69,7 +69,7 @@ where
     use finstack_core::math::neumaier_sum;
 
     let flows = S::build_schedule(instrument, curves, as_of)?;
-    let disc = curves.get_discount_ref(discount_curve_id.as_str())?;
+    let disc = curves.get_discount(discount_curve_id.as_str())?;
 
     let mut terms = Vec::with_capacity(flows.len());
     let dc = disc.day_count();
@@ -504,7 +504,7 @@ pub fn collect_black_scholes_inputs(
     as_of: Date,
 ) -> finstack_core::Result<(f64, f64, f64, f64, f64)> {
     // Get discount curve first to access its day count
-    let disc_curve = curves.get_discount_ref(discount_curve_id.as_str())?;
+    let disc_curve = curves.get_discount(discount_curve_id.as_str())?;
 
     // Time to expiry for vol surface lookup (using instrument's day count, which should
     // match how the vol surface was calibrated - typically ACT/365F for equity options)
@@ -553,7 +553,7 @@ pub fn collect_black_scholes_inputs(
     };
 
     // Volatility (sigma) using vol surface's time basis
-    let vol_surface = curves.surface_ref(vol_surface_id)?;
+    let vol_surface = curves.surface(vol_surface_id)?;
     let sigma = vol_surface.value_clamped(t_vol, strike);
 
     // Return the vol-surface time as 't' (for backward compatibility with callers

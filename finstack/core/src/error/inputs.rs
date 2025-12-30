@@ -229,7 +229,6 @@ pub enum InputError {
     // ─────────────────────────────────────────────────────────────────────────
     // FX / Rates / Conversions
     // ─────────────────────────────────────────────────────────────────────────
-
     /// Invalid FX rate encountered (non-finite, non-positive, or otherwise unusable).
     #[error("Invalid FX rate for {from}->{to}: {rate}")]
     InvalidFxRate {
@@ -328,7 +327,6 @@ pub enum InputError {
     // ─────────────────────────────────────────────────────────────────────────
     // Joint calendar FX date logic
     // ─────────────────────────────────────────────────────────────────────────
-
     /// Joint calendar date adjustment did not converge within a small fixed iteration budget.
     #[error("Joint calendar adjustment did not converge within {max_iterations} iterations")]
     JointCalendarNonConvergent {

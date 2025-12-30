@@ -74,7 +74,7 @@ impl MetricCalculator for ZSpreadCalculator {
             })
         })?;
 
-        let disc = context.curves.get_discount_ref(disc_curve_id.as_str())?;
+        let disc = context.curves.get_discount(disc_curve_id.as_str())?;
         let base_date = disc.base_date();
         let day_count = finstack_core::dates::DayCount::Act365F;
 
@@ -206,7 +206,7 @@ impl MetricCalculator for Cs01Calculator {
             })
         })?;
 
-        let disc = context.curves.get_discount_ref(disc_curve_id.as_str())?;
+        let disc = context.curves.get_discount(disc_curve_id.as_str())?;
         let base_date = disc.base_date();
         let day_count = finstack_core::dates::DayCount::Act365F;
 

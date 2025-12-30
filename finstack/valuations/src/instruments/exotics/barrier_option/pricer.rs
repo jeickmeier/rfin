@@ -74,7 +74,7 @@ impl BarrierOptionMcPricer {
         as_of: Date,
     ) -> finstack_core::Result<finstack_core::money::Money> {
         // Get discount curve
-        let disc_curve = curves.get_discount_ref(inst.discount_curve_id.as_str())?;
+        let disc_curve = curves.get_discount(inst.discount_curve_id.as_str())?;
 
         // Time to maturity for discounting (using discount curve's basis)
         let t_disc =
@@ -130,7 +130,7 @@ impl BarrierOptionMcPricer {
         };
 
         // Get volatility using vol surface time basis
-        let vol_surface = curves.surface_ref(inst.vol_surface_id.as_str())?;
+        let vol_surface = curves.surface(inst.vol_surface_id.as_str())?;
         let sigma = vol_surface.value_clamped(t_vol, inst.strike.amount());
 
         // Create GBM process
@@ -211,7 +211,7 @@ impl BarrierOptionMcPricer {
         as_of: Date,
     ) -> finstack_core::Result<finstack_core::money::Money> {
         // Get discount curve first to access its day count
-        let disc_curve = curves.get_discount_ref(inst.discount_curve_id.as_str())?;
+        let disc_curve = curves.get_discount(inst.discount_curve_id.as_str())?;
 
         // Time to maturity for vol surface (using instrument's day count)
         let t_vol = inst
@@ -253,7 +253,7 @@ impl BarrierOptionMcPricer {
         };
 
         // Volatility and process (using vol surface time basis)
-        let vol_surface = curves.surface_ref(inst.vol_surface_id.as_str())?;
+        let vol_surface = curves.surface(inst.vol_surface_id.as_str())?;
         let sigma = vol_surface.value_clamped(t_vol, inst.strike.amount());
         let gbm_params = GbmParams::new(r, q, sigma);
         let process = GbmProcess::new(gbm_params);

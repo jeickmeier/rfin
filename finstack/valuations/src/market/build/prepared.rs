@@ -1,11 +1,11 @@
 //! Prepared quote envelopes for calibration pipelines.
 
 use crate::instruments::Instrument;
+use crate::market::build::cds::build_cds_instrument;
 use crate::market::build::context::BuildCtx;
 use crate::market::build::rates::build_rate_instrument;
-use crate::market::build::cds::build_cds_instrument;
-use crate::market::quotes::rates::RateQuote;
 use crate::market::quotes::cds::CdsQuote;
+use crate::market::quotes::rates::RateQuote;
 use finstack_core::dates::Date;
 use finstack_core::dates::{DayCount, DayCountCtx};
 use finstack_core::Result;

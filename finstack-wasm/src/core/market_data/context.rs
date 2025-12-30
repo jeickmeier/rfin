@@ -157,70 +157,69 @@ impl JsMarketContext {
 
     #[wasm_bindgen(js_name = insertDiscount)]
     pub fn insert_discount(&mut self, curve: &JsDiscountCurve) {
-        self.inner
-            .insert_discount_mut(curve.inner().as_ref().clone());
+        self.inner =
+            std::mem::take(&mut self.inner).insert_discount(curve.inner().as_ref().clone());
     }
 
     #[wasm_bindgen(js_name = insertForward)]
     pub fn insert_forward(&mut self, curve: &JsForwardCurve) {
-        self.inner
-            .insert_forward_mut(curve.inner().as_ref().clone());
+        self.inner = std::mem::take(&mut self.inner).insert_forward(curve.inner().as_ref().clone());
     }
 
     #[wasm_bindgen(js_name = insertHazard)]
     pub fn insert_hazard(&mut self, curve: &JsHazardCurve) {
-        self.inner.insert_hazard_mut(curve.inner().as_ref().clone());
+        self.inner = std::mem::take(&mut self.inner).insert_hazard(curve.inner().as_ref().clone());
     }
 
     #[wasm_bindgen(js_name = insertInflation)]
     pub fn insert_inflation(&mut self, curve: &JsInflationCurve) {
-        self.inner
-            .insert_inflation_mut(curve.inner().as_ref().clone());
+        self.inner =
+            std::mem::take(&mut self.inner).insert_inflation(curve.inner().as_ref().clone());
     }
 
     #[wasm_bindgen(js_name = insertBaseCorrelation)]
     pub fn insert_base_correlation(&mut self, curve: &JsBaseCorrelationCurve) {
-        self.inner
-            .insert_base_correlation_mut(curve.inner().as_ref().clone());
+        self.inner =
+            std::mem::take(&mut self.inner).insert_base_correlation(curve.inner().as_ref().clone());
     }
 
     #[wasm_bindgen(js_name = insertSurface)]
     pub fn insert_surface(&mut self, surface: &JsVolSurface) {
-        self.inner
-            .insert_surface_mut(surface.inner().as_ref().clone());
+        self.inner =
+            std::mem::take(&mut self.inner).insert_surface(surface.inner().as_ref().clone());
     }
 
     #[wasm_bindgen(js_name = insertPrice)]
     pub fn insert_price(&mut self, id: &str, scalar: &JsMarketScalar) {
-        self.inner.insert_price_mut(id, scalar.inner());
+        self.inner = std::mem::take(&mut self.inner).insert_price(id, scalar.inner());
     }
 
     #[wasm_bindgen(js_name = insertSeries)]
     pub fn insert_series(&mut self, series: &JsScalarTimeSeries) {
-        self.inner.insert_series_mut(series.inner());
+        self.inner = std::mem::take(&mut self.inner).insert_series(series.inner());
     }
 
     #[wasm_bindgen(js_name = insertDividends)]
     pub fn insert_dividends(&mut self, schedule: &JsDividendSchedule) {
-        self.inner
-            .insert_dividends_mut(schedule.inner().as_ref().clone());
+        self.inner =
+            std::mem::take(&mut self.inner).insert_dividends(schedule.inner().as_ref().clone());
     }
 
     #[wasm_bindgen(js_name = insertCreditIndex)]
     pub fn insert_credit_index(&mut self, id: &str, data: &JsCreditIndexData) {
-        self.inner
-            .insert_credit_index_mut(id, data.inner().as_ref().clone());
+        self.inner =
+            std::mem::take(&mut self.inner).insert_credit_index(id, data.inner().as_ref().clone());
     }
 
     #[wasm_bindgen(js_name = insertFx)]
     pub fn insert_fx(&mut self, matrix: &JsFxMatrix) {
-        self.inner.insert_fx_arc_mut(matrix.inner());
+        self.inner = std::mem::take(&mut self.inner).insert_fx_arc(matrix.inner());
     }
 
     #[wasm_bindgen(js_name = mapCollateral)]
     pub fn map_collateral(&mut self, csa_code: &str, curve_id: &str) {
-        self.inner
-            .map_collateral_mut(csa_code, CurveId::from(curve_id));
+        self.inner =
+            std::mem::take(&mut self.inner).map_collateral(csa_code, CurveId::from(curve_id));
     }
 
     /// Generic curve retrieval with dynamic dispatch.

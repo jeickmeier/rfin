@@ -42,7 +42,7 @@ impl MetricCalculator for DeltaCalculator {
         let sigma = if let Some(impl_vol) = option.pricing_overrides.implied_volatility {
             impl_vol
         } else {
-            let surface = context.curves.surface_ref(option.vol_surface_id.as_str())?;
+            let surface = context.curves.surface(option.vol_surface_id.as_str())?;
             surface.value_clamped(t, option.strike)
         };
         if sigma <= 0.0 {
@@ -52,7 +52,7 @@ impl MetricCalculator for DeltaCalculator {
         let forward = option.forward_price(&context.curves, as_of)?;
         let disc = context
             .curves
-            .get_discount_ref(option.discount_curve_id.as_str())?;
+            .get_discount(option.discount_curve_id.as_str())?;
         let df = disc.df_between_dates(as_of, option.expiry)?;
 
         let d1 = crate::instruments::common::models::d1_black76(forward, option.strike, sigma, t);

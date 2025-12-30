@@ -114,7 +114,7 @@ fn inflation_quote_time_uses_lagged_fixing_date() {
 
     let result = engine::execute(&envelope).expect("execute");
     let ctx = MarketContext::try_from(result.result.final_market).expect("restore context");
-    let curve = ctx.get_inflation_ref("USD-CPI").expect("inflation curve");
+    let curve = ctx.get_inflation("USD-CPI").expect("inflation curve");
 
     assert_eq!(curve.knots().first().copied(), Some(0.0));
     assert_eq!(curve.knots().len(), 2);

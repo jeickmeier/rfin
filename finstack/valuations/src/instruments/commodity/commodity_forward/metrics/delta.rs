@@ -13,7 +13,7 @@ impl MetricCalculator for DeltaCalculator {
         let fwd: &CommodityForward = context.instrument_as()?;
         let disc = context
             .curves
-            .get_discount_ref(fwd.discount_curve_id.as_str())?;
+            .get_discount(fwd.discount_curve_id.as_str())?;
         let t = DayCount::Act365F
             .year_fraction(context.as_of, fwd.settlement_date, Default::default())?
             .max(0.0);

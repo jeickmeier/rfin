@@ -93,7 +93,7 @@ fn test_fx_equity_curve_combo() {
         _ => panic!("Expected Price"),
     }
 
-    let curve = market.get_discount_ref("USD_SOFR").unwrap();
+    let curve = market.get_discount("USD_SOFR").unwrap();
     assert!(curve.df(1.0) < 0.98, "Curve should be shocked");
 }
 
@@ -278,7 +278,7 @@ fn test_conflicting_operations_last_wins() {
     assert_eq!(report.operations_applied, 2);
 
     // Both shocks applied sequentially: +25bp then +50bp = equivalent to +75bp
-    let curve = market.get_discount_ref("USD_SOFR").unwrap();
+    let curve = market.get_discount("USD_SOFR").unwrap();
     let df = curve.df(1.0);
     // Original DF(1Y) = 0.98
     // Solve-to-par with settlement_days=0 (for synthetic curve re-calibration)

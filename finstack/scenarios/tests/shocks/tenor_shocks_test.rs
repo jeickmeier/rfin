@@ -58,7 +58,7 @@ fn test_tenor_exact_match() {
     // Verify the actual shock was applied
     // Note: The new scenario engine updates the curve in-place (same ID in market context).
     // It does NOT create a suffixed ID like "USD-OIS_bump_25bp" anymore.
-    let bumped_curve = market.get_discount_ref("USD-OIS").unwrap();
+    let bumped_curve = market.get_discount("USD-OIS").unwrap();
     let df_5y = bumped_curve.df(5.0);
     // For an exact-match tenor shock, the 5Y node must move in the expected direction.
     // We assert directional correctness and a tight-ish numerical band for determinism.
@@ -135,7 +135,7 @@ fn test_tenor_interpolate_mode() {
     let mut model = FinancialModelSpec::new("test", vec![]);
 
     // Store original DF at 3Y for comparison
-    let original_df_3y = market.get_discount_ref("USD-OIS").unwrap().df(3.0);
+    let original_df_3y = market.get_discount("USD-OIS").unwrap().df(3.0);
 
     // Shock at 3Y using interpolation
     // Triangular region: prev=1.5Y, target=3Y, next=4.5Y
@@ -169,7 +169,7 @@ fn test_tenor_interpolate_mode() {
 
     // Verify shock was applied (interpolated at 3Y)
     // The curve ID remains "USD-OIS".
-    let bumped_curve = market.get_discount_ref("USD-OIS").unwrap();
+    let bumped_curve = market.get_discount("USD-OIS").unwrap();
     let df_3y = bumped_curve.df(3.0);
     // With interpolate mode, the shock is distributed via triangular weights
     // The 2Y and 4Y knots are affected, changing the interpolated DF at 3Y

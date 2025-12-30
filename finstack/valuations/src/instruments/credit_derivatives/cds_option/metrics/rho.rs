@@ -43,9 +43,7 @@ impl MetricCalculator for RhoCalculator {
         let base_pv = context.base_value.amount();
 
         // Get the discount curve and bump it
-        let disc = context
-            .curves
-            .get_discount_ref(&cds_option.discount_curve_id)?;
+        let disc = context.curves.get_discount(&cds_option.discount_curve_id)?;
 
         // Bump discount curve by 1bp (parallel shift)
         // try_with_parallel_bump takes bp directly

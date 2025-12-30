@@ -211,8 +211,8 @@ fn test_quantlib_fair_upfront_at_par() {
     // Calculate par spread
     let par_spread = cds
         .par_spread(
-            market.get_discount_ref("USD_DISC").unwrap(),
-            market.get_hazard_ref("CREDIT").unwrap(),
+            market.get_discount("USD_DISC").unwrap().as_ref(),
+            market.get_hazard("CREDIT").unwrap().as_ref(),
             as_of,
         )
         .unwrap();
@@ -323,8 +323,8 @@ fn test_quantlib_isda_conventions() {
     let protection_pv = pricer
         .pv_protection_leg(
             &cds,
-            market.get_discount_ref("USD_DISC").unwrap(),
-            market.get_hazard_ref("CREDIT").unwrap(),
+            market.get_discount("USD_DISC").unwrap().as_ref(),
+            market.get_hazard("CREDIT").unwrap().as_ref(),
             as_of,
         )
         .unwrap();
@@ -332,8 +332,8 @@ fn test_quantlib_isda_conventions() {
     let premium_pv = pricer
         .pv_premium_leg(
             &cds,
-            market.get_discount_ref("USD_DISC").unwrap(),
-            market.get_hazard_ref("CREDIT").unwrap(),
+            market.get_discount("USD_DISC").unwrap().as_ref(),
+            market.get_hazard("CREDIT").unwrap().as_ref(),
             as_of,
         )
         .unwrap();
@@ -389,8 +389,8 @@ fn test_quantlib_risky_annuity_calculation() {
     let risky_annuity = pricer
         .risky_annuity(
             &cds,
-            market.get_discount_ref("USD_DISC").unwrap(),
-            market.get_hazard_ref("CREDIT").unwrap(),
+            market.get_discount("USD_DISC").unwrap().as_ref(),
+            market.get_hazard("CREDIT").unwrap().as_ref(),
             as_of,
         )
         .unwrap();
@@ -399,8 +399,8 @@ fn test_quantlib_risky_annuity_calculation() {
     let premium_pv = pricer
         .pv_premium_leg(
             &cds,
-            market.get_discount_ref("USD_DISC").unwrap(),
-            market.get_hazard_ref("CREDIT").unwrap(),
+            market.get_discount("USD_DISC").unwrap().as_ref(),
+            market.get_hazard("CREDIT").unwrap().as_ref(),
             as_of,
         )
         .unwrap();
@@ -465,8 +465,8 @@ fn test_quantlib_recovery_rate_impact() {
         let pv = pricer
             .pv_protection_leg(
                 &cds,
-                market.get_discount_ref("USD_DISC").unwrap(),
-                market.get_hazard_ref("CREDIT").unwrap(),
+                market.get_discount("USD_DISC").unwrap().as_ref(),
+                market.get_hazard("CREDIT").unwrap().as_ref(),
                 as_of,
             )
             .unwrap();
@@ -589,8 +589,8 @@ fn test_quantlib_hazard_rate_sensitivity() {
         let pv = pricer
             .pv_protection_leg(
                 &cds,
-                market.get_discount_ref("USD_DISC").unwrap(),
-                market.get_hazard_ref("CREDIT").unwrap(),
+                market.get_discount("USD_DISC").unwrap().as_ref(),
+                market.get_hazard("CREDIT").unwrap().as_ref(),
                 as_of,
             )
             .unwrap();
@@ -644,8 +644,8 @@ fn test_quantlib_accrual_on_default() {
     let pv_with = pricer_with
         .pv_premium_leg(
             &cds,
-            market.get_discount_ref("USD_DISC").unwrap(),
-            market.get_hazard_ref("CREDIT").unwrap(),
+            market.get_discount("USD_DISC").unwrap().as_ref(),
+            market.get_hazard("CREDIT").unwrap().as_ref(),
             as_of,
         )
         .unwrap();
@@ -658,8 +658,8 @@ fn test_quantlib_accrual_on_default() {
     let pv_without = pricer_without
         .pv_premium_leg(
             &cds,
-            market.get_discount_ref("USD_DISC").unwrap(),
-            market.get_hazard_ref("CREDIT").unwrap(),
+            market.get_discount("USD_DISC").unwrap().as_ref(),
+            market.get_hazard("CREDIT").unwrap().as_ref(),
             as_of,
         )
         .unwrap();
@@ -721,8 +721,8 @@ fn test_quantlib_settlement_delay() {
     let pv_no_delay = pricer
         .pv_protection_leg(
             &cds_no_delay,
-            market.get_discount_ref("USD_DISC").unwrap(),
-            market.get_hazard_ref("CREDIT").unwrap(),
+            market.get_discount("USD_DISC").unwrap().as_ref(),
+            market.get_hazard("CREDIT").unwrap().as_ref(),
             as_of,
         )
         .unwrap();
@@ -734,8 +734,8 @@ fn test_quantlib_settlement_delay() {
     let pv_with_delay = pricer
         .pv_protection_leg(
             &cds_with_delay,
-            market.get_discount_ref("USD_DISC").unwrap(),
-            market.get_hazard_ref("CREDIT").unwrap(),
+            market.get_discount("USD_DISC").unwrap().as_ref(),
+            market.get_hazard("CREDIT").unwrap().as_ref(),
             as_of,
         )
         .unwrap();

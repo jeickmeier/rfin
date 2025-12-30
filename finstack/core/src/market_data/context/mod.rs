@@ -13,9 +13,9 @@
 //!
 //! # API boundaries
 //!
-//! - **Public surface**: `new`, `insert_*`, typed getters (`get_discount`, `surface_ref`,
-//!   `price`, `series`, etc.), scenario helpers (`bump`, `apply_bumps`, `roll_forward`,
-//!   `bump_fx_spot`), stats (`stats`) and serde states (`CurveState`, `MarketContextState`).
+//! - **Public surface**: `new`, `insert_*`, typed getters (`get_discount`, `surface`,
+//!   `price`, `series`, etc.), scenario helper (`bump`), stats (`stats`) and
+//!   serde states (`CurveState`, `MarketContextState`).
 //! - **Internal details**: storage layout (HashMaps, caches)
 //!   is not a stable API. Prefer the public methods above for all access and mutation.
 //!
@@ -56,7 +56,9 @@ pub use stats::ContextStats;
 // Re-export bump functionality at the same path as before.
 pub use super::bumps::{BumpMode, BumpSpec, BumpUnits};
 
-pub use state_serde::{CreditIndexState, CurveState, MarketContextState, MARKET_CONTEXT_STATE_VERSION};
+pub use state_serde::{
+    CreditIndexState, CurveState, MarketContextState, MARKET_CONTEXT_STATE_VERSION,
+};
 
 use crate::collections::HashMap;
 use std::sync::Arc;

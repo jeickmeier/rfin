@@ -37,7 +37,7 @@ fn test_discount_curve_df_monotonic_after_parallel_shock() {
         .build()
         .unwrap();
 
-    market.insert_discount_mut(curve);
+    market = market.insert_discount(curve);
 
     // Apply parallel shock
     let scenario = ScenarioSpec {
@@ -66,7 +66,7 @@ fn test_discount_curve_df_monotonic_after_parallel_shock() {
     engine.apply(&scenario, &mut ctx).unwrap();
 
     // Check monotonicity: DF should be strictly decreasing
-    let curve = market.get_discount_ref("USD_SOFR").unwrap();
+    let curve = market.get_discount("USD_SOFR").unwrap();
     let knots = curve.knots();
     let dfs = curve.dfs();
 
@@ -102,7 +102,7 @@ fn test_discount_curve_df_monotonic_after_node_shock() {
         .build()
         .unwrap();
 
-    market.insert_discount_mut(curve);
+    market = market.insert_discount(curve);
 
     // Apply node shock (2Y key-rate bump)
     let scenario = ScenarioSpec {
@@ -132,7 +132,7 @@ fn test_discount_curve_df_monotonic_after_node_shock() {
     engine.apply(&scenario, &mut ctx).unwrap();
 
     // Check monotonicity
-    let curve = market.get_discount_ref("USD_SOFR").unwrap();
+    let curve = market.get_discount("USD_SOFR").unwrap();
     let knots = curve.knots();
     let dfs = curve.dfs();
 
@@ -166,7 +166,7 @@ fn test_forward_curve_rates_finite_after_parallel_shock() {
         .build()
         .unwrap();
 
-    market.insert_forward_mut(curve);
+    market = market.insert_forward(curve);
 
     // Apply parallel shock
     let scenario = ScenarioSpec {
@@ -195,7 +195,7 @@ fn test_forward_curve_rates_finite_after_parallel_shock() {
     engine.apply(&scenario, &mut ctx).unwrap();
 
     // Check that all forwards are finite and non-negative
-    let curve = market.get_forward_ref("USD_LIBOR_3M").unwrap();
+    let curve = market.get_forward("USD_LIBOR_3M").unwrap();
     let forwards = curve.forwards();
 
     for (i, &fwd) in forwards.iter().enumerate() {
@@ -232,7 +232,7 @@ fn test_forward_curve_rates_finite_after_node_shock() {
         .build()
         .unwrap();
 
-    market.insert_forward_mut(curve);
+    market = market.insert_forward(curve);
 
     // Apply node shock
     let scenario = ScenarioSpec {
@@ -262,7 +262,7 @@ fn test_forward_curve_rates_finite_after_node_shock() {
     engine.apply(&scenario, &mut ctx).unwrap();
 
     // Check that all forwards are finite and non-negative
-    let curve = market.get_forward_ref("USD_LIBOR_3M").unwrap();
+    let curve = market.get_forward("USD_LIBOR_3M").unwrap();
     let forwards = curve.forwards();
 
     for (i, &fwd) in forwards.iter().enumerate() {
@@ -297,7 +297,7 @@ fn test_base_correlation_bounds_after_parallel_shock() {
         .build()
         .unwrap();
 
-    market.insert_base_correlation_mut(curve);
+    market = market.insert_base_correlation(curve);
 
     // Apply parallel shock (additive)
     let scenario = ScenarioSpec {
@@ -326,7 +326,7 @@ fn test_base_correlation_bounds_after_parallel_shock() {
     engine.apply(&scenario, &mut ctx).unwrap();
 
     // Check that all correlations are in [0, 1]
-    let curve = market.get_base_correlation_ref("CDX_IG").unwrap();
+    let curve = market.get_base_correlation("CDX_IG").unwrap();
     let correlations = curve.correlations();
 
     for (i, &corr) in correlations.iter().enumerate() {
@@ -355,7 +355,7 @@ fn test_base_correlation_bounds_after_bucket_shock() {
         .build()
         .unwrap();
 
-    market.insert_base_correlation_mut(curve);
+    market = market.insert_base_correlation(curve);
 
     // Apply bucket shock to 7% and 15% detachment points
     let scenario = ScenarioSpec {
@@ -386,7 +386,7 @@ fn test_base_correlation_bounds_after_bucket_shock() {
     engine.apply(&scenario, &mut ctx).unwrap();
 
     // Check that all correlations are in [0, 1]
-    let curve = market.get_base_correlation_ref("CDX_IG").unwrap();
+    let curve = market.get_base_correlation("CDX_IG").unwrap();
     let correlations = curve.correlations();
 
     for (i, &corr) in correlations.iter().enumerate() {
@@ -414,7 +414,7 @@ fn test_vol_surface_non_negative_after_parallel_shock() {
         .build()
         .unwrap();
 
-    market.insert_surface_mut(surface);
+    market = market.insert_surface(surface);
 
     // Apply parallel shock
     let scenario = ScenarioSpec {
@@ -444,7 +444,7 @@ fn test_vol_surface_non_negative_after_parallel_shock() {
     engine.apply(&scenario, &mut ctx).unwrap();
 
     // Check that all vol values are non-negative
-    let surface = market.surface_ref("SPX_VOL").unwrap();
+    let surface = market.surface("SPX_VOL").unwrap();
     let expiries = surface.expiries().to_vec();
     let strikes = surface.strikes().to_vec();
 
@@ -478,7 +478,7 @@ fn test_vol_surface_non_negative_after_bucket_shock() {
         .build()
         .unwrap();
 
-    market.insert_surface_mut(surface);
+    market = market.insert_surface(surface);
 
     // Apply bucket shock to specific strikes
     let scenario = ScenarioSpec {
@@ -510,7 +510,7 @@ fn test_vol_surface_non_negative_after_bucket_shock() {
     engine.apply(&scenario, &mut ctx).unwrap();
 
     // Check that all vol values are non-negative
-    let surface = market.surface_ref("SPX_VOL").unwrap();
+    let surface = market.surface("SPX_VOL").unwrap();
     let expiries = surface.expiries().to_vec();
     let strikes = surface.strikes().to_vec();
 

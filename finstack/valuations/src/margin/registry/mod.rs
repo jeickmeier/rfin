@@ -129,9 +129,9 @@ pub fn embedded_registry() -> Result<&'static MarginRegistry> {
         let registry = build_registry(None)?;
         let _ = EMBEDDED_REGISTRY.set(registry);
     }
-    EMBEDDED_REGISTRY.get().ok_or_else(|| {
-        Error::Validation("Failed to load embedded margin registry".to_string())
-    })
+    EMBEDDED_REGISTRY
+        .get()
+        .ok_or_else(|| Error::Validation("Failed to load embedded margin registry".to_string()))
 }
 
 /// Build a registry applying an optional JSON overlay (already parsed).
@@ -177,7 +177,8 @@ fn parse_schedule_im(value: Option<&Value>) -> Result<HashMap<String, ScheduleIm
             short_to_medium: record.bucket_boundaries_years.short_to_medium,
             medium_to_long: record.bucket_boundaries_years.medium_to_long,
         };
-        if boundaries.short_to_medium <= 0.0 || boundaries.medium_to_long <= boundaries.short_to_medium
+        if boundaries.short_to_medium <= 0.0
+            || boundaries.medium_to_long <= boundaries.short_to_medium
         {
             return Err(Error::Validation(
                 "schedule_im bucket boundaries must be increasing and > 0".to_string(),
@@ -212,10 +213,14 @@ fn parse_schedule_im(value: Option<&Value>) -> Result<HashMap<String, ScheduleIm
 
 fn parse_collateral_schedules(
     value: Option<&Value>,
-) -> Result<(HashMap<CollateralAssetClass, AssetClassDefault>, HashMap<String, EligibleCollateralSchedule>)>
-{
+) -> Result<(
+    HashMap<CollateralAssetClass, AssetClassDefault>,
+    HashMap<String, EligibleCollateralSchedule>,
+)> {
     let Some(val) = value else {
-        return Err(Error::Validation("collateral_schedules section missing".to_string()));
+        return Err(Error::Validation(
+            "collateral_schedules section missing".to_string(),
+        ));
     };
     let file: wire::CollateralSchedulesFile =
         serde_json::from_value(val.clone()).map_err(to_validation)?;
@@ -354,8 +359,10 @@ fn parse_simm(value: Option<&Value>) -> Result<(HashMap<String, SimmParams>, Opt
         let version = parse_simm_version(entry.ids.first().map(String::as_str))?;
         let ir_delta_weights = parse_number_map(&record.ir_delta_weights, "simm.ir_delta_weights")?;
         let cq_delta_weights = parse_number_map(&record.cq_delta_weights, "simm.cq_delta_weights")?;
-        let commodity_bucket_weights =
-            parse_number_map(&record.commodity_bucket_weights, "simm.commodity_bucket_weights")?;
+        let commodity_bucket_weights = parse_number_map(
+            &record.commodity_bucket_weights,
+            "simm.commodity_bucket_weights",
+        )?;
 
         validate_rate("simm.cnq_delta_weight", record.cnq_delta_weight)?;
         validate_rate("simm.equity_delta_weight", record.equity_delta_weight)?;
@@ -414,11 +421,9 @@ pub fn margin_registry_from_config(cfg: &FinstackConfig) -> Result<MarginRegistr
 // -----------------------------------------------------------------------------//
 
 fn parse_schedule_asset_class(value: &str) -> Result<ScheduleAssetClass> {
-    value.parse::<ScheduleAssetClass>().map_err(|e| {
-        Error::Validation(format!(
-            "invalid schedule asset class '{value}': {e}"
-        ))
-    })
+    value
+        .parse::<ScheduleAssetClass>()
+        .map_err(|e| Error::Validation(format!("invalid schedule asset class '{value}': {e}")))
 }
 
 fn parse_maturity_bucket(value: &str) -> Result<MaturityBucket> {
@@ -439,16 +444,18 @@ fn parse_collateral_asset_class(value: &str) -> Result<CollateralAssetClass> {
 }
 
 fn parse_margin_tenor(value: &str) -> Result<MarginTenor> {
-    value.parse::<MarginTenor>().map_err(|e| {
-        Error::Validation(format!("invalid margin frequency '{value}': {e}"))
-    })
+    value
+        .parse::<MarginTenor>()
+        .map_err(|e| Error::Validation(format!("invalid margin frequency '{value}': {e}")))
 }
 
 fn parse_simm_version(id: Option<&str>) -> Result<SimmVersion> {
     match id.unwrap_or_default().to_ascii_lowercase().as_str() {
         "v2_5" => Ok(SimmVersion::V2_5),
         "v2_6" | "default" => Ok(SimmVersion::V2_6),
-        other => Err(Error::Validation(format!("unknown SIMM version id '{other}'"))),
+        other => Err(Error::Validation(format!(
+            "unknown SIMM version id '{other}'"
+        ))),
     }
 }
 
@@ -460,7 +467,9 @@ fn parse_simm_risk_class(value: &str) -> Result<SimmRiskClass> {
         "equity" => Ok(SimmRiskClass::Equity),
         "commodity" => Ok(SimmRiskClass::Commodity),
         "fx" => Ok(SimmRiskClass::Fx),
-        other => Err(Error::Validation(format!("unknown SIMM risk class '{other}'"))),
+        other => Err(Error::Validation(format!(
+            "unknown SIMM risk class '{other}'"
+        ))),
     }
 }
 
@@ -470,9 +479,9 @@ fn parse_number_map(value: &Value, context: &str) -> Result<HashMap<String, f64>
         .ok_or_else(|| Error::Validation(format!("{context} must be an object")))?;
     let mut out = HashMap::default();
     for (k, v) in obj {
-        let num = v
-            .as_f64()
-            .ok_or_else(|| Error::Validation(format!("{context} value for key '{k}' must be a number")))?;
+        let num = v.as_f64().ok_or_else(|| {
+            Error::Validation(format!("{context} value for key '{k}' must be a number"))
+        })?;
         out.insert(k.clone(), num);
     }
     Ok(out)
@@ -553,7 +562,11 @@ impl VmDefaults {
 }
 
 impl ImMethodDefaults {
-    pub fn to_im_params(&self, methodology: ImMethodology, currency: finstack_core::currency::Currency) -> ImParameters {
+    pub fn to_im_params(
+        &self,
+        methodology: ImMethodology,
+        currency: finstack_core::currency::Currency,
+    ) -> ImParameters {
         ImParameters {
             methodology,
             mpor_days: self.mpor_days,

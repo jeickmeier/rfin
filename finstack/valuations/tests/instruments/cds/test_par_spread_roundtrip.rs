@@ -18,9 +18,9 @@ use finstack_core::market_data::term_structures::{DiscountCurve, ParInterp, Seni
 use finstack_core::math::interp::InterpStyle;
 use finstack_core::money::Money;
 use finstack_valuations::calibration::api::schema::{HazardCurveParams, StepParams};
-use finstack_valuations::calibration::CalibrationMethod;
 use finstack_valuations::calibration::execute_step_for_tests as execute_step;
 use finstack_valuations::calibration::CalibrationConfig;
+use finstack_valuations::calibration::CalibrationMethod;
 use finstack_valuations::instruments::cds::CreditDefaultSwap;
 use finstack_valuations::instruments::common::traits::Instrument;
 use finstack_valuations::market::conventions::ids::{CdsConventionKey, CdsDocClause};
@@ -86,7 +86,7 @@ fn test_cds_par_spread_roundtrip_1y() {
     let market_quotes: Vec<MarketQuote> = quotes.into_iter().map(MarketQuote::Cds).collect();
     let (ctx, _report) = execute_step(&step, &market_quotes, &market_calib, &settings).unwrap();
     let hazard_curve = ctx
-        .get_hazard_ref(params.curve_id.as_str())
+        .get_hazard(params.curve_id.as_str())
         .expect("hazard inserted")
         .clone();
 
@@ -106,7 +106,7 @@ fn test_cds_par_spread_roundtrip_1y() {
     // Price the CDS with calibrated hazard curve
     let market_price = MarketContext::new()
         .insert_discount(create_discount_curve(base))
-        .insert_hazard(hazard_curve);
+        .insert_hazard((*hazard_curve).clone());
 
     let npv = cds
         .value(&market_price, base)
@@ -182,14 +182,14 @@ fn test_cds_par_spread_roundtrip_multi_tenor() {
     let market_quotes: Vec<MarketQuote> = quotes.iter().cloned().map(MarketQuote::Cds).collect();
     let (ctx, _report) = execute_step(&step, &market_quotes, &market_calib, &settings).unwrap();
     let hazard_curve = ctx
-        .get_hazard_ref(params.curve_id.as_str())
+        .get_hazard(params.curve_id.as_str())
         .expect("hazard inserted")
         .clone();
 
     // Reprice each CDS at its quoted spread
     let market_price = MarketContext::new()
         .insert_discount(create_discount_curve(base))
-        .insert_hazard(hazard_curve);
+        .insert_hazard((*hazard_curve).clone());
 
     for (maturity, par_spread_bp) in &tenors_and_spreads {
         // Hazard curve ID is "{entity}-{seniority}" per HazardCurveCalibrator
@@ -262,14 +262,14 @@ fn test_cds_par_spread_calculation_consistency() {
     let market_quotes: Vec<MarketQuote> = quotes.iter().cloned().map(MarketQuote::Cds).collect();
     let (ctx, _report) = execute_step(&step, &market_quotes, &market_calib, &settings).unwrap();
     let hazard_curve = ctx
-        .get_hazard_ref(params.curve_id.as_str())
+        .get_hazard(params.curve_id.as_str())
         .expect("hazard inserted")
         .clone();
 
     // Create market with calibrated hazard curve
     let market_price = MarketContext::new()
         .insert_discount(create_discount_curve(base))
-        .insert_hazard(hazard_curve);
+        .insert_hazard((*hazard_curve).clone());
 
     // Create CDS with arbitrary spread
     // Hazard curve ID is "{entity}-{seniority}" per HazardCurveCalibrator

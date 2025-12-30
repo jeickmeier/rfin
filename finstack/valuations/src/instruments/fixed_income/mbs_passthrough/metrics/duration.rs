@@ -7,10 +7,10 @@
 use crate::instruments::agency_mbs_passthrough::pricer::price_mbs;
 use crate::instruments::agency_mbs_passthrough::AgencyMbsPassthrough;
 use finstack_core::dates::Date;
+use finstack_core::market_data::bumps::MarketBump;
 use finstack_core::market_data::context::BumpSpec;
 use finstack_core::market_data::context::MarketContext;
 use finstack_core::Result;
-use finstack_core::HashMap;
 
 /// Duration and convexity result.
 #[derive(Clone, Debug)]
@@ -120,13 +120,14 @@ pub fn duration_convexity(
     }
 
     // Create bumped markets using shared calibration bump helpers (parallel bump in bp).
-    let mut bumps_up = HashMap::default();
-    bumps_up.insert(mbs.discount_curve_id.clone(), BumpSpec::parallel_bp(shock_bps));
-    let mut bumps_down = HashMap::default();
-    bumps_down.insert(mbs.discount_curve_id.clone(), BumpSpec::parallel_bp(-shock_bps));
-
-    let market_up = market.bump(bumps_up)?;
-    let market_down = market.bump(bumps_down)?;
+    let market_up = market.bump([MarketBump::Curve {
+        id: mbs.discount_curve_id.clone(),
+        spec: BumpSpec::parallel_bp(shock_bps),
+    }])?;
+    let market_down = market.bump([MarketBump::Curve {
+        id: mbs.discount_curve_id.clone(),
+        spec: BumpSpec::parallel_bp(-shock_bps),
+    }])?;
 
     // Get bumped prices
     let price_up = price_mbs(mbs, &market_up, as_of)?.amount();
@@ -154,15 +155,15 @@ pub fn duration_convexity(
 #[allow(clippy::expect_used, clippy::panic)]
 mod tests {
     use super::*;
-    use crate::cashflow::builder::specs::PrepaymentModelSpec;
     use crate::calibration::bumps::rates::bump_discount_curve_synthetic;
     use crate::calibration::bumps::BumpRequest;
+    use crate::cashflow::builder::specs::PrepaymentModelSpec;
     use crate::instruments::agency_mbs_passthrough::{AgencyProgram, PoolType};
     use finstack_core::currency::Currency;
     use finstack_core::dates::DayCount;
+    use finstack_core::market_data::term_structures::DiscountCurve;
     use finstack_core::math::interp::InterpStyle;
     use finstack_core::money::Money;
-    use finstack_core::market_data::term_structures::DiscountCurve;
     use finstack_core::types::{CurveId, InstrumentId};
     use time::Month;
 
@@ -257,9 +258,9 @@ mod tests {
         let market = create_test_market(as_of);
         let curve_id = CurveId::new("USD-OIS");
 
-        let base_curve = market.get_discount_ref(&curve_id).expect("original");
+        let base_curve = market.get_discount(&curve_id).expect("original");
         let bumped_curve = bump_discount_curve_synthetic(
-            base_curve,
+            base_curve.as_ref(),
             &market,
             &BumpRequest::Parallel(100.0),
             as_of,
@@ -267,8 +268,8 @@ mod tests {
         .expect("bump");
         let bumped_market = market.clone().insert_discount(bumped_curve);
 
-        let original = market.get_discount_ref(&curve_id).expect("original");
-        let bumped = bumped_market.get_discount_ref(&curve_id).expect("bumped");
+        let original = market.get_discount(&curve_id).expect("original");
+        let bumped = bumped_market.get_discount(&curve_id).expect("bumped");
 
         // Bumped curve should have lower discount factors (higher rates)
         let df_original = original.df(5.0);

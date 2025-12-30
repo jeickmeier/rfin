@@ -78,7 +78,7 @@ fn main() -> finstack_core::Result<()> {
 
     // 4. BENEFIT: Direct Concrete Access (No Dynamic Dispatch)
     println!("\n✅ 4. Direct Concrete Access");
-    let disc_concrete = context.get_discount_ref("USD-OIS")?;
+    let disc_concrete = context.get_discount("USD-OIS")?;
     println!("   Direct access DF at 1Y: {:.6}", disc_concrete.df(1.0));
     println!("   Curve ID: {}", disc_concrete.id().as_str());
 
@@ -122,7 +122,7 @@ fn main() -> finstack_core::Result<()> {
     // Time concrete access (V2 style)
     let start = std::time::Instant::now();
     for _ in 0..10000 {
-        let disc = context.get_discount_ref("USD-OIS").unwrap();
+        let disc = context.get_discount("USD-OIS").unwrap();
         let _ = disc.df(1.0);
     }
     let concrete_time = start.elapsed();

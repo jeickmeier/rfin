@@ -102,11 +102,11 @@ impl ForwardCurveTarget {
     {
         if let Some(ctx_cell) = &self.reuse_context {
             let mut ctx = ctx_cell.borrow_mut();
-            ctx.insert_forward_mut(curve.clone());
+            *ctx = std::mem::take(&mut *ctx).insert_forward(curve.clone());
             op(&ctx)
         } else {
             let mut temp_context = self.base_context.clone();
-            temp_context.insert_forward_mut(curve.clone());
+            temp_context = temp_context.insert_forward(curve.clone());
             op(&temp_context)
         }
     }
@@ -179,8 +179,7 @@ impl ForwardCurveTarget {
             }
         };
 
-        let mut new_context = context.clone();
-        new_context.insert_forward_mut(curve);
+        let new_context = context.clone().insert_forward(curve);
         Ok((new_context, report))
     }
 }
@@ -277,7 +276,7 @@ impl BootstrapTarget for ForwardCurveTarget {
                     // Fallback to discount curve zero rate if available
                     let t = self.tenor_years.max(1.0 / 12.0);
                     self.base_context
-                        .get_discount_ref(self.discount_curve_id.as_ref())
+                        .get_discount(self.discount_curve_id.as_ref())
                         .ok()
                         .map(|disc_curve| disc_curve.zero(t))
                 });

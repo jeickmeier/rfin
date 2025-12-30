@@ -11,7 +11,6 @@
 
 use finstack_core::dates::{Date, DayCount};
 use finstack_core::market_data::context::MarketContext;
-use finstack_core::market_data::traits::Discounting;
 use finstack_core::money::Money;
 use finstack_core::Result;
 
@@ -101,7 +100,7 @@ impl RevolvingCreditPricer {
         as_of: Date,
         path_schedule: &PathAwareCashflowSchedule,
     ) -> Result<PathResult> {
-        let disc_curve = market.get_discount_ref(&facility.discount_curve_id)?;
+        let disc_curve = market.get_discount(&facility.discount_curve_id)?;
         let disc_dc = disc_curve.day_count();
 
         // Compute survival probabilities
@@ -124,7 +123,7 @@ impl RevolvingCreditPricer {
             )?
         } else if let Some(ref hazard_id) = facility.hazard_curve_id {
             // Static survival from hazard curve
-            let hazard = market.get_hazard_ref(hazard_id.as_str())?;
+            let hazard = market.get_hazard(hazard_id.as_str())?;
             hazard.survival_at_dates(
                 &path_schedule
                     .schedule
@@ -177,7 +176,7 @@ impl RevolvingCreditPricer {
                         facility.day_count,
                     )?
                 } else if let Some(ref hazard_id) = facility.hazard_curve_id {
-                    let hazard = market.get_hazard_ref(hazard_id.as_str())?;
+                    let hazard = market.get_hazard(hazard_id.as_str())?;
                     hazard.survival_at_dates(&future_grid)?
                 } else {
                     vec![1.0; future_grid.len()]
@@ -224,7 +223,7 @@ impl RevolvingCreditPricer {
                         facility.day_count,
                     )?[0]
                 } else if let Some(ref hazard_id) = facility.hazard_curve_id {
-                    let hazard = market.get_hazard_ref(hazard_id.as_str())?;
+                    let hazard = market.get_hazard(hazard_id.as_str())?;
                     let t = hazard.day_count().year_fraction(
                         hazard.base_date(),
                         as_of,
@@ -305,7 +304,7 @@ impl RevolvingCreditPricer {
                 Some(upfront),
                 facility.commitment_date,
                 as_of,
-                disc_curve as &dyn Discounting,
+                disc_curve.as_ref(),
                 disc_dc,
             )?;
         }

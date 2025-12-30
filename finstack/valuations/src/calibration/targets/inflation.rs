@@ -92,7 +92,8 @@ impl InflationBootstrapper {
         };
 
         // Load conventions
-        let conventions = ConventionRegistry::try_global()?.require_inflation_swap(convention_id)?;
+        let conventions =
+            ConventionRegistry::try_global()?.require_inflation_swap(convention_id)?;
 
         if index_name != self.params.index && index_name != self.params.curve_id.as_str() {
             return Err(finstack_core::Error::Validation(format!(
@@ -104,12 +105,12 @@ impl InflationBootstrapper {
         let base_date = self.params.base_date;
         let has_index_fixings = self
             .base_context
-            .inflation_index_ref(self.params.curve_id.as_str())
+            .inflation_index(self.params.curve_id.as_str())
             .is_some();
 
         let (lag, base_cpi) = if let Some(index) = self
             .base_context
-            .inflation_index_ref(self.params.curve_id.as_str())
+            .inflation_index(self.params.curve_id.as_str())
         {
             let base_cpi = index.value_on(base_date).map_err(|e| {
                 finstack_core::Error::Validation(format!(
@@ -231,7 +232,7 @@ impl InflationBootstrapper {
     fn effective_base_cpi(&self) -> Result<f64> {
         if let Some(index) = self
             .base_context
-            .inflation_index_ref(self.params.curve_id.as_str())
+            .inflation_index(self.params.curve_id.as_str())
         {
             return index.value_on(self.params.base_date).map_err(|e| {
                 finstack_core::Error::Validation(format!(
@@ -250,11 +251,11 @@ impl InflationBootstrapper {
     {
         if let Some(ctx_cell) = &self.reuse_context {
             let mut ctx = ctx_cell.borrow_mut();
-            ctx.insert_inflation_mut(curve.clone());
+            *ctx = std::mem::take(&mut *ctx).insert_inflation(curve.clone());
             op(&ctx)
         } else {
             let mut temp_context = self.base_context.clone();
-            temp_context.insert_inflation_mut(curve.clone());
+            temp_context = temp_context.insert_inflation(curve.clone());
             op(&temp_context)
         }
     }
@@ -296,8 +297,7 @@ impl InflationBootstrapper {
             }
         };
 
-        let mut new_context = context.clone();
-        new_context.insert_inflation_mut(curve);
+        let new_context = context.clone().insert_inflation(curve);
         Ok((new_context, report))
     }
 }

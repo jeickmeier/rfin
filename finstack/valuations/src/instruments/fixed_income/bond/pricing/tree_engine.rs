@@ -1142,17 +1142,17 @@ mod tests {
         });
         // Align to the hazard curve stored in the context
         let low_hc_ref = ctx_low
-            .get_hazard_ref("HAZ-LOW")
+            .get_hazard("HAZ-LOW")
             .expect("Hazard curve should exist in test context");
-        tree_low.align_hazard_from_curve(low_hc_ref);
+        tree_low.align_hazard_from_curve(low_hc_ref.as_ref());
         let mut tree_high = RatesCreditTree::new(RatesCreditConfig {
             steps,
             ..Default::default()
         });
         let high_hc_ref = ctx_high
-            .get_hazard_ref("HAZ-HIGH")
+            .get_hazard("HAZ-HIGH")
             .expect("Hazard curve should exist in test context");
-        tree_high.align_hazard_from_curve(high_hc_ref);
+        tree_high.align_hazard_from_curve(high_hc_ref.as_ref());
 
         // Initial state
         let mut vars = StateVariables::default();

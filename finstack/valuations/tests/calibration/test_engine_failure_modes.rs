@@ -362,10 +362,10 @@ fn base_correlation_preflight_rejects_non_monotone_tranche_points() {
         .build()
         .expect("credit index data");
 
-    let mut initial_market = MarketContext::new();
-    initial_market.insert_hazard_mut(hazard_clone);
-    initial_market.insert_base_correlation_mut(base_corr_clone);
-    initial_market.insert_credit_index_mut("CDX.NA.IG", index_data);
+    let initial_market = MarketContext::new()
+        .insert_hazard(hazard_clone)
+        .insert_base_correlation(base_corr_clone)
+        .insert_credit_index("CDX.NA.IG", index_data);
 
     let tranche_quote = MarketQuote::CdsTranche(CdsTrancheQuote::CDSTranche {
         id: QuoteId::new("CDX-IG-7-3"),

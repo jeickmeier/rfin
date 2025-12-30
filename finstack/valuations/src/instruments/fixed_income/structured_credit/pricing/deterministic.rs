@@ -406,10 +406,11 @@ fn simulate_period(
                     .try_current_rate_with_index(pay_date, context)?;
 
                 // Use tranche's day-count convention for proper accrual calculation
-                let accrual_factor = tranche
-                    .day_count
-                    .year_fraction(period_start, pay_date, DayCountCtx::default())
-                    ?;
+                let accrual_factor = tranche.day_count.year_fraction(
+                    period_start,
+                    pay_date,
+                    DayCountCtx::default(),
+                )?;
 
                 let interest_portion = Money::new(
                     current_balance.amount() * coupon_rate * accrual_factor,
@@ -495,7 +496,7 @@ fn calculate_pool_flows(
     // Pre-resolve all curves
     let mut resolved_rates = Vec::with_capacity(state.pool_state.unique_curves.len());
     for idx_str in &state.pool_state.unique_curves {
-        let fwd = context.get_forward_ref(idx_str)?;
+        let fwd = context.get_forward(idx_str)?;
         let base = fwd.base_date();
         let dc = fwd.day_count();
         let t2 = dc.year_fraction(base, pay_date, DayCountCtx::default())?;

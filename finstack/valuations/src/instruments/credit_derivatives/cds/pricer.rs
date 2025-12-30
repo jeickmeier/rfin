@@ -1137,9 +1137,9 @@ impl CDSPricer {
         curves: &MarketContext,
         as_of: Date,
     ) -> Result<Money> {
-        let disc = curves.get_discount_ref(&cds.premium.discount_curve_id)?;
-        let surv = curves.get_hazard_ref(&cds.protection.credit_curve_id)?;
-        self.npv_with_upfront(cds, disc, surv, as_of)
+        let disc = curves.get_discount(&cds.premium.discount_curve_id)?;
+        let surv = curves.get_hazard(&cds.protection.credit_curve_id)?;
+        self.npv_with_upfront(cds, disc.as_ref(), surv.as_ref(), as_of)
     }
 
     /// Year fraction helper using the provided day count convention.

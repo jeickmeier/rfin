@@ -177,7 +177,7 @@ impl InflationSwap {
         if let Some(lag) = self.lag_override {
             return lag;
         }
-        if let Some(index) = curves.inflation_index_ref(self.inflation_index_id.as_str()) {
+        if let Some(index) = curves.inflation_index(self.inflation_index_id.as_str()) {
             return index.lag();
         }
         // Default to no lag when no index is available
@@ -201,8 +201,8 @@ impl InflationSwap {
         curves: &MarketContext,
         discount_base: Date,
     ) -> finstack_core::Result<f64> {
-        let inflation_index = curves.inflation_index_ref(self.inflation_index_id.as_str());
-        let inflation_curve = curves.get_inflation_ref(self.inflation_index_id.as_str())?;
+        let inflation_index = curves.inflation_index(self.inflation_index_id.as_str());
+        let inflation_curve = curves.get_inflation(self.inflation_index_id.as_str())?;
 
         let i_start = if let Some(base) = self.base_cpi {
             base
@@ -282,7 +282,7 @@ impl InflationSwap {
         curves: &MarketContext,
         as_of: Date,
     ) -> finstack_core::Result<Money> {
-        let disc = curves.get_discount_ref(self.discount_curve_id.as_str())?;
+        let disc = curves.get_discount(self.discount_curve_id.as_str())?;
 
         // Use instrument day count for accrual period
         let tau_accrual = self.dc.year_fraction(
@@ -323,7 +323,7 @@ impl InflationSwap {
         curves: &MarketContext,
         as_of: Date,
     ) -> finstack_core::Result<Money> {
-        let disc = curves.get_discount_ref(self.discount_curve_id.as_str())?;
+        let disc = curves.get_discount(self.discount_curve_id.as_str())?;
         let index_ratio = self.projected_index_ratio(curves, as_of)?;
         let inflation_payment = self.notional * (index_ratio - 1.0);
 
@@ -355,7 +355,7 @@ impl InflationSwap {
     /// - Index ratio is non-positive
     /// - Year fraction calculation fails
     pub fn par_rate(&self, curves: &MarketContext) -> finstack_core::Result<f64> {
-        let disc = curves.get_discount_ref(self.discount_curve_id.as_str())?;
+        let disc = curves.get_discount(self.discount_curve_id.as_str())?;
         let base = disc.base_date();
         let index_ratio = self.projected_index_ratio(curves, base)?;
 
@@ -540,7 +540,7 @@ impl YoYInflationSwap {
         if let Some(lag) = self.lag_override {
             return lag;
         }
-        if let Some(index) = curves.inflation_index_ref(self.inflation_index_id.as_str()) {
+        if let Some(index) = curves.inflation_index(self.inflation_index_id.as_str()) {
             return index.lag();
         }
         InflationLag::None
@@ -584,7 +584,7 @@ impl YoYInflationSwap {
         as_of: Date,
         date: Date,
     ) -> finstack_core::Result<f64> {
-        if let Some(index) = curves.inflation_index_ref(self.inflation_index_id.as_str()) {
+        if let Some(index) = curves.inflation_index(self.inflation_index_id.as_str()) {
             if let Ok(value) = index.value_on(date) {
                 return Ok(value);
             }
@@ -592,7 +592,7 @@ impl YoYInflationSwap {
 
         let lag = self.effective_lag(curves);
         let lagged_date = Self::apply_lag(date, lag);
-        let curve = curves.get_inflation_ref(self.inflation_index_id.as_str())?;
+        let curve = curves.get_inflation(self.inflation_index_id.as_str())?;
         let t = Self::signed_year_fraction(as_of, lagged_date);
         Ok(curve.cpi(t))
     }
@@ -626,7 +626,7 @@ impl YoYInflationSwap {
 
     /// Calculates the raw present value (f64) of the YoY inflation swap.
     pub fn npv_raw(&self, curves: &MarketContext, as_of: Date) -> finstack_core::Result<f64> {
-        let disc = curves.get_discount_ref(self.discount_curve_id.as_str())?;
+        let disc = curves.get_discount(self.discount_curve_id.as_str())?;
         let mut pv = 0.0_f64;
 
         for (start, end, pay) in self.schedule()? {

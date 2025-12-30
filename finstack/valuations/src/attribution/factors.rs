@@ -622,10 +622,10 @@ impl MarketSnapshot {
 
         // Always preserve FX, surfaces, and scalars from current market
         if let Some(fx) = current_market.fx() {
-            new_market.insert_fx_arc_mut(Arc::clone(fx));
+            new_market = new_market.insert_fx_arc(Arc::clone(fx));
         }
         new_market.replace_surfaces_mut(current_market.surfaces_snapshot());
-        copy_scalars(current_market, &mut new_market);
+        new_market = copy_scalars(current_market, new_market);
 
         new_market
     }
@@ -765,19 +765,20 @@ pub fn extract_fx(market: &MarketContext) -> Option<Arc<FxMatrix>> {
     market.fx().cloned()
 }
 
-fn copy_scalars(from: &MarketContext, to: &mut MarketContext) {
+fn copy_scalars(from: &MarketContext, mut to: MarketContext) -> MarketContext {
     for (id, price) in from.prices_iter() {
-        to.set_price_mut(id.clone(), price.clone());
+        to = to.insert_price(id.as_str(), price.clone());
     }
     for (_id, series) in from.series_iter() {
-        to.set_series_mut(series.clone());
+        to = to.insert_series(series.clone());
     }
     for (id, index) in from.inflation_indices_iter() {
-        to.set_inflation_index_mut(id.as_str(), Arc::clone(index));
+        to = to.insert_inflation_index_arc(id.as_str(), Arc::clone(index));
     }
     for (_id, schedule) in from.dividends_iter() {
-        to.set_dividends_mut(Arc::clone(schedule));
+        to = to.insert_dividends_arc(Arc::clone(schedule));
     }
+    to
 }
 
 /// Replace FX matrix in a market context.
@@ -791,9 +792,7 @@ fn copy_scalars(from: &MarketContext, to: &mut MarketContext) {
 ///
 /// New market context with replaced FX matrix.
 pub fn restore_fx(market: &MarketContext, fx: Option<Arc<FxMatrix>>) -> MarketContext {
-    let mut new_market = market.clone();
-    new_market.set_fx_arc_option_mut(fx);
-    new_market
+    market.clone().set_fx_arc_option(fx)
 }
 
 /// Replace volatility surfaces in a market context.
@@ -848,22 +847,22 @@ pub fn restore_scalars(market: &MarketContext, snapshot: &ScalarsSnapshot) -> Ma
 
     // Copy FX and surfaces
     if let Some(fx) = market.fx() {
-        new_market.insert_fx_arc_mut(Arc::clone(fx));
+        new_market = new_market.insert_fx_arc(Arc::clone(fx));
     }
     new_market.replace_surfaces_mut(market.surfaces_snapshot());
 
     // Restore scalars from snapshot (overwrites any existing)
     for (id, scalar) in &snapshot.prices {
-        new_market.set_price_mut(id.clone(), scalar.clone());
+        new_market = new_market.insert_price(id.as_str(), scalar.clone());
     }
     for series in snapshot.series.values() {
-        new_market.set_series_mut(series.clone());
+        new_market = new_market.insert_series(series.clone());
     }
     for (id, index) in &snapshot.inflation_indices {
-        new_market.set_inflation_index_mut(id.as_str(), Arc::clone(index));
+        new_market = new_market.insert_inflation_index_arc(id.as_str(), Arc::clone(index));
     }
     for schedule in snapshot.dividends.values() {
-        new_market.set_dividends_mut(Arc::clone(schedule));
+        new_market = new_market.insert_dividends_arc(Arc::clone(schedule));
     }
 
     new_market

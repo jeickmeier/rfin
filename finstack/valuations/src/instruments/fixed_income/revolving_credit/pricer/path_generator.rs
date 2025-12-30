@@ -36,6 +36,9 @@ use super::super::types::{
     StochasticUtilizationSpec, UtilizationProcess,
 };
 
+/// Type alias for optional rate curve data (times and rates).
+type RateCurveData = Option<(Vec<f64>, Vec<f64>)>;
+
 /// Generate 3-factor MC paths using the existing process infrastructure.
 ///
 /// This function creates correlated paths for utilization, interest rates, and credit spreads
@@ -82,38 +85,39 @@ pub fn generate_three_factor_paths(
     };
 
     // Build interest rate specification
-    let (interest_rate_spec, rate_curve_opt) = match &facility.base_rate_spec {
-        BaseRateSpec::Fixed { rate } => (InterestRateSpec::Fixed { rate: *rate }, None),
-        BaseRateSpec::Floating(spec) => {
-            match &mc_config.interest_rate_process {
-                Some(InterestRateProcessSpec::HullWhite1F {
-                    kappa,
-                    sigma,
-                    initial,
-                    theta,
-                }) => (
-                    InterestRateSpec::Floating {
-                        params: HullWhite1FParams::new(*kappa, *sigma, *theta),
-                        initial: *initial,
-                    },
-                    None,
-                ),
-                None => {
-                    // Use deterministic forward curve
-                    let fwd = market.get_forward_ref(spec.index_id.as_str())?;
-                    let times = fwd.knots().to_vec();
-                    let rates = fwd.forwards().to_vec();
-                    (
-                        InterestRateSpec::DeterministicForward {
-                            times: times.clone(),
-                            rates: rates.clone(),
+    let (interest_rate_spec, rate_curve_opt): (InterestRateSpec, RateCurveData) =
+        match &facility.base_rate_spec {
+            BaseRateSpec::Fixed { rate } => (InterestRateSpec::Fixed { rate: *rate }, None),
+            BaseRateSpec::Floating(spec) => {
+                match &mc_config.interest_rate_process {
+                    Some(InterestRateProcessSpec::HullWhite1F {
+                        kappa,
+                        sigma,
+                        initial,
+                        theta,
+                    }) => (
+                        InterestRateSpec::Floating {
+                            params: HullWhite1FParams::new(*kappa, *sigma, *theta),
+                            initial: *initial,
                         },
-                        Some((times, rates)),
-                    )
+                        None,
+                    ),
+                    None => {
+                        // Use deterministic forward curve
+                        let fwd = market.get_forward(spec.index_id.as_str())?;
+                        let times = fwd.knots().to_vec();
+                        let rates = fwd.forwards().to_vec();
+                        (
+                            InterestRateSpec::DeterministicForward {
+                                times: times.clone(),
+                                rates: rates.clone(),
+                            },
+                            Some((times, rates)),
+                        )
+                    }
                 }
             }
-        }
-    };
+        };
 
     // Build credit spread parameters
     let credit_spread_params = build_credit_spread_params(mc_config, facility, market)?;
@@ -127,7 +131,7 @@ pub fn generate_three_factor_paths(
     }
 
     // Compute time offset for market curve alignment
-    let disc_curve = market.get_discount_ref(facility.discount_curve_id.as_str())?;
+    let disc_curve = market.get_discount(facility.discount_curve_id.as_str())?;
     let disc_dc = disc_curve.day_count();
     let base_date = disc_curve.base_date();
     let t_start =
@@ -397,7 +401,7 @@ fn build_credit_spread_params(
             tenor_years,
         } => {
             // Pull hazard curve and compute tenor
-            let hazard = market.get_hazard_ref(hazard_curve_id.as_str())?;
+            let hazard = market.get_hazard(hazard_curve_id.as_str())?;
             let dc = hazard.day_count();
             let base_date = hazard.base_date();
 

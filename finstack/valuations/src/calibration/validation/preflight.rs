@@ -88,7 +88,7 @@ fn validate_hazard_step(
     context: &MarketContext,
 ) -> Result<()> {
     // Ensure referenced discount curve exists.
-    let _ = context.get_discount_ref(&p.discount_curve_id)?;
+    let _ = context.get_discount(&p.discount_curve_id)?;
 
     if !p.notional.is_finite() || p.notional <= 0.0 {
         return Err(finstack_core::Error::Validation(format!(
@@ -181,7 +181,7 @@ fn validate_inflation_step(
     _quotes: &[MarketQuote],
     context: &MarketContext,
 ) -> Result<()> {
-    let _ = context.get_discount_ref(&p.discount_curve_id)?;
+    let _ = context.get_discount(&p.discount_curve_id)?;
     if !p.notional.is_finite() || p.notional <= 0.0 {
         return Err(finstack_core::Error::Validation(format!(
             "Inflation calibration notional must be positive; got {}",
@@ -223,7 +223,7 @@ fn validate_inflation_step(
     // - currency match
     // - lag match
     // - base CPI match (including any seasonality applied by the index)
-    if let Some(index) = context.inflation_index_ref(p.curve_id.as_str()) {
+    if let Some(index) = context.inflation_index(p.curve_id.as_str()) {
         if index.currency != p.currency {
             return Err(finstack_core::Error::Validation(format!(
                 "Inflation step currency mismatch: params.currency='{}' but InflationIndex.currency='{}'",
@@ -301,7 +301,7 @@ fn validate_vol_surface_step(
     let discount_id = p.discount_curve_id.as_deref().ok_or_else(|| {
         finstack_core::Error::Validation("VolSurface step requires discount_curve_id".to_string())
     })?;
-    let _ = context.get_discount_ref(discount_id)?;
+    let _ = context.get_discount(discount_id)?;
     Ok(())
 }
 
@@ -310,7 +310,7 @@ fn validate_swaption_vol_step(
     p: &crate::calibration::api::schema::SwaptionVolParams,
     context: &MarketContext,
 ) -> Result<()> {
-    let _ = context.get_discount_ref(&p.discount_curve_id)?;
+    let _ = context.get_discount(&p.discount_curve_id)?;
     if let crate::calibration::api::schema::SwaptionVolConvention::ShiftedLognormal { shift } =
         p.vol_convention
     {
@@ -338,7 +338,7 @@ fn validate_base_correlation_step(
     }
 
     // Base correlation calibration requires credit index data to be present in the context.
-    let index_data = context.credit_index_ref(&p.index_id)?;
+    let index_data = context.credit_index(&p.index_id)?;
 
     // Market-standard: ensure recovery/currency/series/index are consistent.
     let tranche_quotes: Vec<crate::market::quotes::cds_tranche::CdsTrancheQuote> =
@@ -413,8 +413,8 @@ fn validate_base_correlation_step(
 #[allow(clippy::expect_used, clippy::panic)]
 mod tests {
     use super::*;
-use crate::calibration::api::schema::{DiscountCurveParams, StepParams};
-use crate::calibration::config::CalibrationMethod;
+    use crate::calibration::api::schema::{DiscountCurveParams, StepParams};
+    use crate::calibration::config::CalibrationMethod;
     use crate::market::conventions::ids::IndexId;
     use crate::market::quotes::ids::{Pillar, QuoteId};
     use finstack_core::dates::{Tenor, TenorUnit};

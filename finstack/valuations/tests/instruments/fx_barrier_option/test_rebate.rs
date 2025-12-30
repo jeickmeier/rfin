@@ -64,16 +64,10 @@ fn test_fx_barrier_rebate_added_to_closed_form_price() {
     let t = DayCount::Act365F
         .year_fraction(as_of, expiry, DayCountCtx::default())
         .expect("Year fraction");
-    let r_dom = market
-        .get_discount_ref("USD-OIS")
-        .expect("USD curve")
-        .zero(t);
-    let r_for = market
-        .get_discount_ref("EUR-OIS")
-        .expect("EUR curve")
-        .zero(t);
+    let r_dom = market.get_discount("USD-OIS").expect("USD curve").zero(t);
+    let r_for = market.get_discount("EUR-OIS").expect("EUR curve").zero(t);
     let sigma = market
-        .surface_ref("EURUSD-VOL")
+        .surface("EURUSD-VOL")
         .expect("FX vol")
         .value_clamped(t, strike);
 

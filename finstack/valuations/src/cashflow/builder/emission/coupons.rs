@@ -125,7 +125,7 @@ pub(in crate::cashflow::builder) fn emit_float_coupons_on(
     outstanding_after: &finstack_core::HashMap<Date, f64>,
     outstanding_fallback: f64,
     ccy: Currency,
-    resolved_curves: &[Option<&ForwardCurve>],
+    resolved_curves: &[Option<std::sync::Arc<ForwardCurve>>],
     out_flows: &mut Vec<CashFlow>,
 ) -> finstack_core::Result<f64> {
     let mut pik_to_add = 0.0;
@@ -191,7 +191,7 @@ pub(in crate::cashflow::builder) fn emit_float_coupons_on(
             };
 
             // Compute total rate using centralized projection with floor/cap support
-            let total_rate = if let Some(fwd) = *resolved_curve {
+            let total_rate = if let Some(fwd) = resolved_curve.as_deref() {
                 // Use floating rate projection with correct index maturity
                 match super::super::rate_helpers::project_floating_rate(
                     reset_date,

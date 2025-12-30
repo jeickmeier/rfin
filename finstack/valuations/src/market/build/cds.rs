@@ -204,7 +204,12 @@ pub fn build_cds_instrument(quote: &CdsQuote, ctx: &BuildCtx) -> Result<Box<dyn 
 
     // Calculate upfront amount if present
     // Amount = Notional * pct; Date = Spot (Settlement)
-    let upfront_payment = upfront.map(|pct| (spot, Money::new(ctx.notional() * pct, convention_key.currency)));
+    let upfront_payment = upfront.map(|pct| {
+        (
+            spot,
+            Money::new(ctx.notional() * pct, convention_key.currency),
+        )
+    });
 
     // We use Custom convention to avoid enum mismatch, but fully specify legs
     let convention_enum = CDSConvention::Custom;

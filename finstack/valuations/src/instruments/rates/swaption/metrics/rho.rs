@@ -25,7 +25,7 @@ impl MetricCalculator for RhoCalculator {
         let vol = if let Some(impl_vol) = option.pricing_overrides.implied_volatility {
             impl_vol
         } else {
-            let vol_surface = context.curves.surface_ref(option.vol_surface_id.as_str())?;
+            let vol_surface = context.curves.surface(option.vol_surface_id.as_str())?;
             match option.pricing_overrides.vol_surface_extrapolation {
                 VolSurfaceExtrapolation::Clamp | VolSurfaceExtrapolation::LinearInVariance => {
                     // LinearInVariance falls back to Clamp until surface impl is ready

@@ -111,7 +111,7 @@ impl PyMarketContext {
                 .map_err(|_| PyTypeError::new_err("bumps must contain MarketBump objects"))?;
             parsed.push(bump.inner.clone());
         }
-        let bumped = self.inner.apply_bumps(&parsed).map_err(core_to_py)?;
+        let bumped = self.inner.bump(parsed).map_err(core_to_py)?;
         Ok(Self { inner: bumped })
     }
 
@@ -127,7 +127,7 @@ impl PyMarketContext {
     /// -------
     /// None
     fn insert_discount(&mut self, curve: &PyDiscountCurve) -> PyResult<()> {
-        self.inner.insert_discount_mut(curve.inner.as_ref().clone());
+        self.inner = std::mem::take(&mut self.inner).insert_discount(curve.inner.as_ref().clone());
         Ok(())
     }
 
@@ -143,7 +143,7 @@ impl PyMarketContext {
     /// -------
     /// None
     fn insert_forward(&mut self, curve: &PyForwardCurve) -> PyResult<()> {
-        self.inner.insert_forward_mut(curve.inner.as_ref().clone());
+        self.inner = std::mem::take(&mut self.inner).insert_forward(curve.inner.as_ref().clone());
         Ok(())
     }
 
@@ -159,7 +159,7 @@ impl PyMarketContext {
     /// -------
     /// None
     fn insert_hazard(&mut self, curve: &PyHazardCurve) -> PyResult<()> {
-        self.inner.insert_hazard_mut(curve.inner.as_ref().clone());
+        self.inner = std::mem::take(&mut self.inner).insert_hazard(curve.inner.as_ref().clone());
         Ok(())
     }
 
@@ -175,8 +175,7 @@ impl PyMarketContext {
     /// -------
     /// None
     fn insert_inflation(&mut self, curve: &PyInflationCurve) -> PyResult<()> {
-        self.inner
-            .insert_inflation_mut(curve.inner.as_ref().clone());
+        self.inner = std::mem::take(&mut self.inner).insert_inflation(curve.inner.as_ref().clone());
         Ok(())
     }
 
@@ -192,8 +191,8 @@ impl PyMarketContext {
     /// -------
     /// None
     fn insert_base_correlation(&mut self, curve: &PyBaseCorrelationCurve) -> PyResult<()> {
-        self.inner
-            .insert_base_correlation_mut(curve.inner.as_ref().clone());
+        self.inner =
+            std::mem::take(&mut self.inner).insert_base_correlation(curve.inner.as_ref().clone());
         Ok(())
     }
 
@@ -209,7 +208,7 @@ impl PyMarketContext {
     /// -------
     /// None
     fn insert_fx(&mut self, fx_matrix: &PyFxMatrix) -> PyResult<()> {
-        self.inner.insert_fx_arc_mut(fx_matrix.inner.clone());
+        self.inner = std::mem::take(&mut self.inner).insert_fx_arc(fx_matrix.inner.clone());
         Ok(())
     }
 
@@ -225,8 +224,7 @@ impl PyMarketContext {
     /// -------
     /// None
     fn insert_surface(&mut self, surface: &PyVolSurface) -> PyResult<()> {
-        self.inner
-            .insert_surface_mut(surface.inner.as_ref().clone());
+        self.inner = std::mem::take(&mut self.inner).insert_surface(surface.inner.as_ref().clone());
         Ok(())
     }
 
@@ -244,7 +242,7 @@ impl PyMarketContext {
     /// -------
     /// None
     fn insert_price(&mut self, id: &str, scalar: &PyMarketScalar) -> PyResult<()> {
-        self.inner.insert_price_mut(id, scalar.inner.clone());
+        self.inner = std::mem::take(&mut self.inner).insert_price(id, scalar.inner.clone());
         Ok(())
     }
 
@@ -260,7 +258,7 @@ impl PyMarketContext {
     /// -------
     /// None
     fn insert_series(&mut self, series: &PyScalarTimeSeries) -> PyResult<()> {
-        self.inner.insert_series_mut(series.inner.as_ref().clone());
+        self.inner = std::mem::take(&mut self.inner).insert_series(series.inner.as_ref().clone());
         Ok(())
     }
 
@@ -276,8 +274,8 @@ impl PyMarketContext {
     /// -------
     /// None
     fn insert_dividends(&mut self, schedule: &PyDividendSchedule) -> PyResult<()> {
-        self.inner
-            .insert_dividends_mut(schedule.inner.as_ref().clone());
+        self.inner =
+            std::mem::take(&mut self.inner).insert_dividends(schedule.inner.as_ref().clone());
         Ok(())
     }
 
@@ -295,8 +293,8 @@ impl PyMarketContext {
     /// -------
     /// None
     fn insert_credit_index(&mut self, id: &str, data: &PyCreditIndexData) -> PyResult<()> {
-        self.inner
-            .insert_credit_index_mut(id, data.inner.as_ref().clone());
+        self.inner =
+            std::mem::take(&mut self.inner).insert_credit_index(id, data.inner.as_ref().clone());
         Ok(())
     }
 
@@ -314,8 +312,8 @@ impl PyMarketContext {
     /// -------
     /// None
     fn map_collateral(&mut self, csa_code: &str, curve_id: &str) -> PyResult<()> {
-        self.inner
-            .map_collateral_mut(csa_code, CurveId::from(curve_id));
+        self.inner =
+            std::mem::take(&mut self.inner).map_collateral(csa_code, CurveId::from(curve_id));
         Ok(())
     }
 

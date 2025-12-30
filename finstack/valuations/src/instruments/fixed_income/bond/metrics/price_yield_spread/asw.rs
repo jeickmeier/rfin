@@ -217,8 +217,8 @@ pub fn asw_par_with_forward_config(
     float_spread_bp: f64,
     fixed_leg_day_count: Option<DayCount>,
 ) -> finstack_core::Result<f64> {
-    let disc = curves.get_discount_ref(&bond.discount_curve_id)?;
-    let fwd = curves.get_forward_ref(fwd_curve_id)?;
+    let disc = curves.get_discount(&bond.discount_curve_id)?;
+    let fwd = curves.get_forward(fwd_curve_id)?;
 
     // Mirror the bond schedule via holder flows
     let flows = bond.build_schedule(curves, as_of)?;
@@ -228,7 +228,7 @@ pub fn asw_par_with_forward_config(
     }
 
     let fixed_dc = fixed_leg_day_count.unwrap_or_else(|| bond.cashflow_spec.day_count());
-    let ann = fixed_leg_annuity(disc, fixed_dc, &sched)?;
+    let ann = fixed_leg_annuity(disc.as_ref(), fixed_dc, &sched)?;
     if ann == 0.0 || bond.notional.amount() == 0.0 {
         return Ok(0.0);
     }
@@ -252,7 +252,7 @@ pub fn asw_par_with_forward_config(
 
     // Equivalent fixed rate from coupon-only PV
     let eq_coupon = if let Some(custom) = &bond.custom_cashflows {
-        let pv_coupon = pv_coupon_from_custom_schedule(disc, custom, as_of)?;
+        let pv_coupon = pv_coupon_from_custom_schedule(disc.as_ref(), custom, as_of)?;
         pv_coupon / (bond.notional.amount() * ann)
     } else {
         // Extract fixed coupon rate from cashflow_spec (converting Decimal to f64)
@@ -312,14 +312,14 @@ pub fn asw_market_with_forward_config(
     dirty_price_ccy: Option<f64>,
     fixed_leg_day_count: Option<DayCount>,
 ) -> finstack_core::Result<f64> {
-    let disc = curves.get_discount_ref(&bond.discount_curve_id)?;
+    let disc = curves.get_discount(&bond.discount_curve_id)?;
     let flows = bond.build_schedule(curves, as_of)?;
     let sched = build_future_dates_from_flows(&flows, as_of);
     if sched.len() < 2 {
         return Ok(0.0);
     }
     let fixed_dc = fixed_leg_day_count.unwrap_or_else(|| bond.cashflow_spec.day_count());
-    let ann = fixed_leg_annuity(disc, fixed_dc, &sched)?;
+    let ann = fixed_leg_annuity(disc.as_ref(), fixed_dc, &sched)?;
     if ann == 0.0 || bond.notional.amount() == 0.0 {
         return Ok(0.0);
     }
@@ -380,7 +380,7 @@ impl MetricCalculator for AssetSwapParCalculator {
         let discount_curve_id = bond.discount_curve_id.to_owned();
         let maturity = bond.maturity;
         let bond_dc = bond.cashflow_spec.day_count();
-        let disc = context.curves.get_discount_ref(&discount_curve_id)?;
+        let disc = context.curves.get_discount(&discount_curve_id)?;
 
         // Extract schedule params from cashflow_spec, allowing ASW config to
         // override fixed-leg conventions when provided.
@@ -435,7 +435,7 @@ impl MetricCalculator for AssetSwapParCalculator {
             return Ok(0.0);
         }
         let dc_fixed = self.config.fixed_leg_day_count.unwrap_or(bond_dc);
-        let (par_rate, ann) = par_rate_and_annuity_from_discount(disc, dc_fixed, &sched)?;
+        let (par_rate, ann) = par_rate_and_annuity_from_discount(disc.as_ref(), dc_fixed, &sched)?;
         if ann == 0.0 {
             return Ok(0.0);
         }
@@ -470,7 +470,7 @@ impl MetricCalculator for AssetSwapMarketCalculator {
                 coupon_rate,
             )
         };
-        let disc = context.curves.get_discount_ref(&discount_curve_id)?;
+        let disc = context.curves.get_discount(&discount_curve_id)?;
 
         // Dirty market value in currency
         let dirty_ccy = if let Some(clean_px) = quoted_clean {
@@ -584,13 +584,13 @@ impl MetricCalculator for AssetSwapMarketCalculator {
 
         let sched: Vec<Date> = builder.build()?.into_iter().collect();
         let dc_fixed = self.config.fixed_leg_day_count.unwrap_or(dc);
-        let (par_rate, ann) = par_rate_and_annuity_from_discount(disc, dc_fixed, &sched)?;
+        let (par_rate, ann) = par_rate_and_annuity_from_discount(disc.as_ref(), dc_fixed, &sched)?;
         if ann == 0.0 || notional_amt == 0.0 {
             return Ok(0.0);
         }
         // Equivalent coupon from coupon PV only for custom bonds; otherwise stated coupon
         let eq_coupon = if let Some(custom) = &context.instrument_as::<Bond>()?.custom_cashflows {
-            let pv_coupon = pv_coupon_from_custom_schedule(disc, custom, context.as_of)?;
+            let pv_coupon = pv_coupon_from_custom_schedule(disc.as_ref(), custom, context.as_of)?;
             pv_coupon / (notional_amt * ann)
         } else {
             coupon

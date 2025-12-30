@@ -486,14 +486,14 @@ pub fn npv(irs: &InterestRateSwap, context: &MarketContext, as_of: Date) -> Resu
 
 /// Compute the raw Net Present Value (f64) without rounding.
 pub fn npv_raw(irs: &InterestRateSwap, context: &MarketContext, as_of: Date) -> Result<f64> {
-    let disc = context.get_discount_ref(irs.fixed.discount_curve_id.as_ref())?;
-    let pv_fixed = irs.pv_fixed_leg(disc, as_of)?;
+    let disc = context.get_discount(irs.fixed.discount_curve_id.as_ref())?;
+    let pv_fixed = irs.pv_fixed_leg(disc.as_ref(), as_of)?;
 
     let pv_float = match irs.float.compounding {
         FloatingLegCompounding::Simple => {
             // Term-rate swap: requires forward curve for float leg pricing
-            let fwd = context.get_forward_ref(irs.float.forward_curve_id.as_ref())?;
-            irs.pv_float_leg(disc, fwd, as_of)?
+            let fwd = context.get_forward(irs.float.forward_curve_id.as_ref())?;
+            irs.pv_float_leg(disc.as_ref(), fwd.as_ref(), as_of)?
         }
         FloatingLegCompounding::CompoundedInArrears { .. } => {
             // Compounded RFR swap (single-curve or multi-curve).
@@ -502,14 +502,14 @@ pub fn npv_raw(irs: &InterestRateSwap, context: &MarketContext, as_of: Date) -> 
             // in that case we derive implied overnight forwards from the discount curve.
             let proj = if irs.is_single_curve_ois() {
                 context
-                    .get_forward_ref(irs.float.forward_curve_id.as_ref())
+                    .get_forward(irs.float.forward_curve_id.as_ref())
                     .ok()
             } else {
-                Some(context.get_forward_ref(irs.float.forward_curve_id.as_ref())?)
+                Some(context.get_forward(irs.float.forward_curve_id.as_ref())?)
             };
             let fixings_id = format!("FIXING:{}", irs.float.forward_curve_id.as_str());
             let fixings = context.series(&fixings_id).ok();
-            irs.pv_compounded_float_leg(disc, proj, as_of, fixings)?
+            irs.pv_compounded_float_leg(disc.as_ref(), proj.as_deref(), as_of, fixings)?
         }
     };
 

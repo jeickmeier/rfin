@@ -24,11 +24,11 @@ impl MetricCalculator for VannaCalculator {
         let as_of = context.as_of;
 
         let mut total_vanna = 0.0;
-        let discount_curve = curves.get_discount_ref(inst.discount_curve_id.as_ref())?;
+        let discount_curve = curves.get_discount(inst.discount_curve_id.as_ref())?;
 
         // Get volatility surface if present
         let vol_surface = if let Some(vol_id) = &inst.vol_surface_id {
-            Some(curves.surface_ref(vol_id.as_str())?)
+            Some(curves.surface(vol_id.as_str())?)
         } else {
             None
         };
@@ -58,7 +58,7 @@ impl MetricCalculator for VannaCalculator {
                 continue;
             }
 
-            let vol = if let Some(surface) = vol_surface {
+            let vol = if let Some(surface) = vol_surface.as_ref() {
                 surface.value_clamped(time_to_fixing, inst.strike_rate)
             } else {
                 0.20

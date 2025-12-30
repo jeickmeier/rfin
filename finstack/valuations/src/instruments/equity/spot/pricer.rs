@@ -74,7 +74,7 @@ impl EquityPricer {
         let s0 = self.price_per_share(inst, curves, as_of)?;
         let dy = self.dividend_yield(inst, curves)?;
         // Use configured discount curve ID
-        let disc = curves.get_discount_ref(inst.discount_curve_id.as_str())?;
+        let disc = curves.get_discount(inst.discount_curve_id.as_str())?;
         let r = disc.zero(t);
         let fwd = s0.amount() * ((r - dy) * t).exp();
         Ok(Money::new(fwd, inst.currency))

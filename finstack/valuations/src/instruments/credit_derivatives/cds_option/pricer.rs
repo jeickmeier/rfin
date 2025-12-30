@@ -79,14 +79,16 @@ impl CdsOptionPricer {
         }
 
         // Market curves
-        let disc = curves.get_discount_ref(&option.discount_curve_id)?;
-        let hazard = curves.get_hazard_ref(&option.credit_curve_id)?;
+        let disc = curves.get_discount(&option.discount_curve_id)?;
+        let hazard = curves.get_hazard(&option.credit_curve_id)?;
 
         // Forward spread at CDS maturity (bp)
-        let forward_spread_bp = self.forward_spread_from_pricer(option, disc, hazard, as_of)?;
+        let forward_spread_bp =
+            self.forward_spread_from_pricer(option, disc.as_ref(), hazard.as_ref(), as_of)?;
 
         // Risky annuity (RPV01) from option expiry to CDS maturity via CDS pricer
-        let risky_annuity = self.risky_annuity_from_pricer(option, disc, hazard, curves, as_of)?;
+        let risky_annuity =
+            self.risky_annuity_from_pricer(option, disc.as_ref(), hazard.as_ref(), curves, as_of)?;
 
         // Discount factor to option expiry (NOT used in pricing as risky_annuity is already PV)
         // let df_expiry = disc.df(t);
@@ -96,7 +98,7 @@ impl CdsOptionPricer {
             vol
         } else {
             curves
-                .surface_ref(option.vol_surface_id.as_str())?
+                .surface(option.vol_surface_id.as_str())?
                 .value_clamped(t, option.strike_spread_bp)
         };
 
@@ -112,9 +114,9 @@ impl CdsOptionPricer {
         curves: &MarketContext,
         as_of: finstack_core::dates::Date,
     ) -> Result<f64> {
-        let hazard = curves.get_hazard_ref(&option.credit_curve_id)?;
-        let disc = curves.get_discount_ref(&option.discount_curve_id)?;
-        self.forward_spread_from_pricer(option, disc, hazard, as_of)
+        let hazard = curves.get_hazard(&option.credit_curve_id)?;
+        let disc = curves.get_discount(&option.discount_curve_id)?;
+        self.forward_spread_from_pricer(option, disc.as_ref(), hazard.as_ref(), as_of)
     }
 
     /// Convenience method: compute the risky annuity (PV of 1bp spread) from option expiry to underlying maturity.
@@ -126,9 +128,9 @@ impl CdsOptionPricer {
         curves: &MarketContext,
         as_of: finstack_core::dates::Date,
     ) -> Result<f64> {
-        let disc = curves.get_discount_ref(&option.discount_curve_id)?;
-        let hazard = curves.get_hazard_ref(&option.credit_curve_id)?;
-        self.risky_annuity_from_pricer(option, disc, hazard, curves, as_of)
+        let disc = curves.get_discount(&option.discount_curve_id)?;
+        let hazard = curves.get_hazard(&option.credit_curve_id)?;
+        self.risky_annuity_from_pricer(option, disc.as_ref(), hazard.as_ref(), curves, as_of)
     }
 }
 
@@ -494,14 +496,16 @@ impl CdsOptionPricer {
             return Ok(0.0);
         }
 
-        let disc = curves.get_discount_ref(&option.discount_curve_id)?;
-        let hazard = curves.get_hazard_ref(&option.credit_curve_id)?;
+        let disc = curves.get_discount(&option.discount_curve_id)?;
+        let hazard = curves.get_hazard(&option.credit_curve_id)?;
 
         // Forward spread at CDS maturity (bp)
-        let fwd_bp = self.forward_spread_from_pricer(option, disc, hazard, as_of)?;
+        let fwd_bp =
+            self.forward_spread_from_pricer(option, disc.as_ref(), hazard.as_ref(), as_of)?;
 
         // Risky annuity from expiry to maturity
-        let ra = self.risky_annuity_from_pricer(option, disc, hazard, curves, as_of)?;
+        let ra =
+            self.risky_annuity_from_pricer(option, disc.as_ref(), hazard.as_ref(), curves, as_of)?;
         // df_expiry not needed as ra is already PV
 
         // Objective in log-σ space to keep σ>0
@@ -523,7 +527,7 @@ impl CdsOptionPricer {
             v
         } else {
             curves
-                .surface_ref(option.vol_surface_id.as_str())
+                .surface(option.vol_surface_id.as_str())
                 .ok()
                 .map(|s| s.value_clamped(t, option.strike_spread_bp))
                 .unwrap_or(self.config.iv_initial_guess)

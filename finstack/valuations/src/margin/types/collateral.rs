@@ -11,8 +11,8 @@ use std::fmt;
 use crate::margin::config::margin_registry_from_config;
 use crate::margin::registry::embedded_registry;
 use finstack_core::config::FinstackConfig;
-use serde::{Deserialize, Deserializer, Serialize, Serializer};
 use serde::de::Error as DeError;
+use serde::{Deserialize, Deserializer, Serialize, Serializer};
 
 /// Collateral asset classes per BCBS-IOSCO standards.
 ///
@@ -42,9 +42,7 @@ pub enum CollateralAssetClass {
 
 impl CollateralAssetClass {
     fn normalize(raw: &str) -> String {
-        raw.trim()
-            .to_ascii_lowercase()
-            .replace([' ', '-'], "_")
+        raw.trim().to_ascii_lowercase().replace([' ', '-'], "_")
     }
 
     /// Normalized string identifier for this asset class.
@@ -366,13 +364,20 @@ impl EligibleCollateralSchedule {
     }
 
     /// Load a named schedule from a provided config (with overrides).
-    pub fn from_finstack_config(cfg: &FinstackConfig, schedule_id: &str) -> finstack_core::Result<Self> {
+    pub fn from_finstack_config(
+        cfg: &FinstackConfig,
+        schedule_id: &str,
+    ) -> finstack_core::Result<Self> {
         let registry = margin_registry_from_config(cfg)?;
         registry
             .collateral_schedules
             .get(schedule_id)
             .cloned()
-            .ok_or_else(|| finstack_core::Error::Validation(format!("collateral schedule '{schedule_id}' not found")))
+            .ok_or_else(|| {
+                finstack_core::Error::Validation(format!(
+                    "collateral schedule '{schedule_id}' not found"
+                ))
+            })
     }
 
     /// Find the applicable haircut for a given asset class.
@@ -391,7 +396,8 @@ impl EligibleCollateralSchedule {
     /// Check if an asset class is eligible.
     #[must_use]
     pub fn is_eligible(&self, asset_class: &CollateralAssetClass) -> bool {
-        self.eligible.iter().any(|e| &e.asset_class == asset_class) || self.default_haircut.is_some()
+        self.eligible.iter().any(|e| &e.asset_class == asset_class)
+            || self.default_haircut.is_some()
     }
 }
 

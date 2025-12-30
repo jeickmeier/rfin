@@ -59,10 +59,10 @@ pub mod bump_sizes {
 ///
 /// # fn example() -> finstack_core::Result<()> {
 /// let as_of = create_date(2024, Month::January, 1)?;
-/// let mut context = MarketContext::new();
+/// let context = MarketContext::new();
 ///
 /// // Add a spot price
-/// context.insert_price_mut("AAPL", MarketScalar::Unitless(150.0));
+/// let context = context.insert_price("AAPL", MarketScalar::Unitless(150.0));
 ///
 /// // Bump the price up by 1%
 /// let bumped = bump_scalar_price(&context, "AAPL", 0.01)?;
@@ -76,8 +76,6 @@ pub fn bump_scalar_price(
     price_id: &str,
     bump_pct: f64,
 ) -> finstack_core::Result<finstack_core::market_data::context::MarketContext> {
-    use finstack_core::types::CurveId;
-
     let mut bumped = context.clone();
     let current = bumped.price(price_id)?;
 
@@ -92,7 +90,7 @@ pub fn bump_scalar_price(
         }
     };
 
-    bumped.set_price_mut(CurveId::from(price_id), bumped_value);
+    bumped = bumped.insert_price(price_id, bumped_value);
     Ok(bumped)
 }
 
@@ -152,12 +150,12 @@ pub fn bump_discount_curve_parallel(
     curve_id: &finstack_core::types::CurveId,
     bump_bp: f64,
 ) -> finstack_core::Result<finstack_core::market_data::context::MarketContext> {
-    use finstack_core::market_data::bumps::BumpSpec;
-    use finstack_core::HashMap;
+    use finstack_core::market_data::bumps::{BumpSpec, MarketBump};
 
-    let mut bumps = HashMap::default();
-    bumps.insert(curve_id.clone(), BumpSpec::parallel_bp(bump_bp));
-    context.bump(bumps)
+    context.bump([MarketBump::Curve {
+        id: curve_id.clone(),
+        spec: BumpSpec::parallel_bp(bump_bp),
+    }])
 }
 
 /// Scale a volatility surface by a multiplicative factor.
@@ -177,7 +175,7 @@ pub fn scale_surface(
     if (scale - 1.0).abs() < 1e-15 {
         return Ok(context.clone());
     }
-    let vol_surface = context.surface_ref(vol_surface_id)?;
+    let vol_surface = context.surface(vol_surface_id)?;
     let bumped_surface = vol_surface.scaled(scale);
     Ok(context.clone().insert_surface(bumped_surface))
 }
@@ -197,9 +195,8 @@ pub fn bump_surface_vol_absolute(
     vol_surface_id: &str,
     bump_abs: f64,
 ) -> finstack_core::Result<finstack_core::market_data::context::MarketContext> {
-    use finstack_core::market_data::bumps::{BumpMode, BumpSpec, BumpType, BumpUnits};
+    use finstack_core::market_data::bumps::{BumpMode, BumpSpec, BumpType, BumpUnits, MarketBump};
     use finstack_core::types::CurveId;
-    use finstack_core::HashMap;
 
     if !bump_abs.is_finite() {
         return Err(finstack_core::InputError::Invalid.into());
@@ -208,17 +205,15 @@ pub fn bump_surface_vol_absolute(
         return Ok(context.clone());
     }
 
-    let mut bumps = HashMap::default();
-    bumps.insert(
-        CurveId::from(vol_surface_id),
-        BumpSpec {
+    context.bump([MarketBump::Curve {
+        id: CurveId::from(vol_surface_id),
+        spec: BumpSpec {
             mode: BumpMode::Additive,
             units: BumpUnits::Fraction,
             value: bump_abs,
             bump_type: BumpType::Parallel,
         },
-    );
-    context.bump(bumps)
+    }])
 }
 
 /// Compute a mixed partial derivative using central differences for two

@@ -131,8 +131,8 @@ impl FxVarianceSwap {
     }
 
     fn validate_as_of(&self, context: &MarketContext, as_of: Date) -> Result<()> {
-        let dom = context.get_discount_ref(self.domestic_discount_curve_id.as_str())?;
-        let for_curve = context.get_discount_ref(self.foreign_discount_curve_id.as_str())?;
+        let dom = context.get_discount(self.domestic_discount_curve_id.as_str())?;
+        let for_curve = context.get_discount(self.foreign_discount_curve_id.as_str())?;
         let dom_base = dom.base_date();
         let for_base = for_curve.base_date();
         if as_of < dom_base || as_of < for_base {
@@ -174,7 +174,7 @@ impl FxVarianceSwap {
     pub fn npv(&self, context: &MarketContext, as_of: Date) -> Result<Money> {
         self.validate_as_of(context, as_of)?;
 
-        let dom = context.get_discount_ref(self.domestic_discount_curve_id.as_str())?;
+        let dom = context.get_discount(self.domestic_discount_curve_id.as_str())?;
 
         if as_of >= self.maturity {
             let prices = self.get_historical_prices(context, as_of)?;
@@ -338,10 +338,10 @@ impl FxVarianceSwap {
         }
 
         let spot = self.spot_rate(context, as_of)?;
-        let surface = context.surface_ref(self.vol_surface_id.as_str())?;
+        let surface = context.surface(self.vol_surface_id.as_str())?;
 
-        let dom = context.get_discount_ref(self.domestic_discount_curve_id.as_str())?;
-        let for_curve = context.get_discount_ref(self.foreign_discount_curve_id.as_str())?;
+        let dom = context.get_discount(self.domestic_discount_curve_id.as_str())?;
+        let for_curve = context.get_discount(self.foreign_discount_curve_id.as_str())?;
         let t_dom = dom
             .day_count()
             .year_fraction(as_of, self.maturity, DayCountCtx::default())?;

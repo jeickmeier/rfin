@@ -262,6 +262,6 @@ fn base_correlation_step_builds_curve_and_updates_credit_index_data() {
     );
 
     // Credit index aggregate is updated to reference the calibrated curve.
-    let index = ctx.credit_index_ref("CDX").expect("credit index");
+    let index = ctx.credit_index("CDX").expect("credit index");
     assert_eq!(index.base_correlation_curve.id().as_str(), "CDX_CORR");
 }

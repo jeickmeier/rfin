@@ -63,7 +63,7 @@ fn test_caplet_intrinsic_after_fixing() {
         .build()
         .unwrap();
 
-    let idx = ctx.inflation_index_ref("US-CPI-U").unwrap();
+    let idx = ctx.inflation_index("US-CPI-U").unwrap();
     let cpi_start = idx.value_on(start).unwrap();
     let cpi_end = idx.value_on(end).unwrap();
     let accrual = DayCount::Act365F
@@ -72,7 +72,7 @@ fn test_caplet_intrinsic_after_fixing() {
     let forward_rate = (cpi_end / cpi_start - 1.0) / accrual;
     let payoff_rate = (forward_rate - 0.02).max(0.0);
 
-    let disc_curve = ctx.get_discount_ref("USD-OIS").unwrap();
+    let disc_curve = ctx.get_discount("USD-OIS").unwrap();
     let t_pay = disc_curve
         .day_count()
         .year_fraction(as_of, end, DayCountCtx::default())

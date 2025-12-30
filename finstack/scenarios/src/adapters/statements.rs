@@ -107,7 +107,7 @@ pub fn update_rate_from_binding(
 ) -> Result<()> {
     let curve_id = &binding.curve_id;
 
-    if let Ok(curve) = market.get_discount_ref(curve_id) {
+    if let Ok(curve) = market.get_discount(curve_id) {
         let (tenor_years, _) = tenor_years_from_binding(
             binding,
             curve.base_date(),
@@ -130,7 +130,7 @@ pub fn update_rate_from_binding(
         return set_scalar_rate(model, &binding.node_id, converted);
     }
 
-    if let Ok(curve) = market.get_forward_ref(curve_id) {
+    if let Ok(curve) = market.get_forward(curve_id) {
         let (start_years, effective_dc) = tenor_years_from_binding(
             binding,
             curve.base_date(),

@@ -63,7 +63,7 @@ impl RangeAccrualMcPricer {
             return Ok(Money::new(0.0, inst.notional.currency()));
         }
 
-        let disc_curve = curves.get_discount_ref(inst.discount_curve_id.as_str())?;
+        let disc_curve = curves.get_discount(inst.discount_curve_id.as_str())?;
         let r = disc_curve.zero(t);
         let discount_factor = disc_curve
             .df_between_dates(as_of, final_date)
@@ -81,13 +81,13 @@ impl RangeAccrualMcPricer {
             0.0
         };
 
-        let vol_surface = curves.surface_ref(inst.vol_surface_id.as_str())?;
+        let vol_surface = curves.surface(inst.vol_surface_id.as_str())?;
         let sigma = vol_surface.value_clamped(t, initial_spot); // value_clamped handles bounds
 
         // Quanto Adjustment
         if let Some(rho) = inst.quanto_correlation {
             if let Some(ref fx_vol_id) = inst.fx_vol_surface_id {
-                let fx_vol_surface = curves.surface_ref(fx_vol_id.as_str())?;
+                let fx_vol_surface = curves.surface(fx_vol_id.as_str())?;
                 // Assume FX vol at strike 1.0 (or spot) roughly.
                 // If we knew FX spot, we'd use it. Without it, 1.0 is a common proxy for normalized FX surfaces or ATM.
                 let sigma_fx = fx_vol_surface.value_clamped(t, 1.0);
@@ -236,7 +236,7 @@ pub fn npv_analytic(inst: &RangeAccrual, curves: &MarketContext, as_of: Date) ->
         .payment_date
         .unwrap_or(inst.observation_dates.last().copied().unwrap_or(as_of));
 
-    let disc_curve = curves.get_discount_ref(inst.discount_curve_id.as_str())?;
+    let disc_curve = curves.get_discount(inst.discount_curve_id.as_str())?;
     let discount_factor = disc_curve
         .df_between_dates(as_of, final_date)
         .unwrap_or(1.0);
@@ -256,7 +256,7 @@ pub fn npv_analytic(inst: &RangeAccrual, curves: &MarketContext, as_of: Date) ->
     // Term structure of rates: we should ideally look up rate for each observation.
     // Simplified: Use zero rate to observation date.
 
-    let vol_surface = curves.surface_ref(inst.vol_surface_id.as_str())?;
+    let vol_surface = curves.surface(inst.vol_surface_id.as_str())?;
 
     // Quanto Logic (adjust q_yield)
     // Note: For Static Replication, we adjust the Forward Price.
@@ -264,7 +264,7 @@ pub fn npv_analytic(inst: &RangeAccrual, curves: &MarketContext, as_of: Date) ->
     // So we just add the drift term to q_yield effectively.
     if let Some(_rho) = inst.quanto_correlation {
         if let Some(ref fx_vol_id) = inst.fx_vol_surface_id {
-            let _fx_vol_surface = curves.surface_ref(fx_vol_id.as_str())?;
+            let _fx_vol_surface = curves.surface(fx_vol_id.as_str())?;
             // Using ATM/1.0 vol approximation for the drift adjustment
             // Ideally this would be time-dependent, but for drift adjustment it's usually fine.
             // We'll look up at maturity or average? Let's use maturity for simplicity or look up per step.
@@ -301,7 +301,7 @@ pub fn npv_analytic(inst: &RangeAccrual, curves: &MarketContext, as_of: Date) ->
         let mut drift_adj = 0.0;
         if let Some(rho) = inst.quanto_correlation {
             if let Some(ref fx_vol_id) = inst.fx_vol_surface_id {
-                let fx_vol_surface = curves.surface_ref(fx_vol_id.as_str())?;
+                let fx_vol_surface = curves.surface(fx_vol_id.as_str())?;
                 // Vol of Asset (S) for drift adj: use ATM
                 let sig_s = vol_surface.value_clamped(t_obs, initial_spot);
                 // Vol of FX for drift adj: use ATM (strike 1.0 proxy)

@@ -254,9 +254,10 @@ impl AttributionSpec {
                     .insert(Currency::USD, scale);
             }
             if let Some(rate_bump_bp) = cfg.rate_bump_bp {
-                config
-                    .extensions
-                    .insert("valuations.sensitivities.v1", json!({ "rate_bump_bp": rate_bump_bp }));
+                config.extensions.insert(
+                    "valuations.sensitivities.v1",
+                    json!({ "rate_bump_bp": rate_bump_bp }),
+                );
             }
         }
 

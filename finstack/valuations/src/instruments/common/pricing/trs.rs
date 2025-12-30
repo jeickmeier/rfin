@@ -133,7 +133,7 @@ impl TrsEngine {
         model: &impl TrsReturnModel,
     ) -> finstack_core::Result<Money> {
         // Get discount curve
-        let disc = context.get_discount_ref(params.discount_curve_id)?;
+        let disc = context.get_discount(params.discount_curve_id)?;
 
         // Build schedule
         let period_schedule = params.schedule.period_schedule()?;
@@ -212,8 +212,8 @@ impl TrsEngine {
         let disc_curve_id = financing.discount_curve_id.as_str();
         let fwd_curve_id = financing.forward_curve_id.as_str();
 
-        let disc = context.get_discount_ref(disc_curve_id)?;
-        let fwd = context.get_forward_ref(fwd_curve_id)?;
+        let disc = context.get_discount(disc_curve_id)?;
+        let fwd = context.get_forward(fwd_curve_id)?;
 
         // Build schedule
         let period_schedule = schedule.period_schedule()?;
@@ -282,7 +282,7 @@ impl TrsEngine {
     ) -> finstack_core::Result<f64> {
         // Get discount curve
         let disc_curve_id = financing.discount_curve_id.as_str();
-        let disc = context.get_discount_ref(disc_curve_id)?;
+        let disc = context.get_discount(disc_curve_id)?;
 
         // Build schedule
         let period_schedule = schedule.period_schedule()?;

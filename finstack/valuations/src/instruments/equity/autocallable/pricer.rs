@@ -65,7 +65,7 @@ impl AutocallableMcPricer {
             finstack_core::market_data::scalars::MarketScalar::Price(m) => m.amount(),
         };
 
-        let disc_curve = curves.get_discount_ref(inst.discount_curve_id.as_str())?;
+        let disc_curve = curves.get_discount(inst.discount_curve_id.as_str())?;
 
         // Get time to final observation date using the discount curve's basis to
         // align DF/zero calculations with the time grid.
@@ -99,7 +99,7 @@ impl AutocallableMcPricer {
         // convention as the discount curve (both typically use ACT/365F for equity vol).
         // If the surface was built with a different convention, this lookup may be
         // slightly off. Consider adding explicit day_count to VolSurface in future.
-        let vol_surface = curves.surface_ref(inst.vol_surface_id.as_str())?;
+        let vol_surface = curves.surface(inst.vol_surface_id.as_str())?;
         let sigma = vol_surface.value_clamped(t, initial_spot);
 
         let gbm_params = GbmParams::new(r, q, sigma);

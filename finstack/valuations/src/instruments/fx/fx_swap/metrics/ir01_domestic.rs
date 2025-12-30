@@ -18,8 +18,8 @@ impl MetricCalculator for DomesticIR01 {
         let as_of = context.as_of;
         let original_pv = fx_swap.value(&curves, as_of)?;
 
-        let domestic_disc = curves.get_discount_ref(fx_swap.domestic_discount_curve_id.as_str())?;
-        let foreign_disc = curves.get_discount_ref(fx_swap.foreign_discount_curve_id.as_str())?;
+        let domestic_disc = curves.get_discount(fx_swap.domestic_discount_curve_id.as_str())?;
+        let foreign_disc = curves.get_discount(fx_swap.foreign_discount_curve_id.as_str())?;
 
         // Settlement checks
         let include_near = fx_swap.near_date >= as_of;
@@ -34,22 +34,16 @@ impl MetricCalculator for DomesticIR01 {
         // df_bumped(as_of, t) = df(as_of, t) * exp(-bump * t_from_as_of)
         let bump = 0.0001;
 
-        let t_near = domestic_disc
-            .day_count()
-            .year_fraction(
-                as_of,
-                fx_swap.near_date,
-                finstack_core::dates::DayCountCtx::default(),
-            )
-            ?;
-        let t_far = domestic_disc
-            .day_count()
-            .year_fraction(
-                as_of,
-                fx_swap.far_date,
-                finstack_core::dates::DayCountCtx::default(),
-            )
-            ?;
+        let t_near = domestic_disc.day_count().year_fraction(
+            as_of,
+            fx_swap.near_date,
+            finstack_core::dates::DayCountCtx::default(),
+        )?;
+        let t_far = domestic_disc.day_count().year_fraction(
+            as_of,
+            fx_swap.far_date,
+            finstack_core::dates::DayCountCtx::default(),
+        )?;
         let df_dom_near_b = df_dom_near * (-bump * t_near).exp();
         let df_dom_far_b = df_dom_far * (-bump * t_far).exp();
 

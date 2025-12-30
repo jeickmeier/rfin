@@ -634,11 +634,11 @@ impl InflationLinkedBond {
     /// Present value using standard cashflow discounting
     pub fn npv(&self, curves: &MarketContext, as_of: Date) -> Result<Money> {
         let flows = self.build_schedule(curves, as_of)?;
-        let disc = curves.get_discount_ref(&self.discount_curve_id)?;
+        let disc = curves.get_discount(&self.discount_curve_id)?;
         let base_date = disc.base_date();
         // Use curve basis for time mapping
         let dc = disc.day_count();
-        flows.npv(disc, base_date, dc)
+        flows.npv(disc.as_ref(), base_date, dc)
     }
 }
 

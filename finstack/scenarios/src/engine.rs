@@ -334,7 +334,7 @@ impl ScenarioEngine {
                     match effect {
                         crate::adapters::traits::ScenarioEffect::MarketBump(b) => {
                             // Apply immediately
-                            *ctx.market = ctx.market.apply_bumps(&[b])?;
+                            *ctx.market = ctx.market.bump([b])?;
                             applied += 1;
                         }
                         crate::adapters::traits::ScenarioEffect::Warning(w) => warnings.push(w),
@@ -342,35 +342,40 @@ impl ScenarioEngine {
                             id: _id,
                             curve,
                         } => {
-                            ctx.market.insert_discount_mut(curve.as_ref().clone());
+                            *ctx.market =
+                                std::mem::take(ctx.market).insert_discount(curve.as_ref().clone());
                             applied += 1;
                         }
                         crate::adapters::traits::ScenarioEffect::UpdateForwardCurve {
                             id: _id,
                             curve,
                         } => {
-                            ctx.market.insert_forward_mut(curve.as_ref().clone());
+                            *ctx.market =
+                                std::mem::take(ctx.market).insert_forward(curve.as_ref().clone());
                             applied += 1;
                         }
                         crate::adapters::traits::ScenarioEffect::UpdateHazardCurve {
                             id: _id,
                             curve,
                         } => {
-                            ctx.market.insert_hazard_mut(curve.as_ref().clone());
+                            *ctx.market =
+                                std::mem::take(ctx.market).insert_hazard(curve.as_ref().clone());
                             applied += 1;
                         }
                         crate::adapters::traits::ScenarioEffect::UpdateInflationCurve {
                             id: _id,
                             curve,
                         } => {
-                            ctx.market.insert_inflation_mut(curve.as_ref().clone());
+                            *ctx.market =
+                                std::mem::take(ctx.market).insert_inflation(curve.as_ref().clone());
                             applied += 1;
                         }
                         crate::adapters::traits::ScenarioEffect::UpdateVolIndexCurve {
                             id: _id,
                             curve,
                         } => {
-                            ctx.market.insert_vol_index_mut(curve.as_ref().clone());
+                            *ctx.market =
+                                std::mem::take(ctx.market).insert_vol_index(curve.as_ref().clone());
                             applied += 1;
                         }
                         crate::adapters::traits::ScenarioEffect::InstrumentPriceShock {

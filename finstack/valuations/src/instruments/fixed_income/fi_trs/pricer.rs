@@ -67,7 +67,7 @@ impl TrsReturnModel for FiIndexReturnModel<'_> {
         // Price Return = (F_end - F_start) / F_start
         // Income Return = y * dt
 
-        let disc = context.get_discount_ref(self.trs.financing.discount_curve_id.as_str())?;
+        let disc = context.get_discount(self.trs.financing.discount_curve_id.as_str())?;
         let df_start = disc.df(t_start);
         let df_end = disc.df(t_end);
 

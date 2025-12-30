@@ -100,96 +100,6 @@ impl MarketContext {
         })
     }
 
-    /// Borrow a discount curve by identifier.
-    pub fn get_discount_ref(&self, id: impl AsRef<str>) -> Result<&DiscountCurve> {
-        let id_str = id.as_ref();
-        match self.curves.get(id_str) {
-            Some(CurveStorage::Discount(curve)) => Ok(curve.as_ref()),
-            Some(storage) => Err(crate::error::InputError::WrongCurveType {
-                id: id_str.to_string(),
-                expected: "Discount".to_string(),
-                actual: storage.curve_type().to_string(),
-            }
-            .into()),
-            None => Err(self.missing_curve_error(id_str)),
-        }
-    }
-
-    /// Borrow a forward curve by identifier.
-    pub fn get_forward_ref(&self, id: impl AsRef<str>) -> Result<&ForwardCurve> {
-        let id_str = id.as_ref();
-        match self.curves.get(id_str) {
-            Some(CurveStorage::Forward(curve)) => Ok(curve.as_ref()),
-            Some(storage) => Err(crate::error::InputError::WrongCurveType {
-                id: id_str.to_string(),
-                expected: "Forward".to_string(),
-                actual: storage.curve_type().to_string(),
-            }
-            .into()),
-            None => Err(self.missing_curve_error(id_str)),
-        }
-    }
-
-    /// Borrow a hazard curve by identifier.
-    pub fn get_hazard_ref(&self, id: impl AsRef<str>) -> Result<&HazardCurve> {
-        let id_str = id.as_ref();
-        match self.curves.get(id_str) {
-            Some(CurveStorage::Hazard(curve)) => Ok(curve.as_ref()),
-            Some(storage) => Err(crate::error::InputError::WrongCurveType {
-                id: id_str.to_string(),
-                expected: "Hazard".to_string(),
-                actual: storage.curve_type().to_string(),
-            }
-            .into()),
-            None => Err(self.missing_curve_error(id_str)),
-        }
-    }
-
-    /// Borrow an inflation curve by identifier.
-    pub fn get_inflation_ref(&self, id: impl AsRef<str>) -> Result<&InflationCurve> {
-        let id_str = id.as_ref();
-        match self.curves.get(id_str) {
-            Some(CurveStorage::Inflation(curve)) => Ok(curve.as_ref()),
-            Some(storage) => Err(crate::error::InputError::WrongCurveType {
-                id: id_str.to_string(),
-                expected: "Inflation".to_string(),
-                actual: storage.curve_type().to_string(),
-            }
-            .into()),
-            None => Err(self.missing_curve_error(id_str)),
-        }
-    }
-
-    /// Borrow a base correlation curve by identifier.
-    pub fn get_base_correlation_ref(&self, id: impl AsRef<str>) -> Result<&BaseCorrelationCurve> {
-        let id_str = id.as_ref();
-        match self.curves.get(id_str) {
-            Some(CurveStorage::BaseCorrelation(curve)) => Ok(curve.as_ref()),
-            Some(storage) => Err(crate::error::InputError::WrongCurveType {
-                id: id_str.to_string(),
-                expected: "BaseCorrelation".to_string(),
-                actual: storage.curve_type().to_string(),
-            }
-            .into()),
-            None => Err(self.missing_curve_error(id_str)),
-        }
-    }
-
-    /// Borrow a volatility index curve by identifier.
-    pub fn get_vol_index_ref(&self, id: impl AsRef<str>) -> Result<&VolatilityIndexCurve> {
-        let id_str = id.as_ref();
-        match self.curves.get(id_str) {
-            Some(CurveStorage::VolIndex(curve)) => Ok(curve.as_ref()),
-            Some(storage) => Err(crate::error::InputError::WrongCurveType {
-                id: id_str.to_string(),
-                expected: "VolIndex".to_string(),
-                actual: storage.curve_type().to_string(),
-            }
-            .into()),
-            None => Err(self.missing_curve_error(id_str)),
-        }
-    }
-
     /// Clone a volatility surface by identifier.
     ///
     /// # Examples
@@ -215,35 +125,6 @@ impl MarketContext {
             }
             .into(),
         )
-    }
-
-    /// Borrow a volatility surface without cloning the `Arc`.
-    ///
-    /// # Examples
-    /// ```rust
-    /// # use finstack_core::market_data::context::MarketContext;
-    /// # use finstack_core::market_data::surfaces::VolSurface;
-    /// # let surface = VolSurface::builder("IR-Swaption")
-    /// #     .expiries(&[1.0, 2.0])
-    /// #     .strikes(&[90.0, 100.0])
-    /// #     .row(&[0.2, 0.2])
-    /// #     .row(&[0.2, 0.2])
-    /// #     .build()
-    /// #     .expect("... builder should succeed");
-    /// # let ctx = MarketContext::new().insert_surface(surface);
-    /// let surface = ctx.surface_ref("IR-Swaption").expect("Surface should exist");
-    /// assert!((surface.value_clamped(1.5, 95.0) - 0.2).abs() < 1e-12);
-    /// ```
-    pub fn surface_ref(&self, id: impl AsRef<str>) -> Result<&VolSurface> {
-        let id_str = id.as_ref();
-        self.surfaces
-            .get(id_str)
-            .map(|arc| arc.as_ref())
-            .ok_or_else(|| {
-                crate::error::Error::from(crate::error::InputError::NotFound {
-                    id: id_str.to_string(),
-                })
-            })
     }
 
     /// Borrow a market price/scalar by identifier.
@@ -325,40 +206,9 @@ impl MarketContext {
         self.inflation_indices.get(id.as_ref()).cloned()
     }
 
-    /// Borrow an inflation index without cloning the `Arc`.
-    ///
-    /// # Examples
-    /// ```rust
-    /// # use finstack_core::market_data::context::MarketContext;
-    /// # use finstack_core::market_data::scalars::{InflationIndex, InflationInterpolation};
-    /// # use finstack_core::currency::Currency;
-    /// # use finstack_core::dates::Date;
-    /// # use time::Month;
-    /// # let observations = vec![
-    /// #     (Date::from_calendar_date(2024, Month::January, 31).expect("Valid date"), 100.0),
-    /// #     (Date::from_calendar_date(2024, Month::February, 29).expect("Valid date"), 101.0),
-    /// # ];
-    /// # let index = InflationIndex::new("US-CPI", observations, Currency::USD)
-    /// #     .expect("... creation should succeed")
-    /// #     .with_interpolation(InflationInterpolation::Linear);
-    /// # let ctx = MarketContext::new().insert_inflation_index("US-CPI", index);
-    /// let idx = ctx.inflation_index_ref("US-CPI").expect("Inflation index should exist");
-    /// assert_eq!(idx.id, "US-CPI");
-    /// ```
-    pub fn inflation_index_ref(&self, id: impl AsRef<str>) -> Option<&InflationIndex> {
-        self.inflation_indices
-            .get(id.as_ref())
-            .map(|arc| arc.as_ref())
-    }
-
     /// Clone a dividend schedule by identifier.
     pub fn dividend_schedule(&self, id: impl AsRef<str>) -> Option<Arc<DividendSchedule>> {
         self.dividends.get(id.as_ref()).cloned()
-    }
-
-    /// Borrow a dividend schedule by identifier.
-    pub fn dividend_schedule_ref(&self, id: impl AsRef<str>) -> Option<&DividendSchedule> {
-        self.dividends.get(id.as_ref()).map(|arc| arc.as_ref())
     }
 
     /// Clone a credit index aggregate by identifier.
@@ -400,47 +250,6 @@ impl MarketContext {
         )
     }
 
-    /// Borrow a credit index without cloning the `Arc`.
-    ///
-    /// # Examples
-    /// ```rust
-    /// # use finstack_core::market_data::context::MarketContext;
-    /// # use finstack_core::market_data::term_structures::{BaseCorrelationCurve, CreditIndexData, HazardCurve};
-    /// # use finstack_core::dates::Date;
-    /// # use std::sync::Arc;
-    /// # use time::Month;
-    /// # let hazard = Arc::new(HazardCurve::builder("CDX")
-    /// #     .base_date(Date::from_calendar_date(2024, Month::January, 1).expect("Valid date"))
-    /// #     .knots([(0.0, 0.01), (5.0, 0.015)])
-    /// #     .build()
-    /// #     .expect("... creation should succeed"));
-    /// # let base_corr = Arc::new(BaseCorrelationCurve::builder("CDX")
-    /// #     .knots([(3.0, 0.25), (10.0, 0.55)])
-    /// #     .build()
-    /// #     .expect("... creation should succeed"));
-    /// # let data = CreditIndexData::builder()
-    /// #     .num_constituents(125)
-    /// #     .recovery_rate(0.4)
-    /// #     .index_credit_curve(Arc::clone(&hazard))
-    /// #     .base_correlation_curve(base_corr)
-    /// #     .build()
-    /// #     .expect("... builder should succeed");
-    /// # let ctx = MarketContext::new().insert_credit_index("CDX-IG", data);
-    /// let idx = ctx.credit_index_ref("CDX-IG").expect("Credit index should exist");
-    /// assert_eq!(idx.recovery_rate, 0.4);
-    /// ```
-    pub fn credit_index_ref(&self, id: impl AsRef<str>) -> Result<&CreditIndexData> {
-        let id_str = id.as_ref();
-        self.credit_indices
-            .get(id_str)
-            .map(|arc| arc.as_ref())
-            .ok_or_else(|| {
-                crate::error::Error::from(crate::error::InputError::NotFound {
-                    id: id_str.to_string(),
-                })
-            })
-    }
-
     /// Resolve a collateral discount curve for a CSA code.
     ///
     /// # Examples
@@ -472,38 +281,6 @@ impl MarketContext {
             })?;
         self.get_discount(curve_id.as_str())
             .map(|arc| arc as Arc<dyn Discounting + Send + Sync>)
-    }
-
-    /// Borrow the collateral discount curve without cloning the `Arc`.
-    ///
-    /// # Examples
-    /// ```rust
-    /// # use finstack_core::market_data::context::MarketContext;
-    /// # use finstack_core::market_data::term_structures::DiscountCurve;
-    /// # use finstack_core::math::interp::InterpStyle;
-    /// # use finstack_core::dates::Date;
-    /// # use finstack_core::types::CurveId;
-    /// # use time::Month;
-    /// # let curve = DiscountCurve::builder("USD-OIS")
-    /// #     .base_date(Date::from_calendar_date(2024, Month::January, 1).expect("Valid date"))
-    /// #     .knots([(0.0, 1.0), (1.0, 0.99)])
-    /// #     .build()
-    /// #     .expect("... builder should succeed");
-    /// # let ctx = MarketContext::new()
-    /// #     .insert_discount(curve)
-    /// #     .map_collateral("USD-CSA", CurveId::from("USD-OIS"));
-    /// let discount = ctx.collateral_ref("USD-CSA").expect("Collateral curve should exist");
-    /// assert!(discount.df(0.5) <= 1.0);
-    /// ```
-    pub fn collateral_ref(&self, csa_code: &str) -> Result<&dyn Discounting> {
-        let curve_id = self
-            .collateral
-            .get(csa_code)
-            .ok_or(crate::error::InputError::NotFound {
-                id: format!("collateral:{}", csa_code),
-            })?;
-        self.get_discount_ref(curve_id.as_str())
-            .map(|r| r as &dyn Discounting)
     }
 
     // -----------------------------------------------------------------------------
@@ -542,5 +319,4 @@ impl MarketContext {
         self.credit_indices.insert(cid, Arc::new(updated_index));
         true
     }
-
 }

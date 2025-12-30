@@ -29,11 +29,11 @@ impl StructuredCredit {
     /// **Note**: This returns only the unhedged deal NPV. Use `price_with_hedges()`
     /// for combined deal + hedge valuation.
     pub fn price(&self, context: &MarketContext, as_of: Date) -> finstack_core::Result<Money> {
-        let disc = context.get_discount_ref(self.discount_curve_id.as_str())?;
+        let disc = context.get_discount(self.discount_curve_id.as_str())?;
         let flows = self.build_schedule(context, as_of)?;
 
         let day_count = disc.day_count();
-        flows.npv(disc, as_of, day_count)
+        flows.npv(disc.as_ref(), as_of, day_count)
     }
 
     /// Value the total hedge swap portfolio.

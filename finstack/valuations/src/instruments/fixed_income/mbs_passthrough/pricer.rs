@@ -205,7 +205,7 @@ pub fn price_mbs(mbs: &AgencyMbsPassthrough, market: &MarketContext, as_of: Date
     }
 
     // Get discount curve
-    let discount_curve = market.get_discount_ref(&mbs.discount_curve_id)?;
+    let discount_curve = market.get_discount(&mbs.discount_curve_id)?;
 
     // Discount each cashflow
     let mut pv = 0.0;
@@ -246,7 +246,7 @@ pub fn price_with_spread(
         return Ok(0.0);
     }
 
-    let discount_curve = market.get_discount_ref(&mbs.discount_curve_id)?;
+    let discount_curve = market.get_discount(&mbs.discount_curve_id)?;
 
     let mut pv = 0.0;
     for cf in &cashflows {

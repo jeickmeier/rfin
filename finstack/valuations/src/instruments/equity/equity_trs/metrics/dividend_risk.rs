@@ -7,7 +7,6 @@ use crate::instruments::equity_trs::EquityTotalReturnSwap;
 use crate::metrics::{MetricCalculator, MetricContext};
 use finstack_core::market_data::scalars::MarketScalar;
 use finstack_core::money::Money;
-use finstack_core::types::CurveId;
 use finstack_core::Result;
 
 /// Standard dividend yield bump: 1bp (0.0001)
@@ -45,7 +44,7 @@ impl MetricCalculator for Dividend01Calculator {
                 MarketScalar::Price(Money::new(m.amount() + DIVIDEND_BUMP_BP, m.currency()))
             }
         };
-        curves_up.set_price_mut(CurveId::from(div_yield_id.clone()), new_value_up);
+        curves_up = curves_up.insert_price(div_yield_id.as_str(), new_value_up);
         let pv_up = trs.npv(&curves_up, as_of)?.amount();
 
         // Bump dividend yield down
@@ -58,7 +57,7 @@ impl MetricCalculator for Dividend01Calculator {
             MarketScalar::Unitless(_) => MarketScalar::Unitless(div_down_value),
             MarketScalar::Price(m) => MarketScalar::Price(Money::new(div_down_value, m.currency())),
         };
-        curves_down.set_price_mut(CurveId::from(div_yield_id), new_value_down);
+        curves_down = curves_down.insert_price(div_yield_id.as_str(), new_value_down);
         let pv_down = trs.npv(&curves_down, as_of)?.amount();
 
         // Dividend01 = (PV_up - PV_down) / (2 * bump_size)

@@ -18,7 +18,6 @@ use crate::instruments::common::traits::Instrument;
 use crate::instruments::repo::Repo;
 use crate::metrics::{MetricCalculator, MetricContext};
 use finstack_core::market_data::scalars::MarketScalar;
-use finstack_core::types::CurveId;
 use finstack_core::Result;
 
 /// Standard collateral price bump: 1% (0.01)
@@ -50,7 +49,7 @@ impl MetricCalculator for CollateralPrice01Calculator {
             )),
             MarketScalar::Unitless(_) => MarketScalar::Unitless(bumped_price_up),
         };
-        ctx_up.set_price_mut(CurveId::from(market_value_id.as_str()), new_scalar_up);
+        ctx_up = ctx_up.insert_price(market_value_id.as_str(), new_scalar_up);
         let pv_up = repo.value(&ctx_up, as_of)?.amount();
 
         // Bump collateral price down by 1%
@@ -63,7 +62,7 @@ impl MetricCalculator for CollateralPrice01Calculator {
             )),
             MarketScalar::Unitless(_) => MarketScalar::Unitless(bumped_price_down),
         };
-        ctx_down.set_price_mut(CurveId::from(market_value_id.as_str()), new_scalar_down);
+        ctx_down = ctx_down.insert_price(market_value_id.as_str(), new_scalar_down);
         let pv_down = repo.value(&ctx_down, as_of)?.amount();
 
         // CollateralPrice01 = (PV_up - PV_down) / (2 * bump_size)

@@ -62,8 +62,9 @@ where
     RevalFn: FnMut(&MarketContext) -> finstack_core::Result<Money>,
 {
     let base_ctx = context.curves.as_ref();
-    let hazard = base_ctx.get_hazard_ref(hazard_id.as_str())?;
-    let has_par_points = hazard.par_spread_points().next().is_some();
+    let hazard = base_ctx.get_hazard(hazard_id.as_str())?;
+    let hazard_ref = hazard.as_ref();
+    let has_par_points = hazard_ref.par_spread_points().next().is_some();
 
     // If we have par spread points + a discount curve, CS01 is defined as the sensitivity
     // to *market par spreads* under a re-bootstrapped hazard curve. In that regime, we
@@ -71,7 +72,12 @@ where
     // we introduce a large "base effect" when the in-context hazard curve was not itself
     // calibrated from the stored par points.
     let base_pv = if discount_id.is_some() && has_par_points {
-        match bump_hazard_spreads(hazard, base_ctx, &BumpRequest::Parallel(0.0), discount_id) {
+        match bump_hazard_spreads(
+            hazard_ref,
+            base_ctx,
+            &BumpRequest::Parallel(0.0),
+            discount_id,
+        ) {
             Ok(base_recal) => {
                 let base_ctx_recal = base_ctx.clone().insert_hazard(base_recal);
                 revalue_with_context(&base_ctx_recal)?
@@ -88,12 +94,12 @@ where
     let bumped_hazard = if discount_id.is_some() && has_par_points {
         // Prefer market-par-spread re-calibration when possible, but fall back to a model hazard
         // bump if calibration fails (keeps CS01 available for all curves).
-        match bump_hazard_spreads(hazard, base_ctx, &bump_request, discount_id) {
+        match bump_hazard_spreads(hazard_ref, base_ctx, &bump_request, discount_id) {
             Ok(curve) => curve,
-            Err(_) => bump_hazard_shift(hazard, &bump_request)?,
+            Err(_) => bump_hazard_shift(hazard_ref, &bump_request)?,
         }
     } else {
-        bump_hazard_shift(hazard, &bump_request)?
+        bump_hazard_shift(hazard_ref, &bump_request)?
     };
 
     let temp_ctx = base_ctx.clone().insert_hazard(bumped_hazard);
@@ -127,13 +133,19 @@ where
     RevalFn: FnMut(&MarketContext) -> finstack_core::Result<Money>,
 {
     let base_ctx = context.curves.as_ref();
-    let hazard = base_ctx.get_hazard_ref(hazard_id.as_str())?;
-    let has_par_points = hazard.par_spread_points().next().is_some();
+    let hazard = base_ctx.get_hazard(hazard_id.as_str())?;
+    let hazard_ref = hazard.as_ref();
+    let has_par_points = hazard_ref.par_spread_points().next().is_some();
 
     // Same "base effect" guard as parallel CS01: if we're bumping par spreads and
     // re-bootstrapping, the base PV should be computed under the unbumped re-calibrated curve.
     let base_pv = if discount_id.is_some() && has_par_points {
-        match bump_hazard_spreads(hazard, base_ctx, &BumpRequest::Parallel(0.0), discount_id) {
+        match bump_hazard_spreads(
+            hazard_ref,
+            base_ctx,
+            &BumpRequest::Parallel(0.0),
+            discount_id,
+        ) {
             Ok(base_recal) => {
                 let base_ctx_recal = base_ctx.clone().insert_hazard(base_recal);
                 revalue_with_context(&base_ctx_recal)?
@@ -152,12 +164,12 @@ where
 
         let bump_request = BumpRequest::Tenors(vec![(t, bump_bp)]);
         let bumped_hazard = if discount_id.is_some() && has_par_points {
-            match bump_hazard_spreads(hazard, base_ctx, &bump_request, discount_id) {
+            match bump_hazard_spreads(hazard_ref, base_ctx, &bump_request, discount_id) {
                 Ok(curve) => curve,
-                Err(_) => bump_hazard_shift(hazard, &bump_request)?,
+                Err(_) => bump_hazard_shift(hazard_ref, &bump_request)?,
             }
         } else {
-            bump_hazard_shift(hazard, &bump_request)?
+            bump_hazard_shift(hazard_ref, &bump_request)?
         };
 
         // Optimization: If the curve is identical (no bump applied because no matching par point),

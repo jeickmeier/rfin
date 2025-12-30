@@ -52,7 +52,7 @@ impl MetricCalculator for Cs01Calculator {
         let base_pv = context.base_value.amount();
 
         // Get the hazard curve and bump it
-        let hazard = context.curves.get_hazard_ref(&cds_option.credit_curve_id)?;
+        let hazard = context.curves.get_hazard(&cds_option.credit_curve_id)?;
 
         // Bump hazard curve by 1bp (convert bp to decimal: 1bp = 0.0001)
         // with_hazard_shift expects a decimal shift, so 1bp = 0.0001

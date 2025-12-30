@@ -526,7 +526,7 @@ fn extract_equity_state(
     };
 
     // Get risk-free rate from discount curve
-    let discount_curve = ctx.get_discount_ref(bond.discount_curve_id.as_str())?;
+    let discount_curve = ctx.get_discount(bond.discount_curve_id.as_str())?;
 
     // Calculate time to maturity using the provided as_of date
     let time_to_maturity = finstack_core::dates::DayCount::Act365F
@@ -549,7 +549,7 @@ fn extract_equity_state(
         if credit_id == &bond.discount_curve_id {
             0.0
         } else {
-            let credit_curve = ctx.get_discount_ref(credit_id.as_str())?;
+            let credit_curve = ctx.get_discount(credit_id.as_str())?;
             let risky_rate = if time_to_maturity > 0.0 {
                 -credit_curve.df(time_to_maturity).ln() / time_to_maturity
             } else {
@@ -636,7 +636,7 @@ fn resolve_volatility(
             }
         }
 
-        match ctx.surface_ref(id) {
+        match ctx.surface(id) {
             Ok(surface) => {
                 let vol = surface.value_clamped(time_to_maturity, spot);
                 return Ok(vol);

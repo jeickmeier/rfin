@@ -9,8 +9,8 @@ use super::csa::CsaSpec;
 use super::enums::{ClearingStatus, ImMethodology, MarginTenor};
 use crate::margin::config::margin_registry_from_config;
 use crate::margin::registry::embedded_registry;
-use finstack_core::currency::Currency;
 use finstack_core::config::FinstackConfig;
+use finstack_core::currency::Currency;
 use finstack_core::money::Money;
 use finstack_core::Result;
 
@@ -169,7 +169,11 @@ impl OtcMarginSpec {
     }
 
     /// Create a margin spec for cleared derivatives using overrides from a config.
-    pub fn cleared_from_config(ccp: impl Into<String>, currency: Currency, cfg: &FinstackConfig) -> Result<Self> {
+    pub fn cleared_from_config(
+        ccp: impl Into<String>,
+        currency: Currency,
+        cfg: &FinstackConfig,
+    ) -> Result<Self> {
         let ccp_name = ccp.into();
         let registry = margin_registry_from_config(cfg)?;
         let vm_defaults = registry.defaults.vm.to_vm_params(currency);
@@ -191,10 +195,11 @@ impl OtcMarginSpec {
                     .cleared
                     .to_im_params(ImMethodology::ClearingHouse, currency),
             ),
-            eligible_collateral: super::collateral::EligibleCollateralSchedule::from_finstack_config(
-                cfg,
-                "bcbs_standard",
-            )?,
+            eligible_collateral:
+                super::collateral::EligibleCollateralSchedule::from_finstack_config(
+                    cfg,
+                    "bcbs_standard",
+                )?,
             call_timing: registry.defaults.timing.ccp.clone(),
             collateral_curve_id: finstack_core::types::CurveId::new(format!("{}-OIS", currency)),
         };

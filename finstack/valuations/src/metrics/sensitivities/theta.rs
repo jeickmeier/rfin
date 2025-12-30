@@ -269,13 +269,17 @@ enum ThetaPeriod {
 fn parse_theta_period(period: &str) -> Result<ThetaPeriod> {
     let period = period.trim().to_uppercase();
     if period.is_empty() {
-        return Err(finstack_core::Error::from(finstack_core::InputError::Invalid));
+        return Err(finstack_core::Error::from(
+            finstack_core::InputError::Invalid,
+        ));
     }
 
     let (num_str, unit) = if let Some(pos) = period.find(|c: char| c.is_alphabetic()) {
         (&period[..pos], &period[pos..])
     } else {
-        return Err(finstack_core::Error::from(finstack_core::InputError::Invalid));
+        return Err(finstack_core::Error::from(
+            finstack_core::InputError::Invalid,
+        ));
     };
 
     let num_i64: i64 = num_str
@@ -285,15 +289,15 @@ fn parse_theta_period(period: &str) -> Result<ThetaPeriod> {
     match unit {
         // For fixed-day periods, reuse the public helper so it stays exercised in production.
         "D" | "W" => Ok(ThetaPeriod::Days(parse_period_days(&period)?)),
-        "M" => Ok(ThetaPeriod::Months(
-            i32::try_from(num_i64)
-                .map_err(|_| finstack_core::Error::from(finstack_core::InputError::Invalid))?,
+        "M" => Ok(ThetaPeriod::Months(i32::try_from(num_i64).map_err(
+            |_| finstack_core::Error::from(finstack_core::InputError::Invalid),
+        )?)),
+        "Y" => Ok(ThetaPeriod::Years(i32::try_from(num_i64).map_err(
+            |_| finstack_core::Error::from(finstack_core::InputError::Invalid),
+        )?)),
+        _ => Err(finstack_core::Error::from(
+            finstack_core::InputError::Invalid,
         )),
-        "Y" => Ok(ThetaPeriod::Years(
-            i32::try_from(num_i64)
-                .map_err(|_| finstack_core::Error::from(finstack_core::InputError::Invalid))?,
-        )),
-        _ => Err(finstack_core::Error::from(finstack_core::InputError::Invalid)),
     }
 }
 
@@ -498,8 +502,7 @@ fn collect_cashflows_in_period(
     start_date: Date,
     end_date: Date,
     base_currency: Currency,
-) -> Result<f64>
-{
+) -> Result<f64> {
     let Some(cf) = instrument.as_cashflow_provider() else {
         return Ok(0.0);
     };

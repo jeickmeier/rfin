@@ -120,7 +120,7 @@ fn equity_vanna_and_volga_match_reference_fd() -> finstack_core::Result<()> {
     let t = opt
         .day_count
         .year_fraction(as_of, expiry, DayCountCtx::default())?;
-    let surf = market.surface_ref(opt.vol_surface_id.as_str())?;
+    let surf = market.surface(opt.vol_surface_id.as_str())?;
     let atm_sigma = surf.value_clamped(t, strike);
     let vol_bump_pct = bump_sizes::VOLATILITY;
     let delta_sigma = (atm_sigma * vol_bump_pct).abs().max(1e-12);
@@ -235,7 +235,7 @@ fn fx_vanna_and_volga_match_reference_fd() -> finstack_core::Result<()> {
     let t = opt
         .day_count
         .year_fraction(as_of, expiry, DayCountCtx::default())?;
-    let surf = market.surface_ref(opt.vol_surface_id.as_str())?;
+    let surf = market.surface(opt.vol_surface_id.as_str())?;
     let sigma = surf.value_clamped(t, opt.strike);
     let vol_bump_pct = bump_sizes::VOLATILITY;
     let delta_sigma = (sigma * vol_bump_pct).abs().max(1e-12);

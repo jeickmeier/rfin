@@ -52,7 +52,7 @@ pub fn bump_discount_curve(
     let cfg = CalibrationConfig::default();
     let (ctx, _report) = execute_step(&step, &market_quotes, base_context, &cfg)?;
 
-    Ok(ctx.get_discount_ref(params.curve_id.as_str())?.clone())
+    Ok(ctx.get_discount(params.curve_id.as_str())?.as_ref().clone())
 }
 
 /// Helper to resolve maturity date of a quote.

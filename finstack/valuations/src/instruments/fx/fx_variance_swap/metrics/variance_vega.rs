@@ -16,7 +16,7 @@ impl MetricCalculator for VarianceVegaCalculator {
             .year_fraction(context.as_of, swap.maturity, Default::default())?;
         let disc = context
             .curves
-            .get_discount_ref(swap.domestic_discount_curve_id.as_str())?;
+            .get_discount(swap.domestic_discount_curve_id.as_str())?;
         let df = disc.df(t);
         Ok(df * swap.notional.amount() * remaining_fraction * swap.side.sign())
     }

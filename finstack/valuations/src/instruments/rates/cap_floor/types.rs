@@ -288,10 +288,10 @@ impl InterestRateOption {
         use crate::instruments::cap_floor::pricing::black as black_ir;
 
         // Get market curves
-        let disc_curve = curves.get_discount_ref(self.discount_curve_id.as_ref())?;
-        let fwd_curve = curves.get_forward_ref(self.forward_id.as_ref())?;
+        let disc_curve = curves.get_discount(self.discount_curve_id.as_ref())?;
+        let fwd_curve = curves.get_forward(self.forward_id.as_ref())?;
         let vol_surface = if self.pricing_overrides.implied_volatility.is_none() {
-            Some(curves.surface_ref(self.vol_surface_id.as_str())?)
+            Some(curves.surface(self.vol_surface_id.as_str())?)
         } else {
             None
         };

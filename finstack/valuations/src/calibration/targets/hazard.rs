@@ -153,8 +153,7 @@ impl HazardBootstrapper {
         let mut report = report;
         report.update_solver_config(global_config.solver.clone());
 
-        let mut new_context = context.clone();
-        new_context.insert_hazard_mut(curve);
+        let new_context = context.clone().insert_hazard(curve);
         Ok((new_context, report))
     }
 
@@ -192,22 +191,24 @@ impl HazardBootstrapper {
     {
         if let Some(ctx_cell) = &self.reuse_context {
             let mut ctx = ctx_cell.borrow_mut();
-            ctx.insert_hazard_mut(curve.clone());
+            *ctx = std::mem::take(&mut *ctx).insert_hazard(curve.clone());
             // Sync CreditIndex if it exists (so pricer sees trial curve)
-            if let Ok(idx) = ctx.credit_index_ref(&self.params.curve_id) {
-                let mut updated = idx.clone();
+            if let Ok(idx) = ctx.credit_index(self.params.curve_id.as_str()) {
+                let mut updated = idx.as_ref().clone();
                 updated.index_credit_curve = std::sync::Arc::new(curve.clone());
-                ctx.insert_credit_index_mut(&self.params.curve_id, updated);
+                *ctx = std::mem::take(&mut *ctx)
+                    .insert_credit_index(self.params.curve_id.as_str(), updated);
             }
             op(&ctx)
         } else {
             let mut temp_context = self.base_context.clone();
-            temp_context.insert_hazard_mut(curve.clone());
+            temp_context = temp_context.insert_hazard(curve.clone());
             // Sync CreditIndex if it exists
-            if let Ok(idx) = temp_context.credit_index_ref(&self.params.curve_id) {
-                let mut updated = idx.clone();
+            if let Ok(idx) = temp_context.credit_index(self.params.curve_id.as_str()) {
+                let mut updated = idx.as_ref().clone();
                 updated.index_credit_curve = std::sync::Arc::new(curve.clone());
-                temp_context.insert_credit_index_mut(&self.params.curve_id, updated);
+                temp_context =
+                    temp_context.insert_credit_index(self.params.curve_id.as_str(), updated);
             }
             op(&temp_context)
         }

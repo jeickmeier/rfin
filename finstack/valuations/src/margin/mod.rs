@@ -71,12 +71,12 @@
 //! - GMRA 2011 (Global Master Repurchase Agreement)
 
 pub mod calculators;
-pub mod constants;
 /// Margin registry/configuration helpers.
 pub mod config;
+pub mod constants;
 mod impls;
-pub mod registry;
 pub mod metrics;
+pub mod registry;
 pub mod traits;
 pub mod types;
 

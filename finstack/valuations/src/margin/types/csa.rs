@@ -145,11 +145,7 @@ impl CsaSpec {
         Self::regulatory_for_currency(Currency::EUR, "EUR-REGULATORY-CSA", "EUR-ESTR")
     }
 
-    fn regulatory_for_currency(
-        currency: Currency,
-        id: &str,
-        collateral_curve: &str,
-    ) -> Self {
+    fn regulatory_for_currency(currency: Currency, id: &str, collateral_curve: &str) -> Self {
         Self {
             id: id.to_string(),
             base_currency: currency,

@@ -29,15 +29,14 @@ The module is designed to be **deterministic**, **type-safe**, and **serde-stabl
     - `CurveStorage`: enum wrapper for heterogeneous curve storage (`Discount`, `Forward`, `Hazard`, `Inflation`, `BaseCorrelation`) with helpers like `curve_type()` and type filters.
     - `ContextStats`: lightweight statistics struct returned by `MarketContext::stats()`.
   - Scenario helpers:
-    - `MarketContext::bump` and `MarketContext::apply_bumps` integrate with `BumpSpec` / `MarketBump` to build shocked contexts.
+    - `MarketContext::bump` is the single entry point for applying [`MarketBump`] lists (curves, FX, vol buckets, base correlation buckets).
     - `MarketContext::roll_forward` implements constant-curve roll-down scenarios.
-    - `MarketContext::bump_fx_spot` and `MarketContext::apply_bumps` provide FX bump support via `FxMatrix`.
   - Serialization:
     - `CurveState`: tagged enum for serializing any curve type.
     - `CreditIndexState` and `MarketContextState`: canonical DTOs for persisting complete context snapshots.
     - `Serialize`/`Deserialize` implementations for `CurveStorage` and `MarketContext` round-trip through the `*State` DTOs.
   - **API guidance**:
-    - Use `new`, `insert_*`, typed getters, scenario helpers (`bump`, `apply_bumps`, `roll_forward`, `bump_fx_spot`), stats, and serde state types as the stable surface.
+    - Use `new`, `insert_*`, typed getters, scenario helper (`bump`), stats, and serde state types as the stable surface.
     - Treat internal storage details (HashMaps, instrument registry, `market_history`) as private; they may change.
 
 - **`term_structures/`**
@@ -72,7 +71,7 @@ The module is designed to be **deterministic**, **type-safe**, and **serde-stabl
     - Internal storage for time series; not typically used directly by consumers.
 
 - **`bumps.rs`**
-  - Scenario bump specification types:
+- Scenario bump specification types:
     - `BumpMode` (additive vs multiplicative).
     - `BumpUnits` (basis points, percent, fraction, factor).
     - `BumpType` (`Parallel`, `TriangularKeyRate` with explicit bucket neighbors).
@@ -85,8 +84,8 @@ The module is designed to be **deterministic**, **type-safe**, and **serde-stabl
 - **`diff.rs`**
   - Market shift measurement helpers between two `MarketContext` instances:
     - `TenorSamplingMethod` (`Standard`, `Dynamic`, `Custom`) controls sampling points along a curve.
-    - `measure_discount_curve_shift` and `measure_bucketed_discount_shift` for rate shifts in basis points.
-    - Additional helpers for hazard spreads and volatility surfaces (P&L attribution and risk reporting).
+  - `measure_discount_curve_shift` and `measure_bucketed_discount_shift` for rate shifts in basis points.
+  - Additional helpers for hazard spreads and volatility surfaces (P&L attribution and risk reporting).
   - Used primarily for P&L attribution, risk reports (DV01/CS01-style metrics), and calibration diagnostics.
 
 - **`dividends.rs`**
@@ -162,7 +161,7 @@ These types are stored inside `MarketContext` under `prices`, `series`, and `inf
   - Dividends and market history: `insert_dividends`, `insert_market_history`.
 - **Type-safe getters**
   - Curves: `get_discount`, `get_forward`, `get_hazard`, `get_inflation`, `get_base_correlation` (and `_ref` borrowing variants).
-  - Surfaces and indices: `surface`, `surface_ref`, `price`, `series`, `inflation_index`, `inflation_index_ref`, `dividend_schedule`, `credit_index`, `credit_index_ref`, `collateral`, `collateral_ref`.
+  - Surfaces and indices: `surface`, `surface`, `price`, `series`, `inflation_index`, `inflation_index_ref`, `dividend_schedule`, `credit_index`, `credit_index_ref`, `collateral`, `collateral_ref`.
   - Introspection: `curve_ids`, `curves_of_type`, `count_by_type`, `stats`, `is_empty`, `total_objects`.
 - **Scenario support**
   - `bump` for curve/surface/price/time-series bumps keyed by `CurveId`.

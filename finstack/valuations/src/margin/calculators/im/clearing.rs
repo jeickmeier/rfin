@@ -290,8 +290,7 @@ impl ClearingHouseImCalculator {
     /// This is a simplified calculation. Real CCP margins use VaR/ES
     /// with historical scenarios.
     pub fn calculate_conservative(&self, notional: Money) -> Money {
-        Money::new(notional.amount().abs(), notional.currency())
-            * self.params().conservative_rate
+        Money::new(notional.amount().abs(), notional.currency()) * self.params().conservative_rate
     }
 }
 

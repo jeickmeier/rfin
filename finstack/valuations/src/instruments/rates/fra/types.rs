@@ -140,8 +140,8 @@ impl ForwardRateAgreement {
                 self.fixing_date
             };
 
-        let disc = context.get_discount_ref(&self.discount_curve_id)?;
-        let fwd = context.get_forward_ref(&self.forward_id)?;
+        let disc = context.get_discount(&self.discount_curve_id)?;
+        let fwd = context.get_forward(&self.forward_id)?;
 
         // Time fractions for mapping into the forward curve domain must use the
         // forward curve's own day-count/time basis, not the instrument accrual basis.
@@ -204,8 +204,8 @@ impl ForwardRateAgreement {
         // settlement discounting adjustment 1 / (1 + F * tau).
         // PV = N * DF(T_start) * tau * (F - K) / (1 + F * tau)
         let rate_diff = forward_rate - self.fixed_rate;
-        let denom = 1.0 + forward_rate * tau;
-        let pv = if denom.abs() > 1e-12 {
+        let denom = 1.0_f64 + forward_rate * tau;
+        let pv = if denom.abs() > 1e-12_f64 {
             self.notional.amount() * rate_diff * tau * df_settlement / denom
         } else {
             // Fallback safety for pathological inputs

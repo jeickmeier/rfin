@@ -65,8 +65,8 @@ pub(crate) mod targets;
 // Shared infrastructure
 mod config;
 mod report;
-mod validation;
 mod step_runtime;
+mod validation;
 
 /// Curve bumping helpers used by scenarios and risk metrics (re-calibration).
 pub mod bumps;
@@ -82,10 +82,10 @@ pub use config::{
 };
 /// Backwards-compatible alias for tests expecting the old name.
 pub type CalibrationSolveMethod = CalibrationMethod;
-pub use validation::{RateBounds, RateBoundsPolicy, ValidationConfig, ValidationMode};
 pub use solver::SolverConfig;
 pub use validation::curves::CurveValidator;
 pub use validation::surfaces::SurfaceValidator;
+pub use validation::{RateBounds, RateBoundsPolicy, ValidationConfig, ValidationMode};
 /// Test-focused wrapper exposing step execution for integration tests and benches.
 pub fn execute_step_for_tests(
     params: &crate::calibration::api::schema::StepParams,
@@ -110,4 +110,3 @@ pub use bumps::{
     rates::bump_discount_curve_synthetic,
     BumpRequest,
 };
-

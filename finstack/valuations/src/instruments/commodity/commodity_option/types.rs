@@ -170,7 +170,7 @@ impl CommodityOption {
     }
 
     fn collect_inputs(&self, market: &MarketContext, as_of: Date) -> Result<CommodityOptionInputs> {
-        let disc = market.get_discount_ref(self.discount_curve_id.as_str())?;
+        let disc = market.get_discount(self.discount_curve_id.as_str())?;
         let curve_dc = disc.day_count();
         let t_rate = curve_dc.year_fraction(as_of, self.expiry, DayCountCtx::default())?;
         let r = disc.zero(t_rate.max(0.0));
@@ -179,7 +179,7 @@ impl CommodityOption {
         let sigma = if let Some(impl_vol) = self.pricing_overrides.implied_volatility {
             impl_vol
         } else {
-            let surface = market.surface_ref(self.vol_surface_id.as_str())?;
+            let surface = market.surface(self.vol_surface_id.as_str())?;
             surface.value_clamped(t, self.strike)
         };
 
@@ -224,7 +224,7 @@ impl CommodityOption {
             return Ok(price);
         }
 
-        let curve = market.get_forward_ref(self.forward_curve_id.as_str())?;
+        let curve = market.get_forward(self.forward_curve_id.as_str())?;
         let t = DayCount::Act365F
             .year_fraction(as_of, self.expiry, DayCountCtx::default())?
             .max(0.0);

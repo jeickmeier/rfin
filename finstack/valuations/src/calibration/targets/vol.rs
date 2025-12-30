@@ -151,7 +151,7 @@ impl VolSurfaceBootstrapper {
             .ok_or(finstack_core::Error::Input(
                 finstack_core::InputError::Invalid, // Should specify discount curve
             ))?;
-        let discount = context.get_discount_ref(&disc_id)?;
+        let discount = context.get_discount(&disc_id)?;
 
         // Dividend yield
         let div_yield = if let Some(d) = params.dividend_yield_override {

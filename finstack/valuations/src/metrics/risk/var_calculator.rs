@@ -517,7 +517,7 @@ fn base_vol_for_factor(
     expiry_years: f64,
     strike: f64,
 ) -> Option<f64> {
-    let surface = market.surface_ref(surface_id.as_str()).ok()?;
+    let surface = market.surface(surface_id.as_str()).ok()?;
     Some(surface.value_clamped(expiry_years, strike))
 }
 

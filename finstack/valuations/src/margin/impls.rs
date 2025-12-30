@@ -182,12 +182,12 @@ impl Marginable for CreditDefaultSwap {
         use crate::instruments::cds::pricer::CDSPricer;
 
         // Get discount and survival curves from market context
-        let disc = market.get_discount_ref(self.premium.discount_curve_id.as_str())?;
-        let surv = market.get_hazard_ref(self.protection.credit_curve_id.as_str())?;
+        let disc = market.get_discount(self.premium.discount_curve_id.as_str())?;
+        let surv = market.get_hazard(self.protection.credit_curve_id.as_str())?;
 
         let pricer = CDSPricer::new();
-        let pv_prot = pricer.pv_protection_leg(self, disc, surv, as_of)?;
-        let pv_prem = pricer.pv_premium_leg(self, disc, surv, as_of)?;
+        let pv_prot = pricer.pv_protection_leg(self, disc.as_ref(), surv.as_ref(), as_of)?;
+        let pv_prem = pricer.pv_premium_leg(self, disc.as_ref(), surv.as_ref(), as_of)?;
 
         // NPV from protection buyer perspective (PayFixed)
         let npv = match self.side {

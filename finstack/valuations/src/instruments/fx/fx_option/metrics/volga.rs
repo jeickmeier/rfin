@@ -34,7 +34,7 @@ impl MetricCalculator for VolgaCalculator {
         }
 
         let vol_surface_id = &option.vol_surface_id;
-        let vol_surface = context.curves.surface_ref(vol_surface_id.as_str())?;
+        let vol_surface = context.curves.surface(vol_surface_id.as_str())?;
         let current_vol = vol_surface.value_clamped(t, option.strike);
 
         // Calculate bump sizes

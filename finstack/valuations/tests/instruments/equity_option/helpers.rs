@@ -221,6 +221,6 @@ mod tests {
     fn test_smile_market_builder() {
         let as_of = Date::from_calendar_date(2025, Month::January, 1).unwrap();
         let market = build_smile_market(as_of, 150.0, 0.02, 0.01);
-        assert!(market.get_discount_ref(DISC_ID).is_ok());
+        assert!(market.get_discount(DISC_ID).is_ok());
     }
 }

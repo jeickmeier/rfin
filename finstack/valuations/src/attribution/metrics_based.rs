@@ -470,9 +470,9 @@ fn attribute_pnl_metrics_based_impl(input: &AttributionInput) -> Result<PnlAttri
     if let Some(fx01) = val_t0.measures.get(MetricId::Fx01.as_str()) {
         // FX01 × spot change
         if let Some((base_ccy, quote_ccy)) = instrument.fx_exposure() {
-            if let Ok(fx_shift_pct) =
-                measure_fx_shift(base_ccy, quote_ccy, market_t0, market_t1, as_of_t0, as_of_t1)
-            {
+            if let Ok(fx_shift_pct) = measure_fx_shift(
+                base_ccy, quote_ccy, market_t0, market_t1, as_of_t0, as_of_t1,
+            ) {
                 // FX01 is typically per 1% move
                 let fx_amount = fx01 * fx_shift_pct;
                 attribution.fx_pnl = Money::new(fx_amount, val_t1.value.currency());
@@ -572,7 +572,8 @@ fn attribute_pnl_metrics_based_impl(input: &AttributionInput) -> Result<PnlAttri
         attribution.inflation_curves_pnl = Money::new(inflation_amount, val_t1.value.currency());
 
         // Second-order: Inflation convexity (if available)
-        if let Some(inflation_convexity) = val_t0.measures.get(MetricId::InflationConvexity.as_str())
+        if let Some(inflation_convexity) =
+            val_t0.measures.get(MetricId::InflationConvexity.as_str())
         {
             let shift_decimal = avg_shift / 10_000.0;
             let convexity_pnl = 0.5 * inflation_convexity * shift_decimal * shift_decimal;

@@ -137,10 +137,10 @@ impl MetricCalculator for BermudanDeltaCalculator {
 
         let disc = context
             .curves
-            .get_discount_ref(swaption.discount_curve_id.as_str())?;
+            .get_discount(swaption.discount_curve_id.as_str())?;
 
         // Base price
-        let base_price = self.price_bermudan(swaption, disc, context.as_of, self.sigma)?;
+        let base_price = self.price_bermudan(swaption, disc.as_ref(), context.as_of, self.sigma)?;
 
         // Approximate delta using base sensitivity
         let bump = self.bump_bp / 10000.0;
@@ -240,14 +240,14 @@ impl MetricCalculator for BermudanVegaCalculator {
 
         let disc = context
             .curves
-            .get_discount_ref(swaption.discount_curve_id.as_str())?;
+            .get_discount(swaption.discount_curve_id.as_str())?;
 
         // Bump volatility
         let sigma_up = self.sigma * (1.0 + self.bump_pct);
         let sigma_down = self.sigma * (1.0 - self.bump_pct);
 
-        let price_up = self.price_bermudan(swaption, disc, context.as_of, sigma_up)?;
-        let price_down = self.price_bermudan(swaption, disc, context.as_of, sigma_down)?;
+        let price_up = self.price_bermudan(swaption, disc.as_ref(), context.as_of, sigma_up)?;
+        let price_down = self.price_bermudan(swaption, disc.as_ref(), context.as_of, sigma_down)?;
 
         // Central difference
         let vega = (price_up - price_down) / (2.0 * self.bump_pct * self.sigma);
@@ -319,7 +319,7 @@ impl MetricCalculator for BermudanGammaCalculator {
 
         let disc = context
             .curves
-            .get_discount_ref(swaption.discount_curve_id.as_str())?;
+            .get_discount(swaption.discount_curve_id.as_str())?;
         let ttm = swaption.time_to_maturity(context.as_of)?;
 
         if ttm <= 0.0 {
@@ -328,8 +328,9 @@ impl MetricCalculator for BermudanGammaCalculator {
 
         // Price at base
         let tree_config = HullWhiteTreeConfig::new(self.kappa, self.sigma, self.tree_steps);
-        let tree = HullWhiteTree::calibrate(tree_config, disc, ttm)?;
-        let valuator = BermudanSwaptionTreeValuator::new(swaption, &tree, disc, context.as_of)?;
+        let tree = HullWhiteTree::calibrate(tree_config, disc.as_ref(), ttm)?;
+        let valuator =
+            BermudanSwaptionTreeValuator::new(swaption, &tree, disc.as_ref(), context.as_of)?;
         let base_price = valuator.price();
 
         // Gamma is second derivative - for tree models it's complex to compute properly
@@ -418,7 +419,7 @@ impl MetricCalculator for ExerciseProbabilityCalculator {
 
         let disc = context
             .curves
-            .get_discount_ref(swaption.discount_curve_id.as_str())?;
+            .get_discount(swaption.discount_curve_id.as_str())?;
         let ttm = swaption.time_to_maturity(context.as_of)?;
 
         if ttm <= 0.0 {
@@ -426,8 +427,9 @@ impl MetricCalculator for ExerciseProbabilityCalculator {
         }
 
         let tree_config = HullWhiteTreeConfig::new(self.kappa, self.sigma, self.tree_steps);
-        let tree = HullWhiteTree::calibrate(tree_config, disc, ttm)?;
-        let valuator = BermudanSwaptionTreeValuator::new(swaption, &tree, disc, context.as_of)?;
+        let tree = HullWhiteTree::calibrate(tree_config, disc.as_ref(), ttm)?;
+        let valuator =
+            BermudanSwaptionTreeValuator::new(swaption, &tree, disc.as_ref(), context.as_of)?;
 
         let exercise_times = swaption.exercise_times(context.as_of)?;
         let profile = ExerciseProbabilityProfile::from_valuator(&valuator, exercise_times);

@@ -165,8 +165,8 @@ impl InterestRateFuture {
     pub fn npv_raw(&self, context: &MarketContext) -> finstack_core::Result<f64> {
         use finstack_core::dates::DayCountCtx;
 
-        let disc = context.get_discount_ref(&self.discount_curve_id)?;
-        let fwd = context.get_forward_ref(&self.forward_id)?;
+        let disc = context.get_discount(&self.discount_curve_id)?;
+        let fwd = context.get_forward(&self.forward_id)?;
 
         // Base date for mapping to curve time
         let _base_date = disc.base_date();

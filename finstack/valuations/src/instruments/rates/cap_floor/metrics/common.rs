@@ -22,8 +22,8 @@ where
     // Get market curves
     let disc_curve = context
         .curves
-        .get_discount_ref(option.discount_curve_id.as_ref())?;
-    let fwd_curve = context.curves.get_forward_ref(option.forward_id.as_ref())?;
+        .get_discount(option.discount_curve_id.as_ref())?;
+    let fwd_curve = context.curves.get_forward(option.forward_id.as_ref())?;
     let base_date = disc_curve.base_date();
 
     // Helper to compute contribution for a single period
@@ -57,7 +57,7 @@ where
         } else {
             context
                 .curves
-                .surface_ref(option.vol_surface_id.as_str())?
+                .surface(option.vol_surface_id.as_str())?
                 .value_clamped(t_fix, option.strike_rate)
         };
 

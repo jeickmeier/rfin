@@ -165,7 +165,7 @@ impl CommoditySwap {
 
     /// Calculate the present value of the fixed leg.
     pub fn fixed_leg_pv(&self, market: &MarketContext, as_of: Date) -> Result<f64> {
-        let disc = market.get_discount_ref(self.discount_curve_id.as_str())?;
+        let disc = market.get_discount(self.discount_curve_id.as_str())?;
         let schedule = self.payment_schedule(as_of)?;
 
         let mut pv = 0.0;
@@ -183,11 +183,11 @@ impl CommoditySwap {
 
     /// Calculate the present value of the floating leg.
     pub fn floating_leg_pv(&self, market: &MarketContext, as_of: Date) -> Result<f64> {
-        let disc = market.get_discount_ref(self.discount_curve_id.as_str())?;
+        let disc = market.get_discount(self.discount_curve_id.as_str())?;
         let schedule = self.payment_schedule(as_of)?;
 
         // Try to get floating index curve
-        let float_curve = market.get_discount_ref(self.floating_index_id.as_str())?;
+        let float_curve = market.get_discount(self.floating_index_id.as_str())?;
 
         let mut pv = 0.0;
         for payment_date in schedule {
@@ -246,7 +246,7 @@ impl CommoditySwap {
     /// Get all projected cashflows for this swap.
     pub fn cashflows(&self, market: &MarketContext, as_of: Date) -> Result<Vec<(Date, Money)>> {
         let schedule = self.payment_schedule(as_of)?;
-        let float_curve = market.get_discount_ref(self.floating_index_id.as_str())?;
+        let float_curve = market.get_discount(self.floating_index_id.as_str())?;
 
         let mut flows = Vec::new();
         for payment_date in schedule {

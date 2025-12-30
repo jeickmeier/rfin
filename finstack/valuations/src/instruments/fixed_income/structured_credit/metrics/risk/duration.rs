@@ -48,7 +48,7 @@ impl MetricCalculator for MacaulayDurationCalculator {
             })
         })?;
 
-        let disc = context.curves.get_discount_ref(disc_curve_id.as_str())?;
+        let disc = context.curves.get_discount(disc_curve_id.as_str())?;
 
         // Use the discount curve's day count for market-standard consistency
         // (e.g., 30/360 for US Agency RMBS, Act/360 for CLOs)
@@ -134,7 +134,7 @@ impl MetricCalculator for ModifiedDurationCalculator {
             })
         })?;
 
-        let disc = context.curves.get_discount_ref(disc_curve_id.as_str())?;
+        let disc = context.curves.get_discount(disc_curve_id.as_str())?;
 
         // Use the discount curve's day count for market-standard consistency
         // (e.g., 30/360 for US Agency RMBS, Act/360 for CLOs)

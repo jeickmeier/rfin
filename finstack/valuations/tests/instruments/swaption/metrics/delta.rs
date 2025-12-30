@@ -98,8 +98,8 @@ fn test_delta_finite_difference_validation() {
 
     // Note: Delta measures sensitivity to forward rate, which is complex to bump directly
     // This test validates that delta is reasonable in magnitude
-    let disc = market.get_discount_ref("USD_OIS").unwrap();
-    let annuity = swaption.swap_annuity(disc, as_of).unwrap();
+    let disc = market.get_discount("USD_OIS").unwrap();
+    let annuity = swaption.swap_annuity(disc.as_ref(), as_of).unwrap();
     let notional = swaption.notional.amount();
 
     // Delta should scale with notional * annuity

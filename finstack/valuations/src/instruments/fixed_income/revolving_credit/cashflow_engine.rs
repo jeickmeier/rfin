@@ -196,7 +196,7 @@ impl<'a> CashflowEngine<'a> {
         let fwd_curve = match &self.facility.base_rate_spec {
             BaseRateSpec::Floating(spec) => {
                 if let Some(market) = self.market {
-                    market.get_forward_ref(&spec.index_id).ok()
+                    market.get_forward(&spec.index_id).ok()
                 } else {
                     None
                 }
@@ -308,14 +308,14 @@ impl<'a> CashflowEngine<'a> {
                         let spread_bp_f64 = spec.spread_bp.to_f64().unwrap_or(0.0);
                         let floor_bp_f64 = spec.floor_bp.and_then(|d| d.to_f64());
                         let mut coupon_rate = spread_bp_f64 * 1e-4;
-                        if let Some(fwd) = fwd_curve {
+                        if let Some(fwd) = fwd_curve.as_ref() {
                             if let Some(reset_d) = sub_reset_date {
                                 if let Ok(rate) = super::utils::project_floating_rate_with_curve(
                                     reset_d,
                                     &spec.reset_freq,
                                     spread_bp_f64,
                                     floor_bp_f64,
-                                    fwd,
+                                    fwd.as_ref(),
                                     &self.facility.attributes,
                                 ) {
                                     coupon_rate = rate;

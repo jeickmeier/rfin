@@ -182,8 +182,8 @@ impl FxSwap {
         use finstack_core::money::fx::FxQuery;
 
         // Curves
-        let domestic_disc = curves.get_discount_ref(self.domestic_discount_curve_id.as_str())?;
-        let foreign_disc = curves.get_discount_ref(self.foreign_discount_curve_id.as_str())?;
+        let domestic_disc = curves.get_discount(self.domestic_discount_curve_id.as_str())?;
+        let foreign_disc = curves.get_discount(self.foreign_discount_curve_id.as_str())?;
 
         // Discount factors from as_of for correct theta (curve-consistent date mapping).
         let df_dom_near = domestic_disc.df_between_dates(as_of, self.near_date)?;

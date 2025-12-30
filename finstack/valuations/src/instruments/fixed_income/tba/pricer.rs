@@ -89,7 +89,7 @@ pub fn price_tba(tba: &AgencyTba, market: &MarketContext, as_of: Date) -> Result
     let pool_pv = price_mbs(&assumed_pool, market, as_of)?;
 
     // Calculate forward price (at settlement)
-    let discount_curve = market.get_discount_ref(&tba.discount_curve_id)?;
+    let discount_curve = market.get_discount(&tba.discount_curve_id)?;
     let years_to_settle = (settlement_date - as_of).whole_days() as f64 / 365.0;
     let df_to_settle = discount_curve.df(years_to_settle);
 

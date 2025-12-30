@@ -581,7 +581,7 @@ pub fn price_from_z_spread(
     use finstack_core::math::summation::NeumaierAccumulator;
 
     let flows = bond.build_schedule(curves, as_of)?;
-    let disc = curves.get_discount_ref(&bond.discount_curve_id)?;
+    let disc = curves.get_discount(&bond.discount_curve_id)?;
 
     let mut pv = NeumaierAccumulator::new();
     for (d, a) in &flows {
@@ -630,7 +630,7 @@ pub fn price_from_oas(
     };
     // Time to maturity is measured from the valuation date (as_of) using the
     // discount curve's day-count to ensure consistency with tree calibration.
-    let discount_curve = curves.get_discount_ref(&bond.discount_curve_id)?;
+    let discount_curve = curves.get_discount(&bond.discount_curve_id)?;
     let disc_dc = discount_curve.day_count();
     let time_to_maturity = disc_dc.year_fraction(as_of, bond.maturity, DayCountCtx::default())?;
     if time_to_maturity <= 0.0 {
@@ -640,7 +640,7 @@ pub fn price_from_oas(
     // Default TreePricerConfig uses 100 steps; match that for round-trip consistency.
     let tree_steps = ShortRateTreeConfig::default().steps;
     let mut short_rate_tree = ShortRateTree::new(ShortRateTreeConfig::default());
-    short_rate_tree.calibrate(discount_curve, time_to_maturity)?;
+    short_rate_tree.calibrate(discount_curve.as_ref(), time_to_maturity)?;
     let valuator = BondValuator::new(bond.clone(), curves, as_of, time_to_maturity, tree_steps)?;
 
     // Get initial short rate from the calibrated tree for the state variables.
@@ -887,7 +887,7 @@ pub fn compute_quotes(
 fn par_swap_rate_from_discount(bond: &Bond, curves: &MarketContext, as_of: Date) -> Result<f64> {
     use finstack_core::dates::{DayCount, DayCountCtx, ScheduleBuilder, StubKind, Tenor};
 
-    let disc = curves.get_discount_ref(&bond.discount_curve_id)?;
+    let disc = curves.get_discount(&bond.discount_curve_id)?;
 
     // Mirror the schedule used in ISpreadCalculator (annual Act/Act, ShortFront stub).
     let dates: Vec<Date> = ScheduleBuilder::new(as_of, bond.maturity)
@@ -952,7 +952,7 @@ fn price_from_asw_market(
         _ => return Err(finstack_core::InputError::Invalid.into()),
     };
 
-    let disc = curves.get_discount_ref(&bond.discount_curve_id)?;
+    let disc = curves.get_discount(&bond.discount_curve_id)?;
 
     // Mirror the schedule and annuity definition used by AssetSwapMarketCalculator
     // (discount-ratio approximation on the fixed-leg schedule).
@@ -972,7 +972,7 @@ fn price_from_asw_market(
     }
 
     let dc = bond.cashflow_spec.day_count();
-    let (par_rate, ann) = par_rate_and_annuity_from_discount(disc, dc, &sched)?;
+    let (par_rate, ann) = par_rate_and_annuity_from_discount(disc.as_ref(), dc, &sched)?;
     if ann == 0.0 || bond.notional.amount() == 0.0 {
         return Ok(0.0);
     }

@@ -129,7 +129,7 @@ fn bump_key_rate(
     target_tenor: f64,
     bump: f64,
 ) -> Result<MarketContext> {
-    let original = market.get_discount_ref(curve_id)?;
+    let original = market.get_discount(curve_id)?;
     let base_date = original.base_date();
     let day_count = original.day_count();
 

@@ -136,7 +136,7 @@ impl InflationCapFloor {
         if let Some(lag) = self.lag_override {
             return lag;
         }
-        if let Some(index) = curves.inflation_index_ref(self.inflation_index_id.as_str()) {
+        if let Some(index) = curves.inflation_index(self.inflation_index_id.as_str()) {
             return index.lag();
         }
         InflationLag::None
@@ -179,7 +179,7 @@ impl InflationCapFloor {
         as_of: Date,
         date: Date,
     ) -> finstack_core::Result<f64> {
-        if let Some(index) = curves.inflation_index_ref(self.inflation_index_id.as_str()) {
+        if let Some(index) = curves.inflation_index(self.inflation_index_id.as_str()) {
             if let Ok(value) = index.value_on(date) {
                 return Ok(value);
             }
@@ -187,7 +187,7 @@ impl InflationCapFloor {
 
         let lag = self.effective_lag(curves);
         let lagged_date = Self::apply_lag(date, lag);
-        let curve = curves.get_inflation_ref(self.inflation_index_id.as_str())?;
+        let curve = curves.get_inflation(self.inflation_index_id.as_str())?;
         let t = Self::signed_year_fraction(as_of, lagged_date);
         Ok(curve.cpi(t))
     }
@@ -233,9 +233,9 @@ impl InflationCapFloor {
         as_of: Date,
         model: ModelKey,
     ) -> finstack_core::Result<Money> {
-        let disc = curves.get_discount_ref(self.discount_curve_id.as_str())?;
+        let disc = curves.get_discount(self.discount_curve_id.as_str())?;
         let vol_surface = if self.pricing_overrides.implied_volatility.is_none() {
-            Some(curves.surface_ref(self.vol_surface_id.as_str())?)
+            Some(curves.surface(self.vol_surface_id.as_str())?)
         } else {
             None
         };

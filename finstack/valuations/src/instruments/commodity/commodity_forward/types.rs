@@ -174,7 +174,7 @@ impl CommodityForward {
         let forward_price = self.forward_price(market, as_of)?;
 
         // Get discount factor
-        let disc = market.get_discount_ref(self.discount_curve_id.as_str())?;
+        let disc = market.get_discount(self.discount_curve_id.as_str())?;
         let df = disc.df_between_dates(as_of, self.settlement_date)?;
 
         // NPV = Forward × Quantity × Multiplier × DF
@@ -196,7 +196,7 @@ impl CommodityForward {
 
         // Otherwise look up from forward curve
         // Try to get the forward curve as a discount curve (for interpolation)
-        let curve = market.get_discount_ref(self.forward_curve_id.as_str())?;
+        let curve = market.get_discount(self.forward_curve_id.as_str())?;
 
         // Calculate time to settlement
         use finstack_core::dates::{DayCount, DayCountCtx};

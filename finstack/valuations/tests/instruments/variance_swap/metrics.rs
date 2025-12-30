@@ -275,7 +275,7 @@ fn test_vega_matches_formula() {
         .day_count
         .year_fraction(as_of, swap.maturity, Default::default())
         .unwrap();
-    let df = ctx.get_discount_ref(DISC_ID).unwrap().df(t);
+    let df = ctx.get_discount(DISC_ID).unwrap().df(t);
     let expected =
         df * 2.0 * swap.notional.amount() * 0.25 * 0.01 * remaining_fraction * swap.side.sign();
 
@@ -328,7 +328,7 @@ fn test_variance_vega_matches_formula() {
         .day_count
         .year_fraction(as_of, swap.maturity, Default::default())
         .unwrap();
-    let df = ctx.get_discount_ref(DISC_ID).unwrap().df(t);
+    let df = ctx.get_discount(DISC_ID).unwrap().df(t);
     let expected = df * swap.notional.amount() * remaining_fraction * swap.side.sign();
 
     assert!((var_vega - expected).abs() < LOOSE_EPSILON);
@@ -380,13 +380,16 @@ fn test_dv01_matches_bump_and_reprice() {
 
     // Assert - use bump-and-reprice validation
     // Bump the discount curve by 1bp and verify DV01 matches the PV change
+    use finstack_core::market_data::bumps::MarketBump;
     use finstack_core::market_data::context::BumpSpec;
-    use finstack_core::HashMap;
 
     let base_pv = swap.value(&ctx, as_of).unwrap().amount();
-    let mut bumps = HashMap::default();
-    bumps.insert(swap.discount_curve_id.clone(), BumpSpec::parallel_bp(1.0));
-    let bumped_ctx = ctx.bump(bumps).unwrap();
+    let bumped_ctx = ctx
+        .bump([MarketBump::Curve {
+            id: swap.discount_curve_id.clone(),
+            spec: BumpSpec::parallel_bp(1.0),
+        }])
+        .unwrap();
     let bumped_pv = swap.value(&bumped_ctx, as_of).unwrap().amount();
     let expected_dv01 = bumped_pv - base_pv;
 

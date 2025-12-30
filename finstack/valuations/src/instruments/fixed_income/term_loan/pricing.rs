@@ -168,7 +168,7 @@ impl TermLoanDiscountingPricer {
         // Retrieve discount curve and discount flows to `as_of` using date-based DF mapping.
         // This ensures valuation is anchored on the valuation date rather than the curve's
         // internal base date.
-        let disc = market.get_discount_ref(loan.discount_curve_id.as_str())?;
+        let disc = market.get_discount(loan.discount_curve_id.as_str())?;
 
         // Filter flows: exclude PIK (capitalized interest) from PV
         // PIK increases outstanding and is repaid via principal redemption
@@ -179,7 +179,7 @@ impl TermLoanDiscountingPricer {
             .map(|cf| (cf.date, cf.amount))
             .collect();
 
-        crate::instruments::common::discountable::npv_by_date(disc, as_of, &flows)
+        crate::instruments::common::discountable::npv_by_date(disc.as_ref(), as_of, &flows)
     }
 }
 

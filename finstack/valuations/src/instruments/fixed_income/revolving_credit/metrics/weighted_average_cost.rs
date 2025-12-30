@@ -31,7 +31,7 @@ impl MetricCalculator for ApproxWeightedAverageCostCalculator {
             crate::instruments::revolving_credit::types::BaseRateSpec::Fixed { rate } => *rate,
             crate::instruments::revolving_credit::types::BaseRateSpec::Floating(spec) => {
                 // Use forward curve to get current rate
-                let fwd = context.curves.get_forward_ref(spec.index_id.as_str())?;
+                let fwd = context.curves.get_forward(spec.index_id.as_str())?;
                 let index_rate = fwd.rate(0.25); // Use 3M as representative
                                                  // Convert Decimal spread to f64 for rate calculations
                 let spread_bp_f64 = spec.spread_bp.to_f64().unwrap_or(0.0);

@@ -35,13 +35,19 @@ impl MetricCalculator for VolgaCalculator {
         let vol_bump_abs = bump_sizes::VOLATILITY;
 
         // Bump vol up
-        let curves_vol_up =
-            bump_surface_vol_absolute(&context.curves, option.vol_surface_id.as_str(), vol_bump_abs)?;
+        let curves_vol_up = bump_surface_vol_absolute(
+            &context.curves,
+            option.vol_surface_id.as_str(),
+            vol_bump_abs,
+        )?;
         let pv_vol_up = option.npv(&curves_vol_up, as_of)?.amount();
 
         // Bump vol down
-        let curves_vol_down =
-            bump_surface_vol_absolute(&context.curves, option.vol_surface_id.as_str(), -vol_bump_abs)?;
+        let curves_vol_down = bump_surface_vol_absolute(
+            &context.curves,
+            option.vol_surface_id.as_str(),
+            -vol_bump_abs,
+        )?;
         let pv_vol_down = option.npv(&curves_vol_down, as_of)?.amount();
 
         // Volga (Vomma) = ∂²V/∂σ² ≈ (V(σ+Δσ) - 2V(σ) + V(σ-Δσ)) / (Δσ)²

@@ -17,8 +17,7 @@
 use crate::instruments::common::traits::Instrument;
 use crate::instruments::inflation_linked_bond::InflationLinkedBond;
 use crate::metrics::{MetricCalculator, MetricContext};
-use finstack_core::market_data::bumps::BumpSpec;
-use finstack_core::HashMap;
+use finstack_core::market_data::bumps::{BumpSpec, MarketBump};
 use finstack_core::Result;
 
 /// Standard inflation curve bump: 1bp (0.0001)
@@ -39,19 +38,18 @@ impl MetricCalculator for Inflation01Calculator {
         // Use MarketContext::bump() API to bump the inflation curve
         // Bump by 1bp using parallel shift
         let bump_spec = BumpSpec::inflation_shift_pct(INFLATION_BUMP_BP * 100.0); // Convert bp to percent
-
-        let mut bumps = HashMap::default();
-        bumps.insert(inflation_curve_id.clone(), bump_spec);
-
-        let curves_up = context.curves.as_ref().bump(bumps.clone())?;
+        let curves_up = context.curves.as_ref().bump([MarketBump::Curve {
+            id: inflation_curve_id.clone(),
+            spec: bump_spec,
+        }])?;
         let pv_up = bond.value(&curves_up, as_of)?.amount();
 
         // Bump down
         let bump_spec_down = BumpSpec::inflation_shift_pct(-INFLATION_BUMP_BP * 100.0);
-        let mut bumps_down = HashMap::default();
-        bumps_down.insert(inflation_curve_id.clone(), bump_spec_down);
-
-        let curves_down = context.curves.as_ref().bump(bumps_down)?;
+        let curves_down = context.curves.as_ref().bump([MarketBump::Curve {
+            id: inflation_curve_id.clone(),
+            spec: bump_spec_down,
+        }])?;
         let pv_down = bond.value(&curves_down, as_of)?.amount();
 
         // Inflation01 = (PV_up - PV_down) / (2 * bump_size)

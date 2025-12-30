@@ -18,8 +18,8 @@ impl MetricCalculator for CarryPv {
         let curves = context.curves.clone();
         let as_of = context.as_of;
 
-        let domestic_disc = curves.get_discount_ref(fx_swap.domestic_discount_curve_id.as_str())?;
-        let foreign_disc = curves.get_discount_ref(fx_swap.foreign_discount_curve_id.as_str())?;
+        let domestic_disc = curves.get_discount(fx_swap.domestic_discount_curve_id.as_str())?;
+        let foreign_disc = curves.get_discount(fx_swap.foreign_discount_curve_id.as_str())?;
 
         let df_dom_near = domestic_disc.df_between_dates(as_of, fx_swap.near_date)?;
         let df_dom_far = domestic_disc.df_between_dates(as_of, fx_swap.far_date)?;

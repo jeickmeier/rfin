@@ -43,10 +43,9 @@ use crate::metrics::sensitivities::config as sens_config;
 use crate::metrics::MetricCalculator;
 use crate::metrics::{MetricContext, MetricId};
 
-use finstack_core::market_data::bumps::BumpSpec;
+use finstack_core::market_data::bumps::{BumpSpec, MarketBump};
 use finstack_core::market_data::context::MarketContext;
 use finstack_core::types::CurveId;
-use finstack_core::HashMap;
 use std::marker::PhantomData;
 
 // =============================================================================
@@ -230,12 +229,12 @@ where
         for (curve_id, kind) in deps.all_with_kind() {
             match kind {
                 RatesCurveKind::Discount => {
-                    if market.get_discount_ref(curve_id.as_str()).is_ok() {
+                    if market.get_discount(curve_id.as_str()).is_ok() {
                         curves.push((curve_id, kind));
                     }
                 }
                 RatesCurveKind::Forward => {
-                    if market.get_forward_ref(curve_id.as_str()).is_ok() {
+                    if market.get_forward(curve_id.as_str()).is_ok() {
                         curves.push((curve_id, kind));
                     }
                 }
@@ -271,10 +270,13 @@ where
         // Use value_raw for high-precision sensitivity calculations
         let base_pv = context.instrument.value_raw(base_ctx, as_of)?;
 
-        let mut bumps = HashMap::default();
-        for (curve_id, _kind) in curves {
-            bumps.insert(curve_id.clone(), BumpSpec::parallel_bp(bump_bp));
-        }
+        let bumps: Vec<MarketBump> = curves
+            .iter()
+            .map(|(curve_id, _kind)| MarketBump::Curve {
+                id: curve_id.clone(),
+                spec: BumpSpec::parallel_bp(bump_bp),
+            })
+            .collect();
 
         let bumped_ctx = base_ctx.bump(bumps)?;
         let bumped_pv = context.instrument.value_raw(&bumped_ctx, as_of)?;
@@ -303,10 +305,10 @@ where
         let mut total_dv01 = 0.0;
 
         for (curve_id, _kind) in curves {
-            let mut bumps = HashMap::default();
-            bumps.insert(curve_id.clone(), BumpSpec::parallel_bp(bump_bp));
-
-            let bumped_ctx = base_ctx.bump(bumps)?;
+            let bumped_ctx = base_ctx.bump([MarketBump::Curve {
+                id: curve_id.clone(),
+                spec: BumpSpec::parallel_bp(bump_bp),
+            }])?;
             let bumped_pv = context.instrument.value_raw(&bumped_ctx, as_of)?;
             let dv01 = calculate_dv01_raw(base_pv, bumped_pv, bump_bp);
 
@@ -398,13 +400,15 @@ where
             };
 
             // Create triangular key-rate bump with proper neighbors
-            let mut bumps = HashMap::default();
-            bumps.insert(
-                curve_id.clone(),
-                BumpSpec::triangular_key_rate_bp(prev_bucket, target_time, next_bucket, bump_bp),
-            );
-
-            let bumped_ctx = base_ctx.bump(bumps)?;
+            let bumped_ctx = base_ctx.bump([MarketBump::Curve {
+                id: curve_id.clone(),
+                spec: BumpSpec::triangular_key_rate_bp(
+                    prev_bucket,
+                    target_time,
+                    next_bucket,
+                    bump_bp,
+                ),
+            }])?;
             let bumped_pv = context.instrument.value_raw(&bumped_ctx, as_of)?;
             let dv01 = calculate_dv01_raw(base_pv, bumped_pv, bump_bp);
 

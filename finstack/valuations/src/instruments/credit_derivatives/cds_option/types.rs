@@ -299,7 +299,7 @@ impl CdsOption {
         }
 
         // Forward spread in bp
-        let hazard_curve = curves.get_hazard_ref(&self.credit_curve_id)?;
+        let hazard_curve = curves.get_hazard(&self.credit_curve_id)?;
         let current_tenor = self
             .day_count
             .year_fraction(as_of, self.cds_maturity, ctx)?;
@@ -315,7 +315,7 @@ impl CdsOption {
             v
         } else {
             curves
-                .surface_ref(self.vol_surface_id.as_str())?
+                .surface(self.vol_surface_id.as_str())?
                 .value_clamped(t, self.strike_spread_bp)
         };
 

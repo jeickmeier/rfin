@@ -501,7 +501,7 @@ impl Repo {
     /// Uses business-day adjusted dates for all comparisons and discount factor
     /// calculations to ensure correct accrual fractions and haircut coverage.
     pub fn pv(&self, context: &MarketContext, as_of: Date) -> Result<Money> {
-        let disc_curve = context.get_discount_ref(self.discount_curve_id.as_str())?;
+        let disc_curve = context.get_discount(self.discount_curve_id.as_str())?;
 
         // Apply business day adjustments to start and maturity dates
         let (adj_start, adj_maturity) = self.adjusted_dates()?;

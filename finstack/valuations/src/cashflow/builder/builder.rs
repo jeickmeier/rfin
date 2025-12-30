@@ -54,6 +54,7 @@ use finstack_core::money::Money;
 use finstack_core::InputError;
 use rust_decimal::prelude::ToPrimitive;
 use rust_decimal::Decimal;
+use std::sync::Arc;
 
 use super::compiler::{
     build_fee_schedules, collect_dates, compute_coupon_schedules, CompiledSchedules,
@@ -330,7 +331,7 @@ fn process_one_date(
     mut state: BuildState,
     ctx: &BuildContext,
     amort_setup: &AmortizationSetup,
-    resolved_curves: &[Option<&ForwardCurve>],
+    resolved_curves: &[Option<Arc<ForwardCurve>>],
 ) -> finstack_core::Result<BuildState> {
     // Coupons
     let pik_f = emit_fixed_coupons_on(
@@ -1197,11 +1198,11 @@ impl CashFlowBuilder {
             principal_events: &principal_events,
         };
 
-        // Resolve curves upfront without cloning underlying ForwardCurve
-        let resolved_curves: Vec<Option<&ForwardCurve>> = if let Some(mkt) = curves {
+        // Resolve curves upfront and reuse across all payment dates.
+        let resolved_curves: Vec<Option<Arc<ForwardCurve>>> = if let Some(mkt) = curves {
             float_schedules
                 .iter()
-                .map(|(spec, _, _)| mkt.get_forward_ref(spec.rate_spec.index_id.as_str()).ok())
+                .map(|(spec, _, _)| mkt.get_forward(spec.rate_spec.index_id.as_str()).ok())
                 .collect()
         } else {
             vec![None; float_schedules.len()]

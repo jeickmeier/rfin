@@ -144,7 +144,7 @@ where
         &deps.discount_curves,
         market,
         &standard_tenors,
-        |m, id| m.get_discount_ref(id).is_ok(),
+        |m, id| m.get_discount(id).is_ok(),
         |curve_id, tenor_years| RiskFactorType::DiscountRate {
             curve_id: curve_id.clone(),
             tenor_years,
@@ -157,7 +157,7 @@ where
         &deps.forward_curves,
         market,
         &standard_tenors,
-        |m, id| m.get_forward_ref(id).is_ok(),
+        |m, id| m.get_forward(id).is_ok(),
         |curve_id, tenor_years| RiskFactorType::ForwardRate {
             curve_id: curve_id.clone(),
             tenor_years,
@@ -170,7 +170,7 @@ where
         &deps.credit_curves,
         market,
         &standard_tenors,
-        |m, id| m.get_hazard_ref(id).is_ok(),
+        |m, id| m.get_hazard(id).is_ok(),
         |curve_id, tenor_years| RiskFactorType::CreditSpread {
             curve_id: curve_id.clone(),
             tenor_years,
@@ -273,7 +273,7 @@ where
             );
         }
 
-        if market.surface_ref(opt.vol_surface_id.as_str()).is_ok() {
+        if market.surface(opt.vol_surface_id.as_str()).is_ok() {
             push_factor(
                 factors,
                 seen,

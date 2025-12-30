@@ -828,7 +828,7 @@ impl Bond {
 
         // Calculate time to maturity from the valuation date (as_of) using the
         // discount curve's day-count convention to ensure consistency with tree calibration.
-        let discount_curve = market.get_discount_ref(&self.discount_curve_id)?;
+        let discount_curve = market.get_discount(&self.discount_curve_id)?;
         let time_to_maturity = discount_curve.day_count().year_fraction(
             as_of,
             self.maturity,
@@ -851,7 +851,7 @@ impl Bond {
 
         // Initialize and calibrate short-rate tree to match discount curve
         let mut tree = ShortRateTree::new(tree_config);
-        tree.calibrate(discount_curve, time_to_maturity)?;
+        tree.calibrate(discount_curve.as_ref(), time_to_maturity)?;
 
         // Create bond valuator with call/put schedule mapped to tree steps
         let valuator =

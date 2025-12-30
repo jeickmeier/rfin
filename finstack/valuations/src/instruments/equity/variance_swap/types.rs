@@ -125,7 +125,7 @@ impl VarianceSwap {
     /// Returns a descriptive error if validation fails.
     fn validate_as_of(&self, context: &MarketContext, as_of: Date) -> Result<()> {
         // Check discount curve base date alignment
-        let disc = context.get_discount_ref(self.discount_curve_id.as_str())?;
+        let disc = context.get_discount(self.discount_curve_id.as_str())?;
         let curve_base = disc.base_date();
 
         if as_of < curve_base {
@@ -145,7 +145,7 @@ impl VarianceSwap {
         self.validate_as_of(context, as_of)?;
 
         // Get discount curve
-        let disc = context.get_discount_ref(self.discount_curve_id.as_str())?;
+        let disc = context.get_discount(self.discount_curve_id.as_str())?;
 
         // If expired, compute final payoff from realized variance (if any prices)
         if as_of >= self.maturity {
@@ -413,9 +413,9 @@ impl VarianceSwap {
             &format!("{}_VOL", self.underlying_id),
             &format!("{}_IMPL_VOL", self.underlying_id),
         ] {
-            if let Ok(surface) = context.surface_ref(sid) {
+            if let Ok(surface) = context.surface(sid) {
                 // Attempt variance replication (VIX-like)
-                if let Ok(disc) = context.get_discount_ref(&self.discount_curve_id) {
+                if let Ok(disc) = context.get_discount(&self.discount_curve_id) {
                     if let Ok(spot_scalar) = context.price(&self.underlying_id) {
                         let spot = match spot_scalar {
                             finstack_core::market_data::scalars::MarketScalar::Unitless(v) => *v,

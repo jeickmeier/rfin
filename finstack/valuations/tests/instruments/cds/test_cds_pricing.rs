@@ -69,8 +69,8 @@ fn test_protection_leg_positive_pv() {
 
     let protection_pv = cds
         .pv_protection_leg(
-            market.get_discount_ref("USD_OIS").unwrap(),
-            market.get_hazard_ref("CORP").unwrap(),
+            market.get_discount("USD_OIS").unwrap().as_ref(),
+            market.get_hazard("CORP").unwrap().as_ref(),
             as_of,
         )
         .unwrap();
@@ -106,8 +106,8 @@ fn test_premium_leg_positive_pv() {
 
     let premium_pv = cds
         .pv_premium_leg(
-            market.get_discount_ref("USD_OIS").unwrap(),
-            market.get_hazard_ref("CORP").unwrap(),
+            market.get_discount("USD_OIS").unwrap().as_ref(),
+            market.get_hazard("CORP").unwrap().as_ref(),
             as_of,
         )
         .unwrap();
@@ -177,8 +177,8 @@ fn test_par_spread_full_premium_branch() {
     let par_base = pricer_base
         .par_spread(
             &cds,
-            market.get_discount_ref("USD_OIS").unwrap(),
-            market.get_hazard_ref("CORP").unwrap(),
+            market.get_discount("USD_OIS").unwrap().as_ref(),
+            market.get_hazard("CORP").unwrap().as_ref(),
             as_of,
         )
         .expect("par spread");
@@ -186,8 +186,8 @@ fn test_par_spread_full_premium_branch() {
     let par_full = pricer_full
         .par_spread(
             &cds,
-            market.get_discount_ref("USD_OIS").unwrap(),
-            market.get_hazard_ref("CORP").unwrap(),
+            market.get_discount("USD_OIS").unwrap().as_ref(),
+            market.get_hazard("CORP").unwrap().as_ref(),
             as_of,
         )
         .expect("par spread full premium");
@@ -225,8 +225,8 @@ fn test_par_spread_errors_when_expired() {
     let err = pricer
         .par_spread(
             &cds,
-            market.get_discount_ref("USD_OIS").unwrap(),
-            market.get_hazard_ref("CORP").unwrap(),
+            market.get_discount("USD_OIS").unwrap().as_ref(),
+            market.get_hazard("CORP").unwrap().as_ref(),
             as_of,
         )
         .expect_err("expired CDS should error");
@@ -264,14 +264,14 @@ fn test_premium_leg_excludes_accrual_when_disabled() {
     cfg_no_aod.include_accrual = false;
     let pricer_no_aod = CDSPricer::with_config(cfg_no_aod);
 
-    let disc_ref = market.get_discount_ref("USD_OIS").unwrap();
-    let hazard_ref = market.get_hazard_ref("CORP").unwrap();
+    let disc_ref = market.get_discount("USD_OIS").unwrap();
+    let hazard_ref = market.get_hazard("CORP").unwrap();
 
     let with_aod = pricer_default
-        .premium_leg_pv_per_bp(&cds, disc_ref, hazard_ref, as_of)
+        .premium_leg_pv_per_bp(&cds, disc_ref.as_ref(), hazard_ref.as_ref(), as_of)
         .expect("premium with AoD");
     let without_aod = pricer_no_aod
-        .premium_leg_pv_per_bp(&cds, disc_ref, hazard_ref, as_of)
+        .premium_leg_pv_per_bp(&cds, disc_ref.as_ref(), hazard_ref.as_ref(), as_of)
         .expect("premium without AoD");
 
     assert!(
@@ -354,8 +354,8 @@ fn test_par_spread_positive() {
 
     let par_spread = cds
         .par_spread(
-            market.get_discount_ref("USD_OIS").unwrap(),
-            market.get_hazard_ref("CORP").unwrap(),
+            market.get_discount("USD_OIS").unwrap().as_ref(),
+            market.get_hazard("CORP").unwrap().as_ref(),
             as_of,
         )
         .unwrap();
@@ -393,8 +393,8 @@ fn test_par_spread_gives_zero_npv() {
     // Get par spread
     let par_spread = cds
         .par_spread(
-            market.get_discount_ref("USD_OIS").unwrap(),
-            market.get_hazard_ref("CORP").unwrap(),
+            market.get_discount("USD_OIS").unwrap().as_ref(),
+            market.get_hazard("CORP").unwrap().as_ref(),
             as_of,
         )
         .unwrap();
@@ -436,8 +436,8 @@ fn test_risky_annuity_positive() {
 
     let risky_annuity = cds
         .risky_annuity(
-            market.get_discount_ref("USD_OIS").unwrap(),
-            market.get_hazard_ref("CORP").unwrap(),
+            market.get_discount("USD_OIS").unwrap().as_ref(),
+            market.get_hazard("CORP").unwrap().as_ref(),
             as_of,
         )
         .unwrap();
@@ -482,16 +482,16 @@ fn test_risky_pv01_scales_with_notional() {
 
     let pv01_1 = cds1
         .risky_pv01(
-            market.get_discount_ref("USD_OIS").unwrap(),
-            market.get_hazard_ref("CORP").unwrap(),
+            market.get_discount("USD_OIS").unwrap().as_ref(),
+            market.get_hazard("CORP").unwrap().as_ref(),
             as_of,
         )
         .unwrap();
 
     let pv01_10 = cds10
         .risky_pv01(
-            market.get_discount_ref("USD_OIS").unwrap(),
-            market.get_hazard_ref("CORP").unwrap(),
+            market.get_discount("USD_OIS").unwrap().as_ref(),
+            market.get_hazard("CORP").unwrap().as_ref(),
             as_of,
         )
         .unwrap();
@@ -585,8 +585,8 @@ fn test_higher_hazard_increases_protection_value() {
 
         let protection_pv = cds
             .pv_protection_leg(
-                market.get_discount_ref("USD_OIS").unwrap(),
-                market.get_hazard_ref("CORP").unwrap(),
+                market.get_discount("USD_OIS").unwrap().as_ref(),
+                market.get_hazard("CORP").unwrap().as_ref(),
                 as_of,
             )
             .unwrap();
@@ -631,8 +631,8 @@ fn test_higher_recovery_decreases_protection_value() {
 
         let protection_pv = cds
             .pv_protection_leg(
-                market.get_discount_ref("USD_OIS").unwrap(),
-                market.get_hazard_ref("CORP").unwrap(),
+                market.get_discount("USD_OIS").unwrap().as_ref(),
+                market.get_hazard("CORP").unwrap().as_ref(),
                 as_of,
             )
             .unwrap();
@@ -714,8 +714,8 @@ fn test_accrual_on_default_increases_premium() {
     let pv_with = pricer_with_accrual
         .pv_premium_leg(
             &cds,
-            market.get_discount_ref("USD_OIS").unwrap(),
-            market.get_hazard_ref("CORP").unwrap(),
+            market.get_discount("USD_OIS").unwrap().as_ref(),
+            market.get_hazard("CORP").unwrap().as_ref(),
             as_of,
         )
         .unwrap()
@@ -724,8 +724,8 @@ fn test_accrual_on_default_increases_premium() {
     let pv_without = pricer_without_accrual
         .pv_premium_leg(
             &cds,
-            market.get_discount_ref("USD_OIS").unwrap(),
-            market.get_hazard_ref("CORP").unwrap(),
+            market.get_discount("USD_OIS").unwrap().as_ref(),
+            market.get_hazard("CORP").unwrap().as_ref(),
             as_of,
         )
         .unwrap()
@@ -769,8 +769,8 @@ fn test_settlement_delay_reduces_protection_pv() {
     let pv_no_delay = pricer
         .pv_protection_leg(
             &cds_no_delay,
-            market.get_discount_ref("USD_OIS").unwrap(),
-            market.get_hazard_ref("CORP").unwrap(),
+            market.get_discount("USD_OIS").unwrap().as_ref(),
+            market.get_hazard("CORP").unwrap().as_ref(),
             as_of,
         )
         .unwrap()
@@ -779,8 +779,8 @@ fn test_settlement_delay_reduces_protection_pv() {
     let pv_with_delay = pricer
         .pv_protection_leg(
             &cds_with_delay,
-            market.get_discount_ref("USD_OIS").unwrap(),
-            market.get_hazard_ref("CORP").unwrap(),
+            market.get_discount("USD_OIS").unwrap().as_ref(),
+            market.get_hazard("CORP").unwrap().as_ref(),
             as_of,
         )
         .unwrap()

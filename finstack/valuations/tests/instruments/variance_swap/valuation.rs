@@ -28,7 +28,7 @@ fn test_npv_before_start_uses_forward_variance_and_discounting() {
         .day_count
         .year_fraction(as_of, swap.maturity, Default::default())
         .unwrap();
-    let df = ctx.get_discount_ref(DISC_ID).unwrap().df(t);
+    let df = ctx.get_discount(DISC_ID).unwrap().df(t);
     let expected = undiscounted * df;
 
     assert!((pv.amount() - expected).abs() < LOOSE_EPSILON);
@@ -111,7 +111,7 @@ fn test_npv_mid_period_blends_realized_and_forward_components() {
         .day_count
         .year_fraction(as_of, swap.maturity, Default::default())
         .unwrap();
-    let df = ctx.get_discount_ref(DISC_ID).unwrap().df(t);
+    let df = ctx.get_discount(DISC_ID).unwrap().df(t);
     let expected = swap.payoff(expected_var).amount() * df;
 
     assert!((pv.amount() - expected).abs() < LOOSE_EPSILON);

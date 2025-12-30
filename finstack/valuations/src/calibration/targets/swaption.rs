@@ -537,10 +537,10 @@ Set params.sabr_extrapolation='clamp' to allow flat extrapolation.",
         leg_conv: &SwaptionLegConventions<'_>,
         context: &MarketContext,
     ) -> Result<f64> {
-        let disc = context.get_discount_ref(&params.discount_curve_id)?;
+        let disc = context.get_discount(&params.discount_curve_id)?;
 
         // PV01/annuity using a proper fixed-leg schedule.
-        let pv01 = Self::calculate_pv01_proper(swap_start, swap_end, leg_conv, disc)?;
+        let pv01 = Self::calculate_pv01_proper(swap_start, swap_end, leg_conv, disc.as_ref())?;
         if !pv01.is_finite() || pv01 <= 1e-16 {
             return Err(finstack_core::Error::Input(
                 finstack_core::InputError::Invalid,
@@ -549,7 +549,7 @@ Set params.sabr_extrapolation='clamp' to allow flat extrapolation.",
 
         // Multi-curve mode: use forward curve for the floating leg PV if configured.
         if let Some(ref forward_id) = params.forward_id {
-            let fwd = context.get_forward_ref(forward_id)?;
+            let fwd = context.get_forward(forward_id)?;
 
             let float_sched = crate::cashflow::builder::date_generation::build_dates_checked(
                 swap_start,
@@ -1203,13 +1203,13 @@ mod tests {
         let maturity_date = expiry_date.add_months((tenor_years * 12.0).round() as i32);
 
         let disc_ref = ctx
-            .get_discount_ref(p.discount_curve_id.as_ref())
+            .get_discount(p.discount_curve_id.as_ref())
             .expect("disc");
         let pv01 = SwaptionVolBootstrapper::calculate_pv01_proper(
             expiry_date,
             maturity_date,
             &leg,
-            disc_ref,
+            disc_ref.as_ref(),
         )
         .expect("pv01");
         let t_start = disc_ref

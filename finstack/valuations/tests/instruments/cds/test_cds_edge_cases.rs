@@ -220,8 +220,8 @@ fn test_full_recovery_rate() {
     // With full recovery, protection leg should be worth zero
     let protection_pv = cds
         .pv_protection_leg(
-            market.get_discount_ref("USD_OIS").unwrap(),
-            market.get_hazard_ref("CORP").unwrap(),
+            market.get_discount("USD_OIS").unwrap().as_ref(),
+            market.get_hazard("CORP").unwrap().as_ref(),
             as_of,
         )
         .unwrap();
@@ -410,8 +410,8 @@ fn test_zero_hazard_rate() {
     // With zero hazard rate, protection leg should be zero
     let protection_pv = cds
         .pv_protection_leg(
-            market.get_discount_ref("USD_OIS").unwrap(),
-            market.get_hazard_ref("CORP").unwrap(),
+            market.get_discount("USD_OIS").unwrap().as_ref(),
+            market.get_hazard("CORP").unwrap().as_ref(),
             as_of,
         )
         .unwrap();

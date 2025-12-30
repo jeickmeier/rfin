@@ -37,9 +37,7 @@ pub enum ScheduleAssetClass {
 
 impl ScheduleAssetClass {
     fn normalize(raw: &str) -> String {
-        raw.trim()
-            .to_ascii_lowercase()
-            .replace([' ', '-'], "_")
+        raw.trim().to_ascii_lowercase().replace([' ', '-'], "_")
     }
 
     /// Normalized string identifier for this asset class.
@@ -140,10 +138,7 @@ impl RegulatorySchedule {
             }
         }
         let registry = embedded_registry().unwrap();
-        let schedule = registry
-            .schedule_im
-            .get("bcbs_iosco")
-            .unwrap();
+        let schedule = registry.schedule_im.get("bcbs_iosco").unwrap();
         Self::from_registry(schedule.clone())
     }
 
@@ -157,7 +152,6 @@ impl RegulatorySchedule {
             default_rate: entry.default_rate,
         }
     }
-
 
     /// Get the IM rate for an asset class and maturity.
     #[must_use]
@@ -248,10 +242,9 @@ impl ScheduleImCalculator {
     /// Create calculator resolved from a provided `FinstackConfig`.
     pub fn from_finstack_config(cfg: &finstack_core::config::FinstackConfig) -> Result<Self> {
         let registry = margin_registry_from_config(cfg)?;
-        let entry = registry
-            .schedule_im
-            .get("bcbs_iosco")
-            .ok_or_else(|| finstack_core::Error::Validation("bcbs_iosco schedule missing".into()))?;
+        let entry = registry.schedule_im.get("bcbs_iosco").ok_or_else(|| {
+            finstack_core::Error::Validation("bcbs_iosco schedule missing".into())
+        })?;
         Ok(Self::from_registry(entry))
     }
 

@@ -22,7 +22,7 @@ impl MetricCalculator for Recovery01Calculator {
         let as_of = context.as_of;
 
         // Get the credit index
-        let original_index = context.curves.credit_index_ref(&tranche.credit_index_id)?;
+        let original_index = context.curves.credit_index(&tranche.credit_index_id)?;
         let base_recovery = original_index.recovery_rate;
 
         // Create bumped credit index (up)

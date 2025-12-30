@@ -53,26 +53,26 @@
 // API note: `collections` is intentionally kept as an internal module to avoid
 // committing to a public submodule layout. Downstream crates should import the
 // aliases directly from the crate root (`finstack_core::HashMap`).
+/// Foundational cashflow primitives and discounting helpers.
+pub mod cashflow;
 pub(crate) mod collections;
 pub mod config;
 pub mod currency;
-pub(crate) mod error;
-/// Market data term‐structure framework (former `curves` module)
-pub mod market_data;
-/// Currency-tagged monetary amounts with safe arithmetic
-pub mod money;
-/// Explainability infrastructure (opt-in tracing)
-pub mod explain;
 /// Date & calendar helpers (facade over the `time` crate)
 pub mod dates;
-/// Numerical helpers (root finding, summation, stats)
-pub mod math;
+pub(crate) mod error;
+/// Explainability infrastructure (opt-in tracing)
+pub mod explain;
 /// Expression engine (AST, evaluator, Polars lowering)
 pub mod expr;
+/// Market data term‐structure framework (former `curves` module)
+pub mod market_data;
+/// Numerical helpers (root finding, summation, stats)
+pub mod math;
+/// Currency-tagged monetary amounts with safe arithmetic
+pub mod money;
 /// Core type definitions (phantom-typed IDs, rates, etc.)
 pub mod types;
-/// Foundational cashflow primitives and discounting helpers.
-pub mod cashflow;
 
 /// Hash map type alias used across Finstack.
 ///

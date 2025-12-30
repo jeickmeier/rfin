@@ -69,7 +69,7 @@ pub fn tranche_all_in_rate(coupon: &TrancheCoupon, date: Date, market: &MarketCo
             let cap_bp_f64 = spec.cap_bp.and_then(|d| d.to_f64());
             let fallback_rate = spread_bp_f64 / 10_000.0;
 
-            let fwd = match market.get_forward_ref(spec.index_id.as_str()) {
+            let fwd = match market.get_forward(spec.index_id.as_str()) {
                 Ok(c) => c,
                 Err(_) => return fallback_rate,
             };
@@ -126,7 +126,7 @@ pub fn try_tranche_all_in_rate(
                 .map(|d| d.to_f64().ok_or(finstack_core::InputError::Invalid))
                 .transpose()?;
 
-            let fwd = market.get_forward_ref(spec.index_id.as_str())?;
+            let fwd = market.get_forward(spec.index_id.as_str())?;
             let tenor = fwd.tenor();
             let period_end = try_tenor_to_period_end(date, tenor, fwd.day_count())?;
 
@@ -159,7 +159,7 @@ pub fn asset_all_in_rate(
     market: &MarketContext,
 ) -> f64 {
     if let Some(idx) = index_id {
-        if let Ok(fwd) = market.get_forward_ref(idx) {
+        if let Ok(fwd) = market.get_forward(idx) {
             let base = fwd.base_date();
             let dc = fwd.day_count();
             let t2 = dc
@@ -191,7 +191,7 @@ pub fn try_asset_all_in_rate(
         }
         .into());
     };
-    let fwd = market.get_forward_ref(idx)?;
+    let fwd = market.get_forward(idx)?;
     let base = fwd.base_date();
     let dc = fwd.day_count();
     let t2 = dc.year_fraction(base, date, DayCountCtx::default())?;

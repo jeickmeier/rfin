@@ -459,7 +459,11 @@ fn annual_bounds(year: i32) -> crate::Result<(Date, Date)> {
 
 // Fiscal year bounds functions
 
-fn fiscal_quarter_bounds(fiscal_year: i32, q: u8, config: FiscalConfig) -> crate::Result<(Date, Date)> {
+fn fiscal_quarter_bounds(
+    fiscal_year: i32,
+    q: u8,
+    config: FiscalConfig,
+) -> crate::Result<(Date, Date)> {
     // Calculate the start of the fiscal year
     let fy_start = fiscal_year_start(fiscal_year, config)?;
 
@@ -474,7 +478,11 @@ fn fiscal_quarter_bounds(fiscal_year: i32, q: u8, config: FiscalConfig) -> crate
     Ok((start, end))
 }
 
-fn fiscal_month_bounds(fiscal_year: i32, m: u8, config: FiscalConfig) -> crate::Result<(Date, Date)> {
+fn fiscal_month_bounds(
+    fiscal_year: i32,
+    m: u8,
+    config: FiscalConfig,
+) -> crate::Result<(Date, Date)> {
     // Calculate the start of the fiscal year
     let fy_start = fiscal_year_start(fiscal_year, config)?;
 
@@ -489,7 +497,11 @@ fn fiscal_month_bounds(fiscal_year: i32, m: u8, config: FiscalConfig) -> crate::
 ///
 /// Like regular week_bounds, this uses simple 7-day blocks starting from the
 /// fiscal year start date, not ISO 8601 week numbering.
-fn fiscal_week_bounds(fiscal_year: i32, w: u8, config: FiscalConfig) -> crate::Result<(Date, Date)> {
+fn fiscal_week_bounds(
+    fiscal_year: i32,
+    w: u8,
+    config: FiscalConfig,
+) -> crate::Result<(Date, Date)> {
     use time::Duration;
 
     // Calculate the start of the fiscal year
@@ -502,7 +514,11 @@ fn fiscal_week_bounds(fiscal_year: i32, w: u8, config: FiscalConfig) -> crate::R
     Ok((start, end))
 }
 
-fn fiscal_half_bounds(fiscal_year: i32, h: u8, config: FiscalConfig) -> crate::Result<(Date, Date)> {
+fn fiscal_half_bounds(
+    fiscal_year: i32,
+    h: u8,
+    config: FiscalConfig,
+) -> crate::Result<(Date, Date)> {
     // Calculate the start of the fiscal year
     let fy_start = fiscal_year_start(fiscal_year, config)?;
 
@@ -535,7 +551,8 @@ fn fiscal_year_start(fiscal_year: i32, config: FiscalConfig) -> crate::Result<Da
         fiscal_year - 1
     };
 
-    let month = Month::try_from(config.start_month).map_err(|_| crate::error::InputError::Invalid)?;
+    let month =
+        Month::try_from(config.start_month).map_err(|_| crate::error::InputError::Invalid)?;
     match crate::dates::create_date(calendar_year, month, config.start_day) {
         Ok(d) => Ok(d),
         Err(_) => {
@@ -831,7 +848,11 @@ impl Ord for PeriodId {
             (Ok((ss, se)), Ok((os, oe))) => (ss, se, os, oe),
             // Defensive fallback: bounds should be infallible for valid PeriodId values,
             // but if a malformed PeriodId slips through, we still need a total ordering.
-            _ => return self_kind.cmp(&other_kind).then(self.index.cmp(&other.index)),
+            _ => {
+                return self_kind
+                    .cmp(&other_kind)
+                    .then(self.index.cmp(&other.index))
+            }
         };
 
         let by_start = self_start.cmp(&other_start);

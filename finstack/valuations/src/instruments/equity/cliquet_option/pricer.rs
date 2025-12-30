@@ -173,8 +173,8 @@ impl CliquetOptionMcPricer {
         }
 
         // Get curves
-        let disc_curve = curves.get_discount_ref(inst.discount_curve_id.as_str())?;
-        let vol_surface = curves.surface_ref(inst.vol_surface_id.as_str())?;
+        let disc_curve = curves.get_discount(inst.discount_curve_id.as_str())?;
+        let vol_surface = curves.surface(inst.vol_surface_id.as_str())?;
 
         // Optional dividend yield
         let div_yield = if let Some(div_id) = &inst.div_yield_id {

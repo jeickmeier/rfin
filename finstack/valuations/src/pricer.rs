@@ -1098,7 +1098,13 @@ impl PricerRegistry {
         market: &Market,
         as_of: finstack_core::dates::Date,
     ) -> PricingResult<crate::results::ValuationResult> {
-        self.price_with_registry_with_config(instrument, model, market, as_of, &FinstackConfig::default())
+        self.price_with_registry_with_config(
+            instrument,
+            model,
+            market,
+            as_of,
+            &FinstackConfig::default(),
+        )
     }
 
     /// Price an instrument using the registry with an explicit `FinstackConfig`.
@@ -1134,7 +1140,13 @@ impl PricerRegistry {
         market: &Market,
         as_of: finstack_core::dates::Date,
     ) -> Vec<PricingResult<crate::results::ValuationResult>> {
-        self.price_batch_with_config(instruments, model, market, as_of, &FinstackConfig::default())
+        self.price_batch_with_config(
+            instruments,
+            model,
+            market,
+            as_of,
+            &FinstackConfig::default(),
+        )
     }
 
     /// Price a batch of instruments using the registry with an explicit `FinstackConfig`.

@@ -122,5 +122,8 @@ pub fn bump_inflation_rates(
     let cfg = CalibrationConfig::default();
     let step = StepParams::Inflation(params.clone());
     let (ctx, _report) = execute_step(&step, &market_quotes, context, &cfg)?;
-    Ok(ctx.get_inflation_ref(params.curve_id.as_str())?.clone())
+    Ok(ctx
+        .get_inflation(params.curve_id.as_str())?
+        .as_ref()
+        .clone())
 }

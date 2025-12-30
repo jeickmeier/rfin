@@ -2,7 +2,8 @@ use finstack_core::{Error, Result};
 use serde_json::Value;
 
 const SCHEDULE_IM_PATH: &str = include_str!("../../../data/margin/schedule_im.v1.json");
-const COLLATERAL_SCHEDULES_PATH: &str = include_str!("../../../data/margin/collateral_schedules.v1.json");
+const COLLATERAL_SCHEDULES_PATH: &str =
+    include_str!("../../../data/margin/collateral_schedules.v1.json");
 const DEFAULTS_PATH: &str = include_str!("../../../data/margin/defaults.v1.json");
 const CCP_PATH: &str = include_str!("../../../data/margin/ccp_methodologies.v1.json");
 const SIMM_PATH: &str = include_str!("../../../data/margin/simm.v1.json");

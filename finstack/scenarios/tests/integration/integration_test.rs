@@ -57,7 +57,7 @@ fn test_curve_parallel_shock() {
     assert_eq!(report.operations_applied, 1);
 
     // Verify the bumped curve exists with original ID (ID is preserved for instrument references)
-    let bumped_curve = market.get_discount_ref("USD-OIS").unwrap();
+    let bumped_curve = market.get_discount("USD-OIS").unwrap();
 
     // The curve should be bumped using solve-to-par logic.
     // This differs from simple zero-rate shifting:
@@ -204,7 +204,7 @@ fn test_vol_surface_parallel_shock() {
     assert_eq!(report.operations_applied, 1);
 
     // Verify shocked surface
-    let shocked_surface = market.surface_ref("SPX").unwrap();
+    let shocked_surface = market.surface("SPX").unwrap();
     let val = shocked_surface
         .value_checked(1.0, 100.0)
         .expect("grid point lookup should succeed");
@@ -250,6 +250,6 @@ fn test_base_correlation_parallel_shock() {
     assert_eq!(report.operations_applied, 1);
 
     // Verify shocked curve exists (actual shock value testing is covered in bucket_filtering_test.rs)
-    let shocked_curve = market.get_base_correlation_ref("CDX_IG").unwrap();
+    let shocked_curve = market.get_base_correlation("CDX_IG").unwrap();
     assert_eq!(shocked_curve.id().as_str(), "CDX_IG");
 }

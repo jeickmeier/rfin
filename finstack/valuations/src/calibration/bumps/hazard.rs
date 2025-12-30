@@ -138,7 +138,7 @@ pub fn bump_hazard_spreads(
     let cfg = CalibrationConfig::default();
     let step = StepParams::Hazard(params.clone());
     let (ctx, _report) = execute_step(&step, &market_quotes, context, &cfg)?;
-    let new_curve = ctx.get_hazard_ref(params.curve_id.as_str())?.clone();
+    let new_curve = ctx.get_hazard(params.curve_id.as_str())?.as_ref().clone();
     Ok(new_curve)
 }
 

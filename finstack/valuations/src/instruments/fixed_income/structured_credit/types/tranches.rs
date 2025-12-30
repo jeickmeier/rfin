@@ -184,7 +184,7 @@ impl TrancheCoupon {
                     .transpose()?;
 
                 // Use centralized projection
-                let fwd = context.get_forward_ref(spec.index_id.as_str())?;
+                let fwd = context.get_forward(spec.index_id.as_str())?;
                 let tenor = fwd.tenor();
                 let period_end = crate::instruments::structured_credit::utils::rate_helpers::
                     try_tenor_to_period_end(date, tenor, fwd.day_count())?;
@@ -195,7 +195,12 @@ impl TrancheCoupon {
                     floor_bp_f64,
                     cap_bp_f64,
                 );
-                crate::cashflow::builder::project_floating_rate(date, period_end, fwd, &params)
+                crate::cashflow::builder::project_floating_rate(
+                    date,
+                    period_end,
+                    fwd.as_ref(),
+                    &params,
+                )
             }
         }
     }

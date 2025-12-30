@@ -60,15 +60,15 @@ pub(crate) fn apply_output(
 ) {
     match output {
         StepOutput::Curve(curve) => {
-            context.insert_mut(curve);
+            *context = std::mem::take(context).insert(curve);
         }
         StepOutput::Surface(surface) => {
-            context.insert_surface_arc_mut(surface);
+            *context = std::mem::take(context).insert_surface_arc(surface);
         }
     }
 
     if let Some((id, data)) = credit_index_update {
-        context.insert_credit_index_mut(id, data);
+        *context = std::mem::take(context).insert_credit_index(id, data);
     }
 }
 
@@ -127,13 +127,14 @@ pub(crate) fn execute(
             })
         }
         StepParams::BaseCorrelation(p) => {
-            let (ctx, report) = BaseCorrelationBootstrapper::solve(p, quotes, context, global_config)?;
+            let (ctx, report) =
+                BaseCorrelationBootstrapper::solve(p, quotes, context, global_config)?;
             let curve_id = CurveId::from(format!("{}_CORR", p.index_id));
             let output = StepOutput::Curve(ctx.get_base_correlation(curve_id.as_str())?.into());
             let credit_index_update = ctx
-                .credit_index_ref(&p.index_id)
+                .credit_index(&p.index_id)
                 .ok()
-                .map(|idx| (p.index_id.clone(), idx.clone()));
+                .map(|idx| (p.index_id.clone(), idx.as_ref().clone()));
             Ok(StepOutcome {
                 output,
                 credit_index_update,
@@ -141,7 +142,8 @@ pub(crate) fn execute(
             })
         }
         StepParams::VolSurface(p) => {
-            let (surface, report) = VolSurfaceBootstrapper::solve(p, quotes, context, global_config)?;
+            let (surface, report) =
+                VolSurfaceBootstrapper::solve(p, quotes, context, global_config)?;
             // Preserve context insertion behavior
             let mut new_report = report.clone();
             new_report

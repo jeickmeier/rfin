@@ -270,8 +270,8 @@ impl XccySwap {
         self.validate_leg(leg)?;
 
         // Curves
-        let disc = context.get_discount_ref(&leg.discount_curve_id)?;
-        let fwd = context.get_forward_ref(&leg.forward_curve_id)?;
+        let disc = context.get_discount(&leg.discount_curve_id)?;
+        let fwd = context.get_forward(&leg.forward_curve_id)?;
         let cal = leg.resolve_calendar(&self.id)?;
 
         let dc_ctx = DayCountCtx::default();

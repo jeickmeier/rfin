@@ -6,6 +6,7 @@ use criterion::{criterion_group, criterion_main, Criterion};
 use finstack_core::currency::Currency;
 use finstack_core::dates::Date;
 use finstack_core::market_data::context::MarketContext;
+use finstack_core::HashMap;
 use finstack_valuations::calibration::api::{
     engine,
     schema::{
@@ -13,13 +14,12 @@ use finstack_valuations::calibration::api::{
         ForwardCurveParams, StepParams, CALIBRATION_SCHEMA,
     },
 };
-use finstack_valuations::calibration::CalibrationMethod;
 use finstack_valuations::calibration::CalibrationConfig;
+use finstack_valuations::calibration::CalibrationMethod;
 use finstack_valuations::market::conventions::ids::IndexId;
 use finstack_valuations::market::quotes::ids::{Pillar, QuoteId};
 use finstack_valuations::market::quotes::market_quote::MarketQuote;
 use finstack_valuations::market::quotes::rates::RateQuote;
-use finstack_core::HashMap;
 use std::hint::black_box;
 use time::Month;
 

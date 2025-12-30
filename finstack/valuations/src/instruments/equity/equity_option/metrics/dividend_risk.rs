@@ -53,9 +53,6 @@ impl MetricCalculator for DividendRiskCalculator {
             Err(_) => 0.0, // Default to 0 if not found
         };
 
-        // Bump dividend yield up and down (additive bumps)
-        use finstack_core::types::CurveId;
-
         // Get current scalar to clone its structure
         let current_scalar = context.curves.price(&div_yield_id)?;
 
@@ -71,7 +68,7 @@ impl MetricCalculator for DividendRiskCalculator {
                 )
             }
         };
-        curves_up.set_price_mut(CurveId::from(div_yield_id.clone()), new_value_up);
+        curves_up = curves_up.insert_price(div_yield_id.as_str(), new_value_up);
         let pv_up = option.npv(&curves_up, as_of)?.amount();
 
         // Bump down
@@ -94,7 +91,7 @@ impl MetricCalculator for DividendRiskCalculator {
                 )
             }
         };
-        curves_down.set_price_mut(CurveId::from(div_yield_id), new_value_down);
+        curves_down = curves_down.insert_price(div_yield_id.as_str(), new_value_down);
         let pv_down = option.npv(&curves_down, as_of)?.amount();
 
         // Dividend01 = (PV_up - PV_down) / (2 * bump_size)

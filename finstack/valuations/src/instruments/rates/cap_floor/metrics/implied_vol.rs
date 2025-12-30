@@ -24,8 +24,8 @@ impl MetricCalculator for ImpliedVolCalculator {
         })?;
 
         // Get forward rate from market context
-        let forward_curve = context.curves.get_forward_ref(&option.forward_id)?;
-        let discount_curve = context.curves.get_discount_ref(&option.discount_curve_id)?;
+        let forward_curve = context.curves.get_forward(&option.forward_id)?;
+        let discount_curve = context.curves.get_discount(&option.discount_curve_id)?;
 
         // For single period caplet/floorlet, use simple calculation
         let time_to_fixing = if option.start_date > context.as_of {

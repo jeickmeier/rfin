@@ -57,7 +57,7 @@ fn test_vol_bucket_filtering_by_tenor() {
     assert_eq!(report.operations_applied, 1);
 
     // Verify shocked surface
-    let shocked_surface = market.surface_ref("SPX").unwrap();
+    let shocked_surface = market.surface("SPX").unwrap();
 
     // 1Y expiry should be shocked (+10%)
     let shocked_1y_100k = shocked_surface
@@ -126,7 +126,7 @@ fn test_vol_bucket_filtering_by_strike() {
     assert_eq!(report.operations_applied, 1);
 
     // Verify 100 strike is shocked
-    let shocked_surface = market.surface_ref("SPX").unwrap();
+    let shocked_surface = market.surface("SPX").unwrap();
     let shocked_100 = shocked_surface
         .value_checked(1.0, 100.0)
         .expect("grid point lookup should succeed");
@@ -184,7 +184,7 @@ fn test_basecorr_bucket_filtering() {
     assert_eq!(report.operations_applied, 1);
 
     // Verify shocked curve
-    let shocked_curve = market.get_base_correlation_ref("CDX_IG").unwrap();
+    let shocked_curve = market.get_base_correlation("CDX_IG").unwrap();
 
     // 7% should be shocked
     let shocked_7 = shocked_curve.correlation(0.07);

@@ -30,11 +30,7 @@
 use crate::instruments::common::traits::Instrument;
 use crate::margin::calculators::traits::{ImCalculator, ImResult};
 use crate::margin::config::margin_registry_from_config;
-use crate::margin::registry::{
-    embedded_registry,
-    MarginRegistry,
-    SimmParams,
-};
+use crate::margin::registry::{embedded_registry, MarginRegistry, SimmParams};
 use crate::margin::traits::{SimmRiskClass, SimmSensitivities};
 use crate::margin::types::ImMethodology;
 use finstack_core::currency::Currency;
@@ -109,10 +105,7 @@ impl SimmRiskWeights {
             return 1.0;
         }
         let key = ordered_pair(a, b);
-        *self
-            .risk_class_correlations
-            .get(&key)
-            .unwrap_or(&1.0)
+        *self.risk_class_correlations.get(&key).unwrap_or(&1.0)
     }
 
     fn commodity_bucket_weight(&self, bucket: &str) -> f64 {
@@ -126,7 +119,10 @@ impl SimmRiskWeights {
     }
 }
 
-fn load_simm_weights(version: SimmVersion, registry: &MarginRegistry) -> finstack_core::Result<SimmRiskWeights> {
+fn load_simm_weights(
+    version: SimmVersion,
+    registry: &MarginRegistry,
+) -> finstack_core::Result<SimmRiskWeights> {
     let params = resolve_simm_params(version, registry)?;
     Ok(SimmRiskWeights {
         version,
@@ -144,11 +140,7 @@ fn resolve_simm_params(
     version: SimmVersion,
     registry: &MarginRegistry,
 ) -> finstack_core::Result<&SimmParams> {
-    if let Some(found) = registry
-        .simm
-        .values()
-        .find(|p| p.version == version)
-    {
+    if let Some(found) = registry.simm.values().find(|p| p.version == version) {
         return Ok(found);
     }
     if let Some(default_id) = &registry.simm_default {
@@ -456,10 +448,7 @@ fn risk_class_correlation(a: SimmRiskClass, b: SimmRiskClass) -> f64 {
         return 1.0;
     }
     let params = default_simm_params();
-    if let Some(rho) = params
-        .risk_class_correlations
-        .get(&ordered_pair(a, b))
-    {
+    if let Some(rho) = params.risk_class_correlations.get(&ordered_pair(a, b)) {
         return *rho;
     }
     1.0
@@ -475,10 +464,7 @@ fn commodity_bucket_weight(bucket: &str) -> f64 {
     if let Some(weight) = params.commodity_bucket_weights.get(&key) {
         return *weight;
     }
-    *params
-        .commodity_bucket_weights
-        .get("other")
-        .unwrap()
+    *params.commodity_bucket_weights.get("other").unwrap()
 }
 
 fn bucket_id_from_label(bucket: &str) -> Option<u8> {
@@ -611,7 +597,10 @@ mod tests {
         let calc = SimmCalculator::new(SimmVersion::V2_6);
         assert_eq!(calc.risk_weights.version, SimmVersion::V2_6);
         assert!(calc.risk_weights.ir_delta_weights.contains_key("5y"));
-        assert!(calc.risk_weights.cq_delta_weights.contains_key("corporates"));
+        assert!(calc
+            .risk_weights
+            .cq_delta_weights
+            .contains_key("corporates"));
     }
 
     #[test]

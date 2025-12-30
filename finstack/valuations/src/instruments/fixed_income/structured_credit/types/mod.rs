@@ -721,12 +721,12 @@ impl Instrument for StructuredCredit {
     }
 
     fn value(&self, context: &MarketContext, as_of: Date) -> finstack_core::Result<Money> {
-        let disc = context.get_discount_ref(self.discount_curve_id.as_str())?;
+        let disc = context.get_discount(self.discount_curve_id.as_str())?;
         let flows = self.build_schedule(context, as_of)?;
 
         use crate::instruments::common::discountable::Discountable;
         let curve_day_count = disc.day_count();
-        flows.npv(disc, as_of, curve_day_count)
+        flows.npv(disc.as_ref(), as_of, curve_day_count)
     }
 
     fn price_with_metrics(

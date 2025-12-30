@@ -16,7 +16,7 @@ impl MetricCalculator for ForwardPv01Calculator {
         let base = context.base_value.amount();
 
         // Get the original forward curve
-        let original_fwd = context.curves.get_forward_ref(&option.forward_id)?;
+        let original_fwd = context.curves.get_forward(&option.forward_id)?;
 
         // Create bumped curve with +1bp, keeping the SAME ID as original
         let bump_amount = 0.0001; // 1bp as fraction

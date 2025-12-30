@@ -73,12 +73,12 @@ impl FxBarrierOptionMcPricer {
         }
 
         // Domestic curve (discounting)
-        let disc_curve = curves.get_discount_ref(inst.domestic_discount_curve_id.as_str())?;
+        let disc_curve = curves.get_discount(inst.domestic_discount_curve_id.as_str())?;
         let r_dom = disc_curve.zero(t);
         let discount_factor = disc_curve.df_between_dates(as_of, inst.expiry)?;
 
         // Foreign curve (risk-free rate for drift)
-        let for_curve = curves.get_discount_ref(inst.foreign_discount_curve_id.as_str())?;
+        let for_curve = curves.get_discount(inst.foreign_discount_curve_id.as_str())?;
         let r_for = for_curve.zero(t);
 
         let spot_scalar = curves.price(&inst.fx_spot_id)?;
@@ -87,7 +87,7 @@ impl FxBarrierOptionMcPricer {
             finstack_core::market_data::scalars::MarketScalar::Price(m) => m.amount(),
         };
 
-        let vol_surface = curves.surface_ref(inst.fx_vol_id.as_str())?;
+        let vol_surface = curves.surface(inst.fx_vol_id.as_str())?;
         let sigma = vol_surface.value_clamped(t, inst.strike.amount());
 
         // For FX, drift is r_dom - r_for.
@@ -221,10 +221,10 @@ fn collect_fx_barrier_inputs(
         .day_count
         .year_fraction(as_of, inst.expiry, DayCountCtx::default())?;
 
-    let disc_curve = curves.get_discount_ref(inst.domestic_discount_curve_id.as_str())?;
+    let disc_curve = curves.get_discount(inst.domestic_discount_curve_id.as_str())?;
     let r_dom = disc_curve.zero(t);
 
-    let for_curve = curves.get_discount_ref(inst.foreign_discount_curve_id.as_str())?;
+    let for_curve = curves.get_discount(inst.foreign_discount_curve_id.as_str())?;
     let r_for = for_curve.zero(t);
 
     let spot_scalar = curves.price(&inst.fx_spot_id)?;
@@ -233,7 +233,7 @@ fn collect_fx_barrier_inputs(
         finstack_core::market_data::scalars::MarketScalar::Price(m) => m.amount(),
     };
 
-    let vol_surface = curves.surface_ref(inst.fx_vol_id.as_str())?;
+    let vol_surface = curves.surface(inst.fx_vol_id.as_str())?;
     let sigma = vol_surface.value_clamped(t, inst.strike.amount());
 
     Ok((fx_spot, r_dom, r_for, sigma, t))

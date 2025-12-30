@@ -163,7 +163,7 @@ fn test_upfront_payment_discounted() {
     // Expected discount factor roughly exp(-0.05 * 1.0)
     // Actually using ACT/360 in helper, so check exact year fraction or trust the curve calculation.
     // We can fetch DF from curve for precision.
-    let curve = market.get_discount_ref("USD_OIS").unwrap();
+    let curve = market.get_discount("USD_OIS").unwrap();
     let df = curve.df_between_dates(as_of, payment_date).unwrap();
     let expected_pv_impact = upfront_amount * df;
 

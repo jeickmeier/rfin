@@ -23,7 +23,7 @@ impl MetricCalculator for Fx01Calculator {
 
         let base_pv = ndf.value(&curves, as_of)?;
 
-        let settlement_disc = curves.get_discount_ref(ndf.settlement_curve_id.as_str())?;
+        let settlement_disc = curves.get_discount(ndf.settlement_curve_id.as_str())?;
         let df_settlement = settlement_disc.df_between_dates(as_of, ndf.maturity_date)?;
 
         // Resolve spot with override if present
@@ -58,7 +58,7 @@ impl MetricCalculator for Fx01Calculator {
 
         // If foreign curve available, use CIRP for bumped forward
         let effective_forward = if let Some(ref foreign_curve_id) = ndf.foreign_curve_id {
-            if let Ok(foreign_disc) = curves.get_discount_ref(foreign_curve_id.as_str()) {
+            if let Ok(foreign_disc) = curves.get_discount(foreign_curve_id.as_str()) {
                 let df_foreign = foreign_disc.df_between_dates(as_of, ndf.maturity_date)?;
                 bumped_spot * df_foreign / df_settlement
             } else {

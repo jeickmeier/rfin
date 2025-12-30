@@ -168,13 +168,13 @@ mod cds_market_edge {
             )
             .expect("CDS construction should succeed");
 
-            let disc_ref = market.get_discount_ref("USD_OIS").unwrap();
-            let hazard_ref = market.get_hazard_ref("CORP").unwrap();
+            let disc_ref = market.get_discount("USD_OIS").unwrap();
+            let hazard_ref = market.get_hazard("CORP").unwrap();
 
             // With accrual
             let pricer_with = CDSPricer::new();
             let pv_with = pricer_with
-                .premium_leg_pv_per_bp(&cds, disc_ref, hazard_ref, as_of)
+                .premium_leg_pv_per_bp(&cds, disc_ref.as_ref(), hazard_ref.as_ref(), as_of)
                 .unwrap();
 
             // Without accrual
@@ -183,7 +183,7 @@ mod cds_market_edge {
                 ..Default::default()
             });
             let pv_without = pricer_without
-                .premium_leg_pv_per_bp(&cds, disc_ref, hazard_ref, as_of)
+                .premium_leg_pv_per_bp(&cds, disc_ref.as_ref(), hazard_ref.as_ref(), as_of)
                 .unwrap();
 
             let aod_impact = pv_with - pv_without;

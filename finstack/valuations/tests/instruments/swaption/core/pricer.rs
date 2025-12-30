@@ -21,10 +21,10 @@ fn test_simple_swaption_black_pricer_forces_black() {
 
     let market = create_flat_market(as_of, 0.03, 0.2);
     let disc = market
-        .get_discount_ref(swaption.discount_curve_id.as_ref())
+        .get_discount(swaption.discount_curve_id.as_ref())
         .unwrap();
 
-    let expected_black = swaption.price_black(disc, 0.25, as_of).unwrap();
+    let expected_black = swaption.price_black(disc.as_ref(), 0.25, as_of).unwrap();
     let pricer = SimpleSwaptionBlackPricer::with_model(ModelKey::Black76);
     let result = pricer.price_dyn(&swaption, &market, as_of).unwrap().value;
 
@@ -79,11 +79,11 @@ fn test_bermudan_pricer_cached_model_sets_measure() {
     );
 
     let market = create_flat_market(as_of, 0.03, 0.2);
-    let disc = market.get_discount_ref("USD_OIS").unwrap();
+    let disc = market.get_discount("USD_OIS").unwrap();
     let ttm = swaption.time_to_maturity(as_of).unwrap();
     let tree = finstack_valuations::instruments::common::models::trees::HullWhiteTree::calibrate(
         HullWhiteParams::default().to_tree_config(50),
-        disc,
+        disc.as_ref(),
         ttm,
     )
     .unwrap();

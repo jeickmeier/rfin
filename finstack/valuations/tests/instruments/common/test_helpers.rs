@@ -376,7 +376,7 @@ mod tests {
     #[test]
     fn test_standard_market_has_curves() {
         let market = standard_market();
-        assert!(market.get_discount_ref("USD-OIS").is_ok());
-        assert!(market.get_discount_ref("EUR-OIS").is_ok());
+        assert!(market.get_discount("USD-OIS").is_ok());
+        assert!(market.get_discount("EUR-OIS").is_ok());
     }
 }

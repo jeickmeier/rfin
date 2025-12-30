@@ -340,7 +340,10 @@ impl std::fmt::Display for ScheduleWarning {
                 write!(f, "graceful fallback triggered: {error_message}")
             }
             Self::MissingCalendarId { calendar_id } => {
-                write!(f, "calendar id '{calendar_id}' not found; adjustment skipped")
+                write!(
+                    f,
+                    "calendar id '{calendar_id}' not found; adjustment skipped"
+                )
             }
         }
     }
@@ -1355,7 +1358,10 @@ mod tests {
 
         // allow_missing_calendar does NOT use graceful_fallback, but it does record a warning
         // so callers can detect that adjustment was skipped.
-        assert!(schedule.has_warnings(), "should record MissingCalendarId warning");
+        assert!(
+            schedule.has_warnings(),
+            "should record MissingCalendarId warning"
+        );
         assert!(!schedule.used_graceful_fallback());
         assert!(matches!(
             schedule.warnings.as_slice(),

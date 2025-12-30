@@ -37,11 +37,11 @@ impl CmsOptionPricer {
         convexity_scale: f64,
     ) -> Result<Money> {
         let mut total_pv = 0.0;
-        let discount_curve = curves.get_discount_ref(inst.discount_curve_id.as_ref())?;
+        let discount_curve = curves.get_discount(inst.discount_curve_id.as_ref())?;
 
         // Get volatility surface if present
         let vol_surface = if let Some(vol_id) = &inst.vol_surface_id {
-            Some(curves.surface_ref(vol_id.as_str())?)
+            Some(curves.surface(vol_id.as_str())?)
         } else {
             None
         };
@@ -69,7 +69,7 @@ impl CmsOptionPricer {
                     .year_fraction(as_of, fixing_date, DayCountCtx::default())?;
 
             // Get volatility
-            let vol = if let Some(surface) = vol_surface {
+            let vol = if let Some(surface) = vol_surface.as_ref() {
                 surface.value_clamped(time_to_fixing, inst.strike_rate)
             } else {
                 0.20
@@ -140,7 +140,7 @@ impl CmsOptionPricer {
         end: Date,
     ) -> Result<(f64, f64)> {
         // Returns (rate, annuity)
-        let disc = market.get_discount_ref(inst.discount_curve_id.as_ref())?;
+        let disc = market.get_discount(inst.discount_curve_id.as_ref())?;
 
         // Calculate Annuity (Fixed Leg)
         let sched_fixed = crate::cashflow::builder::build_dates(
@@ -193,7 +193,7 @@ impl CmsOptionPricer {
             Ok((rate, annuity))
         } else {
             // Dual Curve: Calculate Float Leg PV
-            let fwd_curve = market.get_forward_ref(forward_curve_id.as_ref())?;
+            let fwd_curve = market.get_forward(forward_curve_id.as_ref())?;
             let sched_float = crate::cashflow::builder::build_dates(
                 start,
                 end,

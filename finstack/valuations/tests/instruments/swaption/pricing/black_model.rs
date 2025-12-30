@@ -36,12 +36,12 @@ fn test_black_formula_manual_validation() {
     let pv_inst = swaption.value(&market, as_of).unwrap().amount();
 
     // Manual Black76 calculation
-    let disc = market.get_discount_ref("USD_OIS").unwrap();
+    let disc = market.get_discount("USD_OIS").unwrap();
     let t = swaption
         .year_fraction(as_of, expiry, swaption.day_count)
         .unwrap();
-    let forward = swaption.forward_swap_rate(disc, as_of).unwrap();
-    let annuity = swaption.swap_annuity(disc, as_of).unwrap();
+    let forward = swaption.forward_swap_rate(disc.as_ref(), as_of).unwrap();
+    let annuity = swaption.swap_annuity(disc.as_ref(), as_of).unwrap();
     let vol = 0.50;
 
     let var: f64 = vol * vol * t;
@@ -107,9 +107,9 @@ fn test_payer_receiver_put_call_parity() {
     let pv_receiver = receiver.value(&market, as_of).unwrap().amount();
 
     // Compute theoretical parity difference
-    let disc = market.get_discount_ref("USD_OIS").unwrap();
-    let forward = payer.forward_swap_rate(disc, as_of).unwrap();
-    let annuity = payer.swap_annuity(disc, as_of).unwrap();
+    let disc = market.get_discount("USD_OIS").unwrap();
+    let forward = payer.forward_swap_rate(disc.as_ref(), as_of).unwrap();
+    let annuity = payer.swap_annuity(disc.as_ref(), as_of).unwrap();
     let theoretical_diff = annuity * (forward - strike) * payer.notional.amount();
 
     let actual_diff = pv_payer - pv_receiver;
@@ -141,10 +141,10 @@ fn test_payer_receiver_parity_diagnostics() {
     let market = create_flat_market(as_of, 0.05, 0.30);
 
     let payer = create_standard_payer_swaption(expiry, swap_start, swap_end, strike);
-    let disc = market.get_discount_ref("USD_OIS").unwrap();
+    let disc = market.get_discount("USD_OIS").unwrap();
 
-    let forward = payer.forward_swap_rate(disc, as_of).unwrap();
-    let annuity = payer.swap_annuity(disc, as_of).unwrap();
+    let forward = payer.forward_swap_rate(disc.as_ref(), as_of).unwrap();
+    let annuity = payer.swap_annuity(disc.as_ref(), as_of).unwrap();
 
     // Forward rate should be close to the curve rate for flat curves
     // Allow 5bp tolerance for day count and compounding convention differences

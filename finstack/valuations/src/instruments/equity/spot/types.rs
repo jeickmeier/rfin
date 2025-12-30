@@ -292,7 +292,7 @@ impl Equity {
         let s0 = self.price_per_share(market, as_of)?;
         let dy = self.dividend_yield(market)?;
         // Use configured discount curve ID
-        let disc = market.get_discount_ref(self.discount_curve_id.as_str())?;
+        let disc = market.get_discount(self.discount_curve_id.as_str())?;
         let r = disc.zero(t);
         let fwd = s0.amount() * ((r - dy) * t).exp();
         Ok(Money::new(fwd, self.currency))

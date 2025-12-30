@@ -40,7 +40,7 @@ fn test_ir01_finite_difference_validation() {
     let pv0 = swap.value(&ctx, as_of).unwrap().amount();
 
     // Bump discount curve by 1bp
-    let disc_base = ctx.get_discount_ref("USD-OIS").unwrap();
+    let disc_base = ctx.get_discount("USD-OIS").unwrap();
     let base_date = disc_base.base_date();
 
     let mut bumped_points: Vec<(f64, f64)> = Vec::new();

@@ -96,8 +96,8 @@ impl FxOptionCalculator {
 
         // Discount curves provide discount factors
         // Use each curve's day count for proper discount factor lookup
-        let domestic_disc = curves.get_discount_ref(inst.domestic_discount_curve_id.as_str())?;
-        let foreign_disc = curves.get_discount_ref(inst.foreign_discount_curve_id.as_str())?;
+        let domestic_disc = curves.get_discount(inst.domestic_discount_curve_id.as_str())?;
+        let foreign_disc = curves.get_discount(inst.foreign_discount_curve_id.as_str())?;
 
         // Time to expiry using curve-specific day counts for DF lookup
         let t_disc_dom = self.year_fraction(as_of, inst.expiry, domestic_disc.day_count())?;
@@ -129,7 +129,7 @@ impl FxOptionCalculator {
         let sigma = if let Some(impl_vol) = inst.pricing_overrides.implied_volatility {
             impl_vol
         } else {
-            let vol_surface = curves.surface_ref(inst.vol_surface_id.as_str())?;
+            let vol_surface = curves.surface(inst.vol_surface_id.as_str())?;
             vol_surface.value_clamped(t_vol, inst.strike)
         };
 
@@ -179,8 +179,8 @@ impl FxOptionCalculator {
             return Ok((spot, 0.0, 0.0, 0.0));
         }
 
-        let domestic_disc = curves.get_discount_ref(inst.domestic_discount_curve_id.as_str())?;
-        let foreign_disc = curves.get_discount_ref(inst.foreign_discount_curve_id.as_str())?;
+        let domestic_disc = curves.get_discount(inst.domestic_discount_curve_id.as_str())?;
+        let foreign_disc = curves.get_discount(inst.foreign_discount_curve_id.as_str())?;
 
         // Time to expiry using curve-specific day counts for DF lookup
         let t_disc_dom = self.year_fraction(as_of, inst.expiry, domestic_disc.day_count())?;
@@ -277,7 +277,7 @@ impl FxOptionCalculator {
             v
         } else {
             curves
-                .surface_ref(inst.vol_surface_id.as_str())
+                .surface(inst.vol_surface_id.as_str())
                 .ok()
                 .map(|s| s.value_clamped(t, inst.strike))
                 .unwrap_or(self.config.iv_initial_guess)

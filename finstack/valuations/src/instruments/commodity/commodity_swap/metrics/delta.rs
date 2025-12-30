@@ -13,7 +13,7 @@ impl MetricCalculator for DeltaCalculator {
         let swap: &CommoditySwap = context.instrument_as()?;
         let disc = context
             .curves
-            .get_discount_ref(swap.discount_curve_id.as_str())?;
+            .get_discount(swap.discount_curve_id.as_str())?;
         let schedule = swap.payment_schedule(context.as_of)?;
         let sign = if swap.pay_fixed { 1.0 } else { -1.0 };
 
