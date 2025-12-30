@@ -46,8 +46,7 @@ impl MetricCalculator for RhoCalculator {
         let disc = context.curves.get_discount(&cds_option.discount_curve_id)?;
 
         // Bump discount curve by 1bp (parallel shift)
-        // try_with_parallel_bump takes bp directly
-        let bumped_disc = disc.try_with_parallel_bump(RHO_BUMP_BP)?;
+        let bumped_disc = disc.with_parallel_bump(RHO_BUMP_BP)?;
 
         // Create bumped market context
         let bumped_curves = context.curves.as_ref().clone().insert_discount(bumped_disc);

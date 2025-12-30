@@ -271,7 +271,7 @@ impl VolatilityIndexCurve {
     ///
     /// # Returns
     /// A new volatility index curve with all levels shifted.
-    pub fn try_with_parallel_bump(&self, bump: f64) -> crate::Result<Self> {
+    pub fn with_parallel_bump(&self, bump: f64) -> crate::Result<Self> {
         let bumped_points: Vec<(f64, f64)> = self
             .knots
             .iter()
@@ -298,7 +298,7 @@ impl VolatilityIndexCurve {
     ///
     /// # Returns
     /// A new volatility index curve with all levels scaled.
-    pub fn try_with_percentage_bump(&self, pct: f64) -> crate::Result<Self> {
+    pub fn with_percentage_bump(&self, pct: f64) -> crate::Result<Self> {
         let factor = 1.0 + pct;
         let bumped_points: Vec<(f64, f64)> = self
             .knots
@@ -329,7 +329,7 @@ impl VolatilityIndexCurve {
     ///
     /// # Returns
     /// A new volatility index curve with the triangular key-rate bump applied.
-    pub fn try_with_triangular_key_rate_bump(
+    pub fn with_triangular_key_rate_bump(
         &self,
         prev_bucket: f64,
         target_bucket: f64,
@@ -337,7 +337,7 @@ impl VolatilityIndexCurve {
         bump: f64,
     ) -> crate::Result<Self> {
         if self.knots.len() < 2 {
-            return self.try_with_parallel_bump(bump);
+            return self.with_parallel_bump(bump);
         }
 
         let mut bumped_points: Vec<(f64, f64)> = Vec::with_capacity(self.knots.len());
@@ -553,9 +553,7 @@ mod tests {
     #[test]
     fn parallel_bump() {
         let curve = sample_vix_curve();
-        let bumped = curve
-            .try_with_parallel_bump(2.0)
-            .expect("Bump should succeed");
+        let bumped = curve.with_parallel_bump(2.0).expect("Bump should succeed");
         assert!((bumped.spot_level() - 20.5).abs() < 1e-10);
         assert!((bumped.forward_level(0.25) - 22.0).abs() < 1e-10);
     }
@@ -564,7 +562,7 @@ mod tests {
     fn percentage_bump() {
         let curve = sample_vix_curve();
         let bumped = curve
-            .try_with_percentage_bump(0.10)
+            .with_percentage_bump(0.10)
             .expect("Bump should succeed");
         // 18.5 * 1.10 = 20.35
         assert!((bumped.spot_level() - 20.35).abs() < 1e-10);

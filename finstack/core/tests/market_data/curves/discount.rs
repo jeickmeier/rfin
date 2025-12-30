@@ -418,7 +418,7 @@ fn monotone_convex_forward_continuity_at_knots() {
 #[test]
 fn parallel_bump_and_df_batch() {
     let curve = sample_discount_curve("USD-OIS");
-    let bumped = curve.try_with_parallel_bump(15.0).unwrap();
+    let bumped = curve.with_parallel_bump(15.0).unwrap();
     assert_eq!(bumped.id().as_str(), "USD-OIS_bump_15bp");
 
     let times = [0.5, 1.0, 2.0];
@@ -440,7 +440,7 @@ fn triangular_key_rate_bump_targets_bucket() {
 
     // Triangular bump centered at 1.0, with neighbors at 0.0 and 2.0
     let bumped = curve
-        .try_with_triangular_key_rate_bump_neighbors(0.0, 1.0, 2.0, 25.0)
+        .with_triangular_key_rate_bump_neighbors(0.0, 1.0, 2.0, 25.0)
         .unwrap();
 
     // DF at t=0 is unchanged (weight = 0 at t=0)
@@ -452,7 +452,7 @@ fn triangular_key_rate_bump_targets_bucket() {
 }
 
 #[test]
-fn try_with_parallel_bump_returns_error_on_invalid_curve() {
+fn with_parallel_bump_returns_error_on_invalid_curve() {
     let curve = DiscountCurve::builder("VALID")
         .base_date(sample_base_date())
         .knots([(0.0, 1.0), (1.0, 0.98), (5.0, 0.85)])
@@ -460,7 +460,7 @@ fn try_with_parallel_bump_returns_error_on_invalid_curve() {
         .unwrap();
 
     // Normal bump should succeed
-    let bumped_ok = curve.try_with_parallel_bump(10.0);
+    let bumped_ok = curve.with_parallel_bump(10.0);
     assert!(
         bumped_ok.is_ok(),
         "Valid curve bump should succeed: {:?}",
@@ -468,7 +468,7 @@ fn try_with_parallel_bump_returns_error_on_invalid_curve() {
     );
 
     // Extreme bump should still succeed (exponential bumping preserves monotonicity)
-    let bumped_extreme = curve.try_with_parallel_bump(500.0);
+    let bumped_extreme = curve.with_parallel_bump(500.0);
     assert!(
         bumped_extreme.is_ok(),
         "Extreme parallel bump should succeed (preserves monotonicity): {:?}",
@@ -485,7 +485,7 @@ fn triangular_key_rate_bump_error_handling() {
         .unwrap();
 
     // Normal triangular key-rate bump should succeed
-    let bumped_ok = curve.try_with_triangular_key_rate_bump_neighbors(0.5, 1.5, 2.5, 15.0);
+    let bumped_ok = curve.with_triangular_key_rate_bump_neighbors(0.5, 1.5, 2.5, 15.0);
     assert!(
         bumped_ok.is_ok(),
         "Valid triangular key-rate bump should succeed: {:?}",
@@ -493,7 +493,7 @@ fn triangular_key_rate_bump_error_handling() {
     );
 
     // Extreme bump should either succeed or return typed error - no panic
-    let bumped_extreme = curve.try_with_triangular_key_rate_bump_neighbors(0.0, 1.0, 2.0, 1000.0);
+    let bumped_extreme = curve.with_triangular_key_rate_bump_neighbors(0.0, 1.0, 2.0, 1000.0);
     match bumped_extreme {
         Ok(_) => {}
         Err(e) => {
@@ -513,7 +513,7 @@ fn triangular_key_rate_bump_error_handling() {
 fn parallel_bump_magnitude_verification() {
     let curve = sample_discount_curve("USD-OIS");
     let bp = 25.0;
-    let bumped = curve.try_with_parallel_bump(bp).unwrap();
+    let bumped = curve.with_parallel_bump(bp).unwrap();
 
     // Verify bump formula at KNOT POINTS only
     // DF_bumped(t) = DF(t) * exp(-bp/10000 * t)
@@ -555,7 +555,7 @@ fn triangular_key_rate_bump_weight_verification() {
 
     let bp = 25.0;
     let bumped = curve
-        .try_with_triangular_key_rate_bump_neighbors(0.0, 1.0, 2.0, bp)
+        .with_triangular_key_rate_bump_neighbors(0.0, 1.0, 2.0, bp)
         .unwrap();
 
     // At target (t=1.0): weight=1.0

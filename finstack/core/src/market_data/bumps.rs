@@ -329,12 +329,12 @@ impl Bumpable for DiscountCurve {
         spec.validate_additive_bp("DiscountCurve")?;
 
         match spec.bump_type {
-            BumpType::Parallel => self.try_with_parallel_bump(spec.value),
+            BumpType::Parallel => self.with_parallel_bump(spec.value),
             BumpType::TriangularKeyRate {
                 prev_bucket,
                 target_bucket,
                 next_bucket,
-            } => self.try_with_triangular_key_rate_bump_neighbors(
+            } => self.with_triangular_key_rate_bump_neighbors(
                 prev_bucket,
                 target_bucket,
                 next_bucket,
@@ -408,7 +408,7 @@ impl Bumpable for ForwardCurve {
             } => {
                 // For triangular key-rate bumps, only support additive rate bumps
                 if spec.mode == BumpMode::Additive && spec.units == BumpUnits::RateBp {
-                    self.try_with_triangular_key_rate_bump_neighbors(
+                    self.with_triangular_key_rate_bump_neighbors(
                         prev_bucket,
                         target_bucket,
                         next_bucket,
@@ -621,24 +621,24 @@ impl Bumpable for VolatilityIndexCurve {
                     (BumpMode::Additive, BumpUnits::RateBp) => {
                         // Interpret bp as index points (1bp = 0.01 index point)
                         let bump = spec.value / 100.0;
-                        self.try_with_parallel_bump(bump)
+                        self.with_parallel_bump(bump)
                     }
                     (BumpMode::Additive, BumpUnits::Fraction) => {
-                        self.try_with_parallel_bump(spec.value)
+                        self.with_parallel_bump(spec.value)
                     }
                     (BumpMode::Additive, BumpUnits::Percent) => {
                         let frac = spec.value / 100.0;
-                        self.try_with_parallel_bump(frac)
+                        self.with_parallel_bump(frac)
                     }
                     (BumpMode::Multiplicative, BumpUnits::Factor) => {
                         // spec.value is the target factor (e.g., 1.10 for +10%)
                         let pct = spec.value - 1.0;
-                        self.try_with_percentage_bump(pct)
+                        self.with_percentage_bump(pct)
                     }
                     (BumpMode::Multiplicative, BumpUnits::Percent) => {
                         // spec.value is the percentage (e.g., 10 for +10%)
                         let pct = spec.value / 100.0;
-                        self.try_with_percentage_bump(pct)
+                        self.with_percentage_bump(pct)
                     }
                     _ => Err(InputError::UnsupportedBump {
                         reason: format!(
@@ -668,12 +668,7 @@ impl Bumpable for VolatilityIndexCurve {
                         .into());
                     }
                 };
-                self.try_with_triangular_key_rate_bump(
-                    prev_bucket,
-                    target_bucket,
-                    next_bucket,
-                    bump,
-                )
+                self.with_triangular_key_rate_bump(prev_bucket, target_bucket, next_bucket, bump)
             }
         }
     }

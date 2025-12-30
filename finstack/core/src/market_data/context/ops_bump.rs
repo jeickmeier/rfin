@@ -1,7 +1,7 @@
-use std::sync::Arc;
 use crate::market_data::bumps::{BumpMode, BumpSpec, BumpType, BumpUnits, Bumpable, MarketBump};
 use crate::types::CurveId;
 use crate::Result;
+use std::sync::Arc;
 
 use super::curve_storage::CurveStorage;
 use super::MarketContext;

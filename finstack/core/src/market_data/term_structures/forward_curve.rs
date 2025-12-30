@@ -427,12 +427,12 @@ impl ForwardCurve {
     ///     ?;
     ///
     /// // Apply 10bp bump at 5Y bucket with neighbors at 3Y and 7Y
-    /// let bumped = curve.try_with_triangular_key_rate_bump_neighbors(3.0, 5.0, 7.0, 10.0)?;
+    /// let bumped = curve.with_triangular_key_rate_bump_neighbors(3.0, 5.0, 7.0, 10.0)?;
     /// # let _ = bumped;
     /// # Ok(())
     /// # }
     /// ```
-    pub fn try_with_triangular_key_rate_bump_neighbors(
+    pub fn with_triangular_key_rate_bump_neighbors(
         &self,
         prev_bucket: f64,
         target_bucket: f64,
@@ -440,7 +440,7 @@ impl ForwardCurve {
         bp: f64,
     ) -> crate::Result<Self> {
         if self.knots.len() < 2 {
-            return self.try_with_parallel_bump(bp);
+            return self.with_parallel_bump(bp);
         }
 
         let bump_rate = bp / 10_000.0;
@@ -471,7 +471,7 @@ impl ForwardCurve {
     /// Adds the bump amount (converted from bp) to all forward rates uniformly.
     ///
     /// Returns an error if the bumped curve violates validation constraints.
-    pub fn try_with_parallel_bump(&self, bp: f64) -> crate::Result<Self> {
+    pub fn with_parallel_bump(&self, bp: f64) -> crate::Result<Self> {
         let bump_rate = bp / 10_000.0;
         let bumped_points: Vec<(f64, f64)> = self
             .knots

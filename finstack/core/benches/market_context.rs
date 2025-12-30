@@ -8,8 +8,8 @@
 
 use criterion::{criterion_group, criterion_main, BenchmarkId, Criterion};
 use finstack_core::dates::Date;
-use finstack_core::market_data::context::{BumpSpec, MarketContext};
 use finstack_core::market_data::bumps::MarketBump;
+use finstack_core::market_data::context::{BumpSpec, MarketContext};
 use finstack_core::market_data::surfaces::VolSurface;
 use finstack_core::market_data::term_structures::DiscountCurve;
 use finstack_core::market_data::term_structures::ForwardCurve;
