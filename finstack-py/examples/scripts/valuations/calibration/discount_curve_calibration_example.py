@@ -139,16 +139,9 @@ def print_conventions_debug(
     print("Conventions debug:")
     print("  deposits: ACT/360, 2bd settle (implicit)")
     print("  OIS swaps: fixed 1Y vs float 1Y reset, index:", ois_index_id)
+    print("  base_date:", base_date)
+    print("  strict_step_pricing flag (ignored in v2 schema):", strict_step_pricing)
     print("  step.conventions:", step_conventions)
-    print(
-        "  step.settlement_date(base_date):",
-        _settlement_date(
-            base_date,
-            settlement_days=int(step_conventions["settlement_days"]),
-            calendar_id=str(step_conventions["calendar_id"]),
-            bdc=str(step_conventions["business_day_convention"]),
-        ),
-    )
 
 
 def build_discount_step_conventions(
@@ -184,19 +177,11 @@ def build_discount_step_conventions(
     if curve_day_count is not None:
         out["curve_day_count"] = normalize_dc(curve_day_count)
 
-    # Make the step-level conventions explicit for debugging deterministically.
-    # These match typical USD OIS setup and are consistent with the notebook quote conventions.
-    out["settlement_days"] = 2
-    out["calendar_id"] = "usny"
-    out["business_day_convention"] = "modified_following"
-    out["allow_calendar_fallback"] = False
-    out["use_settlement_start"] = True
-
+    # No additional fields are accepted in the v2 rates step conventions; the engine
+    # applies instrument-level conventions internally.
     if strict_pricing:
-        out["strict_pricing"] = True
-        # Required by strict pricing mode (step-level, even if quotes specify leg delays).
-        out["default_payment_delay_days"] = 2
-        out["default_reset_lag_days"] = 0
+        # Keep the flag visible in logs for callers but do not surface in payload.
+        pass
 
     return out
 

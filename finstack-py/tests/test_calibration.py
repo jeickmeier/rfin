@@ -23,25 +23,17 @@ def _make_discount_curve(base_date: dt.date) -> DiscountCurve:
     return DiscountCurve("USD-OIS", base_date, knots)
 
 
-def test_solver_kind_and_multicurve_helpers() -> None:
-    """Test SolverKind and MultiCurveConfig functionality."""
-    lm = cal.SolverKind.from_name("levenberg_marquardt")
-    # Backwards-compatible alias: LM maps to the current global Newton solve.
-    assert lm == cal.SolverKind.GLOBAL_NEWTON
-    assert lm.name == "global_newton"
-    assert hash(lm) == hash(cal.SolverKind.GLOBAL_NEWTON)
-
-    lm = cal.SolverKind.GLOBAL_NEWTON
-    assert lm.__repr__() == "SolverKind('global_newton')"
-    assert str(lm) == "global_newton"
-
-    mc = cal.MultiCurveConfig(False, False)
-    assert not mc.calibrate_basis
-    assert not mc.enforce_separation
-    mc2 = mc.with_calibrate_basis(True).with_enforce_separation(True)
-    assert mc2.calibrate_basis
-    assert mc2.enforce_separation
-    assert "MultiCurveConfig" in repr(mc2)
+def test_solver_kind_helpers() -> None:
+    """SolverKind should round-trip names and hashing."""
+    newton = cal.SolverKind.from_name("newton")
+    brent = cal.SolverKind.from_name("brent")
+    assert newton == cal.SolverKind.NEWTON
+    assert brent == cal.SolverKind.BRENT
+    assert newton.name == "newton"
+    assert brent.__repr__() == "SolverKind('brent')"
+    assert str(newton) == "newton"
+    with pytest.raises(KeyError):
+        cal.SolverKind.from_name("levenberg_marquardt")
 
 
 def test_calibration_config_builder_and_mutators() -> None:
@@ -50,47 +42,41 @@ def test_calibration_config_builder_and_mutators() -> None:
         tolerance=1e-8,
         max_iterations=50,
         use_parallel=True,
-        random_seed=None,
         verbose=True,
         solver_kind=cal.SolverKind.BRENT,
-        multi_curve=cal.MultiCurveConfig(False, False),
-        entity_seniority={"ACME": "senior"},
+        calibration_method=cal.CalibrationMethod.GLOBAL_SOLVE,
+        validation_mode=cal.ValidationMode.ERROR,
     )
 
     assert pytest.approx(base_cfg.tolerance) == 1e-8
     assert base_cfg.max_iterations == 50
     assert base_cfg.use_parallel
-    assert base_cfg.random_seed is None
     assert base_cfg.verbose
     assert base_cfg.solver_kind.name == "brent"
-    assert base_cfg.multi_curve_config.calibrate_basis is False
-    assert base_cfg.entity_seniority["ACME"] == "senior"
+    assert base_cfg.calibration_method.name == "global_solve"
+    assert base_cfg.validation_mode.name == "error"
 
     tuned = (
         base_cfg.with_tolerance(1e-6)
         .with_max_iterations(10)
         .with_parallel(False)
-        .with_random_seed(1234)
         .with_verbose(False)
         .with_solver_kind(cal.SolverKind.NEWTON)
-        .with_multi_curve_config(cal.MultiCurveConfig(True, True))
+        .with_calibration_method(cal.CalibrationMethod.BOOTSTRAP)
+        .with_validation_mode(cal.ValidationMode.WARN)
+        .with_explain()
     )
-    tuned = tuned.with_entity_seniority({"ACME": "senior_secured", "FOO": "junior"})
-    tuned = tuned.with_random_seed(None)
     assert tuned.tolerance == 1e-6
     assert tuned.max_iterations == 10
     assert not tuned.use_parallel
-    assert tuned.random_seed is None
     assert not tuned.verbose
     assert tuned.solver_kind == cal.SolverKind.NEWTON
-    assert tuned.multi_curve_config.calibrate_basis
-    assert tuned.entity_seniority["FOO"] == "junior"
+    assert tuned.calibration_method == cal.CalibrationMethod.BOOTSTRAP
+    assert tuned.validation_mode == cal.ValidationMode.WARN
+    assert tuned.explain_enabled
 
     cfg_repr = tuned.__repr__()
     assert "CalibrationConfig" in cfg_repr
-
-    standard_cfg = cal.CalibrationConfig.multi_curve()
-    assert standard_cfg.multi_curve_config.enforce_separation
 
 
 def test_quote_constructors_cover_all_variants() -> None:
@@ -197,11 +183,6 @@ def test_simple_calibration_flow_and_report() -> None:
             "base_date": "2024-01-02",
             "conventions": {
                 "curve_day_count": "act365f",
-                "settlement_days": 2,
-                "calendar_id": "usny",
-                "business_day_convention": "modified_following",
-                "allow_calendar_fallback": False,
-                "use_settlement_start": True,
             },
         }
     ]
@@ -263,11 +244,6 @@ def test_execute_calibration_v2_forward_step() -> None:
             "discount_curve_id": "USD-OIS",
             "conventions": {
                 "curve_day_count": "act365f",
-                "settlement_days": 2,
-                "calendar_id": "usny",
-                "business_day_convention": "modified_following",
-                "allow_calendar_fallback": False,
-                "use_settlement_start": False,
             },
         }
     ]

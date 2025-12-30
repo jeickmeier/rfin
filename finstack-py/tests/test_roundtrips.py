@@ -247,11 +247,6 @@ class TestCalibrationRoundtrips:
                 "base_date": "2024-01-02",
                 "conventions": {
                     "curve_day_count": "act365f",
-                    "settlement_days": 2,
-                    "calendar_id": "usny",
-                    "business_day_convention": "modified_following",
-                    "allow_calendar_fallback": False,
-                    "use_settlement_start": True,
                 },
             }
         ]
