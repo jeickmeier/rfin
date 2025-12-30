@@ -11,8 +11,8 @@
 mod clearing;
 mod haircut;
 mod internal;
-mod schedule;
-mod simm;
+pub mod schedule;
+pub mod simm;
 
 pub use clearing::{CcpMarginInputSource, CcpMethodology, ClearingHouseImCalculator};
 pub use haircut::HaircutImCalculator;

@@ -25,8 +25,16 @@
 //! > risk-class correlation matrix (delta-only) but does not implement the
 //! > full SIMM bucket/tenor correlations, vega, or curvature aggregation.
 
+#![allow(clippy::unwrap_used)]
+
 use crate::instruments::common::traits::Instrument;
 use crate::margin::calculators::traits::{ImCalculator, ImResult};
+use crate::margin::config::margin_registry_from_config;
+use crate::margin::registry::{
+    embedded_registry,
+    MarginRegistry,
+    SimmParams,
+};
 use crate::margin::traits::{SimmRiskClass, SimmSensitivities};
 use crate::margin::types::ImMethodology;
 use finstack_core::currency::Currency;
@@ -80,59 +88,86 @@ pub struct SimmRiskWeights {
 
     /// FX delta risk weight
     pub fx_delta_weight: f64,
+
+    /// Risk-class correlation matrix (symmetric, excluding diagonal)
+    pub risk_class_correlations: HashMap<(SimmRiskClass, SimmRiskClass), f64>,
+
+    /// Commodity bucket weights
+    pub commodity_bucket_weights: HashMap<String, f64>,
 }
 
 impl Default for SimmRiskWeights {
     fn default() -> Self {
-        Self::v2_6()
+        let registry = embedded_registry().unwrap();
+        load_simm_weights(SimmVersion::V2_6, registry).unwrap()
     }
 }
 
 impl SimmRiskWeights {
-    /// SIMM v2.6 (2023) risk weights.
-    #[must_use]
-    pub fn v2_6() -> Self {
-        let mut ir_delta_weights = HashMap::default();
-        // SIMM v2.6 IR risk weights (USD as reference)
-        ir_delta_weights.insert("2w".to_string(), 109.0);
-        ir_delta_weights.insert("1m".to_string(), 105.0);
-        ir_delta_weights.insert("3m".to_string(), 80.0);
-        ir_delta_weights.insert("6m".to_string(), 67.0);
-        ir_delta_weights.insert("1y".to_string(), 61.0);
-        ir_delta_weights.insert("2y".to_string(), 52.0);
-        ir_delta_weights.insert("3y".to_string(), 49.0);
-        ir_delta_weights.insert("5y".to_string(), 51.0);
-        ir_delta_weights.insert("10y".to_string(), 51.0);
-        ir_delta_weights.insert("15y".to_string(), 51.0);
-        ir_delta_weights.insert("20y".to_string(), 54.0);
-        ir_delta_weights.insert("30y".to_string(), 62.0);
-
-        let mut cq_delta_weights = HashMap::default();
-        // Credit qualifying risk weights by sector
-        cq_delta_weights.insert("sovereigns".to_string(), 85.0);
-        cq_delta_weights.insert("financials".to_string(), 85.0);
-        cq_delta_weights.insert("corporates".to_string(), 73.0);
-
-        Self {
-            version: SimmVersion::V2_6,
-            ir_delta_weights,
-            cq_delta_weights,
-            cnq_delta_weight: 500.0, // High yield / non-qualifying
-            equity_delta_weight: 32.0,
-            fx_delta_weight: 8.4,
+    fn correlation(&self, a: SimmRiskClass, b: SimmRiskClass) -> f64 {
+        if a == b {
+            return 1.0;
         }
+        let key = ordered_pair(a, b);
+        *self
+            .risk_class_correlations
+            .get(&key)
+            .unwrap_or(&1.0)
     }
 
-    /// SIMM v2.5 (2022) risk weights.
-    #[must_use]
-    pub fn v2_5() -> Self {
-        // Slightly different calibration
-        let mut weights = Self::v2_6();
-        weights.version = SimmVersion::V2_5;
-        // V2.5 had slightly lower IR weights
-        weights.ir_delta_weights.insert("1y".to_string(), 59.0);
-        weights.ir_delta_weights.insert("5y".to_string(), 48.0);
-        weights
+    fn commodity_bucket_weight(&self, bucket: &str) -> f64 {
+        let key = bucket_id_from_label(bucket)
+            .map(|id| id.to_string())
+            .unwrap_or_else(|| "other".to_string());
+        *self
+            .commodity_bucket_weights
+            .get(&key)
+            .unwrap_or_else(|| self.commodity_bucket_weights.get("other").unwrap_or(&64.0))
+    }
+}
+
+fn load_simm_weights(version: SimmVersion, registry: &MarginRegistry) -> finstack_core::Result<SimmRiskWeights> {
+    let params = resolve_simm_params(version, registry)?;
+    Ok(SimmRiskWeights {
+        version,
+        ir_delta_weights: params.ir_delta_weights.clone(),
+        cq_delta_weights: params.cq_delta_weights.clone(),
+        cnq_delta_weight: params.cnq_delta_weight,
+        equity_delta_weight: params.equity_delta_weight,
+        fx_delta_weight: params.fx_delta_weight,
+        risk_class_correlations: params.risk_class_correlations.clone(),
+        commodity_bucket_weights: params.commodity_bucket_weights.clone(),
+    })
+}
+
+fn resolve_simm_params(
+    version: SimmVersion,
+    registry: &MarginRegistry,
+) -> finstack_core::Result<&SimmParams> {
+    if let Some(found) = registry
+        .simm
+        .values()
+        .find(|p| p.version == version)
+    {
+        return Ok(found);
+    }
+    if let Some(default_id) = &registry.simm_default {
+        if let Some(p) = registry.simm.get(default_id) {
+            return Ok(p);
+        }
+    }
+    registry
+        .simm
+        .values()
+        .next()
+        .ok_or_else(|| finstack_core::Error::Validation("SIMM registry is empty".to_string()))
+}
+
+fn ordered_pair(a: SimmRiskClass, b: SimmRiskClass) -> (SimmRiskClass, SimmRiskClass) {
+    if (a as u8) <= (b as u8) {
+        (a, b)
+    } else {
+        (b, a)
     }
 }
 
@@ -189,16 +224,29 @@ impl SimmCalculator {
     /// Create a new SIMM calculator with the specified version.
     #[must_use]
     pub fn new(version: SimmVersion) -> Self {
-        let risk_weights = match version {
-            SimmVersion::V2_5 => SimmRiskWeights::v2_5(),
-            SimmVersion::V2_6 => SimmRiskWeights::v2_6(),
-        };
-
+        let registry = embedded_registry().unwrap();
+        let params = resolve_simm_params(version, registry).unwrap();
+        let risk_weights = load_simm_weights(version, registry).unwrap();
         Self {
             version,
             risk_weights,
-            mpor_days: 10,
+            mpor_days: params.mpor_days,
         }
+    }
+
+    /// Create a new SIMM calculator resolved from a `FinstackConfig`.
+    pub fn from_finstack_config(
+        version: SimmVersion,
+        cfg: &finstack_core::config::FinstackConfig,
+    ) -> finstack_core::Result<Self> {
+        let registry = margin_registry_from_config(cfg)?;
+        let params = resolve_simm_params(version, &registry)?;
+        let risk_weights = load_simm_weights(version, &registry)?;
+        Ok(Self {
+            version,
+            risk_weights,
+            mpor_days: params.mpor_days,
+        })
     }
 
     /// Set margin period of risk.
@@ -268,7 +316,7 @@ impl SimmCalculator {
     pub fn calculate_commodity_delta(&self, delta_by_bucket: &HashMap<String, f64>) -> f64 {
         let mut weighted_sum = 0.0;
         for (bucket, delta) in delta_by_bucket {
-            let weight = commodity_bucket_weight(bucket);
+            let weight = self.risk_weights.commodity_bucket_weight(bucket);
             weighted_sum += (delta * weight).abs();
         }
         weighted_sum
@@ -393,7 +441,7 @@ impl SimmCalculator {
         let mut sum = 0.0;
         for (risk_i, margin_i) in risk_class_margins {
             for (risk_j, margin_j) in risk_class_margins {
-                let rho = risk_class_correlation(*risk_i, *risk_j);
+                let rho = self.risk_weights.correlation(*risk_i, *risk_j);
                 sum += rho * margin_i * margin_j;
             }
         }
@@ -402,70 +450,35 @@ impl SimmCalculator {
 }
 
 // ISDA SIMM v2.8+2506 risk-class correlations (applies to v2.5/v2.6 here).
+#[allow(dead_code)]
 fn risk_class_correlation(a: SimmRiskClass, b: SimmRiskClass) -> f64 {
     if a == b {
         return 1.0;
     }
-    match (a, b) {
-        (SimmRiskClass::InterestRate, SimmRiskClass::CreditQualifying)
-        | (SimmRiskClass::CreditQualifying, SimmRiskClass::InterestRate) => 0.10,
-        (SimmRiskClass::InterestRate, SimmRiskClass::CreditNonQualifying)
-        | (SimmRiskClass::CreditNonQualifying, SimmRiskClass::InterestRate) => 0.14,
-        (SimmRiskClass::InterestRate, SimmRiskClass::Equity)
-        | (SimmRiskClass::Equity, SimmRiskClass::InterestRate) => 0.12,
-        (SimmRiskClass::InterestRate, SimmRiskClass::Commodity)
-        | (SimmRiskClass::Commodity, SimmRiskClass::InterestRate) => 0.30,
-        (SimmRiskClass::InterestRate, SimmRiskClass::Fx)
-        | (SimmRiskClass::Fx, SimmRiskClass::InterestRate) => 0.10,
-        (SimmRiskClass::CreditQualifying, SimmRiskClass::CreditNonQualifying)
-        | (SimmRiskClass::CreditNonQualifying, SimmRiskClass::CreditQualifying) => 0.60,
-        (SimmRiskClass::CreditQualifying, SimmRiskClass::Equity)
-        | (SimmRiskClass::Equity, SimmRiskClass::CreditQualifying) => 0.66,
-        (SimmRiskClass::CreditQualifying, SimmRiskClass::Commodity)
-        | (SimmRiskClass::Commodity, SimmRiskClass::CreditQualifying) => 0.25,
-        (SimmRiskClass::CreditQualifying, SimmRiskClass::Fx)
-        | (SimmRiskClass::Fx, SimmRiskClass::CreditQualifying) => 0.22,
-        (SimmRiskClass::CreditNonQualifying, SimmRiskClass::Equity)
-        | (SimmRiskClass::Equity, SimmRiskClass::CreditNonQualifying) => 0.52,
-        (SimmRiskClass::CreditNonQualifying, SimmRiskClass::Commodity)
-        | (SimmRiskClass::Commodity, SimmRiskClass::CreditNonQualifying) => 0.27,
-        (SimmRiskClass::CreditNonQualifying, SimmRiskClass::Fx)
-        | (SimmRiskClass::Fx, SimmRiskClass::CreditNonQualifying) => 0.15,
-        (SimmRiskClass::Equity, SimmRiskClass::Commodity)
-        | (SimmRiskClass::Commodity, SimmRiskClass::Equity) => 0.33,
-        (SimmRiskClass::Equity, SimmRiskClass::Fx) | (SimmRiskClass::Fx, SimmRiskClass::Equity) => {
-            0.24
-        }
-        (SimmRiskClass::Commodity, SimmRiskClass::Fx)
-        | (SimmRiskClass::Fx, SimmRiskClass::Commodity) => 0.23,
-        // Same class case is handled above with a == b check
-        _ => 1.0,
+    let params = default_simm_params();
+    if let Some(rho) = params
+        .risk_class_correlations
+        .get(&ordered_pair(a, b))
+    {
+        return *rho;
     }
+    1.0
 }
 
 // Commodity delta risk weights by bucket (ISDA SIMM v2.8+2506).
+#[allow(dead_code)]
 fn commodity_bucket_weight(bucket: &str) -> f64 {
-    let bucket_id = bucket_id_from_label(bucket).unwrap_or(16);
-    match bucket_id {
-        1 => 25.0,
-        2 => 21.0,
-        3 => 23.0,
-        4 => 19.0,
-        5 => 24.0,
-        6 => 27.0,
-        7 => 33.0,
-        8 => 37.0,
-        9 => 64.0,
-        10 => 43.0,
-        11 => 21.0,
-        12 => 19.0,
-        13 => 14.0,
-        14 => 17.0,
-        15 => 11.0,
-        16 => 64.0,
-        17 => 16.0,
-        _ => 64.0,
+    let key = bucket_id_from_label(bucket)
+        .map(|id| id.to_string())
+        .unwrap_or_else(|| "other".to_string());
+    let params = default_simm_params();
+    if let Some(weight) = params.commodity_bucket_weights.get(&key) {
+        return *weight;
     }
+    *params
+        .commodity_bucket_weights
+        .get("other")
+        .unwrap()
 }
 
 fn bucket_id_from_label(bucket: &str) -> Option<u8> {
@@ -498,6 +511,14 @@ fn bucket_id_from_label(bucket: &str) -> Option<u8> {
         "indexes" | "indices" => Some(17),
         _ => None,
     }
+}
+
+fn default_simm_params() -> &'static SimmParams {
+    let registry = embedded_registry().unwrap();
+    if let Some(default_id) = &registry.simm_default {
+        return registry.simm.get(default_id).unwrap();
+    }
+    registry.simm.values().next().unwrap()
 }
 
 impl ImCalculator for SimmCalculator {
@@ -587,10 +608,10 @@ mod tests {
 
     #[test]
     fn risk_weights_loaded() {
-        let weights = SimmRiskWeights::v2_6();
-        assert_eq!(weights.version, SimmVersion::V2_6);
-        assert!(weights.ir_delta_weights.contains_key("5y"));
-        assert!(weights.cq_delta_weights.contains_key("corporates"));
+        let calc = SimmCalculator::new(SimmVersion::V2_6);
+        assert_eq!(calc.risk_weights.version, SimmVersion::V2_6);
+        assert!(calc.risk_weights.ir_delta_weights.contains_key("5y"));
+        assert!(calc.risk_weights.cq_delta_weights.contains_key("corporates"));
     }
 
     #[test]

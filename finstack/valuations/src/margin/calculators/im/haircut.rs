@@ -108,7 +108,7 @@ impl HaircutImCalculator {
     pub fn calculate_for_collateral(
         &self,
         collateral_value: Money,
-        asset_class: CollateralAssetClass,
+        asset_class: &CollateralAssetClass,
         currency_mismatch: bool,
     ) -> Result<Money> {
         let haircut = self
@@ -127,7 +127,7 @@ impl HaircutImCalculator {
 
     /// Get the haircut for an asset class.
     #[must_use]
-    pub fn haircut_for(&self, asset_class: CollateralAssetClass) -> f64 {
+    pub fn haircut_for(&self, asset_class: &CollateralAssetClass) -> f64 {
         self.eligible_collateral
             .haircut_for(asset_class)
             .unwrap_or(asset_class.standard_haircut())
@@ -148,7 +148,7 @@ impl ImCalculator for HaircutImCalculator {
 
         let im_amount = self.calculate_for_collateral(
             collateral_value,
-            self.default_asset_class,
+            &self.default_asset_class,
             self.apply_fx_addon,
         )?;
 
@@ -181,7 +181,7 @@ mod tests {
 
         let collateral = Money::new(10_000_000.0, Currency::USD);
         let im = calc
-            .calculate_for_collateral(collateral, CollateralAssetClass::GovernmentBonds, false)
+            .calculate_for_collateral(collateral, &CollateralAssetClass::GovernmentBonds, false)
             .expect("calculation ok");
 
         // Should apply ~1-2% haircut
@@ -196,11 +196,11 @@ mod tests {
         let collateral = Money::new(10_000_000.0, Currency::USD);
 
         let im_no_fx = calc
-            .calculate_for_collateral(collateral, CollateralAssetClass::Cash, false)
+            .calculate_for_collateral(collateral, &CollateralAssetClass::Cash, false)
             .expect("calculation ok");
 
         let im_with_fx = calc
-            .calculate_for_collateral(collateral, CollateralAssetClass::Cash, true)
+            .calculate_for_collateral(collateral, &CollateralAssetClass::Cash, true)
             .expect("calculation ok");
 
         // Cash with FX mismatch should have 8% haircut

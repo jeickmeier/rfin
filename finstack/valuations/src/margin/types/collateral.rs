@@ -1,3 +1,5 @@
+#![allow(clippy::unwrap_used)]
+
 //! Eligible collateral specifications and haircuts.
 //!
 //! Defines collateral eligibility criteria and haircut schedules following
@@ -5,6 +7,12 @@
 //! conventions for repos.
 
 use std::fmt;
+
+use crate::margin::config::margin_registry_from_config;
+use crate::margin::registry::embedded_registry;
+use finstack_core::config::FinstackConfig;
+use serde::{Deserialize, Deserializer, Serialize, Serializer};
+use serde::de::Error as DeError;
 
 /// Collateral asset classes per BCBS-IOSCO standards.
 ///
@@ -15,70 +23,68 @@ use std::fmt;
 ///
 /// BCBS-IOSCO "Margin requirements for non-centrally cleared derivatives" (2020)
 /// Annex A: Standardized haircut schedule
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Default)]
-#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+#[allow(missing_docs)]
+#[derive(Debug, Clone, PartialEq, Eq, Hash, Default)]
 pub enum CollateralAssetClass {
     /// Cash in eligible currency
-    ///
-    /// Haircut: 0% (same currency) or 8% (different currency)
     #[default]
     Cash,
-
-    /// Sovereign government bonds (G10 and equivalent)
-    ///
-    /// Haircuts by residual maturity:
-    /// - ≤1 year: 0.5%
-    /// - 1-5 years: 2%
-    /// - >5 years: 4%
     GovernmentBonds,
-
-    /// Agency and supranational bonds
-    ///
-    /// Similar haircuts to government bonds with potential add-on
-    /// for credit quality.
     AgencyBonds,
-
-    /// Covered bonds meeting eligibility criteria
-    ///
-    /// Haircuts typically 1-2% higher than government bonds.
     CoveredBonds,
-
-    /// Corporate bonds meeting minimum rating requirements
-    ///
-    /// Haircuts by residual maturity (investment grade):
-    /// - ≤1 year: 1%
-    /// - 1-5 years: 4%
-    /// - >5 years: 8%
     CorporateBonds,
-
-    /// Equity securities in major indices
-    ///
-    /// Haircut: 15% (BCBS-IOSCO standard)
     Equity,
-
-    /// Gold bullion
-    ///
-    /// Haircut: 15% (BCBS-IOSCO standard)
     Gold,
-
-    /// Mutual funds / ETFs invested in eligible assets
-    ///
-    /// Haircut: Highest haircut applicable to underlying assets
     MutualFunds,
+    /// Custom / user-defined asset class (from JSON)
+    Custom(String),
+}
+
+impl CollateralAssetClass {
+    fn normalize(raw: &str) -> String {
+        raw.trim()
+            .to_ascii_lowercase()
+            .replace([' ', '-'], "_")
+    }
+
+    /// Normalized string identifier for this asset class.
+    pub fn as_str(&self) -> &str {
+        match self {
+            CollateralAssetClass::Cash => "cash",
+            CollateralAssetClass::GovernmentBonds => "government_bonds",
+            CollateralAssetClass::AgencyBonds => "agency_bonds",
+            CollateralAssetClass::CoveredBonds => "covered_bonds",
+            CollateralAssetClass::CorporateBonds => "corporate_bonds",
+            CollateralAssetClass::Equity => "equity",
+            CollateralAssetClass::Gold => "gold",
+            CollateralAssetClass::MutualFunds => "mutual_funds",
+            CollateralAssetClass::Custom(s) => s.as_str(),
+        }
+    }
+}
+
+impl Serialize for CollateralAssetClass {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: Serializer,
+    {
+        serializer.serialize_str(self.as_str())
+    }
+}
+
+impl<'de> Deserialize<'de> for CollateralAssetClass {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: Deserializer<'de>,
+    {
+        let s = String::deserialize(deserializer)?;
+        s.parse().map_err(D::Error::custom)
+    }
 }
 
 impl fmt::Display for CollateralAssetClass {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        match self {
-            CollateralAssetClass::Cash => write!(f, "cash"),
-            CollateralAssetClass::GovernmentBonds => write!(f, "government_bonds"),
-            CollateralAssetClass::AgencyBonds => write!(f, "agency_bonds"),
-            CollateralAssetClass::CoveredBonds => write!(f, "covered_bonds"),
-            CollateralAssetClass::CorporateBonds => write!(f, "corporate_bonds"),
-            CollateralAssetClass::Equity => write!(f, "equity"),
-            CollateralAssetClass::Gold => write!(f, "gold"),
-            CollateralAssetClass::MutualFunds => write!(f, "mutual_funds"),
-        }
+        write!(f, "{}", self.as_str())
     }
 }
 
@@ -86,7 +92,8 @@ impl std::str::FromStr for CollateralAssetClass {
     type Err = String;
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
-        match s.to_ascii_lowercase().replace('-', "_").as_str() {
+        let norm = Self::normalize(s);
+        match norm.as_str() {
             "cash" => Ok(CollateralAssetClass::Cash),
             "government_bonds" | "governmentbonds" | "govies" | "sovereign" => {
                 Ok(CollateralAssetClass::GovernmentBonds)
@@ -101,7 +108,7 @@ impl std::str::FromStr for CollateralAssetClass {
             "mutual_funds" | "mutualfunds" | "etf" | "funds" => {
                 Ok(CollateralAssetClass::MutualFunds)
             }
-            other => Err(format!("Unknown collateral asset class: {}", other)),
+            other => Ok(CollateralAssetClass::Custom(other.to_string())),
         }
     }
 }
@@ -117,16 +124,12 @@ impl CollateralAssetClass {
     /// Haircut as a decimal (e.g., 0.02 = 2%)
     #[must_use]
     pub fn standard_haircut(&self) -> f64 {
-        match self {
-            CollateralAssetClass::Cash => 0.0,
-            CollateralAssetClass::GovernmentBonds => 0.02, // Mid-range
-            CollateralAssetClass::AgencyBonds => 0.03,
-            CollateralAssetClass::CoveredBonds => 0.04,
-            CollateralAssetClass::CorporateBonds => 0.05,
-            CollateralAssetClass::Equity => 0.15,
-            CollateralAssetClass::Gold => 0.15,
-            CollateralAssetClass::MutualFunds => 0.15,
-        }
+        let registry = embedded_registry().unwrap();
+        registry
+            .collateral_asset_class_defaults
+            .get(self)
+            .map(|d| d.standard_haircut)
+            .unwrap()
     }
 
     /// Get the FX haircut add-on for currency mismatch.
@@ -135,10 +138,12 @@ impl CollateralAssetClass {
     /// differs from the settlement currency of the derivative.
     #[must_use]
     pub fn fx_addon(&self) -> f64 {
-        match self {
-            CollateralAssetClass::Cash => 0.08, // 8% for non-settlement currency cash
-            _ => 0.08,                          // 8% for all other assets
-        }
+        let registry = embedded_registry().unwrap();
+        registry
+            .collateral_asset_class_defaults
+            .get(self)
+            .map(|d| d.fx_addon)
+            .unwrap()
     }
 }
 
@@ -235,7 +240,7 @@ impl CollateralEligibility {
             min_rating: None,
             maturity_constraints: None,
             haircut: 0.0,
-            fx_haircut_addon: 0.08,
+            fx_haircut_addon: CollateralAssetClass::Cash.fx_addon(),
             concentration_limit: None,
         }
     }
@@ -248,7 +253,7 @@ impl CollateralEligibility {
             min_rating: Some("A-".to_string()),
             maturity_constraints: None,
             haircut,
-            fx_haircut_addon: 0.08,
+            fx_haircut_addon: CollateralAssetClass::GovernmentBonds.fx_addon(),
             concentration_limit: None,
         }
     }
@@ -261,7 +266,7 @@ impl CollateralEligibility {
             min_rating: Some(min_rating.to_string()),
             maturity_constraints: None,
             haircut,
-            fx_haircut_addon: 0.08,
+            fx_haircut_addon: CollateralAssetClass::CorporateBonds.fx_addon(),
             concentration_limit: Some(0.30), // 30% concentration limit typical
         }
     }
@@ -328,11 +333,12 @@ impl EligibleCollateralSchedule {
     /// Create a schedule accepting only cash.
     #[must_use]
     pub fn cash_only() -> Self {
-        Self {
-            eligible: vec![CollateralEligibility::cash()],
-            default_haircut: None,
-            rehypothecation_allowed: false,
-        }
+        let registry = embedded_registry().unwrap();
+        registry
+            .collateral_schedules
+            .get("cash_only")
+            .cloned()
+            .unwrap()
     }
 
     /// Create a standard BCBS-IOSCO compliant schedule.
@@ -340,95 +346,33 @@ impl EligibleCollateralSchedule {
     /// Includes cash and government bonds with standard haircuts.
     #[must_use]
     pub fn bcbs_standard() -> Self {
-        Self {
-            eligible: vec![
-                CollateralEligibility::cash(),
-                CollateralEligibility {
-                    asset_class: CollateralAssetClass::GovernmentBonds,
-                    min_rating: Some("AA-".to_string()),
-                    maturity_constraints: Some(MaturityConstraints::max_maturity(10.0)),
-                    haircut: 0.005, // ≤1 year
-                    fx_haircut_addon: 0.08,
-                    concentration_limit: None,
-                },
-                CollateralEligibility {
-                    asset_class: CollateralAssetClass::GovernmentBonds,
-                    min_rating: Some("AA-".to_string()),
-                    maturity_constraints: Some(MaturityConstraints {
-                        min_remaining_years: Some(1.0),
-                        max_remaining_years: Some(5.0),
-                    }),
-                    haircut: 0.02,
-                    fx_haircut_addon: 0.08,
-                    concentration_limit: None,
-                },
-                CollateralEligibility {
-                    asset_class: CollateralAssetClass::GovernmentBonds,
-                    min_rating: Some("AA-".to_string()),
-                    maturity_constraints: Some(MaturityConstraints {
-                        min_remaining_years: Some(5.0),
-                        max_remaining_years: None,
-                    }),
-                    haircut: 0.04,
-                    fx_haircut_addon: 0.08,
-                    concentration_limit: None,
-                },
-            ],
-            default_haircut: None,
-            rehypothecation_allowed: false,
-        }
+        let registry = embedded_registry().unwrap();
+        registry
+            .collateral_schedules
+            .get("bcbs_standard")
+            .cloned()
+            .unwrap()
     }
 
     /// Create a standard repo collateral schedule (US Treasuries).
     #[must_use]
     pub fn us_treasuries() -> Self {
-        Self {
-            eligible: vec![
-                CollateralEligibility {
-                    asset_class: CollateralAssetClass::GovernmentBonds,
-                    min_rating: None, // US Treasuries don't need rating check
-                    maturity_constraints: Some(MaturityConstraints::max_maturity(1.0)),
-                    haircut: 0.005,
-                    fx_haircut_addon: 0.0, // Same currency assumed
-                    concentration_limit: None,
-                },
-                CollateralEligibility {
-                    asset_class: CollateralAssetClass::GovernmentBonds,
-                    min_rating: None,
-                    maturity_constraints: Some(MaturityConstraints {
-                        min_remaining_years: Some(1.0),
-                        max_remaining_years: Some(5.0),
-                    }),
-                    haircut: 0.01,
-                    fx_haircut_addon: 0.0,
-                    concentration_limit: None,
-                },
-                CollateralEligibility {
-                    asset_class: CollateralAssetClass::GovernmentBonds,
-                    min_rating: None,
-                    maturity_constraints: Some(MaturityConstraints {
-                        min_remaining_years: Some(5.0),
-                        max_remaining_years: Some(10.0),
-                    }),
-                    haircut: 0.015,
-                    fx_haircut_addon: 0.0,
-                    concentration_limit: None,
-                },
-                CollateralEligibility {
-                    asset_class: CollateralAssetClass::GovernmentBonds,
-                    min_rating: None,
-                    maturity_constraints: Some(MaturityConstraints {
-                        min_remaining_years: Some(10.0),
-                        max_remaining_years: None,
-                    }),
-                    haircut: 0.02,
-                    fx_haircut_addon: 0.0,
-                    concentration_limit: None,
-                },
-            ],
-            default_haircut: None,
-            rehypothecation_allowed: true, // Typical for repos
-        }
+        let registry = embedded_registry().unwrap();
+        registry
+            .collateral_schedules
+            .get("us_treasuries")
+            .cloned()
+            .unwrap()
+    }
+
+    /// Load a named schedule from a provided config (with overrides).
+    pub fn from_finstack_config(cfg: &FinstackConfig, schedule_id: &str) -> finstack_core::Result<Self> {
+        let registry = margin_registry_from_config(cfg)?;
+        registry
+            .collateral_schedules
+            .get(schedule_id)
+            .cloned()
+            .ok_or_else(|| finstack_core::Error::Validation(format!("collateral schedule '{schedule_id}' not found")))
     }
 
     /// Find the applicable haircut for a given asset class.
@@ -436,18 +380,18 @@ impl EligibleCollateralSchedule {
     /// Returns the first matching eligibility entry's haircut, or the default
     /// haircut if no specific match is found.
     #[must_use]
-    pub fn haircut_for(&self, asset_class: CollateralAssetClass) -> Option<f64> {
+    pub fn haircut_for(&self, asset_class: &CollateralAssetClass) -> Option<f64> {
         self.eligible
             .iter()
-            .find(|e| e.asset_class == asset_class)
+            .find(|e| &e.asset_class == asset_class)
             .map(|e| e.haircut)
             .or(self.default_haircut)
     }
 
     /// Check if an asset class is eligible.
     #[must_use]
-    pub fn is_eligible(&self, asset_class: CollateralAssetClass) -> bool {
-        self.eligible.iter().any(|e| e.asset_class == asset_class) || self.default_haircut.is_some()
+    pub fn is_eligible(&self, asset_class: &CollateralAssetClass) -> bool {
+        self.eligible.iter().any(|e| &e.asset_class == asset_class) || self.default_haircut.is_some()
     }
 }
 
@@ -484,16 +428,16 @@ mod tests {
     #[test]
     fn schedule_finds_haircut() {
         let schedule = EligibleCollateralSchedule::cash_only();
-        assert_eq!(schedule.haircut_for(CollateralAssetClass::Cash), Some(0.0));
-        assert_eq!(schedule.haircut_for(CollateralAssetClass::Equity), None);
+        assert_eq!(schedule.haircut_for(&CollateralAssetClass::Cash), Some(0.0));
+        assert_eq!(schedule.haircut_for(&CollateralAssetClass::Equity), None);
     }
 
     #[test]
     fn bcbs_standard_schedule() {
         let schedule = EligibleCollateralSchedule::bcbs_standard();
-        assert!(schedule.is_eligible(CollateralAssetClass::Cash));
-        assert!(schedule.is_eligible(CollateralAssetClass::GovernmentBonds));
-        assert!(!schedule.is_eligible(CollateralAssetClass::Equity));
+        assert!(schedule.is_eligible(&CollateralAssetClass::Cash));
+        assert!(schedule.is_eligible(&CollateralAssetClass::GovernmentBonds));
+        assert!(!schedule.is_eligible(&CollateralAssetClass::Equity));
         assert!(!schedule.rehypothecation_allowed);
     }
 }

@@ -6,8 +6,11 @@
 
 use crate::instruments::common::traits::Instrument;
 use crate::margin::calculators::traits::{ImCalculator, ImResult};
+use crate::margin::config::margin_registry_from_config;
+use crate::margin::registry::{embedded_registry, CcpParams, MarginRegistry};
 use crate::margin::types::ImMethodology;
 use crate::pricer::InstrumentType;
+use finstack_core::config::FinstackConfig;
 use finstack_core::dates::Date;
 use finstack_core::market_data::context::MarketContext;
 use finstack_core::money::Money;
@@ -60,37 +63,46 @@ impl std::fmt::Display for CcpMethodology {
 }
 
 impl CcpMethodology {
-    /// Get the typical margin period of risk for this CCP.
-    #[must_use]
-    pub fn mpor_days(&self) -> u32 {
+    fn registry_key(&self) -> &'static str {
         match self {
-            CcpMethodology::LchSwapClear => 5,
-            CcpMethodology::LchCdsClear => 5,
-            CcpMethodology::Cme => 5,
-            CcpMethodology::IceClearCredit => 5,
-            CcpMethodology::IceClearUs => 5,
-            CcpMethodology::Jscc => 5,
-            CcpMethodology::Eurex => 5,
-            CcpMethodology::GenericVaR { .. } => 5,
+            CcpMethodology::LchSwapClear => "lch_swapclear",
+            CcpMethodology::LchCdsClear => "lch_cdsclear",
+            CcpMethodology::Cme => "cme",
+            CcpMethodology::IceClearCredit => "ice_clear_credit",
+            CcpMethodology::IceClearUs => "ice_clear_us",
+            CcpMethodology::Jscc => "jscc",
+            CcpMethodology::Eurex => "eurex",
+            CcpMethodology::GenericVaR { .. } => "generic_var",
         }
     }
 
-    /// Get a conservative IM rate as percentage of notional.
-    ///
-    /// These are rough approximations for initial implementation.
-    /// Real CCP margins are much more sophisticated.
-    #[must_use]
-    pub fn conservative_rate(&self) -> f64 {
-        match self {
-            CcpMethodology::LchSwapClear => 0.02,   // ~2% for IRS
-            CcpMethodology::LchCdsClear => 0.08,    // ~8% for CDS
-            CcpMethodology::Cme => 0.03,            // ~3% average
-            CcpMethodology::IceClearCredit => 0.10, // ~10% for CDX
-            CcpMethodology::IceClearUs => 0.05,     // ~5% average
-            CcpMethodology::Jscc => 0.03,
-            CcpMethodology::Eurex => 0.03,
-            CcpMethodology::GenericVaR { .. } => 0.05,
+    fn default_params(&self) -> CcpParams {
+        CcpParams {
+            mpor_days: 5,
+            conservative_rate: match self {
+                CcpMethodology::LchSwapClear => 0.02,
+                CcpMethodology::LchCdsClear => 0.08,
+                CcpMethodology::Cme => 0.03,
+                CcpMethodology::IceClearCredit => 0.10,
+                CcpMethodology::IceClearUs => 0.05,
+                CcpMethodology::Jscc => 0.03,
+                CcpMethodology::Eurex => 0.03,
+                CcpMethodology::GenericVaR { .. } => 0.05,
+            },
         }
+    }
+
+    fn params_from_registry(&self, registry: &MarginRegistry) -> CcpParams {
+        let key = self.registry_key();
+        if let Some(params) = registry.ccp.get(key) {
+            return params.clone();
+        }
+        if let Some(default_key) = &registry.ccp_default {
+            if let Some(params) = registry.ccp.get(default_key) {
+                return params.clone();
+            }
+        }
+        self.default_params()
     }
 
     /// Choose a CCP methodology based on a CCP name and instrument type.
@@ -180,12 +192,15 @@ pub struct ClearingHouseImCalculator {
     pub methodology: CcpMethodology,
     /// Optional external CCP margin input source
     pub input_source: Option<Arc<dyn CcpMarginInputSource>>,
+    /// Optional resolved parameters (overrides or pre-fetched config)
+    pub params_override: Option<CcpParams>,
 }
 
 impl std::fmt::Debug for ClearingHouseImCalculator {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         f.debug_struct("ClearingHouseImCalculator")
             .field("methodology", &self.methodology)
+            .field("params_override", &self.params_override)
             .field(
                 "input_source",
                 &self
@@ -204,6 +219,7 @@ impl ClearingHouseImCalculator {
         Self {
             methodology,
             input_source: None,
+            params_override: None,
         }
     }
 
@@ -211,6 +227,28 @@ impl ClearingHouseImCalculator {
     #[must_use]
     pub fn for_ccp(ccp: &str, instrument_type: InstrumentType) -> Self {
         Self::new(CcpMethodology::from_ccp_name(ccp, instrument_type))
+    }
+
+    /// Create a calculator with explicitly resolved params.
+    #[must_use]
+    pub fn with_params(methodology: CcpMethodology, params: CcpParams) -> Self {
+        Self {
+            methodology,
+            input_source: None,
+            params_override: Some(params),
+        }
+    }
+
+    /// Create using registry overrides from config.
+    pub fn for_ccp_with_config(
+        ccp: &str,
+        instrument_type: InstrumentType,
+        cfg: &FinstackConfig,
+    ) -> Result<Self> {
+        let registry = margin_registry_from_config(cfg)?;
+        let methodology = CcpMethodology::from_ccp_name(ccp, instrument_type);
+        let params = methodology.params_from_registry(&registry);
+        Ok(Self::with_params(methodology, params))
     }
 
     /// Create calculator for LCH SwapClear (IRS).
@@ -253,7 +291,7 @@ impl ClearingHouseImCalculator {
     /// with historical scenarios.
     pub fn calculate_conservative(&self, notional: Money) -> Money {
         Money::new(notional.amount().abs(), notional.currency())
-            * self.methodology.conservative_rate()
+            * self.params().conservative_rate
     }
 }
 
@@ -270,7 +308,7 @@ impl ImCalculator for ClearingHouseImCalculator {
         let notional = Money::new(pv.amount().abs(), currency);
 
         let mut im_amount = self.calculate_conservative(notional);
-        let mut mpor_days = self.methodology.mpor_days();
+        let mut mpor_days = self.params().mpor_days;
         if let Some(source) = &self.input_source {
             if let Some(amount) =
                 source.initial_margin(instrument, context, as_of, &self.methodology)
@@ -296,6 +334,18 @@ impl ImCalculator for ClearingHouseImCalculator {
 
     fn methodology(&self) -> ImMethodology {
         ImMethodology::ClearingHouse
+    }
+}
+
+impl ClearingHouseImCalculator {
+    fn params(&self) -> CcpParams {
+        if let Some(p) = &self.params_override {
+            return p.clone();
+        }
+        if let Ok(registry) = embedded_registry() {
+            return self.methodology.params_from_registry(registry);
+        }
+        self.methodology.default_params()
     }
 }
 
@@ -387,14 +437,18 @@ mod tests {
 
     #[test]
     fn conservative_rates() {
-        assert_eq!(CcpMethodology::LchSwapClear.conservative_rate(), 0.02);
-        assert_eq!(CcpMethodology::IceClearCredit.conservative_rate(), 0.10);
+        let lch = ClearingHouseImCalculator::lch_swapclear();
+        let ice = ClearingHouseImCalculator::ice_clear_credit();
+        assert_eq!(lch.params().conservative_rate, 0.02);
+        assert_eq!(ice.params().conservative_rate, 0.10);
     }
 
     #[test]
     fn mpor_days() {
-        assert_eq!(CcpMethodology::LchSwapClear.mpor_days(), 5);
-        assert_eq!(CcpMethodology::Cme.mpor_days(), 5);
+        let lch = ClearingHouseImCalculator::lch_swapclear();
+        let cme = ClearingHouseImCalculator::cme();
+        assert_eq!(lch.params().mpor_days, 5);
+        assert_eq!(cme.params().mpor_days, 5);
     }
 
     #[test]

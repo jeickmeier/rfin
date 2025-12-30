@@ -48,6 +48,16 @@ margin/
     └── instrument.rs        # Instrument-level IM/VM metrics
 ```
 
+## Configuration (registry-backed)
+
+- Embedded JSON registries live under `finstack/valuations/data/margin/`:
+  - `schedule_im.v1.json` — BCBS-IOSCO schedule IM rates
+  - `collateral_schedules.v1.json` — asset-class defaults and named schedules
+  - `defaults.v1.json` — VM/IM thresholds, timing, cleared settlement rounding
+  - `ccp_methodologies.v1.json` — CCP MPOR and conservative rates
+  - `simm.v1.json` — SIMM weights, correlations, and commodity buckets
+- Runtime overrides: set `FinstackConfig.extensions["valuations.margin_registry.v1"]` to a JSON object (merged over embedded defaults). All sections are optional; provide only the keys you need (`schedule_im`, `collateral_schedules`, `defaults`, `ccp`, `simm`).
+
 ## Core Types
 
 ### Credit Support Annex (CsaSpec)

@@ -3,9 +3,12 @@
 //! Fallback methodology using grid-based rates applied to notional amounts.
 //! Simpler but typically more conservative than SIMM.
 
+#![allow(clippy::unwrap_used)]
+
 use crate::instruments::common::traits::Instrument;
 use crate::margin::calculators::traits::{ImCalculator, ImResult};
 use crate::margin::types::ImMethodology;
+use crate::margin::{config::margin_registry_from_config, registry::embedded_registry};
 use finstack_core::dates::Date;
 use finstack_core::market_data::context::MarketContext;
 use finstack_core::money::Money;
@@ -13,8 +16,8 @@ use finstack_core::HashMap;
 use finstack_core::Result;
 
 /// Asset class for schedule-based IM calculation.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
-#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+#[allow(missing_docs)]
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub enum ScheduleAssetClass {
     /// Interest rate derivatives
     InterestRate,
@@ -28,17 +31,69 @@ pub enum ScheduleAssetClass {
     Fx,
     /// Other derivatives
     Other,
+    /// Custom user-defined asset class (from JSON)
+    Custom(String),
+}
+
+impl ScheduleAssetClass {
+    fn normalize(raw: &str) -> String {
+        raw.trim()
+            .to_ascii_lowercase()
+            .replace([' ', '-'], "_")
+    }
+
+    /// Normalized string identifier for this asset class.
+    pub fn as_str(&self) -> &str {
+        match self {
+            ScheduleAssetClass::InterestRate => "interest_rate",
+            ScheduleAssetClass::Credit => "credit",
+            ScheduleAssetClass::Equity => "equity",
+            ScheduleAssetClass::Commodity => "commodity",
+            ScheduleAssetClass::Fx => "fx",
+            ScheduleAssetClass::Other => "other",
+            ScheduleAssetClass::Custom(s) => s.as_str(),
+        }
+    }
+}
+
+impl serde::Serialize for ScheduleAssetClass {
+    fn serialize<S>(&self, serializer: S) -> std::result::Result<S::Ok, S::Error>
+    where
+        S: serde::Serializer,
+    {
+        serializer.serialize_str(self.as_str())
+    }
+}
+
+impl<'de> serde::Deserialize<'de> for ScheduleAssetClass {
+    fn deserialize<D>(deserializer: D) -> std::result::Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let s = <String as serde::Deserialize>::deserialize(deserializer)?;
+        s.parse().map_err(serde::de::Error::custom)
+    }
 }
 
 impl std::fmt::Display for ScheduleAssetClass {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        match self {
-            ScheduleAssetClass::InterestRate => write!(f, "interest_rate"),
-            ScheduleAssetClass::Credit => write!(f, "credit"),
-            ScheduleAssetClass::Equity => write!(f, "equity"),
-            ScheduleAssetClass::Commodity => write!(f, "commodity"),
-            ScheduleAssetClass::Fx => write!(f, "fx"),
-            ScheduleAssetClass::Other => write!(f, "other"),
+        write!(f, "{}", self.as_str())
+    }
+}
+
+impl std::str::FromStr for ScheduleAssetClass {
+    type Err = String;
+
+    fn from_str(s: &str) -> std::result::Result<Self, Self::Err> {
+        let norm = ScheduleAssetClass::normalize(s);
+        match norm.as_str() {
+            "interest_rate" | "ir" => Ok(ScheduleAssetClass::InterestRate),
+            "credit" => Ok(ScheduleAssetClass::Credit),
+            "equity" => Ok(ScheduleAssetClass::Equity),
+            "commodity" => Ok(ScheduleAssetClass::Commodity),
+            "fx" => Ok(ScheduleAssetClass::Fx),
+            "other" => Ok(ScheduleAssetClass::Other),
+            other => Ok(ScheduleAssetClass::Custom(other.to_string())),
         }
     }
 }
@@ -50,6 +105,12 @@ impl std::fmt::Display for ScheduleAssetClass {
 pub struct RegulatorySchedule {
     /// IM rates by asset class and maturity bucket
     pub rates: HashMap<(ScheduleAssetClass, MaturityBucket), f64>,
+    /// Short/medium bucket boundary in years.
+    pub short_to_medium: f64,
+    /// Medium/long bucket boundary in years.
+    pub medium_to_long: f64,
+    /// Default rate when no explicit bucket is available.
+    pub default_rate: f64,
 }
 
 /// Maturity bucket for schedule IM.
@@ -70,71 +131,49 @@ impl Default for RegulatorySchedule {
 }
 
 impl RegulatorySchedule {
-    /// BCBS-IOSCO standard schedule.
-    ///
-    /// Reference: BCBS-IOSCO "Margin requirements for non-centrally cleared derivatives"
-    /// Annex A, Table 1.
+    /// BCBS-IOSCO standard schedule loaded from the embedded registry.
     #[must_use]
     pub fn bcbs_iosco() -> Self {
-        let mut rates = HashMap::default();
-
-        // Interest Rate
-        rates.insert(
-            (ScheduleAssetClass::InterestRate, MaturityBucket::Short),
-            0.01,
-        ); // 1%
-        rates.insert(
-            (ScheduleAssetClass::InterestRate, MaturityBucket::Medium),
-            0.02,
-        ); // 2%
-        rates.insert(
-            (ScheduleAssetClass::InterestRate, MaturityBucket::Long),
-            0.04,
-        ); // 4%
-
-        // Credit
-        rates.insert((ScheduleAssetClass::Credit, MaturityBucket::Short), 0.02); // 2%
-        rates.insert((ScheduleAssetClass::Credit, MaturityBucket::Medium), 0.05); // 5%
-        rates.insert((ScheduleAssetClass::Credit, MaturityBucket::Long), 0.10); // 10%
-
-        // Equity
-        rates.insert((ScheduleAssetClass::Equity, MaturityBucket::Short), 0.15); // 15%
-        rates.insert((ScheduleAssetClass::Equity, MaturityBucket::Medium), 0.15);
-        rates.insert((ScheduleAssetClass::Equity, MaturityBucket::Long), 0.15);
-
-        // Commodity
-        rates.insert((ScheduleAssetClass::Commodity, MaturityBucket::Short), 0.15);
-        rates.insert(
-            (ScheduleAssetClass::Commodity, MaturityBucket::Medium),
-            0.15,
-        );
-        rates.insert((ScheduleAssetClass::Commodity, MaturityBucket::Long), 0.15);
-
-        // FX
-        rates.insert((ScheduleAssetClass::Fx, MaturityBucket::Short), 0.06); // 6%
-        rates.insert((ScheduleAssetClass::Fx, MaturityBucket::Medium), 0.06);
-        rates.insert((ScheduleAssetClass::Fx, MaturityBucket::Long), 0.06);
-
-        // Other
-        rates.insert((ScheduleAssetClass::Other, MaturityBucket::Short), 0.15);
-        rates.insert((ScheduleAssetClass::Other, MaturityBucket::Medium), 0.15);
-        rates.insert((ScheduleAssetClass::Other, MaturityBucket::Long), 0.15);
-
-        Self { rates }
+        if let Ok(registry) = embedded_registry() {
+            if let Some(schedule) = registry.schedule_im.get("bcbs_iosco") {
+                return Self::from_registry(schedule.clone());
+            }
+        }
+        let registry = embedded_registry().unwrap();
+        let schedule = registry
+            .schedule_im
+            .get("bcbs_iosco")
+            .unwrap();
+        Self::from_registry(schedule.clone())
     }
+
+    /// Build from a registry entry.
+    #[must_use]
+    pub fn from_registry(entry: crate::margin::registry::ScheduleImSchedule) -> Self {
+        Self {
+            rates: entry.rates,
+            short_to_medium: entry.boundaries.short_to_medium,
+            medium_to_long: entry.boundaries.medium_to_long,
+            default_rate: entry.default_rate,
+        }
+    }
+
 
     /// Get the IM rate for an asset class and maturity.
     #[must_use]
     pub fn rate(&self, asset_class: ScheduleAssetClass, maturity_years: f64) -> f64 {
-        let bucket = if maturity_years < 2.0 {
+        let bucket = if maturity_years < self.short_to_medium {
             MaturityBucket::Short
-        } else if maturity_years < 5.0 {
+        } else if maturity_years < self.medium_to_long {
             MaturityBucket::Medium
         } else {
             MaturityBucket::Long
         };
 
-        *self.rates.get(&(asset_class, bucket)).unwrap_or(&0.15)
+        *self
+            .rates
+            .get(&(asset_class, bucket))
+            .unwrap_or(&self.default_rate)
     }
 }
 
@@ -190,12 +229,30 @@ impl ScheduleImCalculator {
     /// Create calculator with BCBS-IOSCO standard schedule.
     #[must_use]
     pub fn bcbs_standard() -> Self {
+        let registry = embedded_registry().unwrap();
+        let entry = registry.schedule_im.get("bcbs_iosco").unwrap();
+        Self::from_registry(entry)
+    }
+
+    /// Create calculator from a registry entry.
+    #[must_use]
+    pub fn from_registry(entry: &crate::margin::registry::ScheduleImSchedule) -> Self {
         Self {
-            schedule: RegulatorySchedule::bcbs_iosco(),
-            default_asset_class: ScheduleAssetClass::InterestRate,
-            default_maturity_years: 5.0,
-            mpor_days: 10,
+            schedule: RegulatorySchedule::from_registry(entry.clone()),
+            default_asset_class: entry.default_asset_class.clone(),
+            default_maturity_years: entry.default_maturity_years,
+            mpor_days: entry.mpor_days,
         }
+    }
+
+    /// Create calculator resolved from a provided `FinstackConfig`.
+    pub fn from_finstack_config(cfg: &finstack_core::config::FinstackConfig) -> Result<Self> {
+        let registry = margin_registry_from_config(cfg)?;
+        let entry = registry
+            .schedule_im
+            .get("bcbs_iosco")
+            .ok_or_else(|| finstack_core::Error::Validation("bcbs_iosco schedule missing".into()))?;
+        Ok(Self::from_registry(entry))
     }
 
     /// Set default asset class.
@@ -244,7 +301,7 @@ impl ImCalculator for ScheduleImCalculator {
 
         let im_amount = self.calculate_for_notional(
             notional,
-            self.default_asset_class,
+            self.default_asset_class.clone(),
             self.default_maturity_years,
         );
 

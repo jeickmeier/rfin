@@ -72,7 +72,10 @@
 
 pub mod calculators;
 pub mod constants;
+/// Margin registry/configuration helpers.
+pub mod config;
 mod impls;
+pub mod registry;
 pub mod metrics;
 pub mod traits;
 pub mod types;

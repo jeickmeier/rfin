@@ -1,3 +1,5 @@
+#![allow(clippy::unwrap_used)]
+
 //! Variation margin and initial margin parameter specifications.
 //!
 //! Defines the threshold, MTA (Minimum Transfer Amount), and other parameters
@@ -6,6 +8,11 @@
 use super::enums::{ImMethodology, MarginTenor};
 use finstack_core::currency::Currency;
 use finstack_core::money::Money;
+use finstack_core::Result;
+
+use crate::margin::config::margin_registry_from_config;
+use crate::margin::registry::embedded_registry;
+use finstack_core::config::FinstackConfig;
 
 /// Variation margin parameters.
 ///
@@ -76,14 +83,8 @@ impl VmParameters {
     /// Create VM parameters with zero threshold (regulatory standard).
     #[must_use]
     pub fn regulatory_standard(currency: Currency) -> Self {
-        Self {
-            threshold: Money::new(0.0, currency),
-            mta: Money::new(500_000.0, currency),
-            rounding: Money::new(10_000.0, currency),
-            independent_amount: Money::new(0.0, currency),
-            frequency: MarginTenor::Daily,
-            settlement_lag: 1,
-        }
+        let registry = embedded_registry().unwrap();
+        Self::from_defaults(currency, &registry.defaults.vm)
     }
 
     /// Create VM parameters with a threshold (bilateral thresholds).
@@ -155,6 +156,16 @@ impl VmParameters {
         let rounded = (amount.amount() / rounding).round() * rounding;
         Money::new(rounded, amount.currency())
     }
+
+    /// Build from defaults resolved via a `FinstackConfig`.
+    pub fn from_finstack_config(cfg: &FinstackConfig, currency: Currency) -> Result<Self> {
+        let registry = margin_registry_from_config(cfg)?;
+        Ok(Self::from_defaults(currency, &registry.defaults.vm))
+    }
+
+    fn from_defaults(currency: Currency, defaults: &crate::margin::registry::VmDefaults) -> Self {
+        defaults.to_vm_params(currency)
+    }
 }
 
 impl Default for VmParameters {
@@ -225,49 +236,62 @@ impl ImParameters {
     /// Create IM parameters using ISDA SIMM methodology.
     #[must_use]
     pub fn simm_standard(currency: Currency) -> Self {
-        Self {
-            methodology: ImMethodology::Simm,
-            mpor_days: 10,
-            threshold: Money::new(50_000_000.0, currency), // €50M equivalent
-            mta: Money::new(0.0, currency),                // Typically combined with VM MTA
-            segregated: true,
-        }
+        let registry = embedded_registry().unwrap();
+        registry
+            .defaults
+            .im
+            .simm
+            .to_im_params(ImMethodology::Simm, currency)
     }
 
     /// Create IM parameters using schedule-based methodology.
     #[must_use]
     pub fn schedule_based(currency: Currency) -> Self {
-        Self {
-            methodology: ImMethodology::Schedule,
-            mpor_days: 10,
-            threshold: Money::new(50_000_000.0, currency),
-            mta: Money::new(0.0, currency),
-            segregated: true,
-        }
+        let registry = embedded_registry().unwrap();
+        registry
+            .defaults
+            .im
+            .schedule
+            .to_im_params(ImMethodology::Schedule, currency)
     }
 
     /// Create IM parameters for cleared trades (CCP methodology).
     #[must_use]
     pub fn cleared(currency: Currency) -> Self {
-        Self {
-            methodology: ImMethodology::ClearingHouse,
-            mpor_days: 5,                         // CCPs typically use shorter MPOR
-            threshold: Money::new(0.0, currency), // No threshold for cleared
-            mta: Money::new(0.0, currency),
-            segregated: false, // CCP manages segregation
-        }
+        let registry = embedded_registry().unwrap();
+        registry
+            .defaults
+            .im
+            .cleared
+            .to_im_params(ImMethodology::ClearingHouse, currency)
     }
 
     /// Create IM parameters for repos using haircut methodology.
     #[must_use]
     pub fn repo_haircut(currency: Currency) -> Self {
-        Self {
-            methodology: ImMethodology::Haircut,
-            mpor_days: 2, // Short close-out for repos
-            threshold: Money::new(0.0, currency),
-            mta: Money::new(0.0, currency),
-            segregated: false,
-        }
+        let registry = embedded_registry().unwrap();
+        registry
+            .defaults
+            .im
+            .repo_haircut
+            .to_im_params(ImMethodology::Haircut, currency)
+    }
+
+    /// Create IM parameters using defaults resolved from a config.
+    pub fn from_finstack_config(
+        cfg: &FinstackConfig,
+        methodology: ImMethodology,
+        currency: Currency,
+    ) -> Result<Self> {
+        let registry = margin_registry_from_config(cfg)?;
+        let defaults = match methodology {
+            ImMethodology::Simm => &registry.defaults.im.simm,
+            ImMethodology::Schedule => &registry.defaults.im.schedule,
+            ImMethodology::ClearingHouse => &registry.defaults.im.cleared,
+            ImMethodology::Haircut => &registry.defaults.im.repo_haircut,
+            ImMethodology::InternalModel => &registry.defaults.im.simm,
+        };
+        Ok(defaults.to_im_params(methodology, currency))
     }
 }
 

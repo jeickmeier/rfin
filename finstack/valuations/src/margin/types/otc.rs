@@ -1,3 +1,5 @@
+#![allow(clippy::unwrap_used)]
+
 //! OTC derivative margin specification.
 //!
 //! Shared margin specification for CSA-governed OTC derivatives
@@ -5,7 +7,12 @@
 
 use super::csa::CsaSpec;
 use super::enums::{ClearingStatus, ImMethodology, MarginTenor};
+use crate::margin::config::margin_registry_from_config;
+use crate::margin::registry::embedded_registry;
 use finstack_core::currency::Currency;
+use finstack_core::config::FinstackConfig;
+use finstack_core::money::Money;
+use finstack_core::Result;
 
 /// OTC derivative margin specification (ISDA CSA compliant).
 ///
@@ -93,35 +100,33 @@ impl OtcMarginSpec {
     /// * `currency` - Settlement currency
     #[must_use]
     pub fn cleared(ccp: impl Into<String>, currency: Currency) -> Self {
-        use super::collateral::EligibleCollateralSchedule;
-        use super::csa::MarginCallTiming;
-        use super::thresholds::{ImParameters, VmParameters};
-        use finstack_core::money::Money;
-        use finstack_core::types::CurveId;
-
         let ccp_name = ccp.into();
+        let registry = embedded_registry().unwrap();
 
         // CCPs have zero thresholds and daily margining
         let csa = CsaSpec {
             id: format!("{}-CCP-CSA", ccp_name),
             base_currency: currency,
-            vm_params: VmParameters {
-                threshold: Money::new(0.0, currency),
-                mta: Money::new(0.0, currency),
-                rounding: Money::new(1.0, currency), // CCPs often use 1 unit rounding
-                independent_amount: Money::new(0.0, currency),
-                frequency: MarginTenor::Daily,
-                settlement_lag: 0, // Same-day settlement for CCPs
+            vm_params: {
+                let mut vm = registry.defaults.vm.to_vm_params(currency);
+                vm.rounding = Money::new(registry.defaults.cleared_settlement.rounding, currency);
+                vm.settlement_lag = registry.defaults.cleared_settlement.settlement_lag;
+                vm
             },
-            im_params: Some(ImParameters::cleared(currency)),
-            eligible_collateral: EligibleCollateralSchedule::bcbs_standard(),
-            call_timing: MarginCallTiming {
-                notification_deadline_hours: 10, // Earlier deadline for CCPs
-                response_deadline_hours: 1,
-                dispute_resolution_days: 1,
-                delivery_grace_days: 0,
-            },
-            collateral_curve_id: CurveId::new(format!("{}-OIS", currency)),
+            im_params: Some(
+                registry
+                    .defaults
+                    .im
+                    .cleared
+                    .to_im_params(ImMethodology::ClearingHouse, currency),
+            ),
+            eligible_collateral: registry
+                .collateral_schedules
+                .get("bcbs_standard")
+                .cloned()
+                .unwrap(),
+            call_timing: registry.defaults.timing.ccp.clone(),
+            collateral_curve_id: finstack_core::types::CurveId::new(format!("{}-OIS", currency)),
         };
 
         Self {
@@ -129,7 +134,7 @@ impl OtcMarginSpec {
             clearing_status: ClearingStatus::Cleared { ccp: ccp_name },
             im_methodology: ImMethodology::ClearingHouse,
             vm_frequency: MarginTenor::Daily,
-            settlement_lag: 0,
+            settlement_lag: registry.defaults.cleared_settlement.settlement_lag,
         }
     }
 
@@ -161,6 +166,46 @@ impl OtcMarginSpec {
     #[must_use]
     pub fn ice_clear_credit() -> Self {
         Self::cleared("ICE", Currency::USD)
+    }
+
+    /// Create a margin spec for cleared derivatives using overrides from a config.
+    pub fn cleared_from_config(ccp: impl Into<String>, currency: Currency, cfg: &FinstackConfig) -> Result<Self> {
+        let ccp_name = ccp.into();
+        let registry = margin_registry_from_config(cfg)?;
+        let vm_defaults = registry.defaults.vm.to_vm_params(currency);
+        let mut vm_params = vm_defaults;
+        vm_params.rounding = finstack_core::money::Money::new(
+            registry.defaults.cleared_settlement.rounding,
+            currency,
+        );
+        vm_params.settlement_lag = registry.defaults.cleared_settlement.settlement_lag;
+
+        let csa = CsaSpec {
+            id: format!("{}-CCP-CSA", ccp_name),
+            base_currency: currency,
+            vm_params,
+            im_params: Some(
+                registry
+                    .defaults
+                    .im
+                    .cleared
+                    .to_im_params(ImMethodology::ClearingHouse, currency),
+            ),
+            eligible_collateral: super::collateral::EligibleCollateralSchedule::from_finstack_config(
+                cfg,
+                "bcbs_standard",
+            )?,
+            call_timing: registry.defaults.timing.ccp.clone(),
+            collateral_curve_id: finstack_core::types::CurveId::new(format!("{}-OIS", currency)),
+        };
+
+        Ok(Self {
+            csa,
+            clearing_status: ClearingStatus::Cleared { ccp: ccp_name },
+            im_methodology: ImMethodology::ClearingHouse,
+            vm_frequency: MarginTenor::Daily,
+            settlement_lag: registry.defaults.cleared_settlement.settlement_lag,
+        })
     }
 
     /// Check if this is a cleared trade.

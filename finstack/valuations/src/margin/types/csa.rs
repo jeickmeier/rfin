@@ -3,10 +3,18 @@
 //! Defines the CSA agreement terms that govern collateral exchange for
 //! OTC derivatives under ISDA documentation.
 
+#![allow(clippy::unwrap_used)]
+
 use super::collateral::EligibleCollateralSchedule;
+use super::enums::ImMethodology;
 use super::thresholds::{ImParameters, VmParameters};
 use finstack_core::currency::Currency;
 use finstack_core::types::CurveId;
+use finstack_core::Result;
+
+use crate::margin::config::margin_registry_from_config;
+use crate::margin::registry::embedded_registry;
+use finstack_core::config::FinstackConfig;
 
 /// Margin call timing parameters.
 ///
@@ -30,12 +38,8 @@ pub struct MarginCallTiming {
 
 impl Default for MarginCallTiming {
     fn default() -> Self {
-        Self {
-            notification_deadline_hours: 13, // 1:00 PM local time
-            response_deadline_hours: 2,      // 2 hours to respond
-            dispute_resolution_days: 2,      // 2 days to resolve disputes
-            delivery_grace_days: 1,          // 1 day grace for delivery
-        }
+        let registry = embedded_registry().unwrap();
+        registry.defaults.timing.standard.clone()
     }
 }
 
@@ -43,12 +47,8 @@ impl MarginCallTiming {
     /// Standard timing for regulatory VM CSA.
     #[must_use]
     pub fn regulatory_standard() -> Self {
-        Self {
-            notification_deadline_hours: 13,
-            response_deadline_hours: 2,
-            dispute_resolution_days: 1,
-            delivery_grace_days: 0, // Same-day for regulatory VM
-        }
+        let registry = embedded_registry().unwrap();
+        registry.defaults.timing.regulatory_vm.clone()
     }
 }
 
@@ -136,29 +136,55 @@ impl CsaSpec {
     /// - Cash and government bonds as eligible collateral
     #[must_use]
     pub fn usd_regulatory() -> Self {
-        Self {
-            id: "USD-REGULATORY-CSA".to_string(),
-            base_currency: Currency::USD,
-            vm_params: VmParameters::regulatory_standard(Currency::USD),
-            im_params: Some(ImParameters::simm_standard(Currency::USD)),
-            eligible_collateral: EligibleCollateralSchedule::bcbs_standard(),
-            call_timing: MarginCallTiming::regulatory_standard(),
-            collateral_curve_id: CurveId::new("USD-OIS"),
-        }
+        Self::regulatory_for_currency(Currency::USD, "USD-REGULATORY-CSA", "USD-OIS")
     }
 
     /// Create a standard regulatory CSA for EUR derivatives.
     #[must_use]
     pub fn eur_regulatory() -> Self {
+        Self::regulatory_for_currency(Currency::EUR, "EUR-REGULATORY-CSA", "EUR-ESTR")
+    }
+
+    fn regulatory_for_currency(
+        currency: Currency,
+        id: &str,
+        collateral_curve: &str,
+    ) -> Self {
         Self {
-            id: "EUR-REGULATORY-CSA".to_string(),
-            base_currency: Currency::EUR,
-            vm_params: VmParameters::regulatory_standard(Currency::EUR),
-            im_params: Some(ImParameters::simm_standard(Currency::EUR)),
+            id: id.to_string(),
+            base_currency: currency,
+            vm_params: VmParameters::regulatory_standard(currency),
+            im_params: Some(ImParameters::simm_standard(currency)),
             eligible_collateral: EligibleCollateralSchedule::bcbs_standard(),
             call_timing: MarginCallTiming::regulatory_standard(),
-            collateral_curve_id: CurveId::new("EUR-ESTR"),
+            collateral_curve_id: CurveId::new(collateral_curve),
         }
+    }
+
+    /// Create a CSA using overrides resolved from a config.
+    pub fn regulatory_from_config(
+        cfg: &FinstackConfig,
+        currency: Currency,
+        id: &str,
+        collateral_curve: &str,
+    ) -> Result<Self> {
+        let registry = margin_registry_from_config(cfg)?;
+        Ok(Self {
+            id: id.to_string(),
+            base_currency: currency,
+            vm_params: VmParameters::from_finstack_config(cfg, currency)?,
+            im_params: Some(ImParameters::from_finstack_config(
+                cfg,
+                ImMethodology::Simm,
+                currency,
+            )?),
+            eligible_collateral: EligibleCollateralSchedule::from_finstack_config(
+                cfg,
+                "bcbs_standard",
+            )?,
+            call_timing: registry.defaults.timing.regulatory_vm.clone(),
+            collateral_curve_id: CurveId::new(collateral_curve),
+        })
     }
 
     /// Check if this CSA requires initial margin.

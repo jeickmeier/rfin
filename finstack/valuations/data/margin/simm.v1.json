@@ -1,0 +1,136 @@
+{
+  "schema": "finstack.margin.simm.v1",
+  "version": 1,
+  "entries": [
+    {
+      "ids": ["v2_6"],
+      "record": {
+        "mpor_days": 10,
+        "ir_delta_weights": {
+          "2w": 109.0,
+          "1m": 105.0,
+          "3m": 80.0,
+          "6m": 67.0,
+          "1y": 61.0,
+          "2y": 52.0,
+          "3y": 49.0,
+          "5y": 51.0,
+          "10y": 51.0,
+          "15y": 51.0,
+          "20y": 54.0,
+          "30y": 62.0
+        },
+        "cq_delta_weights": {
+          "sovereigns": 85.0,
+          "financials": 85.0,
+          "corporates": 73.0
+        },
+        "cnq_delta_weight": 500.0,
+        "equity_delta_weight": 32.0,
+        "fx_delta_weight": 8.4,
+        "risk_class_correlations": [
+          { "a": "interest_rate", "b": "credit_qualifying", "rho": 0.10 },
+          { "a": "interest_rate", "b": "credit_non_qualifying", "rho": 0.14 },
+          { "a": "interest_rate", "b": "equity", "rho": 0.12 },
+          { "a": "interest_rate", "b": "commodity", "rho": 0.30 },
+          { "a": "interest_rate", "b": "fx", "rho": 0.10 },
+          { "a": "credit_qualifying", "b": "credit_non_qualifying", "rho": 0.60 },
+          { "a": "credit_qualifying", "b": "equity", "rho": 0.66 },
+          { "a": "credit_qualifying", "b": "commodity", "rho": 0.25 },
+          { "a": "credit_qualifying", "b": "fx", "rho": 0.22 },
+          { "a": "credit_non_qualifying", "b": "equity", "rho": 0.52 },
+          { "a": "credit_non_qualifying", "b": "commodity", "rho": 0.27 },
+          { "a": "credit_non_qualifying", "b": "fx", "rho": 0.15 },
+          { "a": "equity", "b": "commodity", "rho": 0.33 },
+          { "a": "equity", "b": "fx", "rho": 0.24 },
+          { "a": "commodity", "b": "fx", "rho": 0.23 }
+        ],
+        "commodity_bucket_weights": {
+          "1": 25.0,
+          "2": 21.0,
+          "3": 23.0,
+          "4": 19.0,
+          "5": 24.0,
+          "6": 27.0,
+          "7": 33.0,
+          "8": 37.0,
+          "9": 64.0,
+          "10": 43.0,
+          "11": 21.0,
+          "12": 19.0,
+          "13": 14.0,
+          "14": 17.0,
+          "15": 11.0,
+          "16": 64.0,
+          "17": 16.0,
+          "other": 64.0
+        }
+      }
+    },
+    {
+      "ids": ["v2_5"],
+      "record": {
+        "mpor_days": 10,
+        "ir_delta_weights": {
+          "2w": 109.0,
+          "1m": 105.0,
+          "3m": 80.0,
+          "6m": 67.0,
+          "1y": 59.0,
+          "2y": 52.0,
+          "3y": 49.0,
+          "5y": 48.0,
+          "10y": 51.0,
+          "15y": 51.0,
+          "20y": 54.0,
+          "30y": 62.0
+        },
+        "cq_delta_weights": {
+          "sovereigns": 85.0,
+          "financials": 85.0,
+          "corporates": 73.0
+        },
+        "cnq_delta_weight": 500.0,
+        "equity_delta_weight": 32.0,
+        "fx_delta_weight": 8.4,
+        "risk_class_correlations": [
+          { "a": "interest_rate", "b": "credit_qualifying", "rho": 0.10 },
+          { "a": "interest_rate", "b": "credit_non_qualifying", "rho": 0.14 },
+          { "a": "interest_rate", "b": "equity", "rho": 0.12 },
+          { "a": "interest_rate", "b": "commodity", "rho": 0.30 },
+          { "a": "interest_rate", "b": "fx", "rho": 0.10 },
+          { "a": "credit_qualifying", "b": "credit_non_qualifying", "rho": 0.60 },
+          { "a": "credit_qualifying", "b": "equity", "rho": 0.66 },
+          { "a": "credit_qualifying", "b": "commodity", "rho": 0.25 },
+          { "a": "credit_qualifying", "b": "fx", "rho": 0.22 },
+          { "a": "credit_non_qualifying", "b": "equity", "rho": 0.52 },
+          { "a": "credit_non_qualifying", "b": "commodity", "rho": 0.27 },
+          { "a": "credit_non_qualifying", "b": "fx", "rho": 0.15 },
+          { "a": "equity", "b": "commodity", "rho": 0.33 },
+          { "a": "equity", "b": "fx", "rho": 0.24 },
+          { "a": "commodity", "b": "fx", "rho": 0.23 }
+        ],
+        "commodity_bucket_weights": {
+          "1": 25.0,
+          "2": 21.0,
+          "3": 23.0,
+          "4": 19.0,
+          "5": 24.0,
+          "6": 27.0,
+          "7": 33.0,
+          "8": 37.0,
+          "9": 64.0,
+          "10": 43.0,
+          "11": 21.0,
+          "12": 19.0,
+          "13": 14.0,
+          "14": 17.0,
+          "15": 11.0,
+          "16": 64.0,
+          "17": 16.0,
+          "other": 64.0
+        }
+      }
+    }
+  ]
+}
