@@ -604,23 +604,6 @@ impl LevenbergMarquardtSolver {
             .params)
     }
 
-    /// Solve system of equations with explicit residual dimension.
-    ///
-    /// Use this method for overdetermined systems where `n_residuals > n_params`.
-    pub fn solve_system_with_dim<Res>(
-        &self,
-        residuals: Res,
-        initial: &[f64],
-        n_residuals: usize,
-    ) -> Result<Vec<f64>>
-    where
-        Res: Fn(&[f64], &mut [f64]),
-    {
-        Ok(self
-            .solve_system_with_dim_stats(residuals, initial, n_residuals)?
-            .params)
-    }
-
     /// Solve system of equations with explicit residual dimension and stats.
     pub fn solve_system_with_dim_stats<Res>(
         &self,
@@ -710,62 +693,6 @@ impl LevenbergMarquardtSolver {
             None, // bounds
         )
     }
-
-    /// Solve system with analytical Jacobian.
-    pub fn solve_system_with_jacobian<Res, D>(
-        &self,
-        residuals: Res,
-        derivatives: &D,
-        initial: &[f64],
-    ) -> Result<Vec<f64>>
-    where
-        Res: Fn(&[f64], &mut [f64]),
-        D: AnalyticalDerivatives,
-    {
-        // Probe residual dimension
-        if initial.is_empty() {
-            return Err(InputError::Invalid.into());
-        }
-        let mut test_residuals = vec![f64::NAN; initial.len() * 2];
-        residuals(initial, &mut test_residuals);
-        let n_residuals = test_residuals
-            .iter()
-            .position(|r| r.is_nan())
-            .unwrap_or(test_residuals.len());
-
-        let jacobian_func = |p: &[f64], _r: &[f64], eval_counter: &mut usize| -> Vec<Vec<f64>> {
-            if derivatives.has_jacobian() {
-                let mut jac = vec![vec![0.0; p.len()]; n_residuals];
-                if derivatives.jacobian(p, &mut jac).is_some() {
-                    return jac;
-                }
-            }
-            // Fallback
-            self.compute_jacobian_system(&residuals, p, n_residuals, eval_counter)
-        };
-
-        // Convergence check: Residual Norm
-        let convergence_check =
-            |_p: &[f64], r: &[f64], _jac: &[Vec<f64>]| -> Option<LmTerminationReason> {
-                let resid_norm: f64 = r.iter().map(|val| val * val).sum::<f64>().sqrt();
-                if resid_norm < self.tolerance {
-                    Some(LmTerminationReason::ConvergedResidualNorm)
-                } else {
-                    None
-                }
-            };
-
-        Ok(self
-            .solve_lm_core_with_stats(
-                initial.to_vec(),
-                &residuals,
-                jacobian_func,
-                convergence_check,
-                n_residuals,
-                None,
-            )?
-            .params)
-    }
 }
 
 impl MultiSolver for LevenbergMarquardtSolver {
@@ -827,7 +754,9 @@ impl MultiSolver for LevenbergMarquardtSolver {
             .position(|r| r.is_nan())
             .unwrap_or(test_residuals.len());
 
-        self.solve_system_with_dim(residuals, initial, n_residuals)
+        Ok(self
+            .solve_system_with_dim_stats(residuals, initial, n_residuals)?
+            .params)
     }
 }
 
@@ -1056,8 +985,9 @@ mod tests {
         let initial = vec![1.0, 0.0];
 
         let result = solver
-            .solve_system_with_jacobian(residuals, &derivatives, &initial)
-            .expect("Minimization should succeed in test");
+            .solve_system_with_jacobian_stats(residuals, &derivatives, &initial)
+            .expect("Minimization should succeed in test")
+            .params;
 
         let expected = 2.0_f64.sqrt();
         assert!((result[0] - expected).abs() < 1e-8);
@@ -1085,8 +1015,9 @@ mod tests {
 
         let initial = vec![0.0, 0.0];
         let result = solver
-            .solve_system_with_dim(residuals, &initial, 5)
-            .expect("solve_system_with_dim should succeed");
+            .solve_system_with_dim_stats(residuals, &initial, 5)
+            .expect("solve_system_with_dim_stats should succeed")
+            .params;
 
         assert!(
             (result[0] - 3.0).abs() < 1e-4,
@@ -1122,8 +1053,9 @@ mod tests {
 
         let initial = vec![0.0, 0.0];
         let result = solver
-            .solve_system_with_dim(residuals, &initial, 20)
-            .expect("solve_system_with_dim should not panic with 20 residuals");
+            .solve_system_with_dim_stats(residuals, &initial, 20)
+            .expect("solve_system_with_dim_stats should not panic with 20 residuals")
+            .params;
 
         // Solution should be approximately x=3, y=2
         assert!(
@@ -1150,8 +1082,9 @@ mod tests {
 
         let initial = vec![0.0, 0.0, 0.0];
         let result = solver
-            .solve_system_with_dim(residuals, &initial, 3)
-            .expect("solve should succeed");
+            .solve_system_with_dim_stats(residuals, &initial, 3)
+            .expect("solve should succeed")
+            .params;
 
         assert_eq!(result.len(), 3, "Result should have same length as initial");
     }
