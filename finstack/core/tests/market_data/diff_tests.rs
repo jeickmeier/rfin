@@ -612,10 +612,19 @@ fn test_vol_surface_zero_shift() {
 fn test_fx_shift_strengthening() {
     let market_t0 = MarketContext::new().insert_fx(sample_fx_matrix());
     let market_t1 = MarketContext::new().insert_fx(sample_fx_matrix());
+    let as_of_t0 = sample_date();
+    let as_of_t1 = sample_date();
 
     // Since MockFxProvider always returns same rates, shift should be zero
-    let shift = measure_fx_shift(Currency::USD, Currency::EUR, &market_t0, &market_t1)
-        .expect("Should measure shift");
+    let shift = measure_fx_shift(
+        Currency::USD,
+        Currency::EUR,
+        &market_t0,
+        &market_t1,
+        as_of_t0,
+        as_of_t1,
+    )
+    .expect("Should measure shift");
 
     assert_eq!(shift, 0.0, "Same FX matrix should produce zero shift");
 }
@@ -624,10 +633,57 @@ fn test_fx_shift_strengthening() {
 fn test_fx_missing_error() {
     let market_t0 = MarketContext::new();
     let market_t1 = MarketContext::new();
+    let as_of_t0 = sample_date();
+    let as_of_t1 = sample_date();
 
-    let result = measure_fx_shift(Currency::USD, Currency::EUR, &market_t0, &market_t1);
+    let result = measure_fx_shift(
+        Currency::USD,
+        Currency::EUR,
+        &market_t0,
+        &market_t1,
+        as_of_t0,
+        as_of_t1,
+    );
 
     assert!(result.is_err(), "Should error on missing FX matrix");
+}
+
+#[test]
+fn test_fx_shift_uses_valuation_dates() {
+    struct DateAwareFx;
+    impl FxProvider for DateAwareFx {
+        fn rate(
+            &self,
+            from: Currency,
+            to: Currency,
+            on: Date,
+            _policy: FxConversionPolicy,
+        ) -> finstack_core::Result<f64> {
+            if from == Currency::EUR && to == Currency::USD {
+                let base = 1.10_f64;
+                let days = (on - sample_date()).whole_days();
+                Ok(base + 0.001 * days as f64)
+            } else {
+                Ok(1.0)
+            }
+        }
+    }
+
+    let t0 = sample_date();
+    let t1 = t0.next_day().expect("next day should exist");
+
+    let market_t0 = MarketContext::new().insert_fx(FxMatrix::new(Arc::new(DateAwareFx)));
+    let market_t1 = MarketContext::new().insert_fx(FxMatrix::new(Arc::new(DateAwareFx)));
+
+    let shift =
+        measure_fx_shift(Currency::EUR, Currency::USD, &market_t0, &market_t1, t0, t1).unwrap();
+
+    // rate_t0 = 1.10, rate_t1 = 1.101 -> (1.101/1.10 - 1) * 100 ≈ 0.0909%
+    assert!(
+        (shift - 0.0909).abs() < 0.01,
+        "Expected ~0.09% shift, got {}",
+        shift
+    );
 }
 
 // ===================================================================
@@ -665,6 +721,15 @@ fn test_scalar_unitless_shift() {
         "Expected ~5.56%, got {}",
         shift
     );
+}
+
+#[test]
+fn test_scalar_shift_zero_baseline_errors() {
+    let market_t0 = MarketContext::new().insert_price("ZERO", MarketScalar::Unitless(0.0));
+    let market_t1 = MarketContext::new().insert_price("ZERO", MarketScalar::Unitless(100.0));
+
+    let result = measure_scalar_shift("ZERO", &market_t0, &market_t1);
+    assert!(result.is_err(), "Zero baseline should produce validation error");
 }
 
 #[test]

@@ -11,11 +11,13 @@ use crate::instruments::json_loader::InstrumentJson;
 use crate::metrics::MetricId;
 use finstack_core::{
     config::{FinstackConfig, ResultsMeta},
+    currency::Currency,
     dates::Date,
     market_data::context::{MarketContext, MarketContextState},
     Result,
 };
 use serde::{Deserialize, Serialize};
+use serde_json::json;
 use std::str::FromStr;
 
 /// Schema version for attribution serialization.
@@ -112,6 +114,12 @@ pub struct AttributionConfig {
     /// Strict validation mode (if true, errors during attribution will propagate instead of being logged)
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub strict_validation: Option<bool>,
+    /// Rounding scale override (number of decimal places)
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub rounding_scale: Option<u32>,
+    /// Rate bump size in basis points for sensitivities
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub rate_bump_bp: Option<f64>,
 }
 
 impl AttributionSpec {
@@ -127,8 +135,8 @@ impl AttributionSpec {
         let market_t0 = MarketContext::try_from(self.market_t0.clone())?;
         let market_t1 = MarketContext::try_from(self.market_t1.clone())?;
 
-        // Get config (use defaults if not provided)
-        let config = FinstackConfig::default();
+        // Build config (defaults unless overridden)
+        let config = self.build_finstack_config();
 
         // Determine strict validation
         let strict_validation = self
@@ -165,10 +173,24 @@ impl AttributionSpec {
                 // Determine metrics to use
                 let metrics = if let Some(ref cfg) = self.config {
                     if let Some(ref metric_names) = cfg.metrics {
-                        metric_names
-                            .iter()
-                            .filter_map(|name| MetricId::from_str(name).ok())
-                            .collect()
+                        let mut parsed = Vec::new();
+                        let mut unknown = Vec::new();
+
+                        for name in metric_names {
+                            match MetricId::from_str(name) {
+                                Ok(id) => parsed.push(id),
+                                Err(_) => unknown.push(name.clone()),
+                            }
+                        }
+
+                        if !unknown.is_empty() {
+                            return Err(finstack_core::Error::Validation(format!(
+                                "Unknown metric names: {}",
+                                unknown.join(", ")
+                            )));
+                        }
+
+                        parsed
                     } else {
                         default_attribution_metrics()
                     }
@@ -211,6 +233,34 @@ impl AttributionSpec {
             attribution,
             results_meta,
         })
+    }
+}
+
+impl AttributionSpec {
+    fn build_finstack_config(&self) -> FinstackConfig {
+        let mut config = FinstackConfig::default();
+
+        if let Some(ref cfg) = self.config {
+            if let Some(scale) = cfg.rounding_scale {
+                config
+                    .rounding
+                    .output_scale
+                    .overrides
+                    .insert(Currency::USD, scale);
+                config
+                    .rounding
+                    .ingest_scale
+                    .overrides
+                    .insert(Currency::USD, scale);
+            }
+            if let Some(rate_bump_bp) = cfg.rate_bump_bp {
+                config
+                    .extensions
+                    .insert("valuations.sensitivities.v1", json!({ "rate_bump_bp": rate_bump_bp }));
+            }
+        }
+
+        config
     }
 }
 
@@ -358,6 +408,8 @@ mod tests {
             tolerance_pct: Some(0.001),
             metrics: None,
             strict_validation: Some(true),
+            rounding_scale: None,
+            rate_bump_bp: None,
         };
 
         let json =

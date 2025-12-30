@@ -51,7 +51,8 @@ use finstack_core::dates::Date;
 use finstack_core::market_data::context::MarketContext;
 use finstack_core::market_data::diff::{
     measure_discount_curve_shift, measure_fx_shift, measure_hazard_curve_shift,
-    measure_scalar_shift, measure_vol_surface_shift, TenorSamplingMethod,
+    measure_inflation_curve_shift, measure_scalar_shift, measure_vol_surface_shift,
+    TenorSamplingMethod,
 };
 #[cfg(test)]
 use finstack_core::market_data::term_structures::DiscountCurve;
@@ -356,13 +357,14 @@ fn attribute_pnl_metrics_based_impl(input: &AttributionInput) -> Result<PnlAttri
     }
 
     // 2b. Rates curves convexity (second-order)
-    // For Bond: check Convexity; for IRS: check IrConvexity
-    // Prioritize non-zero convexity metric
     //
-    // METRIC DEFINITION:
-    // - Convexity/IrConvexity: Percentage metric (dimensionless)
-    // - Formula: ½ × P₀ × Convexity × (Δr)²
-    // - Δr must be in decimal (e.g., 0.0001 for 1bp)
+    // UNIT CONTRACT:
+    // - `measure_discount_curve_shift` returns a shift in BASIS POINTS.
+    // - `Convexity` / `IrConvexity` are percentage second-derivative metrics (dimensionless).
+    // - P&L formula: ½ × P₀ × Convexity × (Δr_decimal)², where Δr_decimal = shift_bp / 10_000.
+    //
+    // LIMITATION: Assumes parallel/average shifts and small moves; for large or non-parallel
+    // moves, use bump-and-reprice curve gamma when available.
     if curves_with_data > 0 {
         let rc = RoundingContext::default();
         let convexity_opt = val_t0
@@ -468,7 +470,9 @@ fn attribute_pnl_metrics_based_impl(input: &AttributionInput) -> Result<PnlAttri
     if let Some(fx01) = val_t0.measures.get(MetricId::Fx01.as_str()) {
         // FX01 × spot change
         if let Some((base_ccy, quote_ccy)) = instrument.fx_exposure() {
-            if let Ok(fx_shift_pct) = measure_fx_shift(base_ccy, quote_ccy, market_t0, market_t1) {
+            if let Ok(fx_shift_pct) =
+                measure_fx_shift(base_ccy, quote_ccy, market_t0, market_t1, as_of_t0, as_of_t1)
+            {
                 // FX01 is typically per 1% move
                 let fx_amount = fx01 * fx_shift_pct;
                 attribution.fx_pnl = Money::new(fx_amount, val_t1.value.currency());
@@ -537,8 +541,47 @@ fn attribute_pnl_metrics_based_impl(input: &AttributionInput) -> Result<PnlAttri
     }
 
     // 9. Inflation sensitivity
-    // Requires measure_inflation_curve_shift() which doesn't exist yet in core/diff.rs
-    // Skip for now until inflation curve diff measurement is implemented
+    if let Some(inflation01) = val_t0.measures.get(MetricId::Inflation01.as_str()) {
+        let mut curve_ids = Vec::new();
+        for curve_id in market_t1.curve_ids() {
+            if market_t1.get_inflation(curve_id).is_ok() {
+                curve_ids.push(curve_id.clone());
+            }
+        }
+
+        let mut total_shift = 0.0;
+        let mut curve_count = 0;
+
+        for curve_id in curve_ids {
+            if let Ok(shift_bp) =
+                measure_inflation_curve_shift(curve_id.as_str(), market_t0, market_t1)
+            {
+                total_shift += shift_bp;
+                curve_count += 1;
+            }
+        }
+
+        let avg_shift = if curve_count > 0 {
+            total_shift / curve_count as f64
+        } else {
+            0.0
+        };
+
+        // First-order: Inflation01 × Δi (Δi in basis points)
+        let inflation_amount = inflation01 * avg_shift;
+        attribution.inflation_curves_pnl = Money::new(inflation_amount, val_t1.value.currency());
+
+        // Second-order: Inflation convexity (if available)
+        if let Some(inflation_convexity) = val_t0.measures.get(MetricId::InflationConvexity.as_str())
+        {
+            let shift_decimal = avg_shift / 10_000.0;
+            let convexity_pnl = 0.5 * inflation_convexity * shift_decimal * shift_decimal;
+            attribution.inflation_curves_pnl = Money::new(
+                attribution.inflation_curves_pnl.amount() + convexity_pnl,
+                val_t1.value.currency(),
+            );
+        }
+    }
 
     // Compute residual
     // Ignore error as notes will be populated

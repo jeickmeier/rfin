@@ -10,7 +10,7 @@ This focuses on the actual API surface that users can access, not internal
 implementation details marked as pub.
 """
 
-from dataclasses import asdict, dataclass
+from dataclasses import dataclass
 import json
 from pathlib import Path
 import re
@@ -408,7 +408,7 @@ def main() -> int:
     # Print summary
     types, functions = extractor._flatten_types_and_functions(api_data)
 
-    print(f"Extracted Rust Public API Surface:")
+    print("Extracted Rust Public API Surface:")
     print(f"  Total types: {len(set(types))}")
     print(f"  Total functions: {len(set(functions))}")
     print(f"  Output: {output_file}")

@@ -40,6 +40,7 @@
 
 use super::context::MarketContext;
 use crate::currency::Currency;
+use crate::dates::Date;
 use crate::Result;
 
 use serde::{Deserialize, Serialize};
@@ -490,6 +491,8 @@ pub fn measure_fx_shift(
     quote_ccy: Currency,
     market_t0: &MarketContext,
     market_t1: &MarketContext,
+    as_of_t0: Date,
+    as_of_t1: Date,
 ) -> Result<f64> {
     use crate::money::fx::FxQuery;
 
@@ -506,14 +509,11 @@ pub fn measure_fx_shift(
             id: "FX_MATRIX".to_string(),
         })?;
 
-    // Use a reference date for the query - unwrap_or provides defensive fallback
-    let ref_date = crate::dates::Date::from_calendar_date(2025, time::Month::January, 1)
-        .unwrap_or(time::Date::MIN);
-
-    // Get rates using FxQuery
-    let query = FxQuery::new(base_ccy, quote_ccy, ref_date);
-    let rate_t0 = fx_t0.rate(query)?.rate;
-    let rate_t1 = fx_t1.rate(query)?.rate;
+    // Get rates using FxQuery with the provided valuation dates
+    let query_t0 = FxQuery::new(base_ccy, quote_ccy, as_of_t0);
+    let query_t1 = FxQuery::new(base_ccy, quote_ccy, as_of_t1);
+    let rate_t0 = fx_t0.rate(query_t0)?.rate;
+    let rate_t1 = fx_t1.rate(query_t1)?.rate;
 
     // Percentage change
     let pct_change = (rate_t1 / rate_t0 - 1.0) * 100.0;
@@ -559,8 +559,25 @@ pub fn measure_scalar_shift(
         MarketScalar::Price(m) => m.amount(),
     };
 
+    // Guard against division by zero
+    if value_t0.abs() < 1e-15 {
+        return Err(crate::Error::Validation(format!(
+            "Cannot compute percentage shift: baseline value is zero for scalar '{}'",
+            scalar_id.as_ref()
+        )));
+    }
+
     // Percentage change
     let pct_change = (value_t1 / value_t0 - 1.0) * 100.0;
+
+    if !pct_change.is_finite() {
+        return Err(crate::Error::Validation(format!(
+            "Non-finite percentage shift computed for scalar '{}': t0={}, t1={}",
+            scalar_id.as_ref(),
+            value_t0,
+            value_t1
+        )));
+    }
 
     Ok(pct_change)
 }

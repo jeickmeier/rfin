@@ -175,13 +175,15 @@ fn attribute_pnl_parallel_impl(input: &AttributionInput) -> Result<PnlAttributio
         as_of_t1,
     )?;
 
-    // Initialize attribution result
-    let mut attribution = PnlAttribution::new(
+    // Initialize attribution result with configured rounding context
+    let rounding = finstack_core::config::rounding_context_from(_config);
+    let mut attribution = PnlAttribution::new_with_rounding(
         total_pnl,
         instrument.id(),
         as_of_t0,
         as_of_t1,
         AttributionMethod::Parallel,
+        rounding,
     );
 
     // Step 2: Carry attribution (time decay + accruals)
@@ -383,7 +385,6 @@ fn attribute_pnl_parallel_impl(input: &AttributionInput) -> Result<PnlAttributio
     attribution.meta.num_repricings = num_repricings;
     attribution.meta.tolerance_abs = 1.0;
     attribution.meta.tolerance_pct = 0.1;
-    attribution.meta.rounding = finstack_core::config::rounding_context_from(_config);
 
     Ok(attribution)
 }

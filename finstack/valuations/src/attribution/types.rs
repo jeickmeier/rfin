@@ -879,9 +879,11 @@ impl PnlAttribution {
     pub fn explain(&self) -> String {
         let mut lines = Vec::new();
 
+        // Use the stamped rounding context for all display calculations
+        let rc = &self.meta.rounding;
+
         // Helper to format money and percentage
         let fmt = |amount: &Money, total: &Money| -> String {
-            let rc = RoundingContext::default();
             let pct = if !rc.is_effectively_zero_money(total.amount(), total.currency()) {
                 (amount.amount() / total.amount()) * 100.0
             } else {
@@ -889,8 +891,6 @@ impl PnlAttribution {
             };
             format!("{} ({:.1}%)", amount, pct)
         };
-
-        let rc = RoundingContext::default();
 
         // Total P&L
         lines.push(format!("Total P&L: {}", self.total_pnl));

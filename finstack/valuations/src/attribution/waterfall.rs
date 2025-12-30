@@ -216,13 +216,15 @@ fn attribute_pnl_waterfall_impl(
         as_of_t1,
     )?;
 
-    // Initialize attribution result
-    let mut attribution = PnlAttribution::new(
+    // Initialize attribution result with configured rounding context
+    let rounding = finstack_core::config::rounding_context_from(_config);
+    let mut attribution = PnlAttribution::new_with_rounding(
         total_pnl,
         instrument.id(),
         as_of_t0,
         as_of_t1,
         AttributionMethod::Waterfall(factor_order.clone()),
+        rounding,
     );
 
     // Build hybrid market: start with all T₀, progressively apply T₁
@@ -281,7 +283,6 @@ fn attribute_pnl_waterfall_impl(
     attribution.meta.num_repricings = ctx.num_repricings();
     attribution.meta.tolerance_abs = 0.01;
     attribution.meta.tolerance_pct = 0.001; // Waterfall should have very small residual
-    attribution.meta.rounding = finstack_core::config::rounding_context_from(_config);
 
     Ok(attribution)
 }

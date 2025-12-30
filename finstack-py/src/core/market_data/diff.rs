@@ -1,4 +1,5 @@
 use super::context::PyMarketContext;
+use crate::core::dates::utils::py_to_date;
 use crate::core::currency::PyCurrency;
 use crate::errors::core_to_py;
 use finstack_core::market_data::diff::{
@@ -8,7 +9,7 @@ use finstack_core::market_data::diff::{
     DEFAULT_VOL_EXPIRY, STANDARD_TENORS,
 };
 use pyo3::prelude::*;
-use pyo3::types::{PyList, PyModule, PyType};
+use pyo3::types::{PyAny, PyList, PyModule, PyType};
 use pyo3::Bound;
 
 #[pyclass(
@@ -145,12 +146,19 @@ fn measure_fx_shift_py(
     quote_currency: PyRef<'_, PyCurrency>,
     market_t0: &PyMarketContext,
     market_t1: &PyMarketContext,
+    as_of_t0: &Bound<'_, PyAny>,
+    as_of_t1: &Bound<'_, PyAny>,
 ) -> PyResult<f64> {
+    let t0 = py_to_date(as_of_t0)?;
+    let t1 = py_to_date(as_of_t1)?;
+
     measure_fx_shift(
         base_currency.inner,
         quote_currency.inner,
         &market_t0.inner,
         &market_t1.inner,
+        t0,
+        t1,
     )
     .map_err(core_to_py)
 }
