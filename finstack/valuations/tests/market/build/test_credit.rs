@@ -13,12 +13,10 @@ use rust_decimal::Decimal;
 #[test]
 fn test_build_cds_par_spread() {
     let as_of = Date::from_calendar_date(2025, time::Month::January, 10).unwrap();
-    let ctx = BuildCtx {
-        as_of,
-        curve_ids: Default::default(),
-        notional: 1_000_000.0,
-        attributes: Default::default(),
-    };
+    let mut curve_ids = HashMap::default();
+    curve_ids.insert("discount".to_string(), "USD-OIS".to_string());
+    curve_ids.insert("credit".to_string(), "XYZ-CORP-SNR".to_string());
+    let ctx = BuildCtx::new(as_of, 1_000_000.0, curve_ids);
 
     // Use USD:IsdaNa
     let key = CdsConventionKey {
@@ -47,9 +45,9 @@ fn test_build_cds_par_spread() {
         assert_eq!(cds.protection.recovery_rate, 0.40);
         // Verify default convention was set to Custom
         assert_eq!(cds.convention, CDSConvention::Custom);
-        // Verify discount/credit curve defaults
-        assert_eq!(cds.premium.discount_curve_id.as_str(), "USD"); // Default from currency
-        assert_eq!(cds.protection.credit_curve_id.as_str(), "XYZ-CORP-SNR"); // Default from entity
+        // Verify discount/credit curve ids come from BuildCtx role mappings
+        assert_eq!(cds.premium.discount_curve_id.as_str(), "USD-OIS");
+        assert_eq!(cds.protection.credit_curve_id.as_str(), "XYZ-CORP-SNR");
     } else {
         panic!("Expected CreditDefaultSwap");
     }
@@ -62,12 +60,7 @@ fn test_build_cds_upfront() {
     curve_ids.insert("discount".to_string(), "USD-OIS".to_string());
     curve_ids.insert("credit".to_string(), "XYZ-CREDIT".to_string());
 
-    let ctx = BuildCtx {
-        as_of,
-        curve_ids,
-        notional: 1_000_000.0,
-        attributes: Default::default(),
-    };
+    let ctx = BuildCtx::new(as_of, 1_000_000.0, curve_ids);
 
     let key = CdsConventionKey {
         currency: Currency::USD,

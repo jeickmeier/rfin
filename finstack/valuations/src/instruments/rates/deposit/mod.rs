@@ -41,7 +41,7 @@
 //! # See Also
 //!
 //! - [`Deposit`] for instrument struct
-//! - [`calibration::methods::discount`](crate::calibration::methods::discount) for curve bootstrap
+//! - Plan-driven calibration in [`calibration::api`] (Discount step) for curve bootstrap
 
 pub mod metrics;
 /// Deposit pricer implementation

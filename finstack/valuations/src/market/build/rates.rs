@@ -14,7 +14,7 @@ use crate::market::quotes::rates::RateQuote;
 use finstack_core::dates::{adjust, Date, DateExt, TenorUnit};
 use finstack_core::money::Money;
 use finstack_core::types::{CurveId, InstrumentId};
-use finstack_core::Result;
+use finstack_core::{Error, InputError, Result};
 
 /// Build an interest rate instrument from a [`RateQuote`].
 ///
@@ -101,7 +101,12 @@ use finstack_core::Result;
 /// - [`RateQuote`](crate::market::quotes::rates::RateQuote) for supported quote types
 /// - [`BuildCtx`](crate::market::build::context::BuildCtx) for build context configuration
 pub fn build_rate_instrument(quote: &RateQuote, ctx: &BuildCtx) -> Result<Box<dyn Instrument>> {
-    let registry = ConventionRegistry::global();
+    let registry = ConventionRegistry::try_global()?;
+    let missing_role = |role: &str| {
+        Error::Input(InputError::NotFound {
+            id: format!("curve role '{}'", role),
+        })
+    };
 
     match quote {
         RateQuote::Deposit {
@@ -112,7 +117,7 @@ pub fn build_rate_instrument(quote: &RateQuote, ctx: &BuildCtx) -> Result<Box<dy
         } => {
             let conv = registry.require_rate_index(index)?;
             let spot_start = resolve_spot_date(
-                ctx.as_of,
+                ctx.as_of(),
                 &conv.market_calendar_id,
                 conv.market_settlement_days,
                 conv.market_business_day_convention,
@@ -135,14 +140,14 @@ pub fn build_rate_instrument(quote: &RateQuote, ctx: &BuildCtx) -> Result<Box<dy
             let discount_id = ctx
                 .curve_id("discount")
                 .cloned()
-                .unwrap_or_else(|| conv.currency.to_string());
+                .ok_or_else(|| missing_role("discount"))?;
 
             // Use currency string representation
             let currency = conv.currency;
 
             let deposit = Deposit::builder()
                 .id(InstrumentId::new(id.as_str()))
-                .notional(Money::new(ctx.notional, currency))
+                .notional(Money::new(ctx.notional(), currency))
                 .start(start)
                 .end(end)
                 .day_count(conv.day_count)
@@ -165,7 +170,7 @@ pub fn build_rate_instrument(quote: &RateQuote, ctx: &BuildCtx) -> Result<Box<dy
         } => {
             let conv = registry.require_rate_index(index)?;
             let spot = resolve_spot_date(
-                ctx.as_of,
+                ctx.as_of(),
                 &conv.market_calendar_id,
                 conv.market_settlement_days,
                 conv.market_business_day_convention,
@@ -194,15 +199,15 @@ pub fn build_rate_instrument(quote: &RateQuote, ctx: &BuildCtx) -> Result<Box<dy
             let discount_id = ctx
                 .curve_id("discount")
                 .cloned()
-                .unwrap_or_else(|| conv.currency.to_string());
+                .ok_or_else(|| missing_role("discount"))?;
             let forward_id = ctx
                 .curve_id("forward")
                 .cloned()
-                .unwrap_or_else(|| conv.currency.to_string());
+                .ok_or_else(|| missing_role("forward"))?;
 
             let fra = ForwardRateAgreement::builder()
                 .id(InstrumentId::new(id.as_str()))
-                .notional(Money::new(ctx.notional, conv.currency))
+                .notional(Money::new(ctx.notional(), conv.currency))
                 .fixing_date(fixing_date)
                 .start_date(start_date)
                 .end_date(end_date)
@@ -249,11 +254,11 @@ pub fn build_rate_instrument(quote: &RateQuote, ctx: &BuildCtx) -> Result<Box<dy
             let discount_id = ctx
                 .curve_id("discount")
                 .cloned()
-                .unwrap_or_else(|| idx_conv.currency.to_string());
+                .ok_or_else(|| missing_role("discount"))?;
             let forward_id = ctx
                 .curve_id("forward")
                 .cloned()
-                .unwrap_or_else(|| idx_conv.currency.to_string());
+                .ok_or_else(|| missing_role("forward"))?;
 
             let contract_specs = FutureContractSpecs {
                 face_value: fut_conv.face_value,
@@ -265,7 +270,7 @@ pub fn build_rate_instrument(quote: &RateQuote, ctx: &BuildCtx) -> Result<Box<dy
 
             let future = InterestRateFuture::builder()
                 .id(InstrumentId::new(id.as_str()))
-                .notional(Money::new(ctx.notional, idx_conv.currency))
+                .notional(Money::new(ctx.notional(), idx_conv.currency))
                 .expiry_date(expiry_date)
                 .fixing_date(fixing_date)
                 .period_start(period_start)
@@ -291,7 +296,7 @@ pub fn build_rate_instrument(quote: &RateQuote, ctx: &BuildCtx) -> Result<Box<dy
         } => {
             let conv = registry.require_rate_index(index)?;
             let spot = resolve_spot_date(
-                ctx.as_of,
+                ctx.as_of(),
                 &conv.market_calendar_id,
                 conv.market_settlement_days,
                 conv.market_business_day_convention,
@@ -311,11 +316,11 @@ pub fn build_rate_instrument(quote: &RateQuote, ctx: &BuildCtx) -> Result<Box<dy
             let discount_id = ctx
                 .curve_id("discount")
                 .cloned()
-                .unwrap_or_else(|| conv.currency.to_string());
+                .ok_or_else(|| missing_role("discount"))?;
             let forward_id = ctx
                 .curve_id("forward")
                 .cloned()
-                .unwrap_or_else(|| conv.currency.to_string());
+                .ok_or_else(|| missing_role("forward"))?;
 
             use crate::instruments::common::parameters::legs::PayReceive;
 
@@ -337,7 +342,7 @@ pub fn build_rate_instrument(quote: &RateQuote, ctx: &BuildCtx) -> Result<Box<dy
             let mut swap = match conv.kind {
                 RateIndexKind::Term => InterestRateSwap::create_term_swap_with_conventions(
                     InstrumentId::new(id.as_str()),
-                    Money::new(ctx.notional, conv.currency),
+                    Money::new(ctx.notional(), conv.currency),
                     *rate,
                     start,
                     maturity,
@@ -356,7 +361,7 @@ pub fn build_rate_instrument(quote: &RateQuote, ctx: &BuildCtx) -> Result<Box<dy
 
                     InterestRateSwap::create_ois_swap_with_conventions(
                         InstrumentId::new(id.as_str()),
-                        Money::new(ctx.notional, conv.currency),
+                        Money::new(ctx.notional(), conv.currency),
                         *rate,
                         start,
                         maturity,
@@ -399,14 +404,18 @@ mod tests {
     use crate::market::quotes::ids::{Pillar, QuoteId};
     use finstack_core::HashMap;
 
+    fn usd_build_ctx() -> BuildCtx {
+        let as_of = Date::from_calendar_date(2024, time::Month::January, 2).unwrap();
+        let mut curve_ids = HashMap::default();
+        curve_ids.insert("discount".to_string(), "USD-OIS".to_string());
+        curve_ids.insert("forward".to_string(), "USD-SOFR".to_string());
+        BuildCtx::new(as_of, 1_000_000.0, curve_ids)
+    }
+
     /// Test that spread_decimal is correctly converted to basis points
     #[test]
     fn test_swap_spread_decimal_conversion() -> Result<()> {
-        let ctx = BuildCtx::new(
-            Date::from_calendar_date(2024, time::Month::January, 2).unwrap(),
-            1_000_000.0,
-            HashMap::default(),
-        );
+        let ctx = usd_build_ctx();
 
         // Create a swap quote with spread_decimal = 0.0010 (10bp)
         let quote = RateQuote::Swap {
@@ -442,11 +451,7 @@ mod tests {
     /// Test that swap with no spread works correctly
     #[test]
     fn test_swap_no_spread() -> Result<()> {
-        let ctx = BuildCtx::new(
-            Date::from_calendar_date(2024, time::Month::January, 2).unwrap(),
-            1_000_000.0,
-            HashMap::default(),
-        );
+        let ctx = usd_build_ctx();
 
         let quote = RateQuote::Swap {
             id: QuoteId::new("USD-SOFR-OIS-SWAP-5Y"),
@@ -490,11 +495,7 @@ mod tests {
         ];
 
         for (spread_decimal, expected_bp) in test_cases {
-            let ctx = BuildCtx::new(
-                Date::from_calendar_date(2024, time::Month::January, 2).unwrap(),
-                1_000_000.0,
-                HashMap::default(),
-            );
+            let ctx = usd_build_ctx();
 
             let quote = RateQuote::Swap {
                 id: QuoteId::new("USD-SOFR-OIS-SWAP-5Y"),

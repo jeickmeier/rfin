@@ -11,7 +11,7 @@ use finstack_core::math::interp::InterpStyle;
 use finstack_valuations::calibration::api::schema::{
     CalibrationMethod, DiscountCurveParams, StepParams,
 };
-use finstack_valuations::calibration::targets::handlers::execute_step;
+use finstack_valuations::calibration::execute_step_for_tests as execute_step;
 use finstack_valuations::calibration::ResidualWeightingScheme;
 use finstack_valuations::calibration::{CalibrationConfig, CALIBRATION_CONFIG_KEY};
 use finstack_valuations::market::conventions::ids::IndexId;

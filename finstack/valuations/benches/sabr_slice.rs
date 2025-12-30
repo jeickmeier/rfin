@@ -3,7 +3,7 @@ use finstack_core::dates::Date;
 use finstack_core::market_data::context::MarketContext;
 use finstack_core::market_data::term_structures::DiscountCurve;
 use finstack_valuations::calibration::api::schema::{StepParams, VolSurfaceParams};
-use finstack_valuations::calibration::targets::handlers::execute_step;
+use finstack_valuations::calibration::execute_step_for_tests as execute_step;
 use finstack_valuations::calibration::CalibrationConfig;
 use finstack_valuations::market::conventions::ids::OptionConventionId;
 use finstack_valuations::market::quotes::market_quote::MarketQuote;

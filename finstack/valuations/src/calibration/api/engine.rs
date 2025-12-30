@@ -4,20 +4,16 @@
 
 use super::schema::CalibrationEnvelope;
 use crate::calibration::api::schema::CalibrationStep;
-use crate::calibration::api::schema::{CalibrationResult, CalibrationResultEnvelope, StepParams};
-use crate::calibration::targets::handlers::execute_step;
-use crate::calibration::validation::preflight_step;
+use crate::calibration::api::schema::{CalibrationResult, CalibrationResultEnvelope};
+use crate::calibration::step_runtime;
+use crate::calibration::step_runtime::{OutputKey, StepOutcome};
 use crate::calibration::CalibrationReport;
 use crate::market::quotes::market_quote::MarketQuote;
 use finstack_core::explain::{ExplanationTrace, TraceEntry};
-use finstack_core::market_data::context::{CurveStorage, MarketContext};
-use finstack_core::market_data::surfaces::VolSurface;
-use finstack_core::market_data::term_structures::CreditIndexData;
-use finstack_core::types::CurveId;
+use finstack_core::market_data::context::MarketContext;
 use finstack_core::Result;
 use rayon::prelude::*;
 use std::collections::{BTreeMap, HashSet};
-use std::sync::Arc;
 
 /// Merges explanation traces from individual calibration steps into a plan-level trace.
 fn merge_step_traces(
@@ -100,101 +96,9 @@ fn aggregate_plan_report(
     report
 }
 
-enum OutputKey {
-    Curve(CurveId),
-    Surface(CurveId),
-}
-
-enum StepOutput {
-    Curve(CurveStorage),
-    Surface(Arc<VolSurface>),
-}
-
 struct StepBatchItem<'a> {
     step: &'a CalibrationStep,
     quotes: &'a [MarketQuote],
-}
-
-struct StepExecutionResult {
-    output: StepOutput,
-    credit_index_update: Option<(String, CreditIndexData)>,
-    report: CalibrationReport,
-}
-
-fn base_correlation_curve_id(
-    params: &crate::calibration::api::schema::BaseCorrelationParams,
-) -> CurveId {
-    CurveId::from(format!("{}_CORR", params.index_id))
-}
-
-fn step_output_key(step: &CalibrationStep) -> OutputKey {
-    match &step.params {
-        StepParams::Discount(p) => OutputKey::Curve(p.curve_id.clone()),
-        StepParams::Forward(p) => OutputKey::Curve(p.curve_id.clone()),
-        StepParams::Hazard(p) => OutputKey::Curve(p.curve_id.clone()),
-        StepParams::Inflation(p) => OutputKey::Curve(p.curve_id.clone()),
-        StepParams::BaseCorrelation(p) => OutputKey::Curve(base_correlation_curve_id(p)),
-        StepParams::VolSurface(p) => OutputKey::Surface(CurveId::from(p.surface_id.as_str())),
-        StepParams::SwaptionVol(p) => OutputKey::Surface(CurveId::from(p.surface_id.as_str())),
-    }
-}
-
-fn extract_step_output(
-    step: &CalibrationStep,
-    context: &MarketContext,
-) -> Result<(StepOutput, Option<(String, CreditIndexData)>)> {
-    match &step.params {
-        StepParams::Discount(p) => Ok((
-            StepOutput::Curve(context.get_discount(&p.curve_id)?.into()),
-            None,
-        )),
-        StepParams::Forward(p) => Ok((
-            StepOutput::Curve(context.get_forward(&p.curve_id)?.into()),
-            None,
-        )),
-        StepParams::Hazard(p) => Ok((
-            StepOutput::Curve(context.get_hazard(&p.curve_id)?.into()),
-            None,
-        )),
-        StepParams::Inflation(p) => Ok((
-            StepOutput::Curve(context.get_inflation(&p.curve_id)?.into()),
-            None,
-        )),
-        StepParams::BaseCorrelation(p) => {
-            let curve_id = base_correlation_curve_id(p);
-            let curve = context.get_base_correlation(curve_id.as_str())?;
-            let credit_index_update = context
-                .credit_index_ref(&p.index_id)
-                .ok()
-                .map(|idx| (p.index_id.clone(), idx.clone()));
-            Ok((StepOutput::Curve(curve.into()), credit_index_update))
-        }
-        StepParams::VolSurface(p) => {
-            Ok((StepOutput::Surface(context.surface(&p.surface_id)?), None))
-        }
-        StepParams::SwaptionVol(p) => {
-            Ok((StepOutput::Surface(context.surface(&p.surface_id)?), None))
-        }
-    }
-}
-
-fn apply_step_output(
-    context: &mut MarketContext,
-    output: StepOutput,
-    credit_index_update: Option<(String, CreditIndexData)>,
-) {
-    match output {
-        StepOutput::Curve(curve) => {
-            context.insert_mut(curve);
-        }
-        StepOutput::Surface(surface) => {
-            context.insert_surface_arc_mut(surface);
-        }
-    }
-
-    if let Some((id, data)) = credit_index_update {
-        context.insert_credit_index_mut(id, data);
-    }
 }
 
 /// Execute a full [`CalibrationEnvelope`] plan.
@@ -229,7 +133,7 @@ pub fn execute(envelope: &CalibrationEnvelope) -> Result<CalibrationResultEnvelo
                     })
                 })?;
 
-                match preflight_step(step, quotes, &context, &plan.settings) {
+                match step_runtime::preflight(step, quotes, &context, &plan.settings) {
                     Ok(()) => {}
                     Err(err) => {
                         if batch.is_empty() {
@@ -239,7 +143,7 @@ pub fn execute(envelope: &CalibrationEnvelope) -> Result<CalibrationResultEnvelo
                     }
                 }
 
-                match step_output_key(step) {
+                match step_runtime::output_key(step) {
                     OutputKey::Curve(id) => {
                         if !curve_outputs.insert(id) {
                             break;
@@ -259,35 +163,22 @@ pub fn execute(envelope: &CalibrationEnvelope) -> Result<CalibrationResultEnvelo
                 index += 1;
             }
 
-            let results: Vec<StepExecutionResult> = if batch.len() == 1 {
+            let results: Vec<StepOutcome> = if batch.len() == 1 {
                 let item = &batch[0];
-                let (new_context, report) =
-                    execute_step(&item.step.params, item.quotes, &context, &plan.settings)?;
-                let (output, credit_index_update) = extract_step_output(item.step, &new_context)?;
-                vec![StepExecutionResult {
-                    output,
-                    credit_index_update,
-                    report,
-                }]
+                let outcome =
+                    step_runtime::execute(item.step, item.quotes, &context, &plan.settings)?;
+                vec![outcome]
             } else {
                 batch
                     .par_iter()
                     .map(|item| {
-                        let (new_context, report) =
-                            execute_step(&item.step.params, item.quotes, &context, &plan.settings)?;
-                        let (output, credit_index_update) =
-                            extract_step_output(item.step, &new_context)?;
-                        Ok(StepExecutionResult {
-                            output,
-                            credit_index_update,
-                            report,
-                        })
+                        step_runtime::execute(item.step, item.quotes, &context, &plan.settings)
                     })
                     .collect::<Result<Vec<_>>>()?
             };
 
             for (item, result) in batch.iter().zip(results) {
-                apply_step_output(&mut context, result.output, result.credit_index_update);
+                step_runtime::apply_output(&mut context, result.output, result.credit_index_update);
 
                 for (k, v) in &result.report.residuals {
                     aggregated_residuals.insert(format!("{}:{}", item.step.id, k), *v);
@@ -304,19 +195,17 @@ pub fn execute(envelope: &CalibrationEnvelope) -> Result<CalibrationResultEnvelo
                 })
             })?;
 
-            preflight_step(step, quotes, &context, &plan.settings)?;
+            step_runtime::preflight(step, quotes, &context, &plan.settings)?;
 
-            let (new_context, report) =
-                execute_step(&step.params, quotes, &context, &plan.settings)?;
-
-            context = new_context;
+            let outcome = step_runtime::execute(step, quotes, &context, &plan.settings)?;
+            step_runtime::apply_output(&mut context, outcome.output, outcome.credit_index_update);
 
             // Aggregate report
-            for (k, v) in &report.residuals {
+            for (k, v) in &outcome.report.residuals {
                 aggregated_residuals.insert(format!("{}:{}", step.id, k), *v);
             }
-            total_iterations += report.iterations;
-            step_reports.insert(step.id.clone(), report);
+            total_iterations += outcome.report.iterations;
+            step_reports.insert(step.id.clone(), outcome.report);
         }
     }
 

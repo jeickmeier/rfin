@@ -413,7 +413,8 @@ fn validate_base_correlation_step(
 #[allow(clippy::expect_used, clippy::panic)]
 mod tests {
     use super::*;
-    use crate::calibration::api::schema::{CalibrationMethod, DiscountCurveParams, StepParams};
+use crate::calibration::api::schema::{DiscountCurveParams, StepParams};
+use crate::calibration::config::CalibrationMethod;
     use crate::market::conventions::ids::IndexId;
     use crate::market::quotes::ids::{Pillar, QuoteId};
     use finstack_core::dates::{Tenor, TenorUnit};

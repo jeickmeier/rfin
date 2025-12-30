@@ -50,12 +50,12 @@ pub struct BuildCtx {
     ///
     /// This date is used to calculate spot dates, fixing dates, and all other
     /// date-dependent parameters in the constructed instrument.
-    pub as_of: Date,
+    as_of: Date,
     /// The notional amount to use for the instrument.
     ///
     /// Calibration typically uses a standard notional (e.g., 1M or 10k) but this allows override.
     /// The notional is applied consistently across all instruments built with this context.
-    pub notional: f64,
+    notional: f64,
     /// Mapping of curve roles to curve IDs.
     ///
     /// Common roles include:
@@ -65,12 +65,7 @@ pub struct BuildCtx {
     ///
     /// If a role is not found, builders will fall back to currency-based defaults
     /// (e.g., using the currency string as the curve ID).
-    pub curve_ids: HashMap<String, String>,
-    /// Optional attributes or tags for instrument metadata.
-    ///
-    /// These attributes can be used to attach custom metadata to instruments
-    /// during construction.
-    pub attributes: HashMap<String, String>,
+    curve_ids: HashMap<String, String>,
 }
 
 impl BuildCtx {
@@ -104,8 +99,17 @@ impl BuildCtx {
             as_of,
             notional,
             curve_ids,
-            attributes: HashMap::default(),
         }
+    }
+
+    /// Valuation date for instruments built with this context.
+    pub fn as_of(&self) -> Date {
+        self.as_of
+    }
+
+    /// Default notional applied during instrument construction.
+    pub fn notional(&self) -> f64 {
+        self.notional
     }
 
     /// Get a curve ID by role name.

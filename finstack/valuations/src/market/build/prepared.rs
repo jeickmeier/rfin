@@ -1,7 +1,14 @@
 //! Prepared quote envelopes for calibration pipelines.
 
 use crate::instruments::Instrument;
+use crate::market::build::context::BuildCtx;
+use crate::market::build::rates::build_rate_instrument;
+use crate::market::build::cds::build_cds_instrument;
+use crate::market::quotes::rates::RateQuote;
+use crate::market::quotes::cds::CdsQuote;
 use finstack_core::dates::Date;
+use finstack_core::dates::{DayCount, DayCountCtx};
+use finstack_core::Result;
 use std::fmt;
 use std::sync::Arc;
 
@@ -117,4 +124,100 @@ impl<Q> PreparedQuote<Q> {
             pillar_time,
         }
     }
+}
+
+/// Policy for resolving swap pillars.
+#[derive(Clone, Debug)]
+pub struct PillarPolicy {
+    /// When true, swap pillars use payment-delay-adjusted end dates (matches discount target).
+    pub swap_use_payment_delay: bool,
+}
+
+impl Default for PillarPolicy {
+    fn default() -> Self {
+        Self {
+            swap_use_payment_delay: true,
+        }
+    }
+}
+
+/// Prepare a rate quote into an instrument + pillar time.
+pub fn prepare_rate_quote(
+    quote: RateQuote,
+    build_ctx: &BuildCtx,
+    curve_day_count: DayCount,
+    base_date: Date,
+    policy: &PillarPolicy,
+) -> Result<PreparedQuote<RateQuote>> {
+    let instrument = build_rate_instrument(&quote, build_ctx)?;
+    let instrument: Arc<dyn Instrument> = instrument.into();
+
+    let maturity_date = if let Some(dep) = instrument
+        .as_any()
+        .downcast_ref::<crate::instruments::deposit::Deposit>()
+    {
+        dep.effective_end_date()?
+    } else if let Some(fra) = instrument
+        .as_any()
+        .downcast_ref::<crate::instruments::fra::ForwardRateAgreement>()
+    {
+        fra.end_date
+    } else if let Some(swp) = instrument
+        .as_any()
+        .downcast_ref::<crate::instruments::irs::InterestRateSwap>()
+    {
+        let end = std::cmp::max(swp.fixed.end, swp.float.end);
+        if policy.swap_use_payment_delay {
+            crate::instruments::irs::dates::add_payment_delay(
+                end,
+                swp.fixed.payment_delay_days,
+                swp.fixed.calendar_id.as_deref(),
+            )
+        } else {
+            end
+        }
+    } else if let Some(fut) = instrument
+        .as_any()
+        .downcast_ref::<crate::instruments::ir_future::InterestRateFuture>()
+    {
+        fut.expiry_date
+    } else {
+        base_date
+    };
+
+    let pillar_time =
+        curve_day_count.year_fraction(base_date, maturity_date, DayCountCtx::default())?;
+
+    Ok(PreparedQuote::new(
+        Arc::new(quote),
+        instrument,
+        maturity_date,
+        pillar_time,
+    ))
+}
+
+/// Prepare a CDS quote into an instrument + pillar time.
+pub fn prepare_cds_quote(
+    quote: CdsQuote,
+    build_ctx: &BuildCtx,
+    day_count: DayCount,
+    base_date: Date,
+) -> Result<PreparedQuote<CdsQuote>> {
+    let instrument = build_cds_instrument(&quote, build_ctx)?;
+    let instrument: Arc<dyn Instrument> = instrument.into();
+
+    let maturity_date = instrument
+        .as_any()
+        .downcast_ref::<crate::instruments::cds::CreditDefaultSwap>()
+        .map(|cds| cds.premium.end)
+        .ok_or_else(|| finstack_core::Error::Validation("Expected CDS instrument".to_string()))?;
+
+    let pillar_time = day_count.year_fraction(base_date, maturity_date, DayCountCtx::default())?;
+
+    Ok(PreparedQuote::new(
+        Arc::new(quote),
+        instrument,
+        maturity_date,
+        pillar_time,
+    ))
 }

@@ -4,12 +4,12 @@
 
 ## Executive Summary
 
-- **Total types in Rust:** 3025
+- **Total types in Rust:** 3056
 - **Total classes in Python:** 290
 - **Total classes in WASM:** 229
-- **In all three:** 160
-- **Only in Rust:** 2783
-- **Only in Python:** 20
+- **In all three:** 161
+- **Only in Rust:** 2811
+- **Only in Python:** 18
 - **Only in WASM:** 13
 
 ## Instrument Coverage
@@ -78,7 +78,7 @@
 
 ### Types/Classes in All Three
 
-**Count:** 160
+**Count:** 161
 
 ```
 ✓ AgencyCmo
@@ -229,6 +229,7 @@
 ✓ TimeRollMode
 ✓ TrsScheduleSpec
 ✓ UnitType
+✓ ValidationConfig
 ✓ ValuationResult
 ✓ VarConfig
 ✓ VarMethod
@@ -245,7 +246,7 @@
 
 ### In Rust and Python (missing in WASM)
 
-**Count:** 68
+**Count:** 70
 
 ```
 - Adjustment
@@ -268,7 +269,7 @@
 - CurveId
 - DependencyTracer
 - DependencyTree
-... and 48 more
+... and 50 more
 ```
 
 ### In Rust and WASM (missing in Python)
@@ -294,7 +295,7 @@
 
 ### In Python and WASM (missing in Rust)
 
-**Count:** 42
+**Count:** 41
 
 ```
 - AttributionMeta
@@ -317,12 +318,12 @@
 - ForwardCurveCalibrator
 - FxConfig
 - FxConversionPolicy
-... and 22 more
+... and 21 more
 ```
 
 ### Only in Rust
 
-**Count:** 2783
+**Count:** 2811
 
 ```
 - ABS_AUTO_STANDARD_CDR
@@ -345,12 +346,12 @@
 - AdjustmentCap
 - AdjustmentValue
 - AgencyCmoDiscountingPricer
-... and 2763 more
+... and 2791 more
 ```
 
 ### Only in Python
 
-**Count:** 20
+**Count:** 18
 
 ```
 - AntiDilutionPolicy
@@ -367,12 +368,10 @@
 - InterestRateSwapBuilder
 - NormalizationEngine;
 - PikToggleSpec
-- RateBounds
 - RatingFactorTable
 - RatingLabel
 - RatingNotch
 - SimpleRng
-- ValidationMode
 ```
 
 ### Only in WASM

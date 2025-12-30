@@ -7,10 +7,10 @@ use crate::calibration::solver::{
     BootstrapTarget, GlobalFitOptimizer, GlobalSolveTarget, SequentialBootstrapper,
 };
 use crate::calibration::CalibrationReport;
-use crate::market::build::prepared::PreparedQuote;
+use crate::calibration::validation::RateBoundsPolicy;
 use crate::market::quotes::market_quote::ExtractQuotes;
 use crate::market::quotes::market_quote::MarketQuote;
-use finstack_core::dates::{Date, DayCount, DayCountCtx};
+use finstack_core::dates::{Date, DayCount};
 use finstack_core::market_data::context::MarketContext;
 use finstack_core::market_data::term_structures::DiscountCurve;
 use finstack_core::math::interp::{ExtrapolationPolicy, InterpStyle};
@@ -33,6 +33,7 @@ pub struct DiscountCurveTargetParams {
     /// Effective ID for pricing (usually same as curve_id).
     pub discount_curve_id: CurveId,
     /// Effective ID for pricing forward rates.
+    #[allow(dead_code)]
     pub forward_curve_id: CurveId,
     /// Interpolation style for solving.
     pub solve_interp: InterpStyle,
@@ -81,6 +82,7 @@ pub struct DiscountCurveTarget {
     /// Effective ID for pricing (usually same as curve_id).
     pub discount_curve_id: CurveId,
     /// Effective ID for pricing forward rates.
+    #[allow(dead_code)]
     pub forward_curve_id: CurveId,
     /// Interpolation style for solving.
     pub solve_interp: InterpStyle,
@@ -93,6 +95,7 @@ pub struct DiscountCurveTarget {
     /// Optional spot knot (t_spot, 1.0) if enabled.
     pub spot_knot: Option<(f64, f64)>,
     /// Settlement date.
+    #[allow(dead_code)]
     pub settlement_date: Date,
     /// Residual normalization notional.
     pub residual_notional: f64,
@@ -324,68 +327,20 @@ Global solve requires strictly increasing times.",
         curve_ids.insert("forward".to_string(), forward_id.to_string());
 
         // Use a realistic notional to avoid Money rounding noise in coupon construction.
-        let build_ctx = crate::market::build::context::BuildCtx {
-            as_of: params.base_date,
-            notional: 1_000_000.0,
-            curve_ids,
-            attributes: finstack_core::HashMap::default(),
-        };
+        let build_ctx =
+            crate::market::build::context::BuildCtx::new(params.base_date, 1_000_000.0, curve_ids);
 
         let mut prepared_quotes: Vec<CalibrationQuote> = Vec::with_capacity(rates_quotes.len());
 
+        let pillar_policy = crate::market::build::prepared::PillarPolicy::default();
         for q in rates_quotes {
-            let instrument = crate::market::build::rates::build_rate_instrument(&q, &build_ctx)
-                .map_err(|e| {
-                    finstack_core::Error::Validation(format!("Failed to build instrument: {}", e))
-                })?;
-            let instrument: std::sync::Arc<dyn crate::instruments::common::traits::Instrument> =
-                instrument.into();
-
-            let maturity_date = if let Some(dep) = instrument
-                .as_any()
-                .downcast_ref::<crate::instruments::deposit::Deposit>(
-            ) {
-                // Use the *effective* end date (BDC/calendar adjusted) so quote_time matches
-                // the cashflow maturity used by pricing. Otherwise bootstrap may fail to bracket
-                // because the solver is placing knots at unadjusted dates while valuation
-                // discounts cashflows to adjusted dates.
-                dep.effective_end_date()?
-            } else if let Some(fra) = instrument
-                .as_any()
-                .downcast_ref::<crate::instruments::fra::ForwardRateAgreement>(
-            ) {
-                fra.end_date
-            } else if let Some(swp) = instrument
-                .as_any()
-                .downcast_ref::<crate::instruments::irs::InterestRateSwap>()
-            {
-                // Align the calibration pillar with the actual swap payment date (end + payment delay),
-                // matching the legacy discount engine behavior. This avoids fitting on termination
-                // while pricing discounts to a later payment date under OIS conventions.
-                let end = std::cmp::max(swp.fixed.end, swp.float.end);
-                crate::instruments::irs::dates::add_payment_delay(
-                    end,
-                    swp.fixed.payment_delay_days,
-                    swp.fixed.calendar_id.as_deref(),
-                )
-            } else if let Some(fut) = instrument
-                .as_any()
-                .downcast_ref::<crate::instruments::ir_future::InterestRateFuture>(
-            ) {
-                fut.expiry_date
-            } else {
-                params.base_date
-            };
-
-            let pillar_time =
-                curve_dc.year_fraction(params.base_date, maturity_date, DayCountCtx::default())?;
-
-            let prepared = PreparedQuote::new(
-                std::sync::Arc::new(q),
-                instrument,
-                maturity_date,
-                pillar_time,
-            );
+            let prepared = crate::market::build::prepared::prepare_rate_quote(
+                q,
+                &build_ctx,
+                curve_dc,
+                params.base_date,
+                &pillar_policy,
+            )?;
             prepared_quotes.push(CalibrationQuote::Rates(prepared));
         }
 
@@ -407,7 +362,7 @@ Global solve requires strictly increasing times.",
             curve_day_count: curve_dc,
             spot_knot: None,
             settlement_date: settlement,
-            residual_notional: build_ctx.notional,
+            residual_notional: build_ctx.notional(),
             base_context: context.clone(),
         });
 
@@ -536,10 +491,8 @@ impl BootstrapTarget for DiscountCurveTarget {
         // an infeasible (arbitrage) shape and then fail only at the end.
         let config_flag = self.config.discount_curve.allow_non_monotonic_final;
         let policy_allow = match self.config.rate_bounds_policy {
-            crate::calibration::RateBoundsPolicy::Explicit => {
-                self.config.rate_bounds.min_rate < 0.0
-            }
-            crate::calibration::RateBoundsPolicy::AutoCurrency => {
+            RateBoundsPolicy::Explicit => self.config.rate_bounds.min_rate < 0.0,
+            RateBoundsPolicy::AutoCurrency => {
                 matches!(self.currency, Currency::EUR | Currency::JPY | Currency::CHF)
             }
         };
@@ -581,10 +534,8 @@ impl BootstrapTarget for DiscountCurveTarget {
     fn build_curve_final(&self, knots: &[(f64, f64)]) -> Result<Self::Curve> {
         let config_flag = self.config.discount_curve.allow_non_monotonic_final;
         let policy_allow = match self.config.rate_bounds_policy {
-            crate::calibration::RateBoundsPolicy::Explicit => {
-                self.config.rate_bounds.min_rate < 0.0
-            }
-            crate::calibration::RateBoundsPolicy::AutoCurrency => {
+            RateBoundsPolicy::Explicit => self.config.rate_bounds.min_rate < 0.0,
+            RateBoundsPolicy::AutoCurrency => {
                 matches!(self.currency, Currency::EUR | Currency::JPY | Currency::CHF)
             }
         };

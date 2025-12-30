@@ -1,5 +1,6 @@
 //! Calibration reporting and diagnostics.
 
+use crate::calibration::constants::RESIDUAL_PENALTY_ABS_MIN;
 use crate::calibration::solver::SolverConfig;
 use finstack_core::config::ResultsMeta;
 use finstack_core::explain::ExplanationTrace;
@@ -34,7 +35,7 @@ struct ResidualDiagnostics {
 /// # Returns
 /// A [`ResidualDiagnostics`] struct containing max, RMSE, and penalty status.
 fn compute_residual_diagnostics(residuals: &BTreeMap<String, f64>) -> ResidualDiagnostics {
-    let penalty_abs_min = crate::calibration::RESIDUAL_PENALTY_ABS_MIN;
+    let penalty_abs_min = RESIDUAL_PENALTY_ABS_MIN;
 
     // PERF: single pass, no allocation. Track both:
     // - "valid" residuals: finite and non-penalty
@@ -311,7 +312,7 @@ impl CalibrationReport {
 
         // Determine success and convergence reason
         let (success, convergence_reason) = if diag.has_penalty {
-            let penalty_abs_min = crate::calibration::RESIDUAL_PENALTY_ABS_MIN;
+            let penalty_abs_min = RESIDUAL_PENALTY_ABS_MIN;
             let penalty_instruments: Vec<&String> = residuals
                 .iter()
                 .filter(|(_, r)| !r.is_finite() || r.abs() >= penalty_abs_min)
@@ -380,6 +381,7 @@ impl Default for CalibrationReport {
 #[allow(clippy::expect_used, clippy::panic)]
 mod tests {
     use super::*;
+    use crate::calibration::constants::PENALTY;
 
     #[test]
     fn test_for_type_with_tolerance_success() {
@@ -435,7 +437,7 @@ mod tests {
     #[test]
     fn test_for_type_with_tolerance_fails_penalty_values() {
         // One residual contains PENALTY value indicating solver failure
-        let penalty = crate::calibration::PENALTY;
+        let penalty = PENALTY;
         let mut residuals = BTreeMap::new();
         residuals.insert("quote_1Y".to_string(), 1e-10);
         residuals.insert("quote_2Y_failed".to_string(), penalty); // PENALTY value

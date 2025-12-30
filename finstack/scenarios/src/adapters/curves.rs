@@ -89,6 +89,24 @@ fn resolve_bump_targets(
     Ok(targets)
 }
 
+/// Resolve a deterministic discount curve ID for (re)calibration-based bumps.
+///
+/// Some scenario operations (e.g. par-spread hazard bumps, inflation curve bumps)
+/// require a discount curve for repricing during re-calibration. Rather than
+/// hard-coding a specific curve id (like `"USD-OIS"`), pick the first discount
+/// curve from the context snapshot (which is deterministically sorted by curve id).
+fn resolve_discount_curve_id(
+    market: &finstack_core::market_data::context::MarketContext,
+) -> Option<finstack_core::types::CurveId> {
+    let state: finstack_core::market_data::context::MarketContextState = market.into();
+    state.curves.iter().find_map(|c| match c {
+        finstack_core::market_data::context::CurveState::Discount(dc) => {
+            Some(finstack_core::types::CurveId::from(dc.id().as_str()))
+        }
+        _ => None,
+    })
+}
+
 impl ScenarioAdapter for CurveAdapter {
     fn try_generate_effects(
         &self,
@@ -96,7 +114,8 @@ impl ScenarioAdapter for CurveAdapter {
         ctx: &ExecutionContext,
     ) -> Result<Option<Vec<ScenarioEffect>>> {
         use finstack_valuations::calibration::{
-            bump_discount_curve_synthetic, bump_hazard_spreads, bump_inflation_rates, BumpRequest,
+            bump_discount_curve_synthetic, bump_hazard_shift, bump_hazard_spreads,
+            bump_inflation_rates, BumpRequest,
         };
 
         match op {
@@ -216,22 +235,15 @@ impl ScenarioAdapter for CurveAdapter {
                                 id: curve_id.to_string(),
                             }
                         })?;
-                        // Hazard bumping needs discount curve ID.
-                        // We assume the hazard curve has it, or we use default?
-                        // `HazardCurve` struct often has `discount_curve_id`.
-                        // But `base_curve` might not expose it easily or we don't know it.
-                        // Context has default discount?
-                        // `bump_hazard_spreads` takes `Option<&CurveId>`.
-                        // If None, it falls back to shift.
-                        // We should try to find it.
-                        // Does `HazardCurve` (struct) have `discount_id()`?
-                        // I'll pass None for now to let it fallback if needed, or rely on internal logic.
-                        // Ideally we pass `None` and let `bump_hazard_spreads` handle fallback.
-
-                        let new_curve =
-                            bump_hazard_spreads(base_curve, ctx.market, &bump_req, None).map_err(
-                                |e| Error::Internal(format!("Failed to bump hazard curve: {}", e)),
-                            )?;
+                        let discount_id = resolve_discount_curve_id(ctx.market);
+                        let new_curve = bump_hazard_spreads(
+                            base_curve,
+                            ctx.market,
+                            &bump_req,
+                            discount_id.as_ref(),
+                        )
+                        .or_else(|_| bump_hazard_shift(base_curve, &bump_req))
+                        .map_err(|e| Error::Internal(format!("Failed to bump hazard curve: {}", e)))?;
 
                         Ok(Some(vec![ScenarioEffect::UpdateHazardCurve {
                             id: curve_id.clone(),
@@ -253,8 +265,8 @@ impl ScenarioAdapter for CurveAdapter {
                         // `InflationCurveCalibrator` needs it to discount flows.
                         // I'll default to the curve_id's currency OIS.
 
-                        // Hack: Use "USD-OIS" for now. A real solution needs metadata.
-                        let discount_id = finstack_core::types::CurveId::from("USD-OIS");
+                        let discount_id = resolve_discount_curve_id(ctx.market)
+                            .unwrap_or_else(|| finstack_core::types::CurveId::from("USD-OIS"));
 
                         let new_curve = bump_inflation_rates(
                             base_curve,
@@ -434,13 +446,7 @@ impl ScenarioAdapter for CurveAdapter {
                         )?;
                         let bump_req = BumpRequest::Tenors(targets);
 
-                        // Try to find a discount curve ID for recalibration
-                        // Use standard "USD-OIS" if available, otherwise None (will fallback to shift method)
-                        let discount_id = ctx
-                            .market
-                            .get_discount_ref("USD-OIS")
-                            .ok()
-                            .map(|_| finstack_core::types::CurveId::from("USD-OIS"));
+                        let discount_id = resolve_discount_curve_id(ctx.market);
 
                         let new_curve = bump_hazard_spreads(
                             base_curve,
@@ -448,6 +454,7 @@ impl ScenarioAdapter for CurveAdapter {
                             &bump_req,
                             discount_id.as_ref(),
                         )
+                        .or_else(|_| bump_hazard_shift(base_curve, &bump_req))
                         .map_err(|e| {
                             Error::Internal(format!(
                                 "Failed to bump hazard curve components: {}",
@@ -477,16 +484,8 @@ impl ScenarioAdapter for CurveAdapter {
                         )?;
                         let bump_req = BumpRequest::Tenors(targets);
 
-                        // Try to find a valid discount curve ID.
-                        // 1. Try "USD-OIS" (standard)
-                        // 2. Try "USD_SOFR" (common in tests)
-                        // 3. Try "USD-Discount"
-                        let candidates = ["USD-OIS", "USD_SOFR", "USD-Discount"];
-                        let discount_id = candidates
-                            .iter()
-                            .find(|&&id| ctx.market.get_discount_ref(id).is_ok())
-                            .map(|&id| finstack_core::types::CurveId::from(id))
-                            .unwrap_or_else(|| finstack_core::types::CurveId::from("USD-OIS")); // Fallback
+                        let discount_id = resolve_discount_curve_id(ctx.market)
+                            .unwrap_or_else(|| finstack_core::types::CurveId::from("USD-OIS"));
 
                         let new_curve = bump_inflation_rates(
                             base_curve,

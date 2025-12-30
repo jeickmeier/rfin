@@ -12,7 +12,7 @@ use crate::market::quotes::ids::Pillar;
 use finstack_core::dates::{adjust, next_cds_date, DateExt, StubKind};
 use finstack_core::money::Money;
 use finstack_core::types::{CurveId, InstrumentId};
-use finstack_core::Result;
+use finstack_core::{Error, InputError, Result};
 use rust_decimal::Decimal;
 
 /// Build a Credit Default Swap instrument from a [`CdsQuote`].
@@ -118,10 +118,15 @@ use rust_decimal::Decimal;
 /// - [`CdsQuote`](crate::market::quotes::cds::CdsQuote) for supported quote types
 /// - [`BuildCtx`](crate::market::build::context::BuildCtx) for build context configuration
 pub fn build_cds_instrument(quote: &CdsQuote, ctx: &BuildCtx) -> Result<Box<dyn Instrument>> {
-    let registry = ConventionRegistry::global();
+    let registry = ConventionRegistry::try_global()?;
+    let missing_role = |role: &str| {
+        Error::Input(InputError::NotFound {
+            id: format!("curve role '{}'", role),
+        })
+    };
 
     // Extract common fields
-    let (id, convention_key, entity, pillar, spread_bp, recovery_rate, upfront) = match quote {
+    let (id, convention_key, _entity, pillar, spread_bp, recovery_rate, upfront) = match quote {
         CdsQuote::CdsParSpread {
             id,
             entity,
@@ -159,7 +164,7 @@ pub fn build_cds_instrument(quote: &CdsQuote, ctx: &BuildCtx) -> Result<Box<dyn 
 
     let conv = registry.require_cds(convention_key)?;
     let spot = resolve_spot_date(
-        ctx.as_of,
+        ctx.as_of(),
         &conv.calendar_id,
         conv.settlement_days,
         conv.business_day_convention,
@@ -189,29 +194,24 @@ pub fn build_cds_instrument(quote: &CdsQuote, ctx: &BuildCtx) -> Result<Box<dyn 
     let discount_id = ctx
         .curve_id("discount")
         .cloned()
-        .unwrap_or_else(|| convention_key.currency.to_string());
+        .ok_or_else(|| missing_role("discount"))?;
 
     // Credit curve ID: usually defaulted to entity name if not mapped
     let credit_id = ctx
         .curve_id("credit")
         .cloned()
-        .unwrap_or_else(|| entity.clone());
+        .ok_or_else(|| missing_role("credit"))?;
 
     // Calculate upfront amount if present
     // Amount = Notional * pct; Date = Spot (Settlement)
-    let upfront_payment = upfront.map(|pct| {
-        (
-            spot,
-            Money::new(ctx.notional * pct, convention_key.currency),
-        )
-    });
+    let upfront_payment = upfront.map(|pct| (spot, Money::new(ctx.notional() * pct, convention_key.currency)));
 
     // We use Custom convention to avoid enum mismatch, but fully specify legs
     let convention_enum = CDSConvention::Custom;
 
     let cds = CreditDefaultSwap {
         id: InstrumentId::new(id.as_str()),
-        notional: Money::new(ctx.notional, convention_key.currency),
+        notional: Money::new(ctx.notional(), convention_key.currency),
         side: PayReceive::PayFixed, // Standard: Quote implies we buy protection (pay premium/spread) ? Or we are pricing the contract?
         // Usually "Par Spread" implies the spread we pay.
         // Default to Buy Protection (Pay Premium).

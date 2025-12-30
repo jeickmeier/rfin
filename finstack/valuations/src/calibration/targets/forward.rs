@@ -7,9 +7,8 @@ use crate::calibration::prepared::CalibrationQuote;
 use crate::calibration::solver::{BootstrapTarget, SequentialBootstrapper};
 use crate::calibration::targets::util::{curve_day_count_from_quotes, sort_bootstrap_quotes};
 use crate::calibration::CalibrationReport;
-use crate::market::build::prepared::PreparedQuote;
 use crate::market::quotes::market_quote::{ExtractQuotes, MarketQuote};
-use finstack_core::dates::{Date, DayCount, DayCountCtx};
+use finstack_core::dates::{Date, DayCount};
 use finstack_core::market_data::context::MarketContext;
 use finstack_core::market_data::term_structures::ForwardCurve;
 use finstack_core::math::interp::InterpStyle;
@@ -91,6 +90,7 @@ impl ForwardCurveTarget {
     }
 
     /// Calculate scale-aware tolerance for knot collision detection.
+    #[allow(dead_code)]
     pub fn scale_aware_tolerance(&self, knot_time: f64) -> f64 {
         let tol = self.config.solver.tolerance();
         (tol * (1.0 + knot_time)).max(tol)
@@ -132,56 +132,20 @@ impl ForwardCurveTarget {
         curve_ids.insert("discount".to_string(), params.discount_curve_id.to_string());
         curve_ids.insert("forward".to_string(), params.curve_id.to_string());
 
-        let build_ctx = crate::market::build::context::BuildCtx {
-            as_of: params.base_date,
-            notional: 1.0,
-            curve_ids,
-            attributes: finstack_core::HashMap::default(),
-        };
+        let build_ctx =
+            crate::market::build::context::BuildCtx::new(params.base_date, 1.0, curve_ids);
 
         let mut prepared_quotes: Vec<CalibrationQuote> = Vec::with_capacity(rates_quotes.len());
 
+        let pillar_policy = crate::market::build::prepared::PillarPolicy::default();
         for q in rates_quotes {
-            let instrument = crate::market::build::rates::build_rate_instrument(&q, &build_ctx)
-                .map_err(|e| {
-                    finstack_core::Error::Validation(format!("Failed to build instrument: {}", e))
-                })?;
-            let instrument: std::sync::Arc<dyn crate::instruments::common::traits::Instrument> =
-                instrument.into();
-
-            let maturity_date = if let Some(dep) = instrument
-                .as_any()
-                .downcast_ref::<crate::instruments::deposit::Deposit>(
-            ) {
-                dep.effective_end_date()?
-            } else if let Some(fra) = instrument
-                .as_any()
-                .downcast_ref::<crate::instruments::fra::ForwardRateAgreement>(
-            ) {
-                fra.end_date
-            } else if let Some(swp) = instrument
-                .as_any()
-                .downcast_ref::<crate::instruments::irs::InterestRateSwap>()
-            {
-                std::cmp::max(swp.fixed.end, swp.float.end)
-            } else if let Some(fut) = instrument
-                .as_any()
-                .downcast_ref::<crate::instruments::ir_future::InterestRateFuture>(
-            ) {
-                fut.expiry_date
-            } else {
-                params.base_date
-            };
-
-            let pillar_time =
-                curve_dc.year_fraction(params.base_date, maturity_date, DayCountCtx::default())?;
-
-            let prepared = PreparedQuote::new(
-                std::sync::Arc::new(q),
-                instrument,
-                maturity_date,
-                pillar_time,
-            );
+            let prepared = crate::market::build::prepared::prepare_rate_quote(
+                q,
+                &build_ctx,
+                curve_dc,
+                params.base_date,
+                &pillar_policy,
+            )?;
             prepared_quotes.push(CalibrationQuote::Rates(prepared));
         }
 

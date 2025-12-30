@@ -17,10 +17,9 @@ use finstack_core::market_data::context::MarketContext;
 use finstack_core::market_data::term_structures::{DiscountCurve, ParInterp, Seniority};
 use finstack_core::math::interp::InterpStyle;
 use finstack_core::money::Money;
-use finstack_valuations::calibration::api::schema::{
-    CalibrationMethod, HazardCurveParams, StepParams,
-};
-use finstack_valuations::calibration::targets::handlers::execute_step;
+use finstack_valuations::calibration::api::schema::{HazardCurveParams, StepParams};
+use finstack_valuations::calibration::CalibrationMethod;
+use finstack_valuations::calibration::execute_step_for_tests as execute_step;
 use finstack_valuations::calibration::CalibrationConfig;
 use finstack_valuations::instruments::cds::CreditDefaultSwap;
 use finstack_valuations::instruments::common::traits::Instrument;

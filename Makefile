@@ -1,4 +1,4 @@
-.PHONY: help setup-python build build-prod test-rust test-rust-slow test-rust-doc test-python doc clean fmt lint stubs coverage coverage-html coverage-open coverage-lcov wasm-examples-dev examples ci_test install-nextest book-build book-serve book-clean book-watch install-mdbook bench-perf bench-baseline bench-flamegraph bench-compare install-bloat size-wasm size-py size-core size-all
+.PHONY: help setup-python build build-prod test-rust test-rust-slow test-rust-doc test-python doc clean fmt lint stubs list coverage coverage-html coverage-open coverage-lcov wasm-examples-dev examples ci_test install-nextest book-build book-serve book-clean book-watch install-mdbook bench-perf bench-baseline bench-flamegraph bench-compare install-bloat size-wasm size-py size-core size-all
 
 help:
 	@echo "Builds:"
@@ -53,6 +53,7 @@ help:
 	@echo "Other:"
 	@echo "  clean          				- Clean build artifacts"
 	@echo "  setup-python  				- Set up Python development environment with uv"
+	@echo "  list           				- Generate Rust/Python/WASM API parity report"
 	@echo "  install-nextest  				- Install cargo-nextest (test runner)"
 	@echo "  install-mdbook  				- Install mdBook (documentation builder)"
 	@echo "  ci_test       				- Run all CI checks locally (mirrors GitHub Actions)"
@@ -102,10 +103,10 @@ test-wasm:
 	cd finstack-wasm && npm run test
 
 test-ui:
-	cd packages/finstack-ui && npm run test -- run
+	cd finstack-ui && npm run test -- run
 
 test-ui-coverage:
-	cd packages/finstack-ui && npm run test:coverage
+	cd finstack-ui && npm run test:coverage
 
 fmt:
 	make fmt-rust
@@ -123,7 +124,7 @@ fmt-wasm:
 	cd finstack-wasm && npm run format .
 
 fmt-ui:
-	cd packages/finstack-ui && npm run format:fix .
+	cd finstack-ui && npm run format:fix .
 
 lint:
 	make lint-rust
@@ -156,13 +157,13 @@ lint-wasm:
 	cd finstack-wasm && npm run lint
 
 lint-ui:
-	cd packages/finstack-ui && npm run lint
+	cd finstack-ui && npm run lint
 
 lint-wasm-fix:
 	cd finstack-wasm && npm run lint:fix
 
 lint-ui-fix:
-	cd packages/finstack-ui && npm run lint:fix
+	cd finstack-ui && npm run lint:fix
 
 clean:
 	cargo clean
@@ -226,6 +227,15 @@ stubs:
 	@echo "(re)generating Python stub files …"
 	bash ./scripts/generate-stubs.sh
 	@echo "Stub generation complete."
+
+list:
+	@command -v uv >/dev/null 2>&1 || { echo "uv is required for API audits (https://github.com/astral-sh/uv)."; exit 1; }
+	@echo "Extracting API surfaces (Rust/Python/WASM) and generating parity report..."
+	uv run python scripts/audits/audit_rust_api.py
+	uv run python scripts/audits/audit_python_api.py
+	uv run python scripts/audits/audit_wasm_api.py
+	uv run python scripts/audits/compare_apis.py
+	@echo "Done: PARITY_AUDIT.md"
 
 coverage:
 	@echo "Running code coverage (finstack Rust library only)..."

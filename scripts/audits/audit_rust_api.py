@@ -61,14 +61,14 @@ class RustAPIExtractor:
         brace_match = re.search(r"pub\s+use\s+[^{]+\{([^}]+)\}", line)
         if brace_match:
             items_str = brace_match.group(1)
-            for item in items_str.split(","):
-                item = item.strip()
+            for raw_item in items_str.split(","):
+                item_clean = raw_item.strip()
                 # Handle "Item as Alias"
-                if " as " in item:
-                    alias = item.split(" as ")[1].strip()
+                if " as " in item_clean:
+                    alias = item_clean.split(" as ")[1].strip()
                     items.append(alias)
                 else:
-                    items.append(item)
+                    items.append(item_clean)
             return items
 
         # Handle: pub use module::Item;
@@ -86,8 +86,8 @@ class RustAPIExtractor:
         exports = ModuleExports(modules=[], types=[], functions=[], re_exports={})
 
         lines = content.split("\n")
-        for line in lines:
-            line = line.strip()
+        for raw_line in lines:
+            line = raw_line.strip()
 
             # Look for pub mod (public modules)
             if line.startswith("pub mod ") and not line.startswith("pub(crate) mod "):
@@ -152,8 +152,8 @@ class RustAPIExtractor:
         exports = ModuleExports(modules=[], types=[], functions=[], re_exports={})
 
         lines = content.split("\n")
-        for line in lines:
-            line = line.strip()
+        for raw_line in lines:
+            line = raw_line.strip()
 
             # Look for pub mod (public submodules)
             if line.startswith("pub mod ") and not line.startswith("pub(crate) mod "):
@@ -390,7 +390,7 @@ def main() -> int:
     """Main entry point."""
     # Find project root
     script_dir = Path(__file__).parent
-    project_root = script_dir.parent
+    project_root = script_dir.parent.parent
     rust_src = project_root / "finstack"
 
     if not rust_src.exists():
@@ -401,7 +401,7 @@ def main() -> int:
     api_data = extractor.extract_all()
 
     # Write to output file
-    output_file = project_root / "scripts" / "rust_api.json"
+    output_file = script_dir / "rust_api.json"
     with output_file.open("w") as f:
         json.dump(api_data, f, indent=2)
 

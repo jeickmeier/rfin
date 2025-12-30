@@ -112,14 +112,13 @@ fn discount_curve_deposit_repricing() {
 
     let ctx = run_plan(&envelope);
 
-    let build_ctx = BuildCtx {
-        as_of: base_date,
-        notional: NOTIONAL,
-        curve_ids: [("discount".to_string(), "USD-OIS".to_string())]
+    let build_ctx = BuildCtx::new(
+        base_date,
+        NOTIONAL,
+        [("discount".to_string(), "USD-OIS".to_string())]
             .into_iter()
             .collect(),
-        attributes: Default::default(),
-    };
+    );
 
     for q in &deposit_quotes {
         let inst = build_rate_instrument(q, &build_ctx).expect("build deposit instrument");

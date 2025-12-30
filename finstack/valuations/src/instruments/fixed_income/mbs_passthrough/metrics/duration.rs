@@ -7,9 +7,10 @@
 use crate::instruments::agency_mbs_passthrough::pricer::price_mbs;
 use crate::instruments::agency_mbs_passthrough::AgencyMbsPassthrough;
 use finstack_core::dates::Date;
+use finstack_core::market_data::context::BumpSpec;
 use finstack_core::market_data::context::MarketContext;
-use finstack_core::market_data::term_structures::DiscountCurve;
 use finstack_core::Result;
+use finstack_core::HashMap;
 
 /// Duration and convexity result.
 #[derive(Clone, Debug)]
@@ -118,9 +119,14 @@ pub fn duration_convexity(
         });
     }
 
-    // Create bumped markets
-    let market_up = bump_discount_curve(market, &mbs.discount_curve_id, shock)?;
-    let market_down = bump_discount_curve(market, &mbs.discount_curve_id, -shock)?;
+    // Create bumped markets using shared calibration bump helpers (parallel bump in bp).
+    let mut bumps_up = HashMap::default();
+    bumps_up.insert(mbs.discount_curve_id.clone(), BumpSpec::parallel_bp(shock_bps));
+    let mut bumps_down = HashMap::default();
+    bumps_down.insert(mbs.discount_curve_id.clone(), BumpSpec::parallel_bp(-shock_bps));
+
+    let market_up = market.bump(bumps_up)?;
+    let market_down = market.bump(bumps_down)?;
 
     // Get bumped prices
     let price_up = price_mbs(mbs, &market_up, as_of)?.amount();
@@ -144,58 +150,19 @@ pub fn duration_convexity(
     })
 }
 
-/// Bump a discount curve by a parallel shift.
-fn bump_discount_curve(
-    market: &MarketContext,
-    curve_id: &finstack_core::types::CurveId,
-    bump: f64,
-) -> Result<MarketContext> {
-    let original = market.get_discount_ref(curve_id)?;
-
-    // Get the curve's knots and bump the rates
-    let base_date = original.base_date();
-    let day_count = original.day_count();
-
-    // Sample the curve at standard tenors and bump
-    let tenors = [
-        0.0, 0.25, 0.5, 1.0, 2.0, 3.0, 5.0, 7.0, 10.0, 15.0, 20.0, 30.0,
-    ];
-    let bumped_knots: Vec<(f64, f64)> = tenors
-        .iter()
-        .map(|&t| {
-            let df = original.df(t);
-            // Convert DF to continuous rate, bump, convert back
-            let rate = if t > 0.0 { -df.ln() / t } else { 0.0 };
-            let bumped_rate = rate + bump;
-            let bumped_df = if t > 0.0 {
-                (-bumped_rate * t).exp()
-            } else {
-                1.0
-            };
-            (t, bumped_df)
-        })
-        .collect();
-
-    let bumped_curve = DiscountCurve::builder(curve_id.as_str())
-        .base_date(base_date)
-        .day_count(day_count)
-        .knots(bumped_knots)
-        .set_interp(finstack_core::math::interp::InterpStyle::Linear)
-        .build()?;
-
-    Ok(market.clone().insert_discount(bumped_curve))
-}
-
 #[cfg(test)]
 #[allow(clippy::expect_used, clippy::panic)]
 mod tests {
     use super::*;
     use crate::cashflow::builder::specs::PrepaymentModelSpec;
+    use crate::calibration::bumps::rates::bump_discount_curve_synthetic;
+    use crate::calibration::bumps::BumpRequest;
     use crate::instruments::agency_mbs_passthrough::{AgencyProgram, PoolType};
     use finstack_core::currency::Currency;
     use finstack_core::dates::DayCount;
     use finstack_core::math::interp::InterpStyle;
     use finstack_core::money::Money;
+    use finstack_core::market_data::term_structures::DiscountCurve;
     use finstack_core::types::{CurveId, InstrumentId};
     use time::Month;
 
@@ -290,7 +257,15 @@ mod tests {
         let market = create_test_market(as_of);
         let curve_id = CurveId::new("USD-OIS");
 
-        let bumped_market = bump_discount_curve(&market, &curve_id, 0.01).expect("bump");
+        let base_curve = market.get_discount_ref(&curve_id).expect("original");
+        let bumped_curve = bump_discount_curve_synthetic(
+            base_curve,
+            &market,
+            &BumpRequest::Parallel(100.0),
+            as_of,
+        )
+        .expect("bump");
+        let bumped_market = market.clone().insert_discount(bumped_curve);
 
         let original = market.get_discount_ref(&curve_id).expect("original");
         let bumped = bumped_market.get_discount_ref(&curve_id).expect("bumped");

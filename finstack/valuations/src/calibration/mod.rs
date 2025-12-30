@@ -56,16 +56,17 @@
 /// Plan-driven calibration API (schema + execution engine).
 pub mod api;
 /// Prepared quotes for calibration.
-pub mod prepared;
+pub(crate) mod prepared;
 /// Solver utilities and implementations used by calibration.
 pub mod solver;
 /// Calibration targets mapping API steps to domain execution.
-pub mod targets;
+pub(crate) mod targets;
 
 // Shared infrastructure
 mod config;
 mod report;
 mod validation;
+mod step_runtime;
 
 /// Curve bumping helpers used by scenarios and risk metrics (re-calibration).
 pub mod bumps;
@@ -76,24 +77,37 @@ pub mod constants;
 /// Convexity adjustment logic.
 // Re-exports: Configuration
 pub use config::{
-    CalibrationConfig, CalibrationMethod as CalibrationSolveMethod, DiscountCurveSolveConfig,
-    ResidualWeightingScheme, CALIBRATION_CONFIG_KEY,
+    CalibrationConfig, CalibrationMethod, DiscountCurveSolveConfig, ResidualWeightingScheme,
+    CALIBRATION_CONFIG_KEY,
 };
+/// Backwards-compatible alias for tests expecting the old name.
+pub type CalibrationSolveMethod = CalibrationMethod;
+pub use validation::{RateBounds, RateBoundsPolicy, ValidationConfig, ValidationMode};
+pub use solver::SolverConfig;
+pub use validation::curves::CurveValidator;
+pub use validation::surfaces::SurfaceValidator;
+/// Test-focused wrapper exposing step execution for integration tests and benches.
+pub fn execute_step_for_tests(
+    params: &crate::calibration::api::schema::StepParams,
+    quotes: &[crate::market::quotes::market_quote::MarketQuote],
+    context: &finstack_core::market_data::context::MarketContext,
+    global_config: &crate::calibration::config::CalibrationConfig,
+) -> finstack_core::Result<(
+    finstack_core::market_data::context::MarketContext,
+    crate::calibration::CalibrationReport,
+)> {
+    targets::handlers::execute_step(params, quotes, context, global_config)
+}
 
 // Re-exports: Reports
 pub use report::CalibrationReport;
-pub use solver::SolverConfig;
-
-// Re-exports: Validation
-pub use validation::{
-    CurveValidator, RateBounds, RateBoundsPolicy, SurfaceValidator, ValidationConfig,
-    ValidationMode,
-};
 
 // Bump helpers (stable façade)
 pub use bumps::{
-    hazard::bump_hazard_spreads, inflation::bump_inflation_rates, rates::bump_discount_curve,
-    rates::bump_discount_curve_synthetic, BumpRequest,
+    hazard::{bump_hazard_shift, bump_hazard_spreads},
+    inflation::bump_inflation_rates,
+    rates::bump_discount_curve,
+    rates::bump_discount_curve_synthetic,
+    BumpRequest,
 };
 
-pub use solver::{OBJECTIVE_VALID_ABS_MAX, PENALTY, RESIDUAL_PENALTY_ABS_MIN};

@@ -9,9 +9,7 @@ use crate::calibration::targets::util::sort_bootstrap_quotes;
 use crate::calibration::CalibrationReport;
 use crate::instruments::cds::CdsConventionResolved;
 use crate::market::build::context::BuildCtx;
-use crate::market::build::prepared::PreparedQuote;
 use crate::market::quotes::market_quote::{ExtractQuotes, MarketQuote};
-use finstack_core::dates::DayCountCtx;
 use finstack_core::market_data::context::MarketContext;
 use finstack_core::market_data::term_structures::HazardCurve;
 use finstack_core::HashMap;
@@ -117,45 +115,23 @@ impl HazardBootstrapper {
         curve_ids.insert("discount".to_string(), params.discount_curve_id.to_string());
         curve_ids.insert("credit".to_string(), params.curve_id.to_string());
         let build_ctx = BuildCtx::new(params.base_date, params.notional, curve_ids);
+        let t_day_count = target.cds_conventions.day_count;
 
         for (i, q) in cds_quotes.into_iter().enumerate() {
-            // Build Instrument
-            let instrument = crate::market::build::cds::build_cds_instrument(&q, &build_ctx)
-                .map_err(|e| {
-                    finstack_core::Error::Validation(format!(
-                        "Failed to build credit instrument {}: {}",
-                        i, e
-                    ))
-                })?;
-            let instrument: std::sync::Arc<dyn crate::instruments::common::traits::Instrument> =
-                instrument.into();
-
-            let maturity_date = if let Some(cds) = instrument
-                .as_any()
-                .downcast_ref::<crate::instruments::cds::CreditDefaultSwap>(
-            ) {
-                cds.premium.end
-            } else {
-                return Err(finstack_core::Error::Validation(
-                    "Expected CreditDefaultSwap instrument".into(),
-                ));
-            };
-
-            let t_day_count = target.cds_conventions.day_count;
-            let pillar_time = t_day_count.year_fraction(
+            let prepared = crate::market::build::prepared::prepare_cds_quote(
+                q.clone(),
+                &build_ctx,
+                t_day_count,
                 params.base_date,
-                maturity_date,
-                DayCountCtx::default(),
-            )?;
+            )
+            .map_err(|e| {
+                finstack_core::Error::Validation(format!(
+                    "Failed to build credit instrument {}: {}",
+                    i, e
+                ))
+            })?;
 
-            let prepared = PreparedQuote::new(
-                std::sync::Arc::new(q.clone()),
-                instrument,
-                maturity_date,
-                pillar_time,
-            );
-
-            prepared_quotes.push(CalibrationQuote::Cds(prepared, None));
+            prepared_quotes.push(CalibrationQuote::Cds(prepared));
         }
 
         let (curve, report) = match params.method {
@@ -184,7 +160,7 @@ impl HazardBootstrapper {
 
     fn quote_hazard_guess(&self, quote: &CalibrationQuote) -> Option<f64> {
         let pq = match quote {
-            CalibrationQuote::Cds(pq, _) => pq,
+            CalibrationQuote::Cds(pq) => pq,
             _ => return None,
         };
 
@@ -244,7 +220,7 @@ impl BootstrapTarget for HazardBootstrapper {
 
     fn quote_time(&self, quote: &Self::Quote) -> Result<f64> {
         match quote {
-            crate::calibration::prepared::CalibrationQuote::Cds(pq, _) => Ok(pq.pillar_time),
+            crate::calibration::prepared::CalibrationQuote::Cds(pq) => Ok(pq.pillar_time),
             _ => Err(finstack_core::Error::Input(
                 finstack_core::InputError::Invalid,
             )),
@@ -269,7 +245,7 @@ impl BootstrapTarget for HazardBootstrapper {
 
     fn calculate_residual(&self, curve: &Self::Curve, quote: &Self::Quote) -> Result<f64> {
         let pq = match quote {
-            crate::calibration::prepared::CalibrationQuote::Cds(pq, _) => pq,
+            crate::calibration::prepared::CalibrationQuote::Cds(pq) => pq,
             _ => {
                 return Err(finstack_core::Error::Input(
                     finstack_core::InputError::Invalid,
@@ -505,7 +481,7 @@ Global solve requires strictly increasing times.",
         self.with_temp_context(curve, |ctx| {
             for (i, quote) in quotes.iter().enumerate() {
                 let pq = match quote {
-                    CalibrationQuote::Cds(pq, _) => pq,
+                    CalibrationQuote::Cds(pq) => pq,
                     _ => {
                         return Err(finstack_core::Error::Input(
                             finstack_core::InputError::Invalid,

@@ -3,7 +3,6 @@
 //! Defines the JSON contract for plan-driven calibration.
 
 pub use crate::calibration::config::{CalibrationConfig, CalibrationMethod, RatesStepConventions};
-// pub use crate::calibration::pricing::RatesStepConventions; // Moved to config
 use crate::calibration::CalibrationReport;
 use crate::market::quotes::market_quote::MarketQuote;
 use finstack_core::config::ResultsMeta;

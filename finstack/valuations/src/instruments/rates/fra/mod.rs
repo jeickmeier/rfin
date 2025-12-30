@@ -56,7 +56,7 @@
 //! # See Also
 //!
 //! - [`ForwardRateAgreement`] for instrument struct
-//! - [`calibration::methods::forward_curve`](crate::calibration::methods::forward_curve) for curve construction
+//! - Plan-driven calibration in [`calibration::api`] (Forward step) for curve construction
 
 pub mod metrics;
 /// FRA pricer implementation

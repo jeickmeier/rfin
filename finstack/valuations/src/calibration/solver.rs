@@ -28,9 +28,6 @@ mod helpers;
 /// Solver traits for bootstrap and global optimization.
 pub mod traits;
 
-pub use crate::calibration::constants::{
-    OBJECTIVE_VALID_ABS_MAX, PENALTY, RESIDUAL_PENALTY_ABS_MIN,
-};
 pub use config::SolverConfig;
 pub(crate) use helpers::bracket_solve_1d_with_diagnostics;
 

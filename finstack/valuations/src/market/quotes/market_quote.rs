@@ -173,43 +173,15 @@ impl MarketQuote {
     }
 }
 
-/// Trait for filtering quote collections into specific types.
-///
-/// This trait enables extracting quotes of a specific type from a heterogeneous collection
-/// of `MarketQuote` instances. Useful for calibration workflows that need to process
-/// quotes by instrument class.
-///
-/// # Examples
-///
-/// ```rust
-/// use finstack_valuations::market::quotes::market_quote::{ExtractQuotes, MarketQuote};
-/// use finstack_valuations::market::quotes::rates::RateQuote;
-/// use finstack_valuations::market::quotes::ids::{Pillar, QuoteId};
-/// use finstack_valuations::market::conventions::ids::IndexId;
-///
-/// # fn example() -> finstack_core::Result<()> {
-/// let quotes = vec![
-///     MarketQuote::Rates(RateQuote::Deposit {
-///         id: QuoteId::new("USD-SOFR-DEP-1M"),
-///         index: IndexId::new("USD-SOFR-1M"),
-///         pillar: Pillar::Tenor("1M".parse()?),
-///         rate: 0.0525,
-///     }),
-///     // ... other quote types
-/// ];
-///
-/// // Extract only rate quotes
-/// let rate_quotes: Vec<RateQuote> = quotes.extract_quotes();
-/// # Ok(())
-/// # }
-/// ```
-pub trait ExtractQuotes<T> {
-    /// Extract all quotes matching type `T` from the collection.
-    ///
-    /// # Returns
-    ///
-    /// A vector containing all quotes of type `T` from the collection.
+/// Trait for filtering quote collections into specific types (owned).
+pub(crate) trait ExtractQuotes<T> {
     fn extract_quotes(&self) -> Vec<T>;
+}
+
+/// Borrowing variant to avoid cloning when possible.
+pub trait ExtractQuoteRefs<'a, T> {
+    /// Extract borrowed quotes of a specific type from a heterogeneous collection.
+    fn extract_quote_refs(&'a self) -> Vec<&'a T>;
 }
 
 impl ExtractQuotes<RateQuote> for [MarketQuote] {
@@ -217,6 +189,17 @@ impl ExtractQuotes<RateQuote> for [MarketQuote] {
         self.iter()
             .filter_map(|q| match q {
                 MarketQuote::Rates(rq) => Some(rq.clone()),
+                _ => None,
+            })
+            .collect()
+    }
+}
+
+impl ExtractQuoteRefs<'_, RateQuote> for [MarketQuote] {
+    fn extract_quote_refs(&self) -> Vec<&RateQuote> {
+        self.iter()
+            .filter_map(|q| match q {
+                MarketQuote::Rates(rq) => Some(rq),
                 _ => None,
             })
             .collect()
@@ -234,11 +217,33 @@ impl ExtractQuotes<CdsQuote> for [MarketQuote] {
     }
 }
 
+impl ExtractQuoteRefs<'_, CdsQuote> for [MarketQuote] {
+    fn extract_quote_refs(&self) -> Vec<&CdsQuote> {
+        self.iter()
+            .filter_map(|q| match q {
+                MarketQuote::Cds(cq) => Some(cq),
+                _ => None,
+            })
+            .collect()
+    }
+}
+
 impl ExtractQuotes<CdsTrancheQuote> for [MarketQuote] {
     fn extract_quotes(&self) -> Vec<CdsTrancheQuote> {
         self.iter()
             .filter_map(|q| match q {
                 MarketQuote::CdsTranche(ctq) => Some(ctq.clone()),
+                _ => None,
+            })
+            .collect()
+    }
+}
+
+impl ExtractQuoteRefs<'_, CdsTrancheQuote> for [MarketQuote] {
+    fn extract_quote_refs(&self) -> Vec<&CdsTrancheQuote> {
+        self.iter()
+            .filter_map(|q| match q {
+                MarketQuote::CdsTranche(ctq) => Some(ctq),
                 _ => None,
             })
             .collect()
@@ -256,11 +261,33 @@ impl ExtractQuotes<InflationQuote> for [MarketQuote] {
     }
 }
 
+impl ExtractQuoteRefs<'_, InflationQuote> for [MarketQuote] {
+    fn extract_quote_refs(&self) -> Vec<&InflationQuote> {
+        self.iter()
+            .filter_map(|q| match q {
+                MarketQuote::Inflation(iq) => Some(iq),
+                _ => None,
+            })
+            .collect()
+    }
+}
+
 impl ExtractQuotes<VolQuote> for [MarketQuote] {
     fn extract_quotes(&self) -> Vec<VolQuote> {
         self.iter()
             .filter_map(|q| match q {
                 MarketQuote::Vol(vq) => Some(vq.clone()),
+                _ => None,
+            })
+            .collect()
+    }
+}
+
+impl ExtractQuoteRefs<'_, VolQuote> for [MarketQuote] {
+    fn extract_quote_refs(&self) -> Vec<&VolQuote> {
+        self.iter()
+            .filter_map(|q| match q {
+                MarketQuote::Vol(vq) => Some(vq),
                 _ => None,
             })
             .collect()

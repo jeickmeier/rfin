@@ -2,9 +2,8 @@
 
 use super::bracket_solve_1d_with_diagnostics;
 use super::traits::BootstrapTarget;
-use crate::calibration::{
-    CalibrationConfig, CalibrationReport, OBJECTIVE_VALID_ABS_MAX, RESIDUAL_PENALTY_ABS_MIN,
-};
+use crate::calibration::constants::{OBJECTIVE_VALID_ABS_MAX, RESIDUAL_PENALTY_ABS_MIN};
+use crate::calibration::{CalibrationConfig, CalibrationReport};
 use finstack_core::Result;
 use std::collections::BTreeMap;
 use std::sync::atomic::{AtomicUsize, Ordering};

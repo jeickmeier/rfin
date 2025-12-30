@@ -15,6 +15,7 @@ use time::Month;
 
 use finstack_core::dates::DateExt; // Imports DateExt
 use finstack_core::types::Currency;
+use finstack_core::HashMap;
 
 // Helper to create date validly
 fn date(year: i32, month: Month, day: u8) -> Date {
@@ -134,12 +135,12 @@ fn test_all_types_calibration_parity() {
     ];
 
     // Build instruments using current builders to ensure quote compatibility.
-    let build_ctx = finstack_valuations::market::build::context::BuildCtx {
-        as_of: base_date,
-        curve_ids: Default::default(),
-        notional: 1_000_000.0,
-        attributes: Default::default(),
-    };
+    let mut curve_ids = HashMap::default();
+    curve_ids.insert("discount".to_string(), "USD-OIS".to_string());
+    curve_ids.insert("forward".to_string(), "USD-LIBOR-3M".to_string());
+    curve_ids.insert("credit".to_string(), "NA-HY-Curve".to_string());
+    let build_ctx =
+        finstack_valuations::market::build::context::BuildCtx::new(base_date, 1_000_000.0, curve_ids);
 
     for q in &discount_quotes {
         if let MarketQuote::Rates(rq) = q {

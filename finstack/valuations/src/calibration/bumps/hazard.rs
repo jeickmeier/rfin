@@ -21,8 +21,8 @@ use finstack_core::types::CurveId;
 /// points from the current curve, applies shocks, and builds a new
 /// [`CreditQuote`] set to solve for a new hazard curve.
 ///
-/// Falls back to hazard rate shifting if par spread information or a
-/// discount curve is missing.
+/// This function is strictly recalibration-only; callers that want a
+/// model hazard shift should call [`bump_hazard_shift`] explicitly.
 pub fn bump_hazard_spreads(
     hazard: &HazardCurve,
     context: &MarketContext,
@@ -33,13 +33,17 @@ pub fn bump_hazard_spreads(
     let par_points: Vec<(f64, f64)> = hazard.par_spread_points().collect();
 
     let Some(discount_id) = discount_id else {
-        // Fallback to hazard rate shift (Model Sensitivity)
-        return bump_hazard_shift_fallback(hazard, bump);
+        return Err(finstack_core::Error::Input(
+            finstack_core::InputError::NotFound {
+                id: "discount curve for hazard recalibration".to_string(),
+            },
+        ));
     };
 
     if par_points.is_empty() {
-        // Fallback if no par points
-        return bump_hazard_shift_fallback(hazard, bump);
+        return Err(finstack_core::Error::Input(
+            finstack_core::InputError::TooFewPoints,
+        ));
     }
 
     // Construct CreditQuotes from par points with bumps applied
@@ -133,28 +137,17 @@ pub fn bump_hazard_spreads(
 
     let cfg = CalibrationConfig::default();
     let step = StepParams::Hazard(params.clone());
-    let (ctx, _report) = match execute_step(&step, &market_quotes, context, &cfg) {
-        Ok(ok) => ok,
-        Err(_e) => {
-            // If re-calibration fails (e.g. synthetic par points that do not map cleanly
-            // to market-standard CDS coupon schedules), fall back to a hazard-rate shift.
-            return bump_hazard_shift_fallback(hazard, bump);
-        }
-    };
+    let (ctx, _report) = execute_step(&step, &market_quotes, context, &cfg)?;
     let new_curve = ctx.get_hazard_ref(params.curve_id.as_str())?.clone();
-    let base_points: Vec<(f64, f64)> = hazard.knot_points().collect();
-    let new_points: Vec<(f64, f64)> = new_curve.knot_points().collect();
-    let unchanged = base_points.len() == new_points.len()
-        && base_points
-            .iter()
-            .zip(new_points.iter())
-            .all(|(a, b)| (a.0 - b.0).abs() < 1e-12 && (a.1 - b.1).abs() < 1e-12);
-
-    if unchanged {
-        return bump_hazard_shift_fallback(hazard, bump);
-    }
-
     Ok(new_curve)
+}
+
+/// Bump hazard curve directly (model hazard shift), without recalibration.
+pub fn bump_hazard_shift(
+    hazard: &HazardCurve,
+    bump: &BumpRequest,
+) -> finstack_core::Result<HazardCurve> {
+    bump_hazard_shift_fallback(hazard, bump)
 }
 
 /// Fallback: bump hazard rates directly (Model Sensitivity / Hazard Delta).

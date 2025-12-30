@@ -29,8 +29,8 @@ pub struct CdsTrancheCalibrationQuote {
 pub enum CalibrationQuote {
     /// Rates quote (Deposit, FRA, Swap, Future)
     Rates(PreparedQuote<RateQuote>),
-    /// Credit quote (CDS Par Spread, Upfront). Includes optional upfront cashflow.
-    Cds(PreparedQuote<CdsQuote>, Option<Money>),
+    /// Credit quote (CDS Par Spread, Upfront).
+    Cds(PreparedQuote<CdsQuote>),
     /// CDS Tranche quote.
     CdsTranche(CdsTrancheCalibrationQuote),
     /// Inflation quote (ZCIS)
@@ -43,7 +43,7 @@ impl CalibrationQuote {
     pub fn get_instrument(&self) -> &dyn Instrument {
         match self {
             CalibrationQuote::Rates(q) => q.instrument.as_ref(),
-            CalibrationQuote::Cds(q, _) => q.instrument.as_ref(),
+            CalibrationQuote::Cds(q) => q.instrument.as_ref(),
             CalibrationQuote::CdsTranche(q) => q.prepared.instrument.as_ref(),
             CalibrationQuote::Inflation(q) => q.instrument.as_ref(),
         }
@@ -53,7 +53,7 @@ impl CalibrationQuote {
     pub fn pillar_time(&self) -> f64 {
         match self {
             CalibrationQuote::Rates(q) => q.pillar_time,
-            CalibrationQuote::Cds(q, _) => q.pillar_time,
+            CalibrationQuote::Cds(q) => q.pillar_time,
             CalibrationQuote::CdsTranche(q) => q.prepared.pillar_time,
             CalibrationQuote::Inflation(q) => q.pillar_time,
         }

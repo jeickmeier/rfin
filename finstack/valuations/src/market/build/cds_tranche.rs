@@ -13,8 +13,7 @@ use finstack_core::dates::{
 };
 use finstack_core::money::Money;
 use finstack_core::types::{CurveId, InstrumentId};
-use finstack_core::Error;
-use finstack_core::Result;
+use finstack_core::{Error, InputError, Result};
 
 /// Overrides for CDS tranche schedule and index metadata.
 ///
@@ -179,7 +178,12 @@ pub fn build_cds_tranche_instrument(
     ctx: &BuildCtx,
     overrides: &CdsTrancheBuildOverrides,
 ) -> Result<Box<dyn Instrument>> {
-    let registry = ConventionRegistry::global();
+    let registry = ConventionRegistry::try_global()?;
+    let missing_role = |role: &str| {
+        Error::Input(InputError::NotFound {
+            id: format!("curve role '{}'", role),
+        })
+    };
 
     // Extract fields
     let (
@@ -216,7 +220,7 @@ pub fn build_cds_tranche_instrument(
 
     let conv = registry.require_cds(convention_key)?;
     let spot = resolve_spot_date(
-        ctx.as_of,
+        ctx.as_of(),
         &conv.calendar_id,
         conv.settlement_days,
         conv.business_day_convention,
@@ -228,13 +232,13 @@ pub fn build_cds_tranche_instrument(
     let discount_id = ctx
         .curve_id("discount")
         .cloned()
-        .unwrap_or_else(|| convention_key.currency.to_string());
+        .ok_or_else(|| missing_role("discount"))?;
 
     // Index curve ID: usually defaulted to index name if not mapped
     let credit_id = ctx
         .curve_id("credit")
         .cloned()
-        .unwrap_or_else(|| index.clone());
+        .ok_or_else(|| missing_role("credit"))?;
 
     let normalization_factor = detachment - attachment;
     if !normalization_factor.is_finite() || normalization_factor <= 0.0 {
@@ -243,7 +247,7 @@ pub fn build_cds_tranche_instrument(
             attachment, detachment
         )));
     }
-    let notional_amt = ctx.notional * normalization_factor;
+    let notional_amt = ctx.notional() * normalization_factor;
 
     // `upfront_pct` is expressed in percentage points (e.g. -5.0 means -5% of tranche notional).
     let upfront_payment = (upfront_pct.abs() > 0.0).then(|| {
@@ -330,7 +334,10 @@ mod tests {
     #[test]
     fn build_non_imm_tranche_allows_custom_schedule() {
         let as_of = Date::from_calendar_date(2024, Month::January, 2).expect("valid date");
-        let ctx = BuildCtx::new(as_of, 1_000_000.0, HashMap::default());
+        let mut curve_ids = HashMap::default();
+        curve_ids.insert("discount".to_string(), "USD-OIS".to_string());
+        curve_ids.insert("credit".to_string(), "CDX.NA.IG".to_string());
+        let ctx = BuildCtx::new(as_of, 1_000_000.0, curve_ids);
 
         let convention_key = CdsConventionKey {
             currency: Currency::USD,
@@ -361,7 +368,8 @@ mod tests {
 
         assert!(!tranche.standard_imm_dates);
 
-        let conv = ConventionRegistry::global()
+        let conv = ConventionRegistry::try_global()
+            .expect("registry")
             .require_cds(&convention_key)
             .expect("convention should exist");
         let spot = resolve_spot_date(

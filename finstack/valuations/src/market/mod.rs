@@ -36,7 +36,7 @@
 //!
 //! # fn example() -> finstack_core::Result<()> {
 //! // Ensure conventions are loaded
-//! let _registry = ConventionRegistry::global();
+//! let _registry = ConventionRegistry::try_global()?;
 //!
 //! // Create build context
 //! let as_of = Date::from_calendar_date(2024, time::Month::January, 2).unwrap();

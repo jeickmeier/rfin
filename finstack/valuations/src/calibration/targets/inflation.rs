@@ -92,7 +92,7 @@ impl InflationBootstrapper {
         };
 
         // Load conventions
-        let conventions = ConventionRegistry::global().require_inflation_swap(convention_id)?;
+        let conventions = ConventionRegistry::try_global()?.require_inflation_swap(convention_id)?;
 
         if index_name != self.params.index && index_name != self.params.curve_id.as_str() {
             return Err(finstack_core::Error::Validation(format!(

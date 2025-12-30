@@ -29,7 +29,7 @@ use std::sync::OnceLock;
 /// use finstack_valuations::market::conventions::registry::ConventionRegistry;
 /// use finstack_valuations::market::conventions::ids::IndexId;
 ///
-/// let registry = ConventionRegistry::global();
+/// let registry = ConventionRegistry::try_global()?;
 /// let conv = registry.require_rate_index(&IndexId::new("USD-SOFR-OIS"))?;
 /// assert_eq!(conv.currency, finstack_core::currency::Currency::USD);
 /// # Ok::<(), finstack_core::Error>(())
@@ -37,17 +37,17 @@ use std::sync::OnceLock;
 #[derive(Debug, Default)]
 pub struct ConventionRegistry {
     /// Registry of Rate Index conventions.
-    pub rate_index: HashMap<IndexId, RateIndexConventions>,
+    rate_index: HashMap<IndexId, RateIndexConventions>,
     /// Registry of CDS conventions.
-    pub cds: HashMap<CdsConventionKey, CdsConventions>,
+    cds: HashMap<CdsConventionKey, CdsConventions>,
     /// Registry of Swaption conventions.
-    pub swaption: HashMap<SwaptionConventionId, SwaptionConventions>,
+    swaption: HashMap<SwaptionConventionId, SwaptionConventions>,
     /// Registry of Inflation Swap conventions.
-    pub inflation_swap: HashMap<InflationSwapConventionId, InflationSwapConventions>,
+    inflation_swap: HashMap<InflationSwapConventionId, InflationSwapConventions>,
     /// Registry of Option conventions.
-    pub option: HashMap<OptionConventionId, OptionConventions>,
+    option: HashMap<OptionConventionId, OptionConventions>,
     /// Registry of Interest Rate Futures conventions.
-    pub ir_future: HashMap<IrFutureContractId, IrFutureConventions>,
+    ir_future: HashMap<IrFutureContractId, IrFutureConventions>,
 }
 
 impl ConventionRegistry {
@@ -110,7 +110,7 @@ impl ConventionRegistry {
     /// ```rust
     /// use finstack_valuations::market::conventions::registry::ConventionRegistry;
     ///
-    /// let registry = ConventionRegistry::global();
+    /// let registry = ConventionRegistry::try_global()?;
     /// // Registry is now initialized and ready to use
     /// ```
     ///
@@ -123,7 +123,8 @@ impl ConventionRegistry {
     /// For callers that prefer structured error handling (e.g., bindings / services),
     /// use [`try_global()`](Self::try_global).
     #[allow(clippy::expect_used)]
-    pub fn global() -> &'static Self {
+    #[allow(dead_code)]
+    pub(crate) fn global() -> &'static Self {
         Self::try_global().expect("Failed to load embedded conventions registry")
     }
 
@@ -174,7 +175,7 @@ impl ConventionRegistry {
     /// use finstack_valuations::market::conventions::registry::ConventionRegistry;
     /// use finstack_valuations::market::conventions::ids::IndexId;
     ///
-    /// let registry = ConventionRegistry::global();
+    /// let registry = ConventionRegistry::try_global()?;
     /// let conv = registry.require_rate_index(&IndexId::new("USD-SOFR-OIS"))?;
     /// # Ok::<(), finstack_core::Error>(())
     /// ```
@@ -205,7 +206,7 @@ impl ConventionRegistry {
     /// use finstack_valuations::market::conventions::ids::{CdsConventionKey, CdsDocClause};
     /// use finstack_core::currency::Currency;
     ///
-    /// let registry = ConventionRegistry::global();
+    /// let registry = ConventionRegistry::try_global()?;
     /// let key = CdsConventionKey {
     ///     currency: Currency::USD,
     ///     doc_clause: CdsDocClause::IsdaNa,

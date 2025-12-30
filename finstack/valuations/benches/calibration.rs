@@ -6,15 +6,20 @@ use criterion::{criterion_group, criterion_main, Criterion};
 use finstack_core::currency::Currency;
 use finstack_core::dates::Date;
 use finstack_core::market_data::context::MarketContext;
-use finstack_valuations::calibration::api::schema::{
-    CalibrationMethod, DiscountCurveParams, ForwardCurveParams, StepParams,
+use finstack_valuations::calibration::api::{
+    engine,
+    schema::{
+        CalibrationEnvelope, CalibrationPlan, CalibrationStep, DiscountCurveParams,
+        ForwardCurveParams, StepParams, CALIBRATION_SCHEMA,
+    },
 };
-use finstack_valuations::calibration::targets::handlers::execute_step;
+use finstack_valuations::calibration::CalibrationMethod;
 use finstack_valuations::calibration::CalibrationConfig;
 use finstack_valuations::market::conventions::ids::IndexId;
 use finstack_valuations::market::quotes::ids::{Pillar, QuoteId};
 use finstack_valuations::market::quotes::market_quote::MarketQuote;
 use finstack_valuations::market::quotes::rates::RateQuote;
+use finstack_core::HashMap;
 use std::hint::black_box;
 use time::Month;
 
@@ -91,35 +96,58 @@ fn bench_discount_and_forward_steps(c: &mut Criterion) {
     });
 
     c.bench_function("calibration_v2_discount_step", |b| {
-        let base = MarketContext::new();
         b.iter(|| {
-            execute_step(
-                black_box(&disc_step),
-                black_box(&disc_mq),
-                black_box(&base),
-                black_box(&settings),
-            )
-            .unwrap()
+            let mut quote_sets: HashMap<String, Vec<MarketQuote>> = HashMap::default();
+            quote_sets.insert("disc".to_string(), disc_mq.clone());
+            let plan = CalibrationPlan {
+                id: "bench_discount".to_string(),
+                description: None,
+                quote_sets,
+                steps: vec![CalibrationStep {
+                    id: "disc".to_string(),
+                    quote_set: "disc".to_string(),
+                    params: disc_step.clone(),
+                }],
+                settings: settings.clone(),
+            };
+            let envelope = CalibrationEnvelope {
+                schema: CALIBRATION_SCHEMA.to_string(),
+                initial_market: Some((&MarketContext::new()).into()),
+                plan,
+            };
+            engine::execute(black_box(&envelope)).unwrap()
         })
     });
 
     c.bench_function("calibration_v2_discount_then_forward_steps", |b| {
-        let base = MarketContext::new();
         b.iter(|| {
-            let (ctx_after_disc, _) = execute_step(
-                black_box(&disc_step),
-                black_box(&disc_mq),
-                black_box(&base),
-                black_box(&settings),
-            )
-            .unwrap();
-            execute_step(
-                black_box(&fwd_step),
-                black_box(&fwd_mq),
-                black_box(&ctx_after_disc),
-                black_box(&settings),
-            )
-            .unwrap()
+            let mut quote_sets: HashMap<String, Vec<MarketQuote>> = HashMap::default();
+            quote_sets.insert("disc".to_string(), disc_mq.clone());
+            quote_sets.insert("fwd".to_string(), fwd_mq.clone());
+            let plan = CalibrationPlan {
+                id: "bench_disc_fwd".to_string(),
+                description: None,
+                quote_sets,
+                steps: vec![
+                    CalibrationStep {
+                        id: "disc".to_string(),
+                        quote_set: "disc".to_string(),
+                        params: disc_step.clone(),
+                    },
+                    CalibrationStep {
+                        id: "fwd".to_string(),
+                        quote_set: "fwd".to_string(),
+                        params: fwd_step.clone(),
+                    },
+                ],
+                settings: settings.clone(),
+            };
+            let envelope = CalibrationEnvelope {
+                schema: CALIBRATION_SCHEMA.to_string(),
+                initial_market: Some((&MarketContext::new()).into()),
+                plan,
+            };
+            engine::execute(black_box(&envelope)).unwrap()
         })
     });
 }
@@ -178,15 +206,26 @@ fn bench_residual_normalization(c: &mut Criterion) {
             pricing_forward_id: None,
             conventions: Default::default(),
         });
-        let base = MarketContext::new();
         b.iter(|| {
-            execute_step(
-                black_box(&disc_step),
-                black_box(&disc_mq),
-                black_box(&base),
-                black_box(&settings),
-            )
-            .unwrap()
+            let mut quote_sets: HashMap<String, Vec<MarketQuote>> = HashMap::default();
+            quote_sets.insert("disc".to_string(), disc_mq.clone());
+            let plan = CalibrationPlan {
+                id: "residual_notional_small".to_string(),
+                description: None,
+                quote_sets,
+                steps: vec![CalibrationStep {
+                    id: "disc".to_string(),
+                    quote_set: "disc".to_string(),
+                    params: disc_step.clone(),
+                }],
+                settings: settings.clone(),
+            };
+            let envelope = CalibrationEnvelope {
+                schema: CALIBRATION_SCHEMA.to_string(),
+                initial_market: Some((&MarketContext::new()).into()),
+                plan,
+            };
+            engine::execute(black_box(&envelope)).unwrap()
         })
     });
 
@@ -204,15 +243,26 @@ fn bench_residual_normalization(c: &mut Criterion) {
             pricing_forward_id: None,
             conventions: Default::default(),
         });
-        let base = MarketContext::new();
         b.iter(|| {
-            execute_step(
-                black_box(&disc_step),
-                black_box(&disc_mq),
-                black_box(&base),
-                black_box(&settings),
-            )
-            .unwrap()
+            let mut quote_sets: HashMap<String, Vec<MarketQuote>> = HashMap::default();
+            quote_sets.insert("disc".to_string(), disc_mq.clone());
+            let plan = CalibrationPlan {
+                id: "residual_notional_large".to_string(),
+                description: None,
+                quote_sets,
+                steps: vec![CalibrationStep {
+                    id: "disc".to_string(),
+                    quote_set: "disc".to_string(),
+                    params: disc_step.clone(),
+                }],
+                settings: settings.clone(),
+            };
+            let envelope = CalibrationEnvelope {
+                schema: CALIBRATION_SCHEMA.to_string(),
+                initial_market: Some((&MarketContext::new()).into()),
+                plan,
+            };
+            engine::execute(black_box(&envelope)).unwrap()
         })
     });
 }

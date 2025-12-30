@@ -12,15 +12,13 @@
 //! - [`preflight`]: Pre-execution validation for calibration steps.
 
 mod config;
-mod curves;
+pub mod curves;
 mod points;
 mod preflight;
-mod surfaces;
+pub mod surfaces;
 
 pub use config::{
     default_rate_bounds_policy_for_serde, RateBounds, RateBoundsPolicy, ValidationConfig,
     ValidationMode,
 };
-pub use curves::CurveValidator;
 pub use preflight::preflight_step;
-pub use surfaces::SurfaceValidator;

@@ -8,57 +8,8 @@ use finstack_core::currency::Currency;
 use serde::{Deserialize, Serialize};
 use std::fmt;
 
-/// Stable identifier for a rate index (e.g., "USD-SOFR-OIS", "EUR-EURIBOR-6M").
-///
-/// Used to look up [`RateIndexConventions`](crate::market::conventions::defs::RateIndexConventions)
-/// from the convention registry. Index IDs should follow a consistent naming convention
-/// (e.g., "{currency}-{index}-{tenor}").
-///
-/// # Examples
-///
-/// ```rust
-/// use finstack_valuations::market::conventions::ids::IndexId;
-///
-/// let id = IndexId::new("USD-SOFR-OIS");
-/// assert_eq!(id.as_str(), "USD-SOFR-OIS");
-/// ```
-#[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize, PartialOrd, Ord)]
-pub struct IndexId(String);
-
-impl IndexId {
-    /// Create a new `IndexId` from a string.
-    ///
-    /// # Arguments
-    ///
-    /// * `s` - The index identifier string
-    ///
-    /// # Returns
-    ///
-    /// A new `IndexId` instance.
-    pub fn new(s: impl Into<String>) -> Self {
-        Self(s.into())
-    }
-    /// View the inner string representation.
-    ///
-    /// # Returns
-    ///
-    /// A string slice containing the identifier.
-    pub fn as_str(&self) -> &str {
-        &self.0
-    }
-}
-
-impl fmt::Display for IndexId {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(f, "{}", self.0)
-    }
-}
-
-impl From<&str> for IndexId {
-    fn from(s: &str) -> Self {
-        Self::new(s)
-    }
-}
+/// Canonical rate index identifier (shared with finstack-core).
+pub type IndexId = finstack_core::types::IndexId;
 
 /// Stable identifier for an Interest Rate Future contract (e.g., "CME:SR3").
 ///

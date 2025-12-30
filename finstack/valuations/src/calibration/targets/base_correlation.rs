@@ -138,7 +138,7 @@ impl BaseCorrelationBootstrapper {
                 )));
             }
 
-            ConventionRegistry::global().require_cds(convention)?;
+            ConventionRegistry::try_global()?.require_cds(convention)?;
             // Build a pricer instrument with *no embedded upfront cashflow* so that
             // `tranche.upfront(...)` returns the model-implied upfront for the running coupon.
             let q_pricing = match &q {

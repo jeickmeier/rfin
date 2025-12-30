@@ -240,7 +240,7 @@ def main() -> int:
     """Main entry point."""
     # Find project root
     script_dir = Path(__file__).parent
-    project_root = script_dir.parent
+    project_root = script_dir.parent.parent
     py_src = project_root / "finstack-py" / "src"
 
     if not py_src.exists():
@@ -250,7 +250,7 @@ def main() -> int:
     api_data = extractor.extract_all()
 
     # Write to output file
-    output_file = project_root / "scripts" / "python_api.json"
+    output_file = script_dir / "python_api.json"
     with output_file.open("w") as f:
         json.dump(api_data, f, indent=2)
 

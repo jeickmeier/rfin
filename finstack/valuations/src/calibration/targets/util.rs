@@ -52,7 +52,7 @@ pub fn sort_bootstrap_quotes<T: BootstrapTarget>(
 
 /// Resolve the day count convention for a discount or forward curve from market conventions.
 pub fn curve_day_count_from_quotes(quotes: &[RateQuote]) -> Result<DayCount> {
-    let registry = ConventionRegistry::global();
+    let registry = ConventionRegistry::try_global()?;
     let mut curve_dc: Option<DayCount> = None;
 
     for q in quotes {

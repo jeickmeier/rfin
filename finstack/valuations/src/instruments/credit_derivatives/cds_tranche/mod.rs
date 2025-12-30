@@ -81,7 +81,7 @@
 //! - [`TrancheSide`] for buyer vs seller
 //! - [`copula`] for copula model implementations
 //! - [`recovery`] for stochastic recovery models
-//! - Base correlation calibration in [`calibration::methods`](crate::calibration::methods)
+//! - Base correlation calibration via plan-driven [`calibration::api`]
 
 pub mod copula;
 pub mod metrics;

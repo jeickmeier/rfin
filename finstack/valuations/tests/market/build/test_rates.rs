@@ -10,15 +10,17 @@ use rust_decimal::Decimal;
 use finstack_valuations::market::quotes::ids::Pillar;
 use finstack_valuations::market::quotes::rates::RateQuote; // Used in code if needed, or string into
 
+fn usd_build_ctx(as_of: Date) -> BuildCtx {
+    let mut curve_ids = finstack_core::HashMap::default();
+    curve_ids.insert("discount".to_string(), "USD-OIS".to_string());
+    curve_ids.insert("forward".to_string(), "USD-SOFR".to_string());
+    BuildCtx::new(as_of, 1_000_000.0, curve_ids)
+}
+
 #[test]
 fn test_build_deposit() {
     let as_of = Date::from_calendar_date(2025, time::Month::January, 10).unwrap();
-    let ctx = BuildCtx {
-        as_of,
-        curve_ids: Default::default(),
-        notional: 1_000_000.0,
-        attributes: Default::default(),
-    };
+    let ctx = usd_build_ctx(as_of);
 
     let quote = RateQuote::Deposit {
         id: "USD-DEP-3M".into(),
@@ -41,12 +43,7 @@ fn test_build_deposit() {
 #[test]
 fn test_build_fra() {
     let as_of = Date::from_calendar_date(2025, time::Month::January, 10).unwrap();
-    let ctx = BuildCtx {
-        as_of,
-        curve_ids: Default::default(),
-        notional: 1_000_000.0,
-        attributes: Default::default(),
-    };
+    let ctx = usd_build_ctx(as_of);
 
     let quote = RateQuote::Fra {
         id: "USD-FRA-3x6".into(),
@@ -70,12 +67,7 @@ fn test_build_fra() {
 #[test]
 fn test_build_swap() {
     let as_of = Date::from_calendar_date(2025, time::Month::January, 10).unwrap();
-    let ctx = BuildCtx {
-        as_of,
-        curve_ids: Default::default(),
-        notional: 1_000_000.0,
-        attributes: Default::default(),
-    };
+    let ctx = usd_build_ctx(as_of);
 
     // Use USD-SOFR-3M (Term SOFR style or OIS compounded, RateIndexKind=Term in registry will determine builder path)
     // If it's OIS (OvernightRfr), builder uses create_ois_swap_with_conventions.
@@ -103,12 +95,7 @@ fn test_build_swap() {
 #[test]
 fn test_build_futures() {
     let as_of = Date::from_calendar_date(2025, time::Month::January, 10).unwrap();
-    let ctx = BuildCtx {
-        as_of,
-        curve_ids: Default::default(),
-        notional: 1_000_000.0,
-        attributes: Default::default(),
-    };
+    let ctx = usd_build_ctx(as_of);
 
     let quote = RateQuote::Futures {
         id: "USD-FUT-SEP25".into(),

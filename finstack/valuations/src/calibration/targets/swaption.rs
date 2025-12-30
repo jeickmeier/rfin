@@ -90,7 +90,7 @@ impl SwaptionVolBootstrapper {
             let idx_from_quotes = quotes.iter().find_map(|q| match q {
                 MarketQuote::Vol(VolQuote::SwaptionVol { convention, .. }) => {
                     // Resolve index from convention
-                    let registry = ConventionRegistry::global();
+                    let registry = ConventionRegistry::try_global().ok()?;
                     let swaption_conv = registry.require_swaption(convention).ok()?;
                     Some(crate::market::conventions::ids::IndexId::new(
                         &swaption_conv.float_leg_index,
@@ -111,7 +111,7 @@ impl SwaptionVolBootstrapper {
                 )
                 })?;
             {
-                ConventionRegistry::global()
+                ConventionRegistry::try_global()?
                     .require_rate_index(&idx_key)?
                     .default_fixed_leg_day_count
             }
@@ -445,10 +445,10 @@ Set params.sabr_extrapolation='clamp' to allow flat extrapolation.",
                 ))
             }
         };
-        let swaption_conv = ConventionRegistry::global().require_swaption(swaption_conv_id)?;
+        let swaption_conv = ConventionRegistry::try_global()?.require_swaption(swaption_conv_id)?;
 
         let idx_key = crate::market::conventions::ids::IndexId::new(&swaption_conv.float_leg_index);
-        let idx_conv = ConventionRegistry::global().require_rate_index(&idx_key)?;
+        let idx_conv = ConventionRegistry::try_global()?.require_rate_index(&idx_key)?;
 
         // Strict conventions: We use exactly what's in the registry.
         let fixed_freq = idx_conv.default_fixed_leg_frequency;
@@ -491,7 +491,7 @@ Set params.sabr_extrapolation='clamp' to allow flat extrapolation.",
         })?;
         let idx_str = idx.as_str();
         let index_id = crate::market::conventions::ids::IndexId::new(idx_str);
-        let idx_conv = ConventionRegistry::global().require_rate_index(&index_id)?;
+        let idx_conv = ConventionRegistry::try_global()?.require_rate_index(&index_id)?;
 
         Ok(SwaptionLegConventions {
             fixed_freq: idx_conv.default_fixed_leg_frequency,

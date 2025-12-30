@@ -4,7 +4,7 @@
 //! depend on hazard curves. Results are stored into `MetricContext` via structured
 //! series using stable composite keys.
 
-use crate::calibration::bumps::hazard::bump_hazard_spreads;
+use crate::calibration::bumps::hazard::{bump_hazard_shift, bump_hazard_spreads};
 use crate::calibration::bumps::BumpRequest;
 use crate::metrics::sensitivities::config as sens_config;
 use crate::metrics::{MetricContext, MetricId};
@@ -63,24 +63,38 @@ where
 {
     let base_ctx = context.curves.as_ref();
     let hazard = base_ctx.get_hazard_ref(hazard_id.as_str())?;
+    let has_par_points = hazard.par_spread_points().next().is_some();
 
     // If we have par spread points + a discount curve, CS01 is defined as the sensitivity
     // to *market par spreads* under a re-bootstrapped hazard curve. In that regime, we
     // must also compute the base PV under the unbumped (re-calibrated) curve; otherwise
     // we introduce a large "base effect" when the in-context hazard curve was not itself
     // calibrated from the stored par points.
-    let base_pv = if discount_id.is_some() && hazard.par_spread_points().next().is_some() {
-        let base_recal =
-            bump_hazard_spreads(hazard, base_ctx, &BumpRequest::Parallel(0.0), discount_id)?;
-        let base_ctx_recal = base_ctx.clone().insert_hazard(base_recal);
-        revalue_with_context(&base_ctx_recal)?
+    let base_pv = if discount_id.is_some() && has_par_points {
+        match bump_hazard_spreads(hazard, base_ctx, &BumpRequest::Parallel(0.0), discount_id) {
+            Ok(base_recal) => {
+                let base_ctx_recal = base_ctx.clone().insert_hazard(base_recal);
+                revalue_with_context(&base_ctx_recal)?
+            }
+            // If re-calibration fails (e.g. invalid CDS schedule), fall back to the
+            // in-context base PV rather than failing the metric.
+            Err(_) => context.base_value,
+        }
     } else {
         context.base_value
     };
 
-    // Bump spreads and re-calibrate
     let bump_request = BumpRequest::Parallel(bump_bp);
-    let bumped_hazard = bump_hazard_spreads(hazard, base_ctx, &bump_request, discount_id)?;
+    let bumped_hazard = if discount_id.is_some() && has_par_points {
+        // Prefer market-par-spread re-calibration when possible, but fall back to a model hazard
+        // bump if calibration fails (keeps CS01 available for all curves).
+        match bump_hazard_spreads(hazard, base_ctx, &bump_request, discount_id) {
+            Ok(curve) => curve,
+            Err(_) => bump_hazard_shift(hazard, &bump_request)?,
+        }
+    } else {
+        bump_hazard_shift(hazard, &bump_request)?
+    };
 
     let temp_ctx = base_ctx.clone().insert_hazard(bumped_hazard);
     let pv_bumped = revalue_with_context(&temp_ctx)?;
@@ -114,14 +128,18 @@ where
 {
     let base_ctx = context.curves.as_ref();
     let hazard = base_ctx.get_hazard_ref(hazard_id.as_str())?;
+    let has_par_points = hazard.par_spread_points().next().is_some();
 
     // Same "base effect" guard as parallel CS01: if we're bumping par spreads and
     // re-bootstrapping, the base PV should be computed under the unbumped re-calibrated curve.
-    let base_pv = if discount_id.is_some() && hazard.par_spread_points().next().is_some() {
-        let base_recal =
-            bump_hazard_spreads(hazard, base_ctx, &BumpRequest::Parallel(0.0), discount_id)?;
-        let base_ctx_recal = base_ctx.clone().insert_hazard(base_recal);
-        revalue_with_context(&base_ctx_recal)?
+    let base_pv = if discount_id.is_some() && has_par_points {
+        match bump_hazard_spreads(hazard, base_ctx, &BumpRequest::Parallel(0.0), discount_id) {
+            Ok(base_recal) => {
+                let base_ctx_recal = base_ctx.clone().insert_hazard(base_recal);
+                revalue_with_context(&base_ctx_recal)?
+            }
+            Err(_) => context.base_value,
+        }
     } else {
         context.base_value
     };
@@ -132,12 +150,15 @@ where
     for t in bucket_times_years.into_iter() {
         let label = format_credit_bucket_label(t);
 
-        // Bump spread at key rate (bucket t)
-        // Note: bump_hazard_curve_spreads handles the logic of finding the matching par point
-        // Bump spread at key rate (bucket t)
-        // using shared logic with Tenors request
         let bump_request = BumpRequest::Tenors(vec![(t, bump_bp)]);
-        let bumped_hazard = bump_hazard_spreads(hazard, base_ctx, &bump_request, discount_id)?;
+        let bumped_hazard = if discount_id.is_some() && has_par_points {
+            match bump_hazard_spreads(hazard, base_ctx, &bump_request, discount_id) {
+                Ok(curve) => curve,
+                Err(_) => bump_hazard_shift(hazard, &bump_request)?,
+            }
+        } else {
+            bump_hazard_shift(hazard, &bump_request)?
+        };
 
         // Optimization: If the curve is identical (no bump applied because no matching par point),
         // we can skip revaluation.

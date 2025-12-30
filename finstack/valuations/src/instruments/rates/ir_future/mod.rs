@@ -58,7 +58,7 @@
 //!
 //! - [`InterestRateFuture`] for instrument struct
 //! - [`FutureContractSpecs`] for contract specifications
-//! - [`calibration::methods::forward_curve`](crate::calibration::methods::forward_curve)
+//! - Plan-driven calibration in [`calibration::api`] (Forward step)
 
 pub mod metrics;
 /// Interest rate future pricer implementation

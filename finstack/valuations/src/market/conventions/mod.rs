@@ -17,7 +17,7 @@
 //! use finstack_valuations::market::conventions::registry::ConventionRegistry;
 //! use finstack_valuations::market::conventions::ids::IndexId;
 //!
-//! let registry = ConventionRegistry::global();
+//! let registry = ConventionRegistry::try_global()?;
 //! let conv = registry.require_rate_index(&IndexId::new("USD-SOFR-OIS"))?;
 //! assert_eq!(conv.currency, finstack_core::currency::Currency::USD);
 //! # Ok::<(), finstack_core::Error>(())

@@ -1,3 +1,4 @@
+#![allow(dead_code)]
 //! Surface validators (volatility surfaces).
 
 use crate::calibration::validation::ValidationConfig;

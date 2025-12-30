@@ -1006,13 +1006,17 @@
         "calibration": {
           "path": "valuations/src/calibration",
           "types": [
-            "CalibrationReport",
+            "CalibrationSolveMethod",
+            "RateBounds",
+            "RateBoundsPolicy",
+            "ValidationConfig",
+            "ValidationMode",
             "SolverConfig",
-            "OBJECTIVE_VALID_ABS_MAX",
-            "PENALTY",
-            "RESIDUAL_PENALTY_ABS_MIN"
+            "CalibrationReport"
           ],
-          "functions": [],
+          "functions": [
+            "execute_step_for_tests"
+          ],
           "modules": {
             "api": {
               "path": "valuations/src/calibration/api",
@@ -1067,19 +1071,6 @@
                 }
               },
               "re_exports": {}
-            },
-            "prepared": {
-              "path": "valuations/src/calibration/prepared.rs",
-              "types": [
-                "CdsTrancheCalibrationQuote",
-                "CalibrationQuote"
-              ],
-              "functions": [
-                "get_instrument",
-                "pillar_time"
-              ],
-              "re_exports": {},
-              "modules": {}
             },
             "solver": {
               "path": "valuations/src/calibration/solver",
@@ -1150,119 +1141,6 @@
                 }
               }
             },
-            "targets": {
-              "path": "valuations/src/calibration/targets",
-              "types": [],
-              "functions": [],
-              "modules": {
-                "base_correlation": {
-                  "path": "valuations/src/calibration/targets/base_correlation.rs",
-                  "types": [
-                    "BaseCorrelationBootstrapper"
-                  ],
-                  "functions": [
-                    "new",
-                    "solve"
-                  ],
-                  "re_exports": {},
-                  "modules": {}
-                },
-                "discount": {
-                  "path": "valuations/src/calibration/targets/discount.rs",
-                  "types": [
-                    "DiscountCurveTargetParams",
-                    "DiscountCurveTarget"
-                  ],
-                  "functions": [
-                    "new",
-                    "solve"
-                  ],
-                  "re_exports": {},
-                  "modules": {}
-                },
-                "forward": {
-                  "path": "valuations/src/calibration/targets/forward.rs",
-                  "types": [
-                    "ForwardCurveTargetParams",
-                    "ForwardCurveTarget"
-                  ],
-                  "functions": [
-                    "new",
-                    "scale_aware_tolerance",
-                    "solve"
-                  ],
-                  "re_exports": {},
-                  "modules": {}
-                },
-                "handlers": {
-                  "path": "valuations/src/calibration/targets/handlers.rs",
-                  "types": [],
-                  "functions": [
-                    "execute_step"
-                  ],
-                  "re_exports": {},
-                  "modules": {}
-                },
-                "hazard": {
-                  "path": "valuations/src/calibration/targets/hazard.rs",
-                  "types": [
-                    "HazardBootstrapper"
-                  ],
-                  "functions": [
-                    "new",
-                    "solve"
-                  ],
-                  "re_exports": {},
-                  "modules": {}
-                },
-                "inflation": {
-                  "path": "valuations/src/calibration/targets/inflation.rs",
-                  "types": [
-                    "InflationBootstrapper"
-                  ],
-                  "functions": [
-                    "new",
-                    "prepare_quotes",
-                    "solve"
-                  ],
-                  "re_exports": {},
-                  "modules": {}
-                },
-                "swaption": {
-                  "path": "valuations/src/calibration/targets/swaption.rs",
-                  "types": [
-                    "SwaptionVolBootstrapper"
-                  ],
-                  "functions": [
-                    "solve"
-                  ],
-                  "re_exports": {},
-                  "modules": {}
-                },
-                "util": {
-                  "path": "valuations/src/calibration/targets/util.rs",
-                  "types": [],
-                  "functions": [
-                    "sort_bootstrap_quotes",
-                    "curve_day_count_from_quotes"
-                  ],
-                  "re_exports": {},
-                  "modules": {}
-                },
-                "vol": {
-                  "path": "valuations/src/calibration/targets/vol.rs",
-                  "types": [
-                    "VolSurfaceBootstrapper"
-                  ],
-                  "functions": [
-                    "solve"
-                  ],
-                  "re_exports": {},
-                  "modules": {}
-                }
-              },
-              "re_exports": {}
-            },
             "bumps": {
               "path": "valuations/src/calibration/bumps",
               "types": [
@@ -1293,15 +1171,13 @@
           },
           "re_exports": {
             "config": [],
+            "validation": [],
+            "solver": [
+              "SolverConfig"
+            ],
             "report": [
               "CalibrationReport"
             ],
-            "solver": [
-              "OBJECTIVE_VALID_ABS_MAX",
-              "PENALTY",
-              "RESIDUAL_PENALTY_ABS_MIN"
-            ],
-            "validation": [],
             "bumps": []
           }
         },
@@ -1618,7 +1494,54 @@
                     "SimmCalculator"
                   ],
                   "functions": [],
-                  "modules": {},
+                  "modules": {
+                    "schedule": {
+                      "path": "valuations/src/margin/calculators/im/schedule.rs",
+                      "types": [
+                        "ScheduleAssetClass",
+                        "RegulatorySchedule",
+                        "MaturityBucket",
+                        "ScheduleImCalculator"
+                      ],
+                      "functions": [
+                        "as_str",
+                        "bcbs_iosco",
+                        "from_registry",
+                        "rate",
+                        "bcbs_standard",
+                        "from_registry",
+                        "from_finstack_config",
+                        "with_asset_class",
+                        "with_maturity",
+                        "calculate_for_notional",
+                        "rate"
+                      ],
+                      "re_exports": {},
+                      "modules": {}
+                    },
+                    "simm": {
+                      "path": "valuations/src/margin/calculators/im/simm.rs",
+                      "types": [
+                        "SimmVersion",
+                        "SimmRiskWeights",
+                        "SimmCalculator"
+                      ],
+                      "functions": [
+                        "new",
+                        "from_finstack_config",
+                        "with_mpor",
+                        "calculate_ir_delta",
+                        "calculate_credit_delta",
+                        "calculate_equity_delta",
+                        "calculate_fx_delta",
+                        "calculate_commodity_delta",
+                        "calculate_from_sensitivities",
+                        "aggregate_risk_classes"
+                      ],
+                      "re_exports": {},
+                      "modules": {}
+                    }
+                  },
                   "re_exports": {
                     "clearing": [
                       "CcpMarginInputSource",
@@ -1675,6 +1598,49 @@
               "functions": [],
               "re_exports": {},
               "modules": {}
+            },
+            "config": {
+              "path": "valuations/src/margin/config.rs",
+              "types": [
+                "MARGIN_REGISTRY_EXTENSION"
+              ],
+              "functions": [
+                "margin_registry_from_config"
+              ],
+              "re_exports": {},
+              "modules": {}
+            },
+            "registry": {
+              "path": "valuations/src/margin/registry",
+              "types": [
+                "MarginRegistry",
+                "MarginDefaults",
+                "VmDefaults",
+                "ImDefaults",
+                "ImMethodDefaults",
+                "TimingDefaults",
+                "ClearedSettlementDefaults",
+                "ScheduleImSchedule",
+                "ScheduleBucketBoundaries",
+                "AssetClassDefault",
+                "CcpParams",
+                "SimmParams",
+                "MARGIN_REGISTRY_EXTENSION_KEY"
+              ],
+              "functions": [
+                "merge_json",
+                "embedded_registry",
+                "build_registry",
+                "margin_registry_from_config",
+                "to_vm_params",
+                "to_im_params"
+              ],
+              "modules": {},
+              "re_exports": {
+                "merge": [
+                  "merge_json"
+                ]
+              }
             },
             "metrics": {
               "path": "valuations/src/margin/metrics",
@@ -1843,6 +1809,8 @@
                   ],
                   "functions": [
                     "new",
+                    "as_of",
+                    "notional",
                     "curve_id"
                   ],
                   "re_exports": {},
@@ -1861,10 +1829,13 @@
                 "prepared": {
                   "path": "valuations/src/market/build/prepared.rs",
                   "types": [
-                    "PreparedQuote"
+                    "PreparedQuote",
+                    "PillarPolicy"
                   ],
                   "functions": [
-                    "new"
+                    "new",
+                    "prepare_rate_quote",
+                    "prepare_cds_quote"
                   ],
                   "re_exports": {},
                   "modules": {}
@@ -1913,8 +1884,6 @@
                     "InflationSwapConventionId"
                   ],
                   "functions": [
-                    "new",
-                    "as_str",
                     "new",
                     "as_str",
                     "new",
@@ -2008,7 +1977,6 @@
                   ],
                   "functions": [
                     "new",
-                    "global",
                     "try_global",
                     "require_rate_index",
                     "require_cds",
@@ -2086,7 +2054,7 @@
                   "types": [
                     "MarketQuote",
                     "MarketQuoteBump",
-                    "ExtractQuotes"
+                    "ExtractQuoteRefs"
                   ],
                   "functions": [
                     "bump_with",
@@ -6113,7 +6081,6 @@
                       "functions": [
                         "new",
                         "with_config",
-                        "price_with_lrm_greeks_internal",
                         "npv",
                         "npv_with_lrm_greeks",
                         "new",
@@ -6177,7 +6144,6 @@
                       ],
                       "functions": [
                         "new",
-                        "price_with_lrm_greeks_internal",
                         "npv",
                         "npv_with_lrm_greeks",
                         "new"

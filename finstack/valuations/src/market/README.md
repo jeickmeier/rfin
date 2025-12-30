@@ -22,7 +22,7 @@ pricing models or calibration solvers.
 
 ## Data Flow
 
-1. Load conventions via `ConventionRegistry::global()` (embedded JSON registries).
+1. Load conventions via `ConventionRegistry::try_global()` (embedded JSON registries).
 2. Parse market quotes into typed structs/enums in `quotes/`.
 3. Use builders in `build/` with a `BuildCtx` to create concrete instruments (rates/credit).
 4. For inflation and vol, builders live in calibration targets; wrap into `PreparedQuote` there.
@@ -65,7 +65,7 @@ let instrument = build_rate_instrument(&quote, &ctx)?;
 ## Conventions and Embedded Data
 
 Conventions are loaded from embedded JSON registries under `data/conventions/` and are accessed
-through `ConventionRegistry::global()`. Each loader performs validation and normalization before
+through `ConventionRegistry::try_global()`. Each loader performs validation and normalization before
 inserting entries into the registry.
 
 - Rate index conventions (`rate_index_conventions.json`)
