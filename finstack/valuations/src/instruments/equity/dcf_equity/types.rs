@@ -388,7 +388,7 @@ mod tests {
     ) -> MetricContext {
         let base_value = dcf.value(&market, as_of).expect("base value");
         let instrument: std::sync::Arc<dyn Instrument> = std::sync::Arc::new(dcf);
-        MetricContext::new(instrument, std::sync::Arc::new(market), as_of, base_value)
+        MetricContext::new(instrument, std::sync::Arc::new(market), as_of, base_value, MetricContext::default_config())
     }
 
     #[test]

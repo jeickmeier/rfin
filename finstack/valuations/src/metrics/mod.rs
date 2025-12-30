@@ -178,17 +178,10 @@ mod sensitivities;
 
 // Core surface (supported)
 pub use core::ids::MetricId;
-pub use core::registry::{MetricRegistry, StrictMode};
+pub use core::registry::MetricRegistry;
 pub use core::traits::{MetricCalculator, MetricContext, Structured2D, Structured3D};
 /// Parse simple period strings (e.g., "1D", "2W") to day counts.
 pub use sensitivities::theta::parse_period_days;
-
-// Risk metrics
-pub use risk::{
-    calculate_portfolio_var, calculate_var, extract_risk_factors, GenericExpectedShortfall,
-    GenericHVar, MarketHistory, MarketScenario, RiskFactorShift, RiskFactorType, VarConfig,
-    VarMethod, VarResult,
-};
 
 // -----------------------------------------------------------------------------
 // Crate-internal re-exports (NOT part of the public API)
@@ -270,6 +263,7 @@ macro_rules! define_metric_calculator {
 ///     results.get(&id).copied().ok_or_else(|| metric_not_found(id))
 /// }
 /// ```
+use crate::metrics::risk::{GenericExpectedShortfall, GenericHVar, VarConfig};
 use std::sync::OnceLock;
 
 /// Create a typed NotFound error for a missing metric.
@@ -338,12 +332,12 @@ pub fn standard_registry() -> &'static MetricRegistry {
         );
         registry.register_metric(
             MetricId::HVAR,
-            std::sync::Arc::new(GenericHVar::var_95()),
+            std::sync::Arc::new(GenericHVar::new(VarConfig::var_95())),
             &[], // Empty = applies to all instruments
         );
         registry.register_metric(
             MetricId::EXPECTED_SHORTFALL,
-            std::sync::Arc::new(GenericExpectedShortfall::var_95()),
+            std::sync::Arc::new(GenericExpectedShortfall::new(VarConfig::var_95())),
             &[], // Empty = applies to all instruments
         );
 

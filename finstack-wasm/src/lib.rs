@@ -137,11 +137,10 @@ pub use valuations::attribution::WasmAttributionMethod as AttributionMethod;
 
 // Risk analysis functions
 pub use valuations::risk::{
-    calculate_portfolio_var_js as calculatePortfolioVar, calculate_var_js as calculateVar,
-    cs01_ladder as cs01Ladder, krd_dv01_ladder as krdDv01Ladder, JsMarketHistory as MarketHistory,
-    JsMarketScenario as MarketScenario, JsRiskFactorShift as RiskFactorShift,
-    JsRiskFactorType as RiskFactorType, JsVarConfig as VarConfig, JsVarMethod as VarMethod,
-    JsVarResult as VarResult,
+    calculate_var_js as calculateVar, cs01_ladder as cs01Ladder, krd_dv01_ladder as krdDv01Ladder,
+    JsMarketHistory as MarketHistory, JsMarketScenario as MarketScenario,
+    JsRiskFactorShift as RiskFactorShift, JsRiskFactorType as RiskFactorType,
+    JsVarConfig as VarConfig, JsVarMethod as VarMethod, JsVarResult as VarResult,
 };
 
 pub use genui::*;

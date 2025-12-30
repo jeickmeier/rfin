@@ -236,6 +236,7 @@ mod tests {
             Arc::new(market),
             as_of,
             base_value,
+            MetricContext::default_config(),
         );
         
         // Calculate metric
@@ -510,6 +511,7 @@ fn test_bond_metrics_integration() {
         Arc::new(market),
         as_of,
         base_value,
+        MetricContext::default_config(),
     );
     
     let metrics = vec![MetricId::Ytm, MetricId::DurationMod, MetricId::Convexity];

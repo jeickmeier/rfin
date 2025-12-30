@@ -19,10 +19,7 @@ pub mod ytw;
 /// Z-spread (zero-volatility spread) calculator
 pub mod z_spread;
 
-pub use asw::{
-    AssetSwapMarketCalculator, AssetSwapMarketFwdCalculator, AssetSwapParCalculator,
-    AssetSwapParFwdCalculator,
-};
+pub use asw::{AssetSwapMarketCalculator, AssetSwapParCalculator};
 pub use dm::{DiscountMarginCalculator, DiscountMarginSolverConfig};
 pub use embedded_option_value::EmbeddedOptionValueCalculator;
 pub use i_spread::ISpreadCalculator;

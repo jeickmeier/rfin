@@ -238,6 +238,7 @@ fn bench_cds_tranche_cs01(c: &mut Criterion) {
                 Arc::new(market.clone()),
                 as_of,
                 base_pv,
+                MetricContext::default_config(),
             );
             let results = registry.compute(&[MetricId::Cs01], &mut context).unwrap();
             black_box(*results.get(&MetricId::Cs01).unwrap())
@@ -308,6 +309,7 @@ fn bench_cds_tranche_all_metrics(c: &mut Criterion) {
                 Arc::new(market.clone()),
                 as_of,
                 _base_pv,
+                MetricContext::default_config(),
             );
             let _ = registry.compute(&[MetricId::Cs01], &mut context);
 

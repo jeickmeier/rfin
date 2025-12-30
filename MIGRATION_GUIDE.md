@@ -242,7 +242,7 @@ use finstack_valuations::metrics::{standard_registry, MetricContext, MetricId};
 let registry = standard_registry();
 let metric_ids = vec![MetricId::Dv01, MetricId::Ytm, MetricId::DurationMod];
 
-let mut context = MetricContext::new(instrument, market, as_of, pv);
+let mut context = MetricContext::new(instrument, market, as_of, pv, MetricContext::default_config());
 
 // Problem: Returns 0.0 for unknown/failed metrics without error
 let metrics = registry.compute(&metric_ids, &mut context)?;
@@ -259,7 +259,7 @@ use finstack_valuations::metrics::{standard_registry, MetricContext, MetricId};
 let registry = standard_registry();
 let metric_ids = vec![MetricId::Dv01, MetricId::Ytm, MetricId::DurationMod];
 
-let mut context = MetricContext::new(instrument, market, as_of, pv);
+let mut context = MetricContext::new(instrument, market, as_of, pv, MetricContext::default_config());
 
 // Strict mode: errors are returned and must be handled
 let metrics = match registry.compute(&metric_ids, &mut context) {
@@ -297,7 +297,7 @@ use finstack_valuations::metrics::{standard_registry, MetricContext, MetricId};
 let registry = standard_registry();
 let metric_ids = vec![MetricId::Dv01, MetricId::Ytm, MetricId::DurationMod];
 
-let mut context = MetricContext::new(instrument, market, as_of, pv);
+let mut context = MetricContext::new(instrument, market, as_of, pv, MetricContext::default_config());
 
 // Strict mode: handle errors explicitly
 let metrics = registry.compute(&metric_ids, &mut context)?;
@@ -599,7 +599,7 @@ match error {
 fn test_strict_mode_unknown_metric() {
     let registry = standard_registry();
     let invalid = vec![MetricId::custom("unknown_metric")];
-    let mut ctx = MetricContext::new(/*...*/);
+    let mut ctx = MetricContext::new(/*...*/, MetricContext::default_config());
     
     // Should error in strict mode
     let result = registry.compute(&invalid, &mut ctx);
@@ -624,7 +624,7 @@ fn test_end_to_end_metrics_workflow() {
     let metrics = vec![MetricId::Dv01, MetricId::Convexity, MetricId::DurationMod];
     
     let pv = instrument.npv(&market, as_of)?;
-    let mut ctx = MetricContext::new(&instrument, &market, as_of, pv);
+    let mut ctx = MetricContext::new(&instrument, &market, as_of, pv, MetricContext::default_config());
     
     let results = registry.compute(&metrics, &mut ctx)?;
     

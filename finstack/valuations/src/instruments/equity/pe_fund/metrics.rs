@@ -363,6 +363,7 @@ mod tests {
             std::sync::Arc::new(curves),
             test_date(2025, 1, 1),
             base_value,
+            MetricContext::default_config(),
         );
 
         let moic = MoicLpCalculator

@@ -111,6 +111,7 @@ fn test_charm_equals_delta_decay() {
         Arc::new(market.clone()),
         as_of,
         pv,
+        MetricContext::default_config(),
     );
     let delta_at_t = *registry
         .compute(&[MetricId::Delta], &mut context)
@@ -127,6 +128,7 @@ fn test_charm_equals_delta_decay() {
         Arc::new(market.clone()),
         as_of_plus_dt,
         pv_dt,
+        MetricContext::default_config(),
     );
     let delta_at_t_dt = *registry
         .compute(&[MetricId::Delta], &mut context_dt)
@@ -144,6 +146,7 @@ fn test_charm_equals_delta_decay() {
         Arc::new(market.clone()),
         as_of,
         pv,
+        MetricContext::default_config(),
     );
     let charm_metric = registry.compute(&[MetricId::Charm], &mut context_charm);
 
@@ -187,6 +190,7 @@ fn test_color_equals_gamma_decay() {
         Arc::new(market.clone()),
         as_of,
         pv,
+        MetricContext::default_config(),
     );
     let gamma_at_t = *registry
         .compute(&[MetricId::Gamma], &mut context)
@@ -203,6 +207,7 @@ fn test_color_equals_gamma_decay() {
         Arc::new(market.clone()),
         as_of_plus_dt,
         pv_dt,
+        MetricContext::default_config(),
     );
     let gamma_at_t_dt = *registry
         .compute(&[MetricId::Gamma], &mut context_dt)
@@ -220,6 +225,7 @@ fn test_color_equals_gamma_decay() {
         Arc::new(market.clone()),
         as_of,
         pv,
+        MetricContext::default_config(),
     );
     let color_metric = registry.compute(&[MetricId::Color], &mut context_color);
 
@@ -264,6 +270,7 @@ fn test_speed_equals_gamma_convexity() {
         Arc::new(market.clone()),
         as_of,
         pv,
+        MetricContext::default_config(),
     );
     let _gamma_at_s = *registry
         .compute(&[MetricId::Gamma], &mut context)
@@ -283,6 +290,7 @@ fn test_speed_equals_gamma_convexity() {
         Arc::new(market_up.clone()),
         as_of,
         pv_up,
+        MetricContext::default_config(),
     );
     let gamma_at_s_up = *registry
         .compute(&[MetricId::Gamma], &mut context_up)
@@ -301,6 +309,7 @@ fn test_speed_equals_gamma_convexity() {
         Arc::new(market_down.clone()),
         as_of,
         pv_down,
+        MetricContext::default_config(),
     );
     let gamma_at_s_down = *registry
         .compute(&[MetricId::Gamma], &mut context_down)
@@ -317,6 +326,7 @@ fn test_speed_equals_gamma_convexity() {
         Arc::new(market.clone()),
         as_of,
         pv,
+        MetricContext::default_config(),
     );
     let speed_metric = registry.compute(&[MetricId::Speed], &mut context_speed);
 

@@ -85,7 +85,7 @@ fn test_call_delta_positive() {
     let market = create_option_market(as_of, 100.0, 0.25, 0.05, 0.02);
     let registry = standard_registry();
     let pv = option.value(&market, as_of).unwrap();
-    let mut context = MetricContext::new(Arc::new(option), Arc::new(market), as_of, pv);
+    let mut context = MetricContext::new(Arc::new(option), Arc::new(market), as_of, pv, MetricContext::default_config());
 
     let results = registry.compute(&[MetricId::Delta], &mut context).unwrap();
     let delta = *results.get(&MetricId::Delta).unwrap();
@@ -122,7 +122,7 @@ fn test_put_delta_negative() {
     let market = create_option_market(as_of, 100.0, 0.25, 0.05, 0.02);
     let registry = standard_registry();
     let pv = option.value(&market, as_of).unwrap();
-    let mut context = MetricContext::new(Arc::new(option), Arc::new(market), as_of, pv);
+    let mut context = MetricContext::new(Arc::new(option), Arc::new(market), as_of, pv, MetricContext::default_config());
 
     let results = registry.compute(&[MetricId::Delta], &mut context).unwrap();
     let delta = *results.get(&MetricId::Delta).unwrap();
@@ -162,7 +162,7 @@ fn test_theta_negative_for_long_positions() {
         let market = create_option_market(as_of, 100.0, 0.25, 0.05, 0.02);
         let registry = standard_registry();
         let pv = option.value(&market, as_of).unwrap();
-        let mut context = MetricContext::new(Arc::new(option), Arc::new(market), as_of, pv);
+        let mut context = MetricContext::new(Arc::new(option), Arc::new(market), as_of, pv, MetricContext::default_config());
 
         let results = registry.compute(&[MetricId::Theta], &mut context).unwrap();
         let theta = *results.get(&MetricId::Theta).unwrap();
@@ -205,7 +205,7 @@ fn test_bond_dv01_negative() {
     let market = MarketContext::new().insert_discount(disc_curve);
     let registry = standard_registry();
     let pv = bond.value(&market, as_of).unwrap();
-    let mut context = MetricContext::new(Arc::new(bond), Arc::new(market), as_of, pv);
+    let mut context = MetricContext::new(Arc::new(bond), Arc::new(market), as_of, pv, MetricContext::default_config());
 
     let results = registry.compute(&[MetricId::Dv01], &mut context).unwrap();
     let dv01 = *results.get(&MetricId::Dv01).unwrap();
@@ -241,7 +241,7 @@ fn test_vega_always_positive() {
         let market = create_option_market(as_of, 100.0, 0.25, 0.05, 0.02);
         let registry = standard_registry();
         let pv = option.value(&market, as_of).unwrap();
-        let mut context = MetricContext::new(Arc::new(option), Arc::new(market), as_of, pv);
+        let mut context = MetricContext::new(Arc::new(option), Arc::new(market), as_of, pv, MetricContext::default_config());
 
         let results = registry.compute(&[MetricId::Vega], &mut context).unwrap();
         let vega = *results.get(&MetricId::Vega).unwrap();
@@ -287,7 +287,7 @@ fn test_gamma_always_positive() {
         let market = create_option_market(as_of, 100.0, 0.25, 0.05, 0.02);
         let registry = standard_registry();
         let pv = option.value(&market, as_of).unwrap();
-        let mut context = MetricContext::new(Arc::new(option), Arc::new(market), as_of, pv);
+        let mut context = MetricContext::new(Arc::new(option), Arc::new(market), as_of, pv, MetricContext::default_config());
 
         let results = registry.compute(&[MetricId::Gamma], &mut context).unwrap();
         let gamma = *results.get(&MetricId::Gamma).unwrap();
@@ -332,7 +332,7 @@ fn test_call_rho_positive() {
     let market = create_option_market(as_of, 100.0, 0.25, 0.05, 0.02);
     let registry = standard_registry();
     let pv = option.value(&market, as_of).unwrap();
-    let mut context = MetricContext::new(Arc::new(option), Arc::new(market), as_of, pv);
+    let mut context = MetricContext::new(Arc::new(option), Arc::new(market), as_of, pv, MetricContext::default_config());
 
     let results = registry.compute(&[MetricId::Rho], &mut context).unwrap();
     let rho = *results.get(&MetricId::Rho).unwrap();
@@ -367,7 +367,7 @@ fn test_put_rho_negative() {
     let market = create_option_market(as_of, 100.0, 0.25, 0.05, 0.02);
     let registry = standard_registry();
     let pv = option.value(&market, as_of).unwrap();
-    let mut context = MetricContext::new(Arc::new(option), Arc::new(market), as_of, pv);
+    let mut context = MetricContext::new(Arc::new(option), Arc::new(market), as_of, pv, MetricContext::default_config());
 
     let results = registry.compute(&[MetricId::Rho], &mut context).unwrap();
     let rho = *results.get(&MetricId::Rho).unwrap();
@@ -431,7 +431,7 @@ fn test_cds_cs01_protection_buyer_positive() {
 
     let registry = standard_registry();
     let pv = cds.value(&market, as_of).unwrap();
-    let mut context = MetricContext::new(Arc::new(cds), Arc::new(market), as_of, pv);
+    let mut context = MetricContext::new(Arc::new(cds), Arc::new(market), as_of, pv, MetricContext::default_config());
 
     let results = registry.compute(&[MetricId::Cs01], &mut context).unwrap();
     let cs01 = *results.get(&MetricId::Cs01).unwrap();
@@ -500,7 +500,7 @@ fn test_cds_cs01_protection_seller_negative() {
 
     let registry = standard_registry();
     let pv = cds.value(&market, as_of).unwrap();
-    let mut context = MetricContext::new(Arc::new(cds), Arc::new(market), as_of, pv);
+    let mut context = MetricContext::new(Arc::new(cds), Arc::new(market), as_of, pv, MetricContext::default_config());
 
     let results = registry.compute(&[MetricId::Cs01], &mut context).unwrap();
     let cs01 = *results.get(&MetricId::Cs01).unwrap();
@@ -582,7 +582,7 @@ fn test_cds_cs01_opposite_signs() {
     // Compute CS01 for buy protection
     let pv_buy = cds_buy.value(&market, as_of).unwrap();
     let mut context_buy =
-        MetricContext::new(Arc::new(cds_buy), Arc::new(market.clone()), as_of, pv_buy);
+        MetricContext::new(Arc::new(cds_buy), Arc::new(market.clone()), as_of, pv_buy, MetricContext::default_config());
     let results_buy = registry
         .compute(&[MetricId::Cs01], &mut context_buy)
         .unwrap();
@@ -590,7 +590,7 @@ fn test_cds_cs01_opposite_signs() {
 
     // Compute CS01 for sell protection
     let pv_sell = cds_sell.value(&market, as_of).unwrap();
-    let mut context_sell = MetricContext::new(Arc::new(cds_sell), Arc::new(market), as_of, pv_sell);
+    let mut context_sell = MetricContext::new(Arc::new(cds_sell), Arc::new(market), as_of, pv_sell, MetricContext::default_config());
     let results_sell = registry
         .compute(&[MetricId::Cs01], &mut context_sell)
         .unwrap();
@@ -759,14 +759,14 @@ fn test_put_call_parity_delta_relationship() {
     // Compute deltas
     let call_pv = call.value(&market, as_of).unwrap();
     let mut call_context =
-        MetricContext::new(Arc::new(call), Arc::new(market.clone()), as_of, call_pv);
+        MetricContext::new(Arc::new(call), Arc::new(market.clone()), as_of, call_pv, MetricContext::default_config());
     let call_results = registry
         .compute(&[MetricId::Delta], &mut call_context)
         .unwrap();
     let call_delta = *call_results.get(&MetricId::Delta).unwrap();
 
     let put_pv = put.value(&market, as_of).unwrap();
-    let mut put_context = MetricContext::new(Arc::new(put), Arc::new(market), as_of, put_pv);
+    let mut put_context = MetricContext::new(Arc::new(put), Arc::new(market), as_of, put_pv, MetricContext::default_config());
     let put_results = registry
         .compute(&[MetricId::Delta], &mut put_context)
         .unwrap();

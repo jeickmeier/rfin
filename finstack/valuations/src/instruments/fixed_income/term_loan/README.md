@@ -459,7 +459,7 @@ let dv01 = dv01_calc.compute(&loan, &market_context, as_of_date)?;
 
 // Bucketed DV01 (key rate duration)
 let bucketed_dv01_calc = UnifiedDv01Calculator::<TermLoan>::new(
-    Dv01CalculatorConfig::key_rate()
+    Dv01CalculatorConfig::triangular_key_rate()
 );
 let bucketed = bucketed_dv01_calc.compute(&loan, &market_context, as_of_date)?;
 ```

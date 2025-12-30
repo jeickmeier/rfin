@@ -381,7 +381,7 @@ mod tests {
         let calc = EmbeddedOptionValueCalculator::new();
         let base_value = bond.value(&market, as_of).expect("Should price");
 
-        let mut context = MetricContext::new(Arc::new(bond), Arc::new(market), as_of, base_value);
+        let mut context = MetricContext::new(Arc::new(bond), Arc::new(market), as_of, base_value, MetricContext::default_config());
         let option_value = calc.calculate(&mut context).expect("Should calculate");
 
         assert!(
@@ -401,7 +401,7 @@ mod tests {
         let calc = EmbeddedOptionValueCalculator::new();
         let base_value = bond.value(&market, as_of).expect("Should price");
 
-        let mut context = MetricContext::new(Arc::new(bond), Arc::new(market), as_of, base_value);
+        let mut context = MetricContext::new(Arc::new(bond), Arc::new(market), as_of, base_value, MetricContext::default_config());
         let option_value = calc.calculate(&mut context).expect("Should calculate");
 
         assert!(
@@ -421,7 +421,7 @@ mod tests {
         let calc = EmbeddedOptionValueCalculator::new();
         let base_value = bond.value(&market, as_of).expect("Should price");
 
-        let mut context = MetricContext::new(Arc::new(bond), Arc::new(market), as_of, base_value);
+        let mut context = MetricContext::new(Arc::new(bond), Arc::new(market), as_of, base_value, MetricContext::default_config());
         let option_value = calc.calculate(&mut context).expect("Should calculate");
 
         assert!(

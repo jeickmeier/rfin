@@ -161,6 +161,7 @@ let mut context = MetricContext::new(
     Arc::new(market),
     as_of,
     base_value,
+    MetricContext::default_config(),
 );
 context.computed.insert(MetricId::custom("total_leverage"), 4.2);
 

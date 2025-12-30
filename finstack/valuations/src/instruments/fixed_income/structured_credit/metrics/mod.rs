@@ -77,7 +77,7 @@ pub fn register_structured_credit_metrics(registry: &mut crate::metrics::MetricR
             >::new(crate::metrics::Dv01CalculatorConfig::parallel_combined())),
             (BucketedDv01, crate::metrics::UnifiedDv01Calculator::<
                 crate::instruments::structured_credit::StructuredCredit,
-            >::new(crate::metrics::Dv01CalculatorConfig::key_rate())),
+            >::new(crate::metrics::Dv01CalculatorConfig::triangular_key_rate())),
             // Theta is now registered universally in metrics::standard_registry()
         ]
     }

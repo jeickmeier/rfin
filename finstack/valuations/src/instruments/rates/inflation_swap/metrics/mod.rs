@@ -85,7 +85,7 @@ pub fn register_inflation_swap_metrics(registry: &mut MetricRegistry) {
             >::default()),
             (BucketedDv01, crate::metrics::UnifiedDv01Calculator::<
                 crate::instruments::InflationSwap,
-            >::new(crate::metrics::Dv01CalculatorConfig::key_rate())),
+            >::new(crate::metrics::Dv01CalculatorConfig::triangular_key_rate())),
         ]
     }
 
@@ -101,7 +101,7 @@ pub fn register_inflation_swap_metrics(registry: &mut MetricRegistry) {
             >::default()),
             (BucketedDv01, crate::metrics::UnifiedDv01Calculator::<
                 crate::instruments::YoYInflationSwap,
-            >::new(crate::metrics::Dv01CalculatorConfig::key_rate())),
+            >::new(crate::metrics::Dv01CalculatorConfig::triangular_key_rate())),
         ]
     }
 }

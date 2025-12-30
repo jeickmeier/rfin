@@ -221,7 +221,7 @@ fn test_full_workflow_100_bond_portfolio() {
 
         // Create metric context
         let mut context =
-            MetricContext::new(Arc::new(bond.clone()), Arc::new(market.clone()), as_of, pv);
+            MetricContext::new(Arc::new(bond.clone()), Arc::new(market.clone()), as_of, pv, MetricContext::default_config());
 
         // Compute metrics in strict mode (tests Phase 1: no silent failures)
         let result = metrics_registry
@@ -351,7 +351,7 @@ fn test_metrics_strict_mode_no_silent_failures() {
     let pv = bond.value(&market, as_of).expect("PV should compute");
 
     // Create metric context
-    let mut context = MetricContext::new(Arc::new(bond), Arc::new(market), as_of, pv);
+    let mut context = MetricContext::new(Arc::new(bond), Arc::new(market), as_of, pv, MetricContext::default_config());
 
     // Request standard metrics that should all succeed
     let valid_metrics = vec![
@@ -427,7 +427,7 @@ fn test_dataframe_export_metric_keys() {
     // Compute PV and metrics
     let pv = bond.value(&market, as_of).expect("Should price");
     let mut context =
-        MetricContext::new(Arc::new(bond.clone()), Arc::new(market.clone()), as_of, pv);
+        MetricContext::new(Arc::new(bond.clone()), Arc::new(market.clone()), as_of, pv, MetricContext::default_config());
     let metrics_registry = standard_registry();
     let computed_metrics = metrics_registry
         .compute(&metric_ids, &mut context)

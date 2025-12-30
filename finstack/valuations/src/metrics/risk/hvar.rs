@@ -5,7 +5,7 @@
 //! risk metrics like DV01, Theta, etc.
 
 use crate::metrics::core::traits::{MetricCalculator, MetricContext};
-use crate::metrics::risk::{calculate_var, VarConfig, VarMethod};
+use crate::metrics::risk::{calculate_var, VarConfig};
 use crate::metrics::MetricId;
 use finstack_core::Result;
 
@@ -18,7 +18,8 @@ use finstack_core::Result;
 /// # Examples
 ///
 /// ```rust,no_run
-/// use finstack_valuations::metrics::{GenericHVar, MetricId, MetricRegistry, VarConfig};
+/// use finstack_valuations::metrics::{MetricId, MetricRegistry};
+/// use finstack_valuations::metrics::risk::{GenericHVar, VarConfig};
 /// use std::sync::Arc;
 ///
 /// // Create VaR calculator with 95% confidence
@@ -37,27 +38,6 @@ impl GenericHVar {
     pub fn new(config: VarConfig) -> Self {
         Self { config }
     }
-
-    /// Create a VaR calculator with 95% confidence level.
-    pub fn var_95() -> Self {
-        Self::new(VarConfig::var_95())
-    }
-
-    /// Create a VaR calculator with 99% confidence level.
-    pub fn var_99() -> Self {
-        Self::new(VarConfig::var_99())
-    }
-
-    /// Create a VaR calculator with custom confidence level.
-    pub fn with_confidence(confidence_level: f64) -> Self {
-        Self::new(VarConfig::new(confidence_level))
-    }
-
-    /// Set the calculation method.
-    pub fn with_method(mut self, method: VarMethod) -> Self {
-        self.config.method = method;
-        self
-    }
 }
 
 impl MetricCalculator for GenericHVar {
@@ -71,7 +51,7 @@ impl MetricCalculator for GenericHVar {
 
         // Calculate VaR for this instrument
         let result = calculate_var(
-            context.instrument.as_ref(),
+            &[context.instrument.as_ref()],
             &context.curves,
             history,
             context.as_of,
@@ -115,27 +95,6 @@ impl GenericExpectedShortfall {
     pub fn new(config: VarConfig) -> Self {
         Self { config }
     }
-
-    /// Create an Expected Shortfall calculator with 95% confidence level.
-    pub fn var_95() -> Self {
-        Self::new(VarConfig::var_95())
-    }
-
-    /// Create an Expected Shortfall calculator with 99% confidence level.
-    pub fn var_99() -> Self {
-        Self::new(VarConfig::var_99())
-    }
-
-    /// Create an Expected Shortfall calculator with custom confidence level.
-    pub fn with_confidence(confidence_level: f64) -> Self {
-        Self::new(VarConfig::new(confidence_level))
-    }
-
-    /// Set the calculation method.
-    pub fn with_method(mut self, method: VarMethod) -> Self {
-        self.config.method = method;
-        self
-    }
 }
 
 impl MetricCalculator for GenericExpectedShortfall {
@@ -148,7 +107,7 @@ impl MetricCalculator for GenericExpectedShortfall {
         })?;
 
         let result = calculate_var(
-            context.instrument.as_ref(),
+            &[context.instrument.as_ref()],
             &context.curves,
             history,
             context.as_of,
@@ -176,13 +135,13 @@ mod tests {
 
     #[test]
     fn test_generic_hvar_creation() {
-        let var_calc = GenericHVar::var_95();
+        let var_calc = GenericHVar::new(VarConfig::var_95());
         assert_eq!(var_calc.config.confidence_level, 0.95);
 
-        let var_calc = GenericHVar::var_99();
+        let var_calc = GenericHVar::new(VarConfig::var_99());
         assert_eq!(var_calc.config.confidence_level, 0.99);
 
-        let var_calc = GenericHVar::with_confidence(0.975);
+        let var_calc = GenericHVar::new(VarConfig::new(0.975));
         assert_eq!(var_calc.config.confidence_level, 0.975);
     }
 
@@ -210,7 +169,7 @@ mod tests {
 
         // Compute a reference result directly from the VaR engine.
         let expected = calculate_var(
-            &bond,
+            &[&bond],
             market.as_ref(),
             history.as_ref(),
             as_of,

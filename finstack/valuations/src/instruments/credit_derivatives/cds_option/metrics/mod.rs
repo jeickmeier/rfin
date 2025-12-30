@@ -49,7 +49,7 @@ pub fn register_cds_option_metrics(registry: &mut MetricRegistry) {
             (ImpliedVol, implied_vol::ImpliedVolCalculator),
             (BucketedDv01, crate::metrics::UnifiedDv01Calculator::<
                 crate::instruments::CdsOption,
-            >::new(crate::metrics::Dv01CalculatorConfig::key_rate())),
+            >::new(crate::metrics::Dv01CalculatorConfig::triangular_key_rate())),
         ]
     }
 }

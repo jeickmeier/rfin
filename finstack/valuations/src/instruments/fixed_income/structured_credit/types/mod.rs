@@ -100,7 +100,7 @@ use crate::instruments::structured_credit::pricing::stochastic::tree::{
     BranchingSpec, ScenarioTreeConfig,
 };
 use crate::instruments::structured_credit::utils::rates::{cdr_to_mdr, cpr_to_smm};
-use crate::metrics::MetricId;
+use crate::metrics::{MetricContext, MetricId};
 use crate::results::ValuationResult;
 use finstack_core::dates::{BusinessDayConvention, Date, DateExt, DayCount, DayCountCtx, Tenor};
 use finstack_core::market_data::context::MarketContext;
@@ -752,6 +752,7 @@ impl Instrument for StructuredCredit {
             std::sync::Arc::new(context.clone()),
             as_of,
             base_value,
+            MetricContext::default_config(),
         );
         metric_context.cashflows = Some(flows);
         metric_context.discount_curve_id = Some(self.discount_curve_id.to_owned());
@@ -840,6 +841,7 @@ impl TrancheValuationExt for StructuredCredit {
             std::sync::Arc::new(context.clone()),
             as_of,
             pv,
+            MetricContext::default_config(),
         );
         metric_context.cashflows = Some(cashflow_result.cashflows.clone());
         metric_context.discount_curve_id = Some(self.discount_curve_id.to_owned());

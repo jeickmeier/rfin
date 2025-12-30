@@ -102,7 +102,7 @@ pub fn register_bond_future_metrics(registry: &mut MetricRegistry) {
             >::new(crate::metrics::Dv01CalculatorConfig::parallel_combined())),
             (BucketedDv01, crate::metrics::UnifiedDv01Calculator::<
                 crate::instruments::bond_future::BondFuture,
-            >::new(crate::metrics::Dv01CalculatorConfig::key_rate())),
+            >::new(crate::metrics::Dv01CalculatorConfig::triangular_key_rate())),
             (Theta, crate::metrics::GenericTheta::<
                 crate::instruments::bond_future::BondFuture,
             >::default()),

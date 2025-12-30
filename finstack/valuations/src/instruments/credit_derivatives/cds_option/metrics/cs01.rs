@@ -167,6 +167,7 @@ mod tests {
             std::sync::Arc::new(market),
             as_of,
             base_value,
+            MetricContext::default_config(),
         );
 
         let calculator = Cs01Calculator;

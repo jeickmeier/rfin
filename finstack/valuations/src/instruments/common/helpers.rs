@@ -120,18 +120,16 @@ pub fn build_with_metrics_dyn(
     metrics: &[crate::metrics::MetricId],
     cfg: Option<Arc<FinstackConfig>>,
 ) -> finstack_core::Result<crate::results::ValuationResult> {
-    let mut context = match cfg {
-        Some(c) => MetricContext::new_with_finstack_config(
-            instrument.clone(),
-            curves,
-            as_of,
-            base_value,
-            c,
-        ),
-        None => MetricContext::new(instrument.clone(), curves, as_of, base_value),
-    };
+    let finstack_config = cfg.unwrap_or_else(MetricContext::default_config);
+    let mut context = MetricContext::new(
+        instrument.clone(),
+        curves,
+        as_of,
+        base_value,
+        finstack_config,
+    );
     // Preserve per-instrument pricing overrides (e.g., bump sizes, scenario shocks) for metrics.
-    context.pricing_overrides = instrument.scenario_overrides().cloned();
+    context.set_pricing_overrides(instrument.scenario_overrides().cloned());
 
     let registry = standard_registry();
     let metric_measures = registry.compute(metrics, &mut context)?;
@@ -195,19 +193,16 @@ pub fn build_with_metrics_dyn_with_market_history(
     cfg: Option<Arc<FinstackConfig>>,
     market_history: Arc<MarketHistory>,
 ) -> finstack_core::Result<crate::results::ValuationResult> {
-    let mut context = match cfg {
-        Some(c) => MetricContext::new_with_finstack_config(
-            instrument.clone(),
-            curves,
-            as_of,
-            base_value,
-            c,
-        )
-        .with_market_history(Arc::clone(&market_history)),
-        None => MetricContext::new(instrument.clone(), curves, as_of, base_value)
-            .with_market_history(Arc::clone(&market_history)),
-    };
-    context.pricing_overrides = instrument.scenario_overrides().cloned();
+    let finstack_config = cfg.unwrap_or_else(MetricContext::default_config);
+    let mut context = MetricContext::new(
+        instrument.clone(),
+        curves,
+        as_of,
+        base_value,
+        finstack_config,
+    )
+    .with_market_history(Arc::clone(&market_history));
+    context.set_pricing_overrides(instrument.scenario_overrides().cloned());
 
     let registry = standard_registry();
     let metric_measures = registry.compute(metrics, &mut context)?;

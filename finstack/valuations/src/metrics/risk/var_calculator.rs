@@ -5,9 +5,10 @@
 
 use crate::instruments::common::helpers::instrument_to_arc;
 use crate::instruments::common::traits::Instrument;
+use crate::metrics::core::registry::StrictMode;
 use crate::metrics::risk::MarketHistory;
 use crate::metrics::sensitivities::dv01::format_bucket_label;
-use crate::metrics::{standard_registry, MetricContext, MetricId, StrictMode};
+use crate::metrics::{standard_registry, MetricContext, MetricId};
 use finstack_core::dates::Date;
 use finstack_core::market_data::context::MarketContext;
 use finstack_core::market_data::scalars::MarketScalar;
@@ -188,14 +189,15 @@ impl VarResult {
 /// let history = MarketHistory::new(as_of, 0, Vec::<MarketScenario>::new());
 /// let config = VarConfig::var_95();
 ///
-/// let result = calculate_var(&bond, &market, &history, as_of, &config)?;
+/// let instruments = [&bond];
+/// let result = calculate_var(&instruments, &market, &history, as_of, &config)?;
 /// println!("95% VaR: ${:.2}", result.var);
 /// println!("95% ES: ${:.2}", result.expected_shortfall);
 /// # Ok(())
 /// # }
 /// ```
 pub fn calculate_var<I>(
-    instrument: &I,
+    instruments: &[&I],
     base_market: &MarketContext,
     history: &MarketHistory,
     as_of: Date,
@@ -204,14 +206,16 @@ pub fn calculate_var<I>(
 where
     I: Instrument + ?Sized,
 {
+    if instruments.is_empty() {
+        return VarResult::from_distribution(Vec::new(), config.confidence_level);
+    }
+
     match config.method {
         VarMethod::FullRevaluation => {
-            calculate_var_full_revaluation(instrument, base_market, history, as_of, config)
+            calculate_var_full_revaluation(instruments, base_market, history, as_of, config)
         }
         VarMethod::TaylorApproximation => {
-            // Use clone_box to get a sized type for Taylor approximation
-            let boxed = instrument.clone_box();
-            calculate_var_taylor_approximation(&*boxed, base_market, history, as_of, config)
+            calculate_var_taylor(instruments, base_market, history, as_of, config)
         }
     }
 }
@@ -240,7 +244,7 @@ where
 
 /// Calculate VaR using full revaluation method.
 fn calculate_var_full_revaluation<I>(
-    instrument: &I,
+    instruments: &[&I],
     base_market: &MarketContext,
     history: &MarketHistory,
     as_of: Date,
@@ -249,15 +253,44 @@ fn calculate_var_full_revaluation<I>(
 where
     I: Instrument + ?Sized,
 {
-    let base_amount = instrument.value(base_market, as_of)?.amount();
+    let instrument_refs: Vec<&I> = instruments.to_vec();
+    let base_values: Vec<f64> = instrument_refs
+        .iter()
+        .map(|inst| inst.value(base_market, as_of).map(|m| m.amount()))
+        .collect::<Result<_>>()?;
 
-    let pnls = aggregate_scenario_pnls(history, base_market, |scenario_market| {
-        let scenario_amount = instrument.value(scenario_market, as_of)?.amount();
-        Ok(scenario_amount - base_amount)
+    let pnls = aggregate_scenario_pnls(history, base_market, move |scenario_market| {
+        let mut total = 0.0;
+        for (inst, base_amount) in instrument_refs.iter().zip(base_values.iter()) {
+            let scenario_amount = inst.value(scenario_market, as_of)?.amount();
+            total += scenario_amount - base_amount;
+        }
+        Ok(total)
     })?;
 
     // Calculate VaR and ES from P&L distribution
     VarResult::from_distribution(pnls, config.confidence_level)
+}
+
+fn calculate_var_taylor<I>(
+    instruments: &[&I],
+    base_market: &MarketContext,
+    history: &MarketHistory,
+    as_of: Date,
+    config: &VarConfig,
+) -> Result<VarResult>
+where
+    I: Instrument + ?Sized,
+{
+    if instruments.len() == 1 {
+        // Use clone_box to get a sized type for Taylor approximation
+        let boxed = instruments[0].clone_box();
+        return calculate_var_taylor_approximation(&*boxed, base_market, history, as_of, config);
+    }
+
+    let boxed: Vec<Box<dyn Instrument>> = instruments.iter().map(|inst| inst.clone_box()).collect();
+    let refs: Vec<&dyn Instrument> = boxed.iter().map(|b| b.as_ref()).collect();
+    calculate_portfolio_var_taylor(&refs, base_market, history, as_of, config)
 }
 
 // =============================================================================
@@ -334,8 +367,9 @@ fn compute_taylor_sensitivities(
         Arc::new(base_market.clone()),
         as_of,
         base_value,
+        MetricContext::default_config(),
     );
-    context.pricing_overrides = instrument.scenario_overrides().cloned();
+    context.set_pricing_overrides(instrument.scenario_overrides().cloned());
 
     let metrics = [
         MetricId::BucketedDv01,
@@ -521,105 +555,6 @@ fn base_vol_for_factor(
     Some(surface.value_clamped(expiry_years, strike))
 }
 
-// =============================================================================
-// Portfolio VaR Calculation
-// =============================================================================
-
-/// Calculate portfolio VaR with proper date-by-date P&L aggregation.
-///
-/// This function correctly handles portfolio diversification by:
-/// 1. For each historical date, calculating P&L for ALL positions
-/// 2. Summing P&Ls across positions for that date
-/// 3. Sorting the aggregated portfolio P&L distribution
-/// 4. Calculating VaR/ES from the portfolio distribution
-///
-/// **CRITICAL**: Portfolio VaR ≠ sum of individual VaRs due to diversification.
-///
-/// # Arguments
-///
-/// * `instruments` - Vector of instrument references
-/// * `base_market` - Base market data
-/// * `history` - Historical market scenarios
-/// * `as_of` - Valuation date
-/// * `config` - VaR configuration
-///
-/// # Returns
-///
-/// `VarResult` with portfolio VaR and per-position P&L distributions
-///
-/// Each scenario P&L is aggregated across all instruments before VaR/ES is
-/// computed, preserving diversification benefits. An empty `MarketHistory`
-/// yields zero VaR/ES.
-///
-/// # Examples
-///
-/// ```rust,no_run
-/// use finstack_valuations::instruments::{Bond, Instrument};
-/// use finstack_valuations::metrics::risk::{calculate_portfolio_var, MarketHistory, MarketScenario, VarConfig};
-/// use finstack_core::market_data::context::MarketContext;
-/// use time::macros::date;
-///
-/// # fn main() -> finstack_core::Result<()> {
-/// let bond1 = Bond::example();
-/// let bond2 = Bond::example();
-/// let instruments: Vec<&dyn Instrument> = vec![&bond1, &bond2];
-///
-/// let market = MarketContext::new();
-/// let as_of = date!(2025-01-01);
-/// let history = MarketHistory::new(as_of, 0, Vec::<MarketScenario>::new());
-/// let result = calculate_portfolio_var(&instruments, &market, &history, as_of, &VarConfig::var_95())?;
-/// println!("Portfolio VaR: ${:.2}", result.var);
-/// # Ok(())
-/// # }
-/// ```
-pub fn calculate_portfolio_var<I>(
-    instruments: &[&I],
-    base_market: &MarketContext,
-    history: &MarketHistory,
-    as_of: Date,
-    config: &VarConfig,
-) -> Result<VarResult>
-where
-    I: Instrument + ?Sized,
-{
-    if config.method == VarMethod::TaylorApproximation {
-        // Clone instruments to get sized types for Taylor approximation
-        let boxed: Vec<Box<dyn Instrument>> =
-            instruments.iter().map(|i| (*i).clone_box()).collect();
-        let refs: Vec<&dyn Instrument> = boxed.iter().map(|b| b.as_ref()).collect();
-        return calculate_portfolio_var_taylor(&refs, base_market, history, as_of, config);
-    }
-
-    if instruments.is_empty() {
-        return Ok(VarResult {
-            var: 0.0,
-            expected_shortfall: 0.0,
-            pnl_distribution: vec![],
-            confidence_level: config.confidence_level,
-            num_scenarios: 0,
-        });
-    }
-
-    // Pre-compute base values once so we don't reprice per instrument per scenario
-    let base_values: Vec<f64> = instruments
-        .iter()
-        .map(|inst| inst.value(base_market, as_of).map(|m| m.amount()))
-        .collect::<Result<_>>()?;
-
-    // Calculate portfolio P&L for each historical scenario by summing instrument P&Ls
-    let portfolio_pnls = aggregate_scenario_pnls(history, base_market, |scenario_market| {
-        let mut total = 0.0;
-        for (inst, base_amount) in instruments.iter().zip(&base_values) {
-            let scenario_amount = inst.value(scenario_market, as_of)?.amount();
-            total += scenario_amount - base_amount;
-        }
-        Ok(total)
-    })?;
-
-    // Calculate VaR from aggregated portfolio P&L distribution
-    VarResult::from_distribution(portfolio_pnls, config.confidence_level)
-}
-
 fn calculate_portfolio_var_taylor(
     instruments: &[&dyn Instrument],
     base_market: &MarketContext,
@@ -708,8 +643,8 @@ mod tests {
         let full_config = VarConfig::var_95();
         let taylor_config = VarConfig::var_95().with_method(VarMethod::TaylorApproximation);
 
-        let full = calculate_var(&bond, &base_market, &history, as_of, &full_config)?;
-        let taylor = calculate_var(&bond, &base_market, &history, as_of, &taylor_config)?;
+        let full = calculate_var(&[&bond], &base_market, &history, as_of, &full_config)?;
+        let taylor = calculate_var(&[&bond], &base_market, &history, as_of, &taylor_config)?;
 
         assert!(taylor.var > 0.0, "Taylor VaR should be positive");
         let diff = (taylor.var - full.var).abs();
@@ -782,7 +717,7 @@ mod tests {
         let config = VarConfig::var_95();
 
         // Calculate VaR
-        let result = calculate_var(&bond, &base_market, &history, as_of, &config)?;
+        let result = calculate_var(&[&bond], &base_market, &history, as_of, &config)?;
 
         // Verify results
         assert_eq!(result.num_scenarios, 3);
@@ -816,7 +751,7 @@ mod tests {
         let history = history_from_scenarios(as_of, 0, vec![]);
         let config = VarConfig::var_95();
 
-        let result = calculate_var(&bond, &base_market, &history, as_of, &config)?;
+        let result = calculate_var(&[&bond], &base_market, &history, as_of, &config)?;
 
         assert_eq!(result.num_scenarios, 0);
         assert_eq!(result.pnl_distribution.len(), 0);
@@ -845,14 +780,14 @@ mod tests {
         let config = VarConfig::var_95();
 
         // Calculate individual VaRs
-        let var1 = calculate_var(&bond1, market.as_ref(), &history, as_of, &config)?;
-        let var2 = calculate_var(&bond2, market.as_ref(), &history, as_of, &config)?;
+        let var1 = calculate_var(&[&bond1], market.as_ref(), &history, as_of, &config)?;
+        let var2 = calculate_var(&[&bond2], market.as_ref(), &history, as_of, &config)?;
         let sum_individual_vars = var1.var.abs() + var2.var.abs();
 
         // Calculate portfolio VaR
         let instruments: Vec<&dyn Instrument> = vec![&bond1, &bond2];
         let portfolio_var =
-            calculate_portfolio_var(&instruments, market.as_ref(), &history, as_of, &config)?;
+            calculate_var(&instruments, market.as_ref(), &history, as_of, &config)?;
 
         // Verify portfolio VaR <= sum of individual VaRs
         // With only a few scenarios and both bonds having similar rate sensitivity,

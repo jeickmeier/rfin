@@ -847,7 +847,7 @@ fn test_constituent_count_metric() {
     let context = equity_market_context();
     let instrument: Arc<dyn Instrument> = Arc::new(basket.clone());
     let mut metric_context =
-        MetricContext::new(instrument, Arc::new(context), date(2025, 1, 1), usd(0.0));
+        MetricContext::new(instrument, Arc::new(context), date(2025, 1, 1), usd(0.0), MetricContext::default_config());
     let calculator = ConstituentCountCalculator;
 
     // Act
@@ -864,7 +864,7 @@ fn test_expense_ratio_metric() {
     let context = equity_market_context();
     let instrument: Arc<dyn Instrument> = Arc::new(basket.clone());
     let mut metric_context =
-        MetricContext::new(instrument, Arc::new(context), date(2025, 1, 1), usd(0.0));
+        MetricContext::new(instrument, Arc::new(context), date(2025, 1, 1), usd(0.0), MetricContext::default_config());
     let calculator = ExpenseRatioCalculator;
 
     // Act
@@ -921,7 +921,7 @@ fn test_asset_exposure_metric_equity() {
     let context = equity_market_context();
     let instrument: Arc<dyn Instrument> = Arc::new(basket.clone());
     let mut metric_context =
-        MetricContext::new(instrument, Arc::new(context), date(2025, 1, 1), usd(0.0));
+        MetricContext::new(instrument, Arc::new(context), date(2025, 1, 1), usd(0.0), MetricContext::default_config());
     let calculator = AssetExposureCalculator::new(AssetType::Equity);
 
     // Act
@@ -981,7 +981,7 @@ fn test_asset_exposure_metric_bond() {
         .insert_price("BOND_AA", MarketScalar::Unitless(101.2));
     let instrument: Arc<dyn Instrument> = Arc::new(basket.clone());
     let mut metric_context =
-        MetricContext::new(instrument, Arc::new(context), date(2025, 1, 1), usd(0.0));
+        MetricContext::new(instrument, Arc::new(context), date(2025, 1, 1), usd(0.0), MetricContext::default_config());
     let calculator = AssetExposureCalculator::new(AssetType::Bond);
 
     // Act

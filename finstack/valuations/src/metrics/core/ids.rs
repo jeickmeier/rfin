@@ -222,21 +222,11 @@ impl MetricId {
     /// G-spread - Govvie spread
     pub const GSpread: Self = Self(Cow::Borrowed("g_spread"));
 
-    /// TODO: We should rationalize these ASW metrics to a single market standard ASW metric
-    /// ASW-spread - Asset swap spread (par)
-    pub const ASWSpread: Self = Self(Cow::Borrowed("asw_spread"));
-
-    /// Par asset swap spread
+    /// Par asset swap spread (market-standard ASW quote)
     pub const ASWPar: Self = Self(Cow::Borrowed("asw_par"));
 
-    /// Market (price) asset swap spread
+    /// Market (price-based) asset swap spread
     pub const ASWMarket: Self = Self(Cow::Borrowed("asw_market"));
-
-    /// Par asset swap spread using forward curve (requires FloatingCouponSpec or explicit forward)
-    pub const ASWParFwd: Self = Self(Cow::Borrowed("asw_par_fwd"));
-
-    /// Market asset swap spread using forward curve (requires FloatingCouponSpec or explicit forward)
-    pub const ASWMarketFwd: Self = Self(Cow::Borrowed("asw_market_fwd"));
 
     // ========================================================================
     // IRS Metrics
@@ -734,11 +724,8 @@ impl MetricId {
         MetricId::ISpread,
         MetricId::DiscountMargin,
         MetricId::GSpread,
-        MetricId::ASWSpread,
         MetricId::ASWPar,
         MetricId::ASWMarket,
-        MetricId::ASWParFwd,
-        MetricId::ASWMarketFwd,
         MetricId::Annuity,
         MetricId::ParRate,
         MetricId::Pv01,

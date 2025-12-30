@@ -4,8 +4,8 @@
 //! - `MetricId`: Strongly-typed metric identifiers
 //! - `MetricCalculator`: Trait for implementing metric calculations
 //! - `MetricContext`: Context containing instrument and market data
-//! - `MetricRegistry`: Registry managing calculators with dependency resolution
-//! - `StrictMode`: Control over metric computation error handling (in `registry` module)
+//! - `MetricRegistry`: Registry managing calculators with dependency resolution and strict,
+//!   fail-fast error handling
 //! - Finite difference utilities for numerical derivatives
 
 pub mod finite_difference;

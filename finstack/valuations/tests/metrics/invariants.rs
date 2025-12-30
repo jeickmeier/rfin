@@ -86,6 +86,7 @@ proptest! {
             Arc::new(market),
             as_of,
             pv,
+            MetricContext::default_config(),
         );
 
         let results = registry.compute(&metrics, &mut context).expect("Metrics should compute");
@@ -150,6 +151,7 @@ proptest! {
             Arc::new(market),
             as_of,
             pv,
+            MetricContext::default_config(),
         );
 
         let results = registry.compute(&metrics, &mut context).expect("Metrics should compute");
@@ -537,6 +539,7 @@ mod cs01_invariants {
                 Arc::new(market),
                 as_of,
                 pv,
+                MetricContext::default_config(),
             );
 
             let results = registry.compute(&metrics, &mut context).expect("Metrics should compute");
@@ -626,7 +629,7 @@ mod bucketed_cs01_invariants {
         let metrics = vec![MetricId::Cs01, MetricId::BucketedCs01];
         let registry = standard_registry();
 
-        let mut context = MetricContext::new(Arc::new(cds), Arc::new(market), as_of, pv);
+        let mut context = MetricContext::new(Arc::new(cds), Arc::new(market), as_of, pv, MetricContext::default_config());
 
         let results = registry
             .compute(&metrics, &mut context)
@@ -701,7 +704,7 @@ mod additional_invariants {
                 .expect("Valuation should succeed");
 
             let mut context =
-                MetricContext::new(Arc::new(bond), Arc::new(market.clone()), as_of, pv);
+                MetricContext::new(Arc::new(bond), Arc::new(market.clone()), as_of, pv, MetricContext::default_config());
 
             let results = registry
                 .compute(&metrics, &mut context)

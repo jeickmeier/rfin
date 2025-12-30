@@ -50,7 +50,7 @@ pub fn register_commodity_option_metrics(registry: &mut MetricRegistry) {
         Arc::new(crate::metrics::UnifiedDv01Calculator::<
             crate::instruments::CommodityOption,
         >::new(
-            crate::metrics::Dv01CalculatorConfig::key_rate()
+            crate::metrics::Dv01CalculatorConfig::triangular_key_rate()
         )),
         &[InstrumentType::CommodityOption],
     );

@@ -9,8 +9,8 @@ use crate::core::market_data::context::JsMarketContext;
 use crate::valuations::instruments::{extract_instrument, JsBond};
 use finstack_valuations::instruments::{instrument_to_arc, Instrument};
 use finstack_valuations::metrics::risk::{
-    calculate_portfolio_var, calculate_var, MarketHistory, MarketScenario, RiskFactorShift,
-    RiskFactorType, VarConfig, VarMethod, VarResult,
+    calculate_var, MarketHistory, MarketScenario, RiskFactorShift, RiskFactorType, VarConfig,
+    VarMethod, VarResult,
 };
 use finstack_valuations::metrics::{standard_registry, MetricContext, MetricId};
 use js_sys::{Array, Object, Reflect};
@@ -330,40 +330,22 @@ impl JsMarketHistory {
 // VaR Calculation Functions
 // =============================================================================
 
-/// Calculate historical VaR for a single instrument.
+/// Calculate historical VaR for one or more instruments.
 #[wasm_bindgen(js_name = calculateVar)]
 pub fn calculate_var_js(
-    instrument: &JsValue,
+    instruments: &JsValue,
     market: &JsMarketContext,
     history: &JsMarketHistory,
     as_of: &JsDate,
     config: &JsVarConfig,
 ) -> Result<JsVarResult, JsValue> {
-    let instrument_handle = extract_instrument(instrument)?;
-
-    calculate_var(
-        instrument_handle.as_ref(),
-        market.inner(),
-        history.inner(),
-        as_of.inner(),
-        config.inner(),
-    )
-    .map(|inner| JsVarResult { inner })
-    .map_err(|e| js_error(format!("VaR calculation failed: {}", e)))
-}
-
-/// Calculate portfolio VaR.
-#[wasm_bindgen(js_name = calculatePortfolioVar)]
-pub fn calculate_portfolio_var_js(
-    instruments: Array,
-    market: &JsMarketContext,
-    history: &JsMarketHistory,
-    as_of: &JsDate,
-    config: &JsVarConfig,
-) -> Result<JsVarResult, JsValue> {
-    let mut handles: Vec<Box<dyn Instrument>> = Vec::with_capacity(instruments.length() as usize);
-    for inst in instruments.iter() {
-        handles.push(extract_instrument(&inst)?);
+    let mut handles: Vec<Box<dyn Instrument>> = Vec::new();
+    if instruments.is_instance_of::<Array>() {
+        for inst in Array::from(instruments).iter() {
+            handles.push(extract_instrument(&inst)?);
+        }
+    } else {
+        handles.push(extract_instrument(instruments)?);
     }
 
     let refs: Vec<&dyn Instrument> = handles
@@ -371,7 +353,7 @@ pub fn calculate_portfolio_var_js(
         .map(|h| h.as_ref() as &dyn Instrument)
         .collect();
 
-    calculate_portfolio_var(
+    calculate_var(
         &refs,
         market.inner(),
         history.inner(),
@@ -379,7 +361,7 @@ pub fn calculate_portfolio_var_js(
         config.inner(),
     )
     .map(|inner| JsVarResult { inner })
-    .map_err(|e| js_error(format!("Portfolio VaR calculation failed: {}", e)))
+    .map_err(|e| js_error(format!("VaR calculation failed: {}", e)))
 }
 
 fn bucketed_metric(
@@ -400,6 +382,7 @@ fn bucketed_metric(
         Arc::new(market.inner().clone()),
         as_of_date,
         base_value,
+        MetricContext::default_config(),
     );
 
     let registry = standard_registry();

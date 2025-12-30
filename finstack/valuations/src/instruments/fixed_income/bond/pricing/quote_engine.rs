@@ -825,7 +825,7 @@ pub fn compute_quotes(
 
     let instrument_arc: Arc<dyn Instrument> = Arc::new(bond_for_metrics.clone());
     let curves_arc = Arc::new(curves.clone());
-    let mut ctx = MetricContext::new(instrument_arc, curves_arc, as_of, base_value);
+    let mut ctx = MetricContext::new(instrument_arc, curves_arc, as_of, base_value, MetricContext::default_config());
     ctx.notional = Some(bond_for_metrics.notional);
 
     // Pre-populate accrued since we've already computed it.

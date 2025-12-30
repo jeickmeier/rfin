@@ -600,7 +600,7 @@ mod bond_market_edge {
         // Get accrued via metrics
         let registry = standard_registry();
         let pv = bond.value(&market, as_of).unwrap();
-        let mut context = MetricContext::new(Arc::new(bond.clone()), Arc::new(market), as_of, pv);
+        let mut context = MetricContext::new(Arc::new(bond.clone()), Arc::new(market), as_of, pv, MetricContext::default_config());
 
         let results = registry
             .compute(&[MetricId::Accrued], &mut context)

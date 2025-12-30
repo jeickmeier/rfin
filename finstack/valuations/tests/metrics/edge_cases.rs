@@ -81,7 +81,7 @@ fn test_expired_option_returns_zero_theta() {
     }
 
     let pv = pv_result.unwrap();
-    let mut context = MetricContext::new(Arc::new(option), Arc::new(market), as_of, pv);
+    let mut context = MetricContext::new(Arc::new(option), Arc::new(market), as_of, pv, MetricContext::default_config());
 
     let results = registry.compute(&[MetricId::Theta], &mut context).unwrap();
     let theta = *results.get(&MetricId::Theta).unwrap();
@@ -137,7 +137,7 @@ fn test_zero_recovery_cds() {
 
     let registry = standard_registry();
     let pv = cds.value(&market, as_of).unwrap();
-    let mut context = MetricContext::new(Arc::new(cds), Arc::new(market), as_of, pv);
+    let mut context = MetricContext::new(Arc::new(cds), Arc::new(market), as_of, pv, MetricContext::default_config());
 
     // Recovery01 should still compute even with zero recovery
     let results = registry
@@ -180,7 +180,7 @@ fn test_deep_itm_option_greeks() {
     let market = create_option_market(as_of, spot, 0.25, 0.05);
     let registry = standard_registry();
     let pv = option.value(&market, as_of).unwrap();
-    let mut context = MetricContext::new(Arc::new(option), Arc::new(market), as_of, pv);
+    let mut context = MetricContext::new(Arc::new(option), Arc::new(market), as_of, pv, MetricContext::default_config());
 
     let results = registry.compute(&[MetricId::Delta], &mut context).unwrap();
     let delta = *results.get(&MetricId::Delta).unwrap();
@@ -232,6 +232,7 @@ fn test_zero_volatility_option_limits() {
             Arc::new(market.clone()),
             as_of,
             pv,
+            MetricContext::default_config(),
         );
 
         if let Ok(metrics) = registry.compute(&[MetricId::Delta, MetricId::Vega], &mut context) {
@@ -284,7 +285,7 @@ fn test_zero_volatility_option_limits() {
 
     if let Ok(pv) = itm_option.value(&market, as_of) {
         let mut context =
-            MetricContext::new(Arc::new(itm_option), Arc::new(market.clone()), as_of, pv);
+            MetricContext::new(Arc::new(itm_option), Arc::new(market.clone()), as_of, pv, MetricContext::default_config());
 
         if let Ok(metrics) = registry.compute(&[MetricId::Delta], &mut context) {
             if let Some(&delta) = metrics.get(&MetricId::Delta) {
@@ -319,7 +320,7 @@ fn test_zero_volatility_option_limits() {
     };
 
     if let Ok(pv) = otm_option.value(&market, as_of) {
-        let mut context = MetricContext::new(Arc::new(otm_option), Arc::new(market), as_of, pv);
+        let mut context = MetricContext::new(Arc::new(otm_option), Arc::new(market), as_of, pv, MetricContext::default_config());
 
         if let Ok(metrics) = registry.compute(&[MetricId::Delta], &mut context) {
             if let Some(&delta) = metrics.get(&MetricId::Delta) {
@@ -373,7 +374,7 @@ fn test_zero_notional_handling() {
 
     // For zero notional, PV should be zero and greeks should be zero or very small
     if pv.amount().abs() < 1e-10 {
-        let mut context = MetricContext::new(Arc::new(option), Arc::new(market), as_of, pv);
+        let mut context = MetricContext::new(Arc::new(option), Arc::new(market), as_of, pv, MetricContext::default_config());
 
         // Should not panic, greeks might be zero or very small
         let results = registry.compute(&[MetricId::Delta, MetricId::Gamma], &mut context);
@@ -426,7 +427,7 @@ fn test_deep_otm_option_greeks() {
     let market = create_option_market(as_of, spot, 0.25, 0.05);
     let registry = standard_registry();
     let pv = option.value(&market, as_of).unwrap();
-    let mut context = MetricContext::new(Arc::new(option), Arc::new(market), as_of, pv);
+    let mut context = MetricContext::new(Arc::new(option), Arc::new(market), as_of, pv, MetricContext::default_config());
 
     let results = registry.compute(&[MetricId::Delta], &mut context).unwrap();
     let delta = *results.get(&MetricId::Delta).unwrap();
@@ -470,7 +471,7 @@ fn test_deep_itm_put_greeks() {
     let market = create_option_market(as_of, spot, 0.25, 0.05);
     let registry = standard_registry();
     let pv = option.value(&market, as_of).unwrap();
-    let mut context = MetricContext::new(Arc::new(option), Arc::new(market), as_of, pv);
+    let mut context = MetricContext::new(Arc::new(option), Arc::new(market), as_of, pv, MetricContext::default_config());
 
     let results = registry.compute(&[MetricId::Delta], &mut context).unwrap();
     let delta = *results.get(&MetricId::Delta).unwrap();
@@ -513,7 +514,7 @@ fn test_deep_otm_put_greeks() {
     let market = create_option_market(as_of, spot, 0.25, 0.05);
     let registry = standard_registry();
     let pv = option.value(&market, as_of).unwrap();
-    let mut context = MetricContext::new(Arc::new(option), Arc::new(market), as_of, pv);
+    let mut context = MetricContext::new(Arc::new(option), Arc::new(market), as_of, pv, MetricContext::default_config());
 
     let results = registry.compute(&[MetricId::Delta], &mut context).unwrap();
     let delta = *results.get(&MetricId::Delta).unwrap();
@@ -569,7 +570,7 @@ fn test_atm_option_gamma_peak() {
         };
 
         let pv = option.value(&market, as_of).unwrap();
-        let mut context = MetricContext::new(Arc::new(option), Arc::new(market.clone()), as_of, pv);
+        let mut context = MetricContext::new(Arc::new(option), Arc::new(market.clone()), as_of, pv, MetricContext::default_config());
         let results = registry.compute(&[MetricId::Gamma], &mut context).unwrap();
         let gamma = *results.get(&MetricId::Gamma).unwrap();
         gammas.push((strike, gamma));
@@ -619,7 +620,7 @@ fn test_extreme_volatility_handling() {
     let market = create_option_market(as_of, 100.0, 2.0, 0.05);
     let registry = standard_registry();
     let pv = option.value(&market, as_of).unwrap();
-    let mut context = MetricContext::new(Arc::new(option), Arc::new(market), as_of, pv);
+    let mut context = MetricContext::new(Arc::new(option), Arc::new(market), as_of, pv, MetricContext::default_config());
 
     // Should not panic and should return finite values
     let results = registry.compute(
@@ -666,7 +667,7 @@ fn test_very_short_dated_option() {
     let market = create_option_market(as_of, 100.0, 0.25, 0.05);
     let registry = standard_registry();
     let pv = option.value(&market, as_of).unwrap();
-    let mut context = MetricContext::new(Arc::new(option), Arc::new(market), as_of, pv);
+    let mut context = MetricContext::new(Arc::new(option), Arc::new(market), as_of, pv, MetricContext::default_config());
 
     // Should compute greeks without panicking
     let results = registry.compute(&[MetricId::Delta, MetricId::Theta], &mut context);
@@ -740,7 +741,7 @@ fn test_very_low_interest_rate_greeks() {
 
     let registry = standard_registry();
     let pv = call_option.value(&market, as_of).unwrap();
-    let mut context = MetricContext::new(Arc::new(call_option), Arc::new(market), as_of, pv);
+    let mut context = MetricContext::new(Arc::new(call_option), Arc::new(market), as_of, pv, MetricContext::default_config());
 
     let results = registry
         .compute(&[MetricId::Delta, MetricId::Rho], &mut context)
@@ -814,7 +815,7 @@ fn test_vol_smile_greeks() {
 
     let registry = standard_registry();
     let pv = option.value(&market, as_of).unwrap();
-    let mut context = MetricContext::new(Arc::new(option), Arc::new(market), as_of, pv);
+    let mut context = MetricContext::new(Arc::new(option), Arc::new(market), as_of, pv, MetricContext::default_config());
 
     let results = registry
         .compute(

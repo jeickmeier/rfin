@@ -60,7 +60,7 @@ pub fn register_cliquet_option_metrics(registry: &mut MetricRegistry) {
                 >::new(crate::metrics::Dv01CalculatorConfig::parallel_combined())),
                 (BucketedDv01, crate::metrics::UnifiedDv01Calculator::<
                     crate::instruments::CliquetOption,
-                >::new(crate::metrics::Dv01CalculatorConfig::key_rate())),
+                >::new(crate::metrics::Dv01CalculatorConfig::triangular_key_rate())),
                 (Theta, crate::metrics::GenericTheta::<
                     crate::instruments::CliquetOption,
                 >::default()),

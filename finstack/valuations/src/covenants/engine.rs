@@ -1009,6 +1009,7 @@ mod tests {
             Arc::new(MarketContext::new()),
             as_of,
             Money::new(instrument.base_value, instrument.currency),
+            MetricContext::default_config(),
         )
     }
 

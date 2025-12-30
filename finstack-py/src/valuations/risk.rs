@@ -9,13 +9,13 @@ use crate::valuations::instruments::{extract_instrument, InstrumentHandle};
 use finstack_core::dates::Date;
 use finstack_valuations::instruments::{instrument_to_arc, Instrument};
 use finstack_valuations::metrics::risk::{
-    calculate_portfolio_var, calculate_var, MarketHistory, MarketScenario, RiskFactorShift,
-    RiskFactorType, VarConfig, VarMethod, VarResult,
+    calculate_var, MarketHistory, MarketScenario, RiskFactorShift, RiskFactorType, VarConfig,
+    VarMethod, VarResult,
 };
 use finstack_valuations::metrics::{standard_registry, MetricContext, MetricId};
 use pyo3::exceptions::PyValueError;
 use pyo3::prelude::*;
-use pyo3::types::{PyDict, PyList, PyModule};
+use pyo3::types::{PyDict, PyList, PyModule, PySequence};
 use pyo3::Bound;
 use std::sync::Arc;
 
@@ -348,10 +348,10 @@ impl PyMarketHistory {
 // VaR Calculation Functions
 // =============================================================================
 
-/// Calculate Historical VaR for a single instrument.
+/// Calculate Historical VaR for one or more instruments.
 ///
 /// Args:
-///     instrument: Instrument to calculate VaR for
+///     instruments: Instrument or list of instruments to calculate VaR for
 ///     market: Market data (curves, surfaces, etc.)
 ///     history: Historical market scenarios
 ///     as_of: Valuation date as (year, month, day)
@@ -361,59 +361,12 @@ impl PyMarketHistory {
 ///     VarResult: VaR and Expected Shortfall
 ///
 /// Examples:
-///     >>> result = calculate_var(bond, market, history, (2024, 1, 1), config)
+///     >>> result = calculate_var([bond1, bond2], market, history, (2024, 1, 1), config)
 ///     >>> print(f"95% VaR: ${result.var:.2f}")
 #[pyfunction(name = "calculate_var")]
-#[pyo3(signature = (instrument, market, history, as_of, config))]
-fn py_calculate_var(
-    instrument: Bound<'_, PyAny>,
-    market: &PyMarketContext,
-    history: &PyMarketHistory,
-    as_of: (i32, u8, u8),
-    config: &PyVarConfig,
-) -> PyResult<PyVarResult> {
-    let as_of_date = Date::from_calendar_date(
-        as_of.0,
-        time::Month::try_from(as_of.1).map_err(|_| PyValueError::new_err("Invalid month"))?,
-        as_of.2,
-    )
-    .map_err(|e| PyValueError::new_err(format!("Invalid date: {}", e)))?;
-
-    let InstrumentHandle {
-        instrument: inst, ..
-    } = extract_instrument(&instrument)?;
-
-    let result = calculate_var(
-        inst.as_ref(),
-        &market.inner,
-        &history.inner,
-        as_of_date,
-        &config.inner,
-    )
-    .map_err(|e| PyValueError::new_err(format!("VaR calculation failed: {}", e)))?;
-
-    Ok(PyVarResult { inner: result })
-}
-
-/// Calculate portfolio VaR with date-by-date P&L aggregation.
-///
-/// Args:
-///     instruments: List of instruments in portfolio
-///     market: Market data (curves, surfaces, etc.)
-///     history: Historical market scenarios
-///     as_of: Valuation date as (year, month, day)
-///     config: VaR configuration
-///
-/// Returns:
-///     VarResult: Portfolio VaR capturing diversification effects
-///
-/// Examples:
-///     >>> result = calculate_portfolio_var([bond1, bond2], market, history, (2024, 1, 1), config)
-///     >>> print(f"Portfolio 95% VaR: ${result.var:.2f}")
-#[pyfunction(name = "calculate_portfolio_var")]
 #[pyo3(signature = (instruments, market, history, as_of, config))]
-fn py_calculate_portfolio_var(
-    instruments: Vec<Bound<'_, PyAny>>,
+fn py_calculate_var(
+    instruments: Bound<'_, PyAny>,
     market: &PyMarketContext,
     history: &PyMarketHistory,
     as_of: (i32, u8, u8),
@@ -426,27 +379,38 @@ fn py_calculate_portfolio_var(
     )
     .map_err(|e| PyValueError::new_err(format!("Invalid date: {}", e)))?;
 
-    // Extract all instruments to InstrumentHandle (must be done while holding GIL)
-    let mut handles = Vec::with_capacity(instruments.len());
-    for inst in instruments {
-        let handle = extract_instrument(&inst)?;
+    let mut handles = Vec::new();
+    if let Ok(handle) = extract_instrument(&instruments) {
         handles.push(handle);
+    } else if let Ok(seq) = instruments.downcast::<PySequence>() {
+        let length = seq.len().map_err(|e| {
+            PyValueError::new_err(format!("Failed to inspect instruments sequence: {}", e))
+        })?;
+        for idx in 0..length {
+            let item = seq.get_item(idx).map_err(|e| {
+                PyValueError::new_err(format!("Failed to read instrument at index {}: {}", idx, e))
+            })?;
+            handles.push(extract_instrument(&item)?);
+        }
+    } else {
+        return Err(PyValueError::new_err(
+            "Expected an instrument or a sequence of instruments",
+        ));
     }
 
-    // Convert to trait object references
     let inst_refs: Vec<&dyn Instrument> = handles
         .iter()
         .map(|handle| handle.instrument.as_ref() as &dyn Instrument)
         .collect();
 
-    let result = calculate_portfolio_var(
+    let result = calculate_var(
         &inst_refs,
         &market.inner,
         &history.inner,
         as_of_date,
         &config.inner,
     )
-    .map_err(|e| PyValueError::new_err(format!("Portfolio VaR calculation failed: {}", e)))?;
+    .map_err(|e| PyValueError::new_err(format!("VaR calculation failed: {}", e)))?;
 
     Ok(PyVarResult { inner: result })
 }
@@ -477,6 +441,7 @@ fn bucketed_metric(
         Arc::new(market.inner.clone()),
         as_of_date,
         base_value,
+        MetricContext::default_config(),
     );
 
     let registry = standard_registry();
@@ -569,7 +534,6 @@ pub(crate) fn register<'py>(
 
     // Add functions
     module.add_function(wrap_pyfunction!(py_calculate_var, &module)?)?;
-    module.add_function(wrap_pyfunction!(py_calculate_portfolio_var, &module)?)?;
     module.add_function(wrap_pyfunction!(py_krd_dv01_ladder, &module)?)?;
     module.add_function(wrap_pyfunction!(py_cs01_ladder, &module)?)?;
 
@@ -582,7 +546,6 @@ pub(crate) fn register<'py>(
         "MarketScenario",
         "MarketHistory",
         "calculate_var",
-        "calculate_portfolio_var",
         "krd_dv01_ladder",
         "cs01_ladder",
     ];

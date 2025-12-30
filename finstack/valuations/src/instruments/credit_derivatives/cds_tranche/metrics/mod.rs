@@ -76,7 +76,7 @@ pub fn register_cds_tranche_metrics(registry: &mut MetricRegistry) {
             // Theta is now registered universally in metrics::standard_registry()
             (BucketedDv01, crate::metrics::UnifiedDv01Calculator::<
                 crate::instruments::CdsTranche,
-            >::new(crate::metrics::Dv01CalculatorConfig::key_rate())),
+            >::new(crate::metrics::Dv01CalculatorConfig::triangular_key_rate())),
         ]
     }
 }

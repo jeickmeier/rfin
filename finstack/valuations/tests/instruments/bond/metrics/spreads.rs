@@ -60,7 +60,7 @@ fn test_z_spread_missing_discount_curve_returns_error() {
 
     // Minimal metric context: base value is arbitrary since Z-spread uses quoted clean price
     let base_value = Money::new(100.0, Currency::USD);
-    let mut mctx = MetricContext::new(Arc::new(bond), Arc::new(market), as_of, base_value);
+    let mut mctx = MetricContext::new(Arc::new(bond), Arc::new(market), as_of, base_value, MetricContext::default_config());
 
     // Pre-populate accrued to bypass the metric dependency and force the failure into
     // the Z-spread pricing helper (missing discount curve), not missing accrued.

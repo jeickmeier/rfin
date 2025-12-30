@@ -203,7 +203,7 @@ impl BondFuturePricer {
         let bond_arc: Arc<dyn Instrument> = Arc::new(ctd_bond.clone());
         let market_arc = Arc::new(market.clone());
 
-        let mut context = MetricContext::new(bond_arc, market_arc, as_of, dirty_price_money);
+        let mut context = MetricContext::new(bond_arc, market_arc, as_of, dirty_price_money, MetricContext::default_config());
 
         // Calculate accrued interest first (required for clean price)
         let accrued_calculator = AccruedInterestCalculator;

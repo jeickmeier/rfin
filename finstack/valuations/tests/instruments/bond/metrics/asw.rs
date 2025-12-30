@@ -48,21 +48,6 @@ fn simple_forward_curve(id: &str, as_of: time::Date) -> ForwardCurve {
         .unwrap()
 }
 
-fn simple_floating_bond(as_of: time::Date) -> Bond {
-    Bond::floating(
-        "ASW-FRN",
-        Money::new(100.0, Currency::USD),
-        "USD-SOFR-3M",
-        50.0,
-        as_of,
-        date!(2030 - 01 - 01),
-        Tenor::quarterly(),
-        DayCount::Act360,
-        "USD-OIS",
-    )
-    .expect("Test FRN creation should succeed")
-}
-
 #[test]
 fn test_asw_market_requires_accrued_when_clean_price_present() {
     let as_of = date!(2025 - 01 - 01);
@@ -81,6 +66,7 @@ fn test_asw_market_requires_accrued_when_clean_price_present() {
         Arc::new(market),
         as_of,
         Money::new(100.0, Currency::USD),
+        MetricContext::default_config(),
     );
 
     let calc = AssetSwapMarketCalculator::default();
@@ -115,6 +101,7 @@ fn test_asw_par_with_config_uses_fixed_leg_conventions() {
         Arc::new(market.clone()),
         as_of,
         Money::new(100.0, Currency::USD),
+        MetricContext::default_config(),
     );
     let asw_default = AssetSwapParCalculator::default()
         .calculate(&mut ctx_default)
@@ -134,6 +121,7 @@ fn test_asw_par_with_config_uses_fixed_leg_conventions() {
         Arc::new(market),
         as_of,
         Money::new(100.0, Currency::USD),
+        MetricContext::default_config(),
     );
     let asw_custom = AssetSwapParCalculator::with_config(config)
         .calculate(&mut ctx_custom)
@@ -163,6 +151,7 @@ fn test_asw_par_tracks_coupon_minus_par_rate() {
         Arc::new(market),
         as_of,
         Money::new(100.0, Currency::USD),
+        MetricContext::default_config(),
     );
 
     let asw_par = *registry
@@ -219,6 +208,7 @@ fn test_asw_market_tightens_when_price_rises() {
         Arc::new(market.clone()),
         as_of,
         Money::new(100.0, Currency::USD),
+        MetricContext::default_config(),
     );
     let asw_rich = *registry
         .compute(&[MetricId::ASWMarket], &mut ctx_rich)
@@ -231,6 +221,7 @@ fn test_asw_market_tightens_when_price_rises() {
         Arc::new(market),
         as_of,
         Money::new(100.0, Currency::USD),
+        MetricContext::default_config(),
     );
     let asw_cheap = *registry
         .compute(&[MetricId::ASWMarket], &mut ctx_cheap)
@@ -388,60 +379,3 @@ fn test_asw_par_forward_returns_zero_for_zero_notional() {
     assert_eq!(asw, 0.0, "Zero notional should return zero ASW");
 }
 
-#[test]
-fn test_asw_market_fwd_calculator_requires_accrued_when_clean_price() {
-    let as_of = date!(2025 - 01 - 01);
-    let mut bond = simple_floating_bond(as_of);
-    bond.pricing_overrides = PricingOverrides::default().with_clean_price(101.0);
-
-    let disc = simple_discount_curve("USD-OIS", as_of);
-    let fwd = simple_forward_curve("USD-SOFR-3M", as_of);
-    let market = MarketContext::new()
-        .insert_discount(disc)
-        .insert_forward(fwd);
-
-    let mut ctx = MetricContext::new(
-        Arc::new(bond),
-        Arc::new(market),
-        as_of,
-        Money::new(100.0, Currency::USD),
-    );
-
-    let calc = finstack_valuations::instruments::bond::metrics::price_yield_spread::asw::AssetSwapMarketFwdCalculator;
-    let err = calc
-        .calculate(&mut ctx)
-        .expect_err("should require Accrued");
-    let msg = format!("{err}");
-    assert!(
-        msg.contains("metric:Accrued"),
-        "expected missing Accrued error, got {msg}"
-    );
-}
-
-#[test]
-fn test_asw_par_fwd_calculator_errors_on_fixed_bond() {
-    let as_of = date!(2025 - 01 - 01);
-    let bond = simple_fixed_bond(as_of);
-    let disc = simple_discount_curve("USD-OIS", as_of);
-    let fwd = simple_forward_curve("USD-SOFR-3M", as_of);
-    let market = MarketContext::new()
-        .insert_discount(disc)
-        .insert_forward(fwd);
-
-    let mut ctx = MetricContext::new(
-        Arc::new(bond),
-        Arc::new(market),
-        as_of,
-        Money::new(100.0, Currency::USD),
-    );
-
-    let calc = finstack_valuations::instruments::bond::metrics::price_yield_spread::asw::AssetSwapParFwdCalculator;
-    let err = calc
-        .calculate(&mut ctx)
-        .expect_err("fixed bond should fail");
-    let msg = format!("{err}");
-    assert!(
-        msg.contains("bond.cashflow_spec.floating"),
-        "expected floating-spec error, got {msg}"
-    );
-}

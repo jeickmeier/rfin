@@ -107,7 +107,7 @@ fn equity_vanna_and_volga_match_reference_fd() -> finstack_core::Result<()> {
     let market = equity_market(as_of, spot, vol, rate, div_yield);
 
     let pv = opt.value(&market, as_of)?;
-    let mut ctx = MetricContext::new(Arc::new(opt.clone()), Arc::new(market.clone()), as_of, pv);
+    let mut ctx = MetricContext::new(Arc::new(opt.clone()), Arc::new(market.clone()), as_of, pv, MetricContext::default_config());
     let registry = standard_registry();
 
     let res = registry.compute(&[MetricId::Vanna, MetricId::Volga], &mut ctx)?;
@@ -152,7 +152,7 @@ fn equity_vanna_and_volga_are_zero_when_expired() -> finstack_core::Result<()> {
     let market = equity_market(as_of, 100.0, 0.20, 0.03, 0.0);
 
     let pv = opt.value(&market, as_of)?;
-    let mut ctx = MetricContext::new(Arc::new(opt), Arc::new(market), as_of, pv);
+    let mut ctx = MetricContext::new(Arc::new(opt), Arc::new(market), as_of, pv, MetricContext::default_config());
     let registry = standard_registry();
 
     let res = registry.compute(&[MetricId::Vanna, MetricId::Volga], &mut ctx)?;
@@ -223,7 +223,7 @@ fn fx_vanna_and_volga_match_reference_fd() -> finstack_core::Result<()> {
     let market = fx_market(as_of, spot, vol, r_d, r_f);
     let pv = opt.value(&market, as_of)?;
 
-    let mut ctx = MetricContext::new(Arc::new(opt.clone()), Arc::new(market.clone()), as_of, pv);
+    let mut ctx = MetricContext::new(Arc::new(opt.clone()), Arc::new(market.clone()), as_of, pv, MetricContext::default_config());
     let registry = standard_registry();
 
     let res = registry.compute(&[MetricId::Vanna, MetricId::Volga], &mut ctx)?;
@@ -279,7 +279,7 @@ fn fx_volga_returns_zero_when_surface_vol_is_zero() -> finstack_core::Result<()>
 
     let market = fx_market(as_of, 1.10, 0.0, 0.02, 0.01);
     let pv = opt.value(&market, as_of)?;
-    let mut ctx = MetricContext::new(Arc::new(opt), Arc::new(market), as_of, pv);
+    let mut ctx = MetricContext::new(Arc::new(opt), Arc::new(market), as_of, pv, MetricContext::default_config());
     let registry = standard_registry();
 
     let res = registry.compute(&[MetricId::Volga], &mut ctx)?;

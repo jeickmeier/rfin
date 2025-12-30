@@ -68,7 +68,7 @@ fn test_dm_missing_forward_curve_returns_error() {
     // Build a minimal metric context without relying on successful base pricing;
     // base_value is arbitrary here since we're testing failure in the DM objective.
     let base_value = Money::new(100.0, Currency::USD);
-    let mut mctx = MetricContext::new(Arc::new(bond), Arc::new(market), as_of, base_value);
+    let mut mctx = MetricContext::new(Arc::new(bond), Arc::new(market), as_of, base_value, MetricContext::default_config());
 
     // No need to pre-compute Accrued; DM calculator will treat missing accrued as 0.
     let calc = DiscountMarginCalculator::default();
@@ -260,6 +260,7 @@ fn test_dm_requires_accrued_when_clean_price_present() {
         Arc::new(market),
         as_of,
         base_value,
+        MetricContext::default_config(),
     );
 
     let calc = DiscountMarginCalculator::default();

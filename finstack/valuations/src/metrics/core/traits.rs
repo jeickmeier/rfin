@@ -149,7 +149,7 @@ pub struct MetricContext {
     ///
     /// This is intentionally **not** stored inside `finstack_core::MarketContext` to keep
     /// the core market container strongly typed and fully serializable.
-    pub market_history: Option<Arc<MarketHistory>>,
+    pub(crate) market_history: Option<Arc<MarketHistory>>,
 
     /// Valuation date.
     pub as_of: Date,
@@ -198,9 +198,9 @@ pub struct MetricContext {
     ///
     /// When set, bucketed metrics (e.g., DV01 by tenor) will use this resolver
     /// to produce `MetricId`s instead of default static keys.
-    pub bucket_key_resolver: Option<Arc<BucketKeyResolverFn>>,
+    pub(crate) bucket_key_resolver: Option<Arc<BucketKeyResolverFn>>,
     /// Optional pricing overrides to control metric calculations (e.g., bumps)
-    pub pricing_overrides: Option<crate::instruments::PricingOverrides>,
+    pub(crate) pricing_overrides: Option<crate::instruments::PricingOverrides>,
 
     /// Finstack configuration (tolerances + versioned extensions).
     ///
@@ -210,6 +210,12 @@ pub struct MetricContext {
 }
 
 impl MetricContext {
+    /// Returns a new [`Arc`] containing the default [`FinstackConfig`].
+    #[inline]
+    pub fn default_config() -> Arc<FinstackConfig> {
+        Arc::new(FinstackConfig::default())
+    }
+
     /// Creates a new metric context.
     ///
     /// # Arguments
@@ -217,6 +223,7 @@ impl MetricContext {
     /// * `curves` - Market curves for discounting and forwarding
     /// * `as_of` - Valuation date
     /// * `base_value` - Base present value of the instrument
+    /// * `finstack_config` - Shared configuration controlling tolerances and feature flags
     ///
     /// See unit tests and `examples/` for usage.
     pub fn new(
@@ -224,6 +231,7 @@ impl MetricContext {
         curves: Arc<finstack_core::market_data::context::MarketContext>,
         as_of: Date,
         base_value: Money,
+        finstack_config: Arc<FinstackConfig>,
     ) -> Self {
         Self {
             instrument,
@@ -242,21 +250,7 @@ impl MetricContext {
             notional: None,
             bucket_key_resolver: None,
             pricing_overrides: None,
-            finstack_config: Arc::new(FinstackConfig::default()),
-        }
-    }
-
-    /// Creates a new metric context with an explicit `FinstackConfig`.
-    pub fn new_with_finstack_config(
-        instrument: Arc<dyn Instrument>,
-        curves: Arc<finstack_core::market_data::context::MarketContext>,
-        as_of: Date,
-        base_value: Money,
-        finstack_config: Arc<FinstackConfig>,
-    ) -> Self {
-        Self {
             finstack_config,
-            ..Self::new(instrument, curves, as_of, base_value)
         }
     }
 
@@ -277,10 +271,12 @@ impl MetricContext {
         self.bucket_key_resolver = Some(resolver);
     }
 
-    /// Builder-style setter for a custom bucket key resolver.
-    pub fn with_bucket_key_resolver(mut self, resolver: Arc<BucketKeyResolverFn>) -> Self {
-        self.bucket_key_resolver = Some(resolver);
-        self
+    /// Set pricing overrides used by downstream metric calculators.
+    pub fn set_pricing_overrides(
+        &mut self,
+        overrides: Option<crate::instruments::PricingOverrides>,
+    ) {
+        self.pricing_overrides = overrides;
     }
 
     /// Downcast the instrument to a specific concrete type.

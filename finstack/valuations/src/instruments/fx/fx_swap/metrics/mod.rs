@@ -71,7 +71,7 @@ pub fn register_fx_swap_metrics(registry: &mut MetricRegistry) {
             >::default()),
             (BucketedDv01, crate::metrics::UnifiedDv01Calculator::<
                 crate::instruments::FxSwap,
-            >::new(crate::metrics::Dv01CalculatorConfig::key_rate())),
+            >::new(crate::metrics::Dv01CalculatorConfig::triangular_key_rate())),
         ]
     }
 }

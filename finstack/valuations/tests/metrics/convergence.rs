@@ -77,6 +77,7 @@ fn test_equity_option_greek(
         Arc::new(market.clone()),
         as_of,
         pv,
+        MetricContext::default_config(),
     );
 
     // Compute greek via registry (uses analytical formula for EquityOption)
@@ -183,7 +184,7 @@ fn test_bucketed_dv01_sums_to_parallel() {
     let market = MarketContext::new().insert_discount(disc_curve);
     let registry = standard_registry();
     let pv = bond.value(&market, as_of).unwrap();
-    let mut context = MetricContext::new(Arc::new(bond), Arc::new(market), as_of, pv);
+    let mut context = MetricContext::new(Arc::new(bond), Arc::new(market), as_of, pv, MetricContext::default_config());
 
     // Compute both total DV01 and bucketed DV01
     let results = registry
@@ -303,7 +304,7 @@ fn test_bucketed_cs01_sums_to_total() {
 
     let registry = standard_registry();
     let pv = cds.value(&market, as_of).unwrap();
-    let mut context = MetricContext::new(Arc::new(cds), Arc::new(market), as_of, pv);
+    let mut context = MetricContext::new(Arc::new(cds), Arc::new(market), as_of, pv, MetricContext::default_config());
 
     // Compute both total CS01 and bucketed CS01
     let results = registry
@@ -364,7 +365,7 @@ fn test_bucketed_vega_sums_to_total() {
     let market = create_option_market(as_of, 100.0, 0.25, 0.05);
     let registry = standard_registry();
     let pv = option.value(&market, as_of).unwrap();
-    let mut context = MetricContext::new(Arc::new(option), Arc::new(market), as_of, pv);
+    let mut context = MetricContext::new(Arc::new(option), Arc::new(market), as_of, pv, MetricContext::default_config());
 
     // Compute both total Vega and bucketed Vega
     let results = registry

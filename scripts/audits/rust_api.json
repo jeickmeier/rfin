@@ -10914,7 +10914,6 @@
               ],
               "functions": [
                 "extract_risk_factors",
-                "calculate_portfolio_var",
                 "calculate_var"
               ],
               "modules": {
@@ -10926,15 +10925,7 @@
                   ],
                   "functions": [
                     "new",
-                    "var_95",
-                    "var_99",
-                    "with_confidence",
-                    "with_method",
-                    "new",
-                    "var_95",
-                    "var_99",
-                    "with_confidence",
-                    "with_method"
+                    "new"
                   ],
                   "re_exports": {},
                   "modules": {}
@@ -10983,8 +10974,7 @@
                     "var_99",
                     "with_method",
                     "from_distribution",
-                    "calculate_var",
-                    "calculate_portfolio_var"
+                    "calculate_var"
                   ],
                   "re_exports": {},
                   "modules": {}
@@ -11005,7 +10995,6 @@
                   "RiskFactorType"
                 ],
                 "var_calculator": [
-                  "calculate_portfolio_var",
                   "calculate_var",
                   "VarConfig",
                   "VarMethod",

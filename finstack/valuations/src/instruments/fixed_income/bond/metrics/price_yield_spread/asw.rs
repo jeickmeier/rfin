@@ -103,18 +103,6 @@ pub struct AssetSwapMarketCalculator {
     config: AssetSwapConfig,
 }
 
-/// Asset swap par spread calculator using forward method.
-///
-/// Similar to `AssetSwapParCalculator` but uses forward curve-based calculations
-/// for more accurate pricing of floating-rate legs.
-pub struct AssetSwapParFwdCalculator;
-
-/// Asset swap market spread calculator using forward method.
-///
-/// Similar to `AssetSwapMarketCalculator` but uses forward curve-based calculations
-/// for more accurate pricing of floating-rate legs.
-pub struct AssetSwapMarketFwdCalculator;
-
 impl AssetSwapParCalculator {
     /// Create a par ASW calculator with default behaviour (bond conventions).
     pub fn new() -> Self {
@@ -602,63 +590,3 @@ impl MetricCalculator for AssetSwapMarketCalculator {
     }
 }
 
-impl MetricCalculator for AssetSwapParFwdCalculator {
-    fn dependencies(&self) -> &[MetricId] {
-        &[]
-    }
-
-    fn calculate(&self, context: &mut MetricContext) -> finstack_core::Result<f64> {
-        let bond: &Bond = context.instrument_as()?;
-        let as_of = context.as_of;
-        match &bond.cashflow_spec {
-            CashflowSpec::Floating(spec) => asw_par_with_forward(
-                bond,
-                &context.curves,
-                as_of,
-                spec.rate_spec.index_id.as_str(),
-                spec.rate_spec.spread_bp.to_f64().unwrap_or(0.0),
-            ),
-            _ => Err(finstack_core::InputError::NotFound {
-                id: "bond.cashflow_spec.floating".to_string(),
-            }
-            .into()),
-        }
-    }
-}
-
-impl MetricCalculator for AssetSwapMarketFwdCalculator {
-    fn dependencies(&self) -> &[MetricId] {
-        &[MetricId::Accrued]
-    }
-
-    fn calculate(&self, context: &mut MetricContext) -> finstack_core::Result<f64> {
-        let bond: &Bond = context.instrument_as()?;
-        let as_of = context.as_of;
-        match &bond.cashflow_spec {
-            CashflowSpec::Floating(spec) => {
-                let dirty = if let Some(clean) = bond.pricing_overrides.quoted_clean_price {
-                    let accrued = *context.computed.get(&MetricId::Accrued).ok_or_else(|| {
-                        finstack_core::Error::from(finstack_core::InputError::NotFound {
-                            id: "metric:Accrued".to_string(),
-                        })
-                    })?;
-                    Some(clean * bond.notional.amount() / 100.0 + accrued)
-                } else {
-                    Some(context.base_value.amount())
-                };
-                asw_market_with_forward(
-                    bond,
-                    &context.curves,
-                    as_of,
-                    spec.rate_spec.index_id.as_str(),
-                    spec.rate_spec.spread_bp.to_f64().unwrap_or(0.0),
-                    dirty,
-                )
-            }
-            _ => Err(finstack_core::InputError::NotFound {
-                id: "bond.cashflow_spec.floating".to_string(),
-            }
-            .into()),
-        }
-    }
-}

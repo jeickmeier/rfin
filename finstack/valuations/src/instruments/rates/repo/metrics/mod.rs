@@ -73,7 +73,7 @@ pub fn register_repo_metrics(registry: &mut MetricRegistry) {
             >::default()),
             (BucketedDv01, crate::metrics::UnifiedDv01Calculator::<
                 crate::instruments::Repo,
-            >::new(crate::metrics::Dv01CalculatorConfig::key_rate())),
+            >::new(crate::metrics::Dv01CalculatorConfig::triangular_key_rate())),
         ]
     };
 }
@@ -136,6 +136,7 @@ mod tests {
             std::sync::Arc::new(market_context),
             test_date(2025, 1, 10),
             Money::new(0.0, Currency::USD),
+            MetricContext::default_config(),
         );
 
         let calculator = collateral_value::CollateralValueCalculator;
@@ -152,6 +153,7 @@ mod tests {
             std::sync::Arc::new(market_context),
             test_date(2025, 1, 10),
             Money::new(0.0, Currency::USD),
+            MetricContext::default_config(),
         );
 
         let calculator = required_collateral::RequiredCollateralCalculator;
@@ -169,6 +171,7 @@ mod tests {
             std::sync::Arc::new(market_context),
             test_date(2025, 1, 10),
             Money::new(0.0, Currency::USD),
+            MetricContext::default_config(),
         );
 
         let calculator = effective_rate::EffectiveRateCalculator;
@@ -194,6 +197,7 @@ mod tests {
             std::sync::Arc::new(ctx),
             as_of,
             pv,
+            MetricContext::default_config(),
         );
         // DV01 = PV(bumped) - PV(base); when rates rise, PV falls, so DV01 should be negative
         let res = reg
@@ -215,6 +219,7 @@ mod tests {
             std::sync::Arc::new(ctx),
             as_of,
             pv,
+            MetricContext::default_config(),
         );
         let reg = standard_registry();
         let res = reg
@@ -237,6 +242,7 @@ mod tests {
             std::sync::Arc::new(ctx),
             as_of,
             pv,
+            MetricContext::default_config(),
         );
         let reg = standard_registry();
         let res = reg
@@ -262,6 +268,7 @@ mod tests {
             std::sync::Arc::new(ctx),
             as_of,
             pv,
+            MetricContext::default_config(),
         );
         let reg = standard_registry();
         let res = reg
@@ -304,6 +311,7 @@ mod tests {
             std::sync::Arc::new(ctx),
             as_of,
             pv,
+            MetricContext::default_config(),
         );
         let reg = standard_registry();
         let res = reg

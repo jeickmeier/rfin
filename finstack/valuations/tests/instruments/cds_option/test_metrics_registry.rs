@@ -17,6 +17,7 @@ fn test_metrics_registry_delta() {
         std::sync::Arc::new(market),
         as_of,
         pv,
+        MetricContext::default_config(),
     );
 
     let registry = standard_registry();
@@ -39,6 +40,7 @@ fn test_metrics_registry_all_greeks() {
         std::sync::Arc::new(market),
         as_of,
         pv,
+        MetricContext::default_config(),
     );
 
     let metrics = vec![
@@ -75,6 +77,7 @@ fn test_metrics_registry_implied_vol() {
         std::sync::Arc::new(market),
         as_of,
         pv,
+        MetricContext::default_config(),
     );
 
     let registry = standard_registry();
@@ -96,6 +99,7 @@ fn test_cs01_uses_delta_dependency() {
         std::sync::Arc::new(market),
         as_of,
         pv,
+        MetricContext::default_config(),
     );
 
     // Compute CS01 which should use Delta if available
@@ -127,6 +131,7 @@ fn test_bucketed_dv01_registered() {
         std::sync::Arc::new(market),
         as_of,
         pv,
+        MetricContext::default_config(),
     );
 
     let registry = standard_registry();
@@ -153,6 +158,7 @@ fn test_metrics_near_expiry() {
         std::sync::Arc::new(market),
         as_of,
         pv,
+        MetricContext::default_config(),
     );
 
     let registry = standard_registry();

@@ -43,7 +43,7 @@ pub fn register_interest_rate_option_metrics(registry: &mut MetricRegistry) {
             (ForwardPv01, forward_pv01::ForwardPv01Calculator),
             (BucketedDv01, crate::metrics::UnifiedDv01Calculator::<
                 crate::instruments::cap_floor::InterestRateOption,
-            >::new(crate::metrics::Dv01CalculatorConfig::key_rate())),
+            >::new(crate::metrics::Dv01CalculatorConfig::triangular_key_rate())),
         ]
     }
 }

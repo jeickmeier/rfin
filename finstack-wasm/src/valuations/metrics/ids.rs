@@ -210,10 +210,10 @@ impl JsMetricId {
         JsMetricId::from_inner(MetricId::Oas)
     }
 
-    /// Asset swap spread metric.
+    /// Asset swap par spread metric.
     #[wasm_bindgen(js_name = ASW)]
     pub fn asw() -> JsMetricId {
-        JsMetricId::from_inner(MetricId::ASWSpread)
+        JsMetricId::from_inner(MetricId::ASWPar)
     }
 
     /// Discount margin metric.

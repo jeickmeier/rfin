@@ -145,11 +145,6 @@ impl Dv01CalculatorConfig {
             ..Self::default()
         }
     }
-
-    /// Create config for key-rate DV01 (alias for triangular_key_rate).
-    pub fn key_rate() -> Self {
-        Self::triangular_key_rate()
-    }
 }
 
 // =============================================================================

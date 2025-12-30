@@ -51,7 +51,7 @@ pub fn register_quanto_option_metrics(registry: &mut MetricRegistry) {
                 >::new(crate::metrics::Dv01CalculatorConfig::parallel_combined())),
                 (BucketedDv01, crate::metrics::UnifiedDv01Calculator::<
                     crate::instruments::quanto_option::QuantoOption,
-                >::new(crate::metrics::Dv01CalculatorConfig::key_rate())),
+                >::new(crate::metrics::Dv01CalculatorConfig::triangular_key_rate())),
                 (Vanna, vanna::VannaCalculator),
                 (Volga, volga::VolgaCalculator),
                 // Theta is now registered universally in metrics::standard_registry()

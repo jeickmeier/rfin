@@ -4114,10 +4114,6 @@
               "js_name": "calculateVar"
             },
             {
-              "name": "calculate_portfolio_var_js",
-              "js_name": "calculatePortfolioVar"
-            },
-            {
               "name": "krd_dv01_ladder",
               "js_name": "krdDv01Ladder"
             },
@@ -8707,7 +8703,6 @@
         "scenarios",
         "numScenarios",
         "calculateVar",
-        "calculatePortfolioVar",
         "krdDv01Ladder",
         "cs01Ladder",
         "parallel",

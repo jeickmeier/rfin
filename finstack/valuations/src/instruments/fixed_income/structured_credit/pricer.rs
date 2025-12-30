@@ -14,7 +14,7 @@
 use super::StructuredCredit;
 use crate::cashflow::traits::CashflowProvider;
 use crate::instruments::common::discountable::Discountable;
-use crate::metrics::MetricId;
+use crate::metrics::{MetricContext, MetricId};
 use crate::results::ValuationResult;
 use finstack_core::dates::Date;
 use finstack_core::market_data::context::MarketContext;
@@ -136,6 +136,7 @@ impl StructuredCredit {
             std::sync::Arc::new(context.clone()),
             as_of,
             base_value,
+            MetricContext::default_config(),
         );
         metric_context.cashflows = Some(flows);
         metric_context.discount_curve_id = Some(self.discount_curve_id.to_owned());

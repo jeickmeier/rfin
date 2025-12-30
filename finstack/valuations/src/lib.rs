@@ -170,7 +170,7 @@
 //! - [`instruments`]: concrete instrument types, construction parameters, [`instruments::Instrument`], [`instruments::Attributes`]
 //! - [`pricer`]: [`pricer::PricerRegistry`], [`pricer::ModelKey`], [`pricer::InstrumentType`], [`pricer::PricingError`], [`pricer::create_standard_registry`]
 //! - [`results`]: [`results::ValuationResult`], [`finstack_core::config::ResultsMeta`]
-//! - [`metrics`]: [`metrics::MetricId`], [`metrics::MetricRegistry`], [`metrics::MetricCalculator`], [`metrics::MetricContext`], [`metrics::StrictMode`], [`metrics::standard_registry`], plus VaR/Risk entry points
+//! - [`metrics`]: [`metrics::MetricId`], [`metrics::MetricRegistry`], [`metrics::MetricCalculator`], [`metrics::MetricContext`], [`metrics::standard_registry`], plus VaR/Risk entry points
 //! - [`market`]: quote schemas and conventions
 //! - [`calibration::api`]: plan schema and execution engine (contract-only surface)
 //! - [`calibration::bumps`]: shared re-calibration helpers for scenarios and risk

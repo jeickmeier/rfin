@@ -41,7 +41,7 @@ pub fn register_swaption_metrics(registry: &mut MetricRegistry) {
             (ImpliedVol, ImpliedVolCalculator),
             (BucketedDv01, crate::metrics::UnifiedDv01Calculator::<
                 crate::instruments::Swaption,
-            >::new(crate::metrics::Dv01CalculatorConfig::key_rate())),
+            >::new(crate::metrics::Dv01CalculatorConfig::triangular_key_rate())),
         ]
     }
 }
@@ -61,7 +61,7 @@ pub fn register_bermudan_swaption_metrics(registry: &mut MetricRegistry) {
             >::new(crate::metrics::Dv01CalculatorConfig::parallel_combined())),
             (BucketedDv01, crate::metrics::UnifiedDv01Calculator::<
                 crate::instruments::swaption::BermudanSwaption,
-            >::new(crate::metrics::Dv01CalculatorConfig::key_rate())),
+            >::new(crate::metrics::Dv01CalculatorConfig::triangular_key_rate())),
             (Rho, crate::metrics::GenericRho::<
                 crate::instruments::swaption::BermudanSwaption,
             >::default()),

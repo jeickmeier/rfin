@@ -849,7 +849,7 @@ mod tests {
 
         let base_value = inst.value(&market, as_of).expect("base pv");
         let registry = registry_for_test::<TestFdInstrument>();
-        let mut ctx = MetricContext::new(Arc::new(inst), Arc::new(market), as_of, base_value);
+        let mut ctx = MetricContext::new(Arc::new(inst), Arc::new(market), as_of, base_value, MetricContext::default_config());
 
         let result = registry
             .compute(&[MetricId::Delta], &mut ctx)
@@ -869,7 +869,7 @@ mod tests {
 
         let base_value = inst.value(&market, as_of).expect("base pv");
         let registry = registry_for_test::<TestFdInstrument>();
-        let mut ctx = MetricContext::new(Arc::new(inst), Arc::new(market), as_of, base_value);
+        let mut ctx = MetricContext::new(Arc::new(inst), Arc::new(market), as_of, base_value, MetricContext::default_config());
 
         let result = registry
             .compute(&[MetricId::Gamma], &mut ctx)
@@ -892,7 +892,7 @@ mod tests {
         assert_eq!(base_value.amount(), 0.0, "rounded Money should be zero");
 
         let registry = registry_for_test::<RoundingSensitiveInstrument>();
-        let mut ctx = MetricContext::new(Arc::new(inst), Arc::new(market), as_of, base_value);
+        let mut ctx = MetricContext::new(Arc::new(inst), Arc::new(market), as_of, base_value, MetricContext::default_config());
 
         let result = registry
             .compute(&[MetricId::Delta], &mut ctx)
@@ -917,7 +917,7 @@ mod tests {
         assert_eq!(base_value.amount(), 0.0, "expired base pv should be zero");
 
         let registry = registry_for_test::<TestFdInstrument>();
-        let mut ctx = MetricContext::new(Arc::new(inst), Arc::new(market), as_of, base_value);
+        let mut ctx = MetricContext::new(Arc::new(inst), Arc::new(market), as_of, base_value, MetricContext::default_config());
 
         let result = registry
             .compute(&[MetricId::Delta, MetricId::Gamma], &mut ctx)

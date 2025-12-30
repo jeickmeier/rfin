@@ -98,6 +98,7 @@ mod tests {
                 Arc::new(market.clone()),
                 as_of,
                 pv,
+                MetricContext::default_config(),
             );
 
             let metric_id_clone = metric_id.clone();

@@ -591,7 +591,7 @@ mod tests {
         let market = Arc::new(MarketContext::new());
         let as_of = Date::from_calendar_date(2024, time::Month::January, 1).unwrap();
         let base_value = Money::new(100.0, Try(Currency::USD)).unwrap();
-        MetricContext::new(instrument, market, as_of, base_value)
+        MetricContext::new(instrument, market, as_of, base_value, MetricContext::default_config())
     }
 
     #[test]

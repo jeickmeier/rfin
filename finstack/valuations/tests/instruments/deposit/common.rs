@@ -177,7 +177,7 @@ pub fn setup_metric_context(base: Date) -> (Deposit, MarketContext, MetricContex
 
     let instrument_arc: Arc<dyn finstack_valuations::instruments::common::traits::Instrument> =
         Arc::new(dep.clone());
-    let metric_ctx = MetricContext::new(instrument_arc, Arc::new(ctx.clone()), base, base_val);
+    let metric_ctx = MetricContext::new(instrument_arc, Arc::new(ctx.clone()), base, base_val, MetricContext::default_config());
 
     let mut registry = MetricRegistry::new();
     finstack_valuations::instruments::deposit::metrics::register_deposit_metrics(&mut registry);
@@ -198,7 +198,7 @@ pub fn compute_metric(
     let base_val = deposit.npv(ctx, base).unwrap();
     let instrument_arc: Arc<dyn finstack_valuations::instruments::common::traits::Instrument> =
         Arc::new(deposit.clone());
-    let mut metric_ctx = MetricContext::new(instrument_arc, Arc::new(ctx.clone()), base, base_val);
+    let mut metric_ctx = MetricContext::new(instrument_arc, Arc::new(ctx.clone()), base, base_val, MetricContext::default_config());
 
     let results = registry
         .compute(std::slice::from_ref(&metric_id), &mut metric_ctx)
@@ -219,7 +219,7 @@ pub fn compute_metrics(
     let base_val = deposit.npv(ctx, base).unwrap();
     let instrument_arc: Arc<dyn finstack_valuations::instruments::common::traits::Instrument> =
         Arc::new(deposit.clone());
-    let mut metric_ctx = MetricContext::new(instrument_arc, Arc::new(ctx.clone()), base, base_val);
+    let mut metric_ctx = MetricContext::new(instrument_arc, Arc::new(ctx.clone()), base, base_val, MetricContext::default_config());
 
     registry.compute(metric_ids, &mut metric_ctx).unwrap()
 }

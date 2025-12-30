@@ -116,7 +116,7 @@ pub fn register_term_loan_metrics(registry: &mut MetricRegistry) {
             >::new(crate::metrics::Dv01CalculatorConfig::parallel_combined())),
             (BucketedDv01, crate::metrics::UnifiedDv01Calculator::<
                 crate::instruments::TermLoan,
-            >::new(crate::metrics::Dv01CalculatorConfig::key_rate())),
+            >::new(crate::metrics::Dv01CalculatorConfig::triangular_key_rate())),
 
             (Cs01, crate::metrics::GenericParallelCs01::<
                 crate::instruments::TermLoan,

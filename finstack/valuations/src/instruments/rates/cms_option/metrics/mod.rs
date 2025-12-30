@@ -34,7 +34,7 @@ pub fn register_cms_option_metrics(registry: &mut MetricRegistry) {
             >::default()),
             (BucketedDv01, crate::metrics::UnifiedDv01Calculator::<
                 crate::instruments::CmsOption,
-            >::new(crate::metrics::Dv01CalculatorConfig::key_rate())),
+            >::new(crate::metrics::Dv01CalculatorConfig::triangular_key_rate())),
         ]
     }
 

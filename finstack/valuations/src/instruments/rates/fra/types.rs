@@ -467,7 +467,7 @@ mod tests {
             .expect("PV calculation failed");
 
         let calc = FraParRateCalculator;
-        let mut m_ctx = MetricContext::new(fra_arc as Arc<dyn Instrument>, ctx_arc, base, base_pv);
+        let mut m_ctx = MetricContext::new(fra_arc as Arc<dyn Instrument>, ctx_arc, base, base_pv, MetricContext::default_config());
 
         let par_rate = calc
             .calculate(&mut m_ctx)

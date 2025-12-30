@@ -60,10 +60,9 @@ pub use convexity::ConvexityCalculator;
 pub use duration_macaulay::MacaulayDurationCalculator;
 pub use duration_modified::ModifiedDurationCalculator;
 pub use price_yield_spread::{
-    AssetSwapMarketCalculator, AssetSwapMarketFwdCalculator, AssetSwapParCalculator,
-    AssetSwapParFwdCalculator, CleanPriceCalculator, DirtyPriceCalculator,
-    DiscountMarginCalculator, EmbeddedOptionValueCalculator, ISpreadCalculator, OasCalculator,
-    YtmCalculator, YtwCalculator, ZSpreadCalculator,
+    AssetSwapMarketCalculator, AssetSwapParCalculator, CleanPriceCalculator,
+    DirtyPriceCalculator, DiscountMarginCalculator, EmbeddedOptionValueCalculator,
+    ISpreadCalculator, OasCalculator, YtmCalculator, YtwCalculator, ZSpreadCalculator,
 };
 
 /// Registers all bond metrics to a registry.
@@ -108,8 +107,6 @@ pub fn register_bond_metrics(registry: &mut crate::metrics::MetricRegistry) {
             (DiscountMargin, DiscountMarginCalculator::default()),
             (ASWPar, AssetSwapParCalculator::default()),
             (ASWMarket, AssetSwapMarketCalculator::default()),
-            (ASWParFwd, AssetSwapParFwdCalculator),
-            (ASWMarketFwd, AssetSwapMarketFwdCalculator),
 
             // Theta is now registered universally in metrics::standard_registry()
 
@@ -118,7 +115,7 @@ pub fn register_bond_metrics(registry: &mut crate::metrics::MetricRegistry) {
             >::new(crate::metrics::Dv01CalculatorConfig::parallel_combined())),
             (BucketedDv01, crate::metrics::UnifiedDv01Calculator::<
                 crate::instruments::Bond,
-            >::new(crate::metrics::Dv01CalculatorConfig::key_rate())),
+            >::new(crate::metrics::Dv01CalculatorConfig::triangular_key_rate())),
 
             (Cs01, crate::metrics::GenericParallelCs01::<
                 crate::instruments::Bond,

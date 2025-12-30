@@ -64,6 +64,7 @@ mod tests {
             Arc::new(MarketContext::new()),
             as_of,
             base_value,
+            MetricContext::default_config(),
         );
         let calc = BaseAmountCalculator;
         let amount = calc.calculate(&mut ctx).expect("should succeed");

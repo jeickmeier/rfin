@@ -849,6 +849,7 @@ fn test_bond_future_dv01_calculation() {
         Arc::new(market.clone()),
         as_of,
         pv,
+        MetricContext::default_config(),
     );
 
     // Get metrics registry
@@ -1014,6 +1015,7 @@ fn test_bond_future_dv01_sign_convention() {
         Arc::new(market.clone()),
         as_of,
         pv_long,
+        MetricContext::default_config(),
     );
 
     let registry = standard_registry();
@@ -1029,6 +1031,7 @@ fn test_bond_future_dv01_sign_convention() {
         Arc::new(market.clone()),
         as_of,
         pv_short,
+        MetricContext::default_config(),
     );
 
     let results_short = registry
@@ -1190,7 +1193,7 @@ fn test_bucketed_dv01_registration() {
     );
 
     println!("✓ BucketedDv01 metric is correctly registered for BondFuture");
-    println!("  - Uses UnifiedDv01Calculator with key_rate() configuration");
+    println!("  - Uses UnifiedDv01Calculator with triangular_key_rate() configuration");
     println!("  - Provides standard IR buckets: 3M, 6M, 1Y, 2Y, 3Y, 5Y, 7Y, 10Y, 15Y, 20Y, 30Y");
     println!("  - Conversion factor scaling is automatic via pricing formula");
 }
