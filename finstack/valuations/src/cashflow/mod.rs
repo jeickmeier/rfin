@@ -67,7 +67,7 @@
 //! ];
 //!
 //! // Aggregate using explicit target currency
-//! let aggregated = aggregate_cashflows_precise_checked(&flows, Currency::USD)?.expect("should succeed");
+//! let aggregated = aggregate_cashflows_precise_checked(&flows, Currency::USD)?;
 //! assert_eq!(aggregated.amount(), Money::new(100_000.0, Currency::USD).amount());
 //! # Ok(())
 //! # }
@@ -136,8 +136,8 @@
 //!
 //! ### From a Schedule Directly
 //!
-//! For lower-level control, use [`builder::CashFlowSchedule::pre_period_pv`] or
-//! [`builder::CashFlowSchedule::pre_period_pv_with_market`] directly.
+//! For lower-level control, use [`builder::CashFlowSchedule::pv_by_period`] or
+//! [`builder::CashFlowSchedule::pv_by_period_with_market`] directly.
 //!
 //! # See Also
 //!

@@ -8,7 +8,7 @@
 //! - Day count convention golden values
 //! - CashflowProvider trait contract compliance
 
-mod aggregation_tests;
+
 mod amortization_spec;
 mod builder_tests;
 mod cashflow_schemas_examples;

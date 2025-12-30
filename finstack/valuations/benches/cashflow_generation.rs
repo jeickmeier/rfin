@@ -174,7 +174,6 @@ fn bench_kahan_summation(c: &mut Criterion) {
             |b, _| {
                 b.iter(|| {
                     let _ = aggregate_cashflows_precise_checked(black_box(&flows), Currency::USD)
-                        .unwrap()
                         .unwrap();
                 });
             },

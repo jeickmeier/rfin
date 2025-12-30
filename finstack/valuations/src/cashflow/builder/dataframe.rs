@@ -189,48 +189,9 @@ impl PeriodDataFrame {
         }
     }
 
-    /// Create an empty DataFrame.
-    fn empty() -> Self {
-        Self::with_capacity(0)
-    }
 }
 
 impl CashFlowSchedule {
-    /// Export all cashflows as DataFrame without period filtering.
-    ///
-    /// Convenience wrapper that creates a single period spanning all cashflows.
-    /// Useful for debugging and full schedule inspection.
-    ///
-    /// # Arguments
-    ///
-    /// * `market` - Market context containing discount curves
-    /// * `discount_curve_id` - ID of the discount curve to use
-    /// * `options` - Additional configuration (hazard/forward IDs, overrides, facility limits)
-    ///
-    /// # Returns
-    ///
-    /// A `PeriodDataFrame` with all cashflows included.
-    pub fn to_dataframe(
-        &self,
-        market: &MarketContext,
-        discount_curve_id: &str,
-        options: PeriodDataFrameOptions<'_>,
-    ) -> finstack_core::Result<PeriodDataFrame> {
-        // Early return for empty flows; otherwise extract bounds
-        let (first, last) = match (self.flows.first(), self.flows.last()) {
-            (Some(f), Some(l)) => (f.date, l.date),
-            _ => return Ok(PeriodDataFrame::empty()),
-        };
-        let period = Period {
-            id: finstack_core::dates::PeriodId::annual(first.year()),
-            start: first,
-            end: last,
-            is_actual: true,
-        };
-
-        self.to_period_dataframe(&[period], market, discount_curve_id, options)
-    }
-
     /// Period-aligned DataFrame-like export with optional credit and floating decomposition.
     ///
     /// This computes all derived columns (discount factors, survival probabilities,
@@ -273,7 +234,7 @@ impl CashFlowSchedule {
     ///
     /// This reuses allocations in `out` when possible and preserves the
     /// input ordering of cashflows.
-    pub fn to_period_dataframe_into(
+    pub(crate) fn to_period_dataframe_into(
         &self,
         periods: &[Period],
         market: &MarketContext,

@@ -1199,7 +1199,6 @@
                 "aggregate_by_period",
                 "aggregate_cashflows_precise_checked",
                 "pv_by_period_with_ctx",
-                "pv_by_period_credit_adjusted_with_ctx",
                 "new",
                 "pv_by_period_credit_adjusted_detailed"
               ],
@@ -1242,9 +1241,7 @@
                   "functions": [
                     "with_capacity",
                     "clear",
-                    "to_dataframe",
-                    "to_period_dataframe",
-                    "to_period_dataframe_into"
+                    "to_period_dataframe"
                   ],
                   "re_exports": {},
                   "modules": {}
@@ -1269,15 +1266,10 @@
                   ],
                   "functions": [
                     "with_spread",
-                    "with_spread_bps",
                     "new_standard",
-                    "new_standard_bps",
                     "new_affine",
-                    "new_affine_bps",
                     "with_spread_and_floor",
-                    "with_spread_and_floor_bps",
                     "with_full",
-                    "with_full_bps",
                     "validate",
                     "calculate_floating_rate",
                     "project_fallback_rate",
@@ -1296,11 +1288,11 @@
                   "functions": [
                     "builder",
                     "dates",
-                    "outstanding_path",
+                    "outstanding_path_per_flow",
                     "coupons",
                     "outstanding_by_date",
-                    "pre_period_pv_with_ctx",
-                    "pre_period_pv_with_market_and_ctx"
+                    "pv_by_period_with_ctx",
+                    "pv_by_period_with_market_and_ctx"
                   ],
                   "re_exports": {},
                   "modules": {}
@@ -1330,7 +1322,6 @@
                   ],
                   "functions": [
                     "evaluate_fee_tiers",
-                    "evaluate_fee_tiers_f64"
                   ],
                   "modules": {},
                   "re_exports": {
@@ -1351,7 +1342,6 @@
                     ],
                     "fees": [
                       "evaluate_fee_tiers",
-                      "evaluate_fee_tiers_f64",
                       "FeeBase",
                       "FeeSpec",
                       "FeeTier"

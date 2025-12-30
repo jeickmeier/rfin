@@ -418,7 +418,7 @@ let schedule = CashFlowSchedule::builder()
 
 // Compute periodized PV
 let periods = vec![/* quarterly periods */];
-let pv_map = schedule.pre_period_pv_with_ctx(
+let pv_map = schedule.pv_by_period_with_ctx(
     &periods,
     &discount_curve,
     as_of,

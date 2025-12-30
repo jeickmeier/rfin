@@ -57,6 +57,7 @@ pub fn d(year: i32, month: u8, day: u8) -> Date {
 /// - DF(t) decreases monotonically for positive rates
 /// - DF(t) > 0 for all t
 #[derive(Debug, Clone)]
+#[allow(dead_code)] // Test helper utility
 pub struct FlatRateCurve {
     pub id: CurveId,
     pub base: Date,
@@ -66,6 +67,7 @@ pub struct FlatRateCurve {
 
 impl FlatRateCurve {
     /// Create a new flat rate curve.
+    #[allow(dead_code)] // Test helper utility
     pub fn new(id: impl Into<String>, base: Date, rate: f64) -> Self {
         Self {
             id: CurveId::new(id),
@@ -105,6 +107,7 @@ impl Discounting for FlatRateCurve {
 /// - SP(t) > 0 for all t
 /// - SP(t) <= 1.0 for all t >= 0
 #[derive(Debug, Clone)]
+#[allow(dead_code)] // Test helper utility
 pub struct FlatHazardRateCurve {
     pub id: CurveId,
     /// Hazard rate (intensity parameter, e.g., 0.02 for ~2% annual default probability)
@@ -113,6 +116,7 @@ pub struct FlatHazardRateCurve {
 
 impl FlatHazardRateCurve {
     /// Create a new flat hazard rate curve.
+    #[allow(dead_code)] // Test helper utility
     pub fn new(id: impl Into<String>, lambda: f64) -> Self {
         Self {
             id: CurveId::new(id),

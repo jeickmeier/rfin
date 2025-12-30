@@ -441,8 +441,8 @@ let redemptions = schedule.flows.iter()
 let all_coupons = schedule.coupons();  // Fixed + Stub kinds
 
 // Outstanding balance tracking
-// outstanding_path: One entry per flow (Amortization, PIK only)
-let path: Vec<(Date, Money)> = schedule.outstanding_path()?;
+// outstanding_path_per_flow: One entry per flow (Amortization, PIK only)
+let path: Vec<(Date, Money)> = schedule.outstanding_path_per_flow()?;
 
 // outstanding_by_date: One entry per date (includes Notional draws/repays)
 // This is the canonical method for instruments like revolving credit facilities
@@ -496,17 +496,19 @@ let pv_map = pv_by_period_with_ctx(
 #### Credit-Adjusted PV
 
 ```rust
-use finstack_valuations::cashflow::aggregation::pv_by_period_credit_adjusted_with_ctx;
-use finstack_core::market_data::traits::Survival;
+use finstack_valuations::cashflow::builder::CashFlowSchedule;
+use finstack_core::market_data::traits::{Discounting, Survival};
 use finstack_core::dates::DayCountCtx;
 
+let schedule: CashFlowSchedule = /* build schedule */;
+let disc: &dyn Discounting = /* discount curve */;
 let hazard: &dyn Survival = /* hazard curve */;
 
-let pv_map = pv_by_period_credit_adjusted_with_ctx(
-    &flows,
+let pv_map = schedule.pv_by_period_with_survival_and_ctx(
     &periods,
     disc,
     Some(hazard),
+    Some(0.40),
     base,
     DayCount::Act365F,
     DayCountCtx::default(),
@@ -588,7 +590,7 @@ impl CashflowProvider for MyInstrument {
 use finstack_core::dates::DayCountCtx;
 
 // Direct from schedule (convenience method, explicit day-count context)
-let pv_map = schedule.pre_period_pv_with_ctx(
+let pv_map = schedule.pv_by_period_with_ctx(
     &periods,
     disc,
     base,
@@ -597,7 +599,7 @@ let pv_map = schedule.pre_period_pv_with_ctx(
 )?;
 
 // With market context (supports credit adjustment, explicit day-count context)
-let pv_map = schedule.pre_period_pv_with_market_and_ctx(
+let pv_map = schedule.pv_by_period_with_market_and_ctx(
     &periods,
     &market,
     &CurveId::new("USD-OIS"),
@@ -840,7 +842,7 @@ let market = MarketContext::new()
     .insert_hazard(hazard_curve);
 
 // Compute credit-adjusted period PVs
-let pv_map = schedule.pre_period_pv_with_market_and_ctx(
+let pv_map = schedule.pv_by_period_with_market_and_ctx(
     &periods,
     &market,
     &CurveId::new("USD-OIS"),
@@ -1026,7 +1028,8 @@ pub(crate) fn emit_outstanding_fee(
     dates: &[Date],
 ) -> finstack_core::Result<Vec<CashFlow>> {
     let mut fees = Vec::new();
-    let outstanding_path = builder.outstanding_path()?;
+    let schedule = builder.build_with_curves(None)?;
+    let outstanding_path = schedule.outstanding_path_per_flow()?;
     
     for &date in dates {
         if let Some(&(_, outstanding)) = outstanding_path.iter()
@@ -1142,7 +1145,7 @@ let instrument_pvs: Vec<Money> = instruments.par_iter()
     .map(|inst| {
         let schedule = inst.build_full_schedule(&market, as_of)?;
         let pv_map = schedule
-            .pre_period_pv_with_ctx(&periods, disc, base, dc, DayCountCtx::default())
+            .pv_by_period_with_ctx(&periods, disc, base, dc, DayCountCtx::default())
             .expect("period PV calculation should succeed");
         pv_map
             .values()
@@ -1247,7 +1250,7 @@ fn test_periodized_pv_matches_npv() {
     
     // Periodized PV with explicit context
     let pv_map = schedule
-        .pre_period_pv_with_ctx(&periods, &disc, base, DayCount::Act365F, DayCountCtx::default())
+        .pv_by_period_with_ctx(&periods, &disc, base, DayCount::Act365F, DayCountCtx::default())
         .unwrap();
     let period_sum: f64 = pv_map.values()
         .flat_map(|m| m.values())

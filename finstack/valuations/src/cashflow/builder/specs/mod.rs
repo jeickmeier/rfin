@@ -35,7 +35,7 @@ mod schedule;
 pub use amortization::{AmortizationSpec, Notional};
 pub use coupon::{CouponType, FixedCouponSpec, FloatingCouponSpec, FloatingRateSpec};
 pub use default::{DefaultCurve, DefaultEvent, DefaultModelSpec};
-pub use fees::{evaluate_fee_tiers, evaluate_fee_tiers_f64, FeeBase, FeeSpec, FeeTier};
+pub use fees::{evaluate_fee_tiers, FeeBase, FeeSpec, FeeTier};
 pub use prepayment::{PrepaymentCurve, PrepaymentModelSpec};
 pub use recovery::RecoveryModelSpec;
 pub use schedule::{FixedWindow, FloatCouponParams, FloatWindow, ScheduleParams};

@@ -162,20 +162,16 @@ pub trait PeriodizedPvExt: CashflowProvider + HasDiscountCurve {
         base: Date,
         dc: DayCount,
     ) -> finstack_core::Result<IndexMap<PeriodId, IndexMap<Currency, Money>>> {
-        // Build simplified schedule (holder perspective, filtered flows)
-        // This matches the behavior of schedule_pv_using_curve_dc used in instrument pricing
-        let flows = self.build_dated_flows(market, base)?;
-
-        // Use the instrument's discount curve
-        let disc_curve_id = self.discount_curve_id();
-        let disc_arc = market.get_discount(disc_curve_id.as_str())?;
-        let disc: &dyn finstack_core::market_data::traits::Discounting = disc_arc.as_ref();
-
-        // Use aggregation directly on filtered flows
-        use crate::cashflow::aggregation::pv_by_period_with_ctx;
+        use crate::cashflow::traits::schedule_from_dated_flows;
         use finstack_core::dates::DayCountCtx;
 
-        pv_by_period_with_ctx(&flows, periods, disc, base, dc, DayCountCtx::default())
+        let flows = self.build_dated_flows(market, base)?;
+        let schedule = schedule_from_dated_flows(flows, self.notional());
+
+        let disc_curve_id = self.discount_curve_id();
+        let disc_arc = market.get_discount(disc_curve_id.as_str())?;
+
+        schedule.pv_by_period_with_ctx(periods, disc_arc.as_ref(), base, dc, DayCountCtx::default())
     }
 
     /// Compute present values aggregated by period with optional credit adjustment.
@@ -265,22 +261,17 @@ pub trait PeriodizedPvExt: CashflowProvider + HasDiscountCurve {
 
         // Resolve discount and hazard curves once to avoid duplicated logic.
         let disc_curve_id = self.discount_curve_id();
-        let curves = resolve_credit_curves(market, disc_curve_id, Some(hazard_curve_id))?;
-        let disc: &dyn finstack_core::market_data::traits::Discounting = curves.discounting();
-        let hazard = curves.hazard_survival();
-        let recovery_rate = curves.recovery_rate();
-
-        // Use credit-adjusted aggregation detailed
-        use crate::cashflow::aggregation::{pv_by_period_credit_adjusted_detailed, DateContext};
+        let _ = resolve_credit_curves(market, disc_curve_id, Some(hazard_curve_id))?;
         use finstack_core::dates::DayCountCtx;
 
-        pv_by_period_credit_adjusted_detailed(
-            &schedule.flows,
+        schedule.pv_by_period_with_market_and_ctx(
             periods,
-            disc,
-            hazard,
-            recovery_rate,
-            DateContext::new(base, dc, DayCountCtx::default()),
+            market,
+            disc_curve_id,
+            Some(hazard_curve_id),
+            base,
+            dc,
+            DayCountCtx::default(),
         )
     }
 }
@@ -292,7 +283,7 @@ impl<T> PeriodizedPvExt for T where T: CashflowProvider + HasDiscountCurve {}
 #[allow(clippy::expect_used, clippy::unwrap_used, clippy::panic)]
 mod tests {
     use super::*;
-    use crate::cashflow::aggregation::{pv_by_period_credit_adjusted_detailed, DateContext};
+    use crate::cashflow::aggregation::DateContext;
     use crate::instruments::Bond;
     use finstack_core::currency::Currency;
     use finstack_core::dates::DayCountCtx;
@@ -612,15 +603,16 @@ mod tests {
         let disc_ref: &dyn finstack_core::market_data::traits::Discounting = &disc_curve;
         let hazard_ref: &dyn finstack_core::market_data::traits::Survival = &hazard_curve;
 
-        let detailed = pv_by_period_credit_adjusted_detailed(
-            &schedule.flows,
-            &periods,
-            disc_ref,
-            Some(hazard_ref),
-            Some(hazard_curve.recovery_rate()),
-            DateContext::new(base, DayCount::Act365F, DayCountCtx::default()),
-        )
-        .expect("Detailed aggregation should succeed");
+        let date_ctx = DateContext::new(base, DayCount::Act365F, DayCountCtx::default());
+        let detailed = schedule
+            .pv_by_period_with_survival_and_ctx(
+                &periods,
+                disc_ref,
+                Some(hazard_ref),
+                Some(hazard_curve.recovery_rate()),
+                date_ctx,
+            )
+            .expect("Detailed aggregation should succeed");
 
         assert_eq!(pv_credit, detailed);
     }

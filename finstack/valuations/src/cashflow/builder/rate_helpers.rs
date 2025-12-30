@@ -26,7 +26,6 @@
 use finstack_core::dates::{Date, DayCountCtx};
 use finstack_core::market_data::context::MarketContext;
 use finstack_core::market_data::term_structures::ForwardCurve;
-use finstack_core::types::Bps;
 use finstack_core::Result;
 
 /// Parameters for floating rate projection.
@@ -88,16 +87,6 @@ impl FloatingRateParams {
         }
     }
 
-    /// Create params with spread specified in basis points.
-    ///
-    /// Prefer this overload to avoid ambiguity between decimals and bps.
-    pub fn with_spread_bps(spread_bp: Bps) -> Self {
-        Self {
-            spread_bp: spread_bp.as_bps() as f64,
-            ..Default::default()
-        }
-    }
-
     /// Create standard (gearing includes spread) parameters: `(Index + Spread) * Gearing`.
     ///
     /// This is the default market standard for most leveraged floaters.
@@ -110,32 +99,12 @@ impl FloatingRateParams {
         }
     }
 
-    /// Create standard parameters using a typed spread in basis points.
-    pub fn new_standard_bps(spread_bp: Bps, gearing: f64) -> Self {
-        Self {
-            spread_bp: spread_bp.as_bps() as f64,
-            gearing,
-            gearing_includes_spread: true,
-            ..Default::default()
-        }
-    }
-
     /// Create affine (gearing excludes spread) parameters: `(Index * Gearing) + Spread`.
     ///
     /// Use this for models where the spread is additive to the leveraged index.
     pub fn new_affine(spread_bp: f64, gearing: f64) -> Self {
         Self {
             spread_bp,
-            gearing,
-            gearing_includes_spread: false,
-            ..Default::default()
-        }
-    }
-
-    /// Create affine parameters using a typed spread in basis points.
-    pub fn new_affine_bps(spread_bp: Bps, gearing: f64) -> Self {
-        Self {
-            spread_bp: spread_bp.as_bps() as f64,
             gearing,
             gearing_includes_spread: false,
             ..Default::default()
@@ -160,15 +129,6 @@ impl FloatingRateParams {
         }
     }
 
-    /// Create params with spread and index floor specified in basis points.
-    pub fn with_spread_and_floor_bps(spread_bp: Bps, floor_bp: Bps) -> Self {
-        Self {
-            spread_bp: spread_bp.as_bps() as f64,
-            index_floor_bp: Some(floor_bp.as_bps() as f64),
-            ..Default::default()
-        }
-    }
-
     /// Create params with spread, gearing, index floor, and all-in cap.
     ///
     /// This is the most common configuration for leveraged floaters.
@@ -186,24 +146,6 @@ impl FloatingRateParams {
             index_cap_bp: None,
             all_in_floor_bp: None,
             all_in_cap_bp,
-        }
-    }
-
-    /// Create params with spread, index floor, and all-in cap specified in basis points.
-    pub fn with_full_bps(
-        spread_bp: Bps,
-        gearing: f64,
-        index_floor_bp: Option<Bps>,
-        all_in_cap_bp: Option<Bps>,
-    ) -> Self {
-        Self {
-            spread_bp: spread_bp.as_bps() as f64,
-            gearing,
-            gearing_includes_spread: true,
-            index_floor_bp: index_floor_bp.map(|v| v.as_bps() as f64),
-            index_cap_bp: None,
-            all_in_floor_bp: None,
-            all_in_cap_bp: all_in_cap_bp.map(|v| v.as_bps() as f64),
         }
     }
 

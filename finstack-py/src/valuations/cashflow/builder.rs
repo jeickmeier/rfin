@@ -4,7 +4,7 @@ use crate::core::market_data::context::PyMarketContext;
 use crate::core::market_data::term_structures::PyDiscountCurve;
 use crate::core::money::PyMoney;
 use crate::errors::core_to_py;
-use finstack_core::dates::Period;
+use finstack_core::dates::{Period, PeriodId};
 use finstack_core::money::Money;
 use finstack_core::types::CurveId;
 use finstack_core::HashMap;
@@ -535,9 +535,22 @@ impl PyCashFlowSchedule {
             include_floating_decomposition: false,
         };
 
+        let periods: Vec<Period> = if let (Some(first), Some(last)) =
+            (self.inner.flows.first(), self.inner.flows.last())
+        {
+            vec![Period {
+                id: PeriodId::annual(first.date.year()),
+                start: first.date,
+                end: last.date,
+                is_actual: true,
+            }]
+        } else {
+            Vec::new()
+        };
+
         let frame = self
             .inner
-            .to_dataframe(&mkt.inner, curve_id, options)
+            .to_period_dataframe(&periods, &mkt.inner, curve_id, options)
             .map_err(core_to_py)?;
 
         // Convert dates to strings for Polars
@@ -658,7 +671,7 @@ impl PyCashFlowSchedule {
 
             let pv_result = self
                 .inner
-                .pre_period_pv_with_market_and_ctx(
+                .pv_by_period_with_market_and_ctx(
                     &periods_vec,
                     &market.inner,
                     &disc_curve_id,
@@ -685,7 +698,7 @@ impl PyCashFlowSchedule {
 
             let pv_map = self
                 .inner
-                .pre_period_pv_with_ctx(
+                .pv_by_period_with_ctx(
                     &periods_vec,
                     disc_curve.inner.as_ref(),
                     base,

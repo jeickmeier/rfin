@@ -9,8 +9,9 @@ use finstack_core::money::Money;
 use finstack_core::types::{Bps, CurveId, InstrumentId, Rate};
 use rust_decimal::Decimal;
 
-use crate::cashflow::builder::{evaluate_fee_tiers_f64, FeeTier, FloatingRateSpec};
+use crate::cashflow::builder::{evaluate_fee_tiers, FeeTier, FloatingRateSpec};
 use crate::instruments::common::traits::Attributes;
+use rust_decimal::prelude::ToPrimitive;
 
 /// Revolving credit facility instrument.
 ///
@@ -278,7 +279,10 @@ impl RevolvingCreditFees {
     /// Tiers should be sorted by threshold ascending.
     /// If no tiers match or tiers are empty, returns 0.0.
     pub fn commitment_fee_bps(&self, utilization: f64) -> f64 {
-        evaluate_fee_tiers_f64(&self.commitment_fee_tiers, utilization)
+        let util = Decimal::try_from(utilization).unwrap_or(Decimal::ZERO);
+        evaluate_fee_tiers(&self.commitment_fee_tiers, util)
+            .to_f64()
+            .unwrap_or(0.0)
     }
 
     /// Get usage fee bps for given utilization (evaluates tiers).
@@ -287,7 +291,10 @@ impl RevolvingCreditFees {
     /// Tiers should be sorted by threshold ascending.
     /// If no tiers match or tiers are empty, returns 0.0.
     pub fn usage_fee_bps(&self, utilization: f64) -> f64 {
-        evaluate_fee_tiers_f64(&self.usage_fee_tiers, utilization)
+        let util = Decimal::try_from(utilization).unwrap_or(Decimal::ZERO);
+        evaluate_fee_tiers(&self.usage_fee_tiers, util)
+            .to_f64()
+            .unwrap_or(0.0)
     }
 }
 
