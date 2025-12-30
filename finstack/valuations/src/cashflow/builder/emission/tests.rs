@@ -261,7 +261,8 @@ mod credit_emission_tests {
             spec.stub,
             spec.bdc,
             spec.calendar_id.as_deref(),
-        );
+        )
+        .expect("schedule should build");
 
         let mut outstanding_after = finstack_core::HashMap::default();
         outstanding_after.insert(issue, 1_000_000.0);

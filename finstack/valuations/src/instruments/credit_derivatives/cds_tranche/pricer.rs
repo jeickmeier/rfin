@@ -520,6 +520,11 @@ impl CDSTranchePricer {
         // Determine effective valuation date using proper settlement lag
         let valuation_date = self.calculate_settlement_date(tranche, market_ctx, as_of)?;
 
+        // If valuation occurs on or after maturity, remaining PV is zero.
+        if valuation_date >= tranche.maturity {
+            return Ok(Money::new(0.0, tranche.notional.currency()));
+        }
+
         // Calculate present values of premium and protection legs
         // These now calculate the EL curve internally with proper time dependency
         let pv_premium = self.calculate_premium_leg_pv(
@@ -1627,15 +1632,15 @@ impl CDSTranchePricer {
             // But standard CDS rolls on 20th.
             out
         } else {
-            let schedule = build_dates(
+            build_dates(
                 start_date,
                 tranche.maturity,
                 tranche.payment_frequency,
                 self.params.schedule_stub,
                 tranche.business_day_convention,
                 tranche.calendar_id.as_deref(),
-            );
-            schedule.dates
+            )?
+            .dates
         };
 
         // Filter out dates before as_of (in case effective_date < as_of)

@@ -344,10 +344,10 @@ impl PyRevolvingCredit {
     ///     ValueError: If facility is stochastic or valuation fails.
     ///
     /// Examples:
-    ///     >>> schedule = rc.build_schedule(market, date.today())
+    ///     >>> schedule = rc.build_dated_flows(market, date.today())
     ///     >>> for flow in schedule.flows:
     ///     ...     print(f"{flow.date}: {flow.amount} - {flow.description}")
-    fn build_schedule(
+    fn build_dated_flows(
         &self,
         market: &PyMarketContext,
         as_of: Bound<'_, pyo3::PyAny>,

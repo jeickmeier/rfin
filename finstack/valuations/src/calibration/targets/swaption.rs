@@ -553,7 +553,7 @@ Set params.sabr_extrapolation='clamp' to allow flat extrapolation.",
         if let Some(ref forward_id) = params.forward_id {
             let fwd = context.get_forward(forward_id)?;
 
-            let float_sched = crate::cashflow::builder::date_generation::build_dates_checked(
+            let float_sched = crate::cashflow::builder::date_generation::build_dates(
                 swap_start,
                 swap_end,
                 leg_conv.float_freq,
@@ -627,7 +627,7 @@ Set params.sabr_extrapolation='clamp' to allow flat extrapolation.",
         leg_conv: &SwaptionLegConventions<'_>,
         disc: &dyn finstack_core::market_data::traits::Discounting,
     ) -> Result<f64> {
-        let sched = crate::cashflow::builder::date_generation::build_dates_checked(
+        let sched = crate::cashflow::builder::date_generation::build_dates(
             start,
             end,
             leg_conv.fixed_freq,

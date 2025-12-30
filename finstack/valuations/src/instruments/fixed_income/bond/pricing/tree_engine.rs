@@ -502,7 +502,7 @@ impl BondValuator {
         let curves = market_context;
         let discount_curve = market_context.get_discount(&bond.discount_curve_id)?;
         let dc_curve = discount_curve.day_count();
-        let flows = bond.build_schedule(curves, as_of)?;
+        let flows = bond.build_dated_flows(curves, as_of)?;
 
         let mut coupon_map = HashMap::default();
         for (date, amount) in &flows {

@@ -266,7 +266,7 @@ fn collect_instrument_cashflows(
     let mut result: IndexMap<Currency, Money> = IndexMap::new();
 
     if let Some(provider) = instrument.as_cashflow_provider() {
-        if let Ok(flows) = provider.build_schedule(market, start_date) {
+        if let Ok(flows) = provider.build_dated_flows(market, start_date) {
             for (date, money) in flows.into_iter() {
                 if date > start_date && date <= end_date {
                     let ccy = money.currency();

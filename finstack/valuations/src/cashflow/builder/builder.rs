@@ -152,14 +152,13 @@ fn compile_schedules_and_fees(
     b: &CashFlowBuilder,
     issue: Date,
     maturity: Date,
-    strict: bool,
 ) -> finstack_core::Result<CompiledAndFees> {
     // Centralized wrapper so the main build pipeline remains focused on the
     // high-level orchestration (validate → compile → collect dates → emit).
     // Keeping this helper avoids repeating the tuple wiring in both
     // documentation and any future build variants.
-    let compiled = compute_coupon_schedules(b, issue, maturity, strict)?;
-    let (periodic_fees, fixed_fees) = build_fee_schedules(issue, maturity, &b.fees, strict)?;
+    let compiled = compute_coupon_schedules(b, issue, maturity)?;
+    let (periodic_fees, fixed_fees) = build_fee_schedules(issue, maturity, &b.fees)?;
     Ok((compiled, periodic_fees, fixed_fees))
 }
 
@@ -452,9 +451,6 @@ pub struct CashFlowBuilder {
     pub(super) payment_program: Vec<PaymentProgramPiece>,
     // Sticky builder error for fluent APIs that cannot return Result.
     pending_error: Option<finstack_core::Error>,
-    /// When true, schedule generation errors (e.g., unknown calendar) are propagated
-    /// instead of falling back to unadjusted schedules. Default: true (strict).
-    schedule_strict: bool,
 }
 
 impl Default for CashFlowBuilder {
@@ -468,19 +464,11 @@ impl Default for CashFlowBuilder {
             coupon_program: Vec::new(),
             payment_program: Vec::new(),
             pending_error: None,
-            // Market-standard for production libraries: fail fast on schedule generation issues
-            // (unknown calendars, bad adjustments) unless explicitly opted out.
-            schedule_strict: true,
         }
     }
 }
 
 impl CashFlowBuilder {
-    /// Creates a new composable cashflow builder.
-    pub fn new() -> Self {
-        Self::default()
-    }
-
     fn issue_maturity_error(method_name: &str) -> finstack_core::Error {
         InputError::NotFound {
             id: format!(
@@ -541,53 +529,6 @@ impl CashFlowBuilder {
         if let Some(n) = &mut self.notional {
             n.amort = spec;
         }
-        self
-    }
-
-    /// Enable strict schedule generation (propagate errors instead of graceful fallback).
-    ///
-    /// When strict mode is enabled, schedule generation will return errors if:
-    /// - A specified calendar is not found
-    /// - Schedule building fails for any reason
-    ///
-    /// Default is strict mode (strict = true), which propagates errors on unknown
-    /// calendars or schedule adjustment failures.
-    ///
-    /// # Example
-    /// ```rust,no_run
-    /// use finstack_core::currency::Currency;
-    /// use finstack_core::dates::{BusinessDayConvention, Date, DayCount, StubKind, Tenor};
-    /// use finstack_core::money::Money;
-    /// use finstack_valuations::cashflow::builder::{CashFlowSchedule, CouponType, FixedCouponSpec};
-    /// use rust_decimal_macros::dec;
-    /// use time::Month;
-    ///
-    /// # fn main() -> Result<(), Box<dyn std::error::Error>> {
-    /// let issue = Date::from_calendar_date(2025, Month::January, 15)?;
-    /// let maturity = Date::from_calendar_date(2026, Month::January, 15)?;
-    ///
-    /// let spec = FixedCouponSpec {
-    ///     coupon_type: CouponType::Cash,
-    ///     rate: dec!(0.05),
-    ///     freq: Tenor::semi_annual(),
-    ///     dc: DayCount::Act365F,
-    ///     bdc: BusinessDayConvention::Following,
-    ///     calendar_id: None,
-    ///     stub: StubKind::None,
-    /// };
-    ///
-    /// let schedule = CashFlowSchedule::builder()
-    ///     .principal(Money::new(1_000_000.0, Currency::USD), issue, maturity)
-    ///     .strict_schedules(false) // Allow calendar/schedule fallbacks
-    ///     .fixed_cf(spec)
-    ///     .build_with_curves(None)?;
-    /// # let _ = schedule;
-    /// # Ok(())
-    /// # }
-    /// ```
-    #[must_use = "builder methods should be chained or terminated with .build_with_curves(...)"]
-    pub fn strict_schedules(&mut self, strict: bool) -> &mut Self {
-        self.schedule_strict = strict;
         self
     }
 
@@ -1152,7 +1093,7 @@ impl CashFlowBuilder {
             },
             periodic_fees,
             fixed_fees,
-        ) = compile_schedules_and_fees(self, issue, maturity, self.schedule_strict)?;
+        ) = compile_schedules_and_fees(self, issue, maturity)?;
 
         // 2b) Normalize principal events (sorted) and validate date bounds
         let mut principal_events = self.principal_events.clone();

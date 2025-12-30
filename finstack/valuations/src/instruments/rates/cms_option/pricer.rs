@@ -150,7 +150,7 @@ impl CmsOptionPricer {
             StubKind::None,
             BusinessDayConvention::ModifiedFollowing,
             None,
-        );
+        )?;
 
         let mut annuity = 0.0;
         let mut prev_date = start;
@@ -201,7 +201,7 @@ impl CmsOptionPricer {
                 StubKind::None,
                 BusinessDayConvention::ModifiedFollowing,
                 None,
-            );
+            )?;
 
             let mut pv_float = 0.0;
             let mut prev_date = start;

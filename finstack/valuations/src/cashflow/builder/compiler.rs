@@ -26,7 +26,7 @@ use finstack_core::money::Money;
 use finstack_core::InputError;
 use rust_decimal::Decimal;
 
-use super::date_generation::{build_dates, build_dates_checked};
+use super::date_generation::build_dates;
 use super::specs::{
     CouponType, FeeBase, FeeSpec, FixedCouponSpec, FloatingCouponSpec, FloatingRateSpec,
     ScheduleParams,
@@ -41,7 +41,7 @@ type ScheduleWithMeta = (
 
 /// Build dates and metadata using the date_generation module.
 ///
-/// This helper wraps `date_generation::build_dates` / `build_dates_checked` and
+/// This helper wraps `date_generation::build_dates` / `build_dates` and
 /// extracts the `prev` map and `first_or_last` set required by the cashflow compiler.
 fn build_dates_with_meta(
     start: Date,
@@ -50,13 +50,8 @@ fn build_dates_with_meta(
     stub: StubKind,
     bdc: BusinessDayConvention,
     calendar_id: Option<&str>,
-    strict: bool,
 ) -> finstack_core::Result<ScheduleWithMeta> {
-    let sched = if strict {
-        build_dates_checked(start, end, freq, stub, bdc, calendar_id)?
-    } else {
-        build_dates(start, end, freq, stub, bdc, calendar_id)
-    };
+    let sched = build_dates(start, end, freq, stub, bdc, calendar_id)?;
 
     Ok((sched.dates, sched.prev, sched.first_or_last))
 }
@@ -100,7 +95,6 @@ pub(super) fn build_fee_schedules(
     issue: Date,
     maturity: Date,
     fees: &[FeeSpec],
-    strict: bool,
 ) -> finstack_core::Result<(PeriodicFees, FixedFees)> {
     //! Build periodic and fixed fee schedules from input `FeeSpec`s.
     //!
@@ -166,7 +160,6 @@ pub(super) fn build_fee_schedules(
                     *stub,
                     *bdc,
                     calendar_id.as_deref(),
-                    strict,
                 )?;
                 if dates.len() < 2 {
                     return Err(InputError::TooFewPoints.into());
@@ -290,7 +283,6 @@ pub(super) fn compute_coupon_schedules(
     builder: &crate::cashflow::builder::builder::CashFlowBuilder,
     issue: Date,
     maturity: Date,
-    strict: bool,
 ) -> finstack_core::Result<CompiledSchedules> {
     //! Compile coupon and payment programs into concrete date schedules.
     //!
@@ -432,7 +424,6 @@ pub(super) fn compute_coupon_schedules(
             chosen_coupon.schedule.stub,
             chosen_coupon.schedule.bdc,
             chosen_coupon.schedule.calendar_id.as_deref(),
-            strict,
         )?;
         if dates.len() < 2 {
             return Err(InputError::TooFewPoints.into());

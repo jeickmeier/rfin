@@ -30,7 +30,7 @@ impl StructuredCredit {
     /// for combined deal + hedge valuation.
     pub fn price(&self, context: &MarketContext, as_of: Date) -> finstack_core::Result<Money> {
         let disc = context.get_discount(self.discount_curve_id.as_str())?;
-        let flows = self.build_schedule(context, as_of)?;
+        let flows = self.build_dated_flows(context, as_of)?;
 
         let day_count = disc.day_count();
         flows.npv(disc.as_ref(), as_of, day_count)
@@ -129,7 +129,7 @@ impl StructuredCredit {
             ));
         }
 
-        let flows = self.build_schedule(context, as_of)?;
+        let flows = self.build_dated_flows(context, as_of)?;
         let mut metric_context = crate::metrics::MetricContext::new(
             std::sync::Arc::new(self.clone())
                 as std::sync::Arc<dyn crate::instruments::common::traits::Instrument>,

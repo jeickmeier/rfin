@@ -10,10 +10,7 @@ use finstack_core::{
 };
 use time::macros::date;
 
-use crate::{
-    cashflow::traits::{CashflowProvider, DatedFlows},
-    instruments::common::traits::Attributes,
-};
+use crate::{cashflow::traits::CashflowProvider, instruments::common::traits::Attributes};
 
 /// Side of the variance swap (pay or receive variance).
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -598,12 +595,15 @@ impl CashflowProvider for VarianceSwap {
         Some(self.notional)
     }
 
-    fn build_schedule(&self, _context: &MarketContext, _as_of: Date) -> Result<DatedFlows> {
-        // Variance swaps have a single payment at maturity
-        // The amount is not known until maturity (path-dependent)
-        Ok(vec![(
-            self.maturity,
-            Money::new(0.0, self.notional.currency()),
-        )])
+    fn build_full_schedule(
+        &self,
+        _context: &MarketContext,
+        _as_of: Date,
+    ) -> Result<crate::cashflow::builder::CashFlowSchedule> {
+        // Variance swaps have a single settlement payment at maturity.
+        Ok(crate::cashflow::traits::schedule_from_dated_flows(
+            vec![(self.maturity, Money::new(0.0, self.notional.currency()))],
+            self.notional(),
+        ))
     }
 }

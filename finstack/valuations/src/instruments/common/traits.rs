@@ -594,7 +594,7 @@ pub trait Instrument: Send + Sync {
     /// let inst: &dyn Instrument = &bond;
     /// if let Some(cf) = inst.as_cashflow_provider() {
     ///     let curves = MarketContext::new();
-    ///     let _schedule = cf.build_schedule(&curves, issue)?;
+    ///     let _schedule = cf.build_dated_flows(&curves, issue)?;
     /// }
     /// # Ok(())
     /// # }

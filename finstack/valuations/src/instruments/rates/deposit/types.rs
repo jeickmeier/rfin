@@ -23,7 +23,7 @@ use finstack_core::money::Money;
 use finstack_core::types::{CurveId, InstrumentId, Rate};
 use time::macros::date;
 
-use crate::cashflow::traits::{CashflowProvider, DatedFlows};
+use crate::cashflow::traits::CashflowProvider;
 use crate::instruments::common::traits::Attributes;
 
 /// Simple deposit instrument with optional quoted rate.
@@ -40,7 +40,7 @@ use crate::instruments::common::traits::Attributes;
 /// - `bdc`: Business day convention for date adjustment (default: ModifiedFollowing)
 /// - `calendar_id`: Holiday calendar identifier for business day logic (e.g., "nyse", "target")
 ///
-/// When these fields are set and `as_of` is provided to `build_schedule`, the effective
+/// When these fields are set and `as_of` is provided to `build_full_schedule`, the effective
 /// start date is computed as `as_of + spot_lag` adjusted by the business day convention.
 #[derive(Clone, Debug, finstack_valuations_macros::FinancialBuilder)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
@@ -59,7 +59,7 @@ pub struct Deposit {
 
     /// Optional quoted simple rate r (annualised) for the deposit.
     ///
-    /// Note: `build_schedule()` requires `quote_rate` to be set. Leaving it as `None`
+    /// Note: `build_full_schedule()` requires `quote_rate` to be set. Leaving it as `None`
     /// is only appropriate if the caller never requests cashflow generation/PV from
     /// this instrument (e.g., constructing placeholders).
     #[builder(optional)]
@@ -335,11 +335,11 @@ impl CashflowProvider for Deposit {
         Some(self.notional)
     }
 
-    fn build_schedule(
+    fn build_full_schedule(
         &self,
         _curves: &MarketContext,
         as_of: Date,
-    ) -> finstack_core::Result<DatedFlows> {
+    ) -> finstack_core::Result<crate::cashflow::builder::CashFlowSchedule> {
         // Validate deposit parameters before building schedule
         self.validate()?;
 
@@ -385,9 +385,14 @@ impl CashflowProvider for Deposit {
             })
         })?;
         let redemption = self.notional * (1.0 + r * yf);
-        Ok(vec![
+        let flows = vec![
             (effective_start, self.notional * -1.0),
             (effective_end, redemption),
-        ])
+        ];
+
+        Ok(crate::cashflow::traits::schedule_from_dated_flows(
+            flows,
+            self.notional(),
+        ))
     }
 }

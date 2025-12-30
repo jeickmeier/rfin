@@ -599,7 +599,7 @@ impl YoYInflationSwap {
 
     fn schedule(&self) -> finstack_core::Result<Vec<(Date, Date, Date)>> {
         let bdc = self.bdc.unwrap_or(BusinessDayConvention::Following);
-        let schedule = crate::cashflow::builder::date_generation::build_dates_checked(
+        let schedule = crate::cashflow::builder::date_generation::build_dates(
             self.start,
             self.maturity,
             self.frequency,

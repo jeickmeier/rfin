@@ -4,7 +4,7 @@
 //! used across valuations. Core PV logic is delegated to the pricing engine in
 //! `pricing::engine`, and metrics are provided in the `metrics` submodule.
 
-use crate::cashflow::traits::{CashflowProvider, DatedFlows};
+use crate::cashflow::traits::CashflowProvider;
 use crate::instruments::common::traits::Attributes;
 use finstack_core::currency::Currency;
 use finstack_core::dates::{adjust, BusinessDayConvention, CalendarRegistry, Date, DayCount};
@@ -321,18 +321,23 @@ impl CashflowProvider for ForwardRateAgreement {
         Some(self.notional)
     }
 
-    fn build_schedule(
+    fn build_full_schedule(
         &self,
         curves: &MarketContext,
         as_of: Date,
-    ) -> finstack_core::Result<DatedFlows> {
+    ) -> finstack_core::Result<crate::cashflow::builder::CashFlowSchedule> {
         // Settlement at start of accrual period; if already settled, no flows
-        if self.start_date <= as_of {
-            return Ok(vec![]);
-        }
+        let flows = if self.start_date <= as_of {
+            Vec::new()
+        } else {
+            let pv = self.npv(curves, as_of)?;
+            vec![(self.start_date, pv)]
+        };
 
-        let pv = self.npv(curves, as_of)?;
-        Ok(vec![(self.start_date, pv)])
+        Ok(crate::cashflow::traits::schedule_from_dated_flows(
+            flows,
+            self.notional(),
+        ))
     }
 }
 
@@ -467,7 +472,13 @@ mod tests {
             .expect("PV calculation failed");
 
         let calc = FraParRateCalculator;
-        let mut m_ctx = MetricContext::new(fra_arc as Arc<dyn Instrument>, ctx_arc, base, base_pv, MetricContext::default_config());
+        let mut m_ctx = MetricContext::new(
+            fra_arc as Arc<dyn Instrument>,
+            ctx_arc,
+            base,
+            base_pv,
+            MetricContext::default_config(),
+        );
 
         let par_rate = calc
             .calculate(&mut m_ctx)

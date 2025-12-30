@@ -1,7 +1,11 @@
 //! Cashflow-related traits and aliases.
 
+use crate::cashflow::builder::schedule::CashFlowSchedule;
+use crate::cashflow::builder::Notional;
+use crate::cashflow::primitives::{CFKind, CashFlow};
 pub use crate::cashflow::{DatedFlow, DatedFlows};
-use finstack_core::dates::Date;
+use finstack_core::currency::Currency;
+use finstack_core::dates::{Date, DayCount};
 use finstack_core::market_data::context::MarketContext;
 use finstack_core::money::Money;
 
@@ -10,20 +14,6 @@ use finstack_core::money::Money;
 /// Instruments implement this to generate their cashflow schedules
 /// given market curves and valuation date.
 pub trait CashflowProvider: Send + Sync {
-    /// Build complete dated cashflow schedule as `(date, amount)` pairs.
-    ///
-    /// This is the simplified interface that provides basic cashflow information
-    /// without metadata (CFKind, notional tracking, etc.).
-    ///
-    /// # Errors
-    /// Returns an error if the schedule cannot be built due to invalid
-    /// instrument parameters or missing market data.
-    fn build_schedule(
-        &self,
-        curves: &MarketContext,
-        as_of: Date,
-    ) -> finstack_core::Result<DatedFlows>;
-
     /// Returns the instrument's notional amount, if applicable.
     ///
     /// Instruments with a defined notional should override this to return
@@ -47,8 +37,12 @@ pub trait CashflowProvider: Send + Sync {
     /// }
     ///
     /// impl CashflowProvider for MyInstrument {
-    ///     fn build_schedule(&self, _curves: &MarketContext, _as_of: Date) -> finstack_core::Result<DatedFlows> {
-    ///         Ok(vec![])
+    ///     fn build_full_schedule(
+    ///         &self,
+    ///         _curves: &MarketContext,
+    ///         _as_of: Date,
+    ///     ) -> finstack_core::Result<CashFlowSchedule> {
+    ///         Ok(schedule_from_dated_flows(vec![], Some(self.notional)))
     ///     }
     ///
     ///     fn notional(&self) -> Option<Money> {
@@ -70,9 +64,9 @@ pub trait CashflowProvider: Send + Sync {
     /// - Outstanding balance tracking over time
     /// - Notional amortization schedules
     ///
-    /// Default implementation converts `build_schedule()` output to a basic schedule
-    /// without CFKind information (heuristic-based classification required).
-    /// Instruments should override this to provide precise classification.
+    /// Implementers should return their canonical [`CashFlowSchedule`]. Callers that only need
+    /// `(Date, Money)` pairs can rely on [`CashflowProvider::build_dated_flows`] which converts
+    /// this schedule automatically.
     ///
     /// # Errors
     /// Returns an error if the schedule cannot be built due to invalid
@@ -81,60 +75,71 @@ pub trait CashflowProvider: Send + Sync {
         &self,
         curves: &MarketContext,
         as_of: Date,
-    ) -> finstack_core::Result<crate::cashflow::builder::CashFlowSchedule> {
-        use crate::cashflow::builder::schedule::CashFlowSchedule;
-        use crate::cashflow::builder::Notional;
-        use finstack_core::cashflow::{CFKind, CashFlow};
-        use finstack_core::dates::DayCount;
+    ) -> finstack_core::Result<crate::cashflow::builder::CashFlowSchedule>;
 
-        // Default implementation: convert simple flows to basic schedule
-        // Individual instruments should override this for precise classification
-        let flows = self.build_schedule(curves, as_of)?;
+    /// Convenience: build holder-view `(Date, Money)` flows derived from the full schedule.
+    ///
+    /// Most callers that previously used [`CashflowProvider::build_schedule`] should call this
+    /// helper, which simply converts the [`CashFlowSchedule`] returned by
+    /// [`CashflowProvider::build_full_schedule`] into a `Vec<(Date, Money)>`.
+    fn build_dated_flows(
+        &self,
+        curves: &MarketContext,
+        as_of: Date,
+    ) -> finstack_core::Result<DatedFlows> {
+        let schedule = self.build_full_schedule(curves, as_of)?;
+        Ok(schedule
+            .flows
+            .iter()
+            .map(|cf| (cf.date, cf.amount))
+            .collect())
+    }
+}
 
-        if flows.is_empty() {
-            // Use currency from notional if available, otherwise fallback to USD
-            let ccy = self
-                .notional()
-                .map(|n| n.currency())
-                .unwrap_or(finstack_core::currency::Currency::USD);
-            return Ok(CashFlowSchedule {
-                flows: vec![],
-                notional: Notional::par(0.0, ccy),
-                day_count: DayCount::Act365F,
-                meta: Default::default(),
-            });
-        }
-
-        // Get currency from first flow for fallback
-        let currency = flows[0].1.currency();
-
-        // Convert (Date, Money) to CashFlow with generic CFKind
-        // This loses classification precision but maintains compatibility
-        let cf_flows: Vec<CashFlow> = flows
-            .into_iter()
-            .map(|(date, amount)| CashFlow {
-                date,
-                reset_date: None,
-                amount,
-                kind: CFKind::Fixed, // Generic - precise instruments should override
-                accrual_factor: 0.0,
-                rate: None,
-            })
-            .collect();
-
-        // Use explicit notional from instrument if available, otherwise fallback to zero
-        // (signals unknown notional rather than guessing from cashflows)
-        let notional = match self.notional() {
-            Some(n) => Notional::par(n.amount(), n.currency()),
-            None => Notional::par(0.0, currency),
-        };
-
-        Ok(CashFlowSchedule {
-            flows: cf_flows,
-            notional,
+/// Helper to convert holder-view `(Date, Money)` flows into a [`CashFlowSchedule`].
+///
+/// This mirrors the legacy default implementation and can be used by instruments that
+/// naturally produce dated flows but still need to return a `CashFlowSchedule`.
+pub fn schedule_from_dated_flows(
+    flows: DatedFlows,
+    notional_hint: Option<Money>,
+) -> CashFlowSchedule {
+    if flows.is_empty() {
+        let ccy = notional_hint.map(|n| n.currency()).unwrap_or(Currency::USD);
+        return CashFlowSchedule {
+            flows: vec![],
+            notional: Notional::par(0.0, ccy),
             day_count: DayCount::Act365F,
             meta: Default::default(),
+        };
+    }
+
+    let first_currency = flows
+        .first()
+        .map(|(_, m)| m.currency())
+        .unwrap_or(Currency::USD);
+    let (notional_amount, notional_currency) = match notional_hint {
+        Some(m) => (m.amount(), m.currency()),
+        None => (0.0, first_currency),
+    };
+
+    let cf_flows: Vec<CashFlow> = flows
+        .into_iter()
+        .map(|(date, amount)| CashFlow {
+            date,
+            reset_date: None,
+            amount,
+            kind: CFKind::Fixed,
+            accrual_factor: 0.0,
+            rate: None,
         })
+        .collect();
+
+    CashFlowSchedule {
+        flows: cf_flows,
+        notional: Notional::par(notional_amount, notional_currency),
+        day_count: DayCount::Act365F,
+        meta: Default::default(),
     }
 }
 
@@ -147,73 +152,61 @@ mod tests {
     use finstack_core::money::Money;
     use time::Month;
 
-    /// Dummy with explicit notional
-    struct DummyWithNotional;
+    struct DummyInstrument;
 
-    impl CashflowProvider for DummyWithNotional {
-        fn build_schedule(
-            &self,
-            _curves: &MarketContext,
-            _as_of: Date,
-        ) -> finstack_core::Result<DatedFlows> {
-            let d1 = Date::from_calendar_date(2025, Month::January, 1).expect("valid date");
-            let d2 = Date::from_calendar_date(2025, Month::July, 1).expect("valid date");
-            Ok(vec![
-                (d1, Money::new(100.0, Currency::USD)),
-                (d2, Money::new(250.0, Currency::USD)),
-            ])
-        }
-
+    impl CashflowProvider for DummyInstrument {
         fn notional(&self) -> Option<Money> {
             Some(Money::new(1_000_000.0, Currency::USD))
         }
-    }
 
-    /// Dummy without notional implementation (uses default)
-    struct DummyWithoutNotional;
-
-    impl CashflowProvider for DummyWithoutNotional {
-        fn build_schedule(
+        fn build_full_schedule(
             &self,
             _curves: &MarketContext,
             _as_of: Date,
-        ) -> finstack_core::Result<DatedFlows> {
+        ) -> finstack_core::Result<CashFlowSchedule> {
             let d1 = Date::from_calendar_date(2025, Month::January, 1).expect("valid date");
             let d2 = Date::from_calendar_date(2025, Month::July, 1).expect("valid date");
-            Ok(vec![
+            let flows = vec![
                 (d1, Money::new(100.0, Currency::USD)),
                 (d2, Money::new(250.0, Currency::USD)),
-            ])
+            ];
+            Ok(schedule_from_dated_flows(flows, self.notional()))
         }
     }
 
     #[test]
-    fn full_schedule_uses_explicit_notional() {
+    fn build_dated_flows_matches_schedule_contents() {
         let curves = MarketContext::new();
         let as_of = Date::from_calendar_date(2025, Month::January, 1).expect("valid date");
-        let dummy = DummyWithNotional;
-        let sched = dummy
-            .build_full_schedule(&curves, as_of)
-            .expect("should build schedule");
-        // Uses the explicit notional from the trait method
-        assert_eq!(sched.notional.initial.amount(), 1_000_000.0);
-        assert_eq!(sched.notional.initial.currency(), Currency::USD);
-        assert_eq!(sched.day_count, finstack_core::dates::DayCount::Act365F);
-        assert_eq!(sched.flows.len(), 2);
+        let dummy = DummyInstrument;
+        let holder_flows = dummy
+            .build_dated_flows(&curves, as_of)
+            .expect("should build flows");
+        assert_eq!(holder_flows.len(), 2);
+        assert_eq!(holder_flows[0].1.amount(), 100.0);
+        assert_eq!(holder_flows[1].1.amount(), 250.0);
     }
 
     #[test]
-    fn full_schedule_fallback_to_zero_notional() {
-        let curves = MarketContext::new();
-        let as_of = Date::from_calendar_date(2025, Month::January, 1).expect("valid date");
-        let dummy = DummyWithoutNotional;
-        let sched = dummy
-            .build_full_schedule(&curves, as_of)
-            .expect("should build schedule");
-        // Falls back to 0.0 notional when not implemented
-        assert_eq!(sched.notional.initial.amount(), 0.0);
-        assert_eq!(sched.notional.initial.currency(), Currency::USD);
-        assert_eq!(sched.day_count, finstack_core::dates::DayCount::Act365F);
-        assert_eq!(sched.flows.len(), 2);
+    fn schedule_from_dated_flows_uses_notional_hint() {
+        let flows = vec![(
+            Date::from_calendar_date(2025, Month::January, 1).expect("valid date"),
+            Money::new(100.0, Currency::USD),
+        )];
+        let notional = Money::new(5_000_000.0, Currency::USD);
+        let schedule = schedule_from_dated_flows(flows, Some(notional));
+        assert_eq!(schedule.notional.initial.amount(), 5_000_000.0);
+        assert_eq!(schedule.notional.initial.currency(), Currency::USD);
+    }
+
+    #[test]
+    fn schedule_from_dated_flows_defaults_currency() {
+        let flows = vec![(
+            Date::from_calendar_date(2025, Month::January, 1).expect("valid date"),
+            Money::new(100.0, Currency::EUR),
+        )];
+        let schedule = schedule_from_dated_flows(flows, None);
+        assert_eq!(schedule.notional.initial.amount(), 0.0);
+        assert_eq!(schedule.notional.initial.currency(), Currency::EUR);
     }
 }

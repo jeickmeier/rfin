@@ -324,8 +324,8 @@ fn outstanding_by_date_dedup_and_values() {
 }
 
 #[test]
-fn strict_schedule_mode_errors_on_unknown_calendar() {
-    // Test that strict mode propagates calendar lookup errors
+fn schedule_errors_on_unknown_calendar() {
+    // Test that schedule generation propagates calendar lookup errors
     let issue = Date::from_calendar_date(2025, Month::January, 15).unwrap();
     let maturity = Date::from_calendar_date(2026, Month::January, 15).unwrap();
 
@@ -339,35 +339,16 @@ fn strict_schedule_mode_errors_on_unknown_calendar() {
         stub: StubKind::None,
     };
 
-    // Strict mode should error
-    let mut builder_strict = CashFlowSchedule::builder();
-    let _ = builder_strict
+    let mut builder = CashFlowSchedule::builder();
+    let _ = builder
         .principal(Money::new(1_000_000.0, Currency::USD), issue, maturity)
-        .strict_schedules(true)
-        .fixed_cf(fixed.clone());
-
-    let result_strict = builder_strict.build_with_curves(None);
-    assert!(
-        result_strict.is_err(),
-        "Strict mode should error on unknown calendar"
-    );
-
-    // Graceful mode (default) should succeed with fallback
-    let mut builder_graceful = CashFlowSchedule::builder();
-    let _ = builder_graceful
-        .principal(Money::new(1_000_000.0, Currency::USD), issue, maturity)
-        .strict_schedules(false)
         .fixed_cf(fixed);
 
-    let result_graceful = builder_graceful.build_with_curves(None);
+    let result = builder.build_with_curves(None);
     assert!(
-        result_graceful.is_ok(),
-        "Graceful mode should succeed with fallback"
+        result.is_err(),
+        "Schedule generation should error on unknown calendar"
     );
-
-    // Schedule should have flows despite calendar failure
-    let schedule = result_graceful.unwrap();
-    assert!(!schedule.flows.is_empty());
 }
 
 // =============================================================================

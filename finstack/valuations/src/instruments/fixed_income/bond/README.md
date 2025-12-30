@@ -556,7 +556,7 @@ All bond cashflows follow a **holder-view** convention:
 - **Positive amounts** represent contractual inflows to a long holder (coupons, amortization, redemption)
 - **Initial draw / funding legs** are handled outside the schedule (e.g., via trade price) and are **not** included in the projected cashflow schedule
 
-This convention is enforced by `Bond::build_schedule`, which turns the internal cashflow schedule into a simplified `(Date, Money)` stream used by pricing and risk engines.
+This convention is enforced by the `CashflowProvider::build_dated_flows` implementation for `Bond`, which turns the internal cashflow schedule into a simplified `(Date, Money)` stream used by pricing and risk engines.
 
 ## Accrual and Ex-Coupon Conventions
 

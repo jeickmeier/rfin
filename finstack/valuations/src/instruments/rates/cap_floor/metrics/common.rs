@@ -82,7 +82,7 @@ where
         option.stub_kind,
         option.bdc,
         option.calendar_id.as_deref(),
-    );
+    )?;
     if schedule.dates.len() < 2 {
         return Ok(0.0);
     }

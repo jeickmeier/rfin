@@ -243,7 +243,13 @@ mod tests {
         let base_value = basket
             .value(&market, as_of)
             .expect("base basket value should succeed");
-        let mut context = MetricContext::new(Arc::new(basket), Arc::new(market), as_of, base_value, MetricContext::default_config());
+        let mut context = MetricContext::new(
+            Arc::new(basket),
+            Arc::new(market),
+            as_of,
+            base_value,
+            MetricContext::default_config(),
+        );
 
         let calculator = ConstituentDeltaCalculator;
         let total_delta = calculator

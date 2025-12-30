@@ -22,7 +22,7 @@ fn test_standard_eurusd_t_plus_2_settlement() {
     let market = MarketContext::new();
     let as_of = d(2025, 1, 15); // Wednesday
 
-    let cashflows = fx.build_schedule(&market, as_of).unwrap();
+    let cashflows = fx.build_dated_flows(&market, as_of).unwrap();
 
     assert_eq!(cashflows.len(), 1);
     // T+2 from Wed = Fri (accounting for weekends)

@@ -1,6 +1,6 @@
 //! FX variance swap type definitions and pricing logic.
 
-use crate::cashflow::traits::{CashflowProvider, DatedFlows};
+use crate::cashflow::traits::CashflowProvider;
 use crate::instruments::common::models::bs_price;
 use crate::instruments::common::parameters::OptionType;
 use crate::instruments::common::pricing::HasDiscountCurve;
@@ -480,10 +480,14 @@ impl CashflowProvider for FxVarianceSwap {
         Some(self.notional)
     }
 
-    fn build_schedule(&self, _context: &MarketContext, _as_of: Date) -> Result<DatedFlows> {
-        Ok(vec![(
-            self.maturity,
-            Money::new(0.0, self.notional.currency()),
-        )])
+    fn build_full_schedule(
+        &self,
+        _context: &MarketContext,
+        _as_of: Date,
+    ) -> Result<crate::cashflow::builder::CashFlowSchedule> {
+        Ok(crate::cashflow::traits::schedule_from_dated_flows(
+            vec![(self.maturity, Money::new(0.0, self.notional.currency()))],
+            self.notional(),
+        ))
     }
 }

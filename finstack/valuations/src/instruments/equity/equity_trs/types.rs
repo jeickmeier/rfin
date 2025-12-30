@@ -5,7 +5,7 @@
 
 use crate::{
     cashflow::builder::ScheduleParams,
-    cashflow::traits::{CashflowProvider, DatedFlows},
+    cashflow::traits::CashflowProvider,
     instruments::common::parameters::{
         legs::FinancingLegSpec, trs_common::TrsScheduleSpec, trs_common::TrsSide,
         underlying::EquityUnderlyingParams,
@@ -304,7 +304,11 @@ impl CashflowProvider for EquityTotalReturnSwap {
         Some(self.notional)
     }
 
-    fn build_schedule(&self, _context: &MarketContext, _as_of: Date) -> Result<DatedFlows> {
+    fn build_full_schedule(
+        &self,
+        _context: &MarketContext,
+        _as_of: Date,
+    ) -> Result<crate::cashflow::builder::CashFlowSchedule> {
         // For TRS, we return the expected payment dates
         // Actual amounts depend on realized returns
         let period_schedule = self.schedule.period_schedule()?;
@@ -316,7 +320,10 @@ impl CashflowProvider for EquityTotalReturnSwap {
             flows.push((*date, Money::new(0.0, self.notional.currency())));
         }
 
-        Ok(flows)
+        Ok(crate::cashflow::traits::schedule_from_dated_flows(
+            flows,
+            self.notional(),
+        ))
     }
 }
 

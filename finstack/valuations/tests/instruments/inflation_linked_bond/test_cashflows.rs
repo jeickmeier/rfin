@@ -12,14 +12,14 @@ use finstack_core::dates::Tenor;
 use finstack_valuations::cashflow::traits::CashflowProvider;
 
 #[test]
-fn test_build_schedule_semi_annual() {
+fn test_build_dated_flows_semi_annual() {
     // Arrange
     let ilb = sample_tips();
     let (ctx, _) = market_context_with_index();
     let as_of = d(2020, 1, 15);
 
     // Act
-    let flows = ilb.build_schedule(&ctx, as_of).unwrap();
+    let flows = ilb.build_dated_flows(&ctx, as_of).unwrap();
 
     // Assert
     assert!(!flows.is_empty());
@@ -40,7 +40,7 @@ fn test_build_schedule_semi_annual() {
 }
 
 #[test]
-fn test_build_schedule_annual() {
+fn test_build_dated_flows_annual() {
     // Arrange
     let mut ilb = sample_tips();
     ilb.freq = Tenor::annual();
@@ -51,7 +51,7 @@ fn test_build_schedule_annual() {
     let as_of = d(2020, 1, 15);
 
     // Act
-    let flows = ilb.build_schedule(&ctx, as_of).unwrap();
+    let flows = ilb.build_dated_flows(&ctx, as_of).unwrap();
 
     // Assert
     // 5 annual coupons + 1 principal = 6 flows
@@ -64,7 +64,7 @@ fn test_build_schedule_annual() {
 }
 
 #[test]
-fn test_build_schedule_quarterly() {
+fn test_build_dated_flows_quarterly() {
     // Arrange
     let mut ilb = sample_tips();
     ilb.freq = Tenor::quarterly();
@@ -75,7 +75,7 @@ fn test_build_schedule_quarterly() {
     let as_of = d(2024, 1, 15);
 
     // Act
-    let flows = ilb.build_schedule(&ctx, as_of).unwrap();
+    let flows = ilb.build_dated_flows(&ctx, as_of).unwrap();
 
     // Assert
     // 4 quarterly coupons + 1 principal = 5 flows
@@ -117,7 +117,7 @@ fn test_coupon_amounts_reflect_inflation_adjustment() {
     let as_of = d(2024, 1, 1);
 
     // Act
-    let flows = ilb.build_schedule(&ctx, as_of).unwrap();
+    let flows = ilb.build_dated_flows(&ctx, as_of).unwrap();
 
     // Assert
     // Coupons should be inflation-adjusted
@@ -148,7 +148,7 @@ fn test_principal_repayment_inflation_adjusted() {
     let as_of = d(2024, 1, 1);
 
     // Act
-    let flows = ilb.build_schedule(&ctx, as_of).unwrap();
+    let flows = ilb.build_dated_flows(&ctx, as_of).unwrap();
 
     // Assert
     // Last flow is principal repayment at maturity
@@ -172,7 +172,7 @@ fn test_schedule_respects_day_count_convention() {
     let as_of = d(2024, 1, 1);
 
     // Act
-    let flows = ilb.build_schedule(&ctx, as_of).unwrap();
+    let flows = ilb.build_dated_flows(&ctx, as_of).unwrap();
 
     // Assert - coupon amount should reflect actual day count
     // For Act/Act, 182/365 or 183/366 depending on leap year
@@ -206,7 +206,7 @@ fn test_schedule_with_deflation_protection() {
     let as_of = d(2024, 1, 1);
 
     // Act
-    let flows = ilb.build_schedule(&ctx, as_of).unwrap();
+    let flows = ilb.build_dated_flows(&ctx, as_of).unwrap();
 
     // Assert - all payments should be floored at notional (no deflation)
     for (_, amount) in &flows {
@@ -227,7 +227,7 @@ fn test_empty_schedule_when_no_dates() {
     let as_of = d(2025, 1, 1);
 
     // Act
-    let flows = ilb.build_schedule(&ctx, as_of).unwrap();
+    let flows = ilb.build_dated_flows(&ctx, as_of).unwrap();
 
     // Assert - should be empty or minimal
     assert!(flows.is_empty() || flows.len() == 1); // Might have just principal
@@ -241,7 +241,7 @@ fn test_schedule_currency_consistency() {
     let as_of = d(2020, 1, 15);
 
     // Act
-    let flows = ilb.build_schedule(&ctx, as_of).unwrap();
+    let flows = ilb.build_dated_flows(&ctx, as_of).unwrap();
 
     // Assert - all flows should be in the same currency as notional
     for (_, amount) in &flows {
@@ -257,7 +257,7 @@ fn test_schedule_dates_sorted() {
     let as_of = d(2020, 1, 15);
 
     // Act
-    let flows = ilb.build_schedule(&ctx, as_of).unwrap();
+    let flows = ilb.build_dated_flows(&ctx, as_of).unwrap();
 
     // Assert - dates should be in ascending order
     for i in 1..flows.len() {
@@ -273,7 +273,7 @@ fn test_schedule_all_dates_after_issue() {
     let as_of = d(2020, 1, 15);
 
     // Act
-    let flows = ilb.build_schedule(&ctx, as_of).unwrap();
+    let flows = ilb.build_dated_flows(&ctx, as_of).unwrap();
 
     // Assert - all payment dates should be after issue date
     for (date, _) in &flows {
@@ -289,7 +289,7 @@ fn test_schedule_uk_gilt_characteristics() {
     let as_of = d(2020, 3, 22);
 
     // Act
-    let flows = ilb.build_schedule(&ctx, as_of).unwrap();
+    let flows = ilb.build_dated_flows(&ctx, as_of).unwrap();
 
     // Assert
     assert!(!flows.is_empty());
@@ -312,7 +312,7 @@ fn test_cashflow_provider_trait() {
     let as_of = d(2020, 1, 15);
 
     // Act - call via trait
-    let flows = CashflowProvider::build_schedule(&ilb, &ctx, as_of).unwrap();
+    let flows = CashflowProvider::build_dated_flows(&ilb, &ctx, as_of).unwrap();
 
     // Assert
     assert!(!flows.is_empty());
@@ -331,7 +331,7 @@ fn test_schedule_generation_performance() {
 
     // Act
     let start = std::time::Instant::now();
-    let flows = ilb.build_schedule(&ctx, as_of).unwrap();
+    let flows = ilb.build_dated_flows(&ctx, as_of).unwrap();
     let elapsed = start.elapsed();
 
     // Assert

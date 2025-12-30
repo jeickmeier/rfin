@@ -60,7 +60,7 @@ fn instrument_holder_flows(
 
     // Use the trait method instead of manual downcasting
     if let Some(provider) = instrument.as_cashflow_provider() {
-        return Ok(provider.build_schedule(market, as_of).ok());
+        return Ok(provider.build_dated_flows(market, as_of).ok());
     }
 
     // Special case: CDS uses build_premium_schedule (not CashflowProvider)

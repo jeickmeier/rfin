@@ -209,7 +209,7 @@ pub fn asw_par_with_forward_config(
     let fwd = curves.get_forward(fwd_curve_id)?;
 
     // Mirror the bond schedule via holder flows
-    let flows = bond.build_schedule(curves, as_of)?;
+    let flows = bond.build_dated_flows(curves, as_of)?;
     let sched = build_future_dates_from_flows(&flows, as_of);
     if sched.len() < 2 {
         return Ok(0.0);
@@ -301,7 +301,7 @@ pub fn asw_market_with_forward_config(
     fixed_leg_day_count: Option<DayCount>,
 ) -> finstack_core::Result<f64> {
     let disc = curves.get_discount(&bond.discount_curve_id)?;
-    let flows = bond.build_schedule(curves, as_of)?;
+    let flows = bond.build_dated_flows(curves, as_of)?;
     let sched = build_future_dates_from_flows(&flows, as_of);
     if sched.len() < 2 {
         return Ok(0.0);
@@ -507,7 +507,7 @@ impl MetricCalculator for AssetSwapMarketCalculator {
                 (
                     b.discount_curve_id.to_owned(),
                     b.cashflow_spec.day_count(),
-                    b.build_schedule(&context.curves, context.as_of)?,
+                    b.build_dated_flows(&context.curves, context.as_of)?,
                 )
             };
             context.cashflows = Some(built);
@@ -589,4 +589,3 @@ impl MetricCalculator for AssetSwapMarketCalculator {
         Ok(asw_mkt)
     }
 }
-

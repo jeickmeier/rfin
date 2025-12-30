@@ -72,7 +72,8 @@ fn test_bermudan_pricer_cached_model_sets_measure() {
             first_exercise,
             swap_end,
             finstack_core::dates::Tenor::semi_annual(),
-        ),
+        )
+        .expect("valid Bermudan schedule"),
         "USD_OIS",
         "USD-SOFR-3M",
         "USD-SWPNVOL",
@@ -113,7 +114,8 @@ fn test_bermudan_pricer_expired_returns_zero() {
             first_exercise,
             swap_end,
             finstack_core::dates::Tenor::semi_annual(),
-        ),
+        )
+        .expect("valid Bermudan schedule"),
         "USD_OIS",
         "USD-SOFR-3M",
         "USD-SWPNVOL",

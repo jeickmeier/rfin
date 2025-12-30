@@ -786,8 +786,7 @@ mod tests {
 
         // Calculate portfolio VaR
         let instruments: Vec<&dyn Instrument> = vec![&bond1, &bond2];
-        let portfolio_var =
-            calculate_var(&instruments, market.as_ref(), &history, as_of, &config)?;
+        let portfolio_var = calculate_var(&instruments, market.as_ref(), &history, as_of, &config)?;
 
         // Verify portfolio VaR <= sum of individual VaRs
         // With only a few scenarios and both bonds having similar rate sensitivity,

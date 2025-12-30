@@ -80,7 +80,7 @@ fn example_stepup_bond() -> finstack_core::Result<()> {
     }
 
     // Show cashflow details
-    let flows = bond.build_schedule(&curves, issue)?;
+    let flows = bond.build_dated_flows(&curves, issue)?;
     println!("\nTotal cashflows: {}", flows.len());
     println!("First 5 flows:");
     for (i, (date, amount)) in flows.iter().enumerate().take(5) {
@@ -279,8 +279,8 @@ fn example_comparison_regular_vs_custom() -> finstack_core::Result<()> {
     println!("Regular bond (annual payments): {}", regular_pv);
     println!("Custom bond (semi-annual payments): {}", custom_pv);
 
-    let regular_flows = regular_bond.build_schedule(&curves, issue)?;
-    let custom_flows = custom_bond.build_schedule(&curves, issue)?;
+    let regular_flows = regular_bond.build_dated_flows(&curves, issue)?;
+    let custom_flows = custom_bond.build_dated_flows(&curves, issue)?;
 
     println!("\nFlow comparison:");
     println!("  Regular bond flows: {}", regular_flows.len());

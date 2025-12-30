@@ -1,6 +1,6 @@
 //! Private markets fund investment instrument type and implementations.
 
-use crate::cashflow::traits::{CashflowProvider, DatedFlows};
+use crate::cashflow::traits::CashflowProvider;
 use crate::instruments::common::traits::{Attributes, Instrument};
 use crate::instruments::private_markets_fund::waterfall::{
     AllocationLedger, EquityWaterfallEngine, FundEvent, WaterfallSpec,
@@ -187,11 +187,14 @@ impl CashflowProvider for PrivateMarketsFund {
     // Private markets funds don't have a simple notional concept
     // (commitment varies with capital calls/distributions)
 
-    fn build_schedule(
+    fn build_full_schedule(
         &self,
         _curves: &MarketContext,
         _as_of: Date,
-    ) -> finstack_core::Result<DatedFlows> {
-        self.lp_cashflows()
+    ) -> finstack_core::Result<crate::cashflow::builder::CashFlowSchedule> {
+        let flows = self.lp_cashflows()?;
+        Ok(crate::cashflow::traits::schedule_from_dated_flows(
+            flows, None,
+        ))
     }
 }

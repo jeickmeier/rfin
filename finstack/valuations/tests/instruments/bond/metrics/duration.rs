@@ -111,7 +111,7 @@ fn test_convexity_matches_numerical_second_derivative() {
     let ytm = *res.measures.get("ytm").unwrap();
     let conv_closed = *res.measures.get("convexity").unwrap();
 
-    let flows = bond.build_schedule(&market, as_of).unwrap();
+    let flows = bond.build_dated_flows(&market, as_of).unwrap();
     let dy = 1e-4;
     let p0 = finstack_valuations::instruments::bond::pricing::quote_engine::price_from_ytm(
         &bond, &flows, as_of, ytm,

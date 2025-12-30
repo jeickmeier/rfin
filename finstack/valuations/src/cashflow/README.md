@@ -549,7 +549,7 @@ use finstack_valuations::cashflow::traits::CashflowProvider;
 use finstack_valuations::cashflow::DatedFlows;
 
 impl CashflowProvider for MyInstrument {
-    fn build_schedule(
+    fn build_dated_flows(
         &self,
         curves: &MarketContext,
         as_of: Date,

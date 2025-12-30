@@ -26,7 +26,13 @@ fn create_test_repo() -> Repo {
 
 fn create_metric_context(repo: Repo, context: MarketContext, as_of: Date) -> MetricContext {
     let pv = repo.value(&context, as_of).unwrap();
-    MetricContext::new(Arc::new(repo), Arc::new(context), as_of, pv, MetricContext::default_config())
+    MetricContext::new(
+        Arc::new(repo),
+        Arc::new(context),
+        as_of,
+        pv,
+        MetricContext::default_config(),
+    )
 }
 
 #[test]

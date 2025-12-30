@@ -50,7 +50,8 @@ fn test_bermudan_schedule_sort_and_lockout() {
 fn test_bermudan_schedule_co_terminal_excludes_maturity() {
     let first_ex = date!(2026 - 01 - 01);
     let swap_end = date!(2027 - 01 - 01);
-    let schedule = BermudanSchedule::co_terminal(first_ex, swap_end, Tenor::semi_annual());
+    let schedule = BermudanSchedule::co_terminal(first_ex, swap_end, Tenor::semi_annual())
+        .expect("valid Bermudan schedule");
 
     assert!(!schedule.exercise_dates.is_empty());
     assert!(schedule.exercise_dates.first().unwrap() >= &first_ex);
@@ -129,7 +130,8 @@ fn test_bermudan_swaption_schedule_and_conversion() {
         0.03,
         swap_start,
         swap_end,
-        BermudanSchedule::co_terminal(first_ex, swap_end, Tenor::semi_annual()),
+        BermudanSchedule::co_terminal(first_ex, swap_end, Tenor::semi_annual())
+            .expect("valid Bermudan schedule"),
         "USD-OIS",
         "USD-SOFR-3M",
         "USD-SWPNVOL",

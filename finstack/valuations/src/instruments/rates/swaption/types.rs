@@ -163,7 +163,11 @@ impl BermudanSchedule {
     /// * `first_exercise` - First allowed exercise date
     /// * `swap_end` - Swap maturity date
     /// * `fixed_freq` - Fixed leg payment frequency
-    pub fn co_terminal(first_exercise: Date, swap_end: Date, fixed_freq: Tenor) -> Self {
+    pub fn co_terminal(
+        first_exercise: Date,
+        swap_end: Date,
+        fixed_freq: Tenor,
+    ) -> finstack_core::Result<Self> {
         let sched = crate::cashflow::builder::build_dates(
             first_exercise,
             swap_end,
@@ -171,14 +175,14 @@ impl BermudanSchedule {
             StubKind::None,
             BusinessDayConvention::Following,
             None,
-        );
+        )?;
         // Exercise dates are all coupon dates except the last one (maturity)
         let exercise_dates: Vec<Date> = sched
             .dates
             .into_iter()
             .filter(|&d| d >= first_exercise && d < swap_end)
             .collect();
-        Self::new(exercise_dates)
+        Ok(Self::new(exercise_dates))
     }
 
     /// Get effective exercise dates (filtered by lockout).
@@ -598,7 +602,7 @@ impl Swaption {
             StubKind::None,
             BusinessDayConvention::Following,
             None,
-        );
+        )?;
         let dates = sched.dates;
         if dates.len() < 2 {
             return Ok(0.0);
@@ -940,7 +944,8 @@ impl BermudanSwaption {
                 first_exercise,
                 swap_end,
                 Tenor::semi_annual(),
-            ),
+            )
+            .expect("valid Bermudan schedule"),
             bermudan_type: BermudanType::CoTerminal,
             pricing_overrides: PricingOverrides::default(),
             attributes: Attributes::new(),
@@ -1168,7 +1173,7 @@ impl BermudanSwaption {
             StubKind::None,
             BusinessDayConvention::Following,
             None,
-        );
+        )?;
 
         let dates: Vec<Date> = sched.dates.iter().skip(1).copied().collect();
         let ctx = finstack_core::dates::DayCountCtx::default();

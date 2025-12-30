@@ -283,7 +283,7 @@ impl JsCashflowBuilder {
     #[wasm_bindgen(constructor)]
     pub fn new() -> JsCashflowBuilder {
         JsCashflowBuilder {
-            inner: CoreCashFlowBuilder::new(),
+            inner: CoreCashFlowBuilder::default(),
         }
     }
 

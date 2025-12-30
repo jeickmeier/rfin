@@ -81,7 +81,7 @@ fn bench_bond_cashflow_generation(c: &mut Criterion) {
             BenchmarkId::from_parameter(format!("{}Y", tenor)),
             tenor,
             |b, _| {
-                b.iter(|| bond.build_schedule(black_box(&market), black_box(as_of)));
+                b.iter(|| bond.build_dated_flows(black_box(&market), black_box(as_of)));
             },
         );
     }
@@ -111,7 +111,7 @@ fn bench_swap_cashflow_generation(c: &mut Criterion) {
             BenchmarkId::from_parameter(format!("{}Y", tenor)),
             tenor,
             |b, _| {
-                b.iter(|| swap.build_schedule(black_box(&market), black_box(as_of)));
+                b.iter(|| swap.build_dated_flows(black_box(&market), black_box(as_of)));
             },
         );
     }

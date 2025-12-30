@@ -1,6 +1,6 @@
 //! Core types for Repurchase Agreement (Repo) instruments.
 
-use crate::cashflow::traits::{CashflowProvider, DatedFlows};
+use crate::cashflow::traits::CashflowProvider;
 use crate::instruments::common::traits::{Attributes, Instrument};
 use crate::instruments::repo::margin::RepoMarginSpec;
 use crate::metrics::MetricId;
@@ -659,7 +659,11 @@ impl CashflowProvider for Repo {
         Some(self.cash_amount)
     }
 
-    fn build_schedule(&self, _context: &MarketContext, _as_of: Date) -> Result<DatedFlows> {
+    fn build_full_schedule(
+        &self,
+        _context: &MarketContext,
+        _as_of: Date,
+    ) -> Result<crate::cashflow::builder::CashFlowSchedule> {
         // Apply business day adjustments to start and maturity dates
         // Market standard: repo start/end dates must be business-adjusted (often T+1/T+2)
         let (adj_start, adj_maturity) = self.adjusted_dates()?;
@@ -674,7 +678,10 @@ impl CashflowProvider for Repo {
         let total_repayment = self.total_repayment()?;
         flows.push((adj_maturity, total_repayment));
 
-        Ok(flows)
+        Ok(crate::cashflow::traits::schedule_from_dated_flows(
+            flows,
+            self.notional(),
+        ))
     }
 }
 
@@ -844,7 +851,7 @@ mod tests {
         // Verify cashflows use adjusted dates
         let ctx = MarketContext::new();
         let flows = repo
-            .build_schedule(&ctx, date(2025, 1, 1))
+            .build_dated_flows(&ctx, date(2025, 1, 1))
             .expect("Schedule should build");
 
         assert_eq!(flows.len(), 2, "Repo should have 2 cashflows");

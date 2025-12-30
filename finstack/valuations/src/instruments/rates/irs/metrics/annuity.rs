@@ -73,7 +73,7 @@ impl MetricCalculator for AnnuityCalculator {
             irs.fixed.stub,
             irs.fixed.bdc,
             irs.fixed.calendar_id.as_deref(),
-        );
+        )?;
         let dates: Vec<Date> = sched.dates;
         if dates.len() < 2 {
             return Ok(0.0);

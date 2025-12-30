@@ -292,7 +292,7 @@ impl PyCashflowBuilder {
     #[pyo3(text_signature = "(cls)")]
     fn new(_cls: &Bound<'_, PyType>) -> Self {
         Self {
-            inner: val_builder::CashFlowBuilder::new(),
+            inner: val_builder::CashFlowBuilder::default(),
         }
     }
 

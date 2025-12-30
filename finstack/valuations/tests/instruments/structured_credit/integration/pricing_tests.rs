@@ -345,7 +345,7 @@ fn test_structured_credit_pool_balance_cleanup() {
     let market = MarketContext::new().insert_discount(flat_discount_curve(0.04, test_date()));
 
     // Act
-    let result = sc.build_schedule(&market, test_date());
+    let result = sc.build_dated_flows(&market, test_date());
 
     // Assert: Should handle small balances gracefully
     assert!(result.is_ok());

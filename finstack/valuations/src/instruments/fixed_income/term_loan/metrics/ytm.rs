@@ -20,9 +20,9 @@ impl MetricCalculator for YtmCalculator {
         let loan: &TermLoan = context.instrument_as()?;
         let as_of = context.as_of;
 
-        // Use holder-view schedule (via CashflowProvider::build_schedule)
+        // Use holder-view schedule (via CashflowProvider::build_dated_flows)
         // This filters to contractual inflows: coupons, amortization, positive redemptions
-        let holder_flows = loan.build_schedule(&context.curves, as_of)?;
+        let holder_flows = loan.build_dated_flows(&context.curves, as_of)?;
 
         let mut flows: Vec<(finstack_core::dates::Date, Money)> =
             Vec::with_capacity(holder_flows.len() + 1);
@@ -31,7 +31,7 @@ impl MetricCalculator for YtmCalculator {
         let base_pv = context.base_value;
         flows.push((as_of, Money::new(-base_pv.amount(), base_pv.currency())));
 
-        // Add holder-view flows (already filtered for dates > as_of by build_schedule)
+        // Add holder-view flows (already filtered for dates > as_of by build_dated_flows)
         for (date, amount) in holder_flows {
             if date > as_of {
                 flows.push((date, amount));

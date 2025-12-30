@@ -89,7 +89,7 @@ pub use crate::cashflow::builder::{DefaultModelSpec, PrepaymentModelSpec, Recove
 // IMPORTS FOR STRUCTUREDCREDIT
 // ============================================================================
 
-use crate::cashflow::traits::{CashflowProvider, DatedFlows};
+use crate::cashflow::traits::CashflowProvider;
 use crate::constants::DECIMAL_TO_PERCENT;
 use crate::instruments::common::traits::{Attributes, Instrument};
 use crate::instruments::irs::InterestRateSwap;
@@ -567,7 +567,7 @@ impl StructuredCredit {
     ) -> finstack_core::Result<f64> {
         use finstack_core::math::solver::{BrentSolver, Solver};
 
-        let flows = self.build_schedule(context, as_of)?;
+        let flows = self.build_dated_flows(context, as_of)?;
         let discount_curve = context.get_discount(&self.discount_curve_id)?;
 
         let price_fn = |spread: f64| -> f64 {
@@ -585,7 +585,7 @@ impl StructuredCredit {
 
                 if t <= 0.0 {
                     // Flow is today or past, assume full value or ignore?
-                    // Usually ignore past flows, but build_schedule might return future only.
+                    // Usually ignore past flows, but build_dated_flows might return future only.
                     // If today, DF=1.
                     pv.add(amount.amount());
                     continue;
@@ -686,12 +686,18 @@ impl CashflowProvider for StructuredCredit {
         self.pool.total_balance().ok()
     }
 
-    fn build_schedule(
+    fn build_full_schedule(
         &self,
         context: &MarketContext,
         as_of: Date,
-    ) -> finstack_core::Result<DatedFlows> {
-        crate::instruments::structured_credit::pricing::generate_cashflows(self, context, as_of)
+    ) -> finstack_core::Result<crate::cashflow::builder::CashFlowSchedule> {
+        let flows = crate::instruments::structured_credit::pricing::generate_cashflows(
+            self, context, as_of,
+        )?;
+        Ok(crate::cashflow::traits::schedule_from_dated_flows(
+            flows,
+            self.notional(),
+        ))
     }
 }
 
@@ -722,7 +728,7 @@ impl Instrument for StructuredCredit {
 
     fn value(&self, context: &MarketContext, as_of: Date) -> finstack_core::Result<Money> {
         let disc = context.get_discount(self.discount_curve_id.as_str())?;
-        let flows = self.build_schedule(context, as_of)?;
+        let flows = self.build_dated_flows(context, as_of)?;
 
         use crate::instruments::common::discountable::Discountable;
         let curve_day_count = disc.day_count();
@@ -745,7 +751,7 @@ impl Instrument for StructuredCredit {
             ));
         }
 
-        let flows = self.build_schedule(context, as_of)?;
+        let flows = self.build_dated_flows(context, as_of)?;
         let mut metric_context = crate::metrics::MetricContext::new(
             std::sync::Arc::new(self.clone())
                 as std::sync::Arc<dyn crate::instruments::common::traits::Instrument>,

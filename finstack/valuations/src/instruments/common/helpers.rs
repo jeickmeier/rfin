@@ -37,7 +37,7 @@ where
 {
     use finstack_core::cashflow::npv_using_curve_dc;
 
-    let flows = S::build_schedule(instrument, curves, as_of)?;
+    let flows = S::build_dated_flows(instrument, curves, as_of)?;
     let disc = curves.get_discount(discount_curve_id.as_str())?;
     // Use the curve's day count for consistent pricing with metrics
     npv_using_curve_dc(disc.as_ref(), as_of, &flows)
@@ -68,7 +68,7 @@ where
     use finstack_core::dates::DayCountCtx;
     use finstack_core::math::neumaier_sum;
 
-    let flows = S::build_schedule(instrument, curves, as_of)?;
+    let flows = S::build_dated_flows(instrument, curves, as_of)?;
     let disc = curves.get_discount(discount_curve_id.as_str())?;
 
     let mut terms = Vec::with_capacity(flows.len());

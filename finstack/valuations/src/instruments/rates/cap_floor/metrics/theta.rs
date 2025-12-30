@@ -36,7 +36,7 @@ impl MetricCalculator for ThetaCalculator {
                 option.stub_kind,
                 option.bdc,
                 option.calendar_id.as_deref(),
-            );
+            )?;
 
             // Find the first fixing date that's after as_of
             let next_fixing = schedule

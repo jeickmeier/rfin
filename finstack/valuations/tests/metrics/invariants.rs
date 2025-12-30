@@ -629,7 +629,13 @@ mod bucketed_cs01_invariants {
         let metrics = vec![MetricId::Cs01, MetricId::BucketedCs01];
         let registry = standard_registry();
 
-        let mut context = MetricContext::new(Arc::new(cds), Arc::new(market), as_of, pv, MetricContext::default_config());
+        let mut context = MetricContext::new(
+            Arc::new(cds),
+            Arc::new(market),
+            as_of,
+            pv,
+            MetricContext::default_config(),
+        );
 
         let results = registry
             .compute(&metrics, &mut context)
@@ -703,8 +709,13 @@ mod additional_invariants {
                 .value(&market, as_of)
                 .expect("Valuation should succeed");
 
-            let mut context =
-                MetricContext::new(Arc::new(bond), Arc::new(market.clone()), as_of, pv, MetricContext::default_config());
+            let mut context = MetricContext::new(
+                Arc::new(bond),
+                Arc::new(market.clone()),
+                as_of,
+                pv,
+                MetricContext::default_config(),
+            );
 
             let results = registry
                 .compute(&metrics, &mut context)

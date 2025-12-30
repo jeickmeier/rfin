@@ -331,7 +331,7 @@ def analyze_single_scenario(
     # For this script, we will use commitment_date as as_of for MC pricing to avoid confusion.
     mc_as_of = commitment_date if as_of < commitment_date else as_of
 
-    det_schedule = det_facility.build_schedule(market, as_of)  # Keep original as_of for det pricing
+    det_schedule = det_facility.build_dated_flows(market, as_of)  # Keep original as_of for det pricing
     det_irr = calculate_irr_from_cashflows(det_schedule, commitment * initial_utilization, commitment_date)
     print(f"Deterministic IRR: {det_irr:.2%}" if det_irr else "Deterministic IRR: N/A")  # noqa: T201
 

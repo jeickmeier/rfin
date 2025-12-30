@@ -1257,7 +1257,7 @@
                   ],
                   "functions": [
                     "build_dates",
-                    "build_dates_checked"
+                    "build_dates"
                   ],
                   "re_exports": {},
                   "modules": {}

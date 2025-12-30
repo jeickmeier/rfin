@@ -589,14 +589,16 @@ impl CashflowProvider for EquityIndexFuture {
         Some(Money::new(self.notional_value(price), self.currency))
     }
 
-    fn build_schedule(
+    fn build_full_schedule(
         &self,
         _curves: &MarketContext,
         _as_of: Date,
-    ) -> finstack_core::Result<Vec<(Date, Money)>> {
-        // Futures are daily settled (mark-to-market).
-        // There is no future cashflow to discount.
-        Ok(vec![])
+    ) -> finstack_core::Result<crate::cashflow::builder::CashFlowSchedule> {
+        // Futures are daily settled (mark-to-market). There are no residual flows.
+        Ok(crate::cashflow::traits::schedule_from_dated_flows(
+            Vec::new(),
+            self.notional(),
+        ))
     }
 }
 

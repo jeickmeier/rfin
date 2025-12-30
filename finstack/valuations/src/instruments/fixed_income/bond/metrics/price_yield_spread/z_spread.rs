@@ -219,7 +219,7 @@ impl MetricCalculator for ZSpreadCalculator {
 
         // OPTIMIZATION: Pre-calculate cashflow times and base discount factors
         // to avoid repeated date logic and curve lookups inside the solver loop.
-        let flows = bond.build_schedule(&context.curves, context.as_of)?;
+        let flows = bond.build_dated_flows(&context.curves, context.as_of)?;
         let disc = context.curves.get_discount(&bond.discount_curve_id)?;
         let as_of = context.as_of;
         let dc = disc.day_count();

@@ -38,7 +38,7 @@ pub(super) fn solve_irr_to_exercise(
     use crate::cashflow::traits::CashflowProvider;
 
     // Get holder-view flows (coupons, amortization, positive redemptions only)
-    let holder_flows = loan.build_schedule(curves, as_of)?;
+    let holder_flows = loan.build_dated_flows(curves, as_of)?;
 
     let mut flows: Vec<(Date, Money)> = Vec::new();
 
@@ -121,7 +121,7 @@ pub(super) fn solve_irr_to_date(
     let is_maturity = exercise_date == loan.maturity;
 
     // Get holder-view flows (coupons, amortization, positive redemptions)
-    let holder_flows = loan.build_schedule(curves, as_of)?;
+    let holder_flows = loan.build_dated_flows(curves, as_of)?;
 
     let mut flows: Vec<(Date, Money)> = Vec::new();
 

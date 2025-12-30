@@ -110,7 +110,7 @@ impl MetricCalculator for ParRateCalculator {
                     irs.fixed.stub,
                     irs.fixed.bdc,
                     irs.fixed.calendar_id.as_deref(),
-                );
+                )?;
                 let dates: Vec<Date> = sched.dates;
                 if dates.len() < 2 {
                     return Err(finstack_core::Error::Validation(

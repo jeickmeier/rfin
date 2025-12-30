@@ -234,7 +234,7 @@ fn test_cashflow_expired() {
     );
     let market = build_standard_market(as_of, 0.05);
 
-    let cashflows = future.build_schedule(&market, as_of).unwrap();
+    let cashflows = future.build_dated_flows(&market, as_of).unwrap();
 
     // Should return empty schedule for expired future
     assert!(
@@ -251,7 +251,7 @@ fn test_cashflow_active() {
     let future = create_standard_future(start, end);
     let market = build_standard_market(as_of, 0.05);
 
-    let cashflows = future.build_schedule(&market, as_of).unwrap();
+    let cashflows = future.build_dated_flows(&market, as_of).unwrap();
 
     // Futures are daily settled, so standard discounting schedule is empty
     // The value is returned directly by npv() / value()

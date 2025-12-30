@@ -16,7 +16,7 @@
 //!   (e.g., via trade price) and are **not** included in the projected
 //!   cashflow schedule.
 //!
-//! This convention is enforced by `Bond::build_schedule`, which turns the
+//! This convention is enforced by the bond's `CashflowProvider::build_dated_flows` implementation, which turns the
 //! internal cashflow schedule into a simplified `(Date, Money)` stream used
 //! by pricing and risk engines.
 //!

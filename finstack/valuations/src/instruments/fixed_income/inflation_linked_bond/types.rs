@@ -394,7 +394,7 @@ impl InflationLinkedBond {
             self.stub,
             self.bdc,
             self.calendar_id.as_deref(),
-        );
+        )?;
         let dates = sched.dates;
         if dates.len() < 2 {
             return Ok(vec![]);
@@ -430,7 +430,7 @@ impl InflationLinkedBond {
             self.stub,
             self.bdc,
             self.calendar_id.as_deref(),
-        );
+        )?;
         let dates = sched.dates;
         if dates.len() < 2 {
             return Ok(0.0);
@@ -479,7 +479,7 @@ impl InflationLinkedBond {
             self.stub,
             self.bdc,
             self.calendar_id.as_deref(),
-        );
+        )?;
         let dates = sched.dates;
         if dates.len() < 2 {
             return Ok(vec![]);
@@ -715,8 +715,16 @@ impl CashflowProvider for InflationLinkedBond {
         Some(self.notional)
     }
 
-    fn build_schedule(&self, curves: &MarketContext, as_of: Date) -> Result<DatedFlows> {
-        self.build_schedule(curves, as_of)
+    fn build_full_schedule(
+        &self,
+        curves: &MarketContext,
+        as_of: Date,
+    ) -> Result<crate::cashflow::builder::CashFlowSchedule> {
+        let flows = self.build_schedule(curves, as_of)?;
+        Ok(crate::cashflow::traits::schedule_from_dated_flows(
+            flows,
+            self.notional(),
+        ))
     }
 }
 

@@ -607,13 +607,15 @@ impl CashflowProvider for VolatilityIndexOption {
         Some(self.notional)
     }
 
-    fn build_schedule(
+    fn build_full_schedule(
         &self,
         _curves: &MarketContext,
         _as_of: Date,
-    ) -> finstack_core::Result<Vec<(Date, Money)>> {
-        // Options have no scheduled cashflows until expiry
-        Ok(vec![])
+    ) -> finstack_core::Result<crate::cashflow::builder::CashFlowSchedule> {
+        Ok(crate::cashflow::traits::schedule_from_dated_flows(
+            Vec::new(),
+            self.notional(),
+        ))
     }
 }
 

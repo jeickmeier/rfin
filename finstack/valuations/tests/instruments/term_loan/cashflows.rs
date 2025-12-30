@@ -51,7 +51,7 @@ fn test_fixed_coupon_cashflows() {
     // Act
     let market = build_market_context();
     let as_of = date!(2025 - 01 - 01);
-    let cashflows = loan.build_schedule(&market, as_of).unwrap();
+    let cashflows = loan.build_dated_flows(&market, as_of).unwrap();
 
     // Assert
     assert!(!cashflows.is_empty());
@@ -91,7 +91,7 @@ fn test_amortizing_principal_cashflows() {
     // Act
     let market = build_market_context();
     let as_of = date!(2025 - 01 - 01);
-    let cashflows = loan.build_schedule(&market, as_of).unwrap();
+    let cashflows = loan.build_dated_flows(&market, as_of).unwrap();
 
     // Assert
     assert!(!cashflows.is_empty());
@@ -127,7 +127,7 @@ fn test_pik_interest_capitalization() {
     // Act
     let market = build_market_context();
     let as_of = date!(2025 - 01 - 01);
-    let cashflows = loan.build_schedule(&market, as_of).unwrap();
+    let cashflows = loan.build_dated_flows(&market, as_of).unwrap();
 
     // Assert
     assert!(!cashflows.is_empty());

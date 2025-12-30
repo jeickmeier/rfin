@@ -339,7 +339,8 @@ mod tests {
                 first_exercise,
                 swap_end,
                 Tenor::semi_annual(),
-            ),
+            )
+            .expect("valid Bermudan schedule"),
             bermudan_type: BermudanType::CoTerminal,
             pricing_overrides: Default::default(),
             attributes: Default::default(),

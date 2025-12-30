@@ -556,7 +556,7 @@ pub fn price_from_ytw(
     dirty_price_target: Money,
 ) -> finstack_core::Result<f64> {
     // Build holder-view flows and delegate to shared YTW helper
-    let flows = bond.build_schedule(curves, as_of)?;
+    let flows = bond.build_dated_flows(curves, as_of)?;
     let (best_yield, best_flows) = solve_ytw_from_flows(bond, &flows, as_of, dirty_price_target)?;
 
     // Re-price along the worst-yield path for a consistent price result
@@ -580,7 +580,7 @@ pub fn price_from_z_spread(
 ) -> finstack_core::Result<f64> {
     use finstack_core::math::summation::NeumaierAccumulator;
 
-    let flows = bond.build_schedule(curves, as_of)?;
+    let flows = bond.build_dated_flows(curves, as_of)?;
     let disc = curves.get_discount(&bond.discount_curve_id)?;
 
     let mut pv = NeumaierAccumulator::new();
@@ -772,7 +772,7 @@ pub fn compute_quotes(
         BondQuoteInput::Ytm(ytm) => {
             // Use standard holder-view flows and price_from_ytm helper.
             let flows =
-                <Bond as CashflowProvider>::build_schedule(&bond_for_metrics, curves, as_of)?;
+                <Bond as CashflowProvider>::build_dated_flows(&bond_for_metrics, curves, as_of)?;
             let dirty_ccy = price_from_ytm(&bond_for_metrics, &flows, as_of, ytm)?;
             let clean_ccy = dirty_ccy - accrued_ccy;
             let clean_pct = clean_ccy / notional * 100.0;
@@ -807,7 +807,7 @@ pub fn compute_quotes(
             let par_swap_rate = par_swap_rate_from_discount(bond, curves, as_of)?;
             let ytm = i_spread + par_swap_rate;
             let flows =
-                <Bond as CashflowProvider>::build_schedule(&bond_for_metrics, curves, as_of)?;
+                <Bond as CashflowProvider>::build_dated_flows(&bond_for_metrics, curves, as_of)?;
             let dirty_ccy = price_from_ytm(&bond_for_metrics, &flows, as_of, ytm)?;
             let clean_ccy = dirty_ccy - accrued_ccy;
             let clean_pct = clean_ccy / notional * 100.0;
@@ -825,7 +825,13 @@ pub fn compute_quotes(
 
     let instrument_arc: Arc<dyn Instrument> = Arc::new(bond_for_metrics.clone());
     let curves_arc = Arc::new(curves.clone());
-    let mut ctx = MetricContext::new(instrument_arc, curves_arc, as_of, base_value, MetricContext::default_config());
+    let mut ctx = MetricContext::new(
+        instrument_arc,
+        curves_arc,
+        as_of,
+        base_value,
+        MetricContext::default_config(),
+    );
     ctx.notional = Some(bond_for_metrics.notional);
 
     // Pre-populate accrued since we've already computed it.

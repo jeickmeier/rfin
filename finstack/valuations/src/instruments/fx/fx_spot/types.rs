@@ -313,11 +313,11 @@ impl CashflowProvider for FxSpot {
         self.notional
     }
 
-    fn build_schedule(
+    fn build_full_schedule(
         &self,
         _curves: &MarketContext,
         as_of: Date,
-    ) -> finstack_core::Result<Vec<(Date, Money)>> {
+    ) -> finstack_core::Result<crate::cashflow::builder::CashFlowSchedule> {
         // FX spot settles on provided settlement date (BDC-adjusted if calendar present)
         // or computed T+N BUSINESS days when settlement is not provided.
         let settle_date = if let Some(date) = self.settlement {
@@ -345,7 +345,7 @@ impl CashflowProvider for FxSpot {
             }
         };
 
-        if settle_date > as_of {
+        let flows = if settle_date > as_of {
             // Future settlement - use explicit spot_rate if provided, otherwise query FX matrix
             let rate = if let Some(rate) = self.spot_rate {
                 rate
@@ -360,10 +360,15 @@ impl CashflowProvider for FxSpot {
                 matrix.as_ref().rate(q)?.rate
             };
             let value = Money::new(self.effective_notional().amount() * rate, self.quote);
-            Ok(vec![(settle_date, value)])
+            vec![(settle_date, value)]
         } else {
             // Already settled
-            Ok(vec![])
-        }
+            Vec::new()
+        };
+
+        Ok(crate::cashflow::traits::schedule_from_dated_flows(
+            flows,
+            self.notional(),
+        ))
     }
 }

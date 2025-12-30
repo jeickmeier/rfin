@@ -397,7 +397,7 @@ fn term_loan_golden_pv_and_metrics() {
     );
 
     // Verify holder-view schedule excludes funding legs
-    let holder_flows = loan.build_schedule(&market, as_of).unwrap();
+    let holder_flows = loan.build_dated_flows(&market, as_of).unwrap();
     // Should have coupons + final redemption; no negative funding leg
     assert!(
         holder_flows.iter().all(|(_, amt)| amt.amount() >= 0.0),

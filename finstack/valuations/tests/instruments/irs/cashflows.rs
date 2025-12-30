@@ -81,7 +81,7 @@ fn test_irs_cashflow_schedule_generation() {
     let market = build_test_curves();
     let as_of = date!(2024 - 01 - 01);
 
-    let schedule = swap.build_schedule(&market, as_of).unwrap();
+    let schedule = swap.build_dated_flows(&market, as_of).unwrap();
 
     // Should have cashflows from both legs
     assert!(!schedule.is_empty(), "Schedule should not be empty");
@@ -134,7 +134,7 @@ fn test_irs_fixed_leg_quarterly_schedule() {
     let market = build_test_curves();
     let as_of = date!(2024 - 01 - 01);
 
-    let schedule = swap.build_schedule(&market, as_of).unwrap();
+    let schedule = swap.build_dated_flows(&market, as_of).unwrap();
 
     // 1 year quarterly = 4 periods per leg = 8 cashflows
     assert!(
@@ -190,7 +190,7 @@ fn test_irs_fixed_leg_semiannual_schedule() {
     let market = build_test_curves();
     let as_of = date!(2024 - 01 - 01);
 
-    let schedule = swap.build_schedule(&market, as_of).unwrap();
+    let schedule = swap.build_dated_flows(&market, as_of).unwrap();
 
     // 2 years: 4 semiannual + 8 quarterly = 12 total
     assert!(
@@ -214,7 +214,7 @@ fn test_irs_floating_leg_schedule() {
     let market = build_test_curves();
     let as_of = date!(2024 - 01 - 01);
 
-    let schedule = swap.build_schedule(&market, as_of).unwrap();
+    let schedule = swap.build_dated_flows(&market, as_of).unwrap();
 
     // Verify floating leg generates cashflows
     assert!(!schedule.is_empty());
@@ -267,7 +267,7 @@ fn test_irs_stub_front() {
     let market = build_test_curves();
     let as_of = date!(2024 - 01 - 01);
 
-    let schedule = swap.build_schedule(&market, as_of);
+    let schedule = swap.build_dated_flows(&market, as_of);
 
     assert!(schedule.is_ok(), "Should generate schedule with stub");
 }
@@ -319,7 +319,7 @@ fn test_irs_stub_back() {
     let market = build_test_curves();
     let as_of = date!(2024 - 01 - 01);
 
-    let schedule = swap.build_schedule(&market, as_of);
+    let schedule = swap.build_dated_flows(&market, as_of);
 
     assert!(schedule.is_ok(), "Should generate schedule with back stub");
 }
@@ -339,7 +339,7 @@ fn test_irs_cashflow_dates_ordered() {
     let market = build_test_curves();
     let as_of = date!(2024 - 01 - 01);
 
-    let schedule = swap.build_schedule(&market, as_of).unwrap();
+    let schedule = swap.build_dated_flows(&market, as_of).unwrap();
 
     // Verify dates are in ascending order
     let mut prev_date = date!(2020 - 01 - 01);
@@ -364,7 +364,7 @@ fn test_irs_cashflow_amounts_nonzero() {
     let market = build_test_curves();
     let as_of = date!(2024 - 01 - 01);
 
-    let schedule = swap.build_schedule(&market, as_of).unwrap();
+    let schedule = swap.build_dated_flows(&market, as_of).unwrap();
 
     // Verify amounts are reasonable (non-zero for fixed rate > 0)
     for (_, amount) in &schedule {
@@ -453,7 +453,7 @@ fn test_irs_different_frequencies() {
     let market = build_test_curves();
     let as_of = date!(2024 - 01 - 01);
 
-    let schedule = swap.build_schedule(&market, as_of).unwrap();
+    let schedule = swap.build_dated_flows(&market, as_of).unwrap();
 
     // 2 years: 4 semiannual fixed + 8 quarterly float = 12
     assert!(schedule.len() >= 4, "Should have multiple cashflows");
@@ -506,7 +506,7 @@ fn test_irs_calendar_adjustments() {
     let market = build_test_curves();
     let as_of = date!(2024 - 01 - 01);
 
-    let schedule = swap.build_schedule(&market, as_of);
+    let schedule = swap.build_dated_flows(&market, as_of);
 
     assert!(schedule.is_ok(), "Should handle calendar adjustments");
 }

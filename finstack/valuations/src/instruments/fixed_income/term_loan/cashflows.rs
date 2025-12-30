@@ -226,12 +226,11 @@ pub fn generate_cashflows(
     principal_events.sort_by_key(|e| e.date);
 
     // Build coupon program via unified builder
-    let mut builder = CashFlowBuilder::new();
+    let mut builder = CashFlowBuilder::default();
     let _ = builder
         .principal(Money::new(0.0, loan.currency), loan.issue, loan.maturity)
         .amortization(crate::cashflow::builder::AmortizationSpec::None)
-        .principal_events(&principal_events)
-        .strict_schedules(true);
+        .principal_events(&principal_events);
 
     match &loan.rate {
         super::types::RateSpec::Fixed { rate_bp } => {
@@ -360,7 +359,7 @@ pub fn generate_cashflows(
 
     // Note: We no longer filter flows by as_of here. The full schedule is returned
     // so that build_full_schedule() can compute outstanding paths correctly.
-    // The holder-view filtering in build_schedule() handles date-based exclusion
+    // The holder-view filtering in build_dated_flows() handles date-based exclusion
     // for pricing purposes (it filters to inflows only).
     schedule.day_count = loan.day_count;
     Ok(schedule)

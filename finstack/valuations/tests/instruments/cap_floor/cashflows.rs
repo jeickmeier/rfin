@@ -3,11 +3,12 @@
 //! Validates period generation for multi-period caps and floors.
 
 use finstack_core::dates::{BusinessDayConvention, DayCount, StubKind, Tenor};
+use finstack_core::Result;
 use finstack_valuations::cashflow::builder::date_generation::build_dates;
 use time::macros::date;
 
 #[test]
-fn test_quarterly_schedule_generation() {
+fn test_quarterly_schedule_generation() -> Result<()> {
     let start = date!(2024 - 01 - 01);
     let end = date!(2025 - 01 - 01);
 
@@ -18,16 +19,17 @@ fn test_quarterly_schedule_generation() {
         StubKind::None,
         BusinessDayConvention::ModifiedFollowing,
         None,
-    );
+    )?;
 
     // Should have 5 dates (4 periods): Jan, Apr, Jul, Oct, Jan
     assert_eq!(schedule.dates.len(), 5, "Should have 5 quarterly dates");
     assert_eq!(schedule.dates[0], start);
     assert_eq!(*schedule.dates.last().unwrap(), end);
+    Ok(())
 }
 
 #[test]
-fn test_semi_annual_schedule() {
+fn test_semi_annual_schedule() -> Result<()> {
     let start = date!(2024 - 01 - 01);
     let end = date!(2026 - 01 - 01);
 
@@ -38,14 +40,15 @@ fn test_semi_annual_schedule() {
         StubKind::None,
         BusinessDayConvention::Following,
         None,
-    );
+    )?;
 
     // 2 years semi-annual = 5 dates (4 periods): Jan, Jul, Jan, Jul, Jan
     assert_eq!(schedule.dates.len(), 5, "Should have 5 semi-annual dates");
+    Ok(())
 }
 
 #[test]
-fn test_annual_schedule() {
+fn test_annual_schedule() -> Result<()> {
     let start = date!(2024 - 01 - 01);
     let end = date!(2029 - 01 - 01);
 
@@ -56,14 +59,15 @@ fn test_annual_schedule() {
         StubKind::None,
         BusinessDayConvention::Following,
         None,
-    );
+    )?;
 
     // 5 years annual = 6 dates (5 periods)
     assert_eq!(schedule.dates.len(), 6, "Should have 6 annual dates");
+    Ok(())
 }
 
 #[test]
-fn test_monthly_schedule() {
+fn test_monthly_schedule() -> Result<()> {
     let start = date!(2024 - 01 - 01);
     let end = date!(2024 - 07 - 01);
 
@@ -74,14 +78,15 @@ fn test_monthly_schedule() {
         StubKind::None,
         BusinessDayConvention::Following,
         None,
-    );
+    )?;
 
     // 6 months = 7 dates (6 periods)
     assert_eq!(schedule.dates.len(), 7, "Should have 7 monthly dates");
+    Ok(())
 }
 
 #[test]
-fn test_schedule_ordering() {
+fn test_schedule_ordering() -> Result<()> {
     let start = date!(2024 - 01 - 01);
     let end = date!(2025 - 01 - 01);
 
@@ -92,7 +97,7 @@ fn test_schedule_ordering() {
         StubKind::None,
         BusinessDayConvention::Following,
         None,
-    );
+    )?;
 
     // Verify dates are in ascending order
     for i in 1..schedule.dates.len() {
@@ -101,10 +106,11 @@ fn test_schedule_ordering() {
             "Dates should be in ascending order"
         );
     }
+    Ok(())
 }
 
 #[test]
-fn test_period_coverage() {
+fn test_period_coverage() -> Result<()> {
     let start = date!(2024 - 01 - 01);
     let end = date!(2025 - 01 - 01);
 
@@ -115,7 +121,7 @@ fn test_period_coverage() {
         StubKind::None,
         BusinessDayConvention::Following,
         None,
-    );
+    )?;
 
     // First date should equal start
     assert_eq!(schedule.dates[0], start, "First date should equal start");
@@ -126,6 +132,7 @@ fn test_period_coverage() {
         end,
         "Last date should equal end"
     );
+    Ok(())
 }
 
 #[test]

@@ -1171,7 +1171,7 @@ mod tests {
 
         // Build schedule and verify it uses custom cashflows
         let flows = bond
-            .build_schedule(&curves, issue)
+            .build_dated_flows(&curves, issue)
             .expect("Schedule building should succeed in test");
         assert!(!flows.is_empty());
 
@@ -1341,10 +1341,10 @@ mod tests {
 
         // Build schedules
         let regular_flows = regular_bond
-            .build_schedule(&curves, issue)
+            .build_dated_flows(&curves, issue)
             .expect("Schedule building should succeed in test");
         let custom_flows = custom_bond
-            .build_schedule(&curves, issue)
+            .build_dated_flows(&curves, issue)
             .expect("Schedule building should succeed in test");
 
         // Should have different number of flows due to different frequency
@@ -1583,7 +1583,7 @@ mod tests {
     }
 
     #[test]
-    fn test_bond_frn_build_schedule_uses_builder() {
+    fn test_bond_frn_build_dated_flows_uses_builder() {
         use crate::cashflow::primitives::CFKind;
         use crate::cashflow::traits::CashflowProvider;
 
@@ -1636,9 +1636,9 @@ mod tests {
             "Full schedule should include CFKind::FloatReset for FRN"
         );
 
-        // Get simplified schedule via build_schedule
+        // Get simplified schedule via build_dated_flows
         let flows = frn
-            .build_schedule(&market, issue)
+            .build_dated_flows(&market, issue)
             .expect("Schedule building should succeed in test");
         assert!(!flows.is_empty(), "FRN should have cashflows");
 
@@ -1727,9 +1727,9 @@ mod tests {
             );
         }
 
-        // Get simplified schedule via build_schedule
+        // Get simplified schedule via build_dated_flows
         let flows = bond
-            .build_schedule(&market, issue)
+            .build_dated_flows(&market, issue)
             .expect("Schedule building should succeed in test");
 
         // Initial draw should be excluded (negative notional)
@@ -1839,7 +1839,7 @@ mod tests {
     }
 
     #[test]
-    fn test_bond_build_schedule_includes_floating_cfkind() {
+    fn test_bond_build_dated_flows_includes_floating_cfkind() {
         use crate::cashflow::traits::CashflowProvider;
 
         let issue = Date::from_calendar_date(2025, Month::January, 1).expect("Valid test date");
@@ -1878,7 +1878,7 @@ mod tests {
 
         // Build simplified schedule
         let flows = frn
-            .build_schedule(&market, issue)
+            .build_dated_flows(&market, issue)
             .expect("Schedule building should succeed in test");
 
         // Should have multiple flows (quarterly coupons + redemption)

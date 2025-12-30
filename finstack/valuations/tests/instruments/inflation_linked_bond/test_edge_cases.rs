@@ -10,6 +10,7 @@
 
 use super::common::*;
 use finstack_core::currency::Currency;
+use finstack_valuations::cashflow::traits::CashflowProvider;
 use finstack_valuations::instruments::common::traits::Instrument;
 
 #[test]
@@ -266,7 +267,7 @@ fn test_same_issue_and_maturity_date() {
     let as_of = d(2025, 1, 2);
 
     // Act
-    let flows = ilb.build_schedule(&ctx, as_of).unwrap();
+    let flows = ilb.build_dated_flows(&ctx, as_of).unwrap();
 
     // Assert - should handle gracefully (likely empty or just principal)
     assert!(flows.is_empty() || flows.len() == 1);
@@ -491,9 +492,10 @@ fn test_cashflow_provider_trait() {
     let as_of = d(2025, 1, 2);
 
     // Act
-    let flows =
-        finstack_valuations::cashflow::traits::CashflowProvider::build_schedule(&ilb, &ctx, as_of)
-            .unwrap();
+    let flows = finstack_valuations::cashflow::traits::CashflowProvider::build_dated_flows(
+        &ilb, &ctx, as_of,
+    )
+    .unwrap();
 
     // Assert
     assert!(!flows.is_empty());

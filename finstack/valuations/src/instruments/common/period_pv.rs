@@ -10,7 +10,7 @@
 //! - `periodized_pv`: Basic discounting with discount curve only
 //! - `periodized_pv_credit_adjusted`: Optional credit adjustment via hazard curve
 //!
-//! These methods delegate to the instrument's `build_schedule` implementation
+//! These methods delegate to the instrument's `build_dated_flows` implementation
 //! and leverage cashflow aggregation utilities for the actual
 //! aggregation and discounting.
 //!
@@ -97,7 +97,7 @@ use indexmap::IndexMap;
 ///
 /// This trait serves as a bridge between instrument-level APIs and the lower-level
 /// cashflow aggregation utilities. It handles:
-/// - Building the simplified cashflow schedule via `build_schedule`
+/// - Building the simplified cashflow schedule via `build_dated_flows`
 /// - Extracting the discount curve ID from the instrument
 /// - Delegating to the aggregation utilities for periodized PV calculation
 ///
@@ -164,7 +164,7 @@ pub trait PeriodizedPvExt: CashflowProvider + HasDiscountCurve {
     ) -> finstack_core::Result<IndexMap<PeriodId, IndexMap<Currency, Money>>> {
         // Build simplified schedule (holder perspective, filtered flows)
         // This matches the behavior of schedule_pv_using_curve_dc used in instrument pricing
-        let flows = self.build_schedule(market, base)?;
+        let flows = self.build_dated_flows(market, base)?;
 
         // Use the instrument's discount curve
         let disc_curve_id = self.discount_curve_id();

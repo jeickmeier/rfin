@@ -13,7 +13,7 @@ fn test_fra_single_cashflow() {
     let market = standard_market();
     let fra = create_standard_fra();
 
-    let flows = fra.build_schedule(&market, BASE_DATE).unwrap();
+    let flows = fra.build_dated_flows(&market, BASE_DATE).unwrap();
 
     // FRA should have exactly one cashflow (settlement at start)
     assert_eq!(flows.len(), 1, "FRA should have one cashflow");
@@ -24,7 +24,7 @@ fn test_cashflow_date_is_start_date() {
     let market = standard_market();
     let fra = create_standard_fra();
 
-    let flows = fra.build_schedule(&market, BASE_DATE).unwrap();
+    let flows = fra.build_dated_flows(&market, BASE_DATE).unwrap();
     let (date, _) = flows[0];
 
     assert_eq!(date, fra.start_date, "Cashflow should settle at start date");
@@ -36,7 +36,7 @@ fn test_cashflow_amount_matches_npv() {
     let fra = TestFraBuilder::new().fixed_rate(0.06).build();
 
     let npv = fra.npv(&market, BASE_DATE).unwrap();
-    let flows = fra.build_schedule(&market, BASE_DATE).unwrap();
+    let flows = fra.build_dated_flows(&market, BASE_DATE).unwrap();
     let (_, amount) = flows[0];
 
     assert_eq!(
@@ -53,7 +53,7 @@ fn test_no_cashflows_if_settled() {
     let fra = create_standard_fra();
 
     let after_settlement = date!(2024 - 07 - 01); // after start_date
-    let flows = fra.build_schedule(&market, after_settlement).unwrap();
+    let flows = fra.build_dated_flows(&market, after_settlement).unwrap();
 
     assert_eq!(flows.len(), 0, "No cashflows should exist after settlement");
 }
@@ -64,7 +64,7 @@ fn test_no_cashflows_on_settlement_date() {
     let fra = create_standard_fra();
 
     let on_settlement = fra.start_date;
-    let flows = fra.build_schedule(&market, on_settlement).unwrap();
+    let flows = fra.build_dated_flows(&market, on_settlement).unwrap();
 
     assert_eq!(flows.len(), 0, "No cashflows on settlement date itself");
 }
@@ -75,7 +75,7 @@ fn test_cashflows_before_settlement() {
     let fra = create_standard_fra();
 
     let before_settlement = date!(2024 - 03 - 01);
-    let flows = fra.build_schedule(&market, before_settlement).unwrap();
+    let flows = fra.build_dated_flows(&market, before_settlement).unwrap();
 
     assert_eq!(flows.len(), 1, "Should have cashflow before settlement");
 }
@@ -88,7 +88,7 @@ fn test_positive_cashflow_for_in_the_money() {
         .pay_fixed(true) // true = receive fixed
         .build();
 
-    let flows = fra.build_schedule(&market, BASE_DATE).unwrap();
+    let flows = fra.build_dated_flows(&market, BASE_DATE).unwrap();
     let (_, amount) = flows[0];
 
     assert_positive(
@@ -105,7 +105,7 @@ fn test_negative_cashflow_for_out_of_the_money() {
         .pay_fixed(true) // true = receive fixed
         .build();
 
-    let flows = fra.build_schedule(&market, BASE_DATE).unwrap();
+    let flows = fra.build_dated_flows(&market, BASE_DATE).unwrap();
     let (_, amount) = flows[0];
 
     assert_negative(
@@ -123,7 +123,7 @@ fn test_cashflow_currency_matches_notional() {
         .notional(1_000_000.0, Currency::EUR)
         .build();
 
-    let flows = fra.build_schedule(&market, BASE_DATE).unwrap();
+    let flows = fra.build_dated_flows(&market, BASE_DATE).unwrap();
     let (_, amount) = flows[0];
 
     assert_eq!(amount.currency(), Currency::EUR);

@@ -513,7 +513,7 @@ fn test_cashflow_schedule_returns_single_maturity_flow() {
     let as_of = swap.start_date;
 
     // Act
-    let flows = swap.build_schedule(&ctx, as_of).unwrap();
+    let flows = swap.build_dated_flows(&ctx, as_of).unwrap();
 
     // Assert
     assert_eq!(flows.len(), 1);
@@ -532,7 +532,7 @@ fn test_cashflow_schedule_preserves_currency() {
     let as_of = swap.start_date;
 
     // Act
-    let flows = swap.build_schedule(&ctx, as_of).unwrap();
+    let flows = swap.build_dated_flows(&ctx, as_of).unwrap();
 
     // Assert
     assert_eq!(flows[0].1.currency(), Currency::EUR);
@@ -548,7 +548,7 @@ fn test_cashflow_schedule_has_zero_amount_before_settlement() {
     let as_of = swap.start_date;
 
     // Act
-    let flows = swap.build_schedule(&ctx, as_of).unwrap();
+    let flows = swap.build_dated_flows(&ctx, as_of).unwrap();
 
     // Assert - variance swaps have path-dependent payoff, amount is 0 in schedule
     assert_eq!(flows[0].1.amount(), 0.0);

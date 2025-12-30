@@ -1,13 +1,11 @@
 //! Date and schedule generation utilities.
 //!
 //! This module provides functions for generating payment date schedules based on
-//! frequency, stub rules, and business day conventions. It supports both strict
-//! and graceful error handling modes.
+//! frequency, stub rules, and business day conventions.
 //!
 //! ## Responsibilities
 //!
-//! - Generate period schedules with `build_dates` (graceful fallback)
-//! - Generate period schedules with `build_dates_checked` (strict validation)
+//! - Generate period schedules with `build_dates` (strict validation)
 //! - Create `PeriodSchedule` with helper maps for previous date lookups
 //! - Apply business day adjustments using calendars
 
@@ -54,25 +52,7 @@ impl PeriodSchedule {
     }
 }
 
-/// Error type for schedule building operations.
-#[derive(Debug, thiserror::Error)]
-pub enum ScheduleError {
-    /// Core date/time error
-    #[error("Schedule building error: {0}")]
-    Core(#[from] finstack_core::Error),
-}
-
-impl From<ScheduleError> for finstack_core::Error {
-    fn from(err: ScheduleError) -> Self {
-        match err {
-            ScheduleError::Core(core_err) => core_err,
-        }
-    }
-}
-
-/// Internal implementation for schedule building with configurable error handling.
-///
-/// When `strict` is true, errors are propagated; when false, graceful fallback to empty schedule.
+/// Internal implementation for schedule building with strict error handling.
 fn build_dates_impl(
     start: Date,
     end: Date,
@@ -80,48 +60,28 @@ fn build_dates_impl(
     stub: StubKind,
     bdc: BusinessDayConvention,
     calendar_id: Option<&str>,
-    strict: bool,
-) -> Result<PeriodSchedule, ScheduleError> {
-    let mut builder = match ScheduleBuilder::try_new(start, end) {
-        Ok(b) => b.frequency(freq).stub_rule(stub),
-        Err(e) => {
-            // In non-strict mode, return an empty schedule rather than bubbling up.
-            // This matches the "graceful fallback" contract and avoids panicking on
-            // invalid ranges (e.g., start > end).
-            if strict {
-                return Err(ScheduleError::Core(e));
-            }
-            return Ok(PeriodSchedule::from_dates(vec![]));
-        }
-    };
+) -> finstack_core::Result<PeriodSchedule> {
+    let mut builder = ScheduleBuilder::try_new(start, end)?
+        .frequency(freq)
+        .stub_rule(stub);
 
     // Configure calendar adjustment if provided
     if let Some(id) = calendar_id {
-        // In non-strict mode, fall back to an unadjusted schedule if the calendar is missing.
-        // This preserves historical behavior and matches the CashFlowBuilder contract.
-        if !strict {
-            builder = builder.allow_missing_calendar(true);
-        }
         builder = builder.adjust_with_id(bdc, id);
-    }
-
-    // Enable graceful mode for non-strict builds
-    if !strict {
-        builder = builder.graceful_fallback(true);
     }
 
     let schedule = builder.build()?;
     Ok(PeriodSchedule::from_dates(schedule.dates))
 }
 
-/// Build a schedule between start/end with graceful error handling.
+/// Build a schedule between start/end with strict error handling.
 ///
-/// This is the **unchecked variant** that provides graceful fallback behavior:
-/// - If schedule building fails, returns empty schedule `[]`
-/// - If calendar is not found, generates schedule without business day adjustment
-/// - Never panics, always returns a valid `PeriodSchedule`
+/// # Errors
 ///
-/// For strict validation that returns errors, use [`build_dates_checked`].
+/// Returns `finstack_core::Error` when:
+/// - `calendar_id` is provided but calendar is not found
+/// - Schedule generation fails due to invalid date ranges
+/// - Business day adjustment fails
 ///
 /// # Example
 ///
@@ -132,7 +92,14 @@ fn build_dates_impl(
 ///
 /// let start = create_date(2025, Month::January, 15)?;
 /// let end = create_date(2025, Month::July, 15)?;
-/// let sched = build_dates(start, end, Tenor::quarterly(), StubKind::None, BusinessDayConvention::Following, None);
+/// let sched = build_dates(
+///     start,
+///     end,
+///     Tenor::quarterly(),
+///     StubKind::None,
+///     BusinessDayConvention::Following,
+///     None,
+/// )?;
 /// assert!(sched.dates.len() >= 2);
 /// # Ok::<(), finstack_core::Error>(())
 /// ```
@@ -143,58 +110,8 @@ pub fn build_dates(
     stub: StubKind,
     bdc: BusinessDayConvention,
     calendar_id: Option<&str>,
-) -> PeriodSchedule {
-    // Never panics - uses graceful fallback on errors
-    match build_dates_impl(start, end, freq, stub, bdc, calendar_id, false) {
-        Ok(s) => s,
-        Err(_) => PeriodSchedule::from_dates(vec![]),
-    }
-}
-
-/// Build a schedule between start/end with strict error handling.
-///
-/// This is the **checked variant** that propagates all errors:
-/// - Returns error if schedule building fails
-/// - Returns error if calendar is specified but not found
-/// - Returns error if ScheduleBuilder fails for any reason
-///
-/// For graceful fallback behavior, use [`build_dates`].
-///
-/// # Errors
-///
-/// Returns `ScheduleError` when:
-/// - `calendar_id` is provided but calendar is not found
-/// - Schedule generation fails due to invalid date ranges
-/// - Business day adjustment fails
-///
-/// # Example
-///
-/// ```rust
-/// use finstack_core::dates::{Date, Tenor, BusinessDayConvention, StubKind, create_date};
-/// use finstack_valuations::cashflow::builder::date_generation::build_dates_checked;
-/// use time::Month;
-///
-/// let start = create_date(2025, Month::January, 15)?;
-/// let end = create_date(2025, Month::July, 15)?;
-/// let sched = build_dates_checked(
-///     start, end,
-///     Tenor::quarterly(),
-///     StubKind::None,
-///     BusinessDayConvention::Following,
-///     None
-/// )?;
-/// assert!(sched.dates.len() >= 2);
-/// # Ok::<(), Box<dyn std::error::Error>>(())
-/// ```
-pub fn build_dates_checked(
-    start: Date,
-    end: Date,
-    freq: Tenor,
-    stub: StubKind,
-    bdc: BusinessDayConvention,
-    calendar_id: Option<&str>,
-) -> Result<PeriodSchedule, ScheduleError> {
-    build_dates_impl(start, end, freq, stub, bdc, calendar_id, true)
+) -> finstack_core::Result<PeriodSchedule> {
+    build_dates_impl(start, end, freq, stub, bdc, calendar_id)
 }
 
 #[cfg(test)]
@@ -209,8 +126,8 @@ mod tests {
     }
 
     #[test]
-    fn build_dates_checked_errors_on_unknown_calendar() {
-        let res = build_dates_checked(
+    fn build_dates_errors_on_unknown_calendar() {
+        let res = build_dates(
             d(2025, 1, 1),
             d(2025, 4, 1),
             Tenor::quarterly(),

@@ -15,7 +15,7 @@ use finstack_core::types::{CurveId, InstrumentId, Rate};
 use rust_decimal::prelude::ToPrimitive;
 use rust_decimal::Decimal;
 
-use crate::cashflow::traits::{CashflowProvider, DatedFlows};
+use crate::cashflow::traits::CashflowProvider;
 use crate::instruments::common::traits::Attributes;
 use crate::margin::types::OtcMarginSpec;
 
@@ -731,14 +731,6 @@ impl CashflowProvider for InterestRateSwap {
     fn notional(&self) -> Option<Money> {
         // Return the receive leg notional as the primary notional
         Some(self.notional)
-    }
-
-    fn build_schedule(
-        &self,
-        curves: &MarketContext,
-        _as_of: Date,
-    ) -> finstack_core::Result<DatedFlows> {
-        crate::instruments::irs::cashflow::signed_dated_flows_with_curves(self, Some(curves))
     }
 
     /// Build full cashflow schedule with CFKind metadata for precise classification.

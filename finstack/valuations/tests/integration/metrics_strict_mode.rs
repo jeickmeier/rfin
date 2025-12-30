@@ -68,7 +68,13 @@ fn test_all_metrics_succeed_strict_mode() {
     let pv = bond.value(&market, as_of).unwrap();
 
     // Create metric context
-    let mut context = MetricContext::new(Arc::new(bond), Arc::new(market), as_of, pv, MetricContext::default_config());
+    let mut context = MetricContext::new(
+        Arc::new(bond),
+        Arc::new(market),
+        as_of,
+        pv,
+        MetricContext::default_config(),
+    );
 
     // Request standard bond metrics that are applicable to vanilla bonds
     let metric_ids = vec![
@@ -150,7 +156,13 @@ fn test_unknown_metric_fails_strict_mode() {
     let bond = create_test_bond(as_of);
     let pv = bond.value(&market, as_of).unwrap();
 
-    let mut context = MetricContext::new(Arc::new(bond), Arc::new(market), as_of, pv, MetricContext::default_config());
+    let mut context = MetricContext::new(
+        Arc::new(bond),
+        Arc::new(market),
+        as_of,
+        pv,
+        MetricContext::default_config(),
+    );
 
     // Mix valid and invalid metrics
     let metric_ids = vec![
@@ -194,7 +206,13 @@ fn test_strict_is_default() {
     let bond = create_test_bond(as_of);
     let pv = bond.value(&market, as_of).unwrap();
 
-    let mut context = MetricContext::new(Arc::new(bond), Arc::new(market), as_of, pv, MetricContext::default_config());
+    let mut context = MetricContext::new(
+        Arc::new(bond),
+        Arc::new(market),
+        as_of,
+        pv,
+        MetricContext::default_config(),
+    );
 
     let metric_ids = vec![MetricId::CleanPrice, MetricId::custom("unknown_metric")];
 
@@ -304,7 +322,13 @@ fn test_end_to_end_workflow() {
     assert!(pv.amount() > 0.0, "Bond should have positive PV");
 
     // 2. Compute comprehensive metrics in strict mode
-    let mut context = MetricContext::new(Arc::new(bond), Arc::new(market), as_of, pv, MetricContext::default_config());
+    let mut context = MetricContext::new(
+        Arc::new(bond),
+        Arc::new(market),
+        as_of,
+        pv,
+        MetricContext::default_config(),
+    );
 
     let all_bond_metrics = vec![
         MetricId::CleanPrice,

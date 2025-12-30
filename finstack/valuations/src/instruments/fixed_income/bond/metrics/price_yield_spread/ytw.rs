@@ -63,7 +63,7 @@ impl MetricCalculator for YtwCalculator {
                 (
                     bond.discount_curve_id.to_owned(),
                     bond.cashflow_spec.day_count(),
-                    bond.build_schedule(&context.curves, context.as_of)?,
+                    bond.build_dated_flows(&context.curves, context.as_of)?,
                 )
             };
             context.cashflows = Some(built);

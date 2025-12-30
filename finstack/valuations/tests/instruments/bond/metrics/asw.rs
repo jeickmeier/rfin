@@ -172,7 +172,8 @@ fn test_asw_par_tracks_coupon_minus_par_rate() {
         spec.stub,
         spec.bdc,
         spec.calendar_id.as_deref(),
-    );
+    )
+    .expect("schedule build should succeed");
     let (par_rate, _) =
         finstack_valuations::instruments::bond::pricing::quote_engine::par_rate_and_annuity_from_discount(
             &disc,
@@ -378,4 +379,3 @@ fn test_asw_par_forward_returns_zero_for_zero_notional() {
 
     assert_eq!(asw, 0.0, "Zero notional should return zero ASW");
 }
-

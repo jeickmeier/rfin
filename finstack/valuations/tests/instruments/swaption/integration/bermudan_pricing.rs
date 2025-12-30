@@ -60,7 +60,8 @@ fn test_bermudan_swaption(
             first_exercise,
             swap_end,
             Tenor::semi_annual(),
-        ),
+        )
+        .expect("valid Bermudan schedule"),
         bermudan_type: BermudanType::CoTerminal,
         pricing_overrides: Default::default(),
         attributes: Default::default(),
@@ -238,7 +239,8 @@ fn test_bermudan_schedule_generation() {
     let first_exercise = Date::from_calendar_date(2026, Month::January, 1).expect("Valid date");
     let swap_end = Date::from_calendar_date(2030, Month::January, 1).expect("Valid date");
 
-    let schedule = BermudanSchedule::co_terminal(first_exercise, swap_end, Tenor::semi_annual());
+    let schedule = BermudanSchedule::co_terminal(first_exercise, swap_end, Tenor::semi_annual())
+        .expect("valid Bermudan schedule");
 
     // Should have approximately 8 exercise dates (4 years * 2 per year)
     let effective_dates = schedule.effective_dates();
@@ -269,6 +271,7 @@ fn test_bermudan_schedule_with_lockout() {
     let lockout_end = Date::from_calendar_date(2027, Month::January, 1).expect("Valid date");
 
     let schedule = BermudanSchedule::co_terminal(first_exercise, swap_end, Tenor::semi_annual())
+        .expect("valid Bermudan schedule")
         .with_lockout(lockout_end);
 
     let effective_dates = schedule.effective_dates();

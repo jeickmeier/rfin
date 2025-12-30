@@ -60,9 +60,9 @@ pub use convexity::ConvexityCalculator;
 pub use duration_macaulay::MacaulayDurationCalculator;
 pub use duration_modified::ModifiedDurationCalculator;
 pub use price_yield_spread::{
-    AssetSwapMarketCalculator, AssetSwapParCalculator, CleanPriceCalculator,
-    DirtyPriceCalculator, DiscountMarginCalculator, EmbeddedOptionValueCalculator,
-    ISpreadCalculator, OasCalculator, YtmCalculator, YtwCalculator, ZSpreadCalculator,
+    AssetSwapMarketCalculator, AssetSwapParCalculator, CleanPriceCalculator, DirtyPriceCalculator,
+    DiscountMarginCalculator, EmbeddedOptionValueCalculator, ISpreadCalculator, OasCalculator,
+    YtmCalculator, YtwCalculator, ZSpreadCalculator,
 };
 
 /// Registers all bond metrics to a registry.

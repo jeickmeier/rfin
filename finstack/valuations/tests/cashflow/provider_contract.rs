@@ -6,7 +6,7 @@
 //!
 //! # Contract Properties Verified
 //!
-//! 1. `build_schedule` succeeds with minimal valid market context
+//! 1. `build_dated_flows` succeeds with minimal valid market context
 //! 2. Returned flows are sorted by date (ascending)
 //! 3. All flows have the same currency as the instrument's notional (if provided)
 //! 4. Future flows (after as_of) are included; past flows may be filtered
@@ -42,7 +42,7 @@ use finstack_valuations::cashflow::traits::CashflowProvider;
 ///
 /// # Contract Properties
 ///
-/// 1. `build_schedule` returns `Ok` with valid market context
+/// 1. `build_dated_flows` returns `Ok` with valid market context
 /// 2. Returned flows are sorted by date (non-decreasing)
 /// 3. All flows have the same currency as notional (if notional is provided)
 ///
@@ -54,10 +54,10 @@ fn verify_provider_contract<T: CashflowProvider>(
     market: &MarketContext,
     as_of: Date,
 ) {
-    // Contract 1: build_schedule should succeed with valid inputs
+    // Contract 1: build_dated_flows should succeed with valid inputs
     let flows = provider
-        .build_schedule(market, as_of)
-        .expect("build_schedule should succeed with valid market context");
+        .build_dated_flows(market, as_of)
+        .expect("build_dated_flows should succeed with valid market context");
 
     // Contract 2: Flows must be sorted by date (non-decreasing)
     for window in flows.windows(2) {

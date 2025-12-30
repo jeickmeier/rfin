@@ -730,28 +730,6 @@ impl crate::cashflow::traits::CashflowProvider for RevolvingCredit {
         Some(self.commitment_amount)
     }
 
-    fn build_schedule(
-        &self,
-        curves: &finstack_core::market_data::context::MarketContext,
-        as_of: finstack_core::dates::Date,
-    ) -> finstack_core::Result<crate::cashflow::DatedFlows> {
-        // Only works for deterministic specs
-        if !self.is_deterministic() {
-            return Err(finstack_core::InputError::Invalid.into());
-        }
-
-        use crate::instruments::revolving_credit::cashflow_engine::CashflowEngine;
-        let engine = CashflowEngine::new(self, Some(curves), as_of)?;
-        let path_schedule = engine.generate_deterministic()?;
-
-        Ok(path_schedule
-            .schedule
-            .flows
-            .into_iter()
-            .map(|cf| (cf.date, cf.amount))
-            .collect())
-    }
-
     fn build_full_schedule(
         &self,
         curves: &finstack_core::market_data::context::MarketContext,

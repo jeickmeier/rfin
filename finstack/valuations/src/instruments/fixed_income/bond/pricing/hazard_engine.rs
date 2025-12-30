@@ -100,7 +100,7 @@ impl HazardBondEngine {
         market: &MarketContext,
         as_of: Date,
     ) -> Result<(Vec<(Date, Money)>, CashFlowSchedule)> {
-        let flows = bond.build_schedule(market, as_of)?;
+        let flows = bond.build_dated_flows(market, as_of)?;
         if flows.is_empty() {
             return Err(InputError::TooFewPoints.into());
         }
@@ -445,7 +445,13 @@ mod tests {
 
         let instrument_arc: Arc<dyn Instrument> = Arc::new(bond.clone());
         let curves_arc = Arc::new(market.clone());
-        let mut ctx = MetricContext::new(instrument_arc, curves_arc, issue, base_pv, MetricContext::default_config());
+        let mut ctx = MetricContext::new(
+            instrument_arc,
+            curves_arc,
+            issue,
+            base_pv,
+            MetricContext::default_config(),
+        );
 
         let registry = standard_registry();
         let metric_ids = [MetricId::Cs01, MetricId::BucketedCs01];

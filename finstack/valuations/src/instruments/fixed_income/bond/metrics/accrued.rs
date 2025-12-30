@@ -50,7 +50,7 @@ impl MetricCalculator for AccruedInterestCalculator {
 
             // Prepare potential flows for caching (build now, assign later)
             let maybe_flows = if context.cashflows.is_none() {
-                Some(bond.build_schedule(&context.curves, context.as_of)?)
+                Some(bond.build_dated_flows(&context.curves, context.as_of)?)
             } else {
                 None
             };

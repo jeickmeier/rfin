@@ -201,7 +201,7 @@ impl InflationCapFloor {
             return Ok(vec![(self.start_date, self.end_date, pay)]);
         }
 
-        let schedule = crate::cashflow::builder::date_generation::build_dates_checked(
+        let schedule = crate::cashflow::builder::date_generation::build_dates(
             self.start_date,
             self.end_date,
             self.frequency,

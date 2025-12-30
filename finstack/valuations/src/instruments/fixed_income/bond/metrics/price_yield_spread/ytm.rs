@@ -101,7 +101,7 @@ impl MetricCalculator for YtmCalculator {
         // Build and cache flows and hints if not already present
         if context.cashflows.is_none() {
             let bond: &Bond = context.instrument_as()?;
-            let flows = bond.build_schedule(&context.curves, context.as_of)?;
+            let flows = bond.build_dated_flows(&context.curves, context.as_of)?;
             context.cashflows = Some(flows);
             context.discount_curve_id = Some(discount_curve_id);
             context.day_count = Some(dc);

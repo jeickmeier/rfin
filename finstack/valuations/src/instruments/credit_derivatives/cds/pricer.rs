@@ -903,7 +903,7 @@ impl CDSPricer {
                 cds.premium.stub,
                 cds.premium.bdc,
                 cds.premium.calendar_id.as_deref(),
-            );
+            )?;
             Ok(sched.dates)
         }
     }

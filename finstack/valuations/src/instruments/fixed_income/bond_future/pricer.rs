@@ -88,7 +88,7 @@ impl BondFuturePricer {
         as_of: Date,
     ) -> Result<f64> {
         // Get bond's cashflows (holder view: all positive)
-        let cashflows = bond.build_schedule(market, as_of)?;
+        let cashflows = bond.build_dated_flows(market, as_of)?;
 
         // Calculate present value using standard coupon rate as discount rate
         // For semi-annual bonds: DF(t) = 1 / (1 + r/2)^(2*t)
@@ -203,7 +203,13 @@ impl BondFuturePricer {
         let bond_arc: Arc<dyn Instrument> = Arc::new(ctd_bond.clone());
         let market_arc = Arc::new(market.clone());
 
-        let mut context = MetricContext::new(bond_arc, market_arc, as_of, dirty_price_money, MetricContext::default_config());
+        let mut context = MetricContext::new(
+            bond_arc,
+            market_arc,
+            as_of,
+            dirty_price_money,
+            MetricContext::default_config(),
+        );
 
         // Calculate accrued interest first (required for clean price)
         let accrued_calculator = AccruedInterestCalculator;
@@ -483,7 +489,7 @@ mod tests {
         let as_of = date!(2025 - 01 - 15);
 
         let cashflows = bond
-            .build_schedule(&market, as_of)
+            .build_dated_flows(&market, as_of)
             .expect("Failed to build cashflow schedule");
 
         println!("\n=== Bond Cashflows ===");

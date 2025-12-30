@@ -55,7 +55,13 @@ fn test_commodity_option_core_greeks_registered() -> finstack_core::Result<()> {
         .expect("should build");
 
     let pv = option.value(&market, as_of)?;
-    let mut ctx = MetricContext::new(Arc::new(option), Arc::new(market), as_of, pv, MetricContext::default_config());
+    let mut ctx = MetricContext::new(
+        Arc::new(option),
+        Arc::new(market),
+        as_of,
+        pv,
+        MetricContext::default_config(),
+    );
     let registry = standard_registry();
     let res = registry.compute(
         &[MetricId::Gamma, MetricId::Vanna, MetricId::Volga],

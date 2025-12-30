@@ -9,6 +9,7 @@
 
 use super::common::*;
 use finstack_core::currency::Currency;
+use finstack_valuations::cashflow::traits::CashflowProvider;
 use finstack_valuations::instruments::common::traits::Instrument;
 
 #[test]
@@ -265,7 +266,7 @@ fn test_npv_consistency_with_schedule() {
     let pv = ilb.npv(&ctx, as_of).unwrap();
 
     // Manual NPV from schedule
-    let flows = ilb.build_schedule(&ctx, as_of).unwrap();
+    let flows = ilb.build_dated_flows(&ctx, as_of).unwrap();
     let disc = ctx.get_discount(ilb.discount_curve_id.as_str()).unwrap();
     let expected_pv =
         finstack_core::cashflow::npv(disc.as_ref(), disc.base_date(), disc.day_count(), &flows)

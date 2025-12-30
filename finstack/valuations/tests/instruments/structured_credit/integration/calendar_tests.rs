@@ -102,7 +102,7 @@ fn test_missing_calendar_fails_with_helpful_message() {
     let market = create_test_market();
 
     // Act
-    let result = clo.build_schedule(&market, test_date());
+    let result = clo.build_dated_flows(&market, test_date());
 
     // Assert: Should fail with a validation error mentioning calendar requirement
     assert!(result.is_err(), "Should fail when calendar is missing");
@@ -132,7 +132,7 @@ fn test_invalid_calendar_id_fails_with_available_options() {
     let market = create_test_market();
 
     // Act
-    let result = clo.build_schedule(&market, test_date());
+    let result = clo.build_dated_flows(&market, test_date());
 
     // Assert: Should fail with NotFound error listing available calendars
     assert!(result.is_err(), "Should fail for invalid calendar");
@@ -169,7 +169,7 @@ fn test_valid_nyse_calendar_succeeds() {
     let market = create_test_market();
 
     // Act
-    let result = clo.build_schedule(&market, test_date());
+    let result = clo.build_dated_flows(&market, test_date());
 
     // Assert: Should succeed
     assert!(
@@ -198,7 +198,7 @@ fn test_valid_target2_calendar_succeeds() {
     let market = create_test_market();
 
     // Act
-    let result = clo.build_schedule(&market, test_date());
+    let result = clo.build_dated_flows(&market, test_date());
 
     // Assert: Should succeed
     assert!(
@@ -229,7 +229,7 @@ fn test_clo_schedule_avoids_us_holidays() {
     let market = create_test_market();
 
     // Act
-    let flows = clo.build_schedule(&market, test_date()).unwrap();
+    let flows = clo.build_dated_flows(&market, test_date()).unwrap();
 
     // Assert: No payment dates should fall on weekends
     for (date, _) in &flows {
@@ -268,8 +268,8 @@ fn test_payment_schedule_is_deterministic_with_calendar() {
     let market = create_test_market();
 
     // Act
-    let flows1 = clo1.build_schedule(&market, test_date()).unwrap();
-    let flows2 = clo2.build_schedule(&market, test_date()).unwrap();
+    let flows1 = clo1.build_dated_flows(&market, test_date()).unwrap();
+    let flows2 = clo2.build_dated_flows(&market, test_date()).unwrap();
 
     // Assert: Payment dates should be identical
     assert_eq!(
@@ -309,8 +309,8 @@ fn test_different_calendars_may_produce_different_dates() {
     let market = create_test_market();
 
     // Act
-    let flows_nyse = clo_nyse.build_schedule(&market, test_date()).unwrap();
-    let flows_target = clo_target.build_schedule(&market, test_date()).unwrap();
+    let flows_nyse = clo_nyse.build_dated_flows(&market, test_date()).unwrap();
+    let flows_target = clo_target.build_dated_flows(&market, test_date()).unwrap();
 
     // Assert: Both should produce valid schedules (no assertion on equality/inequality
     // as this depends on specific holiday overlap - the key is both are valid)

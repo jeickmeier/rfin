@@ -848,7 +848,7 @@ impl CreditDefaultSwap {
             self.premium.stub,
             self.premium.bdc,
             self.premium.calendar_id.as_deref(),
-        );
+        )?;
         let dates = sched.dates;
         if dates.len() < 2 {
             return Ok(vec![]);
@@ -1068,11 +1068,11 @@ impl crate::cashflow::traits::CashflowProvider for CreditDefaultSwap {
         Some(self.notional)
     }
 
-    fn build_schedule(
+    fn build_full_schedule(
         &self,
         curves: &MarketContext,
         as_of: Date,
-    ) -> finstack_core::Result<DatedFlows> {
+    ) -> finstack_core::Result<crate::cashflow::builder::CashFlowSchedule> {
         // For theta calculation, we only care about premium cashflows
         // Protection leg is continuous and doesn't have discrete cashflows
         let mut flows = self.build_premium_schedule(curves, as_of)?;
@@ -1084,6 +1084,9 @@ impl crate::cashflow::traits::CashflowProvider for CreditDefaultSwap {
             flows.sort_by_key(|(d, _)| *d);
         }
 
-        Ok(flows)
+        Ok(crate::cashflow::traits::schedule_from_dated_flows(
+            flows,
+            self.notional(),
+        ))
     }
 }

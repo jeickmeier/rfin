@@ -157,7 +157,7 @@ impl RateSpec {
 /// # Cashflow Generation
 ///
 /// Uses the [`CashflowProvider`](crate::cashflow::traits::CashflowProvider) trait:
-/// - `build_schedule()` returns holder-view flows (coupons, amortization, redemptions)
+/// - `build_dated_flows()` returns holder-view flows (coupons, amortization, redemptions)
 /// - `build_full_schedule()` returns internal engine schedule with all flow types
 ///
 /// # Pricing
@@ -473,7 +473,7 @@ impl crate::cashflow::traits::CashflowProvider for TermLoan {
         Some(self.notional_limit)
     }
 
-    fn build_schedule(
+    fn build_dated_flows(
         &self,
         curves: &finstack_core::market_data::context::MarketContext,
         as_of: finstack_core::dates::Date,

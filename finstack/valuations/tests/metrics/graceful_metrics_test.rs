@@ -35,7 +35,13 @@ fn test_missing_metric_errors_in_strict_mode() {
 
     // Create context
     let instrument_arc: Arc<dyn Instrument> = Arc::new(bond);
-    let mut context = MetricContext::new(instrument_arc, Arc::new(market), as_of, base_value, MetricContext::default_config());
+    let mut context = MetricContext::new(
+        instrument_arc,
+        Arc::new(market),
+        as_of,
+        base_value,
+        MetricContext::default_config(),
+    );
 
     // Create empty registry
     let registry = MetricRegistry::new();

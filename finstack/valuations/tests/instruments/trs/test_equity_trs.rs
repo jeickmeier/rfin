@@ -431,7 +431,7 @@ fn test_equity_trs_cashflow_schedule_generation() {
     let trs = TestEquityTrsBuilder::new().tenor_months(12).build();
 
     // Act
-    let flows = trs.build_schedule(&market, as_of).unwrap();
+    let flows = trs.build_dated_flows(&market, as_of).unwrap();
 
     // Assert
     // 1 year quarterly = 4 payments
@@ -452,7 +452,7 @@ fn test_equity_trs_cashflow_schedule_dates_ordered() {
     let trs = TestEquityTrsBuilder::new().build();
 
     // Act
-    let flows = trs.build_schedule(&market, as_of).unwrap();
+    let flows = trs.build_dated_flows(&market, as_of).unwrap();
 
     // Assert - Dates should be strictly increasing
     for i in 1..flows.len() {

@@ -357,7 +357,7 @@ impl InterestRateOption {
             self.stub_kind,
             self.bdc,
             self.calendar_id.as_deref(),
-        );
+        )?;
 
         if schedule.dates.len() < 2 {
             return Ok(total_pv);

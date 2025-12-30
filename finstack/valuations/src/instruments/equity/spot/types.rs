@@ -390,13 +390,15 @@ impl CashflowProvider for Equity {
             .map(|p| Money::new(self.effective_shares() * p, self.currency))
     }
 
-    fn build_schedule(
+    fn build_full_schedule(
         &self,
         _curves: &MarketContext,
         _as_of: Date,
-    ) -> finstack_core::Result<Vec<(Date, Money)>> {
-        // Spot equities have no scheduled cashflows (dividends would be separate)
-        Ok(vec![])
+    ) -> finstack_core::Result<crate::cashflow::builder::CashFlowSchedule> {
+        Ok(crate::cashflow::traits::schedule_from_dated_flows(
+            Vec::new(),
+            self.notional(),
+        ))
     }
 }
 
@@ -447,7 +449,7 @@ mod tests {
         let as_of = Date::from_calendar_date(2025, Month::January, 1).expect("valid date");
 
         let flows = equity
-            .build_schedule(&curves, as_of)
+            .build_dated_flows(&curves, as_of)
             .expect("should succeed");
         assert!(flows.is_empty());
     }

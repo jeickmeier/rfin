@@ -507,7 +507,7 @@ fn collect_cashflows_in_period(
         return Ok(0.0);
     };
 
-    let flows = cf.build_schedule(curves, start_date)?;
+    let flows = cf.build_dated_flows(curves, start_date)?;
     let mut sum = 0.0;
     for (d, m) in flows {
         if d > start_date && d <= end_date {
