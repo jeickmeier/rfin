@@ -344,7 +344,7 @@ where
     let base_pv = context.base_value.amount();
 
     // Reprice at rolled date with same market context
-    let bumped_value = instrument.value_raw(&context.curves, rolled_date)?;
+    let bumped_value = instrument.value(&context.curves, rolled_date)?.amount();
     let pv_change = bumped_value - base_pv;
 
     // Collect cashflows during the period (if instrument provides them)
@@ -652,7 +652,10 @@ impl crate::metrics::MetricCalculator for GenericThetaAny {
         let base_pv = context.base_value.amount();
 
         // Reprice at rolled date with same market context using the trait method directly
-        let bumped_value = context.instrument.value_raw(&context.curves, rolled_date)?;
+        let bumped_value = context
+            .instrument
+            .value(&context.curves, rolled_date)?
+            .amount();
         let pv_change = bumped_value - base_pv;
 
         // Collect cashflows during the period (using helper that does downcasting internally)
