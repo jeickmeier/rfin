@@ -37,6 +37,9 @@ pub fn npv_by_date(
     let mut total = Money::new(0.0, ccy);
 
     for (d, amt) in flows {
+        // `npv_by_date` is a holder-view PV helper: it discounts remaining cashflows
+        // strictly after `as_of`. Cashflows on `as_of` are considered settled and are
+        // excluded (treat valuation as occurring just after settlement).
         if *d <= as_of {
             continue;
         }

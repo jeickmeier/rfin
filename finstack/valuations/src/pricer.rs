@@ -6,6 +6,7 @@
 //! comparisons.
 
 use crate::instruments::common::traits::Instrument as Priceable;
+use finstack_core::config::{results_meta, FinstackConfig};
 use finstack_core::market_data::context::MarketContext as Market;
 
 // ========================= KEYS =========================
@@ -1097,12 +1098,29 @@ impl PricerRegistry {
         market: &Market,
         as_of: finstack_core::dates::Date,
     ) -> PricingResult<crate::results::ValuationResult> {
+        self.price_with_registry_with_config(instrument, model, market, as_of, &FinstackConfig::default())
+    }
+
+    /// Price an instrument using the registry with an explicit `FinstackConfig`.
+    ///
+    /// This ensures the returned [`crate::results::ValuationResult`] is stamped with
+    /// the exact rounding/tolerance policy used by the caller.
+    pub fn price_with_registry_with_config(
+        &self,
+        instrument: &dyn Priceable,
+        model: ModelKey,
+        market: &Market,
+        as_of: finstack_core::dates::Date,
+        cfg: &FinstackConfig,
+    ) -> PricingResult<crate::results::ValuationResult> {
         let key = PricerKey::new(instrument.key(), model);
-        if let Some(pricer) = self.get_pricer(key) {
-            pricer.price_dyn(instrument, market, as_of)
-        } else {
-            Err(PricingError::UnknownPricer(key))
-        }
+        let Some(pricer) = self.get_pricer(key) else {
+            return Err(PricingError::UnknownPricer(key));
+        };
+
+        let mut result = pricer.price_dyn(instrument, market, as_of)?;
+        stamp_results_meta(cfg, &mut result);
+        Ok(result)
     }
 
     /// Price a batch of instruments using the registry dispatch system.
@@ -1116,22 +1134,49 @@ impl PricerRegistry {
         market: &Market,
         as_of: finstack_core::dates::Date,
     ) -> Vec<PricingResult<crate::results::ValuationResult>> {
+        self.price_batch_with_config(instruments, model, market, as_of, &FinstackConfig::default())
+    }
+
+    /// Price a batch of instruments using the registry with an explicit `FinstackConfig`.
+    ///
+    /// The output order matches the input order. When the `parallel` feature is enabled,
+    /// pricing is performed in parallel while preserving ordering.
+    pub fn price_batch_with_config(
+        &self,
+        instruments: &[&dyn Priceable],
+        model: ModelKey,
+        market: &Market,
+        as_of: finstack_core::dates::Date,
+        cfg: &FinstackConfig,
+    ) -> Vec<PricingResult<crate::results::ValuationResult>> {
         #[cfg(feature = "parallel")]
         {
             use rayon::prelude::*;
             instruments
                 .par_iter()
-                .map(|&instrument| self.price_with_registry(instrument, model, market, as_of))
+                .map(|&instrument| {
+                    self.price_with_registry_with_config(instrument, model, market, as_of, cfg)
+                })
                 .collect()
         }
         #[cfg(not(feature = "parallel"))]
         {
             instruments
                 .iter()
-                .map(|&instrument| self.price_with_registry(instrument, model, market, as_of))
+                .map(|&instrument| {
+                    self.price_with_registry_with_config(instrument, model, market, as_of, cfg)
+                })
                 .collect()
         }
     }
+}
+
+/// Stamp result metadata from a config, preserving FX policy stamps if present.
+fn stamp_results_meta(cfg: &FinstackConfig, result: &mut crate::results::ValuationResult) {
+    let prev_fx_policy = result.meta.fx_policy_applied.clone();
+    let mut meta = results_meta(cfg);
+    meta.fx_policy_applied = prev_fx_policy;
+    result.meta = meta;
 }
 
 // ========================= REGISTRATION =========================
