@@ -173,7 +173,11 @@ fn aggregate_metrics_serial(valuation: &PortfolioValuation) -> Result<PortfolioM
     // Phase 1: Collect metrics from each position
     for (position_id, position_value) in &valuation.position_values {
         if let Some(val_result) = &position_value.valuation_result {
-            let metrics = val_result.measures.clone();
+            let metrics: IndexMap<String, f64> = val_result
+                .measures
+                .iter()
+                .map(|(id, v)| (id.as_str().to_string(), *v))
+                .collect();
             by_position.insert(position_id.clone(), metrics.clone());
 
             // Phase 2: Aggregate summable metrics
