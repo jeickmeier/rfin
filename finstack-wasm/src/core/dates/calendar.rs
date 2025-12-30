@@ -2,9 +2,9 @@ use crate::core::common::parse::ParseFromString;
 use crate::core::dates::date::JsDate;
 use crate::core::error::calendar_not_found;
 use crate::core::error::js_error;
-use finstack_core::dates::{CalendarMetadata, HolidayCalendar};
 use finstack_core::dates::CalendarRegistry;
 use finstack_core::dates::{adjust as core_adjust, BusinessDayConvention};
+use finstack_core::dates::{CalendarMetadata, HolidayCalendar};
 use wasm_bindgen::prelude::*;
 use wasm_bindgen::JsValue;
 

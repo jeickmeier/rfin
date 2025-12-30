@@ -567,16 +567,10 @@ impl InterestRateSwap {
                 calendar_id: None,
                 stub: StubKind::None,
                 start: Date::from_calendar_date(2024, time::Month::January, 1).map_err(|e| {
-                    finstack_core::Error::Validation(format!(
-                        "Invalid example start date: {}",
-                        e
-                    ))
+                    finstack_core::Error::Validation(format!("Invalid example start date: {}", e))
                 })?,
                 end: Date::from_calendar_date(2029, time::Month::January, 1).map_err(|e| {
-                    finstack_core::Error::Validation(format!(
-                        "Invalid example end date: {}",
-                        e
-                    ))
+                    finstack_core::Error::Validation(format!("Invalid example end date: {}", e))
                 })?,
                 par_method: None,
                 compounding_simple: true,
@@ -593,16 +587,10 @@ impl InterestRateSwap {
                 stub: StubKind::None,
                 reset_lag_days: 2,
                 start: Date::from_calendar_date(2024, time::Month::January, 1).map_err(|e| {
-                    finstack_core::Error::Validation(format!(
-                        "Invalid example start date: {}",
-                        e
-                    ))
+                    finstack_core::Error::Validation(format!("Invalid example start date: {}", e))
                 })?,
                 end: Date::from_calendar_date(2029, time::Month::January, 1).map_err(|e| {
-                    finstack_core::Error::Validation(format!(
-                        "Invalid example end date: {}",
-                        e
-                    ))
+                    finstack_core::Error::Validation(format!("Invalid example end date: {}", e))
                 })?,
                 compounding: Default::default(),
                 fixing_calendar_id: None,

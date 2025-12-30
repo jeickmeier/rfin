@@ -6,9 +6,9 @@
 use crate::instruments::common::traits::Instrument;
 use finstack_core::currency::Currency;
 use finstack_core::dates::Date;
-use finstack_core::Error;
 use finstack_core::market_data::context::MarketContext;
 use finstack_core::money::{fx::FxQuery, Money};
+use finstack_core::Error;
 use finstack_core::Result;
 use std::sync::Arc;
 

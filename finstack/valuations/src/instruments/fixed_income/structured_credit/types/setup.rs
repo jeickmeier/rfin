@@ -6,10 +6,10 @@
 use super::constants::*;
 use super::enums::DealType;
 use crate::instruments::irs::InterestRateSwap;
-use finstack_core::HashMap;
 use finstack_core::dates::{Date, Tenor};
 use finstack_core::money::Money;
 use finstack_core::types::CreditRating;
+use finstack_core::HashMap;
 
 #[cfg(feature = "serde")]
 use serde::{Deserialize, Serialize};

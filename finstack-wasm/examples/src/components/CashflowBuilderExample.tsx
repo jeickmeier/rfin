@@ -367,9 +367,8 @@ export const CashflowBuilderExample: React.FC<CashflowBuilderProps> = (props) =>
                 outstanding × (margin_bp × 0.0001 × gearing) × year_fraction
               </p>
               <p>
-                <span className="text-foreground font-medium">buildWithCurves(market):</span>{' '}
-                coupon = outstanding × (forward_rate × gearing + margin_bp × 0.0001) ×
-                year_fraction
+                <span className="text-foreground font-medium">buildWithCurves(market):</span> coupon
+                = outstanding × (forward_rate × gearing + margin_bp × 0.0001) × year_fraction
               </p>
             </div>
           </div>

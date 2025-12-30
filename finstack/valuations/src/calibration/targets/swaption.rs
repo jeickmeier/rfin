@@ -1118,14 +1118,12 @@ mod tests {
             .build()
             .expect("discount curve");
         let fwd_curve =
-            finstack_core::market_data::term_structures::ForwardCurve::builder(
-                "USD-FWD", 0.25,
-            )
-            .base_date(base_date)
-            .day_count(DayCount::Act365F)
-            .knots([(0.0, -0.01), (30.0, -0.01)])
-            .build()
-            .expect("forward curve");
+            finstack_core::market_data::term_structures::ForwardCurve::builder("USD-FWD", 0.25)
+                .base_date(base_date)
+                .day_count(DayCount::Act365F)
+                .knots([(0.0, -0.01), (30.0, -0.01)])
+                .build()
+                .expect("forward curve");
         let ctx = MarketContext::new()
             .insert_discount(disc)
             .insert_forward(fwd_curve);

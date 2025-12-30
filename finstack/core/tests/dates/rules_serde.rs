@@ -185,4 +185,3 @@ mod serde_tests {
         // This should serialize as null or be omitted
     }
 }
-

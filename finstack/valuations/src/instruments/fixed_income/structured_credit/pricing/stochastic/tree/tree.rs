@@ -9,8 +9,8 @@ use super::{
 };
 use crate::instruments::common::models::correlation::factor_model::FactorSpec;
 use crate::instruments::common::models::correlation::recovery::RecoverySpec;
-use finstack_core::HashMap;
 use finstack_core::math::standard_normal_inv_cdf;
+use finstack_core::HashMap;
 
 /// Recombining scenario tree for structured credit.
 ///

@@ -308,9 +308,7 @@ impl McEngineBuilder {
 
     /// Build the engine.
     pub fn build(self) -> Result<McEngine> {
-        let time_grid = self
-            .time_grid
-            .ok_or(finstack_core::InputError::Invalid)?;
+        let time_grid = self.time_grid.ok_or(finstack_core::InputError::Invalid)?;
 
         let config = McEngineConfig {
             num_paths: self.num_paths,
@@ -575,10 +573,13 @@ impl McEngine {
             }
         }
 
-        Ok(
-            Estimate::new(stats.mean(), stats.stderr(), stats.confidence_interval(0.05), stats.count())
-                .with_std_dev(stats.std_dev()),
+        Ok(Estimate::new(
+            stats.mean(),
+            stats.stderr(),
+            stats.confidence_interval(0.05),
+            stats.count(),
         )
+        .with_std_dev(stats.std_dev()))
     }
 
     /// Parallel pricing implementation.
@@ -840,9 +841,13 @@ impl McEngine {
         }
 
         // Compute median and percentiles if paths were captured
-        let mut estimate =
-            Estimate::new(stats.mean(), stats.stderr(), stats.confidence_interval(0.05), stats.count())
-                .with_std_dev(stats.std_dev());
+        let mut estimate = Estimate::new(
+            stats.mean(),
+            stats.stderr(),
+            stats.confidence_interval(0.05),
+            stats.count(),
+        )
+        .with_std_dev(stats.std_dev());
 
         // If we have captured paths, calculate additional statistics
         if let Some(ref dataset) = paths {

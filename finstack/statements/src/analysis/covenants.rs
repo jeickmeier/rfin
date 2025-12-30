@@ -7,11 +7,11 @@ use crate::evaluator::Results;
 use crate::types::{FinancialModelSpec, ForecastMethod};
 use finstack_core::dates::{Date, PeriodId};
 use finstack_core::Result;
+use finstack_valuations::covenants::forward::CovenantForecast as ValuationCovenantForecast;
 use finstack_valuations::covenants::{
     forecast_breaches_generic, forecast_covenant_generic, CovenantEngine, CovenantForecastConfig,
     CovenantSpec, FutureBreach, ModelTimeSeries,
 };
-use finstack_valuations::covenants::forward::CovenantForecast as ValuationCovenantForecast;
 use time::Month;
 
 /// Forecast output envelope for covenant compliance projections.

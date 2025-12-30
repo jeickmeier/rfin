@@ -6,8 +6,8 @@
 
 use crate::metrics::PortfolioMetrics;
 use crate::valuation::PortfolioValuation;
-use finstack_core::{Error, InputError};
 use finstack_core::Result;
+use finstack_core::{Error, InputError};
 
 /// Export position values to a Polars `DataFrame`.
 ///

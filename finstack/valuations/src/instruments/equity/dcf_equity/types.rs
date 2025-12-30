@@ -11,10 +11,10 @@ use crate::instruments::common::traits::{
 use crate::pricer::InstrumentType;
 use finstack_core::currency::Currency;
 use finstack_core::dates::Date;
-use finstack_core::Error as CoreError;
 use finstack_core::market_data::context::MarketContext;
 use finstack_core::money::Money;
 use finstack_core::types::{CurveId, InstrumentId};
+use finstack_core::Error as CoreError;
 use smallvec::smallvec;
 use std::any::Any;
 
@@ -215,9 +215,7 @@ mod tests {
     use crate::metrics::{MetricContext, MetricId};
     use finstack_core::currency::Currency;
     use finstack_core::dates::Date;
-    use finstack_core::market_data::{
-        context::MarketContext, term_structures::DiscountCurve,
-    };
+    use finstack_core::market_data::{context::MarketContext, term_structures::DiscountCurve};
     use finstack_core::types::{CurveId, InstrumentId};
     use time::Month;
 

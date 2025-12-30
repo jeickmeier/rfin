@@ -22,8 +22,8 @@
 
 use crate::cashflow::builder::{AmortizationSpec, Notional};
 use finstack_core::dates::{BusinessDayConvention, Date, DayCount, StubKind, Tenor};
-use finstack_core::InputError;
 use finstack_core::money::Money;
+use finstack_core::InputError;
 use rust_decimal::Decimal;
 
 use super::date_generation::{build_dates, build_dates_checked};
@@ -123,7 +123,7 @@ pub(super) fn build_fee_schedules(
     //! use finstack_core::dates::{Date, DayCount, Tenor, BusinessDayConvention};
     //! use finstack_valuations::cashflow::builder::{FeeSpec, FeeBase};
     //! use finstack_core::dates::StubKind;
-//! use rust_decimal_macros::dec;
+    //! use rust_decimal_macros::dec;
     //! use time::Month;
     //!
     //! let issue = Date::from_calendar_date(2024, Month::January, 1).expect("valid date");
@@ -131,7 +131,7 @@ pub(super) fn build_fee_schedules(
     //! let fees = vec![
     //!     FeeSpec::PeriodicBps {
     //!         base: FeeBase::Drawn,
-//!         bps: dec!(50),
+    //!         bps: dec!(50),
     //!         freq: Tenor::quarterly(),
     //!         dc: DayCount::Act360,
     //!         bdc: BusinessDayConvention::Following,
@@ -317,7 +317,7 @@ pub(super) fn compute_coupon_schedules(
     //! use finstack_core::dates::{Date, Tenor, DayCount, BusinessDayConvention};
     //! use finstack_valuations::cashflow::builder::{FixedCouponSpec, CouponType};
     //! use finstack_core::dates::StubKind;
-//! use rust_decimal_macros::dec;
+    //! use rust_decimal_macros::dec;
     //! use time::Month;
     //!
     //! let issue = Date::from_calendar_date(2024, Month::January, 1).expect("valid date");
@@ -325,7 +325,7 @@ pub(super) fn compute_coupon_schedules(
     //! // Note: CashFlowBuilder would be created here
     //! let fixed_spec = FixedCouponSpec {
     //!     coupon_type: CouponType::Cash,
-//!     rate: dec!(0.05),
+    //!     rate: dec!(0.05),
     //!     freq: Tenor::semi_annual(),
     //!     dc: DayCount::Thirty360,
     //!     bdc: BusinessDayConvention::Following,

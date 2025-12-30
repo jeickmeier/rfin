@@ -4,9 +4,9 @@ use crate::statements::evaluator::PyResults;
 use crate::statements::types::model::PyFinancialModelSpec;
 use finstack_core::dates::{Date, PeriodId};
 use finstack_valuations::covenants::{
-    forward::CovenantForecast as ValCovForecast, Covenant, CovenantForecastConfig as ValCovForecastConfig,
-    CovenantScope, CovenantSpec, CovenantType, McConfig as ValMcConfig, ModelTimeSeries,
-    SpringingCondition, ThresholdTest,
+    forward::CovenantForecast as ValCovForecast, Covenant,
+    CovenantForecastConfig as ValCovForecastConfig, CovenantScope, CovenantSpec, CovenantType,
+    McConfig as ValMcConfig, ModelTimeSeries, SpringingCondition, ThresholdTest,
 };
 use pyo3::prelude::*;
 use pyo3::types::{PyList, PyModule};

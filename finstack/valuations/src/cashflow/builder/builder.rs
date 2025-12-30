@@ -49,9 +49,9 @@ use crate::cashflow::builder::{AmortizationSpec, Notional};
 use crate::cashflow::primitives::{CFKind, CashFlow};
 use finstack_core::currency::Currency;
 use finstack_core::dates::Date;
-use finstack_core::InputError;
 use finstack_core::market_data::term_structures::ForwardCurve;
 use finstack_core::money::Money;
+use finstack_core::InputError;
 use rust_decimal::prelude::ToPrimitive;
 use rust_decimal::Decimal;
 
@@ -103,8 +103,8 @@ pub struct PrincipalEvent {
 struct AmortizationSetup {
     amort_dates: finstack_core::HashSet<Date>,
     step_remaining_map: Option<finstack_core::HashMap<Date, Money>>, // for StepRemaining
-    linear_delta: Option<f64>,                                                    // for LinearTo
-    percent_per: Option<f64>, // for PercentPerPeriod
+    linear_delta: Option<f64>,                                       // for LinearTo
+    percent_per: Option<f64>,                                        // for PercentPerPeriod
 }
 
 #[derive(Debug, Clone, Copy)]
@@ -192,18 +192,17 @@ fn derive_amortization_setup(
     }
 
     // Precompute helpers depending on amort spec
-    let step_remaining_map: Option<finstack_core::HashMap<Date, Money>> =
-        match &notional.amort {
-            AmortizationSpec::StepRemaining { schedule } => {
-                let mut m = finstack_core::HashMap::default();
-                m.reserve(schedule.len());
-                for (d, mny) in schedule {
-                    m.insert(*d, *mny);
-                }
-                Some(m)
+    let step_remaining_map: Option<finstack_core::HashMap<Date, Money>> = match &notional.amort {
+        AmortizationSpec::StepRemaining { schedule } => {
+            let mut m = finstack_core::HashMap::default();
+            m.reserve(schedule.len());
+            for (d, mny) in schedule {
+                m.insert(*d, *mny);
             }
-            _ => None,
-        };
+            Some(m)
+        }
+        _ => None,
+    };
 
     let (linear_delta, percent_per) = match &notional.amort {
         AmortizationSpec::LinearTo { final_notional } => {
@@ -559,7 +558,7 @@ impl CashFlowBuilder {
     /// use finstack_core::dates::{BusinessDayConvention, Date, DayCount, StubKind, Tenor};
     /// use finstack_core::money::Money;
     /// use finstack_valuations::cashflow::builder::{CashFlowSchedule, CouponType, FixedCouponSpec};
-/// use rust_decimal_macros::dec;
+    /// use rust_decimal_macros::dec;
     /// use time::Month;
     ///
     /// # fn main() -> Result<(), Box<dyn std::error::Error>> {
@@ -568,7 +567,7 @@ impl CashFlowBuilder {
     ///
     /// let spec = FixedCouponSpec {
     ///     coupon_type: CouponType::Cash,
-///     rate: dec!(0.05),
+    ///     rate: dec!(0.05),
     ///     freq: Tenor::semi_annual(),
     ///     dc: DayCount::Act365F,
     ///     bdc: BusinessDayConvention::Following,
@@ -577,7 +576,7 @@ impl CashFlowBuilder {
     /// };
     ///
     /// let schedule = CashFlowSchedule::builder()
-///     .principal(Money::new(1_000_000.0, Currency::USD), issue, maturity)
+    ///     .principal(Money::new(1_000_000.0, Currency::USD), issue, maturity)
     ///     .strict_schedules(false) // Allow calendar/schedule fallbacks
     ///     .fixed_cf(spec)
     ///     .build_with_curves(None)?;
@@ -802,8 +801,8 @@ impl CashFlowBuilder {
     /// ```rust
     /// use finstack_core::currency::Currency;
     /// use finstack_core::dates::{Date, Tenor, DayCount, BusinessDayConvention, StubKind};
-/// use finstack_core::money::Money;
-/// use finstack_valuations::cashflow::builder::{CashFlowSchedule, ScheduleParams, CouponType};
+    /// use finstack_core::money::Money;
+    /// use finstack_valuations::cashflow::builder::{CashFlowSchedule, ScheduleParams, CouponType};
     /// use time::Month;
     ///
     /// # fn main() -> Result<(), Box<dyn std::error::Error>> {
@@ -818,7 +817,7 @@ impl CashFlowBuilder {
     /// ];
     ///
     /// let schedule = CashFlowSchedule::builder()
-///     .principal(Money::new(1_000_000.0, Currency::USD), issue, maturity)
+    ///     .principal(Money::new(1_000_000.0, Currency::USD), issue, maturity)
     ///     .fixed_stepup(
     ///         &steps,
     ///         ScheduleParams::quarterly_act360(),
@@ -883,7 +882,7 @@ impl CashFlowBuilder {
     /// use finstack_valuations::cashflow::builder::{
     ///     CashFlowSchedule, ScheduleParams, FloatCouponParams, CouponType
     /// };
-/// use rust_decimal_macros::dec;
+    /// use rust_decimal_macros::dec;
     /// use time::Month;
     ///
     /// # fn main() -> Result<(), Box<dyn std::error::Error>> {
@@ -899,13 +898,13 @@ impl CashFlowBuilder {
     ///
     /// let base = FloatCouponParams {
     ///     index_id: CurveId::new("USD-SOFR"),
-///     margin_bp: dec!(0),  // Will be overridden by steps
-///     gearing: dec!(1),
+    ///     margin_bp: dec!(0),  // Will be overridden by steps
+    ///     gearing: dec!(1),
     ///     reset_lag_days: 2,
     /// };
     ///
     /// let schedule = CashFlowSchedule::builder()
-///     .principal(Money::new(5_000_000.0, Currency::USD), issue, maturity)
+    ///     .principal(Money::new(5_000_000.0, Currency::USD), issue, maturity)
     ///     .float_margin_stepup(
     ///         &steps,
     ///         base,
@@ -979,7 +978,7 @@ impl CashFlowBuilder {
     ///     CashFlowSchedule, ScheduleParams, FixedWindow, FloatWindow,
     ///     FloatCouponParams, CouponType
     /// };
-/// use rust_decimal_macros::dec;
+    /// use rust_decimal_macros::dec;
     /// use time::Month;
     ///
     /// # fn main() -> Result<(), Box<dyn std::error::Error>> {
@@ -989,22 +988,22 @@ impl CashFlowBuilder {
     ///
     /// // Pay 5% fixed for 2 years, then SOFR + 250bps floating
     /// let fixed_win = FixedWindow {
-///     rate: dec!(0.05),
+    ///     rate: dec!(0.05),
     ///     schedule: ScheduleParams::semiannual_30360(),
     /// };
     ///
     /// let float_win = FloatWindow {
     ///     params: FloatCouponParams {
     ///         index_id: CurveId::new("USD-SOFR"),
-///         margin_bp: dec!(250),
-///         gearing: dec!(1),
+    ///         margin_bp: dec!(250),
+    ///         gearing: dec!(1),
     ///         reset_lag_days: 2,
     ///     },
     ///     schedule: ScheduleParams::quarterly_act360(),
     /// };
     ///
     /// let schedule = CashFlowSchedule::builder()
-///     .principal(Money::new(10_000_000.0, Currency::USD), issue, maturity)
+    ///     .principal(Money::new(10_000_000.0, Currency::USD), issue, maturity)
     ///     .fixed_to_float(switch, fixed_win, float_win, CouponType::Cash)
     ///     .build_with_curves(None)?;
     ///
@@ -1061,7 +1060,7 @@ impl CashFlowBuilder {
     /// use finstack_valuations::cashflow::builder::{
     ///     CashFlowSchedule, FixedCouponSpec, CouponType
     /// };
-/// use rust_decimal_macros::dec;
+    /// use rust_decimal_macros::dec;
     /// use time::Month;
     ///
     /// # fn main() -> Result<(), Box<dyn std::error::Error>> {
@@ -1072,15 +1071,15 @@ impl CashFlowBuilder {
     /// let payment_steps = [
     ///     (Date::from_calendar_date(2027, Month::January, 1)?, CouponType::PIK),
     ///     (Date::from_calendar_date(2029, Month::January, 1)?, CouponType::Split {
-///         cash_pct: dec!(0.5),
-///         pik_pct: dec!(0.5)
+    ///         cash_pct: dec!(0.5),
+    ///         pik_pct: dec!(0.5)
     ///     }),
     ///     (maturity, CouponType::Cash),
     /// ];
     ///
     /// let fixed_spec = FixedCouponSpec {
     ///     coupon_type: CouponType::Cash,  // Will be overridden by payment program
-///     rate: dec!(0.10),  // 10% PIK toggle
+    ///     rate: dec!(0.10),  // 10% PIK toggle
     ///     freq: Tenor::semi_annual(),
     ///     dc: DayCount::Thirty360,
     ///     bdc: BusinessDayConvention::Following,
@@ -1089,7 +1088,7 @@ impl CashFlowBuilder {
     /// };
     ///
     /// let schedule = CashFlowSchedule::builder()
-///     .principal(Money::new(25_000_000.0, Currency::USD), issue, maturity)
+    ///     .principal(Money::new(25_000_000.0, Currency::USD), issue, maturity)
     ///     .fixed_cf(fixed_spec)
     ///     .payment_split_program(&payment_steps)
     ///     .build_with_curves(None)?;

@@ -108,7 +108,7 @@ impl CashFlowSchedule {
     /// use finstack_core::dates::{BusinessDayConvention, Date, DayCount, StubKind, Tenor};
     /// use finstack_core::money::Money;
     /// use finstack_valuations::cashflow::builder::{CashFlowSchedule, CouponType, FixedCouponSpec};
-/// use rust_decimal_macros::dec;
+    /// use rust_decimal_macros::dec;
     /// use time::Month;
     ///
     /// # fn main() -> Result<(), Box<dyn std::error::Error>> {
@@ -118,7 +118,7 @@ impl CashFlowSchedule {
     /// let notional = Money::new(1_000_000.0, Currency::USD);
     /// let spec = FixedCouponSpec {
     ///     coupon_type: CouponType::Cash,
-///     rate: dec!(0.05),
+    ///     rate: dec!(0.05),
     ///     freq: Tenor::semi_annual(),
     ///     dc: DayCount::Act365F,
     ///     bdc: BusinessDayConvention::Following,

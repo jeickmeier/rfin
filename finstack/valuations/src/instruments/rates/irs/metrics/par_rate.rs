@@ -137,9 +137,7 @@ impl MetricCalculator for ParRateCalculator {
                     .copied()
                     .unwrap_or(0.0);
                 if annuity.abs() < ANNUITY_EPSILON {
-                    return Err(finstack_core::Error::Validation(
-                        "Annuity near zero".into(),
-                    ));
+                    return Err(finstack_core::Error::Validation("Annuity near zero".into()));
                 }
 
                 // Note: DiscountRatio usually assumes zero spread on the floating leg.

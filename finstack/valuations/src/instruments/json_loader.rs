@@ -592,8 +592,8 @@ impl InstrumentEnvelope {
     /// - Unknown fields are present (strict mode)
     /// - Spec validation fails
     pub fn from_reader<R: Read>(reader: R) -> Result<Box<dyn Instrument>> {
-        let envelope: Self = serde_json::from_reader(reader)
-            .map_err(|_| finstack_core::InputError::Invalid)?;
+        let envelope: Self =
+            serde_json::from_reader(reader).map_err(|_| finstack_core::InputError::Invalid)?;
 
         // Validate schema version (currently we only support version 1)
         if !envelope.schema.starts_with("finstack.instrument/1") {
@@ -621,8 +621,8 @@ impl InstrumentEnvelope {
     ///
     /// A boxed instrument trait object ready for pricing.
     pub fn from_path(path: impl AsRef<std::path::Path>) -> Result<Box<dyn Instrument>> {
-        let file = std::fs::File::open(path.as_ref())
-            .map_err(|_| finstack_core::InputError::Invalid)?;
+        let file =
+            std::fs::File::open(path.as_ref()).map_err(|_| finstack_core::InputError::Invalid)?;
         Self::from_reader(file)
     }
 }

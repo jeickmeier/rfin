@@ -10,14 +10,14 @@ use crate::core::math::interp::{
 use crate::core::money::{extract_money, PyMoney};
 use crate::errors::{core_to_py, PyContext};
 use finstack_core::cashflow::npv;
-use finstack_core::HashMap;
 use finstack_core::market_data::term_structures::BaseCorrelationCurve;
 use finstack_core::market_data::term_structures::CreditIndexData;
 use finstack_core::market_data::term_structures::DiscountCurve;
 use finstack_core::market_data::term_structures::ForwardCurve;
-use finstack_core::market_data::term_structures::{HazardCurve, Seniority};
 use finstack_core::market_data::term_structures::InflationCurve;
+use finstack_core::market_data::term_structures::{HazardCurve, Seniority};
 use finstack_core::math::interp::{ExtrapolationPolicy, InterpStyle};
+use finstack_core::HashMap;
 use pyo3::exceptions::{PyTypeError, PyValueError};
 use pyo3::prelude::*;
 use pyo3::types::{PyList, PyModule};

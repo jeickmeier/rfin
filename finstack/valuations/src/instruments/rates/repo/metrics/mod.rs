@@ -116,10 +116,7 @@ mod tests {
         let as_of = test_date(2025, 1, 10);
         // Use a near-zero rate curve (0.01% = 1bp) for testing
         // DF(10) = exp(-0.0001 * 10) ≈ 0.999
-        let disc =
-            finstack_core::market_data::term_structures::DiscountCurve::builder(
-                "USD-OIS",
-            )
+        let disc = finstack_core::market_data::term_structures::DiscountCurve::builder("USD-OIS")
             .base_date(as_of)
             .knots(vec![(0.0, 1.0), (10.0, 0.999)])
             .build()

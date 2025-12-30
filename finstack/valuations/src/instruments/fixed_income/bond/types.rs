@@ -550,7 +550,7 @@ impl Bond {
     /// use finstack_core::money::Money;
     /// use finstack_valuations::cashflow::builder::{CashFlowSchedule, CouponType, FixedCouponSpec};
     /// use finstack_valuations::instruments::Bond;
-/// use rust_decimal_macros::dec;
+    /// use rust_decimal_macros::dec;
     /// use time::macros::date;
     ///
     /// # fn main() -> finstack_core::Result<()> {
@@ -559,7 +559,7 @@ impl Bond {
     /// let maturity = date!(2027-01-15);
     /// let fixed_spec = FixedCouponSpec {
     ///     coupon_type: CouponType::Cash,
-///     rate: dec!(0.06),
+    ///     rate: dec!(0.06),
     ///     freq: Tenor::semi_annual(),
     ///     dc: DayCount::Act365F,
     ///     bdc: BusinessDayConvention::Following,

@@ -2,7 +2,10 @@ use crate::core::common::args::BusinessDayConventionArg;
 use crate::core::common::pycmp::richcmp_eq_ne;
 use crate::core::dates::utils::{date_to_py, py_to_date};
 use crate::errors::{calendar_not_found, core_to_py, unknown_business_day_convention, PyContext};
-use finstack_core::dates::{self, adjust as core_adjust, BusinessDayConvention, CalendarMetadata, CalendarRegistry, HolidayCalendar};
+use finstack_core::dates::{
+    self, adjust as core_adjust, BusinessDayConvention, CalendarMetadata, CalendarRegistry,
+    HolidayCalendar,
+};
 use pyo3::basic::CompareOp;
 use pyo3::exceptions::{PyTypeError, PyValueError};
 use pyo3::prelude::*;
@@ -135,7 +138,10 @@ pub struct PyCalendar {
 }
 
 impl PyCalendar {
-    pub(crate) fn from_metadata(metadata: CalendarMetadata, inner: &'static dyn HolidayCalendar) -> Self {
+    pub(crate) fn from_metadata(
+        metadata: CalendarMetadata,
+        inner: &'static dyn HolidayCalendar,
+    ) -> Self {
         Self {
             code: Cow::Borrowed(metadata.id),
             name: Cow::Borrowed(metadata.name),

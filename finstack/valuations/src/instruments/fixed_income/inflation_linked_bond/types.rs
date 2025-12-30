@@ -8,9 +8,7 @@ use finstack_core::dates::{
     BusinessDayConvention, Date, DateExt, DayCount, DayCountCtx, StubKind, Tenor,
 };
 use finstack_core::market_data::context::MarketContext;
-use finstack_core::market_data::scalars::{
-    InflationIndex, InflationInterpolation, InflationLag,
-};
+use finstack_core::market_data::scalars::{InflationIndex, InflationInterpolation, InflationLag};
 use finstack_core::market_data::term_structures::InflationCurve;
 use finstack_core::money::Money;
 use finstack_core::types::CurveId;

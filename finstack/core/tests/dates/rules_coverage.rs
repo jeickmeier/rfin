@@ -2,8 +2,8 @@
 //!
 //! This module tests edge cases and less commonly used code paths
 
-use finstack_core::dates::{Direction, Observed, Rule};
 use finstack_core::dates::Date;
+use finstack_core::dates::{Direction, Observed, Rule};
 use smallvec::SmallVec;
 use time::{Month, Weekday};
 

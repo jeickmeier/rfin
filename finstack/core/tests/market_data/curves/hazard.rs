@@ -8,9 +8,7 @@
 //! - Analytical verification
 
 use finstack_core::currency::Currency;
-use finstack_core::market_data::term_structures::{
-    HazardCurve, ParInterp, Seniority,
-};
+use finstack_core::market_data::term_structures::{HazardCurve, ParInterp, Seniority};
 use time::{Date, Month};
 
 fn base_date() -> Date {

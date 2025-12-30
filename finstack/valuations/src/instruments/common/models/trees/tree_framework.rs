@@ -28,8 +28,8 @@
 //!
 //! See `docs/TREE_PARAMS_SERIALIZATION_AUDIT.md` for audit results and extension pattern.
 
-use finstack_core::HashMap;
 use finstack_core::market_data::context::MarketContext;
+use finstack_core::HashMap;
 use finstack_core::Result;
 
 pub use finstack_core::math::time_grid::{

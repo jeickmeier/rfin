@@ -11,10 +11,10 @@ use crate::instruments::cds::CdsConventionResolved;
 use crate::market::build::context::BuildCtx;
 use crate::market::build::prepared::PreparedQuote;
 use crate::market::quotes::market_quote::{ExtractQuotes, MarketQuote};
-use finstack_core::HashMap;
 use finstack_core::dates::DayCountCtx;
 use finstack_core::market_data::context::MarketContext;
 use finstack_core::market_data::term_structures::HazardCurve;
+use finstack_core::HashMap;
 use finstack_core::Result;
 use std::cell::RefCell;
 

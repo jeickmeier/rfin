@@ -76,10 +76,7 @@ fn test_valuation_with_negative_rates() {
     let swap = sample_swap(PayReceive::Receive);
     // Use earlier base date to allow pre-start valuation
     let curve_base = date(2024, 12, 1);
-    let disc_curve =
-        finstack_core::market_data::term_structures::DiscountCurve::builder(
-            DISC_ID,
-        )
+    let disc_curve = finstack_core::market_data::term_structures::DiscountCurve::builder(DISC_ID)
         .base_date(curve_base)
         .knots([
             (0.0, 1.0),

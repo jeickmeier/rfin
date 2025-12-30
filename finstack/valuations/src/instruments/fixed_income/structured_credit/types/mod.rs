@@ -103,10 +103,10 @@ use crate::instruments::structured_credit::utils::rates::{cdr_to_mdr, cpr_to_smm
 use crate::metrics::MetricId;
 use crate::results::ValuationResult;
 use finstack_core::dates::{BusinessDayConvention, Date, DateExt, DayCount, DayCountCtx, Tenor};
-use finstack_core::Error as CoreError;
 use finstack_core::market_data::context::MarketContext;
 use finstack_core::money::Money;
 use finstack_core::types::{CurveId, InstrumentId};
+use finstack_core::Error as CoreError;
 
 use finstack_core::HashMap;
 use std::any::Any;

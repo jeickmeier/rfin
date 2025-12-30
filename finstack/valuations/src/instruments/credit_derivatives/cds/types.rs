@@ -335,8 +335,7 @@ fn normalize_cds_key(id: &str) -> String {
 /// This is intentional: corrupted embedded data represents a build/packaging error
 /// that cannot be recovered at runtime and should fail fast during startup.
 #[allow(clippy::expect_used)]
-fn cds_conventions_registry(
-) -> &'static finstack_core::HashMap<String, CdsConventionResolved> {
+fn cds_conventions_registry() -> &'static finstack_core::HashMap<String, CdsConventionResolved> {
     static REGISTRY: OnceLock<finstack_core::HashMap<String, CdsConventionResolved>> =
         OnceLock::new();
     REGISTRY.get_or_init(|| {

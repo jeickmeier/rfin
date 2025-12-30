@@ -10,10 +10,8 @@ use finstack_core::config::FinstackConfig;
 use finstack_core::currency::Currency;
 use finstack_core::dates::{BusinessDayConvention, Date, DayCount, StubKind};
 use finstack_core::market_data::context::MarketContext;
-use finstack_core::market_data::scalars::{
-    InflationIndex, InflationInterpolation, InflationLag,
-};
 use finstack_core::market_data::scalars::MarketScalar;
+use finstack_core::market_data::scalars::{InflationIndex, InflationInterpolation, InflationLag};
 use finstack_core::market_data::surfaces::VolSurface;
 use finstack_core::market_data::term_structures::BaseCorrelationCurve;
 use finstack_core::market_data::term_structures::CreditIndexData;
@@ -22,8 +20,8 @@ use finstack_core::market_data::term_structures::ForwardCurve;
 use finstack_core::market_data::term_structures::HazardCurve;
 use finstack_core::market_data::term_structures::InflationCurve;
 use finstack_core::math::interp::InterpStyle;
-use finstack_core::money::fx::SimpleFxProvider;
 use finstack_core::money::fx::FxMatrix;
+use finstack_core::money::fx::SimpleFxProvider;
 use finstack_core::money::Money;
 use finstack_portfolio::{self, *};
 use finstack_scenarios::spec::{CurveKind, OperationSpec, ScenarioSpec};

@@ -8,12 +8,12 @@
 //!
 //! Execution logic is in `crate::instruments::structured_credit::pricing::waterfall`.
 
-use finstack_core::HashMap;
 use finstack_core::currency::Currency;
 use finstack_core::dates::Date;
 use finstack_core::explain::ExplanationTrace;
 use finstack_core::money::Money;
 use finstack_core::types::CreditRating;
+use finstack_core::HashMap;
 
 #[cfg(feature = "serde")]
 use serde::{Deserialize, Serialize};

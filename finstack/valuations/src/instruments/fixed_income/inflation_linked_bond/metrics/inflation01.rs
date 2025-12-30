@@ -17,8 +17,8 @@
 use crate::instruments::common::traits::Instrument;
 use crate::instruments::inflation_linked_bond::InflationLinkedBond;
 use crate::metrics::{MetricCalculator, MetricContext};
-use finstack_core::HashMap;
 use finstack_core::market_data::bumps::BumpSpec;
+use finstack_core::HashMap;
 use finstack_core::Result;
 
 /// Standard inflation curve bump: 1bp (0.0001)

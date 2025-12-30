@@ -19,8 +19,8 @@
 
 use crate::cashflow::builder::schedule::CashFlowSchedule;
 use crate::cashflow::primitives::CFKind;
-use finstack_core::dates::HolidayCalendar;
 use finstack_core::dates::calendar::calendar_by_id;
+use finstack_core::dates::HolidayCalendar;
 use finstack_core::dates::{Date, DayCount, DayCountCtx};
 use finstack_core::money::Money;
 

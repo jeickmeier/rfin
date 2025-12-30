@@ -40,9 +40,9 @@
 
 use finstack_core::currency::Currency;
 use finstack_core::dates::{BusinessDayConvention, Date, DayCount, StubKind, Tenor};
-use finstack_core::InputError;
 use finstack_core::money::Money;
 use finstack_core::types::{Bps, CurveId, InstrumentId, Rate};
+use finstack_core::InputError;
 
 use super::spec::{
     AmortizationSpec, CovenantSpec, DdtlSpec, LoanCallSchedule, OidEirSpec, TermLoanSpec,

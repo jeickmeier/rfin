@@ -1,9 +1,9 @@
 //! Margin calculation result types.
 
-use finstack_core::HashMap;
 use finstack_core::currency::Currency;
 use finstack_core::dates::Date;
 use finstack_core::money::Money;
+use finstack_core::HashMap;
 use finstack_valuations::margin::{ImMethodology, NettingSetId, SimmSensitivities};
 
 /// Margin results for a single netting set.

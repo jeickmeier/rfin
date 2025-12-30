@@ -3,9 +3,7 @@
 use finstack_core::currency::Currency;
 use finstack_core::dates::{Date, DayCount};
 use finstack_core::market_data::context::MarketContext;
-use finstack_core::market_data::scalars::{
-    InflationIndex, InflationInterpolation, InflationLag,
-};
+use finstack_core::market_data::scalars::{InflationIndex, InflationInterpolation, InflationLag};
 use finstack_core::market_data::term_structures::{DiscountCurve, InflationCurve};
 use finstack_core::money::Money;
 

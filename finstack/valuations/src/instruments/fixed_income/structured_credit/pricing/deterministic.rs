@@ -10,7 +10,6 @@ use crate::instruments::structured_credit::types::{
 };
 use crate::instruments::structured_credit::utils::simulation::RecoveryQueue;
 use finstack_core::cashflow::{CFKind, CashFlow};
-use finstack_core::HashMap;
 use finstack_core::currency::Currency;
 use finstack_core::dates::CalendarRegistry;
 use finstack_core::dates::HolidayCalendar;
@@ -19,6 +18,7 @@ use finstack_core::dates::{
 };
 use finstack_core::market_data::context::MarketContext;
 use finstack_core::money::Money;
+use finstack_core::HashMap;
 use finstack_core::Result;
 
 // ============================================================================

@@ -12,9 +12,7 @@ use finstack_core::dates::Date;
 use finstack_core::market_data::context::MarketContext;
 use finstack_core::market_data::context::MarketContextState;
 use finstack_core::market_data::dividends::DividendSchedule;
-use finstack_core::market_data::scalars::{
-    InflationIndex, InflationInterpolation, InflationLag,
-};
+use finstack_core::market_data::scalars::{InflationIndex, InflationInterpolation, InflationLag};
 use finstack_core::market_data::scalars::{ScalarTimeSeries, SeriesInterpolation};
 use finstack_core::market_data::surfaces::VolSurface;
 use finstack_core::market_data::term_structures::BaseCorrelationCurve;

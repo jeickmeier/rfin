@@ -486,7 +486,7 @@ pub trait Instrument: Send + Sync {
     ///     issue,
     ///     maturity,
     ///     "USD-OIS"
-/// )?;
+    /// )?;
     ///
     /// assert_eq!(bond.id(), "US-TREASURY-5Y-001");
     /// # Ok(())
@@ -517,8 +517,8 @@ pub trait Instrument: Send + Sync {
     /// # fn main() -> Result<(), Box<dyn std::error::Error>> {
     /// # let issue = create_date(2025, Month::January, 15)?;
     /// # let maturity = create_date(2030, Month::January, 15)?;
-/// let bond = Bond::fixed("BOND-001", Money::new(1_000_000.0, Currency::USD),
-///     0.05, issue, maturity, "USD-OIS")?;
+    /// let bond = Bond::fixed("BOND-001", Money::new(1_000_000.0, Currency::USD),
+    ///     0.05, issue, maturity, "USD-OIS")?;
     ///
     /// assert_eq!(bond.key(), InstrumentType::Bond);
     /// # Ok(())
@@ -547,8 +547,8 @@ pub trait Instrument: Send + Sync {
     /// # fn main() -> Result<(), Box<dyn std::error::Error>> {
     /// # let issue = create_date(2025, Month::January, 15)?;
     /// # let maturity = create_date(2030, Month::January, 15)?;
-/// let bond = Bond::fixed("BOND-001", Money::new(1_000_000.0, Currency::USD),
-///     0.05, issue, maturity, "USD-OIS")?;
+    /// let bond = Bond::fixed("BOND-001", Money::new(1_000_000.0, Currency::USD),
+    ///     0.05, issue, maturity, "USD-OIS")?;
     ///
     /// let instrument: &dyn Instrument = &bond;
     /// let concrete_bond: Option<&Bond> = instrument.as_any().downcast_ref::<Bond>();
@@ -589,7 +589,7 @@ pub trait Instrument: Send + Sync {
     ///     issue,
     ///     maturity,
     ///     "USD-OIS"
-/// )?;
+    /// )?;
     ///
     /// let inst: &dyn Instrument = &bond;
     /// if let Some(cf) = inst.as_cashflow_provider() {
@@ -690,7 +690,7 @@ pub trait Instrument: Send + Sync {
     /// # let issue = create_date(2025, Month::January, 15)?;
     /// # let maturity = create_date(2030, Month::January, 15)?;
     /// let bond = Bond::fixed("BOND-001", Money::new(1_000_000.0, Currency::USD),
-///     0.05, issue, maturity, "USD-OIS")?;
+    ///     0.05, issue, maturity, "USD-OIS")?;
     ///
     /// let instrument: Box<dyn Instrument> = Box::new(bond);
     /// let cloned = instrument.clone_box();
@@ -792,7 +792,7 @@ pub trait Instrument: Send + Sync {
     ///     date!(2025-01-15),
     ///     date!(2030-01-15),
     ///     "USD-OIS",
-/// )?;
+    /// )?;
     /// let market = MarketContext::new();
     /// let bumped_market = MarketContext::new();
     /// let as_of = date!(2025-01-15);
@@ -932,10 +932,10 @@ pub trait Instrument: Send + Sync {
     /// # fn main() -> Result<(), Box<dyn std::error::Error>> {
     /// # let issue = create_date(2025, Month::January, 15)?;
     /// # let maturity = create_date(2030, Month::January, 15)?;
-/// let bond = Bond::fixed("BOND-001", Money::new(1_000_000.0, Currency::USD),
-///     0.05, issue, maturity, "USD-OIS")?;
-///
-/// let curves = bond.required_discount_curves();
+    /// let bond = Bond::fixed("BOND-001", Money::new(1_000_000.0, Currency::USD),
+    ///     0.05, issue, maturity, "USD-OIS")?;
+    ///
+    /// let curves = bond.required_discount_curves();
     /// // Bond returns ["USD-OIS"]
     /// # Ok(())
     /// # }

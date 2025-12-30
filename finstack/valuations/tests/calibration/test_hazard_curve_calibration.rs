@@ -1,12 +1,12 @@
 //! Hazard curve calibration tests (v2).
 
-use finstack_core::HashMap;
 use finstack_core::dates::Date;
 use finstack_core::market_data::context::MarketContext;
 use finstack_core::market_data::term_structures::DiscountCurve;
 use finstack_core::market_data::term_structures::Seniority;
 use finstack_core::math::interp::InterpStyle;
 use finstack_core::types::{Currency, CurveId};
+use finstack_core::HashMap;
 use finstack_valuations::calibration::api::engine;
 use finstack_valuations::calibration::api::schema::{
     CalibrationConfig, CalibrationEnvelope, CalibrationMethod, CalibrationPlan, CalibrationStep,
@@ -34,9 +34,7 @@ fn create_test_discount_curve(base: Date) -> DiscountCurve {
         .unwrap()
 }
 
-fn hazard_total_variation(
-    curve: &finstack_core::market_data::term_structures::HazardCurve,
-) -> f64 {
+fn hazard_total_variation(curve: &finstack_core::market_data::term_structures::HazardCurve) -> f64 {
     let mut total = 0.0;
     let mut prev: Option<f64> = None;
     for (_t, lambda) in curve.knot_points() {

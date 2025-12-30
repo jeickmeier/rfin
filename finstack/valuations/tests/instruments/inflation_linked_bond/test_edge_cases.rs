@@ -155,13 +155,11 @@ fn test_missing_inflation_data() {
     let as_of = d(2025, 1, 2);
 
     // Context with discount but no inflation
-    let disc = finstack_core::market_data::term_structures::DiscountCurve::builder(
-        "USD-REAL",
-    )
-    .base_date(as_of)
-    .knots([(0.0, 1.0), (5.0, 0.95)])
-    .build()
-    .unwrap();
+    let disc = finstack_core::market_data::term_structures::DiscountCurve::builder("USD-REAL")
+        .base_date(as_of)
+        .knots([(0.0, 1.0), (5.0, 0.95)])
+        .build()
+        .unwrap();
 
     let ctx = finstack_core::market_data::context::MarketContext::new().insert_discount(disc);
 
@@ -216,9 +214,7 @@ fn test_extreme_deflation() {
         Currency::USD,
     )
     .unwrap()
-    .with_interpolation(
-        finstack_core::market_data::scalars::InflationInterpolation::Linear,
-    );
+    .with_interpolation(finstack_core::market_data::scalars::InflationInterpolation::Linear);
     ctx = ctx.insert_inflation_index("US-CPI-U", index);
 
     let as_of = d(2025, 1, 2);
@@ -247,9 +243,7 @@ fn test_extreme_inflation() {
         Currency::USD,
     )
     .unwrap()
-    .with_interpolation(
-        finstack_core::market_data::scalars::InflationInterpolation::Linear,
-    );
+    .with_interpolation(finstack_core::market_data::scalars::InflationInterpolation::Linear);
     ctx = ctx.insert_inflation_index("US-CPI-U", index);
 
     let as_of = d(2025, 1, 2);
@@ -364,13 +358,11 @@ fn test_currency_mismatch_detection() {
     let (mut ctx_gbp, _) = uk_market_context(); // GBP market
 
     // Insert USD discount curve into GBP context
-    let disc = finstack_core::market_data::term_structures::DiscountCurve::builder(
-        "USD-REAL",
-    )
-    .base_date(d(2025, 1, 2))
-    .knots([(0.0, 1.0), (5.0, 0.95)])
-    .build()
-    .unwrap();
+    let disc = finstack_core::market_data::term_structures::DiscountCurve::builder("USD-REAL")
+        .base_date(d(2025, 1, 2))
+        .knots([(0.0, 1.0), (5.0, 0.95)])
+        .build()
+        .unwrap();
     ctx_gbp = ctx_gbp.insert_discount(disc);
 
     let as_of = d(2025, 1, 2);

@@ -120,9 +120,7 @@ fn test_mid_period_draw_accrual() {
     let interest_flow = schedule
         .flows
         .iter()
-        .find(|cf| {
-            cf.date == end && matches!(cf.kind, finstack_core::cashflow::CFKind::Fixed)
-        })
+        .find(|cf| cf.date == end && matches!(cf.kind, finstack_core::cashflow::CFKind::Fixed))
         .expect("Should have interest flow at period end");
 
     // Interest should be:
@@ -286,13 +284,7 @@ fn test_reset_frequency_mismatch() {
     let interest_flow = schedule
         .flows
         .iter()
-        .find(|cf| {
-            cf.date == end
-                && matches!(
-                    cf.kind,
-                    finstack_core::cashflow::CFKind::FloatReset
-                )
-        })
+        .find(|cf| cf.date == end && matches!(cf.kind, finstack_core::cashflow::CFKind::FloatReset))
         .expect("Should have floating interest flow");
 
     // Verify reset_date is set (should be Jan 1, first reset)
@@ -385,24 +377,14 @@ fn test_utilization_tier() {
     let fee_low: f64 = schedule_low
         .flows
         .iter()
-        .filter(|cf| {
-            matches!(
-                cf.kind,
-                finstack_core::cashflow::CFKind::UsageFee
-            )
-        })
+        .filter(|cf| matches!(cf.kind, finstack_core::cashflow::CFKind::UsageFee))
         .map(|cf| cf.amount.amount())
         .sum();
 
     let fee_high: f64 = schedule_high
         .flows
         .iter()
-        .filter(|cf| {
-            matches!(
-                cf.kind,
-                finstack_core::cashflow::CFKind::UsageFee
-            )
-        })
+        .filter(|cf| matches!(cf.kind, finstack_core::cashflow::CFKind::UsageFee))
         .map(|cf| cf.amount.amount())
         .sum();
 

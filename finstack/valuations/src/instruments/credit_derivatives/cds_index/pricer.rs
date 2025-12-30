@@ -199,8 +199,8 @@ impl CDSIndexPricer {
         curves: &MarketContext,
         as_of: Date,
     ) -> Result<f64> {
-        use finstack_core::HashMap;
         use finstack_core::market_data::bumps::BumpSpec;
+        use finstack_core::HashMap;
 
         let credit_id = &cds.protection.credit_curve_id;
         let discount_id = &cds.premium.discount_curve_id;

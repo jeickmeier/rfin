@@ -9,8 +9,8 @@
 //! - Japanese equinox rules (Vernal, Autumnal)
 //! - Span rules (multi-day holidays)
 
-use finstack_core::dates::{Direction, Observed, Rule};
 use finstack_core::dates::{Date, HolidayCalendar};
+use finstack_core::dates::{Direction, Observed, Rule};
 use smallvec::SmallVec;
 use time::{Month, Weekday};
 

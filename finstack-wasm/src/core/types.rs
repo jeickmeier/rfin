@@ -1,12 +1,12 @@
 //! WASM bindings for core phantom types (IDs, rates, credit ratings).
 
 use crate::core::error::js_error;
-use finstack_core::types::{CreditRating, NotchedRating, RatingNotch};
 use finstack_core::types::{
     Bps as CoreBps, CurveId as CoreCurveId, IndexId as CoreIndexId,
     InstrumentId as CoreInstrumentId, Percentage as CorePercentage, PriceId as CorePriceId,
     Rate as CoreRate, UnderlyingId as CoreUnderlyingId,
 };
+use finstack_core::types::{CreditRating, NotchedRating, RatingNotch};
 use wasm_bindgen::prelude::*;
 
 // ======================================================================

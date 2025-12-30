@@ -76,7 +76,11 @@ fn test_bond_curve_dependencies_complete() {
         .notional(Money::new(1_000_000.0, Currency::USD))
         .issue(issue)
         .maturity(maturity)
-        .cashflow_spec(CashflowSpec::fixed(0.04, Tenor::semi_annual(), DayCount::Thirty360))
+        .cashflow_spec(CashflowSpec::fixed(
+            0.04,
+            Tenor::semi_annual(),
+            DayCount::Thirty360,
+        ))
         .discount_curve_id("USD-OIS".into())
         .build()
         .expect("Bond construction should succeed");
@@ -182,7 +186,11 @@ fn test_dependency_count_reasonable() {
         .notional(Money::new(1_000_000.0, Currency::USD))
         .issue(as_of)
         .maturity(maturity)
-        .cashflow_spec(CashflowSpec::fixed(0.04, Tenor::semi_annual(), DayCount::Thirty360))
+        .cashflow_spec(CashflowSpec::fixed(
+            0.04,
+            Tenor::semi_annual(),
+            DayCount::Thirty360,
+        ))
         .discount_curve_id("USD-OIS".into())
         .build()
         .expect("Bond construction should succeed");

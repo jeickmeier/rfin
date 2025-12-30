@@ -9,13 +9,13 @@ use crate::instruments::structured_credit::types::{
     RoundingConvention, TrancheStructure, Waterfall, WaterfallDistribution, WaterfallTier,
     WaterfallWorkspace,
 };
-use finstack_core::HashMap;
 use finstack_core::currency::Currency;
 use finstack_core::dates::{Date, DayCount, DayCountCtx};
-use finstack_core::Error as CoreError;
 use finstack_core::explain::{ExplainOpts, ExplanationTrace, TraceEntry};
 use finstack_core::market_data::context::MarketContext;
 use finstack_core::money::Money;
+use finstack_core::Error as CoreError;
+use finstack_core::HashMap;
 use finstack_core::Result;
 
 // ============================================================================

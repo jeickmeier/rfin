@@ -4,8 +4,8 @@
 //! with stable schemas and deterministic round-trip serialization.
 
 use super::{
-    attribute_pnl_metrics_based, attribute_pnl_parallel, attribute_pnl_waterfall, AttributionMethod,
-    JsonEnvelope, ModelParamsSnapshot, PnlAttribution,
+    attribute_pnl_metrics_based, attribute_pnl_parallel, attribute_pnl_waterfall,
+    AttributionMethod, JsonEnvelope, ModelParamsSnapshot, PnlAttribution,
 };
 use crate::instruments::json_loader::InstrumentJson;
 use crate::metrics::MetricId;

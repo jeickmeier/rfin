@@ -319,10 +319,7 @@ fn attribute_pnl_parallel_impl(input: &AttributionInput) -> Result<PnlAttributio
     let params_t0 = model_params_t0
         .cloned()
         .unwrap_or_else(|| model_params::extract_model_params(instrument));
-    if !matches!(
-        params_t0,
-        model_params::ModelParamsSnapshot::None
-    ) {
+    if !matches!(params_t0, model_params::ModelParamsSnapshot::None) {
         // Create instrument with T₀ parameters
         match model_params::with_model_params(instrument, &params_t0) {
             Ok(instrument_with_t0_params) => {

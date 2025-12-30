@@ -13,8 +13,9 @@ pub use engine::{
     SpringingCondition, ThresholdTest,
 };
 pub use forward::{
-    forecast_breaches_generic, forecast_covenant_generic, CovenantForecast as GenericCovenantForecast,
-    CovenantForecastConfig, FutureBreach, McConfig, ModelTimeSeries,
+    forecast_breaches_generic, forecast_covenant_generic,
+    CovenantForecast as GenericCovenantForecast, CovenantForecastConfig, FutureBreach, McConfig,
+    ModelTimeSeries,
 };
 pub use mod_types::CovenantReport;
 pub use schedule::{threshold_for_date, ThresholdSchedule};

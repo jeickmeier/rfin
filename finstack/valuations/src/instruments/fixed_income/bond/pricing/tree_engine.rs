@@ -54,12 +54,12 @@ use crate::instruments::common::models::{
 };
 #[cfg(test)]
 use crate::instruments::PricingOverrides;
-use finstack_core::HashMap;
 use finstack_core::dates::Date;
 use finstack_core::market_data::context::MarketContext;
 use finstack_core::math::solver::{BrentSolver, Solver};
-use finstack_core::Result;
 use finstack_core::types::Percentage;
+use finstack_core::HashMap;
+use finstack_core::Result;
 
 #[cfg(test)]
 use finstack_core::money::Money;
@@ -1003,14 +1003,12 @@ mod tests {
     fn create_test_market_context() -> MarketContext {
         let base_date = Date::from_calendar_date(2025, Month::January, 1).expect("Valid test date");
         let discount_curve =
-            finstack_core::market_data::term_structures::DiscountCurve::builder(
-                "USD-OIS",
-            )
-            .base_date(base_date)
-            .knots([(0.0, 1.0), (1.0, 0.96), (5.0, 0.85), (10.0, 0.70)])
-            .set_interp(InterpStyle::LogLinear)
-            .build()
-            .expect("DiscountCurve builder should succeed with valid test data");
+            finstack_core::market_data::term_structures::DiscountCurve::builder("USD-OIS")
+                .base_date(base_date)
+                .knots([(0.0, 1.0), (1.0, 0.96), (5.0, 0.85), (10.0, 0.70)])
+                .set_interp(InterpStyle::LogLinear)
+                .build()
+                .expect("DiscountCurve builder should succeed with valid test data");
         MarketContext::new().insert_discount(discount_curve)
     }
     #[test]
@@ -1074,14 +1072,12 @@ mod tests {
 
         // Curves: discount + two hazard scenarios
         let discount_curve =
-            finstack_core::market_data::term_structures::DiscountCurve::builder(
-                "USD-OIS",
-            )
-            .base_date(base_date)
-            .knots([(0.0, 1.0), (5.0, 0.85)])
-            .set_interp(InterpStyle::LogLinear)
-            .build()
-            .expect("Curve builder should succeed with valid test data");
+            finstack_core::market_data::term_structures::DiscountCurve::builder("USD-OIS")
+                .base_date(base_date)
+                .knots([(0.0, 1.0), (5.0, 0.85)])
+                .set_interp(InterpStyle::LogLinear)
+                .build()
+                .expect("Curve builder should succeed with valid test data");
 
         let low_hazard = HazardCurve::builder("HAZ-LOW")
             .base_date(base_date)
@@ -1101,23 +1097,19 @@ mod tests {
             .insert_hazard(low_hazard);
         // Recreate for high scenario to avoid cloning requirements
         let discount_curve2 =
-            finstack_core::market_data::term_structures::DiscountCurve::builder(
-                "USD-OIS",
-            )
-            .base_date(base_date)
-            .knots([(0.0, 1.0), (5.0, 0.85)])
-            .set_interp(InterpStyle::LogLinear)
-            .build()
-            .expect("Curve builder should succeed with valid test data");
+            finstack_core::market_data::term_structures::DiscountCurve::builder("USD-OIS")
+                .base_date(base_date)
+                .knots([(0.0, 1.0), (5.0, 0.85)])
+                .set_interp(InterpStyle::LogLinear)
+                .build()
+                .expect("Curve builder should succeed with valid test data");
         let high_hazard2 =
-            finstack_core::market_data::term_structures::HazardCurve::builder(
-                "HAZ-HIGH",
-            )
-            .base_date(base_date)
-            .recovery_rate(0.4)
-            .knots([(0.0, 0.05), (5.0, 0.05)])
-            .build()
-            .expect("Curve builder should succeed with valid test data");
+            finstack_core::market_data::term_structures::HazardCurve::builder("HAZ-HIGH")
+                .base_date(base_date)
+                .recovery_rate(0.4)
+                .knots([(0.0, 0.05), (5.0, 0.05)])
+                .build()
+                .expect("Curve builder should succeed with valid test data");
         let ctx_high = MarketContext::new()
             .insert_discount(discount_curve2)
             .insert_hazard(high_hazard2);

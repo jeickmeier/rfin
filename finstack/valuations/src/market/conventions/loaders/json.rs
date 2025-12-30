@@ -1,7 +1,7 @@
 //! Shared JSON registry loader helpers.
 
-use finstack_core::HashMap;
 use finstack_core::Error;
+use finstack_core::HashMap;
 
 /// A registry JSON file containing entries with alias IDs.
 #[derive(Clone, Debug, serde::Deserialize)]

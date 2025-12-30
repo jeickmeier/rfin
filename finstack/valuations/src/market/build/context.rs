@@ -1,7 +1,7 @@
 //! Build context for quote-to-instrument construction.
 
-use finstack_core::HashMap;
 use finstack_core::dates::Date;
+use finstack_core::HashMap;
 
 /// Context for building instruments from market quotes.
 ///

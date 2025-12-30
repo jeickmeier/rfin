@@ -477,9 +477,7 @@ impl TrancheBuilder {
         let detachment_point = self
             .detachment_point
             .ok_or(finstack_core::InputError::Invalid)?;
-        let seniority = self
-            .seniority
-            .ok_or(finstack_core::InputError::Invalid)?;
+        let seniority = self.seniority.ok_or(finstack_core::InputError::Invalid)?;
         let original_balance = self
             .original_balance
             .ok_or(finstack_core::InputError::Invalid)?;
@@ -489,9 +487,7 @@ impl TrancheBuilder {
             return Err(finstack_core::InputError::Invalid.into());
         }
 
-        let coupon = self
-            .coupon
-            .ok_or(finstack_core::InputError::Invalid)?;
+        let coupon = self.coupon.ok_or(finstack_core::InputError::Invalid)?;
         let legal_maturity = self
             .legal_maturity
             .ok_or(finstack_core::InputError::Invalid)?;

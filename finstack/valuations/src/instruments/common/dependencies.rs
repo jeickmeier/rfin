@@ -83,7 +83,9 @@ impl InstrumentDependencies {
     }
 
     /// Build dependencies from an instrument implementing both curve and equity traits.
-    pub fn from_curves_and_equity<T: CurveDependencies + EquityDependencies>(instrument: &T) -> Self {
+    pub fn from_curves_and_equity<T: CurveDependencies + EquityDependencies>(
+        instrument: &T,
+    ) -> Self {
         let mut deps = Self::new();
         deps.add_curves(instrument.curve_dependencies());
         deps.add_equity_dependencies(instrument.equity_dependencies());

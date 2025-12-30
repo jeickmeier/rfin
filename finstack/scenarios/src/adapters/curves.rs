@@ -408,7 +408,9 @@ impl ScenarioAdapter for CurveAdapter {
                             .base_date(base_curve.base_date())
                             .knots(bumped_points)
                             .build()
-                            .map_err(|e| Error::Internal(format!("Failed to rebuild forward curve: {}", e)))?;
+                            .map_err(|e| {
+                                Error::Internal(format!("Failed to rebuild forward curve: {}", e))
+                            })?;
 
                         Ok(Some(vec![ScenarioEffect::UpdateForwardCurve {
                             id: curve_id.clone(),

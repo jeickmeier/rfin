@@ -250,9 +250,7 @@ impl Equity {
                     return self.money_from_scalar(scalar, curves, as_of);
                 }
                 Err(err) => match err {
-                    finstack_core::Error::Input(finstack_core::InputError::NotFound {
-                        ..
-                    }) => {
+                    finstack_core::Error::Input(finstack_core::InputError::NotFound { .. }) => {
                         continue;
                     }
                     _ => return Err(err),
@@ -274,9 +272,9 @@ impl Equity {
                 Ok(MarketScalar::Unitless(v)) => return Ok(*v),
                 Ok(MarketScalar::Price(_)) => continue,
                 Err(err) => match err {
-                    finstack_core::Error::Input(finstack_core::InputError::NotFound {
-                        ..
-                    }) => continue,
+                    finstack_core::Error::Input(finstack_core::InputError::NotFound { .. }) => {
+                        continue
+                    }
                     _ => return Err(err),
                 },
             }

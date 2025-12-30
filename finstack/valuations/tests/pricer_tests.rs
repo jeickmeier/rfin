@@ -22,7 +22,10 @@ fn test_market(as_of: Date) -> MarketContext {
     MarketContext::new().insert_discount(curve)
 }
 
-fn assert_pricing_result_eq(left: &PricingResult<ValuationResult>, right: &PricingResult<ValuationResult>) {
+fn assert_pricing_result_eq(
+    left: &PricingResult<ValuationResult>,
+    right: &PricingResult<ValuationResult>,
+) {
     match (left, right) {
         (Ok(left_val), Ok(right_val)) => {
             assert_eq!(left_val.instrument_id, right_val.instrument_id);
@@ -580,7 +583,13 @@ fn test_price_batch_preserves_order() {
     assert_eq!(results.len(), instruments.len());
     let ids: Vec<&str> = results
         .iter()
-        .map(|result| result.as_ref().expect("Pricing should succeed").instrument_id.as_str())
+        .map(|result| {
+            result
+                .as_ref()
+                .expect("Pricing should succeed")
+                .instrument_id
+                .as_str()
+        })
         .collect();
 
     assert_eq!(ids, vec![bond_one.id(), deposit.id(), bond_two.id()]);
@@ -616,7 +625,9 @@ fn test_price_batch_matches_serial_results() {
     let instruments: Vec<&dyn Instrument> = vec![&bond_one, &deposit, &bond_two];
     let serial_results: Vec<_> = instruments
         .iter()
-        .map(|&instrument| registry.price_with_registry(instrument, ModelKey::Discounting, &market, as_of))
+        .map(|&instrument| {
+            registry.price_with_registry(instrument, ModelKey::Discounting, &market, as_of)
+        })
         .collect();
     let batch_results = registry.price_batch(&instruments, ModelKey::Discounting, &market, as_of);
 

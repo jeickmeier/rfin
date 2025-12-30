@@ -402,8 +402,7 @@ mod tests {
         currency::Currency,
         dates::{Date, DayCount},
         market_data::{
-            context::MarketContext, scalars::MarketScalar,
-            term_structures::DiscountCurve,
+            context::MarketContext, scalars::MarketScalar, term_structures::DiscountCurve,
         },
         money::{
             fx::{FxConversionPolicy, FxMatrix, FxProvider},

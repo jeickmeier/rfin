@@ -458,8 +458,7 @@ mod tests {
         let po = PricingOverrides::default().with_vol_bump(-0.01);
         let err = po.validate().expect_err("should fail");
         match err {
-            finstack_core::Error::Input(finstack_core::InputError::NegativeValue) => {
-            }
+            finstack_core::Error::Input(finstack_core::InputError::NegativeValue) => {}
             e => panic!("unexpected error: {e:?}"),
         }
     }

@@ -17,8 +17,8 @@ use finstack_core::market_data::surfaces::VolSurface;
 use finstack_core::market_data::term_structures::BaseCorrelationCurve;
 use finstack_core::market_data::term_structures::{DiscountCurve, HazardCurve};
 use finstack_core::math::interp::InterpStyle;
-use finstack_core::money::fx::SimpleFxProvider;
 use finstack_core::money::fx::FxMatrix;
+use finstack_core::money::fx::SimpleFxProvider;
 use finstack_core::money::Money;
 use finstack_scenarios::{
     CurveKind, ExecutionContext, OperationSpec, RateBindingSpec, ScenarioEngine, ScenarioSpec,

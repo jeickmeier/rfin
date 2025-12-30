@@ -1,6 +1,6 @@
-use finstack_core::HashMap;
 use finstack_core::currency::Currency;
 use finstack_core::dates::{Date, Tenor};
+use finstack_core::HashMap;
 use finstack_valuations::instruments::cds::CDSConvention;
 use finstack_valuations::instruments::cds::CreditDefaultSwap;
 use finstack_valuations::market::build::cds::build_cds_instrument;

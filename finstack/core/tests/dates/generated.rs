@@ -33,4 +33,3 @@ fn calendar_registry_resolves_generated_calendars() {
     let jan1 = make_date(2025, 1, 1);
     assert!(target2.is_holiday(jan1));
 }
-

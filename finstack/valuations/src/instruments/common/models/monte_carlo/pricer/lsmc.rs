@@ -148,8 +148,13 @@ impl LsmcPricer {
             stats.update(value);
         }
 
-        let estimate = Estimate::new(stats.mean(), stats.stderr(), stats.confidence_interval(0.05), values.len())
-            .with_std_dev(stats.std_dev());
+        let estimate = Estimate::new(
+            stats.mean(),
+            stats.stderr(),
+            stats.confidence_interval(0.05),
+            values.len(),
+        )
+        .with_std_dev(stats.std_dev());
 
         Ok(MoneyEstimate::from_estimate(estimate, currency))
     }

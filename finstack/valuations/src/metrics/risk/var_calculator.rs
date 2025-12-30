@@ -8,12 +8,12 @@ use crate::instruments::common::traits::Instrument;
 use crate::metrics::risk::MarketHistory;
 use crate::metrics::sensitivities::dv01::format_bucket_label;
 use crate::metrics::{standard_registry, MetricContext, MetricId, StrictMode};
-use finstack_core::HashMap;
 use finstack_core::dates::Date;
 use finstack_core::market_data::context::MarketContext;
 use finstack_core::market_data::scalars::MarketScalar;
 use finstack_core::money::Money;
 use finstack_core::types::CurveId;
+use finstack_core::HashMap;
 use finstack_core::Result;
 use std::sync::Arc;
 

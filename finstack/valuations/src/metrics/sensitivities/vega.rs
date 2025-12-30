@@ -269,9 +269,7 @@ where
                     MarketScalar::Price(m) => m.amount(),
                     MarketScalar::Unitless(v) => *v,
                 })
-                .ok_or_else(|| {
-                    finstack_core::Error::from(finstack_core::InputError::Invalid)
-                })?;
+                .ok_or_else(|| finstack_core::Error::from(finstack_core::InputError::Invalid))?;
 
             self.strikes.iter().map(|k| k * spot).collect()
         } else {

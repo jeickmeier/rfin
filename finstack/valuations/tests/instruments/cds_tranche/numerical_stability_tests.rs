@@ -177,14 +177,12 @@ fn test_pricing_with_near_zero_default_probability() {
 
     // Create hazard curve with very low hazard rates
     let low_hazard_curve =
-        finstack_core::market_data::term_structures::HazardCurve::builder(
-            "LOW_HAZARD",
-        )
-        .base_date(base_date())
-        .recovery_rate(0.40)
-        .knots(vec![(1.0, 0.0001), (5.0, 0.0002), (10.0, 0.0003)])
-        .build()
-        .unwrap();
+        finstack_core::market_data::term_structures::HazardCurve::builder("LOW_HAZARD")
+            .base_date(base_date())
+            .recovery_rate(0.40)
+            .knots(vec![(1.0, 0.0001), (5.0, 0.0002), (10.0, 0.0003)])
+            .build()
+            .unwrap();
 
     let index_data = base_market.credit_index("CDX.NA.IG.42").unwrap();
     let low_hazard_index = finstack_core::market_data::term_structures::CreditIndexData::builder()

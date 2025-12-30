@@ -10,42 +10,38 @@ fn test_discount_curve_validation() {
 
     // Valid curve - monotonically decreasing DFs
     let valid_curve =
-        finstack_core::market_data::term_structures::DiscountCurve::builder(
-            "TEST-VALID",
-        )
-        .base_date(base_date)
-        .knots(vec![
-            (0.0, 1.0),
-            (0.25, 0.9950),
-            (0.5, 0.9900),
-            (1.0, 0.9800),
-            (2.0, 0.9600),
-            (5.0, 0.9000),
-        ])
-        .set_interp(InterpStyle::Linear)
-        .build()
-        .expect("should build valid curve");
+        finstack_core::market_data::term_structures::DiscountCurve::builder("TEST-VALID")
+            .base_date(base_date)
+            .knots(vec![
+                (0.0, 1.0),
+                (0.25, 0.9950),
+                (0.5, 0.9900),
+                (1.0, 0.9800),
+                (2.0, 0.9600),
+                (5.0, 0.9000),
+            ])
+            .set_interp(InterpStyle::Linear)
+            .build()
+            .expect("should build valid curve");
 
     assert!(valid_curve.validate(&config).is_ok());
 
     // Invalid curve - increasing discount factors
     // NOTE: Must use allow_non_monotonic() since monotonicity is now enforced by default
     let invalid_curve =
-        finstack_core::market_data::term_structures::DiscountCurve::builder(
-            "TEST-INVALID",
-        )
-        .base_date(base_date)
-        .knots(vec![
-            (0.0, 1.0),
-            (0.25, 0.99), // Positive rates at short end
-            (1.0, 0.95),
-            (2.0, 0.96), // Increases! Violation.
-            (5.0, 0.90),
-        ])
-        .set_interp(InterpStyle::Linear)
-        .allow_non_monotonic() // Allow construction of invalid curve for testing validation
-        .build()
-        .expect("should build invalid curve for testing");
+        finstack_core::market_data::term_structures::DiscountCurve::builder("TEST-INVALID")
+            .base_date(base_date)
+            .knots(vec![
+                (0.0, 1.0),
+                (0.25, 0.99), // Positive rates at short end
+                (1.0, 0.95),
+                (2.0, 0.96), // Increases! Violation.
+                (5.0, 0.90),
+            ])
+            .set_interp(InterpStyle::Linear)
+            .allow_non_monotonic() // Allow construction of invalid curve for testing validation
+            .build()
+            .expect("should build invalid curve for testing");
 
     // Default config now enforces monotonicity (allow_negative_rates = false)
     assert!(invalid_curve.validate_monotonicity(&config).is_err());

@@ -9,9 +9,7 @@ fn main() -> finstack_core::Result<()> {
         market_data::{
             context::MarketContext,
             scalars::MarketScalar,
-            term_structures::{
-                BaseCorrelationCurve, DiscountCurve, ForwardCurve, HazardCurve,
-            },
+            term_structures::{BaseCorrelationCurve, DiscountCurve, ForwardCurve, HazardCurve},
         },
         math::interp::InterpStyle,
     };

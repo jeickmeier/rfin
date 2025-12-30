@@ -1,5 +1,5 @@
-use finstack_core::HashMap;
 use finstack_core::expr::ExpressionContext;
+use finstack_core::HashMap;
 
 /// Lightweight expression context used across evaluator tests.
 #[derive(Default)]

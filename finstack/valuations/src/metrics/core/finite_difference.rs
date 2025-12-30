@@ -159,8 +159,8 @@ pub fn bump_discount_curve_parallel(
     curve_id: &finstack_core::types::CurveId,
     bump_bp: f64,
 ) -> finstack_core::Result<finstack_core::market_data::context::MarketContext> {
-    use finstack_core::HashMap;
     use finstack_core::market_data::bumps::BumpSpec;
+    use finstack_core::HashMap;
 
     let mut bumps = HashMap::default();
     bumps.insert(curve_id.clone(), BumpSpec::parallel_bp(bump_bp));
@@ -270,9 +270,7 @@ mod tests {
         )
         .expect_err("should fail with non-positive h or k");
         match err_h {
-            finstack_core::Error::Input(
-                finstack_core::InputError::NonPositiveValue,
-            ) => {}
+            finstack_core::Error::Input(finstack_core::InputError::NonPositiveValue) => {}
             e => panic!("unexpected error: {e:?}"),
         }
         let err_k = central_mixed(
@@ -285,9 +283,7 @@ mod tests {
         )
         .expect_err("should fail with non-positive h or k");
         match err_k {
-            finstack_core::Error::Input(
-                finstack_core::InputError::NonPositiveValue,
-            ) => {}
+            finstack_core::Error::Input(finstack_core::InputError::NonPositiveValue) => {}
             e => panic!("unexpected error: {e:?}"),
         }
     }

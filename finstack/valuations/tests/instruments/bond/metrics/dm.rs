@@ -1,8 +1,8 @@
 //! Discount margin calculator tests.
 
 use finstack_core::currency::Currency;
-use finstack_core::{Error, InputError};
 use finstack_core::money::Money;
+use finstack_core::{Error, InputError};
 use finstack_valuations::instruments::bond::metrics::DiscountMarginCalculator;
 use finstack_valuations::instruments::bond::Bond;
 use finstack_valuations::instruments::common::traits::Instrument;

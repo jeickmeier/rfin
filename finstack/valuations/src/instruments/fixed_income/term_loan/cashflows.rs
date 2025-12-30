@@ -587,9 +587,7 @@ pub fn build_oid_eir_schedule(
 
     let mut periods = Vec::new();
     let mut iter = buckets.iter();
-    let (start_date, start_bucket) = iter
-        .next()
-        .ok_or(finstack_core::InputError::TooFewPoints)?;
+    let (start_date, start_bucket) = iter.next().ok_or(finstack_core::InputError::TooFewPoints)?;
     let mut opening_balance = -start_bucket.total;
     let mut prev = *start_date;
 

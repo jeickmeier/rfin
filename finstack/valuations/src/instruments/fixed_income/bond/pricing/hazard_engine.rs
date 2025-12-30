@@ -25,11 +25,11 @@
 //! in the two-factor rates+credit tree (`BondValuator`).
 
 use finstack_core::dates::Date;
-use finstack_core::InputError;
 use finstack_core::market_data::context::MarketContext;
 use finstack_core::market_data::term_structures::HazardCurve;
 use finstack_core::math::summation::kahan_sum;
 use finstack_core::money::Money;
+use finstack_core::InputError;
 use finstack_core::Result;
 
 use crate::cashflow::builder::CashFlowSchedule;

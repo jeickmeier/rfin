@@ -2187,8 +2187,8 @@ mod tests {
     use super::*;
     use crate::instruments::cds_tranche::parameters::CDSTrancheParams;
     use finstack_core::currency::Currency;
-    use finstack_core::market_data::term_structures::DiscountCurve;
     use finstack_core::market_data::term_structures::CreditIndexData;
+    use finstack_core::market_data::term_structures::DiscountCurve;
     use finstack_core::market_data::term_structures::{BaseCorrelationCurve, HazardCurve};
     use finstack_core::money::Money;
     use std::sync::Arc;

@@ -200,9 +200,7 @@ fn test_schedule_with_deflation_protection() {
         finstack_core::currency::Currency::USD,
     )
     .unwrap()
-    .with_interpolation(
-        finstack_core::market_data::scalars::InflationInterpolation::Linear,
-    );
+    .with_interpolation(finstack_core::market_data::scalars::InflationInterpolation::Linear);
     ctx = ctx.insert_inflation_index("US-CPI-U", index);
 
     let as_of = d(2024, 1, 1);

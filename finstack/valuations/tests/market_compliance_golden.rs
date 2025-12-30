@@ -11,17 +11,26 @@ use finstack_core::money::Money;
 use finstack_core::types::{CurveId, InstrumentId};
 use finstack_valuations::instruments::bond::Bond;
 use finstack_valuations::instruments::common::traits::Instrument;
-use finstack_valuations::instruments::InstrumentJson;
 use finstack_valuations::instruments::irs::{InterestRateSwap, IrsLegConventions, PayReceive};
+use finstack_valuations::instruments::InstrumentJson;
 use serde::Deserialize;
 use std::collections::HashMap;
 use time::Month;
 
 const DEFAULT_FWD_TENOR_YEARS: f64 = 0.25;
-const RATES_FIXTURE: &str = include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/tests/golden/rates.json"));
-const CREDIT_FIXTURE: &str = include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/tests/golden/credit.json"));
+const RATES_FIXTURE: &str = include_str!(concat!(
+    env!("CARGO_MANIFEST_DIR"),
+    "/tests/golden/rates.json"
+));
+const CREDIT_FIXTURE: &str = include_str!(concat!(
+    env!("CARGO_MANIFEST_DIR"),
+    "/tests/golden/credit.json"
+));
 const FX_FIXTURE: &str = include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/tests/golden/fx.json"));
-const EQUITY_FIXTURE: &str = include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/tests/golden/equity.json"));
+const EQUITY_FIXTURE: &str = include_str!(concat!(
+    env!("CARGO_MANIFEST_DIR"),
+    "/tests/golden/equity.json"
+));
 
 #[derive(Debug, Deserialize)]
 struct GoldenRoot {
@@ -103,21 +112,9 @@ struct GenericParityCase {
 
 fn parse_date(value: &str) -> Date {
     let mut iter = value.split('-');
-    let year: i32 = iter
-        .next()
-        .expect("year")
-        .parse()
-        .expect("valid year");
-    let month: u8 = iter
-        .next()
-        .expect("month")
-        .parse()
-        .expect("valid month");
-    let day: u8 = iter
-        .next()
-        .expect("day")
-        .parse()
-        .expect("valid day");
+    let year: i32 = iter.next().expect("year").parse().expect("valid year");
+    let month: u8 = iter.next().expect("month").parse().expect("valid month");
+    let day: u8 = iter.next().expect("day").parse().expect("valid day");
     Date::from_calendar_date(year, Month::try_from(month).expect("valid month"), day)
         .expect("valid date")
 }
@@ -246,12 +243,17 @@ fn run_generic_parity_cases(root: GoldenRoot, label: &str) {
             panic!("{} fixture case '{}' failed to parse: {}", label, name, err);
         });
         let instrument = case.instrument.into_boxed().unwrap_or_else(|err| {
-            panic!("{} fixture case '{}' failed to build instrument: {}", label, name, err);
+            panic!(
+                "{} fixture case '{}' failed to build instrument: {}",
+                label, name, err
+            );
         });
         let as_of = parse_date(&case.valuation_date);
-        let pv = instrument.value(&case.market_context, as_of).unwrap_or_else(|err| {
-            panic!("{} fixture case '{}' failed to price: {}", label, name, err);
-        });
+        let pv = instrument
+            .value(&case.market_context, as_of)
+            .unwrap_or_else(|err| {
+                panic!("{} fixture case '{}' failed to price: {}", label, name, err);
+            });
         assert_expected_pv(pv, &case.expected, &format!("{label}/{name} PV"));
     }
 }
@@ -264,8 +266,7 @@ fn test_market_compliance_fixture_smoke() {
         .test_cases
         .get("bond_pricing_treasury")
         .expect("bond_pricing_treasury case missing");
-    let bond_case: BondCase =
-        serde_json::from_value(bond_case.clone()).expect("bond case parse");
+    let bond_case: BondCase = serde_json::from_value(bond_case.clone()).expect("bond case parse");
     let _ = build_discount_curve(&bond_case.inputs.discount_curve);
     let _ = parse_date(&bond_case.inputs.bond.issue_date);
     let _ = parse_date(&bond_case.inputs.bond.maturity);
@@ -277,8 +278,7 @@ fn test_market_compliance_fixture_smoke() {
         .test_cases
         .get("irs_valuation")
         .expect("irs_valuation case missing");
-    let swap_case: SwapCase =
-        serde_json::from_value(swap_case.clone()).expect("swap case parse");
+    let swap_case: SwapCase = serde_json::from_value(swap_case.clone()).expect("swap case parse");
     let _ = build_discount_curve(&swap_case.inputs.discount_curve);
     let _ = build_forward_curve(&swap_case.inputs.forward_curve);
     let _ = parse_date(&swap_case.inputs.swap.start_date);

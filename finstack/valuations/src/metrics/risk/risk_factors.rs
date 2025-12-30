@@ -6,9 +6,9 @@
 
 use crate::instruments::common::traits::{CurveDependencies, Instrument};
 use crate::metrics::sensitivities::dv01::standard_ir_dv01_buckets;
-use finstack_core::HashSet;
 use finstack_core::market_data::context::MarketContext;
 use finstack_core::types::CurveId;
+use finstack_core::HashSet;
 use finstack_core::Result;
 
 /// Risk factor categories for VaR calculation.

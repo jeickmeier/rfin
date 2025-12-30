@@ -2,8 +2,8 @@
 
 use crate::cashflow::primitives::{CFKind, CashFlow};
 use finstack_core::currency::Currency;
-use finstack_core::dates::HolidayCalendar;
 use finstack_core::dates::calendar::calendar_by_id;
+use finstack_core::dates::HolidayCalendar;
 use finstack_core::dates::{adjust, Date, DateExt};
 use finstack_core::money::Money;
 

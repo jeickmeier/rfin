@@ -1,8 +1,8 @@
 //! Coupon specification types for fixed and floating rate coupons.
 
 use finstack_core::dates::{BusinessDayConvention, DayCount, StubKind, Tenor};
-use finstack_core::InputError;
 use finstack_core::types::CurveId;
+use finstack_core::InputError;
 use rust_decimal::Decimal;
 
 /// Coupon cashflow type for fixed/floating coupons.

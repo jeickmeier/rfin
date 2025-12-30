@@ -4,11 +4,11 @@
 
 use crate::instruments::structured_credit::types::{Pool, TrancheStructure};
 use crate::instruments::structured_credit::utils::frequency_periods_per_year;
-use finstack_core::HashMap;
-use finstack_core::{Error as CoreError, InputError};
 use finstack_core::money::Money;
 use finstack_core::types::CreditRating;
+use finstack_core::HashMap;
 use finstack_core::Result;
+use finstack_core::{Error as CoreError, InputError};
 
 #[cfg(feature = "serde")]
 use serde::{Deserialize, Serialize};

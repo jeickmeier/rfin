@@ -8,10 +8,10 @@
 use crate::core::common::pycmp::richcmp_eq_ne;
 use crate::errors::core_to_py;
 use finstack_core::types::moodys_warf_factor;
+use finstack_core::types::{Bps, CurveId, IndexId, InstrumentId, PriceId, Rate, UnderlyingId};
 use finstack_core::types::{
     CreditRating, NotchedRating, RatingFactorTable, RatingLabel, RatingNotch,
 };
-use finstack_core::types::{Bps, CurveId, IndexId, InstrumentId, PriceId, Rate, UnderlyingId};
 use pyo3::basic::CompareOp;
 use pyo3::exceptions::{PyTypeError, PyValueError};
 use pyo3::prelude::*;

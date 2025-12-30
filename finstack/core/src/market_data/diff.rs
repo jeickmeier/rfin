@@ -196,9 +196,7 @@ impl CurveShiftMetric for crate::market_data::term_structures::InflationCurve {
     }
 }
 
-impl CurveShiftMetric
-    for crate::market_data::term_structures::BaseCorrelationCurve
-{
+impl CurveShiftMetric for crate::market_data::term_structures::BaseCorrelationCurve {
     fn value_at(&self, t: f64) -> f64 {
         self.correlation(t)
     }

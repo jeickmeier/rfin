@@ -3,8 +3,8 @@ use finstack_core::dates::{BusinessDayConvention, Date, DayCount, Tenor};
 use finstack_core::market_data::context::MarketContext;
 use finstack_core::market_data::term_structures::{DiscountCurve, ForwardCurve};
 use finstack_core::math::interp::InterpStyle;
-use finstack_core::money::fx::SimpleFxProvider;
 use finstack_core::money::fx::FxMatrix;
+use finstack_core::money::fx::SimpleFxProvider;
 use std::sync::Arc;
 use time::Month;
 

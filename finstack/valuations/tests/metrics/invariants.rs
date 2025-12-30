@@ -331,10 +331,7 @@ mod cds_invariants {
     use proptest::prelude::*;
     use time::macros::date;
 
-    fn build_test_curves(
-        flat_rate: f64,
-        hazard_rate: f64,
-    ) -> (DiscountCurve, HazardCurve) {
+    fn build_test_curves(flat_rate: f64, hazard_rate: f64) -> (DiscountCurve, HazardCurve) {
         let as_of = date!(2025 - 01 - 01);
 
         let disc = DiscountCurve::builder("USD-OIS")
@@ -631,7 +628,9 @@ mod bucketed_cs01_invariants {
 
         let mut context = MetricContext::new(Arc::new(cds), Arc::new(market), as_of, pv);
 
-        let results = registry.compute(&metrics, &mut context).expect("Metrics should compute");
+        let results = registry
+            .compute(&metrics, &mut context)
+            .expect("Metrics should compute");
         let parallel_cs01 = results.get(&MetricId::Cs01).copied().unwrap_or(0.0);
 
         // Parallel CS01 should be positive for protection buyer
