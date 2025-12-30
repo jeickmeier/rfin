@@ -1,20 +1,30 @@
-# Python-WASM Bindings Parity Audit
+# Rust-Python-WASM Bindings Parity Audit
 
 **Generated:** compare_apis.py
 
 ## Executive Summary
 
-- **Classes in both bindings:** 202
-- **Only in Python:** 88
-- **Only in WASM:** 27
-- **Total unique classes:** 317
+- **Total types in Rust:** 3025
+- **Total classes in Python:** 290
+- **Total classes in WASM:** 229
+- **In all three:** 160
+- **Only in Rust:** 2783
+- **Only in Python:** 20
+- **Only in WASM:** 13
 
 ## Instrument Coverage
 
 - **Expected instruments:** 38
+- **In Rust:** 37 (97%)
 - **In Python:** 36 (94%)
 - **In WASM:** 36 (94%)
-- **In both:** 35
+- **In all three:** 34
+
+### Missing in Rust
+
+```
+- FiIndexTotalReturnSwap
+```
 
 ### Missing in Python
 
@@ -33,8 +43,24 @@
 ## Calibration API Coverage
 
 - **Expected calibration types:** 13
+- **In Rust:** 4 (30%)
 - **In Python:** 12 (92%)
 - **In WASM:** 12 (92%)
+- **In all three:** 4
+
+### Missing in Rust
+
+```
+- BaseCorrelationCalibrator
+- CreditQuote
+- DiscountCurveCalibrator
+- ForwardCurveCalibrator
+- HazardCurveCalibrator
+- InflationCurveCalibrator
+- RatesQuote
+- SimpleCalibration
+- VolSurfaceCalibrator
+```
 
 ### Missing in Python
 
@@ -48,11 +74,11 @@
 - SimpleCalibration
 ```
 
-## Complete Class Comparison
+## Complete Type/Class Comparison
 
-### Classes in Both Bindings
+### Types/Classes in All Three
 
-**Count:** 202
+**Count:** 160
 
 ```
 ✓ AgencyCmo
@@ -63,13 +89,9 @@
 ✓ AmountOrScalar
 ✓ ApplicationReport
 ✓ AsianOption
-✓ AttributionMeta
-✓ AttributionMethod
 ✓ Autocallable
 ✓ BarrierOption
 ✓ BarrierType
-✓ BaseCorrelationCalibrator
-✓ BaseCorrelationCurve
 ✓ BasisSwap
 ✓ BasisSwapLeg
 ✓ Bond
@@ -82,7 +104,6 @@
 ✓ CapitalStructureSpec
 ✓ CashFlow
 ✓ CashFlowSchedule
-✓ CashflowBuilder
 ✓ CdsOption
 ✓ CdsTranche
 ✓ CliquetOption
@@ -92,8 +113,6 @@
 ✓ CommodityForward
 ✓ CommoditySwap
 ✓ Compounding
-✓ ConversionPolicy
-✓ ConversionSpec
 ✓ ConvertibleBond
 ✓ CorkscrewExtension
 ✓ CouponType
@@ -103,18 +122,11 @@
 ✓ CovenantSpec
 ✓ CovenantType
 ✓ CreditDefaultSwap
-✓ CreditIndexData
-✓ CreditQuote
 ✓ CreditScorecardExtension
-✓ Currency
 ✓ CurveKind
 ✓ DayCount
-✓ DayCountContext
-✓ DayCountContextState
 ✓ DebtInstrumentSpec
 ✓ Deposit
-✓ DiscountCurve
-✓ DiscountCurveCalibrator
 ✓ DividendEvent
 ✓ DividendSchedule
 ✓ DividendScheduleBuilder
@@ -126,31 +138,19 @@
 ✓ ExecutionContext
 ✓ ExerciseStyle
 ✓ ExtrapolationPolicy
-✓ FiIndexTotalReturnSwap
 ✓ FinancialModelSpec
 ✓ FinstackConfig
-✓ FiscalConfig
 ✓ FixedCouponSpec
 ✓ FloatCouponParams
 ✓ FloatingCouponSpec
 ✓ ForecastMethod
 ✓ ForecastSpec
-✓ ForwardCurve
-✓ ForwardCurveCalibrator
 ✓ ForwardRateAgreement
 ✓ FxBarrierOption
-✓ FxConfig
-✓ FxConversionPolicy
-✓ FxMatrix
 ✓ FxOption
-✓ FxRateResult
 ✓ FxSpot
 ✓ FxSwap
 ✓ GaussHermiteQuadrature
-✓ HazardCurve
-✓ HazardCurveCalibrator
-✓ InflationCurve
-✓ InflationCurveCalibrator
 ✓ InflationLinkedBond
 ✓ InflationQuote
 ✓ InflationSwap
@@ -162,12 +162,9 @@
 ✓ MarketContext
 ✓ MarketHistory
 ✓ MarketQuote
-✓ MarketScalar
 ✓ MarketScenario
 ✓ MetricDefinition
-✓ MetricId
 ✓ MetricRegistry
-✓ ModelParamsAttribution
 ✓ Money
 ✓ MonteCarloResult
 ✓ NettingSet
@@ -177,7 +174,6 @@
 ✓ NewtonSolver
 ✓ NodeSpec
 ✓ NodeType
-✓ NotchedRating
 ✓ OperationSpec
 ✓ OptionType
 ✓ PathDataset
@@ -186,8 +182,6 @@
 ✓ Percentage
 ✓ Period
 ✓ PeriodId
-✓ PeriodPlan
-✓ PnlAttribution
 ✓ Portfolio
 ✓ PortfolioAttribution
 ✓ PortfolioBuilder
@@ -209,10 +203,7 @@
 ✓ RangeAccrual
 ✓ Rate
 ✓ RateBindingSpec
-✓ RatesCurvesAttribution
-✓ RatesQuote
 ✓ Repo
-✓ RepoCollateral
 ✓ ResultsMeta
 ✓ RevolvingCredit
 ✓ RiskFactorShift
@@ -221,8 +212,6 @@
 ✓ RoundingMode
 ✓ SABRCalibrationDerivatives
 ✓ SABRMarketData
-✓ SABRModelParams
-✓ ScalarTimeSeries
 ✓ ScenarioEngine
 ✓ ScenarioSpec
 ✓ Schedule
@@ -230,10 +219,8 @@
 ✓ ScheduleParams
 ✓ ScheduleSpec
 ✓ SeasonalMode
-✓ SeriesInterpolation
 ✓ SettlementType
 ✓ SimulatedPath
-✓ SolverKind
 ✓ StubKind
 ✓ Swaption
 ✓ Tenor
@@ -242,7 +229,6 @@
 ✓ TimeRollMode
 ✓ TrsScheduleSpec
 ✓ UnitType
-✓ ValidationConfig
 ✓ ValuationResult
 ✓ VarConfig
 ✓ VarMethod
@@ -250,27 +236,23 @@
 ✓ VarianceSwap
 ✓ VolQuote
 ✓ VolSurface
-✓ VolSurfaceCalibrator
 ✓ VolSurfaceKind
 ✓ VolatilityConvention
-✓ VolatilityIndexCurve
 ✓ VolatilityIndexFuture
 ✓ VolatilityIndexOption
 ✓ WaterfallTier
 ```
 
-### Classes Only in Python
+### In Rust and Python (missing in WASM)
 
-**Count:** 88
+**Count:** 68
 
 ```
 - Adjustment
 - Alignment
-- AntiDilutionPolicy
 - AppliedAdjustment
 - AveragingMethod
 - Basket
-- BondBuilder
 - BridgeChart
 - BridgeStep
 - BumpMode
@@ -279,110 +261,135 @@
 - BumpUnits
 - BusinessDayConvention
 - CalibrationMethod
-- CdsIndex
-- CdsPayReceive
-- ConversionEvent
 - CovenantReport
 - CovenantScope
 - CreditAssessmentReport
-- CreditCurvesAttribution
-- CreditRating
 - CurrencyScalePolicy
 - CurveId
-- DebtSummaryReport
 - DependencyTracer
 - DependencyTree
-- DividendAdjustment
-- EcfSweepSpec
-- EnhancedMonteCarloResult
-- EquityUnderlyingParams
-- ExplainOpts
-- Explanation
-- ExplanationStep
-- ExplanationTrace
-- FeeBase
-- FeeSpec
-- FinancingLegSpec
-- FixedWindow
-- FloatWindow
-- FormulaExplainer
-- Frequency
-- FutureBreach
-- IndexId
-- IndexUnderlyingParams
-- InstrumentId
-- InterestRateSwapBuilder
-- LevenbergMarquardtSolver
-- LookbackType
-- MarketBump
-- NormalizationConfig
-- NormalizationEngine;
-- NormalizationResult
-- NumericMode
-- PLSummaryReport
-- PacCollar
-- PathResult
-- PikToggleSpec
-- PriceId
-- RateBounds
-- RatingFactorTable
-- RatingLabel
-- RatingNotch
-- RealizedVarMethod
-- RoundingContext
-- RoundingPolicy
-- ScenarioDefinition
-- ScenarioDiff
-- ScenarioResults
-- ScenarioSet
-- SimpleRng
-- SpringingCondition
-- TableBuilder
-- TenorSamplingMethod
-- TenorUnit
-- Thirty360Convention
-- ThreeFactorPathData
-- TraceEntry
-- TrsSide
-- UnderlyingId
-- ValidationMode
-- VarianceAnalyzer
-- VarianceConfig
-- VarianceReport
-- VarianceRow
-- WaterfallSpec
-- ZeroKind
+... and 48 more
 ```
 
-### Classes Only in WASM
+### In Rust and WASM (missing in Python)
 
-**Count:** 27
+**Count:** 14
 
 ```
 - CDSIndex
 - CompiledExpr
 - CoverageTestRules
 - CoverageTrigger
-- EquityUnderlying
 - EvalOpts
 - EvaluationResult
 - Evaluator
 - ExecutionPlan
 - Expr
-- ExtensionMetadata
 - ExtensionRegistry
+- ModelBuilder
+- Registry
+- Results
+- WaterfallDistribution
+```
+
+### In Python and WASM (missing in Rust)
+
+**Count:** 42
+
+```
+- AttributionMeta
+- AttributionMethod
+- BaseCorrelationCalibrator
+- BaseCorrelationCurve
+- CashflowBuilder
+- ConversionPolicy
+- ConversionSpec
+- CreditIndexData
+- CreditQuote
+- Currency
+- DayCountContext
+- DayCountContextState
+- DiscountCurve
+- DiscountCurveCalibrator
+- FiIndexTotalReturnSwap
+- FiscalConfig
+- ForwardCurve
+- ForwardCurveCalibrator
+- FxConfig
+- FxConversionPolicy
+... and 22 more
+```
+
+### Only in Rust
+
+**Count:** 2783
+
+```
+- ABS_AUTO_STANDARD_CDR
+- ABS_AUTO_STANDARD_RECOVERY
+- ABS_AUTO_STANDARD_SPEED
+- ABS_SERVICING_FEE_BPS
+- ABS_TRUSTEE_FEE_ANNUAL
+- ANNUITY_EPSILON
+- ATM_MONEYNESS
+- AbsChargeOffCalculator
+- AbsCreditEnhancementCalculator
+- AbsDelinquencyCalculator
+- AbsExcessSpreadCalculator
+- AbsSpeedCalculator
+- AccountType
+- AccrualConfig
+- AccrualMethod
+- AccruedCalculator
+- AccruedInterestCalculator
+- AdjustmentCap
+- AdjustmentValue
+- AgencyCmoDiscountingPricer
+... and 2763 more
+```
+
+### Only in Python
+
+**Count:** 20
+
+```
+- AntiDilutionPolicy
+- BondBuilder
+- CdsIndex
+- CdsPayReceive
+- ConversionEvent
+- CreditCurvesAttribution
+- CreditRating
+- DebtSummaryReport
+- DividendAdjustment
+- EcfSweepSpec
+- Frequency
+- InterestRateSwapBuilder
+- NormalizationEngine;
+- PikToggleSpec
+- RateBounds
+- RatingFactorTable
+- RatingLabel
+- RatingNotch
+- SimpleRng
+- ValidationMode
+```
+
+### Only in WASM
+
+**Count:** 13
+
+```
+- EquityUnderlying
+- ExtensionMetadata
 - ExtensionResult
 - ExtensionStatus
 - FsDate
 - IndexUnderlying
-- ModelBuilder
 - MonteCarloPathGenerator
 - PricingRequest
-- Registry
-- Results
 - TrsFinancingLegSpec
 - WasmExplanationTrace
-- WaterfallDistribution
 - WaterfallEngine
 - applyAndRevalue
 - applyScenario
@@ -392,23 +399,25 @@
 
 ### Identified Patterns
 
-| Python | WASM | Pattern |
-|--------|------|---------|
-| `build_periods` | `buildPeriods` | snake_case → camelCase |
-| `from_code` | `fromCode` | snake_case → camelCase |
-| `next_imm` | `nextImm` | snake_case → camelCase |
-| `is_actual` | `isActual` | snake_case → camelCase |
-| `Currency` | `Currency` | PascalCase → PascalCase |
-| `Money` | `Money` | PascalCase → PascalCase |
+| Rust | Python | WASM | Pattern |
+|------|--------|------|---------|
+| `build_periods` | `build_periods` | `buildPeriods` | snake_case → snake_case → camelCase |
+| `from_code` | `from_code` | `fromCode` | snake_case → snake_case → camelCase |
+| `next_imm` | `next_imm` | `nextImm` | snake_case → snake_case → camelCase |
+| `is_actual` | `is_actual` | `isActual` | snake_case → snake_case → camelCase |
+| `Currency` | `Currency` | `Currency` | PascalCase → PascalCase → PascalCase |
+| `Money` | `Money` | `Money` | PascalCase → PascalCase → PascalCase |
 
 ## Recommendations
 
 ### High Priority
 
-1. **Add 2 missing instruments to WASM:** Basket, StructuredCredit
-2. **Add 2 missing instruments to Python:** CDSIndex, StructuredCredit
-3. **Complete calibration API in WASM:** 1 types missing
-4. **Complete calibration API in Python:** 1 types missing
+1. **Add 1 missing instruments to Rust:** FiIndexTotalReturnSwap
+2. **Add 2 missing instruments to WASM:** Basket, StructuredCredit
+3. **Add 2 missing instruments to Python:** CDSIndex, StructuredCredit
+4. **Complete calibration API in Rust:** 9 types missing
+5. **Complete calibration API in WASM:** 1 types missing
+6. **Complete calibration API in Python:** 1 types missing
 
 ### Medium Priority
 

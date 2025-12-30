@@ -5317,10 +5317,6 @@
               "js_name": "paymentSplitProgram"
             },
             {
-              "name": "build",
-              "js_name": "build"
-            },
-            {
               "name": "build_with_curves",
               "js_name": "buildWithCurves"
             },
@@ -8943,7 +8939,6 @@
         "floatingCf",
         "fixedStepup",
         "paymentSplitProgram",
-        "build",
         "buildWithCurves",
         "notional",
         "notional",
