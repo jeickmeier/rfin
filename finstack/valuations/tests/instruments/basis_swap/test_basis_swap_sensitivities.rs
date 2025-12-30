@@ -637,13 +637,13 @@ fn test_bucketed_dv01_per_curve() {
     let mut fwd_1m_buckets = 0;
 
     for key in res.measures.keys() {
-        if key.starts_with("bucketed_dv01::USD-OIS::") {
+        if key.as_str().starts_with("bucketed_dv01::USD-OIS::") {
             disc_buckets += 1;
         }
-        if key.starts_with("bucketed_dv01::USD-SOFR-3M::") {
+        if key.as_str().starts_with("bucketed_dv01::USD-SOFR-3M::") {
             fwd_3m_buckets += 1;
         }
-        if key.starts_with("bucketed_dv01::USD-SOFR-1M::") {
+        if key.as_str().starts_with("bucketed_dv01::USD-SOFR-1M::") {
             fwd_1m_buckets += 1;
         }
     }
@@ -670,13 +670,13 @@ fn test_bucketed_dv01_per_curve() {
     let mut sum_fwd_1m = 0.0;
 
     for (key, val) in &res.measures {
-        if key.starts_with("bucketed_dv01::USD-OIS::") {
+        if key.as_str().starts_with("bucketed_dv01::USD-OIS::") {
             sum_disc += val;
         }
-        if key.starts_with("bucketed_dv01::USD-SOFR-3M::") {
+        if key.as_str().starts_with("bucketed_dv01::USD-SOFR-3M::") {
             sum_fwd_3m += val;
         }
-        if key.starts_with("bucketed_dv01::USD-SOFR-1M::") {
+        if key.as_str().starts_with("bucketed_dv01::USD-SOFR-1M::") {
             sum_fwd_1m += val;
         }
     }

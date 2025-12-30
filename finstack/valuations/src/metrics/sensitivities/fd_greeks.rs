@@ -251,11 +251,11 @@ where
 
         // Bump spot up
         let curves_up = bump_scalar_price(&context.curves, spot_id, bump_pct)?;
-        let pv_up = instrument_up.value(&curves_up, as_of)?.amount();
+        let pv_up = instrument_up.value_raw(&curves_up, as_of)?;
 
         // Bump spot down
         let curves_down = bump_scalar_price(&context.curves, spot_id, -bump_pct)?;
-        let pv_down = instrument_down.value(&curves_down, as_of)?.amount();
+        let pv_down = instrument_down.value_raw(&curves_down, as_of)?;
 
         // Central difference: delta = (PV_up - PV_down) / (2 * bump_size)
         let delta = (pv_up - pv_down) / (2.0 * bump_size);
@@ -321,23 +321,21 @@ where
         //
         // This avoids "bump-of-bump" scaling artifacts when bumps are applied multiplicatively
         // (percentage bumps) and yields exact results for quadratic payoffs.
-        let base_pv = context.base_value.amount();
+        let base_pv = instrument.value_raw(&context.curves, as_of)?;
 
         let mut instrument_up = instrument.clone();
-        instrument_up
-            .pricing_overrides_mut()
-            .mc_seed_scenario = Some("gamma_up".to_string());
-        let pv_up = instrument_up
-            .value(&bump_scalar_price(&context.curves, spot_id, bump_pct)?, as_of)?
-            .amount();
+        instrument_up.pricing_overrides_mut().mc_seed_scenario = Some("gamma_up".to_string());
+        let pv_up = instrument_up.value_raw(
+            &bump_scalar_price(&context.curves, spot_id, bump_pct)?,
+            as_of,
+        )?;
 
         let mut instrument_down = instrument.clone();
-        instrument_down
-            .pricing_overrides_mut()
-            .mc_seed_scenario = Some("gamma_down".to_string());
-        let pv_down = instrument_down
-            .value(&bump_scalar_price(&context.curves, spot_id, -bump_pct)?, as_of)?
-            .amount();
+        instrument_down.pricing_overrides_mut().mc_seed_scenario = Some("gamma_down".to_string());
+        let pv_down = instrument_down.value_raw(
+            &bump_scalar_price(&context.curves, spot_id, -bump_pct)?,
+            as_of,
+        )?;
 
         let gamma = (pv_up - 2.0 * base_pv + pv_down) / (bump_size * bump_size);
 
@@ -368,7 +366,7 @@ where
         let instrument: &I = context.instrument_as()?;
         let as_of = context.as_of;
         let defaults = sens_config::from_finstack_config_or_default(context.config())?;
-        let base_pv = context.base_value.amount();
+        let base_pv = instrument.value_raw(&context.curves, as_of)?;
 
         // Get equity dependencies
         let eq_deps = instrument.equity_dependencies();
@@ -389,7 +387,7 @@ where
         inst_up.pricing_overrides_mut().mc_seed_scenario = Some("vega_up".to_string());
 
         let curves_up = scale_surface(&context.curves, vol_surface_id.as_str(), 1.0 + bump_pct)?;
-        let pv_up = inst_up.value(&curves_up, as_of)?.amount();
+        let pv_up = inst_up.value_raw(&curves_up, as_of)?;
 
         // Vega per 1% vol scaling
         Ok((pv_up - base_pv) / bump_pct)
@@ -417,7 +415,7 @@ where
         let instrument: &I = context.instrument_as()?;
         let as_of = context.as_of;
         let defaults = sens_config::from_finstack_config_or_default(context.config())?;
-        let base_pv = context.base_value.amount();
+        let base_pv = instrument.value_raw(&context.curves, as_of)?;
 
         // Get equity dependencies
         let eq_deps = instrument.equity_dependencies();
@@ -441,8 +439,8 @@ where
         let curves_up = scale_surface(&context.curves, vol_surface_id.as_str(), 1.0 + bump_pct)?;
         let curves_down = scale_surface(&context.curves, vol_surface_id.as_str(), 1.0 - bump_pct)?;
 
-        let pv_up = inst_up.value(&curves_up, as_of)?.amount();
-        let pv_down = inst_down.value(&curves_down, as_of)?.amount();
+        let pv_up = inst_up.value_raw(&curves_up, as_of)?;
+        let pv_down = inst_down.value_raw(&curves_down, as_of)?;
 
         Ok((pv_up - 2.0 * base_pv + pv_down) / (bump_pct * bump_pct))
     }
@@ -533,7 +531,7 @@ where
                 vol_surface_id.as_str(),
                 1.0 + vol_bump_pct,
             )?;
-            move || inst.value(&curves, as_of).map(|m| m.amount())
+            move || inst.value_raw(&curves, as_of)
         };
 
         let su_vd = {
@@ -544,7 +542,7 @@ where
                 vol_surface_id.as_str(),
                 1.0 - vol_bump_pct,
             )?;
-            move || inst.value(&curves, as_of).map(|m| m.amount())
+            move || inst.value_raw(&curves, as_of)
         };
 
         let sd_vu = {
@@ -555,7 +553,7 @@ where
                 vol_surface_id.as_str(),
                 1.0 + vol_bump_pct,
             )?;
-            move || inst.value(&curves, as_of).map(|m| m.amount())
+            move || inst.value_raw(&curves, as_of)
         };
 
         let sd_vd = {
@@ -566,7 +564,7 @@ where
                 vol_surface_id.as_str(),
                 1.0 - vol_bump_pct,
             )?;
-            move || inst.value(&curves, as_of).map(|m| m.amount())
+            move || inst.value_raw(&curves, as_of)
         };
 
         central_mixed(su_vu, su_vd, sd_vu, sd_vd, h_abs, k_abs)
@@ -582,7 +580,9 @@ where
 mod tests {
     use super::*;
 
-    use crate::instruments::common::traits::{Attributes, EquityDependencies, EquityInstrumentDeps};
+    use crate::instruments::common::traits::{
+        Attributes, EquityDependencies, EquityInstrumentDeps,
+    };
     use crate::instruments::PricingOverrides;
     use crate::metrics::{MetricContext, MetricId, MetricRegistry};
     use crate::pricer::InstrumentType;
@@ -616,6 +616,38 @@ mod tests {
         }
     }
 
+    #[derive(Clone)]
+    struct RoundingSensitiveInstrument {
+        id: String,
+        expiry: Date,
+        day_count: DayCount,
+        spot_id: String,
+        overrides: PricingOverrides,
+        attributes: Attributes,
+    }
+
+    impl RoundingSensitiveInstrument {
+        fn new(id: &str, expiry: Date, spot_id: &str) -> Self {
+            Self {
+                id: id.to_string(),
+                expiry,
+                day_count: DayCount::Act365F,
+                spot_id: spot_id.to_string(),
+                overrides: PricingOverrides::default(),
+                attributes: Attributes::new(),
+            }
+        }
+
+        fn raw_pv(&self, market: &MarketContext) -> finstack_core::Result<f64> {
+            let spot_scalar = market.price(self.spot_id.as_str())?;
+            let spot = match spot_scalar {
+                MarketScalar::Price(m) => m.amount(),
+                MarketScalar::Unitless(v) => *v,
+            };
+            Ok(spot * 0.00003)
+        }
+    }
+
     impl EquityDependencies for TestFdInstrument {
         fn equity_dependencies(&self) -> EquityInstrumentDeps {
             EquityInstrumentDeps::builder()
@@ -637,6 +669,32 @@ mod tests {
     }
 
     impl HasPricingOverrides for TestFdInstrument {
+        fn pricing_overrides_mut(&mut self) -> &mut PricingOverrides {
+            &mut self.overrides
+        }
+    }
+
+    impl EquityDependencies for RoundingSensitiveInstrument {
+        fn equity_dependencies(&self) -> EquityInstrumentDeps {
+            EquityInstrumentDeps::builder()
+                .spot(self.spot_id.clone())
+                .build()
+        }
+    }
+
+    impl HasExpiry for RoundingSensitiveInstrument {
+        fn expiry(&self) -> Date {
+            self.expiry
+        }
+    }
+
+    impl HasDayCount for RoundingSensitiveInstrument {
+        fn day_count(&self) -> DayCount {
+            self.day_count
+        }
+    }
+
+    impl HasPricingOverrides for RoundingSensitiveInstrument {
         fn pricing_overrides_mut(&mut self) -> &mut PricingOverrides {
             &mut self.overrides
         }
@@ -698,6 +756,59 @@ mod tests {
         }
     }
 
+    impl crate::instruments::common::traits::Instrument for RoundingSensitiveInstrument {
+        fn id(&self) -> &str {
+            &self.id
+        }
+
+        fn key(&self) -> InstrumentType {
+            InstrumentType::Equity
+        }
+
+        fn as_any(&self) -> &dyn std::any::Any {
+            self
+        }
+
+        fn clone_box(&self) -> Box<dyn crate::instruments::common::traits::Instrument> {
+            Box::new(self.clone())
+        }
+
+        fn attributes(&self) -> &Attributes {
+            &self.attributes
+        }
+
+        fn attributes_mut(&mut self) -> &mut Attributes {
+            &mut self.attributes
+        }
+
+        fn value(&self, market: &MarketContext, _as_of: Date) -> finstack_core::Result<Money> {
+            // This intentionally rounds away most of the PV to exercise the raw path
+            let raw = self.raw_pv(market)?;
+            Ok(Money::new(raw, Currency::USD))
+        }
+
+        fn value_raw(&self, market: &MarketContext, _as_of: Date) -> finstack_core::Result<f64> {
+            self.raw_pv(market)
+        }
+
+        fn price_with_metrics(
+            &self,
+            market: &MarketContext,
+            as_of: Date,
+            metrics: &[MetricId],
+        ) -> finstack_core::Result<crate::results::ValuationResult> {
+            let base_value = self.value(market, as_of)?;
+            crate::instruments::common::helpers::build_with_metrics_dyn(
+                Arc::from(self.clone_box()),
+                Arc::new(market.clone()),
+                as_of,
+                base_value,
+                metrics,
+                None,
+            )
+        }
+    }
+
     fn registry_for_test<I>() -> MetricRegistry
     where
         I: crate::instruments::common::traits::Instrument
@@ -723,11 +834,10 @@ mod tests {
     }
 
     fn market_with_spot(spot_id: &str, price: f64) -> MarketContext {
-        MarketContext::new()
-            .insert_price(
-                spot_id,
-                MarketScalar::Price(Money::new(price, Currency::USD)),
-            )
+        MarketContext::new().insert_price(
+            spot_id,
+            MarketScalar::Price(Money::new(price, Currency::USD)),
+        )
     }
 
     #[test]
@@ -768,6 +878,32 @@ mod tests {
 
         // For PV = S^2, d2PV/dS2 = 2.
         assert!((gamma - 2.0).abs() < 1e-8, "gamma mismatch");
+    }
+
+    #[test]
+    fn delta_uses_raw_value_when_money_rounds_down() {
+        let as_of = date!(2025 - 01 - 01);
+        let spot = 100.0;
+        let inst = RoundingSensitiveInstrument::new("ROUNDING", date!(2026 - 01 - 01), "SENS");
+        let market = market_with_spot("SENS", spot);
+
+        // Rounded Money path collapses to zero
+        let base_value = inst.value(&market, as_of).expect("base pv");
+        assert_eq!(base_value.amount(), 0.0, "rounded Money should be zero");
+
+        let registry = registry_for_test::<RoundingSensitiveInstrument>();
+        let mut ctx = MetricContext::new(Arc::new(inst), Arc::new(market), as_of, base_value);
+
+        let result = registry
+            .compute(&[MetricId::Delta], &mut ctx)
+            .expect("delta");
+        let delta = *result.get(&MetricId::Delta).expect("delta value");
+
+        // Raw path preserves sensitivity: raw PV = spot * 0.00003, so delta ≈ 3e-5
+        assert!(
+            (delta - 0.00003).abs() < 1e-8,
+            "delta should reflect raw pv"
+        );
     }
 
     #[test]

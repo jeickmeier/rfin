@@ -436,7 +436,7 @@ fn test_dataframe_export_metric_keys() {
     // Build a ValuationResult for testing export
     let mut measures = IndexMap::new();
     for (metric_id, value) in computed_metrics {
-        measures.insert(metric_id.as_str().to_string(), value);
+        measures.insert(metric_id, value);
     }
 
     let result = ValuationResult::stamped("TEST-BOND-EXPORT", as_of, pv).with_measures(measures);

@@ -209,7 +209,7 @@ fn test_bucketed_vs_parallel_dv01_sanity() {
     println!("All measures:");
     for (k, v) in &result.measures {
         println!("  {}: {:.2}", k, v);
-        if k.starts_with("bucketed_dv01::") {
+        if k.as_str().starts_with("bucketed_dv01::") {
             sum_bucketed += *v;
         }
     }
@@ -267,10 +267,10 @@ fn test_bucketed_dv01_per_curve() {
     let mut forward_curve_buckets = 0;
 
     for key in result.measures.keys() {
-        if key.starts_with("bucketed_dv01::USD_OIS::") {
+        if key.as_str().starts_with("bucketed_dv01::USD_OIS::") {
             discount_curve_buckets += 1;
         }
-        if key.starts_with("bucketed_dv01::USD_LIBOR_3M::") {
+        if key.as_str().starts_with("bucketed_dv01::USD_LIBOR_3M::") {
             forward_curve_buckets += 1;
         }
     }
@@ -292,10 +292,10 @@ fn test_bucketed_dv01_per_curve() {
     let mut sum_fwd = 0.0;
 
     for (key, val) in &result.measures {
-        if key.starts_with("bucketed_dv01::USD_OIS::") {
+        if key.as_str().starts_with("bucketed_dv01::USD_OIS::") {
             sum_disc += val;
         }
-        if key.starts_with("bucketed_dv01::USD_LIBOR_3M::") {
+        if key.as_str().starts_with("bucketed_dv01::USD_LIBOR_3M::") {
             sum_fwd += val;
         }
     }

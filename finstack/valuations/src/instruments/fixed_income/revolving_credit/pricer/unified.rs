@@ -619,7 +619,7 @@ impl Pricer for RevolvingCreditPricer {
         // Wrap in ValuationResult
         let mut result = ValuationResult::stamped(facility.id.as_str(), as_of, result_pv);
         result.measures.insert(
-            "model".to_string(),
+            crate::metrics::MetricId::custom("model"),
             self.model.to_string().parse().unwrap_or(0.0),
         ); // Just tagging
         Ok(result)

@@ -276,7 +276,7 @@ fn term_loan_oid_eir_amortization_schedule() {
     let has_series = result
         .measures
         .keys()
-        .any(|k| k.starts_with("oid_eir_amortization::"));
+        .any(|k| k.as_str().starts_with("oid_eir_amortization::"));
     assert!(has_series);
 }
 

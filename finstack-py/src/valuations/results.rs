@@ -259,7 +259,7 @@ impl PyValuationResult {
     fn measures_dict<'py>(&self, py: Python<'py>) -> PyResult<Bound<'py, PyDict>> {
         let dict = PyDict::new(py);
         for (key, value) in &self.inner.measures {
-            dict.set_item(key, *value)?;
+            dict.set_item(key.as_str(), *value)?;
         }
         Ok(dict)
     }

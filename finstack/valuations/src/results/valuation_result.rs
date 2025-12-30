@@ -1,5 +1,6 @@
 use crate::covenants::CovenantReport;
-use finstack_core::config::ResultsMeta;
+use crate::metrics::MetricId;
+use finstack_core::config::{results_meta, FinstackConfig, ResultsMeta};
 use finstack_core::dates::Date;
 use finstack_core::explain::ExplanationTrace;
 use finstack_core::money::Money;
@@ -67,15 +68,15 @@ use indexmap::IndexMap;
 /// let pv = Money::new(1_000_000.0, Currency::USD);
 ///
 /// let mut measures = IndexMap::new();
-/// measures.insert("ytm".to_string(), 0.0475);
-/// measures.insert("modified_duration".to_string(), 4.25);
-/// measures.insert("dv01".to_string(), 425.0);
+/// measures.insert(MetricId::custom("ytm"), 0.0475);
+/// measures.insert(MetricId::custom("modified_duration"), 4.25);
+/// measures.insert(MetricId::custom("dv01"), 425.0);
 ///
 /// let result = ValuationResult::stamped("BOND-001", as_of, pv)
 ///     .with_measures(measures);
 ///
-/// assert_eq!(result.measures.get("ytm"), Some(&0.0475));
-/// assert_eq!(result.measures.get("dv01"), Some(&425.0));
+/// assert_eq!(result.metric_str("ytm"), Some(0.0475));
+/// assert_eq!(result.metric_str("dv01"), Some(425.0));
 /// # Ok(())
 /// # }
 /// ```
@@ -155,10 +156,9 @@ pub struct ValuationResult {
     /// The present value (PV) is **not** included here - it is available
     /// in the `value` field above.
     ///
-    /// Keys are metric names (e.g., "ytm", "dv01", "delta") and values
-    /// are the calculated metric values. Use `MetricId::as_str()` for
-    /// consistent key naming.
-    pub measures: IndexMap<String, f64>,
+    /// Keys are strongly-typed metric IDs (serialized as strings such as
+    /// "ytm", "dv01", "delta"). Use `MetricId` helpers for consistent lookups.
+    pub measures: IndexMap<MetricId, f64>,
 
     /// Calculation metadata and policy stamps.
     ///
@@ -225,8 +225,22 @@ impl ValuationResult {
         // Default stamping uses default configuration; callers needing custom
         // policy should construct core `ResultsMeta` and use
         // `stamped_with_meta` to avoid creating a fresh config here.
-        let meta =
-            finstack_core::config::results_meta(&finstack_core::config::FinstackConfig::default());
+        let meta = results_meta(&FinstackConfig::default());
+        Self::stamped_with_meta(instrument_id, as_of, value, meta)
+    }
+
+    /// Create a valuation result using a provided configuration.
+    ///
+    /// This helper ensures the metadata stamp matches the exact `FinstackConfig`
+    /// used during pricing, avoiding mismatches between execution policy and
+    /// reported metadata.
+    pub fn stamped_with_config(
+        instrument_id: &str,
+        as_of: Date,
+        value: Money,
+        cfg: &FinstackConfig,
+    ) -> Self {
+        let meta = results_meta(cfg);
         Self::stamped_with_meta(instrument_id, as_of, value, meta)
     }
 
@@ -357,20 +371,35 @@ impl ValuationResult {
     /// # let as_of = create_date(2025, Month::January, 15)?;
     /// # let pv = Money::new(1_000_000.0, Currency::USD);
     /// let mut measures = IndexMap::new();
-    /// measures.insert("ytm".to_string(), 0.0475);
-    /// measures.insert("modified_duration".to_string(), 4.25);
+    /// measures.insert(MetricId::custom("ytm"), 0.0475);
+    /// measures.insert(MetricId::custom("modified_duration"), 4.25);
     ///
     /// let result = ValuationResult::stamped("BOND-001", as_of, pv)
     ///     .with_measures(measures);
     ///
     /// assert_eq!(result.measures.len(), 2);
-    /// assert_eq!(result.measures.get("ytm"), Some(&0.0475));
+    /// assert_eq!(
+    ///     result.metric(MetricId::custom("ytm")),
+    ///     Some(0.0475)
+    /// );
     /// # Ok(())
     /// # }
     /// ```
-    pub fn with_measures(mut self, measures: IndexMap<String, f64>) -> Self {
+    pub fn with_measures(mut self, measures: IndexMap<MetricId, f64>) -> Self {
         self.measures = measures;
         self
+    }
+
+    /// Get a metric by `MetricId`.
+    pub fn metric(&self, id: MetricId) -> Option<f64> {
+        self.measures.get(&id).copied()
+    }
+
+    /// Get a metric by string identifier (strict parse with custom fallback).
+    pub fn metric_str(&self, id: &str) -> Option<f64> {
+        let metric_id =
+            MetricId::parse_strict(id).unwrap_or_else(|_| MetricId::custom(id.to_owned()));
+        self.metric(metric_id)
     }
 
     /// Attach multiple covenant reports to the result.

@@ -183,12 +183,17 @@ impl CdsQuote {
     /// };
     ///
     /// // Bump by 1 basis point (0.0001 decimal)
-    /// let bumped = quote.bump(0.0001);
+    /// let bumped = quote.bump_spread_decimal(0.0001);
     /// # Ok(())
     /// # }
     /// ```
-    pub fn bump(&self, bump_decimal: f64) -> Self {
+    pub fn bump_spread_decimal(&self, bump_decimal: f64) -> Self {
         let bump_bp = bump_decimal * 10_000.0;
+        self.bump_spread_bp(bump_bp)
+    }
+
+    /// Bump by spread in basis points (e.g., `1.0` = 1bp).
+    pub fn bump_spread_bp(&self, bump_bp: f64) -> Self {
         match self {
             CdsQuote::CdsParSpread {
                 id,
@@ -223,5 +228,11 @@ impl CdsQuote {
                 recovery_rate: *recovery_rate,
             },
         }
+    }
+
+    /// Deprecated: use `bump_spread_bp` or `bump_spread_decimal` for explicit units.
+    #[deprecated(note = "use bump_spread_bp or bump_spread_decimal for explicit units")]
+    pub fn bump(&self, bump_decimal: f64) -> Self {
+        self.bump_spread_decimal(bump_decimal)
     }
 }

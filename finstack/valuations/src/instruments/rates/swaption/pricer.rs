@@ -369,7 +369,7 @@ impl BermudanSwaptionPricer {
 
         // Record whether cached model was used (1.0 = true, 0.0 = false)
         result.measures.insert(
-            "used_cached_model".to_string(),
+            crate::metrics::MetricId::custom("used_cached_model"),
             if used_cached_model { 1.0 } else { 0.0 },
         );
 
@@ -539,22 +539,27 @@ impl BermudanSwaptionPricer {
         let mut result = ValuationResult::stamped(swaption.id.as_str(), as_of, estimate.mean);
 
         // Add LSMC diagnostics to measures
-        result
-            .measures
-            .insert("lsmc_stderr".to_string(), estimate.stderr);
-        result
-            .measures
-            .insert("lsmc_num_paths".to_string(), self.mc_paths as f64);
-        result
-            .measures
-            .insert("lsmc_seed".to_string(), self.mc_seed as f64);
+        result.measures.insert(
+            crate::metrics::MetricId::custom("lsmc_stderr"),
+            estimate.stderr,
+        );
+        result.measures.insert(
+            crate::metrics::MetricId::custom("lsmc_num_paths"),
+            self.mc_paths as f64,
+        );
+        result.measures.insert(
+            crate::metrics::MetricId::custom("lsmc_seed"),
+            self.mc_seed as f64,
+        );
         let (ci_low, ci_high) = estimate.ci_95;
-        result
-            .measures
-            .insert("lsmc_ci95_low".to_string(), ci_low.amount());
-        result
-            .measures
-            .insert("lsmc_ci95_high".to_string(), ci_high.amount());
+        result.measures.insert(
+            crate::metrics::MetricId::custom("lsmc_ci95_low"),
+            ci_low.amount(),
+        );
+        result.measures.insert(
+            crate::metrics::MetricId::custom("lsmc_ci95_high"),
+            ci_high.amount(),
+        );
 
         Ok(result)
     }

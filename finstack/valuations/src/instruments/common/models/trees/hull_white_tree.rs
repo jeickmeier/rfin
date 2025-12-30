@@ -256,7 +256,7 @@ impl HullWhiteTree {
             let mut step_probs = Vec::with_capacity(2 * curr_j_max + 1);
             for j in 0..=(2 * curr_j_max) {
                 let j_signed = j as i32 - curr_j_max as i32;
-                let p = Self::compute_probabilities(config.kappa, dt, dx, j_signed, curr_j_max);
+                let p = Self::compute_probabilities(config.kappa, dt, dx, j_signed, curr_j_max)?;
                 step_probs.push(p);
             }
             probs.push(step_probs);
@@ -317,7 +317,13 @@ impl HullWhiteTree {
         dx: f64,
         j: i32,
         j_max: usize,
-    ) -> (f64, f64, f64) {
+    ) -> finstack_core::Result<(f64, f64, f64)> {
+        if !kappa.is_finite() || !dt.is_finite() || !dx.is_finite() || dt <= 0.0 || dx <= 0.0 {
+            return Err(finstack_core::Error::Validation(
+                "Hull-White probabilities require finite, positive inputs".to_string(),
+            ));
+        }
+
         let m = kappa * dt;
         let jf = j as f64;
 
@@ -377,12 +383,9 @@ impl HullWhiteTree {
             || !p_mid.is_finite()
             || !p_down.is_finite()
         {
-            // Fallback to uniform for degenerate cases
-            tracing::warn!(
-                "Hull-White: invalid probabilities at j={}, falling back to uniform",
-                j
-            );
-            return (1.0 / 3.0, 1.0 / 3.0, 1.0 / 3.0);
+            return Err(finstack_core::Error::Validation(format!(
+                "Hull-White probabilities invalid at j={j} (p_up={p_up}, p_mid={p_mid}, p_down={p_down})"
+            )));
         }
 
         // Normalize to ensure sum = 1
@@ -392,7 +395,9 @@ impl HullWhiteTree {
             p_mid /= sum;
             p_down /= sum;
         } else {
-            return (1.0 / 3.0, 1.0 / 3.0, 1.0 / 3.0);
+            return Err(finstack_core::Error::Validation(
+                "Hull-White probabilities did not sum to a finite value".to_string(),
+            ));
         }
 
         // Final clamp for safety
@@ -409,7 +414,7 @@ impl HullWhiteTree {
             p_down
         );
 
-        (p_up, p_mid, p_down)
+        Ok((p_up, p_mid, p_down))
     }
 
     /// Calibrate α at next step to match target discount factor.
@@ -611,7 +616,9 @@ impl HullWhiteTree {
 
         // Forward rate at t=0 for maturity t
         let f_0_t = if t > 0.0 {
-            -p_0_t.ln() / t
+            discount_curve
+                .instantaneous_forward(t)
+                .unwrap_or_else(|_| -p_0_t.ln() / t)
         } else {
             self.alpha[0]
         };
@@ -887,6 +894,18 @@ mod tests {
             bp,
             error_bps
         );
+    }
+
+    #[test]
+    fn probabilities_fail_fast_when_invalid() {
+        let err =
+            HullWhiteTree::compute_probabilities(0.03, 0.25, 0.0, 1, 1).expect_err("should fail");
+        match err {
+            finstack_core::Error::Validation(msg) => {
+                assert!(msg.contains("finite"), "message={msg}");
+            }
+            other => panic!("expected validation error, got {other:?}"),
+        }
     }
 
     #[test]

@@ -822,7 +822,7 @@ pub fn compute_quotes(
 
     // 2) Build metric context and use the standard registry for the rest.
     let base_value = bond_for_metrics.value(curves, as_of)?;
-    let registry: MetricRegistry = standard_registry();
+    let registry: MetricRegistry = standard_registry().clone();
 
     let instrument_arc: Arc<dyn Instrument> = Arc::new(bond_for_metrics.clone());
     let curves_arc = Arc::new(curves.clone());

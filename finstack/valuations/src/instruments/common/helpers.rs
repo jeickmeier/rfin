@@ -3,8 +3,8 @@
 //! Contains helpers shared across instrument implementations, notably the
 //! function to assemble a `ValuationResult` with computed metrics.
 
-use crate::metrics::{standard_registry, MetricContext};
-use finstack_core::config::FinstackConfig;
+use crate::metrics::{standard_registry, MetricContext, MetricId};
+use finstack_core::config::{results_meta, FinstackConfig};
 use finstack_core::dates::{Date, DayCount, DayCountCtx};
 use finstack_core::market_data::{context::MarketContext, scalars::MarketScalar};
 use finstack_core::money::Money;
@@ -137,12 +137,12 @@ pub fn build_with_metrics_dyn(
 
     // Pre-allocate capacity to avoid reallocations during insertion.
     // Estimate: requested metrics + a few extras from composite keys.
-    let mut measures: IndexMap<String, f64> = IndexMap::with_capacity(metrics.len() + 4);
+    let mut measures: IndexMap<MetricId, f64> = IndexMap::with_capacity(metrics.len() + 4);
 
     // Deterministic insertion order: follow the requested metrics slice order
     for metric_id in metrics {
         if let Some(value) = metric_measures.get(metric_id) {
-            measures.insert(metric_id.as_str().into(), *value);
+            measures.insert(metric_id.clone(), *value);
         }
     }
 
@@ -157,7 +157,7 @@ pub fn build_with_metrics_dyn(
         .computed
         .iter()
         .filter_map(|(metric_id, value)| {
-            if metric_id.is_custom() && !measures.contains_key(metric_id.as_str()) {
+            if metric_id.is_custom() && !measures.contains_key(metric_id) {
                 Some((metric_id, *value))
             } else {
                 None
@@ -166,14 +166,128 @@ pub fn build_with_metrics_dyn(
         .collect();
     extras.sort_by(|(a, _), (b, _)| a.as_str().cmp(b.as_str()));
     for (metric_id, value) in extras {
-        measures.insert(metric_id.as_str().into(), value);
+        measures.insert(metric_id.clone(), value);
     }
 
-    let mut result =
-        crate::results::ValuationResult::stamped(context.instrument.id(), as_of, base_value);
+    let meta = results_meta(context.config());
+    let mut result = crate::results::ValuationResult::stamped_with_meta(
+        context.instrument.id(),
+        as_of,
+        base_value,
+        meta,
+    );
     result.measures = measures;
 
     Ok(result)
+}
+
+#[cfg(test)]
+#[allow(clippy::items_after_test_module)]
+mod tests {
+    use super::*;
+    use crate::instruments::common::traits::{Attributes, Instrument};
+    use crate::metrics::MetricId;
+    use crate::pricer::InstrumentType;
+    use finstack_core::currency::Currency;
+    use finstack_core::dates::Date;
+    use finstack_core::market_data::context::MarketContext;
+    use finstack_core::money::Money;
+    use std::any::Any;
+    use std::sync::Arc;
+    use time::macros::date;
+
+    #[derive(Clone)]
+    struct StubInstrument {
+        id: String,
+        attrs: Attributes,
+    }
+
+    impl StubInstrument {
+        fn new(id: &str) -> Self {
+            Self {
+                id: id.to_string(),
+                attrs: Attributes::default(),
+            }
+        }
+    }
+
+    impl Instrument for StubInstrument {
+        fn id(&self) -> &str {
+            &self.id
+        }
+
+        fn key(&self) -> InstrumentType {
+            InstrumentType::Bond
+        }
+
+        fn as_any(&self) -> &dyn Any {
+            self
+        }
+
+        fn value(&self, _market: &MarketContext, _as_of: Date) -> finstack_core::Result<Money> {
+            Ok(Money::new(123.45, Currency::USD))
+        }
+
+        fn attributes(&self) -> &Attributes {
+            &self.attrs
+        }
+
+        fn attributes_mut(&mut self) -> &mut Attributes {
+            &mut self.attrs
+        }
+
+        fn clone_box(&self) -> Box<dyn Instrument> {
+            Box::new(self.clone())
+        }
+
+        fn price_with_metrics(
+            &self,
+            market: &MarketContext,
+            as_of: Date,
+            metrics: &[MetricId],
+        ) -> finstack_core::Result<crate::results::ValuationResult> {
+            let base = self.value(market, as_of)?;
+            build_with_metrics_dyn(
+                Arc::from(self.clone_box()),
+                Arc::new(market.clone()),
+                as_of,
+                base,
+                metrics,
+                None,
+            )
+        }
+    }
+
+    #[test]
+    fn stamped_result_uses_provided_config() -> finstack_core::Result<()> {
+        let instrument = Arc::new(StubInstrument::new("STUB"));
+        let market = Arc::new(MarketContext::new());
+        let as_of = date!(2024 - 01 - 01);
+        let base_value = Money::new(10.0, Currency::USD);
+
+        let mut cfg = FinstackConfig::default();
+        // Set a non-default output scale to verify it is propagated into meta
+        cfg.rounding.output_scale.overrides.insert(Currency::USD, 4);
+        let cfg = Arc::new(cfg);
+
+        let result = build_with_metrics_dyn(
+            instrument,
+            market,
+            as_of,
+            base_value,
+            &[],
+            Some(cfg.clone()),
+        )?;
+
+        let usd_scale = result
+            .meta
+            .rounding
+            .output_scale_by_ccy
+            .get(&Currency::USD)
+            .copied();
+        assert_eq!(usd_scale, Some(4), "meta should reflect provided config");
+        Ok(())
+    }
 }
 
 /// Price an instrument with metrics using pre-allocated Arc references.

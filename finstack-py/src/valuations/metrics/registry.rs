@@ -61,7 +61,7 @@ impl PyMetricRegistry {
     ///     >>> MetricRegistry.standard().has_metric("pv")
     ///     True
     fn standard(_cls: &Bound<'_, PyType>) -> Self {
-        Self::new(standard_registry())
+        Self::new(standard_registry().clone())
     }
 
     #[pyo3(text_signature = "(self)")]

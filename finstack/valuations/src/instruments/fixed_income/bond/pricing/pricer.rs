@@ -150,7 +150,7 @@ impl Pricer for SimpleBondOasPricer {
 
         // Create result with OAS measure
         let mut measures = IndexMap::new();
-        measures.insert("oas_bp".to_string(), oas_bp);
+        measures.insert(crate::metrics::MetricId::custom("oas_bp"), oas_bp);
 
         let result = ValuationResult::stamped(bond.id(), as_of, pv);
         Ok(result.with_measures(measures))

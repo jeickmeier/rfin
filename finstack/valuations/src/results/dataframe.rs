@@ -41,7 +41,7 @@ impl ValuationResult {
     /// This ensures we use the correct, canonical metric key strings
     /// from the metrics registry instead of hardcoded strings.
     fn get_measure(&self, id: MetricId) -> Option<f64> {
-        self.measures.get(id.as_str()).copied()
+        self.measures.get(&id).copied()
     }
 
     /// Convert this result to a flat row for DataFrame export.
@@ -97,8 +97,8 @@ mod tests {
     #[test]
     fn test_valuation_result_to_row() {
         let mut measures = IndexMap::new();
-        measures.insert("dv01".to_string(), 1250.0);
-        measures.insert("convexity".to_string(), 125.5);
+        measures.insert(MetricId::Dv01, 1250.0);
+        measures.insert(MetricId::Convexity, 125.5);
 
         let result = ValuationResult::stamped_with_meta(
             "BOND-001",
@@ -162,7 +162,7 @@ mod tests {
     #[test]
     fn test_to_row_dv01_mapping() {
         let mut measures = IndexMap::new();
-        measures.insert(MetricId::Dv01.as_str().to_string(), 500.0);
+        measures.insert(MetricId::Dv01, 500.0);
 
         let result = ValuationResult::stamped_with_meta(
             "BOND-DV01",
@@ -183,7 +183,7 @@ mod tests {
     #[test]
     fn test_to_row_convexity_mapping() {
         let mut measures = IndexMap::new();
-        measures.insert(MetricId::Convexity.as_str().to_string(), 125.5);
+        measures.insert(MetricId::Convexity, 125.5);
 
         let result = ValuationResult::stamped_with_meta(
             "BOND-CVX",
@@ -208,7 +208,7 @@ mod tests {
     #[test]
     fn test_to_row_duration_mod_mapping() {
         let mut measures = IndexMap::new();
-        measures.insert(MetricId::DurationMod.as_str().to_string(), 7.5);
+        measures.insert(MetricId::DurationMod, 7.5);
 
         let result = ValuationResult::stamped_with_meta(
             "BOND-DURMOD",
@@ -234,7 +234,7 @@ mod tests {
     fn test_to_row_duration_mac_fallback() {
         let mut measures = IndexMap::new();
         // Only provide Macaulay duration (no Modified duration)
-        measures.insert(MetricId::DurationMac.as_str().to_string(), 8.2);
+        measures.insert(MetricId::DurationMac, 8.2);
 
         let result = ValuationResult::stamped_with_meta(
             "BOND-DURMAC",
@@ -260,8 +260,8 @@ mod tests {
     fn test_to_row_duration_mod_preferred_over_mac() {
         let mut measures = IndexMap::new();
         // Provide both Modified and Macaulay - Modified should win
-        measures.insert(MetricId::DurationMod.as_str().to_string(), 7.5);
-        measures.insert(MetricId::DurationMac.as_str().to_string(), 8.2);
+        measures.insert(MetricId::DurationMod, 7.5);
+        measures.insert(MetricId::DurationMac, 8.2);
 
         let result = ValuationResult::stamped_with_meta(
             "BOND-DURBOTH",
@@ -283,7 +283,7 @@ mod tests {
     #[test]
     fn test_to_row_ytm_mapping() {
         let mut measures = IndexMap::new();
-        measures.insert(MetricId::Ytm.as_str().to_string(), 0.0425);
+        measures.insert(MetricId::Ytm, 0.0425);
 
         let result = ValuationResult::stamped_with_meta(
             "BOND-YTM",
@@ -304,10 +304,10 @@ mod tests {
     #[test]
     fn test_to_row_all_metrics_populated() {
         let mut measures = IndexMap::new();
-        measures.insert(MetricId::Dv01.as_str().to_string(), 500.0);
-        measures.insert(MetricId::Convexity.as_str().to_string(), 125.5);
-        measures.insert(MetricId::DurationMod.as_str().to_string(), 7.5);
-        measures.insert(MetricId::Ytm.as_str().to_string(), 0.0425);
+        measures.insert(MetricId::Dv01, 500.0);
+        measures.insert(MetricId::Convexity, 125.5);
+        measures.insert(MetricId::DurationMod, 7.5);
+        measures.insert(MetricId::Ytm, 0.0425);
 
         let result = ValuationResult::stamped_with_meta(
             "BOND-FULL",
@@ -329,9 +329,9 @@ mod tests {
     fn test_to_row_legacy_keys_not_used() {
         // Verify that old incorrect keys like "duration" and "modified_duration" don't work
         let mut measures = IndexMap::new();
-        measures.insert("duration".to_string(), 7.5);
-        measures.insert("modified_duration".to_string(), 7.5);
-        measures.insert("dv01".to_string(), 500.0); // Still works (correct key)
+        measures.insert(MetricId::custom("duration"), 7.5);
+        measures.insert(MetricId::custom("modified_duration"), 7.5);
+        measures.insert(MetricId::Dv01, 500.0); // Still works (correct key)
 
         let result = ValuationResult::stamped_with_meta(
             "BOND-LEGACY",

@@ -239,9 +239,7 @@ fn bench_cds_tranche_cs01(c: &mut Criterion) {
                 as_of,
                 base_pv,
             );
-            let results = registry
-                .compute(&[MetricId::Cs01], &mut context)
-                .unwrap();
+            let results = registry.compute(&[MetricId::Cs01], &mut context).unwrap();
             black_box(*results.get(&MetricId::Cs01).unwrap())
         });
     });

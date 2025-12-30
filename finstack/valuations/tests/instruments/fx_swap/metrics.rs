@@ -437,10 +437,10 @@ fn test_bucketed_dv01_per_curve() {
     let mut foreign_buckets = 0;
 
     for key in result.measures.keys() {
-        if key.starts_with("bucketed_dv01::USD-OIS::") {
+        if key.as_str().starts_with("bucketed_dv01::USD-OIS::") {
             domestic_buckets += 1;
         }
-        if key.starts_with("bucketed_dv01::EUR-OIS::") {
+        if key.as_str().starts_with("bucketed_dv01::EUR-OIS::") {
             foreign_buckets += 1;
         }
     }
@@ -462,10 +462,10 @@ fn test_bucketed_dv01_per_curve() {
     let mut sum_foreign = 0.0;
 
     for (key, val) in &result.measures {
-        if key.starts_with("bucketed_dv01::USD-OIS::") {
+        if key.as_str().starts_with("bucketed_dv01::USD-OIS::") {
             sum_domestic += val;
         }
-        if key.starts_with("bucketed_dv01::EUR-OIS::") {
+        if key.as_str().starts_with("bucketed_dv01::EUR-OIS::") {
             sum_foreign += val;
         }
     }

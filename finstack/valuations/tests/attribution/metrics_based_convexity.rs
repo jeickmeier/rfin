@@ -24,8 +24,8 @@ fn test_bond_convexity_reduces_residual() {
     let meta = finstack_core::config::results_meta(&FinstackConfig::default());
 
     let mut measures_first_order = IndexMap::new();
-    measures_first_order.insert(MetricId::Theta.as_str().to_string(), -50.0);
-    measures_first_order.insert(MetricId::Dv01.as_str().to_string(), -4000.0); // High DV01 for $1M bond
+    measures_first_order.insert(MetricId::Theta, -50.0);
+    measures_first_order.insert(MetricId::Dv01, -4000.0); // High DV01 for $1M bond
 
     let val_t0_first = ValuationResult::stamped_with_meta(
         "TEST-BOND",
@@ -37,10 +37,7 @@ fn test_bond_convexity_reduces_residual() {
 
     // Now add convexity to the first-order metrics
     let mut measures_with_convexity = measures_first_order;
-    measures_with_convexity.insert(
-        MetricId::Convexity.as_str().to_string(),
-        8000.0, // Positive convexity for bonds
-    );
+    measures_with_convexity.insert(MetricId::Convexity, 8000.0); // Positive convexity for bonds
 
     let val_t0_second = ValuationResult::stamped_with_meta(
         "TEST-BOND",
@@ -51,21 +48,18 @@ fn test_bond_convexity_reduces_residual() {
     .with_measures(measures_with_convexity);
 
     // Verify the structure supports second-order metrics
-    assert!(val_t0_second
-        .measures
-        .contains_key(MetricId::Convexity.as_str()));
+    assert!(val_t0_second.measures.contains_key(&MetricId::Convexity));
     assert_eq!(
-        *val_t0_second
+        val_t0_second
             .measures
-            .get(MetricId::Convexity.as_str())
+            .get(&MetricId::Convexity)
+            .copied()
             .unwrap(),
         8000.0
     );
 
     // Verify first-order doesn't have convexity
-    assert!(!val_t0_first
-        .measures
-        .contains_key(MetricId::Convexity.as_str()));
+    assert!(!val_t0_first.measures.contains_key(&MetricId::Convexity));
 }
 
 #[test]
@@ -115,13 +109,13 @@ fn test_valuation_result_supports_all_second_order_metrics() {
     let mut measures = IndexMap::new();
 
     // Add all second-order metrics
-    measures.insert(MetricId::Convexity.as_str().to_string(), 5000.0);
-    measures.insert(MetricId::IrConvexity.as_str().to_string(), 4800.0);
-    measures.insert(MetricId::CsGamma.as_str().to_string(), 50.0);
-    measures.insert(MetricId::Gamma.as_str().to_string(), 0.05);
-    measures.insert(MetricId::Volga.as_str().to_string(), 2.0);
-    measures.insert(MetricId::Vanna.as_str().to_string(), 1.5);
-    measures.insert(MetricId::InflationConvexity.as_str().to_string(), 100.0);
+    measures.insert(MetricId::Convexity, 5000.0);
+    measures.insert(MetricId::IrConvexity, 4800.0);
+    measures.insert(MetricId::CsGamma, 50.0);
+    measures.insert(MetricId::Gamma, 0.05);
+    measures.insert(MetricId::Volga, 2.0);
+    measures.insert(MetricId::Vanna, 1.5);
+    measures.insert(MetricId::InflationConvexity, 100.0);
 
     let meta = finstack_core::config::results_meta(&FinstackConfig::default());
     let val =
@@ -129,15 +123,13 @@ fn test_valuation_result_supports_all_second_order_metrics() {
 
     // Verify all metrics are present
     assert_eq!(val.measures.len(), 7);
-    assert!(val.measures.contains_key(MetricId::Convexity.as_str()));
-    assert!(val.measures.contains_key(MetricId::IrConvexity.as_str()));
-    assert!(val.measures.contains_key(MetricId::CsGamma.as_str()));
-    assert!(val.measures.contains_key(MetricId::Gamma.as_str()));
-    assert!(val.measures.contains_key(MetricId::Volga.as_str()));
-    assert!(val.measures.contains_key(MetricId::Vanna.as_str()));
-    assert!(val
-        .measures
-        .contains_key(MetricId::InflationConvexity.as_str()));
+    assert!(val.measures.contains_key(&MetricId::Convexity));
+    assert!(val.measures.contains_key(&MetricId::IrConvexity));
+    assert!(val.measures.contains_key(&MetricId::CsGamma));
+    assert!(val.measures.contains_key(&MetricId::Gamma));
+    assert!(val.measures.contains_key(&MetricId::Volga));
+    assert!(val.measures.contains_key(&MetricId::Vanna));
+    assert!(val.measures.contains_key(&MetricId::InflationConvexity));
 }
 
 #[test]

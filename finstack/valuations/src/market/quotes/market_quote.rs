@@ -9,6 +9,7 @@ use super::cds_tranche::CdsTrancheQuote;
 use super::inflation::InflationQuote;
 use super::rates::RateQuote;
 use super::vol::VolQuote;
+use finstack_core::InputError;
 #[cfg(feature = "ts_export")]
 use ts_rs::TS;
 
@@ -77,52 +78,99 @@ pub enum MarketQuote {
     Vol(VolQuote),
 }
 
+/// Explicit bump units for market quotes.
+#[derive(Clone, Copy, Debug)]
+pub enum MarketQuoteBump {
+    /// Rate expressed in decimal units (e.g., 0.0001 = 1bp).
+    RateDecimal(f64),
+    /// Rate expressed in basis-point units (e.g., 1.0 = 1bp).
+    RateBp(f64),
+    /// Spread expressed in decimal units (e.g., 0.0001 = 1bp).
+    SpreadDecimal(f64),
+    /// Spread expressed in basis-point units (e.g., 1.0 = 1bp).
+    SpreadBp(f64),
+    /// Absolute volatility bump (e.g., 0.01 = +1 vol point).
+    VolAbsolute(f64),
+}
+
 impl MarketQuote {
-    /// Bump the quote in its natural market units.
-    ///
-    /// The `amount` parameter is interpreted per quote type:
-    /// - **Rates**: Decimal rate bump (e.g., `0.0001` = 1bp)
-    /// - **Cds**: Decimal-to-bp conversion (`spread_bp += amount * 10_000`)
-    /// - **CdsTranche**: Decimal-to-bp conversion
-    /// - **Inflation**: Decimal rate bump (e.g., `0.0001` = 1bp)
-    /// - **Vol**: Absolute vol bump (e.g., `0.01` = +1 vol point)
-    ///
-    /// # Arguments
-    ///
-    /// * `amount` - The bump amount, interpreted according to quote type
-    ///
-    /// # Returns
-    ///
-    /// A new `MarketQuote` with the bumped value.
-    ///
-    /// # Examples
-    ///
-    /// ```rust
-    /// use finstack_valuations::market::quotes::market_quote::MarketQuote;
-    /// use finstack_valuations::market::quotes::rates::RateQuote;
-    /// use finstack_valuations::market::quotes::ids::{Pillar, QuoteId};
-    /// use finstack_valuations::market::conventions::ids::IndexId;
-    ///
-    /// # fn example() -> finstack_core::Result<()> {
-    /// let quote = MarketQuote::Rates(RateQuote::Deposit {
-    ///     id: QuoteId::new("USD-SOFR-DEP-1M"),
-    ///     index: IndexId::new("USD-SOFR-1M"),
-    ///     pillar: Pillar::Tenor("1M".parse()?),
-    ///     rate: 0.0525,
-    /// });
-    ///
-    /// // Bump by 1 basis point
-    /// let bumped = quote.bump(0.0001);
-    /// # Ok(())
-    /// # }
-    /// ```
+    /// Bump the quote using explicit unit semantics.
+    pub fn bump_with(&self, bump: MarketQuoteBump) -> finstack_core::Result<Self> {
+        match (self, bump) {
+            (MarketQuote::Rates(q), MarketQuoteBump::RateDecimal(b)) => {
+                Ok(MarketQuote::Rates(q.bump_rate_decimal(b)))
+            }
+            (MarketQuote::Rates(q), MarketQuoteBump::RateBp(bp)) => {
+                Ok(MarketQuote::Rates(q.bump_rate_bp(bp)))
+            }
+
+            (MarketQuote::Inflation(q), MarketQuoteBump::RateDecimal(b)) => {
+                Ok(MarketQuote::Inflation(q.bump_rate_decimal(b)))
+            }
+            (MarketQuote::Inflation(q), MarketQuoteBump::RateBp(bp)) => {
+                Ok(MarketQuote::Inflation(q.bump_rate_decimal(bp / 10_000.0)))
+            }
+
+            (MarketQuote::Cds(q), MarketQuoteBump::SpreadDecimal(b)) => {
+                Ok(MarketQuote::Cds(q.bump_spread_decimal(b)))
+            }
+            (MarketQuote::Cds(q), MarketQuoteBump::SpreadBp(bp)) => {
+                Ok(MarketQuote::Cds(q.bump_spread_bp(bp)))
+            }
+
+            (MarketQuote::CdsTranche(q), MarketQuoteBump::SpreadDecimal(b)) => {
+                Ok(MarketQuote::CdsTranche(q.bump_spread_decimal(b)))
+            }
+            (MarketQuote::CdsTranche(q), MarketQuoteBump::SpreadBp(bp)) => {
+                Ok(MarketQuote::CdsTranche(q.bump_spread_bp(bp)))
+            }
+
+            (MarketQuote::Vol(q), MarketQuoteBump::VolAbsolute(b)) => {
+                Ok(MarketQuote::Vol(q.bump_vol_absolute(b)))
+            }
+
+            _ => Err(finstack_core::Error::from(InputError::Invalid)),
+        }
+    }
+
+    /// Convenience wrapper for decimal rate bumps (e.g., `0.0001` = 1bp).
+    pub fn bump_rate_decimal(&self, bump: f64) -> finstack_core::Result<Self> {
+        self.bump_with(MarketQuoteBump::RateDecimal(bump))
+    }
+
+    /// Convenience wrapper for rate bumps in basis-point units (e.g., `1.0` = 1bp).
+    pub fn bump_rate_bp(&self, bump_bp: f64) -> finstack_core::Result<Self> {
+        self.bump_with(MarketQuoteBump::RateBp(bump_bp))
+    }
+
+    /// Convenience wrapper for spread bumps in decimal units (e.g., `0.0001` = 1bp).
+    pub fn bump_spread_decimal(&self, bump: f64) -> finstack_core::Result<Self> {
+        self.bump_with(MarketQuoteBump::SpreadDecimal(bump))
+    }
+
+    /// Convenience wrapper for spread bumps in basis-point units (e.g., `1.0` = 1bp).
+    pub fn bump_spread_bp(&self, bump_bp: f64) -> finstack_core::Result<Self> {
+        self.bump_with(MarketQuoteBump::SpreadBp(bump_bp))
+    }
+
+    /// Convenience wrapper for absolute volatility bumps (e.g., `0.01` = +1 vol point).
+    pub fn bump_vol_absolute(&self, bump: f64) -> finstack_core::Result<Self> {
+        self.bump_with(MarketQuoteBump::VolAbsolute(bump))
+    }
+
+    /// Deprecated: use explicit bump helpers with units.
+    #[deprecated(note = "use bump_rate_decimal/bp, bump_spread_decimal/bp, or bump_vol_absolute")]
     pub fn bump(&self, amount: f64) -> Self {
         match self {
-            MarketQuote::Rates(q) => MarketQuote::Rates(q.bump(amount)),
-            MarketQuote::Cds(q) => MarketQuote::Cds(q.bump(amount)),
-            MarketQuote::CdsTranche(q) => MarketQuote::CdsTranche(q.bump(amount)),
-            MarketQuote::Inflation(q) => MarketQuote::Inflation(q.bump_rate_decimal(amount)),
-            MarketQuote::Vol(q) => MarketQuote::Vol(q.bump_vol_absolute(amount)),
+            MarketQuote::Rates(_) | MarketQuote::Inflation(_) => self
+                .bump_rate_decimal(amount)
+                .unwrap_or_else(|_| self.clone()),
+            MarketQuote::Cds(_) | MarketQuote::CdsTranche(_) => self
+                .bump_spread_decimal(amount)
+                .unwrap_or_else(|_| self.clone()),
+            MarketQuote::Vol(_) => self
+                .bump_vol_absolute(amount)
+                .unwrap_or_else(|_| self.clone()),
         }
     }
 }

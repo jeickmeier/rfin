@@ -142,6 +142,45 @@ pub trait Discounting: TermStructure {
 
         Ok(df_to / df_from)
     }
+
+    /// Forward rate between times `from_t` and `to_t` (year fractions from base date).
+    ///
+    /// Uses the standard log-discount ratio:
+    /// `f = -ln(DF(from→to)) / (to_t - from_t)`.
+    fn forward_rate_between_times(&self, from_t: f64, to_t: f64) -> crate::Result<f64> {
+        if to_t <= from_t {
+            return Err(crate::Error::Validation(format!(
+                "forward_rate_between_times requires to_t > from_t (from_t={from_t}, to_t={to_t})"
+            )));
+        }
+
+        let df_ratio = self.df_between_times(from_t, to_t)?;
+        Ok(-df_ratio.ln() / (to_t - from_t))
+    }
+
+    /// Forward rate between dates using the curve's day-count convention.
+    fn forward_rate_between_dates(&self, from: Date, to: Date) -> crate::Result<f64> {
+        if to <= from {
+            return Err(crate::Error::Validation(format!(
+                "forward_rate_between_dates requires to > from (from={from}, to={to})"
+            )));
+        }
+
+        let dc = self.day_count();
+        let base = self.base_date();
+        let from_t = dc.year_fraction(base, from, DayCountCtx::default())?;
+        let to_t = dc.year_fraction(base, to, DayCountCtx::default())?;
+        self.forward_rate_between_times(from_t, to_t)
+    }
+
+    /// Instantaneous forward rate at time `t` (year fraction from base date).
+    ///
+    /// Approximates the derivative of `-ln P(0,t)` using a small forward bump.
+    fn instantaneous_forward(&self, t: f64) -> crate::Result<f64> {
+        let eps = (t.abs() * 1e-4).max(1e-6);
+        let start = if t > 0.0 { t } else { 0.0 };
+        self.forward_rate_between_times(start, start + eps)
+    }
 }
 
 /// Minimal trait for forward curve polymorphism where needed.

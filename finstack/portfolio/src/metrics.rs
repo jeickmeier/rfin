@@ -232,10 +232,15 @@ fn aggregate_metrics_parallel(valuation: &PortfolioValuation) -> Result<Portfoli
         .par_iter()
         .filter_map(|(position_id, position_value)| {
             position_value.valuation_result.as_ref().map(|val_result| {
+                let measures: IndexMap<String, f64> = val_result
+                    .measures
+                    .iter()
+                    .map(|(id, v)| (id.as_str().to_string(), *v))
+                    .collect();
                 (
                     (*position_id).clone(),
                     position_value.entity_id.clone(),
-                    val_result.measures.clone(),
+                    measures,
                 )
             })
         })

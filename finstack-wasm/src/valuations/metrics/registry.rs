@@ -73,7 +73,7 @@ impl JsMetricRegistry {
     #[wasm_bindgen(js_name = standard)]
     pub fn standard() -> JsMetricRegistry {
         JsMetricRegistry {
-            inner: standard_registry(),
+            inner: standard_registry().clone(),
         }
     }
 

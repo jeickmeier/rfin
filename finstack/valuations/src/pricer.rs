@@ -646,7 +646,27 @@ fn format_context(ctx: &PricingErrorContext) -> String {
 
 impl From<PricingError> for finstack_core::Error {
     fn from(err: PricingError) -> Self {
-        finstack_core::Error::Validation(err.to_string())
+        match err {
+            PricingError::UnknownPricer(key) => {
+                let pricer_id = format!("pricer:{}:{:?}", key.instrument.as_str(), key.model);
+                finstack_core::InputError::NotFound { id: pricer_id }.into()
+            }
+            PricingError::TypeMismatch { .. } => finstack_core::InputError::Invalid.into(),
+            PricingError::InvalidInput { message, context } => finstack_core::Error::Calibration {
+                message: format!("{message}{}", format_context(&context)),
+                category: "pricing_input".to_string(),
+            },
+            PricingError::MissingMarketData { missing_id, .. } => {
+                finstack_core::InputError::NotFound {
+                    id: missing_id.clone(),
+                }
+                .into()
+            }
+            PricingError::ModelFailure { message, context } => finstack_core::Error::Calibration {
+                message: format!("{message}{}", format_context(&context)),
+                category: "pricing_model".to_string(),
+            },
+        }
     }
 }
 
@@ -1779,6 +1799,43 @@ mod tests {
         assert_eq!(size_of::<InstrumentType>(), 2);
         assert_eq!(size_of::<ModelKey>(), 2);
         assert_eq!(size_of::<PricerKey>(), 4);
+    }
+
+    #[test]
+    fn pricing_error_maps_to_structured_core_errors() {
+        let missing: finstack_core::Error = PricingError::MissingMarketData {
+            missing_id: "USD-SOFR".to_string(),
+            context: PricingErrorContext::default(),
+        }
+        .into();
+        match missing {
+            finstack_core::Error::Input(finstack_core::InputError::NotFound { id }) => {
+                assert_eq!(id, "USD-SOFR")
+            }
+            other => panic!("unexpected mapping for missing market data: {other:?}"),
+        }
+
+        let unknown_pricer: finstack_core::Error =
+            PricingError::UnknownPricer(PricerKey::new(InstrumentType::Bond, ModelKey::Tree))
+                .into();
+        match unknown_pricer {
+            finstack_core::Error::Input(finstack_core::InputError::NotFound { id }) => {
+                assert_eq!(id, "pricer:Bond:Tree")
+            }
+            other => panic!("unexpected mapping for unknown pricer: {other:?}"),
+        }
+
+        let model_failure: finstack_core::Error = PricingError::ModelFailure {
+            message: "failed".to_string(),
+            context: PricingErrorContext::default(),
+        }
+        .into();
+        match model_failure {
+            finstack_core::Error::Calibration { category, .. } => {
+                assert_eq!(category, "pricing_model")
+            }
+            other => panic!("unexpected mapping for model failure: {other:?}"),
+        }
     }
 
     #[test]

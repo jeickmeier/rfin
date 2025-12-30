@@ -145,7 +145,7 @@ impl StructuredCredit {
 
         let mut result = ValuationResult::stamped(self.id.as_str(), as_of, base_value);
         for (metric_id, value) in computed_metrics {
-            result.measures.insert(metric_id.to_string(), value);
+            result.measures.insert(metric_id, value);
         }
 
         // Add hedge metrics if swaps are attached
@@ -153,15 +153,18 @@ impl StructuredCredit {
             let hedge_npv = self.hedge_npv(context, as_of)?;
             let total_npv = base_value.checked_add(hedge_npv)?;
 
-            result
-                .measures
-                .insert("HedgeNPV".to_string(), hedge_npv.amount());
-            result
-                .measures
-                .insert("HedgedNPV".to_string(), total_npv.amount());
-            result
-                .measures
-                .insert("HedgeCount".to_string(), self.hedge_swaps.len() as f64);
+            result.measures.insert(
+                crate::metrics::MetricId::custom("HedgeNPV"),
+                hedge_npv.amount(),
+            );
+            result.measures.insert(
+                crate::metrics::MetricId::custom("HedgedNPV"),
+                total_npv.amount(),
+            );
+            result.measures.insert(
+                crate::metrics::MetricId::custom("HedgeCount"),
+                self.hedge_swaps.len() as f64,
+            );
         }
 
         Ok(result)

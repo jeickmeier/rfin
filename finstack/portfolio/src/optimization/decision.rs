@@ -48,6 +48,15 @@ pub(crate) struct DecisionFeatures {
     pub max_weight: f64,
 }
 
+fn metrics_to_strings(
+    metrics: &IndexMap<finstack_valuations::metrics::MetricId, f64>,
+) -> IndexMap<String, f64> {
+    metrics
+        .iter()
+        .map(|(id, v)| (id.as_str().to_string(), *v))
+        .collect()
+}
+
 /// Check if a position matches a filter.
 fn matches_filter(position: &Position, filter: &PositionFilter) -> bool {
     match filter {
@@ -102,7 +111,7 @@ pub(crate) fn build_decision_space(
         // Extract measures
         let mut measures = IndexMap::new();
         if let Some(val_result) = &pv_entry.valuation_result {
-            measures = val_result.measures.clone();
+            measures = metrics_to_strings(&val_result.measures);
         } else if !required_metrics.is_empty()
             && matches!(problem.missing_metric_policy, MissingMetricPolicy::Strict)
         {
@@ -211,7 +220,7 @@ pub(crate) fn build_decision_space(
         let measures = val_entry
             .valuation_result
             .as_ref()
-            .map(|r| r.measures.clone())
+            .map(|r| metrics_to_strings(&r.measures))
             .unwrap_or_default();
 
         items.push(DecisionItem {

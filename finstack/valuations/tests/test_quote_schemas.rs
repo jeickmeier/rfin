@@ -38,7 +38,7 @@ fn cds_quote_id_and_bump_semantics() {
     assert_eq!(q.id().as_str(), "CDS-ACME-5Y");
 
     // bump_decimal 0.0001 -> +1bp
-    let bumped = q.bump(0.0001);
+    let bumped = q.bump_spread_decimal(0.0001);
     match bumped {
         CdsQuote::CdsParSpread { spread_bp, .. } => assert!((spread_bp - 101.0).abs() < 1e-12),
         _ => panic!("wrong variant"),
@@ -56,7 +56,7 @@ fn cds_quote_id_and_bump_semantics() {
         upfront_pct: 0.02,
         recovery_rate: 0.40,
     };
-    let bumped2 = q2.bump(0.0002); // +2bp
+    let bumped2 = q2.bump_spread_decimal(0.0002); // +2bp
     match bumped2 {
         CdsQuote::CdsUpfront {
             running_spread_bp,
@@ -87,7 +87,7 @@ fn cds_tranche_quote_id_and_bump_semantics() {
     };
     assert_eq!(q.id().as_str(), "CDX-IG-3-7");
 
-    let bumped = q.bump(0.0001);
+    let bumped = q.bump_spread_decimal(0.0001);
     match bumped {
         CdsTrancheQuote::CDSTranche {
             running_spread_bp,

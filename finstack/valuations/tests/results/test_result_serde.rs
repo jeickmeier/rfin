@@ -1,6 +1,7 @@
 #![cfg(feature = "serde")]
 use finstack_core::currency::Currency;
 use finstack_core::money::Money;
+use finstack_valuations::metrics::MetricId;
 use finstack_valuations::results::ValuationResult;
 
 #[test]
@@ -8,8 +9,8 @@ fn valuation_result_roundtrip_serde() {
     // Build a simple result
     let as_of = time::macros::date!(2024 - 01 - 15);
     let mut vr = ValuationResult::stamped("BOND-1", as_of, Money::new(100.0, Currency::USD));
-    vr.measures.insert("pv".to_string(), 100.0);
-    vr.measures.insert("dv01".to_string(), 0.0123);
+    vr.measures.insert(MetricId::custom("pv"), 100.0);
+    vr.measures.insert(MetricId::Dv01, 0.0123);
 
     // Serialize to JSON
     let json = serde_json::to_string(&vr).expect("serialize");

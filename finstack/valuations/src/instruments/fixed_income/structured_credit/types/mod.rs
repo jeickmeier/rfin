@@ -761,7 +761,7 @@ impl Instrument for StructuredCredit {
 
         let mut result = ValuationResult::stamped(self.id.as_str(), as_of, base_value);
         for (metric_id, value) in computed_metrics {
-            result.measures.insert(metric_id.to_string(), value);
+            result.measures.insert(metric_id, value);
         }
 
         Ok(result)

@@ -237,12 +237,12 @@ impl RateQuote {
     /// };
     ///
     /// // Bump by 1 basis point (0.0001)
-    /// let bumped = quote.bump(0.0001);
+    /// let bumped = quote.bump_rate_decimal(0.0001);
     /// assert_eq!(bumped.value(), 0.0526);
     /// # Ok(())
     /// # }
     /// ```
-    pub fn bump(&self, bump: f64) -> Self {
+    pub fn bump_rate_decimal(&self, rate_bump: f64) -> Self {
         match self {
             RateQuote::Deposit {
                 id,
@@ -253,7 +253,7 @@ impl RateQuote {
                 id: id.clone(),
                 index: index.clone(),
                 pillar: pillar.clone(),
-                rate: rate + bump,
+                rate: rate + rate_bump,
             },
             RateQuote::Fra {
                 id,
@@ -266,7 +266,7 @@ impl RateQuote {
                 index: index.clone(),
                 start: start.clone(),
                 end: end.clone(),
-                rate: rate + bump,
+                rate: rate + rate_bump,
             },
             RateQuote::Futures {
                 id,
@@ -279,7 +279,7 @@ impl RateQuote {
                 id: id.clone(),
                 contract: contract.clone(),
                 expiry: *expiry,
-                price: price + bump,
+                price: price + rate_bump,
                 convexity_adjustment: *convexity_adjustment,
                 volatility_id: volatility_id.clone(),
             },
@@ -293,10 +293,21 @@ impl RateQuote {
                 id: id.clone(),
                 index: index.clone(),
                 pillar: pillar.clone(),
-                rate: rate + bump,
+                rate: rate + rate_bump,
                 spread_decimal: *spread_decimal,
             },
         }
+    }
+
+    /// Bump the quote by basis-point units (e.g., `1.0` = 1bp).
+    pub fn bump_rate_bp(&self, bump_bp: f64) -> Self {
+        self.bump_rate_decimal(bump_bp / 10_000.0)
+    }
+
+    /// Deprecated: use `bump_rate_decimal` or `bump_rate_bp` for explicit units.
+    #[deprecated(note = "use bump_rate_decimal or bump_rate_bp for explicit units")]
+    pub fn bump(&self, bump: f64) -> Self {
+        self.bump_rate_decimal(bump)
     }
 }
 
@@ -456,7 +467,7 @@ mod tests {
             spread_decimal: Some(0.0010),
         };
 
-        let bumped = quote.bump(0.0001); // Bump by 1bp
+        let bumped = quote.bump_rate_decimal(0.0001); // Bump by 1bp
 
         match bumped {
             RateQuote::Swap {

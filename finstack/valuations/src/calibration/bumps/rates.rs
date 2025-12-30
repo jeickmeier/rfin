@@ -32,17 +32,15 @@ pub fn bump_discount_curve(
 
     match bump {
         BumpRequest::Parallel(bp) => {
-            let bump_decimal = bp * 1e-4;
             bumped_quotes = bumped_quotes
                 .into_iter()
-                .map(|q| q.bump(bump_decimal))
+                .map(|q| q.bump_rate_bp(*bp))
                 .collect();
         }
         BumpRequest::Tenors(targets) => {
             for (target_t, bp) in targets {
                 if let Some(idx) = find_closest_quote(&bumped_quotes, *target_t, as_of) {
-                    let bump_decimal = bp * 1e-4;
-                    bumped_quotes[idx] = bumped_quotes[idx].bump(bump_decimal);
+                    bumped_quotes[idx] = bumped_quotes[idx].bump_rate_bp(*bp);
                 }
             }
         }

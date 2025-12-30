@@ -86,6 +86,10 @@ impl ConventionRegistry {
         }
     }
 
+    fn not_found(id: impl Into<String>) -> Error {
+        finstack_core::InputError::NotFound { id: id.into() }.into()
+    }
+
     /// Access the global singleton registry.
     ///
     /// This will be initialized with embedded JSON data on the first call. The registry
@@ -142,11 +146,11 @@ impl ConventionRegistry {
     ///
     /// # Returns
     ///
-    /// `Ok(&RateIndexConventions)` if found, or `Err` with a validation error if not found.
+    /// `Ok(&RateIndexConventions)` if found, or `Err` with an `InputError::NotFound` if missing.
     ///
     /// # Errors
     ///
-    /// Returns `Error::Validation` if the index is not found in the registry.
+    /// Returns `InputError::NotFound` if the index is not found in the registry.
     ///
     /// # Examples
     ///
@@ -159,12 +163,9 @@ impl ConventionRegistry {
     /// # Ok::<(), finstack_core::Error>(())
     /// ```
     pub fn require_rate_index(&self, id: &IndexId) -> Result<&RateIndexConventions> {
-        self.rate_index.get(id).ok_or_else(|| {
-            Error::Validation(format!(
-                "Missing rate index conventions for '{}'. check rate_index_conventions.json",
-                id
-            ))
-        })
+        self.rate_index
+            .get(id)
+            .ok_or_else(|| Self::not_found(id.to_string()))
     }
 
     /// Resolve conventions for a CDS key.
@@ -175,11 +176,11 @@ impl ConventionRegistry {
     ///
     /// # Returns
     ///
-    /// `Ok(&CdsConventions)` if found, or `Err` with a validation error if not found.
+    /// `Ok(&CdsConventions)` if found, or `Err` with an `InputError::NotFound` if missing.
     ///
     /// # Errors
     ///
-    /// Returns `Error::Validation` if the key is not found in the registry.
+    /// Returns `InputError::NotFound` if the key is not found in the registry.
     ///
     /// # Examples
     ///
@@ -197,12 +198,9 @@ impl ConventionRegistry {
     /// # Ok::<(), finstack_core::Error>(())
     /// ```
     pub fn require_cds(&self, key: &CdsConventionKey) -> Result<&CdsConventions> {
-        self.cds.get(key).ok_or_else(|| {
-            Error::Validation(format!(
-                "Missing CDS conventions for '{}'. check cds_conventions.json",
-                key
-            ))
-        })
+        self.cds
+            .get(key)
+            .ok_or_else(|| Self::not_found(key.to_string()))
     }
 
     /// Resolve conventions for a Swaption.
@@ -213,18 +211,15 @@ impl ConventionRegistry {
     ///
     /// # Returns
     ///
-    /// `Ok(&SwaptionConventions)` if found, or `Err` with a validation error if not found.
+    /// `Ok(&SwaptionConventions)` if found, or `Err` with an `InputError::NotFound` if missing.
     ///
     /// # Errors
     ///
-    /// Returns `Error::Validation` if the ID is not found in the registry.
+    /// Returns `InputError::NotFound` if the ID is not found in the registry.
     pub fn require_swaption(&self, id: &SwaptionConventionId) -> Result<&SwaptionConventions> {
-        self.swaption.get(id).ok_or_else(|| {
-            Error::Validation(format!(
-                "Missing swaption conventions for '{}'. check swaption_conventions.json",
-                id
-            ))
-        })
+        self.swaption
+            .get(id)
+            .ok_or_else(|| Self::not_found(id.to_string()))
     }
 
     /// Resolve conventions for an Inflation Swap.
@@ -235,21 +230,18 @@ impl ConventionRegistry {
     ///
     /// # Returns
     ///
-    /// `Ok(&InflationSwapConventions)` if found, or `Err` with a validation error if not found.
+    /// `Ok(&InflationSwapConventions)` if found, or `Err` with an `InputError::NotFound` if missing.
     ///
     /// # Errors
     ///
-    /// Returns `Error::Validation` if the ID is not found in the registry.
+    /// Returns `InputError::NotFound` if the ID is not found in the registry.
     pub fn require_inflation_swap(
         &self,
         id: &InflationSwapConventionId,
     ) -> Result<&InflationSwapConventions> {
-        self.inflation_swap.get(id).ok_or_else(|| {
-            Error::Validation(format!(
-                "Missing inflation swap conventions for '{}'. check inflation_swap_conventions.json",
-                id
-            ))
-        })
+        self.inflation_swap
+            .get(id)
+            .ok_or_else(|| Self::not_found(id.to_string()))
     }
 
     /// Resolve conventions for an Option.
@@ -260,18 +252,15 @@ impl ConventionRegistry {
     ///
     /// # Returns
     ///
-    /// `Ok(&OptionConventions)` if found, or `Err` with a validation error if not found.
+    /// `Ok(&OptionConventions)` if found, or `Err` with an `InputError::NotFound` if missing.
     ///
     /// # Errors
     ///
-    /// Returns `Error::Validation` if the ID is not found in the registry.
+    /// Returns `InputError::NotFound` if the ID is not found in the registry.
     pub fn require_option(&self, id: &OptionConventionId) -> Result<&OptionConventions> {
-        self.option.get(id).ok_or_else(|| {
-            Error::Validation(format!(
-                "Missing option conventions for '{}'. check option_conventions.json",
-                id
-            ))
-        })
+        self.option
+            .get(id)
+            .ok_or_else(|| Self::not_found(id.to_string()))
     }
 
     /// Resolve conventions for an Interest Rate Future contract.
@@ -282,17 +271,14 @@ impl ConventionRegistry {
     ///
     /// # Returns
     ///
-    /// `Ok(&IrFutureConventions)` if found, or `Err` with a validation error if not found.
+    /// `Ok(&IrFutureConventions)` if found, or `Err` with an `InputError::NotFound` if missing.
     ///
     /// # Errors
     ///
-    /// Returns `Error::Validation` if the ID is not found in the registry.
+    /// Returns `InputError::NotFound` if the ID is not found in the registry.
     pub fn require_ir_future(&self, id: &IrFutureContractId) -> Result<&IrFutureConventions> {
-        self.ir_future.get(id).ok_or_else(|| {
-            Error::Validation(format!(
-                "Missing IR future conventions for '{}'. check ir_future_conventions.json",
-                id
-            ))
-        })
+        self.ir_future
+            .get(id)
+            .ok_or_else(|| Self::not_found(id.to_string()))
     }
 }

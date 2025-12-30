@@ -110,14 +110,14 @@ impl JsValuationResult {
 
     #[wasm_bindgen(js_name = metric)]
     pub fn metric(&self, name: &str) -> Option<f64> {
-        self.inner.measures.get(name).copied()
+        self.inner.metric_str(name)
     }
 
     #[wasm_bindgen(getter, js_name = measures)]
     pub fn measures(&self) -> js_sys::Map {
         let map = js_sys::Map::new();
         for (key, value) in &self.inner.measures {
-            map.set(&JsValue::from_str(key), &JsValue::from_f64(*value));
+            map.set(&JsValue::from_str(key.as_str()), &JsValue::from_f64(*value));
         }
         map
     }

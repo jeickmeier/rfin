@@ -15,7 +15,7 @@
 
 use finstack_core::HashMap;
 use serde::{Deserialize, Serialize};
-use std::borrow::Cow;
+use std::borrow::{Borrow, Cow};
 use std::fmt;
 use std::str::FromStr;
 use std::sync::OnceLock;
@@ -874,6 +874,12 @@ impl MetricId {
 impl fmt::Display for MetricId {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(f, "{}", self.as_str())
+    }
+}
+
+impl Borrow<str> for MetricId {
+    fn borrow(&self) -> &str {
+        self.as_str()
     }
 }
 

@@ -340,12 +340,12 @@ where
         return Ok(0.0);
     }
 
-    // Base PV from context
+    // Base PV from the pre-computed valuation
     let base_pv = context.base_value.amount();
 
     // Reprice at rolled date with same market context
-    let bumped_value = instrument.value(&context.curves, rolled_date)?;
-    let pv_change = bumped_value.amount() - base_pv;
+    let bumped_value = instrument.value_raw(&context.curves, rolled_date)?;
+    let pv_change = bumped_value - base_pv;
 
     // Collect cashflows during the period (if instrument provides them)
     let cashflows_during_period =
@@ -648,12 +648,12 @@ impl crate::metrics::MetricCalculator for GenericThetaAny {
             return Ok(0.0);
         }
 
-        // Base PV from context
+        // Base PV from the pre-computed valuation
         let base_pv = context.base_value.amount();
 
         // Reprice at rolled date with same market context using the trait method directly
-        let bumped_value = context.instrument.value(&context.curves, rolled_date)?;
-        let pv_change = bumped_value.amount() - base_pv;
+        let bumped_value = context.instrument.value_raw(&context.curves, rolled_date)?;
+        let pv_change = bumped_value - base_pv;
 
         // Collect cashflows during the period (using helper that does downcasting internally)
         let cashflows_during_period = collect_cashflows_in_period_any(
@@ -766,8 +766,7 @@ mod tests {
     fn calculate_theta_date_no_expiry() {
         let base = test_date();
         let rolled = calculate_theta_date(base, "1D", None).expect("roll 1D");
-        let expected =
-            Date::from_calendar_date(2025, Month::January, 2).expect("expected date");
+        let expected = Date::from_calendar_date(2025, Month::January, 2).expect("expected date");
         assert_eq!(rolled, expected);
     }
 
@@ -775,8 +774,7 @@ mod tests {
     fn calculate_theta_date_one_week() {
         let base = test_date();
         let rolled = calculate_theta_date(base, "1W", None).expect("roll 1W");
-        let expected =
-            Date::from_calendar_date(2025, Month::January, 8).expect("expected date");
+        let expected = Date::from_calendar_date(2025, Month::January, 8).expect("expected date");
         assert_eq!(rolled, expected);
     }
 
@@ -784,16 +782,14 @@ mod tests {
     fn calculate_theta_date_one_month() {
         let base = test_date();
         let rolled = calculate_theta_date(base, "1M", None).expect("roll 1M");
-        let expected =
-            Date::from_calendar_date(2025, Month::January, 31).expect("expected date");
+        let expected = Date::from_calendar_date(2025, Month::January, 31).expect("expected date");
         assert_eq!(rolled, expected);
     }
 
     #[test]
     fn calculate_theta_date_with_expiry_cap() {
         let base = test_date();
-        let expiry =
-            Date::from_calendar_date(2025, Month::January, 5).expect("expiry date");
+        let expiry = Date::from_calendar_date(2025, Month::January, 5).expect("expiry date");
 
         let rolled = calculate_theta_date(base, "1W", Some(expiry)).expect("roll 1W");
         assert_eq!(rolled, expiry);
@@ -802,20 +798,17 @@ mod tests {
     #[test]
     fn calculate_theta_date_before_expiry() {
         let base = test_date();
-        let expiry =
-            Date::from_calendar_date(2025, Month::February, 1).expect("expiry date");
+        let expiry = Date::from_calendar_date(2025, Month::February, 1).expect("expiry date");
 
         let rolled = calculate_theta_date(base, "1D", Some(expiry)).expect("roll 1D");
-        let expected =
-            Date::from_calendar_date(2025, Month::January, 2).expect("expected date");
+        let expected = Date::from_calendar_date(2025, Month::January, 2).expect("expected date");
         assert_eq!(rolled, expected);
     }
 
     #[test]
     fn calculate_theta_date_exactly_at_expiry() {
         let base = test_date();
-        let expiry =
-            Date::from_calendar_date(2025, Month::January, 31).expect("expiry date");
+        let expiry = Date::from_calendar_date(2025, Month::January, 31).expect("expiry date");
 
         let rolled = calculate_theta_date(base, "30D", Some(expiry)).expect("roll 30D");
         assert_eq!(rolled, expiry);
@@ -823,8 +816,7 @@ mod tests {
 
     #[test]
     fn calculate_theta_date_already_past_expiry() {
-        let base =
-            Date::from_calendar_date(2025, Month::February, 1).expect("base date");
+        let base = Date::from_calendar_date(2025, Month::February, 1).expect("base date");
         let expiry = test_date();
 
         let rolled = calculate_theta_date(base, "1D", Some(expiry)).expect("roll 1D");
@@ -845,18 +837,15 @@ mod tests {
     #[test]
     fn theta_workflow_short_dated_expiry_capped() {
         let base = test_date();
-        let expiry =
-            Date::from_calendar_date(2025, Month::January, 6).expect("expiry date");
+        let expiry = Date::from_calendar_date(2025, Month::January, 6).expect("expiry date");
 
-        let theta_date_1d =
-            calculate_theta_date(base, "1D", Some(expiry)).expect("roll 1D");
+        let theta_date_1d = calculate_theta_date(base, "1D", Some(expiry)).expect("roll 1D");
         assert_eq!(
             theta_date_1d,
             Date::from_calendar_date(2025, Month::January, 2).expect("expected date")
         );
 
-        let theta_date_1w =
-            calculate_theta_date(base, "1W", Some(expiry)).expect("roll 1W");
+        let theta_date_1w = calculate_theta_date(base, "1W", Some(expiry)).expect("roll 1W");
         assert_eq!(theta_date_1w, expiry);
     }
 }

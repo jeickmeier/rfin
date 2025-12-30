@@ -401,7 +401,7 @@ mod tests {
         let market = build_market_with_flat_curve(as_of, &dcf.discount_curve_id, 0.05);
         let mut mctx = build_metric_context(dcf, market, as_of);
 
-        let mut registry = crate::metrics::standard_registry();
+        let mut registry = crate::metrics::standard_registry().clone();
         crate::instruments::dcf::metrics::register_dcf_metrics(&mut registry);
 
         let results = registry
@@ -424,7 +424,7 @@ mod tests {
         let market = build_market_with_flat_curve(as_of, &dcf.discount_curve_id, 0.05);
         let mut mctx = build_metric_context(dcf, market, as_of);
 
-        let mut registry = crate::metrics::standard_registry();
+        let mut registry = crate::metrics::standard_registry().clone();
         crate::instruments::dcf::metrics::register_dcf_metrics(&mut registry);
 
         let results = registry
@@ -453,7 +453,7 @@ mod tests {
         let market = build_market_with_flat_curve(as_of, &dcf.discount_curve_id, 0.05);
         let mut mctx = build_metric_context(dcf, market, as_of);
 
-        let mut registry = crate::metrics::standard_registry();
+        let mut registry = crate::metrics::standard_registry().clone();
         crate::instruments::dcf::metrics::register_dcf_metrics(&mut registry);
 
         let results = registry

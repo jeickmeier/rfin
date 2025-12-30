@@ -80,7 +80,7 @@ use std::sync::Arc;
 ///
 /// HashMap mapping each curve ID to its total DV01 sensitivity.
 fn extract_bucketed_dv01_per_curve(
-    measures: &indexmap::IndexMap<String, f64>,
+    measures: &indexmap::IndexMap<MetricId, f64>,
     curve_ids: &[CurveId],
 ) -> HashMap<CurveId, f64> {
     let mut result = HashMap::default();
@@ -88,7 +88,7 @@ fn extract_bucketed_dv01_per_curve(
     // Pattern 1: Explicit per-curve keys "bucketed_dv01::{curve_id}"
     for curve_id in curve_ids {
         let key = format!("bucketed_dv01::{}", curve_id.as_str());
-        if let Some(&dv01) = measures.get(&key) {
+        if let Some(&dv01) = measures.get(key.as_str()) {
             result.insert(curve_id.clone(), dv01);
         }
     }
@@ -580,7 +580,7 @@ mod tests {
         ));
 
         let mut measures_t0 = IndexMap::new();
-        measures_t0.insert(MetricId::Theta.as_str().to_string(), -5.0);
+        measures_t0.insert(MetricId::Theta, -5.0);
 
         let val_t0 = ValuationResult::stamped_with_meta(
             "TEST-THETA",
@@ -629,7 +629,7 @@ mod tests {
             MarketContext::new().insert_discount(make_flat_curve("USD-OIS", as_of_t1, 0.0201));
 
         let mut measures_t0 = IndexMap::new();
-        measures_t0.insert("bucketed_dv01::USD-OIS".to_string(), -400.0);
+        measures_t0.insert(MetricId::custom("bucketed_dv01::USD-OIS"), -400.0);
 
         let val_t0 = ValuationResult::stamped_with_meta(
             "TEST-RATES",
@@ -678,9 +678,9 @@ mod tests {
 
         // Test with explicit per-curve keys
         let mut measures = IndexMap::new();
-        measures.insert("bucketed_dv01::USD-OIS".to_string(), -100.0);
-        measures.insert("bucketed_dv01::USD-SOFR".to_string(), -50.0);
-        measures.insert("bucketed_dv01::EUR-OIS".to_string(), -75.0);
+        measures.insert(MetricId::custom("bucketed_dv01::USD-OIS"), -100.0);
+        measures.insert(MetricId::custom("bucketed_dv01::USD-SOFR"), -50.0);
+        measures.insert(MetricId::custom("bucketed_dv01::EUR-OIS"), -75.0);
 
         let curve_ids = vec![
             CurveId::new("USD-OIS"),
@@ -702,7 +702,7 @@ mod tests {
 
         // Test with single curve using base key
         let mut measures = IndexMap::new();
-        measures.insert("bucketed_dv01".to_string(), -250.0);
+        measures.insert(MetricId::custom("bucketed_dv01"), -250.0);
 
         let curve_ids = vec![CurveId::new("USD-OIS")];
 
@@ -731,7 +731,7 @@ mod tests {
 
         // Test with some curves having bucketed metrics and others not
         let mut measures = IndexMap::new();
-        measures.insert("bucketed_dv01::USD-OIS".to_string(), -100.0);
+        measures.insert(MetricId::custom("bucketed_dv01::USD-OIS"), -100.0);
         // USD-SOFR is missing
 
         let curve_ids = vec![CurveId::new("USD-OIS"), CurveId::new("USD-SOFR")];
