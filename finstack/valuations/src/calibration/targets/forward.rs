@@ -5,7 +5,7 @@ use crate::calibration::config::CalibrationConfig;
 use crate::calibration::config::CalibrationMethod;
 use crate::calibration::prepared::CalibrationQuote;
 use crate::calibration::solver::{BootstrapTarget, SequentialBootstrapper};
-use crate::calibration::targets::util::{curve_day_count_from_quotes, sort_bootstrap_quotes};
+use crate::calibration::targets::util::curve_day_count_from_quotes;
 use crate::calibration::CalibrationReport;
 use crate::market::quotes::market_quote::{ExtractQuotes, MarketQuote};
 use finstack_core::dates::{Date, DayCount};
@@ -149,6 +149,9 @@ impl ForwardCurveTarget {
             prepared_quotes.push(CalibrationQuote::Rates(prepared));
         }
 
+        let mut config = global_config.clone();
+        config.calibration_method = params.method.clone();
+
         let target = ForwardCurveTarget::new(ForwardCurveTargetParams {
             base_date: params.base_date,
             currency: params.currency,
@@ -156,28 +159,27 @@ impl ForwardCurveTarget {
             discount_curve_id: params.discount_curve_id.clone(),
             tenor_years: params.tenor_years,
             solve_interp: params.interpolation,
-            config: global_config.clone(),
+            config: config.clone(),
             time_day_count: curve_dc,
             base_context: context.clone(),
         });
 
-        let (curve, report) = match params.method {
-            CalibrationMethod::Bootstrap => {
-                sort_bootstrap_quotes(&target, &mut prepared_quotes)?;
-                SequentialBootstrapper::bootstrap(
-                    &target,
-                    &prepared_quotes,
-                    Vec::new(),
-                    global_config,
-                    None,
-                )?
-            }
+        let (curve, mut report) = match params.method {
+            CalibrationMethod::Bootstrap => SequentialBootstrapper::bootstrap(
+                &target,
+                &prepared_quotes,
+                Vec::new(),
+                &config,
+                None,
+            )?,
             CalibrationMethod::GlobalSolve { .. } => {
                 return Err(finstack_core::Error::Input(
                     finstack_core::InputError::Invalid,
                 ));
             }
         };
+
+        report.update_solver_config(config.solver.clone());
 
         let new_context = context.clone().insert_forward(curve);
         Ok((new_context, report))

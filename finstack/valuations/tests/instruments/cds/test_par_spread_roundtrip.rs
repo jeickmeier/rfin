@@ -18,7 +18,6 @@ use finstack_core::market_data::term_structures::{DiscountCurve, ParInterp, Seni
 use finstack_core::math::interp::InterpStyle;
 use finstack_core::money::Money;
 use finstack_valuations::calibration::api::schema::{HazardCurveParams, StepParams};
-use finstack_valuations::calibration::execute_step_for_tests as execute_step;
 use finstack_valuations::calibration::CalibrationConfig;
 use finstack_valuations::calibration::CalibrationMethod;
 use finstack_valuations::instruments::cds::CreditDefaultSwap;
@@ -27,6 +26,7 @@ use finstack_valuations::market::conventions::ids::{CdsConventionKey, CdsDocClau
 use finstack_valuations::market::quotes::cds::CdsQuote;
 use finstack_valuations::market::quotes::ids::{Pillar, QuoteId};
 use finstack_valuations::market::quotes::market_quote::MarketQuote;
+use finstack_valuations::test_utils::calibration::execute_step;
 use time::Month;
 
 fn create_discount_curve(base_date: Date) -> DiscountCurve {

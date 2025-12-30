@@ -2,7 +2,7 @@
 
 use finstack_core::config::FinstackConfig;
 use finstack_valuations::calibration::{
-    CalibrationConfig, CalibrationSolveMethod, RateBounds, RateBoundsPolicy, SolverConfig,
+    CalibrationConfig, CalibrationMethod, RateBounds, RateBoundsPolicy, SolverConfig,
     CALIBRATION_CONFIG_KEY,
 };
 use serde_json::json;
@@ -39,12 +39,15 @@ fn calibration_config_applies_extension_overrides() {
             max_rate: 0.10
         }
     );
-    assert!(matches!(
-        cfg_out.calibration_method,
-        CalibrationSolveMethod::GlobalSolve {
-            use_analytical_jacobian: true
-        }
-    ));
+    assert!(
+        matches!(
+            cfg_out.calibration_method,
+            CalibrationMethod::GlobalSolve {
+                use_analytical_jacobian: true
+            }
+        ),
+        "expected calibration method override to propagate"
+    );
 }
 
 #[test]

@@ -316,6 +316,8 @@ impl VolSurfaceBootstrapper {
             report.update_metadata("failed_expiry_examples", failed_examples.join(" | "));
         }
 
+        report.update_solver_config(config.solver.clone());
+
         Ok((surface, report))
     }
 

@@ -176,8 +176,10 @@ pub enum EnumName {
 /// Currency-tagged monetary amount with safe arithmetic.
 ///
 /// Values are stored using a fixed-point representation derived from ISO 4217
-/// decimal places. Use [`Money::new_with_config`] when you need configurable
-/// rounding during ingestion.
+/// decimal places.
+///
+/// Use [`Money::new`] with a configuration argument when you need configurable
+/// rounding during ingestion: `Money::new(amount, (currency, &cfg))`.
 ///
 /// # Invariants
 /// - Currency is always valid (from ISO 4217)

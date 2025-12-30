@@ -113,7 +113,7 @@ impl ScenarioAdapter for CurveAdapter {
         op: &OperationSpec,
         ctx: &ExecutionContext,
     ) -> Result<Option<Vec<ScenarioEffect>>> {
-        use finstack_valuations::calibration::{
+        use finstack_valuations::calibration::bumps::{
             bump_discount_curve_synthetic, bump_hazard_shift, bump_hazard_spreads,
             bump_inflation_rates, BumpRequest,
         };

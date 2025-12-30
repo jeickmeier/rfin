@@ -7,6 +7,7 @@ use crate::calibration::api::schema::CalibrationStep;
 use crate::calibration::api::schema::{CalibrationResult, CalibrationResultEnvelope};
 use crate::calibration::step_runtime;
 use crate::calibration::step_runtime::{OutputKey, StepOutcome};
+use crate::calibration::validation::preflight_step;
 use crate::calibration::CalibrationReport;
 use crate::market::quotes::market_quote::MarketQuote;
 use finstack_core::explain::{ExplanationTrace, TraceEntry};
@@ -133,7 +134,7 @@ pub fn execute(envelope: &CalibrationEnvelope) -> Result<CalibrationResultEnvelo
                     })
                 })?;
 
-                match step_runtime::preflight(step, quotes, &context, &plan.settings) {
+                match preflight_step(step, quotes, &context, &plan.settings) {
                     Ok(()) => {}
                     Err(err) => {
                         if batch.is_empty() {
@@ -195,7 +196,7 @@ pub fn execute(envelope: &CalibrationEnvelope) -> Result<CalibrationResultEnvelo
                 })
             })?;
 
-            step_runtime::preflight(step, quotes, &context, &plan.settings)?;
+            preflight_step(step, quotes, &context, &plan.settings)?;
 
             let outcome = step_runtime::execute(step, quotes, &context, &plan.settings)?;
             step_runtime::apply_output(&mut context, outcome.output, outcome.credit_index_update);

@@ -4,13 +4,13 @@ use finstack_core::dates::Date;
 use finstack_core::market_data::context::MarketContext;
 use finstack_core::market_data::term_structures::DiscountCurve;
 use finstack_valuations::calibration::api::schema::{ForwardCurveParams, StepParams};
-use finstack_valuations::calibration::execute_step_for_tests as execute_step;
 use finstack_valuations::calibration::CalibrationConfig;
 use finstack_valuations::calibration::CalibrationMethod;
 use finstack_valuations::market::conventions::ids::IndexId;
 use finstack_valuations::market::quotes::ids::{Pillar, QuoteId};
 use finstack_valuations::market::quotes::market_quote::MarketQuote;
 use finstack_valuations::market::quotes::rates::RateQuote;
+use finstack_valuations::test_utils::calibration::execute_step;
 use std::hint::black_box;
 use time::Month;
 

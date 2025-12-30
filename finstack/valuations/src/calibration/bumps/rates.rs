@@ -4,7 +4,7 @@ use super::BumpRequest;
 use crate::calibration::api::schema::{DiscountCurveParams, StepParams};
 use crate::calibration::config::CalibrationMethod;
 use crate::calibration::config::RatesStepConventions;
-use crate::calibration::targets::handlers::execute_step;
+use crate::calibration::step_runtime;
 use crate::calibration::CalibrationConfig;
 use crate::market::quotes::ids::{Pillar, QuoteId};
 use crate::market::quotes::market_quote::MarketQuote;
@@ -50,7 +50,8 @@ pub fn bump_discount_curve(
         bumped_quotes.into_iter().map(MarketQuote::Rates).collect();
     let step = StepParams::Discount(params.clone());
     let cfg = CalibrationConfig::default();
-    let (ctx, _report) = execute_step(&step, &market_quotes, base_context, &cfg)?;
+    let (ctx, _report) =
+        step_runtime::execute_params_and_apply(&step, &market_quotes, base_context, &cfg)?;
 
     Ok(ctx.get_discount(params.curve_id.as_str())?.as_ref().clone())
 }

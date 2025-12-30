@@ -181,11 +181,7 @@ impl JsMoney {
     /// ```
     #[wasm_bindgen(js_name = fromConfig)]
     pub fn from_config(amount: f64, currency: &JsCurrency, config: &JsFinstackConfig) -> JsMoney {
-        JsMoney::from_inner(Money::new_with_config(
-            amount,
-            currency.inner(),
-            config.inner(),
-        ))
+        JsMoney::from_inner(Money::new(amount, (currency.inner(), config.inner())))
     }
 
     /// Format using ISO minor units (e.g., "USD 10.00").

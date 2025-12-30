@@ -11,7 +11,6 @@
 //!   market quotes to concrete pricing inputs.
 //!
 //! # See Also
-//! - [`handlers`] for the orchestration of these targets during calibration steps.
 //! - [`crate::calibration::api`] for the schema that drives these targets.
 
 /// Base correlation curve bootstrapping from CDS tranche quotes.
@@ -20,8 +19,6 @@ pub mod base_correlation;
 pub mod discount;
 /// Forward curve bootstrapping from rate quotes.
 pub mod forward;
-/// Calibration step execution handlers.
-pub mod handlers;
 /// Hazard curve bootstrapping from CDS quotes.
 pub mod hazard;
 /// Inflation curve bootstrapping from inflation swap quotes.

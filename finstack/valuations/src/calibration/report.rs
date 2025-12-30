@@ -247,6 +247,14 @@ impl CalibrationReport {
     /// Update solver configuration on an existing report.
     pub fn update_solver_config(&mut self, config: SolverConfig) {
         self.solver_config = config;
+        self.metadata.insert(
+            "solver_tolerance".to_string(),
+            format!("{:.2e}", self.solver_config.tolerance()),
+        );
+        self.metadata.insert(
+            "solver_max_iterations".to_string(),
+            self.solver_config.max_iterations().to_string(),
+        );
     }
 
     /// Create a calibration report for a specific calibration type with tolerance checking.
@@ -305,7 +313,8 @@ impl CalibrationReport {
                 ),
             )
             .with_metadata("type", type_str)
-            .with_metadata("tolerance", format!("{:.2e}", tolerance));
+            .with_metadata("tolerance", format!("{:.2e}", tolerance))
+            .with_metadata("success_tolerance", format!("{:.2e}", tolerance));
         }
 
         let diag = compute_residual_diagnostics(&residuals);
@@ -348,9 +357,12 @@ impl CalibrationReport {
             )
         };
 
+        let tolerance_str = format!("{:.2e}", tolerance);
+
         Self::new(residuals, iterations, success, convergence_reason)
             .with_metadata("type", type_str)
-            .with_metadata("tolerance", format!("{:.2e}", tolerance))
+            .with_metadata("tolerance", tolerance_str.clone())
+            .with_metadata("success_tolerance", tolerance_str)
     }
 }
 
@@ -499,6 +511,10 @@ mod tests {
             report.metadata.get("tolerance"),
             deserialized.metadata.get("tolerance")
         );
+        assert_eq!(
+            report.metadata.get("success_tolerance"),
+            deserialized.metadata.get("success_tolerance")
+        );
     }
 
     #[test]
@@ -520,6 +536,11 @@ mod tests {
         assert_eq!(
             report.metadata.get("type"),
             Some(&"yield_curve".to_string())
+        );
+        assert_eq!(
+            report.metadata.get("success_tolerance"),
+            report.metadata.get("tolerance"),
+            "success_tolerance should mirror tolerance metadata"
         );
     }
 }

@@ -414,6 +414,8 @@ Set params.sabr_extrapolation='clamp' to allow flat extrapolation.",
         );
         report.update_metadata("clamped_target_points", extrapolated_points.to_string());
 
+        report.update_solver_config(config.solver.clone());
+
         Ok((surface, report))
     }
 

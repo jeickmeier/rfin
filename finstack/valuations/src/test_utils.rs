@@ -51,3 +51,25 @@ pub fn flat_vol_surface(id: &str, expiries: &[f64], strikes: &[f64], vol: f64) -
     }
     builder.build().expect("vol surface should build in tests")
 }
+
+/// Calibration-specific helpers for integration tests.
+pub mod calibration {
+    use crate::calibration::api::schema::StepParams;
+    use crate::calibration::step_runtime;
+    use crate::calibration::{CalibrationConfig, CalibrationReport};
+    use crate::market::quotes::market_quote::MarketQuote;
+    use finstack_core::market_data::context::MarketContext;
+    use finstack_core::Result;
+
+    /// Execute a single calibration step for tests/benchmarks without engaging the full plan engine.
+    ///
+    /// This replaces the deprecated `calibration::execute_step_for_tests` shim.
+    pub fn execute_step(
+        params: &StepParams,
+        quotes: &[MarketQuote],
+        context: &MarketContext,
+        global_config: &CalibrationConfig,
+    ) -> Result<(MarketContext, CalibrationReport)> {
+        step_runtime::execute_params_and_apply(params, quotes, context, global_config)
+    }
+}

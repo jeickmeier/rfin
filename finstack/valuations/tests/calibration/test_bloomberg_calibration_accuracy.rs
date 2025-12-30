@@ -11,13 +11,13 @@ use finstack_core::math::interp::InterpStyle;
 use finstack_valuations::calibration::api::schema::{
     CalibrationMethod, DiscountCurveParams, StepParams,
 };
-use finstack_valuations::calibration::execute_step_for_tests as execute_step;
 use finstack_valuations::calibration::ResidualWeightingScheme;
 use finstack_valuations::calibration::{CalibrationConfig, CALIBRATION_CONFIG_KEY};
 use finstack_valuations::market::conventions::ids::IndexId;
 use finstack_valuations::market::quotes::ids::{Pillar, QuoteId};
 use finstack_valuations::market::quotes::market_quote::MarketQuote;
 use finstack_valuations::market::quotes::rates::RateQuote;
+use finstack_valuations::test_utils::calibration::execute_step;
 use time::Month;
 
 /// Helper to create deposit quotes with ACT/360 day count (using "USD-FEDFUNDS-OIS" conventions)

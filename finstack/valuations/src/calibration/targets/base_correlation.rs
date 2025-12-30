@@ -4,7 +4,6 @@ use crate::calibration::api::schema::BaseCorrelationParams;
 use crate::calibration::config::CalibrationConfig;
 use crate::calibration::prepared::{CalibrationQuote, CdsTrancheCalibrationQuote};
 use crate::calibration::solver::{BootstrapTarget, SequentialBootstrapper};
-use crate::calibration::targets::util::sort_bootstrap_quotes;
 use crate::calibration::CalibrationReport;
 use crate::market::build::cds_tranche::{build_cds_tranche_instrument, CdsTrancheBuildOverrides};
 use crate::market::build::context::BuildCtx;
@@ -253,16 +252,16 @@ impl BaseCorrelationBootstrapper {
         }
 
         let target = BaseCorrelationBootstrapper::new(params.clone(), context.clone());
-        let mut prepared_quotes = target.prepare_quotes(tranche_quotes)?;
-        sort_bootstrap_quotes(&target, &mut prepared_quotes)?;
-
-        let (curve, report) = SequentialBootstrapper::bootstrap(
+        let prepared_quotes = target.prepare_quotes(tranche_quotes)?;
+        let (curve, mut report) = SequentialBootstrapper::bootstrap(
             &target,
             &prepared_quotes,
             Vec::new(),
             global_config,
             None,
         )?;
+
+        report.update_solver_config(global_config.solver.clone());
 
         let mut new_context = context.clone().insert_base_correlation(curve.clone());
         if let Ok(idx) = new_context.credit_index(params.index_id.as_str()) {

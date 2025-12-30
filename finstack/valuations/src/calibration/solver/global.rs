@@ -334,6 +334,8 @@ impl GlobalFitOptimizer {
             }
         }
 
+        report.update_solver_config(config.solver.clone());
+
         Ok((final_curve, report))
     }
 }

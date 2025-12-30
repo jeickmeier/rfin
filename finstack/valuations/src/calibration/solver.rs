@@ -31,6 +31,15 @@ pub mod traits;
 pub use config::SolverConfig;
 pub(crate) use helpers::bracket_solve_1d_with_diagnostics;
 
+#[deprecated(note = "The solver modules are internal implementation details. \
+            Use the plan-driven engine (`calibration::api`) instead. \
+            These re-exports will be removed in the next major release.")]
 pub use bootstrap::SequentialBootstrapper;
+#[deprecated(note = "The solver modules are internal implementation details. \
+            Use the plan-driven engine (`calibration::api`) instead. \
+            These re-exports will be removed in the next major release.")]
 pub use global::GlobalFitOptimizer;
+#[deprecated(note = "The solver traits are internal implementation details. \
+            Use the plan-driven engine (`calibration::api`) instead. \
+            These re-exports will be removed in the next major release.")]
 pub use traits::{BootstrapTarget, GlobalSolveTarget};

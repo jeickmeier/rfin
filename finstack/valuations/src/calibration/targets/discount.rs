@@ -372,8 +372,7 @@ Global solve requires strictly increasing times.",
         if matches!(params.method, CalibrationMethod::GlobalSolve { .. })
             && config.discount_curve.bootstrap_seed_global_solve
         {
-            let mut seed_quotes = prepared_quotes.clone();
-            crate::calibration::targets::util::sort_bootstrap_quotes(&target, &mut seed_quotes)?;
+            let seed_quotes = prepared_quotes.clone();
 
             match SequentialBootstrapper::bootstrap(
                 &target,
@@ -393,19 +392,13 @@ Global solve requires strictly increasing times.",
         }
 
         let (mut curve, mut report) = match params.method {
-            CalibrationMethod::Bootstrap => {
-                crate::calibration::targets::util::sort_bootstrap_quotes(
-                    &target,
-                    &mut prepared_quotes,
-                )?;
-                SequentialBootstrapper::bootstrap(
-                    &target,
-                    &prepared_quotes,
-                    vec![(0.0, 1.0)],
-                    &config,
-                    None,
-                )?
-            }
+            CalibrationMethod::Bootstrap => SequentialBootstrapper::bootstrap(
+                &target,
+                &prepared_quotes,
+                vec![(0.0, 1.0)],
+                &config,
+                None,
+            )?,
             CalibrationMethod::GlobalSolve { .. } => {
                 GlobalFitOptimizer::optimize(&target, &prepared_quotes, &config)?
             }

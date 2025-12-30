@@ -28,3 +28,4 @@ mod rounding;
 mod types;
 
 pub use types::Money;
+pub use types::Try;

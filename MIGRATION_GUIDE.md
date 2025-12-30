@@ -88,6 +88,20 @@ Do you use calibration heavily?
   - `finstack_valuations::calibration::{api::*, SolverConfig, CalibrationConfig, ValidationConfig}` and bump helpers `calibration::bumps::{bump_discount_curve_synthetic, bump_hazard_spreads, bump_inflation_rates, BumpRequest}`
 - **Deprecated paths** (still available for one release, will be removed): deep module imports such as `instruments::common::models`, `calibration::bumps::rates`/`hazard`/`inflation`, `covenants::engine`/`forward`, `attribution::types`/`spec`/`metrics_based`. Update imports to the canonical paths above.
 
+### Calibration API slimming
+
+The calibration module now has a single supported pathway: the v2 plan schema/engine plus the `calibration::bumps` helpers. The following items are deprecated and will be removed in the next major release:
+
+| Deprecated | Replacement |
+| --- | --- |
+| `finstack_valuations::calibration::CalibrationSolveMethod` | `finstack_valuations::calibration::CalibrationMethod` |
+| `finstack_valuations::calibration::execute_step_for_tests` | `finstack_valuations::test_utils::calibration::execute_step` (requires `test-utils` feature or tests) |
+| Root-level bump helpers (e.g., `calibration::bump_hazard_shift`) | Import from `finstack_valuations::calibration::bumps::{...}` |
+| Config re-exports via `calibration::api::schema::{CalibrationConfig, CalibrationMethod, ...}` | Import config types from `finstack_valuations::calibration::{...}` |
+| Solver re-exports (`SequentialBootstrapper`, `GlobalFitOptimizer`, `BootstrapTarget`, `GlobalSolveTarget`) | Use the v2 plan engine; solver internals will become crate-private |
+
+All deprecated symbols emit compile-time warnings with details on the replacement path.
+
 ---
 
 ## Breaking Changes by Phase

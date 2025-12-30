@@ -346,8 +346,68 @@ impl SequentialBootstrapper {
 }
 
 #[cfg(test)]
-#[allow(clippy::expect_used, clippy::panic)]
 mod tests {
+    use super::*;
+    use crate::calibration::solver::BootstrapTarget;
+
+    #[derive(Clone, Debug)]
+    struct DummyTarget;
+
+    #[derive(Clone, Debug, PartialEq)]
+    struct DummyCurve(Vec<(f64, f64)>);
+
+    impl BootstrapTarget for DummyTarget {
+        type Quote = (f64, f64);
+        type Curve = DummyCurve;
+
+        fn quote_time(&self, quote: &Self::Quote) -> Result<f64> {
+            Ok(quote.0)
+        }
+
+        fn build_curve(&self, knots: &[(f64, f64)]) -> Result<Self::Curve> {
+            Ok(DummyCurve(knots.to_vec()))
+        }
+
+        fn calculate_residual(&self, curve: &Self::Curve, quote: &Self::Quote) -> Result<f64> {
+            let current = curve
+                .0
+                .iter()
+                .find(|(t, _)| (*t - quote.0).abs() < 1e-12)
+                .map(|(_, v)| *v)
+                .unwrap_or(0.0);
+            Ok(current - quote.1)
+        }
+
+        fn initial_guess(
+            &self,
+            quote: &Self::Quote,
+            _previous_knots: &[(f64, f64)],
+        ) -> Result<f64> {
+            Ok(quote.1)
+        }
+    }
+
+    #[test]
+    fn bootstrap_is_order_invariant() -> Result<()> {
+        let target = DummyTarget;
+        let quotes = vec![(0.5, 0.01), (1.0, 0.015), (2.0, 0.02)];
+        let mut shuffled = quotes.clone();
+        shuffled.reverse();
+
+        let config = CalibrationConfig::default();
+        let (curve_a, _) =
+            SequentialBootstrapper::bootstrap(&target, &quotes, Vec::new(), &config, None)?;
+        let (curve_b, _) =
+            SequentialBootstrapper::bootstrap(&target, &shuffled, Vec::new(), &config, None)?;
+
+        assert_eq!(curve_a, curve_b);
+        Ok(())
+    }
+}
+
+#[cfg(test)]
+#[allow(clippy::expect_used, clippy::panic)]
+mod solver_tests {
     use super::*;
     use finstack_core::Error;
 

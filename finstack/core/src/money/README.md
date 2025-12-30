@@ -16,7 +16,7 @@ The design enforces **currency safety** (no implicit cross‑currency math), **a
   - Re‑exports `Money`.
   - Exposes the `fx` submodule.
 - **`types.rs`**: implementation of the `Money` type
-  - Constructors (`new`, `new_with_config`) and accessors.
+  - Constructor (`new`) and accessors.
   - Checked and unchecked arithmetic.
   - Formatting helpers and the `money!` macro.
   - `Money::convert` for FX‑aware conversion.
@@ -52,7 +52,7 @@ All public APIs are documented with examples in the Rustdoc comments; this READM
 - **Construction**
   - `Money::new(amount: f64, currency: Currency)`  
     Uses ISO‑4217 minor units and **bankers rounding** by default.
-  - `Money::new_with_config(amount: f64, currency: Currency, cfg: &FinstackConfig)`  
+  - `Money::new(amount: f64, (currency: Currency, cfg: &FinstackConfig))`  
     Uses ingest‑scale and rounding mode from `cfg`.
   - `From<(f64, Currency)>`, `From<(i64, Currency)>`, `From<(u64, Currency)>` for convenient tuple construction.
   - `money!(amount, USD)` macro shorthand.

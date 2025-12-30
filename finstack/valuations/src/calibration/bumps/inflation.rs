@@ -3,7 +3,7 @@
 use super::BumpRequest;
 use crate::calibration::api::schema::{InflationCurveParams, StepParams};
 use crate::calibration::config::CalibrationMethod;
-use crate::calibration::targets::handlers::execute_step;
+use crate::calibration::step_runtime;
 use crate::calibration::CalibrationConfig;
 use crate::market::conventions::ids::InflationSwapConventionId;
 use crate::market::quotes::inflation::InflationQuote;
@@ -121,7 +121,8 @@ pub fn bump_inflation_rates(
 
     let cfg = CalibrationConfig::default();
     let step = StepParams::Inflation(params.clone());
-    let (ctx, _report) = execute_step(&step, &market_quotes, context, &cfg)?;
+    let (ctx, _report) =
+        step_runtime::execute_params_and_apply(&step, &market_quotes, context, &cfg)?;
     Ok(ctx
         .get_inflation(params.curve_id.as_str())?
         .as_ref()

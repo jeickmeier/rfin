@@ -3,7 +3,7 @@
 use super::BumpRequest;
 use crate::calibration::api::schema::{HazardCurveParams, StepParams};
 use crate::calibration::config::CalibrationMethod;
-use crate::calibration::targets::handlers::execute_step;
+use crate::calibration::step_runtime;
 use crate::calibration::CalibrationConfig;
 use crate::market::quotes::cds::CdsQuote;
 use crate::market::quotes::market_quote::MarketQuote;
@@ -137,7 +137,8 @@ pub fn bump_hazard_spreads(
 
     let cfg = CalibrationConfig::default();
     let step = StepParams::Hazard(params.clone());
-    let (ctx, _report) = execute_step(&step, &market_quotes, context, &cfg)?;
+    let (ctx, _report) =
+        step_runtime::execute_params_and_apply(&step, &market_quotes, context, &cfg)?;
     let new_curve = ctx.get_hazard(params.curve_id.as_str())?.as_ref().clone();
     Ok(new_curve)
 }

@@ -173,6 +173,7 @@
 //! - [`metrics`]: [`metrics::MetricId`], [`metrics::MetricRegistry`], [`metrics::MetricCalculator`], [`metrics::MetricContext`], [`metrics::StrictMode`], [`metrics::standard_registry`], plus VaR/Risk entry points
 //! - [`market`]: quote schemas and conventions
 //! - [`calibration::api`]: plan schema and execution engine (contract-only surface)
+//! - [`calibration::bumps`]: shared re-calibration helpers for scenarios and risk
 //! - [`attribution`]: attribution envelopes, methods, and execution functions
 //! - [`covenants`]: covenant specs, engine, and forecasting helpers
 //! - [`margin`]: core margin/netting types and top-level calculators used by portfolio

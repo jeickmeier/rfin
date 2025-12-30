@@ -5,7 +5,6 @@ use crate::calibration::prepared::CalibrationQuote;
 use crate::calibration::solver::{
     BootstrapTarget, GlobalFitOptimizer, GlobalSolveTarget, SequentialBootstrapper,
 };
-use crate::calibration::targets::util::sort_bootstrap_quotes;
 use crate::calibration::CalibrationReport;
 use crate::instruments::cds::CdsConventionResolved;
 use crate::market::build::context::BuildCtx;
@@ -107,8 +106,10 @@ impl HazardBootstrapper {
             ));
         }
 
-        let target =
-            HazardBootstrapper::new(params.clone(), context.clone(), global_config.clone())?;
+        let mut config = global_config.clone();
+        config.calibration_method = params.method.clone();
+
+        let target = HazardBootstrapper::new(params.clone(), context.clone(), config.clone())?;
 
         let mut prepared_quotes: Vec<CalibrationQuote> = Vec::with_capacity(cds_quotes.len());
         let mut curve_ids = HashMap::default();
@@ -135,23 +136,20 @@ impl HazardBootstrapper {
         }
 
         let (curve, report) = match params.method {
-            CalibrationMethod::Bootstrap => {
-                sort_bootstrap_quotes(&target, &mut prepared_quotes)?;
-                SequentialBootstrapper::bootstrap(
-                    &target,
-                    &prepared_quotes,
-                    Vec::new(),
-                    global_config,
-                    None,
-                )?
-            }
+            CalibrationMethod::Bootstrap => SequentialBootstrapper::bootstrap(
+                &target,
+                &prepared_quotes,
+                Vec::new(),
+                &config,
+                None,
+            )?,
             CalibrationMethod::GlobalSolve { .. } => {
-                GlobalFitOptimizer::optimize(&target, &prepared_quotes, global_config)?
+                GlobalFitOptimizer::optimize(&target, &prepared_quotes, &config)?
             }
         };
 
         let mut report = report;
-        report.update_solver_config(global_config.solver.clone());
+        report.update_solver_config(config.solver.clone());
 
         let new_context = context.clone().insert_hazard(curve);
         Ok((new_context, report))

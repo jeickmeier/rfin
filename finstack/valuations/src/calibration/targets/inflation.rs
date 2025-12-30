@@ -2,7 +2,6 @@ use crate::calibration::api::schema::InflationCurveParams;
 use crate::calibration::config::{CalibrationConfig, CalibrationMethod};
 use crate::calibration::prepared::CalibrationQuote;
 use crate::calibration::solver::{BootstrapTarget, SequentialBootstrapper};
-use crate::calibration::targets::util::sort_bootstrap_quotes;
 use crate::calibration::CalibrationReport;
 use crate::market::quotes::inflation::InflationQuote;
 use crate::market::quotes::market_quote::{ExtractQuotes, MarketQuote};
@@ -275,27 +274,29 @@ impl InflationBootstrapper {
             ));
         }
 
-        let target =
-            InflationBootstrapper::new(params.clone(), context.clone(), global_config.use_parallel);
-        let mut prepared_quotes = target.prepare_quotes(inflation_quotes)?;
+        let mut config = global_config.clone();
+        config.calibration_method = params.method.clone();
 
-        let (curve, report) = match params.method {
-            CalibrationMethod::Bootstrap => {
-                sort_bootstrap_quotes(&target, &mut prepared_quotes)?;
-                SequentialBootstrapper::bootstrap(
-                    &target,
-                    &prepared_quotes,
-                    Vec::new(),
-                    global_config,
-                    None,
-                )?
-            }
+        let target =
+            InflationBootstrapper::new(params.clone(), context.clone(), config.use_parallel);
+        let prepared_quotes = target.prepare_quotes(inflation_quotes)?;
+
+        let (curve, mut report) = match params.method {
+            CalibrationMethod::Bootstrap => SequentialBootstrapper::bootstrap(
+                &target,
+                &prepared_quotes,
+                Vec::new(),
+                &config,
+                None,
+            )?,
             CalibrationMethod::GlobalSolve { .. } => {
                 return Err(finstack_core::Error::Input(
                     finstack_core::InputError::Invalid,
                 ));
             }
         };
+
+        report.update_solver_config(config.solver.clone());
 
         let new_context = context.clone().insert_inflation(curve);
         Ok((new_context, report))

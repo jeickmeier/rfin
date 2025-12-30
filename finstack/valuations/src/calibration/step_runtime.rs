@@ -7,7 +7,6 @@ use crate::calibration::targets::hazard::HazardBootstrapper;
 use crate::calibration::targets::inflation::InflationBootstrapper;
 use crate::calibration::targets::swaption::SwaptionVolBootstrapper;
 use crate::calibration::targets::vol::VolSurfaceBootstrapper;
-use crate::calibration::validation::preflight_step;
 use crate::calibration::CalibrationReport;
 use crate::market::quotes::market_quote::MarketQuote;
 use finstack_core::explain::TraceEntry;
@@ -72,24 +71,14 @@ pub(crate) fn apply_output(
     }
 }
 
-/// Pre-flight validation wrapper to keep a single call-site.
-pub(crate) fn preflight(
-    step: &CalibrationStep,
-    quotes: &[MarketQuote],
-    context: &MarketContext,
-    global_config: &CalibrationConfig,
-) -> Result<()> {
-    preflight_step(step, quotes, context, global_config)
-}
-
-/// Execute a calibration step and normalize its output/result.
-pub(crate) fn execute(
-    step: &CalibrationStep,
+/// Execute calibration logic for the provided [`StepParams`].
+pub(crate) fn execute_params(
+    params: &StepParams,
     quotes: &[MarketQuote],
     context: &MarketContext,
     global_config: &CalibrationConfig,
 ) -> Result<StepOutcome> {
-    match &step.params {
+    match params {
         StepParams::Discount(p) => {
             let (ctx, report) = DiscountCurveTarget::solve(p, quotes, context, global_config)?;
             let output = StepOutput::Curve(ctx.get_discount(&p.curve_id)?.into());
@@ -173,4 +162,33 @@ pub(crate) fn execute(
             })
         }
     }
+}
+
+/// Execute a calibration step and normalize its output/result.
+pub(crate) fn execute(
+    step: &CalibrationStep,
+    quotes: &[MarketQuote],
+    context: &MarketContext,
+    global_config: &CalibrationConfig,
+) -> Result<StepOutcome> {
+    execute_params(&step.params, quotes, context, global_config)
+}
+
+/// Execute [`StepParams`] directly and apply the output to a cloned context.
+pub(crate) fn execute_params_and_apply(
+    params: &StepParams,
+    quotes: &[MarketQuote],
+    context: &MarketContext,
+    global_config: &CalibrationConfig,
+) -> Result<(MarketContext, CalibrationReport)> {
+    let outcome = execute_params(params, quotes, context, global_config)?;
+    let StepOutcome {
+        output,
+        credit_index_update,
+        report,
+    } = outcome;
+
+    let mut new_context = context.clone();
+    apply_output(&mut new_context, output, credit_index_update);
+    Ok((new_context, report))
 }
