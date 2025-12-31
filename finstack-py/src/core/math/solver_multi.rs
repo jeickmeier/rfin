@@ -134,11 +134,35 @@ impl PyLevenbergMarquardtSolver {
         )
     }
 
-    fn solve_system(&self, residuals: Bound<'_, PyAny>, initial: Vec<f64>) -> PyResult<Vec<f64>> {
+    /// Solve system of equations using Levenberg-Marquardt.
+    ///
+    /// Parameters
+    /// ----------
+    /// residuals : callable
+    ///     Function that takes params (list[float]) and returns residuals (list[float]).
+    /// initial : list[float]
+    ///     Initial parameter guess.
+    /// n_residuals : int
+    ///     Number of residuals (equations) in the system.
+    ///
+    /// Returns
+    /// -------
+    /// list[float]
+    ///     Parameter vector that minimizes ||residuals(params)||².
+    fn solve_system(
+        &self,
+        residuals: Bound<'_, PyAny>,
+        initial: Vec<f64>,
+        n_residuals: usize,
+    ) -> PyResult<Vec<f64>> {
         let adapter = VectorCallableAdapter::new(residuals)?;
         let residual_closure = adapter.residual_closure();
         adapter.run_core(
-            || self.inner.solve_system(residual_closure, &initial),
+            || {
+                self.inner
+                    .solve_system_with_dim_stats(residual_closure, &initial, n_residuals)
+                    .map(|solution| solution.params)
+            },
             core_to_py,
         )
     }

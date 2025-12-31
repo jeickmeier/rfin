@@ -16,7 +16,7 @@ use finstack_core::cashflow::npv;
 use finstack_core::currency::Currency;
 use finstack_core::dates::{Date, DayCount, DayCountCtx};
 use finstack_core::market_data::traits::{Discounting, TermStructure};
-use finstack_core::math::stable_sum;
+use finstack_core::math::neumaier_sum;
 use finstack_core::money::Money;
 use finstack_core::types::CurveId;
 use time::Month;
@@ -104,7 +104,7 @@ fn npv_100_cashflows_maintains_precision() {
             amt.amount() * (-0.05 * t).exp()
         })
         .collect();
-    let expected = stable_sum(&expected_terms);
+    let expected = neumaier_sum(expected_terms.iter().copied());
 
     assert!(
         (pv.amount() - expected).abs() < financial_tolerance(expected),
@@ -140,7 +140,7 @@ fn npv_500_cashflows_maintains_precision() {
             amt.amount() * (-0.05 * t).exp()
         })
         .collect();
-    let expected = stable_sum(&expected_terms);
+    let expected = neumaier_sum(expected_terms.iter().copied());
 
     assert!(
         (pv.amount() - expected).abs() < financial_tolerance(expected),

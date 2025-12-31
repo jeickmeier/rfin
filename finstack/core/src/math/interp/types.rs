@@ -147,6 +147,27 @@ impl Interp {
 impl InterpStyle {
     /// Build a boxed interpolator implementing [`InterpFn`].
     ///
+    /// # Performance Note
+    ///
+    /// This method returns `Box<dyn InterpFn>` which incurs heap allocation and
+    /// dynamic dispatch overhead. For hot paths (e.g., curve evaluation in pricing
+    /// loops), prefer using the concrete interpolator types directly:
+    ///
+    /// ```rust
+    /// use finstack_core::math::interp::{MonotoneConvex, ExtrapolationPolicy, ValidationPolicy};
+    ///
+    /// # fn main() -> finstack_core::Result<()> {
+    /// // Preferred: direct construction (no heap allocation, static dispatch)
+    /// let interp = MonotoneConvex::new(
+    ///     vec![0.0, 1.0, 2.0].into_boxed_slice(),
+    ///     vec![1.0, 0.95, 0.90].into_boxed_slice(),
+    ///     ExtrapolationPolicy::FlatZero,
+    ///     ValidationPolicy::Strict,
+    /// )?;
+    /// # Ok(())
+    /// # }
+    /// ```
+    ///
     /// # Arguments
     /// * `knots` – strictly ascending knot times.
     /// * `values` – corresponding values.

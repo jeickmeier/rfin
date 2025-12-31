@@ -1,6 +1,4 @@
-use finstack_core::math::summation::{
-    kahan_sum, neumaier_sum, pairwise_sum, stable_sum, NeumaierAccumulator,
-};
+use finstack_core::math::summation::{kahan_sum, neumaier_sum, NeumaierAccumulator};
 
 // ===================================================================
 // Kahan Sum Tests
@@ -282,209 +280,20 @@ fn test_neumaier_accumulator_alternating() {
 }
 
 // ===================================================================
-// Pairwise Sum Tests
-// ===================================================================
-
-#[test]
-fn test_pairwise_sum_basic() {
-    let values = [0.1, 0.2, 0.3];
-    let result = pairwise_sum(&values);
-
-    assert!(
-        (result - 0.6).abs() < 1e-15,
-        "Basic pairwise sum should be accurate"
-    );
-}
-
-#[test]
-fn test_pairwise_sum_empty() {
-    let values: [f64; 0] = [];
-    let result = pairwise_sum(&values);
-
-    assert_eq!(result, 0.0, "Empty pairwise sum should be zero");
-}
-
-#[test]
-fn test_pairwise_sum_single() {
-    let values = [3.15];
-    let result = pairwise_sum(&values);
-
-    assert_eq!(result, 3.15, "Single element should be preserved");
-}
-
-#[test]
-fn test_pairwise_sum_two() {
-    let values = [1.5, 2.5];
-    let result = pairwise_sum(&values);
-
-    assert_eq!(result, 4.0, "Two elements should sum correctly");
-}
-
-#[test]
-fn test_pairwise_sum_power_of_two() {
-    // Test with powers of 2 for recursive division
-    let values = vec![1.0, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0, 8.0];
-    let result = pairwise_sum(&values);
-
-    let expected = 36.0; // 1+2+3+4+5+6+7+8
-    assert!(
-        (result - expected).abs() < 1e-14,
-        "Pairwise sum of powers of 2"
-    );
-}
-
-#[test]
-fn test_pairwise_sum_odd_length() {
-    let values = vec![1.0, 2.0, 3.0, 4.0, 5.0];
-    let result = pairwise_sum(&values);
-
-    let expected = 15.0;
-    assert!(
-        (result - expected).abs() < 1e-14,
-        "Pairwise sum with odd length"
-    );
-}
-
-#[test]
-fn test_pairwise_sum_negative() {
-    let values = [-1.0, -2.0, -3.0, -4.0];
-    let result = pairwise_sum(&values);
-
-    let expected = -10.0;
-    assert!(
-        (result - expected).abs() < 1e-14,
-        "Pairwise sum with negative values"
-    );
-}
-
-#[test]
-fn test_pairwise_sum_mixed_sign() {
-    let values = vec![10.0, -5.0, 3.0, -2.0, 1.0];
-    let result = pairwise_sum(&values);
-
-    let expected = 7.0;
-    assert!(
-        (result - expected).abs() < 1e-14,
-        "Pairwise sum with mixed signs"
-    );
-}
-
-#[test]
-fn test_pairwise_sum_large_array() {
-    // Test with larger array to exercise recursion
-    let values: Vec<f64> = (1..=100).map(|i| i as f64).collect();
-    let result = pairwise_sum(&values);
-
-    let expected = (100.0 * 101.0) / 2.0; // Gauss sum formula
-    assert!(
-        (result - expected).abs() < 1e-10,
-        "Pairwise sum of 100 elements"
-    );
-}
-
-#[test]
-fn test_pairwise_sum_many_small() {
-    let values: Vec<f64> = (0..1000).map(|i| (i as f64) * 1e-10).collect();
-    let result = pairwise_sum(&values);
-
-    // Sum of i*1e-10 for i=0 to 999 = 1e-10 * (999*1000/2) = 0.04995
-    let expected = 1e-10 * (999.0 * 1000.0 / 2.0);
-    assert!(
-        (result - expected).abs() < 1e-15,
-        "Pairwise sum of many small values"
-    );
-}
-
-// ===================================================================
-// Stable Sum Tests
-// ===================================================================
-
-#[test]
-fn test_stable_sum_basic() {
-    let values = [0.1, 0.2, 0.3];
-    let result = stable_sum(&values);
-
-    assert!(
-        (result - 0.6).abs() < 1e-15,
-        "Stable sum should be accurate"
-    );
-}
-
-#[test]
-fn test_stable_sum_empty() {
-    let values: [f64; 0] = [];
-    let result = stable_sum(&values);
-
-    assert_eq!(result, 0.0, "Empty stable sum should be zero");
-}
-
-#[test]
-fn test_stable_sum_mixed_sign() {
-    let values = [100.0, -50.0, 10.0, -30.0, 5.0];
-    let result = stable_sum(&values);
-
-    let expected = 35.0;
-    assert!(
-        (result - expected).abs() < 1e-14,
-        "Stable sum should handle mixed signs"
-    );
-}
-
-#[test]
-fn test_stable_sum_financial_scenario() {
-    // Realistic financial scenario: various transaction amounts
-    let values = [
-        -10000.0, // purchase
-        1000.0,   // dividend
-        500.0,    // interest
-        -500.0,   // fee
-        2000.0,   // bonus
-        -200.0,   // tax
-    ];
-    let result = stable_sum(&values);
-
-    let expected = -7200.0;
-    assert!(
-        (result - expected).abs() < 1e-10,
-        "Stable sum for financial scenario"
-    );
-}
-
-#[test]
-fn test_stable_sum_precision_preservation() {
-    // Test that stable_sum preserves precision better than naive summation
-    let values = [1e16, 1.0, 1.0, 1.0, -1e16];
-    let result = stable_sum(&values);
-
-    // Naive summation would lose the three 1.0 values
-    // Stable should preserve them
-    let _expected = 3.0;
-    assert!(
-        (2.0..=4.0).contains(&result),
-        "Should preserve small values: got {}",
-        result
-    );
-}
-
-// ===================================================================
 // Comparative Tests
 // ===================================================================
 
 #[test]
 fn test_all_methods_agree_simple() {
-    let values = vec![1.0, 2.0, 3.0, 4.0, 5.0];
+    let values = [1.0, 2.0, 3.0, 4.0, 5.0];
 
     let kahan_result = kahan_sum(values.iter().copied());
     let neumaier_result = neumaier_sum(values.iter().copied());
-    let pairwise_result = pairwise_sum(&values);
-    let stable_result = stable_sum(&values);
 
     // All should agree for simple cases
     let expected = 15.0;
     assert!((kahan_result - expected).abs() < 1e-14);
     assert!((neumaier_result - expected).abs() < 1e-14);
-    assert!((pairwise_result - expected).abs() < 1e-14);
-    assert!((stable_result - expected).abs() < 1e-14);
 }
 
 #[test]
@@ -508,17 +317,13 @@ fn test_neumaier_accumulator_matches_function() {
 #[test]
 fn test_methods_with_large_cancellation() {
     // Large positive, then nearly-equal large negative
-    let values = vec![1e15, -1e15 + 1.0];
+    let values = [1e15, -1e15 + 1.0];
 
     let kahan_result = kahan_sum(values.iter().copied());
     let neumaier_result = neumaier_sum(values.iter().copied());
-    let pairwise_result = pairwise_sum(&values);
-    let stable_result = stable_sum(&values);
 
     // All should detect the 1.0 remainder
     // (Though precision may vary)
     assert!((0.0..=2.0).contains(&kahan_result));
     assert!((0.0..=2.0).contains(&neumaier_result));
-    assert!((0.0..=2.0).contains(&pairwise_result));
-    assert!((0.0..=2.0).contains(&stable_result));
 }

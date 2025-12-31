@@ -1160,7 +1160,7 @@ impl CDSTranchePricer {
                 let l = (i as f64) * grid_step;
                 terms.push(mass * l.min(k));
             }
-            finstack_core::math::stable_sum(&terms)
+            finstack_core::math::neumaier_sum(terms.iter().copied())
         };
 
         if !(self.params.adaptive_integration_low..=self.params.adaptive_integration_high)

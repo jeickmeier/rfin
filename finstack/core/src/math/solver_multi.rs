@@ -153,32 +153,6 @@ pub trait MultiSolver: Send + Sync {
     where
         Obj: Fn(&[f64]) -> f64;
 
-    /// Solve system of equations f(x) = 0 using least squares.
-    ///
-    /// **Note:** This default implementation converts the system to a scalar
-    /// minimization problem, which is less efficient than specialized system
-    /// solvers (e.g., [`LevenbergMarquardtSolver::solve_system_with_dim_stats`]).
-    /// Prefer implementation-specific methods when available.
-    ///
-    /// # Arguments
-    /// * `residuals` - Function that computes residual vector
-    /// * `initial` - Initial parameter guess
-    ///
-    /// # Returns
-    /// Parameter vector that minimizes ||f(x)||²
-    fn solve_system<Res>(&self, residuals: Res, initial: &[f64]) -> Result<Vec<f64>>
-    where
-        Res: Fn(&[f64], &mut [f64]),
-    {
-        // Fallback implementation: convert to minimization problem.
-        // This is less efficient than specialized Levenberg-Marquardt for systems.
-        let objective = |params: &[f64]| -> f64 {
-            let mut resid = vec![0.0; initial.len()];
-            residuals(params, &mut resid);
-            resid.iter().map(|r| r * r).sum()
-        };
-        self.minimize(objective, initial, None)
-    }
 }
 
 /// Levenberg-Marquardt solver for non-linear least squares.
@@ -744,28 +718,6 @@ impl MultiSolver for LevenbergMarquardtSolver {
             )?
             .params)
     }
-
-    fn solve_system<Res>(&self, residuals: Res, initial: &[f64]) -> Result<Vec<f64>>
-    where
-        Res: Fn(&[f64], &mut [f64]),
-    {
-        // Convenience wrapper that probes residual dimension automatically.
-        // For better performance and control, prefer solve_system_with_dim_stats()
-        // when the residual dimension is known.
-        if initial.is_empty() {
-            return Err(InputError::Invalid.into());
-        }
-        let mut test_residuals = vec![f64::NAN; initial.len() * 2];
-        residuals(initial, &mut test_residuals);
-        let n_residuals = test_residuals
-            .iter()
-            .position(|r| r.is_nan())
-            .unwrap_or(test_residuals.len());
-
-        Ok(self
-            .solve_system_with_dim_stats(residuals, initial, n_residuals)?
-            .params)
-    }
 }
 
 #[cfg(test)]
@@ -807,25 +759,6 @@ mod tests {
         // Solution should be at boundary (3, 3)
         assert!((result[0] - 3.0).abs() < 1e-6);
         assert!((result[1] - 3.0).abs() < 1e-6);
-    }
-
-    #[test]
-    fn test_levenberg_marquardt_system() {
-        let solver = LevenbergMarquardtSolver::new().with_tolerance(1e-8);
-
-        // Solve system: x + y = 5, x - y = 1 (solution: x=3, y=2)
-        let residuals = |params: &[f64], resid: &mut [f64]| {
-            resid[0] = params[0] + params[1] - 5.0;
-            resid[1] = params[0] - params[1] - 1.0;
-        };
-
-        let initial = vec![0.0, 0.0];
-        let result = solver
-            .solve_system(residuals, &initial)
-            .expect("System solving should succeed in test");
-
-        assert!((result[0] - 3.0).abs() < 1e-6);
-        assert!((result[1] - 2.0).abs() < 1e-6);
     }
 
     #[test]
@@ -1095,42 +1028,6 @@ mod tests {
             .params;
 
         assert_eq!(result.len(), 3, "Result should have same length as initial");
-    }
-
-    #[test]
-    fn test_solve_system_equivalence_with_dim_stats() {
-        // Test that solve_system produces identical results to solve_system_with_dim_stats
-        let solver = LevenbergMarquardtSolver::new().with_tolerance(1e-10);
-
-        let residuals = |params: &[f64], resid: &mut [f64]| {
-            resid[0] = params[0] + params[1] - 5.0;
-            resid[1] = params[0] - params[1] - 1.0;
-        };
-
-        let initial = vec![0.0, 0.0];
-
-        // Method 1: solve_system (convenience wrapper)
-        let result1 = solver
-            .solve_system(residuals, &initial)
-            .expect("solve_system should succeed in test");
-
-        // Method 2: solve_system_with_dim_stats (canonical)
-        let result2 = solver
-            .solve_system_with_dim_stats(residuals, &initial, 2)
-            .expect("solve_system_with_dim_stats should succeed in test")
-            .params;
-
-        // Should produce identical results
-        assert_eq!(result1.len(), result2.len());
-        for (i, (&v1, &v2)) in result1.iter().zip(result2.iter()).enumerate() {
-            assert!(
-                (v1 - v2).abs() < 1e-12,
-                "solve_system and solve_system_with_dim_stats should be equivalent at index {}: {} vs {}",
-                i,
-                v1,
-                v2
-            );
-        }
     }
 
     #[test]

@@ -30,11 +30,12 @@
 //!
 //! | Use Case | Recommended Method | Why |
 //! |----------|-------------------|-----|
-//! | **SABR calibration** | `solve_system_with_dim_stats()` | System of market quotes |
-//! | **Curve bootstrapping** | `solve_system_with_jacobian_stats()` | Analytic sensitivities |
+//! | **SABR calibration** | `solve_system_with_dim_stats()` | System of market quotes, returns stats |
+//! | **Curve bootstrapping** | `solve_system_with_jacobian_stats()` | Analytic sensitivities, 2× faster |
 //! | **Simple minimization** | `minimize()` | Scalar objective function |
 //! | **With known Jacobian** | `solve_system_with_jacobian_stats()` | 2× faster convergence |
-//! | **Unknown dimensions** | `solve_system()` | Auto-probes dimension |
+//!
+//! **Note:** `solve_system()` is deprecated. Use `solve_system_with_dim_stats()` instead.
 //!
 //! ### Performance Trade-offs
 //!
@@ -131,9 +132,7 @@ pub use stats::{
     correlation, covariance, mean, mean_var, moment_match, required_samples, variance,
     OnlineCovariance, OnlineStats,
 };
-pub use summation::{
-    kahan_sum, neumaier_sum, pairwise_sum, stable_sum, KahanAccumulator, NeumaierAccumulator,
-};
+pub use summation::{kahan_sum, neumaier_sum, NeumaierAccumulator};
 pub use time_grid::{
     map_date_to_step, map_dates_to_steps, map_exercise_dates_to_steps, TimeGrid, TimeGridError,
 };

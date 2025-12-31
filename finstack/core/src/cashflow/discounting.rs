@@ -164,10 +164,20 @@ pub fn npv<D: Discounting + ?Sized>(
 /// **Convenience wrapper** over [`npv()`] that creates a [`FlatCurve`] internally.
 /// For production use with market curves, prefer [`npv()`] directly.
 ///
+/// # When to Use
+///
 /// This function is useful for:
 /// - Quick NPV calculations with a single assumed rate
 /// - Performance attribution and IRR validation
 /// - Testing and educational examples
+/// - Verifying XIRR calculations (NPV at IRR should be ~0)
+///
+/// # When NOT to Use
+///
+/// For production pricing, prefer [`npv()`] with a proper market curve:
+/// - Market curves capture the term structure of interest rates
+/// - Flat rate assumptions can introduce significant pricing errors
+/// - Real instruments require bootstrapped curves for accurate valuation
 ///
 /// # Arguments
 /// * `cash_flows` - Vector of (date, money) tuples

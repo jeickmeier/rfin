@@ -108,6 +108,35 @@ impl<'de> serde::Deserialize<'de> for GaussHermiteQuadrature {
 }
 
 impl GaussHermiteQuadrature {
+    /// Create a Gauss-Hermite quadrature with the specified order.
+    ///
+    /// # Arguments
+    /// * `order` - Quadrature order (supported: 5, 7, 10)
+    ///
+    /// # Returns
+    /// `Some(Self)` if order is supported, `None` otherwise.
+    ///
+    /// # Example
+    ///
+    /// ```rust
+    /// use finstack_core::math::integration::GaussHermiteQuadrature;
+    ///
+    /// let quad = GaussHermiteQuadrature::new(7).expect("7 is a supported order");
+    /// let integral = quad.integrate(|x| x * x);
+    /// assert!((integral - 1.0).abs() < 0.1); // E[X²] = 1 for standard normal
+    ///
+    /// // Unsupported orders return None
+    /// assert!(GaussHermiteQuadrature::new(3).is_none());
+    /// ```
+    pub fn new(order: usize) -> Option<Self> {
+        match order {
+            5 => Some(Self::order_5()),
+            7 => Some(Self::order_7()),
+            10 => Some(Self::order_10()),
+            _ => None,
+        }
+    }
+
     /// Get the 5-point Gauss-Hermite quadrature.
     ///
     /// This provides a good balance between accuracy and performance
@@ -451,6 +480,22 @@ fn gl_nodes_weights(order: usize) -> Result<(&'static [f64], &'static [f64]), Er
 }
 
 /// Gauss–Legendre quadrature over finite interval \[a,b\].
+///
+/// This is a low-level building block for numerical integration. For most use
+/// cases requiring automatic error control, prefer [`gauss_legendre_integrate_adaptive`].
+///
+/// # When to Use
+///
+/// - **Use this function** when you need precise control over quadrature order
+///   and have verified the function is smooth over the interval.
+/// - **Use [`gauss_legendre_integrate_adaptive`]** when you need automatic error
+///   control and aren't sure about function smoothness.
+///
+/// # Arguments
+/// * `f` - Function to integrate
+/// * `a` - Lower bound of integration
+/// * `b` - Upper bound of integration
+/// * `order` - Quadrature order (supported: 2, 4, 8, 16)
 pub fn gauss_legendre_integrate<F2>(f: F2, a: f64, b: f64, order: usize) -> Result<f64, Error>
 where
     F2: Fn(f64) -> f64,

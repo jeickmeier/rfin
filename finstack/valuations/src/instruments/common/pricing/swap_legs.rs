@@ -23,7 +23,7 @@ use finstack_core::dates::CalendarRegistry;
 use finstack_core::dates::{Date, DateExt, DayCount, DayCountCtx, Schedule};
 use finstack_core::market_data::term_structures::DiscountCurve;
 use finstack_core::market_data::term_structures::ForwardCurve;
-use finstack_core::math::KahanAccumulator;
+use finstack_core::math::NeumaierAccumulator;
 use finstack_core::types::{Bps, Rate};
 use finstack_core::Result;
 
@@ -395,7 +395,7 @@ where
     params.validate()?;
 
     // Use incremental Kahan accumulator to avoid Vec allocation
-    let mut acc = KahanAccumulator::new();
+    let mut acc = NeumaierAccumulator::new();
 
     for period in periods {
         // Skip settled cashflows
@@ -530,7 +530,7 @@ where
     params.validate()?;
 
     // Use incremental Kahan accumulator to avoid Vec allocation
-    let mut acc = KahanAccumulator::new();
+    let mut acc = NeumaierAccumulator::new();
 
     for period in periods {
         // Skip settled cashflows

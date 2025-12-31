@@ -105,10 +105,17 @@ harness = false
 [[bench]]
 name = "df_bootstrap"
 harness = false
+required-features = ["test-utils"]
 
 [[bench]]
 name = "fwd_curve"
 harness = false
+required-features = ["test-utils"]
+
+[[bench]]
+name = "sabr_slice"
+harness = false
+required-features = ["test-utils"]
 
 [[bench]]
 name = "bond_future_bench"

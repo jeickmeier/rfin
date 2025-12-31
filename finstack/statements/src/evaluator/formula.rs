@@ -26,7 +26,7 @@ use crate::evaluator::context::EvaluationContext;
 use crate::evaluator::results::EvalWarning;
 use finstack_core::dates::{PeriodId, PeriodKind};
 use finstack_core::expr::{Expr, ExprNode, Function};
-use finstack_core::math::{kahan_sum, stable_sum};
+use finstack_core::math::{kahan_sum, neumaier_sum};
 use std::collections::BTreeMap;
 
 /// Epsilon value for floating point comparisons.
@@ -645,7 +645,7 @@ fn evaluate_function(
 
             match func {
                 Function::RollingMean => calculate_mean(&values),
-                Function::RollingSum => Ok(stable_sum(&values)),
+                Function::RollingSum => Ok(neumaier_sum(values.iter().copied())),
                 Function::RollingStd => calculate_std(&values),
                 Function::RollingVar => calculate_variance(&values),
                 Function::RollingMedian => calculate_median(&values),
@@ -699,7 +699,7 @@ fn evaluate_function(
             }
 
             match func {
-                Function::CumSum => Ok(stable_sum(&values)),
+                Function::CumSum => Ok(neumaier_sum(values.iter().copied())),
                 Function::CumProd => Ok(values.iter().product()),
                 Function::CumMin => Ok(values.iter().fold(f64::INFINITY, |a, b| a.min(*b))),
                 Function::CumMax => Ok(values.iter().fold(f64::NEG_INFINITY, |a, b| a.max(*b))),
@@ -949,7 +949,7 @@ fn evaluate_function(
                 let values =
                     collect_period_range_values(node_name, context, start_of_year, current)?;
                 let filtered: Vec<f64> = values.into_iter().filter(|v| !v.is_nan()).collect();
-                Ok(stable_sum(&filtered))
+                Ok(neumaier_sum(filtered.iter().copied()))
             } else {
                 Err(eval_error(
                     node_id,
@@ -978,7 +978,7 @@ fn evaluate_function(
             if let ExprNode::Column(node_name) = &args[0].node {
                 let values = collect_period_range_values(node_name, context, start, end)?;
                 let filtered: Vec<f64> = values.into_iter().filter(|v| !v.is_nan()).collect();
-                Ok(stable_sum(&filtered))
+                Ok(neumaier_sum(filtered.iter().copied()))
             } else {
                 Err(eval_error(
                     node_id,
@@ -1029,7 +1029,7 @@ fn evaluate_function(
             if let ExprNode::Column(node_name) = &args[0].node {
                 let values = collect_period_range_values(node_name, context, start, end)?;
                 let filtered: Vec<f64> = values.into_iter().filter(|v| !v.is_nan()).collect();
-                Ok(stable_sum(&filtered))
+                Ok(neumaier_sum(filtered.iter().copied()))
             } else {
                 Err(eval_error(
                     node_id,
@@ -1069,7 +1069,7 @@ fn evaluate_function(
             if let ExprNode::Column(node_name) = &args[0].node {
                 let values = collect_rolling_window_values(node_name, context, window)?;
                 let filtered: Vec<f64> = values.into_iter().filter(|v| !v.is_nan()).collect();
-                Ok(stable_sum(&filtered))
+                Ok(neumaier_sum(filtered.iter().copied()))
             } else {
                 // For complex expressions, annualize by multiplying by periods per year
                 let value = evaluate_expr(&args[0], context, node_id)?;
