@@ -1,6 +1,6 @@
 use crate::instruments::common::traits::Instrument;
 use crate::instruments::fx_spot::FxSpot;
-use crate::pricer::{InstrumentType, ModelKey, Pricer, PricerKey, PricingError};
+use crate::pricer::{InstrumentType, ModelKey, Pricer, PricerKey, PricingError, PricingErrorContext};
 use crate::results::ValuationResult;
 use finstack_core::market_data::context::MarketContext;
 
@@ -48,7 +48,7 @@ impl Pricer for FxSpotPricer {
         // Use the instrument's own value method with provided as_of date
         let pv = fx_spot
             .value(market, as_of)
-            .map_err(|e| PricingError::model_failure(e.to_string()))?;
+            .map_err(|e| PricingError::model_failure_ctx(e.to_string(), PricingErrorContext::default()))?;
 
         // Return stamped result
         Ok(ValuationResult::stamped(fx_spot.id(), as_of, pv))

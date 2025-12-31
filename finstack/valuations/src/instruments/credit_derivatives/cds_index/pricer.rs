@@ -380,7 +380,7 @@ impl crate::pricer::Pricer for SimpleCdsIndexHazardPricer {
         // Compute present value using the engine
         let pv = CDSIndexPricer::new()
             .npv(cds_index, market, as_of)
-            .map_err(|e| crate::pricer::PricingError::model_failure(e.to_string()))?;
+            .map_err(|e| crate::pricer::PricingError::model_failure_ctx(e.to_string(), crate::pricer::PricingErrorContext::default()))?;
 
         // Return stamped result
         Ok(crate::results::ValuationResult::stamped(

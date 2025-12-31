@@ -16,17 +16,17 @@ use finstack_core::market_data::context::MarketContext;
 use indexmap::IndexMap;
 
 // Using generic pricer implementation to eliminate boilerplate
-pub use crate::instruments::common::GenericDiscountingPricer;
+pub use crate::instruments::common::GenericInstrumentPricer;
 
 /// Bond discounting pricer using the generic implementation.
 ///
 /// This pricer uses the standard discount curve-based pricing engine for bonds
 /// without embedded options or credit adjustments.
-pub type SimpleBondDiscountingPricer = GenericDiscountingPricer<Bond>;
+pub type SimpleBondDiscountingPricer = GenericInstrumentPricer<Bond>;
 
 impl Default for SimpleBondDiscountingPricer {
     fn default() -> Self {
-        Self::new(crate::pricer::InstrumentType::Bond)
+        Self::discounting(crate::pricer::InstrumentType::Bond)
     }
 }
 

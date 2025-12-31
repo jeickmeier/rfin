@@ -5,7 +5,7 @@
 //! implements the [`Instrument`] trait and doesn't need specialized pricing logic.
 
 use crate::instruments::common::traits::Instrument;
-use crate::pricer::{InstrumentType, ModelKey, Pricer, PricerKey, PricingError};
+use crate::pricer::{InstrumentType, ModelKey, Pricer, PricerKey, PricingError, PricingErrorContext};
 use crate::results::ValuationResult;
 use finstack_core::market_data::context::MarketContext;
 use finstack_core::types::CurveId;
@@ -33,6 +33,20 @@ where
             _phantom: PhantomData,
         }
     }
+
+    /// Create a generic discounting pricer for the specified instrument type.
+    ///
+    /// This is a convenience method equivalent to `new(instrument_type, ModelKey::Discounting)`.
+    /// Use this when the instrument uses simple cashflow discounting without specialized models.
+    ///
+    /// # Example
+    ///
+    /// ```ignore
+    /// let irs_pricer = GenericInstrumentPricer::<InterestRateSwap>::discounting(InstrumentType::IRS);
+    /// ```
+    pub fn discounting(instrument_type: InstrumentType) -> Self {
+        Self::new(instrument_type, ModelKey::Discounting)
+    }
 }
 
 impl<I> Pricer for GenericInstrumentPricer<I>
@@ -58,7 +72,7 @@ where
         // Compute present value using the instrument's unified value method
         let pv = typed_instrument
             .value(market, as_of)
-            .map_err(|e| PricingError::model_failure(e.to_string()))?;
+            .map_err(|e| PricingError::model_failure_ctx(e.to_string(), PricingErrorContext::default()))?;
 
         // Return stamped result
         Ok(ValuationResult::stamped(typed_instrument.id(), as_of, pv))
@@ -88,59 +102,6 @@ pub trait HasForwardCurves {
     fn forward_curve_ids(&self) -> Vec<CurveId>;
 }
 
-/// Generic discounting pricer for instruments that can be valued via simple discounting.
-///
-/// This pricer derives the valuation date from the instrument's discount curve
-/// and delegates PV calculation to the instrument's `value()` method.
-/// It eliminates boilerplate across instrument pricers.
-pub struct GenericDiscountingPricer<I> {
-    instrument_type: InstrumentType,
-    _phantom: PhantomData<I>,
-}
-
-impl<I> GenericDiscountingPricer<I>
-where
-    I: Instrument + HasDiscountCurve + 'static,
-{
-    /// Create a new generic discounting pricer for the specified instrument type.
-    pub fn new(instrument_type: InstrumentType) -> Self {
-        Self {
-            instrument_type,
-            _phantom: PhantomData,
-        }
-    }
-}
-
-impl<I> Pricer for GenericDiscountingPricer<I>
-where
-    I: Instrument + HasDiscountCurve + 'static,
-{
-    fn key(&self) -> PricerKey {
-        PricerKey::new(self.instrument_type, ModelKey::Discounting)
-    }
-
-    fn price_dyn(
-        &self,
-        instrument: &dyn Instrument,
-        market: &MarketContext,
-        as_of: finstack_core::dates::Date,
-    ) -> Result<ValuationResult, PricingError> {
-        // Type-safe downcasting
-        let typed_instrument = instrument
-            .as_any()
-            .downcast_ref::<I>()
-            .ok_or_else(|| PricingError::type_mismatch(self.instrument_type, instrument.key()))?;
-
-        // Compute present value using the instrument's unified value method
-        let pv = typed_instrument
-            .value(market, as_of)
-            .map_err(|e| PricingError::model_failure(e.to_string()))?;
-
-        // Return stamped result
-        Ok(ValuationResult::stamped(typed_instrument.id(), as_of, pv))
-    }
-}
-
 // Special case for CDS which uses HazardRate model
 impl GenericInstrumentPricer<crate::instruments::CreditDefaultSwap> {
     /// Create a CDS hazard rate pricer.
@@ -156,18 +117,33 @@ mod tests {
 
     #[test]
     fn test_generic_pricer_keys() {
+        // Test the new discounting() convenience method
         let bond_pricer =
-            GenericDiscountingPricer::<crate::instruments::Bond>::new(InstrumentType::Bond);
+            GenericInstrumentPricer::<crate::instruments::Bond>::discounting(InstrumentType::Bond);
         assert_eq!(
             bond_pricer.key(),
             PricerKey::new(InstrumentType::Bond, ModelKey::Discounting)
         );
 
-        let deposit_pricer =
-            GenericDiscountingPricer::<crate::instruments::Deposit>::new(InstrumentType::Deposit);
+        let deposit_pricer = GenericInstrumentPricer::<crate::instruments::Deposit>::discounting(
+            InstrumentType::Deposit,
+        );
         assert_eq!(
             deposit_pricer.key(),
             PricerKey::new(InstrumentType::Deposit, ModelKey::Discounting)
+        );
+    }
+
+    #[test]
+    fn test_generic_instrument_pricer_with_model_key() {
+        // Test that GenericInstrumentPricer works with any model key
+        let pricer = GenericInstrumentPricer::<crate::instruments::Bond>::new(
+            InstrumentType::Bond,
+            ModelKey::HazardRate,
+        );
+        assert_eq!(
+            pricer.key(),
+            PricerKey::new(InstrumentType::Bond, ModelKey::HazardRate)
         );
     }
 }

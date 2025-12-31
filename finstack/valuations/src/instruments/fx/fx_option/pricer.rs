@@ -1,6 +1,6 @@
 use crate::instruments::common::traits::Instrument;
 use crate::instruments::fx_option::FxOption;
-use crate::pricer::{InstrumentType, ModelKey, Pricer, PricerKey, PricingError};
+use crate::pricer::{InstrumentType, ModelKey, Pricer, PricerKey, PricingError, PricingErrorContext};
 use crate::results::ValuationResult;
 use finstack_core::market_data::context::MarketContext;
 
@@ -54,7 +54,7 @@ impl Pricer for SimpleFxOptionBlackPricer {
         // Use instrument's value method
         let pv = fx_option
             .value(market, as_of)
-            .map_err(|e| PricingError::model_failure(e.to_string()))?;
+            .map_err(|e| PricingError::model_failure_ctx(e.to_string(), PricingErrorContext::default()))?;
 
         // Return stamped result
         Ok(ValuationResult::stamped(fx_option.id(), as_of, pv))

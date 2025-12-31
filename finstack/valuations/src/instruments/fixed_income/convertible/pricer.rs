@@ -908,7 +908,7 @@ impl crate::pricer::Pricer for SimpleConvertibleDiscountingPricer {
             ConvertibleTreeType::Binomial(100),
             as_of,
         )
-        .map_err(|e| crate::pricer::PricingError::model_failure(e.to_string()))?;
+        .map_err(|e| crate::pricer::PricingError::model_failure_ctx(e.to_string(), crate::pricer::PricingErrorContext::default()))?;
 
         // Return stamped result
         Ok(crate::results::ValuationResult::stamped(

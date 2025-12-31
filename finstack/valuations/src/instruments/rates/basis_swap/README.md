@@ -3,7 +3,7 @@
 ## Features
 - Floating-versus-floating swap exchanging two indices with independent frequencies, day-counts, and spreads (`BasisSwapLeg`).
 - Schedule generation with stub handling and optional calendar selection for both legs.
-- Deterministic discounting via `GenericDiscountingPricer` with forward curves per leg.
+- Deterministic discounting via `GenericInstrumentPricer::discounting()` with forward curves per leg.
 
 ## Methodology & References
 - Pricing follows standard multi-curve swap valuation: projected floating cashflows on each curve, discounted with the chosen discount curve.

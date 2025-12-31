@@ -14,9 +14,7 @@ pub mod swap_legs;
 mod trs;
 
 // Re-export generic pricer types
-pub use generic::{
-    GenericDiscountingPricer, GenericInstrumentPricer, HasDiscountCurve, HasForwardCurves,
-};
+pub use generic::{GenericInstrumentPricer, HasDiscountCurve, HasForwardCurves};
 
 // Re-export TRS types
 pub use trs::{TotalReturnLegParams, TrsEngine, TrsReturnModel};

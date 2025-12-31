@@ -200,16 +200,16 @@ impl StructuredCredit {
 }
 
 // Using generic pricer implementation to eliminate boilerplate
-pub use crate::instruments::common::GenericDiscountingPricer;
+pub use crate::instruments::common::GenericInstrumentPricer;
 
 /// Structured Credit discounting pricer using the generic implementation.
 ///
 /// This pricer handles all structured credit deal types (ABS, CLO, CMBS, RMBS)
 /// using the unified waterfall implementation.
-pub type StructuredCreditDiscountingPricer = GenericDiscountingPricer<StructuredCredit>;
+pub type StructuredCreditDiscountingPricer = GenericInstrumentPricer<StructuredCredit>;
 
 impl Default for StructuredCreditDiscountingPricer {
     fn default() -> Self {
-        Self::new(crate::pricer::InstrumentType::StructuredCredit)
+        Self::discounting(crate::pricer::InstrumentType::StructuredCredit)
     }
 }

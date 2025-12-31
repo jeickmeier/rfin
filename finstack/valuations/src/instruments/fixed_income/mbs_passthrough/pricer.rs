@@ -5,7 +5,7 @@
 
 use super::delay::actual_payment_date;
 use super::AgencyMbsPassthrough;
-use crate::pricer::{InstrumentType, ModelKey, Pricer, PricerKey, PricingError, PricingResult};
+use crate::pricer::{InstrumentType, ModelKey, Pricer, PricerKey, PricingError, PricingErrorContext, PricingResult};
 use crate::results::ValuationResult;
 use finstack_core::dates::{Date, DayCountCtx};
 use finstack_core::market_data::context::MarketContext;
@@ -286,7 +286,7 @@ impl Pricer for AgencyMbsDiscountingPricer {
         )?;
 
         let pv = price_mbs(mbs, market, as_of)
-            .map_err(|e| PricingError::model_failure(e.to_string()))?;
+            .map_err(|e| PricingError::model_failure_ctx(e.to_string(), PricingErrorContext::default()))?;
 
         Ok(ValuationResult::stamped(mbs.id.as_str(), as_of, pv))
     }

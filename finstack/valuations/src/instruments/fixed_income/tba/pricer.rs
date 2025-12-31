@@ -8,7 +8,7 @@ use crate::cashflow::builder::specs::PrepaymentModelSpec;
 use crate::instruments::agency_mbs_passthrough::{
     pricer::price_mbs, AgencyMbsPassthrough, AgencyProgram, PoolType,
 };
-use crate::pricer::{InstrumentType, ModelKey, Pricer, PricerKey, PricingError, PricingResult};
+use crate::pricer::{InstrumentType, ModelKey, Pricer, PricerKey, PricingError, PricingErrorContext, PricingResult};
 use crate::results::ValuationResult;
 use finstack_core::dates::{Date, DayCount};
 use finstack_core::market_data::context::MarketContext;
@@ -124,7 +124,7 @@ impl Pricer for AgencyTbaDiscountingPricer {
         let tba = crate::pricer::expect_inst::<AgencyTba>(instrument, InstrumentType::AgencyTba)?;
 
         let pv = price_tba(tba, market, as_of)
-            .map_err(|e| PricingError::model_failure(e.to_string()))?;
+            .map_err(|e| PricingError::model_failure_ctx(e.to_string(), PricingErrorContext::default()))?;
 
         Ok(ValuationResult::stamped(tba.id.as_str(), as_of, pv))
     }

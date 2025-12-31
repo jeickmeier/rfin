@@ -8,7 +8,7 @@ use super::waterfall::{allocate_io_cashflow, execute_waterfall};
 use crate::cashflow::builder::specs::PrepaymentModelSpec;
 use crate::instruments::agency_mbs_passthrough::pricer::generate_cashflows;
 use crate::instruments::agency_mbs_passthrough::{AgencyMbsPassthrough, PoolType};
-use crate::pricer::{InstrumentType, ModelKey, Pricer, PricerKey, PricingError, PricingResult};
+use crate::pricer::{InstrumentType, ModelKey, Pricer, PricerKey, PricingError, PricingErrorContext, PricingResult};
 use crate::results::ValuationResult;
 use finstack_core::currency::Currency;
 use finstack_core::dates::{Date, DayCount, DayCountCtx};
@@ -184,7 +184,7 @@ impl Pricer for AgencyCmoDiscountingPricer {
         let cmo = crate::pricer::expect_inst::<AgencyCmo>(instrument, InstrumentType::AgencyCmo)?;
 
         let pv = price_cmo(cmo, market, as_of)
-            .map_err(|e| PricingError::model_failure(e.to_string()))?;
+            .map_err(|e| PricingError::model_failure_ctx(e.to_string(), PricingErrorContext::default()))?;
 
         Ok(ValuationResult::stamped(cmo.id.as_str(), as_of, pv))
     }

@@ -12,7 +12,7 @@
 use crate::instruments::cms_option::types::CmsOption;
 use crate::instruments::common::models::{d1_black76, d2_black76};
 use crate::instruments::common::traits::Instrument;
-use crate::pricer::{InstrumentType, ModelKey, Pricer, PricerKey, PricingError, PricingResult};
+use crate::pricer::{InstrumentType, ModelKey, Pricer, PricerKey, PricingError, PricingErrorContext, PricingResult};
 use crate::results::ValuationResult;
 use finstack_core::dates::{BusinessDayConvention, Date, DateExt, DayCountCtx, StubKind};
 use finstack_core::market_data::context::MarketContext;
@@ -290,7 +290,7 @@ impl Pricer for CmsOptionPricer {
 
         let pv = self
             .price_internal(cms, market, as_of)
-            .map_err(|e| PricingError::model_failure(e.to_string()))?;
+            .map_err(|e| PricingError::model_failure_ctx(e.to_string(), PricingErrorContext::default()))?;
 
         Ok(ValuationResult::stamped(cms.id(), as_of, pv))
     }

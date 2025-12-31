@@ -3,7 +3,7 @@
 // Common imports for all pricers
 use crate::instruments::asian_option::types::AsianOption;
 use crate::instruments::common::traits::Instrument;
-use crate::pricer::{InstrumentType, ModelKey, Pricer, PricerKey, PricingError, PricingResult};
+use crate::pricer::{InstrumentType, ModelKey, Pricer, PricerKey, PricingError, PricingErrorContext, PricingResult};
 use crate::results::ValuationResult;
 use finstack_core::dates::{Date, DayCountCtx};
 use finstack_core::market_data::context::MarketContext;
@@ -726,7 +726,7 @@ impl Pricer for AsianOptionMcPricer {
 
         let pv = self
             .price_internal(asian, market, as_of)
-            .map_err(|e| PricingError::model_failure(e.to_string()))?;
+            .map_err(|e| PricingError::model_failure_ctx(e.to_string(), PricingErrorContext::default()))?;
 
         Ok(ValuationResult::stamped(asian.id(), as_of, pv))
     }
@@ -807,7 +807,7 @@ impl Pricer for AsianOptionAnalyticalGeometricPricer {
             market,
             as_of,
         )
-        .map_err(|e| PricingError::model_failure(e.to_string()))?;
+        .map_err(|e| PricingError::model_failure_ctx(e.to_string(), PricingErrorContext::default()))?;
 
         let (sum, log_prod, count) = asian.accumulated_state(as_of);
         let total_fixings = asian.fixing_dates.len();
@@ -841,9 +841,10 @@ impl Pricer for AsianOptionAnalyticalGeometricPricer {
 
         // Seasoned Geometric Analytical not fully supported yet
         if count > 0 {
-            return Err(PricingError::model_failure(
+            return Err(PricingError::model_failure_ctx(
                 "Seasoned Geometric Asian not supported in Analytical pricer. Use Monte Carlo."
                     .to_string(),
+                PricingErrorContext::default(),
             ));
         }
 
@@ -907,7 +908,7 @@ impl Pricer for AsianOptionSemiAnalyticalTwPricer {
             market,
             as_of,
         )
-        .map_err(|e| PricingError::model_failure(e.to_string()))?;
+        .map_err(|e| PricingError::model_failure_ctx(e.to_string(), PricingErrorContext::default()))?;
 
         let (sum, _, count) = asian.accumulated_state(as_of);
         let total_fixings = asian.fixing_dates.len();
@@ -936,7 +937,7 @@ impl Pricer for AsianOptionSemiAnalyticalTwPricer {
             // Discount to present
             let disc_curve = market
                 .get_discount(asian.discount_curve_id.as_str())
-                .map_err(|e| PricingError::model_failure(e.to_string()))?;
+                .map_err(|e| PricingError::model_failure_ctx(e.to_string(), PricingErrorContext::default()))?;
             let df = disc_curve.df(t); // approx discount using t (time to expiry)
             return Ok(ValuationResult::stamped(
                 asian.id(),
@@ -974,7 +975,7 @@ impl Pricer for AsianOptionSemiAnalyticalTwPricer {
                             let t_i = asian
                                 .day_count
                                 .year_fraction(as_of, *date, DayCountCtx::default())
-                                .map_err(|e| PricingError::model_failure(e.to_string()))?;
+                                .map_err(|e| PricingError::model_failure_ctx(e.to_string(), PricingErrorContext::default()))?;
                             sum_fwd += spot * ((r - q) * t_i).exp();
                         }
                     }

@@ -3,7 +3,7 @@ use crate::instruments::common::traits::Instrument;
 use crate::instruments::pricing_overrides::VolSurfaceExtrapolation;
 use crate::instruments::swaption::pricing::BermudanSwaptionTreeValuator;
 use crate::instruments::swaption::{BermudanSwaption, Swaption};
-use crate::pricer::{InstrumentType, ModelKey, Pricer, PricerKey, PricingError};
+use crate::pricer::{InstrumentType, ModelKey, Pricer, PricerKey, PricingError, PricingErrorContext};
 use crate::results::ValuationResult;
 use finstack_core::market_data::context::MarketContext;
 use finstack_core::money::Money;
@@ -77,21 +77,21 @@ impl Pricer for SimpleSwaptionBlackPricer {
             ModelKey::Black76 => {
                 let disc = market
                     .get_discount(swaption.discount_curve_id.as_ref())
-                    .map_err(|e| PricingError::model_failure(e.to_string()))?;
+                    .map_err(|e| PricingError::model_failure_ctx(e.to_string(), PricingErrorContext::default()))?;
 
                 // Use SABR if available (implies Black vol in this library), otherwise look up surface
                 if swaption.sabr_params.is_some() {
                     swaption
                         .price_sabr(disc.as_ref(), as_of)
-                        .map_err(|e| PricingError::model_failure(e.to_string()))?
+                        .map_err(|e| PricingError::model_failure_ctx(e.to_string(), PricingErrorContext::default()))?
                 } else {
                     let time_to_expiry = swaption
                         .year_fraction(as_of, swaption.expiry, swaption.day_count)
-                        .map_err(|e| PricingError::model_failure(e.to_string()))?;
+                        .map_err(|e| PricingError::model_failure_ctx(e.to_string(), PricingErrorContext::default()))?;
 
                     let vol_surface = market
                         .surface(swaption.vol_surface_id.as_str())
-                        .map_err(|e| PricingError::missing_market_data(e.to_string()))?;
+                        .map_err(|e| PricingError::missing_market_data_ctx(e.to_string(), PricingErrorContext::default()))?;
 
                     let vol = if let Some(impl_vol) = swaption.pricing_overrides.implied_volatility
                     {
@@ -105,20 +105,20 @@ impl Pricer for SimpleSwaptionBlackPricer {
                             }
                             VolSurfaceExtrapolation::Error => vol_surface
                                 .value_checked(time_to_expiry, swaption.strike_rate)
-                                .map_err(|e| PricingError::missing_market_data(e.to_string()))?,
+                                .map_err(|e| PricingError::missing_market_data_ctx(e.to_string(), PricingErrorContext::default()))?,
                         }
                     };
 
                     swaption
                         .price_black(disc.as_ref(), vol, as_of)
-                        .map_err(|e| PricingError::model_failure(e.to_string()))?
+                        .map_err(|e| PricingError::model_failure_ctx(e.to_string(), PricingErrorContext::default()))?
                 }
             }
             // For Discounting or other models, fallback to instrument's internal preference
             // (which might be Normal/Bachelier)
             _ => swaption
                 .value(market, as_of)
-                .map_err(|e| PricingError::model_failure(e.to_string()))?,
+                .map_err(|e| PricingError::model_failure_ctx(e.to_string(), PricingErrorContext::default()))?,
         };
 
         // Return stamped result
@@ -328,12 +328,12 @@ impl BermudanSwaptionPricer {
         // Get discount curve
         let disc = market
             .get_discount(swaption.discount_curve_id.as_str())
-            .map_err(|e| PricingError::missing_market_data(e.to_string()))?;
+            .map_err(|e| PricingError::missing_market_data_ctx(e.to_string(), PricingErrorContext::default()))?;
 
         // Calculate time to maturity
         let ttm = swaption
             .time_to_maturity(as_of)
-            .map_err(|e| PricingError::model_failure(e.to_string()))?;
+            .map_err(|e| PricingError::model_failure_ctx(e.to_string(), PricingErrorContext::default()))?;
 
         if ttm <= 0.0 {
             // Expired - return zero
@@ -349,16 +349,16 @@ impl BermudanSwaptionPricer {
             // Use pre-calibrated model (O(1) per instrument)
             let valuator =
                 BermudanSwaptionTreeValuator::new(swaption, cached_tree, disc.as_ref(), as_of)
-                    .map_err(|e| PricingError::model_failure(e.to_string()))?;
+                    .map_err(|e| PricingError::model_failure_ctx(e.to_string(), PricingErrorContext::default()))?;
             (valuator.price(), true)
         } else {
             // Calibrate new model (O(Steps × Time) per instrument)
             let tree_config = self.hw_params.to_tree_config(self.tree_steps);
             let tree = HullWhiteTree::calibrate(tree_config, disc.as_ref(), ttm)
-                .map_err(|e| PricingError::model_failure(e.to_string()))?;
+                .map_err(|e| PricingError::model_failure_ctx(e.to_string(), PricingErrorContext::default()))?;
 
             let valuator = BermudanSwaptionTreeValuator::new(swaption, &tree, disc.as_ref(), as_of)
-                .map_err(|e| PricingError::model_failure(e.to_string()))?;
+                .map_err(|e| PricingError::model_failure_ctx(e.to_string(), PricingErrorContext::default()))?;
             (valuator.price(), false)
         };
 
@@ -399,12 +399,12 @@ impl BermudanSwaptionPricer {
         // Get discount curve
         let disc = market
             .get_discount(swaption.discount_curve_id.as_str())
-            .map_err(|e| PricingError::missing_market_data(e.to_string()))?;
+            .map_err(|e| PricingError::missing_market_data_ctx(e.to_string(), PricingErrorContext::default()))?;
 
         // Calculate time to maturity
         let ttm = swaption
             .time_to_maturity(as_of)
-            .map_err(|e| PricingError::model_failure(e.to_string()))?;
+            .map_err(|e| PricingError::model_failure_ctx(e.to_string(), PricingErrorContext::default()))?;
 
         if ttm <= 0.0 {
             // Expired - return zero
@@ -418,11 +418,12 @@ impl BermudanSwaptionPricer {
         // Get exercise times in years
         let exercise_times = swaption
             .exercise_times(as_of)
-            .map_err(|e| PricingError::model_failure(e.to_string()))?;
+            .map_err(|e| PricingError::model_failure_ctx(e.to_string(), PricingErrorContext::default()))?;
 
         if exercise_times.is_empty() {
-            return Err(PricingError::model_failure(
+            return Err(PricingError::model_failure_ctx(
                 "No valid exercise dates for Bermudan swaption".to_string(),
+                PricingErrorContext::default(),
             ));
         }
 
@@ -433,15 +434,16 @@ impl BermudanSwaptionPricer {
             .collect();
 
         if valid_exercise_times.is_empty() {
-            return Err(PricingError::model_failure(
+            return Err(PricingError::model_failure_ctx(
                 "No exercise dates before maturity".to_string(),
+                PricingErrorContext::default(),
             ));
         }
 
         // Build swap schedule (payment times and accrual fractions)
         let (payment_dates, accrual_fractions) = swaption
             .build_swap_schedule(as_of)
-            .map_err(|e| PricingError::model_failure(e.to_string()))?;
+            .map_err(|e| PricingError::model_failure_ctx(e.to_string(), PricingErrorContext::default()))?;
 
         // Convert payment dates to year fractions
         let ctx = finstack_core::dates::DayCountCtx::default();
@@ -449,13 +451,13 @@ impl BermudanSwaptionPricer {
             .iter()
             .map(|&d| swaption.day_count.year_fraction(as_of, d, ctx))
             .collect::<Result<Vec<_>, _>>()
-            .map_err(|e| PricingError::model_failure(e.to_string()))?;
+            .map_err(|e| PricingError::model_failure_ctx(e.to_string(), PricingErrorContext::default()))?;
 
         // Create swap schedule for MC pricer
         let swap_start_time = swaption
             .day_count
             .year_fraction(as_of, swaption.swap_start, ctx)
-            .map_err(|e| PricingError::model_failure(e.to_string()))?;
+            .map_err(|e| PricingError::model_failure_ctx(e.to_string(), PricingErrorContext::default()))?;
 
         let swap_schedule =
             SwapSchedule::new(swap_start_time, ttm, payment_times, accrual_fractions);
@@ -482,7 +484,7 @@ impl BermudanSwaptionPricer {
             ttm,
             2, // Minimum steps between exercise dates
         )
-        .map_err(|e| PricingError::model_failure(e.to_string()))?;
+        .map_err(|e| PricingError::model_failure_ctx(e.to_string(), PricingErrorContext::default()))?;
 
         // Build θ(t) times for calibration (use grid times)
         let theta_times: Vec<f64> = (0..=time_grid.num_steps())
@@ -534,7 +536,7 @@ impl BermudanSwaptionPricer {
                 discount_fn,
                 swaption.notional.currency(),
             )
-            .map_err(|e| PricingError::model_failure(e.to_string()))?;
+            .map_err(|e| PricingError::model_failure_ctx(e.to_string(), PricingErrorContext::default()))?;
 
         // Build result with diagnostics
         let mut result = ValuationResult::stamped(swaption.id.as_str(), as_of, estimate.mean);

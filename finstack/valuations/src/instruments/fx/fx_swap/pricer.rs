@@ -1,11 +1,11 @@
 // Using generic pricer implementation to eliminate boilerplate
-pub use crate::instruments::common::GenericDiscountingPricer;
+pub use crate::instruments::common::GenericInstrumentPricer;
 
 /// FX Swap discounting pricer using the generic implementation.
-pub type SimpleFxSwapDiscountingPricer = GenericDiscountingPricer<crate::instruments::FxSwap>;
+pub type SimpleFxSwapDiscountingPricer = GenericInstrumentPricer<crate::instruments::FxSwap>;
 
 impl Default for SimpleFxSwapDiscountingPricer {
     fn default() -> Self {
-        Self::new(crate::pricer::InstrumentType::FxSwap)
+        Self::discounting(crate::pricer::InstrumentType::FxSwap)
     }
 }

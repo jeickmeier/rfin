@@ -22,7 +22,7 @@
 //! - Kahan, W. (1965). "Further Remarks on Reducing Truncation Errors."
 
 // Using generic pricer implementation to eliminate boilerplate
-pub use crate::instruments::common::GenericDiscountingPricer;
+pub use crate::instruments::common::GenericInstrumentPricer;
 
 // Re-export shared swap leg pricing utilities for internal use and backward compatibility
 use crate::instruments::common::pricing::swap_legs::{

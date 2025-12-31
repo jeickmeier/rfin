@@ -137,12 +137,12 @@ pub use pricer::BasketCalculator;
 pub use types::{AssetType, Basket, BasketConstituent, ConstituentReference};
 
 // Use the generic discounting pricer for registry integration
-pub use crate::instruments::common::GenericDiscountingPricer;
+pub use crate::instruments::common::GenericInstrumentPricer;
 /// Type alias for basket discounting pricer using generic implementation
-pub type SimpleBasketDiscountingPricer = GenericDiscountingPricer<Basket>;
+pub type SimpleBasketDiscountingPricer = GenericInstrumentPricer<Basket>;
 
 impl Default for SimpleBasketDiscountingPricer {
     fn default() -> Self {
-        Self::new(crate::pricer::InstrumentType::Basket)
+        Self::discounting(crate::pricer::InstrumentType::Basket)
     }
 }

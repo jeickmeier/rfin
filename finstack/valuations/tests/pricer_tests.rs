@@ -442,7 +442,7 @@ fn test_pricing_error_display() {
     assert!(msg2.contains("bond"));
     assert!(msg2.contains("irs"));
 
-    let err3 = PricingError::model_failure("test error");
+    let err3 = PricingError::model_failure_ctx("test error", PricingErrorContext::default());
     assert!(err3.to_string().contains("Model failure: test error"));
 }
 

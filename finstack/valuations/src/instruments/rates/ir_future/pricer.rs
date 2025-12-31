@@ -1,12 +1,12 @@
 // Using generic pricer implementation to eliminate boilerplate
-pub use crate::instruments::common::GenericDiscountingPricer;
+pub use crate::instruments::common::GenericInstrumentPricer;
 
 /// IR Future discounting pricer using the generic implementation.
 pub type SimpleIrFutureDiscountingPricer =
-    GenericDiscountingPricer<crate::instruments::ir_future::InterestRateFuture>;
+    GenericInstrumentPricer<crate::instruments::ir_future::InterestRateFuture>;
 
 impl Default for SimpleIrFutureDiscountingPricer {
     fn default() -> Self {
-        Self::new(crate::pricer::InstrumentType::InterestRateFuture)
+        Self::discounting(crate::pricer::InstrumentType::InterestRateFuture)
     }
 }

@@ -1,11 +1,11 @@
 // Using generic pricer implementation to eliminate boilerplate
-pub use crate::instruments::common::GenericDiscountingPricer;
+pub use crate::instruments::common::GenericInstrumentPricer;
 
 /// Deposit discounting pricer using the generic implementation.
-pub type SimpleDepositDiscountingPricer = GenericDiscountingPricer<crate::instruments::Deposit>;
+pub type SimpleDepositDiscountingPricer = GenericInstrumentPricer<crate::instruments::Deposit>;
 
 impl Default for SimpleDepositDiscountingPricer {
     fn default() -> Self {
-        Self::new(crate::pricer::InstrumentType::Deposit)
+        Self::discounting(crate::pricer::InstrumentType::Deposit)
     }
 }

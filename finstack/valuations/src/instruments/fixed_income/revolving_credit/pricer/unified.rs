@@ -18,7 +18,7 @@ use crate::cashflow::builder::CashFlowSchedule;
 #[cfg(feature = "mc")]
 use crate::instruments::common::models::monte_carlo::results::{MoneyEstimate, MonteCarloResult};
 use crate::instruments::common::traits::Instrument;
-use crate::pricer::{InstrumentType, ModelKey, Pricer, PricerKey, PricingError, PricingResult};
+use crate::pricer::{InstrumentType, ModelKey, Pricer, PricerKey, PricingError, PricingErrorContext, PricingResult};
 use crate::results::ValuationResult;
 
 use super::super::cashflow_engine::{
@@ -608,10 +608,13 @@ impl Pricer for RevolvingCreditPricer {
                 enhanced.mc_result.estimate.mean
             }
             _ => {
-                return Err(PricingError::model_failure(format!(
-                    "Unsupported model for RevolvingCredit: {}",
-                    self.model
-                )));
+                return Err(PricingError::model_failure_ctx(
+                    format!(
+                        "Unsupported model for RevolvingCredit: {}",
+                        self.model
+                    ),
+                    PricingErrorContext::default(),
+                ));
             }
         };
 

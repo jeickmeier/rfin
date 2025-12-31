@@ -6,7 +6,7 @@
 use crate::instruments::common::traits::Instrument as Priceable;
 use crate::instruments::ndf::Ndf;
 use crate::pricer::{
-    expect_inst, InstrumentType, ModelKey, Pricer, PricerKey, PricingError, PricingResult,
+    expect_inst, InstrumentType, ModelKey, Pricer, PricerKey, PricingError, PricingErrorContext, PricingResult,
 };
 use crate::results::ValuationResult;
 use finstack_core::dates::Date;
@@ -44,24 +44,30 @@ impl Pricer for NdfDiscountingPricer {
 
         // Validate maturity
         if ndf.maturity_date <= as_of {
-            return Err(PricingError::invalid_input(format!(
-                "NDF maturity {} must be after valuation date {}",
-                ndf.maturity_date, as_of
-            )));
+            return Err(PricingError::invalid_input_ctx(
+                format!(
+                    "NDF maturity {} must be after valuation date {}",
+                    ndf.maturity_date, as_of
+                ),
+                PricingErrorContext::default(),
+            ));
         }
 
         // Validate fixing date <= maturity
         if ndf.fixing_date > ndf.maturity_date {
-            return Err(PricingError::invalid_input(format!(
-                "NDF fixing date {} must be on or before maturity date {}",
-                ndf.fixing_date, ndf.maturity_date
-            )));
+            return Err(PricingError::invalid_input_ctx(
+                format!(
+                    "NDF fixing date {} must be on or before maturity date {}",
+                    ndf.fixing_date, ndf.maturity_date
+                ),
+                PricingErrorContext::default(),
+            ));
         }
 
         // Delegate to instrument's npv method
         let pv = ndf
             .npv(market, as_of)
-            .map_err(|e| PricingError::model_failure(format!("NDF pricing failed: {}", e)))?;
+            .map_err(|e| PricingError::model_failure_ctx(format!("NDF pricing failed: {}", e), PricingErrorContext::default()))?;
 
         Ok(ValuationResult::stamped(ndf.id(), as_of, pv))
     }

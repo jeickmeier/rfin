@@ -686,14 +686,6 @@ impl PricingError {
         Self::TypeMismatch { expected, got }
     }
 
-    /// Create a model failure error (backward compatible, no context).
-    pub fn model_failure(msg: impl Into<String>) -> Self {
-        Self::ModelFailure {
-            message: msg.into(),
-            context: PricingErrorContext::default(),
-        }
-    }
-
     /// Create a model failure error with full context.
     ///
     /// # Example
@@ -715,27 +707,11 @@ impl PricingError {
         }
     }
 
-    /// Create an invalid input error (backward compatible, no context).
-    pub fn invalid_input(msg: impl Into<String>) -> Self {
-        Self::InvalidInput {
-            message: msg.into(),
-            context: PricingErrorContext::default(),
-        }
-    }
-
     /// Create an invalid input error with full context.
     pub fn invalid_input_ctx(msg: impl Into<String>, context: PricingErrorContext) -> Self {
         Self::InvalidInput {
             message: msg.into(),
             context,
-        }
-    }
-
-    /// Create a missing market data error (backward compatible, takes description).
-    pub fn missing_market_data(msg: impl Into<String>) -> Self {
-        Self::MissingMarketData {
-            missing_id: msg.into(),
-            context: PricingErrorContext::default(),
         }
     }
 
@@ -872,48 +848,6 @@ impl PricingError {
     }
 }
 
-/// Wrap a Result with pricing error context.
-///
-/// This helper function converts a `finstack_core::Result<T>` to `Result<T, PricingError>`
-/// with full context attached. Use this at pricer boundaries to ensure all errors
-/// have actionable debugging information.
-///
-/// # Arguments
-///
-/// * `result` - The result to wrap
-/// * `instrument_id` - ID of the instrument being priced
-/// * `instrument_type` - Type of instrument for dispatch context
-/// * `operation` - Human-readable description of the operation (e.g., "discount factor lookup")
-///
-/// # Example
-///
-/// ```ignore
-/// use finstack_valuations::pricer::{wrap_pricing_error, InstrumentType};
-///
-/// let result = disc.df(maturity);
-/// let df = wrap_pricing_error(
-///     result,
-///     "BOND-001",
-///     InstrumentType::Bond,
-///     "discount factor calculation",
-/// )?;
-/// ```
-pub fn wrap_pricing_error<T>(
-    result: finstack_core::Result<T>,
-    instrument_id: &str,
-    instrument_type: InstrumentType,
-    operation: &str,
-) -> PricingResult<T> {
-    result.map_err(|e| {
-        PricingError::model_failure_ctx(
-            format!("{}: {}", operation, e),
-            PricingErrorContext::new()
-                .with_instrument_id(instrument_id)
-                .with_instrument_type(instrument_type),
-        )
-    })
-}
-
 /// Extension trait for adding pricing context to Result types.
 ///
 /// This trait provides a fluent API for attaching pricing context to errors,
@@ -944,7 +878,14 @@ impl<T> PricingContextExt<T> for finstack_core::Result<T> {
         instrument_type: InstrumentType,
         operation: &str,
     ) -> PricingResult<T> {
-        wrap_pricing_error(self, instrument_id, instrument_type, operation)
+        self.map_err(|e| {
+            PricingError::model_failure_ctx(
+                format!("{}: {}", operation, e),
+                PricingErrorContext::new()
+                    .with_instrument_id(instrument_id)
+                    .with_instrument_type(instrument_type),
+            )
+        })
     }
 }
 
@@ -1206,9 +1147,9 @@ fn register_all_pricers(registry: &mut PricerRegistry) {
         registry,
         IRS,
         Discounting,
-        crate::instruments::common::GenericDiscountingPricer::<
+        crate::instruments::common::GenericInstrumentPricer::<
             crate::instruments::InterestRateSwap,
-        >::new(InstrumentType::IRS)
+        >::discounting(InstrumentType::IRS)
     );
 
     // FRA
@@ -1423,9 +1364,9 @@ fn register_all_pricers(registry: &mut PricerRegistry) {
         registry,
         EquityTotalReturnSwap,
         Discounting,
-        crate::instruments::common::GenericDiscountingPricer::<
+        crate::instruments::common::GenericInstrumentPricer::<
             crate::instruments::equity_trs::EquityTotalReturnSwap,
-        >::new(InstrumentType::EquityTotalReturnSwap)
+        >::discounting(InstrumentType::EquityTotalReturnSwap)
     );
 
     // FI Index TRS
@@ -1433,9 +1374,9 @@ fn register_all_pricers(registry: &mut PricerRegistry) {
         registry,
         FIIndexTotalReturnSwap,
         Discounting,
-        crate::instruments::common::GenericDiscountingPricer::<
+        crate::instruments::common::GenericInstrumentPricer::<
             crate::instruments::fi_trs::FIIndexTotalReturnSwap,
-        >::new(InstrumentType::FIIndexTotalReturnSwap)
+        >::discounting(InstrumentType::FIIndexTotalReturnSwap)
     );
 
     // Convertible Bond
@@ -1467,9 +1408,9 @@ fn register_all_pricers(registry: &mut PricerRegistry) {
         registry,
         YoYInflationSwap,
         Discounting,
-        crate::instruments::common::GenericDiscountingPricer::<
+        crate::instruments::common::GenericInstrumentPricer::<
             crate::instruments::inflation_swap::YoYInflationSwap,
-        >::new(InstrumentType::YoYInflationSwap)
+        >::discounting(InstrumentType::YoYInflationSwap)
     );
 
     // Inflation Cap/Floor

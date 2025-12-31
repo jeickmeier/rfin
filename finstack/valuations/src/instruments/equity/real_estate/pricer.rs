@@ -2,7 +2,7 @@
 
 use super::RealEstateAsset;
 use crate::instruments::common::traits::Instrument;
-use crate::pricer::{InstrumentType, ModelKey, Pricer, PricerKey, PricingError};
+use crate::pricer::{InstrumentType, ModelKey, Pricer, PricerKey, PricingError, PricingErrorContext};
 use crate::results::ValuationResult;
 use finstack_core::market_data::context::MarketContext;
 
@@ -29,7 +29,7 @@ impl Pricer for RealEstateAssetDiscountingPricer {
 
         let value = asset
             .npv(market, as_of)
-            .map_err(|e| PricingError::model_failure(e.to_string()))?;
+            .map_err(|e| PricingError::model_failure_ctx(e.to_string(), PricingErrorContext::default()))?;
 
         Ok(ValuationResult::stamped(asset.id(), as_of, value))
     }

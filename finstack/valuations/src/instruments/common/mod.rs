@@ -62,8 +62,7 @@ pub use parameters::{
 };
 pub use period_pv::PeriodizedPvExt;
 pub use pricing::{
-    GenericDiscountingPricer, GenericInstrumentPricer, TotalReturnLegParams, TrsEngine,
-    TrsReturnModel,
+    GenericInstrumentPricer, TotalReturnLegParams, TrsEngine, TrsReturnModel,
 };
 pub use traits::{
     Attributes, CurveIdVec, EquityDependencies, EquityInstrumentDeps, Instrument, PricingOptions,
