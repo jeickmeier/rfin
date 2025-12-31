@@ -17,10 +17,12 @@
 //!   semi-annual). Represents yield-based sensitivity.
 //!
 //! For a par bond on a flat curve (coupon = yield), the difference is minimal
-//! (typically <2%) because both methods are measuring the same underlying
-//! rate sensitivity. The 2% tolerance accounts for:
-//! - Minor compounding convention differences
+//! (typically 0.5-1.5%) because both methods are measuring the same underlying
+//! rate sensitivity. The `BUMP_VS_ANALYTICAL` tolerance (1.5%) accounts for:
+//! - Compounding convention differences (~0.6% for continuous vs semi-annual)
 //! - Numerical precision in bump-and-reprice vs analytical formula
+
+use crate::common::test_helpers::tolerances;
 
 use finstack_core::currency::Currency;
 use finstack_core::dates::{Date, DayCount, Tenor};
@@ -137,15 +139,16 @@ fn test_dv01_duration_price_relationship() {
     // - Curve vs yield at par: minimal difference
     // - Convexity for 1bp: negligible
     //
-    // Combined effect for par/flat case: <2%
+    // Combined effect for par/flat case: typically 0.5-1.5%
     let approx_dv01 = -(price * mod_dur * 0.0001);
     let relative_diff = ((dv01 - approx_dv01) / approx_dv01).abs();
 
     assert!(
-        relative_diff < 0.02, // 2% tolerance - actual diff ~1.4% due to compounding conventions
-        "DV01={:.6} differs from duration estimate {:.6} by {:.2}%",
+        relative_diff < tolerances::BUMP_VS_ANALYTICAL, // 1.5% for bump vs analytical
+        "DV01={:.6} differs from duration estimate {:.6} by {:.2}% (max {:.1}%)",
         dv01,
         approx_dv01,
-        relative_diff * 100.0
+        relative_diff * 100.0,
+        tolerances::BUMP_VS_ANALYTICAL * 100.0
     );
 }

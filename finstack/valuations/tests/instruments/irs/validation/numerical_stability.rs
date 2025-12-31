@@ -591,10 +591,12 @@ fn test_golden_dv01_approximation() {
     // DV01 approximation
     let dv01_approx = annuity * notional * 0.0001;
 
-    // Actual DV01 (from parallel bump) should be within 5% of approximation
+    // Actual DV01 (from parallel bump) should be within 3% of approximation
+    // The difference is higher than bond DV01 because IRS DV01 includes
+    // floating leg forward rate changes on the parallel bump
     assert!(
-        (dv01.abs() - dv01_approx).abs() / dv01_approx < 0.05,
-        "DV01 ({:.2}) should be ~{:.2} (within 5%)",
+        (dv01.abs() - dv01_approx).abs() / dv01_approx < 0.03,
+        "DV01 ({:.2}) should be ~{:.2} (within 3%)",
         dv01,
         dv01_approx
     );

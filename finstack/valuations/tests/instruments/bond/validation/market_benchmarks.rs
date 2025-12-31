@@ -316,16 +316,18 @@ fn test_bond_dv01_market_standard() {
 
     // Approximate relationship: DV01 ≈ −Price × ModDur × 1bp
     // For a par bond on flat curve, DV01 and ModDur-based estimate should be
-    // within 2% - convexity effect for 1bp is negligible.
+    // close. The difference (~0.5-1.5%) arises from compounding convention
+    // differences between curve-based DV01 and yield-based ModDur.
     let approx_dv01 = -(price * mod_duration * 0.0001);
     let relative_diff = ((dv01 - approx_dv01) / approx_dv01).abs();
 
     assert!(
-        relative_diff < 0.02, // 2% tolerance for par bond on flat curve
-        "DV01={:.6} differs from duration estimate {:.6} by {:.2}%",
+        relative_diff < tolerances::BUMP_VS_ANALYTICAL, // 1.5% for bump vs analytical
+        "DV01={:.6} differs from duration estimate {:.6} by {:.2}% (max {:.1}%)",
         dv01,
         approx_dv01,
-        relative_diff * 100.0
+        relative_diff * 100.0,
+        tolerances::BUMP_VS_ANALYTICAL * 100.0
     );
 }
 

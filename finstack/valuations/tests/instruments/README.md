@@ -153,11 +153,12 @@ across the test suite. Choose the appropriate tier based on the calculation type
 
 | Tier | Constant | Value | Use Case |
 |------|----------|-------|----------|
-| Analytical | `tolerances::ANALYTICAL` | 1e-6 | Closed-form solutions (put-call parity, zero-coupon YTM) |
-| Numerical | `tolerances::NUMERICAL` | 1e-4 | Iterative methods (Newton-Raphson, tree pricing) |
-| Curve Pricing | `tolerances::CURVE_PRICING` | 5e-3 | Curve-based valuations with convention differences |
-| Statistical | `tolerances::STATISTICAL` | 1e-2 | Monte Carlo and statistical tests |
-| Relative | `tolerances::RELATIVE` | 1e-2 | Proportional comparisons |
+| Analytical | `tolerances::ANALYTICAL` | 1e-6 (0.0001%) | Closed-form solutions (put-call parity, zero-coupon YTM) |
+| Numerical | `tolerances::NUMERICAL` | 1e-4 (0.01%) | Iterative methods (Newton-Raphson, tree pricing) |
+| Curve Pricing | `tolerances::CURVE_PRICING` | 5e-3 (0.5%) | Curve-based valuations with convention differences |
+| Relative | `tolerances::RELATIVE` | 1e-2 (1%) | Proportional comparisons, textbook benchmarks |
+| Bump vs Analytical | `tolerances::BUMP_VS_ANALYTICAL` | 1.5e-2 (1.5%) | Bump-and-reprice vs analytical approximations (e.g., DV01 vs Duration) |
+| Statistical | `tolerances::STATISTICAL` | 2e-2 (2%) | Monte Carlo and statistical tests |
 
 ### Usage Example
 

@@ -21,4 +21,42 @@
 //! - `schedule`: Schedule generation tests
 //! - `extensions`: DateExt trait tests
 
-mod dates;
+#[path = "dates/common.rs"]
+mod common;
+
+// Calendar Rules
+#[path = "dates/rules.rs"]
+mod rules;
+
+#[path = "dates/rules_coverage.rs"]
+mod rules_coverage;
+
+#[path = "dates/rules_serde.rs"]
+mod rules_serde;
+
+// Calendar Infrastructure
+#[path = "dates/adjustment.rs"]
+mod adjustment;
+
+#[path = "dates/calendars.rs"]
+mod calendars;
+
+#[path = "dates/composite.rs"]
+mod composite;
+
+#[path = "dates/generated.rs"]
+mod generated;
+
+#[path = "dates/registry.rs"]
+mod registry;
+
+// Day Count Conventions
+#[path = "dates/daycount.rs"]
+mod daycount;
+
+// Schedules & Utilities
+#[path = "dates/extensions.rs"]
+mod extensions;
+
+#[path = "dates/schedule.rs"]
+mod schedule;

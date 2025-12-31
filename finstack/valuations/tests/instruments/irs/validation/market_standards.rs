@@ -290,11 +290,15 @@ fn test_irs_dv01_market_standard() {
     );
 
     // Annuity approximation: DV01 ≈ Annuity × Notional × 0.0001
-    // The parallel bump method is more accurate and should be within ~5% of the approximation
+    // For IRS on flat curves, the parallel bump DV01 should closely match the
+    // annuity-based approximation. Typical differences are 2-3% due to:
+    // - Schedule generation effects (payment dates vs accrual dates)
+    // - Floating leg projection includes forward rate changes on bump
+    // - Minor day count effects in schedule generation
     let annuity_approx = annuity * notional * 0.0001;
     assert!(
-        (dv01.abs() - annuity_approx).abs() / annuity_approx < 0.05,
-        "DV01={:.2} differs from annuity approximation {:.2} by more than 5% (Annuity={:.4})",
+        (dv01.abs() - annuity_approx).abs() / annuity_approx < 0.03, // Tightened from 5% to 3%
+        "DV01={:.2} differs from annuity approximation {:.2} by more than 3% (Annuity={:.4})",
         dv01,
         annuity_approx,
         annuity

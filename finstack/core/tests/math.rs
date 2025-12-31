@@ -16,4 +16,20 @@
 //! - `stats`: Statistics tests (mean, variance, realized vol)
 //! - `summation`: Compensated summation tests
 
-mod math;
+#[path = "math/common.rs"]
+mod common;
+
+#[path = "math/integration.rs"]
+mod integration;
+
+#[path = "math/interp.rs"]
+mod interp;
+
+#[path = "math/solver.rs"]
+mod solver;
+
+#[path = "math/stats.rs"]
+mod stats;
+
+#[path = "math/summation.rs"]
+mod summation;

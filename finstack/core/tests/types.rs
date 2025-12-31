@@ -9,4 +9,5 @@
 //!
 //! - `rates`: Rate type tests (Rate, Bps, Percentage)
 
-mod types;
+#[path = "types/rates.rs"]
+mod rates;

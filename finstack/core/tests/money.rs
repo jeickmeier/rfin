@@ -10,4 +10,8 @@
 //! - `money_fx`: FX conversion tests
 //! - `rounding`: Rounding context tests
 
-mod money;
+#[path = "money/money_fx.rs"]
+mod money_fx;
+
+#[path = "money/rounding.rs"]
+mod rounding;

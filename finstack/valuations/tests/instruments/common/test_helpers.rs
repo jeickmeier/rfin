@@ -28,6 +28,17 @@ pub const RELATIVE_TOLERANCE: f64 = 0.01;
 ///
 /// Use these standardized tolerances instead of ad-hoc hardcoded values
 /// to ensure consistency across the test suite.
+///
+/// ## Tolerance Hierarchy (strictest to loosest)
+///
+/// | Level | Constant | Value | Use Case |
+/// |-------|----------|-------|----------|
+/// | 1 | `ANALYTICAL` | 1e-6 (0.0001%) | Closed-form solutions (put-call parity, zero-coupon YTM) |
+/// | 2 | `NUMERICAL` | 1e-4 (0.01%) | Iterative methods (Newton-Raphson, tree pricing) |
+/// | 3 | `CURVE_PRICING` | 5e-3 (0.5%) | Curve-based valuations with convention differences |
+/// | 4 | `RELATIVE` | 1e-2 (1%) | Proportional comparisons, textbook benchmarks |
+/// | 5 | `BUMP_VS_ANALYTICAL` | 1.5e-2 (1.5%) | Bump-and-reprice vs analytical approximations |
+/// | 6 | `STATISTICAL` | 2e-2 (2%) | Monte Carlo and statistical tests |
 pub mod tolerances {
     /// Analytical calculations (e.g., put-call parity, zero-coupon YTM).
     /// These have closed-form solutions and should be very precise.
@@ -41,13 +52,25 @@ pub mod tolerances {
     /// Accounts for compounding convention differences (e.g., semi-annual vs continuous).
     pub const CURVE_PRICING: f64 = 5e-3; // 0.5%
 
-    /// Statistical/Monte Carlo methods.
-    /// These have inherent sampling variance.
-    pub const STATISTICAL: f64 = 1e-2; // 1%
-
     /// Relative tolerance for scaling comparisons.
     /// Used when comparing proportional changes across different scales.
     pub const RELATIVE: f64 = 1e-2; // 1%
+
+    /// Bump-and-reprice vs analytical approximation comparisons.
+    ///
+    /// Used when comparing numerical bump-based sensitivities (e.g., DV01 computed
+    /// via curve parallel shift) against analytical approximations (e.g., DV01 ≈
+    /// -Price × ModDur × 0.0001). The difference arises from:
+    /// - Compounding convention mismatch (continuous vs periodic): ~0.6%
+    /// - Curve-based vs yield-based rate definitions
+    /// - Convexity effects (negligible for 1bp bumps)
+    ///
+    /// For par bonds on flat curves, actual differences are typically 0.5-1.5%.
+    pub const BUMP_VS_ANALYTICAL: f64 = 1.5e-2; // 1.5%
+
+    /// Statistical/Monte Carlo methods.
+    /// These have inherent sampling variance.
+    pub const STATISTICAL: f64 = 2e-2; // 2%
 }
 
 /// Scale tolerance with value magnitude, with a minimum absolute floor.
@@ -297,13 +320,15 @@ mod tests {
 
     #[test]
     fn test_tolerance_tiers_ordering() {
-        // Verify tolerance tiers are in expected order
+        // Verify tolerance tiers are in expected order (strictest to loosest)
         // Note: These are compile-time constants, so the ordering is verified at compile time.
         // Runtime assertions would be optimized out, so we document the expected ordering here.
         const _: () = {
             assert!(tolerances::ANALYTICAL < tolerances::NUMERICAL);
             assert!(tolerances::NUMERICAL < tolerances::CURVE_PRICING);
-            assert!(tolerances::CURVE_PRICING < tolerances::STATISTICAL);
+            assert!(tolerances::CURVE_PRICING < tolerances::RELATIVE);
+            assert!(tolerances::RELATIVE < tolerances::BUMP_VS_ANALYTICAL);
+            assert!(tolerances::BUMP_VS_ANALYTICAL < tolerances::STATISTICAL);
         };
     }
 

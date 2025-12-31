@@ -14,4 +14,17 @@
 //! - `irr`: IRR/XIRR golden values, edge cases, and input validation
 //! - `daycount`: Day count conventions and year fraction calculations
 
-mod cashflow;
+#[path = "cashflow/test_helpers.rs"]
+mod test_helpers;
+
+#[path = "cashflow/daycount.rs"]
+mod daycount;
+
+#[path = "cashflow/discounting.rs"]
+mod discounting;
+
+#[path = "cashflow/irr.rs"]
+mod irr;
+
+#[path = "cashflow/primitives.rs"]
+mod primitives;
