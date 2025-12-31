@@ -28,6 +28,7 @@ mod fx;
 mod fx_barrier_option;
 mod fx_forward;
 mod fx_variance_swap;
+mod inflation_cap_floor;
 mod inflation_linked_bond;
 mod inflation_swap;
 mod ir_future;
@@ -37,6 +38,7 @@ mod ndf;
 mod private_markets_fund;
 mod quanto_option;
 mod range_accrual;
+mod real_estate;
 mod repo;
 mod revolving_credit;
 mod structured_credit;
@@ -46,6 +48,8 @@ mod trs;
 mod variance_swap;
 mod vol_index_future;
 mod vol_index_option;
+mod xccy_swap;
+mod yoy_inflation_swap;
 
 // Re-export wrapper trait for internal use
 pub(crate) use wrapper::InstrumentWrapper;
@@ -95,6 +99,9 @@ pub use fx::{JsFxOption as FxOption, JsFxSpot as FxSpot, JsFxSwap as FxSwap};
 pub use fx_barrier_option::JsFxBarrierOption as FxBarrierOption;
 pub use fx_forward::JsFxForward as FxForward;
 pub use fx_variance_swap::{JsFxVarianceSwap as FxVarianceSwap, JsVarianceSwapSide as VarianceSwapSide};
+pub use inflation_cap_floor::{
+    JsInflationCapFloor as InflationCapFloor, JsInflationCapFloorType as InflationCapFloorType,
+};
 pub use inflation_linked_bond::JsInflationLinkedBond as InflationLinkedBond;
 pub use inflation_swap::JsInflationSwap as InflationSwap;
 pub use ir_future::JsInterestRateFuture as InterestRateFuture;
@@ -104,6 +111,9 @@ pub use ndf::JsNdf as Ndf;
 pub use private_markets_fund::JsPrivateMarketsFund as PrivateMarketsFund;
 pub use quanto_option::JsQuantoOption as QuantoOption;
 pub use range_accrual::JsRangeAccrual as RangeAccrual;
+pub use real_estate::{
+    JsRealEstateAsset as RealEstateAsset, JsRealEstateValuationMethod as RealEstateValuationMethod,
+};
 pub use repo::JsRepo as Repo;
 pub use revolving_credit::JsRevolvingCredit as RevolvingCredit;
 pub use structured_credit::{
@@ -123,6 +133,13 @@ pub use variance_swap::{JsRealizedVarMethod as RealizedVarMethod, JsVarianceSwap
 pub use vol_index_future::JsVolatilityIndexFuture as VolatilityIndexFuture;
 #[allow(unused_imports)] // Exported for external consumers via wasm_bindgen
 pub use vol_index_option::JsVolatilityIndexOption as VolatilityIndexOption;
+pub use xccy_swap::{
+    JsLegSide as LegSide, JsNotionalExchange as NotionalExchange, JsXccySwap as XccySwap,
+    JsXccySwapLeg as XccySwapLeg,
+};
+pub use yoy_inflation_swap::{
+    JsPayReceiveInflation as PayReceiveInflation, JsYoYInflationSwap as YoYInflationSwap,
+};
 
 /// Downcast a JavaScript instrument wrapper into a core instrument reference.
 ///
@@ -217,6 +234,16 @@ pub(crate) fn extract_instrument(value: &JsValue) -> Result<Box<dyn Instrument>,
         vol_index_option::JsVolatilityIndexOption,
         "VolatilityIndexOption"
     );
+    try_extract!(xccy_swap::JsXccySwap, "XccySwap");
+    try_extract!(
+        yoy_inflation_swap::JsYoYInflationSwap,
+        "YoYInflationSwap"
+    );
+    try_extract!(
+        inflation_cap_floor::JsInflationCapFloor,
+        "InflationCapFloor"
+    );
+    try_extract!(real_estate::JsRealEstateAsset, "RealEstateAsset");
 
     Err(JsValue::from_str(
         "Unsupported instrument type; construct instruments from finstack-wasm valuations module",

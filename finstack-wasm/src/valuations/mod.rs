@@ -5,6 +5,7 @@ pub mod common;
 pub mod covenants;
 pub mod dataframe;
 pub mod instruments;
+pub mod margin;
 pub mod metrics;
 pub mod performance;
 pub mod pricer;

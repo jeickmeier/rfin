@@ -114,11 +114,13 @@ pub use valuations::instruments::{
     CliquetOption, CmsOption, CommodityOption, ConvertibleBond, CoverageTestRules, CoverageTrigger,
     CreditDefaultSwap, Deposit, Equity, EquityFutureSpecs, EquityIndexFuture, EquityOption,
     EquityTotalReturnSwap, FiIndexTotalReturnSwap, ForwardRateAgreement, FuturePosition,
-    FxBarrierOption, FxForward, FxOption, FxSpot, FxSwap, FxVarianceSwap, InflationLinkedBond,
-    InflationSwap, InterestRateFuture, InterestRateOption, InterestRateSwap, LookbackOption,
-    LookbackType, Ndf, Pool, PrivateMarketsFund, QuantoOption, RangeAccrual, RealizedVarMethod,
-    Repo, RevolvingCredit, StructuredCredit, Swaption, TermLoan, TrancheStructure, VarianceSwap,
-    VarianceSwapSide, WaterfallDistribution, WaterfallEngine,
+    FxBarrierOption, FxForward, FxOption, FxSpot, FxSwap, FxVarianceSwap, InflationCapFloor,
+    InflationCapFloorType, InflationLinkedBond, InflationSwap, InterestRateFuture,
+    InterestRateOption, InterestRateSwap, LegSide, LookbackOption, LookbackType, Ndf,
+    NotionalExchange, PayReceiveInflation, Pool, PrivateMarketsFund, QuantoOption, RangeAccrual,
+    RealEstateAsset, RealEstateValuationMethod, RealizedVarMethod, Repo, RevolvingCredit,
+    StructuredCredit, Swaption, TermLoan, TrancheStructure, VarianceSwap, VarianceSwapSide,
+    WaterfallDistribution, WaterfallEngine, XccySwap, XccySwapLeg, YoYInflationSwap,
 };
 pub use valuations::performance::{
     calculate_npv_wasm as calculateNpv, irr_periodic_wasm as irrPeriodic, xirr_wasm as xirr,
@@ -165,6 +167,14 @@ pub use valuations::risk::{
     JsMarketHistory as MarketHistory, JsMarketScenario as MarketScenario,
     JsRiskFactorShift as RiskFactorShift, JsRiskFactorType as RiskFactorType,
     JsVarConfig as VarConfig, JsVarMethod as VarMethod, JsVarResult as VarResult,
+};
+
+// Margin and collateral management
+pub use valuations::margin::{
+    JsClearingStatus as ClearingStatus, JsCsaSpec as CsaSpec, JsImMethodology as ImMethodology,
+    JsImParameters as ImParameters, JsMarginCallTiming as MarginCallTiming,
+    JsMarginTenor as MarginTenor, JsVmCalculator as VmCalculator, JsVmParameters as VmParameters,
+    JsVmResult as VmResult,
 };
 
 pub use genui::*;
